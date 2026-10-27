@@ -91,6 +91,8 @@ function PrChip({
     <a
       className="link-chip pr-chip"
       data-state={pr.state}
+      // Queued for merge reads as its own state, not as merely open.
+      data-queued={queued ? "" : undefined}
       href={pr.url}
       target="_blank"
       rel="noreferrer"
@@ -100,7 +102,7 @@ function PrChip({
     >
       <Icon size={11} aria-hidden="true" />
       <span>#{pr.number}</span>
-      <span className="link-chip-state">{label}</span>
+      <span className="link-chip-state">{queued ? "Queued" : label}</span>
       {ci && <span className="pr-ci" data-ci={ci} aria-hidden="true" />}
       {queued && (
         <span className="pr-queue" data-queue={queued.state ?? "queued"}>

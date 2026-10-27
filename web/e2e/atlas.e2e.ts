@@ -308,6 +308,7 @@ test("the session header shows its PR's CI and merge queue standing", async () =
     await page.locator(".session-title h2", { hasText: "Breaker" }).waitFor();
     const chip = page.locator(".pr-chip");
     await chip.locator(".pr-queue", { hasText: "2" }).waitFor();
+    assert.equal(await chip.locator(".link-chip-state").textContent(), "Queued");
     assert.equal(await chip.locator(".pr-ci").getAttribute("data-ci"), "failing");
     assert.equal(
       await chip.getAttribute("data-tip"),

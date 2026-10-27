@@ -146,6 +146,10 @@
   background: var(--red-soft);
   color: var(--red-text);
 }
+.pr-chip[data-queued] {
+  background: var(--amber-soft);
+  color: var(--amber-text);
+}
 .pr-chip[data-state]:hover {
   background: var(--fill-strong);
 }
