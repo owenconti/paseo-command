@@ -1,0 +1,44 @@
+@import "tailwindcss" source("./");
+@import "@fontsource-variable/geist/wght.css";
+@import "@fontsource-variable/geist-mono/wght.css";
+
+@theme {
+  --font-sans: "Geist Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "Geist Mono Variable", ui-monospace, monospace;
+  --color-gold: #e3a857;
+  --color-gold-soft: #f0c27f;
+  /* Agent tile colours, as the map's legend draws them. */
+  --color-state-working: #4fc98a;
+  --color-state-approval: #f2a531;
+  --color-state-question: #3d8bf2;
+  --color-state-failed: #e2533f;
+  --color-state-done: #f3c84b;
+  --color-state-idle: #e9e9e9;
+  --color-state-offline: #8a8a80;
+  --ease-weighted: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    scroll-padding-top: 96px;
+  }
+  body {
+    @apply bg-black font-sans text-neutral-300 antialiased;
+  }
+  h1,
+  h2,
+  h3 {
+    text-wrap: balance;
+  }
+  p,
+  li,
+  dd {
+    text-wrap: pretty;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+  }
+}

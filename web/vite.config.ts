@@ -1,8 +1,11 @@
+import { fileURLToPath } from "node:url";
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
+import tailwindcss from "@tailwindcss/vite";
 import { apiPlugin } from "./server/api";
 export default defineConfig({
-  plugins: [react(), apiPlugin()],
+  // Tailwind only compiles the landing page's stylesheet (landing/landing.css).
+  plugins: [react(), tailwindcss(), apiPlugin()],
   server: {
     host: "127.0.0.1",
     strictPort: false,
@@ -17,6 +20,11 @@ export default defineConfig({
   build: {
     chunkSizeWarningLimit: 1500,
     rollupOptions: {
+      // The app at /, its landing page at /landing/.
+      input: {
+        app: fileURLToPath(new URL("index.html", import.meta.url)),
+        landing: fileURLToPath(new URL("landing/index.html", import.meta.url)),
+      },
       output: {
         // Interface sounds (src/sounds.ts) keep their set in the name:
         // assets/sounds/galaxy-select-<hash>.wav.
