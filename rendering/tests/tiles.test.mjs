@@ -286,10 +286,11 @@ test("each host's land is whole hexes holding its islands, apart from other host
 });
 
 test("model colours and names follow the provider", () => {
-  assert.equal(modelColor("claude/claude-opus-5-5"), "teal");
-  assert.equal(modelColor("claude/claude-sonnet-5"), "lime");
-  assert.equal(modelColor("codex/gpt-6.1-sol"), "violet");
-  assert.equal(modelColor("codex/gpt-6-astra"), "blue");
+  assert.equal(modelColor("claude/claude-opus-5-5"), "orange");
+  assert.equal(modelColor("claude/claude-sonnet-5"), "orange");
+  assert.equal(modelColor("codex/gpt-6.1-sol"), "white");
+  assert.equal(modelColor("codex/gpt-6-astra"), "white");
+  assert.ok(!["orange", "white"].includes(modelColor("gemini/gemini-3-pro")));
   assert.equal(modelName("claude/claude-opus-5-5"), "Claude Opus 5.5");
   assert.equal(modelName("codex/gpt-6.1-sol"), "GPT-6.1 Sol");
 });

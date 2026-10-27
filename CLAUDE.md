@@ -21,7 +21,8 @@ The React app and official SDK API are in `web/`. The Atlas world renderer is in
 Two worlds draw the same fleet: Atlas (default) and Galaxy, chosen in the map toolbar (remembered;
 ⌘⌥T steps worlds). The user asked for Galaxy; do not add further worlds unless asked.
 The user’s five supplied top-down illustrations guide the Atlas world: blue water,
-parchment hex islands, project landmarks, workspace cottages, and model-colored robots.
+parchment hex islands, project landmarks, workspace cottages, and model-colored robots (Claude orange,
+ChatGPT/Codex white; other providers keep a stable colour of their own).
 The attached illustrations are references, not full-screen backgrounds.
 Real state must remain truthful: distinguish running, idle, completed/unread, approval,
 question, failure and offline. Test daemon mutations against fake daemons only.

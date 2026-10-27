@@ -3,6 +3,7 @@ import { useState } from "react";
 import { ChevronDown, ChevronUp } from "lucide-react";
 import {
   MODEL_COLORS,
+  MODEL_FAMILY,
   STATE_NAMES,
   STATE_TILE,
   modelColor,
@@ -39,7 +40,10 @@ export function WorldLegend({ kind, data }: { kind: WorldKind; data: AtlasData }
     if (kind === "galaxy") {
       const p = providerOf(a.model) || "unknown";
       colours.set(PROVIDER_NAMES[p] ?? (p[0]?.toUpperCase() ?? "") + p.slice(1), providerColor(a.model));
-    } else colours.set(modelName(a.model), MODEL_COLORS[modelColor(a.model)]);
+    } else {
+      const colour = modelColor(a.model);
+      colours.set(MODEL_FAMILY[colour] ?? modelName(a.model), MODEL_COLORS[colour]);
+    }
   const unit = kind === "galaxy" ? "Station" : "Agent tile";
   return (
     <section className="atlas-world-legend" aria-label="Map legend">

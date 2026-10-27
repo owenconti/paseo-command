@@ -4,7 +4,7 @@ import { GalaxyScene } from "./galaxy/GalaxyScene";
 import { renderDensity } from "./display";
 import type { AtlasData, Entity } from "./world";
 export type { AtlasData, Entity, ScreenPoint };
-export { STATE_NAMES, STATE_TILE, MODEL_COLORS, modelColor, modelName } from "./world";
+export { STATE_NAMES, STATE_TILE, MODEL_COLORS, MODEL_FAMILY, modelColor, modelName } from "./world";
 export { providerColor, providerOf } from "./galaxy/layout";
 export type AtlasHandlers = {
   /** The user chose an entity on the map, or cleared the choice (Escape). */

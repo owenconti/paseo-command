@@ -871,10 +871,9 @@ export class AtlasScene extends Phaser.Scene {
     return this.reduced;
   }
   thumbnail(entity: Entity): string {
-    return this.textures.getBase64(
-      entity.kind === "agent" ? "robots" : "buildings",
-      entity.art ?? "manor",
-    );
+    if (entity.kind === "agent" && entity.art)
+      return this.textures.getBase64(`filtered-${entity.art}`, entity.art);
+    return this.textures.getBase64("buildings", entity.art ?? "manor");
   }
   /** Canvas-relative CSS position of an entity. */
   screenOf(id: string): ScreenPoint | null {

@@ -83,6 +83,56 @@ export function registerFrames(scene: Phaser.Scene): void {
     prepared.add(name, 0, gutter, gutter, frame.cutWidth, frame.cutHeight);
     prepared.refresh();
   }
+  // Claude's orange and ChatGPT's white robots are the teal robot re-enamelled.
+  const teal = scene.textures.get("filtered-robot-teal");
+  const base = teal.getSourceImage() as HTMLCanvasElement;
+  const tealFrame = teal.get("robot-teal");
+  for (const [name, paint] of ROBOT_PAINT) {
+    const key = `robot-${name}`;
+    const prepared = scene.textures.createCanvas(`filtered-${key}`, base.width, base.height)!;
+    const context = prepared.getContext();
+    context.drawImage(base, 0, 0);
+    const image = context.getImageData(0, 0, base.width, base.height);
+    repaint(image.data, paint);
+    context.putImageData(image, 0, 0);
+    prepared.add(key, 0, tealFrame.cutX, tealFrame.cutY, tealFrame.cutWidth, tealFrame.cutHeight);
+    prepared.refresh();
+  }
+}
+/** New enamel for the teal robot: hue (degrees), saturation scale, and how
+ * lightness maps (`l * scale + offset`). Brass, ink and highlights keep. */
+type Paint = { hue: number; saturation: number; scale: number; offset: number };
+const ROBOT_PAINT: [string, Paint][] = [
+  ["orange", { hue: 18, saturation: 0.62, scale: 1, offset: 0.12 }],
+  ["white", { hue: 40, saturation: 0.06, scale: 0.4, offset: 0.6 }],
+];
+/** Recolour the teal enamel's pixels (teal hues with some colour), in place. */
+function repaint(data: Uint8ClampedArray, paint: Paint): void {
+  for (let i = 0; i < data.length; i += 4) {
+    if (data[i + 3] === 0) continue;
+    const r = data[i]! / 255,
+      g = data[i + 1]! / 255,
+      b = data[i + 2]! / 255;
+    const max = Math.max(r, g, b),
+      min = Math.min(r, g, b),
+      l = (max + min) / 2,
+      d = max - min;
+    if (d < 0.06) continue;
+    const s = d / (1 - Math.abs(2 * l - 1));
+    let h = max === r ? ((g - b) / d) % 6 : max === g ? (b - r) / d + 2 : (r - g) / d + 4;
+    h = (h * 60 + 360) % 360;
+    if (h < 150 || h > 220 || s < 0.15) continue;
+    const nl = Math.min(1, l * paint.scale + paint.offset),
+      ns = Math.min(1, s * paint.saturation);
+    const c = (1 - Math.abs(2 * nl - 1)) * ns,
+      x = c * (1 - Math.abs(((paint.hue / 60) % 2) - 1)),
+      m = nl - c / 2;
+    const [r1, g1, b1] =
+      paint.hue < 60 ? [c, x, 0] : paint.hue < 120 ? [x, c, 0] : [0, c, x];
+    data[i] = Math.round((r1 + m) * 255);
+    data[i + 1] = Math.round((g1 + m) * 255);
+    data[i + 2] = Math.round((b1 + m) * 255);
+  }
 }
 function trimFrame(
   scene: Phaser.Scene,

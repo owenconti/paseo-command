@@ -8,7 +8,7 @@ export type State =
   | "question"
   | "failed"
   | "offline";
-export type Model = "teal" | "violet" | "lime" | "blue";
+export type Model = "orange" | "white" | "teal" | "violet" | "lime" | "blue";
 export type Axial = { q: number; r: number };
 
 /** The fleet as the Atlas draws it. Every key is unique across hosts. */
@@ -84,7 +84,7 @@ export type AtlasLayout = {
 
 export const HEX_RADIUS = 68;
 /** Robot sprite width in world pixels; state markers scale with it. */
-export const ROBOT_SIZE = 56;
+export const ROBOT_SIZE = 84;
 
 export const STATE_NAMES: Record<State, string> = {
   running: "Working",
@@ -119,6 +119,8 @@ export function tileState(states: State[]): State | undefined {
   return STATE_PRIORITY.find((s) => states.includes(s));
 }
 export const MODEL_COLORS: Record<Model, number> = {
+  orange: 0xd97757,
+  white: 0xeeeae2,
   teal: 0x25b6b9,
   violet: 0x9962d7,
   lime: 0xa3d640,
@@ -126,16 +128,19 @@ export const MODEL_COLORS: Record<Model, number> = {
 };
 const PALETTE: Model[] = ["teal", "violet", "lime", "blue"];
 
-/** Robot colour for a provider/model string. Unknown models keep a stable colour. */
+/** Robot colour for a provider/model string: Claude's orange, ChatGPT's white.
+ * Other providers keep a stable colour of their own. */
 export function modelColor(model: string): Model {
   const m = model.toLowerCase();
-  if (/opus/.test(m)) return "teal";
-  if (/sonnet|haiku|fable/.test(m)) return "lime";
-  if (/sol\b|gpt-6\.1/.test(m)) return "violet";
-  if (/gpt|codex|openai|astra/.test(m)) return "blue";
-  if (/claude/.test(m)) return "teal";
+  if (/claude|opus|sonnet|haiku|fable|anthropic/.test(m)) return "orange";
+  if (/gpt|codex|openai|chatgpt|astra|\bsol\b/.test(m)) return "white";
   return PALETTE[seedOf(m) % PALETTE.length]!;
 }
+/** The family a robot colour stands for, where it is one maker's. */
+export const MODEL_FAMILY: Partial<Record<Model, string>> = {
+  orange: "Claude",
+  white: "ChatGPT",
+};
 /** `claude/claude-opus-5-5` → `Claude Opus 5.5`. */
 export function modelName(model: string): string {
   const id = model.split("/").pop() || model || "Unknown model";

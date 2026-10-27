@@ -162,8 +162,8 @@ test("every agent state is drawn as the daemon reports it", async () => {
     [agentKey("a-offline", MAC)]: "offline",
   });
   // Model colours follow the provider.
-  assert.equal(world.agents.find((a) => a.name === "Questioner")!.model, "violet");
-  assert.equal(world.agents.find((a) => a.name === "Runner")!.model, "teal");
+  assert.equal(world.agents.find((a) => a.name === "Questioner")!.model, "white");
+  assert.equal(world.agents.find((a) => a.name === "Runner")!.model, "orange");
   // ATLAS_SHOT=dir saves the fitted world for review.
   if (process.env.ATLAS_SHOT) {
     await page.waitForTimeout(1500);
