@@ -15,7 +15,7 @@ import {
   remotesOf,
   statusView,
 } from "./hosts";
-import { LOCAL_HOST } from "./http";
+import { allowedOrigin } from "./http";
 import { id } from "./validate";
 
 /** Start following every host (idempotent; the first API request does it). */
@@ -73,9 +73,8 @@ export function handleUpgrade(
     return true;
   };
   if (admissionClosed()) return refuse(503, "Service Unavailable");
-  const host = req.headers.host || "";
-  if (!LOCAL_HOST.test(host)) return refuse(403, "Forbidden");
-  if (req.headers.origin !== `http://${host}`) return refuse(403, "Forbidden");
+  const origin = allowedOrigin(req);
+  if (!origin || req.headers.origin !== origin) return refuse(403, "Forbidden");
   startLive();
   void registryKnown().then(() => {
     if (admissionClosed() || socket.destroyed)

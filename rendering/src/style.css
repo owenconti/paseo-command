@@ -771,3 +771,19 @@ h3:after {
   stroke-width: 2.6;
   stroke-linecap: round;
 }
+.state-question {
+  background: #3a7fc4;
+  border: 2px solid #1f4f80;
+  color: #fffaf0;
+  font: bold 14px Georgia, serif;
+  transform: scale(0.8);
+}
+.state-approval {
+  color: #fffaf0;
+  font: bold 15px Georgia, serif;
+  transform: scale(0.8);
+}
+.state-offline {
+  background: #b9b4a6;
+  border: 2px dashed #6d6656;
+}

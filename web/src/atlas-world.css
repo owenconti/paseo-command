@@ -1,0 +1,160 @@
+/* The Atlas world fills the native world frame; React chrome floats above it. */
+.atlas-world-surface {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  background: #1d6884;
+  outline: none;
+  touch-action: none;
+}
+.atlas-world-surface[data-world="galaxy"] {
+  background: #090605;
+}
+.atlas-world-surface canvas {
+  display: block;
+}
+.atlas-input-cover {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+}
+.atlas-world-name {
+  padding: 0 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-2);
+}
+.atlas-world-tip {
+  position: absolute;
+  z-index: 3;
+  display: grid;
+  gap: 2px;
+  max-width: 260px;
+  padding: 7px 10px;
+  border-radius: var(--radius-md, 8px);
+  color: var(--text);
+  background: var(--panel);
+  box-shadow: 0 4px 18px rgb(0 0 0 / 22%);
+  font-size: 12px;
+  line-height: 1.3;
+  pointer-events: none;
+  transform: translate(-50%, calc(-100% - 8px));
+}
+.atlas-world-tip b {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.atlas-world-tip span {
+  color: var(--text-2);
+}
+.atlas-world-notice {
+  position: absolute;
+  top: 82px;
+  left: 20px;
+  z-index: 3;
+  max-width: calc(100% - 40px);
+  padding: 10px 14px;
+  border-radius: var(--radius-md, 8px);
+  color: var(--text);
+  background: var(--panel);
+}
+.atlas-world-help {
+  position: absolute;
+  bottom: 18px;
+  left: 18px;
+  max-width: calc(100% - 36px);
+  padding: 7px 12px;
+  border-radius: var(--radius-md, 8px);
+  color: var(--text-2);
+  background: var(--panel);
+  font-size: 12px;
+  pointer-events: none;
+}
+@media (max-width: 760px) {
+  .atlas-world-help {
+    display: none;
+  }
+}
+.atlas-world-legend {
+  position: absolute;
+  right: 18px;
+  bottom: 18px;
+  z-index: 3;
+  width: 220px;
+  border-radius: var(--radius-md, 8px);
+  color: var(--text);
+  background: var(--panel);
+  box-shadow: 0 4px 18px rgb(0 0 0 / 22%);
+  font-size: 12px;
+}
+.atlas-world-legend .legend-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 8px 12px;
+  border: 0;
+  background: transparent;
+  color: var(--text-2);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.atlas-world-legend .legend-body {
+  padding: 0 12px 10px;
+}
+.atlas-world-legend h3 {
+  margin: 6px 0 6px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+.atlas-world-legend ul {
+  display: grid;
+  gap: 5px;
+  margin: 0 0 8px;
+  padding: 0;
+  list-style: none;
+}
+.atlas-world-legend li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.atlas-world-legend .legend-swatch {
+  display: grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  flex: none;
+  border-radius: 4px;
+  color: #1a1208;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+}
+.atlas-world-legend .legend-swatch.plain {
+  border: 1px solid var(--text-3);
+}
+.atlas-world-legend .legend-dot {
+  width: 10px;
+  height: 10px;
+  flex: none;
+  margin: 0 3px;
+  border-radius: 50%;
+}
+.atlas-world-legend p {
+  margin: 0;
+  color: var(--text-3);
+  font-size: 11px;
+  line-height: 1.35;
+}
+@media (max-width: 760px) {
+  .atlas-world-legend {
+    display: none;
+  }
+}

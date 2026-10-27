@@ -120,6 +120,7 @@ function parsePermissions(value: unknown): PendingPermission[] {
       ),
       description: String(p.description || p.message || ""),
       host: p.host as string | undefined,
+      kind: typeof p.kind === "string" ? p.kind : undefined,
     }))
     .filter((p) => p.agentId);
 }
@@ -215,6 +216,15 @@ function App() {
   );
   const permissionAgents = useMemo(
     () => new Set(permissions.map((p) => p.agentId)),
+    [permissions],
+  );
+  const questionAgents = useMemo(
+    () =>
+      new Set(
+        permissions
+          .filter((p) => p.kind === "question" || p.questions?.length)
+          .map((p) => p.agentId),
+      ),
     [permissions],
   );
   const active = useMemo(() => activeAgents(agents), [agents]);
@@ -843,6 +853,7 @@ function App() {
                 workspaces={workspaces}
                 agents={active}
                 permissions={permissionAgents}
+                questions={questionAgents}
                 unread={unread}
                 selection={selection}
                 focusRevision={focusRevision}

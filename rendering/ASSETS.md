@@ -20,7 +20,10 @@ Exact prompt:
 
 > Use case: stylized-concept. Production transparent GAME SPRITE ATLAS: EXACT 2 columns by 2 rows, four equally sized cells with very wide transparent gutters. Four versions of the SAME adorable spherical enamel-and-brass helper robot. Camera strict vertically overhead 90-degree top-down, a little dark face visor on forward lower edge visible from above, small round metal hands/feet to either side, tiny brass antenna, glossy domed round head with painted highlight. Antique brass edging. Top-left turquoise teal, top-right violet purple, bottom-left fresh lime green, bottom-right cobalt blue. Match attached reference's small robot illustrations: charming hand painted fantasy map art, fine dark ink outlines, watercolor/gouache material detail, tiny soft grounding shadow only. Robot centered in each quadrant and occupies about 60% of each cell. No ground tile, no island, no labels, no letters, no text, no status marks, no circles or magical glow around robots. Everything outside each single robot must be genuinely transparent. Do not make a 3D render or pixel art. Consistent scale across all four.
 
-## water.png
+## water.png (not currently used)
+
+The Atlas now draws its islands on a procedurally generated meadow (`paintGround` and `paintClouds` in `src/terrain.ts`). This texture is kept for reference.
+
 
 Original output: `exec-d548aefe-f04f-4c3d-b219-21c0ac288de4.png`.
 
@@ -46,3 +49,13 @@ Original output: `exec-e7c370a3-1507-4bdd-ac14-ce509ecfcbe3.png`.
 Exact prompt:
 
 > Use case: stylized-concept. Create one SINGLE ISOLATED TREE game sprite on a genuinely transparent background. Reference image is a STYLE REFERENCE ONLY: match its round dense oak tree canopy, hand-painted watercolor/gouache leaf clusters, thin sepia ink contours, moss green and yellow-green foliage, warm highlights and fine brown branches. Camera straight down 90-degree overhead as in a fantasy strategy atlas. Show one complete irregular round deciduous oak canopy, including ALL its outer leaves and branches. Center it, occupying only the middle 60% of the square image with at least 20% completely empty transparent margin on every edge. No part of the tree or its soft tiny shadow may touch any image edge. Absolutely no rocks, shrubs, ground, trunks protruding as disconnected fragments, other trees, labels, numbers, grid, text or background. This will replace a tree extracted from a crowded sprite sheet that had accidentally included part of a rock: make this a clean standalone tree sprite with a complete natural leafy silhouette and zero neighboring objects. Keep painted texture and ink detail consistent with the source, not a photo or a 3D render.
+
+## Galaxy textures (`src/assets/galaxy/`)
+
+Copied from the original Paseo Command project, `Unity/Assets/Paseo/Art/Textures/`
+(Barren, Clouds, Desert, Forest, Ice, Nebula, Ocean, RingedGas, Storm, Volcanic), and
+re-encoded as JPEG at 1400 px wide. They are equirectangular surface maps (and a grayscale
+nebula density map) generated for that project; their prompts and checksums are in its
+`art/galaxy/prompts/production-texture-prompts.json`. Stations, satellites, rings,
+atmospheres, stars and rocks are drawn procedurally in `src/galaxy/paint.ts`, after the
+original's Unity station and satellite geometry and its Galaxy reference screenshots.

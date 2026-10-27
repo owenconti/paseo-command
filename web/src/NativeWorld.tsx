@@ -1,101 +1,401 @@
-/** Phaser AE renderer adapter. The inherited React work surface owns all daemon actions. */
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { Home, Minus, Plus } from 'lucide-react';
-import { worldSnapshot, targetSelection, UNITY_WORLDS, type WorldSnapshot, type WorldTarget } from './worldBridge';
-import { projectKey, workspaceKey } from './workspaces';
-import { setUnityWorldTheme } from './theme';
-import { readStore, writeStore } from './api';
-import type { Agent, Host, Project, Selection, Workspace } from './types';
-import './phaser-world.css';
+/** Atlas world adapter. The inherited React work surface owns all daemon actions;
+ * the world only draws the host-qualified snapshot and reports what was picked. */
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Home, Minus, Plus } from "lucide-react";
+import {
+  mountAtlas,
+  STATE_NAMES,
+  WORLDS,
+  type WorldKind,
+  type AtlasData,
+  type AtlasWorld,
+  type Entity,
+  type ScreenPoint,
+} from "../../rendering/src/atlas";
+import {
+  worldSnapshot,
+  targetSelection,
+  type WorldSnapshot,
+} from "./worldBridge";
+import { projectKey, workspaceKey } from "./workspaces";
+import { isFitWorldKey, isTyping } from "./worldShortcut";
+import { modalOpen } from "./focus";
+import { soundEvent } from "./soundCues";
+import { setUnityWorldTheme } from "./theme";
+import { readStore, writeStore } from "./api";
+import type { Agent, Host, Project, Selection, Workspace } from "./types";
+import { WorldLegend } from "./WorldLegend";
+import "./atlas-world.css";
 type Props = {
-  hosts: Host[]; projects: Project[]; workspaces: Workspace[]; agents: Agent[];
-  permissions: Set<string>; unread: Set<string>; selection: Selection; focusRevision: number;
-  select: (value: Selection) => void; hover: (id: string | null) => void;
-  onNotice: (message: string) => void; blocked: boolean;
+  hosts: Host[];
+  projects: Project[];
+  workspaces: Workspace[];
+  agents: Agent[];
+  permissions: Set<string>;
+  /** Agents whose pending request is a question rather than an approval. */
+  questions: Set<string>;
+  unread: Set<string>;
+  selection: Selection;
+  focusRevision: number;
+  select: (value: Selection) => void;
+  hover: (id: string | null) => void;
+  onNotice: (message: string) => void;
+  blocked: boolean;
 };
-type Engine = {
-  ready: Promise<void>; isReady: boolean;
-  cheats: { run(name: string, ...args: string[]): unknown };
-  inspect(): { state?: { clicked?: WorldTarget | null; clickSequence?: number } };
-};
-export function NativeWorld(props: Props) {
-  const frame = useRef<HTMLIFrameElement>(null);
-  const engine = useRef<Engine | null>(null);
-  const revision = useRef(0), clickedSequence = useRef(0);
-  const latest = useRef(props); latest.current = props;
-  const [ready, setReady] = useState(false), [failure, setFailure] = useState('');
-  const [world, setWorld] = useState<keyof typeof UNITY_WORLDS>(() => {
-    const saved = readStore<string>('phaser-world', 'galaxy');
-    return saved in UNITY_WORLDS ? saved as keyof typeof UNITY_WORLDS : 'galaxy';
-  });
-  const currentWorld = useRef(world); currentWorld.current = world;
-  const snapshot = useMemo(() => worldSnapshot({ ...props, revision: ++revision.current }),
-    [props.hosts, props.projects, props.workspaces, props.agents, props.permissions, props.unread]);
-  const currentSnapshot = useRef<WorldSnapshot>(snapshot); currentSnapshot.current = snapshot;
-  const command = (name: string, ...args: string[]) => engine.current?.cheats.run(name, ...args);
-  useEffect(() => {
-    setUnityWorldTheme(world);
-    writeStore('phaser-world', world);
-    if (ready) command('world', world);
-    return () => setUnityWorldTheme(null);
-  }, [world, ready]);
-  useEffect(() => { if (ready) command('snapshot', JSON.stringify(snapshot)); }, [snapshot, ready]);
-  useEffect(() => {
-    if (!ready) return;
-    const s = props.selection;
-    const rows = s?.type === 'agent' ? snapshot.agents : s?.type === 'project' ? snapshot.projects : snapshot.workspaces;
-    const row = s && rows.find(r => s.type === 'agent' ? ('clientId' in r ? r.clientId : r.id) === s.id :
-      (s.type === 'project' ? projectKey({ projectId: r.id, host: r.hostId === 'local' ? undefined : r.hostId }) : workspaceKey({ workspaceId: r.id, host: r.hostId === 'local' ? undefined : r.hostId })) === s.id);
-    const target = row && s ? { kind: s.type, key: row.key } : null;
-    command('select', JSON.stringify(target));
-    if (target) command('focus', JSON.stringify(target));
-  }, [props.selection, props.focusRevision, ready]);
-  useEffect(() => {
-    if (!ready) return;
-    const media = matchMedia('(prefers-reduced-motion: reduce)');
-    const update = () => command('motion', media.matches ? 'reduce' : 'full');
-    update(); media.addEventListener('change', update);
-    return () => media.removeEventListener('change', update);
-  }, [ready]);
-  useEffect(() => {
-    if (!ready) return;
-    // Page integration lives outside the simulation; only host-qualified identities cross this boundary.
-    const timer = setInterval(() => {
-      try {
-        const state = engine.current?.inspect().state;
-        if (!state?.clickSequence || state.clickSequence <= clickedSequence.current) return;
-        clickedSequence.current = state.clickSequence;
-        const selection = targetSelection(state.clicked, currentSnapshot.current);
-        if (selection && !latest.current.blocked) latest.current.select(selection);
-      } catch { setFailure('The world stopped responding. Reload the world to reconnect.'); }
-    }, 150);
-    return () => clearInterval(timer);
-  }, [ready]);
-  const connect = async () => {
-    setReady(false); setFailure(''); engine.current = null;
-    try {
-      const candidate = (frame.current?.contentWindow as (Window & { game?: Engine }) | null)?.game;
-      if (!candidate) throw new Error('The Phaser AE engine did not start. Reload the world to try again.');
-      await candidate.ready;
-      engine.current = candidate; clickedSequence.current = 0;
-      candidate.cheats.run('world', currentWorld.current);
-      candidate.cheats.run('snapshot', JSON.stringify(currentSnapshot.current));
-      candidate.cheats.run('home'); setReady(true);
-    } catch (error) { setFailure(error instanceof Error ? error.message : 'Could not load the Phaser world.'); }
+/** Hosts are keyed by their bridge id ("local" or a server id), as rows reference them. */
+export function atlasData(
+  snapshot: WorldSnapshot,
+  questions: Set<string>,
+): AtlasData {
+  return {
+    hosts: snapshot.hosts.map((h) => ({
+      key: h.id,
+      name: h.name,
+      online: !/offline|stale/.test(h.state),
+      local: h.local,
+    })),
+    projects: snapshot.projects.map((p) => ({
+      key: p.key,
+      host: p.hostId,
+      name: p.name,
+      stale: p.stale,
+    })),
+    workspaces: snapshot.workspaces.map((w) => ({
+      key: w.key,
+      host: w.hostId,
+      project: w.projectKey,
+      name: w.name,
+      stale: w.stale,
+    })),
+    agents: snapshot.agents.map((a) => ({
+      key: a.key,
+      host: a.hostId,
+      project: a.projectKey,
+      workspace: a.workspaceKey,
+      name: a.name,
+      model: a.model,
+      state: a.stale
+        ? "offline"
+        : a.state === "attention"
+          ? questions.has(a.clientId ?? a.id)
+            ? "question"
+            : "approval"
+          : a.state === "unread"
+            ? "done"
+            : a.state,
+      subagents: a.subagentCount,
+    })),
   };
-  return <>
-    <iframe ref={frame} className="phaser-world-frame" src="/world/index.html" title="Paseo Command Phaser AE world" onLoad={() => void connect()} />
-    {props.blocked && <div className="phaser-input-cover" />}
-    <div className="unity-world-toolbar" role="toolbar" aria-label="World controls">
-      <label>World <select aria-label="Choose world" value={world} disabled={!ready || props.blocked} onChange={e => setWorld(e.target.value as keyof typeof UNITY_WORLDS)}>
-        {Object.entries(UNITY_WORLDS).map(([id, name]) => <option key={id} value={id}>{name}</option>)}
-      </select></label>
-      <button aria-label="Fit all hosts" title="Fit all hosts" disabled={!ready || props.blocked} onClick={() => command('home')}><Home size={17}/></button>
-      <button aria-label="Zoom out" title="Zoom out" disabled={!ready || props.blocked} onClick={() => command('zoom', 'out')}><Minus size={17}/></button>
-      <button aria-label="Zoom in" title="Zoom in" disabled={!ready || props.blocked} onClick={() => command('zoom', 'in')}><Plus size={17}/></button>
-    </div>
-    {!ready && !failure && <div className="phaser-world-notice" role="status">Loading Phaser AE world…</div>}
-    {failure && <div className="phaser-world-notice" role="alert">{failure} <button onClick={() => { if (frame.current) frame.current.src = '/world/index.html'; }}>Reload world</button></div>}
-    <div className="phaser-world-help">Drag to orbit · Scroll to zoom · Select an agent to open its conversation</div>
-  </>;
+}
+/** The world key the app's selection points at, if it is drawn. */
+function selectionKey(selection: Selection, snapshot: WorldSnapshot) {
+  if (!selection) return null;
+  if (selection.type === "agent")
+    return (
+      snapshot.agents.find(
+        (a) =>
+          (a.clientId ?? a.id) === selection.id &&
+          (!selection.host || a.hostId === selection.host),
+      )?.key ?? null
+    );
+  const host = (id: string) => (id === "local" ? undefined : id);
+  if (selection.type === "project")
+    return (
+      snapshot.projects.find(
+        (p) =>
+          projectKey({ projectId: p.id, host: host(p.hostId) }) ===
+          selection.id,
+      )?.key ?? null
+    );
+  if (selection.type === "workspace")
+    return (
+      snapshot.workspaces.find(
+        (w) =>
+          workspaceKey({ workspaceId: w.id, host: host(w.hostId) }) ===
+          selection.id,
+      )?.key ?? null
+    );
+  return null;
+}
+type Tip = { entity: Entity; at: ScreenPoint; detail: string };
+export function NativeWorld(props: Props) {
+  const surface = useRef<HTMLDivElement>(null);
+  const world = useRef<AtlasWorld | null>(null);
+  const latest = useRef(props);
+  latest.current = props;
+  const [ready, setReady] = useState(false);
+  const [failure, setFailure] = useState("");
+  const [tip, setTip] = useState<Tip | null>(null);
+  // The world on show; every world draws the same fleet.
+  const [kind, setKind] = useState<WorldKind>(() => {
+    const saved = readStore<string>("phaser-world-kind", "atlas");
+    return saved in WORLDS ? (saved as WorldKind) : "atlas";
+  });
+  const chooseWorld = (next: WorldKind) => {
+    writeStore("phaser-world-kind", next);
+    setKind(next);
+  };
+  const revision = useRef(0);
+  // What was last clicked on the map: choosing it there never moves the camera.
+  const picked = useRef<string | null>(null);
+  const snapshot = useMemo(
+    () => worldSnapshot({ ...props, revision: ++revision.current }),
+    [
+      props.hosts,
+      props.projects,
+      props.workspaces,
+      props.agents,
+      props.permissions,
+      props.unread,
+    ],
+  );
+  const current = useRef(snapshot);
+  current.current = snapshot;
+  const data = useMemo(
+    () => atlasData(snapshot, props.questions),
+    [snapshot, props.questions],
+  );
+  const currentData = useRef(data);
+  currentData.current = data;
+  const describe = (entity: Entity) => {
+    const d = currentData.current;
+    if (entity.kind === "agent")
+      return [STATE_NAMES[entity.state!], entity.modelName]
+        .filter(Boolean)
+        .join(" · ");
+    if (entity.kind === "workspace") {
+      const n = d.agents.filter((a) => a.workspace === entity.id).length;
+      return entity.camp
+        ? `${n} agent${n === 1 ? "" : "s"} without a workspace`
+        : `Workspace · ${n} agent${n === 1 ? "" : "s"}`;
+    }
+    if (entity.kind === "project") {
+      const n = d.workspaces.filter((w) => w.project === entity.id).length;
+      return `Project · ${n} workspace${n === 1 ? "" : "s"}`;
+    }
+    return "Host";
+  };
+  // Mount per world: handlers read current props through refs.
+  useEffect(() => {
+    const node = surface.current!;
+    setReady(false);
+    setTip(null);
+    document.documentElement.dataset.renderer = kind;
+    // The panels keep the Paseo Command look from the native app (its Galaxy theme).
+    setUnityWorldTheme("galaxy");
+    let atlas: AtlasWorld;
+    try {
+      atlas = mountAtlas(node, {
+        ready: () => {
+          setReady(true);
+          setFailure("");
+        },
+        error: setFailure,
+        pick: (entity) => {
+          const p = latest.current;
+          if (p.blocked) return;
+          if (!entity) return p.select(null);
+          if (entity.kind === "host") return;
+          const selection = targetSelection(
+            { kind: entity.kind, key: entity.id },
+            current.current,
+          );
+          if (selection) {
+            picked.current = entity.id;
+            p.select(selection);
+          }
+        },
+        hover: (entity, at) => {
+          const p = latest.current;
+          setTip(entity && at ? { entity, at, detail: describe(entity) } : null);
+          const row =
+            entity?.kind === "agent"
+              ? current.current.agents.find((a) => a.key === entity.id)
+              : undefined;
+          p.hover(row ? (row.clientId ?? row.id) : null);
+        },
+      }, kind);
+    } catch (error) {
+      setFailure(
+        error instanceof Error ? error.message : `Could not start the ${WORLDS[kind]}.`,
+      );
+      return;
+    }
+    world.current = atlas;
+    atlas.update(currentData.current);
+    Object.assign(window, { paseoAtlas: atlas, paseoWorld: atlas });
+    return () => {
+      world.current = null;
+      atlas.destroy();
+      delete document.documentElement.dataset.renderer;
+      setUnityWorldTheme(null);
+    };
+  }, [kind]);
+  // The app's world shortcut (⌘⌥T) steps to the next world.
+  useEffect(() => {
+    const next = () => {
+      if (latest.current.blocked) return;
+      const kinds = Object.keys(WORLDS) as WorldKind[];
+      setKind((current) => {
+        const value = kinds[(kinds.indexOf(current) + 1) % kinds.length]!;
+        writeStore("phaser-world-kind", value);
+        return value;
+      });
+    };
+    window.addEventListener("paseo:world-theme-request", next);
+    return () => window.removeEventListener("paseo:world-theme-request", next);
+  }, []);
+  useEffect(() => {
+    safely(() => world.current?.update(data));
+    setTip(null);
+  }, [data]);
+  /** World calls never take the app down: a renderer fault becomes the world's notice. */
+  const safely = (call: () => unknown) => {
+    try {
+      call();
+    } catch (error) {
+      console.error(error);
+      setFailure("The world hit a problem. Reload to redraw it.");
+    }
+  };
+  const focusedRevision = useRef(0);
+  useEffect(() => {
+    if (!ready) return;
+    const key = selectionKey(props.selection, snapshot);
+    safely(() => world.current?.select(key));
+    if (!props.selection) focusedRevision.current = props.focusRevision;
+    if (key && props.focusRevision > focusedRevision.current) {
+      focusedRevision.current = props.focusRevision;
+      // Chosen elsewhere (the list, a notification): pan to it if it's out of view.
+      if (picked.current !== key) safely(() => world.current?.focus(key));
+    }
+    picked.current = null;
+  }, [props.selection, props.focusRevision, snapshot, ready]);
+  useEffect(() => {
+    if (!ready) return;
+    safely(() => world.current?.input(!props.blocked));
+    if (props.blocked) setTip(null);
+  }, [props.blocked, ready]);
+  useEffect(() => {
+    if (!ready) return;
+    const media = matchMedia("(prefers-reduced-motion: reduce)");
+    const update = () => world.current?.motion(media.matches);
+    update();
+    media.addEventListener("change", update);
+    return () => media.removeEventListener("change", update);
+  }, [ready]);
+  const fitWorld = () => {
+    soundEvent("focused");
+    world.current?.command("home");
+  };
+  // F fits the world from anywhere in the page unless something is being typed.
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (
+        !isFitWorldKey(event) ||
+        event.defaultPrevented ||
+        latest.current.blocked ||
+        modalOpen() ||
+        isTyping(document.activeElement as HTMLElement | null) ||
+        surface.current?.contains(document.activeElement)
+      )
+        return;
+      event.preventDefault();
+      fitWorld();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+  const empty = ready && data.hosts.length === 0;
+  return (
+    <>
+      <div
+        ref={surface}
+        className="atlas-world-surface native-map-surface"
+        data-world={kind}
+        tabIndex={0}
+        role="application"
+        aria-roledescription="map"
+        aria-label={`${WORLDS[kind]} world. Drag to pan, scroll to zoom, arrow keys pan, F fits every host. Select ${kind === "galaxy" ? "a satellite" : "a robot"} to open its conversation.`}
+        onPointerLeave={() => setTip(null)}
+      />
+      {props.blocked && <div className="atlas-input-cover" />}
+      {tip && (
+        <div
+          className="atlas-world-tip"
+          role="tooltip"
+          style={{ left: tip.at.x, top: tip.at.y }}
+        >
+          <b>{tip.entity.name}</b>
+          <span>{tip.detail}</span>
+        </div>
+      )}
+      <div
+        className="unity-world-toolbar"
+        role="toolbar"
+        aria-label="World controls"
+      >
+        <label>
+          World
+          <select
+            aria-label="Choose world"
+            value={kind}
+            disabled={props.blocked}
+            onChange={(e) => chooseWorld(e.target.value as WorldKind)}
+          >
+            {Object.entries(WORLDS).map(([id, name]) => (
+              <option key={id} value={id}>
+                {name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <button
+          aria-label="Fit all hosts"
+          title="Fit all hosts · F"
+          disabled={!ready || props.blocked}
+          onClick={fitWorld}
+        >
+          <Home size={17} />
+        </button>
+        <button
+          aria-label="Zoom out"
+          title="Zoom out"
+          disabled={!ready || props.blocked}
+          onClick={() => world.current?.command("out")}
+        >
+          <Minus size={17} />
+        </button>
+        <button
+          aria-label="Zoom in"
+          title="Zoom in"
+          disabled={!ready || props.blocked}
+          onClick={() => world.current?.command("in")}
+        >
+          <Plus size={17} />
+        </button>
+      </div>
+      {!ready && !failure && (
+        <div className="atlas-world-notice" role="status">
+          Preparing the {WORLDS[kind].toLowerCase()}…
+        </div>
+      )}
+      {empty && (
+        <div className="atlas-world-notice" role="status">
+          Waiting for Paseo hosts…
+        </div>
+      )}
+      {failure && (
+        <div className="atlas-world-notice" role="alert">
+          {failure}{" "}
+          <button onClick={() => location.reload()}>Reload</button>
+        </div>
+      )}
+      {ready && <WorldLegend kind={kind} data={data} />}
+      <div className="atlas-world-help">
+        Drag to explore · Scroll to zoom · F to fit · Select{" "}
+        {kind === "galaxy" ? "a satellite" : "a robot"} to open its conversation
+      </div>
+    </>
+  );
 }

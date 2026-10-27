@@ -18,6 +18,22 @@ export function shuttingDown(res: ServerResponse) {
 }
 /** Hosts a request may name: loopback only, so no DNS rebinding reaches us. */
 export const LOCAL_HOST = /^(127\.0\.0\.1|localhost)(:\d+)?$/;
+/** Opt-in: the one tailnet name `tailscale serve` proxies to this loopback server. */
+const TAILNET = process.env.PASEO_COMMAND_TAILNET_HOST?.trim().toLowerCase() || "";
+/**
+ * The origin a request may come from, or null to refuse it. Loopback hosts are
+ * always allowed; the tailnet name only when configured. The server itself
+ * still listens on loopback, so only the local Tailscale proxy can name it.
+ */
+export function allowedOrigin(req: {
+  headers: Record<string, string | string[] | undefined>;
+}): string | null {
+  const host = String(req.headers.host || "").toLowerCase();
+  const port = host.slice(TAILNET.length);
+  if (TAILNET && host.startsWith(TAILNET) && (port === "" || /^:\d+$/.test(port)))
+    return `https://${host}`;
+  return LOCAL_HOST.test(host) ? `http://${host}` : null;
+}
 
 export async function rawBody(req: IncomingMessage, limit: number) {
   const chunks: Buffer[] = [];

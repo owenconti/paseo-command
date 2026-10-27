@@ -11,46 +11,60 @@
 ## Product and references
 
 Paseo Command visualizes hosts, projects, workspaces and agents from the Paseo daemon.
-The React app and official SDK API are in `web/`. The renderer is in `game/`.
+The React app and official SDK API are in `web/`. The Atlas world renderer is in `rendering/`.
+Two worlds draw the same fleet: Atlas (default) and Galaxy, chosen in the map toolbar (remembered;
+⌘⌥T steps worlds). The user asked for Galaxy; do not add further worlds unless asked.
 The user’s five supplied top-down illustrations guide the Atlas world: blue water,
 parchment hex islands, project landmarks, workspace cottages, and model-colored robots.
 The attached illustrations are references, not full-screen backgrounds.
 Real state must remain truthful: distinguish running, idle, completed/unread, approval,
 question, failure and offline. Test daemon mutations against fake daemons only.
-The current world renderer is an early procedural prototype, not finished reference-quality art.
+The Atlas uses generated painted sprites; it is not yet finished reference-quality art.
 
 ## Commands
 
-- `npm run build`: local engine gate and bundle to `dist/`.
-- `npm run smoke`: local headless smoke check.
-- `npm run play -- "shot"`: local engine play tool; does not use the account CLI.
-- `npm run serve`: local world preview on http://127.0.0.1:4173.
-- `npm run app:dev`: builds the world, copies it to `web/public/world/`, and starts React plus the loopback API on port 4310.
-- `npm run app:build`: checks and builds world and React UI.
-- `npm run app:typecheck`: checks React and API TypeScript.
+- `npm run app:install`: installs `rendering/` and `web/` dependencies.
+- `npm run app:dev`: React UI, loopback SDK API and the Atlas world on http://127.0.0.1:4310.
+- `npm run app:build`: layout tests, then type-checks and bundles the app to `web/dist/`.
+- `npm run app:typecheck`: checks React, API and Atlas TypeScript.
+- `npm run app:e2e`: browser tests of the Atlas against a mocked fleet (no daemon is reached).
+- `npm run render:dev`: standalone Atlas study with illustrative data on http://127.0.0.1:4320.
+- `npm run render:build`, `npm run render:test`: study bundle and layout/tile tests.
 
-Read `game/README.md` and `game/docs/make-a-3d-game.md` for engine APIs.
-Any publishing, asset-upload, crew or account instructions in generated engine documentation
-are superseded by the user’s local-only requirements above. Local assets belong in the
-repository and should be included through local build tooling.
+The earlier cached Phaser AE prototype in `game/` (with `npm run build`, `smoke`, `play`, `serve`)
+is no longer used by the app. Any publishing, asset-upload, crew or account instructions in its
+generated engine documentation are superseded by the user’s local-only requirements above.
+Local assets belong in the repository and are included through local build tooling.
 
 ## Structure
 
-- `game/main.ts`, `game/art.ts`, `game/debug.ts`: engine boot, primitive models and debug bridge.
-- `game/world/`: world rendering and host-qualified snapshot state.
-- `web/src/NativeWorld.tsx`: browser adapter between the inherited React surface and local engine.
+- `rendering/src/world.ts`: Atlas vocabulary, axial geometry and the deterministic fleet layout.
+- `rendering/src/AtlasScene.ts`, `terrain.ts`, `textures.ts`: Phaser 4 scene, islands and sprites.
+- `rendering/src/atlas.ts`: `mountAtlas(parent, handlers, kind)`, the embedding API for both worlds.
+- `rendering/src/galaxy/`: Galaxy layout (`layout.ts`), painters (`paint.ts`) and scene (`GalaxyScene.ts`).
+  Hosts are nebula regions, projects textured rotating planets, workspaces orbiting stations, agents
+  provider-coloured satellites whose running beams relay through their station to the planet.
+  Surface, cloud and nebula maps come from the original project's Unity textures (`src/assets/galaxy/`).
+- `rendering/src/main.ts`, `inspector.ts`, `sample.ts`: standalone study with illustrative data.
+- `web/src/NativeWorld.tsx`: maps the React app's host-qualified world snapshot to the Atlas,
+  forwards map picks as selections and draws app selections on the map.
 - `web/server/`: inherited official Paseo SDK API, bound to loopback.
-- `scripts/`: local build/preview helpers.
+- `web/e2e/`: browser tests with every `/api` request answered in the browser.
 
-## Initial Atlas rendering study
+## Atlas world
 
-`rendering/` is the current standalone, local rendering study using open-source Phaser 4.2.1.
-It is separate from the earlier cached Phaser AE prototype in `game/`.
-Use `npm run render:dev` (http://127.0.0.1:4320) and `npm run render:build`.
+The app bundles `rendering/` directly; Phaser resolves from `rendering/node_modules`.
+Each project is its own island: a ten-hex landmark (rows of 3, 4, 3) at the top of the island, with its one-hex
+workspace cottages in rows of up to four below it. A host's islands share one landmass of grass hex tiles (hexes everywhere) with a hex-edged shore in a generated sea, under the host's
+banner (offline hosts are faded and labeled). Agents are robots in their workspace cell; the cell's tile takes the colour of its most
+urgent agent's state. The user asked for water back (rejecting chart paper, and a plain meadow background), with each
+host as a landmass; project islands sit on it on earthen banks with soft shadows.
+The layout follows the map's aspect ratio: hosts shelf-pack and tall maps stack vertically.
+Agents the daemon reports without a workspace wait at a flagged camp cell.
 The world is assembled from generated transparent sprite atlases, a terrain texture,
 and a strict axial hex grid. It is not a screenshot used as a background.
-This preview uses clearly labeled illustrative data and never connects to a daemon.
-The existing React UI is untouched by the rendering study. Do not redesign it.
+The standalone study (`render:dev`) uses clearly labeled illustrative data and never connects to a daemon.
+The inherited React UI is preserved; its panels use the Galaxy theme, as in the user's reference.
 Five original references are retained in `design/references/atlas-01.webp` through `atlas-05.webp`.
 Artwork provenance and generation prompts are in `rendering/ASSETS.md`.
 
@@ -58,8 +72,9 @@ Artwork provenance and generation prompts are in `rendering/ASSETS.md`.
 
 Labels stay at fixed world scale. Do not add screen-size compensation.
 All structures and scenery consume whole cells on the shared axial grid.
-Cottages use one hex; project landmarks currently use seven. Agents share workspace cells.
+Cottages use one hex; project landmarks use ten (rows of 3, 4 and 3). One island per project. Agents share workspace cells.
 Center artwork and fit it completely inside its occupied cells.
 Selection follows the outer perimeter of the occupied hexes, never a rectangle.
-Rocks remain entirely on land. Minimum zoom fits the land with a one-cell ocean border;
-panning stays within that extent. Keep the local rendering study separate from live daemon actions.
+Empty cells carry no scenery. Project, workspace and empty cells each have a distinct tile style
+(flagstones, timber decking, sand). Minimum zoom fits the land with a one-cell border (plus room for banners and map controls);
+panning stays within that extent. The world never sends daemon actions; the React UI owns them.

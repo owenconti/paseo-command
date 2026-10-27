@@ -144,6 +144,8 @@ export function permissionRows(agents: Loose<PaseoAgent>[]) {
     agentShortId: string;
     name: string;
     description: string;
+    /** The daemon's request kind: "question" asks for answers, not approval. */
+    kind: string;
   }[] = [];
   for (const a of agents)
     for (const p of Array.isArray(a?.pendingPermissions)
@@ -156,6 +158,7 @@ export function permissionRows(agents: Loose<PaseoAgent>[]) {
           agentShortId: str(a?.id).slice(0, 7),
           name: str(p.name) || str(p.title) || "Permission request",
           description: str(p.description) || "-",
+          kind: str((p as { kind?: unknown }).kind) || "tool",
         });
   return out;
 }

@@ -2,7 +2,7 @@
   "name": "paseo-command",
   "private": true,
   "type": "module",
-  "description": "Paseo Command: a Phaser AE game",
+  "description": "Paseo Command: the Paseo fleet drawn as the Atlas world (Phaser 4)",
   "scripts": {
     "build": "node phaser/bin/bake.mjs build game dist",
     "smoke": "node phaser/bin/bake.mjs smoke game",
@@ -12,14 +12,15 @@
     "bake": "node phaser/bin/bake.mjs game",
     "typecheck": "node phaser/node_modules/typescript/bin/tsc -p game --noEmit",
     "serve": "npm run build && node scripts/serve-world.mjs",
-    "app:install": "npm --prefix web install",
-    "app:dev": "npm run build && node scripts/sync-world.mjs && npm --prefix web run dev",
-    "app:build": "npm run build && node scripts/sync-world.mjs && npm --prefix web run build",
+    "app:install": "npm --prefix rendering install && npm --prefix web install",
+    "app:dev": "npm --prefix web run dev",
+    "app:build": "npm run render:test && npm --prefix web run build",
     "app:typecheck": "npm --prefix web run typecheck",
     "render:install": "npm --prefix rendering install",
     "render:dev": "npm --prefix rendering run dev",
     "render:build": "npm --prefix rendering run build",
     "render:preview": "npm --prefix rendering run preview",
-    "render:test": "node --experimental-strip-types --test rendering/tests/*.test.mjs"
+    "render:test": "node --experimental-strip-types --test rendering/tests/*.test.mjs",
+    "app:e2e": "npm --prefix web run e2e"
   }
 }

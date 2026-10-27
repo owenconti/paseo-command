@@ -26,7 +26,7 @@ import {
   resolveHost,
   statusView,
 } from "./hosts";
-import { LOCAL_HOST, bodyOf, replier, shuttingDown } from "./http";
+import { allowedOrigin, bodyOf, replier, shuttingDown } from "./http";
 import { aggregate, labelCatalog, models, providers, usage } from "./reads";
 import { startLive } from "./stream";
 import { archiveSubagents, subagentTimeline } from "./subagents";
@@ -61,9 +61,9 @@ export async function handleApi(
   res.setHeader("X-Content-Type-Options", "nosniff");
   const reply = replier(res);
   // Reject cross-origin browser access, including DNS rebinding hosts.
-  if (!LOCAL_HOST.test(req.headers.host || ""))
-    return reply(403, { error: "Local access only" });
-  if (req.headers.origin && req.headers.origin !== `http://${req.headers.host}`)
+  const origin = allowedOrigin(req);
+  if (!origin) return reply(403, { error: "Local access only" });
+  if (req.headers.origin && req.headers.origin !== origin)
     return reply(403, { error: "Same-origin access only" });
   // The app's own commits on main: read from git, never the daemon.
   if (req.method === "GET" && url.pathname === "/api/commits") {

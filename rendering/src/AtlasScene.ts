@@ -1,88 +1,180 @@
 import Phaser from "phaser";
 import { renderDensity } from "./display";
 import { registerFrames, sprite } from "./textures";
-import { drawTerrain, WORLD_BOUNDS } from "./terrain";
+import { drawTerrain, paintGround, paintClouds, paintWater, paintGlints, WATER } from "./terrain";
 import {
-  agents,
-  projects,
-  workspaces,
-  hosts,
-  entities,
   point,
   HEX_RADIUS,
   MODEL_COLORS,
-  STATE_NAMES,
+  type AtlasLayout,
+  type AtlasData,
+  layoutAtlas,
   type Entity,
-  type State,
   footprint,
   insideFootprint,
   fittedWidth,
   landBounds,
   footprintEdges,
+  cellBounds,
+  robotOffset,
+  ROBOT_SIZE,
+  structureCentre,
+  STATE_TILE,
+  tileState,
+  type State,
 } from "./world";
+import buildingsUrl from "./assets/buildings.png";
+import robotsUrl from "./assets/robots.png";
+import foliageUrl from "./assets/tree-v2.png";
+import sandUrl from "./assets/sand.png";
 const MAX_ZOOM = 2.4;
+/** Landmark art as a share of the largest size that fits its cells. */
+const LANDMARK_SCALE: Record<string, number> = {
+  manor: 0.78,
+  observatory: 0.8,
+  conservatory: 0.92,
+};
+/** How far a cottage sits above its cell's centre. */
+const COTTAGE_LIFT = 20;
+/** How far landmark art sits above the middle of its cells. */
+const LANDMARK_LIFT = 30;
+const LABEL_FONT = "Georgia, serif";
 const vectors = (points: { x: number; y: number }[]) =>
   points.map((p) => new Phaser.Math.Vector2(p.x, p.y));
+type Box = { x: number; y: number; width: number; height: number };
+/** Screen position in CSS pixels relative to the canvas. */
+export type ScreenPoint = { x: number; y: number };
 export class AtlasScene extends Phaser.Scene {
   private water!: Phaser.GameObjects.TileSprite;
+  private glints!: Phaser.GameObjects.TileSprite;
+  private clouds!: Phaser.GameObjects.TileSprite;
+  private drift = 0;
   private selected!: Phaser.GameObjects.Graphics;
   private hover!: Phaser.GameObjects.Graphics;
-  private markers = new Map<string, Phaser.GameObjects.Container>();
-  private locations = new Map<
-    string,
-    { x: number; y: number; width: number; height: number }
-  >();
+  private locations = new Map<string, Box>();
   private controls?: Phaser.Cameras.Controls.FixedKeyControl;
   private reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
   private down?: { x: number; y: number; scrollX: number; scrollY: number };
   private selectedId: string | null = null;
+  private hoveredId: string | null = null;
+  private layout: AtlasLayout | null = null;
+  private pending: AtlasLayout | null = null;
+  private world: Phaser.GameObjects.GameObject[] = [];
+  private agentLayer: Phaser.GameObjects.GameObject[] = [];
+  private terrainKeys: string[] = [];
+  private builds = 0;
+  /** The state each workspace tile shows. */
+  private tiles = new Map<string, State>();
+  private created = false;
+  private fitted = false;
   constructor() {
     super("atlas");
   }
   preload(): void {
-    this.load.image("buildings", "/assets/buildings.png");
-    this.load.image("robots", "/assets/robots.png");
-    this.load.image("foliage", "/assets/tree-v2.png");
-    this.load.image("water", "/assets/water.png");
-    this.load.image("sand", "/assets/sand.png");
+    this.load.image("buildings", buildingsUrl);
+    this.load.image("robots", robotsUrl);
+    this.load.image("foliage", foliageUrl);
+    this.load.image("sand", sandUrl);
     this.load.on("loaderror", (file: Phaser.Loader.File) =>
       this.game.events.emit(
         "atlas:error",
-        `Could not load ${file.key}. Reload the preview to retry.`,
+        `Could not load ${file.key}. Reload the world to retry.`,
       ),
     );
   }
   create(): void {
     registerFrames(this);
+    paintGround(this);
+    paintWater(this);
+    paintGlints(this);
+    paintClouds(this);
     this.water = this.add
-      .tileSprite(-3000, -3000, 7000, 6500, "water")
+      .tileSprite(0, 0, 16, 16, "water")
       .setOrigin(0)
-      .setDepth(-10)
-      .setTileScale(0.95)
-      .setAlpha(0.48);
-    this.cameras.main.setBackgroundColor("#72bfd0");
-    drawTerrain(this);
+      .setDepth(-10);
+    this.glints = this.add
+      .tileSprite(0, 0, 16, 16, "glints")
+      .setOrigin(0)
+      .setDepth(-9.5)
+      .setTileScale(1.6)
+      .setAlpha(0.7);
+    // Cloud shadows pass over the land and buildings but never over labels or robots.
+    this.clouds = this.add
+      .tileSprite(0, 0, 16, 16, "clouds")
+      .setOrigin(0)
+      .setDepth(20)
+      .setTileScale(6)
+      .setAlpha(0.2);
+    this.cameras.main.setBackgroundColor(WATER);
     this.hover = this.add.graphics().setDepth(7);
     this.selected = this.add.graphics().setDepth(8);
-    for (const p of projects) this.landmark(p);
-    for (const ws of workspaces) this.workspace(ws);
-    for (const a of agents) this.agent(a);
-    this.ribbon(-245, -510, "LOCAL", 310, 38, true);
-    this.ribbon(1100, 195, "MACMINI", 265, 34, true);
-    for (const h of hosts) {
-      const loc =
-        h.id === "local"
-          ? { x: -180, y: -120, width: 1230, height: 1050 }
-          : { x: 1060, y: 570, width: 670, height: 690 };
-      this.locations.set(h.id, loc);
-    }
     this.configureInput();
-    this.fit();
     const resize = () => this.fit();
     this.scale.on("resize", resize);
     this.events.once("shutdown", () => this.scale.off("resize", resize));
+    this.created = true;
+    if (this.pending) this.setLayout(this.pending);
     this.game.events.emit("atlas:ready");
     this.reportCamera();
+  }
+  /** Draw a fleet, laid out for a viewport of the given width over height. */
+  setData(data: AtlasData, aspect: number): void {
+    this.setLayout(layoutAtlas(data, aspect));
+  }
+  /** Replace the drawn fleet. Unchanged cell assignments only redraw the robots. */
+  setLayout(layout: AtlasLayout): void {
+    if (!this.created) {
+      this.pending = layout;
+      return;
+    }
+    this.pending = null;
+    const structural = this.layout?.signature !== layout.signature;
+    this.layout = layout;
+    if (structural) this.rebuild();
+    else {
+      this.tweens.killAll();
+      for (const o of this.agentLayer.splice(0)) o.destroy();
+      this.agentLayer = this.capture(() => {
+        this.agentTiles(layout);
+        this.agentTiles(layout);
+      for (const a of layout.agents) this.agent(a);
+      });
+    }
+    // A vanished selection clears quietly; the app decides what is selected.
+    if (this.selectedId && !this.entity(this.selectedId)) this.selectedId = null;
+    this.drawSelection();
+    if (this.hoveredId && !this.entity(this.hoveredId)) this.setHover(null);
+    if (!this.fitted) {
+      this.fitted = true;
+      this.fit();
+    }
+  }
+  private capture(build: () => void): Phaser.GameObjects.GameObject[] {
+    const before = new Set(this.children.list);
+    build();
+    return this.children.list.filter((o) => !before.has(o));
+  }
+  private rebuild(): void {
+    const layout = this.layout!;
+    this.tweens.killAll();
+    for (const o of [...this.world, ...this.agentLayer]) o.destroy();
+    for (const key of this.terrainKeys) this.textures.remove(key);
+    this.locations.clear();
+    this.hover.clear();
+    const build = ++this.builds;
+    this.world = this.capture(() => {
+      this.terrainKeys = drawTerrain(this, layout, build);
+      for (const p of layout.projects) this.landmark(p);
+      for (const ws of layout.workspaces) this.workspace(ws);
+      for (const h of layout.hosts) this.host(h);
+    });
+    this.agentLayer = this.capture(() => {
+      this.agentTiles(layout);
+      for (const a of layout.agents) this.agent(a);
+    });
+  }
+  private entity(id: string): Entity | undefined {
+    return this.layout?.entities.find((e) => e.id === id);
   }
   private polygon(
     x: number,
@@ -102,78 +194,80 @@ export class AtlasScene extends Phaser.Scene {
     g.lineStyle(width, line, 0.65).strokePoints(vectors(points), true);
     return g;
   }
+  /** World-scale text, shortened with an ellipsis to a fixed world width. */
+  private caption(
+    text: string,
+    size: number,
+    maxWidth: number,
+    style: Partial<Phaser.Types.GameObjects.Text.TextStyle> = {},
+  ): Phaser.GameObjects.Text {
+    const caption = this.add
+      .text(0, 0, text, {
+        fontFamily: LABEL_FONT,
+        fontSize: `${size}px`,
+        color: "#3e3322",
+        ...style,
+      })
+      .setOrigin(0.5)
+      .setResolution(3 * renderDensity());
+    let shown = text;
+    while (caption.width > maxWidth && shown.length > 1) {
+      shown = shown.slice(0, -1);
+      caption.setText(shown.trimEnd() + "…");
+    }
+    return caption;
+  }
   private ribbon(
     x: number,
     y: number,
     text: string,
-    width: number,
-    height: number,
-    host = false,
-  ): void {
+    kind: "host" | "project",
+    maxWidth: number,
+    faded = false,
+  ): Phaser.GameObjects.Container {
+    const host = kind === "host";
     const group = this.add.container(x, y).setDepth(23);
+    const caption = this.caption(text, host ? 29 : 21, maxWidth, {
+      fontStyle: host ? "normal" : "bold",
+      letterSpacing: host ? 5 : 0,
+      color: faded ? "#6d6656" : "#3e3322",
+    });
+    const width = Math.max(host ? 150 : 90, caption.width + (host ? 56 : 34)),
+      height = host ? 38 : 26;
     const g = this.add.graphics();
     group.add(g);
-    group.setData("labelKind", host ? "host" : "project");
+    group.setData("labelKind", kind);
     const l = -width / 2,
       r = width / 2,
       t = -height / 2,
       b = height / 2;
+    const tails = [
+      [
+        { x: l - 17, y: t + 5 },
+        { x: l + 10, y: t + 7 },
+        { x: l + 10, y: b + 10 },
+        { x: l - 19, y: b + 8 },
+        { x: l - 11, y: 3 },
+      ],
+      [
+        { x: r + 17, y: t + 5 },
+        { x: r - 10, y: t + 7 },
+        { x: r - 10, y: b + 10 },
+        { x: r + 19, y: b + 8 },
+        { x: r + 11, y: 3 },
+      ],
+    ];
     g.fillStyle(0x6e5936, 0.13).fillRoundedRect(l + 3, t + 5, width, height, 2);
-    g.fillStyle(0xdcc995).lineStyle(1.2, 0x8c7447);
-    g.fillPoints(
-      vectors([
-        { x: l - 17, y: t + 5 },
-        { x: l + 10, y: t + 7 },
-        { x: l + 10, y: b + 10 },
-        { x: l - 19, y: b + 8 },
-        { x: l - 11, y: 3 },
-      ]),
-      true,
-    );
-    g.strokePoints(
-      vectors([
-        { x: l - 17, y: t + 5 },
-        { x: l + 10, y: t + 7 },
-        { x: l + 10, y: b + 10 },
-        { x: l - 19, y: b + 8 },
-        { x: l - 11, y: 3 },
-      ]),
-      true,
-    );
-    g.fillPoints(
-      vectors([
-        { x: r + 17, y: t + 5 },
-        { x: r - 10, y: t + 7 },
-        { x: r - 10, y: b + 10 },
-        { x: r + 19, y: b + 8 },
-        { x: r + 11, y: 3 },
-      ]),
-      true,
-    );
-    g.strokePoints(
-      vectors([
-        { x: r + 17, y: t + 5 },
-        { x: r - 10, y: t + 7 },
-        { x: r - 10, y: b + 10 },
-        { x: r + 19, y: b + 8 },
-        { x: r + 11, y: 3 },
-      ]),
-      true,
-    );
-    g.fillStyle(0xf5e8bd).fillRoundedRect(l, t, width, height, 3);
+    g.fillStyle(faded ? 0xc9c1a8 : 0xdcc995).lineStyle(1.2, 0x8c7447);
+    for (const tail of tails) {
+      g.fillPoints(vectors(tail), true);
+      g.strokePoints(vectors(tail), true);
+    }
+    g.fillStyle(faded ? 0xe2dccb : 0xf5e8bd).fillRoundedRect(l, t, width, height, 3);
     g.lineStyle(1.4, 0x8c7447).strokeRoundedRect(l, t, width, height, 3);
     g.lineStyle(0.7, 0xfff7d9, 0.8).lineBetween(l + 4, t + 4, r - 4, t + 4);
-    const caption = this.add
-      .text(0, 0, text, {
-        fontFamily: "Georgia, serif",
-        fontSize: host ? "29px" : "21px",
-        fontStyle: host ? "normal" : "bold",
-        color: "#3e3322",
-        letterSpacing: host ? 5 : 0,
-      })
-      .setOrigin(0.5)
-      .setResolution(3 * renderDensity());
     group.add(caption);
+    return group;
   }
   private hit(
     entity: Entity,
@@ -190,22 +284,47 @@ export class AtlasScene extends Phaser.Scene {
       .setInteractive({
         useHandCursor: true,
         hitArea: new Phaser.Geom.Rectangle(0, 0, width, height),
-        hitAreaCallback: (_area: unknown, localX: number, localY: number) =>
-          entity.kind === "agent" ||
-          insideFootprint(
+        // A custom callback replaces Phaser's own bounds test, so it checks both.
+        hitAreaCallback: (
+          area: Phaser.Geom.Rectangle,
+          localX: number,
+          localY: number,
+        ) =>
+          Phaser.Geom.Rectangle.Contains(area, localX, localY) &&
+          (entity.kind === "agent" ||
+            entity.kind === "host" ||
+            insideFootprint(
             x + localX - width / 2,
-            y + localY - height / 2,
-            footprint(entity),
-          ),
+              y + localY - height / 2,
+              footprint(entity),
+            )),
       });
-    zone.on("pointerover", () => {
-      this.outlineCells(this.hover, entity, 2, 0xa77d35);
+    zone.on("pointerover", () => this.setHover(entity.id));
+    zone.on("pointerout", () => {
+      if (this.hoveredId === entity.id) this.setHover(null);
     });
-    zone.on("pointerout", () => this.hover.clear());
     zone.on("pointerup", (p: Phaser.Input.Pointer) => {
       if (Phaser.Math.Distance.Between(p.downX, p.downY, p.x, p.y) < 7)
-        this.select(entity.id);
+        this.pick(entity.id);
     });
+  }
+  private setHover(id: string | null): void {
+    this.hoveredId = id;
+    this.hover.clear();
+    const entity = id ? this.entity(id) : undefined;
+    if (entity && entity.kind !== "host")
+      this.outlineCells(this.hover, entity, 2, 0xa77d35);
+    this.game.events.emit(
+      "atlas:hover",
+      entity ?? null,
+      entity ? this.screenOf(entity.id) : null,
+    );
+  }
+  /** A user's choice on the map. Hosts frame their island instead. */
+  private pick(id: string): void {
+    const entity = this.entity(id);
+    if (!entity) return;
+    this.game.events.emit("atlas:pick", entity);
   }
   private outlineCells(
     graphics: Phaser.GameObjects.Graphics,
@@ -218,88 +337,153 @@ export class AtlasScene extends Phaser.Scene {
     graphics.setData("edgeCount", edges.length);
     for (const { a, b } of edges) graphics.lineBetween(a.x, a.y, b.x, b.y);
   }
+  private host(h: Entity): void {
+    const islands = this.layout!.islands.filter((i) => i.host === h.id);
+    const island = { online: islands.every((i) => i.online) };
+    const bounds = cellBounds(islands.flatMap((i) => i.cells));
+    // The banner stands on the landmass's northern shore.
+    const x = bounds.x + bounds.width / 2,
+      y = bounds.y - HEX_RADIUS * 0.75;
+    const name = h.name.toUpperCase() + (island.online ? "" : " · OFFLINE");
+    this.ribbon(x, y, name, "host", Math.max(260, bounds.width - 80), !island.online);
+    this.hit(h, x, y, Math.min(bounds.width, 420), 44, 24);
+    this.locations.set(h.id, {
+      x,
+      y: bounds.y + bounds.height / 2 - 20,
+      width: bounds.width,
+      height: bounds.height + 80,
+    });
+  }
   private landmark(p: Entity): void {
-    const at = point(p.position),
+    const at = structureCentre(p),
       cells = footprint(p);
-    for (const cell of cells) {
-      const center = point(cell);
-      this.polygon(center.x, center.y, HEX_RADIUS, 0xe3d6b4, 0.4).setDepth(2);
-    }
-    const image = sprite(this, at.x, at.y, p.art!, 335).setDepth(15);
-    const width = fittedWidth(
-      at.x,
-      at.y,
-      image.width / image.height,
-      335,
-      cells,
-    );
-    image.setScale(width / image.width);
+    // Size the building for the courtyard's middle, then lift it toward the
+    // top as far as that size still fits inside its cells.
+    const image = sprite(this, at.x, at.y, p.art!, 420).setDepth(15);
+    const aspect = image.width / image.height;
+    const size = fittedWidth(at.x, at.y, aspect, 420, cells) * (LANDMARK_SCALE[p.art!] ?? 0.9);
+    let lift = LANDMARK_LIFT;
+    while (lift > 0 && fittedWidth(at.x, at.y - lift, aspect, 420, cells) < size) lift -= 2;
+    image.setY(at.y - lift).setScale(size / image.width);
     image.setData("footprint", cells);
-    this.ribbon(at.x, at.y + 112, p.name, 180, 26);
-    this.hit(p, at.x, at.y, HEX_RADIUS * Math.sqrt(3) * 3, HEX_RADIUS * 5, 25);
+    if (p.stale) image.setAlpha(0.6);
+    this.ribbon(at.x, at.y + 112, p.name, "project", 250, p.stale);
+    this.hit(p, at.x, at.y, HEX_RADIUS * Math.sqrt(3) * 4, HEX_RADIUS * 5, 25);
   }
   private workspace(ws: Entity): void {
     const at = point(ws.position);
-    this.polygon(
-      at.x,
-      at.y,
-      HEX_RADIUS,
-      0xf3e7c8,
-      0.75,
-      0xa99467,
-      1.6,
-    ).setDepth(3);
-    this.polygon(
-      at.x,
-      at.y,
-      HEX_RADIUS - 10,
-      0xfaf1d5,
-      0.1,
-      0xbba77a,
-      0.7,
-    ).setDepth(3);
     const cells = footprint(ws);
-    const image = sprite(this, at.x, at.y, ws.art!, 118).setDepth(16);
-    image.setScale(
-      fittedWidth(at.x, at.y, image.width / image.height, 118, cells) /
-        image.width,
-    );
-    image.setData("footprint", cells);
-    const numberGroup = this.add.container(at.x, at.y + 49).setDepth(21);
-    const number = this.add.graphics();
-    numberGroup.add(number);
-    numberGroup.setData("labelKind", "workspace");
-    number.fillStyle(0xf4e8c4).fillRoundedRect(-14, -8, 28, 16, 2);
-    number.lineStyle(1, 0xa68d5d).strokeRoundedRect(-14, -8, 28, 16, 2);
-    const numberCaption = this.add
-      .text(0, 0, ws.number!, {
-        fontFamily: "Georgia,serif",
-        fontSize: "14px",
-        color: "#4a3b25",
-      })
-      .setOrigin(0.5)
-      .setResolution(3 * renderDensity());
-    numberGroup.add(numberCaption);
+    if (ws.camp) {
+      // No cottage: the daemon reports these agents without a workspace.
+      const g = this.add.graphics().setDepth(16);
+      g.lineStyle(2, 0x7b6340).lineBetween(at.x - 6, at.y + 6, at.x - 6, at.y - 30);
+      g.fillStyle(0xc75136).fillTriangle(
+        at.x - 5,
+        at.y - 30,
+        at.x + 18,
+        at.y - 23,
+        at.x - 5,
+        at.y - 16,
+      );
+      g.fillStyle(0x7b6340, 0.35).fillEllipse(at.x - 6, at.y + 7, 18, 6);
+    } else {
+      // Small and toward the top of its cell, leaving the lower part for robots.
+      const y = at.y - COTTAGE_LIFT;
+      const image = sprite(this, at.x, y, ws.art!, 74).setDepth(16);
+      image.setScale(
+        fittedWidth(at.x, y, image.width / image.height, 74, cells) /
+          image.width,
+      );
+      image.setData("footprint", cells);
+      if (ws.stale) image.setAlpha(0.6);
+    }
+    // No name plate: the workspace's name shows on hover.
     this.hit(ws, at.x, at.y, HEX_RADIUS * Math.sqrt(3), HEX_RADIUS * 2, 29);
+  }
+  /** Each occupied workspace tile takes the colour of its most urgent agent,
+   * so state reads at any zoom; states that need you pulse. */
+  private agentTiles(layout: AtlasLayout): void {
+    this.tiles.clear();
+    const states = new Map<string, State[]>();
+    for (const a of layout.agents)
+      states.set(a.workspace!, [...(states.get(a.workspace!) ?? []), a.state!]);
+    for (const ws of layout.workspaces) {
+      const state = tileState(states.get(ws.id) ?? []);
+      const color = state && STATE_TILE[state];
+      if (!state || color === undefined) continue;
+      this.tiles.set(ws.id, state);
+      const at = point(ws.position);
+      const hex = (r: number) =>
+        vectors(
+          Array.from({ length: 6 }, (_, i) => ({
+            x: at.x + Math.cos((i * Math.PI) / 3 - Math.PI / 2) * r,
+            y: at.y + Math.sin((i * Math.PI) / 3 - Math.PI / 2) * r,
+          })),
+        );
+      const g = this.add.graphics().setDepth(4);
+      g.fillStyle(color, state === "offline" ? 0.25 : 0.42).fillPoints(hex(HEX_RADIUS - 1), true);
+      g.lineStyle(9, color, 0.95).strokePoints(hex(HEX_RADIUS - 5.5), true);
+      g.lineStyle(1.5, 0xfff8e6, 0.7).strokePoints(hex(HEX_RADIUS - 10.5), true);
+      if (["failed", "approval", "question", "done"].includes(state)) {
+        const tween = this.tweens.add({
+          targets: g,
+          alpha: { from: 0.55, to: 1 },
+          duration: 900,
+          repeat: -1,
+          yoyo: true,
+          ease: "Sine.easeInOut",
+        });
+        if (this.reduced) tween.pause();
+      }
+    }
   }
   private agent(a: Entity): void {
     const at = point(a.position),
-      x = at.x + 24,
-      y = at.y + 24;
-    const image = sprite(this, x, y, a.art!, 27).setDepth(35);
+      offset = robotOffset(a.slot ?? 0),
+      x = at.x + offset.x,
+      y = at.y + offset.y;
+    const offline = a.state === "offline";
+    const image = sprite(this, x, y, a.art!, ROBOT_SIZE).setDepth(35);
     image.setData("agent", a.id);
-    this.hit(a, x, y, 36, 36, 40);
-    this.markers.set(a.id, this.marker(a, x, y));
+    if (offline) image.setTint(0x9c9a92).setAlpha(0.7);
+    this.hit(a, x, y, ROBOT_SIZE + 10, ROBOT_SIZE + 10, 40);
+    this.marker(a, x, y);
   }
-  private marker(
-    a: Entity,
-    x: number,
-    y: number,
-  ): Phaser.GameObjects.Container {
-    const c = this.add.container(x, y).setDepth(33);
+  private badge(
+    c: Phaser.GameObjects.Container,
+    fill: number,
+    rim: number,
+    glyph: string,
+  ): void {
+    const g = this.add.graphics();
+    g.fillStyle(rim).fillCircle(16, -16, 11);
+    g.fillStyle(fill).fillCircle(15, -17, 10);
+    g.lineStyle(1, 0xfff3d6, 0.9).strokeCircle(15, -17, 8.2);
+    c.add(g);
+    if (glyph === "x") {
+      g.lineStyle(3, 0xffeed1);
+      g.lineBetween(11, -21, 19, -13);
+      g.lineBetween(19, -21, 11, -13);
+    } else
+      c.add(
+        this.add
+          .text(15, -17, glyph, {
+            fontFamily: LABEL_FONT,
+            fontSize: "15px",
+            fontStyle: "bold",
+            color: "#fffaf0",
+          })
+          .setOrigin(0.5, 0.52)
+          .setResolution(3 * renderDensity()),
+      );
+  }
+  private marker(a: Entity, x: number, y: number): void {
+    // Marker geometry is drawn for a 27px robot and scales with the sprite.
+    const c = this.add.container(x, y).setDepth(36).setScale(ROBOT_SIZE / 27);
+    const color = MODEL_COLORS[a.model!];
     if (a.state === "running") {
-      const waves = this.add.graphics();
-      waves.lineStyle(2.5, MODEL_COLORS[a.model!], 0.85);
+      const waves = this.add.graphics().setDepth(-1);
+      waves.lineStyle(2.5, color, 0.85);
       for (const radius of [18, 23]) {
         waves.beginPath().arc(0, 0, radius, -0.8, 0.8).strokePath();
         waves
@@ -318,20 +502,16 @@ export class AtlasScene extends Phaser.Scene {
         ease: "Sine.easeInOut",
       });
       if (this.reduced) tween.pause();
-    } else if (a.state === "done" || a.state === "approval") {
-      const done = a.state === "done",
-        r = done ? 22 : 10,
-        ox = done ? -36 : 16,
-        oy = done ? -49 : -18;
+    } else if (a.state === "done") {
+      const r = 12,
+        ox = -2,
+        oy = -30;
       const g = this.add.graphics();
-      if (done) {
-        g.fillStyle(0xffd45a, 0.13).fillCircle(ox, oy, 28);
-        g.fillStyle(0xffe5a0, 0.28).fillCircle(ox, oy, 25);
-      }
+      g.fillStyle(0xffd45a, 0.16).fillCircle(ox, oy, r + 7);
+      g.fillStyle(0xffe5a0, 0.3).fillCircle(ox, oy, r + 4);
       g.fillStyle(0xb5781f).fillCircle(ox + 1, oy + 2, r + 2);
       g.fillStyle(0xe9ae2e).fillCircle(ox, oy, r);
-      g.lineStyle(1.5, 0xffedac).strokeCircle(ox, oy, r - 3);
-      g.lineStyle(0.8, 0xa46c12).strokeCircle(ox, oy, r - 6);
+      g.lineStyle(1.2, 0xffedac).strokeCircle(ox, oy, r - 2.5);
       const star = Array.from({ length: 16 }, (_, i) => {
         const radius = i % 2 === 0 ? r * 0.72 : r * 0.23;
         return {
@@ -342,28 +522,42 @@ export class AtlasScene extends Phaser.Scene {
       g.fillStyle(0xfff1b8).fillPoints(vectors(star), true);
       g.lineStyle(0.7, 0xb67b1c).strokePoints(vectors(star), true);
       c.add(g);
-      if (done) {
-        const tween = this.tweens.add({
-          targets: g,
-          alpha: { from: 0.85, to: 1 },
-          duration: 1800,
-          repeat: -1,
-          yoyo: true,
-          ease: "Sine.easeInOut",
-        });
-        if (this.reduced) tween.pause();
-      }
-    } else if (a.state === "failed") {
+      const tween = this.tweens.add({
+        targets: g,
+        alpha: { from: 0.8, to: 1 },
+        duration: 1800,
+        repeat: -1,
+        yoyo: true,
+        ease: "Sine.easeInOut",
+      });
+      if (this.reduced) tween.pause();
+    } else if (a.state === "approval") this.badge(c, 0xe39a1e, 0x9a5f0c, "!");
+    else if (a.state === "question") this.badge(c, 0x3a7fc4, 0x1f4f80, "?");
+    else if (a.state === "failed") this.badge(c, 0xc75136, 0x7f2d22, "x");
+    if (a.subagents && a.state !== "offline") {
+      // Helpers in flight: one small light per running subagent, up to three.
       const g = this.add.graphics();
-      g.fillStyle(0x7f2d22).fillCircle(22, -24, 15);
-      g.fillStyle(0xc75136).fillCircle(21, -25, 14);
-      g.lineStyle(1, 0xf5d4ab).strokeCircle(21, -25, 12);
-      g.lineStyle(3.5, 0xffeed1);
-      g.lineBetween(16, -30, 26, -20);
-      g.lineBetween(26, -30, 16, -20);
+      for (let i = 0; i < Math.min(3, a.subagents); i++) {
+        g.fillStyle(0x3d3a2e, 0.25).fillCircle(-17 + i * 7, 17, 3.4);
+        g.fillStyle(color).fillCircle(-17 + i * 7, 16, 3);
+      }
       c.add(g);
     }
-    return c;
+    if (a.overflow) {
+      const g = this.add.graphics();
+      g.fillStyle(0x3e3322, 0.85).fillRoundedRect(-14, 18, 28, 14, 7);
+      c.add(g);
+      c.add(
+        this.add
+          .text(0, 25, `+${a.overflow}`, {
+            fontFamily: LABEL_FONT,
+            fontSize: "11px",
+            color: "#fbf3dc",
+          })
+          .setOrigin(0.5)
+          .setResolution(3 * renderDensity()),
+      );
+    }
   }
   private configureInput(): void {
     this.input.mouse?.disableContextMenu();
@@ -381,9 +575,13 @@ export class AtlasScene extends Phaser.Scene {
       const cam = this.cameras.main;
       cam.scrollX = this.down.scrollX - (p.x - this.down.x) / cam.zoom;
       cam.scrollY = this.down.scrollY - (p.y - this.down.y) / cam.zoom;
+      if (this.hoveredId) this.setHover(null);
     });
     this.input.on("pointerup", () => {
       this.down = undefined;
+    });
+    this.input.on("gameout", () => {
+      if (this.hoveredId) this.setHover(null);
     });
     this.input.on(
       "wheel",
@@ -406,6 +604,7 @@ export class AtlasScene extends Phaser.Scene {
         const after = cam.getWorldPoint(pointer.x, pointer.y);
         cam.scrollX += before.x - after.x;
         cam.scrollY += before.y - after.y;
+        if (this.hoveredId) this.setHover(null);
         this.reportCamera();
       },
     );
@@ -422,18 +621,24 @@ export class AtlasScene extends Phaser.Scene {
       });
       keyboard.on("keydown-HOME", () => this.fit());
       keyboard.on("keydown-F", () => this.fit());
-      keyboard.on("keydown-ESC", () => this.select(null));
+      keyboard.on("keydown-ESC", () => this.game.events.emit("atlas:pick", null));
     }
   }
   private mapExtent() {
-    const bounds = landBounds();
-    const marginX = HEX_RADIUS * Math.sqrt(3),
-      marginY = HEX_RADIUS * 2;
+    const bounds = this.layout
+      ? landBounds(this.layout)
+      : { x: -400, y: -300, width: 800, height: 600 };
+    // Host banners stand on the open ground above their islands.
+    // Room for each host's shores all round, its banner above, and the map's
+    // own floating controls (toolbar above, help line below).
+    const marginX = HEX_RADIUS * 1.6,
+      top = HEX_RADIUS * 2.4,
+      bottom = HEX_RADIUS * 2;
     return {
       x: bounds.x - marginX,
-      y: bounds.y - marginY,
+      y: bounds.y - top,
       width: bounds.width + marginX * 2,
-      height: bounds.height + marginY * 2,
+      height: bounds.height + top + bottom,
     };
   }
   private minimumZoom(): number {
@@ -494,16 +699,30 @@ export class AtlasScene extends Phaser.Scene {
       );
       this.reportCamera();
     }
-    if (command === "local") {
-      this.focus("local");
-    }
-    if (command === "macmini") this.focus("macmini");
   }
-  focus(id: string): void {
-    const loc = this.locations.get(id);
-    if (!loc) return;
-    const cam = this.cameras.main,
-      entity = entities.find((e) => e.id === id)!;
+  /**
+   * Bring an entity into view. By default only pans, and only when it is not
+   * already comfortably visible; `zoom` also frames it closer.
+   */
+  focus(id: string, zoom = false): void {
+    const loc = this.locations.get(id),
+      entity = this.entity(id);
+    if (!loc || !entity) return;
+    const cam = this.cameras.main;
+    if (!zoom) {
+      const v = cam.worldView,
+        mx = v.width * 0.12,
+        my = v.height * 0.12;
+      const visible =
+        loc.x > v.x + mx &&
+        loc.x < v.x + v.width - mx &&
+        loc.y > v.y + my &&
+        loc.y < v.y + v.height - my;
+      if (visible) return;
+      if (this.reduced) cam.centerOn(loc.x, loc.y);
+      else cam.pan(loc.x, loc.y, 380, "Cubic.easeOut", true);
+      return;
+    }
     const requestedZoom =
       entity.kind === "host"
         ? Math.min(
@@ -513,41 +732,46 @@ export class AtlasScene extends Phaser.Scene {
         : entity.kind === "project"
           ? Math.min(1.5 * renderDensity(), this.scale.height / 650)
           : 1.5 * renderDensity();
-    const zoom = Math.max(this.minimumZoom(), requestedZoom);
+    const level = Phaser.Math.Clamp(
+      requestedZoom,
+      this.minimumZoom(),
+      MAX_ZOOM * renderDensity(),
+    );
     if (this.reduced) {
+      cam.setZoom(level);
       cam.centerOn(loc.x, loc.y);
-      cam.setZoom(zoom);
     } else {
       cam.pan(loc.x, loc.y, 380, "Cubic.easeOut", true);
-      cam.zoomTo(zoom, 380, "Cubic.easeOut", true);
+      cam.zoomTo(level, 380, "Cubic.easeOut", true);
     }
   }
+  /** Highlight what the app has selected. Never reports back as a pick. */
   select(id: string | null): void {
-    this.selected.clear();
-    this.selectedId = id;
-    if (id) {
-      const loc = this.locations.get(id),
-        entity = entities.find((e) => e.id === id);
-      if (!loc || !entity) return;
-      this.outlineCells(this.selected, entity, 3, 0x9c742c);
-    }
+    if (!this.created) return;
+    this.selectedId = id && this.entity(id) ? id : null;
+    this.drawSelection();
     this.game.events.emit(
       "atlas:selection",
-      id ? entities.find((e) => e.id === id) : null,
+      this.selectedId ? this.entity(this.selectedId) : null,
     );
   }
-  cycleState(id: string): void {
-    const a = agents.find((a) => a.id === id);
-    if (!a) return;
-    const order: State[] = ["running", "idle", "done", "approval", "failed"];
-    a.state = order[(order.indexOf(a.state!) + 1) % order.length]!;
-    const loc = this.locations.get(id)!;
-    this.markers.get(id)?.destroy();
-    this.markers.set(id, this.marker(a, loc.x, loc.y));
-    this.select(id);
+  private drawSelection(): void {
+    this.selected.clear();
+    const entity = this.selectedId ? this.entity(this.selectedId) : undefined;
+    if (!entity || entity.kind === "host") return;
+    this.outlineCells(this.selected, entity, 3, 0x9c742c);
+    if (entity.kind === "agent") {
+      const loc = this.locations.get(entity.id)!;
+      this.selected.lineStyle(2.5, 0x6e4f1d, 0.95).strokeCircle(loc.x, loc.y, ROBOT_SIZE * 0.7);
+    }
   }
-  motion(): boolean {
-    this.reduced = !this.reduced;
+  setInput(enabled: boolean): void {
+    this.input.enabled = enabled;
+    if (this.input.keyboard) this.input.keyboard.enabled = enabled;
+    if (!enabled && this.hoveredId) this.setHover(null);
+  }
+  motion(reduced = !this.reduced): boolean {
+    this.reduced = reduced;
     if (this.reduced) this.tweens.pauseAll();
     else this.tweens.resumeAll();
     return this.reduced;
@@ -558,15 +782,34 @@ export class AtlasScene extends Phaser.Scene {
       entity.art ?? "manor",
     );
   }
+  /** Canvas-relative CSS position of an entity. */
+  screenOf(id: string): ScreenPoint | null {
+    const loc = this.locations.get(id);
+    if (!loc) return null;
+    const cam = this.cameras.main,
+      density = renderDensity();
+    return {
+      x: ((loc.x - cam.worldView.x) * cam.zoom) / density,
+      y: ((loc.y - loc.height / 2 - cam.worldView.y) * cam.zoom) / density,
+    };
+  }
   inspect() {
+    const layout = this.layout;
     return {
       scene: "atlas",
-      illustrative: true,
       renderer: "Phaser 4",
       selected: this.selectedId,
+      hovered: this.hoveredId,
       selectionEdgeCount: this.selectedId
         ? this.selected.getData("edgeCount")
         : 0,
+      islands: layout?.islands.map((i) => ({
+        key: i.key,
+        host: i.host,
+        name: i.name,
+        online: i.online,
+        cells: i.cells.length,
+      })),
       worldLabels: this.children.list
         .filter(
           (object) =>
@@ -597,7 +840,7 @@ export class AtlasScene extends Phaser.Scene {
           };
         }),
       selectedCells: this.selectedId
-        ? footprint(entities.find((e) => e.id === this.selectedId)!)
+        ? footprint(this.entity(this.selectedId)!)
         : [],
       minimumZoom: this.minimumZoom() / renderDensity(),
       mapExtent: this.mapExtent(),
@@ -619,23 +862,29 @@ export class AtlasScene extends Phaser.Scene {
         }),
       motion: !this.reduced,
       zoom: this.cameras.main.zoom / renderDensity(),
-      backingZoom: this.cameras.main.zoom,
       renderDensity: renderDensity(),
       viewport: {
         width: this.cameras.main.width,
         height: this.cameras.main.height,
       },
-      rendererSize: {
-        width: this.game.renderer.width,
-        height: this.game.renderer.height,
-      },
-      agents: agents.map((a) => ({
+      projects: layout?.projects.map((p) => ({ id: p.id, name: p.name })),
+      workspaces: layout?.workspaces.map((w) => ({
+        id: w.id,
+        name: w.name,
+        project: w.project,
+        camp: !!w.camp,
+      })),
+      agents: layout?.agents.map((a) => ({
         id: a.id,
         name: a.name,
         state: a.state,
         model: a.model,
+        workspace: a.workspace,
         at: this.locations.get(a.id),
+        screen: this.screenOf(a.id),
       })),
+      tiles: Object.fromEntries(this.tiles),
+      builds: this.builds,
       camera: { x: this.cameras.main.scrollX, y: this.cameras.main.scrollY },
       objects: this.children.length,
     };
@@ -649,7 +898,23 @@ export class AtlasScene extends Phaser.Scene {
   update(_time: number, delta: number): void {
     this.controls?.update(delta);
     this.constrainCamera();
-    if (!this.reduced && this.water) this.water.tilePositionX += delta * 0.0015;
+    if (!this.reduced) this.drift += delta * 0.006;
+    // Ground and clouds cover exactly the visible view; their textures stay anchored to the world.
+    // worldView trails a frame, so a margin covers fast pans and zooms.
+    const view = this.cameras.main.worldView,
+      pad = Math.max(view.width, view.height) * 0.25;
+    // Clouds drift one way; the sea's glints drift slowly against them.
+    for (const [layer, dx, dy] of [
+      [this.water, 0, 0],
+      [this.glints, -this.drift * 0.6, this.drift * 0.25],
+      [this.clouds, this.drift, this.drift * 0.4],
+    ] as const) {
+      const scale = layer.tileScaleX;
+      layer
+        .setPosition(view.x - pad, view.y - pad)
+        .setSize(view.width + pad * 2, view.height + pad * 2)
+        .setTilePosition((view.x - pad - dx) / scale, (view.y - pad - dy) / scale);
+    }
     if (this.cameras.main.zoomEffect.isRunning) this.reportCamera();
   }
 }

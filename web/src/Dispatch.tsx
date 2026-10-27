@@ -20,6 +20,37 @@ type Prefs = {
   >;
 };
 
+
+/** Modes the daemon reports for providers this browser hasn't seen an agent of yet. */
+const KNOWN_MODES: Record<string, Mode[]> = {
+  claude: [
+    { id: "plan", label: "Plan Mode" },
+    { id: "default", label: "Always Ask" },
+    { id: "acceptEdits", label: "Accept File Edits" },
+    { id: "auto", label: "Auto mode" },
+    { id: "bypassPermissions", label: "Bypass" },
+  ],
+  codex: [
+    { id: "auto", label: "Default Permissions" },
+    { id: "auto-review", label: "Auto-review" },
+    { id: "full-access", label: "Full Access" },
+  ],
+};
+const providerModes = (provider: string) => {
+  const seen = readStore<Mode[]>(`modes:${provider}`, []);
+  return seen.length ? seen : (KNOWN_MODES[provider] ?? []);
+};
+/** New dispatches run without permission prompts: the provider's bypass mode
+ * (Claude "Bypass", Codex "Full Access"), or its default when it has none. */
+export function bypassMode(provider: string) {
+  const modes = providerModes(provider);
+  return (
+    modes.find((m) => /^(bypassPermissions|full-access|bypass)$/i.test(m.id))?.id ??
+    modes.find((m) => /bypass|full access/i.test(m.label))?.id ??
+    ""
+  );
+}
+
 export function DispatchDialog({
   projects,
   workspaces,
@@ -112,7 +143,7 @@ export function DispatchDialog({
   const remembered = prefs.byProvider?.[provider] || {};
   const [model, setModel] = useState(remembered.model || "");
   const [thinking, setThinking] = useState(remembered.thinking || "");
-  const [mode, setMode] = useState(remembered.mode || "");
+  const [mode, setMode] = useState(remembered.mode || bypassMode(provider));
   const [models, setModels] = useState<Model[]>([]);
   const [branch, setBranch] = useState("");
   const [base, setBase] = useState("");
@@ -130,7 +161,7 @@ export function DispatchDialog({
     ? workspaces.find((w) => workspaceKey(w) === target.slice(2))
     : undefined;
   const host = hostKey === LOCAL ? undefined : hostKey;
-  const modes = readStore<Mode[]>(`modes:${provider}`, []);
+  const modes = providerModes(provider);
   const available = useMemo(
     () =>
       (hostProviders.host === host
@@ -167,7 +198,7 @@ export function DispatchDialog({
     const r = readStore<Prefs>("dispatch", {}).byProvider?.[provider] || {};
     setModel(r.model || "");
     setThinking(r.thinking || "");
-    setMode(r.mode || "");
+    setMode(r.mode || bypassMode(provider));
     setModels([]);
     if (!provider) return;
     const controller = new AbortController();
