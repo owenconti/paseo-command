@@ -51,6 +51,10 @@ const LABEL_FONT = "Georgia, serif";
 /** A subagent's drone, and how long it takes to circle its agent (ms). */
 const DRONE_SIZE = 24;
 const DRONE_ORBIT = 7000;
+/** How far a working robot wanders from its cell's centre, and how fast (px/s). */
+const WANDER_X = 13;
+const WANDER_Y = 10;
+const WALK_SPEED = 16;
 /** Each kind's hover border, so what the pointer is over reads at a glance. */
 const HOVER_COLOR: Record<Entity["kind"], number> = {
   host: 0xffffff,
@@ -100,13 +104,27 @@ export class AtlasScene extends Phaser.Scene {
     phase: number;
   }[] = [];
   private robots: {
+    id: string;
     image: Phaser.GameObjects.Image;
     x: number;
     y: number;
     busy: boolean;
-    phase: number;
-    pace: number;
   }[] = [];
+  /** Where each working robot has walked to in its cell, kept across redraws. */
+  private walkers = new Map<
+    string,
+    {
+      x: number;
+      y: number;
+      heading: number;
+      tx: number;
+      ty: number;
+      pause: number;
+      look: number;
+      rng: () => number;
+      stride: number;
+    }
+  >();
   /** The state each workspace tile shows. */
   private tiles = new Map<string, State>();
   private created = false;
@@ -606,33 +624,68 @@ export class AtlasScene extends Phaser.Scene {
     this.hit(a, x, y, cell.width, cell.height, 40, false);
     this.locations.set(a.id, { x, y, width: ROBOT_SIZE + 10, height: ROBOT_SIZE + 10 });
     // A working robot potters about its cell; the rest stand still.
-    const rng = random(seedOf(a.id + "wander"));
-    const robot = {
-      image,
-      x,
-      y,
-      busy: a.state === "running",
-      phase: rng() * 100,
-      pace: 0.8 + rng() * 0.4,
-    };
+    const robot = { id: a.id, image, x, y, busy: a.state === "running" };
     this.robots.push(robot);
     this.marker(a, robot);
   }
-  /** Working robots wander a small loop in their cell, bobbing and leaning
-   * into their stride. Still, with reduced motion. */
-  private walkRobots(): void {
+  /** Working robots potter about their cell: turn to face a spot, walk to it,
+   * pause and look about, then pick another. Each keeps its place and heading
+   * across redraws. Still, with reduced motion. */
+  private walkRobots(delta: number): void {
+    const step = Math.min(delta, 100) / 1000;
     for (const r of this.robots) {
-      if (!r.busy) continue;
-      const t = this.reduced ? r.phase : r.phase + (this.clock / 1000) * r.pace;
-      const dx = Math.sin(t * 0.83) * 9 + Math.sin(t * 2.1) * 2,
-        dy = Math.sin(t * 1.27) * 6,
-        vx = Math.cos(t * 0.83) * 0.83 * 9 + Math.cos(t * 2.1) * 4.2,
-        bob = this.reduced ? 0 : Math.abs(Math.sin(t * 7)) * 2;
-      r.image
-        .setPosition(r.x + dx, r.y + dy - bob)
-        .setRotation(Phaser.Math.Clamp(vx * 0.012, -0.12, 0.12));
+      if (!r.busy || this.reduced) {
+        r.image.setPosition(r.x, r.y).setRotation(0);
+        continue;
+      }
+      let w = this.walkers.get(r.id);
+      if (!w) {
+        const rng = random(seedOf(r.id + "walk"));
+        w = { x: 0, y: 0, heading: Math.PI / 2, tx: 0, ty: 0, pause: rng() * 1200, look: Math.PI / 2, rng, stride: 0 };
+        this.walkers.set(r.id, w);
+      }
+      const turn = (to: number, rate: number) => {
+        const diff = Phaser.Math.Angle.Wrap(to - w!.heading);
+        w!.heading += Phaser.Math.Clamp(diff, -rate * step, rate * step);
+        return Math.abs(diff);
+      };
+      if (w.pause > 0) {
+        w.pause -= step * 1000;
+        turn(w.look, 2.5);
+        if (w.pause <= 0) {
+          // Somewhere else in the cell, a fair step away.
+          for (let i = 0; i < 6; i++) {
+            const a = w.rng() * Math.PI * 2,
+              d = 0.45 + 0.55 * Math.sqrt(w.rng());
+            w.tx = Math.cos(a) * WANDER_X * d;
+            w.ty = Math.sin(a) * WANDER_Y * d;
+            if (Math.hypot(w.tx - w.x, w.ty - w.y) > 7) break;
+          }
+        }
+      } else {
+        const dx = w.tx - w.x,
+          dy = w.ty - w.y,
+          dist = Math.hypot(dx, dy);
+        const off = turn(Math.atan2(dy, dx), 5);
+        // Walks once it roughly faces its spot, slowing as it arrives.
+        if (off < 0.5) {
+          const move = Math.min(dist, WALK_SPEED * step * Math.min(1, dist / 4 + 0.3));
+          w.x += Math.cos(w.heading) * move;
+          w.y += Math.sin(w.heading) * move;
+          w.stride += move;
+        }
+        if (dist < 0.8) {
+          w.pause = 500 + w.rng() * 1600;
+          w.look = w.heading + (w.rng() - 0.5) * 2.2;
+        }
+      }
+      const walking = w.pause <= 0;
+      const bob = walking ? Math.abs(Math.sin(w.stride * 0.55)) * 1.8 : 0;
+      // The robot's visor faces down its sprite (+y), so heading π/2 is no turn.
+      r.image.setPosition(r.x + w.x, r.y + w.y - bob).setRotation(w.heading - Math.PI / 2);
     }
   }
+
   /** Lights for running helpers. State itself shows on the agent's tile. */
   /** Running subagents fly as small drones of the agent's own model, circling
    * it inside its cell, up to four. */
@@ -908,7 +961,7 @@ export class AtlasScene extends Phaser.Scene {
     if (this.reduced) this.tweens.pauseAll();
     else this.tweens.resumeAll();
     this.animateTiles();
-    this.walkRobots();
+    this.walkRobots(0);
     this.flyDrones();
     return this.reduced;
   }
@@ -1038,7 +1091,7 @@ export class AtlasScene extends Phaser.Scene {
       this.clock += delta;
       this.animateTiles();
       this.breathe();
-      this.walkRobots();
+      this.walkRobots(delta);
       this.flyDrones();
     }
     // Ground and clouds cover exactly the visible view; their textures stay anchored to the world.
