@@ -510,8 +510,7 @@ function hostPlans(host: AtlasData["hosts"][number], data: AtlasData): Plan[] {
   const plans = projects
     .filter((p) => groups.get(p.key)!.length)
     .map((p) => plan(p.key, p, groups.get(p.key)!));
-  if (unfiled.length || !plans.length)
-    plans.push(plan(`unfiled\u001f${host.key}`, undefined, unfiled));
+  if (unfiled.length) plans.push(plan(`unfiled\u001f${host.key}`, undefined, unfiled));
   return plans;
 }
 
@@ -619,11 +618,21 @@ function arrange(groups: Group[], capacity: number): Axial[] {
  * vertically and a wide one spreads out.
  */
 export function layoutAtlas(data: AtlasData, aspect = 1.6): AtlasLayout {
-  const hostRows = [...data.hosts].sort(
+  const sorted = [...data.hosts].sort(
     (a, b) => Number(b.local) - Number(a.local) || byName(a, b),
   );
   const target = Number.isFinite(aspect) && aspect > 0 ? aspect : 1.6;
-  const plans = hostRows.map((host) => hostPlans(host, data));
+  // Hosts without workspaces stay off the map, unless no host has any: then
+  // each shows as an open clearing, so the map is never empty.
+  const planned = sorted.map((host) => ({ host, plans: hostPlans(host, data) }));
+  const shown = planned.some((h) => h.plans.length)
+    ? planned.filter((h) => h.plans.length)
+    : planned.map(({ host }) => ({
+        host,
+        plans: [plan(`unfiled\u001f${host.key}`, undefined, [])],
+      }));
+  const hostRows = shown.map((h) => h.host);
+  const plans = shown.map((h) => h.plans);
   const most = Math.max(1, ...plans.map((p) => p.length));
   let groups: Group[] = [];
   let moves: Axial[] = [];

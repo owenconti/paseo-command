@@ -17,7 +17,7 @@ import {
 import { SAMPLE } from "../src/sample.ts";
 
 /** A larger fleet: many projects, a crowded workspace, an orphan workspace,
- * an agent without a workspace, an empty host and an offline host. */
+ * an agent without a workspace, a host without workspaces and an offline host. */
 const crowded = {
   hosts: [
     { key: "local", name: "local", online: true, local: true },
@@ -244,7 +244,9 @@ test("homeless agents and offline hosts stay truthful", () => {
   assert.equal(layout.agents.find((a) => a.id === "homeless").workspace, camp.id);
   assert.equal(layout.workspaces.find((w) => w.id === "orphan").project, undefined);
   assert.equal(layout.agents.find((a) => a.id === "far").state, "offline");
-  assert.ok(layout.islands.find((i) => i.host === "c"), "an empty host still has an island");
+  assert.ok(!layout.islands.some((i) => i.host === "c"), "a host without workspaces is hidden");
+  assert.ok(!layout.hosts.some((h) => h.id === "c"));
+  assert.ok(!layout.land.some((m) => m.host === "c"));
 });
 
 test("layout is deterministic and changes signature with structure only", () => {

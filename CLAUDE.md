@@ -60,7 +60,7 @@ Local assets belong in the repository and are included through local build tooli
 ## Atlas world
 
 The app bundles `rendering/` directly; Phaser resolves from `rendering/node_modules`.
-Each project with workspaces is its own island (projects without workspaces are hidden): a ten-hex
+Each project with workspaces is its own island (projects without workspaces are hidden, as are hosts without any; if no host has workspaces, each shows as a bare clearing): a ten-hex
 landmark (rows of 3, 4, 3) in the middle, ringed by its workspaces, each touching it. Workspaces are placed
 bottom, lower-left, lower-right, upper-left, upper-right, then top, a cell apart (later ones stand against
 that ring). A workspace is a three-hex timber triangle pointing at the landmark, its cottage larger and centred
