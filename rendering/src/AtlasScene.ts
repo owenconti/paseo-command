@@ -49,7 +49,7 @@ const OVERLAY_TOP = 76;
 const OVERLAY_BOTTOM = 72;
 const LABEL_FONT = "Georgia, serif";
 /** A subagent's drone, and how long it takes to circle its agent (ms). */
-const DRONE_SIZE = 20;
+const DRONE_SIZE = 24;
 const DRONE_ORBIT = 7000;
 /** Each kind's hover border, so what the pointer is over reads at a glance. */
 const HOVER_COLOR: Record<Entity["kind"], number> = {
@@ -96,9 +96,16 @@ export class AtlasScene extends Phaser.Scene {
   private drones: {
     drone: Phaser.GameObjects.Image;
     shadow: Phaser.GameObjects.Ellipse;
+    robot: Phaser.GameObjects.Image;
+    phase: number;
+  }[] = [];
+  private robots: {
+    image: Phaser.GameObjects.Image;
     x: number;
     y: number;
+    busy: boolean;
     phase: number;
+    pace: number;
   }[] = [];
   /** The state each workspace tile shows. */
   private tiles = new Map<string, State>();
@@ -517,6 +524,7 @@ export class AtlasScene extends Phaser.Scene {
     this.tiles.clear();
     this.moving = [];
     this.drones = [];
+    this.robots = [];
     for (const a of layout.agents) {
       const state = a.state!;
       const color = STATE_TILE[state];
@@ -593,31 +601,60 @@ export class AtlasScene extends Phaser.Scene {
     const cell = cellBounds([a.position]);
     this.hit(a, x, y, cell.width, cell.height, 40, false);
     this.locations.set(a.id, { x, y, width: ROBOT_SIZE + 10, height: ROBOT_SIZE + 10 });
-    this.marker(a, x, y);
+    // A working robot potters about its cell; the rest stand still.
+    const rng = random(seedOf(a.id + "wander"));
+    const robot = {
+      image,
+      x,
+      y,
+      busy: a.state === "running",
+      phase: rng() * 100,
+      pace: 0.8 + rng() * 0.4,
+    };
+    this.robots.push(robot);
+    this.marker(a, robot);
+  }
+  /** Working robots wander a small loop in their cell, bobbing and leaning
+   * into their stride. Still, with reduced motion. */
+  private walkRobots(): void {
+    for (const r of this.robots) {
+      if (!r.busy) continue;
+      const t = this.reduced ? r.phase : r.phase + (this.clock / 1000) * r.pace;
+      const dx = Math.sin(t * 0.83) * 9 + Math.sin(t * 2.1) * 2,
+        dy = Math.sin(t * 1.27) * 6,
+        vx = Math.cos(t * 0.83) * 0.83 * 9 + Math.cos(t * 2.1) * 4.2,
+        bob = this.reduced ? 0 : Math.abs(Math.sin(t * 7)) * 2;
+      r.image
+        .setPosition(r.x + dx, r.y + dy - bob)
+        .setRotation(Phaser.Math.Clamp(vx * 0.012, -0.12, 0.12));
+    }
   }
   /** Lights for running helpers. State itself shows on the agent's tile. */
   /** Running subagents fly as small drones of the agent's own model, circling
    * it inside its cell, up to four. */
-  private marker(a: Entity, x: number, y: number): void {
+  private marker(a: Entity, robot: AtlasScene["robots"][number]): void {
+    const { x, y } = robot;
     if (!a.subagents || a.state === "offline") return;
     const count = Math.min(4, a.subagents),
       phase = random(seedOf(a.id + "drones"))();
     for (let i = 0; i < count; i++) {
       const shadow = this.add.ellipse(x, y, 16, 6, 0x1d2a14, 0.28).setDepth(34);
       const drone = sprite(this, x, y, a.art!, DRONE_SIZE);
-      this.drones.push({ drone, shadow, x, y, phase: phase + i / count });
+      this.drones.push({ drone, shadow, robot: robot.image, phase: phase + i / count });
     }
     this.flyDrones();
   }
   private flyDrones(): void {
     for (const d of this.drones) {
       const turn = ((this.reduced ? 0 : this.clock / DRONE_ORBIT) + d.phase) * Math.PI * 2;
-      const dx = Math.cos(turn) * 38,
-        dy = Math.sin(turn) * 26,
-        lift = 16 + (this.reduced ? 0 : Math.sin(turn * 3) * 2);
-      d.shadow.setPosition(d.x + dx, d.y + dy + 8);
+      // Around the robot wherever it has wandered.
+      const { x, y } = d.robot;
+      const dx = Math.cos(turn) * 40,
+        dy = Math.sin(turn) * 28,
+        lift = 18 + (this.reduced ? 0 : Math.sin(turn * 3) * 2);
+      d.shadow.setPosition(x + dx, y + dy + 10);
       // Behind the robot on the far side of its circle, in front on the near side.
-      d.drone.setPosition(d.x + dx, d.y + dy + 8 - lift).setDepth(dy < 0 ? 34.5 : 35.5);
+      d.drone.setPosition(x + dx, y + dy + 10 - lift).setDepth(dy < 0 ? 34.5 : 35.5);
     }
   }
 
@@ -867,6 +904,7 @@ export class AtlasScene extends Phaser.Scene {
     if (this.reduced) this.tweens.pauseAll();
     else this.tweens.resumeAll();
     this.animateTiles();
+    this.walkRobots();
     this.flyDrones();
     return this.reduced;
   }
@@ -996,6 +1034,7 @@ export class AtlasScene extends Phaser.Scene {
       this.clock += delta;
       this.animateTiles();
       this.breathe();
+      this.walkRobots();
       this.flyDrones();
     }
     // Ground and clouds cover exactly the visible view; their textures stay anchored to the world.
