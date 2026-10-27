@@ -46,6 +46,8 @@ const SURFACES: Record<string, string> = {
   storm: stormUrl,
 };
 const MAX_ZOOM = 2.6;
+/** Planet pixels re-painted per frame as the planets turn. */
+const PAINT_BUDGET = 120_000;
 const FONT = '"Paseo Barlow", "Barlow Semi Condensed", "Barlow Condensed", "Arial Narrow", sans-serif';
 const SPACE = "#090605";
 /** World pixels a station and a satellite are drawn across. */
@@ -194,7 +196,8 @@ export class GalaxyScene extends Phaser.Scene {
     this.place();
   }
   private planet(p: Planet, keep: (o: Phaser.GameObjects.GameObject) => Phaser.GameObjects.GameObject) {
-    const size = Math.min(360, Math.ceil(p.r * 2 * 2.4));
+    // Painted near the maximum zoom's screen size, up to the surface maps' own detail.
+    const size = Math.min(1024, Math.ceil(p.r * 2 * MAX_ZOOM * renderDensity()));
     const cacheKey = `${p.id}|${size}|${p.family}`;
     let surface = this.surfaces.get(cacheKey);
     if (!surface) {
@@ -210,13 +213,13 @@ export class GalaxyScene extends Phaser.Scene {
     const ringed = RINGED.has(p.family);
     if (ringed) {
       const rk = `ring-${p.family}-${p.id.length % 4}`;
-      if (!this.textures.exists(rk)) this.textures.addCanvas(rk, ring(p.family, 512, p.id.length));
+      if (!this.textures.exists(rk)) this.textures.addCanvas(rk, ring(p.family, 1024, p.id.length));
       const width = p.r * 3.7;
       // The upper half of the ring passes behind the planet, the lower half in front.
       const back = this.add.image(p.x, p.y, rk).setDisplaySize(width, width).setAngle(p.tilt).setDepth(9);
-      back.setCrop(0, 0, 512, 256);
+      back.setCrop(0, 0, 1024, 512);
       const front = this.add.image(p.x, p.y, rk).setDisplaySize(width, width).setAngle(p.tilt).setDepth(11);
-      front.setCrop(0, 256, 512, 256);
+      front.setCrop(0, 512, 1024, 512);
       keep(back);
       keep(front);
       if (p.stale) [back, front].forEach((o) => o.setAlpha(0.5));
@@ -224,7 +227,7 @@ export class GalaxyScene extends Phaser.Scene {
     const glow = ATMOSPHERE[p.family];
     if (glow !== undefined) {
       const ak = `atmo-${glow}`;
-      if (!this.textures.exists(ak)) this.textures.addCanvas(ak, atmosphere(glow, 256));
+      if (!this.textures.exists(ak)) this.textures.addCanvas(ak, atmosphere(glow, 512));
       keep(this.add.image(p.x, p.y, ak).setDisplaySize(p.r * 2 * 1.18, p.r * 2 * 1.18).setDepth(10.5).setAlpha(0.9));
     }
     const image = this.add.image(p.x, p.y, key).setDisplaySize(p.r * 2, p.r * 2).setDepth(10);
@@ -619,16 +622,21 @@ export class GalaxyScene extends Phaser.Scene {
         .setTilePosition((view.x - pad) * depth + this.clock * 0.002, (view.y - pad) * depth);
     if (!this.layout) return;
     this.place();
-    // Planets turn slowly; one visible planet is re-painted per frame.
+    // Planets turn slowly; visible planets are re-painted in turn, a large one
+    // over several frames so no frame paints more than PAINT_BUDGET pixels.
     if (!this.reduced && this.planetImages.size) {
       const list = [...this.planetImages.values()];
       for (let tries = 0; tries < list.length; tries++) {
-        const item = list[this.turnIndex++ % list.length]!;
+        const item = list[this.turnIndex % list.length]!;
         const b = item.image.getBounds();
-        if (!Phaser.Geom.Rectangle.Overlaps(view, b)) continue;
-        item.surface.render(item.seed + this.clock / 240000, item.seed + this.clock / 160000);
-        const tex = this.textures.get(item.key) as Phaser.Textures.CanvasTexture;
-        tex.refresh();
+        if (!Phaser.Geom.Rectangle.Overlaps(view, b)) {
+          this.turnIndex++;
+          continue;
+        }
+        if (item.surface.step(item.seed + this.clock / 240000, item.seed + this.clock / 160000, PAINT_BUDGET)) {
+          (this.textures.get(item.key) as Phaser.Textures.CanvasTexture).refresh();
+          this.turnIndex++;
+        }
         break;
       }
     }

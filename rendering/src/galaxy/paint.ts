@@ -32,9 +32,10 @@ export const ATMOSPHERE: Partial<Record<Family, number>> = {
 };
 
 /**
- * A planet seen from the camera: an orthographic sphere sampled from an
- * equirectangular surface map. The per-pixel mapping and lighting are
- * computed once; turning the planet only re-samples the surface.
+ * A planet seen from the camera: an orthographic sphere sampled bilinearly
+ * from an equirectangular surface map, so it stays smooth when magnified. The
+ * per-pixel mapping and lighting are computed once; turning the planet only
+ * re-samples the surface.
  */
 export class PlanetSurface {
   readonly canvas: HTMLCanvasElement;
@@ -42,10 +43,14 @@ export class PlanetSurface {
   private image: ImageData;
   private index: Int32Array;
   private row: Int32Array;
+  private below: Int32Array;
+  private fall: Float32Array;
   private col: Float32Array;
   private shade: Float32Array;
   private alpha: Uint8ClampedArray;
   private cloudAmount: number;
+  /** Progress of an incremental repaint, in pixels painted. */
+  private next = 0;
   constructor(
     readonly size: number,
     private surface: ImageData,
@@ -59,6 +64,8 @@ export class PlanetSurface {
     this.cloudAmount = clouds ? (CLOUDY[family] ?? 0) : 0;
     const index: number[] = [],
       row: number[] = [],
+      below: number[] = [],
+      fall: number[] = [],
       col: number[] = [],
       shade: number[] = [],
       alpha: number[] = [];
@@ -89,19 +96,42 @@ export class PlanetSurface {
         const lon = Math.atan2(nx, tz);
         const lambert = Math.max(0, nx * lx + ny * ly + nz * lz);
         index.push((y * size + x) * 4);
-        row.push(Math.min(H - 1, Math.floor((0.5 - lat / Math.PI) * H)) * W);
-        col.push((lon / (Math.PI * 2) + 0.5) * W);
+        const v = Math.max(0, Math.min(H - 1, (0.5 - lat / Math.PI) * H - 0.5));
+        const r0 = Math.floor(v);
+        row.push(r0 * W);
+        below.push(Math.min(H - 1, r0 + 1) * W);
+        fall.push(v - r0);
+        col.push((lon / (Math.PI * 2) + 0.5) * W - 0.5 + W);
         shade.push(0.07 + 1.08 * Math.pow(lambert, 0.85) * (0.75 + 0.25 * nz));
         alpha.push(Math.max(0, Math.min(1, (1 - d) * half * 1.4)) * 255);
       }
     this.index = Int32Array.from(index);
     this.row = Int32Array.from(row);
+    this.below = Int32Array.from(below);
+    this.fall = Float32Array.from(fall);
     this.col = Float32Array.from(col);
     this.shade = Float32Array.from(shade);
     this.alpha = Uint8ClampedArray.from(alpha);
   }
   /** Paint the planet turned by `turn` revolutions, its clouds by `drift`. */
   render(turn: number, drift: number) {
+    this.paint(turn, drift, 0, this.index.length);
+    this.next = 0;
+    this.ctx.putImageData(this.image, 0, 0);
+  }
+  /** Continue a repaint spread over frames, painting up to `budget` pixels.
+   * The canvas is updated only when the whole planet has been repainted, and
+   * returns true then. Rotation is slow enough that the frames never tear. */
+  step(turn: number, drift: number, budget: number): boolean {
+    const end = Math.min(this.index.length, this.next + budget);
+    this.paint(turn, drift, this.next, end);
+    this.next = end;
+    if (end < this.index.length) return false;
+    this.next = 0;
+    this.ctx.putImageData(this.image, 0, 0);
+    return true;
+  }
+  private paint(turn: number, drift: number, from: number, to: number) {
     const W = this.surface.width;
     const src = this.surface.data,
       out = this.image.data,
@@ -110,17 +140,37 @@ export class PlanetSurface {
       volcanic = this.family === "volcanic";
     const offset = (((turn % 1) + 1) % 1) * W,
       cloudOffset = (((drift % 1) + 1) % 1) * W;
-    for (let i = 0; i < this.index.length; i++) {
-      const base = this.row[i]!;
+    for (let i = from; i < to; i++) {
+      const top = this.row[i]!,
+        bottom = this.below[i]!,
+        fy = this.fall[i]!;
       const c = this.col[i]!;
-      const s = (base + ((c + offset) % W | 0)) * 4;
-      let r = src[s]!,
-        g = src[s + 1]!,
-        b = src[s + 2]!;
+      // Bilinear weights of the four surrounding texels (columns wrap).
+      const u = (c + offset) % W,
+        x0 = u | 0,
+        x1 = (x0 + 1) % W,
+        fx = u - x0;
+      const w00 = (1 - fx) * (1 - fy),
+        w01 = fx * (1 - fy),
+        w10 = (1 - fx) * fy,
+        w11 = fx * fy;
+      const a00 = (top + x0) * 4,
+        a01 = (top + x1) * 4,
+        a10 = (bottom + x0) * 4,
+        a11 = (bottom + x1) * 4;
+      let r = src[a00]! * w00 + src[a01]! * w01 + src[a10]! * w10 + src[a11]! * w11,
+        g = src[a00 + 1]! * w00 + src[a01 + 1]! * w01 + src[a10 + 1]! * w10 + src[a11 + 1]! * w11,
+        b = src[a00 + 2]! * w00 + src[a01 + 2]! * w01 + src[a10 + 2]! * w10 + src[a11 + 2]! * w11;
       const shade = this.shade[i]!;
       if (cloud && amount) {
-        const k = (base + ((c + cloudOffset) % W | 0)) * 4;
-        const lum = cloud[k]! / 255;
+        const cu = (c + cloudOffset) % W,
+          c0 = cu | 0,
+          c1 = (c0 + 1) % W,
+          cx = cu - c0;
+        const lum =
+          ((cloud[(top + c0) * 4]! * (1 - cx) + cloud[(top + c1) * 4]! * cx) * (1 - fy) +
+            (cloud[(bottom + c0) * 4]! * (1 - cx) + cloud[(bottom + c1) * 4]! * cx) * fy) /
+          255;
         const a = Math.min(1, Math.pow(lum, 1.6) * amount * 1.2);
         r += (235 - r) * a;
         g += (240 - g) * a;
@@ -142,7 +192,6 @@ export class PlanetSurface {
       out[o + 2] = lb;
       out[o + 3] = this.alpha[i]!;
     }
-    this.ctx.putImageData(this.image, 0, 0);
   }
 }
 
@@ -175,16 +224,18 @@ export function ring(family: Family, size: number, seed: number) {
     inner = outer * 0.62;
   const rng = random(seed);
   const storm = family === "storm";
+  // Band spacing is tuned for a 512 px ring.
+  const px = size / 512;
   ctx.save();
   ctx.translate(c, c);
   ctx.scale(1, 0.3);
-  for (let rad = inner; rad < outer; rad += 1.2) {
+  for (let rad = inner; rad < outer; rad += 1.2 * px) {
     const t = (rad - inner) / (outer - inner);
     const band = 0.45 + 0.55 * Math.sin(t * 38 + rng() * 0.4) * Math.sin(t * 9 + 1.3);
     const fade = Math.sin(t * Math.PI);
     const a = Math.max(0, (storm ? 0.32 : 0.55) * fade * (0.55 + 0.45 * band));
     ctx.strokeStyle = storm ? `rgba(196,212,226,${a})` : `rgba(${206 + t * 30},${180 + t * 20},${140 + t * 10},${a})`;
-    ctx.lineWidth = 1.6;
+    ctx.lineWidth = 1.6 * px;
     ctx.beginPath();
     ctx.arc(0, 0, rad, 0, Math.PI * 2);
     ctx.stroke();
@@ -423,13 +474,13 @@ export function stars(size: number, seed: string, count: number) {
 /** A host's nebula: one tinted cloud spanning the whole region. The grayscale
  * nebula map gives its structure (sampled bilinearly, so it stays smooth when
  * magnified) and a soft elliptical envelope with a ragged, map-driven edge
- * keeps it within the host. Painted at half world scale, within GPU limits. */
+ * keeps it within the host. Painted at world scale, within GPU limits. */
 export function nebula(region: Region, source: ImageData, margin: number) {
   const x0 = region.bounds.x - margin,
     y0 = region.bounds.y - margin,
     width = region.bounds.width + margin * 2,
     height = region.bounds.height + margin * 2;
-  const k = Math.min(0.5, 4096 / width, 4096 / height);
+  const k = Math.min(1, 4096 / width, 4096 / height);
   const w = Math.ceil(width * k),
     h = Math.ceil(height * k);
   const canvas = document.createElement("canvas");

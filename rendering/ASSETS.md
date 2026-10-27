@@ -54,7 +54,7 @@ Exact prompt:
 
 Copied from the original Paseo Command project, `Unity/Assets/Paseo/Art/Textures/`
 (Barren, Clouds, Desert, Forest, Ice, Nebula, Ocean, RingedGas, Storm, Volcanic), and
-re-encoded as JPEG at 1400 px wide. They are equirectangular surface maps (and a grayscale
+re-encoded as JPEG at their full 1774 px width. They are equirectangular surface maps (and a grayscale
 nebula density map) generated for that project; their prompts and checksums are in its
 `art/galaxy/prompts/production-texture-prompts.json`. Stations, satellites, rings,
 atmospheres, stars and rocks are drawn procedurally in `src/galaxy/paint.ts`, after the
