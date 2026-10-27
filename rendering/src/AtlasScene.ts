@@ -70,6 +70,7 @@ export class AtlasScene extends Phaser.Scene {
   private drift = 0;
   private selected!: Phaser.GameObjects.Graphics;
   private selectGlow!: Phaser.GameObjects.Graphics;
+  private halo?: Phaser.Filters.Glow;
   private hover!: Phaser.GameObjects.Graphics;
   private locations = new Map<string, Box>();
   private controls?: Phaser.Cameras.Controls.FixedKeyControl;
@@ -145,6 +146,7 @@ export class AtlasScene extends Phaser.Scene {
     this.hover = this.add.graphics().setDepth(7);
     this.selected = this.add.graphics().setDepth(8);
     this.selectGlow = this.add.graphics().setDepth(7.9);
+    this.halo = this.selected.enableFilters().filters?.external.addGlow(0xffc72e, 4, 0, 1, false, 10, 18);
     this.configureInput();
     const resize = () => this.fit();
     this.scale.on("resize", resize);
@@ -551,7 +553,8 @@ export class AtlasScene extends Phaser.Scene {
   /** The selection's wash brightens and fades; steady with reduced motion. */
   private breathe(): void {
     const t = this.reduced ? 0.5 : 0.5 + 0.5 * Math.sin((this.clock / 1600) * Math.PI * 2);
-    this.selectGlow.setAlpha(0.06 + 0.16 * t);
+    this.selectGlow.setAlpha(0.1 + 0.16 * t);
+    if (this.halo) this.halo.outerStrength = 2.5 + 2.5 * t;
   }
   /** Pulsing borders fade in and out; running borders carry a light round
    * them, a sixth of their length. Still, with reduced motion. */
@@ -834,10 +837,10 @@ export class AtlasScene extends Phaser.Scene {
     const entity = this.selectedId ? this.entity(this.selectedId) : undefined;
     this.selectGlow.clear();
     if (!entity || entity.kind === "host") return;
-    // A soft breathing wash, a dark keyline and a bright rim: clear on grass,
+    // A golden rim with a breathing halo and a warm wash: clear on grass,
     // timber, flagstones and every tile colour.
     // Cells don't overlap, so the wash is even across the whole footprint.
-    this.selectGlow.fillStyle(0xfff6d6, 1);
+    this.selectGlow.fillStyle(0xffe27a, 1);
     for (const cell of this.cellsOf(entity)) {
       const c = point(cell);
       this.selectGlow.fillPoints(
@@ -850,8 +853,8 @@ export class AtlasScene extends Phaser.Scene {
         true,
       );
     }
-    this.outlineCells(this.selected, entity, 11, 0x2a1a0c, 0.7);
-    this.outlineCells(this.selected, entity, 6, 0xfffbea, 1);
+    this.outlineCells(this.selected, entity, 9, 0x7a4d06, 0.75);
+    this.outlineCells(this.selected, entity, 6, 0xffc72e, 1);
     this.breathe();
   }
   setInput(enabled: boolean): void {
