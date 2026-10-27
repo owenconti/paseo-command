@@ -11,6 +11,8 @@ import { motion, useIsPresent } from "framer-motion";
 import { GitBranch, ImagePlus, LoaderCircle, Send, X } from "lucide-react";
 import { api, errorMessage, readStore, writeStore } from "./api";
 import { AttachmentTray } from "./composer/AttachmentTray";
+import { Autocomplete } from "./composer/Autocomplete";
+import { useAutocomplete } from "./composer/useAutocomplete";
 import type { ImageAttachment } from "./composer/types";
 import {
   MAX_IMAGE,
@@ -188,6 +190,41 @@ export function DispatchDialog({
     : undefined;
   const host = hostKey === LOCAL ? undefined : hostKey;
   const modes = providerModes(provider);
+
+  // /skills, /commands and @files, as in the conversation's composer: for the
+  // folder and settings chosen below.
+  const [caret, setCaret] = useState(0);
+  const [missionFocused, setMissionFocused] = useState(false);
+  const folder = workspace?.cwd || project?.path || "";
+  const suggestions = useAutocomplete({
+    // The daemon lists a draft's skills only for a model: "Default" is the
+    // provider's first.
+    draft:
+      folder && (model || models[0]?.id)
+        ? { cwd: folder, provider, model: model || models[0]!.id, mode, thinking }
+        : undefined,
+    host,
+    before: folder ? prompt.slice(0, caret) : "",
+    focused: missionFocused,
+  });
+  const chooseSuggestion = (index: number) => {
+    const m = suggestions.matches[index];
+    const trigger = suggestions.trigger;
+    if (!m || !trigger) return;
+    const insert =
+      "command" in m && m.command
+        ? `/${m.command.name} `
+        : "file" in m && m.file
+          ? `@${m.file.path}${m.file.kind === "directory" ? "/" : " "}`
+          : "";
+    setPrompt(prompt.slice(0, trigger.start) + insert + prompt.slice(caret));
+    const at = trigger.start + insert.length;
+    requestAnimationFrame(() => {
+      mission.current?.focus();
+      mission.current?.setSelectionRange(at, at);
+      setCaret(at);
+    });
+  };
   const available = useMemo(
     () =>
       (hostProviders.host === host
@@ -451,7 +488,7 @@ export function DispatchDialog({
               ))}
             </select>
           </label>
-          <label>
+          <label className="mission-field">
             Mission
             <textarea
               aria-description="What the new agent should do (⌘↵ dispatches)"
@@ -459,7 +496,13 @@ export function DispatchDialog({
               autoFocus
               name="prompt"
               value={prompt}
-              onChange={(e) => setPrompt(e.target.value)}
+              onChange={(e) => {
+                setPrompt(e.target.value);
+                setCaret(e.target.selectionStart);
+              }}
+              onSelect={(e) => setCaret(e.currentTarget.selectionStart)}
+              onFocus={() => setMissionFocused(true)}
+              onBlur={() => setMissionFocused(false)}
               onPaste={(e) => {
                 const files = [...e.clipboardData.files];
                 if (!files.length) return;
@@ -474,15 +517,41 @@ export function DispatchDialog({
                 void addImages(files);
               }}
               onKeyDown={(e) => {
+                const { open, matches, active, setActive } = suggestions;
+                if (open && matches.length && !e.metaKey && !e.ctrlKey) {
+                  if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+                    e.preventDefault();
+                    const step = e.key === "ArrowDown" ? 1 : -1;
+                    setActive((i) => (i + step + matches.length) % matches.length);
+                    return;
+                  }
+                  if (e.key === "Enter" || e.key === "Tab") {
+                    e.preventDefault();
+                    chooseSuggestion(Math.min(active, matches.length - 1));
+                    return;
+                  }
+                }
+                // Escape closes the suggestions before the dialog.
+                if (open && e.key === "Escape") {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  suggestions.dismiss();
+                  return;
+                }
                 if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
                   e.preventDefault();
                   void submit();
                 }
               }}
-              placeholder="Describe the task for your new agent…"
+              placeholder="Describe the task for your new agent, tag @files, or use /commands and /skills"
               required
               rows={5}
               maxLength={12000}
+            />
+            <Autocomplete
+              folder={folder}
+              suggestions={suggestions}
+              onChoose={chooseSuggestion}
             />
           </label>
           <div className="mission-images">

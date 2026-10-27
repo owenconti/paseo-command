@@ -7,6 +7,7 @@ import { captureExtras, settle, streamFleet, streamSession } from "../live";
 import { admissionClosed } from "../proc";
 import { errorText } from "../wire";
 import { agentDetailFor, agentGet, heldSession, sessionSource } from "./agents";
+import { draftGet } from "./drafts";
 import {
   FANOUT_KEYS,
   agentCommand,
@@ -155,6 +156,12 @@ export async function handleApi(
         const host = await resolveHost(url.searchParams.get("host"));
         if (host) assertReachable(host.serverId, host.label);
         result = await models(provider, host);
+      } else if (
+        parts[0] === "drafts" &&
+        parts.length === 2 &&
+        (parts[1] === "commands" || parts[1] === "files")
+      ) {
+        result = await draftGet(parts[1], url);
       } else if (parts[0] === "attachments" && parts[1] === "image") {
         // Images the local daemon stored for sent prompts; nothing else is readable.
         // Validated and read through one descriptor (server/attachment.ts).

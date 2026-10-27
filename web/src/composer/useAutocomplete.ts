@@ -31,19 +31,52 @@ const CLIENT_COMMANDS: Command[] = [
   },
 ];
 
-/** Suggestions for the /command or @file being typed before the caret. */
+/** An agent not yet dispatched: its folder and settings. */
+export type DraftSource = {
+  cwd: string;
+  provider: string;
+  model?: string;
+  mode?: string;
+  thinking?: string;
+};
+
+/** Suggestions for the /command or @file being typed before the caret, for an
+ * agent (`agentId`) or for a dispatch still being written (`draft`). */
 export function useAutocomplete({
   agentId,
+  draft,
   host,
   before,
   focused,
 }: {
-  agentId: string;
+  agentId?: string;
+  draft?: DraftSource;
   host?: string;
   /** The draft up to the caret. */
   before: string;
   focused: boolean;
 }) {
+  // Where suggestions come from; a new source starts its lists afresh.
+  const draftQuery = draft
+    ? new URLSearchParams({
+        cwd: draft.cwd,
+        provider: draft.provider,
+        ...(draft.model ? { model: draft.model } : {}),
+        ...(draft.mode ? { mode: draft.mode } : {}),
+        ...(draft.thinking ? { thinking: draft.thinking } : {}),
+        ...(host ? { host } : {}),
+      }).toString()
+    : "";
+  const source = draft ? `draft:${draftQuery}` : `agent:${agentId}:${host ?? ""}`;
+  const commandsPath = draft
+    ? `drafts/commands?${draftQuery}`
+    : `agents/${agentId}/commands${hostQuery(host)}`;
+  const filesPath = (q: string) =>
+    draft
+      ? `drafts/files?${new URLSearchParams({ cwd: draft.cwd, q, ...(host ? { host } : {}) })}`
+      : `agents/${agentId}/files${hostQuery(host)}${host ? "&" : "?"}q=${encodeURIComponent(q)}`;
+  // App commands (/new, /archive) act on an agent, so a draft has none.
+  const clientCommands = draft ? [] : CLIENT_COMMANDS;
   const trigger = useMemo(() => composerTrigger(before), [before]);
   const [dismissed, setDismissed] = useState<string | null>(null);
   const triggerKey = trigger ? `${trigger.type}:${trigger.start}` : null;
@@ -59,23 +92,35 @@ export function useAutocomplete({
   const [filesLoading, setFilesLoading] = useState(false);
   const [active, setActive] = useState(0);
   useEffect(() => {
+    setCommands(null);
+    setCommandError("");
+  }, [source]);
+  useEffect(() => {
     if (!open || trigger?.type !== "command" || commands) return;
-    api<{ commands: Command[]; error: string | null }>(
-      `agents/${agentId}/commands${hostQuery(host)}`,
-    )
+    let live = true;
+    api<{ commands: Command[]; error: string | null }>(commandsPath)
       .then((r) => {
+        if (!live) return;
         // Here /clear is /new: a provider's own /clear isn't offered.
         setCommands([
-          ...r.commands.filter((c) => c.kind === "skill" || c.name !== "clear"),
-          ...CLIENT_COMMANDS,
+          ...r.commands.filter(
+            (c) => draft || c.kind === "skill" || c.name !== "clear",
+          ),
+          ...clientCommands,
         ]);
         setCommandError(r.error || "");
       })
       .catch((e: unknown) => {
-        setCommands(CLIENT_COMMANDS);
+        if (!live) return;
+        setCommands(clientCommands);
         setCommandError(errorMessage(e));
       });
-  }, [open, trigger?.type, commands, agentId, host]);
+    return () => {
+      live = false;
+    };
+    // The source names everything the request uses.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, trigger?.type, commands, source]);
   useEffect(() => {
     if (!open || trigger?.type !== "file") return;
     const controller = new AbortController();
@@ -83,7 +128,7 @@ export function useAutocomplete({
     const t = setTimeout(
       () => {
         api<{ entries: FileEntry[] }>(
-          `agents/${agentId}/files${hostQuery(host)}${host ? "&" : "?"}q=${encodeURIComponent(trigger.query)}`,
+          filesPath(trigger.query),
           undefined,
           controller.signal,
         )
@@ -97,7 +142,8 @@ export function useAutocomplete({
       clearTimeout(t);
       controller.abort();
     };
-  }, [open, trigger?.type, trigger?.query, agentId, host]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed by `source`
+  }, [open, trigger?.type, trigger?.query, source]);
   const matches = useMemo((): Match[] => {
     if (!open || !trigger) return [];
     if (trigger.type === "file")

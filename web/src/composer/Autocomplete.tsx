@@ -7,10 +7,13 @@ import type { useAutocomplete } from "./useAutocomplete";
 /** The /commands and @files suggestion list above the text area. */
 export function Autocomplete({
   agent,
+  folder,
   suggestions,
   onChoose,
 }: {
-  agent: Agent;
+  /** Whose files are listed: an agent's, or a draft's `folder`. */
+  agent?: Agent;
+  folder?: string;
   suggestions: ReturnType<typeof useAutocomplete>;
   onChoose: (index: number) => void;
 }) {
@@ -45,10 +48,10 @@ export function Autocomplete({
         {trigger?.type === "file" ? (
           <>
             <FileIcon size={11} /> Files in{" "}
-            {pathText(agent.cwd.split("/").slice(-2).join("/"), [
-              agent.id,
-              agent.shortId,
-            ])}
+            {pathText(
+              (agent?.cwd ?? folder ?? "").split("/").slice(-2).join("/"),
+              agent ? [agent.id, agent.shortId] : [],
+            )}
           </>
         ) : (
           <>

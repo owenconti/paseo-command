@@ -332,3 +332,7 @@
   padding-top: var(--space-4);
   border-top: 1px solid var(--line);
 }
+/* The mission's /skills and @files suggestions open from the field itself. */
+.command-dialog .mission-field {
+  position: relative;
+}

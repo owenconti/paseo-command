@@ -68,3 +68,44 @@ test("images pasted or dropped into the mission are sent with the dispatch", asy
   assert.deepEqual(dispatched[0].images, [{ data: png, mimeType: "image/png" }]);
   await context.close();
 });
+
+test("the mission offers the folder's /skills before the agent exists", async () => {
+  const context = await newContext(browser);
+  const page = await context.newPage();
+  const asked: string[] = [];
+  await mockApi(page, {
+    agents: () => [],
+    projects: () => [
+      { projectId: "prj_atlas", name: "atlas", kind: "git", path: "/work/atlas" },
+    ],
+  });
+  await page.route("**/api/providers/claude/models**", (route) =>
+    route.fulfill({ json: [{ id: "opus", model: "Opus" }] }),
+  );
+  // The draft's commands, for the chosen folder and the provider's model.
+  await page.route("**/api/drafts/commands?**", (route) => {
+    asked.push(route.request().url());
+    return route.fulfill({
+      json: {
+        error: null,
+        commands: [
+          { name: "review-code", description: "Review the branch", argumentHint: "", kind: "skill" },
+          { name: "plan", description: "Plan a change", argumentHint: "", kind: "skill" },
+        ],
+      },
+    });
+  });
+  await page.goto(app.url);
+  await page.locator("body").press("d");
+  const mission = page.getByRole("textbox", { name: "Mission" });
+  await mission.pressSequentially("/rev");
+  const option = page.locator(".dispatch-dialog .autocomplete [role=option]");
+  await waitFor(() => option.count(), (n) => n === 1, "the matching skill");
+  await mission.press("Enter");
+  assert.equal(await mission.inputValue(), "/review-code ");
+  const url = new URL(asked[0]!);
+  assert.equal(url.searchParams.get("cwd"), "/work/atlas");
+  assert.equal(url.searchParams.get("provider"), "claude");
+  assert.equal(url.searchParams.get("model"), "opus");
+  await context.close();
+});
