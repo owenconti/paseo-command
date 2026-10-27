@@ -1060,6 +1060,7 @@ function App() {
                               : {},
                         );
                       }}
+                      onNewAgent={() => openDispatch()}
                       onOpenSubagent={(id) =>
                         choose({ type: "agent", id: agent.id, subagent: id })
                       }

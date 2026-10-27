@@ -25,6 +25,7 @@ import {
   ImagePlus,
   LoaderCircle,
   Plug,
+  Plus,
   Server,
   Terminal,
   Wrench,
@@ -99,6 +100,7 @@ export function Session({
   onNotice,
   onChanged,
   onFreshDraft,
+  onNewAgent,
   onOpenSubagent,
   position,
 }: {
@@ -112,6 +114,8 @@ export function Session({
   onChanged: () => Promise<void> | void;
   /** Open a new draft in this agent's workspace (after archiving it). */
   onFreshDraft: (agent: Agent) => void;
+  /** Dispatch another agent into this agent's workspace (⌘N). */
+  onNewAgent: () => void;
   /** Open one of its subagents' conversations. */
   onOpenSubagent: (subagentId: string) => void;
   position: {
@@ -506,6 +510,16 @@ export function Session({
             )}
           </span>
           <span className="session-tools">
+            <button
+              className="icon-btn"
+              data-tip="New agent in this workspace (⌘N)"
+              aria-label="New agent in this workspace"
+              aria-keyshortcuts="Meta+N"
+              disabled={!online}
+              onClick={onNewAgent}
+            >
+              <Plus size={14} />
+            </button>
             <CopyButton value={daemonAgentId(agent)} label="Copy agent ID" />
             <button
               className="icon-btn"
