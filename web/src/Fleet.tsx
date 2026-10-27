@@ -420,6 +420,8 @@ export function FleetSummary({
 }
 
 export function Fleet({
+  hostFilter,
+  setHostFilter,
   tab,
   setTab,
   filter,
@@ -473,6 +475,9 @@ export function Fleet({
   finishedAt: Record<string, number>;
   selection: Selection;
   select: (s: Selection) => void;
+  /** The host the lists are narrowed to ("" for local), shared with the map. */
+  hostFilter: string | null;
+  setHostFilter: (id: string | null) => void;
 
   onApprove: (p: PendingPermission, allow: boolean) => void;
   onMarkRead: (ids: string[]) => void;
@@ -490,8 +495,7 @@ export function Fleet({
 }) {
   const { view, collapsed, setCollapsed } = viewState;
   const listId = useId();
-  // Choosing a host in the Hosts tab narrows the other tabs to it.
-  const [hostFilter, setHostFilter] = useState<string | null>(null);
+  // Choosing a host in the Hosts tab (or on the map) narrows the other tabs to it.
   const filteredHost = hosts.find((h) => hostId(h) === hostFilter);
   useEffect(() => {
     if (hostFilter !== null && !filteredHost) setHostFilter(null);

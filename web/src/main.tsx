@@ -191,6 +191,9 @@ function App() {
       readStore<{ collapsed?: boolean } | null>("unity-panel", null)
         ?.collapsed === true,
   });
+  // The host the lists are narrowed to ("" for local): chosen in the Hosts
+  // tab or by picking its land on the map, where it shows as selected.
+  const [hostFilter, setHostFilter] = useState<string | null>(null);
   const [selection, setSelection] = useState<Selection>(null),
     [tab, setTab] = useState<Tab>(unity ? "Workspaces" : "Agents"),
     [filter, setFilter] = useState<Filter>("all");
@@ -398,7 +401,17 @@ function App() {
       select(s);
     },
     [select],
+  );  /** Picking a host on the map selects it: the lists narrow to it and it
+   * takes the map's highlight from whatever was selected. */
+  const chooseHost = useCallback(
+    (id: string) => {
+      soundEvent("selected");
+      setHostFilter(id === "local" ? "" : id);
+      choose(null);
+    },
+    [choose],
   );
+
   const previousAgentIds = useRef(new Set<string>());
   useEffect(() => {
     const ids = new Set(agents.map((a) => a.id));
@@ -864,6 +877,8 @@ function App() {
                 selection={selection}
                 focusRevision={focusRevision}
                 select={choose}
+                host={hostFilter}
+                chooseHost={chooseHost}
                 hover={() => {}}
                 onNotice={setNotice}
                 blocked={!!archiveWorkspace || !!dispatchTarget}
@@ -949,6 +964,8 @@ function App() {
                   finishedAt={attention.finishedAt}
                   selection={selection}
                   select={choose}
+                  hostFilter={hostFilter}
+                  setHostFilter={setHostFilter}
 
                   onApprove={(p, allow) => void respond(p, allow)}
                   onMarkRead={markRead}

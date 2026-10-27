@@ -957,12 +957,13 @@ export class AtlasScene extends Phaser.Scene {
     this.selected.clear();
     const entity = this.selectedId ? this.entity(this.selectedId) : undefined;
     this.selectGlow.clear();
-    if (!entity || entity.kind === "host") return;
+    if (!entity) return;
     // A golden rim with a breathing halo and a warm wash: clear on grass,
     // timber, flagstones and every tile colour.
     // Cells don't overlap, so the wash is even across the whole footprint.
     this.selectGlow.fillStyle(0xffe27a, 1);
-    for (const cell of this.cellsOf(entity)) {
+    // A host is its whole landmass: rim and halo only, no wash over it all.
+    for (const cell of entity.kind === "host" ? [] : this.cellsOf(entity)) {
       const c = point(cell);
       this.selectGlow.fillPoints(
         vectors(

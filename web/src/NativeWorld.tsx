@@ -38,6 +38,9 @@ type Props = {
   selection: Selection;
   focusRevision: number;
   select: (value: Selection) => void;
+  /** The host the app has focused ("" for local), drawn selected when nothing else is. */
+  host: string | null;
+  chooseHost: (id: string) => void;
   hover: (id: string | null) => void;
   onNotice: (message: string) => void;
   blocked: boolean;
@@ -196,7 +199,7 @@ export function NativeWorld(props: Props) {
           const p = latest.current;
           if (p.blocked) return;
           if (!entity) return p.select(null);
-          if (entity.kind === "host") return;
+          if (entity.kind === "host") return p.chooseHost(entity.id);
           const selection = targetSelection(
             { kind: entity.kind, key: entity.id },
             current.current,
@@ -262,7 +265,9 @@ export function NativeWorld(props: Props) {
   const focusedRevision = useRef(0);
   useEffect(() => {
     if (!ready) return;
-    const key = selectionKey(props.selection, snapshot);
+    const key =
+      selectionKey(props.selection, snapshot) ??
+      (props.selection || props.host === null ? null : props.host || "local");
     safely(() => world.current?.select(key));
     if (!props.selection) focusedRevision.current = props.focusRevision;
     if (key && props.focusRevision > focusedRevision.current) {
@@ -271,7 +276,7 @@ export function NativeWorld(props: Props) {
       if (picked.current !== key) safely(() => world.current?.focus(key));
     }
     picked.current = null;
-  }, [props.selection, props.focusRevision, snapshot, ready]);
+  }, [props.selection, props.host, props.focusRevision, snapshot, ready]);
   useEffect(() => {
     if (!ready) return;
     safely(() => world.current?.input(!props.blocked));

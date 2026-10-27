@@ -91,6 +91,8 @@ Center artwork and fit it completely inside its occupied cells.
 Selection follows the outer perimeter of the occupied hexes, never a rectangle: a golden rim with a breathing
 yellow halo (Phaser glow filter) over a warm wash, so the selected entity reads on any surface. Hover and selection
 rims are inset within the cells so painted kerbs and banks never clip them; an agent hovers across its whole cell.
+Picking a host's land (or banner) selects it: the map rings its landmass and the lists narrow to it, the same
+host filter as the Hosts tab; any other selection takes the highlight while it lasts.
 Project, workspace and agent cells each have a distinct tile style (flagstones, timber decking, light sand
 tiles); islands have no empty cells. Minimum zoom fits the land with a one-cell border (plus room for banners and map controls);
 panning stays within that extent. The world never sends daemon actions; the React UI owns them.
