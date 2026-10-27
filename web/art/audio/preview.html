@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Paseo world sounds — audition</title><style>
+:root{font:16px/1.5 system-ui,sans-serif;color:#e7e7dc;background:#10191d;color-scheme:dark}
+body{margin:0 auto;max-width:1100px;padding:32px 24px}h1{font-size:30px;margin:0 0 8px}
+p{max-width:76ch}table{width:100%;border-collapse:collapse;margin-top:28px}th,td{text-align:left;padding:18px;vertical-align:top;border-bottom:1px solid #354248}
+thead th{font-size:19px}.galaxy{border-left:3px solid #c8985c}.lake{border-left:3px solid #72a99d}
+th span{display:block;font-weight:400;font-size:14px;color:#aab9bc;max-width:22ch;margin-top:4px}
+td p{min-height:3em;margin:0 0 12px;color:#c4cccf}audio{max-width:100%;width:300px}small{display:block;color:#aab9bc;margin-top:8px}
+button{font:inherit;padding:8px 16px;background:#293b43;color:inherit;border:1px solid #526770;border-radius:5px;cursor:pointer}
+button:focus-visible,a:focus-visible{outline:3px solid #c8985c;outline-offset:3px}a{color:#c8b88a}.table-wrap{overflow:auto}
+footer{font-size:14px;color:#aab9bc;margin-top:32px}
+@media(max-width:700px){body{padding:20px 12px}th,td{padding:12px}audio{width:230px}table{min-width:660px}}
+</style><h1>One fleet, two sound palettes</h1>
+<p>Original draft cues for Galaxy and Lake Country, draft 2. Each event has its own shape (rhythm, contour,
+length, register and timbre); each world plays that shape on its own instruments.
+Playback starts only when you press a player control.
+Each player begins at 35% volume; use a comfortable system level. Starting a cue pauses the others.</p>
+<p>These assets passed file-level and measured-distinctness checks but have <strong>not been auditioned</strong>.
+Listen down each column to judge whether every event is recognisable, and across each row to judge whether
+the two worlds still mean the same thing.</p>
+<button type="button" id="stop">Stop all</button>
+<div class="table-wrap"><table><thead><tr><th>Event</th><th>Galaxy · synthetic instruments</th><th>Lake Country · crafted objects</th></tr></thead><tbody>
+<tr><th scope="row">Select<span>One tiny, high, very short hit.</span></th><td class="galaxy"><p>A tiny high sine pip, gone in under a tenth of a second.</p><audio controls preload="none" aria-label="galaxy Select" src="galaxy/select.wav"></audio><small>0.12 s · -19 dBFS peak</small></td><td class="lake"><p>A tiny dry wood-block tick.</p><audio controls preload="none" aria-label="lake Select" src="lake/select.wav"></audio><small>0.12 s · -19 dBFS peak</small></td></tr>
+<tr><th scope="row">Focus<span>One low, warm, soft-edged tone that settles.</span></th><td class="galaxy"><p>A low chorused sine tone with a slow, soft edge, gliding down into place.</p><audio controls preload="none" aria-label="galaxy Focus" src="galaxy/focus.wav"></audio><small>0.5 s · -19 dBFS peak</small></td><td class="lake"><p>One low, warm marimba bar struck with a soft mallet.</p><audio controls preload="none" aria-label="lake Focus" src="lake/focus.wav"></audio><small>0.5 s · -19 dBFS peak</small></td></tr>
+<tr><th scope="row">Dispatch accepted<span>A bright rising sweep that lands on one confirming hit.</span></th><td class="galaxy"><p>A resonant filtered-noise whoosh rising to a bright FM ping.</p><audio controls preload="none" aria-label="galaxy Dispatch accepted" src="galaxy/dispatch.wav"></audio><small>0.62 s · -16 dBFS peak</small></td><td class="lake"><p>A brushed swish rising into a single water-drop bloop.</p><audio controls preload="none" aria-label="lake Dispatch accepted" src="lake/dispatch.wav"></audio><small>0.62 s · -16 dBFS peak</small></td></tr>
+<tr><th scope="row">Completed<span>A quick four-note rising major arpeggio that rings out.</span></th><td class="galaxy"><p>Four glassy FM bells climbing a D major arpeggio, then ringing.</p><audio controls preload="none" aria-label="galaxy Completed" src="galaxy/complete.wav"></audio><small>1.05 s · -15 dBFS peak</small></td><td class="lake"><p>Four plucked-string notes climbing a D major arpeggio, then ringing.</p><audio controls preload="none" aria-label="lake Completed" src="lake/complete.wav"></audio><small>1.05 s · -15 dBFS peak</small></td></tr>
+<tr><th scope="row">Needs attention<span>A two-tone high-low call, played twice: ding-dong, ding-dong.</span></th><td class="galaxy"><p>A clear two-tone sine-bell call, high-low, played twice.</p><audio controls preload="none" aria-label="galaxy Needs attention" src="galaxy/attention.wav"></audio><small>0.9 s · -14 dBFS peak</small></td><td class="lake"><p>A small brass bell, high-low, rung twice.</p><audio controls preload="none" aria-label="lake Needs attention" src="lake/attention.wav"></audio><small>0.9 s · -14 dBFS peak</small></td></tr>
+<tr><th scope="row">Action failed<span>Two dull, low, dissonant hits, the second lower.</span></th><td class="galaxy"><p>Two low, beating, band-limited buzzes a semitone apart, sagging downwards.</p><audio controls preload="none" aria-label="galaxy Action failed" src="galaxy/error.wav"></audio><small>0.42 s · -15 dBFS peak</small></td><td class="lake"><p>Two dull, low wooden thuds with a clashing undertone, the second lower.</p><audio controls preload="none" aria-label="lake Action failed" src="lake/error.wav"></audio><small>0.42 s · -15 dBFS peak</small></td></tr>
+<tr><th scope="row">Enter world<span>A long airy swell with a few faint sparkles near its crest.</span></th><td class="galaxy"><p>A long rising-and-falling air sweep over a chorused pad, with faint sparkles.</p><audio controls preload="none" aria-label="galaxy Enter world" src="galaxy/world-enter.wav"></audio><small>1.6 s · -20 dBFS peak</small></td><td class="lake"><p>A slow shoreline wash with three water drops falling into it.</p><audio controls preload="none" aria-label="lake Enter world" src="lake/world-enter.wav"></audio><small>1.6 s · -20 dBFS peak</small></td></tr></tbody></table></div>
+<footer>No runtime audio is enabled by this page. No autoplay, network calls, external libraries or analytics.
+<a href="manifest.json">Asset manifest, measurements and distance matrices</a> · <a href="README.md">Usage notes</a></footer>
+<script>
+const players = [...document.querySelectorAll('audio')];
+for (const player of players) {
+  player.volume = .35;
+  player.addEventListener('play', () => {
+    for (const other of players) if (other !== player) { other.pause(); other.currentTime = 0; }
+  });
+}
+document.querySelector('#stop').addEventListener('click', () => {
+  for (const player of players) { player.pause(); player.currentTime = 0; }
+});
+</script></html>
