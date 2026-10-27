@@ -67,6 +67,7 @@ export class AtlasScene extends Phaser.Scene {
   private clouds!: Phaser.GameObjects.TileSprite;
   private drift = 0;
   private selected!: Phaser.GameObjects.Graphics;
+  private selectGlow!: Phaser.GameObjects.Graphics;
   private hover!: Phaser.GameObjects.Graphics;
   private locations = new Map<string, Box>();
   private controls?: Phaser.Cameras.Controls.FixedKeyControl;
@@ -134,6 +135,7 @@ export class AtlasScene extends Phaser.Scene {
     this.cameras.main.setBackgroundColor(WATER);
     this.hover = this.add.graphics().setDepth(7);
     this.selected = this.add.graphics().setDepth(8);
+    this.selectGlow = this.add.graphics().setDepth(7.9);
     this.configureInput();
     const resize = () => this.fit();
     this.scale.on("resize", resize);
@@ -355,11 +357,18 @@ export class AtlasScene extends Phaser.Scene {
     entity: Entity,
     width: number,
     color: number,
+    alpha = 0.95,
   ): void {
-    graphics.lineStyle(width, color, 0.95);
     const edges = footprintEdges(this.cellsOf(entity));
     graphics.setData("edgeCount", edges.length);
+    graphics.lineStyle(width, color, alpha);
     for (const { a, b } of edges) graphics.lineBetween(a.x, a.y, b.x, b.y);
+    // Round the corners, so thick outlines don't gap where edges meet.
+    graphics.fillStyle(color, alpha);
+    const corners = new Map(
+      edges.flatMap(({ a, b }) => [a, b]).map((p) => [`${Math.round(p.x)},${Math.round(p.y)}`, p]),
+    );
+    for (const p of corners.values()) graphics.fillCircle(p.x, p.y, width / 2);
   }
   /** The cells an entity covers; a host covers its whole landmass. */
   private cellsOf(entity: Entity): Axial[] {
@@ -496,6 +505,11 @@ export class AtlasScene extends Phaser.Scene {
         });
     }
     this.animateTiles();
+  }
+  /** The selection's glow swells and fades; steady with reduced motion. */
+  private breathe(): void {
+    const t = this.reduced ? 0.5 : 0.5 + 0.5 * Math.sin((this.clock / 1600) * Math.PI * 2);
+    this.selectGlow.setAlpha(0.18 + 0.27 * t);
   }
   /** Pulsing borders fade in and out; running borders carry a light round
    * them, a sixth of their length. Still, with reduced motion. */
@@ -762,8 +776,14 @@ export class AtlasScene extends Phaser.Scene {
   private drawSelection(): void {
     this.selected.clear();
     const entity = this.selectedId ? this.entity(this.selectedId) : undefined;
+    this.selectGlow.clear();
     if (!entity || entity.kind === "host") return;
-    this.outlineCells(this.selected, entity, 3, 0x9c742c);
+    // A soft breathing glow, a dark keyline and a bright rim: clear on grass,
+    // timber, flagstones and every tile colour.
+    this.outlineCells(this.selectGlow, entity, 26, 0xfff4cf, 1);
+    this.outlineCells(this.selected, entity, 11, 0x2a1a0c, 0.7);
+    this.outlineCells(this.selected, entity, 6, 0xfffbea, 1);
+    this.breathe();
   }
   setInput(enabled: boolean): void {
     this.input.enabled = enabled;
@@ -903,6 +923,7 @@ export class AtlasScene extends Phaser.Scene {
       this.drift += delta * 0.006;
       this.clock += delta;
       this.animateTiles();
+      this.breathe();
     }
     // Ground and clouds cover exactly the visible view; their textures stay anchored to the world.
     // worldView trails a frame, so a margin covers fast pans and zooms.

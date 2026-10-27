@@ -87,7 +87,8 @@ All structures and scenery consume whole cells on the shared axial grid.
 Workspaces use three hexes; project landmarks use ten (rows of 3, 4 and 3); each agent uses one.
 One island per project with workspaces.
 Center artwork and fit it completely inside its occupied cells.
-Selection follows the outer perimeter of the occupied hexes, never a rectangle.
+Selection follows the outer perimeter of the occupied hexes, never a rectangle: a bright rim on a dark
+keyline with a slowly breathing glow, so the selected entity reads on any surface.
 Project, workspace and agent cells each have a distinct tile style (flagstones, timber decking, light sand
 tiles); islands have no empty cells. Minimum zoom fits the land with a one-cell border (plus room for banners and map controls);
 panning stays within that extent. The world never sends daemon actions; the React UI owns them.
