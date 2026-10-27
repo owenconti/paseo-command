@@ -57,6 +57,8 @@ Local assets belong in the repository and are included through local build tooli
   forwards map picks as selections and draws app selections on the map.
 - `web/server/`: inherited official Paseo SDK API, bound to loopback.
 - `web/e2e/`: browser tests with every `/api` request answered in the browser.
+- `web/src/urlState.ts`: the panel's place (selection, subagent, tab, filter, host filter, list toggle) kept in
+  the page's query, so a refresh returns there; a new selection pushes history, other changes replace it.
 
 ## Atlas world
 

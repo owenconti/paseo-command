@@ -78,6 +78,7 @@ import {
   withRenames,
 } from "./renames";
 import { withLocalWorkspaces, projectKey, workspaceKey } from "./workspaces";
+import { readUrlState, selectionKey as placeKey, urlSearch } from "./urlState";
 import type {
   Agent,
   Health,
@@ -169,9 +170,12 @@ function App() {
     [agents, workspaces, projects, hosts],
   );
   useKnownIds();
-  const [focusRevision, setFocusRevision] = useState(0);
+  // Where the user was, from the page's query (a refresh returns there).
+  const [initial] = useState(() => readUrlState());
+  // A selection from the URL is framed on the map once it is drawn.
+  const [focusRevision, setFocusRevision] = useState(initial.selection ? 1 : 0);
   const [dispatchRevision, setDispatchRevision] = useState(0);
-  const [browsing, setBrowsing] = useState(true);
+  const [browsing, setBrowsing] = useState(initial.browsing);
   // The app's Settings… (Cmd+,) opens the interface sounds control in the
   // fleet sidebar: show the sidebar and expand the panel (SoundControl opens).
   const [revealRevision, setRevealRevision] = useState(0);
@@ -193,10 +197,40 @@ function App() {
   });
   // The host the lists are narrowed to ("" for local): chosen in the Hosts
   // tab or by picking its land on the map, where it shows as selected.
-  const [hostFilter, setHostFilter] = useState<string | null>(null);
-  const [selection, setSelection] = useState<Selection>(null),
-    [tab, setTab] = useState<Tab>(unity ? "Workspaces" : "Agents"),
-    [filter, setFilter] = useState<Filter>("all");
+  const [hostFilter, setHostFilter] = useState<string | null>(initial.hostFilter);
+  const defaultTab: Tab = unity ? "Workspaces" : "Agents";
+  const [selection, setSelection] = useState<Selection>(initial.selection),
+    [tab, setTab] = useState<Tab>(initial.tab ?? defaultTab),
+    [filter, setFilter] = useState<Filter>(initial.filter ?? "all");
+  // Kept in the URL: a new selection is a new history entry (Back returns to
+  // the last); tabs, filters and the list's toggle replace the current one.
+  const shownPlace = useRef(placeKey(initial.selection));
+  useEffect(() => {
+    const search = urlSearch(
+      { selection, tab, filter, hostFilter, browsing },
+      { tab: defaultTab },
+    );
+    if (search === location.search) return;
+    const place = placeKey(selection);
+    const url = `${location.pathname}${search}${location.hash}`;
+    if (place !== shownPlace.current) history.pushState(null, "", url);
+    else history.replaceState(null, "", url);
+    shownPlace.current = place;
+  }, [selection, tab, filter, hostFilter, browsing, defaultTab]);
+  useEffect(() => {
+    const restore = () => {
+      const state = readUrlState();
+      shownPlace.current = placeKey(state.selection);
+      setSelection(state.selection);
+      setBrowsing(state.browsing);
+      setTab(state.tab ?? defaultTab);
+      setFilter(state.filter ?? "all");
+      setHostFilter(state.hostFilter);
+      if (state.selection) setFocusRevision((revision) => revision + 1);
+    };
+    addEventListener("popstate", restore);
+    return () => removeEventListener("popstate", restore);
+  }, [defaultTab]);
   const [errors, setErrors] = useState<string[]>([]),
     [loading, setLoading] = useState(true),
     [dispatchTarget, setDispatchTarget] = useState<DispatchTarget | null>(null),
