@@ -8,6 +8,12 @@
 - Cached engine files under `phaser/` and `game/node_modules/` remain available for local builds. Do not edit the engine.
 - The original `/Users/example/development/paseo-command` project is read only. Preserve its React UI; focus current development on the game world.
 
+## Finishing each fix
+
+- The user runs the app with `vite preview` on port 4310, which serves the built `web/dist/`.
+  After every fix or task, commit it (one commit per fix) and run `npm run app:build` so a page
+  refresh shows the change.
+
 ## Product and references
 
 Paseo Command visualizes hosts, projects, workspaces and agents from the Paseo daemon.
