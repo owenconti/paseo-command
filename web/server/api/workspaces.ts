@@ -1,5 +1,11 @@
 import { TUNING } from "../fleet";
-import { BASE_BRANCHES, ghPullRequest, linearIssue } from "../links";
+import {
+  BASE_BRANCHES,
+  ghMergeQueue,
+  ghPullRequest,
+  linearIssue,
+  type PullRequest,
+} from "../links";
 import { redactText } from "../redact";
 import { affectedKeys, type Mark } from "./commands";
 import { resolveHost, sdk, timed, type DaemonClient } from "./hosts";
@@ -99,21 +105,7 @@ export async function renameWorkspace(rawId: string, body: Body, mark: Mark) {
  * no PR, or none knowable, is `pr: null`.
  */
 export async function pullRequestFor(rawId: string | null, rawHost: unknown) {
-  if (!rawId) throw new Error("A workspace is required");
-  const workspaceId = id(rawId);
-  const host = await resolveHost(rawHost);
-  const rows = (await aggregate("workspaces")).rows as {
-    workspaceId?: string;
-    host?: string;
-    cwd?: string;
-    branch?: string;
-    pr?: unknown;
-  }[];
-  const ws = rows.find(
-    (w) =>
-      w.workspaceId === workspaceId &&
-      (w.host || "") === (host?.serverId || ""),
-  );
+  const { host, ws } = await workspaceRowFor(rawId, rawHost);
   if (!ws) return { source: "none", available: false, pr: null };
   const branch = ws.branch || "";
   if (BASE_BRANCHES.test(branch.trim()))
@@ -123,6 +115,45 @@ export async function pullRequestFor(rawId: string | null, rawHost: unknown) {
   if (host || !ws.cwd) return { source: "none", available: false, pr: null };
   const r = await ghPullRequest(ws.cwd, branch);
   return { source: r.available ? "gh" : "none", ...r };
+}
+
+async function workspaceRowFor(rawId: string | null, rawHost: unknown) {
+  if (!rawId) throw new Error("A workspace is required");
+  const workspaceId = id(rawId);
+  const host = await resolveHost(rawHost);
+  const rows = (await aggregate("workspaces")).rows as {
+    workspaceId?: string;
+    host?: string;
+    cwd?: string;
+    branch?: string;
+    pr?: PullRequest | null;
+  }[];
+  const ws = rows.find(
+    (w) =>
+      w.workspaceId === workspaceId &&
+      (w.host || "") === (host?.serverId || ""),
+  );
+  return { host, ws };
+}
+
+/**
+ * `GET /api/merge-queue?workspace=<id>[&host=<id>]`: the merge queue
+ * standing of the workspace's open PR (Paseo's PR, else gh's), from a
+ * read-only `gh api graphql` query in a checkout on this machine. Remote
+ * checkouts are skipped (`available: false`; the row's own `pr.queue`, from
+ * Paseo, stands). Never fails for a lookup.
+ */
+export async function mergeQueueFor(rawId: string | null, rawHost: unknown) {
+  const { host, ws } = await workspaceRowFor(rawId, rawHost);
+  if (!ws || host || !ws.cwd) return { available: false, queue: null };
+  const branch = ws.branch || "";
+  if (BASE_BRANCHES.test(branch.trim()))
+    return { available: true, queue: null };
+  const pr =
+    ws.pr !== undefined ? ws.pr : (await ghPullRequest(ws.cwd, branch)).pr;
+  if (!pr || (pr.state !== "open" && pr.state !== "draft"))
+    return { available: true, queue: null };
+  return ghMergeQueue(ws.cwd, pr.url);
 }
 
 /** `GET /api/linear-issue?key=ABC-123`: title and state, with LINEAR_API_KEY. */

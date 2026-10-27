@@ -35,6 +35,7 @@ import {
   archiveWorkspace,
   labelWorkspace,
   linearIssueFor,
+  mergeQueueFor,
   pullRequestFor,
   renameWorkspace,
 } from "./workspaces";
@@ -115,6 +116,12 @@ export async function handleApi(
             break;
           case "pull-request":
             result = await pullRequestFor(
+              url.searchParams.get("workspace"),
+              url.searchParams.get("host"),
+            );
+            break;
+          case "merge-queue":
+            result = await mergeQueueFor(
               url.searchParams.get("workspace"),
               url.searchParams.get("host"),
             );

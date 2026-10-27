@@ -21,6 +21,7 @@
     "render:build": "npm --prefix rendering run build",
     "render:preview": "npm --prefix rendering run preview",
     "render:test": "node --experimental-strip-types --test rendering/tests/*.test.mjs",
+    "app:test": "npm --prefix web test",
     "app:e2e": "npm --prefix web run e2e"
   }
 }
