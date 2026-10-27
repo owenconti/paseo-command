@@ -40,7 +40,7 @@ export function WorldLegend({ kind, data }: { kind: WorldKind; data: AtlasData }
       const p = providerOf(a.model) || "unknown";
       colours.set(PROVIDER_NAMES[p] ?? (p[0]?.toUpperCase() ?? "") + p.slice(1), providerColor(a.model));
     } else colours.set(modelName(a.model), MODEL_COLORS[modelColor(a.model)]);
-  const unit = kind === "galaxy" ? "Station" : "Workspace tile";
+  const unit = kind === "galaxy" ? "Station" : "Agent tile";
   return (
     <section className="atlas-world-legend" aria-label="Map legend">
       <button className="legend-toggle" aria-expanded={open} onClick={toggle}>
