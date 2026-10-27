@@ -1,0 +1,212 @@
+/* This surface is deliberately a small, actual-world atlas, not another fleet
+   panel. Native screenshots and the DOM overlay use the same 8:5 projection. */
+.unity-command .native-world-minimap,
+.native-world-minimap {
+  --atlas-ink: #d5dedc;
+  --atlas-muted: #91a19f;
+  --atlas-surface: rgba(12, 23, 27, 0.94);
+  position: absolute;
+  left: 16px;
+  bottom: 16px;
+  z-index: 11;
+  width: 224px;
+  padding: 0;
+  overflow: visible;
+  color: var(--atlas-ink);
+  background: var(--atlas-surface);
+  border: 1px solid rgba(167, 190, 185, 0.24);
+  border-radius: 7px;
+  box-shadow: 0 3px 14px #0004;
+  pointer-events: auto;
+}
+.native-world-minimap[data-theme="lake"] {
+  --atlas-ink: #f0e7d0;
+  --atlas-muted: #b5c5b0;
+  --atlas-surface: rgba(34, 54, 45, 0.95);
+  border-color: rgba(200, 210, 174, 0.32);
+}
+.native-world-minimap .atlas-heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 29px;
+  padding: 0 7px 0 10px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.native-world-minimap .atlas-north {
+  margin-left: auto;
+  font-size: 9px;
+  color: var(--atlas-muted);
+}
+.native-world-minimap .atlas-heading button {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  color: var(--atlas-ink);
+  background: none;
+  border: 0;
+  border-radius: 3px;
+}
+.native-world-minimap .atlas-heading button:hover {
+  background: #ffffff12;
+}
+.native-world-minimap .atlas-stage {
+  position: relative;
+  aspect-ratio: 8 / 5;
+  background: #080e13;
+  cursor: crosshair;
+}
+.native-world-minimap[data-theme="lake"] .atlas-stage {
+  background: #355356;
+}
+.native-world-minimap .atlas-world-image {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: fill;
+  pointer-events: none;
+  user-select: none;
+}
+.native-world-minimap[data-theme] svg.atlas-projection {
+  display: block;
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  background: transparent;
+  overflow: hidden;
+  pointer-events: none;
+}
+.native-world-minimap .atlas-fallback-region {
+  fill: #abc9bd0a;
+  stroke: #abc9bd44;
+  stroke-width: 1;
+  stroke-dasharray: 3 4;
+}
+.native-world-minimap .atlas-camera-shadow {
+  fill: transparent;
+  stroke: #071319b3;
+  stroke-width: 4;
+  stroke-linejoin: round;
+}
+.native-world-minimap .atlas-camera-footprint {
+  fill: #edf6ea08;
+  stroke: #eef8ebbf;
+  stroke-width: 1.5;
+  stroke-linejoin: round;
+}
+.native-world-minimap .atlas-camera-center {
+  fill: #fff8dc;
+  stroke: #152627;
+  stroke-width: 1;
+}
+.native-world-minimap .atlas-hosts.minimap-settlements {
+  position: absolute;
+  inset: 0;
+  display: block;
+  padding: 0;
+  border: 0;
+  max-height: none;
+  overflow: visible;
+  pointer-events: none;
+}
+.unity-command .native-world-minimap .atlas-hosts button,
+.native-world-minimap .atlas-hosts button {
+  position: absolute;
+  width: 26px;
+  height: 26px;
+  min-width: 0;
+  min-height: 0;
+  padding: 0;
+  transform: translate(-50%, -50%);
+  display: grid;
+  place-items: center;
+  background: transparent;
+  color: var(--atlas-ink);
+  border: 0;
+  border-radius: 3px;
+  overflow: visible;
+  cursor: pointer;
+  pointer-events: auto;
+}
+.native-world-minimap .atlas-host-mark {
+  width: 5px;
+  height: 5px;
+  transform: rotate(45deg);
+  border: 1px solid #eee9cf;
+  background: var(--host-color);
+  box-shadow: 0 0 0 1px #14201dc7;
+}
+.native-world-minimap .atlas-village .atlas-host-mark {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  transform: none;
+}
+.native-world-minimap .atlas-host[data-offline="true"] .atlas-host-mark {
+  background: #59615f;
+  border-style: dashed;
+}
+.native-world-minimap .atlas-host-label {
+  position: absolute;
+  bottom: 23px;
+  left: 50%;
+  transform: translateX(var(--label-align, -50%));
+  padding: 4px 7px;
+  max-width: 192px;
+  width: max-content;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  background: var(--atlas-surface);
+  border: 1px solid #adbfad66;
+  border-radius: 3px;
+  font-size: 11px;
+  line-height: 1.4;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+.native-world-minimap .atlas-host:hover,
+.native-world-minimap .atlas-host:focus-visible {
+  z-index: 3;
+}
+.native-world-minimap .atlas-host:hover .atlas-host-label,
+.native-world-minimap .atlas-host:focus-visible .atlas-host-label {
+  opacity: 1;
+  visibility: visible;
+}
+.native-world-minimap .atlas-location {
+  padding: 6px 10px;
+  font-size: 10px;
+  line-height: 1.4;
+  color: var(--atlas-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.native-world-minimap button:focus-visible,
+.native-world-minimap .atlas-stage:focus-visible {
+  outline: 2px solid var(--atlas-ink);
+  outline-offset: 2px;
+}
+.native-world-minimap button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.native-world-minimap .atlas-stage[aria-disabled="true"] {
+  cursor: default;
+}
+@media (max-width: 640px) {
+  .unity-command .native-world-minimap {
+    width: 176px;
+    left: 10px;
+    bottom: 10px;
+  }
+}

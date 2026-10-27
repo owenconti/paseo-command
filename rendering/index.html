@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="theme-color" content="#ede4cf" />
+    <title>Paseo Command · Atlas rendering study</title>
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="identity">
+        <svg viewBox="0 0 40 40" aria-hidden="true">
+          <path d="M20 3 35 12v17L20 38 5 29V12Z" />
+          <path d="m20 9 5 10 8 2-10 4-3 8-3-8-10-4 8-2Z" />
+        </svg>
+        <div>
+          <h1>Paseo Command</h1>
+          <p>Atlas <span>·</span> Rendering study</p>
+        </div>
+      </div>
+      <nav aria-label="Map navigation">
+        <button data-command="local">Local</button
+        ><button data-command="macmini">Macmini</button
+        ><span class="divider"></span
+        ><button
+          data-command="home"
+          class="icon-button"
+          aria-label="Fit entire map"
+          title="Fit map · Home"
+        >
+          <svg viewBox="0 0 24 24">
+            <path d="M8 3H3v5m13-5h5v5M3 16v5h5m13-5v5h-5" />
+          </svg></button
+        ><button data-command="out" class="icon-button" aria-label="Zoom out">
+          <svg viewBox="0 0 24 24"><path d="M5 12h14" /></svg></button
+        ><output id="zoom" aria-label="Map zoom">100%</output
+        ><button data-command="in" class="icon-button" aria-label="Zoom in">
+          <svg viewBox="0 0 24 24"><path d="M5 12h14m-7-7v14" /></svg>
+        </button>
+      </nav>
+    </header>
+    <main>
+      <section class="map-area" aria-label="Interactive illustrated world">
+        <div
+          id="game"
+          tabindex="0"
+          aria-label="Atlas map. Drag to pan, scroll to zoom. Use arrow keys to pan. Select agents with the map or the inspector list."
+        ></div>
+        <div id="loading" role="status">Preparing the atlas…</div>
+        <div class="sample-note">
+          <span></span>Illustrative fleet <b>·</b> No daemon connection
+        </div>
+        <div class="map-help">
+          Drag to explore <span>·</span> Scroll to zoom <span>·</span> Home to
+          fit
+        </div>
+        <div class="compass" aria-hidden="true">
+          <span>N</span
+          ><svg viewBox="0 0 60 60">
+            <path d="m30 3 6 21 21 6-21 6-6 21-6-21L3 30l21-6Z" />
+            <path d="m30 3 0 27 27 0-27 0 0 27 0-27-27 0 27 0Z" />
+          </svg>
+        </div>
+      </section>
+      <aside aria-label="Atlas guide and selection">
+        <div id="inspector"></div>
+        <footer class="aside-footer">
+          <button id="motion" aria-pressed="false">Pause ambient motion</button
+          ><span>Phaser 4 · Local preview</span>
+        </footer>
+      </aside>
+    </main>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

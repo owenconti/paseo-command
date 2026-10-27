@@ -1,0 +1,179 @@
+/* ── Workspace / project views ─────────────────────────────────────── */
+.place {
+  flex: 1;
+  padding: 10px var(--space-4) var(--space-5);
+  overflow: auto;
+}
+.place .session-nav {
+  margin-bottom: var(--space-4);
+}
+.overview-title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+.overview-title > div {
+  flex: 1;
+  min-width: 0;
+}
+/* A long host name ellipsizes inside the column (its description has it whole). */
+.overview-title p .host-chip {
+  min-width: 0;
+  max-width: 100%;
+}
+.overview-title h2 {
+  margin: 0;
+  overflow-wrap: anywhere;
+  font-size: var(--fs-lg);
+  font-weight: var(--fw-bold);
+  line-height: 1.35;
+  letter-spacing: -0.015em;
+  color: var(--text-strong);
+}
+.overview-title p {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-2);
+  margin: 3px 0 0;
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+}
+.place-branch {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  color: var(--text-2);
+}
+.path-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: var(--space-1) var(--space-1) var(--space-1) var(--space-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--fill-soft);
+}
+.path-row code {
+  flex: 1;
+  font-size: var(--fs-xs);
+  line-height: 1.5;
+  color: var(--text-2);
+  overflow-wrap: anywhere;
+}
+.workspace-labels {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: var(--space-2);
+}
+.workspace-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 22px;
+  padding: 0 2px 0 8px;
+  border: 1px solid color-mix(in srgb, var(--label) 35%, transparent);
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--label) 12%, transparent);
+  color: var(--text-2);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-medium);
+}
+.workspace-label .dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--label);
+}
+.workspace-label button {
+  display: inline-grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  color: var(--text-3);
+}
+.workspace-label button:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--label) 22%, transparent);
+  color: var(--text);
+}
+.workspace-label-add {
+  height: 22px;
+  font-size: var(--fs-xs);
+}
+.workspace-labels input {
+  height: 22px;
+  width: 160px;
+  padding: 0 8px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-pill);
+  background: var(--panel);
+  color: var(--text);
+  font-size: var(--fs-xs);
+}
+.workspace-label-error {
+  flex-basis: 100%;
+  margin: 0;
+  font-size: var(--fs-xs);
+  color: var(--red-text);
+}
+.place-actions {
+  display: flex;
+  gap: var(--space-2);
+  margin: var(--space-3) 0 var(--space-5);
+}
+.place-actions .primary {
+  flex: 1;
+}
+.workspace-archive {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  height: var(--control-md);
+  padding: 0 var(--space-3);
+  border: 1px solid var(--red-line);
+  border-radius: var(--radius-md);
+  background: var(--red-soft);
+  color: var(--red-text);
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-semibold);
+}
+.workspace-archive:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--red-soft) 80%, var(--red));
+}
+.workspace-archive:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+.section-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: var(--space-5) 0 6px;
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-bold);
+  color: var(--text-mid);
+}
+.section-label > span {
+  font-weight: var(--fw-medium);
+  color: var(--text-4);
+  font-variant-numeric: tabular-nums;
+}
+.workspace-list,
+.place-agents {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  margin: 0 calc(var(--space-2) * -1);
+}
+.place .muted {
+  padding: var(--space-2) 0;
+}
+/* Inside a list that bleeds into the margin for its row highlights. */
+.workspace-list > .muted {
+  padding-inline: var(--space-2);
+}

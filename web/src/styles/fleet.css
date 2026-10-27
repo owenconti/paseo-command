@@ -1,0 +1,552 @@
+/* ── Fleet list ────────────────────────────────────────────────────── */
+.registry {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+.search-wrap {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: var(--control-md);
+  margin: var(--space-3) var(--space-4) 0;
+  padding: 0 6px 0 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--fill);
+  color: var(--text-4);
+  flex-shrink: 0;
+  transition:
+    border-color var(--dur-1) var(--ease-out),
+    background-color var(--dur-1) var(--ease-out),
+    box-shadow var(--dur-2) var(--ease-out);
+}
+.search-wrap:hover {
+  border-color: var(--line-strong);
+}
+.search-wrap:focus-within {
+  background: var(--panel-raised);
+  border-color: var(--focus);
+  box-shadow: var(--focus-ring);
+  color: var(--accent-text);
+}
+.search-wrap input {
+  width: 100%;
+  border: 0;
+  outline: 0;
+  background: none;
+  font-size: var(--fs-md);
+  color: var(--text);
+}
+.search-wrap input::placeholder {
+  color: var(--text-4);
+}
+.search-wrap input:focus-visible {
+  outline: 0;
+}
+.tabs {
+  display: flex;
+  gap: var(--space-5);
+  min-height: 40px;
+  margin: 0 var(--space-4);
+  border-bottom: 1px solid var(--line);
+  flex-shrink: 0;
+}
+.tabs button {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0;
+  background: none;
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-medium);
+  color: var(--text-3);
+}
+.tabs button:hover {
+  color: var(--text);
+}
+.tabs button[aria-selected="true"] {
+  color: var(--accent-text);
+}
+.tabs button small {
+  font-size: var(--fs-2xs);
+  font-weight: var(--fw-medium);
+  color: var(--text-4);
+  font-variant-numeric: tabular-nums;
+}
+.tabs button > .tab-underline {
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  right: 0;
+  height: 2px;
+  border-radius: 2px 2px 0 0;
+  background: var(--accent-bright);
+}
+.filter-bar {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 10px var(--space-4) 6px;
+  flex-shrink: 0;
+}
+.filter-chips {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+/* View options: a quiet chip-sized button at the end of the filters. */
+.view-anchor {
+  flex-shrink: 0;
+}
+.view-trigger {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--text-3);
+}
+.view-trigger:hover,
+.view-trigger[aria-expanded="true"] {
+  background: var(--fill-strong);
+  color: var(--text);
+}
+/* A non-default view is easy to spot (and to undo). */
+.view-trigger.changed {
+  background: var(--accent-soft);
+  color: var(--accent-text);
+}
+/* Placed by popover.ts (data-place): down from the button when there's
+   more room below, as at the top of the rail. */
+.popover-menu.view-menu {
+  min-width: 210px;
+  padding: 4px;
+  overscroll-behavior: contain;
+}
+.view-menu .menu-label {
+  margin-top: 6px;
+}
+.view-menu [role="group"] > button,
+.view-menu > button {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 9px;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--text);
+  font-size: var(--fs-sm);
+  text-align: left;
+}
+.view-menu [role="group"] > button b,
+.view-menu > button b {
+  flex: 1;
+  font-weight: var(--fw-regular);
+}
+.view-menu [role="group"] > button:hover,
+.view-menu > button:hover {
+  background: var(--fill-strong);
+}
+.view-menu button.checked b {
+  color: var(--accent-text);
+  font-weight: var(--fw-medium);
+}
+.view-menu button.checked svg {
+  color: var(--accent-text);
+}
+.filter-chips button {
+  display: inline-flex;
+  align-items: center;
+  height: 26px;
+  padding: 0 8px;
+  border-radius: var(--radius-pill);
+  background: var(--fill);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-medium);
+  color: var(--text-mid);
+}
+.filter-chips button:hover {
+  background: var(--fill-strong);
+  color: var(--text);
+}
+.filter-chips button[aria-checked="true"] {
+  background: var(--ink);
+  color: var(--on-ink);
+}
+.filter-chips button small {
+  margin-left: 5px;
+  font-size: var(--fs-2xs);
+  font-weight: var(--fw-medium);
+  font-variant-numeric: tabular-nums;
+}
+.registry-list {
+  flex: 1;
+  min-height: 75px;
+  overflow: auto;
+  overscroll-behavior: contain;
+  /* Rows scrolled into view by Tab keep their ring clear of the edges. */
+  scroll-padding-block: var(--space-2);
+  padding-bottom: var(--space-2);
+}
+.fleet-group {
+  padding-bottom: var(--space-1);
+}
+.group-head {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: var(--space-2) var(--space-4) var(--space-1);
+  background: var(--panel-glass);
+  backdrop-filter: blur(8px);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-bold);
+  color: var(--text-mid);
+}
+.group-head > small {
+  color: var(--text-4);
+  font-weight: var(--fw-medium);
+  font-variant-numeric: tabular-nums;
+}
+.group-head .link-btn {
+  margin-left: auto;
+}
+.group-toggle {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  margin-left: -4px;
+  padding: 0;
+  border-radius: var(--radius-xs);
+  background: transparent;
+  color: var(--text-4);
+}
+.group-toggle:hover {
+  background: var(--fill-strong);
+  color: var(--text);
+}
+.group-toggle svg {
+  transition: transform var(--dur-2) var(--ease-out);
+}
+.group-toggle[aria-expanded="false"] svg {
+  transform: rotate(-90deg);
+}
+.group-head .dot {
+  margin: 0 1px;
+}
+.group-detail {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-4);
+  font-weight: var(--fw-medium);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* Long host names shrink before the project name does. */
+.group-head .host-chip {
+  flex-shrink: 1;
+  min-width: 4ch;
+  max-width: 45%;
+}
+.host-chip > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.host-chip > svg {
+  flex-shrink: 0;
+}
+.group-title {
+  min-width: 0;
+  padding: 0;
+  overflow: hidden;
+  background: none;
+  color: inherit;
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-bold);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.group-title:hover:not(:disabled) {
+  color: var(--accent-text);
+}
+.group-title:disabled {
+  opacity: 1;
+  cursor: default;
+}
+.group-add {
+  margin-left: auto;
+  width: 24px;
+  height: 24px;
+  opacity: 0;
+}
+.group-head:hover .group-add,
+.group-add:focus-visible {
+  opacity: 1;
+}
+.attention-group .group-head {
+  color: var(--amber-text);
+}
+.unread-group .group-head {
+  color: var(--unread-text);
+}
+.registry-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-width: 0;
+  padding: 9px var(--space-2);
+  border-radius: var(--radius-md);
+  background: transparent;
+  text-align: left;
+}
+.registry-row:hover {
+  background: var(--row-hover);
+}
+.fleet-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  margin: 0 var(--space-2);
+  border-radius: var(--radius-md);
+  /* Every agent is listed (hundreds when archived): rows out of view skip
+     layout and paint. */
+  content-visibility: auto;
+  contain-intrinsic-size: auto 51px;
+}
+/* Rows contain their paint: focus rings go inside. */
+.fleet-row :focus-visible {
+  outline-offset: -2px;
+}
+.fleet-row > .registry-row {
+  flex: 1;
+}
+.fleet-row:hover > .registry-row {
+  background: var(--row-hover);
+}
+.fleet-row.selected > .registry-row {
+  background: var(--row-selected);
+}
+.fleet-row.selected .row-name b {
+  color: var(--accent-text);
+}
+.fleet-row.stale .registry-row {
+  opacity: 0.6;
+}
+.row-stale {
+  color: var(--amber-text);
+}
+.host-chip.stale {
+  background: var(--amber-soft);
+  color: var(--amber-text);
+}
+.avatar {
+  position: relative;
+  flex-shrink: 0;
+}
+.unread-dot {
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--unread);
+  border: 2px solid var(--panel);
+}
+.row-name {
+  flex: 1;
+  min-width: 0;
+}
+.row-name b {
+  display: block;
+  margin-bottom: 3px;
+  overflow: hidden;
+  font-size: var(--fs-md);
+  font-weight: var(--fw-medium);
+  color: var(--text);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.fleet-row.unread .row-name b {
+  font-weight: var(--fw-bold);
+  color: var(--text-strong);
+}
+.row-name small {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  overflow: hidden;
+  font-size: var(--fs-xs);
+  color: var(--text-4);
+  white-space: nowrap;
+}
+.row-name small > * {
+  flex-shrink: 0;
+}
+.row-name small span {
+  margin: 0 2px;
+  color: var(--text-faint);
+}
+.row-name small > .row-branch {
+  flex-shrink: 1;
+  min-width: 3ch;
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: inherit;
+}
+.row-name small > .row-time {
+  margin: 0;
+  color: inherit;
+  white-space: nowrap;
+}
+.row-project {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin: 0 !important;
+  color: var(--text-2) !important;
+  font-weight: var(--fw-medium);
+}
+.row-actions {
+  position: absolute;
+  right: var(--space-2);
+  display: flex;
+  gap: var(--space-1);
+  padding-left: var(--space-2);
+  background: var(--row-hover);
+  opacity: 0;
+  transition: opacity var(--dur-1) var(--ease-out);
+}
+.fleet-row.selected .row-actions {
+  background: var(--row-selected);
+}
+.fleet-row:hover .row-actions,
+.row-actions:focus-within,
+.attention-group .row-actions,
+.unread-group .row-actions {
+  opacity: 1;
+}
+/* The actions shown over a row hide the badge beneath them, whose text
+   would otherwise show between translucent buttons. */
+.fleet-row:is(:hover, :focus-within):has(> .row-actions)
+  > .registry-row
+  > .badge {
+  visibility: hidden;
+}
+.attention-group .fleet-row > .registry-row > .badge,
+.unread-group .fleet-row > .registry-row > .badge {
+  visibility: visible;
+}
+.attention-group .row-actions,
+.unread-group .row-actions {
+  position: static;
+  padding: 0 0 0 var(--space-1);
+  background: none;
+}
+.row-actions button {
+  display: grid;
+  place-items: center;
+  width: var(--control-sm);
+  height: var(--control-sm);
+  border: 1px solid var(--line-mid);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: var(--text-mid);
+  box-shadow: var(--shadow-sm);
+}
+.row-actions button:hover:not(:disabled) {
+  border-color: var(--line-hover);
+  color: var(--text);
+}
+.row-actions button:active:not(:disabled) {
+  transform: scale(0.94);
+}
+.row-actions button.approve {
+  background: var(--green-strong);
+  border-color: var(--green-strong);
+  color: var(--on-accent);
+}
+.row-actions button.approve:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--green-strong) 88%, #000);
+  color: var(--on-accent);
+}
+.row-actions button.archive:hover:not(:disabled) {
+  background: var(--red-soft);
+  border-color: var(--red-line);
+  color: var(--red-text);
+}
+.row-actions button.answer {
+  width: auto;
+  padding: 0 10px;
+  border-color: var(--amber-line);
+  background: var(--amber-soft);
+  color: var(--amber-text);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-semibold);
+}
+.registry-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px var(--space-3);
+  flex-shrink: 0;
+  padding: var(--space-2) var(--space-4);
+  border-top: 1px solid var(--line);
+  font-size: var(--fs-2xs);
+  color: var(--text-4);
+}
+.registry-footer span {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+/* ── Hosts tab ─────────────────────────────────────────────────── */
+.host-problem {
+  margin-top: 2px;
+  white-space: normal;
+  color: var(--amber-text);
+}
+.fleet-row.host-entry .registry-row {
+  align-items: center;
+}
+/* The host the other tabs are narrowed to. */
+.host-filter {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 8px var(--space-4) 0;
+  padding: 2px 2px 2px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--fill-soft);
+  color: var(--text-3);
+  font-size: var(--fs-sm);
+}
+.host-filter span {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.host-filter b {
+  color: var(--text-strong);
+  font-weight: var(--fw-semibold);
+}

@@ -1,0 +1,74 @@
+/* One tinted surface per pane over the sidebar's opaque backing (no world
+   renders under the docked sidebar). Preserve each theme's local tokens
+   (Lake's fleet uses forest-green paper). */
+.unity-command .floating-command .app-panel,
+.unity-command .floating-command .app-workspace,
+.unity-command .floating-command .chat-workspace {
+  background: transparent;
+}
+.unity-command .floating-command .fleet-sidebar {
+  background: color-mix(in srgb, var(--panel-2) 94%, transparent);
+}
+.unity-command .floating-command .detail-content {
+  background: color-mix(in srgb, var(--panel) 94%, transparent);
+}
+.unity-command .floating-command .session,
+.unity-command .floating-command .place,
+.unity-command .floating-command .timeline {
+  background: transparent;
+}
+/* The chrome shares the fleet pane's paper so the two read as one surface. */
+.unity-command .floating-command .floating-command-header {
+  background: color-mix(in srgb, var(--panel-2) 94%, transparent);
+}
+.registry-tabs {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 12px;
+  justify-content: space-between;
+}
+.registry-tabs button {
+  min-width: 0;
+  min-height: 40px;
+  white-space: nowrap;
+  gap: 5px;
+}
+.registry-tabs .registry-tab-label {
+  flex-shrink: 0;
+}
+.registry-tabs .registry-tab-icon {
+  display: none;
+  flex-shrink: 0;
+}
+.registry-tabs[data-icons="true"] button {
+  flex: 1;
+  justify-content: center;
+}
+.registry-tabs[data-icons="true"] .registry-tab-icon {
+  display: block;
+}
+.registry-tabs[data-icons="true"] .registry-tab-label {
+  position: absolute;
+  visibility: hidden;
+  width: max-content;
+  pointer-events: none;
+}
+
+.registry-tabs[data-icons="true"] small {
+  position: absolute;
+  visibility: hidden;
+  width: max-content;
+  pointer-events: none;
+}
+
+.unity-world-toolbar {
+  flex-wrap: wrap;
+  max-width: calc(100% - 40px);
+}
+.world-theme-pending {
+  order: 1;
+  flex-basis: 100%;
+  padding: 0 8px 4px;
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+}

@@ -1,0 +1,1072 @@
+/* Composer — uses the shared theme tokens (see the top of style.css). */
+.composer-shell {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.composer2 {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-xl);
+  background: var(--panel-raised);
+  box-shadow: var(--shadow-sm);
+  transition:
+    border-color var(--dur-1) var(--ease-out),
+    box-shadow var(--dur-2) var(--ease-out);
+}
+.composer2.focused {
+  border-color: var(--focus);
+  box-shadow: var(--focus-ring);
+}
+.composer2.disabled {
+  background: var(--fill);
+}
+.composer2 textarea {
+  display: block;
+  width: 100%;
+  border: 0;
+  outline: 0;
+  resize: none;
+  background: transparent;
+  font: inherit;
+  font-size: var(--fs-md);
+  line-height: 1.5;
+  padding: 11px 12px 6px;
+  color: var(--text);
+  min-height: 44px;
+}
+.composer2 textarea::placeholder {
+  color: var(--text-3);
+}
+.composer2 textarea:focus-visible {
+  outline: 0;
+}
+/* One toolbar row: attach and the agent controls on the left, send on the
+   right. As the panel narrows the controls wrap within their side; the send
+   button never shrinks or leaves the row. */
+.composer-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 4px 6px 6px;
+}
+.composer-left,
+.composer-right {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+.composer-left {
+  flex: 1 1 0;
+}
+.composer-right {
+  flex-shrink: 0;
+}
+.composer2 .tool {
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--text-3);
+  flex-shrink: 0;
+}
+.composer2 .tool:hover:not(:disabled) {
+  background: var(--fill-strong);
+  color: var(--text);
+}
+.send-group {
+  display: inline-flex;
+}
+.composer2 .send {
+  height: 30px;
+  min-width: 34px;
+  padding: 0 9px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  border-radius: var(--radius-md) 0 0 var(--radius-md);
+  background: var(--accent);
+  color: var(--on-accent);
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-semibold);
+}
+.composer2 .send:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+.composer2 .send.caret {
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
+  min-width: 22px;
+  padding: 0 4px;
+  border-left: 1px solid color-mix(in srgb, var(--on-accent) 25%, transparent);
+}
+.composer2 .send.stop {
+  border-radius: var(--radius-md);
+  background: var(--ink);
+  color: var(--on-ink);
+}
+.composer2 .send.stop:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--ink) 88%, var(--accent));
+}
+.composer2 .send:disabled {
+  opacity: 0.4;
+}
+/* The split button's halves touch: an outside ring would vanish against the
+   other (blue) half, so ring inside in the button's own text colour. */
+.composer2 .send:focus-visible {
+  position: relative;
+  z-index: 1;
+  outline: 2px solid var(--on-accent);
+  outline-offset: -4px;
+  box-shadow: 0 0 0 2px var(--focus);
+}
+.composer2 .send.stop:focus-visible {
+  outline-color: var(--on-ink);
+}
+
+/* Agent controls: wrap onto further lines rather than hide in a strip. */
+.agent-controls {
+  display: flex;
+  flex: 1 1 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+}
+.agent-controls .control {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  max-width: 100%;
+  padding: 5px 7px;
+  border-radius: var(--radius-md);
+  font-size: var(--fs-sm);
+  color: var(--text-2);
+  white-space: nowrap;
+}
+.agent-controls .control > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.agent-controls .control svg {
+  flex-shrink: 0;
+}
+.agent-controls .control svg {
+  color: var(--text-3);
+}
+.agent-controls .control:hover:not(.disabled) {
+  background: var(--fill-strong);
+  color: var(--text);
+}
+/* Inset: neighbouring controls sit too close for an outside ring. */
+.agent-controls .control:has(select:focus-visible) {
+  outline: 2px solid var(--focus);
+  outline-offset: -2px;
+}
+.agent-controls .control select {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+  font: inherit;
+}
+.agent-controls .control select:disabled {
+  cursor: not-allowed;
+}
+.agent-controls .feature {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: var(--fs-sm);
+  padding: 5px 8px;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--text-3);
+  white-space: nowrap;
+}
+.agent-controls .feature.on {
+  color: var(--amber-text);
+  background: var(--amber-soft);
+}
+/* A started conversation's settings: read-only, so muted text on one row,
+   with no hover state. The tooltip has them in full. */
+.agent-controls .agent-settings {
+  min-width: 0;
+  max-width: 100%;
+  padding: 5px 7px;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  font-size: var(--fs-sm);
+  color: var(--text-3);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  cursor: default;
+}
+.agent-controls .agent-settings:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: -2px;
+}
+
+/* Attachments */
+.attachment-tray {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 10px 10px 0;
+}
+.thumb {
+  position: relative;
+}
+.thumb > button:first-child {
+  display: block;
+  padding: 0;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  border: 1px solid var(--line);
+  background: var(--fill);
+}
+.thumb img {
+  display: block;
+  width: 56px;
+  height: 56px;
+  object-fit: cover;
+}
+.thumb .remove,
+.chip button {
+  display: grid;
+  place-items: center;
+  box-sizing: border-box;
+  padding: 0;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--text);
+  color: var(--panel);
+}
+.thumb .remove {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  border: 2px solid var(--panel-raised);
+  width: 20px;
+  height: 20px;
+}
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 260px;
+  padding: 5px 6px 5px 8px;
+  border-radius: var(--radius-md);
+  background: var(--fill);
+  border: 1px solid var(--line);
+  font-size: var(--fs-sm);
+  color: var(--text-2);
+}
+.chip > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.chip small {
+  color: var(--text-3);
+  white-space: nowrap;
+}
+.chip.error {
+  border-color: var(--red-line);
+  background: var(--red-soft);
+  color: var(--red-text);
+}
+.chip button {
+  width: 16px;
+  height: 16px;
+  background: transparent;
+  color: var(--text-3);
+}
+.chip button:hover {
+  background: var(--fill-strong);
+}
+
+/* Autocomplete */
+.autocomplete {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: calc(100% + 6px);
+  max-height: min(340px, 50vh);
+  overflow: auto;
+  z-index: 30;
+  background: var(--panel-raised);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  padding: 4px;
+  scrollbar-width: thin;
+  /* Items scrolled to (arrow keys) stop below the sticky heading. */
+  scroll-padding-top: 30px;
+}
+.autocomplete-head {
+  position: sticky;
+  top: -4px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 7px 8px 5px;
+  font-size: var(--fs-2xs);
+  font-weight: var(--fw-semibold);
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: var(--text-3);
+  background: var(--panel-raised);
+  z-index: 1;
+}
+.autocomplete-head svg:last-child {
+  margin-left: auto;
+}
+.autocomplete-note {
+  font-size: var(--fs-sm);
+  color: var(--text-3);
+  padding: 8px 10px;
+  margin: 0;
+}
+.autocomplete > button {
+  width: 100%;
+  display: grid;
+  grid-template-columns: auto auto 1fr auto;
+  align-items: baseline;
+  gap: 8px;
+  text-align: left;
+  padding: 7px 9px;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--text);
+  font-size: var(--fs-sm);
+}
+.autocomplete > button.active {
+  background: var(--row-selected);
+}
+.autocomplete > button b {
+  font-weight: var(--fw-semibold);
+  white-space: nowrap;
+}
+.autocomplete > button b.path {
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  direction: rtl;
+  text-align: left;
+}
+.autocomplete > button:has(b.path) {
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+}
+.autocomplete > button code {
+  font: 10.5px var(--font-mono);
+  color: var(--text-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 140px;
+}
+.autocomplete > button span {
+  color: var(--text-2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+.autocomplete > button em {
+  font-style: normal;
+  font-size: var(--fs-2xs);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-3);
+}
+.autocomplete > button em.skill {
+  color: var(--accent-text);
+}
+.autocomplete > button em.client {
+  color: var(--amber-text);
+}
+
+/* Popover menus */
+.menu-anchor {
+  position: relative;
+  display: inline-flex;
+}
+.popover-menu {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  z-index: 40;
+  min-width: 200px;
+  background: var(--panel-raised);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  padding: 4px;
+}
+/* Items fill the popover edge to edge: ring inside them. */
+.popover-menu :is(button, input):focus-visible {
+  outline-offset: -2px;
+}
+/* Placed by popover.ts: opens downwards when there's more room below. */
+.popover-menu[data-place="down"] {
+  bottom: auto;
+  top: calc(100% + 8px);
+}
+.autocomplete[data-place="down"] {
+  bottom: auto;
+  top: calc(100% + 6px);
+}
+.popover-menu.left {
+  left: 0;
+}
+.popover-menu.right {
+  right: 0;
+  min-width: 270px;
+}
+.popover-menu > button,
+.picker-list > button {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  text-align: left;
+  padding: 8px 9px;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--text);
+  font-size: var(--fs-sm);
+}
+.popover-menu > button:hover,
+.picker-list > button.active {
+  background: var(--fill-strong);
+}
+.popover-menu > button span {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+}
+.popover-menu > button small,
+.picker-list small {
+  font-size: var(--fs-2xs);
+  color: var(--text-3);
+}
+.popover-menu > button.checked b {
+  color: var(--accent-text);
+}
+.popover-menu kbd {
+  margin-left: auto;
+}
+.default-tag {
+  font-size: var(--fs-2xs);
+  color: var(--accent-text);
+  flex: 0 !important;
+}
+.popover-menu hr {
+  border: 0;
+  border-top: 1px solid var(--line);
+  margin: 4px 0;
+}
+.menu-label {
+  font-size: var(--fs-2xs);
+  font-weight: var(--fw-semibold);
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: var(--text-3);
+  margin: 6px 9px 4px;
+}
+.github-picker {
+  width: 340px;
+}
+.picker-search {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 4px;
+  padding: 7px 9px;
+  border-radius: var(--radius-md);
+  background: var(--fill);
+  color: var(--text-3);
+}
+.picker-search input {
+  flex: 1;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  font: inherit;
+  font-size: var(--fs-md);
+  color: var(--text);
+}
+.picker-list {
+  max-height: 280px;
+  overflow: auto;
+}
+.picker-list > button {
+  align-items: flex-start;
+}
+.picker-list > button svg {
+  margin-top: 2px;
+  color: var(--green);
+  flex-shrink: 0;
+}
+.picker-list > button span {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.picker-list b {
+  font-weight: 550;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+/* Queue */
+.queue {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  overflow: hidden;
+}
+.queue li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 8px 7px 10px;
+  border-radius: var(--radius-lg);
+  background: var(--fill);
+  border: 1px dashed var(--line-strong);
+  color: var(--text-3);
+  font-size: var(--fs-sm);
+}
+.queue-text {
+  flex: 1;
+  min-width: 0;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.queue-text small {
+  font-size: var(--fs-2xs);
+  color: var(--text-3);
+  margin-right: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+.queue-count {
+  font-variant-numeric: tabular-nums;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-size: var(--fs-xs);
+}
+.queue li button {
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-3);
+}
+/* Stopped sending on its own: says why, and waits for the user. */
+.queue li.stalled {
+  border-style: solid;
+  border-color: var(--amber-line);
+  align-items: flex-start;
+}
+.queue li.stalled > svg {
+  color: var(--amber-text);
+  margin-top: 2px;
+}
+.queue li.stalled .queue-text {
+  white-space: normal;
+}
+.queue-count.missing {
+  color: var(--amber-text);
+}
+.queue li.sending {
+  border-style: solid;
+}
+.queue li .spinning {
+  color: var(--accent-text);
+}
+.queue-text em {
+  display: block;
+  font-style: normal;
+  font-size: var(--fs-xs);
+  color: var(--text-2);
+  margin-top: 2px;
+}
+.queue li button:hover:not(:disabled) {
+  background: var(--fill-strong);
+  color: var(--text);
+}
+
+/* Drop target over the whole session */
+.drop-overlay {
+  position: absolute;
+  inset: 8px;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  border: 2px dashed var(--accent);
+  border-radius: var(--radius-xl);
+  background: color-mix(in srgb, var(--panel) 85%, transparent);
+  backdrop-filter: blur(3px);
+  color: var(--accent-text);
+  font-weight: var(--fw-semibold);
+  font-size: 14px;
+  pointer-events: none;
+}
+.drop-overlay span {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Image lightbox */
+.lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: grid;
+  place-items: center;
+  padding: 56px 40px 40px;
+  background: var(--overlay);
+  backdrop-filter: blur(2px);
+  outline: 0;
+}
+.lightbox figure {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  max-width: 100%;
+  max-height: 100%;
+  min-height: 0;
+  margin: 0;
+}
+.lightbox img {
+  display: block;
+  min-height: 0;
+  max-width: min(92vw, 100%);
+  max-height: calc(100vh - 150px);
+  object-fit: contain;
+  border-radius: 10px;
+  background: var(--panel);
+  box-shadow: 0 20px 60px #0006;
+}
+.lightbox figcaption {
+  max-width: min(720px, 90vw);
+  padding: 4px 12px;
+  border-radius: var(--radius-md);
+  background: var(--panel-glass);
+  color: var(--text);
+  font-size: var(--fs-sm);
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+.lightbox-broken {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  padding: 32px 40px;
+  border-radius: 10px;
+  background: var(--panel);
+  color: var(--text-3);
+}
+.lightbox-actions {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  display: flex;
+  gap: 8px;
+}
+.lightbox-actions a,
+.lightbox-actions button {
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--panel);
+  color: var(--text-strong);
+  box-shadow: var(--shadow-md);
+}
+.lightbox-actions a:hover,
+.lightbox-actions button:hover {
+  background: var(--fill-strong);
+}
+
+/* Images inside the conversation */
+.msg-images {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+.md-image {
+  display: inline-flex;
+  vertical-align: top;
+  max-width: 100%;
+  margin: 2px 6px 2px 0;
+  border-radius: var(--radius-md);
+}
+.msg-images .md-image {
+  margin: 0;
+}
+/* Pending and remembered prompt screenshots (plain buttons, not thumbnails). */
+.msg-images > button:not(.md-image) {
+  padding: 0;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: transparent;
+  border: 1px solid var(--line);
+}
+.msg-images > button:not(.md-image) > img {
+  display: block;
+  max-width: min(180px, 100%);
+  max-height: 140px;
+  object-fit: cover;
+}
+.md-image.thumb {
+  position: relative;
+  padding: 0;
+  overflow: hidden;
+  background: var(--fill);
+  border: 1px solid var(--line-mid);
+  cursor: zoom-in;
+}
+.md-image.thumb:hover {
+  border-color: var(--line-hover);
+}
+/* Fixed caps: a percentage would resolve against the shrink-wrapped button. */
+.md-image.thumb img {
+  display: block;
+  width: auto;
+  height: auto;
+  max-width: 260px;
+  max-height: 180px;
+  object-fit: contain;
+}
+.msg-images .md-image.thumb img {
+  max-width: 200px;
+  max-height: 150px;
+}
+/* Placeholder until the bytes are fetched, checked and ready to show. */
+.md-image.thumb.loading {
+  width: 160px;
+  max-width: 100%;
+  height: 110px;
+  background: var(--skeleton);
+  cursor: default;
+}
+.md-image.thumb > svg {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  color: var(--text-4);
+}
+.md-image.notice {
+  align-items: center;
+  gap: 8px;
+  max-width: min(340px, 100%);
+  padding: 6px 8px 6px 10px;
+  background: var(--fill-soft);
+  border: 1px dashed var(--line-strong);
+  color: var(--text-3);
+  font-size: var(--fs-sm);
+  line-height: 1.3;
+}
+.md-image.notice.broken {
+  border-color: var(--red-line);
+  background: var(--red-soft);
+  color: var(--red-text);
+}
+.md-image-text {
+  display: grid;
+  min-width: 0;
+}
+.md-image-name {
+  overflow: hidden;
+  color: var(--text);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.md-image-text small {
+  font-size: var(--fs-xs);
+  color: inherit;
+}
+.md-image-load {
+  flex-shrink: 0;
+  padding: 3px 10px;
+  border-radius: var(--radius-sm);
+  background: var(--panel);
+  border: 1px solid var(--line-strong);
+  color: var(--accent-text);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-medium);
+}
+.md-image-load:hover {
+  background: var(--accent-soft);
+}
+.msg-attachments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 6px;
+}
+.msg-attachments .chip {
+  background: color-mix(in srgb, var(--panel) 60%, transparent);
+}
+.step-detail {
+  margin: 2px 0 6px 22px;
+  max-height: 320px;
+  overflow: auto;
+  font: 11px/1.5 var(--font-mono);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  color: var(--text-2);
+  background: var(--code-bg);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  padding: 8px 10px;
+}
+.step .tool-status {
+  margin-left: auto;
+  font-size: var(--fs-2xs);
+  color: var(--text-3);
+  flex-shrink: 0;
+}
+.step .tool-status.failed {
+  color: var(--red-text);
+}
+.todo-card {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  padding: 8px 11px;
+  font-size: var(--fs-sm);
+  background: var(--panel);
+}
+.todo-card ul {
+  list-style: none;
+  margin: 4px 0 0;
+  padding: 0;
+}
+.todo-card li {
+  display: flex;
+  gap: 7px;
+  padding: 2px 0;
+  color: var(--text);
+}
+.todo-card li.done {
+  color: var(--text-3);
+  text-decoration: line-through;
+}
+.msg-attachments a.chip {
+  text-decoration: none;
+}
+.permission details {
+  margin: 6px 0 8px;
+}
+.permission summary {
+  cursor: pointer;
+  font-size: var(--fs-xs);
+}
+.permission pre,
+.permission-plan {
+  max-height: 220px;
+  overflow: auto;
+  background: var(--panel-raised);
+  border-radius: var(--radius-md);
+  padding: 8px 10px;
+  margin: 6px 0 8px;
+  color: var(--text);
+}
+.permission pre {
+  font: 11px/1.5 var(--font-mono);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* Question permissions (AskUserQuestion) */
+.question-card > b {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.question {
+  border: 0;
+  padding: 0;
+  margin: 10px 0 12px;
+  min-width: 0;
+}
+.question legend {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0;
+}
+.question-header {
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  padding: 2px 7px;
+  border-radius: var(--radius-sm);
+  background: var(--panel-raised);
+}
+.question legend small {
+  font-size: var(--fs-2xs);
+  opacity: 0.8;
+}
+.question-text {
+  margin: 6px 0 8px;
+  font-size: var(--fs-md) !important;
+  line-height: 1.5;
+  color: var(--text);
+  white-space: pre-wrap;
+}
+.question-options {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.permission .question-options > button {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  width: 100%;
+  text-align: left;
+  padding: 8px 10px;
+  border-radius: var(--radius-md);
+  background: var(--panel-raised);
+  border: 1px solid var(--line);
+  color: var(--text);
+  font-size: var(--fs-sm);
+}
+.permission .question-options > button:hover:not(:disabled) {
+  border-color: var(--line-strong);
+}
+.permission .question-options > button.on {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+.question-options b {
+  display: block;
+  font-weight: var(--fw-semibold);
+}
+.question-options small {
+  display: block;
+  margin-top: 2px;
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+  line-height: 1.45;
+}
+.tick {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  margin-top: 1px;
+  border-radius: 50%;
+  border: 1.5px solid var(--line-strong);
+  display: grid;
+  place-items: center;
+  color: var(--on-accent);
+}
+.tick.square {
+  border-radius: var(--radius-xs);
+}
+.on .tick {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+.question-other {
+  width: 100%;
+  margin-top: 6px;
+  padding: 8px 10px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--line);
+  background: var(--panel-raised);
+  color: var(--text);
+  font: inherit;
+  font-size: var(--fs-sm);
+  outline: none;
+}
+.question-other:focus {
+  border-color: var(--focus);
+  box-shadow: var(--focus-ring);
+}
+.session-footer .question-card {
+  max-height: 55vh;
+  overflow: auto;
+}
+.row-actions button.answer {
+  width: auto;
+  padding: 0 9px;
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-semibold);
+  background: var(--amber-soft);
+  color: var(--amber-text);
+  border-color: transparent;
+}
+
+/* Interface sounds (SoundControl.tsx) */
+.sound-menu {
+  padding: 6px;
+  min-width: 260px;
+}
+.sound-menu label {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 7px 8px;
+  font-size: var(--fs-sm);
+  color: var(--text);
+}
+.sound-menu .sound-toggle {
+  align-items: flex-start;
+  cursor: pointer;
+}
+.sound-toggle span {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.sound-toggle small {
+  font-size: var(--fs-2xs);
+  color: var(--text-3);
+}
+.sound-menu input {
+  accent-color: var(--accent);
+}
+.sound-volume input {
+  flex: 1;
+  min-width: 0;
+}
+.sound-volume output {
+  min-width: 4ch;
+  text-align: right;
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+}

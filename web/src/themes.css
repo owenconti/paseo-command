@@ -1,0 +1,345 @@
+/* Optional themes. The original light/dark tokens remain in style.css. */
+@import "./themes/fonts.css";
+
+:root[data-theme="lake-country"] {
+  color-scheme: light;
+  --font-sans: "Paseo Source Sans", "Segoe UI", sans-serif;
+  --font-heading: "Paseo Alegreya", Georgia, serif;
+  --font-mono: ui-monospace, "SFMono-Regular", monospace;
+  --bg: #e6e1cf;
+  --panel: #f7f3e7;
+  --panel-2: #ece8d9;
+  --panel-raised: #fffcf3;
+  --panel-glass: #f7f3e7f2;
+  --panel-edge: #fffdf6;
+  --surface: #fffcf3;
+  --input-bg: #fffcf3;
+  --fill-soft: #f0eddf;
+  --fill: #e9e5d7;
+  --fill-strong: #dedbc9;
+  --row-hover: #eee9da;
+  --row-selected: #e2ebea;
+  --code-bg: #e8e7da;
+  --code-text: #325d60;
+  --line-soft: #e8e3d4;
+  --line: #dbd5c1;
+  --line-mid: #cfc8b2;
+  --line-strong: #bcb49b;
+  --line-hover: #9e9579;
+  --scrollbar: #c7c1aa;
+  --text: #344039;
+  --text-strong: #243c32;
+  --text-2: #4d5b50;
+  --text-mid: #5d675b;
+  --text-3: #656b5e;
+  --text-4: #6d6e60;
+  --text-faint: #9b9a87;
+  --accent: #386979;
+  --accent-hover: #2c5664;
+  --accent-bright: #4f8091;
+  --accent-soft: #e2ebea;
+  --accent-soft-2: #d1e2e1;
+  --accent-text: #2d6373;
+  --accent-text-2: #406b75;
+  --accent-line: #8aaeb1;
+  --accent-glow: #38697920;
+  --accent-shadow: #2a536926;
+  --on-accent: #fffdf4;
+  --focus: #437a8e;
+  --selection: #c9dfdc;
+  --ink: #233f34;
+  --on-ink: #fff8e3;
+  --bubble: #eeeadb;
+  --bubble-line: #d8d0b7;
+  --bubble-text: #3e4639;
+  --bubble-meta: #666b58;
+  --icon-muted: #777c68;
+  --codex: #3f7684;
+  --codex-soft: #e2ebea;
+  --claude: #9d643e;
+  --claude-soft: #f0e2d1;
+  --opencode: #477955;
+  --opencode-soft: #e6ecdd;
+  --dot-idle: #9a9f87;
+  --slate: #85918a;
+  --green: #55885d;
+  --green-strong: #3c6e46;
+  --green-text: #3f7046;
+  --green-soft: #e6ecdd;
+  --green-line: #b3c6a4;
+  --amber: #ab853b;
+  --amber-soft: #f1e7c9;
+  --amber-text: #806022;
+  --amber-line: #d6c28e;
+  --amber-shadow: #85652d18;
+  /* Unread replies: distinct from the amber of a question. */
+  --unread: #4a6fa5;
+  --unread-soft: #e3e9f2;
+  --unread-text: #34588c;
+  --unread-line: #b9c8de;
+  --red: #ad614e;
+  --red-strong: #994d3d;
+  --red-text: #954d3c;
+  --red-soft: #f4e3da;
+  --red-line: #dfb5a4;
+  --overlay: #1a302d66;
+  --shadow: 0 8px 28px #3b41271a;
+  --shadow-sm: 0 1px 2px #3b412710;
+  --shadow-md: 0 4px 14px #3b41271c;
+  --shadow-lg: 0 24px 64px -12px #233d3540;
+  --shadow-pop: 0 4px 14px #233d3533;
+  --skeleton: #e5e1d1;
+  --skeleton-shine: #f2eee2;
+  --select-arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23656b5e' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  --radius-xs: 3px;
+  --radius-sm: 4px;
+  --radius-md: 5px;
+  --radius-lg: 7px;
+  --radius-xl: 9px;
+  --control-sm: 30px;
+  --control-md: 36px;
+  --control-lg: 42px;
+  --fs-md: 14px;
+  --fw-regular: 400;
+  --fw-medium: 500;
+  --fw-semibold: 600;
+  --fw-bold: 700;
+}
+
+:root[data-theme="galaxy"] {
+  color-scheme: dark;
+  --font-sans: "Paseo Source Sans", "Source Sans 3", sans-serif;
+  --font-heading: "Paseo Barlow", "Barlow Condensed", sans-serif;
+  --font-mono: "SF Mono", ui-monospace, monospace;
+  --bg: #070c11;
+  --panel: #0c1219;
+  --panel-2: #090f15;
+  --panel-raised: #19232d;
+  --panel-glass: #0c1219f2;
+  --panel-edge: #36434e;
+  --surface: #18232d;
+  --input-bg: #080e14;
+  --fill-soft: #101922;
+  --fill: #17222c;
+  --fill-strong: #24333f;
+  --row-hover: #14212b;
+  --row-selected: #24231f;
+  --code-bg: #071018;
+  --code-text: #b7cbd9;
+  --line-soft: #19232d;
+  --line: #24303b;
+  --line-mid: #303e49;
+  --line-strong: #40505e;
+  --line-hover: #687987;
+  --scrollbar: #3e4c59;
+  --text: #c7d0d8;
+  --text-strong: #f0efea;
+  --text-2: #b7c3cc;
+  --text-mid: #a0afbb;
+  --text-3: #92a3b0;
+  --text-4: #889ba9;
+  --text-faint: #607482;
+  --accent: #c8985c;
+  --accent-hover: #dfaf70;
+  --accent-bright: #e7b87e;
+  --accent-soft: #24231f;
+  --accent-soft-2: #343027;
+  --accent-text: #e1b783;
+  --accent-text-2: #c8a67b;
+  --accent-line: #7f6849;
+  --accent-glow: transparent;
+  --accent-shadow: transparent;
+  --on-accent: #151a1c;
+  --focus: #e9bf84;
+  --selection: #665039;
+  --ink: #d4dde4;
+  --on-ink: #101820;
+  --bubble: #141f29;
+  --bubble-line: #2e414f;
+  --bubble-text: #d6e0e6;
+  --bubble-meta: #a4bac7;
+  --icon-muted: #8c9fac;
+  --codex: #9bbbcf;
+  --codex-soft: #172b38;
+  --claude: #cba07d;
+  --claude-soft: #31271f;
+  --opencode: #8db5ae;
+  --opencode-soft: #192c2a;
+  --dot-idle: #718391;
+  --slate: #8598a6;
+  --green: #91b7aa;
+  --green-strong: #638c7d;
+  --green-text: #a6cbbd;
+  --green-soft: #182a27;
+  --green-line: #3d5e53;
+  --amber: #d3aa74;
+  --amber-soft: #31281d;
+  --amber-text: #e3bc88;
+  --amber-line: #70573a;
+  --amber-shadow: transparent;
+  /* Unread replies: distinct from the amber of a question. */
+  --unread: #6cb4d9;
+  --unread-soft: #132733;
+  --unread-text: #93cde8;
+  --unread-line: #2f5568;
+  --red: #d68f80;
+  --red-strong: #b96f63;
+  --red-text: #edb2a6;
+  --red-soft: #34211e;
+  --red-line: #75473d;
+  --overlay: #020609cc;
+  --shadow: 0 8px 24px #0005;
+  --shadow-sm: 0 2px 4px #0004;
+  --shadow-md: 0 6px 16px #0005;
+  --shadow-lg: 0 16px 40px #0009;
+  --shadow-pop: 0 8px 20px #0008;
+  --skeleton: #18252e;
+  --skeleton-shine: #24333e;
+  --radius-xs: 2px;
+  --radius-sm: 3px;
+  --radius-md: 4px;
+  --radius-lg: 5px;
+  --radius-xl: 6px;
+  --focus-ring: 0 0 0 2px var(--focus);
+  --select-arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%2392a3b0' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  caret-color: var(--accent-bright);
+  scrollbar-color: var(--scrollbar) var(--panel-2);
+  --fs-md: 14px;
+  --fw-regular: 400;
+  --fw-medium: 500;
+  --fw-semibold: 600;
+  --fw-bold: 700;
+}
+
+:root:is([data-theme="lake-country"], [data-theme="galaxy"])
+  :is(h1, h2, h3, .summary-top .brand, .panel-title) {
+  font-family: var(--font-heading);
+}
+:root[data-theme="lake-country"] :is(.summary-top .brand, .panel-title) {
+  font-size: 20px;
+  font-weight: 600;
+}
+:root[data-theme="lake-country"] .session-title h2 {
+  font-size: 23px;
+  font-weight: 600;
+}
+:root[data-theme="lake-country"]
+  :is(
+    .fleet-sidebar,
+    .floating-command,
+    .unity-command .modal-backdrop,
+    .unity-command .toast
+  ) {
+  /* Forest-green paper with gold accents inside the cream Lake theme: the
+     browser's fleet pane and, in the native app, the whole sidebar (chrome,
+     fleet, session view and composer) with its dialogs and toasts. It
+     overrides every colour token (src/themeTokens.test.ts checks), so no
+     cream or blue-green value from the page theme leaks in. */
+  --bg: #1c382e;
+  --panel: #213e34;
+  --panel-2: #254337;
+  --panel-raised: #2d4b3d;
+  --panel-glass: #254337f2;
+  --panel-edge: #53654c;
+  --surface: #2d4b3d;
+  --input-bg: #1c382e;
+  --fill-soft: #203a30;
+  --fill: #345044;
+  --fill-strong: #435f50;
+  /* Hover lifts the paper to a lighter green; selection warms it towards
+     the gold accent. */
+  --row-hover: #2f4f3e;
+  --row-selected: #3d5b40;
+  --text: #e7e7d5;
+  --text-strong: #faf3dc;
+  --text-2: #d0d7c1;
+  --text-mid: #b8c6ae;
+  --text-3: #b8c6ae;
+  --text-4: #b8c6ae;
+  --text-faint: #8fa387;
+  --code-bg: #1b332b;
+  --code-text: #d1dac5;
+  --line-soft: #314e3d;
+  --line: #3e5846;
+  --line-mid: #53654c;
+  --line-strong: #63735a;
+  --line-hover: #869677;
+  --scrollbar: #6b816c;
+  --accent: #c5ad70;
+  --accent-hover: #d2bd86;
+  --accent-bright: #dec78d;
+  --accent-soft: #3f5640;
+  --accent-soft-2: #4b6247;
+  --accent-text: #d5c38d;
+  --accent-text-2: #cbbd92;
+  --accent-line: #8c8a5e;
+  --accent-glow: #c5ad7033;
+  --accent-shadow: #0f1f1940;
+  --on-accent: #233c32;
+  --focus: #d5c38d;
+  /* Tokens built from other tokens resolve where they are declared, so the
+     scope restates them with its own focus colour. */
+  --focus-ring: 0 0 0 1px var(--focus), 0 0 0 4px var(--accent-glow);
+  --selection: #c5ad7059;
+  --ink: #e7e7d5;
+  --on-ink: #213e34;
+  --bubble: #2d4b3d;
+  --bubble-line: #435f50;
+  --bubble-text: #e7e7d5;
+  --bubble-meta: #b8c6ae;
+  --icon-muted: #a7b69c;
+  --claude: #dcac7d;
+  --claude-soft: #403b2d;
+  --codex: #a1cbd1;
+  --codex-soft: #2a4143;
+  --opencode: #b5d0a8;
+  --opencode-soft: #304936;
+  --dot-idle: #9fae94;
+  --slate: #8fa387;
+  --green: #aed18a;
+  --green-strong: #9cc27f;
+  --green-text: #b9d6a1;
+  --green-soft: #304b36;
+  --green-line: #718767;
+  --amber: #d8b867;
+  --amber-soft: #45432e;
+  --amber-text: #e3cc91;
+  --amber-line: #81764d;
+  --amber-shadow: #0000002e;
+  /* Unread replies: distinct from the amber of a question. */
+  --unread: #9cc3e6;
+  --unread-soft: #2d4756;
+  --unread-text: #c0dcf2;
+  --unread-line: #5a7a8c;
+  --red: #dd977f;
+  --red-strong: #e0a28d;
+  --red-text: #f0b9a5;
+  --red-soft: #4a382f;
+  --red-line: #9f7461;
+  --overlay: #0d1c1699;
+  --shadow: 0 8px 28px #0f1f1966;
+  --shadow-sm: 0 1px 2px #0f1f1940;
+  --shadow-md: 0 4px 14px #0f1f1952, 0 1px 3px #0f1f1940;
+  --shadow-lg: 0 24px 64px -12px #0f1f19a6, 0 4px 14px #0f1f1959;
+  --shadow-pop: 0 4px 14px #0f1f1973;
+  --skeleton: #2d4b3d;
+  --skeleton-shine: #3a5949;
+  --select-arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23b8c6ae' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+:root[data-theme="lake-country"] :is(.fleet-sidebar, .floating-command) {
+  background: var(--panel-2);
+  color: var(--text);
+}
+:root[data-theme="galaxy"] :is(.summary-top .brand, .panel-title) {
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+:root[data-theme="galaxy"] .session-title h2 {
+  font-size: 24px;
+  font-weight: 500;
+}
+:root:is([data-theme="lake-country"], [data-theme="galaxy"]) {
+  caret-color: var(--accent);
+}

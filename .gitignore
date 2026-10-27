@@ -1,0 +1,16 @@
+node_modules/
+dist/
+phaser/
+game/shots/
+game/play/
+.phaser/
+
+rendering/artifacts/
+
+# Generated local previews and machine-specific files
+web/public/world/
+.DS_Store
+*.log
+.env
+.env.*
+!.env.example

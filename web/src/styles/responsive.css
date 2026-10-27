@@ -1,0 +1,70 @@
+/* ── Panel width (container queries follow each panel) ──────── */
+@container panel (max-width: 420px) {
+  .registry-footer span:nth-child(2) {
+    display: none;
+  }
+  .attention-group .badge,
+  .unread-group .badge {
+    display: none;
+  }
+}
+@container panel (min-width: 600px) {
+  .registry-row {
+    padding-top: 10px;
+    padding-bottom: 10px;
+  }
+  .timeline,
+  .session-header,
+  .session-footer {
+    padding-left: var(--space-5);
+    padding-right: var(--space-5);
+  }
+  .app-panel .session-footer > .permission {
+    margin-inline: var(--space-5);
+  }
+  .app-panel .session-footer > .composer-shell {
+    padding-inline: var(--space-5);
+  }
+}
+
+/* ── Window width ──────────────────────────────────────────────────── */
+@media (max-width: 800px) {
+  .dispatch-button kbd {
+    display: none;
+  }
+  .modal-backdrop {
+    position: fixed;
+  }
+  .row-actions button {
+    width: 36px;
+    height: 36px;
+  }
+}
+@media (max-width: 540px) {
+  .modal-backdrop {
+    padding: var(--space-3);
+  }
+  .command-dialog {
+    padding: var(--space-5);
+  }
+  .form-columns {
+    gap: 10px;
+  }
+  .toast-stack {
+    position: fixed;
+    top: 15px;
+  }
+}
+@media (hover: none) {
+  .group-add {
+    opacity: 1;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}

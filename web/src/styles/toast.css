@@ -1,0 +1,52 @@
+/* ── Toast ─────────────────────────────────────────────────────────── */
+/* Toasts stack, centred at the top: notices and background work (archives). */
+.toast-stack {
+  position: absolute;
+  top: var(--space-6);
+  left: 50%;
+  /* `translate`, not `transform`: framer-motion owns transform while animating. */
+  translate: -50% 0;
+  z-index: 150;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  width: max-content;
+  max-width: min(520px, calc(100% - 32px));
+  pointer-events: none;
+}
+.toast {
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: 100%;
+  padding: var(--space-2) var(--space-2) var(--space-2) 14px;
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-medium);
+  color: var(--text);
+}
+.toast > svg {
+  color: var(--accent-text);
+}
+.toast .icon-btn {
+  margin-left: var(--space-1);
+  width: 24px;
+  height: 24px;
+}
+.toast.archive-toast {
+  min-height: 40px;
+}
+.toast.archive-toast.failed > svg {
+  color: var(--red-text);
+}
+.toast > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.toast > button.secondary {
+  flex-shrink: 0;
+  height: 26px;
+  padding: 0 var(--space-2);
+  font-size: var(--fs-xs);
+}

@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+    <meta name="theme-color" content="#e4ebf2" />
+    <title>Paseo Command · Agent operations</title>
+    <script>
+      // Apply the stored theme before first paint (mirrors src/theme.ts).
+      (function () {
+        var s = "system";
+        try {
+          var v = JSON.parse(localStorage.getItem("paseo-command:theme"));
+          if (["light", "dark", "system", "lake-country", "galaxy"].includes(v))
+            s = v;
+        } catch (e) {}
+        var dark =
+          s === "dark" ||
+          (s === "system" &&
+            window.matchMedia &&
+            window.matchMedia("(prefers-color-scheme: dark)").matches);
+        var t =
+          s === "lake-country" || s === "galaxy" ? s : dark ? "dark" : "light";
+        if (window.__PASEO_UNITY__) {
+          t = "galaxy";
+          try {
+            if (
+              JSON.parse(
+                localStorage.getItem("paseo-command:unity-world-ui"),
+              ) === "lake-country"
+            )
+              t = "lake-country";
+          } catch (e) {}
+        }
+        document.documentElement.dataset.theme = t;
+        document.querySelector('meta[name="theme-color"]').setAttribute(
+          "content",
+          {
+            light: "#e4ebf2",
+            dark: "#111925",
+            "lake-country": "#e6e1cf",
+            galaxy: "#070c11",
+          }[t],
+        );
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

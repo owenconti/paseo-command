@@ -1,0 +1,235 @@
+/* ── Theme tokens ──────────────────────────────────────────────────────
+   Every colour, size, radius and timing below the token blocks comes from
+   these custom properties. Theme is chosen by data-theme on <html> (set in
+   index.html + theme.ts). Text tokens meet WCAG AA on --panel down to
+   --text-4; --text-faint is for separators and decoration only. */
+:root {
+  /* Type: one 13px base with a short, legible scale (nothing under 10px). */
+  /* Inter is bundled (src/main.tsx imports @fontsource-variable/inter). */
+  --font-sans:
+    "Inter Variable", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    system-ui, sans-serif;
+  --font-mono:
+    "SF Mono", "SFMono-Regular", ui-monospace, Menlo, Consolas, monospace;
+  --fs-2xs: 10px;
+  --fs-xs: 11px;
+  --fs-sm: 12px;
+  --fs-md: 13px;
+  --fs-lg: 15px;
+  --fs-xl: 18px;
+  --fs-2xl: 22px;
+  --fw-regular: 450;
+  --fw-medium: 550;
+  --fw-semibold: 620;
+  --fw-bold: 700;
+
+  /* Space: 4px grid. */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+
+  /* Radius: nested surfaces step down one size per level of padding. */
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 10px;
+  --radius-xl: 14px;
+  --radius-pill: 999px;
+
+  /* Controls */
+  --control-sm: 28px;
+  --control-md: 34px;
+  --control-lg: 40px;
+
+  /* Motion: quick, decisive ease-out; nothing in the UI waits on animation. */
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  /* Text fields: a 2px ring (1px border + 1px shadow) plus a soft glow. */
+  --focus-ring: 0 0 0 1px var(--focus), 0 0 0 4px var(--accent-glow);
+  --dur-1: 120ms;
+  --dur-2: 180ms;
+  --dur-3: 260ms;
+}
+:root,
+[data-theme="light"] {
+  color-scheme: light;
+  --bg: #e4ebf2;
+  --panel: #fdfefe;
+  --panel-2: #f9fbfd;
+  --panel-raised: #ffffff;
+  --panel-glass: #fdfefee8;
+  --panel-edge: #ffffffb3;
+  --surface: #ffffff;
+  --input-bg: #f8fafd;
+  --fill-soft: #f5f8fa;
+  --fill: #f0f4f8;
+  --fill-strong: #e9eef5;
+  --row-hover: #f3f6fb;
+  --row-selected: #edf3ff;
+  --code-bg: #f1f4f8;
+  --code-text: #3f536d;
+  --line-soft: #f1f4f8;
+  --line: #e9eef4;
+  --line-mid: #e1e8f0;
+  --line-strong: #d8e1ec;
+  --line-hover: #c3d1e4;
+  --scrollbar: #cfd9e6;
+  --text: #29394e;
+  --text-strong: #1a2a42;
+  --text-2: #4c6079;
+  --text-mid: #5a6c84;
+  /* Both reach 4.5:1 on every light surface they sit on (fills, hover,
+     selected rows); the hierarchy comes from size and weight. */
+  --text-3: #586a7f;
+  --text-4: #5d6e84;
+  --text-faint: #94a2b5;
+  --accent: #3567e6;
+  --accent-hover: #2b5bd6;
+  --accent-bright: #4678e8;
+  --accent-soft: #edf3ff;
+  --accent-soft-2: #e1eafe;
+  --accent-text: #3a64c9;
+  --accent-text-2: #4a6cad;
+  --accent-line: #8fb0f5;
+  --accent-glow: #4a7aeb1f;
+  --accent-shadow: #3567e633;
+  --on-accent: #ffffff;
+  --focus: #3567e6;
+  --selection: #3567e62e;
+  --ink: #2f4565;
+  --on-ink: #ffffff;
+  --bubble: #e9f0ff;
+  --bubble-line: #dbe6fd;
+  --bubble-text: #243a5e;
+  --bubble-meta: #5f79a8;
+  --icon-muted: #7b91ad;
+  --codex: #4e78c9;
+  --codex-soft: #edf2fa;
+  --claude: #c5805c;
+  --claude-soft: #fbefe7;
+  --opencode: #4f9e8c;
+  --opencode-soft: #eaf6f1;
+  --dot-idle: #a8b5c6;
+  --slate: #95a6bb;
+  --green: #25ae7e;
+  --green-strong: #1e8460;
+  --green-text: #1f7d59;
+  --green-soft: #e8f6ef;
+  --green-line: #a6dcc6;
+  --amber: #e5ad35;
+  --amber-soft: #fff6e2;
+  --amber-text: #8a6516;
+  --amber-line: #f2deb2;
+  --amber-shadow: #b9862524;
+  /* Unread replies: distinct from the amber of a question. */
+  --unread: #5b5fe0;
+  --unread-soft: #eeefff;
+  --unread-text: #4447b8;
+  --unread-line: #c9cbf7;
+  --red: #df6564;
+  --red-strong: #c24e4d;
+  --red-text: #b0504e;
+  --red-soft: #fdf0ee;
+  --red-line: #f0d2cb;
+  --overlay: #233b5d36;
+  --shadow: 0 8px 32px #24354b10, 0 1px 3px #27364b08;
+  --shadow-sm: 0 1px 2px #1f30480f;
+  --shadow-md: 0 4px 14px #1f304814, 0 1px 3px #1f30480d;
+  --shadow-lg: 0 24px 64px -12px #1c2d4733, 0 4px 14px #1c2d4714;
+  --shadow-pop: 0 4px 14px #1f30483a;
+  --skeleton: #e9eef4;
+  --skeleton-shine: #f6f8fb;
+  --select-arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%235d6e84' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #111925;
+  --panel: #172130;
+  --panel-2: #141d2b;
+  --panel-raised: #1c2738;
+  --panel-glass: #172130e8;
+  --panel-edge: #ffffff0f;
+  --surface: #213045;
+  --input-bg: #131c29;
+  --fill-soft: #1b2636;
+  --fill: #212e42;
+  --fill-strong: #2a394f;
+  --row-hover: #1d293a;
+  --row-selected: #1d2d4b;
+  --code-bg: #101824;
+  --code-text: #c6d3e3;
+  --line-soft: #1d2837;
+  --line: #233042;
+  --line-mid: #2a384c;
+  --line-strong: #324259;
+  --line-hover: #42577a;
+  --scrollbar: #33435a;
+  --text: #e2e9f2;
+  --text-strong: #f6f8fc;
+  --text-2: #b6c3d5;
+  --text-mid: #9cabbf;
+  --text-3: #8b9ab0;
+  --text-4: #8392a7;
+  --text-faint: #66778d;
+  --accent: #3a6cec;
+  --accent-hover: #4d7cf0;
+  --accent-bright: #5b88f2;
+  --accent-soft: #1d2d4b;
+  --accent-soft-2: #24375c;
+  --accent-text: #93b3ff;
+  --accent-text-2: #8ca8dc;
+  --accent-line: #4f79d8;
+  --accent-glow: #5b88f238;
+  --accent-shadow: #0b1d4a80;
+  --on-accent: #ffffff;
+  --focus: #7097f6;
+  --selection: #5b88f259;
+  --ink: #d5dfee;
+  --on-ink: #142030;
+  --bubble: #1e3155;
+  --bubble-line: #2b4474;
+  --bubble-text: #e0e9ff;
+  --bubble-meta: #93abd9;
+  --icon-muted: #7f95b2;
+  --codex: #93b3ff;
+  --codex-soft: #1e2c48;
+  --claude: #eba580;
+  --claude-soft: #392a23;
+  --opencode: #6fc9b3;
+  --opencode-soft: #16302a;
+  --dot-idle: #5c6d84;
+  --slate: #72849b;
+  --green: #34c08c;
+  --green-strong: #1f8a63;
+  --green-text: #63d3a7;
+  --green-soft: #14302a;
+  --green-line: #2c6b55;
+  --amber: #e9b54b;
+  --amber-soft: #302816;
+  --amber-text: #f1c66e;
+  --amber-line: #5b4824;
+  --amber-shadow: #00000040;
+  /* Unread replies: distinct from the amber of a question. */
+  --unread: #8e93ff;
+  --unread-soft: #23264a;
+  --unread-text: #b4b7ff;
+  --unread-line: #3f4380;
+  --red: #e8706e;
+  --red-strong: #c24e4d;
+  --red-text: #f59e9a;
+  --red-soft: #361f26;
+  --red-line: #6b3339;
+  --overlay: #04081099;
+  --shadow: 0 8px 32px #00000066, 0 1px 3px #00000040;
+  --shadow-sm: 0 1px 2px #00000040;
+  --shadow-md: 0 4px 14px #00000052, 0 1px 3px #00000040;
+  --shadow-lg: 0 24px 64px -12px #000000a6, 0 4px 14px #00000059;
+  --shadow-pop: 0 4px 14px #00000073;
+  --skeleton: #1f2b3d;
+  --skeleton-shine: #26344a;
+  --select-arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%238b9ab0' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}

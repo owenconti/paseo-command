@@ -1,0 +1,298 @@
+/* ── Command palette ───────────────────────────────────────────────── */
+
+/* ── Dialogs ───────────────────────────────────────────────────────── */
+.modal-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: var(--space-6);
+  background: var(--overlay);
+  backdrop-filter: blur(6px);
+}
+.command-dialog {
+  width: 460px;
+  max-width: 100%;
+  max-height: 90dvh;
+  padding: var(--space-6);
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+.dispatch-dialog {
+  width: 540px;
+}
+.dialog-heading {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-bottom: var(--space-5);
+}
+.dialog-heading h2 {
+  margin: 0;
+  font-size: var(--fs-xl);
+  font-weight: var(--fw-bold);
+  letter-spacing: -0.02em;
+  color: var(--text-strong);
+}
+.dialog-heading p {
+  margin: 2px 0 0;
+  font-size: var(--fs-sm);
+  color: var(--text-3);
+}
+.dialog-heading .icon-btn {
+  align-self: flex-start;
+  margin: -4px -6px 0 auto;
+}
+.command-dialog form > label,
+.form-columns > label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: var(--space-3) 0;
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-semibold);
+  color: var(--text-2);
+}
+.command-dialog form > label > span:first-child:not(:only-child),
+.command-dialog form > label > span:has(.optional) {
+  display: block;
+}
+.command-dialog .optional,
+.form-columns > label > span {
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-regular);
+  color: var(--text-4);
+}
+.form-columns > label > span {
+  display: contents;
+}
+.command-dialog input,
+.command-dialog select,
+.command-dialog textarea {
+  width: 100%;
+  height: var(--control-lg);
+  padding: 0 var(--space-3);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-md);
+  outline: none;
+  background: var(--input-bg);
+  font-size: var(--fs-md);
+  font-weight: var(--fw-regular);
+  color: var(--text);
+  transition:
+    border-color var(--dur-1) var(--ease-out),
+    box-shadow var(--dur-2) var(--ease-out),
+    background-color var(--dur-1) var(--ease-out);
+}
+.command-dialog select {
+  appearance: none;
+  padding-right: var(--space-8);
+  background: var(--input-bg) var(--select-arrow) no-repeat right 12px center;
+}
+.command-dialog textarea {
+  height: auto;
+  min-height: 112px;
+  padding: 10px var(--space-3);
+  line-height: 1.55;
+  resize: vertical;
+}
+.command-dialog input:hover:not(:disabled),
+.command-dialog select:hover:not(:disabled),
+.command-dialog textarea:hover:not(:disabled) {
+  border-color: var(--line-hover);
+}
+.command-dialog input:focus,
+.command-dialog select:focus,
+.command-dialog textarea:focus {
+  border-color: var(--focus);
+  background-color: var(--panel-raised);
+  box-shadow: var(--focus-ring);
+}
+.command-dialog input:focus-visible,
+.command-dialog select:focus-visible,
+.command-dialog textarea:focus-visible {
+  outline: 0;
+}
+.command-dialog input:disabled,
+.command-dialog select:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.command-dialog input::placeholder,
+.command-dialog textarea::placeholder {
+  color: var(--text-4);
+}
+.form-columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-3);
+}
+.form-hint {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  margin: -2px 0 var(--space-1);
+  font-size: var(--fs-xs);
+  line-height: 1.5;
+  color: var(--text-3);
+}
+.form-hint svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+.dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 10px;
+  margin-top: var(--space-5);
+}
+.dialog-actions > span {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  margin-right: auto;
+  font-size: var(--fs-xs);
+  color: var(--text-4);
+}
+.dialog-actions > span kbd:last-of-type {
+  margin-right: 3px;
+}
+.archive-error {
+  margin: var(--space-3) 0 0;
+  padding: 10px var(--space-3);
+  border: 1px solid var(--red-line);
+  border-radius: var(--radius-md);
+  background: var(--red-soft);
+  font-size: var(--fs-sm);
+  line-height: 1.5;
+  color: var(--red-text);
+}
+
+/* Archive workspace dialog */
+.archive-dialog {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.archive-dialog .dialog-heading,
+.archive-dialog .dialog-actions {
+  flex-shrink: 0;
+}
+.archive-symbol {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-lg);
+  background: var(--red-soft);
+  color: var(--red-text);
+}
+.archive-content {
+  min-height: 0;
+  padding-right: 3px;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+.archive-content > p {
+  margin: var(--space-4) 0;
+  font-size: var(--fs-md);
+  line-height: 1.6;
+  color: var(--text-2);
+}
+.archive-target {
+  padding: var(--space-3) 14px;
+  border: 1px solid var(--line-mid);
+  border-radius: var(--radius-lg);
+  background: var(--fill-soft);
+}
+.archive-target > b {
+  display: block;
+  overflow-wrap: anywhere;
+  font-size: var(--fs-md);
+  font-weight: var(--fw-semibold);
+  color: var(--text-strong);
+}
+.archive-target > span {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+  overflow-wrap: anywhere;
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+}
+.archive-target > code {
+  display: block;
+  margin-top: 6px;
+  overflow-wrap: anywhere;
+  font-size: var(--fs-xs);
+  line-height: 1.5;
+  color: var(--text-4);
+}
+.archive-impact {
+  margin: var(--space-4) 0;
+  padding: var(--space-3) 14px;
+  border: 1px solid var(--amber-line);
+  border-radius: var(--radius-lg);
+  background: var(--amber-soft);
+  font-size: var(--fs-sm);
+  color: var(--amber-text);
+}
+.archive-impact b {
+  font-weight: var(--fw-semibold);
+}
+.archive-impact p {
+  margin: var(--space-1) 0 0;
+  font-size: var(--fs-sm);
+  line-height: 1.55;
+}
+.archive-activity {
+  margin: var(--space-4) 0;
+  font-size: var(--fs-sm);
+  color: var(--text-mid);
+}
+.archive-activity .section-label {
+  margin: 0 0 6px;
+}
+.archive-activity > p {
+  margin: 0 0 var(--space-2);
+  font-size: var(--fs-sm);
+}
+.archive-activity ul {
+  margin: 0 0 10px;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--line);
+}
+.archive-activity li {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--line);
+  color: var(--text-2);
+}
+.archive-activity li > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.archive-activity li small,
+.archive-activity > small {
+  font-size: var(--fs-xs);
+  color: var(--text-4);
+}
+.archive-activity > small {
+  display: block;
+  margin-top: 6px;
+  line-height: 1.5;
+}
+.archive-dialog .dialog-actions {
+  margin-top: var(--space-2);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--line);
+}
