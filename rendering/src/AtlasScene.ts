@@ -947,7 +947,6 @@ export class AtlasScene extends Phaser.Scene {
         true,
       );
     }
-    this.outlineCells(this.selected, entity, 9, 0x7a4d06, 0.75);
     this.outlineCells(this.selected, entity, 6, 0xffc72e, 1);
     this.breathe();
   }
