@@ -471,63 +471,98 @@ export function stars(size: number, seed: string, count: number) {
   return canvas;
 }
 
-/** A host's nebula: one tinted cloud spanning the whole region. The grayscale
- * nebula map gives its structure (sampled bilinearly, so it stays smooth when
- * magnified) and a soft elliptical envelope with a ragged, map-driven edge
- * keeps it within the host. Painted at world scale, within GPU limits. */
-export function nebula(region: Region, source: ImageData, margin: number) {
+/** The nebula map resampled to a power of two so the GPU can tile it. */
+export function nebulaMap(image: HTMLImageElement) {
+  const canvas = document.createElement("canvas");
+  canvas.width = 2048;
+  canvas.height = 1024;
+  const ctx = canvas.getContext("2d", { willReadFrequently: true })!;
+  ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+  const data = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+  let sum = 0;
+  for (let i = 0; i < data.length; i += 4) sum += data[i]!;
+  return { canvas, mean: sum / (data.length / 4) / 255 };
+}
+
+/**
+ * A host's nebula: one tinted cloud spanning the whole region, drawn by the GPU
+ * at screen resolution. The grayscale nebula map gives its structure and spans
+ * the region once, so the cloud never visibly repeats; finer copies of the same
+ * map fade in as the camera closes in, so zooming reveals detail instead of
+ * blur. A soft elliptical envelope with a ragged, map-driven edge keeps it
+ * within the host.
+ */
+export const NEBULA_SHADER = `
+#pragma phaserTemplate(shaderName)
+#ifdef GL_FRAGMENT_PRECISION_HIGH
+precision highp float;
+#else
+precision mediump float;
+#endif
+varying vec2 outTexCoord;
+uniform sampler2D uMap;
+uniform vec2 uOrigin;
+uniform vec2 uSize;
+uniform vec2 uCenter;
+uniform vec2 uRadii;
+uniform vec2 uPeriod;
+uniform float uShift;
+uniform float uZoom;
+uniform vec3 uTint;
+uniform float uAlpha;
+uniform float uMean;
+float lum(vec2 m) { return texture2D(uMap, m).r; }
+void main() {
+  vec2 world = uOrigin + vec2(outTexCoord.x, 1.0 - outTexCoord.y) * uSize;
+  vec2 m = (world - uOrigin) / uPeriod + vec2(uShift, 0.0);
+  float base = lum(m);
+  // One map texel's size on screen, in device pixels: each finer octave
+  // appears only once the one above it would be visibly magnified.
+  float texel = uZoom * uPeriod.x / 2048.0;
+  float w1 = smoothstep(1.0, 3.0, texel);
+  float w2 = smoothstep(1.0, 3.0, texel / 4.0);
+  float w3 = smoothstep(1.0, 3.0, texel / 16.0);
+  float d1 = lum(mat2(0.8, -0.6, 0.6, 0.8) * m * 4.0 + vec2(0.37, 0.11));
+  float d2 = lum(mat2(0.28, 0.96, -0.96, 0.28) * m * 16.0 + vec2(0.71, 0.53));
+  float d3 = lum(mat2(-0.6, 0.8, -0.8, -0.6) * m * 64.0 + vec2(0.19, 0.83));
+  // Each octave carves the brightness of the one above it into filaments.
+  float l = base;
+  // Divided by the map's mean so the cloud's overall tone never changes.
+  l *= mix(1.0, (0.3 + d1 * 1.4) / (0.3 + uMean * 1.4), w1 * 0.65);
+  l *= mix(1.0, (0.3 + d2 * 1.4) / (0.3 + uMean * 1.4), w2 * 0.55);
+  l *= mix(1.0, (0.4 + d3 * 1.2) / (0.4 + uMean * 1.2), w3 * 0.5);
+  l = clamp(l, 0.0, 1.0);
+  float d = length((world - uCenter) / uRadii);
+  float body = clamp((1.08 - d + (base - 0.45) * 0.35) / 0.4, 0.0, 1.0);
+  float a = body * body * (3.0 - 2.0 * body) * (0.62 + 0.38 * min(1.0, l * 1.6)) * uAlpha;
+  vec3 color = min(uTint * (0.42 + l * 0.95), 1.0);
+  gl_FragColor = vec4(color * a, a);
+}
+`;
+
+/** Where a region's nebula lies, and the uniforms its shader draws it with. */
+export function nebula(region: Region, margin: number) {
   const x0 = region.bounds.x - margin,
     y0 = region.bounds.y - margin,
     width = region.bounds.width + margin * 2,
     height = region.bounds.height + margin * 2;
-  const k = Math.min(1, 4096 / width, 4096 / height);
-  const w = Math.ceil(width * k),
-    h = Math.ceil(height * k);
-  const canvas = document.createElement("canvas");
-  canvas.width = w;
-  canvas.height = h;
-  const ctx = canvas.getContext("2d")!;
-  const image = ctx.createImageData(w, h);
-  const [tr, tg, tb] = rgb(region.tint);
-  const S = source.width,
-    T = source.height,
-    data = source.data;
-  const shift = seedOf(region.host) % S;
-  // The source spans the region once, so the cloud never visibly repeats.
-  const scale = Math.max(region.bounds.width, region.bounds.height * 2) / (S * 0.9);
-  const lumAt = (wx: number, wy: number) => {
-    const fx = (wx - x0) / scale + shift,
-      fy = (wy - y0) / scale;
-    const ix = Math.floor(fx),
-      iy = Math.floor(fy),
-      ax = fx - ix,
-      ay = fy - iy;
-    const at = (x: number, y: number) => data[((((y % T) + T) % T) * S + (((x % S) + S) % S)) * 4]!;
-    const top = at(ix, iy) * (1 - ax) + at(ix + 1, iy) * ax;
-    const bottom = at(ix, iy + 1) * (1 - ax) + at(ix + 1, iy + 1) * ax;
-    return (top * (1 - ay) + bottom * ay) / 255;
+  // The map (2:1) spans the region once.
+  const span = Math.max(region.bounds.width, region.bounds.height * 2) / 0.9;
+  const [r, g, b] = rgb(region.tint);
+  return {
+    x: x0,
+    y: y0,
+    width,
+    height,
+    uniforms: {
+      uOrigin: [x0, y0],
+      uSize: [width, height],
+      uCenter: [region.bounds.x + region.bounds.width / 2, region.bounds.y + region.bounds.height / 2],
+      uRadii: [region.bounds.width / 2 + margin * 0.55, region.bounds.height / 2 + margin * 0.55],
+      uPeriod: [span, span / 2],
+      uShift: (seedOf(region.host) % 1774) / 1774,
+      uTint: [r / 255, g / 255, b / 255],
+      uAlpha: (region.online ? 200 : 100) / 255,
+    },
   };
-  const cx = region.bounds.x + region.bounds.width / 2,
-    cy = region.bounds.y + region.bounds.height / 2,
-    rx = region.bounds.width / 2 + margin * 0.55,
-    ry = region.bounds.height / 2 + margin * 0.55;
-  for (let j = 0; j < h; j++)
-    for (let i = 0; i < w; i++) {
-      const wx = x0 + i / k,
-        wy = y0 + j / k;
-      const lum = lumAt(wx, wy);
-      const d = Math.hypot((wx - cx) / rx, (wy - cy) / ry);
-      // A soft body that fades out toward the region's edge; the map's own
-      // structure breaks up the rim so it never reads as an ellipse.
-      const body = Math.max(0, Math.min(1, (1.08 - d + (lum - 0.45) * 0.35) / 0.4));
-      const a = body * body * (3 - 2 * body) * (0.62 + 0.38 * Math.min(1, lum * 1.6));
-      const o = (j * w + i) * 4;
-      const bright = 0.42 + lum * 0.95;
-      image.data[o] = tr * bright;
-      image.data[o + 1] = tg * bright;
-      image.data[o + 2] = tb * bright;
-      image.data[o + 3] = a * (region.online ? 200 : 100);
-    }
-  ctx.putImageData(image, 0, 0);
-  return { canvas, x: x0, y: y0, width, height };
 }

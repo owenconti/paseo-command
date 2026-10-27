@@ -1,6 +1,6 @@
 import Phaser from "phaser";
 import { renderDensity } from "../display";
-import { STATE_TILE, seedOf, type AtlasData, type Entity, type State } from "../world";
+import { STATE_TILE, type AtlasData, type Entity, type State } from "../world";
 import {
   FORMATION,
   HOST_FONT,
@@ -15,7 +15,9 @@ import {
   ATMOSPHERE,
   PlanetSurface,
   atmosphere,
+  NEBULA_SHADER,
   nebula,
+  nebulaMap,
   pixels,
   ring,
   rock,
@@ -84,9 +86,8 @@ export class GalaxyScene extends Phaser.Scene {
   private down?: { x: number; y: number; scrollX: number; scrollY: number };
   private controls?: Phaser.Cameras.Controls.FixedKeyControl;
   private surfaceData = new Map<string, ImageData>();
-  private nebulae = new Map<string, { x: number; y: number; width: number; height: number }>();
   private cloudData: ImageData | null = null;
-  private nebulaData: ImageData | null = null;
+  private nebulaMean = 0.3;
   constructor() {
     super("galaxy");
   }
@@ -102,7 +103,9 @@ export class GalaxyScene extends Phaser.Scene {
     for (const family of Object.keys(SURFACES))
       this.surfaceData.set(family, pixels(this.textures.get(`surface-${family}`).getSourceImage() as HTMLImageElement));
     this.cloudData = pixels(this.textures.get("galaxy-clouds").getSourceImage() as HTMLImageElement);
-    this.nebulaData = pixels(this.textures.get("galaxy-nebula").getSourceImage() as HTMLImageElement);
+    const map = nebulaMap(this.textures.get("galaxy-nebula").getSourceImage() as HTMLImageElement);
+    this.textures.addCanvas("nebula-map", map.canvas)!.setWrap(Phaser.Textures.WrapMode.REPEAT);
+    this.nebulaMean = map.mean;
     this.textures.addCanvas("stars-far", stars(1024, "far", 900));
     this.textures.addCanvas("stars-near", stars(1024, "near", 160));
     this.textures.addCanvas("station", station(256));
@@ -159,19 +162,27 @@ export class GalaxyScene extends Phaser.Scene {
     this.locations.clear();
     const keep = (o: Phaser.GameObjects.GameObject) => (this.world.push(o), o);
     // Host nebulae.
-    const shapes = new Set<string>();
     layout.regions.forEach((region) => {
-      // Painting a nebula is the slow part; regions that keep their shape reuse theirs.
-      const shape = `nebula-${seedOf(JSON.stringify([region.blobs, region.bounds, region.tint, region.online]))}`;
-      let n = this.nebulae.get(shape);
-      if (!n) {
-        const painted = nebula(region, this.nebulaData!, 200);
-        this.textures.addCanvas(shape, painted.canvas);
-        n = { x: painted.x, y: painted.y, width: painted.width, height: painted.height };
-        this.nebulae.set(shape, n);
-      }
-      shapes.add(shape);
-      keep(this.add.image(n.x, n.y, shape).setOrigin(0).setDisplaySize(n.width, n.height).setDepth(-10));
+      const n = nebula(region, 200);
+      const cam = this.cameras.main;
+      const shader = this.add.shader(
+        {
+          name: "galaxy-nebula",
+          fragmentSource: NEBULA_SHADER,
+          setupUniforms: (set: (name: string, value: unknown) => void) => {
+            set("uMap", 0);
+            for (const [name, value] of Object.entries(n.uniforms)) set(name, value);
+            set("uZoom", cam.zoom);
+            set("uMean", this.nebulaMean);
+          },
+        },
+        n.x,
+        n.y,
+        n.width,
+        n.height,
+        ["nebula-map"],
+      );
+      keep(shader.setOrigin(0).setDepth(-10));
       // The host's name stands at the centre, its planets ringed around it.
       const label = this.text(0, 0, region.name.toUpperCase() + (region.online ? "" : " · OFFLINE"), HOST_FONT, region.online ? "#efe7d8" : "#9c968a", "600", 3);
       label.setOrigin(0.5).setPosition(region.label.x, region.label.y).setAlpha(0.9);
@@ -179,11 +190,6 @@ export class GalaxyScene extends Phaser.Scene {
       label.setData("labelKind", "host");
       this.locations.set(region.host, { ...region.bounds, x: region.bounds.x + region.bounds.width / 2, y: region.bounds.y + region.bounds.height / 2 });
     });
-    for (const key of [...this.nebulae.keys()])
-      if (!shapes.has(key)) {
-        this.textures.remove(key);
-        this.nebulae.delete(key);
-      }
     // Decorative rocks.
     for (const r of layout.rocks) {
       const key = `rock-${r.seed % 6}`;
@@ -610,16 +616,23 @@ export class GalaxyScene extends Phaser.Scene {
     this.controls?.update(delta);
     this.constrainCamera();
     if (!this.reduced) this.clock += delta;
-    const view = this.cameras.main.worldView,
-      pad = Math.max(view.width, view.height) * 0.25;
+    const cam = this.cameras.main,
+      view = cam.worldView;
+    // The starfield is far away: its stars keep their screen size at every
+    // zoom and drift only a little as the camera pans.
+    const drift = this.minimumZoom();
     for (const [layer, depth] of [
       [this.starsFar, 0.3],
       [this.starsNear, 0.6],
     ] as const)
       layer
-        .setPosition(view.x - pad, view.y - pad)
-        .setSize(view.width + pad * 2, view.height + pad * 2)
-        .setTilePosition((view.x - pad) * depth + this.clock * 0.002, (view.y - pad) * depth);
+        .setPosition(view.x, view.y)
+        .setSize(cam.width, cam.height)
+        .setScale(1 / cam.zoom)
+        .setTilePosition(
+          view.centerX * depth * drift - cam.width / 2 + this.clock * 0.002,
+          view.centerY * depth * drift - cam.height / 2,
+        );
     if (!this.layout) return;
     this.place();
     // Planets turn slowly; visible planets are re-painted in turn, a large one
