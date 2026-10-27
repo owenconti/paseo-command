@@ -98,6 +98,67 @@ export function registerFrames(scene: Phaser.Scene): void {
     prepared.add(key, 0, tealFrame.cutX, tealFrame.cutY, tealFrame.cutWidth, tealFrame.cutHeight);
     prepared.refresh();
   }
+  for (const name of ["teal", "violet", "lime", "blue", ...ROBOT_PAINT.map(([n]) => n)])
+    splitRobot(scene, `robot-${name}`);
+}
+/** Where a robot's hands sit in its frame (px from the frame's top left), and
+ * their reach. Every robot in the atlas shares one drawing, so one measure
+ * serves all; the frame's trim leaves 5px around the silhouette. */
+const HAND = { x: 5 + 44, y: 5 + 237, rx: 47, ry: 50 };
+const SILHOUETTE_WIDTH = 488;
+/** Cut a robot's hands into their own sprites, so they can move, and mend the
+ * shoulders they covered by carrying the brass down from just above. */
+function splitRobot(scene: Phaser.Scene, key: string): void {
+  const texture = scene.textures.get(`filtered-${key}`);
+  const frame = texture.get(key);
+  const source = texture.getSourceImage() as HTMLCanvasElement;
+  const fw = frame.cutWidth,
+    fh = frame.cutHeight;
+  const whole = document.createElement("canvas");
+  whole.width = fw;
+  whole.height = fh;
+  const wctx = whole.getContext("2d", { willReadFrequently: true })!;
+  wctx.drawImage(source, frame.cutX, frame.cutY, fw, fh, 0, 0, fw, fh);
+  const pixels = wctx.getImageData(0, 0, fw, fh);
+  const body = new Uint8ClampedArray(pixels.data);
+  const centres = [
+    { side: "l", x: HAND.x, shoulder: [5 + 48, 5 + 100] },
+    { side: "r", x: 5 + SILHOUETTE_WIDTH - (HAND.x - 5), shoulder: [5 + SILHOUETTE_WIDTH - 100, 5 + SILHOUETTE_WIDTH - 48] },
+  ];
+  const inside = (px: number, py: number, cx: number) =>
+    ((px - cx) / HAND.rx) ** 2 + ((py - HAND.y) / HAND.ry) ** 2 <= 1;
+  for (const c of centres) {
+    const hand = new Uint8ClampedArray(fw * fh * 4);
+    for (let py = Math.floor(HAND.y - HAND.ry); py <= HAND.y + HAND.ry; py++)
+      for (let px = Math.floor(c.x - HAND.rx); px <= c.x + HAND.rx; px++) {
+        if (px < 0 || py < 0 || px >= fw || py >= fh || !inside(px, py, c.x)) continue;
+        const i = (py * fw + px) * 4;
+        for (let k = 0; k < 4; k++) hand[i + k] = pixels.data[i + k]!;
+        // The shoulder ring runs on under the hand; elsewhere the hand leaves air.
+        const [from, to] = c.shoulder as [number, number];
+        const above = ((5 + 186) * fw + px) * 4;
+        if (px >= from && px <= to && py <= 5 + 232 && pixels.data[above + 3]! > 200)
+          for (let k = 0; k < 4; k++) body[i + k] = pixels.data[above + k]!;
+        else body[i + 3] = 0;
+      }
+    addCanvasFrame(scene, `${key}-hand-${c.side}`, hand, fw, fh);
+  }
+  addCanvasFrame(scene, `${key}-body`, body, fw, fh);
+}
+function addCanvasFrame(
+  scene: Phaser.Scene,
+  name: string,
+  data: Uint8ClampedArray,
+  width: number,
+  height: number,
+): void {
+  const gutter = 8;
+  const prepared = scene.textures.createCanvas(`filtered-${name}`, width + gutter * 2, height + gutter * 2)!;
+  const image = prepared.getContext().createImageData(width, height);
+  image.data.set(data);
+  prepared.getContext().putImageData(image, gutter, gutter);
+  prepared.add(name, 0, gutter, gutter, width, height);
+  prepared.refresh();
 }
 /** New enamel for the teal robot: hue (degrees), saturation scale, and how
  * lightness maps (`l * scale + offset`). Brass, ink and highlights keep. */

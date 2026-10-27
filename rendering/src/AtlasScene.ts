@@ -54,7 +54,9 @@ const DRONE_ORBIT = 7000;
 /** How far a working robot wanders from its cell's centre, and how fast (px/s). */
 const WANDER_X = 13;
 const WANDER_Y = 10;
-const WALK_SPEED = 16;
+const WALK_SPEED = 8;
+/** How fast a walking robot turns toward its next spot (radians/s). */
+const TURN_SPEED = 1.3;
 /** Each kind's hover border, so what the pointer is over reads at a glance. */
 const HOVER_COLOR: Record<Entity["kind"], number> = {
   host: 0xffffff,
@@ -100,12 +102,13 @@ export class AtlasScene extends Phaser.Scene {
   private drones: {
     drone: Phaser.GameObjects.Image;
     shadow: Phaser.GameObjects.Ellipse;
-    robot: Phaser.GameObjects.Image;
+    robot: Phaser.GameObjects.Container;
     phase: number;
   }[] = [];
   private robots: {
     id: string;
-    image: Phaser.GameObjects.Image;
+    image: Phaser.GameObjects.Container;
+    hands: { image: Phaser.GameObjects.Image; x: number; y: number }[];
     x: number;
     y: number;
     busy: boolean;
@@ -123,6 +126,7 @@ export class AtlasScene extends Phaser.Scene {
       look: number;
       rng: () => number;
       stride: number;
+      phase: number;
     }
   >();
   /** The state each workspace tile shows. */
@@ -616,15 +620,26 @@ export class AtlasScene extends Phaser.Scene {
     // Centred on its own cell.
     const { x, y } = point(a.position);
     const offline = a.state === "offline";
-    const image = sprite(this, x, y, a.art!, ROBOT_SIZE).setDepth(35);
+    // A body and two hands, so its arms can move.
+    // Each hand's frame is the whole robot's, so all three share one origin.
+    const body = sprite(this, 0, 0, `${a.art!}-body`, ROBOT_SIZE);
+    const hands = ["l", "r"].map((side) => sprite(this, 0, 0, `${a.art!}-hand-${side}`, ROBOT_SIZE));
+    const image = this.add.container(x, y, [body, ...hands]).setDepth(35);
     image.setData("agent", a.id);
-    if (offline) image.setTint(0x9c9a92).setAlpha(0.7);
+    if (offline) for (const part of [body, ...hands]) part.setTint(0x9c9a92).setAlpha(0.7);
     // The whole cell answers the pointer; the robot is where it's pointed out.
     const cell = cellBounds([a.position]);
     this.hit(a, x, y, cell.width, cell.height, 40, false);
     this.locations.set(a.id, { x, y, width: ROBOT_SIZE + 10, height: ROBOT_SIZE + 10 });
     // A working robot potters about its cell; the rest stand still.
-    const robot = { id: a.id, image, x, y, busy: a.state === "running" };
+    const robot = {
+      id: a.id,
+      image,
+      hands: hands.map((h) => ({ image: h, x: h.x, y: h.y })),
+      x,
+      y,
+      busy: a.state === "running",
+    };
     this.robots.push(robot);
     this.marker(a, robot);
   }
@@ -636,12 +651,13 @@ export class AtlasScene extends Phaser.Scene {
     for (const r of this.robots) {
       if (!r.busy || this.reduced) {
         r.image.setPosition(r.x, r.y).setRotation(0);
+        for (const h of r.hands) h.image.setPosition(h.x, h.y);
         continue;
       }
       let w = this.walkers.get(r.id);
       if (!w) {
         const rng = random(seedOf(r.id + "walk"));
-        w = { x: 0, y: 0, heading: Math.PI / 2, tx: 0, ty: 0, pause: rng() * 1200, look: Math.PI / 2, rng, stride: 0 };
+        w = { x: 0, y: 0, heading: Math.PI / 2, tx: 0, ty: 0, pause: rng() * 2000, look: Math.PI / 2, rng, stride: 0, phase: rng() * 10 };
         this.walkers.set(r.id, w);
       }
       const turn = (to: number, rate: number) => {
@@ -651,7 +667,7 @@ export class AtlasScene extends Phaser.Scene {
       };
       if (w.pause > 0) {
         w.pause -= step * 1000;
-        turn(w.look, 2.5);
+        turn(w.look, 0.7);
         if (w.pause <= 0) {
           // Somewhere else in the cell, a fair step away.
           for (let i = 0; i < 6; i++) {
@@ -666,21 +682,32 @@ export class AtlasScene extends Phaser.Scene {
         const dx = w.tx - w.x,
           dy = w.ty - w.y,
           dist = Math.hypot(dx, dy);
-        const off = turn(Math.atan2(dy, dx), 5);
+        const off = turn(Math.atan2(dy, dx), TURN_SPEED);
         // Walks once it roughly faces its spot, slowing as it arrives.
-        if (off < 0.5) {
+        if (off < 0.3) {
           const move = Math.min(dist, WALK_SPEED * step * Math.min(1, dist / 4 + 0.3));
           w.x += Math.cos(w.heading) * move;
           w.y += Math.sin(w.heading) * move;
           w.stride += move;
         }
         if (dist < 0.8) {
-          w.pause = 500 + w.rng() * 1600;
-          w.look = w.heading + (w.rng() - 0.5) * 2.2;
+          w.pause = 1200 + w.rng() * 2400;
+          w.look = w.heading + (w.rng() - 0.5) * 1.6;
         }
       }
       const walking = w.pause <= 0;
       const bob = walking ? Math.abs(Math.sin(w.stride * 0.55)) * 1.8 : 0;
+      // Arms swing opposite each other in stride; at rest they tinker.
+      const swing = walking
+        ? Math.sin(w.stride * 0.55) * 3
+        : Math.sin(this.clock / 260 + w.phase) * 1.6;
+      r.hands.forEach((h, i) => {
+        const side = i ? 1 : -1;
+        h.image.setPosition(
+          h.x + (walking ? 0 : side * Math.max(0, Math.sin(this.clock / 410 + w!.phase + i)) * 1.5),
+          h.y + (i ? swing : -swing),
+        );
+      });
       // The robot's visor faces down its sprite (+y), so heading π/2 is no turn.
       r.image.setPosition(r.x + w.x, r.y + w.y - bob).setRotation(w.heading - Math.PI / 2);
     }
