@@ -352,23 +352,55 @@ export class AtlasScene extends Phaser.Scene {
     if (!entity) return;
     this.game.events.emit("atlas:pick", entity);
   }
+  /**
+   * Trace an entity's outer perimeter. `inset` keeps the stroke wholly inside
+   * its cells, so painted kerbs and banks beside them never cut into it; each
+   * side is pulled in toward its own cell, and the steps where two cells meet
+   * are bridged.
+   */
   private outlineCells(
     graphics: Phaser.GameObjects.Graphics,
     entity: Entity,
     width: number,
     color: number,
     alpha = 0.95,
+    inset = true,
   ): void {
-    const edges = footprintEdges(this.cellsOf(entity));
-    graphics.setData("edgeCount", edges.length);
-    graphics.lineStyle(width, color, alpha);
-    for (const { a, b } of edges) graphics.lineBetween(a.x, a.y, b.x, b.y);
-    // Round the corners, so thick outlines don't gap where edges meet.
-    graphics.fillStyle(color, alpha);
-    const corners = new Map(
-      edges.flatMap(({ a, b }) => [a, b]).map((p) => [`${Math.round(p.x)},${Math.round(p.y)}`, p]),
-    );
-    for (const p of corners.values()) graphics.fillCircle(p.x, p.y, width / 2);
+    const cells = this.cellsOf(entity);
+    const key = (p: { x: number; y: number }) => `${Math.round(p.x * 10)},${Math.round(p.y * 10)}`;
+    const shrink = inset ? width / 2 / Math.cos(Math.PI / 6) : 0;
+    const sides = new Map<string, { a: { x: number; y: number }; b: { x: number; y: number }; ia: { x: number; y: number }; ib: { x: number; y: number } }>();
+    for (const cell of cells) {
+      const c = point(cell);
+      const corner = (i: number, r: number) => ({
+        x: c.x + Math.cos((i * Math.PI) / 3 - Math.PI / 2) * r,
+        y: c.y + Math.sin((i * Math.PI) / 3 - Math.PI / 2) * r,
+      });
+      for (let i = 0; i < 6; i++) {
+        const a = corner(i, HEX_RADIUS),
+          b = corner(i + 1, HEX_RADIUS),
+          id = [key(a), key(b)].sort().join(":");
+        if (sides.has(id)) sides.delete(id);
+        else sides.set(id, { a, b, ia: corner(i, HEX_RADIUS - shrink), ib: corner(i + 1, HEX_RADIUS - shrink) });
+      }
+    }
+    graphics.setData("edgeCount", sides.size);
+    graphics.lineStyle(width, color, alpha).fillStyle(color, alpha);
+    // Each perimeter corner, with the inset ends that meet there.
+    const ends = new Map<string, { x: number; y: number }[]>();
+    for (const { a, b, ia, ib } of sides.values()) {
+      graphics.lineBetween(ia.x, ia.y, ib.x, ib.y);
+      for (const [p, q] of [[a, ia], [b, ib]] as const) {
+        const list = ends.get(key(p)) ?? [];
+        list.push(q);
+        ends.set(key(p), list);
+      }
+    }
+    for (const list of ends.values()) {
+      for (const p of list) graphics.fillCircle(p.x, p.y, width / 2);
+      if (list.length === 2 && key(list[0]!) !== key(list[1]!))
+        graphics.lineBetween(list[0]!.x, list[0]!.y, list[1]!.x, list[1]!.y);
+    }
   }
   /** The cells an entity covers; a host covers its whole landmass. */
   private cellsOf(entity: Entity): Axial[] {
@@ -506,10 +538,10 @@ export class AtlasScene extends Phaser.Scene {
     }
     this.animateTiles();
   }
-  /** The selection's glow swells and fades; steady with reduced motion. */
+  /** The selection's wash brightens and fades; steady with reduced motion. */
   private breathe(): void {
     const t = this.reduced ? 0.5 : 0.5 + 0.5 * Math.sin((this.clock / 1600) * Math.PI * 2);
-    this.selectGlow.setAlpha(0.18 + 0.27 * t);
+    this.selectGlow.setAlpha(0.06 + 0.16 * t);
   }
   /** Pulsing borders fade in and out; running borders carry a light round
    * them, a sixth of their length. Still, with reduced motion. */
@@ -544,7 +576,10 @@ export class AtlasScene extends Phaser.Scene {
     const image = sprite(this, x, y, a.art!, ROBOT_SIZE).setDepth(35);
     image.setData("agent", a.id);
     if (offline) image.setTint(0x9c9a92).setAlpha(0.7);
-    this.hit(a, x, y, ROBOT_SIZE + 10, ROBOT_SIZE + 10, 40);
+    // The whole cell answers the pointer; the robot is where it's pointed out.
+    const cell = cellBounds([a.position]);
+    this.hit(a, x, y, cell.width, cell.height, 40, false);
+    this.locations.set(a.id, { x, y, width: ROBOT_SIZE + 10, height: ROBOT_SIZE + 10 });
     this.marker(a, x, y);
   }
   /** Lights for running helpers. State itself shows on the agent's tile. */
@@ -778,9 +813,22 @@ export class AtlasScene extends Phaser.Scene {
     const entity = this.selectedId ? this.entity(this.selectedId) : undefined;
     this.selectGlow.clear();
     if (!entity || entity.kind === "host") return;
-    // A soft breathing glow, a dark keyline and a bright rim: clear on grass,
+    // A soft breathing wash, a dark keyline and a bright rim: clear on grass,
     // timber, flagstones and every tile colour.
-    this.outlineCells(this.selectGlow, entity, 26, 0xfff4cf, 1);
+    // Cells don't overlap, so the wash is even across the whole footprint.
+    this.selectGlow.fillStyle(0xfff6d6, 1);
+    for (const cell of this.cellsOf(entity)) {
+      const c = point(cell);
+      this.selectGlow.fillPoints(
+        vectors(
+          Array.from({ length: 6 }, (_, i) => ({
+            x: c.x + Math.cos((i * Math.PI) / 3 - Math.PI / 2) * (HEX_RADIUS + 0.5),
+            y: c.y + Math.sin((i * Math.PI) / 3 - Math.PI / 2) * (HEX_RADIUS + 0.5),
+          })),
+        ),
+        true,
+      );
+    }
     this.outlineCells(this.selected, entity, 11, 0x2a1a0c, 0.7);
     this.outlineCells(this.selected, entity, 6, 0xfffbea, 1);
     this.breathe();
