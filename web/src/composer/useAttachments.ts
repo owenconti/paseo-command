@@ -43,7 +43,8 @@ export function useAttachmentDraft(agentId: string) {
 
 /** Images are read inline; any other file is uploaded to the agent's host. */
 export function useAddFiles(
-  agentId: string,
+  /** Absent before the agent exists: then only images can be attached. */
+  agentId: string | undefined,
   host: string | undefined,
   onNotice: (message: string) => void,
   setAttachments: Dispatch<SetStateAction<Attachment[]>>,
@@ -73,6 +74,10 @@ export function useAddFiles(
               dataUrl,
             },
           ]);
+          continue;
+        }
+        if (!agentId) {
+          onNotice(`${file.name} can be uploaded once the agent has started; images can be added now`);
           continue;
         }
         if (file.size > MAX_UPLOAD) {

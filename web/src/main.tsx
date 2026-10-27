@@ -37,7 +37,7 @@ import {
   type ArchiveJob,
 } from "./archives";
 import { SoundControl } from "./SoundControl";
-import { DispatchDialog, type DispatchTarget } from "./Dispatch";
+import { NewAgent, type DispatchTarget } from "./Dispatch";
 import {
   Fleet,
   FleetSummary,
@@ -421,6 +421,8 @@ function App() {
     if (s) setFocusRevision((revision) => revision + 1);
     setSelection(s);
     setBrowsing(!s);
+    // Choosing anything leaves a new agent unstarted (its draft is kept).
+    setDispatchTarget(null);
   }, []);
   const selected = useRef<Selection>(null);
   selected.current = selection;
@@ -658,9 +660,11 @@ function App() {
   const online = health?.connectedDaemon === "reachable";
   // One detail view at a time: the selection is the active detail.
   const activeTarget = selection;
-  const activeKey = activeTarget
-    ? `${activeTarget.type}:${activeTarget.id}`
-    : null;
+  const activeKey = dispatchTarget
+    ? "new-agent"
+    : activeTarget
+      ? `${activeTarget.type}:${activeTarget.id}`
+      : null;
   const detailLabel = (target: NonNullable<Selection>) => {
     if (target.type === "agent") {
       const row = agents.find((a) => a.id === target.id);
@@ -679,7 +683,10 @@ function App() {
 
   const openDispatch = useCallback(
     (target?: DispatchTarget) => {
+      // The New agent view opens in the panel, in place of the conversation.
       setDispatchRevision((revision) => revision + 1);
+      setBrowsing(false);
+      setFocusRevision((revision) => revision + 1);
       if (target) return setDispatchTarget(target);
       const a =
         selection?.type === "agent"
@@ -712,7 +719,7 @@ function App() {
   // stays modal.
   const newAgent = useRef(() => {});
   newAgent.current = () => {
-    if (archiveWorkspace || dispatchTarget) return;
+    if (archiveWorkspace) return;
     openDispatch();
   };
   useEffect(() => {
@@ -738,9 +745,13 @@ function App() {
         if (e.key === "Escape") setArchiveWorkspace(null);
         return;
       }
-      // Dispatch owns Escape while its dialog is open.
-      if (dispatchTarget) return;
       if (editing || e.metaKey || e.ctrlKey || e.altKey) return;
+      // Escape leaves a new agent unstarted, back to what was open.
+      if (dispatchTarget && e.key === "Escape") {
+        setDispatchTarget(null);
+        setBrowsing(!selection);
+        return;
+      }
       // Buttons, links and toggles keep their own Enter/Space behaviour.
       if (
         e.key === "Enter" &&
@@ -916,7 +927,7 @@ function App() {
                 chooseHost={chooseHost}
                 hover={() => {}}
                 onNotice={setNotice}
-                blocked={!!archiveWorkspace || !!dispatchTarget}
+                blocked={!!archiveWorkspace}
               />
             </React.Suspense>
           </div>
@@ -943,9 +954,13 @@ function App() {
           enabled={unity}
           activeKey={activeKey}
           activeLabel={
-            activeTarget ? detailLabel(activeTarget) : "Active session"
+            dispatchTarget
+              ? "New agent"
+              : activeTarget
+                ? detailLabel(activeTarget)
+                : "Active session"
           }
-          hasActive={!!activeTarget}
+          hasActive={!!activeTarget || !!dispatchTarget}
           openRevision={focusRevision}
           revealRevision={revealRevision}
           browsing={browsing}
@@ -975,7 +990,7 @@ function App() {
           <AppPanel>
             <div
               className="app-workspace"
-              data-browsing={browsing || !activeTarget}
+              data-browsing={browsing || (!activeTarget && !dispatchTarget)}
             >
               <aside className="fleet-sidebar" aria-label="Fleet sidebar">
                 <FleetSummary onDispatch={() => openDispatch()} />
@@ -1021,7 +1036,31 @@ function App() {
                 aria-label="Open conversations"
               >
                 <div className="detail-content" id="detail-panel">
-                  {agent && subagent ? (
+                  {dispatchTarget ? (
+                    <NewAgent
+                      key={`dispatch-${dispatchRevision}`}
+                      projects={projects}
+                      workspaces={workspaces}
+                      providers={providers}
+                      hosts={hosts}
+                      initial={dispatchTarget}
+                      fallback={busiestProject}
+                      online={online}
+                      onClose={() => {
+                        setDispatchTarget(null);
+                        setBrowsing(!selection);
+                      }}
+                      onNotice={setNotice}
+                      onDispatched={async (rawId, host) => {
+                        const id = rawId ? agentClientId(rawId, host) : undefined;
+                        soundEvent("dispatched");
+                        setDispatchTarget(null);
+                        await refresh();
+                        if (id) select({ type: "agent", id });
+                        else setBrowsing(!selection);
+                      }}
+                    />
+                  ) : agent && subagent ? (
                     <SubagentSession
                       key={`${agent.id}:${subagent.id}`}
                       agent={agent}
@@ -1169,29 +1208,6 @@ function App() {
               )}
               onCancel={() => setArchiveWorkspace(null)}
               onConfirm={confirmArchive}
-            />
-          )}
-        </AnimatePresence>
-        <AnimatePresence>
-          {dispatchTarget && (
-            <DispatchDialog
-              key={`dispatch-${dispatchRevision}`}
-              projects={projects}
-              workspaces={workspaces}
-              providers={providers}
-              hosts={hosts}
-              initial={dispatchTarget}
-              fallback={busiestProject}
-              online={online}
-              onClose={() => setDispatchTarget(null)}
-              onNotice={setNotice}
-              onDispatched={async (rawId, host) => {
-                const id = rawId ? agentClientId(rawId, host) : undefined;
-                soundEvent("dispatched");
-                setDispatchTarget(null);
-                await refresh();
-                if (id) select({ type: "agent", id });
-              }}
             />
           )}
         </AnimatePresence>

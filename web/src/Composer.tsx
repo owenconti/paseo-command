@@ -7,6 +7,7 @@ import {
   useState,
   type ClipboardEvent,
   type KeyboardEvent,
+  type ReactNode,
 } from "react";
 import { GitPullRequest, ImagePlus, Plus, Upload } from "lucide-react";
 import { errorMessage, readStore, removeStore, writeStore } from "./api";
@@ -29,7 +30,7 @@ import type {
   Outgoing,
 } from "./composer/types";
 import { useAddFiles, useAttachmentDraft } from "./composer/useAttachments";
-import { useAutocomplete } from "./composer/useAutocomplete";
+import { useAutocomplete, type DraftSource } from "./composer/useAutocomplete";
 import { insertAtCaret, uid } from "./composer/util";
 import "./composer.css";
 
@@ -48,9 +49,20 @@ export {
   readDataUrl,
 } from "./composer/util";
 
+/** The composer of an agent not yet started (the New agent view): its first
+ * message goes to `onSend`, which creates the agent. */
+export type ComposerDraft = {
+  /** Where /skills and @files come from, once a folder is chosen. */
+  source?: DraftSource;
+  host?: string;
+  /** Provider, model, thinking and mode pickers, in place of the agent's. */
+  controls: ReactNode;
+};
+
 // ── Composer ─────────────────────────────────────────────────────────────────
 export function Composer({
   agent,
+  draft,
   running,
   disabled,
   disabledReason,
@@ -66,7 +78,9 @@ export function Composer({
   promptHistory,
   dropFiles,
 }: {
-  agent: Agent;
+  /** The agent written to; absent for a `draft`. */
+  agent?: Agent;
+  draft?: ComposerDraft;
   running: boolean;
   disabled: boolean;
   disabledReason?: string;
@@ -84,10 +98,12 @@ export function Composer({
   /** Files dropped anywhere on the session panel. */
   dropFiles: { files: File[]; at: number } | null;
 }) {
-  const draftKey = `draft:${agent.id}`;
-  const host = agent.host;
+  // A new agent's draft is kept as the dispatch draft always was.
+  const owner = agent ? agent.id : "dispatch";
+  const draftKey = `draft:${owner}`;
+  const host = agent ? agent.host : draft?.host;
   const [text, setText] = useState(() => readStore(draftKey, ""));
-  const [attachments, setAttachments] = useAttachmentDraft(agent.id);
+  const [attachments, setAttachments] = useAttachmentDraft(owner);
   const [defaultBehavior, setDefaultBehavior] = useState<Behavior>(() =>
     readStore<Behavior>("send-behavior", "queue"),
   );
@@ -115,7 +131,7 @@ export function Composer({
   }, [text]);
 
   // ── Attachments ──
-  const addFiles = useAddFiles(agent.id, host, onNotice, setAttachments);
+  const addFiles = useAddFiles(agent?.id, host, onNotice, setAttachments);
   useEffect(() => {
     if (dropFiles?.files.length) void addFiles(dropFiles.files);
   }, [dropFiles, addFiles]);
@@ -143,7 +159,8 @@ export function Composer({
 
   // ── Autocomplete: /commands and @files at the start of any word ──
   const suggestions = useAutocomplete({
-    agentId: agent.id,
+    agentId: agent?.id,
+    draft: draft?.source,
     host,
     before: text.slice(0, caret),
     focused,
@@ -184,7 +201,7 @@ export function Composer({
     if (!hasContent || sending || disabled || !ready) return;
     const value = text.trim();
     const items = attachments;
-    if (running && how === "queue") {
+    if (running && how === "queue" && agent) {
       // The draft stays until the queue has it saved.
       setSending(true);
       try {
@@ -309,18 +326,21 @@ export function Composer({
 
   return (
     <div className="composer-shell">
-      <QueueList
-        agent={agent}
-        running={running}
-        disabled={disabled}
-        onNotice={onNotice}
-        onEdit={editQueued}
-      />
+      {agent && (
+        <QueueList
+          agent={agent}
+          running={running}
+          disabled={disabled}
+          onNotice={onNotice}
+          onEdit={editQueued}
+        />
+      )}
       <div
         className={`composer2 ${disabled ? "disabled" : ""} ${focused ? "focused" : ""}`}
       >
         <Autocomplete
           agent={agent}
+          folder={draft?.source?.cwd}
           suggestions={suggestions}
           onChoose={choose}
         />
@@ -373,23 +393,28 @@ export function Composer({
                   >
                     <ImagePlus size={14} /> Add image
                   </button>
-                  <button
-                    aria-description="Upload any file for the agent to read (up to 50 MB)"
-                    role="menuitem"
-                    onClick={() => (setMenu(null), fileInput.current?.click())}
-                  >
-                    <Upload size={14} /> Upload file
-                  </button>
-                  <button
-                    aria-description="Search this repository's GitHub issues and pull requests"
-                    role="menuitem"
-                    onClick={() => setMenu("github")}
-                  >
-                    <GitPullRequest size={14} /> Add issue or PR
-                  </button>
+                  {/* Uploads and GitHub items go to an agent's host: not before it starts. */}
+                  {agent && (
+                    <button
+                      aria-description="Upload any file for the agent to read (up to 50 MB)"
+                      role="menuitem"
+                      onClick={() => (setMenu(null), fileInput.current?.click())}
+                    >
+                      <Upload size={14} /> Upload file
+                    </button>
+                  )}
+                  {agent && (
+                    <button
+                      aria-description="Search this repository's GitHub issues and pull requests"
+                      role="menuitem"
+                      onClick={() => setMenu("github")}
+                    >
+                      <GitPullRequest size={14} /> Add issue or PR
+                    </button>
+                  )}
                 </Menu>
               )}
-              {menu === "github" && (
+              {menu === "github" && agent && (
                 <GitHubPicker
                   agentId={agent.id}
                   host={host}
@@ -408,15 +433,19 @@ export function Composer({
                 />
               )}
             </span>
-            <AgentControls
-              agent={agent}
-              modes={modes}
-              mode={mode}
-              onSetMode={onSetMode}
-              disabled={disabled}
-              readOnly={started}
-              onNotice={onNotice}
-            />
+            {agent ? (
+              <AgentControls
+                agent={agent}
+                modes={modes}
+                mode={mode}
+                onSetMode={onSetMode}
+                disabled={disabled}
+                readOnly={started}
+                onNotice={onNotice}
+              />
+            ) : (
+              draft?.controls
+            )}
           </div>
           <div className="composer-right">
             <SendControls

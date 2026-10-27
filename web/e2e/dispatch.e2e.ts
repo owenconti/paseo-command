@@ -1,6 +1,7 @@
 /**
- * Dispatching an agent with pasted and dropped images. Every /api request is
- * answered in the browser; none reaches a daemon.
+ * Starting an agent from the New agent view's composer, with pasted and
+ * dropped images and /skills. Every /api request is answered in the browser;
+ * none reaches a daemon.
  */
 import { after, before, test } from "node:test";
 import assert from "node:assert/strict";
@@ -42,7 +43,8 @@ test("images pasted or dropped into the mission are sent with the dispatch", asy
   });
   await page.goto(app.url);
   await page.locator("body").press("d");
-  const mission = page.getByRole("textbox", { name: "Mission" });
+  // The New agent view: its composer's first message starts the agent.
+  const mission = page.locator(".new-agent #composer");
   await mission.fill("Fix what the screenshots show");
   const png = PNG.toString("base64");
   // A pasted screenshot, then one dropped onto the dialog.
@@ -57,19 +59,19 @@ test("images pasted or dropped into the mission are sent with the dispatch", asy
     drop.items.add(new File([bytes], "dropped.png", { type: "image/png" }));
     el.dispatchEvent(new DragEvent("drop", { dataTransfer: drop, bubbles: true, cancelable: true }));
   }, png);
-  const thumbs = page.locator(".dispatch-dialog .thumb");
+  const thumbs = page.locator(".new-agent .thumb");
   await waitFor(() => thumbs.count(), (n) => n === 2, "two image thumbnails");
   // One can be removed before dispatching.
-  await page.locator(".dispatch-dialog .thumb .remove").first().click();
+  await page.locator(".new-agent .thumb .remove").first().click();
   await waitFor(() => thumbs.count(), (n) => n === 1, "one image thumbnail");
-  await page.locator(".dispatch-dialog button[type=submit]").click();
+  await page.locator(".new-agent").getByRole("button", { name: "Send message" }).click();
   await waitFor(() => Promise.resolve(dispatched.length), (n) => n === 1, "the dispatch");
   assert.equal(dispatched[0].prompt, "Fix what the screenshots show");
   assert.deepEqual(dispatched[0].images, [{ data: png, mimeType: "image/png" }]);
   await context.close();
 });
 
-test("the mission offers the folder's /skills before the agent exists", async () => {
+test("a new agent's composer offers the folder's /skills before it exists", async () => {
   const context = await newContext(browser);
   const page = await context.newPage();
   const asked: string[] = [];
@@ -97,9 +99,9 @@ test("the mission offers the folder's /skills before the agent exists", async ()
   });
   await page.goto(app.url);
   await page.locator("body").press("d");
-  const mission = page.getByRole("textbox", { name: "Mission" });
+  const mission = page.locator(".new-agent #composer");
   await mission.pressSequentially("/rev");
-  const option = page.locator(".dispatch-dialog .autocomplete [role=option]");
+  const option = page.locator(".new-agent .autocomplete [role=option]");
   await waitFor(() => option.count(), (n) => n === 1, "the matching skill");
   await mission.press("Enter");
   assert.equal(await mission.inputValue(), "/review-code ");

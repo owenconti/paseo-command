@@ -1,32 +1,12 @@
 import { soundEvent } from "./soundCues";
-import {
-  useEffect,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
-  type DragEvent,
-} from "react";
-import { motion, useIsPresent } from "framer-motion";
-import { GitBranch, ImagePlus, LoaderCircle, Send, X } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { ArrowLeft, ChevronDown, GitBranch, MessageSquare } from "lucide-react";
 import { api, errorMessage, readStore, writeStore } from "./api";
-import { AttachmentTray } from "./composer/AttachmentTray";
-import { Autocomplete } from "./composer/Autocomplete";
-import { useAutocomplete } from "./composer/useAutocomplete";
-import type { ImageAttachment } from "./composer/types";
-import {
-  MAX_IMAGE,
-  RASTER,
-  insertAtCaret,
-  readDataUrl,
-  uid,
-} from "./composer/util";
-import { Lightbox } from "./Images";
-import { pastedText } from "./paste";
+import { Composer } from "./Composer";
+import type { Outgoing } from "./composer/types";
 import type { Host, Mode, Model, Project, Provider, Workspace } from "./types";
 import { hostQuery } from "./types";
 import { projectKey, workspaceKey } from "./workspaces";
-import { useFocusTrap } from "./focus";
 import { hostText, placeText } from "./names";
 
 /** As many images as the daemon takes with a prompt. */
@@ -74,7 +54,48 @@ export function bypassMode(provider: string) {
   );
 }
 
-export function DispatchDialog({
+/** A compact picker in the composer's row, as the agent's own controls are. */
+function Pick({
+  label,
+  shown,
+  value,
+  onChange,
+  disabled,
+  children,
+}: {
+  label: string;
+  shown: string;
+  value: string;
+  onChange: (value: string) => void;
+  disabled?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <label
+      className={`control ${disabled ? "disabled" : ""}`}
+      aria-description={label}
+    >
+      <span>{shown}</span>
+      <ChevronDown size={11} />
+      <select
+        aria-label={label}
+        value={value}
+        disabled={disabled}
+        onChange={(e) => onChange(e.target.value)}
+      >
+        {children}
+      </select>
+    </label>
+  );
+}
+
+/**
+ * A new agent, before it exists: where it runs (a small form) above an empty
+ * conversation, and the conversation's own composer, whose first message
+ * creates the agent. Its provider, model, thinking and mode are the
+ * composer's pickers; /skills and @files come from the chosen folder.
+ */
+export function NewAgent({
   projects,
   workspaces,
   providers,
@@ -99,19 +120,10 @@ export function DispatchDialog({
   onNotice: (message: string) => void;
 }) {
   const prefs = useMemo(() => readStore<Prefs>("dispatch", {}), []);
-  // Remote hosts can have different providers; the list follows the target's host.
-  const dialog = useRef<HTMLElement>(null);
-  const present = useIsPresent();
-  useFocusTrap(dialog, undefined, present);
-  useLayoutEffect(() => {
-    if (!present && dialog.current?.contains(document.activeElement))
-      (document.activeElement as HTMLElement | null)?.blur();
-  }, [present]);
   const [hostProviders, setHostProviders] = useState<{
     host?: string;
     rows: Provider[];
   }>({ rows: providers });
-  // The host comes first: "Where", providers and models follow it.
   const hostChoices = useMemo(() => hostOptions(hosts), [hosts]);
   const onHost = (key: string) => (p: { host?: string }) =>
     (p.host || LOCAL) === key;
@@ -122,15 +134,11 @@ export function DispatchDialog({
       fallback && `p:${fallback}`,
       ...projects.filter(onHost(key)).map((p) => `p:${projectKey(p)}`),
       ...workspaces.filter(onHost(key)).map((w) => `w:${workspaceKey(w)}`),
-    ].find(
-      (t) =>
-        t &&
-        (projects.some((p) => onHost(key)(p) && `p:${projectKey(p)}` === t) ||
-          workspaces.some(
-            (w) => onHost(key)(w) && `w:${workspaceKey(w)}` === t,
-          )),
-    ) || "";
-  // The selection's host, or local.
+    ].find((t) => t && targetOn(t, key)) || "";
+  const targetOn = (t: string, key: string) =>
+    t.startsWith("p:")
+      ? projects.some((p) => onHost(key)(p) && `p:${projectKey(p)}` === t)
+      : workspaces.some((w) => onHost(key)(w) && `w:${workspaceKey(w)}` === t);
   const [hostKey, setHostKey] = useState(
     () =>
       (initial.workspaceId
@@ -152,10 +160,6 @@ export function DispatchDialog({
     // A place on another host can't be kept.
     if (!targetOn(target, key)) setTarget(firstTarget(key));
   };
-  const targetOn = (t: string, key: string) =>
-    t.startsWith("p:")
-      ? projects.some((p) => onHost(key)(p) && `p:${projectKey(p)}` === t)
-      : workspaces.some((w) => onHost(key)(w) && `w:${workspaceKey(w)}` === t);
   const [provider, setProvider] = useState(
     providers.find(
       (p) => p.status === "available" && p.provider === prefs.provider,
@@ -163,24 +167,17 @@ export function DispatchDialog({
       providers.find((p) => p.status === "available")?.provider ||
       "",
   );
-  const remembered = prefs.byProvider?.[provider] || {};
-  const [model, setModel] = useState(remembered.model || "");
-  const [thinking, setThinking] = useState(remembered.thinking || "");
-  const [mode, setMode] = useState(remembered.mode || bypassMode(provider));
+  const [model, setModel] = useState("");
+  const [thinking, setThinking] = useState("");
+  const [mode, setMode] = useState("");
   const [models, setModels] = useState<Model[]>([]);
   const [branch, setBranch] = useState("");
   const [base, setBase] = useState("");
-  const [title, setTitle] = useState("");
-  const [prompt, setPrompt] = useState(() => readStore("draft:dispatch", ""));
-  // Pasted, dropped or chosen screenshots, sent with the mission.
-  const [images, setImages] = useState<ImageAttachment[]>([]);
-  const [preview, setPreview] = useState<ImageAttachment | null>(null);
-  const [dragging, setDragging] = useState(false);
-  const imageInput = useRef<HTMLInputElement>(null);
-  const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const form = useRef<HTMLFormElement>(null);
-  const mission = useRef<HTMLTextAreaElement>(null);
+  // Files dropped anywhere on the view join the first message.
+  const [drop, setDrop] = useState<{ files: File[]; at: number } | null>(null);
+  const hasFiles = (e: React.DragEvent) =>
+    [...e.dataTransfer.types].includes("Files");
 
   const project = target.startsWith("p:")
     ? projects.find((p) => projectKey(p) === target.slice(2))
@@ -190,41 +187,6 @@ export function DispatchDialog({
     : undefined;
   const host = hostKey === LOCAL ? undefined : hostKey;
   const modes = providerModes(provider);
-
-  // /skills, /commands and @files, as in the conversation's composer: for the
-  // folder and settings chosen below.
-  const [caret, setCaret] = useState(0);
-  const [missionFocused, setMissionFocused] = useState(false);
-  const folder = workspace?.cwd || project?.path || "";
-  const suggestions = useAutocomplete({
-    // The daemon lists a draft's skills only for a model: "Default" is the
-    // provider's first.
-    draft:
-      folder && (model || models[0]?.id)
-        ? { cwd: folder, provider, model: model || models[0]!.id, mode, thinking }
-        : undefined,
-    host,
-    before: folder ? prompt.slice(0, caret) : "",
-    focused: missionFocused,
-  });
-  const chooseSuggestion = (index: number) => {
-    const m = suggestions.matches[index];
-    const trigger = suggestions.trigger;
-    if (!m || !trigger) return;
-    const insert =
-      "command" in m && m.command
-        ? `/${m.command.name} `
-        : "file" in m && m.file
-          ? `@${m.file.path}${m.file.kind === "directory" ? "/" : " "}`
-          : "";
-    setPrompt(prompt.slice(0, trigger.start) + insert + prompt.slice(caret));
-    const at = trigger.start + insert.length;
-    requestAnimationFrame(() => {
-      mission.current?.focus();
-      mission.current?.setSelectionRange(at, at);
-      setCaret(at);
-    });
-  };
   const available = useMemo(
     () =>
       (hostProviders.host === host
@@ -235,6 +197,7 @@ export function DispatchDialog({
       ).filter((p) => p.status === "available"),
     [hostProviders, host, providers],
   );
+  // Remote hosts can have different providers; the list follows the host.
   useEffect(() => {
     if (!host) return setHostProviders({ rows: providers });
     const controller = new AbortController();
@@ -253,10 +216,6 @@ export function DispatchDialog({
           available[0].provider,
       );
   }, [available, provider, prefs.provider]);
-
-  useEffect(() => {
-    writeStore("draft:dispatch", prompt);
-  }, [prompt]);
   useEffect(() => {
     const r = readStore<Prefs>("dispatch", {}).byProvider?.[provider] || {};
     setModel(r.model || "");
@@ -283,71 +242,34 @@ export function DispatchDialog({
   }, [models, model]);
   const thinkingOptions = chosenModel?.thinkingOptionIds || [];
 
-  const addImages = async (files: File[]) => {
-    for (const [i, file] of files.entries()) {
-      if (!RASTER.test(file.type)) {
-        onNotice(`${file.name || "That file"} isn't an image (PNG, JPEG, GIF or WebP)`);
-        continue;
-      }
-      if (file.size > MAX_IMAGE) {
-        onNotice(`${file.name || "That image"} is too large (max 20 MB)`);
-        continue;
-      }
-      let dataUrl: string;
-      try {
-        dataUrl = await readDataUrl(file);
-      } catch {
-        onNotice(`Couldn't read ${file.name || "that image"}`);
-        continue;
-      }
-      setImages((all) =>
-        all.length >= MAX_IMAGES
-          ? (onNotice(`Attach at most ${MAX_IMAGES} images`), all)
-          : [
-              ...all,
-              {
-                kind: "image",
-                id: uid(),
-                name: file.name || `pasted-${i + 1}.png`,
-                mimeType: file.type,
-                dataUrl,
-              },
-            ],
-      );
-    }
-  };
-  const hasFiles = (e: DragEvent) => e.dataTransfer.types.includes("Files");
+  const folder = workspace?.cwd || project?.path || "";
+  const blocked = !online
+    ? "Paseo is offline."
+    : chosenHost?.unavailable
+      ? `${chosenHost.name} is ${chosenHost.reason}. Choose another host.`
+      : !folder
+        ? "Choose where the agent runs first."
+        : "";
 
-  const submit = async () => {
-    // ⌘↵ bypasses the disabled button, and the target may have vanished.
-    if (
-      busy ||
-      !online ||
-      !prompt.trim() ||
-      !(project || workspace) ||
-      chosenHost?.unavailable
-    )
-      return;
-    setBusy(true);
+  /** The first message: creates the agent with it. */
+  const send = async (message: Outgoing) => {
+    if (blocked || !message.text.trim()) return false;
     setError("");
     const body: Record<string, unknown> = {
-      prompt: prompt.trim(),
+      prompt: message.text.trim(),
       provider: provider || undefined,
       ...(project
         ? { projectId: project.projectId }
         : { workspaceId: workspace?.workspaceId }),
     };
     if (model) body.model = model;
-    if (thinking && thinkingOptions.includes(thinking))
-      body.thinking = thinking;
+    if (thinking && thinkingOptions.includes(thinking)) body.thinking = thinking;
     if (mode && (!modes.length || modes.some((m) => m.id === mode)))
       body.mode = mode;
-    if (title.trim()) body.title = title.trim();
-    if (images.length)
-      body.images = images.map((a) => ({
-        data: a.dataUrl.split(",")[1],
-        mimeType: a.mimeType,
-      }));
+    if (message.images.length)
+      body.images = message.images
+        .slice(0, MAX_IMAGES)
+        .map(({ data, mimeType }) => ({ data, mimeType }));
     if (project && branch.trim()) {
       body.branch = branch.trim();
       if (base.trim()) body.base = base.trim();
@@ -369,112 +291,132 @@ export function DispatchDialog({
           [provider]: { model, thinking, mode },
         },
       });
-      setPrompt("");
-      setImages([]);
-      writeStore("draft:dispatch", "");
       onNotice("Agent dispatched");
       onDispatched(
         result?.id || result?.Id || result?.agentId || result?.agent?.id,
         host,
       );
+      return true;
     } catch (e) {
       soundEvent("actionFailed");
       setError(errorMessage(e));
-    } finally {
-      setBusy(false);
+      return false;
     }
   };
 
   const hereProjects = projects.filter(onHost(hostKey));
   const hereWorkspaces = workspaces.filter(onHost(hostKey));
-  return (
-    <motion.div
-      className="modal-backdrop"
-      inert={!present}
-      aria-hidden={!present || undefined}
-      style={!present ? { pointerEvents: "none" } : undefined}
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0, transition: { duration: 0.15 } }}
-      onClick={() => !busy && onClose()}
-    >
-      <motion.section
-        ref={dialog}
-        role="dialog"
-        tabIndex={-1}
-        aria-modal="true"
-        aria-labelledby="dispatch-title"
-        className={`command-dialog dispatch-dialog panel${dragging ? " dropping" : ""}`}
-        initial={{ opacity: 0, y: 25, scale: 0.97 }}
-        animate={{ opacity: 1, y: 0, scale: 1 }}
-        exit={{
-          opacity: 0,
-          y: 15,
-          scale: 0.97,
-          transition: { duration: 0.12 },
-        }}
-        onClick={(e) => e.stopPropagation()}
-        // Images dropped anywhere on the dialog join the mission.
-        onDragOver={(e) => {
-          if (!hasFiles(e) || busy) return;
-          e.preventDefault();
-          setDragging(true);
-        }}
-        onDragLeave={(e) => {
-          if (!e.currentTarget.contains(e.relatedTarget as Node | null))
-            setDragging(false);
-        }}
-        onDrop={(e) => {
-          setDragging(false);
-          if (!e.dataTransfer.files.length) return;
-          e.preventDefault();
-          if (!busy) void addImages([...e.dataTransfer.files]);
-        }}
-        onKeyDown={(e) => {
-          // Own Escape entirely: while dispatching, the dialog must stay open.
-          if (e.key === "Escape") {
-            e.stopPropagation();
-            if (!busy) onClose();
-          }
-          // ⌘L focuses the message being written: here, the mission.
-          if (
-            e.key.toLowerCase() === "l" &&
-            (e.metaKey || e.ctrlKey) &&
-            !e.altKey &&
-            !e.shiftKey
-          ) {
-            e.preventDefault();
-            mission.current?.focus();
-          }
-        }}
+  const providerLabel =
+    available.find((p) => p.provider === provider)?.label || provider || "Provider";
+  const controls = (
+    <div className="agent-controls">
+      <Pick
+        label="Provider"
+        shown={providerLabel}
+        value={provider}
+        onChange={setProvider}
       >
-        <div className="dialog-heading">
-          <span className="brand-symbol">
-            <Send size={18} />
-          </span>
-          <div>
-            <h2 id="dispatch-title">Dispatch an agent</h2>
-            <p>Start a new agent on a project or workspace.</p>
-          </div>
+        {available.map((p) => (
+          <option key={p.provider} value={p.provider}>
+            {p.label}
+          </option>
+        ))}
+      </Pick>
+      <Pick
+        label="Model"
+        shown={chosenModel?.model || "Default model"}
+        value={model}
+        onChange={setModel}
+      >
+        <option value="">Default model</option>
+        {models.map((m) => (
+          <option key={m.id} value={m.id}>
+            {m.model}
+          </option>
+        ))}
+      </Pick>
+      {thinkingOptions.length > 0 && (
+        <Pick
+          label="Thinking"
+          shown={
+            thinkingOptions.includes(thinking)
+              ? thinking
+              : chosenModel?.defaultThinkingOptionId || "Default thinking"
+          }
+          value={thinkingOptions.includes(thinking) ? thinking : ""}
+          onChange={setThinking}
+        >
+          <option value="">
+            {chosenModel?.defaultThinkingOptionId
+              ? `Default (${chosenModel.defaultThinkingOptionId})`
+              : "Default thinking"}
+          </option>
+          {thinkingOptions.map((t) => (
+            <option key={t} value={t}>
+              {t}
+            </option>
+          ))}
+        </Pick>
+      )}
+      {modes.length > 0 && (
+        <Pick
+          label="Mode"
+          shown={modes.find((m) => m.id === mode)?.label || "Default mode"}
+          value={mode}
+          onChange={setMode}
+        >
+          <option value="">Default mode</option>
+          {modes.map((m) => (
+            <option key={m.id} value={m.id}>
+              {m.label}
+            </option>
+          ))}
+        </Pick>
+      )}
+    </div>
+  );
+  // The daemon lists a draft's skills only for a model: "Default" asks for
+  // the provider's first.
+  const source =
+    folder && provider && (model || models[0]?.id)
+      ? { cwd: folder, provider, model: model || models[0]!.id, mode, thinking }
+      : undefined;
+
+  return (
+    <div
+      className="session new-agent"
+      onDragOver={(e) => {
+        // Always claim file drags, or the browser navigates to the file.
+        if (hasFiles(e)) e.preventDefault();
+      }}
+      onDrop={(e) => {
+        if (!hasFiles(e)) return;
+        e.preventDefault();
+        setDrop({ files: [...e.dataTransfer.files], at: Date.now() });
+      }}
+      onKeyDown={(e) => {
+        if (e.key === "Escape" && e.target === e.currentTarget) onClose();
+      }}
+    >
+      <header className="session-header">
+        <div className="session-nav">
           <button
-            className="icon-btn"
-            aria-label="Close dialog"
-            data-tip="Close (Esc)"
-            disabled={busy}
+            className="ghost-btn"
             onClick={onClose}
+            aria-description="Back to fleet without starting an agent (Esc)"
           >
-            <X size={18} />
+            <ArrowLeft size={15} />
+            Fleet
           </button>
         </div>
-        <form
-          ref={form}
-          onSubmit={(e) => {
-            e.preventDefault();
-            void submit();
-          }}
-        >
+        <div className="session-title">
+          <div>
+            <h2>New agent</h2>
+          </div>
+        </div>
+        <div className="new-agent-form">
           <label>
-            Host
+            <span>Host</span>
             <select
               name="host"
               aria-description="The machine whose Paseo daemon runs the agent"
@@ -488,111 +430,13 @@ export function DispatchDialog({
               ))}
             </select>
           </label>
-          <label className="mission-field">
-            Mission
-            <textarea
-              aria-description="What the new agent should do (⌘↵ dispatches)"
-              ref={mission}
-              autoFocus
-              name="prompt"
-              value={prompt}
-              onChange={(e) => {
-                setPrompt(e.target.value);
-                setCaret(e.target.selectionStart);
-              }}
-              onSelect={(e) => setCaret(e.currentTarget.selectionStart)}
-              onFocus={() => setMissionFocused(true)}
-              onBlur={() => setMissionFocused(false)}
-              onPaste={(e) => {
-                const files = [...e.clipboardData.files];
-                if (!files.length) return;
-                e.preventDefault();
-                // Attach the images; keep any text unless it only names them.
-                const extra = pastedText(
-                  files.map((f) => f.name),
-                  e.clipboardData.getData("text/plain"),
-                  e.clipboardData.getData("text/uri-list"),
-                );
-                if (extra) insertAtCaret(e.currentTarget, extra);
-                void addImages(files);
-              }}
-              onKeyDown={(e) => {
-                const { open, matches, active, setActive } = suggestions;
-                if (open && matches.length && !e.metaKey && !e.ctrlKey) {
-                  if (e.key === "ArrowDown" || e.key === "ArrowUp") {
-                    e.preventDefault();
-                    const step = e.key === "ArrowDown" ? 1 : -1;
-                    setActive((i) => (i + step + matches.length) % matches.length);
-                    return;
-                  }
-                  if (e.key === "Enter" || e.key === "Tab") {
-                    e.preventDefault();
-                    chooseSuggestion(Math.min(active, matches.length - 1));
-                    return;
-                  }
-                }
-                // Escape closes the suggestions before the dialog.
-                if (open && e.key === "Escape") {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  suggestions.dismiss();
-                  return;
-                }
-                if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
-                  e.preventDefault();
-                  void submit();
-                }
-              }}
-              placeholder="Describe the task for your new agent, tag @files, or use /commands and /skills"
-              required
-              rows={5}
-              maxLength={12000}
-            />
-            <Autocomplete
-              folder={folder}
-              suggestions={suggestions}
-              onChoose={chooseSuggestion}
-            />
-          </label>
-          <div className="mission-images">
-            {images.length > 0 && (
-              <AttachmentTray
-                attachments={images}
-                onOpen={setPreview}
-                onRemove={(id) => setImages((all) => all.filter((a) => a.id !== id))}
-              />
-            )}
-            <button
-              type="button"
-              className="add-images"
-              aria-description="Attach PNG, JPEG, GIF or WebP images (or paste or drop them)"
-              disabled={busy || images.length >= MAX_IMAGES}
-              onClick={() => imageInput.current?.click()}
-            >
-              <ImagePlus size={14} />
-              {images.length ? "Add more images" : "Add images"}
-              <span>or paste or drop them</span>
-            </button>
-            <input
-              ref={imageInput}
-              type="file"
-              accept="image/png,image/jpeg,image/gif,image/webp"
-              multiple
-              hidden
-              onChange={(e) => {
-                void addImages([...(e.target.files || [])]);
-                e.target.value = "";
-              }}
-            />
-          </div>
           <label>
-            Where
+            <span>Where</span>
             <select
               name="target"
               aria-description="The project checkout, or an existing workspace, the agent works in"
               value={target}
               onChange={(e) => setTarget(e.target.value)}
-              required
             >
               {!target && <option value="">Nothing on this host</option>}
               {hereProjects.length > 0 && (
@@ -607,10 +451,7 @@ export function DispatchDialog({
               {hereWorkspaces.length > 0 && (
                 <optgroup label="Existing workspaces">
                   {hereWorkspaces.map((w) => (
-                    <option
-                      key={workspaceKey(w)}
-                      value={`w:${workspaceKey(w)}`}
-                    >
+                    <option key={workspaceKey(w)} value={`w:${workspaceKey(w)}`}>
                       {placeText(w.project, "Project")} ›{" "}
                       {placeText(w.name, "Workspace")}
                       {w.branch && w.branch !== w.name
@@ -623,9 +464,11 @@ export function DispatchDialog({
             </select>
           </label>
           {project && (
-            <div className="form-columns">
+            <>
               <label>
-                New worktree branch <span>optional</span>
+                <span>
+                  New branch <em>optional</em>
+                </span>
                 <input
                   aria-description="Optional: a new branch, so it works in its own worktree"
                   value={branch}
@@ -635,7 +478,9 @@ export function DispatchDialog({
                 />
               </label>
               <label>
-                Base <span>optional</span>
+                <span>
+                  Base <em>optional</em>
+                </span>
                 <input
                   aria-description="Optional: the ref the new branch starts from (default: the project's base)"
                   value={base}
@@ -645,7 +490,7 @@ export function DispatchDialog({
                   disabled={!branch.trim()}
                 />
               </label>
-            </div>
+            </>
           )}
           <p className="form-hint">
             <GitBranch size={13} />
@@ -655,144 +500,42 @@ export function DispatchDialog({
                 ? "Creates an isolated worktree on a new branch."
                 : "Runs in the project checkout. Add a branch to isolate it in a worktree."}
           </p>
-          <div className="form-columns">
-            <label>
-              Provider
-              <select
-                name="provider"
-                aria-description="Which agent provider runs it"
-                value={provider}
-                onChange={(e) => setProvider(e.target.value)}
-              >
-                {available.map((p) => (
-                  <option key={p.provider} value={p.provider}>
-                    {p.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label>
-              Model
-              <select
-                name="model"
-                aria-description="The provider's model"
-                value={model}
-                onChange={(e) => setModel(e.target.value)}
-              >
-                <option value="">Default</option>
-                {models.map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {m.model}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </div>
-          <div className="form-columns">
-            <label>
-              Thinking
-              <select
-                name="thinking"
-                aria-description="How much the model thinks before answering"
-                value={thinkingOptions.includes(thinking) ? thinking : ""}
-                onChange={(e) => setThinking(e.target.value)}
-                disabled={!thinkingOptions.length}
-              >
-                <option value="">
-                  {chosenModel?.defaultThinkingOptionId
-                    ? `Default (${chosenModel.defaultThinkingOptionId})`
-                    : "Default"}
-                </option>
-                {thinkingOptions.map((t) => (
-                  <option key={t} value={t}>
-                    {t}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label>
-              Mode
-              <select
-                name="mode"
-                aria-description="The provider's permission mode"
-                value={mode}
-                onChange={(e) => setMode(e.target.value)}
-              >
-                <option value="">Default</option>
-                {modes.map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {m.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </div>
-          <label>
-            <span>
-              Title <span className="optional">optional</span>
-            </span>
-            <input
-              aria-description="Optional: a title (otherwise the start of the mission)"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="Defaults to the start of the mission"
-              maxLength={200}
-            />
-          </label>
-          {chosenHost?.unavailable && (
-            <p className="archive-error" role="alert">
-              {chosenHost.name} is {chosenHost.reason}. Choose another host.
-            </p>
-          )}
-          {error && (
-            <p className="archive-error" role="alert">
-              {error}
-            </p>
-          )}
-          <div className="dialog-actions">
-            <span>
-              <kbd>⌘</kbd>
-              <kbd>↵</kbd> to dispatch
-            </span>
-            <button
-              aria-description={
-                !online
-                  ? "Paseo is offline"
-                  : chosenHost?.unavailable
-                    ? `${chosenHost.name} is ${chosenHost.reason}`
-                    : !target
-                      ? "Choose where it runs first"
-                      : !prompt.trim()
-                        ? "Describe the mission first"
-                        : "Start the agent (⌘↵)"
-              }
-              className="primary"
-              disabled={
-                busy ||
-                !online ||
-                !!chosenHost?.unavailable ||
-                !target ||
-                !prompt.trim()
-              }
-              type="submit"
-            >
-              {busy ? (
-                <LoaderCircle size={15} className="spinning" />
-              ) : (
-                <Send size={14} />
-              )}
-              {busy ? "Dispatching…" : "Dispatch agent"}
-            </button>
-          </div>
-        </form>
-        {preview && (
-          <Lightbox
-            shown={{ url: preview.dataUrl, alt: "", name: preview.name }}
-            onClose={() => setPreview(null)}
-          />
+        </div>
+      </header>
+      <div className="timeline new-agent-empty">
+        <div className="chat-empty">
+          <MessageSquare size={28} strokeWidth={1.5} aria-hidden="true" />
+          <h2>No messages yet</h2>
+          <p>
+            Write the first message below to start the agent. Use /skills and
+            @files as in any conversation.
+          </p>
+        </div>
+      </div>
+      <footer className="session-footer">
+        {error && (
+          <p className="archive-error" role="alert">
+            {error}
+          </p>
         )}
-      </motion.section>
-    </motion.div>
+        <Composer
+          draft={{ source, host, controls }}
+          running={false}
+          disabled={!!blocked}
+          disabledReason={blocked}
+          started={false}
+          modes={[]}
+          onSetMode={() => {}}
+          onSend={send}
+          onCancel={async () => {}}
+          onNotice={onNotice}
+          onArchive={() => {}}
+          onFreshDraft={() => {}}
+          promptHistory={[]}
+          dropFiles={drop}
+        />
+      </footer>
+    </div>
   );
 }
 
