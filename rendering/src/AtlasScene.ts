@@ -45,6 +45,9 @@ const COTTAGE_LIFT = 12;
 const GARDEN_OUT = 0.32;
 /** How far landmark art sits above the middle of its cells. */
 const LANDMARK_LIFT = 30;
+/** Screen room (CSS pixels) kept for the map's toolbar and help line. */
+const OVERLAY_TOP = 76;
+const OVERLAY_BOTTOM = 72;
 const LABEL_FONT = "Georgia, serif";
 const vectors = (points: { x: number; y: number }[]) =>
   points.map((p) => new Phaser.Math.Vector2(p.x, p.y));
@@ -639,16 +642,31 @@ export class AtlasScene extends Phaser.Scene {
       ? landBounds(this.layout)
       : { x: -400, y: -300, width: 800, height: 600 };
     // Host banners stand on the open ground above their islands.
-    // Room for each host's shores all round, its banner above, and the map's
-    // own floating controls (toolbar above, help line below).
+    // Room for each host's shores all round and its banner above (in world
+    // units), and for the map's own floating controls (toolbar above, help
+    // line below), which keep their screen size at any zoom.
     const marginX = HEX_RADIUS * 1.6,
-      top = HEX_RADIUS * 2.4,
-      bottom = HEX_RADIUS * 2;
+      top = HEX_RADIUS * 1.6,
+      bottom = HEX_RADIUS * 0.9;
+    const density = renderDensity(),
+      padTop = OVERLAY_TOP * density,
+      padBottom = OVERLAY_BOTTOM * density;
+    // The zoom at which land, world margins and overlays just fit; the
+    // overlays' room is fixed at that zoom so the extent stays put.
+    const zoom = Math.max(
+      0.01,
+      Math.min(
+        this.scale.width / (bounds.width + marginX * 2),
+        (this.scale.height - padTop - padBottom) /
+          (bounds.height + top + bottom),
+      ),
+    );
     return {
       x: bounds.x - marginX,
-      y: bounds.y - top,
+      y: bounds.y - top - padTop / zoom,
       width: bounds.width + marginX * 2,
-      height: bounds.height + top + bottom,
+      height:
+        bounds.height + top + bottom + (padTop + padBottom) / zoom,
     };
   }
   private minimumZoom(): number {
