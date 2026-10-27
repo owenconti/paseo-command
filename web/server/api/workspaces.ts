@@ -138,7 +138,7 @@ async function workspaceRowFor(rawId: string | null, rawHost: unknown) {
 
 /**
  * `GET /api/merge-queue?workspace=<id>[&host=<id>]`: the merge queue
- * standing of the workspace's open PR (Paseo's PR, else gh's), from a
+ * standing and current state of the workspace's PR (Paseo's, else gh's), from a
  * read-only `gh api graphql` query in a checkout on this machine. Remote
  * checkouts are skipped (`available: false`; the row's own `pr.queue`, from
  * Paseo, stands). Never fails for a lookup.
@@ -151,8 +151,8 @@ export async function mergeQueueFor(rawId: string | null, rawHost: unknown) {
     return { available: true, queue: null };
   const pr =
     ws.pr !== undefined ? ws.pr : (await ghPullRequest(ws.cwd, branch)).pr;
-  if (!pr || (pr.state !== "open" && pr.state !== "draft"))
-    return { available: true, queue: null };
+  // Refresh every known PR, including closed/merged ones that may reopen.
+  if (!pr) return { available: true, queue: null };
   return ghMergeQueue(ws.cwd, pr.url);
 }
 

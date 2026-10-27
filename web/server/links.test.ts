@@ -314,3 +314,20 @@ test("only github.com PR URLs are asked about", async () => {
     queue: null,
   });
 });
+
+test("runtime and gh distinguish PR lifecycle states, with terminal states taking precedence", () => {
+  for (const [facts, expected] of [
+    [{ state: "closed", isDraft: true }, "closed"],
+    [{ state: "draft" }, "draft"],
+    [{ state: "OPEN", isDraft: true }, "draft"],
+    [{ state: "open", isDraft: false }, "open"],
+    [{ state: "MERGED", isDraft: true }, "merged"],
+  ] as const) {
+    assert.equal(prFromRuntime(runtimePr(facts))?.state, expected);
+    assert.equal(ghPr({ url: URL_, ...facts })?.state, expected);
+  }
+  assert.equal(
+    prFromRuntime(runtimePr({ state: "closed", isMerged: true }))?.state,
+    "merged",
+  );
+});
