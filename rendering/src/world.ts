@@ -33,6 +33,8 @@ export type AtlasData = {
     state: State;
     /** Subagents running now. */
     subagents?: number;
+    /** When it was created (ISO 8601): older agents take the nearer cells. */
+    created?: string;
   }[];
 };
 
@@ -52,10 +54,9 @@ export type Entity = {
   stale?: boolean;
   /** A workspace standing in for agents the daemon reports without one. */
   camp?: boolean;
-  /** Robot index within its workspace cell. */
-  slot?: number;
-  /** Robots beyond the drawn slots. */
-  overflow?: number;
+  /** The cells it owns when they aren't fixed by its kind: a workspace's
+   * three (its cottage cell, `position`, first). */
+  cells?: Axial[];
 };
 
 export type Island = {
@@ -82,9 +83,8 @@ export type AtlasLayout = {
 };
 
 export const HEX_RADIUS = 68;
-export const ROBOT_SLOTS = 4;
 /** Robot sprite width in world pixels; state markers scale with it. */
-export const ROBOT_SIZE = 46;
+export const ROBOT_SIZE = 56;
 
 export const STATE_NAMES: Record<State, string> = {
   running: "Working",
@@ -95,7 +95,7 @@ export const STATE_NAMES: Record<State, string> = {
   failed: "Failed · needs attention",
   offline: "Offline · last known",
 };
-/** Most urgent first: a workspace tile shows the first state any of its agents has. */
+/** Most urgent first. */
 export const STATE_PRIORITY: State[] = [
   "failed",
   "approval",
@@ -105,7 +105,7 @@ export const STATE_PRIORITY: State[] = [
   "idle",
   "offline",
 ];
-/** Workspace tile colours by state; idle tiles stay plain. */
+/** Agent tile colours by state; idle tiles stay plain. */
 export const STATE_TILE: Partial<Record<State, number>> = {
   failed: 0xd2452f,
   approval: 0xef9b1b,
@@ -194,13 +194,15 @@ const LANDMARK: Axial[] = [
   { q: -1, r: 1 },
   { q: 0, r: 1 },
 ];
-/** World structures own whole cells on the same lattice as the land. */
-export function footprint(entity: Pick<Entity, "kind" | "position">): Axial[] {
+/** World structures own whole cells on the same lattice as the land: a
+ * landmark ten, a workspace three and an agent one. */
+export function footprint(entity: Pick<Entity, "kind" | "position" | "cells">): Axial[] {
+  if (entity.cells) return entity.cells;
   const offsets = entity.kind === "project" ? LANDMARK : [{ q: 0, r: 0 }];
   return offsets.map((offset) => add(entity.position, offset));
 }
 /** Where a structure's artwork, banner and hit area centre: the middle of its cells. */
-export function structureCentre(entity: Pick<Entity, "kind" | "position">) {
+export function structureCentre(entity: Pick<Entity, "kind" | "position" | "cells">) {
   const cells = footprint(entity).map(point);
   return {
     x: cells.reduce((sum, c) => sum + c.x, 0) / cells.length,
@@ -287,18 +289,6 @@ export function footprintEdges(cells: Axial[]) {
   }
   return [...result.values()];
 }
-/** Where a robot stands inside its shared workspace cell. */
-export function robotOffset(slot: number) {
-  return (
-    [
-      { x: -24, y: 18 },
-      { x: 24, y: 18 },
-      { x: -38, y: -8 },
-      { x: 38, y: -8 },
-    ][slot] ?? { x: 0, y: 22 }
-  );
-}
-
 const LANDMARK_ART = ["manor", "observatory", "conservatory"];
 const COTTAGE_ART = ["cottage-slate", "cottage-brown"];
 /** Open cells between islands of one host, and between hosts (whose land
@@ -324,86 +314,173 @@ export function ring(k: number): Axial[] {
     }
   return out;
 }
-/** Cottage slots in rows of up to four, from row `top` downward, each row
- * centred as nearly as the offset hex rows allow on x = `centre` (in cells). */
-function slotsBelow(count: number, top: number, centre: number): Axial[] {
-  const out: Axial[] = [];
-  for (let row = 0; out.length < count; row++) {
-    const r = top + row,
-      n = Math.min(ROW, count - out.length);
-    // Cell x positions on row r are integers (even r) or halves (odd r).
-    const half = r % 2 === 0 ? 0 : 0.5;
-    const start = Math.round(centre - (n - 1) / 2 - half) + half;
-    for (let k = 0; k < n; k++) out.push({ q: Math.round(start + k - r / 2), r });
-  }
-  return out;
+/** A 60° turn of an axial offset, `k` times. */
+function turn(a: Axial, k: number): Axial {
+  let x = a.q,
+    z = a.r,
+    y = -a.q - a.r;
+  for (let i = 0; i < ((k % 6) + 6) % 6; i++) [x, y, z] = [-z, -x, -y];
+  return { q: x, r: z };
 }
-/** Workspaces per row beneath a landmark. */
-const ROW = 4;
+/** A workspace's three cells, as it stands below its landmark: a triangle
+ * whose point (the cottage) faces up at the landmark, its yard below. */
+const WORKSPACE: Axial[] = [
+  { q: 0, r: 0 },
+  { q: -1, r: 1 },
+  { q: 0, r: 1 },
+];
+/** Cells for `count` agents around that workspace, nearest first; at each
+ * distance the lowest row first, then outward from the middle, left before
+ * right. None stand beside the cottage, toward the landmark. */
+function agentCells(count: number): Axial[] {
+  const own = new Set(WORKSPACE.map(cellKey));
+  const out: Axial[] = [];
+  for (let reach = 1; out.length < count; reach++) {
+    const found: Axial[] = [];
+    for (let r = 1; r <= 1 + reach; r++)
+      for (let q = -reach - 2; q <= reach + 1; q++) {
+        const cell = { q, r };
+        const near = Math.min(...WORKSPACE.map((w) => distance(w, cell)));
+        if (near === reach && !own.has(cellKey(cell))) found.push(cell);
+      }
+    found.sort((a, b) => b.r - a.r || Math.abs(xOf(a)) - Math.abs(xOf(b)) || xOf(a) - xOf(b));
+    out.push(...found);
+  }
+  return out.slice(0, count);
+}
+/** Where a project's workspaces stand, in order: below its landmark, then
+ * lower left, lower right, upper left, upper right and above (degrees, with
+ * y down); a seventh starts round again, farther out. */
+const SLOT_ANGLES = [90, 150, 30, 210, 330, 270];
+/** The turn that points a workspace at its landmark from each slot. */
+const SLOT_TURNS = SLOT_ANGLES.map((angle) => {
+  let best = 0,
+    off = Infinity;
+  for (let k = 0; k < 6; k++) {
+    const p = point(turn({ q: -1, r: 2 }, k)),
+      d = Math.abs(((((Math.atan2(p.y, p.x) * 180) / Math.PI - angle) % 360) + 540) % 360 - 180);
+    if (d < off) (off = d), (best = k);
+  }
+  return best;
+});
 
 type Cottage = {
   key: string;
   name: string;
   stale?: boolean;
   camp?: boolean;
+  /** Its agents' keys, oldest first. */
+  agents: string[];
 };
+type Placed = { cells: Axial[]; agents: Axial[] };
 /** One island, in its own coordinates: a landmark at the centre (if any)
  * and its workspaces around it. */
 type Plan = {
   key: string;
   project?: AtlasData["projects"][number];
   cottages: Cottage[];
-  slots: Axial[];
+  placed: Placed[];
   land: Axial[];
   /** Optional coast cells, outside `radius`. */
   bumps: Axial[];
   radius: number;
 };
+/**
+ * Workspaces ring their landmark, each touching it (or, once the ring is
+ * full, the ring), pointing at it, with its agents growing away from it.
+ * Each takes the free spot nearest its slot's direction, a cell of sand
+ * clear of every other workspace and its agents.
+ */
+function placeWorkspaces(core: Axial[], cottages: Cottage[]): Placed[] {
+  const coreKeys = new Set(core.map(cellKey));
+  const middle = {
+    x: core.map(point).reduce((s, p) => s + p.x, 0) / core.length,
+    y: core.map(point).reduce((s, p) => s + p.y, 0) / core.length,
+  };
+  const taken = new Set<string>();
+  const near = new Set<string>();
+  const placed: Placed[] = [];
+  for (const [i, cottage] of cottages.entries()) {
+    const k = SLOT_TURNS[i % 6]!,
+      angle = SLOT_ANGLES[i % 6]!;
+    const own = WORKSPACE.map((c) => turn(c, k));
+    const agents = agentCells(cottage.agents.length).map((c) => turn(c, k));
+    const shape = [...own, ...agents];
+    const reach = Math.max(...shape.map((c) => distance(c, { q: 0, r: 0 }))) + 2;
+    const all = [...core, ...[...taken].map((key) => {
+      const [q, r] = key.split(",").map(Number);
+      return { q: q!, r: r! };
+    })];
+    const rs = all.map((c) => c.r),
+      qs = all.map((c) => c.q);
+    let best: Axial | null = null,
+      score = Infinity;
+    // Touch the landmark if there's room; otherwise the workspaces around it.
+    for (const touch of [
+      (c: Axial) => NEIGHBORS.some((d) => coreKeys.has(cellKey(add(c, d)))),
+      (c: Axial) => all.some((o) => distance(o, c) <= 2),
+    ]) {
+      for (let r = Math.min(...rs) - reach; r <= Math.max(...rs) + reach; r++)
+        for (let q = Math.min(...qs) - reach; q <= Math.max(...qs) + reach; q++) {
+          const anchor = { q, r };
+          const cells = shape.map((c) => add(anchor, c));
+          if (cells.some((c) => coreKeys.has(cellKey(c)) || near.has(cellKey(c)))) continue;
+          if (!own.some((c) => touch(add(anchor, c)))) continue;
+          const at = own.map((c) => point(add(anchor, c)));
+          const x = at.reduce((s, p) => s + p.x, 0) / 3 - middle.x,
+            y = at.reduce((s, p) => s + p.y, 0) / 3 - middle.y;
+          const off = Math.abs(((((Math.atan2(y, x) * 180) / Math.PI - angle) % 360) + 540) % 360 - 180);
+          const value = off + Math.hypot(x, y) / HEX_RADIUS;
+          if (value < score) (score = value), (best = anchor);
+        }
+      if (best) break;
+    }
+    const anchor = best!;
+    const cells = own.map((c) => add(anchor, c)),
+      cellsOfAgents = agents.map((c) => add(anchor, c));
+    for (const c of [...cells, ...cellsOfAgents]) {
+      taken.add(cellKey(c));
+      for (const d of [{ q: 0, r: 0 }, ...NEIGHBORS]) near.add(cellKey(add(c, d)));
+    }
+    placed.push({ cells, agents: cellsOfAgents });
+  }
+  return placed;
+}
 function plan(
   key: string,
   project: AtlasData["projects"][number] | undefined,
   cottages: Cottage[],
 ): Plan {
-  // The landmark takes the top of the island; its workspaces stand in rows below.
-  const core = footprint({ kind: "project", position: { q: 0, r: 0 } });
-  const slots = project
-    ? slotsBelow(cottages.length, 2, structureCentre({ kind: "project", position: { q: 0, r: 0 } }).x / (HEX_RADIUS * Math.sqrt(3)))
-    : slotsBelow(cottages.length, 0, 0);
-  const occupied = [
-    ...(project ? core : []),
-    ...slots,
-  ];
-  if (!occupied.length) occupied.push({ q: 0, r: 0 });
+  // The landmark stands in the middle; workspaces without a project gather
+  // around a clearing.
+  const core = project
+    ? footprint({ kind: "project", position: { q: 0, r: 0 } })
+    : [{ q: 0, r: 0 }];
+  const placed = placeWorkspaces(core, cottages);
+  const occupied = [...core, ...placed.flatMap((p) => [...p.cells, ...p.agents])];
   const land = new Map<string, Axial>();
-  const put = (a: Axial) => land.set(cellKey(a), a);
-  // A landmark's rows are exactly its cells, with no spare tiles beside it;
-  // land grows around the workspace cottages below.
-  const landmarkRows = new Set(project ? core.map((c) => c.r) : []);
-  for (const cell of project ? core : []) put(cell);
-  for (const cell of project ? slots : occupied)
-    for (const d of [{ q: 0, r: 0 }, ...NEIGHBORS]) {
-      const a = add(cell, d);
-      if (!landmarkRows.has(a.r)) put(a);
+  for (const cell of occupied)
+    for (const d of [{ q: 0, r: 0 }, ...NEIGHBORS]) land.set(cellKey(add(cell, d)), add(cell, d));
+  // Fill inlets (land on three or more sides), so the coast stays even.
+  for (const cell of [...land.values()])
+    for (const d of NEIGHBORS) {
+      const n = add(cell, d);
+      if (!land.has(cellKey(n)) && NEIGHBORS.filter((e) => land.has(cellKey(add(n, e)))).length >= 3)
+        land.set(cellKey(n), n);
     }
-  // Structures sit at the very top of their island: no empty coast row above.
-  const top = Math.min(...occupied.map((c) => c.r));
-  for (const [key, cell] of [...land]) if (cell.r < top) land.delete(key);
   // A seeded, gently irregular coast: some cells of the next ring may join the
   // land. They are added after packing, and only where they keep clear of
   // neighbours, so islands pack by their solid core.
   const inner = Math.max(...[...land.values()].map((c) => distance(c, { q: 0, r: 0 })));
   const rng = random(seedOf(key + "coast"));
   const bumps = ring(inner + 1).filter(
-    (cell) =>
-      cell.r >= top &&
-      !landmarkRows.has(cell.r) &&
-      NEIGHBORS.filter((d) => land.has(cellKey(add(cell, d)))).length >= 3 &&
-      rng() < 0.35,
+    (cell) => NEIGHBORS.filter((d) => land.has(cellKey(add(cell, d)))).length >= 3 && rng() < 0.35,
   );
-  return { key, project, cottages, slots, land: [...land.values()], bumps, radius: inner };
+  return { key, project, cottages, placed, land: [...land.values()], bumps, radius: inner };
 }
 
-/** Plans for one host: a project island each, plus one for unfiled workspaces. */
+/** Plans for one host: an island for each project with workspaces, plus one
+ * for workspaces without a project. */
 function hostPlans(host: AtlasData["hosts"][number], data: AtlasData): Plan[] {
   const projects = data.projects.filter((p) => p.host === host.key).sort(byName);
   const known = new Set(projects.map((p) => p.key));
@@ -413,19 +490,35 @@ function hostPlans(host: AtlasData["hosts"][number], data: AtlasData): Plan[] {
   const unfiled: Cottage[] = [];
   const groupOf = (project?: string) =>
     project && known.has(project) ? groups.get(project)! : unfiled;
-  for (const w of workspaces) groupOf(w.project).push(w);
-  // Agents the daemon reports without a workspace wait at a camp on their project's island.
-  const homeless = data.agents.filter(
-    (a) => a.host === host.key && !(a.workspace && workspaceKeys.has(a.workspace)),
-  );
-  for (const project of [...new Set(homeless.map((a) => a.project ?? ""))].sort()) {
-    const owner = project && known.has(project) ? project : "";
-    const key = campKey(host.key, owner);
-    const group = groupOf(owner || undefined);
-    if (!group.some((c) => c.key === key))
-      group.push({ key, name: "No workspace", camp: true });
+  const cottages = new Map<string, Cottage>();
+  for (const w of workspaces) {
+    const cottage = { key: w.key, name: w.name, stale: w.stale, agents: [] };
+    cottages.set(w.key, cottage);
+    groupOf(w.project).push(cottage);
   }
-  const plans = projects.map((p) => plan(p.key, p, groups.get(p.key)!));
+  // Oldest first, so a new agent never moves the others.
+  const agents = data.agents
+    .filter((a) => a.host === host.key)
+    .sort((a, b) => (a.created ?? "\uffff").localeCompare(b.created ?? "\uffff") || byName(a, b));
+  for (const a of agents) {
+    let home = a.workspace && workspaceKeys.has(a.workspace) ? cottages.get(a.workspace) : undefined;
+    if (!home) {
+      // Agents the daemon reports without a workspace wait at a camp on their project's island.
+      const owner = a.project && known.has(a.project) ? a.project : "";
+      const key = campKey(host.key, owner);
+      home = cottages.get(key);
+      if (!home) {
+        home = { key, name: "No workspace", camp: true, agents: [] };
+        cottages.set(key, home);
+        groupOf(owner || undefined).push(home);
+      }
+    }
+    home.agents.push(a.key);
+  }
+  // Projects without workspaces stay off the map.
+  const plans = projects
+    .filter((p) => groups.get(p.key)!.length)
+    .map((p) => plan(p.key, p, groups.get(p.key)!));
   if (unfiled.length || !plans.length)
     plans.push(plan(`unfiled\u001f${host.key}`, undefined, unfiled));
   return plans;
@@ -576,6 +669,7 @@ export function layoutAtlas(data: AtlasData, aspect = 1.6): AtlasLayout {
   const projects: Entity[] = [];
   const workspaces: Entity[] = [];
   const bumpsOf = new Map<string, Axial[]>();
+  const homes = new Map<string, { workspace: string; project?: string; cell: Axial }>();
   groups.forEach(({ host, plans, centres }, g) => {
     const groupCells: Axial[] = [];
     plans.forEach((p, i) => {
@@ -601,21 +695,26 @@ export function layoutAtlas(data: AtlasData, aspect = 1.6): AtlasLayout {
           art: LANDMARK_ART[seedOf(p.project.key) % LANDMARK_ART.length],
           stale: !!p.project.stale,
         });
-      p.cottages.forEach((cottage, j) =>
+      p.cottages.forEach((cottage, j) => {
+        const cells = p.placed[j]!.cells.map((c) => add(c, centre));
         workspaces.push({
           id: cottage.key,
           kind: "workspace",
           name: cottage.name,
           host: host.key,
           project: p.project?.key,
-          position: add(p.slots[j]!, centre),
+          position: cells[0]!,
+          cells,
           art: cottage.camp
             ? undefined
             : COTTAGE_ART[seedOf(cottage.key) % COTTAGE_ART.length],
           stale: !!cottage.stale,
           camp: cottage.camp,
-        }),
-      );
+        });
+        cottage.agents.forEach((agent, n) =>
+          homes.set(agent, { workspace: cottage.key, project: p.project?.key, cell: add(p.placed[j]!.agents[n]!, centre) }),
+        );
+      });
     });
     const highest = Math.min(...groupCells.map((c) => c.r));
     hosts.push({
@@ -676,47 +775,32 @@ export function layoutAtlas(data: AtlasData, aspect = 1.6): AtlasLayout {
     for (const c of extra) hostOf.set(cellKey(c), mass.host);
   }
   const online = new Map(hostRows.map((h) => [h.key, h.online]));
-  const cellOf = new Map(workspaces.map((w) => [w.id, w]));
-  const counts = new Map<string, number>();
   const agents: Entity[] = [];
+  // Each agent stands on its own cell beside its workspace.
   for (const a of [...data.agents].sort(byName)) {
-    if (!online.has(a.host)) continue;
-    const home =
-      (a.workspace && cellOf.get(a.workspace)) ||
-      cellOf.get(campKey(a.host, a.project ?? "")) ||
-      cellOf.get(campKey(a.host, ""));
-    if (!home) continue;
-    const slot = counts.get(home.id) ?? 0;
-    counts.set(home.id, slot + 1);
+    const home = homes.get(a.key);
+    if (!home || !online.has(a.host)) continue;
     agents.push({
       id: a.key,
       kind: "agent",
       name: a.name,
       host: a.host,
       project: home.project,
-      workspace: home.id,
-      position: home.position,
+      workspace: home.workspace,
+      position: home.cell,
       model: modelColor(a.model),
       modelName: modelName(a.model),
       art: `robot-${modelColor(a.model)}`,
       state: online.get(a.host) ? a.state : "offline",
       subagents: a.subagents ?? 0,
-      slot,
     });
-  }
-  // A cell draws a few robots; the rest are counted on the last visible one.
-  for (const agent of agents) {
-    const total = counts.get(agent.workspace!)!;
-    if (total > ROBOT_SLOTS && agent.slot === ROBOT_SLOTS - 1)
-      agent.overflow = total - ROBOT_SLOTS;
   }
   const signature = JSON.stringify([
     islands.map((i) => [i.key, i.name, i.online, i.cells.length]),
     [...projects, ...workspaces, ...agents].map((e) => [
       e.id,
       e.name,
-      cellKey(e.position),
-      e.slot ?? "",
+      footprint(e).map(cellKey).join(" "),
     ]),
   ]);
   return {

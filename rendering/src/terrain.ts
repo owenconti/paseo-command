@@ -7,6 +7,7 @@ import {
   seedOf,
   type Axial,
   type AtlasLayout,
+  type Entity,
   type Island,
   footprint,
   cellBounds,
@@ -549,7 +550,12 @@ export function drawTerrain(
   build: number,
 ): string[] {
   const projectCells = new Set(layout.projects.flatMap(footprint).map(cellKey));
-  const workspaceCells = new Set(layout.workspaces.map((w) => cellKey(w.position)));
+  // A workspace's timber decking spans its three cells and its agents' cells.
+  const decking = (w: Entity) => [
+    ...footprint(w),
+    ...layout.agents.filter((a) => a.workspace === w.id).map((a) => a.position),
+  ];
+  const workspaceCells = new Set(layout.workspaces.flatMap(decking).map(cellKey));
   const styleOf = (cell: Axial): TileStyle =>
     projectCells.has(cellKey(cell))
       ? "project"
@@ -558,7 +564,7 @@ export function drawTerrain(
         : "empty";
   const plots = [
     ...layout.projects.map((p) => ({ style: "project" as const, host: p.host, cells: footprint(p) })),
-    ...layout.workspaces.map((w) => ({ style: "workspace" as const, host: w.host, cells: [w.position] })),
+    ...layout.workspaces.map((w) => ({ style: "workspace" as const, host: w.host, cells: decking(w) })),
   ];
   const keys = layout.islands.map((island, i) => {
     const key = `terrain-${build}-${i}`;

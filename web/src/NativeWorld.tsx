@@ -84,6 +84,7 @@ export function atlasData(
             ? "done"
             : a.state,
       subagents: a.subagentCount,
+      created: a.created,
     })),
   };
 }

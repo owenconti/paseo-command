@@ -60,13 +60,16 @@ Local assets belong in the repository and are included through local build tooli
 ## Atlas world
 
 The app bundles `rendering/` directly; Phaser resolves from `rendering/node_modules`.
-Each project is its own island: a ten-hex landmark (rows of 3, 4, 3) at the top of the island, with its one-hex
-workspace cottages in rows of up to four below it. A host's islands share one landmass of grass hex tiles (hexes everywhere) with a hex-edged shore in a generated sea, under the host's
-banner (offline hosts are faded and labeled). Agents are robots in their workspace cell; the cell's tile takes the colour of its most
-urgent agent's state. The user asked for water back (rejecting chart paper, and a plain meadow background), with each
+Each project with workspaces is its own island (projects without workspaces are hidden): a ten-hex
+landmark (rows of 3, 4, 3) in the middle, ringed by its workspaces, each touching it. Workspaces are placed
+bottom, lower-left, lower-right, upper-left, upper-right, then top (a seventh starts a second ring), a cell
+of sand apart. A workspace is a three-hex triangle pointing at the landmark: a one-hex cottage on the point,
+a timber yard on the other two. Each agent is a robot on its own hex beside its workspace, growing away from
+the landmark, oldest first: straight out, then alternating left and right. A host's islands share one landmass of grass hex tiles (hexes everywhere) with a hex-edged shore in a generated sea, under the host's
+banner (offline hosts are faded and labeled). Each agent's hex takes the colour of its state. The user asked for water back (rejecting chart paper, and a plain meadow background), with each
 host as a landmass; project islands sit on it on earthen banks with soft shadows.
 The layout follows the map's aspect ratio: hosts shelf-pack and tall maps stack vertically.
-Agents the daemon reports without a workspace wait at a flagged camp cell.
+Agents the daemon reports without a workspace wait at a flagged camp, laid out like a workspace.
 The world is assembled from generated transparent sprite atlases, a terrain texture,
 and a strict axial hex grid. It is not a screenshot used as a background.
 The standalone study (`render:dev`) uses clearly labeled illustrative data and never connects to a daemon.
@@ -78,7 +81,8 @@ Artwork provenance and generation prompts are in `rendering/ASSETS.md`.
 
 Labels stay at fixed world scale. Do not add screen-size compensation.
 All structures and scenery consume whole cells on the shared axial grid.
-Cottages use one hex; project landmarks use ten (rows of 3, 4 and 3). One island per project. Agents share workspace cells.
+Workspaces use three hexes (the cottage on one); project landmarks use ten (rows of 3, 4 and 3); each agent uses one.
+One island per project with workspaces.
 Center artwork and fit it completely inside its occupied cells.
 Selection follows the outer perimeter of the occupied hexes, never a rectangle.
 Empty cells carry no scenery. Project, workspace and empty cells each have a distinct tile style

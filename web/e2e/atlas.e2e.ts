@@ -152,12 +152,14 @@ test("every agent state is drawn as the daemon reports it", async () => {
       ["infra", false],
     ],
   );
-  // Each workspace tile shows its most urgent agent.
+  // Each agent's own tile shows its state; idle tiles stay plain.
   assert.deepEqual(world.tiles, {
-    [agentKey("wks_a")]: "running",
-    [agentKey("wks_b")]: "approval",
-    [agentKey("wks_c")]: "failed",
-    [agentKey("wks_d", MAC)]: "offline",
+    [agentKey("a-running")]: "running",
+    [agentKey("a-done")]: "done",
+    [agentKey("a-approval")]: "approval",
+    [agentKey("a-question")]: "question",
+    [agentKey("a-failed")]: "failed",
+    [agentKey("a-offline", MAC)]: "offline",
   });
   // Model colours follow the provider.
   assert.equal(world.agents.find((a) => a.name === "Questioner")!.model, "violet");

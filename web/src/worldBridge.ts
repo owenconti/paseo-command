@@ -78,6 +78,8 @@ export type WorldSnapshot = {
     /** How many subagents it is running now (0 when none). They are not
      *  separate agent rows: a listed subagent is its own row instead. */
     subagentCount: number;
+    /** When the daemon created it (ISO), if known. */
+    created?: string;
     /** Its subagents, running and finished (until archived in Paseo),
      *  oldest first; the worlds draw each one beside it. */
     subagents: WorldSubagent[];
@@ -309,6 +311,7 @@ export function worldSnapshot(input: {
                   : ("idle" as const),
           unread: unread.has(a.id),
           stale: !!a.stale,
+          ...(a.createdAt ? { created: a.createdAt } : {}),
           subagentCount: (a.subagents ?? []).filter((s) =>
             subagentRunning(s.status),
           ).length,

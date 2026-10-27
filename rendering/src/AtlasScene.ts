@@ -16,11 +16,9 @@ import {
   landBounds,
   footprintEdges,
   cellBounds,
-  robotOffset,
   ROBOT_SIZE,
   structureCentre,
   STATE_TILE,
-  tileState,
   type State,
 } from "./world";
 import buildingsUrl from "./assets/buildings.png";
@@ -35,7 +33,8 @@ const LANDMARK_SCALE: Record<string, number> = {
   conservatory: 0.92,
 };
 /** How far a cottage sits above its cell's centre. */
-const COTTAGE_LIFT = 20;
+/** Widest a cottage is drawn: it has a cell to itself. */
+const COTTAGE_SIZE = 140;
 /** How far landmark art sits above the middle of its cells. */
 const LANDMARK_LIFT = 30;
 const LABEL_FONT = "Georgia, serif";
@@ -387,32 +386,30 @@ export class AtlasScene extends Phaser.Scene {
       );
       g.fillStyle(0x7b6340, 0.35).fillEllipse(at.x - 6, at.y + 7, 18, 6);
     } else {
-      // Small and toward the top of its cell, leaving the lower part for robots.
-      const y = at.y - COTTAGE_LIFT;
-      const image = sprite(this, at.x, y, ws.art!, 74).setDepth(16);
+      // The cottage stands centred on its own cell, the one facing the
+      // landmark; the workspace's other two cells are its yard.
+      const image = sprite(this, at.x, at.y, ws.art!, COTTAGE_SIZE).setDepth(16);
       image.setScale(
-        fittedWidth(at.x, y, image.width / image.height, 74, cells) /
+        fittedWidth(at.x, at.y, image.width / image.height, COTTAGE_SIZE, [ws.position]) /
           image.width,
       );
-      image.setData("footprint", cells);
+      image.setData("footprint", [ws.position]);
       if (ws.stale) image.setAlpha(0.6);
     }
     // No name plate: the workspace's name shows on hover.
-    this.hit(ws, at.x, at.y, HEX_RADIUS * Math.sqrt(3), HEX_RADIUS * 2, 29);
+    const area = cellBounds(cells);
+    this.hit(ws, area.x + area.width / 2, area.y + area.height / 2, area.width, area.height, 29);
   }
-  /** Each occupied workspace tile takes the colour of its most urgent agent,
-   * so state reads at any zoom; states that need you pulse. */
+  /** Each agent's tile takes the colour of its state, so state reads at any
+   * zoom; states that need you pulse. */
   private agentTiles(layout: AtlasLayout): void {
     this.tiles.clear();
-    const states = new Map<string, State[]>();
-    for (const a of layout.agents)
-      states.set(a.workspace!, [...(states.get(a.workspace!) ?? []), a.state!]);
-    for (const ws of layout.workspaces) {
-      const state = tileState(states.get(ws.id) ?? []);
-      const color = state && STATE_TILE[state];
-      if (!state || color === undefined) continue;
-      this.tiles.set(ws.id, state);
-      const at = point(ws.position);
+    for (const a of layout.agents) {
+      const state = a.state!;
+      const color = STATE_TILE[state];
+      if (color === undefined) continue;
+      this.tiles.set(a.id, state);
+      const at = point(a.position);
       const hex = (r: number) =>
         vectors(
           Array.from({ length: 6 }, (_, i) => ({
@@ -438,10 +435,8 @@ export class AtlasScene extends Phaser.Scene {
     }
   }
   private agent(a: Entity): void {
-    const at = point(a.position),
-      offset = robotOffset(a.slot ?? 0),
-      x = at.x + offset.x,
-      y = at.y + offset.y;
+    // Centred on its own cell.
+    const { x, y } = point(a.position);
     const offline = a.state === "offline";
     const image = sprite(this, x, y, a.art!, ROBOT_SIZE).setDepth(35);
     image.setData("agent", a.id);
@@ -542,21 +537,6 @@ export class AtlasScene extends Phaser.Scene {
         g.fillStyle(color).fillCircle(-17 + i * 7, 16, 3);
       }
       c.add(g);
-    }
-    if (a.overflow) {
-      const g = this.add.graphics();
-      g.fillStyle(0x3e3322, 0.85).fillRoundedRect(-14, 18, 28, 14, 7);
-      c.add(g);
-      c.add(
-        this.add
-          .text(0, 25, `+${a.overflow}`, {
-            fontFamily: LABEL_FONT,
-            fontSize: "11px",
-            color: "#fbf3dc",
-          })
-          .setOrigin(0.5)
-          .setResolution(3 * renderDensity()),
-      );
     }
   }
   private configureInput(): void {

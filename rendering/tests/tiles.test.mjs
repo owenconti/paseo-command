@@ -78,11 +78,11 @@ for (const [label, data] of [
   for (const i of layout.islands)
     for (const c of i.cells) land.set(cellKey(c), i);
 
-  test(`${label}: structures own whole, distinct land cells`, () => {
+  test(`${label}: structures and agents own whole, distinct land cells`, () => {
     const occupied = new Set();
-    for (const entity of [...layout.projects, ...layout.workspaces]) {
+    for (const entity of [...layout.projects, ...layout.workspaces, ...layout.agents]) {
       const cells = footprint(entity);
-      assert.equal(cells.length, entity.kind === "project" ? 10 : 1);
+      assert.equal(cells.length, { project: 10, workspace: 3, agent: 1 }[entity.kind]);
       for (const cell of cells) {
         assert.ok(Number.isInteger(cell.q) && Number.isInteger(cell.r));
         const island = land.get(cellKey(cell));
@@ -123,13 +123,25 @@ for (const [label, data] of [
     }
   });
 
-  test(`${label}: every agent shares its workspace cell`, () => {
+  test(`${label}: every agent stands on its own cell beside its workspace`, () => {
     for (const agent of layout.agents) {
       const home = layout.workspaces.find((w) => w.id === agent.workspace);
-      assert.ok(home, `${agent.id} has no cell`);
-      assert.equal(cellKey(agent.position), cellKey(home.position));
+      assert.ok(home, `${agent.id} has no workspace`);
+      const near = Math.min(...footprint(home).map((c) => distance(c, agent.position)));
+      assert.ok(near >= 1 && near <= 2, `${agent.id} strays from its workspace`);
     }
     assert.equal(layout.agents.length, data.agents.length);
+  });
+
+  test(`${label}: workspaces keep a cell of sand between them`, () => {
+    const groups = layout.workspaces.map((w) => [
+      ...footprint(w),
+      ...layout.agents.filter((a) => a.workspace === w.id).map((a) => a.position),
+    ]);
+    for (let a = 0; a < groups.length; a++)
+      for (let b = a + 1; b < groups.length; b++)
+        for (const x of groups[a])
+          for (const y of groups[b]) assert.ok(distance(x, y) >= 2, "two workspaces touch");
   });
 
   test(`${label}: sprite bounds fit inside their footprints`, () => {
@@ -153,53 +165,76 @@ for (const [label, data] of [
   });
 }
 
-test("workspaces stand in rows below their landmark, which tops its island", () => {
+const touches = (cells, others) =>
+  cells.some((c) => others.some((o) => distance(c, o) === 1));
+const centreOf = (cells) => ({
+  x: cells.reduce((s, c) => s + point(c).x, 0) / cells.length,
+  y: cells.reduce((s, c) => s + point(c).y, 0) / cells.length,
+});
+
+test("workspaces ring their landmark: below, lower left, lower right, then above", () => {
   const layout = layoutAtlas(crowded);
-  for (const p of layout.projects) {
-    const core = footprint(p),
-      bottom = Math.max(...core.map((c) => c.r)),
-      top = Math.min(...core.map((c) => c.r));
-    const island = layout.islands.find((i) => i.key === p.id);
-    assert.equal(Math.min(...island.cells.map((c) => c.r)), top, `${p.name} is not at the top`);
-    const below = layout.workspaces.filter((w) => w.project === p.id);
-    for (const w of below) assert.ok(w.position.r > bottom, `${w.id} is not below ${p.name}`);
-    // The landmark's rows hold only its own cells: no spare tiles beside it.
-    for (const r of new Set(core.map((c) => c.r)))
-      assert.equal(
-        island.cells.filter((c) => c.r === r).length,
-        core.filter((c) => c.r === r).length,
-        `${p.name} has spare tiles beside it`,
-      );
-    // Rows of at most four.
-    const rows = new Map();
-    for (const w of below) rows.set(w.position.r, (rows.get(w.position.r) ?? 0) + 1);
-    for (const n of rows.values()) assert.ok(n <= 4);
-  }
   const p0 = layout.projects.find((p) => p.id === "p0");
-  assert.equal(layout.workspaces.filter((w) => w.project === "p0").length, 9);
-  // A few workspaces sit under the landmark's middle, not off to one side.
-  const p3 = layout.projects.find((p) => p.id === "p3");
-  const xs = layout.workspaces
-    .filter((w) => w.project === "p3")
-    .map((w) => point(w.position).x - structureCentre(p3).x);
-  assert.ok(Math.abs((Math.min(...xs) + Math.max(...xs)) / 2) < 70);
-  assert.ok(p0);
+  const core = footprint(p0),
+    middle = centreOf(core);
+  const around = layout.workspaces.filter((w) => w.project === "p0");
+  assert.equal(around.length, 9);
+  // The first ring touches the landmark, the cottage on the cell facing it.
+  for (const w of around.slice(0, 6)) {
+    assert.ok(touches(footprint(w), core), `${w.id} doesn't touch its landmark`);
+    const nearest = Math.min(...footprint(w).map((c) => Math.min(...core.map((o) => distance(c, o)))));
+    assert.equal(Math.min(...core.map((o) => distance(w.position, o))), nearest);
+  }
+  const at = around.map((w) => centreOf(footprint(w)));
+  // Below, then lower left and lower right, then upper left and upper right.
+  assert.ok(at[0].y > middle.y && Math.abs(at[0].x - middle.x) < 70, "the first isn't below");
+  assert.ok(at[1].x < middle.x && at[1].y > middle.y, "the second isn't lower left");
+  assert.ok(at[2].x > middle.x && at[2].y > middle.y, "the third isn't lower right");
+  assert.ok(at[3].x < middle.x && at[3].y < middle.y, "the fourth isn't upper left");
+  assert.ok(at[4].x > middle.x && at[4].y < middle.y, "the fifth isn't upper right");
+  assert.ok(at[5].y < middle.y && Math.abs(at[5].x - middle.x) < 70, "the sixth isn't above");
+});
+
+test("agents grow away from the landmark, oldest first, bottom then alternating sides", () => {
+  const data = structuredClone(crowded);
+  // Created newest first in the data; the oldest still takes the first cell.
+  data.agents.forEach((a, i) => (a.created = new Date(Date.UTC(2026, 0, 1, 0, 60 - i)).toISOString()));
+  const layout = layoutAtlas(data);
+  const w0 = layout.workspaces.find((w) => w.id === "w0");
+  const yard = centreOf(footprint(w0));
+  const crowd = ["x5", "x4", "x3", "x2", "x1", "x0"].map((id) =>
+    point(layout.agents.find((a) => a.id === id).position),
+  );
+  // The first stands straight below the yard, the next two below it on the
+  // left and then the right.
+  assert.ok(Math.abs(crowd[0].x - yard.x) < 1 && crowd[0].y > yard.y);
+  assert.ok(crowd[1].x < yard.x && crowd[1].y === crowd[0].y);
+  assert.ok(crowd[2].x > yard.x && crowd[2].y === crowd[0].y);
+  assert.ok(crowd[3].x < yard.x && crowd[4].x > yard.x);
+  // Every agent is farther from the landmark than the cottage.
+  const core = centreOf(footprint(layout.projects.find((p) => p.id === "p0")));
+  const reach = (p) => Math.hypot(p.x - core.x, p.y - core.y);
+  for (const p of crowd) assert.ok(reach(p) > reach(point(w0.position)));
+});
+
+test("projects without workspaces stay off the map", () => {
+  const layout = layoutAtlas(crowded);
+  // p0 and p3 have workspaces (p3 also a camp) and the offline pb one; the rest have none.
+  assert.deepEqual(layout.projects.map((p) => p.id).sort(), ["p0", "p3", "pb"]);
+  assert.ok(!layout.islands.some((i) => ["p1", "p2", "p4", "p5", "p6"].includes(i.key)));
 });
 
 test("footprint selection excludes shared interior edges", () => {
   const layout = layoutAtlas(SAMPLE);
   // Rows of 3, 4 and 3: 60 cell sides, 19 shared pairs.
   assert.equal(footprintEdges(footprint(layout.projects[0])).length, 22);
-  assert.equal(footprintEdges(footprint(layout.workspaces[0])).length, 6);
+  // Three cells that all touch: 18 sides, 3 shared pairs.
+  assert.equal(footprintEdges(footprint(layout.workspaces[0])).length, 12);
+  assert.equal(footprintEdges(footprint(layout.agents[0])).length, 6);
 });
 
-test("crowded cells, homeless agents and offline hosts stay truthful", () => {
+test("homeless agents and offline hosts stay truthful", () => {
   const layout = layoutAtlas(crowded);
-  const overflow = layout.agents.filter((a) => a.overflow);
-  assert.deepEqual(
-    overflow.map((a) => a.overflow),
-    [2],
-  );
   const camp = layout.workspaces.find((w) => w.camp);
   assert.equal(camp.project, "p3");
   assert.equal(layout.agents.find((a) => a.id === "homeless").workspace, camp.id);
