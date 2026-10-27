@@ -562,17 +562,15 @@ export function drawTerrain(
     ...layout.projects.map((p) => ({ style: "project" as const, host: p.host, cells: footprint(p) })),
     ...layout.workspaces.map((w) => ({ style: "workspace" as const, host: w.host, cells: footprint(w) })),
   ];
-  const keys = layout.islands.map((island, i) => {
+  const keys = layout.islands.flatMap((island, i) => {
     const key = `terrain-${build}-${i}`;
     const own = new Set(island.cells.map(cellKey));
-    paintIsland(
-      scene,
-      island,
-      key,
-      styleOf,
-      plots.filter((p) => p.host === island.host && own.has(cellKey(p.cells[0]!))),
-    );
-    return key;
+    const mine = plots.filter((p) => p.host === island.host && own.has(cellKey(p.cells[0]!)));
+    // A host with no workspaces keeps only its grass and banner; an empty
+    // clearing would read as a project.
+    if (!mine.length) return [];
+    paintIsland(scene, island, key, styleOf, mine);
+    return [key];
   });
   paintVariation(scene, layout, `variation-${build}`);
   keys.push(`variation-${build}`);
