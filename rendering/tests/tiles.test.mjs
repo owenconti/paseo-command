@@ -133,8 +133,12 @@ for (const [label, data] of [
     assert.equal(layout.agents.length, data.agents.length);
   });
 
-  test(`${label}: workspaces keep a cell of sand between them`, () => {
-    const groups = layout.workspaces.map((w) => [
+  test(`${label}: workspaces around a landmark keep a cell apart`, () => {
+    // The first six of each project ring the landmark; later ones stand against them.
+    const ringed = layout.workspaces.filter(
+      (w) => layout.workspaces.filter((o) => o.project === w.project).indexOf(w) < 6,
+    );
+    const groups = ringed.map((w) => [
       ...footprint(w),
       ...layout.agents.filter((a) => a.workspace === w.id).map((a) => a.position),
     ]);

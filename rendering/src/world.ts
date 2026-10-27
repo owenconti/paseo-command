@@ -386,10 +386,10 @@ type Plan = {
   radius: number;
 };
 /**
- * Workspaces ring their landmark, each touching it (or, once the ring is
- * full, the ring), pointing at it, with its agents growing away from it.
- * Each takes the free spot nearest its slot's direction, a cell of sand
- * clear of every other workspace and its agents.
+ * Workspaces ring their landmark, each touching it, pointing at it, with its
+ * agents growing away from it. Each takes the free spot nearest its slot's
+ * direction, a cell clear of every other workspace and its agents. Once the
+ * ring is full, the rest stand against it.
  */
 function placeWorkspaces(core: Axial[], cottages: Cottage[]): Placed[] {
   const coreKeys = new Set(core.map(cellKey));
@@ -416,15 +416,21 @@ function placeWorkspaces(core: Axial[], cottages: Cottage[]): Placed[] {
     let best: Axial | null = null,
       score = Infinity;
     // Touch the landmark if there's room; otherwise the workspaces around it.
-    for (const touch of [
-      (c: Axial) => NEIGHBORS.some((d) => coreKeys.has(cellKey(add(c, d)))),
-      (c: Axial) => all.some((o) => distance(o, c) <= 2),
-    ]) {
+    for (const [touch, clear] of [
+      [
+        (c: Axial) => NEIGHBORS.some((d) => coreKeys.has(cellKey(add(c, d)))),
+        (c: Axial) => !near.has(cellKey(c)),
+      ],
+      [
+        (c: Axial) => all.some((o) => distance(o, c) === 1),
+        (c: Axial) => !taken.has(cellKey(c)),
+      ],
+    ] as const) {
       for (let r = Math.min(...rs) - reach; r <= Math.max(...rs) + reach; r++)
         for (let q = Math.min(...qs) - reach; q <= Math.max(...qs) + reach; q++) {
           const anchor = { q, r };
           const cells = shape.map((c) => add(anchor, c));
-          if (cells.some((c) => coreKeys.has(cellKey(c)) || near.has(cellKey(c)))) continue;
+          if (cells.some((c) => coreKeys.has(cellKey(c)) || !clear(c))) continue;
           if (!own.some((c) => touch(add(anchor, c)))) continue;
           const at = own.map((c) => point(add(anchor, c)));
           const x = at.reduce((s, p) => s + p.x, 0) / 3 - middle.x,
@@ -457,26 +463,11 @@ function plan(
     ? footprint({ kind: "project", position: { q: 0, r: 0 } })
     : [{ q: 0, r: 0 }];
   const placed = placeWorkspaces(core, cottages);
-  const occupied = [...core, ...placed.flatMap((p) => [...p.cells, ...p.agents])];
-  const land = new Map<string, Axial>();
-  for (const cell of occupied)
-    for (const d of [{ q: 0, r: 0 }, ...NEIGHBORS]) land.set(cellKey(add(cell, d)), add(cell, d));
-  // Fill inlets (land on three or more sides), so the coast stays even.
-  for (const cell of [...land.values()])
-    for (const d of NEIGHBORS) {
-      const n = add(cell, d);
-      if (!land.has(cellKey(n)) && NEIGHBORS.filter((e) => land.has(cellKey(add(n, e)))).length >= 3)
-        land.set(cellKey(n), n);
-    }
-  // A seeded, gently irregular coast: some cells of the next ring may join the
-  // land. They are added after packing, and only where they keep clear of
-  // neighbours, so islands pack by their solid core.
-  const inner = Math.max(...[...land.values()].map((c) => distance(c, { q: 0, r: 0 })));
-  const rng = random(seedOf(key + "coast"));
-  const bumps = ring(inner + 1).filter(
-    (cell) => NEIGHBORS.filter((d) => land.has(cellKey(add(cell, d)))).length >= 3 && rng() < 0.35,
-  );
-  return { key, project, cottages, placed, land: [...land.values()], bumps, radius: inner };
+  // The island is exactly its built cells, with no open ground around them:
+  // the landmark, its workspaces and their agents, on the host's grass.
+  const land = [...core, ...placed.flatMap((p) => [...p.cells, ...p.agents])];
+  const radius = Math.max(...land.map((c) => distance(c, { q: 0, r: 0 })));
+  return { key, project, cottages, placed, land, bumps: [], radius };
 }
 
 /** Plans for one host: an island for each project with workspaces, plus one

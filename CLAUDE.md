@@ -62,10 +62,11 @@ Local assets belong in the repository and are included through local build tooli
 The app bundles `rendering/` directly; Phaser resolves from `rendering/node_modules`.
 Each project with workspaces is its own island (projects without workspaces are hidden): a ten-hex
 landmark (rows of 3, 4, 3) in the middle, ringed by its workspaces, each touching it. Workspaces are placed
-bottom, lower-left, lower-right, upper-left, upper-right, then top (a seventh starts a second ring), a cell
-of sand apart. A workspace is a three-hex triangle pointing at the landmark: a one-hex cottage on the point,
-a timber yard on the other two. Each agent is a robot on its own hex beside its workspace, growing away from
-the landmark, oldest first: straight out, then alternating left and right. A host's islands share one landmass of grass hex tiles (hexes everywhere) with a hex-edged shore in a generated sea, under the host's
+bottom, lower-left, lower-right, upper-left, upper-right, then top, a cell apart (later ones stand against
+that ring). A workspace is a three-hex timber triangle pointing at the landmark, its cottage larger and centred
+across all three. Each agent is a robot on its own light-tiled hex beside its workspace, growing away from
+the landmark, oldest first: straight out, then alternating left and right. Islands are only these built cells:
+no empty sand around them (the user removed it). A host's islands share one landmass of grass hex tiles (hexes everywhere) with a hex-edged shore in a generated sea, under the host's
 banner (offline hosts are faded and labeled). Each agent's hex takes the colour of its state. The user asked for water back (rejecting chart paper, and a plain meadow background), with each
 host as a landmass; project islands sit on it on earthen banks with soft shadows.
 The layout follows the map's aspect ratio: hosts shelf-pack and tall maps stack vertically.
@@ -81,10 +82,10 @@ Artwork provenance and generation prompts are in `rendering/ASSETS.md`.
 
 Labels stay at fixed world scale. Do not add screen-size compensation.
 All structures and scenery consume whole cells on the shared axial grid.
-Workspaces use three hexes (the cottage on one); project landmarks use ten (rows of 3, 4 and 3); each agent uses one.
+Workspaces use three hexes; project landmarks use ten (rows of 3, 4 and 3); each agent uses one.
 One island per project with workspaces.
 Center artwork and fit it completely inside its occupied cells.
 Selection follows the outer perimeter of the occupied hexes, never a rectangle.
-Empty cells carry no scenery. Project, workspace and empty cells each have a distinct tile style
-(flagstones, timber decking, sand). Minimum zoom fits the land with a one-cell border (plus room for banners and map controls);
+Project, workspace and agent cells each have a distinct tile style (flagstones, timber decking, light sand
+tiles); islands have no empty cells. Minimum zoom fits the land with a one-cell border (plus room for banners and map controls);
 panning stays within that extent. The world never sends daemon actions; the React UI owns them.

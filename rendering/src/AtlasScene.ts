@@ -33,8 +33,8 @@ const LANDMARK_SCALE: Record<string, number> = {
   conservatory: 0.92,
 };
 /** How far a cottage sits above its cell's centre. */
-/** Widest a cottage is drawn: it has a cell to itself. */
-const COTTAGE_SIZE = 140;
+/** Widest a cottage is drawn, across its workspace's three cells. */
+const COTTAGE_SIZE = 220;
 /** How far landmark art sits above the middle of its cells. */
 const LANDMARK_LIFT = 30;
 const LABEL_FONT = "Georgia, serif";
@@ -370,8 +370,9 @@ export class AtlasScene extends Phaser.Scene {
     this.hit(p, at.x, at.y, HEX_RADIUS * Math.sqrt(3) * 4, HEX_RADIUS * 5, 25);
   }
   private workspace(ws: Entity): void {
-    const at = point(ws.position);
     const cells = footprint(ws);
+    // The cottage stands in the middle of its three cells.
+    const at = structureCentre(ws);
     if (ws.camp) {
       // No cottage: the daemon reports these agents without a workspace.
       const g = this.add.graphics().setDepth(16);
@@ -386,14 +387,12 @@ export class AtlasScene extends Phaser.Scene {
       );
       g.fillStyle(0x7b6340, 0.35).fillEllipse(at.x - 6, at.y + 7, 18, 6);
     } else {
-      // The cottage stands centred on its own cell, the one facing the
-      // landmark; the workspace's other two cells are its yard.
       const image = sprite(this, at.x, at.y, ws.art!, COTTAGE_SIZE).setDepth(16);
       image.setScale(
-        fittedWidth(at.x, at.y, image.width / image.height, COTTAGE_SIZE, [ws.position]) /
+        fittedWidth(at.x, at.y, image.width / image.height, COTTAGE_SIZE, cells) /
           image.width,
       );
-      image.setData("footprint", [ws.position]);
+      image.setData("footprint", cells);
       if (ws.stale) image.setAlpha(0.6);
     }
     // No name plate: the workspace's name shows on hover.
