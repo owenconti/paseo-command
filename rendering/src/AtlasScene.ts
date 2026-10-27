@@ -132,6 +132,10 @@ export class AtlasScene extends Phaser.Scene {
     paintWater(this);
     paintGlints(this);
     paintClouds(this);
+    // The tiled layers wrap in the shader; mipmapped, each wrap line samples
+    // a blurred level and shows as a seam. Their soft noise needs no mipmaps.
+    for (const key of ["water", "glints", "clouds"])
+      this.textures.get(key).setFilter(Phaser.Textures.FilterMode.LINEAR);
     this.water = this.add
       .tileSprite(0, 0, 16, 16, "water")
       .setOrigin(0)
