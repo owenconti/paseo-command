@@ -80,6 +80,15 @@ export class AtlasScene extends Phaser.Scene {
   private agentLayer: Phaser.GameObjects.GameObject[] = [];
   private terrainKeys: string[] = [];
   private builds = 0;
+  /** Agent tiles whose borders move, driven by the clock (not tweens) so a
+   * redraw carries on where it was, each at its own seeded phase. */
+  private moving: {
+    graphics: Phaser.GameObjects.Graphics;
+    period: number;
+    phase: number;
+    corners?: { x: number; y: number }[];
+  }[] = [];
+  private clock = 0;
   /** The state each workspace tile shows. */
   private tiles = new Map<string, State>();
   private created = false;
@@ -149,7 +158,6 @@ export class AtlasScene extends Phaser.Scene {
     this.layout = layout;
     if (structural) this.rebuild();
     else {
-      this.tweens.killAll();
       for (const o of this.agentLayer.splice(0)) o.destroy();
       this.agentLayer = this.capture(() => {
         this.agentTiles(layout);
@@ -455,6 +463,7 @@ export class AtlasScene extends Phaser.Scene {
    * plain sand. */
   private agentTiles(layout: AtlasLayout): void {
     this.tiles.clear();
+    this.moving = [];
     for (const a of layout.agents) {
       const state = a.state!;
       const color = STATE_TILE[state];
@@ -472,51 +481,47 @@ export class AtlasScene extends Phaser.Scene {
       fill.lineStyle(1.5, 0xfff8e6, 0.7).strokePoints(vectors(hex(HEX_RADIUS - 10.5)), true);
       const border = this.add.graphics().setDepth(4.1);
       border.lineStyle(9, color, offline ? 0.6 : 0.95).strokePoints(vectors(hex(HEX_RADIUS - 5.5)), true);
-      const pulse = { failed: 600, approval: 900, question: 900, done: 1600 }[
+      // Each tile starts at its own point in the cycle, so they never move together.
+      const phase = random(seedOf(a.id + "pulse"))();
+      const pulse = { failed: 1200, approval: 1800, question: 1800, done: 3200 }[
         state as "failed"
       ];
-      if (pulse) {
-        const tween = this.tweens.add({
-          targets: border,
-          alpha: { from: 0.35, to: 1 },
-          duration: pulse,
-          repeat: -1,
-          yoyo: true,
-          ease: "Sine.easeInOut",
+      if (pulse) this.moving.push({ graphics: border, period: pulse, phase });
+      else if (state === "running")
+        this.moving.push({
+          graphics: this.add.graphics().setDepth(4.2),
+          period: 2200,
+          phase,
+          corners: hex(HEX_RADIUS - 5.5),
         });
-        if (this.reduced) tween.pause();
-      } else if (state === "running") this.chase(hex(HEX_RADIUS - 5.5));
     }
+    this.animateTiles();
   }
-  /** A light that runs round a hex border, a sixth of its length. */
-  private chase(corners: { x: number; y: number }[]): void {
-    const light = this.add.graphics().setDepth(4.2);
-    const at = (t: number) => {
-      const f = (((t % 1) + 1) % 1) * 6,
-        i = Math.floor(f),
-        a = corners[i]!,
-        b = corners[(i + 1) % 6]!;
-      return { x: a.x + (b.x - a.x) * (f - i), y: a.y + (b.y - a.y) * (f - i) };
-    };
-    const draw = (t: number) => {
-      light.clear();
+  /** Pulsing borders fade in and out; running borders carry a light round
+   * them, a sixth of their length. Still, with reduced motion. */
+  private animateTiles(): void {
+    for (const tile of this.moving) {
+      const t = (this.reduced ? 0 : this.clock / tile.period) + tile.phase;
+      if (!tile.corners) {
+        tile.graphics.setAlpha(this.reduced ? 1 : 0.35 + 0.65 * (0.5 + 0.5 * Math.cos(t * Math.PI * 2)));
+        continue;
+      }
+      const corners = tile.corners;
+      const at = (u: number) => {
+        const f = (((u % 1) + 1) % 1) * 6,
+          i = Math.floor(f),
+          a = corners[i]!,
+          b = corners[(i + 1) % 6]!;
+        return { x: a.x + (b.x - a.x) * (f - i), y: a.y + (b.y - a.y) * (f - i) };
+      };
+      const light = tile.graphics.clear();
       // Brightest at its head, fading toward its tail.
       for (let k = 0; k < 12; k++) {
         const p = at(t - k / 72),
           q = at(t - (k + 1) / 72);
         light.lineStyle(7, 0xeafff2, 0.95 * (1 - k / 12)).lineBetween(p.x, p.y, q.x, q.y);
       }
-    };
-    const progress = { t: 0 };
-    draw(0);
-    const tween = this.tweens.add({
-      targets: progress,
-      t: 1,
-      duration: 2200,
-      repeat: -1,
-      onUpdate: () => draw(progress.t),
-    });
-    if (this.reduced) tween.pause();
+    }
   }
   private agent(a: Entity): void {
     // Centred on its own cell.
@@ -769,6 +774,7 @@ export class AtlasScene extends Phaser.Scene {
     this.reduced = reduced;
     if (this.reduced) this.tweens.pauseAll();
     else this.tweens.resumeAll();
+    this.animateTiles();
     return this.reduced;
   }
   thumbnail(entity: Entity): string {
@@ -893,7 +899,11 @@ export class AtlasScene extends Phaser.Scene {
   update(_time: number, delta: number): void {
     this.controls?.update(delta);
     this.constrainCamera();
-    if (!this.reduced) this.drift += delta * 0.006;
+    if (!this.reduced) {
+      this.drift += delta * 0.006;
+      this.clock += delta;
+      this.animateTiles();
+    }
     // Ground and clouds cover exactly the visible view; their textures stay anchored to the world.
     // worldView trails a frame, so a margin covers fast pans and zooms.
     const view = this.cameras.main.worldView,
