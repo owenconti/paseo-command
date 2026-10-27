@@ -183,6 +183,7 @@ export type DispatchPlan = {
     modeId?: string;
     title?: string;
     initialPrompt: string;
+    images?: { data: string; mimeType: string }[];
   };
 };
 /**
@@ -200,6 +201,7 @@ export function dispatchPlan(
   if (hasProject === hasWorkspace)
     throw new Error("Select exactly one project or workspace");
   const prompt = text(body.prompt, "prompt");
+  const imgs = validImages(body.images);
   let workspace: DispatchPlan["workspace"];
   if (hasWorkspace) {
     const workspaceId = id(body.workspaceId);
@@ -248,6 +250,7 @@ export function dispatchPlan(
       ...(present(body.mode) ? { modeId: option(body.mode, "mode") } : {}),
       ...(present(body.title) ? { title: text(body.title, "title", 200) } : {}),
       initialPrompt: prompt,
+      ...(imgs?.length ? { images: imgs } : {}),
     },
   };
 }

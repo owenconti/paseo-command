@@ -1,13 +1,34 @@
 import { soundEvent } from "./soundCues";
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import {
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type DragEvent,
+} from "react";
 import { motion, useIsPresent } from "framer-motion";
-import { GitBranch, LoaderCircle, Send, X } from "lucide-react";
+import { GitBranch, ImagePlus, LoaderCircle, Send, X } from "lucide-react";
 import { api, errorMessage, readStore, writeStore } from "./api";
+import { AttachmentTray } from "./composer/AttachmentTray";
+import type { ImageAttachment } from "./composer/types";
+import {
+  MAX_IMAGE,
+  RASTER,
+  insertAtCaret,
+  readDataUrl,
+  uid,
+} from "./composer/util";
+import { Lightbox } from "./Images";
+import { pastedText } from "./paste";
 import type { Host, Mode, Model, Project, Provider, Workspace } from "./types";
 import { hostQuery } from "./types";
 import { projectKey, workspaceKey } from "./workspaces";
 import { useFocusTrap } from "./focus";
 import { hostText, placeText } from "./names";
+
+/** As many images as the daemon takes with a prompt. */
+const MAX_IMAGES = 10;
 
 /** Host-qualified keys (`projectKey`, `workspaceKey`): IDs repeat across hosts. */
 export type DispatchTarget = { projectId?: string; workspaceId?: string };
@@ -149,6 +170,11 @@ export function DispatchDialog({
   const [base, setBase] = useState("");
   const [title, setTitle] = useState("");
   const [prompt, setPrompt] = useState(() => readStore("draft:dispatch", ""));
+  // Pasted, dropped or chosen screenshots, sent with the mission.
+  const [images, setImages] = useState<ImageAttachment[]>([]);
+  const [preview, setPreview] = useState<ImageAttachment | null>(null);
+  const [dragging, setDragging] = useState(false);
+  const imageInput = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const form = useRef<HTMLFormElement>(null);
@@ -220,6 +246,41 @@ export function DispatchDialog({
   }, [models, model]);
   const thinkingOptions = chosenModel?.thinkingOptionIds || [];
 
+  const addImages = async (files: File[]) => {
+    for (const [i, file] of files.entries()) {
+      if (!RASTER.test(file.type)) {
+        onNotice(`${file.name || "That file"} isn't an image (PNG, JPEG, GIF or WebP)`);
+        continue;
+      }
+      if (file.size > MAX_IMAGE) {
+        onNotice(`${file.name || "That image"} is too large (max 20 MB)`);
+        continue;
+      }
+      let dataUrl: string;
+      try {
+        dataUrl = await readDataUrl(file);
+      } catch {
+        onNotice(`Couldn't read ${file.name || "that image"}`);
+        continue;
+      }
+      setImages((all) =>
+        all.length >= MAX_IMAGES
+          ? (onNotice(`Attach at most ${MAX_IMAGES} images`), all)
+          : [
+              ...all,
+              {
+                kind: "image",
+                id: uid(),
+                name: file.name || `pasted-${i + 1}.png`,
+                mimeType: file.type,
+                dataUrl,
+              },
+            ],
+      );
+    }
+  };
+  const hasFiles = (e: DragEvent) => e.dataTransfer.types.includes("Files");
+
   const submit = async () => {
     // ⌘↵ bypasses the disabled button, and the target may have vanished.
     if (
@@ -245,6 +306,11 @@ export function DispatchDialog({
     if (mode && (!modes.length || modes.some((m) => m.id === mode)))
       body.mode = mode;
     if (title.trim()) body.title = title.trim();
+    if (images.length)
+      body.images = images.map((a) => ({
+        data: a.dataUrl.split(",")[1],
+        mimeType: a.mimeType,
+      }));
     if (project && branch.trim()) {
       body.branch = branch.trim();
       if (base.trim()) body.base = base.trim();
@@ -267,6 +333,7 @@ export function DispatchDialog({
         },
       });
       setPrompt("");
+      setImages([]);
       writeStore("draft:dispatch", "");
       onNotice("Agent dispatched");
       onDispatched(
@@ -300,7 +367,7 @@ export function DispatchDialog({
         tabIndex={-1}
         aria-modal="true"
         aria-labelledby="dispatch-title"
-        className="command-dialog dispatch-dialog panel"
+        className={`command-dialog dispatch-dialog panel${dragging ? " dropping" : ""}`}
         initial={{ opacity: 0, y: 25, scale: 0.97 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
         exit={{
@@ -310,6 +377,22 @@ export function DispatchDialog({
           transition: { duration: 0.12 },
         }}
         onClick={(e) => e.stopPropagation()}
+        // Images dropped anywhere on the dialog join the mission.
+        onDragOver={(e) => {
+          if (!hasFiles(e) || busy) return;
+          e.preventDefault();
+          setDragging(true);
+        }}
+        onDragLeave={(e) => {
+          if (!e.currentTarget.contains(e.relatedTarget as Node | null))
+            setDragging(false);
+        }}
+        onDrop={(e) => {
+          setDragging(false);
+          if (!e.dataTransfer.files.length) return;
+          e.preventDefault();
+          if (!busy) void addImages([...e.dataTransfer.files]);
+        }}
         onKeyDown={(e) => {
           // Own Escape entirely: while dispatching, the dialog must stay open.
           if (e.key === "Escape") {
@@ -377,6 +460,19 @@ export function DispatchDialog({
               name="prompt"
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
+              onPaste={(e) => {
+                const files = [...e.clipboardData.files];
+                if (!files.length) return;
+                e.preventDefault();
+                // Attach the images; keep any text unless it only names them.
+                const extra = pastedText(
+                  files.map((f) => f.name),
+                  e.clipboardData.getData("text/plain"),
+                  e.clipboardData.getData("text/uri-list"),
+                );
+                if (extra) insertAtCaret(e.currentTarget, extra);
+                void addImages(files);
+              }}
               onKeyDown={(e) => {
                 if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
                   e.preventDefault();
@@ -389,6 +485,37 @@ export function DispatchDialog({
               maxLength={12000}
             />
           </label>
+          <div className="mission-images">
+            {images.length > 0 && (
+              <AttachmentTray
+                attachments={images}
+                onOpen={setPreview}
+                onRemove={(id) => setImages((all) => all.filter((a) => a.id !== id))}
+              />
+            )}
+            <button
+              type="button"
+              className="add-images"
+              aria-description="Attach PNG, JPEG, GIF or WebP images (or paste or drop them)"
+              disabled={busy || images.length >= MAX_IMAGES}
+              onClick={() => imageInput.current?.click()}
+            >
+              <ImagePlus size={14} />
+              {images.length ? "Add more images" : "Add images"}
+              <span>or paste or drop them</span>
+            </button>
+            <input
+              ref={imageInput}
+              type="file"
+              accept="image/png,image/jpeg,image/gif,image/webp"
+              multiple
+              hidden
+              onChange={(e) => {
+                void addImages([...(e.target.files || [])]);
+                e.target.value = "";
+              }}
+            />
+          </div>
           <label>
             Where
             <select
@@ -589,6 +716,12 @@ export function DispatchDialog({
             </button>
           </div>
         </form>
+        {preview && (
+          <Lightbox
+            shown={{ url: preview.dataUrl, alt: "", name: preview.name }}
+            onClose={() => setPreview(null)}
+          />
+        )}
       </motion.section>
     </motion.div>
   );

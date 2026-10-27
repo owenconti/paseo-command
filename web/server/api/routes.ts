@@ -223,11 +223,13 @@ export async function handleApi(
         parts[0] === "agents" &&
         parts.length === 3 &&
         AGENT_COMMANDS.includes(parts[2]);
-      // Prompts may carry pasted screenshots.
+      // Prompts and new agents' missions may carry pasted screenshots.
       // Prompts may be long, multi-byte text; a char limit needs ~4x in bytes.
       const body = await bodyOf(
         req,
-        parts[2] === "send" ? 30 * 1024 * 1024 : 4 * MAX_PROMPT + 16000,
+        parts[2] === "send" || (parts[0] === "dispatch" && parts.length === 1)
+          ? 30 * 1024 * 1024
+          : 4 * MAX_PROMPT + 16000,
       );
       // What the mutation could have changed, dropped once it has been issued,
       // whether or not it reported success (a timed-out send may still land).
