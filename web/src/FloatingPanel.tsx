@@ -126,6 +126,18 @@ export function FloatingPanel(props: Props) {
     if (props.enabled && props.activeKey)
       setState((s) => (s.collapsed ? { ...s, collapsed: false } : s));
   }, [props.activeKey, props.openRevision, props.enabled]);
+  // ⌘B (Ctrl+B elsewhere) hides or shows the panel, even while typing.
+  useEffect(() => {
+    if (!props.enabled) return;
+    const toggle = (event: globalThis.KeyboardEvent) => {
+      if (event.key.toLowerCase() !== "b" || event.shiftKey || event.altKey) return;
+      if (!(event.metaKey || event.ctrlKey) || event.repeat) return;
+      event.preventDefault();
+      setState((s) => ({ ...s, collapsed: !s.collapsed }));
+    };
+    addEventListener("keydown", toggle);
+    return () => removeEventListener("keydown", toggle);
+  }, [props.enabled]);
   useEffect(() => {
     if (props.enabled && props.revealRevision)
       setState((s) => (s.collapsed ? { ...s, collapsed: false } : s));
@@ -274,7 +286,7 @@ export function FloatingPanel(props: Props) {
             state.collapsed ? "Expand session panel" : "Collapse session panel"
           }
           data-tip={
-            state.collapsed ? "Expand session panel" : "Collapse session panel"
+            state.collapsed ? "Expand session panel (⌘B)" : "Collapse session panel (⌘B)"
           }
           aria-expanded={!state.collapsed}
           aria-controls="floating-command-content"
