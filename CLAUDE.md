@@ -67,7 +67,9 @@ that ring). A workspace is a three-hex timber triangle pointing at the landmark,
 across all three. Each agent is a robot on its own light-tiled hex beside its workspace, growing away from
 the landmark, oldest first: straight out, then alternating left and right. Islands are only these built cells:
 no empty sand around them (the user removed it). A host's islands share one landmass of grass hex tiles (hexes everywhere) with a hex-edged shore in a generated sea, under the host's
-banner (offline hosts are faded and labeled). Each agent's hex takes the colour of its state. The user asked for water back (rejecting chart paper, and a plain meadow background), with each
+banner (offline hosts are faded and labeled). Each agent's state shows only on its sand hex (fill, border colour, border motion: a light runs round
+running borders, states that need you pulse); robots carry no rings or badges. Hosts, projects, workspaces and
+agents each have their own hover border colour; a host hovers from its banner or open ground. The user asked for water back (rejecting chart paper, and a plain meadow background), with each
 host as a landmass; project islands sit on it on earthen banks with soft shadows.
 The layout follows the map's aspect ratio: hosts shelf-pack and tall maps stack vertically.
 Agents the daemon reports without a workspace wait at a flagged camp, laid out like a workspace.

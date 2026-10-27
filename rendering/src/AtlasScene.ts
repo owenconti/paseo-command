@@ -49,6 +49,13 @@ const LANDMARK_LIFT = 30;
 const OVERLAY_TOP = 76;
 const OVERLAY_BOTTOM = 72;
 const LABEL_FONT = "Georgia, serif";
+/** Each kind's hover border, so what the pointer is over reads at a glance. */
+const HOVER_COLOR: Record<Entity["kind"], number> = {
+  host: 0xffffff,
+  project: 0xffc83d,
+  workspace: 0xff7f32,
+  agent: 0x4fe6dc,
+};
 const vectors = (points: { x: number; y: number }[]) =>
   points.map((p) => new Phaser.Math.Vector2(p.x, p.y));
 type Box = { x: number; y: number; width: number; height: number };
@@ -146,8 +153,7 @@ export class AtlasScene extends Phaser.Scene {
       for (const o of this.agentLayer.splice(0)) o.destroy();
       this.agentLayer = this.capture(() => {
         this.agentTiles(layout);
-        this.agentTiles(layout);
-      for (const a of layout.agents) this.agent(a);
+        for (const a of layout.agents) this.agent(a);
       });
     }
     // A vanished selection clears quietly; the app decides what is selected.
@@ -286,6 +292,8 @@ export class AtlasScene extends Phaser.Scene {
     width: number,
     height: number,
     depth = 30,
+    /** Anywhere in the rectangle, rather than only on the entity's cells. */
+    anywhere = entity.kind === "agent",
   ): void {
     this.locations.set(entity.id, { x, y, width, height });
     const zone = this.add
@@ -301,12 +309,11 @@ export class AtlasScene extends Phaser.Scene {
           localY: number,
         ) =>
           Phaser.Geom.Rectangle.Contains(area, localX, localY) &&
-          (entity.kind === "agent" ||
-            entity.kind === "host" ||
+          (anywhere ||
             insideFootprint(
-            x + localX - width / 2,
+              x + localX - width / 2,
               y + localY - height / 2,
-              footprint(entity),
+              this.cellsOf(entity),
             )),
       });
     zone.on("pointerover", () => this.setHover(entity.id));
@@ -322,8 +329,7 @@ export class AtlasScene extends Phaser.Scene {
     this.hoveredId = id;
     this.hover.clear();
     const entity = id ? this.entity(id) : undefined;
-    if (entity && entity.kind !== "host")
-      this.outlineCells(this.hover, entity, 2, 0xa77d35);
+    if (entity) this.outlineCells(this.hover, entity, 8, HOVER_COLOR[entity.kind]);
     this.game.events.emit(
       "atlas:hover",
       entity ?? null,
@@ -343,9 +349,16 @@ export class AtlasScene extends Phaser.Scene {
     color: number,
   ): void {
     graphics.lineStyle(width, color, 0.95);
-    const edges = footprintEdges(footprint(entity));
+    const edges = footprintEdges(this.cellsOf(entity));
     graphics.setData("edgeCount", edges.length);
     for (const { a, b } of edges) graphics.lineBetween(a.x, a.y, b.x, b.y);
+  }
+  /** The cells an entity covers; a host covers its whole landmass. */
+  private cellsOf(entity: Entity): Axial[] {
+    if (entity.kind !== "host") return footprint(entity);
+    return this.layout!.land
+      .filter((mass) => mass.host === entity.id)
+      .flatMap((mass) => mass.cells);
   }
   private host(h: Entity): void {
     const islands = this.layout!.islands.filter((i) => i.host === h.id);
@@ -356,7 +369,10 @@ export class AtlasScene extends Phaser.Scene {
       y = bounds.y - HEX_RADIUS * 0.75;
     const name = h.name.toUpperCase() + (island.online ? "" : " · OFFLINE");
     this.ribbon(x, y, name, "host", Math.max(260, bounds.width - 80), !island.online);
-    this.hit(h, x, y, Math.min(bounds.width, 420), 44, 24);
+    // The banner and the host's open ground, under its islands' own areas.
+    const land = cellBounds(this.cellsOf(h));
+    this.hit(h, land.x + land.width / 2, land.y + land.height / 2, land.width, land.height, 20);
+    this.hit(h, x, y, Math.min(bounds.width, 420), 44, 24, true);
     this.locations.set(h.id, {
       x,
       y: bounds.y + bounds.height / 2 - 20,
@@ -433,8 +449,10 @@ export class AtlasScene extends Phaser.Scene {
       if (ws.stale) plant.setAlpha(0.6);
     });
   }
-  /** Each agent's tile takes the colour of its state, so state reads at any
-   * zoom; states that need you pulse. */
+  /** An agent's state shows only on its sand tile: the tile's colour, its
+   * border's colour, and how the border moves. Running borders carry a light
+   * round them; states that need you pulse (failures fastest). Idle tiles stay
+   * plain sand. */
   private agentTiles(layout: AtlasLayout): void {
     this.tiles.clear();
     for (const a of layout.agents) {
@@ -444,28 +462,61 @@ export class AtlasScene extends Phaser.Scene {
       this.tiles.set(a.id, state);
       const at = point(a.position);
       const hex = (r: number) =>
-        vectors(
-          Array.from({ length: 6 }, (_, i) => ({
-            x: at.x + Math.cos((i * Math.PI) / 3 - Math.PI / 2) * r,
-            y: at.y + Math.sin((i * Math.PI) / 3 - Math.PI / 2) * r,
-          })),
-        );
-      const g = this.add.graphics().setDepth(4);
-      g.fillStyle(color, state === "offline" ? 0.25 : 0.42).fillPoints(hex(HEX_RADIUS - 1), true);
-      g.lineStyle(9, color, 0.95).strokePoints(hex(HEX_RADIUS - 5.5), true);
-      g.lineStyle(1.5, 0xfff8e6, 0.7).strokePoints(hex(HEX_RADIUS - 10.5), true);
-      if (["failed", "approval", "question", "done"].includes(state)) {
+        Array.from({ length: 6 }, (_, i) => ({
+          x: at.x + Math.cos((i * Math.PI) / 3 - Math.PI / 2) * r,
+          y: at.y + Math.sin((i * Math.PI) / 3 - Math.PI / 2) * r,
+        }));
+      const offline = state === "offline";
+      const fill = this.add.graphics().setDepth(4);
+      fill.fillStyle(color, offline ? 0.25 : 0.42).fillPoints(vectors(hex(HEX_RADIUS - 1)), true);
+      fill.lineStyle(1.5, 0xfff8e6, 0.7).strokePoints(vectors(hex(HEX_RADIUS - 10.5)), true);
+      const border = this.add.graphics().setDepth(4.1);
+      border.lineStyle(9, color, offline ? 0.6 : 0.95).strokePoints(vectors(hex(HEX_RADIUS - 5.5)), true);
+      const pulse = { failed: 600, approval: 900, question: 900, done: 1600 }[
+        state as "failed"
+      ];
+      if (pulse) {
         const tween = this.tweens.add({
-          targets: g,
-          alpha: { from: 0.55, to: 1 },
-          duration: 900,
+          targets: border,
+          alpha: { from: 0.35, to: 1 },
+          duration: pulse,
           repeat: -1,
           yoyo: true,
           ease: "Sine.easeInOut",
         });
         if (this.reduced) tween.pause();
-      }
+      } else if (state === "running") this.chase(hex(HEX_RADIUS - 5.5));
     }
+  }
+  /** A light that runs round a hex border, a sixth of its length. */
+  private chase(corners: { x: number; y: number }[]): void {
+    const light = this.add.graphics().setDepth(4.2);
+    const at = (t: number) => {
+      const f = (((t % 1) + 1) % 1) * 6,
+        i = Math.floor(f),
+        a = corners[i]!,
+        b = corners[(i + 1) % 6]!;
+      return { x: a.x + (b.x - a.x) * (f - i), y: a.y + (b.y - a.y) * (f - i) };
+    };
+    const draw = (t: number) => {
+      light.clear();
+      // Brightest at its head, fading toward its tail.
+      for (let k = 0; k < 12; k++) {
+        const p = at(t - k / 72),
+          q = at(t - (k + 1) / 72);
+        light.lineStyle(7, 0xeafff2, 0.95 * (1 - k / 12)).lineBetween(p.x, p.y, q.x, q.y);
+      }
+    };
+    const progress = { t: 0 };
+    draw(0);
+    const tween = this.tweens.add({
+      targets: progress,
+      t: 1,
+      duration: 2200,
+      repeat: -1,
+      onUpdate: () => draw(progress.t),
+    });
+    if (this.reduced) tween.pause();
   }
   private agent(a: Entity): void {
     // Centred on its own cell.
@@ -477,91 +528,11 @@ export class AtlasScene extends Phaser.Scene {
     this.hit(a, x, y, ROBOT_SIZE + 10, ROBOT_SIZE + 10, 40);
     this.marker(a, x, y);
   }
-  private badge(
-    c: Phaser.GameObjects.Container,
-    fill: number,
-    rim: number,
-    glyph: string,
-  ): void {
-    const g = this.add.graphics();
-    g.fillStyle(rim).fillCircle(16, -16, 11);
-    g.fillStyle(fill).fillCircle(15, -17, 10);
-    g.lineStyle(1, 0xfff3d6, 0.9).strokeCircle(15, -17, 8.2);
-    c.add(g);
-    if (glyph === "x") {
-      g.lineStyle(3, 0xffeed1);
-      g.lineBetween(11, -21, 19, -13);
-      g.lineBetween(19, -21, 11, -13);
-    } else
-      c.add(
-        this.add
-          .text(15, -17, glyph, {
-            fontFamily: LABEL_FONT,
-            fontSize: "15px",
-            fontStyle: "bold",
-            color: "#fffaf0",
-          })
-          .setOrigin(0.5, 0.52)
-          .setResolution(3 * renderDensity()),
-      );
-  }
+  /** Lights for running helpers. State itself shows on the agent's tile. */
   private marker(a: Entity, x: number, y: number): void {
     // Marker geometry is drawn for a 27px robot and scales with the sprite.
     const c = this.add.container(x, y).setDepth(36).setScale(ROBOT_SIZE / 27);
     const color = MODEL_COLORS[a.model!];
-    if (a.state === "running") {
-      const waves = this.add.graphics().setDepth(-1);
-      waves.lineStyle(2.5, color, 0.85);
-      for (const radius of [18, 23]) {
-        waves.beginPath().arc(0, 0, radius, -0.8, 0.8).strokePath();
-        waves
-          .beginPath()
-          .arc(0, 0, radius, Math.PI - 0.8, Math.PI + 0.8)
-          .strokePath();
-      }
-      c.add(waves);
-      const tween = this.tweens.add({
-        targets: waves,
-        alpha: { from: 0.4, to: 1 },
-        scale: { from: 0.96, to: 1.08 },
-        duration: 1400,
-        repeat: -1,
-        yoyo: true,
-        ease: "Sine.easeInOut",
-      });
-      if (this.reduced) tween.pause();
-    } else if (a.state === "done") {
-      const r = 12,
-        ox = -2,
-        oy = -30;
-      const g = this.add.graphics();
-      g.fillStyle(0xffd45a, 0.16).fillCircle(ox, oy, r + 7);
-      g.fillStyle(0xffe5a0, 0.3).fillCircle(ox, oy, r + 4);
-      g.fillStyle(0xb5781f).fillCircle(ox + 1, oy + 2, r + 2);
-      g.fillStyle(0xe9ae2e).fillCircle(ox, oy, r);
-      g.lineStyle(1.2, 0xffedac).strokeCircle(ox, oy, r - 2.5);
-      const star = Array.from({ length: 16 }, (_, i) => {
-        const radius = i % 2 === 0 ? r * 0.72 : r * 0.23;
-        return {
-          x: ox + Math.cos((i * Math.PI) / 8) * radius,
-          y: oy + Math.sin((i * Math.PI) / 8) * radius,
-        };
-      });
-      g.fillStyle(0xfff1b8).fillPoints(vectors(star), true);
-      g.lineStyle(0.7, 0xb67b1c).strokePoints(vectors(star), true);
-      c.add(g);
-      const tween = this.tweens.add({
-        targets: g,
-        alpha: { from: 0.8, to: 1 },
-        duration: 1800,
-        repeat: -1,
-        yoyo: true,
-        ease: "Sine.easeInOut",
-      });
-      if (this.reduced) tween.pause();
-    } else if (a.state === "approval") this.badge(c, 0xe39a1e, 0x9a5f0c, "!");
-    else if (a.state === "question") this.badge(c, 0x3a7fc4, 0x1f4f80, "?");
-    else if (a.state === "failed") this.badge(c, 0xc75136, 0x7f2d22, "x");
     if (a.subagents && a.state !== "offline") {
       // Helpers in flight: one small light per running subagent, up to three.
       const g = this.add.graphics();
@@ -788,10 +759,6 @@ export class AtlasScene extends Phaser.Scene {
     const entity = this.selectedId ? this.entity(this.selectedId) : undefined;
     if (!entity || entity.kind === "host") return;
     this.outlineCells(this.selected, entity, 3, 0x9c742c);
-    if (entity.kind === "agent") {
-      const loc = this.locations.get(entity.id)!;
-      this.selected.lineStyle(2.5, 0x6e4f1d, 0.95).strokeCircle(loc.x, loc.y, ROBOT_SIZE * 0.7);
-    }
   }
   setInput(enabled: boolean): void {
     this.input.enabled = enabled;
