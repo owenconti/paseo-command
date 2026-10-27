@@ -23,6 +23,7 @@
   },
   "include": [
     "src",
+    "landing",
     "server",
     "vite.config.ts"
   ]
