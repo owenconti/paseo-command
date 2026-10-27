@@ -215,6 +215,34 @@ test("picking a robot opens its conversation; the list selects on the map", asyn
   await page.context().close();
 });
 
+test("two workspaces sharing a checkout each list only their own agents", async () => {
+  // The daemon can register the same checkout twice; the agent names its workspace.
+  workspaces.unshift(ws("wks_twin", "prj_atlas", "Map polish", "/work/atlas/a"));
+  try {
+    const page = await open();
+    await waitFor(() => inspect(page), (i) => !!i?.agents?.length, "the Atlas", 30000);
+    const pick = (id: string) =>
+      page.evaluate(
+        (key) =>
+          (window as any).paseoAtlas.scene.game.events.emit("atlas:pick", {
+            id: key,
+            kind: "workspace",
+            name: "",
+            host: "",
+          }),
+        JSON.stringify(["local", id]),
+      );
+    const here = () => page.locator(".section-label", { hasText: "Agents here" }).locator("span");
+    await pick("wks_twin");
+    await waitFor(() => here().textContent(), (t) => t === "0", "the empty twin to list no agents");
+    await pick("wks_a");
+    await waitFor(() => here().textContent(), (t) => t === "2", "the agents' own workspace to list them");
+    await page.context().close();
+  } finally {
+    workspaces.shift();
+  }
+});
+
 test("live changes redraw the world without a reload", async () => {
   const page = await open();
   await waitFor(() => inspect(page), (i) => !!i?.agents?.length, "the Atlas", 30000);

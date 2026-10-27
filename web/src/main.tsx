@@ -236,8 +236,14 @@ function App() {
     () => new Set(workspaces.map(workspaceKey)),
     [workspaces],
   );
+  // The agent's own workspace first, as the world places it: one checkout can
+  // be registered as several workspaces.
   const workspaceOf = useCallback(
     (a: Agent) =>
+      (a.workspaceId &&
+        listedWorkspaces.find(
+          (w) => w.workspaceId === a.workspaceId && sameHost(w, a),
+        )) ||
       listedWorkspaces.find(
         (w) =>
           w.cwd.replace(/\/+$/, "") === a.cwd.replace(/\/+$/, "") &&
