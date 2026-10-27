@@ -45,5 +45,7 @@ export const SAMPLE: AtlasData = {
     name: r.name,
     model: r.model,
     state: r.state,
+    // Running helpers on a couple of busy agents.
+    subagents: i === 0 ? 3 : i === 3 ? 1 : 0,
   })),
 };

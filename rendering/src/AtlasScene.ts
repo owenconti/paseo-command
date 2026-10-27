@@ -5,7 +5,6 @@ import { drawTerrain, paintGround, paintClouds, paintWater, paintGlints, WATER }
 import {
   point,
   HEX_RADIUS,
-  MODEL_COLORS,
   type AtlasLayout,
   type AtlasData,
   layoutAtlas,
@@ -49,6 +48,9 @@ const LANDMARK_LIFT = 30;
 const OVERLAY_TOP = 76;
 const OVERLAY_BOTTOM = 72;
 const LABEL_FONT = "Georgia, serif";
+/** A subagent's drone, and how long it takes to circle its agent (ms). */
+const DRONE_SIZE = 20;
+const DRONE_ORBIT = 7000;
 /** Each kind's hover border, so what the pointer is over reads at a glance. */
 const HOVER_COLOR: Record<Entity["kind"], number> = {
   host: 0xffffff,
@@ -90,6 +92,13 @@ export class AtlasScene extends Phaser.Scene {
     corners?: { x: number; y: number }[];
   }[] = [];
   private clock = 0;
+  private drones: {
+    drone: Phaser.GameObjects.Image;
+    shadow: Phaser.GameObjects.Ellipse;
+    x: number;
+    y: number;
+    phase: number;
+  }[] = [];
   /** The state each workspace tile shows. */
   private tiles = new Map<string, State>();
   private created = false;
@@ -505,6 +514,7 @@ export class AtlasScene extends Phaser.Scene {
   private agentTiles(layout: AtlasLayout): void {
     this.tiles.clear();
     this.moving = [];
+    this.drones = [];
     for (const a of layout.agents) {
       const state = a.state!;
       const color = STATE_TILE[state];
@@ -583,20 +593,31 @@ export class AtlasScene extends Phaser.Scene {
     this.marker(a, x, y);
   }
   /** Lights for running helpers. State itself shows on the agent's tile. */
+  /** Running subagents fly as small drones of the agent's own model, circling
+   * it inside its cell, up to four. */
   private marker(a: Entity, x: number, y: number): void {
-    // Marker geometry is drawn for a 27px robot and scales with the sprite.
-    const c = this.add.container(x, y).setDepth(36).setScale(ROBOT_SIZE / 27);
-    const color = MODEL_COLORS[a.model!];
-    if (a.subagents && a.state !== "offline") {
-      // Helpers in flight: one small light per running subagent, up to three.
-      const g = this.add.graphics();
-      for (let i = 0; i < Math.min(3, a.subagents); i++) {
-        g.fillStyle(0x3d3a2e, 0.25).fillCircle(-17 + i * 7, 17, 3.4);
-        g.fillStyle(color).fillCircle(-17 + i * 7, 16, 3);
-      }
-      c.add(g);
+    if (!a.subagents || a.state === "offline") return;
+    const count = Math.min(4, a.subagents),
+      phase = random(seedOf(a.id + "drones"))();
+    for (let i = 0; i < count; i++) {
+      const shadow = this.add.ellipse(x, y, 16, 6, 0x1d2a14, 0.28).setDepth(34);
+      const drone = sprite(this, x, y, a.art!, DRONE_SIZE);
+      this.drones.push({ drone, shadow, x, y, phase: phase + i / count });
+    }
+    this.flyDrones();
+  }
+  private flyDrones(): void {
+    for (const d of this.drones) {
+      const turn = ((this.reduced ? 0 : this.clock / DRONE_ORBIT) + d.phase) * Math.PI * 2;
+      const dx = Math.cos(turn) * 38,
+        dy = Math.sin(turn) * 26,
+        lift = 16 + (this.reduced ? 0 : Math.sin(turn * 3) * 2);
+      d.shadow.setPosition(d.x + dx, d.y + dy + 8);
+      // Behind the robot on the far side of its circle, in front on the near side.
+      d.drone.setPosition(d.x + dx, d.y + dy + 8 - lift).setDepth(dy < 0 ? 34.5 : 35.5);
     }
   }
+
   private configureInput(): void {
     this.input.mouse?.disableContextMenu();
     this.input.on("pointerdown", (p: Phaser.Input.Pointer) => {
@@ -843,6 +864,7 @@ export class AtlasScene extends Phaser.Scene {
     if (this.reduced) this.tweens.pauseAll();
     else this.tweens.resumeAll();
     this.animateTiles();
+    this.flyDrones();
     return this.reduced;
   }
   thumbnail(entity: Entity): string {
@@ -972,6 +994,7 @@ export class AtlasScene extends Phaser.Scene {
       this.clock += delta;
       this.animateTiles();
       this.breathe();
+      this.flyDrones();
     }
     // Ground and clouds cover exactly the visible view; their textures stay anchored to the world.
     // worldView trails a frame, so a margin covers fast pans and zooms.
