@@ -70,9 +70,18 @@ export function HeaderLinks({
   );
 }
 
-function PrChip({ pr, workspace }: { pr: PullRequest; workspace?: Workspace }) {
+function PrChip({
+  pr: reported,
+  workspace,
+}: {
+  pr: PullRequest;
+  workspace?: Workspace;
+}) {
+  const { queue, state } = useMergeQueue(workspace, reported);
+  // GitHub's current state wins over Paseo's, which can lag a merge.
+  const pr =
+    state && state !== reported.state ? { ...reported, state } : reported;
   const { label, Icon } = PR_STATE[pr.state] ?? PR_STATE.open;
-  const queue = useMergeQueue(workspace, pr);
   const open = pr.state === "open" || pr.state === "draft";
   // CI and the merge queue only matter while the PR is open; a mark is drawn
   // only for what is known (an absent field is unknown, never "passing").

@@ -184,7 +184,9 @@ const TTL = 60000;
 type Cached<T> = { at: number; value: Promise<T> };
 const prs = new Map<string, Cached<PullRequest | null>>();
 const issues = new Map<string, Cached<LinearIssue | null>>();
-const queues = new Map<string, Cached<MergeQueue | null>>();
+/** The queue answer, with the PR's state as GitHub has it now. */
+type QueueFound = { queue: MergeQueue | null; state?: PullRequest["state"] };
+const queues = new Map<string, Cached<QueueFound>>();
 export type LinearIssue = {
   key: string;
   title: string;
@@ -248,41 +250,51 @@ export function usePullRequest(workspace?: Workspace): PullRequest | null {
 /**
  * The PR's merge queue standing: Paseo's flags, with the entry's details
  * from the server (gh) when this machine can ask. Asked only for an open PR
- * Paseo reports as queued, or whose queue Paseo doesn't report.
+ * Paseo reports as queued, or whose queue Paseo doesn't report. The same
+ * answer carries the PR's current state, since Paseo's can lag behind a
+ * merge (a queued PR is the one most likely to have just merged).
  */
 export function useMergeQueue(
   workspace: Workspace | undefined,
   pr: PullRequest | null,
-): MergeQueue | undefined {
+): { queue?: MergeQueue; state?: PullRequest["state"] } {
   const known = pr?.queue;
   const ask =
     workspace && pr && live(pr) && (!known || known.queued)
       ? `${workspace.host ?? ""}|${workspace.workspaceId}|${pr.number}|${known?.queued ?? ""}`
       : "";
-  const [found, setFound] = useState<{
-    key: string;
-    queue: MergeQueue | null;
-  } | null>(null);
+  const [found, setFound] = useState<({ key: string } & QueueFound) | null>(
+    null,
+  );
   useEffect(() => {
     if (!ask || !workspace) return;
     let alive = true;
     const query = new URLSearchParams({ workspace: workspace.workspaceId });
     if (workspace.host) query.set("host", workspace.host);
     void cached(queues, ask, () =>
-      api<{ available?: boolean; queue?: MergeQueue | null }>(
-        `merge-queue?${query}`,
-      ).then(
-        (r) => (r?.available && r.queue ? r.queue : null),
-        () => null,
+      api<{
+        available?: boolean;
+        queue?: MergeQueue | null;
+        state?: PullRequest["state"];
+      }>(`merge-queue?${query}`).then(
+        (r): QueueFound =>
+          r?.available
+            ? { queue: r.queue ?? null, state: r.state }
+            : { queue: null },
+        (): QueueFound => ({ queue: null }),
       ),
-    ).then((queue) => alive && setFound({ key: ask, queue }));
+    ).then((r) => alive && setFound({ key: ask, ...r }));
     return () => {
       alive = false;
     };
     // The workspace is read through `ask`, which names everything it uses.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed by `ask`
   }, [ask]);
-  return (ask && found?.key === ask && found.queue) || known;
+  const mine = ask && found?.key === ask ? found : null;
+  return {
+    queue: mine?.queue || known,
+    state: mine?.state,
+  };
 }
 
 /** The issue's title and state, when the server has a Linear API key. */

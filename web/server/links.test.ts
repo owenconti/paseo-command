@@ -13,6 +13,7 @@ import {
   ghPr,
   prCoordinates,
   prFromRuntime,
+  prStateFromGraphql,
   queueFromGraphql,
   queueFromRuntime,
 } from "./links";
@@ -274,6 +275,21 @@ test("GitHub's merge queue entry is read in full", () => {
     null,
   );
   assert.equal(queueFromGraphql(null), null);
+});
+
+test("GitHub's current PR state, for when Paseo's lags a merge", () => {
+  const answer = (pr: Record<string, unknown> | null) => ({
+    data: { repository: { pullRequest: pr } },
+  });
+  assert.equal(prStateFromGraphql(answer({ state: "MERGED" })), "merged");
+  assert.equal(prStateFromGraphql(answer({ state: "CLOSED" })), "closed");
+  assert.equal(
+    prStateFromGraphql(answer({ state: "OPEN", isDraft: true })),
+    "draft",
+  );
+  assert.equal(prStateFromGraphql(answer({ state: "OPEN" })), "open");
+  assert.equal(prStateFromGraphql(answer({})), undefined);
+  assert.equal(prStateFromGraphql(answer(null)), undefined);
 });
 
 test("only github.com PR URLs are asked about", async () => {

@@ -265,6 +265,16 @@ export function queueFromGraphql(raw: unknown): MergeQueue | null {
   return out;
 }
 
+/** The PR's state in the same GraphQL answer; undefined when unknown. */
+export function prStateFromGraphql(raw: unknown): PrState | undefined {
+  const body = raw as {
+    data?: { repository?: { pullRequest?: Record<string, unknown> | null } };
+  } | null;
+  const pr = body?.data?.repository?.pullRequest;
+  if (!pr || typeof pr !== "object" || !str(pr.state)) return undefined;
+  return stateOf(pr.state, false, pr.isDraft === true);
+}
+
 /** The owner, repository and number of a github.com pull request URL. */
 export function prCoordinates(url: string) {
   const m =
@@ -410,13 +420,20 @@ export function ghPullRequest(
 const QUEUE_QUERY = `query PullRequestMergeQueue($owner: String!, $name: String!, $number: Int!) {
   repository(owner: $owner, name: $name) {
     pullRequest(number: $number) {
+      state
+      isDraft
       isMergeQueueEnabled
       isInMergeQueue
       mergeQueueEntry { state position estimatedTimeToMerge enqueuedAt }
     }
   }
 }`;
-export type QueueAnswer = { available: boolean; queue: MergeQueue | null };
+export type QueueAnswer = {
+  available: boolean;
+  queue: MergeQueue | null;
+  /** The PR's state as GitHub has it now, which Paseo's may lag behind. */
+  state?: PrState;
+};
 const queueCache = new Map<
   string,
   { at: number; value: Promise<QueueAnswer> }
@@ -453,7 +470,13 @@ export function ghMergeQueue(
   ]).then(
     (out): QueueAnswer => {
       try {
-        return { available: true, queue: queueFromGraphql(JSON.parse(out)) };
+        const raw = JSON.parse(out);
+        const state = prStateFromGraphql(raw);
+        return {
+          available: true,
+          queue: queueFromGraphql(raw),
+          ...(state && { state }),
+        };
       } catch {
         return { available: false, queue: null };
       }
