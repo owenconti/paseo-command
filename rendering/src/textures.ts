@@ -7,6 +7,8 @@ const BUILDING_FRAMES: Record<string, number[]> = {
   "cottage-slate": [65, 560, 455, 464],
   "cottage-brown": [600, 560, 430, 464],
   rocks: [1422, 852, 86, 71],
+  // The grove's flowering shrub, below the big tree (whose canopy ends at y 839).
+  shrub: [1104, 840, 140, 133],
 };
 export function registerFrames(scene: Phaser.Scene): void {
   for (const [name, rect] of Object.entries(BUILDING_FRAMES))

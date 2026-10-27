@@ -19,6 +19,9 @@ import {
   ROBOT_SIZE,
   structureCentre,
   STATE_TILE,
+  random,
+  seedOf,
+  type Axial,
   type State,
 } from "./world";
 import buildingsUrl from "./assets/buildings.png";
@@ -35,6 +38,11 @@ const LANDMARK_SCALE: Record<string, number> = {
 /** How far a cottage sits above its cell's centre. */
 /** Widest a cottage is drawn, across its workspace's three cells. */
 const COTTAGE_SIZE = 220;
+/** How far a cottage stands above the middle of its three cells. */
+const COTTAGE_LIFT = 12;
+/** How far a garden plant sits beyond its cell's centre, away from the cottage
+ * (as a share of the distance between them). */
+const GARDEN_OUT = 0.32;
 /** How far landmark art sits above the middle of its cells. */
 const LANDMARK_LIFT = 30;
 const LABEL_FONT = "Georgia, serif";
@@ -387,17 +395,40 @@ export class AtlasScene extends Phaser.Scene {
       );
       g.fillStyle(0x7b6340, 0.35).fillEllipse(at.x - 6, at.y + 7, 18, 6);
     } else {
-      const image = sprite(this, at.x, at.y, ws.art!, COTTAGE_SIZE).setDepth(16);
+      // Raised a little, so its porch and shrubs don't read as sitting low.
+      const y = at.y - COTTAGE_LIFT;
+      const image = sprite(this, at.x, y, ws.art!, COTTAGE_SIZE).setDepth(16);
       image.setScale(
-        fittedWidth(at.x, at.y, image.width / image.height, COTTAGE_SIZE, cells) /
+        fittedWidth(at.x, y, image.width / image.height, COTTAGE_SIZE, cells) /
           image.width,
       );
       image.setData("footprint", cells);
+      this.garden(ws, cells, at);
       if (ws.stale) image.setAlpha(0.6);
     }
     // No name plate: the workspace's name shows on hover.
     const area = cellBounds(cells);
     this.hit(ws, area.x + area.width / 2, area.y + area.height / 2, area.width, area.height, 29);
+  }
+  /** A tree and shrubs around a cottage: one in each of its workspace's
+   * cells, toward the cell's outer side, each kept inside its own cell. */
+  private garden(ws: Entity, cells: Axial[], middle: { x: number; y: number }): void {
+    const rng = random(seedOf(ws.id + "garden"));
+    const tree = Math.floor(rng() * cells.length);
+    cells.forEach((cell, i) => {
+      const c = point(cell);
+      const x = c.x + (c.x - middle.x) * GARDEN_OUT,
+        y = c.y + (c.y - middle.y) * GARDEN_OUT;
+      const frame = i === tree ? "trees" : "shrub";
+      const plant = sprite(this, x, y, frame, i === tree ? 56 : 38).setDepth(15.5);
+      plant.setScale(
+        Math.min(plant.displayWidth, fittedWidth(x, y, plant.width / plant.height, 60, [cell])) /
+          plant.width,
+      );
+      // Mirrored at random for variety; never rotated, so it stays inside its cell.
+      plant.setFlipX(rng() < 0.5);
+      if (ws.stale) plant.setAlpha(0.6);
+    });
   }
   /** Each agent's tile takes the colour of its state, so state reads at any
    * zoom; states that need you pulse. */
