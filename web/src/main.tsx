@@ -765,6 +765,13 @@ function App() {
       } else if (key === "d") {
         e.preventDefault();
         openDispatch();
+      } else if (
+        key === "t" &&
+        (selection?.type === "agent" || selection?.type === "workspace")
+      ) {
+        // A new agent in the open agent's (or workspace's) workspace.
+        e.preventDefault();
+        openDispatch();
       } else if (key === "j" || e.key === "ArrowDown") {
         e.preventDefault();
         step(1);

@@ -114,7 +114,7 @@ export function Session({
   onChanged: () => Promise<void> | void;
   /** Open a new draft in this agent's workspace (after archiving it). */
   onFreshDraft: (agent: Agent) => void;
-  /** Dispatch another agent into this agent's workspace (⌘N). */
+  /** Dispatch another agent into this agent's workspace (T). */
   onNewAgent: () => void;
   /** Open one of its subagents' conversations. */
   onOpenSubagent: (subagentId: string) => void;
@@ -512,9 +512,9 @@ export function Session({
           <span className="session-tools">
             <button
               className="icon-btn"
-              data-tip="New agent in this workspace (⌘N)"
+              data-tip="New agent in this workspace (T)"
               aria-label="New agent in this workspace"
-              aria-keyshortcuts="Meta+N"
+              aria-keyshortcuts="T"
               disabled={!online}
               onClick={onNewAgent}
             >
