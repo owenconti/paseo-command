@@ -75,7 +75,7 @@ function stateOf(state: unknown, merged: boolean, draft: boolean): PrState {
   const s = str(state).toLowerCase();
   if (merged || s === "merged") return "merged";
   if (s === "closed") return "closed";
-  return draft ? "draft" : "open";
+  return draft || s === "draft" ? "draft" : "open";
 }
 const clip = (s: string, n: number) => (s.length > n ? s.slice(0, n) : s);
 
@@ -315,7 +315,7 @@ export function prFromRuntime(
 
 // ── gh fallback ────────────────────────────────────────────────────────────
 export const GH = {
-  ttlMs: 60000,
+  ttlMs: 15000,
   timeoutMs: 10000,
   /** Where gh usually lives, for a helper started without a login PATH. */
   extraPath: ["/opt/homebrew/bin", "/usr/local/bin"],

@@ -3,8 +3,8 @@
  * issue (src/HeaderLinks.tsx draws them).
  *
  * - The PR is Paseo's (the workspace row's `pr`); when Paseo can't tell, the
- *   server asks `gh` (GET /api/pull-request). Answers are kept for a minute
- *   and never hold up the header.
+ *   server asks `gh` (GET /api/pull-request). PR lookups refresh every 15
+ *   seconds and never hold up the header.
  * - Its CI checks come with it. Its merge queue standing is Paseo's two flags
  *   (uses a queue, is in it); the entry's state and position are asked of
  *   the server (gh, GET /api/merge-queue) for checkouts on this machine.
@@ -181,6 +181,7 @@ export function openExternal(url: string) {
 
 // ── Lookups (cached, never blocking) ───────────────────────────────────────
 const TTL = 60000;
+const PR_REFRESH_MS = 15000;
 type Cached<T> = { at: number; value: Promise<T> };
 const prs = new Map<string, Cached<PullRequest | null>>();
 const issues = new Map<string, Cached<LinearIssue | null>>();
@@ -197,9 +198,10 @@ function cached<T>(
   map: Map<string, Cached<T>>,
   key: string,
   read: () => Promise<T>,
+  ttl = TTL,
 ) {
   const hit = map.get(key);
-  if (hit && Date.now() - hit.at < TTL) return hit.value;
+  if (hit && Date.now() - hit.at < ttl) return hit.value;
   const value = read();
   map.set(key, { at: Date.now(), value });
   return value;
@@ -231,14 +233,25 @@ export function usePullRequest(workspace?: Workspace): PullRequest | null {
     let live = true;
     const query = new URLSearchParams({ workspace: workspace.workspaceId });
     if (workspace.host) query.set("host", workspace.host);
-    void cached(prs, ask, () =>
-      api<{ pr?: PullRequest | null }>(`pull-request?${query}`).then(
-        (r) => r?.pr ?? null,
-        () => null,
-      ),
-    ).then((pr) => live && setFound({ key: ask, pr }));
+    const refresh = () => {
+      void cached(
+        prs,
+        ask,
+        () =>
+          api<{ pr?: PullRequest | null }>(`pull-request?${query}`).then(
+            (r) => r?.pr ?? null,
+            () => null,
+          ),
+        PR_REFRESH_MS,
+      ).then((pr) => live && setFound({ key: ask, pr }));
+    };
+    refresh();
+    const timer = window.setInterval(refresh, PR_REFRESH_MS);
+    window.addEventListener("focus", refresh);
     return () => {
       live = false;
+      window.clearInterval(timer);
+      window.removeEventListener("focus", refresh);
     };
     // The workspace is read through `ask`, which names everything it uses.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed by `ask`
@@ -248,11 +261,9 @@ export function usePullRequest(workspace?: Workspace): PullRequest | null {
 }
 
 /**
- * The PR's merge queue standing: Paseo's flags, with the entry's details
- * from the server (gh) when this machine can ask. Asked only for an open PR
- * Paseo reports as queued, or whose queue Paseo doesn't report. The same
- * answer carries the PR's current state, since Paseo's can lag behind a
- * merge (a queued PR is the one most likely to have just merged).
+ * Refresh the PR's state and queue together, even when Paseo reports it as
+ * unqueued, closed or merged. GitHub's answer wins; unavailable lookups
+ * fall back to the daemon. Keep polling while this header is mounted.
  */
 export function useMergeQueue(
   workspace: Workspace | undefined,
@@ -260,8 +271,8 @@ export function useMergeQueue(
 ): { queue?: MergeQueue; state?: PullRequest["state"] } {
   const known = pr?.queue;
   const ask =
-    workspace && pr && live(pr) && (!known || known.queued)
-      ? `${workspace.host ?? ""}|${workspace.workspaceId}|${pr.number}|${known?.queued ?? ""}`
+    workspace && pr
+      ? `${workspace.host ?? ""}|${workspace.workspaceId}|${pr.url}|${pr.state}|${known?.queued ?? ""}`
       : "";
   const [found, setFound] = useState<({ key: string } & QueueFound) | null>(
     null,
@@ -271,21 +282,32 @@ export function useMergeQueue(
     let alive = true;
     const query = new URLSearchParams({ workspace: workspace.workspaceId });
     if (workspace.host) query.set("host", workspace.host);
-    void cached(queues, ask, () =>
-      api<{
-        available?: boolean;
-        queue?: MergeQueue | null;
-        state?: PullRequest["state"];
-      }>(`merge-queue?${query}`).then(
-        (r): QueueFound =>
-          r?.available
-            ? { queue: r.queue ?? null, state: r.state }
-            : { queue: null },
-        (): QueueFound => ({ queue: null }),
-      ),
-    ).then((r) => alive && setFound({ key: ask, ...r }));
+    const refresh = () => {
+      void cached(
+        queues,
+        ask,
+        () =>
+          api<{
+            available?: boolean;
+            queue?: MergeQueue | null;
+            state?: PullRequest["state"];
+          }>(`merge-queue?${query}`).then(
+            (r): QueueFound =>
+              r?.available
+                ? { queue: r.queue ?? null, state: r.state }
+                : { queue: null },
+            (): QueueFound => ({ queue: null }),
+          ),
+        PR_REFRESH_MS,
+      ).then((r) => alive && setFound({ key: ask, ...r }));
+    };
+    refresh();
+    const timer = window.setInterval(refresh, PR_REFRESH_MS);
+    window.addEventListener("focus", refresh);
     return () => {
       alive = false;
+      window.clearInterval(timer);
+      window.removeEventListener("focus", refresh);
     };
     // The workspace is read through `ask`, which names everything it uses.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed by `ask`

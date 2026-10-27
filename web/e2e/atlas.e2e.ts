@@ -246,8 +246,8 @@ test("two workspaces sharing a checkout each list only their own agents", async 
 });
 
 test("the session header shows its PR's CI and merge queue standing", async () => {
-  // Paseo reports the PR, its checks and that it is queued; the queue's
-  // details come from the server's gh lookup (here answered in the browser).
+  // Paseo lags behind queue changes. GitHub status refreshes independently
+  // while the same header stays open, without any daemon update.
   const i = workspaces.findIndex((w) => w.workspaceId === "wks_c");
   const before = workspaces[i];
   workspaces[i] = {
@@ -265,7 +265,7 @@ test("the session header shows its PR's CI and merge queue standing", async () =
           { name: "build", status: "success" },
         ],
       },
-      queue: { enabled: true, queued: true },
+      queue: { enabled: true, queued: false },
     },
   } as typeof before;
   const asked: string[] = [];
@@ -275,6 +275,12 @@ test("the session header shows its PR's CI and merge queue standing", async () =
     page.on("request", (r) => {
       if (r.url().includes("/api/merge-queue")) asked.push(r.url());
     });
+    await page.clock.install();
+    const status = {
+      available: true,
+      state: "open",
+      queue: { enabled: true, queued: true, state: "awaiting_checks", position: 2 },
+    };
     await mockApi(page, {
       agents: () => agents,
       permissions: () => permissions,
@@ -282,15 +288,7 @@ test("the session header shows its PR's CI and merge queue standing", async () =
       projects: () => projects,
       workspaces: () => workspaces,
       lists: {
-        "merge-queue": {
-          available: true,
-          queue: {
-            enabled: true,
-            queued: true,
-            state: "awaiting_checks",
-            position: 2,
-          },
-        },
+        "merge-queue": status,
       },
     });
     await page.goto(app.url);
@@ -308,7 +306,7 @@ test("the session header shows its PR's CI and merge queue standing", async () =
     await page.locator(".session-title h2", { hasText: "Breaker" }).waitFor();
     const chip = page.locator(".pr-chip");
     await chip.locator(".pr-queue", { hasText: "2" }).waitFor();
-    assert.equal(await chip.locator(".link-chip-state").textContent(), "Queued");
+    assert.equal(await chip.locator(".link-chip-state").textContent(), "Queued for merge");
     assert.equal(await chip.locator(".pr-ci").getAttribute("data-ci"), "failing");
     assert.equal(
       await chip.getAttribute("data-tip"),
@@ -316,6 +314,29 @@ test("the session header shows its PR's CI and merge queue standing", async () =
     );
     assert.equal(asked.length, 1);
     assert.match(asked[0], /workspace=wks_c/);
+    // Exercise all five states and reopening against an unchanged daemon row.
+    // Checks and stale queue flags must never override draft/closed/merged.
+    for (const [state, queued, label] of [
+      ["closed", true, "Closed"],
+      ["draft", true, "Draft"],
+      ["open", false, "Open"],
+      ["open", true, "Queued for merge"],
+      ["merged", true, "Merged"],
+      ["open", false, "Open"],
+    ] as const) {
+      status.state = state;
+      status.queue.queued = queued;
+      await page.clock.fastForward(16000);
+      await waitFor(
+        () => chip.locator(".link-chip-state").textContent(),
+        (text) => text === label,
+        `PR badge to refresh to ${label}`,
+      );
+      assert.equal(await chip.getAttribute("data-state"), state);
+      assert.equal(await chip.locator(".pr-queue").count(), state === "open" && queued ? 1 : 0);
+      if (state === "closed" || state === "merged")
+        assert.equal(await chip.locator(".pr-ci").count(), 0);
+    }
     await context.close();
   } finally {
     workspaces[i] = before;

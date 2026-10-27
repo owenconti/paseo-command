@@ -86,7 +86,7 @@ function PrChip({
   // CI and the merge queue only matter while the PR is open; a mark is drawn
   // only for what is known (an absent field is unknown, never "passing").
   const ci = open && pr.ci && pr.ci.state !== "none" ? pr.ci.state : null;
-  const queued = open && queue?.queued ? queue : null;
+  const queued = pr.state === "open" && queue?.queued ? queue : null;
   return (
     <a
       className="link-chip pr-chip"
@@ -102,7 +102,9 @@ function PrChip({
     >
       <Icon size={11} aria-hidden="true" />
       <span>#{pr.number}</span>
-      <span className="link-chip-state">{queued ? "Queued" : label}</span>
+      <span className="link-chip-state">
+        {queued ? "Queued for merge" : label}
+      </span>
       {ci && <span className="pr-ci" data-ci={ci} aria-hidden="true" />}
       {queued && (
         <span className="pr-queue" data-queue={queued.state ?? "queued"}>
