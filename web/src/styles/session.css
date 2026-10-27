@@ -149,6 +149,35 @@
 .pr-chip[data-state]:hover {
   background: var(--fill-strong);
 }
+/* The PR head's CI rollup: a quiet dot (pending is a ring). */
+.pr-ci {
+  flex-shrink: 0;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--text-3);
+}
+.pr-ci[data-ci="passing"] {
+  background: var(--green);
+}
+.pr-ci[data-ci="failing"] {
+  background: var(--red);
+}
+.pr-ci[data-ci="pending"] {
+  background: transparent;
+  box-shadow: inset 0 0 0 1.5px var(--amber);
+}
+/* In a merge queue: its mark and position. */
+.pr-queue {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.85;
+}
+.pr-queue[data-queue="unmergeable"] {
+  color: var(--red-text);
+}
 .linear-chip svg {
   color: var(--unread);
 }

@@ -4,6 +4,7 @@ import {
   GitPullRequest,
   GitPullRequestClosed,
   GitPullRequestDraft,
+  ListOrdered,
 } from "lucide-react";
 import { placePopover } from "./popover";
 import {
@@ -11,9 +12,11 @@ import {
   linearSlug,
   linearUrl,
   openExternal,
+  prTip,
   setLinearWorkspace,
   useLinearIssue,
   useLinearWorkspace,
+  useMergeQueue,
   usePullRequest,
 } from "./links";
 import type { Agent, PullRequest, Workspace } from "./types";
@@ -61,14 +64,20 @@ export function HeaderLinks({
   });
   return (
     <>
-      {pr && <PrChip pr={pr} />}
+      {pr && <PrChip pr={pr} workspace={workspace} />}
       {key && <LinearChip issueKey={key} />}
     </>
   );
 }
 
-function PrChip({ pr }: { pr: PullRequest }) {
+function PrChip({ pr, workspace }: { pr: PullRequest; workspace?: Workspace }) {
   const { label, Icon } = PR_STATE[pr.state] ?? PR_STATE.open;
+  const queue = useMergeQueue(workspace, pr);
+  const open = pr.state === "open" || pr.state === "draft";
+  // CI and the merge queue only matter while the PR is open; a mark is drawn
+  // only for what is known (an absent field is unknown, never "passing").
+  const ci = open && pr.ci && pr.ci.state !== "none" ? pr.ci.state : null;
+  const queued = open && queue?.queued ? queue : null;
   return (
     <a
       className="link-chip pr-chip"
@@ -76,13 +85,20 @@ function PrChip({ pr }: { pr: PullRequest }) {
       href={pr.url}
       target="_blank"
       rel="noreferrer"
-      // The number stands for the PR; its title is the tooltip.
+      // The number stands for the PR; its title, CI and queue are the tooltip.
       data-summary
-      data-tip={pr.title || `Pull request #${pr.number}`}
+      data-tip={prTip(pr, queue)}
     >
       <Icon size={11} aria-hidden="true" />
       <span>#{pr.number}</span>
       <span className="link-chip-state">{label}</span>
+      {ci && <span className="pr-ci" data-ci={ci} aria-hidden="true" />}
+      {queued && (
+        <span className="pr-queue" data-queue={queued.state ?? "queued"}>
+          <ListOrdered size={10} aria-hidden="true" />
+          {queued.position ? <span>{queued.position}</span> : null}
+        </span>
+      )}
     </a>
   );
 }

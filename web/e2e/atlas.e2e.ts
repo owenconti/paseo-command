@@ -243,6 +243,82 @@ test("two workspaces sharing a checkout each list only their own agents", async 
   }
 });
 
+test("the session header shows its PR's CI and merge queue standing", async () => {
+  // Paseo reports the PR, its checks and that it is queued; the queue's
+  // details come from the server's gh lookup (here answered in the browser).
+  const i = workspaces.findIndex((w) => w.workspaceId === "wks_c");
+  const before = workspaces[i];
+  workspaces[i] = {
+    ...before,
+    branch: "feat/schema",
+    pr: {
+      number: 42,
+      title: "Tighten the schema",
+      state: "open",
+      url: "https://github.com/acme/api/pull/42",
+      ci: {
+        state: "failing",
+        checks: [
+          { name: "lint", status: "failure", url: "https://ci.example/1" },
+          { name: "build", status: "success" },
+        ],
+      },
+      queue: { enabled: true, queued: true },
+    },
+  } as typeof before;
+  const asked: string[] = [];
+  try {
+    const context = await newContext(browser);
+    const page = await context.newPage();
+    page.on("request", (r) => {
+      if (r.url().includes("/api/merge-queue")) asked.push(r.url());
+    });
+    await mockApi(page, {
+      agents: () => agents,
+      permissions: () => permissions,
+      hosts: () => hosts,
+      projects: () => projects,
+      workspaces: () => workspaces,
+      lists: {
+        "merge-queue": {
+          available: true,
+          queue: {
+            enabled: true,
+            queued: true,
+            state: "awaiting_checks",
+            position: 2,
+          },
+        },
+      },
+    });
+    await page.goto(app.url);
+    await waitFor(() => inspect(page), (i) => !!i?.agents?.length, "the Atlas", 30000);
+    await page.evaluate(
+      (key) =>
+        (window as any).paseoAtlas.scene.game.events.emit("atlas:pick", {
+          id: key,
+          kind: "agent",
+          name: "Breaker",
+          host: "",
+        }),
+      agentKey("a-failed"),
+    );
+    await page.locator(".session-title h2", { hasText: "Breaker" }).waitFor();
+    const chip = page.locator(".pr-chip");
+    await chip.locator(".pr-queue", { hasText: "2" }).waitFor();
+    assert.equal(await chip.locator(".pr-ci").getAttribute("data-ci"), "failing");
+    assert.equal(
+      await chip.getAttribute("data-tip"),
+      "Tighten the schema\nCheck failing: lint\nIn merge queue: position 2, awaiting checks",
+    );
+    assert.equal(asked.length, 1);
+    assert.match(asked[0], /workspace=wks_c/);
+    await context.close();
+  } finally {
+    workspaces[i] = before;
+  }
+});
+
 test("live changes redraw the world without a reload", async () => {
   const page = await open();
   await waitFor(() => inspect(page), (i) => !!i?.agents?.length, "the Atlas", 30000);

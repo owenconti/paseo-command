@@ -98,6 +98,31 @@ export type PullRequest = {
   url: string;
   /** From gh only (Paseo doesn't report it). */
   body?: string;
+  /** Its head's CI checks (Paseo's, else gh's); absent when unknown. */
+  ci?: PrCi;
+  /** Its merge queue standing; absent when unknown. */
+  queue?: MergeQueue;
+};
+export type PrCheck = {
+  name: string;
+  status: "success" | "failure" | "pending" | "skipped" | "cancelled";
+  url?: string;
+};
+export type PrCi = {
+  state: "passing" | "failing" | "pending" | "none";
+  /** Failing first, then pending; capped. */
+  checks: PrCheck[];
+};
+export type MergeQueue = {
+  /** The base branch merges through a merge queue. */
+  enabled: boolean;
+  /** The PR is in it. */
+  queued: boolean;
+  /** Entry details: from gh, on this machine's checkouts only. */
+  state?: "queued" | "awaiting_checks" | "mergeable" | "unmergeable" | "locked";
+  position?: number;
+  enqueuedAt?: string;
+  etaSeconds?: number;
 };
 export type Provider = {
   provider: string;

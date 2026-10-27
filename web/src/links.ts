@@ -5,6 +5,9 @@
  * - The PR is Paseo's (the workspace row's `pr`); when Paseo can't tell, the
  *   server asks `gh` (GET /api/pull-request). Answers are kept for a minute
  *   and never hold up the header.
+ * - Its CI checks come with it. Its merge queue standing is Paseo's two flags
+ *   (uses a queue, is in it); the entry's state and position are asked of
+ *   the server (gh, GET /api/merge-queue) for checkouts on this machine.
  * - The Linear key comes from the branch, else the PR's title or body, else
  *   the agent's title. Its link needs the Linear workspace's URL slug, a
  *   one-time setting kept with the app's other settings.
@@ -14,7 +17,7 @@ import { api, readStore, writeStore } from "./api";
 import { branchKey, textKey } from "./display";
 import { nativeRequest } from "./nativePlatform";
 import { nativeAvailable } from "./worldBridge";
-import type { PullRequest, Workspace } from "./types";
+import type { MergeQueue, PullRequest, Workspace } from "./types";
 
 // ── Pure parts (unit tested) ───────────────────────────────────────────────
 /** An https URL as given, or null (nothing else is ever opened). */
@@ -36,6 +39,76 @@ export function prShown(
 ): PullRequest | null {
   if (!pr || BASE.test((branch ?? "").trim())) return null;
   return safeUrl(pr.url) ? pr : null;
+}
+
+const live = (pr: PullRequest) => pr.state === "open" || pr.state === "draft";
+
+/** "lint, test +2 more": the first few names of a list. */
+function names(list: { name: string }[], n = 3) {
+  const shown = list.slice(0, n).map((c) => c.name);
+  return list.length > n
+    ? `${shown.join(", ")} +${list.length - n} more`
+    : shown.join(", ");
+}
+
+/** The CI line of a PR's tooltip; null when CI is unknown or moot. */
+export function ciSummary(pr: PullRequest): string | null {
+  const ci = pr.ci;
+  if (!ci || !live(pr)) return null;
+  const failing = ci.checks.filter((c) => c.status === "failure");
+  const pending = ci.checks.filter((c) => c.status === "pending");
+  switch (ci.state) {
+    case "failing":
+      return failing.length
+        ? `${failing.length === 1 ? "Check" : "Checks"} failing: ${names(failing)}`
+        : "Checks failing";
+    case "pending":
+      return pending.length
+        ? `${pending.length === 1 ? "Check" : "Checks"} pending: ${names(pending)}`
+        : "Checks pending";
+    case "passing":
+      return "Checks passing";
+    default:
+      return "No checks";
+  }
+}
+
+const QUEUE_STATE: Record<NonNullable<MergeQueue["state"]>, string> = {
+  queued: "waiting",
+  awaiting_checks: "awaiting checks",
+  mergeable: "ready to merge",
+  unmergeable: "unmergeable",
+  locked: "locked",
+};
+/** "about 5 min", "about 2 h", "under a minute". */
+function eta(seconds: number) {
+  if (seconds < 60) return "under a minute";
+  if (seconds < 3600) return `about ${Math.round(seconds / 60)} min`;
+  return `about ${Math.round(seconds / 360) / 10} h`;
+}
+/** The merge queue line of a PR's tooltip; null when unknown or moot. */
+export function queueSummary(pr: PullRequest, queue = pr.queue): string | null {
+  if (!queue || !live(pr) || !queue.enabled) return null;
+  if (!queue.queued) return "Merge queue required; not queued";
+  const parts = [
+    queue.position ? `position ${queue.position}` : "",
+    queue.state ? QUEUE_STATE[queue.state] : "",
+    queue.etaSeconds !== undefined ? `merges in ${eta(queue.etaSeconds)}` : "",
+  ].filter(Boolean);
+  return parts.length
+    ? `In merge queue: ${parts.join(", ")}`
+    : "In merge queue";
+}
+
+/** A PR chip's tooltip: its title, then its CI and merge queue lines. */
+export function prTip(pr: PullRequest, queue = pr.queue): string {
+  return [
+    pr.title || `Pull request #${pr.number}`,
+    ciSummary(pr),
+    queueSummary(pr, queue),
+  ]
+    .filter(Boolean)
+    .join("\n");
 }
 
 /** The Linear issue key: branch, then PR title and body, then agent title. */
@@ -111,6 +184,7 @@ const TTL = 60000;
 type Cached<T> = { at: number; value: Promise<T> };
 const prs = new Map<string, Cached<PullRequest | null>>();
 const issues = new Map<string, Cached<LinearIssue | null>>();
+const queues = new Map<string, Cached<MergeQueue | null>>();
 export type LinearIssue = {
   key: string;
   title: string;
@@ -132,6 +206,7 @@ function cached<T>(
 export function resetLinkCache() {
   prs.clear();
   issues.clear();
+  queues.clear();
 }
 
 /**
@@ -168,6 +243,46 @@ export function usePullRequest(workspace?: Workspace): PullRequest | null {
   }, [ask]);
   const pr = known !== undefined ? known : found?.key === ask ? found.pr : null;
   return prShown(pr, branch);
+}
+
+/**
+ * The PR's merge queue standing: Paseo's flags, with the entry's details
+ * from the server (gh) when this machine can ask. Asked only for an open PR
+ * Paseo reports as queued, or whose queue Paseo doesn't report.
+ */
+export function useMergeQueue(
+  workspace: Workspace | undefined,
+  pr: PullRequest | null,
+): MergeQueue | undefined {
+  const known = pr?.queue;
+  const ask =
+    workspace && pr && live(pr) && (!known || known.queued)
+      ? `${workspace.host ?? ""}|${workspace.workspaceId}|${pr.number}|${known?.queued ?? ""}`
+      : "";
+  const [found, setFound] = useState<{
+    key: string;
+    queue: MergeQueue | null;
+  } | null>(null);
+  useEffect(() => {
+    if (!ask || !workspace) return;
+    let alive = true;
+    const query = new URLSearchParams({ workspace: workspace.workspaceId });
+    if (workspace.host) query.set("host", workspace.host);
+    void cached(queues, ask, () =>
+      api<{ available?: boolean; queue?: MergeQueue | null }>(
+        `merge-queue?${query}`,
+      ).then(
+        (r) => (r?.available && r.queue ? r.queue : null),
+        () => null,
+      ),
+    ).then((queue) => alive && setFound({ key: ask, queue }));
+    return () => {
+      alive = false;
+    };
+    // The workspace is read through `ask`, which names everything it uses.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed by `ask`
+  }, [ask]);
+  return (ask && found?.key === ask && found.queue) || known;
 }
 
 /** The issue's title and state, when the server has a Linear API key. */
