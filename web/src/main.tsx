@@ -41,6 +41,7 @@ import { DispatchDialog, type DispatchTarget } from "./Dispatch";
 import {
   Fleet,
   FleetSummary,
+  FleetTools,
   useFleetView,
   type Filter,
   type Tab,
@@ -956,6 +957,14 @@ function App() {
             if (activeTarget) setBrowsing(false);
           }}
           onVisibility={setFloatingVisibility}
+          tools={
+            <FleetTools
+              usage={usage}
+              notifications={attention.notifications}
+              onNotifications={() => void attention.requestNotifications()}
+              sounds={<SoundControl />}
+            />
+          }
           attention={permissions.length}
           onAttention={() => {
             setTab("Agents");
@@ -969,15 +978,7 @@ function App() {
               data-browsing={browsing || !activeTarget}
             >
               <aside className="fleet-sidebar" aria-label="Fleet sidebar">
-                <FleetSummary
-                  onDispatch={() => openDispatch()}
-                  usage={usage}
-                  online={online}
-                  loading={loading}
-                  notifications={attention.notifications}
-                  onNotifications={() => void attention.requestNotifications()}
-                  sounds={<SoundControl />}
-                />
+                <FleetSummary onDispatch={() => openDispatch()} />
                 <Fleet
                   tab={tab}
                   setTab={setTab}

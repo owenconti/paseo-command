@@ -50,6 +50,8 @@ type Props = {
   onVisibility: (state: { compact: boolean; collapsed: boolean }) => void;
   attention: number;
   onAttention: () => void;
+  /** App-wide tools shown in the header (usage, sounds, notifications, theme). */
+  tools?: ReactNode;
 };
 const viewportWidth = () => window.visualViewport?.width || innerWidth;
 const STORAGE = "unity-sidebar";
@@ -241,6 +243,7 @@ export function FloatingPanel(props: Props) {
             {props.attention} need you
           </button>
         )}
+        {!state.collapsed && props.tools}
         {!state.collapsed && <CommitsButton />}
         {!state.collapsed && (
           <button

@@ -337,79 +337,74 @@ function hostTitle(h: Host) {
   return parts.join("\n");
 }
 
-export function FleetSummary({
+/** The panel header's tools: usage, sounds, desktop notifications, theme. */
+export function FleetTools({
   usage,
-  online,
-  loading,
   notifications,
   onNotifications,
-  onDispatch,
   sounds,
 }: {
   usage: UsageReport[];
-  online: boolean;
-  loading: boolean;
   notifications: string;
   onNotifications: () => void;
-  onDispatch: () => void;
   /** The interface sounds control, beside the notifications bell. */
   sounds?: ReactNode;
 }) {
   const theme = useTheme();
   return (
-    <section className="fleet-summary" aria-label="Fleet status">
-      <div className="summary-top">
-        <span className="brand">
-          <span
-            className={`dot ${loading ? "slate" : online ? "green pulse" : "red"}`}
-          />
-          <span className="brand-name">Paseo Command</span>
-        </span>
-        {usage.length > 0 && <UsageCard reports={usage} />}
-        {sounds}
-        {notifications !== "unsupported" && (
-          <button
-            className="icon-btn"
-            onClick={onNotifications}
-            disabled={notifications === "denied"}
-            data-tip={
-              notifications === "granted"
-                ? "Desktop notifications on — click to turn off"
-                : notifications === "off"
-                  ? "Desktop notifications off — click to turn on"
-                  : notifications === "denied"
-                    ? "Notifications are blocked in browser settings"
-                    : "Enable desktop notifications for finished agents and approvals"
-            }
-            aria-label="Desktop notifications"
-            aria-pressed={notifications === "granted"}
-          >
-            {notifications === "granted" ? (
-              <Bell size={14} />
-            ) : (
-              <BellOff size={14} />
-            )}
-          </button>
-        )}
+    <span className="panel-tools">
+      {usage.length > 0 && <UsageCard reports={usage} />}
+      {sounds}
+      {notifications !== "unsupported" && (
         <button
           className="icon-btn"
-          onClick={theme.cycle}
-          data-tip={`Theme: ${themeLabel[theme.worldMatched ? theme.resolved : theme.setting]}${!theme.worldMatched && theme.setting === "system" ? ` (${themeLabel[theme.resolved]})` : ""} — click or ⌘⌥T to cycle`}
-          aria-label={`Theme: ${themeLabel[theme.worldMatched ? theme.resolved : theme.setting]}`}
+          onClick={onNotifications}
+          disabled={notifications === "denied"}
+          data-tip={
+            notifications === "granted"
+              ? "Desktop notifications on — click to turn off"
+              : notifications === "off"
+                ? "Desktop notifications off — click to turn on"
+                : notifications === "denied"
+                  ? "Notifications are blocked in browser settings"
+                  : "Enable desktop notifications for finished agents and approvals"
+          }
+          aria-label="Desktop notifications"
+          aria-pressed={notifications === "granted"}
         >
-          {!theme.worldMatched && theme.setting === "system" ? (
-            <Monitor size={14} />
-          ) : theme.resolved === "lake-country" ? (
-            <Leaf size={14} />
-          ) : theme.resolved === "galaxy" ? (
-            <Orbit size={14} />
-          ) : theme.resolved === "dark" ? (
-            <Moon size={14} />
+          {notifications === "granted" ? (
+            <Bell size={14} />
           ) : (
-            <Sun size={14} />
+            <BellOff size={14} />
           )}
         </button>
-      </div>
+      )}
+      <button
+        className="icon-btn"
+        onClick={theme.cycle}
+        data-tip={`Theme: ${themeLabel[theme.worldMatched ? theme.resolved : theme.setting]}${!theme.worldMatched && theme.setting === "system" ? ` (${themeLabel[theme.resolved]})` : ""} — click or ⌘⌥T to cycle`}
+        aria-label={`Theme: ${themeLabel[theme.worldMatched ? theme.resolved : theme.setting]}`}
+      >
+        {!theme.worldMatched && theme.setting === "system" ? (
+          <Monitor size={14} />
+        ) : theme.resolved === "lake-country" ? (
+          <Leaf size={14} />
+        ) : theme.resolved === "galaxy" ? (
+          <Orbit size={14} />
+        ) : theme.resolved === "dark" ? (
+          <Moon size={14} />
+        ) : (
+          <Sun size={14} />
+        )}
+      </button>
+    </span>
+  );
+}
+
+/** The fleet list's head: dispatching a new agent. */
+export function FleetSummary({ onDispatch }: { onDispatch: () => void }) {
+  return (
+    <section className="fleet-summary" aria-label="Fleet status">
       <button
         className="primary dispatch-button summary-dispatch"
         onClick={onDispatch}

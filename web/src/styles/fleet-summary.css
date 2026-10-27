@@ -18,26 +18,6 @@
     height: var(--control-lg);
   }
 }
-.summary-top {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  min-height: var(--control-sm);
-}
-.summary-top .brand {
-  display: flex;
-  align-items: center;
-  min-height: var(--control-sm);
-  gap: var(--space-2);
-  flex-shrink: 0;
-  white-space: nowrap;
-  font-size: var(--fs-md);
-  font-weight: var(--fw-bold);
-  letter-spacing: -0.01em;
-  color: var(--text-strong);
-  /* Usage, notifications and theme sit at the far end. */
-  margin-right: auto;
-}
 .usage-card {
   display: flex;
   align-items: center;
