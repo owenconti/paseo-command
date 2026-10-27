@@ -374,12 +374,15 @@ export function FleetSummary({
             disabled={notifications === "denied"}
             data-tip={
               notifications === "granted"
-                ? "Desktop notifications on"
-                : notifications === "denied"
-                  ? "Notifications are blocked in browser settings"
-                  : "Enable desktop notifications for finished agents and approvals"
+                ? "Desktop notifications on — click to turn off"
+                : notifications === "off"
+                  ? "Desktop notifications off — click to turn on"
+                  : notifications === "denied"
+                    ? "Notifications are blocked in browser settings"
+                    : "Enable desktop notifications for finished agents and approvals"
             }
             aria-label="Desktop notifications"
+            aria-pressed={notifications === "granted"}
           >
             {notifications === "granted" ? (
               <Bell size={14} />

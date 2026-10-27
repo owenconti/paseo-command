@@ -30,6 +30,9 @@ import { hostQuery, isArchived, isFailed, isRunning } from "./types";
 import { agentName, currentName } from "./names";
 
 const supported = notificationsSupported();
+/** Desktop notifications turned off with the bell, for every tab. */
+const MUTED_KEY = "desktop-notifications-off";
+const mutedNotifications = () => readStore<boolean>(MUTED_KEY, false) === true;
 const PREFIX = "paseo-command:";
 const KEY = {
   finished: "attention:finished",
@@ -122,6 +125,9 @@ export function useAttention(
   const [permission, setPermission] = useState<
     NotificationPermission | "unsupported"
   >(supported ? notificationPermission() : "unsupported");
+  // Turned off in the app (a page can't revoke the browser's permission).
+  // Read afresh when delivering, since another tab may have changed it.
+  const [muted, setMuted] = useState(mutedNotifications);
   const activateRef = useRef(activate);
   activateRef.current = activate;
   const viewingRef = useRef(viewing);
@@ -252,7 +258,8 @@ export function useAttention(
         (mergeStamps(seenRef.current, readSeen())[ev.agentId] ?? -Infinity) >=
           ev.turn,
       deliver: (ev) => {
-        if (!supported || notificationPermission() !== "granted") return;
+        if (!supported || notificationPermission() !== "granted" || mutedNotifications())
+          return;
         showNotification(
           ev.title,
           ev.body,
@@ -295,7 +302,7 @@ export function useAttention(
   }, [viewing]);
 
   const announce = useCallback((ev: AttentionEvent) => {
-    if (supported && notificationPermission() === "granted")
+    if (supported && notificationPermission() === "granted" && !mutedNotifications())
       void notifier.current?.announce(ev);
   }, []);
 
@@ -615,15 +622,33 @@ export function useAttention(
     },
     [record],
   );
+  /** The bell: asks for permission first, then turns notifications on and off. */
   const requestNotifications = useCallback(async () => {
     if (!supported) return;
-    setPermission(await requestNotificationPermission());
+    const current = notificationPermission();
+    if (current === "granted") {
+      const next = !mutedNotifications();
+      writeStore(MUTED_KEY, next);
+      setMuted(next);
+      return;
+    }
+    const granted = await requestNotificationPermission();
+    setPermission(granted);
+    if (granted === "granted") {
+      writeStore(MUTED_KEY, false);
+      setMuted(false);
+    }
+  }, []);
+  useEffect(() => {
+    const sync = () => setMuted(mutedNotifications());
+    document.addEventListener("visibilitychange", sync);
+    return () => document.removeEventListener("visibilitychange", sync);
   }, []);
   return {
     unread,
     finishedAt,
     markSeen,
-    notifications: permission,
+    notifications: permission === "granted" && muted ? ("off" as const) : permission,
     requestNotifications,
   };
 }
