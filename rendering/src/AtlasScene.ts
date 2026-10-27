@@ -379,7 +379,7 @@ export class AtlasScene extends Phaser.Scene {
     this.hoveredId = id;
     this.hover.clear();
     const entity = id ? this.entity(id) : undefined;
-    if (entity) this.outlineCells(this.hover, entity, 8, HOVER_COLOR[entity.kind]);
+    if (entity) this.outlineCells(this.hover, entity, 4, HOVER_COLOR[entity.kind]);
     this.game.events.emit(
       "atlas:hover",
       entity ?? null,
