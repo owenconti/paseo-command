@@ -16,6 +16,12 @@ import {
 import { workingOn } from "../workingOn";
 import { draftGet } from "./drafts";
 import {
+  addProject,
+  cloneProject,
+  createProjectFolder,
+  foldersGet,
+} from "./projects";
+import {
   FANOUT_KEYS,
   agentCommand,
   dispatchRoute,
@@ -137,6 +143,9 @@ export async function handleApi(
             break;
           case "linear-issue":
             result = await linearIssueFor(url.searchParams.get("key"));
+            break;
+          case "folders":
+            result = await foldersGet(url);
             break;
           case "workspace-labels": {
             const host = await resolveHost(url.searchParams.get("host"));
@@ -262,6 +271,13 @@ export async function handleApi(
       try {
         if (parts[0] === "dispatch" && parts.length === 1)
           result = await dispatchRoute(body, mark);
+        else if (parts[0] === "projects" && parts.length === 2) {
+          if (parts[1] === "add") result = await addProject(body, mark);
+          else if (parts[1] === "create-folder")
+            result = await createProjectFolder(body, mark);
+          else if (parts[1] === "clone") result = await cloneProject(body, mark);
+          else return reply(404, { error: "Unknown endpoint" });
+        }
         else if (
           parts[0] === "workspaces" &&
           parts.length === 3 &&

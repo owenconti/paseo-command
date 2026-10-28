@@ -86,6 +86,9 @@ export class FakeDaemon {
   /** The workspace label catalog: `{ name, color }`. */
   workspaceLabels: { name: string; color: string }[] = [];
   projects = new Map<string, any>();
+  /** The host's folders (absolute paths), for browsing and adding projects. */
+  home = "/home/review";
+  folders = new Set(["/", "/home", "/home/review", "/home/review/code"]);
   /** The local daemon's host registry (remote hosts it knows). */
   registry: any[] = [];
   timelines = new Map<string, any[]>();
@@ -1260,7 +1263,43 @@ export class FakeClient {
   }
   async getDirectorySuggestions(o: any) {
     await this.gate("getDirectorySuggestions", o);
+    if (o?.query === "~/") {
+      const home = this.daemon.home;
+      const paths = [...this.daemon.folders].filter(
+        (f) => f.startsWith(`${home}/`) && !f.slice(home.length + 1).includes("/"),
+      );
+      return {
+        directories: paths,
+        entries: paths.map((path) => ({ path, kind: "directory" })),
+      };
+    }
     return { entries: [{ path: "src/a.ts", kind: "file" }] };
+  }
+  /** As the daemon's file explorer: `path` (absolute here) under `cwd`. */
+  async listDirectory(cwd: string, path: string) {
+    await this.gate("listDirectory", cwd, path);
+    const dir = path.startsWith("/") ? path : `${cwd}/${path}`;
+    if (!this.daemon.folders.has(dir))
+      throw new Error(`ENOENT: no such file or directory, stat '${dir}'`);
+    const prefix = dir === "/" ? "/" : `${dir}/`;
+    return {
+      path: dir.slice(1),
+      entries: [...this.daemon.folders]
+        .filter(
+          (f) =>
+            f !== "/" && f.startsWith(prefix) && !f.slice(prefix.length).includes("/"),
+        )
+        .map((f) => ({
+          name: f.slice(prefix.length),
+          path: f.slice(1),
+          kind: "directory",
+          size: 0,
+          modifiedAt: iso(),
+        }))
+        .concat([
+          { name: "notes.txt", path: `${prefix.slice(1)}notes.txt`, kind: "file", size: 1, modifiedAt: iso() },
+        ]),
+    };
   }
   async searchGitHub(o: any) {
     await this.gate("searchGitHub", o);
@@ -1357,6 +1396,63 @@ export class FakeClient {
       ),
     });
     return { agentId, requestId };
+  }
+  /** Register a folder, as the daemon's project.add. */
+  private register(path: string) {
+    const known = [...this.daemon.projects.values()].find(
+      (p) => p.projectRootPath === path,
+    );
+    if (known) return known;
+    const name = path.split("/").pop() || path;
+    return this.daemon.addProject({ projectId: `prj_${++ids}`, path, name });
+  }
+  async addProject(cwd: string) {
+    await this.gate("addProject", cwd);
+    if (!this.daemon.folders.has(cwd))
+      return {
+        project: null,
+        error: `Directory not found: ${cwd}`,
+        errorCode: "directory_not_found",
+      };
+    return { project: this.register(cwd), error: null, errorCode: null };
+  }
+  async createProjectDirectory(input: { parentPath: string; name: string }) {
+    await this.gate("createProjectDirectory", input);
+    const fail = (error: string, errorCode: string) => ({
+      directoryPath: null,
+      project: null,
+      error,
+      errorCode,
+    });
+    if (!this.daemon.folders.has(input.parentPath))
+      return fail("Parent directory not found", "parent_directory_not_found");
+    const path = `${input.parentPath === "/" ? "" : input.parentPath}/${input.name}`;
+    if (this.daemon.folders.has(path))
+      return fail("A directory with that name already exists", "directory_exists");
+    this.daemon.folders.add(path);
+    return {
+      directoryPath: path,
+      project: this.register(path),
+      error: null,
+      errorCode: null,
+    };
+  }
+  async cloneGithubProject(input: { repo: string; targetDirectory: string }) {
+    await this.gate("cloneGithubProject", input);
+    const name = input.repo
+      .replace(/\.git$/, "")
+      .split("/")
+      .pop();
+    const path = `${input.targetDirectory}/${name}`;
+    if (!this.daemon.folders.has(input.targetDirectory) || this.daemon.folders.has(path))
+      return {
+        repo: input.repo,
+        checkoutPath: null,
+        project: null,
+        error: `git clone failed: destination path '${name}' already exists`,
+      };
+    this.daemon.folders.add(path);
+    return { repo: input.repo, checkoutPath: path, project: this.register(path), error: null };
   }
   async createWorkspace(input: any) {
     await this.gate("createWorkspace", input);

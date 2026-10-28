@@ -47,6 +47,7 @@ import {
   usePullRequest,
 } from "./links";
 import { NewAgent, type DispatchTarget } from "./Dispatch";
+import { AddProject } from "./AddProject";
 import {
   Fleet,
   FleetSummary,
@@ -244,6 +245,7 @@ function App() {
   const [errors, setErrors] = useState<string[]>([]),
     [loading, setLoading] = useState(true),
     [dispatchTarget, setDispatchTarget] = useState<DispatchTarget | null>(null),
+    [addingProject, setAddingProject] = useState(false),
     [busy, setBusy] = useState(false),
     [notice, setNotice] = useState("");
   const [archiveWorkspace, setArchiveWorkspace] = useState<Workspace | null>(
@@ -433,6 +435,7 @@ function App() {
     setBrowsing(!s);
     // Choosing anything leaves a new agent unstarted (its draft is kept).
     setDispatchTarget(null);
+    setAddingProject(false);
   }, []);
   const selected = useRef<Selection>(null);
   selected.current = selection;
@@ -690,7 +693,9 @@ function App() {
   const online = health?.connectedDaemon === "reachable";
   // One detail view at a time: the selection is the active detail.
   const activeTarget = selection;
-  const activeKey = dispatchTarget
+  const activeKey = addingProject
+    ? "add-project"
+    : dispatchTarget
     ? "new-agent"
     : activeTarget
       ? `${activeTarget.type}:${activeTarget.id}`
@@ -715,6 +720,7 @@ function App() {
     (target?: DispatchTarget) => {
       // The New agent view opens in the panel, in place of the conversation.
       setDispatchRevision((revision) => revision + 1);
+      setAddingProject(false);
       setBrowsing(false);
       setFocusRevision((revision) => revision + 1);
       if (target) return setDispatchTarget(target);
@@ -776,7 +782,12 @@ function App() {
         return;
       }
       if (editing || e.metaKey || e.ctrlKey || e.altKey) return;
-      // Escape leaves a new agent unstarted, back to what was open.
+      // Escape leaves a new agent (or project) unstarted, back to what was open.
+      if (addingProject && e.key === "Escape") {
+        setAddingProject(false);
+        setBrowsing(!selection);
+        return;
+      }
       if (dispatchTarget && e.key === "Escape") {
         setDispatchTarget(null);
         setBrowsing(!selection);
@@ -848,6 +859,7 @@ function App() {
   }, [
     archiveWorkspace,
     dispatchTarget,
+    addingProject,
     selection,
     select,
     step,
@@ -1004,13 +1016,15 @@ function App() {
           enabled={unity}
           activeKey={activeKey}
           activeLabel={
-            dispatchTarget
+            addingProject
+              ? "Add project"
+              : dispatchTarget
               ? "New agent"
               : activeTarget
                 ? detailLabel(activeTarget)
                 : "Active session"
           }
-          hasActive={!!activeTarget || !!dispatchTarget}
+          hasActive={!!activeTarget || !!dispatchTarget || addingProject}
           openRevision={focusRevision}
           revealRevision={revealRevision}
           browsing={browsing}
@@ -1040,7 +1054,9 @@ function App() {
           <AppPanel>
             <div
               className="app-workspace"
-              data-browsing={browsing || (!activeTarget && !dispatchTarget)}
+              data-browsing={
+                browsing || (!activeTarget && !dispatchTarget && !addingProject)
+              }
             >
               <aside className="fleet-sidebar" aria-label="Fleet sidebar">
                 <FleetSummary onDispatch={() => openDispatch()} />
@@ -1072,6 +1088,11 @@ function App() {
                   onArchiveWorkspace={openArchive}
                   archiving={archiving}
                   onDispatch={openDispatch}
+                  onAddProject={() => {
+                    setAddingProject(true);
+                    setBrowsing(false);
+                    setFocusRevision((revision) => revision + 1);
+                  }}
                   workspaceOf={workspaceOf}
                   projectOf={projectOf}
                   counts={filterCounts}
@@ -1086,7 +1107,25 @@ function App() {
                 aria-label="Open conversations"
               >
                 <div className="detail-content" id="detail-panel">
-                  {dispatchTarget ? (
+                  {addingProject ? (
+                    <AddProject
+                      hosts={hosts}
+                      projects={projects}
+                      initialHost={hostFilter}
+                      online={online}
+                      onClose={() => {
+                        setAddingProject(false);
+                        setBrowsing(!selection);
+                      }}
+                      onNotice={setNotice}
+                      onAdded={async (projectId, host) => {
+                        await refresh();
+                        // A new project has no workspace (so no place on the
+                        // map): its first agent makes one.
+                        openDispatch({ projectId: projectKey({ projectId, host }) });
+                      }}
+                    />
+                  ) : dispatchTarget ? (
                     <NewAgent
                       key={`dispatch-${dispatchRevision}`}
                       projects={projects}
