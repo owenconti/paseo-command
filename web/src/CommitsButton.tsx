@@ -10,10 +10,11 @@ import {
 import { GitCommitHorizontal } from "lucide-react";
 import { ago } from "./api";
 import { newSince, useMainCommits, type MainCommit } from "./commits";
-import { copyText } from "./nativePlatform";
 
 const WIDTH = 400;
 const MARGIN = 8;
+/** Where main's commits are viewed on GitHub. */
+const REPO_URL = "https://github.com/owenconti/paseo-cc-ui";
 
 /**
  * The panel header's "Commits on main": Paseo Command's own main, newest
@@ -152,30 +153,21 @@ function CommitRow({ commit, fresh }: { commit: MainCommit; fresh: boolean }) {
 }
 
 function Meta({ commit, fresh }: { commit: MainCommit; fresh?: boolean }) {
-  const [copied, setCopied] = useState(false);
   const short = commit.sha.slice(0, 7);
   return (
     <span className="commit-meta">
       {fresh && <span className="commit-new">New</span>}
       <time dateTime={commit.date}>{ago(commit.date)}</time>
       <span className="commit-author">{commit.author}</span>
-      <button
-        type="button"
+      <a
         className="commit-sha"
-        aria-label={copied ? `Copied ${short}` : `Copy ${short}`}
-        onClick={(e) => {
-          e.stopPropagation();
-          void copyText(commit.sha).then(
-            () => {
-              setCopied(true);
-              setTimeout(() => setCopied(false), 1200);
-            },
-            () => {},
-          );
-        }}
+        href={`${REPO_URL}/commit/${commit.sha}`}
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label={`Open ${short} on GitHub`}
       >
-        {copied ? "Copied" : short}
-      </button>
+        {short}
+      </a>
     </span>
   );
 }
