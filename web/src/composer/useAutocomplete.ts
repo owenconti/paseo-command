@@ -22,10 +22,10 @@ const CLIENT_COMMANDS: Command[] = [
     argumentHint: "",
     kind: "client",
   },
-  // An alias, for hands used to other agents' /clear.
   {
     name: "clear",
-    description: "same as /new",
+    description:
+      "Archive this agent and start an empty conversation with its settings",
     argumentHint: "",
     kind: "client",
   },

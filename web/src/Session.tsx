@@ -78,6 +78,7 @@ import {
 } from "./activeAgents";
 import { SubagentsControl } from "./Subagents";
 import { HeaderLinks } from "./HeaderLinks";
+import type { DraftSettings } from "./Dispatch";
 
 /** `seen`: how many matching prompts the timeline already had when this one was sent. */
 type Pending = { text: string; images: string[]; at: number; seen: number };
@@ -89,7 +90,8 @@ const sameMessage = (logged: string, sent: string) => {
     b = sent.trim().slice(0, 60);
   return Boolean(a) && (a.startsWith(b) || b.startsWith(a));
 };
-type Confirm = "archive" | "fresh" | null;
+/** "clear" is "fresh" keeping the agent's settings. */
+type Confirm = "archive" | "fresh" | "clear" | null;
 
 export function Session({
   workingOn,
@@ -116,7 +118,7 @@ export function Session({
   onNotice: (message: string) => void;
   onChanged: () => Promise<void> | void;
   /** Open a new draft in this agent's workspace (after archiving it). */
-  onFreshDraft: (agent: Agent) => void;
+  onFreshDraft: (agent: Agent, settings?: DraftSettings) => void;
   /** Dispatch another agent into this agent's workspace (D). */
   onNewAgent: () => void;
   /** Open one of its subagents' conversations. */
@@ -414,13 +416,21 @@ export function Session({
     () => userTexts.filter((t) => t.trim()).slice(-50),
     [userTexts],
   );
-  const archiveNow = async (fresh: boolean) => {
+  const archiveNow = async (next: Confirm) => {
+    // Read before archiving: the detail may change once it is archived.
+    const settings: DraftSettings = {
+      provider: detail?.Provider || agent.provider,
+      model: detail?.Model || undefined,
+      thinking: detail?.Thinking ?? agent.thinking,
+      mode: detail?.Mode || undefined,
+    };
     const ok = await command(
       "archive",
       { confirm: true },
       `Archived “${agentName(agent, workspace?.branch)}”`,
     );
-    if (ok && fresh) onFreshDraft(agent);
+    if (ok && next === "fresh") onFreshDraft(agent);
+    if (ok && next === "clear") onFreshDraft(agent, settings);
   };
 
   // Its settings are offered only while it has no turn. Until the timeline
@@ -629,9 +639,11 @@ export function Session({
               exit={{ opacity: 0, height: 0, transition: { duration: 0.12 } }}
             >
               <p>
-                {confirm === "fresh"
-                  ? "Archive this agent and start a fresh draft in the same workspace?"
-                  : "Archive this agent? It leaves the active fleet; its workspace and files are untouched."}
+                {confirm === "clear"
+                  ? "Archive this agent and start an empty conversation in the same workspace, with the same provider, model, thinking and mode?"
+                  : confirm === "fresh"
+                    ? "Archive this agent and start a fresh draft in the same workspace?"
+                    : "Archive this agent? It leaves the active fleet; its workspace and files are untouched."}
               </p>
               <div>
                 <button
@@ -644,22 +656,26 @@ export function Session({
                 </button>
                 <button
                   aria-description={
-                    confirm === "fresh"
-                      ? "Archive this agent, then start a new draft in its workspace"
-                      : "Archive this agent; its workspace and files are kept"
+                    confirm === "clear"
+                      ? "Archive this agent, then start an empty conversation with its settings"
+                      : confirm === "fresh"
+                        ? "Archive this agent, then start a new draft in its workspace"
+                        : "Archive this agent; its workspace and files are kept"
                   }
                   className="danger"
                   disabled={!!busy}
-                  onClick={() => void archiveNow(confirm === "fresh")}
+                  onClick={() => void archiveNow(confirm)}
                 >
                   {busy ? (
                     <LoaderCircle size={13} className="spinning" />
                   ) : (
                     <Archive size={13} />
                   )}
-                  {confirm === "fresh"
-                    ? "Archive and start fresh"
-                    : "Archive agent"}
+                  {confirm === "clear"
+                    ? "Archive and clear"
+                    : confirm === "fresh"
+                      ? "Archive and start fresh"
+                      : "Archive agent"}
                 </button>
               </div>
             </PresenceDiv>
@@ -729,10 +745,10 @@ export function Session({
               ? onNotice("Stop the agent before archiving it.")
               : setConfirm("archive")
           }
-          onFreshDraft={() =>
+          onFreshDraft={(keepSettings) =>
             running
               ? onNotice("Stop the agent before archiving it.")
-              : setConfirm("fresh")
+              : setConfirm(keepSettings ? "clear" : "fresh")
           }
           promptHistory={promptHistory}
           dropFiles={drop}

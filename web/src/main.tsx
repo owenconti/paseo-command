@@ -1091,17 +1091,18 @@ function App() {
                       }}
                       onNotice={setNotice}
                       onChanged={refresh}
-                      onFreshDraft={(a) => {
+                      onFreshDraft={(a, settings) => {
                         const ws = workspaceOf(a);
                         const p = projectOf(a);
                         select(null);
-                        openDispatch(
-                          ws && realWorkspaceIds.has(workspaceKey(ws))
+                        openDispatch({
+                          ...(ws && realWorkspaceIds.has(workspaceKey(ws))
                             ? { workspaceId: workspaceKey(ws) }
                             : p
                               ? { projectId: projectKey(p) }
-                              : {},
-                        );
+                              : {}),
+                          settings,
+                        });
                       }}
                       onNewAgent={() => openDispatch()}
                       onOpenSubagent={(id) =>

@@ -96,7 +96,9 @@ export function Composer({
   onCancel: () => Promise<void>;
   onNotice: (message: string) => void;
   onArchive: () => void;
-  onFreshDraft: () => void;
+  /** Archive and start a new draft; `keepSettings` carries over the
+   *  agent's provider, model, thinking and mode (/clear). */
+  onFreshDraft: (keepSettings?: boolean) => void;
   promptHistory: string[];
   /** Files dropped anywhere on the session panel. */
   dropFiles: { files: File[]; at: number } | null;
@@ -175,7 +177,7 @@ export function Composer({
     if ("command" in m && m.command?.kind === "client") {
       setText("");
       if (m.command.name === "archive") onArchive();
-      else onFreshDraft();
+      else onFreshDraft(m.command.name === "clear");
       return;
     }
     const insert =

@@ -12,8 +12,19 @@ import { hostText, placeText } from "./names";
 /** As many images as the daemon takes with a prompt. */
 const MAX_IMAGES = 10;
 
+/** A draft's agent settings, carried over from an agent being cleared. */
+export type DraftSettings = {
+  provider: string;
+  model?: string;
+  thinking?: string;
+  mode?: string;
+};
 /** Host-qualified keys (`projectKey`, `workspaceKey`): IDs repeat across hosts. */
-export type DispatchTarget = { projectId?: string; workspaceId?: string };
+export type DispatchTarget = {
+  projectId?: string;
+  workspaceId?: string;
+  settings?: DraftSettings;
+};
 type Prefs = {
   target?: string;
   provider?: string;
@@ -160,9 +171,12 @@ export function NewAgent({
     // A place on another host can't be kept.
     if (!targetOn(target, key)) setTarget(firstTarget(key));
   };
+  const settings = initial.settings;
   const [provider, setProvider] = useState(
     providers.find(
-      (p) => p.status === "available" && p.provider === prefs.provider,
+      (p) =>
+        p.status === "available" &&
+        p.provider === (settings?.provider || prefs.provider),
     )?.provider ||
       providers.find((p) => p.status === "available")?.provider ||
       "",
@@ -217,7 +231,10 @@ export function NewAgent({
       );
   }, [available, provider, prefs.provider]);
   useEffect(() => {
-    const r = readStore<Prefs>("dispatch", {}).byProvider?.[provider] || {};
+    const r =
+      settings?.provider === provider
+        ? settings
+        : readStore<Prefs>("dispatch", {}).byProvider?.[provider] || {};
     setModel(r.model || "");
     setThinking(r.thinking || "");
     setMode(r.mode || bypassMode(provider));
