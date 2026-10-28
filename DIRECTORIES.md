@@ -2,8 +2,8 @@
 
 The current app is `/Users/example/development/paseo-command`, on local `main`.
 It contains the SpriteKit native app (`native/`), React panels and API (`web/`),
-shared Atlas layout and art (`rendering/`), and the cached Phaser prototype
-(`game/` and ignored `phaser/`). The prototype is retained but is not used by the app.
+shared Atlas layout and art (`rendering/`). The cached Phaser prototype (`game/`),
+engine (`phaser/`) and generated prototype build (`dist/`) were removed at the user’s request.
 
 ## Linked worktrees
 
@@ -43,11 +43,9 @@ Historical worktrees in `archive/legacy-app/worktrees/` remain with their archiv
 
 ## Compatibility and running app
 
-`/Users/example/development/paseo-cc-phaser-ae` is a symlink to this directory,
-not another copy. It preserves existing sessions and the running native app's
-cached executable/server paths. Keep it until those sessions have ended and
-the native app has loaded the new build via ⌘R. New work should use the canonical path.
-The old app's files are in `archive/legacy-app`; its former pathname now belongs
+`/Users/example/development/paseo-cc-phaser-ae`, the former compatibility symlink,
+was removed at the user’s request. Use the canonical `paseo-command` path.
+The old app's files are in `archive/legacy-app`; `paseo-command` now belongs
 to the SpriteKit app. Historical documents may still describe the original paths.
 
 Build and update locally from the main checkout with `npm run app:update`.

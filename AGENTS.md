@@ -5,7 +5,7 @@
 - Work locally. Do not publish, upload, stream build-room events, or send this project to phaser.io.
 - Do not sign in to Phaser AE, reconnect an online project, reinstall its skill, or start its room streamer.
 - The Phaser AE account was disconnected and its installed skill removed at the user’s request.
-- Cached engine files under `phaser/` and `game/node_modules/` remain available for local builds. Do not edit the engine.
+- The cached Phaser prototype and engine were removed at the user’s request. Do not restore them.
 - The current SpriteKit app lives at `/Users/example/development/paseo-command`. The original app is preserved read only in `archive/legacy-app/`. Preserve the inherited React UI.
 - When you need to ask the user a question, use the ask-question tool (`AskUserQuestion`) rather than asking in plain text.
 - Anything you ask the user to review, such as a plan, description or summary, must be in your visible reply,
@@ -20,8 +20,8 @@
 - `archive/` and `.paseo-command/` contain preserved history/assets and runtime data;
   do not stage them into the app repository.
 - `archive/legacy-app/` owns its own historical worktrees in its `worktrees/` folder.
-- The old `paseo-cc-phaser-ae` path is a compatibility symlink for the running app
-  and existing sessions. Use `paseo-command` for all new work.
+- The old `paseo-cc-phaser-ae` compatibility symlink was removed at the user’s request.
+  Use `paseo-command` for all work.
 - See `DIRECTORIES.md` for the folder inventory and relocation notes.
 
 ## Product and references
@@ -77,9 +77,8 @@ Keep this workflow local; do not push or publish.
   Launch it with `open -g` and `--background` for checks; it must never take the user's focus.
 - `npm run render:test`: layout and tile tests.
 
-The earlier cached Phaser AE prototype in `game/` (with `npm run build`, `smoke`, `play`, `serve`)
-is no longer used by the app. Any publishing, asset-upload, crew or account instructions in its
-generated engine documentation are superseded by the user’s local-only requirements above.
+The earlier cached Phaser AE prototype, engine, generated build and prototype-only npm commands
+were removed at the user’s request.
 Local assets belong in the repository and are included through local build tooling.
 
 ## Structure
