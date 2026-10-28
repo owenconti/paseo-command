@@ -24,7 +24,7 @@ function fake() {
   const calls: { method: string; value?: any }[] = [];
   let reply: any = {
     status: "idle",
-    lastMessage: '{"sentence":"Actively working on fixing the map tooltip."}',
+    lastMessage: '{"sentence":"Fixing the map tooltip."}',
   };
   let configs = [
     { provider: "claude", model: "haiku-custom", thinkingOptionId: "low" },
@@ -94,7 +94,7 @@ test("uses the host metadata model in the existing workspace and archives the re
     true,
   );
   const result = await settled(service, f.client);
-  assert.equal(result.sentence, "Actively working on fixing the map tooltip.");
+  assert.equal(result.sentence, "Fixing the map tooltip.");
   const create = f.calls.find((c) => c.method === "create")!.value;
   assert.equal(create.workspaceId, "existing");
   assert.equal(create.callerAgentId, source.id);
@@ -227,8 +227,16 @@ test("context is bounded and excludes reasoning; output stays one short text sen
   ]);
   assert.equal(context, "user: hello");
   assert.equal(
-    summarySentence("Actively working on\nfixing labels"),
-    "Actively working on fixing labels.",
+    summarySentence("Fixing\nlabels"),
+    "Fixing labels.",
+  );
+  assert.equal(
+    summarySentence("Actively working on fixing labels"),
+    "Fixing labels.",
+  );
+  assert.equal(
+    summarySentence("Actively working on the map tooltip"),
+    "Working on the map tooltip.",
   );
   assert.throws(() => summarySentence("x".repeat(241)));
   assert.throws(() => summarySentence(""));

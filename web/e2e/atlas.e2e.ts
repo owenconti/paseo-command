@@ -435,7 +435,7 @@ test("current work appears in the running agent tooltip and above its composer, 
   const page = await context.newPage();
   let status = "running";
   const requests: { path: string; body: unknown }[] = [];
-  const sentence = "Actively working on fitting project islands within their host landmass.";
+  const sentence = "Fitting project islands within their host landmass.";
   await mockApi(page, {
     agents: () => [{ ...agents[0], status }],
     permissions: () => [],
