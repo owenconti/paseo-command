@@ -299,7 +299,7 @@ const COTTAGE_ART = ["cottage-slate", "cottage-brown"];
 /** Open cells between islands of one host, and between hosts (whose land
  * masses need a channel of sea between them). */
 const ISLAND_GAP = 1;
-const HOST_GAP = 4;
+const HOST_GAP = 3;
 const byName = <T extends { name: string; key: string }>(a: T, b: T) =>
   a.name.localeCompare(b.name) || a.key.localeCompare(b.key);
 const scale = (a: Axial, k: number) => ({ q: a.q * k, r: a.r * k });
