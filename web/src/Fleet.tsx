@@ -21,19 +21,13 @@ import {
   CloudOff,
   GitBranch,
   ListFilter,
-  Leaf,
-  Monitor,
-  Moon,
   Music,
-  Orbit,
   Pencil,
   Plus,
   Server,
-  Sun,
   X,
 } from "lucide-react";
 import { ago, compactAgo, readStore, writeStore } from "./api";
-import { themeLabel, useTheme } from "./theme";
 import { UsageCard } from "./UsageCard";
 import type {
   Agent,
@@ -352,7 +346,6 @@ export function FleetTools({
   /** The interface sounds control, beside the notifications bell. */
   sounds?: ReactNode;
 }) {
-  const theme = useTheme();
   const music = useMusic();
   const musicLabel = !music.enabled
     ? "off"
@@ -399,24 +392,6 @@ export function FleetTools({
           )}
         </button>
       )}
-      <button
-        className="icon-btn"
-        onClick={theme.cycle}
-        data-tip={`Theme: ${themeLabel[theme.worldMatched ? theme.resolved : theme.setting]}${!theme.worldMatched && theme.setting === "system" ? ` (${themeLabel[theme.resolved]})` : ""} — click or ⌘⌥T to cycle`}
-        aria-label={`Theme: ${themeLabel[theme.worldMatched ? theme.resolved : theme.setting]}`}
-      >
-        {!theme.worldMatched && theme.setting === "system" ? (
-          <Monitor size={14} />
-        ) : theme.resolved === "lake-country" ? (
-          <Leaf size={14} />
-        ) : theme.resolved === "galaxy" ? (
-          <Orbit size={14} />
-        ) : theme.resolved === "dark" ? (
-          <Moon size={14} />
-        ) : (
-          <Sun size={14} />
-        )}
-      </button>
     </span>
   );
 }
