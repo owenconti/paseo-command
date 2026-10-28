@@ -1,8 +1,9 @@
-# Paseo Command — local development
+# Paseo Command — development
 
 ## User requirements
 
-- Work locally. Do not publish, upload, stream build-room events, or send this project to phaser.io.
+- `main` tracks `origin/main` at `github.com/owenconti/paseo-cc-ui` (private). Push only `main`, there.
+  Do not publish elsewhere, stream build-room events, or send this project to phaser.io.
 - Do not sign in to Phaser AE, reconnect an online project, reinstall its skill, or start its room streamer.
 - The Phaser AE account was disconnected and its installed skill removed at the user’s request.
 - The cached Phaser prototype and engine were removed at the user’s request. Do not restore them.
@@ -16,7 +17,7 @@
 - `paseo-command/` is the main checkout on local `main`.
 - Use Paseo’s default worktree location: `~/.paseo/worktrees/<project-hash>/<slug>/`.
   Create workspaces through Paseo; do not add a custom worktree folder, helper command,
-  placement plugin or root override for this app. Use local `main` as the base for this local-only project.
+  placement plugin or root override for this app. Use local `main` as the base.
 - `archive/` and `.paseo-command/` contain preserved history/assets and runtime data;
   do not stage them into the app repository.
 - `archive/legacy-app/` owns its own historical worktrees in its `worktrees/` folder.
@@ -42,7 +43,8 @@ The Atlas uses generated painted sprites; it is not yet finished reference-quali
 ## Completing a feature
 
 Once the requested feature or fix is implemented and validated, commit it (one commit per fix) and merge it into
-local `main`. If working directly on `main`, commit the completed feature there.
+local `main`. If working directly on `main`, commit the completed feature there. Then push `main` to
+`origin` (`git push origin main`; no force push unless the user asks). Do not push other branches.
 Preserve unrelated work in the checkout.
 
 Then, from the main checkout on `main`, rebuild the web app, restart its server and rebuild the macOS app:
@@ -55,8 +57,7 @@ This is part of completing the feature. The restart preserves the app's saved po
 or open the user's macOS app: it keeps running, its title bar shows "Update ready · ⌘R" once a newer
 native build is on disk, and the user presses ⌘R when they want the new web and native builds (⌘R
 reloads the page, and swaps in a newer native build in place, keeping the window and page).
-Report the commit and whether the build and restart succeeded.
-Keep this workflow local; do not push or publish.
+Report the commit, whether the push succeeded, and whether the build and restart succeeded.
 
 ## Commands
 
