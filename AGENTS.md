@@ -15,7 +15,8 @@ The React app and official SDK API are in `web/`. The Atlas world renderer is in
 Two worlds draw the same fleet: Atlas (default) and Galaxy, chosen in the map toolbar (remembered;
 ⌘⌥T steps worlds). The user asked for Galaxy; do not add further worlds unless asked.
 The user’s five supplied top-down illustrations guide the Atlas world: blue water,
-parchment hex islands, project landmarks, workspace cottages, and model-colored robots.
+parchment hex islands, project landmarks, workspace cottages, and model-colored robots (Claude orange,
+ChatGPT/Codex white; other providers keep a stable colour of their own).
 The attached illustrations are references, not full-screen backgrounds.
 Real state must remain truthful: distinguish running, idle, completed/unread, approval,
 question, failure and offline. Test daemon mutations against fake daemons only.
@@ -23,7 +24,7 @@ The Atlas uses generated painted sprites; it is not yet finished reference-quali
 
 ## Completing a feature
 
-Once the requested feature is implemented and validated, commit it and merge it into
+Once the requested feature or fix is implemented and validated, commit it (one commit per fix) and merge it into
 local `main`. If working directly on `main`, commit the completed feature there.
 Preserve unrelated work in the checkout.
 
@@ -70,17 +71,28 @@ Local assets belong in the repository and are included through local build tooli
   forwards map picks as selections and draws app selections on the map.
 - `web/server/`: inherited official Paseo SDK API, served with the app on all interfaces.
 - `web/e2e/`: browser tests with every `/api` request answered in the browser.
+- `web/src/Dispatch.tsx` `NewAgent`: a new agent opens in the panel as an empty conversation (host, where and
+  branch in a small form) with the usual composer; its first message creates the agent. Its /skills and @files
+  come from `GET /api/drafts/commands|files` (`web/server/api/drafts.ts`), as no agent exists yet.
+- `web/src/urlState.ts`: the panel's place (selection, subagent, tab, filter, host filter, list toggle) kept in
+  the page's query, so a refresh returns there; a new selection pushes history, other changes replace it.
 
 ## Atlas world
 
 The app bundles `rendering/` directly; Phaser resolves from `rendering/node_modules`.
-Each project is its own island: a ten-hex landmark (rows of 3, 4, 3) at the top of the island, with its one-hex
-workspace cottages in rows of up to four below it. A host's islands share one landmass of grass hex tiles (hexes everywhere) with a hex-edged shore in a generated sea, under the host's
-banner (offline hosts are faded and labeled). Agents are robots in their workspace cell; the cell's tile takes the colour of its most
-urgent agent's state. The user asked for water back (rejecting chart paper, and a plain meadow background), with each
+Each project with workspaces is its own island (projects without workspaces are hidden, as are hosts without any; if no host has workspaces, each shows as a bare clearing): a ten-hex
+landmark (rows of 3, 4, 3) in the middle, ringed by its workspaces, each touching it. Workspaces are placed
+bottom, lower-left, lower-right, upper-left, upper-right, then top, a cell apart (later ones stand against
+that ring). A workspace is a three-hex timber triangle pointing at the landmark, its cottage larger and centred
+across all three. Each agent is a robot on its own light-tiled hex beside its workspace, growing away from
+the landmark, oldest first: straight out, then alternating left and right. Islands are only these built cells:
+no empty sand around them (the user removed it). A host's islands share one landmass of grass hex tiles (hexes everywhere) with a hex-edged shore in a generated sea, under the host's
+banner (offline hosts are faded and labeled). Each agent's state shows only on its sand hex (fill, border colour, border motion: a light runs round
+running borders, states that need you pulse); robots carry no rings or badges. Hosts, projects, workspaces and
+agents each have their own hover border colour; hosts are not interactive on the map (no hover, no pick from land or banner). The user asked for water back (rejecting chart paper, and a plain meadow background), with each
 host as a landmass; project islands sit on it on earthen banks with soft shadows.
 The layout follows the map's aspect ratio: hosts shelf-pack and tall maps stack vertically.
-Agents the daemon reports without a workspace wait at a flagged camp cell.
+Agents the daemon reports without a workspace wait at a flagged camp, laid out like a workspace.
 The world is assembled from generated transparent sprite atlases, a terrain texture,
 and a strict axial hex grid. It is not a screenshot used as a background.
 The standalone study (`render:dev`) uses clearly labeled illustrative data and never connects to a daemon.
@@ -92,9 +104,14 @@ Artwork provenance and generation prompts are in `rendering/ASSETS.md`.
 
 Labels stay at fixed world scale. Do not add screen-size compensation.
 All structures and scenery consume whole cells on the shared axial grid.
-Cottages use one hex; project landmarks use ten (rows of 3, 4 and 3). One island per project. Agents share workspace cells.
+Workspaces use three hexes; project landmarks use ten (rows of 3, 4 and 3); each agent uses one.
+One island per project with workspaces.
 Center artwork and fit it completely inside its occupied cells.
-Selection follows the outer perimeter of the occupied hexes, never a rectangle.
-Empty cells carry no scenery. Project, workspace and empty cells each have a distinct tile style
-(flagstones, timber decking, sand). Minimum zoom fits the land with a one-cell border (plus room for banners and map controls);
+Selection follows the outer perimeter of the occupied hexes, never a rectangle: a golden rim with a breathing
+yellow halo (Phaser glow filter) over a warm wash, so the selected entity reads on any surface. Hover and selection
+rims are inset within the cells so painted kerbs and banks never clip them; an agent hovers across its whole cell.
+Hosts are picked from the Hosts tab only (land and banner are not interactive): the map rings its landmass and the lists narrow to it, the same
+host filter as the Hosts tab; any other selection takes the highlight while it lasts.
+Project, workspace and agent cells each have a distinct tile style (flagstones, timber decking, light sand
+tiles); islands have no empty cells. Minimum zoom fits the land with a one-cell border (plus room for banners and map controls);
 panning stays within that extent. The world never sends daemon actions; the React UI owns them.
