@@ -6,10 +6,22 @@
 - Do not sign in to Phaser AE, reconnect an online project, reinstall its skill, or start its room streamer.
 - The Phaser AE account was disconnected and its installed skill removed at the user’s request.
 - Cached engine files under `phaser/` and `game/node_modules/` remain available for local builds. Do not edit the engine.
-- The original `/Users/example/development/paseo-command` project is read only. Preserve its React UI; focus current development on the game world.
+- The current SpriteKit app lives at `/Users/example/development/paseo-command`. The original app is preserved read only in `archive/legacy-app/`. Preserve the inherited React UI.
 - When you need to ask the user a question, use the ask-question tool (`AskUserQuestion`) rather than asking in plain text.
 - Anything you ask the user to review, such as a plan, description or summary, must be in your visible reply,
   never only in your reasoning: the user does not see your thoughts.
+
+## Checkout and worktrees
+
+- `paseo-command/` is the main checkout on local `main`.
+- Put every new linked worktree in `worktrees/` under the main checkout. Use
+  `npm run worktree:add -- <branch> [start-point]` (defaults to local `main`).
+- `worktrees/`, `archive/` and `.paseo-command/` contain local checkouts, preserved
+  history/assets and runtime data; do not stage them into the app repository.
+- `archive/legacy-app/` owns its own historical worktrees in its `worktrees/` folder.
+- The old `paseo-cc-phaser-ae` path is a compatibility symlink for the running app
+  and existing sessions. Use `paseo-command` for all new work.
+- See `DIRECTORIES.md` for the folder inventory and relocation notes.
 
 ## Product and references
 
