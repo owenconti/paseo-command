@@ -10,6 +10,12 @@ npm run native:run                   # opens it without taking focus, on http://
 npm run native:run -- --url http://127.0.0.1:4331/
 ```
 
+**Updating without relaunching.** `npm run native:build` replaces the executable inside the bundle
+while a copy runs. The running copy shows "Update ready · ⌘R" in its title bar; ⌘R (View → Reload)
+reloads the page and, when a newer native build is on disk, swaps the app for it in place, at the
+same window position and page. After merging, `npm run app:update` rebuilds both the web app and
+this one.
+
 The app shows whatever Paseo Command server it is pointed at (`--url`, or `PASEO_COMMAND_URL`;
 default `http://127.0.0.1:4310/`, the app started by `npm run app:start`). That server must serve
 a build that includes `rendering/src/native/bridge.ts` (any build from this commit on). Against a
@@ -58,10 +64,13 @@ base path for the `notifyutil` hooks below).
 
 ## Checks without screen recording
 
-`--info /tmp/x.json` names files for hooks posted with `notifyutil -p <name>`:
+`--info /tmp/x.json` names files for hooks posted with `notifyutil -p <name>.x` (only a copy
+launched with `--info` listens, under names ending in its info file's name, so the user's own copy
+ignores them):
 `com.paseo.command.native.eval` runs `/tmp/x.js` in the page and writes `/tmp/x.out`;
 `.snapshot` writes `/tmp/x.png` (SpriteKit's frame under the page's snapshot); `.info` rewrites
-`/tmp/x.json`; `.pan` drags the map for 10 s; `.resize` alternates the window size; `.quit`.
+`/tmp/x.json`; `.pan` drags the map for 10 s; `.resize` alternates the window size; `.reload` does
+what ⌘R does; `.quit`.
 
 Measurements against the web Atlas are in [MEASUREMENTS.md](MEASUREMENTS.md)
 (`node native/scripts/measure.mjs`).

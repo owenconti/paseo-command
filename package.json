@@ -24,6 +24,7 @@
     "app:stop": "node scripts/app-server.mjs stop",
     "app:restart": "node scripts/app-server.mjs restart",
     "app:status": "node scripts/app-server.mjs status",
+    "app:update": "npm run app:build && npm run app:restart && npm run native:build",
     "native:build": "sh native/scripts/bundle.sh",
     "native:run": "sh native/scripts/run.sh",
     "native:mock": "web/node_modules/.bin/tsx native/scripts/mock-fleet.ts"

@@ -1,5 +1,7 @@
 #!/bin/sh
-# Build the native app and wrap it as native/build/Paseo Command.app.
+# Build the native app into native/build/Paseo Command.app. A running copy
+# keeps running: the new executable replaces the old one's file, and ⌘R in
+# the app swaps to it (see main.swift's `reload`).
 set -eu
 here=$(cd "$(dirname "$0")/.." && pwd)
 config=${1:-release}
@@ -7,11 +9,11 @@ cd "$here"
 swift build -c "$config"
 bin=$(swift build -c "$config" --show-bin-path)
 app="$here/build/Paseo Command.app"
-rm -rf "$app"
-mkdir -p "$app/Contents/MacOS"
-cp "$bin/PaseoCommandNative" "$app/Contents/MacOS/PaseoCommandNative"
+mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources"
 cp "$here/Info.plist" "$app/Contents/Info.plist"
-mkdir -p "$app/Contents/Resources"
 cp "$here/AppIcon.icns" "$app/Contents/Resources/AppIcon.icns"
+# Replaced, not overwritten: a running copy keeps its own executable.
+cp "$bin/PaseoCommandNative" "$app/Contents/MacOS/.PaseoCommandNative.new"
+mv -f "$app/Contents/MacOS/.PaseoCommandNative.new" "$app/Contents/MacOS/PaseoCommandNative"
 codesign --force --sign - "$app" >/dev/null 2>&1
 echo "$app"

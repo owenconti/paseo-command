@@ -32,13 +32,16 @@ Once the requested feature or fix is implemented and validated, commit it (one c
 local `main`. If working directly on `main`, commit the completed feature there.
 Preserve unrelated work in the checkout.
 
-Then, from the main checkout on `main`, rebuild and restart the running app:
+Then, from the main checkout on `main`, rebuild the web app, restart its server and rebuild the macOS app:
 
 ```sh
-npm run app:build && npm run app:restart
+npm run app:update   # app:build && app:restart && native:build
 ```
 
-This is part of completing the feature. The restart preserves the app's saved port.
+This is part of completing the feature. The restart preserves the app's saved port. Never quit, relaunch
+or open the user's macOS app: it keeps running, its title bar shows "Update ready · ⌘R" once a newer
+native build is on disk, and the user presses ⌘R when they want the new web and native builds (⌘R
+reloads the page, and swaps in a newer native build in place, keeping the window and page).
 Report the commit and whether the build and restart succeeded.
 Keep this workflow local; do not push or publish.
 
@@ -51,6 +54,7 @@ Keep this workflow local; do not push or publish.
 - `npm run app:stop`, `app:restart`, `app:status`: manage that detached preview.
   Restart preserves its port. See `RUNNING.md`.
 - `npm run app:build`: layout tests, then type-checks and bundles the app to `web/dist/`.
+- `npm run app:update`: `app:build`, `app:restart` and `native:build`, after merging to `main` (see above).
 - `npm run app:typecheck`: checks React, API and Atlas TypeScript.
 - `npm run app:e2e`: browser tests of the Atlas against a mocked fleet (no daemon is reached).
 - `npm run native:build`, `native:run [-- --url …]`: the macOS app (`native/`) that draws the Atlas with

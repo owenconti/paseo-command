@@ -27,6 +27,11 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
                           styleMask: [.titled, .closable, .miniaturizable, .resizable],
                           backing: .buffered, defer: false)
         window.title = "Paseo Command"
+        // Where the user left it, across launches and ⌘R updates (checks pass --size).
+        if options.size == nil {
+            window.setFrameUsingName(WorldWindow.frameName)
+            window.setFrameAutosaveName(WorldWindow.frameName)
+        }
         window.minSize = NSSize(width: 760, height: 520)
         window.isReleasedWhenClosed = false
         window.backgroundColor = Textures.color(0x1d6884)
@@ -282,7 +287,19 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         }
     }
 
-    func reload() { web.reload() }
+    static let frameName = "PaseoCommand.main"
+
+    /// The app page the window is on (its query keeps the panel's place), or
+    /// the app's own address if it is showing the "isn't reachable" notice.
+    var pageURL: URL {
+        if let url = web.url, url.host == options.url.host, url.port == options.url.port { return url }
+        return options.url
+    }
+
+    func reload() {
+        if web.url?.host == options.url.host && web.url?.port == options.url.port { web.reload() }
+        else { web.load(URLRequest(url: pageURL)) }
+    }
 
     /// Processes that do this window's work, for measurements: the app (and
     /// SpriteKit in it), and WebKit's content and GPU processes.

@@ -43,6 +43,8 @@ const report = option("report", "");
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const info = join(tmpdir(), "paseo-native-measure.json");
 const base = info.replace(/\.json$/, "");
+/** A hook for the copy this script launched (see `listen` in main.swift). */
+const hook = (name) => ["-p", `com.paseo.command.native.${name}.paseo-native-measure`];
 
 function cpuTimes(pids) {
   const out = new Map();
@@ -90,7 +92,7 @@ async function phase(pids, seconds, during) {
 function evalPage(js) {
   writeFileSync(`${base}.js`, js);
   rmSync(`${base}.out`, { force: true });
-  execFileSync("notifyutil", ["-p", "com.paseo.command.native.eval"]);
+  execFileSync("notifyutil", hook("eval"));
 }
 async function readOut(timeout = 5000) {
   for (let t = 0; t < timeout; t += 200) {
@@ -108,16 +110,16 @@ async function launch() {
     evalPage("return !!window.paseoAtlas?.inspect?.()?.agents?.length");
     if ((await readOut(2000)).trim() === "true") break;
   }
-  execFileSync("notifyutil", ["-p", "com.paseo.command.native.info"]);
+  execFileSync("notifyutil", hook("info"));
   await sleep(500);
   return JSON.parse(readFileSync(info, "utf8"));
 }
 async function quit() {
-  execFileSync("notifyutil", ["-p", "com.paseo.command.native.quit"]);
+  execFileSync("notifyutil", hook("quit"));
   await sleep(2000);
 }
 const state = async () => {
-  execFileSync("notifyutil", ["-p", "com.paseo.command.native.info"]);
+  execFileSync("notifyutil", hook("info"));
   await sleep(1000);
   return JSON.parse(readFileSync(info, "utf8"));
 };
@@ -138,7 +140,7 @@ try {
       const s0 = await state();
       const idlePhase = await phase(launched.pids, idle);
       const s1 = await state();
-      const panPhase = await phase(launched.pids, pan, () => execFileSync("notifyutil", ["-p", "com.paseo.command.native.pan"]));
+      const panPhase = await phase(launched.pids, pan, () => execFileSync("notifyutil", hook("pan")));
       const s2 = await state();
       // The page's own frame rate (requestAnimationFrame).
       evalPage("const t0 = performance.now(); let n = 0; await new Promise(r => { const f = () => { n++; if (performance.now() - t0 < 2000) requestAnimationFrame(f); else r(); }; requestAnimationFrame(f); }); return n / 2;");

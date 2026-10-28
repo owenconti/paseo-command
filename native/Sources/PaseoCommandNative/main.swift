@@ -48,6 +48,20 @@ struct Options {
     }
 }
 
+/// The app's own build on disk, so ⌘R can tell when a newer one is ready.
+enum Build {
+    static func stamp() -> Date? {
+        guard let path = Bundle.main.executablePath else { return nil }
+        return (try? FileManager.default.attributesOfItem(atPath: path))?[.modificationDate] as? Date
+    }
+    static let launched = stamp()
+    /// A newer build has replaced this one's executable since launch.
+    static var newer: Bool {
+        guard let now = stamp(), let then = launched else { return false }
+        return now > then
+    }
+}
+
 enum Log {
     static func line(_ text: String) {
         FileHandle.standardError.write("[paseo-native] \(text)\n".data(using: .utf8)!)
@@ -67,10 +81,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // up without activating the app.
         if options.front { world.window.orderFrontRegardless() } else { world.window.orderFront(nil) }
         Log.line("window \(world.window.windowNumber) loading \(options.url.absoluteString)")
-        // Measurement hooks, posted with `notifyutil -p <name>`.
+        // Check and measurement hooks, posted with `notifyutil -p <name>`. They
+        // reach every copy on the machine, so only a copy run for checks
+        // (`--info`) listens: the user's own copy ignores them.
         listen("com.paseo.command.native.pan") { [weak self] in self?.main?.scriptedPan(seconds: 10) }
         listen("com.paseo.command.native.info") { [weak self] in self?.writeInfo() }
         listen("com.paseo.command.native.quit") { NSApp.terminate(nil) }
+        listen("com.paseo.command.native.reload") { [weak self] in self?.reload() }
         // Run `<info>.js` in the page, writing its result to `<info>.out` (checks and tests).
         listen("com.paseo.command.native.eval") { [weak self] in
             guard let self, let info = self.options.info, let main = self.main else { return }
@@ -101,11 +118,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self.main?.snapshot(to: (info as NSString).deletingPathExtension + ".png")
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + 3) { [weak self] in self?.writeInfo() }
+        // Say in the title bar when a newer build is waiting for ⌘R.
+        Timer.scheduledTimer(withTimeInterval: 3, repeats: true) { [weak self] _ in
+            self?.main?.window.subtitle = Build.newer ? "Update ready · ⌘R" : ""
+        }
     }
 
     private func listen(_ name: String, _ action: @escaping () -> Void) {
+        guard let info = options.info else { return }
+        // Named for this run too (`<name>.<info file's name>`), so posts for
+        // one copy never reach another.
+        let run = ((info as NSString).lastPathComponent as NSString).deletingPathExtension
         var token: Int32 = 0
-        notify_register_dispatch(name, &token, DispatchQueue.main) { _ in action() }
+        notify_register_dispatch("\(name).\(run)", &token, DispatchQueue.main) { _ in action() }
         tokens.append(token)
     }
 
@@ -159,7 +184,40 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.windowsMenu = windowMenu
     }
 
-    @objc private func reload() { main?.reload() }
+    /// ⌘R: the page reloads with the latest web build; if a newer native
+    /// build is on disk, the app swaps itself for it in place: same window,
+    /// same page, no quitting by hand.
+    @objc private func reload() {
+        guard let main else { return }
+        if Build.newer { relaunch(main) } else { main.reload() }
+    }
+
+    private func relaunch(_ main: WorldWindow) {
+        main.window.saveFrame(usingName: WorldWindow.frameName)
+        // The same options, at the page the window is on now.
+        var args: [String] = []
+        var rest = Array(CommandLine.arguments.dropFirst())
+        while !rest.isEmpty {
+            let arg = rest.removeFirst()
+            if arg == "--url" || arg == "--size" { if !rest.isEmpty { rest.removeFirst() }; continue }
+            args.append(arg)
+        }
+        args += ["--url", main.pageURL.absoluteString]
+        let configuration = NSWorkspace.OpenConfiguration()
+        configuration.createsNewApplicationInstance = true
+        configuration.arguments = args
+        Log.line("relaunching for a newer build")
+        NSWorkspace.shared.openApplication(at: Bundle.main.bundleURL, configuration: configuration) { _, error in
+            DispatchQueue.main.async {
+                if let error {
+                    Log.line("relaunch failed: \(error.localizedDescription)")
+                    main.reload()
+                } else {
+                    NSApp.terminate(nil)
+                }
+            }
+        }
+    }
 }
 
 let app = NSApplication.shared
