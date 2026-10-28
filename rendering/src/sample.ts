@@ -19,6 +19,12 @@ const rows = [
   sample("macmini", "infra", "Deployment pipeline", "codex/gpt-6-astra", "running"),
   sample("macmini", "infra", "Host configuration", "codex/gpt-6.1-sol", "idle"),
 ];
+const SAMPLE_LABELS: Record<number, string[]> = {
+  0: ["CI running", "Awaiting review"],
+  3: ["CI green", "Approved"],
+  5: ["CI failing", "Changes requested"],
+  8: ["CI running"],
+};
 export const SAMPLE: AtlasData = {
   hosts: [
     { key: "local", name: "Local", online: true, local: true },
@@ -36,6 +42,8 @@ export const SAMPLE: AtlasData = {
     host: r.host,
     project: `${r.host}/${r.project}`,
     name: r.name,
+    // Illustrative PR labels, as the app's labeller sets them; they plant flags.
+    ...(SAMPLE_LABELS[i] ? { labels: SAMPLE_LABELS[i] } : {}),
   })),
   agents: rows.map((r, i) => ({
     key: `agent-${i + 1}`,

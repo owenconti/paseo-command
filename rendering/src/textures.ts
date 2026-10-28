@@ -1,6 +1,7 @@
 import Phaser from "phaser";
 import PROPS from "./assets/props.json";
 import STRUCTURES from "./assets/structures.json";
+import { PR_LABELS } from "./prStatus";
 // Regions are atlas frames, not a flattened map. Phaser owns their cropping and rendering.
 const BUILDING_FRAMES: Record<string, number[]> = {
   manor: [0, 0, 575, 550],
@@ -38,6 +39,11 @@ export function registerFrames(scene: Phaser.Scene): void {
   // Plaza props: greenery, workshop gear, and the lamps and beacon in both states.
   for (const [name, { rect }] of Object.entries(PROPS))
     trimFrame(scene, "props", name, rect as [number, number, number, number]);
+  // PR flags: a 3×2 grid of 512 px cells, CI across the top, review below (PR_LABELS' order).
+  // A low threshold keeps the brass poles' soft edges.
+  PR_LABELS.forEach(({ flag }, i) =>
+    trimFrame(scene, "flags", `flag-${flag}`, [(i % 3) * 512, Math.floor(i / 3) * 512, 512, 512], 4, 8),
+  );
   const robots = scene.textures
     .get("robots")
     .getSourceImage() as HTMLImageElement;
@@ -57,15 +63,20 @@ export function registerFrames(scene: Phaser.Scene): void {
     "trees",
     ...Object.keys(PROPS),
     ...["teal", "violet", "lime", "blue"].map((name) => `robot-${name}`),
+    ...PR_LABELS.map(({ flag }) => `flag-${flag}`),
   ];
   for (const name of frames) {
-    const sourceKey = name in STRUCTURES ? "structures" : name.startsWith("robot-")
-      ? "robots"
-      : name === "trees"
-        ? "foliage"
-        : name in PROPS
-          ? "props"
-          : "buildings";
+    const sourceKey = name in STRUCTURES
+      ? "structures"
+      : name.startsWith("robot-")
+        ? "robots"
+        : name.startsWith("flag-")
+          ? "flags"
+          : name === "trees"
+            ? "foliage"
+            : name in PROPS
+              ? "props"
+              : "buildings";
     const source = scene.textures.get(sourceKey);
     const frame = source.get(name);
     const gutter = 8;

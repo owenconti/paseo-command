@@ -30,6 +30,7 @@ import robotsUrl from "./assets/robots.png";
 import foliageUrl from "./assets/tree-v2.png";
 import sandUrl from "./assets/sand.png";
 import propsUrl from "./assets/props.png";
+import flagsUrl from "./assets/flags.png";
 const MAX_ZOOM = 2.4;
 /** Landmark art as a share of the largest size that fits its cells. */
 const LANDMARK_SCALE: Record<string, number> = {
@@ -45,6 +46,14 @@ const COTTAGE_LIFT = 12;
 /** How far a garden plant sits beyond its cell's centre, away from the cottage
  * (as a share of the distance between them). */
 const GARDEN_OUT = 0.32;
+/** A workspace's PR flags: their height (world px), how far each stands
+ * beyond its cell's centre (as GARDEN_OUT), where the pole's foot is in the
+ * art (as a share of its width and height), and how far the running flag
+ * sways (degrees) and how often (ms). */
+const FLAG_HEIGHT = 70;
+const FLAG_OUT = 0.12;
+const FLAG_FOOT = { x: 0.19, y: 0.95 };
+const FLAG_SWAY = { degrees: 3, period: 1400 };
 /** How far landmark art sits above the middle of its cells. */
 const LANDMARK_LIFT = 30;
 /** Props scattered on a landmark's paving: how wide each is drawn, and how
@@ -174,6 +183,8 @@ export class AtlasScene extends Phaser.Scene {
   /** Each project's lamps and beacon, placed with its plaza; lit by its agents. */
   private signals = new Map<string, { kind: "lamp" | "beacon"; x: number; y: number; stale: boolean }[]>();
   /** Lit lamps and beacons' glows, which breathe and flicker. */
+  /** PR flags that sway (CI running). */
+  private swaying: Phaser.GameObjects.Image[] = [];
   private flames: { glow: Phaser.GameObjects.Graphics; period: number; phase: number; flicker: boolean }[] = [];
   /** Opaque pixels of each landmark's art, so props keep off it. */
   private masks = new Map<string, { data: Uint8ClampedArray; width: number; height: number }>();
@@ -191,6 +202,7 @@ export class AtlasScene extends Phaser.Scene {
     this.load.image("foliage", foliageUrl);
     this.load.image("sand", sandUrl);
     this.load.image("props", propsUrl);
+    this.load.image("flags", flagsUrl);
     this.load.on("loaderror", (file: Phaser.Loader.File) =>
       this.game.events.emit(
         "atlas:error",
@@ -293,6 +305,7 @@ export class AtlasScene extends Phaser.Scene {
     for (const key of this.terrainKeys) this.textures.remove(key);
     this.locations.clear();
     this.signals.clear();
+    this.swaying = [];
     this.hover.clear();
     const build = ++this.builds;
     this.world = this.capture(() => {
@@ -312,6 +325,7 @@ export class AtlasScene extends Phaser.Scene {
   private cacheWorld(): void {
     const images = this.world
       .filter((o): o is Phaser.GameObjects.Image => o instanceof Phaser.GameObjects.Image)
+      .filter((o) => !o.getData("live"))
       .sort((a, b) => a.depth - b.depth);
     let from = -Infinity;
     for (const cache of this.caches) {
@@ -610,6 +624,7 @@ export class AtlasScene extends Phaser.Scene {
       );
       image.setData("footprint", cells);
       this.garden(ws, cells, at);
+      this.plantFlags(ws, cells, at);
       if (ws.stale) image.setAlpha(0.6);
     }
     // No name plate: the workspace's name shows on hover.
@@ -765,7 +780,10 @@ export class AtlasScene extends Phaser.Scene {
   private garden(ws: Entity, cells: Axial[], middle: { x: number; y: number }): void {
     const rng = random(seedOf(ws.id + "garden"));
     const tree = Math.floor(rng() * cells.length);
+    // A PR flag takes its cell's place (CI the second cell, review the third).
+    const flagged = [false, !!ws.flags?.ci, !!ws.flags?.review];
     cells.forEach((cell, i) => {
+      if (flagged[i]) return;
       const c = point(cell);
       const x = c.x + (c.x - middle.x) * GARDEN_OUT,
         y = c.y + (c.y - middle.y) * GARDEN_OUT;
@@ -779,6 +797,40 @@ export class AtlasScene extends Phaser.Scene {
       plant.setFlipX(rng() < 0.5);
       if (ws.stale) plant.setAlpha(0.6);
     });
+  }
+  /** A workspace's PR flags, from its labels: CI in its second cell, review in
+   * its third, each standing in its cell's garden spot and wholly inside it.
+   * Drawn live (not into the caches), so the running one can sway. */
+  private plantFlags(ws: Entity, cells: Axial[], middle: { x: number; y: number }): void {
+    const planted: [string | undefined, Axial | undefined][] = [
+      [ws.flags?.ci, cells[1]],
+      [ws.flags?.review, cells[2]],
+    ];
+    for (const [flag, cell] of planted) {
+      if (!flag || !cell) continue;
+      const c = point(cell);
+      const x = c.x + (c.x - middle.x) * FLAG_OUT,
+        y = c.y + (c.y - middle.y) * FLAG_OUT;
+      const image = sprite(this, x, y, `flag-${flag}`, 10).setDepth(17.2).setData("live", true);
+      const aspect = image.width / image.height;
+      const width = Math.min(FLAG_HEIGHT * aspect, fittedWidth(x, y, aspect, FLAG_HEIGHT * aspect, [cell]));
+      image.setScale(width / image.width);
+      // Stand on the pole's foot, so a sway turns about it.
+      image
+        .setOrigin(FLAG_FOOT.x, FLAG_FOOT.y)
+        .setPosition(
+          x + (FLAG_FOOT.x - 0.5) * image.displayWidth,
+          y + (FLAG_FOOT.y - 0.5) * image.displayHeight,
+        );
+      if (ws.stale) image.setAlpha(0.6);
+      if (flag === "ci-running") this.swaying.push(image);
+    }
+  }
+  /** The running CI flag sways about its foot; still, with reduced motion. */
+  private swayFlags(): void {
+    const t = (this.clock / FLAG_SWAY.period) * Math.PI * 2;
+    for (const [i, flag] of this.swaying.entries())
+      flag.setAngle(FLAG_SWAY.degrees * Math.sin(t + i * 0.7));
   }
   /** An agent's state shows only on its sand tile: the tile's colour, its
    * border's colour, and how the border moves. Running borders carry a light
@@ -1339,6 +1391,9 @@ export class AtlasScene extends Phaser.Scene {
         screen: this.screenOf(a.id),
       })),
       tiles: Object.fromEntries(this.tiles),
+      flags: Object.fromEntries(
+        (layout?.workspaces ?? []).filter((w) => w.flags && !w.camp).map((w) => [w.id, w.flags]),
+      ),
       builds: this.builds,
       camera: { x: this.cameras.main.scrollX, y: this.cameras.main.scrollY },
       objects: this.children.length,
@@ -1362,6 +1417,7 @@ export class AtlasScene extends Phaser.Scene {
       this.clock += delta;
       this.animateTiles();
       this.animateFlames();
+      this.swayFlags();
       this.breathe();
       this.walkRobots(delta);
       this.flyDrones();
