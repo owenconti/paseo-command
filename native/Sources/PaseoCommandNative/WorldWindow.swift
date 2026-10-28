@@ -65,7 +65,9 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         content.addSubview(atlasView)
 
         let configuration = WKWebViewConfiguration()
-        configuration.websiteDataStore = .default()
+        // Check runs (`--info`) keep their page storage to themselves: sharing the
+        // user's copy's, a check that quits stops that copy's storage saving to disk.
+        configuration.websiteDataStore = options.info == nil ? .default() : .nonPersistent()
         configuration.preferences.setValue(true, forKey: "developerExtrasEnabled")
         web = WKWebView(frame: content.bounds, configuration: configuration)
         web.autoresizingMask = [.width, .height]
@@ -397,6 +399,20 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
     var pageURL: URL {
         if let url = web.url, url.host == options.url.host, url.port == options.url.port { return url }
         return options.url
+    }
+
+    /// Before a ⌘R: bring our own server up to date (restarted only when its
+    /// code changed, so `app:update` never drops the page's connections).
+    /// `done` says whether the server is ready (on a failure the window shows why).
+    func refreshServer(_ done: @escaping (_ ready: Bool) -> Void) {
+        guard let server else { return done(true) }
+        server.refresh(port: options.url.port ?? 80) { [weak self] result in
+            if case .failure(let error) = result {
+                let text = error.localizedDescription.replacingOccurrences(of: "<", with: "&lt;")
+                self?.notice("The app server didn’t restart", "<pre style='white-space:pre-wrap'>\(text)</pre>Fix it and reload (⌘R).")
+            }
+            done((try? result.get()) != nil)
+        }
     }
 
     func reload() {

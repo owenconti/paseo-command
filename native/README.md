@@ -88,7 +88,7 @@ npm run native:run -- --url 'http://127.0.0.1:4332/?agent=a-1' --no-server
 
 `--info /tmp/x.json` names files for hooks posted with `notifyutil -p <name>.x` (only a copy
 launched with `--info` listens, under names ending in its info file's name, so the user's own copy
-ignores them):
+ignores them; such a copy keeps its page storage in memory, apart from the user's copy):
 `com.paseo.command.native.eval` runs `/tmp/x.js` in the page and writes `/tmp/x.out`;
 `.snapshot` writes `/tmp/x.png` (SpriteKit's frame under the page's snapshot); `.info` rewrites
 `/tmp/x.json` (with the terminal panel's state); `.pan` drags the map for 10 s; `.resize` alternates
