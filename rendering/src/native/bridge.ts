@@ -269,6 +269,9 @@ export function mountNativeAtlas(parent: HTMLElement, handlers: AtlasHandlers = 
     // A PR flag takes the place of its cell's garden plant.
     const placed = placeStructures(layout, sizeOf, { flags: true });
     const banners = labels(layout).map((label) => ({ label, art: paintBanner(label) }));
+    // Swift drops banners a scene leaves out, so one that returns is sent again.
+    const shown = new Set(banners.map(({ label }) => `banner:${JSON.stringify(label)}`));
+    for (const key of [...sent]) if (!shown.has(key)) sent.delete(key);
     const sprites: Placed[] = [...placed];
     plants = placed.filter((s) => !s.footprint);
     signals = new Map();
