@@ -1,0 +1,29 @@
+import type { ShortcutKey } from "./appReload";
+
+/** Actions the command palette asks of components that own them (the map,
+ * the floating panel, the shortcuts dialog), as their own keys do. */
+export type AppCommand = "fit-world" | "toggle-panel" | "show-shortcuts";
+
+const EVENT = "paseo:command";
+
+export function runAppCommand(name: AppCommand) {
+  window.dispatchEvent(new CustomEvent(EVENT, { detail: name }));
+}
+
+export function onAppCommand(name: AppCommand, run: () => void) {
+  const listener = (event: Event) => {
+    if ((event as CustomEvent).detail === name) run();
+  };
+  window.addEventListener(EVENT, listener);
+  return () => window.removeEventListener(EVENT, listener);
+}
+
+/** Cmd+K opens the command palette from anywhere, typing included, as Cmd+N
+ * opens a new agent (Ctrl+K, which deletes to the line's end in macOS text
+ * fields, is left alone). */
+export const isPaletteShortcut = (event: ShortcutKey) =>
+  event.metaKey &&
+  !event.ctrlKey &&
+  !event.altKey &&
+  !event.shiftKey &&
+  event.key.toLowerCase() === "k";

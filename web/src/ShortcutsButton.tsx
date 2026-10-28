@@ -5,6 +5,7 @@ import { Keyboard, X } from "lucide-react";
 import { modalOpen, useFocusTrap } from "./focus";
 import { nativeAvailable } from "./worldBridge";
 import { isTyping } from "./worldShortcut";
+import { onAppCommand } from "./appCommands";
 
 type Shortcut = { keys: string[][]; label: string };
 type Group = { title: string; note?: string; rows: Shortcut[] };
@@ -23,12 +24,14 @@ const GROUPS: Group[] = [
       { keys: [["F"]], label: "Fit the whole map" },
       { keys: [["Esc"]], label: "Close the open layer, or go back" },
       { keys: [["?"]], label: "Show these shortcuts" },
+      { keys: [["⌘", "K"]], label: "Command palette" },
     ],
   },
   {
     title: "Act",
     rows: [
       { keys: [["⌘", "N"], ["D"]], label: "New agent" },
+      { keys: [["⌘", "B"]], label: "Show or hide the panel" },
       { keys: [["⌘", "L"], ["Enter"]], label: "Focus the message box" },
       { keys: [["R"]], label: "Reply to the selected agent" },
       { keys: [["G"]], label: "Open the workspace's pull request" },
@@ -77,7 +80,11 @@ export function ShortcutsButton({ hidden = false }: { hidden?: boolean }) {
       setOpen(true);
     };
     window.addEventListener("keydown", key);
-    return () => window.removeEventListener("keydown", key);
+    const offCommand = onAppCommand("show-shortcuts", () => setOpen(true));
+    return () => {
+      window.removeEventListener("keydown", key);
+      offCommand();
+    };
   }, []);
   // In the app's main, as the archive dialog is, so it takes the panel theme.
   const host = document.querySelector("main.command-app") ?? document.body;

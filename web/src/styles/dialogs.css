@@ -1,4 +1,100 @@
 /* ── Command palette ───────────────────────────────────────────────── */
+.palette-backdrop {
+  align-items: flex-start;
+  padding-top: min(14dvh, 120px);
+}
+.command-palette {
+  display: flex;
+  flex-direction: column;
+  width: 560px;
+  max-width: 100%;
+  max-height: min(70dvh, 520px);
+  padding: 0;
+  overflow: hidden;
+}
+.palette-search {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: var(--space-3);
+  padding: 0 var(--space-4);
+  color: var(--icon-muted);
+  border-bottom: 1px solid var(--line);
+}
+.palette-search input {
+  flex: 1;
+  min-width: 0;
+  height: 48px;
+  padding: 0;
+  font-size: var(--fs-md);
+  color: var(--text-strong);
+  background: none;
+  border: 0;
+  outline: none;
+  box-shadow: none;
+}
+.palette-list {
+  min-height: 0;
+  margin: 0;
+  padding: var(--space-2);
+  overflow: auto;
+  overscroll-behavior: contain;
+  list-style: none;
+}
+.palette-list:empty {
+  display: none;
+}
+.palette-list .palette-heading {
+  margin: 0;
+  padding: var(--space-3) var(--space-2) var(--space-1);
+}
+.palette-list .palette-heading:first-child {
+  padding-top: var(--space-1);
+}
+.palette-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  min-height: 34px;
+  padding: 6px var(--space-2);
+  font-size: var(--fs-sm);
+  color: var(--text-2);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+.palette-row[aria-selected="true"] {
+  color: var(--text-strong);
+  background: var(--accent-soft);
+}
+.palette-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.palette-label small {
+  margin-left: var(--space-2);
+  font-size: var(--fs-xs);
+  color: var(--text-4);
+}
+.palette-keys {
+  display: inline-flex;
+  flex-shrink: 0;
+  gap: 3px;
+}
+.palette-group {
+  flex-shrink: 0;
+  font-size: var(--fs-2xs);
+  color: var(--text-4);
+}
+.palette-empty {
+  margin: 0;
+  padding: var(--space-5) var(--space-4);
+  font-size: var(--fs-sm);
+  color: var(--text-3);
+  text-align: center;
+}
 
 /* ── Dialogs ───────────────────────────────────────────────────────── */
 .modal-backdrop {

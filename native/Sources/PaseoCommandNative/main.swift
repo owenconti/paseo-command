@@ -216,7 +216,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     /// ⌘R: the server first (restarted if its code changed), then this
     /// app (relaunched if a newer build is on disk) or just the page.
-    @objc private func reloadApp(_ sender: Any?) {
+    @objc func reloadApp(_ sender: Any?) {
         guard let main, !reloading else { return }
         reloading = true
         main.refreshServer { [weak self] ready in

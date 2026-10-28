@@ -157,6 +157,13 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
             drawer.show(w.flatMap { w in
                 (w["id"] as? String).map { TerminalWorkspace(id: $0, host: w["host"] as? String ?? "", name: w["name"] as? String ?? $0) }
             })
+        case "menu":
+            // The page's command palette, choosing a View menu item.
+            switch body["action"] as? String {
+            case "terminal": toggleTerminal()
+            case "reload": (NSApp.delegate as? AppDelegate)?.reloadApp(nil)
+            default: break
+            }
         case "detach":
             // The page unmounted its world (it is reloading or navigating).
             atlasView.isHidden = true

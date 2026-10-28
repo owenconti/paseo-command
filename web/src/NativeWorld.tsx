@@ -19,6 +19,7 @@ import {
 import { projectKey, workspaceKey } from "./workspaces";
 import { isFitWorldKey, isTyping } from "./worldShortcut";
 import { modalOpen } from "./focus";
+import { onAppCommand } from "./appCommands";
 import { soundEvent } from "./soundCues";
 import { setUnityWorldTheme } from "./theme";
 import type { Agent, Host, Project, Selection, Workspace } from "./types";
@@ -301,7 +302,11 @@ export function NativeWorld(props: Props) {
       fitWorld();
     };
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    const offCommand = onAppCommand("fit-world", fitWorld);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      offCommand();
+    };
   }, []);
   const empty = ready && data.hosts.length === 0;
   const hoveredAgent = tip?.entity.kind === "agent"

@@ -1,5 +1,10 @@
 import { useWorkingOn } from "./useWorkingOn";
-import { nativeAvailable, nativeEvents, postNative } from "./worldBridge";
+import {
+  hostWorldKey,
+  nativeAvailable,
+  nativeEvents,
+  postNative,
+} from "./worldBridge";
 import { installAppReloadShortcut } from "./appReload";
 import { installDispatchShortcut } from "./dispatchShortcut";
 import {
@@ -38,6 +43,10 @@ import {
   type ArchiveJob,
 } from "./archives";
 import { SoundControl } from "./SoundControl";
+import { setSoundSettings, useSoundSettings } from "./sounds";
+import { CommandPalette } from "./CommandPalette";
+import { runAppCommand } from "./appCommands";
+import type { Command } from "./palette";
 import {
   linearKey,
   linearUrl,
@@ -135,6 +144,19 @@ function parsePermissions(value: unknown): PendingPermission[] {
       kind: typeof p.kind === "string" ? p.kind : undefined,
     }))
     .filter((p) => p.agentId);
+}
+
+/** Focus the chat input on screen (an agent's, a subagent's or a new one's);
+ * false when none is shown. */
+function focusComposer() {
+  const composer = [
+    ...document.querySelectorAll<HTMLTextAreaElement>("#composer"),
+  ].find(
+    (c) =>
+      !c.disabled && !c.closest("[inert]") && c.getClientRects().length > 0,
+  );
+  composer?.focus();
+  return !!composer;
 }
 
 function App() {
@@ -833,25 +855,12 @@ function App() {
         e.preventDefault();
         if (issueUrl) openExternal(issueUrl);
         // Without a Linear workspace yet, the header chip asks for it.
-        else
-          document.querySelector<HTMLElement>("button.linear-chip")?.click();
+        else document.querySelector<HTMLElement>("button.linear-chip")?.click();
       } else if (
         e.key === "Enter" ||
         (key === "r" && selection?.type === "agent")
       ) {
-        // The chat input on screen: an agent's, a subagent's or a new one's.
-        const composer = [
-          ...document.querySelectorAll<HTMLTextAreaElement>("#composer"),
-        ].find(
-          (c) =>
-            !c.disabled &&
-            !c.closest("[inert]") &&
-            c.getClientRects().length > 0,
-        );
-        if (composer) {
-          e.preventDefault();
-          composer.focus();
-        }
+        if (focusComposer()) e.preventDefault();
       }
     };
     window.addEventListener("keydown", handler);
@@ -957,6 +966,315 @@ function App() {
     () => (unity ? setBrowsing(true) : select(null)),
     [select],
   );
+  const sounds = useSoundSettings();
+  const addProject = () => {
+    setAddingProject(true);
+    setBrowsing(false);
+    setFocusRevision((revision) => revision + 1);
+  };
+  // The command palette (Cmd+K): what the app's keys and buttons do, for
+  // what is open now, then (found by searching) every agent and place.
+  const archivable =
+    linkWorkspace && realWorkspaceIds.has(workspaceKey(linkWorkspace))
+      ? linkWorkspace
+      : undefined;
+  const showList = (t: Tab, f?: Filter) => {
+    setTab(t);
+    if (f) setFilter(f);
+    setBrowsing(true);
+  };
+  const paletteCommands: Command[] = [
+    {
+      id: "new-agent",
+      group: "Actions",
+      label: "New agent",
+      keys: [["⌘", "N"]],
+      keywords: "dispatch start",
+      run: () => openDispatch(),
+    },
+    {
+      id: "add-project",
+      group: "Actions",
+      label: "Add project",
+      keywords: "clone folder repository",
+      run: addProject,
+    },
+    ...(agent || dispatchTarget
+      ? [
+          {
+            id: "composer",
+            group: "Actions",
+            label: agent
+              ? "Reply to the selected agent"
+              : "Focus the message box",
+            keys: [["⌘", "L"]],
+            keywords: "message composer type",
+            run: focusComposer,
+          },
+        ]
+      : []),
+    ...(linkPr
+      ? [
+          {
+            id: "pr",
+            group: "Actions",
+            label: `Open pull request #${linkPr.number}`,
+            keys: [["G"]],
+            keywords: "github pr",
+            run: () => openExternal(linkPr.url),
+          },
+        ]
+      : []),
+    ...(issueKey
+      ? [
+          {
+            id: "linear",
+            group: "Actions",
+            label: `Open Linear issue ${issueKey}`,
+            keys: [["L"]],
+            run: () =>
+              issueUrl
+                ? openExternal(issueUrl)
+                : document
+                    .querySelector<HTMLElement>("button.linear-chip")
+                    ?.click(),
+          },
+        ]
+      : []),
+    ...(unread.size
+      ? [
+          {
+            id: "read-all",
+            group: "Actions",
+            label: "Mark all as read",
+            keywords: "unread clear",
+            run: () => markRead([...unread]),
+          },
+        ]
+      : []),
+    ...(archivable && !archiving.has(workspaceKey(archivable))
+      ? [
+          {
+            id: "archive",
+            group: "Actions",
+            label: `Archive workspace “${placeText(archivable.name, "workspace")}”…`,
+            keywords: "remove delete",
+            run: () => openArchive(archivable),
+          },
+        ]
+      : []),
+    ...(errors.length
+      ? [
+          {
+            id: "retry",
+            group: "Actions",
+            label: "Retry reaching Paseo",
+            keywords: "refresh reconnect",
+            run: () => void refresh(),
+          },
+        ]
+      : []),
+    {
+      id: "next",
+      group: "Navigate",
+      label: "Next agent",
+      keys: [["J"]],
+      run: () => step(1),
+    },
+    {
+      id: "previous",
+      group: "Navigate",
+      label: "Previous agent",
+      keys: [["K"]],
+      run: () => step(-1),
+    },
+    {
+      id: "next-attention",
+      group: "Navigate",
+      label: "Next agent that needs you",
+      keys: [["N"]],
+      keywords: "attention approval question",
+      run: nextAttention,
+    },
+    ...(selection
+      ? [
+          {
+            id: "back",
+            group: "Navigate",
+            label: selection.subagent
+              ? "Back to the parent agent"
+              : "Close the open item",
+            keys: [["Esc"]],
+            keywords: "back deselect",
+            run: () =>
+              select(
+                selection.subagent
+                  ? { ...selection, subagent: undefined }
+                  : null,
+              ),
+          },
+        ]
+      : []),
+    ...(nativeAvailable()
+      ? [
+          {
+            id: "fit",
+            group: "Navigate",
+            label: "Fit the whole map",
+            keys: [["F"]],
+            keywords: "zoom home world",
+            run: () => runAppCommand("fit-world"),
+          },
+        ]
+      : []),
+    ...(["Agents", "Workspaces", "Projects", "Hosts"] as const).map((t) => ({
+      id: `tab-${t}`,
+      group: "Lists",
+      label: `Show ${t.toLowerCase()}`,
+      keywords: "tab list",
+      run: () => showList(t),
+    })),
+    ...(
+      [
+        [
+          "attention",
+          "Show agents that need you",
+          "approvals questions attention",
+        ],
+        ["unread", "Show unread agents", "finished"],
+        ["running", "Show running agents", "working busy"],
+        ["idle", "Show idle agents", ""],
+        ["all", "Show all active agents", "filter"],
+      ] as const
+    ).map(([f, label, keywords]) => ({
+      id: `filter-${f}`,
+      group: "Lists",
+      label,
+      keywords: `filter ${keywords}`,
+      run: () => showList("Agents", f),
+    })),
+    ...(hostFilter !== null
+      ? [
+          {
+            id: "all-hosts",
+            group: "Lists",
+            label: "Show every host",
+            keywords: "filter clear",
+            run: () => setHostFilter(null),
+          },
+        ]
+      : []),
+    {
+      id: "panel",
+      group: "App",
+      label: "Show or hide the panel",
+      keys: [["⌘", "B"]],
+      keywords: "sidebar collapse",
+      run: () => runAppCommand("toggle-panel"),
+    },
+    ...(nativeAvailable()
+      ? [
+          {
+            id: "terminal",
+            group: "App",
+            label: "Show or hide the terminal",
+            keys: [["⌃", "`"]],
+            keywords: "shell console",
+            run: () => postNative({ type: "menu", action: "terminal" }),
+          },
+          {
+            id: "reload",
+            group: "App",
+            label: "Reload, with the latest build",
+            keys: [["⌘", "R"]],
+            keywords: "update refresh",
+            run: () => postNative({ type: "menu", action: "reload" }),
+          },
+        ]
+      : []),
+    {
+      id: "sounds",
+      group: "App",
+      label: sounds.enabled ? "Turn sounds off" : "Turn sounds on",
+      keywords: "audio mute volume",
+      run: () => setSoundSettings({ enabled: !sounds.enabled }),
+    },
+    ...(attention.notifications !== "unsupported" &&
+    attention.notifications !== "denied"
+      ? [
+          {
+            id: "notifications",
+            group: "App",
+            label:
+              attention.notifications === "granted"
+                ? "Turn desktop notifications off"
+                : "Turn desktop notifications on",
+            keywords: "bell alerts",
+            run: () => void attention.requestNotifications(),
+          },
+        ]
+      : []),
+    {
+      id: "shortcuts",
+      group: "App",
+      label: "Keyboard shortcuts",
+      keys: [["?"]],
+      keywords: "keys help",
+      run: () => runAppCommand("show-shortcuts"),
+    },
+    ...active.map((a) => {
+      const ws = workspaceOf(a);
+      return {
+        id: `agent:${a.id}`,
+        group: "Agents",
+        label: agentName(a, ws?.branch),
+        detail: [ws?.project, placeText(ws?.name, "")]
+          .filter(Boolean)
+          .join(" · "),
+        searchOnly: true,
+        run: () => choose({ type: "agent", id: a.id }),
+      };
+    }),
+    ...listedWorkspaces.map((w) => ({
+      id: `workspace:${workspaceKey(w)}`,
+      group: "Workspaces",
+      label: placeText(w.name, "Workspace"),
+      detail: [w.project, w.branch !== w.name ? w.branch : ""]
+        .filter(Boolean)
+        .join(" · "),
+      searchOnly: true,
+      run: () => choose({ type: "workspace", id: workspaceKey(w) }),
+    })),
+    ...projects.map((p) => ({
+      id: `project:${projectKey(p)}`,
+      group: "Projects",
+      label: placeText(p.name, "Project"),
+      searchOnly: true,
+      run: () => choose({ type: "project", id: projectKey(p) }),
+    })),
+    ...(hosts.length > 1
+      ? hosts.map((h) => ({
+          id: `host:${h.serverId}`,
+          group: "Hosts",
+          label: h.label || (h.local ? "This computer" : "Host"),
+          detail: h.local ? "local" : undefined,
+          keywords: "host filter",
+          searchOnly: true,
+          run: () => {
+            setHostFilter(h.local ? "" : h.serverId);
+            setBrowsing(true);
+            if (nativeAvailable()) soundEvent("focused");
+            postNative({
+              type: "camera",
+              command: {
+                type: "focus",
+                target: { kind: "host", key: hostWorldKey(h) },
+              },
+            });
+          },
+        }))
+      : []),
+  ];
   const position = {
     index: agent ? order.findIndex((a) => a.id === agent.id) : -1,
     total: order.length,
@@ -1088,11 +1406,7 @@ function App() {
                   onArchiveWorkspace={openArchive}
                   archiving={archiving}
                   onDispatch={openDispatch}
-                  onAddProject={() => {
-                    setAddingProject(true);
-                    setBrowsing(false);
-                    setFocusRevision((revision) => revision + 1);
-                  }}
+                  onAddProject={addProject}
                   workspaceOf={workspaceOf}
                   projectOf={projectOf}
                   counts={filterCounts}
@@ -1302,6 +1616,10 @@ function App() {
             />
           )}
         </AnimatePresence>
+        <CommandPalette
+          commands={paletteCommands}
+          blocked={!!archiveWorkspace}
+        />
         <TooltipLayer />
       </main>
     </MotionConfig>

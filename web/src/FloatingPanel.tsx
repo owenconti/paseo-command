@@ -18,6 +18,7 @@ import {
 import { readStore, writeStore } from "./api";
 import { CommitsButton } from "./CommitsButton";
 import { ShortcutsButton } from "./ShortcutsButton";
+import { onAppCommand } from "./appCommands";
 import { nativeEvents, postNative } from "./worldBridge";
 import { worldFrame } from "./viewControls";
 import {
@@ -139,7 +140,14 @@ export function FloatingPanel(props: Props) {
       setState((s) => ({ ...s, collapsed: !s.collapsed }));
     };
     addEventListener("keydown", toggle);
-    return () => removeEventListener("keydown", toggle);
+    // The command palette's Show or hide the panel.
+    const offCommand = onAppCommand("toggle-panel", () =>
+      setState((s) => ({ ...s, collapsed: !s.collapsed })),
+    );
+    return () => {
+      removeEventListener("keydown", toggle);
+      offCommand();
+    };
   }, [props.enabled]);
   useEffect(() => {
     if (props.enabled && props.revealRevision)
