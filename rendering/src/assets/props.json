@@ -1,0 +1,110 @@
+{
+  "planter": {
+    "file": "props.png",
+    "rect": [
+      94,
+      98,
+      327,
+      316
+    ]
+  },
+  "topiary": {
+    "file": "props.png",
+    "rect": [
+      619,
+      90,
+      302,
+      330
+    ]
+  },
+  "flowerbed": {
+    "file": "props.png",
+    "rect": [
+      1117,
+      180,
+      328,
+      155
+    ]
+  },
+  "citrus": {
+    "file": "props.png",
+    "rect": [
+      1631,
+      90,
+      316,
+      329
+    ]
+  },
+  "crates": {
+    "file": "props.png",
+    "rect": [
+      91,
+      608,
+      331,
+      321
+    ]
+  },
+  "barrels": {
+    "file": "props.png",
+    "rect": [
+      603,
+      614,
+      328,
+      305
+    ]
+  },
+  "spool": {
+    "file": "props.png",
+    "rect": [
+      1122,
+      602,
+      319,
+      332
+    ]
+  },
+  "workbench": {
+    "file": "props.png",
+    "rect": [
+      1627,
+      646,
+      329,
+      249
+    ]
+  },
+  "lamp": {
+    "file": "props.png",
+    "rect": [
+      93,
+      1114,
+      329,
+      331
+    ]
+  },
+  "lamp-lit": {
+    "file": "props.png",
+    "rect": [
+      605,
+      1114,
+      329,
+      331
+    ]
+  },
+  "beacon": {
+    "file": "props.png",
+    "rect": [
+      1125,
+      1114,
+      321,
+      331
+    ]
+  },
+  "beacon-lit": {
+    "file": "props.png",
+    "rect": [
+      1637,
+      1114,
+      321,
+      331
+    ]
+  }
+}

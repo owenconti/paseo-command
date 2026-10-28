@@ -94,6 +94,9 @@ agents each have their own hover border colour; hosts are not interactive on the
 host as a landmass; project islands sit on it on earthen banks with soft shadows.
 The layout follows the map's aspect ratio: hosts shelf-pack and tall maps stack vertically.
 Agents the daemon reports without a workspace wait at a flagged camp, laid out like a workspace.
+Each landmark's paving carries props (`props.png`): a seeded mix of greenery and workshop gear, two lamps
+lit while any of the project's agents is running, and a beacon that flares, in the most urgent state's colour,
+when one needs approval, has a question or failed. Props keep off the landmark's art, its name and the kerb.
 The world is assembled from generated transparent sprite atlases, a terrain texture,
 and a strict axial hex grid. It is not a screenshot used as a background.
 For performance, the static painted images (ground, buildings) are drawn into two view-sized caches that

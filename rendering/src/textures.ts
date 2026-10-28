@@ -1,4 +1,5 @@
 import Phaser from "phaser";
+import PROPS from "./assets/props.json";
 // Regions are atlas frames, not a flattened map. Phaser owns their cropping and rendering.
 const BUILDING_FRAMES: Record<string, number[]> = {
   manor: [0, 0, 575, 550],
@@ -31,6 +32,9 @@ export function registerFrames(scene: Phaser.Scene): void {
       4,
       20,
     );
+  // Plaza props: greenery, workshop gear, and the lamps and beacon in both states.
+  for (const [name, { rect }] of Object.entries(PROPS))
+    trimFrame(scene, "props", name, rect as [number, number, number, number]);
   const robots = scene.textures
     .get("robots")
     .getSourceImage() as HTMLImageElement;
@@ -47,6 +51,7 @@ export function registerFrames(scene: Phaser.Scene): void {
   const frames = [
     ...Object.keys(BUILDING_FRAMES),
     "trees",
+    ...Object.keys(PROPS),
     ...["teal", "violet", "lime", "blue"].map((name) => `robot-${name}`),
   ];
   for (const name of frames) {
@@ -54,7 +59,9 @@ export function registerFrames(scene: Phaser.Scene): void {
       ? "robots"
       : name === "trees"
         ? "foliage"
-        : "buildings";
+        : name in PROPS
+          ? "props"
+          : "buildings";
     const source = scene.textures.get(sourceKey);
     const frame = source.get(name);
     const gutter = 8;

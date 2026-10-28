@@ -59,3 +59,42 @@ nebula density map) generated for that project; their prompts and checksums are 
 `art/galaxy/prompts/production-texture-prompts.json`. Stations, satellites, rings,
 atmospheres, stars and rocks are drawn procedurally in `src/galaxy/paint.ts`, after the
 original's Unity station and satellite geometry and its Galaxy reference screenshots.
+## props.png — plaza props and status pairs
+
+Generated with the built-in `image_gen` tool using `buildings.png` and `tree-v2.png` as style references. Local artwork only; no Phaser AE services, publishing or asset uploads were used.
+
+Original output: `exec-8f439e40-8aef-45be-acf6-0e407a18392c.png` (1448 × 1086 RGBA), retained unchanged at `/Users/example/.codex/generated_images/01a180b5-a24e-7b40-8e10-068686088936/`.
+
+The final atlas is 2048 × 1536 RGBA, exactly four columns by three rows of 512 × 512 cells. Sprite names and alpha-derived frame rectangles (six pixels of padding) are in `src/assets/props.json`. All entries use `props.png`; rectangle format is `[x, y, width, height]`.
+
+Compositing: the generator's grid was too tightly spaced, so complete prop crops were centered on a new fully transparent grid, preserving aspect ratio and resampling each whole crop to a maximum dimension of 320 pixels with Lanczos. No colors were repainted and no alpha threshold was applied. Source crop detection used alpha > 1 only to locate the visible subject, retaining a further six pixels of the original image and its faint edge alpha.
+
+The first eight source search regions, in row order, were `[40,50,350,351]`, `[420,85,654,340]`, `[710,110,1115,315]`, `[1150,55,1430,350]`, `[38,400,347,711]`, `[380,395,703,705]`, `[738,375,1068,710]`, `[1118,435,1432,685]` (left, top, right, bottom). The alpha-derived crops within these regions retain each complete subject without neighbors.
+
+Status compositing: each pair uses an identical 300 × 300 source crop centered on its unlit object: lamp `(186,873)`, beacon `(901,870)`. For the lit version, only the circular interior (96 pixel radius) is composited from the generated lit subject centered at lamp `(537,873)` or beacon `(1269,870)`. The unlit source supplies all exterior pixels for both states, keeping the brass/stone outer rim, silhouette and registration identical. No procedural flame, recoloring or additional glow was added. Pair frames have identical dimensions and identical positions relative to their cells.
+
+Validation: all four corners have alpha zero; every grid boundary has a fully transparent 64 pixel gutter; complete subjects fit within their cells; both status pairs share pixel-identical exteriors outside the composited interior. The original generator's very faint alpha=1 speckles immediately beside some silhouettes are retained, while grid gutters are exactly alpha zero. A QA contact sheet at `/tmp/props-preview.png` shows all frames at 48 and 160 pixel widths over a pale grey paving background; this background is preview-only.
+
+Exact prompt:
+
+> Use case: stylized-concept.
+> Create a production GAME SPRITE ATLAS on genuine transparent alpha, EXACT 4 columns x 3 rows of equal cells, ideally 1536 x 1152 pixels. Twelve separate props, one per cell, centered precisely on its cell center, occupying only 55–65% of its cell width/height, with WIDE completely transparent gutters. Every object and tiny contact shadow fully inside its cell. No neighbor bleeding.
+> Input images 1 (buildings.png) and 2 (tree-v2.png) are STYLE REFERENCES ONLY: match their hand-painted ink-and-watercolor/gouache fantasy cartography, fine thin sepia contours, warm aged cream limestone, warm timber, antique brass, moss greens, tiny material details and restrained sunlit shadows. Consistent upper-left light. This atlas supplies small plaza props to that same world. Strong clear silhouettes readable at 30–60 pixels, fine detail when enlarged.
+> Camera STRICT ORTHOGRAPHIC STRAIGHT DOWN 90 degrees overhead. View tops only: circular barrel lids, crate lids, planter soil, lamp caps; circles remain circles. Absolutely no isometric tilt, front or side facades, standing elevation or horizon. No ground, paving, grass, hexagons, background wash, checkerboard, labels, lettering, numbers, UI, logos. Only tiny tight soft contact shadows under objects. Everything outside individual props is genuinely transparent.
+> EXACT CELL CONTENTS, left to right:
+> ROW 1:
+> 1. Square aged cream-limestone planter box full of moss-green flowering shrubs with pink and white blooms, viewed down into flowers and square rim.
+> 2. Round terracotta pot holding a neatly clipped spherical dark green boxwood topiary, circular leafy top canopy with a hint of terra cotta rim.
+> 3. Long narrow horizontal timber-edged raised flower bed filled with mixed lavender and marigold blooms and green foliage; view down into the bed.
+> 4. Small potted citrus/lemon tree in a brass-banded wooden tub; round leafy canopy with several clear yellow lemons and hints of the wooden tub rim.
+> ROW 2:
+> 5. Compact stack of 2–3 wooden shipping crates with rope, unmarked stencil-free wooden lids, primarily square top faces.
+> 6. Compact triangular cluster of three oak barrels with brass hoops, seen straight from above as three round detailed lids.
+> 7. Large round wooden cable spool/reel with visible coiled copper cable on its top.
+> 8. Small rectangular timber workbench/tool chest with hammer, wrench and a few gears lying on its flat top.
+> ROW 3, matched status pairs:
+> 9. UNLIT wrought-iron and antique-brass street lamp seen from directly above: round shallow lamp cap with radial glass panes, cool dark glass, tiny brass finial in center. No visible tall pole.
+> 10. LIT version of cell 9. This is an IDENTICAL DUPLICATE of the lamp in cell 9, same shape, size, center, outlines, brass rim, spokes, finial and angle; ONLY glass panes become warm glowing amber yellow. Keep light spill strictly on its own rim; no large halo.
+> 11. UNLIT round stone fire brazier / signal beacon bowl seen directly from above, thick cream-grey weathered carved stone circular rim, dark cold coals and ash inside.
+> 12. LIT version of cell 11. This is an IDENTICAL DUPLICATE of the bowl in cell 11, same exact diameter, outline, stone rim pattern, center, angle and size. ONLY inside the bowl changes to bright orange-red flame cores and yellow tips, viewed from overhead, tiny sparks contained inside the bowl. No tall side-view flames or large halo.
+> Keep both lit/unlit pairs perfectly registered so their frames can swap without jumping. All 12 props have consistent painted detail and scale. No 3D render, no photorealism, no pixel art.
