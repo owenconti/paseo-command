@@ -136,6 +136,12 @@
   }
 }
 
+.atlas-world-tip .atlas-flag-pr {
+  margin-top: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .atlas-world-tip .atlas-work-summary {
   margin-top: 5px;
   color: var(--text);

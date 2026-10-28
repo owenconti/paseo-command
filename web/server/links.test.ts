@@ -351,3 +351,15 @@ test("gh's review decision is read", () => {
   assert.equal(pr("REVIEW_REQUIRED")?.review, "pending");
   assert.equal(pr("")?.review, undefined);
 });
+
+test("merge conflicts are read from Paseo and gh; unknown stays unknown", () => {
+  assert.equal(prFromRuntime(runtimePr({ mergeable: "CONFLICTING" }))?.conflicts, true);
+  assert.equal(prFromRuntime(runtimePr({ mergeable: "MERGEABLE" }))?.conflicts, false);
+  assert.equal("conflicts" in prFromRuntime(runtimePr({ mergeable: "UNKNOWN" }))!, false);
+  assert.equal("conflicts" in prFromRuntime(runtimePr())!, false);
+  const gh = (mergeable: string) =>
+    ghPr({ url: URL_, number: 42, title: "t", state: "OPEN", mergeable });
+  assert.equal(gh("CONFLICTING")?.conflicts, true);
+  assert.equal(gh("MERGEABLE")?.conflicts, false);
+  assert.equal(gh("UNKNOWN")?.conflicts, undefined);
+});

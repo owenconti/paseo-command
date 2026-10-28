@@ -265,8 +265,8 @@ export function propFrames(img: HTMLImageElement, rects: Record<string, { rect: 
   return frames;
 }
 
-/** PR flags: a 3×2 grid of 512 px cells, CI across the top, review below (in
- * `names`' order). A low threshold keeps the brass poles' soft edges. */
+/** PR flags: a grid of 512 px cells three across, CI along the top, review
+ * below, then merge conflicts (in `names`' order). A low threshold keeps the brass poles' soft edges. */
 export function flagFrames(img: HTMLImageElement, names: string[]): Map<string, Frame> {
   const frames = new Map<string, Frame>();
   names.forEach((name, i) =>

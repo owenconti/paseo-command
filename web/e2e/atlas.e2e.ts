@@ -454,6 +454,56 @@ test("workspace PR labels plant flags on the map", async () => {
   }
 });
 
+test("merge conflicts fly in the review flag's place, and a flag's tooltip describes it", async () => {
+  const b = workspaces.find((w) => w.workspaceId === "wks_b")! as Record<string, unknown>;
+  b.labels = ["CI failing", "Approved", "Merge conflicts"];
+  b.pr = {
+    number: 7,
+    title: "Plant flags",
+    state: "open",
+    url: "https://github.com/acme/app/pull/7",
+    review: "approved",
+    conflicts: true,
+    ci: {
+      state: "failing",
+      checks: [
+        { name: "lint", status: "failure" },
+        { name: "unit", status: "success" },
+      ],
+    },
+  };
+  try {
+    const page = await open();
+    const key = agentKey("wks_b");
+    await waitFor(
+      async () => (await inspect(page))?.flags?.[key],
+      (f) => f?.review === "conflicts",
+      "the conflicts flag",
+      30000,
+    );
+    const planted = (await inspect(page))!.planted.filter((p) => p.workspace === key);
+    assert.deepEqual(planted.map((p) => p.flag).sort(), ["ci-failing", "conflicts"]);
+    for (const p of planted) assert.ok(p.inCell, `${p.flag} stands inside its cell`);
+    const tip = () => page.locator(".atlas-world-tip").textContent({ timeout: 500 }).catch(() => "");
+    // Swift reports the flag under the pointer along with its workspace.
+    await swift(page, { type: "hover", id: key, flag: "conflicts", x: 300, y: 200 });
+    const conflicts = await waitFor(tip, (t) => !!t?.includes("Merge conflicts"), "the conflicts flag's tooltip");
+    assert.match(conflicts!, /conflicts with its base branch/);
+    assert.match(conflicts!, /#7 · Plant flags/);
+    await swift(page, { type: "hover", id: key, flag: "ci-failing", x: 280, y: 200 });
+    const failing = await waitFor(tip, (t) => !!t?.includes("CI failing"), "the CI flag's tooltip");
+    assert.match(failing!, /1 of 2 checks failed\./);
+    // Off the flag, the workspace's own card returns.
+    await swift(page, { type: "hover", id: key, x: 300, y: 200 });
+    await waitFor(tip, (t) => !!t && /Workspace · /.test(t) && !t.includes("CI failing"), "the workspace's tooltip");
+    await page.locator('section[aria-label="Map legend"]').getByText("Merge conflicts", { exact: true }).waitFor();
+    await page.context().close();
+  } finally {
+    delete b.labels;
+    delete b.pr;
+  }
+});
+
 test("current work appears in the running agent tooltip and above its composer, then clears on idle", async () => {
   const context = await newContext(browser);
   const page = await context.newPage();

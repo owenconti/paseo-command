@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { PR_LABELS, prFlags } from "../src/prStatus.ts";
 
-test("the six PR labels, their colours and groups, in atlas order", () => {
+test("the seven PR labels, their colours and groups, in atlas order", () => {
   assert.deepEqual(
     PR_LABELS.map((l) => [l.flag, l.group, l.name, l.color]),
     [
@@ -12,6 +12,7 @@ test("the six PR labels, their colours and groups, in atlas order", () => {
       ["review-awaiting", "review", "Awaiting review", "sky"],
       ["review-approved", "review", "Approved", "violet"],
       ["review-changes", "review", "Changes requested", "orange"],
+      ["conflicts", "review", "Merge conflicts", "pink"],
     ],
   );
 });
@@ -39,4 +40,16 @@ test("prFlags picks one per group, the most urgent", () => {
   assert.equal(prFlags(["CI running", "CI failing"]).ci, "ci-failing");
   assert.equal(prFlags(["Approved", "Changes requested"]).review, "review-changes");
   assert.equal(prFlags(["Approved", "Awaiting review"]).review, "review-awaiting");
+});
+
+test("merge conflicts fly in the review flag's place", () => {
+  assert.deepEqual(prFlags(["CI green", "Approved", "Merge conflicts"]), {
+    ci: "ci-green",
+    review: "conflicts",
+  });
+  assert.equal(prFlags(["Changes requested", "merge conflicts"]).review, "conflicts");
+});
+
+test("every PR label describes its flag", () => {
+  for (const l of PR_LABELS) assert.match(l.description, /\.$/);
 });

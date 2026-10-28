@@ -28,6 +28,14 @@ final class AtlasScene: SKScene {
         let at: WorldBox
     }
     private var entities: [String: Entity] = [:]
+    /// A workspace's PR flag, for its hover card: the flag's art as a box
+    /// centred on its x, y (as `Entity.at`).
+    private struct PlantedFlag {
+        let flag: String
+        let workspace: String
+        let at: WorldBox
+    }
+    private var plantedFlags: [PlantedFlag] = []
     /// Which project, workspace or agent owns each cell (hosts are never picked).
     private var owners: [Axial: String] = [:]
     var hasArt: Bool { !frames.isEmpty }
@@ -100,6 +108,8 @@ final class AtlasScene: SKScene {
     private var keys = Set<String>()
     private(set) var selected: String?
     private(set) var hovered: String?
+    /// The PR flag under the pointer, when it is one of the hovered workspace's.
+    private var hoveredFlag: PlantedFlag?
     private var lastHoverReport = ""
     var inputEnabled = true
     /// When the last interaction was, so the view stays at full rate after it.
@@ -195,8 +205,13 @@ final class AtlasScene: SKScene {
             structures.addChild(node)
         }
         swaying = []
+        plantedFlags = []
         for f in m["prFlags"] as? [[String: Any]] ?? [] {
             guard let name = f["frame"] as? String, let node = sprite(name, width: num(f["width"])) else { continue }
+            if let flag = f["flag"] as? String, let workspace = f["workspace"] as? String {
+                plantedFlags.append(PlantedFlag(flag: flag, workspace: workspace,
+                                                at: WorldBox(x: num(f["x"]), y: num(f["y"]), width: node.size.width, height: node.size.height)))
+            }
             // Standing on its pole's foot, so a sway turns about it.
             node.anchorPoint = CGPoint(x: flagFoot.x, y: 1 - flagFoot.y)
             node.position = p(num(f["x"]) + (flagFoot.x - 0.5) * node.size.width, num(f["y"]) + (flagFoot.y - 0.5) * node.size.height)
@@ -231,7 +246,12 @@ final class AtlasScene: SKScene {
         if let id = selected, entities[id] == nil { selected = nil }
         drawSelection()
         // A hover that survives the scene keeps its card, pointing where the entity now stands.
-        if let id = hovered, entities[id] == nil { setHover(nil) } else if hovered != nil { drawHover(); reportHover() }
+        if let id = hovered, entities[id] == nil { setHover(nil) } else if hovered != nil {
+            // Its flag may have changed or gone: the card follows what now stands there.
+            hoveredFlag = hoveredFlag.flatMap { old in plantedFlags.first { $0.workspace == old.workspace && $0.at.x == old.at.x && $0.at.y == old.at.y } }
+            drawHover()
+            reportHover()
+        }
         if !fitted && view != nil && size.width > 0 { fit() } else { constrain() }
         wake()
     }
@@ -484,18 +504,22 @@ final class AtlasScene: SKScene {
         hoverNode.addChild(strokes(e.cells, width: 4, color: Textures.color(hoverColors[e.kind] ?? 0xffffff, 0.95)))
     }
 
-    private func setHover(_ id: String?) {
-        guard id != hovered else { return }
+    private func setHover(_ id: String?, flag: PlantedFlag? = nil) {
+        guard id != hovered || flag?.flag != hoveredFlag?.flag || flag?.at.x != hoveredFlag?.at.x else { return }
+        let outline = id != hovered
         hovered = id
-        drawHover()
+        hoveredFlag = id == nil ? nil : flag
+        if outline { drawHover() }
         reportHover()
         wake()
     }
 
-    /// Where the hover card points: the entity's top centre, in the surface's points.
+    /// Where the hover card points: the entity's (or its hovered flag's) top
+    /// centre, in the surface's points.
     private func reportHover() {
         var message: [String: Any] = ["type": "hover", "id": hovered as Any? ?? NSNull()]
-        if let id = hovered, let at = entities[id]?.at, let v = view?.bounds.size {
+        if let flag = hoveredFlag { message["flag"] = flag.flag }
+        if let id = hovered, let at = hoveredFlag?.at ?? entities[id]?.at, let v = view?.bounds.size {
             message["x"] = (at.x - (center.x - v.width / 2 / zoom)) * zoom
             message["y"] = (at.y - at.height / 2 - (center.y - v.height / 2 / zoom)) * zoom
         }
@@ -603,19 +627,35 @@ final class AtlasScene: SKScene {
                 if hovered != nil { setHover(nil) }
                 interacted()
             } else {
-                setHover(entityAt(point))
+                hover(at: point)
             }
         case "up":
             if let d = down {
                 down = nil
-                if hypot(point.x - d.point.x, point.y - d.point.y) < 7, let id = entityAt(point) {
+                if hypot(point.x - d.point.x, point.y - d.point.y) < 7, let id = flagAt(point)?.workspace ?? entityAt(point) {
                     emit(["type": "pick", "id": id])
                 }
-                setHover(entityAt(point))
+                hover(at: point)
             }
         case "leave":
             if down == nil { setHover(nil) }
         default: break
+        }
+    }
+
+    /// Hover what is under a surface point: a PR flag's art takes it before
+    /// the cell beneath, and outlines its workspace.
+    private func hover(at point: CGPoint) {
+        if let flag = flagAt(point) { setHover(flag.workspace, flag: flag) } else { setHover(entityAt(point)) }
+    }
+
+    /// The PR flag whose art holds a surface point (its cloth and pole, a
+    /// little inside the frame's transparent edges), if any.
+    private func flagAt(_ point: CGPoint) -> PlantedFlag? {
+        let v = worldView
+        let x = v.x + point.x / zoom, y = v.y + point.y / zoom
+        return plantedFlags.last { f in
+            abs(x - f.at.x) <= f.at.width * 0.42 && abs(y - f.at.y) <= f.at.height * 0.46 && entities[f.workspace] != nil
         }
     }
 

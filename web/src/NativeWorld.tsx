@@ -23,6 +23,8 @@ import { soundEvent } from "./soundCues";
 import { setUnityWorldTheme } from "./theme";
 import type { Agent, Host, Project, Selection, Workspace } from "./types";
 import { WorldLegend } from "./WorldLegend";
+import { flagTip } from "./flagTip";
+import type { PrFlag } from "../../rendering/src/prStatus";
 import "./atlas-world.css";
 type Props = {
   workingOn?: WorkSummaries;
@@ -121,7 +123,7 @@ function selectionKey(selection: Selection, snapshot: WorldSnapshot) {
     );
   return null;
 }
-type Tip = { entity: Entity; at: ScreenPoint; detail: string };
+type Tip = { entity: Entity; at: ScreenPoint; detail: string; flag?: PrFlag };
 export function NativeWorld(props: Props) {
   const surface = useRef<HTMLDivElement>(null);
   const world = useRef<AtlasWorld | null>(null);
@@ -199,9 +201,9 @@ export function NativeWorld(props: Props) {
             p.select(selection);
           }
         },
-        hover: (entity, at) => {
+        hover: (entity, at, flag) => {
           const p = latest.current;
-          setTip(entity && at ? { entity, at, detail: describe(entity) } : null);
+          setTip(entity && at ? { entity, at, detail: describe(entity), flag } : null);
           const row =
             entity?.kind === "agent"
               ? current.current.agents.find((a) => a.key === entity.id)
@@ -312,6 +314,13 @@ export function NativeWorld(props: Props) {
     ? snapshot.agents.find((a) => a.key === tip.entity.id)
     : undefined;
   const hoveredSummary = hoveredAgent && props.workingOn?.[hoveredAgent.clientId ?? hoveredAgent.id];
+  // A hovered PR flag's card: what it means, from its workspace's PR.
+  const flagCard = (() => {
+    if (!tip?.flag || tip.entity.kind !== "workspace") return null;
+    const w = snapshot.workspaces.find((x) => x.key === tip.entity.id);
+    const row = w && props.workspaces.find((x) => x.workspaceId === w.id && (x.host || "local") === w.hostId);
+    return flagTip(tip.flag, row?.pr);
+  })();
   return (
     <>
       <div
@@ -331,8 +340,19 @@ export function NativeWorld(props: Props) {
           role="tooltip"
           style={{ left: tip.at.x, top: tip.at.y }}
         >
-          <b>{tip.entity.name}</b>
-          <span>{tip.detail}</span>
+          {flagCard ? (
+            <>
+              <b>{flagCard.title}</b>
+              <span>{flagCard.description}</span>
+              {flagCard.facts && <span>{flagCard.facts}</span>}
+              {flagCard.pr && <span className="atlas-flag-pr">{flagCard.pr}</span>}
+            </>
+          ) : (
+            <>
+              <b>{tip.entity.name}</b>
+              <span>{tip.detail}</span>
+            </>
+          )}
           {hoveredSummary?.sentence && (
             <span className="atlas-work-summary">{hoveredSummary.sentence}</span>
           )}

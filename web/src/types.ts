@@ -104,6 +104,8 @@ export type PullRequest = {
   queue?: MergeQueue;
   /** Its review decision; absent when unknown or none. */
   review?: "pending" | "approved" | "changes_requested";
+  /** Whether it conflicts with its base branch; absent while unknown. */
+  conflicts?: boolean;
 };
 export type PrCheck = {
   name: string;

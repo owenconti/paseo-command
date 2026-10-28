@@ -24,6 +24,7 @@ const LABEL_COLOR: Record<(typeof PR_LABELS)[number]["color"], string> = {
   sky: "#0ea5e9",
   violet: "#8b5cf6",
   orange: "#f97316",
+  pink: "#ec4899",
 };
 export function WorldLegend({ data }: { data: AtlasData }) {
   const [open, setOpen] = useState(() => readStore<boolean>("world-legend-open", true));

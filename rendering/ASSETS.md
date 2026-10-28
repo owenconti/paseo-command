@@ -134,9 +134,14 @@ prompts are kept in `../design/pr-status/` (`NOTES.md`).
 Original outputs: `exec-0b97d0d2-4d85-44a0-bced-51bd4d1e0f95.png` and `exec-348043d6-2ba9-4241-9415-d5f7f3d0a6a1.png`
 (chosen subjects), at `/Users/example/.codex/generated_images/01a182ce-3bf8-7b33-9893-b559af5af5b0/`.
 
-A 1536 × 1024 RGBA atlas, three columns by two rows of 512 px cells, in `PR_LABELS` order (`src/prStatus.ts`):
+A 1536 × 1536 RGBA atlas, three columns of 512 px cells, in `PR_LABELS` order (`src/prStatus.ts`):
 CI running (amber hourglass), CI green (emerald check), CI failing (red cross) on square cloths; awaiting review
 (sky eye), approved (violet laurel and check), changes requested (orange quill) on swallow-tailed cloths. Each is a
 turned-timber pole with a brass foot, registered so every foot sits at [156, 404] in its cell. Packaging only
 cropped, scaled and registered the generated subjects; nothing was repainted. The Atlas trims each cell into a
 frame (`flag-<state>`), plants the flags in a workspace's two yard cells, and sways only the CI-running flag.
+
+The third row's first cell is the merge conflicts flag (pink swallow-tailed cloth, crossed swords), which flies in
+the review flag's place. It was generated the same way by a GPT-6.1-Sol agent with `image_gen`, registered to the
+same foot anchor, and pasted in unchanged from `../design/pr-status/flag-conflicts.png`; its prompts and originals
+are in `../design/pr-status/NOTES.md`. The rest of that row is transparent.

@@ -37,6 +37,8 @@ export type PullRequest = {
   queue?: MergeQueue;
   /** Its review decision; absent when unknown or none. */
   review?: ReviewState;
+  /** Whether it conflicts with its base branch; absent while GitHub hasn't worked it out. */
+  conflicts?: boolean;
 };
 export type ReviewState = "pending" | "approved" | "changes_requested";
 /** One check as Paseo words it (GitHub's conclusions folded the same way). */
@@ -92,6 +94,11 @@ function reviewOf(decision: unknown): ReviewState | undefined {
       return "pending";
   }
   return undefined;
+}
+/** GitHub's `mergeable` (Paseo's and gh's): `CONFLICTING` or `MERGEABLE`; `UNKNOWN` while it works it out. */
+function conflictsOf(mergeable: unknown): boolean | undefined {
+  const m = str(mergeable).toUpperCase();
+  return m === "CONFLICTING" ? true : m === "MERGEABLE" ? false : undefined;
 }
 const clip = (s: string, n: number) => (s.length > n ? s.slice(0, n) : s);
 
@@ -320,6 +327,7 @@ export function prFromRuntime(
   const ci = ciFromRuntime(pr);
   const queue = queueFromRuntime(pr);
   const review = reviewOf(pr.reviewDecision);
+  const conflicts = conflictsOf(pr.mergeable);
   return {
     number,
     title: clip(str(pr.title), 300),
@@ -328,6 +336,7 @@ export function prFromRuntime(
     ...(ci ? { ci } : {}),
     ...(queue ? { queue } : {}),
     ...(review ? { review } : {}),
+    ...(conflicts !== undefined ? { conflicts } : {}),
   };
 }
 
@@ -384,6 +393,7 @@ export function ghPr(raw: unknown): PullRequest | null {
   if (!number) return null;
   const ci = ciFromRollup(pr.statusCheckRollup);
   const review = reviewOf(pr.reviewDecision);
+  const conflicts = conflictsOf(pr.mergeable);
   return {
     number,
     title: clip(str(pr.title), 300),
@@ -392,6 +402,7 @@ export function ghPr(raw: unknown): PullRequest | null {
     ...(str(pr.body) ? { body: clip(str(pr.body), 4000) } : {}),
     ...(ci ? { ci } : {}),
     ...(review ? { review } : {}),
+    ...(conflicts !== undefined ? { conflicts } : {}),
   };
 }
 
@@ -419,7 +430,7 @@ export function ghPullRequest(
     "view",
     branch,
     "--json",
-    "number,title,state,isDraft,url,body,statusCheckRollup,reviewDecision",
+    "number,title,state,isDraft,url,body,statusCheckRollup,reviewDecision,mergeable",
   ]).then(
     (out): GhAnswer => {
       try {

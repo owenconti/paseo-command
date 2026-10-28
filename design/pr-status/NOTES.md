@@ -149,3 +149,58 @@ Reference input: the first flag output, `exec-0b97d0d2-4d85-44a0-bced-51bd4d1e0f
 > Bottom row left-to-right: sky-blue eye swallowtail, violet laurel-and-check swallowtail, orange quill swallowtail.
 > Keep the laurel simplified with broad leaves so it remains legible at 32 pixels total flag height. Large cream glyphs, no minute detailing. Keep banner faces visible and mildly elevated standing-prop camera. Exactly one complete standing flag per cell; no medallions.
 > No text, numbers, grid lines, labels, scenery, ground, tiles, background wash or checkerboard. Genuine fully transparent background around all six objects. No large cast shadows or glow. Deliver only the widely spaced six-flag transparent atlas.
+
+## flag-conflicts.png — merge conflicts flag
+
+Generated with the built-in `image_gen` tool, 2026-10-28. Artwork only; no application code, commit, build/restart, publishing, asset uploads or Phaser AE services.
+
+Reference inputs to the first generation, in order:
+
+1. `../../rendering/src/assets/flags.png` — exact standing-prop camera, review swallowtail silhouette, pole, finial, collars, weighted brass foot, painterly style and upper-left lighting.
+2. `../../rendering/src/assets/props.png` — supporting hand-painted materials and brass fittings.
+
+Original outputs, retained unchanged:
+
+- `flag-conflicts-alt-1.png`: `exec-a2cca939-e38f-4933-9843-4ec7e9260904.png`. Readable pink crossed-swords flag; its cloth was slightly too wide to satisfy the transparent margins at the required height and pole anchor.
+- `flag-conflicts-alt-2.png`: `exec-4c4f2ace-b36b-4a7a-8e3a-4c9a1b44671d.png`. Narrower review cloth; chosen painted subject.
+
+Both original files also remain at `/Users/example/.codex/generated_images/01a18435-7575-76b2-854f-ad1c3e1e0056/`. Local alternate copies are byte-for-byte identical to those originals.
+
+### Final cell and registration
+
+`flag-conflicts.png` is a single **512 × 512 transparent RGBA** cell. Rich rose/magenta pink cloth with a deep right-edge swallowtail notch and two bold cream crossed swords, broad blades and clear crossguards, grips and pommels. The timber pole, antique-brass fittings, ball finial and tiny weighted foot match the existing review flags. One static frame.
+
+Packaging follows `flags.png`: alpha > 1 locates the complete subject, with six original pixels of padding added on all sides. Alpha > 20 measures solid finial-to-foot height and registers the base only. Proportional Lanczos resizing normalizes that solid height to **292 pixels**. No repainting, glyph redraw, nonuniform deformation or threshold on retained alpha was performed. The entire resized RGBA crop is pasted without an alpha mask (so retained edge alpha is not multiplied). Remote alpha=1 speckles outside the padded crop are excluded; faint original pixels inside it remain.
+
+| State | Original output size | Source crop [left, top, right, bottom] | Destination [x, y] | Padded size |
+| --- | --- | --- | --- | --- |
+| Merge conflicts | 1536 × 1024 | [403, 144, 1094, 893] | [116, 110] | 276 × 299 |
+
+Source alpha > 1 bounds: [409, 150, 1088, 887]. Source alpha > 20 bounds: [411, 152, 1086, 883], a solid height of 731 pixels; nominal scale 292/731 = 0.3994528044. After resampling, solid bounds in the final cell are [119, 113, 389, 405], exactly 292 pixels tall. Pole center through the exposed lower shaft is x=156; bottommost solid foot pixels are at y=404 and center on x=156. The shared pole-foot anchor is therefore **[156, 404]**, normalized [0.3046875, 0.7890625].
+
+All nonzero-alpha bounds in the final cell are [117, 111, 391, 409], leaving completely transparent margins of **117 px left, 111 px top, 121 px right and 103 px bottom**. All four corners have alpha zero. The full padded crop fits inside the cell without clipping. There are no adjacent fragments, scenery, labels, checkerboard or visible background haze. The original second output's extremely faint remote alpha does not produce a visible glow in the packaged cell.
+
+### flags-conflicts-preview.png
+
+932 × 438 RGB comparison sheet: original **approved**, original **changes requested**, and new **merge conflicts**, side by side at both **32 px** and **48 px total visible assembly height**. References are cells [512, 512, 1024, 1024] and [1024, 512, 1536, 1024] of `../../rendering/src/assets/flags.png`. Each cell is cropped to its actual nonzero-alpha bounds before proportional Lanczos downsampling; height includes finial, pole and foot, not just cloth. Each preview row registers all three foot anchors to the same baseline. Neutral parchment-coloured panels, framing and labels are preview-only. The earlier temporary cottage screenshot is no longer present, so this comparison uses a plain neutral surface.
+
+Visually inspected the registered cell, a same-scale comparison against the original orange flag, and the final preview at native pixel size. The pink cloth is clearly distinct from the existing red CI-failure and orange changes-requested colours. The deep V notch reads as a review flag, and the crossed blades and short hilts remain recognizable at 32 px; the crossguards and pommels become clearer at 48 px. Materials, pole scale, upper-left highlights and painterly contours match the standing-flag set. Mechanical checks confirm RGBA, 512 × 512 dimensions, exact solid height and foot registration, minimum transparent margins and unchanged original-output copies.
+
+### Exact first merge-conflicts generation prompt
+
+> Use case: precise-object-edit.
+> Asset: one new production transparent standing-flag sprite matching an existing hand-painted fantasy strategy-map flag set.
+> Reference image 1, flags.png, is the EXACT design, camera, materials, silhouette, scale and lighting reference. Extract the design language of its BOTTOM ROW review flags and make ONE new corresponding MERGE CONFLICTS flag. Reference image 2, props.png, is a supporting painterly materials reference only. Do not reproduce any scenery, props or the six-flag atlas.
+> Change only the review cloth colour and glyph: rich ROSE / MAGENTA PINK cloth, decidedly pink with a cool magenta cast, clearly distinct from the existing RED CI-failure flag and ORANGE changes-requested flag, and also distinct from violet approval. One large bold warm-CREAM CROSSED SWORDS glyph: two broad simple blades crossing diagonally, blade tips at upper left and upper right, two clear broad crossguards and short simple grips at lower left and lower right. Bold cream silhouettes outlined in thin dark sepia like the existing glyphs. Large recognizable sword hilts, no filigree, no fine engraving, no complex metal shading. The whole object will be displayed at only 32 pixels total height, so the swords must remain visibly swords rather than just an X.
+> Match the bottom review row's broad SWALLOW-TAILED cloth with a deep unmistakable V notch cut into the RIGHT free edge, two pointed tails. Keep the full crossed-swords glyph LEFT of the notch. Same gently billowing upright cloth with one shallow wave and slim gold hem. Same short upright warm turned-timber pole, same antique-brass collars, round finial and tiny low weighted elliptical brass foot, same relative proportions. Cloth about two thirds of total assembly height, short exposed pole below. Match the reference's thin sepia ink contours, gouache/watercolour variation, warm cream motif, aged brass highlights and gentle upper-left light.
+> Camera identical to flags.png: upright pole in screen space, cloth facing viewer and readable, mildly elevated orthographic standing miniature prop with tiny elliptical top of brass footing visible. Not a flag lying flat.
+> Output ONE complete isolated assembly in a single square transparent RGBA image, with generous empty transparent margins on every side. Preserve the same assembly proportions as a single existing review flag. No other flags. No background, ground, floor, tiles, decking, cottage, scenery, medallion, shield, gradient, background wash, checkerboard, glow, large cast shadow, labels, letters, numbers, text, logos or watermark. GENUINE transparent alpha outside the physical painted flag. One static frame. No photorealism, 3D render or pixel art.
+
+### Exact second merge-conflicts generation prompt
+
+Reference inputs, in order: `flag-conflicts-alt-1.png` and `../../rendering/src/assets/flags.png`.
+
+> Use case: precise-object-edit.
+> Reference image 1 is the new pink merge-conflicts flag to adjust. Reference image 2 is the existing six-flag atlas for exact proportions.
+> Make ONE targeted proportion correction to the pink flag: shorten ONLY the horizontal reach of its cloth by approximately 8 percent, bringing the right swallowtail tips closer to the pole, so its full width to finial-to-foot height ratio matches the existing bottom-row review flags. Keep the upright pole, brass ball finial, collars, tiny weighted brass foot, height, upper-left light, materials and camera unchanged. Preserve the deep right-facing V notch, pink rose/magenta colour, broad cream crossed-swords glyph with visible crossguards and hilts, handmade dark sepia outlines and painterly gouache style. Keep the glyph bold, recognizable as crossed swords at 32px total flag height, and left of the notch. Do not shrink the swords excessively: they should continue to fill the usable cloth face.
+> Output only the one complete pink flag on genuine transparent RGBA background with generous empty transparent margins, no scenery or additional flags. No labels, text, checkerboard, ground, cast shadows, glow or extra elements.

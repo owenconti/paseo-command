@@ -1,6 +1,6 @@
 /**
  * A workspace's pull request standing, as Paseo workspace labels: one for its
- * CI, one for its review. The app's server keeps them (web/server/prLabels.ts);
+ * CI, one for its review, and one while it conflicts with its base. The app's server keeps them (web/server/prLabels.ts);
  * the Atlas plants a flag for each. Pure, shared by both.
  */
 export type PrFlag =
@@ -9,23 +9,70 @@ export type PrFlag =
   | "ci-failing"
   | "review-awaiting"
   | "review-approved"
-  | "review-changes";
+  | "review-changes"
+  | "conflicts";
 export type PrGroup = "ci" | "review";
-export type PrLabelColor = "amber" | "emerald" | "red" | "sky" | "violet" | "orange";
+export type PrLabelColor = "amber" | "emerald" | "red" | "sky" | "violet" | "orange" | "pink";
 
-/** In the flag atlas's order (CI across the top, review below), as the legend lists them. */
+/** In the flag atlas's order (CI across the top, review below, then merge
+ * conflicts, which fly in the review flag's place), as the legend lists them.
+ * `description` is the flag's hover card. */
 export const PR_LABELS: readonly {
   flag: PrFlag;
   group: PrGroup;
   name: string;
   color: PrLabelColor;
+  description: string;
 }[] = [
-  { flag: "ci-running", group: "ci", name: "CI running", color: "amber" },
-  { flag: "ci-green", group: "ci", name: "CI green", color: "emerald" },
-  { flag: "ci-failing", group: "ci", name: "CI failing", color: "red" },
-  { flag: "review-awaiting", group: "review", name: "Awaiting review", color: "sky" },
-  { flag: "review-approved", group: "review", name: "Approved", color: "violet" },
-  { flag: "review-changes", group: "review", name: "Changes requested", color: "orange" },
+  {
+    flag: "ci-running",
+    group: "ci",
+    name: "CI running",
+    color: "amber",
+    description: "The pull request's checks are still running.",
+  },
+  {
+    flag: "ci-green",
+    group: "ci",
+    name: "CI green",
+    color: "emerald",
+    description: "Every check on the pull request passed.",
+  },
+  {
+    flag: "ci-failing",
+    group: "ci",
+    name: "CI failing",
+    color: "red",
+    description: "A check on the pull request failed.",
+  },
+  {
+    flag: "review-awaiting",
+    group: "review",
+    name: "Awaiting review",
+    color: "sky",
+    description: "The pull request is waiting for a review.",
+  },
+  {
+    flag: "review-approved",
+    group: "review",
+    name: "Approved",
+    color: "violet",
+    description: "A reviewer approved the pull request.",
+  },
+  {
+    flag: "review-changes",
+    group: "review",
+    name: "Changes requested",
+    color: "orange",
+    description: "A reviewer asked for changes to the pull request.",
+  },
+  {
+    flag: "conflicts",
+    group: "review",
+    name: "Merge conflicts",
+    color: "pink",
+    description: "The pull request conflicts with its base branch and can't merge until they're resolved.",
+  },
 ];
 
 /** Most urgent first: when a group carries two labels, the first of these shows. */
@@ -33,6 +80,7 @@ const URGENCY: PrFlag[] = [
   "ci-failing",
   "ci-running",
   "ci-green",
+  "conflicts",
   "review-changes",
   "review-awaiting",
   "review-approved",
@@ -51,3 +99,6 @@ export function prFlags(labels: readonly string[] | undefined): { ci?: PrFlag; r
   }
   return out;
 }
+
+/** A PR flag's label (its name, colour and description). */
+export const prLabel = (flag: PrFlag) => PR_LABELS.find((l) => l.flag === flag)!;

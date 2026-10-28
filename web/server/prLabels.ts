@@ -1,6 +1,7 @@
 /**
  * Keeps each workspace's PR standing as Paseo workspace labels: one for its
- * CI, one for its review (rendering/src/prStatus.ts names them). The Paseo
+ * CI, one for its review, one while it has merge conflicts
+ * (rendering/src/prStatus.ts names them). The Paseo
  * app shows them, and the Atlas plants a flag for each.
  *
  * - The PR is Paseo's (the workspace row's `pr`), else, for a checkout on
@@ -8,7 +9,7 @@
  * - Only a definite answer removes labels: no PR, merged or closed. A lookup
  *   that fails, or can't be made (a remote checkout Paseo can't tell about),
  *   and a stale host's rows, leave the labels as they are.
- * - The six names are the labeller's: a pass sets them as GitHub says,
+ * - The seven names are the labeller's: a pass sets them as GitHub says,
  *   whoever changed them. Every other label is left alone.
  * - Only changes are sent. A label already in the host's catalog keeps the
  *   catalog's colour.
@@ -38,6 +39,7 @@ export function wantedLabels(pr: PullRequest | null | undefined): string[] | nul
           ? "Changes requested"
           : "Awaiting review",
     );
+  if (pr.conflicts) out.push("Merge conflicts");
   return out;
 }
 

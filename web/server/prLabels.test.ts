@@ -25,7 +25,7 @@ const pr = (extra: Partial<PullRequest> = {}): PullRequest => ({
 });
 const ci = (state: "passing" | "failing" | "pending" | "none") => ({ state, checks: [] });
 
-test("wantedLabels maps a PR's CI and review to the six labels", () => {
+test("wantedLabels maps a PR's CI and review to their labels", () => {
   assert.deepEqual(wantedLabels(pr({ ci: ci("pending") })), ["CI running", "Awaiting review"]);
   assert.deepEqual(wantedLabels(pr({ ci: ci("pending"), review: "pending" })), [
     "CI running",
@@ -42,6 +42,17 @@ test("wantedLabels maps a PR's CI and review to the six labels", () => {
   assert.deepEqual(wantedLabels(pr({ state: "closed" })), []);
   assert.deepEqual(wantedLabels(null), []);
   assert.equal(wantedLabels(undefined), null);
+});
+
+test("a PR with merge conflicts carries their label; a merged one doesn't", () => {
+  assert.deepEqual(wantedLabels(pr({ ci: ci("passing"), review: "approved", conflicts: true })), [
+    "CI green",
+    "Approved",
+    "Merge conflicts",
+  ]);
+  assert.deepEqual(wantedLabels(pr({ state: "draft", conflicts: true })), ["Merge conflicts"]);
+  assert.deepEqual(wantedLabels(pr({ conflicts: false })), ["Awaiting review"]);
+  assert.deepEqual(wantedLabels(pr({ state: "merged", conflicts: true })), []);
 });
 
 type SetCall = { host?: string; workspaceId: string; name: string; color: string; assigned: boolean };

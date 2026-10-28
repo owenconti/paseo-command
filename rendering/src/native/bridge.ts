@@ -18,7 +18,7 @@ import {
   type Entity,
 } from "../world";
 import { buildFrames, flagFrames, frameName, propFrames, type Frame } from "../art";
-import { PR_LABELS } from "../prStatus";
+import { PR_LABELS, type PrFlag } from "../prStatus";
 import { cloudsTile, glintsTile, terrainParts, waterTile, type Piece } from "../terrain";
 import {
   DRONE_ORBIT,
@@ -206,7 +206,7 @@ type Message = Record<string, unknown> & { type: string };
 type NativeEvent =
   | { type: "ready" }
   | { type: "pick"; id: string | null }
-  | { type: "hover"; id: string | null; x?: number; y?: number }
+  | { type: "hover"; id: string | null; x?: number; y?: number; flag?: PrFlag }
   | { type: "zoom"; zoom: number }
   | { type: "state"; state: Record<string, unknown> }
   | { type: "error"; message: string };
@@ -223,6 +223,8 @@ export function mountNativeAtlas(parent: HTMLElement, handlers: AtlasHandlers = 
   let hovered: string | null = null;
   /** Where the hover card points, as Swift last reported it. */
   let hoverAt: { x: number; y: number } | undefined;
+  /** The hovered workspace's PR flag under the pointer, as Swift last reported it. */
+  let hoverFlag: PrFlag | undefined;
   let enabled = true;
   let reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
   let zoom = 1;
@@ -367,14 +369,15 @@ export function mountNativeAtlas(parent: HTMLElement, handlers: AtlasHandlers = 
     }
     if (selection && !entity(selection)) selection = null;
     // A hover outlives an update: its card shows the entity's new state.
-    if (hovered) setHover(entity(hovered) ? hovered : null, hoverAt);
+    if (hovered) setHover(entity(hovered) ? hovered : null, hoverAt, hoverFlag);
   };
 
-  const setHover = (id: string | null, at?: { x: number; y: number }) => {
+  const setHover = (id: string | null, at?: { x: number; y: number }, flag?: PrFlag) => {
     hovered = id;
     hoverAt = id ? at : undefined;
+    hoverFlag = id ? flag : undefined;
     const e = entity(id);
-    handlers.hover?.(e, e && at ? at : null);
+    handlers.hover?.(e, e && at ? at : null, e ? hoverFlag : undefined);
   };
   const receive = (event: Event) => {
     const message = (event as CustomEvent<NativeEvent>).detail;
@@ -389,7 +392,7 @@ export function mountNativeAtlas(parent: HTMLElement, handlers: AtlasHandlers = 
       handlers.pick?.(entity(message.id));
     } else if (message.type === "hover") {
       parent.style.cursor = message.id ? "pointer" : "";
-      setHover(message.id, message.x === undefined ? undefined : { x: message.x, y: message.y! });
+      setHover(message.id, message.x === undefined ? undefined : { x: message.x, y: message.y! }, message.flag);
     } else if (message.type === "zoom") {
       zoom = message.zoom;
       handlers.zoom?.(zoom);
