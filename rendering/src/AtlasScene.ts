@@ -11,6 +11,7 @@ import {
   type Entity,
   footprint,
   insideFootprint,
+  cellKey,
   fittedWidth,
   landBounds,
   footprintEdges,
@@ -185,6 +186,9 @@ export class AtlasScene extends Phaser.Scene {
   /** Lit lamps and beacons' glows, which breathe and flicker. */
   /** PR flags that sway (CI running). */
   private swaying: Phaser.GameObjects.Image[] = [];
+  /** PR flags drawn, and the cells that kept a garden plant, for inspection. */
+  private planted: { workspace: string; flag: string; cell: Axial; image: Phaser.GameObjects.Image }[] = [];
+  private plants = new Set<string>();
   private flames: { glow: Phaser.GameObjects.Graphics; period: number; phase: number; flicker: boolean }[] = [];
   /** Opaque pixels of each landmark's art, so props keep off it. */
   private masks = new Map<string, { data: Uint8ClampedArray; width: number; height: number }>();
@@ -306,6 +310,8 @@ export class AtlasScene extends Phaser.Scene {
     this.locations.clear();
     this.signals.clear();
     this.swaying = [];
+    this.planted = [];
+    this.plants.clear();
     this.hover.clear();
     const build = ++this.builds;
     this.world = this.capture(() => {
@@ -784,6 +790,7 @@ export class AtlasScene extends Phaser.Scene {
     const flagged = [false, !!ws.flags?.ci, !!ws.flags?.review];
     cells.forEach((cell, i) => {
       if (flagged[i]) return;
+      this.plants.add(`${ws.id} ${cellKey(cell)}`);
       const c = point(cell);
       const x = c.x + (c.x - middle.x) * GARDEN_OUT,
         y = c.y + (c.y - middle.y) * GARDEN_OUT;
@@ -824,6 +831,7 @@ export class AtlasScene extends Phaser.Scene {
         );
       if (ws.stale) image.setAlpha(0.6);
       if (flag === "ci-running") this.swaying.push(image);
+      this.planted.push({ workspace: ws.id, flag, cell, image });
     }
   }
   /** The running CI flag sways about its foot; still, with reduced motion. */
@@ -1391,6 +1399,25 @@ export class AtlasScene extends Phaser.Scene {
         screen: this.screenOf(a.id),
       })),
       tiles: Object.fromEntries(this.tiles),
+      planted: this.planted.map(({ workspace, flag, cell, image }) => {
+        // Its unturned box (a sway only tilts it about its foot).
+        const left = image.x - image.originX * image.displayWidth,
+          top = image.y - image.originY * image.displayHeight;
+        const corners = [
+          [left, top],
+          [left + image.displayWidth, top],
+          [left, top + image.displayHeight],
+          [left + image.displayWidth, top + image.displayHeight],
+        ] as const;
+        return {
+          workspace,
+          flag,
+          live: !!image.getData("live") && !this.caches.some((c) => c.objects.includes(image)),
+          visible: image.active && image.visible && image.alpha > 0,
+          inCell: corners.every(([x, y]) => insideFootprint(x, y, [cell])),
+          plantInCell: this.plants.has(`${workspace} ${cellKey(cell)}`),
+        };
+      }),
       flags: Object.fromEntries(
         (layout?.workspaces ?? []).filter((w) => w.flags && !w.camp).map((w) => [w.id, w.flags]),
       ),

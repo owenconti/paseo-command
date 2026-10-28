@@ -107,6 +107,14 @@ type Inspect = {
   builds: number;
   tiles: Record<string, string>;
   flags: Record<string, { ci?: string; review?: string }>;
+  planted: {
+    workspace: string;
+    flag: string;
+    live: boolean;
+    inCell: boolean;
+    plantInCell: boolean;
+    visible: boolean;
+  }[];
 };
 const inspect = (page: Page) =>
   page.evaluate(() => (window as any).paseoAtlas?.inspect() as Inspect | undefined);
@@ -490,6 +498,22 @@ test("workspace PR labels plant flags on the map", async () => {
       [agentKey("wks_a")]: { ci: "ci-running", review: "review-awaiting" },
       [agentKey("wks_b")]: { ci: "ci-green", review: "review-approved" },
     });
+    // Each is drawn: live (so it can sway), inside its own cell, in place of that cell's plant.
+    const planted = (await inspect(page))!.planted;
+    assert.deepEqual(
+      planted.map((p) => [p.workspace, p.flag]).sort(),
+      [
+        [agentKey("wks_a"), "ci-running"],
+        [agentKey("wks_a"), "review-awaiting"],
+        [agentKey("wks_b"), "ci-green"],
+        [agentKey("wks_b"), "review-approved"],
+      ],
+    );
+    for (const p of planted) {
+      assert.ok(p.live && p.visible, `${p.flag} is drawn live`);
+      assert.ok(p.inCell, `${p.flag} stands inside its cell`);
+      assert.ok(!p.plantInCell, `${p.flag} replaces its cell's plant`);
+    }
     // The legend explains them.
     const legend = page.locator('section[aria-label="Map legend"]');
     await legend.getByText("Workspace flag · PR").waitFor();
