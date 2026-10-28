@@ -229,6 +229,8 @@ export function NativeWorld(props: Props) {
       return;
     }
     world.current = atlas;
+    // The native app draws this world under a transparent page.
+    if (atlas.native) document.documentElement.dataset.renderer = "native";
     atlas.update(currentData.current);
     Object.assign(window, { paseoAtlas: atlas, paseoWorld: atlas });
     return () => {

@@ -52,3 +52,8 @@ html[data-renderer="native"] #root {
 .native-storage-error > div {
   flex: 1 1 180px;
 }
+
+/* In the native app, SpriteKit draws the Atlas under the page's map surface. */
+html[data-renderer="native"] .atlas-world-surface {
+  background: transparent;
+}

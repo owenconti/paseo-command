@@ -16,6 +16,7 @@
     "app:dev": "npm --prefix web run dev",
     "app:build": "npm run render:test && npm --prefix web run build",
     "app:typecheck": "npm --prefix web run typecheck",
+    "app:measure": "npm --prefix web exec tsx scripts/measure-world.mjs --",
     "render:install": "npm --prefix rendering install",
     "render:dev": "npm --prefix rendering run dev",
     "render:build": "npm --prefix rendering run build",
@@ -26,6 +27,9 @@
     "app:start": "node scripts/app-server.mjs start",
     "app:stop": "node scripts/app-server.mjs stop",
     "app:restart": "node scripts/app-server.mjs restart",
-    "app:status": "node scripts/app-server.mjs status"
+    "app:status": "node scripts/app-server.mjs status",
+    "native:build": "sh native/scripts/bundle.sh",
+    "native:run": "sh native/scripts/run.sh",
+    "native:mock": "web/node_modules/.bin/tsx native/scripts/mock-fleet.ts"
   }
 }

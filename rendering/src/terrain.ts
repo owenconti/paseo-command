@@ -10,7 +10,6 @@ import {
   type Island,
   footprint,
   cellBounds,
-  structureCentre,
 } from "./world";
 type Edge = { a: { x: number; y: number }; b: { x: number; y: number } };
 /** Room around the land for its bank and shadow. */
@@ -56,8 +55,7 @@ function fbm(periods: number[], seed: number) {
 const mix = (a: number[], b: number[], t: number) => a.map((v, i) => v + (b[i]! - v) * t);
 
 /** A seamless tile of meadow seen from above: lush and dry patches, grain and tufts. */
-export function paintGround(scene: Phaser.Scene): void {
-  if (scene.textures.exists("ground")) return;
+function paintGroundCanvas(): HTMLCanvasElement {
   const size = 1024;
   const canvas = document.createElement("canvas");
   canvas.width = canvas.height = size;
@@ -129,15 +127,22 @@ export function paintGround(scene: Phaser.Scene): void {
     ctx.arc(x, y, roll < 0.7 ? 0.9 + rng() * 0.8 : 2 + rng() * 4, 0, Math.PI * 2);
     ctx.fill();
   }
-  scene.textures.addCanvas("ground", canvas);
+  return canvas;
+}
+let groundCache: HTMLCanvasElement | null = null;
+/** A seamless tile of meadow, memoized: the same canvas every call. */
+export function groundTile(): HTMLCanvasElement {
+  return (groundCache ??= paintGroundCanvas());
+}
+export function paintGround(scene: Phaser.Scene): void {
+  if (scene.textures.exists("ground")) return;
+  scene.textures.addCanvas("ground", groundTile());
 }
 
 /** The sea the hosts' landmasses rise from. */
 export const WATER = "#1d6884";
 
-/** A seamless tile of open water: depth mottling and fine ripple light. */
-export function paintWater(scene: Phaser.Scene): void {
-  if (scene.textures.exists("water")) return;
+function paintWaterCanvas(): HTMLCanvasElement {
   const size = 1024;
   const canvas = document.createElement("canvas");
   canvas.width = canvas.height = size;
@@ -166,12 +171,19 @@ export function paintWater(scene: Phaser.Scene): void {
       image.data[i + 3] = 255;
     }
   ctx.putImageData(image, 0, 0);
-  scene.textures.addCanvas("water", canvas);
+  return canvas;
+}
+let waterCache: HTMLCanvasElement | null = null;
+/** A seamless tile of open water, memoized: depth mottling and fine ripple light. */
+export function waterTile(): HTMLCanvasElement {
+  return (waterCache ??= paintWaterCanvas());
+}
+export function paintWater(scene: Phaser.Scene): void {
+  if (scene.textures.exists("water")) return;
+  scene.textures.addCanvas("water", waterTile());
 }
 
-/** Moving sparkle on the water: sparse crests only, drawn over the sea and drifted. */
-export function paintGlints(scene: Phaser.Scene): void {
-  if (scene.textures.exists("glints")) return;
+function paintGlintsCanvas(): HTMLCanvasElement {
   const size = 512;
   const canvas = document.createElement("canvas");
   canvas.width = canvas.height = size;
@@ -188,17 +200,100 @@ export function paintGlints(scene: Phaser.Scene): void {
       image.data[i + 3] = crest * 120;
     }
   ctx.putImageData(image, 0, 0);
-  scene.textures.addCanvas("glints", canvas);
+  return canvas;
+}
+let glintsCache: HTMLCanvasElement | null = null;
+/** Moving sparkle on the water, memoized: sparse crests only, drawn over the
+ * sea and drifted. */
+export function glintsTile(): HTMLCanvasElement {
+  return (glintsCache ??= paintGlintsCanvas());
+}
+export function paintGlints(scene: Phaser.Scene): void {
+  if (scene.textures.exists("glints")) return;
+  scene.textures.addCanvas("glints", glintsTile());
+}
+
+function paintCloudsCanvas(): HTMLCanvasElement {
+  const size = 512;
+  const canvas = document.createElement("canvas");
+  canvas.width = canvas.height = size;
+  const ctx = canvas.getContext("2d")!;
+  const image = ctx.createImageData(size, size);
+  const n = fbm([3, 6, 12, 24], 41);
+  for (let y = 0; y < size; y++)
+    for (let x = 0; x < size; x++) {
+      const v = n(x / size, y / size);
+      const a = Math.max(0, Math.min(1, (v - 0.56) * 4));
+      const i = (y * size + x) * 4;
+      image.data[i] = 12;
+      image.data[i + 1] = 20;
+      image.data[i + 2] = 10;
+      image.data[i + 3] = a * a * 255;
+    }
+  ctx.putImageData(image, 0, 0);
+  return canvas;
+}
+let cloudsCache: HTMLCanvasElement | null = null;
+/** Soft cloud shadows, memoized: seamless, to drift slowly over the whole map. */
+export function cloudsTile(): HTMLCanvasElement {
+  return (cloudsCache ??= paintCloudsCanvas());
+}
+export function paintClouds(scene: Phaser.Scene): void {
+  if (scene.textures.exists("clouds")) return;
+  scene.textures.addCanvas("clouds", cloudsTile());
+}
+
+/** A piece of terrain artwork, ready to become a texture: a generated
+ * canvas plus where it goes and how it reads. */
+export type Piece = {
+  kind: "variation" | "landmass" | "island";
+  canvas: HTMLCanvasElement;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  tint?: number;
+  alpha?: number;
+  depth: number;
+};
+
+function corners(cell: Axial, radius = HEX_RADIUS) {
+  const c = point(cell);
+  return Array.from({ length: 6 }, (_, i) => ({
+    x: c.x + Math.cos((Math.PI / 3) * i - Math.PI / 2) * radius,
+    y: c.y + Math.sin((Math.PI / 3) * i - Math.PI / 2) * radius,
+  }));
+}
+function outline(ctx: CanvasRenderingContext2D, cell: Axial) {
+  const verts = corners(cell);
+  ctx.moveTo(verts[0]!.x, verts[0]!.y);
+  for (const p of verts.slice(1)) ctx.lineTo(p.x, p.y);
+  ctx.closePath();
+}
+function coast(cells: Axial[]): Edge[] {
+  const edges = new Map<string, Edge>();
+  const key = (p: { x: number; y: number }) =>
+    `${Math.round(p.x * 100)},${Math.round(p.y * 100)}`;
+  for (const cell of cells) {
+    const verts = corners(cell);
+    for (let i = 0; i < 6; i++) {
+      const a = verts[i]!,
+        b = verts[(i + 1) % 6]!;
+      const id = [key(a), key(b)].sort().join(":");
+      if (edges.has(id)) edges.delete(id);
+      else edges.set(id, { a, b });
+    }
+  }
+  return [...edges.values()];
 }
 
 /** A host's land: grass hex tiles on the shared grid, rising from the sea with
  * turquoise shallows, a foam line and a sandy beach along its hex coast. */
-function paintHostLand(
-  scene: Phaser.Scene,
-  cells: Axial[],
-  key: string,
-  online: boolean,
-) {
+function landmassPiece(
+  land: { host: string; online: boolean; cells: Axial[] },
+  seed: string,
+): Piece {
+  const cells = land.cells;
   const bounds = cellBounds(cells);
   const reach = HEX_RADIUS * 1.2;
   const x0 = bounds.x - reach,
@@ -243,10 +338,9 @@ function paintHostLand(
   ctx.strokeStyle = "rgba(228,244,238,.75)";
   ctx.stroke();
   // Grass tiles.
-  const ground = scene.textures.get("ground").getSourceImage() as HTMLCanvasElement;
-  const pattern = ctx.createPattern(ground, "repeat")!;
+  const pattern = ctx.createPattern(groundTile(), "repeat")!;
   for (const cell of cells) {
-    const shade = random(seedOf(key + cellKey(cell)))();
+    const shade = random(seedOf(seed + cellKey(cell)))();
     ctx.beginPath();
     outline(ctx, cell);
     ctx.fillStyle = pattern;
@@ -270,41 +364,20 @@ function paintHostLand(
   ctx.strokeStyle = "rgb(178,156,112)";
   ctx.stroke();
   ctx.restore();
-  if (scene.textures.exists(key)) scene.textures.remove(key);
-  scene.textures.addCanvas(key, canvas);
-  const land = scene.add
-    .image(x0, y0, key)
-    .setOrigin(0)
-    .setDisplaySize(width, height)
-    .setDepth(-8);
-  if (!online) land.setTint(0xb0ad9f).setAlpha(0.85);
-}
-
-/** Soft cloud shadows, seamless, to drift slowly over the whole map. */
-export function paintClouds(scene: Phaser.Scene): void {
-  if (scene.textures.exists("clouds")) return;
-  const size = 512;
-  const canvas = document.createElement("canvas");
-  canvas.width = canvas.height = size;
-  const ctx = canvas.getContext("2d")!;
-  const image = ctx.createImageData(size, size);
-  const n = fbm([3, 6, 12, 24], 41);
-  for (let y = 0; y < size; y++)
-    for (let x = 0; x < size; x++) {
-      const v = n(x / size, y / size);
-      const a = Math.max(0, Math.min(1, (v - 0.56) * 4));
-      const i = (y * size + x) * 4;
-      image.data[i] = 12;
-      image.data[i + 1] = 20;
-      image.data[i + 2] = 10;
-      image.data[i + 3] = a * a * 255;
-    }
-  ctx.putImageData(image, 0, 0);
-  scene.textures.addCanvas("clouds", canvas);
+  return {
+    kind: "landmass",
+    canvas,
+    x: x0,
+    y: y0,
+    width,
+    height,
+    depth: -8,
+    ...(land.online ? {} : { tint: 0xb0ad9f, alpha: 0.85 }),
+  };
 }
 
 /** Large, non-repeating variation over the map, so the meadow tile never reads as a tile. */
-function paintVariation(scene: Phaser.Scene, layout: AtlasLayout, key: string) {
+function variationPiece(layout: AtlasLayout): Piece {
   const land = cellBounds(layout.islands.flatMap((i) => i.cells));
   const margin = 3000;
   const x = land.x - margin,
@@ -316,7 +389,9 @@ function paintVariation(scene: Phaser.Scene, layout: AtlasLayout, key: string) {
   canvas.width = canvas.height = cells;
   const ctx = canvas.getContext("2d")!;
   const image = ctx.createImageData(cells, cells);
-  const n = fbm([4, 8, 16], seedOf(key));
+  // A fixed seed, not the map's layout: this texture is decorative noise,
+  // the same every time so the Phaser and DOM Atlas agree on it.
+  const n = fbm([4, 8, 16], seedOf("variation-1"));
   for (let j = 0; j < cells; j++)
     for (let i = 0; i < cells; i++) {
       const v = n(i / cells, j / cells),
@@ -328,39 +403,9 @@ function paintVariation(scene: Phaser.Scene, layout: AtlasLayout, key: string) {
       image.data[k + 3] = Math.abs(v - 0.5) * 2 * (dark ? 120 : 60);
     }
   ctx.putImageData(image, 0, 0);
-  if (scene.textures.exists(key)) scene.textures.remove(key);
-  scene.textures.addCanvas(key, canvas);
-  scene.add.image(x, y, key).setOrigin(0).setDisplaySize(width, height).setDepth(-9);
+  return { kind: "variation", canvas, x, y, width, height, depth: -9 };
 }
-function corners(cell: Axial, radius = HEX_RADIUS) {
-  const c = point(cell);
-  return Array.from({ length: 6 }, (_, i) => ({
-    x: c.x + Math.cos((Math.PI / 3) * i - Math.PI / 2) * radius,
-    y: c.y + Math.sin((Math.PI / 3) * i - Math.PI / 2) * radius,
-  }));
-}
-function outline(ctx: CanvasRenderingContext2D, cell: Axial) {
-  const verts = corners(cell);
-  ctx.moveTo(verts[0]!.x, verts[0]!.y);
-  for (const p of verts.slice(1)) ctx.lineTo(p.x, p.y);
-  ctx.closePath();
-}
-function coast(cells: Axial[]): Edge[] {
-  const edges = new Map<string, Edge>();
-  const key = (p: { x: number; y: number }) =>
-    `${Math.round(p.x * 100)},${Math.round(p.y * 100)}`;
-  for (const cell of cells) {
-    const verts = corners(cell);
-    for (let i = 0; i < 6; i++) {
-      const a = verts[i]!,
-        b = verts[(i + 1) % 6]!;
-      const id = [key(a), key(b)].sort().join(":");
-      if (edges.has(id)) edges.delete(id);
-      else edges.set(id, { a, b });
-    }
-  }
-  return [...edges.values()];
-}
+
 /** One baked canvas per island keeps every texture well within GPU limits. */
 type TileStyle = "project" | "workspace" | "empty";
 /** Laid stone for a landmark's courtyard: staggered courses of worn flagstones. */
@@ -423,19 +468,17 @@ function decking(ctx: CanvasRenderingContext2D, c: { x: number; y: number }, rng
     }
   }
 }
-function paintIsland(
-  scene: Phaser.Scene,
+function islandPiece(
   island: Island,
-  key: string,
   styleOf: (cell: Axial) => TileStyle,
   plots: { style: TileStyle; cells: Axial[] }[],
-) {
+  sand: HTMLImageElement,
+): Piece {
   const bounds = cellBounds(island.cells);
   const x = Math.floor(bounds.x - SURF),
     y = Math.floor(bounds.y - SURF);
   const width = Math.ceil(bounds.width + SURF * 2),
     height = Math.ceil(bounds.height + SURF * 2);
-  const sand = scene.textures.get("sand").getSourceImage() as HTMLImageElement;
   const canvas = document.createElement("canvas");
   canvas.width = width;
   canvas.height = height;
@@ -536,18 +579,30 @@ function paintIsland(
   ctx.strokeStyle = "rgba(120,98,62,.7)";
   ctx.lineWidth = 1.6;
   ctx.stroke();
-  if (scene.textures.exists(key)) scene.textures.remove(key);
-  scene.textures.addCanvas(key, canvas);
-  const image = scene.add.image(x, y, key).setOrigin(0).setDepth(0);
-  // An unreachable host keeps its last known shape, faded like an old chart.
-  if (!island.online) image.setTint(0xb9b4a6).setAlpha(0.78);
-  return image;
+  return {
+    kind: "island",
+    canvas,
+    x,
+    y,
+    width,
+    height,
+    depth: 0,
+    // An unreachable host keeps its last known shape, faded like an old chart.
+    ...(island.online ? {} : { tint: 0xb9b4a6, alpha: 0.78 }),
+  };
 }
-export function drawTerrain(
-  scene: Phaser.Scene,
-  layout: AtlasLayout,
-  build: number,
-): string[] {
+
+/** Every piece of terrain artwork the map needs for this layout: the
+ * project and workspace islands, the drift-breaking variation overlay, and
+ * each host's landmass. No Phaser dependency; `drawTerrain` turns these
+ * into textures and places them. */
+export function terrainPieces(layout: AtlasLayout, sand: HTMLImageElement): Piece[] {
+  return terrainParts(layout, sand).map((part) => part.paint());
+}
+
+/** `terrainPieces`, each unpainted, with a key that changes whenever what it
+ * would paint does: a renderer that keeps textures paints only new keys. */
+export function terrainParts(layout: AtlasLayout, sand: HTMLImageElement): { key: string; paint: () => Piece }[] {
   const projectCells = new Set(layout.projects.flatMap(footprint).map(cellKey));
   // Timber decking spans a workspace's three cells; its agents stand on the
   // light tiles of the other cells.
@@ -562,25 +617,55 @@ export function drawTerrain(
     ...layout.projects.map((p) => ({ style: "project" as const, host: p.host, cells: footprint(p) })),
     ...layout.workspaces.map((w) => ({ style: "workspace" as const, host: w.host, cells: footprint(w) })),
   ];
-  const keys = layout.islands.map((island, i) => {
-    const key = `terrain-${build}-${i}`;
+  const parts = layout.islands.map((island) => {
     const own = new Set(island.cells.map(cellKey));
-    paintIsland(
-      scene,
-      island,
-      key,
-      styleOf,
-      plots.filter((p) => p.host === island.host && own.has(cellKey(p.cells[0]!))),
-    );
-    return key;
+    const mine = plots.filter((p) => p.host === island.host && own.has(cellKey(p.cells[0]!)));
+    return {
+      key: `island:${JSON.stringify([island.key, island.online, island.cells.map((c) => [cellKey(c), styleOf(c)]), mine])}`,
+      paint: () => islandPiece(island, styleOf, mine, sand),
+    };
   });
-  paintVariation(scene, layout, `variation-${build}`);
-  keys.push(`variation-${build}`);
-  // One landmass of grass hexes per host, under its project islands.
-  layout.land.forEach((land, i) => {
-    const key = `landmass-${build}-${i}`;
-    paintHostLand(scene, land.cells, key, land.online);
+  parts.push({
+    key: `variation:${JSON.stringify(cellBounds(layout.islands.flatMap((i) => i.cells)))}`,
+    paint: () => variationPiece(layout),
+  });
+  // One landmass of grass hexes per host, under its project islands. Each
+  // grass hex's shade comes from a fixed seed, not the host: decorative
+  // grain, the same every time so every renderer (and every build) agrees.
+  layout.land.forEach((land, i) =>
+    parts.push({
+      key: `landmass:${i}:${JSON.stringify([land.online, land.cells.map(cellKey)])}`,
+      paint: () => landmassPiece(land, `landmass-1-${i}`),
+    }),
+  );
+  return parts;
+}
+
+export function drawTerrain(scene: Phaser.Scene, layout: AtlasLayout, build: number): string[] {
+  const sand = scene.textures.get("sand").getSourceImage() as HTMLImageElement;
+  const pieces = terrainPieces(layout, sand);
+  const keys: string[] = [];
+  let islandIndex = 0,
+    landIndex = 0;
+  for (const piece of pieces) {
+    const key =
+      piece.kind === "variation"
+        ? `variation-${build}`
+        : piece.kind === "landmass"
+          ? `landmass-${build}-${landIndex++}`
+          : `terrain-${build}-${islandIndex++}`;
+    if (scene.textures.exists(key)) scene.textures.remove(key);
+    scene.textures.addCanvas(key, piece.canvas);
+    const image = scene.add.image(piece.x, piece.y, key).setOrigin(0).setDepth(piece.depth);
+    // An island's canvas is already drawn at its display size; only the
+    // variation and landmass canvases (baked smaller or scaled) need a
+    // resize. Skipping the no-op call keeps an island's edges exactly as
+    // Phaser's own default-scale render path draws them.
+    if (image.width !== piece.width || image.height !== piece.height)
+      image.setDisplaySize(piece.width, piece.height);
+    if (piece.tint !== undefined) image.setTint(piece.tint);
+    if (piece.alpha !== undefined) image.setAlpha(piece.alpha);
     keys.push(key);
-  });
+  }
   return keys;
 }

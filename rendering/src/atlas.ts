@@ -2,6 +2,7 @@ import Phaser from "phaser";
 import { AtlasScene, type ScreenPoint } from "./AtlasScene";
 import { GalaxyScene } from "./galaxy/GalaxyScene";
 import { renderDensity } from "./display";
+import { mountNativeAtlas, nativeWorldAvailable } from "./native/bridge";
 import type { AtlasData, Entity } from "./world";
 export type { AtlasData, Entity, ScreenPoint };
 export { STATE_NAMES, STATE_TILE, MODEL_COLORS, MODEL_FAMILY, modelColor, modelName } from "./world";
@@ -20,7 +21,10 @@ export const WORLDS = { atlas: "Atlas", galaxy: "Galaxy" } as const;
 export type WorldKind = keyof typeof WORLDS;
 export type AtlasWorld = {
   kind: WorldKind;
-  scene: AtlasScene | GalaxyScene;
+  /** The Phaser scene; absent when the native app draws the world itself. */
+  scene?: AtlasScene | GalaxyScene;
+  /** Drawn by the native macOS app (SpriteKit), behind a transparent page. */
+  native?: boolean;
   update(data: AtlasData): void;
   select(id: string | null): void;
   /** Pans to an entity if it is out of view; `zoom` frames it closer too. */
@@ -29,7 +33,7 @@ export type AtlasWorld = {
   input(enabled: boolean): void;
   motion(reduced?: boolean): boolean;
   /** Undefined until the scene has started. */
-  inspect(): ReturnType<AtlasScene["inspect"] | GalaxyScene["inspect"]> | undefined;
+  inspect(): ReturnType<AtlasScene["inspect"] | GalaxyScene["inspect"]> | Record<string, unknown> | undefined;
   destroy(): void;
 };
 const IDLE_FPS = 60;
@@ -45,6 +49,8 @@ export function mountAtlas(
   handlers: AtlasHandlers = {},
   kind: WorldKind = "atlas",
 ): AtlasWorld {
+  // Inside the native app, SpriteKit draws the Atlas under the page.
+  if (kind === "atlas" && nativeWorldAvailable()) return mountNativeAtlas(parent, handlers);
   const scene = kind === "galaxy" ? new GalaxyScene() : new AtlasScene();
   const game = new Phaser.Game({
     type: Phaser.AUTO,
