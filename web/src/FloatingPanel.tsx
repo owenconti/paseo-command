@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { readStore, writeStore } from "./api";
 import { CommitsButton } from "./CommitsButton";
+import { ShortcutsButton } from "./ShortcutsButton";
 import { nativeEvents, postNative } from "./worldBridge";
 import { worldFrame } from "./viewControls";
 import {
@@ -245,6 +246,7 @@ export function FloatingPanel(props: Props) {
         )}
         {!state.collapsed && props.tools}
         {!state.collapsed && <CommitsButton />}
+        {!state.collapsed && <ShortcutsButton />}
         {!state.collapsed && (
           <button
             className="panel-tool"

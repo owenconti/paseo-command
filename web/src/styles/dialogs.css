@@ -293,3 +293,63 @@
   padding-top: var(--space-4);
   border-top: 1px solid var(--line);
 }
+
+/* Keyboard shortcuts dialog */
+.shortcuts-dialog {
+  display: flex;
+  flex-direction: column;
+  width: 480px;
+  overflow: hidden;
+}
+.shortcuts-dialog .dialog-heading {
+  flex-shrink: 0;
+  margin-bottom: var(--space-2);
+}
+.shortcuts-content {
+  min-height: 0;
+  padding-right: 3px;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+.shortcuts-group:first-child .section-label {
+  margin-top: var(--space-2);
+}
+.shortcuts-group .section-label small {
+  font-weight: var(--fw-medium);
+  color: var(--text-4);
+}
+.shortcuts-group dl {
+  margin: 0;
+}
+.shortcut-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: 5px 0;
+  border-bottom: 1px solid var(--line);
+}
+.shortcut-row:last-child {
+  border-bottom: 0;
+}
+.shortcut-row dt {
+  font-size: var(--fs-sm);
+  color: var(--text-2);
+}
+.shortcut-row dd {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+}
+.shortcut-combo {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+.shortcut-or {
+  margin-right: 3px;
+  font-size: var(--fs-2xs);
+  color: var(--text-4);
+}
