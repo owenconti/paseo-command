@@ -4,6 +4,7 @@ import { placePopover } from "./popover";
 import { previewSound, setSoundSettings, useSoundSettings } from "./sounds";
 import { nativeEvents } from "./worldBridge";
 import { LinearWorkspaceSetting } from "./HeaderLinks";
+import { setMusicSettings, useMusic } from "./music";
 
 /**
  * The app's settings, kept in this browser (or the app): interface sounds
@@ -11,6 +12,8 @@ import { LinearWorkspaceSetting } from "./HeaderLinks";
  */
 export function SoundControl() {
   const settings = useSoundSettings();
+  const music = useMusic();
+  const musicPercent = Math.round(music.volume * 100);
   const [open, setOpen] = useState(false);
   const anchor = useRef<HTMLSpanElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
@@ -148,6 +151,22 @@ export function SoundControl() {
               }}
             />
             <output>{percent}%</output>
+          </label>
+          <label className="sound-volume">
+            <span>Music</span>
+            <input
+              type="range"
+              min={0}
+              max={100}
+              step={5}
+              value={musicPercent}
+              aria-label="Lofi radio volume"
+              aria-valuetext={`${musicPercent}%`}
+              onChange={(e) =>
+                setMusicSettings({ volume: Number(e.target.value) / 100 })
+              }
+            />
+            <output>{musicPercent}%</output>
           </label>
           <LinearWorkspaceSetting />
         </div>

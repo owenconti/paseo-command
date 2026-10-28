@@ -24,6 +24,7 @@ import {
   Leaf,
   Monitor,
   Moon,
+  Music,
   Orbit,
   Pencil,
   Plus,
@@ -65,6 +66,7 @@ import {
 import { agentName, hostText, pathText, placeText } from "./names";
 import { hostWorldKey, nativeAvailable, postNative } from "./worldBridge";
 import { soundEvent } from "./soundCues";
+import { setMusicSettings, useMusic } from "./music";
 
 export type { Filter } from "./fleetView";
 /** Rows rendered at a time (more as the list scrolls). */
@@ -351,10 +353,28 @@ export function FleetTools({
   sounds?: ReactNode;
 }) {
   const theme = useTheme();
+  const music = useMusic();
+  const musicLabel = !music.enabled
+    ? "off"
+    : music.state === "playing"
+      ? "playing"
+      : music.state === "waiting"
+        ? "starts with your next click"
+        : "connecting…";
   return (
     <span className="panel-tools">
       {usage.length > 0 && <UsageCard reports={usage} />}
       {sounds}
+      <button
+        className="icon-btn music-btn"
+        data-state={music.enabled ? music.state : "off"}
+        onClick={() => setMusicSettings({ enabled: !music.enabled })}
+        data-tip={`Lofi radio (laut.fm) — ${musicLabel}`}
+        aria-label={`Lofi radio: ${musicLabel}`}
+        aria-pressed={music.enabled}
+      >
+        <Music size={14} />
+      </button>
       {notifications !== "unsupported" && (
         <button
           className="icon-btn"

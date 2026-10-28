@@ -1070,3 +1070,21 @@
   color: var(--text-3);
   font-variant-numeric: tabular-nums;
 }
+
+/* Lofi radio (music.ts, FleetTools) */
+.music-btn[aria-pressed="true"] {
+  color: var(--accent);
+}
+.music-btn[data-state="connecting"] svg {
+  animation: music-connecting 1.2s ease-in-out infinite;
+}
+@keyframes music-connecting {
+  50% {
+    opacity: 0.35;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .music-btn[data-state="connecting"] svg {
+    animation: none;
+  }
+}
