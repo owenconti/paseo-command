@@ -580,7 +580,11 @@ export function mountNativeAtlas(parent: HTMLElement, handlers: AtlasHandlers = 
                 workspace: f.entity,
                 flag: f.flag,
                 sway: f.flag === "ci-running",
-                inCell: [-1, 1].every((dx) => [-1, 1].every((dy) => insideFootprint(f.x + dx * halfW, f.y + dy * halfH, [f.cell]))),
+                // Where its pole's foot stands, from the cell's centre.
+                footOffset: (() => {
+                  const c = point(f.cell);
+                  return Math.hypot(f.x + (FLAG_FOOT.x - 0.5) * 2 * halfW - c.x, f.y + (FLAG_FOOT.y - 0.5) * 2 * halfH - c.y);
+                })(),
                 plantInCell: plants.some((p) => p.entity === f.entity && insideFootprint(p.x, p.y, [f.cell])),
               };
             }),

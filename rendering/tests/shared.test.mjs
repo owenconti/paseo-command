@@ -11,7 +11,7 @@ import { SAMPLE } from "../src/sample.ts";
 import { crowded } from "./fixtures.mjs";
 import { perimeter } from "../src/outline.ts";
 import { mapExtent, minimumZoom, clampCamera, MAX_ZOOM } from "../src/camera.ts";
-import { placeStructures, placeFlags } from "../src/placement.ts";
+import { placeStructures, placeFlags, FLAG_FOOT, FLAG_HEIGHT } from "../src/placement.ts";
 import { fitCaption } from "../src/ribbon.ts";
 import { entityAt, cellAt } from "../src/pick.ts";
 import { point } from "../src/world.ts";
@@ -143,7 +143,7 @@ test("fitCaption ellipsizes to maxWidth", () => {
   assert.equal(fitCaption("a much longer", 0, measure), "a…", "never shorter than one letter");
 });
 
-test("PR flags stand in their workspace's yard cells, inside them, in place of the plants", () => {
+test("PR flags stand at the centre of their workspace's yard cells, in place of the plants", () => {
   const layout = layoutAtlas(SAMPLE);
   const sizeOf = (frame) =>
     frame.startsWith("flag-") ? { width: 270, height: 320 } : { width: 120, height: 120 };
@@ -158,14 +158,11 @@ test("PR flags stand in their workspace's yard cells, inside them, in place of t
   for (const f of flags) {
     assert.equal(f.frame, `flag-${f.flag}`);
     const h = (f.width * 320) / 270;
-    assert.ok(h > 40, `${f.flag} is drawn tall enough to read`);
-    for (const [x, y] of [
-      [f.x - f.width / 2, f.y - h / 2],
-      [f.x + f.width / 2, f.y - h / 2],
-      [f.x - f.width / 2, f.y + h / 2],
-      [f.x + f.width / 2, f.y + h / 2],
-    ])
-      assert.ok(insideFootprint(x, y, [f.cell]), `${f.flag} corner ${x},${y} leaves its cell`);
+    assert.equal(Math.round(h), FLAG_HEIGHT, `${f.flag} is drawn at full height`);
+    // Its pole's foot is the cell's centre.
+    const c = point(f.cell);
+    assert.ok(Math.abs(f.x + (FLAG_FOOT.x - 0.5) * f.width - c.x) < 1e-6, `${f.flag} foot x`);
+    assert.ok(Math.abs(f.y + (FLAG_FOOT.y - 0.5) * h - c.y) < 1e-6, `${f.flag} foot y`);
   }
   // With flags drawn, a flagged cell grows no plant; without, every cell keeps one.
   const plantsIn = (placed) =>

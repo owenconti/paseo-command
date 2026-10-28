@@ -155,18 +155,17 @@ export function placeStructures(
   return placed;
 }
 
-/** A workspace's PR flags: their height, and how far each stands beyond its
- * cell's centre, away from the cottage (as GARDEN_OUT). */
+/** A workspace's PR flags' height. */
 export const FLAG_HEIGHT = 70;
 /** Where a PR flag's pole foot is in its art (as a share of its width and
  * height), and how far the running flag sways about it (degrees) and how
  * often (ms). */
 export const FLAG_FOOT = { x: 0.19, y: 0.95 };
 export const FLAG_SWAY = { degrees: 3, period: 1400 };
-const FLAG_OUT = 0.12;
 const DEPTH_FLAG = 17.2;
 /** A PR flag: `x, y` is the sprite's centre and `width` its display width;
- * it stands wholly inside `cell`. */
+ * its pole's foot stands at the centre of `cell` (its cloth may rise past the
+ * cell's upper edge, as a standing prop's would). */
 export type PlacedFlag = {
   frame: string;
   flag: PrFlag;
@@ -188,7 +187,6 @@ export function placeFlags(
   for (const ws of layout.workspaces) {
     if (ws.camp || !ws.flags) continue;
     const cells = footprint(ws);
-    const middle = structureCentre(ws);
     const planted: [PrFlag | undefined, Axial | undefined][] = [
       [ws.flags.ci, cells[1]],
       [ws.flags.review, cells[2]],
@@ -196,17 +194,16 @@ export function placeFlags(
     for (const [flag, cell] of planted) {
       if (!flag || !cell) continue;
       const c = point(cell);
-      const x = c.x + (c.x - middle.x) * FLAG_OUT,
-        y = c.y + (c.y - middle.y) * FLAG_OUT;
       const frame = `flag-${flag}`;
       const size = sizeOf(frame);
-      const aspect = size.width / size.height;
+      const width = (FLAG_HEIGHT * size.width) / size.height;
       placed.push({
         frame,
         flag,
-        x,
-        y,
-        width: Math.min(FLAG_HEIGHT * aspect, fittedWidth(x, y, aspect, FLAG_HEIGHT * aspect, [cell])),
+        // The sprite's centre, so that its pole's foot is the cell's.
+        x: c.x + (0.5 - FLAG_FOOT.x) * width,
+        y: c.y + (0.5 - FLAG_FOOT.y) * FLAG_HEIGHT,
+        width,
         depth: DEPTH_FLAG,
         alpha: ws.stale ? STALE_ALPHA : 1,
         cell,

@@ -77,7 +77,7 @@ type Inspect = {
     workspace: string;
     flag: string;
     sway: boolean;
-    inCell: boolean;
+    footOffset: number;
     plantInCell: boolean;
   }[];
 };
@@ -418,7 +418,7 @@ test("workspace PR labels plant flags on the map", async () => {
       [agentKey("wks_a")]: { ci: "ci-running", review: "review-awaiting" },
       [agentKey("wks_b")]: { ci: "ci-green", review: "review-approved" },
     });
-    // Each is sent to Swift inside its own cell, in place of that cell's plant;
+    // Each is sent to Swift standing at its own cell's centre, in place of that cell's plant;
     // the running CI flag sways.
     const planted = (await inspect(page))!.planted;
     assert.deepEqual(
@@ -432,7 +432,7 @@ test("workspace PR labels plant flags on the map", async () => {
     );
     for (const p of planted) {
       assert.equal(p.sway, p.flag === "ci-running", `${p.flag} sways only while CI runs`);
-      assert.ok(p.inCell, `${p.flag} stands inside its cell`);
+      assert.ok(p.footOffset < 0.5, `${p.flag} stands at its cell's centre`);
       assert.ok(!p.plantInCell, `${p.flag} replaces its cell's plant`);
     }
     // The legend explains them.
@@ -483,7 +483,7 @@ test("merge conflicts fly in the review flag's place, and a flag's tooltip descr
     );
     const planted = (await inspect(page))!.planted.filter((p) => p.workspace === key);
     assert.deepEqual(planted.map((p) => p.flag).sort(), ["ci-failing", "conflicts"]);
-    for (const p of planted) assert.ok(p.inCell, `${p.flag} stands inside its cell`);
+    for (const p of planted) assert.ok(p.footOffset < 0.5, `${p.flag} stands at its cell's centre`);
     const tip = () => page.locator(".atlas-world-tip").textContent({ timeout: 500 }).catch(() => "");
     // Swift reports the flag under the pointer along with its workspace.
     await swift(page, { type: "hover", id: key, flag: "conflicts", x: 300, y: 200 });
