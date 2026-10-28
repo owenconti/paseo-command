@@ -57,6 +57,8 @@ export type WorldSnapshot = {
     projectKey?: string;
     name: string;
     stale: boolean;
+    /** Its Paseo labels (the PR status ones plant flags). */
+    labels: string[];
   }[];
   agents: {
     key: string;
@@ -264,6 +266,7 @@ export function worldSnapshot(input: {
       })(),
       name: placeText(w.name || w.branch, "Workspace", [w.workspaceId]),
       stale: !!w.stale,
+      labels: w.labels ?? [],
     })),
     agents: activeAgents(input.agents)
       .map(qualifyAgent)

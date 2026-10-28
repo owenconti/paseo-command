@@ -231,3 +231,25 @@ test("passes never overlap", async () => {
   }
   assert.equal(most, 1);
 });
+
+test("PASEO_COMMAND_PR_LABELS=off keeps the labeller from starting", async () => {
+  const saved = { ...PR_LABELS_TUNING };
+  Object.assign(PR_LABELS_TUNING, { firstMs: 1, everyMs: 5 });
+  process.env.PASEO_COMMAND_PR_LABELS = "off";
+  let reads = 0;
+  const { d } = deps([], {
+    rows: async () => {
+      reads++;
+      return [];
+    },
+  });
+  try {
+    startPrLabels(d);
+    await new Promise((r) => setTimeout(r, 40));
+  } finally {
+    stopPrLabels();
+    delete process.env.PASEO_COMMAND_PR_LABELS;
+    Object.assign(PR_LABELS_TUNING, saved);
+  }
+  assert.equal(reads, 0);
+});

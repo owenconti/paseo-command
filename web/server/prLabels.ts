@@ -157,10 +157,11 @@ function appDeps(): LabellerDeps {
 }
 
 let loop: { timer: ReturnType<typeof setTimeout>; stopped: boolean } | null = null;
-/** Start labelling while the app serves: one loop per process, passes never overlapping. */
-export function startPrLabels(deps: LabellerDeps = appDeps()): void {
-  if (loop) return;
-  const labeller = createPrLabeller(deps);
+/** Start labelling while the app serves: one loop per process, passes never
+ * overlapping. `PASEO_COMMAND_PR_LABELS=off` (the e2e harness's) keeps it off. */
+export function startPrLabels(deps?: LabellerDeps): void {
+  if (loop || process.env.PASEO_COMMAND_PR_LABELS === "off") return;
+  const labeller = createPrLabeller(deps ?? appDeps());
   const mine = { timer: undefined as unknown as ReturnType<typeof setTimeout>, stopped: false };
   const tick = async () => {
     await labeller.pass();

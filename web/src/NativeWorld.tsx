@@ -71,6 +71,7 @@ export function atlasData(
       project: w.projectKey,
       name: w.name,
       stale: w.stale,
+      labels: w.labels,
     })),
     agents: snapshot.agents.map((a) => ({
       key: a.key,

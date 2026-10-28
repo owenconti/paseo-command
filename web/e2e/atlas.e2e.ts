@@ -106,6 +106,7 @@ type Inspect = {
   zoom: number;
   builds: number;
   tiles: Record<string, string>;
+  flags: Record<string, { ci?: string; review?: string }>;
 };
 const inspect = (page: Page) =>
   page.evaluate(() => (window as any).paseoAtlas?.inspect() as Inspect | undefined);
@@ -470,6 +471,42 @@ test("live changes redraw the world without a reload", async () => {
     workspaces.pop();
   }
   await page.context().close();
+});
+
+test("workspace PR labels plant flags on the map", async () => {
+  const a = workspaces.find((w) => w.workspaceId === "wks_a")! as Record<string, unknown>;
+  const b = workspaces.find((w) => w.workspaceId === "wks_b")! as Record<string, unknown>;
+  a.labels = ["CI running", "Awaiting review"];
+  b.labels = ["CI green", "Approved", "bug"];
+  try {
+    const page = await open();
+    const flags = (await waitFor(
+      async () => (await inspect(page))?.flags,
+      (f) => !!f && Object.keys(f).length === 2,
+      "the Atlas to plant both workspaces' flags",
+      30000,
+    ))!;
+    assert.deepEqual(flags, {
+      [agentKey("wks_a")]: { ci: "ci-running", review: "review-awaiting" },
+      [agentKey("wks_b")]: { ci: "ci-green", review: "review-approved" },
+    });
+    // The legend explains them.
+    const legend = page.locator('section[aria-label="Map legend"]');
+    await legend.getByText("Workspace flag · PR").waitFor();
+    for (const name of ["CI running", "CI green", "CI failing", "Awaiting review", "Approved", "Changes requested"])
+      assert.equal(await legend.getByText(name, { exact: true }).count(), 1, name);
+    // The labeller takes them away (merged, say): the flags go too.
+    delete a.labels;
+    await waitFor(
+      async () => (await inspect(page))?.flags,
+      (f) => !!f && !(agentKey("wks_a") in f) && agentKey("wks_b") in f,
+      "wks_a's flags to come down",
+    );
+    await page.context().close();
+  } finally {
+    delete a.labels;
+    delete b.labels;
+  }
 });
 
 test("the Galaxy draws the same fleet truthfully and opens a satellite's conversation", async () => {

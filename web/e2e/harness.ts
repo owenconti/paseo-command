@@ -39,6 +39,8 @@ export async function startApp(): Promise<{
   // Second safety net: the test server's own API can't reach the daemon
   // either. Every CLI call fails, and the SDK needs the CLI to find it.
   process.env.PASEO_COMMAND_CLI = "/usr/bin/false";
+  // Nor does it keep PR labels: the labeller would write to a daemon.
+  process.env.PASEO_COMMAND_PR_LABELS = "off";
   const server: ViteDevServer = await createServer({
     root: ROOT,
     configFile: `${ROOT}vite.config.ts`,
