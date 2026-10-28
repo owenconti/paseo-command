@@ -1,5 +1,6 @@
 import Phaser from "phaser";
 import PROPS from "./assets/props.json";
+import STRUCTURES from "./assets/structures.json";
 import { buildFrames, frameName, sourceRects, type ArtSources, type Frame } from "./art";
 
 export function registerFrames(scene: Phaser.Scene): void {
@@ -7,11 +8,12 @@ export function registerFrames(scene: Phaser.Scene): void {
     buildings: scene.textures.get("buildings").getSourceImage() as HTMLImageElement,
     robots: scene.textures.get("robots").getSourceImage() as HTMLImageElement,
     foliage: scene.textures.get("foliage").getSourceImage() as HTMLImageElement,
+    structures: scene.textures.get("structures").getSourceImage() as HTMLImageElement,
   };
   // The raw sheet's own trimmed rects: the Phaser thumbnail reads a
   // project's or workspace's art straight off the "buildings" texture.
   for (const [name, rect] of sourceRects(sources))
-    if (!name.startsWith("robot-") && name !== "trees")
+    if (!name.startsWith("robot-") && name !== "trees" && !(name in STRUCTURES))
       scene.textures.get("buildings").add(name, 0, ...rect);
   // Plaza props: greenery, workshop gear, and the lamps and beacon in both
   // states. Their source image isn't part of `ArtSources` (the DOM Atlas

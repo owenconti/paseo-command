@@ -294,8 +294,20 @@ export function footprintEdges(cells: Axial[]) {
   }
   return [...result.values()];
 }
-const LANDMARK_ART = ["manor", "observatory", "conservatory"];
-const COTTAGE_ART = ["cottage-slate", "cottage-brown"];
+const LANDMARK_ART = ["manor", "observatory", "conservatory", "clockhall", "library", "lighthouse-workshop", "windmill", "foundry"];
+const COTTAGE_ART = ["cottage-slate", "cottage-brown", "cottage-thatch", "cottage-tile", "cottage-turf", "cottage-stone", "cottage-aframe"];
+/** Picks art for a key, preferring its seeded choice but taking the least used
+ * so far, so neighbours vary rather than colliding on the same hash. */
+function pickArt(arts: string[], key: string, used: Map<string, number>) {
+  const start = seedOf(key) % arts.length;
+  let best = arts[start]!;
+  for (let i = 1; i < arts.length; i++) {
+    const art = arts[(start + i) % arts.length]!;
+    if ((used.get(art) ?? 0) < (used.get(best) ?? 0)) best = art;
+  }
+  used.set(best, (used.get(best) ?? 0) + 1);
+  return best;
+}
 /** Open cells between islands of one host, and between hosts (whose land
  * masses need a channel of sea between them). */
 const ISLAND_GAP = 1;
@@ -675,6 +687,7 @@ export function layoutAtlas(data: AtlasData, aspect = 1.6): AtlasLayout {
   const workspaces: Entity[] = [];
   const bumpsOf = new Map<string, Axial[]>();
   const homes = new Map<string, { workspace: string; project?: string; cell: Axial }>();
+  const landmarksUsed = new Map<string, number>();
   groups.forEach(({ host, plans, centres }, g) => {
     const groupCells: Axial[] = [];
     plans.forEach((p, i) => {
@@ -697,9 +710,10 @@ export function layoutAtlas(data: AtlasData, aspect = 1.6): AtlasLayout {
           name: p.project.name,
           host: host.key,
           position: centre,
-          art: LANDMARK_ART[seedOf(p.project.key) % LANDMARK_ART.length],
+          art: pickArt(LANDMARK_ART, p.project.key, landmarksUsed),
           stale: !!p.project.stale,
         });
+      const cottagesUsed = new Map<string, number>();
       p.cottages.forEach((cottage, j) => {
         const cells = p.placed[j]!.cells.map((c) => add(c, centre));
         workspaces.push({
@@ -712,7 +726,7 @@ export function layoutAtlas(data: AtlasData, aspect = 1.6): AtlasLayout {
           cells,
           art: cottage.camp
             ? undefined
-            : COTTAGE_ART[seedOf(cottage.key) % COTTAGE_ART.length],
+            : pickArt(COTTAGE_ART, cottage.key, cottagesUsed),
           stale: !!cottage.stale,
           camp: cottage.camp,
         });

@@ -19,7 +19,11 @@ export type ArtSources = {
   buildings: HTMLImageElement;
   robots: HTMLImageElement;
   foliage: HTMLImageElement;
+  /** The later landmarks and cottages, each in its own 512px cell. */
+  structures: HTMLImageElement;
 };
+
+import STRUCTURES from "./assets/structures.json";
 
 type Rect = [number, number, number, number];
 
@@ -88,6 +92,8 @@ export function sourceRects(src: ArtSources): Map<string, Rect> {
   for (const [name, rect] of Object.entries(BUILDING_FRAMES))
     rects.set(name, trimRect(src.buildings, rect));
   // Foliage has its own source image so atlas neighbors cannot enter its frame.
+  for (const [name, rect] of Object.entries(STRUCTURES))
+    rects.set(name, trimRect(src.structures, rect as Rect, 0, 0));
   rects.set(
     "trees",
     trimRect(src.foliage, [0, 0, src.foliage.width, src.foliage.height], 4, 20),
@@ -234,7 +240,13 @@ function splitRobot(frame: Frame): { body: Frame; handL: Frame; handR: Frame } {
 export function buildFrames(src: ArtSources): Map<string, Frame> {
   const frames = new Map<string, Frame>();
   for (const [name, rect] of sourceRects(src)) {
-    const img = name.startsWith("robot-") ? src.robots : name === "trees" ? src.foliage : src.buildings;
+    const img = name in STRUCTURES
+      ? src.structures
+      : name.startsWith("robot-")
+        ? src.robots
+        : name === "trees"
+          ? src.foliage
+          : src.buildings;
     frames.set(name, paddedFrame(img, rect));
   }
   const teal = frames.get("robot-teal")!;

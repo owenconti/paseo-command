@@ -53,6 +53,7 @@ import {
 } from "./ribbon";
 import { WANDER_X, WANDER_Y, WALK_SPEED, TURN_SPEED } from "./wander";
 import buildingsUrl from "./assets/buildings.png";
+import structuresUrl from "./assets/structures.png";
 import robotsUrl from "./assets/robots.png";
 import foliageUrl from "./assets/tree-v2.png";
 import sandUrl from "./assets/sand.png";
@@ -158,6 +159,7 @@ export class AtlasScene extends Phaser.Scene {
   }
   preload(): void {
     this.load.image("buildings", buildingsUrl);
+    this.load.image("structures", structuresUrl);
     this.load.image("robots", robotsUrl);
     this.load.image("foliage", foliageUrl);
     this.load.image("sand", sandUrl);
@@ -963,7 +965,7 @@ export class AtlasScene extends Phaser.Scene {
     return this.reduced;
   }
   thumbnail(entity: Entity): string {
-    if (entity.kind === "agent" && entity.art)
+    if (entity.art && this.textures.exists(`filtered-${entity.art}`))
       return this.textures.getBase64(`filtered-${entity.art}`, entity.art);
     return this.textures.getBase64("buildings", entity.art ?? "manor");
   }
@@ -1038,6 +1040,7 @@ export class AtlasScene extends Phaser.Scene {
         .map((object) => {
           const image = object as Phaser.GameObjects.Image;
           return {
+            art: image.frame.name,
             x: image.x,
             y: image.y,
             width: image.displayWidth,

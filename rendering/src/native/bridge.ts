@@ -51,6 +51,7 @@ import { WALK_SPEED, TURN_SPEED, WANDER_X, WANDER_Y } from "../wander";
 import { HEX_RADIUS, ROBOT_SIZE } from "../world";
 import PROPS from "../assets/props.json";
 import buildingsUrl from "../assets/buildings.png";
+import structuresUrl from "../assets/structures.png";
 import robotsUrl from "../assets/robots.png";
 import foliageUrl from "../assets/tree-v2.png";
 import sandUrl from "../assets/sand.png";
@@ -458,10 +459,10 @@ export function mountNativeAtlas(parent: HTMLElement, handlers: AtlasHandlers = 
   // The art is painted once per page; Swift keeps it as textures.
   void (async () => {
     try {
-      const [buildings, robotSheet, foliage, sand, props] = await Promise.all(
-        [buildingsUrl, robotsUrl, foliageUrl, sandUrl, propsUrl].map(load),
+      const [buildings, robotSheet, foliage, sand, props, structures] = await Promise.all(
+        [buildingsUrl, robotsUrl, foliageUrl, sandUrl, propsUrl, structuresUrl].map(load),
       );
-      const frames = buildFrames({ buildings: buildings!, robots: robotSheet!, foliage: foliage! });
+      const frames = buildFrames({ buildings: buildings!, robots: robotSheet!, foliage: foliage!, structures: structures! });
       for (const [name, frame] of propFrames(props!, PROPS)) frames.set(name, frame);
       const sent = [...frames].map(([name, frame]) => ({ name, png: png(crop(frame)) }));
       // Offline robots stand greyed; their parts are sent pre-tinted.

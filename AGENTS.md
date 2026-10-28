@@ -8,6 +8,8 @@
 - Cached engine files under `phaser/` and `game/node_modules/` remain available for local builds. Do not edit the engine.
 - The original `/Users/example/development/paseo-command` project is read only. Preserve its React UI; focus current development on the game world.
 - When you need to ask the user a question, use the ask-question tool (`AskUserQuestion`) rather than asking in plain text.
+- Anything you ask the user to review, such as a plan, description or summary, must be in your visible reply,
+  never only in your reasoning: the user does not see your thoughts.
 
 ## Product and references
 
@@ -112,6 +114,9 @@ The standalone study (`render:dev`) uses clearly labeled illustrative data and n
 The inherited React UI is preserved; its panels use the Galaxy theme, as in the user's reference.
 Five original references are retained in `design/references/atlas-01.webp` through `atlas-05.webp`.
 Artwork provenance and generation prompts are in `rendering/ASSETS.md`.
+Architecture uses the original `buildings.png` plus `structures.png`: eight project landmarks
+and seven workspace cottages, balanced deterministically across neighbours. The standalone
+`?structures` study fixture exercises every structure without a daemon connection.
 
 ## Confirmed map constraints
 

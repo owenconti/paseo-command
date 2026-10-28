@@ -14,7 +14,7 @@ import {
   modelName,
   structureCentre,
 } from "../src/world.ts";
-import { SAMPLE } from "../src/sample.ts";
+import { SAMPLE, STRUCTURE_SAMPLE } from "../src/sample.ts";
 import { crowded } from "./fixtures.mjs";
 
 for (const [label, data] of [
@@ -241,4 +241,31 @@ test("model colours and names follow the provider", () => {
   assert.ok(!["orange", "white"].includes(modelColor("gemini/gemini-3-pro")));
   assert.equal(modelName("claude/claude-opus-5-5"), "Claude Opus 5.5");
   assert.equal(modelName("codex/gpt-6.1-sol"), "GPT-6.1 Sol");
+});
+
+test("structure art spreads across the available sprites", () => {
+  const world = layoutAtlas(crowded, 1.6);
+  const counts = (arts) => {
+    const n = new Map();
+    for (const art of arts) n.set(art, (n.get(art) ?? 0) + 1);
+    return [...n.values()];
+  };
+  const landmarks = counts(world.projects.map((e) => e.art));
+  assert.ok(Math.max(...landmarks) - Math.min(...landmarks) <= 1, `landmarks ${landmarks}`);
+  const byProject = Map.groupBy(
+    world.workspaces.filter((e) => e.art),
+    (e) => e.project,
+  );
+  for (const [project, cottages] of byProject) {
+    const n = counts(cottages.map((e) => e.art));
+    assert.ok(Math.max(...n) - Math.min(...n) <= 1 && n.length === Math.min(7, cottages.length), `${project} cottages ${n}`);
+  }
+});
+
+test("structure review fleet exercises all eight landmarks and seven cottage silhouettes", () => {
+  const world = layoutAtlas(STRUCTURE_SAMPLE);
+  assert.equal(new Set(world.projects.map((p) => p.art)).size, 8);
+  const cottages = world.workspaces.filter((w) => w.project === "structure-0");
+  assert.equal(new Set(cottages.map((w) => w.art)).size, 7);
+  assert.deepEqual(world.projects.map((p) => p.art), layoutAtlas(STRUCTURE_SAMPLE).projects.map((p) => p.art));
 });
