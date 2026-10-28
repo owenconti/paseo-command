@@ -11,12 +11,8 @@ import {
   type Entity,
   footprint,
   insideFootprint,
-  fittedWidth,
-  landBounds,
-  footprintEdges,
   cellBounds,
   ROBOT_SIZE,
-  structureCentre,
   STATE_TILE,
   tileState,
   random,
@@ -24,28 +20,37 @@ import {
   type Axial,
   type State,
 } from "./world";
+import { frameName } from "./art";
+import { perimeter } from "./outline";
+import { MAX_ZOOM, mapExtent, minimumZoom, clampCamera, focusZoom, comfortablyVisible } from "./camera";
+import {
+  HOVER_COLOR,
+  DRONE_SIZE,
+  DRONE_ORBIT,
+  placeStructures,
+  campFlags,
+  labels,
+  locations,
+  robots,
+  type Label,
+  type Placed,
+} from "./placement";
+import {
+  LABEL_FONT,
+  RIBBON_BODY_RADIUS,
+  RIBBON_HIGHLIGHT,
+  RIBBON_SHADOW,
+  RIBBON_STROKE,
+  fitCaption,
+  ribbonFont,
+  ribbonShape,
+} from "./ribbon";
+import { WANDER_X, WANDER_Y, WALK_SPEED, TURN_SPEED } from "./wander";
 import buildingsUrl from "./assets/buildings.png";
 import robotsUrl from "./assets/robots.png";
 import foliageUrl from "./assets/tree-v2.png";
 import sandUrl from "./assets/sand.png";
 import propsUrl from "./assets/props.png";
-const MAX_ZOOM = 2.4;
-/** Landmark art as a share of the largest size that fits its cells. */
-const LANDMARK_SCALE: Record<string, number> = {
-  manor: 0.78,
-  observatory: 0.8,
-  conservatory: 0.92,
-};
-/** How far a cottage sits above its cell's centre. */
-/** Widest a cottage is drawn, across its workspace's three cells. */
-const COTTAGE_SIZE = 220;
-/** How far a cottage stands above the middle of its three cells. */
-const COTTAGE_LIFT = 12;
-/** How far a garden plant sits beyond its cell's centre, away from the cottage
- * (as a share of the distance between them). */
-const GARDEN_OUT = 0.32;
-/** How far landmark art sits above the middle of its cells. */
-const LANDMARK_LIFT = 30;
 /** Props scattered on a landmark's paving: how wide each is drawn, and how
  * many of the scenery kinds a plaza takes (its lamps and beacon always come). */
 const PROP_WIDTH: Record<string, number> = {
@@ -64,26 +69,6 @@ const SCENERY = ["planter", "topiary", "flowerbed", "citrus", "crates", "barrels
 const PLAZA_SCENERY = 6;
 /** States that light a plaza's beacon: an agent there needs you. */
 const BEACON_STATES: State[] = ["failed", "approval", "question"];
-/** Screen room (CSS pixels) kept for the map's toolbar and help line. */
-const OVERLAY_TOP = 76;
-const OVERLAY_BOTTOM = 72;
-const LABEL_FONT = "Georgia, serif";
-/** A subagent's drone, and how long it takes to circle its agent (ms). */
-const DRONE_SIZE = 24;
-const DRONE_ORBIT = 7000;
-/** How far a working robot wanders from its cell's centre, and how fast (px/s). */
-const WANDER_X = 13;
-const WANDER_Y = 10;
-const WALK_SPEED = 8;
-/** How fast a walking robot turns toward its next spot (radians/s). */
-const TURN_SPEED = 1.3;
-/** Each kind's hover border, so what the pointer is over reads at a glance. */
-const HOVER_COLOR: Record<Entity["kind"], number> = {
-  host: 0xffffff,
-  project: 0xffc83d,
-  workspace: 0xff7f32,
-  agent: 0x4fe6dc,
-};
 const vectors = (points: { x: number; y: number }[]) =>
   points.map((p) => new Phaser.Math.Vector2(p.x, p.y));
 type Box = { x: number; y: number; width: number; height: number };
@@ -261,13 +246,14 @@ export class AtlasScene extends Phaser.Scene {
     this.pending = null;
     const structural = this.layout?.signature !== layout.signature;
     this.layout = layout;
+    this.locations = locations(layout);
     if (structural) this.rebuild();
     else {
       for (const o of this.agentLayer.splice(0)) o.destroy();
       this.agentLayer = this.capture(() => {
         this.agentTiles(layout);
         this.lightSignals(layout);
-        for (const a of layout.agents) this.agent(a);
+        this.agents(layout);
       });
     }
     // A vanished selection clears quietly; the app decides what is selected.
@@ -289,21 +275,28 @@ export class AtlasScene extends Phaser.Scene {
     this.tweens.killAll();
     for (const o of [...this.world, ...this.agentLayer]) o.destroy();
     for (const key of this.terrainKeys) this.textures.remove(key);
-    this.locations.clear();
     this.signals.clear();
     this.hover.clear();
     const build = ++this.builds;
     this.world = this.capture(() => {
       this.terrainKeys = drawTerrain(this, layout, build);
-      for (const p of layout.projects) this.landmark(p);
-      for (const ws of layout.workspaces) this.workspace(ws);
-      for (const h of layout.hosts) this.host(h);
+      const placed = new Map<string, Placed[]>();
+      for (const s of placeStructures(layout, (frame) => this.frameSize(frame)))
+        placed.set(s.entity, [...(placed.get(s.entity) ?? []), s]);
+      // Each project's banner, in layout order, then each host's.
+      const banners = labels(layout);
+      layout.projects.forEach((p, i) => this.landmark(p, placed.get(p.id)!, banners[i]!));
+      const flags = campFlags(layout).values();
+      for (const ws of layout.workspaces)
+        this.workspace(ws, ws.camp ? flags.next().value! : undefined, placed.get(ws.id) ?? []);
+      // Neither a host's banner nor its land is interactive; the Hosts tab picks a host.
+      for (const banner of banners.slice(layout.projects.length)) this.ribbon(banner);
     });
     this.cacheWorld();
     this.agentLayer = this.capture(() => {
       this.agentTiles(layout);
       this.lightSignals(layout);
-      for (const a of layout.agents) this.agent(a);
+      this.agents(layout);
     });
   }
   /** Hand the world's images to the caches; the camera itself skips them. */
@@ -373,76 +366,66 @@ export class AtlasScene extends Phaser.Scene {
       })
       .setOrigin(0.5)
       .setResolution(3 * renderDensity());
-    let shown = text;
-    while (caption.width > maxWidth && shown.length > 1) {
-      shown = shown.slice(0, -1);
-      caption.setText(shown.trimEnd() + "…");
-    }
+    caption.setText(
+      fitCaption(text, maxWidth, (shown) => {
+        caption.setText(shown);
+        return caption.width;
+      }),
+    );
     return caption;
   }
-  private ribbon(
-    x: number,
-    y: number,
-    text: string,
-    kind: "host" | "project",
-    maxWidth: number,
-    faded = false,
-  ): Phaser.GameObjects.Container {
-    const host = kind === "host";
-    const group = this.add.container(x, y).setDepth(23);
-    const caption = this.caption(text, host ? 29 : 21, maxWidth, {
-      fontStyle: host ? "normal" : "bold",
-      letterSpacing: host ? 5 : 0,
-      color: faded ? "#6d6656" : "#3e3322",
+  /** A host's or project's banner, at fixed world scale. */
+  private ribbon(label: Label): Phaser.GameObjects.Container {
+    const font = ribbonFont(label.kind);
+    const group = this.add.container(label.x, label.y).setDepth(23);
+    const caption = this.caption(label.text, font.size, label.maxWidth, {
+      fontStyle: font.weight,
+      letterSpacing: font.letterSpacing,
+      color: ribbonShape(label.kind, 0, label.faded).text,
     });
-    const width = Math.max(host ? 150 : 90, caption.width + (host ? 56 : 34)),
-      height = host ? 38 : 26;
+    const shape = ribbonShape(label.kind, caption.width, label.faded);
     const g = this.add.graphics();
     group.add(g);
-    group.setData("labelKind", kind);
-    const l = -width / 2,
-      r = width / 2,
-      t = -height / 2,
-      b = height / 2;
-    const tails = [
-      [
-        { x: l - 17, y: t + 5 },
-        { x: l + 10, y: t + 7 },
-        { x: l + 10, y: b + 10 },
-        { x: l - 19, y: b + 8 },
-        { x: l - 11, y: 3 },
-      ],
-      [
-        { x: r + 17, y: t + 5 },
-        { x: r - 10, y: t + 7 },
-        { x: r - 10, y: b + 10 },
-        { x: r + 19, y: b + 8 },
-        { x: r + 11, y: 3 },
-      ],
-    ];
-    g.fillStyle(0x6e5936, 0.13).fillRoundedRect(l + 3, t + 5, width, height, 2);
-    g.fillStyle(faded ? 0xc9c1a8 : 0xdcc995).lineStyle(1.2, 0x8c7447);
-    for (const tail of tails) {
+    group.setData("labelKind", label.kind);
+    const { shadow, body } = shape;
+    g.fillStyle(RIBBON_SHADOW.color, RIBBON_SHADOW.alpha).fillRoundedRect(
+      shadow.x,
+      shadow.y,
+      shadow.width,
+      shadow.height,
+      RIBBON_SHADOW.radius,
+    );
+    g.fillStyle(shape.tailFill).lineStyle(RIBBON_STROKE.tail, shape.stroke);
+    for (const tail of shape.tails) {
       g.fillPoints(vectors(tail), true);
       g.strokePoints(vectors(tail), true);
     }
-    g.fillStyle(faded ? 0xe2dccb : 0xf5e8bd).fillRoundedRect(l, t, width, height, 3);
-    g.lineStyle(1.4, 0x8c7447).strokeRoundedRect(l, t, width, height, 3);
-    g.lineStyle(0.7, 0xfff7d9, 0.8).lineBetween(l + 4, t + 4, r - 4, t + 4);
+    g.fillStyle(shape.fill).fillRoundedRect(body.x, body.y, body.width, body.height, RIBBON_BODY_RADIUS);
+    g.lineStyle(RIBBON_STROKE.body, shape.stroke).strokeRoundedRect(
+      body.x,
+      body.y,
+      body.width,
+      body.height,
+      RIBBON_BODY_RADIUS,
+    );
+    const inset = RIBBON_HIGHLIGHT.inset;
+    g.lineStyle(RIBBON_HIGHLIGHT.width, RIBBON_HIGHLIGHT.color, RIBBON_HIGHLIGHT.alpha).lineBetween(
+      body.x + inset,
+      body.y + inset,
+      body.x + body.width - inset,
+      body.y + inset,
+    );
     group.add(caption);
     return group;
   }
+  /** Where the pointer picks an entity: within `box`, and on its cells. */
   private hit(
     entity: Entity,
-    x: number,
-    y: number,
-    width: number,
-    height: number,
+    { x, y, width, height }: Box,
     depth = 30,
     /** Anywhere in the rectangle, rather than only on the entity's cells. */
     anywhere = entity.kind === "agent",
   ): void {
-    this.locations.set(entity.id, { x, y, width, height });
     const zone = this.add
       .zone(x, y, width, height)
       .setDepth(depth)
@@ -503,41 +486,13 @@ export class AtlasScene extends Phaser.Scene {
     alpha = 0.95,
     inset = true,
   ): void {
-    const cells = this.cellsOf(entity);
-    const key = (p: { x: number; y: number }) => `${Math.round(p.x * 10)},${Math.round(p.y * 10)}`;
-    const shrink = inset ? width / 2 / Math.cos(Math.PI / 6) : 0;
-    const sides = new Map<string, { a: { x: number; y: number }; b: { x: number; y: number }; ia: { x: number; y: number }; ib: { x: number; y: number } }>();
-    for (const cell of cells) {
-      const c = point(cell);
-      const corner = (i: number, r: number) => ({
-        x: c.x + Math.cos((i * Math.PI) / 3 - Math.PI / 2) * r,
-        y: c.y + Math.sin((i * Math.PI) / 3 - Math.PI / 2) * r,
-      });
-      for (let i = 0; i < 6; i++) {
-        const a = corner(i, HEX_RADIUS),
-          b = corner(i + 1, HEX_RADIUS),
-          id = [key(a), key(b)].sort().join(":");
-        if (sides.has(id)) sides.delete(id);
-        else sides.set(id, { a, b, ia: corner(i, HEX_RADIUS - shrink), ib: corner(i + 1, HEX_RADIUS - shrink) });
-      }
-    }
-    graphics.setData("edgeCount", sides.size);
+    const { segments, caps, edgeCount } = perimeter(this.cellsOf(entity), width, inset);
+    graphics.setData("edgeCount", edgeCount);
     graphics.lineStyle(width, color, alpha).fillStyle(color, alpha);
-    // Each perimeter corner, with the inset ends that meet there.
-    const ends = new Map<string, { x: number; y: number }[]>();
-    for (const { a, b, ia, ib } of sides.values()) {
-      graphics.lineBetween(ia.x, ia.y, ib.x, ib.y);
-      for (const [p, q] of [[a, ia], [b, ib]] as const) {
-        const list = ends.get(key(p)) ?? [];
-        list.push(q);
-        ends.set(key(p), list);
-      }
-    }
-    for (const list of ends.values()) {
-      for (const p of list) graphics.fillCircle(p.x, p.y, width / 2);
-      if (list.length === 2 && key(list[0]!) !== key(list[1]!))
-        graphics.lineBetween(list[0]!.x, list[0]!.y, list[1]!.x, list[1]!.y);
-    }
+    // Sides, then the round ends where they meet, then the bridges across steps.
+    for (const [a, b] of segments.slice(0, edgeCount)) graphics.lineBetween(a.x, a.y, b.x, b.y);
+    for (const p of caps) graphics.fillCircle(p.x, p.y, width / 2);
+    for (const [a, b] of segments.slice(edgeCount)) graphics.lineBetween(a.x, a.y, b.x, b.y);
   }
   /** The cells an entity covers; a host covers its whole landmass. */
   private cellsOf(entity: Entity): Axial[] {
@@ -546,73 +501,47 @@ export class AtlasScene extends Phaser.Scene {
       .filter((mass) => mass.host === entity.id)
       .flatMap((mass) => mass.cells);
   }
-  private host(h: Entity): void {
-    const islands = this.layout!.islands.filter((i) => i.host === h.id);
-    const island = { online: islands.every((i) => i.online) };
-    const bounds = cellBounds(islands.flatMap((i) => i.cells));
-    // The banner stands on the landmass's northern shore.
-    const x = bounds.x + bounds.width / 2,
-      y = bounds.y - HEX_RADIUS * 0.75;
-    const name = h.name.toUpperCase() + (island.online ? "" : " · OFFLINE");
-    this.ribbon(x, y, name, "host", Math.max(260, bounds.width - 80), !island.online);
-    // Neither the banner nor the land is interactive; the Hosts tab picks a host.
-    this.locations.set(h.id, {
-      x,
-      y: bounds.y + bounds.height / 2 - 20,
-      width: bounds.width,
-      height: bounds.height + 80,
-    });
+  /** A painted structure, as `placeStructures` stands it. */
+  private place(s: Placed): Phaser.GameObjects.Image {
+    const image = sprite(this, s.x, s.y, s.frame, s.width).setDepth(s.depth);
+    if (s.flipX) image.setFlipX(true);
+    if (s.alpha !== 1) image.setAlpha(s.alpha);
+    if (s.footprint) image.setData("footprint", s.footprint);
+    return image;
   }
-  private landmark(p: Entity): void {
-    const at = structureCentre(p),
-      cells = footprint(p);
-    // Size the building for the courtyard's middle, then lift it toward the
-    // top as far as that size still fits inside its cells.
-    const image = sprite(this, at.x, at.y, p.art!, 420).setDepth(15);
-    const aspect = image.width / image.height;
-    const size = fittedWidth(at.x, at.y, aspect, 420, cells) * (LANDMARK_SCALE[p.art!] ?? 0.9);
-    let lift = LANDMARK_LIFT;
-    while (lift > 0 && fittedWidth(at.x, at.y - lift, aspect, 420, cells) < size) lift -= 2;
-    image.setY(at.y - lift).setScale(size / image.width);
-    image.setData("footprint", cells);
-    if (p.stale) image.setAlpha(0.6);
-    const label = this.ribbon(at.x, at.y + 112, p.name, "project", 250, p.stale).getBounds();
+  /** A frame's natural size, as its sprite reports it. */
+  private frameSize(art: string): { width: number; height: number } {
+    const name = frameName(art);
+    const frame = this.textures.getFrame(`filtered-${name}`, name);
+    return { width: frame.realWidth, height: frame.realHeight };
+  }
+  /** A landmark, its banner and plaza. */
+  private landmark(p: Entity, [building]: Placed[], banner: Label): void {
+    const image = this.place(building!);
+    const label = this.ribbon(banner).getBounds();
     // The ribbon's tails and shadow reach past its caption.
-    this.plaza(p, cells, image, { x: label.x - 34, y: label.y - 8, width: label.width + 68, height: label.height + 20 });
-    this.hit(p, at.x, at.y, HEX_RADIUS * Math.sqrt(3) * 4, HEX_RADIUS * 5, 25);
+    this.plaza(p, footprint(p), image, { x: label.x - 34, y: label.y - 8, width: label.width + 68, height: label.height + 20 });
+    this.hit(p, this.locations.get(p.id)!, 25);
   }
-  private workspace(ws: Entity): void {
-    const cells = footprint(ws);
-    // The cottage stands in the middle of its three cells.
-    const at = structureCentre(ws);
-    if (ws.camp) {
+  /** A workspace's cottage and garden, or a camp's flag. No name plate: the
+   * workspace's name shows on hover. */
+  private workspace(ws: Entity, flag: { x: number; y: number } | undefined, placed: Placed[]): void {
+    if (flag) {
       // No cottage: the daemon reports these agents without a workspace.
       const g = this.add.graphics().setDepth(16);
-      g.lineStyle(2, 0x7b6340).lineBetween(at.x - 6, at.y + 6, at.x - 6, at.y - 30);
+      g.lineStyle(2, 0x7b6340).lineBetween(flag.x - 6, flag.y + 6, flag.x - 6, flag.y - 30);
       g.fillStyle(0xc75136).fillTriangle(
-        at.x - 5,
-        at.y - 30,
-        at.x + 18,
-        at.y - 23,
-        at.x - 5,
-        at.y - 16,
+        flag.x - 5,
+        flag.y - 30,
+        flag.x + 18,
+        flag.y - 23,
+        flag.x - 5,
+        flag.y - 16,
       );
-      g.fillStyle(0x7b6340, 0.35).fillEllipse(at.x - 6, at.y + 7, 18, 6);
-    } else {
-      // Raised a little, so its porch and shrubs don't read as sitting low.
-      const y = at.y - COTTAGE_LIFT;
-      const image = sprite(this, at.x, y, ws.art!, COTTAGE_SIZE).setDepth(16);
-      image.setScale(
-        fittedWidth(at.x, y, image.width / image.height, COTTAGE_SIZE, cells) /
-          image.width,
-      );
-      image.setData("footprint", cells);
-      this.garden(ws, cells, at);
-      if (ws.stale) image.setAlpha(0.6);
+      g.fillStyle(0x7b6340, 0.35).fillEllipse(flag.x - 6, flag.y + 7, 18, 6);
     }
-    // No name plate: the workspace's name shows on hover.
-    const area = cellBounds(cells);
-    this.hit(ws, area.x + area.width / 2, area.y + area.height / 2, area.width, area.height, 29);
+    for (const s of placed) this.place(s);
+    this.hit(ws, this.locations.get(ws.id)!, 29);
   }
   /** Props on a landmark's paving, a stable mix for each project: its lamps
    * and beacon first, then scenery. Each keeps inside the plaza's cells, off
@@ -758,26 +687,6 @@ export class AtlasScene extends Phaser.Scene {
       f.glow.setAlpha((f.flicker ? 0.45 + 0.55 * pulse : 0.7 + 0.3 * pulse) + flicker);
     }
   }
-  /** A tree and shrubs around a cottage: one in each of its workspace's
-   * cells, toward the cell's outer side, each kept inside its own cell. */
-  private garden(ws: Entity, cells: Axial[], middle: { x: number; y: number }): void {
-    const rng = random(seedOf(ws.id + "garden"));
-    const tree = Math.floor(rng() * cells.length);
-    cells.forEach((cell, i) => {
-      const c = point(cell);
-      const x = c.x + (c.x - middle.x) * GARDEN_OUT,
-        y = c.y + (c.y - middle.y) * GARDEN_OUT;
-      const frame = i === tree ? "trees" : "shrub";
-      const plant = sprite(this, x, y, frame, i === tree ? 56 : 38).setDepth(15.5);
-      plant.setScale(
-        Math.min(plant.displayWidth, fittedWidth(x, y, plant.width / plant.height, 60, [cell])) /
-          plant.width,
-      );
-      // Mirrored at random for variety; never rotated, so it stays inside its cell.
-      plant.setFlipX(rng() < 0.5);
-      if (ws.stale) plant.setAlpha(0.6);
-    });
-  }
   /** An agent's state shows only on its sand tile: the tile's colour, its
    * border's colour, and how the border moves. Running borders carry a light
    * round them; states that need you pulse (failures fastest). Idle tiles stay
@@ -852,21 +761,23 @@ export class AtlasScene extends Phaser.Scene {
       }
     }
   }
-  private agent(a: Entity): void {
+  private agents(layout: AtlasLayout): void {
+    const bots = robots(layout);
+    layout.agents.forEach((a, i) => this.agent(a, bots[i]!));
+  }
+  private agent(a: Entity, bot: ReturnType<typeof robots>[number]): void {
     // Centred on its own cell.
-    const { x, y } = point(a.position);
-    const offline = a.state === "offline";
+    const { x, y } = bot;
     // A body and two hands, so its arms can move.
     // Each hand's frame is the whole robot's, so all three share one origin.
-    const body = sprite(this, 0, 0, `${a.art!}-body`, ROBOT_SIZE);
-    const hands = ["l", "r"].map((side) => sprite(this, 0, 0, `${a.art!}-hand-${side}`, ROBOT_SIZE));
+    const body = sprite(this, 0, 0, `${bot.art}-body`, ROBOT_SIZE);
+    const hands = ["l", "r"].map((side) => sprite(this, 0, 0, `${bot.art}-hand-${side}`, ROBOT_SIZE));
     const image = this.add.container(x, y, [body, ...hands]).setDepth(35);
     image.setData("agent", a.id);
-    if (offline) for (const part of [body, ...hands]) part.setTint(0x9c9a92).setAlpha(0.7);
+    if (bot.offline) for (const part of [body, ...hands]) part.setTint(0x9c9a92).setAlpha(0.7);
     // The whole cell answers the pointer; the robot is where it's pointed out.
     const cell = cellBounds([a.position]);
-    this.hit(a, x, y, cell.width, cell.height, 40, false);
-    this.locations.set(a.id, { x, y, width: ROBOT_SIZE + 10, height: ROBOT_SIZE + 10 });
+    this.hit(a, { x, y, width: cell.width, height: cell.height }, 40, false);
     // A working robot potters about its cell; the rest stand still.
     const robot = {
       id: a.id,
@@ -874,10 +785,10 @@ export class AtlasScene extends Phaser.Scene {
       hands: hands.map((h) => ({ image: h, x: h.x, y: h.y })),
       x,
       y,
-      busy: a.state === "running",
+      busy: bot.busy,
     };
     this.robots.push(robot);
-    this.marker(a, robot);
+    this.marker(a, robot, bot.drones);
   }
   /** Working robots potter about their cell: turn to face a spot, walk to it,
    * pause and look about, then pick another. Each keeps its place and heading
@@ -952,11 +863,10 @@ export class AtlasScene extends Phaser.Scene {
   /** Lights for running helpers. State itself shows on the agent's tile. */
   /** Running subagents fly as small drones of the agent's own model, circling
    * it inside its cell, up to four. */
-  private marker(a: Entity, robot: AtlasScene["robots"][number]): void {
+  private marker(a: Entity, robot: AtlasScene["robots"][number], count: number): void {
     const { x, y } = robot;
-    if (!a.subagents || a.state === "offline") return;
-    const count = Math.min(4, a.subagents),
-      phase = random(seedOf(a.id + "drones"))();
+    if (!count) return;
+    const phase = random(seedOf(a.id + "drones"))();
     for (let i = 0; i < count; i++) {
       const shadow = this.add.ellipse(x, y, 16, 6, 0x1d2a14, 0.28).setDepth(34);
       const drone = sprite(this, x, y, a.art!, DRONE_SIZE);
@@ -1043,44 +953,15 @@ export class AtlasScene extends Phaser.Scene {
       keyboard.on("keydown-ESC", () => this.game.events.emit("atlas:pick", null));
     }
   }
+  /** The canvas in render px. */
+  private view(): { width: number; height: number } {
+    return { width: this.scale.width, height: this.scale.height };
+  }
   private mapExtent() {
-    const bounds = this.layout
-      ? landBounds(this.layout)
-      : { x: -400, y: -300, width: 800, height: 600 };
-    // Host banners stand on the open ground above their islands.
-    // Room for each host's shores all round and its banner above (in world
-    // units), and for the map's own floating controls (toolbar above, help
-    // line below), which keep their screen size at any zoom.
-    const marginX = HEX_RADIUS * 1.6,
-      top = HEX_RADIUS * 1.6,
-      bottom = HEX_RADIUS * 0.9;
-    const density = renderDensity(),
-      padTop = OVERLAY_TOP * density,
-      padBottom = OVERLAY_BOTTOM * density;
-    // The zoom at which land, world margins and overlays just fit; the
-    // overlays' room is fixed at that zoom so the extent stays put.
-    const zoom = Math.max(
-      0.01,
-      Math.min(
-        this.scale.width / (bounds.width + marginX * 2),
-        (this.scale.height - padTop - padBottom) /
-          (bounds.height + top + bottom),
-      ),
-    );
-    return {
-      x: bounds.x - marginX,
-      y: bounds.y - top - padTop / zoom,
-      width: bounds.width + marginX * 2,
-      height:
-        bounds.height + top + bottom + (padTop + padBottom) / zoom,
-    };
+    return mapExtent(this.layout, this.view(), renderDensity());
   }
   private minimumZoom(): number {
-    const extent = this.mapExtent();
-    return Math.min(
-      this.scale.width / extent.width,
-      this.scale.height / extent.height,
-    );
+    return minimumZoom(this.layout, this.view(), renderDensity());
   }
   fit(): void {
     const cam = this.cameras.main,
@@ -1090,36 +971,15 @@ export class AtlasScene extends Phaser.Scene {
     this.reportCamera();
   }
   private constrainCamera(): void {
-    const cam = this.cameras.main,
-      extent = this.mapExtent();
-    cam.setZoom(
-      Phaser.Math.Clamp(
-        cam.zoom,
-        this.minimumZoom(),
-        MAX_ZOOM * renderDensity(),
-      ),
+    const cam = this.cameras.main;
+    const c = clampCamera(
+      { centerX: cam.scrollX + cam.width / 2, centerY: cam.scrollY + cam.height / 2, zoom: cam.zoom },
+      this.layout,
+      this.view(),
+      renderDensity(),
     );
-    const w = cam.width / cam.zoom,
-      h = cam.height / cam.zoom;
-    const centerX = cam.scrollX + cam.width / 2,
-      centerY = cam.scrollY + cam.height / 2;
-    const x =
-      w >= extent.width
-        ? extent.x + extent.width / 2
-        : Phaser.Math.Clamp(
-            centerX,
-            extent.x + w / 2,
-            extent.x + extent.width - w / 2,
-          );
-    const y =
-      h >= extent.height
-        ? extent.y + extent.height / 2
-        : Phaser.Math.Clamp(
-            centerY,
-            extent.y + h / 2,
-            extent.y + extent.height - h / 2,
-          );
-    cam.centerOn(x, y);
+    cam.setZoom(c.zoom);
+    cam.centerOn(c.centerX, c.centerY);
   }
   command(command: string): void {
     if (command === "home") this.fit();
@@ -1144,30 +1004,13 @@ export class AtlasScene extends Phaser.Scene {
     if (!loc || !entity) return;
     const cam = this.cameras.main;
     if (!zoom) {
-      const v = cam.worldView,
-        mx = v.width * 0.12,
-        my = v.height * 0.12;
-      const visible =
-        loc.x > v.x + mx &&
-        loc.x < v.x + v.width - mx &&
-        loc.y > v.y + my &&
-        loc.y < v.y + v.height - my;
-      if (visible) return;
+      if (comfortablyVisible(loc, cam.worldView)) return;
       if (this.reduced) cam.centerOn(loc.x, loc.y);
       else cam.pan(loc.x, loc.y, 380, "Cubic.easeOut", true);
       return;
     }
-    const requestedZoom =
-      entity.kind === "host"
-        ? Math.min(
-            (this.scale.width - 90 * renderDensity()) / loc.width,
-            (this.scale.height - 80 * renderDensity()) / loc.height,
-          )
-        : entity.kind === "project"
-          ? Math.min(1.5 * renderDensity(), this.scale.height / 650)
-          : 1.5 * renderDensity();
     const level = Phaser.Math.Clamp(
-      requestedZoom,
+      focusZoom(entity.kind, loc, this.view(), renderDensity()),
       this.minimumZoom(),
       MAX_ZOOM * renderDensity(),
     );
