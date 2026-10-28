@@ -14,7 +14,7 @@ import {
 import { api, errorMessage } from "./api";
 import type { Agent, Project, Selection, Workspace } from "./types";
 import { UNREAD, isWorking, providerName, shownStatus } from "./types";
-import { Badge, CopyButton, ProviderIcon } from "./ui";
+import { Badge, CopyButton, ProviderIcon, plainText } from "./ui";
 import { workspaceKey } from "./workspaces";
 import { agentLabel } from "./display";
 import { agentName, hostText, pathText, placeText } from "./names";
@@ -167,6 +167,7 @@ function WorkspaceLabels({
           }}
         >
           <input
+            {...plainText}
             autoFocus
             aria-label="Label name"
             placeholder="Label name"

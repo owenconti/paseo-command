@@ -60,10 +60,17 @@ test("Cmd+K lists the commands; Enter runs one after the palette closes", async 
   await page.keyboard.press("Enter");
   await palette.waitFor({ state: "detached" });
   await page.locator(".new-agent").waitFor();
+  // Text fields take no autofill, autocorrect or auto-capitalisation.
+  const plain = async (field: typeof search) => {
+    for (const attribute of ["autocomplete", "autocorrect", "autocapitalize"])
+      assert.equal(await field.getAttribute(attribute), "off", attribute);
+  };
+  await plain(page.locator(".new-agent #composer"));
   // From the message box, Cmd+K still opens it; Escape closes it.
   await page.locator(".new-agent #composer").focus();
   await page.keyboard.press("Meta+k");
   await palette.waitFor();
+  await plain(search);
   await page.keyboard.press("Escape");
   await palette.waitFor({ state: "detached" });
   // Escape went to the palette, not to the new agent behind it.

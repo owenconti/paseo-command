@@ -14,6 +14,7 @@ import { hostOptions } from "./Dispatch";
 import { rovingKeyDown } from "./focus";
 import { soundEvent } from "./soundCues";
 import type { Host, Project } from "./types";
+import { plainText } from "./ui";
 
 type Mode = "existing" | "create" | "clone";
 const MODES: [Mode, string, string][] = [
@@ -247,6 +248,7 @@ export function AddProject({
             <label className="add-project-wide">
               <span>Folder name</span>
               <input
+                {...plainText}
                 name="folder-name"
                 aria-description="The new folder, made inside the folder open below"
                 value={name}
@@ -263,6 +265,7 @@ export function AddProject({
             <label className="add-project-wide">
               <span>GitHub repository</span>
               <input
+                {...plainText}
                 name="repo"
                 aria-description="owner/repo or a GitHub URL; it is cloned into a new folder inside the folder open below"
                 value={repo}

@@ -4,6 +4,7 @@ import { api, errorMessage } from "../api";
 import { hostQuery } from "../types";
 import { Menu } from "./Menu";
 import type { GitHubItem } from "./types";
+import { plainText } from "../ui";
 
 /** Searches the repository's GitHub issues and pull requests to attach one. */
 export function GitHubPicker({
@@ -55,6 +56,7 @@ export function GitHubPicker({
         <label className="picker-search">
           <Search size={13} />
           <input
+            {...plainText}
             autoFocus
             value={q}
             placeholder="Search issues and PRs..."

@@ -33,6 +33,7 @@ import { useAddFiles, useAttachmentDraft } from "./composer/useAttachments";
 import { useAutocomplete, type DraftSource } from "./composer/useAutocomplete";
 import { insertAtCaret, uid } from "./composer/util";
 import "./composer.css";
+import { plainText } from "./ui";
 
 // The composer's pieces live in src/composer/; importers keep using this module.
 export type {
@@ -358,6 +359,7 @@ export function Composer({
           />
         )}
         <textarea
+          {...plainText}
           id="composer"
           ref={area}
           rows={1}

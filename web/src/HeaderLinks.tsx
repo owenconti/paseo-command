@@ -20,6 +20,7 @@ import {
   usePullRequest,
 } from "./links";
 import type { Agent, PullRequest, Workspace } from "./types";
+import { plainText } from "./ui";
 
 const PR_STATE = {
   open: { label: "Open", Icon: GitPullRequest },
@@ -240,8 +241,7 @@ function SlugPrompt({
             value={value}
             placeholder="your-team"
             spellCheck={false}
-            autoCapitalize="off"
-            autoComplete="off"
+            {...plainText}
             aria-invalid={touched && !slug}
             onChange={(e) => setValue(bare(e.target.value))}
           />
@@ -288,8 +288,7 @@ export function LinearWorkspaceSetting() {
           value={value}
           placeholder="your-team"
           spellCheck={false}
-          autoCapitalize="off"
-          autoComplete="off"
+          {...plainText}
           onChange={(e) => setValue(bare(e.target.value))}
           onBlur={save}
           onKeyDown={(e) => {

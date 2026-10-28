@@ -5,6 +5,7 @@ import { Search } from "lucide-react";
 import { isPaletteShortcut } from "./appCommands";
 import { modalOpen, useFocusTrap } from "./focus";
 import { rankCommands, type Command } from "./palette";
+import { plainText } from "./ui";
 
 /** Cmd+K, from anywhere: a searchable list of the app's commands (each with
  * its own keys) and, as you type, its agents, workspaces, projects and hosts.
@@ -149,7 +150,7 @@ function PaletteDialog({
               results.length ? optionId(current) : undefined
             }
             placeholder="Type a command, or an agent, workspace or project…"
-            autoComplete="off"
+            {...plainText}
             spellCheck={false}
             value={query}
             onChange={(e) => {

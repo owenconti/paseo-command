@@ -7,6 +7,7 @@ import {
   useRenames,
   type RenameKind,
 } from "./renames";
+import { plainText } from "./ui";
 
 /**
  * A title that can be renamed in place: the pencil (or a double-click)
@@ -74,6 +75,7 @@ export function InlineName({
       <div className="inline-name editing">
         <h2>
           <input
+            {...plainText}
             ref={input}
             className="inline-name-input"
             aria-label={label}

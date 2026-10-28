@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { Markdown } from "./Markdown";
 import type { Permission } from "./types";
+import { plainText } from "./ui";
 
 export type PermissionDecision = {
   behavior: "allow" | "deny";
@@ -116,6 +117,7 @@ export function PermissionCard({
             </div>
             {q.allowOther && (
               <input
+                {...plainText}
                 className="question-other"
                 value={other[qi]}
                 disabled={busy}

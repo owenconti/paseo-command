@@ -8,6 +8,7 @@ import type { Host, Mode, Model, Project, Provider, Workspace } from "./types";
 import { hostQuery } from "./types";
 import { projectKey, workspaceKey } from "./workspaces";
 import { hostText, placeText } from "./names";
+import { plainText } from "./ui";
 
 /** As many images as the daemon takes with a prompt. */
 const MAX_IMAGES = 10;
@@ -487,6 +488,7 @@ export function NewAgent({
                   New branch <em>optional</em>
                 </span>
                 <input
+                  {...plainText}
                   aria-description="Optional: a new branch, so it works in its own worktree"
                   value={branch}
                   onChange={(e) => setBranch(e.target.value)}
@@ -499,6 +501,7 @@ export function NewAgent({
                   Base <em>optional</em>
                 </span>
                 <input
+                  {...plainText}
                   aria-description="Optional: the ref the new branch starts from (default: the project's base)"
                   value={base}
                   onChange={(e) => setBase(e.target.value)}

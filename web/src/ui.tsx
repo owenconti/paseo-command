@@ -4,6 +4,14 @@ import { Check, Copy } from "lucide-react";
 import { providerLogos } from "./providerLogos";
 import { providerName, tone } from "./types";
 
+/** For every text field: no browser autofill, autocorrect or
+ * auto-capitalisation (names, branches and prompts are typed as meant). */
+export const plainText = {
+  autoComplete: "off",
+  autoCorrect: "off",
+  autoCapitalize: "off",
+} as const;
+
 export function Badge({ status }: { status: string }) {
   return (
     <span className={`badge ${tone(status)}`}>
