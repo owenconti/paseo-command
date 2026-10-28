@@ -321,3 +321,25 @@ test("structure review fleet exercises all eight landmarks and seven cottage sil
   assert.equal(new Set(cottages.map((w) => w.art)).size, 7);
   assert.deepEqual(world.projects.map((p) => p.art), layoutAtlas(STRUCTURE_SAMPLE).projects.map((p) => p.art));
 });
+
+test("labelled workspaces carry their PR flags; camps and others don't", () => {
+  const data = structuredClone(crowded);
+  data.workspaces.find((w) => w.key === "w0").labels = ["CI running", "Approved", "bug"];
+  data.workspaces.find((w) => w.key === "w1").labels = ["bug"];
+  const layout = layoutAtlas(data);
+  const ws = (id) => layout.workspaces.find((w) => w.id === id);
+  assert.deepEqual(ws("w0").flags, { ci: "ci-running", review: "review-approved" });
+  assert.equal("flags" in ws("w1"), false);
+  assert.equal("flags" in ws("w2"), false);
+  for (const camp of layout.workspaces.filter((w) => w.camp)) assert.equal("flags" in camp, false);
+});
+
+test("a change of PR labels changes the layout's signature", () => {
+  const data = structuredClone(crowded);
+  const before = layoutAtlas(data).signature;
+  data.workspaces.find((w) => w.key === "w0").labels = ["CI green"];
+  const after = layoutAtlas(data).signature;
+  assert.notEqual(before, after);
+  data.workspaces.find((w) => w.key === "w1").labels = ["bug"];
+  assert.equal(layoutAtlas(data).signature, after);
+});
