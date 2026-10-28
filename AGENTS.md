@@ -8,6 +8,8 @@
 - Cached engine files under `phaser/` and `game/node_modules/` remain available for local builds. Do not edit the engine.
 - The original `/Users/example/development/paseo-command` project is read only. Preserve its React UI; focus current development on the game world.
 - When you need to ask the user a question, use the ask-question tool (`AskUserQuestion`) rather than asking in plain text.
+- Anything you ask the user to review, such as a plan, description or summary, must be in your visible reply,
+  never only in your reasoning: the user does not see your thoughts.
 
 ## Product and references
 
