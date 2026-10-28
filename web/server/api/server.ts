@@ -80,10 +80,11 @@ export function attachApiServer(server: ApiServer) {
       () => releaseCleanup(server),
     );
   });
-  // The tab's WebSocket shares the server (Vite's own HMR socket uses a
-  // different path and protocol).
+  // The tab's WebSocket and the terminal relay share the server (Vite's own
+  // HMR socket uses a different path and protocol).
   server.httpServer?.on?.("upgrade", (req, socket, head) => {
-    if (!(req.url || "").startsWith("/api/ws")) return;
+    const path = (req.url || "").split("?")[0];
+    if (path !== "/api/ws" && path !== "/api/terminal") return;
     if (closing || admissionClosed()) {
       socket.write(
         "HTTP/1.1 503 Service Unavailable\r\nConnection: close\r\nContent-Length: 0\r\n\r\n",
