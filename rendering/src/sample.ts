@@ -49,3 +49,18 @@ export const SAMPLE: AtlasData = {
     subagents: i === 0 ? 3 : i === 3 ? 1 : 0,
   })),
 };
+
+/** Asset review fleet: enough neighbours to exercise every balanced artwork choice. */
+export const STRUCTURE_SAMPLE: AtlasData = {
+  hosts: [{ key: "local", name: "Structure review · illustrative", online: true, local: true }],
+  projects: Array.from({ length: 8 }, (_, i) => ({
+    key: `structure-${i}`, host: "local", name: `Structure ${i + 1}`,
+  })),
+  workspaces: Array.from({ length: 8 }, (_, i) =>
+    Array.from({ length: i === 0 ? 7 : 1 }, (_, j) => ({
+      key: `structure-${i}-workspace-${j}`, host: "local",
+      project: `structure-${i}`, name: `Cottage ${j + 1}`,
+    })),
+  ).flat(),
+  agents: [],
+};

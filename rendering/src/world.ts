@@ -294,8 +294,8 @@ export function footprintEdges(cells: Axial[]) {
   }
   return [...result.values()];
 }
-const LANDMARK_ART = ["manor", "observatory", "conservatory"];
-const COTTAGE_ART = ["cottage-slate", "cottage-brown"];
+const LANDMARK_ART = ["manor", "observatory", "conservatory", "clockhall", "library", "lighthouse-workshop", "windmill", "foundry"];
+const COTTAGE_ART = ["cottage-slate", "cottage-brown", "cottage-thatch", "cottage-tile", "cottage-turf", "cottage-stone", "cottage-aframe"];
 /** Picks art for a key, preferring its seeded choice but taking the least used
  * so far, so neighbours vary rather than colliding on the same hash. */
 function pickArt(arts: string[], key: string, used: Map<string, number>) {

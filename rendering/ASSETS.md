@@ -2,7 +2,7 @@
 
 Generated with the built-in `image_gen` tool for this local project. No Phaser AE crew, uploads or phaser.io services were used. The reference supplied by the user, now retained as `../design/references/atlas-05.webp`, was a style reference for the two sprite atlases. Original references remain references; none is used as the running scene's background.
 
-The output PNGs are retained without destructive editing. Phaser registers and trims individual atlas frames at runtime. Transparent alpha is preserved. All five local assets are used by the renderer.
+The output PNGs are retained without destructive editing. Phaser registers and trims individual atlas frames at runtime. Transparent alpha is preserved. Local assets are bundled directly by the renderer.
 
 ## buildings.png
 
@@ -98,3 +98,37 @@ Exact prompt:
 > 11. UNLIT round stone fire brazier / signal beacon bowl seen directly from above, thick cream-grey weathered carved stone circular rim, dark cold coals and ash inside.
 > 12. LIT version of cell 11. This is an IDENTICAL DUPLICATE of the bowl in cell 11, same exact diameter, outline, stone rim pattern, center, angle and size. ONLY inside the bowl changes to bright orange-red flame cores and yellow tips, viewed from overhead, tiny sparks contained inside the bowl. No tall side-view flames or large halo.
 > Keep both lit/unlit pairs perfectly registered so their frames can swap without jumping. All 12 props have consistent painted detail and scale. No 3D render, no photorealism, no pixel art.
+
+
+## structures.png — five landmarks and five cottages
+
+Generated with the built-in `image_gen` tool on 2026-10-28, as ten individual transparent
+sprites. The existing buildings atlas and all five `design/references/atlas-0*.webp` images
+were visually reviewed for style; the generator received the textual style specification,
+without reference-image attachments. No Phaser AE service, publishing or project upload was used.
+`buildings.png` is unchanged.
+
+Landmarks: octagonal clock hall, cruciform burgundy library, circular lighthouse workshop
+with copper side wings, windmill and granary, horseshoe foundry.
+Cottages: oval golden thatch, L-shaped terracotta tile, rounded turf roof, hexagonal
+lavender-grey stone slab roof, narrow cedar A-frame.
+
+Exact prompts for each subject are retained verbatim in `src/assets/structures-prompts.json`.
+Original generated output filenames are in `src/assets/structures-sources.json`; originals
+remain under `/Users/example/.codex/generated_images/01a182c9-59d1-7ab2-b25b-31b63b1745b5/`.
+
+Atlas assembly: 2560 × 1024 RGBA, five columns by two rows of 512 × 512 cells.
+Frame names/rectangles are in `src/assets/structures.json`, landmarks on the first row,
+cottages on the second. Each whole source silhouette was located with alpha > 8 and
+six pixels of source padding, then proportionally downsampled with Lanczos to a maximum
+440 × 440 and centered within its cell. Source alpha within those crops is preserved;
+no repainting, background replacement or recolouring. This discards only remote near-invisible
+alpha speckling outside the padded subject bounds. Cell gutters are genuinely transparent.
+Runtime trimming uses alpha > 0 to preserve the complete resampled silhouettes, and the
+existing footprint-fitting logic sizes landmarks to ten cells and cottages to three.
+
+Local review: `npm run render:dev`, then `http://127.0.0.1:4320/?structures`.
+This illustrative fixture exercises all eight landmark and seven cottage choices using
+normal deterministic neighbour balancing. Review screenshots are in `rendering/artifacts/`
+(ignored local files): `structures-contact-sheet.png`, `structures-overview.png`,
+`structures-0.png` through `structures-7.png`, and `structures-cottages.png`.
