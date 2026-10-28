@@ -6,14 +6,8 @@
 import { after, before, test } from "node:test";
 import assert from "node:assert/strict";
 import type { Browser, Page } from "playwright";
-import {
-  agentRow,
-  launch,
-  mockApi,
-  newContext,
-  startApp,
-  waitFor,
-} from "./harness";
+import { launch, mockApi, newContext, startApp, waitFor } from "./harness";
+import { MAC, small, ws } from "./fleets";
 
 let app: Awaited<ReturnType<typeof startApp>>;
 let browser: Browser;
@@ -26,64 +20,7 @@ after(async () => {
   assert.deepEqual(app?.apiHits ?? [], []);
 });
 
-const MAC = "srv_macmini";
-const hosts = [
-  { serverId: "srv_local", label: "Studio", status: "online", local: true, state: "online" },
-  { serverId: MAC, label: "macmini", status: "offline", local: false, state: "offline" },
-];
-const projects = [
-  { projectId: "prj_atlas", name: "atlas", kind: "git", path: "/work/atlas" },
-  { projectId: "prj_api", name: "api", kind: "git", path: "/work/api" },
-  { projectId: "prj_infra", name: "infra", kind: "git", path: "/srv/infra", host: MAC },
-];
-const ws = (id: string, projectId: string, name: string, cwd: string, host?: string) => ({
-  workspaceId: id,
-  projectId,
-  project: projectId.slice(4),
-  name,
-  isolation: "local",
-  cwd,
-  branch: "main",
-  ...(host ? { host } : {}),
-});
-const workspaces = [
-  ws("wks_a", "prj_atlas", "Map polish", "/work/atlas/a"),
-  ws("wks_b", "prj_atlas", "Labels", "/work/atlas/b"),
-  ws("wks_c", "prj_api", "Schema", "/work/api/c"),
-  ws("wks_d", "prj_infra", "Deploy", "/srv/infra/d", MAC),
-];
-const agent = (
-  id: string,
-  status: string,
-  name: string,
-  workspaceId: string,
-  cwd: string,
-  extra: Record<string, unknown> = {},
-) => ({ ...agentRow(id, status, name), workspaceId, cwd, ...extra });
-const agents = [
-  agent("a-running", "running", "Runner", "wks_a", "/work/atlas/a"),
-  agent("a-idle", "idle", "Idler", "wks_a", "/work/atlas/a"),
-  agent("a-done", "idle", "Finisher", "wks_b", "/work/atlas/b", { unread: true }),
-  agent("a-approval", "idle", "Asker for leave", "wks_b", "/work/atlas/b"),
-  agent("a-question", "idle", "Questioner", "wks_c", "/work/api/c", {
-    provider: "codex/gpt-6.1-sol",
-  }),
-  agent("a-failed", "error", "Breaker", "wks_c", "/work/api/c"),
-  agent("a-offline", "running", "Far away", "wks_d", "/srv/infra/d", {
-    host: MAC,
-    stale: true,
-  }),
-];
-const permissions = [
-  { id: "p1", agentId: "a-approval", name: "Bash", description: "rm -rf build" },
-  {
-    id: "p2",
-    agentId: "a-question",
-    name: "AskUserQuestion",
-    description: "-",
-    kind: "question",
-  },
-];
+const { hosts, projects, workspaces, agents, permissions } = small;
 
 async function open(): Promise<Page> {
   const context = await newContext(browser);
