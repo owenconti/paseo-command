@@ -16,6 +16,13 @@ reloads the page and, when a newer native build is on disk, swaps the app for it
 same window position and page. After merging, `npm run app:update` rebuilds both the web app and
 this one.
 
+**It runs its own server.** When the page it shows is on this machine (the default
+`http://127.0.0.1:4310/`), the app starts that server itself if it isn't running, through the same
+launcher as `npm run app:start` (`scripts/app-server.mjs start --port <port>`, via a login shell so
+your Node is found), and starts it again if the page later finds it gone. The server outlives the app
+on purpose: browsers on other devices and `npm run app:update` use it too (`npm run app:stop` stops
+it). `--no-server` turns this off; check runs against the mock fleet use it.
+
 The app shows whatever Paseo Command server it is pointed at (`--url`, or `PASEO_COMMAND_URL`;
 default `http://127.0.0.1:4310/`, the app started by `npm run app:start`). That server must serve
 a build that includes `rendering/src/native/bridge.ts` (any build from this commit on). Against a

@@ -16,11 +16,18 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
     let options: Options
     /// Bridge messages decode their images here, in order, then apply on main.
     private let decoding = DispatchQueue(label: "paseo.world.decode", qos: .userInitiated)
+    /// Runs the app's own server when the page is that server's (see `ServerManager`).
+    private let server: ServerManager?
+    /// When the server was last (re)started for an unreachable page, so a
+    /// server that won't come up shows its error rather than looping.
+    private var recovered: Date?
     /// The page's map rectangle, in its CSS pixels (top-left origin).
     private var viewport: CGRect?
 
     init(options: Options) {
         self.options = options
+        let local = ["127.0.0.1", "localhost"].contains(options.url.host ?? "")
+        server = options.manageServer && local ? ServerManager() : nil
         let screen = NSScreen.main?.visibleFrame ?? CGRect(x: 0, y: 0, width: 1440, height: 900)
         let size = options.size ?? CGSize(width: min(1440, screen.width - 80), height: min(900, screen.height - 80))
         window = NSWindow(contentRect: CGRect(x: screen.minX + 40, y: screen.maxY - size.height - 40, width: size.width, height: size.height),
@@ -62,7 +69,12 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         web.uiDelegate = self
         window.delegate = self
         scene.emit = { [weak self] message in self?.send(message) }
-        web.load(URLRequest(url: options.url))
+        if server != nil {
+            notice("Starting Paseo Command…", "Starting the app server on \(options.url.host ?? ""):\(options.url.port ?? 4310).")
+            startServer { [weak self] in self?.web.load(URLRequest(url: options.url)) }
+        } else {
+            web.load(URLRequest(url: options.url))
+        }
         // Checks read the scene's state from the page; keep it current.
         if options.checks {
             Timer.scheduledTimer(withTimeInterval: 0.25, repeats: true) { [weak self] _ in self?.reportState() }
@@ -209,8 +221,33 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
 
     func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
         Log.line("page failed to load: \(error.localizedDescription)")
-        let html = "<body style='font:15px -apple-system;color:#f2e1b2;background:#182420;padding:40px'><h2>Paseo Command isn’t reachable</h2><p>\(options.url.absoluteString) did not answer. Start the app server (<code>npm run app:start</code>) and reload (⌘R).</p></body>"
-        webView.loadHTMLString(html, baseURL: nil)
+        let url = (error as NSError).userInfo[NSURLErrorFailingURLErrorKey] as? URL ?? pageURL
+        // Our own server stopped: start it again and retry, once a minute at most.
+        if server != nil, recovered.map({ Date().timeIntervalSince($0) > 60 }) ?? true {
+            recovered = Date()
+            notice("Starting Paseo Command…", "The app server wasn’t running; starting it again.")
+            startServer { [weak self] in self?.web.load(URLRequest(url: url)) }
+            return
+        }
+        notice("Paseo Command isn’t reachable", "\(options.url.absoluteString) did not answer. " +
+            (server == nil ? "Start the app server (<code>npm run app:start</code>) and reload (⌘R)." : "Reload (⌘R) to try again."))
+    }
+
+    /// A plain page in place of the app (starting up, or unreachable).
+    private func notice(_ title: String, _ detail: String) {
+        let html = "<body style='font:15px -apple-system;color:#f2e1b2;background:#182420;padding:40px'><h2>\(title)</h2><p>\(detail)</p></body>"
+        web.loadHTMLString(html, baseURL: nil)
+    }
+
+    private func startServer(_ then: @escaping () -> Void) {
+        server?.ensure(port: options.url.port ?? 80) { [weak self] result in
+            switch result {
+            case .success: then()
+            case .failure(let error):
+                let text = error.localizedDescription.replacingOccurrences(of: "<", with: "&lt;")
+                self?.notice("The app server didn’t start", "<pre style='white-space:pre-wrap'>\(text)</pre>Fix it and reload (⌘R).")
+            }
+        }
     }
 
     /// The web content process ended (crash or memory pressure): load again.
@@ -297,6 +334,14 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
     }
 
     func reload() {
+        // A ⌘R after the server failed tries it again.
+        if server != nil, web.url?.host != options.url.host {
+            recovered = nil
+            notice("Starting Paseo Command…", "Starting the app server.")
+            let url = pageURL
+            startServer { [weak self] in self?.web.load(URLRequest(url: url)) }
+            return
+        }
         if web.url?.host == options.url.host && web.url?.port == options.url.port { web.reload() }
         else { web.load(URLRequest(url: pageURL)) }
     }

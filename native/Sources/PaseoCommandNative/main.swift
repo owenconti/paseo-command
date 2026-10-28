@@ -10,6 +10,7 @@ import notify
 ///   --front            show the window in front without activating the app
 ///   --background       run as an accessory that never activates (checks, measurements)
 ///   --ignore-occlusion keep drawing while the window is covered (for checks)
+///   --no-server        don't start the app's server (app:start on the --url's local port) when it isn't running
 ///   --checks           keep the scene's state current in the page (for checks)
 ///   --info <path>      write the window number and process ids there as JSON
 ///                      (and snapshots, on request, beside it as PNG)
@@ -23,6 +24,8 @@ struct Options {
     var info: String?
     /// Keep the scene's state current in the page (`--checks`).
     var checks = false
+    /// Run the app's own server (`app:start`) when showing it; `--no-server` leaves it alone.
+    var manageServer = true
 
     init(_ args: [String]) {
         var i = 1
@@ -41,6 +44,7 @@ struct Options {
             case "--ignore-occlusion": AtlasView.ignoreOcclusion = true
             case "--info": info = next()
             case "--checks": checks = true
+            case "--no-server": manageServer = false
             default: break
             }
             i += 1

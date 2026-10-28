@@ -103,7 +103,7 @@ async function readOut(timeout = 5000) {
 }
 async function launch() {
   rmSync(info, { force: true });
-  execFileSync("open", ["-g", "-n", APP, "--args", "--url", `http://127.0.0.1:${port}/`, "--background", "--ignore-occlusion", "--size", "1440x900", "--info", info]);
+  execFileSync("open", ["-g", "-n", APP, "--args", "--url", `http://127.0.0.1:${port}/`, "--background", "--no-server", "--ignore-occlusion", "--size", "1440x900", "--info", info]);
   for (let t = 0; t < 60000; t += 500) {
     await sleep(500);
     if (!existsSync(info)) continue;

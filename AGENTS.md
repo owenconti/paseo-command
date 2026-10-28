@@ -59,6 +59,8 @@ Keep this workflow local; do not push or publish.
 - `npm run app:e2e`: browser tests of the Atlas against a mocked fleet (no daemon is reached).
 - `npm run native:build`, `native:run [-- --url …]`: the macOS app (`native/`) that draws the Atlas with
   SpriteKit under the React app in a WKWebView; `native:mock` serves web/dist with a mocked fleet. See `native/README.md`.
+  The app starts the app server itself (`app:start` on its URL's port) when it isn't running, and again if it stops;
+  the server keeps running after the app quits. Check runs pass `--no-server`.
   Launch it with `open -g` and `--background` for checks; it must never take the user's focus.
 - `npm run render:test`: layout and tile tests.
 
