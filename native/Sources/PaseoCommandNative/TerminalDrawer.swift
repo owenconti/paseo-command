@@ -111,7 +111,7 @@ final class TerminalSession: NSObject, TerminalViewDelegate, URLSessionWebSocket
     func rangeChanged(source: TerminalView, startY: Int, endY: Int) {}
 }
 
-/// The bottom drawer: tabs for the selected workspace's daemon terminals, a
+/// The right-hand panel: tabs for the selected workspace's daemon terminals, a
 /// + for a new one there, and the native terminal (SwiftTerm) for the tab.
 /// Terminals keep running on the daemon when tabs close; × ends one.
 final class TerminalDrawer: NSView {
@@ -173,8 +173,8 @@ final class TerminalDrawer: NSView {
         addSubview(line)
         NSLayoutConstraint.activate([
             line.topAnchor.constraint(equalTo: topAnchor),
+            line.bottomAnchor.constraint(equalTo: bottomAnchor),
             line.leadingAnchor.constraint(equalTo: leadingAnchor),
-            line.trailingAnchor.constraint(equalTo: trailingAnchor),
             bar.topAnchor.constraint(equalTo: topAnchor, constant: 1),
             bar.leadingAnchor.constraint(equalTo: leadingAnchor),
             bar.trailingAnchor.constraint(equalTo: trailingAnchor),
@@ -255,7 +255,8 @@ final class TerminalDrawer: NSView {
         end.isEnabled = current != nil
         tabs.segmentCount = listed.count
         for (i, t) in listed.enumerated() {
-            tabs.setLabel(t.name, forSegment: i)
+            tabs.setLabel(Self.short(t.name), forSegment: i)
+            tabs.setToolTip(t.name, forSegment: i)
             tabs.setWidth(0, forSegment: i)
         }
         tabs.selectedSegment = listed.firstIndex { $0.id == current } ?? -1
@@ -283,6 +284,16 @@ final class TerminalDrawer: NSView {
             return s
         }()
         s.view.isHidden = false
+    }
+
+    /// A tab's label that fits the panel: a shell's `user@host:~/a/b` title
+    /// shows its folder.
+    private static func short(_ name: String) -> String {
+        var text = name
+        if let colon = text.lastIndex(of: ":"), text[..<colon].contains("@") {
+            text = String(text[text.index(after: colon)...]).split(separator: "/").last.map(String.init) ?? text
+        }
+        return text.count > 22 ? text.prefix(21) + "…" : text
     }
 
     @objc private func chooseTab() {

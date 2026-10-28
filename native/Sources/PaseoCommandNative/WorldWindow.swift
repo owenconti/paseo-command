@@ -11,7 +11,7 @@ import WebKit
 final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKNavigationDelegate, WKUIDelegate {
     let window: NSWindow
     let web: WKWebView
-    let split: NSSplitView
+    let split: PanelSplitView
     let drawer: TerminalDrawer
     let atlasView: AtlasView
     let scene: AtlasScene
@@ -44,15 +44,15 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         window.minSize = NSSize(width: 760, height: 520)
         window.isReleasedWhenClosed = false
         window.backgroundColor = Textures.color(0x1d6884)
-        // The map and page on top; the terminal drawer below, collapsed until asked for.
-        split = NSSplitView(frame: window.contentView!.bounds)
-        split.isVertical = false
+        // The map and page on the left; the terminal panel on the right, collapsed until asked for.
+        split = PanelSplitView(frame: window.contentView!.bounds)
+        split.isVertical = true
         split.dividerStyle = .thin
         split.autoresizingMask = [.width, .height]
         window.contentView = split
         let content = NSView(frame: split.bounds)
         content.autoresizingMask = [.width, .height]
-        drawer = TerminalDrawer(frame: CGRect(x: 0, y: 0, width: split.bounds.width, height: 260))
+        drawer = TerminalDrawer(frame: CGRect(x: 0, y: 0, width: 460, height: split.bounds.height))
         split.addArrangedSubview(content)
         split.addArrangedSubview(drawer)
         split.setHoldingPriority(.defaultLow, forSubviewAt: 0)
@@ -325,7 +325,7 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         let bounds = web.bounds
         let whole = split.bounds
         let scale = window.backingScaleFactor
-        // The terminal drawer is layer-backed: its layer tree draws it.
+        // The terminal panel is layer-backed: its layer tree draws it.
         var terminal: CGImage?
         if !drawer.isHidden, let layer = drawer.layer,
            let ctx = Textures.context(Int(drawer.bounds.width * scale), Int(drawer.bounds.height * scale)) {
@@ -347,10 +347,10 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
             ctx.setFillColor(Textures.color(0x1d6884).cgColor)
             ctx.fill(whole)
             // The page's area, from the split's bottom-left origin (it is flipped).
-            let top = CGRect(x: 0, y: whole.height - bounds.height, width: bounds.width, height: bounds.height)
-            if let world { ctx.draw(world, in: self.atlasView.frame.offsetBy(dx: 0, dy: top.minY)) }
-            if let page, let image = page.cgImage(forProposedRect: nil, context: nil, hints: nil) { ctx.draw(image, in: top) }
-            if let terminal { ctx.draw(terminal, in: CGRect(x: 0, y: 0, width: self.drawer.frame.width, height: self.drawer.frame.height)) }
+            let left = CGRect(x: 0, y: whole.height - bounds.height, width: bounds.width, height: bounds.height)
+            if let world { ctx.draw(world, in: self.atlasView.frame.offsetBy(dx: 0, dy: left.minY)) }
+            if let page, let image = page.cgImage(forProposedRect: nil, context: nil, hints: nil) { ctx.draw(image, in: left) }
+            if let terminal { ctx.draw(terminal, in: CGRect(x: self.drawer.frame.minX, y: 0, width: self.drawer.frame.width, height: self.drawer.frame.height)) }
             guard let image = ctx.makeImage(),
                   let destination = CGImageDestinationCreateWithURL(URL(fileURLWithPath: path) as CFURL, "public.png" as CFString, 1, nil)
             else { return }
@@ -371,18 +371,19 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         return c.url ?? options.url
     }
 
-    /// Show or hide the terminal drawer (View → Terminal, ⌃`), at the height it last had.
+    /// Show or hide the terminal panel (View → Terminal, ⌃`), at the width it last had.
     @objc func toggleTerminal() {
         let open = drawer.isHidden
         if open {
-            let height = max(140, min(UserDefaults.standard.double(forKey: "terminalHeight").nonZero ?? 260, split.bounds.height - 200))
+            let width = max(PanelSplitView.minPanel, min(UserDefaults.standard.double(forKey: "terminalWidth").nonZero ?? 460,
+                                                         split.bounds.width - PanelSplitView.minPage))
             drawer.isHidden = false
             split.adjustSubviews()
-            split.setPosition(split.bounds.height - height - split.dividerThickness, ofDividerAt: 0)
+            split.setPosition(split.bounds.width - width - split.dividerThickness, ofDividerAt: 0)
             drawer.setActive(true)
             drawer.focusTerminal()
         } else {
-            UserDefaults.standard.set(drawer.frame.height, forKey: "terminalHeight")
+            UserDefaults.standard.set(drawer.frame.width, forKey: "terminalWidth")
             drawer.setActive(false)
             drawer.isHidden = true
             split.adjustSubviews()
@@ -424,4 +425,49 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
 
 private extension Double {
     var nonZero: Double? { self == 0 ? nil : self }
+}
+
+/// The window's split: the page beside the terminal panel. Its thin divider is
+/// grabbed a few points either side, ahead of the web view under it, and
+/// keeps both sides usable.
+final class PanelSplitView: NSSplitView, NSSplitViewDelegate {
+    static let minPanel: CGFloat = 280
+    static let minPage: CGFloat = 480
+    private static let grab: CGFloat = 4
+
+    override init(frame: NSRect) {
+        super.init(frame: frame)
+        delegate = self
+    }
+    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+
+    private var handle: CGRect? {
+        guard subviews.count > 1, !subviews[1].isHidden else { return nil }
+        let x = subviews[0].frame.maxX
+        return CGRect(x: x - Self.grab, y: 0, width: dividerThickness + Self.grab * 2, height: bounds.height)
+    }
+
+    override func hitTest(_ point: NSPoint) -> NSView? {
+        if let handle, handle.contains(convert(point, from: superview)) { return self }
+        return super.hitTest(point)
+    }
+
+    override func resetCursorRects() {
+        super.resetCursorRects()
+        if let handle { addCursorRect(handle, cursor: .resizeLeftRight) }
+    }
+
+    func splitView(_ splitView: NSSplitView, effectiveRect proposedEffectiveRect: NSRect, forDrawnRect drawnRect: NSRect,
+                   ofDividerAt dividerIndex: Int) -> NSRect {
+        handle ?? proposedEffectiveRect
+    }
+    func splitView(_ splitView: NSSplitView, constrainMinCoordinate proposedMinimumPosition: CGFloat, ofSubviewAt dividerIndex: Int) -> CGFloat {
+        max(proposedMinimumPosition, Self.minPage)
+    }
+    func splitView(_ splitView: NSSplitView, constrainMaxCoordinate proposedMaximumPosition: CGFloat, ofSubviewAt dividerIndex: Int) -> CGFloat {
+        min(proposedMaximumPosition, bounds.width - Self.minPanel - dividerThickness)
+    }
+    func splitViewDidResizeSubviews(_ notification: Notification) {
+        window?.invalidateCursorRects(for: self)
+    }
 }
