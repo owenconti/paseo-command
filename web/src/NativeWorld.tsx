@@ -2,7 +2,6 @@ import type { WorkSummaries } from "./useWorkingOn";
 /** Atlas world adapter. The inherited React work surface owns all daemon actions;
  * the world only draws the host-qualified snapshot and reports what was picked. */
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Home, Minus, Plus } from "lucide-react";
 import {
   mountAtlas,
   STATE_NAMES,
@@ -339,36 +338,6 @@ export function NativeWorld(props: Props) {
           )}
         </div>
       )}
-      <div
-        className="unity-world-toolbar"
-        role="toolbar"
-        aria-label="World controls"
-      >
-        <button
-          aria-label="Fit all hosts"
-          title="Fit all hosts · F"
-          disabled={!ready || props.blocked}
-          onClick={fitWorld}
-        >
-          <Home size={17} />
-        </button>
-        <button
-          aria-label="Zoom out"
-          title="Zoom out"
-          disabled={!ready || props.blocked}
-          onClick={() => world.current?.command("out")}
-        >
-          <Minus size={17} />
-        </button>
-        <button
-          aria-label="Zoom in"
-          title="Zoom in"
-          disabled={!ready || props.blocked}
-          onClick={() => world.current?.command("in")}
-        >
-          <Plus size={17} />
-        </button>
-      </div>
       {absent ? (
         <div className="atlas-world-notice" role="status">
           The map is drawn by the Paseo Command macOS app (<code>npm run native:run</code>).
@@ -392,11 +361,6 @@ export function NativeWorld(props: Props) {
         </div>
       )}
       {ready && <WorldLegend data={data} />}
-      {!absent && (
-        <div className="atlas-world-help">
-          Drag to explore · Scroll to zoom · F to fit · Select a robot to open its conversation
-        </div>
-      )}
     </>
   );
 }

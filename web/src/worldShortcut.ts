@@ -1,8 +1,7 @@
 import type { ShortcutKey } from "./appReload";
 
-/** F fits the whole world, as the star chart's and the toolbar's Home buttons
- * do: F alone, with no modifier (Shift+F, Cmd+F and the rest stay with the
- * page and the browser). */
+/** F fits the whole world: F alone, with no modifier (Shift+F, Cmd+F and the
+ * rest stay with the page and the browser). */
 export const isFitWorldKey = (event: ShortcutKey) =>
   !event.metaKey &&
   !event.ctrlKey &&

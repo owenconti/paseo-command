@@ -54,23 +54,6 @@
   color: var(--text);
   background: var(--panel);
 }
-.atlas-world-help {
-  position: absolute;
-  bottom: 18px;
-  left: 18px;
-  max-width: calc(100% - 36px);
-  padding: 7px 12px;
-  border-radius: var(--radius-md, 8px);
-  color: var(--text-2);
-  background: var(--panel);
-  font-size: 12px;
-  pointer-events: none;
-}
-@media (max-width: 760px) {
-  .atlas-world-help {
-    display: none;
-  }
-}
 .atlas-world-legend {
   position: absolute;
   right: 18px;

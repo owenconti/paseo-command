@@ -2,7 +2,7 @@ import { HEX_RADIUS, landBounds, type AtlasLayout, type Entity } from "./world.t
 
 /** Closest zoom, in CSS px per world px (multiply by the render density). */
 export const MAX_ZOOM = 2.4;
-/** Screen room (CSS pixels) kept for the map's toolbar and help line. */
+/** Screen room (CSS pixels) kept for the map's floating status above and legend below. */
 export const OVERLAY_TOP = 76;
 export const OVERLAY_BOTTOM = 72;
 
@@ -15,7 +15,7 @@ const clamp = (value: number, min: number, max: number) => Math.max(min, Math.mi
 
 /** The world box the camera may show: the land, room for each host's shores
  * all round and its banner above (in world units), and for the map's own
- * floating controls (toolbar above, help line below), which keep their
+ * floating overlays (status above, legend below), which keep their
  * screen size at any zoom. */
 export function mapExtent(layout: AtlasLayout | null, view: View, density: number): Box {
   const bounds = layout ? landBounds(layout) : { x: -400, y: -300, width: 800, height: 600 };

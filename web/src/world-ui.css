@@ -61,10 +61,6 @@
   pointer-events: none;
 }
 
-.unity-world-toolbar {
-  flex-wrap: wrap;
-  max-width: calc(100% - 40px);
-}
 .world-theme-pending {
   order: 1;
   flex-basis: 100%;
