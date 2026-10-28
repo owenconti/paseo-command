@@ -230,7 +230,8 @@ final class AtlasScene: SKScene {
         coverSea()
         if let id = selected, entities[id] == nil { selected = nil }
         drawSelection()
-        if let id = hovered, entities[id] == nil { setHover(nil) } else { drawHover() }
+        // A hover that survives the scene keeps its card, pointing where the entity now stands.
+        if let id = hovered, entities[id] == nil { setHover(nil) } else if hovered != nil { drawHover(); reportHover() }
         if !fitted && view != nil && size.width > 0 { fit() } else { constrain() }
         wake()
     }

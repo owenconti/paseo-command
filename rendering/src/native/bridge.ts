@@ -221,6 +221,8 @@ export function mountNativeAtlas(parent: HTMLElement, handlers: AtlasHandlers = 
   let layout: AtlasLayout | null = null;
   let selection: string | null = null;
   let hovered: string | null = null;
+  /** Where the hover card points, as Swift last reported it. */
+  let hoverAt: { x: number; y: number } | undefined;
   let enabled = true;
   let reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
   let zoom = 1;
@@ -364,11 +366,13 @@ export function mountNativeAtlas(parent: HTMLElement, handlers: AtlasHandlers = 
       return;
     }
     if (selection && !entity(selection)) selection = null;
-    if (hovered && !entity(hovered)) setHover(null);
+    // A hover outlives an update: its card shows the entity's new state.
+    if (hovered) setHover(entity(hovered) ? hovered : null, hoverAt);
   };
 
   const setHover = (id: string | null, at?: { x: number; y: number }) => {
     hovered = id;
+    hoverAt = id ? at : undefined;
     const e = entity(id);
     handlers.hover?.(e, e && at ? at : null);
   };

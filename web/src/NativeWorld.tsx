@@ -230,8 +230,8 @@ export function NativeWorld(props: Props) {
     };
   }, []);
   useEffect(() => {
+    // The world re-reports a hover that survives the update.
     safely(() => world.current?.update(data));
-    setTip(null);
   }, [data]);
   /** World calls never take the app down: a renderer fault becomes the world's notice. */
   const safely = (call: () => unknown) => {
