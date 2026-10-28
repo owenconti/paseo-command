@@ -13,8 +13,6 @@ import {
   insideFootprint,
   cellBounds,
   ROBOT_SIZE,
-  STATE_TILE,
-  tileState,
   random,
   seedOf,
   type Axial,
@@ -24,6 +22,7 @@ import { frameName } from "./art";
 import { perimeter } from "./outline";
 import { MAX_ZOOM, mapExtent, minimumZoom, clampCamera, focusZoom, comfortablyVisible } from "./camera";
 import {
+  PROP_WIDTH,
   HOVER_COLOR,
   DRONE_SIZE,
   DRONE_ORBIT,
@@ -32,8 +31,15 @@ import {
   labels,
   locations,
   robots,
+  plaza,
+  artMask,
+  lights,
+  glowAlpha,
+  tiles,
+  pulseAlpha,
   type Label,
   type Placed,
+  type Signal,
 } from "./placement";
 import {
   LABEL_FONT,
@@ -51,24 +57,6 @@ import robotsUrl from "./assets/robots.png";
 import foliageUrl from "./assets/tree-v2.png";
 import sandUrl from "./assets/sand.png";
 import propsUrl from "./assets/props.png";
-/** Props scattered on a landmark's paving: how wide each is drawn, and how
- * many of the scenery kinds a plaza takes (its lamps and beacon always come). */
-const PROP_WIDTH: Record<string, number> = {
-  planter: 52,
-  topiary: 48,
-  flowerbed: 68,
-  citrus: 52,
-  crates: 54,
-  barrels: 52,
-  spool: 50,
-  workbench: 56,
-  lamp: 38,
-  beacon: 42,
-};
-const SCENERY = ["planter", "topiary", "flowerbed", "citrus", "crates", "barrels", "spool", "workbench"];
-const PLAZA_SCENERY = 6;
-/** States that light a plaza's beacon: an agent there needs you. */
-const BEACON_STATES: State[] = ["failed", "approval", "question"];
 const vectors = (points: { x: number; y: number }[]) =>
   points.map((p) => new Phaser.Math.Vector2(p.x, p.y));
 type Box = { x: number; y: number; width: number; height: number };
@@ -156,7 +144,7 @@ export class AtlasScene extends Phaser.Scene {
     }
   >();
   /** Each project's lamps and beacon, placed with its plaza; lit by its agents. */
-  private signals = new Map<string, { kind: "lamp" | "beacon"; x: number; y: number; stale: boolean }[]>();
+  private signals = new Map<string, Signal[]>();
   /** Lit lamps and beacons' glows, which breathe and flicker. */
   private flames: { glow: Phaser.GameObjects.Graphics; period: number; phase: number; flicker: boolean }[] = [];
   /** Opaque pixels of each landmark's art, so props keep off it. */
@@ -520,7 +508,7 @@ export class AtlasScene extends Phaser.Scene {
     const image = this.place(building!);
     const label = this.ribbon(banner).getBounds();
     // The ribbon's tails and shadow reach past its caption.
-    this.plaza(p, footprint(p), image, { x: label.x - 34, y: label.y - 8, width: label.width + 68, height: label.height + 20 });
+    this.plaza(p, image, { x: label.x - 34, y: label.y - 8, width: label.width + 68, height: label.height + 20 });
     this.hit(p, this.locations.get(p.id)!, 25);
   }
   /** A workspace's cottage and garden, or a camp's flag. No name plate: the
@@ -543,76 +531,14 @@ export class AtlasScene extends Phaser.Scene {
     for (const s of placed) this.place(s);
     this.hit(ws, this.locations.get(ws.id)!, 29);
   }
-  /** Props on a landmark's paving, a stable mix for each project: its lamps
-   * and beacon first, then scenery. Each keeps inside the plaza's cells, off
-   * the landmark's art and name, and as far from the others as it can. */
-  private plaza(p: Entity, cells: Axial[], landmark: Phaser.GameObjects.Image, label: Box): void {
-    const rng = random(seedOf(p.id + "plaza"));
-    const scenery = [...SCENERY];
-    for (let i = scenery.length - 1; i > 0; i--) {
-      const j = Math.floor(rng() * (i + 1));
-      [scenery[i], scenery[j]] = [scenery[j]!, scenery[i]!];
-    }
-    const kinds = ["lamp", "lamp", "beacon", ...scenery.slice(0, PLAZA_SCENERY)];
-    const solid = this.landmarkMask(landmark);
-    const area = cellBounds(cells);
-    const spots: { x: number; y: number }[] = [];
-    for (let y = area.y; y <= area.y + area.height; y += 8)
-      for (let x = area.x; x <= area.x + area.width; x += 8) spots.push({ x, y });
-    const placed: { x: number; y: number; hw: number; hh: number }[] = [];
-    const signals: { kind: "lamp" | "beacon"; x: number; y: number; stale: boolean }[] = [];
-    for (const kind of kinds) {
-      const frame = this.textures.getFrame(`filtered-${kind}`, kind);
-      const hw = PROP_WIDTH[kind]! / 2,
-        hh = (hw * frame.height) / frame.width;
-      const free = (x: number, y: number) => {
-        // Clear of the plaza's kerb, the landmark, its name and the other props.
-        for (let i = 0; i <= 6; i++) {
-          const t = i / 6;
-          for (const [px, py] of [
-            [x - hw - 10 + (2 * hw + 20) * t, y - hh - 10],
-            [x - hw - 10 + (2 * hw + 20) * t, y + hh + 10],
-            [x - hw - 10, y - hh - 10 + (2 * hh + 20) * t],
-            [x + hw + 10, y - hh - 10 + (2 * hh + 20) * t],
-          ] as const)
-            if (!insideFootprint(px, py, cells)) return false;
-          for (let j = 0; j <= 6; j++)
-            if (solid(x - hw - 6 + (2 * hw + 12) * t, y - hh - 6 + (2 * hh + 12) * (j / 6))) return false;
-        }
-        if (
-          x + hw + 6 > label.x &&
-          x - hw - 6 < label.x + label.width &&
-          y + hh + 6 > label.y &&
-          y - hh - 6 < label.y + label.height
-        )
-          return false;
-        return placed.every((o) => Math.abs(o.x - x) > o.hw + hw + 8 || Math.abs(o.y - y) > o.hh + hh + 8);
-      };
-      // The first goes anywhere it fits; each after it as far from the rest as it can.
-      let best: { x: number; y: number } | undefined,
-        bestGap = -1;
-      const start = Math.floor(rng() * spots.length);
-      for (let k = 0; k < spots.length; k++) {
-        const s = spots[(start + k) % spots.length]!;
-        const gap = placed.length
-          ? Math.min(...placed.map((o) => Math.hypot(o.x - s.x, o.y - s.y)))
-          : 0;
-        if (gap <= bestGap || !free(s.x, s.y)) continue;
-        best = s;
-        bestGap = gap;
-        if (!placed.length) break;
-      }
-      if (!best) continue;
-      placed.push({ ...best, hw, hh });
-      if (kind === "lamp" || kind === "beacon") {
-        signals.push({ kind, ...best, stale: !!p.stale });
-        continue;
-      }
-      const prop = sprite(this, best.x, best.y, kind, hw * 2).setDepth(15.5);
-      // Mirrored at random for variety; never rotated, so it keeps its place.
-      prop.setFlipX(rng() < 0.5);
-      if (p.stale) prop.setAlpha(0.6);
-    }
+  /** Props on a landmark's paving, as `plaza` places them; its lamps and
+   * beacon wait for the agents to light them. */
+  private plaza(p: Entity, landmark: Phaser.GameObjects.Image, label: Box): void {
+    const { props, signals } = plaza(p, this.landmarkMask(landmark), label, (frame) => {
+      const f = this.textures.getFrame(`filtered-${frame}`, frame);
+      return { width: f.width, height: f.height };
+    });
+    for (const prop of props) this.place(prop);
     this.signals.set(p.id, signals);
   }
   /** Whether a world point lands on a landmark's painted art. */
@@ -639,53 +565,26 @@ export class AtlasScene extends Phaser.Scene {
       mask = { data: ctx.getImageData(0, 0, canvas.width, canvas.height).data, width: canvas.width, height: canvas.height };
       this.masks.set(key, mask);
     }
-    const { data, width, height } = mask;
-    return (x, y) => {
-      const fx = Math.floor((x - image.x) / image.scaleX + width / 2),
-        fy = Math.floor((y - image.y) / image.scaleY + height / 2);
-      return fx >= 0 && fy >= 0 && fx < width && fy < height && data[(fy * width + fx) * 4 + 3]! > 40;
-    };
+    return artMask(mask, { x: image.x, y: image.y, width: image.scaleX * mask.width });
   }
   /** A plaza's lamps burn while any of its project's agents is working; its
    * beacon flares, in the colour of the most urgent, when one needs you. */
   private lightSignals(layout: AtlasLayout): void {
     this.flames = [];
-    for (const p of layout.projects) {
-      const states = layout.agents.filter((a) => a.project === p.id).map((a) => a.state!);
-      const working = states.includes("running");
-      const alarm = tileState(states.filter((s) => BEACON_STATES.includes(s)));
-      for (const [i, s] of (this.signals.get(p.id) ?? []).entries()) {
-        const lit = s.kind === "lamp" ? working : !!alarm;
-        if (lit) {
-          const color = s.kind === "lamp" ? 0xffc35a : STATE_TILE[alarm!]!;
-          const glow = this.add.graphics().setDepth(17.4).setBlendMode(Phaser.BlendModes.ADD);
-          const reach = s.kind === "lamp" ? 38 : 46;
-          for (let k = 6; k >= 1; k--) glow.fillStyle(color, 0.07).fillCircle(s.x, s.y, (reach * k) / 6);
-          this.flames.push({
-            glow,
-            period: s.kind === "lamp" ? 3200 : alarm === "failed" ? 1200 : 1800,
-            phase: random(seedOf(`${p.id}${i}flame`))(),
-            flicker: s.kind === "beacon",
-          });
-        }
-        const prop = sprite(this, s.x, s.y, lit ? `${s.kind}-lit` : s.kind, PROP_WIDTH[s.kind]!).setDepth(17.5);
-        if (s.stale) prop.setAlpha(0.6);
+    for (const l of lights(layout, this.signals)) {
+      if (l.lit) {
+        const glow = this.add.graphics().setDepth(17.4).setBlendMode(Phaser.BlendModes.ADD);
+        for (let k = 6; k >= 1; k--) glow.fillStyle(l.color, 0.07).fillCircle(l.x, l.y, (l.reach * k) / 6);
+        this.flames.push({ glow, period: l.period, phase: l.phase, flicker: l.flicker });
       }
+      const prop = sprite(this, l.x, l.y, l.frame, PROP_WIDTH[l.kind]!).setDepth(17.5);
+      if (l.stale) prop.setAlpha(0.6);
     }
     this.animateFlames();
   }
   /** Lamps breathe softly; beacons flicker and pulse. Steady, with reduced motion. */
   private animateFlames(): void {
-    for (const f of this.flames) {
-      if (this.reduced) {
-        f.glow.setAlpha(0.8);
-        continue;
-      }
-      const t = this.clock / f.period + f.phase;
-      const pulse = 0.5 + 0.5 * Math.cos(t * Math.PI * 2);
-      const flicker = f.flicker ? 0.15 * Math.sin(this.clock / 70 + f.phase * 40) * Math.sin(this.clock / 113) : 0;
-      f.glow.setAlpha((f.flicker ? 0.45 + 0.55 * pulse : 0.7 + 0.3 * pulse) + flicker);
-    }
+    for (const f of this.flames) f.glow.setAlpha(glowAlpha(f, this.clock, this.reduced));
   }
   /** An agent's state shows only on its sand tile: the tile's colour, its
    * border's colour, and how the border moves. Running borders carry a light
@@ -696,34 +595,25 @@ export class AtlasScene extends Phaser.Scene {
     this.moving = [];
     this.drones = [];
     this.robots = [];
-    for (const a of layout.agents) {
-      const state = a.state!;
-      const color = STATE_TILE[state];
-      if (color === undefined) continue;
-      this.tiles.set(a.id, state);
-      const at = point(a.position);
+    for (const tile of tiles(layout)) {
+      this.tiles.set(tile.id, tile.state);
+      const at = tile;
       const hex = (r: number) =>
         Array.from({ length: 6 }, (_, i) => ({
           x: at.x + Math.cos((i * Math.PI) / 3 - Math.PI / 2) * r,
           y: at.y + Math.sin((i * Math.PI) / 3 - Math.PI / 2) * r,
         }));
-      const offline = state === "offline";
       const fill = this.add.graphics().setDepth(4);
-      fill.fillStyle(color, offline ? 0.25 : 0.42).fillPoints(vectors(hex(HEX_RADIUS - 1)), true);
+      fill.fillStyle(tile.color, tile.fillAlpha).fillPoints(vectors(hex(HEX_RADIUS - 1)), true);
       fill.lineStyle(1.5, 0xfff8e6, 0.7).strokePoints(vectors(hex(HEX_RADIUS - 10.5)), true);
       const border = this.add.graphics().setDepth(4.1);
-      border.lineStyle(9, color, offline ? 0.6 : 0.95).strokePoints(vectors(hex(HEX_RADIUS - 5.5)), true);
-      // Each tile starts at its own point in the cycle, so they never move together.
-      const phase = random(seedOf(a.id + "pulse"))();
-      const pulse = { failed: 1200, approval: 1800, question: 1800, done: 3200 }[
-        state as "failed"
-      ];
-      if (pulse) this.moving.push({ graphics: border, period: pulse, phase });
-      else if (state === "running")
+      border.lineStyle(9, tile.color, tile.borderAlpha).strokePoints(vectors(hex(HEX_RADIUS - 5.5)), true);
+      if (tile.pulse) this.moving.push({ graphics: border, period: tile.pulse, phase: tile.phase });
+      else if (tile.running)
         this.moving.push({
           graphics: this.add.graphics().setDepth(4.2),
-          period: 2200,
-          phase,
+          period: tile.running,
+          phase: tile.phase,
           corners: hex(HEX_RADIUS - 5.5),
         });
     }
@@ -741,7 +631,7 @@ export class AtlasScene extends Phaser.Scene {
     for (const tile of this.moving) {
       const t = (this.reduced ? 0 : this.clock / tile.period) + tile.phase;
       if (!tile.corners) {
-        tile.graphics.setAlpha(this.reduced ? 1 : 0.35 + 0.65 * (0.5 + 0.5 * Math.cos(t * Math.PI * 2)));
+        tile.graphics.setAlpha(pulseAlpha(tile.period, tile.phase, this.clock, this.reduced));
         continue;
       }
       const corners = tile.corners;
