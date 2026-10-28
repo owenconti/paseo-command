@@ -43,3 +43,29 @@ test("the keyboard button opens the shortcuts, and Escape closes them", async ()
   );
   await context.close();
 });
+
+test("? opens the shortcuts from the page, but types in a text field", async () => {
+  const context = await newContext(browser);
+  const page = await context.newPage();
+  await mockApi(page, {
+    agents: () => [],
+    projects: () => [
+      { projectId: "prj_atlas", name: "atlas", kind: "git", path: "/work/atlas" },
+    ],
+  });
+  await page.goto(app.url);
+  await page.getByRole("button", { name: "Keyboard shortcuts" }).waitFor();
+  const dialog = page.getByRole("dialog", { name: "Keyboard shortcuts" });
+  await page.keyboard.press("?");
+  await dialog.getByText("Show these shortcuts", { exact: true }).waitFor();
+  await page.keyboard.press("Escape");
+  await dialog.waitFor({ state: "detached" });
+  // In the new agent's message box, ? is just a character.
+  await page.locator("body").press("d");
+  const composer = page.locator(".new-agent #composer");
+  await composer.focus();
+  await page.keyboard.press("?");
+  assert.equal(await composer.inputValue(), "?");
+  assert.equal(await dialog.count(), 0);
+  await context.close();
+});

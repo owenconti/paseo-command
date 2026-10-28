@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion, useIsPresent } from "framer-motion";
 import { Keyboard, X } from "lucide-react";
-import { useFocusTrap } from "./focus";
+import { modalOpen, useFocusTrap } from "./focus";
 import { nativeAvailable } from "./worldBridge";
+import { isTyping } from "./worldShortcut";
 
 type Shortcut = { keys: string[][]; label: string };
 type Group = { title: string; note?: string; rows: Shortcut[] };
@@ -21,6 +22,7 @@ const GROUPS: Group[] = [
       { keys: [["N"]], label: "Next agent that needs you" },
       { keys: [["F"]], label: "Fit the whole map" },
       { keys: [["Esc"]], label: "Close the open layer, or go back" },
+      { keys: [["?"]], label: "Show these shortcuts" },
     ],
   },
   {
@@ -54,25 +56,45 @@ const NATIVE: Group = {
   ],
 };
 
-/** The panel header's keyboard button: opens a dialog listing the shortcuts. */
-export function ShortcutsButton() {
+/** The panel header's keyboard button, and ? from anywhere outside a text
+ * field: opens a dialog listing the shortcuts. `hidden` drops the button
+ * (a collapsed panel) but keeps ?. */
+export function ShortcutsButton({ hidden = false }: { hidden?: boolean }) {
   const [open, setOpen] = useState(false);
-  const trigger = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    const key = (e: KeyboardEvent) => {
+      if (
+        e.key !== "?" ||
+        e.metaKey ||
+        e.ctrlKey ||
+        e.altKey ||
+        e.defaultPrevented ||
+        modalOpen() ||
+        isTyping(e.target as HTMLElement | null)
+      )
+        return;
+      e.preventDefault();
+      setOpen(true);
+    };
+    window.addEventListener("keydown", key);
+    return () => window.removeEventListener("keydown", key);
+  }, []);
   // In the app's main, as the archive dialog is, so it takes the panel theme.
-  const host = trigger.current?.closest("main") ?? document.body;
+  const host = document.querySelector("main.command-app") ?? document.body;
   return (
     <>
-      <button
-        ref={trigger}
-        className="panel-tool"
-        aria-haspopup="dialog"
-        aria-expanded={open}
-        aria-label="Keyboard shortcuts"
-        data-tip="Keyboard shortcuts"
-        onClick={() => setOpen(true)}
-      >
-        <Keyboard size={16} />
-      </button>
+      {!hidden && (
+        <button
+          className="panel-tool"
+          aria-haspopup="dialog"
+          aria-expanded={open}
+          aria-label="Keyboard shortcuts"
+          data-tip="Keyboard shortcuts (?)"
+          onClick={() => setOpen(true)}
+        >
+          <Keyboard size={16} />
+        </button>
+      )}
       {createPortal(
         <AnimatePresence>
           {open && <ShortcutsDialog onClose={() => setOpen(false)} />}
@@ -88,6 +110,11 @@ function ShortcutsDialog({ onClose }: { onClose: () => void }) {
   const dialog = useRef<HTMLElement>(null);
   const present = useIsPresent();
   useFocusTrap(dialog, close, present);
+  // Leaving: keys go back to the page at once, not to the fading dialog.
+  useLayoutEffect(() => {
+    if (!present && dialog.current?.contains(document.activeElement))
+      (document.activeElement as HTMLElement | null)?.blur();
+  }, [present]);
   // Ahead of the page's Escape (which would also go back a selection).
   useEffect(() => {
     if (!present) return;

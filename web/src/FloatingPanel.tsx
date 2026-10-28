@@ -246,7 +246,7 @@ export function FloatingPanel(props: Props) {
         )}
         {!state.collapsed && props.tools}
         {!state.collapsed && <CommitsButton />}
-        {!state.collapsed && <ShortcutsButton />}
+        <ShortcutsButton hidden={state.collapsed} />
         {!state.collapsed && (
           <button
             className="panel-tool"
