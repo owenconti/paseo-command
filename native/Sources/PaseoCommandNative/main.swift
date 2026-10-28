@@ -214,10 +214,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// same page, no quitting by hand.
     @objc private func toggleTerminal() { main?.toggleTerminal() }
 
+    /// ⌘R: the server first (restarted if its code changed), then this
+    /// app (relaunched if a newer build is on disk) or just the page.
     @objc private func reloadApp(_ sender: Any?) {
-        guard let main else { return }
-        if Build.newer { relaunch(main) } else { main.reload() }
+        guard let main, !reloading else { return }
+        reloading = true
+        main.refreshServer { [weak self] ready in
+            self?.reloading = false
+            guard ready else { return }
+            if Build.newer { self?.relaunch(main) } else { main.reload() }
+        }
     }
+    private var reloading = false
 
     private func relaunch(_ main: WorldWindow) {
         main.window.saveFrame(usingName: WorldWindow.frameName)

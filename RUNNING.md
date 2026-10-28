@@ -26,10 +26,15 @@ After finishing a feature, commit and merge it into local `main`, then run from
 the main checkout:
 
 ```sh
-npm run app:build && npm run app:restart
+npm run app:update
 ```
 
-Refresh the browser after the rebuild. Restart preserves the launcher's saved port.
+This rebuilds the web and macOS apps without restarting the server, so open pages stay
+connected; the server serves each new `web/dist` build as it is. ⌘R in the macOS app runs
+`npm run app:refresh` first, which restarts the server only when its own code (`web/server/`,
+the Vite config, dependencies or this launcher) changed since it started, then reloads. In a
+plain browser, run `npm run app:refresh` yourself and refresh the page. Restart and refresh
+preserve the launcher's saved port.
 Use `npm run app:stop` to stop this launcher's server.
 
 An alternate port is available with `npm run app:start -- --port 4311` or

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /** Detached app preview, listening on all network interfaces. */
 import { spawn, execFileSync } from 'node:child_process';
-import { existsSync, readFileSync, writeFileSync, openSync, closeSync, unlinkSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, statSync, writeFileSync, openSync, closeSync, unlinkSync } from 'node:fs';
 import { createHash, randomUUID } from 'node:crypto';
 import { tmpdir, networkInterfaces } from 'node:os';
 import { join } from 'node:path';
@@ -15,6 +15,21 @@ const runtime = join(tmpdir(), `paseo-command-${createHash('sha256').update(root
 const stateFile = `${runtime}.json`;
 const logFile = `${runtime}.log`;
 
+/** The newest change to what the server process itself runs: its API code,
+ * the Vite config and dependencies, and this launcher. The page's build
+ * (web/dist) is read on each request, so a new one needs no restart. */
+function sourcesStamp() {
+  let newest = 0;
+  const visit = (path) => {
+    let info;
+    try { info = statSync(path); } catch { return; }
+    if (info.isDirectory()) {
+      for (const name of readdirSync(path)) if (name !== 'node_modules' && !name.includes('.test.')) visit(join(path, name));
+    } else newest = Math.max(newest, info.mtimeMs);
+  };
+  for (const path of [join(web, 'server'), join(web, 'vite.config.ts'), join(web, 'package.json'), join(web, 'package-lock.json'), script]) visit(path);
+  return newest;
+}
 function readState() {
   try { return JSON.parse(readFileSync(stateFile, 'utf8')); } catch { return null; }
 }
@@ -76,7 +91,7 @@ async function start(settings) {
     child.once('exit', (code) => fail(new Error(`Preview exited (${code}). Check ${logFile}; port ${settings.port} may already be in use.`)));
     child.once('message', (message) => { if (message.ready) { clearTimeout(timeout); resolve(); } });
   });
-  const state = { ...settings, pid: child.pid };
+  const state = { ...settings, pid: child.pid, sources: settings.sources };
   try { writeFileSync(stateFile, JSON.stringify(state), { mode: 0o600 }); }
   catch (error) { child.kill('SIGTERM'); throw error; }
   child.unref();
@@ -86,10 +101,10 @@ async function main() {
   const [action = 'start', ...args] = process.argv.slice(2);
   if (action === '--serve') return serve();
   if (args.includes('--help') || action === '--help') {
-    console.log('npm run app:start [-- --port 4310]\nnpm run app:restart [-- --port 4310]\nnpm run app:stop\nnpm run app:status\n\nThe app binds to 0.0.0.0 (all network interfaces).\nRun from your own terminal to keep the server independent of agent process cleanup.');
+    console.log('npm run app:start [-- --port 4310]\nnpm run app:restart [-- --port 4310]\nnpm run app:refresh\nnpm run app:stop\nnpm run app:status\n\napp:refresh restarts the server only when its own code changed since it started.\n\nThe app binds to 0.0.0.0 (all network interfaces).\nRun from your own terminal to keep the server independent of agent process cleanup.');
     return;
   }
-  if (!['start', 'stop', 'restart', 'status'].includes(action)) throw new Error(`Unknown action: ${action}`);
+  if (!['start', 'stop', 'restart', 'refresh', 'status'].includes(action)) throw new Error(`Unknown action: ${action}`);
   const previous = readState();
   if (action === 'stop') return stop(previous);
   if (action === 'status') {
@@ -107,8 +122,13 @@ async function main() {
     if (previous.port !== port || previous.bind !== '0.0.0.0') throw new Error('The app is already running with different settings. Use npm run app:restart with the desired options.');
     console.log('Already running.'); show(previous); return;
   }
-  if (action === 'restart') await stop(previous);
-  const settings = { token: randomUUID(), port, bind: '0.0.0.0' };
+  const sources = sourcesStamp();
+  if (action === 'refresh' && isRunning(previous)) {
+    if (previous.port === port && previous.sources >= sources) { console.log('Up to date.'); return; }
+    console.log('The server changed; restarting it.');
+  }
+  if (action === 'restart' || action === 'refresh') await stop(previous);
+  const settings = { token: randomUUID(), port, bind: '0.0.0.0', sources };
   const state = await start(settings);
   show(state);
 }

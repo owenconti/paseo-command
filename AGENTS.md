@@ -47,17 +47,20 @@ local `main`. If working directly on `main`, commit the completed feature there.
 `origin` (`git push origin main`; no force push unless the user asks). Do not push other branches.
 Preserve unrelated work in the checkout.
 
-Then, from the main checkout on `main`, rebuild the web app, restart its server and rebuild the macOS app:
+Then, from the main checkout on `main`, rebuild the web app and the macOS app:
 
 ```sh
-npm run app:update   # app:build && app:restart && native:build
+npm run app:update   # app:build && native:build
 ```
 
-This is part of completing the feature. The restart preserves the app's saved port. Never quit, relaunch
-or open the user's macOS app: it keeps running, its title bar shows "Update ready · ⌘R" once a newer
-native build is on disk, and the user presses ⌘R when they want the new web and native builds (⌘R
-reloads the page, and swaps in a newer native build in place, keeping the window and page).
-Report the commit, whether the push succeeded, and whether the build and restart succeeded.
+This is part of completing the feature. It does not restart the app server, so open pages, their
+daemon connections and terminals stay connected. Never quit, relaunch
+or open the user's macOS app, and do not run `app:restart` for an update: the app keeps running, its title bar
+shows "Update ready · ⌘R" once a newer native build is on disk, and the user presses ⌘R when they want the
+update. ⌘R first runs `app:refresh`, which restarts the server only if its own code (`web/server/`, the Vite
+config, dependencies, the launcher) changed since it started; then it reloads the page, and swaps in a newer
+native build in place, keeping the window and page. The server serves each new `web/dist` build without a restart.
+Report the commit, whether the push succeeded, and whether the build succeeded.
 
 ## Commands
 
@@ -65,10 +68,10 @@ Report the commit, whether the push succeeded, and whether the build and restart
 - `npm run app:dev`: React UI, SDK API and the Atlas world on port 4310, bound to `0.0.0.0`.
 - `npm run app:start`: detached preview of the built app and API, bound to `0.0.0.0`;
   run from a human terminal. Access it through localhost or a host network address on port 4310.
-- `npm run app:stop`, `app:restart`, `app:status`: manage that detached preview.
-  Restart preserves its port. See `RUNNING.md`.
+- `npm run app:stop`, `app:restart`, `app:refresh`, `app:status`: manage that detached preview.
+  Restart preserves its port; refresh restarts it only when the server's own code changed. See `RUNNING.md`.
 - `npm run app:build`: layout tests, then type-checks and bundles the app to `web/dist/`.
-- `npm run app:update`: `app:build`, `app:restart` and `native:build`, after merging to `main` (see above).
+- `npm run app:update`: `app:build` and `native:build`, after merging to `main` (see above); ⌘R applies it.
 - `npm run app:typecheck`: checks React, API and Atlas TypeScript.
 - `npm run app:e2e`: browser tests of the Atlas against a mocked fleet (no daemon is reached).
 - `npm run native:build`, `native:run [-- --url …]`: the macOS app (`native/`) that draws the Atlas with

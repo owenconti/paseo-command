@@ -37,6 +37,16 @@ final class ServerManager {
         }
     }
 
+    /// For ⌘R: restart the server if its own code changed since it started
+    /// (`app-server.mjs refresh`; a new page build needs no restart), or start
+    /// it if it isn't running. Calls back on the main queue.
+    func refresh(port: Int, _ done: @escaping (Result<Void, Error>) -> Void) {
+        DispatchQueue.global(qos: .userInitiated).async { [root] in
+            let result = Self.run(["refresh", "--port", String(port)], in: root)
+            DispatchQueue.main.async { done(result) }
+        }
+    }
+
     /// Whether anything answers HTTP on the port, within a couple of seconds.
     private static func answers(_ port: Int) -> Bool {
         var request = URLRequest(url: URL(string: "http://127.0.0.1:\(port)/")!)
