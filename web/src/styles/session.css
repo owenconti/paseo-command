@@ -1064,3 +1064,121 @@
 .new-agent-empty {
   justify-content: center;
 }
+
+/* Add project (AddProject.tsx): how, then a browser of the host's folders;
+   the folder open is the one used. */
+.add-project-modes,
+.add-project-wide {
+  grid-column: 1 / -1;
+}
+.add-project-browser {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.folder-crumbs {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--line);
+}
+.folder-crumbs ol {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  min-width: 0;
+  margin: 0 0 0 var(--space-1);
+  padding: 0;
+  list-style: none;
+  font-size: var(--fs-sm);
+  color: var(--text-3);
+}
+.folder-crumbs li {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+}
+.folder-crumbs li button {
+  max-width: 180px;
+  padding: 2px 4px;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.folder-crumbs li button:hover:not(:disabled) {
+  background: var(--fill-strong);
+  color: var(--text);
+}
+.folder-crumbs li button[aria-current] {
+  color: var(--text-strong);
+  font-weight: var(--fw-semibold);
+}
+.folder-list {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding: var(--space-2);
+}
+.folder-list[aria-busy="true"],
+.add-project-browser[aria-busy="true"] .folder-list {
+  opacity: 0.6;
+}
+.folder-row {
+  padding: 7px var(--space-2);
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+}
+.folder-row > svg {
+  flex-shrink: 0;
+  color: var(--text-3);
+}
+.folder-row .row-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.folder-empty {
+  margin: var(--space-4);
+  font-size: var(--fs-sm);
+  color: var(--text-3);
+  text-align: center;
+}
+.add-project-footer {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  flex-shrink: 0;
+  padding: 10px var(--space-3) var(--space-3);
+  border-top: 1px solid var(--line);
+  background: var(--panel);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+}
+.add-project-footer .archive-error {
+  flex-basis: 100%;
+}
+.add-project-footer .form-hint {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+}
+.add-project-footer .form-hint code {
+  word-break: break-all;
+}
+.project-bar {
+  padding-bottom: 2px;
+}
+.add-project-btn {
+  height: 26px;
+  font-size: var(--fs-xs);
+}
