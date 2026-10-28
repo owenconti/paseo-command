@@ -14,7 +14,7 @@ import {
   modelName,
   structureCentre,
 } from "../src/world.ts";
-import { SAMPLE } from "../src/sample.ts";
+import { SAMPLE, STRUCTURE_SAMPLE } from "../src/sample.ts";
 
 /** A larger fleet: many projects, a crowded workspace, an orphan workspace,
  * an agent without a workspace, a host without workspaces and an offline host. */
@@ -310,6 +310,14 @@ test("structure art spreads across the available sprites", () => {
   );
   for (const [project, cottages] of byProject) {
     const n = counts(cottages.map((e) => e.art));
-    assert.ok(Math.max(...n) - Math.min(...n) <= 1 && (cottages.length < 2 || n.length === 2), `${project} cottages ${n}`);
+    assert.ok(Math.max(...n) - Math.min(...n) <= 1 && n.length === Math.min(7, cottages.length), `${project} cottages ${n}`);
   }
+});
+
+test("structure review fleet exercises all eight landmarks and seven cottage silhouettes", () => {
+  const world = layoutAtlas(STRUCTURE_SAMPLE);
+  assert.equal(new Set(world.projects.map((p) => p.art)).size, 8);
+  const cottages = world.workspaces.filter((w) => w.project === "structure-0");
+  assert.equal(new Set(cottages.map((w) => w.art)).size, 7);
+  assert.deepEqual(world.projects.map((p) => p.art), layoutAtlas(STRUCTURE_SAMPLE).projects.map((p) => p.art));
 });

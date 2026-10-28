@@ -108,6 +108,9 @@ The standalone study (`render:dev`) uses clearly labeled illustrative data and n
 The inherited React UI is preserved; its panels use the Galaxy theme, as in the user's reference.
 Five original references are retained in `design/references/atlas-01.webp` through `atlas-05.webp`.
 Artwork provenance and generation prompts are in `rendering/ASSETS.md`.
+Architecture uses the original `buildings.png` plus `structures.png`: eight project landmarks
+and seven workspace cottages, balanced deterministically across neighbours. The standalone
+`?structures` study fixture exercises every structure without a daemon connection.
 
 ## Confirmed map constraints
 

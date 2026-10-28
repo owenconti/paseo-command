@@ -1,10 +1,10 @@
 import { mountAtlas } from "./atlas";
 import { showGuide, showSelection } from "./inspector";
-import { SAMPLE } from "./sample";
+import { SAMPLE, STRUCTURE_SAMPLE } from "./sample";
 import { layoutAtlas, type State } from "./world";
 import "./style.css";
 // The standalone study draws an explicitly illustrative fleet and never connects to a daemon.
-const data = structuredClone(SAMPLE);
+const data = structuredClone(new URLSearchParams(location.search).has("structures") ? STRUCTURE_SAMPLE : SAMPLE);
 let layout = layoutAtlas(data);
 const parent = document.querySelector<HTMLDivElement>("#game")!;
 const order: State[] = ["running", "idle", "done", "approval", "question", "failed"];

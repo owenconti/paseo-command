@@ -1,5 +1,6 @@
 import Phaser from "phaser";
 import PROPS from "./assets/props.json";
+import STRUCTURES from "./assets/structures.json";
 // Regions are atlas frames, not a flattened map. Phaser owns their cropping and rendering.
 const BUILDING_FRAMES: Record<string, number[]> = {
   manor: [0, 0, 575, 550],
@@ -19,6 +20,8 @@ export function registerFrames(scene: Phaser.Scene): void {
       name,
       rect as [number, number, number, number],
     );
+  for (const [name, rect] of Object.entries(STRUCTURES))
+    trimFrame(scene, "structures", name, rect as [number, number, number, number], 0, 0);
   // Foliage has its own source image so atlas neighbors cannot enter its frame.
   const foliage = scene.textures
     .get("foliage")
@@ -50,12 +53,13 @@ export function registerFrames(scene: Phaser.Scene): void {
   // Each sprite keeps transparent gutters so neighboring atlas artwork cannot bleed in.
   const frames = [
     ...Object.keys(BUILDING_FRAMES),
+    ...Object.keys(STRUCTURES),
     "trees",
     ...Object.keys(PROPS),
     ...["teal", "violet", "lime", "blue"].map((name) => `robot-${name}`),
   ];
   for (const name of frames) {
-    const sourceKey = name.startsWith("robot-")
+    const sourceKey = name in STRUCTURES ? "structures" : name.startsWith("robot-")
       ? "robots"
       : name === "trees"
         ? "foliage"
