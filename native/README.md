@@ -21,6 +21,9 @@ npm run native:mock -- --fleet large --port 4331   # web/dist plus a mocked API;
 npm run native:run -- --url http://127.0.0.1:4331/
 ```
 
+The icon (`native/AppIcon.icns`) is drawn from the Atlas's own robot art by
+`swift native/scripts/icon.swift`.
+
 Options: `--web-world` (leave the Atlas to Phaser in the page, for comparison), `--ambient <fps>`
 (ambient frame rate, default 30), `--size <w>x<h>`, `--front` (show in front without activating),
 `--ignore-occlusion`, `--checks`, `--info <path>` (window number and process ids as JSON; also the
