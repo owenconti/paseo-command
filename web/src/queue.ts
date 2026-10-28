@@ -75,7 +75,7 @@ export const ATTEMPTS = 3;
 const tab =
   globalThis.crypto?.randomUUID?.() ?? Math.random().toString(36).slice(2);
 const uid = () => Math.random().toString(36).slice(2) + Date.now().toString(36);
-const newMessageId = () =>
+export const newMessageId = () =>
   globalThis.crypto?.randomUUID?.() ?? `${uid()}-${uid()}`;
 const storeKey = (agentId: string) => `queue:${agentId}`;
 const sentKey = (agentId: string) => `queue-sent:${agentId}`;

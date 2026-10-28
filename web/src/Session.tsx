@@ -47,7 +47,7 @@ import { liveConnection } from "./live";
 import type { HistoryPage } from "./history";
 import { MarkdownImage } from "./Images";
 import { extractImages } from "./imageSource";
-import { onQueueSent } from "./queue";
+import { newMessageId, onQueueSent } from "./queue";
 import {
   eventBody,
   fromTimeline,
@@ -80,8 +80,15 @@ import { SubagentsControl } from "./Subagents";
 import { HeaderLinks } from "./HeaderLinks";
 import type { DraftSettings } from "./Dispatch";
 
-/** `seen`: how many matching prompts the timeline already had when this one was sent. */
-type Pending = { text: string; images: string[]; at: number; seen: number };
+/** `seen`: how many matching prompts the timeline already had when this one was sent.
+ *  `messageId`: the ID it was sent with; the timeline's prompt carries it. */
+type Pending = {
+  text: string;
+  images: string[];
+  at: number;
+  seen: number;
+  messageId?: string;
+};
 type Source =
   | { source: "timeline"; items: TimelineItem[] }
   | { source: "logs"; lines: string[]; assistant?: string[] };
@@ -299,16 +306,24 @@ export function Session({
           : parseTranscript(source.lines, source.assistant),
     [source],
   );
-  // Optimistic follow-ups disappear once the timeline reports them.
-  const userTexts = useMemo(
+  // Optimistic follow-ups disappear once the timeline reports them: by the
+  // message ID they were sent with, or else by their text (an image-only
+  // prompt has none, and a queued one can be logged before it is tracked).
+  const userEntries = useMemo(
     () =>
-      entries
-        .filter((e): e is Extract<Entry, { kind: "user" }> => e.kind === "user")
-        .map((e) => e.text),
+      entries.filter(
+        (e): e is Extract<Entry, { kind: "user" }> => e.kind === "user",
+      ),
     [entries],
   );
+  const userTexts = useMemo(() => userEntries.map((e) => e.text), [userEntries]);
   const userTextsRef = useRef(userTexts);
   userTextsRef.current = userTexts;
+  const loggedIdsRef = useRef(new Set<string>());
+  loggedIdsRef.current = useMemo(
+    () => new Set(userEntries.flatMap((e) => (e.messageId ? [e.messageId] : []))),
+    [userEntries],
+  );
   useEffect(() => {
     if (!pending.length) return;
     const prune = () =>
@@ -316,6 +331,7 @@ export function Session({
         const next = current.filter(
           (p) =>
             Date.now() - p.at < 90000 &&
+            !(p.messageId && loggedIdsRef.current.has(p.messageId)) &&
             userTextsRef.current.filter((u) => sameMessage(u, p.text)).length <=
               p.seen,
         );
@@ -365,6 +381,7 @@ export function Session({
         images: message.images.map((i) => i.dataUrl),
         at,
         seen,
+        messageId: message.messageId,
       },
     ]);
     return at;
@@ -379,7 +396,9 @@ export function Session({
       }),
     [agent.id, track],
   );
-  const send = async (message: Outgoing) => {
+  const send = async (outgoing: Outgoing) => {
+    // Sent with an ID, so the timeline's copy is recognised by it.
+    const message = { ...outgoing, messageId: outgoing.messageId ?? newMessageId() };
     const at = track(message);
     const ok = await command("send", await sendBody(message), "");
     if (!ok) setPending((p) => p.filter((x) => x.at !== at));
