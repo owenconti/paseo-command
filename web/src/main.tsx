@@ -38,6 +38,14 @@ import {
   type ArchiveJob,
 } from "./archives";
 import { SoundControl } from "./SoundControl";
+import {
+  linearKey,
+  linearUrl,
+  openExternal,
+  useLinearIssue,
+  useLinearWorkspace,
+  usePullRequest,
+} from "./links";
 import { NewAgent, type DispatchTarget } from "./Dispatch";
 import {
   Fleet,
@@ -659,6 +667,26 @@ function App() {
     selection?.type === "project"
       ? projects.find((p) => projectKey(p) === selection.id)
       : undefined;
+  // The open agent's or workspace's PR and Linear issue, for G and L (the
+  // same ones the session header's chips link to).
+  const linkWorkspace = agent ? workspaceOf(agent) : workspace;
+  const linkPr = usePullRequest(linkWorkspace ?? undefined);
+  const issueKey =
+    agent || workspace
+      ? linearKey({
+          branch: linkWorkspace?.branch || agent?.branch,
+          prTitle: linkPr?.title,
+          prBody: linkPr?.body,
+          agentTitle: agent?.name,
+        })
+      : null;
+  const linearSlugSetting = useLinearWorkspace();
+  const linearIssue = useLinearIssue(issueKey);
+  const issueUrl = issueKey
+    ? (linearSlugSetting && linearUrl(linearSlugSetting, issueKey)) ||
+      linearIssue?.url ||
+      null
+    : null;
   const online = health?.connectedDaemon === "reachable";
   // One detail view at a time: the selection is the active detail.
   const activeTarget = selection;
@@ -787,13 +815,29 @@ function App() {
       } else if (key === "n") {
         e.preventDefault();
         nextAttention();
+      } else if (key === "g" && linkPr) {
+        e.preventDefault();
+        openExternal(linkPr.url);
+      } else if (key === "l" && issueKey) {
+        e.preventDefault();
+        if (issueUrl) openExternal(issueUrl);
+        // Without a Linear workspace yet, the header chip asks for it.
+        else
+          document.querySelector<HTMLElement>("button.linear-chip")?.click();
       } else if (
-        (key === "r" || e.key === "Enter") &&
-        selection?.type === "agent"
+        e.key === "Enter" ||
+        (key === "r" && selection?.type === "agent")
       ) {
-        const composer =
-          document.querySelector<HTMLTextAreaElement>("#composer");
-        if (composer && !composer.disabled) {
+        // The chat input on screen: an agent's, a subagent's or a new one's.
+        const composer = [
+          ...document.querySelectorAll<HTMLTextAreaElement>("#composer"),
+        ].find(
+          (c) =>
+            !c.disabled &&
+            !c.closest("[inert]") &&
+            c.getClientRects().length > 0,
+        );
+        if (composer) {
           e.preventDefault();
           composer.focus();
         }
@@ -809,6 +853,9 @@ function App() {
     step,
     nextAttention,
     openDispatch,
+    linkPr,
+    issueKey,
+    issueUrl,
   ]);
   // A file dropped outside the session would otherwise make
   // the browser navigate away to open it.

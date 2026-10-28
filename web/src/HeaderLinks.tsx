@@ -98,7 +98,7 @@ function PrChip({
       rel="noreferrer"
       // The number stands for the PR; its title, CI and queue are the tooltip.
       data-summary
-      data-tip={prTip(pr, queue)}
+      data-tip={`${prTip(pr, queue)} (G)`}
     >
       <Icon size={11} aria-hidden="true" />
       <span>#{pr.number}</span>
@@ -133,7 +133,7 @@ function LinearChip({ issueKey }: { issueKey: string }) {
         target="_blank"
         rel="noreferrer"
         data-summary
-        data-tip={tip}
+        data-tip={`${tip} (L)`}
       >
         <LinearMark />
         <span>{issueKey}</span>
@@ -146,7 +146,7 @@ function LinearChip({ issueKey }: { issueKey: string }) {
         aria-haspopup="dialog"
         aria-expanded={asking}
         data-summary
-        data-tip={`${tip} (set your Linear workspace first)`}
+        data-tip={`${tip} (set your Linear workspace first) (L)`}
         onClick={() => setAsking(!asking)}
       >
         <LinearMark />

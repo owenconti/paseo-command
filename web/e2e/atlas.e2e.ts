@@ -310,7 +310,7 @@ test("the session header shows its PR's CI and merge queue standing", async () =
     assert.equal(await chip.locator(".pr-ci").getAttribute("data-ci"), "failing");
     assert.equal(
       await chip.getAttribute("data-tip"),
-      "Tighten the schema\nCheck failing: lint\nIn merge queue: position 2, awaiting checks",
+      "Tighten the schema\nCheck failing: lint\nIn merge queue: position 2, awaiting checks (G)",
     );
     assert.equal(asked.length, 1);
     assert.match(asked[0], /workspace=wks_c/);
@@ -337,6 +337,106 @@ test("the session header shows its PR's CI and merge queue standing", async () =
       if (state === "closed" || state === "merged")
         assert.equal(await chip.locator(".pr-ci").count(), 0);
     }
+    await context.close();
+  } finally {
+    workspaces[i] = before;
+  }
+});
+
+test("Enter focuses the chat input; G and L open the PR and Linear issue", async () => {
+  const i = workspaces.findIndex((w) => w.workspaceId === "wks_c");
+  const before = workspaces[i];
+  workspaces[i] = {
+    ...before,
+    branch: "owen/api-123-schema",
+    pr: {
+      number: 42,
+      title: "Tighten the schema",
+      state: "open",
+      url: "https://github.com/acme/api/pull/42",
+    },
+  } as typeof before;
+  try {
+    const context = await newContext(browser);
+    await context.addInitScript(() => {
+      localStorage.setItem("paseo-command:linear-workspace", JSON.stringify("acme"));
+      (window as any).__opened = [];
+      window.open = ((url: string) => {
+        (window as any).__opened.push(url);
+        return null;
+      }) as typeof window.open;
+    });
+    const page = await context.newPage();
+    await mockApi(page, {
+      agents: () => agents,
+      permissions: () => permissions,
+      hosts: () => hosts,
+      projects: () => projects,
+      workspaces: () => workspaces,
+    });
+    await page.goto(app.url);
+    await waitFor(() => inspect(page), (i) => !!i?.agents?.length, "the Atlas", 30000);
+    const opened = () => page.evaluate(() => (window as any).__opened as string[]);
+    const pick = (kind: string, key: string) =>
+      page.evaluate(
+        ([kind, key]) =>
+          (window as any).paseoAtlas.scene.game.events.emit("atlas:pick", {
+            id: key,
+            kind,
+            name: "",
+            host: "",
+          }),
+        [kind, key],
+      );
+    const blur = () => page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+
+    // A workspace: no chat input to focus, but its PR and issue open.
+    await pick("workspace", JSON.stringify(["local", "wks_c"]));
+    await page.locator(".section-label", { hasText: "Agents here" }).waitFor();
+    await blur();
+    await page.keyboard.press("g");
+    await page.keyboard.press("l");
+    await waitFor(opened, (o) => o.length === 2, "the workspace's links to open");
+    assert.deepEqual(await opened(), [
+      "https://github.com/acme/api/pull/42",
+      "https://linear.app/acme/issue/API-123",
+    ]);
+    await page.keyboard.press("Enter");
+    assert.notEqual(await page.evaluate(() => document.activeElement?.id), "composer");
+    // A new agent's chat input takes Enter too.
+    await page.keyboard.press("d");
+    await page.locator("#composer:not([disabled])").waitFor();
+    await blur();
+    await page.keyboard.press("Enter");
+    assert.equal(await page.evaluate(() => document.activeElement?.id), "composer");
+    await blur();
+    await page.keyboard.press("Escape");
+    await page.locator("#composer").waitFor({ state: "detached" });
+
+    // An agent in it: Enter focuses its composer, G and L still open its links.
+    await pick("agent", agentKey("a-failed"));
+    await page.locator(".session-title h2", { hasText: "Breaker" }).waitFor();
+    await page.locator("#composer:not([disabled])").waitFor();
+    await blur();
+    await page.keyboard.press("Enter");
+    assert.equal(await page.evaluate(() => document.activeElement?.id), "composer");
+    await blur();
+    await page.keyboard.press("g");
+    await page.keyboard.press("l");
+    await waitFor(opened, (o) => o.length === 4, "the agent's links to open");
+    assert.deepEqual((await opened()).slice(2), [
+      "https://github.com/acme/api/pull/42",
+      "https://linear.app/acme/issue/API-123",
+    ]);
+
+    // An agent without a PR or issue opens nothing.
+    await pick("agent", agentKey("a-running"));
+    await page.locator(".session-title h2", { hasText: "Runner" }).waitFor();
+    await blur();
+    await page.keyboard.press("g");
+    await page.keyboard.press("l");
+    await new Promise((r) => setTimeout(r, 300));
+    assert.equal((await opened()).length, 4);
     await context.close();
   } finally {
     workspaces[i] = before;
