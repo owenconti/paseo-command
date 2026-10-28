@@ -32,6 +32,9 @@ export type AtlasWorld = {
   inspect(): ReturnType<AtlasScene["inspect"] | GalaxyScene["inspect"]> | undefined;
   destroy(): void;
 };
+const IDLE_FPS = 30;
+/** How long the world stays at full rate after the last interaction. */
+const LIVELY_MS = 1500;
 /** Mount a world into an element. Data, selection and camera stay with the caller. */
 export function mountAtlas(
   parent: HTMLElement,
@@ -56,11 +59,34 @@ export function mountAtlas(
       mipmapFilter: "LINEAR_MIPMAP_LINEAR",
     },
     scene: [scene],
+    // Ambient motion reads fine at a calm rate; see `wake` for interaction.
+    fps: { limit: IDLE_FPS },
     audio: { noAudio: true },
     banner: false,
     // Keys belong to the map only while it has focus; typing elsewhere never pans it.
     input: { activePointers: 2, keyboard: { target: parent } },
   });
+  // Redrawing the 2x canvas every display refresh (120 Hz on ProMotion) keeps
+  // the GPU busy and the fans on. The world runs at IDLE_FPS, and at the
+  // display's full rate while it is handled or its camera is moving.
+  let lively: ReturnType<typeof setTimeout> | undefined;
+  const wake = () => {
+    if (lively === undefined) game.loop.setFPSLimit(0);
+    clearTimeout(lively);
+    lively = setTimeout(() => {
+      lively = undefined;
+      if (!destroyed) game.loop.setFPSLimit(IDLE_FPS);
+    }, LIVELY_MS);
+  };
+  game.events.on(Phaser.Core.Events.PRE_STEP, () => {
+    const cam = scene.sys.isActive() ? scene.cameras.main : undefined;
+    if (cam && (cam.panEffect.isRunning || cam.zoomEffect.isRunning)) wake();
+  });
+  const handled = (e: Event) =>
+    (e.type !== "pointermove" || (e as PointerEvent).buttons) && wake();
+  const interactions = ["pointerdown", "pointermove", "wheel", "keydown", "touchstart"];
+  for (const type of interactions)
+    parent.addEventListener(type, handled, { capture: true, passive: true });
   let ready = false;
   let data: AtlasData | null = null;
   // The layout follows the map's shape: tall maps stack hosts and islands vertically.
@@ -132,8 +158,8 @@ export function mountAtlas(
       selection = id;
       if (ready && !destroyed) scene.select(id);
     },
-    focus: (id, zoom) => ready && !destroyed && scene.focus(id, zoom),
-    command: (name) => ready && !destroyed && scene.command(name),
+    focus: (id, zoom) => ready && !destroyed && (wake(), scene.focus(id, zoom)),
+    command: (name) => ready && !destroyed && (wake(), scene.command(name)),
     input: (enabled) => ready && !destroyed && scene.setInput(enabled),
     motion: (reduced) => scene.motion(reduced),
     inspect: () => (ready && !destroyed ? scene.inspect() : undefined),
@@ -144,6 +170,9 @@ export function mountAtlas(
       window.removeEventListener("resize", syncCanvasSize);
       for (const type of ["pointerenter", "pointerdown", "wheel"])
         parent.removeEventListener(type, rebound, { capture: true });
+      for (const type of interactions)
+        parent.removeEventListener(type, handled, { capture: true });
+      clearTimeout(lively);
       game.destroy(true);
     },
   };
