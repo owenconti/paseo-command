@@ -462,9 +462,7 @@ export class AtlasScene extends Phaser.Scene {
       y = bounds.y - HEX_RADIUS * 0.75;
     const name = h.name.toUpperCase() + (island.online ? "" : " · OFFLINE");
     this.ribbon(x, y, name, "host", Math.max(260, bounds.width - 80), !island.online);
-    // The banner and the host's open ground, under its islands' own areas.
-    const land = cellBounds(this.cellsOf(h));
-    this.hit(h, land.x + land.width / 2, land.y + land.height / 2, land.width, land.height, 20);
+    // Only the banner picks the host; its land is not interactive.
     this.hit(h, x, y, Math.min(bounds.width, 420), 44, 24, true);
     this.locations.set(h.id, {
       x,

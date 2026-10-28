@@ -75,7 +75,7 @@ the landmark, oldest first: straight out, then alternating left and right. Islan
 no empty sand around them (the user removed it). A host's islands share one landmass of grass hex tiles (hexes everywhere) with a hex-edged shore in a generated sea, under the host's
 banner (offline hosts are faded and labeled). Each agent's state shows only on its sand hex (fill, border colour, border motion: a light runs round
 running borders, states that need you pulse); robots carry no rings or badges. Hosts, projects, workspaces and
-agents each have their own hover border colour; a host hovers from its banner or open ground. The user asked for water back (rejecting chart paper, and a plain meadow background), with each
+agents each have their own hover border colour; a host hovers and picks only from its banner (its land is not interactive). The user asked for water back (rejecting chart paper, and a plain meadow background), with each
 host as a landmass; project islands sit on it on earthen banks with soft shadows.
 The layout follows the map's aspect ratio: hosts shelf-pack and tall maps stack vertically.
 Agents the daemon reports without a workspace wait at a flagged camp, laid out like a workspace.
@@ -96,7 +96,7 @@ Center artwork and fit it completely inside its occupied cells.
 Selection follows the outer perimeter of the occupied hexes, never a rectangle: a golden rim with a breathing
 yellow halo (Phaser glow filter) over a warm wash, so the selected entity reads on any surface. Hover and selection
 rims are inset within the cells so painted kerbs and banks never clip them; an agent hovers across its whole cell.
-Picking a host's land (or banner) selects it: the map rings its landmass and the lists narrow to it, the same
+Picking a host's banner selects it (its land is not interactive): the map rings its landmass and the lists narrow to it, the same
 host filter as the Hosts tab; any other selection takes the highlight while it lasts.
 Project, workspace and agent cells each have a distinct tile style (flagstones, timber decking, light sand
 tiles); islands have no empty cells. Minimum zoom fits the land with a one-cell border (plus room for banners and map controls);
