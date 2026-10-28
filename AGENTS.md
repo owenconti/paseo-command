@@ -95,6 +95,9 @@ The layout follows the map's aspect ratio: hosts shelf-pack and tall maps stack 
 Agents the daemon reports without a workspace wait at a flagged camp, laid out like a workspace.
 The world is assembled from generated transparent sprite atlases, a terrain texture,
 and a strict axial hex grid. It is not a screenshot used as a background.
+For performance, the static painted images (ground, buildings) are drawn into two view-sized caches that
+repaint only when the camera or layout changes; banners and other vector shapes stay live (caches have no MSAA).
+The sea's glints and cloud shadows drift slowly in 15 Hz steps. Worlds run at 60 fps, at full rate while handled.
 The standalone study (`render:dev`) uses clearly labeled illustrative data and never connects to a daemon.
 The inherited React UI is preserved; its panels use the Galaxy theme, as in the user's reference.
 Five original references are retained in `design/references/atlas-01.webp` through `atlas-05.webp`.

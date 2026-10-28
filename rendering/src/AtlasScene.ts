@@ -67,6 +67,23 @@ const HOVER_COLOR: Record<Entity["kind"], number> = {
 const vectors = (points: { x: number; y: number }[]) =>
   points.map((p) => new Phaser.Math.Vector2(p.x, p.y));
 type Box = { x: number; y: number; width: number; height: number };
+/** Unmoving painted parts of the world (ground, buildings), drawn once into a
+ * view-sized texture and redrawn only when the camera or the world changes, so
+ * a frame draws each as one image. Each sits at its own depth, so moving things
+ * keep their places between them. Vector shapes (banners, camp flags) stay live:
+ * a texture has no multisampling, so their edges would roughen. */
+type Cache = {
+  texture: Phaser.Textures.DynamicTexture;
+  image: Phaser.GameObjects.Image;
+  /** World images drawn into it: those below `below` and at or above the previous cache's. */
+  below: number;
+  objects: Phaser.GameObjects.GameObject[];
+};
+/** How often the sea's glints and the cloud shadows move on (per second), and
+ * their speed (world px/ms). Slow drift needs few steps; robots and tiles move
+ * every frame. */
+const DRIFT_RATE = 15;
+const DRIFT_SPEED = 0.003;
 /** Screen position in CSS pixels relative to the canvas. */
 export type ScreenPoint = { x: number; y: number };
 export class AtlasScene extends Phaser.Scene {
@@ -74,6 +91,10 @@ export class AtlasScene extends Phaser.Scene {
   private glints!: Phaser.GameObjects.TileSprite;
   private clouds!: Phaser.GameObjects.TileSprite;
   private drift = 0;
+  private driftPending = 0;
+  private caches: Cache[] = [];
+  /** The view the caches were painted for; empty when they must be repainted. */
+  private cachedView = "";
   private selected!: Phaser.GameObjects.Graphics;
   private selectGlow!: Phaser.GameObjects.Graphics;
   private halo?: Phaser.Filters.Glow;
@@ -176,6 +197,17 @@ export class AtlasScene extends Phaser.Scene {
       .setTileScale(6)
       .setAlpha(0.2);
     this.cameras.main.setBackgroundColor(WATER);
+    // Ground under agent tiles and the selection; buildings under cloud shadows.
+    this.caches = (
+      [
+        [4, 1],
+        [20, 17],
+      ] as const
+    ).map(([below, depth], i) => {
+      const texture = this.textures.addDynamicTexture(`static-${i}`, this.scale.width, this.scale.height, false)!;
+      const image = this.add.image(0, 0, texture).setOrigin(0).setDepth(depth);
+      return { texture, image, below, objects: [] };
+    });
     this.hover = this.add.graphics().setDepth(7);
     this.selected = this.add.graphics().setDepth(8);
     this.selectGlow = this.add.graphics().setDepth(7.9);
@@ -238,10 +270,41 @@ export class AtlasScene extends Phaser.Scene {
       for (const ws of layout.workspaces) this.workspace(ws);
       for (const h of layout.hosts) this.host(h);
     });
+    this.cacheWorld();
     this.agentLayer = this.capture(() => {
       this.agentTiles(layout);
       for (const a of layout.agents) this.agent(a);
     });
+  }
+  /** Hand the world's images to the caches; the camera itself skips them. */
+  private cacheWorld(): void {
+    const images = this.world
+      .filter((o): o is Phaser.GameObjects.Image => o instanceof Phaser.GameObjects.Image)
+      .sort((a, b) => a.depth - b.depth);
+    let from = -Infinity;
+    for (const cache of this.caches) {
+      cache.objects = images.filter((o) => o.depth >= from && o.depth < cache.below);
+      this.cameras.main.ignore(cache.objects);
+      from = cache.below;
+    }
+    this.cachedView = "";
+  }
+  /** Repaint the caches for the camera's current view, when it has changed. */
+  private paintCaches(): void {
+    const cam = this.cameras.main;
+    cam.preRender();
+    const view = cam.worldView;
+    const key = [view.x, view.y, view.width, view.height, cam.width, cam.height].join();
+    if (key === this.cachedView) return;
+    this.cachedView = key;
+    for (const { texture, image, objects } of this.caches) {
+      if (texture.width !== cam.width || texture.height !== cam.height)
+        texture.setSize(cam.width, cam.height, false);
+      texture.camera.setScroll(cam.scrollX, cam.scrollY).setZoom(cam.zoom);
+      texture.clear().draw(objects).render();
+      // Covers exactly the view, so it lands on the screen pixel for pixel.
+      image.setPosition(view.x, view.y).setDisplaySize(view.width, view.height);
+    }
   }
   private entity(id: string): Entity | undefined {
     return this.layout?.entities.find((e) => e.id === id);
@@ -1111,7 +1174,11 @@ export class AtlasScene extends Phaser.Scene {
     this.controls?.update(delta);
     this.constrainCamera();
     if (!this.reduced) {
-      this.drift += delta * 0.006;
+      this.driftPending += delta;
+      if (this.driftPending >= 1000 / DRIFT_RATE) {
+        this.drift += this.driftPending * DRIFT_SPEED;
+        this.driftPending = 0;
+      }
       this.clock += delta;
       this.animateTiles();
       this.breathe();
@@ -1134,6 +1201,7 @@ export class AtlasScene extends Phaser.Scene {
         .setSize(view.width + pad * 2, view.height + pad * 2)
         .setTilePosition((view.x - pad - dx) / scale, (view.y - pad - dy) / scale);
     }
+    this.paintCaches();
     if (this.cameras.main.zoomEffect.isRunning) this.reportCamera();
   }
 }

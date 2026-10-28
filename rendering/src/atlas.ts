@@ -32,7 +32,11 @@ export type AtlasWorld = {
   inspect(): ReturnType<AtlasScene["inspect"] | GalaxyScene["inspect"]> | undefined;
   destroy(): void;
 };
-const IDLE_FPS = 30;
+const IDLE_FPS = 60;
+/** Phaser draws once a whole limit interval has passed. At exactly half the
+ * display's rate, timing jitter often lands just short of it, dropping to a
+ * third; aiming a little higher keeps every other refresh. */
+const IDLE_LIMIT = IDLE_FPS * 1.1;
 /** How long the world stays at full rate after the last interaction. */
 const LIVELY_MS = 1500;
 /** Mount a world into an element. Data, selection and camera stay with the caller. */
@@ -60,14 +64,14 @@ export function mountAtlas(
     },
     scene: [scene],
     // Ambient motion reads fine at a calm rate; see `wake` for interaction.
-    fps: { limit: IDLE_FPS },
+    fps: { limit: IDLE_LIMIT },
     audio: { noAudio: true },
     banner: false,
     // Keys belong to the map only while it has focus; typing elsewhere never pans it.
     input: { activePointers: 2, keyboard: { target: parent } },
   });
-  // Redrawing the 2x canvas every display refresh (120 Hz on ProMotion) keeps
-  // the GPU busy and the fans on. The world runs at IDLE_FPS, and at the
+  // Redrawing the 2x canvas at every display refresh (120 Hz on ProMotion)
+  // gains nothing for ambient motion. The world runs at IDLE_FPS, and at the
   // display's full rate while it is handled or its camera is moving.
   let lively: ReturnType<typeof setTimeout> | undefined;
   const wake = () => {
@@ -75,7 +79,7 @@ export function mountAtlas(
     clearTimeout(lively);
     lively = setTimeout(() => {
       lively = undefined;
-      if (!destroyed) game.loop.setFPSLimit(IDLE_FPS);
+      if (!destroyed) game.loop.setFPSLimit(IDLE_LIMIT);
     }, LIVELY_MS);
   };
   game.events.on(Phaser.Core.Events.PRE_STEP, () => {
