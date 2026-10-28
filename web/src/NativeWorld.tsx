@@ -1,3 +1,4 @@
+import type { WorkSummaries } from "./useWorkingOn";
 /** Atlas world adapter. The inherited React work surface owns all daemon actions;
  * the world only draws the host-qualified snapshot and reports what was picked. */
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -27,6 +28,7 @@ import type { Agent, Host, Project, Selection, Workspace } from "./types";
 import { WorldLegend } from "./WorldLegend";
 import "./atlas-world.css";
 type Props = {
+  workingOn?: WorkSummaries;
   hosts: Host[];
   projects: Project[];
   workspaces: Workspace[];
@@ -313,6 +315,10 @@ export function NativeWorld(props: Props) {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
   const empty = ready && data.hosts.length === 0;
+  const hoveredAgent = tip?.entity.kind === "agent"
+    ? snapshot.agents.find((a) => a.key === tip.entity.id)
+    : undefined;
+  const hoveredSummary = hoveredAgent && props.workingOn?.[hoveredAgent.clientId ?? hoveredAgent.id];
   return (
     <>
       <div
@@ -334,6 +340,9 @@ export function NativeWorld(props: Props) {
         >
           <b>{tip.entity.name}</b>
           <span>{tip.detail}</span>
+          {hoveredSummary?.sentence && (
+            <span className="atlas-work-summary">{hoveredSummary.sentence}</span>
+          )}
         </div>
       )}
       <div
@@ -393,8 +402,7 @@ export function NativeWorld(props: Props) {
       )}
       {failure && (
         <div className="atlas-world-notice" role="alert">
-          {failure}{" "}
-          <button onClick={() => location.reload()}>Reload</button>
+          {failure} <button onClick={() => location.reload()}>Reload</button>
         </div>
       )}
       {ready && <WorldLegend kind={kind} data={data} />}

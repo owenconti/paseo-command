@@ -6,7 +6,14 @@ import { assertReachable, invalidate } from "../fleet";
 import { captureExtras, settle, streamFleet, streamSession } from "../live";
 import { admissionClosed } from "../proc";
 import { errorText } from "../wire";
-import { agentDetailFor, agentGet, heldSession, sessionSource } from "./agents";
+import {
+  agentDetailFor,
+  agentGet,
+  agentSnapshot,
+  heldSession,
+  sessionSource,
+} from "./agents";
+import { workingOn } from "../workingOn";
 import { draftGet } from "./drafts";
 import {
   FANOUT_KEYS,
@@ -25,6 +32,7 @@ import {
   registryKnown,
   registryNow,
   resolveHost,
+  sdk,
   statusView,
 } from "./hosts";
 import { allowedOrigin, bodyOf, replier, shuttingDown } from "./http";
@@ -272,7 +280,16 @@ export async function handleApi(
           parts[2] === "rename"
         )
           result = await renameWorkspace(parts[1], body, mark);
-        else if (agentAction)
+        else if (
+          parts[0] === "agents" &&
+          parts.length === 3 &&
+          parts[2] === "working-on"
+        ) {
+          const host = await resolveHost(body.host, "write");
+          const client = await sdk(host);
+          const source = await agentSnapshot(client, id(parts[1]), host);
+          result = await workingOn.request(client, hostKey(host), source);
+        } else if (agentAction)
           result = await agentCommand(parts[2], parts[1], body, mark);
         else if (
           parts[0] === "agents" &&

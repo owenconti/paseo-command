@@ -1,3 +1,4 @@
+import type { WorkSummary } from "./useWorkingOn";
 import { soundEvent } from "./soundCues";
 import { daemonAgentId } from "./agentIdentity";
 import {
@@ -91,6 +92,7 @@ const sameMessage = (logged: string, sent: string) => {
 type Confirm = "archive" | "fresh" | null;
 
 export function Session({
+  workingOn,
   agent,
   workspace,
   waiting,
@@ -104,6 +106,7 @@ export function Session({
   onOpenSubagent,
   position,
 }: {
+  workingOn?: WorkSummary;
   agent: Agent;
   workspace?: Workspace;
   waiting: boolean;
@@ -684,6 +687,19 @@ export function Session({
           />
         ))}
         <Composer
+          activity={
+            running && online && !waiting && !archived && agent.workspaceId ? (
+              <p
+                className="session-working-on"
+                title={workingOn?.error || "AI-generated from recent activity"}
+              >
+                {workingOn?.sentence ||
+                  (workingOn?.error
+                    ? "Current work summary unavailable."
+                    : "Summarizing current work…")}
+              </p>
+            ) : undefined
+          }
           key={agent.id}
           agent={agent}
           running={running}

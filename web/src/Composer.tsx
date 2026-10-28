@@ -61,6 +61,7 @@ export type ComposerDraft = {
 
 // ── Composer ─────────────────────────────────────────────────────────────────
 export function Composer({
+  activity,
   agent,
   draft,
   running,
@@ -78,6 +79,8 @@ export function Composer({
   promptHistory,
   dropFiles,
 }: {
+  /** Current-work summary, kept with the sticky input. */
+  activity?: ReactNode;
   /** The agent written to; absent for a `draft`. */
   agent?: Agent;
   draft?: ComposerDraft;
@@ -335,6 +338,7 @@ export function Composer({
           onEdit={editQueued}
         />
       )}
+      {activity}
       <div
         className={`composer2 ${disabled ? "disabled" : ""} ${focused ? "focused" : ""}`}
       >
@@ -398,7 +402,10 @@ export function Composer({
                     <button
                       aria-description="Upload any file for the agent to read (up to 50 MB)"
                       role="menuitem"
-                      onClick={() => (setMenu(null), fileInput.current?.click())}
+                      onClick={() => (
+                        setMenu(null),
+                        fileInput.current?.click()
+                      )}
                     >
                       <Upload size={14} /> Upload file
                     </button>

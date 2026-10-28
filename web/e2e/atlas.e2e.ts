@@ -429,3 +429,46 @@ test("the Galaxy draws the same fleet truthfully and opens a satellite's convers
   );
   await page.context().close();
 });
+
+test("current work appears in the running agent tooltip and above its composer, then clears on idle", async () => {
+  const context = await newContext(browser);
+  const page = await context.newPage();
+  let status = "running";
+  const requests: { path: string; body: unknown }[] = [];
+  const sentence = "Actively working on fitting project islands within their host landmass.";
+  await mockApi(page, {
+    agents: () => [{ ...agents[0], status }],
+    permissions: () => [],
+    hosts: () => hosts.slice(0, 1),
+    projects: () => projects.slice(0, 1),
+    workspaces: () => workspaces.slice(0, 1),
+    detail: () => ({ Status: status, PendingPermissions: [], Modes: [] }),
+    timeline: () => ({ items: [] }),
+    accept: (path, body) => {
+      requests.push({ path, body });
+      return path === "/api/agents/a-running/working-on" ? { sentence, pending: false } : false;
+    },
+  });
+  await page.goto(app.url);
+  const key = agentKey("a-running");
+  await waitFor(() => inspect(page), (i) => !!i?.agents?.length, "the Atlas", 30000);
+  await waitFor(async () => requests.length, (n) => n > 0, "the summary request");
+  await page.evaluate((k) => (window as any).paseoAtlas.focus(k, true), key);
+  await page.waitForTimeout(1200);
+  const point = await robotAt(page, key);
+  await page.mouse.move(point.x, point.y);
+  await waitFor(() => page.locator(".atlas-world-tip").textContent({ timeout: 500 }).catch(() => ""), (t) => !!t?.includes(sentence), "the generated summary in the tooltip");
+  await page.mouse.click(point.x, point.y);
+  await page.locator(".session-working-on").waitFor();
+  assert.equal(await page.locator(".session-working-on").textContent(), sentence);
+  assert.equal(await page.locator(".session-working-on").evaluate((el) => el.nextElementSibling?.classList.contains("composer2")), true);
+  if (process.env.ATLAS_SHOT) await page.screenshot({ path: `${process.env.ATLAS_SHOT}/working-on-desktop.png` });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.waitForTimeout(400);
+  assert.equal(await page.locator(".session-working-on").evaluate((el) => el.scrollWidth <= el.clientWidth), true);
+  if (process.env.ATLAS_SHOT) await page.screenshot({ path: `${process.env.ATLAS_SHOT}/working-on-mobile.png` });
+  status = "idle";
+  await waitFor(() => page.locator(".session-working-on").count(), (n) => n === 0, "idle to clear the active summary");
+  assert.ok(requests.every((r) => r.path === "/api/agents/a-running/working-on"));
+  await context.close();
+});

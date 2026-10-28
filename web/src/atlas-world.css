@@ -158,3 +158,9 @@
     display: none;
   }
 }
+
+.atlas-world-tip .atlas-work-summary {
+  margin-top: 5px;
+  color: var(--text);
+  overflow-wrap: anywhere;
+}

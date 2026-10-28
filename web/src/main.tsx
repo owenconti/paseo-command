@@ -1,3 +1,4 @@
+import { useWorkingOn } from "./useWorkingOn";
 import { nativeAvailable, nativeEvents, postNative } from "./worldBridge";
 import { installAppReloadShortcut } from "./appReload";
 import { installDispatchShortcut } from "./dispatchShortcut";
@@ -266,6 +267,7 @@ function App() {
     [permissions],
   );
   const active = useMemo(() => activeAgents(agents), [agents]);
+  const workingOn = useWorkingOn(active, permissionAgents);
   const listedWorkspaces = useMemo(
     () => withLocalWorkspaces(projects, workspaces, active),
     [projects, workspaces, active],
@@ -913,6 +915,7 @@ function App() {
           <div className="native-world-frame">
             <React.Suspense fallback={null}>
               <NativeWorld
+                workingOn={workingOn}
                 hosts={hosts}
                 projects={projects}
                 workspaces={workspaces}
@@ -1074,6 +1077,7 @@ function App() {
                     />
                   ) : agent ? (
                     <Session
+                      workingOn={workingOn[agent.id]}
                       key={agent.id}
                       agent={agent}
                       workspace={workspaceOf(agent)}
