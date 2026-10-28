@@ -294,3 +294,22 @@ test("model colours and names follow the provider", () => {
   assert.equal(modelName("claude/claude-opus-5-5"), "Claude Opus 5.5");
   assert.equal(modelName("codex/gpt-6.1-sol"), "GPT-6.1 Sol");
 });
+
+test("structure art spreads across the available sprites", () => {
+  const world = layoutAtlas(crowded, 1.6);
+  const counts = (arts) => {
+    const n = new Map();
+    for (const art of arts) n.set(art, (n.get(art) ?? 0) + 1);
+    return [...n.values()];
+  };
+  const landmarks = counts(world.projects.map((e) => e.art));
+  assert.ok(Math.max(...landmarks) - Math.min(...landmarks) <= 1, `landmarks ${landmarks}`);
+  const byProject = Map.groupBy(
+    world.workspaces.filter((e) => e.art),
+    (e) => e.project,
+  );
+  for (const [project, cottages] of byProject) {
+    const n = counts(cottages.map((e) => e.art));
+    assert.ok(Math.max(...n) - Math.min(...n) <= 1 && (cottages.length < 2 || n.length === 2), `${project} cottages ${n}`);
+  }
+});
