@@ -83,6 +83,9 @@ Local assets belong in the repository and are included through local build tooli
 - `rendering/src/native/bridge.ts`: inside the native app, the Atlas world `mountAtlas` returns: it lays out and paints
   with the shared modules (`placement.ts`, `art.ts`, `terrain.ts`) and posts the result to Swift (`native/Sources/`),
   which draws, animates and owns camera, hover and picking under a transparent page.
+- `web/src/AddProject.tsx`: the Projects tab's Add project panel. On a chosen host, browse its folders
+  (`GET /api/folders`, folder names only) and register the open folder, make a new folder in it, or clone a
+  pasted GitHub repo into it (`web/server/api/projects.ts`); New agent then opens on the new project.
 - `web/src/urlState.ts`: the panel's place (selection, subagent, tab, filter, host filter, list toggle) kept in
   the page's query, so a refresh returns there; a new selection pushes history, other changes replace it.
 

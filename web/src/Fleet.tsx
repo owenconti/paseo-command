@@ -444,6 +444,7 @@ export function Fleet({
   onArchiveWorkspace,
   archiving = new Set<string>(),
   onDispatch,
+  onAddProject,
   workspaceOf,
   projectOf,
   counts: allCounts,
@@ -483,6 +484,8 @@ export function Fleet({
   /** Workspaces (by key) being archived in the background. */
   archiving?: Set<string>;
   onDispatch: (target?: { projectId?: string; workspaceId?: string }) => void;
+  /** Open the Add project panel. */
+  onAddProject: () => void;
   workspaceOf: (a: Agent) => Workspace | undefined;
   projectOf: (a: Agent) => Project | undefined;
   counts: Record<Filter, number>;
@@ -803,6 +806,19 @@ export function Fleet({
               ...groups.filter((g) => g.label).map((g) => g.key),
             ]}
           />
+        </div>
+      )}
+      {tab === "Projects" && projects.length > 0 && (
+        <div className="filter-bar project-bar">
+          <button
+            className="secondary add-project-btn"
+            aria-description="Add an existing folder, a new folder or a GitHub clone as a project"
+            disabled={!online}
+            onClick={onAddProject}
+          >
+            <Plus size={13} />
+            Add project
+          </button>
         </div>
       )}
       <div className="registry-list" role="tabpanel">
@@ -1222,9 +1238,19 @@ export function Fleet({
                 {tab === "Hosts"
                   ? "Hosts connected to Paseo appear here with their health."
                   : tab === "Projects"
-                    ? "Projects you add in Paseo appear here as bases on the map."
+                    ? "Add a folder, a new folder or a GitHub clone; its first agent puts it on the map."
                     : "Dispatch an agent to put it to work on a project."}
               </p>
+              {tab === "Projects" && (
+                <button
+                  className="primary"
+                  aria-description="Add an existing folder, a new folder or a GitHub clone as a project"
+                  onClick={onAddProject}
+                >
+                  <Plus size={14} />
+                  Add project
+                </button>
+              )}
               {(tab === "Agents" || tab === "Workspaces") && (
                 <button
                   className="primary"
