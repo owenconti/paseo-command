@@ -83,7 +83,7 @@ Mapping from PR facts:
   names to flag frames. Unknown labels are ignored on the map.
 - **Placement (Owen chose):** the two flags stand on the two cells of the workspace's triangle
   that are furthest from the landmark: CI flag on the left one, review flag on the right one
-  (left and right as seen looking from the landmark outward). There they **replace** the
+  (for a workspace below its landmark, screen left and right as in the approved mockup; other slots turn with the workspace). There they **replace** the
   garden's plant in that cell (`garden()` in `rendering/src/AtlasScene.ts`). The cell
   nearest the landmark keeps its plant. With no flag for a cell, that cell keeps its plant as today.
 - **Size (Owen chose):** the large size from the mockup, about 50 px tall at the default zoom
