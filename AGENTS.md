@@ -14,10 +14,11 @@
 ## Checkout and worktrees
 
 - `paseo-command/` is the main checkout on local `main`.
-- Put every new linked worktree in `worktrees/` under the main checkout. Use
-  `npm run worktree:add -- <branch> [start-point]` (defaults to local `main`).
-- `worktrees/`, `archive/` and `.paseo-command/` contain local checkouts, preserved
-  history/assets and runtime data; do not stage them into the app repository.
+- Use Paseo’s default worktree location: `~/.paseo/worktrees/<project-hash>/<slug>/`.
+  Create workspaces through Paseo; do not add a custom worktree folder, helper command,
+  placement plugin or root override for this app. Use local `main` as the base for this local-only project.
+- `archive/` and `.paseo-command/` contain preserved history/assets and runtime data;
+  do not stage them into the app repository.
 - `archive/legacy-app/` owns its own historical worktrees in its `worktrees/` folder.
 - The old `paseo-cc-phaser-ae` path is a compatibility symlink for the running app
   and existing sessions. Use `paseo-command` for all new work.

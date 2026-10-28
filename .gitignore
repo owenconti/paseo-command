@@ -16,7 +16,6 @@ web/public/world/
 !.env.example
 .superpowers/
 
-# Local linked checkouts, historical copies and app state
-/worktrees/
+# Historical copies and app state
 /archive/
 .paseo-command/

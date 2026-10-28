@@ -27,7 +27,6 @@
     "app:update": "npm run app:build && npm run app:restart && npm run native:build",
     "native:build": "sh native/scripts/bundle.sh",
     "native:run": "sh native/scripts/run.sh",
-    "native:mock": "web/node_modules/.bin/tsx native/scripts/mock-fleet.ts",
-    "worktree:add": "node scripts/add-worktree.mjs"
+    "native:mock": "web/node_modules/.bin/tsx native/scripts/mock-fleet.ts"
   }
 }

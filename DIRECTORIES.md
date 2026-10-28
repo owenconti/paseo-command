@@ -7,27 +7,22 @@ shared Atlas layout and art (`rendering/`), and the cached Phaser prototype
 
 ## Linked worktrees
 
-Current repository checkouts live in `worktrees/`:
+Use Paseo's default allocation under `~/.paseo/worktrees/<project-hash>/<slug>/`.
+There is no custom worktree command, root override or placement plugin for this app.
+Create new worktree workspaces through Paseo, using local `main` as the base for
+this local-only repository.
+
+The existing current-app checkouts were moved into
+`~/.paseo/worktrees/280r21aw/`, using the installed Paseo allocator's hash:
 
 - `add-project/` — branch `add-project`.
 - `agent-a0f87fc4c43b16ea1/` — branch `worktree-agent-a0f87fc4c43b16ea1`.
 - `dom-atlas/` — branch `dom-atlas` (older renderer experiment).
 
-Create a new branch and checkout from local main:
-
-```sh
-npm run worktree:add -- my-feature
-# Optional explicit start point:
-npm run worktree:add -- my-feature refs/heads/main
-```
-
-The helper always resolves the main repository and places the checkout at
-`worktrees/<branch>`; branch slashes become `--`. Git has no default directory
-setting for `git worktree add`, so use this helper or explicitly supply a path
-inside this folder. These instructions apply to human and agent-created checkouts;
-external tools that manage their own worktree paths need their own configuration.
-Use `git worktree list` to inspect and `git worktree remove <path>` when finished.
-Do not remove a checkout containing unfinished work.
+Git's worktree registrations were updated and each checkout's commit and
+uncommitted changes verified after moving. These existing checkouts were created
+outside Paseo; relocating them does not register new Paseo workspaces.
+Use `git worktree list` to inspect them. Do not remove unfinished work.
 
 ## Preserved history and assets
 
@@ -43,7 +38,8 @@ Everything previously spread across sibling app folders is retained in ignored
 - `pre-rewrite-2026-10-25.bundle` — original Git bundle backup.
 
 Both live repositories' Git worktree links were repaired after the move.
-`archive/`, `worktrees/` and local `.paseo-command/` state are ignored by Git.
+`archive/` and local `.paseo-command/` state are ignored by Git.
+Historical worktrees in `archive/legacy-app/worktrees/` remain with their archived repository.
 
 ## Compatibility and running app
 
