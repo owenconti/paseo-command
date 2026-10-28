@@ -91,7 +91,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         listen("com.paseo.command.native.pan") { [weak self] in self?.main?.scriptedPan(seconds: 10) }
         listen("com.paseo.command.native.info") { [weak self] in self?.writeInfo() }
         listen("com.paseo.command.native.quit") { NSApp.terminate(nil) }
-        listen("com.paseo.command.native.reload") { [weak self] in self?.reload() }
+        listen("com.paseo.command.native.reload") { [weak self] in self?.reloadApp(nil) }
+        // ⌘R as the keyboard sends it, through the main menu (checks the menu's routing).
+        listen("com.paseo.command.native.keyreload") {
+            guard let event = NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: .command, timestamp: 0,
+                                               windowNumber: 0, context: nil, characters: "r", charactersIgnoringModifiers: "r",
+                                               isARepeat: false, keyCode: 15) else { return }
+            Log.line("⌘R through the menu: \(NSApp.mainMenu?.performKeyEquivalent(with: event) ?? false)")
+        }
         listen("com.paseo.command.native.terminal") { [weak self] in self?.main?.toggleTerminal() }
         // Type `<info>.type`'s text into the drawer's terminal, as keys would.
         listen("com.paseo.command.native.type") { [weak self] in
@@ -184,8 +191,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let viewItem = NSMenuItem()
         bar.addItem(viewItem)
         let view = NSMenu(title: "View")
-        view.addItem(withTitle: "Reload", action: #selector(reload), keyEquivalent: "r")
+        // Targeted at this delegate: left to the responder chain, the web view
+        // (which has its own `reload`) would answer ⌘R and skip the update check.
+        let reload = view.addItem(withTitle: "Reload", action: #selector(reloadApp(_:)), keyEquivalent: "r")
+        reload.target = self
         let terminal = view.addItem(withTitle: "Terminal", action: #selector(toggleTerminal), keyEquivalent: "`")
+        terminal.target = self
         terminal.keyEquivalentModifierMask = [.control]
         viewItem.submenu = view
         let windowItem = NSMenuItem()
@@ -203,7 +214,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// same page, no quitting by hand.
     @objc private func toggleTerminal() { main?.toggleTerminal() }
 
-    @objc private func reload() {
+    @objc private func reloadApp(_ sender: Any?) {
         guard let main else { return }
         if Build.newer { relaunch(main) } else { main.reload() }
     }
