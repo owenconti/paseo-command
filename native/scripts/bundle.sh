@@ -11,5 +11,7 @@ rm -rf "$app"
 mkdir -p "$app/Contents/MacOS"
 cp "$bin/PaseoCommandNative" "$app/Contents/MacOS/PaseoCommandNative"
 cp "$here/Info.plist" "$app/Contents/Info.plist"
+mkdir -p "$app/Contents/Resources"
+cp "$here/AppIcon.icns" "$app/Contents/Resources/AppIcon.icns"
 codesign --force --sign - "$app" >/dev/null 2>&1
 echo "$app"
