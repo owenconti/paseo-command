@@ -14,7 +14,13 @@
  *   catalog's colour.
  */
 import { PR_LABELS } from "../../rendering/src/prStatus";
-import { BASE_BRANCHES, type GhAnswer, type PullRequest } from "./links";
+import type { DaemonClient } from "./api/hosts";
+import { BASE_BRANCHES, ghPullRequest, type GhAnswer, type PullRequest } from "./links";
+
+type LabelColor = Parameters<DaemonClient["setWorkspaceLabel"]>[0]["label"]["color"];
+
+/** The first pass waits a little, so the app's start isn't slowed; then one every `everyMs`. */
+export const PR_LABELS_TUNING = { firstMs: 5000, everyMs: 30000 };
 
 /** The labels a workspace should carry, or null when its PR can't be known. */
 export function wantedLabels(pr: PullRequest | null | undefined): string[] | null {
@@ -119,4 +125,54 @@ export function createPrLabeller(deps: LabellerDeps) {
     }
   }
   return { pass };
+}
+
+/** The app's own daemons: workspace rows as the API serves them, labels set as the panel sets them. */
+function appDeps(): LabellerDeps {
+  return {
+    rows: async () => {
+      const { aggregate } = await import("./api/reads");
+      return (await aggregate("workspaces")).rows as LabelRow[];
+    },
+    gh: (cwd, branch) => ghPullRequest(cwd, branch),
+    catalog: async (host) => {
+      const [{ labelCatalog }, { resolveHost }] = await Promise.all([
+        import("./api/reads"),
+        import("./api/hosts"),
+      ]);
+      return labelCatalog(await resolveHost(host));
+    },
+    setLabel: async (host, o) => {
+      const [{ resolveHost, sdk, timed }, { TUNING }] = await Promise.all([
+        import("./api/hosts"),
+        import("./fleet"),
+      ]);
+      const client = await sdk(await resolveHost(host, "write"));
+      return timed(
+        client.setWorkspaceLabel({ ...o, label: { ...o.label, color: o.label.color as LabelColor } }),
+        TUNING.writeMs,
+      );
+    },
+  };
+}
+
+let loop: { timer: ReturnType<typeof setTimeout>; stopped: boolean } | null = null;
+/** Start labelling while the app serves: one loop per process, passes never overlapping. */
+export function startPrLabels(deps: LabellerDeps = appDeps()): void {
+  if (loop) return;
+  const labeller = createPrLabeller(deps);
+  const mine = { timer: undefined as unknown as ReturnType<typeof setTimeout>, stopped: false };
+  const tick = async () => {
+    await labeller.pass();
+    if (!mine.stopped) mine.timer = setTimeout(tick, PR_LABELS_TUNING.everyMs).unref();
+  };
+  // Never what holds the process open.
+  mine.timer = setTimeout(tick, PR_LABELS_TUNING.firstMs).unref();
+  loop = mine;
+}
+export function stopPrLabels(): void {
+  if (!loop) return;
+  loop.stopped = true;
+  clearTimeout(loop.timer);
+  loop = null;
 }

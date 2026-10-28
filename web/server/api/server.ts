@@ -16,6 +16,7 @@ import { unfollow } from "./hosts";
 import { shuttingDown } from "./http";
 import { handleApi } from "./routes";
 import { handleUpgrade } from "./stream";
+import { startPrLabels, stopPrLabels } from "../prLabels";
 
 type ApiServer = {
   close?: () => Promise<void>;
@@ -50,12 +51,17 @@ export function attachApiServer(server: ApiServer) {
 
   let closing = false;
   retainCleanup(server);
+  // Workspaces' PR labels are kept while the app serves (server/prLabels.ts).
+  startPrLabels();
   let shutdownPromise: Promise<void> | undefined;
   const shutdown = () =>
     (shutdownPromise ??= (async () => {
       closing = true;
       const last = lastHost(server);
-      if (last) closeAdmission();
+      if (last) {
+        closeAdmission();
+        stopPrLabels();
+      }
       stopLive();
       unfollow();
       // Connections being made are abandoned and their waiters refused, so

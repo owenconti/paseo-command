@@ -7,7 +7,10 @@ import assert from "node:assert/strict";
 import { FakeDaemon } from "./fake-daemon";
 import type { PullRequest } from "./links";
 import {
+  PR_LABELS_TUNING,
   createPrLabeller,
+  startPrLabels,
+  stopPrLabels,
   wantedLabels,
   type LabelRow,
   type LabellerDeps,
@@ -179,4 +182,52 @@ test("labels land on the fake daemon through the SDK's call", async () => {
       ["Approved", "violet"],
     ],
   );
+});
+
+test("one labeller loop runs per process, until stopped", async () => {
+  const saved = { ...PR_LABELS_TUNING };
+  Object.assign(PR_LABELS_TUNING, { firstMs: 5, everyMs: 20 });
+  let reads = 0;
+  const { d } = deps([], {
+    rows: async () => {
+      reads++;
+      return [];
+    },
+  });
+  try {
+    startPrLabels(d);
+    startPrLabels(d);
+    await new Promise((r) => setTimeout(r, 110));
+    assert.ok(reads >= 3 && reads <= 7, `one loop, not two (${reads} passes)`);
+    stopPrLabels();
+    const after = reads;
+    await new Promise((r) => setTimeout(r, 60));
+    assert.equal(reads, after);
+  } finally {
+    stopPrLabels();
+    Object.assign(PR_LABELS_TUNING, saved);
+  }
+});
+
+test("passes never overlap", async () => {
+  const saved = { ...PR_LABELS_TUNING };
+  Object.assign(PR_LABELS_TUNING, { firstMs: 1, everyMs: 5 });
+  let running = 0,
+    most = 0;
+  const { d } = deps([], {
+    rows: async () => {
+      most = Math.max(most, ++running);
+      await new Promise((r) => setTimeout(r, 40));
+      running--;
+      return [];
+    },
+  });
+  try {
+    startPrLabels(d);
+    await new Promise((r) => setTimeout(r, 120));
+  } finally {
+    stopPrLabels();
+    Object.assign(PR_LABELS_TUNING, saved);
+  }
+  assert.equal(most, 1);
 });
