@@ -257,6 +257,17 @@ export function NativeWorld(props: Props) {
     }
     picked.current = null;
   }, [props.selection, props.host, props.focusRevision, snapshot, ready]);
+  // The terminal drawer shows the selected workspace's (or agent's) terminals.
+  useEffect(() => {
+    const key = selectionKey(props.selection, snapshot);
+    const agent = props.selection?.type === "agent" ? snapshot.agents.find((a) => a.key === key) : undefined;
+    const row = snapshot.workspaces.find((w) => w.key === (agent ? agent.workspaceKey : key));
+    safely(() =>
+      world.current?.workspace(
+        row ? { id: row.id, host: row.hostId === "local" ? "" : row.hostId, name: row.name } : null,
+      ),
+    );
+  }, [props.selection, snapshot, ready]);
   useEffect(() => {
     if (!ready) return;
     safely(() => world.current?.input(!props.blocked));

@@ -25,6 +25,9 @@ export type AtlasWorld = {
   /** Pans to an entity if it is out of view; `zoom` frames it closer too. */
   focus(id: string, zoom?: boolean): void;
   command(name: "home" | "in" | "out"): void;
+  /** The workspace whose daemon terminals the app's terminal drawer shows
+   * (the selected one, or the selected agent's), or null. */
+  workspace(info: { id: string; host: string; name: string } | null): void;
   input(enabled: boolean): void;
   motion(reduced?: boolean): boolean;
   /** Undefined until the world is drawn. */

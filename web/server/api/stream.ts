@@ -16,6 +16,7 @@ import {
   statusView,
 } from "./hosts";
 import { allowedOrigin } from "./http";
+import { terminalUpgrade } from "./terminals";
 import { id } from "./validate";
 
 /** Start following every host (idempotent; the first API request does it). */
@@ -64,6 +65,7 @@ export function handleUpgrade(
   head: Buffer,
 ) {
   const url = new URL(req.url || "/", "http://127.0.0.1");
+  if (url.pathname === "/api/terminal") return terminalUpgrade(req, socket, head);
   if (url.pathname !== "/api/ws") return false;
   const refuse = (code: number, text: string) => {
     socket.write(

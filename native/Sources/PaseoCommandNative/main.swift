@@ -92,6 +92,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         listen("com.paseo.command.native.info") { [weak self] in self?.writeInfo() }
         listen("com.paseo.command.native.quit") { NSApp.terminate(nil) }
         listen("com.paseo.command.native.reload") { [weak self] in self?.reload() }
+        listen("com.paseo.command.native.terminal") { [weak self] in self?.main?.toggleTerminal() }
+        // Type `<info>.type`'s text into the drawer's terminal, as keys would.
+        listen("com.paseo.command.native.type") { [weak self] in
+            guard let self, let info = self.options.info,
+                  let text = try? String(contentsOfFile: (info as NSString).deletingPathExtension + ".type", encoding: .utf8) else { return }
+            self.main?.drawer.type(text)
+        }
         // Run `<info>.js` in the page, writing its result to `<info>.out` (checks and tests).
         listen("com.paseo.command.native.eval") { [weak self] in
             guard let self, let info = self.options.info, let main = self.main else { return }
@@ -144,6 +151,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             "window": main.window.windowNumber, "pids": main.processes(),
             "visible": main.window.occlusionState.contains(.visible), "framesDrawn": main.scene.framesDrawn,
             "paused": main.atlasView.isPaused, "fps": main.atlasView.preferredFramesPerSecond,
+            "terminal": main.drawer.state(),
         ]
         if let data = try? JSONSerialization.data(withJSONObject: info, options: [.prettyPrinted]) {
             try? data.write(to: URL(fileURLWithPath: path))
@@ -177,6 +185,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         bar.addItem(viewItem)
         let view = NSMenu(title: "View")
         view.addItem(withTitle: "Reload", action: #selector(reload), keyEquivalent: "r")
+        let terminal = view.addItem(withTitle: "Terminal", action: #selector(toggleTerminal), keyEquivalent: "`")
+        terminal.keyEquivalentModifierMask = [.control]
         viewItem.submenu = view
         let windowItem = NSMenuItem()
         bar.addItem(windowItem)
@@ -191,6 +201,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// ⌘R: the page reloads with the latest web build; if a newer native
     /// build is on disk, the app swaps itself for it in place: same window,
     /// same page, no quitting by hand.
+    @objc private func toggleTerminal() { main?.toggleTerminal() }
+
     @objc private func reload() {
         guard let main else { return }
         if Build.newer { relaunch(main) } else { main.reload() }

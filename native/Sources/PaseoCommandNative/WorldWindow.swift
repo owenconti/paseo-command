@@ -11,6 +11,8 @@ import WebKit
 final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKNavigationDelegate, WKUIDelegate {
     let window: NSWindow
     let web: WKWebView
+    let split: NSSplitView
+    let drawer: TerminalDrawer
     let atlasView: AtlasView
     let scene: AtlasScene
     let options: Options
@@ -42,9 +44,20 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         window.minSize = NSSize(width: 760, height: 520)
         window.isReleasedWhenClosed = false
         window.backgroundColor = Textures.color(0x1d6884)
-        let content = NSView(frame: window.contentView!.bounds)
+        // The map and page on top; the terminal drawer below, collapsed until asked for.
+        split = NSSplitView(frame: window.contentView!.bounds)
+        split.isVertical = false
+        split.dividerStyle = .thin
+        split.autoresizingMask = [.width, .height]
+        window.contentView = split
+        let content = NSView(frame: split.bounds)
         content.autoresizingMask = [.width, .height]
-        window.contentView = content
+        drawer = TerminalDrawer(frame: CGRect(x: 0, y: 0, width: split.bounds.width, height: 260))
+        split.addArrangedSubview(content)
+        split.addArrangedSubview(drawer)
+        split.setHoldingPriority(.defaultLow, forSubviewAt: 0)
+        split.setHoldingPriority(.defaultHigh, forSubviewAt: 1)
+        drawer.isHidden = true
 
         scene = AtlasScene(size: content.bounds.size)
         atlasView = AtlasView(frame: content.bounds, scene: scene)
@@ -69,6 +82,8 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         web.uiDelegate = self
         window.delegate = self
         scene.emit = { [weak self] message in self?.send(message) }
+        drawer.server = { [weak self] in self?.serverURL ?? options.url }
+        if UserDefaults.standard.bool(forKey: "terminalOpen") { DispatchQueue.main.async { self.toggleTerminal() } }
         if server != nil {
             notice("Starting Paseo Command…", "Starting the app server on \(options.url.host ?? ""):\(options.url.port ?? 4310).")
             startServer { [weak self] in self?.web.load(URLRequest(url: options.url)) }
@@ -135,6 +150,11 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         case "command": scene.command(body["name"] as? String ?? "")
         case "input": scene.setInput(body["enabled"] as? Bool ?? true)
         case "motion": scene.setMotion(reduced: body["reduced"] as? Bool ?? false)
+        case "workspace":
+            let w = body["workspace"] as? [String: Any]
+            drawer.show(w.flatMap { w in
+                (w["id"] as? String).map { TerminalWorkspace(id: $0, host: w["host"] as? String ?? "", name: w["name"] as? String ?? $0) }
+            })
         case "detach":
             // The page unmounted its world (it is reloading or navigating).
             atlasView.isHidden = true
@@ -303,18 +323,34 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
     /// SpriteKit's world under the page's snapshot, written as a PNG.
     func snapshot(to path: String) {
         let bounds = web.bounds
+        let whole = split.bounds
         let scale = window.backingScaleFactor
+        // The terminal drawer is layer-backed: its layer tree draws it.
+        var terminal: CGImage?
+        if !drawer.isHidden, let layer = drawer.layer,
+           let ctx = Textures.context(Int(drawer.bounds.width * scale), Int(drawer.bounds.height * scale)) {
+            ctx.scaleBy(x: scale, y: scale)
+            if drawer.isFlipped {
+                ctx.translateBy(x: 0, y: drawer.bounds.height)
+                ctx.scaleBy(x: 1, y: -1)
+            }
+            layer.render(in: ctx)
+            terminal = ctx.makeImage()
+        }
         var world: CGImage?
         if !atlasView.isHidden, let texture = atlasView.texture(from: scene) { world = texture.cgImage() }
         web.takeSnapshot(with: nil) { [weak self] page, error in
             guard let self else { return }
-            let width = Int(bounds.width * scale), height = Int(bounds.height * scale)
+            let width = Int(whole.width * scale), height = Int(whole.height * scale)
             guard let ctx = Textures.context(width, height) else { return }
             ctx.scaleBy(x: scale, y: scale)
             ctx.setFillColor(Textures.color(0x1d6884).cgColor)
-            ctx.fill(bounds)
-            if let world { ctx.draw(world, in: self.atlasView.frame) }
-            if let page, let image = page.cgImage(forProposedRect: nil, context: nil, hints: nil) { ctx.draw(image, in: bounds) }
+            ctx.fill(whole)
+            // The page's area, from the split's bottom-left origin (it is flipped).
+            let top = CGRect(x: 0, y: whole.height - bounds.height, width: bounds.width, height: bounds.height)
+            if let world { ctx.draw(world, in: self.atlasView.frame.offsetBy(dx: 0, dy: top.minY)) }
+            if let page, let image = page.cgImage(forProposedRect: nil, context: nil, hints: nil) { ctx.draw(image, in: top) }
+            if let terminal { ctx.draw(terminal, in: CGRect(x: 0, y: 0, width: self.drawer.frame.width, height: self.drawer.frame.height)) }
             guard let image = ctx.makeImage(),
                   let destination = CGImageDestinationCreateWithURL(URL(fileURLWithPath: path) as CFURL, "public.png" as CFString, 1, nil)
             else { return }
@@ -325,6 +361,35 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
     }
 
     static let frameName = "PaseoCommand.main"
+
+    /// The app server's root (the page's scheme, host and port).
+    var serverURL: URL {
+        var c = URLComponents(url: pageURL, resolvingAgainstBaseURL: false)!
+        c.path = "/"
+        c.query = nil
+        c.fragment = nil
+        return c.url ?? options.url
+    }
+
+    /// Show or hide the terminal drawer (View → Terminal, ⌃`), at the height it last had.
+    @objc func toggleTerminal() {
+        let open = drawer.isHidden
+        if open {
+            let height = max(140, min(UserDefaults.standard.double(forKey: "terminalHeight").nonZero ?? 260, split.bounds.height - 200))
+            drawer.isHidden = false
+            split.adjustSubviews()
+            split.setPosition(split.bounds.height - height - split.dividerThickness, ofDividerAt: 0)
+            drawer.setActive(true)
+            drawer.focusTerminal()
+        } else {
+            UserDefaults.standard.set(drawer.frame.height, forKey: "terminalHeight")
+            drawer.setActive(false)
+            drawer.isHidden = true
+            split.adjustSubviews()
+            window.makeFirstResponder(web)
+        }
+        UserDefaults.standard.set(open, forKey: "terminalOpen")
+    }
 
     /// The app page the window is on (its query keeps the panel's place), or
     /// the app's own address if it is showing the "isn't reachable" notice.
@@ -355,4 +420,8 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         }
         return result
     }
+}
+
+private extension Double {
+    var nonZero: Double? { self == 0 ? nil : self }
 }

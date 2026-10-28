@@ -87,6 +87,11 @@ Local assets belong in the repository and are included through local build tooli
 - `rendering/src/native/bridge.ts`: inside the native app, the Atlas world `mountAtlas` returns: it lays out and paints
   with the shared modules (`placement.ts`, `art.ts`, `terrain.ts`) and posts the result to Swift (`native/Sources/`),
   which draws, animates and owns camera, hover and picking under a transparent page.
+- `native/Sources/PaseoCommandNative/TerminalDrawer.swift`: the macOS app's terminal drawer (View → Terminal, ⌃`):
+  tabs for the selected workspace's (or agent's) daemon terminals, + for a new one, × to end one, drawn by SwiftTerm.
+  It talks to `web/server/api/terminals.ts`: `GET /api/terminals`, `POST /api/terminals/create|kill`, and the
+  `/api/terminal` socket relaying a terminal's bytes (screen replay first) and its keys and size.
+  `native/scripts/fake-server.ts` runs the real server against a fake daemon (with terminals) for checks.
 - `web/src/AddProject.tsx`: the Projects tab's Add project panel. On a chosen host, browse its folders
   (`GET /api/folders`, folder names only) and register the open folder, make a new folder in it, or clone a
   pasted GitHub repo into it (`web/server/api/projects.ts`); New agent then opens on the new project.

@@ -69,6 +69,21 @@ base path for the `notifyutil` hooks below).
 - **No web renderer.** The Phaser Atlas and Galaxy were removed; in a plain browser the panels work
   and the map area says the map is drawn by this app.
 
+## Terminal drawer
+
+View → Terminal (⌃`) opens a drawer under the map and panels with the daemon's terminals for the
+selected workspace (or the selected agent's): one tab per terminal, + opens a new one in that
+workspace, × ends one (after asking). Closing the drawer or switching workspace leaves terminals
+running on the daemon. SwiftTerm draws them; the app server relays each over `/api/terminal`
+(`web/server/api/terminals.ts`), replaying its recent screen first. To check it without a real
+daemon:
+
+```sh
+npm --prefix web run build
+web/node_modules/.bin/tsx --import ./web/server/test-setup.ts native/scripts/fake-server.ts --port 4332
+npm run native:run -- --url 'http://127.0.0.1:4332/?agent=a-1' --no-server
+```
+
 ## Checks without screen recording
 
 `--info /tmp/x.json` names files for hooks posted with `notifyutil -p <name>.x` (only a copy
@@ -76,8 +91,9 @@ launched with `--info` listens, under names ending in its info file's name, so t
 ignores them):
 `com.paseo.command.native.eval` runs `/tmp/x.js` in the page and writes `/tmp/x.out`;
 `.snapshot` writes `/tmp/x.png` (SpriteKit's frame under the page's snapshot); `.info` rewrites
-`/tmp/x.json`; `.pan` drags the map for 10 s; `.resize` alternates the window size; `.reload` does
-what ⌘R does; `.quit`.
+`/tmp/x.json` (with the terminal drawer's state); `.pan` drags the map for 10 s; `.resize` alternates
+the window size; `.reload` does what ⌘R does; `.terminal` toggles the drawer; `.type` types
+`/tmp/x.type` into its terminal; `.quit`.
 
 Measurements against the web Atlas are in [MEASUREMENTS.md](MEASUREMENTS.md)
 (`node native/scripts/measure.mjs`).

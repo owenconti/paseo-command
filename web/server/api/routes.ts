@@ -15,6 +15,7 @@ import {
 } from "./agents";
 import { workingOn } from "../workingOn";
 import { draftGet } from "./drafts";
+import { createTerminal, killTerminal, listTerminals } from "./terminals";
 import {
   addProject,
   cloneProject,
@@ -126,6 +127,9 @@ export async function handleApi(
             result = await providers(host);
             break;
           }
+          case "terminals":
+            result = await listTerminals(url);
+            break;
           case "usage":
             result = await usage();
             break;
@@ -271,6 +275,10 @@ export async function handleApi(
       try {
         if (parts[0] === "dispatch" && parts.length === 1)
           result = await dispatchRoute(body, mark);
+        else if (parts[0] === "terminals" && parts.length === 2 && parts[1] === "create")
+          result = await createTerminal(body);
+        else if (parts[0] === "terminals" && parts.length === 2 && parts[1] === "kill")
+          result = await killTerminal(body);
         else if (parts[0] === "projects" && parts.length === 2) {
           if (parts[1] === "add") result = await addProject(body, mark);
           else if (parts[1] === "create-folder")

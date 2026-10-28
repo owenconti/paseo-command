@@ -89,6 +89,25 @@ export class FakeDaemon {
   /** The host's folders (absolute paths), for browsing and adding projects. */
   home = "/home/review";
   folders = new Set(["/", "/home", "/home/review", "/home/review/code"]);
+  /** Terminals: what each has printed, the input it was sent, and who watches. */
+  terminals = new Map<
+    string,
+    {
+      id: string;
+      name: string;
+      cwd: string;
+      workspaceId?: string;
+      printed: string;
+      input: any[];
+      watchers: Set<(event: any) => void>;
+    }
+  >();
+  /** Print to a terminal, as its shell would: watchers see it live. */
+  print(terminalId: string, text: string) {
+    const t = this.terminals.get(terminalId)!;
+    t.printed += text;
+    for (const w of t.watchers) w({ terminalId, subscriptionId: "sub", type: "output", data: Buffer.from(text) });
+  }
   /** The local daemon's host registry (remote hosts it knows). */
   registry: any[] = [];
   timelines = new Map<string, any[]>();
@@ -1109,6 +1128,66 @@ export class FakeClient {
       typeof q === "object" ? q : {},
       this.sync,
     );
+  }
+  async listTerminals(cwd?: string, _requestId?: string, options: { workspaceId?: string } = {}) {
+    await this.gate("listTerminals", cwd, options);
+    return {
+      cwd,
+      requestId: "r",
+      terminals: [...this.daemon.terminals.values()]
+        .filter((t) => (!cwd || t.cwd === cwd) && (!options.workspaceId || t.workspaceId === options.workspaceId))
+        .map(({ id, name, cwd }) => ({ id, name, cwd })),
+    };
+  }
+  async createTerminal(cwd: string, name?: string, _requestId?: string, options: any = {}) {
+    await this.gate("createTerminal", cwd, options);
+    const id = `term-${++ids}`;
+    const t = { id, name: name ?? `Terminal ${this.daemon.terminals.size + 1}`, cwd, workspaceId: options.workspaceId, printed: "$ ", input: [], watchers: new Set<(e: any) => void>() };
+    this.daemon.terminals.set(id, t);
+    return { terminal: { id, name: t.name, cwd, workspaceId: t.workspaceId }, error: null, requestId: "r" };
+  }
+  async killTerminal(terminalId: string) {
+    await this.gate("killTerminal", terminalId);
+    const t = this.daemon.terminals.get(terminalId);
+    this.daemon.terminals.delete(terminalId);
+    for (const w of t?.watchers ?? []) w({ terminalId, subscriptionId: "sub", type: "exit" });
+    return { terminalId, success: !!t, requestId: "r" };
+  }
+  /** Input is recorded and typed text echoed, as a shell's line discipline would. */
+  sendTerminalInput(terminalId: string, message: any) {
+    this.daemon.calls.push({ method: "sendTerminalInput", args: [terminalId, message], target: this.target });
+    const t = this.daemon.terminals.get(terminalId);
+    if (!t) return;
+    t.input.push(message);
+    if (message.type === "input") this.daemon.print(terminalId, message.data);
+  }
+  /** The terminal's screen so far (as a restore), then its output live. */
+  observeTerminal(terminalId: string, receive: (event: any) => void, options: any = {}) {
+    this.daemon.calls.push({ method: "observeTerminal", args: [terminalId, options], target: this.target });
+    const t = this.daemon.terminals.get(terminalId);
+    const observers = new Set<any>();
+    const watcher = (event: any) => {
+      if (event.type === "exit") for (const o of observers) o.update({ type: "terminal_stream_exit", payload: { terminalId } });
+      else receive(event);
+    };
+    const payload = { subscriptionId: "sub", slot: 0, error: t ? null : "Terminal not found" };
+    queueMicrotask(() => {
+      for (const o of observers) o.snapshot(payload);
+      if (!t) return;
+      receive({ terminalId, subscriptionId: "sub", type: "restore", data: Buffer.from(t.printed) });
+      t.watchers.add(watcher);
+    });
+    return {
+      subscriptionId: "sub",
+      ready: Promise.resolve(payload),
+      subscribe(o: any) {
+        observers.add(o);
+        return () => observers.delete(o);
+      },
+      release: async () => {
+        t?.watchers.delete(watcher);
+      },
+    };
   }
   async listHosts() {
     await this.gate("listHosts");

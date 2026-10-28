@@ -535,6 +535,7 @@ export function mountNativeAtlas(parent: HTMLElement, handlers: AtlasHandlers = 
     },
     focus: (id, closer) => ready && post({ type: "focus", id, zoom: !!closer }),
     command: (name) => ready && post({ type: "command", name }),
+    workspace: (info) => post({ type: "workspace", workspace: info }),
     input: (on) => {
       enabled = on;
       post({ type: "input", enabled: on });
