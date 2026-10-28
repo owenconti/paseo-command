@@ -69,12 +69,16 @@
   font-size: var(--fs-xs);
   color: var(--text-3);
 }
-.session-meta {
+.session-meta,
+.session-links {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 6px;
   margin-top: var(--space-3);
+}
+.session-links {
+  margin-top: var(--space-2);
 }
 .branch-chip,
 .usage-chip {

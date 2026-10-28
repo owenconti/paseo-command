@@ -574,6 +574,22 @@ export function Session({
         <div className="session-meta">
           <ProviderIcon provider={agent.provider} />
           <Badge status={status} />
+          {usage && (usage.CostUsd || usage.OutputTokens) ? (
+            <span
+              className="usage-chip"
+              aria-description={`${usage.InputTokens || 0} in · ${usage.OutputTokens || 0} out · ${usage.CachedTokens || 0} cached (last turn)`}
+            >
+              ${(usage.CostUsd || 0).toFixed(2)} ·{" "}
+              {((usage.OutputTokens || 0) / 1000).toFixed(1)}k out
+            </span>
+          ) : null}
+          <SubagentsControl
+            agent={agent}
+            onOpen={onOpenSubagent}
+            onNotice={onNotice}
+          />
+        </div>
+        <div className="session-links">
           <button
             className="branch-chip"
             disabled={!workspace}
@@ -595,20 +611,6 @@ export function Session({
             )}
           </button>
           <HeaderLinks agent={agent} workspace={workspace} />
-          {usage && (usage.CostUsd || usage.OutputTokens) ? (
-            <span
-              className="usage-chip"
-              aria-description={`${usage.InputTokens || 0} in · ${usage.OutputTokens || 0} out · ${usage.CachedTokens || 0} cached (last turn)`}
-            >
-              ${(usage.CostUsd || 0).toFixed(2)} ·{" "}
-              {((usage.OutputTokens || 0) / 1000).toFixed(1)}k out
-            </span>
-          ) : null}
-          <SubagentsControl
-            agent={agent}
-            onOpen={onOpenSubagent}
-            onNotice={onNotice}
-          />
         </div>
         <AnimatePresence>
           {confirm && (
