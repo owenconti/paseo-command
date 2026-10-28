@@ -1,9 +1,9 @@
 #!/usr/bin/env node
-/** Detached local preview. Tailscale remains an explicit, tailnet-only opt-in. */
+/** Detached app preview, listening on all network interfaces. */
 import { spawn, execFileSync } from 'node:child_process';
 import { existsSync, readFileSync, writeFileSync, openSync, closeSync, unlinkSync } from 'node:fs';
 import { createHash, randomUUID } from 'node:crypto';
-import { tmpdir } from 'node:os';
+import { tmpdir, networkInterfaces } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { setTimeout as delay } from 'node:timers/promises';
@@ -27,39 +27,11 @@ function isRunning(state) {
   } catch { return false; }
 }
 function removeState() { try { unlinkSync(stateFile); } catch {} }
-function tailnetHost(value) {
-  const host = value.trim().toLowerCase().replace(/\.$/, '');
-  if (!/^(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z]{2,}$/.test(host)) throw new Error('Use a hostname without a scheme, path or port for PASEO_COMMAND_TAILNET_HOST.');
-  return host;
-}
-function tailscale(args) {
-  const binary = process.env.PASEO_COMMAND_TAILSCALE_BIN || 'tailscale';
-  try { return execFileSync(binary, args, { encoding: 'utf8', timeout: 20000, stdio: ['ignore', 'pipe', 'pipe'] }).trim(); }
-  catch (error) {
-    if (error.code === 'ENOENT' && !process.env.PASEO_COMMAND_TAILSCALE_BIN && existsSync('/Applications/Tailscale.app/Contents/MacOS/Tailscale')) {
-      try { return execFileSync('/Applications/Tailscale.app/Contents/MacOS/Tailscale', args, { encoding: 'utf8', timeout: 20000, stdio: ['ignore', 'pipe', 'pipe'] }).trim(); }
-      catch (fallback) { error = fallback; }
-    }
-    throw new Error(`tailscale ${args.join(' ')} failed: ${error.stderr?.toString().trim() || error.message}`);
-  }
-}
-function tailnetSettings(port) {
-  const status = JSON.parse(tailscale(['status', '--json']));
-  if (status.BackendState !== 'Running' || !status.Self?.DNSName) throw new Error('Connect Tailscale on this machine before starting with --tailscale.');
-  const host = tailnetHost(status.Self.DNSName);
-  const address = `${host}:8443`;
-  const target = `http://127.0.0.1:${port}`;
-  const config = JSON.parse(tailscale(['serve', 'status', '--json'])) || {};
-  if (config.AllowFunnel?.[address]) throw new Error(`Funnel is enabled on ${address}; choose a private Serve endpoint before using --tailscale.`);
-  const listener = config.Web?.[address];
-  const proxy = listener?.Handlers?.['/']?.Proxy?.replace(/\/$/, '');
-  if ((config.TCP?.['8443'] || listener) && proxy !== target) throw new Error('Tailscale port 8443 is already serving something else. Its configuration was left unchanged.');
-  return { host, target, url: `https://${address}` };
-}
 function show(state) {
+  console.log(`Listening on 0.0.0.0:${state.port}`);
   console.log(`Paseo Command: http://127.0.0.1:${state.port}`);
-  if (state.tailnetUrl) console.log(`Tailnet: ${state.tailnetUrl}`);
-  else if (state.host) console.log(`Allowed Tailscale hostname: ${state.host} (configure tailscale serve separately)`);
+  const addresses = new Set(Object.values(networkInterfaces()).flat().filter((info) => info && !info.internal && info.family === 'IPv4').map((info) => info.address));
+  for (const address of addresses) console.log(`Network: http://${address}:${state.port}`);
   console.log(`PID: ${state.pid}\nLog: ${logFile}`);
 }
 async function stop(state) {
@@ -73,11 +45,8 @@ async function stop(state) {
 
 async function serve() {
   const settings = JSON.parse(process.argv[3]);
-  // All origin checks are loaded after this value is set, including the API.
-  if (settings.host) process.env.PASEO_COMMAND_TAILNET_HOST = settings.host;
-  else delete process.env.PASEO_COMMAND_TAILNET_HOST;
   const { preview } = await import(new URL('../web/node_modules/vite/dist/node/index.js', import.meta.url));
-  const server = await preview({ root: web, configFile: join(web, 'vite.config.ts'), preview: { host: '127.0.0.1', port: settings.port, strictPort: true } });
+  const server = await preview({ root: web, configFile: join(web, 'vite.config.ts'), preview: { host: '0.0.0.0', port: settings.port, strictPort: true } });
   let closing = false;
   const shutdown = async () => {
     if (closing) return;
@@ -92,7 +61,7 @@ async function serve() {
   });
   process.send?.({ ready: true });
   process.disconnect?.();
-  console.log(`Paseo Command listening on http://127.0.0.1:${settings.port}`);
+  console.log(`Paseo Command listening on 0.0.0.0:${settings.port}`);
 }
 async function start(settings) {
   if (!existsSync(join(web, 'dist/index.html'))) throw new Error('No app build found. Run npm run app:build first.');
@@ -117,7 +86,7 @@ async function main() {
   const [action = 'start', ...args] = process.argv.slice(2);
   if (action === '--serve') return serve();
   if (args.includes('--help') || action === '--help') {
-    console.log('npm run app:start [-- --tailscale] [-- --port 4310]\nnpm run app:restart [-- --tailscale]\nnpm run app:stop\nnpm run app:status\n\n--tailscale enables private Tailscale Serve on HTTPS port 8443.\nRun from your own terminal to keep the server independent of agent process cleanup.');
+    console.log('npm run app:start [-- --port 4310]\nnpm run app:restart [-- --port 4310]\nnpm run app:stop\nnpm run app:status\n\nThe app binds to 0.0.0.0 (all network interfaces).\nRun from your own terminal to keep the server independent of agent process cleanup.');
     return;
   }
   if (!['start', 'stop', 'restart', 'status'].includes(action)) throw new Error(`Unknown action: ${action}`);
@@ -129,27 +98,18 @@ async function main() {
     return;
   }
   let port = previous?.port ?? 4310;
-  let useTailscale = action === 'restart' && previous?.useTailscale === true;
   for (let i = 0; i < args.length; i++) {
-    if (args[i] === '--tailscale') useTailscale = true;
-    else if (args[i] === '--port') port = Number(args[++i]);
+    if (args[i] === '--port') port = Number(args[++i]);
     else throw new Error(`Unknown option: ${args[i]}`);
   }
   if (!Number.isInteger(port) || port < 1024 || port > 65535) throw new Error('--port must be between 1024 and 65535.');
-  // Inspect before touching a running app or changing a Tailscale route.
-  const tailnet = useTailscale ? tailnetSettings(port) : null;
-  const host = tailnet?.host || (process.env.PASEO_COMMAND_TAILNET_HOST ? tailnetHost(process.env.PASEO_COMMAND_TAILNET_HOST) : action === 'restart' ? previous?.host : undefined);
   if (action === 'start' && isRunning(previous)) {
-    if (previous.port !== port || previous.host !== host || previous.useTailscale !== useTailscale) throw new Error('The app is already running with different settings. Use npm run app:restart with the desired options.');
+    if (previous.port !== port || previous.bind !== '0.0.0.0') throw new Error('The app is already running with different settings. Use npm run app:restart with the desired options.');
     console.log('Already running.'); show(previous); return;
   }
   if (action === 'restart') await stop(previous);
-  const settings = { token: randomUUID(), port, host, useTailscale, ...(tailnet ? { tailnetUrl: tailnet.url } : {}) };
+  const settings = { token: randomUUID(), port, bind: '0.0.0.0' };
   const state = await start(settings);
-  if (tailnet) {
-    try { console.log(tailscale(['serve', '--bg', '--https=8443', tailnet.target])); }
-    catch (error) { await stop(state); throw error; }
-  }
   show(state);
 }
 main().catch((error) => { console.error(error.message); process.exitCode = 1; });

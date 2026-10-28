@@ -16,23 +16,19 @@ export function shuttingDown(res: ServerResponse) {
   res.setHeader("Content-Type", "application/json");
   return res.end(JSON.stringify({ error: "The server is shutting down." }));
 }
-/** Hosts a request may name: loopback only, so no DNS rebinding reaches us. */
-export const LOCAL_HOST = /^(127\.0\.0\.1|localhost)(:\d+)?$/;
-/** Opt-in: the one tailnet name `tailscale serve` proxies to this loopback server. */
-const TAILNET = process.env.PASEO_COMMAND_TAILNET_HOST?.trim().toLowerCase() || "";
-/**
- * The origin a request may come from, or null to refuse it. Loopback hosts are
- * always allowed; the tailnet name only when configured. The server itself
- * still listens on loopback, so only the local Tailscale proxy can name it.
- */
+/** HTTP origin for the requested network address; API and WebSocket callers
+ * must still present this same origin. No proxy-specific hostname is required. */
 export function allowedOrigin(req: {
   headers: Record<string, string | string[] | undefined>;
 }): string | null {
-  const host = String(req.headers.host || "").toLowerCase();
-  const port = host.slice(TAILNET.length);
-  if (TAILNET && host.startsWith(TAILNET) && (port === "" || /^:\d+$/.test(port)))
-    return `https://${host}`;
-  return LOCAL_HOST.test(host) ? `http://${host}` : null;
+  const host = req.headers.host;
+  if (typeof host !== "string" || !host || /[\s/\\@?#]/.test(host)) return null;
+  try {
+    const url = new URL(`http://${host}`);
+    return url.hostname ? url.origin : null;
+  } catch {
+    return null;
+  }
 }
 
 export async function rawBody(req: IncomingMessage, limit: number) {

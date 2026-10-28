@@ -33,18 +33,18 @@ Then, from the main checkout on `main`, rebuild and restart the running app:
 npm run app:build && npm run app:restart
 ```
 
-This is part of completing the feature. The restart preserves the app's saved port
-and Tailscale settings. Report the commit and whether the build and restart succeeded.
+This is part of completing the feature. The restart preserves the app's saved port.
+Report the commit and whether the build and restart succeeded.
 Keep this workflow local; do not push or publish.
 
 ## Commands
 
 - `npm run app:install`: installs `rendering/` and `web/` dependencies.
-- `npm run app:dev`: React UI, loopback SDK API and the Atlas world on http://127.0.0.1:4310.
-- `npm run app:start`: detached preview of the built app and API; run from a human terminal.
-  Add `-- --tailscale` for private HTTPS access on the host’s Tailscale name at port 8443.
+- `npm run app:dev`: React UI, SDK API and the Atlas world on port 4310, bound to `0.0.0.0`.
+- `npm run app:start`: detached preview of the built app and API, bound to `0.0.0.0`;
+  run from a human terminal. Access it through localhost or a host network address on port 4310.
 - `npm run app:stop`, `app:restart`, `app:status`: manage that detached preview.
-  Restart preserves its port and Tailscale settings. See `RUNNING.md`.
+  Restart preserves its port. See `RUNNING.md`.
 - `npm run app:build`: layout tests, then type-checks and bundles the app to `web/dist/`.
 - `npm run app:typecheck`: checks React, API and Atlas TypeScript.
 - `npm run app:e2e`: browser tests of the Atlas against a mocked fleet (no daemon is reached).
@@ -68,7 +68,7 @@ Local assets belong in the repository and are included through local build tooli
 - `rendering/src/main.ts`, `inspector.ts`, `sample.ts`: standalone study with illustrative data.
 - `web/src/NativeWorld.tsx`: maps the React app's host-qualified world snapshot to the Atlas,
   forwards map picks as selections and draws app selections on the map.
-- `web/server/`: inherited official Paseo SDK API, bound to loopback.
+- `web/server/`: inherited official Paseo SDK API, served with the app on all interfaces.
 - `web/e2e/`: browser tests with every `/api` request answered in the browser.
 
 ## Atlas world

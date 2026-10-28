@@ -7,21 +7,16 @@ export default defineConfig({
   // Tailwind only compiles the landing page's stylesheet (landing/landing.css).
   plugins: [react(), tailwindcss(), apiPlugin()],
   server: {
-    host: "127.0.0.1",
+    host: "0.0.0.0",
     strictPort: false,
     // The Atlas world is bundled straight from the sibling rendering package.
     fs: { allow: [".", "../rendering"] },
-    // Opt-in tailnet access through `tailscale serve`; the server stays on loopback.
-    allowedHosts: process.env.PASEO_COMMAND_TAILNET_HOST
-      ? [process.env.PASEO_COMMAND_TAILNET_HOST]
-      : [],
+    allowedHosts: true,
   },
   preview: {
-    host: "127.0.0.1",
+    host: "0.0.0.0",
     strictPort: false,
-    allowedHosts: process.env.PASEO_COMMAND_TAILNET_HOST
-      ? [process.env.PASEO_COMMAND_TAILNET_HOST]
-      : [],
+    allowedHosts: true,
   },
   build: {
     chunkSizeWarningLimit: 1500,

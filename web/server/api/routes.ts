@@ -70,9 +70,9 @@ export async function handleApi(
   res.setHeader("Cache-Control", "no-store");
   res.setHeader("X-Content-Type-Options", "nosniff");
   const reply = replier(res);
-  // Reject cross-origin browser access, including DNS rebinding hosts.
+  // Requests may use any network address; browser access remains same-origin.
   const origin = allowedOrigin(req);
-  if (!origin) return reply(403, { error: "Local access only" });
+  if (!origin) return reply(403, { error: "Invalid request host" });
   if (req.headers.origin && req.headers.origin !== origin)
     return reply(403, { error: "Same-origin access only" });
   // The app's own commits on main: read from git, never the daemon.
