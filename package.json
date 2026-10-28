@@ -27,6 +27,9 @@
     "app:start": "node scripts/app-server.mjs start",
     "app:stop": "node scripts/app-server.mjs stop",
     "app:restart": "node scripts/app-server.mjs restart",
-    "app:status": "node scripts/app-server.mjs status"
+    "app:status": "node scripts/app-server.mjs status",
+    "native:build": "sh native/scripts/bundle.sh",
+    "native:run": "sh native/scripts/run.sh",
+    "native:mock": "web/node_modules/.bin/tsx native/scripts/mock-fleet.ts"
   }
 }

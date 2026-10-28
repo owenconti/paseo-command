@@ -597,6 +597,12 @@ function islandPiece(
  * each host's landmass. No Phaser dependency; `drawTerrain` turns these
  * into textures and places them. */
 export function terrainPieces(layout: AtlasLayout, sand: HTMLImageElement): Piece[] {
+  return terrainParts(layout, sand).map((part) => part.paint());
+}
+
+/** `terrainPieces`, each unpainted, with a key that changes whenever what it
+ * would paint does: a renderer that keeps textures paints only new keys. */
+export function terrainParts(layout: AtlasLayout, sand: HTMLImageElement): { key: string; paint: () => Piece }[] {
   const projectCells = new Set(layout.projects.flatMap(footprint).map(cellKey));
   // Timber decking spans a workspace's three cells; its agents stand on the
   // light tiles of the other cells.
@@ -611,21 +617,28 @@ export function terrainPieces(layout: AtlasLayout, sand: HTMLImageElement): Piec
     ...layout.projects.map((p) => ({ style: "project" as const, host: p.host, cells: footprint(p) })),
     ...layout.workspaces.map((w) => ({ style: "workspace" as const, host: w.host, cells: footprint(w) })),
   ];
-  const pieces: Piece[] = layout.islands.map((island) => {
+  const parts = layout.islands.map((island) => {
     const own = new Set(island.cells.map(cellKey));
-    return islandPiece(
-      island,
-      styleOf,
-      plots.filter((p) => p.host === island.host && own.has(cellKey(p.cells[0]!))),
-      sand,
-    );
+    const mine = plots.filter((p) => p.host === island.host && own.has(cellKey(p.cells[0]!)));
+    return {
+      key: `island:${JSON.stringify([island.key, island.online, island.cells.map((c) => [cellKey(c), styleOf(c)]), mine])}`,
+      paint: () => islandPiece(island, styleOf, mine, sand),
+    };
   });
-  pieces.push(variationPiece(layout));
+  parts.push({
+    key: `variation:${JSON.stringify(cellBounds(layout.islands.flatMap((i) => i.cells)))}`,
+    paint: () => variationPiece(layout),
+  });
   // One landmass of grass hexes per host, under its project islands. Each
   // grass hex's shade comes from a fixed seed, not the host: decorative
   // grain, the same every time so every renderer (and every build) agrees.
-  layout.land.forEach((land, i) => pieces.push(landmassPiece(land, `landmass-1-${i}`)));
-  return pieces;
+  layout.land.forEach((land, i) =>
+    parts.push({
+      key: `landmass:${i}:${JSON.stringify([land.online, land.cells.map(cellKey)])}`,
+      paint: () => landmassPiece(land, `landmass-1-${i}`),
+    }),
+  );
+  return parts;
 }
 
 export function drawTerrain(scene: Phaser.Scene, layout: AtlasLayout, build: number): string[] {

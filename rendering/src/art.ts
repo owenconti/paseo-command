@@ -248,3 +248,13 @@ export function buildFrames(src: ArtSources): Map<string, Frame> {
   }
   return frames;
 }
+
+/** Plaza props (greenery, workshop gear, lamps and beacon in both states),
+ * cropped and padded as the Phaser wrapper registers them, for renderers that
+ * take frames rather than Phaser textures. */
+export function propFrames(img: HTMLImageElement, rects: Record<string, { rect: number[] }>): Map<string, Frame> {
+  const frames = new Map<string, Frame>();
+  for (const [name, { rect }] of Object.entries(rects))
+    frames.set(name, paddedFrame(img, trimRect(img, rect as Rect)));
+  return frames;
+}
