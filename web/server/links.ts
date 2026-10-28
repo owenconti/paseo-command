@@ -35,7 +35,10 @@ export type PullRequest = {
   ci?: Ci;
   /** Its merge queue standing; absent when unknown. */
   queue?: MergeQueue;
+  /** Its review decision; absent when unknown or none. */
+  review?: ReviewState;
 };
+export type ReviewState = "pending" | "approved" | "changes_requested";
 /** One check as Paseo words it (GitHub's conclusions folded the same way). */
 export type CheckStatus =
   "success" | "failure" | "pending" | "skipped" | "cancelled";
@@ -76,6 +79,19 @@ function stateOf(state: unknown, merged: boolean, draft: boolean): PrState {
   if (merged || s === "merged") return "merged";
   if (s === "closed") return "closed";
   return draft || s === "draft" ? "draft" : "open";
+}
+/** Paseo's review decision, or gh's (`APPROVED`, `REVIEW_REQUIRED`, …). */
+function reviewOf(decision: unknown): ReviewState | undefined {
+  switch (str(decision).toLowerCase()) {
+    case "approved":
+      return "approved";
+    case "changes_requested":
+      return "changes_requested";
+    case "pending":
+    case "review_required":
+      return "pending";
+  }
+  return undefined;
 }
 const clip = (s: string, n: number) => (s.length > n ? s.slice(0, n) : s);
 
@@ -303,6 +319,7 @@ export function prFromRuntime(
   if (!number) return undefined;
   const ci = ciFromRuntime(pr);
   const queue = queueFromRuntime(pr);
+  const review = reviewOf(pr.reviewDecision);
   return {
     number,
     title: clip(str(pr.title), 300),
@@ -310,6 +327,7 @@ export function prFromRuntime(
     url,
     ...(ci ? { ci } : {}),
     ...(queue ? { queue } : {}),
+    ...(review ? { review } : {}),
   };
 }
 
@@ -365,6 +383,7 @@ export function ghPr(raw: unknown): PullRequest | null {
   const number = numberOf(pr.number, url);
   if (!number) return null;
   const ci = ciFromRollup(pr.statusCheckRollup);
+  const review = reviewOf(pr.reviewDecision);
   return {
     number,
     title: clip(str(pr.title), 300),
@@ -372,6 +391,7 @@ export function ghPr(raw: unknown): PullRequest | null {
     url,
     ...(str(pr.body) ? { body: clip(str(pr.body), 4000) } : {}),
     ...(ci ? { ci } : {}),
+    ...(review ? { review } : {}),
   };
 }
 
@@ -399,7 +419,7 @@ export function ghPullRequest(
     "view",
     branch,
     "--json",
-    "number,title,state,isDraft,url,body,statusCheckRollup",
+    "number,title,state,isDraft,url,body,statusCheckRollup,reviewDecision",
   ]).then(
     (out): GhAnswer => {
       try {

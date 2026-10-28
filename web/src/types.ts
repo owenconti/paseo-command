@@ -102,6 +102,8 @@ export type PullRequest = {
   ci?: PrCi;
   /** Its merge queue standing; absent when unknown. */
   queue?: MergeQueue;
+  /** Its review decision; absent when unknown or none. */
+  review?: "pending" | "approved" | "changes_requested";
 };
 export type PrCheck = {
   name: string;

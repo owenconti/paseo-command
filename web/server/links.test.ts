@@ -331,3 +331,23 @@ test("runtime and gh distinguish PR lifecycle states, with terminal states takin
     "merged",
   );
 });
+
+test("Paseo's review decision is carried through", () => {
+  for (const decision of ["approved", "changes_requested", "pending"] as const)
+    assert.equal(
+      prFromRuntime(runtimePr({ reviewDecision: decision }))?.review,
+      decision,
+    );
+  assert.equal(prFromRuntime(runtimePr({ reviewDecision: null }))?.review, undefined);
+  assert.equal(prFromRuntime(runtimePr())?.review, undefined);
+  assert.equal("review" in prFromRuntime(runtimePr())!, false);
+});
+
+test("gh's review decision is read", () => {
+  const pr = (reviewDecision: string) =>
+    ghPr({ url: URL_, number: 42, title: "t", state: "OPEN", reviewDecision });
+  assert.equal(pr("APPROVED")?.review, "approved");
+  assert.equal(pr("CHANGES_REQUESTED")?.review, "changes_requested");
+  assert.equal(pr("REVIEW_REQUIRED")?.review, "pending");
+  assert.equal(pr("")?.review, undefined);
+});
