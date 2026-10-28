@@ -9,7 +9,9 @@ import notify
 ///   --ambient <fps>    the ambient frame rate (default 30)
 ///   --size <w>x<h>     the window's size in points
 ///   --front            show the window in front without activating the app
+///   --background       run as an accessory that never activates (checks, measurements)
 ///   --ignore-occlusion keep drawing while the window is covered (for checks)
+///   --checks           keep the scene's state current in the page (for checks)
 ///   --info <path>      write the window number and process ids there as JSON
 ///                      (and snapshots, on request, beside it as PNG)
 struct Options {
@@ -17,7 +19,12 @@ struct Options {
     var webWorld = false
     var size: CGSize?
     var front = false
+    /// An accessory app (no Dock icon) that never becomes active, so it can't
+    /// take focus: for checks and measurements while someone is working.
+    var background = false
     var info: String?
+    /// Keep the scene's state current in the page (`--checks`).
+    var checks = false
 
     init(_ args: [String]) {
         var i = 1
@@ -33,8 +40,10 @@ struct Options {
                     if parts.count == 2 { size = CGSize(width: parts[0], height: parts[1]) }
                 }
             case "--front": front = true
+            case "--background": background = true
             case "--ignore-occlusion": AtlasView.ignoreOcclusion = true
             case "--info": info = next()
+            case "--checks": checks = true
             default: break
             }
             i += 1
@@ -82,6 +91,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 try? text.write(toFile: base + ".out", atomically: true, encoding: .utf8)
             }
         }
+        // Alternate the window between its size and a smaller, taller one (checks).
+        listen("com.paseo.command.native.resize") { [weak self] in
+            guard let window = self?.main?.window else { return }
+            let small = window.frame.width > 1200
+            var frame = window.frame
+            frame.size = small ? CGSize(width: 1000, height: 960) : (self?.options.size ?? CGSize(width: 1440, height: 900))
+            window.setFrame(window.frameRect(forContentRect: CGRect(origin: frame.origin, size: frame.size)), display: true)
+        }
         listen("com.paseo.command.native.snapshot") { [weak self] in
             guard let self, let info = self.options.info else { return }
             self.main?.snapshot(to: (info as NSString).deletingPathExtension + ".png")
@@ -97,7 +114,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func writeInfo() {
         guard let path = options.info, let main else { return }
-        let info: [String: Any] = ["window": main.window.windowNumber, "pids": main.processes(), "webWorld": options.webWorld]
+        let info: [String: Any] = [
+            "window": main.window.windowNumber, "pids": main.processes(), "webWorld": options.webWorld,
+            "visible": main.window.occlusionState.contains(.visible), "framesDrawn": main.scene.framesDrawn,
+            "paused": main.atlasView.isPaused, "fps": main.atlasView.preferredFramesPerSecond,
+        ]
         if let data = try? JSONSerialization.data(withJSONObject: info, options: [.prettyPrinted]) {
             try? data.write(to: URL(fileURLWithPath: path))
         }
@@ -147,5 +168,5 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 let app = NSApplication.shared
 let delegate = AppDelegate()
 app.delegate = delegate
-app.setActivationPolicy(.regular)
+app.setActivationPolicy(Options(CommandLine.arguments).background ? .accessory : .regular)
 app.run()

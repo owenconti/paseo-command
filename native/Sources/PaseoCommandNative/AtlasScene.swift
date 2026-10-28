@@ -153,6 +153,8 @@ final class AtlasScene: SKScene {
         }
         if let h = constants["hover"] as? [String: Int] { hoverColors = h }
         self.reduced = reduced
+        // A fresh mount of the page's world fits the land, as Phaser's does.
+        fitted = false
         emit(["type": "ready"])
     }
 
@@ -664,7 +666,11 @@ final class AtlasScene: SKScene {
     private var frameSecond: TimeInterval = 0
     static let debug = ProcessInfo.processInfo.environment["PASEO_NATIVE_DEBUG"] != nil
 
+    /// Frames drawn so far (for measurements).
+    private(set) var framesDrawn = 0
+
     override func update(_ currentTime: TimeInterval) {
+        framesDrawn += 1
         if AtlasScene.debug {
             frameCount += 1
             if currentTime - frameSecond >= 1 {

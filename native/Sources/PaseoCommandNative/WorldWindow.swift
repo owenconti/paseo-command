@@ -47,6 +47,9 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         // The page is transparent where the map is; SpriteKit shows through.
         web.setValue(false, forKey: "drawsBackground")
         web.isInspectable = true
+        // Measurements and checks draw while covered: WebKit stops throttling too.
+        let occlusion = NSSelectorFromString("_setWindowOcclusionDetectionEnabled:")
+        if AtlasView.ignoreOcclusion, web.responds(to: occlusion) { web.perform(occlusion, with: false) }
         content.addSubview(web)
         super.init()
         // `--web-world` leaves the Atlas to Phaser in the page, for comparison.
@@ -57,6 +60,10 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         window.delegate = self
         scene.emit = { [weak self] message in self?.send(message) }
         web.load(URLRequest(url: options.url))
+        // Checks read the scene's state from the page; keep it current.
+        if options.checks {
+            Timer.scheduledTimer(withTimeInterval: 0.25, repeats: true) { [weak self] _ in self?.reportState() }
+        }
     }
 
     // MARK: Page → Swift
@@ -120,7 +127,7 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         default: break
         }
         if type != "detach", atlasView.isHidden, scene.hasArt { atlasView.isHidden = false; atlasView.govern() }
-        if ProcessInfo.processInfo.environment["PASEO_NATIVE_DEBUG"] != nil, type != "pointer" { Log.line("\(type) \(body)") }
+        if AtlasScene.debug { Log.line("\(type) \(body)") }
         if type != "pointer" && type != "wheel" { reportState() }
     }
 

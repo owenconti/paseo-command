@@ -50,6 +50,9 @@ Keep this workflow local; do not push or publish.
 - `npm run app:build`: layout tests, then type-checks and bundles the app to `web/dist/`.
 - `npm run app:typecheck`: checks React, API and Atlas TypeScript.
 - `npm run app:e2e`: browser tests of the Atlas against a mocked fleet (no daemon is reached).
+- `npm run native:build`, `native:run [-- --url …]`: the macOS app (`native/`) that draws the Atlas with
+  SpriteKit under the React app in a WKWebView; `native:mock` serves web/dist with a mocked fleet. See `native/README.md`.
+  Launch it with `open -g` and `--background` for checks; it must never take the user's focus.
 - `npm run render:dev`: standalone Atlas study with illustrative data on http://127.0.0.1:4320.
 - `npm run render:build`, `npm run render:test`: study bundle and layout/tile tests.
 
@@ -75,6 +78,9 @@ Local assets belong in the repository and are included through local build tooli
 - `web/src/Dispatch.tsx` `NewAgent`: a new agent opens in the panel as an empty conversation (host, where and
   branch in a small form) with the usual composer; its first message creates the agent. Its /skills and @files
   come from `GET /api/drafts/commands|files` (`web/server/api/drafts.ts`), as no agent exists yet.
+- `rendering/src/native/bridge.ts`: inside the native app, the Atlas world `mountAtlas` returns: it lays out and paints
+  with the shared modules (`placement.ts`, `art.ts`, `terrain.ts`) and posts the result to Swift (`native/Sources/`),
+  which draws, animates and owns camera, hover and picking under a transparent page.
 - `web/src/urlState.ts`: the panel's place (selection, subagent, tab, filter, host filter, list toggle) kept in
   the page's query, so a refresh returns there; a new selection pushes history, other changes replace it.
 

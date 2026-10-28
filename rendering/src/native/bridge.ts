@@ -9,6 +9,7 @@
 import {
   footprint,
   landBounds,
+  point,
   layoutAtlas,
   seedOf,
   type AtlasData,
@@ -529,7 +530,7 @@ export function mountNativeAtlas(parent: HTMLElement, handlers: AtlasHandlers = 
             builds,
             native: nativeState,
             islands: layout.islands.map((i) => ({ key: i.key, host: i.host, name: i.name, online: i.online, cells: i.cells.length })),
-            agents: layout.agents.map((a) => ({ id: a.id, name: a.name, state: a.state, model: a.model, workspace: a.workspace })),
+            agents: layout.agents.map((a) => ({ id: a.id, name: a.name, state: a.state, model: a.model, workspace: a.workspace, at: point(a.position) })),
             tiles: Object.fromEntries(tiles(layout).map((t) => [t.id, t.state])),
           }
         : undefined,
