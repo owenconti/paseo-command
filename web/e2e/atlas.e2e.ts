@@ -1,11 +1,14 @@
 /**
  * The Atlas world against a fixture fleet: every agent state is drawn
  * truthfully, a robot opens its conversation, and the list selects on the
- * map. Every /api request is answered in the browser; none reaches a daemon.
+ * map. The macOS app draws the world; here its side of the bridge is a stub
+ * that answers as Swift does, so the page's bridge world and React's wiring
+ * run for real. Every /api request is answered in the browser; none reaches
+ * a daemon.
  */
 import { after, before, test } from "node:test";
 import assert from "node:assert/strict";
-import type { Browser, Page } from "playwright";
+import type { Browser, BrowserContext, Page } from "playwright";
 import { launch, mockApi, newContext, startApp, waitFor } from "./harness";
 import { MAC, small, ws } from "./fleets";
 
@@ -22,9 +25,35 @@ after(async () => {
 
 const { hosts, projects, workspaces, agents, permissions } = small;
 
+/** The macOS app's side of the world bridge, stubbed: ready once the art
+ * arrives, keeping what the page sends. */
+async function nativeHost(target: Page | BrowserContext) {
+  await target.addInitScript(() => {
+    const host: { sent: string[]; selected: string | null; focused: string | null } = { sent: [], selected: null, focused: null };
+    (window as any).__native = host;
+    (window as any).webkit = {
+      messageHandlers: {
+        paseoWorld: {
+          postMessage(m: any) {
+            host.sent.push(m.type);
+            if (m.type === "art")
+              setTimeout(() => window.dispatchEvent(new CustomEvent("paseo:world", { detail: { type: "ready" } })));
+            if (m.type === "select") host.selected = m.id;
+            if (m.type === "focus") host.focused = m.id;
+          },
+        },
+      },
+    };
+  });
+}
+/** What Swift reports from the map: a pick, or the pointer over an entity. */
+const swift = (page: Page, detail: Record<string, unknown>) =>
+  page.evaluate((d) => window.dispatchEvent(new CustomEvent("paseo:world", { detail: d })), detail);
+
 async function open(): Promise<Page> {
   const context = await newContext(browser);
   const page = await context.newPage();
+  await nativeHost(page);
   await mockApi(page, {
     agents: () => agents,
     permissions: () => permissions,
@@ -47,30 +76,15 @@ type Inspect = {
   planted: {
     workspace: string;
     flag: string;
-    live: boolean;
+    sway: boolean;
     inCell: boolean;
     plantInCell: boolean;
-    visible: boolean;
   }[];
 };
 const inspect = (page: Page) =>
   page.evaluate(() => (window as any).paseoAtlas?.inspect() as Inspect | undefined);
 const agentKey = (id: string, host = "local") => JSON.stringify([host, id]);
 
-const robotAt = (page: Page, key: string) =>
-  page.evaluate((k) => {
-    const atlas = (window as any).paseoWorld;
-    const s = atlas.scene.screenOf(k);
-    const i = atlas.inspect();
-    const r = document
-      .querySelector(".atlas-world-surface")!
-      .getBoundingClientRect();
-    const loc = i.agents.find((x: any) => x.id === k).at;
-    return {
-      x: Math.round(r.x + s.x),
-      y: Math.round(r.y + s.y + (loc.height / 2) * i.zoom),
-    };
-  }, key);
 
 test("every agent state is drawn as the daemon reports it", async () => {
   const page = await open();
@@ -110,11 +124,6 @@ test("every agent state is drawn as the daemon reports it", async () => {
   // Model colours follow the provider.
   assert.equal(world.agents.find((a) => a.name === "Questioner")!.model, "white");
   assert.equal(world.agents.find((a) => a.name === "Runner")!.model, "orange");
-  // ATLAS_SHOT=dir saves the fitted world for review.
-  if (process.env.ATLAS_SHOT) {
-    await page.waitForTimeout(1500);
-    await page.screenshot({ path: `${process.env.ATLAS_SHOT}/atlas-states.png` });
-  }
   await page.context().close();
 });
 
@@ -122,29 +131,15 @@ test("picking a robot opens its conversation; the list selects on the map", asyn
   const page = await open();
   await waitFor(() => inspect(page), (i) => !!i?.agents?.length, "the Atlas", 30000);
   const key = agentKey("a-failed");
-  await page.evaluate((k) => (window as any).paseoAtlas.focus(k, true), key);
-  // The camera eases toward the robot; click once it has settled.
-  let last = await robotAt(page, key);
-  const settled = await waitFor(
-    async () => {
-      await page.waitForTimeout(300);
-      const next = await robotAt(page, key);
-      const still = next.x === last.x && next.y === last.y;
-      last = next;
-      return still ? next : null;
-    },
-    (v) => v !== null,
-    "the camera to settle",
-  );
-  await page.mouse.move(settled!.x, settled!.y);
+  // The pointer over the robot: its tooltip, where Swift says it stands.
+  await swift(page, { type: "hover", id: key, x: 300, y: 200 });
   const tip = await waitFor(
     () => page.locator(".atlas-world-tip").textContent({ timeout: 500 }).catch(() => ""),
     (t) => !!t,
     "a tooltip",
   );
   assert.match(tip!, /Breaker.*Failed/);
-  await page.mouse.down();
-  await page.mouse.up();
+  await swift(page, { type: "pick", id: key });
   await waitFor(
     async () => (await inspect(page))?.selected,
     (v) => v === key,
@@ -160,6 +155,8 @@ test("picking a robot opens its conversation; the list selects on the map", asyn
     (v) => v === agentKey("a-question"),
     "the list choice to select on the map",
   );
+  // The selection reaches Swift, which draws it.
+  assert.equal(await page.evaluate(() => (window as any).__native.selected), agentKey("a-question"));
   await page.context().close();
 });
 
@@ -172,12 +169,7 @@ test("two workspaces sharing a checkout each list only their own agents", async 
     const pick = (id: string) =>
       page.evaluate(
         (key) =>
-          (window as any).paseoAtlas.scene.game.events.emit("atlas:pick", {
-            id: key,
-            kind: "workspace",
-            name: "",
-            host: "",
-          }),
+          window.dispatchEvent(new CustomEvent("paseo:world", { detail: { type: "pick", id: key } })),
         JSON.stringify(["local", id]),
       );
     const here = () => page.locator(".section-label", { hasText: "Agents here" }).locator("span");
@@ -218,6 +210,7 @@ test("the session header shows its PR's CI and merge queue standing", async () =
   try {
     const context = await newContext(browser);
     const page = await context.newPage();
+    await nativeHost(page);
     page.on("request", (r) => {
       if (r.url().includes("/api/merge-queue")) asked.push(r.url());
     });
@@ -241,12 +234,7 @@ test("the session header shows its PR's CI and merge queue standing", async () =
     await waitFor(() => inspect(page), (i) => !!i?.agents?.length, "the Atlas", 30000);
     await page.evaluate(
       (key) =>
-        (window as any).paseoAtlas.scene.game.events.emit("atlas:pick", {
-          id: key,
-          kind: "agent",
-          name: "Breaker",
-          host: "",
-        }),
+        window.dispatchEvent(new CustomEvent("paseo:world", { detail: { type: "pick", id: key } })),
       agentKey("a-failed"),
     );
     await page.locator(".session-title h2", { hasText: "Breaker" }).waitFor();
@@ -313,6 +301,7 @@ test("Enter focuses the chat input; G and L open the PR and Linear issue", async
       }) as typeof window.open;
     });
     const page = await context.newPage();
+    await nativeHost(page);
     await mockApi(page, {
       agents: () => agents,
       permissions: () => permissions,
@@ -325,13 +314,7 @@ test("Enter focuses the chat input; G and L open the PR and Linear issue", async
     const opened = () => page.evaluate(() => (window as any).__opened as string[]);
     const pick = (kind: string, key: string) =>
       page.evaluate(
-        ([kind, key]) =>
-          (window as any).paseoAtlas.scene.game.events.emit("atlas:pick", {
-            id: key,
-            kind,
-            name: "",
-            host: "",
-          }),
+        ([, key]) => window.dispatchEvent(new CustomEvent("paseo:world", { detail: { type: "pick", id: key } })),
         [kind, key],
       );
     const blur = () => page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
@@ -435,7 +418,8 @@ test("workspace PR labels plant flags on the map", async () => {
       [agentKey("wks_a")]: { ci: "ci-running", review: "review-awaiting" },
       [agentKey("wks_b")]: { ci: "ci-green", review: "review-approved" },
     });
-    // Each is drawn: live (so it can sway), inside its own cell, in place of that cell's plant.
+    // Each is sent to Swift inside its own cell, in place of that cell's plant;
+    // the running CI flag sways.
     const planted = (await inspect(page))!.planted;
     assert.deepEqual(
       planted.map((p) => [p.workspace, p.flag]).sort(),
@@ -447,7 +431,7 @@ test("workspace PR labels plant flags on the map", async () => {
       ],
     );
     for (const p of planted) {
-      assert.ok(p.live && p.visible, `${p.flag} is drawn live`);
+      assert.equal(p.sway, p.flag === "ci-running", `${p.flag} sways only while CI runs`);
       assert.ok(p.inCell, `${p.flag} stands inside its cell`);
       assert.ok(!p.plantInCell, `${p.flag} replaces its cell's plant`);
     }
@@ -470,67 +454,10 @@ test("workspace PR labels plant flags on the map", async () => {
   }
 });
 
-test("the Galaxy draws the same fleet truthfully and opens a satellite's conversation", async () => {
-  const page = await open();
-  await waitFor(() => inspect(page), (i) => !!i?.agents?.length, "the Atlas", 30000);
-  await page.selectOption('select[aria-label="Choose world"]', "galaxy");
-  const world = (await waitFor(
-    () => page.evaluate(() => (window as any).paseoWorld?.inspect()),
-    (i: any) => i?.scene === "galaxy" && i.agents?.length === agents.length,
-    "the Galaxy to draw every agent",
-    30000,
-  )) as any;
-  const state = Object.fromEntries(world.agents.map((a: any) => [a.name, a.state]));
-  assert.deepEqual(state, {
-    Runner: "running",
-    Idler: "idle",
-    Finisher: "done",
-    "Asker for leave": "approval",
-    Questioner: "question",
-    Breaker: "failed",
-    "Far away": "offline",
-  });
-  // Satellites take their provider's colour; stations their most urgent agent.
-  assert.equal(world.agents.find((a: any) => a.name === "Questioner").model, "codex");
-  assert.equal(world.tiles[agentKey("wks_c")], "failed");
-  assert.deepEqual(world.regions.map((r: any) => [r.name, r.online]), [
-    ["local", true],
-    ["macmini", false],
-  ]);
-  if (process.env.ATLAS_SHOT) {
-    await page.waitForTimeout(1500);
-    await page.screenshot({ path: `${process.env.ATLAS_SHOT}/galaxy-states.png` });
-  }
-  const key = agentKey("a-question");
-  await page.evaluate((k) => (window as any).paseoWorld.focus(k, true), key);
-  let last = await robotAt(page, key);
-  const settled = await waitFor(
-    async () => {
-      await page.waitForTimeout(300);
-      const next = await robotAt(page, key);
-      const still = Math.abs(next.x - last.x) < 1 && Math.abs(next.y - last.y) < 1;
-      last = next;
-      return still ? next : null;
-    },
-    (v) => v !== null,
-    "the camera to settle",
-  );
-  await page.mouse.click(settled!.x, settled!.y);
-  await page.locator(".session-title h2", { hasText: "Questioner" }).waitFor();
-  // The choice of world is remembered.
-  await page.reload();
-  await waitFor(
-    () => page.evaluate(() => (window as any).paseoWorld?.inspect()?.scene),
-    (s) => s === "galaxy",
-    "the Galaxy after a reload",
-    30000,
-  );
-  await page.context().close();
-});
-
 test("current work appears in the running agent tooltip and above its composer, then clears on idle", async () => {
   const context = await newContext(browser);
   const page = await context.newPage();
+  await nativeHost(page);
   let status = "running";
   const requests: { path: string; body: unknown }[] = [];
   const sentence = "Fitting project islands within their host landmass.";
@@ -551,12 +478,9 @@ test("current work appears in the running agent tooltip and above its composer, 
   const key = agentKey("a-running");
   await waitFor(() => inspect(page), (i) => !!i?.agents?.length, "the Atlas", 30000);
   await waitFor(async () => requests.length, (n) => n > 0, "the summary request");
-  await page.evaluate((k) => (window as any).paseoAtlas.focus(k, true), key);
-  await page.waitForTimeout(1200);
-  const point = await robotAt(page, key);
-  await page.mouse.move(point.x, point.y);
+  await swift(page, { type: "hover", id: key, x: 300, y: 200 });
   await waitFor(() => page.locator(".atlas-world-tip").textContent({ timeout: 500 }).catch(() => ""), (t) => !!t?.includes(sentence), "the generated summary in the tooltip");
-  await page.mouse.click(point.x, point.y);
+  await swift(page, { type: "pick", id: key });
   await page.locator(".session-working-on").waitFor();
   assert.equal(await page.locator(".session-working-on").textContent(), sentence);
   assert.equal(await page.locator(".session-working-on").evaluate((el) => el.nextElementSibling?.classList.contains("composer2")), true);

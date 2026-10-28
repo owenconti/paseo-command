@@ -1,8 +1,7 @@
 #!/usr/bin/env node
 /**
- * Measures the native app's CPU and GPU cost with the SpriteKit Atlas, and
- * with the web Atlas (Phaser) in the same app (`--web-world`), on a mocked
- * fleet (`native:mock`; nothing reaches a daemon). The method follows
+ * Measures the native app's CPU and GPU cost with the SpriteKit Atlas on a
+ * mocked fleet (`native:mock`; nothing reaches a daemon). The method follows
  * `scripts/measure-world.mjs` on `dom-atlas`: after a settle period, each
  * phase's CPU is the processes' cumulative CPU time (`ps -o time=`) over the
  * phase's wall time, so load spikes and `ps`'s decaying %cpu don't leak in.
@@ -40,7 +39,6 @@ const settle = Number(option("settle", "20"));
 const idle = Number(option("idle", "30"));
 const pan = Number(option("pan", "10"));
 const port = Number(option("port", "4339"));
-const variants = option("variants", "native,web").split(",");
 const report = option("report", "");
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const info = join(tmpdir(), "paseo-native-measure.json");
@@ -101,10 +99,9 @@ async function readOut(timeout = 5000) {
   }
   return "";
 }
-async function launch(variant) {
+async function launch() {
   rmSync(info, { force: true });
-  const extra = variant === "web" ? ["--web-world"] : [];
-  execFileSync("open", ["-g", "-n", APP, "--args", "--url", `http://127.0.0.1:${port}/`, "--background", "--ignore-occlusion", "--size", "1440x900", "--info", info, ...extra]);
+  execFileSync("open", ["-g", "-n", APP, "--args", "--url", `http://127.0.0.1:${port}/`, "--background", "--ignore-occlusion", "--size", "1440x900", "--info", info]);
   for (let t = 0; t < 60000; t += 500) {
     await sleep(500);
     if (!existsSync(info)) continue;
@@ -135,25 +132,25 @@ try {
     const quiet = await phase({}, idle);
     rows.push({ round, variant: "baseline (app closed)", idle: quiet, pan: null });
     console.log(JSON.stringify(rows.at(-1)));
-    for (const variant of variants) {
-      const launched = await launch(variant);
+    {
+      const launched = await launch();
       await sleep(settle * 1000);
       const s0 = await state();
       const idlePhase = await phase(launched.pids, idle);
       const s1 = await state();
       const panPhase = await phase(launched.pids, pan, () => execFileSync("notifyutil", ["-p", "com.paseo.command.native.pan"]));
       const s2 = await state();
-      // The page's own frame rate (Phaser's measure, or requestAnimationFrame for the native page).
+      // The page's own frame rate (requestAnimationFrame).
       evalPage("const t0 = performance.now(); let n = 0; await new Promise(r => { const f = () => { n++; if (performance.now() - t0 < 2000) requestAnimationFrame(f); else r(); }; requestAnimationFrame(f); }); return n / 2;");
       const pageFps = Number(await readOut(5000));
       rows.push({
         round,
-        variant: variant === "web" ? "web Atlas (Phaser in the app's WKWebView)" : "native Atlas (SpriteKit)",
+        variant: "native Atlas (SpriteKit)",
         idle: idlePhase,
         pan: panPhase,
         visible: s0.visible && s1.visible && s2.visible,
         pageFps,
-        spriteKitFps: variant === "web" ? null : { idle: (s1.framesDrawn - s0.framesDrawn) / idle, pan: (s2.framesDrawn - s1.framesDrawn) / pan },
+        spriteKitFps: { idle: (s1.framesDrawn - s0.framesDrawn) / idle, pan: (s2.framesDrawn - s1.framesDrawn) / pan },
       });
       console.log(JSON.stringify(rows.at(-1)));
       await quit();

@@ -6,8 +6,6 @@ import { Home, Minus, Plus } from "lucide-react";
 import {
   mountAtlas,
   STATE_NAMES,
-  WORLDS,
-  type WorldKind,
   type AtlasData,
   type AtlasWorld,
   type Entity,
@@ -23,7 +21,6 @@ import { isFitWorldKey, isTyping } from "./worldShortcut";
 import { modalOpen } from "./focus";
 import { soundEvent } from "./soundCues";
 import { setUnityWorldTheme } from "./theme";
-import { readStore, writeStore } from "./api";
 import type { Agent, Host, Project, Selection, Workspace } from "./types";
 import { WorldLegend } from "./WorldLegend";
 import "./atlas-world.css";
@@ -133,15 +130,8 @@ export function NativeWorld(props: Props) {
   const [ready, setReady] = useState(false);
   const [failure, setFailure] = useState("");
   const [tip, setTip] = useState<Tip | null>(null);
-  // The world on show; every world draws the same fleet.
-  const [kind, setKind] = useState<WorldKind>(() => {
-    const saved = readStore<string>("phaser-world-kind", "atlas");
-    return saved in WORLDS ? (saved as WorldKind) : "atlas";
-  });
-  const chooseWorld = (next: WorldKind) => {
-    writeStore("phaser-world-kind", next);
-    setKind(next);
-  };
+  // Only the macOS app draws the world; a plain browser shows the panels alone.
+  const [absent, setAbsent] = useState(false);
   const revision = useRef(0);
   // What was last clicked on the map: choosing it there never moves the camera.
   const picked = useRef<string | null>(null);
@@ -182,15 +172,12 @@ export function NativeWorld(props: Props) {
     }
     return "Host";
   };
-  // Mount per world: handlers read current props through refs.
+  // Mount once: handlers read current props through refs.
   useEffect(() => {
     const node = surface.current!;
-    setReady(false);
-    setTip(null);
-    document.documentElement.dataset.renderer = kind;
     // The panels keep the Paseo Command look from the native app (its Galaxy theme).
     setUnityWorldTheme("galaxy");
-    let atlas: AtlasWorld;
+    let atlas: AtlasWorld | null;
     try {
       atlas = mountAtlas(node, {
         ready: () => {
@@ -221,16 +208,18 @@ export function NativeWorld(props: Props) {
               : undefined;
           p.hover(row ? (row.clientId ?? row.id) : null);
         },
-      }, kind);
+      });
     } catch (error) {
-      setFailure(
-        error instanceof Error ? error.message : `Could not start the ${WORLDS[kind]}.`,
-      );
+      setFailure(error instanceof Error ? error.message : "Could not start the Atlas.");
       return;
     }
+    if (!atlas) {
+      setAbsent(true);
+      return () => setUnityWorldTheme(null);
+    }
     world.current = atlas;
-    // The native app draws this world under a transparent page.
-    if (atlas.native) document.documentElement.dataset.renderer = "native";
+    // The native app draws the world under a transparent page.
+    document.documentElement.dataset.renderer = "native";
     atlas.update(currentData.current);
     Object.assign(window, { paseoAtlas: atlas, paseoWorld: atlas });
     return () => {
@@ -239,20 +228,6 @@ export function NativeWorld(props: Props) {
       delete document.documentElement.dataset.renderer;
       setUnityWorldTheme(null);
     };
-  }, [kind]);
-  // The app's world shortcut (⌘⌥T) steps to the next world.
-  useEffect(() => {
-    const next = () => {
-      if (latest.current.blocked) return;
-      const kinds = Object.keys(WORLDS) as WorldKind[];
-      setKind((current) => {
-        const value = kinds[(kinds.indexOf(current) + 1) % kinds.length]!;
-        writeStore("phaser-world-kind", value);
-        return value;
-      });
-    };
-    window.addEventListener("paseo:world-theme-request", next);
-    return () => window.removeEventListener("paseo:world-theme-request", next);
   }, []);
   useEffect(() => {
     safely(() => world.current?.update(data));
@@ -327,11 +302,11 @@ export function NativeWorld(props: Props) {
       <div
         ref={surface}
         className="atlas-world-surface native-map-surface"
-        data-world={kind}
+        data-world="atlas"
         tabIndex={0}
         role="application"
         aria-roledescription="map"
-        aria-label={`${WORLDS[kind]} world. Drag to pan, scroll to zoom, arrow keys pan, F fits every host. Select ${kind === "galaxy" ? "a satellite" : "a robot"} to open its conversation.`}
+        aria-label="Atlas world. Drag to pan, scroll to zoom, arrow keys pan, F fits every host. Select a robot to open its conversation."
         onPointerLeave={() => setTip(null)}
       />
       {props.blocked && <div className="atlas-input-cover" />}
@@ -353,21 +328,6 @@ export function NativeWorld(props: Props) {
         role="toolbar"
         aria-label="World controls"
       >
-        <label>
-          World
-          <select
-            aria-label="Choose world"
-            value={kind}
-            disabled={props.blocked}
-            onChange={(e) => chooseWorld(e.target.value as WorldKind)}
-          >
-            {Object.entries(WORLDS).map(([id, name]) => (
-              <option key={id} value={id}>
-                {name}
-              </option>
-            ))}
-          </select>
-        </label>
         <button
           aria-label="Fit all hosts"
           title="Fit all hosts · F"
@@ -393,10 +353,17 @@ export function NativeWorld(props: Props) {
           <Plus size={17} />
         </button>
       </div>
-      {!ready && !failure && (
+      {absent ? (
         <div className="atlas-world-notice" role="status">
-          Preparing the {WORLDS[kind].toLowerCase()}…
+          The map is drawn by the Paseo Command macOS app (<code>npm run native:run</code>).
         </div>
+      ) : (
+        !ready &&
+        !failure && (
+          <div className="atlas-world-notice" role="status">
+            Preparing the atlas…
+          </div>
+        )
       )}
       {empty && (
         <div className="atlas-world-notice" role="status">
@@ -408,11 +375,12 @@ export function NativeWorld(props: Props) {
           {failure} <button onClick={() => location.reload()}>Reload</button>
         </div>
       )}
-      {ready && <WorldLegend kind={kind} data={data} />}
-      <div className="atlas-world-help">
-        Drag to explore · Scroll to zoom · F to fit · Select{" "}
-        {kind === "galaxy" ? "a satellite" : "a robot"} to open its conversation
-      </div>
+      {ready && <WorldLegend data={data} />}
+      {!absent && (
+        <div className="atlas-world-help">
+          Drag to explore · Scroll to zoom · F to fit · Select a robot to open its conversation
+        </div>
+      )}
     </>
   );
 }

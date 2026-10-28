@@ -1,4 +1,4 @@
-/** The map's key: what each agent state and colour means in the world on show. */
+/** The map's key: what each agent state and colour means on the Atlas. */
 import { useState } from "react";
 import { ChevronDown, ChevronUp } from "lucide-react";
 import {
@@ -8,10 +8,7 @@ import {
   STATE_TILE,
   modelColor,
   modelName,
-  providerColor,
-  providerOf,
   type AtlasData,
-  type WorldKind,
 } from "../../rendering/src/atlas";
 import { PR_LABELS, prFlags } from "../../rendering/src/prStatus";
 import { readStore, writeStore } from "./api";
@@ -28,17 +25,7 @@ const LABEL_COLOR: Record<(typeof PR_LABELS)[number]["color"], string> = {
   violet: "#8b5cf6",
   orange: "#f97316",
 };
-const PROVIDER_NAMES: Record<string, string> = {
-  claude: "Claude",
-  codex: "Codex",
-  openai: "OpenAI",
-  gemini: "Gemini",
-  copilot: "Copilot",
-  opencode: "OpenCode",
-  cursor: "Cursor",
-};
-
-export function WorldLegend({ kind, data }: { kind: WorldKind; data: AtlasData }) {
+export function WorldLegend({ data }: { data: AtlasData }) {
   const [open, setOpen] = useState(() => readStore<boolean>("world-legend-open", true));
   const toggle = () => {
     writeStore("world-legend-open", !open);
@@ -46,22 +33,15 @@ export function WorldLegend({ kind, data }: { kind: WorldKind; data: AtlasData }
   };
   // Only the colours actually in the fleet, so the key stays short.
   const colours = new Map<string, number>();
-  for (const a of data.agents)
-    if (kind === "galaxy") {
-      const p = providerOf(a.model) || "unknown";
-      colours.set(PROVIDER_NAMES[p] ?? (p[0]?.toUpperCase() ?? "") + p.slice(1), providerColor(a.model));
-    } else {
-      const colour = modelColor(a.model);
-      colours.set(MODEL_FAMILY[colour] ?? modelName(a.model), MODEL_COLORS[colour]);
-    }
-  const unit = kind === "galaxy" ? "Station" : "Agent tile";
-  // The Atlas's PR flags, once any workspace flies one.
-  const flags =
-    kind !== "galaxy" &&
-    data.workspaces.some((w) => {
-      const f = prFlags(w.labels);
-      return !!(f.ci || f.review);
-    });
+  for (const a of data.agents) {
+    const colour = modelColor(a.model);
+    colours.set(MODEL_FAMILY[colour] ?? modelName(a.model), MODEL_COLORS[colour]);
+  }
+  // The PR flags, once any workspace flies one.
+  const flags = data.workspaces.some((w) => {
+    const f = prFlags(w.labels);
+    return !!(f.ci || f.review);
+  });
   return (
     <section className="atlas-world-legend" aria-label="Map legend">
       <button className="legend-toggle" aria-expanded={open} onClick={toggle}>
@@ -69,7 +49,7 @@ export function WorldLegend({ kind, data }: { kind: WorldKind; data: AtlasData }
       </button>
       {open && (
         <div className="legend-body">
-          <h3>{unit} · agent state</h3>
+          <h3>Agent tile · agent state</h3>
           <ul>
             {ORDER.map((state) => {
               const color = STATE_TILE[state];
@@ -81,14 +61,14 @@ export function WorldLegend({ kind, data }: { kind: WorldKind; data: AtlasData }
                   >
                     {GLYPH[state] ?? ""}
                   </span>
-                  {state === "running" && kind === "galaxy" ? "Working · beaming to its planet" : STATE_NAMES[state]}
+                  {STATE_NAMES[state]}
                 </li>
               );
             })}
           </ul>
           {colours.size > 0 && (
             <>
-              <h3>{kind === "galaxy" ? "Satellite · provider" : "Robot · model"}</h3>
+              <h3>Robot · model</h3>
               <ul>
                 {[...colours].map(([name, color]) => (
                   <li key={name}>
@@ -112,11 +92,7 @@ export function WorldLegend({ kind, data }: { kind: WorldKind; data: AtlasData }
               </ul>
             </>
           )}
-          <p>
-            {kind === "galaxy"
-              ? "Planets are projects · stations workspaces · satellites agents"
-              : "Islands are projects · cottages workspaces · robots agents"}
-          </p>
+          <p>Islands are projects · cottages workspaces · robots agents</p>
         </div>
       )}
     </section>

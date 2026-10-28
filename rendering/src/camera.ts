@@ -8,7 +8,7 @@ export const OVERLAY_BOTTOM = 72;
 
 type Box = { x: number; y: number; width: number; height: number };
 /** The map's size in render px, i.e. CSS px × density. Every zoom here is in
- * render px per world px, as Phaser's camera uses it. */
+ * render px per world px. */
 export type View = { width: number; height: number };
 
 const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));

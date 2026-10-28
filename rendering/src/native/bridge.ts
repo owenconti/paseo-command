@@ -1,13 +1,14 @@
 /**
  * The Atlas drawn by the native macOS app (`native/`, SpriteKit). Inside its
- * web view, this stands in for the Phaser world: it lays the fleet out and
- * paints the artwork with the same modules the Phaser Atlas uses, then posts
- * the result to Swift, which only draws. The map's pointer, wheel and keys
+ * web view, this is the world the page mounts: it lays the fleet out and
+ * paints the artwork with the shared Atlas modules, then posts the result to
+ * Swift, which only draws. The map's pointer, wheel and keys
  * are forwarded to Swift, which owns the camera, hover and picking and
  * answers through `paseo:world` events. Nothing here sends daemon actions.
  */
 import {
   footprint,
+  insideFootprint,
   landBounds,
   point,
   layoutAtlas,
@@ -16,10 +17,14 @@ import {
   type AtlasLayout,
   type Entity,
 } from "../world";
-import { buildFrames, frameName, propFrames, type Frame } from "../art";
+import { buildFrames, flagFrames, frameName, propFrames, type Frame } from "../art";
+import { PR_LABELS } from "../prStatus";
 import { cloudsTile, glintsTile, terrainParts, waterTile, type Piece } from "../terrain";
 import {
   DRONE_ORBIT,
+  FLAG_FOOT,
+  FLAG_SWAY,
+  placeFlags,
   DRONE_SIZE,
   HOVER_COLOR,
   PROP_WIDTH,
@@ -56,6 +61,7 @@ import robotsUrl from "../assets/robots.png";
 import foliageUrl from "../assets/tree-v2.png";
 import sandUrl from "../assets/sand.png";
 import propsUrl from "../assets/props.png";
+import flagsUrl from "../assets/flags.png";
 import type { AtlasHandlers, AtlasWorld } from "../atlas";
 
 type Channel = { postMessage(message: unknown): void };
@@ -87,8 +93,8 @@ function crop(frame: Frame): HTMLCanvasElement {
   return canvas;
 }
 const png = (canvas: HTMLCanvasElement) => canvas.toDataURL("image/png");
-/** A copy with its colour multiplied by `tint`, as Phaser tints a sprite;
- * SpriteKit has no exact equivalent, so tints are baked in. */
+/** A copy with its colour multiplied by `tint` (a multiplicative tint, which
+ * SpriteKit has no exact equivalent for, so tints are baked in). */
 function tinted(canvas: HTMLCanvasElement, tint: number): HTMLCanvasElement {
   const copy = document.createElement("canvas");
   copy.width = canvas.width;
@@ -108,7 +114,7 @@ function tinted(canvas: HTMLCanvasElement, tint: number): HTMLCanvasElement {
 /** An offline robot's grey (see AtlasScene's `agent`). */
 const OFFLINE_TINT = 0x9c9a92;
 
-/** A banner painted as the Phaser Atlas draws it (`ribbon`), on a canvas
+/** A banner painted from `ribbonShape`, on a canvas
  * `BANNER_SCALE` times its world size; `caption` is the caption's world box,
  * which the plaza's props keep clear of. */
 function paintBanner(label: Label) {
@@ -225,6 +231,9 @@ export function mountNativeAtlas(parent: HTMLElement, handlers: AtlasHandlers = 
   const sent = new Set<string>();
   /** Terrain pieces Swift holds, by their `terrainParts` key. */
   const painted = new Map<string, Piece>();
+  /** The PR flags and garden plants last sent, for `inspect`. */
+  let planted: ReturnType<typeof placeFlags> = [];
+  let plants: Placed[] = [];
   /** Each project's lamps and beacon, placed with its plaza. */
   let signals = new Map<string, Signal[]>();
   const entity = (id: string | null) => (id && layout?.entities.find((e) => e.id === id)) || null;
@@ -257,9 +266,11 @@ export function mountNativeAtlas(parent: HTMLElement, handlers: AtlasHandlers = 
       return { key, piece, png: fresh ? png(canvas) : undefined };
     });
     for (const key of [...painted.keys()]) if (!pieces.some((p) => p.key === key)) painted.delete(key);
-    const placed = placeStructures(layout, sizeOf);
+    // A PR flag takes the place of its cell's garden plant.
+    const placed = placeStructures(layout, sizeOf, { flags: true });
     const banners = labels(layout).map((label) => ({ label, art: paintBanner(label) }));
     const sprites: Placed[] = [...placed];
+    plants = placed.filter((s) => !s.footprint);
     signals = new Map();
     layout.projects.forEach((p, i) => {
       const building = placed.find((s) => s.entity === p.id && s.footprint)!;
@@ -305,6 +316,18 @@ export function mountNativeAtlas(parent: HTMLElement, handlers: AtlasHandlers = 
         flipX: s.flipX,
       })),
       flags: campFlags(layout),
+      // PR flags stand on their pole's foot, so the running CI one sways about it.
+      prFlags: (planted = placeFlags(layout, sizeOf)).map((f) => ({
+        frame: f.frame,
+        flag: f.flag,
+        workspace: f.entity,
+        x: f.x,
+        y: f.y,
+        width: f.width,
+        depth: f.depth,
+        alpha: f.alpha,
+        sway: f.flag === "ci-running",
+      })),
       banners: banners.map(({ label, art }) => {
         const key = `banner:${JSON.stringify(label)}`;
         return { key, png: image(key, art.canvas), x: art.x, y: art.y, width: art.width, height: art.height };
@@ -459,11 +482,12 @@ export function mountNativeAtlas(parent: HTMLElement, handlers: AtlasHandlers = 
   // The art is painted once per page; Swift keeps it as textures.
   void (async () => {
     try {
-      const [buildings, robotSheet, foliage, sand, props, structures] = await Promise.all(
-        [buildingsUrl, robotsUrl, foliageUrl, sandUrl, propsUrl, structuresUrl].map(load),
+      const [buildings, robotSheet, foliage, sand, props, structures, flags] = await Promise.all(
+        [buildingsUrl, robotsUrl, foliageUrl, sandUrl, propsUrl, structuresUrl, flagsUrl].map(load),
       );
       const frames = buildFrames({ buildings: buildings!, robots: robotSheet!, foliage: foliage!, structures: structures! });
       for (const [name, frame] of propFrames(props!, PROPS)) frames.set(name, frame);
+      for (const [name, frame] of flagFrames(flags!, PR_LABELS.map(({ flag }) => `flag-${flag}`))) frames.set(name, frame);
       const sent = [...frames].map(([name, frame]) => ({ name, png: png(crop(frame)) }));
       // Offline robots stand greyed; their parts are sent pre-tinted.
       for (const [name, frame] of frames)
@@ -485,6 +509,8 @@ export function mountNativeAtlas(parent: HTMLElement, handlers: AtlasHandlers = 
           overlayBottom: OVERLAY_BOTTOM,
           wander: { x: WANDER_X, y: WANDER_Y, speed: WALK_SPEED, turn: TURN_SPEED },
           hover: HOVER_COLOR,
+          flagFoot: FLAG_FOOT,
+          flagSway: FLAG_SWAY,
         },
         reduced,
       });
@@ -533,6 +559,20 @@ export function mountNativeAtlas(parent: HTMLElement, handlers: AtlasHandlers = 
             islands: layout.islands.map((i) => ({ key: i.key, host: i.host, name: i.name, online: i.online, cells: i.cells.length })),
             agents: layout.agents.map((a) => ({ id: a.id, name: a.name, state: a.state, model: a.model, workspace: a.workspace, at: point(a.position) })),
             tiles: Object.fromEntries(tiles(layout).map((t) => [t.id, t.state])),
+            flags: Object.fromEntries(layout.workspaces.filter((w) => w.flags && !w.camp).map((w) => [w.id, w.flags])),
+            workspaces: layout.workspaces.map((w) => ({ id: w.id, name: w.name, camp: !!w.camp })),
+            planted: planted.map((f) => {
+              const size = sizeOf(f.frame),
+                halfW = f.width / 2,
+                halfH = (f.width * size.height) / size.width / 2;
+              return {
+                workspace: f.entity,
+                flag: f.flag,
+                sway: f.flag === "ci-running",
+                inCell: [-1, 1].every((dx) => [-1, 1].every((dy) => insideFootprint(f.x + dx * halfW, f.y + dy * halfH, [f.cell]))),
+                plantInCell: plants.some((p) => p.entity === f.entity && insideFootprint(p.x, p.y, [f.cell])),
+              };
+            }),
           }
         : undefined,
     destroy: () => {

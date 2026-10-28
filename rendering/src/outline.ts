@@ -5,8 +5,7 @@ type P = { x: number; y: number };
  * its `edgeCount` inset sides first, then the bridges across the steps where
  * two cells meet; `caps` are the sides' inset ends, one per side end (so a
  * corner shared by two sides of one cell repeats), each a dot `width` across.
- * Drawn in that order (sides, caps, bridges), overlapping strokes keep the
- * order Phaser has always drawn them in. */
+ * Drawn in that order (sides, caps, bridges). */
 export type Perimeter = { segments: [P, P][]; caps: P[]; edgeCount: number };
 
 const corner = (c: P, i: number, r: number) => ({

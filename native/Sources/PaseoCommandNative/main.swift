@@ -5,7 +5,6 @@ import notify
 /// How the app was launched:
 ///   --url <url>        the Paseo Command app to show (default http://127.0.0.1:4310/,
 ///                      or PASEO_COMMAND_URL)
-///   --web-world        leave the Atlas to Phaser in the page (for comparison)
 ///   --ambient <fps>    the ambient frame rate (default 30)
 ///   --size <w>x<h>     the window's size in points
 ///   --front            show the window in front without activating the app
@@ -16,7 +15,6 @@ import notify
 ///                      (and snapshots, on request, beside it as PNG)
 struct Options {
     var url = URL(string: ProcessInfo.processInfo.environment["PASEO_COMMAND_URL"] ?? "http://127.0.0.1:4310/")!
-    var webWorld = false
     var size: CGSize?
     var front = false
     /// An accessory app (no Dock icon) that never becomes active, so it can't
@@ -32,7 +30,6 @@ struct Options {
         while i < args.count {
             switch args[i] {
             case "--url": if let v = next(), let u = URL(string: v) { url = u }
-            case "--web-world": webWorld = true
             case "--ambient": if let v = next(), let n = Int(v) { AtlasView.ambientRate = n }
             case "--size":
                 if let v = next() {
@@ -69,7 +66,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Never take focus from whatever the user is doing: the window comes
         // up without activating the app.
         if options.front { world.window.orderFrontRegardless() } else { world.window.orderFront(nil) }
-        Log.line("window \(world.window.windowNumber) loading \(options.url.absoluteString)\(options.webWorld ? " (web world)" : "")")
+        Log.line("window \(world.window.windowNumber) loading \(options.url.absoluteString)")
         // Measurement hooks, posted with `notifyutil -p <name>`.
         listen("com.paseo.command.native.pan") { [weak self] in self?.main?.scriptedPan(seconds: 10) }
         listen("com.paseo.command.native.info") { [weak self] in self?.writeInfo() }
@@ -115,7 +112,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func writeInfo() {
         guard let path = options.info, let main else { return }
         let info: [String: Any] = [
-            "window": main.window.windowNumber, "pids": main.processes(), "webWorld": options.webWorld,
+            "window": main.window.windowNumber, "pids": main.processes(),
             "visible": main.window.occlusionState.contains(.visible), "framesDrawn": main.scene.framesDrawn,
             "paused": main.atlasView.isPaused, "fps": main.atlasView.preferredFramesPerSecond,
         ]

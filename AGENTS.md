@@ -14,9 +14,10 @@
 ## Product and references
 
 Paseo Command visualizes hosts, projects, workspaces and agents from the Paseo daemon.
-The React app and official SDK API are in `web/`. The Atlas world renderer is in `rendering/`.
-Two worlds draw the same fleet: Atlas (default) and Galaxy, chosen in the map toolbar (remembered;
-⌘⌥T steps worlds). The user asked for Galaxy; do not add further worlds unless asked.
+The React app and official SDK API are in `web/`. The Atlas world is drawn by the macOS app in
+`native/` (SpriteKit, under the React app in a WKWebView); its layout and art are in `rendering/`.
+The user removed the Phaser renderers (the web Atlas and the Galaxy world): in a plain browser the
+panels work and the map area says it is drawn by the macOS app. Do not add further worlds unless asked.
 The user’s five supplied top-down illustrations guide the Atlas world: blue water,
 parchment hex islands, project landmarks, workspace cottages, and model-colored robots (Claude orange,
 ChatGPT/Codex white; other providers keep a stable colour of their own).
@@ -55,8 +56,7 @@ Keep this workflow local; do not push or publish.
 - `npm run native:build`, `native:run [-- --url …]`: the macOS app (`native/`) that draws the Atlas with
   SpriteKit under the React app in a WKWebView; `native:mock` serves web/dist with a mocked fleet. See `native/README.md`.
   Launch it with `open -g` and `--background` for checks; it must never take the user's focus.
-- `npm run render:dev`: standalone Atlas study with illustrative data on http://127.0.0.1:4320.
-- `npm run render:build`, `npm run render:test`: study bundle and layout/tile tests.
+- `npm run render:test`: layout and tile tests.
 
 The earlier cached Phaser AE prototype in `game/` (with `npm run build`, `smoke`, `play`, `serve`)
 is no longer used by the app. Any publishing, asset-upload, crew or account instructions in its
@@ -66,13 +66,11 @@ Local assets belong in the repository and are included through local build tooli
 ## Structure
 
 - `rendering/src/world.ts`: Atlas vocabulary, axial geometry and the deterministic fleet layout.
-- `rendering/src/AtlasScene.ts`, `terrain.ts`, `textures.ts`: Phaser 4 scene, islands and sprites.
-- `rendering/src/atlas.ts`: `mountAtlas(parent, handlers, kind)`, the embedding API for both worlds.
-- `rendering/src/galaxy/`: Galaxy layout (`layout.ts`), painters (`paint.ts`) and scene (`GalaxyScene.ts`).
-  Hosts are nebula regions, projects textured rotating planets, workspaces orbiting stations, agents
-  provider-coloured satellites whose running beams relay through their station to the planet.
-  Surface, cloud and nebula maps come from the original project's Unity textures (`src/assets/galaxy/`).
-- `rendering/src/main.ts`, `inspector.ts`, `sample.ts`: standalone study with illustrative data.
+- `rendering/src/placement.ts`, `camera.ts`, `outline.ts`, `pick.ts`, `ribbon.ts`: where structures, props,
+  flags, banners, tiles and robots stand, and the camera, outline and picking rules (ported to Swift).
+- `rendering/src/art.ts`, `terrain.ts`: the sprite frames and the painted sea, landmasses and islands.
+- `rendering/src/atlas.ts`: `mountAtlas(parent, handlers)`, the embedding API (null outside the macOS app).
+- `rendering/src/sample.ts`: illustrative fleets for the layout tests.
 - `web/src/NativeWorld.tsx`: maps the React app's host-qualified world snapshot to the Atlas,
   forwards map picks as selections and draws app selections on the map.
 - `web/server/`: inherited official Paseo SDK API, served with the app on all interfaces.
@@ -88,7 +86,7 @@ Local assets belong in the repository and are included through local build tooli
 
 ## Atlas world
 
-The app bundles `rendering/` directly; Phaser resolves from `rendering/node_modules`.
+The app bundles `rendering/` directly; the bridge paints its art in the page and SpriteKit draws it.
 Each project with workspaces is its own island (projects without workspaces are hidden, as are hosts without any; if no host has workspaces, each shows as a bare clearing): a ten-hex
 landmark (rows of 3, 4, 3) in the middle, ringed by its workspaces, each touching it. Workspaces are placed
 bottom, lower-left, lower-right, upper-left, upper-right, then top, a cell apart (later ones stand against
@@ -107,16 +105,13 @@ lit while any of the project's agents is running, and a beacon that flares, in t
 when one needs approval, has a question or failed. Props keep off the landmark's art, its name and the kerb.
 The world is assembled from generated transparent sprite atlases, a terrain texture,
 and a strict axial hex grid. It is not a screenshot used as a background.
-For performance, the static painted images (ground, buildings) are drawn into two view-sized caches that
-repaint only when the camera or layout changes; banners and other vector shapes stay live (caches have no MSAA).
-The sea's glints and cloud shadows drift slowly in 15 Hz steps. Worlds run at 60 fps, at full rate while handled.
-The standalone study (`render:dev`) uses clearly labeled illustrative data and never connects to a daemon.
+The sea's glints and cloud shadows drift slowly in 15 Hz steps. The world renders on demand: 30 fps for ambient
+motion, full rate while handled, paused when nothing moves or the window is hidden.
 The inherited React UI is preserved; its panels use the Galaxy theme, as in the user's reference.
 Five original references are retained in `design/references/atlas-01.webp` through `atlas-05.webp`.
 Artwork provenance and generation prompts are in `rendering/ASSETS.md`.
 Architecture uses the original `buildings.png` plus `structures.png`: eight project landmarks
-and seven workspace cottages, balanced deterministically across neighbours. The standalone
-`?structures` study fixture exercises every structure without a daemon connection.
+and seven workspace cottages, balanced deterministically across neighbours (`STRUCTURE_SAMPLE` in the tests).
 
 ## Confirmed map constraints
 
@@ -126,7 +121,7 @@ Workspaces use three hexes; project landmarks use ten (rows of 3, 4 and 3); each
 One island per project with workspaces.
 Center artwork and fit it completely inside its occupied cells.
 Selection follows the outer perimeter of the occupied hexes, never a rectangle: a golden rim with a breathing
-yellow halo (Phaser glow filter) over a warm wash, so the selected entity reads on any surface. Hover and selection
+yellow halo over a warm wash, so the selected entity reads on any surface. Hover and selection
 rims are inset within the cells so painted kerbs and banks never clip them; an agent hovers across its whole cell.
 Hosts are picked from the Hosts tab only (land and banner are not interactive): the map rings its landmass and the lists narrow to it, the same
 host filter as the Hosts tab; any other selection takes the highlight while it lasts.

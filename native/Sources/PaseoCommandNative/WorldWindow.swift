@@ -52,9 +52,7 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         if AtlasView.ignoreOcclusion, web.responds(to: occlusion) { web.perform(occlusion, with: false) }
         content.addSubview(web)
         super.init()
-        // `--web-world` leaves the Atlas to Phaser in the page, for comparison.
-        if !options.webWorld { configuration.userContentController.add(self, name: "paseoWorld") }
-        else { atlasView.isHidden = true; atlasView.isPaused = true }
+        configuration.userContentController.add(self, name: "paseoWorld")
         web.navigationDelegate = self
         web.uiDelegate = self
         window.delegate = self
@@ -121,7 +119,7 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         case "input": scene.setInput(body["enabled"] as? Bool ?? true)
         case "motion": scene.setMotion(reduced: body["reduced"] as? Bool ?? false)
         case "detach":
-            // The page switched to the Galaxy (drawn by Phaser) or reloaded.
+            // The page unmounted its world (it is reloading or navigating).
             atlasView.isHidden = true
             atlasView.isPaused = true
         default: break
@@ -165,22 +163,18 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         }
     }
 
-    /// A scripted drag across the map (for measurements): pointer and mouse
-    /// events on the map surface, as a hand would make them, for `seconds`.
+    /// A scripted drag across the map (for measurements): pointer events on
+    /// the map surface, as a hand would make them, for `seconds`.
     func scriptedPan(seconds: Double) {
         let js = """
         (() => {
           const surface = document.querySelector('.atlas-world-surface');
           if (!surface) return 'no map';
-          const target = surface.querySelector('canvas') || surface;
+          const target = surface;
           const r = target.getBoundingClientRect();
           const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
-          const send = (type, x, y, buttons) => {
-            const o = { bubbles: true, cancelable: true, composed: true, clientX: x, clientY: y, button: 0, buttons, view: window };
-            const pointer = { pointerdown: 'mousedown', pointermove: 'mousemove', pointerup: 'mouseup' }[type];
-            target.dispatchEvent(new PointerEvent(type, { ...o, pointerId: 1, pointerType: 'mouse', isPrimary: true }));
-            target.dispatchEvent(new MouseEvent(pointer, o));
-          };
+          const send = (type, x, y, buttons) =>
+            target.dispatchEvent(new PointerEvent(type, { bubbles: true, cancelable: true, clientX: x, clientY: y, button: 0, buttons, pointerId: 1, pointerType: 'mouse', isPrimary: true }));
           send('pointerdown', cx, cy, 1);
           const start = performance.now();
           const step = (now) => {

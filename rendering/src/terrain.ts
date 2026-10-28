@@ -1,4 +1,3 @@
-import Phaser from "phaser";
 import {
   HEX_RADIUS,
   point,
@@ -134,10 +133,6 @@ let groundCache: HTMLCanvasElement | null = null;
 export function groundTile(): HTMLCanvasElement {
   return (groundCache ??= paintGroundCanvas());
 }
-export function paintGround(scene: Phaser.Scene): void {
-  if (scene.textures.exists("ground")) return;
-  scene.textures.addCanvas("ground", groundTile());
-}
 
 /** The sea the hosts' landmasses rise from. */
 export const WATER = "#1d6884";
@@ -178,10 +173,6 @@ let waterCache: HTMLCanvasElement | null = null;
 export function waterTile(): HTMLCanvasElement {
   return (waterCache ??= paintWaterCanvas());
 }
-export function paintWater(scene: Phaser.Scene): void {
-  if (scene.textures.exists("water")) return;
-  scene.textures.addCanvas("water", waterTile());
-}
 
 function paintGlintsCanvas(): HTMLCanvasElement {
   const size = 512;
@@ -208,10 +199,6 @@ let glintsCache: HTMLCanvasElement | null = null;
 export function glintsTile(): HTMLCanvasElement {
   return (glintsCache ??= paintGlintsCanvas());
 }
-export function paintGlints(scene: Phaser.Scene): void {
-  if (scene.textures.exists("glints")) return;
-  scene.textures.addCanvas("glints", glintsTile());
-}
 
 function paintCloudsCanvas(): HTMLCanvasElement {
   const size = 512;
@@ -237,10 +224,6 @@ let cloudsCache: HTMLCanvasElement | null = null;
 /** Soft cloud shadows, memoized: seamless, to drift slowly over the whole map. */
 export function cloudsTile(): HTMLCanvasElement {
   return (cloudsCache ??= paintCloudsCanvas());
-}
-export function paintClouds(scene: Phaser.Scene): void {
-  if (scene.textures.exists("clouds")) return;
-  scene.textures.addCanvas("clouds", cloudsTile());
 }
 
 /** A piece of terrain artwork, ready to become a texture: a generated
@@ -390,7 +373,7 @@ function variationPiece(layout: AtlasLayout): Piece {
   const ctx = canvas.getContext("2d")!;
   const image = ctx.createImageData(cells, cells);
   // A fixed seed, not the map's layout: this texture is decorative noise,
-  // the same every time so the Phaser and DOM Atlas agree on it.
+  // the same every time so every renderer agrees on it.
   const n = fbm([4, 8, 16], seedOf("variation-1"));
   for (let j = 0; j < cells; j++)
     for (let i = 0; i < cells; i++) {
@@ -594,8 +577,8 @@ function islandPiece(
 
 /** Every piece of terrain artwork the map needs for this layout: the
  * project and workspace islands, the drift-breaking variation overlay, and
- * each host's landmass. No Phaser dependency; `drawTerrain` turns these
- * into textures and places them. */
+ * each host's landmass. The native app's bridge sends them to SpriteKit as
+ * textures. */
 export function terrainPieces(layout: AtlasLayout, sand: HTMLImageElement): Piece[] {
   return terrainParts(layout, sand).map((part) => part.paint());
 }
@@ -641,31 +624,3 @@ export function terrainParts(layout: AtlasLayout, sand: HTMLImageElement): { key
   return parts;
 }
 
-export function drawTerrain(scene: Phaser.Scene, layout: AtlasLayout, build: number): string[] {
-  const sand = scene.textures.get("sand").getSourceImage() as HTMLImageElement;
-  const pieces = terrainPieces(layout, sand);
-  const keys: string[] = [];
-  let islandIndex = 0,
-    landIndex = 0;
-  for (const piece of pieces) {
-    const key =
-      piece.kind === "variation"
-        ? `variation-${build}`
-        : piece.kind === "landmass"
-          ? `landmass-${build}-${landIndex++}`
-          : `terrain-${build}-${islandIndex++}`;
-    if (scene.textures.exists(key)) scene.textures.remove(key);
-    scene.textures.addCanvas(key, piece.canvas);
-    const image = scene.add.image(piece.x, piece.y, key).setOrigin(0).setDepth(piece.depth);
-    // An island's canvas is already drawn at its display size; only the
-    // variation and landmass canvases (baked smaller or scaled) need a
-    // resize. Skipping the no-op call keeps an island's edges exactly as
-    // Phaser's own default-scale render path draws them.
-    if (image.width !== piece.width || image.height !== piece.height)
-      image.setDisplaySize(piece.width, piece.height);
-    if (piece.tint !== undefined) image.setTint(piece.tint);
-    if (piece.alpha !== undefined) image.setAlpha(piece.alpha);
-    keys.push(key);
-  }
-  return keys;
-}

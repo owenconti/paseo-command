@@ -24,7 +24,7 @@ npm run native:run -- --url http://127.0.0.1:4331/
 The icon (`native/AppIcon.icns`) is drawn from the Atlas's own robot art by
 `swift native/scripts/icon.swift`.
 
-Options: `--web-world` (leave the Atlas to Phaser in the page, for comparison), `--ambient <fps>`
+Options: `--ambient <fps>`
 (ambient frame rate, default 30), `--size <w>x<h>`, `--front` (show in front without activating),
 `--ignore-occlusion`, `--checks`, `--info <path>` (window number and process ids as JSON; also the
 base path for the `notifyutil` hooks below).
@@ -32,14 +32,13 @@ base path for the `notifyutil` hooks below).
 ## How it fits together
 
 - **Layout and art stay in JavaScript.** Inside the app, `mountAtlas` (rendering/src/atlas.ts)
-  returns the bridge world (`rendering/src/native/bridge.ts`) instead of Phaser. It runs the same
-  `layoutAtlas`, `placeStructures`, `plaza`, `labels`, `tiles`, `lights` and `robots` rules and
-  the same painters (`art.ts`, `terrain.ts`) as the Phaser Atlas, and posts the result to Swift
+  returns the bridge world (`rendering/src/native/bridge.ts`). It runs the shared `layoutAtlas`,
+  `placeStructures`, `placeFlags`, `plaza`, `labels`, `tiles`, `lights` and `robots` rules and the
+  painters (`art.ts`, `terrain.ts`), and posts the result to Swift
   through the `paseoWorld` message handler: sprite frames and sea tiles once, terrain and banners
-  as PNGs (only pieces Swift doesn't already hold), and positions. SpriteKit only draws, so it
-  stays in step with the web Atlas.
+  as PNGs (only pieces Swift doesn't already hold), and positions. SpriteKit only draws.
 - **SpriteKit draws and animates** (`AtlasScene.swift`): terrain, buildings, props, camp flags,
-  banners, state tiles (pulse periods and the running light from the shared rules), lamps and
+  banners, PR flags (the running CI one sways), state tiles (pulse periods and the running light from the shared rules), lamps and
   beacon, walking robots and orbiting drones, sea glints and cloud shadows, hover and selection
   rims. It owns the camera (pan, zoom, fit, focus, minimum zoom and pan limits, ported from
   `camera.ts`) and picking (`pick.ts`), and reports picks, hover and zoom back as `paseo:world`
@@ -54,7 +53,8 @@ base path for the `notifyutil` hooks below).
 - **Rendering on demand** (`AtlasView.swift`): the display's full rate only while the map is
   handled or the camera moves, 30 Hz for ambient motion, 15 Hz when only the sea drifts, paused
   when nothing moves (reduced motion with no interaction) or the window is occluded or minimised.
-- **Galaxy** still runs as Phaser in the page; switching worlds hides the SpriteKit view.
+- **No web renderer.** The Phaser Atlas and Galaxy were removed; in a plain browser the panels work
+  and the map area says the map is drawn by this app.
 
 ## Checks without screen recording
 

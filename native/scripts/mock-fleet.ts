@@ -5,7 +5,10 @@
  * `mockApi` answers it, and every mutation is refused. The live socket
  * pushes the whole fleet once, as `mockApi`'s does.
  *
- *   npm run native:mock -- [--fleet small|large] [--port 4331]
+ *   npm run native:mock -- [--fleet small|large] [--port 4331] [--pr-flags]
+ *
+ * `--pr-flags` labels the first three workspaces with PR status labels, so
+ * their flags show.
  */
 import { createReadStream, existsSync, statSync } from "node:fs";
 import { createServer } from "node:http";
@@ -23,6 +26,10 @@ const option = (name: string, fallback: string) => {
 };
 const fleet = option("fleet", "large") === "small" ? small : large;
 const port = Number(option("port", "4331"));
+if (args.includes("--pr-flags")) {
+  const labels = [["CI running", "Awaiting review"], ["CI green", "Approved"], ["CI failing", "Changes requested"]];
+  fleet.workspaces.slice(0, 3).forEach((w, i) => Object.assign(w, { labels: labels[i] }));
+}
 const dist = fileURLToPath(new URL("../../web/dist/", import.meta.url));
 if (!existsSync(join(dist, "index.html"))) {
   console.error("web/dist is missing: run `npm --prefix web run build` first.");

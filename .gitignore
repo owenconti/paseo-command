@@ -9,8 +9,6 @@ rendering/artifacts/
 
 # Generated local previews and machine-specific files
 web/public/world/
-# Pixel baselines are captured per machine/renderer (web/e2e/atlas-pixels.e2e.ts).
-web/e2e/baseline/
 .DS_Store
 *.log
 .env

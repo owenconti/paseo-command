@@ -1,5 +1,8 @@
 # Native Atlas measurements
 
+(The Phaser web Atlas these compare against has since been removed; `measure.mjs` now measures the
+native app alone.)
+
 Fleet: `large` from `web/e2e/fleets.ts` (8 hosts, one offline; 40 projects; 70 workspaces; 150
 agents), served by `npm run native:mock` (no daemon). Window 1440×900 points on a 2× display.
 Method: `native/scripts/measure.mjs`, which takes cumulative CPU time (`ps -o time=`) over each

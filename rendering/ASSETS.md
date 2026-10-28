@@ -50,15 +50,6 @@ Exact prompt:
 
 > Use case: stylized-concept. Create one SINGLE ISOLATED TREE game sprite on a genuinely transparent background. Reference image is a STYLE REFERENCE ONLY: match its round dense oak tree canopy, hand-painted watercolor/gouache leaf clusters, thin sepia ink contours, moss green and yellow-green foliage, warm highlights and fine brown branches. Camera straight down 90-degree overhead as in a fantasy strategy atlas. Show one complete irregular round deciduous oak canopy, including ALL its outer leaves and branches. Center it, occupying only the middle 60% of the square image with at least 20% completely empty transparent margin on every edge. No part of the tree or its soft tiny shadow may touch any image edge. Absolutely no rocks, shrubs, ground, trunks protruding as disconnected fragments, other trees, labels, numbers, grid, text or background. This will replace a tree extracted from a crowded sprite sheet that had accidentally included part of a rock: make this a clean standalone tree sprite with a complete natural leafy silhouette and zero neighboring objects. Keep painted texture and ink detail consistent with the source, not a photo or a 3D render.
 
-## Galaxy textures (`src/assets/galaxy/`)
-
-Copied from the original Paseo Command project, `Unity/Assets/Paseo/Art/Textures/`
-(Barren, Clouds, Desert, Forest, Ice, Nebula, Ocean, RingedGas, Storm, Volcanic), and
-re-encoded as JPEG at their full 1774 px width. They are equirectangular surface maps (and a grayscale
-nebula density map) generated for that project; their prompts and checksums are in its
-`art/galaxy/prompts/production-texture-prompts.json`. Stations, satellites, rings,
-atmospheres, stars and rocks are drawn procedurally in `src/galaxy/paint.ts`, after the
-original's Unity station and satellite geometry and its Galaxy reference screenshots.
 ## props.png — plaza props and status pairs
 
 Generated with the built-in `image_gen` tool using `buildings.png` and `tree-v2.png` as style references. Local artwork only; no Phaser AE services, publishing or asset uploads were used.

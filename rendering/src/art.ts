@@ -1,12 +1,11 @@
 /**
  * Renderer-neutral painters for the Atlas's building, foliage and robot
- * artwork: plain canvas work with no Phaser dependency, so the DOM Atlas can
- * draw the same sprites. `textures.ts` is the Phaser wrapper that registers
- * these as textures and frames; it must keep drawing pixel-identically.
+ * artwork: plain canvas work. The native bridge sends these frames to
+ * SpriteKit as textures.
  */
 
 /** A cropped, padded sprite: `canvas` holds it at `(x, y)`, sized `width` by
- * `height` — the same rect today's `filtered-<name>` Phaser textures use. */
+ * `height`. */
 export type Frame = {
   canvas: HTMLCanvasElement;
   x: number;
@@ -85,8 +84,7 @@ function trimRect(
 }
 
 /** The trimmed rects on the source sheets (buildings, foliage, robots):
- * what the Phaser thumbnail reads straight off the raw sheet, and what
- * `buildFrames` crops into its padded canvases. */
+ * what `buildFrames` crops into its padded canvases. */
 export function sourceRects(src: ArtSources): Map<string, Rect> {
   const rects = new Map<string, Rect>();
   for (const [name, rect] of Object.entries(BUILDING_FRAMES))
@@ -113,8 +111,6 @@ function paddedFrame(img: HTMLImageElement, [x, y, w, h]: Rect): Frame {
   const side = 2 ** Math.ceil(Math.log2(Math.max(w, h) + GUTTER * 2));
   const canvas = document.createElement("canvas");
   canvas.width = canvas.height = side;
-  // Phaser's own `createCanvas` always opens its 2D context this way; matching
-  // it here keeps compositing identical at every sprite's trimmed edge.
   const ctx = canvas.getContext("2d", { willReadFrequently: true })!;
   ctx.drawImage(img, x, y, w, h, GUTTER, GUTTER, w, h);
   return { canvas, x: GUTTER, y: GUTTER, width: w, height: h };
@@ -235,8 +231,7 @@ function splitRobot(frame: Frame): { body: Frame; handL: Frame; handR: Frame } {
 
 /** Every building, tree, and robot (plus its body and hands, each colour)
  * the Atlas draws, cropped and padded, ready to become a texture. Plaza
- * props keep their own registration in the Phaser wrapper (no shared source
- * image is part of `ArtSources`). */
+ * props and PR flags come from `propFrames` and `flagFrames`. */
 export function buildFrames(src: ArtSources): Map<string, Frame> {
   const frames = new Map<string, Frame>();
   for (const [name, rect] of sourceRects(src)) {
@@ -262,11 +257,20 @@ export function buildFrames(src: ArtSources): Map<string, Frame> {
 }
 
 /** Plaza props (greenery, workshop gear, lamps and beacon in both states),
- * cropped and padded as the Phaser wrapper registers them, for renderers that
- * take frames rather than Phaser textures. */
+ * cropped and padded as `buildFrames` does. */
 export function propFrames(img: HTMLImageElement, rects: Record<string, { rect: number[] }>): Map<string, Frame> {
   const frames = new Map<string, Frame>();
   for (const [name, { rect }] of Object.entries(rects))
     frames.set(name, paddedFrame(img, trimRect(img, rect as Rect)));
+  return frames;
+}
+
+/** PR flags: a 3×2 grid of 512 px cells, CI across the top, review below (in
+ * `names`' order). A low threshold keeps the brass poles' soft edges. */
+export function flagFrames(img: HTMLImageElement, names: string[]): Map<string, Frame> {
+  const frames = new Map<string, Frame>();
+  names.forEach((name, i) =>
+    frames.set(name, paddedFrame(img, trimRect(img, [(i % 3) * 512, Math.floor(i / 3) * 512, 512, 512], 4, 8))),
+  );
   return frames;
 }

@@ -109,7 +109,7 @@ import "./world-ui.css";
 import { agentName, idLike, placeText, useKnownIds } from "./names";
 
 installNativeLinks();
-// Browser-hosted Phaser renderer uses the inherited docked session layout.
+// The map surface (drawn by the macOS app) beside the inherited docked session layout.
 const native = true;
 const unity = true;
 // Cmd+R loads the latest build of the app; it never just reloads this page.

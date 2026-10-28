@@ -7,12 +7,6 @@
   outline: none;
   touch-action: none;
 }
-.atlas-world-surface[data-world="galaxy"] {
-  background: #090605;
-}
-.atlas-world-surface canvas {
-  display: block;
-}
 .atlas-input-cover {
   position: absolute;
   inset: 0;

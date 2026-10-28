@@ -66,6 +66,10 @@ final class AtlasScene: SKScene {
         var x: CGFloat = 0, y: CGFloat = 0, heading: CGFloat = .pi / 2, tx: CGFloat = 0, ty: CGFloat = 0
         var pause: CGFloat, look: CGFloat = .pi / 2, rng: Seeded, stride: CGFloat = 0, phase: CGFloat
     }
+    /// PR flags whose CI is running sway about their pole's foot.
+    private var swaying: [SKSpriteNode] = []
+    private var flagFoot = CGPoint(x: 0.19, y: 0.95)
+    private var flagSway = (degrees: CGFloat(3), period: Double(1400))
     private var pulses: [Pulse] = []
     private var runners: [Runner] = []
     private var flames: [Flame] = []
@@ -152,8 +156,10 @@ final class AtlasScene: SKScene {
             wander = (CGFloat(w["x"] ?? 13), CGFloat(w["y"] ?? 10), CGFloat(w["speed"] ?? 8), CGFloat(w["turn"] ?? 1.3))
         }
         if let h = constants["hover"] as? [String: Int] { hoverColors = h }
+        if let f = constants["flagFoot"] as? [String: Double] { flagFoot = CGPoint(x: f["x"] ?? 0.19, y: f["y"] ?? 0.95) }
+        if let f = constants["flagSway"] as? [String: Double] { flagSway = (CGFloat(f["degrees"] ?? 3), f["period"] ?? 1400) }
         self.reduced = reduced
-        // A fresh mount of the page's world fits the land, as Phaser's does.
+        // A fresh mount of the page's world fits the land.
         fitted = false
         emit(["type": "ready"])
     }
@@ -187,6 +193,17 @@ final class AtlasScene: SKScene {
             node.alpha = num(s["alpha"], 1)
             if s["flipX"] as? Bool == true { node.xScale = -1 }
             structures.addChild(node)
+        }
+        swaying = []
+        for f in m["prFlags"] as? [[String: Any]] ?? [] {
+            guard let name = f["frame"] as? String, let node = sprite(name, width: num(f["width"])) else { continue }
+            // Standing on its pole's foot, so a sway turns about it.
+            node.anchorPoint = CGPoint(x: flagFoot.x, y: 1 - flagFoot.y)
+            node.position = p(num(f["x"]) + (flagFoot.x - 0.5) * node.size.width, num(f["y"]) + (flagFoot.y - 0.5) * node.size.height)
+            node.zPosition = num(f["depth"])
+            node.alpha = num(f["alpha"], 1)
+            structures.addChild(node)
+            if f["sway"] as? Bool == true { swaying.append(node) }
         }
         for flag in m["flags"] as? [[String: Double]] ?? [] { structures.addChild(campFlag(CGFloat(flag["x"] ?? 0), CGFloat(flag["y"] ?? 0))) }
         var keepBanners = Set<String>()
@@ -653,7 +670,7 @@ final class AtlasScene: SKScene {
 
     /// Whether anything moves at the ambient rate (tiles, robots, signals, the selection).
     var animating: Bool {
-        !reduced && (!pulses.isEmpty || !runners.isEmpty || !flames.isEmpty || robots.contains { $0.busy || !$0.drones.isEmpty } || selected != nil)
+        !reduced && (!pulses.isEmpty || !runners.isEmpty || !flames.isEmpty || !swaying.isEmpty || robots.contains { $0.busy || !$0.drones.isEmpty } || selected != nil)
     }
     /// The sea's glints and cloud shadows drift (slowly, in 15 Hz steps).
     var drifting: Bool { !reduced && !tiles.isEmpty }
@@ -751,6 +768,11 @@ final class AtlasScene: SKScene {
             f.node.alpha = CGFloat((f.flicker ? 0.45 + 0.55 * pulse : 0.7 + 0.3 * pulse) + flicker)
         }
         if selected != nil { breathe() }
+        // The running CI flag sways; still, with reduced motion.
+        let sway = (clock / flagSway.period) * .pi * 2
+        for (i, flag) in swaying.enumerated() {
+            flag.zRotation = reduced ? 0 : -flagSway.degrees * .pi / 180 * CGFloat(sin(sway + Double(i) * 0.7))
+        }
         walk(step)
     }
 

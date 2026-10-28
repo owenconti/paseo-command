@@ -158,6 +158,11 @@ export function placeStructures(
 /** A workspace's PR flags: their height, and how far each stands beyond its
  * cell's centre, away from the cottage (as GARDEN_OUT). */
 export const FLAG_HEIGHT = 70;
+/** Where a PR flag's pole foot is in its art (as a share of its width and
+ * height), and how far the running flag sways about it (degrees) and how
+ * often (ms). */
+export const FLAG_FOOT = { x: 0.19, y: 0.95 };
+export const FLAG_SWAY = { degrees: 3, period: 1400 };
 const FLAG_OUT = 0.12;
 const DEPTH_FLAG = 17.2;
 /** A PR flag: `x, y` is the sprite's centre and `width` its display width;
