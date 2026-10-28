@@ -22,6 +22,10 @@
     "render:preview": "npm --prefix rendering run preview",
     "render:test": "node --experimental-strip-types --test rendering/tests/*.test.mjs",
     "app:test": "npm --prefix web test",
-    "app:e2e": "npm --prefix web run e2e"
+    "app:e2e": "npm --prefix web run e2e",
+    "app:start": "node scripts/app-server.mjs start",
+    "app:stop": "node scripts/app-server.mjs stop",
+    "app:restart": "node scripts/app-server.mjs restart",
+    "app:status": "node scripts/app-server.mjs status"
   }
 }

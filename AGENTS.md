@@ -21,10 +21,30 @@ Real state must remain truthful: distinguish running, idle, completed/unread, ap
 question, failure and offline. Test daemon mutations against fake daemons only.
 The Atlas uses generated painted sprites; it is not yet finished reference-quality art.
 
+## Completing a feature
+
+Once the requested feature is implemented and validated, commit it and merge it into
+local `main`. If working directly on `main`, commit the completed feature there.
+Preserve unrelated work in the checkout.
+
+Then, from the main checkout on `main`, rebuild and restart the running app:
+
+```sh
+npm run app:build && npm run app:restart
+```
+
+This is part of completing the feature. The restart preserves the app's saved port
+and Tailscale settings. Report the commit and whether the build and restart succeeded.
+Keep this workflow local; do not push or publish.
+
 ## Commands
 
 - `npm run app:install`: installs `rendering/` and `web/` dependencies.
 - `npm run app:dev`: React UI, loopback SDK API and the Atlas world on http://127.0.0.1:4310.
+- `npm run app:start`: detached preview of the built app and API; run from a human terminal.
+  Add `-- --tailscale` for private HTTPS access on the host’s Tailscale name at port 8443.
+- `npm run app:stop`, `app:restart`, `app:status`: manage that detached preview.
+  Restart preserves its port and Tailscale settings. See `RUNNING.md`.
 - `npm run app:build`: layout tests, then type-checks and bundles the app to `web/dist/`.
 - `npm run app:typecheck`: checks React, API and Atlas TypeScript.
 - `npm run app:e2e`: browser tests of the Atlas against a mocked fleet (no daemon is reached).

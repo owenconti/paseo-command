@@ -16,7 +16,13 @@ export default defineConfig({
       ? [process.env.PASEO_COMMAND_TAILNET_HOST]
       : [],
   },
-  preview: { host: "127.0.0.1", strictPort: false },
+  preview: {
+    host: "127.0.0.1",
+    strictPort: false,
+    allowedHosts: process.env.PASEO_COMMAND_TAILNET_HOST
+      ? [process.env.PASEO_COMMAND_TAILNET_HOST]
+      : [],
+  },
   build: {
     chunkSizeWarningLimit: 1500,
     rollupOptions: {
