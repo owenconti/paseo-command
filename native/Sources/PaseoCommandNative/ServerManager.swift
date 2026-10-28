@@ -27,13 +27,28 @@ final class ServerManager {
         starting.append(done)
         guard starting.count == 1 else { return }
         DispatchQueue.global(qos: .userInitiated).async { [root] in
-            let result = Self.run(["start", "--port", String(port)], in: root)
+            // A server already answering is used as it is, whichever checkout started it.
+            let result = Self.answers(port) ? .success(()) : Self.run(["start", "--port", String(port)], in: root)
             DispatchQueue.main.async {
                 let callbacks = self.starting
                 self.starting = []
                 callbacks.forEach { $0(result) }
             }
         }
+    }
+
+    /// Whether anything answers HTTP on the port, within a couple of seconds.
+    private static func answers(_ port: Int) -> Bool {
+        var request = URLRequest(url: URL(string: "http://127.0.0.1:\(port)/")!)
+        request.timeoutInterval = 2
+        let done = DispatchSemaphore(value: 0)
+        var ok = false
+        URLSession.shared.dataTask(with: request) { _, response, _ in
+            ok = response is HTTPURLResponse
+            done.signal()
+        }.resume()
+        _ = done.wait(timeout: .now() + 3)
+        return ok
     }
 
     /// `node scripts/app-server.mjs <args>` through a login shell, so the
