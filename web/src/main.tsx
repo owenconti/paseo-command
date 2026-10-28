@@ -42,7 +42,7 @@ import {
   useArchiveJobs,
   type ArchiveJob,
 } from "./archives";
-import { SoundControl } from "./SoundControl";
+import { SettingsControl } from "./SettingsControl";
 import { setSoundSettings, useSoundSettings } from "./sounds";
 import { CommandPalette } from "./CommandPalette";
 import { runAppCommand } from "./appCommands";
@@ -209,8 +209,8 @@ function App() {
   const [focusRevision, setFocusRevision] = useState(initial.selection ? 1 : 0);
   const [dispatchRevision, setDispatchRevision] = useState(0);
   const [browsing, setBrowsing] = useState(initial.browsing);
-  // The app's Settings… (Cmd+,) opens the interface sounds control in the
-  // fleet sidebar: show the sidebar and expand the panel (SoundControl opens).
+  // The app's Settings… (Cmd+,) opens the settings control in the
+  // fleet sidebar: show the sidebar and expand the panel (SettingsControl opens).
   const [revealRevision, setRevealRevision] = useState(0);
   useEffect(() => {
     if (!native) return;
@@ -1357,9 +1357,12 @@ function App() {
           tools={
             <FleetTools
               usage={usage}
-              notifications={attention.notifications}
-              onNotifications={() => void attention.requestNotifications()}
-              sounds={<SoundControl />}
+              settings={
+                <SettingsControl
+                  notifications={attention.notifications}
+                  onNotifications={() => void attention.requestNotifications()}
+                />
+              }
             />
           }
           attention={permissions.length}

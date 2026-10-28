@@ -1031,7 +1031,7 @@
   border-color: transparent;
 }
 
-/* Interface sounds (SoundControl.tsx) */
+/* Settings (SettingsControl.tsx) */
 .sound-menu {
   padding: 6px;
   min-width: 260px;
@@ -1057,6 +1057,11 @@
   font-size: var(--fs-2xs);
   color: var(--text-3);
 }
+/* Each setting after the first starts a section, as the Linear one does. */
+.settings-menu .sound-toggle:not(:first-child) {
+  margin-top: var(--space-1);
+  border-top: 1px solid var(--line);
+}
 .sound-menu input {
   accent-color: var(--accent);
 }
@@ -1071,11 +1076,8 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* Lofi radio (music.ts, FleetTools) */
-.music-btn[aria-pressed="true"] {
-  color: var(--accent);
-}
-.music-btn[data-state="connecting"] svg {
+/* Lofi radio (music.ts): the settings gear pulses while it connects. */
+.settings-anchor [data-music="connecting"] svg {
   animation: music-connecting 1.2s ease-in-out infinite;
 }
 @keyframes music-connecting {
@@ -1084,7 +1086,7 @@
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .music-btn[data-state="connecting"] svg {
+  .settings-anchor [data-music="connecting"] svg {
     animation: none;
   }
 }

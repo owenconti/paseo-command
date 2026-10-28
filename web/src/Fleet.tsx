@@ -11,8 +11,6 @@ import {
 import {
   Archive,
   LoaderCircle,
-  Bell,
-  BellOff,
   Bot,
   Box,
   Check,
@@ -21,7 +19,6 @@ import {
   CloudOff,
   GitBranch,
   ListFilter,
-  Music,
   Pencil,
   Plus,
   Server,
@@ -60,7 +57,6 @@ import {
 import { agentName, hostText, pathText, placeText } from "./names";
 import { hostWorldKey, nativeAvailable, postNative } from "./worldBridge";
 import { soundEvent } from "./soundCues";
-import { setMusicSettings, useMusic } from "./music";
 
 export type { Filter } from "./fleetView";
 /** Rows rendered at a time (more as the list scrolls). */
@@ -333,65 +329,19 @@ function hostTitle(h: Host) {
   return parts.join("\n");
 }
 
-/** The panel header's tools: usage, sounds, desktop notifications, theme. */
+/** The panel header's tools: usage and the settings gear. */
 export function FleetTools({
   usage,
-  notifications,
-  onNotifications,
-  sounds,
+  settings,
 }: {
   usage: UsageReport[];
-  notifications: string;
-  onNotifications: () => void;
-  /** The interface sounds control, beside the notifications bell. */
-  sounds?: ReactNode;
+  /** The settings control (sounds, music, notifications), after usage. */
+  settings?: ReactNode;
 }) {
-  const music = useMusic();
-  const musicLabel = !music.enabled
-    ? "off"
-    : music.state === "playing"
-      ? "playing"
-      : music.state === "waiting"
-        ? "starts with your next click"
-        : "connecting…";
   return (
     <span className="panel-tools">
       {usage.length > 0 && <UsageCard reports={usage} />}
-      {sounds}
-      <button
-        className="icon-btn music-btn"
-        data-state={music.enabled ? music.state : "off"}
-        onClick={() => setMusicSettings({ enabled: !music.enabled })}
-        data-tip={`Lofi radio (laut.fm) — ${musicLabel}`}
-        aria-label={`Lofi radio: ${musicLabel}`}
-        aria-pressed={music.enabled}
-      >
-        <Music size={14} />
-      </button>
-      {notifications !== "unsupported" && (
-        <button
-          className="icon-btn"
-          onClick={onNotifications}
-          disabled={notifications === "denied"}
-          data-tip={
-            notifications === "granted"
-              ? "Desktop notifications on — click to turn off"
-              : notifications === "off"
-                ? "Desktop notifications off — click to turn on"
-                : notifications === "denied"
-                  ? "Notifications are blocked in browser settings"
-                  : "Enable desktop notifications for finished agents and approvals"
-          }
-          aria-label="Desktop notifications"
-          aria-pressed={notifications === "granted"}
-        >
-          {notifications === "granted" ? (
-            <Bell size={14} />
-          ) : (
-            <BellOff size={14} />
-          )}
-        </button>
-      )}
+      {settings}
     </span>
   );
 }

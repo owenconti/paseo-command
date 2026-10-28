@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useId, useRef, useState } from "react";
-import { Volume1, Volume2, VolumeX } from "lucide-react";
+import { Settings } from "lucide-react";
 import { placePopover } from "./popover";
 import { previewSound, setSoundSettings, useSoundSettings } from "./sounds";
 import { nativeEvents } from "./worldBridge";
@@ -7,10 +7,17 @@ import { LinearWorkspaceSetting } from "./HeaderLinks";
 import { setMusicSettings, useMusic } from "./music";
 
 /**
- * The app's settings, kept in this browser (or the app): interface sounds
- * (on/off and volume) and the Linear workspace issue links open in.
+ * The app's settings, behind the panel header's gear: interface sounds and
+ * the lofi radio (on/off and volume), desktop notifications, and the Linear
+ * workspace issue links open in. All are kept in this browser (or the app).
  */
-export function SoundControl() {
+export function SettingsControl({
+  notifications,
+  onNotifications,
+}: {
+  notifications: string;
+  onNotifications: () => void;
+}) {
   const settings = useSoundSettings();
   const music = useMusic();
   const musicPercent = Math.round(music.volume * 100);
@@ -69,16 +76,17 @@ export function SoundControl() {
     };
   }, [open, close]);
   const percent = Math.round(settings.volume * 100);
-  const label = settings.enabled ? `Sounds on, ${percent}%` : "Sounds off";
-  const Icon = !settings.enabled
-    ? VolumeX
-    : settings.volume < 0.5
-      ? Volume1
-      : Volume2;
+  const musicStatus = !music.enabled
+    ? "Streams laut.fm's lofi station"
+    : music.state === "playing"
+      ? "Playing laut.fm's lofi station"
+      : music.state === "waiting"
+        ? "Starts with your next click"
+        : "Connecting…";
   return (
     <span
       ref={anchor}
-      className="menu-anchor sound-anchor"
+      className="menu-anchor settings-anchor"
       onBlur={(e) => {
         if (
           open &&
@@ -94,11 +102,12 @@ export function SoundControl() {
         aria-haspopup="dialog"
         aria-expanded={open}
         aria-controls={open ? id : undefined}
-        aria-label={`Interface sounds: ${label}`}
-        data-tip={`Interface sounds — ${label.toLowerCase().replace("sounds ", "")}`}
+        aria-label="Settings"
+        data-tip="Settings — sounds, music, notifications"
+        data-music={music.enabled ? music.state : "off"}
         onClick={() => setOpen(!open)}
       >
-        <Icon size={14} />
+        <Settings size={14} />
       </button>
       {open && (
         <div
@@ -106,7 +115,7 @@ export function SoundControl() {
           id={id}
           role="dialog"
           aria-label="Settings"
-          className="popover-menu right sound-menu"
+          className="popover-menu right sound-menu settings-menu"
           // Keys pressed here are the control's (not J/K/N/D shortcuts).
           onKeyDown={(e) => {
             if (e.key !== "Tab" && e.key !== "Escape") e.stopPropagation();
@@ -152,14 +161,26 @@ export function SoundControl() {
             />
             <output>{percent}%</output>
           </label>
+          <label className="sound-toggle">
+            <input
+              type="checkbox"
+              checked={music.enabled}
+              onChange={(e) => setMusicSettings({ enabled: e.target.checked })}
+            />
+            <span>
+              <b>Lofi radio</b>
+              <small aria-live="polite">{musicStatus}</small>
+            </span>
+          </label>
           <label className="sound-volume">
-            <span>Music</span>
+            <span>Volume</span>
             <input
               type="range"
               min={0}
               max={100}
               step={5}
               value={musicPercent}
+              disabled={!music.enabled}
               aria-label="Lofi radio volume"
               aria-valuetext={`${musicPercent}%`}
               onChange={(e) =>
@@ -168,6 +189,24 @@ export function SoundControl() {
             />
             <output>{musicPercent}%</output>
           </label>
+          {notifications !== "unsupported" && (
+            <label className="sound-toggle">
+              <input
+                type="checkbox"
+                checked={notifications === "granted"}
+                disabled={notifications === "denied"}
+                onChange={onNotifications}
+              />
+              <span>
+                <b>Desktop notifications</b>
+                <small>
+                  {notifications === "denied"
+                    ? "Blocked in browser settings"
+                    : "Finished agents and approvals"}
+                </small>
+              </span>
+            </label>
+          )}
           <LinearWorkspaceSetting />
         </div>
       )}
