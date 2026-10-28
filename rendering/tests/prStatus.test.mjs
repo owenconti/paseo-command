@@ -23,7 +23,14 @@ test("prFlags reads a workspace's labels, ignoring others", () => {
   });
   assert.deepEqual(prFlags(undefined), {});
   assert.deepEqual(prFlags(["bug"]), {});
-  assert.deepEqual(prFlags(["ci running"]), {});
+});
+
+test("prFlags matches names as the daemon does: case and spacing aside", () => {
+  assert.deepEqual(prFlags(["approved", " ci  green "]), {
+    ci: "ci-green",
+    review: "review-approved",
+  });
+  assert.deepEqual(prFlags(["CI-green"]), {});
 });
 
 test("prFlags picks one per group, the most urgent", () => {

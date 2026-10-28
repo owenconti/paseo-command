@@ -38,13 +38,16 @@ const URGENCY: PrFlag[] = [
   "review-approved",
 ];
 
+/** A label name as the daemon compares them: spacing and case aside. */
+export const labelKey = (name: string) => name.replace(/\s+/g, " ").trim().toLowerCase();
+
 /** The flags a workspace's labels call for; other labels are ignored. */
 export function prFlags(labels: readonly string[] | undefined): { ci?: PrFlag; review?: PrFlag } {
   const out: { ci?: PrFlag; review?: PrFlag } = {};
-  const named = new Set(labels ?? []);
+  const named = new Set((labels ?? []).map(labelKey));
   for (const flag of URGENCY) {
     const label = PR_LABELS.find((l) => l.flag === flag)!;
-    if (named.has(label.name) && !out[label.group]) out[label.group] = flag;
+    if (named.has(labelKey(label.name)) && !out[label.group]) out[label.group] = flag;
   }
   return out;
 }

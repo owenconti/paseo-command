@@ -13,7 +13,7 @@
  * - Only changes are sent. A label already in the host's catalog keeps the
  *   catalog's colour.
  */
-import { PR_LABELS } from "../../rendering/src/prStatus";
+import { PR_LABELS, labelKey as key } from "../../rendering/src/prStatus";
 import type { DaemonClient } from "./api/hosts";
 import { BASE_BRANCHES, ghPullRequest, type GhAnswer, type PullRequest } from "./links";
 
@@ -62,7 +62,6 @@ export type LabellerDeps = {
   log?(message: string): void;
 };
 
-const key = (name: string) => name.trim().toLowerCase();
 const OWNED = new Map(PR_LABELS.map((l) => [key(l.name), l]));
 
 export function createPrLabeller(deps: LabellerDeps) {
