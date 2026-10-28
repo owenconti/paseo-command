@@ -90,10 +90,11 @@ export const serverIdOf = (
 ): string | undefined =>
   client?.getLastServerInfoMessage?.()?.serverId ?? undefined;
 
-/** Archived (or closed) agents are never shown. */
+/** Archived agents are never shown. A closed one (its session ended, not
+ *  archived) is still listed, as the Paseo app lists it. */
 export const archivedAgent = (agent: AgentRecord | null | undefined) =>
   Boolean(agent?.archivedAt || agent?.archived) ||
-  /closed|archived/i.test(String(agent?.status ?? ""));
+  /archived/i.test(String(agent?.status ?? ""));
 
 /**
  * Every fan-out resource for one host, from its SDK records. Agents are

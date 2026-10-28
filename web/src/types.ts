@@ -251,9 +251,9 @@ export const isWorking = (a: { status: string; subagentsRunning?: boolean }) =>
   isRunning(a.status) || Boolean(a.subagentsRunning);
 export const isWaiting = (status: string) =>
   /permission|waiting|approval/.test(status);
-export const isClosed = (status: string) => /closed|archived/.test(status);
+/** Archived. A closed agent (its session ended) is not: it reads as idle. */
 export const isArchived = (a: { status: string; archived?: boolean }) =>
-  Boolean(a.archived) || isClosed(a.status);
+  Boolean(a.archived) || /archived/.test(a.status);
 /** The status to show: archived agents otherwise read as "idle", and ones
  *  waiting on a running subagent as running. */
 export const shownStatus = (a: {
