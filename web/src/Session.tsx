@@ -90,8 +90,7 @@ const sameMessage = (logged: string, sent: string) => {
     b = sent.trim().slice(0, 60);
   return Boolean(a) && (a.startsWith(b) || b.startsWith(a));
 };
-/** "clear" is "fresh" keeping the agent's settings. */
-type Confirm = "archive" | "fresh" | "clear" | null;
+type Confirm = "archive" | "fresh" | null;
 
 export function Session({
   workingOn,
@@ -416,7 +415,8 @@ export function Session({
     () => userTexts.filter((t) => t.trim()).slice(-50),
     [userTexts],
   );
-  const archiveNow = async (next: Confirm) => {
+  /** "clear" is "fresh" keeping the agent's settings, without asking. */
+  const archiveNow = async (next: Confirm | "clear") => {
     // Read before archiving: the detail may change once it is archived.
     const settings: DraftSettings = {
       provider: detail?.Provider || agent.provider,
@@ -639,11 +639,9 @@ export function Session({
               exit={{ opacity: 0, height: 0, transition: { duration: 0.12 } }}
             >
               <p>
-                {confirm === "clear"
-                  ? "Archive this agent and start an empty conversation in the same workspace, with the same provider, model, thinking and mode?"
-                  : confirm === "fresh"
-                    ? "Archive this agent and start a fresh draft in the same workspace?"
-                    : "Archive this agent? It leaves the active fleet; its workspace and files are untouched."}
+                {confirm === "fresh"
+                  ? "Archive this agent and start a fresh draft in the same workspace?"
+                  : "Archive this agent? It leaves the active fleet; its workspace and files are untouched."}
               </p>
               <div>
                 <button
@@ -656,11 +654,9 @@ export function Session({
                 </button>
                 <button
                   aria-description={
-                    confirm === "clear"
-                      ? "Archive this agent, then start an empty conversation with its settings"
-                      : confirm === "fresh"
-                        ? "Archive this agent, then start a new draft in its workspace"
-                        : "Archive this agent; its workspace and files are kept"
+                    confirm === "fresh"
+                      ? "Archive this agent, then start a new draft in its workspace"
+                      : "Archive this agent; its workspace and files are kept"
                   }
                   className="danger"
                   disabled={!!busy}
@@ -671,11 +667,9 @@ export function Session({
                   ) : (
                     <Archive size={13} />
                   )}
-                  {confirm === "clear"
-                    ? "Archive and clear"
-                    : confirm === "fresh"
-                      ? "Archive and start fresh"
-                      : "Archive agent"}
+                  {confirm === "fresh"
+                    ? "Archive and start fresh"
+                    : "Archive agent"}
                 </button>
               </div>
             </PresenceDiv>
@@ -748,7 +742,9 @@ export function Session({
           onFreshDraft={(keepSettings) =>
             running
               ? onNotice("Stop the agent before archiving it.")
-              : setConfirm(keepSettings ? "clear" : "fresh")
+              : keepSettings
+                ? void archiveNow("clear")
+                : setConfirm("fresh")
           }
           promptHistory={promptHistory}
           dropFiles={drop}
