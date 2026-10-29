@@ -164,7 +164,8 @@ Labels stay at fixed world scale. Do not add screen-size compensation.
 All structures and scenery consume whole cells on the shared axial grid.
 Workspaces use three hexes; project landmarks use ten (rows of 3, 4 and 3); each agent uses one.
 One island per project with workspaces.
-Center artwork and fit it completely inside its occupied cells.
+Center artwork and fit it completely inside its occupied cells. PR flags are the exception: each pole's foot stands at
+its cell's centre, at full size, and the cloth may rise past the cell's upper edge (the user's choice).
 Selection follows the outer perimeter of the occupied hexes, never a rectangle: a golden rim with a breathing
 yellow halo over a warm wash, so the selected entity reads on any surface. Hover and selection
 rims are inset within the cells so painted kerbs and banks never clip them; an agent hovers across its whole cell.
