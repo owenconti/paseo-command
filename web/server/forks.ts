@@ -130,8 +130,10 @@ function validQuotes(raw: unknown): Quote[] {
 function validBoundary(raw: any): Boundary {
   if (typeof raw?.messageId === "string" && raw.messageId)
     return { messageId: raw.messageId };
-  if (typeof raw?.epoch === "string" && Number.isInteger(raw?.seq))
-    return { epoch: raw.epoch, seq: raw.seq };
+  if (Number.isInteger(raw?.seq) && raw.seq >= 0)
+    return typeof raw.epoch === "string" && raw.epoch
+      ? { epoch: raw.epoch, seq: raw.seq }
+      : { seq: raw.seq };
   throw new Error("Invalid fork boundary");
 }
 
@@ -155,12 +157,26 @@ export async function createFork(
   const main = await agentSnapshot(client, agentId, host);
   if (!main.workspaceId || !main.cwd)
     throw new Error("This agent has no workspace for a fork.");
+  // A position without its epoch (the page doesn't hold one) is in the
+  // conversation's current epoch.
+  const epoch =
+    boundary.messageId || boundary.epoch
+      ? boundary.epoch
+      : (
+          await timed(
+            client.fetchAgentTimeline(agentId, { direction: "tail", limit: 1 }),
+            undefined,
+            client,
+          )
+        )?.epoch;
+  if (!boundary.messageId && !epoch)
+    throw new Error("Couldn't read the conversation for the fork.");
   const context = await timed(
     client.buildAgentForkContext(
       agentId,
       boundary.messageId
         ? { boundaryMessageId: boundary.messageId }
-        : { boundaryCursor: { epoch: boundary.epoch!, seq: boundary.seq! } },
+        : { boundaryCursor: { epoch: epoch!, seq: boundary.seq! } },
     ),
     TUNING.writeMs,
   );

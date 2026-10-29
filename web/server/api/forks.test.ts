@@ -166,3 +166,12 @@ test("archiving the main agent archives its fork helpers", async () => {
   assert.equal(r.status, 200, JSON.stringify(r.data));
   assert.ok(created(fork.helperId).archivedAt);
 });
+
+test("create: a position without an epoch is cut in the conversation's current epoch", async () => {
+  const main = mainAgent();
+  local.calls.length = 0;
+  const r = await post(`agents/${main}/forks`, { question: "Q", quotes, boundary: { seq: 2 } });
+  assert.equal(r.status, 200, JSON.stringify(r.data));
+  const ctx = local.calls.find((c) => c.method === "buildAgentForkContext");
+  assert.deepEqual(ctx?.args, [main, { boundaryCursor: { epoch: local.epoch, seq: 2 } }]);
+});
