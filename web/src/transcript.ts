@@ -23,7 +23,7 @@ export type TimelineItem =
       id: string;
       text: string;
       messageId?: string;
-      /** The daemon sequences the row spans (history rows carry them). */
+      /** The row's daemon position and version (history rows carry them). */
       seq?: number;
       last?: number;
     }
@@ -54,7 +54,8 @@ export function fromTimeline(items: TimelineItem[]): Entry[] {
     | undefined;
   for (const item of items) {
     if (item.kind === "assistant") {
-      const seq = item.last ?? item.seq;
+      // Its position (`last` is the row's version, not where it stands).
+      const seq = item.seq;
       if (
         reply &&
         (item.messageId === undefined || item.messageId === reply.messageId)

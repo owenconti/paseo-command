@@ -8,13 +8,13 @@ const items: TimelineItem[] = [
   { kind: "assistant", id: "3", text: "lives in two places.", messageId: "r1", seq: 3, last: 4 },
 ];
 
-test("a merged reply carries its message id and last sequence", () => {
+test("a merged reply carries its message id and its last row's position (not version)", () => {
   const entries = fromTimeline(items);
   assert.deepEqual(entries[1], {
     kind: "assistant",
     text: "Each bundle lives in two places.",
     messageId: "r1",
-    seq: 4,
+    seq: 3,
   });
 });
 
@@ -28,6 +28,6 @@ test("blocks pass the reply's message id and sequence through, keys unchanged", 
   const reply = blocks[1]!;
   assert.equal(reply.kind, "assistant");
   assert.equal((reply as { messageId?: string }).messageId, "r1");
-  assert.equal((reply as { seq?: number }).seq, 4);
+  assert.equal((reply as { seq?: number }).seq, 3);
   assert.equal(reply.key, "assistant::Each bundle lives in two places.#1");
 });
