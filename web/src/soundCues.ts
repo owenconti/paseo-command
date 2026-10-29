@@ -134,6 +134,7 @@ export type WatchedAgent = {
   status: string;
   child?: boolean;
   stale?: boolean;
+  subagentsRunning?: boolean;
 };
 export type WatchedPermission = { agentId: string; id: string };
 export type { FleetSource };
@@ -146,7 +147,9 @@ export const SETTLE_MS = 2500;
  * first fleet, a reconnect's reset, fallback reads while disconnected and the
  * moments just after them set a new baseline without a sound. Subagents and
  * stale rows (a host not answering) never sound; an agent seen again after
- * being stale or missing starts afresh. One observation yields at most one
+ * being stale or missing starts afresh. An agent that goes idle while its
+ * subagents still run isn't finished: their results wake it for a turn
+ * each, so it sounds only on the turn that ends with none running. One observation yields at most one
  * cue, the most important of its transitions.
  */
 export class LiveCueWatcher {
@@ -163,6 +166,9 @@ export class LiveCueWatcher {
     const watched = agents.filter((a) => !a.child && !a.stale);
     const ids = new Set(watched.map((a) => a.id));
     const statuses = new Map(watched.map((a) => [a.id, a.status]));
+    const busy = new Set(
+      watched.filter((a) => a.subagentsRunning).map((a) => a.id),
+    );
     const asks = new Set(
       permissions
         .filter((p) => ids.has(p.agentId))
@@ -183,7 +189,12 @@ export class LiveCueWatcher {
       const was = before.get(id);
       if (was === undefined || was === status) continue;
       if (isFailed(status) && !isFailed(was)) cues.add("error");
-      else if (isRunning(was) && !isRunning(status) && !isFailed(status))
+      else if (
+        isRunning(was) &&
+        !isRunning(status) &&
+        !isFailed(status) &&
+        !busy.has(id)
+      )
         cues.add("complete");
     }
     for (const key of asks)
