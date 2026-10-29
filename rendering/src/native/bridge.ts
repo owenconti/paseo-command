@@ -370,9 +370,8 @@ export function mountNativeAtlas(parent: HTMLElement, handlers: AtlasHandlers = 
   const sent = new Set<string>();
   /** Terrain pieces Swift holds, by their `terrainParts` key. */
   const painted = new Map<string, Piece>();
-  /** The PR flags and garden plants last sent, for `inspect`. */
+  /** The PR flags last sent, for `inspect`. */
   let planted: ReturnType<typeof placeFlags> = [];
-  let plants: Placed[] = [];
   /** Each project's lamps and beacon, placed with its plaza. */
   let signals = new Map<string, Signal[]>();
   const entity = (id: string | null) => (id && layout?.entities.find((e) => e.id === id)) || null;
@@ -405,8 +404,7 @@ export function mountNativeAtlas(parent: HTMLElement, handlers: AtlasHandlers = 
       return { key, piece, png: fresh ? png(canvas) : undefined };
     });
     for (const key of [...painted.keys()]) if (!pieces.some((p) => p.key === key)) painted.delete(key);
-    // A PR flag takes the place of its cell's garden plant.
-    const placed = placeStructures(layout, sizeOf, { flags: true });
+    const placed = placeStructures(layout, sizeOf);
     const banners = labels(layout).map((label) => ({ label, art: paintBanner(label) }));
     planted = placeFlags(layout, sizeOf);
     const streamers = placeStreamers(layout, planted);
@@ -420,7 +418,6 @@ export function mountNativeAtlas(parent: HTMLElement, handlers: AtlasHandlers = 
     ]);
     for (const key of [...sent]) if (!shown.has(key)) sent.delete(key);
     const sprites: Placed[] = [...placed];
-    plants = placed.filter((s) => !s.footprint);
     signals = new Map();
     layout.projects.forEach((p, i) => {
       const building = placed.find((s) => s.entity === p.id && s.footprint)!;
@@ -768,7 +765,6 @@ export function mountNativeAtlas(parent: HTMLElement, handlers: AtlasHandlers = 
                   const c = point(f.cell);
                   return Math.hypot(f.x + (FLAG_FOOT.x - 0.5) * 2 * halfW - c.x, f.y + (FLAG_FOOT.y - 0.5) * 2 * halfH - c.y);
                 })(),
-                plantInCell: plants.some((p) => p.entity === f.entity && insideFootprint(p.x, p.y, [f.cell])),
               };
             }),
           }

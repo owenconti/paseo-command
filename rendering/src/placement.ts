@@ -43,21 +43,18 @@ export const LANDMARK_SCALE: Record<string, number> = {
   observatory: 0.8,
   conservatory: 0.92,
 };
-/** How far a garden plant sits beyond its cell's centre, away from the cottage
- * (as a share of the distance between them). */
-export const GARDEN_OUT = 0.32;
 /** A subagent's drone, and how long it takes to circle its agent (ms). */
 export const DRONE_SIZE = 24;
 export const DRONE_ORBIT = 7000;
 /** The widest a landmark is tried at before it is fitted to its cells. */
 const LANDMARK_SIZE = 420;
-/** Depths of the painted structures: landmarks, then plants, then cottages. */
+/** Depths of the painted structures: landmarks, then plaza props, then cottages. */
 const DEPTH = { landmark: 15, plant: 15.5, cottage: 16 };
 const STALE_ALPHA = 0.6;
 
 /** A painted structure: `x, y` is the sprite's centre and `width` its display
  * width; its height follows the frame's aspect. Landmarks and cottages carry
- * their `footprint`; garden plants each keep inside one cell of theirs.
+ * their `footprint`.
  * `entity` is the project or workspace it belongs to. */
 export type Placed = {
   frame: string;
@@ -72,15 +69,12 @@ export type Placed = {
 };
 
 /**
- * Each project's landmark, then each workspace's cottage followed by its
- * garden, in layout order. `sizeOf` gives a frame's natural size; only its
+ * Each project's landmark, then each workspace's cottage, in layout order. `sizeOf` gives a frame's natural size; only its
  * proportions decide the fit. Camps have no cottage (see `campFlags`).
  */
 export function placeStructures(
   layout: AtlasLayout,
   sizeOf: (frame: string) => { width: number; height: number },
-  /** Whether the renderer draws PR flags (`placeFlags`): then a flagged cell grows no plant. */
-  options: { flags?: boolean } = {},
 ): Placed[] {
   const placed: Placed[] = [];
   for (const p of layout.projects) {
@@ -110,7 +104,7 @@ export function placeStructures(
     if (ws.camp) continue;
     const cells = footprint(ws);
     // The cottage stands in the middle of its three cells, raised a little,
-    // so its porch and shrubs don't read as sitting low.
+    // so its porch doesn't read as sitting low.
     const middle = structureCentre(ws);
     const y = middle.y - COTTAGE_LIFT;
     const frame = sizeOf(ws.art!);
@@ -124,33 +118,6 @@ export function placeStructures(
       flipX: false,
       footprint: cells,
       entity: ws.id,
-    });
-    // A tree and shrubs around it: one in each cell, toward the cell's outer
-    // side, each kept inside its own cell.
-    const rng = random(seedOf(ws.id + "garden"));
-    const tree = Math.floor(rng() * cells.length);
-    const flagged = options.flags ? [false, !!ws.flags?.ci, !!ws.flags?.review] : [];
-    cells.forEach((cell, i) => {
-      // A PR flag takes its cell's place.
-      if (flagged[i]) return;
-      const c = point(cell);
-      const x = c.x + (c.x - middle.x) * GARDEN_OUT,
-        y = c.y + (c.y - middle.y) * GARDEN_OUT;
-      const name = i === tree ? "trees" : "shrub";
-      const size = sizeOf(name);
-      // As a sprite scaled to its natural width reports it.
-      const natural = ((i === tree ? 56 : 38) / size.width) * size.width;
-      placed.push({
-        frame: name,
-        x,
-        y,
-        width: Math.min(natural, fittedWidth(x, y, size.width / size.height, 60, [cell])),
-        depth: DEPTH.plant,
-        alpha: ws.stale ? STALE_ALPHA : 1,
-        // Mirrored at random for variety; never rotated, so it stays inside its cell.
-        flipX: rng() < 0.5,
-        entity: ws.id,
-      });
     });
   }
   return placed;
@@ -179,7 +146,7 @@ export type PlacedFlag = {
   entity: string;
 };
 /** Each workspace's PR flags, from its labels: CI in its second cell, review
- * in its third, where their garden plants would stand. */
+ * in its third, the cells beside the cottage. */
 export function placeFlags(
   layout: AtlasLayout,
   sizeOf: (frame: string) => { width: number; height: number },
@@ -337,7 +304,7 @@ export const PROP_WIDTH: Record<string, number> = {
   beacon: 42,
 };
 const SCENERY = ["planter", "topiary", "flowerbed", "citrus", "crates", "barrels", "spool", "workbench"];
-const PLAZA_SCENERY = 6;
+const PLAZA_SCENERY = 3;
 /** States that light a plaza's beacon: an agent there needs you. */
 const BEACON_STATES: State[] = ["failed", "approval", "question", "asking"];
 

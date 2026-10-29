@@ -422,31 +422,34 @@ function flagstones(ctx: CanvasRenderingContext2D, c: { x: number; y: number }) 
     }
   }
 }
-/** Timber decking for a workspace: planks with staggered butt joints and nails. */
-function decking(ctx: CanvasRenderingContext2D, c: { x: number; y: number }, rng: () => number) {
-  const plank = 13;
-  for (let y = c.y - HEX_RADIUS; y < c.y + HEX_RADIUS; y += plank) {
-    const shade = (rng() - 0.5) * 22;
-    ctx.fillStyle = `rgb(${164 + shade},${118 + shade * 0.8},${74 + shade * 0.6})`;
-    ctx.fillRect(c.x - HEX_RADIUS, y, HEX_RADIUS * 2, plank);
-    // Grain.
-    for (let g = 0; g < 4; g++) {
-      ctx.strokeStyle = `rgba(92,58,30,${0.08 + rng() * 0.08})`;
-      ctx.lineWidth = 0.7;
-      const gy = y + 2 + rng() * (plank - 4);
+/** A workspace's cobbled yard: small rounded setts in staggered rows, quiet
+ * enough that the cottage and its PR flags stand out on it. Like the
+ * flagstones, each sett takes its look from its own world position. */
+function cobbles(ctx: CanvasRenderingContext2D, c: { x: number; y: number }) {
+  ctx.fillStyle = "rgb(146,132,112)";
+  ctx.fillRect(c.x - HEX_RADIUS, c.y - HEX_RADIUS, HEX_RADIUS * 2, HEX_RADIUS * 2);
+  const row = 11,
+    sett = 13;
+  const first = Math.floor((c.y - HEX_RADIUS) / row) - 1;
+  for (let r = first; r * row < c.y + HEX_RADIUS + row; r++) {
+    const offset = r % 2 ? sett / 2 : 0;
+    const col0 = Math.floor((c.x - HEX_RADIUS - offset) / sett) - 1;
+    for (let col = col0; col * sett + offset < c.x + HEX_RADIUS + sett; col++) {
+      const rng = random(seedOf(`sett:${r},${col}`)),
+        x = col * sett + offset + sett / 2 + (rng() - 0.5) * 1.6,
+        y = r * row + row / 2 + (rng() - 0.5) * 1.4,
+        rx = sett / 2 - 1.1 - rng() * 0.8,
+        ry = row / 2 - 1 - rng() * 0.7,
+        shade = (rng() - 0.5) * 24,
+        warm = rng() * 10;
+      ctx.fillStyle = `rgb(${196 + shade + warm},${184 + shade + warm * 0.5},${162 + shade})`;
       ctx.beginPath();
-      ctx.moveTo(c.x - HEX_RADIUS, gy);
-      ctx.bezierCurveTo(c.x - 20, gy + (rng() - 0.5) * 3, c.x + 20, gy + (rng() - 0.5) * 3, c.x + HEX_RADIUS, gy);
-      ctx.stroke();
-    }
-    ctx.fillStyle = "rgba(58,34,16,.7)";
-    ctx.fillRect(c.x - HEX_RADIUS, y + plank - 1.3, HEX_RADIUS * 2, 1.3);
-    const joint = c.x + (rng() - 0.5) * HEX_RADIUS * 1.4;
-    ctx.fillRect(joint, y, 1.3, plank);
-    ctx.fillStyle = "rgba(48,36,28,.6)";
-    for (const nx of [joint - 4, joint + 5]) {
+      ctx.ellipse(x, y, rx, ry, (rng() - 0.5) * 0.4, 0, Math.PI * 2);
+      ctx.fill();
+      // Light catches each sett's upper face.
+      ctx.fillStyle = "rgba(255,248,232,.22)";
       ctx.beginPath();
-      ctx.arc(nx, y + plank / 2, 0.9, 0, Math.PI * 2);
+      ctx.ellipse(x - 0.6, y - 1.2, rx * 0.62, ry * 0.45, 0, 0, Math.PI * 2);
       ctx.fill();
     }
   }
@@ -527,7 +530,7 @@ function islandPiece(
     }
     const style = styleOf(cell);
     if (style === "project") flagstones(ctx, p);
-    if (style === "workspace") decking(ctx, p, rng);
+    if (style === "workspace") cobbles(ctx, p);
     ctx.restore();
     // Only open sand shows the grid; built plots read as one surface.
     if (style === "empty") {
@@ -537,7 +540,7 @@ function islandPiece(
     }
   }
   // A firm kerb around each structure's plot, inside its own cells only, so a
-  // landmark's ten cells read as one courtyard and a cottage as one deck.
+  // landmark's ten cells read as one courtyard and a cottage as one yard.
   for (const plot of plots) {
     ctx.save();
     ctx.beginPath();
@@ -549,7 +552,7 @@ function islandPiece(
       ctx.lineTo(e.b.x, e.b.y);
     }
     ctx.lineJoin = "round";
-    ctx.strokeStyle = plot.style === "project" ? "rgba(98,90,76,.95)" : "rgba(88,55,28,.95)";
+    ctx.strokeStyle = plot.style === "project" ? "rgba(98,90,76,.95)" : "rgba(104,86,64,.95)";
     ctx.lineWidth = plot.style === "project" ? 12 : 14;
     ctx.stroke();
     ctx.restore();
@@ -587,7 +590,7 @@ export function terrainPieces(layout: AtlasLayout, sand: HTMLImageElement): Piec
  * would paint does: a renderer that keeps textures paints only new keys. */
 export function terrainParts(layout: AtlasLayout, sand: HTMLImageElement): { key: string; paint: () => Piece }[] {
   const projectCells = new Set(layout.projects.flatMap(footprint).map(cellKey));
-  // Timber decking spans a workspace's three cells; its agents stand on the
+  // Cobbles span a workspace's three cells; its agents stand on the
   // light tiles of the other cells.
   const workspaceCells = new Set(layout.workspaces.flatMap(footprint).map(cellKey));
   const styleOf = (cell: Axial): TileStyle =>

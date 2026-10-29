@@ -78,7 +78,6 @@ type Inspect = {
     flag: string;
     sway: boolean;
     footOffset: number;
-    plantInCell: boolean;
   }[];
 };
 const inspect = (page: Page) =>
@@ -434,7 +433,6 @@ test("workspace PR labels plant flags on the map", async () => {
     for (const p of planted) {
       assert.equal(p.sway, p.flag === "ci-running", `${p.flag} sways only while CI runs`);
       assert.ok(p.footOffset < 0.5, `${p.flag} stands at its cell's centre`);
-      assert.ok(!p.plantInCell, `${p.flag} replaces its cell's plant`);
     }
     // The legend explains them.
     const legend = page.locator('section[aria-label="Map legend"]');

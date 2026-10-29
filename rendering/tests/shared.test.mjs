@@ -89,12 +89,10 @@ for (const [label, data] of [
   test(`${label}: placeStructures keeps every structure inside its footprint`, () => {
     const layout = layoutAtlas(data);
     // Any frame proportions will do: placement fits whatever art it is given.
-    const sizeOf = (frame) =>
-      frame === "trees" ? { width: 120, height: 150 } : frame === "shrub" ? { width: 90, height: 70 } : { width: 400, height: 330 };
+    const sizeOf = () => ({ width: 400, height: 330 });
     const placed = placeStructures(layout, sizeOf);
-    const gardens = layout.workspaces.filter((w) => !w.camp).flatMap((w) => footprint(w));
-    assert.equal(placed.filter((s) => s.footprint).length, layout.projects.length + layout.workspaces.filter((w) => !w.camp).length);
-    assert.equal(placed.filter((s) => !s.footprint).length, gardens.length, "one plant in each workspace cell");
+    assert.equal(placed.length, layout.projects.length + layout.workspaces.filter((w) => !w.camp).length);
+    assert.ok(placed.every((s) => s.footprint), "only landmarks and cottages: workspace yards stay clear for flags");
     for (const s of placed) {
       const size = sizeOf(s.frame);
       const hw = s.width / 2 - 2,
@@ -106,7 +104,7 @@ for (const [label, data] of [
         [s.x - hw, s.y + hh],
         [s.x + hw, s.y + hh],
       ])
-        assert.ok(insideFootprint(x, y, s.footprint ?? gardens), `${s.frame} corner ${x},${y} leaves its cells`);
+        assert.ok(insideFootprint(x, y, s.footprint), `${s.frame} corner ${x},${y} leaves its cells`);
     }
   });
 }
@@ -143,7 +141,7 @@ test("fitCaption ellipsizes to maxWidth", () => {
   assert.equal(fitCaption("a much longer", 0, measure), "a…", "never shorter than one letter");
 });
 
-test("PR flags stand at the centre of their workspace's yard cells, in place of the plants", () => {
+test("PR flags stand at the centre of their workspace's yard cells", () => {
   const layout = layoutAtlas(SAMPLE);
   const sizeOf = (frame) =>
     frame.startsWith("flag-") ? { width: 270, height: 320 } : { width: 120, height: 120 };
@@ -164,13 +162,6 @@ test("PR flags stand at the centre of their workspace's yard cells, in place of 
     assert.ok(Math.abs(f.x + (FLAG_FOOT.x - 0.5) * f.width - c.x) < 1e-6, `${f.flag} foot x`);
     assert.ok(Math.abs(f.y + (FLAG_FOOT.y - 0.5) * h - c.y) < 1e-6, `${f.flag} foot y`);
   }
-  // With flags drawn, a flagged cell grows no plant; without, every cell keeps one.
-  const plantsIn = (placed) =>
-    new Set(placed.filter((s) => !s.footprint).map((s) => `${s.entity} ${cellKey(nearestCell(s, layout))}`));
-  const withFlags = plantsIn(placeStructures(layout, sizeOf, { flags: true }));
-  for (const f of flags) assert.ok(!withFlags.has(`${f.entity} ${cellKey(f.cell)}`), `${f.flag}'s cell has no plant`);
-  const plain = placeStructures(layout, sizeOf).filter((s) => !s.footprint);
-  assert.equal(plain.length, layout.workspaces.filter((w) => !w.camp).length * 3);
 });
 
 test("the auto-merge seal crowns the review flag's pole, else the CI flag's", () => {
@@ -199,9 +190,3 @@ test("the auto-merge seal crowns the review flag's pole, else the CI flag's", ()
     assert.ok(s.y + s.size <= f.y - FLAG_HEIGHT / 2 + AUTO_MERGE_SEAL.top * FLAG_HEIGHT + 2, "atop the knob");
   }
 });
-
-/** The workspace cell a garden plant stands in. */
-function nearestCell(s, layout) {
-  const ws = layout.workspaces.find((w) => w.id === s.entity);
-  return footprint(ws).find((c) => insideFootprint(s.x, s.y, [c]));
-}
