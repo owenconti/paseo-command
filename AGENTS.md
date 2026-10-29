@@ -60,7 +60,9 @@ shows "Update ready · ⌘R" once a newer native build is on disk, and the user 
 update. ⌘R first runs `app:refresh`, which restarts the server only if its own code (`web/server/`, the Vite
 config, dependencies, the launcher) changed since it started; then it reloads the page, and swaps in a newer
 native build in place, keeping the window and page. The server serves each new `web/dist` build without a restart.
-Report the commit, whether the push succeeded, and whether the build succeeded.
+If you made a Paseo workspace (worktree) for the work, archive it once its branch is merged into `main` and pushed
+(remove any `node_modules` symlinks you added to it first), so finished work leaves no workspace behind on the map.
+Report the commit, whether the push succeeded, whether the build succeeded, and that the workspace was archived.
 
 ## Commands
 
