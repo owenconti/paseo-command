@@ -399,9 +399,50 @@ test("unsupported host disables Ask", async () => {
   const ask = pill(page).getByRole("button", { name: "Ask", exact: true });
   await ask.waitFor();
   assert.equal(await ask.isDisabled(), true);
+  assert.equal(await ask.getAttribute("title"), "Forks aren't supported on this host.");
+  // Answering needs no fork.
   assert.equal(
-    await pill(page).getAttribute("title"),
-    "Forks aren't supported on this host.",
+    await pill(page).getByRole("button", { name: "Answer in my message" }).isDisabled(),
+    false,
   );
+  await close();
+});
+
+test("Answer quotes questions into the message, each with its own answer, without a fork", async () => {
+  const w = world();
+  const { page, errors, close } = await open(w);
+  const answerIt = async (text: string) => {
+    await select(page, text);
+    await pill(page).getByRole("button", { name: "Answer in my message" }).click();
+    // Its answer field takes the focus.
+    await page.waitForFunction(
+      (t) => document.activeElement?.getAttribute("aria-label") === `Answer to “${t}”`,
+      text,
+    );
+  };
+  await answerIt("Each bundle lives in two places.");
+  const first = page.getByRole("textbox", { name: "Answer to “Each bundle lives in two places.”" });
+  await first.fill("Keep one.");
+  await answerIt("GitHub CI workflows");
+  await answerIt("Some tools are already Rust.");
+  const list = page.getByRole("list", { name: "Questions to answer" });
+  await list.getByRole("button", { name: /Remove “GitHub CI/ }).click();
+  await list.getByText("GitHub CI workflows").waitFor({ state: "detached" });
+  // Left unanswered: dropped from the message.
+  await page.locator("#composer").fill("Thanks.");
+  // A refresh keeps the questions and answers.
+  await page.reload();
+  await page.getByRole("textbox", { name: "Answer to “Each bundle lives in two places.”" }).waitFor();
+  assert.equal(
+    await page.getByRole("textbox", { name: "Answer to “Each bundle lives in two places.”" }).inputValue(),
+    "Keep one.",
+  );
+  await page.locator("#composer").press("Enter");
+  const send = await waitFor(() => w.posts.find((p) => p.path === "/api/agents/a1/send"));
+  assert.equal(send.body.prompt, "> Each bundle lives in two places.\nKeep one.\n\nThanks.");
+  await page.getByRole("list", { name: "Questions to answer" }).waitFor({ state: "detached" });
+  assert.equal(w.posts.filter((p) => p.path === "/api/agents/a1/forks").length, 0);
+  assert.equal(await pane(page).count(), 0);
+  assert.deepEqual(errors, []);
   await close();
 });

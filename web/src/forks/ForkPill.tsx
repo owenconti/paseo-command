@@ -1,9 +1,10 @@
 /**
  * The small pill beside a selection in a settled reply: Ask about it in a
- * fork, or Add it to the pieces collected for one question.
+ * fork, Add it to the pieces collected for one question, or Answer it as a
+ * question in the next message.
  */
 import { useEffect, useState, type RefObject } from "react";
-import { GitFork, Plus } from "lucide-react";
+import { GitFork, Plus, Reply } from "lucide-react";
 import { quoteFromSelection } from "./anchor";
 import { offsetsIn, replyOf } from "./marks";
 import type { Quote } from "./types";
@@ -38,7 +39,7 @@ function chosen(root: HTMLElement): Chosen | null {
   return {
     quote,
     top: below + root.scrollTop,
-    left: Math.max(8, Math.min(at.left - box.left, box.width - 190)),
+    left: Math.max(8, Math.min(at.left - box.left, box.width - 260)),
   };
 }
 
@@ -47,11 +48,13 @@ export function ForkPill({
   supported,
   onAsk,
   onAdd,
+  onAnswer,
 }: {
   root: RefObject<HTMLElement | null>;
   supported: boolean;
   onAsk: (q: Quote) => void;
   onAdd: (q: Quote) => void;
+  onAnswer: (q: Quote) => void;
 }) {
   const [at, setAt] = useState<Chosen | null>(null);
   useEffect(() => {
@@ -88,12 +91,16 @@ export function ForkPill({
       className="fork-pill"
       role="toolbar"
       aria-label="Ask about the selection"
-      title={supported ? undefined : UNSUPPORTED}
       style={{ top: at.top, left: at.left }}
       // Keep the selection while a button is pressed.
       onMouseDown={(e) => e.preventDefault()}
     >
-      <button type="button" disabled={!supported} onClick={take(onAsk)}>
+      <button
+        type="button"
+        disabled={!supported}
+        title={supported ? undefined : UNSUPPORTED}
+        onClick={take(onAsk)}
+      >
         <GitFork size={13} aria-hidden="true" />
         Ask
       </button>
@@ -101,10 +108,20 @@ export function ForkPill({
         type="button"
         aria-label="Add to question"
         disabled={!supported}
+        title={supported ? undefined : UNSUPPORTED}
         onClick={take(onAdd)}
       >
         <Plus size={13} aria-hidden="true" />
         Add
+      </button>
+      <button
+        type="button"
+        aria-label="Answer in my message"
+        title="Quote this as a question and answer it in your message"
+        onClick={take(onAnswer)}
+      >
+        <Reply size={13} aria-hidden="true" />
+        Answer
       </button>
     </div>
   );

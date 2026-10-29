@@ -133,6 +133,7 @@ export function Session({
   };
 }) {
   const [drop, setDrop] = useState<{ files: File[]; at: number } | null>(null);
+  const [answerQuote, setAnswerQuote] = useState<{ text: string; at: number } | null>(null);
   const [dragging, setDragging] = useState(false);
   const dragDepth = useRef(0);
   const [confirm, setConfirm] = useState<Confirm>(null);
@@ -489,6 +490,7 @@ export function Session({
         supported={forks.supported}
         onAsk={forks.askAbout}
         onAdd={forks.add}
+        onAnswer={(q) => setAnswerQuote({ text: q.text, at: Date.now() })}
       />
       {forks.shown && (
         <ForkPane
@@ -588,6 +590,7 @@ export function Session({
           }
           promptHistory={promptHistory}
           dropFiles={drop}
+          answerQuote={answerQuote}
         />
       </footer>
     </div>

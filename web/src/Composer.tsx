@@ -17,6 +17,8 @@ import { enqueue, toOutgoing, type Queued } from "./queue";
 import { Lightbox } from "./Images";
 import { modalOpen } from "./focus";
 import { AgentControls } from "./composer/AgentControls";
+import { AnswerList } from "./composer/AnswerList";
+import { answersMessage, type Answer } from "./composer/answers";
 import { AttachmentTray } from "./composer/AttachmentTray";
 import { Autocomplete } from "./composer/Autocomplete";
 import { GitHubPicker } from "./composer/GitHubPicker";
@@ -79,6 +81,7 @@ export function Composer({
   onFreshDraft,
   promptHistory,
   dropFiles,
+  answerQuote,
   inputId = "composer",
   label = "Message agent...",
   placeholder: hint,
@@ -107,6 +110,8 @@ export function Composer({
   promptHistory: string[];
   /** Files dropped anywhere on the session panel. */
   dropFiles: { files: File[]; at: number } | null;
+  /** A question quoted from the agent's reply, to answer in this message. */
+  answerQuote?: { text: string; at: number } | null;
   /** The input's id: `composer` is the one the shortcuts focus. */
   inputId?: string;
   label?: string;
@@ -120,6 +125,11 @@ export function Composer({
   const host = agent ? agent.host : draft?.host;
   const [text, setText] = useState(() => readStore(draftKey, ""));
   const [attachments, setAttachments] = useAttachmentDraft(owner);
+  const answersKey = `answers:${owner}`;
+  const [answers, setAnswers] = useState<Answer[]>(() =>
+    readStore<Answer[]>(answersKey, []),
+  );
+  const [focusAnswer, setFocusAnswer] = useState<string | null>(null);
   const [defaultBehavior, setDefaultBehavior] = useState<Behavior>(() =>
     readStore<Behavior>("send-behavior", "queue"),
   );
@@ -139,6 +149,17 @@ export function Composer({
     if (text) writeStore(draftKey, text);
     else removeStore(draftKey);
   }, [draftKey, text]);
+  useEffect(() => {
+    if (answers.length) writeStore(answersKey, answers);
+    else removeStore(answersKey);
+  }, [answersKey, answers]);
+  useEffect(() => {
+    const question = answerQuote?.text.trim();
+    if (!question) return;
+    const id = uid();
+    setAnswers((all) => [...all, { id, question, answer: "" }]);
+    setFocusAnswer(id);
+  }, [answerQuote]);
   useLayoutEffect(() => {
     const el = area.current;
     if (!el) return;
@@ -212,10 +233,13 @@ export function Composer({
   const ready = attachments.every(
     (a) => a.kind !== "file" || a.status === "ready",
   );
-  const hasContent = Boolean(text.trim()) || attachments.length > 0;
+  const hasContent =
+    Boolean(answersMessage(answers, text)) || attachments.length > 0;
   const submit = async (how: Behavior = defaultBehavior) => {
     if (!hasContent || sending || disabled || !ready) return;
-    const value = text.trim();
+    const value = answersMessage(answers, text);
+    const draftText = text;
+    const asked = answers;
     const items = attachments;
     if (running && how === "queue" && agent) {
       // The draft stays until the queue has it saved.
@@ -224,6 +248,7 @@ export function Composer({
         await enqueue(agent.id, value, items);
         soundEvent("sent");
         setText("");
+        setAnswers([]);
         setAttachments([]);
         setHistoryIndex(-1);
       } catch (e) {
@@ -238,6 +263,7 @@ export function Composer({
     }
     setSending(true);
     setText("");
+    setAnswers([]);
     setAttachments([]);
     setHistoryIndex(-1);
     const ok = await onSend(
@@ -248,9 +274,10 @@ export function Composer({
       ),
     );
     if (!ok) {
-      setText(value);
+      setText(draftText);
+      setAnswers(asked);
       setAttachments(items);
-      writeStore(draftKey, value);
+      if (draftText) writeStore(draftKey, draftText);
     }
     setSending(false);
     area.current?.focus();
@@ -282,6 +309,23 @@ export function Composer({
     return () => window.removeEventListener("keydown", handler);
   }, []);
 
+  /** Escape and the send keys, in the message box or an answer field. */
+  const sendKeys = (e: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.nativeEvent.isComposing) return true;
+    if (e.key === "Escape") {
+      (e.target as HTMLElement).blur();
+      return true;
+    }
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      if (e.metaKey || e.ctrlKey)
+        void submit(running ? "interrupt" : defaultBehavior);
+      else if (e.altKey) void submit(running ? "steer" : defaultBehavior);
+      else void submit();
+      return true;
+    }
+    return false;
+  };
   const onKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.nativeEvent.isComposing) return;
     if (open && matches.length) {
@@ -305,18 +349,7 @@ export function Composer({
       suggestions.dismiss();
       return;
     }
-    if (e.key === "Escape") {
-      (e.target as HTMLElement).blur();
-      return;
-    }
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      if (e.metaKey || e.ctrlKey)
-        void submit(running ? "interrupt" : defaultBehavior);
-      else if (e.altKey) void submit(running ? "steer" : defaultBehavior);
-      else void submit();
-      return;
-    }
+    if (sendKeys(e)) return;
     // Recall earlier prompts from an empty composer.
     if (
       (e.key === "ArrowUp" || e.key === "ArrowDown") &&
@@ -338,7 +371,9 @@ export function Composer({
 
   const placeholder = disabled
     ? disabledReason || "This agent can't receive messages right now."
-    : hint || "Message the agent, tag @files, or use /commands and /skills";
+    : answers.length
+      ? "Anything else to add"
+      : hint || "Message the agent, tag @files, or use /commands and /skills";
 
   return (
     <div className="composer-shell">
@@ -366,6 +401,23 @@ export function Composer({
             attachments={attachments}
             onOpen={setPreview}
             onRemove={removeAttachment}
+          />
+        )}
+        {answers.length > 0 && (
+          <AnswerList
+            answers={answers}
+            disabled={disabled}
+            focusId={focusAnswer}
+            onChange={(id, value) =>
+              setAnswers((all) =>
+                all.map((a) => (a.id === id ? { ...a, answer: value } : a)),
+              )
+            }
+            onRemove={(id) => {
+              setAnswers((all) => all.filter((a) => a.id !== id));
+              area.current?.focus();
+            }}
+            onKeyDown={(e) => void sendKeys(e)}
           />
         )}
         <textarea

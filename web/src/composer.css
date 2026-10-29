@@ -17,7 +17,8 @@
     border-color var(--dur-1) var(--ease-out),
     box-shadow var(--dur-2) var(--ease-out);
 }
-.composer2.focused {
+.composer2.focused,
+.composer2:has(.answer-item textarea:focus) {
   border-color: var(--focus);
   box-shadow: var(--focus-ring);
 }
@@ -214,6 +215,64 @@
 .agent-controls .agent-settings:focus-visible {
   outline: 2px solid var(--focus);
   outline-offset: -2px;
+}
+
+/* Questions quoted from the reply, each with its answer */
+.answer-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 10px 10px 0;
+  list-style: none;
+}
+.answer-item {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--fill);
+}
+.answer-quote {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 7px 6px 0 10px;
+}
+.answer-quote blockquote {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  padding-left: 8px;
+  border-left: 2px solid var(--accent);
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  white-space: pre-line;
+}
+.answer-remove {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-3);
+  cursor: pointer;
+}
+.answer-remove:hover {
+  background: var(--accent-soft);
+  color: var(--accent-text);
+}
+.composer2 .answer-item textarea {
+  min-height: 34px;
+  padding: 6px 10px 7px;
+  font-size: var(--fs-sm);
 }
 
 /* Attachments */
