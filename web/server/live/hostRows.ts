@@ -13,6 +13,7 @@ import type {
   ProjectRecord,
   WorkspaceRecord,
 } from "./client";
+import { FORK_LABEL } from "../../src/forks/types";
 import {
   runningSubagent,
   subagentRow,
@@ -120,6 +121,9 @@ export function hostRows(input: {
   for (const e of input.inactive) if (e?.agent?.id) byId.set(e.agent.id, e);
   for (const e of input.active) if (e?.agent?.id) byId.set(e.agent.id, e);
   for (const [id, e] of byId) if (archivedAgent(e.agent)) byId.delete(id);
+  // A reply fork's helper is the panel's own: never on the map, in lists,
+  // counted as work or asking for attention.
+  for (const [id, e] of byId) if (label(e.agent, FORK_LABEL)) byId.delete(id);
   const entries = [...byId.values()].filter((e) =>
     rootAgent(e.agent, byId, input.serverId),
   );

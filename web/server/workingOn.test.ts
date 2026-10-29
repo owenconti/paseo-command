@@ -9,6 +9,7 @@ import {
   SUMMARY_LABEL,
 } from "./workingOn";
 import type { DaemonClient } from "./api/hosts";
+import { FORK_LABEL } from "../src/forks/types";
 import type { AgentRecord } from "./api/agents";
 
 const source: AgentRecord = {
@@ -169,6 +170,7 @@ test("refuses idle/archived/internal/helper/unplaced agents without generating",
     { archivedAt: "today" },
     { internal: true },
     { labels: { [SUMMARY_LABEL]: "true" } },
+    { labels: { [FORK_LABEL]: "fork_1" } },
     { workspaceId: undefined },
   ];
   for (const patch of patches) {

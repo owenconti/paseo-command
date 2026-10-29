@@ -3,6 +3,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { timelineWindow, type TimelineItem } from "./daemon";
 import type { DaemonClient } from "./api/hosts";
 import type { AgentRecord } from "./api/agents";
+import { FORK_LABEL } from "../src/forks/types";
 import { redactText } from "./redact";
 import { errorText } from "./wire";
 
@@ -247,6 +248,7 @@ export function createWorkingOnService(now = Date.now) {
         source.archivedAt ||
         source.internal ||
         source.labels?.[SUMMARY_LABEL] ||
+        source.labels?.[FORK_LABEL] ||
         helpers.has(source.id)
       )
         return { sentence: null, pending: false };
