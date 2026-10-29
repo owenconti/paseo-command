@@ -111,6 +111,12 @@ Local assets belong in the repository and are included through local build tooli
 - `web/src/AddProject.tsx`: the Projects tab's Add project panel. On a chosen host, browse its folders
   (`GET /api/folders`, folder names only) and register the open folder, make a new folder in it, or clone a
   pasted GitHub repo into it (`web/server/api/projects.ts`); New agent then opens on the new project.
+- `web/server/asks.ts`: what an idle agent's last reply asks of you, judged once per reply by TypeSafe's Jev
+  (`TYPESAFE_API_KEY`, else `typesafeApiKey` in the data directory's `secrets.json`): code splits the reply into
+  sentences (`web/src/asks/sentences.ts`), Jev judges which ask you, their kind, a pick's options, and whether
+  the reply waits on you. `POST /api/agents/:id/asks`, `GET /api/asks` (status). The composer offers the questions
+  (`web/src/composer/AskStrip.tsx`) with quick replies; a reply that waits on you is the map's `asking` state
+  and counts as needing you.
 - `web/src/urlState.ts`: the panel's place (selection, subagent, tab, filter, host filter, list toggle) kept in
   the page's query, so a refresh returns there; a new selection pushes history, other changes replace it.
 - `web/src/games/`: the panel header's mini games (gamepad button), a floating non-modal window with one game dealt at
