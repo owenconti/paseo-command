@@ -229,3 +229,47 @@ test("a preset launches at once on a pull request's worktree", async () => {
   assert.equal(dispatched[0].branch, undefined);
   await context.close();
 });
+
+test("presets are added in their editor and offered in New agent", async () => {
+  const context = await newContext(browser);
+  const page = await context.newPage();
+  const saved: any[] = [];
+  // settings.json, as the server would read it.
+  const file: { presets: unknown[]; error: null } = { presets: [], error: null };
+  await mockApi(page, {
+    agents: () => [],
+    projects: () => [
+      { projectId: "prj_atlas", name: "atlas", kind: "git", path: "/work/atlas" },
+    ],
+    lists: { presets: file },
+    accept: (path, body) => {
+      if (path !== "/api/presets") return false;
+      saved.push(body);
+      file.presets = body.presets;
+      return file;
+    },
+  });
+  await page.goto(app.url);
+  await page.locator("body").press("d");
+  const view = page.locator(".new-agent");
+  await view.getByRole("button", { name: "Add a preset prompt" }).click();
+  const dialog = page.getByRole("dialog", { name: "Preset prompts" });
+  await dialog.getByRole("button", { name: "Add preset" }).click();
+  await dialog.getByLabel("Prompt").fill("Tidy the README.");
+  await dialog.getByLabel("Name").fill("Tidy");
+  await dialog.getByRole("button", { name: "Save" }).click();
+  await waitFor(() => dialog.count(), (n) => n === 0, "the editor closing");
+  assert.deepEqual(saved, [{ presets: [{ name: "Tidy", prompt: "Tidy the README." }] }]);
+  await view.getByRole("button", { name: "Tidy" }).waitFor();
+  // Settings opens the same editor, with the saved preset; Esc drops edits.
+  await page.getByRole("button", { name: "Settings" }).click();
+  await page.locator(".presets-setting").getByRole("button", { name: "Edit…" }).click();
+  await dialog.waitFor();
+  assert.equal(await dialog.getByLabel("Name").inputValue(), "Tidy");
+  await dialog.getByLabel("Name").fill("Changed");
+  await page.keyboard.press("Escape");
+  await waitFor(() => dialog.count(), (n) => n === 0, "the editor closing on Esc");
+  assert.equal(saved.length, 1);
+  await view.getByRole("button", { name: "Tidy" }).waitFor();
+  await context.close();
+});

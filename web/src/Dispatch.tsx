@@ -1,6 +1,6 @@
 import { soundEvent } from "./soundCues";
 import { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, ChevronDown, GitBranch, MessageSquare, Play } from "lucide-react";
+import { ArrowLeft, ChevronDown, GitBranch, MessageSquare, Pencil, Play } from "lucide-react";
 import { api, errorMessage, readStore, writeStore } from "./api";
 import { Composer } from "./Composer";
 import type { Outgoing } from "./composer/types";
@@ -18,6 +18,7 @@ import {
   type Preset,
   type PullRequestChoice,
 } from "./presets";
+import { openPresetEditor, usePresets } from "./presetsStore";
 
 /** As many images as the daemon takes with a prompt. */
 const MAX_IMAGES = 10;
@@ -212,7 +213,6 @@ export function NewAgent({
   const [base, setBase] = useState("");
   // A pull request whose branch the new worktree checks out, instead.
   const [pr, setPr] = useState<PullRequestChoice | null>(null);
-  const [presets, setPresets] = useState<Preset[]>([]);
   const [launching, setLaunching] = useState(false);
   const [error, setError] = useState("");
   // Files dropped anywhere on the view join the first message.
@@ -289,13 +289,7 @@ export function NewAgent({
   // A pull request belongs to its project's new worktree.
   useEffect(() => setPr(null), [target, isolation, hostKey]);
   // Preset prompts from settings.json, read when the form opens.
-  useEffect(() => {
-    const controller = new AbortController();
-    api<{ presets: Preset[] }>("presets", undefined, controller.signal)
-      .then((r) => setPresets(Array.isArray(r.presets) ? r.presets : []))
-      .catch(() => {});
-    return () => controller.abort();
-  }, []);
+  const { presets, loaded: presetsLoaded } = usePresets();
   const prChosen = project && isolation === "worktree" ? pr : null;
 
   const folder = workspace?.cwd || project?.path || "";
@@ -613,7 +607,7 @@ export function NewAgent({
             Write the first message below to start the agent. Use /skills and
             @files as in any conversation.
           </p>
-          {presets.length > 0 && (
+          {presetsLoaded && (
             <div className="new-agent-presets" role="group" aria-label="Preset prompts">
               {presets.map((p) => {
                 const waiting = presetNeedsPr(p) && !prChosen;
@@ -634,6 +628,14 @@ export function NewAgent({
                   </button>
                 );
               })}
+              <button
+                className="ghost-btn new-agent-presets-edit"
+                aria-description="Add, change or reorder the preset prompts"
+                onClick={openPresetEditor}
+              >
+                <Pencil size={12} aria-hidden="true" />
+                {presets.length ? "Edit presets" : "Add a preset prompt"}
+              </button>
             </div>
           )}
         </div>

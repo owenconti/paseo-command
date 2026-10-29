@@ -1,6 +1,6 @@
 import { after, before, test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 import { fleet, get, install, post } from "../fake-daemon";
 import { settingsFile } from "../presets";
@@ -45,6 +45,58 @@ test("presets: none without settings.json, then read afresh from it", async () =
   assert.equal(broken.status, 200);
   assert.deepEqual(broken.data.presets, []);
   assert.match(broken.data.error, /settings\.json/);
+});
+
+test("presets: saving replaces them in order and keeps the file's other keys", async () => {
+  writeSettings(JSON.stringify({ theme: "galaxy", presets: [{ name: "Old", prompt: "x" }] }));
+  const r = await post("presets", {
+    presets: [
+      { name: " Review PR ", prompt: " Review {{pr}}. " },
+      { name: "Tidy", prompt: "Tidy the README." },
+    ],
+  });
+  assert.equal(r.status, 200, JSON.stringify(r.data));
+  const saved = JSON.parse(readFileSync(settingsFile(), "utf8"));
+  assert.deepEqual(saved, {
+    theme: "galaxy",
+    presets: [
+      { name: "Review PR", prompt: "Review {{pr}}." },
+      { name: "Tidy", prompt: "Tidy the README." },
+    ],
+  });
+  assert.deepEqual((await get("presets")).data.presets, saved.presets);
+  // No file yet: one is made.
+  rmSync(settingsFile());
+  assert.equal((await post("presets", { presets: [] })).status, 200);
+  assert.deepEqual(JSON.parse(readFileSync(settingsFile(), "utf8")), { presets: [] });
+});
+
+test("presets: a blank name, a repeated name or an empty prompt is refused", async () => {
+  writeSettings(JSON.stringify({ presets: [{ name: "Keep", prompt: "Kept." }] }));
+  const refused = async (presets: unknown, why: RegExp) => {
+    const r = await post("presets", { presets });
+    assert.equal(r.status, 400, JSON.stringify(r.data));
+    assert.match(r.data.error, why);
+  };
+  await refused([{ name: " ", prompt: "x" }], /Preset 1 needs a name/);
+  await refused(
+    [
+      { name: "Review", prompt: "a" },
+      { name: "review", prompt: "b" },
+    ],
+    /Two presets are named/,
+  );
+  await refused([{ name: "Empty", prompt: "  " }], /needs a prompt/);
+  await refused("nope", /required/);
+  assert.deepEqual((await get("presets")).data.presets, [{ name: "Keep", prompt: "Kept." }]);
+});
+
+test("presets: a damaged settings.json is never overwritten", async () => {
+  writeSettings("{ not json");
+  const r = await post("presets", { presets: [{ name: "A", prompt: "b" }] });
+  assert.equal(r.status, 400);
+  assert.match(r.data.error, /can't be read/);
+  assert.equal(readFileSync(settingsFile(), "utf8"), "{ not json");
 });
 
 test("fillPreset names the pull request; prNumberOf reads numbers and URLs", () => {

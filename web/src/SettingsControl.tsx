@@ -6,11 +6,13 @@ import { nativeEvents } from "./worldBridge";
 import { api } from "./api";
 import { LinearWorkspaceSetting } from "./HeaderLinks";
 import { setMusicSettings, useMusic } from "./music";
+import { openPresetEditor, usePresets } from "./presetsStore";
 
 /**
  * The app's settings, behind the panel header's gear: interface sounds and
  * the lofi radio (on/off and volume), desktop notifications, and the Linear
- * workspace issue links open in. All are kept in this browser (or the app).
+ * workspace issue links open in. All are kept in this browser (or the app),
+ * but for the preset prompts, which open their own editor (settings.json).
  */
 export function SettingsControl({
   notifications,
@@ -209,10 +211,38 @@ export function SettingsControl({
             </label>
           )}
           <LinearWorkspaceSetting />
+          <PresetsSetting
+            onEdit={() => {
+              close(false);
+              openPresetEditor();
+            }}
+          />
           <ReplyQuestionsStatus />
         </div>
       )}
     </span>
+  );
+}
+
+/** How many preset prompts New agent offers, and their editor. */
+function PresetsSetting({ onEdit }: { onEdit: () => void }) {
+  const { presets, error } = usePresets();
+  return (
+    <div className="linear-setting presets-setting">
+      <span>
+        <b>Preset prompts</b>
+        <small>
+          {error
+            ? error
+            : presets.length
+              ? `${presets.length} in New agent`
+              : "Prompts New agent starts with one click"}
+        </small>
+      </span>
+      <button className="secondary" onClick={onEdit}>
+        Edit…
+      </button>
+    </div>
   );
 }
 

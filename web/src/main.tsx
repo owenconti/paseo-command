@@ -46,6 +46,7 @@ import {
 import { SettingsControl } from "./SettingsControl";
 import { setSoundSettings, useSoundSettings } from "./sounds";
 import { CommandPalette } from "./CommandPalette";
+import { PresetsEditorHost } from "./PresetsEditor";
 import { runAppCommand } from "./appCommands";
 import type { Command } from "./palette";
 import {
@@ -1639,6 +1640,7 @@ function App() {
             />
           )}
         </AnimatePresence>
+        <PresetsEditorHost />
         <CommandPalette
           commands={paletteCommands}
           blocked={!!archiveWorkspace}

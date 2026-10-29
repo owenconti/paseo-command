@@ -1270,3 +1270,24 @@
   height: 26px;
   font-size: var(--fs-xs);
 }
+.presets-setting {
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+}
+.presets-setting > span {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: var(--fs-sm);
+  color: var(--text);
+}
+.presets-setting .secondary {
+  height: var(--control-sm);
+  border: 1px solid var(--line-mid);
+  padding: 0 var(--space-3);
+}
+.new-agent-presets .new-agent-presets-edit {
+  border-style: dashed;
+  color: var(--text-3);
+}
