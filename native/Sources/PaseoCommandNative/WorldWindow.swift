@@ -135,7 +135,7 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         case "scene":
             decoding.async { [weak self] in
                 var images: [String: CGImage] = [:]
-                for list in ["pieces", "banners"] {
+                for list in ["pieces", "banners", "streamers"] {
                     for item in body[list] as? [[String: Any]] ?? [] {
                         if let key = item["key"] as? String, let png = item["png"] as? String, let image = Textures.image(dataURL: png) { images[key] = image }
                     }

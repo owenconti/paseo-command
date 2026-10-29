@@ -24,7 +24,9 @@ import { setUnityWorldTheme } from "./theme";
 import type { Agent, Host, Project, Selection, Workspace } from "./types";
 import { WorldLegend } from "./WorldLegend";
 import { flagTip } from "./flagTip";
-import type { PrFlag } from "../../rendering/src/prStatus";
+import { prLabel, type PrFlag } from "../../rendering/src/prStatus";
+import type { ProbeVerdict } from "../../rendering/src/probe";
+import { useProbe } from "./useProbe";
 import "./atlas-world.css";
 type Props = {
   workingOn?: WorkSummaries;
@@ -55,6 +57,8 @@ export function atlasData(
   snapshot: WorldSnapshot,
   questions: Set<string>,
   asking: Set<string> = new Set(),
+  /** Probe's verdicts, keyed `<host>:<workspaceId>` (useProbe). */
+  probe: Record<string, ProbeVerdict> = {},
 ): AtlasData {
   return {
     hosts: snapshot.hosts.map((h) => ({
@@ -76,6 +80,7 @@ export function atlasData(
       name: w.name,
       stale: w.stale,
       labels: w.labels,
+      ...(probe[`${w.hostId}:${w.id}`] ? { probe: probe[`${w.hostId}:${w.id}`] } : {}),
     })),
     agents: snapshot.agents.map((a) => ({
       key: a.key,
@@ -158,9 +163,10 @@ export function NativeWorld(props: Props) {
   );
   const current = useRef(snapshot);
   current.current = snapshot;
+  const probe = useProbe();
   const data = useMemo(
-    () => atlasData(snapshot, props.questions, props.asking),
-    [snapshot, props.questions, props.asking],
+    () => atlasData(snapshot, props.questions, props.asking, probe),
+    [snapshot, props.questions, props.asking, probe],
   );
   const currentData = useRef(data);
   currentData.current = data;
@@ -338,7 +344,8 @@ export function NativeWorld(props: Props) {
     if (!tip?.flag || tip.entity.kind !== "workspace") return null;
     const w = snapshot.workspaces.find((x) => x.key === tip.entity.id);
     const row = w && props.workspaces.find((x) => x.workspaceId === w.id && (x.host || "local") === w.hostId);
-    return flagTip(tip.flag, row?.pr);
+    // Probe's streamer hangs from the review flag's pole.
+    return flagTip(tip.flag, row?.pr, prLabel(tip.flag).group === "review" ? tip.entity.probe : undefined);
   })();
   return (
     <>
@@ -364,6 +371,7 @@ export function NativeWorld(props: Props) {
               <b>{flagCard.title}</b>
               <span>{flagCard.description}</span>
               {flagCard.facts && <span>{flagCard.facts}</span>}
+              {flagCard.probe && <span className="atlas-flag-probe">{flagCard.probe}</span>}
               {flagCard.pr && <span className="atlas-flag-pr">{flagCard.pr}</span>}
             </>
           ) : (

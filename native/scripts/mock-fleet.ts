@@ -8,7 +8,8 @@
  *   npm run native:mock -- [--fleet small|large] [--port 4331] [--pr-flags]
  *
  * `--pr-flags` labels the first three workspaces with PR status labels, so
- * their flags show.
+ * their flags show. `--probe` labels the first five, and gives each a Probe
+ * verdict (one of each state), so their review flags carry streamers.
  */
 import { createReadStream, existsSync, statSync } from "node:fs";
 import { createServer } from "node:http";
@@ -29,6 +30,23 @@ const port = Number(option("port", "4331"));
 if (args.includes("--pr-flags")) {
   const labels = [["CI running", "Awaiting review"], ["CI green", "Approved"], ["CI failing", "Changes requested"]];
   fleet.workspaces.slice(0, 3).forEach((w, i) => Object.assign(w, { labels: labels[i] }));
+}
+/** `GET /api/probe`'s answer, keyed `<host>:<workspaceId>`. */
+const probe: Record<string, unknown> = {};
+if (args.includes("--probe")) {
+  const labels = [["CI running", "Awaiting review"], ["CI green", "Approved"], ["CI failing", "Changes requested"], ["Awaiting review"], ["CI green", "Merge conflicts"]];
+  const verdicts = [
+    { state: "reviewing" },
+    { state: "approved", head: "cca82d2baa3f" },
+    { state: "findings", findings: 2, head: "7f54043dd247" },
+    { state: "stale", reason: "head-changed", head: "9b395ac5aaaa" },
+    { state: "failed" },
+  ];
+  fleet.workspaces.slice(0, 5).forEach((w, i) => {
+    Object.assign(w, { labels: labels[i] });
+    const row = w as { host?: string; workspaceId: string };
+    probe[`${row.host || "local"}:${row.workspaceId}`] = verdicts[i];
+  });
 }
 const dist = fileURLToPath(new URL("../../web/dist/", import.meta.url));
 if (!existsSync(join(dist, "index.html"))) {
@@ -56,6 +74,7 @@ const lists: Record<string, unknown> = {
 function answer(path: string): [number, unknown] {
   const parts = path.replace(/^\/api\//, "").split("/");
   if (parts.length === 1 && parts[0]! in lists) return [200, lists[parts[0]!]];
+  if (parts.length === 1 && parts[0] === "probe") return [200, probe];
   if (parts[0] === "agents") {
     const [, , sub] = parts;
     if (!sub) return [404, { error: "Not found" }];

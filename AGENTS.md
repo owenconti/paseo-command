@@ -123,6 +123,11 @@ Local assets belong in the repository and are included through local build tooli
   random by the server (`web/server/games.ts`, `/api/games`): no choosing or restarting, the next game only once it ends.
   Progress and each game's best score are kept in the data directory's `games.json`. Games implement `types.tsx`'s
   `GameDef` (plain JSON state) and are listed in `catalog.ts` and `registry.ts`.
+- `web/server/probe.ts`: Probe's verdict (Diagonal's `diagonalprobe` review bot) on each workspace's open PR, from one
+  read-only `gh api graphql` query per PR (`GET /api/probe`, polled by `web/src/useProbe.ts`): reviewing, approved,
+  findings open (with their count), stale (new commits since, or deferred) or failed. The Atlas hangs a streamer in the
+  verdict's colour, with Probe's mark (`rendering/src/assets/probe.png`), from the review flag's pole
+  (`rendering/src/probe.ts`, `placeStreamers`); the flag's hover card adds a Probe line. `native:mock -- --probe` shows each.
 
 ## Atlas world
 

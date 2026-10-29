@@ -11,6 +11,7 @@ import {
   type AtlasData,
 } from "../../rendering/src/atlas";
 import { PR_LABELS, prFlags } from "../../rendering/src/prStatus";
+import { PROBE_STATES } from "../../rendering/src/probe";
 import { readStore, writeStore } from "./api";
 
 const css = (c: number) => `#${c.toString(16).padStart(6, "0")}`;
@@ -43,6 +44,8 @@ export function WorldLegend({ data }: { data: AtlasData }) {
     const f = prFlags(w.labels);
     return !!(f.ci || f.review);
   });
+  // Probe's streamers, once any review flag carries one.
+  const probe = data.workspaces.some((w) => w.probe && prFlags(w.labels).review);
   return (
     <section className="atlas-world-legend" aria-label="Map legend">
       <button className="legend-toggle" aria-expanded={open} onClick={toggle}>
@@ -88,6 +91,21 @@ export function WorldLegend({ data }: { data: AtlasData }) {
                   <li key={l.flag}>
                     <span className="legend-swatch" style={{ background: LABEL_COLOR[l.color] }} />
                     {l.name}
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+          {probe && (
+            <>
+              <h3>Review flag streamer · Probe</h3>
+              <ul>
+                {PROBE_STATES.map((p) => (
+                  <li key={p.state}>
+                    <span className="legend-swatch" style={{ background: css(p.color) }}>
+                      {p.glyph}
+                    </span>
+                    {p.name}
                   </li>
                 ))}
               </ul>

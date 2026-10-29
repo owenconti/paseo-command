@@ -15,6 +15,7 @@ import {
 } from "./agents";
 import { workingOn } from "../workingOn";
 import { replyAsks } from "../asks";
+import { probeRoute } from "../probe";
 import {
   concludeFork,
   createFork,
@@ -119,6 +120,9 @@ export async function handleApi(
         switch (parts[0]) {
           case "asks":
             result = replyAsks.status();
+            break;
+          case "probe":
+            result = await probeRoute();
             break;
           case "hosts": {
             await hostRegistry();

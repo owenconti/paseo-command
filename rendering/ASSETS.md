@@ -145,3 +145,10 @@ The third row's first cell is the merge conflicts flag (pink swallow-tailed clot
 the review flag's place. It was generated the same way by a GPT-6.1-Sol agent with `image_gen`, registered to the
 same foot anchor, and pasted in unchanged from `../design/pr-status/flag-conflicts.png`; its prompts and originals
 are in `../design/pr-status/NOTES.md`. The rest of that row is transparent.
+
+## probe.png — Probe's mark
+
+Probe's own GitHub avatar (`https://avatars.githubusercontent.com/u/316687694`, the `diagonalprobe` account), fetched
+at 460 px, cropped to a circle and reduced to 128 × 128 RGBA. Packaging only; not repainted. The bridge draws it, in a
+cream ring, on the streamer that hangs from a review flag's pole for Probe's verdict (`paintStreamer` in
+`src/native/bridge.ts`).

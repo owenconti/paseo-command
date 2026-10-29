@@ -19,6 +19,7 @@ import {
   type State,
 } from "./world.ts";
 import type { PrFlag } from "./prStatus.ts";
+import type { ProbeVerdict } from "./probe.ts";
 
 type P = { x: number; y: number };
 type Box = { x: number; y: number; width: number; height: number };
@@ -212,6 +213,29 @@ export function placeFlags(
     }
   }
   return placed;
+}
+
+/** Probe's streamer: tied to the review flag's pole just below its cloth
+ * (`top` is a share of the flag's height), `height` world pixels tall. */
+export const PROBE_STREAMER = { top: 0.68, height: 16, depth: DEPTH_FLAG + 0.05 };
+/** A Probe streamer: `x, y` is its top-left corner, where it's tied to the pole. */
+export type PlacedStreamer = { verdict: ProbeVerdict; x: number; y: number; depth: number; alpha: number; entity: string };
+/** The streamer under each review flag whose workspace Probe has a verdict on. */
+export function placeStreamers(layout: AtlasLayout, flags: PlacedFlag[]): PlacedStreamer[] {
+  const out: PlacedStreamer[] = [];
+  for (const f of flags) {
+    const ws = layout.workspaces.find((w) => w.id === f.entity);
+    if (!ws?.probe || ws.flags?.review !== f.flag) continue;
+    out.push({
+      verdict: ws.probe,
+      x: f.x - f.width / 2 + FLAG_FOOT.x * f.width,
+      y: f.y - FLAG_HEIGHT / 2 + PROBE_STREAMER.top * FLAG_HEIGHT,
+      depth: PROBE_STREAMER.depth,
+      alpha: f.alpha,
+      entity: f.entity,
+    });
+  }
+  return out;
 }
 
 /** Where each camp's flag stands: the daemon reports its agents without a workspace. */

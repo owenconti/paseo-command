@@ -142,6 +142,10 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.atlas-world-tip .atlas-flag-probe {
+  margin-top: 4px;
+  color: var(--text);
+}
 .atlas-world-tip .atlas-work-summary {
   margin-top: 5px;
   color: var(--text);

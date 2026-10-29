@@ -18,6 +18,8 @@ final class AtlasScene: SKScene {
     private var tiles: [String: SKTexture] = [:]
     private var pieces: [String: SKTexture] = [:]
     private var banners: [String: SKTexture] = [:]
+    /// Probe's streamers under review flags, by content key.
+    private var streamers: [String: SKTexture] = [:]
     private var land: WorldBox?
     private struct Entity {
         let id: String
@@ -76,6 +78,8 @@ final class AtlasScene: SKScene {
     }
     /// PR flags whose CI is running sway about their pole's foot.
     private var swaying: [SKSpriteNode] = []
+    /// Probe streamers whose review is still running: they pulse.
+    private var reviewing: [SKSpriteNode] = []
     private var flagFoot = CGPoint(x: 0.19, y: 0.95)
     private var flagSway = (degrees: CGFloat(3), period: Double(1400))
     private var pulses: [Pulse] = []
@@ -179,7 +183,9 @@ final class AtlasScene: SKScene {
     func setScene(_ m: [String: Any], images: [String: CGImage]) {
         builds += 1
         for (key, image) in images {
-            if key.hasPrefix("banner:") { banners[key] = Textures.texture(image) } else { pieces[key] = Textures.texture(image) }
+            if key.hasPrefix("banner:") { banners[key] = Textures.texture(image) }
+            else if key.hasPrefix("streamer:") { streamers[key] = Textures.texture(image) }
+            else { pieces[key] = Textures.texture(image) }
         }
         structures.removeAllChildren()
         if let b = m["bounds"] as? [String: Double] { land = box(b) }
@@ -220,6 +226,21 @@ final class AtlasScene: SKScene {
             structures.addChild(node)
             if f["sway"] as? Bool == true { swaying.append(node) }
         }
+        reviewing = []
+        var keepStreamers = Set<String>()
+        for s in m["streamers"] as? [[String: Any]] ?? [] {
+            guard let key = s["key"] as? String, let texture = streamers[key] else { continue }
+            keepStreamers.insert(key)
+            let node = SKSpriteNode(texture: texture)
+            node.anchorPoint = CGPoint(x: 0, y: 1)
+            node.position = p(num(s["x"]), num(s["y"]))
+            node.size = CGSize(width: num(s["width"]), height: num(s["height"]))
+            node.zPosition = num(s["depth"])
+            node.alpha = num(s["alpha"], 1)
+            structures.addChild(node)
+            if s["pulse"] as? Bool == true { reviewing.append(node) }
+        }
+        streamers = streamers.filter { keepStreamers.contains($0.key) }
         for flag in m["flags"] as? [[String: Double]] ?? [] { structures.addChild(campFlag(CGFloat(flag["x"] ?? 0), CGFloat(flag["y"] ?? 0))) }
         var keepBanners = Set<String>()
         for b in m["banners"] as? [[String: Any]] ?? [] {
@@ -711,7 +732,7 @@ final class AtlasScene: SKScene {
 
     /// Whether anything moves at the ambient rate (tiles, robots, signals, the selection).
     var animating: Bool {
-        !reduced && (!pulses.isEmpty || !runners.isEmpty || !flames.isEmpty || !swaying.isEmpty || robots.contains { $0.busy || !$0.drones.isEmpty } || selected != nil)
+        !reduced && (!pulses.isEmpty || !runners.isEmpty || !flames.isEmpty || !swaying.isEmpty || !reviewing.isEmpty || robots.contains { $0.busy || !$0.drones.isEmpty } || selected != nil)
     }
     /// The sea's glints and cloud shadows drift (slowly, in 15 Hz steps).
     var drifting: Bool { !reduced && !tiles.isEmpty }
@@ -814,6 +835,8 @@ final class AtlasScene: SKScene {
         for (i, flag) in swaying.enumerated() {
             flag.zRotation = reduced ? 0 : -flagSway.degrees * .pi / 180 * CGFloat(sin(sway + Double(i) * 0.7))
         }
+        // A streamer whose review is running breathes; steady, with reduced motion.
+        for node in reviewing { node.alpha = reduced ? 1 : CGFloat(0.72 + 0.28 * (0.5 + 0.5 * cos(clock / 1800 * .pi * 2))) }
         walk(step)
     }
 

@@ -24,6 +24,7 @@ test("a flag's card names it, says what it means, and gives its PR's facts", () 
     title: "CI failing",
     description: "A check on the pull request failed.",
     facts: "1 of 3 checks failed.",
+    probe: "",
     pr: "#7 · Split the tests",
   });
   const conflicts = flagTip("conflicts", pr);
@@ -31,4 +32,13 @@ test("a flag's card names it, says what it means, and gives its PR's facts", () 
   assert.match(conflicts.description, /conflicts with its base branch/);
   assert.equal(conflicts.facts, "");
   assert.equal(flagTip("review-approved", undefined).pr, "");
+});
+
+test("the review flag's card carries Probe's verdict", () => {
+  assert.equal(
+    flagTip("review-awaiting", pr, { state: "findings", findings: 2, head: "abcdef1234" }).probe,
+    "Probe: 2 findings open (review of abcdef1).",
+  );
+  assert.equal(flagTip("review-approved", pr, { state: "stale", reason: "deferred" }).probe, "Probe: deferred its review; request it again.");
+  assert.equal(flagTip("review-approved", pr).probe, "");
 });

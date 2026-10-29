@@ -1,6 +1,7 @@
 /** Atlas vocabulary, axial geometry and the deterministic world layout.
  * The layout is built from a host-qualified fleet description; it never talks to a daemon. */
 import { prFlags, type PrFlag } from "./prStatus.ts";
+import { probeGlyph, type ProbeVerdict } from "./probe.ts";
 export type State =
   | "running"
   | "idle"
@@ -25,6 +26,8 @@ export type AtlasData = {
     stale?: boolean;
     /** Its Paseo labels; the PR status ones plant flags. */
     labels?: string[];
+    /** Probe's verdict on its PR: a streamer under its review flag. */
+    probe?: ProbeVerdict;
   }[];
   agents: {
     key: string;
@@ -63,6 +66,8 @@ export type Entity = {
   cells?: Axial[];
   /** A workspace's PR flags, from its labels: CI in its second cell, review in its third. */
   flags?: { ci?: PrFlag; review?: PrFlag };
+  /** Probe's verdict, while its review flag stands. */
+  probe?: ProbeVerdict;
 };
 
 export type Island = {
@@ -398,6 +403,7 @@ type Cottage = {
   /** Its agents' keys, oldest first. */
   agents: string[];
   flags?: { ci?: PrFlag; review?: PrFlag };
+  probe?: ProbeVerdict;
 };
 type Placed = { cells: Axial[]; agents: Axial[] };
 /** One island, in its own coordinates: a landmark at the centre (if any)
@@ -517,6 +523,7 @@ function hostPlans(host: AtlasData["hosts"][number], data: AtlasData): Plan[] {
       stale: w.stale,
       agents: [],
       ...(flags.ci || flags.review ? { flags } : {}),
+      ...(flags.review && w.probe ? { probe: w.probe } : {}),
     };
     cottages.set(w.key, cottage);
     groupOf(w.project).push(cottage);
@@ -747,6 +754,7 @@ export function layoutAtlas(data: AtlasData, aspect = 1.6): AtlasLayout {
           stale: !!cottage.stale,
           camp: cottage.camp,
           ...(cottage.flags ? { flags: cottage.flags } : {}),
+          ...(cottage.probe ? { probe: cottage.probe } : {}),
         });
         cottage.agents.forEach((agent, n) =>
           homes.set(agent, { workspace: cottage.key, project: p.project?.key, cell: add(p.placed[j]!.agents[n]!, centre) }),
@@ -839,6 +847,7 @@ export function layoutAtlas(data: AtlasData, aspect = 1.6): AtlasLayout {
       e.name,
       footprint(e).map(cellKey).join(" "),
       e.flags ? [e.flags.ci ?? "", e.flags.review ?? ""] : 0,
+      e.probe ? [e.probe.state, probeGlyph(e.probe)] : 0,
     ]),
   ]);
   return {

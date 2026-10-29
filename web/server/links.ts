@@ -351,7 +351,8 @@ export type GhAnswer = { available: boolean; pr: PullRequest | null };
 /** Branches that never have a PR of their own. */
 export const BASE_BRANCHES = /^(main|master|HEAD)?$/;
 
-function gh(cwd: string, args: string[]) {
+/** Runs gh read-only and non-interactively in `cwd`. */
+export function gh(cwd: string, args: string[]) {
   // Read-only and non-interactive: no prompts, no update checks, no pager.
   const env: NodeJS.ProcessEnv = {};
   for (const [k, v] of Object.entries(process.env))

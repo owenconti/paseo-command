@@ -19,12 +19,15 @@ import {
 } from "../world";
 import { buildFrames, flagFrames, frameName, propFrames, type Frame } from "../art";
 import { PR_LABELS, type PrFlag } from "../prStatus";
+import { probeGlyph, probeState, type ProbeVerdict } from "../probe";
 import { cloudsTile, glintsTile, terrainParts, waterTile, type Piece } from "../terrain";
 import {
   DRONE_ORBIT,
   FLAG_FOOT,
   FLAG_SWAY,
   placeFlags,
+  placeStreamers,
+  PROBE_STREAMER,
   DRONE_SIZE,
   HOVER_COLOR,
   PROP_WIDTH,
@@ -62,6 +65,7 @@ import foliageUrl from "../assets/tree-v2.png";
 import sandUrl from "../assets/sand.png";
 import propsUrl from "../assets/props.png";
 import flagsUrl from "../assets/flags.png";
+import probeUrl from "../assets/probe.png";
 import type { AtlasHandlers, AtlasWorld } from "../atlas";
 
 type Channel = { postMessage(message: unknown): void };
@@ -75,7 +79,7 @@ export const nativeWorldAvailable = () => typeof window !== "undefined" && !!cha
  * crisp at the closest zoom on a Retina display. */
 const BANNER_SCALE = 5;
 /** Sprite frames and the sea's tiles, sent once per page. */
-type Art = { frames: Map<string, Frame>; sand: HTMLImageElement; masks: Map<string, ImageData> };
+type Art = { frames: Map<string, Frame>; sand: HTMLImageElement; probe: HTMLImageElement; masks: Map<string, ImageData> };
 
 const load = (url: string) =>
   new Promise<HTMLImageElement>((resolve, reject) => {
@@ -202,6 +206,78 @@ function paintBanner(label: Label) {
   };
 }
 
+/** Probe's streamer for a verdict, painted as banners are: a short cloth in
+ * the verdict's colour tied to the pole at its left, a swallowtail at its
+ * right, carrying Probe's mark and a glyph (or the open findings' count).
+ * Its world box starts at the pole, `PROBE_STREAMER.height` tall. */
+function paintStreamer(verdict: ProbeVerdict, mark: HTMLImageElement) {
+  const h = PROBE_STREAMER.height;
+  const glyph = probeGlyph(verdict);
+  const color = probeState(verdict.state).color;
+  const font = `bold ${h * 0.72}px ${LABEL_FONT}`;
+  const measure = document.createElement("canvas").getContext("2d")!;
+  measure.font = font;
+  const radius = h / 2 - 1.2;
+  const notch = 3.2;
+  const textX = 1.6 + radius * 2 + 2;
+  const width = Math.ceil(textX + measure.measureText(glyph).width + 2.4 + notch);
+  // Room for the soft shadow below and right.
+  const pad = 1.5;
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.ceil((width + pad) * BANNER_SCALE);
+  canvas.height = Math.ceil((h + pad) * BANNER_SCALE);
+  const ctx = canvas.getContext("2d")!;
+  ctx.scale(BANNER_SCALE, BANNER_SCALE);
+  const rgba = (c: number, a = 1) => `rgba(${(c >> 16) & 255},${(c >> 8) & 255},${c & 255},${a})`;
+  const shade = (c: number, k: number) =>
+    (Math.round(((c >> 16) & 255) * k) << 16) | (Math.round(((c >> 8) & 255) * k) << 8) | Math.round((c & 255) * k);
+  const cloth = (dx: number, dy: number) => {
+    ctx.beginPath();
+    ctx.moveTo(dx + 0.6, dy + 0.6);
+    ctx.lineTo(dx + width - 0.6, dy + 0.6);
+    ctx.lineTo(dx + width - 0.6 - notch, dy + h / 2);
+    ctx.lineTo(dx + width - 0.6, dy + h - 0.6);
+    ctx.lineTo(dx + 0.6, dy + h - 0.6);
+    ctx.closePath();
+  };
+  cloth(1, 1.2);
+  ctx.fillStyle = rgba(RIBBON_SHADOW.color, 0.32);
+  ctx.fill();
+  cloth(0, 0);
+  const fill = ctx.createLinearGradient(0, 0, 0, h);
+  fill.addColorStop(0, rgba(color));
+  fill.addColorStop(1, rgba(shade(color, 0.82)));
+  ctx.fillStyle = fill;
+  ctx.fill();
+  ctx.lineJoin = "round";
+  ctx.lineWidth = 0.9;
+  ctx.strokeStyle = rgba(0xd8a945);
+  ctx.stroke();
+  // Where it's knotted round the pole.
+  ctx.fillStyle = rgba(shade(color, 0.6));
+  ctx.fillRect(0.4, 0.8, 1.2, h - 1.6);
+  // Probe's mark, in a cream ring.
+  const cx = 1.6 + radius,
+    cy = h / 2;
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+  ctx.clip();
+  ctx.drawImage(mark, cx - radius, cy - radius, radius * 2, radius * 2);
+  ctx.restore();
+  ctx.beginPath();
+  ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+  ctx.lineWidth = 0.7;
+  ctx.strokeStyle = rgba(0xf6ecd2);
+  ctx.stroke();
+  ctx.font = font;
+  ctx.fillStyle = rgba(0xf6ecd2);
+  ctx.textBaseline = "middle";
+  ctx.fillText(glyph, textX, h / 2 + 0.4);
+  return { canvas, width: width + pad, height: h + pad };
+}
+const streamerKey = (v: ProbeVerdict) => `streamer:${v.state}:${probeGlyph(v)}`;
+
 type Message = Record<string, unknown> & { type: string };
 type NativeEvent =
   | { type: "ready" }
@@ -273,8 +349,13 @@ export function mountNativeAtlas(parent: HTMLElement, handlers: AtlasHandlers = 
     // A PR flag takes the place of its cell's garden plant.
     const placed = placeStructures(layout, sizeOf, { flags: true });
     const banners = labels(layout).map((label) => ({ label, art: paintBanner(label) }));
-    // Swift drops banners a scene leaves out, so one that returns is sent again.
-    const shown = new Set(banners.map(({ label }) => `banner:${JSON.stringify(label)}`));
+    planted = placeFlags(layout, sizeOf);
+    const streamers = placeStreamers(layout, planted);
+    // Swift drops banners and streamers a scene leaves out, so one that returns is sent again.
+    const shown = new Set([
+      ...banners.map(({ label }) => `banner:${JSON.stringify(label)}`),
+      ...streamers.map((s) => streamerKey(s.verdict)),
+    ]);
     for (const key of [...sent]) if (!shown.has(key)) sent.delete(key);
     const sprites: Placed[] = [...placed];
     plants = placed.filter((s) => !s.footprint);
@@ -324,7 +405,7 @@ export function mountNativeAtlas(parent: HTMLElement, handlers: AtlasHandlers = 
       })),
       flags: campFlags(layout),
       // PR flags stand on their pole's foot, so the running CI one sways about it.
-      prFlags: (planted = placeFlags(layout, sizeOf)).map((f) => ({
+      prFlags: planted.map((f) => ({
         frame: f.frame,
         flag: f.flag,
         workspace: f.entity,
@@ -338,6 +419,23 @@ export function mountNativeAtlas(parent: HTMLElement, handlers: AtlasHandlers = 
       banners: banners.map(({ label, art }) => {
         const key = `banner:${JSON.stringify(label)}`;
         return { key, png: image(key, art.canvas), x: art.x, y: art.y, width: art.width, height: art.height };
+      }),
+      // Probe's streamers, under their review flags; one still reviewing pulses.
+      streamers: streamers.map((s) => {
+        const key = streamerKey(s.verdict);
+        const painted = paintStreamer(s.verdict, art!.probe);
+        return {
+          key,
+          png: image(key, painted.canvas),
+          x: s.x,
+          y: s.y,
+          width: painted.width,
+          height: painted.height,
+          depth: s.depth,
+          alpha: s.alpha,
+          pulse: s.verdict.state === "reviewing",
+          workspace: s.entity,
+        };
       }),
       entities: layout.entities.map((e) => ({
         id: e.id,
@@ -492,8 +590,8 @@ export function mountNativeAtlas(parent: HTMLElement, handlers: AtlasHandlers = 
   // The art is painted once per page; Swift keeps it as textures.
   void (async () => {
     try {
-      const [buildings, robotSheet, foliage, sand, props, structures, flags] = await Promise.all(
-        [buildingsUrl, robotsUrl, foliageUrl, sandUrl, propsUrl, structuresUrl, flagsUrl].map(load),
+      const [buildings, robotSheet, foliage, sand, props, structures, flags, probe] = await Promise.all(
+        [buildingsUrl, robotsUrl, foliageUrl, sandUrl, propsUrl, structuresUrl, flagsUrl, probeUrl].map(load),
       );
       const frames = buildFrames({ buildings: buildings!, robots: robotSheet!, foliage: foliage!, structures: structures! });
       for (const [name, frame] of propFrames(props!, PROPS)) frames.set(name, frame);
@@ -504,7 +602,7 @@ export function mountNativeAtlas(parent: HTMLElement, handlers: AtlasHandlers = 
         if (/^robot-\w+-(body|hand-l|hand-r)$/.test(name))
           sent.push({ name: `${name}~offline`, png: png(tinted(crop(frame), OFFLINE_TINT)) });
       if (destroyed) return;
-      art = { frames, sand: sand!, masks: new Map() };
+      art = { frames, sand: sand!, probe: probe!, masks: new Map() };
       post({
         type: "art",
         frames: sent,
@@ -571,6 +669,11 @@ export function mountNativeAtlas(parent: HTMLElement, handlers: AtlasHandlers = 
             agents: layout.agents.map((a) => ({ id: a.id, name: a.name, state: a.state, model: a.model, workspace: a.workspace, at: point(a.position) })),
             tiles: Object.fromEntries(tiles(layout).map((t) => [t.id, t.state])),
             flags: Object.fromEntries(layout.workspaces.filter((w) => w.flags && !w.camp).map((w) => [w.id, w.flags])),
+            streamers: placeStreamers(layout, planted).map((s) => ({
+              workspace: s.entity,
+              state: s.verdict.state,
+              glyph: probeGlyph(s.verdict),
+            })),
             workspaces: layout.workspaces.map((w) => ({ id: w.id, name: w.name, camp: !!w.camp })),
             planted: planted.map((f) => {
               const size = sizeOf(f.frame),
