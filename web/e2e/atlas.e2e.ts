@@ -293,7 +293,6 @@ test("Enter focuses the chat input; G and L open the PR and Linear issue", async
   try {
     const context = await newContext(browser);
     await context.addInitScript(() => {
-      localStorage.setItem("paseo-command:linear-workspace", JSON.stringify("acme"));
       (window as any).__opened = [];
       window.open = ((url: string) => {
         (window as any).__opened.push(url);
@@ -308,6 +307,8 @@ test("Enter focuses the chat input; G and L open the PR and Linear issue", async
       hosts: () => hosts,
       projects: () => projects,
       workspaces: () => workspaces,
+      // The Linear workspace, from settings.json.
+      lists: { settings: { linearWorkspace: "acme", error: null } },
     });
     await page.goto(app.url);
     await waitFor(() => inspect(page), (i) => !!i?.agents?.length, "the Atlas", 30000);

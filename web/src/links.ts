@@ -10,10 +10,11 @@
  *   the server (gh, GET /api/merge-queue) for checkouts on this machine.
  * - The Linear key comes from the branch, else the PR's title or body, else
  *   the agent's title. Its link needs the Linear workspace's URL slug, a
- *   one-time setting kept with the app's other settings.
+ *   one-time setting kept in settings.json with the app's other settings.
  */
 import { useEffect, useState, useSyncExternalStore } from "react";
-import { api, readStore, writeStore } from "./api";
+import { api, readStore } from "./api";
+import { linearSlug } from "./linearSlug";
 import { branchKey, textKey } from "./display";
 import { nativeRequest } from "./nativePlatform";
 import { nativeAvailable } from "./worldBridge";
@@ -127,13 +128,7 @@ export function linearKey(from: {
   );
 }
 
-/** A Linear workspace's URL slug, typed bare or pasted as a linear.app URL. */
-export function linearSlug(input: string): string | null {
-  let s = input.trim().toLowerCase();
-  const m = /^(?:https?:\/\/)?linear\.app\/([^/?#\s]+)/.exec(s);
-  if (m) s = m[1];
-  return /^[a-z0-9][a-z0-9-]{0,63}$/.test(s) ? s : null;
-}
+export { linearSlug };
 
 const KEY = /^[A-Z]{2,5}\d?-\d{1,6}$/;
 export function linearUrl(slug: string, key: string): string | null {
@@ -142,20 +137,52 @@ export function linearUrl(slug: string, key: string): string | null {
 }
 
 // ── The slug setting ───────────────────────────────────────────────────────
+// Kept in settings.json (GET/POST /api/settings). This browser once kept it
+// itself: such a value is moved into the file when the file has none.
 const SLUG = "linear-workspace";
-let slug = linearSlug(readStore<string>(SLUG, "") || "") ?? "";
+let slug = "";
 const listeners = new Set<() => void>();
-export function setLinearWorkspace(value: string) {
-  slug = linearSlug(value) ?? "";
-  writeStore(SLUG, slug);
+const show = (value: string) => {
+  if (value === slug) return;
+  slug = value;
   listeners.forEach((l) => l());
+};
+export function setLinearWorkspace(value: string) {
+  const next = linearSlug(value) ?? "";
+  show(next);
+  // The file has it now: an old browser value mustn't come back.
+  try {
+    localStorage.removeItem(`paseo-command:${SLUG}`);
+  } catch {}
+  void api("settings", { linearWorkspace: next }).catch(() => {});
 }
-if (typeof window !== "undefined")
-  window.addEventListener("storage", (e) => {
-    if (e.key !== null && e.key !== `paseo-command:${SLUG}`) return;
-    slug = linearSlug(readStore<string>(SLUG, "") || "") ?? "";
-    listeners.forEach((l) => l());
-  });
+/** Read the setting from the file (on load, and as a window comes back). */
+export async function refreshLinearWorkspace() {
+  let saved: string;
+  try {
+    const r = await api<{ linearWorkspace?: string; error?: string | null }>("settings");
+    if (r.error) return;
+    saved = linearSlug(r.linearWorkspace || "") ?? "";
+  } catch {
+    return;
+  }
+  const kept = linearSlug(readStore<string>(SLUG, "") || "") ?? "";
+  if (!saved && kept) {
+    show(kept);
+    try {
+      await api("settings", { linearWorkspace: kept });
+      localStorage.removeItem(`paseo-command:${SLUG}`);
+    } catch {}
+    return;
+  }
+  show(saved);
+}
+if (typeof window !== "undefined") {
+  // Until the file answers, this browser's old value (if any) is shown.
+  slug = linearSlug(readStore<string>(SLUG, "") || "") ?? "";
+  void refreshLinearWorkspace();
+  window.addEventListener("focus", () => void refreshLinearWorkspace());
+}
 export function useLinearWorkspace() {
   return useSyncExternalStore(
     (l) => {

@@ -229,8 +229,8 @@ function SlugPrompt({
         <label htmlFor={id}>
           <b>Your Linear workspace</b>
           <small>
-            Asked once, to link {issueKey}. It stays with the sound settings
-            (the speaker button), where you can change it.
+            Asked once, to link {issueKey}. It's kept in Settings (the gear),
+            where you can change it.
           </small>
         </label>
         <div className="linear-slug-field">

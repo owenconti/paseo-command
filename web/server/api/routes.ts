@@ -29,6 +29,7 @@ import {
 import { finishGame, gamesRecord, nextGame, saveGameState } from "../games";
 import { draftGet } from "./drafts";
 import { presets, savePresets } from "../presets";
+import { appSettings, saveAppSettings } from "../settings";
 import { createTerminal, killTerminal, listTerminals } from "./terminals";
 import {
   addProject,
@@ -102,7 +103,19 @@ export async function handleApi(
       return reply(400, { error: "Unexpected parameters" });
     return reply(200, await commitsRoute(url.searchParams.get("since")));
   }
-  // Preset prompts: this app's own settings file, never the daemon.
+  // Settings and preset prompts: this app's own settings file, never the daemon.
+  if (url.pathname === "/api/settings") {
+    if (url.search) return reply(400, { error: "Unexpected parameters" });
+    if (req.method === "GET") return reply(200, appSettings());
+    if (req.method !== "POST") return reply(405, { error: "Method not allowed" });
+    if (!req.headers["content-type"]?.startsWith("application/json"))
+      return reply(415, { error: "JSON required" });
+    try {
+      return reply(200, saveAppSettings(await bodyOf(req)));
+    } catch (error) {
+      return reply(400, { error: errorText(error) });
+    }
+  }
   if (url.pathname === "/api/presets") {
     if (url.search) return reply(400, { error: "Unexpected parameters" });
     if (req.method === "GET") return reply(200, presets());

@@ -99,6 +99,27 @@ test("presets: a damaged settings.json is never overwritten", async () => {
   assert.equal(readFileSync(settingsFile(), "utf8"), "{ not json");
 });
 
+test("settings: the Linear workspace is saved beside the presets", async () => {
+  writeSettings(JSON.stringify({ presets: [{ name: "Keep", prompt: "Kept." }] }));
+  assert.deepEqual((await get("settings")).data, { linearWorkspace: "", error: null });
+  const r = await post("settings", { linearWorkspace: "https://linear.app/Acme/issue/X-1" });
+  assert.equal(r.status, 200, JSON.stringify(r.data));
+  assert.deepEqual(r.data, { linearWorkspace: "acme", error: null });
+  assert.deepEqual(JSON.parse(readFileSync(settingsFile(), "utf8")), {
+    presets: [{ name: "Keep", prompt: "Kept." }],
+    linearWorkspace: "acme",
+  });
+  assert.equal((await post("settings", { linearWorkspace: "not a slug!" })).status, 400);
+  assert.equal((await post("settings", {})).status, 400);
+  // Empty clears it.
+  await post("settings", { linearWorkspace: "" });
+  assert.equal((await get("settings")).data.linearWorkspace, "");
+  writeSettings("[1]");
+  assert.match((await get("settings")).data.error, /can't be read/);
+  assert.equal((await post("settings", { linearWorkspace: "acme" })).status, 400);
+  assert.equal(readFileSync(settingsFile(), "utf8"), "[1]");
+});
+
 test("fillPreset names the pull request; prNumberOf reads numbers and URLs", () => {
   const pr = { number: 42, url: "https://github.com/acme/app/pull/42" };
   assert.equal(

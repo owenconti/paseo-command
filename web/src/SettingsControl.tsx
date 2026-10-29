@@ -11,8 +11,9 @@ import { openPresetEditor, usePresets } from "./presetsStore";
 /**
  * The app's settings, behind the panel header's gear: interface sounds and
  * the lofi radio (on/off and volume), desktop notifications, and the Linear
- * workspace issue links open in. All are kept in this browser (or the app),
- * but for the preset prompts, which open their own editor (settings.json).
+ * workspace issue links open in. Sounds, radio and notifications are kept
+ * in this browser (or the app); the Linear workspace and the preset prompts
+ * (which open their own editor) in the data directory's settings.json.
  */
 export function SettingsControl({
   notifications,

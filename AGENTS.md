@@ -106,6 +106,8 @@ Local assets belong in the repository and are included through local build tooli
   `web/server/presets.ts`) show as buttons that launch the agent at once; `{{pr}}` names the chosen pull request.
   They are edited in the app (`web/src/PresetsEditor.tsx`, from Settings or New agent; `POST /api/presets` keeps the file's
   other keys and never overwrites an unreadable file); `web/src/presetsStore.ts` shares them across the page.
+  The same `settings.json` keeps the Linear workspace (`linearWorkspace`; `GET`/`POST /api/settings`,
+  `web/server/settings.ts`), which the page once kept in localStorage and moves into the file on load.
 - `rendering/src/native/bridge.ts`: inside the native app, the Atlas world `mountAtlas` returns: it lays out and paints
   with the shared modules (`placement.ts`, `art.ts`, `terrain.ts`) and posts the result to Swift (`native/Sources/`),
   which draws, animates and owns camera, hover and picking under a transparent page.
