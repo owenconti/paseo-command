@@ -214,6 +214,30 @@ test("+ Add collects two pieces from different replies into one fork", async () 
   await close();
 });
 
+test("+ Add shows collected pieces as chips, removable, without covering the conversation", async () => {
+  const w = world();
+  const { page, close } = await open(w);
+  await select(page, "Each bundle lives in two places.");
+  await pill(page).getByRole("button", { name: "Add to question" }).click();
+  const tray = page.getByRole("region", { name: "Collected pieces" });
+  await tray.getByText("Each bundle lives in two places.").waitFor();
+  assert.equal(await pane(page).count(), 0);
+  await select(page, "GitHub CI workflows");
+  await pill(page).getByRole("button", { name: "Add to question" }).click();
+  await tray.getByText("GitHub CI workflows").waitFor();
+  await tray.getByRole("button", { name: /Remove “Each bundle/ }).click();
+  await tray.getByText("Each bundle lives in two places.").waitFor({ state: "detached" });
+  await tray.getByRole("button", { name: "Ask about these" }).click();
+  await ask(page, "What about CI?");
+  const create = await waitFor(() => w.posts.find((p) => p.path === "/api/agents/a1/forks"));
+  assert.deepEqual(
+    create.body.quotes.map((q: { text: string }) => q.text),
+    ["GitHub CI workflows"],
+  );
+  assert.equal(await tray.count(), 0);
+  await close();
+});
+
 test("no pill on a live reply", async () => {
   const w = world({ running: true });
   const { page, close } = await open(w);

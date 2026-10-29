@@ -88,7 +88,7 @@ import { HeaderLinks } from "./HeaderLinks";
 import type { DraftSettings } from "./Dispatch";
 import { SPLIT_MIN } from "./panelGeometry";
 import { ForkPill } from "./forks/ForkPill";
-import { ForkPane } from "./forks/ForkPane";
+import { ForkPane, ForkTray } from "./forks/ForkPane";
 import { useReplyForks } from "./forks/useReplyForks";
 import type { ForkRow } from "./forks/api";
 
@@ -489,6 +489,13 @@ export function Session({
         onAsk={forks.askAbout}
         onAdd={forks.add}
       />
+      {forks.collected.length > 0 && forks.shown !== "draft" && (
+        <ForkTray
+          collected={forks.collected}
+          onRemove={forks.removeCollected}
+          onAsk={() => forks.show("draft")}
+        />
+      )}
       {forks.shown && (
         <ForkPane
           layout={forkLayout}

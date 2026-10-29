@@ -4,7 +4,14 @@
  * pieces, or a fork's conversation with its helper, with Send back and Close.
  */
 import { useState, type CSSProperties } from "react";
-import { ArrowLeft, CornerUpLeft, LoaderCircle, Send, X } from "lucide-react";
+import {
+  ArrowLeft,
+  CornerUpLeft,
+  GitFork,
+  LoaderCircle,
+  Send,
+  X,
+} from "lucide-react";
 import { agentClientId } from "../agentIdentity";
 import { PermissionCard } from "../PermissionCard";
 import { Timeline } from "../Session";
@@ -285,6 +292,27 @@ export function ForkPane({
           )}
         </>
       )}
+    </section>
+  );
+}
+
+/** Pieces collected with + Add, shown until they're asked about. */
+export function ForkTray({
+  collected,
+  onRemove,
+  onAsk,
+}: {
+  collected: Quote[];
+  onRemove: (i: number) => void;
+  onAsk: () => void;
+}) {
+  return (
+    <section className="fork-tray" role="region" aria-label="Collected pieces">
+      <Quotes quotes={collected} onRemove={onRemove} />
+      <button type="button" onClick={onAsk}>
+        <GitFork size={13} aria-hidden="true" />
+        Ask about these
+      </button>
     </section>
   );
 }
