@@ -215,9 +215,9 @@ export function placeFlags(
   return placed;
 }
 
-/** Probe's streamer: tied to the review flag's pole just below its cloth
- * (`top` is a share of the flag's height), `height` world pixels tall. */
-export const PROBE_STREAMER = { top: 0.68, height: 16, depth: DEPTH_FLAG + 0.05 };
+/** Probe's streamer: tied to the review flag's pole over its cloth's lower
+ * edge (`top` is a share of the flag's height), `height` world pixels tall. */
+export const PROBE_STREAMER = { top: 0.6, height: 28, depth: DEPTH_FLAG + 0.05 };
 /** A Probe streamer: `x, y` is its top-left corner, where it's tied to the pole. */
 export type PlacedStreamer = { verdict: ProbeVerdict; x: number; y: number; depth: number; alpha: number; entity: string };
 /** The streamer under each review flag whose workspace Probe has a verdict on. */
