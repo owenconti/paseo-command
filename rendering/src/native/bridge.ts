@@ -118,11 +118,11 @@ function tinted(canvas: HTMLCanvasElement, tint: number): HTMLCanvasElement {
   ctx.putImageData(image, 0, 0);
   return copy;
 }
-/** A structure's or prop's soft drop shadow: its silhouette, blurred by
- * `blur` and padded by `pad` (shares of its width) on every side. It falls
- * down and right, away from the art's upper-left light, by `offset` (a share
- * of the sprite's display width), but at least `least` world px. */
-const SHADOW = { pad: 0.08, blur: 0.03, alpha: 0.5, offset: { x: 0.035, y: 0.05 }, least: { x: 5, y: 6 } };
+/** An item's soft shadow under a noon sun: its silhouette, blurred by `blur`
+ * and padded by `pad` (shares of its width) on every side, centred beneath it
+ * and drawn `spread` world px wider all round, so it shows evenly on every
+ * side and never turns as a robot does. */
+const SHADOW = { pad: 0.1, blur: 0.04, alpha: 0.5, spread: 3 };
 function shadowOf(canvas: HTMLCanvasElement): HTMLCanvasElement {
   const pad = Math.ceil(canvas.width * SHADOW.pad);
   const silhouette = document.createElement("canvas");
@@ -505,9 +505,7 @@ export function mountNativeAtlas(parent: HTMLElement, handlers: AtlasHandlers = 
         const shadow = {
           ...sprite,
           frame: `${sprite.frame}-shadow`,
-          x: s.x + Math.max(SHADOW.least.x, s.width * SHADOW.offset.x),
-          y: s.y + Math.max(SHADOW.least.y, s.width * SHADOW.offset.y),
-          width: s.width * (1 + 2 * SHADOW.pad),
+          width: (s.width + 2 * SHADOW.spread) * (1 + 2 * SHADOW.pad),
           depth: s.depth - 0.4,
         };
         return [shadow, sprite];
@@ -747,7 +745,7 @@ export function mountNativeAtlas(parent: HTMLElement, handlers: AtlasHandlers = 
           hover: HOVER_COLOR,
           flagFoot: FLAG_FOOT,
           // Swift places the shadows of lamps, robots and PR flags itself.
-          shadow: { pad: SHADOW.pad, x: SHADOW.offset.x, y: SHADOW.offset.y, leastX: SHADOW.least.x, leastY: SHADOW.least.y },
+          shadow: { pad: SHADOW.pad, spread: SHADOW.spread },
           flagSway: FLAG_SWAY,
         },
         reduced,
