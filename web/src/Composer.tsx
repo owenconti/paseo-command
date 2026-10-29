@@ -79,6 +79,10 @@ export function Composer({
   onFreshDraft,
   promptHistory,
   dropFiles,
+  inputId = "composer",
+  label = "Message agent...",
+  placeholder: hint,
+  draftOwner = "dispatch",
 }: {
   /** Current-work summary, kept with the sticky input. */
   activity?: ReactNode;
@@ -103,9 +107,15 @@ export function Composer({
   promptHistory: string[];
   /** Files dropped anywhere on the session panel. */
   dropFiles: { files: File[]; at: number } | null;
+  /** The input's id: `composer` is the one the shortcuts focus. */
+  inputId?: string;
+  label?: string;
+  placeholder?: string;
+  /** Whose draft a `draft` composer keeps (a new agent's by default). */
+  draftOwner?: string;
 }) {
   // A new agent's draft is kept as the dispatch draft always was.
-  const owner = agent ? agent.id : "dispatch";
+  const owner = agent ? agent.id : draftOwner;
   const draftKey = `draft:${owner}`;
   const host = agent ? agent.host : draft?.host;
   const [text, setText] = useState(() => readStore(draftKey, ""));
@@ -328,7 +338,7 @@ export function Composer({
 
   const placeholder = disabled
     ? disabledReason || "This agent can't receive messages right now."
-    : "Message the agent, tag @files, or use /commands and /skills";
+    : hint || "Message the agent, tag @files, or use /commands and /skills";
 
   return (
     <div className="composer-shell">
@@ -360,13 +370,13 @@ export function Composer({
         )}
         <textarea
           {...plainText}
-          id="composer"
+          id={inputId}
           ref={area}
           rows={1}
           value={text}
           disabled={disabled}
           placeholder={placeholder}
-          aria-label="Message agent..."
+          aria-label={label}
           onChange={(e) => {
             setText(e.target.value);
             setCaret(e.target.selectionStart);

@@ -75,8 +75,12 @@ function world(
       items:
         id === "h1"
           ? [
-              { kind: "user", text: "Why two places?" },
+              {
+                kind: "user",
+                text: "This is a short side conversation forked from the conversation above. The user highlighted these parts of your reply:\n\n> Each bundle lives in two places.\n\nTheir question: Why two places?",
+              },
               { kind: "assistant", text: "Fork answer about bundles." },
+              { kind: "user", text: "And the CI?" },
             ]
           : main,
     }),
@@ -168,10 +172,11 @@ async function select(page: Page, text: string) {
 const pill = (page: Page) => page.getByRole("toolbar", { name: "Ask about the selection" });
 const pane = (page: Page) => page.getByRole("region", { name: "Fork" });
 
+/** Ask in the fork's chat input, as in any conversation. */
 async function ask(page: Page, question: string) {
-  const p = pane(page);
-  await p.getByRole("textbox", { name: "Question for the fork" }).fill(question);
-  await p.getByRole("button", { name: "Ask", exact: true }).click();
+  const input = pane(page).getByRole("textbox", { name: "Question for the fork" });
+  await input.fill(question);
+  await input.press("Enter");
 }
 
 test("select text in a reply shows the pill; Ask then a question creates a fork", async () => {
@@ -298,6 +303,29 @@ async function forked(w: ReturnType<typeof world>) {
   await pane(opened.page).getByText("Fork answer about bundles.").waitFor();
   return opened;
 }
+
+test("the fork's question and replies use the standard chat input", async () => {
+  const w = world();
+  const { page, close } = await open(w);
+  await select(page, "Each bundle lives in two places.");
+  await pill(page).getByRole("button", { name: "Ask", exact: true }).click();
+  const question = pane(page).locator(".composer2 textarea");
+  assert.equal(await question.getAttribute("aria-label"), "Question for the fork");
+  // Its own input: the main conversation's keeps the shortcuts' id.
+  assert.notEqual(await question.getAttribute("id"), "composer");
+  await ask(page, "Why two places?");
+  await pane(page).getByText("Fork answer about bundles.").waitFor();
+  // The prompt that started it isn't repeated: the pane's header asks it.
+  assert.equal(await pane(page).getByText(/short side conversation/).count(), 0);
+  await pane(page).locator(".msg.user", { hasText: "And the CI?" }).waitFor();
+  const reply = pane(page).locator(".composer2 textarea");
+  assert.equal(await reply.getAttribute("aria-label"), "Reply in fork");
+  await reply.fill("And the CI?");
+  await reply.press("Enter");
+  const sent = await waitFor(() => w.posts.find((p) => p.path === "/api/agents/h1/send"));
+  assert.equal(sent.body.prompt, "And the CI?");
+  await close();
+});
 
 test("send back while idle sends to the main agent", async () => {
   const w = world();

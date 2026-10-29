@@ -25,6 +25,7 @@ import {
   ExternalLink,
   FileText,
   GitBranch,
+  GitFork,
   ImagePlus,
   LoaderCircle,
   Plug,
@@ -88,7 +89,7 @@ import { HeaderLinks } from "./HeaderLinks";
 import type { DraftSettings } from "./Dispatch";
 import { SPLIT_MIN } from "./panelGeometry";
 import { ForkPill } from "./forks/ForkPill";
-import { ForkPane, ForkTray } from "./forks/ForkPane";
+import { ForkPane, ForkPieces } from "./forks/ForkPane";
 import { useReplyForks } from "./forks/useReplyForks";
 import type { ForkRow } from "./forks/api";
 
@@ -489,16 +490,10 @@ export function Session({
         onAsk={forks.askAbout}
         onAdd={forks.add}
       />
-      {forks.collected.length > 0 && forks.shown !== "draft" && (
-        <ForkTray
-          collected={forks.collected}
-          onRemove={forks.removeCollected}
-          onAsk={() => forks.show("draft")}
-        />
-      )}
       {forks.shown && (
         <ForkPane
           layout={forkLayout}
+          agentId={agent.id}
           host={agent.host}
           forks={forks.forks}
           shown={forks.shown}
@@ -526,17 +521,36 @@ export function Session({
         ))}
         <Composer
           activity={
-            running && online && !waiting && !archived && agent.workspaceId ? (
-              <p
-                className="session-working-on"
-                title={workingOn?.error || "AI-generated from recent activity"}
-              >
-                {workingOn?.sentence ||
-                  (workingOn?.error
-                    ? "Current work summary unavailable."
-                    : "Summarizing current work…")}
-              </p>
-            ) : undefined
+            <>
+              {forks.collected.length > 0 && forks.shown !== "draft" && (
+                <ForkPieces
+                  quotes={forks.collected}
+                  label="Collected pieces"
+                  onRemove={forks.removeCollected}
+                  action={
+                    <button
+                      type="button"
+                      className="ghost-btn fork-ask"
+                      onClick={() => forks.show("draft")}
+                    >
+                      <GitFork size={14} aria-hidden="true" />
+                      Ask about these
+                    </button>
+                  }
+                />
+              )}
+              {running && online && !waiting && !archived && agent.workspaceId && (
+                <p
+                  className="session-working-on"
+                  title={workingOn?.error || "AI-generated from recent activity"}
+                >
+                  {workingOn?.sentence ||
+                    (workingOn?.error
+                      ? "Current work summary unavailable."
+                      : "Summarizing current work…")}
+                </p>
+              )}
+            </>
           }
           key={agent.id}
           agent={agent}

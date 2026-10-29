@@ -6,6 +6,9 @@
 /** The label on every fork's helper agent (its value is the fork id). */
 export const FORK_LABEL = "paseo-command-fork";
 export const FORK_COLOURS = 6;
+/** How a fork's first prompt begins (the pane shows its question instead). */
+export const FIRST_PROMPT_LEAD =
+  "This is a short side conversation forked from the conversation above.";
 
 /** A highlighted piece of a reply: its text, and where it stood in the
  *  reply's rendered text when it was chosen. */

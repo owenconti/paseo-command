@@ -9,6 +9,7 @@ import { randomUUID } from "node:crypto";
 import { mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import {
+  FIRST_PROMPT_LEAD,
   FORK_LABEL,
   nextColour,
   type Boundary,
@@ -73,7 +74,7 @@ const quoted = (quotes: Quote[]) =>
 
 /** The helper's first prompt: the highlighted pieces, then the question. */
 export const firstPrompt = (quotes: Quote[], question: string) =>
-  "This is a short side conversation forked from the conversation above. The user highlighted these parts of your reply:\n\n" +
+  `${FIRST_PROMPT_LEAD} The user highlighted these parts of your reply:\n\n` +
   `${quoted(quotes)}\n\nTheir question: ${question}`;
 
 export const CONCLUDE_PROMPT =

@@ -53,28 +53,6 @@
   cursor: not-allowed;
 }
 
-.fork-tray {
-  --fork: var(--accent);
-  flex-shrink: 0;
-  display: flex;
-  align-items: flex-end;
-  gap: 6px;
-  max-height: 30%;
-  overflow-y: auto;
-  padding: 0 var(--space-3) 0 0;
-  border-top: 1px solid var(--line);
-}
-.fork-tray .fork-quotes {
-  flex: 1;
-}
-.fork-tray > button {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  margin-bottom: 8px;
-  white-space: nowrap;
-}
-
 .fork-markers {
   display: flex;
   flex-wrap: wrap;
@@ -109,8 +87,9 @@
   font-weight: 600;
 }
 
-.session.fork-side > :not(.fork-pane, .fork-pill) {
-  margin-right: var(--fork-pane-w);
+/* The conversation keeps to the left of the fork, with its own gutters. */
+.session.fork-side {
+  padding-right: var(--fork-pane-w);
 }
 .fork-pane {
   position: absolute;
@@ -119,7 +98,6 @@
   flex-direction: column;
   min-height: 0;
   background: var(--panel);
-  border-top: 3px solid var(--fork);
 }
 .fork-pane[data-layout="side"] {
   top: 0;
@@ -136,100 +114,87 @@
   min-height: 80px;
 }
 .fork-head {
+  flex-shrink: 0;
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px var(--space-3);
-  border-bottom: 1px solid var(--line);
+  gap: 6px;
+  padding: 10px var(--space-4) 8px calc(var(--space-4) - 6px);
+}
+.fork-tools {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: auto;
+}
+.fork-sent {
+  margin-right: 6px;
+  color: var(--text-4);
+  font-size: var(--fs-xs);
 }
 .fork-tabs {
+  flex-shrink: 0;
   display: flex;
-  gap: 4px;
+  gap: 2px;
+  padding: 0 var(--space-4);
   overflow-x: auto;
+  border-bottom: 1px solid var(--line);
 }
 .fork-tabs button {
-  padding: 2px 8px;
-  border: 1px solid var(--line);
-  border-bottom: 2px solid var(--fork, var(--accent));
-  border-radius: var(--radius-sm);
+  max-width: 160px;
+  padding: 6px 8px;
+  border: 0;
+  border-bottom: 2px solid transparent;
   background: transparent;
   color: var(--text-3);
   font-size: var(--fs-xs);
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   cursor: pointer;
 }
 .fork-tabs button[aria-selected="true"] {
-  color: var(--text-2);
-  background: var(--accent-soft);
+  color: var(--text);
+  border-bottom-color: var(--fork);
 }
-.fork-asked {
-  margin: 10px var(--space-3) 0;
-  color: var(--text-2);
+/* What the fork was asked, above its conversation. */
+.fork-context {
+  flex-shrink: 0;
+  padding: 4px var(--space-4) 10px;
+  border-bottom: 1px solid var(--line);
+}
+.fork-context h3 {
+  margin: 0 0 8px;
+  font-size: var(--fs-md);
   font-weight: 600;
+  color: var(--text);
 }
-.fork-quotes {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  margin: 8px var(--space-3);
-  padding: 0;
-  list-style: none;
-}
-.fork-quotes li {
-  display: flex;
-  align-items: flex-start;
-  gap: 4px;
-  padding: 4px 8px;
-  border-left: 3px solid var(--fork);
-  border-radius: var(--radius-xs);
-  background: color-mix(in srgb, var(--fork) 10%, transparent);
-  color: var(--text-3);
-  font-size: var(--fs-xs);
-}
-.fork-quotes li span {
-  flex: 1;
-  display: -webkit-box;
-  -webkit-line-clamp: 3;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-.fork-question,
-.fork-reply {
-  display: flex;
-  gap: 6px;
-  align-items: flex-end;
-  margin: 8px var(--space-3);
-}
-.fork-question textarea,
-.fork-reply textarea {
-  flex: 1;
-  resize: none;
-  padding: 6px 8px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-  background: var(--surface);
-  color: var(--text-2);
-  font: inherit;
+.fork-start {
+  flex: 1 1 0;
+  display: grid;
+  place-items: center;
+  padding: var(--space-4);
+  border-top: 1px solid var(--line);
 }
 .fork-footer {
   flex-shrink: 0;
-  border-top: 1px solid var(--line);
+  padding: var(--space-3) var(--space-4) var(--space-4);
 }
-.fork-actions {
+/* Highlighted pieces, as queued messages: above the chat input, or as what
+   a fork was asked. Each carries its fork's colour. */
+.fork-pieces {
   display: flex;
-  align-items: center;
-  gap: 8px;
-  margin: 0 var(--space-3) 10px;
+  flex-direction: column;
+  gap: 4px;
 }
-.fork-actions button,
-.fork-question button {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
+.fork-pieces .queue li {
+  border-style: solid;
+  border-color: var(--line);
+  border-left: 3px solid var(--fork, var(--accent));
 }
-.fork-actions .secondary {
-  margin-left: auto;
+.fork-pieces .queue li > svg {
+  flex-shrink: 0;
+  color: var(--fork, var(--accent-text));
 }
-.fork-sent {
-  color: var(--text-4);
+.fork-pieces .fork-ask {
+  align-self: flex-end;
 }
