@@ -1,6 +1,6 @@
 import { soundEvent } from "./soundCues";
 import { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, ChevronDown, GitBranch, MessageSquare } from "lucide-react";
+import { ArrowLeft, ChevronDown, GitBranch, MessageSquare, Play } from "lucide-react";
 import { api, errorMessage, readStore, writeStore } from "./api";
 import { Composer } from "./Composer";
 import type { Outgoing } from "./composer/types";
@@ -11,6 +11,13 @@ import { hostText, placeText } from "./names";
 import { plainText } from "./ui";
 import { rovingKeyDown } from "./focus";
 import { randomBranchName } from "./branchName";
+import { PrPicker } from "./PrPicker";
+import {
+  fillPreset,
+  presetNeedsPr,
+  type Preset,
+  type PullRequestChoice,
+} from "./presets";
 
 /** As many images as the daemon takes with a prompt. */
 const MAX_IMAGES = 10;
@@ -203,6 +210,10 @@ export function NewAgent({
   const [suggested] = useState(randomBranchName);
   const [branch, setBranch] = useState("");
   const [base, setBase] = useState("");
+  // A pull request whose branch the new worktree checks out, instead.
+  const [pr, setPr] = useState<PullRequestChoice | null>(null);
+  const [presets, setPresets] = useState<Preset[]>([]);
+  const [launching, setLaunching] = useState(false);
   const [error, setError] = useState("");
   // Files dropped anywhere on the view join the first message.
   const [drop, setDrop] = useState<{ files: File[]; at: number } | null>(null);
@@ -275,6 +286,18 @@ export function NewAgent({
   }, [models, model]);
   const thinkingOptions = chosenModel?.thinkingOptionIds || [];
 
+  // A pull request belongs to its project's new worktree.
+  useEffect(() => setPr(null), [target, isolation, hostKey]);
+  // Preset prompts from settings.json, read when the form opens.
+  useEffect(() => {
+    const controller = new AbortController();
+    api<{ presets: Preset[] }>("presets", undefined, controller.signal)
+      .then((r) => setPresets(Array.isArray(r.presets) ? r.presets : []))
+      .catch(() => {});
+    return () => controller.abort();
+  }, []);
+  const prChosen = project && isolation === "worktree" ? pr : null;
+
   const folder = workspace?.cwd || project?.path || "";
   const blocked = !online
     ? "Paseo is offline."
@@ -303,7 +326,10 @@ export function NewAgent({
       body.images = message.images
         .slice(0, MAX_IMAGES)
         .map(({ data, mimeType }) => ({ data, mimeType }));
-    if (project && isolation === "worktree") {
+    if (prChosen) {
+      body.pr = prChosen.number;
+      if (prChosen.head) body.prHead = prChosen.head;
+    } else if (project && isolation === "worktree") {
       body.branch = branch.trim() || suggested;
       if (base.trim()) body.base = base.trim();
     }
@@ -338,6 +364,20 @@ export function NewAgent({
     }
   };
 
+  /** A preset launches at once, with the form as it is. */
+  const launch = async (preset: Preset) => {
+    if (launching) return;
+    setLaunching(true);
+    try {
+      await send({
+        text: fillPreset(preset.prompt, prChosen ?? undefined),
+        images: [],
+        attachments: [],
+      });
+    } finally {
+      setLaunching(false);
+    }
+  };
   const hereProjects = projects.filter(onHost(hostKey));
   const hereWorkspaces = workspaces.filter(onHost(hostKey));
   const providerLabel =
@@ -521,6 +561,9 @@ export function NewAgent({
             </div>
           )}
           {project && isolation === "worktree" && (
+            <PrPicker cwd={project.path} host={host} value={pr} onChange={setPr} />
+          )}
+          {project && isolation === "worktree" && !pr && (
             <>
               <label>
                 <span>
@@ -554,7 +597,9 @@ export function NewAgent({
             <GitBranch size={13} />
             {workspace
               ? `Runs inside “${placeText(workspace.name, "this workspace")}” alongside its existing agents.`
-              : isolation === "worktree"
+              : prChosen
+                ? `Creates a worktree on pull request #${prChosen.number}’s branch${prChosen.head ? ` “${prChosen.head}”` : ""}.`
+                : isolation === "worktree"
                 ? `Creates a new worktree on branch “${branch.trim() || suggested}”.`
                 : "Runs directly in the project checkout, on its current branch."}
           </p>
@@ -568,6 +613,29 @@ export function NewAgent({
             Write the first message below to start the agent. Use /skills and
             @files as in any conversation.
           </p>
+          {presets.length > 0 && (
+            <div className="new-agent-presets" role="group" aria-label="Preset prompts">
+              {presets.map((p) => {
+                const waiting = presetNeedsPr(p) && !prChosen;
+                return (
+                  <button
+                    key={p.name}
+                    className="ghost-btn"
+                    disabled={!!blocked || launching || waiting}
+                    aria-description={
+                      waiting
+                        ? "Choose a pull request in Worktree mode first: this prompt names it"
+                        : `Starts the agent now with this prompt: ${p.prompt.slice(0, 200)}`
+                    }
+                    onClick={() => launch(p)}
+                  >
+                    <Play size={12} aria-hidden="true" />
+                    {p.name}
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </div>
       </div>
       <footer className="session-footer">

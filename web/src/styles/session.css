@@ -1064,6 +1064,94 @@
 .new-agent-empty {
   justify-content: center;
 }
+/* A pull request for the new worktree (PrPicker.tsx): a search field with
+   its matches below, or the chosen one. */
+.new-agent-form .pr-picker {
+  position: relative;
+  grid-column: 1 / -1;
+}
+.pr-picker .field-label {
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-semibold);
+  color: var(--text-2);
+}
+.pr-chosen {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  height: var(--control-sm);
+  margin-top: 4px;
+  padding: 0 2px 0 var(--space-2);
+  border: 1px solid var(--line-mid);
+  border-radius: var(--radius-md);
+  background: var(--input-bg);
+  font-size: var(--fs-sm);
+  color: var(--text);
+}
+.pr-chosen span {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pr-picker-list {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 20;
+  max-height: 240px;
+  margin: 4px 0 0;
+  padding: 4px;
+  overflow-y: auto;
+  list-style: none;
+  border: 1px solid var(--line-mid);
+  border-radius: var(--radius-md);
+  background: var(--panel-raised);
+  box-shadow: var(--shadow-pop);
+}
+.pr-picker-list li {
+  display: flex;
+  gap: var(--space-2);
+  align-items: baseline;
+  padding: 6px var(--space-2);
+  border-radius: var(--radius-sm);
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-normal);
+  color: var(--text-2);
+  cursor: pointer;
+}
+.pr-picker-list li span {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pr-picker-list li[aria-selected="true"] {
+  background: var(--row-hover);
+  color: var(--text);
+}
+.pr-picker-list li small {
+  color: var(--text-3);
+}
+.pr-picker-list .pr-picker-error {
+  color: var(--text-3);
+  cursor: default;
+}
+/* Preset prompts (settings.json): each starts the agent at once. */
+.new-agent-presets {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--space-2);
+  max-width: 52ch;
+}
+.new-agent-presets .ghost-btn {
+  border: 1px solid var(--line-mid);
+}
 
 /* Add project (AddProject.tsx): how, then a browser of the host's folders;
    the folder open is the one used. */

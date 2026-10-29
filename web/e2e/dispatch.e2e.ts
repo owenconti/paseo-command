@@ -143,12 +143,89 @@ test("Local runs in the checkout; Worktree names a new branch itself", async () 
   // Worktree with nothing typed: a generated branch, and the choice is kept.
   view = await send("In a worktree");
   await view.getByRole("radio", { name: "Worktree" }).click();
-  const suggested = await view.locator("input[placeholder]").first().getAttribute("placeholder");
+  const suggested = await view.getByLabel(/^Branch/).getAttribute("placeholder");
   await view.getByRole("button", { name: "Send message" }).click();
   await waitFor(() => Promise.resolve(dispatched.length), (n) => n === 2, "the worktree dispatch");
   assert.match(dispatched[1].branch, /^[a-z]+-[a-z]+-[0-9a-f]{4}$/);
   assert.equal(dispatched[1].branch, suggested);
+  // The choice is saved once the dispatch is answered.
+  await waitFor(
+    () => page.evaluate(() => localStorage.getItem("paseo-command:dispatch") ?? ""),
+    (raw) => raw.includes('"isolation":"worktree"'),
+    "the remembered Worktree choice",
+  );
   view = await send("Kept");
   assert.equal(await view.getByRole("radio", { name: "Worktree" }).getAttribute("aria-checked"), "true");
+  await context.close();
+});
+
+test("a preset launches at once on a pull request's worktree", async () => {
+  const context = await newContext(browser);
+  const page = await context.newPage();
+  const dispatched: any[] = [];
+  const searched: string[] = [];
+  await mockApi(page, {
+    agents: () => [],
+    projects: () => [
+      { projectId: "prj_atlas", name: "atlas", kind: "git", path: "/work/atlas" },
+    ],
+    lists: {
+      presets: {
+        presets: [
+          { name: "Review PR", prompt: "Review {{pr}} and list the risks." },
+          { name: "Tidy", prompt: "Tidy the README." },
+        ],
+        error: null,
+      },
+    },
+    accept: (path, body) => {
+      if (path !== "/api/dispatch") return false;
+      dispatched.push(body);
+      return { agentId: "a-new" };
+    },
+  });
+  await page.route("**/api/drafts/prs?**", (route) => {
+    searched.push(new URL(route.request().url()).searchParams.get("q")!);
+    return route.fulfill({
+      json: {
+        error: null,
+        prs: [
+          {
+            number: 42,
+            title: "Add the review flag",
+            url: "https://github.com/acme/atlas/pull/42",
+            state: "open",
+            head: "review-flag",
+          },
+        ],
+      },
+    });
+  });
+  await page.goto(app.url);
+  await page.locator("body").press("d");
+  const view = page.locator(".new-agent");
+  const review = view.getByRole("button", { name: "Review PR" });
+  // It names the pull request, so it waits for one.
+  await waitFor(() => review.isDisabled(), (d) => d, "the review preset waiting");
+  await view.getByRole("radio", { name: "Worktree" }).click();
+  // A pasted URL is searched by its number.
+  const field = view.getByLabel(/^Pull request/);
+  await field.fill("https://github.com/acme/atlas/pull/42");
+  const option = view.locator(".pr-picker-list [role=option]");
+  await waitFor(() => option.count(), (n) => n === 1, "the matching pull request");
+  assert.equal(searched.at(-1), "42");
+  await field.press("Enter");
+  await waitFor(() => view.locator(".pr-chosen").count(), (n) => n === 1, "the chosen pull request");
+  // Its branch replaces the new branch's fields.
+  assert.equal(await view.getByLabel(/^Branch/).count(), 0);
+  await review.click();
+  await waitFor(() => Promise.resolve(dispatched.length), (n) => n === 1, "the dispatch");
+  assert.equal(
+    dispatched[0].prompt,
+    "Review #42 (https://github.com/acme/atlas/pull/42) and list the risks.",
+  );
+  assert.equal(dispatched[0].pr, 42);
+  assert.equal(dispatched[0].prHead, "review-flag");
+  assert.equal(dispatched[0].branch, undefined);
   await context.close();
 });

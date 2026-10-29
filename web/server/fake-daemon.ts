@@ -29,6 +29,11 @@ type Observer = {
 export type Call = { method: string; args: any[]; target: string };
 
 let ids = 0;
+/** Pull requests every fake project's GitHub search finds. */
+const FAKE_PRS = [
+  { kind: "pr", number: 42, title: "Add the review flag", url: "https://github.com/acme/app/pull/42", state: "open", body: null, labels: [], headRefName: "review-flag" },
+  { kind: "pr", number: 57, title: "Fix the harbour lights", url: "https://github.com/acme/app/pull/57", state: "open", body: null, labels: [], headRefName: "harbour-lights" },
+];
 const iso = (t = Date.now()) => new Date(t).toISOString();
 
 /** A subscription handle shaped like the SDK's OwnedSubscription. */
@@ -1391,7 +1396,13 @@ export class FakeClient {
   }
   async searchGitHub(o: any) {
     await this.gate("searchGitHub", o);
-    return { items: [] };
+    const q = String(o.query || "").replace(/^#/, "").toLowerCase();
+    return {
+      items: FAKE_PRS.filter(
+        (pr) => !q || String(pr.number) === q || pr.title.toLowerCase().includes(q),
+      ),
+      error: null,
+    };
   }
 
   // ── Mutations ────────────────────────────────────────────────────────────
@@ -1593,15 +1604,20 @@ export class FakeClient {
     );
     if (!project) return { workspace: null, error: "Not a registered project" };
     const id = `wks_${++ids}`;
+    // A pull request's worktree takes its head branch.
+    const branch =
+      source.action === "checkout"
+        ? (source.refName ?? `pr-${source.githubPrNumber}`)
+        : source.branchName;
     const cwd =
       source.kind === "worktree"
-        ? `${project.projectRootPath}-${source.branchName}`
+        ? `${project.projectRootPath}-${branch}`
         : project.projectRootPath;
     const ws = this.daemon.addWorkspace({
       id,
       projectId: project.projectId,
       cwd,
-      branch: source.branchName ?? "main",
+      branch: branch ?? "main",
     });
     if (input.idempotencyKey)
       this.daemon.idempotent.set(`ws:${input.idempotencyKey}`, ws);

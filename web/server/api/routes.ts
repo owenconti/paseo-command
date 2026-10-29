@@ -28,6 +28,7 @@ import {
 } from "../forks";
 import { finishGame, gamesRecord, nextGame, saveGameState } from "../games";
 import { draftGet } from "./drafts";
+import { presets } from "../presets";
 import { createTerminal, killTerminal, listTerminals } from "./terminals";
 import {
   addProject,
@@ -100,6 +101,11 @@ export async function handleApi(
     if ([...url.searchParams.keys()].some((k) => k !== "since"))
       return reply(400, { error: "Unexpected parameters" });
     return reply(200, await commitsRoute(url.searchParams.get("since")));
+  }
+  // Preset prompts: this app's own settings file, never the daemon.
+  if (req.method === "GET" && url.pathname === "/api/presets") {
+    if (url.search) return reply(400, { error: "Unexpected parameters" });
+    return reply(200, presets());
   }
   // The mini games' record: this app's own file, never the daemon.
   if (url.pathname === "/api/games" || url.pathname.startsWith("/api/games/"))
@@ -202,7 +208,7 @@ export async function handleApi(
       } else if (
         parts[0] === "drafts" &&
         parts.length === 2 &&
-        (parts[1] === "commands" || parts[1] === "files")
+        (parts[1] === "commands" || parts[1] === "files" || parts[1] === "prs")
       ) {
         result = await draftGet(parts[1], url);
       } else if (parts[0] === "attachments" && parts[1] === "image") {

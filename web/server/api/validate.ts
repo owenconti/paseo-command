@@ -176,6 +176,13 @@ export type DispatchPlan = {
         cwd: string;
         branchName: string;
         baseBranch?: string;
+      }
+    | {
+        /** A worktree on a GitHub pull request's head branch. */
+        kind: "pr";
+        cwd: string;
+        number: number;
+        head?: string;
       };
   agent: {
     provider: string;
@@ -209,13 +216,25 @@ export function dispatchPlan(
     const workspaceId = id(body.workspaceId);
     const w = workspaces.find((w) => w.workspaceId === workspaceId);
     if (!w) throw new Error("Select an active workspace");
-    if (present(body.branch) || present(body.base))
+    if (present(body.branch) || present(body.base) || present(body.pr))
       throw new Error("A new branch can't be created in an existing workspace");
     workspace = { kind: "existing", workspaceId, cwd: w.cwd };
   } else {
     const project = projects.find((p) => p.projectId === body.projectId);
     if (!project) throw new Error("Select a registered project");
-    if (present(body.branch)) {
+    if (present(body.pr)) {
+      if (present(body.branch) || present(body.base))
+        throw new Error("A pull request's worktree takes its own branch");
+      const number = Number(body.pr);
+      if (!Number.isSafeInteger(number) || number <= 0)
+        throw new Error("Invalid pull request number");
+      workspace = {
+        kind: "pr",
+        cwd: project.path,
+        number,
+        ...(present(body.prHead) ? { head: ref(body.prHead, "branch name") } : {}),
+      };
+    } else if (present(body.branch)) {
       workspace = {
         kind: "worktree",
         cwd: project.path,
