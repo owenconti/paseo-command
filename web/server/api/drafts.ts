@@ -4,6 +4,8 @@
  * - `GET /api/drafts/commands?cwd=…&provider=…[&model=…&mode=…&thinking=…][&host=…]`:
  *   the /commands and skills a new agent with these settings would have.
  * - `GET /api/drafts/files?cwd=…&q=…[&host=…]`: @files in its folder.
+ * - `GET /api/drafts/prs?cwd=…&q=…[&host=…]`: the folder's GitHub pull
+ *   requests matching `q` (a number or words), for a worktree to check out.
  *
  * The folder must be a workspace's or project's on that host: nothing else is
  * listed. Reads only.
@@ -70,6 +72,29 @@ export async function draftGet(kind: string, url: URL) {
         }),
       ),
     );
+  }
+  if (kind === "prs") {
+    const r = await timed(
+      client.searchGitHub({ cwd, query: text(url, "q").trim(), kinds: ["github-pr"], limit: 20 }),
+      undefined,
+      client,
+    );
+    return {
+      error: r.error ?? null,
+      prs: (Array.isArray(r.items) ? r.items : []).flatMap((item: any) =>
+        item?.kind === "pr" && Number.isSafeInteger(item.number)
+          ? [
+              {
+                number: item.number as number,
+                title: String(item.title || ""),
+                url: String(item.url || ""),
+                state: String(item.state || ""),
+                ...(item.headRefName ? { head: String(item.headRefName) } : {}),
+              },
+            ]
+          : [],
+      ),
+    };
   }
   const r = await timed(
     client.getDirectorySuggestions({

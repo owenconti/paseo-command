@@ -282,6 +282,38 @@ export async function uploadFile(
   return uploaded.file;
 }
 
+/** The daemon's source for a new workspace. */
+export function workspaceSource(
+  workspace: Exclude<DispatchPlan["workspace"], { kind: "existing" }>,
+) {
+  switch (workspace.kind) {
+    case "directory":
+      return { kind: "directory" as const, path: workspace.path };
+    case "pr":
+      // As the Paseo app checks out a pull request.
+      return {
+        kind: "worktree" as const,
+        cwd: workspace.cwd,
+        action: "checkout" as const,
+        ...(workspace.head ? { refName: workspace.head } : {}),
+        checkoutSource: {
+          kind: "change_request" as const,
+          forge: "github",
+          number: workspace.number,
+        },
+        githubPrNumber: workspace.number,
+      };
+    case "worktree":
+      return {
+        kind: "worktree" as const,
+        cwd: workspace.cwd,
+        action: "branch-off" as const,
+        branchName: workspace.branchName,
+        ...(workspace.baseBranch ? { baseBranch: workspace.baseBranch } : {}),
+      };
+  }
+}
+
 /** Create the workspace (if any) and the agent, as `paseo run --no-wait` does. */
 async function dispatch(plan: DispatchPlan, host?: Remote) {
   const client = await sdk(host);
@@ -290,18 +322,7 @@ async function dispatch(plan: DispatchPlan, host?: Remote) {
     workspaceId = plan.workspace.workspaceId;
     cwd = plan.workspace.cwd;
   } else {
-    const source =
-      plan.workspace.kind === "directory"
-        ? { kind: "directory" as const, path: plan.workspace.path }
-        : {
-            kind: "worktree" as const,
-            cwd: plan.workspace.cwd,
-            action: "branch-off" as const,
-            branchName: plan.workspace.branchName,
-            ...(plan.workspace.baseBranch
-              ? { baseBranch: plan.workspace.baseBranch }
-              : {}),
-          };
+    const source = workspaceSource(plan.workspace);
     const created = await timed(
       client.createWorkspace({ source }),
       TUNING.writeMs,
