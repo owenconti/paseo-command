@@ -80,6 +80,7 @@ export function atlasData(
       name: w.name,
       stale: w.stale,
       labels: w.labels,
+      ...(w.autoMerge ? { autoMerge: true } : {}),
       ...(probe[`${w.hostId}:${w.id}`] ? { probe: probe[`${w.hostId}:${w.id}`] } : {}),
     })),
     agents: snapshot.agents.map((a) => ({
@@ -372,6 +373,7 @@ export function NativeWorld(props: Props) {
               <span>{flagCard.description}</span>
               {flagCard.facts && <span>{flagCard.facts}</span>}
               {flagCard.probe && <span className="atlas-flag-probe">{flagCard.probe}</span>}
+              {flagCard.autoMerge && <span className="atlas-flag-auto-merge">{flagCard.autoMerge}</span>}
               {flagCard.pr && <span className="atlas-flag-pr">{flagCard.pr}</span>}
             </>
           ) : (

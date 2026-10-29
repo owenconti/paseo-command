@@ -139,6 +139,9 @@ Local assets belong in the repository and are included through local build tooli
   findings open (with their count), stale (new commits since, or deferred) or failed. The Atlas hangs a streamer in the
   verdict's colour, with Probe's mark (`rendering/src/assets/probe.png`), from the review flag's pole
   (`rendering/src/probe.ts`, `placeStreamers`); the flag's hover card adds a Probe line. `native:mock -- --probe` shows each.
+- Auto-merge: a PR's `autoMerge` comes from Paseo's GitHub facts (`autoMergeRequest`), else gh's (`web/server/links.ts`).
+  While it's on, a teal seal with a merge mark crowns the review flag's pole, else the CI flag's (`placeSeals`,
+  `paintSeal`, `AUTO_MERGE` in `rendering/src/prStatus.ts`); the flag's hover card says how it merges and who turned it on.
 
 ## Atlas world
 

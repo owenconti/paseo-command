@@ -39,6 +39,14 @@ export type PullRequest = {
   review?: ReviewState;
   /** Whether it conflicts with its base branch; absent while GitHub hasn't worked it out. */
   conflicts?: boolean;
+  /** Auto-merge, when it's on: GitHub merges it once its requirements pass. */
+  autoMerge?: AutoMerge;
+};
+export type AutoMerge = {
+  /** How it will merge: merge, squash or rebase. */
+  method?: "merge" | "squash" | "rebase";
+  /** Who turned it on. */
+  by?: string;
 };
 export type ReviewState = "pending" | "approved" | "changes_requested";
 /** One check as Paseo words it (GitHub's conclusions folded the same way). */
@@ -253,6 +261,29 @@ export function queueFromRuntime(
   return undefined;
 }
 
+/** GitHub's `autoMergeRequest` (Paseo's facts or gh's), or undefined when it's off. */
+export function autoMergeOf(raw: unknown): AutoMerge | undefined {
+  if (!raw || typeof raw !== "object") return undefined;
+  const r = raw as Record<string, unknown>;
+  const method = str(r.mergeMethod).toLowerCase();
+  // Paseo reports a login; gh an actor object.
+  const by = clip(str(r.enabledBy) || str((r.enabledBy as Record<string, unknown> | null)?.login), 100);
+  return {
+    ...(method === "merge" || method === "squash" || method === "rebase" ? { method } : {}),
+    ...(by ? { by } : {}),
+  };
+}
+/** Auto-merge as Paseo's GitHub facts report it (`autoMergeRequest`). */
+export function autoMergeFromRuntime(pr: Record<string, unknown>): AutoMerge | undefined {
+  for (const raw of [pr.forgeSpecific, pr.github]) {
+    const facts = raw as Record<string, unknown> | null | undefined;
+    if (!facts || typeof facts !== "object") continue;
+    if (facts.forge !== undefined && facts.forge !== "github") continue;
+    return autoMergeOf(facts.autoMergeRequest);
+  }
+  return undefined;
+}
+
 const QUEUE_STATES = new Set<string>([
   "queued",
   "awaiting_checks",
@@ -328,6 +359,7 @@ export function prFromRuntime(
   const queue = queueFromRuntime(pr);
   const review = reviewOf(pr.reviewDecision);
   const conflicts = conflictsOf(pr.mergeable);
+  const autoMerge = autoMergeFromRuntime(pr);
   return {
     number,
     title: clip(str(pr.title), 300),
@@ -337,6 +369,7 @@ export function prFromRuntime(
     ...(queue ? { queue } : {}),
     ...(review ? { review } : {}),
     ...(conflicts !== undefined ? { conflicts } : {}),
+    ...(autoMerge ? { autoMerge } : {}),
   };
 }
 
@@ -395,6 +428,7 @@ export function ghPr(raw: unknown): PullRequest | null {
   const ci = ciFromRollup(pr.statusCheckRollup);
   const review = reviewOf(pr.reviewDecision);
   const conflicts = conflictsOf(pr.mergeable);
+  const autoMerge = autoMergeOf(pr.autoMergeRequest);
   return {
     number,
     title: clip(str(pr.title), 300),
@@ -404,6 +438,7 @@ export function ghPr(raw: unknown): PullRequest | null {
     ...(ci ? { ci } : {}),
     ...(review ? { review } : {}),
     ...(conflicts !== undefined ? { conflicts } : {}),
+    ...(autoMerge ? { autoMerge } : {}),
   };
 }
 
@@ -431,7 +466,7 @@ export function ghPullRequest(
     "view",
     branch,
     "--json",
-    "number,title,state,isDraft,url,body,statusCheckRollup,reviewDecision,mergeable",
+    "number,title,state,isDraft,url,body,statusCheckRollup,reviewDecision,mergeable,autoMergeRequest",
   ]).then(
     (out): GhAnswer => {
       try {

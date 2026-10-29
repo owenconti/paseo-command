@@ -10,7 +10,7 @@ import {
   modelName,
   type AtlasData,
 } from "../../rendering/src/atlas";
-import { PR_LABELS, prFlags } from "../../rendering/src/prStatus";
+import { AUTO_MERGE, PR_LABELS, prFlags } from "../../rendering/src/prStatus";
 import { PROBE_STATES } from "../../rendering/src/probe";
 import { readStore, writeStore } from "./api";
 
@@ -46,6 +46,11 @@ export function WorldLegend({ data }: { data: AtlasData }) {
   });
   // Probe's streamers, once any review flag carries one.
   const probe = data.workspaces.some((w) => w.probe && prFlags(w.labels).review);
+  // The auto-merge seal, once any flag's pole wears one.
+  const autoMerge = data.workspaces.some((w) => {
+    const f = prFlags(w.labels);
+    return w.autoMerge && !!(f.ci || f.review);
+  });
   return (
     <section className="atlas-world-legend" aria-label="Map legend">
       <button className="legend-toggle" aria-expanded={open} onClick={toggle}>
@@ -108,6 +113,17 @@ export function WorldLegend({ data }: { data: AtlasData }) {
                     {p.name}
                   </li>
                 ))}
+              </ul>
+            </>
+          )}
+          {autoMerge && (
+            <>
+              <h3>Flag pole seal</h3>
+              <ul>
+                <li title={AUTO_MERGE.description}>
+                  <span className="legend-swatch legend-seal" style={{ background: css(AUTO_MERGE.color) }} />
+                  {AUTO_MERGE.name}
+                </li>
               </ul>
             </>
           )}

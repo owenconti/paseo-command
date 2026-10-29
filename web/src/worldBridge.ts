@@ -59,6 +59,8 @@ export type WorldSnapshot = {
     stale: boolean;
     /** Its Paseo labels (the PR status ones plant flags). */
     labels: string[];
+    /** Its open pull request has auto-merge on. */
+    autoMerge?: boolean;
   }[];
   agents: {
     key: string;
@@ -267,6 +269,7 @@ export function worldSnapshot(input: {
       name: placeText(w.name || w.branch, "Workspace", [w.workspaceId]),
       stale: !!w.stale,
       labels: w.labels ?? [],
+      ...(w.pr?.autoMerge && (w.pr.state === "open" || w.pr.state === "draft") ? { autoMerge: true } : {}),
     })),
     agents: activeAgents(input.agents)
       .map(qualifyAgent)

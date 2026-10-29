@@ -75,6 +75,13 @@ export const PR_LABELS: readonly {
   },
 ];
 
+/** The seal crowning a PR flag's pole while the pull request has auto-merge on. */
+export const AUTO_MERGE = {
+  name: "Auto-merge on",
+  color: 0x14837b,
+  description: "GitHub merges the pull request once its checks and reviews pass.",
+};
+
 /** Most urgent first: when a group carries two labels, the first of these shows. */
 const URGENCY: PrFlag[] = [
   "ci-failing",

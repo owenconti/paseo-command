@@ -18,7 +18,7 @@ import {
   type Entity,
 } from "../world";
 import { buildFrames, flagFrames, frameName, propFrames, type Frame } from "../art";
-import { PR_LABELS, type PrFlag } from "../prStatus";
+import { AUTO_MERGE, PR_LABELS, type PrFlag } from "../prStatus";
 import { probeGlyph, probeState, type ProbeVerdict } from "../probe";
 import { cloudsTile, glintsTile, terrainParts, waterTile, type Piece } from "../terrain";
 import {
@@ -27,7 +27,9 @@ import {
   FLAG_SWAY,
   placeFlags,
   placeStreamers,
+  placeSeals,
   PROBE_STREAMER,
+  AUTO_MERGE_SEAL,
   DRONE_SIZE,
   HOVER_COLOR,
   PROP_WIDTH,
@@ -278,6 +280,63 @@ function paintStreamer(verdict: ProbeVerdict, mark: HTMLImageElement) {
 }
 const streamerKey = (v: ProbeVerdict) => `streamer:${v.state}:${probeGlyph(v)}`;
 
+/** The auto-merge seal crowning a flag's pole: a teal medallion in a gold
+ * rim carrying a cream merge mark. Its world box is `AUTO_MERGE_SEAL.size`
+ * square, plus room for its shadow. */
+function paintSeal() {
+  const size = AUTO_MERGE_SEAL.size;
+  const pad = 1.5;
+  const canvas = document.createElement("canvas");
+  canvas.width = canvas.height = Math.ceil((size + pad) * BANNER_SCALE);
+  const ctx = canvas.getContext("2d")!;
+  ctx.scale(BANNER_SCALE, BANNER_SCALE);
+  const rgba = (c: number, a = 1) => `rgba(${(c >> 16) & 255},${(c >> 8) & 255},${c & 255},${a})`;
+  const r = size / 2 - 0.8,
+    c = size / 2;
+  ctx.beginPath();
+  ctx.arc(c + 1, c + 1.2, r, 0, Math.PI * 2);
+  ctx.fillStyle = rgba(RIBBON_SHADOW.color, 0.32);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(c, c, r, 0, Math.PI * 2);
+  const fill = ctx.createRadialGradient(c - r * 0.35, c - r * 0.4, r * 0.1, c, c, r);
+  fill.addColorStop(0, rgba(0x2fb3a6));
+  fill.addColorStop(1, rgba(AUTO_MERGE.color));
+  ctx.fillStyle = fill;
+  ctx.fill();
+  ctx.lineWidth = 1.6;
+  ctx.strokeStyle = rgba(0xd8a945);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.arc(c, c, r - 1.5, 0, Math.PI * 2);
+  ctx.lineWidth = 0.5;
+  ctx.strokeStyle = rgba(0xf6ecd2, 0.55);
+  ctx.stroke();
+  // The merge mark (two branches joining), on a 16-unit grid.
+  const k = (r * 1.25) / 16;
+  ctx.save();
+  ctx.translate(c - 8 * k, c - 8 * k);
+  ctx.scale(k, k);
+  ctx.strokeStyle = rgba(0xf6ecd2);
+  ctx.fillStyle = rgba(0xf6ecd2);
+  ctx.lineWidth = 1.9;
+  ctx.lineCap = "round";
+  ctx.beginPath();
+  ctx.moveTo(4.5, 3);
+  ctx.lineTo(4.5, 13);
+  ctx.moveTo(4.5, 4);
+  ctx.bezierCurveTo(4.5, 8.5, 8, 10, 11.5, 10);
+  ctx.stroke();
+  for (const [x, y] of [[4.5, 3], [4.5, 13], [11.5, 10]] as const) {
+    ctx.beginPath();
+    ctx.arc(x, y, 2.1, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.restore();
+  return { canvas, width: size + pad, height: size + pad };
+}
+const SEAL_KEY = "streamer:auto-merge";
+
 type Message = Record<string, unknown> & { type: string };
 type NativeEvent =
   | { type: "ready" }
@@ -351,10 +410,13 @@ export function mountNativeAtlas(parent: HTMLElement, handlers: AtlasHandlers = 
     const banners = labels(layout).map((label) => ({ label, art: paintBanner(label) }));
     planted = placeFlags(layout, sizeOf);
     const streamers = placeStreamers(layout, planted);
+    const seals = placeSeals(layout, planted);
+    let seal: ReturnType<typeof paintSeal> | undefined;
     // Swift drops banners and streamers a scene leaves out, so one that returns is sent again.
     const shown = new Set([
       ...banners.map(({ label }) => `banner:${JSON.stringify(label)}`),
       ...streamers.map((s) => streamerKey(s.verdict)),
+      ...(seals.length ? [SEAL_KEY] : []),
     ]);
     for (const key of [...sent]) if (!shown.has(key)) sent.delete(key);
     const sprites: Placed[] = [...placed];
@@ -436,7 +498,24 @@ export function mountNativeAtlas(parent: HTMLElement, handlers: AtlasHandlers = 
           pulse: s.verdict.state === "reviewing",
           workspace: s.entity,
         };
-      }),
+      }).concat(
+        // Auto-merge seals crown their flags' poles; Swift draws them as it does streamers.
+        seals.map((s) => {
+          const painted = (seal ??= paintSeal());
+          return {
+            key: SEAL_KEY,
+            png: image(SEAL_KEY, painted.canvas),
+            x: s.x,
+            y: s.y,
+            width: painted.width,
+            height: painted.height,
+            depth: s.depth,
+            alpha: s.alpha,
+            pulse: false,
+            workspace: s.entity,
+          };
+        }),
+      ),
       entities: layout.entities.map((e) => ({
         id: e.id,
         kind: e.kind,
@@ -674,6 +753,7 @@ export function mountNativeAtlas(parent: HTMLElement, handlers: AtlasHandlers = 
               state: s.verdict.state,
               glyph: probeGlyph(s.verdict),
             })),
+            seals: placeSeals(layout, planted).map((s) => s.entity),
             workspaces: layout.workspaces.map((w) => ({ id: w.id, name: w.name, camp: !!w.camp })),
             planted: planted.map((f) => {
               const size = sizeOf(f.frame),

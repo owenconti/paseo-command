@@ -536,3 +536,30 @@ export function pulseAlpha(period: number, phase: number, clock: number, reduced
   const t = clock / period + phase;
   return 0.35 + 0.65 * (0.5 + 0.5 * Math.cos(t * Math.PI * 2));
 }
+
+/** The auto-merge medallion: a seal `size` world pixels across, crowning a
+ * flag's pole (`top` is the pole's knob, as a share of the flag's height). */
+export const AUTO_MERGE_SEAL = { top: 0.06, size: 26, depth: DEPTH_FLAG + 0.06 };
+/** An auto-merge seal: `x, y` is its top-left corner. */
+export type PlacedSeal = { x: number; y: number; size: number; depth: number; alpha: number; entity: string };
+/** The seal on each workspace whose PR has auto-merge on: atop its review
+ * flag's pole, else its CI flag's. */
+export function placeSeals(layout: AtlasLayout, flags: PlacedFlag[]): PlacedSeal[] {
+  const out: PlacedSeal[] = [];
+  for (const ws of layout.workspaces) {
+    if (!ws.autoMerge) continue;
+    const mine = flags.filter((f) => f.entity === ws.id);
+    const f = mine.find((f) => f.flag === ws.flags?.review) ?? mine.find((f) => f.flag === ws.flags?.ci);
+    if (!f) continue;
+    const size = AUTO_MERGE_SEAL.size;
+    out.push({
+      x: f.x - f.width / 2 + FLAG_FOOT.x * f.width - size / 2,
+      y: f.y - FLAG_HEIGHT / 2 + AUTO_MERGE_SEAL.top * FLAG_HEIGHT - size + 2,
+      size,
+      depth: AUTO_MERGE_SEAL.depth,
+      alpha: f.alpha,
+      entity: ws.id,
+    });
+  }
+  return out;
+}

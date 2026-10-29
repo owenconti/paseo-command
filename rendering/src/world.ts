@@ -28,6 +28,8 @@ export type AtlasData = {
     labels?: string[];
     /** Probe's verdict on its PR: a streamer under its review flag. */
     probe?: ProbeVerdict;
+    /** Its PR has auto-merge on: a medallion on a flag's pole. */
+    autoMerge?: boolean;
   }[];
   agents: {
     key: string;
@@ -68,6 +70,8 @@ export type Entity = {
   flags?: { ci?: PrFlag; review?: PrFlag };
   /** Probe's verdict, while its review flag stands. */
   probe?: ProbeVerdict;
+  /** Its PR has auto-merge on, while a PR flag stands. */
+  autoMerge?: boolean;
 };
 
 export type Island = {
@@ -404,6 +408,7 @@ type Cottage = {
   agents: string[];
   flags?: { ci?: PrFlag; review?: PrFlag };
   probe?: ProbeVerdict;
+  autoMerge?: boolean;
 };
 type Placed = { cells: Axial[]; agents: Axial[] };
 /** One island, in its own coordinates: a landmark at the centre (if any)
@@ -524,6 +529,7 @@ function hostPlans(host: AtlasData["hosts"][number], data: AtlasData): Plan[] {
       agents: [],
       ...(flags.ci || flags.review ? { flags } : {}),
       ...(flags.review && w.probe ? { probe: w.probe } : {}),
+      ...((flags.ci || flags.review) && w.autoMerge ? { autoMerge: true } : {}),
     };
     cottages.set(w.key, cottage);
     groupOf(w.project).push(cottage);
@@ -755,6 +761,7 @@ export function layoutAtlas(data: AtlasData, aspect = 1.6): AtlasLayout {
           camp: cottage.camp,
           ...(cottage.flags ? { flags: cottage.flags } : {}),
           ...(cottage.probe ? { probe: cottage.probe } : {}),
+          ...(cottage.autoMerge ? { autoMerge: true } : {}),
         });
         cottage.agents.forEach((agent, n) =>
           homes.set(agent, { workspace: cottage.key, project: p.project?.key, cell: add(p.placed[j]!.agents[n]!, centre) }),
@@ -848,6 +855,7 @@ export function layoutAtlas(data: AtlasData, aspect = 1.6): AtlasLayout {
       footprint(e).map(cellKey).join(" "),
       e.flags ? [e.flags.ci ?? "", e.flags.review ?? ""] : 0,
       e.probe ? [e.probe.state, probeGlyph(e.probe)] : 0,
+      e.autoMerge ? 1 : 0,
     ]),
   ]);
   return {

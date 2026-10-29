@@ -106,6 +106,8 @@ export type PullRequest = {
   review?: "pending" | "approved" | "changes_requested";
   /** Whether it conflicts with its base branch; absent while unknown. */
   conflicts?: boolean;
+  /** Auto-merge, when it's on: GitHub merges it once its requirements pass. */
+  autoMerge?: { method?: "merge" | "squash" | "rebase"; by?: string };
 };
 export type PrCheck = {
   name: string;

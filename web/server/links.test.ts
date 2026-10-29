@@ -132,6 +132,29 @@ test("Paseo's merge queue flags come from its GitHub facts", () => {
   assert.equal(prFromRuntime(runtimePr())?.queue, undefined);
 });
 
+test("auto-merge comes from Paseo's GitHub facts, else gh's autoMergeRequest", () => {
+  const on = prFromRuntime(
+    runtimePr({
+      forgeSpecific: {
+        forge: "github",
+        autoMergeRequest: { enabledAt: "2026-10-29T00:00:00Z", mergeMethod: "SQUASH", enabledBy: "owen" },
+      },
+    }),
+  );
+  assert.deepEqual(on?.autoMerge, { method: "squash", by: "owen" });
+  assert.equal(
+    prFromRuntime(runtimePr({ forgeSpecific: { forge: "github", autoMergeRequest: null } }))?.autoMerge,
+    undefined,
+  );
+  assert.equal(prFromRuntime(runtimePr())?.autoMerge, undefined);
+  assert.deepEqual(
+    ghPr({ url: URL_, number: 1, title: "t", state: "OPEN", autoMergeRequest: { mergeMethod: "REBASE", enabledBy: { login: "bot" } } })
+      ?.autoMerge,
+    { method: "rebase", by: "bot" },
+  );
+  assert.equal(ghPr({ url: URL_, number: 1, title: "t", state: "OPEN", autoMergeRequest: null })?.autoMerge, undefined);
+});
+
 test("gh's statusCheckRollup folds check runs and status contexts", () => {
   const ci = ciFromRollup([
     {

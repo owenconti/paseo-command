@@ -25,6 +25,7 @@ test("a flag's card names it, says what it means, and gives its PR's facts", () 
     description: "A check on the pull request failed.",
     facts: "1 of 3 checks failed.",
     probe: "",
+    autoMerge: "",
     pr: "#7 · Split the tests",
   });
   const conflicts = flagTip("conflicts", pr);
@@ -41,4 +42,13 @@ test("the review flag's card carries Probe's verdict", () => {
   );
   assert.equal(flagTip("review-approved", pr, { state: "stale", reason: "deferred" }).probe, "Probe: deferred its review; request it again.");
   assert.equal(flagTip("review-approved", pr).probe, "");
+});
+
+test("a flag's card says when auto-merge is on", () => {
+  assert.equal(
+    flagTip("review-approved", { ...pr, autoMerge: { method: "squash", by: "owen" } }).autoMerge,
+    "Auto-merge on (squash), turned on by owen: merges once its checks and reviews pass.",
+  );
+  assert.equal(flagTip("ci-green", { ...pr, autoMerge: {} }).autoMerge, "Auto-merge on: merges once its checks and reviews pass.");
+  assert.equal(flagTip("ci-green", { ...pr, state: "merged", autoMerge: {} }).autoMerge, "");
 });

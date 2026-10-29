@@ -9,7 +9,8 @@
  *
  * `--pr-flags` labels the first three workspaces with PR status labels, so
  * their flags show. `--probe` labels the first five, and gives each a Probe
- * verdict (one of each state), so their review flags carry streamers.
+ * verdict (one of each state), so their review flags carry streamers; the
+ * second's and fourth's PRs have auto-merge on, so their poles wear its seal.
  */
 import { createReadStream, existsSync, statSync } from "node:fs";
 import { createServer } from "node:http";
@@ -46,6 +47,11 @@ if (args.includes("--probe")) {
     Object.assign(w, { labels: labels[i] });
     const row = w as { host?: string; workspaceId: string };
     probe[`${row.host || "local"}:${row.workspaceId}`] = verdicts[i];
+    // Auto-merge on the second and fourth PRs.
+    if (i === 1 || i === 3)
+      Object.assign(w, {
+        pr: { number: 100 + i, title: "Mock PR", state: "open", url: `https://github.com/o/r/pull/${100 + i}`, autoMerge: { method: "squash", by: "owen" } },
+      });
   });
 }
 const dist = fileURLToPath(new URL("../../web/dist/", import.meta.url));

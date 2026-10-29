@@ -114,6 +114,10 @@
   font-weight: 700;
   line-height: 1;
 }
+.atlas-world-legend .legend-swatch.legend-seal {
+  border: 1.5px solid #d8a945;
+  border-radius: 50%;
+}
 .atlas-world-legend .legend-swatch.plain {
   border: 1px solid var(--text-3);
 }
@@ -142,7 +146,8 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.atlas-world-tip .atlas-flag-probe {
+.atlas-world-tip .atlas-flag-probe,
+.atlas-world-tip .atlas-flag-auto-merge {
   margin-top: 4px;
   color: var(--text);
 }

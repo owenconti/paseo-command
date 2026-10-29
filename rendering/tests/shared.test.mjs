@@ -11,7 +11,7 @@ import { SAMPLE } from "../src/sample.ts";
 import { crowded } from "./fixtures.mjs";
 import { perimeter } from "../src/outline.ts";
 import { mapExtent, minimumZoom, clampCamera, MAX_ZOOM } from "../src/camera.ts";
-import { placeStructures, placeFlags, FLAG_FOOT, FLAG_HEIGHT } from "../src/placement.ts";
+import { placeStructures, placeFlags, placeSeals, AUTO_MERGE_SEAL, FLAG_FOOT, FLAG_HEIGHT } from "../src/placement.ts";
 import { fitCaption } from "../src/ribbon.ts";
 import { entityAt, cellAt } from "../src/pick.ts";
 import { point } from "../src/world.ts";
@@ -171,6 +171,33 @@ test("PR flags stand at the centre of their workspace's yard cells, in place of 
   for (const f of flags) assert.ok(!withFlags.has(`${f.entity} ${cellKey(f.cell)}`), `${f.flag}'s cell has no plant`);
   const plain = placeStructures(layout, sizeOf).filter((s) => !s.footprint);
   assert.equal(plain.length, layout.workspaces.filter((w) => !w.camp).length * 3);
+});
+
+test("the auto-merge seal crowns the review flag's pole, else the CI flag's", () => {
+  const sizeOf = (frame) =>
+    frame.startsWith("flag-") ? { width: 270, height: 320 } : { width: 120, height: 120 };
+  const data = {
+    hosts: [{ key: "h", name: "Host", online: true }],
+    projects: [{ key: "p", host: "h", name: "P" }],
+    workspaces: [
+      { key: "both", host: "h", project: "p", name: "a", labels: ["CI green", "Approved"], autoMerge: true },
+      { key: "ci", host: "h", project: "p", name: "b", labels: ["CI running"], autoMerge: true },
+      { key: "off", host: "h", project: "p", name: "c", labels: ["CI green", "Approved"] },
+      { key: "bare", host: "h", project: "p", name: "d", autoMerge: true },
+    ],
+    agents: [],
+  };
+  const layout = layoutAtlas(data);
+  const flags = placeFlags(layout, sizeOf);
+  const seals = placeSeals(layout, flags);
+  assert.deepEqual(seals.map((s) => s.entity).sort(), ["both", "ci"], "only a PR flag's pole wears it");
+  for (const s of seals) {
+    const ws = layout.workspaces.find((w) => w.id === s.entity);
+    const f = flags.find((f) => f.entity === s.entity && f.flag === (ws.flags.review ?? ws.flags.ci));
+    const pole = f.x - f.width / 2 + FLAG_FOOT.x * f.width;
+    assert.ok(Math.abs(s.x + s.size / 2 - pole) < 1e-6, "centred on the pole");
+    assert.ok(s.y + s.size <= f.y - FLAG_HEIGHT / 2 + AUTO_MERGE_SEAL.top * FLAG_HEIGHT + 2, "atop the knob");
+  }
 });
 
 /** The workspace cell a garden plant stands in. */
