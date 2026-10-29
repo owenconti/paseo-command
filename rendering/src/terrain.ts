@@ -391,6 +391,8 @@ function variationPiece(layout: AtlasLayout): Piece {
 
 /** One baked canvas per island keeps every texture well within GPU limits. */
 type TileStyle = "project" | "workspace" | "empty";
+/** The painted material tiles: agents' sand (`sand.png`) and workspaces' dirt (`dirt.png`). */
+export type Tiles = { sand: HTMLImageElement; dirt: HTMLImageElement };
 /** Laid stone for a landmark's courtyard: staggered courses of worn flagstones. */
 function flagstones(ctx: CanvasRenderingContext2D, c: { x: number; y: number }) {
   ctx.fillStyle = "rgb(150,142,126)";
@@ -422,43 +424,11 @@ function flagstones(ctx: CanvasRenderingContext2D, c: { x: number; y: number }) 
     }
   }
 }
-/** A workspace's cobbled yard: small rounded setts in staggered rows, quiet
- * enough that the cottage and its PR flags stand out on it. Like the
- * flagstones, each sett takes its look from its own world position. */
-function cobbles(ctx: CanvasRenderingContext2D, c: { x: number; y: number }) {
-  ctx.fillStyle = "rgb(146,132,112)";
-  ctx.fillRect(c.x - HEX_RADIUS, c.y - HEX_RADIUS, HEX_RADIUS * 2, HEX_RADIUS * 2);
-  const row = 11,
-    sett = 13;
-  const first = Math.floor((c.y - HEX_RADIUS) / row) - 1;
-  for (let r = first; r * row < c.y + HEX_RADIUS + row; r++) {
-    const offset = r % 2 ? sett / 2 : 0;
-    const col0 = Math.floor((c.x - HEX_RADIUS - offset) / sett) - 1;
-    for (let col = col0; col * sett + offset < c.x + HEX_RADIUS + sett; col++) {
-      const rng = random(seedOf(`sett:${r},${col}`)),
-        x = col * sett + offset + sett / 2 + (rng() - 0.5) * 1.6,
-        y = r * row + row / 2 + (rng() - 0.5) * 1.4,
-        rx = sett / 2 - 1.1 - rng() * 0.8,
-        ry = row / 2 - 1 - rng() * 0.7,
-        shade = (rng() - 0.5) * 24,
-        warm = rng() * 10;
-      ctx.fillStyle = `rgb(${196 + shade + warm},${184 + shade + warm * 0.5},${162 + shade})`;
-      ctx.beginPath();
-      ctx.ellipse(x, y, rx, ry, (rng() - 0.5) * 0.4, 0, Math.PI * 2);
-      ctx.fill();
-      // Light catches each sett's upper face.
-      ctx.fillStyle = "rgba(255,248,232,.22)";
-      ctx.beginPath();
-      ctx.ellipse(x - 0.6, y - 1.2, rx * 0.62, ry * 0.45, 0, 0, Math.PI * 2);
-      ctx.fill();
-    }
-  }
-}
 function islandPiece(
   island: Island,
   styleOf: (cell: Axial) => TileStyle,
   plots: { style: TileStyle; cells: Axial[] }[],
-  sand: HTMLImageElement,
+  tiles: Tiles,
 ): Piece {
   const bounds = cellBounds(island.cells);
   const x = Math.floor(bounds.x - SURF),
@@ -470,8 +440,11 @@ function islandPiece(
   canvas.height = height;
   const ctx = canvas.getContext("2d")!;
   ctx.translate(-x, -y);
-  const landPattern = ctx.createPattern(sand, "repeat")!;
+  const landPattern = ctx.createPattern(tiles.sand, "repeat")!;
   landPattern.setTransform(new DOMMatrix().scale(0.55));
+  // Anchored to the world, so a workspace's three cells read as one yard.
+  const dirtPattern = ctx.createPattern(tiles.dirt, "repeat")!;
+  dirtPattern.setTransform(new DOMMatrix().scale(0.4));
   const cells = island.cells,
     edges = coast(cells);
   // Each island is a low sandy rise: a soft shadow on the grass, then an earthen bank.
@@ -530,7 +503,10 @@ function islandPiece(
     }
     const style = styleOf(cell);
     if (style === "project") flagstones(ctx, p);
-    if (style === "workspace") cobbles(ctx, p);
+    if (style === "workspace") {
+      ctx.fillStyle = dirtPattern;
+      ctx.fillRect(p.x - HEX_RADIUS, p.y - HEX_RADIUS, HEX_RADIUS * 2, HEX_RADIUS * 2);
+    }
     ctx.restore();
     // Only open sand shows the grid; built plots read as one surface.
     if (style === "empty") {
@@ -552,7 +528,7 @@ function islandPiece(
       ctx.lineTo(e.b.x, e.b.y);
     }
     ctx.lineJoin = "round";
-    ctx.strokeStyle = plot.style === "project" ? "rgba(98,90,76,.95)" : "rgba(104,86,64,.95)";
+    ctx.strokeStyle = plot.style === "project" ? "rgba(98,90,76,.95)" : "rgba(112,80,48,.95)";
     ctx.lineWidth = plot.style === "project" ? 12 : 14;
     ctx.stroke();
     ctx.restore();
@@ -582,15 +558,15 @@ function islandPiece(
  * project and workspace islands, the drift-breaking variation overlay, and
  * each host's landmass. The native app's bridge sends them to SpriteKit as
  * textures. */
-export function terrainPieces(layout: AtlasLayout, sand: HTMLImageElement): Piece[] {
-  return terrainParts(layout, sand).map((part) => part.paint());
+export function terrainPieces(layout: AtlasLayout, tiles: Tiles): Piece[] {
+  return terrainParts(layout, tiles).map((part) => part.paint());
 }
 
 /** `terrainPieces`, each unpainted, with a key that changes whenever what it
  * would paint does: a renderer that keeps textures paints only new keys. */
-export function terrainParts(layout: AtlasLayout, sand: HTMLImageElement): { key: string; paint: () => Piece }[] {
+export function terrainParts(layout: AtlasLayout, tiles: Tiles): { key: string; paint: () => Piece }[] {
   const projectCells = new Set(layout.projects.flatMap(footprint).map(cellKey));
-  // Cobbles span a workspace's three cells; its agents stand on the
+  // Light dirt spans a workspace's three cells; its agents stand on the
   // light tiles of the other cells.
   const workspaceCells = new Set(layout.workspaces.flatMap(footprint).map(cellKey));
   const styleOf = (cell: Axial): TileStyle =>
@@ -608,7 +584,7 @@ export function terrainParts(layout: AtlasLayout, sand: HTMLImageElement): { key
     const mine = plots.filter((p) => p.host === island.host && own.has(cellKey(p.cells[0]!)));
     return {
       key: `island:${JSON.stringify([island.key, island.online, island.cells.map((c) => [cellKey(c), styleOf(c)]), mine])}`,
-      paint: () => islandPiece(island, styleOf, mine, sand),
+      paint: () => islandPiece(island, styleOf, mine, tiles),
     };
   });
   parts.push({

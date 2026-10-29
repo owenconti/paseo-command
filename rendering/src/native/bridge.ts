@@ -20,7 +20,7 @@ import {
 import { buildFrames, flagFrames, frameName, propFrames, type Frame } from "../art";
 import { AUTO_MERGE, PR_LABELS, type PrFlag } from "../prStatus";
 import { probeGlyph, probeState, type ProbeVerdict } from "../probe";
-import { cloudsTile, glintsTile, terrainParts, waterTile, type Piece } from "../terrain";
+import { cloudsTile, glintsTile, terrainParts, waterTile, type Piece, type Tiles } from "../terrain";
 import {
   DRONE_ORBIT,
   FLAG_FOOT,
@@ -65,6 +65,7 @@ import structuresUrl from "../assets/structures.png";
 import robotsUrl from "../assets/robots.png";
 import foliageUrl from "../assets/tree-v2.png";
 import sandUrl from "../assets/sand.png";
+import dirtUrl from "../assets/dirt.png";
 import propsUrl from "../assets/props.png";
 import flagsUrl from "../assets/flags.png";
 import probeUrl from "../assets/probe.png";
@@ -81,7 +82,7 @@ export const nativeWorldAvailable = () => typeof window !== "undefined" && !!cha
  * crisp at the closest zoom on a Retina display. */
 const BANNER_SCALE = 5;
 /** Sprite frames and the sea's tiles, sent once per page. */
-type Art = { frames: Map<string, Frame>; sand: HTMLImageElement; probe: HTMLImageElement; masks: Map<string, ImageData> };
+type Art = { frames: Map<string, Frame>; tiles: Tiles; probe: HTMLImageElement; masks: Map<string, ImageData> };
 
 const load = (url: string) =>
   new Promise<HTMLImageElement>((resolve, reject) => {
@@ -396,7 +397,7 @@ export function mountNativeAtlas(parent: HTMLElement, handlers: AtlasHandlers = 
    * plaza props, camp flags, banners, and what each entity covers. */
   const sceneOf = (layout: AtlasLayout): Message => {
     // Terrain Swift already holds keeps its texture; only new pieces are painted.
-    const pieces = terrainParts(layout, art!.sand).map(({ key, paint }) => {
+    const pieces = terrainParts(layout, art!.tiles).map(({ key, paint }) => {
       let piece = painted.get(key);
       const fresh = !piece;
       if (!piece) painted.set(key, (piece = paint()));
@@ -666,8 +667,8 @@ export function mountNativeAtlas(parent: HTMLElement, handlers: AtlasHandlers = 
   // The art is painted once per page; Swift keeps it as textures.
   void (async () => {
     try {
-      const [buildings, robotSheet, foliage, sand, props, structures, flags, probe] = await Promise.all(
-        [buildingsUrl, robotsUrl, foliageUrl, sandUrl, propsUrl, structuresUrl, flagsUrl, probeUrl].map(load),
+      const [buildings, robotSheet, foliage, sand, dirt, props, structures, flags, probe] = await Promise.all(
+        [buildingsUrl, robotsUrl, foliageUrl, sandUrl, dirtUrl, propsUrl, structuresUrl, flagsUrl, probeUrl].map(load),
       );
       const frames = buildFrames({ buildings: buildings!, robots: robotSheet!, foliage: foliage!, structures: structures! });
       for (const [name, frame] of propFrames(props!, PROPS)) frames.set(name, frame);
@@ -678,7 +679,7 @@ export function mountNativeAtlas(parent: HTMLElement, handlers: AtlasHandlers = 
         if (/^robot-\w+-(body|hand-l|hand-r)$/.test(name))
           sent.push({ name: `${name}~offline`, png: png(tinted(crop(frame), OFFLINE_TINT)) });
       if (destroyed) return;
-      art = { frames, sand: sand!, probe: probe!, masks: new Map() };
+      art = { frames, tiles: { sand: sand!, dirt: dirt! }, probe: probe!, masks: new Map() };
       post({
         type: "art",
         frames: sent,

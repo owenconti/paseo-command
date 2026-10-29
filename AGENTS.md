@@ -155,7 +155,7 @@ The app bundles `rendering/` directly; the bridge paints its art in the page and
 Each project with workspaces is its own island (projects without workspaces are hidden, as are hosts without any; if no host has workspaces, each shows as a bare clearing): a ten-hex
 landmark (rows of 3, 4, 3) in the middle, ringed by its workspaces, each touching it. Workspaces are placed
 bottom, lower-left, lower-right, upper-left, upper-right, then top, a cell apart (later ones stand against
-that ring). A workspace is a three-hex cobbled triangle pointing at the landmark, its cottage larger and centred
+that ring). A workspace is a three-hex light-dirt triangle pointing at the landmark, its cottage larger and centred
 across all three, with no plants beside it so its PR flags stand clear. Each agent is a robot on its own light-tiled hex beside its workspace, growing away from
 the landmark, oldest first: straight out, then alternating left and right. Islands are only these built cells:
 no empty sand around them (the user removed it). A host's islands share one landmass of grass hex tiles (hexes everywhere) with a hex-edged shore in a generated sea, under the host's
@@ -191,6 +191,6 @@ yellow halo over a warm wash, so the selected entity reads on any surface. Hover
 rims are inset within the cells so painted kerbs and banks never clip them; an agent hovers across its whole cell.
 Hosts are picked from the Hosts tab only (land and banner are not interactive): the map rings its landmass and the lists narrow to it, the same
 host filter as the Hosts tab; any other selection takes the highlight while it lasts.
-Project, workspace and agent cells each have a distinct tile style (flagstones, cobbles, light sand
+Project, workspace and agent cells each have a distinct tile style (flagstones, light dirt, light sand
 tiles); islands have no empty cells. Minimum zoom fits the land with a one-cell border (plus room for banners and map controls);
 panning stays within that extent. The world never sends daemon actions; the React UI owns them.
