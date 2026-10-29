@@ -1158,6 +1158,11 @@
   border-radius: var(--radius-lg);
   background: color-mix(in srgb, #a070e0 8%, var(--panel-raised));
 }
+/* The sentences an ask strip came from, in the transcript (asks/highlight.ts). */
+::highlight(ask-source) {
+  background-color: color-mix(in srgb, #a070e0 38%, transparent);
+  color: var(--text);
+}
 .ask-strip header {
   display: flex;
   align-items: center;
@@ -1178,9 +1183,26 @@
 }
 .ask-strip li {
   display: flex;
+  flex-wrap: wrap;
   align-items: flex-start;
   gap: 4px;
   min-width: 0;
+}
+.ask-answers {
+  display: flex;
+  flex-basis: 100%;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 0 6px 2px;
+}
+.ask-answers .ask-quick {
+  flex: 0 1 auto;
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+.ask-drafting {
+  color: var(--text-3);
+  font-size: var(--fs-xs);
 }
 .ask-question {
   flex: 1;

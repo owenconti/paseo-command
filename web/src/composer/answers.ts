@@ -28,7 +28,14 @@ export function answersMessage(answers: Answer[], text: string): string {
   return [...pairs, text.trim()].filter(Boolean).join("\n\n");
 }
 
-/** A detected question's quick replies. */
-export function quickReplies(q: { kind: string; options?: string[] }) {
-  return q.kind === "yes_no" ? ["Yes", "No"] : q.kind === "pick" ? q.options : undefined;
+/** A detected question's quick replies: Yes and No, the alternatives it
+ *  names, or answers drafted for it. */
+export function quickReplies(q: { kind: string; options?: string[]; answers?: string[] }) {
+  return q.kind === "yes_no"
+    ? ["Yes", "No"]
+    : q.kind === "pick"
+      ? q.options
+      : q.answers?.length
+        ? q.answers
+        : undefined;
 }

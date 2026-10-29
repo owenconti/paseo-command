@@ -6,7 +6,13 @@
 /** The answer a question wants: yes or no, one of options it names, or
  *  anything else only the user can give. */
 export type AskKind = "yes_no" | "pick" | "open";
-export type ReplyQuestion = { text: string; kind: AskKind; options?: string[] };
+export type ReplyQuestion = {
+  text: string;
+  kind: AskKind;
+  options?: string[];
+  /** Answers a helper model drafted for an open question. */
+  answers?: string[];
+};
 export type Asks = {
   /** The reply judged, so its questions are never offered for a later one. */
   messageId?: string;
@@ -17,6 +23,8 @@ export type Asks = {
    *  PR #3."), when one clearly fits. */
   suggestion?: string;
   pending: boolean;
+  /** Answers to its open questions are still being drafted. */
+  answering?: boolean;
   /** Why nothing could be judged (no key, the key refused, the service down). */
   error?: string;
 };

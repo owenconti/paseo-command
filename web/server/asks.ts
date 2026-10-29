@@ -26,6 +26,7 @@ import { timelineWindow } from "./daemon";
 import type { AgentRecord } from "./live/client";
 import { dataDir } from "./subagentArchive";
 import { SUMMARY_LABEL } from "./workingOn";
+import { writeAnswers as helperAnswers, type WriteAnswers } from "./askAnswers";
 import { errorText } from "./wire";
 
 /** Yes at or above this; the docs' suggested starting point. */
@@ -198,35 +199,61 @@ export function lastReply(items: Parameters<typeof fromTimeline>[0]) {
 
 type Entry = { turn: string; at: number; value: Asks };
 
-/** Injectable for tests: the judge, when there's a key, and the clock. */
+/** Injectable for tests: the judge, when there's a key, the clock, and the
+ *  writer of answers to open questions. */
 export function createAsksService(
   judgeFor: () => Judge | undefined = () => {
     const key = typesafeKey();
     return key ? jevJudge(key) : undefined;
   },
   now = Date.now,
+  writeAnswers: WriteAnswers = helperAnswers,
 ) {
   const cache = new Map<string, Entry>();
   /** Judged replies by their text, so a turn's re-read never asks again. */
   const judged = new Map<string, Omit<Asks, "pending">>();
   let refusedUntil = 0;
   let refusal = "";
-  async function judgeTurn(client: DaemonClient, source: AgentRecord, judge: Judge) {
+  /** Judge the turn's reply, `publish` its questions, then draft answers to
+   *  its open ones and publish those too. */
+  async function judgeTurn(
+    client: DaemonClient,
+    source: AgentRecord,
+    judge: Judge,
+    publish: (value: Asks) => void,
+  ) {
     const timeline = await client.fetchAgentTimeline(source.id, {
       direction: "tail",
       limit: 40,
       projection: "canonical",
     });
     const reply = lastReply(timelineWindow(timeline).items as never);
-    if (!reply) return NO_ASKS;
+    if (!reply) return publish(NO_ASKS);
     const hash = createHash("sha256").update(reply.text).digest("hex");
+    const remember = (value: Omit<Asks, "pending">) => {
+      judged.set(hash, value);
+      if (judged.size > 500) judged.delete(judged.keys().next().value!);
+      publish({ ...value, messageId: reply.messageId, pending: false });
+    };
     let value = judged.get(hash);
     if (!value) {
       value = await judgeReply(judge, reply.text);
-      judged.set(hash, value);
-      if (judged.size > 500) judged.delete(judged.keys().next().value!);
+      const open = value.questions.filter((q) => q.kind === "open");
+      if (!open.length) return remember(value);
+      // Its questions show at once; only the finished value is remembered.
+      publish({ ...value, answering: true, messageId: reply.messageId, pending: false });
+      const drafted = await writeAnswers(client, source, reply.text, open.map((q) => q.text)).catch(
+        () => open.map(() => []),
+      );
+      value = {
+        ...value,
+        questions: value.questions.map((q) => {
+          const answers = drafted[open.indexOf(q)];
+          return answers?.length ? { ...q, answers } : q;
+        }),
+      };
     }
-    return { ...value, messageId: reply.messageId, pending: false };
+    remember(value);
   }
   return {
     /** Whether replies can be judged, and why not. */
@@ -262,8 +289,7 @@ export function createAsksService(
       };
       delete next.value.error;
       cache.set(key, next);
-      void judgeTurn(client, source, judge)
-        .then((value) => (next.value = value))
+      void judgeTurn(client, source, judge, (value) => (next.value = value))
         .catch((e) => {
           const status = (e as { status?: number }).status;
           const error =

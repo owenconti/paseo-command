@@ -131,6 +131,9 @@ Local assets belong in the repository and are included through local build tooli
   In the same request Jev picks an obvious next reply, if one clearly fits (≥ 0.85), from fixed templates in
   `web/src/asks/suggestions.ts` (`{pr}` filled from the reply when it names one PR); never when the reply asks a pick or open
   question. The composer shows it as "You might say" (`web/src/composer/SuggestStrip.tsx`); one click sends it.
+  Open questions then get two or three answers drafted by a helper agent on the daemon's metadata model, as the current
+  work summary is (`web/server/askAnswers.ts`, `runHelper` in `workingOn.ts`); the strip shows them as quick replies.
+  Hovering the strip marks the questions' sentences in the transcript (`web/src/asks/highlight.ts`, CSS Highlight API).
 - `web/src/urlState.ts`: the panel's place (selection, subagent, tab, filter, host filter, list toggle) kept in
   the page's query, so a refresh returns there; a new selection pushes history, other changes replace it.
 - `web/src/games/`: the panel header's mini games (gamepad button), a floating non-modal window with one game dealt at

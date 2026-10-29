@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { createAsksService, judgeReply, type Judge } from "./asks";
+import { parseAnswers } from "./askAnswers";
 
 const REPLY =
   "I've updated the cache layer. Should the cache be per-host or global? Keep the old /v1 endpoint for now? Let me know which file you meant.";
@@ -158,4 +159,37 @@ test("a PR template is only offered when the reply names one PR", async () => {
   assert.ok(!("merged_pr" in calls[0].questions.suggest.criteria));
   const asks = await judgeReply(suggesting("merged_pr", 0.95), "I'll wait for the merge.");
   assert.equal(asks.suggestion, undefined);
+});
+
+test("open questions show at once, then with answers drafted for them", async () => {
+  let release!: () => void;
+  const drafted: string[][] = [];
+  const service = createAsksService(() => fake(), Date.now, async (_c, _s, _r, questions) => {
+    drafted.push(questions);
+    await new Promise<void>((r) => (release = r));
+    return [["src/cache.ts", "The one you just edited."]];
+  });
+  const client = daemon([{ type: "assistant_message", text: REPLY, messageId: "m1" }]);
+  service.request(client as never, "local", record() as never);
+  await settle();
+  const first = service.request(client as never, "local", record() as never);
+  assert.equal(first.answering, true);
+  assert.equal(first.questions.length, 3);
+  // Only the open question is drafted for.
+  assert.deepEqual(drafted, [["Let me know which file you meant."]]);
+  release();
+  await settle();
+  const done = service.request(client as never, "local", record() as never);
+  assert.equal(done.answering, undefined);
+  assert.deepEqual(done.questions[2].answers, ["src/cache.ts", "The one you just edited."]);
+  assert.equal(done.questions[0].answers, undefined);
+});
+
+test("drafted answers are read from the helper's JSON, one list per question", () => {
+  assert.deepEqual(
+    parseAnswers('Sure:\n{"answers": [["Yes, only my files.", "  Commit   all of it. "], [], ["x", 3, "<b>"]]}', 3),
+    [["Yes, only my files.", "Commit all of it."], [], ["x"]],
+  );
+  assert.deepEqual(parseAnswers('{"answers": [["a", "b", "c", "d"]]}', 2), [["a", "b", "c"], []]);
+  assert.throws(() => parseAnswers("I can't help with that.", 1));
 });

@@ -24,8 +24,8 @@ const CACHE = "Should the cache be per-host or global?";
 const V1 = "Keep the old /v1 endpoint for now?";
 const REPLY = `I've updated the cache layer. ${CACHE} ${V1}`;
 
-type Q = { text: string; kind: string; options?: string[] };
-function world(questions: Q[], waiting = true) {
+type Q = { text: string; kind: string; options?: string[]; answers?: string[] };
+function world(questions: Q[], waiting = true, extra: object = {}) {
   const posts: { path: string; body: any }[] = [];
   const fleet = {
     agents: () => [agentRow("a1", "idle", "Asking agent")],
@@ -39,7 +39,7 @@ function world(questions: Q[], waiting = true) {
     accept: (path: string, body: any) => {
       posts.push({ path, body });
       if (path === "/api/agents/a1/asks")
-        return { messageId: "r1", waiting, questions, pending: false };
+        return { messageId: "r1", waiting, questions, pending: false, ...extra };
       if (path === "/api/agents/a1/send") return true;
       return false;
     },
@@ -128,5 +128,54 @@ test("a reply that waits on nothing isn't listed so", async () => {
   await waitFor(() => w.posts.find((p) => p.path === "/api/agents/a1/asks"));
   await sleep(500);
   assert.equal(await page.getByText("waiting on you").count(), 0);
+  await close();
+});
+
+const highlighted = (page: import("playwright").Page) =>
+  page.evaluate(() => {
+    const h = (CSS as any).highlights?.get("ask-source");
+    return h ? [...h].map((r: Range) => r.toString().replace(/\s+/g, " ")) : [];
+  });
+
+test("hovering the questions marks where they came from in the reply", async () => {
+  const w = world([
+    { text: CACHE, kind: "pick", options: ["per-host", "global"] },
+    { text: V1, kind: "yes_no" },
+  ]);
+  const { page, errors, close } = await open(w);
+  await strip(page).getByText(V1).waitFor();
+  await strip(page).locator("header").hover();
+  assert.deepEqual(await highlighted(page), [CACHE, V1]);
+  await strip(page).getByRole("listitem").filter({ hasText: V1 }).hover();
+  assert.deepEqual(await highlighted(page), [V1]);
+  await page.screenshot({ path: process.env.SHOT ?? "/dev/null" });
+  await page.locator("#composer").hover();
+  assert.deepEqual(await highlighted(page), []);
+  assert.deepEqual(errors, []);
+  await close();
+});
+
+test("an open question offers drafted answers, sent at once when it's the only one", async () => {
+  const w = world([{ text: CACHE, kind: "open", answers: ["Per host, please.", "Keep it global."] }]);
+  const { page, close } = await open(w);
+  await strip(page).getByRole("button", { name: "Keep it global." }).click();
+  const send = await waitFor(() => w.posts.find((p) => p.path === "/api/agents/a1/send"));
+  assert.equal(send.body.prompt, `> ${CACHE}\nKeep it global.`);
+  await close();
+});
+
+test("while answers are drafted, the open question says so", async () => {
+  const w = world([{ text: CACHE, kind: "open" }], true, { answering: true });
+  const { page, close } = await open(w);
+  await strip(page).getByText("Drafting answers…").waitFor();
+  await close();
+});
+
+test("a suggested reply sends in one click", async () => {
+  const w = world([], true, { suggestion: "Okay, I've merged PR #3." });
+  const { page, close } = await open(w);
+  await page.getByRole("region", { name: "Suggested reply" }).getByRole("button", { name: "Okay, I've merged PR #3." }).click();
+  const send = await waitFor(() => w.posts.find((p) => p.path === "/api/agents/a1/send"));
+  assert.equal(send.body.prompt, "Okay, I've merged PR #3.");
   await close();
 });

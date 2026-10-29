@@ -456,6 +456,8 @@ export function Composer({
       {offered.length > 0 && (
         <AskStrip
           questions={offered}
+          messageId={replyAsks?.messageId}
+          answering={replyAsks?.answering}
           disabled={disabled}
           onAnswer={(q) => addAnswer(q.text, quickReplies(q))}
           onAnswerAll={() => {
