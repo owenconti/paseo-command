@@ -138,7 +138,7 @@ function PresetsEditor() {
         </div>
         {unreadable && (
           <p className="presets-error" role="alert">
-            {unreadable} Fix or remove it in the data directory before editing presets here.
+            {unreadable} Fix or remove ~/.paseo-command/settings.json before editing presets here.
           </p>
         )}
         <ol className="presets-list">

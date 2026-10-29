@@ -104,8 +104,9 @@ Local assets belong in the repository and are included through local build tooli
   come from `GET /api/drafts/commands|files` (`web/server/api/drafts.ts`), as no agent exists yet.
   In Worktree mode a pull request can be chosen instead of a new branch (`web/src/PrPicker.tsx`: paste a number or URL,
   or search via `GET /api/drafts/prs`); the worktree checks out its branch as the Paseo app does (`pr` in `POST /api/dispatch`).
-  Preset prompts from the data directory's `settings.json` (`{"presets":[{"name","prompt"}]}`, `GET /api/presets`,
-  `web/server/presets.ts`) show as buttons that launch the agent at once; `{{pr}}` names the chosen pull request.
+  Preset prompts from `~/.paseo-command/settings.json` (`{"presets":[{"name","prompt"}]}`, `GET /api/presets`,
+  `web/server/presets.ts`; `PASEO_COMMAND_SETTINGS` overrides the path, and an older `settings.json` in the data
+  directory is moved there on first read) show as buttons that launch the agent at once; `{{pr}}` names the chosen pull request.
   They are edited in the app (`web/src/PresetsEditor.tsx`, from Settings or New agent; `POST /api/presets` keeps the file's
   other keys and never overwrites an unreadable file); `web/src/presetsStore.ts` shares them across the page.
   The same `settings.json` keeps the Linear workspace (`linearWorkspace`; `GET`/`POST /api/settings`,

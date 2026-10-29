@@ -1,5 +1,5 @@
 /**
- * Preset prompts, kept in the data directory's `settings.json`
+ * Preset prompts, kept in `~/.paseo-command/settings.json`
  * (`{ "presets": [{ "name": "Review PR", "prompt": "Review {{pr}}…" }] }`).
  * New agent launches one at once with the form's settings; `{{pr}}` is the
  * pull request chosen for its worktree.

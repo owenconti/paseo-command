@@ -1,6 +1,5 @@
 /**
- * The preset prompts in this app's data directory's `settings.json`
- * (settings.ts), read afresh on each request (`GET /api/presets`) and saved
+ * The preset prompts in `~/.paseo-command/settings.json` (settings.ts), read afresh on each request (`GET /api/presets`) and saved
  * from the app's editor (`POST /api/presets`), keeping the file's other
  * keys. No file, or
  * no `presets`, is no presets; an unreadable file says so, and is never

@@ -13,7 +13,7 @@ import { openPresetEditor, usePresets } from "./presetsStore";
  * the lofi radio (on/off and volume), desktop notifications, and the Linear
  * workspace issue links open in. Sounds, radio and notifications are kept
  * in this browser (or the app); the Linear workspace and the preset prompts
- * (which open their own editor) in the data directory's settings.json.
+ * (which open their own editor) in ~/.paseo-command/settings.json.
  */
 export function SettingsControl({
   notifications,
