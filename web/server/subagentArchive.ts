@@ -27,6 +27,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { dirname, join } from "node:path";
+import { FORK_LABEL } from "../src/forks/types";
 import type { AgentRecord } from "./live/client";
 import {
   archivedAgent,
@@ -207,7 +208,9 @@ export function planArchive(input: {
 }): Plan {
   const byId = new Map<string, AgentEntry>();
   for (const a of input.agents)
-    if (a?.id && !archivedAgent(a)) byId.set(a.id, { agent: a });
+    // A reply fork's helper is the panel's own, closed or reopened there.
+    if (a?.id && !archivedAgent(a) && !a.labels?.[FORK_LABEL])
+      byId.set(a.id, { agent: a });
   // Hidden descendants: every agent whose parents up to `parent` are hidden.
   const depth = new Map<string, number>();
   const depthOf = (a: AgentRecord): number => {
