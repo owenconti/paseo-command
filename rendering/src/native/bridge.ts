@@ -121,8 +121,8 @@ function tinted(canvas: HTMLCanvasElement, tint: number): HTMLCanvasElement {
 /** A structure's or prop's soft drop shadow: its silhouette, blurred by
  * `blur` and padded by `pad` (shares of its width) on every side. It falls
  * down and right, away from the art's upper-left light, by `offset` (a share
- * of the sprite's display width). */
-const SHADOW = { pad: 0.08, blur: 0.03, alpha: 0.42, offset: { x: 0.035, y: 0.05 } };
+ * of the sprite's display width), but at least `least` world px. */
+const SHADOW = { pad: 0.08, blur: 0.03, alpha: 0.5, offset: { x: 0.035, y: 0.05 }, least: { x: 5, y: 6 } };
 function shadowOf(canvas: HTMLCanvasElement): HTMLCanvasElement {
   const pad = Math.ceil(canvas.width * SHADOW.pad);
   const silhouette = document.createElement("canvas");
@@ -150,8 +150,9 @@ function shadowOf(canvas: HTMLCanvasElement): HTMLCanvasElement {
   for (const [dx, dy] of samples) ctx.drawImage(silhouette, pad + dx, pad + dy);
   return copy;
 }
-/** Whether a frame is a structure or plaza prop, which cast shadows. */
-const casts = (name: string) => !/^(robot-|flag-|lamp|beacon|trees$|shrub$|rocks$)/.test(name);
+/** Whether a frame casts a shadow: every item on the map, but not a robot's
+ * separate parts (its whole frame casts it) or the unused garden art. */
+const casts = (name: string) => !/(-body|-hand-l|-hand-r)$|^(trees|shrub|rocks)$/.test(name);
 
 /** An offline robot's grey (see AtlasScene's `agent`). */
 const OFFLINE_TINT = 0x9c9a92;
@@ -504,8 +505,8 @@ export function mountNativeAtlas(parent: HTMLElement, handlers: AtlasHandlers = 
         const shadow = {
           ...sprite,
           frame: `${sprite.frame}-shadow`,
-          x: s.x + s.width * SHADOW.offset.x,
-          y: s.y + s.width * SHADOW.offset.y,
+          x: s.x + Math.max(SHADOW.least.x, s.width * SHADOW.offset.x),
+          y: s.y + Math.max(SHADOW.least.y, s.width * SHADOW.offset.y),
           width: s.width * (1 + 2 * SHADOW.pad),
           depth: s.depth - 0.4,
         };
@@ -745,6 +746,8 @@ export function mountNativeAtlas(parent: HTMLElement, handlers: AtlasHandlers = 
           wander: { x: WANDER_X, y: WANDER_Y, speed: WALK_SPEED, turn: TURN_SPEED },
           hover: HOVER_COLOR,
           flagFoot: FLAG_FOOT,
+          // Swift places the shadows of lamps, robots and PR flags itself.
+          shadow: { pad: SHADOW.pad, x: SHADOW.offset.x, y: SHADOW.offset.y, leastX: SHADOW.least.x, leastY: SHADOW.least.y },
           flagSway: FLAG_SWAY,
         },
         reduced,

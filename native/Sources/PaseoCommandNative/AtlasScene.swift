@@ -81,6 +81,8 @@ final class AtlasScene: SKScene {
     /// Probe streamers whose review is still running: they pulse.
     private var reviewing: [SKSpriteNode] = []
     private var flagFoot = CGPoint(x: 0.19, y: 0.95)
+    /// How the page pads a frame's shadow, and how far it falls (shares of the frame's width).
+    private var shadowShape: (pad: CGFloat, x: CGFloat, y: CGFloat, leastX: CGFloat, leastY: CGFloat) = (0.08, 0.035, 0.05, 5, 6)
     private var flagSway = (degrees: CGFloat(3), period: Double(1400))
     private var pulses: [Pulse] = []
     private var runners: [Runner] = []
@@ -171,6 +173,7 @@ final class AtlasScene: SKScene {
         }
         if let h = constants["hover"] as? [String: Int] { hoverColors = h }
         if let f = constants["flagFoot"] as? [String: Double] { flagFoot = CGPoint(x: f["x"] ?? 0.19, y: f["y"] ?? 0.95) }
+        if let s = constants["shadow"] as? [String: Double] { shadowShape = (CGFloat(s["pad"] ?? 0), CGFloat(s["x"] ?? 0), CGFloat(s["y"] ?? 0), CGFloat(s["leastX"] ?? 0), CGFloat(s["leastY"] ?? 0)) }
         if let f = constants["flagSway"] as? [String: Double] { flagSway = (CGFloat(f["degrees"] ?? 3), f["period"] ?? 1400) }
         self.reduced = reduced
         // A fresh mount of the page's world fits the land.
@@ -223,6 +226,17 @@ final class AtlasScene: SKScene {
             node.position = p(num(f["x"]) + (flagFoot.x - 0.5) * node.size.width, num(f["y"]) + (flagFoot.y - 0.5) * node.size.height)
             node.zPosition = num(f["depth"])
             node.alpha = num(f["alpha"], 1)
+            // Its shadow stands on the same foot, a little down and right, and sways with it.
+            if let shadow = shadow(name, width: node.size.width) {
+                shadow.anchorPoint = CGPoint(x: (flagFoot.x + shadowShape.pad) / (1 + 2 * shadowShape.pad),
+                                             y: 1 - (flagFoot.y * node.size.height / node.size.width + shadowShape.pad) * node.size.width / shadow.size.height)
+                let fall = shadowFall(node.size.width)
+                shadow.position = CGPoint(x: node.position.x + fall.x, y: node.position.y - fall.y)
+                shadow.zPosition = node.zPosition - 0.4
+                shadow.alpha = node.alpha
+                structures.addChild(shadow)
+                if f["sway"] as? Bool == true { swaying.append(shadow) }
+            }
             structures.addChild(node)
             if f["sway"] as? Bool == true { swaying.append(node) }
         }
@@ -342,6 +356,13 @@ final class AtlasScene: SKScene {
                 flames.append(Flame(node: glow, period: l["period"] as? Double ?? 3200, phase: Double(num(l["phase"])), flicker: l["flicker"] as? Bool ?? false))
             }
             if let name = l["frame"] as? String, let prop = sprite(name, width: num(l["width"])) {
+                if let shadow = shadow(name, width: prop.size.width) {
+                    let fall = shadowFall(prop.size.width)
+                    shadow.position = p(x + fall.x, y + fall.y)
+                    shadow.zPosition = 17.3
+                    if l["stale"] as? Bool == true { shadow.alpha = 0.6 }
+                    agentLayer.addChild(shadow)
+                }
                 prop.position = p(x, y)
                 prop.zPosition = 17.5
                 if l["stale"] as? Bool == true { prop.alpha = 0.6 }
@@ -357,6 +378,13 @@ final class AtlasScene: SKScene {
             node.position = p(home.x, home.y)
             node.zPosition = 35
             var hands: [SKSpriteNode] = []
+            // Its shadow walks with it, beneath its body and hands.
+            if let shadow = shadow(art, width: robotSize) {
+                let fall = shadowFall(robotSize)
+                shadow.position = CGPoint(x: fall.x, y: -fall.y)
+                shadow.zPosition = -0.5
+                node.addChild(shadow)
+            }
             for part in ["body", "hand-l", "hand-r"] {
                 guard let s = sprite("\(art)-\(part)\(suffix)", width: robotSize) else { continue }
                 if offline { s.alpha = 0.7 }
@@ -409,6 +437,15 @@ final class AtlasScene: SKScene {
         let node = SKSpriteNode(texture: texture)
         node.size = CGSize(width: width, height: width * size.height / size.width)
         return node
+    }
+    /// The soft shadow the page painted for a frame drawn `width` wide (padded
+    /// by `shadowShape.pad` of its width on every side), centred where it is placed.
+    private func shadow(_ name: String, width: CGFloat) -> SKSpriteNode? {
+        sprite("\(name)-shadow", width: width * (1 + 2 * shadowShape.pad))
+    }
+    /// How far down and right a frame drawn `width` wide casts its shadow (world px).
+    private func shadowFall(_ width: CGFloat) -> CGPoint {
+        CGPoint(x: max(shadowShape.leastX, shadowShape.x * width), y: max(shadowShape.leastY, shadowShape.y * width))
     }
     /// A camp's flag: the daemon reports its agents without a workspace.
     private func campFlag(_ x: CGFloat, _ y: CGFloat) -> SKNode {
