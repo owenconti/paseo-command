@@ -1178,7 +1178,7 @@
 }
 .ask-strip li {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 4px;
   min-width: 0;
 }
@@ -1193,9 +1193,7 @@
   font: inherit;
   font-size: var(--fs-sm);
   text-align: left;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  overflow-wrap: anywhere;
   cursor: pointer;
 }
 .ask-question:hover:not(:disabled),
