@@ -1,0 +1,213 @@
+/* ── Reply forks ─────────────────────────────────────────────────────
+   Highlighted pieces of a reply, the pill that asks about a selection,
+   each fork's marker under its reply, and the fork's pane: beside the
+   conversation when the session is wide, over it when narrow. */
+:root {
+  --fork-0: #e0a458;
+  --fork-1: #6fa0ff;
+  --fork-2: #5cc49a;
+  --fork-3: #d77ac4;
+  --fork-4: #e06c6c;
+  --fork-5: #a993e8;
+  --fork-pane-w: min(46%, 440px);
+}
+::highlight(fork-0) { background-color: rgb(224 164 88 / 0.32); }
+::highlight(fork-1) { background-color: rgb(111 160 255 / 0.3); }
+::highlight(fork-2) { background-color: rgb(92 196 154 / 0.3); }
+::highlight(fork-3) { background-color: rgb(215 122 196 / 0.3); }
+::highlight(fork-4) { background-color: rgb(224 108 108 / 0.3); }
+::highlight(fork-5) { background-color: rgb(169 147 232 / 0.3); }
+::highlight(fork-draft) {
+  background-color: color-mix(in srgb, var(--accent) 30%, transparent);
+}
+
+.fork-pill {
+  position: absolute;
+  z-index: 6;
+  display: flex;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-md);
+  background: var(--panel-raised);
+  box-shadow: 0 6px 18px rgb(0 0 0 / 0.35);
+}
+.fork-pill button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-2);
+  font-size: var(--fs-xs);
+  cursor: pointer;
+}
+.fork-pill button:hover:not(:disabled) {
+  background: var(--accent-soft);
+  color: var(--accent-text);
+}
+.fork-pill button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.fork-markers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: -4px 0 10px;
+}
+.fork-marker {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  max-width: 100%;
+  padding: 2px 8px;
+  border: 1px solid color-mix(in srgb, var(--fork) 55%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--fork) 12%, transparent);
+  color: var(--text-2);
+  font-size: var(--fs-xs);
+  cursor: pointer;
+}
+.fork-marker::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--fork);
+}
+.fork-marker.closed {
+  opacity: 0.7;
+}
+.fork-marker .waiting {
+  color: var(--fork);
+  font-weight: 600;
+}
+
+.session.fork-side > :not(.fork-pane, .fork-pill) {
+  margin-right: var(--fork-pane-w);
+}
+.fork-pane {
+  position: absolute;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--panel);
+  border-top: 3px solid var(--fork);
+}
+.fork-pane[data-layout="side"] {
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: var(--fork-pane-w);
+  border-left: 1px solid var(--line);
+}
+.fork-pane[data-layout="over"] {
+  inset: 0;
+}
+.fork-pane > .timeline {
+  flex: 1 1 0;
+  min-height: 80px;
+}
+.fork-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px var(--space-3);
+  border-bottom: 1px solid var(--line);
+}
+.fork-tabs {
+  display: flex;
+  gap: 4px;
+  overflow-x: auto;
+}
+.fork-tabs button {
+  padding: 2px 8px;
+  border: 1px solid var(--line);
+  border-bottom: 2px solid var(--fork, var(--accent));
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+  white-space: nowrap;
+  cursor: pointer;
+}
+.fork-tabs button[aria-selected="true"] {
+  color: var(--text-2);
+  background: var(--accent-soft);
+}
+.fork-asked {
+  margin: 10px var(--space-3) 0;
+  color: var(--text-2);
+  font-weight: 600;
+}
+.fork-quotes {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 8px var(--space-3);
+  padding: 0;
+  list-style: none;
+}
+.fork-quotes li {
+  display: flex;
+  align-items: flex-start;
+  gap: 4px;
+  padding: 4px 8px;
+  border-left: 3px solid var(--fork);
+  border-radius: var(--radius-xs);
+  background: color-mix(in srgb, var(--fork) 10%, transparent);
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+}
+.fork-quotes li span {
+  flex: 1;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.fork-question,
+.fork-reply {
+  display: flex;
+  gap: 6px;
+  align-items: flex-end;
+  margin: 8px var(--space-3);
+}
+.fork-question textarea,
+.fork-reply textarea {
+  flex: 1;
+  resize: none;
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text-2);
+  font: inherit;
+}
+.fork-footer {
+  flex-shrink: 0;
+  border-top: 1px solid var(--line);
+}
+.fork-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 var(--space-3) 10px;
+}
+.fork-actions button,
+.fork-question button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.fork-actions .secondary {
+  margin-left: auto;
+}
+.fork-sent {
+  color: var(--text-4);
+}

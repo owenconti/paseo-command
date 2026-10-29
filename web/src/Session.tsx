@@ -9,6 +9,8 @@ import {
   useMemo,
   useRef,
   useState,
+  type CSSProperties,
+  type ReactNode,
 } from "react";
 import { AnimatePresence, useIsPresent } from "framer-motion";
 import { PresenceDiv } from "./PresenceSurface";
@@ -84,6 +86,11 @@ import {
 import { SubagentsControl } from "./Subagents";
 import { HeaderLinks } from "./HeaderLinks";
 import type { DraftSettings } from "./Dispatch";
+import { SPLIT_MIN } from "./panelGeometry";
+import { ForkPill } from "./forks/ForkPill";
+import { ForkPane } from "./forks/ForkPane";
+import { useReplyForks } from "./forks/useReplyForks";
+import type { ForkRow } from "./forks/api";
 
 type Confirm = "archive" | "fresh" | null;
 
@@ -161,6 +168,46 @@ export function Session({
     setConfirm(null);
   }, [agent.id]);
 
+  // Reply forks: their pane sits beside the conversation when there's room.
+  const root = useRef<HTMLDivElement>(null);
+  const [wide, setWide] = useState(false);
+  useLayoutEffect(() => {
+    const el = root.current;
+    if (!el) return;
+    const measure = () => setWide(el.clientWidth >= SPLIT_MIN);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+  const forks = useReplyForks(agent, { root, onNotice, repaint: entries });
+  const { open: openFork } = forks;
+  const forkMarkers = useCallback(
+    (block: Block) => {
+      const here = forks.forks.filter((f) => forkUnder(f, block));
+      return here.length ? (
+        <div className="fork-markers">
+          {here.map((f) => (
+            <button
+              key={f.id}
+              type="button"
+              className={`fork-marker${f.closedAt ? " closed" : ""}`}
+              style={{ "--fork": `var(--fork-${f.colour})` } as CSSProperties}
+              aria-label={`Fork: ${f.question.slice(0, 40)}${f.waiting ? " · waiting" : ""}`}
+              onClick={() => void openFork(f.id)}
+            >
+              {f.question.slice(0, 40)}
+              {f.waiting && <span className="waiting">waiting</span>}
+            </button>
+          ))}
+        </div>
+      ) : null;
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [forks.forks],
+  );
+  const forkLayout = wide ? "side" : "over";
+
   /** "clear" is "fresh" keeping the agent's settings, without asking. */
   const archiveNow = async (next: Confirm | "clear") => {
     // Read before archiving: the detail may change once it is archived.
@@ -199,7 +246,8 @@ export function Session({
     [...e.dataTransfer.types].includes("Files");
   return (
     <div
-      className="session"
+      ref={root}
+      className={`session${forks.shown ? ` fork-${forkLayout}` : ""}`}
       onDragEnter={(e) => {
         if (!hasFiles(e) || archived) return;
         dragDepth.current++;
@@ -433,7 +481,32 @@ export function Session({
         error={error}
         earlier={earlier}
         onEarlier={loadOlder}
+        replyExtra={forkMarkers}
       />
+      <ForkPill
+        root={root}
+        supported={forks.supported}
+        onAsk={forks.askAbout}
+        onAdd={forks.add}
+      />
+      {forks.shown && (
+        <ForkPane
+          layout={forkLayout}
+          host={agent.host}
+          forks={forks.forks}
+          shown={forks.shown}
+          collected={forks.collected}
+          draftColour={forks.draftColour}
+          busy={forks.busy}
+          onShow={forks.show}
+          onBack={forks.back}
+          onAsk={forks.ask}
+          onRemove={forks.removeCollected}
+          onClose={(id) => void forks.close(id)}
+          onSendBack={(id) => void forks.sendBack(id, { running, send })}
+          onNotice={onNotice}
+        />
+      )}
       <footer className="session-footer">
         {detail?.PendingPermissions.map((p, i) => (
           <PermissionCard
@@ -501,6 +574,13 @@ export function Session({
 }
 
 export type { Earlier };
+/** Whether a fork's marker stands under this reply: the reply it was cut
+ *  after (else its last quoted one). */
+const forkUnder = (f: ForkRow, block: Block) =>
+  block.kind === "assistant" &&
+  (f.boundary.messageId
+    ? block.messageId === f.boundary.messageId
+    : f.quotes[f.quotes.length - 1]?.replyKey === block.key);
 /** A row's distance from the top of the scrolling view. */
 const offsetIn = (view: Element, node: Element) =>
   node.getBoundingClientRect().top - view.getBoundingClientRect().top;
@@ -515,6 +595,7 @@ export const Timeline = memo(function Timeline({
   error,
   earlier,
   onEarlier,
+  replyExtra,
 }: {
   entries: Entry[];
   loading: boolean;
@@ -525,6 +606,8 @@ export const Timeline = memo(function Timeline({
   error: string;
   earlier: Earlier;
   onEarlier: () => Promise<void> | void;
+  /** Shown under a reply (its forks' markers). */
+  replyExtra?: (block: Block) => ReactNode;
 }) {
   const scroller = useRef<HTMLDivElement>(null);
   const body = useRef<HTMLDivElement>(null);
@@ -676,6 +759,7 @@ export const Timeline = memo(function Timeline({
             block={block}
             imageHost={imageHost}
             live={running && i === blocks.length - 1}
+            extra={replyExtra?.(block)}
           />
         ))}
         {pending.map((p) => (
@@ -823,10 +907,12 @@ const TimelineBlock = memo(function TimelineBlock({
   block,
   live,
   imageHost,
+  extra,
 }: {
   block: Block;
   live: boolean;
   imageHost?: string;
+  extra?: ReactNode;
 }) {
   if (block.kind === "user")
     return (
@@ -855,9 +941,18 @@ const TimelineBlock = memo(function TimelineBlock({
     );
   if (block.kind === "assistant")
     return (
-      <div className="msg assistant">
-        <Markdown text={block.text} imageHost={imageHost} streaming={live} />
-      </div>
+      <>
+        <div
+          className="msg assistant"
+          data-reply-key={block.key}
+          data-message-id={block.messageId}
+          data-seq={block.seq}
+          data-live={live ? "true" : undefined}
+        >
+          <Markdown text={block.text} imageHost={imageHost} streaming={live} />
+        </div>
+        {extra}
+      </>
     );
   if (block.kind === "event") {
     const { head, body } = eventBody(block.text);
