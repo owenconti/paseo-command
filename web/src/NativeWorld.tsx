@@ -45,6 +45,8 @@ type Props = {
   hover: (id: string | null) => void;
   onNotice: (message: string) => void;
   blocked: boolean;
+  /** The fleet's first state has arrived (the macOS app's splash lifts once it is drawn). */
+  loaded: boolean;
 };
 /** Hosts are keyed by their bridge id ("local" or a server id), as rows reference them. */
 export function atlasData(
@@ -235,6 +237,17 @@ export function NativeWorld(props: Props) {
     // The world re-reports a hover that survives the update.
     safely(() => world.current?.update(data));
   }, [data]);
+  // Tell the macOS app the world has the fleet; its splash lifts once the map draws.
+  useEffect(() => {
+    if (props.loaded && world.current)
+      (
+        window as unknown as {
+          webkit?: {
+            messageHandlers?: { paseoWorld?: { postMessage(m: unknown): void } };
+          };
+        }
+      ).webkit?.messageHandlers?.paseoWorld?.postMessage({ type: "loaded" });
+  }, [props.loaded]);
   /** World calls never take the app down: a renderer fault becomes the world's notice. */
   const safely = (call: () => unknown) => {
     try {

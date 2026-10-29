@@ -13,6 +13,8 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
     let web: WKWebView
     let split: PanelSplitView
     let drawer: TerminalDrawer
+    /// Covers the window until the map has drawn (see `revealWhenDrawn`).
+    let splash: SplashView
     let atlasView: AtlasView
     let scene: AtlasScene
     let options: Options
@@ -25,6 +27,11 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
     private var recovered: Date?
     /// The page's map rectangle, in its CSS pixels (top-left origin).
     private var viewport: CGRect?
+    /// While the splash shows: whether the page has its fleet, and the scene
+    /// builds there were when it went up (the map is drawn once one more lands).
+    private var fleetLoaded = false
+    private var buildsAtSplash = 0
+    private var splashFallback: DispatchWorkItem?
 
     init(options: Options) {
         self.options = options
@@ -49,7 +56,12 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         split.isVertical = true
         split.dividerStyle = .thin
         split.autoresizingMask = [.width, .height]
-        window.contentView = split
+        let root = NSView(frame: split.frame)
+        root.addSubview(split)
+        splash = SplashView(frame: root.bounds)
+        splash.autoresizingMask = [.width, .height]
+        root.addSubview(splash)
+        window.contentView = root
         let content = NSView(frame: split.bounds)
         content.autoresizingMask = [.width, .height]
         drawer = TerminalDrawer(frame: CGRect(x: 0, y: 0, width: 460, height: split.bounds.height))
@@ -87,9 +99,11 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         drawer.server = { [weak self] in self?.serverURL ?? options.url }
         if UserDefaults.standard.bool(forKey: "terminalOpen") { DispatchQueue.main.async { self.toggleTerminal() } }
         if server != nil {
+            showSplash("Starting the app server…")
             notice("Starting Paseo Command…", "Starting the app server on \(options.url.host ?? ""):\(options.url.port ?? 4310).")
-            startServer { [weak self] in self?.web.load(URLRequest(url: options.url)) }
+            startServer { [weak self] in self?.splash.say("Loading…"); self?.web.load(URLRequest(url: options.url)) }
         } else {
+            showSplash("Loading…")
             web.load(URLRequest(url: options.url))
         }
         // Checks read the scene's state from the page; keep it current.
@@ -126,7 +140,7 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
                         if let key = item["key"] as? String, let png = item["png"] as? String, let image = Textures.image(dataURL: png) { images[key] = image }
                     }
                 }
-                DispatchQueue.main.async { self?.scene.setScene(body, images: images); self?.reportState() }
+                DispatchQueue.main.async { self?.scene.setScene(body, images: images); self?.reportState(); self?.revealWhenDrawn() }
             }
         case "agents":
             decoding.async { DispatchQueue.main.async { [weak self] in self?.scene.setAgents(body); self?.reportState() } }
@@ -157,6 +171,11 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
             drawer.show(w.flatMap { w in
                 (w["id"] as? String).map { TerminalWorkspace(id: $0, host: w["host"] as? String ?? "", name: w["name"] as? String ?? $0) }
             })
+        case "loaded":
+            // The page has its first fleet and has handed it to the world.
+            fleetLoaded = true
+            splash.say("Drawing the map…")
+            revealWhenDrawn()
         case "menu":
             // The page's command palette, choosing a View menu item.
             switch body["action"] as? String {
@@ -173,6 +192,34 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         if type != "detach", atlasView.isHidden, scene.hasArt { atlasView.isHidden = false; atlasView.govern() }
         if AtlasScene.debug { Log.line("\(type) \(body)") }
         if type != "pointer" && type != "wheel" { reportState() }
+    }
+
+    // MARK: Splash
+
+    /// Cover the window while the app (re)loads: at launch, on ⌘R, and when
+    /// the page's process restarts. It lifts once the map has drawn.
+    func showSplash(_ text: String) {
+        fleetLoaded = false
+        buildsAtSplash = scene.builds
+        splash.show(text)
+        armSplashFallback(after: 60)
+    }
+
+    /// Lift the splash once the page has its fleet and the world has drawn a
+    /// scene since the splash went up, a moment later so SpriteKit's frame is up.
+    private func revealWhenDrawn() {
+        guard splash.showing, fleetLoaded, scene.hasArt, scene.builds > buildsAtSplash else { return }
+        splashFallback?.cancel()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { [weak self] in self?.splash.hide() }
+    }
+
+    /// Never leave the app covered: a page that loads but never reports its
+    /// map (a fault in the world, say) is shown as it is.
+    private func armSplashFallback(after seconds: Double) {
+        splashFallback?.cancel()
+        let work = DispatchWorkItem { [weak self] in self?.splash.hide() }
+        splashFallback = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + seconds, execute: work)
     }
 
     /// Lay the SpriteKit view exactly under the page's map surface.
@@ -242,6 +289,10 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
 
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
         Log.line("page loaded: \(webView.url?.absoluteString ?? "")")
+        if splash.showing, webView.url?.host == options.url.host, webView.url?.port == options.url.port {
+            splash.say("Loading the fleet…")
+            armSplashFallback(after: 15)
+        }
     }
 
     func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
@@ -254,11 +305,12 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         // Our own server stopped: start it again and retry, once a minute at most.
         if server != nil, recovered.map({ Date().timeIntervalSince($0) > 60 }) ?? true {
             recovered = Date()
+            showSplash("Starting the app server…")
             notice("Starting Paseo Command…", "The app server wasn’t running; starting it again.")
-            startServer { [weak self] in self?.web.load(URLRequest(url: url)) }
+            startServer { [weak self] in self?.splash.say("Loading…"); self?.web.load(URLRequest(url: url)) }
             return
         }
-        notice("Paseo Command isn’t reachable", "\(options.url.absoluteString) did not answer. " +
+        failure("Paseo Command isn’t reachable", "\(options.url.absoluteString) did not answer. " +
             (server == nil ? "Start the app server (<code>npm run app:start</code>) and reload (⌘R)." : "Reload (⌘R) to try again."))
     }
 
@@ -268,13 +320,20 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         web.loadHTMLString(html, baseURL: nil)
     }
 
+    /// A notice that something went wrong, shown with the splash lifted.
+    private func failure(_ title: String, _ detail: String) {
+        splashFallback?.cancel()
+        splash.hide()
+        notice(title, detail)
+    }
+
     private func startServer(_ then: @escaping () -> Void) {
         server?.ensure(port: options.url.port ?? 80) { [weak self] result in
             switch result {
             case .success: then()
             case .failure(let error):
                 let text = error.localizedDescription.replacingOccurrences(of: "<", with: "&lt;")
-                self?.notice("The app server didn’t start", "<pre style='white-space:pre-wrap'>\(text)</pre>Fix it and reload (⌘R).")
+                self?.failure("The app server didn’t start", "<pre style='white-space:pre-wrap'>\(text)</pre>Fix it and reload (⌘R).")
             }
         }
     }
@@ -282,6 +341,7 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
     /// The web content process ended (crash or memory pressure): load again.
     func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
         Log.line("web content process ended; reloading")
+        showSplash("Loading…")
         atlasView.isHidden = true
         webView.load(URLRequest(url: options.url))
     }
@@ -346,6 +406,14 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
             layer.render(in: ctx)
             terminal = ctx.makeImage()
         }
+        // The splash, while it covers the window.
+        var cover: CGImage?
+        if splash.showing, let layer = splash.layer,
+           let ctx = Textures.context(Int(splash.bounds.width * scale), Int(splash.bounds.height * scale)) {
+            ctx.scaleBy(x: scale, y: scale)
+            layer.render(in: ctx)
+            cover = ctx.makeImage()
+        }
         var world: CGImage?
         if !atlasView.isHidden, let texture = atlasView.texture(from: scene) { world = texture.cgImage() }
         web.takeSnapshot(with: nil) { [weak self] page, error in
@@ -360,6 +428,7 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
             if let world { ctx.draw(world, in: self.atlasView.frame.offsetBy(dx: 0, dy: left.minY)) }
             if let page, let image = page.cgImage(forProposedRect: nil, context: nil, hints: nil) { ctx.draw(image, in: left) }
             if let terminal { ctx.draw(terminal, in: CGRect(x: self.drawer.frame.minX, y: 0, width: self.drawer.frame.width, height: self.drawer.frame.height)) }
+            if let cover { ctx.draw(cover, in: whole) }
             guard let image = ctx.makeImage(),
                   let destination = CGImageDestinationCreateWithURL(URL(fileURLWithPath: path) as CFURL, "public.png" as CFString, 1, nil)
             else { return }
@@ -416,7 +485,7 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         server.refresh(port: options.url.port ?? 80) { [weak self] result in
             if case .failure(let error) = result {
                 let text = error.localizedDescription.replacingOccurrences(of: "<", with: "&lt;")
-                self?.notice("The app server didn’t restart", "<pre style='white-space:pre-wrap'>\(text)</pre>Fix it and reload (⌘R).")
+                self?.failure("The app server didn’t restart", "<pre style='white-space:pre-wrap'>\(text)</pre>Fix it and reload (⌘R).")
             }
             done((try? result.get()) != nil)
         }
@@ -426,9 +495,10 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         // A ⌘R after the server failed tries it again.
         if server != nil, web.url?.host != options.url.host {
             recovered = nil
+            splash.say("Starting the app server…")
             notice("Starting Paseo Command…", "Starting the app server.")
             let url = pageURL
-            startServer { [weak self] in self?.web.load(URLRequest(url: url)) }
+            startServer { [weak self] in self?.splash.say("Loading…"); self?.web.load(URLRequest(url: url)) }
             return
         }
         if web.url?.host == options.url.host && web.url?.port == options.url.port { web.reload() }

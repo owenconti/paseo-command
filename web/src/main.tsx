@@ -1308,6 +1308,7 @@ function App() {
                 hover={() => {}}
                 onNotice={setNotice}
                 blocked={!!archiveWorkspace}
+                loaded={!loading}
               />
             </React.Suspense>
           </div>

@@ -159,6 +159,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             "visible": main.window.occlusionState.contains(.visible), "framesDrawn": main.scene.framesDrawn,
             "paused": main.atlasView.isPaused, "fps": main.atlasView.preferredFramesPerSecond,
             "terminal": main.drawer.state(),
+            "splash": main.splash.showing,
         ]
         if let data = try? JSONSerialization.data(withJSONObject: info, options: [.prettyPrinted]) {
             try? data.write(to: URL(fileURLWithPath: path))
@@ -219,6 +220,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @objc func reloadApp(_ sender: Any?) {
         guard let main, !reloading else { return }
         reloading = true
+        // The splash covers the reload; a newer build's copy puts up its own.
+        main.showSplash("Reloading…")
         main.refreshServer { [weak self] ready in
             self?.reloading = false
             guard ready else { return }
