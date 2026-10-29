@@ -44,7 +44,9 @@ async function waitFor<T>(read: () => T | undefined, ms = 10000): Promise<T> {
     await sleep(100);
   }
 }
-function world(opts: { running?: boolean; supported?: boolean; waiting?: boolean } = {}) {
+function world(
+  opts: { running?: boolean; supported?: boolean; waiting?: boolean; startOnConclude?: boolean } = {},
+) {
   const posts: { path: string; body: any }[] = [];
   const forks: Fork[] = [];
   const filler = Array.from({ length: 30 }, (_, i) => [
@@ -58,7 +60,7 @@ function world(opts: { running?: boolean; supported?: boolean; waiting?: boolean
     { kind: "user", text: "More", messageId: "u2" },
     { kind: "assistant", text: SECOND, messageId: "r2" },
   ];
-  const status = opts.running ? "running" : "idle";
+  let status = opts.running ? "running" : "idle";
   const fleet = {
     agents: () => [agentRow("a1", status, "Forking agent")],
     detail: (id: string) =>
@@ -105,7 +107,12 @@ function world(opts: { running?: boolean; supported?: boolean; waiting?: boolean
       const m = /^\/api\/forks\/([^/]+)\/(\w+)$/.exec(path);
       if (m) {
         const fork = forks.find((f) => f.id === m[1])!;
-        if (m[2] === "conclude") return { text: CONCLUSION };
+        if (m[2] === "conclude") {
+          if (!opts.startOnConclude) return { text: CONCLUSION };
+          // The main agent starts a turn while the fork writes its conclusion.
+          status = "running";
+          return sleep(1000).then(() => ({ text: CONCLUSION }));
+        }
         if (m[2] === "close") fork.closedAt = new Date().toISOString();
         if (m[2] === "reopen") delete fork.closedAt;
         if (m[2] === "sent") fork.sentBackAt = new Date().toISOString();
@@ -284,6 +291,23 @@ test("send back queues while running", async () => {
   const { page, close } = await forked(w);
   await pane(page).getByRole("button", { name: "Send back" }).click();
   await waitFor(() => w.posts.find((p) => p.path === "/api/forks/fork_1/sent"));
+  assert.equal(w.posts.filter((p) => p.path === "/api/agents/a1/send").length, 0);
+  const queued = await page.evaluate(() =>
+    Object.keys(localStorage)
+      .filter((k) => k.includes("queue"))
+      .map((k) => localStorage.getItem(k) ?? "")
+      .join("\n"),
+  );
+  assert.match(queued, /Two checks call build/);
+  await close();
+});
+
+test("send back never interrupts: a turn started meanwhile gets it queued", async () => {
+  const w = world({ startOnConclude: true });
+  const { page, close } = await forked(w);
+  await pane(page).getByRole("button", { name: "Send back" }).click();
+  await waitFor(() => w.posts.find((p) => p.path === "/api/forks/fork_1/sent"));
+  await sleep(500);
   assert.equal(w.posts.filter((p) => p.path === "/api/agents/a1/send").length, 0);
   const queued = await page.evaluate(() =>
     Object.keys(localStorage)

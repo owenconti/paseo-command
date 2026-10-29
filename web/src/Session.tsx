@@ -503,7 +503,7 @@ export function Session({
           onAsk={forks.ask}
           onRemove={forks.removeCollected}
           onClose={(id) => void forks.close(id)}
-          onSendBack={(id) => void forks.sendBack(id, { running, send })}
+          onSendBack={(id) => void forks.sendBack(id, { running })}
           onNotice={onNotice}
         />
       )}

@@ -5,7 +5,6 @@
  */
 import { useCallback, useEffect, useState, type RefObject } from "react";
 import { errorMessage } from "../api";
-import type { Outgoing } from "../Composer";
 import { enqueue } from "../queue";
 import { soundEvent } from "../soundCues";
 import {
@@ -173,21 +172,18 @@ export function useReplyForks(
     }
   };
 
-  /** Ask the fork for its conclusion and send it to the main agent; while
-   *  the main agent is working it waits in the queue rather than interrupt. */
-  const sendBack = async (
-    id: string,
-    main: { running: boolean; send: (o: Outgoing) => Promise<boolean> },
-  ) => {
+  /** Ask the fork for its conclusion and send it to the main agent through
+   *  its queue: delivered once it isn't working (it may start a turn while
+   *  the conclusion is written), after anything queued before, never
+   *  interrupting. */
+  const sendBack = async (id: string, main: { running: boolean }) => {
     setBusy(`send:${id}`);
     try {
       const { text } = await concludeFork(id);
-      if (main.running) {
-        await enqueue(agent.id, text, []);
-        onNotice("Queued for the main agent");
-      } else if (!(await main.send({ text, images: [], attachments: [] })))
-        return;
-      else onNotice("Sent back to the main agent");
+      await enqueue(agent.id, text, []);
+      onNotice(
+        main.running ? "Queued for the main agent" : "Sent back to the main agent",
+      );
       update(await markSent(id));
     } catch (e) {
       soundEvent("actionFailed");
