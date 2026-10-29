@@ -77,7 +77,7 @@ type Inspect = {
     workspace: string;
     flag: string;
     sway: boolean;
-    footOffset: number;
+    inCell: boolean;
   }[];
 };
 const inspect = (page: Page) =>
@@ -432,11 +432,11 @@ test("workspace PR labels plant flags on the map", async () => {
     );
     for (const p of planted) {
       assert.equal(p.sway, p.flag === "ci-running", `${p.flag} sways only while CI runs`);
-      assert.ok(p.footOffset < 0.5, `${p.flag} stands at its cell's centre`);
+      assert.ok(p.inCell, `${p.flag} lies inside its cell`);
     }
     // The legend explains them.
     const legend = page.locator('section[aria-label="Map legend"]');
-    await legend.getByText("Workspace flag · PR").waitFor();
+    await legend.getByText("Workspace medallion · PR").waitFor();
     for (const name of ["CI running", "CI green", "CI failing", "Awaiting review", "Approved", "Changes requested"])
       assert.equal(await legend.getByText(name, { exact: true }).count(), 1, name);
     // The labeller takes them away (merged, say): the flags go too.
@@ -482,7 +482,7 @@ test("merge conflicts fly in the review flag's place, and a flag's tooltip descr
     );
     const planted = (await inspect(page))!.planted.filter((p) => p.workspace === key);
     assert.deepEqual(planted.map((p) => p.flag).sort(), ["ci-failing", "conflicts"]);
-    for (const p of planted) assert.ok(p.footOffset < 0.5, `${p.flag} stands at its cell's centre`);
+    for (const p of planted) assert.ok(p.inCell, `${p.flag} lies inside its cell`);
     const tip = () => page.locator(".atlas-world-tip").textContent({ timeout: 500 }).catch(() => "");
     // Swift reports the flag under the pointer along with its workspace.
     await swift(page, { type: "hover", id: key, flag: "conflicts", x: 300, y: 200 });

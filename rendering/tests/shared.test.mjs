@@ -6,12 +6,13 @@ import {
   footprint,
   footprintEdges,
   insideFootprint,
+  structureCentre,
 } from "../src/world.ts";
 import { SAMPLE } from "../src/sample.ts";
 import { crowded } from "./fixtures.mjs";
 import { perimeter } from "../src/outline.ts";
 import { mapExtent, minimumZoom, clampCamera, MAX_ZOOM } from "../src/camera.ts";
-import { placeStructures, placeFlags, placeSeals, AUTO_MERGE_SEAL, FLAG_FOOT, FLAG_HEIGHT } from "../src/placement.ts";
+import { placeStructures, placeFlags, placeSeals, MEDALLION } from "../src/placement.ts";
 import { fitCaption } from "../src/ribbon.ts";
 import { entityAt, cellAt } from "../src/pick.ts";
 import { point } from "../src/world.ts";
@@ -141,10 +142,9 @@ test("fitCaption ellipsizes to maxWidth", () => {
   assert.equal(fitCaption("a much longer", 0, measure), "a…", "never shorter than one letter");
 });
 
-test("PR flags stand at the centre of their workspace's yard cells", () => {
+test("PR medallions lie in their workspace's yard cells, beyond the cottage", () => {
   const layout = layoutAtlas(SAMPLE);
-  const sizeOf = (frame) =>
-    frame.startsWith("flag-") ? { width: 270, height: 320 } : { width: 120, height: 120 };
+  const sizeOf = () => ({ width: 300, height: 300 });
   const flagged = layout.workspaces.filter((w) => w.flags);
   assert.ok(flagged.length >= 3, "the study fleet flies flags");
   const flags = placeFlags(layout, sizeOf);
@@ -155,18 +155,21 @@ test("PR flags stand at the centre of their workspace's yard cells", () => {
   assert.deepEqual(flags.map((f) => [f.entity, f.flag, cellKey(f.cell)]), expected);
   for (const f of flags) {
     assert.equal(f.frame, `flag-${f.flag}`);
-    const h = (f.width * 320) / 270;
-    assert.equal(Math.round(h), FLAG_HEIGHT, `${f.flag} is drawn at full height`);
-    // Its pole's foot is the cell's centre.
-    const c = point(f.cell);
-    assert.ok(Math.abs(f.x + (FLAG_FOOT.x - 0.5) * f.width - c.x) < 1e-6, `${f.flag} foot x`);
-    assert.ok(Math.abs(f.y + (FLAG_FOOT.y - 0.5) * h - c.y) < 1e-6, `${f.flag} foot y`);
+    assert.equal(f.width, MEDALLION.size, `${f.flag} is drawn at full size`);
+    for (let i = 0; i < 8; i++) {
+      const a = (i / 8) * Math.PI * 2;
+      assert.ok(insideFootprint(f.x + (Math.cos(a) * f.width) / 2, f.y + (Math.sin(a) * f.width) / 2, [f.cell]), `${f.flag} lies inside its cell`);
+    }
+    // Pushed out from the cell's centre, away from the cottage.
+    const ws = layout.workspaces.find((w) => w.id === f.entity);
+    const c = point(f.cell),
+      middle = structureCentre(ws);
+    assert.ok(Math.hypot(f.x - middle.x, f.y - middle.y) > Math.hypot(c.x - middle.x, c.y - middle.y), `${f.flag} sits beyond its cell's centre`);
   }
 });
 
-test("the auto-merge seal crowns the review flag's pole, else the CI flag's", () => {
-  const sizeOf = (frame) =>
-    frame.startsWith("flag-") ? { width: 270, height: 320 } : { width: 120, height: 120 };
+test("the auto-merge seal sits on the review medallion's rim, else the CI medallion's", () => {
+  const sizeOf = () => ({ width: 300, height: 300 });
   const data = {
     hosts: [{ key: "h", name: "Host", online: true }],
     projects: [{ key: "p", host: "h", name: "P" }],
@@ -181,12 +184,13 @@ test("the auto-merge seal crowns the review flag's pole, else the CI flag's", ()
   const layout = layoutAtlas(data);
   const flags = placeFlags(layout, sizeOf);
   const seals = placeSeals(layout, flags);
-  assert.deepEqual(seals.map((s) => s.entity).sort(), ["both", "ci"], "only a PR flag's pole wears it");
+  assert.deepEqual(seals.map((s) => s.entity).sort(), ["both", "ci"], "only a PR medallion wears it");
   for (const s of seals) {
     const ws = layout.workspaces.find((w) => w.id === s.entity);
     const f = flags.find((f) => f.entity === s.entity && f.flag === (ws.flags.review ?? ws.flags.ci));
-    const pole = f.x - f.width / 2 + FLAG_FOOT.x * f.width;
-    assert.ok(Math.abs(s.x + s.size / 2 - pole) < 1e-6, "centred on the pole");
-    assert.ok(s.y + s.size <= f.y - FLAG_HEIGHT / 2 + AUTO_MERGE_SEAL.top * FLAG_HEIGHT + 2, "atop the knob");
+    const cx = s.x + s.size / 2,
+      cy = s.y + s.size / 2;
+    assert.ok(Math.abs(Math.hypot(cx - f.x, cy - f.y) - f.width / 2) < 1e-6, "centred on the rim");
+    assert.ok(cx > f.x && cy < f.y, "up and to the right");
   }
 });

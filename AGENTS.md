@@ -142,12 +142,12 @@ Local assets belong in the repository and are included through local build tooli
   `GameDef` (plain JSON state) and are listed in `catalog.ts` and `registry.ts`.
 - `web/server/probe.ts`: Probe's verdict (Diagonal's `diagonalprobe` review bot) on each workspace's open PR, from one
   read-only `gh api graphql` query per PR (`GET /api/probe`, polled by `web/src/useProbe.ts`): reviewing, approved,
-  findings open (with their count), stale (new commits since, or deferred) or failed. The Atlas hangs a streamer in the
-  verdict's colour, with Probe's mark (`rendering/src/assets/probe.png`), from the review flag's pole
-  (`rendering/src/probe.ts`, `placeStreamers`); the flag's hover card adds a Probe line. `native:mock -- --probe` shows each.
+  findings open (with their count), stale (new commits since, or deferred) or failed. The Atlas lays a streamer tag in the
+  verdict's colour, with Probe's mark (`rendering/src/assets/probe.png`), beside the review medallion, under its rim
+  (`rendering/src/probe.ts`, `placeStreamers`); the medallion's hover card adds a Probe line. `native:mock -- --probe` shows each.
 - Auto-merge: a PR's `autoMerge` comes from Paseo's GitHub facts (`autoMergeRequest`), else gh's (`web/server/links.ts`).
-  While it's on, a teal seal with a merge mark crowns the review flag's pole, else the CI flag's (`placeSeals`,
-  `paintSeal`, `AUTO_MERGE` in `rendering/src/prStatus.ts`); the flag's hover card says how it merges and who turned it on.
+  While it's on, a teal seal with a merge mark sits on the review medallion's upper-right rim, else the CI one's (`placeSeals`,
+  `paintSeal`, `AUTO_MERGE` in `rendering/src/prStatus.ts`); the medallion's hover card says how it merges and who turned it on.
 
 ## Atlas world
 
@@ -156,7 +156,7 @@ Each project with workspaces is its own island (projects without workspaces are 
 landmark (rows of 3, 4, 3) in the middle, ringed by its workspaces, each touching it. Workspaces are placed
 bottom, lower-left, lower-right, upper-left, upper-right, then top, a cell apart (later ones stand against
 that ring). A workspace is a three-hex light-dirt triangle pointing at the landmark, its cottage larger and centred
-across all three, with no plants beside it so its PR flags stand clear. Each agent is a robot on its own light-tiled hex beside its workspace, growing away from
+across all three, with no plants beside it so its PR medallions stand clear. Each agent is a robot on its own light-tiled hex beside its workspace, growing away from
 the landmark, oldest first: straight out, then alternating left and right. Islands are only these built cells:
 no empty sand around them (the user removed it). A host's islands share one landmass of grass hex tiles (hexes everywhere) with a hex-edged shore in a generated sea, under the host's
 banner (offline hosts are faded and labeled). Each agent's state shows only on its sand hex (fill, border colour, border motion: a light runs round
@@ -168,9 +168,9 @@ Agents the daemon reports without a workspace wait at a flagged camp, laid out l
 Each landmark's paving carries props (`props.png`): three seeded pieces of greenery and workshop gear, two lamps
 lit while any of the project's agents is running, and a beacon that flares, in the most urgent state's colour,
 when one needs approval, has a question or failed. Props keep off the landmark's art, its name and the kerb.
-Every item (landmarks, cottages, plaza props, lamps and beacons, robots) casts a soft shadow under a noon sun: centred
+Every item (landmarks, cottages, plaza props, lamps and beacons, robots, PR medallions) casts a soft shadow under a noon sun: centred
 beneath it and showing evenly on every side, so it never turns as a robot does. The page paints each frame's `<frame>-shadow`
-(`shadowOf`, `SHADOW` in `rendering/src/native/bridge.ts`); structures' come as sprites, and Swift places those of lamps and robots (lighter).
+(`shadowOf`, `SHADOW` in `rendering/src/native/bridge.ts`); structures' come as sprites, and Swift places those of lamps, PR medallions and robots (lighter).
 The world is assembled from generated transparent sprite atlases, a terrain texture,
 and a strict axial hex grid. It is not a screenshot used as a background.
 The sea's glints and cloud shadows drift slowly in 15 Hz steps. The world renders on demand: 30 fps for ambient
@@ -187,8 +187,9 @@ Labels stay at fixed world scale. Do not add screen-size compensation.
 All structures and scenery consume whole cells on the shared axial grid.
 Workspaces use three hexes; project landmarks use ten (rows of 3, 4 and 3); each agent uses one.
 One island per project with workspaces.
-Center artwork and fit it completely inside its occupied cells. PR flags are the exception: each pole's foot stands at
-its cell's centre, at full size, and the cloth may rise past the cell's upper edge (the user's choice).
+Center artwork and fit it completely inside its occupied cells. Everything is seen from directly above: PR status shows
+as flat enamel medallions (`medallions.png`) in a workspace's two yard cells, set a little beyond each cell's centre
+away from the cottage (the user replaced the side-view PR flags, which looked like they were floating).
 Selection follows the outer perimeter of the occupied hexes, never a rectangle: a golden rim with a breathing
 yellow halo over a warm wash, so the selected entity reads on any surface. Hover and selection
 rims are inset within the cells so painted kerbs and banks never clip them; an agent hovers across its whole cell.

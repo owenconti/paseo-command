@@ -123,17 +123,17 @@ export function placeStructures(
   return placed;
 }
 
-/** A workspace's PR flags' height. */
-export const FLAG_HEIGHT = 70;
-/** Where a PR flag's pole foot is in its art (as a share of its width and
- * height), and how far the running flag sways about it (degrees) and how
+/** A workspace's PR medallions (its "flags"), flat enamel discs set into its
+ * yard, seen from above like everything else: how wide each is drawn, and how
+ * far it sits beyond its cell's centre, away from the cottage (a share of the
+ * distance between them). */
+export const MEDALLION = { size: 40, out: 0.3 };
+/** How far the running CI medallion rocks about its centre (degrees), and how
  * often (ms). */
-export const FLAG_FOOT = { x: 0.19, y: 0.95 };
-export const FLAG_SWAY = { degrees: 3, period: 1400 };
+export const FLAG_SWAY = { degrees: 12, period: 2400 };
 const DEPTH_FLAG = 17.2;
-/** A PR flag: `x, y` is the sprite's centre and `width` its display width;
- * its pole's foot stands at the centre of `cell` (its cloth may rise past the
- * cell's upper edge, as a standing prop's would). */
+/** A PR medallion: `x, y` is its centre and `width` its display width; it
+ * lies inside `cell`. */
 export type PlacedFlag = {
   frame: string;
   flag: PrFlag;
@@ -145,8 +145,8 @@ export type PlacedFlag = {
   cell: Axial;
   entity: string;
 };
-/** Each workspace's PR flags, from its labels: CI in its second cell, review
- * in its third, the cells beside the cottage. */
+/** Each workspace's PR medallions, from its labels: CI in its second cell,
+ * review in its third, the cells beside the cottage. */
 export function placeFlags(
   layout: AtlasLayout,
   sizeOf: (frame: string) => { width: number; height: number },
@@ -154,7 +154,8 @@ export function placeFlags(
   const placed: PlacedFlag[] = [];
   for (const ws of layout.workspaces) {
     if (ws.camp || !ws.flags) continue;
-    const cells = footprint(ws);
+    const cells = footprint(ws),
+      middle = structureCentre(ws);
     const planted: [PrFlag | undefined, Axial | undefined][] = [
       [ws.flags.ci, cells[1]],
       [ws.flags.review, cells[2]],
@@ -164,14 +165,13 @@ export function placeFlags(
       const c = point(cell);
       const frame = `flag-${flag}`;
       const size = sizeOf(frame);
-      const width = (FLAG_HEIGHT * size.width) / size.height;
       placed.push({
         frame,
         flag,
-        // The sprite's centre, so that its pole's foot is the cell's.
-        x: c.x + (0.5 - FLAG_FOOT.x) * width,
-        y: c.y + (0.5 - FLAG_FOOT.y) * FLAG_HEIGHT,
-        width,
+        x: c.x + (c.x - middle.x) * MEDALLION.out,
+        y: c.y + (c.y - middle.y) * MEDALLION.out,
+        // As wide as its art is round: a frame's trimmed width.
+        width: (MEDALLION.size * size.width) / Math.max(size.width, size.height),
         depth: DEPTH_FLAG,
         alpha: ws.stale ? STALE_ALPHA : 1,
         cell,
@@ -182,12 +182,12 @@ export function placeFlags(
   return placed;
 }
 
-/** Probe's streamer: tied to the review flag's pole over its cloth's lower
- * edge (`top` is a share of the flag's height), `height` world pixels tall. */
-export const PROBE_STREAMER = { top: 0.6, height: 28, depth: DEPTH_FLAG + 0.05 };
-/** A Probe streamer: `x, y` is its top-left corner, where it's tied to the pole. */
+/** Probe's streamer: a tag lying beside the review medallion, tucked under
+ * its right rim by `tuck` world px, `height` world pixels tall. */
+export const PROBE_STREAMER = { tuck: 4, height: 28, depth: DEPTH_FLAG - 0.05 };
+/** A Probe streamer: `x, y` is its top-left corner, under the medallion's rim. */
 export type PlacedStreamer = { verdict: ProbeVerdict; x: number; y: number; depth: number; alpha: number; entity: string };
-/** The streamer under each review flag whose workspace Probe has a verdict on. */
+/** The streamer beside each review medallion whose workspace Probe has a verdict on. */
 export function placeStreamers(layout: AtlasLayout, flags: PlacedFlag[]): PlacedStreamer[] {
   const out: PlacedStreamer[] = [];
   for (const f of flags) {
@@ -195,8 +195,8 @@ export function placeStreamers(layout: AtlasLayout, flags: PlacedFlag[]): Placed
     if (!ws?.probe || ws.flags?.review !== f.flag) continue;
     out.push({
       verdict: ws.probe,
-      x: f.x - f.width / 2 + FLAG_FOOT.x * f.width,
-      y: f.y - FLAG_HEIGHT / 2 + PROBE_STREAMER.top * FLAG_HEIGHT,
+      x: f.x + f.width / 2 - PROBE_STREAMER.tuck,
+      y: f.y - PROBE_STREAMER.height / 2,
       depth: PROBE_STREAMER.depth,
       alpha: f.alpha,
       entity: f.entity,
@@ -504,13 +504,13 @@ export function pulseAlpha(period: number, phase: number, clock: number, reduced
   return 0.35 + 0.65 * (0.5 + 0.5 * Math.cos(t * Math.PI * 2));
 }
 
-/** The auto-merge medallion: a seal `size` world pixels across, crowning a
- * flag's pole (`top` is the pole's knob, as a share of the flag's height). */
-export const AUTO_MERGE_SEAL = { top: 0.06, size: 26, depth: DEPTH_FLAG + 0.06 };
+/** The auto-merge seal: `size` world pixels across, set on a PR medallion's
+ * upper-right rim. */
+export const AUTO_MERGE_SEAL = { size: 22, depth: DEPTH_FLAG + 0.06 };
 /** An auto-merge seal: `x, y` is its top-left corner. */
 export type PlacedSeal = { x: number; y: number; size: number; depth: number; alpha: number; entity: string };
-/** The seal on each workspace whose PR has auto-merge on: atop its review
- * flag's pole, else its CI flag's. */
+/** The seal on each workspace whose PR has auto-merge on: on its review
+ * medallion's rim, else its CI medallion's. */
 export function placeSeals(layout: AtlasLayout, flags: PlacedFlag[]): PlacedSeal[] {
   const out: PlacedSeal[] = [];
   for (const ws of layout.workspaces) {
@@ -520,8 +520,9 @@ export function placeSeals(layout: AtlasLayout, flags: PlacedFlag[]): PlacedSeal
     if (!f) continue;
     const size = AUTO_MERGE_SEAL.size;
     out.push({
-      x: f.x - f.width / 2 + FLAG_FOOT.x * f.width - size / 2,
-      y: f.y - FLAG_HEIGHT / 2 + AUTO_MERGE_SEAL.top * FLAG_HEIGHT - size + 2,
+      // Centred on the rim, up and to the right (45°).
+      x: f.x + (f.width / 2) * Math.SQRT1_2 - size / 2,
+      y: f.y - (f.width / 2) * Math.SQRT1_2 - size / 2,
       size,
       depth: AUTO_MERGE_SEAL.depth,
       alpha: f.alpha,

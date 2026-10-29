@@ -23,7 +23,6 @@ import { probeGlyph, probeState, type ProbeVerdict } from "../probe";
 import { cloudsTile, glintsTile, terrainParts, waterTile, type Piece, type Tiles } from "../terrain";
 import {
   DRONE_ORBIT,
-  FLAG_FOOT,
   FLAG_SWAY,
   placeFlags,
   placeStreamers,
@@ -67,7 +66,7 @@ import foliageUrl from "../assets/tree-v2.png";
 import sandUrl from "../assets/sand.png";
 import dirtUrl from "../assets/dirt.png";
 import propsUrl from "../assets/props.png";
-import flagsUrl from "../assets/flags.png";
+import flagsUrl from "../assets/medallions.png";
 import probeUrl from "../assets/probe.png";
 import type { AtlasHandlers, AtlasWorld } from "../atlas";
 
@@ -743,8 +742,7 @@ export function mountNativeAtlas(parent: HTMLElement, handlers: AtlasHandlers = 
           overlayBottom: OVERLAY_BOTTOM,
           wander: { x: WANDER_X, y: WANDER_Y, speed: WALK_SPEED, turn: TURN_SPEED },
           hover: HOVER_COLOR,
-          flagFoot: FLAG_FOOT,
-          // Swift places the shadows of lamps, robots and PR flags itself.
+          // Swift places the shadows of lamps, robots and PR medallions itself.
           shadow: { pad: SHADOW.pad, spread: SHADOW.spread },
           flagSway: FLAG_SWAY,
         },
@@ -804,21 +802,16 @@ export function mountNativeAtlas(parent: HTMLElement, handlers: AtlasHandlers = 
             })),
             seals: placeSeals(layout, planted).map((s) => s.entity),
             workspaces: layout.workspaces.map((w) => ({ id: w.id, name: w.name, camp: !!w.camp })),
-            planted: planted.map((f) => {
-              const size = sizeOf(f.frame),
-                halfW = f.width / 2,
-                halfH = (f.width * size.height) / size.width / 2;
-              return {
-                workspace: f.entity,
-                flag: f.flag,
-                sway: f.flag === "ci-running",
-                // Where its pole's foot stands, from the cell's centre.
-                footOffset: (() => {
-                  const c = point(f.cell);
-                  return Math.hypot(f.x + (FLAG_FOOT.x - 0.5) * 2 * halfW - c.x, f.y + (FLAG_FOOT.y - 0.5) * 2 * halfH - c.y);
-                })(),
-              };
-            }),
+            planted: planted.map((f) => ({
+              workspace: f.entity,
+              flag: f.flag,
+              sway: f.flag === "ci-running",
+              // Whether the whole medallion lies inside its cell.
+              inCell: [0, 1, 2, 3].every((i) => {
+                const a = (i / 4) * Math.PI * 2;
+                return insideFootprint(f.x + (Math.cos(a) * f.width) / 2, f.y + (Math.sin(a) * f.width) / 2, [f.cell]);
+              }),
+            })),
           }
         : undefined,
     destroy: () => {

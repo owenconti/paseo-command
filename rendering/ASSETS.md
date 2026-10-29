@@ -136,7 +136,44 @@ normal deterministic neighbour balancing. Review screenshots are in `rendering/a
 (ignored local files): `structures-contact-sheet.png`, `structures-overview.png`,
 `structures-0.png` through `structures-7.png`, and `structures-cottages.png`.
 
-## flags.png — PR status flags
+## medallions.png — PR status medallions
+
+Workspaces show their pull request status as flat enamel medallions set into their yard, seen from directly above
+like the rest of the map. They replaced the upright PR flags (drawn from the side, so they looked like they were
+floating); the flags' atlas is kept as `../design/pr-status/flags-atlas.png`, with its history further below in
+`../design/pr-status/NOTES.md`.
+
+Generated locally by a GPT-6.1-Sol agent with the built-in image tool, using `flags.png`, the emblem atlas in
+`../design/pr-status/emblems.png` and `props.png` as references. Packaging only cropped, scaled and centred the
+generated subjects; nothing was repainted. The raw output and a preview over `dirt.png` are in `../design/pr-status/`
+(`medallions-raw-1.png`, `medallions-preview.png`).
+
+Original output: `/Users/example/.codex/generated_images/01a18a11-c654-73e3-8014-0e303c7ce4e7/exec-52ab77a7-1415-4f78-9444-ec60a0689891.png`.
+
+A 1536 × 1536 RGBA atlas, three columns of 512 px cells, in `PR_LABELS` order (`src/prStatus.ts`): CI running (amber
+hourglass), CI green (emerald check), CI failing (red cross), awaiting review (sky eye), approved (violet laurel and
+check), changes requested (orange quill), merge conflicts (pink crossed swords); the last two cells are transparent.
+The Atlas trims each cell into a frame (`flag-<state>`), lays the medallions in a workspace's two yard cells
+(`placeFlags`, `MEDALLION`), and rocks only the CI-running one.
+
+Exact prompt:
+
+> Use case: stylized-concept.
+> Asset: production RGBA game sprite atlas of seven ground medallions for Paseo Command's ink-and-watercolor fantasy map.
+> Create one square 1536 × 1536 image arranged as exactly 3 columns × 3 rows of 512px square cells. One circular disc centered at each occupied cell center, each identical 380px diameter with generous transparent gutters. Bottom middle and bottom right cells entirely empty transparent.
+> Camera: STRICTLY DIRECTLY ABOVE, 90 degree orthographic. Perfect circles, decorated faces parallel to image plane. Flat discs inlaid into a yard, without any visible side, thickness, tilt or perspective.
+> All seven share precisely the same simple antique brass circular rim with eight small inset rivets, broad flat strongly colored enamel field, large warm ivory emblem with fine dark sepia contours. Hand-painted ink and watercolor/gouache fantasy cartography, restrained painterly enamel variation, crisp confident outlines, warm brass highlights. Consistent gentle overhead illumination. No extruded emblem or directional cast shadow. Designed to read clearly at 34px diameter: broad bold glyphs occupying about two thirds of disc diameter, minimal internal detail.
+> Row 1 left: amber/gold enamel, ivory HOURGLASS, simple two triangular glass chambers with sand and broad end bars.
+> Row 1 center: rich emerald green enamel, one large ivory CHECK MARK.
+> Row 1 right: strong red enamel, one large ivory CROSS (X).
+> Row 2 left: sky blue enamel, one large ivory EYE, almond outline with a clear central dark pupil.
+> Row 2 center: violet enamel, ivory LAUREL WREATH enclosing a bold ivory CHECK MARK, few broad leaves and clear center.
+> Row 2 right: vivid orange enamel, one large ivory QUILL diagonally from lower left to upper right, simple feather and shaft.
+> Row 3 left: vivid rose/magenta PINK enamel, ivory CROSSED SWORDS with broad blades, obvious crossguards, short grips and round pommels, distinct from the red X.
+> Row 3 center and right: FULLY TRANSPARENT, no subjects.
+> Constraints: identical circular silhouettes and diameter for all seven, no shields or flags. Genuine transparent alpha everywhere outside physical discs. NO baked drop shadow, glow, ground, dirt, text, labels, numbers, watermark, checkerboard pattern, scenery, extra subjects, heavy embossing or photorealism. Do not put rivets beyond the circle perimeter. No background wash.
+
+### Earlier: flags.png — PR status flags (retired, now `../design/pr-status/flags-atlas.png`)
 
 Generated locally by a GPT-6.1-Sol agent with the built-in `image_gen` tool, using `props.png`, a crop of the
 running map and an earlier emblem atlas as references. Local artwork only; no Phaser AE services, publishing or

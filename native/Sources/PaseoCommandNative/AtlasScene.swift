@@ -80,7 +80,6 @@ final class AtlasScene: SKScene {
     private var swaying: [SKSpriteNode] = []
     /// Probe streamers whose review is still running: they pulse.
     private var reviewing: [SKSpriteNode] = []
-    private var flagFoot = CGPoint(x: 0.19, y: 0.95)
     /// How the page pads a frame's shadow, and how far it falls (shares of the frame's width).
     private var shadowShape: (pad: CGFloat, spread: CGFloat) = (0.1, 3)
     private var flagSway = (degrees: CGFloat(3), period: Double(1400))
@@ -172,7 +171,6 @@ final class AtlasScene: SKScene {
             wander = (CGFloat(w["x"] ?? 13), CGFloat(w["y"] ?? 10), CGFloat(w["speed"] ?? 8), CGFloat(w["turn"] ?? 1.3))
         }
         if let h = constants["hover"] as? [String: Int] { hoverColors = h }
-        if let f = constants["flagFoot"] as? [String: Double] { flagFoot = CGPoint(x: f["x"] ?? 0.19, y: f["y"] ?? 0.95) }
         if let s = constants["shadow"] as? [String: Double] { shadowShape = (CGFloat(s["pad"] ?? 0), CGFloat(s["spread"] ?? 0)) }
         if let f = constants["flagSway"] as? [String: Double] { flagSway = (CGFloat(f["degrees"] ?? 3), f["period"] ?? 1400) }
         self.reduced = reduced
@@ -221,11 +219,16 @@ final class AtlasScene: SKScene {
                 plantedFlags.append(PlantedFlag(flag: flag, workspace: workspace,
                                                 at: WorldBox(x: num(f["x"]), y: num(f["y"]), width: node.size.width, height: node.size.height)))
             }
-            // Standing on its pole's foot, so a sway turns about it.
-            node.anchorPoint = CGPoint(x: flagFoot.x, y: 1 - flagFoot.y)
-            node.position = p(num(f["x"]) + (flagFoot.x - 0.5) * node.size.width, num(f["y"]) + (flagFoot.y - 0.5) * node.size.height)
+            // A medallion lies flat in the yard; the running CI one rocks about its centre.
+            node.position = p(num(f["x"]), num(f["y"]))
             node.zPosition = num(f["depth"])
             node.alpha = num(f["alpha"], 1)
+            if let shadow = shadow(name, width: node.size.width) {
+                shadow.position = node.position
+                shadow.zPosition = node.zPosition - 0.4
+                shadow.alpha = node.alpha
+                structures.addChild(shadow)
+            }
             structures.addChild(node)
             if f["sway"] as? Bool == true { swaying.append(node) }
         }
@@ -698,7 +701,7 @@ final class AtlasScene: SKScene {
         let v = worldView
         let x = v.x + point.x / zoom, y = v.y + point.y / zoom
         return plantedFlags.last { f in
-            abs(x - f.at.x) <= f.at.width * 0.42 && abs(y - f.at.y) <= f.at.height * 0.46 && entities[f.workspace] != nil
+            hypot(x - f.at.x, y - f.at.y) <= f.at.width / 2 && entities[f.workspace] != nil
         }
     }
 
@@ -852,7 +855,7 @@ final class AtlasScene: SKScene {
             f.node.alpha = CGFloat((f.flicker ? 0.45 + 0.55 * pulse : 0.7 + 0.3 * pulse) + flicker)
         }
         if selected != nil { breathe() }
-        // The running CI flag sways; still, with reduced motion.
+        // The running CI medallion rocks; still, with reduced motion.
         let sway = (clock / flagSway.period) * .pi * 2
         for (i, flag) in swaying.enumerated() {
             flag.zRotation = reduced ? 0 : -flagSway.degrees * .pi / 180 * CGFloat(sin(sway + Double(i) * 0.7))

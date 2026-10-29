@@ -90,7 +90,7 @@ export function WorldLegend({ data }: { data: AtlasData }) {
           )}
           {flags && (
             <>
-              <h3>Workspace flag · PR</h3>
+              <h3>Workspace medallion · PR</h3>
               <ul>
                 {PR_LABELS.map((l) => (
                   <li key={l.flag}>
