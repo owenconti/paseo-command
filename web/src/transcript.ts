@@ -4,7 +4,7 @@
  */
 export type Entry =
   | { kind: "user"; text: string; from?: string; messageId?: string }
-  | { kind: "assistant"; text: string }
+  | { kind: "assistant"; text: string; messageId?: string; seq?: number }
   | { kind: "thought"; text: string }
   | {
       kind: "tool";
@@ -23,6 +23,9 @@ export type TimelineItem =
       id: string;
       text: string;
       messageId?: string;
+      /** The daemon sequences the row spans (history rows carry them). */
+      seq?: number;
+      last?: number;
     }
   | {
       kind: "tool";
@@ -46,17 +49,26 @@ export type TimelineItem =
  */
 export function fromTimeline(items: TimelineItem[]): Entry[] {
   const entries: Entry[] = [];
-  let reply: { entry: { text: string }; messageId?: string } | undefined;
+  let reply:
+    | { entry: { text: string; seq?: number }; messageId?: string }
+    | undefined;
   for (const item of items) {
     if (item.kind === "assistant") {
+      const seq = item.last ?? item.seq;
       if (
         reply &&
         (item.messageId === undefined || item.messageId === reply.messageId)
       ) {
         reply.entry.text += item.text;
+        if (seq !== undefined) reply.entry.seq = seq;
         continue;
       }
-      const entry: Entry = { kind: "assistant", text: item.text };
+      const entry: Entry = {
+        kind: "assistant",
+        text: item.text,
+        ...(item.messageId ? { messageId: item.messageId } : {}),
+        ...(seq !== undefined ? { seq } : {}),
+      };
       entries.push(entry);
       reply = { entry, messageId: item.messageId };
       continue;
@@ -200,7 +212,13 @@ export type Block =
       messageId?: string;
       key: string;
     }
-  | { kind: "assistant"; text: string; key: string }
+  | {
+      kind: "assistant";
+      text: string;
+      messageId?: string;
+      seq?: number;
+      key: string;
+    }
   | { kind: "event"; label: string; text: string; key: string }
   | { kind: "todo"; items: { text: string; done: boolean }[]; key: string }
   | { kind: "activity"; steps: Entry[]; key: string };
@@ -231,7 +249,14 @@ export function toBlocks(entries: Entry[]): Block[] {
         messageId: entry.messageId,
         key,
       });
-    else blocks.push({ kind: "assistant", text: entry.text, key });
+    else
+      blocks.push({
+        kind: "assistant",
+        text: entry.text,
+        ...(entry.messageId ? { messageId: entry.messageId } : {}),
+        ...(entry.seq !== undefined ? { seq: entry.seq } : {}),
+        key,
+      });
   });
   return blocks;
 }
