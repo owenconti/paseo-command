@@ -19,6 +19,7 @@ import { modalOpen } from "./focus";
 import { AgentControls } from "./composer/AgentControls";
 import { AnswerList } from "./composer/AnswerList";
 import { AskStrip } from "./composer/AskStrip";
+import { SuggestStrip } from "./composer/SuggestStrip";
 import { answersMessage, quickReplies, type Answer } from "./composer/answers";
 import type { Asks } from "./asks/types";
 import { AttachmentTray } from "./composer/AttachmentTray";
@@ -148,6 +149,19 @@ export function Composer({
       : replyAsks.questions.filter(
           (q) => !answers.some((a) => a.question === q.text),
         );
+  // The reply whose suggested reply was sent or dismissed.
+  const suggestKey = `suggest-dismissed:${owner}`;
+  const [suggestDone, setSuggestDone] = useState(() => readStore(suggestKey, ""));
+  const suggestedIn = `${askedIn}|${replyAsks?.suggestion ?? ""}`;
+  // Never while the turn is read again: it may be the last reply's.
+  const suggestion =
+    replyAsks && !replyAsks.pending && !running && suggestDone !== suggestedIn
+      ? replyAsks.suggestion
+      : undefined;
+  const settleSuggestion = () => {
+    setSuggestDone(suggestedIn);
+    writeStore(suggestKey, suggestedIn);
+  };
   const addAnswer = (question: string, options?: string[], answer = "") => {
     const id = uid();
     setAnswers((all) => [...all, { id, question, answer, options }]);
@@ -326,6 +340,15 @@ export function Composer({
     else setAnswers((all) => [...all, { id: uid(), question, answer: value, options }]);
   };
 
+  /** Send the suggested reply as it is; the draft stays. */
+  const sendSuggestion = async (value: string) => {
+    if (sending || disabled) return;
+    setSending(true);
+    settleSuggestion();
+    if (!(await onSend(toOutgoing(value, [])))) setSuggestDone("");
+    setSending(false);
+  };
+
   const editQueued = (taken: { item: Queued; attachments: Attachment[] }) => {
     setText((t) => (t.trim() ? `${t}\n${taken.item.text}` : taken.item.text));
     setAttachments((a) => [...a, ...taken.attachments]);
@@ -450,6 +473,14 @@ export function Composer({
             setDismissed(askedIn);
             writeStore(dismissKey, askedIn);
           }}
+        />
+      )}
+      {suggestion && (
+        <SuggestStrip
+          suggestion={suggestion}
+          disabled={disabled || sending}
+          onSend={() => void sendSuggestion(suggestion)}
+          onDismiss={settleSuggestion}
         />
       )}
       <div

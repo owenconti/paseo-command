@@ -123,3 +123,39 @@ test("a refused key stops judging and says why", async () => {
   assert.equal(calls, 1);
   assert.equal(service.status().available, false);
 });
+
+/** The fake's answers, with `suggest` chosen as `pick` at `p`. */
+const suggesting = (pick: string, p: number, calls: unknown[] = []): Judge => async (req) => {
+  const { answers } = await fake(calls)(req);
+  if (req.questions.suggest) answers.suggest = { choice: pick, probabilities: { [pick]: p } } as never;
+  return { answers };
+};
+
+test("an obvious next reply is suggested, its PR filled from the reply", async () => {
+  const calls: { questions: Record<string, { criteria: Record<string, string> }> }[] = [];
+  const asks = await judgeReply(
+    suggesting("merged_pr", 0.93, calls),
+    "The migration is ready. Once PR #3 is merged, I will continue.",
+  );
+  assert.equal(asks.suggestion, "Okay, I've merged PR #3.");
+  // Asked in the same request as the questions.
+  assert.equal(calls.length, 1);
+  assert.match(calls[0].questions.suggest.criteria.merged_pr, /PR #3/);
+});
+
+test("no suggestion when Jev isn't sure, or the reply asks for the user's own answer", async () => {
+  const unsure = await judgeReply(suggesting("go_ahead", 0.6), "I could rename the module next.");
+  assert.equal(unsure.suggestion, undefined);
+  const own = await judgeReply(suggesting("go_ahead", 0.95), REPLY);
+  assert.equal(own.suggestion, undefined);
+  const none = await judgeReply(suggesting("none", 0.99), "I renamed the module.");
+  assert.equal(none.suggestion, undefined);
+});
+
+test("a PR template is only offered when the reply names one PR", async () => {
+  const calls: { questions: Record<string, { criteria: Record<string, string> }> }[] = [];
+  await judgeReply(fake(calls), "PR #3 and PR #4 both touch this. I'll wait.");
+  assert.ok(!("merged_pr" in calls[0].questions.suggest.criteria));
+  const asks = await judgeReply(suggesting("merged_pr", 0.95), "I'll wait for the merge.");
+  assert.equal(asks.suggestion, undefined);
+});

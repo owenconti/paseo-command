@@ -128,6 +128,9 @@ Local assets belong in the repository and are included through local build tooli
   the reply waits on you. `POST /api/agents/:id/asks`, `GET /api/asks` (status). The composer offers the questions
   (`web/src/composer/AskStrip.tsx`) with quick replies; a reply that waits on you is the map's `asking` state
   and counts as needing you.
+  In the same request Jev picks an obvious next reply, if one clearly fits (≥ 0.85), from fixed templates in
+  `web/src/asks/suggestions.ts` (`{pr}` filled from the reply when it names one PR); never when the reply asks a pick or open
+  question. The composer shows it as "You might say" (`web/src/composer/SuggestStrip.tsx`); one click sends it.
 - `web/src/urlState.ts`: the panel's place (selection, subagent, tab, filter, host filter, list toggle) kept in
   the page's query, so a refresh returns there; a new selection pushes history, other changes replace it.
 - `web/src/games/`: the panel header's mini games (gamepad button), a floating non-modal window with one game dealt at

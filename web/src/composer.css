@@ -1232,6 +1232,40 @@
   color: var(--text-3);
   cursor: pointer;
 }
+.suggest-strip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+  padding: 6px 8px 6px 10px;
+  border: 1px solid color-mix(in srgb, #4fb8a8 45%, var(--line));
+  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, #4fb8a8 8%, var(--panel-raised));
+  color: var(--text-2);
+  font-size: var(--fs-xs);
+}
+.suggest-strip > span {
+  flex: none;
+}
+.suggest-send {
+  flex: 0 1 auto;
+  min-width: 0;
+  margin-right: auto;
+  padding: 3px 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--panel-raised);
+  color: var(--text);
+  font: inherit;
+  font-size: var(--fs-sm);
+  text-align: left;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+}
+.suggest-send:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--accent-text);
+}
 .answer-quick {
   display: flex;
   flex-wrap: wrap;

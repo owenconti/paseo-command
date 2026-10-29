@@ -19,6 +19,7 @@ import {
 import type { DaemonClient } from "./api/hosts";
 import { NO_ASKS, type AskKind, type Asks, type ReplyQuestion } from "../src/asks/types";
 import { mayAsk, optionReadings, replySentences } from "../src/asks/sentences";
+import { fillSuggestions, type SuggestionTemplate } from "../src/asks/suggestions";
 import { FORK_LABEL } from "../src/forks/types";
 import { fromTimeline } from "../src/transcript";
 import { timelineWindow } from "./daemon";
@@ -29,11 +30,16 @@ import { errorText } from "./wire";
 
 /** Yes at or above this; the docs' suggested starting point. */
 export const ASKS_YES = 0.7;
+/** A suggested reply sends in one click, so only a clear fit is offered. */
+export const SUGGEST_YES = 0.85;
 const PER_REQUEST = 20;
 const RETRY_MS = 60_000;
 const REFUSED_RETRY_MS = 10 * 60_000;
 
-type Answers = Record<string, { noul?: number; choice?: string }>;
+type Answers = Record<
+  string,
+  { noul?: number; choice?: string; probabilities?: Record<string, number> }
+>;
 /** One decision request: Jev's in use, a fake in tests. */
 export type Judge = (req: SystemOneRequest<Questions>) => Promise<{ answers: Answers }>;
 
@@ -88,11 +94,23 @@ const kind = (i: number) =>
     },
   }) as const;
 
+const suggest = (templates: SuggestionTemplate[]) =>
+  ({
+    type: "choice",
+    instructions:
+      "Which reply below would the user most plainly send next to `reply`, the coding agent's latest message, exactly as written? Choose none unless one directly follows from what the message says or waits for.",
+    criteria: Object.fromEntries([
+      ["none", "No reply below directly follows: the user would need to answer a question or say something of their own."],
+      ...templates.map((t) => [t.id, `“${t.text}” ${t.when}`]),
+    ]),
+  }) as const;
+
 /** Judge a reply's questions: one request per twenty sentences that may
  *  ask anything (`mayAsk`), then one more for the options of any picks. */
 export async function judgeReply(judge: Judge, reply: string): Promise<Omit<Asks, "pending">> {
   const sentences = replySentences(reply);
   const state = { reply: reply.slice(-6000), sentences };
+  const templates = fillSuggestions(reply);
   // Statements never ask; Jev judges only the sentences that might.
   const candidates = sentences.flatMap((s, i) => (mayAsk(s) ? [i] : []));
   const chunks: number[][] = [];
@@ -104,7 +122,10 @@ export async function judgeReply(judge: Judge, reply: string): Promise<Omit<Asks
     ...(await Promise.all(
       chunks.map((idx, n) => {
         const questions: Questions = {};
-        if (n === 0) questions.waiting = WAITING;
+        if (n === 0) {
+          questions.waiting = WAITING;
+          questions.suggest = suggest(templates);
+        }
         for (const i of idx) {
           questions[`ask_${i}`] = asks(i);
           questions[`kind_${i}`] = kind(i);
@@ -149,7 +170,17 @@ export async function judgeReply(judge: Judge, reply: string): Promise<Omit<Asks
       else q.kind = "open";
     });
   }
-  return { waiting: (answers.waiting?.noul ?? 0) >= ASKS_YES, questions };
+  const picked = answers.suggest?.choice;
+  const template = templates.find((t) => t.id === picked);
+  const sure = (answers.suggest?.probabilities?.[picked ?? ""] ?? 0) >= SUGGEST_YES;
+  // A canned reply can't answer a pick or a question only the user can.
+  const ownAnswer = questions.some((q) => q.kind !== "yes_no");
+  const suggestion = template && sure && !ownAnswer ? template.text : undefined;
+  return {
+    waiting: (answers.waiting?.noul ?? 0) >= ASKS_YES,
+    questions,
+    ...(suggestion ? { suggestion } : {}),
+  };
 }
 
 /** The newest reply since the user last wrote, if the agent's turn ended

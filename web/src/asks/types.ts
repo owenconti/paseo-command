@@ -13,6 +13,9 @@ export type Asks = {
   /** The reply ends by waiting on the user before the work continues. */
   waiting: boolean;
   questions: ReplyQuestion[];
+  /** An obvious next reply the user may send as it is ("Okay, I've merged
+   *  PR #3."), when one clearly fits. */
+  suggestion?: string;
   pending: boolean;
   /** Why nothing could be judged (no key, the key refused, the service down). */
   error?: string;
