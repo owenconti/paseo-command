@@ -14,8 +14,8 @@ import { PR_LABELS, prFlags } from "../../rendering/src/prStatus";
 import { readStore, writeStore } from "./api";
 
 const css = (c: number) => `#${c.toString(16).padStart(6, "0")}`;
-const GLYPH: Record<string, string> = { failed: "×", approval: "!", question: "?", done: "★" };
-const ORDER = ["running", "approval", "question", "failed", "done", "idle", "offline"] as const;
+const GLYPH: Record<string, string> = { failed: "×", approval: "!", question: "?", asking: "…", done: "★" };
+const ORDER = ["running", "approval", "question", "asking", "failed", "done", "idle", "offline"] as const;
 /** Paseo's label colours, as its app paints them. */
 const LABEL_COLOR: Record<(typeof PR_LABELS)[number]["color"], string> = {
   amber: "#f59e0b",

@@ -3,6 +3,7 @@ import { Settings } from "lucide-react";
 import { placePopover } from "./popover";
 import { previewSound, setSoundSettings, useSoundSettings } from "./sounds";
 import { nativeEvents } from "./worldBridge";
+import { api } from "./api";
 import { LinearWorkspaceSetting } from "./HeaderLinks";
 import { setMusicSettings, useMusic } from "./music";
 
@@ -208,8 +209,34 @@ export function SettingsControl({
             </label>
           )}
           <LinearWorkspaceSetting />
+          <ReplyQuestionsStatus />
         </div>
       )}
     </span>
+  );
+}
+
+/** Whether replies' questions can be found (TypeSafe's Jev, server/asks.ts). */
+function ReplyQuestionsStatus() {
+  const [status, setStatus] = useState<{ available: boolean; error?: string } | null>(null);
+  useEffect(() => {
+    const controller = new AbortController();
+    api<{ available: boolean; error?: string }>("asks", undefined, controller.signal)
+      .then(setStatus)
+      .catch(() => {});
+    return () => controller.abort();
+  }, []);
+  if (!status) return null;
+  return (
+    <div className="linear-setting">
+      <span>
+        <b>Questions in replies</b>
+        <small>
+          {status.available
+            ? "Found by TypeSafe's Jev"
+            : status.error || "Unavailable"}
+        </small>
+      </span>
+    </div>
   );
 }

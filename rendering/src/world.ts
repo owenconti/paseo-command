@@ -7,6 +7,7 @@ export type State =
   | "done"
   | "approval"
   | "question"
+  | "asking"
   | "failed"
   | "offline";
 export type Model = "orange" | "white" | "teal" | "violet" | "lime" | "blue";
@@ -97,6 +98,7 @@ export const STATE_NAMES: Record<State, string> = {
   done: "Done · waiting for you",
   approval: "Needs approval",
   question: "Has a question",
+  asking: "Reply waits on you",
   failed: "Failed · needs attention",
   offline: "Offline · last known",
 };
@@ -105,6 +107,7 @@ export const STATE_PRIORITY: State[] = [
   "failed",
   "approval",
   "question",
+  "asking",
   "done",
   "running",
   "idle",
@@ -115,6 +118,7 @@ export const STATE_TILE: Partial<Record<State, number>> = {
   failed: 0xd2452f,
   approval: 0xef9b1b,
   question: 0x3a86d8,
+  asking: 0xa070e0,
   done: 0xf2c94c,
   running: 0x3fbf86,
   offline: 0x8f8b80,

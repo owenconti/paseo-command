@@ -35,6 +35,8 @@ type Props = {
   permissions: Set<string>;
   /** Agents whose pending request is a question rather than an approval. */
   questions: Set<string>;
+  /** Idle agents whose last reply waits on you. */
+  asking: Set<string>;
   unread: Set<string>;
   selection: Selection;
   focusRevision: number;
@@ -52,6 +54,7 @@ type Props = {
 export function atlasData(
   snapshot: WorldSnapshot,
   questions: Set<string>,
+  asking: Set<string> = new Set(),
 ): AtlasData {
   return {
     hosts: snapshot.hosts.map((h) => ({
@@ -87,9 +90,12 @@ export function atlasData(
           ? questions.has(a.clientId ?? a.id)
             ? "question"
             : "approval"
-          : a.state === "unread"
-            ? "done"
-            : a.state,
+          : (a.state === "unread" || a.state === "idle") &&
+              asking.has(a.clientId ?? a.id)
+            ? "asking"
+            : a.state === "unread"
+              ? "done"
+              : a.state,
       subagents: a.subagentCount,
       created: a.created,
     })),
@@ -153,8 +159,8 @@ export function NativeWorld(props: Props) {
   const current = useRef(snapshot);
   current.current = snapshot;
   const data = useMemo(
-    () => atlasData(snapshot, props.questions),
-    [snapshot, props.questions],
+    () => atlasData(snapshot, props.questions, props.asking),
+    [snapshot, props.questions, props.asking],
   );
   const currentData = useRef(data);
   currentData.current = data;

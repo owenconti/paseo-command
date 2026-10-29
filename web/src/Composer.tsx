@@ -18,7 +18,9 @@ import { Lightbox } from "./Images";
 import { modalOpen } from "./focus";
 import { AgentControls } from "./composer/AgentControls";
 import { AnswerList } from "./composer/AnswerList";
-import { answersMessage, type Answer } from "./composer/answers";
+import { AskStrip } from "./composer/AskStrip";
+import { answersMessage, quickReplies, type Answer } from "./composer/answers";
+import type { Asks } from "./asks/types";
 import { AttachmentTray } from "./composer/AttachmentTray";
 import { Autocomplete } from "./composer/Autocomplete";
 import { GitHubPicker } from "./composer/GitHubPicker";
@@ -82,6 +84,7 @@ export function Composer({
   promptHistory,
   dropFiles,
   answerQuote,
+  replyAsks,
   inputId = "composer",
   label = "Message agent...",
   placeholder: hint,
@@ -112,6 +115,8 @@ export function Composer({
   dropFiles: { files: File[]; at: number } | null;
   /** A question quoted from the agent's reply, to answer in this message. */
   answerQuote?: { text: string; at: number } | null;
+  /** What the agent's last reply asks, as a decision model judged it. */
+  replyAsks?: Asks;
   /** The input's id: `composer` is the one the shortcuts focus. */
   inputId?: string;
   label?: string;
@@ -130,6 +135,24 @@ export function Composer({
     readStore<Answer[]>(answersKey, []),
   );
   const [focusAnswer, setFocusAnswer] = useState<string | null>(null);
+  // The reply whose detected questions were dismissed.
+  const dismissKey = `asks-dismissed:${owner}`;
+  const [dismissed, setDismissed] = useState(() => readStore(dismissKey, ""));
+  const askedIn =
+    replyAsks?.messageId ??
+    replyAsks?.questions.map((q) => q.text).join("\n") ??
+    "";
+  const offered =
+    !replyAsks || dismissed === askedIn
+      ? []
+      : replyAsks.questions.filter(
+          (q) => !answers.some((a) => a.question === q.text),
+        );
+  const addAnswer = (question: string, options?: string[], answer = "") => {
+    const id = uid();
+    setAnswers((all) => [...all, { id, question, answer, options }]);
+    setFocusAnswer(id);
+  };
   const [defaultBehavior, setDefaultBehavior] = useState<Behavior>(() =>
     readStore<Behavior>("send-behavior", "queue"),
   );
@@ -235,11 +258,12 @@ export function Composer({
   );
   const hasContent =
     Boolean(answersMessage(answers, text)) || attachments.length > 0;
-  const submit = async (how: Behavior = defaultBehavior) => {
-    if (!hasContent || sending || disabled || !ready) return;
-    const value = answersMessage(answers, text);
+  /** Send the draft; `only`, in place of its answers, for a quick reply. */
+  const submit = async (how: Behavior = defaultBehavior, only?: Answer[]) => {
+    const asked = only ?? answers;
+    const value = answersMessage(asked, text);
+    if (!(value || attachments.length) || sending || disabled || !ready) return;
     const draftText = text;
-    const asked = answers;
     const items = attachments;
     if (running && how === "queue" && agent) {
       // The draft stays until the queue has it saved.
@@ -281,6 +305,25 @@ export function Composer({
     }
     setSending(false);
     area.current?.focus();
+  };
+
+  /** A quick reply sends at once when it answers the reply's only question
+   *  and nothing else is drafted; otherwise it fills that answer. */
+  const quick = (question: string, options: string[] | undefined, value: string) => {
+    const only =
+      replyAsks?.questions.length === 1 &&
+      !text.trim() &&
+      !attachments.length &&
+      answers.every((a) => a.question === question);
+    if (only) {
+      void submit(defaultBehavior, [{ id: uid(), question, answer: value }]);
+      return;
+    }
+    if (answers.some((a) => a.question === question))
+      setAnswers((all) =>
+        all.map((a) => (a.question === question ? { ...a, answer: value } : a)),
+      );
+    else setAnswers((all) => [...all, { id: uid(), question, answer: value, options }]);
   };
 
   const editQueued = (taken: { item: Queued; attachments: Attachment[] }) => {
@@ -387,6 +430,28 @@ export function Composer({
         />
       )}
       {activity}
+      {offered.length > 0 && (
+        <AskStrip
+          questions={offered}
+          disabled={disabled}
+          onAnswer={(q) => addAnswer(q.text, quickReplies(q))}
+          onAnswerAll={() => {
+            const added = offered.map((q) => ({
+              id: uid(),
+              question: q.text,
+              answer: "",
+              options: quickReplies(q),
+            }));
+            setAnswers((all) => [...all, ...added]);
+            setFocusAnswer(added[0].id);
+          }}
+          onQuick={(q, value) => quick(q.text, quickReplies(q), value)}
+          onDismiss={() => {
+            setDismissed(askedIn);
+            writeStore(dismissKey, askedIn);
+          }}
+        />
+      )}
       <div
         className={`composer2 ${disabled ? "disabled" : ""} ${focused ? "focused" : ""}`}
       >
@@ -417,6 +482,7 @@ export function Composer({
               setAnswers((all) => all.filter((a) => a.id !== id));
               area.current?.focus();
             }}
+            onQuick={(a, value) => quick(a.question, a.options, value)}
             onKeyDown={(e) => void sendKeys(e)}
           />
         )}

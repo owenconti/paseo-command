@@ -1,3 +1,4 @@
+import { useAsks } from "./useAsks";
 import { useWorkingOn } from "./useWorkingOn";
 import {
   hostWorldKey,
@@ -300,6 +301,21 @@ function App() {
   );
   const active = useMemo(() => activeAgents(agents), [agents]);
   const workingOn = useWorkingOn(active, permissionAgents);
+  const asks = useAsks(active);
+  // Idle agents whose last reply waits on you: they need you as approvals do.
+  const askingKey = active
+    .filter((a) => asks[a.id]?.waiting && !permissionAgents.has(a.id))
+    .map((a) => a.id)
+    .sort()
+    .join("\n");
+  const asking = useMemo(
+    () => new Set(askingKey ? askingKey.split("\n") : []),
+    [askingKey],
+  );
+  const needYou = useMemo(
+    () => new Set([...permissionAgents, ...asking]),
+    [permissionAgents, asking],
+  );
   const listedWorkspaces = useMemo(
     () => withLocalWorkspaces(projects, workspaces, active),
     [projects, workspaces, active],
@@ -595,7 +611,7 @@ function App() {
         agents,
         filter,
         search: "",
-        permissionAgents,
+        permissionAgents: needYou,
         unread,
         finishedAt,
         projectOf,
@@ -607,7 +623,7 @@ function App() {
     [
       agents,
       filter,
-      permissionAgents,
+      needYou,
       unread,
       finishedAt,
       projectOf,
@@ -619,17 +635,17 @@ function App() {
   );
   const order = fleet.order;
   const attentionAgents = useMemo(
-    () => active.filter((a) => needsAttention(a, permissionAgents)),
-    [active, permissionAgents],
+    () => active.filter((a) => needsAttention(a, needYou)),
+    [active, needYou],
   );
   // The tab title also counts unread finishes, as notifications do.
   const attentionCount = active.filter(
-    (a) => needsAttention(a, permissionAgents) || unread.has(a.id),
+    (a) => needsAttention(a, needYou) || unread.has(a.id),
   ).length;
   const filterCounts = useMemo(() => {
     const running = active.filter((a) => isWorking(a)).length;
     const unreadCount = active.filter(
-      (a) => unread.has(a.id) && !needsAttention(a, permissionAgents),
+      (a) => unread.has(a.id) && !needsAttention(a, needYou),
     ).length;
     return {
       all: active.length,
@@ -641,18 +657,18 @@ function App() {
         (a) =>
           !isWorking(a) &&
           !unread.has(a.id) &&
-          !needsAttention(a, permissionAgents),
+          !needsAttention(a, needYou),
       ).length,
     };
-  }, [active, attentionAgents, unread, permissionAgents]);
+  }, [active, attentionAgents, unread, needYou]);
   useEffect(() => {
     document.title = attentionCount
       ? `(${attentionCount}) Paseo Command`
       : "Paseo Command · Agent operations";
   }, [attentionCount]);
   const rank = useCallback(
-    (a: Agent) => attentionRank(a, { permissionAgents, unread }),
-    [permissionAgents, unread],
+    (a: Agent) => attentionRank(a, { permissionAgents: needYou, unread }),
+    [needYou, unread],
   );
 
   const step = useCallback(
@@ -1299,6 +1315,7 @@ function App() {
                 agents={active}
                 permissions={permissionAgents}
                 questions={questionAgents}
+                asking={asking}
                 unread={unread}
                 selection={selection}
                 focusRevision={focusRevision}
@@ -1397,7 +1414,8 @@ function App() {
                   agents={active}
                   agentsAt={agentsAt}
                   permissions={permissions}
-                  permissionAgents={permissionAgents}
+                  permissionAgents={needYou}
+                  asking={asking}
                   unread={unread}
                   finishedAt={attention.finishedAt}
                   selection={selection}
@@ -1482,6 +1500,7 @@ function App() {
                   ) : agent ? (
                     <Session
                       workingOn={workingOn[agent.id]}
+                      asks={asks[agent.id]}
                       key={agent.id}
                       agent={agent}
                       workspace={workspaceOf(agent)}

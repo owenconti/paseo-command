@@ -380,6 +380,7 @@ export function Fleet({
   agentsAt,
   permissions,
   permissionAgents,
+  asking,
   unread,
   finishedAt,
   selection,
@@ -414,7 +415,10 @@ export function Fleet({
   agents: Agent[];
   agentsAt: (workspaceId: string) => Agent[];
   permissions: PendingPermission[];
+  /** Approvals, questions and replies waiting on you. */
   permissionAgents: Set<string>;
+  /** Those whose last reply waits on you (no request pending). */
+  asking: Set<string>;
   unread: Set<string>;
   finishedAt: Record<string, number>;
   selection: Selection;
@@ -534,7 +538,9 @@ export function Fleet({
     const waiting = permissionAgents.has(a.id);
     const fresh = unread.has(a.id);
     // What the badge says: a question first, then an unread reply.
-    const shown = waiting
+    const shown = asking.has(a.id)
+      ? "waiting on you"
+      : waiting
       ? "awaiting approval"
       : fresh
         ? UNREAD
@@ -591,7 +597,7 @@ export function Fleet({
           // The full title (rows truncate it), and what the row says.
           aria-description={[
             agentName(a, ws?.branch),
-            `${waiting ? "Awaiting approval" : fresh ? "Unread reply" : shownStatus(a)}${project ? ` · ${placeText(project.name)}` : ""}${ws ? ` · ${placeText(ws.name || ws.branch)}` : ""}${a.hostLabel ? ` · ${hostText(a)}` : ""}`,
+            `${asking.has(a.id) ? "Its reply waits on you" : waiting ? "Awaiting approval" : fresh ? "Unread reply" : shownStatus(a)}${project ? ` · ${placeText(project.name)}` : ""}${ws ? ` · ${placeText(ws.name || ws.branch)}` : ""}${a.hostLabel ? ` · ${hostText(a)}` : ""}`,
             ...(a.stale
               ? [
                   `${hostText(a)} isn't answering; this is its last-known state.`,

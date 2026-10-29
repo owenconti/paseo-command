@@ -13,6 +13,7 @@ function AnswerField({
   focus,
   onChange,
   onRemove,
+  onQuick,
   onKeyDown,
 }: {
   answer: Answer;
@@ -20,6 +21,7 @@ function AnswerField({
   focus: boolean;
   onChange: (value: string) => void;
   onRemove: () => void;
+  onQuick: (value: string) => void;
   onKeyDown: (e: KeyboardEvent<HTMLTextAreaElement>) => void;
 }) {
   const area = useRef<HTMLTextAreaElement>(null);
@@ -56,6 +58,21 @@ function AnswerField({
         onChange={(e) => onChange(e.target.value)}
         onKeyDown={onKeyDown}
       />
+      {answer.options && (
+        <div className="answer-quick" role="group" aria-label="Quick replies">
+          {answer.options.map((value) => (
+            <button
+              key={value}
+              type="button"
+              aria-pressed={answer.answer === value}
+              disabled={disabled}
+              onClick={() => onQuick(value)}
+            >
+              {value}
+            </button>
+          ))}
+        </div>
+      )}
     </li>
   );
 }
@@ -66,6 +83,7 @@ export function AnswerList({
   focusId,
   onChange,
   onRemove,
+  onQuick,
   onKeyDown,
 }: {
   answers: Answer[];
@@ -74,6 +92,7 @@ export function AnswerList({
   focusId: string | null;
   onChange: (id: string, value: string) => void;
   onRemove: (id: string) => void;
+  onQuick: (answer: Answer, value: string) => void;
   onKeyDown: (e: KeyboardEvent<HTMLTextAreaElement>) => void;
 }) {
   return (
@@ -86,6 +105,7 @@ export function AnswerList({
           focus={a.id === focusId}
           onChange={(v) => onChange(a.id, v)}
           onRemove={() => onRemove(a.id)}
+          onQuick={(value) => onQuick(a, value)}
           onKeyDown={onKeyDown}
         />
       ))}

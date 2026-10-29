@@ -92,11 +92,13 @@ import { ForkPill } from "./forks/ForkPill";
 import { ForkPane, ForkPieces } from "./forks/ForkPane";
 import { useReplyForks } from "./forks/useReplyForks";
 import type { ForkRow } from "./forks/api";
+import type { Asks } from "./asks/types";
 
 type Confirm = "archive" | "fresh" | null;
 
 export function Session({
   workingOn,
+  asks,
   agent,
   workspace,
   waiting,
@@ -111,6 +113,8 @@ export function Session({
   position,
 }: {
   workingOn?: WorkSummary;
+  /** What its last reply asks of you, once judged. */
+  asks?: Asks;
   agent: Agent;
   workspace?: Workspace;
   waiting: boolean;
@@ -591,6 +595,7 @@ export function Session({
           promptHistory={promptHistory}
           dropFiles={drop}
           answerQuote={answerQuote}
+          replyAsks={running || waiting ? undefined : asks}
         />
       </footer>
     </div>

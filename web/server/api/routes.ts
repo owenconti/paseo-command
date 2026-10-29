@@ -14,6 +14,7 @@ import {
   sessionSource,
 } from "./agents";
 import { workingOn } from "../workingOn";
+import { replyAsks } from "../asks";
 import {
   concludeFork,
   createFork,
@@ -116,6 +117,9 @@ export async function handleApi(
       }
       if (parts.length === 1) {
         switch (parts[0]) {
+          case "asks":
+            result = replyAsks.status();
+            break;
           case "hosts": {
             await hostRegistry();
             const chips = captureExtras({
@@ -344,6 +348,15 @@ export async function handleApi(
           const client = await sdk(host);
           const source = await agentSnapshot(client, id(parts[1]), host);
           result = await workingOn.request(client, hostKey(host), source);
+        } else if (
+          parts[0] === "agents" &&
+          parts.length === 3 &&
+          parts[2] === "asks"
+        ) {
+          const host = await resolveHost(body.host, "read");
+          const client = await sdk(host);
+          const source = await agentSnapshot(client, id(parts[1]), host);
+          result = replyAsks.request(client, hostKey(host), source);
         } else if (
           parts[0] === "agents" &&
           parts.length === 3 &&

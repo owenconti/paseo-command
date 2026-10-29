@@ -541,6 +541,9 @@ test("current work appears in the running agent tooltip and above its composer, 
   if (process.env.ATLAS_SHOT) await page.screenshot({ path: `${process.env.ATLAS_SHOT}/working-on-mobile.png` });
   status = "idle";
   await waitFor(() => page.locator(".session-working-on").count(), (n) => n === 0, "idle to clear the active summary");
-  assert.ok(requests.every((r) => r.path === "/api/agents/a-running/working-on"));
+  // Idle, it is asked what its reply asks instead (server/asks.ts).
+  assert.ok(
+    requests.every((r) => /^\/api\/agents\/a-running\/(working-on|asks)$/.test(r.path)),
+  );
   await context.close();
 });

@@ -315,7 +315,7 @@ export const PROP_WIDTH: Record<string, number> = {
 const SCENERY = ["planter", "topiary", "flowerbed", "citrus", "crates", "barrels", "spool", "workbench"];
 const PLAZA_SCENERY = 6;
 /** States that light a plaza's beacon: an agent there needs you. */
-const BEACON_STATES: State[] = ["failed", "approval", "question"];
+const BEACON_STATES: State[] = ["failed", "approval", "question", "asking"];
 
 /** A plaza's lamp or beacon, lit by its project's agents (see `lights`). */
 export type Signal = { kind: "lamp" | "beacon"; x: number; y: number; stale: boolean };
@@ -483,7 +483,7 @@ export type Tile = {
   /** Each tile starts at its own point in the cycle, so they never move together. */
   phase: number;
 };
-export const PULSE_MS: Partial<Record<State, number>> = { failed: 1200, approval: 1800, question: 1800, done: 3200 };
+export const PULSE_MS: Partial<Record<State, number>> = { failed: 1200, approval: 1800, question: 1800, asking: 2400, done: 3200 };
 export const RUNNING_LAP_MS = 2200;
 export function tiles(layout: AtlasLayout): Tile[] {
   const out: Tile[] = [];
