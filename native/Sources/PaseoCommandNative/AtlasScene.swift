@@ -226,16 +226,17 @@ final class AtlasScene: SKScene {
             node.position = p(num(f["x"]) + (flagFoot.x - 0.5) * node.size.width, num(f["y"]) + (flagFoot.y - 0.5) * node.size.height)
             node.zPosition = num(f["depth"])
             node.alpha = num(f["alpha"], 1)
-            // Its shadow stands on the same foot, a little down and right, and sways with it.
+            // Its shadow lies on the ground from the pole's foot, cast down and
+            // right away from the light, so the flag reads as planted there.
             if let shadow = shadow(name, width: node.size.width) {
                 shadow.anchorPoint = CGPoint(x: (flagFoot.x + shadowShape.pad) / (1 + 2 * shadowShape.pad),
                                              y: 1 - (flagFoot.y * node.size.height / node.size.width + shadowShape.pad) * node.size.width / shadow.size.height)
-                let fall = shadowFall(node.size.width)
-                shadow.position = CGPoint(x: node.position.x + fall.x, y: node.position.y - fall.y)
+                shadow.position = node.position
+                shadow.yScale = -0.45
+                shadow.zRotation = 0.7
                 shadow.zPosition = node.zPosition - 0.4
-                shadow.alpha = node.alpha
+                shadow.alpha = node.alpha * 0.8
                 structures.addChild(shadow)
-                if f["sway"] as? Bool == true { swaying.append(shadow) }
             }
             structures.addChild(node)
             if f["sway"] as? Bool == true { swaying.append(node) }
@@ -383,6 +384,8 @@ final class AtlasScene: SKScene {
                 let fall = shadowFall(robotSize)
                 shadow.position = CGPoint(x: fall.x, y: -fall.y)
                 shadow.zPosition = -0.5
+                // Lighter than a building's: a robot stands low on its tile.
+                shadow.alpha = 0.5
                 node.addChild(shadow)
             }
             for part in ["body", "hand-l", "hand-r"] {

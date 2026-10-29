@@ -170,7 +170,8 @@ lit while any of the project's agents is running, and a beacon that flares, in t
 when one needs approval, has a question or failed. Props keep off the landmark's art, its name and the kerb.
 Every item (landmarks, cottages, plaza props, lamps and beacons, robots, PR flags) casts a soft drop shadow down and right,
 away from the art's upper-left light: the page paints each frame's `<frame>-shadow` (`shadowOf` in `rendering/src/native/bridge.ts`);
-structures' shadows come as sprites, and Swift places those of lamps, robots (walking with them) and flags (swaying with them).
+structures' shadows come as sprites, and Swift places those of lamps, robots (lighter, walking with them) and PR flags
+(laid on the ground from the pole's foot, down and right, so the flag reads as planted).
 The world is assembled from generated transparent sprite atlases, a terrain texture,
 and a strict axial hex grid. It is not a screenshot used as a background.
 The sea's glints and cloud shadows drift slowly in 15 Hz steps. The world renders on demand: 30 fps for ambient
