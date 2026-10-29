@@ -1,0 +1,72 @@
+/* Beacon Rush */
+.bc-cell polygon {
+  fill: #e8d7a8;
+  stroke: #b89e66;
+  stroke-width: 1;
+}
+.bc-cell.lit {
+  cursor: pointer;
+}
+.bc-cell.lit polygon {
+  fill: #f6e9c4;
+  stroke: #8a6f3c;
+}
+.bc-halo {
+  opacity: 0.55;
+  animation: bc-pulse 520ms ease-in-out infinite alternate;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+.bc-timer {
+  fill: none;
+  stroke-width: 3;
+  stroke-linecap: round;
+  transition: stroke-dasharray 100ms linear;
+}
+.bc-cell.approval .bc-halo {
+  fill: #f0a830;
+}
+.bc-cell.approval .bc-timer {
+  stroke: #c47f0e;
+}
+.bc-cell.question .bc-halo {
+  fill: #4f95e0;
+}
+.bc-cell.question .bc-timer {
+  stroke: #2a6fbf;
+}
+.bc-cell.failure .bc-halo {
+  fill: #e0584a;
+}
+.bc-cell.failure .bc-timer {
+  stroke: #b8382c;
+}
+@keyframes bc-pulse {
+  from {
+    opacity: 0.35;
+    scale: 0.85;
+  }
+  to {
+    opacity: 0.7;
+    scale: 1.05;
+  }
+}
+.bc-start {
+  cursor: pointer;
+}
+.bc-start > rect:first-child {
+  fill: #1d465a66;
+}
+.bc-start-btn {
+  fill: #e9dbb6;
+  stroke: #8a6f3c;
+  stroke-width: 1.5;
+}
+.bc-start:hover .bc-start-btn {
+  fill: #f6e9c4;
+}
+.bc-start text {
+  fill: #4a3a1c;
+  font-size: 16px;
+  font-weight: 700;
+}

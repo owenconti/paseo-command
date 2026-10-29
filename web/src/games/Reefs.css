@@ -1,0 +1,61 @@
+/* Reefs */
+.rf-cell {
+  cursor: pointer;
+}
+.rf-cell polygon {
+  fill: #ffffff2e;
+  stroke: #ffffff5c;
+  stroke-width: 1;
+  transition: fill 120ms;
+}
+.rf-cell:not(.sand):hover > polygon {
+  fill: #ffffff4a;
+  stroke: #ffffffa0;
+}
+.rf-cell.sand {
+  cursor: default;
+}
+.rf-cell.sand > polygon {
+  fill: #e8d7a8;
+  stroke: #b89e66;
+}
+.rf-cell.hit > polygon {
+  fill: #d0563f;
+  stroke: #8e2b1c;
+}
+.rf-n {
+  font-size: 13px;
+  font-weight: 700;
+  pointer-events: none;
+}
+.rf-n.n1 { fill: #2a5fc0; }
+.rf-n.n2 { fill: #2f7d32; }
+.rf-n.n3 { fill: #c0392b; }
+.rf-n.n4 { fill: #1d2f7a; }
+.rf-n.n5 { fill: #7d2222; }
+.rf-n.n6 { fill: #1f7f7a; }
+.rf-foam {
+  fill: #f2fafc;
+  opacity: 0.75;
+}
+.rf-rock {
+  fill: #5a4e44;
+  stroke: #2f2822;
+  stroke-width: 0.8;
+  stroke-linejoin: round;
+}
+.rf-rock.dark {
+  fill: #3e352e;
+}
+.rf-buoy line {
+  stroke: #3a3a3a;
+  stroke-width: 1.2;
+}
+.rf-red {
+  fill: #d23b2a;
+  stroke: #7d1d12;
+  stroke-width: 0.6;
+}
+.rf-white {
+  fill: #fff;
+}

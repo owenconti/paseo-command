@@ -1,0 +1,62 @@
+/* Signal */
+.sg-landmark {
+  fill: #e8d7a8;
+  stroke: #b89e66;
+  stroke-width: 1.5;
+}
+.sg-robot polygon {
+  stroke: #00000033;
+  stroke-width: 1.5;
+  filter: brightness(0.72) saturate(0.8);
+  transition:
+    filter 120ms,
+    stroke 120ms;
+}
+.sg-robot image {
+  opacity: 0.85;
+}
+.sg-robot.open {
+  cursor: pointer;
+}
+.sg-robot.open:hover polygon {
+  filter: brightness(0.85);
+}
+.sg-robot.lit polygon {
+  filter: brightness(1.12) saturate(1.1);
+  stroke: #fff6d6;
+  stroke-width: 4;
+}
+.sg-robot.lit image {
+  opacity: 1;
+}
+.sg-robot.wrong polygon {
+  filter: none;
+  stroke: #d0402f;
+  stroke-width: 4;
+}
+.sg-robot.orange polygon {
+  fill: #e0873a;
+}
+.sg-robot.white polygon {
+  fill: #eeeee8;
+}
+.sg-robot.teal polygon {
+  fill: #48ada3;
+}
+.sg-robot.violet polygon {
+  fill: #9b7fd1;
+}
+.sg-robot.lime polygon {
+  fill: #a9cf57;
+}
+.sg-robot.blue polygon {
+  fill: #5a8fd8;
+}
+/* Two of the six reuse robot art: recoloured to their hex (orange from
+   teal, white from lime). */
+.sg-robot.orange svg {
+  filter: hue-rotate(200deg) saturate(1.3);
+}
+.sg-robot.white svg {
+  filter: grayscale(1) brightness(1.35);
+}

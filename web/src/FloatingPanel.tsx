@@ -18,6 +18,7 @@ import {
 import { readStore, writeStore } from "./api";
 import { CommitsButton } from "./CommitsButton";
 import { ShortcutsButton } from "./ShortcutsButton";
+import { GamesButton } from "./games/GamesButton";
 import { onAppCommand } from "./appCommands";
 import { nativeEvents, postNative } from "./worldBridge";
 import { worldFrame } from "./viewControls";
@@ -254,6 +255,7 @@ export function FloatingPanel(props: Props) {
         )}
         {!state.collapsed && props.tools}
         {!state.collapsed && <CommitsButton />}
+        <GamesButton hidden={state.collapsed} />
         <ShortcutsButton hidden={state.collapsed} />
         {!state.collapsed && (
           <button

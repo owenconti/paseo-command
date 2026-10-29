@@ -1,0 +1,22 @@
+/* Lamplighter */
+.ll-cell {
+  cursor: pointer;
+}
+.ll-cell polygon {
+  fill: #d9c592;
+  stroke: #a88c57;
+  stroke-width: 1;
+  transition: fill 160ms;
+}
+.ll-cell.lit polygon {
+  fill: #f6dc94;
+  stroke: #d39b18;
+}
+.ll-cell.near polygon {
+  stroke: #7a5a26;
+  stroke-width: 2.2;
+}
+.ll-left {
+  margin-left: auto;
+  color: var(--text-mid);
+}

@@ -1,0 +1,240 @@
+/* Mini games (games/): a floating, non-modal window over the map. */
+.games-window {
+  position: fixed;
+  z-index: 55;
+  width: 380px;
+  overflow: hidden;
+  background: var(--panel-raised);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  user-select: none;
+}
+.games-window[hidden] {
+  display: none;
+}
+.games-window header {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 6px 6px 8px;
+  border-bottom: 1px solid var(--line-soft);
+  cursor: grab;
+}
+.games-window header:active {
+  cursor: grabbing;
+}
+.games-title {
+  flex: 1;
+  margin: 0;
+  font-size: var(--fs-md, 15px);
+  font-weight: 600;
+  color: var(--text-strong);
+}
+.games-best {
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+}
+.games-error {
+  margin: 10px 12px 0;
+  font-size: var(--fs-xs);
+  color: var(--danger, #c0533e);
+}
+.games-result {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px 12px;
+  margin-top: -4px;
+  font-size: var(--fs-sm);
+  color: var(--text-strong);
+}
+.games-result .game-btn {
+  margin-left: auto;
+}
+.game-btn.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--on-accent);
+  font-weight: 600;
+  padding: 5px 14px;
+}
+.game-btn.primary:hover {
+  background: var(--accent-hover);
+}
+.game-over .game-board {
+  pointer-events: none;
+}
+.game {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px 12px;
+}
+.game-bar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  font-size: var(--fs-sm);
+  color: var(--text-3);
+}
+.game-bar b {
+  color: var(--text-strong);
+  font-variant-numeric: tabular-nums;
+}
+.game-btn {
+  margin-left: auto;
+  padding: 3px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: var(--fs-xs);
+}
+.game-btn:hover {
+  border-color: var(--line-hover);
+}
+.game-note {
+  min-height: 2.6em;
+  margin: 0;
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+  text-align: center;
+  text-wrap: balance;
+}
+.game-board {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  border-radius: var(--radius-lg);
+}
+.game-board.sea {
+  background: radial-gradient(circle at 50% 45%, #5b9db4, #2f6e8a 75%);
+}
+.game-board.parchment {
+  background: #e9dbb6;
+}
+
+/* Round-up */
+.rc-cell polygon {
+  fill: #e8d7a8;
+  stroke: #b89e66;
+  stroke-width: 1;
+  cursor: pointer;
+  transition: fill 120ms;
+}
+.rc-sea {
+  fill: #ffffff0d;
+  stroke: #ffffff1c;
+}
+.rc-cell:not(.blocked):hover polygon {
+  fill: #f6e9c4;
+  stroke: #8a6f3c;
+}
+.rc-cell.blocked polygon {
+  fill: #c9b17a;
+  cursor: default;
+}
+.rc-moves {
+  color: var(--text-mid);
+}
+.rc-robot {
+  pointer-events: none;
+  transition: transform 220ms cubic-bezier(0.3, 0.7, 0.4, 1);
+}
+.rc-robot.lost {
+  opacity: 0.45;
+}
+.rc-robot.won {
+  animation: rc-cheer 600ms ease-in-out 2;
+}
+@keyframes rc-cheer {
+  50% {
+    translate: 0 -5px;
+  }
+}
+
+/* Clearing */
+.cl-tile {
+  cursor: pointer;
+  transition: transform 260ms cubic-bezier(0.3, 0.7, 0.4, 1);
+}
+.cl-tile polygon {
+  stroke: #9f8653;
+  stroke-width: 1;
+}
+.cl-tile.k0 polygon {
+  fill: #b9d38e;
+}
+.cl-tile.k1 polygon {
+  fill: #e9c784;
+}
+.cl-tile.k2 polygon {
+  fill: #dda08a;
+}
+.cl-tile.k3 polygon {
+  fill: #9cc6d6;
+}
+.cl-tile.lit polygon {
+  stroke: #d39b18;
+  stroke-width: 2.5;
+  filter: brightness(1.08);
+}
+
+/* Shoreline */
+.sh-empty {
+  fill: #ffffff10;
+  stroke: #ffffff22;
+}
+.sh-empty.open {
+  fill: #ffffff2a;
+  stroke: #ffffff70;
+  stroke-dasharray: 3 3;
+  cursor: pointer;
+}
+.sh-meadow {
+  fill: #9fc276;
+  stroke: #6f9450;
+}
+.sh-forest {
+  fill: #6f9a5a;
+  stroke: #4c7440;
+}
+.sh-sand {
+  fill: #e8d39d;
+  stroke: #bfa66a;
+}
+.sh-pond {
+  fill: #79b8cf;
+  stroke: #4d8ea7;
+}
+.sh-wave {
+  fill: none;
+  stroke: #e9f6fa;
+  stroke-width: 1.4;
+  stroke-linecap: round;
+}
+.sh-ghost {
+  opacity: 0.8;
+}
+.sh-ghost text {
+  fill: #fff;
+  paint-order: stroke;
+  stroke: #243c32;
+  stroke-width: 3px;
+  font-size: 13px;
+  font-weight: 700;
+}
+.sh-hand {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+}

@@ -1,0 +1,40 @@
+/* Charging Bays */
+.by-bay {
+  cursor: pointer;
+}
+.by-hit {
+  fill: transparent;
+}
+.by-frame {
+  fill: #e8d7a8;
+  stroke: #8a6f3c;
+  stroke-width: 2;
+  transition: fill 120ms, stroke 120ms;
+}
+.by-bay:hover .by-frame {
+  fill: #f6e9c4;
+}
+.by-bay.open .by-frame {
+  stroke: #d39b18;
+  stroke-width: 3;
+}
+.by-bay.full .by-frame {
+  fill: #f6dc94;
+  stroke: #d39b18;
+}
+.by-rung {
+  stroke: #b89e66;
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+}
+.by-robot {
+  pointer-events: none;
+  transition: transform 220ms cubic-bezier(0.3, 0.7, 0.4, 1);
+}
+.by-robot.up {
+  filter: drop-shadow(0 6px 4px #0005);
+}
+.by-left {
+  margin-left: auto;
+  color: var(--text-mid);
+}

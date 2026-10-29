@@ -14,6 +14,7 @@ import {
   sessionSource,
 } from "./agents";
 import { workingOn } from "../workingOn";
+import { finishGame, gamesRecord, nextGame, saveGameState } from "../games";
 import { draftGet } from "./drafts";
 import { createTerminal, killTerminal, listTerminals } from "./terminals";
 import {
@@ -88,6 +89,9 @@ export async function handleApi(
       return reply(400, { error: "Unexpected parameters" });
     return reply(200, await commitsRoute(url.searchParams.get("since")));
   }
+  // The mini games' record: this app's own file, never the daemon.
+  if (url.pathname === "/api/games" || url.pathname.startsWith("/api/games/"))
+    return gamesRoute(req, url.pathname, reply);
   startLive();
   try {
     const parts = url.pathname.split("/").filter(Boolean).slice(1);
@@ -361,4 +365,24 @@ async function settleChange(changed: Changed | undefined) {
   if (keys.length)
     invalidate(hostKey(changed.host), changed.host?.target, keys);
   await settle(hostKey(changed.host));
+}
+
+async function gamesRoute(
+  req: IncomingMessage,
+  path: string,
+  reply: ReturnType<typeof replier>,
+) {
+  try {
+    if (req.method === "GET" && path === "/api/games") return reply(200, gamesRecord());
+    if (req.method !== "POST") return reply(405, { error: "Method not allowed" });
+    if (!req.headers["content-type"]?.startsWith("application/json"))
+      return reply(415, { error: "JSON required" });
+    const body = await bodyOf(req, 256 * 1024);
+    if (path === "/api/games/state") return reply(200, saveGameState(body));
+    if (path === "/api/games/finish") return reply(200, finishGame(body));
+    if (path === "/api/games/next") return reply(200, nextGame());
+    return reply(404, { error: "Unknown endpoint" });
+  } catch (error) {
+    reply(400, { error: errorText(error) });
+  }
 }

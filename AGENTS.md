@@ -113,6 +113,10 @@ Local assets belong in the repository and are included through local build tooli
   pasted GitHub repo into it (`web/server/api/projects.ts`); New agent then opens on the new project.
 - `web/src/urlState.ts`: the panel's place (selection, subagent, tab, filter, host filter, list toggle) kept in
   the page's query, so a refresh returns there; a new selection pushes history, other changes replace it.
+- `web/src/games/`: the panel header's mini games (gamepad button), a floating non-modal window with one game dealt at
+  random by the server (`web/server/games.ts`, `/api/games`): no choosing or restarting, the next game only once it ends.
+  Progress and each game's best score are kept in the data directory's `games.json`. Games implement `types.tsx`'s
+  `GameDef` (plain JSON state) and are listed in `catalog.ts` and `registry.ts`.
 
 ## Atlas world
 

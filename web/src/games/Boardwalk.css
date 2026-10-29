@@ -1,0 +1,76 @@
+/* Boardwalk */
+.bw-cell {
+  cursor: pointer;
+}
+.bw-cell > polygon {
+  fill: #ffffff14;
+  stroke: #ffffff2a;
+  stroke-width: 1;
+  transition: fill 120ms;
+}
+.bw-cell:hover > polygon {
+  fill: #ffffff2a;
+  stroke: #ffffff60;
+}
+.bw-cell.still {
+  cursor: default;
+}
+.bw-turn {
+  transition: transform 200ms cubic-bezier(0.3, 0.7, 0.4, 1);
+}
+.bw-edge {
+  stroke: #5e4127;
+  stroke-width: 12;
+}
+.bw-plank {
+  stroke: #b98c5a;
+  stroke-width: 9;
+  transition: stroke 160ms;
+}
+.bw-seam {
+  stroke: #7d5a36;
+  stroke-width: 9;
+  stroke-dasharray: 1.2 5;
+}
+.bw-hub {
+  fill: #b98c5a;
+  stroke: #5e4127;
+  stroke-width: 1.5;
+  transition: fill 160ms;
+}
+.bw-cell.lit .bw-plank,
+.bw-cell.lit .bw-hub {
+  stroke: #f2c56b;
+  fill: #f2c56b;
+}
+.bw-cell.lit .bw-hub {
+  stroke: #8a5a1c;
+}
+.bw-cell.lit .bw-edge {
+  stroke: #8a5a1c;
+}
+.bw-flag {
+  fill: #d8cfb9;
+  stroke: #8f8470;
+  stroke-width: 1.2;
+}
+.bw-cottage {
+  pointer-events: none;
+}
+.bw-cottage rect {
+  fill: #efe1bd;
+  stroke: #6b5232;
+  stroke-width: 1;
+}
+.bw-cottage polygon {
+  fill: #b5583e;
+  stroke: #6b3a2a;
+  stroke-width: 1;
+}
+.bw-cottage .bw-door {
+  fill: #6b5232;
+}
+.bw-left {
+  margin-left: auto;
+  color: var(--text-mid);
+}
