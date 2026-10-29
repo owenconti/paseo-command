@@ -330,8 +330,10 @@ function pickArt(arts: string[], key: string, used: Map<string, number>) {
  * masses need a channel of sea between them). */
 const ISLAND_GAP = 1;
 const HOST_GAP = 3;
+/** A–Z, ignoring case and reading numbers whole, as the panel's lists do. */
+const names = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" });
 const byName = <T extends { name: string; key: string }>(a: T, b: T) =>
-  a.name.localeCompare(b.name) || a.key.localeCompare(b.key);
+  names.compare(a.name, b.name) || a.key.localeCompare(b.key);
 const scale = (a: Axial, k: number) => ({ q: a.q * k, r: a.r * k });
 const xOf = (a: Axial) => a.q + a.r / 2;
 export const campKey = (host: string, project: string) =>

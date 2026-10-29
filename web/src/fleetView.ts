@@ -1,6 +1,6 @@
 import { projectKey, workspaceKey } from "./workspaces";
 import { hostText, placeText } from "./names";
-import type { Agent, Project, Workspace } from "./types";
+import type { Agent, Host, Project, Workspace } from "./types";
 import { isArchived, isFailed, isWorking } from "./types";
 
 export type Filter = "all" | "attention" | "unread" | "running" | "idle";
@@ -196,6 +196,29 @@ const names = new Intl.Collator(undefined, {
   numeric: true,
   sensitivity: "base",
 });
+
+/** Hosts as the map lays them out: this Mac first, then A–Z. */
+export const hostOrder = (a: Host, b: Host) =>
+  Number(!!b.local) - Number(!!a.local) ||
+  names.compare(hostText(a), hostText(b));
+
+const hostOf = (p: { host?: string; hostLabel?: string }) =>
+  p.host ? hostText(p) : "";
+
+/** Projects A–Z (as the map orders each host's islands), then by host. */
+export const projectOrder = (a: Project, b: Project) =>
+  names.compare(placeText(a.name, "Project"), placeText(b.name, "Project")) ||
+  names.compare(hostOf(a), hostOf(b));
+
+/** Workspaces A–Z by their shown name (as the map orders cottages), then by
+ * project and host. */
+export const workspaceOrder = (a: Workspace, b: Workspace) =>
+  names.compare(
+    placeText(a.name || a.branch, "Workspace"),
+    placeText(b.name || b.branch, "Workspace"),
+  ) ||
+  names.compare(placeText(a.project), placeText(b.project)) ||
+  names.compare(hostOf(a), hostOf(b));
 
 /** Compares agents for an ordering; ties fall back to recency, then name, then ID. */
 export function agentOrder(order: OrderBy, ctx: Context) {

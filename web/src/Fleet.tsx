@@ -47,6 +47,9 @@ import {
   DEFAULT_VIEW,
   GROUPS,
   ORDERS,
+  hostOrder,
+  projectOrder,
+  workspaceOrder,
   needsAttention,
   sanitizeView,
   showHosts,
@@ -461,8 +464,12 @@ export function Fleet({
             agents: g.agents.filter((a) => onHost(a, hostFilter)),
           }))
           .filter((g) => g.agents.length);
-  const workspaces = allWorkspaces.filter((w) => onHost(w, hostFilter));
-  const projects = allProjects.filter((p) => onHost(p, hostFilter));
+  const workspaces = allWorkspaces
+    .filter((w) => onHost(w, hostFilter))
+    .sort(workspaceOrder);
+  const projects = allProjects
+    .filter((p) => onHost(p, hostFilter))
+    .sort(projectOrder);
   const counts = (() => {
     if (hostFilter === null) return allCounts;
     const here = agents.filter((a) => onHost(a, hostFilter));
@@ -478,11 +485,7 @@ export function Fleet({
       idle: here.filter((a) => !isWorking(a) && !fresh(a) && !asks(a)).length,
     };
   })();
-  const sortedHosts = [...hosts].sort(
-    (a, b) =>
-      Number(b.local) - Number(a.local) ||
-      Number(hostState(b) !== "online") - Number(hostState(a) !== "online"),
-  );
+  const sortedHosts = [...hosts].sort(hostOrder);
   const chooseHost = (h: Host) => {
     const id = hostId(h);
     setHostFilter(hostFilter === id ? null : id);
