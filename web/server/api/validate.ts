@@ -3,6 +3,7 @@ import {
   behavior as validBehavior,
   images as validImages,
 } from "../daemon";
+import { AGENT_SYSTEM_PROMPT } from "../agentPrompt";
 import { providerAndModel } from "../rows";
 
 /** A request body: a JSON object, its fields not yet validated. */
@@ -183,6 +184,7 @@ export type DispatchPlan = {
     modeId?: string;
     title?: string;
     initialPrompt: string;
+    systemPrompt: string;
     images?: { data: string; mimeType: string }[];
   };
 };
@@ -250,6 +252,7 @@ export function dispatchPlan(
       ...(present(body.mode) ? { modeId: option(body.mode, "mode") } : {}),
       ...(present(body.title) ? { title: text(body.title, "title", 200) } : {}),
       initialPrompt: prompt,
+      systemPrompt: AGENT_SYSTEM_PROMPT,
       ...(imgs?.length ? { images: imgs } : {}),
     },
   };

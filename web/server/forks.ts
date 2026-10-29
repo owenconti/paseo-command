@@ -16,6 +16,7 @@ import {
   type Fork,
   type Quote,
 } from "../src/forks/types";
+import { AGENT_SYSTEM_PROMPT } from "./agentPrompt";
 import { agentSnapshot, type AgentRecord } from "./api/agents";
 import { timed, type DaemonClient, type Remote } from "./api/hosts";
 import { MAX_PROMPT } from "./api/validate";
@@ -205,6 +206,7 @@ export async function createFork(
       labels: { [FORK_LABEL]: id },
       attachments: [context.attachment],
       initialPrompt: firstPrompt(quotes, question),
+      systemPrompt: AGENT_SYSTEM_PROMPT,
     }),
     TUNING.writeMs,
   );
