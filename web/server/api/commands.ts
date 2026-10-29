@@ -7,6 +7,7 @@ import {
   permissionResponse,
 } from "../daemon";
 import { TUNING } from "../fleet";
+import { archiveForkHelpers, forkHost } from "../forks";
 import { feedOf } from "../live";
 import { redactText } from "../redact";
 import { agentSnapshot } from "./agents";
@@ -138,6 +139,7 @@ async function agentPost(
       const refused = (Object(r) as { error?: unknown }).error;
       if (refused) throw new Error(redactText(String(refused)));
       feedOf(hostKey(host))?.exclude(agentId);
+      await archiveForkHelpers(client, forkHost(body.host), agentId);
       return { agentId, status: "archived", archivedAt: r?.archivedAt ?? null };
     }
     case "mode": {

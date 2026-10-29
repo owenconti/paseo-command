@@ -132,6 +132,13 @@ export class FakeDaemon {
   duplicateEvents = false;
   /** Refuse new connections. */
   down = false;
+  /** The handshake's feature flags. */
+  features: Record<string, boolean> = {
+    agentForkContext: true,
+    agentForkContextCursor: true,
+  };
+  /** What an agent's next finished turn says (waitForFinish's lastMessage). */
+  replies = new Map<string, string>();
   providers = [
     {
       provider: "claude",
@@ -843,7 +850,9 @@ export class FakeClient {
   }
   /** The handshake's server info, once connected (as the SDK). */
   getLastServerInfoMessage() {
-    return this.connected ? { serverId: this.daemon.serverId } : null;
+    return this.connected
+      ? { serverId: this.daemon.serverId, features: { ...this.daemon.features } }
+      : null;
   }
 
   /** Log a call, apply its knob, and fail when the connection drops meanwhile. */
@@ -1413,6 +1422,44 @@ export class FakeClient {
     });
     return {};
   }
+  /** The conversation up to a message (or a timeline position), as text. */
+  async buildAgentForkContext(agentId: string, options: any = {}) {
+    await this.gate("buildAgentForkContext", agentId, options);
+    this.agent(agentId);
+    const rows = this.daemon.timelines.get(agentId) ?? [];
+    const lines: string[] = [];
+    for (const row of rows) {
+      const it = row.item;
+      if (it.type === "user_message" || it.type === "assistant_message")
+        lines.push(`${it.type === "user_message" ? "User" : "Assistant"}: ${it.text}`);
+      if (options.boundaryMessageId && it.messageId === options.boundaryMessageId) break;
+      if (options.boundaryCursor && row.seqStart >= options.boundaryCursor.seq) break;
+    }
+    return {
+      requestId: "fork-ctx",
+      agentId,
+      attachment: {
+        type: "text",
+        mimeType: "text/plain",
+        contextKind: "chat_history",
+        title: "Conversation",
+        text: lines.join("\n"),
+      },
+      error: null,
+    };
+  }
+  /** A turn's end: idle, with the reply the test set in `replies`. */
+  async waitForFinish(agentId: string, _timeout?: number) {
+    await this.gate("waitForFinish", agentId);
+    this.agent(agentId);
+    const final = this.daemon.touch(agentId, { status: "idle" });
+    return {
+      status: "idle",
+      final,
+      error: null,
+      lastMessage: this.daemon.replies.get(agentId) ?? null,
+    };
+  }
   sendAgentMessage(agentId: string, text: string, options: any = {}) {
     return this.sendMessage(agentId, text, options);
   }
@@ -1579,6 +1626,8 @@ export class FakeClient {
       thinkingOptionId: options.thinkingOptionId ?? null,
       labels: options.labels ?? {},
       initialPrompt: options.initialPrompt,
+      attachments: options.attachments,
+      callerAgentId: options.callerAgentId,
       createdAt: iso(),
     });
     if (options.idempotencyKey)

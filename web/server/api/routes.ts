@@ -14,6 +14,15 @@ import {
   sessionSource,
 } from "./agents";
 import { workingOn } from "../workingOn";
+import {
+  concludeFork,
+  createFork,
+  forkHost,
+  forkOf,
+  forkSupport,
+  listForks,
+  markFork,
+} from "../forks";
 import { finishGame, gamesRecord, nextGame, saveGameState } from "../games";
 import { draftGet } from "./drafts";
 import { createTerminal, killTerminal, listTerminals } from "./terminals";
@@ -236,6 +245,18 @@ export async function handleApi(
       ) {
         const host = await resolveHost(url.searchParams.get("host"));
         result = await subagentTimeline(id(parts[1]), id(parts[3]), host, url);
+      } else if (
+        parts[0] === "agents" &&
+        parts.length === 3 &&
+        parts[2] === "forks"
+      ) {
+        const agentId = id(parts[1]);
+        const raw = url.searchParams.get("host");
+        const host = await resolveHost(raw);
+        result = {
+          supported: forkSupport(await sdk(host)).supported,
+          forks: listForks(forkHost(raw), agentId),
+        };
       } else if (parts[0] === "agents" && parts.length === 2) {
         const target = id(parts[1]);
         try {
@@ -317,6 +338,22 @@ export async function handleApi(
           const client = await sdk(host);
           const source = await agentSnapshot(client, id(parts[1]), host);
           result = await workingOn.request(client, hostKey(host), source);
+        } else if (
+          parts[0] === "agents" &&
+          parts.length === 3 &&
+          parts[2] === "forks"
+        ) {
+          const host = await resolveHost(body.host, "write");
+          result = await createFork(await sdk(host), host, id(parts[1]), body);
+        } else if (parts[0] === "forks" && parts.length === 3) {
+          const fork = forkOf(id(parts[1]));
+          const action = parts[2];
+          if (action === "conclude") {
+            const host = await resolveHost(fork.host, "write");
+            result = await concludeFork(await sdk(host), fork);
+          } else if (action === "close" || action === "reopen" || action === "sent")
+            result = markFork(fork, action);
+          else return reply(404, { error: "Unknown endpoint" });
         } else if (agentAction)
           result = await agentCommand(parts[2], parts[1], body, mark);
         else if (
