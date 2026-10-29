@@ -9,6 +9,8 @@ import { hostQuery } from "./types";
 import { projectKey, workspaceKey } from "./workspaces";
 import { hostText, placeText } from "./names";
 import { plainText } from "./ui";
+import { rovingKeyDown } from "./focus";
+import { randomBranchName } from "./branchName";
 
 /** As many images as the daemon takes with a prompt. */
 const MAX_IMAGES = 10;
@@ -26,9 +28,17 @@ export type DispatchTarget = {
   workspaceId?: string;
   settings?: DraftSettings;
 };
+/** Where a project agent runs: its checkout, or a new worktree and branch. */
+type Isolation = "local" | "worktree";
+const ISOLATIONS: [Isolation, string, string][] = [
+  ["local", "Local", "Run directly in the project checkout, on its current branch"],
+  ["worktree", "Worktree", "Create a new worktree on a new, randomly named branch"],
+];
+
 type Prefs = {
   target?: string;
   provider?: string;
+  isolation?: Isolation;
   byProvider?: Record<
     string,
     { model?: string; thinking?: string; mode?: string }
@@ -186,6 +196,11 @@ export function NewAgent({
   const [thinking, setThinking] = useState("");
   const [mode, setMode] = useState("");
   const [models, setModels] = useState<Model[]>([]);
+  const [isolation, setIsolation] = useState<Isolation>(
+    prefs.isolation === "worktree" ? "worktree" : "local",
+  );
+  // Worktree mode needs no typing: an empty branch takes this name.
+  const [suggested] = useState(randomBranchName);
   const [branch, setBranch] = useState("");
   const [base, setBase] = useState("");
   const [error, setError] = useState("");
@@ -288,8 +303,8 @@ export function NewAgent({
       body.images = message.images
         .slice(0, MAX_IMAGES)
         .map(({ data, mimeType }) => ({ data, mimeType }));
-    if (project && branch.trim()) {
-      body.branch = branch.trim();
+    if (project && isolation === "worktree") {
+      body.branch = branch.trim() || suggested;
       if (base.trim()) body.base = base.trim();
     }
     if (host) body.host = host;
@@ -304,6 +319,7 @@ export function NewAgent({
       writeStore("dispatch", {
         target,
         provider,
+        isolation,
         byProvider: {
           ...prefs.byProvider,
           [provider]: { model, thinking, mode },
@@ -482,17 +498,40 @@ export function NewAgent({
             </select>
           </label>
           {project && (
+            <div
+              className="filter-chips new-agent-isolation"
+              role="radiogroup"
+              aria-label="Where in the project it runs"
+              onKeyDown={(e) =>
+                rovingKeyDown(e, (i) => setIsolation(ISOLATIONS[i][0]))
+              }
+            >
+              {ISOLATIONS.map(([m, label, hint]) => (
+                <button
+                  key={m}
+                  role="radio"
+                  aria-checked={isolation === m}
+                  tabIndex={isolation === m ? 0 : -1}
+                  aria-description={hint}
+                  onClick={() => setIsolation(m)}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          )}
+          {project && isolation === "worktree" && (
             <>
               <label>
                 <span>
-                  New branch <em>optional</em>
+                  Branch <em>optional</em>
                 </span>
                 <input
                   {...plainText}
-                  aria-description="Optional: a new branch, so it works in its own worktree"
+                  aria-description="The new branch and worktree name; left empty, it takes the suggested random name"
                   value={branch}
                   onChange={(e) => setBranch(e.target.value)}
-                  placeholder="feature/my-task"
+                  placeholder={suggested}
                   maxLength={150}
                 />
               </label>
@@ -507,7 +546,6 @@ export function NewAgent({
                   onChange={(e) => setBase(e.target.value)}
                   placeholder="origin/main"
                   maxLength={150}
-                  disabled={!branch.trim()}
                 />
               </label>
             </>
@@ -516,9 +554,9 @@ export function NewAgent({
             <GitBranch size={13} />
             {workspace
               ? `Runs inside “${placeText(workspace.name, "this workspace")}” alongside its existing agents.`
-              : branch.trim()
-                ? "Creates an isolated worktree on a new branch."
-                : "Runs in the project checkout. Add a branch to isolate it in a worktree."}
+              : isolation === "worktree"
+                ? `Creates a new worktree on branch “${branch.trim() || suggested}”.`
+                : "Runs directly in the project checkout, on its current branch."}
           </p>
         </div>
       </header>

@@ -1057,7 +1057,7 @@
   padding: 0 var(--space-2);
   font-size: var(--fs-sm);
 }
-.new-agent-form .form-hint {
+.new-agent-form :is(.form-hint, .new-agent-isolation) {
   grid-column: 1 / -1;
   margin: 0;
 }

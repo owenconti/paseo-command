@@ -111,3 +111,44 @@ test("a new agent's composer offers the folder's /skills before it exists", asyn
   assert.equal(url.searchParams.get("model"), "opus");
   await context.close();
 });
+
+test("Local runs in the checkout; Worktree names a new branch itself", async () => {
+  const context = await newContext(browser);
+  const page = await context.newPage();
+  const dispatched: any[] = [];
+  await mockApi(page, {
+    agents: () => [],
+    projects: () => [
+      { projectId: "prj_atlas", name: "atlas", kind: "git", path: "/work/atlas" },
+    ],
+    accept: (path, body) => {
+      if (path !== "/api/dispatch") return false;
+      dispatched.push(body);
+      return { agentId: "a-new" };
+    },
+  });
+  const send = async (text: string) => {
+    await page.goto(app.url);
+    await page.locator("body").press("d");
+    await page.locator(".new-agent #composer").fill(text);
+    return page.locator(".new-agent");
+  };
+  // Local is the default: no branch is sent.
+  let view = await send("In the checkout");
+  assert.equal(await view.getByRole("radio", { name: "Local" }).getAttribute("aria-checked"), "true");
+  await view.getByRole("button", { name: "Send message" }).click();
+  await waitFor(() => Promise.resolve(dispatched.length), (n) => n === 1, "the local dispatch");
+  assert.equal(dispatched[0].branch, undefined);
+  assert.equal(dispatched[0].projectId, "prj_atlas");
+  // Worktree with nothing typed: a generated branch, and the choice is kept.
+  view = await send("In a worktree");
+  await view.getByRole("radio", { name: "Worktree" }).click();
+  const suggested = await view.locator("input[placeholder]").first().getAttribute("placeholder");
+  await view.getByRole("button", { name: "Send message" }).click();
+  await waitFor(() => Promise.resolve(dispatched.length), (n) => n === 2, "the worktree dispatch");
+  assert.match(dispatched[1].branch, /^[a-z]+-[a-z]+-[0-9a-f]{4}$/);
+  assert.equal(dispatched[1].branch, suggested);
+  view = await send("Kept");
+  assert.equal(await view.getByRole("radio", { name: "Worktree" }).getAttribute("aria-checked"), "true");
+  await context.close();
+});
