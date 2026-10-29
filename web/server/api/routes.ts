@@ -20,6 +20,7 @@ import {
   forkHost,
   forkOf,
   forkSupport,
+  forksWithState,
   listForks,
   markFork,
 } from "../forks";
@@ -253,9 +254,14 @@ export async function handleApi(
         const agentId = id(parts[1]);
         const raw = url.searchParams.get("host");
         const host = await resolveHost(raw);
+        const client = await sdk(host);
         result = {
-          supported: forkSupport(await sdk(host)).supported,
-          forks: listForks(forkHost(raw), agentId),
+          supported: forkSupport(client).supported,
+          forks: await forksWithState(
+            client,
+            host,
+            listForks(forkHost(raw), agentId),
+          ),
         };
       } else if (parts[0] === "agents" && parts.length === 2) {
         const target = id(parts[1]);

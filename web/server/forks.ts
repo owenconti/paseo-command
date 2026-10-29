@@ -267,3 +267,27 @@ export async function archiveForkHelpers(
       .then(() => client.archiveAgent(fork.helperId))
       .catch(() => {});
 }
+
+/** The forks, each with whether its helper is answering or waiting on a
+ *  request (a helper that can't be read is neither). */
+export async function forksWithState(
+  client: DaemonClient,
+  host: Remote | undefined,
+  forks: Fork[],
+) {
+  return Promise.all(
+    forks.map(async (fork) => {
+      const helper = await agentSnapshot(client, fork.helperId, host).catch(
+        () => null,
+      );
+      return {
+        ...fork,
+        running: /running|starting|initializing/.test(String(helper?.status ?? "")),
+        waiting: Boolean(
+          Array.isArray(helper?.pendingPermissions) &&
+            helper.pendingPermissions.length,
+        ),
+      };
+    }),
+  );
+}

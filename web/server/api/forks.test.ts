@@ -175,3 +175,19 @@ test("create: a position without an epoch is cut in the conversation's current e
   const ctx = local.calls.find((c) => c.method === "buildAgentForkContext");
   assert.deepEqual(ctx?.args, [main, { boundaryCursor: { epoch: local.epoch, seq: 2 } }]);
 });
+
+test("list: each fork says whether its helper is answering or waiting on a request", async () => {
+  const main = mainAgent();
+  const fork = (await post(`agents/${main}/forks`, { question: "Q", quotes, boundary: { messageId: "r1" } })).data;
+  let listed = await get(`agents/${main}/forks`);
+  assert.equal(listed.data.forks[0].running, true);
+  assert.equal(listed.data.forks[0].waiting, false);
+  local.touch(fork.helperId, {
+    status: "idle",
+    pendingPermissions: [{ id: "p1", name: "Bash", kind: "tool" }],
+  });
+  await new Promise((r) => setTimeout(r, 1100));
+  listed = await get(`agents/${main}/forks`);
+  assert.equal(listed.data.forks[0].running, false);
+  assert.equal(listed.data.forks[0].waiting, true);
+});
