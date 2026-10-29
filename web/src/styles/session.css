@@ -1275,7 +1275,8 @@
   align-items: center;
   justify-content: space-between;
 }
-.presets-setting > span {
+/* A setting's name above its note (Questions in replies, Preset prompts). */
+.linear-setting > span {
   display: flex;
   flex-direction: column;
   gap: 2px;
