@@ -124,7 +124,7 @@ Local assets belong in the repository and are included through local build tooli
   pasted GitHub repo into it (`web/server/api/projects.ts`); New agent then opens on the new project.
 - `web/server/asks.ts`: what an idle agent's last reply asks of you, judged once per reply by TypeSafe's Jev
   (`TYPESAFE_API_KEY`, else `typesafeApiKey` in the data directory's `secrets.json`): code splits the reply into
-  sentences (`web/src/asks/sentences.ts`), Jev judges which ask you, their kind, a pick's options, and whether
+  sentences and keeps only questions and requests (`web/src/asks/sentences.ts`, `mayAsk`), Jev judges which ask you, their kind, a pick's options, and whether
   the reply waits on you. `POST /api/agents/:id/asks`, `GET /api/asks` (status). The composer offers the questions
   (`web/src/composer/AskStrip.tsx`) with quick replies; a reply that waits on you is the map's `asking` state
   and counts as needing you.

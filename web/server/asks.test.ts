@@ -34,6 +34,22 @@ test("a reply's questions, their kinds and a pick's options", async () => {
   ]);
   // One request for the sentences, one for the pick's options.
   assert.equal(calls.length, 2);
+  // The statement was never put to Jev.
+  const asked = Object.keys((calls[0] as { questions: object }).questions);
+  assert.ok(!asked.includes("ask_0"));
+});
+
+test("a statement leading into a question isn't offered as one, however Jev reads it", async () => {
+  const yes: Judge = async (req) => ({
+    answers: Object.fromEntries(
+      Object.keys(req.questions).map((n) => [n, n.startsWith("kind_") ? { choice: "yes_no" } : { noul: 0.95 }]),
+    ),
+  });
+  const asks = await judgeReply(
+    yes,
+    "That work touches the same files as the open PR #3, and its Sentry check is still waiting on it. Can you merge PR #3 first?",
+  );
+  assert.deepEqual(asks.questions.map((q) => q.text), ["Can you merge PR #3 first?"]);
 });
 
 const record = (over: Record<string, unknown> = {}) => ({

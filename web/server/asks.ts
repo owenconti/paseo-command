@@ -18,7 +18,7 @@ import {
 } from "@typesafe-ai/sdk";
 import type { DaemonClient } from "./api/hosts";
 import { NO_ASKS, type AskKind, type Asks, type ReplyQuestion } from "../src/asks/types";
-import { optionReadings, replySentences } from "../src/asks/sentences";
+import { mayAsk, optionReadings, replySentences } from "../src/asks/sentences";
 import { FORK_LABEL } from "../src/forks/types";
 import { fromTimeline } from "../src/transcript";
 import { timelineWindow } from "./daemon";
@@ -74,7 +74,7 @@ const asks = (i: number) =>
     criteria: {
       true: "The user needs to reply to it, e.g. \"Should the cache be per-host or global?\" or \"Let me know which file you meant.\"",
       false:
-        "A statement, a heading, a rhetorical question, or a question the agent answers itself.",
+        "A statement, even one giving the context or reason for a question next to it (\"That touches the same files as PR #3.\"); a heading; a rhetorical question; or a question the agent answers itself.",
     },
   }) as const;
 const kind = (i: number) =>
@@ -88,14 +88,16 @@ const kind = (i: number) =>
     },
   }) as const;
 
-/** Judge a reply's questions: one request per twenty sentences, then one
- *  more for the options of any picks. */
+/** Judge a reply's questions: one request per twenty sentences that may
+ *  ask anything (`mayAsk`), then one more for the options of any picks. */
 export async function judgeReply(judge: Judge, reply: string): Promise<Omit<Asks, "pending">> {
   const sentences = replySentences(reply);
   const state = { reply: reply.slice(-6000), sentences };
+  // Statements never ask; Jev judges only the sentences that might.
+  const candidates = sentences.flatMap((s, i) => (mayAsk(s) ? [i] : []));
   const chunks: number[][] = [];
-  for (let i = 0; i < sentences.length; i += PER_REQUEST)
-    chunks.push(sentences.slice(i, i + PER_REQUEST).map((_, j) => i + j));
+  for (let i = 0; i < candidates.length; i += PER_REQUEST)
+    chunks.push(candidates.slice(i, i + PER_REQUEST));
   if (!chunks.length) chunks.push([]);
   const answers = Object.assign(
     {},

@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { optionReadings, replySentences } from "./sentences";
+import { mayAsk, optionReadings, replySentences } from "./sentences";
 
 test("sentences and list items, without code or marks", () => {
   assert.deepEqual(
@@ -32,4 +32,16 @@ test("option readings take the first option at each length", () => {
     "an in-memory map",
   ]);
   assert.deepEqual(optionReadings("Shall I continue?"), []);
+});
+
+test("only questions and requests may ask the user anything", () => {
+  assert.equal(mayAsk("Can you merge PR #3 first?"), true);
+  assert.equal(mayAsk("Should I keep going?)"), true);
+  assert.equal(mayAsk("Let me know which file you meant."), true);
+  assert.equal(mayAsk("Please confirm the host name."), true);
+  assert.equal(
+    mayAsk("That work touches the same files as the open PR #3, and its Sentry check is still waiting on it."),
+    false,
+  );
+  assert.equal(mayAsk("I'll fix that alongside the next change."), false);
 });

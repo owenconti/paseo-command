@@ -28,6 +28,17 @@ export function replySentences(reply: string, max = 40): string[] {
   return out.slice(-max);
 }
 
+/** Phrasings that ask the user something without a question mark. */
+const REQUEST =
+  /\b(let me know|tell me|please|confirm|approve|i need (you|your)|you('ll| will)? need to|can you|could you|would you|do you want|shall i|should i|whether you|your call|up to you|if you('d| would) (like|prefer|rather))\b/i;
+
+/** Whether a sentence can ask the user anything: a question, or a request
+ *  ("Let me know which file you meant."). Statements, however much they
+ *  lead into a question, never do; only these go to the decision model. */
+export function mayAsk(sentence: string): boolean {
+  return /\?["'”’)\]]*$/.test(sentence) || REQUEST.test(sentence);
+}
+
 /** Markdown emphasis, code and link marks removed. */
 export function plain(s: string): string {
   return s
