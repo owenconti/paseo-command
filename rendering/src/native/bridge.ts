@@ -118,6 +118,41 @@ function tinted(canvas: HTMLCanvasElement, tint: number): HTMLCanvasElement {
   ctx.putImageData(image, 0, 0);
   return copy;
 }
+/** A structure's or prop's soft drop shadow: its silhouette, blurred by
+ * `blur` and padded by `pad` (shares of its width) on every side. It falls
+ * down and right, away from the art's upper-left light, by `offset` (a share
+ * of the sprite's display width). */
+const SHADOW = { pad: 0.08, blur: 0.03, alpha: 0.42, offset: { x: 0.035, y: 0.05 } };
+function shadowOf(canvas: HTMLCanvasElement): HTMLCanvasElement {
+  const pad = Math.ceil(canvas.width * SHADOW.pad);
+  const silhouette = document.createElement("canvas");
+  silhouette.width = canvas.width;
+  silhouette.height = canvas.height;
+  const s = silhouette.getContext("2d")!;
+  s.drawImage(canvas, 0, 0);
+  s.globalCompositeOperation = "source-in";
+  s.fillStyle = "rgb(24,18,10)";
+  s.fillRect(0, 0, canvas.width, canvas.height);
+  const copy = document.createElement("canvas");
+  copy.width = canvas.width + pad * 2;
+  copy.height = canvas.height + pad * 2;
+  const ctx = copy.getContext("2d")!;
+  // Blurred by stacking faint copies over a disc (WebKit's canvas has no
+  // filter, and ignores shadowBlur here).
+  const radius = canvas.width * SHADOW.blur,
+    samples: [number, number][] = [[0, 0]];
+  for (const ring of [0.5, 1])
+    for (let i = 0; i < 8; i++) {
+      const a = (i / 8) * Math.PI * 2 + ring;
+      samples.push([Math.cos(a) * radius * ring, Math.sin(a) * radius * ring]);
+    }
+  ctx.globalAlpha = (SHADOW.alpha * 2.2) / samples.length;
+  for (const [dx, dy] of samples) ctx.drawImage(silhouette, pad + dx, pad + dy);
+  return copy;
+}
+/** Whether a frame is a structure or plaza prop, which cast shadows. */
+const casts = (name: string) => !/^(robot-|flag-|lamp|beacon|trees$|shrub$|rocks$)/.test(name);
+
 /** An offline robot's grey (see AtlasScene's `agent`). */
 const OFFLINE_TINT = 0x9c9a92;
 
@@ -454,15 +489,28 @@ export function mountNativeAtlas(parent: HTMLElement, handlers: AtlasHandlers = 
         depth: piece.depth,
         alpha: piece.alpha ?? 1,
       })),
-      sprites: sprites.map((s) => ({
-        frame: frameName(s.frame),
-        x: s.x,
-        y: s.y,
-        width: s.width,
-        depth: s.depth,
-        alpha: s.alpha,
-        flipX: s.flipX,
-      })),
+      sprites: sprites.flatMap((s) => {
+        const sprite = {
+          frame: frameName(s.frame),
+          x: s.x,
+          y: s.y,
+          width: s.width,
+          depth: s.depth,
+          alpha: s.alpha,
+          flipX: s.flipX,
+        };
+        if (!casts(sprite.frame)) return [sprite];
+        // Its shadow, just beneath it, padded as `shadowOf` pads it.
+        const shadow = {
+          ...sprite,
+          frame: `${sprite.frame}-shadow`,
+          x: s.x + s.width * SHADOW.offset.x,
+          y: s.y + s.width * SHADOW.offset.y,
+          width: s.width * (1 + 2 * SHADOW.pad),
+          depth: s.depth - 0.4,
+        };
+        return [shadow, sprite];
+      }),
       flags: campFlags(layout),
       // PR flags stand on their pole's foot, so the running CI one sways about it.
       prFlags: planted.map((f) => ({
@@ -674,6 +722,8 @@ export function mountNativeAtlas(parent: HTMLElement, handlers: AtlasHandlers = 
       for (const [name, frame] of propFrames(props!, PROPS)) frames.set(name, frame);
       for (const [name, frame] of flagFrames(flags!, PR_LABELS.map(({ flag }) => `flag-${flag}`))) frames.set(name, frame);
       const sent = [...frames].map(([name, frame]) => ({ name, png: png(crop(frame)) }));
+      for (const [name, frame] of frames)
+        if (casts(name)) sent.push({ name: `${name}-shadow`, png: png(shadowOf(crop(frame))) });
       // Offline robots stand greyed; their parts are sent pre-tinted.
       for (const [name, frame] of frames)
         if (/^robot-\w+-(body|hand-l|hand-r)$/.test(name))
