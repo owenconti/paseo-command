@@ -46,7 +46,7 @@ async function open(page: Page) {
   page.on("pageerror", (e) => errors.push(String(e)));
   await mockApi(page, { agents: () => [], projects: () => [], lists: games, accept });
   await page.goto(app.url);
-  await page.getByRole("button", { name: "Mini games" }).click();
+  await page.keyboard.press("b");
   const win = page.getByRole("region", { name: "Mini games" });
   await win.waitFor();
   return { win, errors };

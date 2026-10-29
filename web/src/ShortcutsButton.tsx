@@ -24,6 +24,7 @@ const GROUPS: Group[] = [
       { keys: [["F"]], label: "Fit the whole map" },
       { keys: [["Esc"]], label: "Close the open layer, or go back" },
       { keys: [["?"]], label: "Show these shortcuts" },
+      { keys: [["B"]], label: "Open the mini games" },
       { keys: [["⌘", "K"]], label: "Command palette" },
     ],
   },

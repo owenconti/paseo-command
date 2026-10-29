@@ -2,6 +2,8 @@ import { useCallback, useEffect, useRef, useState, type PointerEvent } from "rea
 import { createPortal } from "react-dom";
 import { Gamepad2, X } from "lucide-react";
 import { api, errorMessage } from "../api";
+import { modalOpen } from "../focus";
+import { isTyping } from "../worldShortcut";
 import { amount, CATALOG, type GamesRecord } from "./catalog";
 import { GAMES } from "./registry";
 import "./games.css";
@@ -27,7 +29,7 @@ const store = (name: string, value: unknown) => {
  * game, dealt at random by the server, for the short waits while agents
  * work. There is no choosing or restarting: a game is played to its end,
  * then the next is dealt. It doesn't block the page, and agents finishing
- * never interrupt it.
+ * never interrupt it. B, outside a text field, opens it too.
  */
 export function GamesButton({ hidden = false }: { hidden?: boolean }) {
   const [open, setOpen] = useState(false);
@@ -36,6 +38,25 @@ export function GamesButton({ hidden = false }: { hidden?: boolean }) {
   useEffect(() => {
     if (open) setOpened(true);
   }, [open]);
+  useEffect(() => {
+    const key = (e: KeyboardEvent) => {
+      if (
+        e.key.toLowerCase() !== "b" ||
+        e.metaKey ||
+        e.ctrlKey ||
+        e.altKey ||
+        e.repeat ||
+        e.defaultPrevented ||
+        modalOpen() ||
+        isTyping(e.target as HTMLElement | null)
+      )
+        return;
+      e.preventDefault();
+      setOpen(true);
+    };
+    window.addEventListener("keydown", key);
+    return () => window.removeEventListener("keydown", key);
+  }, []);
   const host = document.querySelector("main.command-app") ?? document.body;
   return (
     <>
