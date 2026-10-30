@@ -96,7 +96,10 @@ npm run native:run -- --url 'http://127.0.0.1:4332/?agent=a-1' --no-server
 The strip across the top switches between Command and Conquer (⌘` toggles), a tabbed browser signed in with Zen
 Browser's cookies (copied from its profile's `cookies.sqlite`, default space only). Check runs (`--info`) keep its
 cookies and tabs to themselves; `notifyutil -p com.paseo.command.native.mode.<run>` switches sides, `….open.<run>`
-opens `<info>.url`'s address in a tab, and the snapshot hook draws Conquer while it shows.
+opens `<info>.url`'s address in a tab, `….conquer.<run>` runs `<info>.do`'s steps a second apart (a command's name,
+`folder <name>`, `into <n>`, `drag <tab> <folder|-> <index>`, `type <text>`, `find <text>`, `roundtrip`; see
+`ConquerView.check`), `….key.<run>` presses ⌘ and `<info>.key`'s character as a key press would, and the snapshot hook
+draws Conquer while it shows.
 
 ## Checks without screen recording
 

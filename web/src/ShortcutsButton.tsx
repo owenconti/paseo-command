@@ -57,6 +57,25 @@ const NATIVE: Group = {
   rows: [
     { keys: [["⌘", "R"]], label: "Reload, with the latest build" },
     { keys: [["⌃", "`"]], label: "Show or hide the terminal" },
+    { keys: [["⌘", "`"]], label: "Switch between Command and Conquer" },
+  ],
+};
+/** Conquer's own keys (the macOS app's browser), which it takes ahead of its pages. */
+const CONQUER: Group = {
+  title: "Conquer (browser)",
+  rows: [
+    { keys: [["⌘", "T"]], label: "New tab" },
+    { keys: [["⇧", "⌘", "T"]], label: "Reopen the closed tab" },
+    { keys: [["⌘", "W"]], label: "Close the tab (a pinned one only unloads)" },
+    { keys: [["⌘", "E"], ["⌃", "Tab"]], label: "Next tab" },
+    { keys: [["⌘", "1…9"]], label: "Go to a tab (9: the last)" },
+    { keys: [["⌘", "D"]], label: "Pin or unpin the tab" },
+    { keys: [["⌘", "L"]], label: "Address bar" },
+    { keys: [["⌘", "["], ["⌘", "]"]], label: "Back, forward" },
+    { keys: [["⌘", "F"], ["⌘", "G"]], label: "Find in page, next match" },
+    { keys: [["⌘", "+"], ["⌘", "−"], ["⌘", "0"]], label: "Zoom (each site keeps its own)" },
+    { keys: [["⌘", "P"]], label: "Print" },
+    { keys: [["⇧", "⌘", "J"]], label: "Downloads" },
   ],
 };
 
@@ -135,7 +154,7 @@ function ShortcutsDialog({ onClose }: { onClose: () => void }) {
     window.addEventListener("keydown", key, true);
     return () => window.removeEventListener("keydown", key, true);
   }, [present, onClose]);
-  const groups = macApp() ? [...GROUPS, NATIVE] : GROUPS;
+  const groups = macApp() ? [...GROUPS, NATIVE, CONQUER] : GROUPS;
   return (
     <motion.div
       className="modal-backdrop"
