@@ -5,7 +5,11 @@ import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 
 const git = (...args) => execFileSync('git', args, { maxBuffer: 128 * 1024 * 1024 });
-const history = process.argv.includes('--history');
+const refIndex = process.argv.indexOf('--ref');
+const ref = refIndex >= 0 ? process.argv[refIndex + 1] : undefined;
+if (refIndex >= 0 && !/^[a-f0-9]{40,64}$/.test(ref ?? '')) throw new Error('--ref requires a full Git object ID');
+const history = !!ref || process.argv.includes('--history');
+const revision = ref ?? 'HEAD';
 const forbidden = /^(?:archive\/|\.paseo-command\/|\.agents\/skills\/|design\/references\/|game\/|phaser\/|dist\/|rendering\/(?:public\/assets\/probe\.png|src\/assets\/(?:probe\.png|galaxy\/))|web\/src\/fixtures\/fleet\.json$)|(?:^|\/)(?:\.env(?:\..*)?|secrets\.json|credentials\.json|\.npmrc|\.netrc|id_rsa|id_ed25519)$|\.(?:pem|key|p12|pfx|sqlite(?:-.*)?|db(?:-.*)?)$/;
 const homes = /\/(?:Users|home)\/([A-Za-z0-9_.-]+)(?=\/)/g;
 const examples = new Set(['example', 'me', 'review', 'runner', 'in']);
@@ -20,16 +24,18 @@ function checkText(bytes, label) {
     if (!examples.has(match[1])) issues.add(`Personal home path in ${label}`);
 }
 
-const paths = git('ls-files', '-z').toString().split('\0').filter(Boolean);
+const paths = (ref ? git('ls-tree', '-r', '--name-only', '-z', ref) : git('ls-files', '-z'))
+  .toString().split('\0').filter(Boolean);
 for (const path of paths) {
   checkPath(path);
+  if (ref) continue; // The object scan below checks committed content, not this worktree.
   try { checkText(readFileSync(path), path); }
   catch { issues.add(`Tracked file missing from checkout: ${path}`); }
 }
 
 if (history) {
-  for (const path of git('log', '--format=', '--name-only', '--no-renames', 'HEAD').toString().split('\n').filter(Boolean)) checkPath(path);
-  const objects = git('rev-list', '--objects', 'HEAD').toString().split('\n').filter(Boolean);
+  for (const path of git('log', '--format=', '--name-only', '--no-renames', revision).toString().split('\n').filter(Boolean)) checkPath(path);
+  const objects = git('rev-list', '--objects', revision).toString().split('\n').filter(Boolean);
   const data = execFileSync('git', ['cat-file', '--batch'], {
     input: objects.map(row => row.split(' ')[0]).join('\n') + '\n',
     maxBuffer: 128 * 1024 * 1024,
@@ -56,4 +62,4 @@ if (history) {
 if (issues.size) {
   console.error([...issues].join('\n'));
   process.exitCode = 1;
-} else console.log(`Publication checks passed (${paths.length} tracked files${history ? ', including HEAD history' : ''}).`);
+} else console.log(`Publication checks passed (${paths.length} tracked files${history ? ', including committed history' : ''}).`);

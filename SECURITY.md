@@ -39,3 +39,9 @@ the publication branch, push old tags, or use `git push --all` or `--mirror`.
 Move needed changes by reviewing and cherry-picking individual commits onto the
 new main, or rebase a verified range onto it. Scan the resulting history again.
 Keep recovery bundles and the original repository private.
+
+Install the local shared Git push guard with `npm run public:hooks`. It checks the
+exact commit being pushed, including pushes from linked worktrees. It refuses
+other branches and tags, and commits whose ancestry contains excluded private
+files or personal home paths. This supplements, rather than replaces, secret
+scanning and review.

@@ -22,7 +22,8 @@
     "native:run": "sh native/scripts/run.sh",
     "native:mock": "web/node_modules/.bin/tsx native/scripts/mock-fleet.ts",
     "public:check": "node scripts/public-check.mjs",
-    "native:test": "node native/scripts/test-origin.mjs"
+    "native:test": "node native/scripts/test-origin.mjs",
+    "public:hooks": "node scripts/public-push-guard.mjs --install"
   },
   "license": "MIT"
 }
