@@ -191,6 +191,7 @@ export type DispatchPlan = {
     modeId?: string;
     title?: string;
     initialPrompt: string;
+    clientMessageId?: string;
     systemPrompt: string;
     images?: { data: string; mimeType: string }[];
   };
@@ -271,6 +272,10 @@ export function dispatchPlan(
       ...(present(body.mode) ? { modeId: option(body.mode, "mode") } : {}),
       ...(present(body.title) ? { title: text(body.title, "title", 200) } : {}),
       initialPrompt: prompt,
+      // Names the first message, so the page shows its remembered attachments.
+      ...(present(body.messageId)
+        ? { clientMessageId: id(body.messageId) }
+        : {}),
       systemPrompt: AGENT_SYSTEM_PROMPT,
       ...(imgs?.length ? { images: imgs } : {}),
     },

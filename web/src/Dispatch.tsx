@@ -19,6 +19,7 @@ import {
   type PullRequestChoice,
 } from "./presets";
 import { openPresetEditor, usePresets } from "./presetsStore";
+import { sendBody } from "./sent";
 
 /** As many images as the daemon takes with a prompt. */
 const MAX_IMAGES = 10;
@@ -316,10 +317,16 @@ export function NewAgent({
     if (thinking && thinkingOptions.includes(thinking)) body.thinking = thinking;
     if (mode && (!modes.length || modes.some((m) => m.id === mode)))
       body.mode = mode;
-    if (message.images.length)
-      body.images = message.images
-        .slice(0, MAX_IMAGES)
-        .map(({ data, mimeType }) => ({ data, mimeType }));
+    if (message.images.length) {
+      // As a later send does: the images are remembered under a message ID.
+      const sent = await sendBody({
+        ...message,
+        images: message.images.slice(0, MAX_IMAGES),
+        attachments: [],
+      });
+      body.messageId = sent.messageId;
+      body.images = sent.images;
+    }
     if (prChosen) {
       body.pr = prChosen.number;
       if (prChosen.head) body.prHead = prChosen.head;
