@@ -101,8 +101,8 @@ import type { Asks } from "./asks/types";
 
 type Confirm = "archive" | "fresh" | null;
 
-/** In the macOS app, web links clicked in the chat open in its workspace app
- * browser, where the map is, rather than the default browser. */
+/** In the macOS app, web links clicked in the chat open as a Conquer tab, in the
+ * map's place, rather than in the default browser. */
 function openInAppBrowser(e: React.MouseEvent) {
   if (!macApp() || e.button !== 0 || e.altKey) return;
   const link = (e.target as Element).closest?.("a[href]");

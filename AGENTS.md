@@ -177,7 +177,7 @@ Local assets belong in the repository and are included through local build tooli
 - Conquer (experiment): a strip across the macOS app's top switches between Command (the map, panels and terminal) and Conquer
   (⌘` toggles; View menu; the tabs light on hover), a WebKit browser (`native/Sources/PaseoCommandNative/Conquer.swift`). The hidden side keeps running.
   Back/forward/reload and the address bar (suggestions from its history, `ConquerExtras.swift`) run along the top of the page
-  (`PageBar` in `WorkspaceApp.swift`). Its sidebar, as in Zen and Arc: pinned tabs and their folders (one level; drag to reorder, pin above New Tab, unpin below it, into and out of folders;
+  (`PageBar.swift`). Its sidebar, as in Zen and Arc: pinned tabs and their folders (one level; drag to reorder, pin above New Tab, unpin below it, into and out of folders;
   right-click for Pin, Back to Pinned Page, Replace Pinned URL with Current URL, Move to Folder, Rename, Delete), New Tab, then the other tabs (`ConquerTabs.swift`), each with
   its favicon or a spinner. A closed pinned tab only unloads. Its commands (`ConquerView.commands`, the Conquer menu) take their keys ahead of
   the page: ⌘T, ⇧⌘T reopen, ⌘W, ⌘L, ⌘E or ⌃Tab next tab, ⌘1…⌘8 that tab, ⌘9 the last, ⌘D pin, ⌘[ ⌘], ⌘F ⌘G ⇧⌘G find,
@@ -185,13 +185,12 @@ Local assets belong in the repository and are included through local build tooli
   seeded on first show (and Conquer → Import Zen Cookies) from Zen Browser's profile (`ZenCookies.swift`): a copy of
   `cookies.sqlite`, default space only, unpartitioned and unexpired; Zen is never written to. Its tabs (`conquerState`), sidebar width, zooms,
   history (`~/Library/Application Support/Paseo Command/conquer-history.json`) and the mode come back on launch; tabs come back unloaded.
-- Workspace app (experiment): the map's Map / App switch (top centre of the map; View → Show Workspace App, ⌥⌘`) lays a
-  browser over the map: a horizontal tab strip (the switch leads it), the same page bar, and the page, with Conquer's
-  configuration and cookies (Zen's are imported on first use if Conquer hasn't yet) (`WorkspaceAppView` in `WorkspaceApp.swift`).
-  Each workspace keeps its own tabs while the app runs. Web links clicked in the chat (`.session`, `openInAppBrowser` in
-  `web/src/Session.tsx`, `postAppLink` → the `openLink` message) open there as a new tab, switching to App. It is meant to show the
-  selected workspace's app; until its address can be relayed (the daemon's service scripts carry `localProxyUrl`/`proxyUrl`),
-  a workspace without tabs shows a note.
+- Conquer over the map: the map's Map / Browser switch (top centre of the map; View → Browser in Map Area, ⌥⌘`) moves the
+  same Conquer (sidebar, tabs, every feature) into the map's place (`placeConquer` in `WorldWindow.swift`); the switch then leads
+  its page bar, and ⌘B (the page's panel toggle) gives it the window's width. Conquer mode still shows it full-window. Over the
+  map it takes its keys only while it has the keyboard (`hasKeyFocus`), so the page keeps ⌘L and the rest. Web links clicked in
+  the chat (`.session`, `openInAppBrowser` in `web/src/Session.tsx`, `postAppLink` → the `openLink` message) open as a new
+  Conquer tab there, once its tabs and Zen's cookies are in (`whenStarted`).
 
 ## Atlas world
 

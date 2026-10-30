@@ -62,7 +62,7 @@ final class AtlasView: SKView {
     }
 
     /// The highest rate the world needs right now; nil when it can rest.
-    /// Under the workspace app view: nothing to draw.
+    /// Under Conquer, in the map's place: nothing to draw.
     var covered = false { didSet { govern() } }
 
     private var neededRate: Int? {

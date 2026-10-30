@@ -173,8 +173,14 @@ final class ConquerView: NSView, WKNavigationDelegate, WKUIDelegate, NSTextField
         Command(title: "Import Zen Cookies", name: "importCookies", key: "", mods: []),
     ] + (1...9).map { n in Command(title: n == 9 ? "Last Tab" : "Tab \(n)", name: "tab\(n)", key: "\(n)", mods: .command, hidden: true) }
 
-    /// Its pages' settings and cookie store (the workspace app view shares them).
     let configuration = WKWebViewConfiguration()
+    /// Filling the window (Conquer mode) rather than the map area: there it takes its
+    /// keys whatever has focus; in the map area, only while it has the keyboard.
+    var fullWindow = true
+    /// The page bar's row, which the map area's Map / Browser switch leads.
+    var switchRow: NSStackView { pageBar.row }
+    private var started = false
+    private var onStarted: [() -> Void] = []
     /// Pinned tabs and folders, in the sidebar's order.
     private(set) var pinned: [NSObject] = []
     /// The other tabs, under New Tab.
@@ -354,7 +360,7 @@ final class ConquerView: NSView, WKNavigationDelegate, WKUIDelegate, NSTextField
         placedSidebar = true
         let saved = UserDefaults.standard.double(forKey: "conquerSidebar")
         split.adjustSubviews()
-        split.setPosition(saved > 0 ? saved : 240, ofDividerAt: 0)
+        split.setPosition(min(saved > 0 ? saved : 240, widestSidebar), ofDividerAt: 0)
     }
 
     /// Conquer's cookie store's identity, the same every launch.
@@ -368,14 +374,31 @@ final class ConquerView: NSView, WKNavigationDelegate, WKUIDelegate, NSTextField
         importCookiesOnce { [weak self] in
             guard let self else { return }
             let chosen = self.restore()
-            if let chosen { self.select(chosen) } else if self.current == nil { self.newTab() }
+            // A link waiting to open makes its own tab; no blank one first.
+            if let chosen { self.select(chosen) } else if self.current == nil && self.onStarted.isEmpty { self.newTab() }
             self.renderSidebar()
+            self.started = true
+            self.onStarted.forEach { $0() }
+            self.onStarted = []
         }
+    }
+
+    /// Run `then` once the tabs from last time are back and Zen's cookies are in
+    /// (so a link opened meanwhile neither loads signed out nor gets lost).
+    func whenStarted(_ then: @escaping () -> Void) {
+        start()
+        if started { then() } else { onStarted.append(then) }
+    }
+
+    /// Whether the keyboard is in Conquer (its page, address bar or sidebar).
+    var hasKeyFocus: Bool {
+        guard let responder = window?.firstResponder as? NSView else { return false }
+        return responder === self || responder.isDescendant(of: self)
     }
 
     private var cookiesImported = false
 
-    /// Zen's cookies, once a launch (the workspace app view shares Conquer's store).
+    /// Zen's cookies, once a launch.
     func importCookiesOnce(then done: (() -> Void)? = nil) {
         guard !cookiesImported else { done?(); return }
         importZenCookies(then: done)
@@ -431,7 +454,7 @@ final class ConquerView: NSView, WKNavigationDelegate, WKUIDelegate, NSTextField
 
     /// Conquer's keys come before the page's, as a browser's do.
     override func performKeyEquivalent(with event: NSEvent) -> Bool {
-        guard !isHiddenOrHasHiddenAncestor, event.type == .keyDown, let key = event.charactersIgnoringModifiers else {
+        guard !isHiddenOrHasHiddenAncestor, fullWindow || hasKeyFocus, event.type == .keyDown, let key = event.charactersIgnoringModifiers else {
             return super.performKeyEquivalent(with: event)
         }
         let flags = event.modifierFlags.intersection([.command, .shift, .control, .option])
@@ -879,7 +902,17 @@ final class ConquerView: NSView, WKNavigationDelegate, WKUIDelegate, NSTextField
 
     func splitView(_ splitView: NSSplitView, constrainMinCoordinate proposedMinimumPosition: CGFloat, ofSubviewAt dividerIndex: Int) -> CGFloat { 180 }
     func splitView(_ splitView: NSSplitView, constrainMaxCoordinate proposedMaximumPosition: CGFloat, ofSubviewAt dividerIndex: Int) -> CGFloat {
-        min(420, splitView.bounds.width - 320)
+        widestSidebar
+    }
+
+    /// The sidebar takes at most 420 points, and 40% of the room (less in the map's place).
+    private var widestSidebar: CGFloat { max(180, min(420, split.bounds.width * 0.4)) }
+
+    override func setFrameSize(_ newSize: NSSize) {
+        super.setFrameSize(newSize)
+        // Moved into a smaller space (the map's place): the sidebar gives way to the page.
+        guard placedSidebar, sidebar.frame.width > widestSidebar else { return }
+        split.setPosition(widestSidebar, ofDividerAt: 0)
     }
     func splitViewDidResizeSubviews(_ notification: Notification) {
         guard placedSidebar, remember, sidebar.frame.width > 0 else { return }
