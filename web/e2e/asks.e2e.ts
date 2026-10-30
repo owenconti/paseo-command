@@ -148,7 +148,7 @@ test("hovering the questions marks where they came from in the reply", async () 
   assert.deepEqual(await highlighted(page), [CACHE, V1]);
   await strip(page).getByRole("listitem").filter({ hasText: V1 }).hover();
   assert.deepEqual(await highlighted(page), [V1]);
-  await page.screenshot({ path: process.env.SHOT ?? "/dev/null" });
+  if (process.env.SHOT) await page.screenshot({ path: process.env.SHOT });
   await page.locator("#composer").hover();
   assert.deepEqual(await highlighted(page), []);
   assert.deepEqual(errors, []);
