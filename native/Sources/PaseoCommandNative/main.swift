@@ -72,6 +72,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     private var tokens: [Int32] = []
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        // Before any web view or preference read: the released app's new bundle id
+        // starts with none of the old app's Conquer tabs or page storage.
+        if AppFlavor.isRelease { LegacyState.migrate() }
         buildMenu()
         let world = WorldWindow(options: options)
         main = world
