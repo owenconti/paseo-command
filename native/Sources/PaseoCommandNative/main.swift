@@ -26,13 +26,15 @@ struct Options {
     var checks = false
     /// Run the app's bundled server when showing it; `--no-server` leaves the port alone.
     var manageServer = true
+    /// Whether `--url` was given: if not, an updated copy comes back at its saved page.
+    var urlGiven = false
 
     init(_ args: [String]) {
         var i = 1
         func next() -> String? { i += 1; return i < args.count ? args[i] : nil }
         while i < args.count {
             switch args[i] {
-            case "--url": if let v = next(), let u = URL(string: v) { url = u }
+            case "--url": if let v = next(), let u = URL(string: v) { url = u; urlGiven = true }
             case "--ambient": if let v = next(), let n = Int(v) { AtlasView.ambientRate = n }
             case "--size":
                 if let v = next() {
@@ -67,7 +69,14 @@ enum Build {
 }
 
 final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
-    let options = Options(CommandLine.arguments)
+    /// Where Sparkle's update left the window (`Updater.installNow`), read once.
+    private lazy var restored = Updater.takeRestorePage(port: AppFlavor.port)
+    lazy var options: Options = {
+        var options = Options(CommandLine.arguments)
+        // Sparkle relaunches the updated copy without arguments: back at the page it was on.
+        if !options.urlGiven, let restored = self.restored { options.url = restored.url }
+        return options
+    }()
     var main: WorldWindow?
     private var tokens: [Int32] = []
 
@@ -78,6 +87,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         buildMenu()
         let world = WorldWindow(options: options)
         main = world
+        if !options.urlGiven, options.size == nil, let frame = restored?.frame { world.window.setFrame(frame, display: false) }
         // Never take focus from whatever the user is doing: the window comes
         // up without activating the app.
         if options.front { world.window.orderFrontRegardless() } else { world.window.orderFront(nil) }
@@ -190,8 +200,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
             self.main?.snapshot(to: (info as NSString).deletingPathExtension + ".png")
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + 3) { [weak self] in self?.writeInfo() }
-        // A dev copy says in the mode bar when a newer build is waiting for Restart app.
-        if !AppFlavor.isRelease {
+        // The released app says in the mode bar when Sparkle has an update waiting
+        // for Restart app; a dev copy, when a newer build is.
+        if let updater = Updater.shared {
+            updater.currentPage = { [weak self] in self?.main.map { ($0.window.frame, $0.pageURL) } }
+            updater.onChange = { [weak self] in
+                self?.main?.modeBar.updateReady = Updater.shared?.pendingVersion != nil
+                self?.main?.send(Updater.event, as: "paseo:update")
+            }
+        } else {
             Timer.scheduledTimer(withTimeInterval: 3, repeats: true) { [weak self] _ in
                 self?.main?.modeBar.updateReady = Build.newer
             }
@@ -351,11 +368,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         return true
     }
 
-    /// The palette's Restart app: stop our server, then relaunch at the same window
+    /// The palette's Restart app: install Sparkle's waiting update (the app quits and
+    /// comes back updated); otherwise stop our server, then relaunch at the same window
     /// position and page with the latest build, whose copy starts its own.
     @objc func reloadApp(_ sender: Any?) {
         guard let main, !reloading else { return }
         reloading = true
+        if let updater = Updater.shared, updater.pendingVersion != nil {
+            main.showSplash("Updating…")
+            if updater.installNow() { return }
+        }
         // The splash covers the reload; a newer build's copy puts up its own.
         main.showSplash("Restarting…")
         restart(main)

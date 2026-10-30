@@ -14,6 +14,7 @@
   <key>NSHighResolutionCapable</key><true/>
   <key>NSAppleEventsUsageDescription</key><string>Paseo Command shows Apple Music's current track on the map and plays, pauses and skips it.</string>
   <key>NSPrincipalClass</key><string>NSApplication</string>
+  <key>SUPublicEDKey</key><string></string>
   <key>NSAppTransportSecurity</key>
   <dict>
     <key>NSAllowsLocalNetworking</key><true/>

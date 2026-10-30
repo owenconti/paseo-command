@@ -1,6 +1,6 @@
 // Checks the built app bundles: each flavour carries a universal Node of the pinned version,
 // the server and the page, with the right identity, and verifies as signed.
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, lstatSync, readFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { join } from 'node:path';
@@ -35,6 +35,16 @@ for (const f of flavours) {
     ['CFBundleIdentifier', f.id], ['CFBundleName', f.name], ['CFBundleShortVersionString', version],
     ['PaseoCommandFlavor', f.flavour], ['PaseoCommandPort', f.port],
   ]) check(k, key(k) === want, `(got ${key(k)}, want ${want})`);
+  // Sparkle: its framework with symlinks kept; updates (and their keys) in the release only.
+  const sparkle = join(app, 'Contents/Frameworks/Sparkle.framework');
+  check('Sparkle.framework', existsSync(join(sparkle, 'Versions/B/Sparkle')));
+  check('Sparkle symlinks kept', existsSync(sparkle) && lstatSync(join(sparkle, 'Versions/Current')).isSymbolicLink());
+  const updates = f.flavour === 'release'
+    ? [['SUFeedURL', 'https://github.com/owenconti/paseo-command/releases/latest/download/appcast.xml'],
+       ['SUEnableAutomaticChecks', 'true'], ['SUAutomaticallyUpdate', 'true'], ['SUScheduledCheckInterval', '3600']]
+    : [['SUFeedURL', '<missing>'], ['SUPublicEDKey', '<missing>']];
+  for (const [k, want] of updates) check(k, key(k) === want, `(got ${key(k)}, want ${want})`);
+  if (f.flavour === 'release') check('SUPublicEDKey', !['', '<missing>'].includes(key('SUPublicEDKey')));
   const build = key('CFBundleVersion');
   check('CFBundleVersion', /^[1-9][0-9]*$/.test(build), `(got ${build}, want a positive integer)`);
   try { run('codesign', ['--verify', '--deep', '--strict', app]); } catch (e) { check('codesign', false, String(e.stderr ?? e).trim()); }

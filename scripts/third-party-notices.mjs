@@ -26,13 +26,14 @@ for (const [path, row] of Object.entries(json('web/package-lock.json').packages)
   entries.push({ name: `${pkg.name} ${pkg.version}`, license: row.license ?? 'Apache-2.0 (upstream Paseo)', texts });
 }
 for (const pin of json('native/Package.resolved').pins) {
-  const dir = join('native/.build/checkouts', pin.identity === 'swiftterm' ? 'SwiftTerm' : pin.identity);
+  const checkout = { swiftterm: 'SwiftTerm', sparkle: 'Sparkle' }[pin.identity] ?? pin.identity;
+  const dir = join('native/.build/checkouts', checkout);
   if (!existsSync(dir)) throw new Error(`Build native dependencies first: ${pin.identity}`);
   const texts = readdirSync(dir, { withFileTypes: true })
     .filter(file => file.isFile() && isNotice(file.name))
     .map(file => ({ file: file.name, text: read(join(dir, file.name)) }));
   if (!texts.length) throw new Error(`No license text for ${pin.identity}`);
-  entries.push({ name: `${pin.identity} ${pin.state.version}`, license: pin.identity === 'swiftterm' ? 'MIT' : 'Apache-2.0', texts });
+  entries.push({ name: `${pin.identity} ${pin.state.version}`, license: ['swiftterm', 'sparkle'].includes(pin.identity) ? 'MIT' : 'Apache-2.0', texts });
 }
 for (const file of readdirSync('web/src/themes/fonts').filter(file => file.endsWith('-OFL.txt')))
   entries.push({ name: basename(file, '-OFL.txt'), license: 'OFL-1.1', texts: [{ file, text: read(join('web/src/themes/fonts', file)) }] });

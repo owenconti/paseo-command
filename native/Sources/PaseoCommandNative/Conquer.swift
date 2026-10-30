@@ -100,7 +100,7 @@ final class ModeBar: NSView {
         }
         addSubview(track)
         update.font = NSFont.systemFont(ofSize: 11, weight: .medium)
-        update.toolTip = "A newer build is ready: choose Restart app in the command palette (⌘K)"
+        update.toolTip = "An update is ready: choose Restart app in the command palette (⌘K)"
         update.isHidden = true
         update.translatesAutoresizingMaskIntoConstraints = false
         addSubview(update)

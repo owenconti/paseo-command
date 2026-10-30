@@ -2,7 +2,7 @@
 # Build the native app with its own Node, server and page.
 #   sh native/scripts/bundle.sh             native/build/Paseo Command Dev.app (port 4321, ad-hoc signed)
 #   sh native/scripts/bundle.sh --release   native/build/Paseo Command.app (port 4310, signed as
-#                                           "Paseo Command Release")
+#                                           "Paseo Command Release", updating itself with Sparkle)
 # Needs web/dist (npm run app:build) and web/dist-server/server.mjs (npm run app:bundle-server).
 # A running copy keeps running: the new executable replaces the old one's file, and Restart app in
 # the command palette swaps to it (see main.swift's `reload`).
@@ -17,6 +17,11 @@ case "${1:-}" in
 esac
 if [ "$flavour" = release ]; then
   identity="Paseo Command Release"
+  # Sparkle installs only updates signed by the key whose public half is here.
+  if [ -z "$(/usr/libexec/PlistBuddy -c "Print :SUPublicEDKey" "$here/Info.plist" 2>/dev/null)" ]; then
+    echo "No SUPublicEDKey in native/Info.plist. Run npm run release:setup first." >&2
+    exit 1
+  fi
   if ! security find-identity -p codesigning | grep -q "\"$identity\""; then
     echo "No \"$identity\" signing identity in the login keychain. Run npm run release:setup first." >&2
     exit 1
@@ -47,6 +52,15 @@ buddy "Set :CFBundleShortVersionString $version"
 buddy "Set :CFBundleVersion $build"
 buddy "Add :PaseoCommandFlavor string $flavour"
 buddy "Add :PaseoCommandPort string $port"
+if [ "$flavour" = release ]; then
+  buddy "Add :SUFeedURL string https://github.com/owenconti/paseo-command/releases/latest/download/appcast.xml"
+  buddy "Add :SUEnableAutomaticChecks bool true"
+  buddy "Add :SUAutomaticallyUpdate bool true"
+  buddy "Add :SUScheduledCheckInterval integer 3600"
+else
+  # Dev copies never update themselves (Updater.shared is nil).
+  buddy "Delete :SUPublicEDKey"
+fi
 cp "$here/AppIcon.icns" "$app/Contents/Resources/AppIcon.icns"
 cp "$here/../LICENSE" "$here/../THIRD_PARTY_NOTICES.md" "$app/Contents/Resources/"
 # The splash's lettering: the page's own header and body fonts.
@@ -63,7 +77,18 @@ cp -R "$root/web/dist" "$app/Contents/Resources/ui"
 # Replaced, not overwritten: a running copy keeps its own executable.
 cp "$bin/PaseoCommandNative" "$app/Contents/MacOS/.PaseoCommandNative.new"
 mv -f "$app/Contents/MacOS/.PaseoCommandNative.new" "$app/Contents/MacOS/PaseoCommandNative"
-# Signed inside out: Node, (Sparkle goes here once it is bundled,) then the app.
+# Sparkle's framework, its symlinks kept (ditto), where the executable's rpath looks.
+mkdir -p "$app/Contents/Frameworks"
+rm -rf "$app/Contents/Frameworks/Sparkle.framework"
+ditto "$bin/Sparkle.framework" "$app/Contents/Frameworks/Sparkle.framework"
+# Signed inside out, without --deep: Node, Sparkle's helpers then Sparkle (as Sparkle's
+# docs sign it outside Xcode), then the app.
 codesign --force --sign "$identity" "$app/Contents/Resources/node/node" >/dev/null 2>&1
+sparkle="$app/Contents/Frameworks/Sparkle.framework/Versions/B"
+codesign --force --sign "$identity" -o runtime "$sparkle/XPCServices/Installer.xpc" >/dev/null 2>&1
+codesign --force --sign "$identity" -o runtime --preserve-metadata=entitlements "$sparkle/XPCServices/Downloader.xpc" >/dev/null 2>&1
+codesign --force --sign "$identity" -o runtime "$sparkle/Autoupdate" >/dev/null 2>&1
+codesign --force --sign "$identity" -o runtime "$sparkle/Updater.app" >/dev/null 2>&1
+codesign --force --sign "$identity" -o runtime "$app/Contents/Frameworks/Sparkle.framework" >/dev/null 2>&1
 codesign --force --sign "$identity" "$app" >/dev/null 2>&1
 echo "$app"

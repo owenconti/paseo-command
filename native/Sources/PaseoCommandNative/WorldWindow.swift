@@ -381,6 +381,8 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
 
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
         Log.line("page loaded: \(webView.url?.absoluteString ?? "")")
+        // The installed version and any update waiting (Settings shows them).
+        if WebOrigin.matches(webView.url, to: options.url) { send(Updater.event, as: "paseo:update") }
         if splash.showing, webView.url?.host == options.url.host, webView.url?.port == options.url.port {
             splash.say("Loading the fleet…")
             armSplashFallback(after: 15)
