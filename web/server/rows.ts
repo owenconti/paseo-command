@@ -180,6 +180,28 @@ export function providerRows(snapshot: Loose<PaseoProviderSnapshotResult>) {
   );
 }
 
+/** Agent profiles from the daemon config; a feature value keeps its type. */
+export function profileRows(rows: unknown) {
+  return (Array.isArray(rows) ? (rows as Loose<Record<string, unknown>>[]) : [])
+    .filter((p) => str(p?.id) && str(p?.name) && str(p?.provider))
+    .map((p) => ({
+      id: str(p?.id),
+      name: str(p?.name),
+      provider: str(p?.provider),
+      model: str(p?.model),
+      mode: str(p?.modeId),
+      thinking: str(p?.thinkingOptionId),
+      features: Object.fromEntries(
+        Object.entries(
+          p?.featureValues && typeof p.featureValues === "object"
+            ? (p.featureValues as Record<string, unknown>)
+            : {},
+        ).filter(([, v]) => ["string", "number", "boolean"].includes(typeof v)),
+      ),
+      notes: str(p?.notes),
+    }));
+}
+
 /** `provider models <provider>`. */
 export function modelRows(result: Loose<PaseoProviderModelsResult>) {
   if (result?.error) throw new Error(String(result.error));

@@ -161,6 +161,8 @@ export class FakeDaemon {
       modes: [],
     },
   ];
+  /** The daemon config's agent profiles. */
+  agentProfiles: Record<string, unknown>[] = [];
   constructor(
     readonly serverId: string,
     readonly label = serverId,
@@ -1334,6 +1336,10 @@ export class FakeClient {
   async getProvidersSnapshot() {
     await this.gate("getProvidersSnapshot");
     return { entries: this.daemon.providers };
+  }
+  async getDaemonConfig() {
+    await this.gate("getDaemonConfig");
+    return { requestId: "config", config: { agentProfiles: this.daemon.agentProfiles } };
   }
   async listProviderModels(provider: string) {
     await this.gate("listProviderModels", provider);

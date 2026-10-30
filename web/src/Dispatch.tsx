@@ -1,10 +1,18 @@
 import { soundEvent } from "./soundCues";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, ChevronDown, GitBranch, MessageSquare, Pencil, Play } from "lucide-react";
 import { api, errorMessage, readStore, writeStore } from "./api";
 import { Composer } from "./Composer";
 import type { Outgoing } from "./composer/types";
-import type { Host, Mode, Model, Project, Provider, Workspace } from "./types";
+import type {
+  Host,
+  Mode,
+  Model,
+  Profile,
+  Project,
+  Provider,
+  Workspace,
+} from "./types";
 import { hostQuery } from "./types";
 import { projectKey, workspaceKey } from "./workspaces";
 import { hostText, placeText } from "./names";
@@ -48,6 +56,8 @@ const ISOLATIONS: [Isolation, string, string][] = [
 type Prefs = {
   target?: string;
   provider?: string;
+  /** The profile last launched with, chosen again while it still applies. */
+  profile?: string;
   isolation?: Isolation;
   byProvider?: Record<
     string,
@@ -202,6 +212,11 @@ export function NewAgent({
       providers.find((p) => p.status === "available")?.provider ||
       "",
   );
+  // The Paseo agent profile chosen in the provider picker, if any.
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [profiles, setProfiles] = useState<{ host?: string; rows: Profile[] }>({
+    rows: [],
+  });
   const [model, setModel] = useState("");
   const [thinking, setThinking] = useState("");
   const [mode, setMode] = useState("");
@@ -260,14 +275,56 @@ export function NewAgent({
           available[0].provider,
       );
   }, [available, provider, prefs.provider]);
+  // The host's agent profiles, from its daemon config.
+  useEffect(() => {
+    const controller = new AbortController();
+    api<Profile[]>(`profiles${hostQuery(host)}`, undefined, controller.signal)
+      .then((rows) => setProfiles({ host, rows: Array.isArray(rows) ? rows : [] }))
+      .catch(() => {});
+    return () => controller.abort();
+  }, [host]);
+  const hostProfiles = useMemo(
+    () =>
+      profiles.host === host
+        ? profiles.rows.filter((p) =>
+            available.some((a) => a.provider === p.provider),
+          )
+        : [],
+    [profiles, host, available],
+  );
+  const applyProfile = (p: Profile) => {
+    setProfile(p);
+    setProvider(p.provider);
+    setModel(p.model);
+    setThinking(p.thinking);
+    setMode(p.mode || bypassMode(p.provider));
+  };
+  // The last launch's profile comes back, unless a cleared agent's settings
+  // were carried over; one on another host or since removed is dropped.
+  const restored = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    if (settings || !prefs.profile || profiles.host !== host) return;
+    if (restored.current === (host || LOCAL)) return;
+    const p = hostProfiles.find((p) => p.id === prefs.profile);
+    if (!p) return;
+    restored.current = host || LOCAL;
+    applyProfile(p);
+  }, [hostProfiles]);
+  useEffect(() => {
+    if (profile && !hostProfiles.some((p) => p.id === profile.id))
+      setProfile(null);
+  }, [hostProfiles, profile]);
   useEffect(() => {
     const r =
-      settings?.provider === provider
-        ? settings
-        : readStore<Prefs>("dispatch", {}).byProvider?.[provider] || {};
+      profile?.provider === provider
+        ? profile
+        : settings?.provider === provider
+          ? settings
+          : readStore<Prefs>("dispatch", {}).byProvider?.[provider] || {};
     setModel(r.model || "");
     setThinking(r.thinking || "");
     setMode(r.mode || bypassMode(provider));
+    if (profile && profile.provider !== provider) setProfile(null);
     setModels([]);
     if (!provider) return;
     const controller = new AbortController();
@@ -288,6 +345,16 @@ export function NewAgent({
       setModel("");
   }, [models, model]);
   const thinkingOptions = chosenModel?.thinkingOptionIds || [];
+  // The profile names the picker while its settings are the ones chosen;
+  // changing any of them makes it the provider's plain settings again.
+  const applied =
+    profile &&
+    profile.provider === provider &&
+    profile.model === model &&
+    profile.thinking === thinking &&
+    (profile.mode || bypassMode(provider)) === mode
+      ? profile
+      : null;
 
   // A pull request belongs to its project's new worktree.
   useEffect(() => {
@@ -327,6 +394,8 @@ export function NewAgent({
     if (thinking && thinkingOptions.includes(thinking)) body.thinking = thinking;
     if (mode && (!modes.length || modes.some((m) => m.id === mode)))
       body.mode = mode;
+    if (applied && Object.keys(applied.features).length)
+      body.features = applied.features;
     if (message.images.length) {
       // As a later send does: the images are remembered under a message ID.
       const sent = await sendBody({
@@ -356,6 +425,7 @@ export function NewAgent({
       writeStore("dispatch", {
         target,
         provider,
+        profile: applied?.id,
         isolation,
         byProvider: {
           ...prefs.byProvider,
@@ -396,16 +466,42 @@ export function NewAgent({
   const controls = (
     <div className="agent-controls">
       <Pick
-        label="Provider"
-        shown={providerLabel}
-        value={provider}
-        onChange={setProvider}
+        label={hostProfiles.length ? "Provider or profile" : "Provider"}
+        shown={applied?.name || providerLabel}
+        value={applied ? `profile:${applied.id}` : provider}
+        onChange={(v) => {
+          const p = v.startsWith("profile:")
+            ? hostProfiles.find((p) => `profile:${p.id}` === v)
+            : undefined;
+          if (p) return applyProfile(p);
+          setProfile(null);
+          setProvider(v);
+        }}
       >
-        {available.map((p) => (
-          <option key={p.provider} value={p.provider}>
-            {p.label}
-          </option>
-        ))}
+        {hostProfiles.length ? (
+          <>
+            <optgroup label="Providers">
+              {available.map((p) => (
+                <option key={p.provider} value={p.provider}>
+                  {p.label}
+                </option>
+              ))}
+            </optgroup>
+            <optgroup label="Profiles">
+              {hostProfiles.map((p) => (
+                <option key={p.id} value={`profile:${p.id}`} title={p.notes || undefined}>
+                  {p.name}
+                </option>
+              ))}
+            </optgroup>
+          </>
+        ) : (
+          available.map((p) => (
+            <option key={p.provider} value={p.provider}>
+              {p.label}
+            </option>
+          ))
+        )}
       </Pick>
       <Pick
         label="Model"

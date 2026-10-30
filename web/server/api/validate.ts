@@ -189,6 +189,7 @@ export type DispatchPlan = {
     model?: string;
     thinkingOptionId?: string;
     modeId?: string;
+    featureValues?: Record<string, string | number | boolean>;
     title?: string;
     initialPrompt: string;
     clientMessageId?: string;
@@ -270,6 +271,9 @@ export function dispatchPlan(
         ? { thinkingOptionId: option(body.thinking, "thinking option") }
         : {}),
       ...(present(body.mode) ? { modeId: option(body.mode, "mode") } : {}),
+      ...(body.features !== undefined
+        ? { featureValues: featureValues(body.features) }
+        : {}),
       ...(present(body.title) ? { title: text(body.title, "title", 200) } : {}),
       initialPrompt: prompt,
       // Names the first message, so the page shows its remembered attachments.
@@ -280,6 +284,23 @@ export function dispatchPlan(
       ...(imgs?.length ? { images: imgs } : {}),
     },
   };
+}
+
+/** A profile's provider features, as `{ id: value }` (`fast_mode: true`). */
+function featureValues(v: unknown) {
+  if (!v || typeof v !== "object" || Array.isArray(v))
+    throw new Error("Invalid features");
+  const entries = Object.entries(v as Record<string, unknown>);
+  if (entries.length > 20) throw new Error("Invalid features");
+  return Object.fromEntries(
+    entries.map(([k, value]) => {
+      option(k, "feature");
+      if (typeof value === "string") return [k, option(value, "feature value")];
+      if (typeof value === "boolean" || Number.isFinite(value))
+        return [k, value as number | boolean];
+      throw new Error("Invalid feature value");
+    }),
+  );
 }
 
 /** Agent commands, all over the daemon's socket. */

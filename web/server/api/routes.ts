@@ -61,7 +61,14 @@ import {
   statusView,
 } from "./hosts";
 import { allowedOrigin, bodyOf, replier, shuttingDown } from "./http";
-import { aggregate, labelCatalog, models, providers, usage } from "./reads";
+import {
+  aggregate,
+  labelCatalog,
+  models,
+  profiles,
+  providers,
+  usage,
+} from "./reads";
 import { startLive } from "./stream";
 import { archiveSubagents, subagentTimeline } from "./subagents";
 import { AGENT_COMMANDS, MAX_PROMPT, id } from "./validate";
@@ -180,6 +187,12 @@ export async function handleApi(
             const host = await resolveHost(url.searchParams.get("host"));
             if (host) assertReachable(host.serverId, host.label);
             result = await providers(host);
+            break;
+          }
+          case "profiles": {
+            const host = await resolveHost(url.searchParams.get("host"));
+            if (host) assertReachable(host.serverId, host.label);
+            result = await profiles(host);
             break;
           }
           case "terminals":

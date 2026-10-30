@@ -115,6 +115,8 @@ Local assets belong in the repository and are included through local build tooli
 - `web/src/Dispatch.tsx` `NewAgent`: a new agent opens in the panel as an empty conversation (host, where and
   branch in a small form) with the usual composer; its first message creates the agent. Its /skills and @files
   come from `GET /api/drafts/commands|files` (`web/server/api/drafts.ts`), as no agent exists yet.
+  Its provider picker also lists the host's Paseo agent profiles (`GET /api/profiles`, the daemon config's `agentProfiles`):
+  one sets provider, model, thinking and mode, and sends its feature values (`features` in `POST /api/dispatch`) while unchanged.
   In Worktree mode a pull request can be chosen instead of a new branch (`web/src/PrPicker.tsx`: paste a number or URL,
   or search via `GET /api/drafts/prs`); the worktree checks out its branch as the Paseo app does (`pr` in `POST /api/dispatch`).
   Preset prompts from `~/.paseo-command/settings.json` (`{"presets":[{"name","prompt"}]}`, `GET /api/presets`,

@@ -354,3 +354,93 @@ test("presets are added in their editor and offered in New agent", async () => {
   await view.getByRole("button", { name: "Tidy" }).waitFor();
   await context.close();
 });
+
+test("a Paseo agent profile in the provider picker sets the agent's settings", async () => {
+  const context = await newContext(browser);
+  const page = await context.newPage();
+  const dispatched: any[] = [];
+  await mockApi(page, {
+    agents: () => [],
+    projects: () => [
+      { projectId: "prj_atlas", name: "atlas", kind: "git", path: "/work/atlas" },
+    ],
+    accept: (path, body) => {
+      if (path !== "/api/dispatch") return false;
+      dispatched.push(body);
+      return { agentId: "a-new" };
+    },
+  });
+  await page.route("**/api/profiles**", (route) =>
+    route.fulfill({
+      json: [
+        {
+          id: "agent_profile_ship",
+          name: "Shipper",
+          provider: "claude",
+          model: "opus",
+          mode: "bypassPermissions",
+          thinking: "high",
+          features: { fast_mode: true },
+          notes: "When invoking /ship-issue",
+        },
+      ],
+    }),
+  );
+  await page.route("**/api/providers/claude/models**", (route) =>
+    route.fulfill({
+      json: [
+        { id: "sonnet", model: "Sonnet", thinkingOptionIds: ["low", "high"] },
+        { id: "opus", model: "Opus", thinkingOptionIds: ["low", "high"] },
+      ],
+    }),
+  );
+  // What the pickers show, not their options.
+  const shown = () =>
+    view.locator(".agent-controls .control > span").allInnerTexts().then((t) => t.join(" "));
+  const open = async () => {
+    await page.goto(app.url);
+    await page.locator("body").press("d");
+    return page.locator(".new-agent");
+  };
+  let view = await open();
+  const picker = view.getByLabel("Provider or profile");
+  await waitFor(() => picker.count(), (n) => n === 1, "the profile picker");
+  await picker.selectOption("profile:agent_profile_ship");
+  await waitFor(
+    shown,
+    (t) => /Shipper/.test(t) && /Opus/.test(t) && /high/.test(t) && /Bypass/.test(t),
+    "the profile's settings",
+  );
+  await view.locator("#composer").fill("Ship it");
+  await view.getByRole("button", { name: "Send message" }).click();
+  await waitFor(() => Promise.resolve(dispatched.length), (n) => n === 1, "the dispatch");
+  assert.equal(dispatched[0].provider, "claude");
+  assert.equal(dispatched[0].model, "opus");
+  assert.equal(dispatched[0].thinking, "high");
+  assert.equal(dispatched[0].mode, "bypassPermissions");
+  assert.deepEqual(dispatched[0].features, { fast_mode: true });
+  // The profile is chosen again next time; changing a setting leaves it.
+  await waitFor(
+    () => page.evaluate(() => localStorage.getItem("paseo-command:dispatch") ?? ""),
+    (raw) => raw.includes('"profile":"agent_profile_ship"'),
+    "the remembered profile choice",
+  );
+  view = await open();
+  await waitFor(
+    shown,
+    (t) => /Shipper/.test(t),
+    "the remembered profile",
+  );
+  await view.getByLabel("Model").selectOption("sonnet");
+  await waitFor(
+    shown,
+    (t) => !/Shipper/.test(t) && /Claude/.test(t),
+    "the provider's plain settings",
+  );
+  await view.locator("#composer").fill("Plain");
+  await view.getByRole("button", { name: "Send message" }).click();
+  await waitFor(() => Promise.resolve(dispatched.length), (n) => n === 2, "the second dispatch");
+  assert.equal(dispatched[1].model, "sonnet");
+  assert.equal(dispatched[1].features, undefined);
+  await context.close();
+});

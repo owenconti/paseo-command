@@ -9,7 +9,7 @@ import {
   withCreated,
 } from "../live";
 import type { Row } from "../live/view";
-import { modelRows, providerRows } from "../rows";
+import { modelRows, profileRows, providerRows } from "../rows";
 import {
   hostChips,
   hostKey,
@@ -147,6 +147,17 @@ export function providers(host?: Remote) {
     return providerRows(
       await timed(client.getProvidersSnapshot(), undefined, client),
     );
+  });
+}
+/**
+ * The host's agent profiles: named provider, model, thinking, mode and
+ * feature bundles kept in its daemon config (Paseo's Settings → Profiles).
+ */
+export function profiles(host?: Remote) {
+  return remember(`${scopeOf(host?.target)}|profiles`, 30000, async () => {
+    const client = await sdk(host);
+    const r = await timed(client.getDaemonConfig(), undefined, client);
+    return profileRows(r?.config?.agentProfiles);
   });
 }
 export function models(provider: string, host?: Remote) {

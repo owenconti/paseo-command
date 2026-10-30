@@ -280,6 +280,7 @@ const BASIC: Record<string, unknown> = {
   },
   hosts: [],
   usage: [],
+  profiles: [],
 };
 
 /**

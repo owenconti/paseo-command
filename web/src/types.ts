@@ -145,6 +145,17 @@ export type Model = {
   thinkingOptionIds?: string[];
   defaultThinkingOptionId?: string;
 };
+/** A Paseo agent profile: a named provider, model, thinking, mode and features. */
+export type Profile = {
+  id: string;
+  name: string;
+  provider: string;
+  model: string;
+  thinking: string;
+  mode: string;
+  features: Record<string, string | number | boolean>;
+  notes: string;
+};
 export type Mode = { id: string; label: string };
 export type Host = {
   serverId: string;
