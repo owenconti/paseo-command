@@ -83,7 +83,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     func applicationDidFinishLaunching(_ notification: Notification) {
         // Before any web view or preference read: the released app's new bundle id
         // starts with none of the old app's Conquer tabs or page storage.
-        if AppFlavor.isRelease { LegacyState.migrate() }
+        if AppFlavor.isRelease, LegacyState.pending(), oldAppClosed() { LegacyState.migrate() }
         buildMenu()
         let world = WorldWindow(options: options)
         main = world
@@ -364,6 +364,33 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         // Only while the terminal shows, so the keys stay the page's otherwise.
         case #selector(zoomTerminal(_:)): return !main.drawer.isHidden
         default: break
+        }
+        return true
+    }
+
+    /// The old app writes the preferences and WebKit folders being copied, so it must
+    /// be closed first: offer to quit it. False skips the migration this launch only
+    /// (it isn't marked done, so the next launch asks again).
+    private func oldAppClosed() -> Bool {
+        let running = { NSRunningApplication.runningApplications(withBundleIdentifier: LegacyState.oldBundleID) }
+        guard !running().isEmpty else { return true }
+        // A check copy never puts up a modal alert.
+        if options.background { Log.line("migration: the old app is open; skipped this launch"); return false }
+        let alert = NSAlert()
+        alert.messageText = "The previous Paseo Command is still open."
+        alert.informativeText = "Quit it to bring over your tabs and settings."
+        alert.addButton(withTitle: "Quit It and Continue")
+        alert.addButton(withTitle: "Continue Without")
+        guard alert.runModal() == .alertFirstButtonReturn else {
+            Log.line("migration: the old app is open; skipped this launch")
+            return false
+        }
+        running().forEach { $0.terminate() }
+        let deadline = Date() + 10
+        while !running().isEmpty && Date() < deadline { RunLoop.current.run(until: Date() + 0.2) }
+        guard running().isEmpty else {
+            Log.line("migration: the old app didn't quit within 10 s; skipped this launch")
+            return false
         }
         return true
     }

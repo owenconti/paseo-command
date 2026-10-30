@@ -78,6 +78,22 @@ do {
     assert(!fm.fileExists(atPath: data.appendingPathComponent("migrated-from.json").path))
 }
 
+// aFailedCopyLeavesNothingAndNoMarker: one unreadable file undoes the others, and a retry works.
+do {
+    let checkout = root.appendingPathComponent("checkout3", isDirectory: true)
+    let data = root.appendingPathComponent("data3", isDirectory: true)
+    for name in names { write("old-\(name)", to: checkout.appendingPathComponent(".paseo-command/\(name)")) }
+    let locked = checkout.appendingPathComponent(".paseo-command/games.json")
+    try! fm.setAttributes([.posixPermissions: 0o000], ofItemAtPath: locked.path)
+    assert(OldInstall.copyData(from: checkout, to: data).isEmpty)
+    for name in names + ["migrated-from.json"] {
+        assert(!fm.fileExists(atPath: data.appendingPathComponent(name).path), "\(name) left behind after a failed copy")
+    }
+    try! fm.setAttributes([.posixPermissions: 0o644], ofItemAtPath: locked.path)
+    assert(Set(OldInstall.copyData(from: checkout, to: data)) == Set(names), "a later try copies them all")
+    assert(fm.fileExists(atPath: data.appendingPathComponent("migrated-from.json").path))
+}
+
 // copiesOnlyAfterOldServerStopped
 do {
     var order: [String] = []

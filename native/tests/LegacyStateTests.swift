@@ -59,4 +59,29 @@ do {
     assert(defaults.bool(forKey: "legacyStateMigrated"))
     assert(!fm.fileExists(atPath: library(home, "WebKit", newID).path))
 }
+// A failed folder copy leaves no target or partial and no flag; the next launch retries.
+do {
+    let (home, defaults) = fresh("partial")
+    let old = library(home, "WebKit", LegacyState.oldBundleID)
+    write("first", to: old.appendingPathComponent("a.txt"))
+    write("locked", to: old.appendingPathComponent("z/locked.txt"))
+    write("cookies", to: home.appendingPathComponent("Library/HTTPStorages/\(LegacyState.oldBundleID).binarycookies"))
+    let locked = old.appendingPathComponent("z/locked.txt")
+    try! fm.setAttributes([.posixPermissions: 0o000], ofItemAtPath: locked.path)
+    LegacyState.migrate(home: home, defaults: defaults, oldPreferences: ["kept": 1], newBundleID: newID)
+    let target = library(home, "WebKit", newID)
+    assert(!fm.fileExists(atPath: target.path), "no half-copied WebKit folder")
+    assert(!fm.fileExists(atPath: target.path + ".migrating"), "the partial copy is removed")
+    assert(!defaults.bool(forKey: "legacyStateMigrated"), "not marked done")
+    assert(read(home.appendingPathComponent("Library/HTTPStorages/\(newID).binarycookies")) == "cookies", "the rest still copies")
+    assert(defaults.integer(forKey: "kept") == 1)
+
+    // Next launch: the folder copies and the migration is done.
+    try! fm.setAttributes([.posixPermissions: 0o644], ofItemAtPath: locked.path)
+    defaults.set(2, forKey: "kept")
+    LegacyState.migrate(home: home, defaults: defaults, oldPreferences: ["kept": 1], newBundleID: newID)
+    assert(read(target.appendingPathComponent("z/locked.txt")) == "locked")
+    assert(defaults.integer(forKey: "kept") == 2, "a retry keeps the new app's own values")
+    assert(defaults.bool(forKey: "legacyStateMigrated"))
+}
 print("Legacy state checks passed.")

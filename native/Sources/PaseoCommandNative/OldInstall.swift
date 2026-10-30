@@ -105,7 +105,9 @@ enum OldInstall {
     }
 
     /// Copy the checkout's data files into a data folder that has none of them yet,
-    /// once (`migrated-from.json` records it). Returns the names copied.
+    /// once (`migrated-from.json` records it). Returns the names copied. If any copy
+    /// fails, the ones made are removed and no record is written, so a later
+    /// hand-over (or copying by hand) starts from a clean folder.
     static func copyData(from checkout: URL, to data: URL) -> [String] {
         let fm = FileManager.default
         let marker = data.appendingPathComponent("migrated-from.json")
@@ -113,11 +115,19 @@ enum OldInstall {
               !dataFiles.contains(where: { fm.fileExists(atPath: data.appendingPathComponent($0).path) }) else { return [] }
         try? fm.createDirectory(at: data, withIntermediateDirectories: true)
         let source = checkout.appendingPathComponent(".paseo-command", isDirectory: true)
-        let copied = dataFiles.filter { name in
+        var copied: [String] = []
+        for name in dataFiles {
             let from = source.appendingPathComponent(name)
-            guard fm.fileExists(atPath: from.path) else { return false }
-            do { try fm.copyItem(at: from, to: data.appendingPathComponent(name)); return true }
-            catch { Log.line("old server: could not copy \(name): \(error.localizedDescription)"); return false }
+            guard fm.fileExists(atPath: from.path) else { continue }
+            do {
+                try fm.copyItem(at: from, to: data.appendingPathComponent(name))
+                copied.append(name)
+            } catch {
+                Log.line("old server: could not copy \(name): \(error.localizedDescription); copied nothing")
+                for done in copied { try? fm.removeItem(at: data.appendingPathComponent(done)) }
+                try? fm.removeItem(at: data.appendingPathComponent(name))
+                return []
+            }
         }
         let record: [String: Any] = ["checkout": checkout.path, "date": ISO8601DateFormatter().string(from: Date()), "files": copied]
         if let json = try? JSONSerialization.data(withJSONObject: record, options: [.prettyPrinted, .sortedKeys]) {
