@@ -32,7 +32,7 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
     /// Bridge messages decode their images here, in order, then apply on main.
     private let decoding = DispatchQueue(label: "paseo.world.decode", qos: .userInitiated)
     /// Runs the app's own server when the page is that server's (see `ServerManager`).
-    private let server: ServerManager?
+    let server: ServerManager?
     /// When the server was last (re)started for an unreachable page, so a
     /// server that won't come up shows its error rather than looping.
     private var recovered: Date?
@@ -405,8 +405,11 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
     /// A plain page in place of the app (starting up, or unreachable).
     private func notice(_ title: String, _ detail: String) {
         let html = "<body style='font:15px -apple-system;color:#f2e1b2;background:#182420;padding:40px'><h2>\(title)</h2><p>\(detail)</p></body>"
+        noticing = true
         web.loadHTMLString(html, baseURL: nil)
     }
+    /// While a notice is being shown, its `about:blank` loads pass the origin policy.
+    private var noticing = false
 
     /// A notice that something went wrong, shown with the splash lifted.
     private func failure(_ title: String, _ detail: String) {
@@ -443,8 +446,11 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
 
     func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction,
                  decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
-        // The app stays on its own origin; other links open in the browser.
-        if let url = navigationAction.request.url, !WebOrigin.matches(url, to: options.url) {
+        // The app stays on its own origin (or shows our notice); other links open in the browser.
+        let blank = navigationAction.request.url?.absoluteString == "about:blank"
+        let notice = noticing && blank
+        if !blank { noticing = false }
+        if let url = navigationAction.request.url, !notice, !WebOrigin.matches(url, to: options.url) {
             if navigationAction.navigationType == .linkActivated,
                ["http", "https", "mailto"].contains(url.scheme?.lowercased() ?? "") {
                 NSWorkspace.shared.open(url)
@@ -709,32 +715,19 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         return options.url
     }
 
-    /// Before an app restart: bring our own server up to date (restarted only when its
-    /// code changed, so `app:update` never drops the page's connections).
-    /// `done` says whether the server is ready (on a failure the window shows why).
-    func refreshServer(_ done: @escaping (_ ready: Bool) -> Void) {
-        guard let server else { return done(true) }
-        server.refresh(port: options.url.port ?? 80) { [weak self] result in
-            if case .failure(let error) = result {
-                let text = error.localizedDescription.replacingOccurrences(of: "<", with: "&lt;")
-                self?.failure("The app server didn’t restart", "<pre style='white-space:pre-wrap'>\(text)</pre>Fix it and restart Paseo Command.")
-            }
-            done((try? result.get()) != nil)
-        }
-    }
-
     func reload() {
-        // A reload after the server failed tries it again.
-        if server != nil, web.url?.host != options.url.host {
+        let url = pageURL
+        let showing = web.url?.host == options.url.host && web.url?.port == options.url.port
+        let load: () -> Void = { [weak self] in if showing { self?.web.reload() } else { self?.web.load(URLRequest(url: url)) } }
+        guard server != nil else { return load() }
+        // Our server comes first (it may have been stopped for a restart); a reload
+        // after it failed tries it again.
+        if !showing {
             recovered = nil
             splash.say("Starting the app server…")
             notice("Starting Paseo Command…", "Starting the app server.")
-            let url = pageURL
-            startServer { [weak self] in self?.splash.say("Loading…"); self?.web.load(URLRequest(url: url)) }
-            return
         }
-        if web.url?.host == options.url.host && web.url?.port == options.url.port { web.reload() }
-        else { web.load(URLRequest(url: pageURL)) }
+        startServer { [weak self] in self?.splash.say("Loading…"); load() }
     }
 
     /// Processes that do this window's work, for measurements: the app (and

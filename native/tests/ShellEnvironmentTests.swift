@@ -4,16 +4,18 @@ assert(parsed["PATH"] == "/a:/b" && parsed["LINEAR_API_KEY"] == "x=y" && parsed[
 assert(ShellEnvironment.parse(Data("no markers".utf8)) == nil)
 assert(ShellEnvironment.parse(Data("\(ShellEnvironment.marker)HOME=/h\0\(ShellEnvironment.marker)".utf8)) == nil)
 
-assert(ShellEnvironment.newerVersion("v22.12.0", "v20.19.1"))
-assert(ShellEnvironment.newerVersion("v22.12.0", "v22.9.0"))
-assert(!ShellEnvironment.newerVersion("v20.0.0", "v20.0.0"))
-
-let installed: Set<String> = ["/h/.nvm/versions/node/v22.12.0/bin/node", "/h/.nvm/versions/node/v20.19.0/bin/node", "/opt/homebrew/bin/node", "/p/node"]
-let list: (String) -> [String] = { $0 == "/h/.nvm/versions/node" ? ["v20.19.0", "v22.12.0"] : [] }
-assert(ShellEnvironment.node(in: ["PATH": "/x:/p"], home: "/h", isExecutable: installed.contains, list: list) == "/p/node")
-assert(ShellEnvironment.node(in: ["PATH": "/usr/bin"], home: "/h", isExecutable: installed.contains, list: list) == "/h/.nvm/versions/node/v22.12.0/bin/node")
-assert(ShellEnvironment.node(in: [:], home: "/h", isExecutable: { $0 == "/opt/homebrew/bin/node" }, list: { _ in [] }) == "/opt/homebrew/bin/node")
-assert(ShellEnvironment.node(in: [:], home: "/h", isExecutable: { _ in false }, list: { _ in [] }) == nil)
+// startsWithAppEnvironmentWhenShellFails: a shell that can't start, or hangs, gives
+// nil within the timeout (the server then gets the app's own environment).
+var started = Date()
+assert(ShellEnvironment.capture(shell: "/bin/sh -c 'sleep 30'", timeout: 1) == nil)
+assert(Date().timeIntervalSince(started) < 2)
+let hang = FileManager.default.temporaryDirectory.appendingPathComponent("paseo-hanging-shell-\(getpid())")
+try! "#!/bin/sh\nsleep 30\n".write(to: hang, atomically: true, encoding: .utf8)
+try! FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: hang.path)
+started = Date()
+assert(ShellEnvironment.capture(shell: hang.path, timeout: 1) == nil)
+assert(Date().timeIntervalSince(started) < 2, "a hanging shell is given up on")
+try? FileManager.default.removeItem(at: hang)
 
 let shell = ShellEnvironment.capture()
 assert(shell?["PATH"] != nil, "the user's shell environment could be read")

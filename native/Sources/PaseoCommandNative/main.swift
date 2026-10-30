@@ -3,19 +3,19 @@ import Foundation
 import notify
 
 /// How the app was launched:
-///   --url <url>        the Paseo Command app to show (default http://127.0.0.1:4310/,
+///   --url <url>        the Paseo Command app to show (default http://127.0.0.1:<AppFlavor.port>/,
 ///                      or PASEO_COMMAND_URL)
 ///   --ambient <fps>    the ambient frame rate (default 30)
 ///   --size <w>x<h>     the window's size in points
 ///   --front            show the window in front without activating the app
 ///   --background       run as an accessory that never activates (checks, measurements)
 ///   --ignore-occlusion keep drawing while the window is covered (for checks)
-///   --no-server        don't start the app's server (app:start on the --url's local port) when it isn't running
+///   --no-server        don't run the app's bundled server on the --url's local port
 ///   --checks           keep the scene's state current in the page (for checks)
 ///   --info <path>      write the window number and process ids there as JSON
 ///                      (and snapshots, on request, beside it as PNG)
 struct Options {
-    var url = URL(string: ProcessInfo.processInfo.environment["PASEO_COMMAND_URL"] ?? "http://127.0.0.1:4310/")!
+    var url = URL(string: ProcessInfo.processInfo.environment["PASEO_COMMAND_URL"] ?? "http://127.0.0.1:\(AppFlavor.port)/")!
     var size: CGSize?
     var front = false
     /// An accessory app (no Dock icon) that never becomes active, so it can't
@@ -24,7 +24,7 @@ struct Options {
     var info: String?
     /// Keep the scene's state current in the page (`--checks`).
     var checks = false
-    /// Run the app's own server (`app:start`) when showing it; `--no-server` leaves it alone.
+    /// Run the app's bundled server when showing it; `--no-server` leaves the port alone.
     var manageServer = true
 
     init(_ args: [String]) {
@@ -63,12 +63,6 @@ enum Build {
     static var newer: Bool {
         guard let now = stamp(), let then = launched else { return false }
         return now > then
-    }
-}
-
-enum Log {
-    static func line(_ text: String) {
-        FileHandle.standardError.write("[paseo-native] \(text)\n".data(using: .utf8)!)
     }
 }
 
@@ -192,10 +186,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
             self.main?.snapshot(to: (info as NSString).deletingPathExtension + ".png")
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + 3) { [weak self] in self?.writeInfo() }
-        // Say in the mode bar when a newer build is waiting for Restart app.
-        Timer.scheduledTimer(withTimeInterval: 3, repeats: true) { [weak self] _ in
-            self?.main?.modeBar.updateReady = Build.newer
+        // A dev copy says in the mode bar when a newer build is waiting for Restart app.
+        if !AppFlavor.isRelease {
+            Timer.scheduledTimer(withTimeInterval: 3, repeats: true) { [weak self] _ in
+                self?.main?.modeBar.updateReady = Build.newer
+            }
         }
+    }
+
+    /// The bundled server goes with the app.
+    func applicationWillTerminate(_ notification: Notification) {
+        main?.server?.stop()
     }
 
     private func listen(_ name: String, _ action: @escaping () -> Void) {
@@ -346,20 +347,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         return true
     }
 
-    /// The palette's Restart app: refresh the server if its code changed,
-    /// then relaunch at the same window position and page with the latest build.
+    /// The palette's Restart app: stop our server, then relaunch at the same window
+    /// position and page with the latest build, whose copy starts its own.
     @objc func reloadApp(_ sender: Any?) {
         guard let main, !reloading else { return }
         reloading = true
         // The splash covers the reload; a newer build's copy puts up its own.
         main.showSplash("Restarting…")
-        main.refreshServer { [weak self] ready in
-            self?.reloading = false
-            guard ready else { return }
-            self?.relaunch(main)
-        }
+        restart(main)
     }
     private var reloading = false
+
+    private func restart(_ main: WorldWindow) {
+        // Off the main queue: the server may take a few seconds to close.
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            main.server?.stop()
+            DispatchQueue.main.async {
+                self?.reloading = false
+                self?.relaunch(main)
+            }
+        }
+    }
 
     private func relaunch(_ main: WorldWindow) {
         main.window.saveFrame(usingName: WorldWindow.frameName)

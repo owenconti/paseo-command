@@ -6,26 +6,29 @@ natively with SpriteKit (Metal) underneath it. It builds with the Command Line T
 
 ```sh
 npm run native:build                 # swift build -c release, wrapped as native/build/Paseo Command Dev.app
-npm run native:run                   # opens it without taking focus, on http://127.0.0.1:4310/
+npm run native:run                   # opens it without taking focus, on http://127.0.0.1:4321/
 npm run native:run -- --url http://127.0.0.1:4331/
 ```
 
 **Updating without relaunching.** `npm run native:build` replaces the executable inside the bundle
 while a copy runs. The running copy shows "Update ready · Restart app" at the right of its mode bar. Choose **Restart app** in
-the command palette (⌘K); it has no keyboard shortcut or native menu item. This first brings its own server up to date (`scripts/app-server.mjs refresh`: a restart only when the
-server's code changed), then restarts the app with the latest build
-at the same window position and page. After merging, `npm run app:update` rebuilds
-both the web app and this one without restarting the server.
+the command palette (⌘K); it has no keyboard shortcut or native menu item. This stops its server,
+then restarts the app with the latest build at the same window position and page; the new copy
+starts the server it carries. After merging, `npm run app:update` rebuilds the web app, the
+bundled server and this app.
 
 **It runs its own server.** When the page it shows is on this machine (the default
-`http://127.0.0.1:4310/`), the app starts that server itself if it isn't running, through the same
-launcher as `npm run app:start` (`scripts/app-server.mjs start --port <port>`, run with the
-environment of your shell as an interactive login shell, read once at launch, so your Node and keys are found: `ShellEnvironment.swift`), and starts it again if the page later finds it gone. The server outlives the app
-on purpose: local browsers and `npm run app:update` use it too (`npm run app:stop` stops
-it). `--no-server` turns this off; check runs against the mock fleet use it.
+`http://127.0.0.1:<port>/`: 4310 for the released app, 4321 for the dev copy this builds), the app
+runs the server it carries, wherever it is installed: `Contents/Resources/node/node
+Contents/Resources/server/server.mjs` (`ServerManager.swift`), with the environment of your shell
+as an interactive login shell, read once at launch, so your `gh` and keys are found
+(`ShellEnvironment.swift`). Its data and `logs/server.log` are in
+`~/Library/Application Support/<app name>/`. It starts it again if the page later finds it gone,
+and stops it when it quits (the server also exits by itself if the app dies). Anything else on the
+port is reported, never stopped. `--no-server` turns this off; check runs against the mock fleet use it.
 
 The app shows whatever Paseo Command server it is pointed at (`--url`, or `PASEO_COMMAND_URL`;
-default `http://127.0.0.1:4310/`, the app started by `npm run app:start`). That server must serve
+default its own server, above). That server must serve
 a build that includes `rendering/src/native/bridge.ts` (any build from this commit on). Against a
 mocked fleet instead of a daemon:
 
