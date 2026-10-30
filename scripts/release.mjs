@@ -18,11 +18,31 @@ const sparkleBin = join(root, 'native', '.build', 'artifacts', 'sparkle', 'Spark
 const releaseDir = join(root, 'native', 'release');
 const REPO_URL = 'https://github.com/owenconti/paseo-command';
 
-const args = process.argv.slice(2);
-const dryRun = args.includes('--dry-run');
-const notesIndex = args.indexOf('--notes');
-const notesFile = notesIndex >= 0 ? args[notesIndex + 1] : undefined;
-const version = args.find((arg, i) => !arg.startsWith('--') && i !== notesIndex + 1);
+const USAGE = 'usage: npm run release -- <version> [--notes <file>] [--dry-run]  (version like 0.2.1)';
+
+/** The command line in any order: one semver version, optionally `--notes <file>` and `--dry-run`. */
+export function parseArgs(argv) {
+  let version;
+  let notes;
+  let dryRun = false;
+  for (let i = 0; i < argv.length; i++) {
+    const arg = argv[i];
+    if (arg === '--dry-run') dryRun = true;
+    else if (arg === '--notes') {
+      notes = argv[++i];
+      if (!notes || notes.startsWith('--')) throw new Error(`--notes needs a file. ${USAGE}`);
+    } else if (arg.startsWith('--')) throw new Error(`Unknown option ${arg}. ${USAGE}`);
+    else if (version === undefined) version = arg;
+    else throw new Error(`Unexpected argument ${arg}. ${USAGE}`);
+  }
+  if (!/^\d+\.\d+\.\d+$/.test(version ?? '')) throw new Error(USAGE);
+  return { version, notes, dryRun };
+}
+
+let dryRun = false;
+let version;
+let notesFile;
+let committed = false;
 
 const out = (cmd, cmdArgs, options = {}) => (execFileSync(cmd, cmdArgs, { cwd: root, encoding: 'utf8', ...options }) ?? '').trim();
 const git = (...gitArgs) => out('git', gitArgs);
@@ -35,7 +55,7 @@ function check(ok, message) {
 }
 
 const parse = (v) => v.split('.').map(Number);
-function newer(a, b) {
+export function newer(a, b) {
   const [x, y] = [parse(a), parse(b)];
   for (let i = 0; i < 3; i++) if (x[i] !== y[i]) return x[i] > y[i];
   return false;
@@ -81,28 +101,49 @@ function gatherNotes(dir) {
   return readFileSync(draft, 'utf8');
 }
 
-function main(original, tmp) {
-  if (!/^\d+\.\d+\.\d+$/.test(version ?? '')) throw new Error('usage: npm run release -- <version> [--notes <file>] [--dry-run]  (version like 0.2.1)');
-  const current = JSON.parse(original).version;
+/** The highest vX.Y.Z among the GitHub releases, or undefined when none is published yet. */
+function latestPublished(tags) {
+  return tags
+    .map((tag) => /^v(\d+\.\d+\.\d+)$/.exec(tag)?.[1])
+    .filter(Boolean)
+    .reduce((best, v) => (best === undefined || newer(v, best) ? v : best), undefined);
+}
 
+function main(original, tmp) {
   step('Checking the checkout');
   check(git('rev-parse', '--abbrev-ref', 'HEAD') === 'main', 'Releases are made from main.');
   check(git('status', '--porcelain', '--untracked-files=no') === '', 'The working tree has uncommitted changes.');
   git('fetch', 'origin');
   check(git('rev-parse', 'HEAD') === git('rev-parse', 'origin/main'), 'main differs from origin/main. Push or pull first.');
-  check(newer(version, current), `Version ${version} must be greater than the current ${current}.`);
+
+  // Everything the publish needs is checked before anything is built.
+  try {
+    out('gh', ['auth', 'status'], { stdio: 'pipe' });
+  } catch {
+    throw new Error('gh is not signed in. Run gh auth login first.');
+  }
+  const published = JSON.parse(out('gh', ['release', 'list', '--limit', '200', '--json', 'tagName']));
+  const tags = published.map((release) => release.tagName);
+  if (tags.includes(`v${version}`)) throw new Error(`A GitHub release v${version} already exists.`);
+  if (git('ls-remote', '--tags', 'origin', `refs/tags/v${version}`)) throw new Error(`A tag v${version} already exists on origin.`);
+  const latest = latestPublished(tags);
+  if (latest && !newer(version, latest)) throw new Error(`Version ${version} must be greater than the latest release ${latest}.`);
+  console.log(latest ? `Latest release is ${latest}.` : 'No release is published yet.');
 
   step('Tests');
+  const failures = [];
   for (const script of [['run', 'public:check', '--', '--history'], ['run', 'app:test'], ['run', 'render:test'], ['run', 'native:test']])
     try {
       out('npm', script, { stdio: 'inherit' });
-    } catch (error) {
-      check(false, `npm ${script.join(' ')} failed.`);
+    } catch {
+      failures.push(`npm ${script.join(' ')}`);
     }
+  if (failures.length) throw new Error(`Not releasing: these failed (output above):\n  ${failures.join('\n  ')}`);
 
   const notes = gatherNotes(tmp);
 
   step(`Building ${version}`);
+  // package.json may already carry the version (the first release is 0.2.0): then nothing is bumped.
   writeFileSync(packagePath, original.replace(/("version":\s*")[^"]*(")/, `$1${version}$2`));
   out('npm', ['run', 'app:build'], { stdio: 'inherit' });
   out('npm', ['run', 'app:bundle-server'], { stdio: 'inherit' });
@@ -150,27 +191,48 @@ function main(original, tmp) {
   step('Publishing');
   const notesPath = join(tmp, 'release-notes.md');
   writeFileSync(notesPath, notes);
-  git('add', 'package.json');
-  git('commit', '-m', `Release v${version}`);
-  committed = true;
+  const bumped = git('diff', '--name-only', '--', 'package.json') !== '';
+  if (bumped) {
+    git('add', 'package.json');
+    git('commit', '-m', `Release v${version}`);
+    committed = true;
+  }
   const sha = git('rev-parse', 'HEAD');
-  git('push', 'origin', 'main');
-  out('gh', ['release', 'create', `v${version}`, '--target', sha, '--title', `Paseo Command ${version}`, '--notes-file', notesPath, zip, join(releaseDir, 'appcast.xml')], { stdio: 'inherit' });
+  if (bumped) git('push', 'origin', 'main');
+  const appcast = join(releaseDir, 'appcast.xml');
+  const create = ['release', 'create', `v${version}`, '--target', sha, '--title', `Paseo Command ${version}`, '--notes-file', notesPath, zip, appcast];
+  try {
+    out('gh', create, { stdio: 'inherit' });
+  } catch {
+    const kept = join(releaseDir, `release-notes-${version}.md`);
+    writeFileSync(kept, notes);
+    throw new Error(`main is pushed (${sha}) but creating the GitHub release failed. Finish by hand:\n  gh release create v${version} --target ${sha} --title "Paseo Command ${version}" --notes-file ${kept} ${zip} ${appcast}`);
+  }
   console.log(`\nReleased v${version} at ${sha}.`);
 }
 
-const original = readFileSync(packagePath, 'utf8');
-const tmp = mkdtempSync(join(tmpdir(), 'paseo-release-'));
-let failed = false;
-let committed = false;
-try {
-  main(original, tmp);
-} catch (error) {
-  failed = true;
-  console.error(`\n${error.message}`);
-} finally {
-  // A dry run, or a run that stopped before its commit, leaves package.json as it found it.
-  if (!committed && (dryRun || failed)) writeFileSync(packagePath, original);
-  rmSync(tmp, { recursive: true, force: true });
+function run() {
+  const parsed = parseArgs(process.argv.slice(2));
+  ({ version, notes: notesFile, dryRun } = parsed);
+  const original = readFileSync(packagePath, 'utf8');
+  const tmp = mkdtempSync(join(tmpdir(), 'paseo-release-'));
+  try {
+    main(original, tmp);
+  } catch (error) {
+    console.error(`\n${error.message}`);
+    process.exitCode = 1;
+  } finally {
+    // A dry run, or a run that stopped before its commit, leaves package.json as it found it.
+    if (!committed && (dryRun || process.exitCode)) writeFileSync(packagePath, original);
+    rmSync(tmp, { recursive: true, force: true });
+  }
 }
-process.exit(failed ? 1 : 0);
+
+if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
+  try {
+    run();
+  } catch (error) {
+    console.error(error.message);
+    process.exit(1);
+  }
+}

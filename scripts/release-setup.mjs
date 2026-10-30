@@ -5,6 +5,7 @@
  * native/Info.plist. Safe to run again: whatever already exists is kept.
  */
 import { execFileSync } from 'node:child_process';
+import { randomBytes } from 'node:crypto';
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
@@ -50,11 +51,12 @@ extendedKeyUsage = critical,codeSigning
     const key = join(dir, 'key.pem');
     const cert = join(dir, 'cert.pem');
     const p12 = join(dir, 'identity.p12');
-    const password = 'paseo-release-import';
+    const password = randomBytes(18).toString('base64url');
     // macOS's own openssl: its PKCS#12 output is what `security import` reads.
     const openssl = '/usr/bin/openssl';
-    run(openssl, ['req', '-x509', '-newkey', 'rsa:2048', '-nodes', '-days', '3650', '-config', conf, '-keyout', key, '-out', cert]);
-    run(openssl, ['pkcs12', '-export', '-inkey', key, '-in', cert, '-name', IDENTITY, '-out', p12, '-passout', `pass:${password}`]);
+    // The key on disk is always encrypted (with a throwaway passphrase), so an interrupted run leaves nothing usable.
+    run(openssl, ['req', '-x509', '-newkey', 'rsa:2048', '-days', '3650', '-config', conf, '-keyout', key, '-out', cert, '-passout', `pass:${password}`]);
+    run(openssl, ['pkcs12', '-export', '-inkey', key, '-passin', `pass:${password}`, '-in', cert, '-name', IDENTITY, '-out', p12, '-passout', `pass:${password}`]);
     const keychain = join(process.env.HOME, 'Library', 'Keychains', 'login.keychain-db');
     run('security', ['import', p12, '-k', keychain, '-P', password, '-T', '/usr/bin/codesign']);
     // Trusting it for code signing may ask for your login password.
