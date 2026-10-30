@@ -89,9 +89,8 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         content.autoresizingMask = [.width, .height]
         drawer = TerminalDrawer(frame: CGRect(x: 0, y: 0, width: 460, height: split.bounds.height))
         split.addArrangedSubview(content)
-        split.addArrangedSubview(drawer)
         split.setHoldingPriority(.defaultLow, forSubviewAt: 0)
-        split.setHoldingPriority(.defaultHigh, forSubviewAt: 1)
+        // The panel joins the split only while it shows (see `attachDrawer`).
         drawer.isHidden = true
         drawer.dock = dock
 
@@ -536,6 +535,7 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         guard open == drawer.isHidden else { return }
         if open {
             drawer.isHidden = false
+            attachDrawer()
             placeTerminal()
             drawer.setActive(true)
             if newTab { drawer.opened() } else { drawer.focusTerminal() }
@@ -544,7 +544,7 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
             saveTerminalSize()
             drawer.setActive(false)
             drawer.isHidden = true
-            split.adjustSubviews()
+            detachDrawer()
             window.makeFirstResponder(web)
         }
         UserDefaults.standard.set(open, forKey: "terminalOpen")
@@ -561,21 +561,34 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         guard on != drawer.maximized else { return }
         if on {
             saveTerminalSize()
-            split.removeArrangedSubview(drawer)
-            drawer.removeFromSuperview()
+            detachDrawer()
             drawer.maximized = true
             content.addSubview(drawer)
-            split.adjustSubviews()
             placeMaximized()
         } else {
-            drawer.removeFromSuperview()
             drawer.maximized = false
-            split.addArrangedSubview(drawer)
-            split.setHoldingPriority(.defaultHigh, forSubviewAt: 1)
+            attachDrawer()
             placeTerminal()
         }
         drawer.focusTerminal()
         window.invalidateCursorRects(for: split)
+    }
+
+    /// Put the panel in the split, beside or under the page. Out of it (closed or
+    /// maximized) the split has no divider: hidden in it, the panel left the
+    /// divider's layer drawn over the map where its edge had been.
+    private func attachDrawer() {
+        guard drawer.superview !== split else { return }
+        drawer.removeFromSuperview()
+        split.addArrangedSubview(drawer)
+        split.setHoldingPriority(.defaultHigh, forSubviewAt: 1)
+    }
+
+    private func detachDrawer() {
+        guard let parent = drawer.superview else { return }
+        if parent === split { split.removeArrangedSubview(drawer) }
+        drawer.removeFromSuperview()
+        split.adjustSubviews()
     }
 
     /// The maximized panel lies exactly over the page's map (it follows the map as the page lays out).
