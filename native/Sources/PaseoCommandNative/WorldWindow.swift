@@ -23,6 +23,10 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
     let command: NSView
     /// Conquer: the browser, in Command's place while it shows.
     let conquer: ConquerView
+    /// An experiment: the selected workspace's app where the map is, and the map's Map / App switch.
+    let appView: WorkspaceAppView
+    let mapSwitch = MapAppSwitch()
+    private(set) var showingApp = false
     private(set) var mode: Mode = .command
     let atlasView: AtlasView
     let scene: AtlasScene
@@ -118,6 +122,11 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         let occlusion = NSSelectorFromString("_setWindowOcclusionDetectionEnabled:")
         if AtlasView.ignoreOcclusion, web.responds(to: occlusion) { web.perform(occlusion, with: false) }
         content.addSubview(web)
+        appView = WorkspaceAppView(frame: .zero, configuration: conquer.configuration)
+        appView.isHidden = true
+        mapSwitch.isHidden = true
+        content.addSubview(appView)
+        content.addSubview(mapSwitch)
         super.init()
         configuration.userContentController.add(self, name: "paseoWorld")
         configuration.userContentController.add(self, name: "paseoMusic")
@@ -131,6 +140,8 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         drawer.onMove = { [weak self] in self?.moveTerminal() }
         drawer.onMaximize = { [weak self] in self?.maximizeTerminal() }
         modeBar.onSelect = { [weak self] mode in self?.show(mode) }
+        mapSwitch.onChange = { [weak self] app in self?.setApp(app) }
+        if options.info == nil, UserDefaults.standard.bool(forKey: "mapApp") { DispatchQueue.main.async { self.setApp(true) } }
         placeModeBar()
         // Where the user left it, across launches and ⌘R updates.
         if options.info == nil, UserDefaults.standard.string(forKey: "mode") == Mode.conquer.rawValue {
@@ -215,9 +226,11 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         case "motion": scene.setMotion(reduced: body["reduced"] as? Bool ?? false)
         case "workspace":
             let w = body["workspace"] as? [String: Any]
-            drawer.show(w.flatMap { w in
+            let selected = w.flatMap { w in
                 (w["id"] as? String).map { TerminalWorkspace(id: $0, host: w["host"] as? String ?? "", name: w["name"] as? String ?? $0) }
-            })
+            }
+            drawer.show(selected)
+            appView.show(selected)
         case "loaded":
             // The page has its first fleet and has handed it to the world.
             fleetLoaded = true
@@ -235,6 +248,7 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
             case "terminal-actual": drawer.zoom(0)
             case "conquer": show(.conquer)
             case "conquer-tab": show(.conquer); conquer.newTab()
+            case "workspace-app": toggleApp()
             case "zen-cookies": conquer.perform("importCookies")
             case "reload": (NSApp.delegate as? AppDelegate)?.reloadApp(nil)
             default: break
@@ -291,6 +305,8 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
             scene.viewportChanged()
         }
         atlasView.govern()
+        appView.frame = frame
+        placeSwitch()
         placeMaximized()
     }
 
@@ -461,8 +477,19 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
 
     /// The window as the user sees it, for checks without screen recording:
     /// SpriteKit's world under the page's snapshot, written as a PNG.
-    func snapshot(to path: String) {
+    func snapshot(to path: String, app: NSImage? = nil) {
         if mode == .conquer { return conquer.snapshot(under: modeBar, to: path) }
+        // The workspace app's page first, when it covers the map.
+        if showingApp, app == nil {
+            return appView.web.takeSnapshot(with: nil) { [weak self] shot, _ in self?.snapshot(to: path, app: shot ?? NSImage()) }
+        }
+        var appBar: CGImage?
+        if showingApp, let layer = appView.bar.layer,
+           let ctx = Textures.context(Int(appView.bar.bounds.width * window.backingScaleFactor), Int(appView.bar.bounds.height * window.backingScaleFactor)) {
+            ctx.scaleBy(x: window.backingScaleFactor, y: window.backingScaleFactor)
+            layer.render(in: ctx)
+            appBar = ctx.makeImage()
+        }
         let bounds = web.bounds
         let whole = split.bounds
         let scale = window.backingScaleFactor
@@ -499,6 +526,11 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
             let left = CGRect(x: 0, y: whole.height - bounds.height, width: bounds.width, height: bounds.height)
             if let world { ctx.draw(world, in: self.atlasView.frame.offsetBy(dx: 0, dy: left.minY)) }
             if let page, let image = page.cgImage(forProposedRect: nil, context: nil, hints: nil) { ctx.draw(image, in: left) }
+            if self.showingApp {
+                let inContent = { (v: NSView) in self.content.convert(v.bounds, from: v).offsetBy(dx: 0, dy: left.minY) }
+                if let image = app?.cgImage(forProposedRect: nil, context: nil, hints: nil) { ctx.draw(image, in: inContent(self.appView.web)) }
+                if let appBar { ctx.draw(appBar, in: inContent(self.appView.bar)) }
+            }
             if let terminal {
                 // Beside the page in the split, or over its map when maximized.
                 let r = self.split.convert(self.drawer.frame, from: self.drawer.superview)
@@ -541,6 +573,41 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
             window.makeFirstResponder(web)
         }
         if options.info == nil { UserDefaults.standard.set(next.rawValue, forKey: "mode") }
+    }
+
+    /// Show the selected workspace's app where the map is, or the map again
+    /// (the map's Map / App switch, View → Show Workspace App, ⌥⌘`).
+    @objc func toggleApp() { setApp(!showingApp) }
+
+    func setApp(_ on: Bool) {
+        showingApp = on
+        appView.isHidden = !on
+        atlasView.covered = on
+        mapSwitch.app = on
+        placeSwitch()
+        window.makeFirstResponder(on ? appView.web : web)
+        if options.info == nil { UserDefaults.standard.set(on, forKey: "mapApp") }
+    }
+
+    /// The switch sits at the top of the map, centred; over the app, it leads its page bar.
+    private func placeSwitch() {
+        let row = appView.bar.row
+        if showingApp {
+            if mapSwitch.superview !== row {
+                mapSwitch.removeFromSuperview()
+                row.insertArrangedSubview(mapSwitch, at: 0)
+            }
+        } else {
+            if mapSwitch.superview !== content {
+                mapSwitch.removeFromSuperview()
+                mapSwitch.translatesAutoresizingMaskIntoConstraints = true
+                content.addSubview(mapSwitch, positioned: .above, relativeTo: appView)
+            }
+            let size = mapSwitch.fittingSize
+            let map = atlasView.frame
+            mapSwitch.frame = CGRect(x: (map.midX - size.width / 2).rounded(), y: map.maxY - size.height - 12, width: size.width, height: size.height)
+        }
+        mapSwitch.isHidden = viewport == nil
     }
 
     /// Show or hide the terminal panel (View → Terminal, ⌃`), at the size it last had;

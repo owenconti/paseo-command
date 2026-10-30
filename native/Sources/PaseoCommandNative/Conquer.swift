@@ -157,6 +157,7 @@ final class ConquerView: NSView, WKNavigationDelegate, WKUIDelegate, NSTextField
         nil,
         Command(title: "Pin Tab", name: "togglePin", key: "d", mods: .command),
         Command(title: "New Folder", name: "newFolder", key: "", mods: []),
+        Command(title: "Replace Pinned URL with Current URL", name: "repin", key: "", mods: []),
         nil,
         Command(title: "Find…", name: "find", key: "f", mods: .command),
         Command(title: "Find Next", name: "findNext", key: "g", mods: .command),
@@ -172,7 +173,8 @@ final class ConquerView: NSView, WKNavigationDelegate, WKUIDelegate, NSTextField
         Command(title: "Import Zen Cookies", name: "importCookies", key: "", mods: []),
     ] + (1...9).map { n in Command(title: n == 9 ? "Last Tab" : "Tab \(n)", name: "tab\(n)", key: "\(n)", mods: .command, hidden: true) }
 
-    private let configuration = WKWebViewConfiguration()
+    /// Its pages' settings and cookie store (the workspace app view shares them).
+    let configuration = WKWebViewConfiguration()
     /// Pinned tabs and folders, in the sidebar's order.
     private(set) var pinned: [NSObject] = []
     /// The other tabs, under New Tab.
@@ -192,12 +194,14 @@ final class ConquerView: NSView, WKNavigationDelegate, WKUIDelegate, NSTextField
     private let findBar = FindBar()
     private var findHeight: NSLayoutConstraint!
     private let body = NSView()
-    private let back = NSButton()
-    private let forward = NSButton()
-    private let reloadButton = NSButton()
+    /// Back, forward, reload and the address, along the top of the page.
+    private let pageBar = PageBar()
+    private var back: NSButton { pageBar.back }
+    private var forward: NSButton { pageBar.forward }
+    private var reloadButton: NSButton { pageBar.reload }
     private let folderButton = NSButton()
     private let downloadsButton = NSButton()
-    private let address = NSTextField()
+    private var address: NSTextField { pageBar.address }
     /// The last cookie import, for the menu and checks.
     private(set) var imported = "not yet"
     private var restored = false
@@ -254,9 +258,6 @@ final class ConquerView: NSView, WKNavigationDelegate, WKUIDelegate, NSTextField
             button.target = self
             button.action = action
         }
-        let nav = NSStackView(views: [back, forward, reloadButton, NSView()])
-        nav.orientation = .horizontal
-        nav.spacing = 2
         address.placeholderString = "Search or enter address"
         address.font = .systemFont(ofSize: 12)
         address.bezelStyle = .roundedBezel
@@ -297,7 +298,7 @@ final class ConquerView: NSView, WKNavigationDelegate, WKUIDelegate, NSTextField
         scroll.autohidesScrollers = true
         let footer = NSStackView(views: [folderButton, NSView(), downloadsButton])
         footer.orientation = .horizontal
-        for v in [nav, address, scroll, footer] {
+        for v in [scroll, footer] {
             v.translatesAutoresizingMaskIntoConstraints = false
             sidebar.addSubview(v)
         }
@@ -306,26 +307,23 @@ final class ConquerView: NSView, WKNavigationDelegate, WKUIDelegate, NSTextField
         findBar.isHidden = true
         findBar.onFind = { [weak self] text, backwards in self?.find(text, backwards: backwards) }
         findBar.onClose = { [weak self] in self?.closeFind() }
-        for v in [findBar, body] {
+        for v in [pageBar, findBar, body] {
             v.translatesAutoresizingMaskIntoConstraints = false
             page.addSubview(v)
         }
         findHeight = findBar.heightAnchor.constraint(equalToConstant: 0)
         NSLayoutConstraint.activate([
-            nav.topAnchor.constraint(equalTo: sidebar.topAnchor, constant: 6),
-            nav.leadingAnchor.constraint(equalTo: sidebar.leadingAnchor, constant: 6),
-            nav.trailingAnchor.constraint(equalTo: sidebar.trailingAnchor, constant: -6),
-            address.topAnchor.constraint(equalTo: nav.bottomAnchor, constant: 6),
-            address.leadingAnchor.constraint(equalTo: sidebar.leadingAnchor, constant: 8),
-            address.trailingAnchor.constraint(equalTo: sidebar.trailingAnchor, constant: -8),
-            scroll.topAnchor.constraint(equalTo: address.bottomAnchor, constant: 8),
+            scroll.topAnchor.constraint(equalTo: sidebar.topAnchor, constant: 6),
             scroll.leadingAnchor.constraint(equalTo: sidebar.leadingAnchor),
             scroll.trailingAnchor.constraint(equalTo: sidebar.trailingAnchor),
             scroll.bottomAnchor.constraint(equalTo: footer.topAnchor, constant: -4),
             footer.leadingAnchor.constraint(equalTo: sidebar.leadingAnchor, constant: 6),
             footer.trailingAnchor.constraint(equalTo: sidebar.trailingAnchor, constant: -6),
             footer.bottomAnchor.constraint(equalTo: sidebar.bottomAnchor, constant: -6),
-            findBar.topAnchor.constraint(equalTo: page.topAnchor),
+            pageBar.topAnchor.constraint(equalTo: page.topAnchor),
+            pageBar.leadingAnchor.constraint(equalTo: page.leadingAnchor),
+            pageBar.trailingAnchor.constraint(equalTo: page.trailingAnchor),
+            findBar.topAnchor.constraint(equalTo: pageBar.bottomAnchor),
             findBar.leadingAnchor.constraint(equalTo: page.leadingAnchor),
             findBar.trailingAnchor.constraint(equalTo: page.trailingAnchor),
             findHeight,
@@ -407,6 +405,7 @@ final class ConquerView: NSView, WKNavigationDelegate, WKUIDelegate, NSTextField
         case "previousTab": cycle(-1)
         case "togglePin": if let current { togglePin(current) }
         case "newFolder": newFolder()
+        case "repin": if let current { repin(current) }
         case "find": showFind()
         case "findNext": findAgain(backwards: false)
         case "findPrevious": findAgain(backwards: true)
@@ -592,6 +591,13 @@ final class ConquerView: NSView, WKNavigationDelegate, WKUIDelegate, NSTextField
             pinned.append(tab)
         }
         renderSidebar()
+        scheduleSave()
+    }
+
+    /// A pinned tab now belongs at the page it shows (Back to Pinned Page returns there).
+    func repin(_ tab: BrowserTab) {
+        guard tab.isPinned, let url = tab.url, url.scheme?.hasPrefix("http") == true else { return NSSound.beep() }
+        tab.home = url
         scheduleSave()
     }
 
@@ -801,7 +807,10 @@ final class ConquerView: NSView, WKNavigationDelegate, WKUIDelegate, NSTextField
         let item = outline.clickedRow >= 0 ? outline.item(atRow: outline.clickedRow) : nil
         if let tab = item as? BrowserTab {
             add(tab.isPinned ? "Unpin Tab" : "Pin Tab", #selector(menuTogglePin(_:)), tab)
-            if tab.isPinned, let home = tab.home, home != tab.url { add("Back to Pinned Page", #selector(menuGoHome(_:)), tab) }
+            if tab.isPinned, let home = tab.home, let url = tab.url, home != url {
+                add("Back to Pinned Page", #selector(menuGoHome(_:)), tab)
+                add("Replace Pinned URL with Current URL", #selector(menuRepin(_:)), tab)
+            }
             let folders = pinned.compactMap { $0 as? TabFolder }
             let into = NSMenu()
             for f in folders {
@@ -827,6 +836,7 @@ final class ConquerView: NSView, WKNavigationDelegate, WKUIDelegate, NSTextField
         add("New Folder", #selector(newFolder))
     }
 
+    @objc private func menuRepin(_ sender: NSMenuItem) { if let tab = sender.representedObject as? BrowserTab { repin(tab) } }
     @objc private func menuTogglePin(_ sender: NSMenuItem) { if let tab = sender.representedObject as? BrowserTab { togglePin(tab) } }
     @objc private func menuGoHome(_ sender: NSMenuItem) {
         guard let tab = sender.representedObject as? BrowserTab, let home = tab.home else { return }
@@ -1151,6 +1161,12 @@ final class ConquerView: NSView, WKNavigationDelegate, WKUIDelegate, NSTextField
     func webView(_ webView: WKWebView, didCommit navigation: WKNavigation!) {
         // Each site at the zoom it was left at.
         webView.pageZoom = CGFloat(webView.url?.host.flatMap { zooms[$0] } ?? 1)
+        // Another site: its own icon, or none (not the last site's).
+        if let tab = tab(for: webView), let icon = tab.faviconURL, icon.scheme != "data", icon.host != webView.url?.host {
+            tab.favicon = nil
+            tab.faviconURL = nil
+            refresh(tab)
+        }
     }
 
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
@@ -1281,7 +1297,7 @@ final class ConquerView: NSView, WKNavigationDelegate, WKUIDelegate, NSTextField
 
     // MARK: Checks
 
-    /// A scripted step (checks): a command's name, or `folder <name>`, `into <n>`
+    /// A scripted step (checks): a command's name, or `go <address>`, `folder <name>`, `into <n>`
     /// (the current tab into the nth folder), `type <text>` (into the address bar),
     /// `find <text>`.
     func check(_ line: String) {
@@ -1298,6 +1314,8 @@ final class ConquerView: NSView, WKNavigationDelegate, WKUIDelegate, NSTextField
             focusAddress()
             address.stringValue = arg
             suggestions.show(history.suggestions(for: arg), under: address)
+        case "go":
+            if let url = Self.destination(arg) { go(to: url) }
         case "drag":
             // `drag <tab> <folder|-> <index>`: the nth tab (sidebar order) into a folder, or the top level.
             let a = arg.split(separator: " ").map(String.init)
@@ -1356,7 +1374,8 @@ final class ConquerView: NSView, WKNavigationDelegate, WKUIDelegate, NSTextField
     /// Conquer's state, for checks.
     func state() -> [String: Any] {
         func describe(_ t: BrowserTab) -> [String: Any] {
-            ["title": t.title, "url": t.url?.absoluteString ?? "", "loaded": t.web != nil, "pinned": t.isPinned, "icon": t.favicon != nil]
+            ["title": t.title, "url": t.url?.absoluteString ?? "", "loaded": t.web != nil, "pinned": t.isPinned, "icon": t.favicon != nil,
+             "home": t.home?.absoluteString ?? ""]
         }
         return [
             "pinned": pinned.map { item -> [String: Any] in
