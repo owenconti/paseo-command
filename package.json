@@ -25,7 +25,9 @@
     "native:mock": "web/node_modules/.bin/tsx native/scripts/mock-fleet.ts",
     "public:check": "node scripts/public-check.mjs",
     "native:test": "node native/scripts/test-native.mjs && node native/scripts/test-bundle.mjs && node native/scripts/test-conquer.mjs",
-    "public:hooks": "node scripts/public-push-guard.mjs --install"
+    "public:hooks": "node scripts/public-push-guard.mjs --install",
+    "release": "node scripts/release.mjs",
+    "release:setup": "node scripts/release-setup.mjs"
   },
   "license": "MIT"
 }
