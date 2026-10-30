@@ -509,7 +509,7 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         return c.url ?? options.url
     }
 
-    /// Switch the window between the map and panels and the browser (⌘1, ⌘2).
+    /// Switch the window between the map and panels and the browser (⌘` toggles).
     /// The side not shown keeps running: the page, its terminals and its tabs stay live.
     func show(_ next: Mode) {
         guard next != mode else { return }

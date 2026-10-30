@@ -99,6 +99,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
                                                isARepeat: false, keyCode: 15) else { return }
             Log.line("⌘R through the menu: \(NSApp.mainMenu?.performKeyEquivalent(with: event) ?? false)")
         }
+        // ⌘` as the keyboard sends it, through the main menu (switches Command and Conquer).
+        listen("com.paseo.command.native.keymode") {
+            guard let event = NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: .command, timestamp: 0,
+                                               windowNumber: 0, context: nil, characters: "`", charactersIgnoringModifiers: "`",
+                                               isARepeat: false, keyCode: 50) else { return }
+            Log.line("⌘` through the menu: \(NSApp.mainMenu?.performKeyEquivalent(with: event) ?? false)")
+        }
         listen("com.paseo.command.native.terminal") { [weak self] in self?.main?.toggleTerminal() }
         listen("com.paseo.command.native.dock") { [weak self] in self?.main?.moveTerminal() }
         listen("com.paseo.command.native.maximize") { [weak self] in self?.main?.maximizeTerminal() }
@@ -232,11 +239,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         let unsplit = view.addItem(withTitle: "Unsplit Terminals", action: #selector(unsplitTerminals), keyEquivalent: "")
         unsplit.target = self
         view.addItem(.separator())
-        for (title, key, mode) in [("Command", "1", Mode.command), ("Conquer", "2", Mode.conquer)] {
-            let item = view.addItem(withTitle: title, action: #selector(showMode(_:)), keyEquivalent: key)
+        for (title, mode) in [("Command", Mode.command), ("Conquer", Mode.conquer)] {
+            let item = view.addItem(withTitle: title, action: #selector(showMode(_:)), keyEquivalent: "")
             item.target = self
             item.representedObject = mode.rawValue
         }
+        // ⌘` flips between the two (ahead of macOS's own window cycling, as the app has one window).
+        view.addItem(withTitle: "Switch Command / Conquer", action: #selector(toggleMode), keyEquivalent: "`").target = self
         view.addItem(.separator())
         // The terminals' text size. ⌘= reaches "Bigger" too, as ⌘+ needs ⇧ on most layouts.
         for (title, key, step, hidden) in [("Bigger Terminal Text", "+", 1, false), ("Bigger Terminal Text", "=", 1, true),
@@ -282,6 +291,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     @objc private func maximizeTerminal() { main?.maximizeTerminal() }
     @objc private func unsplitTerminals() { main?.drawer.unsplit() }
     @objc private func zoomTerminal(_ sender: NSMenuItem) { main?.drawer.zoom(CGFloat(sender.tag)) }
+    @objc private func toggleMode() {
+        guard let main else { return }
+        main.show(main.mode == .command ? .conquer : .command)
+    }
     @objc private func showMode(_ sender: NSMenuItem) {
         if let mode = (sender.representedObject as? String).flatMap(Mode.init(rawValue:)) { main?.show(mode) }
     }
