@@ -13,7 +13,7 @@ npm run native:run -- --url http://127.0.0.1:4331/
 **Flavours.** `npm run native:build` makes the dev flavour, `native/build/Paseo Command Dev.app`
 (bundle id `io.github.owenconti.paseo-command.dev`, port 4321, no updates, data in
 `~/Library/Application Support/Paseo Command Dev/`). `sh native/scripts/bundle.sh --release` (run by
-`npm run release`) makes `native/build/Paseo Command.app` (`io.github.owenconti.paseo-command`, port 4310,
+`npm run release`) makes `native/release/Paseo Command.app` (`io.github.owenconti.paseo-command`, port 4310,
 Sparkle updates, data in `~/Library/Application Support/Paseo Command/`), signed with the self-signed
 "Paseo Command Release" identity. Both carry `Contents/Resources/node/node` (universal Node),
 `server/server.mjs` (an esbuild bundle of `web/server/native.ts`, from `npm run app:bundle-server`) and
@@ -38,7 +38,8 @@ app. Anything else on the port is reported, never stopped. `--no-server` turns t
 runs against the mock fleet use it.
 
 On the released app's first launch, `LegacyState.swift` migrates the old app's (`local.paseo.command.native`)
-preferences and WebKit data once. Only if an old checkout server is still running on the app's port does
+preferences and WebKit data once (if the old app is open it first offers to quit it, and skips the
+migration this launch if you decline; a folder that fails to copy is retried next launch). Only if an old checkout server is still running on the app's port does
 `OldInstall.swift` offer to stop it, then copy its `secrets.json`, `games.json`, `forks.json` and
 `archived-subagents.json` from `<checkout>/.paseo-command/` once (and only if none of them exists yet in the data
 folder). Otherwise copy them by hand while the app is closed.

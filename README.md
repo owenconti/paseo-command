@@ -83,6 +83,9 @@ the release notes.
 - **No hosts or "The local daemon isn't answering"**: open Paseo and check
   `paseo status`. To use a fixed daemon address, set `PASEO_COMMAND_DAEMON=host:port`
   (loopback only).
+- **The server didn't start after Open Anyway**: quit the app and clear the download's
+  quarantine flag, then open it again:
+  `xattr -dr com.apple.quarantine "/Applications/Paseo Command.app"`.
 - **The app shows a blank page or no server**: read
   `~/Library/Application Support/Paseo Command/logs/server.log`, then restart the app.
 
@@ -103,7 +106,8 @@ Node and server, so it can live anywhere.
 
 Without the macOS app, `npm run app:dev` (development) or `npm run app:start` (built preview)
 serves the app at http://127.0.0.1:4310 in any browser. Conversations and panels work there,
-but the map is drawn only by the macOS app. See [RUNNING.md](RUNNING.md) for ports, logs and
+but the map is drawn only by the macOS app. Port 4310 is also the installed app's: while it
+runs, use another port (`npm run app:dev -- --port 4311` or `npm run app:start -- --port 4311`). See [RUNNING.md](RUNNING.md) for ports, logs and
 stopping the server, and [native/README.md](native/README.md) for native development and
 checks against a mocked fleet.
 
@@ -111,18 +115,39 @@ checks against a mocked fleet.
 
 Once, on the maintainer's Mac: `npm run release:setup` creates the self-signed code-signing
 identity "Paseo Command Release" in the login keychain and the Sparkle update keys, and writes
-the public key (`SUPublicEDKey`) into `native/Info.plist` for you to commit and push. Then, from
-`main`. It needs the checkout on `main`, clean and equal to `origin/main`, `gh` signed in, and a
-version greater than the latest GitHub release (`--dry-run` only warns about the first three):
+the public key (`SUPublicEDKey`) into `native/Info.plist` for you to commit and push. Then
+release from `main`. It needs the checkout on `main`, clean, a full (not shallow) clone and equal to
+`origin/main`, `gh` signed in, and a version greater than the latest GitHub release
+(`--dry-run` only warns about the first three):
 
 ```sh
 npm run release -- 0.2.1 [--notes notes.md] [--dry-run]
 ```
 
-It runs the checks and tests, builds and signs `Paseo Command.app`, zips it, writes the Sparkle
-appcast, commits the version bump as `Release v0.2.1` (if package.json changes), pushes `main` and creates the GitHub release with
-`gh release create`. `--dry-run` does everything except commit, push and publish. The
-private keys stay in the keychain; nothing secret enters the repository.
+It runs the checks and tests, builds and signs `native/release/Paseo Command.app` (apart from
+`native/build/`, where an older checkout app may live), zips it, writes the Sparkle appcast,
+commits the version bump as `Release v0.2.1` (if package.json changes), pushes `main` and
+creates the GitHub release with `gh release create`. The build number (the commit count) must be
+greater than the published appcast's, so updates always install. `--dry-run` does everything
+except commit, push and publish. The private keys stay in the keychain; nothing secret enters
+the repository.
+
+Before announcing a release, download the published zip in Safari, install it, choose Open
+Anyway and confirm it starts; after 0.2.1, also confirm that an update installs.
+
+#### Switching from the checkout app
+
+For the maintainer moving from the app built in a checkout (`local.paseo.command.native`):
+
+1. `npm run release:setup`, then commit the `SUPublicEDKey` change to `native/Info.plist`.
+2. Push `main`.
+3. `npm run release -- 0.2.0 --dry-run`, and check its output.
+4. `npm run release -- 0.2.0`.
+5. Download `Paseo-Command-0.2.0.zip` from the release and drag the app to `/Applications`.
+6. Quit the old checkout app.
+7. Open the new app (Open Anyway on first launch). It offers to stop the old server, then brings
+   over the old app's tabs, settings and data.
+8. Remove the old checkout app from the Dock and from Login Items.
 
 ## Development
 

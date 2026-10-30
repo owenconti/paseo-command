@@ -80,6 +80,8 @@ Report the commit, whether the push succeeded, whether the build succeeded, and 
 - `npm run app:dev`: React UI, SDK API and the Atlas world on port 4310, bound to `127.0.0.1`.
 - `npm run app:start`: detached preview of the built app and API, bound to `127.0.0.1`;
   run from a human terminal. Access it on this machine at port 4310. Do not expose this unauthenticated API through a proxy or tunnel.
+- Port 4310 is the user's installed app's. Agents' browser checks use another port:
+  `npm run app:dev -- --port 4311` or `npm run app:start -- --port 4311`.
 - `npm run app:stop`, `app:restart`, `app:refresh`, `app:status`: manage that detached preview.
   Restart preserves its port; refresh restarts it only when the server's own code changed. See `RUNNING.md`.
 - `npm run app:build`: layout tests, then type-checks and bundles the app to `web/dist/`.
@@ -117,14 +119,15 @@ Local assets belong in the repository and are included through local build tooli
 - `web/src/NativeWorld.tsx`: maps the React app's host-qualified world snapshot to the Atlas,
   forwards map picks as selections and draws app selections on the map.
 - `web/server/`: inherited official Paseo SDK API, served with the app on loopback only. `native.ts` is the entry the app
-  bundle runs (`server.mjs`, env `PASEO_COMMAND_DATA`, `PASEO_NATIVE_OWNER_PID`); `scripts/app-server.mjs` runs it from a checkout for browser-only work.
+  bundle runs (`server.mjs`, env `PASEO_COMMAND_DATA`, `PASEO_NATIVE_OWNER_PID`); `scripts/app-server.mjs` (`app:start`) instead serves a checkout's `web/dist` and API through Vite preview for browser-only work.
 - `web/server/releases.ts`: `GET /api/releases`, the GitHub releases and their notes; `web/src/ReleasesButton.tsx` (panel header,
   "What's new" in ⌘K) shows them in place of the old commit list.
 - `native/Sources/PaseoCommandNative/ServerManager.swift`: starts the bundled Node server with the user's shell environment
   (`ShellEnvironment.swift`), keeps its log in `<data>/logs/server.log`, restarts it if the page finds it gone and stops only a
   recognised old Paseo Command checkout server on the port, after the user confirms. `OldInstall.swift` (release flavour, only when ServerManager finds an old checkout server on the port): offers to stop it
   (and its `com.paseo-command.serve` launch agent) and, if none exists yet in the data folder, copies `secrets.json`, `games.json`, `forks.json`, `archived-subagents.json` once from the checkout's
-  `.paseo-command/`. `LegacyState.swift` migrates the old app's (`local.paseo.command.native`) preferences, WebKit data and HTTPStorages once.
+  `.paseo-command/`. `LegacyState.swift` migrates the old app's (`local.paseo.command.native`) preferences, WebKit data and HTTPStorages once,
+  after offering to quit the old app if it is open (declined or failed copies retry next launch).
   `Updater.swift`: Sparkle (feed `https://github.com/owenconti/paseo-command/releases/latest/download/appcast.xml`); the mode bar shows
   "Update ready · Restart app", and Restart app (⌘K) installs and relaunches at the same page.
 - `web/e2e/`: browser tests with every `/api` request answered in the browser.
@@ -207,7 +210,7 @@ Local assets belong in the repository and are included through local build tooli
   ⌘+ ⌘− ⌘0 zoom (per site), ⌘P print, ⇧⌘J downloads. App restart is only in the React command palette, without a shortcut. It has its own persistent cookie store,
   optionally seeded after confirmation through Conquer → Import Zen Cookies from Zen Browser's profile (`ZenCookies.swift`): a copy of
   `cookies.sqlite`, default space only, unpartitioned and unexpired; Zen is never written to. Its tabs (`conquerState`), sidebar width, zooms,
-  history (`~/Library/Application Support/Paseo Command/conquer-history.json`) and the mode come back on launch; tabs come back unloaded.
+  history (`conquer-history.json` in the app's data folder, `~/Library/Application Support/Paseo Command/` for the release) and the mode come back on launch; tabs come back unloaded.
 - Linear (the mode bar's third tab, after Command and Conquer; View menu; palette "Show your Linear issues"): the page draws
   `web/src/LinearView.tsx` over the map's frame while the app reports `paseo:mode` `linear` (`useAppMode`, `web/src/appMode.ts`;
   the page asks with a `mode` message). It lists the open issues assigned to you, grouped by state, beside the chosen one's

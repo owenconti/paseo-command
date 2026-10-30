@@ -51,4 +51,4 @@ to the SpriteKit app. Historical documents may still describe the original paths
 Build locally from the main checkout with `npm run app:update` (a build check; it makes the dev
 flavour `native/build/Paseo Command Dev.app`). The released app is installed from GitHub Releases and
 updates itself. Ignored build outputs: `web/dist/`, `web/dist-server/`, `native/build/`, `native/.cache/`
-(downloaded Node) and `native/release/` (release zip and appcast).
+(downloaded Node) and `native/release/` (the release app, zip and appcast).
