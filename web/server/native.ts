@@ -4,7 +4,7 @@ import {
   type IncomingMessage,
   type ServerResponse,
 } from "node:http";
-import { access, readFile, realpath, stat } from "node:fs/promises";
+import { access, mkdir, readFile, realpath, stat } from "node:fs/promises";
 import { constants, realpathSync } from "node:fs";
 import type { AddressInfo } from "node:net";
 import { homedir } from "node:os";
@@ -83,13 +83,14 @@ export async function resolveNativeCli(
 }
 
 export function validateNativeConfig(env = process.env) {
-  const checkout = env.PASEO_COMMAND_CHECKOUT;
+  // The checkout is optional: a packaged app has none.
+  const checkout = env.PASEO_COMMAND_CHECKOUT || undefined;
   const data = env.PASEO_COMMAND_DATA;
-  if (!checkout || !isAbsolute(checkout) || !data || !isAbsolute(data))
-    throw new Error(
-      "Native helper requires absolute PASEO_COMMAND_CHECKOUT and PASEO_COMMAND_DATA paths.",
-    );
-  const port = Number(env.PASEO_NATIVE_PORT ?? 5173);
+  if (!data || !isAbsolute(data))
+    throw new Error("Native helper requires an absolute PASEO_COMMAND_DATA path.");
+  if (checkout && !isAbsolute(checkout))
+    throw new Error("PASEO_COMMAND_CHECKOUT must be an absolute path.");
+  const port = Number(env.PASEO_NATIVE_PORT ?? 4310);
   if (!Number.isInteger(port) || port < 0 || port > 65535)
     throw new Error("Invalid native helper port.");
   const ownerPid = Number(env.PASEO_NATIVE_OWNER_PID ?? process.ppid);
@@ -107,6 +108,7 @@ export function validateNativeConfig(env = process.env) {
     ui: resolve(
       env.PASEO_NATIVE_UI ?? fileURLToPath(new URL("../ui", import.meta.url)),
     ),
+    version: env.PASEO_COMMAND_VERSION || "dev",
   };
 }
 export async function startNativeHelper(
@@ -114,12 +116,13 @@ export async function startNativeHelper(
   options: { connect?: typeof connector.create } = {},
 ) {
   const cli = await resolveNativeCli();
-  await stat(config.checkout);
+  if (config.checkout) await stat(config.checkout);
+  await mkdir(config.data, { recursive: true });
   if (!(await stat(join(config.ui, "index.html"))).isFile())
     throw new Error("Packaged UI index is missing.");
-  process.chdir(config.checkout);
+  process.chdir(config.data);
   process.env.PASEO_COMMAND_CLI = cli;
-  process.env.PASEO_COMMAND_REPO = config.checkout;
+  if (config.checkout) process.env.PASEO_COMMAND_REPO = config.checkout;
   process.env.PASEO_COMMAND_DATA = config.data;
   process.env.PATH = `${dirname(process.execPath)}:${process.env.PATH ?? "/usr/bin:/bin"}`;
   let middleware: (
@@ -146,6 +149,7 @@ export async function startNativeHelper(
           ready: true,
           pid: process.pid,
           ownerPid: config.ownerPid,
+          version: config.version,
         }),
       );
       return;
