@@ -94,7 +94,8 @@ npm run native:run -- --url 'http://127.0.0.1:4332/?agent=a-1' --no-server
 ## Conquer
 
 The strip across the top switches the map's place between the map and Conquer (⌘` toggles), a tabbed browser with its own persistent
-cookie store. Conquer → Import Zen Cookies optionally copies Zen Browser's unexpired sessions after confirmation
+cookie store. ⌘B toggles the React app panel even while a browser page has focus; ⌘S toggles Conquer's tab sidebar, restoring its width.
+Conquer → Import Zen Cookies optionally copies Zen Browser's unexpired sessions after confirmation
 (from its profile's `cookies.sqlite`, default space only); opening Conquer does not import cookies automatically. Check runs (`--info`) keep its
 cookies and tabs to themselves; `notifyutil -p com.paseo.command.native.mode.<run>` switches sides, `….open.<run>`
 opens `<info>.url`'s address in a tab, `….conquer.<run>` runs `<info>.do`'s steps a second apart (a command's name,

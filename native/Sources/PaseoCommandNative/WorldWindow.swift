@@ -118,6 +118,9 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         if AtlasView.ignoreOcclusion, web.responds(to: occlusion) { web.perform(occlusion, with: false) }
         content.addSubview(web)
         super.init()
+        conquer.onTogglePanel = { [weak self] in
+            self?.web.evaluateJavaScript("window.dispatchEvent(new CustomEvent('paseo:command', { detail: 'toggle-panel' }))", completionHandler: nil)
+        }
         configuration.userContentController.add(self, name: "paseoWorld")
         configuration.userContentController.add(self, name: "paseoMusic")
         music.send = { [weak self] reading in self?.send(reading, as: "paseo:music") }
@@ -241,6 +244,7 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
             case "terminal-actual": drawer.zoom(0)
             case "conquer": show(.conquer)
             case "conquer-tab": show(.conquer); conquer.whenStarted { [weak self] in self?.conquer.newTab() }
+            case "conquer-sidebar": show(.conquer); conquer.perform("toggleSidebar")
             case "zen-cookies": conquer.perform("importCookies")
             case "reload": (NSApp.delegate as? AppDelegate)?.reloadApp(nil)
             default: break

@@ -1387,7 +1387,7 @@ function App() {
       group: "App",
       label: "Show or hide the panel",
       keys: [["⌘", "B"]],
-      keywords: "sidebar collapse",
+      keywords: "sidebar collapse react conquer",
       run: () => runAppCommand("toggle-panel"),
     },
     ...(macApp()
@@ -1410,6 +1410,7 @@ function App() {
               ["terminal-actual", "Actual terminal text size", "zoom font reset", ["⌘", "0"]],
               ["conquer", "Switch between the map and the browser (Conquer)", "conquer browser mode web map", ["⌘", "`"]],
               ["conquer-tab", "New Conquer tab", "browser web open", undefined],
+              ["conquer-sidebar", "Show or hide Conquer’s tab sidebar", "browser tabs collapse", ["⌘", "S"]],
               ["zen-cookies", "Import Zen cookies into Conquer", "browser sign in login sessions confirmation", undefined],
             ] as const
           ).map(([action, label, keywords, keys]) => ({

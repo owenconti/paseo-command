@@ -65,6 +65,8 @@ const NATIVE: Group = {
 const CONQUER: Group = {
   title: "Conquer (browser)",
   rows: [
+    { keys: [["⌘", "B"]], label: "Show or hide the app panel" },
+    { keys: [["⌘", "S"]], label: "Show or hide the tab sidebar" },
     { keys: [["⌘", "T"]], label: "New tab" },
     { keys: [["⇧", "⌘", "T"]], label: "Reopen the closed tab" },
     { keys: [["⌘", "W"]], label: "Close the tab (a pinned one only unloads)" },

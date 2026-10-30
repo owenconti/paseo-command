@@ -149,6 +149,8 @@ final class ConquerView: NSView, WKNavigationDelegate, WKUIDelegate, NSTextField
         Command(title: "Reopen Closed Tab", name: "reopen", key: "t", mods: [.command, .shift]),
         Command(title: "Close Tab", name: "closeTab", key: "w", mods: .command),
         Command(title: "Open Location…", name: "openLocation", key: "l", mods: .command),
+        Command(title: "Show or Hide App Panel", name: "togglePanel", key: "b", mods: .command),
+        Command(title: "Show or Hide Tab Sidebar", name: "toggleSidebar", key: "s", mods: .command),
         nil,
         Command(title: "Back", name: "back", key: "[", mods: .command),
         Command(title: "Forward", name: "forward", key: "]", mods: .command),
@@ -212,6 +214,8 @@ final class ConquerView: NSView, WKNavigationDelegate, WKUIDelegate, NSTextField
     private var dragged: NSObject?
     private var rendering = false
     private var placedSidebar = false
+    private var sidebarWidth: CGFloat = 240
+    var onTogglePanel: (() -> Void)?
     private var saving: DispatchWorkItem?
     private var icons: [URL: NSImage] = [:]
     /// Each site's zoom, by host (check runs keep it in memory).
@@ -355,8 +359,27 @@ final class ConquerView: NSView, WKNavigationDelegate, WKUIDelegate, NSTextField
         guard !placedSidebar, split.bounds.width > 0 else { return }
         placedSidebar = true
         let saved = UserDefaults.standard.double(forKey: "conquerSidebar")
+        let width = min(saved > 0 ? saved : 240, widestSidebar)
         split.adjustSubviews()
-        split.setPosition(min(saved > 0 ? saved : 240, widestSidebar), ofDividerAt: 0)
+        split.setPosition(width, ofDividerAt: 0)
+    }
+
+    private func toggleSidebar() {
+        if sidebar.isHidden {
+            let width = min(sidebarWidth, widestSidebar)
+            split.insertArrangedSubview(sidebar, at: 0)
+            sidebar.isHidden = false
+            split.setHoldingPriority(.defaultHigh, forSubviewAt: 0)
+            split.adjustSubviews()
+            split.setPosition(width, ofDividerAt: 0)
+        } else {
+            sidebarWidth = sidebar.frame.width
+            if let responder = window?.firstResponder as? NSView, responder.isDescendant(of: sidebar) { focusPage() }
+            sidebar.isHidden = true
+            split.removeArrangedSubview(sidebar)
+            sidebar.removeFromSuperview()
+            split.adjustSubviews()
+        }
     }
 
     /// Conquer's cookie store's identity, the same every launch.
@@ -413,6 +436,8 @@ final class ConquerView: NSView, WKNavigationDelegate, WKUIDelegate, NSTextField
         case "reopen": reopen()
         case "closeTab": closeTab()
         case "openLocation": focusAddress()
+        case "togglePanel": onTogglePanel?()
+        case "toggleSidebar": toggleSidebar()
         case "back": goBack()
         case "forward": goForward()
         case "nextTab": cycle(1)
@@ -894,12 +919,13 @@ final class ConquerView: NSView, WKNavigationDelegate, WKUIDelegate, NSTextField
     override func setFrameSize(_ newSize: NSSize) {
         super.setFrameSize(newSize)
         // Moved into a smaller space (the map's place): the sidebar gives way to the page.
-        guard placedSidebar, sidebar.frame.width > widestSidebar else { return }
+        guard placedSidebar, !sidebar.isHidden, sidebar.frame.width > widestSidebar else { return }
         split.setPosition(widestSidebar, ofDividerAt: 0)
     }
     func splitViewDidResizeSubviews(_ notification: Notification) {
-        guard placedSidebar, remember, sidebar.frame.width > 0 else { return }
-        UserDefaults.standard.set(Double(sidebar.frame.width), forKey: "conquerSidebar")
+        guard placedSidebar, !sidebar.isHidden, sidebar.frame.width > 0 else { return }
+        sidebarWidth = sidebar.frame.width
+        if remember { UserDefaults.standard.set(Double(sidebarWidth), forKey: "conquerSidebar") }
     }
 
     // MARK: Bar
@@ -1394,6 +1420,7 @@ final class ConquerView: NSView, WKNavigationDelegate, WKUIDelegate, NSTextField
             "downloads": downloads.items.count,
             "closed": closed.count,
             "sidebar": Double(sidebar.frame.width),
+            "sidebarShown": !sidebar.isHidden,
             "suggestions": suggestions.showing ? suggestions.items.map(\.url) : [],
         ]
     }
