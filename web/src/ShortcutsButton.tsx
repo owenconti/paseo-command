@@ -57,12 +57,11 @@ const NATIVE: Group = {
   rows: [
     { keys: [["⌘", "R"]], label: "Reload, with the latest build" },
     { keys: [["⌃", "`"]], label: "Show or hide the terminal" },
-    { keys: [["⌘", "`"]], label: "Switch between Command and Conquer" },
-    { keys: [["⌥", "⌘", "`"]], label: "The map, or the browser in its place" },
+    { keys: [["⌘", "`"]], label: "The map, or the browser (Conquer) in its place" },
   ],
 };
 /** Conquer's own keys (the macOS app's browser), which it takes ahead of its pages
- * (over the map, while it has the keyboard). */
+ * while it has the keyboard. */
 const CONQUER: Group = {
   title: "Conquer (browser)",
   rows: [

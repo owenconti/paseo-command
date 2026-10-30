@@ -68,25 +68,3 @@ final class PageBar: NSView {
         if address.currentEditor() == nil { address.stringValue = web?.url?.scheme?.hasPrefix("http") == true ? web?.url?.absoluteString ?? "" : "" }
     }
 }
-
-/// The map area's Map / Browser switch: the map, or Conquer in its place (View → Browser in Map Area, ⌥⌘`).
-final class MapAppSwitch: NSSegmentedControl {
-    var onChange: ((_ app: Bool) -> Void)?
-
-    convenience init() {
-        self.init(labels: ["Map", "Browser"], trackingMode: .selectOne, target: nil, action: nil)
-        target = self
-        action = #selector(changed)
-        controlSize = .small
-        selectedSegment = 0
-        toolTip = "The map, or the browser in its place (⌥⌘`)"
-        sizeToFit()
-    }
-
-    var app: Bool {
-        get { selectedSegment == 1 }
-        set { selectedSegment = newValue ? 1 : 0 }
-    }
-
-    @objc private func changed() { onChange?(app) }
-}

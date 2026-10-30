@@ -21,11 +21,8 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
     let modeBar: ModeBar
     /// Command: the split and its splash, under the mode bar.
     let command: NSView
-    /// Conquer: the browser, in Command's place while it shows.
+    /// Conquer: the browser, in the map's place while it shows.
     let conquer: ConquerView
-    /// The map area's Map / Browser switch: Conquer can stand in the map's place.
-    let mapSwitch = MapAppSwitch()
-    private(set) var showingApp = false
     private(set) var mode: Mode = .command
     let atlasView: AtlasView
     let scene: AtlasScene
@@ -89,9 +86,8 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         splash.autoresizingMask = [.width, .height]
         command.addSubview(splash)
         conquer = ConquerView(frame: command.frame, persistent: options.info == nil)
-        conquer.autoresizingMask = [.width, .height]
         conquer.isHidden = true
-        for v in [command, conquer, modeBar] { root.addSubview(v) }
+        for v in [command, modeBar] { root.addSubview(v) }
         window.contentView = root
         content = NSView(frame: split.bounds)
         content.autoresizingMask = [.width, .height]
@@ -121,8 +117,6 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         let occlusion = NSSelectorFromString("_setWindowOcclusionDetectionEnabled:")
         if AtlasView.ignoreOcclusion, web.responds(to: occlusion) { web.perform(occlusion, with: false) }
         content.addSubview(web)
-        mapSwitch.isHidden = true
-        content.addSubview(mapSwitch)
         super.init()
         configuration.userContentController.add(self, name: "paseoWorld")
         configuration.userContentController.add(self, name: "paseoMusic")
@@ -136,8 +130,6 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         drawer.onMove = { [weak self] in self?.moveTerminal() }
         drawer.onMaximize = { [weak self] in self?.maximizeTerminal() }
         modeBar.onSelect = { [weak self] mode in self?.show(mode) }
-        mapSwitch.onChange = { [weak self] app in self?.setApp(app) }
-        if options.info == nil, UserDefaults.standard.bool(forKey: "mapApp") { DispatchQueue.main.async { self.setApp(true) } }
         placeModeBar()
         // Where the user left it, across launches and ⌘R updates.
         if options.info == nil, UserDefaults.standard.string(forKey: "mode") == Mode.conquer.rawValue {
@@ -248,8 +240,7 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
             case "terminal-smaller": drawer.zoom(-1)
             case "terminal-actual": drawer.zoom(0)
             case "conquer": show(.conquer)
-            case "conquer-tab": show(.conquer); conquer.newTab()
-            case "workspace-app": toggleApp()
+            case "conquer-tab": show(.conquer); conquer.whenStarted { [weak self] in self?.conquer.newTab() }
             case "zen-cookies": conquer.perform("importCookies")
             case "reload": (NSApp.delegate as? AppDelegate)?.reloadApp(nil)
             default: break
@@ -306,8 +297,7 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
             scene.viewportChanged()
         }
         atlasView.govern()
-        if showingApp && mode == .command { conquer.frame = frame }
-        placeSwitch()
+        if mode == .conquer { conquer.frame = frame }
         placeMaximized()
     }
 
@@ -481,14 +471,13 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
     /// The window as the user sees it, for checks without screen recording:
     /// SpriteKit's world under the page's snapshot, written as a PNG.
     func snapshot(to path: String, app: NSImage? = nil) {
-        if mode == .conquer { return conquer.snapshot(under: modeBar, to: path) }
         // Conquer's page first, when it covers the map.
-        if showingApp, app == nil, let page = conquer.current?.web {
+        if mode == .conquer, app == nil, let page = conquer.current?.web {
             return page.takeSnapshot(with: nil) { [weak self] shot, _ in self?.snapshot(to: path, app: shot ?? NSImage()) }
         }
         // Its tab strip and page bar are layers; the page goes over them.
         var appChrome: CGImage?
-        if showingApp, let layer = conquer.layer,
+        if mode == .conquer, let layer = conquer.layer,
            let ctx = Textures.context(Int(conquer.bounds.width * window.backingScaleFactor), Int(conquer.bounds.height * window.backingScaleFactor)) {
             ctx.scaleBy(x: window.backingScaleFactor, y: window.backingScaleFactor)
             layer.render(in: ctx)
@@ -530,7 +519,7 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
             let left = CGRect(x: 0, y: whole.height - bounds.height, width: bounds.width, height: bounds.height)
             if let world { ctx.draw(world, in: self.atlasView.frame.offsetBy(dx: 0, dy: left.minY)) }
             if let page, let image = page.cgImage(forProposedRect: nil, context: nil, hints: nil) { ctx.draw(image, in: left) }
-            if self.showingApp {
+            if self.mode == .conquer {
                 let inContent = { (v: NSView) in self.content.convert(v.bounds, from: v).offsetBy(dx: 0, dy: left.minY) }
                 if let appChrome { ctx.draw(appChrome, in: inContent(self.conquer)) }
                 if let page = self.conquer.current?.web, let image = app?.cgImage(forProposedRect: nil, context: nil, hints: nil) {
@@ -563,17 +552,16 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         return c.url ?? options.url
     }
 
-    /// Switch the window between the map and panels and the browser (⌘` toggles).
-    /// The side not shown keeps running: the page, its terminals and its tabs stay live.
+    /// Switch the map's place between the map and the browser (⌘` toggles); the
+    /// panels and terminal stay, and ⌘B (the page's panel toggle) gives the browser the width.
+    /// The side not shown keeps running: the map's page and Conquer's tabs stay live.
     func show(_ next: Mode) {
         guard next != mode else { return }
         mode = next
         modeBar.mode = next
-        command.isHidden = next != .command
+        atlasView.covered = next == .conquer
         placeConquer()
-        placeSwitch()
-        atlasView.govern()
-        if next == .conquer || showingApp {
+        if next == .conquer {
             conquer.start()
             conquer.focusPage()
         } else {
@@ -582,75 +570,22 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         if options.info == nil { UserDefaults.standard.set(next.rawValue, forKey: "mode") }
     }
 
-    /// Show Conquer where the map is, or the map again (the map's Map / Browser
-    /// switch, View → Browser in Map Area, ⌥⌘`).
-    @objc func toggleApp() { setApp(!showingApp) }
-
-    /// Open `url` in a new Conquer tab (a link from the chat): in the map's
-    /// place in Command, once its tabs and cookies are in.
+    /// Open `url` in a new Conquer tab (a link from the chat), in the map's
+    /// place, once its tabs and cookies are in.
     func openInApp(_ url: URL) {
-        if mode == .command && !showingApp { setApp(true) }
+        show(.conquer)
         conquer.whenStarted { [weak self] in self?.conquer.open(url) }
     }
 
-    func setApp(_ on: Bool) {
-        showingApp = on
-        atlasView.covered = on
-        mapSwitch.app = on
-        placeConquer()
-        placeSwitch()
-        if on {
-            conquer.start()
-            conquer.focusPage()
-        } else {
-            window.makeFirstResponder(web)
-        }
-        if options.info == nil { UserDefaults.standard.set(on, forKey: "mapApp") }
-    }
-
-    /// One Conquer, in one of two places: filling the window under the mode bar
-    /// (Conquer mode), or over the map (Command, with the map's switch on Browser).
+    /// Conquer stands exactly over the map (it follows the map as the page lays out).
     private func placeConquer() {
-        let full = mode == .conquer
-        conquer.fullWindow = full
-        if full {
-            if conquer.superview !== window.contentView {
-                conquer.removeFromSuperview()
-                window.contentView?.addSubview(conquer, positioned: .below, relativeTo: modeBar)
-            }
-            conquer.autoresizingMask = [.width, .height]
-            conquer.frame = command.frame
-        } else if showingApp {
-            if conquer.superview !== content {
-                conquer.removeFromSuperview()
-                content.addSubview(conquer, positioned: .above, relativeTo: web)
-            }
-            conquer.autoresizingMask = []
-            conquer.frame = viewport == nil ? content.bounds : atlasView.frame
+        if conquer.superview !== content {
+            conquer.removeFromSuperview()
+            content.addSubview(conquer, positioned: .above, relativeTo: web)
         }
-        conquer.isHidden = !(full || showingApp)
-    }
-
-    /// The switch sits at the top of the map, centred; over the browser, it leads its page bar.
-    private func placeSwitch() {
-        let row = conquer.switchRow
-        if showingApp && mode == .command {
-            if mapSwitch.superview !== row {
-                mapSwitch.removeFromSuperview()
-                row.insertArrangedSubview(mapSwitch, at: 0)
-            }
-        } else {
-            if mapSwitch.superview !== content {
-                mapSwitch.removeFromSuperview()
-                mapSwitch.translatesAutoresizingMaskIntoConstraints = true
-                content.addSubview(mapSwitch, positioned: .above, relativeTo: conquer.superview === content ? conquer : web)
-            }
-            let size = mapSwitch.fittingSize
-            let map = atlasView.frame
-            mapSwitch.frame = CGRect(x: (map.midX - size.width / 2).rounded(), y: map.maxY - size.height - 12, width: size.width, height: size.height)
-        }
-        // Conquer mode has the mode bar instead.
-        mapSwitch.isHidden = viewport == nil || mode == .conquer
+        conquer.autoresizingMask = []
+        conquer.frame = viewport == nil ? content.bounds : atlasView.frame
+        conquer.isHidden = mode != .conquer
     }
 
     /// Show or hide the terminal panel (View → Terminal, ⌃`), at the size it last had;
