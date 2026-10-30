@@ -199,7 +199,8 @@ export function NativeWorld(props: Props) {
   // Mount once: handlers read current props through refs.
   useEffect(() => {
     const node = surface.current!;
-    // The panels keep the Paseo Command look from the native app (its Galaxy theme).
+    // The panels keep the Paseo Command look from the native app: Galaxy, or
+    // Light while the system is light.
     setUnityWorldTheme("galaxy");
     let atlas: AtlasWorld | null;
     try {

@@ -72,6 +72,11 @@ enum Textures {
                 blue: CGFloat(rgb & 255) / 255, alpha: alpha)
     }
 
+    /// `dark` under a dark appearance, else `light` (Galaxy and Lake Country's tones).
+    static func color(dark: Int, light: Int, in appearance: NSAppearance) -> NSColor {
+        color(appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? dark : light)
+    }
+
     /// An agent's tile: its state's colour over the sand, and a fine light
     /// line inside its border (`agentTiles` in AtlasScene.ts).
     static func tileFill(color rgb: Int, alpha: CGFloat) -> SKTexture {

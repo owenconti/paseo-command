@@ -22,15 +22,12 @@
         var t =
           s === "lake-country" || s === "galaxy" ? s : dark ? "dark" : "light";
         if (window.__PASEO_UNITY__) {
-          t = "galaxy";
-          try {
-            if (
-              JSON.parse(
-                localStorage.getItem("paseo-command:unity-world-ui"),
-              ) === "lake-country"
-            )
-              t = "lake-country";
-          } catch (e) {}
+          // The world's look follows the system, as src/theme.ts's worldLook.
+          t =
+            window.matchMedia &&
+            window.matchMedia("(prefers-color-scheme: light)").matches
+              ? "light"
+              : "galaxy";
         }
         document.documentElement.dataset.theme = t;
         document.querySelector('meta[name="theme-color"]').setAttribute(

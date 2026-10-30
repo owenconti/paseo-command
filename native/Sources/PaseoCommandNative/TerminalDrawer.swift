@@ -282,10 +282,19 @@ final class TerminalTab: NSView, NSDraggingSource {
         toolTip = help
     }
 
+    /// Dark in the terminal panel (always dark); Conquer's tabs follow the system.
     private func restyle() {
-        layer?.backgroundColor = Textures.color(look == .focused ? 0x2c3834 : look == .shown ? 0x1e2724 : 0x101614).cgColor
-        label.textColor = Textures.color(look == .focused ? 0xf2e1b2 : look == .shown ? 0xd8d0b8 : 0xa8a08a)
+        let dark = effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+        layer?.backgroundColor = Textures.color(dark ? (look == .focused ? 0x2c3834 : look == .shown ? 0x1e2724 : 0x101614)
+                                                     : (look == .focused ? 0xddd8c6 : look == .shown ? 0xe9e5d7 : 0xf7f3e7)).cgColor
+        label.textColor = Textures.color(dark ? (look == .focused ? 0xf2e1b2 : look == .shown ? 0xd8d0b8 : 0xa8a08a)
+                                              : (look == .focused ? 0x243c32 : look == .shown ? 0x4d5b50 : 0x656b5e))
         close.contentTintColor = label.textColor
+    }
+
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        restyle()
     }
 
     @objc private func closeTab() { onClose?() }
