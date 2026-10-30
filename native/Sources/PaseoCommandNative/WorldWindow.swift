@@ -20,6 +20,8 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
     let atlasView: AtlasView
     let scene: AtlasScene
     let options: Options
+    /// The map's Apple Music bar's player (`paseoMusic` messages).
+    let music = MusicController()
     /// Bridge messages decode their images here, in order, then apply on main.
     private let decoding = DispatchQueue(label: "paseo.world.decode", qos: .userInitiated)
     /// Runs the app's own server when the page is that server's (see `ServerManager`).
@@ -97,6 +99,9 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         content.addSubview(web)
         super.init()
         configuration.userContentController.add(self, name: "paseoWorld")
+        configuration.userContentController.add(self, name: "paseoMusic")
+        music.send = { [weak self] reading in self?.send(reading, as: "paseo:music") }
+        music.visible = { [weak self] in self?.window.occlusionState.contains(.visible) ?? false }
         web.navigationDelegate = self
         web.uiDelegate = self
         window.delegate = self
@@ -123,6 +128,14 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
 
     func userContentController(_ controller: WKUserContentController, didReceive message: WKScriptMessage) {
         guard let body = message.body as? [String: Any], let type = body["type"] as? String else { return }
+        if message.name == "paseoMusic" {
+            switch type {
+            case "watch": music.watch(body["on"] as? Bool ?? false)
+            case "command": music.command(body["name"] as? String ?? "")
+            default: break
+            }
+            return
+        }
         switch type {
         case "art":
             decoding.async { [weak self] in
@@ -248,9 +261,9 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
 
     // MARK: Swift → page
 
-    func send(_ message: [String: Any]) {
+    func send(_ message: [String: Any], as event: String = "paseo:world") {
         guard let data = try? JSONSerialization.data(withJSONObject: message), let json = String(data: data, encoding: .utf8) else { return }
-        web.evaluateJavaScript("window.dispatchEvent(new CustomEvent('paseo:world',{detail:\(json)}))", completionHandler: nil)
+        web.evaluateJavaScript("window.dispatchEvent(new CustomEvent('\(event)',{detail:\(json)}))", completionHandler: nil)
     }
 
     private var stateTimer: Timer?

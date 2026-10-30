@@ -23,6 +23,7 @@ import { soundEvent } from "./soundCues";
 import { setUnityWorldTheme } from "./theme";
 import type { Agent, Host, Project, Selection, Workspace } from "./types";
 import { WorldLegend } from "./WorldLegend";
+import { MusicBar } from "./MusicBar";
 import { flagTip } from "./flagTip";
 import type { MapFlag } from "../../rendering/src/prStatus";
 import type { ProbeVerdict } from "../../rendering/src/probe";
@@ -414,6 +415,7 @@ export function NativeWorld(props: Props) {
         </div>
       )}
       {ready && <WorldLegend data={data} />}
+      {!absent && <MusicBar />}
     </>
   );
 }

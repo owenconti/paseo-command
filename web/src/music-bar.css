@@ -1,0 +1,84 @@
+/* The Apple Music bar floats in the map's top-left corner. */
+.music-bar {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  z-index: 11;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 280px;
+  max-width: calc(100% - 32px);
+  padding: 7px 8px 7px 7px;
+  color: var(--text);
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md, 8px);
+  box-shadow: 0 4px 18px rgb(0 0 0 / 22%);
+  font-size: 12px;
+  line-height: 1.3;
+  pointer-events: auto;
+}
+.music-bar-note {
+  gap: 8px;
+  padding: 8px 10px;
+  color: var(--text-2);
+}
+.music-art {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  flex: none;
+  overflow: hidden;
+  border-radius: 5px;
+  color: var(--text-3);
+  background: var(--panel-2, rgb(127 127 127 / 14%));
+}
+.music-art img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.music-track {
+  display: grid;
+  min-width: 0;
+  flex: 1;
+}
+.music-track b,
+.music-track span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.music-track b {
+  font-weight: 600;
+}
+.music-track span {
+  color: var(--text-2);
+}
+.music-controls {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex: none;
+}
+.music-controls button {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  color: var(--text-2);
+  background: transparent;
+  cursor: pointer;
+}
+.music-controls button:hover {
+  color: var(--text);
+  background: rgb(127 127 127 / 16%);
+}
+.music-controls .music-play {
+  color: var(--text);
+}

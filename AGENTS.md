@@ -158,6 +158,10 @@ Local assets belong in the repository and are included through local build tooli
 - Auto-merge: a PR's `autoMerge` comes from Paseo's GitHub facts (`autoMergeRequest`), else gh's (`web/server/links.ts`).
   While it's on, a teal seal with a merge mark sits on the review medallion's upper-right rim, else the CI one's (`placeSeals`,
   `paintSeal`, `AUTO_MERGE` in `rendering/src/prStatus.ts`); the medallion's hover card says how it merges and who turned it on.
+- Apple Music bar: `web/src/MusicBar.tsx` floats in the map's top-left corner (macOS app only) with Music's current track,
+  its art and ⏮ ⏯ ⏭; with Music closed it offers play, which opens Music without focus and resumes. The app reads and drives
+  Music by AppleScript (`native/Sources/PaseoCommandNative/Music.swift`, about once a second while the window shows) over the
+  `paseoMusic` message handler and `paseo:music` events; macOS asks once for Automation permission (`NSAppleEventsUsageDescription`).
 
 ## Atlas world
 
