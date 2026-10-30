@@ -99,6 +99,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
                                                isARepeat: false, keyCode: 15) else { return }
             Log.line("⌘R through the menu: \(NSApp.mainMenu?.performKeyEquivalent(with: event) ?? false)")
         }
+        // A ⌘-key as the keyboard sends it (`<info>.key`'s character), through the main menu (checks).
+        listen("com.paseo.command.native.key") { [weak self] in
+            guard let self, let info = self.options.info,
+                  let key = try? String(contentsOfFile: (info as NSString).deletingPathExtension + ".key", encoding: .utf8).trimmingCharacters(in: .whitespacesAndNewlines),
+                  let event = NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: .command, timestamp: 0, windowNumber: 0,
+                                               context: nil, characters: key, charactersIgnoringModifiers: key, isARepeat: false, keyCode: 0)
+            else { return }
+            Log.line("⌘\(key) through the menu: \(NSApp.mainMenu?.performKeyEquivalent(with: event) ?? false)")
+        }
         // ⌘` as the keyboard sends it, through the main menu (switches Command and Conquer).
         listen("com.paseo.command.native.keymode") {
             guard let event = NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: .command, timestamp: 0,
@@ -261,14 +270,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         let conquerItem = NSMenuItem()
         bar.addItem(conquerItem)
         let conquer = NSMenu(title: "Conquer")
-        for (title, key, mask, action) in [("New Tab", "t", NSEvent.ModifierFlags.command, #selector(newTab)),
-                                           ("Close Tab", "w", .command, #selector(closeTab)),
-                                           ("Open Location…", "l", .command, #selector(openLocation)),
-                                           ("Next Tab", "\t", .control, #selector(nextTab)),
-                                           ("Previous Tab", "\t", [.control, .shift], #selector(previousTab))] {
+        // ⌘E steps to the next tab; ⌃Tab reaches it too, as in other browsers.
+        for (title, key, mask, action, hidden) in [("New Tab", "t", NSEvent.ModifierFlags.command, #selector(newTab), false),
+                                                   ("Close Tab", "w", .command, #selector(closeTab), false),
+                                                   ("Open Location…", "l", .command, #selector(openLocation), false),
+                                                   ("Next Tab", "e", .command, #selector(nextTab), false),
+                                                   ("Next Tab", "\t", .control, #selector(nextTab), true),
+                                                   ("Previous Tab", "\t", [.control, .shift], #selector(previousTab), false)] {
             let item = conquer.addItem(withTitle: title, action: action, keyEquivalent: key)
             item.keyEquivalentModifierMask = mask
             item.target = self
+            item.isHidden = hidden
+            item.allowsKeyEquivalentWhenHidden = true
+        }
+        // ⌘1…⌘8 go to that tab, ⌘9 to the last.
+        for n in 1...9 {
+            let item = conquer.addItem(withTitle: n == 9 ? "Last Tab" : "Tab \(n)", action: #selector(goToTab(_:)), keyEquivalent: "\(n)")
+            item.tag = n
+            item.target = self
+            item.isHidden = true
+            item.allowsKeyEquivalentWhenHidden = true
         }
         conquer.addItem(.separator())
         conquer.addItem(withTitle: "Import Zen Cookies", action: #selector(importZenCookies), keyEquivalent: "").target = self
@@ -303,6 +324,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     @objc private func openLocation() { main?.conquer.focusAddress() }
     @objc private func nextTab() { main?.conquer.cycle(1) }
     @objc private func previousTab() { main?.conquer.cycle(-1) }
+    @objc private func goToTab(_ sender: NSMenuItem) { main?.conquer.selectTab(sender.tag) }
     @objc func importZenCookies() {
         main?.conquer.importZenCookies { [weak self] in
             guard let window = self?.main?.window, let conquer = self?.main?.conquer else { return }
@@ -321,7 +343,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         closeWindow?.keyEquivalent = browsing ? "" : "w"
         switch item.action {
         case #selector(showMode(_:)): item.state = item.representedObject as? String == main.mode.rawValue ? .on : .off
-        case #selector(newTab), #selector(closeTab), #selector(openLocation), #selector(nextTab), #selector(previousTab):
+        case #selector(newTab), #selector(closeTab), #selector(openLocation), #selector(nextTab), #selector(previousTab),
+             #selector(goToTab(_:)):
             return browsing
         case #selector(toggleTerminal), #selector(moveTerminal): return !browsing
         case #selector(moveTerminal): item.state = main.drawer.dock == .bottom ? .on : .off
