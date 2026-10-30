@@ -565,10 +565,14 @@ final class TerminalDrawer: NSView {
             line.topAnchor.constraint(equalTo: topAnchor),
             line.bottomAnchor.constraint(equalTo: bottomAnchor),
             line.leadingAnchor.constraint(equalTo: leadingAnchor),
+            // A separator draws across its longer side: pinned thin, or a frame left
+            // wide from the other dock draws a line across the middle of the panel.
+            line.widthAnchor.constraint(equalToConstant: 1),
         ] : [
             line.topAnchor.constraint(equalTo: topAnchor),
             line.leadingAnchor.constraint(equalTo: leadingAnchor),
             line.trailingAnchor.constraint(equalTo: trailingAnchor),
+            line.heightAnchor.constraint(equalToConstant: 1),
         ]
         NSLayoutConstraint.activate(lineConstraints)
         let other = dock == .right ? "bottom" : "right"
