@@ -100,6 +100,11 @@ Their colors and control metrics are generated from `web/src/styles/tokens.css` 
 and the app bundles the same Inter and Source Sans body fonts. After changing those CSS tokens, run
 `node native/scripts/theme.mjs` and commit `NativeTheme.swift`; `native:build` checks it for drift.
 
+Closing the last ordinary tab selects a remaining pinned page, even if it is unloaded.
+With no replacement, the browser stays empty; the address bar and New Tab still work.
+Closing a pinned page only unloads it. `npm run native:test` checks these transitions in an
+isolated process with nonpersistent storage and a loopback page fixture.
+
 Conquer → Import Zen Cookies optionally copies Zen Browser's unexpired sessions after confirmation
 (from its profile's `cookies.sqlite`, default space only); opening Conquer does not import cookies automatically. Check runs (`--info`) keep its
 cookies and tabs to themselves; `notifyutil -p com.paseo.command.native.mode.<run>` switches sides, `….open.<run>`

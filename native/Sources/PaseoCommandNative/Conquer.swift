@@ -550,7 +550,16 @@ final class ConquerView: NSView, WKNavigationDelegate, WKUIDelegate, NSTextField
     }
 
     private func close(_ tab: BrowserTab) {
-        if tab === current { selectNeighbour(of: tab) }
+        if tab === current {
+            selectNeighbour(of: tab)
+            if current === tab {
+                if !findBar.isHidden { closeFind() }
+                tab.web?.removeFromSuperview()
+                current = nil
+                suggestions.hide()
+                address.stringValue = ""
+            }
+        }
         if tab.isPinned {
             tab.unload()
         } else {
@@ -562,13 +571,15 @@ final class ConquerView: NSView, WKNavigationDelegate, WKUIDelegate, NSTextField
             tab.web?.removeFromSuperview()
             remove(tab)
         }
-        if allTabs.isEmpty || current == nil || current === tab { newTab() }
         renderSidebar()
+        renderBar()
+        if current == nil { focusAddress() }
         scheduleSave()
     }
 
     /// After closing `tab`: the next tab below it among the others, else above;
     /// for a pinned tab, the nearest open one (rather than loading another pinned page).
+    /// An ordinary tab can fall back to an unloaded pinned page.
     private func selectNeighbour(of tab: BrowserTab) {
         if !tab.isPinned, let i = tabs.firstIndex(of: tab) {
             let rest = tabs.enumerated().filter { $0.offset != i }.map(\.element)
@@ -577,7 +588,9 @@ final class ConquerView: NSView, WKNavigationDelegate, WKUIDelegate, NSTextField
         let all = allTabs
         guard let i = all.firstIndex(of: tab) else { return }
         let near = all.indices.filter { $0 != i }.sorted { abs($0 - i) < abs($1 - i) }.map { all[$0] }
-        if let open = near.first(where: { $0.web != nil }) { select(open) } else if let other = tabs.last(where: { $0 !== tab }) { select(other) }
+        if let open = near.first(where: { $0.web != nil }) { select(open) }
+        else if let other = tabs.last(where: { $0 !== tab }) { select(other) }
+        else if !tab.isPinned, let pinned = near.first(where: { $0.isPinned }) { select(pinned) }
     }
 
     /// Reopen the last closed tab (⇧⌘T).
@@ -600,7 +613,7 @@ final class ConquerView: NSView, WKNavigationDelegate, WKUIDelegate, NSTextField
         renderSidebar()
         renderBar()
         scheduleSave()
-        if web.url != nil { window?.makeFirstResponder(web) }
+        if tab.url != nil { window?.makeFirstResponder(web) }
     }
 
     /// Step through the tabs in the sidebar's order (⌘E, ⌃Tab, ⌃⇧Tab).
@@ -934,10 +947,8 @@ final class ConquerView: NSView, WKNavigationDelegate, WKUIDelegate, NSTextField
 
     private func renderBar() {
         let web = current?.web
-        back.isEnabled = web?.canGoBack ?? false
-        forward.isEnabled = web?.canGoForward ?? false
-        reloadButton.image = NSImage(systemSymbolName: web?.isLoading == true ? "xmark" : "arrow.clockwise",
-                                     accessibilityDescription: web?.isLoading == true ? "Stop" : "Reload")
+        pageBar.show(web)
+        reloadButton.isEnabled = web != nil
         // Leave what's being typed alone.
         if address.currentEditor() == nil { address.stringValue = current?.url?.absoluteString ?? "" }
     }
