@@ -9,13 +9,14 @@ import {
   Plus,
   Server,
   Tag,
+  Trash2,
   X,
 } from "lucide-react";
 import { api, errorMessage } from "./api";
 import type { Agent, Project, Selection, Workspace } from "./types";
 import { UNREAD, isWorking, providerName, shownStatus } from "./types";
 import { Badge, CopyButton, ProviderIcon, plainText } from "./ui";
-import { workspaceKey } from "./workspaces";
+import { projectKey, workspaceKey } from "./workspaces";
 import { agentLabel } from "./display";
 import { agentName, hostText, pathText, placeText } from "./names";
 import { InlineName } from "./InlineName";
@@ -359,8 +360,12 @@ export function ProjectView({
   workspaces,
   agentsAt,
   agents,
+  online,
   onBack,
   onDispatch,
+  onRemove,
+  removing = false,
+  onNotice,
   select,
   permissionAgents,
   unread,
@@ -370,8 +375,13 @@ export function ProjectView({
   /** By host-qualified workspace key. */
   agentsAt: (workspaceKey: string) => Agent[];
   agents: Agent[];
+  online: boolean;
   onBack: () => void;
   onDispatch: () => void;
+  onRemove: () => void;
+  /** Being removed in the background. */
+  removing?: boolean;
+  onNotice: (message: string) => void;
   select: (s: Selection) => void;
 
   permissionAgents: Set<string>;
@@ -394,7 +404,25 @@ export function ProjectView({
           <Box size={21} />
         </span>
         <div>
-          <h2>{placeText(project.name, "Project")}</h2>
+          <InlineName
+            kind="project"
+            renameKey={projectKey(project)}
+            shown={placeText(project.name, "Project")}
+            value={project.name}
+            disabled={!online || removing}
+            onSave={(name) =>
+              void rename(
+                {
+                  kind: "project",
+                  key: projectKey(project),
+                  id: project.projectId,
+                  host: project.host,
+                },
+                name,
+                onNotice,
+              )
+            }
+          />
           <p>
             {project.kind === "git" ? "Git repository" : "Local directory"}
             {project.hostLabel && (
@@ -425,6 +453,25 @@ export function ProjectView({
         >
           <Plus size={14} />
           Dispatch to this project
+        </button>
+        <button
+          className="workspace-archive"
+          aria-description={
+            removing
+              ? "This project is being removed"
+              : online
+                ? "Archive its workspaces and stop listing this project; its folder stays on disk (asks to confirm first)"
+                : "Paseo is offline"
+          }
+          disabled={!online || removing}
+          onClick={onRemove}
+        >
+          {removing ? (
+            <LoaderCircle size={14} className="spinning" />
+          ) : (
+            <Trash2 size={14} />
+          )}
+          {removing ? "Removing…" : "Remove"}
         </button>
       </div>
       <div className="section-label">

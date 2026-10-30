@@ -159,3 +159,70 @@ test("a GitHub repo is cloned into the open folder; a failure is shown", async (
   await page.locator(".new-agent").waitFor();
   await context.close();
 });
+
+test("a project is renamed in place, then removed after confirming", async () => {
+  const context = await newContext(browser);
+  const page = await context.newPage();
+  let projects: any[] = [
+    { projectId: "prj_atlas", name: "atlas", kind: "git", path: "/home/me/code/atlas" },
+    { projectId: "prj_rocket", name: "rocket", kind: "git", path: "/home/me/code/rocket" },
+  ];
+  let workspaces: any[] = [
+    {
+      workspaceId: "wks_rocket",
+      projectId: "prj_rocket",
+      project: "rocket",
+      name: "Launch pad",
+      isolation: "local",
+      cwd: "/home/me/code/rocket",
+      branch: "main",
+    },
+  ];
+  const sent: [string, any][] = [];
+  await mockApi(page, {
+    agents: () => [],
+    projects: () => projects,
+    workspaces: () => workspaces,
+    accept: (path, body) => {
+      sent.push([path, body]);
+      if (path === "/api/projects/prj_atlas/rename") {
+        projects = projects.map((p) =>
+          p.projectId === "prj_atlas" ? { ...p, name: body.name } : p,
+        );
+        return { projectId: "prj_atlas", name: body.name };
+      }
+      if (path === "/api/projects/prj_rocket/remove") {
+        projects = projects.filter((p) => p.projectId !== "prj_rocket");
+        workspaces = [];
+        return { projectId: "prj_rocket", removedWorkspaceIds: ["wks_rocket"] };
+      }
+      return false;
+    },
+  });
+  await page.goto(`${app.url}?tab=Projects`);
+  // The row's pencil opens the project with its name being edited.
+  await page.getByRole("button", { name: "Rename project atlas" }).click();
+  const field = page.getByRole("textbox", { name: "Rename project" });
+  await field.fill("Atlas Prime");
+  await field.press("Enter");
+  await page.locator(".overview-title h2", { hasText: "Atlas Prime" }).waitFor();
+  assert.deepEqual(sent[0], ["/api/projects/prj_atlas/rename", { name: "Atlas Prime" }]);
+  // Remove asks first, naming the workspace archived with it; Keep cancels.
+  await page.goto(`${app.url}?tab=Projects`);
+  await page.getByRole("button", { name: "Remove project rocket" }).click();
+  const dialog = page.getByRole("dialog", { name: "Remove this project?" });
+  await dialog.locator("li", { hasText: "Launch pad" }).waitFor();
+  await dialog.getByRole("button", { name: "Keep project" }).click();
+  await dialog.waitFor({ state: "detached" });
+  assert.equal(sent.length, 1);
+  // The project is open now; its own Remove asks again.
+  await page.locator(".place-actions").getByRole("button", { name: "Remove" }).click();
+  await dialog.getByRole("button", { name: "Remove project" }).click();
+  await waitFor(() => Promise.resolve(sent.length), (n) => n === 2, "the removal");
+  assert.deepEqual(sent[1], ["/api/projects/prj_rocket/remove", { confirm: true }]);
+  await page.getByText("Removed project rocket. Its folder stays on disk.").waitFor();
+  // Back in the list, without it.
+  await page.getByRole("button", { name: "Rename project Atlas Prime" }).waitFor({ state: "attached" });
+  assert.equal(await page.getByRole("button", { name: "Remove project rocket" }).count(), 0);
+  await context.close();
+});

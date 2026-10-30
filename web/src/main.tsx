@@ -36,6 +36,7 @@ import {
   X,
 } from "lucide-react";
 import { ArchiveWorkspaceDialog } from "./ArchiveWorkspaceDialog";
+import { RemoveProjectDialog } from "./RemoveProjectDialog";
 import {
   dismissArchive,
   isArchiving,
@@ -97,7 +98,9 @@ import { setKnownIds } from "./display";
 import {
   settleRenames,
   useRenames,
+  requestRename,
   withAgentRenames,
+  withProjectRenames,
   withRenames,
 } from "./renames";
 import { withLocalWorkspaces, projectKey, workspaceKey } from "./workspaces";
@@ -165,7 +168,7 @@ function focusComposer() {
 
 function App() {
   const [liveAgents, setAgents] = useState<Agent[]>([]),
-    [projects, setProjects] = useState<Project[]>([]),
+    [liveProjects, setProjects] = useState<Project[]>([]),
     [liveWorkspaces, setWorkspaces] = useState<Workspace[]>([]),
     [providers, setProviders] = useState<Provider[]>([]),
     [hosts, setHosts] = useState<Host[]>([]),
@@ -179,16 +182,22 @@ function App() {
     () => withAgentRenames(liveAgents, renames),
     [liveAgents, renames],
   );
-  const workspaces = useMemo(
-    () => withRenames(liveWorkspaces, "workspace", workspaceKey, renames),
-    [liveWorkspaces, renames],
+  const { projects, workspaces } = useMemo(
+    () =>
+      withProjectRenames(
+        liveProjects,
+        withRenames(liveWorkspaces, "workspace", workspaceKey, renames),
+        renames,
+      ),
+    [liveProjects, liveWorkspaces, renames],
   );
   // Once saved, a rename is dropped when the fleet shows it (it may have
   // arrived before the answer).
   useEffect(() => {
     settleRenames(liveAgents, "agent", (a) => a.id);
     settleRenames(liveWorkspaces, "workspace", workspaceKey);
-  }, [liveAgents, liveWorkspaces, renames]);
+    settleRenames(liveProjects, "project", projectKey);
+  }, [liveAgents, liveWorkspaces, liveProjects, renames]);
   // Every ID the app knows (agents', workspaces', projects', hosts') stays
   // out of every label; the UI re-renders when the set changes, before
   // the browser paints.
@@ -277,6 +286,13 @@ function App() {
   const [archiveWorkspace, setArchiveWorkspace] = useState<Workspace | null>(
     null,
   );
+  const [removeProject, setRemoveProject] = useState<Project | null>(null);
+  // Projects (by key) whose removal is under way.
+  const [removingProjects, setRemovingProjects] = useState<Set<string>>(
+    () => new Set(),
+  );
+  /** A confirming dialog is open: it stays modal. */
+  const confirming = !!archiveWorkspace || !!removeProject;
   useEffect(
     () =>
       onAgentArchived((id, host) => {
@@ -804,7 +820,7 @@ function App() {
   // stays modal.
   const newAgent = useRef(() => {});
   newAgent.current = () => {
-    if (archiveWorkspace) return;
+    if (confirming) return;
     openDispatch();
   };
   useEffect(() => {
@@ -826,8 +842,11 @@ function App() {
       // Chrome autofill dispatches keydown events without a key.
       if (!e.key) return;
       const editing = target.matches("input,textarea,select,[contenteditable]");
-      if (archiveWorkspace) {
-        if (e.key === "Escape") setArchiveWorkspace(null);
+      if (confirming) {
+        if (e.key === "Escape") {
+          setArchiveWorkspace(null);
+          setRemoveProject(null);
+        }
         return;
       }
       if (editing || e.metaKey || e.ctrlKey || e.altKey) return;
@@ -893,7 +912,7 @@ function App() {
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
   }, [
-    archiveWorkspace,
+    confirming,
     dispatchTarget,
     addingProject,
     selection,
@@ -962,6 +981,44 @@ function App() {
     if (!archiveWorkspace) return;
     startArchive(archiveWorkspace);
     setArchiveWorkspace(null);
+  };
+  // Removing a project archives its workspaces on the daemon, which can take
+  // a while: the dialog closes at once and the outcome arrives as a notice.
+  const openRemoveProject = (p: Project) => {
+    if (removingProjects.has(projectKey(p))) return;
+    select({ type: "project", id: projectKey(p) });
+    setDispatchTarget(null);
+    setRemoveProject(p);
+  };
+  const confirmRemoveProject = async () => {
+    const p = removeProject;
+    if (!p) return;
+    setRemoveProject(null);
+    const key = projectKey(p);
+    const name = placeText(p.name, "Project");
+    setRemovingProjects((s) => new Set(s).add(key));
+    try {
+      await api(`projects/${encodeURIComponent(p.projectId)}/remove`, {
+        confirm: true,
+        ...(p.host ? { host: p.host } : {}),
+      });
+      setProjects((previous) => previous.filter((x) => projectKey(x) !== key));
+      setSelection((current) =>
+        current?.type === "project" && current.id === key ? null : current,
+      );
+      setNotice(`Removed project ${name}. Its folder stays on disk.`);
+    } catch (error) {
+      soundEvent("actionFailed");
+      setNotice(
+        `Couldn’t remove ${name}: ${errorMessage(error) || "the request failed."}`,
+      );
+    } finally {
+      setRemovingProjects((s) => {
+        const next = new Set(s);
+        next.delete(key);
+        return next;
+      });
+    }
   };
   // Settle a finished archive with whatever is current now (the user may
   // have moved on, and the app may have re-rendered since it started).
@@ -1087,6 +1144,24 @@ function App() {
             label: `Archive workspace “${placeText(archivable.name, "workspace")}”…`,
             keywords: "remove delete",
             run: () => openArchive(archivable),
+          },
+        ]
+      : []),
+    ...(project && online && !removingProjects.has(projectKey(project))
+      ? [
+          {
+            id: "rename-project",
+            group: "Actions",
+            label: `Rename project “${placeText(project.name, "project")}”…`,
+            keywords: "title name",
+            run: () => requestRename("project", projectKey(project)),
+          },
+          {
+            id: "remove-project",
+            group: "Actions",
+            label: `Remove project “${placeText(project.name, "project")}”…`,
+            keywords: "delete archive unregister",
+            run: () => openRemoveProject(project),
           },
         ]
       : []),
@@ -1335,7 +1410,7 @@ function App() {
                 chooseHost={chooseHost}
                 hover={() => {}}
                 onNotice={setNotice}
-                blocked={!!archiveWorkspace}
+                blocked={confirming}
                 loaded={!loading}
               />
             </React.Suspense>
@@ -1438,6 +1513,8 @@ function App() {
                   onMarkRead={markRead}
                   onArchiveWorkspace={openArchive}
                   archiving={archiving}
+                  onRemoveProject={openRemoveProject}
+                  removingProjects={removingProjects}
                   onDispatch={openDispatch}
                   onAddProject={addProject}
                   workspaceOf={workspaceOf}
@@ -1572,10 +1649,14 @@ function App() {
                       )}
                       agentsAt={agentsAt}
                       agents={active.filter((a) => projectOf(a) === project)}
+                      online={online}
                       onBack={onBack}
                       onDispatch={() =>
                         openDispatch({ projectId: projectKey(project) })
                       }
+                      onRemove={() => openRemoveProject(project)}
+                      removing={removingProjects.has(projectKey(project))}
+                      onNotice={setNotice}
                       select={choose}
 
                       permissionAgents={permissionAgents}
@@ -1651,11 +1732,25 @@ function App() {
               onConfirm={confirmArchive}
             />
           )}
+          {removeProject && (
+            <RemoveProjectDialog
+              project={removeProject}
+              workspaces={listedWorkspaces.filter(
+                (w) =>
+                  realWorkspaceIds.has(workspaceKey(w)) &&
+                  w.project === removeProject.name &&
+                  sameHost(w, removeProject),
+              )}
+              agents={active.filter((a) => projectOf(a) === removeProject)}
+              onCancel={() => setRemoveProject(null)}
+              onConfirm={() => void confirmRemoveProject()}
+            />
+          )}
         </AnimatePresence>
         <PresetsEditorHost />
         <CommandPalette
           commands={paletteCommands}
-          blocked={!!archiveWorkspace}
+          blocked={confirming}
         />
         <TooltipLayer />
       </main>

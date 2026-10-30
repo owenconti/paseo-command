@@ -11,16 +11,27 @@
  *   (owner/repo or URL) into a new folder in `parent` and register it.
  *
  * Each answers with the registered project, `{ projectId, name, path }`.
+ *
+ * And managing them, as the Paseo app's project menu does:
+ *
+ * - `POST /api/projects/:id/rename` `{ name, host? }`: set its title (the
+ *   folder is unchanged). Answers `{ projectId, name }`.
+ * - `POST /api/projects/:id/remove` `{ confirm: true, host? }`: archive its
+ *   active workspaces (their agents and terminals) and unregister it. Its
+ *   folder stays on disk. Answers `{ projectId, removedWorkspaceIds }`.
  */
 import { posix } from "node:path";
 import { TUNING, remember, scopeOf } from "../fleet";
 import { redactText } from "../redact";
 import type { Mark } from "./commands";
+import { affectedKeys } from "./commands";
 import { resolveHost, sdk, timed, type Remote } from "./hosts";
-import type { Body } from "./validate";
+import { id, newName, type Body } from "./validate";
 
 /** Clones can take a while; the Paseo app allows five minutes. */
 const CLONE_MS = 300000;
+/** Removing archives each of the project's workspaces in turn. */
+const REMOVE_MS = 120000;
 
 /** An absolute folder path on the host, normalized. */
 export function folderPath(value: unknown, what = "folder") {
@@ -160,4 +171,39 @@ export async function cloneProject(body: Body, mark: Mark) {
     CLONE_MS,
   );
   return registered(r, "Couldn't clone the repository.");
+}
+
+/** A project the host has now (not a cached list), by its ID. */
+async function knownProject(rawId: string, host?: Remote) {
+  const projectId = id(rawId);
+  const client = await sdk(host);
+  const r = await timed(client.listProjects(), undefined, client);
+  const project = (Array.isArray(r?.projects) ? r.projects : []).find(
+    (p) => p?.projectId === projectId,
+  );
+  if (!project)
+    throw new Error("This project is no longer registered. Refresh and try again.");
+  return { client, projectId };
+}
+
+/** `POST /api/projects/:id/rename`: set its title. */
+export async function renameProject(rawId: string, body: Body, mark: Mark) {
+  const host = await resolveHost(body.host, "write");
+  const name = newName(body.name);
+  const { client, projectId } = await knownProject(rawId, host);
+  // Its workspaces' rows carry its name too.
+  mark({ host, keys: ["projects", "workspaces"] });
+  const r = await timed(client.renameProject(projectId, name), TUNING.writeMs);
+  return { projectId, name: r?.customName || name };
+}
+
+/** `POST /api/projects/:id/remove`: archive its workspaces, unregister it. */
+export async function removeProject(rawId: string, body: Body, mark: Mark) {
+  if (body.confirm !== true)
+    throw new Error("Removing a project requires confirmation");
+  const host = await resolveHost(body.host, "write");
+  const { client, projectId } = await knownProject(rawId, host);
+  mark({ host, keys: ["projects", ...affectedKeys("workspace-archive")] });
+  const r = await timed(client.removeProject(projectId), REMOVE_MS);
+  return { projectId, removedWorkspaceIds: r?.removedWorkspaceIds ?? [] };
 }

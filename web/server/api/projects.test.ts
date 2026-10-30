@@ -104,6 +104,48 @@ test("clone: into a new folder in the destination, on the chosen host", async ()
   assert.equal(unknown.status, 400);
 });
 
+test("rename: sets the project's title, its workspaces follow", async () => {
+  local.addProject({ projectId: "prj_named", path: "/home/review/named" });
+  local.addWorkspace({ id: "ws_named", projectId: "prj_named", cwd: "/home/review/named" });
+  const r = await post("projects/prj_named/rename", { name: "  Mission   Control " });
+  assert.equal(r.status, 200, JSON.stringify(r.data));
+  assert.deepEqual(r.data, { projectId: "prj_named", name: "Mission Control" });
+  const projects = await get("projects");
+  assert.equal(
+    projects.data.find((p: { projectId: string }) => p.projectId === "prj_named")?.name,
+    "Mission Control",
+  );
+  const workspaces = await get("workspaces");
+  assert.equal(
+    workspaces.data.find((w: { workspaceId: string }) => w.workspaceId === "ws_named")?.project,
+    "Mission Control",
+  );
+  assert.equal((await post("projects/prj_named/rename", { name: " " })).status, 400);
+  const gone = await post("projects/prj_nowhere/rename", { name: "X" });
+  assert.equal(gone.status, 400);
+  assert.match(gone.data.error, /no longer registered/);
+  assert.equal(local.callsOf("renameProject").length, 1);
+});
+
+test("remove: needs confirming, archives its workspaces, keeps the folder", async () => {
+  local.addProject({ projectId: "prj_old", path: "/home/review/old" });
+  local.folders.add("/home/review/old");
+  local.addWorkspace({ id: "ws_old", projectId: "prj_old", cwd: "/home/review/old" });
+  local.addAgent({ id: "a-old", cwd: "/home/review/old", workspaceId: "ws_old" } as never);
+  const unconfirmed = await post("projects/prj_old/remove", {});
+  assert.equal(unconfirmed.status, 400);
+  assert.equal(local.callsOf("removeProject").length, 0);
+  const r = await post("projects/prj_old/remove", { confirm: true });
+  assert.equal(r.status, 200, JSON.stringify(r.data));
+  assert.deepEqual(r.data, { projectId: "prj_old", removedWorkspaceIds: ["ws_old"] });
+  const projects = await get("projects");
+  assert.ok(!projects.data.some((p: { projectId: string }) => p.projectId === "prj_old"));
+  assert.ok(local.folders.has("/home/review/old"));
+  assert.ok(local.agents.get("a-old")?.archivedAt);
+  assert.equal((await post("projects/prj_old/remove", { confirm: true })).status, 400);
+  assert.equal((await post("projects/prj_old/delete", { confirm: true })).status, 404);
+});
+
 test("validation", () => {
   assert.equal(folderPath("/a/b/../c/"), "/a/c");
   assert.equal(folderPath("/"), "/");

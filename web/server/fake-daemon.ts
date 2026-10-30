@@ -186,6 +186,12 @@ export class FakeDaemon {
     };
     this.projects.set(projectId, project);
     this.pushProject("upsert", project);
+    for (const ws of [...this.workspaces.values()])
+      if (ws.projectId === projectId) {
+        const next = { ...ws, projectDisplayName: name };
+        this.workspaces.set(ws.id, next);
+        this.pushWorkspace("upsert", next);
+      }
     return project;
   }
   removeProject(projectId: string) {
@@ -1649,6 +1655,27 @@ export class FakeClient {
     if (options.idempotencyKey)
       this.daemon.idempotent.set(`agent:${options.idempotencyKey}`, agent);
     return agent;
+  }
+  /** As the daemon does: a custom name for the project, pushed. */
+  async renameProject(projectId: string, customName: string | null) {
+    await this.gate("renameProject", projectId, customName);
+    if (!this.daemon.projects.has(projectId)) throw new Error("Project not found");
+    const path = this.daemon.projects.get(projectId).projectRootPath as string;
+    this.daemon.renameProject(projectId, customName || path.split("/").pop() || path);
+    return { customName };
+  }
+  /** As the daemon does: its active workspaces archived, then unregistered. */
+  async removeProject(projectId: string) {
+    await this.gate("removeProject", projectId);
+    if (!this.daemon.projects.has(projectId)) throw new Error("Project not found");
+    const removedWorkspaceIds: string[] = [];
+    for (const ws of [...this.daemon.workspaces.values()])
+      if (ws.projectId === projectId) {
+        await this.archiveWorkspace(ws.id);
+        removedWorkspaceIds.push(ws.id);
+      }
+    this.daemon.removeProject(projectId);
+    return { removedWorkspaceIds };
   }
   async archiveWorkspace(workspaceId: string) {
     await this.gate("archiveWorkspace", workspaceId);

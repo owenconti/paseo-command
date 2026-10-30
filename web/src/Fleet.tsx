@@ -22,6 +22,7 @@ import {
   Pencil,
   Plus,
   Server,
+  Trash2,
   X,
 } from "lucide-react";
 import { ago, compactAgo, readStore, writeStore } from "./api";
@@ -392,6 +393,8 @@ export function Fleet({
   onMarkRead,
   onArchiveWorkspace,
   archiving = new Set<string>(),
+  onRemoveProject,
+  removingProjects = new Set<string>(),
   onDispatch,
   onAddProject,
   workspaceOf,
@@ -435,6 +438,9 @@ export function Fleet({
   onArchiveWorkspace: (w: Workspace) => void;
   /** Workspaces (by key) being archived in the background. */
   archiving?: Set<string>;
+  onRemoveProject: (p: Project) => void;
+  /** Projects (by key) being removed in the background. */
+  removingProjects?: Set<string>;
   onDispatch: (target?: { projectId?: string; workspaceId?: string }) => void;
   /** Open the Add project panel. */
   onAddProject: () => void;
@@ -1074,6 +1080,7 @@ export function Fleet({
             const docks = workspaces.filter(
               (w) => w.project === p.name && sameHost(w, p),
             ).length;
+            const leaving = removingProjects.has(projectKey(p));
             return (
               <div
                 key={projectKey(p)}
@@ -1108,6 +1115,29 @@ export function Fleet({
                     onClick={() => onDispatch({ projectId: projectKey(p) })}
                   >
                     <Plus size={13} />
+                  </button>
+                  <button
+                    data-tip={`Rename project ${pName}`}
+                    aria-label={`Rename project ${pName}`}
+                    disabled={!online || leaving}
+                    onClick={() => {
+                      // Opens the project with its name being edited.
+                      requestRename("project", projectKey(p));
+                      select({ type: "project", id: projectKey(p) });
+                    }}
+                  >
+                    <Pencil size={13} />
+                  </button>
+                  <button
+                    className="archive"
+                    data-tip={
+                      leaving ? `Removing ${pName}…` : `Remove project ${pName}`
+                    }
+                    aria-label={`Remove project ${pName}`}
+                    disabled={!online || leaving}
+                    onClick={() => onRemoveProject(p)}
+                  >
+                    <Trash2 size={13} />
                   </button>
                 </span>
               </div>

@@ -123,6 +123,9 @@ Local assets belong in the repository and are included through local build tooli
 - `web/src/AddProject.tsx`: the Projects tab's Add project panel. On a chosen host, browse its folders
   (`GET /api/folders`, folder names only) and register the open folder, make a new folder in it, or clone a
   pasted GitHub repo into it (`web/server/api/projects.ts`); New agent then opens on the new project.
+  A project is renamed in place (its title, `POST /api/projects/:id/rename`; the pencil on its row or view) and removed
+  after confirming (`web/src/RemoveProjectDialog.tsx`, `POST /api/projects/:id/remove`: Paseo archives its workspaces and
+  unregisters it; the folder stays). Moving a project's folder isn't offered: the daemon has no call for it.
 - `web/server/asks.ts`: what an idle agent's last reply asks of you, judged once per reply by TypeSafe's Jev
   (`TYPESAFE_API_KEY`, else `typesafeApiKey` in the data directory's `secrets.json`): code splits the reply into
   sentences and keeps only questions and requests (`web/src/asks/sentences.ts`, `mayAsk`), Jev judges which ask you, their kind, a pick's options, and whether

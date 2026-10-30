@@ -1,11 +1,13 @@
 import { useSyncExternalStore } from "react";
 import { api, errorMessage } from "./api";
-import { workspaceKey } from "./workspaces";
+import { sameHost } from "./types";
+import { projectKey, workspaceKey } from "./workspaces";
 import { soundEvent } from "./soundCues";
 
 /*
- * Renaming agents and workspaces. The new name is the daemon's (the agent's
- * title, the workspace's title, as the Paseo app sets them), so it arrives
+ * Renaming agents, workspaces and projects. The new name is the daemon's (the
+ * agent's title, the workspace's title, the project's custom name, as the
+ * Paseo app sets them), so it arrives
  * with the live fleet like any other change. Meanwhile it is shown at once:
  * an override, applied to the fleet's rows wherever they are read (the list,
  * headers, the world), until the rows say it themselves, and dropped (with
@@ -15,7 +17,7 @@ import { soundEvent } from "./soundCues";
 /** The longest name the server accepts (the daemon's agent title limit). */
 export const MAX_NAME = 200;
 
-export type RenameKind = "agent" | "workspace";
+export type RenameKind = "agent" | "workspace" | "project";
 type Override = { name: string; saved: boolean; at: number };
 
 /** How long a saved name is shown before the fleet must have it. */
@@ -104,6 +106,34 @@ export function withAgentRenames<
 }
 
 /**
+ * Projects with any rename in progress shown, and their workspaces, which
+ * name their project (by its ID when they carry one, else by its old name).
+ */
+export function withProjectRenames<
+  P extends { projectId: string; name: string; host?: string },
+  W extends { projectId?: string; project: string; host?: string },
+>(
+  projects: P[],
+  workspaces: W[],
+  renames: ReadonlyMap<string, Override> = shown,
+): { projects: P[]; workspaces: W[] } {
+  const named = withRenames(projects, "project", projectKey, renames);
+  if (named === projects) return { projects, workspaces };
+  let out: W[] | null = null;
+  workspaces.forEach((w, i) => {
+    const at = projects.findIndex(
+      (p) =>
+        (w.projectId ? w.projectId === p.projectId : w.project === p.name) &&
+        sameHost(w, p),
+    );
+    if (at < 0 || named[at].name === projects[at].name) return;
+    out ??= workspaces.slice();
+    out[i] = { ...w, project: named[at].name };
+  });
+  return { projects: named, workspaces: out ?? workspaces };
+}
+
+/**
  * The name a title shows for an agent, and what renaming it changes: the
  * workspace's title when the agent is named by it, else the agent's own.
  */
@@ -153,15 +183,21 @@ export function settleRenames<T extends { name: string }>(
   if (dropped) changed();
 }
 
+const RENAME_PATH: Record<RenameKind, string> = {
+  agent: "agents",
+  workspace: "workspaces",
+  project: "projects",
+};
+
 /**
- * Rename an agent (`id` is its client ID) or a workspace (its workspace ID)
- * on its host: shown at once, rolled back with a notice on failure.
+ * Rename an agent (`id` is its client ID), a workspace (its workspace ID) or
+ * a project (its project ID) on its host: shown at once, rolled back with a notice on failure.
  * Resolves whether it was saved.
  */
 export async function rename(
   target: {
     kind: RenameKind;
-    /** The row's key in the fleet (agent ID, or workspace key). */
+    /** The row's key in the fleet (agent ID, or workspace or project key). */
     key: string;
     id: string;
     host?: string;
@@ -177,7 +213,7 @@ export async function rename(
   changed();
   try {
     const result = await api<{ name?: string }>(
-      `${target.kind === "agent" ? "agents" : "workspaces"}/${target.id}/rename`,
+      `${RENAME_PATH[target.kind]}/${encodeURIComponent(target.id)}/rename`,
       { name: clean, ...(target.host ? { host: target.host } : {}) },
     );
     // A later rename of the same thing takes over.
@@ -207,7 +243,7 @@ export async function rename(
 /** Requests to start editing a name, made before its editor is shown. */
 const editRequests = new Set<string>();
 
-/** Ask the editor for this agent or workspace to open (now or once shown). */
+/** Ask the editor for this agent, workspace or project to open (now or once shown). */
 export function requestRename(kind: RenameKind, key: string) {
   editRequests.add(keyOf(kind, key));
   changed();

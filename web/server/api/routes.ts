@@ -34,6 +34,8 @@ import { appSettings, saveAppSettings } from "../settings";
 import { createTerminal, killTerminal, listTerminals } from "./terminals";
 import {
   addProject,
+  removeProject,
+  renameProject,
   cloneProject,
   createProjectFolder,
   foldersGet,
@@ -354,6 +356,12 @@ export async function handleApi(
           else if (parts[1] === "create-folder")
             result = await createProjectFolder(body, mark);
           else if (parts[1] === "clone") result = await cloneProject(body, mark);
+          else return reply(404, { error: "Unknown endpoint" });
+        } else if (parts[0] === "projects" && parts.length === 3) {
+          if (parts[2] === "rename")
+            result = await renameProject(parts[1], body, mark);
+          else if (parts[2] === "remove")
+            result = await removeProject(parts[1], body, mark);
           else return reply(404, { error: "Unknown endpoint" });
         }
         else if (
