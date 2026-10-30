@@ -25,8 +25,7 @@ terminal before switching to this launcher.
 
 ## Updating and stopping
 
-After finishing a feature, commit and merge it into local `main`, then run from
-the main checkout:
+After pulling or changing the code, run:
 
 ```sh
 npm run app:update

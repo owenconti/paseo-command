@@ -7,22 +7,75 @@ pull request status, a native terminal panel, and the experimental Conquer brows
 SpriteKit draws the map underneath a React interface in a WKWebView. In a regular
 browser the conversations and panels work; the map requires the macOS app.
 
-## Build and run
+## Setup
 
-Requires macOS 14 or later, Apple's Command Line Tools (`xcode-select --install`),
-Node.js 22.12 or later, npm, and a configured Paseo CLI and daemon. GitHub features
-also use the `gh` CLI with your own authenticated account.
+### 1. Prerequisites
+
+- macOS 14 or later.
+- Apple's Command Line Tools: `xcode-select --install` (Xcode itself is not needed).
+- Node.js 20.19+ or 22.12+, with npm. Check with `node --version`.
+- [Paseo](https://paseo.sh), installed in Applications and opened once, so its daemon
+  is running. Check with `paseo status` (or
+  `/Applications/Paseo.app/Contents/Resources/bin/paseo status`).
+- Optional: the [GitHub CLI](https://cli.github.com), signed in with `gh auth login`,
+  for pull request and review status.
+
+### 2. Install and build
 
 ```sh
-npm run app:install
-npm run app:update
+git clone https://github.com/owenconti/paseo-command.git
+cd paseo-command
+npm run app:install   # installs rendering/ and web/ dependencies
+npm run app:update    # runs tests, builds the web app and the macOS app
+```
+
+The macOS app is built at `native/build/Paseo Command.app`.
+
+### 3. Run
+
+```sh
 npm run native:run
 ```
 
-For web development, use `npm run app:dev`. For a detached web preview, build and
-run `npm run app:start` from your terminal. See [RUNNING.md](RUNNING.md) for
-updates, ports, logs and stopping the server, and [native/README.md](native/README.md)
-for native development and fake-fleet checks.
+The app starts its local server (`http://127.0.0.1:4310`) itself and keeps it
+running after you quit; `npm run app:stop` stops it. The app opens in the
+background, so switch to it from the Dock.
+
+The server is started with a login shell (`zsh -l`), so `node` must be on the
+`PATH` set in `~/.zprofile` or `~/.zshenv`, not only in `~/.zshrc`. If you use a
+Node version manager that is set up only in `~/.zshrc`, start the server yourself
+first with `npm run app:start`.
+
+### 4. Updating
+
+```sh
+git pull
+npm run app:install
+npm run app:update
+```
+
+The running app then shows **Update ready · Restart app**. Choose **Restart app**
+from the command palette (⌘K) to apply it.
+
+### Without the macOS app
+
+`npm run app:dev` (development) or `npm run app:start` (built preview) serves the
+app at http://127.0.0.1:4310 in any browser. Conversations and panels work there,
+but the map is drawn only by the macOS app. See [RUNNING.md](RUNNING.md) for ports,
+logs and stopping the server, and [native/README.md](native/README.md) for native
+development and checks against a mocked fleet.
+
+### Troubleshooting
+
+- **"Paseo CLI was not found"**: install Paseo in `/Applications` or
+  `~/Applications` and open it, or set `PASEO_COMMAND_CLI` to the `paseo` executable.
+- **No hosts or "The local daemon isn't answering"**: open Paseo and check
+  `paseo status`. To use a fixed daemon address, set `PASEO_COMMAND_DAEMON=host:port`
+  (loopback only).
+- **The app shows a blank page or no server**: run `npm run app:status`, and check
+  the log path it prints.
+
+### Security
 
 The app server listens on **127.0.0.1:4310 only**. It can read conversations and
 control agents and terminals with your local daemon's permissions. It has no
@@ -31,19 +84,25 @@ or tunnels. See [SECURITY.md](SECURITY.md).
 
 ## Settings and integrations
 
-Settings and preset prompts live in `~/.paseo-command/settings.json`; runtime state
-is kept in the ignored `.paseo-command/` directory. Connect and authenticate hosts
-through Paseo using your own configuration.
+Settings and preset prompts live in `~/.paseo-command/settings.json` and are
+edited in the app. Runtime state (logs, game scores, keys) is kept in
+`.paseo-command/` in the checkout, which git ignores; set `PASEO_COMMAND_DATA` to
+keep it elsewhere. Connect and authenticate hosts through Paseo itself.
 
-- `gh` enables pull request and review status.
-- `LINEAR_API_KEY` optionally enables Linear issue details.
-- `TYPESAFE_API_KEY` optionally enables question detection and reply suggestions.
-  This sends candidate sentences from agent replies to TypeSafe. Helper summaries
-  and drafted answers use the daemon's configured model provider.
-- Apple Music controls use macOS Automation permission.
-- Conquer keeps browser cookies and history locally. Importing Zen Browser's
+All integrations are optional:
+
+- **GitHub**: `gh`, signed in, enables pull request and review status.
+- **Linear**: `LINEAR_API_KEY` enables Linear issue details. Set it in
+  `~/.zprofile` (or the environment of `npm run app:start`) and restart the server
+  with `npm run app:restart`.
+- **TypeSafe**: a TypeSafe API key enables question detection and reply
+  suggestions. Put it in `.paseo-command/secrets.json` as
+  `{"typesafeApiKey": "…"}`, or set `TYPESAFE_API_KEY`. This sends candidate
+  sentences from agent replies to TypeSafe. Helper summaries and drafted answers
+  use the daemon's configured model provider.
+- **Apple Music**: the music bar asks once for macOS Automation permission.
+- **Conquer** keeps browser cookies and history locally. Importing Zen Browser's
   sessions is optional: use Conquer → Import Zen Cookies and confirm the import.
-  Existing sessions from earlier versions remain until you clear them.
 
 Do not commit keys, daemon configuration, browser profiles, runtime state, real
 fleet snapshots or screenshots containing private conversations.
