@@ -11,7 +11,7 @@ import {
   cellBounds,
 } from "./world";
 type Edge = { a: { x: number; y: number }; b: { x: number; y: number } };
-/** Room around the land for its bank and shadow. */
+/** Room around the land for its bank. */
 const SURF = 40;
 /** The meadow the islands rise from. */
 export const GROUND = "#566f31";
@@ -447,7 +447,7 @@ function islandPiece(
   dirtPattern.setTransform(new DOMMatrix().scale(0.4));
   const cells = island.cells,
     edges = coast(cells);
-  // Each island is a low sandy rise: a soft shadow on the grass, then an earthen bank.
+  // An earthen bank outlines each island without casting a shadow on the grass.
   const trace = (dy = 0) => {
     ctx.beginPath();
     for (const e of edges) {
@@ -457,13 +457,6 @@ function islandPiece(
   };
   ctx.lineJoin = "round";
   ctx.lineCap = "round";
-  ctx.save();
-  ctx.filter = "blur(7px)";
-  trace(7);
-  ctx.lineWidth = 30;
-  ctx.strokeStyle = "rgba(10,18,6,.42)";
-  ctx.stroke();
-  ctx.restore();
   for (const [width, color, dy] of [
     [16, `rgba(${EARTH},.95)`, 3],
     [11, "rgba(118,94,58,1)", 1],
