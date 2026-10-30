@@ -99,7 +99,8 @@ cookies and tabs to themselves; `notifyutil -p com.paseo.command.native.mode.<ru
 opens `<info>.url`'s address in a tab, `….conquer.<run>` runs `<info>.do`'s steps a second apart (a command's name,
 `folder <name>`, `into <n>`, `drag <tab> <folder|-> <index>`, `type <text>`, `find <text>`, `roundtrip`; see
 `ConquerView.check`), `….key.<run>` presses ⌘ and `<info>.key`'s character as a key press would, and the snapshot hook
-draws Conquer while it shows.
+draws Conquer while it shows. `….app.<run>` flips the map's Map / App switch, and `….appopen.<run>` opens `<info>.url`
+in the workspace app view.
 
 ## Checks without screen recording
 

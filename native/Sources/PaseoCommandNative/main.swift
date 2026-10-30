@@ -134,6 +134,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         listen("com.paseo.command.native.unsplit") { [weak self] in self?.main?.drawer.unsplit() }
         listen("com.paseo.command.native.newterminal") { [weak self] in self?.main?.drawer.newTerminal() }
         listen("com.paseo.command.native.zoom") { [weak self] in self?.main?.drawer.zoom(1) }
+        listen("com.paseo.command.native.app") { [weak self] in self?.main?.toggleApp() }
+        // Open `<info>.url`'s address in the workspace app view (checks).
+        listen("com.paseo.command.native.appopen") { [weak self] in
+            guard let self, let info = self.options.info,
+                  let text = try? String(contentsOfFile: (info as NSString).deletingPathExtension + ".url", encoding: .utf8) else { return }
+            self.main?.appView.open(text)
+        }
         listen("com.paseo.command.native.mode") { [weak self] in
             guard let main = self?.main else { return }
             main.show(main.mode == .command ? .conquer : .command)
@@ -212,6 +219,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         let info: [String: Any] = [
             "window": main.window.windowNumber, "pids": main.processes(),
             "mode": main.mode.rawValue, "conquer": main.conquer.state(),
+            "app": main.showingApp, "appView": main.appView.state(),
+            "mapSwitch": ["hidden": main.mapSwitch.isHiddenOrHasHiddenAncestor, "frame": NSStringFromRect(main.mapSwitch.frame),
+                          "map": NSStringFromRect(main.atlasView.frame)],
             "visible": main.window.occlusionState.contains(.visible), "framesDrawn": main.scene.framesDrawn,
             "paused": main.atlasView.isPaused, "fps": main.atlasView.preferredFramesPerSecond,
             "terminal": main.drawer.state(),
@@ -268,6 +278,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
             item.target = self
             item.representedObject = mode.rawValue
         }
+        let app = view.addItem(withTitle: "Show Workspace App", action: #selector(toggleApp), keyEquivalent: "`")
+        app.keyEquivalentModifierMask = [.command, .option]
+        app.target = self
         // ⌘` flips between the two (ahead of macOS's own window cycling, as the app has one window).
         view.addItem(withTitle: "Switch Command / Conquer", action: #selector(toggleMode), keyEquivalent: "`").target = self
         view.addItem(.separator())
@@ -314,6 +327,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     @objc private func maximizeTerminal() { main?.maximizeTerminal() }
     @objc private func unsplitTerminals() { main?.drawer.unsplit() }
     @objc private func zoomTerminal(_ sender: NSMenuItem) { main?.drawer.zoom(CGFloat(sender.tag)) }
+    @objc private func toggleApp() { main?.toggleApp() }
     @objc private func toggleMode() {
         guard let main else { return }
         main.show(main.mode == .command ? .conquer : .command)
@@ -332,6 +346,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         let browsing = main.mode == .conquer
         closeWindow?.keyEquivalent = browsing ? "" : "w"
         switch item.action {
+        case #selector(toggleApp):
+            item.state = main.showingApp ? .on : .off
+            return !browsing
         case #selector(showMode(_:)): item.state = item.representedObject as? String == main.mode.rawValue ? .on : .off
         case #selector(conquerCommand(_:)):
             if item.representedObject as? String == "togglePin" { item.title = main.conquer.current?.isPinned == true ? "Unpin Tab" : "Pin Tab" }

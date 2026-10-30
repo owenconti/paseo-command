@@ -62,8 +62,11 @@ final class AtlasView: SKView {
     }
 
     /// The highest rate the world needs right now; nil when it can rest.
+    /// Under the workspace app view: nothing to draw.
+    var covered = false { didSet { govern() } }
+
     private var neededRate: Int? {
-        guard visible, !isHiddenOrHasHiddenAncestor, atlas.hasArt else { return nil }
+        guard visible, !covered, !isHiddenOrHasHiddenAncestor, atlas.hasArt else { return nil }
         if CACurrentMediaTime() < resizedUntil && !atlas.lively { return AtlasView.ambientRate }
         if atlas.lively { return max(60, NSScreen.main?.maximumFramesPerSecond ?? 60) }
         if atlas.animating { return AtlasView.ambientRate }
@@ -90,7 +93,7 @@ final class AtlasView: SKView {
                 settling = work
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.5, execute: work)
             }
-        } else if visible && !isHiddenOrHasHiddenAncestor && atlas.hasArt {
+        } else if visible && !covered && !isHiddenOrHasHiddenAncestor && atlas.hasArt {
             // Draw the change, then rest.
             isPaused = false
             let work = DispatchWorkItem { [weak self] in

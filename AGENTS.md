@@ -176,15 +176,19 @@ Local assets belong in the repository and are included through local build tooli
   `paseoMusic` message handler and `paseo:music` events; macOS asks once for Automation permission (`NSAppleEventsUsageDescription`).
 - Conquer (experiment): a strip across the macOS app's top switches between Command (the map, panels and terminal) and Conquer
   (⌘` toggles; View menu; the tabs light on hover), a WebKit browser (`native/Sources/PaseoCommandNative/Conquer.swift`). The hidden side keeps running.
-  Its sidebar, as in Zen and Arc: back/forward/reload and the address bar (suggestions from its history, `ConquerExtras.swift`),
-  pinned tabs and their folders (one level; drag to reorder, pin above New Tab, unpin below it, into and out of folders;
-  right-click for Pin, Back to Pinned Page, Move to Folder, Rename, Delete), New Tab, then the other tabs (`ConquerTabs.swift`), each with
+  Back/forward/reload and the address bar (suggestions from its history, `ConquerExtras.swift`) run along the top of the page
+  (`PageBar` in `WorkspaceApp.swift`). Its sidebar, as in Zen and Arc: pinned tabs and their folders (one level; drag to reorder, pin above New Tab, unpin below it, into and out of folders;
+  right-click for Pin, Back to Pinned Page, Replace Pinned URL with Current URL, Move to Folder, Rename, Delete), New Tab, then the other tabs (`ConquerTabs.swift`), each with
   its favicon or a spinner. A closed pinned tab only unloads. Its commands (`ConquerView.commands`, the Conquer menu) take their keys ahead of
   the page: ⌘T, ⇧⌘T reopen, ⌘W, ⌘L, ⌘E or ⌃Tab next tab, ⌘1…⌘8 that tab, ⌘9 the last, ⌘D pin, ⌘[ ⌘], ⌘F ⌘G ⇧⌘G find,
   ⌘+ ⌘− ⌘0 zoom (per site), ⌘P print, ⇧⌘J downloads; ⌘R reloads the page unless an update is ready. It has its own persistent cookie store,
   seeded on first show (and Conquer → Import Zen Cookies) from Zen Browser's profile (`ZenCookies.swift`): a copy of
   `cookies.sqlite`, default space only, unpartitioned and unexpired; Zen is never written to. Its tabs (`conquerState`), sidebar width, zooms,
   history (`~/Library/Application Support/Paseo Command/conquer-history.json`) and the mode come back on launch; tabs come back unloaded.
+- Workspace app (experiment): the map's Map / App switch (top centre of the map; View → Show Workspace App, ⌥⌘`) lays a page over
+  the map, under the same page bar, with Conquer's configuration and cookies (`WorkspaceAppView` in `WorkspaceApp.swift`). It is
+  meant to show the selected workspace's app; until its address can be relayed (the daemon's service scripts carry
+  `localProxyUrl`/`proxyUrl`), it shows a note, and each workspace keeps the address typed for it while the app runs.
 
 ## Atlas world
 
