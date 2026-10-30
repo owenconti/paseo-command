@@ -59,20 +59,17 @@ local `main`. If working directly on `main`, commit the completed feature there.
 `origin` (`git push origin main`; no force push unless the user asks). Do not push other branches.
 Preserve unrelated work in the checkout.
 
-Then, from the main checkout on `main`, rebuild the web app and the macOS app:
+Then, from the main checkout on `main`, run the build check:
 
 ```sh
-npm run app:update   # app:build && native:build
+npm run app:update   # app:build && app:bundle-server && native:build
 ```
 
-This is part of completing the feature. It does not restart the app server, so open pages, their
-daemon connections and terminals stay connected. Never quit, relaunch
-or open the user's macOS app, and do not run `app:restart` for an update: the app keeps running, its mode bar
-shows "Update ready · Restart app" once a newer native build is on disk. The user chooses **Restart app**
-in the command palette (⌘K) when they want the update; it has no keyboard shortcut or native menu item.
-Restart app first runs `app:refresh`, which restarts the server only if its own code (`web/server/`, the Vite
-config, dependencies, the launcher) changed since it started; then restarts the app with the latest
-native build, keeping the window position and page. The server serves each new `web/dist` build without a restart.
+This builds the web app (`web/dist/`, which a browser preview serves without a restart), bundles the server and
+builds the dev flavour `native/build/Paseo Command Dev.app`. It is a build check only: the user's installed app updates
+through Sparkle releases, not through this command. Never quit, relaunch or open the user's macOS app, and do not run
+`app:restart`. Never run `npm run release` or `npm run release:setup`: releases are the user's. After pushing, tell the
+user a release is pending (`npm run release -- <next version>`), naming the user-visible changes since the last one.
 If you made a Paseo workspace (worktree) for the work, archive it once its branch is merged into `main` and pushed
 (remove any `node_modules` symlinks you added to it first), so finished work leaves no workspace behind on the map.
 Report the commit, whether the push succeeded, whether the build succeeded, and that the workspace was archived.
@@ -86,13 +83,22 @@ Report the commit, whether the push succeeded, whether the build succeeded, and 
 - `npm run app:stop`, `app:restart`, `app:refresh`, `app:status`: manage that detached preview.
   Restart preserves its port; refresh restarts it only when the server's own code changed. See `RUNNING.md`.
 - `npm run app:build`: layout tests, then type-checks and bundles the app to `web/dist/`.
-- `npm run app:update`: `app:build` and `native:build`, after merging to `main` (see above); Restart app in the command palette applies it.
+- `npm run app:bundle-server`: esbuild-bundles `web/server/native.ts` into `web/dist-server/server.mjs` (ignored) for the app bundle.
+- `npm run app:update`: `app:build`, `app:bundle-server` and `native:build`, after merging to `main` (see above), as a build check.
+- `npm run native:test`: the native, bundle and Conquer checks (`native/scripts/test-native.mjs`, `test-bundle.mjs`, `test-conquer.mjs`).
+- `npm run release:setup`: once, by the user: a self-signed code-signing identity "Paseo Command Release" in the login keychain and
+  Sparkle EdDSA keys (`SUPublicEDKey` goes into `native/Info.plist`). `npm run release -- <version> [--notes <file>] [--dry-run]`
+  (`scripts/release.mjs`): checks, tests, builds, signs and zips the release app to `native/release/`, writes the Sparkle appcast, commits
+  `Release v<version>`, pushes `main` and runs `gh release create`. Releases are not notarized: a first open needs System Settings →
+  Privacy & Security → Open Anyway.
 - `npm run app:typecheck`: checks React, API and Atlas TypeScript.
 - `npm run app:e2e`: browser tests of the Atlas against a mocked fleet (no daemon is reached).
 - `npm run native:build`, `native:run [-- --url …]`: the macOS app (`native/`) that draws the Atlas with
-  SpriteKit under the React app in a WKWebView; `native:mock` serves web/dist with a mocked fleet. See `native/README.md`.
-  The app starts the app server itself (`app:start` on its URL's port) when it isn't running, and again if it stops;
-  the server keeps running after the app quits. Check runs pass `--no-server`.
+  SpriteKit under the React app in a WKWebView, built as the dev flavour "Paseo Command Dev" (`io.github.owenconti.paseo-command.dev`,
+  port 4321, no updates, data in `~/Library/Application Support/Paseo Command Dev/`); `sh native/scripts/bundle.sh --release` (done by
+  `npm run release`) builds "Paseo Command" (`io.github.owenconti.paseo-command`, port 4310, Sparkle). `native:mock` serves web/dist
+  with a mocked fleet. See `native/README.md`. The app is self-contained: `Contents/Resources/node/node`, `server/server.mjs` and `ui/`
+  (web/dist). It runs that server itself and the server ends with the app (`ServerManager.swift`). Check runs pass `--no-server`.
   Launch it with `open -g` and `--background` for checks; it must never take the user's focus.
 - `npm run render:test`: layout and tile tests.
 
@@ -110,7 +116,17 @@ Local assets belong in the repository and are included through local build tooli
 - `rendering/src/sample.ts`: illustrative fleets for the layout tests.
 - `web/src/NativeWorld.tsx`: maps the React app's host-qualified world snapshot to the Atlas,
   forwards map picks as selections and draws app selections on the map.
-- `web/server/`: inherited official Paseo SDK API, served with the app on loopback only.
+- `web/server/`: inherited official Paseo SDK API, served with the app on loopback only. `native.ts` is the entry the app
+  bundle runs (`server.mjs`, env `PASEO_COMMAND_DATA`, `PASEO_NATIVE_OWNER_PID`); `scripts/app-server.mjs` runs it from a checkout for browser-only work.
+- `web/server/releases.ts`: `GET /api/releases`, the GitHub releases and their notes; `web/src/ReleasesButton.tsx` (panel header,
+  "What's new" in ⌘K) shows them in place of the old commit list.
+- `native/Sources/PaseoCommandNative/ServerManager.swift`: starts the bundled Node server with the user's shell environment
+  (`ShellEnvironment.swift`), keeps its log in `<data>/logs/server.log`, restarts it if the page finds it gone and never stops a
+  foreign process on the port. `OldInstall.swift` (release flavour, first launch): offers to stop an old checkout server
+  (and its `com.paseo-command.serve` launch agent) and copies `secrets.json`, `games.json`, `forks.json`, `archived-subagents.json` once from the checkout's
+  `.paseo-command/`. `LegacyState.swift` migrates the old app's (`local.paseo.command.native`) preferences, WebKit data and HTTPStorages once.
+  `Updater.swift`: Sparkle (feed `https://github.com/owenconti/paseo-command/releases/latest/download/appcast.xml`); the mode bar shows
+  "Update ready · Restart app", and Restart app (⌘K) installs and relaunches at the same page.
 - `web/e2e/`: browser tests with every `/api` request answered in the browser.
 - `web/src/Dispatch.tsx` `NewAgent`: a new agent opens in the panel as an empty conversation (host, where and
   branch in a small form) with the usual composer; its first message creates the agent. Its /skills and @files

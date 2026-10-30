@@ -48,5 +48,7 @@ was removed at the user’s request. Use the canonical `paseo-command` path.
 The old app's files are in `archive/legacy-app`; `paseo-command` now belongs
 to the SpriteKit app. Historical documents may still describe the original paths.
 
-Build and update locally from the main checkout with `npm run app:update`.
-This keeps the existing native window open; press ⌘R when ready to load the update.
+Build locally from the main checkout with `npm run app:update` (a build check; it makes the dev
+flavour `native/build/Paseo Command Dev.app`). The released app is installed from GitHub Releases and
+updates itself. Ignored build outputs: `web/dist/`, `web/dist-server/`, `native/build/`, `native/.cache/`
+(downloaded Node) and `native/release/` (release zip and appcast).

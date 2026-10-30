@@ -1,5 +1,7 @@
-# Running Paseo Command independently
+# Running Paseo Command in a browser
 
+The macOS app runs its own server (see [README.md](README.md)); this page is for the browser-only
+preview served from a checkout, on port 4310 (stop it first if the released app is running, as they share the port).
 Run these commands from your own Terminal, in this repository. The preview runs
 as a detached process with its output written to a log, so closing Terminal or
 archiving an agent does not stop it. It serves the built app and its API.
@@ -17,7 +19,7 @@ binding. The API and WebSockets reject external Host headers, nonlocal clients
 and cross-origin browser requests. The app has no login or network authentication;
 do not expose it through a proxy, tunnel, port forward or shared hosting.
 
-When upgrading from an older build that listened on every interface, choose **Restart app** in the macOS app’s command palette (⌘K) (or run `npm run app:refresh` yourself) to apply the new binding.
+When upgrading from an older build that listened on every interface, run `npm run app:restart` to apply the new binding.
 Building an update alone does not change a running server.
 
 An existing unmanaged server on the port is left alone; stop it from its original
@@ -28,15 +30,13 @@ terminal before switching to this launcher.
 After pulling or changing the code, run:
 
 ```sh
-npm run app:update
+npm run app:build
 ```
 
-This rebuilds the web and macOS apps without restarting the server, so open pages stay
-connected; the server serves each new `web/dist` build as it is. **Restart app** in the macOS app’s command palette (⌘K) runs
-`npm run app:refresh` first, which restarts the server only when its own code (`web/server/`,
-the Vite config, dependencies or this launcher) changed since it started, then restarts the app at the same window position and page. In a
-plain browser, run `npm run app:refresh` yourself and refresh the page. Restart and refresh
-preserve the launcher's saved port.
+This rebuilds `web/dist/` without restarting the server, so open pages stay connected; the server
+serves each new build as it is. Run `npm run app:refresh` yourself to restart the server only when its own code
+(`web/server/`, the Vite config, dependencies or this launcher) changed since it started, then refresh the page.
+Restart and refresh preserve the launcher's saved port.
 Use `npm run app:stop` to stop this launcher's server.
 
 An alternate port is available with `npm run app:start -- --port 4311` or

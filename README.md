@@ -7,75 +7,28 @@ pull request status, a native terminal panel, and the experimental Conquer brows
 SpriteKit draws the map underneath a React interface in a WKWebView. In a regular
 browser the conversations and panels work; the map requires the macOS app.
 
-## Setup
+## Install
 
-### 1. Prerequisites
+1. Download the latest `Paseo-Command-<version>.zip` from
+   [GitHub Releases](https://github.com/owenconti/paseo-command/releases/latest).
+2. Unzip it and drag **Paseo Command** to Applications.
+3. Open it. Releases are not notarized by Apple, so the first open is blocked: choose
+   **System Settings → Privacy & Security → Open Anyway** for Paseo Command, then open it
+   again. (On macOS 14, right-click → Open also works.) Later opens and updates need nothing.
 
-- macOS 14 or later.
-- Apple's Command Line Tools: `xcode-select --install` (Xcode itself is not needed).
-- Node.js 20.19+ or 22.12+, with npm. Check with `node --version`.
-- [Paseo](https://paseo.sh), installed in Applications and opened once, so its daemon
-  is running. Check with `paseo status` (or
-  `/Applications/Paseo.app/Contents/Resources/bin/paseo status`).
-- Optional: the [GitHub CLI](https://cli.github.com), signed in with `gh auth login`,
-  for pull request and review status.
+Requirements: macOS 14 or later, and [Paseo](https://paseo.sh) installed in Applications and
+opened once, so its daemon is running (check with `paseo status`, or
+`/Applications/Paseo.app/Contents/Resources/bin/paseo status`). Optional: the
+[GitHub CLI](https://cli.github.com), signed in with `gh auth login`, for pull request and
+review status. Node.js is not needed: the app carries its own.
 
-### 2. Install and build
+The app runs its own local server on `http://127.0.0.1:4310` and stops it when it quits. It
+reads your shell's environment (`~/.zprofile`, `~/.zshrc` and so on) once at launch, so `gh`
+and the keys you export there apply even when it is opened from Finder.
 
-```sh
-git clone https://github.com/owenconti/paseo-command.git
-cd paseo-command
-npm run app:install   # installs rendering/ and web/ dependencies
-npm run app:update    # runs tests, builds the web app and the macOS app
-```
-
-The macOS app is built at `native/build/Paseo Command.app`.
-
-### 3. Run
-
-```sh
-npm run native:run
-```
-
-Or open `native/build/Paseo Command.app` from Finder (you can drag it to the Dock,
-but keep it in the checkout: it runs the server from there).
-
-The app starts its local server (`http://127.0.0.1:4310`) itself and keeps it
-running after you quit; `npm run app:stop` stops it. It reads your shell's
-environment (`~/.zprofile`, `~/.zshrc` and so on) once at launch, so Node from
-nvm, fnm, Volta, mise, asdf or Homebrew, and keys you export there, apply even
-when it is opened from Finder.
-
-### 4. Updating
-
-```sh
-git pull
-npm run app:install
-npm run app:update
-```
-
-The running app then shows **Update ready · Restart app**. Choose **Restart app**
-from the command palette (⌘K) to apply it.
-
-### Without the macOS app
-
-`npm run app:dev` (development) or `npm run app:start` (built preview) serves the
-app at http://127.0.0.1:4310 in any browser. Conversations and panels work there,
-but the map is drawn only by the macOS app. See [RUNNING.md](RUNNING.md) for ports,
-logs and stopping the server, and [native/README.md](native/README.md) for native
-development and checks against a mocked fleet.
-
-### Troubleshooting
-
-- **"Paseo CLI was not found"**: install Paseo in `/Applications` or
-  `~/Applications` and open it, or set `PASEO_COMMAND_CLI` to the `paseo` executable.
-- **No hosts or "The local daemon isn't answering"**: open Paseo and check
-  `paseo status`. To use a fixed daemon address, set `PASEO_COMMAND_DAEMON=host:port`
-  (loopback only).
-- **"Node.js was not found"**: install Node.js 20.19 or later, check that
-  `node --version` works in a new terminal, and reopen the app.
-- **The app shows a blank page or no server**: run `npm run app:status`, and check
-  the log path it prints.
+If you ran an older checkout-based build, the first launch of the released app offers to stop
+that server, and copies its keys, game scores and forks into the new data folder (the old
+folder is left untouched).
 
 ### Security
 
@@ -86,20 +39,21 @@ or tunnels. See [SECURITY.md](SECURITY.md).
 
 ## Settings and integrations
 
-Settings and preset prompts live in `~/.paseo-command/settings.json` and are
-edited in the app. Runtime state (logs, game scores, keys) is kept in
-`.paseo-command/` in the checkout, which git ignores; set `PASEO_COMMAND_DATA` to
-keep it elsewhere. Connect and authenticate hosts through Paseo itself.
+Presets and the Linear workspace live in `~/.paseo-command/settings.json` and are edited
+in the app. Runtime state (logs, game scores, forks, the TypeSafe key) is in
+`~/Library/Application Support/Paseo Command/` (`logs/server.log` is the server's log). The
+dev build from source uses `Paseo Command Dev/` beside it. Connect and authenticate hosts
+through Paseo itself.
 
 All integrations are optional:
 
 - **GitHub**: `gh`, signed in, enables pull request and review status.
-- **Linear**: `LINEAR_API_KEY` enables Linear issue details. Export it in your
-  shell profile, then run `npm run app:restart` (or choose **Restart app** in ⌘K).
-- **TypeSafe**: a TypeSafe API key enables question detection and reply
-  suggestions. Put it in `.paseo-command/secrets.json` as
-  `{"typesafeApiKey": "…"}`, or set `TYPESAFE_API_KEY`. This sends candidate
-  sentences from agent replies to TypeSafe. Helper summaries and drafted answers
+- **Linear**: `LINEAR_API_KEY` enables Linear issue details. Export it in your shell profile,
+  then restart the app (⌘K → **Restart app**, or quit and open it).
+- **TypeSafe**: a TypeSafe API key enables question detection and reply suggestions. Export
+  `TYPESAFE_API_KEY` in your shell profile, or put `{"typesafeApiKey": "…"}` in
+  `~/Library/Application Support/Paseo Command/secrets.json`, then restart the app. This sends
+  candidate sentences from agent replies to TypeSafe. Helper summaries and drafted answers
   use the daemon's configured model provider.
 - **Apple Music**: the music bar asks once for macOS Automation permission.
 - **Conquer** keeps browser cookies and history locally. Importing Zen Browser's
@@ -107,6 +61,65 @@ All integrations are optional:
 
 Do not commit keys, daemon configuration, browser profiles, runtime state, real
 fleet snapshots or screenshots containing private conversations.
+
+## Updating
+
+The app checks for updates itself (Sparkle, from this repository's GitHub Releases). When one
+is ready its mode bar shows **Update ready · Restart app**; choose **Restart app** in the
+command palette (⌘K) to install it and reopen at the same page. **What's new** in ⌘K shows
+the release notes.
+
+## Troubleshooting
+
+- **macOS says the app can't be opened, or is from an unidentified developer**: open System
+  Settings → Privacy & Security, scroll to the message about Paseo Command and choose
+  **Open Anyway**.
+- **Port 4310 in use**: another program holds the port. The app never stops it; quit that
+  program (or the old checkout server, if the app offers to stop it) and restart the app.
+- **"Paseo CLI was not found"**: install Paseo in `/Applications` or
+  `~/Applications` and open it, or set `PASEO_COMMAND_CLI` to the `paseo` executable.
+- **No hosts or "The local daemon isn't answering"**: open Paseo and check
+  `paseo status`. To use a fixed daemon address, set `PASEO_COMMAND_DAEMON=host:port`
+  (loopback only).
+- **The app shows a blank page or no server**: read
+  `~/Library/Application Support/Paseo Command/logs/server.log`, then restart the app.
+
+## Building from source
+
+```sh
+git clone https://github.com/owenconti/paseo-command.git
+cd paseo-command
+npm run app:install   # installs rendering/ and web/ dependencies
+npm run app:update    # tests, builds the web app, bundles the server, builds the app
+npm run native:run    # opens Paseo Command Dev on http://127.0.0.1:4321, without taking focus
+```
+
+This needs Apple's Command Line Tools (`xcode-select --install`) and Node.js 20.19+ or 22.12+
+with npm. `native:build` makes `native/build/Paseo Command Dev.app`, a separate app from the
+released one (its own bundle id, port 4321 and data folder, and no updates). It carries its own
+Node and server, so it can live anywhere.
+
+Without the macOS app, `npm run app:dev` (development) or `npm run app:start` (built preview)
+serves the app at http://127.0.0.1:4310 in any browser. Conversations and panels work there,
+but the map is drawn only by the macOS app. See [RUNNING.md](RUNNING.md) for ports, logs and
+stopping the server, and [native/README.md](native/README.md) for native development and
+checks against a mocked fleet.
+
+### Releasing (maintainers)
+
+Once, on the maintainer's Mac: `npm run release:setup` creates the self-signed code-signing
+identity "Paseo Command Release" in the login keychain and the Sparkle update keys, and writes
+the public key (`SUPublicEDKey`) into `native/Info.plist` for you to commit and push. Then, from
+a clean `main`:
+
+```sh
+npm run release -- 0.2.1 [--notes notes.md] [--dry-run]
+```
+
+It runs the checks and tests, builds and signs `Paseo Command.app`, zips it, writes the Sparkle
+appcast, commits `Release v0.2.1`, pushes `main` and creates the GitHub release with
+`gh release create`. `--dry-run` does everything except commit, push and publish. The
+private keys stay in the keychain; nothing secret enters the repository.
 
 ## Development
 

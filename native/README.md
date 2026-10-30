@@ -10,22 +10,36 @@ npm run native:run                   # opens it without taking focus, on http://
 npm run native:run -- --url http://127.0.0.1:4331/
 ```
 
-**Updating without relaunching.** `npm run native:build` replaces the executable inside the bundle
-while a copy runs. The running copy shows "Update ready · Restart app" at the right of its mode bar. Choose **Restart app** in
-the command palette (⌘K); it has no keyboard shortcut or native menu item. This stops its server,
-then restarts the app with the latest build at the same window position and page; the new copy
-starts the server it carries. After merging, `npm run app:update` rebuilds the web app, the
-bundled server and this app.
+**Flavours.** `npm run native:build` makes the dev flavour, `native/build/Paseo Command Dev.app`
+(bundle id `io.github.owenconti.paseo-command.dev`, port 4321, no updates, data in
+`~/Library/Application Support/Paseo Command Dev/`). `sh native/scripts/bundle.sh --release` (run by
+`npm run release`) makes `native/build/Paseo Command.app` (`io.github.owenconti.paseo-command`, port 4310,
+Sparkle updates, data in `~/Library/Application Support/Paseo Command/`), signed with the self-signed
+"Paseo Command Release" identity. Both carry `Contents/Resources/node/node` (universal Node),
+`server/server.mjs` (an esbuild bundle of `web/server/native.ts`, from `npm run app:bundle-server`) and
+`ui/` (`web/dist`).
+
+**Updating.** The dev copy has no updater: `npm run app:update` (web app, bundled server, this app) replaces
+the executable inside the bundle while a copy runs, and Restart app (⌘K) relaunches it at the same
+window position and page. The released app updates through Sparkle: its mode bar shows "Update ready ·
+Restart app" when a newer release is downloaded, and Restart app installs it and relaunches
+(`Updater.swift`). Restart app has no keyboard shortcut or native menu item.
 
 **It runs its own server.** When the page it shows is on this machine (the default
-`http://127.0.0.1:<port>/`: 4310 for the released app, 4321 for the dev copy this builds), the app
+`http://127.0.0.1:<port>/`: 4310 for the released app, 4321 for the dev copy), the app
 runs the server it carries, wherever it is installed: `Contents/Resources/node/node
 Contents/Resources/server/server.mjs` (`ServerManager.swift`), with the environment of your shell
 as an interactive login shell, read once at launch, so your `gh` and keys are found
 (`ShellEnvironment.swift`). Its data and `logs/server.log` are in
-`~/Library/Application Support/<app name>/`. It starts it again if the page later finds it gone,
-and stops it when it quits (the server also exits by itself if the app dies). Anything else on the
-port is reported, never stopped. `--no-server` turns this off; check runs against the mock fleet use it.
+`~/Library/Application Support/<app name>/`. The server is tied to the app: it is started
+again if the page later finds it gone, and stops when the app quits (and exits by itself if the
+app dies). `scripts/app-server.mjs` is for browser-only work from a checkout and is not used by the
+app. Anything else on the port is reported, never stopped. `--no-server` turns this off; check
+runs against the mock fleet use it.
+
+On the released app's first launch, `LegacyState.swift` migrates the old app's (`local.paseo.command.native`)
+preferences and WebKit data once, and `OldInstall.swift` offers to stop an old checkout server and copies
+its `secrets.json`, `games.json`, `forks.json` and `archived-subagents.json` once.
 
 The app shows whatever Paseo Command server it is pointed at (`--url`, or `PASEO_COMMAND_URL`;
 default its own server, above). That server must serve
