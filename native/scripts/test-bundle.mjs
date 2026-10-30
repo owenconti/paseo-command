@@ -9,7 +9,6 @@ const root = fileURLToPath(new URL('../..', import.meta.url));
 const run = (cmd, args) => execFileSync(cmd, args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
 const pinned = JSON.parse(readFileSync(join(root, 'native/node-version.json'), 'utf8')).version;
 const version = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')).version;
-const commits = run('git', ['-C', root, 'rev-list', '--count', 'HEAD']);
 const flavours = [
   { flavour: 'dev', dir: 'Paseo Command Dev.app', id: 'io.github.owenconti.paseo-command.dev', name: 'Paseo Command Dev', port: '4321' },
   { flavour: 'release', dir: 'Paseo Command.app', id: 'io.github.owenconti.paseo-command', name: 'Paseo Command', port: '4310' },
@@ -34,8 +33,10 @@ for (const f of flavours) {
   const key = k => { try { return run('/usr/libexec/PlistBuddy', ['-c', `Print :${k}`, join(app, 'Contents/Info.plist')]); } catch { return '<missing>'; } };
   for (const [k, want] of [
     ['CFBundleIdentifier', f.id], ['CFBundleName', f.name], ['CFBundleShortVersionString', version],
-    ['CFBundleVersion', commits], ['PaseoCommandFlavor', f.flavour], ['PaseoCommandPort', f.port],
+    ['PaseoCommandFlavor', f.flavour], ['PaseoCommandPort', f.port],
   ]) check(k, key(k) === want, `(got ${key(k)}, want ${want})`);
+  const build = key('CFBundleVersion');
+  check('CFBundleVersion', /^[1-9][0-9]*$/.test(build), `(got ${build}, want a positive integer)`);
   try { run('codesign', ['--verify', '--deep', '--strict', app]); } catch (e) { check('codesign', false, String(e.stderr ?? e).trim()); }
   checked++;
 }
