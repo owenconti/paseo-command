@@ -29,8 +29,7 @@ final class TerminalSession: NSObject, TerminalViewDelegate, URLSessionWebSocket
         view = TerminalView(frame: CGRect(x: 0, y: 0, width: 800, height: 240))
         super.init()
         view.terminalDelegate = self
-        view.nativeBackgroundColor = Textures.color(0x101614)
-        view.nativeForegroundColor = Textures.color(0xe8e2d0)
+        restyle(NSApp.effectiveAppearance)
         view.font = Self.font(fontSize)
         view.optionAsMetaKey = true
         var components = URLComponents(url: server, resolvingAgainstBaseURL: false)!
@@ -43,6 +42,12 @@ final class TerminalSession: NSObject, TerminalViewDelegate, URLSessionWebSocket
         socket = session.webSocketTask(with: request)
         socket?.resume()
         receive()
+    }
+
+    /// Dark or light with the panel.
+    func restyle(_ appearance: NSAppearance) {
+        view.nativeBackgroundColor = Ink.color(Ink.pane, appearance)
+        view.nativeForegroundColor = Ink.color(Ink.text, appearance)
     }
 
     static func font(_ size: CGFloat) -> NSFont { NSFont.monospacedSystemFont(ofSize: size, weight: .regular) }
@@ -183,11 +188,16 @@ final class PaneSplit: NSSplitView, NSSplitViewDelegate {
         dividerStyle = .thin
         delegate = self
         wantsLayer = true
-        layer?.backgroundColor = Textures.color(0x101614).cgColor
+        layer?.backgroundColor = Ink.color(Ink.base, effectiveAppearance).cgColor
     }
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 
-    override var dividerColor: NSColor { Textures.color(0x2a3330) }
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        layer?.backgroundColor = Ink.color(Ink.base, effectiveAppearance).cgColor
+    }
+
+    override var dividerColor: NSColor { Ink.color(Ink.divider, effectiveAppearance) }
     private var length: CGFloat { (isVertical ? bounds.width : bounds.height) - dividerThickness }
 
     func splitView(_ splitView: NSSplitView, resizeSubviewsWithOldSize oldSize: NSSize) {
@@ -282,13 +292,11 @@ final class TerminalTab: NSView, NSDraggingSource {
         toolTip = help
     }
 
-    /// Dark in the terminal panel (always dark); Conquer's tabs follow the system.
+    /// Dark or light with the system.
     private func restyle() {
-        let dark = effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
-        layer?.backgroundColor = Textures.color(dark ? (look == .focused ? 0x2c3834 : look == .shown ? 0x1e2724 : 0x101614)
-                                                     : (look == .focused ? 0xddd8c6 : look == .shown ? 0xe9e5d7 : 0xf7f3e7)).cgColor
-        label.textColor = Textures.color(dark ? (look == .focused ? 0xf2e1b2 : look == .shown ? 0xd8d0b8 : 0xa8a08a)
-                                              : (look == .focused ? 0x243c32 : look == .shown ? 0x4d5b50 : 0x656b5e))
+        let a = effectiveAppearance
+        layer?.backgroundColor = Ink.color(look == .focused ? Ink.tabFocused : look == .shown ? Ink.tabShown : Ink.base, a).cgColor
+        label.textColor = Ink.color(look == .focused ? Ink.strong : look == .shown ? Ink.mid : Ink.faint, a)
         close.contentTintColor = label.textColor
     }
 
@@ -343,16 +351,17 @@ final class TerminalTab: NSView, NSDraggingSource {
     private func picture() -> NSImage {
         let size = bounds.size
         let name = label.stringValue
+        let a = effectiveAppearance
         return NSImage(size: size, flipped: false) { rect in
             let shape = NSBezierPath(roundedRect: rect.insetBy(dx: 1, dy: 1), xRadius: 5, yRadius: 5)
-            Textures.color(0x2c3834).withAlphaComponent(0.95).setFill()
+            Ink.color(Ink.tabFocused, a, 0.95).setFill()
             shape.fill()
-            Textures.color(0xf2c14e).withAlphaComponent(0.9).setStroke()
+            Ink.color(Ink.accent, a, 0.9).setStroke()
             shape.lineWidth = 1.5
             shape.stroke()
             let text = NSAttributedString(string: name, attributes: [
                 .font: NSFont.systemFont(ofSize: 11, weight: .medium),
-                .foregroundColor: Textures.color(0xf2e1b2),
+                .foregroundColor: Ink.color(Ink.strong, a),
             ])
             let height = text.size().height
             text.draw(with: CGRect(x: 8, y: (rect.height - height) / 2 + 2, width: rect.width - 16, height: height),
@@ -456,16 +465,13 @@ final class TerminalDrawer: NSView {
 
     override init(frame: NSRect) {
         super.init(frame: frame)
-        // Dark like the page's panels, whatever the system's appearance.
-        appearance = NSAppearance(named: .darkAqua)
+        // Dark or light with the system, as the page's panels are (see `restyle`).
         wantsLayer = true
-        layer?.backgroundColor = Textures.color(0x101614).cgColor
         let bar = NSStackView()
         bar.orientation = .horizontal
         bar.spacing = 8
         bar.edgeInsets = NSEdgeInsets(top: 4, left: 10, bottom: 4, right: 8)
         title.font = .systemFont(ofSize: 11, weight: .semibold)
-        title.textColor = Textures.color(0xf2e1b2)
         title.lineBreakMode = .byTruncatingTail
         title.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         tabBar.orientation = .horizontal
@@ -485,21 +491,16 @@ final class TerminalDrawer: NSView {
         spacer.setContentHuggingPriority(.init(1), for: .horizontal)
         join.image = NSImage(systemSymbolName: "rectangle.split.2x1.slash", accessibilityDescription: "Unsplit terminals")
         for v in [title, tabBar, add, spacer, join, move, grow] { bar.addArrangedSubview(v) }
-        empty.textColor = Textures.color(0xa8a08a)
         empty.font = .systemFont(ofSize: 12)
         empty.alignment = .center
         marker.wantsLayer = true
-        marker.layer?.backgroundColor = Textures.color(0xf2c14e).withAlphaComponent(0.16).cgColor
-        marker.layer?.borderColor = Textures.color(0xf2c14e).withAlphaComponent(0.8).cgColor
         marker.layer?.borderWidth = 2
         marker.layer?.cornerRadius = 4
         marker.isHidden = true
         markerText.font = .systemFont(ofSize: 11, weight: .semibold)
-        markerText.textColor = Textures.color(0x101614)
         markerText.alignment = .center
         markerText.wantsLayer = true
         markerText.drawsBackground = true
-        markerText.backgroundColor = Textures.color(0xf2c14e)
         markerText.layer?.cornerRadius = 4
         markerText.layer?.masksToBounds = true
         markerText.translatesAutoresizingMaskIntoConstraints = false
@@ -521,7 +522,6 @@ final class TerminalDrawer: NSView {
         barCatcher.layer?.borderWidth = 2
         barCatcher.isHidden = true
         barText.font = .systemFont(ofSize: 11, weight: .semibold)
-        barText.textColor = Textures.color(0xf2e1b2)
         barText.translatesAutoresizingMaskIntoConstraints = false
         barCatcher.addSubview(barText)
         barCatcher.onHover = { [weak self] id, _ in self?.hoverBar(id) ?? false }
@@ -564,9 +564,32 @@ final class TerminalDrawer: NSView {
             }
             return event
         }
+        restyle()
         render()
     }
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        restyle()
+        render()
+    }
+
+    /// The panel's colours for the system's appearance: dark like the page's
+    /// Galaxy panels, light like its Light theme.
+    private func restyle() {
+        let a = effectiveAppearance
+        layer?.backgroundColor = Ink.color(Ink.base, a).cgColor
+        title.textColor = Ink.color(Ink.strong, a)
+        empty.textColor = Ink.color(Ink.faint, a)
+        marker.layer?.backgroundColor = Ink.color(Ink.accent, a, 0.16).cgColor
+        marker.layer?.borderColor = Ink.color(Ink.accent, a, 0.8).cgColor
+        markerText.textColor = Ink.color(Ink.onAccent, a)
+        markerText.backgroundColor = Ink.color(Ink.accent, a)
+        barText.textColor = Ink.color(Ink.strong, a)
+        for s in sessions.values { s.restyle(a) }
+        for pane in panes.values { pane.layer?.backgroundColor = Ink.color(Ink.pane, a).cgColor }
+    }
 
     private func placeLine() {
         NSLayoutConstraint.deactivate(lineConstraints)
@@ -707,7 +730,7 @@ final class TerminalDrawer: NSView {
         // With more than one pane, the current one is rimmed.
         let several = panes.count > 1
         for (id, pane) in panes {
-            pane.layer?.borderColor = (several && id == current ? Textures.color(0xf2c14e).withAlphaComponent(0.55) : .clear).cgColor
+            pane.layer?.borderColor = (several && id == current ? Ink.color(Ink.accent, effectiveAppearance, 0.55) : .clear).cgColor
         }
     }
 
@@ -758,7 +781,7 @@ final class TerminalDrawer: NSView {
             let pane = NSView(frame: CGRect(x: 0, y: 0, width: 400, height: 300))
             pane.wantsLayer = true
             pane.layer?.cornerRadius = 4
-            pane.layer?.backgroundColor = Textures.color(0x101614).cgColor
+            pane.layer?.backgroundColor = Ink.color(Ink.pane, effectiveAppearance).cgColor
             pane.layer?.borderWidth = 1
             s.view.removeFromSuperview()
             s.view.translatesAutoresizingMaskIntoConstraints = true
@@ -848,8 +871,8 @@ final class TerminalDrawer: NSView {
     @discardableResult
     private func hoverBar(_ id: String?) -> Bool {
         let can = id.map { id in isSplit && layout?.terminals.contains(id) == true } ?? false
-        barCatcher.layer?.backgroundColor = can ? Textures.color(0x101614).withAlphaComponent(0.92).cgColor : NSColor.clear.cgColor
-        barCatcher.layer?.borderColor = can ? Textures.color(0xf2c14e).withAlphaComponent(0.8).cgColor : NSColor.clear.cgColor
+        barCatcher.layer?.backgroundColor = can ? Ink.color(Ink.base, effectiveAppearance, 0.92).cgColor : NSColor.clear.cgColor
+        barCatcher.layer?.borderColor = can ? Ink.color(Ink.accent, effectiveAppearance, 0.8).cgColor : NSColor.clear.cgColor
         barText.isHidden = !can
         return can
     }

@@ -60,14 +60,13 @@ final class ModeBar: NSView {
     /// Dark or light with the system, as the page's panels are.
     private func restyle() {
         let look = effectiveAppearance
-        layer?.backgroundColor = Textures.color(dark: 0x101614, light: 0xece8d9, in: look).cgColor
-        underline.layer?.backgroundColor = Textures.color(dark: 0xf2c14e, light: 0x386979, in: look).cgColor
+        layer?.backgroundColor = Ink.color(Ink.bar, look).cgColor
+        underline.layer?.backgroundColor = Ink.color(Ink.accent, look).cgColor
         for (mode, button) in buttons {
             let on = mode == self.mode
             button.attributedTitle = NSAttributedString(string: mode == .command ? "COMMAND" : "CONQUER", attributes: [
                 .font: NSFont.systemFont(ofSize: 11, weight: .semibold),
-                .foregroundColor: on ? Textures.color(dark: 0xf2e1b2, light: 0x243c32, in: look)
-                                     : Textures.color(dark: 0x8a8472, light: 0x656b5e, in: look),
+                .foregroundColor: Ink.color(on ? Ink.strong : Ink.off, look),
                 .kern: 1.2,
             ])
         }
@@ -201,7 +200,7 @@ final class ConquerView: NSView, WKNavigationDelegate, WKUIDelegate, NSTextField
     }
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 
-    private var background: NSColor { Textures.color(dark: 0x101614, light: 0xf7f3e7, in: effectiveAppearance) }
+    private var background: NSColor { Ink.color(Ink.base, effectiveAppearance) }
 
     override func viewDidChangeEffectiveAppearance() {
         super.viewDidChangeEffectiveAppearance()

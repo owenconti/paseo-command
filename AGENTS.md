@@ -196,7 +196,8 @@ and a strict axial hex grid. It is not a screenshot used as a background.
 The sea's glints and cloud shadows drift slowly in 15 Hz steps. The world renders on demand: 30 fps for ambient
 motion, full rate while handled, paused when nothing moves or the window is hidden.
 The inherited React UI is preserved; its panels follow the system's appearance: the Galaxy theme (as in the user's
-reference) when it is dark, the Light theme when it is light (`worldLook` in `web/src/theme.ts`). Conquer's chrome and pages follow it too.
+reference) when it is dark, the Light theme when it is light (`worldLook` in `web/src/theme.ts`). The terminal panel and Conquer's chrome and pages follow it too
+(their tones are `Ink` in `native/Sources/PaseoCommandNative/Textures.swift`).
 Five original references are retained in `design/references/atlas-01.webp` through `atlas-05.webp`.
 Artwork provenance and generation prompts are in `rendering/ASSETS.md`.
 Architecture uses the original `buildings.png` plus `structures.png`: eight project landmarks
