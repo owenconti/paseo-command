@@ -93,7 +93,7 @@ npm run native:run -- --url 'http://127.0.0.1:4332/?agent=a-1' --no-server
 
 ## Conquer
 
-The strip across the top switches the map's place between the map and Conquer (⌘` toggles), a tabbed browser with its own persistent
+The strip across the top switches the map's place between the map, Conquer and Linear (⌘` steps through them in turn); Conquer is a tabbed browser with its own persistent
 cookie store. ⌘B toggles the React app panel even while a browser page has focus; ⌘S toggles Conquer's tab sidebar, restoring its width.
 Its native toolbar, tab list, find bar, suggestions and downloads use shared flat control primitives matching the React panel.
 Their colors and control metrics are generated from `web/src/styles/tokens.css` (Light) and `web/src/themes.css` (Galaxy),

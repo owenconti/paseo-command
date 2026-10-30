@@ -246,6 +246,7 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
             case "terminal-smaller": drawer.zoom(-1)
             case "terminal-actual": drawer.zoom(0)
             case "conquer": show(.conquer)
+            case "mode-next": show(mode.next)
             case "linear": show(.linear)
             case "command": show(.command)
             case "conquer-tab": show(.conquer); conquer.whenStarted { [weak self] in self?.conquer.newTab() }
@@ -561,7 +562,7 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         return c.url ?? options.url
     }
 
-    /// Switch the map's place between the map, the browser (⌘` toggles those) and Linear,
+    /// Switch the map's place between the map, the browser and Linear (⌘` steps through them),
     /// which the page draws over its map; the panels and terminal stay, and ⌘B (the page's
     /// panel toggle) gives the browser the width.
     /// The side not shown keeps running: the map's page and Conquer's tabs stay live.

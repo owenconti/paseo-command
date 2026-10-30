@@ -56,7 +56,7 @@ const NATIVE: Group = {
   title: "macOS app",
   rows: [
     { keys: [["⌃", "`"]], label: "Show or hide the terminal" },
-    { keys: [["⌘", "`"]], label: "The map, or the browser (Conquer) in its place" },
+    { keys: [["⌘", "`"]], label: "Next in the map's place: the map, the browser (Conquer), Linear" },
   ],
 };
 /** Conquer's own keys (the macOS app's browser), which it takes ahead of its pages

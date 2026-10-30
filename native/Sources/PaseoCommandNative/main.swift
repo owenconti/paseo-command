@@ -107,7 +107,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
             Log.line("⌘\(key): views took it \(viewTook)")
             if !viewTook { NSApp.mainMenu?.performKeyEquivalent(with: event) }
         }
-        // ⌘` as the keyboard sends it, through the main menu (switches Command and Conquer).
+        // ⌘` as the keyboard sends it, through the main menu (steps to the next tab).
         listen("com.paseo.command.native.keymode") {
             guard let event = NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: .command, timestamp: 0,
                                                windowNumber: 0, context: nil, characters: "`", charactersIgnoringModifiers: "`",
@@ -267,9 +267,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
             item.target = self
             item.representedObject = mode.rawValue
         }
-        // ⌘` flips between the map and the browser (ahead of macOS's own window cycling, as the
-        // app has one window); from Linear it returns to the map.
-        view.addItem(withTitle: "Switch Command / Conquer", action: #selector(toggleMode), keyEquivalent: "`").target = self
+        // ⌘` steps Command → Conquer → Linear → Command (ahead of macOS's own window cycling, as
+        // the app has one window).
+        view.addItem(withTitle: "Next: Command, Conquer, Linear", action: #selector(toggleMode), keyEquivalent: "`").target = self
         view.addItem(.separator())
         // The terminals' text size. ⌘= reaches "Bigger" too, as ⌘+ needs ⇧ on most layouts.
         for (title, key, step, hidden) in [("Bigger Terminal Text", "+", 1, false), ("Bigger Terminal Text", "=", 1, true),
@@ -313,7 +313,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     @objc private func zoomTerminal(_ sender: NSMenuItem) { main?.drawer.zoom(CGFloat(sender.tag)) }
     @objc private func toggleMode() {
         guard let main else { return }
-        main.show(main.mode == .command ? .conquer : .command)
+        main.show(main.mode.next)
     }
     @objc private func showMode(_ sender: NSMenuItem) {
         if let mode = (sender.representedObject as? String).flatMap(Mode.init(rawValue:)) { main?.show(mode) }

@@ -21,11 +21,16 @@ enum Mode: String, CaseIterable {
         case .linear: "checklist"
         }
     }
+    /// The next tab round, as ⌘` steps: Command, Conquer, Linear, then Command again.
+    var next: Mode {
+        let all = Mode.allCases
+        return all[(all.firstIndex(of: self)! + 1) % all.count]
+    }
     var tip: String {
         switch self {
         case .command: "The map (⌘`)"
         case .conquer: "The browser, in the map's place (⌘`)"
-        case .linear: "Your Linear issues, in the map's place"
+        case .linear: "Your Linear issues, in the map's place (⌘`)"
         }
     }
 }
@@ -46,7 +51,7 @@ final class ModeButton: NSButton {
 }
 
 /// The strip across the top of the window that switches the map's place between the map (Command),
-/// the browser (Conquer) (⌘` toggles those two) and your Linear issues (Linear).
+/// the browser (Conquer) and your Linear issues (Linear); ⌘` steps through them in turn.
 /// It stands in for the hidden title bar: the traffic lights sit at its left, it drags the
 /// window, and it says when a newer build is ready. It is the same surface as the
 /// chrome under it (the page's panel header, Conquer's sidebar), with no line between them,
