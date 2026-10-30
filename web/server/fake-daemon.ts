@@ -1613,8 +1613,12 @@ export class FakeClient {
     // A pull request's worktree takes its head branch.
     const branch =
       source.action === "checkout"
-        ? (source.refName ?? `pr-${source.githubPrNumber}`)
+        ? (source.refName ?? FAKE_PRS.find(
+            (pr) => pr.number === (source.checkoutSource?.number ?? source.githubPrNumber),
+          )?.headRefName)
         : source.branchName;
+    if (source.action === "checkout" && !branch)
+      return { workspace: null, error: "Pull request not found" };
     const cwd =
       source.kind === "worktree"
         ? `${project.projectRootPath}-${branch}`

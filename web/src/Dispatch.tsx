@@ -15,6 +15,7 @@ import { PrPicker } from "./PrPicker";
 import {
   fillPreset,
   presetNeedsPr,
+  prNumberOf,
   type Preset,
   type PullRequestChoice,
 } from "./presets";
@@ -214,6 +215,7 @@ export function NewAgent({
   const [base, setBase] = useState("");
   // A pull request whose branch the new worktree checks out, instead.
   const [pr, setPr] = useState<PullRequestChoice | null>(null);
+  const [prText, setPrText] = useState("");
   const [launching, setLaunching] = useState(false);
   const [error, setError] = useState("");
   // Files dropped anywhere on the view join the first message.
@@ -288,10 +290,18 @@ export function NewAgent({
   const thinkingOptions = chosenModel?.thinkingOptionIds || [];
 
   // A pull request belongs to its project's new worktree.
-  useEffect(() => setPr(null), [target, isolation, hostKey]);
+  useEffect(() => {
+    setPr(null);
+    setPrText("");
+  }, [target, isolation, hostKey]);
   // Preset prompts from settings.json, read when the form opens.
   const { presets, loaded: presetsLoaded } = usePresets();
-  const prChosen = project && isolation === "worktree" ? pr : null;
+  // A typed number or URL is already an unambiguous choice. Suggestions
+  // enrich it, but dispatch must not depend on Enter or a search response.
+  const typedPr = prNumberOf(prText);
+  const prChosen = project && isolation === "worktree"
+    ? pr ?? (typedPr ? { number: typedPr } : null)
+    : null;
 
   const folder = workspace?.cwd || project?.path || "";
   const blocked = !online
@@ -562,9 +572,16 @@ export function NewAgent({
             </div>
           )}
           {project && isolation === "worktree" && (
-            <PrPicker cwd={project.path} host={host} value={pr} onChange={setPr} />
+            <PrPicker
+              cwd={project.path}
+              host={host}
+              value={pr}
+              onChange={setPr}
+              text={prText}
+              onTextChange={setPrText}
+            />
           )}
-          {project && isolation === "worktree" && !pr && (
+          {project && isolation === "worktree" && !prChosen && (
             <>
               <label>
                 <span>

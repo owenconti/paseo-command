@@ -172,25 +172,31 @@ test("drafts/prs: the project's pull requests from the daemon's GitHub search", 
 });
 
 test("dispatch with a pull request checks out its branch in a new worktree", async () => {
-  const r = await post("dispatch", {
-    projectId: "prj_app",
-    prompt: "Review #42",
-    provider: "claude",
-    pr: 42,
-    prHead: "review-flag",
-  });
-  assert.equal(r.status, 200, JSON.stringify(r.data));
-  assert.deepEqual(local.callsOf("createWorkspace").at(-1)?.args[0].source, {
-    kind: "worktree",
-    cwd: "/home/review/app",
-    action: "checkout",
-    refName: "review-flag",
-    checkoutSource: { kind: "change_request", forge: "github", number: 42 },
-    githubPrNumber: 42,
-  });
-  const agent = local.callsOf("createAgent").at(-1)?.args[0];
-  assert.equal(agent.initialPrompt, "Review #42");
-  assert.equal(agent.cwd, "/home/review/app-review-flag");
+  for (const prHead of [undefined, "review-flag"]) {
+    const r = await post("dispatch", {
+      projectId: "prj_app",
+      prompt: "Review #42",
+      provider: "claude",
+      pr: 42,
+      ...(prHead ? { prHead } : {}),
+    });
+    assert.equal(r.status, 200, JSON.stringify(r.data));
+    assert.deepEqual(local.callsOf("createWorkspace").at(-1)?.args[0].source, {
+      kind: "worktree",
+      cwd: "/home/review/app",
+      action: "checkout",
+      ...(prHead ? { refName: prHead } : {}),
+      checkoutSource: { kind: "change_request", forge: "github", number: 42 },
+      githubPrNumber: 42,
+    });
+    const agent = local.callsOf("createAgent").at(-1)?.args[0];
+    assert.equal(agent.initialPrompt, "Review #42");
+    assert.equal(agent.cwd, "/home/review/app-review-flag");
+    assert.equal(
+      local.workspaces.get(r.data.workspaceId)?.gitRuntime.currentBranch,
+      "review-flag",
+    );
+  }
   // A pull request's worktree takes its own branch, and needs a project.
   const both = await post("dispatch", {
     projectId: "prj_app",
@@ -208,4 +214,14 @@ test("dispatch with a pull request checks out its branch in a new worktree", asy
     pr: -3,
   });
   assert.equal(bad.status, 400);
+});
+
+test("a failed PR checkout never starts the agent on the project's current branch", async () => {
+  const before = local.callsOf("createAgent").length;
+  const r = await post("dispatch", {
+    projectId: "prj_app", prompt: "Review #999", provider: "claude", pr: 999,
+  });
+  assert.equal(r.status, 400);
+  assert.match(r.data.error, /Pull request not found/);
+  assert.equal(local.callsOf("createAgent").length, before);
 });

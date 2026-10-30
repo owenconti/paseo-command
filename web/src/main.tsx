@@ -1175,7 +1175,7 @@ function App() {
       group: "Actions",
       label: "New agent",
       keys: [["⌘", "N"]],
-      keywords: "dispatch start",
+      keywords: "dispatch start worktree branch pull request PR",
       run: () => openDispatch(),
     },
     {

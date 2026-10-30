@@ -16,13 +16,16 @@ export function PrPicker({
   host,
   value,
   onChange,
+  text,
+  onTextChange,
 }: {
   cwd: string;
   host?: string;
   value: PullRequestChoice | null;
   onChange: (pr: PullRequestChoice | null) => void;
+  text: string;
+  onTextChange: (text: string) => void;
 }) {
-  const [text, setText] = useState("");
   const [found, setFound] = useState<Found[]>([]);
   const [active, setActive] = useState(0);
   const [open, setOpen] = useState(false);
@@ -60,12 +63,12 @@ export function PrPicker({
 
   const choose = (pr: PullRequestChoice) => {
     onChange(pr);
-    setText("");
+    onTextChange("");
     setOpen(false);
   };
-  /** The highlighted match, else the number typed (its branch found by the daemon). */
+  /** A number always names that PR; title searches use the highlighted match. */
   const pick = () => {
-    const match = found[active] ?? found.find((f) => f.number === typed);
+    const match = typed ? found.find((f) => f.number === typed) : found[active];
     if (match) choose(match);
     else if (typed) choose({ number: typed });
   };
@@ -106,7 +109,7 @@ export function PrPicker({
         placeholder="#123, a PR URL, or search"
         maxLength={200}
         onChange={(e) => {
-          setText(e.target.value);
+          onTextChange(e.target.value);
           setOpen(true);
         }}
         onFocus={() => setOpen(true)}

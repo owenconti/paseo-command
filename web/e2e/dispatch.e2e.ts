@@ -159,6 +159,87 @@ test("Local runs in the checkout; Worktree names a new branch itself", async () 
   await context.close();
 });
 
+test("a typed PR number or URL is dispatched without selecting a search result", async () => {
+  for (const input of ["42", "#42", "https://github.com/acme/atlas/pull/42"]) {
+    const context = await newContext(browser);
+    const page = await context.newPage();
+    const dispatched: any[] = [];
+    await mockApi(page, {
+      agents: () => [],
+      projects: () => [
+        { projectId: "prj_atlas", name: "atlas", kind: "git", path: "/work/atlas" },
+      ],
+      accept: (path, body) => {
+        if (path !== "/api/dispatch") return false;
+        dispatched.push(body);
+        return { agentId: "a-new" };
+      },
+    });
+    // Checkout by number must work even if suggestions aren't available.
+    await page.route("**/api/drafts/prs?**", (route) =>
+      route.fulfill({ json: { prs: [], error: "Search unavailable" } }),
+    );
+    await page.goto(app.url);
+    await page.locator("body").press("d");
+    const view = page.locator(".new-agent");
+    await view.getByRole("radio", { name: "Worktree" }).click();
+    await view.getByLabel(/^Pull request/).fill(input);
+    // Move straight to the mission: no Enter or search-result click.
+    await view.locator("#composer").fill("Review this pull request");
+    await view.getByRole("button", { name: "Send message" }).click();
+    await waitFor(() => Promise.resolve(dispatched.length), (n) => n === 1, "the PR dispatch");
+    assert.equal(dispatched[0].pr, 42, input);
+    assert.equal(dispatched[0].branch, undefined, input);
+    assert.equal(dispatched[0].base, undefined, input);
+    await context.close();
+  }
+});
+
+test("a typed PR enables presets, clears cleanly, and resets when leaving Worktree mode", async () => {
+  const context = await newContext(browser);
+  const page = await context.newPage();
+  const dispatched: any[] = [];
+  await mockApi(page, {
+    agents: () => [],
+    projects: () => [
+      { projectId: "prj_atlas", name: "atlas", kind: "git", path: "/work/atlas" },
+    ],
+    lists: { presets: { presets: [{ name: "Review PR", prompt: "Review {{pr}}." }], error: null } },
+    accept: (path, body) => {
+      if (path !== "/api/dispatch") return false;
+      dispatched.push(body);
+      return { agentId: "a-new" };
+    },
+  });
+  await page.route("**/api/drafts/prs?**", (route) =>
+    route.fulfill({ json: { prs: [], error: null } }),
+  );
+  await page.goto(app.url);
+  await page.locator("body").press("d");
+  const view = page.locator(".new-agent");
+  const review = view.getByRole("button", { name: "Review PR" });
+  await view.getByRole("radio", { name: "Worktree" }).click();
+  const field = view.getByLabel(/^Pull request/);
+  await field.fill("42");
+  assert.equal(await review.isEnabled(), true);
+  assert.equal(await view.getByLabel(/^Branch/).count(), 0);
+  await field.fill("");
+  assert.equal(await review.isDisabled(), true);
+  await view.getByLabel(/^Branch/).waitFor();
+  await field.fill("42");
+  await view.getByRole("radio", { name: "Local" }).click();
+  await view.getByRole("radio", { name: "Worktree" }).click();
+  assert.equal(await field.inputValue(), "");
+  assert.equal(await review.isDisabled(), true);
+  await field.fill("57");
+  await review.click();
+  await waitFor(() => Promise.resolve(dispatched.length), (n) => n === 1, "the preset dispatch");
+  assert.equal(dispatched[0].pr, 57);
+  assert.equal(dispatched[0].prompt, "Review #57.");
+  assert.equal(dispatched[0].branch, undefined);
+  await context.close();
+});
+
 test("a preset launches at once on a pull request's worktree", async () => {
   const context = await newContext(browser);
   const page = await context.newPage();
