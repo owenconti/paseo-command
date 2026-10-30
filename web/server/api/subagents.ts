@@ -7,6 +7,7 @@
  * own: its conversation is read like any agent's (`agents/:id/timeline`).
  */
 import { timelineWindow } from "../daemon";
+import { rememberTimelineImages } from "../attachment";
 import { feedOf } from "../live";
 import {
   archiveFinishedSubagents,
@@ -69,6 +70,7 @@ export async function subagentTimeline(
     pageFrom: _pageFrom,
     ...win
   } = timelineWindow({ ...t, entries });
+  rememberTimelineImages(win.items, !host);
   return win;
 }
 

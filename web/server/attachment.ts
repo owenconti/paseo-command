@@ -1,14 +1,37 @@
 import { constants } from "node:fs";
 import { lstat, open, readlink, realpath } from "node:fs/promises";
 import { ATTACHMENT_IMAGE } from "./daemon";
+import { extractImages, resolveImage } from "../src/imageSource";
+import { sniffImage } from "../src/imageLoad";
+import { fromTimeline, type TimelineItem } from "../src/transcript";
+
+// Generated previews live outside the daemon's prompt-attachment directory.
+// Admit only paths actually supplied by a local daemon transcript, never a
+// browser's arbitrary path or a remote daemon's same-named local file.
+const referenced = new Set<string>();
+const RASTER_PATH = /\.(png|jpe?g|gif|webp)$/i;
+export function rememberTimelineImages(items: TimelineItem[], local: boolean) {
+  if (!local) return;
+  for (const item of fromTimeline(items)) {
+    if (item.kind !== "assistant" && item.kind !== "user") continue;
+    for (const image of extractImages(item.text).images) {
+      const source = resolveImage(image.src);
+      if (source.kind !== "local" || !RASTER_PATH.test(source.path)) continue;
+      referenced.delete(source.path);
+      referenced.add(source.path);
+      if (referenced.size > 10000)
+        referenced.delete(referenced.values().next().value!);
+    }
+  }
+}
 
 /**
- * Reads an image the local daemon stored for a prompt, or returns null.
+ * Reads a prompt attachment or a raster image referenced in a local timeline.
  *
  * Path checks alone race with a concurrent swap (a symlink or directory put
  * in place between validation and read), so validation is tied to one open
  * descriptor:
- * - the canonical path must match the attachment pattern, and every
+ * - the path must be an attachment or an observed image reference, and every
  *   directory on it must be a real directory (never a symlink);
  * - the file is opened once with O_NOFOLLOW (and O_NONBLOCK, so a FIFO can't
  *   stall the server), then fstat'ed and read through that same descriptor;
@@ -25,7 +48,12 @@ export async function readAttachmentImage(
   path: string,
   maxBytes: number,
 ): Promise<Buffer | null> {
-  if (!ATTACHMENT_IMAGE.test(path) || path.includes("..")) return null;
+  if (
+    (!ATTACHMENT_IMAGE.test(path) && !referenced.has(path)) ||
+    path.split("/").includes("..") ||
+    path.includes("\0")
+  )
+    return null;
   // A directory that changed mid-read is usually the daemon saving another
   // attachment beside this one; a few retries tell that from a swap attack.
   for (let attempt = 0; attempt < 3; attempt++) {
@@ -42,7 +70,8 @@ async function readOnce(
   maxBytes: number,
 ): Promise<Buffer | null | typeof CHANGED> {
   const real = await realpath(path).catch(() => "");
-  if (!real || !ATTACHMENT_IMAGE.test(real) || real.includes("..")) return null;
+  if (!real || !RASTER_PATH.test(real)) return null;
+  if (!referenced.has(path) && !ATTACHMENT_IMAGE.test(real)) return null;
   const dirs = ancestors(real);
   const before = await directories(dirs);
   if (!before) return null;
@@ -73,7 +102,7 @@ async function readOnce(
       if (kernel !== real) return null;
     }
     const bytes = await handle.readFile();
-    return bytes.length <= maxBytes ? bytes : null;
+    return bytes.length <= maxBytes && sniffImage(bytes) ? bytes : null;
   } finally {
     await handle.close().catch(() => {});
   }

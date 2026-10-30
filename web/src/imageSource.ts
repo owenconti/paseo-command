@@ -3,7 +3,7 @@
  * is author-controlled, so only two kinds of source are accepted:
  *
  * - Local files (absolute paths, file:// URLs), loaded only through the API's
- *   image route, which serves nothing but images the local daemon stored. A
+ *   image route, for prompt attachments and local transcript image references. A
  *   remote host's files aren't on this disk, so they degrade to a label.
  * - http(s) URLs without userinfo, loaded automatically but through the
  *   bounded, credential-free loader in imageLoad.ts.

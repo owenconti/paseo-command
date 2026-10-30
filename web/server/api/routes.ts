@@ -239,7 +239,7 @@ export async function handleApi(
       ) {
         result = await draftGet(parts[1], url);
       } else if (parts[0] === "attachments" && parts[1] === "image") {
-        // Images the local daemon stored for sent prompts; nothing else is readable.
+        // Prompt attachments and images observed in local agent transcripts.
         // Validated and read through one descriptor (server/attachment.ts).
         const path = url.searchParams.get("path") || "";
         const bytes = await readAttachmentImage(path, LIMITS.imageBytes);

@@ -27,6 +27,7 @@ import {
   type Remote,
 } from "./hosts";
 import { query } from "./validate";
+import { rememberTimelineImages } from "../attachment";
 
 /**
  * The daemon's record of an agent: read from the SDK, or as the host's feed
@@ -165,13 +166,17 @@ export async function agentGet(
         // The newest rows within the byte budget, the daemon range they
         // certify, and whether the daemon answered another epoch's tail
         // (a stale cursor): the browser then replaces, never merges.
-        if (after)
-          return changesWindow(
+        if (after) {
+          const win = changesWindow(
             t,
             Number(after),
             until ? Number(until) : Infinity,
           );
+          rememberTimelineImages(win.items, !host);
+          return win;
+        }
         const { page: _page, pageFrom: _pageFrom, ...win } = timelineWindow(t);
+        rememberTimelineImages(win.items, !host);
         return win;
       };
       return seq ? rememberPage(key, load) : remember(key, 1000, load);
