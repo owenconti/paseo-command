@@ -47,6 +47,10 @@ final class ServerManager {
         let errorDescription: String?
     }
 
+    /// Asks whether to stop an old checkout server holding the port (on main;
+    /// answers once). Without it the port reads as another program's.
+    var confirmHandOver: ((OldServer, @escaping (Bool) -> Void) -> Void)?
+
     private let resources: Resources
     private let lock = NSLock()
     private var running: Process?
@@ -106,8 +110,29 @@ final class ServerManager {
         case .otherHelper(_, let ownerPid) where !waited:
             return .failure(Failure(errorDescription: "Port \(port) is used by another copy of Paseo Command (process \(ownerPid)). Quit it and reopen Paseo Command."))
         case .foreign:
+            if let old = OldInstall.find(port: port), let handedOver = handOver(from: old) {
+                if case .failure = handedOver { return handedOver }
+                return start(port)
+            }
             return .failure(Failure(errorDescription: "Port \(port) is used by another program. Quit it and reopen Paseo Command."))
         default: return start(port)
+        }
+    }
+
+    /// With the user's yes, stop the old checkout server and copy its data in;
+    /// nil when there's no one to ask.
+    private func handOver(from old: OldServer) -> Result<Void, Error>? {
+        guard let confirm = confirmHandOver else { return nil }
+        Log.line("server: port is held by an older server from \(old.checkout.path) (process \(old.pid))")
+        let answered = DispatchSemaphore(value: 0)
+        var accepted = false
+        DispatchQueue.main.async { confirm(old) { accepted = $0; answered.signal() } }
+        answered.wait()
+        guard accepted else { return .failure(Failure(errorDescription: "The older Paseo Command server from \(old.checkout.path) is still running.")) }
+        let data = AppFlavor.dataFolder
+        return Result {
+            _ = try HandOver(stop: { try OldInstall.stop(old, data: data) },
+                             copy: { OldInstall.copyData(from: old.checkout, to: data) }).run()
         }
     }
 

@@ -89,6 +89,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         listen("com.paseo.command.native.info") { [weak self] in self?.writeInfo() }
         listen("com.paseo.command.native.quit") { NSApp.terminate(nil) }
         listen("com.paseo.command.native.reload") { [weak self] in self?.reloadApp(nil) }
+        listen("com.paseo.command.native.handover") { [weak self] in self?.main?.acceptHandOver() }
         // A ⌘-key (`<info>.key`'s character) as the keyboard sends it: the focused view
         // (a page, say) sees it before the menu, as with a real key press (checks).
         listen("com.paseo.command.native.key") { [weak self] in

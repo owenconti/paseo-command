@@ -139,7 +139,11 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
             DispatchQueue.main.async { self.show(saved) }
         }
         if UserDefaults.standard.bool(forKey: "terminalOpen") { DispatchQueue.main.async { self.setTerminal(open: true, newTab: false) } }
-        if server != nil {
+        if let server {
+            server.confirmHandOver = { [weak self] old, answer in
+                guard let self else { return answer(false) }
+                self.confirmHandOver(old, answer)
+            }
             showSplash("Starting the app server…")
             notice("Starting Paseo Command…", "Starting the app server on \(options.url.host ?? ""):\(options.url.port ?? 4310).")
             startServer { [weak self] in self?.splash.say("Loading…"); self?.web.load(URLRequest(url: options.url)) }
@@ -416,6 +420,30 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         splashFallback?.cancel()
         splash.hide()
         notice(title, detail)
+    }
+
+    /// The alert offering to stop an old checkout server, while it shows.
+    private var handOverAlert: NSAlert?
+
+    /// Offer to stop the old checkout server holding the port; Quit quits.
+    private func confirmHandOver(_ old: OldServer, _ answer: @escaping (Bool) -> Void) {
+        let alert = NSAlert()
+        alert.messageText = "An older Paseo Command server is running from \(old.checkout.path). Stop it and use this app?"
+        alert.informativeText = "Its data is copied into this app’s data folder; the checkout keeps its own."
+        alert.addButton(withTitle: "Stop and Continue")
+        alert.addButton(withTitle: "Quit")
+        handOverAlert = alert
+        alert.beginSheetModal(for: window) { [weak self] response in
+            self?.handOverAlert = nil
+            let accepted = response == .alertFirstButtonReturn
+            answer(accepted)
+            if !accepted { NSApp.terminate(nil) }
+        }
+    }
+
+    /// Choose the hand-over alert's default, as Return would (checks).
+    func acceptHandOver() {
+        handOverAlert?.buttons.first?.performClick(nil)
     }
 
     private func startServer(_ then: @escaping () -> Void) {
