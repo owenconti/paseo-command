@@ -176,7 +176,7 @@ Local assets belong in the repository and are included through local build tooli
   `paseoMusic` message handler and `paseo:music` events; macOS asks once for Automation permission (`NSAppleEventsUsageDescription`).
 - Conquer (experiment): a strip across the macOS app's top switches between Command (the map, panels and terminal) and Conquer
   (⌘` toggles; View menu; the tabs light on hover), a tabbed WebKit browser (`native/Sources/PaseoCommandNative/Conquer.swift`; Conquer menu: ⌘T, ⌘W, ⌘L,
-  ⌃Tab; ⌘R reloads its page unless an update is ready). The hidden side keeps running. It has its own persistent cookie store,
+  ⌘E or ⌃Tab next tab, ⌘1…⌘8 that tab, ⌘9 the last; ⌘R reloads its page unless an update is ready). The hidden side keeps running. It has its own persistent cookie store,
   seeded on first show (and Conquer → Import Zen Cookies) from Zen Browser's profile (`ZenCookies.swift`): a copy of
   `cookies.sqlite`, default space only, unpartitioned and unexpired; Zen is never written to. Its tabs and the mode come back on launch.
 

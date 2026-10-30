@@ -330,6 +330,13 @@ final class ConquerView: NSView, WKNavigationDelegate, WKUIDelegate, NSTextField
         select(tabs[(i + step + tabs.count) % tabs.count])
     }
 
+    /// Go to the `number`th tab (⌘1…⌘8); 9 is the last, as in other browsers.
+    func selectTab(_ number: Int) {
+        guard !tabs.isEmpty else { return }
+        let i = number == 9 ? tabs.count - 1 : number - 1
+        if tabs.indices.contains(i), tabs[i] !== current { select(tabs[i]) }
+    }
+
     private func renderTabs() {
         for v in tabBar.arrangedSubviews { tabBar.removeArrangedSubview(v); v.removeFromSuperview() }
         for tab in tabs {
