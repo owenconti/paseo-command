@@ -185,10 +185,13 @@ Local assets belong in the repository and are included through local build tooli
   seeded on first show (and Conquer → Import Zen Cookies) from Zen Browser's profile (`ZenCookies.swift`): a copy of
   `cookies.sqlite`, default space only, unpartitioned and unexpired; Zen is never written to. Its tabs (`conquerState`), sidebar width, zooms,
   history (`~/Library/Application Support/Paseo Command/conquer-history.json`) and the mode come back on launch; tabs come back unloaded.
-- Workspace app (experiment): the map's Map / App switch (top centre of the map; View → Show Workspace App, ⌥⌘`) lays a page over
-  the map, under the same page bar, with Conquer's configuration and cookies (`WorkspaceAppView` in `WorkspaceApp.swift`). It is
-  meant to show the selected workspace's app; until its address can be relayed (the daemon's service scripts carry
-  `localProxyUrl`/`proxyUrl`), it shows a note, and each workspace keeps the address typed for it while the app runs.
+- Workspace app (experiment): the map's Map / App switch (top centre of the map; View → Show Workspace App, ⌥⌘`) lays a
+  browser over the map: a horizontal tab strip (the switch leads it), the same page bar, and the page, with Conquer's
+  configuration and cookies (Zen's are imported on first use if Conquer hasn't yet) (`WorkspaceAppView` in `WorkspaceApp.swift`).
+  Each workspace keeps its own tabs while the app runs. Web links clicked in the chat (`.session`, `openInAppBrowser` in
+  `web/src/Session.tsx`, `postAppLink` → the `openLink` message) open there as a new tab, switching to App. It is meant to show the
+  selected workspace's app; until its address can be relayed (the daemon's service scripts carry `localProxyUrl`/`proxyUrl`),
+  a workspace without tabs shows a note.
 
 ## Atlas world
 

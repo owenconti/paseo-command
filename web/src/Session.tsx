@@ -2,6 +2,7 @@ import type { WorkSummary } from "./useWorkingOn";
 import { soundEvent } from "./soundCues";
 import { daemonAgentId } from "./agentIdentity";
 import { onAppCommand } from "./appCommands";
+import { macApp, postAppLink } from "./worldBridge";
 import { usePeers } from "./peers";
 import { robotColour, useRobotPortrait } from "./robotPortrait";
 import {
@@ -99,6 +100,17 @@ import type { ForkRow } from "./forks/api";
 import type { Asks } from "./asks/types";
 
 type Confirm = "archive" | "fresh" | null;
+
+/** In the macOS app, web links clicked in the chat open in its workspace app
+ * browser, where the map is, rather than the default browser. */
+function openInAppBrowser(e: React.MouseEvent) {
+  if (!macApp() || e.button !== 0 || e.altKey) return;
+  const link = (e.target as Element).closest?.("a[href]");
+  if (!(link instanceof HTMLAnchorElement) || !/^https?:$/.test(link.protocol)) return;
+  if (link.origin === window.location.origin) return;
+  e.preventDefault();
+  postAppLink(link.href);
+}
 
 export function Session({
   workingOn,
@@ -279,6 +291,7 @@ export function Session({
     <div
       ref={root}
       className={`session${forks.shown ? ` fork-${forkLayout}` : ""}`}
+      onClickCapture={openInAppBrowser}
       onDragEnter={(e) => {
         if (!hasFiles(e) || archived) return;
         dragDepth.current++;
