@@ -16,6 +16,8 @@ final class AtlasView: SKView {
     let atlas: AtlasScene
     private var visible = true
     private var settling: DispatchWorkItem?
+    /// Until when the view keeps drawing after a resize (see `resized`).
+    private var resizedUntil: CFTimeInterval = 0
 
     init(frame: NSRect, scene: AtlasScene) {
         atlas = scene
@@ -48,9 +50,21 @@ final class AtlasView: SKView {
         govern()
     }
 
+    /// The view was given a new size: its drawing surface takes it now (SpriteKit
+    /// would only catch up a frame later, stretching that frame to the new shape),
+    /// and it keeps drawing a moment, so the last frame shown is never a stretched one.
+    func resized() {
+        if let metal = layer as? CAMetalLayer {
+            let scale = window?.backingScaleFactor ?? metal.contentsScale
+            metal.drawableSize = CGSize(width: (frame.width * scale).rounded(), height: (frame.height * scale).rounded())
+        }
+        resizedUntil = CACurrentMediaTime() + 0.4
+    }
+
     /// The highest rate the world needs right now; nil when it can rest.
     private var neededRate: Int? {
         guard visible, !isHiddenOrHasHiddenAncestor, atlas.hasArt else { return nil }
+        if CACurrentMediaTime() < resizedUntil && !atlas.lively { return AtlasView.ambientRate }
         if atlas.lively { return max(60, NSScreen.main?.maximumFramesPerSecond ?? 60) }
         if atlas.animating { return AtlasView.ambientRate }
         if atlas.drifting { return AtlasView.driftRate }
@@ -64,8 +78,14 @@ final class AtlasView: SKView {
         if let rate = neededRate {
             if preferredFramesPerSecond != rate { preferredFramesPerSecond = rate }
             if isPaused { isPaused = false }
-            // Full rate lasts only while handled; check again once it may end.
-            if atlas.lively {
+            // Full rate lasts only while handled, and drawing after a resize only a
+            // moment; check again once either may end.
+            let afterResize = resizedUntil - CACurrentMediaTime()
+            if afterResize > 0 {
+                let work = DispatchWorkItem { [weak self] in self?.govern() }
+                settling = work
+                DispatchQueue.main.asyncAfter(deadline: .now() + afterResize + 0.02, execute: work)
+            } else if atlas.lively {
                 let work = DispatchWorkItem { [weak self] in self?.govern() }
                 settling = work
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.5, execute: work)

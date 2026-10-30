@@ -103,6 +103,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         listen("com.paseo.command.native.dock") { [weak self] in self?.main?.moveTerminal() }
         listen("com.paseo.command.native.maximize") { [weak self] in self?.main?.maximizeTerminal() }
         listen("com.paseo.command.native.split") { [weak self] in self?.main?.drawer.splitForCheck() }
+        // Drag the terminal panel's divider 150 points towards the map (checks).
+        listen("com.paseo.command.native.divider") { [weak self] in
+            guard let split = self?.main?.split, split.subviews.count > 1 else { return }
+            let first = split.subviews[0].frame
+            split.setPosition((split.isVertical ? first.width : first.height) - 150, ofDividerAt: 0)
+        }
         listen("com.paseo.command.native.unsplit") { [weak self] in self?.main?.drawer.unsplit() }
         listen("com.paseo.command.native.newterminal") { [weak self] in self?.main?.drawer.newTerminal() }
         listen("com.paseo.command.native.zoom") { [weak self] in self?.main?.drawer.zoom(1) }

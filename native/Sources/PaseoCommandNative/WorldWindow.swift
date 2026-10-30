@@ -271,7 +271,11 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         let resized = atlasView.frame.size != frame.size
         atlasView.frame = frame
         atlasView.isHidden = !scene.hasArt
-        if resized { scene.size = frame.size; scene.viewportChanged() }
+        if resized {
+            atlasView.resized()
+            scene.size = frame.size
+            scene.viewportChanged()
+        }
         atlasView.govern()
         placeMaximized()
     }
