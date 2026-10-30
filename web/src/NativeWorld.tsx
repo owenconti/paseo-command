@@ -87,6 +87,7 @@ export function atlasData(
       stale: w.stale,
       labels: w.labels,
       ...(w.autoMerge ? { autoMerge: true } : {}),
+      ...(w.created ? { created: w.created } : {}),
       ...(probe[`${w.hostId}:${w.id}`] ? { probe: probe[`${w.hostId}:${w.id}`] } : {}),
     })),
     agents: snapshot.agents.map((a) => ({

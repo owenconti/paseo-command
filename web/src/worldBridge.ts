@@ -61,6 +61,8 @@ export type WorldSnapshot = {
     labels: string[];
     /** Its open pull request has auto-merge on. */
     autoMerge?: boolean;
+    /** When the daemon created it (ISO), if known. */
+    created?: string;
   }[];
   agents: {
     key: string;
@@ -283,6 +285,7 @@ export function worldSnapshot(input: {
       stale: !!w.stale,
       labels: w.labels ?? [],
       ...(w.pr?.autoMerge && (w.pr.state === "open" || w.pr.state === "draft") ? { autoMerge: true } : {}),
+      ...(w.createdAt ? { created: w.createdAt } : {}),
     })),
     agents: activeAgents(input.agents)
       .map(qualifyAgent)

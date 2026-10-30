@@ -227,6 +227,18 @@ test("layout is deterministic and changes signature with structure only", () => 
   assert.notEqual(layoutAtlas(moved).signature, a.signature);
 });
 
+test("renaming workspaces and agents never moves anything", () => {
+  const where = (data) => {
+    const { workspaces, agents } = layoutAtlas(data);
+    return Object.fromEntries([...workspaces, ...agents].map((e) => [e.id, cellKey(e.position)]));
+  };
+  const before = where(crowded);
+  const renamed = structuredClone(crowded);
+  renamed.workspaces.forEach((w, i) => (w.name = `${String.fromCharCode(122 - (i % 26))} renamed`));
+  renamed.agents.forEach((a, i) => (a.name = `${String.fromCharCode(122 - (i % 26))} renamed`));
+  assert.deepEqual(where(renamed), before);
+});
+
 test("the layout follows the map's shape", () => {
   const shape = (aspect) => {
     const cells = layoutAtlas(crowded, aspect).islands.flatMap((i) => i.cells);

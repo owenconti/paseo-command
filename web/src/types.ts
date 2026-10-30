@@ -87,6 +87,8 @@ export type Workspace = {
   labels?: string[];
   /** Its pull request as Paseo reports it (null: none); absent when unknown. */
   pr?: PullRequest | null;
+  /** When the daemon created it (ISO), if known. */
+  createdAt?: string;
   host?: string;
   hostLabel?: string;
   stale?: boolean;

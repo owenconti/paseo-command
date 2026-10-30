@@ -34,6 +34,8 @@ export type AtlasData = {
     probe?: ProbeVerdict;
     /** Its PR has auto-merge on: a medallion on a flag's pole. */
     autoMerge?: boolean;
+    /** When it was created (ISO 8601): older workspaces take the earlier slots. */
+    created?: string;
   }[];
   agents: {
     key: string;
@@ -340,6 +342,9 @@ const HOST_GAP = 3;
 const names = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" });
 const byName = <T extends { name: string; key: string }>(a: T, b: T) =>
   names.compare(a.name, b.name) || a.key.localeCompare(b.key);
+/** Oldest first; unknown times last; then by key, which never changes. */
+const byAge = <T extends { created?: string; key: string }>(a: T, b: T) =>
+  (a.created ?? "\uffff").localeCompare(b.created ?? "\uffff") || a.key.localeCompare(b.key);
 const scale = (a: Axial, k: number) => ({ q: a.q * k, r: a.r * k });
 const xOf = (a: Axial) => a.q + a.r / 2;
 export const campKey = (host: string, project: string) =>
@@ -548,7 +553,9 @@ function plan(
 function hostPlans(host: AtlasData["hosts"][number], data: AtlasData): Plan[] {
   const projects = data.projects.filter((p) => p.host === host.key).sort(byName);
   const known = new Set(projects.map((p) => p.key));
-  const workspaces = data.workspaces.filter((w) => w.host === host.key).sort(byName);
+  // Oldest first, then by key: titles change (Paseo retitles workspaces), so
+  // ordering by them would swap workspaces round their landmark.
+  const workspaces = data.workspaces.filter((w) => w.host === host.key).sort(byAge);
   const workspaceKeys = new Set(workspaces.map((w) => w.key));
   const groups = new Map<string, Cottage[]>(projects.map((p) => [p.key, []]));
   const unfiled: Cottage[] = [];
@@ -572,7 +579,7 @@ function hostPlans(host: AtlasData["hosts"][number], data: AtlasData): Plan[] {
   // Oldest first, so a new agent never moves the others.
   const agents = data.agents
     .filter((a) => a.host === host.key)
-    .sort((a, b) => (a.created ?? "\uffff").localeCompare(b.created ?? "\uffff") || byName(a, b));
+    .sort(byAge);
   for (const a of agents) {
     let home = a.workspace && workspaceKeys.has(a.workspace) ? cottages.get(a.workspace) : undefined;
     if (!home) {

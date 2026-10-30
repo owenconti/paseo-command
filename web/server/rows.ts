@@ -94,6 +94,7 @@ export function workspaceRow(w: Loose<PaseoWorkspace>) {
       ? { labels: w.labels.filter((l: unknown) => typeof l === "string") }
       : {}),
     ...(pr !== undefined ? { pr } : {}),
+    ...(str(w?.createdAt) ? { createdAt: str(w?.createdAt) } : {}),
   };
 }
 
