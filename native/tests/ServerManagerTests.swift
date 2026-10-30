@@ -21,4 +21,12 @@ assert(ServerManager.shouldWait(for: .otherHelper(pid: 5, ownerPid: gone.process
 assert(!ServerManager.shouldWait(for: .otherHelper(pid: 5, ownerPid: me)))
 assert(!ServerManager.shouldWait(for: .foreign))
 assert(!ServerManager.shouldWait(for: .free))
+// keepsTheShellsNodeSettingsFromTheBundledNode
+let env = ServerManager.serverEnvironment(["PATH": "/bin", "GH_TOKEN": "t", "NODE_OPTIONS": "--require /x.js", "NODE_PATH": "/lib",
+                                           "PASEO_COMMAND_RESOLVING_ENVIRONMENT": "1"],
+                                          data: URL(fileURLWithPath: "/d"), ui: URL(fileURLWithPath: "/u"), port: 4321)
+assert(env["PATH"] == "/bin" && env["GH_TOKEN"] == "t", "the shell's own settings pass through")
+assert(env["NODE_OPTIONS"] == nil && env["NODE_PATH"] == nil && env["PASEO_COMMAND_RESOLVING_ENVIRONMENT"] == nil)
+assert(env["PASEO_COMMAND_DATA"] == "/d" && env["PASEO_NATIVE_UI"] == "/u" && env["PASEO_NATIVE_PORT"] == "4321")
+assert(env["PASEO_NATIVE_OWNER_PID"] == String(me))
 print("Native server manager checks passed.")

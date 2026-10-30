@@ -150,17 +150,10 @@ final class ServerManager {
         } catch { return .failure(error) }
         defer { try? log.close() }
         log.write(Data("--- \(Date()) starting \(AppFlavor.version) on port \(port)\n".utf8))
-        var env = Self.environment
-        env.removeValue(forKey: "PASEO_COMMAND_RESOLVING_ENVIRONMENT")
-        env["PASEO_COMMAND_DATA"] = data.path
-        env["PASEO_NATIVE_UI"] = resources.ui.path
-        env["PASEO_NATIVE_PORT"] = String(port)
-        env["PASEO_NATIVE_OWNER_PID"] = String(getpid())
-        env["PASEO_COMMAND_VERSION"] = AppFlavor.version
         let process = Process()
         process.executableURL = resources.node
         process.arguments = [resources.server.path]
-        process.environment = env
+        process.environment = Self.serverEnvironment(Self.environment, data: data, ui: resources.ui, port: port)
         process.currentDirectoryURL = data
         process.standardInput = FileHandle.nullDevice
         process.standardOutput = log
@@ -205,6 +198,20 @@ final class ServerManager {
         }.resume()
         _ = done.wait(timeout: .now() + 3)
         return body
+    }
+
+    /// What the bundled server runs with: the shell's environment, less the Node
+    /// settings meant for the user's own Node (`NODE_OPTIONS` can preload modules or
+    /// change flags; `NODE_PATH`, resolution), plus where the app keeps things.
+    static func serverEnvironment(_ base: [String: String], data: URL, ui: URL, port: Int) -> [String: String] {
+        var env = base
+        for key in ["PASEO_COMMAND_RESOLVING_ENVIRONMENT", "NODE_OPTIONS", "NODE_PATH"] { env.removeValue(forKey: key) }
+        env["PASEO_COMMAND_DATA"] = data.path
+        env["PASEO_NATIVE_UI"] = ui.path
+        env["PASEO_NATIVE_PORT"] = String(port)
+        env["PASEO_NATIVE_OWNER_PID"] = String(getpid())
+        env["PASEO_COMMAND_VERSION"] = AppFlavor.version
+        return env
     }
 
     /// The user's shell environment, captured once (see `ShellEnvironment`), so
