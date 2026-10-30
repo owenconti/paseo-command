@@ -82,9 +82,9 @@ for (const [label, data] of [
   });
 
   test(`${label}: workspaces around a landmark keep a cell apart`, () => {
-    // The first six of each project ring the landmark; later ones stand against them.
+    // Up to six ring the landmark apart; a fuller ring is packed side by side.
     const ringed = layout.workspaces.filter(
-      (w) => layout.workspaces.filter((o) => o.project === w.project).indexOf(w) < 6,
+      (w) => layout.workspaces.filter((o) => o.project === w.project).length <= 6,
     );
     const groups = ringed.map((w) => [
       ...footprint(w),
@@ -152,14 +152,19 @@ test("when the ring is full, workspaces pack side by side so each touches its la
     hosts: [{ key: "h", name: "h", online: true, local: true }],
     projects: [{ key: "p", host: "h", name: "p" }],
     workspaces: Array.from({ length: 8 }, (_, i) => ({ key: `w${i}`, host: "h", project: "p", name: `w${i}` })),
-    agents: Array.from({ length: 8 }, (_, i) => ({
+    // One without an agent, as a real fleet had.
+    agents: [0, 1, 2, 3, 5, 6, 7].map((i) => ({
       key: `a${i}`, host: "h", project: "p", workspace: `w${i}`, name: `a${i}`, model: "claude", state: "idle",
     })),
   };
   const layout = layoutAtlas(data);
   const core = footprint(layout.projects[0]);
-  for (const w of layout.workspaces)
-    assert.ok(touches(footprint(w), core), `${w.id} doesn't touch its landmark`);
+  for (const w of layout.workspaces) {
+    // The cottage, not just its yard, faces the landmark.
+    assert.ok(touches([w.position], core), `${w.id} doesn't touch its landmark`);
+    for (const a of layout.agents.filter((a) => a.workspace === w.id))
+      assert.ok(!touches([a.position], core), `${a.id} stands against the landmark`);
+  }
 });
 
 test("agents grow away from the landmark, oldest first, bottom then alternating sides", () => {

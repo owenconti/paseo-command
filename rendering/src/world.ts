@@ -448,6 +448,8 @@ function placeWorkspaces(core: Axial[], cottages: Cottage[]): Placed[] {
   const tight = packWorkspaces(core, cottages, false);
   return (tight.touching > apart.touching ? tight : apart).placed;
 }
+/** Degrees between two directions. */
+const turnOff = (a: number, b: number) => Math.abs(((((a - b) % 360) + 540) % 360) - 180);
 /** One packing of a landmark's workspaces: `apart` keeps a clear cell
  * between them; otherwise they may stand side by side, though a spot beside
  * fewer of the others is preferred. */
@@ -462,19 +464,14 @@ function packWorkspaces(core: Axial[], cottages: Cottage[], apart: boolean) {
   const placed: Placed[] = [];
   let touching = 0;
   for (const [i, cottage] of cottages.entries()) {
-    const k = SLOT_TURNS[i % 6]!,
-      angle = SLOT_ANGLES[i % 6]!;
-    const own = WORKSPACE.map((c) => turn(c, k));
-    const agents = agentCells(cottage.agents.length).map((c) => turn(c, k));
-    const shape = [...own, ...agents];
-    const reach = Math.max(...shape.map((c) => distance(c, { q: 0, r: 0 }))) + 2;
+    const angle = SLOT_ANGLES[i % 6]!;
     const all = [...core, ...[...taken].map((key) => {
       const [q, r] = key.split(",").map(Number);
       return { q: q!, r: r! };
     })];
     const rs = all.map((c) => c.r),
       qs = all.map((c) => c.q);
-    let best: Axial | null = null,
+    let best: { anchor: Axial; own: Axial[]; agents: Axial[] } | null = null,
       score = Infinity;
     // Touch the landmark if there's room; otherwise the workspaces around it.
     for (const [touch, clear] of [
@@ -487,23 +484,36 @@ function packWorkspaces(core: Axial[], cottages: Cottage[], apart: boolean) {
         (c: Axial) => !taken.has(cellKey(c)),
       ],
     ] as const) {
-      for (let r = Math.min(...rs) - reach; r <= Math.max(...rs) + reach; r++)
-        for (let q = Math.min(...qs) - reach; q <= Math.max(...qs) + reach; q++) {
-          const anchor = { q, r };
-          const cells = shape.map((c) => add(anchor, c));
-          if (cells.some((c) => coreKeys.has(cellKey(c)) || !clear(c))) continue;
-          if (!own.some((c) => touch(add(anchor, c)))) continue;
-          const at = own.map((c) => point(add(anchor, c)));
-          const x = at.reduce((s, p) => s + p.x, 0) / 3 - middle.x,
-            y = at.reduce((s, p) => s + p.y, 0) / 3 - middle.y;
-          const off = Math.abs(((((Math.atan2(y, x) * 180) / Math.PI - angle) % 360) + 540) % 360 - 180);
-          const crowding = cells.filter((c) => near.has(cellKey(c))).length;
-          const value = off + Math.hypot(x, y) / HEX_RADIUS + crowding * CROWDING;
-          if (value < score) (score = value), (best = anchor);
-        }
+      // Apart, each faces its slot; packed tight, any way that still points
+      // its cottage at the landmark.
+      for (const k of apart ? [SLOT_TURNS[i % 6]!] : [0, 1, 2, 3, 4, 5]) {
+        const own = WORKSPACE.map((c) => turn(c, k));
+        const agents = agentCells(cottage.agents.length).map((c) => turn(c, k));
+        const shape = [...own, ...agents];
+        const reach = Math.max(...shape.map((c) => distance(c, { q: 0, r: 0 }))) + 2;
+        const outward = point(turn({ q: -1, r: 2 }, k)),
+          facing = (Math.atan2(outward.y, outward.x) * 180) / Math.PI;
+        for (let r = Math.min(...rs) - reach; r <= Math.max(...rs) + reach; r++)
+          for (let q = Math.min(...qs) - reach; q <= Math.max(...qs) + reach; q++) {
+            const anchor = { q, r };
+            const cells = shape.map((c) => add(anchor, c));
+            if (cells.some((c) => coreKeys.has(cellKey(c)) || !clear(c))) continue;
+            if (!(apart ? own : own.slice(0, 1)).some((c) => touch(add(anchor, c)))) continue;
+            const home = point(anchor);
+            const aim = apart ? 0 : turnOff((Math.atan2(home.y - middle.y, home.x - middle.x) * 180) / Math.PI, facing);
+            if (aim > 60) continue;
+            const at = own.map((c) => point(add(anchor, c)));
+            const x = at.reduce((s, p) => s + p.x, 0) / 3 - middle.x,
+              y = at.reduce((s, p) => s + p.y, 0) / 3 - middle.y;
+            const off = turnOff((Math.atan2(y, x) * 180) / Math.PI, angle);
+            const crowding = cells.filter((c) => near.has(cellKey(c))).length;
+            const value = off + aim + Math.hypot(x, y) / HEX_RADIUS + crowding * CROWDING;
+            if (value < score) (score = value), (best = { anchor, own, agents });
+          }
+      }
       if (best) break;
     }
-    const anchor = best!;
+    const { anchor, own, agents } = best!;
     const cells = own.map((c) => add(anchor, c)),
       cellsOfAgents = agents.map((c) => add(anchor, c));
     for (const c of [...cells, ...cellsOfAgents]) {
