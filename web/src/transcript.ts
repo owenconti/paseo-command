@@ -221,6 +221,7 @@ export type Block =
       key: string;
     }
   | { kind: "event"; label: string; text: string; key: string }
+  | ({ kind: "agent"; key: string } & AgentReport)
   | { kind: "todo"; items: { text: string; done: boolean }[]; key: string }
   | { kind: "activity"; steps: Entry[]; key: string };
 
@@ -230,11 +231,18 @@ export function toBlocks(entries: Entry[]): Block[] {
   // Keys survive the tail window sliding: content plus occurrence, not position.
   const seen = new Map<string, number>();
   entries.forEach((entry) => {
+    const report =
+      entry.kind === "tool" && /(^|__)agent_message$/i.test(entry.tool)
+        ? agentReport(entry.detail || entry.text)
+        : entry.kind === "event" && entry.label === "Agent finished"
+          ? agentReport(entry.text)
+          : null;
     const sig = `${entry.kind}:${"tool" in entry ? entry.tool : ""}:${entry.text.slice(0, 80)}`;
     const n = (seen.get(sig) || 0) + 1;
     seen.set(sig, n);
     const key = `${sig}#${n}`;
-    if (entry.kind === "tool" || entry.kind === "thought") {
+    if (report) blocks.push({ kind: "agent", ...report, key });
+    else if (entry.kind === "tool" || entry.kind === "thought") {
       const last = blocks[blocks.length - 1];
       if (last?.kind === "activity") last.steps.push(entry);
       else blocks.push({ kind: "activity", steps: [entry], key });
@@ -266,6 +274,36 @@ export function toolSummary(tool: string, _text: string) {
   const mcp = /^mcp__([^_]+(?:_[^_]+)*)__(.+)$/.exec(tool);
   if (mcp) return { name: mcp[2].replaceAll("_", " "), source: mcp[1] };
   return { name: tool, source: "" };
+}
+
+/** Another agent reporting in: `agent_message` results and "Agent finished" notices. */
+export type AgentReport = {
+  agentId: string;
+  title: string;
+  /** What happened, e.g. "finished". */
+  verb: string;
+  server?: string;
+  text: string;
+};
+
+/**
+ * `Agent <id> (<title>) finished.`, an optional `Server: <id>` line, then the
+ * reply inside `<agent-response>`. Null when the text isn't one.
+ */
+export function agentReport(text: string): AgentReport | null {
+  const head = /^\s*Agent (\S+)(?: \((.*)\))? ([^\n]+?)\.?\s*$/m.exec(
+    text.split("\n")[0] ?? "",
+  );
+  const inner = /<agent-response>\n?([\s\S]*?)\n?<\/agent-response>/.exec(text);
+  if (!head || !inner) return null;
+  const server = /^Server: (\S+)/m.exec(text)?.[1];
+  return {
+    agentId: head[1],
+    title: head[2] || "",
+    verb: head[3],
+    ...(server ? { server } : {}),
+    text: inner[1].trim(),
+  };
 }
 
 /** Pull the inner text out of an `<agent-response>` notification body. */

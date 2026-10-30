@@ -10,6 +10,7 @@ import { installAppReloadShortcut } from "./appReload";
 import { installDispatchShortcut } from "./dispatchShortcut";
 import {
   agentClientId,
+  daemonAgentId,
   hasCompleteAgentOwners,
   migrateAgentStorage,
 } from "./agentIdentity";
@@ -119,6 +120,7 @@ import "./app.css";
 import "./themes.css";
 import "./world-ui.css";
 import { agentName, idLike, placeText, useKnownIds } from "./names";
+import { PeersContext, type Peers } from "./peers";
 
 installNativeLinks();
 // The map surface (drawn by the macOS app) beside the inherited docked session layout.
@@ -490,7 +492,15 @@ function App() {
       select(s);
     },
     [select],
-  );  /** Picking a host on the map selects it: the lists narrow to it and it
+  );
+  const peers = useMemo<Peers>(() => {
+    const byId = new Map(agents.map((a) => [daemonAgentId(a), a]));
+    return {
+      find: (id) => byId.get(id),
+      open: (a) => choose({ type: "agent", id: a.id }),
+    };
+  }, [agents, choose]);
+  /** Picking a host on the map selects it: the lists narrow to it and it
    * takes the map's highlight from whatever was selected. */
   const chooseHost = useCallback(
     (id: string) => {
@@ -1499,41 +1509,43 @@ function App() {
                       onNotice={setNotice}
                     />
                   ) : agent ? (
-                    <Session
-                      workingOn={workingOn[agent.id]}
-                      asks={asks[agent.id]}
-                      key={agent.id}
-                      agent={agent}
-                      workspace={workspaceOf(agent)}
-                      waiting={permissionAgents.has(agent.id)}
-                      online={online}
-                      onBack={onBack}
-                      onSelectWorkspace={() => {
-                        const ws = workspaceOf(agent);
-                        if (ws)
-                          choose({ type: "workspace", id: workspaceKey(ws) });
-                      }}
-                      onNotice={setNotice}
-                      onChanged={refresh}
-                      onFreshDraft={(a, settings) => {
-                        const ws = workspaceOf(a);
-                        const p = projectOf(a);
-                        select(null);
-                        openDispatch({
-                          ...(ws && realWorkspaceIds.has(workspaceKey(ws))
-                            ? { workspaceId: workspaceKey(ws) }
-                            : p
-                              ? { projectId: projectKey(p) }
-                              : {}),
-                          settings,
-                        });
-                      }}
-                      onNewAgent={() => openDispatch()}
-                      onOpenSubagent={(id) =>
-                        choose({ type: "agent", id: agent.id, subagent: id })
-                      }
-                      position={position}
-                    />
+                    <PeersContext.Provider value={peers}>
+                      <Session
+                        workingOn={workingOn[agent.id]}
+                        asks={asks[agent.id]}
+                        key={agent.id}
+                        agent={agent}
+                        workspace={workspaceOf(agent)}
+                        waiting={permissionAgents.has(agent.id)}
+                        online={online}
+                        onBack={onBack}
+                        onSelectWorkspace={() => {
+                          const ws = workspaceOf(agent);
+                          if (ws)
+                            choose({ type: "workspace", id: workspaceKey(ws) });
+                        }}
+                        onNotice={setNotice}
+                        onChanged={refresh}
+                        onFreshDraft={(a, settings) => {
+                          const ws = workspaceOf(a);
+                          const p = projectOf(a);
+                          select(null);
+                          openDispatch({
+                            ...(ws && realWorkspaceIds.has(workspaceKey(ws))
+                              ? { workspaceId: workspaceKey(ws) }
+                              : p
+                                ? { projectId: projectKey(p) }
+                                : {}),
+                            settings,
+                          });
+                        }}
+                        onNewAgent={() => openDispatch()}
+                        onOpenSubagent={(id) =>
+                          choose({ type: "agent", id: agent.id, subagent: id })
+                        }
+                        position={position}
+                      />
+                    </PeersContext.Provider>
                   ) : workspace ? (
                     <WorkspaceView
                       workspace={workspace}

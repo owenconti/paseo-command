@@ -274,3 +274,25 @@ export function flagFrames(img: HTMLImageElement, names: string[]): Map<string, 
   );
   return frames;
 }
+
+/** One robot, whole and trimmed, in a model's colour: its portrait beside
+ * what it said in a conversation. */
+export function robotPortrait(robots: HTMLImageElement, model: string): HTMLCanvasElement {
+  const paint = ROBOT_PAINT.find(([name]) => name === model)?.[1];
+  const base = !paint && ROBOT_BASES.includes(model) ? model : "teal";
+  const i = ROBOT_BASES.indexOf(base);
+  const w = robots.width / 2,
+    h = robots.height / 2;
+  const [x, y, cw, ch] = trimRect(robots, [(i % 2) * w, Math.floor(i / 2) * h, w, h]);
+  const canvas = document.createElement("canvas");
+  canvas.width = cw;
+  canvas.height = ch;
+  const ctx = canvas.getContext("2d", { willReadFrequently: true })!;
+  ctx.drawImage(robots, x, y, cw, ch, 0, 0, cw, ch);
+  if (paint) {
+    const image = ctx.getImageData(0, 0, cw, ch);
+    repaint(image.data, paint);
+    ctx.putImageData(image, 0, 0);
+  }
+  return canvas;
+}

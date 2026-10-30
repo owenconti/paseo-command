@@ -31,3 +31,31 @@ test("blocks pass the reply's message id and sequence through, keys unchanged", 
   assert.equal((reply as { seq?: number }).seq, 3);
   assert.equal(reply.key, "assistant::Each bundle lives in two places.#1");
 });
+
+test("an agent_message result becomes the agent's report, out of the activity", () => {
+  const blocks = toBlocks(
+    fromTimeline([
+      { kind: "tool", id: "5", name: "Bash", status: "completed", summary: "ls", detail: "" },
+      {
+        kind: "tool",
+        id: "6",
+        name: "agent_message",
+        status: "completed",
+        summary: "",
+        detail:
+          "Agent 5233e9ab-4a70 (Package release snapshot design spike) finished.\n\nServer: srv_bBKim4mfotpi\n\n<agent-response>\nPR CI is running.\n</agent-response>",
+      },
+    ]),
+  );
+  assert.equal(blocks.length, 2);
+  assert.equal(blocks[0].kind, "activity");
+  const { key: _key, ...report } = blocks[1];
+  assert.deepEqual(report, {
+    kind: "agent",
+    agentId: "5233e9ab-4a70",
+    title: "Package release snapshot design spike",
+    verb: "finished",
+    server: "srv_bBKim4mfotpi",
+    text: "PR CI is running.",
+  });
+});

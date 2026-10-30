@@ -1,6 +1,8 @@
 import type { WorkSummary } from "./useWorkingOn";
 import { soundEvent } from "./soundCues";
 import { daemonAgentId } from "./agentIdentity";
+import { usePeers } from "./peers";
+import { robotColour, useRobotPortrait } from "./robotPortrait";
 import {
   memo,
   useCallback,
@@ -997,6 +999,8 @@ const TimelineBlock = memo(function TimelineBlock({
         {extra}
       </>
     );
+  if (block.kind === "agent")
+    return <AgentReportCard block={block} imageHost={imageHost} />;
   if (block.kind === "event") {
     const { head, body } = eventBody(block.text);
     return (
@@ -1015,6 +1019,50 @@ const TimelineBlock = memo(function TimelineBlock({
     <Activity steps={block.steps} live={live} />
   ) : null;
 });
+
+/** Another agent's report: its Atlas robot, and what it said in a quote. */
+function AgentReportCard({
+  block,
+  imageHost,
+}: {
+  block: Extract<Block, { kind: "agent" }>;
+  imageHost?: string;
+}) {
+  const peers = usePeers();
+  const peer = peers?.find(block.agentId);
+  const robot = useRobotPortrait(peer?.provider);
+  const name = peer?.title || block.title || peer?.name || block.agentId.slice(0, 8);
+  return (
+    <figure
+      className="agent-report"
+      style={peer ? ({ "--robot": robotColour(peer.provider) } as CSSProperties) : undefined}
+    >
+      <span className="agent-report-robot" aria-hidden="true">
+        {robot && <img src={robot} alt="" />}
+      </span>
+      <div className="agent-report-card">
+        <figcaption>
+          {peer && peers ? (
+            <button
+              type="button"
+              className="agent-report-name"
+              aria-description="Open this agent's conversation"
+              onClick={() => peers.open(peer)}
+            >
+              {name}
+            </button>
+          ) : (
+            <b className="agent-report-name">{name}</b>
+          )}
+          <span>{block.verb}</span>
+        </figcaption>
+        <blockquote>
+          <Markdown text={block.text} imageHost={imageHost} />
+        </blockquote>
+      </div>
+    </figure>
+  );
+}
 
 function stepIcon(entry: Entry) {
   if (entry.kind === "thought") return <Brain size={12} />;
