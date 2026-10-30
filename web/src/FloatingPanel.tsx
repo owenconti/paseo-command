@@ -16,7 +16,7 @@ import {
   PanelRightClose,
 } from "lucide-react";
 import { readStore, writeStore } from "./api";
-import { CommitsButton } from "./CommitsButton";
+import { ReleasesButton } from "./ReleasesButton";
 import { ShortcutsButton } from "./ShortcutsButton";
 import { GamesButton } from "./games/GamesButton";
 import { onAppCommand } from "./appCommands";
@@ -254,7 +254,7 @@ export function FloatingPanel(props: Props) {
           </button>
         )}
         {!state.collapsed && props.tools}
-        {!state.collapsed && <CommitsButton />}
+        {!state.collapsed && <ReleasesButton />}
         <GamesButton hidden={state.collapsed} />
         <ShortcutsButton hidden={state.collapsed} />
         {!state.collapsed && (

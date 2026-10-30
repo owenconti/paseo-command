@@ -1,6 +1,6 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { readAttachmentImage } from "../attachment";
-import { mainCommits } from "../commits";
+import { releasesView } from "../releases";
 import { LIMITS } from "../daemon";
 import { assertReachable, invalidate } from "../fleet";
 import { captureExtras, settle, streamFleet, streamSession } from "../live";
@@ -108,11 +108,10 @@ export async function handleApi(
   if (!origin) return reply(403, { error: "Invalid request host" });
   if (req.headers.origin && req.headers.origin !== origin)
     return reply(403, { error: "Same-origin access only" });
-  // The app's own commits on main: read from git, never the daemon.
-  if (req.method === "GET" && url.pathname === "/api/commits") {
-    if ([...url.searchParams.keys()].some((k) => k !== "since"))
-      return reply(400, { error: "Unexpected parameters" });
-    return reply(200, await commitsRoute(url.searchParams.get("since")));
+  // The app's release notes: GitHub's, never the daemon.
+  if (req.method === "GET" && url.pathname === "/api/releases") {
+    if (url.search) return reply(400, { error: "Unexpected parameters" });
+    return reply(200, await releasesView());
   }
   // Settings and preset prompts: this app's own settings file, never the daemon.
   if (url.pathname === "/api/settings") {
@@ -470,14 +469,6 @@ export async function handleApi(
     // Daemon errors can quote what they were given: never pass a secret on.
     reply(400, { error: errorText(error) });
   }
-}
-
-/** `?since=<sha>`: unchanged answers only say so. */
-async function commitsRoute(since: string | null) {
-  const view = await mainCommits();
-  return view.available && since === view.head
-    ? { available: true, head: view.head, unchanged: true }
-    : view;
 }
 
 /**

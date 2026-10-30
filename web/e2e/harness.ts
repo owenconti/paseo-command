@@ -281,6 +281,7 @@ const BASIC: Record<string, unknown> = {
   hosts: [],
   usage: [],
   profiles: [],
+  releases: { installed: "test", releases: [] },
 };
 
 /**

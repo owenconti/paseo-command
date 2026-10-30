@@ -244,6 +244,132 @@
   background: transparent;
   color: var(--text-faint);
 }
+/* What's new (ReleasesButton.tsx): the header button, its unread dot
+   and the release notes it opens below itself. */
+.releases-anchor {
+  display: contents;
+}
+.releases-button {
+  position: relative;
+}
+.releases-dot {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 7px;
+  height: 7px;
+  border-radius: var(--radius-pill);
+  background: var(--unread);
+  box-shadow: 0 0 0 2px var(--panel-2);
+}
+.releases-popover {
+  position: fixed;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--panel-raised);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+}
+.releases-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 12px 8px;
+  border-bottom: 1px solid var(--line-soft);
+  font-size: var(--fs-sm);
+  color: var(--text-strong);
+}
+.releases-head small {
+  font-size: var(--fs-2xs);
+  color: var(--text-3);
+}
+.releases-body {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 4px 12px 8px;
+  font-size: var(--fs-sm);
+}
+.releases-pending,
+.releases-error {
+  margin: 8px 0 0;
+  padding: 6px 8px;
+  border-radius: var(--radius-md);
+  font-size: var(--fs-xs, var(--fs-sm));
+}
+.releases-pending {
+  background: var(--unread-soft);
+  color: var(--unread-text);
+}
+.releases-error {
+  background: var(--fill-soft);
+  color: var(--text-2);
+}
+.release {
+  padding: 8px 0;
+}
+.release + .release {
+  border-top: 1px solid var(--line-soft);
+}
+.release-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 4px;
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-semibold);
+  color: var(--text-strong);
+}
+.release-head a {
+  color: inherit;
+  text-decoration: none;
+}
+.release-head time {
+  margin-left: auto;
+  font-size: var(--fs-2xs);
+  font-weight: normal;
+  color: var(--text-3);
+}
+.release-new {
+  padding: 0 5px;
+  border-radius: var(--radius-pill);
+  background: var(--unread-soft);
+  color: var(--unread-text);
+  font-size: var(--fs-2xs);
+}
+.panel-title {
+  flex: 0 1 auto;
+  min-height: 0;
+  padding: 4px 0;
+  writing-mode: vertical-rl;
+}
+.floating-command[data-collapsed="true"] .panel-attention {
+  padding: 7px 4px;
+  writing-mode: vertical-rl;
+}
+.panel-tool {
+  display: grid;
+  place-items: center;
+  flex: 0 0 32px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text-3);
+}
+.panel-tool:hover {
+  background: var(--row-hover);
+  color: var(--text-strong);
+}
+.panel-tool:disabled {
+  background: transparent;
+  color: var(--text-faint);
+}
 /* Commits on main (CommitsButton.tsx): the header button, its unread dot
    and the list it opens below itself. */
 .commits-anchor {

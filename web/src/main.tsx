@@ -1545,11 +1545,11 @@ function App() {
     ...(!(unity && floatingVisibility.collapsed)
       ? [
           {
-            id: "commits",
+            id: "releases",
             group: "App",
-            label: "Commits on main",
-            keywords: "changes updates log history",
-            run: () => runAppCommand("show-commits"),
+            label: "What's new",
+            keywords: "release notes version update changelog",
+            run: () => runAppCommand("show-releases"),
           },
         ]
       : []),

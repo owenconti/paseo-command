@@ -7,25 +7,25 @@ import {
   useState,
   type CSSProperties,
 } from "react";
-import { GitCommitHorizontal } from "lucide-react";
+import { Sparkles } from "lucide-react";
 import { ago } from "./api";
 import { onAppCommand } from "./appCommands";
-import { newSince, useMainCommits, type MainCommit } from "./commits";
+import { Markdown } from "./Markdown";
+import { newSince, useReleases, type Release } from "./releases";
 
 const WIDTH = 400;
 const MARGIN = 8;
-/** Where main's commits are viewed on GitHub. */
-const REPO_URL = "https://github.com/owenconti/paseo-command";
 
 /**
- * The panel header's "Commits on main": Paseo Command's own main, newest
- * first, with a dot while it has commits the user hasn't seen. Hidden when
- * the server has no checkout to read.
+ * The panel header's "What's new": the running version, the update waiting
+ * (if any) and Paseo Command's release notes, newest first, with a dot while
+ * there is a release the user hasn't seen.
  */
-export function CommitsButton() {
+export function ReleasesButton() {
   const [open, setOpen] = useState(false);
-  const { view, seen, unread, markRead } = useMainCommits(true, open);
-  // What was new when the list opened stays marked while it's open.
+  const { installed, releases, pending, error, seen, unread, markRead } =
+    useReleases(open);
+  // What was new when the notes opened stays marked while they're open.
   const [openedSeen, setOpenedSeen] = useState<string | null>(null);
   const anchor = useRef<HTMLSpanElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
@@ -35,8 +35,8 @@ export function CommitsButton() {
     setOpen(false);
     if (refocus) trigger.current?.focus({ preventScroll: true });
   }, []);
-  // The command palette's Commits on main.
-  useEffect(() => onAppCommand("show-commits", () => setOpen(true)), []);
+  // The command palette's What's new.
+  useEffect(() => onAppCommand("show-releases", () => setOpen(true)), []);
   useEffect(() => {
     if (!open) return;
     const down = (e: MouseEvent) => {
@@ -79,98 +79,80 @@ export function CommitsButton() {
     addEventListener("resize", fit);
     return () => removeEventListener("resize", fit);
   }, [open]);
-  if (!view) return null;
-  const count = newSince(view.commits, seen);
+  const count = newSince(releases, seen);
   const fresh = new Set(
     open
-      ? view.commits
-          .slice(0, newSince(view.commits, openedSeen))
-          .map((c) => c.sha)
+      ? releases.slice(0, newSince(releases, openedSeen)).map((r) => r.version)
       : [],
   );
   return (
-    <span ref={anchor} className="commits-anchor">
+    <span ref={anchor} className="releases-anchor">
       <button
         ref={trigger}
-        className="panel-tool commits-button"
+        className="panel-tool releases-button"
         aria-haspopup="dialog"
         aria-expanded={open}
         aria-controls={open ? id : undefined}
         aria-label={
           unread
-            ? `Commits on main, ${count >= view.commits.length ? `${count}+` : count} new`
-            : "Commits on main"
+            ? `What's new, ${count >= releases.length ? `${count}+` : count} new`
+            : "What's new"
         }
-        data-tip="Commits on main"
+        data-tip="What's new"
         onClick={() => {
           if (open) return close(false);
           setOpenedSeen(seen);
-          markRead(view.head);
+          if (releases[0]) markRead(releases[0].version);
           setOpen(true);
         }}
       >
-        <GitCommitHorizontal size={16} />
-        {unread && !open && <span className="commits-dot" aria-hidden />}
+        <Sparkles size={16} />
+        {unread && !open && <span className="releases-dot" aria-hidden />}
       </button>
       {open && (
         <div
           id={id}
           role="dialog"
-          aria-label="Commits on main"
-          className="commits-popover"
+          aria-label="What's new"
+          className="releases-popover"
           style={place}
-          // Keys pressed here are the list's (not J/K/N/D shortcuts).
+          // Keys pressed here are the notes' (not J/K/N/D shortcuts).
           onKeyDown={(e) => {
             if (e.key !== "Tab" && e.key !== "Escape") e.stopPropagation();
           }}
         >
-          <header className="commits-head">
-            <b>Commits on main</b>
+          <header className="releases-head">
+            <b>Version {installed}</b>
             <small>Paseo Command</small>
           </header>
-          <ol className="commits-list">
-            {view.commits.map((c) => (
-              <CommitRow key={c.sha} commit={c} fresh={fresh.has(c.sha)} />
+          <div className="releases-body">
+            {pending && (
+              <p className="releases-pending">
+                Update ready: {pending} — choose Restart app
+              </p>
+            )}
+            {error && <p className="releases-error">{error}</p>}
+            {releases.map((r) => (
+              <ReleaseNotes key={r.version} release={r} fresh={fresh.has(r.version)} />
             ))}
-          </ol>
+          </div>
         </div>
       )}
     </span>
   );
 }
 
-function CommitRow({ commit, fresh }: { commit: MainCommit; fresh: boolean }) {
+function ReleaseNotes({ release, fresh }: { release: Release; fresh: boolean }) {
   return (
-    <li className="commit-row" data-new={fresh}>
-      <div className="commit-main">
-        <span className="commit-mark" aria-hidden>
-          <GitCommitHorizontal size={13} />
-        </span>
-        <span className="commit-text">
-          <span className="commit-subject">{commit.subject}</span>
-          <Meta commit={commit} fresh={fresh} />
-        </span>
-      </div>
-    </li>
-  );
-}
-
-function Meta({ commit, fresh }: { commit: MainCommit; fresh?: boolean }) {
-  const short = commit.sha.slice(0, 7);
-  return (
-    <span className="commit-meta">
-      {fresh && <span className="commit-new">New</span>}
-      <time dateTime={commit.date}>{ago(commit.date)}</time>
-      <span className="commit-author">{commit.author}</span>
-      <a
-        className="commit-sha"
-        href={`${REPO_URL}/commit/${commit.sha}`}
-        target="_blank"
-        rel="noopener noreferrer"
-        aria-label={`Open ${short} on GitHub`}
-      >
-        {short}
-      </a>
-    </span>
+    <section className="release" data-new={fresh}>
+      <h4 className="release-head">
+        <a href={release.url} target="_blank" rel="noopener noreferrer">
+          {release.version}
+        </a>
+        {fresh && <span className="release-new">New</span>}
+        <time dateTime={release.date}>{ago(release.date)}</time>
+      </h4>
+      <Markdown text={release.notes} />
+    </section>
   );
 }

@@ -9,7 +9,7 @@ export type AppCommand =
   | "show-shortcuts"
   | "show-settings"
   | "show-games"
-  | "show-commits"
+  | "show-releases"
   | "agent-interrupt"
   | "agent-open-paseo"
   | "agent-archive"
