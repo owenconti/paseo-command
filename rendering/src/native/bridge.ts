@@ -68,7 +68,6 @@ import sandUrl from "../assets/sand.png";
 import dirtUrl from "../assets/dirt.png";
 import propsUrl from "../assets/props.png";
 import flagsUrl from "../assets/medallions.png";
-import probeUrl from "../assets/probe.png";
 import type { AtlasHandlers, AtlasWorld } from "../atlas";
 
 type Channel = { postMessage(message: unknown): void };
@@ -82,7 +81,7 @@ export const nativeWorldAvailable = () => typeof window !== "undefined" && !!cha
  * crisp at the closest zoom on a Retina display. */
 const BANNER_SCALE = 5;
 /** Sprite frames and the sea's tiles, sent once per page. */
-type Art = { frames: Map<string, Frame>; tiles: Tiles; probe: HTMLImageElement; masks: Map<string, ImageData> };
+type Art = { frames: Map<string, Frame>; tiles: Tiles; masks: Map<string, ImageData> };
 
 const load = (url: string) =>
   new Promise<HTMLImageElement>((resolve, reject) => {
@@ -271,7 +270,7 @@ function paintBanner(label: Label) {
  * cream ring, and a cream badge on its lower-right rim carrying a glyph (or the
  * open findings' count). Its world box is `MEDALLION.size` square, centred,
  * plus `pad` all round for its soft shadow. */
-function paintProbe(verdict: ProbeVerdict, mark: HTMLImageElement) {
+function paintProbe(verdict: ProbeVerdict) {
   const size = MEDALLION.size;
   const pad = 4;
   const glyph = probeGlyph(verdict);
@@ -330,16 +329,16 @@ function paintProbe(verdict: ProbeVerdict, mark: HTMLImageElement) {
   ctx.lineWidth = 0.7;
   ctx.strokeStyle = rgba(0x3b2a12);
   ctx.stroke();
-  // Probe's mark, in a cream ring.
-  const markR = field * 0.7;
-  ctx.save();
-  disc(c, c, markR);
-  ctx.clip();
-  ctx.drawImage(mark, c - markR, c - markR, markR * 2, markR * 2);
-  ctx.restore();
-  disc(c, c, markR);
-  ctx.lineWidth = 1.4;
+  // An original magnifying glass signifies review without copying a bot avatar.
+  const lensX = c - field * 0.12, lensY = c - field * 0.12;
+  disc(lensX, lensY, field * 0.4);
+  ctx.lineWidth = field * 0.15;
   ctx.strokeStyle = rgba(0xf6ecd2);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(lensX + field * 0.29, lensY + field * 0.29);
+  ctx.lineTo(c + field * 0.52, c + field * 0.52);
+  ctx.lineCap = "round";
   ctx.stroke();
   // The verdict's badge, on the lower-right rim.
   const badgeR = size * 0.2,
@@ -575,7 +574,7 @@ export function mountNativeAtlas(parent: HTMLElement, handlers: AtlasHandlers = 
       streamers: [
         ...probes.map((p) => {
           const key = probeKey(p.verdict);
-          const painted = paintProbe(p.verdict, art!.probe);
+          const painted = paintProbe(p.verdict);
           return {
             key,
             png: image(key, painted.canvas),
@@ -764,8 +763,8 @@ export function mountNativeAtlas(parent: HTMLElement, handlers: AtlasHandlers = 
   // The art is painted once per page; Swift keeps it as textures.
   void (async () => {
     try {
-      const [buildings, robotSheet, foliage, sand, dirt, props, structures, flags, probe] = await Promise.all(
-        [buildingsUrl, robotsUrl, foliageUrl, sandUrl, dirtUrl, propsUrl, structuresUrl, flagsUrl, probeUrl].map(load),
+      const [buildings, robotSheet, foliage, sand, dirt, props, structures, flags] = await Promise.all(
+        [buildingsUrl, robotsUrl, foliageUrl, sandUrl, dirtUrl, propsUrl, structuresUrl, flagsUrl].map(load),
       );
       const frames = buildFrames({ buildings: buildings!, robots: robotSheet!, foliage: foliage!, structures: structures! });
       for (const [name, frame] of propFrames(props!, PROPS)) frames.set(name, frame);
@@ -778,7 +777,7 @@ export function mountNativeAtlas(parent: HTMLElement, handlers: AtlasHandlers = 
         if (/^robot-\w+-(body|hand-l|hand-r)$/.test(name))
           sent.push({ name: `${name}~offline`, png: png(tinted(crop(frame), OFFLINE_TINT)) });
       if (destroyed) return;
-      art = { frames, tiles: { sand: sand!, dirt: dirt! }, probe: probe!, masks: new Map() };
+      art = { frames, tiles: { sand: sand!, dirt: dirt! }, masks: new Map() };
       post({
         type: "art",
         frames: sent,

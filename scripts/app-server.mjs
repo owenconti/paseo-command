@@ -1,9 +1,9 @@
 #!/usr/bin/env node
-/** Detached app preview, listening on all network interfaces. */
+/** Detached app preview, listening on loopback only. */
 import { spawn, execFileSync } from 'node:child_process';
 import { existsSync, readFileSync, readdirSync, statSync, writeFileSync, openSync, closeSync, unlinkSync } from 'node:fs';
 import { createHash, randomUUID } from 'node:crypto';
-import { tmpdir, networkInterfaces } from 'node:os';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { setTimeout as delay } from 'node:timers/promises';
@@ -43,10 +43,8 @@ function isRunning(state) {
 }
 function removeState() { try { unlinkSync(stateFile); } catch {} }
 function show(state) {
-  console.log(`Listening on 0.0.0.0:${state.port}`);
+  console.log(`Listening on ${state.bind}:${state.port}`);
   console.log(`Paseo Command: http://127.0.0.1:${state.port}`);
-  const addresses = new Set(Object.values(networkInterfaces()).flat().filter((info) => info && !info.internal && info.family === 'IPv4').map((info) => info.address));
-  for (const address of addresses) console.log(`Network: http://${address}:${state.port}`);
   console.log(`PID: ${state.pid}\nLog: ${logFile}`);
 }
 async function stop(state) {
@@ -61,7 +59,7 @@ async function stop(state) {
 async function serve() {
   const settings = JSON.parse(process.argv[3]);
   const { preview } = await import(new URL('../web/node_modules/vite/dist/node/index.js', import.meta.url));
-  const server = await preview({ root: web, configFile: join(web, 'vite.config.ts'), preview: { host: '0.0.0.0', port: settings.port, strictPort: true } });
+  const server = await preview({ root: web, configFile: join(web, 'vite.config.ts'), preview: { host: '127.0.0.1', port: settings.port, strictPort: true } });
   let closing = false;
   const shutdown = async () => {
     if (closing) return;
@@ -76,7 +74,7 @@ async function serve() {
   });
   process.send?.({ ready: true });
   process.disconnect?.();
-  console.log(`Paseo Command listening on 0.0.0.0:${settings.port}`);
+  console.log(`Paseo Command listening on 127.0.0.1:${settings.port}`);
 }
 async function start(settings) {
   if (!existsSync(join(web, 'dist/index.html'))) throw new Error('No app build found. Run npm run app:build first.');
@@ -101,7 +99,7 @@ async function main() {
   const [action = 'start', ...args] = process.argv.slice(2);
   if (action === '--serve') return serve();
   if (args.includes('--help') || action === '--help') {
-    console.log('npm run app:start [-- --port 4310]\nnpm run app:restart [-- --port 4310]\nnpm run app:refresh\nnpm run app:stop\nnpm run app:status\n\napp:refresh restarts the server only when its own code changed since it started.\n\nThe app binds to 0.0.0.0 (all network interfaces).\nRun from your own terminal to keep the server independent of agent process cleanup.');
+    console.log('npm run app:start [-- --port 4310]\nnpm run app:restart [-- --port 4310]\nnpm run app:refresh\nnpm run app:stop\nnpm run app:status\n\napp:refresh restarts the server only when its own code changed since it started.\n\nThe app binds to 127.0.0.1 (this machine only).\nRun from your own terminal to keep the server independent of agent process cleanup.');
     return;
   }
   if (!['start', 'stop', 'restart', 'refresh', 'status'].includes(action)) throw new Error(`Unknown action: ${action}`);
@@ -119,16 +117,16 @@ async function main() {
   }
   if (!Number.isInteger(port) || port < 1024 || port > 65535) throw new Error('--port must be between 1024 and 65535.');
   if (action === 'start' && isRunning(previous)) {
-    if (previous.port !== port || previous.bind !== '0.0.0.0') throw new Error('The app is already running with different settings. Use npm run app:restart with the desired options.');
+    if (previous.port !== port || previous.bind !== '127.0.0.1') throw new Error('The app is already running with different settings. Use npm run app:refresh to apply the local-only binding.');
     console.log('Already running.'); show(previous); return;
   }
   const sources = sourcesStamp();
   if (action === 'refresh' && isRunning(previous)) {
-    if (previous.port === port && previous.sources >= sources) { console.log('Up to date.'); return; }
+    if (previous.port === port && previous.bind === '127.0.0.1' && previous.sources >= sources) { console.log('Up to date.'); return; }
     console.log('The server changed; restarting it.');
   }
   if (action === 'restart' || action === 'refresh') await stop(previous);
-  const settings = { token: randomUUID(), port, bind: '0.0.0.0', sources };
+  const settings = { token: randomUUID(), port, bind: '127.0.0.1', sources };
   const state = await start(settings);
   show(state);
 }

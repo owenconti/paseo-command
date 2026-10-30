@@ -20,6 +20,9 @@
     "app:update": "npm run app:build && npm run native:build",
     "native:build": "sh native/scripts/bundle.sh",
     "native:run": "sh native/scripts/run.sh",
-    "native:mock": "web/node_modules/.bin/tsx native/scripts/mock-fleet.ts"
-  }
+    "native:mock": "web/node_modules/.bin/tsx native/scripts/mock-fleet.ts",
+    "public:check": "node scripts/public-check.mjs",
+    "native:test": "node native/scripts/test-origin.mjs"
+  },
+  "license": "MIT"
 }

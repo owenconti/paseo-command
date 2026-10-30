@@ -1,8 +1,10 @@
 # Artwork provenance
 
-Generated with the built-in `image_gen` tool for this local project. No Phaser AE crew, uploads or phaser.io services were used. The reference supplied by the user, now retained as `../design/references/atlas-05.webp`, was a style reference for the two sprite atlases. Original references remain references; none is used as the running scene's background.
+Generated with the built-in `image_gen` tool for this project. No Phaser AE crew, uploads or phaser.io services were used. User-supplied illustrations were style references for the original sprite atlases. Those reference images are excluded from the repository and public history because their redistribution rights were not established; private local copies may remain in the ignored `design/references/` directory. None is used as the running scene's background.
 
-The output PNGs are retained without destructive editing. Phaser registers and trims individual atlas frames at runtime. Transparent alpha is preserved. Local assets are bundled directly by the renderer.
+The output PNGs are retained without destructive editing. The shared painters register and trim individual atlas frames at runtime. Transparent alpha is preserved. Local assets are bundled directly by the renderer. Original generated artwork is made available under the project's MIT license to the extent rights are held by the project; third-party marks and fonts retain their own rights.
+
+Historical generator filenames below identify provenance, not files that must be downloaded or restored. Example home paths stand in for private generation archives.
 
 ## buildings.png
 
@@ -195,9 +197,9 @@ the review flag's place. It was generated the same way by a GPT-6.1-Sol agent wi
 same foot anchor, and pasted in unchanged from `../design/pr-status/flag-conflicts.png`; its prompts and originals
 are in `../design/pr-status/NOTES.md`. The rest of that row is transparent.
 
-## probe.png — Probe's mark
+## Review symbol
 
-Probe's own GitHub avatar (`https://avatars.githubusercontent.com/u/316687694`, the `diagonalprobe` account), fetched
-at 460 px, cropped to a circle and reduced to 128 × 128 RGBA. Packaging only; not repainted. The bridge draws it, in a
-cream ring, on the medallion that shows Probe's verdict in a workspace's first cell (`paintProbe` in
-`src/native/bridge.ts`).
+`paintProbe` in `src/native/bridge.ts` draws an original cream magnifying glass with
+canvas paths on the verdict's enamel medallion. It requires no external artwork.
+The previously copied Probe GitHub avatar is excluded from the repository and
+public history; the `diagonalprobe` integration still identifies the review bot by name.

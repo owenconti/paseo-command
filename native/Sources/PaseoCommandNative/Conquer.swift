@@ -128,7 +128,7 @@ final class ModeBar: NSView {
     }
 }
 
-/// Conquer: a browser signed in with Zen Browser's cookies (see `ZenCookies`),
+/// Conquer: a browser with optional Zen session imports (see `ZenCookies`),
 /// keeping a cookie store of its own between launches. A sidebar as in Zen and
 /// Arc (the address bar, pinned tabs and their folders, New Tab, the other
 /// tabs) beside the page.
@@ -366,28 +366,23 @@ final class ConquerView: NSView, WKNavigationDelegate, WKUIDelegate, NSTextField
     /// Conquer's cookie store's identity, the same every launch.
     private static let store = UUID(uuidString: "C0A9B6E2-5F1D-4C3E-9A71-2D8E4B6F0C15")!
 
-    /// The first time Conquer shows: Zen's cookies first, then the tabs from last time.
+    /// Restore tabs without reading another browser's sessions.
     func start() {
         guard !restored else { return }
         restored = true
         placeSidebar()
-        importCookiesOnce { [weak self] in
-            guard let self else { return }
-            let chosen = self.restore()
-            // A link waiting to open makes its own tab; no blank one first.
-            if let chosen { self.select(chosen) } else if self.current == nil && self.onStarted.isEmpty { self.newTab() }
-            self.renderSidebar()
-            self.started = true
-            self.onStarted.forEach { $0() }
-            self.onStarted = []
-        }
+        let chosen = restore()
+        // A link waiting to open makes its own tab; no blank one first.
+        if let chosen { select(chosen) } else if current == nil && onStarted.isEmpty { newTab() }
+        renderSidebar()
+        started = true
+        onStarted.forEach { $0() }
+        onStarted = []
     }
 
-    /// Run `then` once the tabs from last time are back and Zen's cookies are in
-    /// (so a link opened meanwhile neither loads signed out nor gets lost).
+    /// Run `then` once the tabs from last time are restored.
     func whenStarted(_ then: @escaping () -> Void) {
-        start()
-        if started { then() } else { onStarted.append(then) }
+        if started { then() } else { onStarted.append(then); start() }
     }
 
     /// Whether the keyboard is in Conquer (its page, address bar or sidebar).
@@ -396,22 +391,13 @@ final class ConquerView: NSView, WKNavigationDelegate, WKUIDelegate, NSTextField
         return responder === self || responder.isDescendant(of: self)
     }
 
-    private var cookiesImported = false
-
-    /// Zen's cookies, once a launch.
-    func importCookiesOnce(then done: (() -> Void)? = nil) {
-        guard !cookiesImported else { done?(); return }
-        importZenCookies(then: done)
-    }
-
-    /// Copy Zen's cookies into Conquer's store (at the start, and from the menu).
-    func importZenCookies(then done: (() -> Void)? = nil) {
+    /// Copy Zen's cookies only after the menu's confirmation.
+    private func importZenCookies(then done: (() -> Void)? = nil) {
         ZenCookies.load(into: configuration.websiteDataStore.httpCookieStore) { [weak self] result in
             switch result {
             case .success(let count): self?.imported = "\(count) cookies"
             case .failure(let error): self?.imported = error.localizedDescription
             }
-            self?.cookiesImported = true
             Log.line("Zen cookies: \(self?.imported ?? "")")
             done?()
         }
@@ -1136,12 +1122,22 @@ final class ConquerView: NSView, WKNavigationDelegate, WKUIDelegate, NSTextField
     }
 
     private func importFromMenu() {
-        importZenCookies { [weak self] in
-            guard let self, let window = self.window else { return }
-            let alert = NSAlert()
-            alert.messageText = "Imported from Zen Browser"
-            alert.informativeText = "\(self.imported). Reload a page to use them."
-            alert.beginSheetModal(for: window)
+        guard let window else { return }
+        let consent = NSAlert()
+        consent.messageText = "Import Zen Browser sessions?"
+        consent.informativeText = "Copy Zen's unexpired cookies into Conquer. This may sign Conquer into your accounts. Zen's own files stay unchanged; existing Conquer cookies may be replaced."
+        consent.addButton(withTitle: "Import Sessions")
+        consent.addButton(withTitle: "Cancel")
+        consent.buttons.last?.keyEquivalent = "\u{1b}"
+        consent.beginSheetModal(for: window) { [weak self] response in
+            guard response == .alertFirstButtonReturn else { return }
+            self?.importZenCookies { [weak self] in
+                guard let self, let window = self.window else { return }
+                let alert = NSAlert()
+                alert.messageText = "Zen Browser import"
+                alert.informativeText = "\(self.imported). Reload a page to use them."
+                alert.beginSheetModal(for: window)
+            }
         }
     }
 

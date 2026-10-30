@@ -12,6 +12,7 @@ app="$here/build/Paseo Command.app"
 mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources"
 cp "$here/Info.plist" "$app/Contents/Info.plist"
 cp "$here/AppIcon.icns" "$app/Contents/Resources/AppIcon.icns"
+cp "$here/../LICENSE" "$here/../THIRD_PARTY_NOTICES.md" "$app/Contents/Resources/"
 # The splash's lettering: the page's own header and body fonts.
 cp "$here/../web/src/themes/fonts/paseo-barlow-600.woff2" "$here/../web/src/themes/fonts/paseo-source-sans-400.woff2" "$app/Contents/Resources/"
 # Replaced, not overwritten: a running copy keeps its own executable.

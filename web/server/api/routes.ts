@@ -95,7 +95,7 @@ export async function handleApi(
   res.setHeader("Cache-Control", "no-store");
   res.setHeader("X-Content-Type-Options", "nosniff");
   const reply = replier(res);
-  // Requests may use any network address; browser access remains same-origin.
+  // Local clients and loopback Host only; browser access remains same-origin.
   const origin = allowedOrigin(req);
   if (!origin) return reply(403, { error: "Invalid request host" });
   if (req.headers.origin && req.headers.origin !== origin)

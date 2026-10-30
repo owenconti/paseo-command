@@ -7,16 +7,16 @@ export default defineConfig({
   // Tailwind only compiles the landing page's stylesheet (landing/landing.css).
   plugins: [react(), tailwindcss(), apiPlugin()],
   server: {
-    host: "0.0.0.0",
+    host: "127.0.0.1",
     strictPort: false,
     // The Atlas world is bundled straight from the sibling rendering package.
     fs: { allow: [".", "../rendering"] },
-    allowedHosts: true,
+    allowedHosts: ["localhost"],
   },
   preview: {
-    host: "0.0.0.0",
+    host: "127.0.0.1",
     strictPort: false,
-    allowedHosts: true,
+    allowedHosts: ["localhost"],
   },
   build: {
     chunkSizeWarningLimit: 1500,

@@ -648,7 +648,7 @@ const FAQ: [string, string][] = [
   ],
   [
     "Can I check it from my phone?",
-    "The panels adapt to small screens. If you opt in to tailnet access through tailscale serve, you can reach it from your own devices while the server stays on loopback.",
+    "The panels adapt to smaller windows. Paseo Command runs on your own machine; its agent and terminal controls have no network login, so remote access through a proxy or tunnel is not supported.",
   ],
 ];
 

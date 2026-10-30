@@ -2,7 +2,7 @@ import Foundation
 
 /// Keeps the app's own Paseo Command server running: the detached launcher
 /// that `npm run app:start` uses (`scripts/app-server.mjs`), started if it
-/// isn't. It outlives the app on purpose: browsers on other devices and the
+/// isn't. It outlives the app on purpose: local browsers and the
 /// agents' `npm run app:update` use the same server.
 final class ServerManager {
     /// The repository: the bundle lives in `<root>/native/build/`, unless

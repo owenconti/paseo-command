@@ -15,7 +15,7 @@ import { newSince, useMainCommits, type MainCommit } from "./commits";
 const WIDTH = 400;
 const MARGIN = 8;
 /** Where main's commits are viewed on GitHub. */
-const REPO_URL = "https://github.com/owenconti/paseo-cc-ui";
+const REPO_URL = "https://github.com/owenconti/paseo-command";
 
 /**
  * The panel header's "Commits on main": Paseo Command's own main, newest

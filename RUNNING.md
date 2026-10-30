@@ -10,12 +10,16 @@ npm run app:build
 npm run app:start
 ```
 
-The app always binds to **0.0.0.0:4310**, listening on every IPv4 network interface.
-Open http://127.0.0.1:4310 on this machine, or `http://<host-IP-or-hostname>:4310`
-from another device. `app:start` prints local and network URLs, the process ID, and
-the log path; `npm run app:status` prints them again. The dev server uses the same
-binding. API and WebSocket requests support the host's network addresses and keep
-same-origin browser checks.
+The app binds to **127.0.0.1:4310**, accessible on this machine only.
+Open http://127.0.0.1:4310. `app:start` prints the local URL, process ID and
+log path; `npm run app:status` prints them again. The dev server uses the same
+binding. The API and WebSockets reject external Host headers, nonlocal clients
+and cross-origin browser requests. The app has no login or network authentication;
+do not expose it through a proxy, tunnel, port forward or shared hosting.
+
+When upgrading from an older build that listened on every interface, press ⌘R
+in the macOS app (or run `npm run app:refresh` yourself) to apply the new binding.
+Building an update alone does not change a running server.
 
 An existing unmanaged server on the port is left alone; stop it from its original
 terminal before switching to this launcher.

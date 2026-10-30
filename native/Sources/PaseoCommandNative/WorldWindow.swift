@@ -161,6 +161,9 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
     // MARK: Page → Swift
 
     func userContentController(_ controller: WKUserContentController, didReceive message: WKScriptMessage) {
+        let sender = message.frameInfo.securityOrigin
+        guard message.frameInfo.isMainFrame,
+              WebOrigin.matches(scheme: sender.protocol, host: sender.host, port: sender.port, to: options.url) else { return }
         guard let body = message.body as? [String: Any], let type = body["type"] as? String else { return }
         if message.name == "paseoMusic" {
             switch type {
@@ -441,9 +444,11 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
     func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction,
                  decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
         // The app stays on its own origin; other links open in the browser.
-        if navigationAction.navigationType == .linkActivated, let url = navigationAction.request.url,
-           url.host != options.url.host || url.port != options.url.port {
-            NSWorkspace.shared.open(url)
+        if let url = navigationAction.request.url, !WebOrigin.matches(url, to: options.url) {
+            if navigationAction.navigationType == .linkActivated,
+               ["http", "https", "mailto"].contains(url.scheme?.lowercased() ?? "") {
+                NSWorkspace.shared.open(url)
+            }
             return decisionHandler(.cancel)
         }
         decisionHandler(.allow)

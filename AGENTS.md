@@ -2,12 +2,13 @@
 
 ## User requirements
 
-- `main` tracks `origin/main` at `github.com/owenconti/paseo-cc-ui` (private). Push only `main`, there.
+- `main` tracks `origin/main` at `github.com/owenconti/paseo-command`. Push only `main`, there.
   Do not publish elsewhere, stream build-room events, or send this project to phaser.io.
 - Do not sign in to Phaser AE, reconnect an online project, reinstall its skill, or start its room streamer.
 - The Phaser AE account was disconnected and its installed skill removed at the user’s request.
 - The cached Phaser prototype and engine were removed at the user’s request. Do not restore them.
-- The current SpriteKit app lives at `/Users/example/development/paseo-command`. The original app is preserved read only in `archive/legacy-app/`. Preserve the inherited React UI.
+- The current SpriteKit app lives in this checkout. The original app is preserved read only in ignored `archive/legacy-app/` where available. Preserve the inherited React UI.
+- Public history was sanitized. Never merge or push branches or tags from the old private repository (`paseo-cc-ui`); review and cherry-pick needed changes onto current `main`. Keep all recovery bundles and local archives private. Use a GitHub noreply commit email and run `npm run public:check -- --history` before pushing.
 - When you need to ask the user a question, use the ask-question tool (`AskUserQuestion`) rather than asking in plain text.
 - Anything you ask the user to review, such as a plan, description or summary, must be in your visible reply,
   never only in your reasoning: the user does not see your thoughts.
@@ -78,9 +79,9 @@ Report the commit, whether the push succeeded, whether the build succeeded, and 
 ## Commands
 
 - `npm run app:install`: installs `rendering/` and `web/` dependencies.
-- `npm run app:dev`: React UI, SDK API and the Atlas world on port 4310, bound to `0.0.0.0`.
-- `npm run app:start`: detached preview of the built app and API, bound to `0.0.0.0`;
-  run from a human terminal. Access it through localhost or a host network address on port 4310.
+- `npm run app:dev`: React UI, SDK API and the Atlas world on port 4310, bound to `127.0.0.1`.
+- `npm run app:start`: detached preview of the built app and API, bound to `127.0.0.1`;
+  run from a human terminal. Access it on this machine at port 4310. Do not expose this unauthenticated API through a proxy or tunnel.
 - `npm run app:stop`, `app:restart`, `app:refresh`, `app:status`: manage that detached preview.
   Restart preserves its port; refresh restarts it only when the server's own code changed. See `RUNNING.md`.
 - `npm run app:build`: layout tests, then type-checks and bundles the app to `web/dist/`.
@@ -108,7 +109,7 @@ Local assets belong in the repository and are included through local build tooli
 - `rendering/src/sample.ts`: illustrative fleets for the layout tests.
 - `web/src/NativeWorld.tsx`: maps the React app's host-qualified world snapshot to the Atlas,
   forwards map picks as selections and draws app selections on the map.
-- `web/server/`: inherited official Paseo SDK API, served with the app on all interfaces.
+- `web/server/`: inherited official Paseo SDK API, served with the app on loopback only.
 - `web/e2e/`: browser tests with every `/api` request answered in the browser.
 - `web/src/Dispatch.tsx` `NewAgent`: a new agent opens in the panel as an empty conversation (host, where and
   branch in a small form) with the usual composer; its first message creates the agent. Its /skills and @files
@@ -160,8 +161,8 @@ Local assets belong in the repository and are included through local build tooli
 - `web/server/probe.ts`: Probe's verdict (Diagonal's `diagonalprobe` review bot) on each workspace's open PR, from one
   read-only `gh api graphql` query per PR (`GET /api/probe`, polled by `web/src/useProbe.ts`): reviewing, approved,
   findings open (with their count), stale (new commits since, or deferred) or failed. The Atlas sets a medallion of its own in the
-  workspace's first cell (the one facing its landmark): enamel in the verdict's colour round Probe's mark
-  (`rendering/src/assets/probe.png`), with a glyph badge (`rendering/src/probe.ts`, `placeProbes`, `paintProbe`); its hover card
+  workspace's first cell (the one facing its landmark): enamel in the verdict's colour round an original review magnifier,
+  with a glyph badge (`rendering/src/probe.ts`, `placeProbes`, `paintProbe`); its hover card
   says the verdict. `native:mock -- --probe` shows each.
 - Host load: `web/server/hostStats.ts` (`GET /api/hoststats`, polled by `web/src/useHostStats.ts`) asks each online host's
   daemon for the `host-stats` plugin's `stats.snapshot` (github.com/owenconti/paseo-cc-plugins, installed per daemon) over
@@ -182,7 +183,7 @@ Local assets belong in the repository and are included through local build tooli
   its favicon or a spinner. A closed pinned tab only unloads. Its commands (`ConquerView.commands`, the Conquer menu) take their keys ahead of
   the page: ⌘T, ⇧⌘T reopen, ⌘W, ⌘L, ⌘E or ⌃Tab next tab, ⌘1…⌘8 that tab, ⌘9 the last, ⌘D pin, ⌘[ ⌘], ⌘F ⌘G ⇧⌘G find,
   ⌘+ ⌘− ⌘0 zoom (per site), ⌘P print, ⇧⌘J downloads; ⌘R reloads the page unless an update is ready. It has its own persistent cookie store,
-  seeded on first show (and Conquer → Import Zen Cookies) from Zen Browser's profile (`ZenCookies.swift`): a copy of
+  optionally seeded after confirmation through Conquer → Import Zen Cookies from Zen Browser's profile (`ZenCookies.swift`): a copy of
   `cookies.sqlite`, default space only, unpartitioned and unexpired; Zen is never written to. Its tabs (`conquerState`), sidebar width, zooms,
   history (`~/Library/Application Support/Paseo Command/conquer-history.json`) and the mode come back on launch; tabs come back unloaded.
 - Conquer over the map: the map's Map / Browser switch (top centre of the map; View → Browser in Map Area, ⌥⌘`) moves the
@@ -190,7 +191,7 @@ Local assets belong in the repository and are included through local build tooli
   its page bar, and ⌘B (the page's panel toggle) gives it the window's width. Conquer mode still shows it full-window. Over the
   map it takes its keys only while it has the keyboard (`hasKeyFocus`), so the page keeps ⌘L and the rest. Web links clicked in
   the chat (`.session`, `openInAppBrowser` in `web/src/Session.tsx`, `postAppLink` → the `openLink` message) open as a new
-  Conquer tab there, once its tabs and Zen's cookies are in (`whenStarted`).
+  Conquer tab there, once its tabs are restored (`whenStarted`).
 
 ## Atlas world
 
@@ -221,7 +222,7 @@ motion, full rate while handled, paused when nothing moves or the window is hidd
 The inherited React UI is preserved; its panels follow the system's appearance: the Galaxy theme (as in the user's
 reference) when it is dark, the Light theme when it is light (`worldLook` in `web/src/theme.ts`). The terminal panel and Conquer's chrome and pages follow it too
 (their tones are `Ink` in `native/Sources/PaseoCommandNative/Textures.swift`).
-Five original references are retained in `design/references/atlas-01.webp` through `atlas-05.webp`.
+Five original references may be retained locally in ignored `design/references/atlas-01.webp` through `atlas-05.webp`; they are not redistributed.
 Artwork provenance and generation prompts are in `rendering/ASSETS.md`.
 Architecture uses the original `buildings.png` plus `structures.png`: eight project landmarks
 and seven workspace cottages, balanced deterministically across neighbours (`STRUCTURE_SAMPLE` in the tests).

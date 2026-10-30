@@ -16,16 +16,24 @@ export function shuttingDown(res: ServerResponse) {
   res.setHeader("Content-Type", "application/json");
   return res.end(JSON.stringify({ error: "The server is shutting down." }));
 }
-/** HTTP origin for the requested network address; API and WebSocket callers
- * must still present this same origin. No proxy-specific hostname is required. */
+/** Only local clients and loopback hostnames may use the API or its sockets.
+ * Restricting Host also prevents a rebinding hostname from reaching the daemon.
+ * Origin checks at the call sites additionally prevent cross-origin access. */
 export function allowedOrigin(req: {
   headers: Record<string, string | string[] | undefined>;
+  socket?: { remoteAddress?: string };
 }): string | null {
+  const peer = req.socket?.remoteAddress;
+  if (peer && !["127.0.0.1", "::1", "::ffff:127.0.0.1"].includes(peer))
+    return null;
+  if (req.headers["sec-fetch-site"] === "cross-site") return null;
   const host = req.headers.host;
   if (typeof host !== "string" || !host || /[\s/\\@?#]/.test(host)) return null;
   try {
     const url = new URL(`http://${host}`);
-    return url.hostname ? url.origin : null;
+    return ["localhost", "127.0.0.1", "[::1]"].includes(url.hostname)
+      ? url.origin
+      : null;
   } catch {
     return null;
   }

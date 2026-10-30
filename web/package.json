@@ -1,13 +1,13 @@
 {
-  "name": "paseo-command-phaser-ui",
+  "name": "paseo-command-web",
   "version": "1.0.0",
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite --host 0.0.0.0 --port 4310",
+    "dev": "vite --host 127.0.0.1 --port 4310",
     "build": "tsc --noEmit && vite build",
     "typecheck": "tsc --noEmit",
-    "preview": "vite preview --host 0.0.0.0 --port 4310",
+    "preview": "vite preview --host 127.0.0.1 --port 4310",
     "test": "tsx --test --import ./server/test-setup.ts \"server/**/*.test.ts\" \"src/**/*.test.ts\"",
     "e2e": "tsx --test --import ./server/test-setup.ts --test-concurrency=1 e2e/*.e2e.ts"
   },
@@ -48,5 +48,6 @@
   },
   "engines": {
     "node": "^20.19.0 || >=22.12.0"
-  }
+  },
+  "license": "MIT"
 }

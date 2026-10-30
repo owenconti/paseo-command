@@ -15,3 +15,22 @@ web/public/world/
 # Historical copies and app state
 /archive/
 .paseo-command/
+
+# Local visual references and retired third-party material are not redistributed.
+/design/references/
+/.agents/skills/
+/rendering/src/assets/probe.png
+
+# Credentials, browser profiles, and local databases
+secrets.json
+credentials.json
+.npmrc
+.netrc
+*.pem
+*.key
+*.p12
+*.pfx
+*.sqlite
+*.sqlite-*
+*.db
+*.db-*

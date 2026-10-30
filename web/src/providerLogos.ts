@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Adapted from Paseo, Copyright (c) 2025-present Mohamed Boudra.
+// See licenses/paseo.txt. Changes: collected as inline SVGs with currentColor.
 // Provider logos, copied from the Paseo app bundle (legacyUsageIcon and its
 // OpenCode/Pi icons) so the marks match. Inline SVG strings, coloured by currentColor.
 export const providerLogos: Record<string, string> = {

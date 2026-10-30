@@ -1411,7 +1411,7 @@ function App() {
               ["conquer", "Switch to Conquer", "browser mode web", ["⌘", "`"]],
               ["conquer-tab", "New Conquer tab", "browser web open", undefined],
               ["workspace-app", "Show the browser or the map", "conquer browser preview dev server map app", ["⌥", "⌘", "`"]],
-              ["zen-cookies", "Import Zen cookies into Conquer", "browser sign in login", undefined],
+              ["zen-cookies", "Import Zen cookies into Conquer", "browser sign in login sessions confirmation", undefined],
             ] as const
           ).map(([action, label, keywords, keys]) => ({
             id: action,

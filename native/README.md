@@ -21,7 +21,7 @@ both the web app and this one without restarting the server.
 `http://127.0.0.1:4310/`), the app starts that server itself if it isn't running, through the same
 launcher as `npm run app:start` (`scripts/app-server.mjs start --port <port>`, via a login shell so
 your Node is found), and starts it again if the page later finds it gone. The server outlives the app
-on purpose: browsers on other devices and `npm run app:update` use it too (`npm run app:stop` stops
+on purpose: local browsers and `npm run app:update` use it too (`npm run app:stop` stops
 it). `--no-server` turns this off; check runs against the mock fleet use it.
 
 The app shows whatever Paseo Command server it is pointed at (`--url`, or `PASEO_COMMAND_URL`;
@@ -93,8 +93,9 @@ npm run native:run -- --url 'http://127.0.0.1:4332/?agent=a-1' --no-server
 
 ## Conquer
 
-The strip across the top switches between Command and Conquer (⌘` toggles), a tabbed browser signed in with Zen
-Browser's cookies (copied from its profile's `cookies.sqlite`, default space only). Check runs (`--info`) keep its
+The strip across the top switches between Command and Conquer (⌘` toggles), a tabbed browser with its own persistent
+cookie store. Conquer → Import Zen Cookies optionally copies Zen Browser's unexpired sessions after confirmation
+(from its profile's `cookies.sqlite`, default space only); opening Conquer does not import cookies automatically. Check runs (`--info`) keep its
 cookies and tabs to themselves; `notifyutil -p com.paseo.command.native.mode.<run>` switches sides, `….open.<run>`
 opens `<info>.url`'s address in a tab, `….conquer.<run>` runs `<info>.do`'s steps a second apart (a command's name,
 `folder <name>`, `into <n>`, `drag <tab> <folder|-> <index>`, `type <text>`, `find <text>`, `roundtrip`; see
