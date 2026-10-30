@@ -37,14 +37,14 @@ The macOS app is built at `native/build/Paseo Command.app`.
 npm run native:run
 ```
 
-The app starts its local server (`http://127.0.0.1:4310`) itself and keeps it
-running after you quit; `npm run app:stop` stops it. The app opens in the
-background, so switch to it from the Dock.
+Or open `native/build/Paseo Command.app` from Finder (you can drag it to the Dock,
+but keep it in the checkout: it runs the server from there).
 
-The server is started with a login shell (`zsh -l`), so `node` must be on the
-`PATH` set in `~/.zprofile` or `~/.zshenv`, not only in `~/.zshrc`. If you use a
-Node version manager that is set up only in `~/.zshrc`, start the server yourself
-first with `npm run app:start`.
+The app starts its local server (`http://127.0.0.1:4310`) itself and keeps it
+running after you quit; `npm run app:stop` stops it. It reads your shell's
+environment (`~/.zprofile`, `~/.zshrc` and so on) once at launch, so Node from
+nvm, fnm, Volta, mise, asdf or Homebrew, and keys you export there, apply even
+when it is opened from Finder.
 
 ### 4. Updating
 
@@ -72,6 +72,8 @@ development and checks against a mocked fleet.
 - **No hosts or "The local daemon isn't answering"**: open Paseo and check
   `paseo status`. To use a fixed daemon address, set `PASEO_COMMAND_DAEMON=host:port`
   (loopback only).
+- **"Node.js was not found"**: install Node.js 20.19 or later, check that
+  `node --version` works in a new terminal, and reopen the app.
 - **The app shows a blank page or no server**: run `npm run app:status`, and check
   the log path it prints.
 
@@ -92,9 +94,8 @@ keep it elsewhere. Connect and authenticate hosts through Paseo itself.
 All integrations are optional:
 
 - **GitHub**: `gh`, signed in, enables pull request and review status.
-- **Linear**: `LINEAR_API_KEY` enables Linear issue details. Set it in
-  `~/.zprofile` (or the environment of `npm run app:start`) and restart the server
-  with `npm run app:restart`.
+- **Linear**: `LINEAR_API_KEY` enables Linear issue details. Export it in your
+  shell profile, then run `npm run app:restart` (or choose **Restart app** in ⌘K).
 - **TypeSafe**: a TypeSafe API key enables question detection and reply
   suggestions. Put it in `.paseo-command/secrets.json` as
   `{"typesafeApiKey": "…"}`, or set `TYPESAFE_API_KEY`. This sends candidate

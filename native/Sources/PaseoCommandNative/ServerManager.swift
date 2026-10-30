@@ -61,12 +61,27 @@ final class ServerManager {
         return ok
     }
 
-    /// `node scripts/app-server.mjs <args>` through a login shell, so the
-    /// user's own PATH (and their Node) applies even when launched from Finder.
+    /// The user's shell environment, captured once (see `ShellEnvironment`); the
+    /// app's own if the shell fails, so the usual Node install places are still tried.
+    private static let environment: [String: String] = {
+        if let env = ShellEnvironment.capture() { return env }
+        Log.line("server: the login shell's environment could not be read; using the app's")
+        return ProcessInfo.processInfo.environment
+    }()
+
+    /// `node scripts/app-server.mjs <args>` with the user's shell environment, so
+    /// their Node, PATH and keys apply even when the app is opened from Finder.
     private static func run(_ args: [String], in root: URL) -> Result<Void, Error> {
+        var env = environment
+        env.removeValue(forKey: "PASEO_COMMAND_RESOLVING_ENVIRONMENT")
+        guard let node = ShellEnvironment.node(in: env) else {
+            return .failure(Failure(errorDescription: "Node.js was not found. Install Node.js 20.19 or later (nodejs.org, Homebrew, nvm, fnm, Volta, mise or asdf), then reopen Paseo Command."))
+        }
+        env["PATH"] = ([(node as NSString).deletingLastPathComponent] + (env["PATH"] ?? "").split(separator: ":").map(String.init)).joined(separator: ":")
         let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/bin/zsh")
-        process.arguments = ["-lc", "exec node scripts/app-server.mjs \(args.joined(separator: " "))"]
+        process.executableURL = URL(fileURLWithPath: node)
+        process.arguments = ["scripts/app-server.mjs"] + args
+        process.environment = env
         process.currentDirectoryURL = root
         let output = Pipe()
         process.standardOutput = output

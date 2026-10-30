@@ -19,8 +19,8 @@ both the web app and this one without restarting the server.
 
 **It runs its own server.** When the page it shows is on this machine (the default
 `http://127.0.0.1:4310/`), the app starts that server itself if it isn't running, through the same
-launcher as `npm run app:start` (`scripts/app-server.mjs start --port <port>`, via a login shell so
-your Node is found), and starts it again if the page later finds it gone. The server outlives the app
+launcher as `npm run app:start` (`scripts/app-server.mjs start --port <port>`, run with the
+environment of your shell as an interactive login shell, read once at launch, so your Node and keys are found: `ShellEnvironment.swift`), and starts it again if the page later finds it gone. The server outlives the app
 on purpose: local browsers and `npm run app:update` use it too (`npm run app:stop` stops
 it). `--no-server` turns this off; check runs against the mock fleet use it.
 
