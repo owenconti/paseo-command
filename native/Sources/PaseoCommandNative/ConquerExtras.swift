@@ -101,11 +101,10 @@ final class SuggestionList {
             p.backgroundColor = .clear
             p.hasShadow = true
             p.level = .popUpMenu
-            let box = NSVisualEffectView()
-            box.material = .menu
-            box.state = .active
+            let box = ChromeSurface()
+            box.raised = true
             box.wantsLayer = true
-            box.layer?.cornerRadius = 8
+            box.layer?.cornerRadius = Chrome.metric("radius-lg", window.effectiveAppearance)
             box.layer?.masksToBounds = true
             p.contentView = box
             self.panel = p
@@ -150,12 +149,9 @@ final class SuggestionRow: NSView {
 
     init(visit: ConquerHistory.Visit) {
         super.init(frame: .zero)
-        let title = NSTextField(labelWithString: visit.title.isEmpty ? visit.url : visit.title)
-        title.font = .systemFont(ofSize: 12, weight: .medium)
+        let title = ChromeLabel(visit.title.isEmpty ? visit.url : visit.title, weight: .medium)
         title.lineBreakMode = .byTruncatingTail
-        let link = NSTextField(labelWithString: visit.url)
-        link.font = .systemFont(ofSize: 11)
-        link.textColor = .secondaryLabelColor
+        let link = ChromeLabel(visit.url, token: "text-3", small: true)
         link.lineBreakMode = .byTruncatingMiddle
         for v in [title, link] {
             v.translatesAutoresizingMaskIntoConstraints = false
@@ -184,8 +180,9 @@ final class SuggestionRow: NSView {
 
     override func draw(_ dirtyRect: NSRect) {
         guard lit || hovered else { return }
-        (lit ? NSColor.selectedContentBackgroundColor : NSColor.labelColor.withAlphaComponent(0.08)).setFill()
-        NSBezierPath(roundedRect: bounds, xRadius: 5, yRadius: 5).fill()
+        Chrome.color(lit ? "row-selected" : "row-hover", effectiveAppearance).setFill()
+        let radius = Chrome.metric("radius-md", effectiveAppearance)
+        NSBezierPath(roundedRect: bounds, xRadius: radius, yRadius: radius).fill()
     }
 }
 
@@ -256,7 +253,7 @@ final class DownloadsController: NSViewController {
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 
     override func loadView() {
-        let root = NSView(frame: CGRect(x: 0, y: 0, width: 340, height: 80))
+        let root = ChromeSurface(frame: CGRect(x: 0, y: 0, width: 340, height: 80))
         stack.orientation = .vertical
         stack.alignment = .leading
         stack.spacing = 8
@@ -279,20 +276,20 @@ final class DownloadsController: NSViewController {
         stack.arrangedSubviews.forEach { $0.removeFromSuperview() }
         let header = NSStackView()
         header.orientation = .horizontal
-        let title = NSTextField(labelWithString: "Downloads")
-        title.font = .systemFont(ofSize: 13, weight: .semibold)
+        let title = ChromeLabel("Downloads", token: "text-strong", weight: .semibold)
         let spacer = NSView()
         spacer.setContentHuggingPriority(.init(1), for: .horizontal)
-        let clear = NSButton(title: "Clear", target: self, action: #selector(clearDone))
-        clear.bezelStyle = .accessoryBarAction
-        clear.controlSize = .small
+        let clear = ChromeButton()
+        clear.configure(symbol: nil, title: "Clear", help: "Clear finished downloads")
+        clear.secondary = true
+        clear.target = self
+        clear.action = #selector(clearDone)
         clear.isEnabled = downloads.items.count > downloads.running
         for v in [title, spacer, clear] { header.addArrangedSubview(v) }
         stack.addArrangedSubview(header)
         header.widthAnchor.constraint(equalTo: stack.widthAnchor, constant: -24).isActive = true
         if downloads.items.isEmpty {
-            let none = NSTextField(labelWithString: "No downloads yet.")
-            none.textColor = .secondaryLabelColor
+            let none = ChromeLabel("No downloads yet.", token: "text-3")
             stack.addArrangedSubview(none)
         }
         for item in downloads.items.prefix(12) {
@@ -307,7 +304,7 @@ final class DownloadsController: NSViewController {
             text.orientation = .vertical
             text.alignment = .leading
             text.spacing = 2
-            let name = NSTextField(labelWithString: item.name)
+            let name = ChromeLabel(item.name)
             name.lineBreakMode = .byTruncatingMiddle
             name.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
             text.addArrangedSubview(name)
@@ -329,10 +326,10 @@ final class DownloadsController: NSViewController {
             }
             let spacer = NSView()
             spacer.setContentHuggingPriority(.init(1), for: .horizontal)
-            let reveal = NSButton(image: NSImage(systemSymbolName: "magnifyingglass", accessibilityDescription: "Show in Finder")!,
-                                  target: self, action: #selector(reveal(_:)))
-            reveal.isBordered = false
-            reveal.toolTip = "Show in Finder"
+            let reveal = ChromeButton()
+            reveal.configure(symbol: "magnifyingglass", help: "Show in Finder")
+            reveal.target = self
+            reveal.action = #selector(reveal(_:))
             reveal.identifier = NSUserInterfaceItemIdentifier(item.file?.path ?? "")
             reveal.isHidden = item.file == nil
             for v in [icon, text, spacer, reveal] { row.addArrangedSubview(v) }
@@ -342,9 +339,7 @@ final class DownloadsController: NSViewController {
     }
 
     private func status(_ text: String) -> NSTextField {
-        let label = NSTextField(labelWithString: text)
-        label.font = .systemFont(ofSize: 11)
-        label.textColor = .secondaryLabelColor
+        let label = ChromeLabel(text, token: "text-3", small: true)
         label.lineBreakMode = .byTruncatingTail
         return label
     }
@@ -358,8 +353,8 @@ final class DownloadsController: NSViewController {
 
 /// Find in page (⌘F): a strip over the page with the search, previous and
 /// next, and whether there is a match.
-final class FindBar: NSView, NSSearchFieldDelegate {
-    let field = NSSearchField()
+final class FindBar: NSView, NSTextFieldDelegate {
+    let field = ChromeTextField()
     var onFind: ((_ text: String, _ backwards: Bool) -> Void)?
     var onClose: (() -> Void)?
     private let status = NSTextField(labelWithString: "")
@@ -368,27 +363,33 @@ final class FindBar: NSView, NSSearchFieldDelegate {
         super.init(frame: frame)
         wantsLayer = true
         field.placeholderString = "Find in page"
-        field.sendsSearchStringImmediately = true
+        field.setAccessibilityLabel("Find in page")
+        field.translatesAutoresizingMaskIntoConstraints = false
+        field.heightAnchor.constraint(equalToConstant: Chrome.metric("control-sm", effectiveAppearance)).isActive = true
+        field.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         field.delegate = self
         field.target = self
         field.action = #selector(search)
-        status.font = .systemFont(ofSize: 11)
-        let previous = NSButton(image: NSImage(systemSymbolName: "chevron.up", accessibilityDescription: "Previous match")!, target: self, action: #selector(findPrevious))
-        let next = NSButton(image: NSImage(systemSymbolName: "chevron.down", accessibilityDescription: "Next match")!, target: self, action: #selector(findNext))
-        let done = NSButton(title: "Done", target: self, action: #selector(closeBar))
-        for (b, tip) in [(previous, "Previous match (⇧⌘G)"), (next, "Next match (⌘G)"), (done, "Close (Esc)")] {
-            b.bezelStyle = .accessoryBarAction
-            b.controlSize = .small
-            b.toolTip = tip
+        status.font = Chrome.font(effectiveAppearance, small: true)
+        let previous = ChromeButton()
+        let next = ChromeButton()
+        let done = ChromeButton()
+        previous.configure(symbol: "chevron.up", help: "Previous match (⇧⌘G)")
+        next.configure(symbol: "chevron.down", help: "Next match (⌘G)")
+        done.configure(symbol: nil, title: "Done", help: "Close find bar (Esc)")
+        done.secondary = true
+        for (button, action) in [(previous, #selector(findPrevious)), (next, #selector(findNext)), (done, #selector(closeBar))] {
+            button.target = self
+            button.action = action
         }
         let row = NSStackView(views: [field, previous, next, status, NSView(), done])
         row.orientation = .horizontal
         row.spacing = 6
-        row.edgeInsets = NSEdgeInsets(top: 0, left: 10, bottom: 0, right: 10)
+        row.edgeInsets = NSEdgeInsets(top: 0, left: 12, bottom: 0, right: 12)
         row.translatesAutoresizingMaskIntoConstraints = false
         addSubview(row)
-        let line = NSBox()
-        line.boxType = .separator
+        let line = ChromeSurface()
+        line.divider = true
         line.translatesAutoresizingMaskIntoConstraints = false
         addSubview(line)
         NSLayoutConstraint.activate([
@@ -396,7 +397,9 @@ final class FindBar: NSView, NSSearchFieldDelegate {
             row.trailingAnchor.constraint(equalTo: trailingAnchor),
             row.topAnchor.constraint(equalTo: topAnchor),
             row.bottomAnchor.constraint(equalTo: bottomAnchor),
-            field.widthAnchor.constraint(equalToConstant: 240),
+            field.widthAnchor.constraint(lessThanOrEqualToConstant: 240),
+            field.widthAnchor.constraint(greaterThanOrEqualToConstant: 60),
+            line.heightAnchor.constraint(equalToConstant: 1),
             line.leadingAnchor.constraint(equalTo: leadingAnchor),
             line.trailingAnchor.constraint(equalTo: trailingAnchor),
             line.bottomAnchor.constraint(equalTo: bottomAnchor),
@@ -409,13 +412,18 @@ final class FindBar: NSView, NSSearchFieldDelegate {
         super.viewDidChangeEffectiveAppearance()
         restyle()
     }
-    private func restyle() { layer?.backgroundColor = Ink.color(Ink.base, effectiveAppearance).cgColor }
+    private func restyle() {
+        layer?.backgroundColor = Chrome.color("panel", effectiveAppearance).cgColor
+        status.font = Chrome.font(effectiveAppearance, small: true)
+        status.textColor = Chrome.color(status.stringValue.isEmpty ? "text-3" : "red-text", effectiveAppearance)
+    }
 
     func say(found: Bool?) {
         status.stringValue = found == false ? "Not found" : ""
-        status.textColor = Ink.color(Ink.faint, effectiveAppearance)
+        restyle()
     }
 
+    func controlTextDidChange(_ notification: Notification) { onFind?(field.stringValue, false) }
     @objc private func search() { onFind?(field.stringValue, false) }
     @objc func findNext() { onFind?(field.stringValue, false) }
     @objc func findPrevious() { onFind?(field.stringValue, true) }

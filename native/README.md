@@ -95,6 +95,11 @@ npm run native:run -- --url 'http://127.0.0.1:4332/?agent=a-1' --no-server
 
 The strip across the top switches the map's place between the map and Conquer (⌘` toggles), a tabbed browser with its own persistent
 cookie store. ⌘B toggles the React app panel even while a browser page has focus; ⌘S toggles Conquer's tab sidebar, restoring its width.
+Its native toolbar, tab list, find bar, suggestions and downloads use shared flat control primitives matching the React panel.
+Their colors and control metrics are generated from `web/src/styles/tokens.css` (Light) and `web/src/themes.css` (Galaxy),
+and the app bundles the same Inter and Source Sans body fonts. After changing those CSS tokens, run
+`node native/scripts/theme.mjs` and commit `NativeTheme.swift`; `native:build` checks it for drift.
+
 Conquer → Import Zen Cookies optionally copies Zen Browser's unexpired sessions after confirmation
 (from its profile's `cookies.sqlite`, default space only); opening Conquer does not import cookies automatically. Check runs (`--info`) keep its
 cookies and tabs to themselves; `notifyutil -p com.paseo.command.native.mode.<run>` switches sides, `….open.<run>`

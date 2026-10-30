@@ -6,6 +6,7 @@ set -eu
 here=$(cd "$(dirname "$0")/.." && pwd)
 config=${1:-release}
 cd "$here"
+node scripts/theme.mjs --check
 swift build -c "$config"
 bin=$(swift build -c "$config" --show-bin-path)
 app="$here/build/Paseo Command.app"
@@ -15,6 +16,8 @@ cp "$here/AppIcon.icns" "$app/Contents/Resources/AppIcon.icns"
 cp "$here/../LICENSE" "$here/../THIRD_PARTY_NOTICES.md" "$app/Contents/Resources/"
 # The splash's lettering: the page's own header and body fonts.
 cp "$here/../web/src/themes/fonts/paseo-barlow-600.woff2" "$here/../web/src/themes/fonts/paseo-source-sans-400.woff2" "$app/Contents/Resources/"
+# Conquer uses the React panel's body fonts in native controls too.
+cp "$here/../web/node_modules/@fontsource-variable/inter/files/inter-latin-wght-normal.woff2" "$app/Contents/Resources/"
 # Replaced, not overwritten: a running copy keeps its own executable.
 cp "$bin/PaseoCommandNative" "$app/Contents/MacOS/.PaseoCommandNative.new"
 mv -f "$app/Contents/MacOS/.PaseoCommandNative.new" "$app/Contents/MacOS/PaseoCommandNative"

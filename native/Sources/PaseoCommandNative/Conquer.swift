@@ -193,7 +193,7 @@ final class ConquerView: NSView, WKNavigationDelegate, WKUIDelegate, NSTextField
     private let popover = NSPopover()
     private let suggestions = SuggestionList()
     private let split = NSSplitView()
-    private let sidebar = NSView()
+    private let sidebar = ChromeSurface()
     private let outline = SidebarOutline()
     private let findBar = FindBar()
     private var findHeight: NSLayoutConstraint!
@@ -203,8 +203,8 @@ final class ConquerView: NSView, WKNavigationDelegate, WKUIDelegate, NSTextField
     private var back: NSButton { pageBar.back }
     private var forward: NSButton { pageBar.forward }
     private var reloadButton: NSButton { pageBar.reload }
-    private let folderButton = NSButton()
-    private let downloadsButton = NSButton()
+    private let folderButton = ChromeButton()
+    private let downloadsButton = ChromeButton()
     private var address: NSTextField { pageBar.address }
     /// The last cookie import, for the menu and checks.
     private(set) var imported = "not yet"
@@ -251,26 +251,20 @@ final class ConquerView: NSView, WKNavigationDelegate, WKUIDelegate, NSTextField
         split.setHoldingPriority(.defaultHigh, forSubviewAt: 0)
         split.setHoldingPriority(.defaultLow, forSubviewAt: 1)
 
-        // The sidebar: back, forward and reload; the address; the tabs; New Folder and Downloads.
+        // Navigation belongs to PageBar; sidebar actions use the same flat controls.
         for (button, symbol, help, action) in [(back, "chevron.left", "Back (⌘[)", #selector(goBack)),
                                                (forward, "chevron.right", "Forward (⌘])", #selector(goForward)),
                                                (reloadButton, "arrow.clockwise", "Reload page", #selector(reloadPage)),
                                                (folderButton, "folder.badge.plus", "New folder for pinned tabs", #selector(newFolder)),
                                                (downloadsButton, "arrow.down.circle", "Downloads (⇧⌘J)", #selector(toggleDownloads))] {
-            button.bezelStyle = .accessoryBarAction
-            button.controlSize = .small
             button.image = NSImage(systemSymbolName: symbol, accessibilityDescription: help)
             button.toolTip = help
+            button.setAccessibilityLabel(help)
             button.target = self
             button.action = action
         }
-        address.placeholderString = "Search or enter address"
-        address.font = .systemFont(ofSize: 12)
-        address.bezelStyle = .roundedBezel
-        address.focusRingType = .none
-        address.lineBreakMode = .byTruncatingTail
-        address.cell?.isScrollable = true
-        address.cell?.wraps = false
+        folderButton.configure(symbol: "folder.badge.plus", help: "New folder for pinned tabs")
+        downloadsButton.configure(symbol: "arrow.down.circle", help: "Downloads (⇧⌘J)")
         address.delegate = self
         address.target = self
         address.action = #selector(submitAddress)
@@ -282,8 +276,8 @@ final class ConquerView: NSView, WKNavigationDelegate, WKUIDelegate, NSTextField
         outline.outlineTableColumn = column
         outline.headerView = nil
         outline.style = .plain
-        outline.rowHeight = 30
-        outline.indentationPerLevel = 14
+        outline.rowHeight = 32
+        outline.indentationPerLevel = 16
         outline.intercellSpacing = NSSize(width: 0, height: 2)
         outline.backgroundColor = .clear
         outline.columnAutoresizingStyle = .uniformColumnAutoresizingStyle
@@ -736,7 +730,7 @@ final class ConquerView: NSView, WKNavigationDelegate, WKUIDelegate, NSTextField
     }
 
     func outlineView(_ outlineView: NSOutlineView, heightOfRowByItem item: Any) -> CGFloat {
-        item is NewTabRow && !pinned.isEmpty ? 40 : 30
+        outlineView.rowHeight + (item is NewTabRow && !pinned.isEmpty ? 10 : 0)
     }
 
     func outlineView(_ outlineView: NSOutlineView, shouldSelectItem item: Any) -> Bool { item is BrowserTab }
@@ -1079,7 +1073,7 @@ final class ConquerView: NSView, WKNavigationDelegate, WKUIDelegate, NSTextField
     func showFind() {
         guard current?.web != nil else { return NSSound.beep() }
         findBar.isHidden = false
-        findHeight.constant = 36
+        findHeight.constant = 44
         window?.makeFirstResponder(findBar.field)
         findBar.field.currentEditor()?.selectAll(nil)
     }
@@ -1139,7 +1133,7 @@ final class ConquerView: NSView, WKNavigationDelegate, WKUIDelegate, NSTextField
 
     private func downloadsChanged() {
         downloadsList.render()
-        downloadsButton.contentTintColor = downloads.running > 0 ? Ink.color(Ink.accent, effectiveAppearance) : nil
+        downloadsButton.accented = downloads.running > 0
         downloadsButton.image = NSImage(systemSymbolName: downloads.running > 0 ? "arrow.down.circle.fill" : "arrow.down.circle",
                                         accessibilityDescription: "Downloads")
     }

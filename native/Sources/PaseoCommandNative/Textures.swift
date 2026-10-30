@@ -131,25 +131,24 @@ enum Textures {
     }
 }
 
-/// The native chrome's tones (terminal panel, Conquer, the mode bar), as
-/// (dark, light): dark like the page's Galaxy panels, light like its Light theme.
+/// Native chrome aliases the React theme's semantic tokens.
 enum Ink {
-    typealias Tone = (dark: Int, light: Int)
-    static let base: Tone = (0x101614, 0xf9fbfd)
-    static let bar: Tone = (0x101614, 0xf0f4f8)
-    static let pane: Tone = (0x101614, 0xffffff)
-    static let divider: Tone = (0x2a3330, 0xd8e1ec)
-    static let tabFocused: Tone = (0x2c3834, 0xe1eafe)
-    static let tabShown: Tone = (0x1e2724, 0xe9eef5)
-    static let text: Tone = (0xe8e2d0, 0x29394e)
-    static let strong: Tone = (0xf2e1b2, 0x1a2a42)
-    static let mid: Tone = (0xd8d0b8, 0x4c6079)
-    static let faint: Tone = (0xa8a08a, 0x586a7f)
-    static let off: Tone = (0x8a8472, 0x586a7f)
-    static let accent: Tone = (0xf2c14e, 0x3567e6)
-    static let onAccent: Tone = (0x101614, 0xffffff)
+    typealias Tone = String
+    static let base = "panel"
+    static let bar = "fill"
+    static let pane = "panel-raised"
+    static let divider = "line-strong"
+    static let tabFocused = "row-selected"
+    static let tabShown = "fill-strong"
+    static let text = "text"
+    static let strong = "text-strong"
+    static let mid = "text-2"
+    static let faint = "text-3"
+    static let off = "text-4"
+    static let accent = "accent"
+    static let onAccent = "on-accent"
 
     static func color(_ tone: Tone, _ appearance: NSAppearance, _ alpha: CGFloat = 1) -> NSColor {
-        Textures.color(dark: tone.dark, light: tone.light, in: appearance, alpha: alpha)
+        Chrome.color(tone, appearance).withAlphaComponent(alpha)
     }
 }

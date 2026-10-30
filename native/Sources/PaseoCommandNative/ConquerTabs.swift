@@ -139,13 +139,13 @@ final class SidebarRowView: NSTableRowView {
             CGRect(x: 10, y: y, width: bounds.width - 20, height: 1).fill()
         }
         guard hovered, !isSelected else { return }
-        Ink.color(Ink.tabShown, effectiveAppearance).setFill()
-        NSBezierPath(roundedRect: tile, xRadius: 6, yRadius: 6).fill()
+        Chrome.color("row-hover", effectiveAppearance).setFill()
+        NSBezierPath(roundedRect: tile, xRadius: Chrome.metric("radius-md", effectiveAppearance), yRadius: Chrome.metric("radius-md", effectiveAppearance)).fill()
     }
 
     override func drawSelection(in dirtyRect: NSRect) {
         Ink.color(Ink.tabFocused, effectiveAppearance).setFill()
-        NSBezierPath(roundedRect: tile, xRadius: 6, yRadius: 6).fill()
+        NSBezierPath(roundedRect: tile, xRadius: Chrome.metric("radius-md", effectiveAppearance), yRadius: Chrome.metric("radius-md", effectiveAppearance)).fill()
     }
     override var isEmphasized: Bool { get { false } set {} }
 }
@@ -156,12 +156,21 @@ final class SidebarCell: NSTableCellView {
     let icon = NSImageView()
     let spinner = NSProgressIndicator()
     let label = NSTextField(labelWithString: "")
-    let close = NSButton()
+    let close = ChromeButton()
     var onClose: (() -> Void)?
     var closable = false
     var chosen = false
     var hovered = false { didSet { updateClose() } }
     private func updateClose() { close.isHidden = !closable || !(hovered || chosen) }
+    private var labelTone = Ink.mid
+    private var labelWeight = NSFont.Weight.regular
+    override func viewDidChangeEffectiveAppearance() { super.viewDidChangeEffectiveAppearance(); restyle() }
+    private func restyle() {
+        label.font = Chrome.font(effectiveAppearance, weight: labelWeight)
+        label.textColor = Ink.color(labelTone, effectiveAppearance)
+        icon.contentTintColor = Ink.color(Ink.faint, effectiveAppearance)
+        close.needsDisplay = true
+    }
 
     override init(frame: NSRect) {
         super.init(frame: frame)
@@ -172,10 +181,7 @@ final class SidebarCell: NSTableCellView {
         label.font = .systemFont(ofSize: 12)
         label.lineBreakMode = .byTruncatingTail
         label.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-        close.image = NSImage(systemSymbolName: "xmark", accessibilityDescription: "Close tab")?
-            .withSymbolConfiguration(.init(pointSize: 9, weight: .semibold))
-        close.isBordered = false
-        close.toolTip = "Close tab (⌘W)"
+        close.configure(symbol: "xmark", help: "Close tab (⌘W)", compact: true)
         close.target = self
         close.action = #selector(closeTab)
         close.isHidden = true
@@ -199,7 +205,6 @@ final class SidebarCell: NSTableCellView {
             close.leadingAnchor.constraint(greaterThanOrEqualTo: label.trailingAnchor, constant: 4),
             close.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -8),
             close.centerYAnchor.constraint(equalTo: centerYAnchor),
-            close.widthAnchor.constraint(equalToConstant: 16),
         ])
     }
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
@@ -211,7 +216,8 @@ final class SidebarCell: NSTableCellView {
         closable = true
         label.stringValue = tab.title
         toolTip = tab.url?.absoluteString
-        label.textColor = Ink.color(current ? Ink.strong : Ink.mid, effectiveAppearance)
+        labelWeight = current ? .medium : .regular
+        labelTone = current ? Ink.strong : Ink.mid
         // An unloaded tab (closed pinned, or not yet shown) is dimmed.
         label.alphaValue = tab.web == nil && !current ? 0.7 : 1
         if tab.isLoading {
@@ -221,8 +227,7 @@ final class SidebarCell: NSTableCellView {
             spinner.stopAnimation(nil)
             icon.image = tab.favicon ?? NSImage(systemSymbolName: "globe", accessibilityDescription: nil)
         }
-        icon.contentTintColor = Ink.color(Ink.faint, effectiveAppearance)
-        close.contentTintColor = Ink.color(Ink.faint, effectiveAppearance)
+        restyle()
         updateClose()
     }
 
@@ -230,12 +235,14 @@ final class SidebarCell: NSTableCellView {
         chosen = false
         closable = false
         spinner.stopAnimation(nil)
+        labelWeight = .medium
+        labelTone = Ink.mid
         label.stringValue = folder.name
         toolTip = nil
         label.alphaValue = 1
-        label.textColor = Ink.color(Ink.mid, effectiveAppearance)
         icon.image = NSImage(systemSymbolName: folder.open ? "folder" : "folder.fill", accessibilityDescription: "Folder")
         icon.contentTintColor = Ink.color(Ink.faint, effectiveAppearance)
+        restyle()
         updateClose()
     }
 
@@ -243,12 +250,14 @@ final class SidebarCell: NSTableCellView {
         chosen = false
         closable = false
         spinner.stopAnimation(nil)
+        labelWeight = .regular
+        labelTone = Ink.faint
         label.stringValue = "New Tab"
         toolTip = "New tab (⌘T)"
         label.alphaValue = 1
-        label.textColor = Ink.color(Ink.faint, effectiveAppearance)
         icon.image = NSImage(systemSymbolName: "plus", accessibilityDescription: nil)
         icon.contentTintColor = Ink.color(Ink.faint, effectiveAppearance)
+        restyle()
         updateClose()
     }
 }
