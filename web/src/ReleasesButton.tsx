@@ -13,6 +13,8 @@ import { onAppCommand } from "./appCommands";
 import { Markdown } from "./Markdown";
 import { newSince, useReleases, type Release } from "./releases";
 
+/** Release links go only to GitHub over https. */
+const SAFE_URL = /^https:\/\/github\.com\//;
 const WIDTH = 400;
 const MARGIN = 8;
 
@@ -146,9 +148,13 @@ function ReleaseNotes({ release, fresh }: { release: Release; fresh: boolean }) 
   return (
     <section className="release" data-new={fresh}>
       <h4 className="release-head">
-        <a href={release.url} target="_blank" rel="noopener noreferrer">
-          {release.version}
-        </a>
+        {SAFE_URL.test(release.url) ? (
+          <a href={release.url} target="_blank" rel="noopener noreferrer">
+            {release.version}
+          </a>
+        ) : (
+          release.version
+        )}
         {fresh && <span className="release-new">New</span>}
         <time dateTime={release.date}>{ago(release.date)}</time>
       </h4>

@@ -76,6 +76,20 @@ test("releaseNotesSurviveFetchFailure", async () => {
   assert.deepEqual(view.releases.map((r) => r.version), ["0.3.0"]);
 });
 
+test("concurrent calls share one fetch, and a failure backs off for five minutes", async () => {
+  stub(() => Promise.reject(new Error("offline")));
+  let now = 0;
+  const [a, b] = await Promise.all([releasesView(() => now), releasesView(() => now)]);
+  assert.equal(calls.length, 1);
+  assert.equal(a.error, b.error);
+  now += 4 * 60_000;
+  assert.equal((await releasesView(() => now)).error, "Couldn't load release notes");
+  assert.equal(calls.length, 1);
+  now += 2 * 60_000;
+  await releasesView(() => now);
+  assert.equal(calls.length, 2);
+});
+
 test("a failure with nothing cached answers an empty list and the error", async () => {
   stub(() => new Response("nope", { status: 500 }));
   assert.deepEqual(await releasesView(), {
