@@ -11,12 +11,24 @@ export const RIBBON_HIGHLIGHT = { color: 0xfff7d9, alpha: 0.8, width: 0.7, inset
 /** Line widths of the tails' and body's outlines. */
 export const RIBBON_STROKE = { tail: 1.2, body: 1.4 };
 
-/** A banner caption's type: hosts set wide in capitals, projects in bold. */
+/** A banner caption's type: hosts set wide in bold capitals, projects in bold. */
 export function ribbonFont(kind: Kind): { size: number; weight: "normal" | "bold"; letterSpacing: number } {
   return kind === "host"
-    ? { size: 29, weight: "normal", letterSpacing: 5 }
+    ? { size: 29, weight: "bold", letterSpacing: 5 }
     : { size: 21, weight: "bold", letterSpacing: 0 };
 }
+
+/** A host banner's second line (its machine's load): its type, the height it
+ * adds below the name, its colours, and the share at which a figure turns to `alert`. */
+export const RIBBON_DETAIL = {
+  size: 15,
+  weight: "bold" as const,
+  extra: 19,
+  text: "#6b5a3c",
+  alert: "#a8381f",
+  alertAt: 90,
+  separator: "  ·  ",
+};
 
 /** Shorten a caption with an ellipsis until `measure` puts it within
  * `maxWidth`, keeping at least one letter. */
@@ -36,6 +48,8 @@ export function ribbonShape(
   kind: Kind,
   captionWidth: number,
   faded: boolean,
+  /** A second line's width, if the banner carries one (`RIBBON_DETAIL`). */
+  detailWidth?: number,
 ): {
   width: number;
   height: number;
@@ -48,8 +62,8 @@ export function ribbonShape(
   text: string;
 } {
   const host = kind === "host";
-  const width = Math.max(host ? 150 : 90, captionWidth + (host ? 56 : 34)),
-    height = host ? 38 : 26;
+  const width = Math.max(host ? 150 : 90, captionWidth + (host ? 56 : 34), detailWidth === undefined ? 0 : detailWidth + 40),
+    height = (host ? 38 : 26) + (detailWidth === undefined ? 0 : RIBBON_DETAIL.extra);
   const l = -width / 2,
     r = width / 2,
     t = -height / 2,

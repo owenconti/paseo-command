@@ -48,6 +48,7 @@ import {
 import {
   LABEL_FONT,
   RIBBON_BODY_RADIUS,
+  RIBBON_DETAIL,
   RIBBON_HIGHLIGHT,
   RIBBON_SHADOW,
   RIBBON_STROKE,
@@ -170,7 +171,17 @@ function paintBanner(label: Label) {
   const probe = measure.measureText("|MÉqgy");
   const ascent = probe.actualBoundingBoxAscent,
     descent = probe.actualBoundingBoxDescent;
-  const shape = ribbonShape(label.kind, captionWidth, label.faded);
+  // A host's load, as a second line set smaller under its name.
+  const detailFont = `${RIBBON_DETAIL.weight} ${RIBBON_DETAIL.size}px ${LABEL_FONT}`;
+  const parts = label.detail?.flatMap((part, i) =>
+    i ? [{ text: RIBBON_DETAIL.separator, alert: false }, part] : [part],
+  );
+  measure.font = detailFont;
+  const detailWidth = parts?.reduce((w, part) => w + measure.measureText(part.text).width, 0);
+  measure.font = `${font.weight} ${font.size}px ${LABEL_FONT}`;
+  const shape = ribbonShape(label.kind, captionWidth, label.faded, detailWidth);
+  // The name rises by half the second line, which sits below it.
+  const lift = parts ? RIBBON_DETAIL.extra / 2 : 0;
   // World box around (0, 0): the tails reach 19 past the body, the shadow and tails' feet below.
   const left = -shape.width / 2 - 21,
     top = -shape.height / 2 - 2,
@@ -218,7 +229,7 @@ function paintBanner(label: Label) {
   ctx.font = measure.font;
   ctx.fillStyle = shape.text;
   ctx.textBaseline = "alphabetic";
-  const baseline = -(ascent + descent) / 2 + ascent;
+  const baseline = -(ascent + descent) / 2 + ascent - lift;
   if (font.letterSpacing) {
     let x = -captionWidth / 2;
     for (const c of text) {
@@ -229,6 +240,17 @@ function paintBanner(label: Label) {
     ctx.textAlign = "center";
     ctx.fillText(text, 0, baseline);
   }
+  if (parts && detailWidth !== undefined) {
+    ctx.font = detailFont;
+    ctx.textAlign = "left";
+    let x = -detailWidth / 2;
+    const detailBaseline = shape.body.y + shape.body.height - 10;
+    for (const part of parts) {
+      ctx.fillStyle = label.faded ? shape.text : part.alert ? RIBBON_DETAIL.alert : RIBBON_DETAIL.text;
+      ctx.fillText(part.text, x, detailBaseline);
+      x += ctx.measureText(part.text).width;
+    }
+  }
   return {
     canvas,
     x: label.x + left,
@@ -237,7 +259,7 @@ function paintBanner(label: Label) {
     height,
     caption: {
       x: label.x - captionWidth / 2,
-      y: label.y - (ascent + descent) / 2,
+      y: label.y - (ascent + descent) / 2 - lift,
       width: captionWidth,
       height: ascent + descent,
     },

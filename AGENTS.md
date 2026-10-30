@@ -145,6 +145,10 @@ Local assets belong in the repository and are included through local build tooli
   findings open (with their count), stale (new commits since, or deferred) or failed. The Atlas lays a streamer tag in the
   verdict's colour, with Probe's mark (`rendering/src/assets/probe.png`), beside the review medallion, under its rim
   (`rendering/src/probe.ts`, `placeStreamers`); the medallion's hover card adds a Probe line. `native:mock -- --probe` shows each.
+- Host load: `web/server/hostStats.ts` (`GET /api/hoststats`, polled by `web/src/useHostStats.ts`) asks each online host's
+  daemon for the `host-stats` plugin's `stats.snapshot` (github.com/owenconti/paseo-cc-plugins, installed per daemon) over
+  `invokePluginRpc`; a host without it is left out. Its host banner gains a second line, `CPU · MEM · DISK` percents
+  (`statParts` in `rendering/src/placement.ts`, `RIBBON_DETAIL` in `ribbon.ts`; 90% and over in red). `native:mock -- --stats` shows it.
 - Auto-merge: a PR's `autoMerge` comes from Paseo's GitHub facts (`autoMergeRequest`), else gh's (`web/server/links.ts`).
   While it's on, a teal seal with a merge mark sits on the review medallion's upper-right rim, else the CI one's (`placeSeals`,
   `paintSeal`, `AUTO_MERGE` in `rendering/src/prStatus.ts`); the medallion's hover card says how it merges and who turned it on.

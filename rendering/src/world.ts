@@ -14,9 +14,13 @@ export type State =
 export type Model = "orange" | "white" | "teal" | "violet" | "lime" | "blue";
 export type Axial = { q: number; r: number };
 
+/** A host machine's load (the host-stats plugin), as whole-machine percents;
+ * a figure it couldn't read is left out. */
+export type HostStats = { cpu?: number; memory?: number; disk?: number };
+
 /** The fleet as the Atlas draws it. Every key is unique across hosts. */
 export type AtlasData = {
-  hosts: { key: string; name: string; online: boolean; local: boolean }[];
+  hosts: { key: string; name: string; online: boolean; local: boolean; stats?: HostStats }[];
   projects: { key: string; host: string; name: string; stale?: boolean }[];
   workspaces: {
     key: string;
@@ -72,6 +76,8 @@ export type Entity = {
   probe?: ProbeVerdict;
   /** Its PR has auto-merge on, while a PR flag stands. */
   autoMerge?: boolean;
+  /** A host's machine load, shown on its banner. */
+  stats?: HostStats;
 };
 
 export type Island = {
@@ -778,6 +784,7 @@ export function layoutAtlas(data: AtlasData, aspect = 1.6): AtlasLayout {
       host: host.key,
       position: groupCells.find((c) => c.r === highest)!,
       stale: !host.online,
+      ...(host.stats ? { stats: host.stats } : {}),
     });
   });
   // Grow each island's optional coast cells where they stay a clear cell from
@@ -851,6 +858,8 @@ export function layoutAtlas(data: AtlasData, aspect = 1.6): AtlasLayout {
   }
   const signature = JSON.stringify([
     islands.map((i) => [i.key, i.name, i.online, i.cells.length]),
+    // Banners repaint when a host's load reads differently.
+    hosts.map((h) => [h.id, h.stats ? [h.stats.cpu, h.stats.memory, h.stats.disk].map((v) => (v === undefined ? "" : Math.round(v))) : 0]),
     [...projects, ...workspaces, ...agents].map((e) => [
       e.id,
       e.name,

@@ -16,8 +16,10 @@ import {
   type AtlasLayout,
   type Axial,
   type Entity,
+  type HostStats,
   type State,
 } from "./world.ts";
+import { RIBBON_DETAIL } from "./ribbon.ts";
 import type { PrFlag } from "./prStatus.ts";
 import type { ProbeVerdict } from "./probe.ts";
 
@@ -210,7 +212,31 @@ export function campFlags(layout: AtlasLayout): P[] {
   return layout.workspaces.filter((ws) => ws.camp).map((ws) => structureCentre(ws));
 }
 
-export type Label = { kind: "host" | "project"; x: number; y: number; text: string; maxWidth: number; faded: boolean };
+/** A figure on a host banner's second line; `alert` sets it in the warning colour. */
+export type LabelPart = { text: string; alert: boolean };
+export type Label = {
+  kind: "host" | "project";
+  x: number;
+  y: number;
+  text: string;
+  maxWidth: number;
+  faded: boolean;
+  /** A host's machine load, under its name. */
+  detail?: LabelPart[];
+};
+
+/** A host's load as its banner reads it: CPU, memory and disk, in whole percents. */
+export function statParts(stats: HostStats): LabelPart[] {
+  return (
+    [
+      ["CPU", stats.cpu],
+      ["MEM", stats.memory],
+      ["DISK", stats.disk],
+    ] as const
+  ).flatMap(([name, value]) =>
+    value === undefined ? [] : [{ text: `${name} ${Math.round(value)}%`, alert: value >= RIBBON_DETAIL.alertAt }],
+  );
+}
 
 /** The world's banners: each project's below its landmark, in layout order,
  * then each host's on its landmass's northern shore. */
@@ -223,13 +249,16 @@ export function labels(layout: AtlasLayout): Label[] {
     const islands = layout.islands.filter((i) => i.host === h.id);
     const online = islands.every((i) => i.online);
     const bounds = cellBounds(islands.flatMap((i) => i.cells));
+    const detail = online && h.stats ? statParts(h.stats) : [];
     return {
       kind: "host",
       x: bounds.x + bounds.width / 2,
-      y: bounds.y - HEX_RADIUS * 0.75,
+      // A second line grows the banner upward, so its foot stays clear of the land.
+      y: bounds.y - HEX_RADIUS * 0.75 - (detail.length ? RIBBON_DETAIL.extra / 2 : 0),
       text: h.name.toUpperCase() + (online ? "" : " · OFFLINE"),
       maxWidth: Math.max(260, bounds.width - 80),
       faded: !online,
+      ...(detail.length ? { detail } : {}),
     };
   });
   return [...projects, ...hosts];

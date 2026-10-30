@@ -27,6 +27,8 @@ import { flagTip } from "./flagTip";
 import { prLabel, type PrFlag } from "../../rendering/src/prStatus";
 import type { ProbeVerdict } from "../../rendering/src/probe";
 import { useProbe } from "./useProbe";
+import { useHostStats } from "./useHostStats";
+import type { HostStats } from "../../rendering/src/world";
 import "./atlas-world.css";
 type Props = {
   workingOn?: WorkSummaries;
@@ -59,6 +61,8 @@ export function atlasData(
   asking: Set<string> = new Set(),
   /** Probe's verdicts, keyed `<host>:<workspaceId>` (useProbe). */
   probe: Record<string, ProbeVerdict> = {},
+  /** Each host machine's load, keyed by host id (useHostStats). */
+  stats: Record<string, HostStats> = {},
 ): AtlasData {
   return {
     hosts: snapshot.hosts.map((h) => ({
@@ -66,6 +70,7 @@ export function atlasData(
       name: h.name,
       online: !/offline|stale/.test(h.state),
       local: h.local,
+      ...(stats[h.id] ? { stats: stats[h.id] } : {}),
     })),
     projects: snapshot.projects.map((p) => ({
       key: p.key,
@@ -165,9 +170,10 @@ export function NativeWorld(props: Props) {
   const current = useRef(snapshot);
   current.current = snapshot;
   const probe = useProbe();
+  const stats = useHostStats();
   const data = useMemo(
-    () => atlasData(snapshot, props.questions, props.asking, probe),
-    [snapshot, props.questions, props.asking, probe],
+    () => atlasData(snapshot, props.questions, props.asking, probe, stats),
+    [snapshot, props.questions, props.asking, probe, stats],
   );
   const currentData = useRef(data);
   currentData.current = data;

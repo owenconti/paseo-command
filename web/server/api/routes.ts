@@ -16,6 +16,7 @@ import {
 import { workingOn } from "../workingOn";
 import { replyAsks } from "../asks";
 import { probeRoute } from "../probe";
+import { hostStatsRoute } from "../hostStats";
 import {
   concludeFork,
   createFork,
@@ -150,6 +151,9 @@ export async function handleApi(
             break;
           case "probe":
             result = await probeRoute();
+            break;
+          case "hoststats":
+            result = await hostStatsRoute();
             break;
           case "hosts": {
             await hostRegistry();

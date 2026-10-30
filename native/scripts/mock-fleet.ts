@@ -11,6 +11,7 @@
  * their flags show. `--probe` labels the first five, and gives each a Probe
  * verdict (one of each state), so their review flags carry streamers; the
  * second's and fourth's PRs have auto-merge on, so their poles wear its seal.
+ * `--stats` gives each host a load for its banner (the first one's disk nearly full).
  */
 import { createReadStream, existsSync, statSync } from "node:fs";
 import { createServer } from "node:http";
@@ -54,6 +55,12 @@ if (args.includes("--probe")) {
       });
   });
 }
+/** `GET /api/hoststats`'s answer, keyed "local" or a host's server id. */
+const hostStats: Record<string, unknown> = {};
+if (args.includes("--stats")) {
+  const keys = ["local", ...(fleet.hosts as { serverId?: string }[]).flatMap((h) => (h.serverId ? [h.serverId] : []))];
+  keys.forEach((key, i) => (hostStats[key] = { cpu: 12 + i * 23, memory: 58 + i * 7, disk: i ? 41 : 93 }));
+}
 const dist = fileURLToPath(new URL("../../web/dist/", import.meta.url));
 if (!existsSync(join(dist, "index.html"))) {
   console.error("web/dist is missing: run `npm --prefix web run build` first.");
@@ -81,6 +88,7 @@ function answer(path: string): [number, unknown] {
   const parts = path.replace(/^\/api\//, "").split("/");
   if (parts.length === 1 && parts[0]! in lists) return [200, lists[parts[0]!]];
   if (parts.length === 1 && parts[0] === "probe") return [200, probe];
+  if (parts.length === 1 && parts[0] === "hoststats") return [200, hostStats];
   if (parts[0] === "agents") {
     const [, , sub] = parts;
     if (!sub) return [404, { error: "Not found" }];

@@ -194,3 +194,23 @@ test("the auto-merge seal sits on the review medallion's rim, else the CI medall
     assert.ok(cx > f.x && cy < f.y, "up and to the right");
   }
 });
+
+test("a host's load reads on its banner's second line, its foot where it was", async () => {
+  const { labels, statParts } = await import("../src/placement.ts");
+  const { RIBBON_DETAIL } = await import("../src/ribbon.ts");
+  const plain = layoutAtlas(SAMPLE);
+  const data = structuredClone(SAMPLE);
+  data.hosts[0].stats = { cpu: 13.6, memory: 59, disk: 93 };
+  const loaded = layoutAtlas(data);
+  const before = labels(plain).find((l) => l.kind === "host");
+  const after = labels(loaded).find((l) => l.kind === "host");
+  assert.equal(before.detail, undefined);
+  assert.deepEqual(after.detail, [
+    { text: "CPU 14%", alert: false },
+    { text: "MEM 59%", alert: false },
+    { text: "DISK 93%", alert: true },
+  ]);
+  assert.equal(after.y, before.y - RIBBON_DETAIL.extra / 2);
+  assert.notEqual(plain.signature, loaded.signature, "a new load repaints the banner");
+  assert.deepEqual(statParts({ memory: 12 }), [{ text: "MEM 12%", alert: false }]);
+});
