@@ -191,9 +191,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
             self.main?.snapshot(to: (info as NSString).deletingPathExtension + ".png")
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + 3) { [weak self] in self?.writeInfo() }
-        // Say in the title bar when a newer build is waiting for ⌘R.
+        // Say in the mode bar when a newer build is waiting for ⌘R.
         Timer.scheduledTimer(withTimeInterval: 3, repeats: true) { [weak self] _ in
-            self?.main?.window.subtitle = Build.newer ? "Update ready · ⌘R" : ""
+            self?.main?.modeBar.updateReady = Build.newer
         }
     }
 

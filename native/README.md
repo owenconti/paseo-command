@@ -11,7 +11,7 @@ npm run native:run -- --url http://127.0.0.1:4331/
 ```
 
 **Updating without relaunching.** `npm run native:build` replaces the executable inside the bundle
-while a copy runs. The running copy shows "Update ready · ⌘R" in its title bar; ⌘R (View → Reload)
+while a copy runs. The running copy shows "Update ready · ⌘R" at the right of its mode bar; ⌘R (View → Reload)
 first brings its own server up to date (`scripts/app-server.mjs refresh`: a restart only when the
 server's code changed), then reloads the page and, when a newer native build is on disk, swaps the app
 for it in place, at the same window position and page. After merging, `npm run app:update` rebuilds

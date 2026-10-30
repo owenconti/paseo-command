@@ -66,7 +66,7 @@ npm run app:update   # app:build && native:build
 
 This is part of completing the feature. It does not restart the app server, so open pages, their
 daemon connections and terminals stay connected. Never quit, relaunch
-or open the user's macOS app, and do not run `app:restart` for an update: the app keeps running, its title bar
+or open the user's macOS app, and do not run `app:restart` for an update: the app keeps running, its mode bar
 shows "Update ready · ⌘R" once a newer native build is on disk, and the user presses ⌘R when they want the
 update. ⌘R first runs `app:refresh`, which restarts the server only if its own code (`web/server/`, the Vite
 config, dependencies, the launcher) changed since it started; then it reloads the page, and swaps in a newer

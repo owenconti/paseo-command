@@ -23,9 +23,16 @@ final class ModeButton: NSButton {
 }
 
 /// The strip across the top of the window that switches between Command and Conquer (⌘` toggles).
+/// It stands in for the hidden title bar: the traffic lights sit at its left, it drags the
+/// window, and it says when a newer build is waiting for ⌘R.
 final class ModeBar: NSView {
     var onSelect: ((Mode) -> Void)?
     var mode: Mode = .command { didSet { restyle() } }
+    /// Where the tabs start: past the traffic lights.
+    var leading: CGFloat = 0 { didSet { rowLeading?.constant = leading } }
+    var updateReady = false { didSet { if updateReady != oldValue { update.isHidden = !updateReady } } }
+    private var rowLeading: NSLayoutConstraint?
+    private let update = NSTextField(labelWithString: "Update ready · ⌘R")
     private let buttons: [(Mode, ModeButton)]
     private let underline = NSView()
     /// A fainter line under a tab the pointer is over, where the underline would go.
@@ -58,8 +65,17 @@ final class ModeBar: NSView {
         line.boxType = .separator
         line.translatesAutoresizingMaskIntoConstraints = false
         addSubview(line)
+        update.font = NSFont.systemFont(ofSize: 11, weight: .medium)
+        update.toolTip = "A newer build is ready: ⌘R applies it"
+        update.isHidden = true
+        update.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(update)
+        let rowLeading = row.leadingAnchor.constraint(equalTo: leadingAnchor)
+        self.rowLeading = rowLeading
         NSLayoutConstraint.activate([
-            row.leadingAnchor.constraint(equalTo: leadingAnchor),
+            rowLeading,
+            update.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -14),
+            update.centerYAnchor.constraint(equalTo: centerYAnchor),
             row.topAnchor.constraint(equalTo: topAnchor),
             row.bottomAnchor.constraint(equalTo: bottomAnchor),
             line.leadingAnchor.constraint(equalTo: leadingAnchor),
@@ -72,6 +88,17 @@ final class ModeBar: NSView {
 
     @objc private func pick(_ sender: NSButton) { onSelect?(sender.tag == 0 ? .command : .conquer) }
 
+    // As a title bar: drag to move the window, double-click as System Settings says.
+    override var mouseDownCanMoveWindow: Bool { true }
+    override func mouseUp(with event: NSEvent) {
+        guard event.clickCount == 2, let window else { return super.mouseUp(with: event) }
+        switch UserDefaults.standard.string(forKey: "AppleActionOnDoubleClick") {
+        case "Minimize": window.performMiniaturize(nil)
+        case "None": break
+        default: window.performZoom(nil)
+        }
+    }
+
     override func viewDidChangeEffectiveAppearance() {
         super.viewDidChangeEffectiveAppearance()
         restyle()
@@ -83,6 +110,7 @@ final class ModeBar: NSView {
         layer?.backgroundColor = Ink.color(Ink.bar, look).cgColor
         underline.layer?.backgroundColor = Ink.color(Ink.accent, look).cgColor
         hoverLine.layer?.backgroundColor = Ink.color(Ink.accent, look, 0.35).cgColor
+        update.textColor = Ink.color(Ink.accent, look)
         for (mode, button) in buttons {
             let on = mode == self.mode
             button.attributedTitle = NSAttributedString(string: mode == .command ? "COMMAND" : "CONQUER", attributes: [

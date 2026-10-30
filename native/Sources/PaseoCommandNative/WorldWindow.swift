@@ -51,9 +51,12 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         let screen = NSScreen.main?.visibleFrame ?? CGRect(x: 0, y: 0, width: 1440, height: 900)
         let size = options.size ?? CGSize(width: min(1440, screen.width - 80), height: min(900, screen.height - 80))
         window = NSWindow(contentRect: CGRect(x: screen.minX + 40, y: screen.maxY - size.height - 40, width: size.width, height: size.height),
-                          styleMask: [.titled, .closable, .miniaturizable, .resizable],
+                          styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
                           backing: .buffered, defer: false)
         window.title = "Paseo Command"
+        // No title bar: the mode bar takes its place, the traffic lights at its left.
+        window.titleVisibility = .hidden
+        window.titlebarAppearsTransparent = true
         // Where the user left it, across launches and ⌘R updates (checks pass --size).
         if options.size == nil {
             window.setFrameUsingName(WorldWindow.frameName)
@@ -70,7 +73,9 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         split.dividerStyle = .thin
         split.autoresizingMask = [.width, .height]
         let root = NSView(frame: split.frame)
-        let barHeight: CGFloat = 30
+        // The title bar's height, so the traffic lights sit centred in the mode bar.
+        let titlebar = window.frame.height - window.contentLayoutRect.height
+        let barHeight: CGFloat = titlebar > 0 ? titlebar : 30
         modeBar = ModeBar(frame: CGRect(x: 0, y: root.bounds.height - barHeight, width: root.bounds.width, height: barHeight))
         modeBar.autoresizingMask = [.width, .minYMargin]
         command = NSView(frame: CGRect(x: 0, y: 0, width: root.bounds.width, height: root.bounds.height - barHeight))
@@ -126,6 +131,7 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         drawer.onMove = { [weak self] in self?.moveTerminal() }
         drawer.onMaximize = { [weak self] in self?.maximizeTerminal() }
         modeBar.onSelect = { [weak self] mode in self?.show(mode) }
+        placeModeBar()
         // Where the user left it, across launches and ⌘R updates.
         if options.info == nil, UserDefaults.standard.string(forKey: "mode") == Mode.conquer.rawValue {
             DispatchQueue.main.async { self.show(.conquer) }
@@ -287,6 +293,16 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         atlasView.govern()
         placeMaximized()
     }
+
+    /// The mode bar's tabs start past the traffic lights, or at the edge in
+    /// full screen, where the lights are hidden.
+    private func placeModeBar() {
+        let fullScreen = window.styleMask.contains(.fullScreen)
+        modeBar.leading = fullScreen ? 0 : (window.standardWindowButton(.zoomButton)?.frame.maxX ?? 0)
+    }
+
+    func windowDidEnterFullScreen(_ notification: Notification) { placeModeBar() }
+    func windowDidExitFullScreen(_ notification: Notification) { placeModeBar() }
 
     func windowDidResize(_ notification: Notification) {
         // The page reports its map's new rectangle; until it does, keep the old one.
