@@ -216,15 +216,18 @@ final class PaneSplit: NSSplitView, NSSplitViewDelegate {
 }
 
 /// A tab in the panel's bar: its terminal's name and a × that closes it. A
-/// click shows it; a drag carries it to a pane (see `TerminalDrawer.dragTab`).
-final class TerminalTab: NSView {
+/// click shows it; a drag carries a picture of it to a pane (`PaneDropCatcher`),
+/// while the tab itself waits faded in the bar.
+final class TerminalTab: NSView, NSDraggingSource {
+    /// What a dragged tab carries: its terminal's id.
+    static let pasteboardType = NSPasteboard.PasteboardType("com.paseo.command.terminal-tab")
     let id: String
     enum Look { case plain, shown, focused }
     var look: Look = .plain { didSet { restyle() } }
     var onSelect: (() -> Void)?
     var onClose: (() -> Void)?
-    /// The pointer's place in the window while dragged, and whether it was let go there.
-    var onDrag: ((_ point: NSPoint, _ dropped: Bool) -> Void)?
+    /// A drag of the tab began (true) or ended (false).
+    var onDrag: ((_ began: Bool) -> Void)?
     private let label = NSTextField(labelWithString: "")
     private let close = NSButton()
     private var start: NSPoint?
@@ -292,23 +295,81 @@ final class TerminalTab: NSView {
         dragging = false
     }
     override func mouseDragged(with event: NSEvent) {
-        guard let start else { return }
+        guard let start, !dragging else { return }
         let p = event.locationInWindow
-        if !dragging, hypot(p.x - start.x, p.y - start.y) > 4 {
-            dragging = true
-            NSCursor.closedHand.push()
-        }
-        if dragging { onDrag?(p, false) }
+        guard hypot(p.x - start.x, p.y - start.y) > 4 else { return }
+        dragging = true
+        let item = NSPasteboardItem()
+        item.setString(id, forType: Self.pasteboardType)
+        let dragged = NSDraggingItem(pasteboardWriter: item)
+        dragged.setDraggingFrame(bounds, contents: picture())
+        let session = beginDraggingSession(with: [dragged], event: event, source: self)
+        session.animatesToStartingPositionsOnCancelOrFail = true
+        alphaValue = 0.35
+        onDrag?(true)
     }
     override func mouseUp(with event: NSEvent) {
-        if dragging {
-            NSCursor.pop()
-            onDrag?(event.locationInWindow, true)
-        } else if start != nil {
-            onSelect?()
-        }
+        if !dragging && start != nil { onSelect?() }
         start = nil
+    }
+
+    func draggingSession(_ session: NSDraggingSession, sourceOperationMaskFor context: NSDraggingContext) -> NSDragOperation {
+        context == .withinApplication ? .move : []
+    }
+    func draggingSession(_ session: NSDraggingSession, endedAt screenPoint: NSPoint, operation: NSDragOperation) {
+        alphaValue = 1
         dragging = false
+        start = nil
+        onDrag?(false)
+    }
+
+    /// The tab as it is carried: lifted, rimmed in gold, its name in full colour.
+    private func picture() -> NSImage {
+        let size = bounds.size
+        let name = label.stringValue
+        return NSImage(size: size, flipped: false) { rect in
+            let shape = NSBezierPath(roundedRect: rect.insetBy(dx: 1, dy: 1), xRadius: 5, yRadius: 5)
+            Textures.color(0x2c3834).withAlphaComponent(0.95).setFill()
+            shape.fill()
+            Textures.color(0xf2c14e).withAlphaComponent(0.9).setStroke()
+            shape.lineWidth = 1.5
+            shape.stroke()
+            let text = NSAttributedString(string: name, attributes: [
+                .font: NSFont.systemFont(ofSize: 11, weight: .medium),
+                .foregroundColor: Textures.color(0xf2e1b2),
+            ])
+            let height = text.size().height
+            text.draw(with: CGRect(x: 8, y: (rect.height - height) / 2 + 2, width: rect.width - 16, height: height),
+                      options: [.usesLineFragmentOrigin, .truncatesLastVisibleLine])
+            return true
+        }
+    }
+}
+
+/// Over the panes while a tab is dragged, so the terminals under it (which
+/// take drops of their own) never see it: reports where it would land and the drop.
+final class PaneDropCatcher: NSView {
+    /// The tab's terminal and the pointer in window coordinates; whether it can land there.
+    var onHover: ((_ id: String, _ point: NSPoint) -> Bool)?
+    var onDrop: ((_ id: String, _ point: NSPoint) -> Bool)?
+    var onLeave: (() -> Void)?
+
+    override init(frame: NSRect) {
+        super.init(frame: frame)
+        registerForDraggedTypes([TerminalTab.pasteboardType])
+    }
+    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+
+    private func hover(_ sender: NSDraggingInfo) -> NSDragOperation {
+        guard let id = sender.draggingPasteboard.string(forType: TerminalTab.pasteboardType) else { return [] }
+        return onHover?(id, sender.draggingLocation) == true ? .move : []
+    }
+    override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation { hover(sender) }
+    override func draggingUpdated(_ sender: NSDraggingInfo) -> NSDragOperation { hover(sender) }
+    override func draggingExited(_ sender: NSDraggingInfo?) { onLeave?() }
+    override func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
+        guard let id = sender.draggingPasteboard.string(forType: TerminalTab.pasteboardType) else { return false }
+        return onDrop?(id, sender.draggingLocation) ?? false
     }
 }
 
@@ -369,6 +430,8 @@ final class TerminalDrawer: NSView {
     private let body = NSView()
     /// Where a dragged tab would land.
     private let marker = NSView()
+    private let markerText = NSTextField(labelWithString: "")
+    private let catcher = PaneDropCatcher()
     private let empty = NSTextField(wrappingLabelWithString: "")
 
     override init(frame: NSRect) {
@@ -409,7 +472,28 @@ final class TerminalDrawer: NSView {
         marker.layer?.borderWidth = 2
         marker.layer?.cornerRadius = 4
         marker.isHidden = true
+        markerText.font = .systemFont(ofSize: 11, weight: .semibold)
+        markerText.textColor = Textures.color(0x101614)
+        markerText.alignment = .center
+        markerText.wantsLayer = true
+        markerText.drawsBackground = true
+        markerText.backgroundColor = Textures.color(0xf2c14e)
+        markerText.layer?.cornerRadius = 4
+        markerText.layer?.masksToBounds = true
+        markerText.translatesAutoresizingMaskIntoConstraints = false
+        marker.addSubview(markerText)
+        NSLayoutConstraint.activate([
+            markerText.centerXAnchor.constraint(equalTo: marker.centerXAnchor),
+            markerText.centerYAnchor.constraint(equalTo: marker.centerYAnchor),
+        ])
         body.addSubview(marker)
+        catcher.frame = body.bounds
+        catcher.autoresizingMask = [.width, .height]
+        catcher.isHidden = true
+        catcher.onHover = { [weak self] id, point in self?.hover(id, at: point) ?? false }
+        catcher.onDrop = { [weak self] id, point in self?.drop(id, at: point) ?? false }
+        catcher.onLeave = { [weak self] in self?.marker.isHidden = true }
+        body.addSubview(catcher)
         for v in [bar, body, empty] {
             v.translatesAutoresizingMaskIntoConstraints = false
             addSubview(v)
@@ -583,7 +667,7 @@ final class TerminalDrawer: NSView {
                 let tab = TerminalTab(id: t.id)
                 tab.onSelect = { [weak self] in self?.choose(t.id) }
                 tab.onClose = { [weak self] in self?.closeTab(t.id) }
-                tab.onDrag = { [weak self] point, dropped in self?.dragTab(t.id, to: point, dropped: dropped) }
+                tab.onDrag = { [weak self] began in self?.dragging(began) }
                 tabViews[t.id] = tab
                 return tab
             }()
@@ -603,7 +687,7 @@ final class TerminalDrawer: NSView {
         let next = workspace == nil ? nil : layout
         guard next != built else { return }
         built = next
-        for v in body.subviews where v !== marker { v.removeFromSuperview() }
+        for v in body.subviews where v !== marker && v !== catcher { v.removeFromSuperview() }
         panes = [:]
         guard let next, let ws = workspace else { return }
         let root = build(next, ws)
@@ -696,11 +780,25 @@ final class TerminalDrawer: NSView {
         return (target, side, body.convert(rect, from: view).insetBy(dx: 2, dy: 2))
     }
 
-    private func dragTab(_ id: String, to point: NSPoint, dropped: Bool) {
-        let target = dropTarget(id, point)
-        marker.isHidden = dropped || target == nil
-        if let target, !dropped { marker.frame = target.rect }
-        if dropped, let target { place(id, at: target.pane, target.side) }
+    /// While a tab is carried, the catcher covers the panes (and the marker shows where it would land).
+    private func dragging(_ began: Bool) {
+        catcher.isHidden = !began
+        if !began { marker.isHidden = true }
+    }
+
+    private func hover(_ id: String, at point: NSPoint) -> Bool {
+        guard let target = dropTarget(id, point) else { marker.isHidden = true; return false }
+        marker.frame = target.rect
+        markerText.stringValue = "  " + (target.side == .center ? "Show here" : "Split \(target.side.rawValue)") + "  "
+        marker.isHidden = false
+        return true
+    }
+
+    private func drop(_ id: String, at point: NSPoint) -> Bool {
+        marker.isHidden = true
+        guard let target = dropTarget(id, point) else { return false }
+        place(id, at: target.pane, target.side)
+        return true
     }
 
     /// Show terminal `id` at `side` of the pane showing `target` (in its place
