@@ -7,15 +7,32 @@ enum Mode: String {
     case command, conquer
 }
 
-/// The strip across the top of the window that switches between Command and Conquer (⌘1, ⌘2).
+/// One of the mode bar's tabs: it says when the pointer is over it, and shows a pointing hand.
+final class ModeButton: NSButton {
+    var onHover: ((Bool) -> Void)?
+    private(set) var hovered = false
+
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        trackingAreas.forEach(removeTrackingArea)
+        addTrackingArea(NSTrackingArea(rect: bounds, options: [.mouseEnteredAndExited, .activeAlways, .inVisibleRect], owner: self))
+    }
+    override func mouseEntered(with event: NSEvent) { hovered = true; onHover?(true) }
+    override func mouseExited(with event: NSEvent) { hovered = false; onHover?(false) }
+    override func resetCursorRects() { addCursorRect(bounds, cursor: .pointingHand) }
+}
+
+/// The strip across the top of the window that switches between Command and Conquer (⌘` toggles).
 final class ModeBar: NSView {
     var onSelect: ((Mode) -> Void)?
     var mode: Mode = .command { didSet { restyle() } }
-    private let buttons: [(Mode, NSButton)]
+    private let buttons: [(Mode, ModeButton)]
     private let underline = NSView()
+    /// A fainter line under a tab the pointer is over, where the underline would go.
+    private let hoverLine = NSView()
 
     override init(frame: NSRect) {
-        buttons = [(.command, NSButton()), (.conquer, NSButton())]
+        buttons = [(.command, ModeButton()), (.conquer, ModeButton())]
         super.init(frame: frame)
         wantsLayer = true
         let row = NSStackView()
@@ -28,12 +45,15 @@ final class ModeBar: NSView {
             button.target = self
             button.action = #selector(pick(_:))
             button.tag = mode == .command ? 0 : 1
-            button.toolTip = mode == .command ? "The map and panels (⌘1)" : "The browser (⌘2)"
+            button.toolTip = mode == .command ? "The map and panels (⌘`)" : "The browser (⌘`)"
+            button.onHover = { [weak self] _ in self?.restyle() }
             row.addArrangedSubview(button)
         }
         addSubview(row)
-        underline.wantsLayer = true
-        addSubview(underline)
+        for v in [hoverLine, underline] {
+            v.wantsLayer = true
+            addSubview(v)
+        }
         let line = NSBox()
         line.boxType = .separator
         line.translatesAutoresizingMaskIntoConstraints = false
@@ -62,11 +82,12 @@ final class ModeBar: NSView {
         let look = effectiveAppearance
         layer?.backgroundColor = Ink.color(Ink.bar, look).cgColor
         underline.layer?.backgroundColor = Ink.color(Ink.accent, look).cgColor
+        hoverLine.layer?.backgroundColor = Ink.color(Ink.accent, look, 0.35).cgColor
         for (mode, button) in buttons {
             let on = mode == self.mode
             button.attributedTitle = NSAttributedString(string: mode == .command ? "COMMAND" : "CONQUER", attributes: [
                 .font: NSFont.systemFont(ofSize: 11, weight: .semibold),
-                .foregroundColor: Ink.color(on ? Ink.strong : Ink.off, look),
+                .foregroundColor: Ink.color(on ? Ink.strong : button.hovered ? Ink.mid : Ink.off, look),
                 .kern: 1.2,
             ])
         }
@@ -75,9 +96,14 @@ final class ModeBar: NSView {
 
     override func layout() {
         super.layout()
-        guard let button = buttons.first(where: { $0.0 == mode })?.1 else { return }
-        let r = convert(button.bounds, from: button)
-        underline.frame = CGRect(x: r.minX, y: 1, width: r.width, height: 2)
+        func line(under button: NSButton) -> CGRect {
+            let r = convert(button.bounds, from: button)
+            return CGRect(x: r.minX, y: 1, width: r.width, height: 2)
+        }
+        if let button = buttons.first(where: { $0.0 == mode })?.1 { underline.frame = line(under: button) }
+        let hovered = buttons.first(where: { $0.0 != mode && $0.1.hovered })?.1
+        hoverLine.isHidden = hovered == nil
+        if let hovered { hoverLine.frame = line(under: hovered) }
     }
 }
 
