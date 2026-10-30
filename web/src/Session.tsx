@@ -55,6 +55,7 @@ import { liveConnection } from "./live";
 import type { HistoryPage } from "./history";
 import { MarkdownImage } from "./Images";
 import { extractImages } from "./imageSource";
+import { urlRuns } from "./urlRuns";
 import { newMessageId, onQueueSent } from "./queue";
 import {
   eventBody,
@@ -914,7 +915,20 @@ function UserText({
       )}
       {clean && (
         <div className={`user-text ${long && !open ? "clamped" : ""}`}>
-          {clean}
+          {urlRuns(clean).map((run, i) =>
+            run.href ? (
+              <a
+                key={i}
+                href={run.href}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                {run.text}
+              </a>
+            ) : (
+              run.text
+            ),
+          )}
         </div>
       )}
       {long && (
