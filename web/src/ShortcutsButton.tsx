@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import { AnimatePresence, motion, useIsPresent } from "framer-motion";
 import { Keyboard, X } from "lucide-react";
 import { modalOpen, useFocusTrap } from "./focus";
-import { nativeAvailable } from "./worldBridge";
+import { macApp } from "./worldBridge";
 import { isTyping } from "./worldShortcut";
 import { onAppCommand } from "./appCommands";
 
@@ -135,7 +135,7 @@ function ShortcutsDialog({ onClose }: { onClose: () => void }) {
     window.addEventListener("keydown", key, true);
     return () => window.removeEventListener("keydown", key, true);
   }, [present, onClose]);
-  const groups = nativeAvailable() ? [...GROUPS, NATIVE] : GROUPS;
+  const groups = macApp() ? [...GROUPS, NATIVE] : GROUPS;
   return (
     <motion.div
       className="modal-backdrop"

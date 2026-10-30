@@ -194,6 +194,19 @@ declare global {
 export const nativeAvailable = () =>
   typeof window !== "undefined" &&
   !!window.webkit?.messageHandlers?.worldBridge;
+/** The macOS app's channel (its Atlas world, menus and terminal), which
+ * `nativeAvailable`'s older bridge is not. */
+type AppChannel = { postMessage(message: unknown): void };
+const appChannel = () =>
+  typeof window === "undefined"
+    ? undefined
+    : (window as unknown as { webkit?: { messageHandlers?: { paseoWorld?: AppChannel } } })
+        .webkit?.messageHandlers?.paseoWorld;
+/** Whether the page runs inside the macOS app. */
+export const macApp = () => !!appChannel();
+/** Choose one of the macOS app's menu items (View → Terminal, …). */
+export const postAppMenu = (action: string) =>
+  appChannel()?.postMessage({ type: "menu", action });
 export function postNative(message: { type: string; [key: string]: unknown }) {
   window.webkit?.messageHandlers?.worldBridge?.postMessage({
     ...message,

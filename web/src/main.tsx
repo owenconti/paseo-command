@@ -2,8 +2,10 @@ import { useAsks } from "./useAsks";
 import { useWorkingOn } from "./useWorkingOn";
 import {
   hostWorldKey,
+  macApp,
   nativeAvailable,
   nativeEvents,
+  postAppMenu,
   postNative,
 } from "./worldBridge";
 import { installAppReloadShortcut } from "./appReload";
@@ -1331,7 +1333,7 @@ function App() {
           },
         ]
       : []),
-    ...(nativeAvailable()
+    ...(macApp()
       ? [
           {
             id: "fit",
@@ -1388,7 +1390,7 @@ function App() {
       keywords: "sidebar collapse",
       run: () => runAppCommand("toggle-panel"),
     },
-    ...(nativeAvailable()
+    ...(macApp()
       ? [
           {
             id: "terminal",
@@ -1396,7 +1398,7 @@ function App() {
             label: "Show or hide the terminal",
             keys: [["⌃", "`"]],
             keywords: "shell console",
-            run: () => postNative({ type: "menu", action: "terminal" }),
+            run: () => postAppMenu("terminal"),
           },
           ...(
             [
@@ -1416,7 +1418,7 @@ function App() {
             label,
             keys: keys && [[...keys]],
             keywords,
-            run: () => postNative({ type: "menu", action }),
+            run: () => postAppMenu(action),
           })),
           {
             id: "reload",
@@ -1424,7 +1426,7 @@ function App() {
             label: "Reload, with the latest build",
             keys: [["⌘", "R"]],
             keywords: "update refresh",
-            run: () => postNative({ type: "menu", action: "reload" }),
+            run: () => postAppMenu("reload"),
           },
         ]
       : []),

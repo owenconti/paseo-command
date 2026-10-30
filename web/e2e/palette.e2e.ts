@@ -144,3 +144,36 @@ test("the open agent's actions and the header's tools are in the palette", async
   await page.getByRole("dialog", { name: "Settings" }).waitFor();
   await context.close();
 });
+
+test("in the macOS app, the terminal's menu commands are listed and reach the app", async () => {
+  const context = await newContext(browser);
+  const page = await context.newPage();
+  // The app's message channel, recording the menu items chosen.
+  await page.addInitScript(`
+    window.sentToApp = [];
+    window.webkit = { messageHandlers: { paseoWorld: { postMessage: (m) => window.sentToApp.push(m) } } };
+  `);
+  await mockApi(page, { agents: () => [] });
+  await page.goto(app.url);
+  await page.getByRole("button", { name: "Keyboard shortcuts" }).waitFor();
+  const palette = page.getByRole("dialog", { name: "Command palette" });
+  const search = palette.getByRole("combobox", { name: "Search commands" });
+  await page.keyboard.press("Meta+k");
+  await search.fill("term");
+  for (const label of [
+    "Show or hide the terminal",
+    "Maximize the terminal",
+    "Unsplit terminals",
+    "Bigger terminal text",
+  ])
+    await palette.getByRole("option", { name: label }).waitFor();
+  await search.fill("maximize term");
+  await page.keyboard.press("Enter");
+  await palette.waitFor({ state: "detached" });
+  await page.waitForFunction(() =>
+    (window as unknown as { sentToApp: { type: string; action?: string }[] }).sentToApp.some(
+      (m) => m.type === "menu" && m.action === "terminal-maximize",
+    ),
+  );
+  await context.close();
+});
