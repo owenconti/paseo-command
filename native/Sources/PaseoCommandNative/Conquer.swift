@@ -17,9 +17,7 @@ final class ModeBar: NSView {
     override init(frame: NSRect) {
         buttons = [(.command, NSButton()), (.conquer, NSButton())]
         super.init(frame: frame)
-        appearance = NSAppearance(named: .darkAqua)
         wantsLayer = true
-        layer?.backgroundColor = Textures.color(0x101614).cgColor
         let row = NSStackView()
         row.orientation = .horizontal
         row.spacing = 18
@@ -35,7 +33,6 @@ final class ModeBar: NSView {
         }
         addSubview(row)
         underline.wantsLayer = true
-        underline.layer?.backgroundColor = Textures.color(0xf2c14e).cgColor
         addSubview(underline)
         let line = NSBox()
         line.boxType = .separator
@@ -55,12 +52,22 @@ final class ModeBar: NSView {
 
     @objc private func pick(_ sender: NSButton) { onSelect?(sender.tag == 0 ? .command : .conquer) }
 
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        restyle()
+    }
+
+    /// Dark or light with the system, as the page's panels are.
     private func restyle() {
+        let look = effectiveAppearance
+        layer?.backgroundColor = Textures.color(dark: 0x101614, light: 0xece8d9, in: look).cgColor
+        underline.layer?.backgroundColor = Textures.color(dark: 0xf2c14e, light: 0x386979, in: look).cgColor
         for (mode, button) in buttons {
             let on = mode == self.mode
             button.attributedTitle = NSAttributedString(string: mode == .command ? "COMMAND" : "CONQUER", attributes: [
                 .font: NSFont.systemFont(ofSize: 11, weight: .semibold),
-                .foregroundColor: Textures.color(on ? 0xf2e1b2 : 0x8a8472),
+                .foregroundColor: on ? Textures.color(dark: 0xf2e1b2, light: 0x243c32, in: look)
+                                     : Textures.color(dark: 0x8a8472, light: 0x656b5e, in: look),
                 .kern: 1.2,
             ])
         }
@@ -130,9 +137,9 @@ final class ConquerView: NSView, WKNavigationDelegate, WKUIDelegate, NSTextField
         let major = ProcessInfo.processInfo.operatingSystemVersion.majorVersion
         configuration.applicationNameForUserAgent = "Version/\(major >= 26 ? major : 18).0 Safari/605.1.15"
         super.init(frame: frame)
-        appearance = NSAppearance(named: .darkAqua)
+        // Its chrome and its pages' prefers-color-scheme follow the system.
         wantsLayer = true
-        layer?.backgroundColor = Textures.color(0x101614).cgColor
+        layer?.backgroundColor = background.cgColor
 
         tabBar.orientation = .horizontal
         tabBar.spacing = 2
@@ -193,6 +200,14 @@ final class ConquerView: NSView, WKNavigationDelegate, WKUIDelegate, NSTextField
         ])
     }
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+
+    private var background: NSColor { Textures.color(dark: 0x101614, light: 0xf7f3e7, in: effectiveAppearance) }
+
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        layer?.backgroundColor = background.cgColor
+        renderTabs()
+    }
 
     /// Conquer's cookie store's identity, the same every launch.
     private static let store = UUID(uuidString: "C0A9B6E2-5F1D-4C3E-9A71-2D8E4B6F0C15")!
@@ -409,7 +424,7 @@ final class ConquerView: NSView, WKNavigationDelegate, WKUIDelegate, NSTextField
         // Cancelled or handed off as a download: nothing to show.
         guard e.code != NSURLErrorCancelled, !(e.domain == "WebKitErrorDomain" && e.code == 102) else { return }
         let text = e.localizedDescription.replacingOccurrences(of: "<", with: "&lt;")
-        webView.loadHTMLString("<body style='font:15px -apple-system;color:#f2e1b2;background:#101614;padding:40px'><h2>Can’t open this page</h2><p>\(text)</p></body>",
+        webView.loadHTMLString("<style>:root{color-scheme:light dark}body{font:15px -apple-system;padding:40px}</style><h2>Can’t open this page</h2><p>\(text)</p>",
                                baseURL: nil)
     }
 

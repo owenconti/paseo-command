@@ -35,15 +35,22 @@ let worldTheme: ResolvedTheme | null =
       ? "lake-country"
       : "galaxy"
     : null;
-let resolved: ResolvedTheme = worldTheme || resolve(setting);
+let resolved: ResolvedTheme = worldLook() || resolve(setting);
 const listeners = new Set<() => void>();
 
 function resolve(s: ThemeSetting): ResolvedTheme {
   return resolveTheme(s, !!media?.matches);
 }
 
+/** The world's panels follow the system's appearance: Galaxy when it is dark,
+ * the Light theme when it is light. */
+function worldLook(): ResolvedTheme | null {
+  if (worldTheme !== "galaxy") return worldTheme;
+  return media && !media.matches ? "light" : "galaxy";
+}
+
 function apply() {
-  resolved = worldTheme || resolve(setting);
+  resolved = worldLook() || resolve(setting);
   const root = document.documentElement;
   root.dataset.theme = resolved;
   document
@@ -53,7 +60,7 @@ function apply() {
 }
 
 const onSystemChange = () => {
-  if (setting === "system") apply();
+  if (setting === "system" || worldTheme) apply();
 };
 // Keep other tabs in sync.
 const onStorage = (e: StorageEvent) => {
