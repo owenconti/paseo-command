@@ -24,7 +24,9 @@ final class ModeButton: NSButton {
 
 /// The strip across the top of the window that switches between Command and Conquer (⌘` toggles).
 /// It stands in for the hidden title bar: the traffic lights sit at its left, it drags the
-/// window, and it says when a newer build is waiting for ⌘R.
+/// window, and it says when a newer build is waiting for ⌘R. It is the same surface as the
+/// chrome under it (the page's panel header, Conquer's sidebar), with no line between them,
+/// and its tabs are a small segmented control rather than a tab bar.
 final class ModeBar: NSView {
     var onSelect: ((Mode) -> Void)?
     var mode: Mode = .command { didSet { restyle() } }
@@ -34,53 +36,52 @@ final class ModeBar: NSView {
     private var rowLeading: NSLayoutConstraint?
     private let update = NSTextField(labelWithString: "Update ready · ⌘R")
     private let buttons: [(Mode, ModeButton)]
-    private let underline = NSView()
-    /// A fainter line under a tab the pointer is over, where the underline would go.
-    private let hoverLine = NSView()
+    /// The control's track, behind both tabs.
+    private let track = NSStackView()
 
     override init(frame: NSRect) {
         buttons = [(.command, ModeButton()), (.conquer, ModeButton())]
         super.init(frame: frame)
         wantsLayer = true
-        let row = NSStackView()
-        row.orientation = .horizontal
-        row.spacing = 18
-        row.edgeInsets = NSEdgeInsets(top: 0, left: 14, bottom: 0, right: 14)
-        row.translatesAutoresizingMaskIntoConstraints = false
+        track.orientation = .horizontal
+        track.spacing = 2
+        track.edgeInsets = NSEdgeInsets(top: 2, left: 2, bottom: 2, right: 2)
+        track.wantsLayer = true
+        track.layer?.cornerRadius = 8
+        track.translatesAutoresizingMaskIntoConstraints = false
         for (mode, button) in buttons {
             button.isBordered = false
+            button.wantsLayer = true
+            button.layer?.cornerRadius = 6
             button.target = self
             button.action = #selector(pick(_:))
             button.tag = mode == .command ? 0 : 1
             button.toolTip = mode == .command ? "The map and panels (⌘`)" : "The browser (⌘`)"
+            let symbol = NSImage(systemSymbolName: mode == .command ? "map" : "globe", accessibilityDescription: nil)
+            button.image = symbol?.withSymbolConfiguration(.init(pointSize: 11, weight: .medium))
+            button.imagePosition = .imageLeading
+            button.imageHugsTitle = true
             button.onHover = { [weak self] _ in self?.restyle() }
-            row.addArrangedSubview(button)
+            button.translatesAutoresizingMaskIntoConstraints = false
+            NSLayoutConstraint.activate([
+                button.heightAnchor.constraint(equalToConstant: 20),
+                button.widthAnchor.constraint(greaterThanOrEqualToConstant: 92),
+            ])
+            track.addArrangedSubview(button)
         }
-        addSubview(row)
-        for v in [hoverLine, underline] {
-            v.wantsLayer = true
-            addSubview(v)
-        }
-        let line = NSBox()
-        line.boxType = .separator
-        line.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(line)
+        addSubview(track)
         update.font = NSFont.systemFont(ofSize: 11, weight: .medium)
         update.toolTip = "A newer build is ready: ⌘R applies it"
         update.isHidden = true
         update.translatesAutoresizingMaskIntoConstraints = false
         addSubview(update)
-        let rowLeading = row.leadingAnchor.constraint(equalTo: leadingAnchor)
+        let rowLeading = track.leadingAnchor.constraint(equalTo: leadingAnchor, constant: leading)
         self.rowLeading = rowLeading
         NSLayoutConstraint.activate([
             rowLeading,
+            track.centerYAnchor.constraint(equalTo: centerYAnchor),
             update.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -14),
             update.centerYAnchor.constraint(equalTo: centerYAnchor),
-            row.topAnchor.constraint(equalTo: topAnchor),
-            row.bottomAnchor.constraint(equalTo: bottomAnchor),
-            line.leadingAnchor.constraint(equalTo: leadingAnchor),
-            line.trailingAnchor.constraint(equalTo: trailingAnchor),
-            line.bottomAnchor.constraint(equalTo: bottomAnchor),
         ])
         restyle()
     }
@@ -107,31 +108,23 @@ final class ModeBar: NSView {
     /// Dark or light with the system, as the page's panels are.
     private func restyle() {
         let look = effectiveAppearance
-        layer?.backgroundColor = Ink.color(Ink.bar, look).cgColor
-        underline.layer?.backgroundColor = Ink.color(Ink.accent, look).cgColor
-        hoverLine.layer?.backgroundColor = Ink.color(Ink.accent, look, 0.35).cgColor
+        layer?.backgroundColor = Ink.color(Ink.base, look).cgColor
+        track.layer?.backgroundColor = Ink.color(Ink.tabShown, look).cgColor
         update.textColor = Ink.color(Ink.accent, look)
         for (mode, button) in buttons {
             let on = mode == self.mode
-            button.attributedTitle = NSAttributedString(string: mode == .command ? "COMMAND" : "CONQUER", attributes: [
-                .font: NSFont.systemFont(ofSize: 11, weight: .semibold),
-                .foregroundColor: Ink.color(on ? Ink.strong : button.hovered ? Ink.mid : Ink.off, look),
-                .kern: 1.2,
+            button.layer?.backgroundColor = on ? Ink.color(Ink.pane, look).cgColor
+                : button.hovered ? Ink.color(Ink.tabFocused, look, 0.6).cgColor : nil
+            button.layer?.shadowOpacity = on ? 0.12 : 0
+            button.layer?.shadowRadius = 1.5
+            button.layer?.shadowOffset = CGSize(width: 0, height: -0.5)
+            let ink = Ink.color(on ? Ink.strong : button.hovered ? Ink.mid : Ink.off, look)
+            button.contentTintColor = ink
+            button.attributedTitle = NSAttributedString(string: mode == .command ? " Command" : " Conquer", attributes: [
+                .font: NSFont.systemFont(ofSize: 12, weight: on ? .semibold : .medium),
+                .foregroundColor: ink,
             ])
         }
-        needsLayout = true
-    }
-
-    override func layout() {
-        super.layout()
-        func line(under button: NSButton) -> CGRect {
-            let r = convert(button.bounds, from: button)
-            return CGRect(x: r.minX, y: 1, width: r.width, height: 2)
-        }
-        if let button = buttons.first(where: { $0.0 == mode })?.1 { underline.frame = line(under: button) }
-        let hovered = buttons.first(where: { $0.0 != mode && $0.1.hovered })?.1
-        hoverLine.isHidden = hovered == nil
-        if let hovered { hoverLine.frame = line(under: hovered) }
     }
 }
 

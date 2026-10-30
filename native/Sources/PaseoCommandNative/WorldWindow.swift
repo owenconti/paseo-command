@@ -298,7 +298,7 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
     /// full screen, where the lights are hidden.
     private func placeModeBar() {
         let fullScreen = window.styleMask.contains(.fullScreen)
-        modeBar.leading = fullScreen ? 0 : (window.standardWindowButton(.zoomButton)?.frame.maxX ?? 0)
+        modeBar.leading = fullScreen ? 10 : (window.standardWindowButton(.zoomButton)?.frame.maxX ?? 0) + 16
     }
 
     func windowDidEnterFullScreen(_ notification: Notification) { placeModeBar() }
