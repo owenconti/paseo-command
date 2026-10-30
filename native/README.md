@@ -38,8 +38,10 @@ app. Anything else on the port is reported, never stopped. `--no-server` turns t
 runs against the mock fleet use it.
 
 On the released app's first launch, `LegacyState.swift` migrates the old app's (`local.paseo.command.native`)
-preferences and WebKit data once, and `OldInstall.swift` offers to stop an old checkout server and copies
-its `secrets.json`, `games.json`, `forks.json` and `archived-subagents.json` once.
+preferences and WebKit data once. Only if an old checkout server is still running on the app's port does
+`OldInstall.swift` offer to stop it, then copy its `secrets.json`, `games.json`, `forks.json` and
+`archived-subagents.json` from `<checkout>/.paseo-command/` once (and only if none of them exists yet in the data
+folder). Otherwise copy them by hand while the app is closed.
 
 The app shows whatever Paseo Command server it is pointed at (`--url`, or `PASEO_COMMAND_URL`;
 default its own server, above). That server must serve

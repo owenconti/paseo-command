@@ -121,9 +121,9 @@ Local assets belong in the repository and are included through local build tooli
 - `web/server/releases.ts`: `GET /api/releases`, the GitHub releases and their notes; `web/src/ReleasesButton.tsx` (panel header,
   "What's new" in ⌘K) shows them in place of the old commit list.
 - `native/Sources/PaseoCommandNative/ServerManager.swift`: starts the bundled Node server with the user's shell environment
-  (`ShellEnvironment.swift`), keeps its log in `<data>/logs/server.log`, restarts it if the page finds it gone and never stops a
-  foreign process on the port. `OldInstall.swift` (release flavour, first launch): offers to stop an old checkout server
-  (and its `com.paseo-command.serve` launch agent) and copies `secrets.json`, `games.json`, `forks.json`, `archived-subagents.json` once from the checkout's
+  (`ShellEnvironment.swift`), keeps its log in `<data>/logs/server.log`, restarts it if the page finds it gone and stops only a
+  recognised old Paseo Command checkout server on the port, after the user confirms. `OldInstall.swift` (release flavour, only when ServerManager finds an old checkout server on the port): offers to stop it
+  (and its `com.paseo-command.serve` launch agent) and, if none exists yet in the data folder, copies `secrets.json`, `games.json`, `forks.json`, `archived-subagents.json` once from the checkout's
   `.paseo-command/`. `LegacyState.swift` migrates the old app's (`local.paseo.command.native`) preferences, WebKit data and HTTPStorages once.
   `Updater.swift`: Sparkle (feed `https://github.com/owenconti/paseo-command/releases/latest/download/appcast.xml`); the mode bar shows
   "Update ready · Restart app", and Restart app (⌘K) installs and relaunches at the same page.

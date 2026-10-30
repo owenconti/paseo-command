@@ -14,7 +14,7 @@ browser the conversations and panels work; the map requires the macOS app.
 2. Unzip it and drag **Paseo Command** to Applications.
 3. Open it. Releases are not notarized by Apple, so the first open is blocked: choose
    **System Settings → Privacy & Security → Open Anyway** for Paseo Command, then open it
-   again. (On macOS 14, right-click → Open also works.) Later opens and updates need nothing.
+   again. Later opens and updates need nothing.
 
 Requirements: macOS 14 or later, and [Paseo](https://paseo.sh) installed in Applications and
 opened once, so its daemon is running (check with `paseo status`, or
@@ -26,9 +26,11 @@ The app runs its own local server on `http://127.0.0.1:4310` and stops it when i
 reads your shell's environment (`~/.zprofile`, `~/.zshrc` and so on) once at launch, so `gh`
 and the keys you export there apply even when it is opened from Finder.
 
-If you ran an older checkout-based build, the first launch of the released app offers to stop
-that server, and copies its keys, game scores and forks into the new data folder (the old
-folder is left untouched).
+If an old checkout server is still running on port 4310 when the released app starts, it offers
+to stop it and then copies its keys, game scores and forks (once; the old folder is left
+untouched). If you already stopped it, copy `secrets.json`, `games.json`, `forks.json` and
+`archived-subagents.json` from `<checkout>/.paseo-command/` into
+`~/Library/Application Support/Paseo Command/` by hand while the app is closed.
 
 ### Security
 
@@ -110,14 +112,15 @@ checks against a mocked fleet.
 Once, on the maintainer's Mac: `npm run release:setup` creates the self-signed code-signing
 identity "Paseo Command Release" in the login keychain and the Sparkle update keys, and writes
 the public key (`SUPublicEDKey`) into `native/Info.plist` for you to commit and push. Then, from
-a clean `main`:
+`main`. It needs the checkout on `main`, clean and equal to `origin/main`, `gh` signed in, and a
+version greater than the latest GitHub release (`--dry-run` only warns about the first three):
 
 ```sh
 npm run release -- 0.2.1 [--notes notes.md] [--dry-run]
 ```
 
 It runs the checks and tests, builds and signs `Paseo Command.app`, zips it, writes the Sparkle
-appcast, commits `Release v0.2.1`, pushes `main` and creates the GitHub release with
+appcast, commits the version bump as `Release v0.2.1` (if package.json changes), pushes `main` and creates the GitHub release with
 `gh release create`. `--dry-run` does everything except commit, push and publish. The
 private keys stay in the keychain; nothing secret enters the repository.
 
