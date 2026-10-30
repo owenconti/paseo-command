@@ -34,23 +34,36 @@ enum OldInstall {
         let pids = (run("/usr/sbin/lsof", ["-nP", "-iTCP:\(port)", "-sTCP:LISTEN", "-t"]) ?? "")
             .split(separator: "\n").compactMap { Int32($0.trimmingCharacters(in: .whitespaces)) }
         for pid in pids {
-            guard let checkout = command(of: pid).flatMap(checkoutFromCommand) else { continue }
+            guard let checkout = command(of: pid).flatMap({ checkoutFromCommand($0) }) else { continue }
             return OldServer(pid: pid, checkout: checkout, launchAgent: launchAgent(for: checkout, home: home))
         }
         return nil
     }
 
     /// The checkout an old launcher's command line runs from: the path before its
-    /// `/scripts/app-server.mjs` or `/web/node_modules/.bin/vite`.
-    static func checkoutFromCommand(_ command: String) -> URL? {
+    /// `/scripts/app-server.mjs` or `/web/node_modules/.bin/vite`, accepted only
+    /// when `isCheckout` says it is a Paseo Command checkout. The path may contain
+    /// spaces: each absolute path that starts after a space is tried, longest first.
+    static func checkoutFromCommand(_ command: String, isCheckout: (URL) -> Bool = isCheckout) -> URL? {
         for marker in ["/scripts/app-server.mjs", "/web/node_modules/.bin/vite"] {
             guard let range = command.range(of: marker) else { continue }
-            // The path is the word before the marker (checkout paths with spaces aren't recognised).
-            let path = command[..<range.lowerBound].split(separator: " ").last.map(String.init) ?? ""
-            guard path.hasPrefix("/") else { continue }
-            return URL(fileURLWithPath: path, isDirectory: true)
+            let before = command[..<range.lowerBound]
+            let starts = [before.startIndex] + before.indices.filter { before[$0] == " " }.map(before.index(after:))
+            for start in starts where before[start...].hasPrefix("/") {
+                let folder = URL(fileURLWithPath: String(before[start...]), isDirectory: true)
+                if isCheckout(folder) { return folder }
+            }
         }
         return nil
+    }
+
+    /// A Paseo Command checkout: its `package.json` is named `paseo-command` and
+    /// it has the old launcher.
+    static func isCheckout(_ folder: URL) -> Bool {
+        guard FileManager.default.fileExists(atPath: folder.appendingPathComponent("scripts/app-server.mjs").path),
+              let data = try? Data(contentsOf: folder.appendingPathComponent("package.json")),
+              let package = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] else { return false }
+        return package["name"] as? String == "paseo-command"
     }
 
     /// `~/Library/LaunchAgents/com.paseo-command.serve.plist` when it runs `checkout`.
@@ -78,8 +91,9 @@ enum OldInstall {
             try FileManager.default.moveItem(at: plist, to: kept)
             Log.line("old server: unloaded its launch agent; kept it as \(kept.path)")
         }
-        // Still the old launcher (not a reused pid)? Booting out the agent may already have ended it.
-        if command(of: server.pid).flatMap(checkoutFromCommand) != nil {
+        // Still the same checkout's launcher (not a reused pid)? Booting out the agent may already have ended it.
+        if let running = command(of: server.pid).flatMap({ checkoutFromCommand($0) }),
+           running.standardizedFileURL.path == server.checkout.standardizedFileURL.path {
             kill(server.pid, SIGTERM)
             Log.line("old server: stopping process \(server.pid) from \(server.checkout.path)")
         }

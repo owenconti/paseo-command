@@ -10,13 +10,37 @@ func write(_ text: String, to url: URL) {
 func read(_ url: URL) -> String? { try? String(contentsOf: url, encoding: .utf8) }
 let names = ["secrets.json", "games.json", "forks.json", "archived-subagents.json"]
 
-// recognisesTheOldLauncherAndVite
-assert(OldInstall.checkoutFromCommand(#"/usr/local/bin/node /Users/example/dev/paseo-command/scripts/app-server.mjs --serve {"token":"t","port":4310}"#)?.path
+// recognisesTheOldLauncherAndVite (an injected folder check: only this checkout is one)
+let ours: (URL) -> Bool = { $0.path == "/Users/example/dev/paseo-command" }
+assert(OldInstall.checkoutFromCommand(#"/usr/local/bin/node /Users/example/dev/paseo-command/scripts/app-server.mjs --serve {"token":"t","port":4310}"#, isCheckout: ours)?.path
        == "/Users/example/dev/paseo-command")
-assert(OldInstall.checkoutFromCommand("node /Users/example/dev/paseo-command/web/node_modules/.bin/vite preview")?.path
+assert(OldInstall.checkoutFromCommand("node /Users/example/dev/paseo-command/web/node_modules/.bin/vite preview", isCheckout: ours)?.path
        == "/Users/example/dev/paseo-command")
-assert(OldInstall.checkoutFromCommand("/Applications/Other.app/Contents/MacOS/Other --port 4310") == nil)
-assert(OldInstall.checkoutFromCommand("node /Users/example/dev/other/server.mjs") == nil)
+assert(OldInstall.checkoutFromCommand("/Applications/Other.app/Contents/MacOS/Other --port 4310", isCheckout: { _ in true }) == nil)
+assert(OldInstall.checkoutFromCommand("node /Users/example/dev/other/web/node_modules/.bin/vite preview", isCheckout: ours) == nil,
+       "another project's vite is never the old launcher")
+// A checkout path with spaces.
+let spaced: (URL) -> Bool = { $0.path == "/Users/example/Code Projects/paseo-command" }
+assert(OldInstall.checkoutFromCommand("/usr/local/bin/node /Users/example/Code Projects/paseo-command/scripts/app-server.mjs --serve {}", isCheckout: spaced)?.path
+       == "/Users/example/Code Projects/paseo-command")
+
+// acceptsOnlyAPaseoCommandCheckout: package.json's name and the launcher decide.
+func project(_ name: String, launcher: Bool) -> URL {
+    let folder = root.appendingPathComponent("project \(UUID().uuidString)", isDirectory: true)
+    write(#"{"name":"\#(name)","private":true}"#, to: folder.appendingPathComponent("package.json"))
+    if launcher { write("// launcher", to: folder.appendingPathComponent("scripts/app-server.mjs")) }
+    return folder
+}
+do {
+    let real = project("paseo-command", launcher: true)
+    assert(OldInstall.isCheckout(real))
+    assert(OldInstall.checkoutFromCommand("node \(real.path)/web/node_modules/.bin/vite")?.path == real.path, "found with spaces in its path")
+    let other = project("some-other-app", launcher: true)
+    assert(!OldInstall.isCheckout(other))
+    assert(OldInstall.checkoutFromCommand("node \(other.path)/web/node_modules/.bin/vite") == nil)
+    assert(!OldInstall.isCheckout(project("paseo-command", launcher: false)))
+    assert(!OldInstall.isCheckout(root.appendingPathComponent("missing")))
+}
 
 // copiesTheFourFilesOnce
 do {
