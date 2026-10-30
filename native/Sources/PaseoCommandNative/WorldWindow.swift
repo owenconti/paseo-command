@@ -13,6 +13,8 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
     let web: WKWebView
     let split: PanelSplitView
     let drawer: TerminalDrawer
+    /// The map and page: the split's first side, and where the maximized terminal panel goes.
+    let content: NSView
     /// Covers the window until the map has drawn (see `revealWhenDrawn`).
     let splash: SplashView
     let atlasView: AtlasView
@@ -64,7 +66,7 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         splash.autoresizingMask = [.width, .height]
         root.addSubview(splash)
         window.contentView = root
-        let content = NSView(frame: split.bounds)
+        content = NSView(frame: split.bounds)
         content.autoresizingMask = [.width, .height]
         drawer = TerminalDrawer(frame: CGRect(x: 0, y: 0, width: 460, height: split.bounds.height))
         split.addArrangedSubview(content)
@@ -101,7 +103,8 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         scene.emit = { [weak self] message in self?.send(message) }
         drawer.server = { [weak self] in self?.serverURL ?? options.url }
         drawer.onMove = { [weak self] in self?.moveTerminal() }
-        if UserDefaults.standard.bool(forKey: "terminalOpen") { DispatchQueue.main.async { self.toggleTerminal() } }
+        drawer.onMaximize = { [weak self] in self?.maximizeTerminal() }
+        if UserDefaults.standard.bool(forKey: "terminalOpen") { DispatchQueue.main.async { self.setTerminal(open: true, newTab: false) } }
         if server != nil {
             showSplash("Starting the app server…")
             notice("Starting Paseo Command…", "Starting the app server on \(options.url.host ?? ""):\(options.url.port ?? 4310).")
@@ -235,6 +238,7 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         atlasView.isHidden = !scene.hasArt
         if resized { scene.size = frame.size; scene.viewportChanged() }
         atlasView.govern()
+        placeMaximized()
     }
 
     func windowDidResize(_ notification: Notification) {
@@ -431,8 +435,11 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
             let left = CGRect(x: 0, y: whole.height - bounds.height, width: bounds.width, height: bounds.height)
             if let world { ctx.draw(world, in: self.atlasView.frame.offsetBy(dx: 0, dy: left.minY)) }
             if let page, let image = page.cgImage(forProposedRect: nil, context: nil, hints: nil) { ctx.draw(image, in: left) }
-            if let terminal { ctx.draw(terminal, in: CGRect(x: self.drawer.frame.minX, y: whole.height - self.drawer.frame.maxY,
-                                                            width: self.drawer.frame.width, height: self.drawer.frame.height)) }
+            if let terminal {
+                // Beside the page in the split, or over its map when maximized.
+                let r = self.split.convert(self.drawer.frame, from: self.drawer.superview)
+                ctx.draw(terminal, in: CGRect(x: r.minX, y: whole.height - r.maxY, width: r.width, height: r.height))
+            }
             if let cover { ctx.draw(cover, in: whole) }
             guard let image = ctx.makeImage(),
                   let destination = CGImageDestinationCreateWithURL(URL(fileURLWithPath: path) as CFURL, "public.png" as CFString, 1, nil)
@@ -454,15 +461,19 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         return c.url ?? options.url
     }
 
-    /// Show or hide the terminal panel (View → Terminal, ⌃`), at the size it last had.
-    @objc func toggleTerminal() {
-        let open = drawer.isHidden
+    /// Show or hide the terminal panel (View → Terminal, ⌃`), at the size it last had;
+    /// opened so, it starts a new terminal in the selected workspace.
+    @objc func toggleTerminal() { setTerminal(open: drawer.isHidden, newTab: true) }
+
+    func setTerminal(open: Bool, newTab: Bool) {
+        guard open == drawer.isHidden else { return }
         if open {
             drawer.isHidden = false
             placeTerminal()
             drawer.setActive(true)
-            drawer.focusTerminal()
+            if newTab && drawer.workspace != nil { drawer.newTerminal() } else { drawer.focusTerminal() }
         } else {
+            setMaximized(false)
             saveTerminalSize()
             drawer.setActive(false)
             drawer.isHidden = true
@@ -472,10 +483,45 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         UserDefaults.standard.set(open, forKey: "terminalOpen")
     }
 
+    /// Cover the map with the terminal panel, or return it beside the map
+    /// (View → Maximize Terminal, ⇧⌘↩). The page's panels stay in view.
+    @objc func maximizeTerminal() {
+        if drawer.isHidden { setTerminal(open: true, newTab: false) }
+        setMaximized(!drawer.maximized)
+    }
+
+    private func setMaximized(_ on: Bool) {
+        guard on != drawer.maximized else { return }
+        if on {
+            saveTerminalSize()
+            split.removeArrangedSubview(drawer)
+            drawer.removeFromSuperview()
+            drawer.maximized = true
+            content.addSubview(drawer)
+            split.adjustSubviews()
+            placeMaximized()
+        } else {
+            drawer.removeFromSuperview()
+            drawer.maximized = false
+            split.addArrangedSubview(drawer)
+            split.setHoldingPriority(.defaultHigh, forSubviewAt: 1)
+            placeTerminal()
+        }
+        drawer.focusTerminal()
+        window.invalidateCursorRects(for: split)
+    }
+
+    /// The maximized panel lies exactly over the page's map (it follows the map as the page lays out).
+    private func placeMaximized() {
+        guard drawer.maximized else { return }
+        drawer.frame = viewport == nil ? content.bounds : atlasView.frame
+    }
+
     /// The panel's key for its saved size along the split: width on the right, height at the bottom.
     private var terminalSizeKey: String { drawer.dock == .right ? "terminalWidth" : "terminalHeight" }
 
     private func saveTerminalSize() {
+        guard !drawer.maximized else { return }
         UserDefaults.standard.set(drawer.dock == .right ? drawer.frame.width : drawer.frame.height, forKey: terminalSizeKey)
     }
 
@@ -491,11 +537,12 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
 
     /// Move the terminal panel between the right side and the bottom (View → Terminal at Bottom).
     @objc func moveTerminal() {
+        setMaximized(false)
         if !drawer.isHidden { saveTerminalSize() }
         drawer.dock = drawer.dock == .right ? .bottom : .right
         UserDefaults.standard.set(drawer.dock.rawValue, forKey: "terminalDock")
         split.isVertical = drawer.dock == .right
-        if drawer.isHidden { toggleTerminal() } else { placeTerminal(); drawer.focusTerminal() }
+        if drawer.isHidden { setTerminal(open: true, newTab: false) } else { placeTerminal(); drawer.focusTerminal() }
         window.invalidateCursorRects(for: split)
     }
 
