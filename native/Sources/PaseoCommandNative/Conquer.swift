@@ -22,7 +22,8 @@ final class ModeButton: NSButton {
     override func resetCursorRects() { addCursorRect(bounds, cursor: .pointingHand) }
 }
 
-/// The strip across the top of the window that switches between Command and Conquer (⌘` toggles).
+/// The strip across the top of the window that switches the map's place between the map (Command)
+/// and the browser (Conquer) (⌘` toggles).
 /// It stands in for the hidden title bar: the traffic lights sit at its left, it drags the
 /// window, and it says when a newer build is waiting for ⌘R. It is the same surface as the
 /// chrome under it (the page's panel header, Conquer's sidebar), with no line between them,
@@ -56,7 +57,7 @@ final class ModeBar: NSView {
             button.target = self
             button.action = #selector(pick(_:))
             button.tag = mode == .command ? 0 : 1
-            button.toolTip = mode == .command ? "The map and panels (⌘`)" : "The browser (⌘`)"
+            button.toolTip = mode == .command ? "The map (⌘`)" : "The browser, in the map's place (⌘`)"
             let symbol = NSImage(systemSymbolName: mode == .command ? "map" : "globe", accessibilityDescription: nil)
             button.image = symbol?.withSymbolConfiguration(.init(pointSize: 11, weight: .medium))
             button.imagePosition = .imageLeading
@@ -174,11 +175,6 @@ final class ConquerView: NSView, WKNavigationDelegate, WKUIDelegate, NSTextField
     ] + (1...9).map { n in Command(title: n == 9 ? "Last Tab" : "Tab \(n)", name: "tab\(n)", key: "\(n)", mods: .command, hidden: true) }
 
     let configuration = WKWebViewConfiguration()
-    /// Filling the window (Conquer mode) rather than the map area: there it takes its
-    /// keys whatever has focus; in the map area, only while it has the keyboard.
-    var fullWindow = true
-    /// The page bar's row, which the map area's Map / Browser switch leads.
-    var switchRow: NSStackView { pageBar.row }
     private var started = false
     private var onStarted: [() -> Void] = []
     /// Pinned tabs and folders, in the sidebar's order.
@@ -438,9 +434,10 @@ final class ConquerView: NSView, WKNavigationDelegate, WKUIDelegate, NSTextField
         }
     }
 
-    /// Conquer's keys come before the page's, as a browser's do.
+    /// Conquer's keys come before the page's, as a browser's do, while it has the
+    /// keyboard (the chat panel beside it keeps ⌘L and the rest).
     override func performKeyEquivalent(with event: NSEvent) -> Bool {
-        guard !isHiddenOrHasHiddenAncestor, fullWindow || hasKeyFocus, event.type == .keyDown, let key = event.charactersIgnoringModifiers else {
+        guard !isHiddenOrHasHiddenAncestor, hasKeyFocus, event.type == .keyDown, let key = event.charactersIgnoringModifiers else {
             return super.performKeyEquivalent(with: event)
         }
         let flags = event.modifierFlags.intersection([.command, .shift, .control, .option])
@@ -1376,37 +1373,6 @@ final class ConquerView: NSView, WKNavigationDelegate, WKUIDelegate, NSTextField
             find(arg, backwards: false)
         default: perform(line)
         }
-    }
-
-    /// The mode bar and Conquer as the user sees them, written as a PNG (checks):
-    /// the chrome's layers, with the current page's snapshot in its place.
-    func snapshot(under bar: NSView, to path: String) {
-        guard let window, let root = window.contentView else { return }
-        let scale = window.backingScaleFactor
-        let whole = root.bounds
-        func picture(_ view: NSView) -> CGImage? {
-            guard let layer = view.layer, let ctx = Textures.context(Int(view.bounds.width * scale), Int(view.bounds.height * scale)) else { return nil }
-            ctx.scaleBy(x: scale, y: scale)
-            layer.render(in: ctx)
-            return ctx.makeImage()
-        }
-        let chrome = picture(self), strip = picture(bar)
-        let page = current?.web
-        let draw = { (shot: NSImage?) in
-            guard let ctx = Textures.context(Int(whole.width * scale), Int(whole.height * scale)) else { return }
-            ctx.scaleBy(x: scale, y: scale)
-            if let chrome { ctx.draw(chrome, in: self.frame) }
-            if let strip { ctx.draw(strip, in: bar.frame) }
-            if let page, let image = shot?.cgImage(forProposedRect: nil, context: nil, hints: nil) {
-                ctx.draw(image, in: root.convert(page.bounds, from: page))
-            }
-            guard let image = ctx.makeImage(),
-                  let destination = CGImageDestinationCreateWithURL(URL(fileURLWithPath: path) as CFURL, "public.png" as CFString, 1, nil)
-            else { return }
-            CGImageDestinationAddImage(destination, image, nil)
-            CGImageDestinationFinalize(destination)
-        }
-        if let page { page.takeSnapshot(with: nil) { shot, _ in draw(shot) } } else { draw(nil) }
     }
 
     /// Conquer's state, for checks.

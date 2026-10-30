@@ -93,15 +93,14 @@ npm run native:run -- --url 'http://127.0.0.1:4332/?agent=a-1' --no-server
 
 ## Conquer
 
-The strip across the top switches between Command and Conquer (⌘` toggles), a tabbed browser with its own persistent
+The strip across the top switches the map's place between the map and Conquer (⌘` toggles), a tabbed browser with its own persistent
 cookie store. Conquer → Import Zen Cookies optionally copies Zen Browser's unexpired sessions after confirmation
 (from its profile's `cookies.sqlite`, default space only); opening Conquer does not import cookies automatically. Check runs (`--info`) keep its
 cookies and tabs to themselves; `notifyutil -p com.paseo.command.native.mode.<run>` switches sides, `….open.<run>`
 opens `<info>.url`'s address in a tab, `….conquer.<run>` runs `<info>.do`'s steps a second apart (a command's name,
 `folder <name>`, `into <n>`, `drag <tab> <folder|-> <index>`, `type <text>`, `find <text>`, `roundtrip`; see
 `ConquerView.check`), `….key.<run>` presses ⌘ and `<info>.key`'s character as a key press would, and the snapshot hook
-draws Conquer while it shows. `….app.<run>` flips the map's Map / Browser switch, and `….appopen.<run>` opens `<info>.url`
-as a link clicked in the chat would.
+draws Conquer over the map while it shows. `….appopen.<run>` opens `<info>.url` as a link clicked in the chat would.
 
 ## Checks without screen recording
 

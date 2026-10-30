@@ -175,8 +175,11 @@ Local assets belong in the repository and are included through local build tooli
   its art and ⏮ ⏯ ⏭; with Music closed it offers play, which opens Music without focus and resumes. The app reads and drives
   Music by AppleScript (`native/Sources/PaseoCommandNative/Music.swift`, about once a second while the window shows) over the
   `paseoMusic` message handler and `paseo:music` events; macOS asks once for Automation permission (`NSAppleEventsUsageDescription`).
-- Conquer (experiment): a strip across the macOS app's top switches between Command (the map, panels and terminal) and Conquer
-  (⌘` toggles; View menu; the tabs light on hover), a WebKit browser (`native/Sources/PaseoCommandNative/Conquer.swift`). The hidden side keeps running.
+- Conquer (experiment): the COMMAND / CONQUER strip across the macOS app's top (⌘` toggles; View menu; the tabs light on hover)
+  switches the map's place between the map and Conquer, a WebKit browser (`native/Sources/PaseoCommandNative/Conquer.swift`),
+  laid exactly over the map (`placeConquer` in `WorldWindow.swift`): the panels and terminal stay, and ⌘B (the page's panel toggle)
+  gives it the window's width. The hidden side keeps running. Conquer takes its keys only while it has the keyboard (`hasKeyFocus`),
+  so the chat panel keeps ⌘L and the rest.
   Back/forward/reload and the address bar (suggestions from its history, `ConquerExtras.swift`) run along the top of the page
   (`PageBar.swift`). Its sidebar, as in Zen and Arc: pinned tabs and their folders (one level; drag to reorder, pin above New Tab, unpin below it, into and out of folders;
   right-click for Pin, Back to Pinned Page, Replace Pinned URL with Current URL, Move to Folder, Rename, Delete), New Tab, then the other tabs (`ConquerTabs.swift`), each with
@@ -186,12 +189,8 @@ Local assets belong in the repository and are included through local build tooli
   optionally seeded after confirmation through Conquer → Import Zen Cookies from Zen Browser's profile (`ZenCookies.swift`): a copy of
   `cookies.sqlite`, default space only, unpartitioned and unexpired; Zen is never written to. Its tabs (`conquerState`), sidebar width, zooms,
   history (`~/Library/Application Support/Paseo Command/conquer-history.json`) and the mode come back on launch; tabs come back unloaded.
-- Conquer over the map: the map's Map / Browser switch (top centre of the map; View → Browser in Map Area, ⌥⌘`) moves the
-  same Conquer (sidebar, tabs, every feature) into the map's place (`placeConquer` in `WorldWindow.swift`); the switch then leads
-  its page bar, and ⌘B (the page's panel toggle) gives it the window's width. Conquer mode still shows it full-window. Over the
-  map it takes its keys only while it has the keyboard (`hasKeyFocus`), so the page keeps ⌘L and the rest. Web links clicked in
-  the chat (`.session`, `openInAppBrowser` in `web/src/Session.tsx`, `postAppLink` → the `openLink` message) open as a new
-  Conquer tab there, once its tabs are restored (`whenStarted`).
+- Web links clicked in the chat (`.session`, `openInAppBrowser` in `web/src/Session.tsx`, `postAppLink` → the `openLink` message)
+  switch to Conquer and open there as a new tab, once its tabs are restored (`whenStarted`).
 
 ## Atlas world
 

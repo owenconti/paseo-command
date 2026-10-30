@@ -1408,9 +1408,8 @@ function App() {
               ["terminal-bigger", "Bigger terminal text", "zoom font size larger", ["⌘", "+"]],
               ["terminal-smaller", "Smaller terminal text", "zoom font size", ["⌘", "−"]],
               ["terminal-actual", "Actual terminal text size", "zoom font reset", ["⌘", "0"]],
-              ["conquer", "Switch to Conquer", "browser mode web", ["⌘", "`"]],
+              ["conquer", "Switch between the map and the browser (Conquer)", "conquer browser mode web map", ["⌘", "`"]],
               ["conquer-tab", "New Conquer tab", "browser web open", undefined],
-              ["workspace-app", "Show the browser or the map", "conquer browser preview dev server map app", ["⌥", "⌘", "`"]],
               ["zen-cookies", "Import Zen cookies into Conquer", "browser sign in login sessions confirmation", undefined],
             ] as const
           ).map(([action, label, keywords, keys]) => ({

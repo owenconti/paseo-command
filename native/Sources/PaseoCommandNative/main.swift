@@ -134,7 +134,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         listen("com.paseo.command.native.unsplit") { [weak self] in self?.main?.drawer.unsplit() }
         listen("com.paseo.command.native.newterminal") { [weak self] in self?.main?.drawer.newTerminal() }
         listen("com.paseo.command.native.zoom") { [weak self] in self?.main?.drawer.zoom(1) }
-        listen("com.paseo.command.native.app") { [weak self] in self?.main?.toggleApp() }
         // Open `<info>.url`'s address as a link from the chat would (checks).
         listen("com.paseo.command.native.appopen") { [weak self] in
             guard let self, let info = self.options.info,
@@ -220,10 +219,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         let info: [String: Any] = [
             "window": main.window.windowNumber, "pids": main.processes(),
             "mode": main.mode.rawValue, "conquer": main.conquer.state(),
-            "app": main.showingApp, "conquerIn": main.conquer.isHidden ? "hidden" : main.conquer.fullWindow ? "window" : "map",
             "conquerFrame": NSStringFromRect(main.conquer.frame), "conquerFocus": main.conquer.hasKeyFocus,
-            "mapSwitch": ["hidden": main.mapSwitch.isHiddenOrHasHiddenAncestor, "frame": NSStringFromRect(main.mapSwitch.frame),
-                          "map": NSStringFromRect(main.atlasView.frame)],
+            "commandShown": !main.command.isHiddenOrHasHiddenAncestor,
             "visible": main.window.occlusionState.contains(.visible), "framesDrawn": main.scene.framesDrawn,
             "paused": main.atlasView.isPaused, "fps": main.atlasView.preferredFramesPerSecond,
             "terminal": main.drawer.state(),
@@ -280,9 +277,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
             item.target = self
             item.representedObject = mode.rawValue
         }
-        let app = view.addItem(withTitle: "Browser in Map Area", action: #selector(toggleApp), keyEquivalent: "`")
-        app.keyEquivalentModifierMask = [.command, .option]
-        app.target = self
         // ⌘` flips between the two (ahead of macOS's own window cycling, as the app has one window).
         view.addItem(withTitle: "Switch Command / Conquer", action: #selector(toggleMode), keyEquivalent: "`").target = self
         view.addItem(.separator())
@@ -329,7 +323,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     @objc private func maximizeTerminal() { main?.maximizeTerminal() }
     @objc private func unsplitTerminals() { main?.drawer.unsplit() }
     @objc private func zoomTerminal(_ sender: NSMenuItem) { main?.drawer.zoom(CGFloat(sender.tag)) }
-    @objc private func toggleApp() { main?.toggleApp() }
     @objc private func toggleMode() {
         guard let main else { return }
         main.show(main.mode == .command ? .conquer : .command)
@@ -345,26 +338,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
 
     func validateMenuItem(_ item: NSMenuItem) -> Bool {
         guard let main else { return false }
-        let browsing = main.mode == .conquer
-        // Conquer's commands: in Conquer mode, or over the map while it has the keyboard.
-        let browser = browsing || (main.showingApp && main.conquer.hasKeyFocus)
+        // Conquer's commands: while it shows and has the keyboard (the chat panel keeps them otherwise).
+        let browser = main.mode == .conquer && main.conquer.hasKeyFocus
         closeWindow?.keyEquivalent = browser ? "" : "w"
         switch item.action {
-        case #selector(toggleApp):
-            item.state = main.showingApp ? .on : .off
-            return !browsing
         case #selector(showMode(_:)): item.state = item.representedObject as? String == main.mode.rawValue ? .on : .off
         case #selector(conquerCommand(_:)):
             if item.representedObject as? String == "togglePin" { item.title = main.conquer.current?.isPinned == true ? "Unpin Tab" : "Pin Tab" }
             return browser
-        case #selector(toggleTerminal), #selector(moveTerminal): return !browsing
         case #selector(moveTerminal): item.state = main.drawer.dock == .bottom ? .on : .off
-        case #selector(unsplitTerminals): return !browsing && !main.drawer.isHidden && main.drawer.isSplit
+        case #selector(unsplitTerminals): return !main.drawer.isHidden && main.drawer.isSplit
         case #selector(maximizeTerminal):
             item.state = main.drawer.maximized ? .on : .off
-            return !browsing && !main.drawer.isHidden
+            return !main.drawer.isHidden
         // Only while the terminal shows, so the keys stay the page's otherwise.
-        case #selector(zoomTerminal(_:)): return !browsing && !main.drawer.isHidden
+        case #selector(zoomTerminal(_:)): return !main.drawer.isHidden
         default: break
         }
         return true
@@ -375,7 +363,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     @objc func reloadApp(_ sender: Any?) {
         guard let main, !reloading else { return }
         // In Conquer, ⌘R reloads its page, unless a newer build is waiting.
-        if (main.mode == .conquer || (main.showingApp && main.conquer.hasKeyFocus)) && !Build.newer { return main.conquer.reloadPage() }
+        if main.mode == .conquer && main.conquer.hasKeyFocus && !Build.newer { return main.conquer.reloadPage() }
         reloading = true
         // The splash covers the reload; a newer build's copy puts up its own.
         main.showSplash("Reloading…")
