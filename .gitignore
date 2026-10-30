@@ -34,3 +34,4 @@ credentials.json
 *.sqlite-*
 *.db
 *.db-*
+web/dist-server/

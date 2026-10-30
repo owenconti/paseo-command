@@ -7,6 +7,7 @@
     "app:install": "npm --prefix rendering install && npm --prefix web install",
     "app:dev": "npm --prefix web run dev",
     "app:build": "npm run render:test && npm --prefix web run build",
+    "app:bundle-server": "npm --prefix web run bundle:server",
     "app:typecheck": "npm --prefix web run typecheck",
     "render:install": "npm --prefix rendering install",
     "render:test": "node --experimental-strip-types --test rendering/tests/*.test.mjs",
