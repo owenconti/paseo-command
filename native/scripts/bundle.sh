@@ -1,8 +1,10 @@
 #!/bin/sh
 # Build the native app with its own Node, server and page.
 #   sh native/scripts/bundle.sh             native/build/Paseo Command Dev.app (port 4321, ad-hoc signed)
-#   sh native/scripts/bundle.sh --release   native/build/Paseo Command.app (port 4310, signed as
+#   sh native/scripts/bundle.sh --release   native/release/Paseo Command.app (port 4310, signed as
 #                                           "Paseo Command Release", updating itself with Sparkle)
+# The release goes to its own folder so it never replaces the old checkout app, which some
+# checkouts still have at native/build/Paseo Command.app.
 # Needs web/dist (npm run app:build) and web/dist-server/server.mjs (npm run app:bundle-server).
 # A running copy keeps running: the new executable replaces the old one's file, and Restart app in
 # the command palette swaps to it (see main.swift's `reload`).
@@ -26,10 +28,10 @@ if [ "$flavour" = release ]; then
     echo "No \"$identity\" signing identity in the login keychain. Run npm run release:setup first." >&2
     exit 1
   fi
-  name="Paseo Command"; id=io.github.owenconti.paseo-command; port=4310
+  name="Paseo Command"; id=io.github.owenconti.paseo-command; port=4310; out=release
 else
   identity=-
-  name="Paseo Command Dev"; id=io.github.owenconti.paseo-command.dev; port=4321
+  name="Paseo Command Dev"; id=io.github.owenconti.paseo-command.dev; port=4321; out=build
 fi
 cd "$here"
 [ -f "$root/web/dist/index.html" ] || { echo "Missing web/dist: run npm run app:build first." >&2; exit 1; }
@@ -38,7 +40,7 @@ node scripts/theme.mjs --check
 swift build -c "$config"
 bin=$(swift build -c "$config" --show-bin-path)
 node_bin=$(node scripts/fetch-node.mjs)
-app="$here/build/$name.app"
+app="$here/$out/$name.app"
 mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources/node" "$app/Contents/Resources/server"
 cp "$here/Info.plist" "$app/Contents/Info.plist"
 plist="$app/Contents/Info.plist"
@@ -82,13 +84,21 @@ mkdir -p "$app/Contents/Frameworks"
 rm -rf "$app/Contents/Frameworks/Sparkle.framework"
 ditto "$bin/Sparkle.framework" "$app/Contents/Frameworks/Sparkle.framework"
 # Signed inside out, without --deep: Node, Sparkle's helpers then Sparkle (as Sparkle's
-# docs sign it outside Xcode), then the app.
-codesign --force --sign "$identity" "$app/Contents/Resources/node/node" >/dev/null 2>&1
+# docs sign it outside Xcode), then the app. codesign's own output is kept for a failure.
+sign() {
+  target=$1; shift
+  if ! log=$(codesign --force --sign "$identity" "$@" "$target" 2>&1); then
+    echo "codesign failed for $target:" >&2
+    echo "$log" >&2
+    exit 1
+  fi
+}
+sign "$app/Contents/Resources/node/node"
 sparkle="$app/Contents/Frameworks/Sparkle.framework/Versions/B"
-codesign --force --sign "$identity" -o runtime "$sparkle/XPCServices/Installer.xpc" >/dev/null 2>&1
-codesign --force --sign "$identity" -o runtime --preserve-metadata=entitlements "$sparkle/XPCServices/Downloader.xpc" >/dev/null 2>&1
-codesign --force --sign "$identity" -o runtime "$sparkle/Autoupdate" >/dev/null 2>&1
-codesign --force --sign "$identity" -o runtime "$sparkle/Updater.app" >/dev/null 2>&1
-codesign --force --sign "$identity" -o runtime "$app/Contents/Frameworks/Sparkle.framework" >/dev/null 2>&1
-codesign --force --sign "$identity" "$app" >/dev/null 2>&1
+sign "$sparkle/XPCServices/Installer.xpc" -o runtime
+sign "$sparkle/XPCServices/Downloader.xpc" -o runtime --preserve-metadata=entitlements
+sign "$sparkle/Autoupdate" -o runtime
+sign "$sparkle/Updater.app" -o runtime
+sign "$app/Contents/Frameworks/Sparkle.framework" -o runtime
+sign "$app"
 echo "$app"

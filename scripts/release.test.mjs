@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { newer, parseArgs } from './release.mjs';
+import { appcastXML } from './appcast.mjs';
+import { appcastBuild, buildIsNewer, newer, parseArgs } from './release.mjs';
 
 test('the version is found in any position, with or without options', () => {
   assert.deepEqual(parseArgs(['0.2.0']), { version: '0.2.0', notes: undefined, dryRun: false });
@@ -30,4 +31,21 @@ test('versions compare numerically', () => {
   assert.ok(newer('0.10.0', '0.9.9'));
   assert.ok(!newer('0.2.0', '0.2.0'));
   assert.ok(!newer('0.1.9', '0.2.0'));
+});
+
+test('the published build number is read from an appcast', () => {
+  const xml = appcastXML({ version: '0.2.0', build: '512', date: 0, url: 'https://x/a.zip', length: 1, edSignature: 'sig', notesHTML: '' });
+  assert.equal(appcastBuild(xml), 512);
+  assert.equal(appcastBuild('<item><sparkle:version>77</sparkle:version></item>'), 77);
+  assert.equal(appcastBuild('<item sparkle:version="3"/><item sparkle:version="40"/>'), 40);
+  assert.equal(appcastBuild('<rss/>'), undefined);
+});
+
+test('a build must be strictly greater than the published one', () => {
+  assert.ok(buildIsNewer('513', 512));
+  assert.ok(!buildIsNewer('512', 512));
+  assert.ok(!buildIsNewer('99', 512));
+  assert.ok(buildIsNewer('1000', 999), 'numeric, not textual');
+  assert.ok(buildIsNewer('1', undefined), 'nothing published yet');
+  assert.ok(!buildIsNewer('abc', undefined));
 });

@@ -10,15 +10,18 @@ const run = (cmd, args) => execFileSync(cmd, args, { encoding: 'utf8', stdio: ['
 const pinned = JSON.parse(readFileSync(join(root, 'native/node-version.json'), 'utf8')).version;
 const version = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')).version;
 const flavours = [
-  { flavour: 'dev', dir: 'Paseo Command Dev.app', id: 'io.github.owenconti.paseo-command.dev', name: 'Paseo Command Dev', port: '4321' },
-  { flavour: 'release', dir: 'Paseo Command.app', id: 'io.github.owenconti.paseo-command', name: 'Paseo Command', port: '4310' },
+  { flavour: 'dev', dir: 'native/build/Paseo Command Dev.app', id: 'io.github.owenconti.paseo-command.dev', name: 'Paseo Command Dev', port: '4321' },
+  { flavour: 'release', dir: 'native/release/Paseo Command.app', id: 'io.github.owenconti.paseo-command', name: 'Paseo Command', port: '4310' },
 ];
 
 let checked = 0;
 const failures = [];
 for (const f of flavours) {
-  const app = join(root, 'native/build', f.dir);
+  const app = join(root, f.dir);
   if (!existsSync(app)) { console.log(`skip ${f.dir}: not built`); continue; }
+  const key = k => { try { return run('/usr/libexec/PlistBuddy', ['-c', `Print :${k}`, join(app, 'Contents/Info.plist')]); } catch { return '<missing>'; } };
+  // An app from before the flavours (the old checkout app) is not one of these bundles.
+  if (key('PaseoCommandFlavor') === '<missing>') { console.log(`skip ${f.dir}: no PaseoCommandFlavor (an older build)`); continue; }
   const check = (label, ok, detail = '') => { if (!ok) failures.push(`${f.dir}: ${label} ${detail}`.trim()); };
   const res = join(app, 'Contents/Resources');
   const node = join(res, 'node/node');
@@ -30,7 +33,6 @@ for (const f of flavours) {
   }
   check('server.mjs', existsSync(join(res, 'server/server.mjs')));
   check('ui/index.html', existsSync(join(res, 'ui/index.html')));
-  const key = k => { try { return run('/usr/libexec/PlistBuddy', ['-c', `Print :${k}`, join(app, 'Contents/Info.plist')]); } catch { return '<missing>'; } };
   for (const [k, want] of [
     ['CFBundleIdentifier', f.id], ['CFBundleName', f.name], ['CFBundleShortVersionString', version],
     ['PaseoCommandFlavor', f.flavour], ['PaseoCommandPort', f.port],

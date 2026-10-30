@@ -17,6 +17,7 @@ const packagePath = join(root, 'package.json');
 const sparkleBin = join(root, 'native', '.build', 'artifacts', 'sparkle', 'Sparkle', 'bin');
 const releaseDir = join(root, 'native', 'release');
 const REPO_URL = 'https://github.com/owenconti/paseo-command';
+const FEED_URL = `${REPO_URL}/releases/latest/download/appcast.xml`;
 
 const USAGE = 'usage: npm run release -- <version> [--notes <file>] [--dry-run]  (version like 0.2.1)';
 
@@ -59,6 +60,36 @@ export function newer(a, b) {
   const [x, y] = [parse(a), parse(b)];
   for (let i = 0; i < 3; i++) if (x[i] !== y[i]) return x[i] > y[i];
   return false;
+}
+
+/** The highest `sparkle:version` (build number) in an appcast, attribute or element, or undefined. */
+export function appcastBuild(xml) {
+  const builds = [...xml.matchAll(/sparkle:version(?:="|>)\s*(\d+)/g)].map((m) => Number(m[1]));
+  return builds.length ? Math.max(...builds) : undefined;
+}
+
+/** Sparkle installs an update only when its build number is greater than the installed one's. */
+export function buildIsNewer(build, published) {
+  return /^\d+$/.test(String(build)) && (published === undefined || Number(build) > published);
+}
+
+/** The published appcast's build number; undefined when nothing is published yet (404). */
+async function publishedBuild() {
+  let response;
+  try {
+    response = await fetch(FEED_URL, { redirect: 'follow' });
+  } catch (error) {
+    check(false, `Could not fetch the published appcast (${error.message}), so the build number can't be checked.`);
+    return undefined;
+  }
+  if (response.status === 404) return undefined;
+  if (!response.ok) {
+    check(false, `Fetching the published appcast gave HTTP ${response.status}, so the build number can't be checked.`);
+    return undefined;
+  }
+  const build = appcastBuild(await response.text());
+  if (build === undefined) throw new Error(`The published appcast (${FEED_URL}) has no sparkle:version.`);
+  return build;
 }
 
 /** Notes as Sparkle shows them: Markdown bullets and paragraphs as simple HTML. */
@@ -109,8 +140,10 @@ function latestPublished(tags) {
     .reduce((best, v) => (best === undefined || newer(v, best) ? v : best), undefined);
 }
 
-function main(original, tmp) {
+async function main(original, tmp) {
   step('Checking the checkout');
+  // The build number is the commit count, which a shallow clone gets wrong.
+  if (git('rev-parse', '--is-shallow-repository') === 'true') throw new Error('This is a shallow clone. Run git fetch --unshallow first.');
   check(git('rev-parse', '--abbrev-ref', 'HEAD') === 'main', 'Releases are made from main.');
   check(git('status', '--porcelain', '--untracked-files=no') === '', 'The working tree has uncommitted changes.');
   git('fetch', 'origin');
@@ -129,6 +162,10 @@ function main(original, tmp) {
   const latest = latestPublished(tags);
   if (latest && !newer(version, latest)) throw new Error(`Version ${version} must be greater than the latest release ${latest}.`);
   console.log(latest ? `Latest release is ${latest}.` : 'No release is published yet.');
+  // bundle.sh numbers the build by the commit count; Sparkle skips a build that isn't newer.
+  const nextBuild = git('rev-list', '--count', 'HEAD');
+  const lastBuild = await publishedBuild();
+  if (!buildIsNewer(nextBuild, lastBuild)) throw new Error(`Build ${nextBuild} must be greater than the published build ${lastBuild}, or installed apps won't update.`);
 
   step('Tests');
   const failures = [];
@@ -149,7 +186,7 @@ function main(original, tmp) {
   out('npm', ['run', 'app:bundle-server'], { stdio: 'inherit' });
   const bundle = spawnSync('sh', ['native/scripts/bundle.sh', '--release'], { cwd: root, stdio: 'inherit' });
   if (bundle.status !== 0) throw new Error('The release build failed (see above). If it asks for it, run npm run release:setup first.');
-  const app = join(root, 'native', 'build', 'Paseo Command.app');
+  const app = join(releaseDir, 'Paseo Command.app');
 
   step('Zipping and signing');
   mkdirSync(releaseDir, { recursive: true });
@@ -161,6 +198,7 @@ function main(original, tmp) {
   if (!edSignature) throw new Error(`sign_update printed no signature: ${signed}`);
   const length = statSync(zip).size;
   const build = out('/usr/libexec/PlistBuddy', ['-c', 'Print :CFBundleVersion', join(app, 'Contents', 'Info.plist')]);
+  if (!buildIsNewer(build, lastBuild)) throw new Error(`The app's build ${build} is not greater than the published build ${lastBuild}.`);
   writeFileSync(
     join(releaseDir, 'appcast.xml'),
     appcastXML({
@@ -199,6 +237,7 @@ function main(original, tmp) {
   }
   const sha = git('rev-parse', 'HEAD');
   if (bumped) git('push', 'origin', 'main');
+  else console.log(`package.json already says ${version}: nothing to commit or push.`);
   const appcast = join(releaseDir, 'appcast.xml');
   const create = ['release', 'create', `v${version}`, '--target', sha, '--title', `Paseo Command ${version}`, '--notes-file', notesPath, zip, appcast];
   try {
@@ -206,18 +245,19 @@ function main(original, tmp) {
   } catch {
     const kept = join(releaseDir, `release-notes-${version}.md`);
     writeFileSync(kept, notes);
-    throw new Error(`main is pushed (${sha}) but creating the GitHub release failed. Finish by hand:\n  gh release create v${version} --target ${sha} --title "Paseo Command ${version}" --notes-file ${kept} ${zip} ${appcast}`);
+    const state = bumped ? `Release v${version} is committed and main is pushed (${sha})` : `Nothing was committed or pushed (main is at ${sha})`;
+    throw new Error(`${state}, but creating the GitHub release failed. Finish by hand:\n  gh release create v${version} --target ${sha} --title "Paseo Command ${version}" --notes-file ${kept} ${zip} ${appcast}`);
   }
   console.log(`\nReleased v${version} at ${sha}.`);
 }
 
-function run() {
+async function run() {
   const parsed = parseArgs(process.argv.slice(2));
   ({ version, notes: notesFile, dryRun } = parsed);
   const original = readFileSync(packagePath, 'utf8');
   const tmp = mkdtempSync(join(tmpdir(), 'paseo-release-'));
   try {
-    main(original, tmp);
+    await main(original, tmp);
   } catch (error) {
     console.error(`\n${error.message}`);
     process.exitCode = 1;
@@ -229,10 +269,8 @@ function run() {
 }
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
-  try {
-    run();
-  } catch (error) {
+  run().catch((error) => {
     console.error(error.message);
     process.exit(1);
-  }
+  });
 }
