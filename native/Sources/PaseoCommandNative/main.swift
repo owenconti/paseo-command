@@ -103,6 +103,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         listen("com.paseo.command.native.dock") { [weak self] in self?.main?.moveTerminal() }
         listen("com.paseo.command.native.maximize") { [weak self] in self?.main?.maximizeTerminal() }
         listen("com.paseo.command.native.split") { [weak self] in self?.main?.drawer.splitForCheck() }
+        listen("com.paseo.command.native.unsplit") { [weak self] in self?.main?.drawer.unsplit() }
         listen("com.paseo.command.native.newterminal") { [weak self] in self?.main?.drawer.newTerminal() }
         listen("com.paseo.command.native.zoom") { [weak self] in self?.main?.drawer.zoom(1) }
         // Type `<info>.type`'s text into the drawer's terminal, as keys would.
@@ -209,6 +210,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         let maximize = view.addItem(withTitle: "Maximize Terminal", action: #selector(maximizeTerminal), keyEquivalent: "\r")
         maximize.target = self
         maximize.keyEquivalentModifierMask = [.command, .shift]
+        let unsplit = view.addItem(withTitle: "Unsplit Terminals", action: #selector(unsplitTerminals), keyEquivalent: "")
+        unsplit.target = self
         view.addItem(.separator())
         // The terminals' text size. ⌘= reaches "Bigger" too, as ⌘+ needs ⇧ on most layouts.
         for (title, key, step, hidden) in [("Bigger Terminal Text", "+", 1, false), ("Bigger Terminal Text", "=", 1, true),
@@ -236,12 +239,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     @objc private func toggleTerminal() { main?.toggleTerminal() }
     @objc private func moveTerminal() { main?.moveTerminal() }
     @objc private func maximizeTerminal() { main?.maximizeTerminal() }
+    @objc private func unsplitTerminals() { main?.drawer.unsplit() }
     @objc private func zoomTerminal(_ sender: NSMenuItem) { main?.drawer.zoom(CGFloat(sender.tag)) }
 
     func validateMenuItem(_ item: NSMenuItem) -> Bool {
         guard let main else { return false }
         switch item.action {
         case #selector(moveTerminal): item.state = main.drawer.dock == .bottom ? .on : .off
+        case #selector(unsplitTerminals): return !main.drawer.isHidden && main.drawer.isSplit
         case #selector(maximizeTerminal):
             item.state = main.drawer.maximized ? .on : .off
             return !main.drawer.isHidden

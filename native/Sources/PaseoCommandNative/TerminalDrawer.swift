@@ -403,6 +403,10 @@ final class TerminalDrawer: NSView {
     private let add = NSButton(title: "+", target: nil, action: nil)
     private let move = NSButton(title: "", target: nil, action: nil)
     private let grow = NSButton(title: "", target: nil, action: nil)
+    private let join = NSButton(title: "", target: nil, action: nil)
+    /// Over the tab bar while a tab is carried: dropped there, a pane's tab goes back to being only a tab.
+    private let barCatcher = PaneDropCatcher()
+    private let barText = NSTextField(labelWithString: "Back to tabs")
     /// Asked to move the panel to the other side (the window owns the split).
     var onMove: (() -> Void)?
     /// Asked to cover the map, or return beside it.
@@ -412,13 +416,13 @@ final class TerminalDrawer: NSView {
     private var lineConstraints: [NSLayoutConstraint] = []
     var dock: TerminalDock = .right { didSet { placeLine() } }
     /// Over the map (the page's panels stay beside it) rather than in the split.
-    var maximized = false {
-        didSet {
-            line.isHidden = maximized
-            grow.image = NSImage(systemSymbolName: maximized ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right",
-                                 accessibilityDescription: maximized ? "Restore terminal" : "Maximize terminal")
-            grow.toolTip = maximized ? "Restore the terminal beside the map (⇧⌘↩)" : "Maximize the terminal over the map (⇧⌘↩)"
-        }
+    var maximized = false { didSet { placeGrow() } }
+
+    private func placeGrow() {
+        line.isHidden = maximized
+        grow.image = NSImage(systemSymbolName: maximized ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right",
+                             accessibilityDescription: maximized ? "Restore terminal" : "Maximize terminal")
+        grow.toolTip = maximized ? "Restore the terminal beside the map (⇧⌘↩)" : "Maximize the terminal over the map (⇧⌘↩)"
     }
 
     /// The terminals' text size, kept across launches (⌘+, ⌘−, ⌘0).
@@ -453,7 +457,8 @@ final class TerminalDrawer: NSView {
         tabBar.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         for (button, help, action) in [(add, "New terminal in this workspace", #selector(newTerminal)),
                                        (move, "", #selector(moveDock)),
-                                       (grow, "", #selector(maximize))] {
+                                       (grow, "", #selector(maximize)),
+                                       (join, "Unsplit: one terminal at a time, the others as tabs", #selector(unsplit))] {
             button.bezelStyle = .accessoryBarAction
             button.controlSize = .small
             button.toolTip = help
@@ -462,7 +467,8 @@ final class TerminalDrawer: NSView {
         }
         let spacer = NSView()
         spacer.setContentHuggingPriority(.init(1), for: .horizontal)
-        for v in [title, tabBar, add, spacer, move, grow] { bar.addArrangedSubview(v) }
+        join.image = NSImage(systemSymbolName: "rectangle.split.2x1.slash", accessibilityDescription: "Unsplit terminals")
+        for v in [title, tabBar, add, spacer, join, move, grow] { bar.addArrangedSubview(v) }
         empty.textColor = Textures.color(0xa8a08a)
         empty.font = .systemFont(ofSize: 12)
         empty.alignment = .center
@@ -494,7 +500,18 @@ final class TerminalDrawer: NSView {
         catcher.onDrop = { [weak self] id, point in self?.drop(id, at: point) ?? false }
         catcher.onLeave = { [weak self] in self?.marker.isHidden = true }
         body.addSubview(catcher)
-        for v in [bar, body, empty] {
+        barCatcher.wantsLayer = true
+        barCatcher.layer?.cornerRadius = 5
+        barCatcher.layer?.borderWidth = 2
+        barCatcher.isHidden = true
+        barText.font = .systemFont(ofSize: 11, weight: .semibold)
+        barText.textColor = Textures.color(0xf2e1b2)
+        barText.translatesAutoresizingMaskIntoConstraints = false
+        barCatcher.addSubview(barText)
+        barCatcher.onHover = { [weak self] id, _ in self?.hoverBar(id) ?? false }
+        barCatcher.onDrop = { [weak self] id, _ in self?.dropOnBar(id) ?? false }
+        barCatcher.onLeave = { [weak self] in self?.hoverBar(nil) }
+        for v in [bar, body, empty, barCatcher] {
             v.translatesAutoresizingMaskIntoConstraints = false
             addSubview(v)
         }
@@ -502,12 +519,18 @@ final class TerminalDrawer: NSView {
         line.translatesAutoresizingMaskIntoConstraints = false
         addSubview(line)
         placeLine()
-        maximized = false
+        placeGrow()
         NSLayoutConstraint.activate([
             bar.topAnchor.constraint(equalTo: topAnchor, constant: 1),
             bar.leadingAnchor.constraint(equalTo: leadingAnchor),
             bar.trailingAnchor.constraint(equalTo: trailingAnchor),
             bar.heightAnchor.constraint(equalToConstant: 30),
+            barCatcher.topAnchor.constraint(equalTo: bar.topAnchor, constant: 2),
+            barCatcher.bottomAnchor.constraint(equalTo: bar.bottomAnchor, constant: -2),
+            barCatcher.leadingAnchor.constraint(equalTo: bar.leadingAnchor, constant: 4),
+            barCatcher.trailingAnchor.constraint(equalTo: bar.trailingAnchor, constant: -4),
+            barText.centerXAnchor.constraint(equalTo: barCatcher.centerXAnchor),
+            barText.centerYAnchor.constraint(equalTo: barCatcher.centerYAnchor),
             body.topAnchor.constraint(equalTo: bar.bottomAnchor),
             body.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 6),
             body.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -6),
@@ -549,6 +572,17 @@ final class TerminalDrawer: NSView {
 
     @objc private func moveDock() { onMove?() }
     @objc private func maximize() { onMaximize?() }
+
+    /// Whether the body shows more than one pane.
+    var isSplit: Bool { (layout?.terminals.count ?? 0) > 1 }
+
+    /// Back to one pane, the current terminal's; the others stay as tabs (View → Unsplit Terminals).
+    @objc func unsplit() {
+        guard isSplit, let keep = current ?? layout?.terminals.first else { return }
+        layout = .pane(keep)
+        render()
+        focusTerminal()
+    }
 
     /// Change the terminals' text size by `step` points (0 restores the default).
     func zoom(_ step: CGFloat) {
@@ -648,6 +682,7 @@ final class TerminalDrawer: NSView {
             empty.stringValue = "No terminals in \(ws!.name). Press + to open one."
         }
         empty.isHidden = ws != nil && layout != nil
+        join.isHidden = !isSplit
         buildPanes()
         // With more than one pane, the current one is rimmed.
         let several = panes.count > 1
@@ -783,7 +818,30 @@ final class TerminalDrawer: NSView {
     /// While a tab is carried, the catcher covers the panes (and the marker shows where it would land).
     private func dragging(_ began: Bool) {
         catcher.isHidden = !began
-        if !began { marker.isHidden = true }
+        // The bar takes a drop only when there are panes to leave.
+        barCatcher.isHidden = !began || !isSplit
+        if !began { marker.isHidden = true; hoverBar(nil) }
+    }
+
+    /// The tab bar under a carried tab (nil when it left): lit while dropping
+    /// there would take that terminal out of the panes.
+    @discardableResult
+    private func hoverBar(_ id: String?) -> Bool {
+        let can = id.map { id in isSplit && layout?.terminals.contains(id) == true } ?? false
+        barCatcher.layer?.backgroundColor = can ? Textures.color(0x101614).withAlphaComponent(0.92).cgColor : NSColor.clear.cgColor
+        barCatcher.layer?.borderColor = can ? Textures.color(0xf2c14e).withAlphaComponent(0.8).cgColor : NSColor.clear.cgColor
+        barText.isHidden = !can
+        return can
+    }
+
+    private func dropOnBar(_ id: String) -> Bool {
+        hoverBar(nil)
+        guard isSplit, let next = layout?.removing(id) else { return false }
+        layout = next
+        if current == id { current = next.terminals.first }
+        render()
+        focusTerminal()
+        return true
     }
 
     private func hover(_ id: String, at point: NSPoint) -> Bool {
