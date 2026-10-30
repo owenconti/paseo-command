@@ -65,6 +65,9 @@ export function CommandPalette({
   );
 }
 
+/** Opening is quick (under 300ms in all), not the app's slower spring. */
+const ENTER = { duration: 0.16, ease: [0.2, 0.8, 0.2, 1] } as const;
+
 function PaletteDialog({
   commands,
   onClose,
@@ -117,7 +120,7 @@ function PaletteDialog({
       aria-hidden={!present || undefined}
       style={!present ? { pointerEvents: "none" } : undefined}
       initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
+      animate={{ opacity: 1, transition: { duration: 0.12 } }}
       exit={{ opacity: 0, transition: { duration: 0.12 } }}
       onClick={onClose}
     >
@@ -129,7 +132,7 @@ function PaletteDialog({
         aria-label="Command palette"
         className="command-palette panel"
         initial={{ opacity: 0, y: -8, scale: 0.98 }}
-        animate={{ opacity: 1, y: 0, scale: 1 }}
+        animate={{ opacity: 1, y: 0, scale: 1, transition: ENTER }}
         exit={{ opacity: 0, y: -6, scale: 0.98, transition: { duration: 0.1 } }}
         onClick={(e) => e.stopPropagation()}
         // Keys pressed here are the palette's (not J/K/N/D shortcuts).
