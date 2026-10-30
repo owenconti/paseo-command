@@ -1,4 +1,4 @@
-import type { ShortcutKey } from "./appReload";
+import type { ShortcutKey } from "./shortcutKey";
 
 /** Cmd+N opens the Dispatch Agent flow from anywhere, typing included: no
  * macOS text field uses Cmd+N (Ctrl+N, which moves the caret down a line, is

@@ -11,10 +11,10 @@ npm run native:run -- --url http://127.0.0.1:4331/
 ```
 
 **Updating without relaunching.** `npm run native:build` replaces the executable inside the bundle
-while a copy runs. The running copy shows "Update ready · ⌘R" at the right of its mode bar; ⌘R (View → Reload)
-first brings its own server up to date (`scripts/app-server.mjs refresh`: a restart only when the
-server's code changed), then reloads the page and, when a newer native build is on disk, swaps the app
-for it in place, at the same window position and page. After merging, `npm run app:update` rebuilds
+while a copy runs. The running copy shows "Update ready · Restart app" at the right of its mode bar. Choose **Restart app** in
+the command palette (⌘K); it has no keyboard shortcut or native menu item. This first brings its own server up to date (`scripts/app-server.mjs refresh`: a restart only when the
+server's code changed), then restarts the app with the latest build
+at the same window position and page. After merging, `npm run app:update` rebuilds
 both the web app and this one without restarting the server.
 
 **It runs its own server.** When the page it shows is on this machine (the default
@@ -111,7 +111,7 @@ ignores them; such a copy keeps its page storage in memory, apart from the user'
 `com.paseo.command.native.eval` runs `/tmp/x.js` in the page and writes `/tmp/x.out`;
 `.snapshot` writes `/tmp/x.png` (SpriteKit's frame under the page's snapshot); `.info` rewrites
 `/tmp/x.json` (with the terminal panel's state); `.pan` drags the map for 10 s; `.resize` alternates
-the window size; `.reload` does what ⌘R does; `.terminal` toggles the panel; `.dock` moves it between right and bottom; `.maximize` lays it over the map and back; `.divider` drags the panel's divider 150 points towards the map; `.split` splits the current pane with another tab; `.unsplit` returns to one pane; `.newterminal` opens a terminal; `.zoom` enlarges its text; `.type` types
+the window size; `.reload` runs the palette’s Restart app command; `.terminal` toggles the panel; `.dock` moves it between right and bottom; `.maximize` lays it over the map and back; `.divider` drags the panel's divider 150 points towards the map; `.split` splits the current pane with another tab; `.unsplit` returns to one pane; `.newterminal` opens a terminal; `.zoom` enlarges its text; `.type` types
 `/tmp/x.type` into its terminal; `.quit`.
 
 Measurements against the web Atlas are in [MEASUREMENTS.md](MEASUREMENTS.md)

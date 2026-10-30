@@ -57,7 +57,7 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         // No title bar: the mode bar takes its place, the traffic lights at its left.
         window.titleVisibility = .hidden
         window.titlebarAppearsTransparent = true
-        // Where the user left it, across launches and ⌘R updates (checks pass --size).
+        // Where the user left it, across launches and app restarts (checks pass --size).
         if options.size == nil {
             window.setFrameUsingName(WorldWindow.frameName)
             window.setFrameAutosaveName(WorldWindow.frameName)
@@ -134,7 +134,7 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         drawer.onMaximize = { [weak self] in self?.maximizeTerminal() }
         modeBar.onSelect = { [weak self] mode in self?.show(mode) }
         placeModeBar()
-        // Where the user left it, across launches and ⌘R updates.
+        // Where the user left it, across launches and app restarts.
         if options.info == nil, UserDefaults.standard.string(forKey: "mode") == Mode.conquer.rawValue {
             DispatchQueue.main.async { self.show(.conquer) }
         }
@@ -262,7 +262,7 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
 
     // MARK: Splash
 
-    /// Cover the window while the app (re)loads: at launch, on ⌘R, and when
+    /// Cover the window while the app (re)loads: at launch, on app restart, and when
     /// the page's process restarts. It lifts once the map has drawn.
     func showSplash(_ text: String) {
         fleetLoaded = false
@@ -393,7 +393,7 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
             return
         }
         failure("Paseo Command isn’t reachable", "\(options.url.absoluteString) did not answer. " +
-            (server == nil ? "Start the app server (<code>npm run app:start</code>) and reload (⌘R)." : "Reload (⌘R) to try again."))
+            (server == nil ? "Start the app server (<code>npm run app:start</code>) and restart Paseo Command." : "Restart Paseo Command to try again."))
     }
 
     /// A plain page in place of the app (starting up, or unreachable).
@@ -415,7 +415,7 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
             case .success: then()
             case .failure(let error):
                 let text = error.localizedDescription.replacingOccurrences(of: "<", with: "&lt;")
-                self?.failure("The app server didn’t start", "<pre style='white-space:pre-wrap'>\(text)</pre>Fix it and reload (⌘R).")
+                self?.failure("The app server didn’t start", "<pre style='white-space:pre-wrap'>\(text)</pre>Fix it and restart Paseo Command.")
             }
         }
     }
@@ -698,7 +698,7 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         return options.url
     }
 
-    /// Before a ⌘R: bring our own server up to date (restarted only when its
+    /// Before an app restart: bring our own server up to date (restarted only when its
     /// code changed, so `app:update` never drops the page's connections).
     /// `done` says whether the server is ready (on a failure the window shows why).
     func refreshServer(_ done: @escaping (_ ready: Bool) -> Void) {
@@ -706,14 +706,14 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         server.refresh(port: options.url.port ?? 80) { [weak self] result in
             if case .failure(let error) = result {
                 let text = error.localizedDescription.replacingOccurrences(of: "<", with: "&lt;")
-                self?.failure("The app server didn’t restart", "<pre style='white-space:pre-wrap'>\(text)</pre>Fix it and reload (⌘R).")
+                self?.failure("The app server didn’t restart", "<pre style='white-space:pre-wrap'>\(text)</pre>Fix it and restart Paseo Command.")
             }
             done((try? result.get()) != nil)
         }
     }
 
     func reload() {
-        // A ⌘R after the server failed tries it again.
+        // A reload after the server failed tries it again.
         if server != nil, web.url?.host != options.url.host {
             recovered = nil
             splash.say("Starting the app server…")

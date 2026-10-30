@@ -68,10 +68,11 @@ npm run app:update   # app:build && native:build
 This is part of completing the feature. It does not restart the app server, so open pages, their
 daemon connections and terminals stay connected. Never quit, relaunch
 or open the user's macOS app, and do not run `app:restart` for an update: the app keeps running, its mode bar
-shows "Update ready · ⌘R" once a newer native build is on disk, and the user presses ⌘R when they want the
-update. ⌘R first runs `app:refresh`, which restarts the server only if its own code (`web/server/`, the Vite
-config, dependencies, the launcher) changed since it started; then it reloads the page, and swaps in a newer
-native build in place, keeping the window and page. The server serves each new `web/dist` build without a restart.
+shows "Update ready · Restart app" once a newer native build is on disk. The user chooses **Restart app**
+in the command palette (⌘K) when they want the update; it has no keyboard shortcut or native menu item.
+Restart app first runs `app:refresh`, which restarts the server only if its own code (`web/server/`, the Vite
+config, dependencies, the launcher) changed since it started; then restarts the app with the latest
+native build, keeping the window position and page. The server serves each new `web/dist` build without a restart.
 If you made a Paseo workspace (worktree) for the work, archive it once its branch is merged into `main` and pushed
 (remove any `node_modules` symlinks you added to it first), so finished work leaves no workspace behind on the map.
 Report the commit, whether the push succeeded, whether the build succeeded, and that the workspace was archived.
@@ -85,7 +86,7 @@ Report the commit, whether the push succeeded, whether the build succeeded, and 
 - `npm run app:stop`, `app:restart`, `app:refresh`, `app:status`: manage that detached preview.
   Restart preserves its port; refresh restarts it only when the server's own code changed. See `RUNNING.md`.
 - `npm run app:build`: layout tests, then type-checks and bundles the app to `web/dist/`.
-- `npm run app:update`: `app:build` and `native:build`, after merging to `main` (see above); ⌘R applies it.
+- `npm run app:update`: `app:build` and `native:build`, after merging to `main` (see above); Restart app in the command palette applies it.
 - `npm run app:typecheck`: checks React, API and Atlas TypeScript.
 - `npm run app:e2e`: browser tests of the Atlas against a mocked fleet (no daemon is reached).
 - `npm run native:build`, `native:run [-- --url …]`: the macOS app (`native/`) that draws the Atlas with
@@ -185,7 +186,7 @@ Local assets belong in the repository and are included through local build tooli
   right-click for Pin, Back to Pinned Page, Replace Pinned URL with Current URL, Move to Folder, Rename, Delete), New Tab, then the other tabs (`ConquerTabs.swift`), each with
   its favicon or a spinner. A closed pinned tab only unloads. Its commands (`ConquerView.commands`, the Conquer menu) take their keys ahead of
   the page: ⌘T, ⇧⌘T reopen, ⌘W, ⌘L, ⌘E or ⌃Tab next tab, ⌘1…⌘8 that tab, ⌘9 the last, ⌘D pin, ⌘[ ⌘], ⌘F ⌘G ⇧⌘G find,
-  ⌘+ ⌘− ⌘0 zoom (per site), ⌘P print, ⇧⌘J downloads; ⌘R reloads the page unless an update is ready. It has its own persistent cookie store,
+  ⌘+ ⌘− ⌘0 zoom (per site), ⌘P print, ⇧⌘J downloads. App restart is only in the React command palette, without a shortcut. It has its own persistent cookie store,
   optionally seeded after confirmation through Conquer → Import Zen Cookies from Zen Browser's profile (`ZenCookies.swift`): a copy of
   `cookies.sqlite`, default space only, unpartitioned and unexpired; Zen is never written to. Its tabs (`conquerState`), sidebar width, zooms,
   history (`~/Library/Application Support/Paseo Command/conquer-history.json`) and the mode come back on launch; tabs come back unloaded.

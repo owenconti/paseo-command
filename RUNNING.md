@@ -17,8 +17,7 @@ binding. The API and WebSockets reject external Host headers, nonlocal clients
 and cross-origin browser requests. The app has no login or network authentication;
 do not expose it through a proxy, tunnel, port forward or shared hosting.
 
-When upgrading from an older build that listened on every interface, press ⌘R
-in the macOS app (or run `npm run app:refresh` yourself) to apply the new binding.
+When upgrading from an older build that listened on every interface, choose **Restart app** in the macOS app’s command palette (⌘K) (or run `npm run app:refresh` yourself) to apply the new binding.
 Building an update alone does not change a running server.
 
 An existing unmanaged server on the port is left alone; stop it from its original
@@ -34,9 +33,9 @@ npm run app:update
 ```
 
 This rebuilds the web and macOS apps without restarting the server, so open pages stay
-connected; the server serves each new `web/dist` build as it is. ⌘R in the macOS app runs
+connected; the server serves each new `web/dist` build as it is. **Restart app** in the macOS app’s command palette (⌘K) runs
 `npm run app:refresh` first, which restarts the server only when its own code (`web/server/`,
-the Vite config, dependencies or this launcher) changed since it started, then reloads. In a
+the Vite config, dependencies or this launcher) changed since it started, then restarts the app at the same window position and page. In a
 plain browser, run `npm run app:refresh` yourself and refresh the page. Restart and refresh
 preserve the launcher's saved port.
 Use `npm run app:stop` to stop this launcher's server.

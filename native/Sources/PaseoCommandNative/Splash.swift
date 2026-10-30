@@ -1,7 +1,7 @@
 import AppKit
 import CoreText
 
-/// The window's cover while the app loads (at launch and on every ⌘R), in
+/// The window's cover while the app loads (at launch and on every app restart), in
 /// the page's Galaxy theme: the app icon, the name as the panel header sets
 /// it, and a line saying what it is waiting for. It takes every pointer
 /// event while it shows, so the half-loaded page and map underneath are

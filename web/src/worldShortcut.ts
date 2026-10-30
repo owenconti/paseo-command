@@ -1,4 +1,4 @@
-import type { ShortcutKey } from "./appReload";
+import type { ShortcutKey } from "./shortcutKey";
 
 /** F fits the whole world: F alone, with no modifier (Shift+F, Cmd+F and the
  * rest stay with the page and the browser). */

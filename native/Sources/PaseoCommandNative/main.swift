@@ -52,7 +52,7 @@ struct Options {
     }
 }
 
-/// The app's own build on disk, so ⌘R can tell when a newer one is ready.
+/// The app's own build on disk, so the mode bar can show when an update is ready.
 enum Build {
     static func stamp() -> Date? {
         guard let path = Bundle.main.executablePath else { return nil }
@@ -92,13 +92,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         listen("com.paseo.command.native.info") { [weak self] in self?.writeInfo() }
         listen("com.paseo.command.native.quit") { NSApp.terminate(nil) }
         listen("com.paseo.command.native.reload") { [weak self] in self?.reloadApp(nil) }
-        // ⌘R as the keyboard sends it, through the main menu (checks the menu's routing).
-        listen("com.paseo.command.native.keyreload") {
-            guard let event = NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: .command, timestamp: 0,
-                                               windowNumber: 0, context: nil, characters: "r", charactersIgnoringModifiers: "r",
-                                               isARepeat: false, keyCode: 15) else { return }
-            Log.line("⌘R through the menu: \(NSApp.mainMenu?.performKeyEquivalent(with: event) ?? false)")
-        }
         // A ⌘-key (`<info>.key`'s character) as the keyboard sends it: the focused view
         // (a page, say) sees it before the menu, as with a real key press (checks).
         listen("com.paseo.command.native.key") { [weak self] in
@@ -198,7 +191,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
             self.main?.snapshot(to: (info as NSString).deletingPathExtension + ".png")
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + 3) { [weak self] in self?.writeInfo() }
-        // Say in the mode bar when a newer build is waiting for ⌘R.
+        // Say in the mode bar when a newer build is waiting for Restart app.
         Timer.scheduledTimer(withTimeInterval: 3, repeats: true) { [weak self] _ in
             self?.main?.modeBar.updateReady = Build.newer
         }
@@ -257,10 +250,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         let viewItem = NSMenuItem()
         bar.addItem(viewItem)
         let view = NSMenu(title: "View")
-        // Targeted at this delegate: left to the responder chain, the web view
-        // (which has its own `reload`) would answer ⌘R and skip the update check.
-        let reload = view.addItem(withTitle: "Reload", action: #selector(reloadApp(_:)), keyEquivalent: "r")
-        reload.target = self
         let terminal = view.addItem(withTitle: "Terminal", action: #selector(toggleTerminal), keyEquivalent: "`")
         terminal.target = self
         terminal.keyEquivalentModifierMask = [.control]
@@ -315,9 +304,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         NSApp.windowsMenu = windowMenu
     }
 
-    /// ⌘R: the page reloads with the latest web build; if a newer native
-    /// build is on disk, the app swaps itself for it in place: same window,
-    /// same page, no quitting by hand.
     @objc private func toggleTerminal() { main?.toggleTerminal() }
     @objc private func moveTerminal() { main?.moveTerminal() }
     @objc private func maximizeTerminal() { main?.maximizeTerminal() }
@@ -358,19 +344,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         return true
     }
 
-    /// ⌘R: the server first (restarted if its code changed), then this
-    /// app (relaunched if a newer build is on disk) or just the page.
+    /// The palette's Restart app: refresh the server if its code changed,
+    /// then relaunch at the same window position and page with the latest build.
     @objc func reloadApp(_ sender: Any?) {
         guard let main, !reloading else { return }
-        // In Conquer, ⌘R reloads its page, unless a newer build is waiting.
-        if main.mode == .conquer && main.conquer.hasKeyFocus && !Build.newer { return main.conquer.reloadPage() }
         reloading = true
         // The splash covers the reload; a newer build's copy puts up its own.
-        main.showSplash("Reloading…")
+        main.showSplash("Restarting…")
         main.refreshServer { [weak self] ready in
             self?.reloading = false
             guard ready else { return }
-            if Build.newer { self?.relaunch(main) } else { main.reload() }
+            self?.relaunch(main)
         }
     }
     private var reloading = false
@@ -389,7 +373,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         let configuration = NSWorkspace.OpenConfiguration()
         configuration.createsNewApplicationInstance = true
         configuration.arguments = args
-        Log.line("relaunching for a newer build")
+        Log.line("restarting with the latest build")
         NSWorkspace.shared.openApplication(at: Bundle.main.bundleURL, configuration: configuration) { _, error in
             DispatchQueue.main.async {
                 if let error {

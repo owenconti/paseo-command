@@ -55,7 +55,6 @@ const GROUPS: Group[] = [
 const NATIVE: Group = {
   title: "macOS app",
   rows: [
-    { keys: [["⌘", "R"]], label: "Reload, with the latest build" },
     { keys: [["⌃", "`"]], label: "Show or hide the terminal" },
     { keys: [["⌘", "`"]], label: "The map, or the browser (Conquer) in its place" },
   ],

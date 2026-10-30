@@ -1,7 +1,7 @@
 #!/bin/sh
 # Build the native app into native/build/Paseo Command.app. A running copy
-# keeps running: the new executable replaces the old one's file, and ⌘R in
-# the app swaps to it (see main.swift's `reload`).
+# keeps running: the new executable replaces the old one's file, and Restart app in
+# the command palette swaps to it (see main.swift's `reload`).
 set -eu
 here=$(cd "$(dirname "$0")/.." && pwd)
 config=${1:-release}

@@ -25,7 +25,7 @@ final class ModeButton: NSButton {
 /// The strip across the top of the window that switches the map's place between the map (Command)
 /// and the browser (Conquer) (⌘` toggles).
 /// It stands in for the hidden title bar: the traffic lights sit at its left, it drags the
-/// window, and it says when a newer build is waiting for ⌘R. It is the same surface as the
+/// window, and it says when a newer build is ready. It is the same surface as the
 /// chrome under it (the page's panel header, Conquer's sidebar), with no line between them,
 /// and its tabs are a small segmented control rather than a tab bar.
 final class ModeBar: NSView {
@@ -35,7 +35,7 @@ final class ModeBar: NSView {
     var leading: CGFloat = 0 { didSet { rowLeading?.constant = leading } }
     var updateReady = false { didSet { if updateReady != oldValue { update.isHidden = !updateReady } } }
     private var rowLeading: NSLayoutConstraint?
-    private let update = NSTextField(labelWithString: "Update ready · ⌘R")
+    private let update = NSTextField(labelWithString: "Update ready · Restart app")
     private let buttons: [(Mode, ModeButton)]
     /// The control's track, behind both tabs.
     private let track = NSStackView()
@@ -72,7 +72,7 @@ final class ModeBar: NSView {
         }
         addSubview(track)
         update.font = NSFont.systemFont(ofSize: 11, weight: .medium)
-        update.toolTip = "A newer build is ready: ⌘R applies it"
+        update.toolTip = "A newer build is ready: choose Restart app in the command palette (⌘K)"
         update.isHidden = true
         update.translatesAutoresizingMaskIntoConstraints = false
         addSubview(update)
@@ -254,7 +254,7 @@ final class ConquerView: NSView, WKNavigationDelegate, WKUIDelegate, NSTextField
         // The sidebar: back, forward and reload; the address; the tabs; New Folder and Downloads.
         for (button, symbol, help, action) in [(back, "chevron.left", "Back (⌘[)", #selector(goBack)),
                                                (forward, "chevron.right", "Forward (⌘])", #selector(goForward)),
-                                               (reloadButton, "arrow.clockwise", "Reload (⌘R)", #selector(reloadPage)),
+                                               (reloadButton, "arrow.clockwise", "Reload page", #selector(reloadPage)),
                                                (folderButton, "folder.badge.plus", "New folder for pinned tabs", #selector(newFolder)),
                                                (downloadsButton, "arrow.down.circle", "Downloads (⇧⌘J)", #selector(toggleDownloads))] {
             button.bezelStyle = .accessoryBarAction

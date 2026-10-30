@@ -1,4 +1,4 @@
-import type { ShortcutKey } from "./appReload";
+import type { ShortcutKey } from "./shortcutKey";
 
 /** Actions the command palette asks of components that own them (the map,
  * the floating panel, the header's dialogs, the open agent), as their own

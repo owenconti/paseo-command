@@ -8,7 +8,6 @@ import {
   postAppMenu,
   postNative,
 } from "./worldBridge";
-import { installAppReloadShortcut } from "./appReload";
 import { installDispatchShortcut } from "./dispatchShortcut";
 import {
   agentClientId,
@@ -136,8 +135,6 @@ installNativeLinks();
 // The map surface (drawn by the macOS app) beside the inherited docked session layout.
 const native = true;
 const unity = true;
-// Cmd+R loads the latest build of the app; it never just reloads this page.
-// Browser reload remains the browser's normal Cmd+R behavior.
 const NativeWorld = React.lazy(() =>
   import("./NativeWorld").then((module) => ({ default: module.NativeWorld })),
 );
@@ -1422,11 +1419,10 @@ function App() {
             run: () => postAppMenu(action),
           })),
           {
-            id: "reload",
+            id: "restart",
             group: "App",
-            label: "Reload, with the latest build",
-            keys: [["⌘", "R"]],
-            keywords: "update refresh",
+            label: "Restart app",
+            keywords: "reload update refresh latest build",
             run: () => postAppMenu("reload"),
           },
         ]

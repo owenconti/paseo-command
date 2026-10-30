@@ -14,7 +14,7 @@ final class PageBar: NSView {
         super.init(frame: frame)
         wantsLayer = true
         for (button, symbol, help) in [(back, "chevron.left", "Back (⌘[)"), (forward, "chevron.right", "Forward (⌘])"),
-                                       (reload, "arrow.clockwise", "Reload (⌘R)")] {
+                                       (reload, "arrow.clockwise", "Reload page")] {
             button.bezelStyle = .accessoryBarAction
             button.controlSize = .small
             button.image = NSImage(systemSymbolName: symbol, accessibilityDescription: help)

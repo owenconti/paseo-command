@@ -45,7 +45,7 @@ html[data-renderer="native"] #root {
 .native-storage-error {
   flex-wrap: wrap;
 }
-/* Cmd+R is relaunching the app with the latest build. Not an error. */
+/* Restart app is relaunching the app with the latest build. Not an error. */
 .native-status-stack > .native-app-reload {
   border-color: var(--accent-line);
 }
