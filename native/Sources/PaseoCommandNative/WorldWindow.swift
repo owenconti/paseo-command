@@ -229,7 +229,7 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
             case "terminal-actual": drawer.zoom(0)
             case "conquer": show(.conquer)
             case "conquer-tab": show(.conquer); conquer.newTab()
-            case "zen-cookies": (NSApp.delegate as? AppDelegate)?.importZenCookies()
+            case "zen-cookies": conquer.perform("importCookies")
             case "reload": (NSApp.delegate as? AppDelegate)?.reloadApp(nil)
             default: break
             }
@@ -520,7 +520,7 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         atlasView.govern()
         if next == .conquer {
             conquer.start()
-            if let web = conquer.current?.web, web.url != nil { window.makeFirstResponder(web) } else { conquer.focusAddress() }
+            conquer.focusPage()
         } else {
             window.makeFirstResponder(web)
         }

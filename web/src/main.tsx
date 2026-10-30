@@ -1408,7 +1408,7 @@ function App() {
               ["terminal-bigger", "Bigger terminal text", "zoom font size larger", ["⌘", "+"]],
               ["terminal-smaller", "Smaller terminal text", "zoom font size", ["⌘", "−"]],
               ["terminal-actual", "Actual terminal text size", "zoom font reset", ["⌘", "0"]],
-              ["conquer", "Switch to Conquer", "browser mode web", ["⌘", "2"]],
+              ["conquer", "Switch to Conquer", "browser mode web", ["⌘", "`"]],
               ["conquer-tab", "New Conquer tab", "browser web open", undefined],
               ["zen-cookies", "Import Zen cookies into Conquer", "browser sign in login", undefined],
             ] as const

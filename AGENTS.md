@@ -175,10 +175,16 @@ Local assets belong in the repository and are included through local build tooli
   Music by AppleScript (`native/Sources/PaseoCommandNative/Music.swift`, about once a second while the window shows) over the
   `paseoMusic` message handler and `paseo:music` events; macOS asks once for Automation permission (`NSAppleEventsUsageDescription`).
 - Conquer (experiment): a strip across the macOS app's top switches between Command (the map, panels and terminal) and Conquer
-  (⌘` toggles; View menu; the tabs light on hover), a tabbed WebKit browser (`native/Sources/PaseoCommandNative/Conquer.swift`; Conquer menu: ⌘T, ⌘W, ⌘L,
-  ⌘E or ⌃Tab next tab, ⌘1…⌘8 that tab, ⌘9 the last; ⌘R reloads its page unless an update is ready). The hidden side keeps running. It has its own persistent cookie store,
+  (⌘` toggles; View menu; the tabs light on hover), a WebKit browser (`native/Sources/PaseoCommandNative/Conquer.swift`). The hidden side keeps running.
+  Its sidebar, as in Zen and Arc: back/forward/reload and the address bar (suggestions from its history, `ConquerExtras.swift`),
+  pinned tabs and their folders (one level; drag to reorder, pin above New Tab, unpin below it, into and out of folders;
+  right-click for Pin, Back to Pinned Page, Move to Folder, Rename, Delete), New Tab, then the other tabs (`ConquerTabs.swift`), each with
+  its favicon or a spinner. A closed pinned tab only unloads. Its commands (`ConquerView.commands`, the Conquer menu) take their keys ahead of
+  the page: ⌘T, ⇧⌘T reopen, ⌘W, ⌘L, ⌘E or ⌃Tab next tab, ⌘1…⌘8 that tab, ⌘9 the last, ⌘D pin, ⌘[ ⌘], ⌘F ⌘G ⇧⌘G find,
+  ⌘+ ⌘− ⌘0 zoom (per site), ⌘P print, ⇧⌘J downloads; ⌘R reloads the page unless an update is ready. It has its own persistent cookie store,
   seeded on first show (and Conquer → Import Zen Cookies) from Zen Browser's profile (`ZenCookies.swift`): a copy of
-  `cookies.sqlite`, default space only, unpartitioned and unexpired; Zen is never written to. Its tabs and the mode come back on launch.
+  `cookies.sqlite`, default space only, unpartitioned and unexpired; Zen is never written to. Its tabs (`conquerState`), sidebar width, zooms,
+  history (`~/Library/Application Support/Paseo Command/conquer-history.json`) and the mode come back on launch; tabs come back unloaded.
 
 ## Atlas world
 
