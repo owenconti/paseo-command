@@ -276,6 +276,9 @@ final class ConquerView: NSView, WKNavigationDelegate, WKUIDelegate, NSTextField
         outline.outlineTableColumn = column
         outline.headerView = nil
         outline.style = .plain
+        // The selected row shows focus; AppKit's exterior ring otherwise runs
+        // along the whole sidebar and looks like a bright blue divider.
+        outline.focusRingType = .none
         outline.rowHeight = 32
         outline.indentationPerLevel = 16
         outline.intercellSpacing = NSSize(width: 0, height: 2)
@@ -292,6 +295,8 @@ final class ConquerView: NSView, WKNavigationDelegate, WKUIDelegate, NSTextField
         menu.delegate = self
         outline.menu = menu
         let scroll = NSScrollView()
+        scroll.focusRingType = .none
+        scroll.borderType = .noBorder
         scroll.documentView = outline
         scroll.drawsBackground = false
         scroll.hasVerticalScroller = true
@@ -512,6 +517,9 @@ final class ConquerView: NSView, WKNavigationDelegate, WKUIDelegate, NSTextField
     }
 
     private func prepare(_ web: WKWebView) {
+        // A browser page has its own focus indicators. Don't outline its
+        // entire native viewport when it becomes first responder.
+        web.focusRingType = .none
         web.navigationDelegate = self
         web.uiDelegate = self
     }
