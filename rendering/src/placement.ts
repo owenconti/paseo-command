@@ -129,11 +129,13 @@ export function placeStructures(
  * yard, seen from above like everything else: how wide each is drawn, and how
  * far it sits beyond its cell's centre, away from the cottage (a share of the
  * distance between them). */
-export const MEDALLION = { size: 40, out: 0.3 };
+export const MEDALLION = { size: 52, out: 0.3 };
 /** How far the running CI medallion rocks about its centre (degrees), and how
  * often (ms). */
 export const FLAG_SWAY = { degrees: 12, period: 2400 };
-const DEPTH_FLAG = 17.2;
+/** Above every structure and its props, so a medallion is never hidden by a
+ * cottage it overlaps. */
+const DEPTH_FLAG = 18.2;
 /** A PR medallion: `x, y` is its centre and `width` its display width; it
  * lies inside `cell`. */
 export type PlacedFlag = {
@@ -148,7 +150,7 @@ export type PlacedFlag = {
   entity: string;
 };
 /** Each workspace's PR medallions, from its labels: CI in its second cell,
- * review in its third, the cells beside the cottage. */
+ * review in its third, the cells beside the cottage (Probe's has the first). */
 export function placeFlags(
   layout: AtlasLayout,
   sizeOf: (frame: string) => { width: number; height: number },
@@ -184,24 +186,37 @@ export function placeFlags(
   return placed;
 }
 
-/** Probe's streamer: a tag lying beside the review medallion, tucked under
- * its right rim by `tuck` world px, `height` world pixels tall. */
-export const PROBE_STREAMER = { tuck: 4, height: 28, depth: DEPTH_FLAG - 0.05 };
-/** A Probe streamer: `x, y` is its top-left corner, under the medallion's rim. */
-export type PlacedStreamer = { verdict: ProbeVerdict; x: number; y: number; depth: number; alpha: number; entity: string };
-/** The streamer beside each review medallion whose workspace Probe has a verdict on. */
-export function placeStreamers(layout: AtlasLayout, flags: PlacedFlag[]): PlacedStreamer[] {
-  const out: PlacedStreamer[] = [];
-  for (const f of flags) {
-    const ws = layout.workspaces.find((w) => w.id === f.entity);
-    if (!ws?.probe || ws.flags?.review !== f.flag) continue;
+/** Probe's medallion, in a workspace's first cell (the one facing its
+ * landmark), set out from the cottage as the PR medallions are. */
+export const PROBE_MEDALLION = { depth: DEPTH_FLAG };
+/** A Probe medallion: `x, y` is its centre and `size` its width. */
+export type PlacedProbe = {
+  verdict: ProbeVerdict;
+  x: number;
+  y: number;
+  size: number;
+  depth: number;
+  alpha: number;
+  cell: Axial;
+  entity: string;
+};
+/** The Probe medallion of each workspace Probe has a verdict on. */
+export function placeProbes(layout: AtlasLayout): PlacedProbe[] {
+  const out: PlacedProbe[] = [];
+  for (const ws of layout.workspaces) {
+    const cell = footprint(ws)[0];
+    if (ws.camp || !ws.probe || !cell) continue;
+    const c = point(cell),
+      middle = structureCentre(ws);
     out.push({
       verdict: ws.probe,
-      x: f.x + f.width / 2 - PROBE_STREAMER.tuck,
-      y: f.y - PROBE_STREAMER.height / 2,
-      depth: PROBE_STREAMER.depth,
-      alpha: f.alpha,
-      entity: f.entity,
+      x: c.x + (c.x - middle.x) * MEDALLION.out,
+      y: c.y + (c.y - middle.y) * MEDALLION.out,
+      size: MEDALLION.size,
+      depth: PROBE_MEDALLION.depth,
+      alpha: ws.stale ? STALE_ALPHA : 1,
+      cell,
+      entity: ws.id,
     });
   }
   return out;
@@ -535,7 +550,7 @@ export function pulseAlpha(period: number, phase: number, clock: number, reduced
 
 /** The auto-merge seal: `size` world pixels across, set on a PR medallion's
  * upper-right rim. */
-export const AUTO_MERGE_SEAL = { size: 22, depth: DEPTH_FLAG + 0.06 };
+export const AUTO_MERGE_SEAL = { size: 26, depth: DEPTH_FLAG + 0.06 };
 /** An auto-merge seal: `x, y` is its top-left corner. */
 export type PlacedSeal = { x: number; y: number; size: number; depth: number; alpha: number; entity: string };
 /** The seal on each workspace whose PR has auto-merge on: on its review

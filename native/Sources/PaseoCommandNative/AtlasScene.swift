@@ -18,7 +18,7 @@ final class AtlasScene: SKScene {
     private var tiles: [String: SKTexture] = [:]
     private var pieces: [String: SKTexture] = [:]
     private var banners: [String: SKTexture] = [:]
-    /// Probe's streamers under review flags, by content key.
+    /// Probe's medallions and auto-merge seals, by content key.
     private var streamers: [String: SKTexture] = [:]
     private var land: WorldBox?
     private struct Entity {
@@ -30,7 +30,7 @@ final class AtlasScene: SKScene {
         let at: WorldBox
     }
     private var entities: [String: Entity] = [:]
-    /// A workspace's PR flag, for its hover card: the flag's art as a box
+    /// A workspace's PR flag (or Probe's medallion), for its hover card: the flag's art as a box
     /// centred on its x, y (as `Entity.at`).
     private struct PlantedFlag {
         let flag: String
@@ -78,7 +78,7 @@ final class AtlasScene: SKScene {
     }
     /// PR flags whose CI is running sway about their pole's foot.
     private var swaying: [SKSpriteNode] = []
-    /// Probe streamers whose review is still running: they pulse.
+    /// Probe medallions whose review is still running: they pulse.
     private var reviewing: [SKSpriteNode] = []
     /// How the page pads a frame's shadow, and how far it falls (shares of the frame's width).
     private var shadowShape: (pad: CGFloat, spread: CGFloat) = (0.1, 3)
@@ -245,6 +245,11 @@ final class AtlasScene: SKScene {
             node.alpha = num(s["alpha"], 1)
             structures.addChild(node)
             if s["pulse"] as? Bool == true { reviewing.append(node) }
+            // Probe's medallion has a hover card of its own, as a PR flag does.
+            if s["probe"] as? Bool == true, let workspace = s["workspace"] as? String {
+                plantedFlags.append(PlantedFlag(flag: "probe", workspace: workspace,
+                                                at: WorldBox(x: num(s["cx"]), y: num(s["cy"]), width: num(s["size"]), height: num(s["size"]))))
+            }
         }
         streamers = streamers.filter { keepStreamers.contains($0.key) }
         for flag in m["flags"] as? [[String: Double]] ?? [] { structures.addChild(campFlag(CGFloat(flag["x"] ?? 0), CGFloat(flag["y"] ?? 0))) }
@@ -860,7 +865,7 @@ final class AtlasScene: SKScene {
         for (i, flag) in swaying.enumerated() {
             flag.zRotation = reduced ? 0 : -flagSway.degrees * .pi / 180 * CGFloat(sin(sway + Double(i) * 0.7))
         }
-        // A streamer whose review is running breathes; steady, with reduced motion.
+        // A Probe medallion whose review is running breathes; steady, with reduced motion.
         for node in reviewing { node.alpha = reduced ? 1 : CGFloat(0.72 + 0.28 * (0.5 + 0.5 * cos(clock / 1800 * .pi * 2))) }
         walk(step)
     }

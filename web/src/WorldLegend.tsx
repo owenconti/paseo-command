@@ -44,8 +44,8 @@ export function WorldLegend({ data }: { data: AtlasData }) {
     const f = prFlags(w.labels);
     return !!(f.ci || f.review);
   });
-  // Probe's streamers, once any review flag carries one.
-  const probe = data.workspaces.some((w) => w.probe && prFlags(w.labels).review);
+  // Probe's medallions, once any workspace has one.
+  const probe = data.workspaces.some((w) => w.probe);
   // The auto-merge seal, once any flag's pole wears one.
   const autoMerge = data.workspaces.some((w) => {
     const f = prFlags(w.labels);
@@ -103,7 +103,7 @@ export function WorldLegend({ data }: { data: AtlasData }) {
           )}
           {probe && (
             <>
-              <h3>Review flag streamer · Probe</h3>
+              <h3>Workspace medallion · Probe</h3>
               <ul>
                 {PROBE_STATES.map((p) => (
                   <li key={p.state}>

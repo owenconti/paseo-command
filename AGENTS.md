@@ -142,9 +142,10 @@ Local assets belong in the repository and are included through local build tooli
   `GameDef` (plain JSON state) and are listed in `catalog.ts` and `registry.ts`.
 - `web/server/probe.ts`: Probe's verdict (Diagonal's `diagonalprobe` review bot) on each workspace's open PR, from one
   read-only `gh api graphql` query per PR (`GET /api/probe`, polled by `web/src/useProbe.ts`): reviewing, approved,
-  findings open (with their count), stale (new commits since, or deferred) or failed. The Atlas lays a streamer tag in the
-  verdict's colour, with Probe's mark (`rendering/src/assets/probe.png`), beside the review medallion, under its rim
-  (`rendering/src/probe.ts`, `placeStreamers`); the medallion's hover card adds a Probe line. `native:mock -- --probe` shows each.
+  findings open (with their count), stale (new commits since, or deferred) or failed. The Atlas sets a medallion of its own in the
+  workspace's first cell (the one facing its landmark): enamel in the verdict's colour round Probe's mark
+  (`rendering/src/assets/probe.png`), with a glyph badge (`rendering/src/probe.ts`, `placeProbes`, `paintProbe`); its hover card
+  says the verdict. `native:mock -- --probe` shows each.
 - Host load: `web/server/hostStats.ts` (`GET /api/hoststats`, polled by `web/src/useHostStats.ts`) asks each online host's
   daemon for the `host-stats` plugin's `stats.snapshot` (github.com/owenconti/paseo-cc-plugins, installed per daemon) over
   `invokePluginRpc`; a host without it is left out. Its host banner gains a second line, `CPU · MEM · DISK` percents

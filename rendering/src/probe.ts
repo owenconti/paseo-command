@@ -1,8 +1,8 @@
 /**
  * Probe's verdict on a workspace's pull request (Diagonal's review bot,
  * `diagonalprobe`), as the app's server reads it from GitHub
- * (web/server/probe.ts). The Atlas hangs a streamer from the review flag's
- * pole for it, coloured by the verdict. Pure, shared by both.
+ * (web/server/probe.ts). The Atlas sets a medallion in the workspace's yard
+ * for it, enamelled in the verdict's colour. Pure, shared by both.
  */
 export type ProbeState = "reviewing" | "approved" | "findings" | "stale" | "failed";
 export type ProbeVerdict = {
@@ -15,7 +15,7 @@ export type ProbeVerdict = {
   reason?: "head-changed" | "deferred";
 };
 
-/** In the legend's order. `color` is the streamer's cloth; `glyph` what it
+/** In the legend's order. `color` is the medallion's enamel; `glyph` what it
  * carries beside Probe's mark (findings show their count instead). */
 export const PROBE_STATES: readonly {
   state: ProbeState;
@@ -63,7 +63,7 @@ export const PROBE_STATES: readonly {
 
 export const probeState = (state: ProbeState) => PROBE_STATES.find((s) => s.state === state)!;
 
-/** What the streamer carries beside Probe's mark. */
+/** What the medallion's badge carries beside Probe's mark. */
 export const probeGlyph = (v: ProbeVerdict) =>
   v.state === "findings" && v.findings ? String(Math.min(v.findings, 99)) : probeState(v.state).glyph;
 

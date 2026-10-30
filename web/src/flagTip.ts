@@ -1,11 +1,21 @@
-/** A PR flag's hover card on the map: what the flag means, and the facts
- *  behind it from the workspace's pull request. */
-import { prLabel, type PrFlag } from "../../rendering/src/prStatus";
-import { probeLine, type ProbeVerdict } from "../../rendering/src/probe";
+/** A medallion's hover card on the map: what the flag means, and the facts
+ *  behind it from the workspace's pull request (or Probe's verdict on it). */
+import { prLabel, type MapFlag } from "../../rendering/src/prStatus";
+import { probeLine, probeState, type ProbeVerdict } from "../../rendering/src/probe";
 import type { PullRequest } from "./types";
 
-/** `probe` is Probe's verdict, when its streamer hangs from this flag. */
-export function flagTip(flag: PrFlag, pr: PullRequest | null | undefined, probe?: ProbeVerdict) {
+/** `probe` is Probe's verdict, for Probe's medallion. */
+export function flagTip(flag: MapFlag, pr: PullRequest | null | undefined, probe?: ProbeVerdict) {
+  if (flag === "probe") {
+    const state = probe && probeState(probe.state);
+    return {
+      title: state?.name ?? "Probe",
+      description: state?.description ?? "",
+      facts: probe ? probeLine(probe) : "",
+      autoMerge: "",
+      pr: pr ? `#${pr.number} · ${pr.title}` : "",
+    };
+  }
   const label = prLabel(flag);
   const checks = pr?.ci?.checks ?? [];
   const count = (status: string) => checks.filter((c) => c.status === status).length;
@@ -23,7 +33,6 @@ export function flagTip(flag: PrFlag, pr: PullRequest | null | undefined, probe?
     title: label.name,
     description: label.description,
     facts,
-    probe: probe ? probeLine(probe) : "",
     autoMerge: autoMergeLine(pr),
     pr: pr ? `#${pr.number} · ${pr.title}` : "",
   };

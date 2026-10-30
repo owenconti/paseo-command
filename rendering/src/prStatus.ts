@@ -11,6 +11,8 @@ export type PrFlag =
   | "review-approved"
   | "review-changes"
   | "conflicts";
+/** A medallion on the map: a PR flag's, or Probe's. */
+export type MapFlag = PrFlag | "probe";
 export type PrGroup = "ci" | "review";
 export type PrLabelColor = "amber" | "emerald" | "red" | "sky" | "violet" | "orange" | "pink";
 

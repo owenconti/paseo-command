@@ -199,5 +199,5 @@ are in `../design/pr-status/NOTES.md`. The rest of that row is transparent.
 
 Probe's own GitHub avatar (`https://avatars.githubusercontent.com/u/316687694`, the `diagonalprobe` account), fetched
 at 460 px, cropped to a circle and reduced to 128 × 128 RGBA. Packaging only; not repainted. The bridge draws it, in a
-cream ring, on the streamer that hangs from a review flag's pole for Probe's verdict (`paintStreamer` in
+cream ring, on the medallion that shows Probe's verdict in a workspace's first cell (`paintProbe` in
 `src/native/bridge.ts`).

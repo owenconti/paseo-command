@@ -2,7 +2,7 @@
  * with SpriteKit under the page; this hands the page's map surface to it. */
 import { mountNativeAtlas, nativeWorldAvailable } from "./native/bridge";
 import type { AtlasData, Entity } from "./world";
-import type { PrFlag } from "./prStatus";
+import type { MapFlag } from "./prStatus";
 export type { AtlasData, Entity };
 export { STATE_NAMES, STATE_TILE, MODEL_COLORS, MODEL_FAMILY, modelColor, modelName } from "./world";
 export { nativeWorldAvailable };
@@ -11,8 +11,8 @@ export type ScreenPoint = { x: number; y: number };
 export type AtlasHandlers = {
   /** The user chose an entity on the map, or cleared the choice (Escape). */
   pick?: (entity: Entity | null) => void;
-  /** `flag` is the hovered workspace's PR flag under the pointer, if any. */
-  hover?: (entity: Entity | null, at: ScreenPoint | null, flag?: PrFlag) => void;
+  /** `flag` is the hovered workspace's medallion under the pointer, if any. */
+  hover?: (entity: Entity | null, at: ScreenPoint | null, flag?: MapFlag) => void;
   selection?: (entity: Entity | null) => void;
   zoom?: (zoom: number) => void;
   ready?: () => void;

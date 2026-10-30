@@ -146,7 +146,6 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.atlas-world-tip .atlas-flag-probe,
 .atlas-world-tip .atlas-flag-auto-merge {
   margin-top: 4px;
   color: var(--text);

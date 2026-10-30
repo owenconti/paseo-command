@@ -9,7 +9,7 @@
  *
  * `--pr-flags` labels the first three workspaces with PR status labels, so
  * their flags show. `--probe` labels the first five, and gives each a Probe
- * verdict (one of each state), so their review flags carry streamers; the
+ * verdict (one of each state), so each shows a Probe medallion; the
  * second's and fourth's PRs have auto-merge on, so their poles wear its seal.
  * `--stats` gives each host a load for its banner (the first one's disk nearly full).
  */

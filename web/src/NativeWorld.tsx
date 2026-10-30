@@ -24,7 +24,7 @@ import { setUnityWorldTheme } from "./theme";
 import type { Agent, Host, Project, Selection, Workspace } from "./types";
 import { WorldLegend } from "./WorldLegend";
 import { flagTip } from "./flagTip";
-import { prLabel, type PrFlag } from "../../rendering/src/prStatus";
+import type { MapFlag } from "../../rendering/src/prStatus";
 import type { ProbeVerdict } from "../../rendering/src/probe";
 import { useProbe } from "./useProbe";
 import { useHostStats } from "./useHostStats";
@@ -142,7 +142,7 @@ function selectionKey(selection: Selection, snapshot: WorldSnapshot) {
     );
   return null;
 }
-type Tip = { entity: Entity; at: ScreenPoint; detail: string; flag?: PrFlag };
+type Tip = { entity: Entity; at: ScreenPoint; detail: string; flag?: MapFlag };
 export function NativeWorld(props: Props) {
   const surface = useRef<HTMLDivElement>(null);
   const world = useRef<AtlasWorld | null>(null);
@@ -351,8 +351,7 @@ export function NativeWorld(props: Props) {
     if (!tip?.flag || tip.entity.kind !== "workspace") return null;
     const w = snapshot.workspaces.find((x) => x.key === tip.entity.id);
     const row = w && props.workspaces.find((x) => x.workspaceId === w.id && (x.host || "local") === w.hostId);
-    // Probe's streamer hangs from the review flag's pole.
-    return flagTip(tip.flag, row?.pr, prLabel(tip.flag).group === "review" ? tip.entity.probe : undefined);
+    return flagTip(tip.flag, row?.pr, tip.flag === "probe" ? tip.entity.probe : undefined);
   })();
   return (
     <>
@@ -378,7 +377,6 @@ export function NativeWorld(props: Props) {
               <b>{flagCard.title}</b>
               <span>{flagCard.description}</span>
               {flagCard.facts && <span>{flagCard.facts}</span>}
-              {flagCard.probe && <span className="atlas-flag-probe">{flagCard.probe}</span>}
               {flagCard.autoMerge && <span className="atlas-flag-auto-merge">{flagCard.autoMerge}</span>}
               {flagCard.pr && <span className="atlas-flag-pr">{flagCard.pr}</span>}
             </>

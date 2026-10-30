@@ -30,7 +30,7 @@ export type AtlasData = {
     stale?: boolean;
     /** Its Paseo labels; the PR status ones plant flags. */
     labels?: string[];
-    /** Probe's verdict on its PR: a streamer under its review flag. */
+    /** Probe's verdict on its PR: a medallion of its own. */
     probe?: ProbeVerdict;
     /** Its PR has auto-merge on: a medallion on a flag's pole. */
     autoMerge?: boolean;
@@ -563,7 +563,7 @@ function hostPlans(host: AtlasData["hosts"][number], data: AtlasData): Plan[] {
       stale: w.stale,
       agents: [],
       ...(flags.ci || flags.review ? { flags } : {}),
-      ...(flags.review && w.probe ? { probe: w.probe } : {}),
+      ...(w.probe ? { probe: w.probe } : {}),
       ...((flags.ci || flags.review) && w.autoMerge ? { autoMerge: true } : {}),
     };
     cottages.set(w.key, cottage);

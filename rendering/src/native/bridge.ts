@@ -18,16 +18,16 @@ import {
   type Entity,
 } from "../world";
 import { buildFrames, flagFrames, frameName, propFrames, type Frame } from "../art";
-import { AUTO_MERGE, PR_LABELS, type PrFlag } from "../prStatus";
+import { AUTO_MERGE, PR_LABELS, type MapFlag } from "../prStatus";
 import { probeGlyph, probeState, type ProbeVerdict } from "../probe";
 import { cloudsTile, glintsTile, terrainParts, waterTile, type Piece, type Tiles } from "../terrain";
 import {
   DRONE_ORBIT,
   FLAG_SWAY,
   placeFlags,
-  placeStreamers,
+  placeProbes,
   placeSeals,
-  PROBE_STREAMER,
+  MEDALLION,
   AUTO_MERGE_SEAL,
   DRONE_SIZE,
   HOVER_COLOR,
@@ -266,77 +266,99 @@ function paintBanner(label: Label) {
   };
 }
 
-/** Probe's streamer for a verdict, painted as banners are: a short cloth in
- * the verdict's colour tied to the pole at its left, a swallowtail at its
- * right, carrying Probe's mark and a glyph (or the open findings' count).
- * Its world box starts at the pole, `PROBE_STREAMER.height` tall. */
-function paintStreamer(verdict: ProbeVerdict, mark: HTMLImageElement) {
-  const h = PROBE_STREAMER.height;
+/** Probe's medallion for a verdict, painted to sit beside the PR ones: a
+ * riveted brass rim round enamel in the verdict's colour, Probe's mark in a
+ * cream ring, and a cream badge on its lower-right rim carrying a glyph (or the
+ * open findings' count). Its world box is `MEDALLION.size` square, centred,
+ * plus `pad` all round for its soft shadow. */
+function paintProbe(verdict: ProbeVerdict, mark: HTMLImageElement) {
+  const size = MEDALLION.size;
+  const pad = 4;
   const glyph = probeGlyph(verdict);
   const color = probeState(verdict.state).color;
-  const font = `bold ${h * 0.72}px ${LABEL_FONT}`;
-  const measure = document.createElement("canvas").getContext("2d")!;
-  measure.font = font;
-  const radius = h / 2 - 1.2;
-  const notch = 3.2;
-  const textX = 1.6 + radius * 2 + 2;
-  const width = Math.ceil(textX + measure.measureText(glyph).width + 2.4 + notch);
-  // Room for the soft shadow below and right.
-  const pad = 1.5;
   const canvas = document.createElement("canvas");
-  canvas.width = Math.ceil((width + pad) * BANNER_SCALE);
-  canvas.height = Math.ceil((h + pad) * BANNER_SCALE);
+  canvas.width = canvas.height = Math.ceil((size + pad * 2) * BANNER_SCALE);
   const ctx = canvas.getContext("2d")!;
   ctx.scale(BANNER_SCALE, BANNER_SCALE);
+  ctx.translate(pad, pad);
   const rgba = (c: number, a = 1) => `rgba(${(c >> 16) & 255},${(c >> 8) & 255},${c & 255},${a})`;
   const shade = (c: number, k: number) =>
-    (Math.round(((c >> 16) & 255) * k) << 16) | (Math.round(((c >> 8) & 255) * k) << 8) | Math.round((c & 255) * k);
-  const cloth = (dx: number, dy: number) => {
+    (Math.round(Math.min(255, ((c >> 16) & 255) * k)) << 16) |
+    (Math.round(Math.min(255, ((c >> 8) & 255) * k)) << 8) |
+    Math.round(Math.min(255, (c & 255) * k));
+  const disc = (x: number, y: number, r: number) => {
     ctx.beginPath();
-    ctx.moveTo(dx + 0.6, dy + 0.6);
-    ctx.lineTo(dx + width - 0.6, dy + 0.6);
-    ctx.lineTo(dx + width - 0.6 - notch, dy + h / 2);
-    ctx.lineTo(dx + width - 0.6, dy + h - 0.6);
-    ctx.lineTo(dx + 0.6, dy + h - 0.6);
-    ctx.closePath();
+    ctx.arc(x, y, r, 0, Math.PI * 2);
   };
-  cloth(1, 1.2);
-  ctx.fillStyle = rgba(RIBBON_SHADOW.color, 0.32);
-  ctx.fill();
-  cloth(0, 0);
-  const fill = ctx.createLinearGradient(0, 0, 0, h);
-  fill.addColorStop(0, rgba(color));
-  fill.addColorStop(1, rgba(shade(color, 0.82)));
-  ctx.fillStyle = fill;
-  ctx.fill();
-  ctx.lineJoin = "round";
-  ctx.lineWidth = 0.9;
-  ctx.strokeStyle = rgba(0xd8a945);
-  ctx.stroke();
-  // Where it's knotted round the pole.
-  ctx.fillStyle = rgba(shade(color, 0.6));
-  ctx.fillRect(0.4, 0.8, 1.2, h - 1.6);
-  // Probe's mark, in a cream ring.
-  const cx = 1.6 + radius,
-    cy = h / 2;
+  const c = size / 2,
+    r = size / 2 - 0.6;
+  // Its shadow, centred beneath it under the noon sun.
   ctx.save();
-  ctx.beginPath();
-  ctx.arc(cx, cy, radius, 0, Math.PI * 2);
-  ctx.clip();
-  ctx.drawImage(mark, cx - radius, cy - radius, radius * 2, radius * 2);
+  disc(c, c, r);
+  ctx.shadowColor = rgba(RIBBON_SHADOW.color, 0.45);
+  ctx.shadowBlur = 3 * BANNER_SCALE;
+  ctx.fillStyle = rgba(RIBBON_SHADOW.color, 0.45);
+  ctx.fill();
   ctx.restore();
-  ctx.beginPath();
-  ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+  // The brass rim, its rivets, and a dark line where the enamel meets it.
+  disc(c, c, r);
+  const brass = ctx.createRadialGradient(c - r * 0.4, c - r * 0.45, r * 0.2, c, c, r);
+  brass.addColorStop(0, rgba(0xf0cf7a));
+  brass.addColorStop(1, rgba(0x9c7428));
+  ctx.fillStyle = brass;
+  ctx.fill();
+  ctx.lineWidth = 0.8;
+  ctx.strokeStyle = rgba(0x3b2a12);
+  ctx.stroke();
+  const rim = r * 0.17;
+  for (let i = 0; i < 8; i++) {
+    const a = (i / 8) * Math.PI * 2 - Math.PI / 2;
+    disc(c + Math.cos(a) * (r - rim / 2), c + Math.sin(a) * (r - rim / 2), rim * 0.26);
+    ctx.fillStyle = rgba(0xc89a3c);
+    ctx.fill();
+    ctx.lineWidth = 0.35;
+    ctx.strokeStyle = rgba(0x5a4018);
+    ctx.stroke();
+  }
+  const field = r - rim;
+  disc(c, c, field);
+  const enamel = ctx.createRadialGradient(c - field * 0.35, c - field * 0.4, field * 0.1, c, c, field);
+  enamel.addColorStop(0, rgba(shade(color, 1.18)));
+  enamel.addColorStop(1, rgba(shade(color, 0.85)));
+  ctx.fillStyle = enamel;
+  ctx.fill();
   ctx.lineWidth = 0.7;
+  ctx.strokeStyle = rgba(0x3b2a12);
+  ctx.stroke();
+  // Probe's mark, in a cream ring.
+  const markR = field * 0.7;
+  ctx.save();
+  disc(c, c, markR);
+  ctx.clip();
+  ctx.drawImage(mark, c - markR, c - markR, markR * 2, markR * 2);
+  ctx.restore();
+  disc(c, c, markR);
+  ctx.lineWidth = 1.4;
   ctx.strokeStyle = rgba(0xf6ecd2);
   ctx.stroke();
-  ctx.font = font;
+  // The verdict's badge, on the lower-right rim.
+  const badgeR = size * 0.2,
+    bx = c + (r - badgeR * 0.55) * Math.SQRT1_2,
+    by = c + (r - badgeR * 0.55) * Math.SQRT1_2;
+  disc(bx, by, badgeR);
   ctx.fillStyle = rgba(0xf6ecd2);
+  ctx.fill();
+  ctx.lineWidth = 0.9;
+  ctx.strokeStyle = rgba(0x3b2a12);
+  ctx.stroke();
+  ctx.font = `bold ${badgeR * (glyph.length > 1 ? 1.15 : 1.45)}px ${LABEL_FONT}`;
+  ctx.fillStyle = rgba(shade(color, 0.8));
+  ctx.textAlign = "center";
   ctx.textBaseline = "middle";
-  ctx.fillText(glyph, textX, h / 2 + 0.4);
-  return { canvas, width: width + pad, height: h + pad };
+  ctx.fillText(glyph, bx, by + badgeR * 0.08);
+  return { canvas, width: size + pad * 2, height: size + pad * 2, pad };
 }
-const streamerKey = (v: ProbeVerdict) => `streamer:${v.state}:${probeGlyph(v)}`;
+const probeKey = (v: ProbeVerdict) => `streamer:probe:${v.state}:${probeGlyph(v)}`;
 
 /** The auto-merge seal crowning a flag's pole: a teal medallion in a gold
  * rim carrying a cream merge mark. Its world box is `AUTO_MERGE_SEAL.size`
@@ -399,7 +421,7 @@ type Message = Record<string, unknown> & { type: string };
 type NativeEvent =
   | { type: "ready" }
   | { type: "pick"; id: string | null }
-  | { type: "hover"; id: string | null; x?: number; y?: number; flag?: PrFlag }
+  | { type: "hover"; id: string | null; x?: number; y?: number; flag?: MapFlag }
   | { type: "zoom"; zoom: number }
   | { type: "state"; state: Record<string, unknown> }
   | { type: "error"; message: string };
@@ -417,7 +439,7 @@ export function mountNativeAtlas(parent: HTMLElement, handlers: AtlasHandlers = 
   /** Where the hover card points, as Swift last reported it. */
   let hoverAt: { x: number; y: number } | undefined;
   /** The hovered workspace's PR flag under the pointer, as Swift last reported it. */
-  let hoverFlag: PrFlag | undefined;
+  let hoverFlag: MapFlag | undefined;
   let enabled = true;
   let reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
   let zoom = 1;
@@ -465,13 +487,13 @@ export function mountNativeAtlas(parent: HTMLElement, handlers: AtlasHandlers = 
     const placed = placeStructures(layout, sizeOf);
     const banners = labels(layout).map((label) => ({ label, art: paintBanner(label) }));
     planted = placeFlags(layout, sizeOf);
-    const streamers = placeStreamers(layout, planted);
+    const probes = placeProbes(layout);
     const seals = placeSeals(layout, planted);
     let seal: ReturnType<typeof paintSeal> | undefined;
-    // Swift drops banners and streamers a scene leaves out, so one that returns is sent again.
+    // Swift drops banners, Probe medallions and seals a scene leaves out, so one that returns is sent again.
     const shown = new Set([
       ...banners.map(({ label }) => `banner:${JSON.stringify(label)}`),
-      ...streamers.map((s) => streamerKey(s.verdict)),
+      ...probes.map((p) => probeKey(p.verdict)),
       ...(seals.length ? [SEAL_KEY] : []),
     ]);
     for (const key of [...sent]) if (!shown.has(key)) sent.delete(key);
@@ -548,25 +570,32 @@ export function mountNativeAtlas(parent: HTMLElement, handlers: AtlasHandlers = 
         const key = `banner:${JSON.stringify(label)}`;
         return { key, png: image(key, art.canvas), x: art.x, y: art.y, width: art.width, height: art.height };
       }),
-      // Probe's streamers, under their review flags; one still reviewing pulses.
-      streamers: streamers.map((s) => {
-        const key = streamerKey(s.verdict);
-        const painted = paintStreamer(s.verdict, art!.probe);
-        return {
-          key,
-          png: image(key, painted.canvas),
-          x: s.x,
-          y: s.y,
-          width: painted.width,
-          height: painted.height,
-          depth: s.depth,
-          alpha: s.alpha,
-          pulse: s.verdict.state === "reviewing",
-          workspace: s.entity,
-        };
-      }).concat(
-        // Auto-merge seals crown their flags' poles; Swift draws them as it does streamers.
-        seals.map((s) => {
+      // Probe's medallions, in their workspaces' first cells; one still reviewing
+      // pulses. Swift draws them (and seals) from their top-left corner.
+      streamers: [
+        ...probes.map((p) => {
+          const key = probeKey(p.verdict);
+          const painted = paintProbe(p.verdict, art!.probe);
+          return {
+            key,
+            png: image(key, painted.canvas),
+            x: p.x - p.size / 2 - painted.pad,
+            y: p.y - p.size / 2 - painted.pad,
+            width: painted.width,
+            height: painted.height,
+            depth: p.depth,
+            alpha: p.alpha,
+            pulse: p.verdict.state === "reviewing",
+            workspace: p.entity,
+            // Its disc, for its hover card.
+            probe: true,
+            cx: p.x,
+            cy: p.y,
+            size: p.size,
+          };
+        }),
+        // Auto-merge seals sit on their medallions' rims; Swift draws them as it does Probe's.
+        ...seals.map((s) => {
           const painted = (seal ??= paintSeal());
           return {
             key: SEAL_KEY,
@@ -581,7 +610,7 @@ export function mountNativeAtlas(parent: HTMLElement, handlers: AtlasHandlers = 
             workspace: s.entity,
           };
         }),
-      ),
+      ],
       entities: layout.entities.map((e) => ({
         id: e.id,
         kind: e.kind,
@@ -615,7 +644,7 @@ export function mountNativeAtlas(parent: HTMLElement, handlers: AtlasHandlers = 
     if (hovered) setHover(entity(hovered) ? hovered : null, hoverAt, hoverFlag);
   };
 
-  const setHover = (id: string | null, at?: { x: number; y: number }, flag?: PrFlag) => {
+  const setHover = (id: string | null, at?: { x: number; y: number }, flag?: MapFlag) => {
     hovered = id;
     hoverAt = id ? at : undefined;
     hoverFlag = id ? flag : undefined;
@@ -817,10 +846,14 @@ export function mountNativeAtlas(parent: HTMLElement, handlers: AtlasHandlers = 
             agents: layout.agents.map((a) => ({ id: a.id, name: a.name, state: a.state, model: a.model, workspace: a.workspace, at: point(a.position) })),
             tiles: Object.fromEntries(tiles(layout).map((t) => [t.id, t.state])),
             flags: Object.fromEntries(layout.workspaces.filter((w) => w.flags && !w.camp).map((w) => [w.id, w.flags])),
-            streamers: placeStreamers(layout, planted).map((s) => ({
-              workspace: s.entity,
-              state: s.verdict.state,
-              glyph: probeGlyph(s.verdict),
+            probes: placeProbes(layout).map((p) => ({
+              workspace: p.entity,
+              state: p.verdict.state,
+              glyph: probeGlyph(p.verdict),
+              inCell: [0, 1, 2, 3, 4, 5, 6, 7].every((i) => {
+                const a = (i / 8) * Math.PI * 2;
+                return insideFootprint(p.x + (Math.cos(a) * p.size) / 2, p.y + (Math.sin(a) * p.size) / 2, [p.cell]);
+              }),
             })),
             seals: placeSeals(layout, planted).map((s) => s.entity),
             workspaces: layout.workspaces.map((w) => ({ id: w.id, name: w.name, camp: !!w.camp })),

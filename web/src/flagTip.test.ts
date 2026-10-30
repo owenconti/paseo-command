@@ -24,7 +24,6 @@ test("a flag's card names it, says what it means, and gives its PR's facts", () 
     title: "CI failing",
     description: "A check on the pull request failed.",
     facts: "1 of 3 checks failed.",
-    probe: "",
     autoMerge: "",
     pr: "#7 · Split the tests",
   });
@@ -35,13 +34,15 @@ test("a flag's card names it, says what it means, and gives its PR's facts", () 
   assert.equal(flagTip("review-approved", undefined).pr, "");
 });
 
-test("the review flag's card carries Probe's verdict", () => {
-  assert.equal(
-    flagTip("review-awaiting", pr, { state: "findings", findings: 2, head: "abcdef1234" }).probe,
-    "Probe: 2 findings open (review of abcdef1).",
-  );
-  assert.equal(flagTip("review-approved", pr, { state: "stale", reason: "deferred" }).probe, "Probe: deferred its review; request it again.");
-  assert.equal(flagTip("review-approved", pr).probe, "");
+test("Probe's medallion card names its verdict and its facts", () => {
+  assert.deepEqual(flagTip("probe", pr, { state: "findings", findings: 2, head: "abcdef1234" }), {
+    title: "Probe findings (their count)",
+    description: "Probe's review left findings open.",
+    facts: "Probe: 2 findings open (review of abcdef1).",
+    autoMerge: "",
+    pr: "#7 · Split the tests",
+  });
+  assert.equal(flagTip("probe", pr, { state: "stale", reason: "deferred" }).facts, "Probe: deferred its review; request it again.");
 });
 
 test("a flag's card says when auto-merge is on", () => {

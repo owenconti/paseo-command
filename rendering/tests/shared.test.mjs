@@ -12,7 +12,7 @@ import { SAMPLE } from "../src/sample.ts";
 import { crowded } from "./fixtures.mjs";
 import { perimeter } from "../src/outline.ts";
 import { mapExtent, minimumZoom, clampCamera, MAX_ZOOM } from "../src/camera.ts";
-import { placeStructures, placeFlags, placeSeals, MEDALLION } from "../src/placement.ts";
+import { placeStructures, placeFlags, placeSeals, placeProbes, MEDALLION } from "../src/placement.ts";
 import { fitCaption } from "../src/ribbon.ts";
 import { entityAt, cellAt } from "../src/pick.ts";
 import { point } from "../src/world.ts";
@@ -166,6 +166,39 @@ test("PR medallions lie in their workspace's yard cells, beyond the cottage", ()
       middle = structureCentre(ws);
     assert.ok(Math.hypot(f.x - middle.x, f.y - middle.y) > Math.hypot(c.x - middle.x, c.y - middle.y), `${f.flag} sits beyond its cell's centre`);
   }
+});
+
+test("Probe's medallion lies in its workspace's first cell, beyond the cottage, above every structure", () => {
+  const sizeOf = () => ({ width: 300, height: 300 });
+  const data = {
+    hosts: [{ key: "h", name: "Host", online: true }],
+    projects: [{ key: "p", host: "h", name: "P" }],
+    workspaces: [
+      { key: "flagged", host: "h", project: "p", name: "a", labels: ["CI green"], probe: { state: "approved" } },
+      { key: "bare", host: "h", project: "p", name: "b", probe: { state: "reviewing" } },
+      { key: "none", host: "h", project: "p", name: "c", labels: ["Approved"] },
+    ],
+    agents: [],
+  };
+  const layout = layoutAtlas(data);
+  const probes = placeProbes(layout);
+  assert.deepEqual(probes.map((p) => p.entity).sort(), ["bare", "flagged"], "with or without PR flags");
+  const structures = placeStructures(layout, sizeOf);
+  const flags = placeFlags(layout, sizeOf);
+  for (const p of probes) {
+    const ws = layout.workspaces.find((w) => w.id === p.entity);
+    assert.equal(cellKey(p.cell), cellKey(footprint(ws)[0]));
+    assert.equal(p.size, MEDALLION.size);
+    for (let i = 0; i < 8; i++) {
+      const a = (i / 8) * Math.PI * 2;
+      assert.ok(insideFootprint(p.x + (Math.cos(a) * p.size) / 2, p.y + (Math.sin(a) * p.size) / 2, [p.cell]), "lies inside its cell");
+    }
+    const c = point(p.cell),
+      middle = structureCentre(ws);
+    assert.ok(Math.hypot(p.x - middle.x, p.y - middle.y) > Math.hypot(c.x - middle.x, c.y - middle.y), "beyond its cell's centre");
+  }
+  for (const m of [...flags, ...probes])
+    for (const s of structures) assert.ok(m.depth > s.depth, "medallions sit above structures");
 });
 
 test("the auto-merge seal sits on the review medallion's rim, else the CI medallion's", () => {
