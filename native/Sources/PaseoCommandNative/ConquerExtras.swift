@@ -16,8 +16,9 @@ final class ConquerHistory {
     private static let limit = 5000
 
     init(persistent: Bool) {
-        if persistent, let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first {
-            let folder = support.appendingPathComponent("Paseo Command")
+        // The flavour's own folder, so a dev copy never shares the released app's history.
+        if persistent {
+            let folder = AppFlavor.dataFolder
             try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
             file = folder.appendingPathComponent("conquer-history.json")
         } else { file = nil }

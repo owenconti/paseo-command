@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { spawn } from 'node:child_process';
 
-const sources = ['Geometry', 'Textures', 'NativeTheme', 'ChromeControls', 'PageBar',
+const sources = ['AppFlavor', 'Geometry', 'Textures', 'NativeTheme', 'ChromeControls', 'PageBar',
   'ConquerTabs', 'ConquerExtras', 'ZenCookies', 'Conquer'];
 const input = [...sources.map(name => readFileSync(new URL(`../Sources/PaseoCommandNative/${name}.swift`, import.meta.url), 'utf8')),
   readFileSync(new URL('../tests/ConquerTabsTests.swift', import.meta.url), 'utf8')].join('\n');
