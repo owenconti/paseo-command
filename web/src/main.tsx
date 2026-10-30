@@ -65,6 +65,8 @@ import {
   usePullRequest,
 } from "./links";
 import { NewAgent, type DispatchTarget } from "./Dispatch";
+import { useAppMode } from "./appMode";
+import type { IssueContext } from "./linearIssues";
 import { AddProject } from "./AddProject";
 import {
   Fleet,
@@ -137,6 +139,10 @@ const native = true;
 const unity = true;
 const NativeWorld = React.lazy(() =>
   import("./NativeWorld").then((module) => ({ default: module.NativeWorld })),
+);
+// The Linear tab, drawn over the map while the app's mode bar shows it.
+const LinearView = React.lazy(() =>
+  import("./LinearView").then((module) => ({ default: module.LinearView })),
 );
 
 const spring = { type: "spring" as const, stiffness: 300, damping: 30 };
@@ -818,6 +824,14 @@ function App() {
     ],
   );
 
+  // The mode bar's tab (macOS app): Linear draws its issues in the map's place.
+  const appMode = useAppMode();
+  // From a Linear issue: New agent, where the host and project are chosen.
+  const launchFromIssue = useCallback(
+    (issue: IssueContext) => openDispatch({ issue }),
+    [openDispatch],
+  );
+
   // Cmd+N, and the native app's File > Dispatch Agent… (which takes the key
   // before WebKit), open the Dispatch Agent flow for the current selection
   // from any focus. An open dispatch keeps its draft; the archive dialog
@@ -1418,6 +1432,36 @@ function App() {
             keywords,
             run: () => postAppMenu(action),
           })),
+          ...(appMode !== "linear"
+            ? [
+                {
+                  id: "linear-show",
+                  group: "App",
+                  label: "Show your Linear issues",
+                  keywords: "linear issues tickets assigned tasks mode tab",
+                  run: () => postAppMenu("linear"),
+                },
+              ]
+            : [
+                {
+                  id: "linear-refresh",
+                  group: "App",
+                  label: "Refresh Linear issues",
+                  keywords: "linear issues reload update",
+                  run: () => runAppCommand("linear-refresh"),
+                },
+              ]),
+          ...(appMode !== "command"
+            ? [
+                {
+                  id: "command-show",
+                  group: "App",
+                  label: "Show the map",
+                  keywords: "command atlas world mode tab",
+                  run: () => postAppMenu("command"),
+                },
+              ]
+            : []),
           {
             id: "restart",
             group: "App",
@@ -1606,6 +1650,11 @@ function App() {
                 loaded={!loading}
               />
             </React.Suspense>
+            {appMode === "linear" && (
+              <React.Suspense fallback={null}>
+                <LinearView onLaunch={launchFromIssue} />
+              </React.Suspense>
+            )}
           </div>
         )}
         {errors.length > 0 && (

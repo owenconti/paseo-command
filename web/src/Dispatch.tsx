@@ -2,6 +2,7 @@ import { soundEvent } from "./soundCues";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, ChevronDown, GitBranch, MessageSquare, Pencil, Play } from "lucide-react";
 import { api, errorMessage, readStore, writeStore } from "./api";
+import { issuePrompt, type IssueContext } from "./linearIssues";
 import { Composer } from "./Composer";
 import type { Outgoing } from "./composer/types";
 import type {
@@ -45,6 +46,8 @@ export type DispatchTarget = {
   projectId?: string;
   workspaceId?: string;
   settings?: DraftSettings;
+  /** The Linear issue it was opened from: its first message and branch start from it. */
+  issue?: IssueContext;
 };
 /** Where a project agent runs: its checkout, or a new worktree and branch. */
 type Isolation = "local" | "worktree";
@@ -221,12 +224,19 @@ export function NewAgent({
   const [thinking, setThinking] = useState("");
   const [mode, setMode] = useState("");
   const [models, setModels] = useState<Model[]>([]);
+  const issue = initial.issue;
+  // An issue's agent works on its own branch: Linear's name for it.
   const [isolation, setIsolation] = useState<Isolation>(
-    prefs.isolation === "worktree" ? "worktree" : "local",
+    issue || prefs.isolation === "worktree" ? "worktree" : "local",
   );
   // Worktree mode needs no typing: an empty branch takes this name.
   const [suggested] = useState(randomBranchName);
-  const [branch, setBranch] = useState("");
+  const [branch, setBranch] = useState(issue?.branchName ?? "");
+  // The issue's draft starts as a prompt naming it, kept as any draft is.
+  const draftOwner = issue ? `linear:${issue.key}` : undefined;
+  useState(() => {
+    if (issue && !readStore(`draft:${draftOwner}`, "")) writeStore(`draft:${draftOwner}`, issuePrompt(issue));
+  });
   const [base, setBase] = useState("");
   // A pull request whose branch the new worktree checks out, instead.
   const [pr, setPr] = useState<PullRequestChoice | null>(null);
@@ -451,7 +461,7 @@ export function NewAgent({
     setLaunching(true);
     try {
       await send({
-        text: fillPreset(preset.prompt, prChosen ?? undefined),
+        text: fillPreset(preset.prompt, prChosen ?? undefined, issue),
         images: [],
         attachments: [],
       });
@@ -593,6 +603,11 @@ export function NewAgent({
         <div className="session-title">
           <div>
             <h2>New agent</h2>
+            {issue && (
+              <p className="new-agent-issue" title={issue.title}>
+                <b>{issue.key}</b> {issue.title}
+              </p>
+            )}
           </div>
         </div>
         <div className="new-agent-form">
@@ -724,8 +739,9 @@ export function NewAgent({
           <MessageSquare size={28} strokeWidth={1.5} aria-hidden="true" />
           <h2>No messages yet</h2>
           <p>
-            Write the first message below to start the agent. Use /skills and
-            @files as in any conversation.
+            {issue
+              ? `The message below starts from ${issue.key}: edit it and send it to start the agent, or start it with a preset, which takes the issue’s details too.`
+              : "Write the first message below to start the agent. Use /skills and @files as in any conversation."}
           </p>
           {presetsLoaded && (
             <div className="new-agent-presets" role="group" aria-label="Preset prompts">
@@ -739,7 +755,7 @@ export function NewAgent({
                     aria-description={
                       waiting
                         ? "Choose a pull request in Worktree mode first: this prompt names it"
-                        : `Starts the agent now with this prompt: ${p.prompt.slice(0, 200)}`
+                        : `Starts the agent now with this prompt${issue ? ` and ${issue.key}’s details` : ""}: ${p.prompt.slice(0, 200)}`
                     }
                     onClick={() => launch(p)}
                   >
@@ -781,6 +797,7 @@ export function NewAgent({
           onFreshDraft={() => {}}
           promptHistory={[]}
           dropFiles={drop}
+          draftOwner={draftOwner}
         />
       </footer>
     </div>

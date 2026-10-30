@@ -17,7 +17,7 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
     let content: NSView
     /// Covers the window until the map has drawn (see `revealWhenDrawn`).
     let splash: SplashView
-    /// The strip across the top that switches between Command and Conquer.
+    /// The strip across the top that switches between Command, Conquer and Linear.
     let modeBar: ModeBar
     /// Command: the split and its splash, under the mode bar.
     let command: NSView
@@ -135,8 +135,8 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         modeBar.onSelect = { [weak self] mode in self?.show(mode) }
         placeModeBar()
         // Where the user left it, across launches and app restarts.
-        if options.info == nil, UserDefaults.standard.string(forKey: "mode") == Mode.conquer.rawValue {
-            DispatchQueue.main.async { self.show(.conquer) }
+        if options.info == nil, let saved = UserDefaults.standard.string(forKey: "mode").flatMap(Mode.init(rawValue:)), saved != .command {
+            DispatchQueue.main.async { self.show(saved) }
         }
         if UserDefaults.standard.bool(forKey: "terminalOpen") { DispatchQueue.main.async { self.setTerminal(open: true, newTab: false) } }
         if server != nil {
@@ -205,6 +205,9 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
     private func handle(_ type: String, _ body: [String: Any]) {
         let point = CGPoint(x: body["x"] as? Double ?? 0, y: body["y"] as? Double ?? 0)
         switch type {
+        case "mode":
+            // The page asks which side shows (it draws Linear itself, over the map).
+            sendMode()
         case "viewport":
             viewport = CGRect(x: body["x"] as? Double ?? 0, y: body["y"] as? Double ?? 0,
                               width: body["width"] as? Double ?? 0, height: body["height"] as? Double ?? 0)
@@ -243,6 +246,8 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
             case "terminal-smaller": drawer.zoom(-1)
             case "terminal-actual": drawer.zoom(0)
             case "conquer": show(.conquer)
+            case "linear": show(.linear)
+            case "command": show(.command)
             case "conquer-tab": show(.conquer); conquer.whenStarted { [weak self] in self?.conquer.newTab() }
             case "conquer-sidebar": show(.conquer); conquer.perform("toggleSidebar")
             case "zen-cookies": conquer.perform("importCookies")
@@ -556,15 +561,17 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         return c.url ?? options.url
     }
 
-    /// Switch the map's place between the map and the browser (⌘` toggles); the
-    /// panels and terminal stay, and ⌘B (the page's panel toggle) gives the browser the width.
+    /// Switch the map's place between the map, the browser (⌘` toggles those) and Linear,
+    /// which the page draws over its map; the panels and terminal stay, and ⌘B (the page's
+    /// panel toggle) gives the browser the width.
     /// The side not shown keeps running: the map's page and Conquer's tabs stay live.
     func show(_ next: Mode) {
         guard next != mode else { return }
         mode = next
         modeBar.mode = next
-        atlasView.covered = next == .conquer
+        atlasView.covered = next != .command
         placeConquer()
+        sendMode()
         if next == .conquer {
             conquer.start()
             conquer.focusPage()
@@ -573,6 +580,9 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         }
         if options.info == nil { UserDefaults.standard.set(next.rawValue, forKey: "mode") }
     }
+
+    /// Tell the page which side shows, so it draws Linear in the map's place.
+    private func sendMode() { send(["mode": mode.rawValue], as: "paseo:mode") }
 
     /// Open `url` in a new Conquer tab (a link from the chat), in the map's
     /// place, once its tabs and cookies are in.

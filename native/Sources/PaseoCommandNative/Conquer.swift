@@ -2,9 +2,32 @@ import AppKit
 import ImageIO
 import WebKit
 
-/// The window's two sides: the map and panels, or the Conquer browser.
-enum Mode: String {
-    case command, conquer
+/// What stands in the map's place: the map (Command), the Conquer browser,
+/// or the page's Linear issues (Linear).
+enum Mode: String, CaseIterable {
+    case command, conquer, linear
+
+    var title: String {
+        switch self {
+        case .command: "Command"
+        case .conquer: "Conquer"
+        case .linear: "Linear"
+        }
+    }
+    var symbol: String {
+        switch self {
+        case .command: "map"
+        case .conquer: "globe"
+        case .linear: "checklist"
+        }
+    }
+    var tip: String {
+        switch self {
+        case .command: "The map (⌘`)"
+        case .conquer: "The browser, in the map's place (⌘`)"
+        case .linear: "Your Linear issues, in the map's place"
+        }
+    }
 }
 
 /// One of the mode bar's tabs: it says when the pointer is over it, and shows a pointing hand.
@@ -22,8 +45,8 @@ final class ModeButton: NSButton {
     override func resetCursorRects() { addCursorRect(bounds, cursor: .pointingHand) }
 }
 
-/// The strip across the top of the window that switches the map's place between the map (Command)
-/// and the browser (Conquer) (⌘` toggles).
+/// The strip across the top of the window that switches the map's place between the map (Command),
+/// the browser (Conquer) (⌘` toggles those two) and your Linear issues (Linear).
 /// It stands in for the hidden title bar: the traffic lights sit at its left, it drags the
 /// window, and it says when a newer build is ready. It is the same surface as the
 /// chrome under it (the page's panel header, Conquer's sidebar), with no line between them,
@@ -37,11 +60,11 @@ final class ModeBar: NSView {
     private var rowLeading: NSLayoutConstraint?
     private let update = NSTextField(labelWithString: "Update ready · Restart app")
     private let buttons: [(Mode, ModeButton)]
-    /// The control's track, behind both tabs.
+    /// The control's track, behind the tabs.
     private let track = NSStackView()
 
     override init(frame: NSRect) {
-        buttons = [(.command, ModeButton()), (.conquer, ModeButton())]
+        buttons = Mode.allCases.map { ($0, ModeButton()) }
         super.init(frame: frame)
         wantsLayer = true
         track.orientation = .horizontal
@@ -56,9 +79,9 @@ final class ModeBar: NSView {
             button.layer?.cornerRadius = 6
             button.target = self
             button.action = #selector(pick(_:))
-            button.tag = mode == .command ? 0 : 1
-            button.toolTip = mode == .command ? "The map (⌘`)" : "The browser, in the map's place (⌘`)"
-            let symbol = NSImage(systemSymbolName: mode == .command ? "map" : "globe", accessibilityDescription: nil)
+            button.tag = Mode.allCases.firstIndex(of: mode) ?? 0
+            button.toolTip = mode.tip
+            let symbol = NSImage(systemSymbolName: mode.symbol, accessibilityDescription: nil)
             button.image = symbol?.withSymbolConfiguration(.init(pointSize: 11, weight: .medium))
             button.imagePosition = .imageLeading
             button.imageHugsTitle = true
@@ -88,7 +111,7 @@ final class ModeBar: NSView {
     }
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 
-    @objc private func pick(_ sender: NSButton) { onSelect?(sender.tag == 0 ? .command : .conquer) }
+    @objc private func pick(_ sender: NSButton) { onSelect?(Mode.allCases[sender.tag]) }
 
     // As a title bar: drag to move the window, double-click as System Settings says.
     override var mouseDownCanMoveWindow: Bool { true }
@@ -121,7 +144,7 @@ final class ModeBar: NSView {
             button.layer?.shadowOffset = CGSize(width: 0, height: -0.5)
             let ink = Ink.color(on ? Ink.strong : button.hovered ? Ink.mid : Ink.off, look)
             button.contentTintColor = ink
-            button.attributedTitle = NSAttributedString(string: mode == .command ? " Command" : " Conquer", attributes: [
+            button.attributedTitle = NSAttributedString(string: " \(mode.title)", attributes: [
                 .font: NSFont.systemFont(ofSize: 12, weight: on ? .semibold : .medium),
                 .foregroundColor: ink,
             ])

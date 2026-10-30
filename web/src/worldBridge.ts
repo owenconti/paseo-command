@@ -209,6 +209,8 @@ export const macApp = () => !!appChannel();
 /** Choose one of the macOS app's menu items (View → Terminal, …). */
 export const postAppMenu = (action: string) =>
   appChannel()?.postMessage({ type: "menu", action });
+/** Ask the macOS app which mode bar tab shows; it answers with a `paseo:mode` event. */
+export const askAppMode = () => appChannel()?.postMessage({ type: "mode" });
 /** Open a web link in the macOS app's browser, Conquer, in the map's place (a new tab). */
 export const postAppLink = (url: string) =>
   appChannel()?.postMessage({ type: "openLink", url });

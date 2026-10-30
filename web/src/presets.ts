@@ -2,8 +2,11 @@
  * Preset prompts, kept in `~/.paseo-command/settings.json`
  * (`{ "presets": [{ "name": "Review PR", "prompt": "Review {{pr}}…" }] }`).
  * New agent launches one at once with the form's settings; `{{pr}}` is the
- * pull request chosen for its worktree.
+ * pull request chosen for its worktree, and `{{issue}}` the Linear issue it
+ * was opened from (whose details follow the prompt).
  */
+import { issueBlock, type IssueContext } from "./linearIssues";
+
 export type Preset = { name: string; prompt: string };
 /** A pull request a new worktree checks out. */
 export type PullRequestChoice = {
@@ -15,15 +18,20 @@ export type PullRequestChoice = {
 };
 
 const PR_TOKEN = /\{\{\s*pr\s*\}\}/g;
+const ISSUE_TOKEN = /\{\{\s*issue\s*\}\}/g;
 
 /** Whether the preset names the chosen pull request. */
 export const presetNeedsPr = (preset: Preset) =>
   new RegExp(PR_TOKEN.source).test(preset.prompt);
 
-/** The preset's prompt with `{{pr}}` filled in. */
-export function fillPreset(prompt: string, pr?: PullRequestChoice) {
+/** The preset's prompt with `{{pr}}` and `{{issue}}` filled in; launched from
+ * an issue, the issue's details follow it. */
+export function fillPreset(prompt: string, pr?: PullRequestChoice, issue?: IssueContext) {
   const text = pr ? (pr.url ? `#${pr.number} (${pr.url})` : `#${pr.number}`) : "";
-  return prompt.replace(PR_TOKEN, text);
+  const filled = prompt
+    .replace(PR_TOKEN, text)
+    .replace(ISSUE_TOKEN, issue ? `${issue.key} (${issue.title})` : "");
+  return issue ? `${filled.trim()}\n\n${issueBlock(issue)}` : filled;
 }
 
 /** A pull request number from what was typed or pasted: `123`, `#123`, or a PR URL. */

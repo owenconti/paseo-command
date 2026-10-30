@@ -12,7 +12,8 @@ export type AppCommand =
   | "show-commits"
   | "agent-interrupt"
   | "agent-open-paseo"
-  | "agent-archive";
+  | "agent-archive"
+  | "linear-refresh";
 
 const EVENT = "paseo:command";
 

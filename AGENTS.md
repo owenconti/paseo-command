@@ -192,6 +192,12 @@ Local assets belong in the repository and are included through local build tooli
   optionally seeded after confirmation through Conquer → Import Zen Cookies from Zen Browser's profile (`ZenCookies.swift`): a copy of
   `cookies.sqlite`, default space only, unpartitioned and unexpired; Zen is never written to. Its tabs (`conquerState`), sidebar width, zooms,
   history (`~/Library/Application Support/Paseo Command/conquer-history.json`) and the mode come back on launch; tabs come back unloaded.
+- Linear (the mode bar's third tab, after Command and Conquer; View menu; palette "Show your Linear issues"): the page draws
+  `web/src/LinearView.tsx` over the map's frame while the app reports `paseo:mode` `linear` (`useAppMode`, `web/src/appMode.ts`;
+  the page asks with a `mode` message). It lists the open issues assigned to you, grouped by state, beside the chosen one's
+  details (description, links, comments), read-only from Linear (`web/server/linear.ts`, `GET /api/linear/issues[/KEY]`, with
+  `LINEAR_API_KEY` or `linearApiKey` in `secrets.json`). Launch agent opens New agent with the issue (`DispatchTarget.issue`):
+  Worktree on Linear's branch name, the composer's draft naming the issue; presets take `{{issue}}` and the issue's details.
 - Web links clicked in the chat (`.session`, `openInAppBrowser` in `web/src/Session.tsx`, `postAppLink` → the `openLink` message)
   switch to Conquer and open there as a new tab, once its tabs are restored (`whenStarted`).
 

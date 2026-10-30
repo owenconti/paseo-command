@@ -1,0 +1,337 @@
+/* ── Linear tab ─────────────────────────────────────────────────────────
+   In the map's place while the macOS app's mode bar shows Linear: your
+   issues beside the chosen one's details. Opaque, over the map's frame. */
+.linear-view {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  display: grid;
+  grid-template-columns: minmax(240px, 34%) minmax(0, 1fr);
+  min-height: 0;
+  background: var(--surface);
+  color: var(--text);
+}
+.linear-view .linear-count {
+  margin-left: 6px;
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-medium);
+  color: var(--text-4);
+  font-variant-numeric: tabular-nums;
+}
+.linear-note {
+  margin: var(--space-4);
+  font-size: var(--fs-sm);
+  color: var(--text-3);
+}
+.linear-state-dot {
+  display: inline-block;
+  flex-shrink: 0;
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-pill);
+}
+.linear-key {
+  flex-shrink: 0;
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+}
+.linear-priority {
+  display: inline-grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 16px;
+  color: var(--text-4);
+}
+.linear-priority.p1 {
+  color: var(--red-text);
+}
+.linear-priority.p2 {
+  color: var(--amber-text);
+}
+
+/* The list */
+.linear-list {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border-right: 1px solid var(--line);
+  background: var(--panel);
+}
+.linear-list-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-3) 0 var(--space-4);
+}
+.linear-list-head h2 {
+  margin: 0;
+  font-size: var(--fs-lg);
+  font-weight: var(--fw-semibold);
+  color: var(--text-strong);
+}
+.linear-list .search-wrap {
+  margin: var(--space-2) var(--space-3) 0;
+}
+.linear-list .archive-error {
+  margin: var(--space-2) var(--space-4) 0;
+}
+.linear-groups {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--space-2) var(--space-2) var(--space-4);
+}
+.linear-group h3 {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: var(--space-3) var(--space-2) var(--space-1);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-semibold);
+  color: var(--text-2);
+}
+.linear-group h3 .linear-count {
+  margin-left: 0;
+}
+.linear-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  min-height: 30px;
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-md);
+  background: transparent;
+  text-align: left;
+  font-size: var(--fs-sm);
+  color: var(--text);
+}
+.linear-row:hover {
+  background: var(--row-hover);
+}
+.linear-row.selected {
+  background: var(--row-selected);
+}
+.linear-row.selected .linear-title {
+  color: var(--text-strong);
+  font-weight: var(--fw-medium);
+}
+.linear-row:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: -2px;
+}
+.linear-row .linear-key {
+  width: 72px;
+}
+.linear-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The chosen issue */
+.linear-detail {
+  min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
+}
+.linear-detail > .archive-error {
+  margin: var(--space-4);
+}
+.linear-issue {
+  max-width: 760px;
+  padding: var(--space-5) var(--space-6) var(--space-8);
+}
+.linear-issue-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  font-size: var(--fs-sm);
+  color: var(--text-2);
+}
+.linear-state,
+.linear-meta-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.linear-issue h1 {
+  margin: var(--space-2) 0 var(--space-3);
+  font-size: var(--fs-2xl);
+  font-weight: var(--fw-semibold);
+  line-height: 1.25;
+  color: var(--text-strong);
+  text-wrap: pretty;
+}
+.linear-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-5);
+  margin: 0;
+  font-size: var(--fs-sm);
+}
+.linear-facts dt {
+  font-size: var(--fs-2xs);
+  font-weight: var(--fw-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-4);
+}
+.linear-facts dd {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin: 2px 0 0;
+  color: var(--text-2);
+}
+.linear-parent {
+  margin-top: var(--space-3);
+  max-width: 100%;
+  text-align: left;
+}
+.linear-parent:disabled {
+  color: var(--text-3);
+  cursor: default;
+  text-decoration: none;
+}
+.linear-labels {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: var(--space-3) 0 0;
+  padding: 0;
+  list-style: none;
+}
+.linear-labels li {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 22px;
+  padding: 0 var(--space-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-pill);
+  font-size: var(--fs-xs);
+  color: var(--text-2);
+}
+.linear-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-4);
+  padding-bottom: var(--space-4);
+  border-bottom: 1px solid var(--line);
+}
+.linear-actions .primary,
+.linear-actions .secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.linear-branch {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.linear-description {
+  padding-top: var(--space-4);
+  font-size: var(--fs-md);
+  line-height: 1.55;
+}
+.linear-section {
+  margin-top: var(--space-6);
+}
+.linear-section h3 {
+  margin: 0 0 var(--space-2);
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-semibold);
+  color: var(--text-2);
+}
+.linear-links {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.linear-comment {
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-lg);
+  background: var(--panel);
+  font-size: var(--fs-md);
+}
+.linear-comment + .linear-comment {
+  margin-top: var(--space-2);
+}
+.linear-comment-head {
+  margin: 0 0 var(--space-1);
+  font-size: var(--fs-sm);
+  color: var(--text-2);
+}
+.linear-comment-head span {
+  color: var(--text-4);
+}
+
+/* Not connected */
+.linear-view.linear-unavailable {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: var(--space-6);
+  text-align: center;
+  color: var(--text-3);
+}
+.linear-unavailable h2 {
+  margin: 0;
+  font-size: var(--fs-lg);
+  color: var(--text-strong);
+}
+.linear-unavailable p {
+  max-width: 420px;
+  margin: 0 0 var(--space-2);
+  font-size: var(--fs-sm);
+}
+.linear-unavailable .secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* New agent, opened from an issue */
+.new-agent-issue {
+  margin: 2px 0 0;
+  overflow: hidden;
+  font-size: var(--fs-sm);
+  color: var(--text-3);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.new-agent-issue b {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-medium);
+  color: var(--text-2);
+}
+
+@media (max-width: 1100px) {
+  .linear-view {
+    grid-template-columns: minmax(200px, 40%) minmax(0, 1fr);
+  }
+  .linear-issue {
+    padding: var(--space-4);
+  }
+}

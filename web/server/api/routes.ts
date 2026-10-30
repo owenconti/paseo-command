@@ -17,6 +17,7 @@ import { workingOn } from "../workingOn";
 import { replyAsks } from "../asks";
 import { probeRoute } from "../probe";
 import { hostStatsRoute } from "../hostStats";
+import { assignedIssues, issueDetail } from "../linear";
 import {
   concludeFork,
   createFork,
@@ -134,6 +135,21 @@ export async function handleApi(
       return reply(415, { error: "JSON required" });
     try {
       return reply(200, savePresets(await bodyOf(req, 2 * 1024 * 1024)));
+    } catch (error) {
+      return reply(400, { error: errorText(error) });
+    }
+  }
+  // The Linear tab: your assigned issues and one's details, read from Linear, never the daemon.
+  if (req.method === "GET" && url.pathname.startsWith("/api/linear/issues")) {
+    if ([...url.searchParams.keys()].some((k) => k !== "fresh"))
+      return reply(400, { error: "Unexpected parameters" });
+    const fresh = url.searchParams.get("fresh") === "1";
+    const rest = url.pathname.slice("/api/linear/issues".length);
+    if (!rest) return reply(200, await assignedIssues(Date.now(), fresh));
+    const key = /^\/([^/]+)$/.exec(rest)?.[1];
+    if (!key) return reply(404, { error: "Unknown endpoint" });
+    try {
+      return reply(200, await issueDetail(decodeURIComponent(key), Date.now(), fresh));
     } catch (error) {
       return reply(400, { error: errorText(error) });
     }

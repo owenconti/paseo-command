@@ -138,6 +138,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
             guard let main = self?.main else { return }
             main.show(main.mode == .command ? .conquer : .command)
         }
+        listen("com.paseo.command.native.linear") { [weak self] in self?.main?.show(.linear) }
         // Run `<info>.do`'s Conquer steps, one a line, a second apart (checks; see `ConquerView.check`).
         listen("com.paseo.command.native.conquer") { [weak self] in
             guard let self, let info = self.options.info,
@@ -261,12 +262,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         let unsplit = view.addItem(withTitle: "Unsplit Terminals", action: #selector(unsplitTerminals), keyEquivalent: "")
         unsplit.target = self
         view.addItem(.separator())
-        for (title, mode) in [("Command", Mode.command), ("Conquer", Mode.conquer)] {
-            let item = view.addItem(withTitle: title, action: #selector(showMode(_:)), keyEquivalent: "")
+        for mode in Mode.allCases {
+            let item = view.addItem(withTitle: mode.title, action: #selector(showMode(_:)), keyEquivalent: "")
             item.target = self
             item.representedObject = mode.rawValue
         }
-        // ⌘` flips between the two (ahead of macOS's own window cycling, as the app has one window).
+        // ⌘` flips between the map and the browser (ahead of macOS's own window cycling, as the
+        // app has one window); from Linear it returns to the map.
         view.addItem(withTitle: "Switch Command / Conquer", action: #selector(toggleMode), keyEquivalent: "`").target = self
         view.addItem(.separator())
         // The terminals' text size. ⌘= reaches "Bigger" too, as ⌘+ needs ⇧ on most layouts.
