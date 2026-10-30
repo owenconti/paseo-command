@@ -23,7 +23,7 @@ final class TerminalSession: NSObject, TerminalViewDelegate, URLSessionWebSocket
     /// The last few kilobytes received, as text (for checks).
     private(set) var recent = ""
 
-    init(id: String, name: String, server: URL, host: String) {
+    init(id: String, name: String, server: URL, host: String, fontSize: CGFloat) {
         self.id = id
         self.name = name
         view = TerminalView(frame: CGRect(x: 0, y: 0, width: 800, height: 240))
@@ -31,7 +31,7 @@ final class TerminalSession: NSObject, TerminalViewDelegate, URLSessionWebSocket
         view.terminalDelegate = self
         view.nativeBackgroundColor = Textures.color(0x101614)
         view.nativeForegroundColor = Textures.color(0xe8e2d0)
-        view.font = NSFont.monospacedSystemFont(ofSize: 12.5, weight: .regular)
+        view.font = Self.font(fontSize)
         view.optionAsMetaKey = true
         var components = URLComponents(url: server, resolvingAgainstBaseURL: false)!
         components.scheme = server.scheme == "https" ? "wss" : "ws"
@@ -44,6 +44,8 @@ final class TerminalSession: NSObject, TerminalViewDelegate, URLSessionWebSocket
         socket?.resume()
         receive()
     }
+
+    static func font(_ size: CGFloat) -> NSFont { NSFont.monospacedSystemFont(ofSize: size, weight: .regular) }
 
     private func receive() {
         socket?.receive { [weak self] result in
@@ -111,7 +113,12 @@ final class TerminalSession: NSObject, TerminalViewDelegate, URLSessionWebSocket
     func rangeChanged(source: TerminalView, startY: Int, endY: Int) {}
 }
 
-/// The right-hand panel: tabs for the selected workspace's daemon terminals, a
+/// Where the terminal panel sits: beside the map and panels, or under them.
+enum TerminalDock: String {
+    case right, bottom
+}
+
+/// The terminal panel: tabs for the selected workspace's daemon terminals, a
 /// + for a new one there, and the native terminal (SwiftTerm) for the tab.
 /// Terminals keep running on the daemon when tabs close; × ends one.
 final class TerminalDrawer: NSView {
@@ -128,6 +135,20 @@ final class TerminalDrawer: NSView {
     private let tabs = NSSegmentedControl()
     private let add = NSButton(title: "+", target: nil, action: nil)
     private let end = NSButton(title: "×", target: nil, action: nil)
+    private let move = NSButton(title: "", target: nil, action: nil)
+    /// Asked to move the panel to the other side (the window owns the split).
+    var onMove: (() -> Void)?
+    /// The separator along the edge that faces the map: left when docked right, top when at the bottom.
+    private let line = NSBox()
+    private var lineConstraints: [NSLayoutConstraint] = []
+    var dock: TerminalDock = .right { didSet { placeLine() } }
+
+    /// The terminals' text size, kept across launches (⌘+, ⌘−, ⌘0).
+    static let defaultFontSize: CGFloat = 12.5
+    private(set) var fontSize: CGFloat = {
+        let saved = UserDefaults.standard.double(forKey: "terminalFontSize")
+        return saved > 0 ? saved : TerminalDrawer.defaultFontSize
+    }()
     private let body = NSView()
     private let empty = NSTextField(wrappingLabelWithString: "")
 
@@ -150,7 +171,8 @@ final class TerminalDrawer: NSView {
         tabs.target = self
         tabs.action = #selector(chooseTab)
         for (button, help, action) in [(add, "New terminal in this workspace", #selector(newTerminal)),
-                                       (end, "End this terminal", #selector(endTerminal))] {
+                                       (end, "End this terminal", #selector(endTerminal)),
+                                       (move, "", #selector(moveDock))] {
             button.bezelStyle = .accessoryBarAction
             button.controlSize = .small
             button.toolTip = help
@@ -159,7 +181,7 @@ final class TerminalDrawer: NSView {
         }
         let spacer = NSView()
         spacer.setContentHuggingPriority(.init(1), for: .horizontal)
-        for v in [title, tabs, add, spacer, end] { bar.addArrangedSubview(v) }
+        for v in [title, tabs, add, spacer, move, end] { bar.addArrangedSubview(v) }
         empty.textColor = Textures.color(0xa8a08a)
         empty.font = .systemFont(ofSize: 12)
         empty.alignment = .center
@@ -167,14 +189,11 @@ final class TerminalDrawer: NSView {
             v.translatesAutoresizingMaskIntoConstraints = false
             addSubview(v)
         }
-        let line = NSBox()
         line.boxType = .separator
         line.translatesAutoresizingMaskIntoConstraints = false
         addSubview(line)
+        placeLine()
         NSLayoutConstraint.activate([
-            line.topAnchor.constraint(equalTo: topAnchor),
-            line.bottomAnchor.constraint(equalTo: bottomAnchor),
-            line.leadingAnchor.constraint(equalTo: leadingAnchor),
             bar.topAnchor.constraint(equalTo: topAnchor, constant: 1),
             bar.leadingAnchor.constraint(equalTo: leadingAnchor),
             bar.trailingAnchor.constraint(equalTo: trailingAnchor),
@@ -190,6 +209,33 @@ final class TerminalDrawer: NSView {
         render()
     }
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+
+    private func placeLine() {
+        NSLayoutConstraint.deactivate(lineConstraints)
+        lineConstraints = dock == .right ? [
+            line.topAnchor.constraint(equalTo: topAnchor),
+            line.bottomAnchor.constraint(equalTo: bottomAnchor),
+            line.leadingAnchor.constraint(equalTo: leadingAnchor),
+        ] : [
+            line.topAnchor.constraint(equalTo: topAnchor),
+            line.leadingAnchor.constraint(equalTo: leadingAnchor),
+            line.trailingAnchor.constraint(equalTo: trailingAnchor),
+        ]
+        NSLayoutConstraint.activate(lineConstraints)
+        let other = dock == .right ? "bottom" : "right"
+        move.image = NSImage(systemSymbolName: dock == .right ? "rectangle.bottomhalf.inset.filled" : "rectangle.righthalf.inset.filled",
+                             accessibilityDescription: "Move terminal to the \(other)")
+        move.toolTip = "Move the terminal to the \(other)"
+    }
+
+    @objc private func moveDock() { onMove?() }
+
+    /// Change the terminals' text size by `step` points (0 restores the default).
+    func zoom(_ step: CGFloat) {
+        fontSize = step == 0 ? Self.defaultFontSize : max(8, min(32, fontSize + step))
+        UserDefaults.standard.set(fontSize, forKey: "terminalFontSize")
+        for s in sessions.values { s.view.font = TerminalSession.font(fontSize) }
+    }
 
     /// The page selected another workspace (or none).
     func show(_ next: TerminalWorkspace?) {
@@ -271,7 +317,7 @@ final class TerminalDrawer: NSView {
         empty.isHidden = true
         let name = listed.first { $0.id == id }?.name ?? "Terminal"
         let s = sessions[id] ?? {
-            let s = TerminalSession(id: id, name: name, server: server(), host: ws.host)
+            let s = TerminalSession(id: id, name: name, server: server(), host: ws.host, fontSize: fontSize)
             s.view.translatesAutoresizingMaskIntoConstraints = false
             body.addSubview(s.view)
             NSLayoutConstraint.activate([
@@ -364,6 +410,8 @@ final class TerminalDrawer: NSView {
             "current": current as Any? ?? NSNull(),
             "text": text,
             "open": !isHidden,
+            "dock": dock.rawValue,
+            "fontSize": fontSize,
         ]
     }
 

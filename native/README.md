@@ -74,7 +74,9 @@ base path for the `notifyutil` hooks below).
 
 View → Terminal (⌃`) opens a panel on the right, beside the map and panels, with the daemon's terminals for the
 selected workspace (or the selected agent's): one tab per terminal, + opens a new one in that
-workspace, × ends one (after asking). Its left edge drags to resize it. Closing the panel or switching workspace leaves terminals
+workspace, × ends one (after asking). Its inner edge drags to resize it. The dock button beside × (or View → Terminal at
+Bottom) moves it under the map and panels and back; each side keeps its own size. ⌘+ / ⌘− / ⌘0 (View) change
+the terminals' text size while the panel shows, kept across launches. Closing the panel or switching workspace leaves terminals
 running on the daemon. SwiftTerm draws them; the app server relays each over `/api/terminal`
 (`web/server/api/terminals.ts`), replaying its recent screen first. To check it without a real
 daemon:
@@ -93,7 +95,7 @@ ignores them; such a copy keeps its page storage in memory, apart from the user'
 `com.paseo.command.native.eval` runs `/tmp/x.js` in the page and writes `/tmp/x.out`;
 `.snapshot` writes `/tmp/x.png` (SpriteKit's frame under the page's snapshot); `.info` rewrites
 `/tmp/x.json` (with the terminal panel's state); `.pan` drags the map for 10 s; `.resize` alternates
-the window size; `.reload` does what ⌘R does; `.terminal` toggles the panel; `.type` types
+the window size; `.reload` does what ⌘R does; `.terminal` toggles the panel; `.dock` moves it between right and bottom; `.zoom` enlarges its text; `.type` types
 `/tmp/x.type` into its terminal; `.quit`.
 
 Measurements against the web Atlas are in [MEASUREMENTS.md](MEASUREMENTS.md)

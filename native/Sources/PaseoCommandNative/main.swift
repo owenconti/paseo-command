@@ -72,7 +72,7 @@ enum Log {
     }
 }
 
-final class AppDelegate: NSObject, NSApplicationDelegate {
+final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     let options = Options(CommandLine.arguments)
     var main: WorldWindow?
     private var tokens: [Int32] = []
@@ -100,6 +100,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             Log.line("⌘R through the menu: \(NSApp.mainMenu?.performKeyEquivalent(with: event) ?? false)")
         }
         listen("com.paseo.command.native.terminal") { [weak self] in self?.main?.toggleTerminal() }
+        listen("com.paseo.command.native.dock") { [weak self] in self?.main?.moveTerminal() }
+        listen("com.paseo.command.native.zoom") { [weak self] in self?.main?.drawer.zoom(1) }
         // Type `<info>.type`'s text into the drawer's terminal, as keys would.
         listen("com.paseo.command.native.type") { [weak self] in
             guard let self, let info = self.options.info,
@@ -199,6 +201,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let terminal = view.addItem(withTitle: "Terminal", action: #selector(toggleTerminal), keyEquivalent: "`")
         terminal.target = self
         terminal.keyEquivalentModifierMask = [.control]
+        let bottom = view.addItem(withTitle: "Terminal at Bottom", action: #selector(moveTerminal), keyEquivalent: "")
+        bottom.target = self
+        view.addItem(.separator())
+        // The terminals' text size. ⌘= reaches "Bigger" too, as ⌘+ needs ⇧ on most layouts.
+        for (title, key, step, hidden) in [("Bigger Terminal Text", "+", 1, false), ("Bigger Terminal Text", "=", 1, true),
+                                           ("Smaller Terminal Text", "-", -1, false), ("Actual Terminal Text Size", "0", 0, false)] {
+            let item = view.addItem(withTitle: title, action: #selector(zoomTerminal(_:)), keyEquivalent: key)
+            item.target = self
+            item.tag = step
+            item.isHidden = hidden
+            item.allowsKeyEquivalentWhenHidden = true
+        }
         viewItem.submenu = view
         let windowItem = NSMenuItem()
         bar.addItem(windowItem)
@@ -214,6 +228,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// build is on disk, the app swaps itself for it in place: same window,
     /// same page, no quitting by hand.
     @objc private func toggleTerminal() { main?.toggleTerminal() }
+    @objc private func moveTerminal() { main?.moveTerminal() }
+    @objc private func zoomTerminal(_ sender: NSMenuItem) { main?.drawer.zoom(CGFloat(sender.tag)) }
+
+    func validateMenuItem(_ item: NSMenuItem) -> Bool {
+        guard let main else { return false }
+        switch item.action {
+        case #selector(moveTerminal): item.state = main.drawer.dock == .bottom ? .on : .off
+        // Only while the terminal shows, so the keys stay the page's otherwise.
+        case #selector(zoomTerminal(_:)): return !main.drawer.isHidden
+        default: break
+        }
+        return true
+    }
 
     /// ⌘R: the server first (restarted if its code changed), then this
     /// app (relaunched if a newer build is on disk) or just the page.

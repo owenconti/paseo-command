@@ -51,9 +51,11 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         window.minSize = NSSize(width: 760, height: 520)
         window.isReleasedWhenClosed = false
         window.backgroundColor = Textures.color(0x1d6884)
-        // The map and page on the left; the terminal panel on the right, collapsed until asked for.
+        // The map and page on the left (or above); the terminal panel on the right (or below),
+        // collapsed until asked for.
         split = PanelSplitView(frame: window.contentView!.bounds)
-        split.isVertical = true
+        let dock = TerminalDock(rawValue: UserDefaults.standard.string(forKey: "terminalDock") ?? "") ?? .right
+        split.isVertical = dock == .right
         split.dividerStyle = .thin
         split.autoresizingMask = [.width, .height]
         let root = NSView(frame: split.frame)
@@ -70,6 +72,7 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         split.setHoldingPriority(.defaultLow, forSubviewAt: 0)
         split.setHoldingPriority(.defaultHigh, forSubviewAt: 1)
         drawer.isHidden = true
+        drawer.dock = dock
 
         scene = AtlasScene(size: content.bounds.size)
         atlasView = AtlasView(frame: content.bounds, scene: scene)
@@ -97,6 +100,7 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         window.delegate = self
         scene.emit = { [weak self] message in self?.send(message) }
         drawer.server = { [weak self] in self?.serverURL ?? options.url }
+        drawer.onMove = { [weak self] in self?.moveTerminal() }
         if UserDefaults.standard.bool(forKey: "terminalOpen") { DispatchQueue.main.async { self.toggleTerminal() } }
         if server != nil {
             showSplash("Starting the app server…")
@@ -427,7 +431,8 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
             let left = CGRect(x: 0, y: whole.height - bounds.height, width: bounds.width, height: bounds.height)
             if let world { ctx.draw(world, in: self.atlasView.frame.offsetBy(dx: 0, dy: left.minY)) }
             if let page, let image = page.cgImage(forProposedRect: nil, context: nil, hints: nil) { ctx.draw(image, in: left) }
-            if let terminal { ctx.draw(terminal, in: CGRect(x: self.drawer.frame.minX, y: 0, width: self.drawer.frame.width, height: self.drawer.frame.height)) }
+            if let terminal { ctx.draw(terminal, in: CGRect(x: self.drawer.frame.minX, y: whole.height - self.drawer.frame.maxY,
+                                                            width: self.drawer.frame.width, height: self.drawer.frame.height)) }
             if let cover { ctx.draw(cover, in: whole) }
             guard let image = ctx.makeImage(),
                   let destination = CGImageDestinationCreateWithURL(URL(fileURLWithPath: path) as CFURL, "public.png" as CFString, 1, nil)
@@ -449,25 +454,49 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         return c.url ?? options.url
     }
 
-    /// Show or hide the terminal panel (View → Terminal, ⌃`), at the width it last had.
+    /// Show or hide the terminal panel (View → Terminal, ⌃`), at the size it last had.
     @objc func toggleTerminal() {
         let open = drawer.isHidden
         if open {
-            let width = max(PanelSplitView.minPanel, min(UserDefaults.standard.double(forKey: "terminalWidth").nonZero ?? 460,
-                                                         split.bounds.width - PanelSplitView.minPage))
             drawer.isHidden = false
-            split.adjustSubviews()
-            split.setPosition(split.bounds.width - width - split.dividerThickness, ofDividerAt: 0)
+            placeTerminal()
             drawer.setActive(true)
             drawer.focusTerminal()
         } else {
-            UserDefaults.standard.set(drawer.frame.width, forKey: "terminalWidth")
+            saveTerminalSize()
             drawer.setActive(false)
             drawer.isHidden = true
             split.adjustSubviews()
             window.makeFirstResponder(web)
         }
         UserDefaults.standard.set(open, forKey: "terminalOpen")
+    }
+
+    /// The panel's key for its saved size along the split: width on the right, height at the bottom.
+    private var terminalSizeKey: String { drawer.dock == .right ? "terminalWidth" : "terminalHeight" }
+
+    private func saveTerminalSize() {
+        UserDefaults.standard.set(drawer.dock == .right ? drawer.frame.width : drawer.frame.height, forKey: terminalSizeKey)
+    }
+
+    /// Set the open panel at its saved size for its dock.
+    private func placeTerminal() {
+        let right = drawer.dock == .right
+        let length = right ? split.bounds.width : split.bounds.height
+        let saved = UserDefaults.standard.double(forKey: terminalSizeKey).nonZero ?? (right ? 460 : 280)
+        let size = max(split.minPanel, min(saved, length - split.minPage))
+        split.adjustSubviews()
+        split.setPosition(length - size - split.dividerThickness, ofDividerAt: 0)
+    }
+
+    /// Move the terminal panel between the right side and the bottom (View → Terminal at Bottom).
+    @objc func moveTerminal() {
+        if !drawer.isHidden { saveTerminalSize() }
+        drawer.dock = drawer.dock == .right ? .bottom : .right
+        UserDefaults.standard.set(drawer.dock.rawValue, forKey: "terminalDock")
+        split.isVertical = drawer.dock == .right
+        if drawer.isHidden { toggleTerminal() } else { placeTerminal(); drawer.focusTerminal() }
+        window.invalidateCursorRects(for: split)
     }
 
     /// The app page the window is on (its query keeps the panel's place), or
@@ -524,8 +553,9 @@ private extension Double {
 /// grabbed a few points either side, ahead of the web view under it, and
 /// keeps both sides usable.
 final class PanelSplitView: NSSplitView, NSSplitViewDelegate {
-    static let minPanel: CGFloat = 280
-    static let minPage: CGFloat = 480
+    /// The smallest panel and page along the split: widths beside each other, heights stacked.
+    var minPanel: CGFloat { isVertical ? 280 : 140 }
+    var minPage: CGFloat { isVertical ? 480 : 240 }
     private static let grab: CGFloat = 4
 
     override init(frame: NSRect) {
@@ -536,6 +566,10 @@ final class PanelSplitView: NSSplitView, NSSplitViewDelegate {
 
     private var handle: CGRect? {
         guard subviews.count > 1, !subviews[1].isHidden else { return nil }
+        if !isVertical {
+            let y = subviews[0].frame.maxY
+            return CGRect(x: 0, y: y - Self.grab, width: bounds.width, height: dividerThickness + Self.grab * 2)
+        }
         let x = subviews[0].frame.maxX
         return CGRect(x: x - Self.grab, y: 0, width: dividerThickness + Self.grab * 2, height: bounds.height)
     }
@@ -547,7 +581,7 @@ final class PanelSplitView: NSSplitView, NSSplitViewDelegate {
 
     override func resetCursorRects() {
         super.resetCursorRects()
-        if let handle { addCursorRect(handle, cursor: .resizeLeftRight) }
+        if let handle { addCursorRect(handle, cursor: isVertical ? .resizeLeftRight : .resizeUpDown) }
     }
 
     func splitView(_ splitView: NSSplitView, effectiveRect proposedEffectiveRect: NSRect, forDrawnRect drawnRect: NSRect,
@@ -555,10 +589,10 @@ final class PanelSplitView: NSSplitView, NSSplitViewDelegate {
         handle ?? proposedEffectiveRect
     }
     func splitView(_ splitView: NSSplitView, constrainMinCoordinate proposedMinimumPosition: CGFloat, ofSubviewAt dividerIndex: Int) -> CGFloat {
-        max(proposedMinimumPosition, Self.minPage)
+        max(proposedMinimumPosition, minPage)
     }
     func splitView(_ splitView: NSSplitView, constrainMaxCoordinate proposedMaximumPosition: CGFloat, ofSubviewAt dividerIndex: Int) -> CGFloat {
-        min(proposedMaximumPosition, bounds.width - Self.minPanel - dividerThickness)
+        min(proposedMaximumPosition, (isVertical ? bounds.width : bounds.height) - minPanel - dividerThickness)
     }
     func splitViewDidResizeSubviews(_ notification: Notification) {
         window?.invalidateCursorRects(for: self)
