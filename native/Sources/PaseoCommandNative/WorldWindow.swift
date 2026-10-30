@@ -467,10 +467,13 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         webView.load(URLRequest(url: options.url))
     }
 
-    /// Links that open a new window (PRs, issues) go to the default browser.
+    /// Links that open a new window (PRs, issues) go to the default browser: web and
+    /// mail links only, never `file:` or another app's URL scheme.
     func webView(_ webView: WKWebView, createWebViewWith configuration: WKWebViewConfiguration,
                  for navigationAction: WKNavigationAction, windowFeatures: WKWindowFeatures) -> WKWebView? {
-        if let url = navigationAction.request.url { NSWorkspace.shared.open(url) }
+        if let url = navigationAction.request.url, ["http", "https", "mailto"].contains(url.scheme?.lowercased() ?? "") {
+            NSWorkspace.shared.open(url)
+        }
         return nil
     }
 
