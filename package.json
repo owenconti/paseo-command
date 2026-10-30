@@ -1,5 +1,6 @@
 {
   "name": "paseo-command",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
   "description": "Paseo Command: the Paseo fleet drawn as the Atlas world (SpriteKit in the macOS app)",
@@ -18,12 +19,12 @@
     "app:restart": "node scripts/app-server.mjs restart",
     "app:refresh": "node scripts/app-server.mjs refresh",
     "app:status": "node scripts/app-server.mjs status",
-    "app:update": "npm run app:build && npm run native:build",
+    "app:update": "npm run app:build && npm run app:bundle-server && npm run native:build",
     "native:build": "sh native/scripts/bundle.sh",
     "native:run": "sh native/scripts/run.sh",
     "native:mock": "web/node_modules/.bin/tsx native/scripts/mock-fleet.ts",
     "public:check": "node scripts/public-check.mjs",
-    "native:test": "node native/scripts/test-origin.mjs && node native/scripts/test-conquer.mjs",
+    "native:test": "node native/scripts/test-origin.mjs && node native/scripts/test-bundle.mjs && node native/scripts/test-conquer.mjs",
     "public:hooks": "node scripts/public-push-guard.mjs --install"
   },
   "license": "MIT"

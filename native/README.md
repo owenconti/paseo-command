@@ -5,7 +5,7 @@ natively with SpriteKit (Metal) underneath it. It builds with the Command Line T
 (`swift build`; no Xcode project).
 
 ```sh
-npm run native:build                 # swift build -c release, wrapped as native/build/Paseo Command.app
+npm run native:build                 # swift build -c release, wrapped as native/build/Paseo Command Dev.app
 npm run native:run                   # opens it without taking focus, on http://127.0.0.1:4310/
 npm run native:run -- --url http://127.0.0.1:4331/
 ```

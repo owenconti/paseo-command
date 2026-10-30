@@ -35,3 +35,5 @@ credentials.json
 *.db
 *.db-*
 web/dist-server/
+native/.cache/
+native/release/

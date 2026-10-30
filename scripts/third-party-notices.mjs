@@ -36,13 +36,15 @@ for (const pin of json('native/Package.resolved').pins) {
 }
 for (const file of readdirSync('web/src/themes/fonts').filter(file => file.endsWith('-OFL.txt')))
   entries.push({ name: basename(file, '-OFL.txt'), license: 'OFL-1.1', texts: [{ file, text: read(join('web/src/themes/fonts', file)) }] });
+// The Node runtime bundled in the app (native/node-version.json).
+entries.push({ name: `node ${json('native/node-version.json').version}`, license: 'MIT', texts: [{ file: 'LICENSE', text: read('licenses/node.txt') }] });
 
 entries.sort((a, b) => a.name.localeCompare(b.name, 'en'));
 const header = `# Third-party notices
 
 These components keep their own licenses. The project's MIT license does not
 replace them. This inventory includes installed web runtime dependencies, resolved
-Swift packages, and bundled fonts for this build platform. Optional binaries for
+Swift packages, the bundled Node runtime, and bundled fonts for this build platform. Optional binaries for
 other platforms and development-only packages are not bundled in this inventory;
 their distributions supply their own notices.
 

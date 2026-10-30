@@ -27,7 +27,7 @@ import { fileURLToPath } from "node:url";
 import { tmpdir } from "node:os";
 
 const ROOT = fileURLToPath(new URL("../..", import.meta.url));
-const APP = join(ROOT, "native/build/Paseo Command.app");
+const APP = join(ROOT, "native/build/Paseo Command Dev.app");
 const args = process.argv.slice(2);
 const option = (name, fallback) => {
   const i = args.indexOf(`--${name}`);
