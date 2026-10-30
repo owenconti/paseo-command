@@ -118,7 +118,7 @@ released app like everyone else, and his changes reach him through releases.
   so each update keeps the same code identity: macOS's Automation permission and
   keychain access survive updates. A Developer ID can replace it later.
 - **Check copies beside the released app.** Copies built from the checkout for
-  checks get their own bundle id (e.g. `….dev`), a different default port (4331),
+  checks get their own bundle id (e.g. `….dev`), a different default port (4321),
   their own data folder (`Paseo Command Dev`), and Sparkle off. They never touch
   the released app's server, data or Conquer state.
 - **The old checkout server.** If the released app finds the old checkout launcher's

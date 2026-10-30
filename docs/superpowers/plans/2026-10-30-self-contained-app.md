@@ -14,7 +14,7 @@
 
 - macOS 14+; build with Command Line Tools only (`swift build`), no Xcode project.
 - Bundled Node satisfies `^20.19.0 || >=22.12.0`; pin one exact Node 22 LTS version with SHA-256 checksums for both darwin tarballs.
-- Server binds `127.0.0.1` only; release port `4310`, dev flavour port `4331`.
+- Server binds `127.0.0.1` only; release port `4310`, dev flavour port `4321`.
 - Release bundle id `io.github.owenconti.paseo-command`, name "Paseo Command", data `~/Library/Application Support/Paseo Command/`.
 - Dev bundle id `io.github.owenconti.paseo-command.dev`, name "Paseo Command Dev", data `~/Library/Application Support/Paseo Command Dev/`, Sparkle off.
 - `~/.paseo-command/settings.json` stays where it is.
@@ -85,7 +85,7 @@
 - Modify: `THIRD_PARTY_NOTICES.md`, add `licenses/node.txt`
 
 **Interfaces:**
-- Produces: `sh native/scripts/bundle.sh [--release]`. Without `--release`: dev flavour (Global Constraints values) at `native/build/Paseo Command Dev.app`. With: `native/build/Paseo Command.app`. Both contain `Contents/Resources/node/node` (universal), `Contents/Resources/server/server.mjs`, `Contents/Resources/ui/` (copy of `web/dist`), and `Info.plist` keys `CFBundleIdentifier`, `CFBundleName`, `CFBundleShortVersionString` = package.json version, `CFBundleVersion` = `git rev-list --count HEAD`, `PaseoCommandFlavor` = `dev|release`, `PaseoCommandPort` = `4331|4310`.
+- Produces: `sh native/scripts/bundle.sh [--release]`. Without `--release`: dev flavour (Global Constraints values) at `native/build/Paseo Command Dev.app`. With: `native/build/Paseo Command.app`. Both contain `Contents/Resources/node/node` (universal), `Contents/Resources/server/server.mjs`, `Contents/Resources/ui/` (copy of `web/dist`), and `Info.plist` keys `CFBundleIdentifier`, `CFBundleName`, `CFBundleShortVersionString` = package.json version, `CFBundleVersion` = `git rev-list --count HEAD`, `PaseoCommandFlavor` = `dev|release`, `PaseoCommandPort` = `4321|4310`.
 - `npm run native:build` → dev; `npm run app:update` = `app:build && app:bundle-server && native:build` (unchanged name).
 
 - [ ] **Step 1: Failing check** `native/scripts/test-bundle.mjs` (added to `native:test` after the Swift checks, skipped with a message when no build exists): for each built flavour, `lipo -archs Resources/node/node` contains `arm64` and `x86_64`; `Resources/node/node --version` matches `node-version.json`; plist keys as above; `codesign --verify --deep --strict` passes.
@@ -119,7 +119,7 @@
   - `startsWithAppEnvironmentWhenShellFails`: `ShellEnvironment.capture(shell: "/bin/sh -c 'sleep 30'", timeout: 1)` returns nil within 2 s (add `shell` parameter defaulting to `userShell()`).
 - [ ] **Step 2:** `npm run native:test` → FAIL.
 - [ ] **Step 3: Implement.** On `ensure`: classify port → `.ours`/`.free` proceed; `.otherHelper` with dead owner or owner exiting → poll every 250 ms up to 10 s, then start; `.foreign` → failure "Port 4310 is used by another program. Quit it and reopen Paseo Command." (Task 6 inserts the old-launcher case before this). `AppDelegate.applicationWillTerminate` calls `stop()`. Restart app (no update pending): `stop()`, then the existing `relaunch`. Dev flavour keeps `Build.newer` for "Update ready".
-- [ ] **Step 4:** `npm run native:test` PASS; then end-to-end: `npm run app:update`, copy `native/build/Paseo Command Dev.app` to `$SCRATCH/Moved/`, `open -g -n "$SCRATCH/Moved/Paseo Command Dev.app" --args --background --info $SCRATCH/x.json`; health on 4331 within 15 s; `ps` shows the bundle's own `node`; quit via `notifyutil -p com.paseo.command.native.quit.x` → port 4331 free within 6 s.
+- [ ] **Step 4:** `npm run native:test` PASS; then end-to-end: `npm run app:update`, copy `native/build/Paseo Command Dev.app` to `$SCRATCH/Moved/`, `open -g -n "$SCRATCH/Moved/Paseo Command Dev.app" --args --background --info $SCRATCH/x.json`; health on 4321 within 15 s; `ps` shows the bundle's own `node`; quit via `notifyutil -p com.paseo.command.native.quit.x` → port 4321 free within 6 s.
 - [ ] **Step 5: Commit** `Run the bundled server from the app, wherever it is installed`.
 
 ### Task 5: Keep Conquer and page state across the bundle id change
