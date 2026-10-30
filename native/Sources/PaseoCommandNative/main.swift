@@ -106,6 +106,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         listen("com.paseo.command.native.unsplit") { [weak self] in self?.main?.drawer.unsplit() }
         listen("com.paseo.command.native.newterminal") { [weak self] in self?.main?.drawer.newTerminal() }
         listen("com.paseo.command.native.zoom") { [weak self] in self?.main?.drawer.zoom(1) }
+        listen("com.paseo.command.native.mode") { [weak self] in
+            guard let main = self?.main else { return }
+            main.show(main.mode == .command ? .conquer : .command)
+        }
+        // Open `<info>.url`'s address in a Conquer tab (checks).
+        listen("com.paseo.command.native.open") { [weak self] in
+            guard let self, let info = self.options.info,
+                  let text = try? String(contentsOfFile: (info as NSString).deletingPathExtension + ".url", encoding: .utf8),
+                  let url = ConquerView.destination(text) else { return }
+            self.main?.show(.conquer)
+            self.main?.conquer.open(url)
+        }
         // Type `<info>.type`'s text into the drawer's terminal, as keys would.
         listen("com.paseo.command.native.type") { [weak self] in
             guard let self, let info = self.options.info,
@@ -162,6 +174,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         guard let path = options.info, let main else { return }
         let info: [String: Any] = [
             "window": main.window.windowNumber, "pids": main.processes(),
+            "mode": main.mode.rawValue, "conquer": main.conquer.state(),
             "visible": main.window.occlusionState.contains(.visible), "framesDrawn": main.scene.framesDrawn,
             "paused": main.atlasView.isPaused, "fps": main.atlasView.preferredFramesPerSecond,
             "terminal": main.drawer.state(),
@@ -213,6 +226,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         let unsplit = view.addItem(withTitle: "Unsplit Terminals", action: #selector(unsplitTerminals), keyEquivalent: "")
         unsplit.target = self
         view.addItem(.separator())
+        for (title, key, mode) in [("Command", "1", Mode.command), ("Conquer", "2", Mode.conquer)] {
+            let item = view.addItem(withTitle: title, action: #selector(showMode(_:)), keyEquivalent: key)
+            item.target = self
+            item.representedObject = mode.rawValue
+        }
+        view.addItem(.separator())
         // The terminals' text size. ⌘= reaches "Bigger" too, as ⌘+ needs ⇧ on most layouts.
         for (title, key, step, hidden) in [("Bigger Terminal Text", "+", 1, false), ("Bigger Terminal Text", "=", 1, true),
                                            ("Smaller Terminal Text", "-", -1, false), ("Actual Terminal Text Size", "0", 0, false)] {
@@ -223,11 +242,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
             item.allowsKeyEquivalentWhenHidden = true
         }
         viewItem.submenu = view
+        // The browser's own commands, while it shows (the page keeps these keys otherwise).
+        let conquerItem = NSMenuItem()
+        bar.addItem(conquerItem)
+        let conquer = NSMenu(title: "Conquer")
+        for (title, key, mask, action) in [("New Tab", "t", NSEvent.ModifierFlags.command, #selector(newTab)),
+                                           ("Close Tab", "w", .command, #selector(closeTab)),
+                                           ("Open Location…", "l", .command, #selector(openLocation)),
+                                           ("Next Tab", "\t", .control, #selector(nextTab)),
+                                           ("Previous Tab", "\t", [.control, .shift], #selector(previousTab))] {
+            let item = conquer.addItem(withTitle: title, action: action, keyEquivalent: key)
+            item.keyEquivalentModifierMask = mask
+            item.target = self
+        }
+        conquer.addItem(.separator())
+        conquer.addItem(withTitle: "Import Zen Cookies", action: #selector(importZenCookies), keyEquivalent: "").target = self
+        conquerItem.submenu = conquer
         let windowItem = NSMenuItem()
         bar.addItem(windowItem)
         let windowMenu = NSMenu(title: "Window")
         windowMenu.addItem(withTitle: "Minimize", action: #selector(NSWindow.performMiniaturize(_:)), keyEquivalent: "m")
-        windowMenu.addItem(withTitle: "Close", action: #selector(NSWindow.performClose(_:)), keyEquivalent: "w")
+        closeWindow = windowMenu.addItem(withTitle: "Close", action: #selector(NSWindow.performClose(_:)), keyEquivalent: "w")
         windowItem.submenu = windowMenu
         NSApp.mainMenu = bar
         NSApp.windowsMenu = windowMenu
@@ -241,17 +276,42 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     @objc private func maximizeTerminal() { main?.maximizeTerminal() }
     @objc private func unsplitTerminals() { main?.drawer.unsplit() }
     @objc private func zoomTerminal(_ sender: NSMenuItem) { main?.drawer.zoom(CGFloat(sender.tag)) }
+    @objc private func showMode(_ sender: NSMenuItem) {
+        if let mode = (sender.representedObject as? String).flatMap(Mode.init(rawValue:)) { main?.show(mode) }
+    }
+    @objc private func newTab() { main?.conquer.newTab() }
+    @objc private func closeTab() { main?.conquer.closeTab() }
+    @objc private func openLocation() { main?.conquer.focusAddress() }
+    @objc private func nextTab() { main?.conquer.cycle(1) }
+    @objc private func previousTab() { main?.conquer.cycle(-1) }
+    @objc private func importZenCookies() {
+        main?.conquer.importZenCookies { [weak self] in
+            guard let window = self?.main?.window, let conquer = self?.main?.conquer else { return }
+            let alert = NSAlert()
+            alert.messageText = "Imported from Zen Browser"
+            alert.informativeText = "\(conquer.imported). Reload a page to use them."
+            alert.beginSheetModal(for: window)
+        }
+    }
+    /// Window → Close, whose ⌘W is Close Tab's while Conquer shows.
+    private var closeWindow: NSMenuItem?
 
     func validateMenuItem(_ item: NSMenuItem) -> Bool {
         guard let main else { return false }
+        let browsing = main.mode == .conquer
+        closeWindow?.keyEquivalent = browsing ? "" : "w"
         switch item.action {
+        case #selector(showMode(_:)): item.state = item.representedObject as? String == main.mode.rawValue ? .on : .off
+        case #selector(newTab), #selector(closeTab), #selector(openLocation), #selector(nextTab), #selector(previousTab):
+            return browsing
+        case #selector(toggleTerminal), #selector(moveTerminal): return !browsing
         case #selector(moveTerminal): item.state = main.drawer.dock == .bottom ? .on : .off
-        case #selector(unsplitTerminals): return !main.drawer.isHidden && main.drawer.isSplit
+        case #selector(unsplitTerminals): return !browsing && !main.drawer.isHidden && main.drawer.isSplit
         case #selector(maximizeTerminal):
             item.state = main.drawer.maximized ? .on : .off
-            return !main.drawer.isHidden
+            return !browsing && !main.drawer.isHidden
         // Only while the terminal shows, so the keys stay the page's otherwise.
-        case #selector(zoomTerminal(_:)): return !main.drawer.isHidden
+        case #selector(zoomTerminal(_:)): return !browsing && !main.drawer.isHidden
         default: break
         }
         return true
@@ -261,6 +321,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     /// app (relaunched if a newer build is on disk) or just the page.
     @objc func reloadApp(_ sender: Any?) {
         guard let main, !reloading else { return }
+        // In Conquer, ⌘R reloads its page, unless a newer build is waiting.
+        if main.mode == .conquer && !Build.newer { return main.conquer.reloadPage() }
         reloading = true
         // The splash covers the reload; a newer build's copy puts up its own.
         main.showSplash("Reloading…")

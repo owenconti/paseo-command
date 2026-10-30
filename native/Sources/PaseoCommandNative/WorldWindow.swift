@@ -17,6 +17,13 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
     let content: NSView
     /// Covers the window until the map has drawn (see `revealWhenDrawn`).
     let splash: SplashView
+    /// The strip across the top that switches between Command and Conquer.
+    let modeBar: ModeBar
+    /// Command: the split and its splash, under the mode bar.
+    let command: NSView
+    /// Conquer: the browser, in Command's place while it shows.
+    let conquer: ConquerView
+    private(set) var mode: Mode = .command
     let atlasView: AtlasView
     let scene: AtlasScene
     let options: Options
@@ -63,10 +70,20 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         split.dividerStyle = .thin
         split.autoresizingMask = [.width, .height]
         let root = NSView(frame: split.frame)
-        root.addSubview(split)
-        splash = SplashView(frame: root.bounds)
+        let barHeight: CGFloat = 30
+        modeBar = ModeBar(frame: CGRect(x: 0, y: root.bounds.height - barHeight, width: root.bounds.width, height: barHeight))
+        modeBar.autoresizingMask = [.width, .minYMargin]
+        command = NSView(frame: CGRect(x: 0, y: 0, width: root.bounds.width, height: root.bounds.height - barHeight))
+        command.autoresizingMask = [.width, .height]
+        split.frame = command.bounds
+        command.addSubview(split)
+        splash = SplashView(frame: command.bounds)
         splash.autoresizingMask = [.width, .height]
-        root.addSubview(splash)
+        command.addSubview(splash)
+        conquer = ConquerView(frame: command.frame, persistent: options.info == nil)
+        conquer.autoresizingMask = [.width, .height]
+        conquer.isHidden = true
+        for v in [command, conquer, modeBar] { root.addSubview(v) }
         window.contentView = root
         content = NSView(frame: split.bounds)
         content.autoresizingMask = [.width, .height]
@@ -109,6 +126,11 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         drawer.server = { [weak self] in self?.serverURL ?? options.url }
         drawer.onMove = { [weak self] in self?.moveTerminal() }
         drawer.onMaximize = { [weak self] in self?.maximizeTerminal() }
+        modeBar.onSelect = { [weak self] mode in self?.show(mode) }
+        // Where the user left it, across launches and ⌘R updates.
+        if options.info == nil, UserDefaults.standard.string(forKey: "mode") == Mode.conquer.rawValue {
+            DispatchQueue.main.async { self.show(.conquer) }
+        }
         if UserDefaults.standard.bool(forKey: "terminalOpen") { DispatchQueue.main.async { self.setTerminal(open: true, newTab: false) } }
         if server != nil {
             showSplash("Starting the app server…")
@@ -412,6 +434,7 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
     /// The window as the user sees it, for checks without screen recording:
     /// SpriteKit's world under the page's snapshot, written as a PNG.
     func snapshot(to path: String) {
+        if mode == .conquer { return conquer.snapshot(under: modeBar, to: path) }
         let bounds = web.bounds
         let whole = split.bounds
         let scale = window.backingScaleFactor
@@ -472,6 +495,24 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         c.query = nil
         c.fragment = nil
         return c.url ?? options.url
+    }
+
+    /// Switch the window between the map and panels and the browser (⌘1, ⌘2).
+    /// The side not shown keeps running: the page, its terminals and its tabs stay live.
+    func show(_ next: Mode) {
+        guard next != mode else { return }
+        mode = next
+        modeBar.mode = next
+        command.isHidden = next != .command
+        conquer.isHidden = next != .conquer
+        atlasView.govern()
+        if next == .conquer {
+            conquer.start()
+            if let web = conquer.current?.web, web.url != nil { window.makeFirstResponder(web) } else { conquer.focusAddress() }
+        } else {
+            window.makeFirstResponder(web)
+        }
+        if options.info == nil { UserDefaults.standard.set(next.rawValue, forKey: "mode") }
     }
 
     /// Show or hide the terminal panel (View → Terminal, ⌃`), at the size it last had;

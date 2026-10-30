@@ -228,12 +228,14 @@ final class TerminalTab: NSView, NSDraggingSource {
     var onClose: (() -> Void)?
     /// A drag of the tab began (true) or ended (false).
     var onDrag: ((_ began: Bool) -> Void)?
+    /// Conquer's page tabs share the look but stay where they are.
+    var draggable = true
     private let label = NSTextField(labelWithString: "")
     private let close = NSButton()
     private var start: NSPoint?
     private var dragging = false
 
-    init(id: String) {
+    init(id: String, closeHelp: String = "Close this terminal") {
         self.id = id
         super.init(frame: .zero)
         wantsLayer = true
@@ -244,7 +246,7 @@ final class TerminalTab: NSView, NSDraggingSource {
         close.image = NSImage(systemSymbolName: "xmark", accessibilityDescription: "Close terminal")?
             .withSymbolConfiguration(.init(pointSize: 8, weight: .semibold))
         close.isBordered = false
-        close.toolTip = "Close this terminal"
+        close.toolTip = closeHelp
         close.target = self
         close.action = #selector(closeTab)
         for v in [label, close] {
@@ -275,6 +277,11 @@ final class TerminalTab: NSView, NSDraggingSource {
         toolTip = "\(name)\nDrag to a pane's edge to split it"
     }
 
+    func set(label text: String, help: String) {
+        label.stringValue = text.count > 22 ? text.prefix(21) + "…" : text
+        toolTip = help
+    }
+
     private func restyle() {
         layer?.backgroundColor = Textures.color(look == .focused ? 0x2c3834 : look == .shown ? 0x1e2724 : 0x101614).cgColor
         label.textColor = Textures.color(look == .focused ? 0xf2e1b2 : look == .shown ? 0xd8d0b8 : 0xa8a08a)
@@ -295,7 +302,7 @@ final class TerminalTab: NSView, NSDraggingSource {
         dragging = false
     }
     override func mouseDragged(with event: NSEvent) {
-        guard let start, !dragging else { return }
+        guard draggable, let start, !dragging else { return }
         let p = event.locationInWindow
         guard hypot(p.x - start.x, p.y - start.y) > 4 else { return }
         dragging = true
