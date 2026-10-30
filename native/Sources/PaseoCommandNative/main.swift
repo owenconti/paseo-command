@@ -403,7 +403,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         reloading = true
         if let updater = Updater.shared, updater.pendingVersion != nil {
             main.showSplash("Updating…")
-            if updater.installNow() { return }
+            if updater.installNow() {
+                // Sparkle quits the app to install. Still here after 30 s: it didn't, so
+                // give the window back rather than leave it under the splash.
+                DispatchQueue.main.asyncAfter(deadline: .now() + 30) { [weak self] in
+                    guard let self, self.reloading else { return }
+                    Log.line("update install didn't finish")
+                    self.reloading = false
+                    main.splash.hide()
+                }
+                return
+            }
         }
         // The splash covers the reload; a newer build's copy puts up its own.
         main.showSplash("Restarting…")
