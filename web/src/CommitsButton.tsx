@@ -9,6 +9,7 @@ import {
 } from "react";
 import { GitCommitHorizontal } from "lucide-react";
 import { ago } from "./api";
+import { onAppCommand } from "./appCommands";
 import { newSince, useMainCommits, type MainCommit } from "./commits";
 
 const WIDTH = 400;
@@ -34,6 +35,8 @@ export function CommitsButton() {
     setOpen(false);
     if (refocus) trigger.current?.focus({ preventScroll: true });
   }, []);
+  // The command palette's Commits on main.
+  useEffect(() => onAppCommand("show-commits", () => setOpen(true)), []);
   useEffect(() => {
     if (!open) return;
     const down = (e: MouseEvent) => {

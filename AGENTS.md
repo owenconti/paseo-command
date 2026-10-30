@@ -40,6 +40,17 @@ Real state must remain truthful: distinguish running, idle, completed/unread, ap
 question, failure and offline. Test daemon mutations against fake daemons only.
 The Atlas uses generated painted sprites; it is not yet finished reference-quality art.
 
+## Command palette
+
+The command palette (⌘K, `web/src/CommandPalette.tsx`) lists what the app can do. Its entries are
+`paletteCommands` in `web/src/main.tsx` (the open agent's own in `agentCommands`), ranked by `web/src/palette.ts`.
+Whenever you add, rename, remove or change a user-facing action (a button, a key, a menu item, a native
+View or Conquer menu command), update its palette entry in the same change: label, `keys`, `keywords`, and the
+condition it shows under (only when it would work). Actions owned by a component reach it through
+`runAppCommand`/`onAppCommand` (`web/src/appCommands.ts`); native menu items go through
+`postNative({ type: "menu", action })`, handled in `WorldWindow.swift`'s `"menu"` case. Keep the keyboard
+shortcuts dialog (`web/src/ShortcutsButton.tsx`) in step with any keys you add.
+
 ## Completing a feature
 
 Once the requested feature or fix is implemented and validated, commit it (one commit per fix) and merge it into

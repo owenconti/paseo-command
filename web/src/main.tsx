@@ -47,6 +47,10 @@ import {
 } from "./archives";
 import { SettingsControl } from "./SettingsControl";
 import { setSoundSettings, useSoundSettings } from "./sounds";
+import { setMusicSettings, useMusic } from "./music";
+import { musicAvailable, musicCommand } from "./MusicBar";
+import { openPresetEditor } from "./presetsStore";
+import { copyText } from "./nativePlatform";
 import { CommandPalette } from "./CommandPalette";
 import { PresetsEditorHost } from "./PresetsEditor";
 import { runAppCommand } from "./appCommands";
@@ -99,6 +103,7 @@ import {
   settleRenames,
   useRenames,
   requestRename,
+  agentRenameTarget,
   withAgentRenames,
   withProjectRenames,
   withRenames,
@@ -116,7 +121,7 @@ import type {
   UsageReport,
   Workspace,
 } from "./types";
-import { isWorking, markDegraded, sameHost } from "./types";
+import { isRunning, isWorking, markDegraded, sameHost } from "./types";
 import "@fontsource-variable/inter";
 import "./style.css";
 import "./app.css";
@@ -1051,6 +1056,7 @@ function App() {
     [select],
   );
   const sounds = useSoundSettings();
+  const radio = useMusic();
   const addProject = () => {
     setAddingProject(true);
     setBrowsing(false);
@@ -1066,6 +1072,100 @@ function App() {
     setTab(t);
     if (f) setFilter(f);
     setBrowsing(true);
+  };
+  /** The open agent's own buttons and row actions, for the palette. */
+  const agentCommands = (a: Agent): Command[] => {
+    const name = agentName(a, workspaceOf(a)?.branch);
+    const running = isRunning(a.status);
+    const permission = permissions.find((p) => p.agentId === a.id);
+    const asking =
+      permission && (permission.kind === "question" || permission.questions?.length);
+    const live = online && !a.stale;
+    return [
+      ...(permission && !asking
+        ? [
+            {
+              id: "approve",
+              group: "Actions",
+              label: `Approve ${permission.name}`,
+              keywords: "allow permission yes",
+              run: () => void respond(permission, true),
+            },
+            {
+              id: "deny",
+              group: "Actions",
+              label: `Deny ${permission.name}`,
+              keywords: "reject permission no",
+              run: () => void respond(permission, false),
+            },
+          ]
+        : []),
+      ...(unread.has(a.id)
+        ? [
+            {
+              id: "read",
+              group: "Actions",
+              label: "Mark the agent as read",
+              keywords: "unread seen",
+              run: () => markRead([a.id]),
+            },
+          ]
+        : []),
+      ...(live && running
+        ? [
+            {
+              id: "interrupt",
+              group: "Actions",
+              label: "Interrupt the agent",
+              keywords: "stop cancel halt",
+              run: () => runAppCommand("agent-interrupt"),
+            },
+          ]
+        : []),
+      ...(live
+        ? [
+            {
+              id: "rename-agent",
+              group: "Actions",
+              label: `Rename “${name}”…`,
+              keywords: "title name agent",
+              run: () => {
+                const target = agentRenameTarget(a);
+                requestRename(target.kind, target.key);
+              },
+            },
+            ...(!running
+              ? [
+                  {
+                    id: "archive-agent",
+                    group: "Actions",
+                    label: `Archive “${name}”…`,
+                    keywords: "remove delete agent",
+                    run: () => runAppCommand("agent-archive"),
+                  },
+                ]
+              : []),
+          ]
+        : []),
+      {
+        id: "open-paseo",
+        group: "Actions",
+        label: "Open the agent in Paseo",
+        keywords: "app external",
+        run: () => runAppCommand("agent-open-paseo"),
+      },
+      {
+        id: "copy-agent-id",
+        group: "Actions",
+        label: "Copy the agent's ID",
+        keywords: "clipboard identifier",
+        run: () =>
+          void copyText(daemonAgentId(a)).then(
+            () => setNotice("Copied the agent's ID"),
+            () => {},
+          ),
+      },
+    ];
   };
   const paletteCommands: Command[] = [
     {
@@ -1162,6 +1262,20 @@ function App() {
             label: `Remove project “${placeText(project.name, "project")}”…`,
             keywords: "delete archive unregister",
             run: () => openRemoveProject(project),
+          },
+        ]
+      : []),
+    ...(agent ? agentCommands(agent) : []),
+    ...(workspace &&
+    online &&
+    realWorkspaceIds.has(workspaceKey(workspace))
+      ? [
+          {
+            id: "rename-workspace",
+            group: "Actions",
+            label: `Rename workspace “${placeText(workspace.name, "workspace")}”…`,
+            keywords: "title name",
+            run: () => requestRename("workspace", workspaceKey(workspace)),
           },
         ]
       : []),
@@ -1284,6 +1398,26 @@ function App() {
             keywords: "shell console",
             run: () => postNative({ type: "menu", action: "terminal" }),
           },
+          ...(
+            [
+              ["terminal-dock", "Move the terminal (right or bottom)", "dock side bottom right", undefined],
+              ["terminal-maximize", "Maximize the terminal", "full expand restore", ["⇧", "⌘", "↩"]],
+              ["terminal-unsplit", "Unsplit terminals", "panes merge split", undefined],
+              ["terminal-bigger", "Bigger terminal text", "zoom font size larger", ["⌘", "+"]],
+              ["terminal-smaller", "Smaller terminal text", "zoom font size", ["⌘", "−"]],
+              ["terminal-actual", "Actual terminal text size", "zoom font reset", ["⌘", "0"]],
+              ["conquer", "Switch to Conquer", "browser mode web", ["⌘", "2"]],
+              ["conquer-tab", "New Conquer tab", "browser web open", undefined],
+              ["zen-cookies", "Import Zen cookies into Conquer", "browser sign in login", undefined],
+            ] as const
+          ).map(([action, label, keywords, keys]) => ({
+            id: action,
+            group: "App",
+            label,
+            keys: keys && [[...keys]],
+            keywords,
+            run: () => postNative({ type: "menu", action }),
+          })),
           {
             id: "reload",
             group: "App",
@@ -1313,6 +1447,65 @@ function App() {
                 : "Turn desktop notifications on",
             keywords: "bell alerts",
             run: () => void attention.requestNotifications(),
+          },
+        ]
+      : []),
+    {
+      id: "settings",
+      group: "App",
+      label: "Settings",
+      keywords: "preferences sounds music notifications linear",
+      run: () => {
+        setBrowsing(true);
+        setRevealRevision((revision) => revision + 1);
+        runAppCommand("show-settings");
+      },
+    },
+    {
+      id: "presets",
+      group: "App",
+      label: "Edit preset prompts…",
+      keywords: "presets templates settings",
+      run: openPresetEditor,
+    },
+    {
+      id: "radio",
+      group: "App",
+      label: radio.enabled ? "Turn the lofi radio off" : "Turn the lofi radio on",
+      keywords: "music stream audio",
+      run: () => setMusicSettings({ enabled: !radio.enabled }),
+    },
+    ...(musicAvailable()
+      ? (
+          [
+            ["playpause", "Play or pause Apple Music"],
+            ["next", "Next track in Apple Music"],
+            ["previous", "Previous track in Apple Music"],
+          ] as const
+        ).map(([name, label]) => ({
+          id: `music-${name}`,
+          group: "App",
+          label,
+          keywords: "music song skip",
+          run: () => musicCommand(name),
+        }))
+      : []),
+    {
+      id: "games",
+      group: "App",
+      label: "Open the mini games",
+      keys: [["B"]],
+      keywords: "play game break",
+      run: () => runAppCommand("show-games"),
+    },
+    ...(!(unity && floatingVisibility.collapsed)
+      ? [
+          {
+            id: "commits",
+            group: "App",
+            label: "Commits on main",
+            keywords: "changes updates log history",
+            run: () => runAppCommand("show-commits"),
           },
         ]
       : []),

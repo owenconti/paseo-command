@@ -109,3 +109,38 @@ test("typing an agent's name finds it, and Enter opens it", async () => {
   await page.waitForFunction(() => location.search.includes("agent"));
   await context.close();
 });
+
+test("the open agent's actions and the header's tools are in the palette", async () => {
+  const context = await newContext(browser);
+  const page = await context.newPage();
+  await mockApi(page, {
+    agents: () => [agentRow(AGENT, "idle", "Fix the header")],
+    detail: (id) => detailOf(id, "idle", { Name: "Fix the header" }),
+  });
+  await page.goto(`${app.url}?agent=${AGENT}`);
+  await page.getByRole("button", { name: "Keyboard shortcuts" }).waitFor();
+  const palette = page.getByRole("dialog", { name: "Command palette" });
+  const search = palette.getByRole("combobox", { name: "Search commands" });
+  await page.keyboard.press("Meta+k");
+  await palette.waitFor();
+  for (const label of [
+    "Rename “Fix the header”…",
+    "Archive “Fix the header”…",
+    "Open the agent in Paseo",
+    "Copy the agent's ID",
+    "Settings",
+    "Open the mini games",
+  ])
+    await palette.getByRole("option", { name: label }).first().waitFor();
+  // Idle: nothing to interrupt.
+  assert.equal(
+    await palette.getByRole("option", { name: "Interrupt the agent" }).count(),
+    0,
+  );
+  // Settings opens the header's settings.
+  await search.fill("settings");
+  await page.keyboard.press("Enter");
+  await palette.waitFor({ state: "detached" });
+  await page.getByRole("dialog", { name: "Settings" }).waitFor();
+  await context.close();
+});

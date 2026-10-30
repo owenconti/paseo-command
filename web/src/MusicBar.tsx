@@ -20,6 +20,12 @@ const channel = () =>
 
 const post = (message: Record<string, unknown>) => channel()?.postMessage(message);
 
+/** Whether the app can drive Music (the command palette lists its controls). */
+export const musicAvailable = () => !!channel();
+/** Play or pause, next or previous track, as the bar's buttons do. */
+export const musicCommand = (name: "playpause" | "next" | "previous") =>
+  post({ type: "command", name });
+
 export function MusicBar() {
   const [reading, setReading] = useState<Reading | null>(null);
   useEffect(() => {

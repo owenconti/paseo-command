@@ -1,8 +1,18 @@
 import type { ShortcutKey } from "./appReload";
 
 /** Actions the command palette asks of components that own them (the map,
- * the floating panel, the shortcuts dialog), as their own keys do. */
-export type AppCommand = "fit-world" | "toggle-panel" | "show-shortcuts";
+ * the floating panel, the header's dialogs, the open agent), as their own
+ * keys and buttons do. */
+export type AppCommand =
+  | "fit-world"
+  | "toggle-panel"
+  | "show-shortcuts"
+  | "show-settings"
+  | "show-games"
+  | "show-commits"
+  | "agent-interrupt"
+  | "agent-open-paseo"
+  | "agent-archive";
 
 const EVENT = "paseo:command";
 

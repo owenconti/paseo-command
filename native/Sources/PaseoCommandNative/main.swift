@@ -290,7 +290,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     @objc private func openLocation() { main?.conquer.focusAddress() }
     @objc private func nextTab() { main?.conquer.cycle(1) }
     @objc private func previousTab() { main?.conquer.cycle(-1) }
-    @objc private func importZenCookies() {
+    @objc func importZenCookies() {
         main?.conquer.importZenCookies { [weak self] in
             guard let window = self?.main?.window, let conquer = self?.main?.conquer else { return }
             let alert = NSAlert()

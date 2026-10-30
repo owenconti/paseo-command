@@ -222,6 +222,15 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
             // The page's command palette, choosing a View menu item.
             switch body["action"] as? String {
             case "terminal": toggleTerminal()
+            case "terminal-dock": moveTerminal()
+            case "terminal-maximize": maximizeTerminal()
+            case "terminal-unsplit": drawer.unsplit()
+            case "terminal-bigger": drawer.zoom(1)
+            case "terminal-smaller": drawer.zoom(-1)
+            case "terminal-actual": drawer.zoom(0)
+            case "conquer": show(.conquer)
+            case "conquer-tab": show(.conquer); conquer.newTab()
+            case "zen-cookies": (NSApp.delegate as? AppDelegate)?.importZenCookies()
             case "reload": (NSApp.delegate as? AppDelegate)?.reloadApp(nil)
             default: break
             }

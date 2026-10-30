@@ -1,6 +1,7 @@
 import type { WorkSummary } from "./useWorkingOn";
 import { soundEvent } from "./soundCues";
 import { daemonAgentId } from "./agentIdentity";
+import { onAppCommand } from "./appCommands";
 import { usePeers } from "./peers";
 import { robotColour, useRobotPortrait } from "./robotPortrait";
 import {
@@ -176,6 +177,27 @@ export function Session({
   useEffect(() => {
     setConfirm(null);
   }, [agent.id]);
+  // The command palette's Interrupt, Open in Paseo and Archive for this agent.
+  const palette = useRef({ command, running, archived, busy, online });
+  palette.current = { command, running, archived, busy, online };
+  useEffect(() => {
+    const offs = [
+      onAppCommand("agent-interrupt", () => {
+        const { command, running } = palette.current;
+        if (running) void command("cancel", {}, "Agent interrupted");
+      }),
+      onAppCommand("agent-open-paseo", () => {
+        const { command, busy } = palette.current;
+        if (!busy) void command("open", {}, "Opened in Paseo");
+      }),
+      onAppCommand("agent-archive", () => {
+        const { running, archived, busy, online } = palette.current;
+        if (running) onNotice("Stop the agent before archiving it.");
+        else if (!archived && !busy && online) setConfirm("archive");
+      }),
+    ];
+    return () => offs.forEach((off) => off());
+  }, [onNotice]);
 
   // Reply forks: their pane sits beside the conversation when there's room.
   const root = useRef<HTMLDivElement>(null);

@@ -4,6 +4,7 @@ import { placePopover } from "./popover";
 import { previewSound, setSoundSettings, useSoundSettings } from "./sounds";
 import { nativeEvents } from "./worldBridge";
 import { api } from "./api";
+import { onAppCommand } from "./appCommands";
 import { LinearWorkspaceSetting } from "./HeaderLinks";
 import { setMusicSettings, useMusic } from "./music";
 import { openPresetEditor, usePresets } from "./presetsStore";
@@ -33,15 +34,21 @@ export function SettingsControl({
   const id = useId();
   // The app's Settings… menu item (Cmd+,) opens these, the only settings,
   // with focus inside so Escape closes them again.
-  useEffect(
-    () =>
-      nativeEvents((event) => {
-        if (event.type !== "menu" || event.action !== "settings") return;
-        setOpen(true);
-        setFocusOnOpen(true);
-      }),
-    [],
-  );
+  // So does the command palette's Settings.
+  useEffect(() => {
+    const show = () => {
+      setOpen(true);
+      setFocusOnOpen(true);
+    };
+    const offMenu = nativeEvents((event) => {
+      if (event.type === "menu" && event.action === "settings") show();
+    });
+    const offCommand = onAppCommand("show-settings", show);
+    return () => {
+      offMenu();
+      offCommand();
+    };
+  }, []);
   useEffect(() => {
     if (!open || !focusOnOpen) return;
     // The sidebar and panel holding the control may still be appearing.

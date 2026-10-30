@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { Gamepad2, X } from "lucide-react";
 import { api, errorMessage } from "../api";
 import { modalOpen } from "../focus";
+import { onAppCommand } from "../appCommands";
 import { isTyping } from "../worldShortcut";
 import { amount, CATALOG, type GamesRecord } from "./catalog";
 import { GAMES } from "./registry";
@@ -55,7 +56,12 @@ export function GamesButton({ hidden = false }: { hidden?: boolean }) {
       setOpen(true);
     };
     window.addEventListener("keydown", key);
-    return () => window.removeEventListener("keydown", key);
+    // The command palette's Mini games.
+    const offCommand = onAppCommand("show-games", () => setOpen(true));
+    return () => {
+      window.removeEventListener("keydown", key);
+      offCommand();
+    };
   }, []);
   const host = document.querySelector("main.command-app") ?? document.body;
   return (
