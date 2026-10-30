@@ -21,13 +21,36 @@ enum ShellEnvironment {
         let output = Pipe()
         process.standardOutput = output
         process.standardError = FileHandle.nullDevice
-        do { try process.run() } catch { return nil }
-        let timer = DispatchWorkItem { if process.isRunning { process.terminate() } }
-        DispatchQueue.global().asyncAfter(deadline: .now() + timeout, execute: timer)
-        let data = output.fileHandleForReading.readDataToEndOfFile()
-        process.waitUntilExit()
-        timer.cancel()
+        // Read as it comes, done at the closing marker or end of output: a child an rc
+        // file leaves in the background can hold the pipe open long after the shell exits.
+        let lock = NSLock()
+        var data = Data()
+        let done = DispatchSemaphore(value: 0)
+        var finished = false
+        output.fileHandleForReading.readabilityHandler = { handle in
+            let chunk = handle.availableData
+            lock.lock(); defer { lock.unlock() }
+            guard !finished else { return }
+            data.append(chunk)
+            if chunk.isEmpty || complete(data) { finished = true; done.signal() }
+        }
+        do { try process.run() } catch {
+            output.fileHandleForReading.readabilityHandler = nil
+            return nil
+        }
+        let inTime = done.wait(timeout: .now() + timeout) == .success
+        output.fileHandleForReading.readabilityHandler = nil
+        if process.isRunning { process.terminate() }
+        guard inTime else { return nil }
+        lock.lock(); defer { lock.unlock() }
         return parse(data)
+    }
+
+    /// Both markers have arrived.
+    private static func complete(_ data: Data) -> Bool {
+        let mark = Data(marker.utf8)
+        guard let first = data.range(of: mark) else { return false }
+        return data.range(of: mark, in: first.upperBound..<data.endIndex) != nil
     }
 
     /// The `env -0` block between the markers; anything rc files print is ignored.
