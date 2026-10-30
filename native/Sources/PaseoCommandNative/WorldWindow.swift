@@ -231,6 +231,9 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
             }
             drawer.show(selected)
             appView.show(selected)
+        case "openLink":
+            // A link clicked in the chat: a new tab in the workspace app, where the map is.
+            if let text = body["url"] as? String, let url = URL(string: text), url.scheme?.hasPrefix("http") == true { openInApp(url) }
         case "loaded":
             // The page has its first fleet and has handed it to the world.
             fleetLoaded = true
@@ -483,12 +486,13 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         if showingApp, app == nil {
             return appView.web.takeSnapshot(with: nil) { [weak self] shot, _ in self?.snapshot(to: path, app: shot ?? NSImage()) }
         }
-        var appBar: CGImage?
-        if showingApp, let layer = appView.bar.layer,
-           let ctx = Textures.context(Int(appView.bar.bounds.width * window.backingScaleFactor), Int(appView.bar.bounds.height * window.backingScaleFactor)) {
+        // Its tab strip and page bar are layers; the page goes over them.
+        var appChrome: CGImage?
+        if showingApp, let layer = appView.layer,
+           let ctx = Textures.context(Int(appView.bounds.width * window.backingScaleFactor), Int(appView.bounds.height * window.backingScaleFactor)) {
             ctx.scaleBy(x: window.backingScaleFactor, y: window.backingScaleFactor)
             layer.render(in: ctx)
-            appBar = ctx.makeImage()
+            appChrome = ctx.makeImage()
         }
         let bounds = web.bounds
         let whole = split.bounds
@@ -528,8 +532,8 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
             if let page, let image = page.cgImage(forProposedRect: nil, context: nil, hints: nil) { ctx.draw(image, in: left) }
             if self.showingApp {
                 let inContent = { (v: NSView) in self.content.convert(v.bounds, from: v).offsetBy(dx: 0, dy: left.minY) }
+                if let appChrome { ctx.draw(appChrome, in: inContent(self.appView)) }
                 if let image = app?.cgImage(forProposedRect: nil, context: nil, hints: nil) { ctx.draw(image, in: inContent(self.appView.web)) }
-                if let appBar { ctx.draw(appBar, in: inContent(self.appView.bar)) }
             }
             if let terminal {
                 // Beside the page in the split, or over its map when maximized.
@@ -579,7 +583,16 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
     /// (the map's Map / App switch, View → Show Workspace App, ⌥⌘`).
     @objc func toggleApp() { setApp(!showingApp) }
 
+    /// Open `url` in a new tab of the workspace app view, showing it.
+    func openInApp(_ url: URL) {
+        show(.command)
+        if !showingApp { setApp(true) }
+        appView.openTab(url)
+    }
+
     func setApp(_ on: Bool) {
+        // Signed in as Conquer is, even before Conquer has been opened.
+        if on { conquer.importCookiesOnce() }
         showingApp = on
         appView.isHidden = !on
         atlasView.covered = on
@@ -591,7 +604,7 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
 
     /// The switch sits at the top of the map, centred; over the app, it leads its page bar.
     private func placeSwitch() {
-        let row = appView.bar.row
+        let row = appView.tabRow
         if showingApp {
             if mapSwitch.superview !== row {
                 mapSwitch.removeFromSuperview()

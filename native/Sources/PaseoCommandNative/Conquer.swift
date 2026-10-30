@@ -365,12 +365,20 @@ final class ConquerView: NSView, WKNavigationDelegate, WKUIDelegate, NSTextField
         guard !restored else { return }
         restored = true
         placeSidebar()
-        importZenCookies { [weak self] in
+        importCookiesOnce { [weak self] in
             guard let self else { return }
             let chosen = self.restore()
             if let chosen { self.select(chosen) } else if self.current == nil { self.newTab() }
             self.renderSidebar()
         }
+    }
+
+    private var cookiesImported = false
+
+    /// Zen's cookies, once a launch (the workspace app view shares Conquer's store).
+    func importCookiesOnce(then done: (() -> Void)? = nil) {
+        guard !cookiesImported else { done?(); return }
+        importZenCookies(then: done)
     }
 
     /// Copy Zen's cookies into Conquer's store (at the start, and from the menu).
@@ -380,6 +388,7 @@ final class ConquerView: NSView, WKNavigationDelegate, WKUIDelegate, NSTextField
             case .success(let count): self?.imported = "\(count) cookies"
             case .failure(let error): self?.imported = error.localizedDescription
             }
+            self?.cookiesImported = true
             Log.line("Zen cookies: \(self?.imported ?? "")")
             done?()
         }
