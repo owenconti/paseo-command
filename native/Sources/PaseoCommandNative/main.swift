@@ -99,14 +99,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
                                                isARepeat: false, keyCode: 15) else { return }
             Log.line("⌘R through the menu: \(NSApp.mainMenu?.performKeyEquivalent(with: event) ?? false)")
         }
-        // A ⌘-key as the keyboard sends it (`<info>.key`'s character), through the main menu (checks).
+        // A ⌘-key (`<info>.key`'s character) as the keyboard sends it: the focused view
+        // (a page, say) sees it before the menu, as with a real key press (checks).
         listen("com.paseo.command.native.key") { [weak self] in
-            guard let self, let info = self.options.info,
+            let codes: [String: UInt16] = ["e": 14, "1": 18, "2": 19, "3": 20, "4": 21, "5": 23, "6": 22, "7": 26, "8": 28, "9": 25]
+            guard let self, let info = self.options.info, let window = self.main?.window,
                   let key = try? String(contentsOfFile: (info as NSString).deletingPathExtension + ".key", encoding: .utf8).trimmingCharacters(in: .whitespacesAndNewlines),
-                  let event = NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: .command, timestamp: 0, windowNumber: 0,
-                                               context: nil, characters: key, charactersIgnoringModifiers: key, isARepeat: false, keyCode: 0)
+                  let event = NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: .command, timestamp: ProcessInfo.processInfo.systemUptime,
+                                               windowNumber: window.windowNumber, context: nil, characters: key, charactersIgnoringModifiers: key,
+                                               isARepeat: false, keyCode: codes[key] ?? 0)
             else { return }
-            Log.line("⌘\(key) through the menu: \(NSApp.mainMenu?.performKeyEquivalent(with: event) ?? false)")
+            // As AppKit offers a key equivalent: the window's views (a page among them) first, then the menu.
+            let viewTook = window.performKeyEquivalent(with: event)
+            Log.line("⌘\(key): views took it \(viewTook)")
+            if !viewTook { NSApp.mainMenu?.performKeyEquivalent(with: event) }
         }
         // ⌘` as the keyboard sends it, through the main menu (switches Command and Conquer).
         listen("com.paseo.command.native.keymode") {

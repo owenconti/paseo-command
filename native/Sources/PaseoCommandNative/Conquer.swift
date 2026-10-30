@@ -324,7 +324,18 @@ final class ConquerView: NSView, WKNavigationDelegate, WKUIDelegate, NSTextField
         if tab.web.url != nil { window?.makeFirstResponder(tab.web) }
     }
 
-    /// Step through the tabs (⌃Tab, ⌃⇧Tab).
+    /// The tab keys (⌘E, ⌘1…⌘9) are Conquer's before the page's, as a browser's are:
+    /// a page's editor (Linear's or GitHub's, which put ⌘E to inline code) would keep them.
+    override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask).subtracting([.capsLock, .numericPad, .function])
+        if flags == .command, !isHiddenOrHasHiddenAncestor, let key = event.charactersIgnoringModifiers?.lowercased() {
+            if key == "e" { cycle(1); return true }
+            if let n = Int(key), (1...9).contains(n) { selectTab(n); return true }
+        }
+        return super.performKeyEquivalent(with: event)
+    }
+
+    /// Step through the tabs (⌘E, ⌃Tab, ⌃⇧Tab).
     func cycle(_ step: Int) {
         guard let current, let i = tabs.firstIndex(where: { $0 === current }), tabs.count > 1 else { return }
         select(tabs[(i + step + tabs.count) % tabs.count])
