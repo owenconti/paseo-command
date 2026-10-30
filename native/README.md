@@ -73,7 +73,7 @@ base path for the `notifyutil` hooks below).
 ## Terminal panel
 
 View → Terminal (⌃`) opens a panel on the right, beside the map and panels, with the daemon's terminals for the
-selected workspace (or the selected agent's), and starts a new terminal there as it opens. One tab per terminal: + opens
+selected workspace (or the selected agent's), and starts a terminal there as it opens if the workspace has none. One tab per terminal: + opens
 another, a tab's × ends it (after asking, unless told not to ask again). A tab dragged onto a pane's edge splits that pane
 and shows there; dropped in a pane's middle it takes that pane's place; a click on a tab not showing puts it in the current
 pane. Each workspace keeps its panes while the app runs. Its inner edge drags to resize it. The dock button (or View → Terminal at

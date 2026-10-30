@@ -508,7 +508,16 @@ final class TerminalDrawer: NSView {
         return c.url!
     }
 
-    private func refresh() {
+    /// The panel opened: show the workspace's terminals, starting one if it has none.
+    func opened() {
+        guard workspace != nil else { return }
+        refresh { [weak self] listedOK in
+            guard let self else { return }
+            if listedOK && self.listed.isEmpty { self.newTerminal() } else { self.focusTerminal() }
+        }
+    }
+
+    private func refresh(then done: ((_ listedOK: Bool) -> Void)? = nil) {
         guard let ws = workspace else { return }
         let url = api("terminals", [URLQueryItem(name: "workspace", value: ws.id)] + (ws.host.isEmpty ? [] : [URLQueryItem(name: "host", value: ws.host)]))
         URLSession.shared.dataTask(with: url) { [weak self] data, _, error in
@@ -529,6 +538,7 @@ final class TerminalDrawer: NSView {
                     self.sessions[id] = nil
                 }
                 self.render()
+                done?(json?["terminals"] != nil)
             }
         }.resume()
     }

@@ -462,7 +462,7 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
     }
 
     /// Show or hide the terminal panel (View → Terminal, ⌃`), at the size it last had;
-    /// opened so, it starts a new terminal in the selected workspace.
+    /// opened so, it starts a terminal in the selected workspace if it has none.
     @objc func toggleTerminal() { setTerminal(open: drawer.isHidden, newTab: true) }
 
     func setTerminal(open: Bool, newTab: Bool) {
@@ -471,7 +471,7 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
             drawer.isHidden = false
             placeTerminal()
             drawer.setActive(true)
-            if newTab && drawer.workspace != nil { drawer.newTerminal() } else { drawer.focusTerminal() }
+            if newTab { drawer.opened() } else { drawer.focusTerminal() }
         } else {
             setMaximized(false)
             saveTerminalSize()

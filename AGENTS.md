@@ -117,7 +117,7 @@ Local assets belong in the repository and are included through local build tooli
 - `native/Sources/PaseoCommandNative/TerminalDrawer.swift`: the macOS app's terminal panel on the right or docked at the bottom (View → Terminal, ⌃`; Terminal at Bottom or
   the panel's dock button moves it; its inner edge resizes it; ⌘+ / ⌘− / ⌘0 size its text; Maximize Terminal, ⇧⌘↩ or its button, lays it over the
   map only, the page's panels staying in view): tabs for the selected workspace's (or agent's) daemon terminals, drawn by SwiftTerm. Opening the panel
-  starts a new terminal; + opens another; a tab's × ends it. Tabs drag onto a pane's edge to split it (`PaneLayout`), or its middle to replace it.
+  starts a terminal if the workspace has none; + opens another; a tab's × ends it. Tabs drag onto a pane's edge to split it (`PaneLayout`), or its middle to replace it.
   It talks to `web/server/api/terminals.ts`: `GET /api/terminals`, `POST /api/terminals/create|kill`, and the
   `/api/terminal` socket relaying a terminal's bytes (screen replay first) and its keys and size.
   `native/scripts/fake-server.ts` runs the real server against a fake daemon (with terminals) for checks.
