@@ -147,6 +147,21 @@ test("workspaces ring their landmark: below, lower left, lower right, then above
   assert.ok(at[5].y < middle.y && Math.abs(at[5].x - middle.x) < 70, "the sixth isn't above");
 });
 
+test("when the ring is full, workspaces pack side by side so each touches its landmark", () => {
+  const data = {
+    hosts: [{ key: "h", name: "h", online: true, local: true }],
+    projects: [{ key: "p", host: "h", name: "p" }],
+    workspaces: Array.from({ length: 8 }, (_, i) => ({ key: `w${i}`, host: "h", project: "p", name: `w${i}` })),
+    agents: Array.from({ length: 8 }, (_, i) => ({
+      key: `a${i}`, host: "h", project: "p", workspace: `w${i}`, name: `a${i}`, model: "claude", state: "idle",
+    })),
+  };
+  const layout = layoutAtlas(data);
+  const core = footprint(layout.projects[0]);
+  for (const w of layout.workspaces)
+    assert.ok(touches(footprint(w), core), `${w.id} doesn't touch its landmark`);
+});
+
 test("agents grow away from the landmark, oldest first, bottom then alternating sides", () => {
   const data = structuredClone(crowded);
   // Created newest first in the data; the oldest still takes the first cell.

@@ -407,6 +407,10 @@ const SLOT_TURNS = SLOT_ANGLES.map((angle) => {
   return best;
 });
 
+/** Degrees off its slot's direction a workspace would rather stand than
+ * have one of its cells beside another workspace's. */
+const CROWDING = 20;
+
 type Cottage = {
   key: string;
   name: string;
@@ -434,10 +438,20 @@ type Plan = {
 /**
  * Workspaces ring their landmark, each touching it, pointing at it, with its
  * agents growing away from it. Each takes the free spot nearest its slot's
- * direction, a cell clear of every other workspace and its agents. Once the
- * ring is full, the rest stand against it.
+ * direction, a cell clear of every other workspace and its agents. If that
+ * leaves any unable to touch the landmark, they are packed again side by side
+ * so more of them do; any that still can't stand against the ring.
  */
 function placeWorkspaces(core: Axial[], cottages: Cottage[]): Placed[] {
+  const apart = packWorkspaces(core, cottages, true);
+  if (apart.touching === cottages.length) return apart.placed;
+  const tight = packWorkspaces(core, cottages, false);
+  return (tight.touching > apart.touching ? tight : apart).placed;
+}
+/** One packing of a landmark's workspaces: `apart` keeps a clear cell
+ * between them; otherwise they may stand side by side, though a spot beside
+ * fewer of the others is preferred. */
+function packWorkspaces(core: Axial[], cottages: Cottage[], apart: boolean) {
   const coreKeys = new Set(core.map(cellKey));
   const middle = {
     x: core.map(point).reduce((s, p) => s + p.x, 0) / core.length,
@@ -446,6 +460,7 @@ function placeWorkspaces(core: Axial[], cottages: Cottage[]): Placed[] {
   const taken = new Set<string>();
   const near = new Set<string>();
   const placed: Placed[] = [];
+  let touching = 0;
   for (const [i, cottage] of cottages.entries()) {
     const k = SLOT_TURNS[i % 6]!,
       angle = SLOT_ANGLES[i % 6]!;
@@ -465,7 +480,7 @@ function placeWorkspaces(core: Axial[], cottages: Cottage[]): Placed[] {
     for (const [touch, clear] of [
       [
         (c: Axial) => NEIGHBORS.some((d) => coreKeys.has(cellKey(add(c, d)))),
-        (c: Axial) => !near.has(cellKey(c)),
+        (c: Axial) => !(apart ? near : taken).has(cellKey(c)),
       ],
       [
         (c: Axial) => all.some((o) => distance(o, c) === 1),
@@ -482,7 +497,8 @@ function placeWorkspaces(core: Axial[], cottages: Cottage[]): Placed[] {
           const x = at.reduce((s, p) => s + p.x, 0) / 3 - middle.x,
             y = at.reduce((s, p) => s + p.y, 0) / 3 - middle.y;
           const off = Math.abs(((((Math.atan2(y, x) * 180) / Math.PI - angle) % 360) + 540) % 360 - 180);
-          const value = off + Math.hypot(x, y) / HEX_RADIUS;
+          const crowding = cells.filter((c) => near.has(cellKey(c))).length;
+          const value = off + Math.hypot(x, y) / HEX_RADIUS + crowding * CROWDING;
           if (value < score) (score = value), (best = anchor);
         }
       if (best) break;
@@ -495,8 +511,9 @@ function placeWorkspaces(core: Axial[], cottages: Cottage[]): Placed[] {
       for (const d of [{ q: 0, r: 0 }, ...NEIGHBORS]) near.add(cellKey(add(c, d)));
     }
     placed.push({ cells, agents: cellsOfAgents });
+    if (cells.some((c) => NEIGHBORS.some((d) => coreKeys.has(cellKey(add(c, d)))))) touching++;
   }
-  return placed;
+  return { placed, touching };
 }
 function plan(
   key: string,
