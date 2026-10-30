@@ -185,7 +185,7 @@ Local assets belong in the repository and are included through local build tooli
 The app bundles `rendering/` directly; the bridge paints its art in the page and SpriteKit draws it.
 Each project with workspaces is its own island (projects without workspaces are hidden, as are hosts without any; if no host has workspaces, each shows as a bare clearing): a ten-hex
 landmark (rows of 3, 4, 3) in the middle, ringed by its workspaces, each touching it. Workspaces are placed
-bottom, lower-left, lower-right, upper-left, upper-right, then top, a cell apart (later ones stand against
+oldest first (then by id; never by their changing titles, so nothing swaps places): bottom, lower-left, lower-right, upper-left, upper-right, then top, a cell apart (later ones stand against
 that ring). A workspace is a three-hex light-dirt triangle pointing at the landmark, its cottage larger and centred
 across all three, with no plants beside it so its PR medallions stand clear. Each agent is a robot on its own light-tiled hex beside its workspace, growing away from
 the landmark, oldest first: straight out, then alternating left and right. Islands are only these built cells:
