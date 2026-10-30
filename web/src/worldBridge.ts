@@ -209,7 +209,7 @@ export const macApp = () => !!appChannel();
 /** Choose one of the macOS app's menu items (View → Terminal, …). */
 export const postAppMenu = (action: string) =>
   appChannel()?.postMessage({ type: "menu", action });
-/** Open a web link in the macOS app's workspace app browser, where the map is (a new tab). */
+/** Open a web link in the macOS app's browser, Conquer, in the map's place (a new tab). */
 export const postAppLink = (url: string) =>
   appChannel()?.postMessage({ type: "openLink", url });
 export function postNative(message: { type: string; [key: string]: unknown }) {
