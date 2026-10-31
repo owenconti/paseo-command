@@ -555,3 +555,260 @@ test("keeps a comment draft across remounts", async () => {
     await context.close();
   }
 });
+
+/** The Create issue dialog. */
+const createDialog = (page: Page) => page.getByRole("dialog", { name: "New issue" });
+/** A ⌘K command, by its label. */
+async function paletteRun(page: Page, label: string) {
+  await page.keyboard.press("Meta+k");
+  await page.getByLabel("Search commands").fill(label);
+  await page.getByRole("option", { name: new RegExp(`^${label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`) }).first().waitFor();
+  await page.keyboard.press("Enter");
+}
+
+test("creates an issue in the place's team and opens it", async () => {
+  const { context, page, linear, view, issue } = await openLinear();
+  try {
+    const sidebar = view.locator(".linear-sidebar");
+    await sidebar.getByRole("button", { name: /^DE/ }).click();
+    await sidebar.locator('.linear-team[data-team="DE"]').getByRole("button", { name: "All" }).click();
+    await waitFor(() => rowKeys(page), (keys) => keys.length === 2, "DE's issues");
+
+    // The sidebar's New issue: in the place's team, Backlog to start.
+    await sidebar.getByRole("button", { name: "New issue" }).click();
+    const dialog = createDialog(page);
+    await dialog.waitFor();
+    await dialog.getByRole("button", { name: "Team: Design Engineering" }).waitFor();
+    await dialog.getByRole("button", { name: "Status: Backlog" }).waitFor();
+    const title = dialog.getByRole("textbox", { name: "Issue title" });
+    assert.equal(await focusedName(page), "Issue title");
+    await title.fill("Draw the empty states");
+    await dialog.getByRole("textbox", { name: "Description" }).fill("For **every** list.");
+
+    // A draft survives closing (Esc) and opening again, here from ⌘K.
+    await page.keyboard.press("Escape");
+    await waitFor(() => dialog.count(), (n) => n === 0, "the dialog to close");
+    await paletteRun(page, "Create Linear issue");
+    await dialog.waitFor();
+    assert.equal(await title.inputValue(), "Draw the empty states");
+    assert.equal(await dialog.getByRole("textbox", { name: "Description" }).inputValue(), "For **every** list.");
+
+    // Its properties, with the pickers.
+    await dialog.getByRole("button", { name: /^Priority:/ }).click();
+    await page.getByRole("listbox", { name: "Priority" }).getByRole("option", { name: "High" }).click();
+    await dialog.getByRole("button", { name: "Priority: High" }).waitFor();
+    await dialog.getByRole("button", { name: /^Assignee:/ }).click();
+    await page.getByRole("listbox", { name: "Assignee" }).getByRole("option", { name: /^Sam Rivera/ }).click();
+    await dialog.getByRole("button", { name: "Assignee: Sam Rivera" }).waitFor();
+    await dialog.getByRole("button", { name: /^Labels:/ }).click();
+    await page.getByRole("listbox", { name: "Labels" }).getByRole("option", { name: "Bug" }).click();
+    await page.keyboard.press("Escape");
+    await dialog.getByRole("button", { name: "Labels: Bug" }).waitFor();
+    assert.equal(await dialog.count(), 1, "Esc in a picker leaves the dialog open");
+
+    // Refused: everything typed stays, and the dialog says why.
+    linear.fail("IssueCreate", { message: "Not allowed" });
+    await title.press("Meta+Enter");
+    await dialog.getByText("Linear didn't save that: Not allowed").waitFor();
+    assert.equal(await title.inputValue(), "Draw the empty states");
+    assert.equal(linear.ws.issues.length, 8);
+
+    // Created: it opens, and it's in the list.
+    linear.clear("IssueCreate");
+    await dialog.getByRole("button", { name: "Create issue" }).click();
+    await waitFor(() => dialog.count(), (n) => n === 0, "the dialog to close");
+    await issue.locator("h1", { hasText: "Draw the empty states" }).waitFor();
+    await issue.locator(".linear-key", { hasText: "DE-3" }).waitFor();
+    await view.locator('.linear-list .linear-row[data-key="DE-3"]').waitFor();
+    const made = fakeIssue(linear, "DE-3");
+    assert.equal(made.team.id, FAKE_IDS.de);
+    assert.equal(made.state.id, FAKE_IDS.states.de.Backlog);
+    assert.equal(made.description, "For **every** list.");
+    assert.equal(made.priority, 2);
+    assert.equal(made.assignee?.id, FAKE_IDS.sam);
+    assert.deepEqual(made.labels.nodes.map((l) => l.id), [FAKE_IDS.labels.bug]);
+    assert.equal(await page.evaluate(() => localStorage.getItem("paseo-command:linear:draft:new")), null);
+
+    // Create more: the dialog stays, emptied of title and description, its choices kept.
+    await sidebar.getByRole("button", { name: "New issue" }).click();
+    await dialog.waitFor();
+    assert.equal(await title.inputValue(), "");
+    await dialog.getByRole("checkbox", { name: "Create more" }).check();
+    await title.fill("One more");
+    await title.press("Meta+Enter");
+    await dialog.getByText("Created DE-4").waitFor();
+    assert.equal(await title.inputValue(), "");
+    await title.fill("And another");
+    await title.press("Meta+Enter");
+    await dialog.getByText("Created DE-5").waitFor();
+    await page.keyboard.press("Escape");
+    await waitFor(() => dialog.count(), (n) => n === 0, "the dialog to close");
+    assert.deepEqual(writesMade(linear), ["IssueCreate", "IssueCreate", "IssueCreate", "IssueCreate"]);
+    assert.ok(linear.ws.issues.every((i) => i.team.id === FAKE_IDS.de || !i.identifier.startsWith("DE")));
+  } finally {
+    linear.restore();
+    await context.close();
+  }
+});
+
+test("creates a sub-issue", async () => {
+  const { context, page, linear, view, issue } = await openLinear();
+  try {
+    await view.locator('.linear-row[data-key="ENG-1"]').click();
+    await issue.locator(".linear-children .linear-row", { hasText: "ENG-2" }).waitFor();
+    await issue.getByRole("button", { name: "Add sub-issue" }).click();
+    const dialog = createDialog(page);
+    await dialog.getByText("Sub-issue of ENG-1").waitFor();
+    await dialog.getByRole("button", { name: "Team: Engineering" }).waitFor();
+    await dialog.getByRole("textbox", { name: "Issue title" }).fill("Draw the board");
+    await dialog.getByRole("textbox", { name: "Issue title" }).press("Meta+Enter");
+    await issue.locator("h1", { hasText: "Draw the board" }).waitFor();
+    await issue.getByRole("button", { name: /Part of ENG-1/ }).waitFor();
+    assert.equal(fakeIssue(linear, "ENG-7").parent?.id, FAKE_IDS.issues["ENG-1"]);
+    await issue.getByRole("button", { name: /Part of ENG-1/ }).click();
+    await issue.locator(".linear-children .linear-row", { hasText: "ENG-7" }).waitFor();
+
+    // ⌘K adds one to the open issue too.
+    await paletteRun(page, "Add sub-issue to ENG-1");
+    await dialog.getByText("Sub-issue of ENG-1").waitFor();
+    await page.keyboard.press("Escape");
+    assert.deepEqual(writesMade(linear), ["IssueCreate"]);
+  } finally {
+    linear.restore();
+    await context.close();
+  }
+});
+
+test("adds and removes a blocking relation", async () => {
+  const { context, page, linear, view, issue } = await openLinear();
+  try {
+    // Issues are related from those the page knows: DE's are, once its list has shown.
+    const sidebar = view.locator(".linear-sidebar");
+    await sidebar.getByRole("button", { name: /^DE/ }).click();
+    await sidebar.locator('.linear-team[data-team="DE"]').getByRole("button", { name: "All" }).click();
+    await waitFor(() => rowKeys(page), (keys) => keys.includes("DE-1"), "DE's issues");
+    await sidebar.getByRole("button", { name: "Assigned" }).click();
+    await view.locator('.linear-row[data-key="ENG-1"]').click();
+    await issue.locator("h1", { hasText: "Ship the Linear tab" }).waitFor();
+    const relations = issue.locator(".linear-relations");
+    await relations.getByRole("button", { name: "Add relation" }).click();
+    await page.getByRole("listbox", { name: "Relation" }).getByRole("option", { name: "Blocks" }).click();
+    await page.getByRole("listbox", { name: "Related issue" }).waitFor();
+    await page.keyboard.type("docs theme");
+    await page.keyboard.press("Enter");
+    const blocks = relations.locator(".linear-relation-group", { hasText: "Blocks" });
+    await blocks.locator(".linear-row", { hasText: "DE-1" }).waitFor();
+    const eng1 = () => fakeIssue(linear, "ENG-1");
+    const de1 = () => fakeIssue(linear, "DE-1");
+    assert.deepEqual(eng1().relations.nodes.map((r) => [r.type, r.relatedIssue.id]), [["blocks", FAKE_IDS.issues["DE-1"]]]);
+
+    // From the other side, DE-1 is blocked by ENG-1; it's removed there.
+    await blocks.locator(".linear-row", { hasText: "DE-1" }).click();
+    await issue.locator("h1", { hasText: "Refresh the docs theme" }).waitFor();
+    const blockedBy = relations.locator(".linear-relation-group", { hasText: "Blocked by" });
+    await blockedBy.locator(".linear-row", { hasText: "ENG-1" }).waitFor();
+    await blockedBy.getByRole("button", { name: "Remove the relation to ENG-1" }).click();
+    await waitFor(() => blockedBy.count(), (n) => n === 0, "the relation to go");
+    assert.equal(de1().inverseRelations.nodes.length, 0);
+    assert.equal(eng1().relations.nodes.length, 0);
+
+    // And ENG-1 shows it gone too.
+    await view.locator('.linear-list .linear-row[data-key="ENG-1"]').click();
+    await issue.locator("h1", { hasText: "Ship the Linear tab" }).waitFor();
+    await relations.getByRole("button", { name: "Add relation" }).waitFor();
+    assert.equal(await relations.locator(".linear-relation-group", { hasText: "Blocks" }).count(), 0);
+    assert.deepEqual(writesMade(linear), ["IssueRelationCreate", "IssueRelationDelete"]);
+  } finally {
+    linear.restore();
+    await context.close();
+  }
+});
+
+test("subscribes and unsubscribes", async () => {
+  const { context, page, linear, view, issue } = await openLinear();
+  try {
+    const subscribed = () => fakeIssue(linear, "ENG-3").subscribers.nodes.some((u) => u.id === FAKE_IDS.owen);
+    await view.locator('.linear-row[data-key="ENG-3"]').click();
+    await issue.locator("h1", { hasText: "Review the sync design" }).waitFor();
+    const detail = view.locator(".linear-detail");
+    await detail.getByRole("button", { name: "Subscribe", exact: true }).click();
+    await detail.getByRole("button", { name: "Unsubscribe", exact: true }).waitFor();
+    await waitFor(() => Promise.resolve(subscribed()), Boolean, "subscribed in Linear");
+    // It's in Subscribed now.
+    await view.locator(".linear-sidebar").getByRole("button", { name: "Subscribed" }).click();
+    await waitFor(() => rowKeys(page), (keys) => keys.includes("ENG-3"), "ENG-3 in Subscribed");
+    await view.locator('.linear-row[data-key="ENG-3"]').click();
+
+    await detail.getByRole("button", { name: "Unsubscribe", exact: true }).click();
+    await detail.getByRole("button", { name: "Subscribe", exact: true }).waitFor();
+    await waitFor(() => Promise.resolve(subscribed()), (v) => !v, "unsubscribed in Linear");
+    await waitFor(() => rowKeys(page), (keys) => !keys.includes("ENG-3"), "ENG-3 out of Subscribed");
+
+    // Copy its branch name and link, from ⌘K.
+    await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+    await paletteRun(page, "Copy ENG-3's branch name");
+    await page.locator(".toast", { hasText: "Copied ENG-3's branch name" }).waitFor();
+    assert.equal(await page.evaluate(() => navigator.clipboard.readText()), fakeIssue(linear, "ENG-3").branchName);
+    await paletteRun(page, "Copy ENG-3's link");
+    await page.locator(".toast", { hasText: "Copied ENG-3's link" }).waitFor();
+    assert.equal(await page.evaluate(() => navigator.clipboard.readText()), "https://linear.app/fake/issue/ENG-3");
+    assert.deepEqual(writesMade(linear), ["IssueSubscribe", "IssueUnsubscribe"]);
+  } finally {
+    linear.restore();
+    await context.close();
+  }
+});
+
+test("archives, and undoes it", async () => {
+  const { context, page, linear, view, issue } = await openLinear();
+  try {
+    await view.locator('.linear-row[data-key="ENG-3"]').click();
+    await issue.locator("h1", { hasText: "Review the sync design" }).waitFor();
+    await view.locator(".linear-detail").getByRole("button", { name: "Archive", exact: true }).click();
+    const bar = view.locator(".linear-undo");
+    await bar.getByText("ENG-3 archived").waitFor();
+    await waitFor(() => rowKeys(page), (keys) => keys.join() === "ENG-1", "ENG-3 to leave the list");
+    assert.equal(await issue.count(), 0);
+    await waitFor(() => Promise.resolve(fakeIssue(linear, "ENG-3").archivedAt), Boolean, "archived in Linear");
+
+    await bar.getByRole("button", { name: "Undo" }).click();
+    await waitFor(() => rowKeys(page), (keys) => keys.join() === "ENG-1,ENG-3", "ENG-3 back");
+    await waitFor(() => Promise.resolve(fakeIssue(linear, "ENG-3").archivedAt), (v) => v === null, "unarchived in Linear");
+    assert.equal(await bar.count(), 0);
+
+    // From ⌘K too.
+    await view.locator('.linear-row[data-key="ENG-3"]').click();
+    await issue.locator("h1", { hasText: "Review the sync design" }).waitFor();
+    await paletteRun(page, "Archive ENG-3");
+    await bar.getByText("ENG-3 archived").waitFor();
+    assert.deepEqual(writesMade(linear), ["IssueArchive", "IssueUnarchive", "IssueArchive"]);
+  } finally {
+    linear.restore();
+    await context.close();
+  }
+});
+
+test("deletes only after confirming", async () => {
+  const { context, page, linear, view, issue } = await openLinear();
+  try {
+    await view.locator('.linear-row[data-key="ENG-3"]').click();
+    await issue.locator("h1", { hasText: "Review the sync design" }).waitFor();
+    const detail = view.locator(".linear-detail");
+    await detail.getByRole("button", { name: "Delete", exact: true }).click();
+    const confirm = detail.getByRole("group", { name: "Move ENG-3 to Linear's trash?" });
+    await confirm.waitFor();
+    await confirm.getByRole("button", { name: "Keep" }).click();
+    assert.equal(await confirm.count(), 0);
+    assert.deepEqual(writesMade(linear), []);
+
+    await detail.getByRole("button", { name: "Delete", exact: true }).click();
+    await confirm.getByRole("button", { name: "Delete", exact: true }).click();
+    await waitFor(() => issue.count(), (n) => n === 0, "the issue to close");
+    await waitFor(() => rowKeys(page), (keys) => keys.join() === "ENG-1", "ENG-3 to leave the list");
+    assert.equal(fakeIssue(linear, "ENG-3").trashed, true);
+    assert.deepEqual(writesMade(linear), ["IssueDelete"]);
+  } finally {
+    linear.restore();
+    await context.close();
+  }
+});

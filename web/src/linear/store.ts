@@ -221,6 +221,32 @@ async function write(
   }
 }
 
+/**
+ * Creates an issue (the Create issue dialog); the new issue joins the store.
+ * Answers it, or Linear's reason for refusing (no notice: the dialog says it).
+ */
+async function createIssue(input: Record<string, unknown>): Promise<{ issue: LinearIssue } | { error: string }> {
+  try {
+    const answer = await linearWrite<{ issue?: LinearIssue }>("issueCreate", input);
+    if (!answer?.issue) return { error: "Linear didn't return the new issue." };
+    mergeIssues([answer.issue]);
+    return { issue: answer.issue };
+  } catch (e) {
+    return { error: errorMessage(e) || "it didn't answer" };
+  }
+}
+
+/** An issue Linear deleted (moved to its trash): it leaves every list. */
+function removeIssue(id: string): void {
+  const known = state.issues.get(id);
+  if (!known) return;
+  const issues = new Map(state.issues);
+  issues.delete(id);
+  const byKey = new Map(state.byKey);
+  if (byKey.get(known.key) === id) byKey.delete(known.key);
+  publish({ issues, byKey });
+}
+
 function mergeComments(list: LinearComment[]): void {
   if (list.length === 0) return;
   const comments = new Map(state.comments);
@@ -285,6 +311,8 @@ export const linearStore = {
   removeComment,
   applySync,
   write,
+  createIssue,
+  removeIssue,
   setWorkspace(workspace: LinearWorkspace): void {
     publish({ workspace: { ...workspace }, unavailable: undefined });
   },

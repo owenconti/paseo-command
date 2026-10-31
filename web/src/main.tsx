@@ -827,7 +827,9 @@ function App() {
   // The mode bar's tab (macOS app): Linear draws its issues in the map's place.
   const appMode = useAppMode();
   // The issue open in the Linear tab, for ⌘K's edits of it.
-  const [linearIssueOpen, setLinearIssueOpen] = useState<string | undefined>();
+  const [linearIssueOpen, setLinearIssueOpen] = useState<{ key: string; subscribed: boolean } | undefined>();
+  // Whether the Linear tab's workspace is in, for ⌘K's Create Linear issue.
+  const [linearReady, setLinearReady] = useState(false);
   // From a Linear issue: New agent, where the host and project are chosen.
   const launchFromIssue = useCallback(
     (issue: IssueContext) => openDispatch({ issue }),
@@ -1499,16 +1501,41 @@ function App() {
           run: () => runAppCommand(command),
         }))
       : []),
-    ...(appMode === "linear" && linearIssueOpen
+    ...(appMode === "linear" && linearReady
       ? [
           {
-            id: "linear-comment",
+            id: "linear-create",
             group: "App",
-            label: `Comment on ${linearIssueOpen}`,
-            keywords: "linear issue comment reply write discuss note",
-            run: () => runAppCommand("linear-comment"),
+            label: "Create Linear issue",
+            keywords: "linear new issue ticket task bug add write",
+            run: () => runAppCommand("linear-create"),
           },
         ]
+      : []),
+    ...(appMode === "linear" && linearIssueOpen
+      ? (
+          [
+            ["linear-comment", `Comment on ${linearIssueOpen.key}`, "linear issue comment reply write discuss note"],
+            ["linear-sub-issue", `Add sub-issue to ${linearIssueOpen.key}`, "linear issue child sub-issue new create"],
+            [
+              "linear-subscribe",
+              linearIssueOpen.subscribed
+                ? `Unsubscribe from ${linearIssueOpen.key}`
+                : `Subscribe to ${linearIssueOpen.key}`,
+              "linear issue notifications follow watch subscribe unsubscribe",
+            ],
+            ["linear-copy-branch", `Copy ${linearIssueOpen.key}'s branch name`, "linear issue git branch clipboard"],
+            ["linear-copy-link", `Copy ${linearIssueOpen.key}'s link`, "linear issue url clipboard share"],
+            ["linear-archive", `Archive ${linearIssueOpen.key}`, "linear issue archive hide close"],
+            ["linear-delete", `Move ${linearIssueOpen.key} to Linear's trash`, "linear issue delete remove trash"],
+          ] as const
+        ).map(([command, label, keywords]) => ({
+          id: command,
+          group: "App",
+          label,
+          keywords,
+          run: () => runAppCommand(command),
+        }))
       : []),
     {
       id: "sounds",
@@ -1695,6 +1722,7 @@ function App() {
                   onLaunch={launchFromIssue}
                   onNotice={setNotice}
                   onIssueOpen={setLinearIssueOpen}
+                  onReady={setLinearReady}
                 />
               </React.Suspense>
             )}

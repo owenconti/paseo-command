@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Box, ChevronRight, ListTodo, PanelLeftOpen, RefreshCw } from "lucide-react";
+import { createPortal } from "react-dom";
+import { AnimatePresence } from "framer-motion";
+import { Archive, Box, ChevronRight, ListTodo, PanelLeftOpen, RefreshCw, X } from "lucide-react";
 import { errorMessage, readStore, writeStore } from "../api";
 import { onAppCommand } from "../appCommands";
+import { CreateIssue, type CreateInitial } from "./CreateIssue";
 import { InitiativeList } from "./InitiativeList";
 import { IssueDetail } from "./IssueDetail";
 import { IssueList } from "./IssueList";
@@ -9,8 +12,8 @@ import { checkPlace, placeScope, readPlace, writePlace, type LinearPlace } from 
 import { ProjectFacts, ProjectList } from "./ProjectList";
 import type { IssueContext } from "./prompt";
 import { Sidebar } from "./Sidebar";
-import { loadScope, loadWorkspace, setLinearNotice, useLinear, useLinearSync } from "./store";
-import type { IssueScope } from "./types";
+import { linearStore, loadScope, loadWorkspace, setLinearNotice, useLinear, useLinearSync } from "./store";
+import type { IssueScope, LinearIssue } from "./types";
 
 /** The sidebar's width: its default, and the least it and the rest of the view keep. */
 const LIST = { width: 320, min: 200, detailMin: 320 };
@@ -19,6 +22,9 @@ const clampList = (width: number, viewWidth: number) =>
   Math.round(Math.min(listMax(viewWidth), Math.max(LIST.min, width)));
 /** From this width the open issue shows beside the list; narrower, in its place. */
 const BESIDE_MIN = 1100;
+
+/** How long the archive's Undo stays offered. */
+const UNDO_MS = 10_000;
 
 const MY_TITLE = { assigned: "Assigned to you", created: "Created by you", subscribed: "Subscribed" };
 const TEAM_TITLE = { triage: "Triage", active: "Active", backlog: "Backlog", all: "All issues" };
@@ -32,17 +38,22 @@ const TEAM_TITLE = { triage: "Triage", active: "Active", backlog: "Backlog", all
  * An issue's properties are edited in place (the detail's pickers, a row's
  * context menu), saved to Linear at once. As Conquer's tab sidebar, the
  * sidebar's inner edge resizes it and ⌘S hides or shows it (both remembered),
- * and the place comes back after a reload.
+ * and the place comes back after a reload. New issue (the sidebar, ⌘K) opens
+ * Create issue in the place's team; an archived issue leaves with Undo
+ * offered in a bar at the view's foot; a deleted one leaves every list.
  */
 export function LinearView({
   onLaunch,
   onNotice,
   onIssueOpen,
+  onReady,
 }: {
   onLaunch: (issue: IssueContext) => void;
   onNotice: (message: string) => void;
-  /** The open issue's key, or undefined (⌘K offers editing it and commenting on it). */
-  onIssueOpen?: (key: string | undefined) => void;
+  /** The open issue, or undefined (⌘K offers editing it, commenting on it, archiving it…). */
+  onIssueOpen?: (issue: { key: string; subscribed: boolean } | undefined) => void;
+  /** Whether Linear's workspace is in, so an issue can be created (⌘K offers it). */
+  onReady?: (ready: boolean) => void;
 }) {
   useLinearSync(true);
   // A write Linear refuses says why in the app's notice.
@@ -152,10 +163,80 @@ export function LinearView({
   const issueKnown = useLinear((d) => !!place.issue && d.byKey.has(place.issue));
   const issueOpen = issueKnown && !!ws;
   const openKey = issueOpen ? place.issue : undefined;
+  const subscribed = useLinear((d) => {
+    const id = openKey && d.byKey.get(openKey);
+    const viewer = d.workspace?.viewerId;
+    return !!id && !!viewer && !!d.issues.get(id)?.subscriberIds.includes(viewer);
+  });
   useEffect(() => {
-    onIssueOpen?.(openKey);
-  }, [openKey, onIssueOpen]);
+    onIssueOpen?.(openKey ? { key: openKey, subscribed } : undefined);
+  }, [openKey, subscribed, onIssueOpen]);
   useEffect(() => () => onIssueOpen?.(undefined), [onIssueOpen]);
+  useEffect(() => {
+    onReady?.(!!ws);
+  }, [ws, onReady]);
+  useEffect(() => () => onReady?.(false), [onReady]);
+
+  // Create issue: in the place's team (or project), or under an issue.
+  // Each opening is its own dialog (by `serial`), not the one still animating out.
+  const [creating, setCreatingState] = useState<(CreateInitial & { serial: number }) | null>(null);
+  const serial = useRef(0);
+  const setCreating = useCallback(
+    (initial: CreateInitial | null) => setCreatingState(initial && { ...initial, serial: ++serial.current }),
+    [],
+  );
+  const placeRef = useRef(place);
+  placeRef.current = place;
+  const createHere = useCallback(() => {
+    const p = placeRef.current;
+    const workspace = linearStore.getState().workspace;
+    if (!workspace) return;
+    if (p.screen === "team") setCreating({ teamId: p.teamId });
+    else if (p.screen === "project") {
+      const project = workspace.projects.find((x) => x.id === p.projectId);
+      setCreating({ projectId: p.projectId, teamId: project?.teamIds[0] });
+    } else setCreating({});
+  }, [setCreating]);
+  useEffect(() => onAppCommand("linear-create", createHere), [createHere]);
+  const subIssue = (parent: LinearIssue) =>
+    setCreating({ teamId: parent.teamId, parentId: parent.id, projectId: parent.projectId });
+
+  // Archive leaves Undo in a bar for a while; Delete only says when Linear refused.
+  const [undo, setUndo] = useState<{ id: string; key: string; phase: "archiving" | "archived" | "restoring" }>();
+  useEffect(() => {
+    if (undo?.phase !== "archived") return;
+    const timer = setTimeout(() => setUndo((u) => (u === undo ? undefined : u)), UNDO_MS);
+    return () => clearTimeout(timer);
+  }, [undo]);
+  /** Closes `key` if it's the open issue (it was archived or deleted). */
+  const closeIssue = (key: string) =>
+    setPlaceState((was) => {
+      if (was.issue !== key) return was;
+      const { issue: _, ...rest } = was;
+      writePlace(rest as LinearPlace);
+      return rest as LinearPlace;
+    });
+  const archive = async (issue: LinearIssue) => {
+    closeIssue(issue.key);
+    setUndo({ id: issue.id, key: issue.key, phase: "archiving" });
+    const done = await linearStore.write("issueArchive", { id: issue.id });
+    setUndo((u) => (u?.id !== issue.id ? u : done ? { ...u, phase: "archived" } : undefined));
+  };
+  const unarchive = async () => {
+    if (!undo) return;
+    const was = undo;
+    setUndo({ ...was, phase: "restoring" });
+    const done = await linearStore.write("issueUnarchive", { id: was.id });
+    setUndo((u) => (u?.id !== was.id ? u : done ? undefined : { ...was, phase: "archived" }));
+  };
+  const remove = async (issue: LinearIssue) => {
+    const done = await linearStore.write("issueDelete", { id: issue.id });
+    if (done) {
+      closeIssue(issue.key);
+      linearStore.removeIssue(issue.id);
+    }
+    return done;
+  };
 
   if (!ws && (unavailable || workspaceError))
     return (
@@ -242,6 +323,7 @@ export function LinearView({
           onHide={toggleList}
           onRefresh={refresh}
           refreshing={refreshing}
+          onCreate={ws ? createHere : undefined}
         />
         <div
           className="linear-resize"
@@ -304,7 +386,54 @@ export function LinearView({
           closeLabel={showList ? "Close" : "Back"}
           onLaunch={onLaunch}
           revision={revision}
+          onNotice={onNotice}
+          onSubIssue={subIssue}
+          onArchive={(issue) => void archive(issue)}
+          onDelete={remove}
         />
+      )}
+      {undo && (
+        <div className="linear-undo" role="status">
+          <Archive size={13} aria-hidden="true" />
+          <span>
+            {undo.phase === "archiving"
+              ? `Archiving ${undo.key}…`
+              : undo.phase === "restoring"
+                ? `Restoring ${undo.key}…`
+                : `${undo.key} archived`}
+          </span>
+          {undo.phase === "archived" && (
+            <>
+              <button type="button" className="link-btn" onClick={() => void unarchive()}>
+                Undo
+              </button>
+              <button
+                type="button"
+                className="icon-btn"
+                aria-label="Dismiss"
+                data-tip="Dismiss"
+                onClick={() => setUndo(undefined)}
+              >
+                <X size={12} aria-hidden="true" />
+              </button>
+            </>
+          )}
+        </div>
+      )}
+      {createPortal(
+        <AnimatePresence>
+          {creating && (
+            <CreateIssue
+              key={creating.serial}
+              initial={creating}
+              onClose={(created) => {
+                setCreating(null);
+                if (created) setPlace({ ...placeRef.current, issue: created.key });
+              }}
+            />
+          )}
+        </AnimatePresence>,
+        document.querySelector("main.command-app") ?? document.body,
       )}
     </section>
   );

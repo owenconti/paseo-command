@@ -19,7 +19,14 @@ export type AppCommand =
   | "linear-priority"
   | "linear-assignee"
   | "linear-labels"
-  | "linear-comment";
+  | "linear-comment"
+  | "linear-create"
+  | "linear-sub-issue"
+  | "linear-subscribe"
+  | "linear-copy-branch"
+  | "linear-copy-link"
+  | "linear-archive"
+  | "linear-delete";
 
 const EVENT = "paseo:command";
 

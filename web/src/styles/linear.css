@@ -1194,3 +1194,257 @@
     padding: 0 var(--space-4) var(--space-4);
   }
 }
+
+/* ── The detail's actions, sub-issues and relations ───────────────── */
+.linear-detail-tools {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: auto;
+}
+.linear-view:not(.issue-only) .linear-detail-tools {
+  margin-right: var(--space-2);
+  padding-right: var(--space-2);
+  border-right: 1px solid var(--line);
+}
+.linear-detail-tools .icon-btn.on {
+  color: var(--accent-text);
+}
+.linear-detail-tools .icon-btn.danger-hover:hover:not(:disabled) {
+  background: var(--red-soft);
+  color: var(--red-text);
+}
+.linear-detail-confirm {
+  position: sticky;
+  top: 44px;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: var(--space-2) var(--space-4) var(--space-3);
+  padding: var(--space-2) var(--space-2) var(--space-2) var(--space-3);
+  border: 1px solid var(--red-line);
+  border-radius: var(--radius-md);
+  background: var(--red-soft);
+  font-size: var(--fs-sm);
+  color: var(--red-text);
+}
+.linear-detail-confirm > span {
+  flex: 1;
+  min-width: 0;
+}
+.linear-detail-confirm b {
+  font-weight: var(--fw-semibold);
+}
+.linear-detail-confirm :is(.danger, .secondary) {
+  height: var(--control-sm);
+  padding: 0 var(--space-3);
+  font-size: var(--fs-xs);
+}
+.linear-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  margin-bottom: var(--space-1);
+}
+.linear-section-head h3 {
+  margin: 0;
+}
+.linear-section-head .ghost-btn {
+  height: 24px;
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+}
+.linear-relation-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.linear-relation-item > .linear-row,
+.linear-relation-item > .linear-note {
+  flex: 1;
+  min-width: 0;
+}
+.linear-relation-item > .linear-note {
+  margin: 0;
+  padding: 6px var(--space-2);
+}
+.linear-relation-remove {
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  margin-right: var(--space-1);
+  opacity: 0;
+  transition: opacity var(--dur-1) var(--ease-out);
+}
+.linear-relation-item:hover .linear-relation-remove,
+.linear-relation-remove:focus-visible {
+  opacity: 1;
+}
+@media (hover: none) {
+  .linear-relation-remove {
+    opacity: 1;
+  }
+}
+
+/* ── Archive's Undo, at the view's foot ───────────────────────────── */
+.linear-undo {
+  position: absolute;
+  bottom: var(--space-5);
+  left: 50%;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 36px;
+  padding: 0 var(--space-2) 0 var(--space-3);
+  border: 1px solid var(--line-mid);
+  border-radius: var(--radius-pill);
+  background: var(--panel-raised);
+  box-shadow: var(--shadow-md);
+  font-size: var(--fs-sm);
+  color: var(--text);
+  white-space: nowrap;
+  transform: translateX(-50%);
+  animation: linear-undo-in var(--dur-2) var(--ease-out);
+}
+.linear-undo > svg {
+  color: var(--icon-muted);
+}
+.linear-undo .link-btn {
+  font-weight: var(--fw-semibold);
+}
+.linear-undo .icon-btn {
+  width: 24px;
+  height: 24px;
+}
+@keyframes linear-undo-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 6px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .linear-undo {
+    animation: none;
+  }
+}
+
+/* ── Create issue ─────────────────────────────────────────────────── */
+.command-dialog.linear-create {
+  width: 640px;
+  /* Its pickers open past its edge. */
+  overflow: visible;
+  padding: var(--space-5);
+}
+.linear-create .dialog-heading {
+  margin-bottom: var(--space-3);
+}
+.linear-create .dialog-heading h2 {
+  font-size: var(--fs-md);
+  font-weight: var(--fw-semibold);
+  letter-spacing: 0;
+}
+.linear-create-team {
+  display: inline-flex;
+  align-items: center;
+  height: 22px;
+  padding: 0 var(--space-2);
+  border: 1px solid var(--line-mid);
+  border-radius: var(--radius-sm);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-semibold);
+  color: var(--text-2);
+}
+.linear-create-parent {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  margin: 0 0 var(--space-2);
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+}
+.linear-create-parent b {
+  font-weight: var(--fw-semibold);
+  color: var(--text-2);
+}
+.linear-create-parent-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-4);
+}
+/* The title and description read as the issue itself: no field chrome. */
+.command-dialog.linear-create .linear-create-name,
+.command-dialog.linear-create .linear-create-description {
+  padding: 0;
+  border: 0;
+  background: none;
+  box-shadow: none;
+}
+.command-dialog.linear-create .linear-create-name {
+  height: 36px;
+  font-size: var(--fs-xl);
+  font-weight: var(--fw-semibold);
+  color: var(--text-strong);
+}
+.command-dialog.linear-create .linear-create-description {
+  min-height: 96px;
+  max-height: 40dvh;
+  margin-top: var(--space-1);
+  font-size: var(--fs-md);
+  resize: none;
+}
+/* The pickers' filter fields aren't dialog fields. */
+.command-dialog.linear-create .linear-picker-filter input {
+  height: auto;
+  padding: 0;
+  border: 0;
+  background: none;
+  box-shadow: none;
+  font-size: var(--fs-sm);
+}
+.linear-create-props {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: var(--space-3);
+}
+.linear-create-props .linear-prop-anchor {
+  max-width: 220px;
+}
+.linear-prop-btn.linear-create-chip {
+  max-width: 100%;
+  height: 26px;
+  margin: 0;
+  padding: 0 var(--space-2);
+  border: 1px solid var(--line-mid);
+  border-radius: var(--radius-pill);
+  font-size: var(--fs-xs);
+}
+.linear-prop-btn.linear-create-chip.empty {
+  color: var(--text-3);
+}
+.linear-create .dialog-actions {
+  margin-top: var(--space-4);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--line);
+}
+.linear-create-more {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--fs-sm);
+  color: var(--text-2);
+  cursor: pointer;
+}
+.command-dialog.linear-create .linear-create-more input {
+  width: 14px;
+  height: 14px;
+  padding: 0;
+  accent-color: var(--accent);
+  box-shadow: none;
+}

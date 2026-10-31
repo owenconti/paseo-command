@@ -11,6 +11,7 @@ import {
   LoaderCircle,
   PanelLeftClose,
   PenLine,
+  SquarePen,
   RefreshCw,
   Target,
 } from "lucide-react";
@@ -62,12 +63,15 @@ export function Sidebar({
   onHide,
   onRefresh,
   refreshing,
+  onCreate,
 }: {
   place: LinearPlace;
   onPlace: (p: LinearPlace) => void;
   onHide: () => void;
   onRefresh: () => void;
   refreshing: boolean;
+  /** Create issue, in the place's team; absent until the workspace is in. */
+  onCreate?: () => void;
 }) {
   const teams = useLinear((d) => d.workspace?.teams);
   const [open, setOpen] = useState<string[]>(() => {
@@ -90,6 +94,15 @@ export function Sidebar({
     <>
       <header className="linear-sidebar-head">
         <h2>Linear</h2>
+        <button
+          className="icon-btn"
+          aria-label="New issue"
+          data-tip="Create an issue"
+          disabled={!onCreate}
+          onClick={onCreate}
+        >
+          <SquarePen size={14} aria-hidden="true" />
+        </button>
         <button
           className="icon-btn"
           aria-label="Refresh"
