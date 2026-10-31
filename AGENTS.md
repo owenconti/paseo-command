@@ -96,7 +96,8 @@ Report the commit, whether the push succeeded, whether the build succeeded, and 
   making one; installs Apple's intermediate), saves a notarytool login as `paseo-command-notary`, and makes Sparkle EdDSA keys
   (`SUPublicEDKey` goes into `native/Info.plist`). `scripts/signing.mjs` picks the identity (`PASEO_COMMAND_SIGN_IDENTITY` when there are several). `npm run release -- <version> [--notes <file>] [--dry-run]`
   (`scripts/release.mjs`): checks, tests, builds the release app to `native/release/`, signs it with the Developer ID under the hardened
-  runtime (entitlements in `native/entitlements/`: Apple Events for the app, JIT for Node), notarizes and staples it, zips it, writes the Sparkle appcast, commits
+  runtime (entitlements in `native/entitlements/`: Apple Events for the app, JIT for Node), notarizes and staples it, zips it (Sparkle downloads the zip), makes a drag-to-Applications `.dmg`
+  (`scripts/dmg.mjs`; signed, notarized and stapled too), writes the Sparkle appcast, commits
   `Release v<version>`, pushes `main` and runs `gh release create`. Releases are notarized, so they open normally. `--unsigned` (with `release:setup -- --unsigned`) makes an
   ad hoc signed, non-notarized release while no Developer ID is available; its notes explain Open Anyway.
 - `npm run app:typecheck`: checks React, API and Atlas TypeScript.

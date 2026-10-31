@@ -9,9 +9,10 @@ browser the conversations and panels work; the map requires the macOS app.
 
 ## Install
 
-1. Download the latest `Paseo-Command-<version>.zip` from
-   [GitHub Releases](https://github.com/owenconti/paseo-command/releases/latest).
-2. Unzip it and drag **Paseo Command** to Applications.
+1. Download the latest `Paseo-Command-<version>.dmg` from
+   [GitHub Releases](https://github.com/owenconti/paseo-command/releases/latest)
+   (a `.zip` of the same app is there too).
+2. Open the disk image and drag **Paseo Command** onto the Applications shortcut beside it.
 3. Open it. Releases are signed with a Developer ID and notarized by Apple, so macOS only asks
    once whether to open an app downloaded from the internet.
 
@@ -142,7 +143,9 @@ npm run release -- 0.2.1 [--notes notes.md] [--dry-run]
 It runs the checks and tests, builds `native/release/Paseo Command.app` (apart from
 `native/build/`, where an older checkout app may live), signs it with your Developer ID under the
 hardened runtime, has Apple notarize it (`xcrun notarytool submit --wait`, usually a few minutes),
-staples the ticket and checks Gatekeeper accepts it, zips it, writes the Sparkle appcast,
+staples the ticket and checks Gatekeeper accepts it, zips it (the zip is what Sparkle updates
+download), makes `Paseo-Command-<version>.dmg` (the app beside an Applications shortcut; signed,
+notarized and stapled too), writes the Sparkle appcast,
 commits the version bump as `Release v0.2.1` (if package.json changes), pushes `main` and
 creates the GitHub release with `gh release create`. The build number (the commit count) must be
 greater than the published appcast's, so updates always install. `--dry-run` does everything,

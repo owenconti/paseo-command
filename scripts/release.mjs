@@ -2,7 +2,8 @@
 /**
  * npm run release -- <version> [--notes <file>] [--dry-run] [--unsigned]
  * Tests, builds and signs the app with your Developer ID, has Apple notarize it (a dry run too) and
- * staples the ticket, zips it, writes the Sparkle appcast, then (unless --dry-run) commits
+ * staples the ticket, zips it and makes a disk image (signed and notarized too), writes the Sparkle
+ * appcast, then (unless --dry-run) commits
  * the version, pushes main and creates the GitHub release. The tag is made by GitHub (`gh release
  * create --target`), as the publication guard refuses to push tags. A dry run leaves the tree as it found it.
  * --unsigned makes a release without the Developer ID or notarization (ad hoc signed): its notes
@@ -14,6 +15,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { appcastXML } from './appcast.mjs';
+import { makeDmg, verifyDmg } from './dmg.mjs';
 import { NOTARY_PROFILE, isNotarized, notaryResult, pickIdentity, validIdentities } from './signing.mjs';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -52,6 +54,7 @@ let unsigned = false;
 let version;
 let notesFile;
 let committed = false;
+let identity;
 
 const out = (cmd, cmdArgs, options = {}) => (execFileSync(cmd, cmdArgs, { cwd: root, encoding: 'utf8', ...options }) ?? '').trim();
 const git = (...gitArgs) => out('git', gitArgs);
@@ -140,6 +143,23 @@ function gatherNotes(dir) {
   return readFileSync(draft, 'utf8');
 }
 
+/** Has Apple notarize `file` (a zip of the app, or the disk image) and waits; throws with Apple's log if refused. */
+function notarize(file, what) {
+  const submitted = spawnSync('xcrun', ['notarytool', 'submit', file, '--keychain-profile', NOTARY_PROFILE, '--wait', '--output-format', 'json'], { encoding: 'utf8' });
+  if (submitted.status !== 0 && !submitted.stdout.trim()) throw new Error(`notarytool submit failed:\n${submitted.stderr}`);
+  const notary = notaryResult(submitted.stdout);
+  if (!notary.accepted) {
+    let log = '';
+    try {
+      log = out('xcrun', ['notarytool', 'log', notary.id, '--keychain-profile', NOTARY_PROFILE]);
+    } catch {
+      // The status alone still says why it stopped.
+    }
+    throw new Error(`Apple did not notarize ${what} (status ${notary.status}, submission ${notary.id}).\n${log}`);
+  }
+  console.log(`Notarized ${what} (submission ${notary.id}).`);
+}
+
 /** The highest vX.Y.Z among the GitHub releases, or undefined when none is published yet. */
 function latestPublished(tags) {
   return tags
@@ -165,7 +185,7 @@ async function main(original, tmp) {
   }
   if (unsigned) console.warn('--unsigned: no Developer ID or notarization; people will need Open Anyway on first open.');
   else {
-    const identity = pickIdentity(validIdentities());
+    identity = pickIdentity(validIdentities());
     console.log(`Signing as ${identity.name}.`);
     try {
       out('xcrun', ['notarytool', 'history', '--keychain-profile', NOTARY_PROFILE], { stdio: 'pipe' });
@@ -215,19 +235,7 @@ async function main(original, tmp) {
     step('Notarizing (Apple usually answers within a few minutes)');
     const upload = join(tmp, 'notarize.zip');
     out('ditto', ['-c', '-k', '--keepParent', app, upload]);
-    const submitted = spawnSync('xcrun', ['notarytool', 'submit', upload, '--keychain-profile', NOTARY_PROFILE, '--wait', '--output-format', 'json'], { encoding: 'utf8' });
-    if (submitted.status !== 0 && !submitted.stdout.trim()) throw new Error(`notarytool submit failed:\n${submitted.stderr}`);
-    const notary = notaryResult(submitted.stdout);
-    if (!notary.accepted) {
-      let log = '';
-      try {
-        log = out('xcrun', ['notarytool', 'log', notary.id, '--keychain-profile', NOTARY_PROFILE]);
-      } catch {
-        // The status alone still says why it stopped.
-      }
-      throw new Error(`Apple did not notarize the app (status ${notary.status}, submission ${notary.id}).\n${log}`);
-    }
-    console.log(`Notarized (submission ${notary.id}).`);
+    notarize(upload, 'the app');
     out('xcrun', ['stapler', 'staple', app], { stdio: 'inherit' });
     out('xcrun', ['stapler', 'validate', app]);
     const assessment = assess(app);
@@ -259,7 +267,18 @@ async function main(original, tmp) {
     }),
   );
 
+  step('Making the disk image');
+  const dmg = join(releaseDir, `Paseo-Command-${version}.dmg`);
+  makeDmg(app, dmg);
+  if (!unsigned) {
+    out('codesign', ['--force', '--sign', identity.name, '--timestamp', dmg]);
+    notarize(dmg, 'the disk image');
+    out('xcrun', ['stapler', 'staple', dmg], { stdio: 'inherit' });
+    out('xcrun', ['stapler', 'validate', dmg]);
+  }
+
   step('Verifying');
+  verifyDmg(dmg);
   out('codesign', ['--verify', '--deep', '--strict', app]);
   out(join(sparkleBin, 'sign_update'), ['--verify', zip, edSignature]);
   const unpacked = join(tmp, 'unzipped');
@@ -273,7 +292,7 @@ async function main(original, tmp) {
   }
 
   if (dryRun) {
-    console.log(`\nDry run done: ${zip} and appcast.xml are in native/release. Nothing was committed, pushed or published.`);
+    console.log(`\nDry run done: ${zip}, the .dmg and appcast.xml are in native/release. Nothing was committed, pushed or published.`);
     return;
   }
 
@@ -290,14 +309,14 @@ async function main(original, tmp) {
   if (bumped) git('push', 'origin', 'main');
   else console.log(`package.json already says ${version}: nothing to commit or push.`);
   const appcast = join(releaseDir, 'appcast.xml');
-  const create = ['release', 'create', `v${version}`, '--target', sha, '--title', `Paseo Command ${version}`, '--notes-file', notesPath, zip, appcast];
+  const create = ['release', 'create', `v${version}`, '--target', sha, '--title', `Paseo Command ${version}`, '--notes-file', notesPath, zip, dmg, appcast];
   try {
     out('gh', create, { stdio: 'inherit' });
   } catch {
     const kept = join(releaseDir, `release-notes-${version}.md`);
     writeFileSync(kept, notes);
     const state = bumped ? `Release v${version} is committed and main is pushed (${sha})` : `Nothing was committed or pushed (main is at ${sha})`;
-    throw new Error(`${state}, but creating the GitHub release failed. Finish by hand:\n  gh release create v${version} --target ${sha} --title "Paseo Command ${version}" --notes-file ${kept} ${zip} ${appcast}`);
+    throw new Error(`${state}, but creating the GitHub release failed. Finish by hand:\n  gh release create v${version} --target ${sha} --title "Paseo Command ${version}" --notes-file ${kept} ${zip} ${dmg} ${appcast}`);
   }
   console.log(`\nReleased v${version} at ${sha}.`);
 }
