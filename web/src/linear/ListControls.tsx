@@ -25,6 +25,7 @@ import {
   hasFilters,
   ORDERING_LABEL,
   ORDERINGS,
+  scopeCompleted,
   type Display,
   type FilterField,
   type Filters,
@@ -344,6 +345,7 @@ export function DisplayButton({
   fallback = DEFAULT_DISPLAY,
   relevance = false,
   cycles = true,
+  completedChoices = COMPLETED,
   control,
 }: {
   display: Display;
@@ -352,6 +354,8 @@ export function DisplayButton({
   relevance?: boolean;
   /** Whether grouping by cycle makes sense (a team runs them). */
   cycles?: boolean;
+  /** How far back the list can show finished issues (`completedChoices`); none hides the choice. */
+  completedChoices?: Display["completed"][];
   control?: React.MutableRefObject<DisplayControl | null>;
 }) {
   const [open, setOpen] = useState(false);
@@ -450,19 +454,21 @@ export function DisplayButton({
               ))}
             </select>
           </label>
-          <label className="linear-display-row">
-            <span>Completed issues</span>
-            <select
-              value={display.completed}
-              onChange={(e) => set({ completed: e.target.value as Display["completed"] })}
-            >
-              {COMPLETED.map((c) => (
-                <option key={c} value={c}>
-                  {COMPLETED_LABEL[c]}
-                </option>
-              ))}
-            </select>
-          </label>
+          {completedChoices.length > 0 && (
+            <label className="linear-display-row">
+              <span>Completed issues</span>
+              <select
+                value={scopeCompleted(display.completed, completedChoices)}
+                onChange={(e) => set({ completed: e.target.value as Display["completed"] })}
+              >
+                {completedChoices.map((c) => (
+                  <option key={c} value={c}>
+                    {COMPLETED_LABEL[c]}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
           {changed && (
             <button
               className="link-btn linear-display-reset"

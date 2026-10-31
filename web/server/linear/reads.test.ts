@@ -72,9 +72,13 @@ test("reads scopes", async () => {
 
   const project = await readIssues(`project:${I.projects.launch}`);
   assert.ok(project.issues.some((i) => i.key === "ENG-5"), "done yesterday");
-  assert.ok(!project.issues.some((i) => i.key === "ENG-6"), "done 20 days ago");
+  assert.ok(project.issues.some((i) => i.key === "ENG-6"), "done 20 days ago: within the past month");
   const all = await readIssues(`team:${I.eng}:all`);
-  assert.deepEqual(keys(all.issues), ["ENG-1", "ENG-2", "ENG-3", "ENG-4", "ENG-5"]);
+  assert.deepEqual(keys(all.issues), ["ENG-1", "ENG-2", "ENG-3", "ENG-4", "ENG-5", "ENG-6"]);
+  // Finished longer ago than the past month: not asked for.
+  fake.ws.issues.find((i) => i.identifier === "ENG-6")!.completedAt = new Date(Date.now() - 40 * 86_400_000).toISOString();
+  assert.ok(!(await readIssues(`project:${I.projects.launch}`)).issues.some((i) => i.key === "ENG-6"), "done 40 days ago");
+  assert.equal((await readIssues(`team:${I.eng}:all`)).issues.length, 5);
   await assert.rejects(readIssues("team:nope:all" as never), (e) => e instanceof LinearError && e.kind === "invalid");
 });
 
@@ -182,7 +186,7 @@ test("pages through a scope with a cursor", async () => {
   assert.equal(third.next, undefined);
   assert.deepEqual(
     keys([...first.issues, ...second.issues, ...third.issues]),
-    ["ENG-1", "ENG-2", "ENG-3", "ENG-4", "ENG-5"],
+    ["ENG-1", "ENG-2", "ENG-3", "ENG-4", "ENG-5", "ENG-6"],
   );
 });
 

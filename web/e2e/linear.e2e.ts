@@ -102,7 +102,7 @@ test("Linear navigates my issues, teams, projects and initiatives, shows an issu
     await waitFor(() => rowKeys(page), (keys) => keys.join() === "DE-2", "DE's backlog");
     assert.deepEqual(await view.locator(".linear-group h3").allInnerTexts(), ["Backlog\n1"]);
 
-    // Projects, then one project's issues, those done lately last (ENG-6, done 20 days ago, isn't asked for).
+    // Projects, then one project's issues, those done in the past month last.
     await sidebar.getByRole("button", { name: "Projects" }).click();
     const projects = view.locator(".linear-projects");
     const launchRow = projects.locator(".linear-project-row", { hasText: "Launch" });
@@ -111,15 +111,15 @@ test("Linear navigates my issues, teams, projects and initiatives, shows an issu
     for (const part of ["Started", "40%", "Owen"]) assert.ok(launchText.includes(part), `the project row shows ${part}`);
     await launchRow.click();
     await view.locator(".linear-list-head h2", { hasText: "Launch" }).waitFor();
-    await waitFor(() => rowKeys(page), (keys) => keys.length === 4, "Launch's issues");
-    assert.deepEqual(await rowKeys(page), ["ENG-1", "ENG-3", "ENG-2", "ENG-5"]);
+    await waitFor(() => rowKeys(page), (keys) => keys.length === 5, "Launch's issues");
+    assert.deepEqual(await rowKeys(page), ["ENG-1", "ENG-3", "ENG-2", "ENG-5", "ENG-6"]);
 
     // The place survives a reload.
     await page.reload();
     await page.locator(".fleet-sidebar").waitFor();
     await showLinear(page);
     await view.locator(".linear-list-head h2", { hasText: "Launch" }).waitFor();
-    await waitFor(() => rowKeys(page), (keys) => keys.length === 4, "Launch's issues again");
+    await waitFor(() => rowKeys(page), (keys) => keys.length === 5, "Launch's issues again");
 
     // Initiatives, with their projects, each opening that project.
     await sidebar.getByRole("button", { name: "Initiatives" }).click();

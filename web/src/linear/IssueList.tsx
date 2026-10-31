@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import { Box, CircleDot, RefreshCcw, Search, SignalHigh, Tag, UserRound, UserX } from "lucide-react";
 import { plainText } from "../ui";
 import { Dot, Person, Priority, ScreenHead } from "./bits";
-import { checkDisplay, DEFAULT_DISPLAY, filterIssues, hasFilters, hasOwnDisplay, readListView, writeDisplay, writeFilters, type Display, type Filters, type Layout } from "./display";
+import { checkDisplay, completedChoices, DEFAULT_DISPLAY, filterIssues, hasFilters, hasOwnDisplay, readListView, scopeCompleted, writeDisplay, writeFilters, type Display, type Filters, type Layout } from "./display";
 import { arrangeIssues, dropChange, issueMatches, type IssueGroup } from "./group";
 import { DisplayButton, FilterButton, FilterChips, type DisplayControl, type FilterControl } from "./ListControls";
 import { placeBelow } from "./Picker";
@@ -359,11 +359,11 @@ export function IssueList({
     writeFilters(viewKey, next);
   };
   const teamCycles = useMemo(() => [...data.cycles.values()].flat(), [data.cycles]);
-  const issues = useMemo(
-    () => filterIssues(scoped, filters, display.completed, ws),
-    [scoped, filters, display.completed, ws],
-  );
-  const filtered = hasFilters(filters) || display.completed !== "all";
+  // Finished issues as far back as the scope keeps them.
+  const choices = useMemo(() => completedChoices(scope), [scope]);
+  const completed = scopeCompleted(display.completed, choices);
+  const issues = useMemo(() => filterIssues(scoped, filters, completed, ws), [scoped, filters, completed, ws]);
+  const filtered = hasFilters(filters) || (choices.length > 0 && completed !== choices[0]);
   const [query, setQuery] = useState("");
   const shown = useMemo(
     () => (asks ? issues : issues.filter((i) => issueMatches(i, query, ws))),
@@ -379,11 +379,12 @@ export function IssueList({
   const groups = useMemo(
     () =>
       arrangeIssues(shown, ws, display, {
-        states: board && display.grouping === "status" ? boardStates(scope, singleTeam, ws, display) : undefined,
+        states:
+          board && display.grouping === "status" ? boardStates(scope, singleTeam, ws, { ...display, completed }) : undefined,
         cycles: teamCycles,
         rank,
       }),
-    [shown, ws, display, board, scope, singleTeam, teamCycles, rank],
+    [shown, ws, display, completed, board, scope, singleTeam, teamCycles, rank],
   );
   const order = groups.flatMap((g) => g.issues);
   const listRef = useRef<HTMLDivElement>(null);
@@ -496,6 +497,7 @@ export function IssueList({
             fallback={fallback}
             relevance={!!rank}
             cycles={cyclesUsed}
+            completedChoices={choices}
             control={displayControl}
           />
         </span>

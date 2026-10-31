@@ -44,6 +44,24 @@ export const COMPLETED_LABEL: Record<Completed, string> = {
   none: "None",
 };
 
+/**
+ * The Completed issues choices a scope can keep: none where it lists only open
+ * issues (yours, a team's Triage, Active and Backlog), up to the past month
+ * where Linear is asked only for that (a team's All, a project; see
+ * `FINISHED_DAYS` in the server's reads), all of them elsewhere (a cycle, a
+ * view, a search).
+ */
+export function completedChoices(scope: string): Completed[] {
+  if (/^(assigned|created|subscribed)$/.test(scope) || /^team:[^:]+:(triage|active|backlog)$/.test(scope)) return [];
+  if (scope.startsWith("project:") || /^team:[^:]+:all$/.test(scope)) return ["month", "week", "none"];
+  return COMPLETED;
+}
+
+/** The display's Completed issues as the scope can keep it: its widest choice when the one asked for isn't one. */
+export function scopeCompleted(completed: Completed, choices: Completed[]): Completed {
+  return !choices.length || choices.includes(completed) ? completed : choices[0];
+}
+
 /** A remembered (or Linear's) display, with anything unknown taken from `fallback`. */
 export function checkDisplay(raw: unknown, fallback: Display = DEFAULT_DISPLAY): Display {
   const r = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};

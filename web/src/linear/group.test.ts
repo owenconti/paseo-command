@@ -1,6 +1,14 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { checkDisplay, checkFilters, DEFAULT_DISPLAY, filterIssues, type Ordering } from "./display";
+import {
+  checkDisplay,
+  checkFilters,
+  completedChoices,
+  DEFAULT_DISPLAY,
+  filterIssues,
+  scopeCompleted,
+  type Ordering,
+} from "./display";
 import { arrangeIssues, dropChange, issueMatches } from "./group";
 import type { LinearIssue, LinearState, LinearWorkspace } from "./types";
 
@@ -218,4 +226,16 @@ test("linear board: a drop changes the grouping's property, only where it can", 
   assert.equal(dropChange(two, { value: "x1" }, "cycle", ME_WS), null, "another team's cycle");
   assert.deepEqual(dropChange(two, { value: null }, "cycle", ME_WS)?.input, { cycleId: null });
   assert.equal(dropChange(two, { value: null }, "none", ME_WS), null);
+});
+
+test("linear display: the Completed choices are what the list's scope keeps", () => {
+  for (const scope of ["assigned", "created", "subscribed", "team:t:triage", "team:t:active", "team:t:backlog"])
+    assert.deepEqual(completedChoices(scope), [], scope);
+  for (const scope of ["project:p", "team:t:all"]) assert.deepEqual(completedChoices(scope), ["month", "week", "none"], scope);
+  for (const scope of ["cycle:c", "view:v", "search:words"])
+    assert.deepEqual(completedChoices(scope), ["all", "month", "week", "none"], scope);
+  // "All" where only the past month is kept: the past month.
+  assert.equal(scopeCompleted("all", completedChoices("project:p")), "month");
+  assert.equal(scopeCompleted("week", completedChoices("project:p")), "week");
+  assert.equal(scopeCompleted("all", completedChoices("assigned")), "all");
 });

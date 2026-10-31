@@ -763,7 +763,7 @@ const finished = (d: LinearData, issue: LinearIssue) => {
  * hundred, leave the store, to come back with the next list that has them.
  * Asking again keeps every other list truthful, which dropping all of them
  * wouldn't; a scope's load seldom leaves more than a few. Team "All" and
- * project lists keep only what finished in the last 14 days, which the
+ * project lists keep only what finished in the last 30 days, which the
  * store can't tell, so their finished issues aren't asked about.
  */
 async function recheckLeftovers(scope: IssueScope, returned: Set<string>): Promise<void> {

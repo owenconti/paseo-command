@@ -103,9 +103,12 @@ export async function readWorkspace(fresh = false): Promise<LinearWorkspace> {
 
 const OPEN = { state: { type: { nin: ["completed", "canceled"] } } };
 
-/** Linear's issue filter for a scope; `all` and `project:` also keep what finished in the last 14 days, `cycle:` everything in it. */
+/** How far back a team's All and a project's list keep finished issues (the Display's "Past month"). */
+export const FINISHED_DAYS = 30;
+
+/** Linear's issue filter for a scope; `all` and `project:` also keep what finished in the last 30 days, `cycle:` everything in it. */
 function filterFor(scope: IssueScope): Record<string, unknown> {
-  const recent = new Date(Date.now() - 14 * DAY).toISOString();
+  const recent = new Date(Date.now() - FINISHED_DAYS * DAY).toISOString();
   const openOrRecent = {
     or: [OPEN, { completedAt: { gt: recent } }, { canceledAt: { gt: recent } }],
   };

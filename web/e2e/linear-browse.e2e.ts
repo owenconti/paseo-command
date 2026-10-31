@@ -110,7 +110,7 @@ test("a list's display: grouping, ordering and finished issues, kept for the pla
   try {
     await sidebar.getByRole("button", { name: /^ENG/ }).click();
     await sidebar.locator('.linear-team[data-team="ENG"]').getByRole("button", { name: "All" }).click();
-    await waitFor(() => rowKeys(page), (keys) => keys.length === 5, "ENG's issues");
+    await waitFor(() => rowKeys(page), (keys) => keys.length === 6, "ENG's issues");
     assert.deepEqual(await groupNames(page), ["In Progress", "In Review", "Todo", "Triage", "Done"]);
 
     // Grouped by assignee (you first), ordered by title, without what's finished.
@@ -119,7 +119,12 @@ test("a list's display: grouping, ordering and finished issues, kept for the pla
     await menu.getByLabel("Grouping").selectOption("assignee");
     await menu.getByLabel("Ordering").selectOption("title");
     assert.deepEqual(await groupNames(page), ["Owen Conti", "Sam Rivera", "No assignee"]);
-    assert.deepEqual(await rowKeys(page), ["ENG-5", "ENG-3", "ENG-1", "ENG-2", "ENG-4"]);
+    assert.deepEqual(await rowKeys(page), ["ENG-5", "ENG-3", "ENG-1", "ENG-2", "ENG-6", "ENG-4"]);
+    // A team's All keeps what finished in the past month: no "All" to promise more.
+    const completed = menu.getByLabel("Completed issues");
+    assert.deepEqual(await completed.locator("option").allInnerTexts(), ["Past month", "Past week", "None"]);
+    await completed.selectOption("week");
+    await waitFor(() => rowKeys(page), (keys) => !keys.includes("ENG-6") && keys.includes("ENG-5"), "only the past week's");
     await menu.getByLabel("Completed issues").selectOption("none");
     await waitFor(() => rowKeys(page), (keys) => keys.join() === "ENG-3,ENG-1,ENG-2,ENG-4", "nothing finished");
     assert.equal(await view.locator(".linear-list-head .linear-count").first().innerText(), "4");
@@ -137,7 +142,7 @@ test("a list's display: grouping, ordering and finished issues, kept for the pla
     await waitFor(() => groupNames(page), (names) => names[0] === "Owen Conti", "ENG All's display");
     await view.getByRole("button", { name: "Display" }).click();
     await menu.getByRole("button", { name: "Reset to default" }).click();
-    await waitFor(() => rowKeys(page), (keys) => keys.length === 5, "the default display");
+    await waitFor(() => rowKeys(page), (keys) => keys.length === 6, "the default display");
     await page.keyboard.press("Escape");
 
     // F: Filter's menu, a property's picker, its values; the chip says what's chosen.
@@ -155,7 +160,7 @@ test("a list's display: grouping, ordering and finished issues, kept for the pla
     await page.keyboard.press("Meta+k");
     await page.keyboard.type("Clear the Linear list's filters");
     await page.keyboard.press("Enter");
-    await waitFor(() => rowKeys(page), (keys) => keys.length === 5, "no filters");
+    await waitFor(() => rowKeys(page), (keys) => keys.length === 6, "no filters");
     assert.equal(await chip.count(), 0);
   } finally {
     linear.restore();
@@ -168,7 +173,7 @@ test("a board: a column for each of the team's states, cards dragged between the
   try {
     await sidebar.getByRole("button", { name: /^ENG/ }).click();
     await sidebar.locator('.linear-team[data-team="ENG"]').getByRole("button", { name: "All" }).click();
-    await waitFor(() => rowKeys(page), (keys) => keys.length === 5, "ENG's issues");
+    await waitFor(() => rowKeys(page), (keys) => keys.length === 6, "ENG's issues");
     await page.keyboard.press("Meta+k");
     await page.keyboard.type("Show the Linear issues as a board");
     await page.keyboard.press("Enter");
