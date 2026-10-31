@@ -56,9 +56,19 @@ final class Updater: NSObject {
         return (url, (saved?["frame"] as? String).map(NSRectFromString))
     }
 
-    /// The page's `paseo:update` event: this version, and the one waiting (dev copies: none).
+    /// Check the feed now, as Check for Updates… asks: Sparkle says whether one is
+    /// available (and offers it) or that this version is the latest.
+    @objc func checkNow(_ sender: Any? = nil) {
+        #if canImport(Sparkle)
+        (controller as? SPUStandardUpdaterController)?.checkForUpdates(sender)
+        #endif
+    }
+
+    /// The page's `paseo:update` event: this version, the one waiting, and whether
+    /// updates can be checked for (dev copies: none).
     static var event: [String: Any] {
-        ["installed": AppFlavor.version, "pending": shared?.pendingVersion.map { $0 as Any } ?? NSNull()]
+        ["installed": AppFlavor.version, "pending": shared?.pendingVersion.map { $0 as Any } ?? NSNull(),
+         "canCheck": shared != nil]
     }
 }
 

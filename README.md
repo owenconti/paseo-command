@@ -66,7 +66,8 @@ fleet snapshots or screenshots containing private conversations.
 
 ## Updating
 
-The app checks for updates itself (Sparkle, from this repository's GitHub Releases). When one
+The app checks for updates itself about once an hour (Sparkle, from this repository's GitHub
+Releases), and **Check for Updates…** in the app menu (or "Check for updates" in ⌘K) checks now. When one
 is ready its mode bar shows **Update ready · Restart app**; choose **Restart app** in the
 command palette (⌘K) to install it and reopen at the same page. **What's new** in ⌘K shows
 the release notes.

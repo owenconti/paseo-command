@@ -152,7 +152,8 @@ and GitHub publication; report the published version and release link.
   `.paseo-command/`. `LegacyState.swift` migrates the old app's (`local.paseo.command.native`) preferences, WebKit data and HTTPStorages once,
   after offering to quit the old app if it is open (declined or failed copies retry next launch).
   `Updater.swift`: Sparkle (feed `https://github.com/owenconti/paseo-command/releases/latest/download/appcast.xml`); the mode bar shows
-  "Update ready · Restart app", and Restart app (⌘K) installs and relaunches at the same page.
+  "Update ready · Restart app", and Restart app (⌘K) installs and relaunches at the same page. Check for Updates… (app menu; "Check for
+  updates" in ⌘K, shown only when the app's `paseo:update` says `canCheck`) asks Sparkle now; the page asks for that event with an `update` message.
 - `web/e2e/`: browser tests with every `/api` request answered in the browser.
 - `web/src/Dispatch.tsx` `NewAgent`: a new agent opens in the panel as an empty conversation (host, where and
   branch in a small form) with the usual composer; its first message creates the agent. Its /skills and @files

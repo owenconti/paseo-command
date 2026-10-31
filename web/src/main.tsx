@@ -66,6 +66,7 @@ import {
 } from "./links";
 import { NewAgent, type DispatchTarget } from "./Dispatch";
 import { useAppMode } from "./appMode";
+import { useAppUpdate } from "./releases";
 import type { IssueContext } from "./linearIssues";
 import { AddProject } from "./AddProject";
 import {
@@ -835,6 +836,7 @@ function App() {
 
   // The mode bar's tab (macOS app): Linear draws its issues in the map's place.
   const appMode = useAppMode();
+  const appUpdate = useAppUpdate();
   // From a Linear issue: New agent, where the host and project are chosen.
   const launchFromIssue = useCallback(
     (issue: IssueContext) => openDispatch({ issue }),
@@ -1503,6 +1505,18 @@ function App() {
             keywords: "reload update refresh latest build",
             run: () => postAppMenu("reload"),
           },
+          // The released app only: dev copies update by being rebuilt.
+          ...(appUpdate?.canCheck
+            ? [
+                {
+                  id: "check-updates",
+                  group: "App",
+                  label: "Check for updates",
+                  keywords: "update version upgrade latest release sparkle",
+                  run: () => postAppMenu("check-updates"),
+                },
+              ]
+            : []),
         ]
       : []),
     {

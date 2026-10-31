@@ -212,6 +212,9 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         case "mode":
             // The page asks which side shows (it draws Linear itself, over the map).
             sendMode()
+        case "update":
+            // The page asks for the version and whether updates can be checked for.
+            send(Updater.event, as: "paseo:update")
         case "viewport":
             viewport = CGRect(x: body["x"] as? Double ?? 0, y: body["y"] as? Double ?? 0,
                               width: body["width"] as? Double ?? 0, height: body["height"] as? Double ?? 0)
@@ -257,6 +260,7 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
             case "conquer-sidebar": show(.conquer); conquer.perform("toggleSidebar")
             case "zen-cookies": conquer.perform("importCookies")
             case "reload": (NSApp.delegate as? AppDelegate)?.reloadApp(nil)
+            case "check-updates": Updater.shared?.checkNow()
             default: break
             }
         case "detach":

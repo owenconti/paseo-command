@@ -256,6 +256,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         let appItem = NSMenuItem()
         bar.addItem(appItem)
         let appMenu = NSMenu()
+        if let updater = Updater.shared {
+            let check = appMenu.addItem(withTitle: "Check for Updates…", action: #selector(Updater.checkNow(_:)), keyEquivalent: "")
+            check.target = updater
+            appMenu.addItem(.separator())
+        }
         appMenu.addItem(withTitle: "Hide \(AppFlavor.name)", action: #selector(NSApplication.hide(_:)), keyEquivalent: "h")
         appMenu.addItem(.separator())
         appMenu.addItem(withTitle: "Quit \(AppFlavor.name)", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
