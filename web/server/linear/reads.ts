@@ -90,7 +90,11 @@ export async function readWorkspace(fresh = false): Promise<LinearWorkspace> {
   const value: LinearWorkspace = {
     viewerId,
     users,
-    teams: nodesOf(data.teams).map(teamOf).filter(nonNull),
+    // By name, as the sidebar lists them.
+    teams: nodesOf(data.teams)
+      .map(teamOf)
+      .filter(nonNull)
+      .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" })),
     states: nodesOf(data.workflowStates).map(stateOf).filter(nonNull).sort((a, b) => a.position - b.position),
     labels: nodesOf(data.issueLabels).map(labelOf).filter(nonNull),
     cycles: nodesOf(data.cycles).map(cycleOf).filter(nonNull),

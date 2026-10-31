@@ -32,6 +32,7 @@ test("reads the workspace", async () => {
   assert.equal(ws.viewerId, I.owen);
   assert.equal(ws.users.find((u) => u.id === I.owen)?.me, true);
   assert.equal(ws.users.find((u) => u.id === I.sam)?.me, undefined);
+  assert.deepEqual(ws.teams.map((t) => t.name), ["Design Engineering", "Engineering"], "by name");
   const eng = ws.teams.find((t) => t.key === "ENG")!;
   assert.deepEqual(eng.estimates, [0, 1, 2, 3, 5, 8]);
   assert.deepEqual(ws.teams.find((t) => t.key === "DE")!.estimates, []);
