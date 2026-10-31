@@ -1,6 +1,6 @@
 /**
- * Linear's named reads: the workspace, issue lists by scope, one issue with its
- * comments, and one sync request for what changed since a cursor. Each throws
+ * Linear's named reads: the workspace, issue lists by scope, issues by id, one
+ * issue with its comments, and one sync request for what changed since a cursor. Each throws
  * a LinearError when Linear can't answer; the workspace is kept for five minutes.
  */
 import type {
@@ -29,7 +29,7 @@ import {
   userOf,
 } from "./normalize";
 
-export const LINEAR_READS = { workspaceTtlMs: 5 * 60_000, pageSize: 250, syncSize: 100 };
+export const LINEAR_READS = { workspaceTtlMs: 5 * 60_000, pageSize: 250, syncSize: 100, maxIds: 50 };
 
 const DAY = 86_400_000;
 const KEY = /^[a-z][a-z0-9]{0,9}-\d{1,6}$/i;
@@ -115,6 +115,19 @@ export async function readIssues(
     issues: nodesOf(page).map(issueOf).filter(nonNull),
     next: info.hasNextPage === true && next ? next : undefined,
   };
+}
+
+/**
+ * Up to 50 issues by id, in one request: those Linear still lists (not
+ * archived, deleted or out of reach). The page asks this for issues a scope's
+ * load no longer returned, to learn where they went.
+ */
+export async function readIssuesById(ids: string[]): Promise<{ issues: LinearIssue[] }> {
+  const unique = [...new Set(ids.map((id) => id.trim().toLowerCase()))];
+  if (!unique.length || unique.length > LINEAR_READS.maxIds || !unique.every((id) => ID.test(id)))
+    throw new LinearError("invalid", "Invalid issue ids");
+  const data = await linearRequest<Data>("Issues", ISSUES_QUERY, { filter: { id: { in: unique } }, first: unique.length });
+  return { issues: nodesOf(recOf(data.issues)).map(issueOf).filter(nonNull) };
 }
 
 /** One issue by key (or id) with its description, children, relations, links and comments; null when Linear has none. */

@@ -43,6 +43,11 @@ test("answers named reads and refuses others", async () => {
   assert.equal(issue.body.comments.length, 3);
   assert.equal((await ask("/api/linear/q/issue?key=ENG-404")).body.issue, null);
   assert.equal((await ask("/api/linear/q/issue?key=%20%20")).status, 400);
+  const eng = (key: string) => fake.ws.issues.find((i) => i.identifier === key)!.id;
+  const byId = await ask(`/api/linear/q/byId?ids=${eng("ENG-1")},${eng("DE-1")}`);
+  assert.deepEqual(byId.body.issues.map((i: { key: string }) => i.key).sort(), ["DE-1", "ENG-1"]);
+  assert.equal((await ask("/api/linear/q/byId?ids=nope")).status, 400);
+  assert.equal((await ask(`/api/linear/q/byId?ids=${eng("ENG-1")}&x=1`)).status, 400);
   const since = new Date(Date.now() - 86_400_000 * 40).toISOString();
   assert.ok((await ask(`/api/linear/q/sync?since=${encodeURIComponent(since)}`)).body.issues.length > 0);
   assert.deepEqual((await ask("/api/linear/q/status")).body.configured, true);

@@ -1,10 +1,12 @@
 import assert from "node:assert/strict";
-import { afterEach, beforeEach, describe, it } from "node:test";
+import { afterEach, beforeEach, describe, it, mock } from "node:test";
 import { FAKE_IDS } from "../../server/linear/fake";
 import { setLinearTransport } from "./api";
 import {
   clearPending,
+  keepSynced,
   linearStore,
+  loadIssue,
   loadScope,
   loadWorkspace,
   markPending,
@@ -406,5 +408,152 @@ describe("linear store", () => {
     assert.equal(now.dueDate, undefined);
     assert.equal(now.description, "Kept");
     assert.equal("assigneeId" in now, false);
+  });
+
+  it("skips sync ticks while the page is hidden, and syncs once as it shows again", async () => {
+    linearStore.applySync(sync({ cursor: "C0" }));
+    answers.sync = () => sync({ cursor: "C0" });
+    const doc = Object.assign(new EventTarget(), { hidden: false }) as unknown as Document & { hidden: boolean };
+    mock.timers.enable({ apis: ["setInterval"] });
+    try {
+      const stop = keepSynced(doc, 20_000);
+      await settled();
+      assert.equal(calls.length, 1, "at once");
+      doc.hidden = true;
+      doc.dispatchEvent(new Event("visibilitychange"));
+      mock.timers.tick(60_000);
+      await settled();
+      assert.equal(calls.length, 1, "none while hidden");
+      doc.hidden = false;
+      doc.dispatchEvent(new Event("visibilitychange"));
+      await settled();
+      assert.equal(calls.length, 2, "once as it shows");
+      mock.timers.tick(20_000);
+      await settled();
+      assert.equal(calls.length, 3, "then every 20 s");
+      stop();
+      mock.timers.tick(60_000);
+      doc.dispatchEvent(new Event("visibilitychange"));
+      await settled();
+      assert.equal(calls.length, 3, "stopped");
+    } finally {
+      mock.timers.reset();
+    }
+  });
+
+  it("after a complete load, asks by id for issues that left the scope unseen, and drops those Linear no longer lists", async () => {
+    linearStore.setWorkspace(WS);
+    // Seen earlier as assigned to you; since then 2 was reassigned and 3 archived, unseen.
+    linearStore.mergeIssues([issue(1, { assigneeId: ME }), issue(2, { assigneeId: ME }), issue(3, { assigneeId: ME })]);
+    answers.issues = () => ({ issues: [issue(1, { assigneeId: ME })] });
+    answers.byId = () => ({ issues: [issue(2, { assigneeId: "someone", updatedAt: "2026-10-05T00:00:00Z" })] });
+    await loadScope("assigned", true);
+    assert.deepEqual(calls, ["linear/q/issues?scope=assigned", "linear/q/byId?ids=i-2%2Ci-3"]);
+    const d = linearStore.getState();
+    assert.deepEqual(scopeIssues(d, "assigned").map((i) => i.key), ["ENG-1"]);
+    assert.equal(d.issues.get("i-2")?.assigneeId, "someone", "kept, where it now belongs");
+    assert.equal(d.issues.has("i-3"), false);
+    assert.equal(d.byKey.has("ENG-3"), false);
+    // Nothing left over: no request by id.
+    calls.length = 0;
+    await loadScope("assigned", true);
+    assert.deepEqual(calls, ["linear/q/issues?scope=assigned"]);
+  });
+
+  it("keeps leftovers when Linear can't be asked about them", async () => {
+    linearStore.setWorkspace(WS);
+    linearStore.mergeIssues([issue(1, { assigneeId: ME }), issue(2, { assigneeId: ME })]);
+    answers.issues = () => ({ issues: [issue(1, { assigneeId: ME })] });
+    answers.byId = () => ({ available: false, reason: "limited", retryAt: Date.now() + 60_000 });
+    await loadScope("assigned", true);
+    assert.equal(linearStore.getState().issues.has("i-2"), true);
+  });
+
+  it("stops at 1,000 issues, notes the scope as capped, and asks nothing by id", async () => {
+    linearStore.setWorkspace(WS);
+    linearStore.mergeIssues([issue(5000, { assigneeId: ME })]);
+    let page = 0;
+    answers.issues = () => {
+      const from = page++ * 250;
+      return { issues: Array.from({ length: 250 }, (_, n) => issue(from + n, { assigneeId: ME })), next: `p${page}` };
+    };
+    await loadScope("assigned");
+    assert.equal(calls.length, 4);
+    assert.ok(linearStore.getState().cappedScopes.has("assigned"));
+    assert.equal(linearStore.getState().issues.has("i-5000"), true);
+    // Complete again: no longer capped (and what it left out is asked about).
+    answers.issues = () => ({ issues: [] });
+    answers.byId = () => ({ issues: [] });
+    await loadScope("assigned", true);
+    assert.equal(linearStore.getState().cappedScopes.has("assigned"), false);
+  });
+
+  it("a sync's reload asks for the open issue and its comments too", async () => {
+    answers.workspace = () => WS;
+    answers.issue = () => ({ issue: issue(1, { description: "Fresh" }), comments: [], children: [] });
+    await loadWorkspace();
+    linearStore.setOpenIssue("ENG-1");
+    answers.sync = () => sync({ cursor: "C2", more: true });
+    await syncTick(Date.now());
+    assert.ok(calls.includes("linear/q/issue?key=ENG-1"));
+    assert.equal(linearStore.getState().issues.get("i-1")?.description, "Fresh");
+  });
+
+  it("retries a scope whose first load was refused as limited, once the pause has passed", async () => {
+    linearStore.setWorkspace(WS);
+    const retryAt = Date.now() + 60_000;
+    answers.issues = () => ({ available: false, reason: "limited", retryAt });
+    answers.sync = () => sync();
+    await loadScope("assigned");
+    assert.equal(linearStore.getState().loadedScopes.has("assigned"), false);
+    answers.issues = () => ({ issues: [issue(1, { assigneeId: ME })] });
+    await syncTick(retryAt - 1);
+    assert.equal(calls.length, 1, "not before");
+    await syncTick(retryAt + 1);
+    assert.ok(linearStore.getState().loadedScopes.has("assigned"));
+    assert.equal(calls.filter((c) => c.startsWith("linear/q/issues")).length, 2);
+    // Loaded now: not asked again.
+    await syncTick(retryAt + 2);
+    assert.equal(calls.filter((c) => c.startsWith("linear/q/issues")).length, 2);
+  });
+
+  it("a read begun before a subscription was saved doesn't undo it (Linear keeps updatedAt)", async () => {
+    linearStore.setWorkspace(WS);
+    linearStore.mergeIssues([issue(1)]);
+    const read = held<unknown>();
+    answers.issue = () => read.promise;
+    const loading = loadIssue("ENG-1");
+    await settled();
+    answers["linear/m/issueSubscribe"] = () => ({ issue: issue(1, { subscriberIds: [ME] }) });
+    assert.equal(
+      await linearStore.write("issueSubscribe", { id: "i-1" }, { issueId: "i-1", patch: { subscriberIds: [ME] } }),
+      true,
+    );
+    // The read answers from before the write, with the same updatedAt.
+    read.release({ issue: issue(1, { subscriberIds: [], title: "Read" }), comments: [], children: [] });
+    await loading;
+    assert.deepEqual(linearStore.getState().issues.get("i-1")?.subscriberIds, [ME]);
+    assert.equal(linearStore.getState().issues.get("i-1")?.title, "Read");
+    // A read begun after it says what Linear has (unsubscribed elsewhere, say).
+    answers.issue = () => ({ issue: issue(1, { subscriberIds: [] }), comments: [], children: [] });
+    await loadIssue("ENG-1");
+    assert.deepEqual(linearStore.getState().issues.get("i-1")?.subscriberIds, []);
+  });
+
+  it("a list row without the description doesn't count as Linear clearing it", async () => {
+    linearStore.mergeIssues([issue(1, { description: "Body" })]);
+    const answer = held<unknown>();
+    answers["linear/m/issueUpdate"] = () => answer.promise;
+    const done = linearStore.write(
+      "issueUpdate",
+      { id: "i-1", description: "Edited" },
+      { issueId: "i-1", patch: { description: "Edited" } },
+    );
+    // A list row (no description) arrives meanwhile.
+    linearStore.mergeIssues([JSON.parse(JSON.stringify(issue(1, { title: "Listed", updatedAt: "2026-10-02T00:00:00Z" })))]);
+    answer.refuse(new Error("Not allowed"));
+    assert.equal(await done, false);
+    assert.equal(linearStore.getState().issues.get("i-1")?.description, "Body");
+    assert.equal(linearStore.getState().issues.get("i-1")?.title, "Listed");
   });
 });

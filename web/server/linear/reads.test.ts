@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { afterEach, beforeEach, test } from "node:test";
 import { LinearError, resetLinearClient } from "./client";
 import { FAKE_IDS as I, installFakeLinear, type FakeLinear } from "./fake";
-import { readIssue, readIssues, readStatus, readSync, readWorkspace, resetLinearReads } from "./reads";
+import { readIssue, readIssues, readIssuesById, readStatus, readSync, readWorkspace, resetLinearReads } from "./reads";
 
 let fake: FakeLinear;
 beforeEach(() => {
@@ -153,4 +153,18 @@ test("reads fail as LinearErrors", async () => {
   await assert.rejects(readWorkspace(), (e) => e instanceof LinearError && e.kind === "limited" && typeof e.retryAt === "number");
   fake.clear("Workspace");
   assert.ok((await readWorkspace(true)).teams.length);
+});
+
+test("reads issues by id: only those Linear still lists, in one request", async () => {
+  const id = (key: string) => fake.ws.issues.find((i) => i.identifier === key)!;
+  id("ENG-3").archivedAt = new Date().toISOString();
+  const before = fake.requests.length;
+  const { issues } = await readIssuesById([id("ENG-1").id, id("ENG-3").id, id("ENG-1").id.toUpperCase()]);
+  assert.deepEqual(keys(issues), ["ENG-1"]);
+  assert.equal(fake.requests.length - before, 1);
+  await assert.rejects(() => readIssuesById([]), (e: unknown) => e instanceof LinearError && e.kind === "invalid");
+  await assert.rejects(
+    () => readIssuesById(Array.from({ length: 51 }, (_, n) => `0000000${n}`.slice(-8) + "-0000")),
+    (e: unknown) => e instanceof LinearError && e.kind === "invalid",
+  );
 });

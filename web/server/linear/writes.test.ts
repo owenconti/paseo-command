@@ -110,10 +110,18 @@ test("archive, unarchive, delete, subscribe, unsubscribe", async () => {
   assert.equal(u.issue.archivedAt, undefined);
   assert.equal(eng3.archivedAt, null);
 
-  const un = await bumped([issue("ENG-1")], () => ok("issueUnsubscribe", { id: issue("ENG-1").id }));
+  // Linear doesn't move updatedAt on (un)subscribing: the subscribers change, and only they.
+  const eng1 = issue("ENG-1");
+  const eng1At = eng1.updatedAt;
+  const un = await ok("issueUnsubscribe", { id: eng1.id });
   assert.deepEqual(un.issue.subscriberIds, []);
-  const sub = await bumped([eng3], () => ok("issueSubscribe", { id: eng3.id }));
+  assert.deepEqual(eng1.subscribers.nodes, []);
+  assert.equal(eng1.updatedAt, eng1At);
+  const eng3At = eng3.updatedAt;
+  const sub = await ok("issueSubscribe", { id: eng3.id });
   assert.deepEqual(sub.issue.subscriberIds, [I.owen]);
+  assert.deepEqual(eng3.subscribers.nodes.map((u) => u.id), [I.owen]);
+  assert.equal(eng3.updatedAt, eng3At);
 
   const eng4 = issue("ENG-4");
   assert.deepEqual(await bumped([eng4], () => ok("issueDelete", { id: eng4.id })), { ok: true });

@@ -9,7 +9,7 @@ import { errorText } from "../wire";
 import { LinearError } from "./client";
 import { linearImage } from "./image";
 import { WRITES, linearWrite } from "./writes";
-import { readIssue, readIssues, readStatus, readSync, readWorkspace } from "./reads";
+import { readIssue, readIssues, readIssuesById, readStatus, readSync, readWorkspace } from "./reads";
 
 
 const WRITE_BODY_LIMIT = 1024 * 1024;
@@ -97,6 +97,8 @@ export async function linearRoute(
       if (after !== undefined && !/^[\w+/=.:-]{1,200}$/.test(after)) return reply(400, { error: "Invalid cursor" });
       return read(["scope", "after"], () => readIssues(scope, after));
     }
+    case "q/byId":
+      return read(["ids"], () => readIssuesById(param("ids").split(",")));
     case "q/issue":
       return read(["key"], async () => (await readIssue(param("key"))) ?? { issue: null });
     case "q/sync":

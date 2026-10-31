@@ -21,6 +21,8 @@ export type LinearData = {
   byKey: Map<string, string>;
   comments: Map<string, LinearComment>;
   loadedScopes: Set<IssueScope>;
+  /** Loaded scopes that stopped at 1,000 issues (the most recently updated). */
+  cappedScopes: Set<IssueScope>;
   /** Set while Linear can't be asked (no key, refused, rate limited); cleared by the next answer. */
   unavailable?: LinearUnavailable;
   /** Where the next sync starts: the newest cursor a sync returned. */
@@ -29,11 +31,14 @@ export type LinearData = {
 
 const SYNC_EVERY_MS = 20_000;
 const MAX_SCOPE_ISSUES = 1000;
+/** Issues asked for by id in one request, and at most after a scope's load (see `recheckLeftovers`). */
+const BY_ID_BATCH = 50;
+const MAX_RECHECK = 100;
 /** The fields only an issue's details carry; a list or sync record without them must not erase them. */
 const DETAIL_FIELDS = ["description", "childIds", "relations", "links"] as const;
 
 function empty(): LinearData {
-  return { issues: new Map(), byKey: new Map(), comments: new Map(), loadedScopes: new Set() };
+  return { issues: new Map(), byKey: new Map(), comments: new Map(), loadedScopes: new Set(), cappedScopes: new Set() };
 }
 
 let state = empty();
@@ -55,6 +60,18 @@ const writeQueues = new Map<string, Promise<unknown>>();
 let notify: (message: string) => void = () => {};
 const scopeLoads = new Map<IssueScope, Promise<void>>();
 let syncing: Promise<void> | undefined;
+/** The scope whose load Linear refused for a while (`retryAt`): the first sync tick after then asks again. */
+let retryScope: IssueScope | undefined;
+/** The issue open in the view, by key: a reload asks for it (and its comments) too. */
+let openKey: string | undefined;
+/**
+ * Orders reads against saved writes: a read takes a tick when it starts, a
+ * saved write a tick per field (`written`). A read that started before the
+ * write was saved must not undo it with an older answer of the same
+ * `updatedAt` (Linear doesn't move it for every write: subscribing doesn't).
+ */
+let clock = 0;
+const written = new Map<string, Map<string, number>>();
 
 function publish(next: Partial<LinearData>): void {
   state = { ...state, ...next };
@@ -94,12 +111,17 @@ export function setLinearNotice(fn: (message: string) => void): void {
  * of the known one is kept but detail fields the incoming one lacks and fields
  * with a write pending.
  */
-function mergeRecord<T extends { id: string }>(known: T | undefined, incoming: T, details: readonly string[] = []): T {
+function mergeRecord<T extends { id: string }>(
+  known: T | undefined,
+  incoming: T,
+  details: readonly string[] = [],
+  keep: readonly string[] = [],
+): T {
   if (!known) return incoming;
   const merged = { ...incoming } as Record<string, unknown>;
   const was = known as Record<string, unknown>;
   for (const field of details) if (merged[field] === undefined && was[field] !== undefined) merged[field] = was[field];
-  for (const field of pending.get(incoming.id)?.keys() ?? []) {
+  for (const field of [...(pending.get(incoming.id)?.keys() ?? []), ...keep]) {
     if (field in was) merged[field] = was[field];
     else delete merged[field];
   }
@@ -116,7 +138,25 @@ function removeById<T extends { id: string }>(list: T[], ids: Set<string>): T[] 
   return list.filter((row) => !ids.has(row.id));
 }
 
-function mergeIssues(list: LinearIssue[]): void {
+/** The fields of a saved write that a read started at `readAt` (before the save) must leave alone; forgets older saves. */
+function savedSince(id: string, readAt: number | undefined): string[] {
+  const marks = written.get(id);
+  if (readAt === undefined || !marks) return [];
+  const keep: string[] = [];
+  for (const [field, at] of marks) {
+    if (at > readAt) keep.push(field);
+    else marks.delete(field);
+  }
+  if (marks.size === 0) written.delete(id);
+  return keep;
+}
+
+/**
+ * Merges issues Linear sent. `readAt` is when the read that brought them
+ * started (`clock`): fields a write saved since keep the saved value unless
+ * the record is newer than the one the page has.
+ */
+function mergeIssues(list: LinearIssue[], readAt?: number): void {
   if (list.length === 0) return;
   const issues = new Map(state.issues);
   const byKey = new Map(state.byKey);
@@ -129,11 +169,18 @@ function mergeIssues(list: LinearIssue[]): void {
     }
     // A page fetched before a newer sync must not roll the issue back.
     if (known && Date.parse(incoming.updatedAt) < Date.parse(known.updatedAt)) continue;
+    const newer = !known || Date.parse(incoming.updatedAt) > Date.parse(known.updatedAt);
+    const keep = newer ? [] : savedSince(incoming.id, readAt);
     // What Linear has for a field being edited: a refused edit goes back to it.
+    // A list or sync record lacks the detail fields: that says nothing of them.
     const kept = confirmed.get(incoming.id);
-    for (const field of pending.get(incoming.id)?.keys() ?? [])
-      kept?.set(field, (incoming as unknown as Record<string, unknown>)[field]);
-    issues.set(incoming.id, mergeRecord(known, incoming, DETAIL_FIELDS));
+    const record = incoming as unknown as Record<string, unknown>;
+    for (const field of pending.get(incoming.id)?.keys() ?? []) {
+      if (keep.includes(field)) continue;
+      if (record[field] === undefined && (DETAIL_FIELDS as readonly string[]).includes(field)) continue;
+      kept?.set(field, record[field]);
+    }
+    issues.set(incoming.id, mergeRecord(known, incoming, DETAIL_FIELDS, keep));
     byKey.set(incoming.key, incoming.id);
   }
   publish({ issues, byKey });
@@ -199,6 +246,10 @@ async function write(
       const kept = confirmed.get(id!);
       for (const field of fields) kept?.set(field, (optimistic!.patch as Record<string, unknown>)[field]);
       clearOwnPending(id!, fields, mark);
+      // Saved: a read already under way may still carry the value from before.
+      const saved = written.get(id!) ?? new Map<string, number>();
+      for (const field of fields) saved.set(field, ++clock);
+      written.set(id!, saved);
     }
     // Linear's answer, which also updates what's confirmed for fields a later edit still holds.
     if (answer?.issue) mergeIssues([answer.issue]);
@@ -298,8 +349,8 @@ function mergeWorkspaceRows(projects: LinearProject[], initiatives: LinearInitia
   });
 }
 
-function applySync(delta: LinearSync): void {
-  mergeIssues(delta.issues);
+function applySync(delta: LinearSync, readAt?: number): void {
+  mergeIssues(delta.issues, readAt);
   mergeComments(delta.comments);
   mergeWorkspaceRows(delta.projects, delta.initiatives);
   publish({ cursor: delta.cursor });
@@ -325,6 +376,10 @@ export const linearStore = {
   setUnavailable(unavailable: LinearUnavailable | undefined): void {
     publish({ unavailable });
   },
+  /** The issue open in the view (a reload asks for it again), or undefined. */
+  setOpenIssue(key: string | undefined): void {
+    openKey = key;
+  },
   /** Back to empty (tests). */
   reset(): void {
     state = empty();
@@ -333,7 +388,10 @@ export const linearStore = {
     confirmed.clear();
     writeQueues.clear();
     scopeLoads.clear();
+    written.clear();
     syncing = undefined;
+    retryScope = undefined;
+    openKey = undefined;
     for (const fn of [...listeners]) fn();
   },
 };
@@ -385,25 +443,91 @@ export async function loadWorkspace(fresh = false): Promise<void> {
   if (accept(answer)) linearStore.setWorkspace(answer);
 }
 
+/** Takes issues out of the store, leaving other issues' sub-issues and relations naming them (those ask for them again). */
+function dropIssues(ids: string[]): void {
+  if (ids.length === 0) return;
+  const issues = new Map(state.issues);
+  const byKey = new Map(state.byKey);
+  for (const id of ids) {
+    const known = issues.get(id);
+    if (!known) continue;
+    issues.delete(id);
+    if (byKey.get(known.key) === id) byKey.delete(known.key);
+  }
+  publish({ issues, byKey });
+}
+
+const finished = (d: LinearData, issue: LinearIssue) => {
+  const type = d.workspace?.states.find((s) => s.id === issue.stateId)?.type;
+  return type === "completed" || type === "canceled";
+};
+
+/**
+ * After a scope's complete load: the issues the store lists in it that Linear
+ * didn't return have left it while unseen (reassigned, moved, closed…), or
+ * gone. They're asked for by id, 50 to a request and 100 at most (the open
+ * issue first), and merged, which moves them to where they now belong; those
+ * Linear no longer lists (archived, deleted, out of reach), and any past the
+ * hundred, leave the store, to come back with the next list that has them.
+ * Asking again keeps every other list truthful, which dropping all of them
+ * wouldn't; a scope's load seldom leaves more than a few. Team "All" and
+ * project lists keep only what finished in the last 14 days, which the
+ * store can't tell, so their finished issues aren't asked about.
+ */
+async function recheckLeftovers(scope: IssueScope, returned: Set<string>): Promise<void> {
+  const recent = scope.startsWith("project:") || scope.endsWith(":all");
+  const left = scopeIssues(state, scope)
+    .filter((i) => !returned.has(i.id) && !(recent && finished(state, i)))
+    .sort((a, b) => Number(b.key === openKey) - Number(a.key === openKey))
+    .map((i) => i.id);
+  if (left.length === 0) return;
+  const asked = left.slice(0, MAX_RECHECK);
+  const found = new Set<string>();
+  for (let i = 0; i < asked.length; i += BY_ID_BATCH) {
+    const at = ++clock;
+    const answer = await linearRead<{ issues: LinearIssue[] }>("byId", { ids: asked.slice(i, i + BY_ID_BATCH).join(",") });
+    // Linear can't be asked now: nothing is known of them, so they stay.
+    if (!accept(answer)) return;
+    mergeIssues(answer.issues, at);
+    for (const issue of answer.issues) found.add(issue.id);
+  }
+  dropIssues(left.filter((id) => !found.has(id)));
+}
+
 async function pageScope(scope: IssueScope): Promise<void> {
   noteLoadStart();
+  if (retryScope === scope) retryScope = undefined;
   let after: string | undefined;
   let count = 0;
+  const returned = new Set<string>();
   do {
+    const at = ++clock;
     const answer = await linearRead<{ issues: LinearIssue[]; next?: string }>(
       "issues",
       after ? { scope, after } : { scope },
     );
-    if (!accept(answer)) return;
-    mergeIssues(answer.issues);
+    if (!accept(answer)) {
+      // Refused for a while (rate limited): asked again once that's passed, if it never loaded.
+      if (answer.retryAt !== undefined && !state.loadedScopes.has(scope)) retryScope = scope;
+      return;
+    }
+    mergeIssues(answer.issues, at);
+    for (const issue of answer.issues) returned.add(issue.id);
     count += answer.issues.length;
     after = answer.next;
   } while (after && count < MAX_SCOPE_ISSUES);
-  publish({ loadedScopes: new Set(state.loadedScopes).add(scope) });
+  const capped = new Set(state.cappedScopes);
+  if (after) capped.add(scope);
+  else capped.delete(scope);
+  publish({ loadedScopes: new Set(state.loadedScopes).add(scope), cappedScopes: capped });
+  // Only a complete load says what isn't in the scope.
+  if (!after) await recheckLeftovers(scope, returned);
 }
 
 /** Loads a scope's issues, paging up to 1,000; a scope already loaded (or loading) is not asked again unless `fresh`. */
 export function loadScope(scope: IssueScope, fresh = false): Promise<void> {
+  // Another place now: a scope refused earlier isn't wanted any more.
+  if (retryScope !== scope) retryScope = undefined;
   if (!fresh && state.loadedScopes.has(scope)) return Promise.resolve();
   let load = scopeLoads.get(scope);
   if (!load) {
@@ -416,49 +540,74 @@ export function loadScope(scope: IssueScope, fresh = false): Promise<void> {
 /** Loads one issue by key with its description, comments and children. */
 export async function loadIssue(key: string): Promise<void> {
   noteLoadStart();
+  const at = ++clock;
   const answer = await linearRead<{ issue: LinearIssue | null; comments?: LinearComment[]; children?: LinearIssue[] }>(
     "issue",
     { key },
   );
   if (!accept(answer) || !answer.issue) return;
-  mergeIssues([answer.issue, ...(answer.children ?? [])]);
+  mergeIssues([answer.issue, ...(answer.children ?? [])], at);
   mergeComments(answer.comments ?? []);
 }
 
+/** Everything afresh: the workspace, each loaded scope, and the open issue with its comments. */
 async function reloadAll(): Promise<void> {
   await loadWorkspace(true);
   for (const scope of [...state.loadedScopes]) await pageScope(scope);
+  if (openKey) await loadIssue(openKey);
 }
 
 async function syncOnce(): Promise<void> {
   const since = state.cursor ?? loadStartedAt;
   if (!since) return;
+  const at = ++clock;
   const answer = await linearRead<LinearSync>("sync", { since });
   if (!accept(answer)) return;
-  applySync(answer);
+  applySync(answer, at);
   // More than one batch changed: reload instead of re-asking from the newer cursor, which would skip the older changes.
   if (answer.more) await reloadAll();
 }
 
-/** One sync round; nothing before the first load, while Linear is paused (`retryAt` ahead) or while one is running. */
+/**
+ * One sync round; nothing before the first load, while Linear is paused
+ * (`retryAt` ahead) or while one is running. A scope whose load was refused
+ * for that pause is asked for again too.
+ */
 export function syncTick(now: number = Date.now()): Promise<void> {
   if (syncing) return syncing;
   const retryAt = state.unavailable?.retryAt;
   if (retryAt !== undefined && retryAt > now) return Promise.resolve();
-  syncing = syncOnce()
-    .catch(() => {})
+  const retry = retryScope && !state.loadedScopes.has(retryScope) ? loadScope(retryScope).catch(() => {}) : undefined;
+  syncing = Promise.all([retry, syncOnce().catch(() => {})])
+    .then(() => {})
     .finally(() => {
       syncing = undefined;
     });
   return syncing;
 }
 
-/** While `active` (Linear shows), keeps the store current: a sync at once, then every 20 s. */
+/** What `keepSynced` needs of the page: whether it's hidden, and word when that changes. */
+type Visibility = Pick<Document, "hidden" | "addEventListener" | "removeEventListener">;
+
+/**
+ * Syncs at once and then every `every` ms, skipping ticks while the page is
+ * hidden (the window minimised or behind another), and once as it shows again.
+ * Returns the stop.
+ */
+export function keepSynced(doc: Visibility = document, every = SYNC_EVERY_MS): () => void {
+  const tick = () => {
+    if (!doc.hidden) void syncTick();
+  };
+  tick();
+  const timer = setInterval(tick, every);
+  doc.addEventListener("visibilitychange", tick);
+  return () => {
+    clearInterval(timer);
+    doc.removeEventListener("visibilitychange", tick);
+  };
+}
+
+/** While `active` (Linear shows) and the page isn't hidden, keeps the store current: a sync at once, then every 20 s. */
 export function useLinearSync(active: boolean): void {
-  useEffect(() => {
-    if (!active) return;
-    void syncTick();
-    const timer = setInterval(() => void syncTick(), SYNC_EVERY_MS);
-    return () => clearInterval(timer);
-  }, [active]);
+  useEffect(() => (active ? keepSynced() : undefined), [active]);
 }

@@ -450,6 +450,8 @@ function passes(ws: FakeWorkspace, issue: FakeIssue, filter: Filter): boolean {
         const who = issue[field]?.id;
         return cond.isMe ? (who === ws.viewerId) === cond.isMe.eq : who === cond.id.eq;
       }
+      case "id":
+        return cond.in ? cond.in.includes(issue.id) : issue.id === cond.eq;
       case "team":
       case "project":
         return issue[field]?.id === cond.id.eq;
@@ -674,16 +676,15 @@ function writes(): Record<string, FakeOperation> {
       });
       return { issueDelete: { success: true } };
     },
+    // As in Linear, (un)subscribing doesn't move the issue's updatedAt, so no sync carries it.
     IssueSubscribe: (ctx) => {
-      const issue = touchIssue(ctx, ctx.variables.id, (i) => {
-        if (!i.subscribers.nodes.some((u) => u.id === ctx.ws.viewerId)) i.subscribers.nodes.push(viewer(ctx.ws));
-      });
+      const issue = issueOf(ctx.ws, ctx.variables.id);
+      if (!issue.subscribers.nodes.some((u) => u.id === ctx.ws.viewerId)) issue.subscribers.nodes.push(viewer(ctx.ws));
       return issuePayload("issueSubscribe", issue);
     },
     IssueUnsubscribe: (ctx) => {
-      const issue = touchIssue(ctx, ctx.variables.id, (i) => {
-        i.subscribers.nodes = i.subscribers.nodes.filter((u) => u.id !== ctx.ws.viewerId);
-      });
+      const issue = issueOf(ctx.ws, ctx.variables.id);
+      issue.subscribers.nodes = issue.subscribers.nodes.filter((u) => u.id !== ctx.ws.viewerId);
       return issuePayload("issueUnsubscribe", issue);
     },
     IssueRelationCreate: (ctx) => {
