@@ -16,12 +16,12 @@ import {
 import { errorMessage } from "../api";
 import { onAppCommand } from "../appCommands";
 import { openExternal } from "../links";
-import { Markdown } from "../Markdown";
 import { copyText } from "../nativePlatform";
 import { Comments } from "./Comments";
 import { IssueRow } from "./IssueList";
 import { Properties } from "./Properties";
-import { issueContext, linearImages, type IssueContext } from "./prompt";
+import { issueContext, type IssueContext } from "./prompt";
+import { IssueDescription, IssueTitle } from "./IssueText";
 import { Relations } from "./Relations";
 import { linearStore, loadIssue, useLinear } from "./store";
 import type { LinearIssue } from "./types";
@@ -277,7 +277,7 @@ export function IssueDetail({
           <div className="linear-issue-line">
             <span className="linear-key">{issue.key}</span>
           </div>
-          <h1>{issue.title}</h1>
+          <IssueTitle issue={issue} />
           <Properties issue={issue} />
           {issue.parentId && (
             <button className="link-btn linear-parent" disabled={!parent} onClick={() => parent && onOpen(parent.key)}>
@@ -312,15 +312,7 @@ export function IssueDetail({
             )}
           </div>
         </header>
-        <div className="linear-description">
-          {issue.description?.trim() ? (
-            <Markdown text={linearImages(issue.description, location.origin)} />
-          ) : issue.description === undefined && !loaded ? (
-            <p className="linear-note">Loading the description…</p>
-          ) : (
-            <p className="linear-note">No description.</p>
-          )}
-        </div>
+        <IssueDescription issue={issue} loaded={loaded} />
         {load.error && (
           <p className="archive-error" role="alert">
             {load.error}

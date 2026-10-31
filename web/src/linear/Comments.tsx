@@ -79,13 +79,14 @@ const isSend = (e: React.KeyboardEvent) => e.key === "Enter" && (e.metaKey || e.
  * localStorage until it's sent, so a remount or reload keeps it. A send Linear
  * refuses keeps the text (the store's notice says why).
  */
-function Composer({
+export function Composer({
   draft,
   label,
   placeholder,
   initial = "",
   sendLabel,
   autoFocus,
+  allowEmpty,
   onSend,
   onCancel,
   focusRef,
@@ -96,6 +97,8 @@ function Composer({
   initial?: string;
   sendLabel: string;
   autoFocus?: boolean;
+  /** Sending nothing is allowed (a description can be cleared). */
+  allowEmpty?: boolean;
   /** True once Linear has it. */
   onSend: (body: string) => Promise<boolean>;
   onCancel?: () => void;
@@ -131,7 +134,7 @@ function Composer({
   };
   const send = async () => {
     const body = text.trim();
-    if (!body || sending) return;
+    if ((!body && !allowEmpty) || sending) return;
     setSending(true);
     const saved = await onSend(body).catch(() => false);
     setSending(false);
@@ -187,7 +190,7 @@ function Composer({
             Cancel
           </button>
         )}
-        <button type="button" className="primary" disabled={empty || sending} onClick={() => void send()}>
+        <button type="button" className="primary" disabled={(empty && !allowEmpty) || sending} onClick={() => void send()}>
           {sendLabel}
         </button>
       </div>

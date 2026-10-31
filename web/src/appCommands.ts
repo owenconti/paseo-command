@@ -33,6 +33,8 @@ export type AppCommand =
   | "linear-go"
   | "linear-assign-me"
   | "linear-comment"
+  | "linear-edit-title"
+  | "linear-edit-description"
   | "linear-create"
   | "linear-sub-issue"
   | "linear-subscribe"

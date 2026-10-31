@@ -852,10 +852,55 @@
   white-space: nowrap;
   text-overflow: ellipsis;
 }
+/* The title reads as a heading; hovering or focusing it shows it can be edited. */
+.linear-title-edit,
+.linear-title-field {
+  display: block;
+  width: calc(100% + 2 * var(--space-2));
+  margin: 0 calc(-1 * var(--space-2));
+  padding: 2px var(--space-2);
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  background: transparent;
+  font: inherit;
+  line-height: inherit;
+  color: inherit;
+  text-align: left;
+  text-wrap: pretty;
+}
+.linear-title-edit {
+  cursor: text;
+  transition:
+    background-color var(--dur-1) var(--ease-out),
+    border-color var(--dur-1) var(--ease-out);
+}
+.linear-title-edit:hover {
+  background: var(--fill-soft);
+}
+.linear-title-edit:focus-visible {
+  outline: none;
+  border-color: var(--focus);
+  box-shadow: var(--focus-ring);
+}
+.linear-title-field {
+  border-color: var(--focus);
+  background: var(--input-bg, var(--panel-raised));
+  box-shadow: var(--focus-ring);
+  outline: none;
+}
 .linear-description {
   padding-top: var(--space-4);
   font-size: var(--fs-md);
   line-height: 1.55;
+}
+.linear-description-edit {
+  margin-top: var(--space-2);
+  margin-left: -6px;
+  color: var(--text-3);
+}
+.linear-description-edit svg,
+.linear-description-edit:hover:not(:disabled) svg {
+  transform: none;
 }
 .linear-section {
   margin-top: var(--space-6);

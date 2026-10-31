@@ -1738,6 +1738,8 @@ function App() {
       ? (
           [
             ["linear-comment", `Comment on ${linearIssueOpen.key}`, "linear issue comment reply write discuss note"],
+            ["linear-edit-title", `Rename ${linearIssueOpen.key}`, "linear issue title rename edit name"],
+            ["linear-edit-description", `Edit ${linearIssueOpen.key}'s description`, "linear issue description body edit write markdown"],
             ["linear-sub-issue", `Add sub-issue to ${linearIssueOpen.key}`, "linear issue child sub-issue new create"],
             [
               "linear-subscribe",

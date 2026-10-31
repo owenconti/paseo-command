@@ -559,6 +559,103 @@ test("keeps a comment draft across remounts", async () => {
   }
 });
 
+test("renames an issue in place: Enter saves, Esc puts it back, an empty title isn't saved", async () => {
+  const { context, page, linear, view, issue } = await openLinear();
+  try {
+    await view.locator('.linear-row[data-key="ENG-1"]').click();
+    const title = issue.locator("h1");
+    const original = fakeIssue(linear, "ENG-1").title;
+    await title.getByRole("button", { name: original }).click();
+    const field = issue.getByRole("textbox", { name: "ENG-1's title" });
+    await field.fill("Renamed in place");
+    await field.press("Enter");
+    await title.getByRole("button", { name: "Renamed in place" }).waitFor();
+    await view.locator('.linear-list .linear-row[data-key="ENG-1"]', { hasText: "Renamed in place" }).waitFor();
+    await waitFor(() => Promise.resolve(fakeIssue(linear, "ENG-1").title), (t) => t === "Renamed in place", "Linear's title");
+
+    // Esc leaves it as it was; an empty title isn't sent.
+    await title.getByRole("button").click();
+    await field.fill("Not this");
+    await field.press("Escape");
+    await title.getByRole("button", { name: "Renamed in place" }).waitFor();
+    await title.getByRole("button").click();
+    await field.fill("   ");
+    await field.press("Enter");
+    await title.getByRole("button", { name: "Renamed in place" }).waitFor();
+    assert.deepEqual(writesMade(linear), ["IssueUpdate"]);
+
+    // A refused rename goes back and says why.
+    linear.fail("IssueUpdate", { message: "Not allowed" });
+    await title.getByRole("button").click();
+    await field.fill("Refused");
+    await field.press("Enter");
+    await page.locator(".toast", { hasText: "Linear didn't save that: Not allowed" }).waitFor();
+    await title.getByRole("button", { name: "Renamed in place" }).waitFor();
+    assert.equal(fakeIssue(linear, "ENG-1").title, "Renamed in place");
+
+    // ⌘K's "Rename ENG-1" opens the field.
+    linear.clear("IssueUpdate");
+    await paletteRun(page, "Rename ENG-1");
+    await field.waitFor();
+    assert.equal(await focusedName(page), "ENG-1's title");
+    await field.press("Escape");
+  } finally {
+    linear.restore();
+    await context.close();
+  }
+});
+
+test("edits and clears an issue's description, keeping what's typed until it's saved", async () => {
+  const { context, page, linear, view, issue } = await openLinear();
+  try {
+    const eng1 = FAKE_IDS.issues["ENG-1"];
+    const draft = () => page.evaluate((key) => localStorage.getItem(key), `paseo-command:linear:draft:description:${eng1}`);
+    await view.locator('.linear-row[data-key="ENG-1"]').click();
+    const description = issue.locator(".linear-description");
+    await description.getByRole("button", { name: /description$/ }).click();
+    const box = issue.getByRole("textbox", { name: "ENG-1's description" });
+    assert.equal(await box.inputValue(), (fakeIssue(linear, "ENG-1").description ?? "").trim());
+    await box.fill("Steps to **reproduce**.");
+
+    // A reload reopens the edit with what was typed.
+    await page.reload();
+    await page.locator(".fleet-sidebar").waitFor();
+    await showLinear(page);
+    await waitFor(() => box.inputValue(), (v) => v === "Steps to **reproduce**.", "the description draft after a reload");
+
+    // A refused save keeps the text and says why.
+    linear.fail("IssueUpdate", { message: "Not allowed" });
+    await box.press("Meta+Enter");
+    await page.locator(".toast", { hasText: "Linear didn't save that: Not allowed" }).waitFor();
+    assert.equal(await box.inputValue(), "Steps to **reproduce**.");
+
+    // Saved: shown as Markdown, in Linear, and the draft is gone.
+    linear.clear("IssueUpdate");
+    await box.press("Meta+Enter");
+    await description.locator("strong", { hasText: "reproduce" }).waitFor();
+    assert.equal(fakeIssue(linear, "ENG-1").description, "Steps to **reproduce**.");
+    await waitFor(draft, (v) => v === null, "the draft to be removed");
+
+    // Cancel leaves it as it was.
+    await description.getByRole("button", { name: "Edit description" }).click();
+    await box.fill("Thrown away");
+    await issue.getByRole("button", { name: "Cancel" }).click();
+    await description.locator("strong", { hasText: "reproduce" }).waitFor();
+    assert.equal(await draft(), null);
+
+    // Saving nothing clears it; ⌘K opens the editor too.
+    await paletteRun(page, "Edit ENG-1's description");
+    await box.fill("");
+    await issue.getByRole("button", { name: "Save" }).click();
+    await description.getByText("No description.").waitFor();
+    await waitFor(() => Promise.resolve(fakeIssue(linear, "ENG-1").description ?? ""), (d) => d === "", "Linear's description cleared");
+    await description.getByRole("button", { name: "Add description" }).waitFor();
+  } finally {
+    linear.restore();
+    await context.close();
+  }
+});
+
 /** The Create issue dialog. */
 const createDialog = (page: Page) => page.getByRole("dialog", { name: "New issue" });
 /** A ⌘K command, by its label. */

@@ -244,7 +244,9 @@ and GitHub publication; report the published version and release link.
   the list from 1,100 px, else in its place with Back. The place and open issue are kept in localStorage (`place.ts`).
   Editing: the open issue's properties (`Properties.tsx`: status, priority, assignee, labels, estimate and cycle where the team uses
   them, project, milestone, parent, due date) open a `Picker.tsx` and save at once, as does a row's context menu (status, priority,
-  assignee, labels). Comments (`Comments.tsx`): write, edit, reply in threads, react (by Linear shortcode), resolve and delete.
+  assignee, labels). The title and description are edited in place (`IssueText.tsx`; click the title, or Edit description;
+  ⌘K "Rename"/"Edit … description"): Enter saves a title and Esc puts it back, an empty title isn't saved; the description opens
+  in the comment composer (Markdown, Preview, ⌘↩ saves, Cancel), kept as a draft until saved, and saving nothing clears it. Comments (`Comments.tsx`): write, edit, reply in threads, react (by Linear shortcode), resolve and delete.
   Create issue (`CreateIssue.tsx`; the sidebar's New issue, C, ⌘K) in the place's team (or project) with its default status, and
   Add sub-issue; relations (`Relations.tsx`: blocks, blocked by, related, duplicate) are added and removed; Subscribe, Archive (Undo in
   a bar at the view's foot) and Delete (after confirming) from the detail or ⌘K. Every write is the user's own action (launching an
