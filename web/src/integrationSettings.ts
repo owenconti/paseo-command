@@ -1,4 +1,4 @@
-import { useEffect, useSyncExternalStore } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { api, errorMessage } from "./api";
 import {
   DEFAULT_INTEGRATIONS,
@@ -80,6 +80,20 @@ export function useIntegrations() {
     if (!state.loaded) void refreshIntegrations();
   }, []);
   return value;
+}
+
+/** Refresh consumers immediately after a key is saved, replaced or removed. */
+export function useSecretRevision(name: "linearApiKey" | "typesafeApiKey") {
+  const [revision, setRevision] = useState(0);
+  useEffect(() => {
+    const changed = (event: Event) => {
+      if ((event as CustomEvent).detail === name)
+        setRevision((value) => value + 1);
+    };
+    window.addEventListener("paseo:secrets", changed);
+    return () => window.removeEventListener("paseo:secrets", changed);
+  }, [name]);
+  return revision;
 }
 if (typeof window !== "undefined")
   window.addEventListener("focus", () => void refreshIntegrations());

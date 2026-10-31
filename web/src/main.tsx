@@ -1657,6 +1657,19 @@ function App() {
           },
         }))
       : []),
+    ...([ ["linear", "Linear"], ["typesafe", "TypeSafe"] ] as const)
+      .filter(([name]) => integrations[name])
+      .map(([name, label]) => ({
+        id: `manage-${name}-key`,
+        group: "App",
+        label: `Manage ${label} API key…`,
+        keywords: `settings ${name} secrets credentials save replace remove`,
+        run: () => {
+          setBrowsing(true);
+          setRevealRevision((revision) => revision + 1);
+          runAppCommand(name === "linear" ? "manage-linear-key" : "manage-typesafe-key");
+        },
+      })),
     {
       id: "presets",
       group: "App",

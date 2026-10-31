@@ -169,6 +169,9 @@ and GitHub publication; report the published version and release link.
   other keys and never overwrites an unreadable file); `web/src/presetsStore.ts` shares them across the page.
   Optional integrations (`integrations.linear`, `integrations.typesafe`, `integrations.appleMusic`) default off in that file.
   Integration keys are read only from the data directory's `secrets.json` (`web/server/secrets.ts`), never from environment variables.
+  Settings uses toggle switches, with each integration's API-key editor and settings grouped beneath it.
+  `GET /api/secrets` returns presence flags only; `POST /api/secrets` saves/replaces/removes a named key,
+  preserving other credentials in an atomic owner-only file. Saved values never return to the page.
   The same `settings.json` keeps the Linear workspace (`linearWorkspace`; `GET`/`POST /api/settings`,
   `web/server/settings.ts`), which the page once kept in localStorage and moves into the file on load.
 - `rendering/src/native/bridge.ts`: inside the native app, the Atlas world `mountAtlas` returns: it lays out and paints

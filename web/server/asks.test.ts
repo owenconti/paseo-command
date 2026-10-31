@@ -125,6 +125,11 @@ test("a refused key stops judging and says why", async () => {
   assert.match(service.request(client as never, "local", record({ id: "a2" }) as never).error!, /refused/);
   assert.equal(calls, 1);
   assert.equal(service.status().available, false);
+  service.reset();
+  assert.equal(service.status().available, true);
+  assert.equal(service.request(client as never, "local", record() as never).pending, true);
+  await settle();
+  assert.equal(calls, 2, "replacing a refused key retries immediately");
 });
 
 /** The fake's answers, with `suggest` chosen as `pick` at `p`. */

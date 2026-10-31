@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { api, errorMessage } from "./api";
+import { useSecretRevision } from "./integrationSettings";
 
 /** As `web/server/linear.ts` answers them. */
 export type LinearState = { name: string; type: string; color: string };
@@ -117,6 +118,7 @@ export const issueContext = (issue: LinearIssueDetail): IssueContext => ({
 
 /** Your open assigned issues; `refresh` asks Linear again now. */
 export function useAssignedIssues() {
+  const secretRevision = useSecretRevision("linearApiKey");
   const [state, setState] = useState<{
     loading: boolean;
     answer?: ListAnswer;
@@ -134,12 +136,13 @@ export function useAssignedIssues() {
     // Kept current while it shows, as Linear changes elsewhere.
     const timer = setInterval(() => load(false), 60000);
     return () => clearInterval(timer);
-  }, [load]);
+  }, [load, secretRevision]);
   return { ...state, refresh: () => load(true) };
 }
 
 /** One issue's details, asked for whenever `key` or `revision` changes. */
 export function useIssueDetail(key: string | null, revision: number) {
+  const secretRevision = useSecretRevision("linearApiKey");
   const [state, setState] = useState<{
     key: string;
     answer?: DetailAnswer;
@@ -147,6 +150,7 @@ export function useIssueDetail(key: string | null, revision: number) {
   } | null>(null);
   useEffect(() => {
     if (!key) return;
+    setState(null);
     let live = true;
     api<DetailAnswer>(
       `linear/issues/${encodeURIComponent(key)}${revision ? "?fresh=1" : ""}`,
@@ -157,6 +161,6 @@ export function useIssueDetail(key: string | null, revision: number) {
     return () => {
       live = false;
     };
-  }, [key, revision]);
+  }, [key, revision, secretRevision]);
   return key && state?.key === key ? state : null;
 }

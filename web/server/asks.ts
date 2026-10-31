@@ -224,6 +224,7 @@ export function createAsksService(
   /** Judged replies by their text, so a turn's re-read never asks again. */
   const judged = new Map<string, Omit<Asks, "pending">>();
   const disabled = new Error("TypeSafe is disabled.");
+  let generation = 0;
   let refusedUntil = 0;
   let refusal = "";
   /** Judge the turn's reply, `publish` its questions, then draft answers to
@@ -233,17 +234,20 @@ export function createAsksService(
     source: AgentRecord,
     judge: Judge,
     publish: (value: Asks) => void,
+    expectedGeneration: number,
   ) {
+    const current = () => enabled() && expectedGeneration === generation;
     const timeline = await client.fetchAgentTimeline(source.id, {
       direction: "tail",
       limit: 40,
       projection: "canonical",
     });
-    if (!enabled()) throw disabled;
+    if (!current()) throw disabled;
     const reply = lastReply(timelineWindow(timeline).items as never);
     if (!reply) return publish(NO_ASKS);
     const hash = createHash("sha256").update(reply.text).digest("hex");
     const remember = (value: Omit<Asks, "pending">) => {
+      if (!current()) throw disabled;
       judged.set(hash, value);
       if (judged.size > 500) judged.delete(judged.keys().next().value!);
       publish({ ...value, messageId: reply.messageId, pending: false });
@@ -251,10 +255,10 @@ export function createAsksService(
     let value = judged.get(hash);
     if (!value) {
       value = await judgeReply((request) => {
-        if (!enabled()) return Promise.reject(disabled);
+        if (!current()) return Promise.reject(disabled);
         return judge(request);
       }, reply.text);
-      if (!enabled()) throw disabled;
+      if (!current()) throw disabled;
       const open = value.questions.filter((q) => q.kind === "open");
       if (!open.length) return remember(value);
       // Its questions show at once; only the finished value is remembered.
@@ -281,6 +285,13 @@ export function createAsksService(
     remember(value);
   }
   return {
+    reset() {
+      generation++;
+      cache.clear();
+      judged.clear();
+      refusedUntil = 0;
+      refusal = "";
+    },
     /** Whether replies can be judged, and why not. */
     status(): { available: boolean; error?: string } {
       if (!enabled())
@@ -328,8 +339,12 @@ export function createAsksService(
       };
       delete next.value.error;
       cache.set(key, next);
-      void judgeTurn(client, source, judge, (value) => (next.value = value))
+      const requestGeneration = generation;
+      void judgeTurn(client, source, judge, (value) => {
+        if (requestGeneration === generation) next.value = value;
+      }, requestGeneration)
         .catch((e) => {
+          if (requestGeneration !== generation) return;
           if (e === disabled) {
             cache.delete(key);
             return;

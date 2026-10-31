@@ -8,6 +8,8 @@ export type AppCommand =
   | "toggle-panel"
   | "show-shortcuts"
   | "show-settings"
+  | "manage-linear-key"
+  | "manage-typesafe-key"
   | "show-games"
   | "show-releases"
   | "agent-interrupt"

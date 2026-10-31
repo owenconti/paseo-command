@@ -42,7 +42,12 @@ The map requires the macOS app; conversations and panels also work in a regular 
 ## Optional integrations
 
 **Linear, TypeSafe and Apple Music are off by default.** Open **Settings** from
-⌘K to enable the features you want. These choices are saved in
+⌘K to enable the features you want. Each integration's API-key field and settings
+appear beneath its switch. Enter a key and choose **Save key**; saved keys show
+**Saved**, with **Replace…** and **Remove** controls. Saved key values are never
+shown again.
+
+Integration choices are saved in
 `~/.paseo-command/settings.json`; you can also edit the file directly:
 
 ```json
@@ -55,7 +60,7 @@ The map requires the macOS app; conversations and panels also work in a regular 
 }
 ```
 
-Set a feature to `true` to enable it. API keys go in one place:
+Set a feature to `true` to enable it. Keys entered in the app are saved in
 `~/Library/Application Support/Paseo Command/secrets.json`:
 
 ```json
@@ -70,9 +75,11 @@ alone does not enable a feature. After editing these files, return to the app or
 choose **Restart app** in ⌘K to load your changes.
 
 - **Linear:** Enable Linear and provide `linearApiKey` to see your assigned issues,
-  issue details and links. Set your Linear workspace in Settings for issue links.
+  issue details and links. The API key and Linear workspace fields are beneath
+  the Linear switch in Settings.
 - **TypeSafe:** Enable TypeSafe and provide `typesafeApiKey` to find questions in
-  agent replies and suggest answers. This sends reply excerpts to TypeSafe.
+  agent replies and suggest answers. Its key field is beneath the TypeSafe
+  switch. This sends reply excerpts to TypeSafe.
   Helper summaries and drafted answers use the daemon's configured model provider.
 - **Apple Music:** Enable Apple Music to show playback controls. No API key is
   needed. macOS asks for Automation permission when the app first accesses Music.

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { api } from "./api";
 import { NO_ASKS, type Asks } from "./asks/types";
 import { isArchived, type Agent } from "./types";
+import { useSecretRevision } from "./integrationSettings";
 
 const turnKey = (a: Agent) =>
   `${a.id}|${a.updatedAt ?? ""}|${a.lastUserMessageAt ?? ""}`;
@@ -18,6 +19,8 @@ export function useAsks(
   latest.current = agents;
   const [values, setValues] = useState<Record<string, Asks>>({});
   const settled = useRef(new Set<string>());
+  const secretRevision = useSecretRevision("typesafeApiKey");
+  useEffect(() => { settled.current.clear(); setValues({}); }, [secretRevision]);
   const shown = agents.filter(eligible);
   const signature = shown.map(turnKey).sort().join("\n");
   useEffect(() => {
@@ -65,7 +68,7 @@ export function useAsks(
       controller.abort();
       clearTimeout(timer);
     };
-  }, [signature, enabled]);
+  }, [signature, enabled, secretRevision]);
   return !enabled
     ? {}
     : Object.fromEntries(shown.map((a) => [a.id, values[turnKey(a)]]));
