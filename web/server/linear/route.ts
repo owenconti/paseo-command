@@ -41,7 +41,7 @@ export async function linearRoute(
     const name = path.slice(2);
     if (!Object.hasOwn(WRITES, name)) return reply(404, { error: "Unknown endpoint" });
     if (url.search) return reply(400, { error: "Unexpected parameters" });
-    if (!req.headers["content-type"]?.startsWith("application/json")) return reply(415, { error: "JSON required" });
+    if (!/^application\/json\s*(;|$)/i.test(req.headers["content-type"] ?? "")) return reply(415, { error: "JSON required" });
     let input: unknown;
     try {
       input = await bodyOf(req, WRITE_BODY_LIMIT);

@@ -64,7 +64,7 @@ function fields(input: unknown, required: Record<string, Check>, optional: Recor
   if (!input || typeof input !== "object" || Array.isArray(input)) throw invalid("Expected an object");
   const given = input as Vars;
   const known = { ...required, ...optional };
-  for (const name of Object.keys(given)) if (!(name in known)) throw invalid(`Unexpected field ${name}`);
+  for (const name of Object.keys(given)) if (!Object.hasOwn(known, name)) throw invalid(`Unexpected field ${name}`);
   const out: Vars = {};
   for (const name of Object.keys(required)) {
     if (given[name] === undefined) throw invalid(`Missing field ${name}`);
