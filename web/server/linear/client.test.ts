@@ -16,7 +16,8 @@ function reply(status: number, body: unknown, headers: Record<string, string> = 
   }) as typeof fetch;
 }
 
-const RESET = "1793461871221";
+const RESETAT = Date.now() + 60 * 60_000;
+const RESET = String(RESETAT);
 const budgetHeaders = (requests: string) => ({
   "x-ratelimit-requests-remaining": requests,
   "x-ratelimit-complexity-remaining": "2900000",
@@ -48,7 +49,7 @@ test("records the budget from the headers", async () => {
   assert.deepEqual(linearBudget(), {
     requestsRemaining: 2400,
     complexityRemaining: 2900000,
-    resetAt: 1793461871221,
+    resetAt: RESETAT,
   });
 });
 
@@ -57,7 +58,7 @@ test("refuses to sync when the budget is low", async () => {
   await linearRequest("A", "query A { viewer { id } }", {});
   await assert.rejects(
     () => linearRequest("B", "query B { viewer { id } }", {}),
-    (e: unknown) => e instanceof LinearError && e.kind === "limited" && e.retryAt === 1793461871221,
+    (e: unknown) => e instanceof LinearError && e.kind === "limited" && e.retryAt === RESETAT,
   );
   assert.equal(seen.length, 1);
   await linearRequest("C", "query C { viewer { id } }", {}, { essential: true });
@@ -102,7 +103,7 @@ test("a RATELIMITED error is limited, with the reset time", async () => {
   );
   await assert.rejects(
     () => linearRequest("A", "query A { viewer { id } }", {}),
-    (e: unknown) => e instanceof LinearError && e.kind === "limited" && e.retryAt === 1793461871221,
+    (e: unknown) => e instanceof LinearError && e.kind === "limited" && e.retryAt === RESETAT,
   );
 });
 
@@ -120,7 +121,7 @@ test("HTTP 429 is limited", async () => {
   reply(429, {}, budgetHeaders("0"));
   await assert.rejects(
     () => linearRequest("A", "query A { viewer { id } }", {}),
-    (e: unknown) => e instanceof LinearError && e.kind === "limited" && e.retryAt === 1793461871221,
+    (e: unknown) => e instanceof LinearError && e.kind === "limited" && e.retryAt === RESETAT,
   );
 });
 
@@ -129,5 +130,15 @@ test("a GraphQL AUTHENTICATION_ERROR is refused", async () => {
   await assert.rejects(
     () => linearRequest("A", "query A { viewer { id } }", {}),
     (e: unknown) => e instanceof LinearError && e.kind === "refused",
+  );
+});
+
+test("a limit with no reset header retries a minute on", async () => {
+  reply(429, {});
+  const before = Date.now();
+  await assert.rejects(
+    () => linearRequest("A", "query A { viewer { id } }", {}),
+    (e: unknown) =>
+      e instanceof LinearError && e.kind === "limited" && e.retryAt! >= before + 60_000 && e.retryAt! <= Date.now() + 60_000,
   );
 });

@@ -69,11 +69,19 @@ type GraphQlError = {
   extensions?: { type?: string; code?: string; userPresentableMessage?: string };
 };
 
-function errorFrom(errors: GraphQlError[]): LinearError {
+/** When to try again after a limit: this reply's reset, else the known one if still ahead, else a minute on. */
+function retryTime(headers: Headers): number {
+  const reset = Number(headers.get("x-ratelimit-requests-reset"));
+  if (headers.get("x-ratelimit-requests-reset") !== null && Number.isFinite(reset)) return reset;
+  if (budget && budget.resetAt > Date.now()) return budget.resetAt;
+  return Date.now() + 60_000;
+}
+
+function errorFrom(errors: GraphQlError[], retryAt: number): LinearError {
   const first = errors[0] ?? {};
   const labels = [first.extensions?.code, first.extensions?.type].map((v) => (v ?? "").toLowerCase());
   if (labels.includes("ratelimited")) {
-    return new LinearError("limited", "Linear's hourly limit is used up.", budget?.resetAt);
+    return new LinearError("limited", "Linear's hourly limit is used up.", retryAt);
   }
   if (labels.includes("authentication_error") || labels.includes("authentication error")) {
     return new LinearError("refused", "Linear refused the API key.");
@@ -120,10 +128,10 @@ export async function linearRequest<T>(
     errors?: GraphQlError[];
   } | null;
   if (res.status === 401) throw new LinearError("refused", "Linear refused the API key.");
-  if (body?.errors?.length) throw errorFrom(body.errors);
   if (res.status === 429) {
-    throw new LinearError("limited", "Linear's hourly limit is used up.", budget?.resetAt);
+    throw new LinearError("limited", "Linear's hourly limit is used up.", retryTime(res.headers));
   }
+  if (body?.errors?.length) throw errorFrom(body.errors, retryTime(res.headers));
   if (!res.ok || !body?.data) throw new LinearError("failed", `Linear answered ${res.status}.`);
   return body.data;
 }
