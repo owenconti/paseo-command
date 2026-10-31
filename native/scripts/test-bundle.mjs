@@ -50,7 +50,9 @@ for (const f of flavours) {
   const build = key('CFBundleVersion');
   check('CFBundleVersion', /^[1-9][0-9]*$/.test(build), `(got ${build}, want a positive integer)`);
   try { run('codesign', ['--verify', '--deep', '--strict', app]); } catch (e) { check('codesign', false, String(e.stderr ?? e).trim()); }
-  if (f.flavour === 'release') {
+  const adhoc = /flags=0x\w*\(adhoc/.test(execFileSync('sh', ['-c', 'codesign -dvv "$0" 2>&1', app], { encoding: 'utf8' }));
+  if (f.flavour === 'release' && adhoc) console.log(`${f.dir}: unsigned (ad hoc) release build; Developer ID checks skipped`);
+  if (f.flavour === 'release' && !adhoc) {
     // Notarization needs Developer ID signatures under the hardened runtime, with the entitlements it needs.
     for (const path of [app, join(res, 'node/node')]) {
       const info = execFileSync('sh', ['-c', 'codesign -dvv "$0" 2>&1', path], { encoding: 'utf8' });

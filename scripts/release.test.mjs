@@ -4,12 +4,14 @@ import { appcastXML } from './appcast.mjs';
 import { appcastBuild, buildIsNewer, newer, parseArgs } from './release.mjs';
 
 test('the version is found in any position, with or without options', () => {
-  assert.deepEqual(parseArgs(['0.2.0']), { version: '0.2.0', notes: undefined, dryRun: false });
-  assert.deepEqual(parseArgs(['0.2.0', '--dry-run']), { version: '0.2.0', notes: undefined, dryRun: true });
-  assert.deepEqual(parseArgs(['--dry-run', '0.2.0']), { version: '0.2.0', notes: undefined, dryRun: true });
-  assert.deepEqual(parseArgs(['--notes', 'n.md', '1.0.3']), { version: '1.0.3', notes: 'n.md', dryRun: false });
-  assert.deepEqual(parseArgs(['1.0.3', '--notes', 'n.md', '--dry-run']), { version: '1.0.3', notes: 'n.md', dryRun: true });
-  assert.deepEqual(parseArgs(['--dry-run', '--notes', '/dev/null', '0.2.1']), { version: '0.2.1', notes: '/dev/null', dryRun: true });
+  const plain = { notes: undefined, dryRun: false, unsigned: false };
+  assert.deepEqual(parseArgs(['0.2.0']), { ...plain, version: '0.2.0' });
+  assert.deepEqual(parseArgs(['0.2.0', '--dry-run']), { ...plain, version: '0.2.0', dryRun: true });
+  assert.deepEqual(parseArgs(['--dry-run', '0.2.0']), { ...plain, version: '0.2.0', dryRun: true });
+  assert.deepEqual(parseArgs(['--notes', 'n.md', '1.0.3']), { ...plain, version: '1.0.3', notes: 'n.md' });
+  assert.deepEqual(parseArgs(['1.0.3', '--notes', 'n.md', '--dry-run']), { ...plain, version: '1.0.3', notes: 'n.md', dryRun: true });
+  assert.deepEqual(parseArgs(['--dry-run', '--notes', '/dev/null', '0.2.1']), { ...plain, version: '0.2.1', notes: '/dev/null', dryRun: true });
+  assert.deepEqual(parseArgs(['--unsigned', '0.2.0', '--dry-run']), { ...plain, version: '0.2.0', dryRun: true, unsigned: true });
 });
 
 test('a missing or malformed version gives the usage error', () => {

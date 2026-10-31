@@ -97,7 +97,8 @@ Report the commit, whether the push succeeded, whether the build succeeded, and 
   (`SUPublicEDKey` goes into `native/Info.plist`). `scripts/signing.mjs` picks the identity (`PASEO_COMMAND_SIGN_IDENTITY` when there are several). `npm run release -- <version> [--notes <file>] [--dry-run]`
   (`scripts/release.mjs`): checks, tests, builds the release app to `native/release/`, signs it with the Developer ID under the hardened
   runtime (entitlements in `native/entitlements/`: Apple Events for the app, JIT for Node), notarizes and staples it, zips it, writes the Sparkle appcast, commits
-  `Release v<version>`, pushes `main` and runs `gh release create`. Releases are notarized, so they open normally.
+  `Release v<version>`, pushes `main` and runs `gh release create`. Releases are notarized, so they open normally. `--unsigned` (with `release:setup -- --unsigned`) makes an
+  ad hoc signed, non-notarized release while no Developer ID is available; its notes explain Open Anyway.
 - `npm run app:typecheck`: checks React, API and Atlas TypeScript.
 - `npm run app:e2e`: browser tests of the Atlas against a mocked fleet (no daemon is reached).
 - `npm run native:build`, `native:run [-- --url …]`: the macOS app (`native/`) that draws the Atlas with

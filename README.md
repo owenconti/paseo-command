@@ -149,6 +149,13 @@ greater than the published appcast's, so updates always install. `--dry-run` doe
 notarization included, except commit, push and publish. The private keys stay in the keychain; nothing secret enters
 the repository.
 
+**Before the Developer ID is ready**, `npm run release:setup -- --unsigned` makes only the Sparkle
+keys, and `npm run release -- 0.2.0 --unsigned` publishes an ad hoc signed release that isn't
+notarized: its notes tell people to choose System Settings → Privacy & Security → Open Anyway on
+first open. Once the Developer ID works, run `npm run release:setup` again and release without
+`--unsigned`; installed copies update to the notarized release through Sparkle (macOS asks for
+Music's Automation permission once more, as the signature changes).
+
 Before announcing a release, download the published zip in Safari, install it and confirm it opens
 without a warning beyond macOS's usual first-open question; after 0.2.1, also confirm that an update installs.
 

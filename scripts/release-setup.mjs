@@ -5,6 +5,7 @@
  *      this explains how and installs Apple's intermediate certificate if it is missing),
  *   2. a notarytool login in the keychain, under the profile scripts/signing.mjs names,
  *   3. Sparkle's EdDSA key pair (private half in the keychain), whose public half goes into native/Info.plist.
+ * With --unsigned (for `npm run release -- <version> --unsigned` before a Developer ID is ready), only step 3.
  */
 import { execFileSync, spawnSync } from 'node:child_process';
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
@@ -75,8 +76,11 @@ app-specific password: make one at https://account.apple.com → Sign-In and Sec
 }
 
 async function main() {
-  const identity = await ensureIdentity();
-  ensureNotaryLogin(identity.team);
+  if (process.argv.includes('--unsigned')) console.log('--unsigned: skipping the Developer ID and the notarization login.');
+  else {
+    const identity = await ensureIdentity();
+    ensureNotaryLogin(identity.team);
+  }
 
   const generateKeys = join(sparkleBin, 'generate_keys');
   try {
