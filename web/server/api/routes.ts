@@ -17,7 +17,7 @@ import { workingOn } from "../workingOn";
 import { replyAsks } from "../asks";
 import { probeRoute } from "../probe";
 import { hostStatsRoute } from "../hostStats";
-import { assignedIssues, issueDetail, linearImage } from "../linear";
+import { linearRoute } from "../linear/route";
 import {
   concludeFork,
   createFork,
@@ -138,32 +138,8 @@ export async function handleApi(
       return reply(400, { error: errorText(error) });
     }
   }
-  // The Linear tab: your assigned issues and one's details, read from Linear, never the daemon.
-  // Images uploaded to Linear, which load only with the API key.
-  if (req.method === "GET" && url.pathname === "/api/linear/image") {
-    if ([...url.searchParams.keys()].some((k) => k !== "url"))
-      return reply(400, { error: "Unexpected parameters" });
-    const image = await linearImage(url.searchParams.get("url") ?? "");
-    if (!image.bytes) return reply(image.status, { error: image.error });
-    res.statusCode = 200;
-    res.setHeader("Content-Type", image.type!);
-    res.setHeader("Cache-Control", "private, max-age=86400");
-    return res.end(image.bytes);
-  }
-  if (req.method === "GET" && url.pathname.startsWith("/api/linear/issues")) {
-    if ([...url.searchParams.keys()].some((k) => k !== "fresh"))
-      return reply(400, { error: "Unexpected parameters" });
-    const fresh = url.searchParams.get("fresh") === "1";
-    const rest = url.pathname.slice("/api/linear/issues".length);
-    if (!rest) return reply(200, await assignedIssues(Date.now(), fresh));
-    const key = /^\/([^/]+)$/.exec(rest)?.[1];
-    if (!key) return reply(404, { error: "Unknown endpoint" });
-    try {
-      return reply(200, await issueDetail(decodeURIComponent(key), Date.now(), fresh));
-    } catch (error) {
-      return reply(400, { error: errorText(error) });
-    }
-  }
+  // The Linear tab: named reads from Linear, never the daemon; uploaded images load only with the API key.
+  if (url.pathname.startsWith("/api/linear/")) return linearRoute(req, url, res, reply);
   // The mini games' record: this app's own file, never the daemon.
   if (url.pathname === "/api/games" || url.pathname.startsWith("/api/games/"))
     return gamesRoute(req, url.pathname, reply);

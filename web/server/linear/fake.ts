@@ -104,6 +104,7 @@ export type FakeComment = {
   body: string;
   createdAt: string;
   editedAt: string | null;
+  updatedAt: string;
   resolvedAt: string | null;
   reactions: { id: string; emoji: string; user: Ref }[];
 };
@@ -372,6 +373,7 @@ export function fakeWorkspace(): FakeWorkspace {
         body: "Can we start with the list?",
         createdAt: ago(4),
         editedAt: null,
+        updatedAt: ago(4),
         resolvedAt: null,
         reactions: [],
       },
@@ -383,6 +385,7 @@ export function fakeWorkspace(): FakeWorkspace {
         body: "Yes, list first.",
         createdAt: ago(3),
         editedAt: null,
+        updatedAt: ago(3),
         resolvedAt: null,
         reactions: [],
       },
@@ -394,6 +397,7 @@ export function fakeWorkspace(): FakeWorkspace {
         body: "Beta is on track.",
         createdAt: ago(2),
         editedAt: ago(1),
+        updatedAt: ago(1),
         resolvedAt: null,
         reactions: [{ id: uuid(13, 1), emoji: "👍", user: ref(I.sam) }],
       },
@@ -420,15 +424,114 @@ export class FakeGraphQlError extends Error {
   }
 }
 
-/** The dispatch table, by GraphQL operation name: Task 3 adds reads, Task 6 writes. */
-export const OPERATIONS: Record<string, FakeOperation> = {};
+type Filter = Record<string, any>;
+
+/** Whether a record passes the part of Linear's IssueFilter the server sends; anything else is a typo and throws. */
+function passes(ws: FakeWorkspace, issue: FakeIssue, filter: Filter): boolean {
+  return Object.entries(filter).every(([field, cond]) => {
+    const stateType = ws.states.find((s) => s.id === issue.state.id)?.type;
+    const date = (value: string | null) => {
+      if ("null" in cond) return (value === null) === cond.null;
+      return value !== null && value > cond.gt;
+    };
+    switch (field) {
+      case "and":
+        return (cond as Filter[]).every((f) => passes(ws, issue, f));
+      case "or":
+        return (cond as Filter[]).some((f) => passes(ws, issue, f));
+      case "assignee":
+      case "creator": {
+        const who = issue[field]?.id;
+        return cond.isMe ? (who === ws.viewerId) === cond.isMe.eq : who === cond.id.eq;
+      }
+      case "team":
+      case "project":
+        return issue[field]?.id === cond.id.eq;
+      case "subscribers":
+        return issue.subscribers.nodes.some((u) => u.id === ws.viewerId) === cond.some.isMe.eq;
+      case "state": {
+        const t = cond.type;
+        return t.eq ? stateType === t.eq : t.in ? t.in.includes(stateType) : !t.nin.includes(stateType);
+      }
+      case "completedAt":
+        return date(issue.completedAt);
+      case "canceledAt":
+        return date(stateType === "canceled" ? issue.updatedAt : null);
+      case "updatedAt":
+        return date(issue.updatedAt);
+      default:
+        throw new FakeGraphQlError(`Unknown issue filter ${field}`, "InvalidInput");
+    }
+  });
+}
+
+const newestFirst = <T extends { updatedAt: string }>(items: T[]) =>
+  [...items].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+
+/** The dispatch table, by GraphQL operation name: reads here, Task 6's writes beside them. */
+export const OPERATIONS: Record<string, FakeOperation> = {
+  Workspace: ({ ws }) => {
+    const me = ws.users.find((u) => u.id === ws.viewerId);
+    return {
+      viewer: me,
+      users: { nodes: ws.users },
+      teams: { nodes: ws.teams },
+      workflowStates: { nodes: ws.states },
+      issueLabels: { nodes: ws.labels },
+      cycles: { nodes: ws.cycles.filter((c) => c.isActive || c.isNext) },
+      projects: { nodes: ws.projects },
+      initiatives: { nodes: ws.initiatives },
+    };
+  },
+  /** Pages are offsets into the filtered, newest-first list; the cursor is the next offset. */
+  Issues: ({ ws, variables }) => {
+    const filter = (variables.filter ?? {}) as Filter;
+    const all = newestFirst(ws.issues.filter((i) => !i.archivedAt && passes(ws, i, filter)));
+    const start = variables.after ? Number(variables.after) : 0;
+    const first = Number(variables.first);
+    const end = start + first;
+    return {
+      issues: {
+        nodes: all.slice(start, end),
+        pageInfo: { hasNextPage: end < all.length, endCursor: end < all.length ? String(end) : null },
+      },
+    };
+  },
+  Issue: ({ ws, variables }) => {
+    const id = String(variables.id).toUpperCase();
+    const issue = ws.issues.find((i) => i.identifier === id || i.id === variables.id);
+    if (!issue) return { issue: null };
+    const byId = (ref: Ref) => ws.issues.find((i) => i.id === ref.id)!;
+    return {
+      issue: {
+        ...issue,
+        children: { nodes: issue.children.nodes.map(byId) },
+        comments: { nodes: ws.comments.filter((c) => c.issue.id === issue.id) },
+      },
+    };
+  },
+  Sync: ({ ws, variables }) => {
+    const since = String(variables.since);
+    const first = Number(variables.first);
+    const changed = <T extends { updatedAt: string }>(items: T[]) =>
+      newestFirst(items.filter((i) => i.updatedAt > since)).slice(0, first);
+    return {
+      issues: { nodes: changed(ws.issues) },
+      comments: { nodes: changed(ws.comments) },
+      projects: { nodes: changed(ws.projects) },
+      initiatives: { nodes: changed(ws.initiatives) },
+    };
+  },
+};
 
 export type FakeFailure = { status?: number; message: string; type?: string };
 export type FakeLinear = {
   ws: FakeWorkspace;
   requests: { operation: string; variables: Record<string, unknown> }[];
-  /** Makes every later request for `operation` answer this error, until restore. */
+  /** Makes every later request for `operation` answer this error, until `clear` or restore. */
   fail(operation: string, error: FakeFailure): void;
+  /** Lets `operation` answer normally again. */
+  clear(operation: string): void;
   restore(): void;
 };
 
@@ -478,6 +581,7 @@ export function installFakeLinear(ws: FakeWorkspace = fakeWorkspace()): FakeLine
     ws,
     requests,
     fail: (operation, error) => void failures.set(operation, error),
+    clear: (operation) => void failures.delete(operation),
     restore() {
       LINEAR.fetch = realFetch;
       if (hadKey === undefined) delete process.env.LINEAR_API_KEY;
