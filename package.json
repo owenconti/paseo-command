@@ -1,6 +1,6 @@
 {
   "name": "paseo-command",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "private": true,
   "type": "module",
   "description": "Paseo Command: the Paseo fleet drawn as the Atlas world (SpriteKit in the macOS app)",
