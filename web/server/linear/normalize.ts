@@ -78,6 +78,7 @@ export function teamOf(raw: Raw): LinearTeam | null {
     cyclesEnabled: raw.cyclesEnabled === true,
     triageEnabled: raw.triageEnabled === true,
     estimates: estimatesOf(raw.issueEstimationType, raw.issueEstimationAllowZero),
+    ...(str(rec(raw.defaultIssueState).id) ? { defaultStateId: str(rec(raw.defaultIssueState).id) } : {}),
   };
 }
 

@@ -17,6 +17,8 @@ export type LinearTeam = {
   triageEnabled: boolean;
   /** The estimate values the team's estimation type allows; [] when estimates are off. */
   estimates: number[];
+  /** The status Linear gives a new issue of the team when none is chosen. */
+  defaultStateId?: string;
 };
 export type LinearCycle = {
   id: string;

@@ -22,6 +22,8 @@ test("reads the workspace", async () => {
   const eng = ws.teams.find((t) => t.key === "ENG")!;
   assert.deepEqual(eng.estimates, [0, 1, 2, 3, 5, 8]);
   assert.deepEqual(ws.teams.find((t) => t.key === "DE")!.estimates, []);
+  assert.equal(eng.defaultStateId, I.states.eng.Todo);
+  assert.equal(ws.teams.find((t) => t.key === "DE")!.defaultStateId, I.states.de.Backlog);
   const states = ws.states.filter((s) => s.teamId === eng.id);
   assert.equal(states.length, 7);
   assert.deepEqual(states.map((s) => s.position), [0, 1, 2, 3, 4, 5, 6]);

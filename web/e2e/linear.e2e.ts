@@ -574,7 +574,7 @@ test("creates an issue in the place's team and opens it", async () => {
     await sidebar.locator('.linear-team[data-team="DE"]').getByRole("button", { name: "All" }).click();
     await waitFor(() => rowKeys(page), (keys) => keys.length === 2, "DE's issues");
 
-    // The sidebar's New issue: in the place's team, Backlog to start.
+    // The sidebar's New issue: in the place's team, with its default status (DE's is Backlog).
     await sidebar.getByRole("button", { name: "New issue" }).click();
     const dialog = createDialog(page);
     await dialog.waitFor();
@@ -660,11 +660,17 @@ test("creates a sub-issue", async () => {
     const dialog = createDialog(page);
     await dialog.getByText("Sub-issue of ENG-1").waitFor();
     await dialog.getByRole("button", { name: "Team: Engineering" }).waitFor();
+    // ENG's own default status shows, and Linear applies it: no status is sent.
+    await dialog.getByRole("button", { name: "Status: Todo" }).waitFor();
     await dialog.getByRole("textbox", { name: "Issue title" }).fill("Draw the board");
     await dialog.getByRole("textbox", { name: "Issue title" }).press("Meta+Enter");
     await issue.locator("h1", { hasText: "Draw the board" }).waitFor();
     await issue.getByRole("button", { name: /Part of ENG-1/ }).waitFor();
+    await issue.getByRole("button", { name: "Status: Todo" }).waitFor();
     assert.equal(fakeIssue(linear, "ENG-7").parent?.id, FAKE_IDS.issues["ENG-1"]);
+    assert.equal(fakeIssue(linear, "ENG-7").state.id, FAKE_IDS.states.eng.Todo);
+    const sent = linear.requests.find((r) => r.operation === "IssueCreate")!.variables.input as Record<string, unknown>;
+    assert.equal(sent.stateId, undefined);
     await issue.getByRole("button", { name: /Part of ENG-1/ }).click();
     await issue.locator(".linear-children .linear-row", { hasText: "ENG-7" }).waitFor();
 
@@ -764,6 +770,15 @@ test("archives, and undoes it", async () => {
   try {
     await view.locator('.linear-row[data-key="ENG-3"]').click();
     await issue.locator("h1", { hasText: "Review the sync design" }).waitFor();
+    // Refused: the issue stays open and listed, and the notice says why.
+    linear.fail("IssueArchive", { message: "Not allowed" });
+    await view.locator(".linear-detail").getByRole("button", { name: "Archive", exact: true }).click();
+    await page.locator(".toast", { hasText: "Linear didn't save that: Not allowed" }).waitFor();
+    await issue.locator("h1", { hasText: "Review the sync design" }).waitFor();
+    assert.deepEqual(await rowKeys(page), ["ENG-1", "ENG-3"]);
+    assert.equal(await view.locator(".linear-undo").count(), 0);
+    linear.clear("IssueArchive");
+
     await view.locator(".linear-detail").getByRole("button", { name: "Archive", exact: true }).click();
     const bar = view.locator(".linear-undo");
     await bar.getByText("ENG-3 archived").waitFor();
@@ -781,7 +796,7 @@ test("archives, and undoes it", async () => {
     await issue.locator("h1", { hasText: "Review the sync design" }).waitFor();
     await paletteRun(page, "Archive ENG-3");
     await bar.getByText("ENG-3 archived").waitFor();
-    assert.deepEqual(writesMade(linear), ["IssueArchive", "IssueUnarchive", "IssueArchive"]);
+    assert.deepEqual(writesMade(linear), ["IssueArchive", "IssueArchive", "IssueUnarchive", "IssueArchive"]);
   } finally {
     linear.restore();
     await context.close();

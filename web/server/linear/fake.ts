@@ -18,6 +18,8 @@ export type FakeTeam = {
   triageEnabled: boolean;
   issueEstimationType: "notUsed" | "exponential" | "fibonacci" | "linear" | "tShirt";
   issueEstimationAllowZero: boolean;
+  /** Where a new issue starts when no status is given. */
+  defaultIssueState: Ref | null;
 };
 export type FakeState = {
   id: string;
@@ -171,6 +173,7 @@ export function fakeWorkspace(): FakeWorkspace {
     triageEnabled: false,
     issueEstimationType: "notUsed",
     issueEstimationAllowZero: true,
+    defaultIssueState: null,
     ...extra,
   });
   const stateType: FakeState["type"][] = ["triage", "backlog", "unstarted", "started", "started", "completed", "canceled"];
@@ -234,8 +237,9 @@ export function fakeWorkspace(): FakeWorkspace {
         triageEnabled: true,
         issueEstimationType: "fibonacci",
         issueEstimationAllowZero: true,
+        defaultIssueState: ref(I.states.eng.Todo),
       }),
-      team(I.de, "DE", "Design Engineering", {}),
+      team(I.de, "DE", "Design Engineering", { defaultIssueState: ref(I.states.de.Backlog) }),
     ],
     states: [...states(I.eng, I.states.eng), ...states(I.de, I.states.de)],
     labels: [
@@ -610,7 +614,11 @@ function writes(): Record<string, FakeOperation> {
       const input = ctx.variables.input as Record<string, any>;
       const team = find(ws.teams, input.teamId, "Team");
       const teamStates = ws.states.filter((s) => s.team.id === team.id);
-      const start = teamStates.find((s) => s.type === "backlog") ?? teamStates[0];
+      // Linear's own: the team's default status when none is given.
+      const start =
+        teamStates.find((s) => s.id === team.defaultIssueState?.id) ??
+        teamStates.find((s) => s.type === "backlog") ??
+        teamStates[0];
       const number = Math.max(0, ...ws.issues.filter((i) => i.team.id === team.id).map((i) => Number(i.identifier.split("-")[1]))) + 1;
       const identifier = `${team.key}-${number}`;
       const now = new Date().toISOString();

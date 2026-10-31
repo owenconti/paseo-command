@@ -50,8 +50,10 @@ export function LinearView({
 }: {
   onLaunch: (issue: IssueContext) => void;
   onNotice: (message: string) => void;
-  /** The open issue, or undefined (⌘K offers editing it, commenting on it, archiving it…). */
-  onIssueOpen?: (issue: { key: string; subscribed: boolean } | undefined) => void;
+  /** The open issue, or undefined (⌘K offers editing it, commenting on it, archiving it…, copying what it has). */
+  onIssueOpen?: (
+    issue: { key: string; subscribed: boolean; hasBranch: boolean; hasLink: boolean } | undefined,
+  ) => void;
   /** Whether Linear's workspace is in, so an issue can be created (⌘K offers it). */
   onReady?: (ready: boolean) => void;
 }) {
@@ -163,14 +165,17 @@ export function LinearView({
   const issueKnown = useLinear((d) => !!place.issue && d.byKey.has(place.issue));
   const issueOpen = issueKnown && !!ws;
   const openKey = issueOpen ? place.issue : undefined;
-  const subscribed = useLinear((d) => {
+  const openIssueRecord = useLinear((d) => {
     const id = openKey && d.byKey.get(openKey);
-    const viewer = d.workspace?.viewerId;
-    return !!id && !!viewer && !!d.issues.get(id)?.subscriberIds.includes(viewer);
+    return id ? d.issues.get(id) : undefined;
   });
+  const viewerId = ws?.viewerId;
+  const subscribed = !!viewerId && !!openIssueRecord?.subscriberIds.includes(viewerId);
+  const hasBranch = !!openIssueRecord?.branchName;
+  const hasLink = !!openIssueRecord?.url;
   useEffect(() => {
-    onIssueOpen?.(openKey ? { key: openKey, subscribed } : undefined);
-  }, [openKey, subscribed, onIssueOpen]);
+    onIssueOpen?.(openKey ? { key: openKey, subscribed, hasBranch, hasLink } : undefined);
+  }, [openKey, subscribed, hasBranch, hasLink, onIssueOpen]);
   useEffect(() => () => onIssueOpen?.(undefined), [onIssueOpen]);
   useEffect(() => {
     onReady?.(!!ws);
@@ -216,10 +221,11 @@ export function LinearView({
       writePlace(rest as LinearPlace);
       return rest as LinearPlace;
     });
+  // The issue stays open until Linear has archived it; refused, it stays and the notice says why.
   const archive = async (issue: LinearIssue) => {
-    closeIssue(issue.key);
     setUndo({ id: issue.id, key: issue.key, phase: "archiving" });
     const done = await linearStore.write("issueArchive", { id: issue.id });
+    if (done) closeIssue(issue.key);
     setUndo((u) => (u?.id !== issue.id ? u : done ? { ...u, phase: "archived" } : undefined));
   };
   const unarchive = async () => {
@@ -390,6 +396,7 @@ export function LinearView({
           onSubIssue={subIssue}
           onArchive={(issue) => void archive(issue)}
           onDelete={remove}
+          leaving={undo?.phase === "archiving" && undo.key === openIssue}
         />
       )}
       {undo && (

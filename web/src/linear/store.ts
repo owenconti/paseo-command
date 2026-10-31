@@ -236,12 +236,18 @@ async function createIssue(input: Record<string, unknown>): Promise<{ issue: Lin
   }
 }
 
-/** An issue Linear deleted (moved to its trash): it leaves every list. */
+/** An issue Linear deleted (moved to its trash): it leaves every list, and other issues' sub-issues and relations. */
 function removeIssue(id: string): void {
   const known = state.issues.get(id);
   if (!known) return;
   const issues = new Map(state.issues);
   issues.delete(id);
+  for (const [otherId, other] of issues) {
+    const childIds = other.childIds?.filter((c) => c !== id);
+    const relations = other.relations?.filter((r) => r.issueId !== id);
+    if (childIds?.length !== other.childIds?.length || relations?.length !== other.relations?.length)
+      issues.set(otherId, { ...other, childIds, relations });
+  }
   const byKey = new Map(state.byKey);
   if (byKey.get(known.key) === id) byKey.delete(known.key);
   publish({ issues, byKey });

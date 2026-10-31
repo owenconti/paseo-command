@@ -97,6 +97,8 @@ test("issueCreate adds an issue", async () => {
   const made = fake.ws.issues.find((i) => i.id === out.id)!;
   assert.equal(made.title, "New thing");
   assert.ok(made.updatedAt > start);
+  // No status given: the team's default (ENG's is Todo).
+  assert.equal(out.stateId, I.states.eng.Todo);
 });
 
 test("archive, unarchive, delete, subscribe, unsubscribe", async () => {

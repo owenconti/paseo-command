@@ -827,7 +827,9 @@ function App() {
   // The mode bar's tab (macOS app): Linear draws its issues in the map's place.
   const appMode = useAppMode();
   // The issue open in the Linear tab, for ⌘K's edits of it.
-  const [linearIssueOpen, setLinearIssueOpen] = useState<{ key: string; subscribed: boolean } | undefined>();
+  const [linearIssueOpen, setLinearIssueOpen] = useState<
+    { key: string; subscribed: boolean; hasBranch: boolean; hasLink: boolean } | undefined
+  >();
   // Whether the Linear tab's workspace is in, for ⌘K's Create Linear issue.
   const [linearReady, setLinearReady] = useState(false);
   // From a Linear issue: New agent, where the host and project are chosen.
@@ -1524,8 +1526,12 @@ function App() {
                 : `Subscribe to ${linearIssueOpen.key}`,
               "linear issue notifications follow watch subscribe unsubscribe",
             ],
-            ["linear-copy-branch", `Copy ${linearIssueOpen.key}'s branch name`, "linear issue git branch clipboard"],
-            ["linear-copy-link", `Copy ${linearIssueOpen.key}'s link`, "linear issue url clipboard share"],
+            ...(linearIssueOpen.hasBranch
+              ? ([["linear-copy-branch", `Copy ${linearIssueOpen.key}'s branch name`, "linear issue git branch clipboard"]] as const)
+              : []),
+            ...(linearIssueOpen.hasLink
+              ? ([["linear-copy-link", `Copy ${linearIssueOpen.key}'s link`, "linear issue url clipboard share"]] as const)
+              : []),
             ["linear-archive", `Archive ${linearIssueOpen.key}`, "linear issue archive hide close"],
             ["linear-delete", `Move ${linearIssueOpen.key} to Linear's trash`, "linear issue delete remove trash"],
           ] as const

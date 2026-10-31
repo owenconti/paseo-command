@@ -17,6 +17,7 @@ type Draft = {
   teamId?: string;
   title: string;
   description: string;
+  /** Only when one was picked: otherwise Linear gives the team's default. */
   stateId?: string;
   priority: LinearIssue["priority"];
   assigneeId?: string;
@@ -28,11 +29,9 @@ const DRAFT_KEY = "linear:draft:new";
 const LAST_TEAM_KEY = "linear:lastTeam";
 const FIELDS: PropertyField[] = ["status", "priority", "assignee", "labels", "project"];
 
-/** A team's starting status, as Linear's own new issues start: its first backlog state, else its first to-do. */
-function defaultState(ws: LinearWorkspace | undefined, teamId: string): string | undefined {
-  const states = (ws?.states ?? []).filter((s) => s.teamId === teamId).sort((a, b) => a.position - b.position);
-  return (states.find((s) => s.type === "backlog") ?? states.find((s) => s.type === "unstarted") ?? states[0])?.id;
-}
+/** The status Linear gives a new issue of the team when none is sent. */
+const defaultState = (ws: LinearWorkspace | undefined, teamId?: string) =>
+  ws?.teams.find((t) => t.id === teamId)?.defaultStateId;
 
 function readDraft(): Draft {
   const was = readStore<Partial<Draft> | null>(DRAFT_KEY, null);
@@ -51,8 +50,9 @@ function readDraft(): Draft {
 
 /**
  * The draft made to fit the workspace: a team it has (the draft's, else the
- * one last used, else the first), a status of that team, and only the labels
- * and project that team can have.
+ * one last used, else the first), a status of that team if one was picked
+ * (else none: the team's default), and only the labels and project that team
+ * can have.
  */
 function fit(draft: Draft, ws: LinearWorkspace | undefined): Draft {
   const teams = ws?.teams ?? [];
@@ -64,7 +64,7 @@ function fit(draft: Draft, ws: LinearWorkspace | undefined): Draft {
   return {
     ...draft,
     teamId,
-    stateId: stateOk ? draft.stateId : defaultState(ws, teamId),
+    stateId: stateOk ? draft.stateId : undefined,
     labelIds: draft.labelIds.filter((id) => {
       const label = ws.labels.find((l) => l.id === id);
       return label && (!label.teamId || label.teamId === teamId);
@@ -73,15 +73,15 @@ function fit(draft: Draft, ws: LinearWorkspace | undefined): Draft {
   };
 }
 
-/** The draft as an issue, so the detail's pickers (`propertySpec`) choose its properties. */
-function asIssue(draft: Draft): LinearIssue {
+/** The draft as an issue, so the detail's pickers (`propertySpec`) choose its properties; its status shows the team's default until one is picked. */
+function asIssue(draft: Draft, ws: LinearWorkspace | undefined): LinearIssue {
   return {
     id: "draft",
     key: "",
     title: draft.title,
     url: "",
     teamId: draft.teamId ?? "",
-    stateId: draft.stateId ?? "",
+    stateId: draft.stateId ?? defaultState(ws, draft.teamId) ?? "",
     priority: draft.priority,
     assigneeId: draft.assigneeId,
     labelIds: draft.labelIds,
@@ -126,6 +126,8 @@ export function CreateIssue({
       ws,
     );
   });
+  const latest = useRef(draft);
+  latest.current = draft;
   const [open, setOpen] = useState<"team" | PropertyField | null>(null);
   const [createMore, setCreateMore] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -154,20 +156,25 @@ export function CreateIssue({
     setError("");
     setDraft((d) => ({ ...d, ...next }));
   };
-  // Another team: its own starting status; labels and a project it can't have don't come along.
+  // Another team: its own default status; labels and a project it can't have don't come along.
   const chooseTeam = (teamId: string) =>
     setDraft((d) => (teamId === d.teamId ? d : fit({ ...d, teamId, stateId: undefined }, ws)));
 
   const submit = async () => {
     const name = draft.title.trim();
     if (!name || !draft.teamId || saving) return;
+    // What's sent: text typed while Linear answers isn't cleared with it.
+    const sent = { title: draft.title, description: draft.description };
+    const unchanged = (d: Draft) => d.title === sent.title && d.description === sent.description;
+    // A status the same as the team's default isn't sent: Linear applies its own.
+    const stateId = draft.stateId !== defaultState(ws, draft.teamId) ? draft.stateId : undefined;
     setSaving(true);
     setError("");
     const answer = await linearStore.createIssue({
       teamId: draft.teamId,
       title: name,
       ...(draft.description.trim() ? { description: draft.description } : {}),
-      ...(draft.stateId ? { stateId: draft.stateId } : {}),
+      ...(stateId ? { stateId } : {}),
       ...(draft.priority ? { priority: draft.priority } : {}),
       ...(draft.assigneeId ? { assigneeId: draft.assigneeId } : {}),
       ...(draft.labelIds.length ? { labelIds: draft.labelIds } : {}),
@@ -183,17 +190,17 @@ export function CreateIssue({
     // The parent's sub-issues come with its details: asked for again.
     if (parent) loadIssue(parent.key).catch(() => {});
     if (createMore) {
-      setDraft((d) => ({ ...d, title: "", description: "" }));
+      setDraft((d) => (unchanged(d) ? { ...d, title: "", description: "" } : d));
       setCreated(answer.issue.key);
       title.current?.focus();
     } else {
-      removeStore(DRAFT_KEY);
+      if (unchanged(latest.current)) removeStore(DRAFT_KEY);
       onClose(answer.issue);
     }
   };
 
   const team = ws?.teams.find((t) => t.id === draft.teamId);
-  const issue = asIssue(draft);
+  const issue = asIssue(draft, ws);
   const chip = (
     field: "team" | PropertyField,
     label: string,
@@ -306,11 +313,12 @@ export function CreateIssue({
             FIELDS.map((field) => {
               const spec = propertySpec(field, issue, data);
               if (!spec) return null;
+              const teamDefault = field === "status" && !issue.stateId;
               return chip(
                 field,
                 spec.label,
-                spec.text,
-                spec.empty,
+                teamDefault ? "Team's default" : spec.text,
+                spec.empty && !teamDefault,
                 spec.icon,
                 <Picker
                   label={spec.label}

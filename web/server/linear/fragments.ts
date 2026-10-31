@@ -19,7 +19,7 @@ export const INITIATIVE_FIELDS = `id name status health owner { id } targetDate
 export const WORKSPACE_QUERY = `query Workspace($projectCut: DateTimeOrDuration!) {
   viewer { id name displayName avatarUrl }
   users(first: 250, filter: { active: { eq: true } }) { nodes { id name displayName avatarUrl } }
-  teams(first: 100) { nodes { id key name cyclesEnabled triageEnabled issueEstimationType issueEstimationAllowZero } }
+  teams(first: 100) { nodes { id key name cyclesEnabled triageEnabled issueEstimationType issueEstimationAllowZero defaultIssueState { id } } }
   workflowStates(first: 250) { nodes { id name type color position team { id } } }
   issueLabels(first: 250) { nodes { id name color team { id } } }
   cycles(first: 100, filter: { or: [{ isActive: { eq: true } }, { isNext: { eq: true } }] }) {

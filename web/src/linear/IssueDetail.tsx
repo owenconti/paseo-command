@@ -52,6 +52,7 @@ export function IssueDetail({
   onSubIssue,
   onArchive,
   onDelete,
+  leaving = false,
 }: {
   issueKey: string;
   onOpen: (key: string) => void;
@@ -69,6 +70,8 @@ export function IssueDetail({
   onArchive: (issue: LinearIssue) => void;
   /** Moves it to Linear's trash; whether Linear did. */
   onDelete: (issue: LinearIssue) => Promise<boolean>;
+  /** Being archived: when it leaves the store, it's on its way out, not unknown. */
+  leaving?: boolean;
 }) {
   const data = useLinear((d) => d);
   const ws = data.workspace;
@@ -193,6 +196,8 @@ export function IssueDetail({
           <p className="archive-error" role="alert">
             {load.error}
           </p>
+        ) : leaving ? (
+          <p className="linear-note">Archiving {issueKey}…</p>
         ) : loaded ? (
           <p className="linear-note">Linear doesn’t know {issueKey}.</p>
         ) : (

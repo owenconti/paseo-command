@@ -91,6 +91,20 @@ function held<T>() {
 const settled = () => new Promise((resolve) => setImmediate(resolve));
 
 describe("linear store", () => {
+  it("a deleted issue leaves the store, and other issues' sub-issues and relations", () => {
+    linearStore.mergeIssues([
+      issue(1, { childIds: ["i-2"], relations: [{ id: "r1", type: "blocks", issueId: "i-2" }] }),
+      issue(2, { parentId: "i-1" }),
+      issue(3, { relations: [{ id: "r2", type: "related", issueId: "i-1" }] }),
+    ]);
+    linearStore.removeIssue("i-2");
+    const d = linearStore.getState();
+    assert.equal(d.issues.has("i-2"), false);
+    assert.equal(d.byKey.has("ENG-2"), false);
+    assert.deepEqual(d.issues.get("i-1")?.childIds, []);
+    assert.deepEqual(d.issues.get("i-1")?.relations, []);
+    assert.equal(d.issues.get("i-3")?.relations?.length, 1);
+  });
   it("scopes follow the store", () => {
     linearStore.setWorkspace(WS);
     linearStore.mergeIssues([issue(1, { assigneeId: ME })]);
