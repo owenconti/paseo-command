@@ -44,7 +44,7 @@ const ok = async (name: string, body: unknown) => {
 };
 
 test("lists exactly the whitelisted writes", () => {
-  assert.equal(Object.keys(WRITES).length, 22);
+  assert.equal(Object.keys(WRITES).length, 25);
 });
 
 /** Runs `fn` and asserts it moved every record's `updatedAt` forward. */
@@ -205,6 +205,39 @@ test("notifications: an issue's or project's together, or one by id, read, unrea
   const back = await bumped([project], () => ok("notificationUnarchive", { id: project.id }));
   assert.equal(back.notifications[0].archivedAt, undefined);
   assert.equal(project.archivedAt, null);
+});
+
+test("attachments: a link (Linear names it if untitled), an uploaded file, and removing one", async () => {
+  const eng2 = issue("ENG-2");
+  const linked = await bumped([eng2], () => ok("attachmentLinkURL", { issueId: eng2.id, url: "https://github.com/o/r/pull/7" }));
+  assert.equal(linked.attachment.url, "https://github.com/o/r/pull/7");
+  assert.equal(linked.attachment.sourceType, "github");
+  assert.equal(linked.attachment.creatorId, I.owen);
+  const titled = await ok("attachmentLinkURL", { issueId: eng2.id, url: "http://intranet.example/spec", title: " Spec " });
+  assert.equal(titled.attachment.title, "Spec");
+  const file = "https://uploads.linear.app/fake/x/report.pdf";
+  const made = await ok("attachmentCreate", { issueId: eng2.id, url: file, title: "report.pdf", subtitle: "PDF · 2 KB" });
+  assert.deepEqual([made.attachment.title, made.attachment.subtitle, made.attachment.url], ["report.pdf", "PDF · 2 KB", file]);
+  assert.equal(eng2.attachments.nodes.length, 3);
+  assert.deepEqual(await bumped([eng2], () => ok("attachmentDelete", { id: made.attachment.id })), { ok: true });
+  assert.equal(eng2.attachments.nodes.length, 2);
+});
+
+test("refuses attachments that aren't web addresses, or uploads that aren't Linear's", async () => {
+  const issueId = issue("ENG-2").id;
+  for (const [name, body] of [
+    ["attachmentLinkURL", { issueId, url: "javascript:alert(1)" }],
+    ["attachmentLinkURL", { issueId, url: "file:///etc/passwd" }],
+    ["attachmentLinkURL", { issueId, url: "https://me:secret@example.com" }],
+    ["attachmentLinkURL", { issueId, url: `https://example.com/${"x".repeat(2000)}` }],
+    ["attachmentLinkURL", { issueId, url: "https://example.com", title: "" }],
+    ["attachmentCreate", { issueId, url: "https://example.com/report.pdf", title: "report.pdf" }],
+    ["attachmentCreate", { issueId, url: "https://uploads.linear.app/fake/x/a.pdf" }],
+    ["attachmentDelete", { id: "../x" }],
+  ] as const) {
+    assert.equal((await post(name, body)).status, 400, `${name} ${JSON.stringify(body)}`);
+  }
+  assert.equal(fake.requests.length, 0);
 });
 
 test("refuses notification writes that don't name one thing, or a time out of reach", async () => {

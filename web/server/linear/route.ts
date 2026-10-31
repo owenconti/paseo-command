@@ -4,10 +4,11 @@
  */
 import type { IncomingMessage, ServerResponse } from "node:http";
 import type { IssueScope, LinearUnavailable } from "../../src/linear/types";
-import { bodyOf } from "../api/http";
+import { bodyOf, rawBody } from "../api/http";
 import { errorText } from "../wire";
 import { LinearError } from "./client";
-import { linearImage } from "./image";
+import { linearFile, linearImage } from "./image";
+import { LINEAR_UPLOAD, uploadToLinear } from "./upload";
 import { WRITES, linearWrite } from "./writes";
 import {
   readCycles,
@@ -48,6 +49,30 @@ export async function linearRoute(
   const path = url.pathname.slice("/api/linear/".length);
   const only = (...names: string[]) => [...url.searchParams.keys()].every((k) => names.includes(k));
 
+  // A file for Linear: its bytes, sent on with the key; the answer is its address on uploads.linear.app.
+  if (req.method === "POST" && path === "upload") {
+    if (!only("name", "type")) return reply(400, { error: "Unexpected parameters" });
+    if (!/^application\/octet-stream\s*(;|$)/i.test(req.headers["content-type"] ?? ""))
+      return reply(415, { error: "File bytes required" });
+    let bytes: Buffer;
+    try {
+      bytes = await rawBody(req, LINEAR_UPLOAD.maxBytes);
+    } catch (e) {
+      if (e instanceof Error && e.message === "Request too large")
+        return reply(413, { error: "Files up to 25 MB can be uploaded." });
+      return reply(400, { error: errorText(e) });
+    }
+    try {
+      return reply(200, await uploadToLinear(bytes, url.searchParams.get("name") ?? "", url.searchParams.get("type") ?? ""));
+    } catch (e) {
+      if (!(e instanceof LinearError)) return reply(502, { error: errorText(e) });
+      if (e.kind === "limited") return reply(409, { error: e.message, ...(e.retryAt !== undefined ? { retryAt: e.retryAt } : {}) });
+      if (e.kind === "refused") return reply(401, { error: e.message });
+      if (e.kind === "no-key") return reply(503, { error: e.message });
+      return reply(e.kind === "invalid" ? 400 : 502, { error: e.message });
+    }
+  }
+
   if (req.method === "POST" && /^m\/[^/]+$/.test(path)) {
     const name = path.slice(2);
     if (!Object.hasOwn(WRITES, name)) return reply(404, { error: "Unknown endpoint" });
@@ -82,6 +107,20 @@ export async function linearRoute(
     res.setHeader("Content-Type", image.type!);
     res.setHeader("Cache-Control", "private, max-age=86400");
     res.end(image.bytes);
+    return;
+  }
+
+  // Any other file uploaded to Linear, as a download: never shown in the page as what it says it is.
+  if (path === "file") {
+    if (!only("url")) return reply(400, { error: "Unexpected parameters" });
+    const file = await linearFile(url.searchParams.get("url") ?? "");
+    if (!file.bytes) return reply(file.status, { error: file.error });
+    res.statusCode = 200;
+    res.setHeader("Content-Type", "application/octet-stream");
+    res.setHeader("X-Content-Type-Options", "nosniff");
+    res.setHeader("Content-Disposition", `attachment; filename*=UTF-8''${encodeURIComponent(file.name ?? "file")}`);
+    res.setHeader("Cache-Control", "private, max-age=86400");
+    res.end(file.bytes);
     return;
   }
 

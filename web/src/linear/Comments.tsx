@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Check, CornerDownRight, Pencil, SmilePlus, Trash2 } from "lucide-react";
-import { ago, readStore, removeStore, writeStore } from "../api";
+import { Check, CornerDownRight, LoaderCircle, Paperclip, Pencil, SmilePlus, Trash2 } from "lucide-react";
+import { ago, errorMessage, readStore, removeStore, writeStore } from "../api";
 import { onAppCommand } from "../appCommands";
 import { Markdown } from "../Markdown";
 import { Person } from "./bits";
+import { uploadToLinear } from "./api";
+import { shownMarkdown, uploadMarkdown } from "./files";
 import { placeBelow } from "./Picker";
-import { linearImages } from "./prompt";
 import { clearPending, linearStore, loadIssue, markPending, useLinear } from "./store";
 import type { LinearComment, LinearUser } from "./types";
 
@@ -75,7 +76,9 @@ const isSend = (e: React.KeyboardEvent) => e.key === "Enter" && (e.metaKey || e.
 
 /**
  * A Markdown text box: ⌘↩ sends, Esc cancels (where there's something to go
- * back to), Preview shows the Markdown. With `draft`, what's typed is kept in
+ * back to), Preview shows the Markdown. Files pasted, dropped or attached are
+ * uploaded to Linear and go in as Markdown (images show, other files link);
+ * sending waits until they're in. With `draft`, what's typed is kept in
  * localStorage until it's sent, so a remount or reload keeps it. A send Linear
  * refuses keeps the text (the store's notice says why).
  */
@@ -108,6 +111,12 @@ export function Composer({
   const [preview, setPreview] = useState(false);
   const [sending, setSending] = useState(false);
   const box = useRef<HTMLTextAreaElement>(null);
+  const latestText = useRef(text);
+  latestText.current = text;
+  // Files pasted, dropped or chosen: uploaded to Linear, then their Markdown where they went in.
+  const [uploads, setUploads] = useState(0);
+  const fileInput = useRef<HTMLInputElement>(null);
+  const uploadSerial = useRef(0);
   useEffect(() => {
     if (!focusRef) return;
     focusRef.current = () => {
@@ -128,13 +137,43 @@ export function Composer({
 
   const change = (next: string) => {
     setText(next);
+    latestText.current = next;
     if (!draft) return;
     if (next) writeStore(draft, next);
     else removeStore(draft);
   };
+  /** Uploads each file; a placeholder stands where it goes until Linear has it, then its Markdown (or nothing, with the notice). */
+  const attach = async (files: File[]) => {
+    if (!files.length) return;
+    setPreview(false);
+    const el = box.current;
+    const at = el && document.activeElement === el ? el.selectionStart : latestText.current.length;
+    const tokens = files.map((f) => `[Uploading ${f.name || "file"}… #${++uploadSerial.current}]`);
+    const now = latestText.current;
+    const before = now.slice(0, at);
+    const gap = before && !before.endsWith("\n") ? "\n" : "";
+    change(`${before}${gap}${tokens.join("\n")}\n${now.slice(at)}`);
+    setUploads((n) => n + files.length);
+    await Promise.all(
+      files.map(async (file, n) => {
+        let markdown = "";
+        try {
+          markdown = uploadMarkdown(await uploadToLinear(file, file.name || "file"));
+        } catch (e) {
+          linearStore.notice(`Linear didn't take ${file.name || "the file"}: ${errorMessage(e) || "it didn't answer"}`);
+        }
+        const current = latestText.current;
+        const token = tokens[n];
+        const next = markdown ? current.replace(token, markdown) : current.replace(`${token}\n`, "").replace(token, "");
+        change(next);
+        setUploads((u) => u - 1);
+      }),
+    );
+  };
+  const filesOf = (list: DataTransfer | null) => [...(list?.files ?? [])];
   const send = async () => {
     const body = text.trim();
-    if ((!body && !allowEmpty) || sending) return;
+    if ((!body && !allowEmpty) || sending || uploads > 0) return;
     setSending(true);
     const saved = await onSend(body).catch(() => false);
     setSending(false);
@@ -149,7 +188,7 @@ export function Composer({
     <div className="linear-composer">
       {preview ? (
         <div className="linear-composer-preview" aria-label={`${label} (preview)`}>
-          {empty ? <p className="linear-note">Nothing to preview.</p> : <Markdown text={linearImages(text, location.origin)} />}
+          {empty ? <p className="linear-note">Nothing to preview.</p> : <Markdown text={shownMarkdown(text, location.origin)} />}
         </div>
       ) : (
         <textarea
@@ -160,6 +199,23 @@ export function Composer({
           rows={2}
           autoFocus={autoFocus}
           onChange={(e) => change(e.target.value)}
+          onPaste={(e) => {
+            const files = filesOf(e.clipboardData);
+            if (!files.length) return;
+            e.preventDefault();
+            void attach(files);
+          }}
+          onDragOver={(e) => {
+            if ([...e.dataTransfer.types].includes("Files")) e.preventDefault();
+          }}
+          onDrop={(e) => {
+            const files = filesOf(e.dataTransfer);
+            if (!files.length) return;
+            e.preventDefault();
+            // The section's own drop (an issue's attachments) doesn't take these too.
+            e.stopPropagation();
+            void attach(files);
+          }}
           onKeyDown={(e) => {
             if (isSend(e)) {
               e.preventDefault();
@@ -182,15 +238,41 @@ export function Composer({
         >
           {preview ? "Write" : "Preview"}
         </button>
+        <button
+          type="button"
+          className="icon-btn linear-composer-attach"
+          aria-label="Attach files"
+          data-tip="Attach files (or paste or drop them)"
+          onClick={() => fileInput.current?.click()}
+        >
+          {uploads > 0 ? <LoaderCircle size={13} className="spinning" aria-hidden="true" /> : <Paperclip size={13} aria-hidden="true" />}
+        </button>
+        <input
+          ref={fileInput}
+          type="file"
+          multiple
+          hidden
+          aria-label="Files to attach"
+          onChange={(e) => {
+            const files = [...(e.target.files ?? [])];
+            e.target.value = "";
+            void attach(files);
+          }}
+        />
         <span className="linear-composer-hint" aria-hidden="true">
-          ⌘↩
+          {uploads > 0 ? "Uploading…" : "⌘↩"}
         </span>
         {onCancel && (
           <button type="button" className="secondary" onClick={onCancel}>
             Cancel
           </button>
         )}
-        <button type="button" className="primary" disabled={(empty && !allowEmpty) || sending} onClick={() => void send()}>
+        <button
+          type="button"
+          className="primary"
+          disabled={(empty && !allowEmpty) || sending || uploads > 0}
+          onClick={() => void send()}
+        >
           {sendLabel}
         </button>
       </div>
@@ -382,7 +464,7 @@ function CommentItem({
         />
       ) : (
         <div className="linear-comment-body">
-          <Markdown text={linearImages(comment.body, location.origin)} />
+          <Markdown text={shownMarkdown(comment.body, location.origin)} />
         </div>
       )}
       {!editing && (

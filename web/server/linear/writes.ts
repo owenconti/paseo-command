@@ -4,13 +4,20 @@
  * unknown name or field is refused; every request is `essential` (it is the
  * user's own action, so it goes out even when the hourly budget is low).
  */
-import type { LinearComment, LinearIssue, LinearNotification, WriteName } from "../../src/linear/types";
+import type { LinearAttachment, LinearComment, LinearIssue, LinearNotification, WriteName } from "../../src/linear/types";
 import { LinearError, linearRequest } from "./client";
-import { COMMENT_FIELDS, ISSUE_FIELDS, NOTIFICATION_FIELDS } from "./fragments";
-import { commentOf, issueOf, notificationOf, recOf } from "./normalize";
+import { ATTACHMENT_FIELDS, COMMENT_FIELDS, ISSUE_FIELDS, NOTIFICATION_FIELDS } from "./fragments";
+import { linearUpload } from "./image";
+import { attachmentOf, commentOf, issueOf, notificationOf, recOf } from "./normalize";
 
 type Vars = Record<string, unknown>;
-type WriteResult = { issue?: LinearIssue; comment?: LinearComment; notifications?: LinearNotification[]; ok?: true };
+type WriteResult = {
+  issue?: LinearIssue;
+  comment?: LinearComment;
+  notifications?: LinearNotification[];
+  attachment?: LinearAttachment;
+  ok?: true;
+};
 type Check = (value: unknown, name: string) => unknown;
 
 const ID = /^[0-9a-f-]{8,64}$/i;
@@ -64,6 +71,25 @@ const when: Check = (v, name) => {
   // Within a year either way: a read, snooze or unsnooze time, not a typo.
   if (!Number.isFinite(at) || Math.abs(at - Date.now()) > 366 * 86_400_000) throw invalid(`${name} must be a time within a year`);
   return new Date(at).toISOString();
+};
+
+/** A web address to attach: http or https, no credentials, at most 2,000 characters. */
+const webAddress: Check = (v, name) => {
+  let url: URL | undefined;
+  try {
+    url = typeof v === "string" && v.length <= 2000 ? new URL(v.trim()) : undefined;
+  } catch {
+    url = undefined;
+  }
+  if (!url || !["http:", "https:"].includes(url.protocol) || url.username || url.password)
+    throw invalid(`${name} must be an http or https address`);
+  return url.href;
+};
+/** A file uploaded to Linear (`/api/linear/upload` answers its address). */
+const uploadAddress: Check = (v, name) => {
+  const url = typeof v === "string" ? linearUpload(v) : null;
+  if (!url) throw invalid(`${name} must be a file uploaded to Linear`);
+  return url.href;
 };
 
 /** The checked fields of `input`: every `required` one present, every present one known and valid. */
@@ -146,6 +172,11 @@ const commentOut = (data: unknown, path: string[]): LinearComment => {
   const comment = commentOf(recOf(at));
   if (!comment) throw new LinearError("failed", "Linear did not return the comment.");
   return comment;
+};
+const attachmentOut = (data: unknown, field: string): LinearAttachment => {
+  const attachment = attachmentOf(recOf(recOf(recOf(data)[field]).attachment));
+  if (!attachment) throw new LinearError("failed", "Linear did not return the attachment.");
+  return attachment;
 };
 const succeeded = (data: unknown, field: string) => {
   if (recOf(recOf(data)[field]).success !== true) throw new LinearError("failed", "Linear did not make the change.");
@@ -293,6 +324,34 @@ export const WRITES: Record<WriteName, Write> = {
   notificationSnoozeAll: notificationsWrite("notificationSnoozeAll", "NotificationSnoozeAll", "snoozedUntilAt"),
   notificationUnsnoozeAll: notificationsWrite("notificationUnsnoozeAll", "NotificationUnsnoozeAll", "unsnoozedAt"),
   notificationArchiveAll: notificationsWrite("notificationArchiveAll", "NotificationArchiveAll"),
+  attachmentLinkURL: write(
+    "AttachmentLinkURL",
+    `mutation AttachmentLinkURL($issueId: String!, $url: String!, $title: String) {
+      attachmentLinkURL(issueId: $issueId, url: $url, title: $title) { success attachment { ${ATTACHMENT_FIELDS} } } }`,
+    (input) => fields(input, { issueId: id, url: webAddress }, { title: text(1, 255, true) }),
+    (data) => {
+      succeeded(data, "attachmentLinkURL");
+      return { attachment: attachmentOut(data, "attachmentLinkURL") };
+    },
+  ),
+  attachmentCreate: write(
+    "AttachmentCreate",
+    `mutation AttachmentCreate($input: AttachmentCreateInput!) {
+      attachmentCreate(input: $input) { success attachment { ${ATTACHMENT_FIELDS} } } }`,
+    (input) => ({
+      input: fields(input, { issueId: id, url: uploadAddress, title: text(1, 255, true) }, { subtitle: text(0, 255, true) }),
+    }),
+    (data) => {
+      succeeded(data, "attachmentCreate");
+      return { attachment: attachmentOut(data, "attachmentCreate") };
+    },
+  ),
+  attachmentDelete: write(
+    "AttachmentDelete",
+    `mutation AttachmentDelete($id: String!) { attachmentDelete(id: $id) { success } }`,
+    idOnly,
+    okShape("attachmentDelete"),
+  ),
   notificationUnarchive: write(
     "NotificationUnarchive",
     `mutation NotificationUnarchive($id: String!) { notificationUnarchive(id: $id) { success entity { ${NOTIFICATION_FIELDS} } } }`,

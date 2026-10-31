@@ -5,6 +5,7 @@
  * page unchecked. Malformed records come back as null and are dropped.
  */
 import type {
+  LinearAttachment,
   LinearComment,
   LinearCustomView,
   LinearCycle,
@@ -288,7 +289,33 @@ function relationsOf(raw: Raw): LinearRelation[] {
   return out;
 }
 
-/** An issue with what only its details carry: description, children, relations and links. */
+/** An attachment, if it has an id and an http(s) address. */
+export function attachmentOf(raw: Raw): LinearAttachment | null {
+  const id = str(raw.id);
+  const url = webUrl(raw.url);
+  if (!id || !url) return null;
+  return {
+    id,
+    title: clip(str(raw.title), 300),
+    subtitle: clip(str(raw.subtitle), 300) || undefined,
+    url,
+    sourceType: clip(str(raw.sourceType), 40) || undefined,
+    creatorId: optId(raw.creator),
+    createdAt: str(raw.createdAt),
+  };
+}
+
+/** An http or https address (links attached to issues may be either); "" for anything else. */
+const webUrl = (v: unknown) => {
+  try {
+    const url = new URL(str(v));
+    return url.protocol === "https:" || url.protocol === "http:" ? url.href : "";
+  } catch {
+    return "";
+  }
+};
+
+/** An issue with what only its details carry: description, children, relations and attachments. */
 export function issueDetailOf(raw: Raw): LinearIssue | null {
   const issue = issueOf(raw);
   if (!issue) return null;
@@ -297,9 +324,10 @@ export function issueDetailOf(raw: Raw): LinearIssue | null {
     description: clip(str(raw.description), 100000),
     childIds: nodes(raw.children).map((c) => str(c.id)).filter(Boolean),
     relations: relationsOf(raw),
-    links: nodes(raw.attachments)
-      .map((a) => ({ title: clip(str(a.title), 200), url: httpsUrl(a.url) }))
-      .filter((a) => a.url),
+    attachments: nodes(raw.attachments)
+      .map(attachmentOf)
+      .filter((a): a is LinearAttachment => a !== null)
+      .sort((a, b) => a.createdAt.localeCompare(b.createdAt)),
   };
 }
 

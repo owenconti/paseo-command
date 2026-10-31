@@ -83,6 +83,19 @@ export type LinearInitiative = {
   url: string;
   updatedAt: string;
 };
+/** Something attached to an issue: a file uploaded to Linear, or a link (a pull request, a doc…). */
+export type LinearAttachment = {
+  id: string;
+  title: string;
+  subtitle?: string;
+  url: string;
+  /** Where Linear says it's from ("upload", "github", "slack"…), when it says. */
+  sourceType?: string;
+  creatorId?: string;
+  createdAt: string;
+};
+/** A file uploaded to Linear (`/api/linear/upload`): its address on uploads.linear.app, as named and typed. */
+export type LinearUploaded = { url: string; name: string; contentType: string; size: number };
 /** Always from this issue's side: inverse relations are mapped to blocked_by / duplicate_of. */
 export type LinearRelation = {
   id: string;
@@ -120,7 +133,7 @@ export type LinearIssue = {
   description?: string;
   childIds?: string[];
   relations?: LinearRelation[];
-  links?: { title: string; url: string }[];
+  attachments?: LinearAttachment[];
 };
 export type LinearComment = {
   id: string;
@@ -209,4 +222,7 @@ export type WriteName =
   | "notificationSnoozeAll"
   | "notificationUnsnoozeAll"
   | "notificationArchiveAll"
-  | "notificationUnarchive";
+  | "notificationUnarchive"
+  | "attachmentLinkURL"
+  | "attachmentCreate"
+  | "attachmentDelete";

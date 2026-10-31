@@ -10,10 +10,13 @@
  * do; each prints `ok` or `FAIL`, and the first failure stops the run (after
  * one attempt to put the issue back). Edits are put back; the subscription is
  * left as the last step leaves it, and the issue's notifications (if any) read
- * and not snoozed; none is archived. Tests never run this.
+ * and not snoozed; none is archived. A link and a small text file are
+ * attached and removed again (the file stays in Linear's storage, unlinked).
+ * Tests never run this.
  */
 import { LinearError, linearApiKey, linearBudget, linearRequest, linearUnavailable } from "../server/linear/client";
 import { readIssue, readWorkspace } from "../server/linear/reads";
+import { uploadToLinear } from "../server/linear/upload";
 import { linearWrite } from "../server/linear/writes";
 import type { LinearComment, LinearIssue, WriteName } from "../src/linear/types";
 
@@ -52,7 +55,9 @@ async function main() {
           ? `comment ${result.comment.id}`
           : result.notifications
             ? `${result.notifications.length} notification(s)`
-            : "success";
+            : result.attachment
+              ? `attachment ${result.attachment.id}`
+              : "success";
       console.log(`ok    ${label}: ${what}`);
       return result;
     } catch (e) {
@@ -149,6 +154,23 @@ async function main() {
 
     await step("issueSubscribe", "issueSubscribe", { id: current.id });
     await step("issueUnsubscribe", "issueUnsubscribe", { id: current.id });
+
+    // A link and an uploaded file attached to the check issue, then removed.
+    const linked = await step("attachmentLinkURL", "attachmentLinkURL", {
+      issueId: current.id,
+      url: "https://example.com/paseo-command-write-check",
+      title: "Write check link",
+    });
+    await step("attachmentDelete (link)", "attachmentDelete", { id: linked.attachment!.id });
+    const uploaded = await uploadToLinear(Buffer.from("Paseo Command write check."), "write-check.txt", "text/plain");
+    console.log(`ok    fileUpload: ${uploaded.url}`);
+    const filed = await step("attachmentCreate", "attachmentCreate", {
+      issueId: current.id,
+      url: uploaded.url,
+      title: uploaded.name,
+      subtitle: "TXT",
+    });
+    await step("attachmentDelete (file)", "attachmentDelete", { id: filed.attachment!.id });
 
     // The Inbox's writes, on the check issue's notifications only (there may be none: Linear answers the same).
     const now = new Date().toISOString();

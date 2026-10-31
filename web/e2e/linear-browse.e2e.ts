@@ -1,5 +1,6 @@
 /**
- * Finding issues in the Linear tab: a team's cycles. The page's Linear
+ * Finding issues in the Linear tab (cycles, display options, views, search,
+ * the inbox) and attaching files and links to them. The page's Linear
  * requests run the real server route over the fake Linear (`linearFake.ts`);
  * every other /api request is answered in the browser. Nothing reaches a
  * daemon or Linear.
@@ -8,7 +9,7 @@ import { after, before, test } from "node:test";
 import assert from "node:assert/strict";
 import type { Browser, Page } from "playwright";
 import { FAKE_IDS, fakeWorkspace } from "../server/linear/fake";
-import { launch, mockApi, newContext, startApp, waitFor } from "./harness";
+import { PNG, launch, mockApi, newContext, startApp, waitFor } from "./harness";
 import { mockLinear } from "./linearFake";
 
 let app: Awaited<ReturnType<typeof startApp>>;
@@ -430,6 +431,77 @@ test("a saved view shows as Linear has it even when the views come in after its 
     release();
     await view.locator(".linear-board").waitFor();
     await waitFor(() => groupNames(page), (names) => names.join() === "Owen Conti", "grouped by assignee");
+  } finally {
+    linear.restore();
+    await context.close();
+  }
+});
+
+test("attachments: links and uploaded files on an issue, files in a comment, removing one", async () => {
+  const { context, page, linear, view } = await openLinear();
+  try {
+    // Thumbnails load through the image route: answered here, as nothing may reach the test server.
+    await page.route("**/api/linear/image**", (route) => route.fulfill({ body: PNG, contentType: "image/png" }));
+    await view.locator('.linear-row[data-key="ENG-1"]').click();
+    const issue = view.locator(".linear-issue");
+    const section = issue.locator(".linear-attachments");
+    const titles = () => section.locator(".linear-attachment-title").allInnerTexts();
+    await waitFor(titles, (t) => t.join() === "Design doc", "the issue's attachment");
+    assert.match(await section.locator(".linear-attachment-meta").first().innerText(), /Sam Rivera · 5d ago/);
+    const eng1 = linear.ws.issues.find((i) => i.identifier === "ENG-1")!;
+
+    // A link: Linear names a pull request itself.
+    await section.getByRole("button", { name: "Add link" }).click();
+    await section.getByRole("textbox", { name: "Link to attach" }).fill("https://github.com/o/r/pull/9");
+    await section.getByRole("button", { name: "Attach" }).click();
+    await waitFor(titles, (t) => t.length === 2, "the link attached");
+    assert.equal(eng1.attachments.nodes.at(-1)?.sourceType, "github");
+
+    // Files chosen: uploaded to Linear, then attached with their kind and size.
+    await section.locator('input[type="file"]').setInputFiles([
+      { name: "shot.png", mimeType: "image/png", buffer: PNG },
+      { name: "notes.txt", mimeType: "text/plain", buffer: Buffer.from("hello") },
+    ]);
+    await waitFor(titles, (t) => t.includes("shot.png") && t.includes("notes.txt"), "both files attached");
+    const shot = eng1.attachments.nodes.find((a) => a.title === "shot.png")!;
+    assert.match(shot.url, /^https:\/\/uploads\.linear\.app\//);
+    assert.deepEqual(linear.uploads.get(shot.url)?.bytes, PNG);
+    assert.equal(eng1.attachments.nodes.find((a) => a.title === "notes.txt")?.subtitle, "TXT · 5 B");
+    await section.locator(`img.linear-attachment-thumb[src*="${encodeURIComponent(shot.url)}"]`).waitFor();
+    // An image opens in the lightbox.
+    await section.getByRole("button", { name: "Open shot.png" }).click();
+    await page.locator(".lightbox").waitFor();
+    await page.keyboard.press("Escape");
+
+    // Files dropped on the section upload too.
+    await section.evaluate((el) => {
+      const data = new DataTransfer();
+      data.items.add(new File(["drop"], "dropped.txt", { type: "text/plain" }));
+      el.dispatchEvent(new DragEvent("dragover", { dataTransfer: data, bubbles: true, cancelable: true }));
+      el.dispatchEvent(new DragEvent("drop", { dataTransfer: data, bubbles: true, cancelable: true }));
+    });
+    await waitFor(titles, (t) => t.includes("dropped.txt"), "the dropped file attached");
+
+    // Removed after confirming, in Linear too.
+    const row = section.locator(".linear-attachment", { hasText: "notes.txt" });
+    await row.hover();
+    await row.getByRole("button", { name: "Remove notes.txt" }).click();
+    await row.getByRole("button", { name: "Remove", exact: true }).click();
+    await waitFor(titles, (t) => !t.includes("notes.txt"), "notes.txt removed");
+    assert.ok(!eng1.attachments.nodes.some((a) => a.title === "notes.txt"));
+
+    // A comment with a file: uploaded, then in the comment as a link that downloads through the app.
+    // The comment composer, last in the issue.
+    const composer = issue.locator(".linear-composer").last();
+    await composer.locator('input[type="file"]').setInputFiles({ name: "log.txt", mimeType: "text/plain", buffer: Buffer.from("log") });
+    const box = composer.getByRole("textbox");
+    await waitFor(() => box.inputValue(), (v) => /\[log\.txt\]\(https:\/\/uploads\.linear\.app\/.+\/log\.txt\)/.test(v), "the file's Markdown");
+    await box.focus();
+    await page.keyboard.press("Meta+Enter");
+    const sent = issue.locator(".linear-comment", { hasText: "log.txt" });
+    await sent.waitFor();
+    assert.match((await sent.locator("a", { hasText: "log.txt" }).getAttribute("href")) ?? "", /\/api\/linear\/file\?url=https%3A%2F%2Fuploads\.linear\.app/);
+    assert.ok(linear.ws.comments.some((c) => c.body.includes("](https://uploads.linear.app/") && c.body.includes("log.txt")));
   } finally {
     linear.restore();
     await context.close();

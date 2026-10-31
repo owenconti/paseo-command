@@ -206,7 +206,10 @@ test("reads an issue with comments, children and both sides of a relation", asyn
     { emoji: "+1", userIds: [I.sam], ids: [fake.ws.comments.find((c) => c.id === I.comments.reacted)!.reactions[0].id] },
   ]);
   assert.match(eng1.issue.description!, /parent/);
-  assert.deepEqual(eng1.issue.links, [{ title: "Design doc", url: "https://example.com/design" }]);
+  assert.deepEqual(
+    eng1.issue.attachments?.map(({ title, url, creatorId }) => ({ title, url, creatorId })),
+    [{ title: "Design doc", url: "https://example.com/design", creatorId: I.sam }],
+  );
 
   // By id too: a parent or related issue the page knows only by id.
   assert.equal((await readIssue(I.issues["ENG-4"]))!.issue.key, "ENG-4");

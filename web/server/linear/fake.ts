@@ -105,7 +105,16 @@ export type FakeIssue = {
   relations: Nodes<{ id: string; type: "blocks" | "related" | "duplicate"; relatedIssue: Ref }>;
   /** Relations other issues own that point at this one. */
   inverseRelations: Nodes<{ id: string; type: "blocks" | "related" | "duplicate"; issue: Ref }>;
-  attachments: Nodes<{ title: string; url: string }>;
+  attachments: Nodes<FakeAttachment>;
+};
+export type FakeAttachment = {
+  id: string;
+  title: string;
+  subtitle: string | null;
+  url: string;
+  sourceType: string | null;
+  createdAt: string;
+  creator: Ref | null;
 };
 export type FakeComment = {
   id: string;
@@ -362,7 +371,15 @@ export function fakeWorkspace(): FakeWorkspace {
         cycle: ref(I.cycles.eng),
         children: nodes(ref(I.issues["ENG-2"])),
         subscribers: nodes(ref(I.owen)),
-        attachments: nodes({ title: "Design doc", url: "https://example.com/design" }),
+        attachments: nodes({
+          id: uuid(16, 1),
+          title: "Design doc",
+          subtitle: null,
+          url: "https://example.com/design",
+          sourceType: null,
+          createdAt: ago(5),
+          creator: ref(I.sam),
+        }),
       }),
       issue("ENG-2", {
         title: "Draw the issue list",
@@ -883,6 +900,58 @@ function writes(): Record<string, FakeOperation> {
     };
 
   return {
+    /** Where to put a file (the fake's storage), and its address on uploads.linear.app once it's there. */
+    FileUpload: (ctx) => {
+      const id = crypto.randomUUID();
+      const uploadUrl = `${FAKE_STORAGE}${id}`;
+      const assetUrl = `https://uploads.linear.app/fake/${id}/${encodeURIComponent(String(ctx.variables.filename))}`;
+      slots.set(uploadUrl, assetUrl);
+      return {
+        fileUpload: {
+          success: true,
+          uploadFile: { uploadUrl, assetUrl, headers: [{ key: "x-goog-content-length-range", value: `0,${ctx.variables.size}` }] },
+        },
+      };
+    },
+    AttachmentLinkURL: (ctx) => {
+      const issue = issueOf(ctx.ws, ctx.variables.issueId);
+      const url = String(ctx.variables.url);
+      const attachment: FakeAttachment = {
+        id: crypto.randomUUID(),
+        title: (ctx.variables.title as string | undefined) ?? url,
+        subtitle: null,
+        url,
+        sourceType: /github\.com\/[^/]+\/[^/]+\/pull\//.test(url) ? "github" : null,
+        createdAt: new Date().toISOString(),
+        creator: viewer(ctx.ws),
+      };
+      issue.attachments.nodes.push(attachment);
+      ctx.touch(issue);
+      return { attachmentLinkURL: { success: true, attachment } };
+    },
+    AttachmentCreate: (ctx) => {
+      const input = ctx.variables.input as { issueId: string; url: string; title: string; subtitle?: string };
+      const issue = issueOf(ctx.ws, input.issueId);
+      const attachment: FakeAttachment = {
+        id: crypto.randomUUID(),
+        title: input.title,
+        subtitle: input.subtitle ?? null,
+        url: input.url,
+        sourceType: "upload",
+        createdAt: new Date().toISOString(),
+        creator: viewer(ctx.ws),
+      };
+      issue.attachments.nodes.push(attachment);
+      ctx.touch(issue);
+      return { attachmentCreate: { success: true, attachment } };
+    },
+    AttachmentDelete: (ctx) => {
+      const issue = ctx.ws.issues.find((i) => i.attachments.nodes.some((a) => a.id === ctx.variables.id));
+      if (!issue) throw bad("Could not find referenced Attachment.");
+      issue.attachments.nodes = issue.attachments.nodes.filter((a) => a.id !== ctx.variables.id);
+      ctx.touch(issue);
+      return { attachmentDelete: { success: true } };
+    },
     NotificationMarkReadAll: onNotifications("notificationMarkReadAll", (n, v) => {
       n.readAt ??= String(v.readAt);
     }),
@@ -1075,8 +1144,12 @@ function writes(): Record<string, FakeOperation> {
 }
 
 export type FakeFailure = { status?: number; message: string; type?: string };
+/** Files put where `FileUpload` said, by their address on uploads.linear.app. */
+export type FakeUploads = Map<string, { type: string; bytes: Buffer }>;
+
 export type FakeLinear = {
   ws: FakeWorkspace;
+  uploads: FakeUploads;
   requests: { operation: string; variables: Record<string, unknown> }[];
   /** Makes every later request for `operation` answer this error, until `clear` or restore. */
   fail(operation: string, error: FakeFailure): void;
@@ -1097,6 +1170,10 @@ function putBack(file: string, text: string | undefined): void {
   if (text === undefined) rmSync(file, { force: true });
   else writeFileSync(file, text);
 }
+
+/** Where the fake's FileUpload says to put files, and which upload each place is for. */
+const FAKE_STORAGE = "https://storage.fake.linear/upload/";
+const slots = new Map<string, string>();
 
 /** The fake's API key, as secrets.json keeps it. */
 export const FAKE_KEY = "lin_api_fake";
@@ -1131,7 +1208,26 @@ export function installFakeLinear(ws: FakeWorkspace = fakeWorkspace()): FakeLine
     },
   });
 
-  LINEAR.fetch = (async (_url: unknown, init?: RequestInit) => {
+  const uploads: FakeUploads = new Map();
+  LINEAR.fetch = (async (target: unknown, init?: RequestInit) => {
+    const address = String(target);
+    // Linear's storage: a file put where FileUpload said, then fetched from uploads.linear.app with the key.
+    if (address.startsWith(FAKE_STORAGE)) {
+      const slot = slots.get(address);
+      if (init?.method !== "PUT" || !slot) return new Response("", { status: 403 });
+      const type = new Headers(init.headers).get("content-type") ?? "application/octet-stream";
+      uploads.set(slot, { type, bytes: Buffer.from(init.body as Uint8Array) });
+      return new Response("", { status: 200 });
+    }
+    if (address.startsWith("https://uploads.linear.app/")) {
+      const file = uploads.get(address);
+      const key = new Headers(init?.headers).get("authorization");
+      if (!file || key !== FAKE_KEY) return new Response("", { status: 404 });
+      return new Response(new Uint8Array(file.bytes), {
+        status: 200,
+        headers: { "content-type": file.type, "content-length": String(file.bytes.length) },
+      });
+    }
     const body = JSON.parse(String(init?.body ?? "{}")) as {
       operationName?: string;
       variables?: Record<string, unknown>;
@@ -1167,6 +1263,7 @@ export function installFakeLinear(ws: FakeWorkspace = fakeWorkspace()): FakeLine
 
   return {
     ws,
+    uploads,
     requests,
     fail: (operation, error) => void failures.set(operation, error),
     clear: (operation) => void failures.delete(operation),

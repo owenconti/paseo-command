@@ -18,6 +18,7 @@ import { onAppCommand } from "../appCommands";
 import { openExternal } from "../links";
 import { copyText } from "../nativePlatform";
 import { Comments } from "./Comments";
+import { Attachments } from "./Attachments";
 import { IssueRow } from "./IssueList";
 import { Properties } from "./Properties";
 import { issueContext, type IssueContext } from "./prompt";
@@ -35,7 +36,7 @@ const MAX_RELATED_LOADS = 10;
 /**
  * One issue, from the store, loaded afresh (description, comments, children)
  * when it opens: its properties, labels, parent, children and relations,
- * description, links and comments, and Launch agent. Its properties are
+ * description, attachments and comments, and Launch agent. Its properties are
  * edited in place (`Properties`), its relations (`Relations`) and comments
  * (`Comments`) read and written. Its bar subscribes, copies its link and
  * branch name, archives and (after asking) deletes it; Add sub-issue opens
@@ -331,21 +332,7 @@ export function IssueDetail({
           {children.length > 0 && <div className="linear-related-rows">{children.map(row)}</div>}
         </section>
         <Relations issue={issue} onOpen={onOpen} unavailable={unavailable} />
-        {(issue.links?.length ?? 0) > 0 && (
-          <section className="linear-section">
-            <h3>Links</h3>
-            <ul className="linear-links">
-              {issue.links!.map((l) => (
-                <li key={l.url}>
-                  <button className="link-btn" onClick={() => openExternal(l.url)}>
-                    <ExternalLink size={12} aria-hidden="true" />
-                    {l.title || l.url}
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </section>
-        )}
+        <Attachments issue={issue} />
         <Comments issueId={issue.id} />
       </article>
     </div>

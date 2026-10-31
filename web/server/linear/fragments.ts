@@ -1,11 +1,13 @@
 /** The field lists the named Linear operations ask for, shared so lists, details and sync agree. */
 
-/** Everything the page keeps of one issue (no description, relations or links: those come with `Issue`). */
+/** Everything the page keeps of one issue (no description, relations or attachments: those come with `Issue`). */
 export const ISSUE_FIELDS = `id identifier title url priority estimate sortOrder dueDate branchName
   createdAt updatedAt archivedAt completedAt canceledAt
   state { id } team { id } assignee { id } creator { id } project { id } projectMilestone { id }
   cycle { id } parent { id }
   labels(first: 30) { nodes { id } } subscribers(first: 30) { nodes { id } }`;
+
+export const ATTACHMENT_FIELDS = `id title subtitle url sourceType createdAt creator { id }`;
 
 export const COMMENT_FIELDS = `id body createdAt editedAt updatedAt resolvedAt
   issue { id } parent { id } user { id } reactions { id emoji user { id } }`;
@@ -83,7 +85,7 @@ export const ISSUE_QUERY = `query Issue($id: String!) {
     children(first: 100) { nodes { ${ISSUE_FIELDS} } }
     relations(first: 50) { nodes { id type relatedIssue { id } } }
     inverseRelations(first: 50) { nodes { id type issue { id } } }
-    attachments(first: 20) { nodes { title url } }
+    attachments(first: 50) { nodes { ${ATTACHMENT_FIELDS} } }
     comments(first: 250) { nodes { ${COMMENT_FIELDS} } }
   }
 }`;

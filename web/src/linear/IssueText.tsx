@@ -4,7 +4,7 @@ import { readStore, removeStore } from "../api";
 import { onAppCommand } from "../appCommands";
 import { Markdown } from "../Markdown";
 import { Composer } from "./Comments";
-import { linearImages } from "./prompt";
+import { shownMarkdown } from "./files";
 import { linearStore } from "./store";
 import type { LinearIssue } from "./types";
 
@@ -136,7 +136,7 @@ export function IssueDescription({ issue, loaded }: { issue: LinearIssue; loaded
   return (
     <div className="linear-description">
       {issue.description?.trim() ? (
-        <Markdown text={linearImages(issue.description, location.origin)} />
+        <Markdown text={shownMarkdown(issue.description, location.origin)} />
       ) : !ready ? (
         <p className="linear-note">Loading the description…</p>
       ) : (

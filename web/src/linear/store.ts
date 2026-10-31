@@ -1,8 +1,10 @@
 import { useEffect, useSyncExternalStore } from "react";
 import { errorMessage } from "../api";
-import { isUnavailable, linearRead, linearWrite } from "./api";
+import { isUnavailable, linearRead, linearWrite, uploadToLinear } from "./api";
+import { uploadSubtitle } from "./files";
 import type {
   IssueScope,
+  LinearAttachment,
   LinearComment,
   LinearCustomView,
   LinearCycle,
@@ -55,7 +57,7 @@ const MAX_SCOPE_ISSUES = 1000;
 const BY_ID_BATCH = 50;
 const MAX_RECHECK = 100;
 /** The fields only an issue's details carry; a list or sync record without them must not erase them. */
-const DETAIL_FIELDS = ["description", "childIds", "relations", "links"] as const;
+const DETAIL_FIELDS = ["description", "childIds", "relations", "attachments"] as const;
 
 function empty(): LinearData {
   return {
@@ -516,6 +518,67 @@ async function writeNotifications(
   }
 }
 
+/** Sets an issue's attachments as shown (they come with its details). */
+function setAttachments(issueId: string, change: (list: LinearAttachment[]) => LinearAttachment[]): void {
+  const known = state.issues.get(issueId);
+  if (!known) return;
+  publish({ issues: new Map(state.issues).set(issueId, { ...known, attachments: change(known.attachments ?? []) }) });
+}
+
+/** Attaches a link (Linear knows pull requests, docs and the rest by their address); false, with the notice, if refused. */
+async function attachLink(issueId: string, url: string, title?: string): Promise<boolean> {
+  try {
+    const answer = await linearWrite<{ attachment?: LinearAttachment }>("attachmentLinkURL", {
+      issueId,
+      url,
+      ...(title?.trim() ? { title: title.trim() } : {}),
+    });
+    const attachment = answer?.attachment;
+    if (attachment) setAttachments(issueId, (list) => [...list.filter((a) => a.id !== attachment.id), attachment]);
+    return true;
+  } catch (e) {
+    notify(`Linear didn't attach that: ${errorMessage(e) || "it didn't answer"}`);
+    return false;
+  }
+}
+
+/** Uploads a file to Linear and attaches it, named as it was, with its kind and size; false, with the notice, if either fails. */
+async function attachFile(issueId: string, file: Blob, name: string): Promise<boolean> {
+  try {
+    const uploaded = await uploadToLinear(file, name);
+    const answer = await linearWrite<{ attachment?: LinearAttachment }>("attachmentCreate", {
+      issueId,
+      url: uploaded.url,
+      title: uploaded.name,
+      subtitle: uploadSubtitle(uploaded),
+    });
+    const attachment = answer?.attachment;
+    if (attachment) setAttachments(issueId, (list) => [...list.filter((a) => a.id !== attachment.id), attachment]);
+    return true;
+  } catch (e) {
+    notify(`Linear didn't attach ${name}: ${errorMessage(e) || "it didn't answer"}`);
+    return false;
+  }
+}
+
+/** Removes an attachment: gone at once, back with the notice if Linear refuses. */
+async function detach(issueId: string, attachmentId: string): Promise<boolean> {
+  const was = state.issues.get(issueId)?.attachments ?? [];
+  setAttachments(issueId, (list) => list.filter((a) => a.id !== attachmentId));
+  try {
+    await linearWrite("attachmentDelete", { id: attachmentId });
+    return true;
+  } catch (e) {
+    const gone = was.find((a) => a.id === attachmentId);
+    if (gone)
+      setAttachments(issueId, (list) =>
+        [...list.filter((a) => a.id !== attachmentId), gone].sort((a, b) => a.createdAt.localeCompare(b.createdAt)),
+      );
+    notify(`Linear didn't remove that: ${errorMessage(e) || "it didn't answer"}`);
+    return false;
+  }
+}
+
 function applySync(delta: LinearSync, readAt?: number): void {
   mergeIssues(delta.issues, readAt);
   mergeComments(delta.comments);
@@ -536,6 +599,11 @@ export const linearStore = {
   removeComment,
   applySync,
   write,
+  attachLink,
+  attachFile,
+  detach,
+  /** Says something went wrong, in the app's notice (as a refused write does). */
+  notice: (message: string) => notify(message),
   writeNotifications,
   mergeNotifications,
   createIssue,

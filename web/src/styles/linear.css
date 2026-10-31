@@ -1378,10 +1378,133 @@
   font-weight: var(--fw-semibold);
   color: var(--text-2);
 }
-.linear-links {
+/* An issue's attachments: uploads and links; files dropped on the section upload. */
+.linear-attachments {
+  margin-inline: calc(-1 * var(--space-2));
+  padding: var(--space-2);
+  border: 1px dashed transparent;
+  border-radius: var(--radius-lg);
+  transition: border-color var(--dur-1) var(--ease-out), background-color var(--dur-1) var(--ease-out);
+}
+.linear-attachments.drop {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+.linear-section-actions {
+  display: inline-flex;
+  gap: var(--space-1);
+}
+.linear-attachment-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
   margin: 0;
   padding: 0;
   list-style: none;
+}
+.linear-attachment {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 40px;
+  border-radius: var(--radius-md);
+}
+.linear-attachment:hover {
+  background: var(--row-hover);
+}
+.linear-attachment-open {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-md);
+  background: transparent;
+  text-align: left;
+  color: var(--text);
+}
+.linear-attachment-open:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: -2px;
+}
+.linear-attachment.uploading {
+  padding: var(--space-1) var(--space-2);
+  gap: var(--space-3);
+}
+.linear-attachment-icon,
+.linear-attachment-thumb {
+  display: inline-grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-sm);
+  background: var(--fill);
+  color: var(--icon-muted);
+}
+.linear-attachment-thumb {
+  object-fit: cover;
+}
+.linear-attachment-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+.linear-attachment-title {
+  overflow: hidden;
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-medium);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.linear-attachment-meta {
+  overflow: hidden;
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.linear-attachment-remove {
+  flex-shrink: 0;
+  margin-right: var(--space-1);
+  opacity: 0;
+}
+.linear-attachment:hover .linear-attachment-remove,
+.linear-attachment-remove:focus-visible {
+  opacity: 1;
+}
+.linear-attachment .linear-confirm {
+  margin-right: var(--space-2);
+}
+.linear-attachments-empty {
+  margin: 0;
+  font-size: var(--fs-sm);
+  color: var(--text-4);
+}
+.linear-attach-link {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+}
+.linear-attach-link input {
+  flex: 1 1 180px;
+  min-width: 0;
+  height: var(--control-sm);
+  font-size: var(--fs-sm);
+}
+.linear-attach-link :is(.primary, .secondary) {
+  height: var(--control-sm);
+  padding: 0 var(--space-3);
+  font-size: var(--fs-xs);
+}
+.linear-composer-attach.icon-btn {
+  width: 26px;
+  height: 26px;
+  color: var(--text-3);
 }
 /* Comments: threads (replies indented under a rule), resolved ones folded to a line, a composer last. */
 .linear-thread + .linear-thread {

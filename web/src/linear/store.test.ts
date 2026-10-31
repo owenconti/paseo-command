@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { afterEach, beforeEach, describe, it, mock } from "node:test";
 import { FAKE_IDS } from "../../server/linear/fake";
-import { setLinearTransport } from "./api";
+import { setLinearTransport, setLinearUploader } from "./api";
 import {
   clearPending,
   keepSynced,
@@ -79,7 +79,10 @@ beforeEach(() => {
     return answers[name](path, body);
   });
 });
-afterEach(() => setLinearTransport(null));
+afterEach(() => {
+  setLinearTransport(null);
+  setLinearUploader(null);
+});
 
 /** A write's answer the test releases by hand, to look at the store while it's in flight. */
 function held<T>() {
@@ -338,6 +341,43 @@ describe("linear store", () => {
     assert.equal(calls.filter((c) => c === "linear/q/notifications").length, 1, "once");
   });
 
+  it("attachments: a link and an uploaded file join the issue; a refused removal puts it back", async () => {
+    const at = (id: string, createdAt: string) => ({ id, title: id, url: `https://example.com/${id}`, createdAt });
+    linearStore.mergeIssues([issue(1, { attachments: [at("a1", "2026-10-01T00:00:00Z")] })]);
+    const sent: { path: string; body: unknown }[] = [];
+    setLinearTransport(async (path, body) => {
+      sent.push({ path, body });
+      if (path.endsWith("attachmentLinkURL")) return { attachment: at("a2", "2026-10-02T00:00:00Z") };
+      if (path.endsWith("attachmentCreate")) return { attachment: { ...at("a3", "2026-10-03T00:00:00Z"), url: (body as { url: string }).url } };
+      throw new Error("Not allowed");
+    });
+    setLinearUploader(async (_file, name) => ({ url: `https://uploads.linear.app/w/x/${name}`, name, contentType: "application/pdf", size: 2048 }));
+    assert.equal(await linearStore.attachLink("i-1", "https://example.com/a2", " "), true);
+    assert.deepEqual(sent[0].body, { issueId: "i-1", url: "https://example.com/a2" }, "a blank title isn't sent");
+    assert.equal(await linearStore.attachFile("i-1", new Blob(["x"]), "report.pdf"), true);
+    assert.deepEqual(sent[1].body, {
+      issueId: "i-1",
+      url: "https://uploads.linear.app/w/x/report.pdf",
+      title: "report.pdf",
+      subtitle: "PDF · 2 KB",
+    });
+    const ids = () => linearStore.getState().issues.get("i-1")?.attachments?.map((a) => a.id);
+    assert.deepEqual(ids(), ["a1", "a2", "a3"]);
+    // Removing: gone at once, back in its place when Linear refuses.
+    const removing = linearStore.detach("i-1", "a2");
+    assert.deepEqual(ids(), ["a1", "a3"]);
+    assert.equal(await removing, false);
+    assert.deepEqual(ids(), ["a1", "a2", "a3"]);
+    assert.match(notices.at(-1) ?? "", /Not allowed/);
+    // An upload that fails attaches nothing and says why.
+    setLinearUploader(async () => {
+      throw new Error("Files up to 25 MB can be uploaded.");
+    });
+    assert.equal(await linearStore.attachFile("i-1", new Blob(["x"]), "huge.mov"), false);
+    assert.match(notices.at(-1) ?? "", /huge\.mov: Files up to 25 MB/);
+    assert.deepEqual(ids(), ["a1", "a2", "a3"]);
+  });
+
   it("loads the views once, and again when fresh", async () => {
     const view = { id: "v1", name: "Mine", color: "#000", shared: false, updatedAt: "", display: { layout: "board" } };
     answers.views = () => ({ views: [view] });
@@ -395,7 +435,7 @@ describe("linear store", () => {
   });
 
   it("keeps an issue's details when a list or sync lacks them", () => {
-    linearStore.mergeIssues([issue(1, { description: "Body", childIds: ["i-2"], relations: [], links: [] })]);
+    linearStore.mergeIssues([issue(1, { description: "Body", childIds: ["i-2"], relations: [], attachments: [] })]);
     linearStore.mergeIssues([issue(1, { title: "From a list" })]);
     linearStore.applySync(sync({ issues: [issue(1, { title: "From sync" })] }));
     const got = linearStore.getState().issues.get("i-1")!;
@@ -403,7 +443,7 @@ describe("linear store", () => {
     assert.equal(got.description, "Body");
     assert.deepEqual(got.childIds, ["i-2"]);
     assert.deepEqual(got.relations, []);
-    assert.deepEqual(got.links, []);
+    assert.deepEqual(got.attachments, []);
   });
 
   it("pauses sync while limited", async () => {

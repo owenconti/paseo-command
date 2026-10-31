@@ -40,7 +40,7 @@ class Captured {
 export async function mockLinear(
   page: Page,
   ws: FakeWorkspace = fakeWorkspace(),
-): Promise<Pick<FakeLinear, "ws" | "requests" | "fail" | "clear" | "restore">> {
+): Promise<Pick<FakeLinear, "ws" | "uploads" | "requests" | "fail" | "clear" | "restore">> {
   const fake = installFakeLinear(ws);
   resetLinearReads();
   await page.route("**/api/linear/**", async (route) => {
@@ -65,5 +65,5 @@ export async function mockLinear(
       })
       .catch(() => {});
   });
-  return { ws: fake.ws, requests: fake.requests, fail: fake.fail, clear: fake.clear, restore: fake.restore };
+  return { ws: fake.ws, uploads: fake.uploads, requests: fake.requests, fail: fake.fail, clear: fake.clear, restore: fake.restore };
 }

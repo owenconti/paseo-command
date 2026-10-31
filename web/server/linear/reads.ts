@@ -215,7 +215,7 @@ export async function readIssuesById(ids: string[]): Promise<{ issues: LinearIss
   return { issues: nodesOf(recOf(data.issues)).map(issueOf).filter(nonNull) };
 }
 
-/** One issue by key (or id) with its description, children, relations, links and comments; null when Linear has none. */
+/** One issue by key (or id) with its description, children, relations, attachments and comments; null when Linear has none. */
 export async function readIssue(
   rawKey: string,
 ): Promise<{ issue: LinearIssue; comments: LinearComment[]; children: LinearIssue[] } | null> {

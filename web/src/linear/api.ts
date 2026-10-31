@@ -1,5 +1,5 @@
 import { api } from "../api";
-import type { LinearUnavailable } from "./types";
+import type { LinearUnavailable, LinearUploaded } from "./types";
 
 type Transport = (path: string, body?: unknown) => Promise<unknown>;
 let transport: Transport = (path, body) => api(path, body);
@@ -36,4 +36,28 @@ export function linearWrite<T>(name: string, input: unknown): Promise<T> {
 /** Whether a read answered "not now" (no key, refused, rate limited) instead of with data. */
 export function isUnavailable(value: unknown): value is LinearUnavailable {
   return typeof value === "object" && value !== null && (value as { available?: unknown }).available === false;
+}
+
+type Uploader = (file: Blob, name: string) => Promise<LinearUploaded>;
+const serverUploader: Uploader = async (file, name) => {
+  const params = new URLSearchParams({ name, type: file.type || "application/octet-stream" });
+  const res = await fetch(`/api/linear/upload?${params}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/octet-stream" },
+    body: file,
+  });
+  const result = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(result.error || "The upload didn't go through.");
+  return result as LinearUploaded;
+};
+let uploader = serverUploader;
+
+/** Tests upload to a fake instead of the server (null restores the real one). */
+export function setLinearUploader(next: Uploader | null): void {
+  uploader = next ?? serverUploader;
+}
+
+/** Uploads a file to Linear through the app server (which holds the key); rejects with why it didn't go. */
+export function uploadToLinear(file: Blob, name: string): Promise<LinearUploaded> {
+  return uploader(file, name);
 }
