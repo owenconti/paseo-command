@@ -85,6 +85,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         // starts with none of the old app's Conquer tabs or page storage.
         if AppFlavor.isRelease, LegacyState.pending(), oldAppClosed() { LegacyState.migrate() }
         buildMenu()
+        // The dev copy is told apart from the released app at a glance in the Dock.
+        if !AppFlavor.isRelease { NSApp.dockTile.badgeLabel = "DEV" }
         let world = WorldWindow(options: options)
         main = world
         if !options.urlGiven, options.size == nil, let frame = restored?.frame { world.window.setFrame(frame, display: false) }
@@ -254,9 +256,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         let appItem = NSMenuItem()
         bar.addItem(appItem)
         let appMenu = NSMenu()
-        appMenu.addItem(withTitle: "Hide Paseo Command", action: #selector(NSApplication.hide(_:)), keyEquivalent: "h")
+        appMenu.addItem(withTitle: "Hide \(AppFlavor.name)", action: #selector(NSApplication.hide(_:)), keyEquivalent: "h")
         appMenu.addItem(.separator())
-        appMenu.addItem(withTitle: "Quit Paseo Command", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        appMenu.addItem(withTitle: "Quit \(AppFlavor.name)", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         appItem.submenu = appMenu
         // The page's text fields need the standard editing commands.
         let editItem = NSMenuItem()
