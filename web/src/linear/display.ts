@@ -95,6 +95,10 @@ export function readListView(key: string, fallback: Display = DEFAULT_DISPLAY): 
     filters: checkFilters(readStore<unknown>(`linear:filters:${key}`, null)),
   };
 }
+/** Whether a display was chosen here for the place (else it shows its default). */
+export function hasOwnDisplay(key: string): boolean {
+  return readStore<unknown>(`linear:display:${key}`, null) !== null;
+}
 export function writeDisplay(key: string, display: Display): void {
   writeStore(`linear:display:${key}`, display);
 }

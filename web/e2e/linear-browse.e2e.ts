@@ -405,3 +405,28 @@ test("the inbox's Mark all read works from ⌘K while an issue opened from it ta
     await context.close();
   }
 });
+
+test("a saved view shows as Linear has it even when the views come in after its issues", async () => {
+  const { context, page, linear, view, sidebar } = await openLinear();
+  try {
+    await sidebar.getByRole("button", { name: "Launch in flight" }).click();
+    await view.locator(".linear-board").waitFor();
+    // Reloaded with the views slow to come: the list shows first, then the board Linear has.
+    let release!: () => void;
+    const slow = new Promise<void>((resolve) => (release = resolve));
+    await page.route("**/api/linear/q/views", async (route) => {
+      await slow;
+      await route.fallback();
+    });
+    await page.reload();
+    await page.locator(".fleet-sidebar").waitFor();
+    await page.evaluate(() => window.dispatchEvent(new CustomEvent("paseo:mode", { detail: { mode: "linear" } })));
+    await view.locator(".linear-list .linear-row").first().waitFor();
+    release();
+    await view.locator(".linear-board").waitFor();
+    await waitFor(() => groupNames(page), (names) => names.join() === "Owen Conti", "grouped by assignee");
+  } finally {
+    linear.restore();
+    await context.close();
+  }
+});

@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import { Box, CircleDot, RefreshCcw, Search, SignalHigh, Tag, UserRound, UserX } from "lucide-react";
 import { plainText } from "../ui";
 import { Dot, Person, Priority, ScreenHead } from "./bits";
-import { checkDisplay, DEFAULT_DISPLAY, filterIssues, hasFilters, readListView, writeDisplay, writeFilters, type Display, type Filters, type Layout } from "./display";
+import { checkDisplay, DEFAULT_DISPLAY, filterIssues, hasFilters, hasOwnDisplay, readListView, writeDisplay, writeFilters, type Display, type Filters, type Layout } from "./display";
 import { arrangeIssues, dropChange, issueMatches, type IssueGroup } from "./group";
 import { DisplayButton, FilterButton, FilterChips, type DisplayControl, type FilterControl } from "./ListControls";
 import { placeBelow } from "./Picker";
@@ -342,6 +342,12 @@ export function IssueList({
   if (viewOf !== viewKey) {
     setViewOf(viewKey);
     setView(readListView(viewKey, fallback));
+  }
+  // The default may come later (a view's, once the views are in): shown unless one was chosen here.
+  const [fallbackOf, setFallbackOf] = useState(fallback);
+  if (fallbackOf !== fallback) {
+    setFallbackOf(fallback);
+    if (!hasOwnDisplay(viewKey)) setView((v) => ({ ...v, display: fallback }));
   }
   const { display, filters } = view;
   const setDisplay = (next: Display) => {
