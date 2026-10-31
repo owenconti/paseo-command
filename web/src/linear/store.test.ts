@@ -82,8 +82,13 @@ function held<T>() {
     release = resolve;
     refuse = reject;
   });
+  // Refused before it's asked for (writes queue): not an unhandled rejection meanwhile.
+  promise.catch(() => {});
   return { promise, release, refuse };
 }
+
+/** Lets queued writes go out. */
+const settled = () => new Promise((resolve) => setImmediate(resolve));
 
 describe("linear store", () => {
   it("scopes follow the store", () => {
@@ -266,5 +271,82 @@ describe("linear store", () => {
     assert.equal(linearStore.getState().issues.get("i-1")?.priority, 2);
     second.release({ issue: issue(1, { priority: 2, updatedAt: "2026-10-03T00:00:00Z" }) });
     assert.equal(await two, true);
+  });
+
+  it("two refused edits of a field put back what Linear has, whichever is refused first", async () => {
+    for (const order of [[0, 1], [1, 0]]) {
+      linearStore.reset();
+      linearStore.mergeIssues([issue(1, { priority: 3 })]);
+      const replies = [held<unknown>(), held<unknown>()];
+      const queue = [...replies];
+      answers["linear/m/issueUpdate"] = () => queue.shift()!.promise;
+      const a = linearStore.write("issueUpdate", { id: "i-1", priority: 1 }, { issueId: "i-1", patch: { priority: 1 } });
+      const b = linearStore.write("issueUpdate", { id: "i-1", priority: 2 }, { issueId: "i-1", patch: { priority: 2 } });
+      for (const n of order) replies[n].refuse(new Error("Not allowed"));
+      assert.deepEqual(await Promise.all([a, b]), [false, false]);
+      assert.equal(linearStore.getState().issues.get("i-1")?.priority, 3, `order ${order}`);
+    }
+  });
+
+  it("a refused edit followed by a saved one keeps the saved one", async () => {
+    linearStore.mergeIssues([issue(1, { priority: 3 })]);
+    const first = held<unknown>();
+    const second = held<unknown>();
+    const queue = [first, second];
+    answers["linear/m/issueUpdate"] = () => queue.shift()!.promise;
+    const a = linearStore.write("issueUpdate", { id: "i-1", priority: 1 }, { issueId: "i-1", patch: { priority: 1 } });
+    const b = linearStore.write("issueUpdate", { id: "i-1", priority: 2 }, { issueId: "i-1", patch: { priority: 2 } });
+    first.refuse(new Error("Busy"));
+    assert.equal(await a, false);
+    assert.equal(linearStore.getState().issues.get("i-1")?.priority, 2);
+    second.release({ issue: issue(1, { priority: 2, updatedAt: "2026-10-03T00:00:00Z" }) });
+    assert.equal(await b, true);
+    assert.equal(linearStore.getState().issues.get("i-1")?.priority, 2);
+  });
+
+  it("sends an issue's writes one after another, so the last choice is the last applied", async () => {
+    linearStore.mergeIssues([issue(1, { labelIds: [] })]);
+    const first = held<unknown>();
+    const second = held<unknown>();
+    const queue = [first, second];
+    const sent: unknown[] = [];
+    answers["linear/m/issueUpdate"] = (_path, body) => {
+      sent.push(body);
+      return queue.shift()!.promise;
+    };
+    const a = linearStore.write("issueUpdate", { id: "i-1", labelIds: ["l-1"] }, { issueId: "i-1", patch: { labelIds: ["l-1"] } });
+    const b = linearStore.write(
+      "issueUpdate",
+      { id: "i-1", labelIds: ["l-1", "l-2"] },
+      { issueId: "i-1", patch: { labelIds: ["l-1", "l-2"] } },
+    );
+    await settled();
+    assert.deepEqual(sent, [{ id: "i-1", labelIds: ["l-1"] }]);
+    assert.deepEqual(linearStore.getState().issues.get("i-1")?.labelIds, ["l-1", "l-2"]);
+    first.release({ issue: issue(1, { labelIds: ["l-1"], updatedAt: "2026-10-02T00:00:00Z" }) });
+    assert.equal(await a, true);
+    await settled();
+    assert.deepEqual(sent, [
+      { id: "i-1", labelIds: ["l-1"] },
+      { id: "i-1", labelIds: ["l-1", "l-2"] },
+    ]);
+    // The first answer didn't undo the second, still pending.
+    assert.deepEqual(linearStore.getState().issues.get("i-1")?.labelIds, ["l-1", "l-2"]);
+    second.release({ issue: issue(1, { labelIds: ["l-1", "l-2"], updatedAt: "2026-10-03T00:00:00Z" }) });
+    assert.equal(await b, true);
+    assert.deepEqual(linearStore.getState().issues.get("i-1")?.labelIds, ["l-1", "l-2"]);
+  });
+
+  it("a refused edit goes back to a newer value a sync brought meanwhile", async () => {
+    linearStore.mergeIssues([issue(1, { priority: 3 })]);
+    const answer = held<unknown>();
+    answers["linear/m/issueUpdate"] = () => answer.promise;
+    const done = linearStore.write("issueUpdate", { id: "i-1", priority: 1 }, { issueId: "i-1", patch: { priority: 1 } });
+    // Someone else set it to Low in Linear meanwhile.
+    linearStore.applySync(sync({ issues: [issue(1, { priority: 4, updatedAt: "2026-10-02T00:00:00Z" })] }));
+    assert.equal(linearStore.getState().issues.get("i-1")?.priority, 1);
+    answer.refuse(new Error("Not allowed"));
+    assert.equal(await done, false);
+    assert.equal(linearStore.getState().issues.get("i-1")?.priority, 4);
   });
 });

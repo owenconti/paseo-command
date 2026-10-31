@@ -148,7 +148,9 @@ export function LinearView({
     };
   }, []);
 
-  const issueOpen = !!place.issue && !!ws;
+  // ⌘K's edits only once the open issue is in the store (its properties show).
+  const issueKnown = useLinear((d) => !!place.issue && d.byKey.has(place.issue));
+  const issueOpen = issueKnown && !!ws;
   useEffect(() => {
     onIssueOpen?.(issueOpen);
   }, [issueOpen, onIssueOpen]);

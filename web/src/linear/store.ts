@@ -43,6 +43,14 @@ const listeners = new Set<() => void>();
 /** Fields with a write in flight, by entity id; merges leave them as they are. Value: when it started (unique, rising). */
 const pending = new Map<string, Map<string, number>>();
 let lastMark = 0;
+/**
+ * For an issue's fields with an edit in flight: the value Linear last had, as
+ * far as the page knows (before the first edit, then each saved edit or newer
+ * sync). A refused edit goes back to it once no other edit of the field is pending.
+ */
+const confirmed = new Map<string, Map<string, unknown>>();
+/** Each issue's writes, one after another: the last choice is the last one Linear applies. */
+const writeQueues = new Map<string, Promise<unknown>>();
 /** Says why a write didn't happen (the Linear view sets it to the app's notice). */
 let notify: (message: string) => void = () => {};
 const scopeLoads = new Map<IssueScope, Promise<void>>();
@@ -117,6 +125,10 @@ function mergeIssues(list: LinearIssue[]): void {
     }
     // A page fetched before a newer sync must not roll the issue back.
     if (known && Date.parse(incoming.updatedAt) < Date.parse(known.updatedAt)) continue;
+    // What Linear has for a field being edited: a refused edit goes back to it.
+    const kept = confirmed.get(incoming.id);
+    for (const field of pending.get(incoming.id)?.keys() ?? [])
+      kept?.set(field, (incoming as unknown as Record<string, unknown>)[field]);
     issues.set(incoming.id, mergeRecord(known, incoming, DETAIL_FIELDS));
     byKey.set(incoming.key, incoming.id);
   }
@@ -139,48 +151,68 @@ function patchIssue(id: string, fields: Partial<LinearIssue>): void {
   publish({ issues: new Map(state.issues).set(id, next as LinearIssue) });
 }
 
-const same = (a: unknown, b: unknown) => a === b || JSON.stringify(a) === JSON.stringify(b);
+/** Forgets the confirmed values of an issue's fields that no edit is pending on any more. */
+function settle(id: string): void {
+  const kept = confirmed.get(id);
+  if (!kept) return;
+  const marks = pending.get(id);
+  for (const field of [...kept.keys()]) if (!marks?.has(field)) kept.delete(field);
+  if (kept.size === 0) confirmed.delete(id);
+}
 
 /**
  * One whitelisted write. With `optimistic`, the issue shows `patch` at once and
  * syncs leave those fields alone until Linear answers; Linear's answer then
- * takes their place. When Linear refuses, the fields go back to what they
- * were (unless a later edit changed them since) and the notice says why.
+ * takes their place. An issue's writes are sent one after another, in the
+ * order they were made. When Linear refuses, the fields go back to what Linear
+ * last had (unless a later edit of them is still pending) and the notice says why.
  */
 async function write(
   name: WriteName,
   input: Record<string, unknown>,
   optimistic?: { issueId: string; patch: Partial<LinearIssue> },
 ): Promise<boolean> {
+  const id = optimistic?.issueId;
   const fields = optimistic ? Object.keys(optimistic.patch) : [];
-  const known = optimistic ? state.issues.get(optimistic.issueId) : undefined;
-  const before: Record<string, unknown> = {};
-  for (const field of fields) before[field] = (known as Record<string, unknown> | undefined)?.[field];
+  const known = id ? (state.issues.get(id) as Record<string, unknown> | undefined) : undefined;
   let mark = 0;
-  if (optimistic && known) {
-    patchIssue(optimistic.issueId, optimistic.patch);
-    markPending(optimistic.issueId, fields);
+  if (id && known) {
+    // The first edit of a field in flight notes what Linear has for it.
+    const kept = confirmed.get(id) ?? new Map<string, unknown>();
+    for (const field of fields) if (!pending.get(id)?.has(field)) kept.set(field, known[field]);
+    confirmed.set(id, kept);
+    patchIssue(id, optimistic!.patch);
+    markPending(id, fields);
     mark = lastMark;
   }
+  const previous = (id && writeQueues.get(id)) || Promise.resolve();
+  const request = previous.then(() => linearWrite<{ issue?: LinearIssue }>(name, input));
+  const queued = request.catch(() => {});
+  if (id) writeQueues.set(id, queued);
   try {
-    const answer = await linearWrite<{ issue?: LinearIssue }>(name, input);
-    if (mark) clearOwnPending(optimistic!.issueId, fields, mark);
+    const answer = await request;
+    if (mark) {
+      const kept = confirmed.get(id!);
+      for (const field of fields) kept?.set(field, (optimistic!.patch as Record<string, unknown>)[field]);
+      clearOwnPending(id!, fields, mark);
+    }
+    // Linear's answer, which also updates what's confirmed for fields a later edit still holds.
     if (answer?.issue) mergeIssues([answer.issue]);
+    if (mark) settle(id!);
     return true;
   } catch (e) {
-    if (optimistic && mark) {
-      const id = optimistic.issueId;
-      const marks = pending.get(id);
-      const now = state.issues.get(id) as Record<string, unknown> | undefined;
-      // Only the fields still showing this write's value and not since edited again.
-      const back = fields.filter(
-        (f) => marks?.get(f) === mark && now !== undefined && same(now[f], (optimistic.patch as Record<string, unknown>)[f]),
-      );
-      clearOwnPending(id, fields, mark);
-      patchIssue(id, Object.fromEntries(back.map((f) => [f, before[f]])) as Partial<LinearIssue>);
+    if (mark) {
+      const kept = confirmed.get(id!);
+      clearOwnPending(id!, fields, mark);
+      // Fields a later edit still holds wait for it; the rest go back to what Linear has.
+      const back = fields.filter((f) => !pending.get(id!)?.has(f) && kept?.has(f));
+      patchIssue(id!, Object.fromEntries(back.map((f) => [f, kept!.get(f)])) as Partial<LinearIssue>);
+      settle(id!);
     }
     notify(`Linear didn't save that: ${errorMessage(e) || "it didn't answer"}`);
     return false;
+  } finally {
+    if (id && writeQueues.get(id) === queued) writeQueues.delete(id);
   }
 }
 
@@ -224,7 +256,6 @@ export const linearStore = {
   mergeIssues,
   mergeComments,
   applySync,
-  patchIssue,
   write,
   setWorkspace(workspace: LinearWorkspace): void {
     publish({ workspace: { ...workspace }, unavailable: undefined });
@@ -237,6 +268,8 @@ export const linearStore = {
     state = empty();
     loadStartedAt = undefined;
     pending.clear();
+    confirmed.clear();
+    writeQueues.clear();
     scopeLoads.clear();
     syncing = undefined;
     for (const fn of [...listeners]) fn();
