@@ -7,6 +7,8 @@ import { anchorQuote } from "./anchor";
 import type { Quote } from "./types";
 
 export const REPLY = ".msg.assistant[data-reply-key]";
+/** The parts of a reply a click picks whole. */
+export const BLOCK = "p, li, h1, h2, h3, h4, h5, h6, pre, blockquote, tr";
 
 /** The reply element holding `node`, if any. */
 export const replyOf = (node: Node | null) =>
@@ -85,4 +87,15 @@ export function paintMarks(
     highlights.set(name, new Highlight(...ranges));
     painted.add(name);
   }
+}
+
+/** Mark the block picked with a click (`reply-pick`), or clear it. */
+export function markPick(range: Range | null) {
+  const highlights = (globalThis as { CSS?: { highlights?: Map<string, unknown> } })
+    .CSS?.highlights;
+  const Highlight = (globalThis as { Highlight?: new (...r: Range[]) => unknown })
+    .Highlight;
+  if (!highlights || !Highlight) return;
+  if (range) highlights.set("reply-pick", new Highlight(range));
+  else highlights.delete("reply-pick");
 }

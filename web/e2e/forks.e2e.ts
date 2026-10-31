@@ -446,3 +446,45 @@ test("Answer quotes questions into the message, each with its own answer, withou
   assert.deepEqual(errors, []);
   await close();
 });
+
+const paragraph = (page: Page, text: string) =>
+  page.locator(".session .msg.assistant p", { hasText: text });
+
+test("click a paragraph in a reply: the pill takes it whole, to answer or to fork", async () => {
+  const w = world();
+  const { page, errors, close } = await open(w);
+  await paragraph(page, FIRST).click();
+  await pill(page).getByRole("button", { name: "Answer in my message" }).click();
+  await page.getByRole("textbox", { name: `Answer to “${FIRST.slice(0, 60)}”` }).waitFor();
+  assert.equal(await pill(page).count(), 0);
+  await paragraph(page, FIRST).click();
+  await pill(page).getByRole("button", { name: "Ask", exact: true }).click();
+  await ask(page, "Why?");
+  const create = await waitFor(() => w.posts.find((p) => p.path === "/api/agents/a1/forks"));
+  assert.equal(create.body.quotes.length, 1);
+  assert.equal(create.body.quotes[0].text, FIRST);
+  assert.equal(create.body.quotes[0].messageId, "r1");
+  assert.deepEqual(errors, []);
+  await close();
+});
+
+test("a picked block's pill goes with Escape or a click elsewhere; none on a live reply", async () => {
+  const w = world({ running: true });
+  const { page, close } = await open(w);
+  await paragraph(page, FIRST).click();
+  await pill(page).waitFor();
+  await page.keyboard.press("Escape");
+  await pill(page).waitFor({ state: "detached" });
+  await paragraph(page, FIRST).click();
+  await pill(page).waitFor();
+  await page.locator(".msg.user", { hasText: "More" }).click();
+  await pill(page).waitFor({ state: "detached" });
+  await paragraph(page, SECOND).click();
+  await sleep(300);
+  assert.equal(await pill(page).count(), 0);
+  // Dragging over part of a block still picks just that part.
+  await select(page, "Each bundle lives in two places.");
+  await pill(page).getByRole("button", { name: "Answer in my message" }).click();
+  await page.getByRole("textbox", { name: "Answer to “Each bundle lives in two places.”" }).waitFor();
+  await close();
+});

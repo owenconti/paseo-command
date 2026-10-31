@@ -20,6 +20,22 @@
 ::highlight(fork-draft) {
   background-color: color-mix(in srgb, var(--accent) 30%, transparent);
 }
+::highlight(reply-pick) {
+  background-color: color-mix(in srgb, var(--accent) 22%, transparent);
+}
+/* A settled reply's blocks can be picked with a click: the one under the
+   pointer (the innermost) shows a wash and a rule along its left. */
+.session .msg.assistant:not([data-live]):not(.fork-pane *)
+  :is(p, li, h1, h2, h3, h4, h5, h6, pre, blockquote, tr):hover:not(
+    :has(:is(p, li, h1, h2, h3, h4, h5, h6, pre, blockquote, tr):hover)
+  ) {
+  cursor: pointer;
+  background-color: color-mix(in srgb, var(--accent) 7%, transparent);
+  /* The wash reaches a little left of the text, the rule just beyond it. */
+  box-shadow:
+    -6px 0 0 color-mix(in srgb, var(--accent) 7%, transparent),
+    -8px 0 0 color-mix(in srgb, var(--accent) 55%, transparent);
+}
 
 .fork-pill {
   position: absolute;
