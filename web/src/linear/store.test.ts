@@ -226,6 +226,85 @@ describe("linear store", () => {
     assert.match(notices.at(-1) ?? "", /Not allowed/);
   });
 
+  it("inbox writes on a notification go one after another; a refused one puts back only what it set", async () => {
+    const note = (id: string, extra: Partial<LinearNotification> = {}): LinearNotification => ({
+      id,
+      type: "issueNewComment",
+      title: "ENG-1 Issue 1",
+      subtitle: "Sam commented",
+      url: "https://linear.app/x",
+      createdAt: "2026-10-30T00:00:00Z",
+      updatedAt: "2026-10-30T00:00:00Z",
+      issueId: "i-1",
+      ...extra,
+    });
+    linearStore.mergeNotifications([note("n1")]);
+    const snooze = held<{ notifications: LinearNotification[] }>();
+    const read = held<{ notifications: LinearNotification[] }>();
+    const sent: string[] = [];
+    setLinearTransport(async (path) => {
+      sent.push(path);
+      if (path.endsWith("notificationSnoozeAll")) return snooze.promise;
+      if (path.endsWith("notificationMarkReadAll")) return read.promise;
+      throw new Error(`unexpected ${path}`);
+    });
+    const later = "2026-11-01T09:00:00.000Z";
+    const snoozing = linearStore.writeNotifications("notificationSnoozeAll", { issueId: "i-1", snoozedUntilAt: later }, ["n1"], {
+      snoozedUntilAt: later,
+    });
+    const reading = linearStore.writeNotifications("notificationMarkReadAll", { issueId: "i-1", readAt: "r" }, ["n1"], {
+      readAt: "2026-10-31T00:00:00Z",
+    });
+    await settled();
+    assert.deepEqual(sent, ["linear/m/notificationSnoozeAll"], "the read waits for the snooze");
+    const shown = () => linearStore.getState().notifications.get("n1");
+    assert.deepEqual([shown()?.snoozedUntilAt, shown()?.readAt], [later, "2026-10-31T00:00:00Z"]);
+    snooze.refuse(new Error("No"));
+    assert.equal(await snoozing, false);
+    // The snooze goes back; the read, still pending, stays.
+    assert.deepEqual([shown()?.snoozedUntilAt, shown()?.readAt], [undefined, "2026-10-31T00:00:00Z"]);
+    read.release({ notifications: [note("n1", { readAt: "2026-10-31T00:00:00Z", updatedAt: "2026-10-31T00:00:01Z" })] });
+    assert.equal(await reading, true);
+    assert.deepEqual(sent, ["linear/m/notificationSnoozeAll", "linear/m/notificationMarkReadAll"]);
+    assert.deepEqual([shown()?.snoozedUntilAt, shown()?.readAt], [undefined, "2026-10-31T00:00:00Z"]);
+  });
+
+  it("an inbox read begun before a write was saved doesn't undo it, nor bring back what was archived", async () => {
+    const note = (id: string, extra: Partial<LinearNotification> = {}): LinearNotification => ({
+      id,
+      type: "issueNewComment",
+      title: "ENG-1 Issue 1",
+      subtitle: "Sam commented",
+      url: "https://linear.app/x",
+      createdAt: "2026-10-30T00:00:00Z",
+      updatedAt: "2026-10-30T00:00:00Z",
+      issueId: "i-1",
+      ...extra,
+    });
+    linearStore.mergeNotifications([note("n1"), note("n2", { issueId: "i-2" })]);
+    const load = held<{ notifications: LinearNotification[] }>();
+    setLinearTransport(async (path) => {
+      if (path === "linear/q/notifications") return load.promise;
+      if (path.endsWith("notificationMarkReadAll"))
+        return { notifications: [note("n1", { readAt: "2026-10-31T00:00:00Z" })] };
+      if (path.endsWith("notificationArchiveAll")) return { notifications: [note("n2", { issueId: "i-2", archivedAt: "a" })] };
+      throw new Error(`unexpected ${path}`);
+    });
+    const loading = loadNotifications(true);
+    await linearStore.writeNotifications("notificationMarkReadAll", { issueId: "i-1", readAt: "r" }, ["n1"], {
+      readAt: "2026-10-31T00:00:00Z",
+    });
+    await linearStore.writeNotifications("notificationArchiveAll", { issueId: "i-2" }, ["n2"], { archivedAt: "a" });
+    // The load's answer, from before both.
+    load.release({ notifications: [note("n1"), note("n2", { issueId: "i-2" })] });
+    await loading;
+    assert.equal(linearStore.getState().notifications.get("n1")?.readAt, "2026-10-31T00:00:00Z");
+    assert.equal(linearStore.getState().notifications.has("n2"), false);
+    // A newer record than the page's (changed in Linear since) still comes in.
+    linearStore.applySync(sync({ notifications: [note("n1", { updatedAt: "2026-11-02T00:00:00Z" })] }), 0);
+    assert.equal(linearStore.getState().notifications.get("n1")?.readAt, undefined);
+  });
+
   it("loads the views once, and again when fresh", async () => {
     const view = { id: "v1", name: "Mine", color: "#000", shared: false, updatedAt: "", display: { layout: "board" } };
     answers.views = () => ({ views: [view] });

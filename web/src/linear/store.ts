@@ -376,25 +376,77 @@ function mergeWorkspaceRows(projects: LinearProject[], initiatives: LinearInitia
   });
 }
 
-/** Notifications with a write in flight: merges leave them as the write shows them. */
-const pendingNotifications = new Map<string, number>();
+/** Notification fields with a write in flight, by notification id: merges leave them as the write shows them. */
+const notePending = new Map<string, Map<string, number>>();
+/** When each notification's last write was saved (`clock`): a read begun before then can't undo it. */
+const noteSaved = new Map<string, number>();
+/** Each notification's writes, one after another: the last choice is the last Linear applies. */
+const noteQueues = new Map<string, Promise<unknown>>();
 
-/** Notifications Linear sent: archived ones leave the Inbox; the rest take their place (unless a write is in flight). */
-function mergeNotifications(list: LinearNotification[] = [], force = false): void {
+/**
+ * What a notification Linear sent becomes: "keep" leaves the page's as it is
+ * (the read began before a write of it was saved, and isn't newer; or it's
+ * being archived), null takes it out (archived), else the record, with the
+ * fields a write has in flight as the page shows them. `readAt` is when the
+ * read began (`clock`); a write's own answer has none.
+ */
+function resolveNotification(n: LinearNotification, readAt?: number): LinearNotification | null | "keep" {
+  const known = state.notifications.get(n.id);
+  const saved = noteSaved.get(n.id);
+  const newer = !!known && Date.parse(n.updatedAt) > Date.parse(known.updatedAt);
+  if (readAt !== undefined && saved !== undefined && saved > readAt && !newer) return "keep";
+  const pending = notePending.get(n.id);
+  if (pending?.has("archivedAt")) return "keep";
+  if (n.archivedAt) return null;
+  if (!pending || !known) return n;
+  const next = { ...n } as Record<string, unknown>;
+  const was = known as Record<string, unknown>;
+  for (const field of pending.keys()) {
+    if (field in was) next[field] = was[field];
+    else delete next[field];
+  }
+  return next as LinearNotification;
+}
+
+/** Notifications Linear sent (a sync, a write's answer): archived ones leave the Inbox; see `resolveNotification`. */
+function mergeNotifications(list: LinearNotification[] = [], readAt?: number): void {
   if (list.length === 0) return;
   const notifications = new Map(state.notifications);
   for (const n of list) {
-    if (!force && pendingNotifications.has(n.id)) continue;
-    if (n.archivedAt) notifications.delete(n.id);
-    else notifications.set(n.id, n);
+    const next = resolveNotification(n, readAt);
+    if (next === "keep") continue;
+    if (next === null) notifications.delete(n.id);
+    else notifications.set(n.id, next);
   }
   publish({ notifications });
 }
 
+/** Sets notifications as the page shows them (an edit, or putting one back), and takes others out. */
+function setNotifications(records: LinearNotification[], removed: string[] = []): void {
+  if (!records.length && !removed.length) return;
+  const notifications = new Map(state.notifications);
+  for (const n of records) notifications.set(n.id, n);
+  for (const id of removed) notifications.delete(id);
+  publish({ notifications });
+}
+
+/** A record with `patch` applied; undefined values remove a field. */
+function patched<T extends object>(record: T, patch: Record<string, unknown>): T {
+  const next = { ...record } as Record<string, unknown>;
+  for (const [k, v] of Object.entries(patch)) {
+    if (v === undefined) delete next[k];
+    else next[k] = v;
+  }
+  return next as T;
+}
+
 /**
  * A write on notifications (read, unread, snooze, unsnooze, archive, unarchive):
- * `ids` show `patch` at once (archived ones leave), then Linear's answer; if
- * Linear refuses, they go back as they were and the notice says why.
+ * `ids` show `patch` at once (archived ones leave), then Linear's answer. A
+ * notification's writes go one after another, and while one is in flight
+ * syncs and loads leave its fields alone; once saved, a read begun before
+ * can't undo it. If Linear refuses, only the fields this write set go back
+ * (those a later write holds stay), and the notice says why.
  */
 async function writeNotifications(
   name: WriteName,
@@ -402,29 +454,54 @@ async function writeNotifications(
   ids: string[],
   patch: Partial<LinearNotification>,
 ): Promise<boolean> {
-  const before = ids.map((id) => state.notifications.get(id)).filter((n): n is LinearNotification => !!n);
+  const fields = Object.keys(patch);
+  const before = new Map(ids.map((id) => [id, state.notifications.get(id)]));
   const mark = ++lastMark;
-  for (const id of ids) pendingNotifications.set(id, mark);
-  mergeNotifications(
-    before.map((n) => {
-      const next = { ...n, ...patch } as Record<string, unknown>;
-      for (const [k, v] of Object.entries(patch)) if (v === undefined) delete next[k];
-      return next as LinearNotification;
-    }),
-    true,
-  );
-  const settle = () => {
-    for (const id of ids) if (pendingNotifications.get(id) === mark) pendingNotifications.delete(id);
+  for (const id of ids) {
+    const marks = notePending.get(id) ?? new Map<string, number>();
+    for (const field of fields) marks.set(field, mark);
+    notePending.set(id, marks);
+  }
+  const shown = [...before.values()].filter((n): n is LinearNotification => !!n);
+  if (patch.archivedAt) setNotifications([], shown.map((n) => n.id));
+  else setNotifications(shown.map((n) => patched(n, patch)));
+
+  const previous = Promise.all(ids.map((id) => noteQueues.get(id)));
+  const request = previous.then(() => linearWrite<{ notifications?: LinearNotification[] }>(name, input));
+  const queued = request.catch(() => {});
+  for (const id of ids) noteQueues.set(id, queued);
+  const release = () => {
+    for (const id of ids) {
+      const marks = notePending.get(id);
+      for (const field of fields) if (marks?.get(field) === mark) marks.delete(field);
+      if (marks?.size === 0) notePending.delete(id);
+      if (noteQueues.get(id) === queued) noteQueues.delete(id);
+    }
   };
   try {
-    const answer = await linearWrite<{ notifications?: LinearNotification[] }>(name, input);
-    settle();
+    const answer = await request;
+    release();
+    const at = ++clock;
+    for (const id of ids) noteSaved.set(id, at);
     mergeNotifications(answer?.notifications ?? []);
     return true;
   } catch (e) {
-    settle();
-    // Back as Linear has them (an archived one comes back too).
-    mergeNotifications(before, true);
+    release();
+    // Back as they were, but only what this write set and no later one holds.
+    const back: LinearNotification[] = [];
+    for (const [id, was] of before) {
+      if (!was) continue;
+      const held = notePending.get(id);
+      const mine = fields.filter((f) => !held?.has(f));
+      const current = state.notifications.get(id);
+      if (!current) {
+        if (mine.includes("archivedAt")) back.push(was);
+        continue;
+      }
+      const wasFields = was as Record<string, unknown>;
+      back.push(patched(current, Object.fromEntries(mine.map((f) => [f, wasFields[f]]))));
+    }
+    setNotifications(back);
     notify(`Linear didn't save that: ${errorMessage(e) || "it didn't answer"}`);
     return false;
   }
@@ -434,7 +511,7 @@ function applySync(delta: LinearSync, readAt?: number): void {
   mergeIssues(delta.issues, readAt);
   mergeComments(delta.comments);
   mergeWorkspaceRows(delta.projects, delta.initiatives);
-  mergeNotifications(delta.notifications);
+  mergeNotifications(delta.notifications, readAt);
   publish({ cursor: delta.cursor });
 }
 
@@ -485,7 +562,9 @@ export const linearStore = {
     viewsLoad = undefined;
     searchedAt.clear();
     notificationsLoad = undefined;
-    pendingNotifications.clear();
+    notePending.clear();
+    noteSaved.clear();
+    noteQueues.clear();
     for (const fn of [...listeners]) fn();
   },
 };
@@ -556,12 +635,20 @@ export function loadNotifications(fresh = false): Promise<void> {
   if (!fresh && state.notificationsLoaded) return Promise.resolve();
   notificationsLoad ??= (async () => {
     noteLoadStart();
+    const at = ++clock;
     const answer = await linearRead<{ notifications: LinearNotification[] }>("notifications");
     if (!accept(answer)) return;
-    // Those with a write in flight keep what it shows.
-    const notifications = new Map(
-      answer.notifications.map((n) => [n.id, pendingNotifications.has(n.id) ? state.notifications.get(n.id) ?? n : n]),
-    );
+    // The Inbox as Linear listed it, but for what was written here since the read began, or is being written.
+    const notifications = new Map<string, LinearNotification>();
+    const listed = new Set<string>();
+    for (const n of answer.notifications) {
+      listed.add(n.id);
+      const next = resolveNotification(n, at);
+      const keep = next === "keep" ? state.notifications.get(n.id) : next;
+      if (keep) notifications.set(n.id, keep);
+    }
+    for (const [id, known] of state.notifications)
+      if (!listed.has(id) && ((noteSaved.get(id) ?? 0) > at || notePending.has(id))) notifications.set(id, known);
     publish({ notifications, notificationsLoaded: true });
   })().finally(() => {
     notificationsLoad = undefined;
