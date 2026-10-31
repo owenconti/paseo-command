@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence } from "framer-motion";
-import { Archive, Box, ChevronRight, ListTodo, PanelLeftOpen, RefreshCcw, RefreshCw, X } from "lucide-react";
+import { Archive, Box, ChevronRight, Layers, ListTodo, PanelLeftOpen, RefreshCcw, RefreshCw, X } from "lucide-react";
 import { errorMessage, readStore, writeStore } from "../api";
 import { onAppCommand, runAppCommand, type AppCommand } from "../appCommands";
 import { modalOpen } from "../focus";
@@ -9,18 +9,27 @@ import { useSecretRevision } from "../integrationSettings";
 import { isTyping } from "../worldShortcut";
 import { CreateIssue, type CreateInitial } from "./CreateIssue";
 import { CycleFacts, CycleList } from "./Cycles";
-import { readListView } from "./display";
+import { DEFAULT_DISPLAY, readListView, type Display } from "./display";
 import { InitiativeList } from "./InitiativeList";
 import { IssueDetail } from "./IssueDetail";
 import { IssueList, type IssueListNav, type IssueListState } from "./IssueList";
 import { linearKeyAction, type LinearKey } from "./keys";
-import { checkPlace, placeScope, readPlace, writePlace, type LinearPlace } from "./place";
+import { checkPlace, DEFAULT_PLACE, placeScope, readPlace, writePlace, type LinearPlace } from "./place";
 import { cycleName } from "./bits";
 import { ProjectFacts, ProjectList } from "./ProjectList";
 import type { IssueContext } from "./prompt";
 import { Sidebar } from "./Sidebar";
 import { changeTextStep, checkTextStep, textSizeKey, type TextChange } from "./textSize";
-import { linearStore, loadCycles, loadScope, loadWorkspace, setLinearNotice, useLinear, useLinearSync } from "./store";
+import {
+  linearStore,
+  loadCycles,
+  loadScope,
+  loadViews,
+  loadWorkspace,
+  setLinearNotice,
+  useLinear,
+  useLinearSync,
+} from "./store";
 import type { IssueScope, LinearIssue } from "./types";
 
 /** The sidebar's width: its default, and the least it and the rest of the view keep. */
@@ -65,6 +74,8 @@ export type LinearViewState = {
   undoKey?: string;
   /** A list of issues shows, so / searches it, F filters it and its display can change. */
   canSearch: boolean;
+  /** Your saved views, by name. */
+  views: { id: string; name: string }[];
   /** The list's layout and whether it's filtered, while one shows. */
   list?: Pick<IssueListState, "layout" | "filtered">;
 };
@@ -174,7 +185,18 @@ export function LinearView({
 
   useEffect(() => {
     loadWs(false).catch(() => {});
+    loadViews().catch(() => {});
   }, [loadWs]);
+  // A view you can no longer see (deleted, unshared) goes back to the default place.
+  const views = useLinear((d) => d.views);
+  useEffect(() => {
+    if (!views) return;
+    setPlaceState((was) => {
+      if (was.screen !== "view" || views.some((v) => v.id === was.viewId)) return was;
+      writePlace(DEFAULT_PLACE);
+      return DEFAULT_PLACE;
+    });
+  }, [views]);
   // Once the workspace is in, a remembered team or project it doesn't have goes back to the default.
   useEffect(() => {
     if (!ws) return;
@@ -202,6 +224,7 @@ export function LinearView({
     // The open issue is asked for again by its view, as `revision` changes.
     Promise.all([
       loadWs(true),
+      loadViews(true),
       scope ? loadPlace(scope, true) : undefined,
       cycleTeam ? loadCycles(cycleTeam, true) : undefined,
     ])
@@ -274,11 +297,15 @@ export function LinearView({
         : undefined,
     );
   }, [openKey, subscribed, hasBranch, hasLink, hasCycles, hasEstimates, hasMilestones, mine, onIssueOpen]);
-  // A reload (sync's "more") asks for the open issue too.
+  // A reload (sync's "more") asks for the open issue too; a view shown is asked again as issues change.
   useEffect(() => {
     linearStore.setOpenIssue(place.issue);
     return () => linearStore.setOpenIssue(undefined);
   }, [place.issue]);
+  useEffect(() => {
+    linearStore.setShownScope(scope ?? undefined);
+    return () => linearStore.setShownScope(undefined);
+  }, [scope]);
   useEffect(() => () => onIssueOpen?.(undefined), [onIssueOpen]);
   useEffect(() => {
     onReady?.(!!ws);
@@ -437,16 +464,23 @@ export function LinearView({
   // ⌘K's places, Undo and list search, offered only while they'd work.
   const teams = ws?.teams;
   const undoKey = undo?.phase === "archived" ? undo.key : undefined;
+  // A view's own display, as set in Linear, until it's changed here.
+  const shownView = place.screen === "view" ? views?.find((v) => v.id === place.viewId) : undefined;
+  const placeDisplay = useMemo<Display>(
+    () => ({ ...DEFAULT_DISPLAY, ...shownView?.display }),
+    [shownView?.display],
+  );
   // A board needs the width: an issue opens in its place, as in Linear.
   // The place's layout: as its list said, else as kept (the list may not show, the issue in its place).
   const layout = !scope
     ? undefined
     : listState?.key === scope
       ? listState.layout
-      : readListView(scope).display.layout;
+      : readListView(scope, placeDisplay).display.layout;
   const boardShown = layout === "board";
   const wide = (viewWidth === 0 || viewWidth >= BESIDE_MIN) && !boardShown;
   const canSearch = !!ws && !!scope && (!place.issue || wide);
+  const viewPlaces = JSON.stringify(views?.map((v) => ({ id: v.id, name: v.name })) ?? []);
   const currentCycles = ws?.cycles.filter((c) => c.isActive);
   const teamPlaces = JSON.stringify(
     teams?.map((t) => [
@@ -469,9 +503,10 @@ export function LinearView({
       })),
       undoKey,
       canSearch,
+      views: JSON.parse(viewPlaces) as { id: string; name: string }[],
       ...(canSearch && listState?.key === scope ? { list: { layout: listState.layout, filtered: listState.filtered } } : {}),
     });
-  }, [teamPlaces, undoKey, canSearch, listState, scope, onViewState]);
+  }, [teamPlaces, viewPlaces, undoKey, canSearch, listState, scope, onViewState]);
   useEffect(() => () => onViewState?.(undefined), [onViewState]);
 
   if (!ws && (unavailable || workspaceError))
@@ -529,6 +564,11 @@ export function LinearView({
           {teamCrumb}
           {TEAM_TITLE[place.tab]}
         </>
+      ) : place.screen === "view" ? (
+        <>
+          <Layers size={16} aria-hidden="true" className="linear-view-icon" style={{ color: shownView?.color }} />
+          {shownView?.name ?? "View"}
+        </>
       ) : place.screen === "cycle" ? (
         <>
           {teamCrumb}
@@ -558,9 +598,20 @@ export function LinearView({
         capped={cappedScopes.has(scope!)}
         error={scopeErrors[scope!]}
         nav={nav}
-        teamId={place.screen === "cycle" ? place.teamId : undefined}
+        teamId={place.screen === "cycle" ? place.teamId : shownView?.teamId}
+        defaultDisplay={placeDisplay}
         onListState={setListState}
       >
+        {shownView && (shownView.description || ws) && (
+          <p className="linear-view-about">
+            {shownView.description && <span>{shownView.description}</span>}
+            <span className="linear-view-owner">
+              {shownView.shared ? "Shared" : "Only you"}
+              {ws?.users.find((u) => u.id === shownView.ownerId) &&
+                ` · by ${ws.users.find((u) => u.id === shownView.ownerId)!.name}`}
+            </span>
+          </p>
+        )}
         {project && (
           <div className="linear-project-summary">
             <Box size={14} style={{ color: project.color }} aria-hidden="true" />

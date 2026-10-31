@@ -201,3 +201,51 @@ test("a board: a column for each of the team's states, cards dragged between the
     await context.close();
   }
 });
+
+test("saved views: listed in the sidebar, each with its own filter and Linear's display, kept current as issues change", async () => {
+  const { context, page, linear, view, sidebar } = await openLinear();
+  try {
+    const views = sidebar.locator('section[aria-labelledby="linear-nav-views"]');
+    await views.getByRole("button", { name: "Sam's work" }).waitFor();
+    assert.deepEqual(await views.locator(".linear-nav-label").allInnerTexts(), ["Launch in flight", "Sam's work"]);
+
+    // Sam's work: a list without groups, nothing finished (as the view is set in Linear).
+    await views.getByRole("button", { name: "Sam's work" }).click();
+    await view.locator(".linear-list-head h2", { hasText: "Sam's work" }).waitFor();
+    await waitFor(() => rowKeys(page), (keys) => keys.length === 2, "Sam's open issues");
+    assert.deepEqual((await rowKeys(page)).sort(), ["DE-1", "ENG-2"]);
+    assert.match(await view.locator(".linear-view-about").innerText(), /Only you · by Owen Conti/);
+    assert.ok(linear.requests.some((r) => r.operation === "ViewIssues"));
+
+    // Launch in flight: a board by assignee.
+    await views.getByRole("button", { name: "Launch in flight" }).click();
+    await view.locator(".linear-board").waitFor();
+    await waitFor(() => groupNames(page), (names) => names.join() === "Owen Conti", "a column for Owen");
+    assert.deepEqual(
+      await view.locator(".linear-card").evaluateAll((cards) => cards.map((c) => (c as HTMLElement).dataset.key)),
+      ["ENG-3", "ENG-1"],
+      "urgent first",
+    );
+    assert.match(await view.locator(".linear-view-about").innerText(), /Started work on the launch/);
+
+    // ENG-3 is done elsewhere: the next sync asks for the view again, and it leaves.
+    const eng3 = linear.ws.issues.find((i) => i.identifier === "ENG-3")!;
+    eng3.state = { id: FAKE_IDS.states.eng.Done };
+    eng3.updatedAt = new Date().toISOString();
+    await page.evaluate(() => document.dispatchEvent(new Event("visibilitychange")));
+    await waitFor(
+      () => view.locator(".linear-card").evaluateAll((cards) => cards.map((c) => (c as HTMLElement).dataset.key)),
+      (keys) => keys.join() === "ENG-1",
+      "ENG-3 to leave the view",
+    );
+
+    // ⌘K goes to a view.
+    await page.keyboard.press("Meta+k");
+    await page.keyboard.type("Sam's work (Linear view)");
+    await page.keyboard.press("Enter");
+    await view.locator(".linear-list-head h2", { hasText: "Sam's work" }).waitFor();
+  } finally {
+    linear.restore();
+    await context.close();
+  }
+});

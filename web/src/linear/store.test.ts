@@ -9,6 +9,7 @@ import {
   loadCycles,
   loadIssue,
   loadScope,
+  loadViews,
   loadWorkspace,
   markPending,
   scopeIssues,
@@ -122,6 +123,39 @@ describe("linear store", () => {
     assert.deepEqual(scopeIssues(linearStore.getState(), "cycle:c-7").map((i) => i.key).sort(), ["ENG-1", "ENG-2"]);
     linearStore.mergeIssues([issue(1, { updatedAt: "2026-10-02T00:00:00Z" })]);
     assert.deepEqual(scopeIssues(linearStore.getState(), "cycle:c-7").map((i) => i.key), ["ENG-2"]);
+  });
+
+  it("a view's issues are those Linear returned, in its order, asked again when a sync changes issues while it shows", async () => {
+    linearStore.setWorkspace(WS);
+    let members = ["i-2", "i-1"];
+    answers.issues = () => ({ issues: members.map((id) => issue(Number(id.slice(2)))) });
+    await loadScope("view:v1");
+    assert.deepEqual(scopeIssues(linearStore.getState(), "view:v1").map((i) => i.key), ["ENG-2", "ENG-1"]);
+    // Nothing asked by id: a view's load says itself what's in it.
+    assert.deepEqual(calls, ["linear/q/issues?scope=view%3Av1"]);
+    // A sync brings a change: the view shown is asked again, and ENG-2 has left it.
+    linearStore.setShownScope("view:v1");
+    members = ["i-1"];
+    answers.sync = () => sync({ issues: [issue(2, { title: "Moved", updatedAt: "2026-10-02T00:00:00Z" })] });
+    linearStore.applySync(sync({ cursor: "2026-10-01T00:00:00Z" }));
+    await syncTick();
+    assert.deepEqual(scopeIssues(linearStore.getState(), "view:v1").map((i) => i.key), ["ENG-1"]);
+    // Not shown: a sync leaves it as it was.
+    linearStore.setShownScope(undefined);
+    calls = [];
+    await syncTick();
+    assert.ok(!calls.some((c) => c.includes("scope=view")));
+  });
+
+  it("loads the views once, and again when fresh", async () => {
+    const view = { id: "v1", name: "Mine", color: "#000", shared: false, updatedAt: "", display: { layout: "board" } };
+    answers.views = () => ({ views: [view] });
+    await Promise.all([loadViews(), loadViews()]);
+    await loadViews();
+    assert.deepEqual(calls, ["linear/q/views"]);
+    assert.deepEqual(linearStore.getState().views, [view]);
+    await loadViews(true);
+    assert.equal(calls.length, 2);
   });
 
   it("loads a team's cycles once, and again when fresh", async () => {

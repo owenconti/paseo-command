@@ -8,7 +8,7 @@
 import { after, before, test } from "node:test";
 import assert from "node:assert/strict";
 import type { Browser, Locator, Page } from "playwright";
-import { FAKE_IDS, fakeWorkspace } from "../server/linear/fake";
+import { FAKE_IDS, READ_OPERATIONS, fakeWorkspace } from "../server/linear/fake";
 import { PNG, launch, mockApi, newContext, startApp, waitFor } from "./harness";
 import { mockLinear } from "./linearFake";
 
@@ -195,7 +195,7 @@ test("Linear navigates my issues, teams, projects and initiatives, shows an issu
     // Only reads reached the fake Linear.
     assert.ok(linear.requests.length > 0);
     assert.deepEqual(
-      [...new Set(linear.requests.map((r) => r.operation))].filter((o) => !["Workspace", "Issues", "Issue", "Sync"].includes(o)),
+      [...new Set(linear.requests.map((r) => r.operation))].filter((o) => !READ_OPERATIONS.includes(o)),
       [],
     );
   } finally {
@@ -240,7 +240,7 @@ const fakeIssue = (linear: Awaited<ReturnType<typeof mockLinear>>, key: string) 
 const focusedName = (page: Page) =>
   page.evaluate(() => document.activeElement?.getAttribute("aria-label") ?? document.activeElement?.textContent ?? "");
 const writesMade = (linear: Awaited<ReturnType<typeof mockLinear>>) =>
-  linear.requests.map((r) => r.operation).filter((o) => !["Workspace", "Issues", "Issue", "Sync"].includes(o));
+  linear.requests.map((r) => r.operation).filter((o) => !READ_OPERATIONS.includes(o));
 
 test("edits each property", async () => {
   const { context, page, linear, view, issue } = await openLinear(editWorkspace());

@@ -11,6 +11,7 @@ export type LinearPlace = (
   | { screen: "team"; teamId: string; tab: TeamTab }
   | { screen: "cycles"; teamId: string }
   | { screen: "cycle"; teamId: string; cycleId: string }
+  | { screen: "view"; viewId: string }
   | { screen: "projects" }
   | { screen: "project"; projectId: string }
   | { screen: "initiatives" }
@@ -33,6 +34,8 @@ export function placeScope(p: LinearPlace): IssueScope | null {
       return `project:${p.projectId}`;
     case "cycle":
       return `cycle:${p.cycleId}`;
+    case "view":
+      return `view:${p.viewId}`;
     default:
       return null;
   }
@@ -74,6 +77,10 @@ export function checkPlace(raw: unknown, ws?: LinearWorkspace): LinearPlace {
       if (typeof p.cycleId !== "string" || !ID.test(p.cycleId)) return { screen: "cycles", teamId: p.teamId, ...issue };
       return { screen: "cycle", teamId: p.teamId, cycleId: p.cycleId, ...issue };
     }
+    case "view":
+      // Whether you can see the view is known once the views are in (the Linear view checks).
+      if (typeof p.viewId !== "string" || !ID.test(p.viewId)) return DEFAULT_PLACE;
+      return { screen: "view", viewId: p.viewId, ...issue };
     case "project":
       if (typeof p.projectId !== "string" || (ws && !ws.projects.some((x) => x.id === p.projectId)))
         return DEFAULT_PLACE;

@@ -38,6 +38,25 @@ export type LinearCycle = {
   scope?: number;
   done?: number;
 };
+/** A saved custom view of issues (Linear's Views), with its own display as set in Linear, in the page's words. */
+export type LinearCustomView = {
+  id: string;
+  name: string;
+  description?: string;
+  icon?: string;
+  color: string;
+  /** Shared with the workspace (or its team), else yours alone. */
+  shared: boolean;
+  teamId?: string;
+  ownerId?: string;
+  updatedAt: string;
+  display: {
+    layout?: "list" | "board";
+    grouping?: "status" | "assignee" | "priority" | "project" | "cycle" | "none";
+    ordering?: "priority" | "updated" | "created" | "manual" | "due" | "title";
+    completed?: "all" | "week" | "month" | "none";
+  };
+};
 export type LinearProject = {
   id: string;
   name: string;
@@ -141,7 +160,8 @@ export type IssueScope =
   | "subscribed"
   | `team:${string}:${"triage" | "active" | "backlog" | "all"}`
   | `project:${string}`
-  | `cycle:${string}`;
+  | `cycle:${string}`
+  | `view:${string}`;
 export type WriteName =
   | "issueUpdate"
   | "issueCreate"

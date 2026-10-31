@@ -39,6 +39,9 @@ test("answers named reads and refuses others", async () => {
   assert.equal((await ask(`/api/linear/q/cycles?team=${I.eng}&x=1`)).status, 400);
   assert.equal((await ask(`/api/linear/q/cycles?team=nope`)).status, 400);
   assert.equal((await ask(`/api/linear/q/issues?scope=cycle:${I.cycles.eng}`)).body.issues.length, 2);
+  assert.equal((await ask("/api/linear/q/views")).body.views.length, 2);
+  assert.equal((await ask("/api/linear/q/views?x=1")).status, 400);
+  assert.equal((await ask(`/api/linear/q/issues?scope=view:${I.views.samsWork}`)).body.issues.length, 3);
   assert.equal((await ask("/api/linear/q/issues?scope=bad")).status, 400);
   assert.equal((await ask("/api/linear/q/issues")).status, 400);
   assert.equal((await ask("/api/linear/q/workspace?x=1")).body.error, "Unexpected parameters");

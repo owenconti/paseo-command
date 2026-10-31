@@ -119,6 +119,21 @@ export type FakeComment = {
   resolvedAt: string | null;
   reactions: { id: string; emoji: string; user: Ref }[];
 };
+export type FakeView = {
+  id: string;
+  name: string;
+  description: string | null;
+  icon: string | null;
+  color: string | null;
+  shared: boolean;
+  modelName: string;
+  updatedAt: string;
+  team: Ref | null;
+  owner: Ref;
+  /** The view's IssueFilter, which its issues pass. */
+  filterData: Record<string, unknown>;
+  viewPreferencesValues: { layout?: string; issueGrouping?: string; viewOrdering?: string; showCompletedIssues?: string } | null;
+};
 export type FakeWorkspace = {
   viewerId: string;
   users: FakeUser[];
@@ -130,6 +145,7 @@ export type FakeWorkspace = {
   initiatives: FakeInitiative[];
   issues: FakeIssue[];
   comments: FakeComment[];
+  views: FakeView[];
 };
 
 /** A stable UUID for the n-th fake entity of a kind (kind picks the last-but-one group). */
@@ -158,6 +174,7 @@ export const FAKE_IDS = {
   issues: seq(10, ISSUE_KEYS) as Record<string, string>,
   comments: seq(11, ["first", "reply", "reacted"]) as { first: string; reply: string; reacted: string },
   relations: seq(12, ["eng3blocks4"]) as { eng3blocks4: string },
+  views: seq(14, ["launchStarted", "samsWork", "projects"]) as { launchStarted: string; samsWork: string; projects: string },
 };
 
 const DAY = 86_400_000;
@@ -418,6 +435,50 @@ export function fakeWorkspace(): FakeWorkspace {
         reactions: [{ id: uuid(13, 1), emoji: "+1", user: ref(I.sam) }],
       },
     ],
+    views: [
+      {
+        id: I.views.launchStarted,
+        name: "Launch in flight",
+        description: "Started work on the launch",
+        icon: null,
+        color: "#5e6ad2",
+        shared: true,
+        modelName: "Issue",
+        updatedAt: ago(2),
+        team: null,
+        owner: ref(I.sam),
+        filterData: { project: { id: { eq: I.projects.launch } }, state: { type: { eq: "started" } } },
+        viewPreferencesValues: { layout: "board", issueGrouping: "assignee", viewOrdering: "priority", showCompletedIssues: "all" },
+      },
+      {
+        id: I.views.samsWork,
+        name: "Sam's work",
+        description: null,
+        icon: null,
+        color: null,
+        shared: false,
+        modelName: "Issue",
+        updatedAt: ago(3),
+        team: null,
+        owner: ref(I.owen),
+        filterData: { assignee: { id: { eq: I.sam } } },
+        viewPreferencesValues: { layout: "list", issueGrouping: "noGrouping", viewOrdering: "updatedAt", showCompletedIssues: "none" },
+      },
+      {
+        id: I.views.projects,
+        name: "Active projects",
+        description: null,
+        icon: null,
+        color: null,
+        shared: true,
+        modelName: "Project",
+        updatedAt: ago(3),
+        team: null,
+        owner: ref(I.owen),
+        filterData: {},
+        viewPreferencesValues: null,
+      },
+    ],
   };
 }
 
@@ -487,6 +548,20 @@ function passes(ws: FakeWorkspace, issue: FakeIssue, filter: Filter): boolean {
 const newestFirst = <T extends { updatedAt: string }>(items: T[]) =>
   [...items].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
 
+/** One page of the issues a filter lets through, newest first; the cursor is the next offset. */
+function issuePage(ws: FakeWorkspace, filter: Filter, variables: Record<string, unknown>) {
+  const all = newestFirst(ws.issues.filter((i) => !i.archivedAt && !i.trashed && passes(ws, i, filter)));
+  const start = variables.after ? Number(variables.after) : 0;
+  const end = start + Number(variables.first);
+  return {
+    nodes: all.slice(start, end),
+    pageInfo: { hasNextPage: end < all.length, endCursor: end < all.length ? String(end) : null },
+  };
+}
+
+/** The fake's reads, by operation name: everything else it answers is a write. */
+export const READ_OPERATIONS = ["Workspace", "Issues", "Issue", "Cycles", "CustomViews", "ViewIssues", "Sync"];
+
 /** The dispatch table, by GraphQL operation name: the reads here, the writes from `writes()`. */
 export const OPERATIONS: Record<string, FakeOperation> = {
   Workspace: ({ ws }) => {
@@ -529,18 +604,15 @@ export const OPERATIONS: Record<string, FakeOperation> = {
     };
   },
   /** Pages are offsets into the filtered, newest-first list; the cursor is the next offset. */
-  Issues: ({ ws, variables }) => {
-    const filter = (variables.filter ?? {}) as Filter;
-    const all = newestFirst(ws.issues.filter((i) => !i.archivedAt && !i.trashed && passes(ws, i, filter)));
-    const start = variables.after ? Number(variables.after) : 0;
-    const first = Number(variables.first);
-    const end = start + first;
-    return {
-      issues: {
-        nodes: all.slice(start, end),
-        pageInfo: { hasNextPage: end < all.length, endCursor: end < all.length ? String(end) : null },
-      },
-    };
+  Issues: ({ ws, variables }) => ({ issues: issuePage(ws, (variables.filter ?? {}) as Filter, variables) }),
+  CustomViews: ({ ws }) => ({
+    customViews: { nodes: ws.views.map(({ filterData: _, ...view }) => view) },
+  }),
+  /** A view's issues: those its filter lets through, paged as `Issues`. */
+  ViewIssues: ({ ws, variables }) => {
+    const view = ws.views.find((v) => v.id === variables.id);
+    if (!view) throw new FakeGraphQlError("Entity not found: CustomView", "InvalidInput");
+    return { customView: { issues: issuePage(ws, view.filterData as Filter, variables) } };
   },
   Issue: ({ ws, variables }) => {
     const id = String(variables.id).toUpperCase();

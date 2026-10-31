@@ -6,6 +6,7 @@
  */
 import type {
   LinearComment,
+  LinearCustomView,
   LinearCycle,
   LinearInitiative,
   LinearIssue,
@@ -127,6 +128,69 @@ const lastCount = (v: unknown) => {
   const last = Array.isArray(v) ? v[v.length - 1] : undefined;
   return Math.max(0, Math.round(num(last)));
 };
+
+/** Linear's words for a view's display, as the page's (`display.ts`); anything else is left to the default. */
+const LAYOUT: Record<string, LinearCustomView["display"]["layout"]> = { list: "list", board: "board" };
+const GROUPING: Record<string, LinearCustomView["display"]["grouping"]> = {
+  workflowState: "status",
+  status: "status",
+  state: "status",
+  assignee: "assignee",
+  priority: "priority",
+  project: "project",
+  cycle: "cycle",
+  noGrouping: "none",
+  none: "none",
+};
+const ORDERING: Record<string, LinearCustomView["display"]["ordering"]> = {
+  priority: "priority",
+  updatedAt: "updated",
+  updated: "updated",
+  createdAt: "created",
+  created: "created",
+  manual: "manual",
+  dueDate: "due",
+  title: "title",
+};
+const COMPLETED: Record<string, LinearCustomView["display"]["completed"]> = {
+  all: "all",
+  pastMonth: "month",
+  month: "month",
+  pastWeek: "week",
+  week: "week",
+  pastDay: "week",
+  none: "none",
+};
+
+/** An issue view; null for one of projects, initiatives or anything else. */
+export function customViewOf(raw: Raw): LinearCustomView | null {
+  const id = str(raw.id);
+  if (!id || (str(raw.modelName) || "issue").toLowerCase() !== "issue") return null;
+  const prefs = rec(raw.viewPreferencesValues);
+  const pick = <T>(table: Record<string, T>, v: unknown): T | undefined =>
+    Object.hasOwn(table, str(v)) ? table[str(v)] : undefined;
+  const display: LinearCustomView["display"] = {};
+  const layout = pick(LAYOUT, prefs.layout);
+  const grouping = pick(GROUPING, prefs.issueGrouping);
+  const ordering = pick(ORDERING, prefs.viewOrdering);
+  const completed = pick(COMPLETED, prefs.showCompletedIssues);
+  if (layout) display.layout = layout;
+  if (grouping) display.grouping = grouping;
+  if (ordering) display.ordering = ordering;
+  if (completed) display.completed = completed;
+  return {
+    id,
+    name: clip(str(raw.name), 120),
+    description: clip(str(raw.description), 500) || undefined,
+    icon: clip(str(raw.icon), 40) || undefined,
+    color: color(raw.color),
+    shared: raw.shared === true,
+    teamId: optId(raw.team),
+    ownerId: optId(raw.owner),
+    updatedAt: str(raw.updatedAt),
+    display,
+  };
+}
 
 /** Linear's status is an object on projects and a plain word on initiatives. */
 const statusName = (v: unknown) => clip(typeof v === "string" ? v : str(rec(v).name), 60);

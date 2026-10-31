@@ -7,6 +7,7 @@ import {
   CircleDashed,
   CircleDot,
   Inbox,
+  Layers,
   ListTodo,
   LoaderCircle,
   PanelLeftClose,
@@ -56,7 +57,7 @@ function Item({
 /**
  * The Linear view's navigation, as Linear's own sidebar: your issues, each
  * team's views (Triage only where the team triages, Cycles where it runs
- * them), projects and initiatives.
+ * them), your saved views, projects and initiatives.
  * Teams open and close; which are open is remembered.
  */
 export function Sidebar({
@@ -76,6 +77,7 @@ export function Sidebar({
   onCreate?: () => void;
 }) {
   const teams = useLinear((d) => d.workspace?.teams);
+  const views = useLinear((d) => d.views);
   const [open, setOpen] = useState<string[]>(() => {
     const was = readStore<string[]>("linear:teamsOpen", []);
     // The team you're in starts open.
@@ -180,6 +182,22 @@ export function Sidebar({
             );
           })}
         </section>
+        {views && views.length > 0 && (
+          <section aria-labelledby="linear-nav-views">
+            <h3 id="linear-nav-views">Views</h3>
+            {views.map((v) => (
+              <Item
+                key={v.id}
+                place={{ screen: "view", viewId: v.id }}
+                current={place}
+                onPlace={onPlace}
+                icon={<Layers size={14} aria-hidden="true" style={{ color: v.color }} />}
+              >
+                {v.name}
+              </Item>
+            ))}
+          </section>
+        )}
         <section aria-label="Workspace">
           <Item
             place={{ screen: "projects" }}

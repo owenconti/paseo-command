@@ -4,6 +4,7 @@ import { isUnavailable, linearRead, linearWrite } from "./api";
 import type {
   IssueScope,
   LinearComment,
+  LinearCustomView,
   LinearCycle,
   LinearInitiative,
   LinearIssue,
@@ -30,6 +31,13 @@ export type LinearData = {
   cursor?: string;
   /** Each team's cycles with their progress (`q/cycles`), by team id, newest first. */
   cycles: Map<string, LinearCycle[]>;
+  /** The issue views you can see (`q/views`), once loaded. */
+  views?: LinearCustomView[];
+  /**
+   * The issues of scopes the store can't tell by itself (a view's own filter),
+   * by id in Linear's order, as their last load returned them.
+   */
+  members: Map<IssueScope, string[]>;
 };
 
 const SYNC_EVERY_MS = 20_000;
@@ -48,6 +56,7 @@ function empty(): LinearData {
     loadedScopes: new Set(),
     cappedScopes: new Set(),
     cycles: new Map(),
+    members: new Map(),
   };
 }
 
@@ -74,6 +83,8 @@ let syncing: Promise<void> | undefined;
 let retryScope: IssueScope | undefined;
 /** The issue open in the view, by key: a reload asks for it (and its comments) too. */
 let openKey: string | undefined;
+/** The scope the view shows: a view's is loaded again when a sync brings changed issues. */
+let shownScope: IssueScope | undefined;
 /**
  * Orders reads against saved writes: a read takes a tick when it starts, a
  * saved write a tick per field (`written`). A read that started before the
@@ -390,6 +401,10 @@ export const linearStore = {
   setOpenIssue(key: string | undefined): void {
     openKey = key;
   },
+  /** The scope the view shows (a view's is reloaded when issues change), or undefined. */
+  setShownScope(scope: IssueScope | undefined): void {
+    shownScope = scope;
+  },
   /** Back to empty (tests). */
   reset(): void {
     state = empty();
@@ -403,6 +418,8 @@ export const linearStore = {
     syncing = undefined;
     retryScope = undefined;
     openKey = undefined;
+    shownScope = undefined;
+    viewsLoad = undefined;
     for (const fn of [...listeners]) fn();
   },
 };
@@ -412,8 +429,19 @@ export function useLinear<T>(select: (d: LinearData) => T): T {
   return useSyncExternalStore(linearStore.subscribe, () => select(linearStore.getState()));
 }
 
-/** The scope as a predicate over the store, so an edit moves an issue between lists at once. Archived issues are never in it. */
+/** Scopes whose issues are what Linear last returned for them, not a predicate the store can apply. */
+export const listedScope = (scope: IssueScope) => scope.startsWith("view:");
+
+/**
+ * The scope as a predicate over the store, so an edit moves an issue between
+ * lists at once; a view's issues are those its last load returned (Linear
+ * applies its filter), in that order. Archived issues are never in it.
+ */
 export function scopeIssues(d: LinearData, scope: IssueScope): LinearIssue[] {
+  if (listedScope(scope))
+    return (d.members.get(scope) ?? [])
+      .map((id) => d.issues.get(id))
+      .filter((i): i is LinearIssue => !!i && !i.archivedAt);
   const stateType = (issue: LinearIssue) => d.workspace?.states.find((s) => s.id === issue.stateId)?.type;
   const open = (issue: LinearIssue) => {
     const type = stateType(issue);
@@ -453,6 +481,21 @@ export async function loadWorkspace(fresh = false): Promise<void> {
   noteLoadStart();
   const answer = await linearRead<LinearWorkspace>("workspace", fresh ? { fresh: "1" } : {});
   if (accept(answer)) linearStore.setWorkspace(answer);
+}
+
+let viewsLoad: Promise<void> | undefined;
+
+/** Loads the issue views you can see; asked once unless `fresh`. */
+export function loadViews(fresh = false): Promise<void> {
+  if (!fresh && state.views) return Promise.resolve();
+  viewsLoad ??= linearRead<{ views: LinearCustomView[] }>("views")
+    .then((answer) => {
+      if (accept(answer)) publish({ views: answer.views });
+    })
+    .finally(() => {
+      viewsLoad = undefined;
+    });
+  return viewsLoad;
 }
 
 const cycleLoads = new Map<string, Promise<void>>();
@@ -548,9 +591,11 @@ async function pageScope(scope: IssueScope): Promise<void> {
   const capped = new Set(state.cappedScopes);
   if (after) capped.add(scope);
   else capped.delete(scope);
-  publish({ loadedScopes: new Set(state.loadedScopes).add(scope), cappedScopes: capped });
-  // Only a complete load says what isn't in the scope.
-  if (!after) await recheckLeftovers(scope, returned);
+  // A view's issues are what Linear returned, in its order.
+  const members = listedScope(scope) ? new Map(state.members).set(scope, [...returned]) : state.members;
+  publish({ loadedScopes: new Set(state.loadedScopes).add(scope), cappedScopes: capped, members });
+  // Only a complete load says what isn't in the scope (a view's says so itself).
+  if (!after && !listedScope(scope)) await recheckLeftovers(scope, returned);
 }
 
 /** Loads a scope's issues, paging up to 1,000; a scope already loaded (or loading) is not asked again unless `fresh`. */
@@ -595,6 +640,9 @@ async function syncOnce(): Promise<void> {
   applySync(answer, at);
   // More than one batch changed: reload instead of re-asking from the newer cursor, which would skip the older changes.
   if (answer.more) await reloadAll();
+  // Changed issues may have joined or left the view shown, by its own filter: ask Linear again.
+  else if (answer.issues.length && shownScope && listedScope(shownScope) && state.loadedScopes.has(shownScope))
+    await pageScope(shownScope);
 }
 
 /**

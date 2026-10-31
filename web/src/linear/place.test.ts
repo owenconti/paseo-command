@@ -79,6 +79,13 @@ describe("linear place", () => {
     assert.deepEqual(readPlace(WS), { screen: "cycles", teamId: FAKE_IDS.eng });
   });
 
+  it("keeps a view by its id", () => {
+    writePlace({ screen: "view", viewId: FAKE_IDS.views.samsWork, issue: "ENG-2" });
+    assert.deepEqual(readPlace(WS), { screen: "view", viewId: FAKE_IDS.views.samsWork, issue: "ENG-2" });
+    stored.set("paseo-command:linear:place", JSON.stringify({ screen: "view", viewId: "../x" }));
+    assert.deepEqual(readPlace(WS), DEFAULT_PLACE);
+  });
+
   it("maps each place to the store's scope", () => {
     assert.equal(placeScope({ screen: "my", tab: "assigned" }), "assigned");
     assert.equal(placeScope({ screen: "my", tab: "created" }), "created");
@@ -88,6 +95,7 @@ describe("linear place", () => {
     assert.equal(placeScope({ screen: "project", projectId: FAKE_IDS.projects.launch }), `project:${FAKE_IDS.projects.launch}`);
     assert.equal(placeScope({ screen: "cycle", teamId: FAKE_IDS.eng, cycleId: FAKE_IDS.cycles.eng }), `cycle:${FAKE_IDS.cycles.eng}`);
     assert.equal(placeScope({ screen: "cycles", teamId: FAKE_IDS.eng }), null);
+    assert.equal(placeScope({ screen: "view", viewId: FAKE_IDS.views.samsWork }), `view:${FAKE_IDS.views.samsWork}`);
     assert.equal(placeScope({ screen: "projects" }), null);
     assert.equal(placeScope({ screen: "initiatives" }), null);
   });

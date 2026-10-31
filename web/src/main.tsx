@@ -1798,6 +1798,16 @@ function App() {
                   ]
                 : [],
             ),
+            // Your saved views.
+            ...linearView.views.map(
+              (view) =>
+                [
+                  { screen: "view", viewId: view.id },
+                  `Go to ${view.name} (Linear view)`,
+                  `linear saved custom view ${view.name}`,
+                  true,
+                ] as [LinearPlace, string, string, boolean],
+            ),
             [{ screen: "projects" }, "Go to Linear projects", "linear projects roadmap", false],
             [{ screen: "initiatives" }, "Go to Linear initiatives", "linear initiatives goals", false],
           ] as [LinearPlace, string, string, boolean][]

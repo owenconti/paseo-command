@@ -793,6 +793,23 @@
   color: var(--text);
 }
 
+/* A saved view's head */
+.linear-view-icon {
+  flex-shrink: 0;
+  margin-right: var(--space-2);
+}
+.linear-view-about {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-3);
+  margin: var(--space-1) var(--space-4) 0;
+  font-size: var(--fs-sm);
+  color: var(--text-2);
+}
+.linear-view-owner {
+  color: var(--text-4);
+}
+
 /* A team's cycles */
 .linear-cycle-section h3 {
   margin: var(--space-3) var(--space-2) var(--space-1);

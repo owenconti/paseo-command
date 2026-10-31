@@ -40,6 +40,24 @@ export const CYCLES_QUERY = `query Cycles($teamId: ID!, $cut: DateTimeOrDuration
   }
 }`;
 
+/** The issue views you can see (yours and shared), with each one's display as set in Linear. */
+export const VIEWS_QUERY = `query CustomViews {
+  customViews(first: 100) {
+    nodes { id name description icon color shared modelName updatedAt team { id } owner { id }
+      viewPreferencesValues { layout issueGrouping viewOrdering showCompletedIssues } }
+  }
+}`;
+
+/** A view's issues, by its own filter, most recently updated first. */
+export const VIEW_ISSUES_QUERY = `query ViewIssues($id: String!, $first: Int!, $after: String) {
+  customView(id: $id) {
+    issues(first: $first, after: $after, orderBy: updatedAt) {
+      nodes { ${ISSUE_FIELDS} }
+      pageInfo { hasNextPage endCursor }
+    }
+  }
+}`;
+
 export const ISSUES_QUERY = `query Issues($filter: IssueFilter, $first: Int!, $after: String) {
   issues(filter: $filter, first: $first, after: $after, orderBy: updatedAt) {
     nodes { ${ISSUE_FIELDS} }

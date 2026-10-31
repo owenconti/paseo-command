@@ -7,15 +7,25 @@ import type {
   IssueScope,
   LinearBudget,
   LinearComment,
+  LinearCustomView,
   LinearCycle,
   LinearIssue,
   LinearSync,
   LinearWorkspace,
 } from "../../src/linear/types";
 import { LinearError, linearApiKey, linearBudget, linearRequest } from "./client";
-import { CYCLES_QUERY, ISSUES_QUERY, ISSUE_QUERY, SYNC_QUERY, WORKSPACE_QUERY } from "./fragments";
+import {
+  CYCLES_QUERY,
+  ISSUES_QUERY,
+  ISSUE_QUERY,
+  SYNC_QUERY,
+  VIEW_ISSUES_QUERY,
+  VIEWS_QUERY,
+  WORKSPACE_QUERY,
+} from "./fragments";
 import {
   commentOf,
+  customViewOf,
   cycleOf,
   initiativeOf,
   issueDetailOf,
@@ -124,13 +134,29 @@ export async function readCycles(teamId: string): Promise<{ cycles: LinearCycle[
   };
 }
 
+/** The issue views you can see, yours and shared (not those of projects or initiatives). */
+export async function readViews(): Promise<{ views: LinearCustomView[] }> {
+  const data = await linearRequest<Data>("CustomViews", VIEWS_QUERY, {});
+  return {
+    views: nodesOf(data.customViews)
+      .map(customViewOf)
+      .filter(nonNull)
+      .sort((a, b) => a.name.localeCompare(b.name)),
+  };
+}
+
 /** One page of a scope's issues, most recently updated first; `next` is the cursor for the following page. */
 export async function readIssues(
   scope: IssueScope,
   after?: string,
   first = LINEAR_READS.pageSize,
 ): Promise<{ issues: LinearIssue[]; next?: string }> {
-  const data = await linearRequest<Data>("Issues", ISSUES_QUERY, { filter: filterFor(scope), first, after });
+  // A view's issues are its own filter's, which Linear applies.
+  const view = /^view:(.+)$/.exec(scope)?.[1];
+  if (view !== undefined && !ID.test(view)) throw new LinearError("invalid", "Unknown issue scope.");
+  const data = view
+    ? recOf((await linearRequest<Data>("ViewIssues", VIEW_ISSUES_QUERY, { id: view, first, after })).customView)
+    : await linearRequest<Data>("Issues", ISSUES_QUERY, { filter: filterFor(scope), first, after });
   const page = recOf(data.issues);
   const info = recOf(page.pageInfo);
   const next = strOf(info.endCursor);

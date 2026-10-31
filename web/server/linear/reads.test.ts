@@ -9,6 +9,7 @@ import {
   readIssuesById,
   readStatus,
   readSync,
+  readViews,
   readWorkspace,
   resetLinearReads,
 } from "./reads";
@@ -94,6 +95,24 @@ test("reads a team's cycles with their progress, and a cycle's issues", async ()
   assert.deepEqual(keys((await readIssues(`cycle:${I.cycles.engPast}`)).issues), ["ENG-6"]);
   await assert.rejects(readCycles("nope"), (e) => e instanceof LinearError && e.kind === "invalid");
   await assert.rejects(readIssues("cycle:nope" as never), (e) => e instanceof LinearError && e.kind === "invalid");
+});
+
+test("reads the issue views with their display, and a view's issues by its own filter", async () => {
+  const { views } = await readViews();
+  assert.deepEqual(
+    views.map((v) => [v.name, v.shared, v.display]),
+    [
+      ["Launch in flight", true, { layout: "board", grouping: "assignee", ordering: "priority", completed: "all" }],
+      ["Sam's work", false, { layout: "list", grouping: "none", ordering: "updated", completed: "none" }],
+    ],
+    "a project view isn't listed",
+  );
+  assert.equal(views[0].ownerId, I.sam);
+  assert.equal(views[0].description, "Started work on the launch");
+  assert.deepEqual(keys((await readIssues(`view:${I.views.launchStarted}`)).issues), ["ENG-1", "ENG-3"]);
+  assert.deepEqual(keys((await readIssues(`view:${I.views.samsWork}`)).issues), ["DE-1", "ENG-2", "ENG-6"]);
+  assert.equal(fake.requests.at(-1)?.operation, "ViewIssues");
+  await assert.rejects(readIssues("view:nope" as never), (e) => e instanceof LinearError && e.kind === "invalid");
 });
 
 test("pages through a scope with a cursor", async () => {
