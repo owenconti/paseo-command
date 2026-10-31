@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Plus, X } from "lucide-react";
+import { onAppCommand } from "../appCommands";
 import { IssueRow } from "./IssueList";
 import { Picker, type PickerOption } from "./Picker";
 import { linearStore, loadIssue, useLinear } from "./store";
@@ -50,6 +51,20 @@ export function Relations({
   const data = useLinear((d) => d);
   const [adding, setAdding] = useState<null | "type" | Adding>(null);
   const [busy, setBusy] = useState(false);
+  const addButton = useRef<HTMLButtonElement>(null);
+  const busyRef = useRef(busy);
+  busyRef.current = busy;
+  // ⌘K's "Add relation to …": the kind's picker, as the button opens it.
+  useEffect(
+    () =>
+      onAppCommand("linear-add-relation", () => {
+        if (busyRef.current) return;
+        addButton.current?.focus({ preventScroll: true });
+        addButton.current?.scrollIntoView({ block: "nearest" });
+        setAdding("type");
+      }),
+    [],
+  );
   const relations = issue.relations ?? [];
   const groups = RELATION_ORDER.map((type) => ({ type, items: relations.filter((r) => r.type === type) })).filter(
     (g) => g.items.length > 0,
@@ -87,6 +102,7 @@ export function Relations({
         <h3>Relations</h3>
         <span className="menu-anchor">
           <button
+            ref={addButton}
             type="button"
             className="ghost-btn"
             aria-haspopup="listbox"

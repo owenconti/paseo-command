@@ -21,6 +21,14 @@ export type AppCommand =
   | "linear-labels"
   | "linear-project"
   | "linear-cycle"
+  | "linear-estimate"
+  | "linear-milestone"
+  | "linear-parent"
+  | "linear-due-date"
+  | "linear-add-relation"
+  | "linear-undo-archive"
+  | "linear-search"
+  | "linear-go"
   | "linear-assign-me"
   | "linear-comment"
   | "linear-create"
@@ -33,13 +41,15 @@ export type AppCommand =
 
 const EVENT = "paseo:command";
 
-export function runAppCommand(name: AppCommand) {
-  window.dispatchEvent(new CustomEvent(EVENT, { detail: name }));
+/** Asks for `name`; `arg` is what it acts on, where it needs one (`linear-go`: the place). */
+export function runAppCommand(name: AppCommand, arg?: unknown) {
+  // The detail stays the bare name: the macOS app sends its own that way.
+  window.dispatchEvent(Object.assign(new CustomEvent(EVENT, { detail: name }), { arg }));
 }
 
-export function onAppCommand(name: AppCommand, run: () => void) {
+export function onAppCommand(name: AppCommand, run: (arg?: unknown) => void) {
   const listener = (event: Event) => {
-    if ((event as CustomEvent).detail === name) run();
+    if ((event as CustomEvent).detail === name) run((event as Event & { arg?: unknown }).arg);
   };
   window.addEventListener(EVENT, listener);
   return () => window.removeEventListener(EVENT, listener);

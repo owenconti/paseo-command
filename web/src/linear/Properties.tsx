@@ -270,11 +270,31 @@ const COMMANDS: [AppCommand, PropertyField][] = [
   ["linear-labels", "labels"],
   ["linear-project", "project"],
   ["linear-cycle", "cycle"],
+  ["linear-estimate", "estimate"],
+  ["linear-milestone", "milestone"],
+  ["linear-parent", "parent"],
 ];
 const FIELDS: PropertyField[] = ["status", "priority", "assignee", "labels", "estimate", "cycle", "project", "milestone", "parent"];
 
 function DueDate({ issue }: { issue: LinearIssue }) {
   const [draft, setDraft] = useState(issue.dueDate ?? "");
+  const input = useRef<HTMLInputElement>(null);
+  // ⌘K's "Set the due date": the field, with its calendar where the browser has one.
+  useEffect(
+    () =>
+      onAppCommand("linear-due-date", () => {
+        const el = input.current;
+        if (!el) return;
+        el.focus({ preventScroll: true });
+        el.scrollIntoView({ block: "nearest" });
+        try {
+          el.showPicker?.();
+        } catch {
+          // Not allowed here (no user gesture): the focused field is enough.
+        }
+      }),
+    [],
+  );
   useEffect(() => setDraft(issue.dueDate ?? ""), [issue.dueDate]);
   const commit = (day: string) => {
     if (day === (issue.dueDate ?? "")) return;
@@ -288,6 +308,7 @@ function DueDate({ issue }: { issue: LinearIssue }) {
   return (
     <span className="linear-prop-due">
       <input
+        ref={input}
         type="date"
         className={`linear-prop-date${draft ? "" : " empty"}`}
         aria-label="Due date"

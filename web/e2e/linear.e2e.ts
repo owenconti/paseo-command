@@ -246,7 +246,7 @@ test("edits each property", async () => {
     assert.deepEqual(await picker("Status").getByRole("option").allInnerTexts(), ["In Review"]);
     await page.keyboard.press("Enter");
     await issue.getByRole("button", { name: "Status: In Review" }).waitFor();
-    await view.locator('.linear-group[aria-label="In Review"] .linear-row[data-key="ENG-1"]').waitFor();
+    await view.getByRole("group", { name: "In Review" }).locator('.linear-row[data-key="ENG-1"]').waitFor();
     await inLinear("the status in Linear", () => eng1().state.id === FAKE_IDS.states.eng["In Review"]);
     assert.equal(await picker("Status").count(), 0);
     assert.equal(await focusedName(page), "Status: In Review");
@@ -882,6 +882,119 @@ test("drives an issue from the keyboard", async () => {
     await createDialog(page).waitFor();
     assert.equal(await focusedName(page), "Issue title");
     assert.deepEqual(writesMade(linear), ["IssueUpdate"]);
+  } finally {
+    linear.restore();
+    await context.close();
+  }
+});
+
+/** Whether ⌘K lists `label` (exactly) for that search; the palette closes again. */
+async function paletteHas(page: Page, label: string) {
+  await page.keyboard.press("Meta+k");
+  await page.getByLabel("Search commands").fill(label);
+  await page.waitForTimeout(100);
+  const n = await page.getByRole("option", { name: new RegExp(`^${label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`) }).count();
+  await page.keyboard.press("Escape");
+  return n > 0;
+}
+
+test("⌘K goes to Linear's places and offers the open issue's other edits, Undo and search, only where they work", async () => {
+  const { context, page, linear, view, issue } = await openLinear();
+  try {
+    const sidebar = view.locator(".linear-sidebar");
+    const here = () => sidebar.locator('[aria-current="page"]').innerText();
+    await waitFor(() => rowKeys(page), (keys) => keys.join() === "ENG-1,ENG-3", "my issues");
+    await paletteRun(page, "Go to Linear projects");
+    await waitFor(here, (t) => t === "Projects", "Projects");
+    assert.equal(await paletteHas(page, "Search the Linear list"), false, "no list to search on Projects");
+    await paletteRun(page, "Go to Linear initiatives");
+    await waitFor(here, (t) => t === "Initiatives", "Initiatives");
+    await paletteRun(page, "Go to Engineering's Triage (Linear)");
+    await waitFor(() => rowKeys(page), (keys) => keys.join() === "ENG-4", "ENG's triage");
+    assert.equal(await paletteHas(page, "Go to Design Engineering's Triage"), false, "DE doesn't triage");
+    await paletteRun(page, "Go to Linear issues you created");
+    await waitFor(here, (t) => t === "Created", "Created");
+    await paletteRun(page, "Go to Linear issues assigned to you");
+    await waitFor(here, (t) => t === "Assigned", "Assigned");
+
+    await paletteRun(page, "Search the Linear list");
+    await waitFor(() => focusedName(page), (n) => n === "Search these issues", "the list's search");
+
+    // ENG-3: ENG estimates, and its project (Launch) has milestones.
+    await view.locator('.linear-row[data-key="ENG-3"]').click();
+    await issue.locator("h1", { hasText: "Review the sync design" }).waitFor();
+    for (const [label, picker] of [
+      ["Change the Linear issue's estimate", "Estimate"],
+      ["Change the Linear issue's milestone", "Milestone"],
+      ["Change the Linear issue's parent", "Parent"],
+      ["Add relation to ENG-3", "Relation"],
+    ]) {
+      await paletteRun(page, label);
+      await page.getByRole("listbox", { name: picker }).waitFor();
+      await page.keyboard.press("Escape");
+      await page.getByRole("listbox", { name: picker }).waitFor({ state: "detached" });
+    }
+    await paletteRun(page, "Set the Linear issue's due date");
+    await waitFor(() => focusedName(page), (n) => n === "Due date", "the due date field");
+    await page.keyboard.press("Escape");
+
+    assert.equal(await paletteHas(page, "Undo archiving ENG-3"), false, "nothing archived yet");
+    await paletteRun(page, "Archive ENG-3");
+    await view.locator(".linear-undo").getByText("ENG-3 archived").waitFor();
+    await paletteRun(page, "Undo archiving ENG-3");
+    await waitFor(() => rowKeys(page), (keys) => keys.join() === "ENG-1,ENG-3", "ENG-3 back");
+    assert.equal(await paletteHas(page, "Undo archiving ENG-3"), false, "the bar has gone");
+
+    // DE-1: DE doesn't estimate, and Docs has no milestones.
+    await paletteRun(page, "Go to Design Engineering's All issues (Linear)");
+    await view.locator('.linear-row[data-key="DE-1"]').click();
+    await issue.locator('.linear-detail-bar, h1').first().waitFor();
+    await waitFor(() => paletteHas(page, "Add relation to DE-1"), Boolean, "DE-1 open");
+    assert.equal(await paletteHas(page, "Change the Linear issue's estimate"), false);
+    assert.equal(await paletteHas(page, "Change the Linear issue's milestone"), false);
+    assert.deepEqual(writesMade(linear), ["IssueArchive", "IssueUnarchive"]);
+  } finally {
+    linear.restore();
+    await context.close();
+  }
+});
+
+test("Esc with no issue open stays in the Linear view; O opens the selected issue from a sidebar button", async () => {
+  const { context, page, view, issue, linear } = await openLinear();
+  try {
+    await waitFor(() => rowKeys(page), (keys) => keys.join() === "ENG-1,ENG-3", "my issues");
+    await page.evaluate(() => {
+      (window as any).escapes = 0;
+      window.addEventListener("keydown", (e) => e.key === "Escape" && (window as any).escapes++);
+    });
+    await view.locator(".linear-sidebar").getByRole("button", { name: "Assigned" }).focus();
+    await page.keyboard.press("Escape");
+    assert.equal(await page.evaluate(() => (window as any).escapes), 0, "Esc didn't reach the page");
+
+    // O on a sidebar button opens the list's issue (Enter there is the button's own).
+    await page.keyboard.press("o");
+    await issue.locator("h1").first().waitFor();
+    assert.equal(await issue.count(), 1);
+  } finally {
+    linear.restore();
+    await context.close();
+  }
+});
+
+test("a scope past 1,000 issues says it shows the most recently updated; the list's groups are named", async () => {
+  const ws = fakeWorkspace();
+  const template = ws.issues.find((i) => i.identifier === "ENG-3")!;
+  for (let n = 0; n < 1001; n++) {
+    const id = `00000000-0000-4000-8000-${String(n).padStart(12, "0")}`;
+    ws.issues.push({ ...template, id, identifier: `ENG-${100 + n}`, sortOrder: 100 + n, subscribers: { nodes: [] } });
+  }
+  const { context, page, view, linear } = await openLinear(ws);
+  try {
+    await view.locator(".linear-note", { hasText: "Showing the 1,000 most recently updated" }).waitFor();
+    const list = view.getByRole("listbox", { name: "Issues" });
+    await list.getByRole("group", { name: "In Review" }).waitFor();
+    // The groups' headings stay out of the listbox's tree.
+    assert.equal(await list.getByRole("heading").count(), 0);
   } finally {
     linear.restore();
     await context.close();

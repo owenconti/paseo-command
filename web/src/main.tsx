@@ -67,6 +67,8 @@ import {
 import { NewAgent, type DispatchTarget } from "./Dispatch";
 import { useAppMode } from "./appMode";
 import type { IssueContext } from "./linear/prompt";
+import type { LinearOpenIssue, LinearViewState } from "./linear/LinearView";
+import type { LinearPlace } from "./linear/place";
 import { AddProject } from "./AddProject";
 import {
   Fleet,
@@ -827,10 +829,9 @@ function App() {
   // The mode bar's tab (macOS app): Linear draws its issues in the map's place.
   const appMode = useAppMode();
   // The issue open in the Linear tab, for ⌘K's edits of it.
-  const [linearIssueOpen, setLinearIssueOpen] = useState<
-    | { key: string; subscribed: boolean; hasBranch: boolean; hasLink: boolean; hasCycles: boolean; mine: boolean }
-    | undefined
-  >();
+  const [linearIssueOpen, setLinearIssueOpen] = useState<LinearOpenIssue | undefined>();
+  // The Linear tab's places, Undo and list, for ⌘K's entries for them.
+  const [linearView, setLinearView] = useState<LinearViewState | undefined>();
   // Whether the Linear tab's workspace is in, for ⌘K's Create Linear issue.
   const [linearReady, setLinearReady] = useState(false);
   // From a Linear issue: New agent, where the host and project are chosen.
@@ -1512,6 +1513,92 @@ function App() {
           run: () => runAppCommand(command),
         }))
       : []),
+    // The open issue's other properties, and a relation to add.
+    ...(appMode === "linear" && linearIssueOpen
+      ? (
+          [
+            ...(linearIssueOpen.hasEstimates
+              ? ([["linear-estimate", "Change the Linear issue's estimate", "linear issue estimate points size effort"]] as const)
+              : []),
+            ...(linearIssueOpen.hasMilestones
+              ? ([["linear-milestone", "Change the Linear issue's milestone", "linear issue project milestone phase"]] as const)
+              : []),
+            ["linear-parent", "Change the Linear issue's parent", "linear issue parent sub-issue child under move"],
+            ["linear-due-date", "Set the Linear issue's due date", "linear issue due date deadline calendar day"],
+            [
+              "linear-add-relation",
+              `Add relation to ${linearIssueOpen.key}`,
+              "linear issue relation blocks blocked by related duplicate link depends",
+            ],
+          ] as const
+        ).map(([command, label, keywords]) => ({
+          id: command,
+          group: "App",
+          label,
+          keywords,
+          run: () => runAppCommand(command),
+        }))
+      : []),
+    ...(appMode === "linear" && linearView?.undoKey
+      ? [
+          {
+            id: "linear-undo-archive",
+            group: "App",
+            label: `Undo archiving ${linearView.undoKey}`,
+            keywords: "linear issue unarchive restore archive undo back",
+            run: () => runAppCommand("linear-undo-archive"),
+          },
+        ]
+      : []),
+    ...(appMode === "linear" && linearView?.canSearch
+      ? [
+          {
+            id: "linear-search",
+            group: "App",
+            label: "Search the Linear list",
+            keys: [["/"]],
+            keywords: "linear issues filter find search list",
+            run: () => runAppCommand("linear-search"),
+          },
+        ]
+      : []),
+    // The Linear tab's places, as its sidebar has them (each team's views only when searched for).
+    ...(appMode === "linear" && linearView
+      ? (
+          [
+            [{ screen: "my", tab: "assigned" }, "Go to Linear issues assigned to you", "linear my issues assigned mine", false],
+            [{ screen: "my", tab: "created" }, "Go to Linear issues you created", "linear my issues created author", false],
+            [{ screen: "my", tab: "subscribed" }, "Go to Linear issues you're subscribed to", "linear my issues subscribed following", false],
+            ...linearView.teams.flatMap((team) =>
+              (
+                [
+                  ...(team.triageEnabled ? ([["triage", "Triage"]] as const) : []),
+                  ["active", "Active"],
+                  ["backlog", "Backlog"],
+                  ["all", "All issues"],
+                ] as const
+              ).map(
+                ([tab, name]) =>
+                  [
+                    { screen: "team", teamId: team.id, tab },
+                    `Go to ${team.name}'s ${name} (Linear)`,
+                    `linear team ${team.name} ${name} view issues`,
+                    true,
+                  ] as const,
+              ),
+            ),
+            [{ screen: "projects" }, "Go to Linear projects", "linear projects roadmap", false],
+            [{ screen: "initiatives" }, "Go to Linear initiatives", "linear initiatives goals", false],
+          ] as [LinearPlace, string, string, boolean][]
+        ).map(([place, label, keywords, searchOnly]) => ({
+          id: `linear-go:${JSON.stringify(place)}`,
+          group: "App",
+          label,
+          keywords,
+          searchOnly: searchOnly || undefined,
+          run: () => runAppCommand("linear-go", place),
+        }))
+      : []),
     ...(appMode === "linear" && linearReady
       ? [
           {
@@ -1749,6 +1836,7 @@ function App() {
                   onNotice={setNotice}
                   onIssueOpen={setLinearIssueOpen}
                   onReady={setLinearReady}
+                  onViewState={setLinearView}
                 />
               </React.Suspense>
             )}

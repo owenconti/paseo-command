@@ -41,6 +41,26 @@ const ISSUE_KEYS: Partial<Record<LinearKey, AppCommand>> = {
   copyBranch: "linear-copy-branch",
   copyLink: "linear-copy-link",
 };
+/** What ⌘K needs to know of the open issue, to offer only what works on it. */
+export type LinearOpenIssue = {
+  key: string;
+  subscribed: boolean;
+  hasBranch: boolean;
+  hasLink: boolean;
+  hasCycles: boolean;
+  hasEstimates: boolean;
+  hasMilestones: boolean;
+  mine: boolean;
+};
+/** What ⌘K needs to know of the view: its teams' places, the archive Undo offered, whether a list shows. */
+export type LinearViewState = {
+  teams: { id: string; name: string; triageEnabled: boolean }[];
+  /** The issue whose archive Undo is offered (its bar shows). */
+  undoKey?: string;
+  /** A list of issues shows, so / searches it. */
+  canSearch: boolean;
+};
+
 /** Layers in the view that keep their own keys while open. */
 const LAYERS = ".popover-menu, .autocomplete, .lightbox, .inline-confirm";
 
@@ -67,17 +87,16 @@ export function LinearView({
   onNotice,
   onIssueOpen,
   onReady,
+  onViewState,
 }: {
   onLaunch: (issue: IssueContext) => void;
   onNotice: (message: string) => void;
   /** The open issue, or undefined (⌘K offers editing it, commenting on it, archiving it…, copying what it has). */
-  onIssueOpen?: (
-    issue:
-      | { key: string; subscribed: boolean; hasBranch: boolean; hasLink: boolean; hasCycles: boolean; mine: boolean }
-      | undefined,
-  ) => void;
+  onIssueOpen?: (issue: LinearOpenIssue | undefined) => void;
   /** Whether Linear's workspace is in, so an issue can be created (⌘K offers it). */
   onReady?: (ready: boolean) => void;
+  /** The view's places and offers, for ⌘K (undefined once it goes). */
+  onViewState?: (state: LinearViewState | undefined) => void;
 }) {
   useLinearSync(true);
   // A write Linear refuses says why in the app's notice.
@@ -85,6 +104,7 @@ export function LinearView({
   const ws = useLinear((d) => d.workspace);
   const unavailable = useLinear((d) => d.unavailable);
   const loadedScopes = useLinear((d) => d.loadedScopes);
+  const cappedScopes = useLinear((d) => d.cappedScopes);
   const [place, setPlaceState] = useState<LinearPlace>(() => readPlace());
   const setPlace = useCallback((next: LinearPlace) => {
     setPlaceState(next);
@@ -195,11 +215,23 @@ export function LinearView({
   const subscribed = !!viewerId && !!openIssueRecord?.subscriberIds.includes(viewerId);
   const hasBranch = !!openIssueRecord?.branchName;
   const hasLink = !!openIssueRecord?.url;
-  const hasCycles = !!ws?.teams.find((t) => t.id === openIssueRecord?.teamId)?.cyclesEnabled;
+  const openTeam = ws?.teams.find((t) => t.id === openIssueRecord?.teamId);
+  const hasCycles = !!openTeam?.cyclesEnabled;
+  const hasEstimates = !!openTeam?.estimates.length;
+  const hasMilestones = !!ws?.projects.find((p) => p.id === openIssueRecord?.projectId)?.milestones.length;
   const mine = !!viewerId && openIssueRecord?.assigneeId === viewerId;
   useEffect(() => {
-    onIssueOpen?.(openKey ? { key: openKey, subscribed, hasBranch, hasLink, hasCycles, mine } : undefined);
-  }, [openKey, subscribed, hasBranch, hasLink, hasCycles, mine, onIssueOpen]);
+    onIssueOpen?.(
+      openKey
+        ? { key: openKey, subscribed, hasBranch, hasLink, hasCycles, hasEstimates, hasMilestones, mine }
+        : undefined,
+    );
+  }, [openKey, subscribed, hasBranch, hasLink, hasCycles, hasEstimates, hasMilestones, mine, onIssueOpen]);
+  // A reload (sync's "more") asks for the open issue too.
+  useEffect(() => {
+    linearStore.setOpenIssue(place.issue);
+    return () => linearStore.setOpenIssue(undefined);
+  }, [place.issue]);
   useEffect(() => () => onIssueOpen?.(undefined), [onIssueOpen]);
   useEffect(() => {
     onReady?.(!!ws);
@@ -253,7 +285,7 @@ export function LinearView({
     setUndo((u) => (u?.id !== issue.id ? u : done ? { ...u, phase: "archived" } : undefined));
   };
   const unarchive = async () => {
-    if (!undo) return;
+    if (undo?.phase !== "archived") return;
     const was = undo;
     setUndo({ ...was, phase: "restoring" });
     const done = await linearStore.write("issueUnarchive", { id: was.id });
@@ -268,7 +300,21 @@ export function LinearView({
     return done;
   };
 
+  const unarchiveRef = useRef(unarchive);
+  unarchiveRef.current = unarchive;
+  useEffect(() => onAppCommand("linear-undo-archive", () => void unarchiveRef.current()), []);
+
   const nav = useRef<IssueListNav | null>(null);
+  useEffect(() => onAppCommand("linear-search", () => nav.current?.filter()), []);
+  // ⌘K's places: checked as a remembered one is (an unknown team goes to the default).
+  useEffect(
+    () =>
+      onAppCommand("linear-go", (arg) => {
+        const next = checkPlace(arg, linearStore.getState().workspace);
+        setPlace(next);
+      }),
+    [setPlace],
+  );
   const onKey = (e: ReactKeyboardEvent<HTMLElement>) => {
     const target = e.target as HTMLElement;
     // Only the view's own elements: not its dialogs and menus elsewhere on the page.
@@ -278,14 +324,14 @@ export function LinearView({
     const action =
       e.defaultPrevented || layered ? null : linearKeyAction({ key, metaKey, shiftKey, ctrlKey, altKey, target });
     const plain = !e.metaKey && !e.ctrlKey && !e.altKey && !isTyping(target);
-    const run = action && keyAction(action, target);
+    const run = action && keyAction(action, target, key);
     if (run) {
       e.preventDefault();
       e.stopPropagation();
     } else if (plain && (/^[a-z]$/i.test(e.key) || e.key.startsWith("Arrow"))) e.stopPropagation();
   };
   /** Does what `action` asks; false when it doesn't apply here (the key goes on as usual). */
-  const keyAction = (action: LinearKey, target: HTMLElement): boolean => {
+  const keyAction = (action: LinearKey, target: HTMLElement, key: string): boolean => {
     const issueOpenNow = !!placeRef.current.issue;
     switch (action) {
       case "down":
@@ -293,13 +339,18 @@ export function LinearView({
         nav.current?.move(action === "down" ? 1 : -1);
         return true;
       case "open":
-        // Other buttons and links keep their own Enter.
-        if (target.closest("button,a,summary,[role=button],[role=tab],[role=menuitem]") && !target.closest(".linear-row"))
+        // Other buttons and links keep their own Enter (O still opens).
+        if (
+          key === "Enter" &&
+          target.closest("button,a,summary,[role=button],[role=tab],[role=menuitem]") &&
+          !target.closest(".linear-row")
+        )
           return false;
         nav.current?.open();
         return true;
       case "back": {
-        if (!issueOpenNow) return false;
+        // With no issue open, Esc stops here: the page's own would clear the map's (hidden) selection.
+        if (!issueOpenNow) return true;
         const key = placeRef.current.issue!;
         // The keyboard stays in the view as the issue goes: on its row, else the view.
         if (target.closest(".linear-detail"))
@@ -320,6 +371,21 @@ export function LinearView({
       }
     }
   };
+
+  // ⌘K's places, Undo and list search, offered only while they'd work.
+  const teams = ws?.teams;
+  const undoKey = undo?.phase === "archived" ? undo.key : undefined;
+  const canSearch = !!ws && !!scope && (!place.issue || viewWidth === 0 || viewWidth >= BESIDE_MIN);
+  const teamPlaces = JSON.stringify(teams?.map((t) => [t.id, t.name, t.triageEnabled]) ?? []);
+  useEffect(() => {
+    const list = JSON.parse(teamPlaces) as [string, string, boolean][];
+    onViewState?.({
+      teams: list.map(([id, name, triageEnabled]) => ({ id, name, triageEnabled })),
+      undoKey,
+      canSearch,
+    });
+  }, [teamPlaces, undoKey, canSearch, onViewState]);
+  useEffect(() => () => onViewState?.(undefined), [onViewState]);
 
   if (!ws && (unavailable || workspaceError))
     return (
@@ -375,6 +441,7 @@ export function LinearView({
         onOpen={open}
         opensBeside={beside}
         loading={!loadedScopes.has(scope!) && !scopeErrors[scope!]}
+        capped={cappedScopes.has(scope!)}
         error={scopeErrors[scope!]}
         nav={nav}
       >

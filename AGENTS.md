@@ -231,9 +231,19 @@ Local assets belong in the repository and are included through local build tooli
   Keys (`keys.ts`, only while the keyboard is in the view and not typing or in a picker; the page's own J/K/N/D stand down there):
   J/K or ↓/↑ move, Enter or O opens, Esc closes the issue, / searches the list, C creates, S P A L M ⇧C open status, priority,
   assignee, labels, project and cycle, I assigns to you, ⌘. and ⌘⇧, copy the branch name and link; each has its ⌘K entry and a
-  row in the shortcuts dialog's Linear group. Everything shows from the page's store (`store.ts`), synced at most every 20 s only
-  while the view shows. Server (`web/server/linear/`, with `LINEAR_API_KEY` or `linearApiKey` in `secrets.json`; the page never
-  gets the key): named reads only (`reads.ts`, `GET /api/linear/q/workspace|issues|issue|sync|status`) and whitelisted writes
+  row in the shortcuts dialog's Linear group. ⌘K also has, only where they work, the open issue's estimate (teams that estimate),
+  milestone (a project with milestones), parent, due date and Add relation, Undo archiving (while its bar shows), Search the
+  Linear list, and the sidebar's places (`linear-go`, the place as `runAppCommand`'s argument; LinearView reports what's offered
+  through `onIssueOpen` and `onViewState`). Everything shows from the page's store (`store.ts`), synced at most every 20 s only
+  while the view shows and the page isn't hidden (`keepSynced`: ticks skip while `document.hidden`, and one sync runs as it
+  shows again); a scope refused for a while (rate limited) is asked again on the first tick after `retryAt`. A scope loads up
+  to 1,000 issues (the list then says it shows the most recently updated). After a complete load, issues the store lists in the
+  scope that Linear didn't return (they left it unseen: reassigned, closed, archived) are asked for by id (`q/byId`, 50 to a
+  request, 100 at most) and merged where they now belong; those Linear no longer lists, and any past the hundred, leave the
+  store (re-asking keeps other lists truthful, which dropping all wouldn't). Sync's reload (`more`) also asks for the open issue
+  and its comments. Linear doesn't move `updatedAt` on (un)subscribing, so a subscription changed elsewhere doesn't arrive by
+  sync: it shows on the next read of the issue or of Subscribed; a read begun before a write was saved never undoes it. Server (`web/server/linear/`, with `LINEAR_API_KEY` or `linearApiKey` in `secrets.json`; the page never
+  gets the key): named reads only (`reads.ts`, `GET /api/linear/q/workspace|issues|byId|issue|sync|status`) and whitelisted writes
   (`writes.ts` `linearWrite`, `POST /api/linear/m/<name>`, each input checked field by field; no passthrough GraphQL, no `@linear/sdk`),
   over `client.ts`, which keeps to the key's hourly budget (2,500 requests, 3,000,000 complexity; reads stand down when it runs low,
   writes still go). Launch agent opens New agent with the issue (`DispatchTarget.issue`): Worktree on Linear's branch name, the

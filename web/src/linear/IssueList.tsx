@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type MutableRefObject, type ReactNode } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState, type MutableRefObject, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { CircleDot, Search, SignalHigh, Tag, UserRound } from "lucide-react";
 import { plainText } from "../ui";
@@ -166,6 +166,7 @@ export function IssueList({
   onOpen,
   opensBeside,
   loading,
+  capped = false,
   error,
   actions,
   children,
@@ -177,6 +178,8 @@ export function IssueList({
   onOpen: (key: string) => void;
   opensBeside: boolean;
   loading: boolean;
+  /** The scope stopped at 1,000 issues: the list says so. */
+  capped?: boolean;
   error?: string;
   /** Buttons at the right of the title. */
   actions?: ReactNode;
@@ -193,6 +196,7 @@ export function IssueList({
   const groups = useMemo(() => groupIssues(shown, ws), [shown, ws]);
   const order = groups.flatMap((g) => g.issues);
   const listRef = useRef<HTMLDivElement>(null);
+  const headId = useId();
   // The row that takes Tab: the open issue's, else the first.
   const [focusKey, setFocusKey] = useState<string | undefined>(openKey);
   const current = order.find((i) => i.key === (openKey ?? focusKey))?.key ?? order[0]?.key;
@@ -280,41 +284,50 @@ export function IssueList({
           {error}
         </p>
       )}
-      <div
-        className="linear-groups"
-        ref={listRef}
-        role="listbox"
-        aria-label="Issues"
-        onKeyDown={(e) => {
-          if (e.key === "ArrowDown" || e.key === "ArrowUp") {
-            e.preventDefault();
-            step(e.key === "ArrowDown" ? 1 : -1);
-          }
-        }}
-      >
+      {/* The scroller holds the notes; the listbox only groups of options. */}
+      <div className="linear-groups">
         {loading && !issues.length && <p className="linear-note">Loading issues…</p>}
         {!loading && !error && !issues.length && <p className="linear-note">No issues here.</p>}
         {issues.length > 0 && !shown.length && <p className="linear-note">No issue matches.</p>}
-        {groups.map((g) => (
-          <div key={`${g.state.type}:${g.state.name}`} className="linear-group" role="group" aria-label={g.state.name}>
-            <h3>
-              <Dot color={g.state.color} />
-              {g.state.name}
-              <span className="linear-count">{g.issues.length}</span>
-            </h3>
-            {g.issues.map((i) => (
-              <IssueRow
-                key={i.id}
-                issue={i}
-                ws={ws}
-                open={i.key === openKey}
-                focusable={i.key === current}
-                onOpen={onOpen}
-                onMenu={(issue, at) => setMenu({ issueId: issue.id, key: issue.key, at })}
-              />
-            ))}
-          </div>
-        ))}
+        <div
+          ref={listRef}
+          role="listbox"
+          aria-label="Issues"
+          onKeyDown={(e) => {
+            if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+              e.preventDefault();
+              step(e.key === "ArrowDown" ? 1 : -1);
+            }
+          }}
+        >
+          {groups.map((g, n) => (
+            <div
+              key={`${g.state.type}:${g.state.name}`}
+              className="linear-group"
+              role="group"
+              aria-labelledby={`${headId}-${n}`}
+            >
+              {/* Hidden from the listbox's tree (it owns only groups and options); its name still labels the group. */}
+              <h3 aria-hidden="true">
+                <Dot color={g.state.color} />
+                <span id={`${headId}-${n}`}>{g.state.name}</span>
+                <span className="linear-count">{g.issues.length}</span>
+              </h3>
+              {g.issues.map((i) => (
+                <IssueRow
+                  key={i.id}
+                  issue={i}
+                  ws={ws}
+                  open={i.key === openKey}
+                  focusable={i.key === current}
+                  onOpen={onOpen}
+                  onMenu={(issue, at) => setMenu({ issueId: issue.id, key: issue.key, at })}
+                />
+              ))}
+            </div>
+          ))}
+        </div>
+        {capped && <p className="linear-note">Showing the 1,000 most recently updated</p>}
       </div>
       {menu && <RowMenu key={menu.issueId} issueId={menu.issueId} at={menu.at} onClose={closeMenu} />}
     </div>
