@@ -96,7 +96,7 @@ Report the commit, whether the push succeeded, whether the build succeeded, and 
   making one; installs Apple's intermediate), saves a notarytool login as `paseo-command-notary`, and makes Sparkle EdDSA keys
   (`SUPublicEDKey` goes into `native/Info.plist`). `scripts/signing.mjs` picks the identity (`PASEO_COMMAND_SIGN_IDENTITY` when there are several). `npm run release -- [--bump patch|minor|major] [--notes <file>] [--dry-run]`
   (`scripts/release.mjs`): checks, tests, builds the release app to `native/release/`, signs it with the Developer ID under the hardened
-  runtime (entitlements in `native/entitlements/`: Apple Events for the app, JIT for Node), notarizes and staples it, zips it (Sparkle downloads the zip), makes a drag-to-Applications `.dmg`
+  runtime (entitlements in `native/entitlements/`: JIT for Node), notarizes and staples it, zips it (Sparkle downloads the zip), makes a drag-to-Applications `.dmg`
   (`scripts/dmg.mjs`; signed, notarized and stapled too), writes the Sparkle appcast, commits
   `Release v<version>`, pushes `main` and runs `gh release create`. Releases are notarized, so they open normally. `--unsigned` (with `release:setup -- --unsigned`) makes an
   ad hoc signed, non-notarized release while no Developer ID is available; its notes explain Open Anyway.
@@ -167,7 +167,7 @@ and GitHub publication; report the published version and release link.
   directory is moved there on first read) show as buttons that launch the agent at once; `{{pr}}` names the chosen pull request.
   They are edited in the app (`web/src/PresetsEditor.tsx`, from Settings or New agent; `POST /api/presets` keeps the file's
   other keys and never overwrites an unreadable file); `web/src/presetsStore.ts` shares them across the page.
-  Optional integrations (`integrations.linear`, `integrations.typesafe`, `integrations.appleMusic`) default off in that file.
+  Optional integrations (`integrations.linear`, `integrations.typesafe`) default off in that file.
   Integration keys are read only from the data directory's `secrets.json` (`web/server/secrets.ts`), never from environment variables.
   Settings uses toggle switches, with each integration's API-key editor and settings grouped beneath it.
   `GET /api/secrets` returns presence flags only; `POST /api/secrets` saves/replaces/removes a named key,
@@ -222,10 +222,6 @@ and GitHub publication; report the published version and release link.
 - Auto-merge: a PR's `autoMerge` comes from Paseo's GitHub facts (`autoMergeRequest`), else gh's (`web/server/links.ts`).
   While it's on, a teal seal with a merge mark sits on the review medallion's upper-right rim, else the CI one's (`placeSeals`,
   `paintSeal`, `AUTO_MERGE` in `rendering/src/prStatus.ts`); the medallion's hover card says how it merges and who turned it on.
-- Apple Music bar (opt-in `integrations.appleMusic` in `settings.json`; off by default): `web/src/MusicBar.tsx` floats in the map's top-left corner (macOS app only) with Music's current track,
-  its art and ⏮ ⏯ ⏭; with Music closed it offers play, which opens Music without focus and resumes. The app reads and drives
-  Music by AppleScript (`native/Sources/PaseoCommandNative/Music.swift`, about once a second while the window shows) over the
-  `paseoMusic` message handler and `paseo:music` events; macOS asks once for Automation permission (`NSAppleEventsUsageDescription`).
 - Conquer (experiment): the COMMAND / CONQUER strip across the macOS app's top (⌘` steps Command → Conquer → Linear; View menu; the tabs light on hover)
   switches the map's place between the map and Conquer, a WebKit browser (`native/Sources/PaseoCommandNative/Conquer.swift`),
   laid exactly over the map (`placeConquer` in `WorldWindow.swift`): the panels and terminal stay, and ⌘B (the page's panel toggle)

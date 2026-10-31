@@ -285,7 +285,7 @@ const BASIC: Record<string, unknown> = {
   secrets: { configured: { linearApiKey: false, typesafeApiKey: false }, error: null },
   settings: {
     linearWorkspace: "",
-    integrations: { linear: false, typesafe: false, appleMusic: false },
+    integrations: { linear: false, typesafe: false },
     error: null,
   },
 };

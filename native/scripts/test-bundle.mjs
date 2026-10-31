@@ -61,7 +61,6 @@ for (const f of flavours) {
       check(`${path.slice(app.length) || 'app'} timestamp`, /Timestamp=/.test(info));
     }
     const entitlements = (path) => execFileSync('sh', ['-c', 'codesign -d --entitlements - --xml "$0" 2>/dev/null', path], { encoding: 'utf8' });
-    check('app may send Apple Events', entitlements(app).includes('com.apple.security.automation.apple-events'));
     check('node may JIT', entitlements(join(res, 'node/node')).includes('com.apple.security.cs.allow-jit'));
   }
   checked++;
