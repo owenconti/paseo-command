@@ -114,7 +114,9 @@ final class ChromeButton: NSButton {
 /// Insets and vertically centres the editable text without the stock AppKit bezel.
 private final class ChromeTextCell: NSTextFieldCell {
     override func drawingRect(forBounds rect: NSRect) -> NSRect {
-        var r = rect.insetBy(dx: 10, dy: 0)
+        // A field narrower than its insets (not yet laid out, or squeezed) would get the
+        // null rect, whose infinite origin AppKit turns into NaN geometry and traps on.
+        var r = rect.insetBy(dx: min(10, max(0, rect.width / 2)), dy: 0)
         let height = cellSize(forBounds: r).height
         r.origin.y += max(0, (r.height - height) / 2)
         r.size.height = min(r.height, height)
