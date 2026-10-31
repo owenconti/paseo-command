@@ -137,6 +137,20 @@ test("reads your inbox: what each notification is about, newest first, nothing a
   assert.equal(comment.issueId, I.issues["ENG-1"]);
   assert.equal(reaction.reactionEmoji, "+1");
   assert.equal(notifications[2].issueId, undefined);
+  // Page by page: 250 at a time.
+  const extra = Array.from({ length: 300 }, (_, n) => ({
+    ...fake.ws.notifications[0],
+    id: `fa4e0015-0000-4000-8000-${String(1000 + n).padStart(12, "0")}`,
+    updatedAt: new Date(Date.now() - (n + 10) * 86_400_000).toISOString(),
+  }));
+  fake.ws.notifications.push(...extra);
+  const first = await readNotifications();
+  assert.equal(first.notifications.length, 250);
+  assert.ok(first.next);
+  const second = await readNotifications(first.next);
+  assert.equal(second.notifications.length, 304 - 250);
+  assert.equal(second.next, undefined);
+  fake.ws.notifications.splice(5);
   // A sync brings changed notifications, archived ones too (the page drops those).
   const since = new Date(Date.now() - 1000).toISOString();
   const synced = await readSync(since);

@@ -88,9 +88,12 @@ export const ISSUE_QUERY = `query Issue($id: String!) {
   }
 }`;
 
-/** Your Inbox: the latest notifications not archived. */
-export const NOTIFICATIONS_QUERY = `query Notifications($first: Int!) {
-  notifications(first: $first, orderBy: updatedAt) { nodes { ${NOTIFICATION_FIELDS} } }
+/** Your Inbox: notifications not archived, the most recently updated first, a page at a time. */
+export const NOTIFICATIONS_QUERY = `query Notifications($first: Int!, $after: String) {
+  notifications(first: $first, after: $after, orderBy: updatedAt) {
+    nodes { ${NOTIFICATION_FIELDS} }
+    pageInfo { hasNextPage endCursor }
+  }
 }`;
 
 export const SYNC_QUERY = `query Sync($since: DateTimeOrDuration!, $first: Int!) {

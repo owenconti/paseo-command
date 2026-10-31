@@ -103,6 +103,7 @@ export function Inbox({
 }) {
   const notifications = useLinear((d) => d.notifications);
   const loaded = useLinear((d) => d.notificationsLoaded);
+  const capped = useLinear((d) => d.notificationsCapped);
   const users = useLinear((d) => d.workspace?.users);
   const issues = useLinear((d) => d.issues);
   const byKey = useLinear((d) => d.byKey);
@@ -355,6 +356,7 @@ export function Inbox({
             );
           })}
         </div>
+        {capped && <p className="linear-note">Showing your 500 most recently updated notifications</p>}
       </div>
       {undo && (
         <div className="linear-undo" role="status">

@@ -50,7 +50,7 @@ export const LINEAR_READS = {
   syncSize: 100,
   maxIds: 50,
   searchSize: 50,
-  inboxSize: 100,
+  inboxSize: 250,
   /** Linear allows 30 searches a minute; the server keeps under that. */
   searchesPerMinute: 25,
 };
@@ -239,15 +239,22 @@ export async function readIssue(
   };
 }
 
-/** Your Inbox: the latest 100 notifications not archived, newest first (snoozed ones too; the page hides them). */
-export async function readNotifications(): Promise<{ notifications: LinearNotification[] }> {
-  const data = await linearRequest<Data>("Notifications", NOTIFICATIONS_QUERY, { first: LINEAR_READS.inboxSize });
+/**
+ * A page of your Inbox: 250 notifications not archived, the most recently
+ * updated first (snoozed ones too; the page hides them); `next` is the cursor
+ * for the following page.
+ */
+export async function readNotifications(after?: string): Promise<{ notifications: LinearNotification[]; next?: string }> {
+  const data = await linearRequest<Data>("Notifications", NOTIFICATIONS_QUERY, { first: LINEAR_READS.inboxSize, after });
+  const page = recOf(data.notifications);
+  const info = recOf(page.pageInfo);
+  const next = strOf(info.endCursor);
   return {
-    notifications: nodesOf(data.notifications)
+    notifications: nodesOf(page)
       .map(notificationOf)
       .filter(nonNull)
-      .filter((n) => !n.archivedAt)
-      .sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
+      .filter((n) => !n.archivedAt),
+    next: info.hasNextPage === true && next ? next : undefined,
   };
 }
 

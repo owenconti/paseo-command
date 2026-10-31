@@ -772,14 +772,18 @@ export const OPERATIONS: Record<string, FakeOperation> = {
       notifications: { nodes: changed(ws.notifications).map(notificationNode) },
     };
   },
-  /** Your notifications not archived, the newest first. */
-  Notifications: ({ ws, variables }) => ({
-    notifications: {
-      nodes: newestFirst(ws.notifications.filter((n) => !n.archivedAt))
-        .slice(0, Number(variables.first))
-        .map(notificationNode),
-    },
-  }),
+  /** Your notifications not archived, the most recently updated first; pages as `Issues`. */
+  Notifications: ({ ws, variables }) => {
+    const all = newestFirst(ws.notifications.filter((n) => !n.archivedAt));
+    const start = variables.after ? Number(variables.after) : 0;
+    const end = start + Number(variables.first);
+    return {
+      notifications: {
+        nodes: all.slice(start, end).map(notificationNode),
+        pageInfo: { hasNextPage: end < all.length, endCursor: end < all.length ? String(end) : null },
+      },
+    };
+  },
   ...writes(),
 };
 

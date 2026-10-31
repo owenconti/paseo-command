@@ -42,9 +42,14 @@ export type LinearData = {
   /** Your Inbox's notifications (not archived), by id, once loaded (`notificationsLoaded`). */
   notifications: Map<string, LinearNotification>;
   notificationsLoaded: boolean;
+  /** The Inbox's load stopped at 500 (the most recently updated): there are more in Linear. */
+  notificationsCapped: boolean;
 };
 
 const SYNC_EVERY_MS = 20_000;
+/** The Inbox loads at most this many notifications; archiving brings it this far below before it's asked again. */
+const MAX_INBOX = 500;
+const INBOX_REFILL = 50;
 const MAX_SCOPE_ISSUES = 1000;
 /** Issues asked for by id in one request, and at most after a scope's load (see `recheckLeftovers`). */
 const BY_ID_BATCH = 50;
@@ -63,6 +68,7 @@ function empty(): LinearData {
     members: new Map(),
     notifications: new Map(),
     notificationsLoaded: false,
+    notificationsCapped: false,
   };
 }
 
@@ -484,6 +490,9 @@ async function writeNotifications(
     const at = ++clock;
     for (const id of ids) noteSaved.set(id, at);
     mergeNotifications(answer?.notifications ?? []);
+    // Capped and well below it after archiving: asked again, so older ones come up.
+    if (state.notificationsCapped && state.notifications.size < MAX_INBOX - INBOX_REFILL)
+      loadNotifications(true).catch(() => {});
     return true;
   } catch (e) {
     release();
@@ -636,12 +645,22 @@ export function loadNotifications(fresh = false): Promise<void> {
   notificationsLoad ??= (async () => {
     noteLoadStart();
     const at = ++clock;
-    const answer = await linearRead<{ notifications: LinearNotification[] }>("notifications");
-    if (!accept(answer)) return;
+    // Page by page, up to 500.
+    const found: LinearNotification[] = [];
+    let after: string | undefined;
+    do {
+      const answer = await linearRead<{ notifications: LinearNotification[]; next?: string }>(
+        "notifications",
+        after ? { after } : {},
+      );
+      if (!accept(answer)) return;
+      found.push(...answer.notifications);
+      after = answer.next;
+    } while (after && found.length < MAX_INBOX);
     // The Inbox as Linear listed it, but for what was written here since the read began, or is being written.
     const notifications = new Map<string, LinearNotification>();
     const listed = new Set<string>();
-    for (const n of answer.notifications) {
+    for (const n of found) {
       listed.add(n.id);
       const next = resolveNotification(n, at);
       const keep = next === "keep" ? state.notifications.get(n.id) : next;
@@ -649,7 +668,7 @@ export function loadNotifications(fresh = false): Promise<void> {
     }
     for (const [id, known] of state.notifications)
       if (!listed.has(id) && ((noteSaved.get(id) ?? 0) > at || notePending.has(id))) notifications.set(id, known);
-    publish({ notifications, notificationsLoaded: true });
+    publish({ notifications, notificationsLoaded: true, notificationsCapped: !!after });
   })().finally(() => {
     notificationsLoad = undefined;
   });

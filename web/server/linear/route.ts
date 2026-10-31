@@ -110,8 +110,11 @@ export async function linearRoute(
     }
     case "q/search":
       return read(["term"], () => readSearch(param("term")));
-    case "q/notifications":
-      return read([], () => readNotifications());
+    case "q/notifications": {
+      const after = url.searchParams.get("after") ?? undefined;
+      if (after !== undefined && !/^[\w+/=.:-]{1,200}$/.test(after)) return reply(400, { error: "Invalid cursor" });
+      return read(["after"], () => readNotifications(after));
+    }
     case "q/views":
       return read([], () => readViews());
     case "q/cycles":

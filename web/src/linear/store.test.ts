@@ -305,6 +305,39 @@ describe("linear store", () => {
     assert.equal(linearStore.getState().notifications.get("n1")?.readAt, undefined);
   });
 
+  it("the inbox loads page by page up to 500, and is asked again once archiving leaves it well below", async () => {
+    const note = (n: number): LinearNotification => ({
+      id: `n${n}`,
+      type: "issueNewComment",
+      title: "T",
+      subtitle: "S",
+      url: "https://linear.app/x",
+      createdAt: "2026-10-30T00:00:00Z",
+      updatedAt: "2026-10-30T00:00:00Z",
+      issueId: `i-${n}`,
+    });
+    answers.notifications = (path) => {
+      const start = Number(new URL(path, "http://x").searchParams.get("after") ?? 0);
+      return { notifications: Array.from({ length: 250 }, (_, n) => note(start + n)), next: String(start + 250) };
+    };
+    await loadNotifications();
+    assert.deepEqual(calls, ["linear/q/notifications", "linear/q/notifications?after=250"]);
+    assert.equal(linearStore.getState().notifications.size, 500);
+    assert.equal(linearStore.getState().notificationsCapped, true);
+    // Archiving 60 rows' worth: the inbox is asked for again.
+    setLinearTransport(async (path) => {
+      calls.push(path);
+      if (path.startsWith("linear/m/")) return { notifications: [] };
+      return answers.notifications(path);
+    });
+    calls = [];
+    for (let n = 0; n < 60; n++)
+      await linearStore.writeNotifications("notificationArchiveAll", { issueId: `i-${n}` }, [`n${n}`], { archivedAt: "a" });
+    await settled();
+    assert.ok(calls.includes("linear/q/notifications"), "asked again");
+    assert.equal(calls.filter((c) => c === "linear/q/notifications").length, 1, "once");
+  });
+
   it("loads the views once, and again when fresh", async () => {
     const view = { id: "v1", name: "Mine", color: "#000", shared: false, updatedAt: "", display: { layout: "board" } };
     answers.views = () => ({ views: [view] });
