@@ -79,6 +79,8 @@ export type FakeIssue = {
   updatedAt: string;
   archivedAt: string | null;
   completedAt: string | null;
+  /** Moved to the trash by `issueDelete`: reads no longer find it. */
+  trashed?: boolean;
   state: Ref;
   team: Ref;
   assignee: Ref | null;
@@ -468,7 +470,7 @@ function passes(ws: FakeWorkspace, issue: FakeIssue, filter: Filter): boolean {
 const newestFirst = <T extends { updatedAt: string }>(items: T[]) =>
   [...items].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
 
-/** The dispatch table, by GraphQL operation name: reads here, Task 6's writes beside them. */
+/** The dispatch table, by GraphQL operation name: the reads here, the writes from `writes()`. */
 export const OPERATIONS: Record<string, FakeOperation> = {
   Workspace: ({ ws }) => {
     const me = ws.users.find((u) => u.id === ws.viewerId);
@@ -486,7 +488,7 @@ export const OPERATIONS: Record<string, FakeOperation> = {
   /** Pages are offsets into the filtered, newest-first list; the cursor is the next offset. */
   Issues: ({ ws, variables }) => {
     const filter = (variables.filter ?? {}) as Filter;
-    const all = newestFirst(ws.issues.filter((i) => !i.archivedAt && passes(ws, i, filter)));
+    const all = newestFirst(ws.issues.filter((i) => !i.archivedAt && !i.trashed && passes(ws, i, filter)));
     const start = variables.after ? Number(variables.after) : 0;
     const first = Number(variables.first);
     const end = start + first;
@@ -500,7 +502,7 @@ export const OPERATIONS: Record<string, FakeOperation> = {
   Issue: ({ ws, variables }) => {
     const id = String(variables.id).toUpperCase();
     const issue = ws.issues.find((i) => i.identifier === id || i.id === variables.id);
-    if (!issue) return { issue: null };
+    if (!issue || issue.trashed) return { issue: null };
     const byId = (ref: Ref) => ws.issues.find((i) => i.id === ref.id)!;
     return {
       issue: {
@@ -522,7 +524,247 @@ export const OPERATIONS: Record<string, FakeOperation> = {
       initiatives: { nodes: changed(ws.initiatives) },
     };
   },
+  ...writes(),
 };
+
+function writes(): Record<string, FakeOperation> {
+  const bad = (message: string) => new FakeGraphQlError(message, "InvalidInput");
+  const find = <T extends { id: string }>(items: T[], id: unknown, what: string): T => {
+    const found = items.find((i) => i.id === id);
+    if (!found) throw bad(`Could not find referenced ${what}.`);
+    return found;
+  };
+  const refTo = <T extends { id: string }>(items: T[], id: unknown, what: string): Ref | null =>
+    id === null ? null : { id: find(items, id, what).id };
+  const issueOf = (ws: FakeWorkspace, id: unknown) => find(ws.issues, id, "Issue");
+  const commentOf = (ws: FakeWorkspace, id: unknown) => find(ws.comments, id, "Comment");
+  const withChildren = (ws: FakeWorkspace, issue: FakeIssue, parent: Ref | null) => {
+    for (const p of ws.issues) p.children.nodes = p.children.nodes.filter((c) => c.id !== issue.id);
+    if (parent) find(ws.issues, parent.id, "Issue").children.nodes.push({ id: issue.id });
+  };
+
+  /** Applies the IssueUpdateInput / IssueCreateInput fields Linear's input has to an issue. */
+  const apply = (ctx: FakeContext, issue: FakeIssue, input: Record<string, any>) => {
+    const { ws } = ctx;
+    for (const [field, value] of Object.entries(input)) {
+      switch (field) {
+        case "title":
+        case "description":
+        case "priority":
+        case "estimate":
+        case "dueDate":
+          (issue as any)[field] = value;
+          break;
+        case "stateId": {
+          const state = find(ws.states, value, "WorkflowState");
+          issue.state = { id: state.id };
+          issue.completedAt = state.type === "completed" ? new Date().toISOString() : null;
+          break;
+        }
+        case "assigneeId":
+          issue.assignee = refTo(ws.users, value, "User");
+          break;
+        case "labelIds":
+          issue.labels = { nodes: (value as string[]).map((id) => ({ id: find(ws.labels, id, "IssueLabel").id })) };
+          break;
+        case "projectId":
+          issue.project = refTo(ws.projects, value, "Project");
+          break;
+        case "projectMilestoneId": {
+          const all = ws.projects.flatMap((p) => p.projectMilestones.nodes);
+          issue.projectMilestone = refTo(all, value, "ProjectMilestone");
+          break;
+        }
+        case "cycleId":
+          issue.cycle = refTo(ws.cycles, value, "Cycle");
+          break;
+        case "parentId":
+          issue.parent = refTo(ws.issues, value, "Issue");
+          withChildren(ws, issue, issue.parent);
+          break;
+        case "teamId":
+          break;
+        default:
+          throw bad(`Unknown issue input ${field}`);
+      }
+    }
+    ctx.touch(issue);
+  };
+  const issuePayload = (field: string, issue: FakeIssue, key = "issue") => ({ [field]: { success: true, [key]: issue } });
+  const touchIssue = (ctx: FakeContext, id: unknown, change: (i: FakeIssue) => void) => {
+    const issue = issueOf(ctx.ws, id);
+    change(issue);
+    ctx.touch(issue);
+    return issue;
+  };
+  const viewer = (ws: FakeWorkspace): Ref => ({ id: ws.viewerId });
+
+  return {
+    IssueUpdate: (ctx) => {
+      const issue = issueOf(ctx.ws, ctx.variables.id);
+      apply(ctx, issue, ctx.variables.input as Record<string, any>);
+      return issuePayload("issueUpdate", issue);
+    },
+    IssueCreate: (ctx) => {
+      const { ws } = ctx;
+      const input = ctx.variables.input as Record<string, any>;
+      const team = find(ws.teams, input.teamId, "Team");
+      const teamStates = ws.states.filter((s) => s.team.id === team.id);
+      const start = teamStates.find((s) => s.type === "backlog") ?? teamStates[0];
+      const number = Math.max(0, ...ws.issues.filter((i) => i.team.id === team.id).map((i) => Number(i.identifier.split("-")[1]))) + 1;
+      const identifier = `${team.key}-${number}`;
+      const now = new Date().toISOString();
+      const issue: FakeIssue = {
+        id: crypto.randomUUID(),
+        identifier,
+        title: "",
+        description: null,
+        url: `https://linear.app/fake/issue/${identifier}`,
+        priority: 0,
+        estimate: null,
+        sortOrder: Math.max(0, ...ws.issues.map((i) => i.sortOrder)) + 1,
+        dueDate: null,
+        branchName: `${identifier.toLowerCase()}-${String(input.title).toLowerCase().replace(/[^a-z0-9]+/g, "-")}`,
+        createdAt: now,
+        updatedAt: now,
+        archivedAt: null,
+        completedAt: null,
+        state: { id: start.id },
+        team: { id: team.id },
+        assignee: null,
+        creator: viewer(ws),
+        labels: { nodes: [] },
+        project: null,
+        projectMilestone: null,
+        cycle: null,
+        parent: null,
+        children: { nodes: [] },
+        subscribers: { nodes: [viewer(ws)] },
+        relations: { nodes: [] },
+        inverseRelations: { nodes: [] },
+        attachments: { nodes: [] },
+      };
+      ws.issues.push(issue);
+      apply(ctx, issue, input);
+      return issuePayload("issueCreate", issue);
+    },
+    IssueArchive: (ctx) => {
+      const issue = touchIssue(ctx, ctx.variables.id, (i) => void (i.archivedAt = new Date().toISOString()));
+      return issuePayload("issueArchive", issue, "entity");
+    },
+    IssueUnarchive: (ctx) => {
+      const issue = touchIssue(ctx, ctx.variables.id, (i) => {
+        i.archivedAt = null;
+        i.trashed = false;
+      });
+      return issuePayload("issueUnarchive", issue, "entity");
+    },
+    IssueDelete: (ctx) => {
+      touchIssue(ctx, ctx.variables.id, (i) => {
+        i.archivedAt = new Date().toISOString();
+        i.trashed = true;
+      });
+      return { issueDelete: { success: true } };
+    },
+    IssueSubscribe: (ctx) => {
+      const issue = touchIssue(ctx, ctx.variables.id, (i) => {
+        if (!i.subscribers.nodes.some((u) => u.id === ctx.ws.viewerId)) i.subscribers.nodes.push(viewer(ctx.ws));
+      });
+      return issuePayload("issueSubscribe", issue);
+    },
+    IssueUnsubscribe: (ctx) => {
+      const issue = touchIssue(ctx, ctx.variables.id, (i) => {
+        i.subscribers.nodes = i.subscribers.nodes.filter((u) => u.id !== ctx.ws.viewerId);
+      });
+      return issuePayload("issueUnsubscribe", issue);
+    },
+    IssueRelationCreate: (ctx) => {
+      const input = ctx.variables.input as { issueId: string; relatedIssueId: string; type: "blocks" | "related" | "duplicate" };
+      const from = issueOf(ctx.ws, input.issueId);
+      const to = issueOf(ctx.ws, input.relatedIssueId);
+      const id = crypto.randomUUID();
+      from.relations.nodes.push({ id, type: input.type, relatedIssue: { id: to.id } });
+      to.inverseRelations.nodes.push({ id, type: input.type, issue: { id: from.id } });
+      ctx.touch(from, to);
+      return { issueRelationCreate: { success: true } };
+    },
+    IssueRelationDelete: (ctx) => {
+      const id = ctx.variables.id;
+      const owners = ctx.ws.issues.filter(
+        (i) => i.relations.nodes.some((r) => r.id === id) || i.inverseRelations.nodes.some((r) => r.id === id),
+      );
+      if (!owners.length) throw bad("Could not find referenced IssueRelation.");
+      for (const i of owners) {
+        i.relations.nodes = i.relations.nodes.filter((r) => r.id !== id);
+        i.inverseRelations.nodes = i.inverseRelations.nodes.filter((r) => r.id !== id);
+      }
+      ctx.touch(...owners);
+      return { issueRelationDelete: { success: true } };
+    },
+    CommentCreate: (ctx) => {
+      const { ws } = ctx;
+      const input = ctx.variables.input as { issueId: string; body: string; parentId?: string };
+      const issue = issueOf(ws, input.issueId);
+      const now = new Date().toISOString();
+      const comment: FakeComment = {
+        id: crypto.randomUUID(),
+        issue: { id: issue.id },
+        parent: input.parentId ? { id: commentOf(ws, input.parentId).id } : null,
+        user: viewer(ws),
+        body: input.body,
+        createdAt: now,
+        editedAt: null,
+        updatedAt: now,
+        resolvedAt: null,
+        reactions: [],
+      };
+      ws.comments.push(comment);
+      ctx.touch(comment, issue);
+      return { commentCreate: { success: true, comment } };
+    },
+    CommentUpdate: (ctx) => {
+      const comment = commentOf(ctx.ws, ctx.variables.id);
+      comment.body = (ctx.variables.input as { body: string }).body;
+      ctx.touch(comment);
+      comment.editedAt = comment.updatedAt;
+      return { commentUpdate: { success: true, comment } };
+    },
+    CommentDelete: (ctx) => {
+      const comment = commentOf(ctx.ws, ctx.variables.id);
+      ctx.ws.comments = ctx.ws.comments.filter((c) => c !== comment);
+      ctx.touch(issueOf(ctx.ws, comment.issue.id));
+      return { commentDelete: { success: true } };
+    },
+    CommentResolve: (ctx) => {
+      const comment = commentOf(ctx.ws, ctx.variables.id);
+      ctx.touch(comment);
+      comment.resolvedAt = comment.updatedAt;
+      return { commentResolve: { success: true, comment } };
+    },
+    CommentUnresolve: (ctx) => {
+      const comment = commentOf(ctx.ws, ctx.variables.id);
+      comment.resolvedAt = null;
+      ctx.touch(comment);
+      return { commentUnresolve: { success: true, comment } };
+    },
+    ReactionCreate: (ctx) => {
+      const input = ctx.variables.input as { commentId: string; emoji: string };
+      const comment = commentOf(ctx.ws, input.commentId);
+      if (comment.reactions.some((r) => r.emoji === input.emoji && r.user.id === ctx.ws.viewerId))
+        throw bad("Reaction already exists.");
+      comment.reactions.push({ id: crypto.randomUUID(), emoji: input.emoji, user: viewer(ctx.ws) });
+      ctx.touch(comment);
+      return { reactionCreate: { success: true } };
+    },
+    ReactionDelete: (ctx) => {
+      const comment = ctx.ws.comments.find((c) => c.reactions.some((r) => r.id === ctx.variables.id));
+      if (!comment) throw bad("Could not find referenced Reaction.");
+      comment.reactions = comment.reactions.filter((r) => r.id !== ctx.variables.id);
+      ctx.touch(comment);
+      return { reactionDelete: { success: true } };
+    },
+  };
+}
 
 export type FakeFailure = { status?: number; message: string; type?: string };
 export type FakeLinear = {

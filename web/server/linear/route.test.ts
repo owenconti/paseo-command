@@ -46,7 +46,7 @@ test("answers named reads and refuses others", async () => {
   const since = new Date(Date.now() - 86_400_000 * 40).toISOString();
   assert.ok((await ask(`/api/linear/q/sync?since=${encodeURIComponent(since)}`)).body.issues.length > 0);
   assert.deepEqual((await ask("/api/linear/q/status")).body.configured, true);
-  assert.equal((await ask("/api/linear/m/issueUpdate", "POST")).status, 404);
+  assert.equal((await ask("/api/linear/m/issueNope", "POST")).status, 404);
   assert.equal((await ask("/api/linear/q/workspace", "POST")).status, 404);
 });
 
