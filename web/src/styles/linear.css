@@ -12,6 +12,20 @@
   background: var(--surface);
   color: var(--text);
 }
+/* The text size (⌘+ ⌘− ⌘0, `linear/textSize.ts`): the app's sizes (its themes' --fs-md is 14px)
+   plus --linear-text, set on the root, for the view and its portalled menus and dialog. */
+.linear-view,
+.linear-create,
+.linear-row-menu-anchor {
+  --fs-2xs: calc(10px + var(--linear-text, 2px));
+  --fs-xs: calc(11px + var(--linear-text, 2px));
+  --fs-sm: calc(12px + var(--linear-text, 2px));
+  --fs-md: calc(14px + var(--linear-text, 2px));
+  --fs-lg: calc(15px + var(--linear-text, 2px));
+  --fs-xl: calc(18px + var(--linear-text, 2px));
+  --fs-2xl: calc(22px + var(--linear-text, 2px));
+  font-size: var(--fs-md);
+}
 /* It takes focus only to keep Linear's keys (a click on its background): no ring. */
 .linear-view:focus {
   outline: none;
@@ -329,7 +343,7 @@
   height: 20px;
   border-radius: var(--radius-pill);
   background: var(--accent-soft);
-  font-size: 9px;
+  font-size: calc(9px + var(--linear-text, 2px));
   font-weight: var(--fw-semibold);
   letter-spacing: 0.02em;
   color: var(--accent-text);

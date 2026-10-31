@@ -16,6 +16,7 @@ import { checkPlace, placeScope, readPlace, writePlace, type LinearPlace } from 
 import { ProjectFacts, ProjectList } from "./ProjectList";
 import type { IssueContext } from "./prompt";
 import { Sidebar } from "./Sidebar";
+import { changeTextStep, checkTextStep, textSizeKey, type TextChange } from "./textSize";
 import { linearStore, loadScope, loadWorkspace, setLinearNotice, useLinear, useLinearSync } from "./store";
 import type { IssueScope, LinearIssue } from "./types";
 
@@ -127,6 +128,17 @@ export function LinearView({
     setListWidth(w);
     writeStore("linear:listWidth", w);
   };
+  // The view's text size (`textSize.ts`), set on the root so portalled menus and dialogs follow.
+  const [textStep, setTextStep] = useState(() => checkTextStep(readStore<unknown>("linear:textSize", undefined)));
+  useEffect(() => {
+    document.documentElement.style.setProperty("--linear-text", `${textStep}px`);
+  }, [textStep]);
+  const resizeText = (change: TextChange) =>
+    setTextStep((step) => {
+      const next = changeTextStep(step, change);
+      writeStore("linear:textSize", next);
+      return next;
+    });
   const toggleList = () =>
     setListHidden((hidden) => {
       writeStore("linear:listHidden", !hidden);
@@ -193,19 +205,30 @@ export function LinearView({
     watch.observe(view);
     return () => watch.disconnect();
   }, [view]);
-  // ⌘S, as in Conquer: while Linear shows, the page has the key.
+  // ⌘S, as in Conquer, and ⌘+ ⌘− ⌘0 (the text size): while Linear shows, the page has the keys.
   useEffect(() => {
     const key = (e: KeyboardEvent) => {
       if (e.metaKey && !e.ctrlKey && !e.altKey && !e.shiftKey && e.key.toLowerCase() === "s") {
         e.preventDefault();
         toggleList();
+        return;
+      }
+      const change = textSizeKey(e);
+      if (change) {
+        e.preventDefault();
+        resizeText(change);
       }
     };
     window.addEventListener("keydown", key);
-    const off = onAppCommand("linear-sidebar", toggleList);
+    const offs = [
+      onAppCommand("linear-sidebar", toggleList),
+      onAppCommand("linear-text-bigger", () => resizeText("bigger")),
+      onAppCommand("linear-text-smaller", () => resizeText("smaller")),
+      onAppCommand("linear-text-actual", () => resizeText("actual")),
+    ];
     return () => {
       window.removeEventListener("keydown", key);
-      off();
+      offs.forEach((off) => off());
     };
   }, []);
 

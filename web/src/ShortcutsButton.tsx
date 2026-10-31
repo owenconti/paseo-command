@@ -87,6 +87,8 @@ const LINEAR: Group = {
     { keys: [["⌘", "."]], label: "Copy the issue's branch name" },
     { keys: [["⌘", "⇧", ","]], label: "Copy the issue's link" },
     { keys: [["⌘", "S"]], label: "Show or hide the sidebar" },
+    { keys: [["⌘", "+"], ["⌘", "−"]], label: "Bigger or smaller text" },
+    { keys: [["⌘", "0"]], label: "Actual text size" },
     { keys: [["⌘", "Enter"]], label: "Send a comment, reply or edit" },
     { keys: [["⌘", "Enter"]], label: "Create the issue (New issue)" },
   ],

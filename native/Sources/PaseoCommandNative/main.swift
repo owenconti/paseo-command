@@ -372,8 +372,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         case #selector(maximizeTerminal):
             item.state = main.drawer.maximized ? .on : .off
             return !main.drawer.isHidden
-        // Only while the terminal shows, so the keys stay the page's otherwise.
-        case #selector(zoomTerminal(_:)): return !main.drawer.isHidden
+        // Only while the terminal shows, so the keys stay the page's otherwise; while Linear
+        // shows, only while the terminal has the keyboard (the page sizes Linear's text with them).
+        case #selector(zoomTerminal(_:)):
+            return !main.drawer.isHidden && (main.mode != .linear || main.drawer.hasKeyFocus)
         default: break
         }
         return true

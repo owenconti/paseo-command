@@ -167,6 +167,20 @@ test("Linear navigates my issues, teams, projects and initiatives, shows an issu
     await view.getByRole("button", { name: "Show the Linear sidebar", exact: true }).click();
     await waitFor(() => sidebar.isVisible(), (v) => v, "the sidebar to show");
 
+    // The text is 2 px over the app's sizes; ⌘+ (⌘=) and ⌘− step it, ⌘0 puts it back.
+    const title = issue.locator("h1", { hasText: "Ship the Linear tab" });
+    const size = () => title.evaluate((el) => parseFloat(getComputedStyle(el).fontSize));
+    const start = await size();
+    const body = await view.evaluate((el) => parseFloat(getComputedStyle(el).fontSize));
+    assert.equal(body, 16);
+    await page.keyboard.press("Meta+=");
+    await waitFor(size, (px) => px === start + 1, "bigger text");
+    await page.keyboard.press("Meta+-");
+    await page.keyboard.press("Meta+-");
+    await waitFor(size, (px) => px === start - 1, "smaller text");
+    await page.keyboard.press("Meta+0");
+    await waitFor(size, (px) => px === start, "the default text size");
+
     // Narrow, the open issue takes the list's place, with Back.
     await page.setViewportSize({ width: 900, height: 900 });
     await waitFor(() => view.locator(".linear-list").count(), (n) => n === 0, "the list to give way");

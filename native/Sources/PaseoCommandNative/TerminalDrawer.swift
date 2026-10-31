@@ -616,6 +616,12 @@ final class TerminalDrawer: NSView {
     @objc private func moveDock() { onMove?() }
     @objc private func maximize() { onMaximize?() }
 
+    /// Whether the keyboard is in the panel (a terminal, its tabs).
+    var hasKeyFocus: Bool {
+        guard let responder = window?.firstResponder as? NSView else { return false }
+        return responder === self || responder.isDescendant(of: self)
+    }
+
     /// Whether the body shows more than one pane.
     var isSplit: Bool { (layout?.terminals.count ?? 0) > 1 }
 
