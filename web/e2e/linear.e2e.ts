@@ -45,7 +45,7 @@ test("Linear lists your issues, shows one, and launches New agent from it", asyn
     projects: () => [
       { projectId: "prj_atlas", name: "atlas", kind: "git", path: "/work/atlas" },
     ],
-    lists: { presets: { presets: [{ name: "Plan it", prompt: "Plan {{issue}}." }], error: null } },
+    lists: { settings: { integrations: { linear: true } }, presets: { presets: [{ name: "Plan it", prompt: "Plan {{issue}}." }], error: null } },
     accept: (path, body) => {
       if (path !== "/api/dispatch") return false;
       dispatched.push(body);

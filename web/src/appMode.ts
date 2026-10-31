@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { askAppMode } from "./worldBridge";
+import { askAppMode, configureAppIntegrations } from "./worldBridge";
+import { useIntegrations } from "./integrationSettings";
 
 /** What stands in the map's place in the macOS app (its mode bar's tabs):
  * the map, the Conquer browser, or Linear, which the page draws itself. */
@@ -9,6 +10,11 @@ const MODES: AppMode[] = ["command", "conquer", "linear"];
 
 /** The mode bar's tab, as the app reports it (`paseo:mode`); always the map in a browser. */
 export function useAppMode(): AppMode {
+  const { integrations, loaded } = useIntegrations();
+  useEffect(() => {
+    configureAppIntegrations(integrations);
+    if (loaded) askAppMode();
+  }, [integrations, loaded]);
   const [mode, setMode] = useState<AppMode>("command");
   useEffect(() => {
     const receive = (event: Event) => {
@@ -20,5 +26,5 @@ export function useAppMode(): AppMode {
     askAppMode();
     return () => window.removeEventListener("paseo:mode", receive);
   }, []);
-  return mode;
+  return mode === "linear" && !integrations.linear ? "command" : mode;
 }

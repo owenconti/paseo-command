@@ -4,6 +4,20 @@ _ = NSApplication.shared
 NSApp.setActivationPolicy(.accessory)
 enum Log { static func line(_ message: String) {} }
 let fixture = URL(string: CommandLine.arguments.last!)!
+// The optional Linear tab is absent until explicitly enabled.
+do {
+    let bar = ModeBar(frame: CGRect(x: 0, y: 0, width: 900, height: 32))
+    func findLinear(_ view: NSView) -> NSButton? {
+        if let button = view as? NSButton, button.title.trimmingCharacters(in: .whitespaces) == "Linear" { return button }
+        return view.subviews.compactMap(findLinear).first
+    }
+    let linear = findLinear(bar)!
+    assert(linear.isHidden)
+    bar.linearEnabled = true
+    assert(!linear.isHidden)
+    bar.linearEnabled = false
+    assert(linear.isHidden)
+}
 func browser() -> ConquerView { ConquerView(frame: CGRect(x: 0, y: 0, width: 900, height: 600), persistent: false) }
 func pin(_ browser: ConquerView, name: String = "Pinned") -> BrowserTab {
     let tab = BrowserTab(url: fixture.appendingPathComponent(name), title: name)

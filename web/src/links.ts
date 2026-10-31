@@ -14,6 +14,7 @@
  */
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { api, readStore } from "./api";
+import { useIntegrations } from "./integrationSettings";
 import { linearSlug } from "./linearSlug";
 import { branchKey, textKey } from "./display";
 import { nativeRequest } from "./nativePlatform";
@@ -160,7 +161,9 @@ export function setLinearWorkspace(value: string) {
 export async function refreshLinearWorkspace() {
   let saved: string;
   try {
-    const r = await api<{ linearWorkspace?: string; error?: string | null }>("settings");
+    const r = await api<{ linearWorkspace?: string; error?: string | null }>(
+      "settings",
+    );
     if (r.error) return;
     saved = linearSlug(r.linearWorkspace || "") ?? "";
   } catch {
@@ -348,6 +351,8 @@ export function useMergeQueue(
 
 /** The issue's title and state, when the server has a Linear API key. */
 export function useLinearIssue(key: string | null): LinearIssue | null {
+  const { integrations } = useIntegrations();
+  key = integrations.linear ? key : null;
   const [found, setFound] = useState<{
     key: string;
     issue: LinearIssue | null;

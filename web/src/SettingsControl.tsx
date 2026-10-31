@@ -3,7 +3,7 @@ import { Settings } from "lucide-react";
 import { placePopover } from "./popover";
 import { previewSound, setSoundSettings, useSoundSettings } from "./sounds";
 import { nativeEvents } from "./worldBridge";
-import { api } from "./api";
+import { setIntegration, useIntegrations } from "./integrationSettings";
 import { onAppCommand } from "./appCommands";
 import { LinearWorkspaceSetting } from "./HeaderLinks";
 import { setMusicSettings, useMusic } from "./music";
@@ -13,7 +13,7 @@ import { openPresetEditor, usePresets } from "./presetsStore";
  * The app's settings, behind the panel header's gear: interface sounds and
  * the lofi radio (on/off and volume), desktop notifications, and the Linear
  * workspace issue links open in. Sounds, radio and notifications are kept
- * in this browser (or the app); the Linear workspace and the preset prompts
+ * in this browser (or the app); optional integrations, the Linear workspace and the preset prompts
  * (which open their own editor) in ~/.paseo-command/settings.json.
  */
 export function SettingsControl({
@@ -114,7 +114,7 @@ export function SettingsControl({
         aria-expanded={open}
         aria-controls={open ? id : undefined}
         aria-label="Settings"
-        data-tip="Settings — sounds, music, notifications"
+        data-tip="Settings — integrations, sounds, music, notifications"
         data-music={music.enabled ? music.state : "off"}
         onClick={() => setOpen(!open)}
       >
@@ -218,14 +218,13 @@ export function SettingsControl({
               </span>
             </label>
           )}
-          <LinearWorkspaceSetting />
+          <IntegrationSettings />
           <PresetsSetting
             onEdit={() => {
               close(false);
               openPresetEditor();
             }}
           />
-          <ReplyQuestionsStatus />
         </div>
       )}
     </span>
@@ -254,27 +253,54 @@ function PresetsSetting({ onEdit }: { onEdit: () => void }) {
   );
 }
 
-/** Whether replies' questions can be found (TypeSafe's Jev, server/asks.ts). */
-function ReplyQuestionsStatus() {
-  const [status, setStatus] = useState<{ available: boolean; error?: string } | null>(null);
-  useEffect(() => {
-    const controller = new AbortController();
-    api<{ available: boolean; error?: string }>("asks", undefined, controller.signal)
-      .then(setStatus)
-      .catch(() => {});
-    return () => controller.abort();
-  }, []);
-  if (!status) return null;
+/** Optional services stay off until their choice has been saved to settings.json. */
+function IntegrationSettings() {
+  const { integrations, loaded, saving, pending, error } = useIntegrations();
   return (
-    <div className="linear-setting">
-      <span>
-        <b>Questions in replies</b>
-        <small>
-          {status.available
-            ? "Found by TypeSafe's Jev"
-            : status.error || "Unavailable"}
-        </small>
-      </span>
+    <div className="integration-settings">
+      <h3>Optional integrations</h3>
+      {(
+        [
+          [
+            "linear",
+            "Linear",
+            "Issues and links. Requires linearApiKey in secrets.json.",
+          ],
+          [
+            "typesafe",
+            "TypeSafe",
+            "Find questions and suggest replies. Sends reply excerpts to TypeSafe; requires typesafeApiKey in secrets.json.",
+          ],
+          [
+            "appleMusic",
+            "Apple Music",
+            "Show playback controls. Asks for macOS Automation permission.",
+          ],
+        ] as const
+      ).map(([name, label, description]) => (
+        <label className="sound-toggle" key={name}>
+          <input
+            type="checkbox"
+            checked={
+              pending?.name === name ? pending.enabled : integrations[name]
+            }
+            disabled={!loaded || saving}
+            onChange={(event) =>
+              void setIntegration(name, event.target.checked)
+            }
+          />
+          <span>
+            <b>{label}</b>
+            <small>{description}</small>
+          </span>
+        </label>
+      ))}
+      {integrations.linear && <LinearWorkspaceSetting />}
+      {error && (
+        <p className="integration-error" role="alert">
+          {error}
+        </p>
+      )}
     </div>
   );
 }

@@ -1,6 +1,8 @@
-import { test } from "node:test";
+import { beforeEach, test } from "node:test";
 import assert from "node:assert/strict";
 import { createAsksService, judgeReply, type Judge } from "./asks";
+import { writeSettings } from "./settings";
+beforeEach(() => writeSettings({ integrations: { typesafe: true } }));
 import { parseAnswers } from "./askAnswers";
 
 const REPLY =
@@ -107,7 +109,7 @@ test("nothing when the user wrote last, the agent runs, or there's no key", asyn
   assert.deepEqual(service.request(client as never, "local", record() as never).questions, []);
   assert.equal(service.request(client as never, "local", record({ status: "running" }) as never).pending, false);
   const keyless = createAsksService(() => undefined);
-  assert.match(keyless.request(client as never, "local", record() as never).error!, /TYPESAFE_API_KEY/);
+  assert.match(keyless.request(client as never, "local", record() as never).error!, /typesafeApiKey.*secrets.json/);
   assert.equal(keyless.status().available, false);
 });
 

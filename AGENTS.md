@@ -167,6 +167,8 @@ and GitHub publication; report the published version and release link.
   directory is moved there on first read) show as buttons that launch the agent at once; `{{pr}}` names the chosen pull request.
   They are edited in the app (`web/src/PresetsEditor.tsx`, from Settings or New agent; `POST /api/presets` keeps the file's
   other keys and never overwrites an unreadable file); `web/src/presetsStore.ts` shares them across the page.
+  Optional integrations (`integrations.linear`, `integrations.typesafe`, `integrations.appleMusic`) default off in that file.
+  Integration keys are read only from the data directory's `secrets.json` (`web/server/secrets.ts`), never from environment variables.
   The same `settings.json` keeps the Linear workspace (`linearWorkspace`; `GET`/`POST /api/settings`,
   `web/server/settings.ts`), which the page once kept in localStorage and moves into the file on load.
 - `rendering/src/native/bridge.ts`: inside the native app, the Atlas world `mountAtlas` returns: it lays out and paints
@@ -187,7 +189,7 @@ and GitHub publication; report the published version and release link.
   after confirming (`web/src/RemoveProjectDialog.tsx`, `POST /api/projects/:id/remove`: Paseo archives its workspaces and
   unregisters it; the folder stays). Moving a project's folder isn't offered: the daemon has no call for it.
 - `web/server/asks.ts`: what an idle agent's last reply asks of you, judged once per reply by TypeSafe's Jev
-  (`TYPESAFE_API_KEY`, else `typesafeApiKey` in the data directory's `secrets.json`): code splits the reply into
+  (opt-in `integrations.typesafe` in `settings.json`, with `typesafeApiKey` in the data directory's `secrets.json`): code splits the reply into
   sentences and keeps only questions and requests (`web/src/asks/sentences.ts`, `mayAsk`), Jev judges which ask you, their kind, a pick's options, and whether
   the reply waits on you. `POST /api/agents/:id/asks`, `GET /api/asks` (status). The composer offers the questions
   (`web/src/composer/AskStrip.tsx`) with quick replies; a reply that waits on you is the map's `asking` state
@@ -217,7 +219,7 @@ and GitHub publication; report the published version and release link.
 - Auto-merge: a PR's `autoMerge` comes from Paseo's GitHub facts (`autoMergeRequest`), else gh's (`web/server/links.ts`).
   While it's on, a teal seal with a merge mark sits on the review medallion's upper-right rim, else the CI one's (`placeSeals`,
   `paintSeal`, `AUTO_MERGE` in `rendering/src/prStatus.ts`); the medallion's hover card says how it merges and who turned it on.
-- Apple Music bar: `web/src/MusicBar.tsx` floats in the map's top-left corner (macOS app only) with Music's current track,
+- Apple Music bar (opt-in `integrations.appleMusic` in `settings.json`; off by default): `web/src/MusicBar.tsx` floats in the map's top-left corner (macOS app only) with Music's current track,
   its art and ⏮ ⏯ ⏭; with Music closed it offers play, which opens Music without focus and resumes. The app reads and drives
   Music by AppleScript (`native/Sources/PaseoCommandNative/Music.swift`, about once a second while the window shows) over the
   `paseoMusic` message handler and `paseo:music` events; macOS asks once for Automation permission (`NSAppleEventsUsageDescription`).
@@ -239,7 +241,7 @@ and GitHub publication; report the published version and release link.
   `web/src/LinearView.tsx` over the map's frame while the app reports `paseo:mode` `linear` (`useAppMode`, `web/src/appMode.ts`;
   the page asks with a `mode` message). It lists the open issues assigned to you, grouped by state, beside the chosen one's
   details (description, links, comments), read-only from Linear (`web/server/linear.ts`, `GET /api/linear/issues[/KEY]`, with
-  `LINEAR_API_KEY` or `linearApiKey` in `secrets.json`). Launch agent opens New agent with the issue (`DispatchTarget.issue`):
+  opt-in `integrations.linear` in `settings.json` and `linearApiKey` in `secrets.json`). Launch agent opens New agent with the issue (`DispatchTarget.issue`):
   Worktree on Linear's branch name, the composer's draft naming the issue; presets take `{{issue}}` and the issue's details.
   As Conquer's sidebar, the issue list's inner edge resizes it and ⌘S hides or shows it (kept in localStorage). Images uploaded
   to Linear load through `GET /api/linear/image?url=` (only `uploads.linear.app`, fetched with the key; `linearImages`).

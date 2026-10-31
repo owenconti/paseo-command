@@ -1294,3 +1294,46 @@
   gap: 4px;
   padding: 0 10px 8px;
 }
+
+.integration-settings {
+  border-top: 1px solid var(--line);
+  margin-top: var(--space-1);
+  padding-top: 8px;
+}
+.integration-settings h3 {
+  margin: 0 8px 4px;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+}
+.settings-menu {
+  width: min(340px, calc(100vw - 24px));
+  min-width: 0;
+  max-height: calc(100vh - 80px);
+  overflow-y: auto;
+}
+.settings-menu .integration-settings .sound-toggle {
+  margin: 0;
+  border: 0;
+}
+.integration-settings .sound-toggle input {
+  flex: 0 0 auto;
+}
+.integration-settings .sound-toggle span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 600px) {
+  .panel-tools .settings-menu.right {
+    position: fixed;
+    left: 12px;
+    right: 12px;
+    top: 48px;
+    bottom: auto;
+    width: auto;
+  }
+}
+.integration-error {
+  margin: 8px;
+  color: var(--red);
+  font-size: var(--fs-sm);
+}

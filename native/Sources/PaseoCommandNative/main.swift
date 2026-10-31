@@ -342,7 +342,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     @objc private func zoomTerminal(_ sender: NSMenuItem) { main?.drawer.zoom(CGFloat(sender.tag)) }
     @objc private func toggleMode() {
         guard let main else { return }
-        main.show(main.mode.next)
+        main.show(main.nextMode)
     }
     @objc private func showMode(_ sender: NSMenuItem) {
         if let mode = (sender.representedObject as? String).flatMap(Mode.init(rawValue:)) { main?.show(mode) }
@@ -359,7 +359,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         let browser = main.mode == .conquer && main.conquer.hasKeyFocus
         closeWindow?.keyEquivalent = browser ? "" : "w"
         switch item.action {
-        case #selector(showMode(_:)): item.state = item.representedObject as? String == main.mode.rawValue ? .on : .off
+        case #selector(showMode(_:)):
+            item.state = item.representedObject as? String == main.mode.rawValue ? .on : .off
+            return item.representedObject as? String != "linear" || main.linearEnabled
+        case #selector(toggleMode):
+            item.title = main.linearEnabled ? "Next: Command, Conquer, Linear" : "Next: Command, Conquer"
         case #selector(conquerCommand(_:)):
             if item.representedObject as? String == "togglePin" { item.title = main.conquer.current?.isPinned == true ? "Unpin Tab" : "Pin Tab" }
             return browser

@@ -58,6 +58,7 @@ final class ModeButton: NSButton {
 /// and its tabs are a small segmented control rather than a tab bar.
 final class ModeBar: NSView {
     var onSelect: ((Mode) -> Void)?
+    var linearEnabled = false { didSet { buttons.first { $0.0 == .linear }?.1.isHidden = !linearEnabled } }
     var mode: Mode = .command { didSet { restyle() } }
     /// Where the tabs start: past the traffic lights.
     var leading: CGFloat = 0 { didSet { rowLeading?.constant = leading } }
@@ -96,6 +97,7 @@ final class ModeBar: NSView {
                 button.heightAnchor.constraint(equalToConstant: 20),
                 button.widthAnchor.constraint(greaterThanOrEqualToConstant: 92),
             ])
+            button.isHidden = mode == .linear && !linearEnabled
             track.addArrangedSubview(button)
         }
         addSubview(track)

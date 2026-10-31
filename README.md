@@ -41,21 +41,44 @@ The map requires the macOS app; conversations and panels also work in a regular 
 
 ## Optional integrations
 
-- **GitHub:** Install the [GitHub CLI](https://cli.github.com) and sign in with
-  `gh auth login` to enable pull request and review status.
-- **Linear:** Export `LINEAR_API_KEY` in your shell profile to enable your assigned
-  issues and their details. Choose your Linear workspace in the app's settings.
-- **TypeSafe:** Export `TYPESAFE_API_KEY` to enable question detection and reply
-  suggestions. You can also save `{"typesafeApiKey": "…"}` in
-  `~/Library/Application Support/Paseo Command/secrets.json`. Candidate sentences
-  from agent replies are sent to TypeSafe; helper summaries and drafted answers use
-  the daemon's configured model provider.
-- **Apple Music:** Use the music bar to control playback. macOS asks for Automation
-  permission the first time it is needed.
+**Linear, TypeSafe and Apple Music are off by default.** Open **Settings** from
+⌘K to enable the features you want. These choices are saved in
+`~/.paseo-command/settings.json`; you can also edit the file directly:
 
-Paseo Command reads your shell environment at launch, including `~/.zprofile` and
-`~/.zshrc`, so exported keys and the GitHub CLI are available when you open it from
-Finder. After changing them, choose **Restart app** in the command palette (⌘K).
+```json
+{
+  "integrations": {
+    "linear": false,
+    "typesafe": false,
+    "appleMusic": false
+  }
+}
+```
+
+Set a feature to `true` to enable it. API keys go in one place:
+`~/Library/Application Support/Paseo Command/secrets.json`:
+
+```json
+{
+  "linearApiKey": "your-linear-api-key",
+  "typesafeApiKey": "your-typesafe-api-key"
+}
+```
+
+Keep credentials in `secrets.json` and preferences in `settings.json`. A saved key
+alone does not enable a feature. After editing these files, return to the app or
+choose **Restart app** in ⌘K to load your changes.
+
+- **Linear:** Enable Linear and provide `linearApiKey` to see your assigned issues,
+  issue details and links. Set your Linear workspace in Settings for issue links.
+- **TypeSafe:** Enable TypeSafe and provide `typesafeApiKey` to find questions in
+  agent replies and suggest answers. This sends reply excerpts to TypeSafe.
+  Helper summaries and drafted answers use the daemon's configured model provider.
+- **Apple Music:** Enable Apple Music to show playback controls. No API key is
+  needed. macOS asks for Automation permission when the app first accesses Music.
+- **GitHub:** Install the [GitHub CLI](https://cli.github.com) and sign in with
+  `gh auth login` for pull request and review status. The CLI manages its own login;
+  Paseo Command does not need a GitHub API key.
 
 ## Updates
 
@@ -68,7 +91,7 @@ Choose **What's new** in the command palette to read release notes.
 
 ## Settings and local data
 
-Presets and your Linear workspace are edited in the app and saved in
+Presets, integration choices and your Linear workspace are edited in the app and saved in
 `~/.paseo-command/settings.json`.
 
 Logs, game progress, conversation forks and local credentials are stored in

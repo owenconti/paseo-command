@@ -282,6 +282,11 @@ const BASIC: Record<string, unknown> = {
   usage: [],
   profiles: [],
   releases: { installed: "test", releases: [] },
+  settings: {
+    linearWorkspace: "",
+    integrations: { linear: false, typesafe: false, appleMusic: false },
+    error: null,
+  },
 };
 
 /**

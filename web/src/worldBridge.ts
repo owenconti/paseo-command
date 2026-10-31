@@ -202,8 +202,11 @@ type AppChannel = { postMessage(message: unknown): void };
 const appChannel = () =>
   typeof window === "undefined"
     ? undefined
-    : (window as unknown as { webkit?: { messageHandlers?: { paseoWorld?: AppChannel } } })
-        .webkit?.messageHandlers?.paseoWorld;
+    : (
+        window as unknown as {
+          webkit?: { messageHandlers?: { paseoWorld?: AppChannel } };
+        }
+      ).webkit?.messageHandlers?.paseoWorld;
 /** Whether the page runs inside the macOS app. */
 export const macApp = () => !!appChannel();
 /** Choose one of the macOS app's menu items (View → Terminal, …). */
@@ -213,6 +216,11 @@ export const postAppMenu = (action: string) =>
 export const askAppUpdate = () => appChannel()?.postMessage({ type: "update" });
 /** Ask the macOS app which mode bar tab shows; it answers with a `paseo:mode` event. */
 export const askAppMode = () => appChannel()?.postMessage({ type: "mode" });
+/** Apply optional integrations to the native mode bar and Music controller. */
+export const configureAppIntegrations = (integrations: {
+  linear: boolean;
+  appleMusic: boolean;
+}) => appChannel()?.postMessage({ type: "integrations", ...integrations });
 /** Open a web link in the macOS app's browser, Conquer, in the map's place (a new tab). */
 export const postAppLink = (url: string) =>
   appChannel()?.postMessage({ type: "openLink", url });

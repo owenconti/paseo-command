@@ -5,9 +5,17 @@
 import { useEffect, useState } from "react";
 import { Music, Pause, Play, SkipBack, SkipForward } from "lucide-react";
 import "./music-bar.css";
+import { useIntegrations } from "./integrationSettings";
 
 type Reading = {
-  state: "closed" | "launching" | "stopped" | "playing" | "paused" | "denied" | string;
+  state:
+    | "closed"
+    | "launching"
+    | "stopped"
+    | "playing"
+    | "paused"
+    | "denied"
+    | string;
   title?: string;
   artist?: string;
   art?: string;
@@ -15,8 +23,11 @@ type Reading = {
 
 type Channel = { postMessage(m: unknown): void };
 const channel = () =>
-  (window as unknown as { webkit?: { messageHandlers?: { paseoMusic?: Channel } } }).webkit
-    ?.messageHandlers?.paseoMusic;
+  (
+    window as unknown as {
+      webkit?: { messageHandlers?: { paseoMusic?: Channel } };
+    }
+  ).webkit?.messageHandlers?.paseoMusic;
 
 const post = (message: Record<string, unknown>) => channel()?.postMessage(message);
 
@@ -27,18 +38,24 @@ export const musicCommand = (name: "playpause" | "next" | "previous") =>
   post({ type: "command", name });
 
 export function MusicBar() {
+  const { integrations } = useIntegrations();
   const [reading, setReading] = useState<Reading | null>(null);
   useEffect(() => {
-    if (!channel()) return;
-    const receive = (e: Event) => setReading((e as CustomEvent<Reading>).detail);
+    post({ type: "enabled", on: integrations.appleMusic });
+    if (!channel() || !integrations.appleMusic) {
+      setReading(null);
+      return;
+    }
+    const receive = (e: Event) =>
+      setReading((e as CustomEvent<Reading>).detail);
     window.addEventListener("paseo:music", receive);
     post({ type: "watch", on: true });
     return () => {
       window.removeEventListener("paseo:music", receive);
       post({ type: "watch", on: false });
     };
-  }, []);
-  if (!reading) return null;
+  }, [integrations.appleMusic]);
+  if (!integrations.appleMusic || !reading) return null;
 
   const command = (name: string) => post({ type: "command", name });
   const playing = reading.state === "playing";
@@ -81,8 +98,16 @@ export function MusicBar() {
             <SkipBack size={14} fill="currentColor" />
           </button>
         )}
-        <button className="music-play" aria-label={playing ? "Pause" : "Play"} onClick={toggle}>
-          {playing ? <Pause size={15} fill="currentColor" /> : <Play size={15} fill="currentColor" />}
+        <button
+          className="music-play"
+          aria-label={playing ? "Pause" : "Play"}
+          onClick={toggle}
+        >
+          {playing ? (
+            <Pause size={15} fill="currentColor" />
+          ) : (
+            <Play size={15} fill="currentColor" />
+          )}
         </button>
         {track && (
           <button aria-label="Next track" onClick={() => command("next")}>

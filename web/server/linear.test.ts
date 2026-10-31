@@ -1,9 +1,19 @@
-import { afterEach, test } from "node:test";
+import { afterEach, beforeEach, test } from "node:test";
 import assert from "node:assert/strict";
+import { mkdirSync, writeFileSync, rmSync } from "node:fs";
+import { join } from "node:path";
+import { dataDir } from "./subagentArchive";
+import { writeSettings, settingsFile } from "./settings";
 import { LINEAR } from "./links";
 import { assignedIssues, issueDetail, linearImage, resetLinear } from "./linear";
 
 // Linear is never reached: LINEAR.fetch answers here.
+const secretFile = () => join(dataDir(), "secrets.json");
+const setKey = (linearApiKey: string) => {
+  mkdirSync(dataDir(), { recursive: true });
+  writeFileSync(secretFile(), JSON.stringify({ linearApiKey }));
+};
+beforeEach(() => writeSettings({ integrations: { linear: true } }));
 const realFetch = LINEAR.fetch;
 const asked: { query: string; variables: Record<string, unknown>; auth: string }[] = [];
 function answer(data: unknown, status = 200) {
@@ -18,7 +28,8 @@ function answer(data: unknown, status = 200) {
 }
 afterEach(() => {
   LINEAR.fetch = realFetch;
-  delete process.env.LINEAR_API_KEY;
+  rmSync(secretFile(), { force: true });
+  rmSync(settingsFile(), { force: true });
   asked.length = 0;
   resetLinear();
 });
@@ -41,13 +52,13 @@ test("linear: unavailable without an API key, and nothing is asked", async () =>
   answer({ data: {} });
   const list = await assignedIssues();
   assert.equal(list.available, false);
-  assert.match((list as { reason: string }).reason, /LINEAR_API_KEY/);
+  assert.match((list as { reason: string }).reason, /linearApiKey.*secrets.json/);
   assert.equal((await issueDetail("ENG-12")).available, false);
   assert.equal(asked.length, 0);
 });
 
 test("linear: lists your open assigned issues, cleaned", async () => {
-  process.env.LINEAR_API_KEY = "lin_api_test";
+  setKey("lin_api_test");
   answer({
     data: {
       viewer: {
@@ -93,7 +104,7 @@ test("linear: lists your open assigned issues, cleaned", async () => {
 });
 
 test("linear: a refused key says so and isn't cached", async () => {
-  process.env.LINEAR_API_KEY = "lin_api_bad";
+  setKey("lin_api_bad");
   answer({ errors: [{ message: "Authentication required" }] }, 401);
   const list = await assignedIssues();
   assert.deepEqual(list, { available: false, reason: "Linear refused the API key." });
@@ -102,7 +113,7 @@ test("linear: a refused key says so and isn't cached", async () => {
 });
 
 test("linear: an issue's details, comments oldest first", async () => {
-  process.env.LINEAR_API_KEY = "lin_api_test";
+  setKey("lin_api_test");
   answer({
     data: {
       issue: {
@@ -140,13 +151,13 @@ test("linear: an issue's details, comments oldest first", async () => {
 });
 
 test("linear: an issue Linear doesn't know is null", async () => {
-  process.env.LINEAR_API_KEY = "lin_api_test";
+  setKey("lin_api_test");
   answer({ data: { issue: null } });
   assert.deepEqual(await issueDetail("ENG-404"), { available: true, issue: null });
 });
 
 test("linear: an uploaded image is fetched with the key; nothing else is", async () => {
-  process.env.LINEAR_API_KEY = "lin_api_test";
+  setKey("lin_api_test");
   const fetched: { url: string; auth: string }[] = [];
   const reply = (type: string) =>
     (LINEAR.fetch = (async (url: string, init?: RequestInit) => {

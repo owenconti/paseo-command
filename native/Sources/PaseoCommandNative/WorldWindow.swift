@@ -29,6 +29,11 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
     let options: Options
     /// The map's Apple Music bar's player (`paseoMusic` messages).
     let music = MusicController()
+    private(set) var linearEnabled = false
+    var nextMode: Mode {
+        let modes: [Mode] = linearEnabled ? Mode.allCases : [.command, .conquer]
+        return modes[((modes.firstIndex(of: mode) ?? 0) + 1) % modes.count]
+    }
     /// Bridge messages decode their images here, in order, then apply on main.
     private let decoding = DispatchQueue(label: "paseo.world.decode", qos: .userInitiated)
     /// Runs the app's own server when the page is that server's (see `ServerManager`).
@@ -166,6 +171,7 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         guard let body = message.body as? [String: Any], let type = body["type"] as? String else { return }
         if message.name == "paseoMusic" {
             switch type {
+            case "enabled": music.setEnabled(body["on"] as? Bool ?? false)
             case "watch": music.watch(body["on"] as? Bool ?? false)
             case "command": music.command(body["name"] as? String ?? "")
             default: break
@@ -173,6 +179,12 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
             return
         }
         switch type {
+        case "integrations":
+            linearEnabled = body["linear"] as? Bool == true
+            modeBar.linearEnabled = linearEnabled
+            music.setEnabled(body["appleMusic"] as? Bool == true)
+            if !linearEnabled && mode == .linear { show(.command) }
+            else if linearEnabled && UserDefaults.standard.string(forKey: "mode") == "linear" { show(.linear) }
         case "art":
             decoding.async { [weak self] in
                 var frames: [String: CGImage] = [:]
@@ -253,7 +265,7 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
             case "terminal-smaller": drawer.zoom(-1)
             case "terminal-actual": drawer.zoom(0)
             case "conquer": show(.conquer)
-            case "mode-next": show(mode.next)
+            case "mode-next": show(nextMode)
             case "linear": show(.linear)
             case "command": show(.command)
             case "conquer-tab": show(.conquer); conquer.whenStarted { [weak self] in self?.conquer.newTab() }
@@ -610,6 +622,7 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
     /// panel toggle) gives the browser the width.
     /// The side not shown keeps running: the map's page and Conquer's tabs stay live.
     func show(_ next: Mode) {
+        guard next != .linear || linearEnabled else { return }
         guard next != mode else { return }
         mode = next
         modeBar.mode = next
