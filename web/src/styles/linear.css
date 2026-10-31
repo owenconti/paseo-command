@@ -26,6 +26,38 @@
   --fs-2xl: calc(22px + var(--linear-text, 2px));
   font-size: var(--fs-md);
 }
+/* Dark: neutral near-black greys instead of the Galaxy theme's navy, in two planes: the sidebar
+   darkest, the list and the open issue one plane divided by a hairline. Text and lines go neutral
+   too; the accent stays the theme's. Light keeps the theme's own. */
+:root[data-theme="galaxy"] :is(.linear-view, .linear-create, .linear-row-menu-anchor) {
+  --bg: #08090a;
+  --panel: #0c0d0f;
+  --panel-2: #0a0b0c;
+  --surface: #121315;
+  --panel-raised: #1a1b1e;
+  --input-bg: #0e0f11;
+  --fill-soft: #151619;
+  --fill: #1a1b1e;
+  --fill-strong: #26272b;
+  --row-hover: #1a1b1e;
+  --row-selected: #25231f;
+  --line-soft: #1c1d20;
+  --line: #25262a;
+  --line-mid: #2f3034;
+  --line-strong: #3c3d42;
+  --line-hover: #5a5b61;
+  --scrollbar: #393a3f;
+  --text: #d5d6d9;
+  --text-strong: #f3f3f4;
+  --text-2: #c2c3c7;
+  --text-mid: #aaabb1;
+  --text-3: #999aa0;
+  --text-4: #84858c;
+  --text-faint: #65666c;
+  --icon-muted: #8d8e95;
+  scrollbar-color: var(--scrollbar) var(--panel);
+}
+
 /* It takes focus only to keep Linear's keys (a click on its background): no ring. */
 .linear-view:focus {
   outline: none;
