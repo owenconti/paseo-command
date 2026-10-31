@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 /**
- * npm run release -- <version> [--notes <file>] [--dry-run] [--unsigned]
+ * npm run release -- [<version> | --bump patch|minor|major] [--notes <file>] [--dry-run] [--unsigned]
+ * Without a version, chooses the next patch (or a newer version already in package.json).
  * Tests, builds and signs the app with your Developer ID, has Apple notarize it (a dry run too) and
  * staples the ticket, zips it and makes a disk image (signed and notarized too), writes the Sparkle
  * appcast, then (unless --dry-run) commits
@@ -25,12 +26,14 @@ const releaseDir = join(root, 'native', 'release');
 const REPO_URL = 'https://github.com/owenconti/paseo-command';
 const FEED_URL = `${REPO_URL}/releases/latest/download/appcast.xml`;
 
-const USAGE = 'usage: npm run release -- <version> [--notes <file>] [--dry-run] [--unsigned]  (version like 0.2.1)';
+const USAGE = 'usage: npm run release -- [<version> | --bump patch|minor|major] [--notes <file>] [--dry-run] [--unsigned]  (defaults to the next patch; version like 0.2.1)';
+const VERSION = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/;
 const UNSIGNED_NOTE = 'This release is not notarized by Apple. On first open macOS blocks it: choose System Settings → Privacy & Security → Open Anyway, then open it again.';
 
-/** The command line in any order: one semver version, optionally `--notes <file>`, `--dry-run` and `--unsigned`. */
+/** An optional version or bump, plus release options, in any order. */
 export function parseArgs(argv) {
   let version;
+  let bump;
   let notes;
   let dryRun = false;
   let unsigned = false;
@@ -38,20 +41,26 @@ export function parseArgs(argv) {
     const arg = argv[i];
     if (arg === '--dry-run') dryRun = true;
     else if (arg === '--unsigned') unsigned = true;
-    else if (arg === '--notes') {
+    else if (arg === '--bump') {
+      if (bump !== undefined) throw new Error(`--bump can only be given once. ${USAGE}`);
+      bump = argv[++i];
+      if (!['patch', 'minor', 'major'].includes(bump)) throw new Error(`--bump needs patch, minor or major. ${USAGE}`);
+    } else if (arg === '--notes') {
       notes = argv[++i];
       if (!notes || notes.startsWith('--')) throw new Error(`--notes needs a file. ${USAGE}`);
     } else if (arg.startsWith('--')) throw new Error(`Unknown option ${arg}. ${USAGE}`);
     else if (version === undefined) version = arg;
     else throw new Error(`Unexpected argument ${arg}. ${USAGE}`);
   }
-  if (!/^\d+\.\d+\.\d+$/.test(version ?? '')) throw new Error(USAGE);
-  return { version, notes, dryRun, unsigned };
+  if (version !== undefined && !VERSION.test(version)) throw new Error(USAGE);
+  if (version !== undefined && bump !== undefined) throw new Error(`Use a version or --bump, not both. ${USAGE}`);
+  return { version, bump, notes, dryRun, unsigned };
 }
 
 let dryRun = false;
 let unsigned = false;
 let version;
+let bump;
 let notesFile;
 let committed = false;
 let identity;
@@ -163,9 +172,23 @@ function notarize(file, what) {
 /** The highest vX.Y.Z among the GitHub releases, or undefined when none is published yet. */
 function latestPublished(tags) {
   return tags
-    .map((tag) => /^v(\d+\.\d+\.\d+)$/.exec(tag)?.[1])
+    .map((tag) => (tag.startsWith('v') && VERSION.test(tag.slice(1)) ? tag.slice(1) : undefined))
     .filter(Boolean)
     .reduce((best, v) => (best === undefined || newer(v, best) ? v : best), undefined);
+}
+
+/** Resolve against GitHub, keeping a prepared package version unless a bump was explicitly requested. */
+export function releaseVersion(current, tags, { version: explicit, bump } = {}) {
+  if (explicit !== undefined) return explicit;
+  if (!VERSION.test(current)) throw new Error(`Invalid package.json version: ${current}.`);
+  const latest = latestPublished(tags);
+  if (bump === undefined && (latest === undefined || newer(current, latest))) return current;
+  const base = latest && newer(latest, current) ? latest : current;
+  const parts = parse(base);
+  const index = { major: 0, minor: 1, patch: 2 }[bump ?? 'patch'];
+  parts[index]++;
+  for (let i = index + 1; i < parts.length; i++) parts[i] = 0;
+  return parts.join('.');
 }
 
 async function main(original, tmp) {
@@ -195,11 +218,13 @@ async function main(original, tmp) {
   }
   const published = JSON.parse(out('gh', ['release', 'list', '--limit', '200', '--json', 'tagName']));
   const tags = published.map((release) => release.tagName);
+  const latest = latestPublished(tags);
+  version = releaseVersion(JSON.parse(original).version, tags, { version, bump });
+  console.log(latest ? `Latest release is ${latest}.` : 'No release is published yet.');
+  console.log(`Selected version ${version}${bump ? ` (${bump} bump)` : ''}.`);
   if (tags.includes(`v${version}`)) throw new Error(`A GitHub release v${version} already exists.`);
   if (git('ls-remote', '--tags', 'origin', `refs/tags/v${version}`)) throw new Error(`A tag v${version} already exists on origin.`);
-  const latest = latestPublished(tags);
   if (latest && !newer(version, latest)) throw new Error(`Version ${version} must be greater than the latest release ${latest}.`);
-  console.log(latest ? `Latest release is ${latest}.` : 'No release is published yet.');
   // bundle.sh numbers the build by the commit count; Sparkle skips a build that isn't newer.
   const nextBuild = git('rev-list', '--count', 'HEAD');
   const lastBuild = await publishedBuild();
@@ -326,7 +351,7 @@ async function main(original, tmp) {
 
 async function run() {
   const parsed = parseArgs(process.argv.slice(2));
-  ({ version, notes: notesFile, dryRun, unsigned } = parsed);
+  ({ version, bump, notes: notesFile, dryRun, unsigned } = parsed);
   const original = readFileSync(packagePath, 'utf8');
   const tmp = mkdtempSync(join(tmpdir(), 'paseo-release-'));
   try {

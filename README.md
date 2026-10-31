@@ -106,7 +106,7 @@ Keep `native/build/Paseo Command Dev.app` (in the main checkout) open while chan
 each change is merged, `npm run app:update` from the main checkout rebuilds it in place; the running
 Dev app then shows **Update ready · Restart app** in its mode bar. Choose **Restart app** from its
 command palette (⌘K): it restarts with the new page, server and app, at the same window position and page.
-Once you're happy, publish the changes with `npm run release -- <version>`.
+Once you're happy, ask an agent to cut a release; it chooses the version from the changes below.
 
 Without the macOS app, `npm run app:dev` (development) or `npm run app:start` (built preview)
 serves the app at http://127.0.0.1:4310 in any browser. Conversations and panels work there,
@@ -133,12 +133,27 @@ things and keeps whatever already exists:
 
 With more than one Developer ID identity in the keychain, set `PASEO_COMMAND_SIGN_IDENTITY` to the
 one to use. Then release from `main`. It needs the checkout on `main`, clean, a full (not shallow) clone and equal to
-`origin/main`, `gh` signed in, and a version greater than the latest GitHub release
+`origin/main` and `gh` signed in
 (`--dry-run` only warns about the first three):
 
 ```sh
-npm run release -- 0.2.1 [--notes notes.md] [--dry-run]
+npm run release
+# Optional flags:
+npm run release -- --bump minor --notes notes.md --dry-run
 ```
+
+No version is required. By default it increments the highest GitHub release's patch version
+(for example, `0.2.1` → `0.2.2`). If `package.json` already has a newer version, or there are no
+releases yet, it uses that version. `--bump patch|minor|major` explicitly increments the newer of
+the package and published versions, resetting lower components. An exact version remains available
+as an override (`npm run release -- 1.0.0`); it must be greater than the latest release.
+The chosen version is printed before tests or builds, and existing releases and tags are never reused.
+
+When asked to cut a release, an agent reviews the changes since the last published release:
+fixes and maintenance get a patch, compatible new features get a minor, and incompatible changes
+get a major once the app is at 1.0 (a minor while it is still at 0.x). It chooses the bump and writes
+user-facing notes without asking you for a version. Asking to change release tooling alone does
+not request a release.
 
 It runs the checks and tests, builds `native/release/Paseo Command.app` (apart from
 `native/build/`, where an older checkout app may live), signs it with your Developer ID under the
@@ -146,14 +161,14 @@ hardened runtime, has Apple notarize it (`xcrun notarytool submit --wait`, usual
 staples the ticket and checks Gatekeeper accepts it, zips it (the zip is what Sparkle updates
 download), makes `Paseo-Command-<version>.dmg` (the app beside an Applications shortcut; signed,
 notarized and stapled too), writes the Sparkle appcast,
-commits the version bump as `Release v0.2.1` (if package.json changes), pushes `main` and
+commits the version bump as `Release v<version>` (if package.json changes), pushes `main` and
 creates the GitHub release with `gh release create`. The build number (the commit count) must be
 greater than the published appcast's, so updates always install. `--dry-run` does everything,
 notarization included, except commit, push and publish. The private keys stay in the keychain; nothing secret enters
 the repository.
 
 **Before the Developer ID is ready**, `npm run release:setup -- --unsigned` makes only the Sparkle
-keys, and `npm run release -- 0.2.0 --unsigned` publishes an ad hoc signed release that isn't
+keys, and `npm run release -- --unsigned` publishes an ad hoc signed release that isn't
 notarized: its notes tell people to choose System Settings → Privacy & Security → Open Anyway on
 first open. Once the Developer ID works, run `npm run release:setup` again and release without
 `--unsigned`; installed copies update to the notarized release through Sparkle (macOS asks for
@@ -168,9 +183,9 @@ For the maintainer moving from the app built in a checkout (`local.paseo.command
 
 1. `npm run release:setup`, then commit the `SUPublicEDKey` change to `native/Info.plist`.
 2. Push `main`.
-3. `npm run release -- 0.2.0 --dry-run`, and check its output.
-4. `npm run release -- 0.2.0`.
-5. Download `Paseo-Command-0.2.0.zip` from the release and drag the app to `/Applications`.
+3. `npm run release -- --dry-run`, and check its output.
+4. `npm run release`.
+5. Download `Paseo-Command-<version>.zip` from the release and drag the app to `/Applications`.
 6. Quit the old checkout app.
 7. Open the new app. It offers to stop the old server, then brings
    over the old app's tabs, settings and data.

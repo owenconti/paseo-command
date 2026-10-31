@@ -72,8 +72,8 @@ releasing: once a newer build is on disk its mode bar shows "Update ready · Res
 release app updates only through Sparkle releases. Never quit, relaunch or open either of the user's apps (the main
 checkout's `native/build/Paseo Command Dev.app` is the user's own copy), and do not run `app:restart`. Your check runs
 use a build in your own workspace, launched with `--info <file>` (which gives the copy a throwaway data folder) and
-either `--no-server` or a `--url` on a port of its own (e.g. `http://127.0.0.1:4322/`), never 4310 or 4321. Never run `npm run release` or `npm run release:setup`: releases are the user's. After pushing, tell the
-user a release is pending (`npm run release -- <next version>`), naming the user-visible changes since the last one.
+either `--no-server` or a `--url` on a port of its own (e.g. `http://127.0.0.1:4322/`), never 4310 or 4321. Run `npm run release` only when the user explicitly asks to cut or publish a release; `npm run release:setup` remains the user's. After pushing, tell the
+user a release is pending (ask an agent to cut it, or `npm run release`), naming the user-visible changes since the last one.
 If you made a Paseo workspace (worktree) for the work, archive it once its branch is merged into `main` and pushed
 (remove any `node_modules` symlinks you added to it first), so finished work leaves no workspace behind on the map.
 Report the commit, whether the push succeeded, whether the build succeeded, and that the workspace was archived.
@@ -94,7 +94,7 @@ Report the commit, whether the push succeeded, whether the build succeeded, and 
 - `npm run native:test`: the native, bundle and Conquer checks (`native/scripts/test-native.mjs`, `test-bundle.mjs`, `test-conquer.mjs`).
 - `npm run release:setup`: once, by the user: checks for a "Developer ID Application" certificate in the login keychain (explains
   making one; installs Apple's intermediate), saves a notarytool login as `paseo-command-notary`, and makes Sparkle EdDSA keys
-  (`SUPublicEDKey` goes into `native/Info.plist`). `scripts/signing.mjs` picks the identity (`PASEO_COMMAND_SIGN_IDENTITY` when there are several). `npm run release -- <version> [--notes <file>] [--dry-run]`
+  (`SUPublicEDKey` goes into `native/Info.plist`). `scripts/signing.mjs` picks the identity (`PASEO_COMMAND_SIGN_IDENTITY` when there are several). `npm run release -- [--bump patch|minor|major] [--notes <file>] [--dry-run]`
   (`scripts/release.mjs`): checks, tests, builds the release app to `native/release/`, signs it with the Developer ID under the hardened
   runtime (entitlements in `native/entitlements/`: Apple Events for the app, JIT for Node), notarizes and staples it, zips it (Sparkle downloads the zip), makes a drag-to-Applications `.dmg`
   (`scripts/dmg.mjs`; signed, notarized and stapled too), writes the Sparkle appcast, commits
@@ -116,6 +116,20 @@ Report the commit, whether the push succeeded, whether the build succeeded, and 
 The earlier cached Phaser AE prototype, engine, generated build and prototype-only npm commands
 were removed at the user’s request.
 Local assets belong in the repository and are included through local build tooling.
+
+## Cutting a release
+
+When the user explicitly asks to cut or publish a release, do it without asking them for a version.
+Review the commits and diff since the latest published GitHub release and choose the bump:
+patch for fixes and maintenance, minor for compatible new features, major for incompatible changes
+at 1.0 or later (minor for incompatible changes while at 0.x). Run `npm run release -- --bump <kind> --notes <file>`
+with user-facing notes for those changes. The script computes the version from the newer of
+`package.json` and the highest published version, and prints it before building. Bare `npm run release`
+defaults to the next patch, or keeps a newer version already prepared in `package.json`; with no
+published releases it uses the package version. An exact version remains an optional override.
+Changing release tooling or completing a feature does not itself authorize publishing a release.
+After an explicit release request, the release script handles signing, notarization, commit, push
+and GitHub publication; report the published version and release link.
 
 ## Structure
 

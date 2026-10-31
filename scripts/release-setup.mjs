@@ -5,7 +5,7 @@
  *      this explains how and installs Apple's intermediate certificate if it is missing),
  *   2. a notarytool login in the keychain, under the profile scripts/signing.mjs names,
  *   3. Sparkle's EdDSA key pair (private half in the keychain), whose public half goes into native/Info.plist.
- * With --unsigned (for `npm run release -- <version> --unsigned` before a Developer ID is ready), only step 3.
+ * With --unsigned (for `npm run release -- --unsigned` before a Developer ID is ready), only step 3.
  */
 import { execFileSync, spawnSync } from 'node:child_process';
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
@@ -98,7 +98,7 @@ async function main() {
 Next:
   1. git add native/Info.plist && git commit -m "Add the Sparkle public key"
   2. git push origin main
-  3. npm run release -- <version>`);
+  3. npm run release`);
 }
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
