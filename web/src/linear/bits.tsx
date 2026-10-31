@@ -1,11 +1,12 @@
 import type { ReactNode } from "react";
 import { Minus, OctagonAlert, SignalHigh, SignalLow, SignalMedium } from "lucide-react";
 import { initials } from "./group";
-import type { LinearCycle, LinearUser } from "./types";
+import { PRIORITY_LABEL } from "./names";
+import type { LinearUser } from "./types";
 
 /** The small pieces the Linear screens share: priority, dots, people, dates, health. */
 
-export const PRIORITY_LABEL = ["No priority", "Urgent", "High", "Medium", "Low"];
+export { cycleName, PRIORITY_LABEL } from "./names";
 const PRIORITY_ICON = [Minus, OctagonAlert, SignalHigh, SignalMedium, SignalLow];
 
 export function Priority({ priority }: { priority: number }) {
@@ -62,10 +63,6 @@ export function shortDate(day?: string): string {
     ...(y !== new Date().getFullYear() ? { year: "numeric" } : {}),
   });
 }
-
-/** "Cycle 7", or "Cycle 7 · Polish" when it has a name. */
-export const cycleName = (c: Pick<LinearCycle, "number" | "name">) =>
-  c.name ? `Cycle ${c.number} · ${c.name}` : `Cycle ${c.number}`;
 
 /** A moment as its local day, "Nov 30" (with the year when it isn't this one). */
 function localDay(at: string): string {

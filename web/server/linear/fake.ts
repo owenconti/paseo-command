@@ -87,6 +87,7 @@ export type FakeIssue = {
   updatedAt: string;
   archivedAt: string | null;
   completedAt: string | null;
+  canceledAt: string | null;
   /** Moved to the trash by `issueDelete`: reads no longer find it. */
   trashed?: boolean;
   state: Ref;
@@ -213,6 +214,7 @@ export function fakeWorkspace(): FakeWorkspace {
       updatedAt: ago(2),
       archivedAt: null,
       completedAt: null,
+      canceledAt: null,
       state: ref(stateIds[state]),
       team: ref(teamId),
       assignee: null,
@@ -473,7 +475,7 @@ function passes(ws: FakeWorkspace, issue: FakeIssue, filter: Filter): boolean {
       case "completedAt":
         return date(issue.completedAt);
       case "canceledAt":
-        return date(stateType === "canceled" ? issue.updatedAt : null);
+        return date(issue.canceledAt);
       case "updatedAt":
         return date(issue.updatedAt);
       default:
@@ -600,6 +602,7 @@ function writes(): Record<string, FakeOperation> {
           const state = find(ws.states, value, "WorkflowState");
           issue.state = { id: state.id };
           issue.completedAt = state.type === "completed" ? new Date().toISOString() : null;
+          issue.canceledAt = state.type === "canceled" ? new Date().toISOString() : null;
           break;
         }
         case "assigneeId":
@@ -674,6 +677,7 @@ function writes(): Record<string, FakeOperation> {
         updatedAt: now,
         archivedAt: null,
         completedAt: null,
+        canceledAt: null,
         state: { id: start.id },
         team: { id: team.id },
         assignee: null,

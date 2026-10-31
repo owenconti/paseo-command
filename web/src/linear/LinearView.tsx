@@ -9,9 +9,10 @@ import { useSecretRevision } from "../integrationSettings";
 import { isTyping } from "../worldShortcut";
 import { CreateIssue, type CreateInitial } from "./CreateIssue";
 import { CycleFacts, CycleList } from "./Cycles";
+import { readListView } from "./display";
 import { InitiativeList } from "./InitiativeList";
 import { IssueDetail } from "./IssueDetail";
-import { IssueList, type IssueListNav } from "./IssueList";
+import { IssueList, type IssueListNav, type IssueListState } from "./IssueList";
 import { linearKeyAction, type LinearKey } from "./keys";
 import { checkPlace, placeScope, readPlace, writePlace, type LinearPlace } from "./place";
 import { cycleName } from "./bits";
@@ -62,8 +63,10 @@ export type LinearViewState = {
   teams: { id: string; name: string; triageEnabled: boolean; cyclesEnabled: boolean; currentCycleId?: string }[];
   /** The issue whose archive Undo is offered (its bar shows). */
   undoKey?: string;
-  /** A list of issues shows, so / searches it. */
+  /** A list of issues shows, so / searches it, F filters it and its display can change. */
   canSearch: boolean;
+  /** The list's layout and whether it's filtered, while one shows. */
+  list?: Pick<IssueListState, "layout" | "filtered">;
 };
 
 /** Layers in the view that keep their own keys while open. */
@@ -349,7 +352,19 @@ export function LinearView({
   useEffect(() => onAppCommand("linear-undo-archive", () => void unarchiveRef.current()), []);
 
   const nav = useRef<IssueListNav | null>(null);
-  useEffect(() => onAppCommand("linear-search", () => nav.current?.filter()), []);
+  useEffect(() => {
+    const offs = [
+      onAppCommand("linear-search", () => nav.current?.filter()),
+      onAppCommand("linear-filter", () => nav.current?.filterBy()),
+      onAppCommand("linear-display", () => nav.current?.display()),
+      onAppCommand("linear-clear-filters", () => nav.current?.clearFilters()),
+      onAppCommand("linear-layout", (arg) => {
+        if (arg === "list" || arg === "board") nav.current?.setLayout(arg);
+      }),
+    ];
+    return () => offs.forEach((off) => off());
+  }, []);
+  const [listState, setListState] = useState<IssueListState>();
   // ⌘K's places: checked as a remembered one is (an unknown team goes to the default).
   useEffect(
     () =>
@@ -408,6 +423,9 @@ export function LinearView({
       case "filter":
         nav.current?.filter();
         return true;
+      case "filterBy":
+        nav.current?.filterBy();
+        return true;
       default: {
         const command = ISSUE_KEYS[action];
         if (command && issueOpenNow) runAppCommand(command);
@@ -419,7 +437,16 @@ export function LinearView({
   // ⌘K's places, Undo and list search, offered only while they'd work.
   const teams = ws?.teams;
   const undoKey = undo?.phase === "archived" ? undo.key : undefined;
-  const canSearch = !!ws && !!scope && (!place.issue || viewWidth === 0 || viewWidth >= BESIDE_MIN);
+  // A board needs the width: an issue opens in its place, as in Linear.
+  // The place's layout: as its list said, else as kept (the list may not show, the issue in its place).
+  const layout = !scope
+    ? undefined
+    : listState?.key === scope
+      ? listState.layout
+      : readListView(scope).display.layout;
+  const boardShown = layout === "board";
+  const wide = (viewWidth === 0 || viewWidth >= BESIDE_MIN) && !boardShown;
+  const canSearch = !!ws && !!scope && (!place.issue || wide);
   const currentCycles = ws?.cycles.filter((c) => c.isActive);
   const teamPlaces = JSON.stringify(
     teams?.map((t) => [
@@ -442,8 +469,9 @@ export function LinearView({
       })),
       undoKey,
       canSearch,
+      ...(canSearch && listState?.key === scope ? { list: { layout: listState.layout, filtered: listState.filtered } } : {}),
     });
-  }, [teamPlaces, undoKey, canSearch, onViewState]);
+  }, [teamPlaces, undoKey, canSearch, listState, scope, onViewState]);
   useEffect(() => () => onViewState?.(undefined), [onViewState]);
 
   if (!ws && (unavailable || workspaceError))
@@ -459,7 +487,7 @@ export function LinearView({
       </section>
     );
 
-  const beside = viewWidth === 0 || viewWidth >= BESIDE_MIN;
+  const beside = wide;
   const openIssue = place.issue;
   const open = (key: string) => setPlace({ ...place, issue: key });
   const close = () => {
@@ -530,6 +558,8 @@ export function LinearView({
         capped={cappedScopes.has(scope!)}
         error={scopeErrors[scope!]}
         nav={nav}
+        teamId={place.screen === "cycle" ? place.teamId : undefined}
+        onListState={setListState}
       >
         {project && (
           <div className="linear-project-summary">

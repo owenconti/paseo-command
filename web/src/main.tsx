@@ -1707,6 +1707,47 @@ function App() {
             keywords: "linear issues filter find search list",
             run: () => runAppCommand("linear-search"),
           },
+          {
+            id: "linear-filter",
+            group: "App",
+            label: "Filter the Linear list",
+            keys: [["F"]],
+            keywords: "linear issues filter status assignee priority labels project cycle narrow",
+            run: () => runAppCommand("linear-filter"),
+          },
+          {
+            id: "linear-display",
+            group: "App",
+            label: "Linear display options",
+            keywords: "linear issues display view group grouping order ordering sort completed board list",
+            run: () => runAppCommand("linear-display"),
+          },
+          linearView.list?.layout === "board"
+            ? {
+                id: "linear-layout-list",
+                group: "App",
+                label: "Show the Linear issues as a list",
+                keywords: "linear issues layout list rows display",
+                run: () => runAppCommand("linear-layout", "list"),
+              }
+            : {
+                id: "linear-layout-board",
+                group: "App",
+                label: "Show the Linear issues as a board",
+                keywords: "linear issues layout board kanban columns display",
+                run: () => runAppCommand("linear-layout", "board"),
+              },
+          ...(linearView.list?.filtered
+            ? [
+                {
+                  id: "linear-clear-filters",
+                  group: "App",
+                  label: "Clear the Linear list's filters",
+                  keywords: "linear issues filters remove reset clear all",
+                  run: () => runAppCommand("linear-clear-filters"),
+                },
+              ]
+            : []),
         ]
       : []),
     // The Linear tab's places, as its sidebar has them (each team's views only when searched for).

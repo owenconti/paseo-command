@@ -2,7 +2,7 @@
 
 /** Everything the page keeps of one issue (no description, relations or links: those come with `Issue`). */
 export const ISSUE_FIELDS = `id identifier title url priority estimate sortOrder dueDate branchName
-  createdAt updatedAt archivedAt
+  createdAt updatedAt archivedAt completedAt canceledAt
   state { id } team { id } assignee { id } creator { id } project { id } projectMilestone { id }
   cycle { id } parent { id }
   labels(first: 30) { nodes { id } } subscribers(first: 30) { nodes { id } }`;

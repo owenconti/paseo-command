@@ -76,6 +76,7 @@ const LINEAR: Group = {
     { keys: [["Enter"], ["O"]], label: "Open the issue" },
     { keys: [["Esc"]], label: "Close the issue" },
     { keys: [["/"]], label: "Search the list" },
+    { keys: [["F"]], label: "Filter the list" },
     { keys: [["C"]], label: "Create an issue" },
     { keys: [["S"]], label: "Change the status" },
     { keys: [["P"]], label: "Change the priority" },

@@ -200,6 +200,8 @@ export function issueOf(raw: Raw): LinearIssue | null {
     createdAt: str(raw.createdAt),
     updatedAt: str(raw.updatedAt),
     archivedAt: str(raw.archivedAt) || undefined,
+    completedAt: str(raw.completedAt) || undefined,
+    canceledAt: str(raw.canceledAt) || undefined,
   };
 }
 

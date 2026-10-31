@@ -14,7 +14,8 @@ export type LinearKey =
   | "cycle"
   | "copyBranch"
   | "copyLink"
-  | "filter";
+  | "filter"
+  | "filterBy";
 
 /** The single keys, pressed without a modifier. */
 const PLAIN: Record<string, LinearKey> = {
@@ -33,6 +34,7 @@ const PLAIN: Record<string, LinearKey> = {
   l: "labels",
   m: "project",
   "/": "filter",
+  f: "filterBy",
 };
 
 type Target = { tagName?: string; isContentEditable?: boolean } | null;
@@ -43,8 +45,8 @@ const typing = (target: Target) =>
  * The Linear tab's key for a keydown: j/↓ and k/↑ move through the list,
  * Enter or O opens, Esc goes back, C creates, S, P, A, L, M and ⇧C open the
  * open issue's status, priority, assignee, labels, project and cycle pickers,
- * I assigns it to you, ⌘. and ⌘⇧, copy its branch name and link, / filters
- * the list. Null while typing (an input, a textarea, a select, anything
+ * I assigns it to you, ⌘. and ⌘⇧, copy its branch name and link, / searches
+ * the list and F opens its Filter menu. Null while typing (an input, a textarea, a select, anything
  * editable) and for every other key, ⌘S included (the view's sidebar toggle).
  */
 export function linearKeyAction(e: {

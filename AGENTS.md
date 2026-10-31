@@ -240,7 +240,7 @@ and GitHub publication; report the published version and release link.
   draws (`web/src/linear/LinearView.tsx`) over the map's frame while the app reports `paseo:mode` `linear` (`useAppMode`, `web/src/appMode.ts`;
   the page asks with a `mode` message). Navigation: its sidebar (`Sidebar.tsx`) is Linear's: My issues (Assigned, Created, Subscribed),
   each team (Triage where on, Active, Backlog, All, and Cycles where it runs them: `Cycles.tsx` lists its current, upcoming and last 120 days' cycles with their progress from `q/cycles`, each opening its issues, the `cycle:` scope, under a header counting what's done), Projects (`ProjectList.tsx`, each opening its issues) and Initiatives
-  (`InitiativeList.tsx`). A place's issues (`IssueList.tsx`) are grouped by state; the open issue (`IssueDetail.tsx`) shows beside
+  (`InitiativeList.tsx`). A place's issues (`IssueList.tsx`) show as its Display options say (`display.ts`, `ListControls.tsx`, kept per place in localStorage): a list or a board (a column per group, the team's empty states too; a card dragged to another column takes its status, assignee, priority, project or cycle, `dropChange` in `group.ts`; on a board an issue opens in the list's place), grouped (status by default, assignee, priority, project, cycle or none) and ordered (`arrangeIssues`), with finished issues all, past month or week, or none; Filter (F, ⌘K) narrows them by status, assignee, priority, labels, project or cycle (any of a property's values, every property), shown as chips under the head; the open issue (`IssueDetail.tsx`) shows beside
   the list from 1,100 px, else in its place with Back. The place and open issue are kept in localStorage (`place.ts`).
   Editing: the open issue's properties (`Properties.tsx`: status, priority, assignee, labels, estimate and cycle where the team uses
   them, project, milestone, parent, due date) open a `Picker.tsx` and save at once, as does a row's context menu (status, priority,
@@ -252,7 +252,7 @@ and GitHub publication; report the published version and release link.
   a bar at the view's foot) and Delete (after confirming) from the detail or ⌘K. Every write is the user's own action (launching an
   agent changes nothing in Linear): `linearStore.write` (`store.ts`) shows it at once and rolls it back, with a notice, if Linear refuses.
   Keys (`keys.ts`, only while the keyboard is in the view and not typing or in a picker; the page's own J/K/N/D stand down there):
-  J/K or ↓/↑ move, Enter or O opens, Esc closes the issue, / searches the list, C creates, S P A L M ⇧C open status, priority,
+  J/K or ↓/↑ move, Enter or O opens, Esc closes the issue, / searches the list, F filters it, C creates, S P A L M ⇧C open status, priority,
   assignee, labels, project and cycle, I assigns to you, ⌘. and ⌘⇧, copy the branch name and link; each has its ⌘K entry and a
   row in the shortcuts dialog's Linear group. ⌘K also has, only where they work, the open issue's estimate (teams that estimate),
   milestone (a project with milestones), parent, due date and Add relation, Undo archiving (while its bar shows), Search the

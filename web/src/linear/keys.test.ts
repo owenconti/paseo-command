@@ -47,6 +47,7 @@ describe("linearKeyAction", () => {
       [",", { meta: true, shift: true }, "copyLink"],
       ["<", { meta: true, shift: true }, "copyLink"],
       ["/", {}, "filter"],
+      ["f", {}, "filterBy"],
     ];
     for (const [key, mods, action] of cases) assert.equal(press(key, mods), action, `${key} ${JSON.stringify(mods)}`);
     // Capitals from Caps Lock are the same letters.

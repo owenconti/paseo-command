@@ -352,6 +352,284 @@
   color: var(--text-4);
 }
 
+/* A list's Filter and Display */
+.linear-tools {
+  display: inline-flex;
+  flex-shrink: 0;
+  gap: var(--space-1);
+}
+.linear-tool {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 26px;
+  padding: 0 var(--space-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: transparent;
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-medium);
+  color: var(--text-2);
+}
+.linear-tool svg {
+  color: var(--icon-muted);
+}
+.linear-tool:hover,
+.linear-tool[aria-expanded="true"] {
+  background: var(--row-hover);
+  color: var(--text);
+}
+.linear-tool.on {
+  border-color: var(--accent-line, var(--accent));
+  color: var(--accent-text);
+}
+.linear-tool.on svg {
+  color: var(--accent-text);
+}
+.linear-tool:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 1px;
+}
+.linear-menu-count {
+  margin-left: auto;
+  font-size: var(--fs-2xs);
+  color: var(--accent-text);
+  font-variant-numeric: tabular-nums;
+}
+.popover-menu.linear-display-menu {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  width: 264px;
+  min-width: 0;
+  padding: var(--space-3);
+}
+.linear-layout-toggle {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  padding: 3px;
+  border-radius: var(--radius-md);
+  background: var(--fill);
+}
+.popover-menu .linear-layout-toggle > button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 28px;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  font-size: var(--fs-sm);
+  color: var(--text-3);
+}
+.popover-menu .linear-layout-toggle > button[aria-pressed="true"] {
+  background: var(--panel-raised);
+  box-shadow: var(--shadow-sm);
+  color: var(--text-strong);
+}
+.linear-display-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  font-size: var(--fs-sm);
+  color: var(--text-2);
+}
+.linear-display-row select {
+  max-width: 140px;
+  height: 28px;
+  font-size: var(--fs-sm);
+}
+.linear-display-reset {
+  align-self: flex-start;
+  padding: 0;
+  font-size: var(--fs-xs);
+}
+
+/* Chosen filters, under the list's head */
+.linear-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin: var(--space-2) var(--space-3) 0 var(--space-4);
+}
+.linear-filter-chip {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  height: 26px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--panel);
+  font-size: var(--fs-xs);
+}
+.linear-filter-edit {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+  height: 100%;
+  padding: 0 6px 0 var(--space-2);
+  border-radius: var(--radius-md) 0 0 var(--radius-md);
+  background: transparent;
+  color: var(--text-2);
+}
+.linear-filter-edit:hover,
+.linear-filter-edit[aria-expanded="true"] {
+  background: var(--row-hover);
+}
+.linear-filter-edit svg {
+  flex-shrink: 0;
+  color: var(--icon-muted);
+}
+.linear-filter-field {
+  font-weight: var(--fw-medium);
+  color: var(--text);
+}
+.linear-filter-op {
+  color: var(--text-4);
+}
+.linear-filter-values {
+  overflow: hidden;
+  max-width: 220px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text);
+}
+.linear-filter-remove.icon-btn {
+  width: 22px;
+  height: 22px;
+  margin-right: 1px;
+}
+.linear-filters-clear {
+  padding: 0 var(--space-1);
+  font-size: var(--fs-xs);
+}
+.linear-group-icon {
+  flex-shrink: 0;
+  color: var(--icon-muted);
+}
+.linear-group-icon.current {
+  color: var(--accent-text);
+}
+.linear-group h3 .linear-person {
+  width: 18px;
+  height: 18px;
+}
+
+/* A list as a board: a column for each group, a card for each issue */
+.linear-board-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow: auto hidden;
+  padding: var(--space-2) var(--space-3) 0;
+}
+.linear-board {
+  display: flex;
+  gap: var(--space-2);
+  height: 100%;
+  min-width: min-content;
+}
+.linear-column {
+  display: flex;
+  flex: 0 0 280px;
+  flex-direction: column;
+  min-height: 0;
+  border-radius: var(--radius-lg);
+  background: var(--fill);
+  transition: background-color var(--dur-1) var(--ease-out), box-shadow var(--dur-1) var(--ease-out);
+}
+.linear-column.drop {
+  background: var(--accent-soft);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+.linear-board .linear-group h3 {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+}
+.linear-column-cards {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 6px;
+  min-height: 48px;
+  overflow-y: auto;
+  padding: 0 6px var(--space-3);
+}
+.linear-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-md);
+  background: var(--panel-raised);
+  box-shadow: var(--shadow-xs, none);
+  font-size: var(--fs-sm);
+  color: var(--text);
+  cursor: pointer;
+}
+.linear-card:hover {
+  border-color: var(--line-hover);
+}
+.linear-card.selected {
+  border-color: var(--accent);
+  background: var(--row-selected);
+}
+.linear-card:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: -1px;
+}
+.linear-card[draggable="true"]:active {
+  cursor: grabbing;
+}
+.linear-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+.linear-card-title {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+.linear-card.selected .linear-card-title {
+  color: var(--text-strong);
+  font-weight: var(--fw-medium);
+}
+.linear-card-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  min-height: 18px;
+}
+.linear-card-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 20px;
+  padding: 0 6px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-pill);
+  font-size: var(--fs-2xs);
+  color: var(--text-3);
+}
+.linear-card-label .linear-state-dot {
+  width: 6px;
+  height: 6px;
+}
+.linear-card .linear-row-project {
+  max-width: 120px;
+  font-size: var(--fs-2xs);
+}
+
 /* Projects and initiatives */
 .linear-table,
 .linear-cards {

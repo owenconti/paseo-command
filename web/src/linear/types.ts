@@ -94,6 +94,9 @@ export type LinearIssue = {
   createdAt: string;
   updatedAt: string;
   archivedAt?: string;
+  /** When it was finished: done, or canceled. */
+  completedAt?: string;
+  canceledAt?: string;
   /** The last four only come with one issue's details (`q/issue`). */
   description?: string;
   childIds?: string[];
