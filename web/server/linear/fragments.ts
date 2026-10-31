@@ -16,6 +16,12 @@ export const PROJECT_FIELDS = `id name icon color status { name } health lead { 
 export const INITIATIVE_FIELDS = `id name status health owner { id } targetDate
   projects(first: 30) { nodes { id } } url updatedAt`;
 
+/** A notification, and what it's about: an issue (and comment), or a project. */
+export const NOTIFICATION_FIELDS = `id type title subtitle url createdAt updatedAt readAt snoozedUntilAt archivedAt
+  actor { id }
+  ... on IssueNotification { issue { id identifier } comment { id body } reactionEmoji }
+  ... on ProjectNotification { project { id } }`;
+
 export const WORKSPACE_QUERY = `query Workspace($projectCut: DateTimeOrDuration!) {
   viewer { id name displayName avatarUrl }
   users(first: 250, filter: { active: { eq: true } }) { nodes { id name displayName avatarUrl } }
@@ -82,6 +88,11 @@ export const ISSUE_QUERY = `query Issue($id: String!) {
   }
 }`;
 
+/** Your Inbox: the latest notifications not archived. */
+export const NOTIFICATIONS_QUERY = `query Notifications($first: Int!) {
+  notifications(first: $first, orderBy: updatedAt) { nodes { ${NOTIFICATION_FIELDS} } }
+}`;
+
 export const SYNC_QUERY = `query Sync($since: DateTimeOrDuration!, $first: Int!) {
   issues(filter: { updatedAt: { gt: $since } }, includeArchived: true, first: $first, orderBy: updatedAt) {
     nodes { ${ISSUE_FIELDS} }
@@ -94,5 +105,8 @@ export const SYNC_QUERY = `query Sync($since: DateTimeOrDuration!, $first: Int!)
   }
   initiatives(filter: { updatedAt: { gt: $since } }, includeArchived: true, first: $first, orderBy: updatedAt) {
     nodes { ${INITIATIVE_FIELDS} }
+  }
+  notifications(filter: { updatedAt: { gt: $since } }, includeArchived: true, first: $first, orderBy: updatedAt) {
+    nodes { ${NOTIFICATION_FIELDS} }
   }
 }`;

@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from "react";
 import {
+  ArrowDownToLine,
   AtSign,
   Bell,
   Box,
@@ -19,11 +20,12 @@ import {
   Target,
 } from "lucide-react";
 import { readStore, writeStore } from "../api";
+import { unreadCount } from "./inboxRows";
 import { samePlace, type LinearPlace, type TeamTab } from "./place";
 import { useLinear } from "./store";
 
 const TEAM_TABS: { tab: TeamTab; label: string; icon: ReactNode }[] = [
-  { tab: "triage", label: "Triage", icon: <Inbox size={14} aria-hidden="true" /> },
+  { tab: "triage", label: "Triage", icon: <ArrowDownToLine size={14} aria-hidden="true" /> },
   { tab: "active", label: "Active", icon: <CircleDot size={14} aria-hidden="true" /> },
   { tab: "backlog", label: "Backlog", icon: <CircleDashed size={14} aria-hidden="true" /> },
   { tab: "all", label: "All", icon: <ListTodo size={14} aria-hidden="true" /> },
@@ -56,7 +58,8 @@ function Item({
 }
 
 /**
- * The Linear view's navigation, as Linear's own sidebar: your issues, each
+ * The Linear view's navigation, as Linear's own sidebar: your Inbox (its
+ * unread count), your issues, each
  * team's views (Triage only where the team triages, Cycles where it runs
  * them), your saved views, projects and initiatives.
  * Teams open and close; which are open is remembered.
@@ -82,6 +85,8 @@ export function Sidebar({
 }) {
   const teams = useLinear((d) => d.workspace?.teams);
   const views = useLinear((d) => d.views);
+  // Unread Inbox rows; snoozes that run out count from the next change.
+  const unread = useLinear((d) => (d.notificationsLoaded ? unreadCount(d.notifications.values(), Date.now()) : 0));
   const [open, setOpen] = useState<string[]>(() => {
     const was = readStore<string[]>("linear:teamsOpen", []);
     // The team you're in starts open.
@@ -143,6 +148,16 @@ export function Sidebar({
         </button>
       </header>
       <div className="linear-nav">
+        <section aria-label="Inbox" className="linear-nav-top">
+          <Item place={{ screen: "inbox" }} current={place} onPlace={onPlace} icon={<Inbox size={14} aria-hidden="true" />}>
+            Inbox
+            {unread > 0 && (
+              <span className="linear-nav-badge" aria-label={`${unread} unread`}>
+                {unread}
+              </span>
+            )}
+          </Item>
+        </section>
         <section aria-labelledby="linear-nav-my">
           <h3 id="linear-nav-my">My issues</h3>
           {item({ screen: "my", tab: "assigned" }, <AtSign size={14} aria-hidden="true" />, "Assigned")}

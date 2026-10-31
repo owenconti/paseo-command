@@ -134,6 +134,29 @@ export type LinearComment = {
   /** Each emoji once: who reacted, and each one's reaction id (`ids[i]` is `userIds[i]`'s). */
   reactions: { emoji: string; userIds: string[]; ids: string[] }[];
 };
+/** One of your notifications (Linear's Inbox): what happened, to which issue (or project), and whether you've read it. */
+export type LinearNotification = {
+  id: string;
+  /** Linear's kind of notification ("issueNewComment", "issueAssignedToYou"…). */
+  type: string;
+  title: string;
+  subtitle: string;
+  url: string;
+  actorId?: string;
+  createdAt: string;
+  updatedAt: string;
+  readAt?: string;
+  /** Hidden from the Inbox until then. */
+  snoozedUntilAt?: string;
+  archivedAt?: string;
+  issueId?: string;
+  issueKey?: string;
+  /** The comment it's about, its words clipped to 300 characters. */
+  commentId?: string;
+  commentBody?: string;
+  reactionEmoji?: string;
+  projectId?: string;
+};
 export type LinearWorkspace = {
   viewerId: string;
   users: LinearUser[];
@@ -150,6 +173,7 @@ export type LinearSync = {
   comments: LinearComment[];
   projects: LinearProject[];
   initiatives: LinearInitiative[];
+  notifications: LinearNotification[];
   more: boolean;
 };
 export type LinearBudget = { requestsRemaining: number; complexityRemaining: number; resetAt: number };
@@ -179,4 +203,10 @@ export type WriteName =
   | "commentResolve"
   | "commentUnresolve"
   | "reactionCreate"
-  | "reactionDelete";
+  | "reactionDelete"
+  | "notificationMarkReadAll"
+  | "notificationMarkUnreadAll"
+  | "notificationSnoozeAll"
+  | "notificationUnsnoozeAll"
+  | "notificationArchiveAll"
+  | "notificationUnarchive";

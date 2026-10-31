@@ -1686,6 +1686,17 @@ function App() {
           run: () => runAppCommand(command),
         }))
       : []),
+    ...(integrations.linear && appMode === "linear" && linearView?.inboxUnread
+      ? [
+          {
+            id: "linear-inbox-read-all",
+            group: "App",
+            label: "Mark all Linear notifications read",
+            keywords: "linear inbox notifications read all clear unread",
+            run: () => runAppCommand("linear-inbox-read-all"),
+          },
+        ]
+      : []),
     ...(integrations.linear && appMode === "linear" && linearView?.undoKey
       ? [
           {
@@ -1754,6 +1765,7 @@ function App() {
     ...(integrations.linear && appMode === "linear" && linearView
       ? (
           [
+            [{ screen: "inbox" }, "Go to your Linear inbox", "linear inbox notifications unread mentions comments", false],
             [{ screen: "my", tab: "assigned" }, "Go to Linear issues assigned to you", "linear my issues assigned mine", false],
             [{ screen: "my", tab: "created" }, "Go to Linear issues you created", "linear my issues created author", false],
             [{ screen: "my", tab: "subscribed" }, "Go to Linear issues you're subscribed to", "linear my issues subscribed following", false],

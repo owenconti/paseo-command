@@ -13,6 +13,7 @@ export type LinearPlace = (
   | { screen: "cycle"; teamId: string; cycleId: string }
   | { screen: "view"; viewId: string }
   | { screen: "search"; query: string }
+  | { screen: "inbox" }
   | { screen: "projects" }
   | { screen: "project"; projectId: string }
   | { screen: "initiatives" }
@@ -90,6 +91,7 @@ export function checkPlace(raw: unknown, ws?: LinearWorkspace): LinearPlace {
       return { screen: "project", projectId: p.projectId, ...issue };
     case "projects":
     case "initiatives":
+    case "inbox":
       return { screen: p.screen, ...issue };
     default:
       return DEFAULT_PLACE;

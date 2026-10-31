@@ -8,6 +8,7 @@ import type {
   LinearCycle,
   LinearInitiative,
   LinearIssue,
+  LinearNotification,
   LinearProject,
   LinearSync,
   LinearUnavailable,
@@ -38,6 +39,9 @@ export type LinearData = {
    * by id in Linear's order, as their last load returned them.
    */
   members: Map<IssueScope, string[]>;
+  /** Your Inbox's notifications (not archived), by id, once loaded (`notificationsLoaded`). */
+  notifications: Map<string, LinearNotification>;
+  notificationsLoaded: boolean;
 };
 
 const SYNC_EVERY_MS = 20_000;
@@ -57,6 +61,8 @@ function empty(): LinearData {
     cappedScopes: new Set(),
     cycles: new Map(),
     members: new Map(),
+    notifications: new Map(),
+    notificationsLoaded: false,
   };
 }
 
@@ -370,10 +376,65 @@ function mergeWorkspaceRows(projects: LinearProject[], initiatives: LinearInitia
   });
 }
 
+/** Notifications with a write in flight: merges leave them as the write shows them. */
+const pendingNotifications = new Map<string, number>();
+
+/** Notifications Linear sent: archived ones leave the Inbox; the rest take their place (unless a write is in flight). */
+function mergeNotifications(list: LinearNotification[] = [], force = false): void {
+  if (list.length === 0) return;
+  const notifications = new Map(state.notifications);
+  for (const n of list) {
+    if (!force && pendingNotifications.has(n.id)) continue;
+    if (n.archivedAt) notifications.delete(n.id);
+    else notifications.set(n.id, n);
+  }
+  publish({ notifications });
+}
+
+/**
+ * A write on notifications (read, unread, snooze, unsnooze, archive, unarchive):
+ * `ids` show `patch` at once (archived ones leave), then Linear's answer; if
+ * Linear refuses, they go back as they were and the notice says why.
+ */
+async function writeNotifications(
+  name: WriteName,
+  input: Record<string, unknown>,
+  ids: string[],
+  patch: Partial<LinearNotification>,
+): Promise<boolean> {
+  const before = ids.map((id) => state.notifications.get(id)).filter((n): n is LinearNotification => !!n);
+  const mark = ++lastMark;
+  for (const id of ids) pendingNotifications.set(id, mark);
+  mergeNotifications(
+    before.map((n) => {
+      const next = { ...n, ...patch } as Record<string, unknown>;
+      for (const [k, v] of Object.entries(patch)) if (v === undefined) delete next[k];
+      return next as LinearNotification;
+    }),
+    true,
+  );
+  const settle = () => {
+    for (const id of ids) if (pendingNotifications.get(id) === mark) pendingNotifications.delete(id);
+  };
+  try {
+    const answer = await linearWrite<{ notifications?: LinearNotification[] }>(name, input);
+    settle();
+    mergeNotifications(answer?.notifications ?? []);
+    return true;
+  } catch (e) {
+    settle();
+    // Back as Linear has them (an archived one comes back too).
+    mergeNotifications(before, true);
+    notify(`Linear didn't save that: ${errorMessage(e) || "it didn't answer"}`);
+    return false;
+  }
+}
+
 function applySync(delta: LinearSync, readAt?: number): void {
   mergeIssues(delta.issues, readAt);
   mergeComments(delta.comments);
   mergeWorkspaceRows(delta.projects, delta.initiatives);
+  mergeNotifications(delta.notifications);
   publish({ cursor: delta.cursor });
 }
 
@@ -389,6 +450,8 @@ export const linearStore = {
   removeComment,
   applySync,
   write,
+  writeNotifications,
+  mergeNotifications,
   createIssue,
   removeIssue,
   setWorkspace(workspace: LinearWorkspace): void {
@@ -421,6 +484,8 @@ export const linearStore = {
     shownScope = undefined;
     viewsLoad = undefined;
     searchedAt.clear();
+    notificationsLoad = undefined;
+    pendingNotifications.clear();
     for (const fn of [...listeners]) fn();
   },
 };
@@ -482,6 +547,26 @@ export async function loadWorkspace(fresh = false): Promise<void> {
   noteLoadStart();
   const answer = await linearRead<LinearWorkspace>("workspace", fresh ? { fresh: "1" } : {});
   if (accept(answer)) linearStore.setWorkspace(answer);
+}
+
+let notificationsLoad: Promise<void> | undefined;
+
+/** Loads your Inbox; asked once unless `fresh` (sync keeps it current after). */
+export function loadNotifications(fresh = false): Promise<void> {
+  if (!fresh && state.notificationsLoaded) return Promise.resolve();
+  notificationsLoad ??= (async () => {
+    noteLoadStart();
+    const answer = await linearRead<{ notifications: LinearNotification[] }>("notifications");
+    if (!accept(answer)) return;
+    // Those with a write in flight keep what it shows.
+    const notifications = new Map(
+      answer.notifications.map((n) => [n.id, pendingNotifications.has(n.id) ? state.notifications.get(n.id) ?? n : n]),
+    );
+    publish({ notifications, notificationsLoaded: true });
+  })().finally(() => {
+    notificationsLoad = undefined;
+  });
+  return notificationsLoad;
 }
 
 /** A search's scope: its term, trimmed. */
@@ -656,6 +741,7 @@ export async function loadIssue(key: string): Promise<void> {
 /** Everything afresh: the workspace, each loaded scope, and the open issue with its comments. */
 async function reloadAll(): Promise<void> {
   await loadWorkspace(true);
+  if (state.notificationsLoaded) await loadNotifications(true);
   for (const scope of [...state.loadedScopes]) await pageScope(scope);
   if (openKey) await loadIssue(openKey);
 }

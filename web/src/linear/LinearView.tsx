@@ -10,6 +10,8 @@ import { isTyping } from "../worldShortcut";
 import { CreateIssue, type CreateInitial } from "./CreateIssue";
 import { CycleFacts, CycleList } from "./Cycles";
 import { DEFAULT_DISPLAY, readListView, type Display } from "./display";
+import { Inbox } from "./Inbox";
+import { unreadCount } from "./inboxRows";
 import { InitiativeList } from "./InitiativeList";
 import { IssueDetail } from "./IssueDetail";
 import { IssueList, type IssueListNav, type IssueListState } from "./IssueList";
@@ -23,6 +25,7 @@ import { changeTextStep, checkTextStep, textSizeKey, type TextChange } from "./t
 import {
   linearStore,
   loadCycles,
+  loadNotifications,
   loadScope,
   loadSearch,
   loadViews,
@@ -78,6 +81,8 @@ export type LinearViewState = {
   canSearch: boolean;
   /** Your saved views, by name. */
   views: { id: string; name: string }[];
+  /** The Inbox's unread rows, while it shows (⌘K offers marking them read). */
+  inboxUnread?: number;
   /** The list's layout and whether it's filtered, while one shows. */
   list?: Pick<IssueListState, "layout" | "filtered">;
 };
@@ -188,6 +193,8 @@ export function LinearView({
   useEffect(() => {
     loadWs(false).catch(() => {});
     loadViews().catch(() => {});
+    // The sidebar counts what's unread.
+    loadNotifications().catch(() => {});
   }, [loadWs]);
   // A view you can no longer see (deleted, unshared) goes back to the default place.
   const views = useLinear((d) => d.views);
@@ -527,6 +534,10 @@ export function LinearView({
   const wide = (viewWidth === 0 || viewWidth >= BESIDE_MIN) && !boardShown;
   const canSearch = !!ws && !!listScope && (!place.issue || wide);
   const viewPlaces = JSON.stringify(views?.map((v) => ({ id: v.id, name: v.name })) ?? []);
+  const inboxShown = place.screen === "inbox";
+  const inboxUnread = useLinear((d) =>
+    inboxShown && d.notificationsLoaded ? unreadCount(d.notifications.values(), Date.now()) : undefined,
+  );
   const currentCycles = ws?.cycles.filter((c) => c.isActive);
   const teamPlaces = JSON.stringify(
     teams?.map((t) => [
@@ -550,9 +561,10 @@ export function LinearView({
       undoKey,
       canSearch,
       views: JSON.parse(viewPlaces) as { id: string; name: string }[],
+      ...(inboxUnread !== undefined ? { inboxUnread } : {}),
       ...(canSearch && listState?.key === listKey ? { list: { layout: listState.layout, filtered: listState.filtered } } : {}),
     });
-  }, [teamPlaces, viewPlaces, undoKey, canSearch, listState, listKey, onViewState]);
+  }, [teamPlaces, viewPlaces, inboxUnread, undoKey, canSearch, listState, listKey, onViewState]);
   useEffect(() => () => onViewState?.(undefined), [onViewState]);
 
   if (!ws && (unavailable || workspaceError))
@@ -617,6 +629,8 @@ export function LinearView({
         />
       );
     }
+    if (place.screen === "inbox")
+      return <Inbox openKey={openIssue} onOpen={open} onProject={openProject} revision={revision} nav={nav} />;
     if (place.screen === "projects") return <ProjectList onProject={openProject} />;
     if (place.screen === "initiatives") return <InitiativeList onProject={openProject} />;
     const teamCrumb = (

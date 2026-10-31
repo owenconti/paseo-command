@@ -793,6 +793,117 @@
   color: var(--text);
 }
 
+/* The Inbox */
+.linear-nav-top {
+  margin-top: var(--space-1) !important;
+}
+.linear-nav-label .linear-nav-badge {
+  float: right;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: var(--radius-pill);
+  background: var(--accent);
+  font-size: var(--fs-2xs);
+  font-weight: var(--fw-semibold);
+  line-height: 18px;
+  text-align: center;
+  color: var(--on-accent, #fff);
+  font-variant-numeric: tabular-nums;
+}
+.linear-inbox-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: 52px;
+  padding: var(--space-2);
+  border-radius: var(--radius-md);
+  font-size: var(--fs-sm);
+  color: var(--text-2);
+  cursor: pointer;
+}
+.linear-inbox-row:hover {
+  background: var(--row-hover);
+}
+.linear-inbox-row.selected {
+  background: var(--row-selected);
+}
+.linear-inbox-row:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: -2px;
+}
+.linear-inbox-dot {
+  flex-shrink: 0;
+  width: 7px;
+  height: 7px;
+  border-radius: var(--radius-pill);
+}
+.linear-inbox-row.unread .linear-inbox-dot {
+  background: var(--accent);
+}
+.linear-person-none {
+  background: var(--fill-strong);
+}
+.linear-inbox-text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.linear-inbox-title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  color: var(--text-2);
+}
+.linear-inbox-title .linear-title {
+  flex: 0 1 auto;
+}
+.linear-inbox-title .linear-count {
+  margin-left: 0;
+}
+.linear-inbox-row.unread .linear-inbox-title {
+  font-weight: var(--fw-semibold);
+  color: var(--text-strong);
+}
+.linear-inbox-title svg {
+  flex-shrink: 0;
+  color: var(--icon-muted);
+}
+.linear-inbox-what {
+  overflow: hidden;
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.linear-inbox-time {
+  flex-shrink: 0;
+  font-size: var(--fs-xs);
+  color: var(--text-4);
+  font-variant-numeric: tabular-nums;
+}
+.linear-inbox-actions {
+  flex-shrink: 0;
+  gap: 2px;
+  opacity: 0;
+}
+.linear-inbox-row:hover .linear-inbox-actions,
+.linear-inbox-row:focus-within .linear-inbox-actions,
+.linear-inbox-actions:has(.popover-menu) {
+  opacity: 1;
+}
+.popover-menu.linear-snooze-menu {
+  top: calc(100% + 4px);
+  bottom: auto;
+}
+.linear-tool[aria-pressed="true"] {
+  background: var(--row-selected);
+  color: var(--text-strong);
+}
+
 /* A saved view's head */
 .linear-view-icon {
   flex-shrink: 0;

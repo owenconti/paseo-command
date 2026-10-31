@@ -40,6 +40,8 @@ test("answers named reads and refuses others", async () => {
   assert.equal((await ask(`/api/linear/q/cycles?team=nope`)).status, 400);
   assert.equal((await ask(`/api/linear/q/issues?scope=cycle:${I.cycles.eng}`)).body.issues.length, 2);
   assert.equal((await ask("/api/linear/q/views")).body.views.length, 2);
+  assert.equal((await ask("/api/linear/q/notifications")).body.notifications.length, 5);
+  assert.equal((await ask("/api/linear/q/notifications?first=5")).status, 400);
   assert.deepEqual((await ask("/api/linear/q/search?term=sync%20design")).body.issues.map((i: { key: string }) => i.key), ["ENG-3"]);
   assert.equal((await ask("/api/linear/q/search?term=")).status, 400);
   assert.equal((await ask(`/api/linear/q/issues?scope=search:sync`)).status, 400);

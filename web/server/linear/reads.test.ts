@@ -8,6 +8,7 @@ import {
   readIssue,
   readIssues,
   readIssuesById,
+  readNotifications,
   readSearch,
   readStatus,
   readSync,
@@ -115,6 +116,31 @@ test("reads the issue views with their display, and a view's issues by its own f
   assert.deepEqual(keys((await readIssues(`view:${I.views.samsWork}`)).issues), ["DE-1", "ENG-2", "ENG-6"]);
   assert.equal(fake.requests.at(-1)?.operation, "ViewIssues");
   await assert.rejects(readIssues("view:nope" as never), (e) => e instanceof LinearError && e.kind === "invalid");
+});
+
+test("reads your inbox: what each notification is about, newest first, nothing archived", async () => {
+  fake.ws.notifications[2].archivedAt = new Date().toISOString();
+  fake.ws.notifications[2].updatedAt = new Date().toISOString();
+  const { notifications } = await readNotifications();
+  assert.deepEqual(
+    notifications.map((n) => [n.type, n.issueKey ?? n.projectId, !!n.readAt, !!n.snoozedUntilAt]),
+    [
+      ["issueNewComment", "ENG-1", false, false],
+      ["issueCommentReaction", "ENG-1", false, false],
+      ["projectUpdateCreated", I.projects.launch, false, false],
+      ["issueSubscribed", "DE-2", false, true],
+    ],
+  );
+  const [comment, reaction] = notifications;
+  assert.equal(comment.commentBody, "Can we start with the list?");
+  assert.equal(comment.actorId, I.sam);
+  assert.equal(comment.issueId, I.issues["ENG-1"]);
+  assert.equal(reaction.reactionEmoji, "+1");
+  assert.equal(notifications[2].issueId, undefined);
+  // A sync brings changed notifications, archived ones too (the page drops those).
+  const since = new Date(Date.now() - 1000).toISOString();
+  const synced = await readSync(since);
+  assert.deepEqual(synced.notifications.map((n) => [n.type, !!n.archivedAt]), [["issueAssignedToYou", true]]);
 });
 
 test("searches the whole workspace, and keeps under Linear's 30 searches a minute", async () => {

@@ -295,3 +295,74 @@ test("search: every issue in the workspace, most relevant first, as typing pause
     await context.close();
   }
 });
+
+test("the inbox: your notifications by issue, read as they open, U, H and ⌫, snoozed ones apart, archive with Undo", async () => {
+  const { context, page, linear, view, sidebar } = await openLinear();
+  try {
+    const inboxItem = sidebar.getByRole("button", { name: /^Inbox/ });
+    const badge = () => inboxItem.locator(".linear-nav-badge").innerText().catch(() => "");
+    await waitFor(badge, (n) => n === "2", "two unread rows");
+    await inboxItem.click();
+    const inbox = view.locator(".linear-inbox");
+    const rowKeysIn = () =>
+      inbox.locator(".linear-inbox-row").evaluateAll((rows) => rows.map((r) => (r as HTMLElement).dataset.key));
+    await waitFor(rowKeysIn, (keys) => keys.length === 3, "three rows");
+    const I = FAKE_IDS;
+    assert.deepEqual(await rowKeysIn(), [`issue:${I.issues["ENG-1"]}`, `issue:${I.issues["ENG-3"]}`, `project:${I.projects.launch}`]);
+    const row = (key: string) => inbox.locator(`.linear-inbox-row[data-key="${key}"]`);
+    const eng1 = row(`issue:${I.issues["ENG-1"]}`);
+    const eng3 = row(`issue:${I.issues["ENG-3"]}`);
+    const launch = row(`project:${I.projects.launch}`);
+    assert.match(await eng1.innerText(), /Ship the Linear tab/);
+    assert.match(await eng1.innerText(), /Sam Rivera commented: “Can we start with the list\?”/);
+    assert.equal(await eng1.locator(".linear-count").innerText(), "2");
+    const note = (id: string) => linear.ws.notifications.find((n) => n.id === id)!;
+
+    // Opening a row opens its issue beside, and reads it, in Linear too.
+    await eng1.click();
+    await view.locator(".linear-issue h1", { hasText: "Ship the Linear tab" }).waitFor();
+    await waitFor(badge, (n) => n === "1", "one unread row");
+    await waitFor(async () => !!note(I.notifications.eng1Comment).readAt && !!note(I.notifications.eng1Reaction).readAt, (v) => v, "read in Linear");
+
+    // U marks it unread again.
+    await eng3.focus();
+    await page.keyboard.press("u");
+    await waitFor(async () => note(I.notifications.eng3Assigned).readAt, (v) => v === null, "unread in Linear");
+    await waitFor(badge, (n) => n === "2", "two unread rows again");
+
+    // H snoozes it: it leaves for Snoozed, with DE-2 already there.
+    await eng3.focus();
+    await page.keyboard.press("h");
+    await page.getByRole("menu", { name: "Snooze until" }).getByRole("menuitem", { name: /An hour/ }).click();
+    await waitFor(rowKeysIn, (keys) => keys.length === 2, "ENG-3 snoozed");
+    assert.ok(note(I.notifications.eng3Assigned).snoozedUntilAt);
+    await inbox.getByRole("button", { name: "Snoozed 2" }).click();
+    await waitFor(rowKeysIn, (keys) => keys.length === 2, "two snoozed");
+    await row(`issue:${I.issues["ENG-3"]}`).hover();
+    await inbox.getByRole("button", { name: "Unsnooze ENG-3" }).click();
+    await waitFor(async () => note(I.notifications.eng3Assigned).snoozedUntilAt, (v) => v === null, "woken in Linear");
+    await inbox.getByRole("button", { name: "Inbox", exact: true }).click();
+    await waitFor(rowKeysIn, (keys) => keys.length === 3, "ENG-3 back");
+
+    // ⌫ archives the project's row; Undo brings it back.
+    await launch.focus();
+    await page.keyboard.press("Backspace");
+    await waitFor(rowKeysIn, (keys) => keys.length === 2, "Launch archived");
+    assert.ok(note(I.notifications.launchUpdate).archivedAt);
+    await inbox.locator(".linear-undo").getByRole("button", { name: "Undo" }).click();
+    await waitFor(rowKeysIn, (keys) => keys.length === 3, "Launch back");
+    assert.equal(note(I.notifications.launchUpdate).archivedAt, null);
+
+    // ⌘K marks every row read; a project's row opens the project.
+    await page.keyboard.press("Meta+k");
+    await page.keyboard.type("Mark all Linear notifications read");
+    await page.keyboard.press("Enter");
+    await waitFor(badge, (n) => n === "", "nothing unread");
+    assert.ok(linear.ws.notifications.filter((n) => !n.snoozedUntilAt).every((n) => n.readAt));
+    await launch.click();
+    await view.locator(".linear-list-head h2", { hasText: "Launch" }).waitFor();
+  } finally {
+    linear.restore();
+    await context.close();
+  }
+});

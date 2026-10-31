@@ -134,6 +134,25 @@ export type FakeView = {
   filterData: Record<string, unknown>;
   viewPreferencesValues: { layout?: string; issueGrouping?: string; viewOrdering?: string; showCompletedIssues?: string } | null;
 };
+export type FakeNotification = {
+  id: string;
+  /** IssueNotification or ProjectNotification: which of `issue` (with `comment`) or `project` it has. */
+  kind: "issue" | "project";
+  type: string;
+  title: string;
+  subtitle: string;
+  url: string;
+  createdAt: string;
+  updatedAt: string;
+  readAt: string | null;
+  snoozedUntilAt: string | null;
+  archivedAt: string | null;
+  actor: Ref | null;
+  issue?: { id: string; identifier: string };
+  comment?: { id: string; body: string } | null;
+  reactionEmoji?: string | null;
+  project?: Ref;
+};
 export type FakeWorkspace = {
   viewerId: string;
   users: FakeUser[];
@@ -146,6 +165,7 @@ export type FakeWorkspace = {
   issues: FakeIssue[];
   comments: FakeComment[];
   views: FakeView[];
+  notifications: FakeNotification[];
 };
 
 /** A stable UUID for the n-th fake entity of a kind (kind picks the last-but-one group). */
@@ -175,6 +195,13 @@ export const FAKE_IDS = {
   comments: seq(11, ["first", "reply", "reacted"]) as { first: string; reply: string; reacted: string },
   relations: seq(12, ["eng3blocks4"]) as { eng3blocks4: string },
   views: seq(14, ["launchStarted", "samsWork", "projects"]) as { launchStarted: string; samsWork: string; projects: string },
+  notifications: seq(15, ["eng1Comment", "eng1Reaction", "eng3Assigned", "launchUpdate", "de2Snoozed"]) as {
+    eng1Comment: string;
+    eng1Reaction: string;
+    eng3Assigned: string;
+    launchUpdate: string;
+    de2Snoozed: string;
+  },
 };
 
 const DAY = 86_400_000;
@@ -479,6 +506,91 @@ export function fakeWorkspace(): FakeWorkspace {
         viewPreferencesValues: null,
       },
     ],
+    notifications: [
+      {
+        id: I.notifications.eng1Comment,
+        kind: "issue",
+        type: "issueNewComment",
+        title: "ENG-1 Ship the Linear tab",
+        subtitle: "Sam Rivera commented",
+        url: "https://linear.app/fake/issue/ENG-1#comment",
+        createdAt: ago(0.1),
+        updatedAt: ago(0.1),
+        readAt: null,
+        snoozedUntilAt: null,
+        archivedAt: null,
+        actor: ref(I.sam),
+        issue: { id: I.issues["ENG-1"], identifier: "ENG-1" },
+        comment: { id: I.comments.first, body: "Can we start with the list?" },
+        reactionEmoji: null,
+      },
+      {
+        id: I.notifications.eng1Reaction,
+        kind: "issue",
+        type: "issueCommentReaction",
+        title: "ENG-1 Ship the Linear tab",
+        subtitle: "Sam Rivera reacted 👍 to your comment",
+        url: "https://linear.app/fake/issue/ENG-1",
+        createdAt: ago(0.5),
+        updatedAt: ago(0.5),
+        readAt: null,
+        snoozedUntilAt: null,
+        archivedAt: null,
+        actor: ref(I.sam),
+        issue: { id: I.issues["ENG-1"], identifier: "ENG-1" },
+        comment: { id: I.comments.reacted, body: "Beta is on track." },
+        reactionEmoji: "+1",
+      },
+      {
+        id: I.notifications.eng3Assigned,
+        kind: "issue",
+        type: "issueAssignedToYou",
+        title: "ENG-3 Review the sync design",
+        subtitle: "Sam Rivera assigned the issue to you",
+        url: "https://linear.app/fake/issue/ENG-3",
+        createdAt: ago(1),
+        updatedAt: ago(1),
+        readAt: ago(0.9),
+        snoozedUntilAt: null,
+        archivedAt: null,
+        actor: ref(I.sam),
+        issue: { id: I.issues["ENG-3"], identifier: "ENG-3" },
+        comment: null,
+        reactionEmoji: null,
+      },
+      {
+        id: I.notifications.launchUpdate,
+        kind: "project",
+        type: "projectUpdateCreated",
+        title: "Launch",
+        subtitle: "Sam Rivera posted a project update",
+        url: "https://linear.app/fake/project/launch",
+        createdAt: ago(2),
+        updatedAt: ago(2),
+        readAt: null,
+        snoozedUntilAt: null,
+        archivedAt: null,
+        actor: ref(I.sam),
+        project: ref(I.projects.launch),
+      },
+      {
+        id: I.notifications.de2Snoozed,
+        kind: "issue",
+        type: "issueSubscribed",
+        title: "DE-2 Audit the icon set",
+        subtitle: "Sam Rivera subscribed you",
+        url: "https://linear.app/fake/issue/DE-2",
+        createdAt: ago(3),
+        updatedAt: ago(3),
+        readAt: null,
+        snoozedUntilAt: ahead(1),
+        archivedAt: null,
+        actor: ref(I.sam),
+        issue: { id: I.issues["DE-2"], identifier: "DE-2" },
+        comment: null,
+        reactionEmoji: null,
+      },
+    ],
   };
 }
 
@@ -560,7 +672,17 @@ function issuePage(ws: FakeWorkspace, filter: Filter, variables: Record<string, 
 }
 
 /** The fake's reads, by operation name: everything else it answers is a write. */
-export const READ_OPERATIONS = ["Workspace", "Issues", "Issue", "Cycles", "CustomViews", "ViewIssues", "SearchIssues", "Sync"];
+export const READ_OPERATIONS = [
+  "Workspace",
+  "Issues",
+  "Issue",
+  "Cycles",
+  "CustomViews",
+  "ViewIssues",
+  "SearchIssues",
+  "Notifications",
+  "Sync",
+];
 
 /** The dispatch table, by GraphQL operation name: the reads here, the writes from `writes()`. */
 export const OPERATIONS: Record<string, FakeOperation> = {
@@ -647,10 +769,24 @@ export const OPERATIONS: Record<string, FakeOperation> = {
       comments: { nodes: changed(ws.comments) },
       projects: { nodes: changed(ws.projects) },
       initiatives: { nodes: changed(ws.initiatives) },
+      notifications: { nodes: changed(ws.notifications).map(notificationNode) },
     };
   },
+  /** Your notifications not archived, the newest first. */
+  Notifications: ({ ws, variables }) => ({
+    notifications: {
+      nodes: newestFirst(ws.notifications.filter((n) => !n.archivedAt))
+        .slice(0, Number(variables.first))
+        .map(notificationNode),
+    },
+  }),
   ...writes(),
 };
+
+/** A notification as Linear answers it: an IssueNotification's issue and comment, or a ProjectNotification's project. */
+function notificationNode({ kind, ...n }: FakeNotification) {
+  return kind === "issue" ? n : { ...n, issue: undefined, comment: undefined, reactionEmoji: undefined };
+}
 
 function writes(): Record<string, FakeOperation> {
   const bad = (message: string) => new FakeGraphQlError(message, "InvalidInput");
@@ -725,7 +861,45 @@ function writes(): Record<string, FakeOperation> {
   };
   const viewer = (ws: FakeWorkspace): Ref => ({ id: ws.viewerId });
 
+  /** The notifications a NotificationEntityInput names: one by id, or an issue's or project's. */
+  const named = (ws: FakeWorkspace, input: Record<string, string>) => {
+    const list = ws.notifications.filter((n) =>
+      input.id ? n.id === input.id : input.issueId ? n.issue?.id === input.issueId : n.project?.id === input.projectId,
+    );
+    if (input.id && !list.length) throw bad("Could not find referenced Notification.");
+    return list;
+  };
+  /** A notification write on many: changes each named one not archived, and answers them. */
+  const onNotifications =
+    (field: string, change: (n: FakeNotification, vars: Record<string, unknown>) => void) => (ctx: FakeContext) => {
+      const list = named(ctx.ws, ctx.variables.input as Record<string, string>).filter((n) => !n.archivedAt);
+      for (const n of list) change(n, ctx.variables);
+      ctx.touch(...list);
+      return { [field]: { success: true, notifications: list.map(notificationNode) } };
+    };
+
   return {
+    NotificationMarkReadAll: onNotifications("notificationMarkReadAll", (n, v) => {
+      n.readAt ??= String(v.readAt);
+    }),
+    NotificationMarkUnreadAll: onNotifications("notificationMarkUnreadAll", (n) => {
+      n.readAt = null;
+    }),
+    NotificationSnoozeAll: onNotifications("notificationSnoozeAll", (n, v) => {
+      n.snoozedUntilAt = String(v.snoozedUntilAt);
+    }),
+    NotificationUnsnoozeAll: onNotifications("notificationUnsnoozeAll", (n) => {
+      n.snoozedUntilAt = null;
+    }),
+    NotificationArchiveAll: onNotifications("notificationArchiveAll", (n) => {
+      n.archivedAt = new Date().toISOString();
+    }),
+    NotificationUnarchive: (ctx) => {
+      const n = find(ctx.ws.notifications, ctx.variables.id, "Notification");
+      n.archivedAt = null;
+      ctx.touch(n);
+      return { notificationUnarchive: { success: true, entity: notificationNode(n) } };
+    },
     IssueUpdate: (ctx) => {
       const issue = issueOf(ctx.ws, ctx.variables.id);
       apply(ctx, issue, ctx.variables.input as Record<string, any>);

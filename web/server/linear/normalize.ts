@@ -11,6 +11,7 @@ import type {
   LinearInitiative,
   LinearIssue,
   LinearLabel,
+  LinearNotification,
   LinearProject,
   LinearRelation,
   LinearState,
@@ -326,6 +327,34 @@ export function commentOf(raw: Raw): LinearComment | null {
     editedAt: str(raw.editedAt) || undefined,
     resolvedAt: str(raw.resolvedAt) || undefined,
     reactions: [...reactions].map(([emoji, who]) => ({ emoji, ...who })),
+  };
+}
+
+/** A notification, with the issue (or project) and comment it's about; null without an id. */
+export function notificationOf(raw: Raw): LinearNotification | null {
+  const id = str(raw.id);
+  if (!id) return null;
+  const issue = rec(raw.issue);
+  const comment = rec(raw.comment);
+  const key = clip(str(issue.identifier).toUpperCase(), 30);
+  return {
+    id,
+    type: clip(str(raw.type), 60),
+    title: clip(str(raw.title), 300),
+    subtitle: clip(str(raw.subtitle), 300),
+    url: httpsUrl(raw.url),
+    actorId: optId(raw.actor),
+    createdAt: str(raw.createdAt),
+    updatedAt: str(raw.updatedAt),
+    readAt: str(raw.readAt) || undefined,
+    snoozedUntilAt: str(raw.snoozedUntilAt) || undefined,
+    archivedAt: str(raw.archivedAt) || undefined,
+    issueId: str(issue.id) || undefined,
+    issueKey: key || undefined,
+    commentId: str(comment.id) || undefined,
+    commentBody: clip(str(comment.body), 300) || undefined,
+    reactionEmoji: clip(str(raw.reactionEmoji), 40) || undefined,
+    projectId: optId(raw.project),
   };
 }
 

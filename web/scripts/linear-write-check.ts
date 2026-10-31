@@ -9,7 +9,8 @@
  * title or team differs. Every write goes through `linearWrite`, as the page's
  * do; each prints `ok` or `FAIL`, and the first failure stops the run (after
  * one attempt to put the issue back). Edits are put back; the subscription is
- * left as the last step leaves it. Tests never run this.
+ * left as the last step leaves it, and the issue's notifications (if any) read
+ * and not snoozed; none is archived. Tests never run this.
  */
 import { LinearError, linearApiKey, linearBudget, linearRequest, linearUnavailable } from "../server/linear/client";
 import { readIssue, readWorkspace } from "../server/linear/reads";
@@ -49,7 +50,9 @@ async function main() {
         ? `${result.issue.key} updated ${result.issue.updatedAt}`
         : result.comment
           ? `comment ${result.comment.id}`
-          : "success";
+          : result.notifications
+            ? `${result.notifications.length} notification(s)`
+            : "success";
       console.log(`ok    ${label}: ${what}`);
       return result;
     } catch (e) {
@@ -146,6 +149,17 @@ async function main() {
 
     await step("issueSubscribe", "issueSubscribe", { id: current.id });
     await step("issueUnsubscribe", "issueUnsubscribe", { id: current.id });
+
+    // The Inbox's writes, on the check issue's notifications only (there may be none: Linear answers the same).
+    const now = new Date().toISOString();
+    await step("notificationMarkReadAll", "notificationMarkReadAll", { issueId: current.id, readAt: now });
+    await step("notificationMarkUnreadAll", "notificationMarkUnreadAll", { issueId: current.id });
+    await step("notificationSnoozeAll", "notificationSnoozeAll", {
+      issueId: current.id,
+      snoozedUntilAt: new Date(Date.now() + 3_600_000).toISOString(),
+    });
+    await step("notificationUnsnoozeAll", "notificationUnsnoozeAll", { issueId: current.id, unsnoozedAt: now });
+    await step("notificationMarkReadAll (put back)", "notificationMarkReadAll", { issueId: current.id, readAt: now });
   } catch (e) {
     // One attempt to leave the issue as it was, then stop.
     if (comment) await linearWrite("commentDelete", { id: comment.id }).catch(() => {});

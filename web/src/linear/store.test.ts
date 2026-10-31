@@ -8,6 +8,7 @@ import {
   linearStore,
   loadCycles,
   loadIssue,
+  loadNotifications,
   loadScope,
   loadSearch,
   loadViews,
@@ -17,7 +18,7 @@ import {
   setLinearNotice,
   syncTick,
 } from "./store";
-import type { LinearComment, LinearIssue, LinearState, LinearSync, LinearWorkspace } from "./types";
+import type { LinearComment, LinearIssue, LinearNotification, LinearState, LinearSync, LinearWorkspace } from "./types";
 
 const ME = FAKE_IDS.owen;
 const TODO: LinearState = { id: "s-todo", name: "Todo", type: "unstarted", color: "#ccc", position: 1, teamId: "t" };
@@ -57,6 +58,7 @@ const sync = (patch: Partial<LinearSync> = {}): LinearSync => ({
   comments: [],
   projects: [],
   initiatives: [],
+  notifications: [],
   more: false,
   ...patch,
 });
@@ -163,6 +165,54 @@ describe("linear store", () => {
     answers.search = () => ({ available: false, reason: "Searching too fast", retryAt: Date.now() + 60_000 });
     assert.deepEqual(await loadSearch("launch"), { error: "Searching too fast" });
     assert.equal(linearStore.getState().unavailable, undefined);
+  });
+
+  it("your inbox: loaded once, kept by sync, a write shown at once and put back if refused", async () => {
+    const note = (id: string, extra: Partial<LinearNotification> = {}): LinearNotification => ({
+      id,
+      type: "issueNewComment",
+      title: "ENG-1 Issue 1",
+      subtitle: "Sam commented",
+      url: "https://linear.app/x",
+      createdAt: "2026-10-30T00:00:00Z",
+      updatedAt: "2026-10-30T00:00:00Z",
+      issueId: "i-1",
+      ...extra,
+    });
+    answers.notifications = () => ({ notifications: [note("n1"), note("n2")] });
+    await Promise.all([loadNotifications(), loadNotifications()]);
+    assert.deepEqual(calls, ["linear/q/notifications"]);
+    assert.deepEqual([...linearStore.getState().notifications.keys()], ["n1", "n2"]);
+
+    // A sync's changes take their place; an archived one leaves.
+    linearStore.applySync(sync({ notifications: [note("n1", { readAt: "2026-10-31T00:00:00Z" }), note("n2", { archivedAt: "x" })] }));
+    assert.ok(linearStore.getState().notifications.get("n1")?.readAt);
+    assert.equal(linearStore.getState().notifications.has("n2"), false);
+
+    // Marked unread: at once, and a sync in flight doesn't undo it; Linear's answer then stands.
+    const answer = held<{ notifications: LinearNotification[] }>();
+    setLinearTransport(async (path, body) => {
+      calls.push(path);
+      if (path === "linear/m/notificationMarkUnreadAll") return answer.promise;
+      throw new Error(`unexpected ${path} ${JSON.stringify(body)}`);
+    });
+    const writing = linearStore.writeNotifications("notificationMarkUnreadAll", { issueId: "i-1" }, ["n1"], { readAt: undefined });
+    assert.equal(linearStore.getState().notifications.get("n1")?.readAt, undefined);
+    linearStore.applySync(sync({ notifications: [note("n1", { readAt: "2026-10-31T00:00:00Z" })] }));
+    assert.equal(linearStore.getState().notifications.get("n1")?.readAt, undefined);
+    answer.release({ notifications: [note("n1", { updatedAt: "2026-10-31T01:00:00Z" })] });
+    assert.equal(await writing, true);
+    assert.equal(linearStore.getState().notifications.get("n1")?.updatedAt, "2026-10-31T01:00:00Z");
+
+    // Archiving refused: it comes back as it was, and the notice says why.
+    setLinearTransport(async () => {
+      throw new Error("Not allowed");
+    });
+    const archived = linearStore.writeNotifications("notificationArchiveAll", { id: "n1" }, ["n1"], { archivedAt: "now" });
+    assert.equal(linearStore.getState().notifications.has("n1"), false);
+    assert.equal(await archived, false);
+    assert.ok(linearStore.getState().notifications.has("n1"));
+    assert.match(notices.at(-1) ?? "", /Not allowed/);
   });
 
   it("loads the views once, and again when fresh", async () => {

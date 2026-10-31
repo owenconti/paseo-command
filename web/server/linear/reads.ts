@@ -10,6 +10,7 @@ import type {
   LinearCustomView,
   LinearCycle,
   LinearIssue,
+  LinearNotification,
   LinearSync,
   LinearWorkspace,
 } from "../../src/linear/types";
@@ -18,6 +19,7 @@ import {
   CYCLES_QUERY,
   ISSUES_QUERY,
   ISSUE_QUERY,
+  NOTIFICATIONS_QUERY,
   SEARCH_QUERY,
   SYNC_QUERY,
   VIEW_ISSUES_QUERY,
@@ -33,6 +35,7 @@ import {
   issueOf,
   labelOf,
   nodesOf,
+  notificationOf,
   projectOf,
   recOf,
   stateOf,
@@ -47,6 +50,7 @@ export const LINEAR_READS = {
   syncSize: 100,
   maxIds: 50,
   searchSize: 50,
+  inboxSize: 100,
   /** Linear allows 30 searches a minute; the server keeps under that. */
   searchesPerMinute: 25,
 };
@@ -235,6 +239,18 @@ export async function readIssue(
   };
 }
 
+/** Your Inbox: the latest 100 notifications not archived, newest first (snoozed ones too; the page hides them). */
+export async function readNotifications(): Promise<{ notifications: LinearNotification[] }> {
+  const data = await linearRequest<Data>("Notifications", NOTIFICATIONS_QUERY, { first: LINEAR_READS.inboxSize });
+  return {
+    notifications: nodesOf(data.notifications)
+      .map(notificationOf)
+      .filter(nonNull)
+      .filter((n) => !n.archivedAt)
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
+  };
+}
+
 /**
  * Everything that changed since `since`, in one request. `cursor` is the newest
  * `updatedAt` seen (else `since`); `more` says a list hit its 100, so the
@@ -249,8 +265,9 @@ export async function readSync(since: string): Promise<LinearSync> {
   const commentNodes = nodesOf(data.comments);
   const projectNodes = nodesOf(data.projects);
   const initiativeNodes = nodesOf(data.initiatives);
+  const notificationNodes = nodesOf(data.notifications);
   let newest = at;
-  for (const raw of [...issueNodes, ...commentNodes, ...projectNodes, ...initiativeNodes]) {
+  for (const raw of [...issueNodes, ...commentNodes, ...projectNodes, ...initiativeNodes, ...notificationNodes]) {
     const t = Date.parse(strOf(raw.updatedAt));
     if (Number.isFinite(t) && t > newest) newest = t;
   }
@@ -260,7 +277,10 @@ export async function readSync(since: string): Promise<LinearSync> {
     comments: commentNodes.map(commentOf).filter(nonNull),
     projects: projectNodes.map(projectOf).filter(nonNull),
     initiatives: initiativeNodes.map(initiativeOf).filter(nonNull),
-    more: [issueNodes, commentNodes, projectNodes, initiativeNodes].some((list) => list.length >= first),
+    notifications: notificationNodes.map(notificationOf).filter(nonNull),
+    more: [issueNodes, commentNodes, projectNodes, initiativeNodes, notificationNodes].some(
+      (list) => list.length >= first,
+    ),
   };
 }
 

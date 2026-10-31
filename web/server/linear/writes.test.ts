@@ -44,7 +44,7 @@ const ok = async (name: string, body: unknown) => {
 };
 
 test("lists exactly the whitelisted writes", () => {
-  assert.equal(Object.keys(WRITES).length, 16);
+  assert.equal(Object.keys(WRITES).length, 22);
 });
 
 /** Runs `fn` and asserts it moved every record's `updatedAt` forward. */
@@ -179,6 +179,51 @@ test("comments and reactions", async () => {
   // The comment is gone, so its issue is what moves.
   assert.deepEqual(await bumped([eng2], () => ok("commentDelete", { id: comment.id })), { ok: true });
   assert.ok(!fake.ws.comments.some((c) => c.id === comment.id));
+});
+
+test("notifications: an issue's or project's together, or one by id, read, unread, snoozed, woken, archived and back", async () => {
+  const of = (id: string) => fake.ws.notifications.find((n) => n.id === id)!;
+  const eng1 = [of(I.notifications.eng1Comment), of(I.notifications.eng1Reaction)];
+  const at = new Date().toISOString();
+  const read = await bumped(eng1, () => ok("notificationMarkReadAll", { issueId: I.issues["ENG-1"], readAt: at }));
+  assert.deepEqual(read.notifications.map((n: { readAt?: string }) => !!n.readAt), [true, true]);
+  assert.ok(eng1.every((n) => n.readAt));
+  // Others are left alone.
+  assert.equal(of(I.notifications.launchUpdate).readAt, null);
+  await bumped(eng1, () => ok("notificationMarkUnreadAll", { issueId: I.issues["ENG-1"] }));
+  assert.ok(eng1.every((n) => n.readAt === null));
+
+  const later = new Date(Date.now() + 3_600_000).toISOString();
+  const project = of(I.notifications.launchUpdate);
+  await bumped([project], () => ok("notificationSnoozeAll", { projectId: I.projects.launch, snoozedUntilAt: later }));
+  assert.equal(project.snoozedUntilAt, later);
+  await bumped([project], () => ok("notificationUnsnoozeAll", { projectId: I.projects.launch, unsnoozedAt: at }));
+  assert.equal(project.snoozedUntilAt, null);
+
+  const archived = await bumped([project], () => ok("notificationArchiveAll", { id: project.id }));
+  assert.ok(archived.notifications[0].archivedAt);
+  const back = await bumped([project], () => ok("notificationUnarchive", { id: project.id }));
+  assert.equal(back.notifications[0].archivedAt, undefined);
+  assert.equal(project.archivedAt, null);
+});
+
+test("refuses notification writes that don't name one thing, or a time out of reach", async () => {
+  const issueId = I.issues["ENG-1"];
+  const now = new Date().toISOString();
+  for (const [name, body] of [
+    ["notificationMarkReadAll", { readAt: now }],
+    ["notificationMarkReadAll", { issueId, projectId: I.projects.launch, readAt: now }],
+    ["notificationMarkReadAll", { issueId }],
+    ["notificationMarkReadAll", { issueId, readAt: "yesterday" }],
+    ["notificationMarkReadAll", { issueId, readAt: "2020-01-01T00:00:00Z" }],
+    ["notificationSnoozeAll", { issueId, snoozedUntilAt: 5 }],
+    ["notificationArchiveAll", { issueId: "../x" }],
+    ["notificationArchiveAll", { issueId, readAt: now }],
+    ["notificationUnarchive", { issueId }],
+  ] as const) {
+    assert.equal((await post(name, body)).status, 400, `${name} ${JSON.stringify(body)}`);
+  }
+  assert.equal(fake.requests.length, 0);
 });
 
 test("refuses unknown writes and fields", async () => {

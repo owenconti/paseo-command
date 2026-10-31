@@ -14,6 +14,7 @@ import {
   readIssue,
   readIssues,
   readIssuesById,
+  readNotifications,
   readSearch,
   readStatus,
   readSync,
@@ -109,6 +110,8 @@ export async function linearRoute(
     }
     case "q/search":
       return read(["term"], () => readSearch(param("term")));
+    case "q/notifications":
+      return read([], () => readNotifications());
     case "q/views":
       return read([], () => readViews());
     case "q/cycles":

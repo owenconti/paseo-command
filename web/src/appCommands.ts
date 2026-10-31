@@ -19,6 +19,7 @@ export type AppCommand =
   | "linear-sidebar"
   | "linear-filter"
   | "linear-find"
+  | "linear-inbox-read-all"
   | "linear-display"
   | "linear-layout"
   | "linear-clear-filters"
