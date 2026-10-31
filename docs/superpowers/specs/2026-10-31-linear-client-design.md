@@ -131,16 +131,18 @@ Each phase ships on its own: commit, push, `app:update`, release note.
 - Server: named operations and validation against `fake.ts`; the budget's back-off; sync merging.
 - e2e (`web/e2e/linear*.e2e.ts`): every screen and write against the fake; that nothing reaches Linear.
 - Native: `fake-server.ts --linear` and snapshots for the mode bar badge and layout.
-- Real Linear: read-only checks only, unless the user names a sandbox team for writes.
+- Real Linear: reads anywhere; writes only to the one DE check issue (see Decisions).
 
 ## Left to the builder
 
 Exact query shapes and page sizes, the store's internals, component boundaries, the board's drag library (none
 new: pointer events), how much of Linear's display options to mirror, empty and error states' wording.
 
-## Open questions for the user
+## Decisions (the user's, 2026-10-31)
 
-1. Should the app write to Linear (edit issues, comment, create, post updates), or stay read-only with only
-   the agent launch? This plan assumes full writes.
-2. Which comes first after the foundation: issue editing, the inbox, or projects and initiatives?
-3. May checks write to a sandbox team in the real Linear, or fakes only?
+1. **Full writes.** The app edits issues, comments, creates issues, posts project and initiative updates and
+   triages the inbox. Each write happens only on an explicit action.
+2. **Issue editing first**, after the foundation: phase 2 as written, then the inbox, projects and initiatives.
+3. **Real-Linear write checks touch one issue only:** a new issue the checks create in the **DE** team
+   (titled "Paseo Command write check (safe to delete)"), reused by later checks. Every other write is tested
+   against the fake. Nothing else in the real workspace is written to.
