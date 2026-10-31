@@ -270,6 +270,8 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
             case "command": show(.command)
             case "conquer-tab": show(.conquer); conquer.whenStarted { [weak self] in self?.conquer.newTab() }
             case "conquer-sidebar": show(.conquer); conquer.perform("toggleSidebar")
+            case "conquer-reload": if mode == .conquer { conquer.perform("reload") }
+            case "conquer-reload-without-cache": if mode == .conquer { conquer.perform("reloadWithoutCache") }
             case "zen-cookies": conquer.perform("importCookies")
             case "reload": (NSApp.delegate as? AppDelegate)?.reloadApp(nil)
             case "check-updates": Updater.shared?.checkNow()

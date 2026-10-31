@@ -87,6 +87,8 @@ const CONQUER: Group = {
     { keys: [["⌘", "1…9"]], label: "Go to a tab (9: the last)" },
     { keys: [["⌘", "D"]], label: "Pin or unpin the tab" },
     { keys: [["⌘", "L"]], label: "Address bar" },
+    { keys: [["⌘", "R"]], label: "Reload page" },
+    { keys: [["⇧", "⌘", "R"]], label: "Reload page without cache" },
     {
       keys: [
         ["⌘", "["],

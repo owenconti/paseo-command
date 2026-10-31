@@ -1522,6 +1522,26 @@ function App() {
             keywords,
             run: () => postAppMenu(action),
           })),
+          ...(appMode === "conquer"
+            ? [
+                {
+                  id: "conquer-reload",
+                  group: "App",
+                  label: "Reload Conquer page",
+                  keys: [["⌘", "R"]],
+                  keywords: "browser web refresh reload page",
+                  run: () => postAppMenu("conquer-reload"),
+                },
+                {
+                  id: "conquer-reload-without-cache",
+                  group: "App",
+                  label: "Reload Conquer page without cache",
+                  keys: [["⇧", "⌘", "R"]],
+                  keywords: "browser web refresh reload page hard bypass cache origin",
+                  run: () => postAppMenu("conquer-reload-without-cache"),
+                },
+              ]
+            : []),
           ...(integrations.linear
             ? appMode !== "linear"
               ? [

@@ -184,6 +184,8 @@ final class ConquerView: NSView, WKNavigationDelegate, WKUIDelegate, NSTextField
         nil,
         Command(title: "Back", name: "back", key: "[", mods: .command),
         Command(title: "Forward", name: "forward", key: "]", mods: .command),
+        Command(title: "Reload Page", name: "reload", key: "r", mods: .command),
+        Command(title: "Reload Page Without Cache", name: "reloadWithoutCache", key: "r", mods: [.command, .shift]),
         Command(title: "Next Tab", name: "nextTab", key: "e", mods: .command),
         Command(title: "Next Tab", name: "nextTab", key: "\t", mods: .control, hidden: true),
         Command(title: "Previous Tab", name: "previousTab", key: "\t", mods: [.control, .shift]),
@@ -469,6 +471,8 @@ final class ConquerView: NSView, WKNavigationDelegate, WKUIDelegate, NSTextField
         case "toggleSidebar": toggleSidebar()
         case "back": goBack()
         case "forward": goForward()
+        case "reload": current?.web?.reload()
+        case "reloadWithoutCache": current?.web?.reloadFromOrigin()
         case "nextTab": cycle(1)
         case "previousTab": cycle(-1)
         case "togglePin": if let current { togglePin(current) }
