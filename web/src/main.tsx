@@ -916,9 +916,10 @@ function App() {
           ].some((layer) => !layer.closest("[inert]"))
         )
           return;
-        // A subagent's conversation goes back to its agent's, then the fleet.
+        // A subagent's conversation goes back to its agent's; an agent's
+        // conversation stays open.
         if (selection?.subagent) select({ ...selection, subagent: undefined });
-        else if (selection) select(null);
+        else if (selection && selection.type !== "agent") select(null);
       } else if (key === "d") {
         e.preventDefault();
         openDispatch();
