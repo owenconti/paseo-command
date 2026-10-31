@@ -205,6 +205,9 @@ async function main(original, tmp) {
   const lastBuild = await publishedBuild();
   if (!buildIsNewer(nextBuild, lastBuild)) throw new Error(`Build ${nextBuild} must be greater than the published build ${lastBuild}, or installed apps won't update.`);
 
+  // An earlier run's output (a dry run's app carries its version) would fail the bundle checks below.
+  rmSync(releaseDir, { recursive: true, force: true });
+
   step('Tests');
   const failures = [];
   for (const script of [['run', 'public:check', '--', '--history'], ['run', 'secrets:scan'], ['run', 'app:test'], ['run', 'render:test'], ['run', 'native:test']])
