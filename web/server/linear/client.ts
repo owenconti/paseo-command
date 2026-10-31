@@ -50,17 +50,25 @@ export function resetLinearClient(): void {
   budget = null;
 }
 
+/** A header's number; undefined when it's missing, empty or not a number (`Number("")` is 0). */
+function headerNumber(headers: Headers, name: string): number | undefined {
+  const raw = headers.get(name)?.trim();
+  if (!raw) return undefined;
+  const value = Number(raw);
+  return Number.isFinite(value) ? value : undefined;
+}
+
+/** When the budget resets (epoch ms); a reset at or before 0 is no reset at all. */
+function resetHeader(headers: Headers): number | undefined {
+  const reset = headerNumber(headers, "x-ratelimit-requests-reset");
+  return reset !== undefined && reset > 0 ? reset : undefined;
+}
+
 function readBudget(headers: Headers) {
-  const requests = Number(headers.get("x-ratelimit-requests-remaining"));
-  const complexity = Number(headers.get("x-ratelimit-complexity-remaining"));
-  const reset = Number(headers.get("x-ratelimit-requests-reset"));
-  if (
-    headers.get("x-ratelimit-requests-remaining") === null ||
-    headers.get("x-ratelimit-complexity-remaining") === null ||
-    ![requests, complexity, reset].every(Number.isFinite)
-  ) {
-    return;
-  }
+  const requests = headerNumber(headers, "x-ratelimit-requests-remaining");
+  const complexity = headerNumber(headers, "x-ratelimit-complexity-remaining");
+  const reset = resetHeader(headers);
+  if (requests === undefined || complexity === undefined || reset === undefined) return;
   budget = { requestsRemaining: requests, complexityRemaining: complexity, resetAt: reset };
 }
 
@@ -71,8 +79,8 @@ type GraphQlError = {
 
 /** When to try again after a limit: this reply's reset, else the known one if still ahead, else a minute on. */
 function retryTime(headers: Headers): number {
-  const reset = Number(headers.get("x-ratelimit-requests-reset"));
-  if (headers.get("x-ratelimit-requests-reset") !== null && Number.isFinite(reset)) return reset;
+  const reset = resetHeader(headers);
+  if (reset !== undefined) return reset;
   if (budget && budget.resetAt > Date.now()) return budget.resetAt;
   return Date.now() + 60_000;
 }

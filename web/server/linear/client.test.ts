@@ -142,3 +142,21 @@ test("a limit with no reset header retries a minute on", async () => {
       e instanceof LinearError && e.kind === "limited" && e.retryAt! >= before + 60_000 && e.retryAt! <= Date.now() + 60_000,
   );
 });
+
+test("an empty or non-positive reset header counts as missing", async () => {
+  for (const reset of ["", "0", "-5"]) {
+    resetLinearClient();
+    seen = [];
+    // A low budget with no usable reset: not recorded, so it doesn't gate the next request.
+    reply(200, { data: {} }, { ...budgetHeaders("50"), "x-ratelimit-requests-reset": reset });
+    await linearRequest("A", "query A { viewer { id } }", {});
+    assert.equal(linearBudget(), null, `reset ${JSON.stringify(reset)}`);
+    // A limit with it pauses a minute on, not until 1970.
+    reply(429, {}, { ...budgetHeaders("0"), "x-ratelimit-requests-reset": reset });
+    const before = Date.now();
+    await assert.rejects(
+      () => linearRequest("B", "query B { viewer { id } }", {}),
+      (e: unknown) => e instanceof LinearError && e.kind === "limited" && e.retryAt! >= before + 60_000,
+    );
+  }
+});
