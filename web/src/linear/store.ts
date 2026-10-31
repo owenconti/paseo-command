@@ -420,6 +420,7 @@ export const linearStore = {
     openKey = undefined;
     shownScope = undefined;
     viewsLoad = undefined;
+    searchedAt.clear();
     for (const fn of [...listeners]) fn();
   },
 };
@@ -429,8 +430,8 @@ export function useLinear<T>(select: (d: LinearData) => T): T {
   return useSyncExternalStore(linearStore.subscribe, () => select(linearStore.getState()));
 }
 
-/** Scopes whose issues are what Linear last returned for them, not a predicate the store can apply. */
-export const listedScope = (scope: IssueScope) => scope.startsWith("view:");
+/** Scopes whose issues are what Linear last returned for them, not a predicate the store can apply: a view's, a search's. */
+export const listedScope = (scope: IssueScope) => scope.startsWith("view:") || scope.startsWith("search:");
 
 /**
  * The scope as a predicate over the store, so an edit moves an issue between
@@ -482,6 +483,34 @@ export async function loadWorkspace(fresh = false): Promise<void> {
   const answer = await linearRead<LinearWorkspace>("workspace", fresh ? { fresh: "1" } : {});
   if (accept(answer)) linearStore.setWorkspace(answer);
 }
+
+/** A search's scope: its term, trimmed. */
+export const searchScope = (term: string): IssueScope => `search:${term.trim()}`;
+
+/**
+ * Searches the whole workspace (`q/search`): the issues join the store and
+ * the search's scope lists them, most relevant first. A term asked in the
+ * last minute isn't asked again unless `fresh`. Answers why Linear didn't
+ * (searching too fast, no key…) without pausing the rest of the tab.
+ */
+export async function loadSearch(term: string, fresh = false): Promise<{ error?: string }> {
+  const scope = searchScope(term);
+  const known = searchedAt.get(scope);
+  if (!fresh && known !== undefined && Date.now() - known < 60_000) return {};
+  const at = ++clock;
+  let answer: { issues: LinearIssue[] } | LinearUnavailable;
+  try {
+    answer = await linearRead<{ issues: LinearIssue[] }>("search", { term: term.trim() });
+  } catch (e) {
+    return { error: errorMessage(e) || "Linear didn't answer." };
+  }
+  if (isUnavailable(answer)) return { error: answer.reason };
+  searchedAt.set(scope, Date.now());
+  mergeIssues(answer.issues, at);
+  publish({ members: new Map(state.members).set(scope, answer.issues.map((i) => i.id)) });
+  return {};
+}
+const searchedAt = new Map<IssueScope, number>();
 
 let viewsLoad: Promise<void> | undefined;
 
@@ -641,7 +670,7 @@ async function syncOnce(): Promise<void> {
   // More than one batch changed: reload instead of re-asking from the newer cursor, which would skip the older changes.
   if (answer.more) await reloadAll();
   // Changed issues may have joined or left the view shown, by its own filter: ask Linear again.
-  else if (answer.issues.length && shownScope && listedScope(shownScope) && state.loadedScopes.has(shownScope))
+  else if (answer.issues.length && shownScope?.startsWith("view:") && state.loadedScopes.has(shownScope))
     await pageScope(shownScope);
 }
 

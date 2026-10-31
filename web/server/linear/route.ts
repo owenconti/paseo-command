@@ -14,6 +14,7 @@ import {
   readIssue,
   readIssues,
   readIssuesById,
+  readSearch,
   readStatus,
   readSync,
   readViews,
@@ -106,6 +107,8 @@ export async function linearRoute(
       if (after !== undefined && !/^[\w+/=.:-]{1,200}$/.test(after)) return reply(400, { error: "Invalid cursor" });
       return read(["scope", "after"], () => readIssues(scope, after));
     }
+    case "q/search":
+      return read(["term"], () => readSearch(param("term")));
     case "q/views":
       return read([], () => readViews());
     case "q/cycles":

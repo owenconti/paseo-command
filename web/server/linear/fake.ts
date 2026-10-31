@@ -560,7 +560,7 @@ function issuePage(ws: FakeWorkspace, filter: Filter, variables: Record<string, 
 }
 
 /** The fake's reads, by operation name: everything else it answers is a write. */
-export const READ_OPERATIONS = ["Workspace", "Issues", "Issue", "Cycles", "CustomViews", "ViewIssues", "Sync"];
+export const READ_OPERATIONS = ["Workspace", "Issues", "Issue", "Cycles", "CustomViews", "ViewIssues", "SearchIssues", "Sync"];
 
 /** The dispatch table, by GraphQL operation name: the reads here, the writes from `writes()`. */
 export const OPERATIONS: Record<string, FakeOperation> = {
@@ -605,6 +605,16 @@ export const OPERATIONS: Record<string, FakeOperation> = {
   },
   /** Pages are offsets into the filtered, newest-first list; the cursor is the next offset. */
   Issues: ({ ws, variables }) => ({ issues: issuePage(ws, (variables.filter ?? {}) as Filter, variables) }),
+  /** Issues whose key, title or description has every word of the term; titles first, then the newest. */
+  SearchIssues: ({ ws, variables }) => {
+    const words = String(variables.term).toLowerCase().split(/\s+/).filter(Boolean);
+    const text = (i: FakeIssue) => `${i.identifier} ${i.title} ${i.description ?? ""}`.toLowerCase();
+    const inTitle = (i: FakeIssue) => words.every((w) => `${i.identifier} ${i.title}`.toLowerCase().includes(w));
+    const found = newestFirst(
+      ws.issues.filter((i) => !i.archivedAt && !i.trashed && words.every((w) => text(i).includes(w))),
+    ).sort((a, b) => Number(inTitle(b)) - Number(inTitle(a)));
+    return { searchIssues: { nodes: found.slice(0, Number(variables.first)) } };
+  },
   CustomViews: ({ ws }) => ({
     customViews: { nodes: ws.views.map(({ filterData: _, ...view }) => view) },
   }),

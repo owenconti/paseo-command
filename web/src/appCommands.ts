@@ -18,6 +18,7 @@ export type AppCommand =
   | "linear-refresh"
   | "linear-sidebar"
   | "linear-filter"
+  | "linear-find"
   | "linear-display"
   | "linear-layout"
   | "linear-clear-filters"

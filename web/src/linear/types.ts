@@ -161,7 +161,8 @@ export type IssueScope =
   | `team:${string}:${"triage" | "active" | "backlog" | "all"}`
   | `project:${string}`
   | `cycle:${string}`
-  | `view:${string}`;
+  | `view:${string}`
+  | `search:${string}`;
 export type WriteName =
   | "issueUpdate"
   | "issueCreate"

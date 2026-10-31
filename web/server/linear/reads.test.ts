@@ -2,11 +2,13 @@ import assert from "node:assert/strict";
 import { afterEach, beforeEach, test } from "node:test";
 import { LinearError, resetLinearClient } from "./client";
 import { FAKE_IDS as I, installFakeLinear, type FakeLinear } from "./fake";
+import { LINEAR_READS } from "./reads";
 import {
   readCycles,
   readIssue,
   readIssues,
   readIssuesById,
+  readSearch,
   readStatus,
   readSync,
   readViews,
@@ -113,6 +115,22 @@ test("reads the issue views with their display, and a view's issues by its own f
   assert.deepEqual(keys((await readIssues(`view:${I.views.samsWork}`)).issues), ["DE-1", "ENG-2", "ENG-6"]);
   assert.equal(fake.requests.at(-1)?.operation, "ViewIssues");
   await assert.rejects(readIssues("view:nope" as never), (e) => e instanceof LinearError && e.kind === "invalid");
+});
+
+test("searches the whole workspace, and keeps under Linear's 30 searches a minute", async () => {
+  assert.equal(fake.requests.length, 0);
+  assert.deepEqual((await readSearch("sync design")).issues.map((i) => i.key), ["ENG-3"]);
+  assert.deepEqual((await readSearch("parent")).issues.map((i) => i.key), ["ENG-1"], "the description counts");
+  assert.equal(fake.requests.at(-1)?.operation, "SearchIssues");
+  await assert.rejects(readSearch(" "), (e) => e instanceof LinearError && e.kind === "invalid");
+  await assert.rejects(readSearch("x".repeat(201)), (e) => e instanceof LinearError && e.kind === "invalid");
+  for (let n = 2; n < LINEAR_READS.searchesPerMinute; n++) await readSearch("launch");
+  const asked = fake.requests.length;
+  await assert.rejects(
+    readSearch("launch"),
+    (e) => e instanceof LinearError && e.kind === "limited" && typeof e.retryAt === "number" && e.retryAt > Date.now(),
+  );
+  assert.equal(fake.requests.length, asked, "the 26th didn't reach Linear");
 });
 
 test("pages through a scope with a cursor", async () => {

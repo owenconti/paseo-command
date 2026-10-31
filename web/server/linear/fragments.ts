@@ -58,6 +58,11 @@ export const VIEW_ISSUES_QUERY = `query ViewIssues($id: String!, $first: Int!, $
   }
 }`;
 
+/** Issues anywhere in the workspace matching `term`, most relevant first (Linear allows 30 a minute). */
+export const SEARCH_QUERY = `query SearchIssues($term: String!, $first: Int!) {
+  searchIssues(term: $term, first: $first) { nodes { ${ISSUE_FIELDS} } }
+}`;
+
 export const ISSUES_QUERY = `query Issues($filter: IssueFilter, $first: Int!, $after: String) {
   issues(filter: $filter, first: $first, after: $after, orderBy: updatedAt) {
     nodes { ${ISSUE_FIELDS} }

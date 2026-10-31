@@ -297,6 +297,8 @@ export function IssueList({
   children,
   nav,
   onListState,
+  search: asks,
+  emptyNote = "No issues here.",
 }: {
   title: ReactNode;
   scope: IssueScope;
@@ -325,6 +327,10 @@ export function IssueList({
   nav?: MutableRefObject<IssueListNav | null>;
   /** Its layout and whether it's filtered, as they change (⌘K offers the rest). */
   onListState?: (state: IssueListState) => void;
+  /** The search field asks for the issues instead of narrowing them (a search of the whole workspace). */
+  search?: { value: string; onChange: (value: string) => void; label: string; placeholder: string };
+  /** What an empty list says ("No issues here." by default). */
+  emptyNote?: string;
 }) {
   const data = useLinear((d) => d);
   const ws = data.workspace;
@@ -353,7 +359,10 @@ export function IssueList({
   );
   const filtered = hasFilters(filters) || display.completed !== "all";
   const [query, setQuery] = useState("");
-  const shown = useMemo(() => issues.filter((i) => issueMatches(i, query, ws)), [issues, query, ws]);
+  const shown = useMemo(
+    () => (asks ? issues : issues.filter((i) => issueMatches(i, query, ws))),
+    [asks, issues, query, ws],
+  );
   const board = display.layout === "board";
   const singleTeam = useMemo(() => {
     if (scope.startsWith("team:")) return scope.split(":")[1];
@@ -492,17 +501,18 @@ export function IssueList({
           {...plainText}
           ref={search}
           type="search"
-          aria-label="Search these issues"
-          placeholder="Search issues"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
+          aria-label={asks?.label ?? "Search these issues"}
+          placeholder={asks?.placeholder ?? "Search issues"}
+          value={asks ? asks.value : query}
+          onChange={(e) => (asks ? asks.onChange(e.target.value) : setQuery(e.target.value))}
           onKeyDown={(e) => {
             if (e.key === "ArrowDown") {
               e.preventDefault();
               step(order.findIndex((i) => i.key === current) < 0 ? 0 : opensBeside && openKey ? 1 : 0);
-            } else if (e.key === "Escape" && query) {
+            } else if (e.key === "Escape" && (asks ? asks.value : query)) {
               e.stopPropagation();
-              setQuery("");
+              if (asks) asks.onChange("");
+              else setQuery("");
             }
           }}
         />
@@ -516,7 +526,7 @@ export function IssueList({
       {/* The scroller holds the notes; the listbox only groups of options. */}
       <div className={board ? "linear-board-scroll" : "linear-groups"}>
         {loading && !scoped.length && <p className="linear-note">Loading issues…</p>}
-        {!loading && !error && !scoped.length && <p className="linear-note">No issues here.</p>}
+        {!loading && !error && !scoped.length && <p className="linear-note">{emptyNote}</p>}
         {scoped.length > 0 && !shown.length && (
           <p className="linear-note">
             {filtered && !issues.length ? "No issue matches these filters." : "No issue matches."}

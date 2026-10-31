@@ -1823,6 +1823,13 @@ function App() {
     ...(integrations.linear && appMode === "linear" && linearReady
       ? [
           {
+            id: "linear-find",
+            group: "App",
+            label: "Search all Linear issues",
+            keywords: "linear search find issues workspace everywhere all teams",
+            run: () => runAppCommand("linear-find"),
+          },
+          {
             id: "linear-create",
             group: "App",
             label: "Create Linear issue",

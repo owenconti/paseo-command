@@ -12,6 +12,7 @@ export type LinearPlace = (
   | { screen: "cycles"; teamId: string }
   | { screen: "cycle"; teamId: string; cycleId: string }
   | { screen: "view"; viewId: string }
+  | { screen: "search"; query: string }
   | { screen: "projects" }
   | { screen: "project"; projectId: string }
   | { screen: "initiatives" }
@@ -23,7 +24,7 @@ const MY_TABS: MyTab[] = ["assigned", "created", "subscribed"];
 const TEAM_TABS: TeamTab[] = ["triage", "active", "backlog", "all"];
 const STORE_KEY = "linear:place";
 
-/** The issues a place lists, as the store's scope; null for the projects' and initiatives' lists. */
+/** The issues a place lists, as the store's scope; null for the projects', cycles' and initiatives' lists, and a search (`searchScope`). */
 export function placeScope(p: LinearPlace): IssueScope | null {
   switch (p.screen) {
     case "my":
@@ -77,6 +78,8 @@ export function checkPlace(raw: unknown, ws?: LinearWorkspace): LinearPlace {
       if (typeof p.cycleId !== "string" || !ID.test(p.cycleId)) return { screen: "cycles", teamId: p.teamId, ...issue };
       return { screen: "cycle", teamId: p.teamId, cycleId: p.cycleId, ...issue };
     }
+    case "search":
+      return { screen: "search", query: typeof p.query === "string" ? p.query.slice(0, 200) : "", ...issue };
     case "view":
       // Whether you can see the view is known once the views are in (the Linear view checks).
       if (typeof p.viewId !== "string" || !ID.test(p.viewId)) return DEFAULT_PLACE;

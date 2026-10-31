@@ -9,6 +9,7 @@ import {
   loadCycles,
   loadIssue,
   loadScope,
+  loadSearch,
   loadViews,
   loadWorkspace,
   markPending,
@@ -145,6 +146,23 @@ describe("linear store", () => {
     calls = [];
     await syncTick();
     assert.ok(!calls.some((c) => c.includes("scope=view")));
+  });
+
+  it("a search lists what Linear found, most relevant first, and a refusal stays with the search", async () => {
+    linearStore.setWorkspace(WS);
+    answers.search = () => ({ issues: [issue(3), issue(1)] });
+    assert.deepEqual(await loadSearch(" sync "), {});
+    assert.deepEqual(calls, ["linear/q/search?term=sync"]);
+    assert.deepEqual(scopeIssues(linearStore.getState(), "search:sync").map((i) => i.key), ["ENG-3", "ENG-1"]);
+    // Asked in the last minute: not again, unless fresh.
+    await loadSearch("sync");
+    assert.equal(calls.length, 1);
+    await loadSearch("sync", true);
+    assert.equal(calls.length, 2);
+    // Too fast for Linear: the search says why, and the tab isn't paused.
+    answers.search = () => ({ available: false, reason: "Searching too fast", retryAt: Date.now() + 60_000 });
+    assert.deepEqual(await loadSearch("launch"), { error: "Searching too fast" });
+    assert.equal(linearStore.getState().unavailable, undefined);
   });
 
   it("loads the views once, and again when fresh", async () => {

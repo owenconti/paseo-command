@@ -18,6 +18,7 @@ import {
   CYCLES_QUERY,
   ISSUES_QUERY,
   ISSUE_QUERY,
+  SEARCH_QUERY,
   SYNC_QUERY,
   VIEW_ISSUES_QUERY,
   VIEWS_QUERY,
@@ -40,7 +41,15 @@ import {
   userOf,
 } from "./normalize";
 
-export const LINEAR_READS = { workspaceTtlMs: 5 * 60_000, pageSize: 250, syncSize: 100, maxIds: 50 };
+export const LINEAR_READS = {
+  workspaceTtlMs: 5 * 60_000,
+  pageSize: 250,
+  syncSize: 100,
+  maxIds: 50,
+  searchSize: 50,
+  /** Linear allows 30 searches a minute; the server keeps under that. */
+  searchesPerMinute: 25,
+};
 
 const DAY = 86_400_000;
 const KEY = /^[a-z][a-z0-9]{0,9}-\d{1,6}$/i;
@@ -52,6 +61,7 @@ let workspaceCache: { key: string; at: number; value: LinearWorkspace } | undefi
 /** Forgets what the reads kept (tests). */
 export function resetLinearReads(): void {
   workspaceCache = undefined;
+  searches = [];
 }
 
 type Data = Record<string, unknown>;
@@ -143,6 +153,25 @@ export async function readViews(): Promise<{ views: LinearCustomView[] }> {
       .filter(nonNull)
       .sort((a, b) => a.name.localeCompare(b.name)),
   };
+}
+
+let searches: number[] = [];
+
+/**
+ * Up to 50 issues anywhere in the workspace matching `term` (1–200
+ * characters), most relevant first. Linear allows 30 searches a minute: past
+ * 25 in the last minute this refuses as limited until the oldest is a minute old.
+ */
+export async function readSearch(term: string): Promise<{ issues: LinearIssue[] }> {
+  const trimmed = term.trim();
+  if (!trimmed || trimmed.length > 200) throw new LinearError("invalid", "Search for 1 to 200 characters");
+  const now = Date.now();
+  searches = searches.filter((at) => now - at < 60_000);
+  if (searches.length >= LINEAR_READS.searchesPerMinute)
+    throw new LinearError("limited", "Searching too fast for Linear; try again in a moment.", searches[0] + 60_000);
+  searches.push(now);
+  const data = await linearRequest<Data>("SearchIssues", SEARCH_QUERY, { term: trimmed, first: LINEAR_READS.searchSize });
+  return { issues: nodesOf(data.searchIssues).map(issueOf).filter(nonNull) };
 }
 
 /** One page of a scope's issues, most recently updated first; `next` is the cursor for the following page. */

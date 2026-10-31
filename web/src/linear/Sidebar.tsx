@@ -15,6 +15,7 @@ import {
   SquarePen,
   RefreshCcw,
   RefreshCw,
+  Search,
   Target,
 } from "lucide-react";
 import { readStore, writeStore } from "../api";
@@ -67,6 +68,7 @@ export function Sidebar({
   onRefresh,
   refreshing,
   onCreate,
+  onSearch,
 }: {
   place: LinearPlace;
   onPlace: (p: LinearPlace) => void;
@@ -75,6 +77,8 @@ export function Sidebar({
   refreshing: boolean;
   /** Create issue, in the place's team; absent until the workspace is in. */
   onCreate?: () => void;
+  /** Search the whole workspace. */
+  onSearch: () => void;
 }) {
   const teams = useLinear((d) => d.workspace?.teams);
   const views = useLinear((d) => d.views);
@@ -98,6 +102,15 @@ export function Sidebar({
     <>
       <header className="linear-sidebar-head">
         <h2>Linear</h2>
+        <button
+          className="icon-btn"
+          aria-label="Search Linear"
+          aria-pressed={place.screen === "search"}
+          data-tip="Search all issues"
+          onClick={onSearch}
+        >
+          <Search size={14} aria-hidden="true" />
+        </button>
         <button
           className="icon-btn"
           aria-label="New issue"

@@ -86,6 +86,13 @@ describe("linear place", () => {
     assert.deepEqual(readPlace(WS), DEFAULT_PLACE);
   });
 
+  it("keeps a search's words", () => {
+    writePlace({ screen: "search", query: "sync design", issue: "ENG-3" });
+    assert.deepEqual(readPlace(WS), { screen: "search", query: "sync design", issue: "ENG-3" });
+    stored.set("paseo-command:linear:place", JSON.stringify({ screen: "search", query: 7 }));
+    assert.deepEqual(readPlace(WS), { screen: "search", query: "" });
+  });
+
   it("maps each place to the store's scope", () => {
     assert.equal(placeScope({ screen: "my", tab: "assigned" }), "assigned");
     assert.equal(placeScope({ screen: "my", tab: "created" }), "created");

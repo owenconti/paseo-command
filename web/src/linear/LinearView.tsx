@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence } from "framer-motion";
-import { Archive, Box, ChevronRight, Layers, ListTodo, PanelLeftOpen, RefreshCcw, RefreshCw, X } from "lucide-react";
+import { Archive, Box, ChevronRight, Layers, ListTodo, PanelLeftOpen, RefreshCcw, RefreshCw, Search, X } from "lucide-react";
 import { errorMessage, readStore, writeStore } from "../api";
 import { onAppCommand, runAppCommand, type AppCommand } from "../appCommands";
 import { modalOpen } from "../focus";
@@ -24,8 +24,10 @@ import {
   linearStore,
   loadCycles,
   loadScope,
+  loadSearch,
   loadViews,
   loadWorkspace,
+  searchScope,
   setLinearNotice,
   useLinear,
   useLinearSync,
@@ -211,6 +213,46 @@ export function LinearView({
   useEffect(() => {
     if (scope) loadPlace(scope, false).catch(() => {});
   }, [scope, loadPlace]);
+  const nav = useRef<IssueListNav | null>(null);
+  // The issues a list shows: the place's scope, or a search's.
+  const searchTerm = place.screen === "search" ? place.query.trim() : undefined;
+  const listScope = scope ?? (searchTerm !== undefined ? searchScope(searchTerm) : null);
+
+  // A search asks Linear once typing pauses, for two characters or more.
+  const [searchState, setSearchState] = useState<{ term: string; error?: string }>();
+  const searchable = searchTerm !== undefined && searchTerm.length >= 2;
+  // Refresh asks again; otherwise a term asked in the last minute isn't.
+  const searchedRevision = useRef(revision);
+  useEffect(() => {
+    if (!searchable) return;
+    let gone = false;
+    const fresh = searchedRevision.current !== revision;
+    searchedRevision.current = revision;
+    const timer = setTimeout(() => {
+      loadSearch(searchTerm!, fresh).then(({ error }) => {
+        if (!gone) setSearchState({ term: searchTerm!, error });
+      });
+    }, 300);
+    return () => {
+      gone = true;
+      clearTimeout(timer);
+    };
+  }, [searchTerm, searchable, revision]);
+  const searchMembers = useLinear((d) => (searchable ? d.members.get(searchScope(searchTerm!)) : undefined));
+  const searchRank = useMemo(() => new Map(searchMembers?.map((id, n) => [id, n])), [searchMembers]);
+  /** The last search's words, for the search button to come back to. */
+  const lastSearch = useRef(place.screen === "search" ? place.query : "");
+  if (place.screen === "search") lastSearch.current = place.query;
+  // Into the search's field once it shows (the button, ⌘K).
+  const [findRevision, setFindRevision] = useState(0);
+  const find = useCallback(() => {
+    setPlace({ screen: "search", query: lastSearch.current });
+    setFindRevision((n) => n + 1);
+  }, [setPlace]);
+  useEffect(() => {
+    if (findRevision) nav.current?.filter();
+  }, [findRevision]);
+  useEffect(() => onAppCommand("linear-find", find), [find]);
 
   // A cycle's title and days: its team's cycles (a past one isn't among the workspace's).
   const cycleTeam = place.screen === "cycle" ? place.teamId : undefined;
@@ -303,9 +345,9 @@ export function LinearView({
     return () => linearStore.setOpenIssue(undefined);
   }, [place.issue]);
   useEffect(() => {
-    linearStore.setShownScope(scope ?? undefined);
+    linearStore.setShownScope(listScope ?? undefined);
     return () => linearStore.setShownScope(undefined);
-  }, [scope]);
+  }, [listScope]);
   useEffect(() => () => onIssueOpen?.(undefined), [onIssueOpen]);
   useEffect(() => {
     onReady?.(!!ws);
@@ -378,7 +420,6 @@ export function LinearView({
   unarchiveRef.current = unarchive;
   useEffect(() => onAppCommand("linear-undo-archive", () => void unarchiveRef.current()), []);
 
-  const nav = useRef<IssueListNav | null>(null);
   useEffect(() => {
     const offs = [
       onAppCommand("linear-search", () => nav.current?.filter()),
@@ -466,20 +507,25 @@ export function LinearView({
   const undoKey = undo?.phase === "archived" ? undo.key : undefined;
   // A view's own display, as set in Linear, until it's changed here.
   const shownView = place.screen === "view" ? views?.find((v) => v.id === place.viewId) : undefined;
+  const isSearch = place.screen === "search";
   const placeDisplay = useMemo<Display>(
-    () => ({ ...DEFAULT_DISPLAY, ...shownView?.display }),
-    [shownView?.display],
+    () =>
+      isSearch
+        ? { ...DEFAULT_DISPLAY, grouping: "none", ordering: "relevance" }
+        : { ...DEFAULT_DISPLAY, ...shownView?.display },
+    [isSearch, shownView?.display],
   );
   // A board needs the width: an issue opens in its place, as in Linear.
   // The place's layout: as its list said, else as kept (the list may not show, the issue in its place).
-  const layout = !scope
+  const listKey = place.screen === "search" ? "search" : listScope;
+  const layout = !listKey
     ? undefined
-    : listState?.key === scope
+    : listState?.key === listKey
       ? listState.layout
-      : readListView(scope, placeDisplay).display.layout;
+      : readListView(listKey, placeDisplay).display.layout;
   const boardShown = layout === "board";
   const wide = (viewWidth === 0 || viewWidth >= BESIDE_MIN) && !boardShown;
-  const canSearch = !!ws && !!scope && (!place.issue || wide);
+  const canSearch = !!ws && !!listScope && (!place.issue || wide);
   const viewPlaces = JSON.stringify(views?.map((v) => ({ id: v.id, name: v.name })) ?? []);
   const currentCycles = ws?.cycles.filter((c) => c.isActive);
   const teamPlaces = JSON.stringify(
@@ -504,9 +550,9 @@ export function LinearView({
       undoKey,
       canSearch,
       views: JSON.parse(viewPlaces) as { id: string; name: string }[],
-      ...(canSearch && listState?.key === scope ? { list: { layout: listState.layout, filtered: listState.filtered } } : {}),
+      ...(canSearch && listState?.key === listKey ? { list: { layout: listState.layout, filtered: listState.filtered } } : {}),
     });
-  }, [teamPlaces, viewPlaces, undoKey, canSearch, listState, scope, onViewState]);
+  }, [teamPlaces, viewPlaces, undoKey, canSearch, listState, listKey, onViewState]);
   useEffect(() => () => onViewState?.(undefined), [onViewState]);
 
   if (!ws && (unavailable || workspaceError))
@@ -539,6 +585,38 @@ export function LinearView({
   const project = place.screen === "project" ? ws?.projects.find((p) => p.id === place.projectId) : undefined;
 
   const main = () => {
+    if (place.screen === "search") {
+      const short = !searchable;
+      const answered = searchState?.term === searchTerm;
+      return (
+        <IssueList
+          title={
+            <>
+              <Search size={16} aria-hidden="true" className="linear-view-icon" />
+              Search
+            </>
+          }
+          scope={listScope!}
+          rank={searchRank}
+          viewKey="search"
+          defaultDisplay={placeDisplay}
+          openKey={openIssue}
+          onOpen={open}
+          opensBeside={beside}
+          loading={searchable && !searchMembers && !(answered && searchState?.error)}
+          error={answered ? searchState?.error : undefined}
+          emptyNote={short ? "Type two or more characters to search every issue in Linear." : "No issues match."}
+          nav={nav}
+          onListState={setListState}
+          search={{
+            value: place.query,
+            onChange: (query) => setPlace({ screen: "search", query }),
+            label: "Search all issues in Linear",
+            placeholder: "Search all issues",
+          }}
+        />
+      );
+    }
     if (place.screen === "projects") return <ProjectList onProject={openProject} />;
     if (place.screen === "initiatives") return <InitiativeList onProject={openProject} />;
     const teamCrumb = (
@@ -651,6 +729,7 @@ export function LinearView({
           onRefresh={refresh}
           refreshing={refreshing}
           onCreate={ws ? createHere : undefined}
+          onSearch={find}
         />
         <div
           className="linear-resize"

@@ -249,3 +249,49 @@ test("saved views: listed in the sidebar, each with its own filter and Linear's 
     await context.close();
   }
 });
+
+test("search: every issue in the workspace, most relevant first, as typing pauses", async () => {
+  const { context, page, linear, view, sidebar } = await openLinear();
+  try {
+    await sidebar.getByRole("button", { name: "Search Linear" }).click();
+    const field = view.getByRole("searchbox", { name: "Search all issues in Linear" });
+    await waitFor(() => field.evaluate((el) => el === document.activeElement), (v) => v, "the field to have the keyboard");
+    await view.locator(".linear-note", { hasText: "Type two or more characters" }).waitFor();
+
+    // Across teams, finished issues too; one request once typing pauses.
+    await page.keyboard.type("the");
+    await waitFor(() => rowKeys(page), (keys) => keys.length === 7, "seven issues found");
+    const found = await rowKeys(page);
+    for (const key of ["DE-1", "DE-2", "ENG-3", "ENG-6"]) assert.ok(found.includes(key), `${key} is found`);
+    assert.equal(linear.requests.filter((r) => r.operation === "SearchIssues").length, 1);
+    assert.deepEqual(linear.requests.find((r) => r.operation === "SearchIssues")?.variables.term, "the");
+    await field.fill("sync design");
+    await waitFor(() => rowKeys(page), (keys) => keys.join() === "ENG-3", "ENG-3 found");
+
+    // ↓ goes into the results, which open beside.
+    await page.keyboard.press("ArrowDown");
+    await view.locator(".linear-issue h1", { hasText: "Review the sync design" }).waitFor();
+
+    // Nothing found says so; the words come back after a reload.
+    await field.fill("no such words");
+    await view.locator(".linear-note", { hasText: "No issues match." }).waitFor();
+    await field.fill("draw");
+    await waitFor(() => rowKeys(page), (keys) => keys.join() === "ENG-2", "ENG-2 found");
+    await page.reload();
+    await page.locator(".fleet-sidebar").waitFor();
+    await page.evaluate(() => window.dispatchEvent(new CustomEvent("paseo:mode", { detail: { mode: "linear" } })));
+    assert.equal(await field.inputValue(), "draw");
+    await waitFor(() => rowKeys(page), (keys) => keys.join() === "ENG-2", "ENG-2 again");
+
+    // ⌘K comes back to it from elsewhere, the words kept.
+    await sidebar.getByRole("button", { name: "Assigned" }).click();
+    await page.keyboard.press("Meta+k");
+    await page.keyboard.type("Search all Linear issues");
+    await page.keyboard.press("Enter");
+    await waitFor(() => field.evaluate((el) => el === document.activeElement), (v) => v, "the field again");
+    assert.equal(await field.inputValue(), "draw");
+  } finally {
+    linear.restore();
+    await context.close();
+  }
+});
