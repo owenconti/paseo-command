@@ -27,8 +27,8 @@ for (const f of flavours) {
   const node = join(res, 'node/node');
   check('node exists', existsSync(node));
   if (existsSync(node)) {
-    const archs = run('lipo', ['-archs', node]).split(/\s+/);
-    check('node is universal', archs.includes('arm64') && archs.includes('x86_64'), `(${archs})`);
+    const archs = run('lipo', ['-archs', node]).split(/\s+/).filter(Boolean);
+    check('node is Apple silicon only', archs.length === 1 && archs[0] === 'arm64', `(${archs})`);
     check('node version', run(node, ['--version']) === `v${pinned}`, `(want v${pinned})`);
   }
   check('server.mjs', existsSync(join(res, 'server/server.mjs')));

@@ -96,8 +96,7 @@ released app like everyone else, and his changes reach him through releases.
   shell environment (`ShellEnvironment.swift`), so `gh`, `LINEAR_API_KEY` and
   `TYPESAFE_API_KEY` exported in their profile still reach it. Node itself no
   longer comes from it.
-- **Architectures.** A universal app (arm64 and x86_64), with both Node builds
-  joined by `lipo`.
+- **Architectures.** Apple silicon only (arm64 Node and app), at Owen's request (2026-10-31); Intel Macs aren't supported.
 - **Versions.** Semantic versions from `0.2.0`, kept in one place (the root
   `package.json` `version`), written into `Info.plist` at build;
   `npm run release` asks for or takes the next version and tags it.
