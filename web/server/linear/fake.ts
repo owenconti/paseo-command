@@ -401,7 +401,7 @@ export function fakeWorkspace(): FakeWorkspace {
         editedAt: ago(1),
         updatedAt: ago(1),
         resolvedAt: null,
-        reactions: [{ id: uuid(13, 1), emoji: "👍", user: ref(I.sam) }],
+        reactions: [{ id: uuid(13, 1), emoji: "+1", user: ref(I.sam) }],
       },
     ],
   };

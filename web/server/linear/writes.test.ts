@@ -159,8 +159,8 @@ test("comments and reactions", async () => {
   const open = await bumped([stored], () => ok("commentUnresolve", { id: comment.id }));
   assert.equal(open.comment.resolvedAt, undefined);
 
-  await bumped([stored], () => ok("reactionCreate", { commentId: comment.id, emoji: "\u{1F389}" }));
-  assert.deepEqual(stored.reactions.map((r) => r.emoji), ["\u{1F389}"]);
+  await bumped([stored], () => ok("reactionCreate", { commentId: comment.id, emoji: "tada" }));
+  assert.deepEqual(stored.reactions.map((r) => r.emoji), ["tada"]);
   assert.deepEqual(await bumped([stored], () => ok("reactionDelete", { id: stored.reactions[0].id })), { ok: true });
   assert.deepEqual(stored.reactions, []);
 

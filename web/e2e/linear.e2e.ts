@@ -461,14 +461,14 @@ test("writes, edits, replies to, reacts to, resolves and deletes a comment", asy
     await waitFor(() => thumbs.innerText(), (t) => t.includes("2"), "two 👍");
     await waitFor(() => thumbs.getAttribute("aria-pressed"), (v) => v === "true", "your 👍");
     const reacted = linear.ws.comments.find((c) => c.id === FAKE_IDS.comments.reacted)!;
-    await inLinear("your 👍 in Linear", () => reacted.reactions.some((r) => r.emoji === "👍" && r.user.id === linear.ws.viewerId));
+    await inLinear("your 👍 in Linear", () => reacted.reactions.some((r) => r.emoji === "+1" && r.user.id === linear.ws.viewerId));
     await thumbs.click();
     await waitFor(() => thumbs.innerText(), (t) => t.includes("1"), "one 👍");
     await inLinear("your 👍 gone from Linear", () => reacted.reactions.length === 1 && reacted.reactions[0].user.id === FAKE_IDS.sam);
     await beta.getByRole("button", { name: "Add a reaction" }).click();
     await page.getByRole("menu", { name: "Reactions" }).getByRole("menuitem", { name: "🎉" }).click();
     await beta.getByRole("button", { name: /^🎉/ }).waitFor();
-    await inLinear("your 🎉 in Linear", () => reacted.reactions.some((r) => r.emoji === "🎉"));
+    await inLinear("your 🎉 in Linear", () => reacted.reactions.some((r) => r.emoji === "tada"));
 
     // Resolve Sam's thread: one line with Unresolve, its replies hidden; Unresolve opens it again.
     const thread = issue.locator(".linear-thread").filter({ has: page.locator(".linear-comment-body", { hasText: "Can we start with the list?" }) });
@@ -493,6 +493,7 @@ test("writes, edits, replies to, reacts to, resolves and deletes a comment", asy
     await waitFor(() => edited.count(), (n) => n === 0, "the comment to go");
     await inLinear("deleted in Linear", () => !linear.ws.comments.some((c) => c.id === created.id));
 
+    // Each kind of comment and reaction write was sent, and nothing else was written.
     assert.deepEqual([...new Set(writesMade(linear))].sort(), [
       "CommentCreate",
       "CommentDelete",

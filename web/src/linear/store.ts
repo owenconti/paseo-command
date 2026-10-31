@@ -88,13 +88,17 @@ export function setLinearNotice(fn: (message: string) => void): void {
   notify = fn;
 }
 
-/** The incoming record over the known one, keeping pending fields and detail fields the incoming one lacks. */
+/**
+ * The incoming record in the known one's place. A record always comes whole,
+ * and JSON drops a field Linear cleared (an assignee, a due date), so nothing
+ * of the known one is kept but detail fields the incoming one lacks and fields
+ * with a write pending.
+ */
 function mergeRecord<T extends { id: string }>(known: T | undefined, incoming: T, details: readonly string[] = []): T {
   if (!known) return incoming;
-  const merged = { ...known, ...incoming } as Record<string, unknown>;
+  const merged = { ...incoming } as Record<string, unknown>;
   const was = known as Record<string, unknown>;
-  const now = incoming as Record<string, unknown>;
-  for (const field of details) if (now[field] === undefined && was[field] !== undefined) merged[field] = was[field];
+  for (const field of details) if (merged[field] === undefined && was[field] !== undefined) merged[field] = was[field];
   for (const field of pending.get(incoming.id)?.keys() ?? []) {
     if (field in was) merged[field] = was[field];
     else delete merged[field];
@@ -225,11 +229,7 @@ function mergeComments(list: LinearComment[]): void {
       comments.delete(incoming.id);
       continue;
     }
-    // A comment always comes whole, and JSON drops a cleared field (resolvedAt), so it replaces
-    // the known one: only fields with a write in flight keep what the page shows.
-    const known = comments.get(incoming.id) as Record<string, unknown> | undefined;
-    const held = [...(pending.get(incoming.id)?.keys() ?? [])].filter((f) => known && f in known);
-    comments.set(incoming.id, { ...incoming, ...Object.fromEntries(held.map((f) => [f, known![f]])) });
+    comments.set(incoming.id, mergeRecord(comments.get(incoming.id), incoming));
   }
   publish({ comments });
 }
@@ -243,11 +243,12 @@ function patchComment(id: string, fields: Partial<LinearComment>): void {
   if (known) publish({ comments: new Map(state.comments).set(id, { ...known, ...fields }) });
 }
 
-/** A comment Linear deleted. */
+/** A comment Linear deleted, and its replies, which go with it. */
 function removeComment(id: string): void {
   if (!state.comments.has(id)) return;
   const comments = new Map(state.comments);
   comments.delete(id);
+  for (const c of state.comments.values()) if (c.parentId === id) comments.delete(c.id);
   publish({ comments });
 }
 

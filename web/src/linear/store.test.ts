@@ -376,7 +376,21 @@ describe("linear store", () => {
     answers["linear/m/commentUpdate"] = () => ({ comment: comment({ body: "Edited", editedAt: "2026-10-03T00:00:00Z" }) });
     assert.equal(await linearStore.write("commentUpdate", { id: "c-1", body: "Edited" }), true);
     assert.equal(linearStore.getState().comments.get("c-1")?.body, "Edited");
+    linearStore.mergeComments([comment({ id: "c-2", parentId: "c-1" })]);
     linearStore.removeComment("c-1");
     assert.equal(linearStore.getState().comments.has("c-1"), false);
+    assert.equal(linearStore.getState().comments.has("c-2"), false, "its reply goes with it");
+  });
+
+  it("a field cleared in Linear clears here too, though JSON drops it", () => {
+    linearStore.mergeIssues([issue(1, { assigneeId: ME, dueDate: "2026-11-01", description: "Kept" })]);
+    // Unassigned elsewhere: the sync's record, over JSON, has no assigneeId (nor the list-less description).
+    const cleared = JSON.parse(JSON.stringify(issue(1, { updatedAt: "2026-10-02T00:00:00Z" })));
+    linearStore.applySync(sync({ issues: [cleared] }));
+    const now = linearStore.getState().issues.get("i-1")!;
+    assert.equal(now.assigneeId, undefined);
+    assert.equal(now.dueDate, undefined);
+    assert.equal(now.description, "Kept");
+    assert.equal("assigneeId" in now, false);
   });
 });

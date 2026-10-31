@@ -9,22 +9,53 @@ import { linearImages } from "./prompt";
 import { clearPending, linearStore, loadIssue, markPending, useLinear } from "./store";
 import type { LinearComment, LinearUser } from "./types";
 
-/** The reactions the picker offers. */
-const EMOJI = ["👍", "👎", "😄", "🎉", "😕", "❤️", "🚀", "👀"];
-/** Linear may name an emoji by its shortcode; shown (and matched) as the emoji itself. */
+/** The reactions the picker offers: Linear keeps a reaction by its shortcode, shown as the emoji. */
+const PICKER = [
+  { code: "+1", char: "👍" },
+  { code: "-1", char: "👎" },
+  { code: "smile", char: "😄" },
+  { code: "tada", char: "🎉" },
+  { code: "confused", char: "😕" },
+  { code: "heart", char: "❤️" },
+  { code: "rocket", char: "🚀" },
+  { code: "eyes", char: "👀" },
+];
+/** Shortcodes Linear uses, as the emoji they name. */
 const SHORTCODE: Record<string, string> = {
-  "+1": "👍",
+  ...Object.fromEntries(PICKER.map((e) => [e.code, e.char])),
   thumbsup: "👍",
-  "-1": "👎",
   thumbsdown: "👎",
-  smile: "😄",
-  tada: "🎉",
-  confused: "😕",
-  heart: "❤️",
-  rocket: "🚀",
-  eyes: "👀",
+  fire: "🔥",
+  raised_hands: "🙌",
+  thinking_face: "🤔",
+  white_check_mark: "✅",
+  "100": "💯",
+  pray: "🙏",
+  joy: "😂",
+  clap: "👏",
+  smiley: "😃",
+  laughing: "😆",
+  slightly_smiling_face: "🙂",
+  wave: "👋",
+  ok_hand: "👌",
+  muscle: "💪",
+  sparkles: "✨",
+  star: "⭐",
+  zap: "⚡",
+  bug: "🐛",
+  warning: "⚠️",
+  x: "❌",
+  heavy_check_mark: "✔️",
+  hourglass: "⌛",
+  memo: "📝",
+  bulb: "💡",
+  pinched_fingers: "🤌",
+  saluting_face: "🫡",
+  sob: "😭",
+  cry: "😢",
 };
-const shown = (emoji: string) => SHORTCODE[emoji] ?? emoji;
+/** A reaction as shown: its emoji, or `:code:` for a shortcode not known here (an emoji itself shows as is). */
+const shown = (emoji: string) => SHORTCODE[emoji] ?? (/^[\w+-]+$/.test(emoji) ? `:${emoji}:` : emoji);
 
 /** Where a composer keeps what's typed until it's sent: the issue, and the thread a reply is for. */
 const draftKey = (issueId: string, parentId?: string) => `linear:draft:${issueId}${parentId ? `:${parentId}` : ""}`;
@@ -168,6 +199,8 @@ function Composer({
 async function toggleReaction(comment: LinearComment, emoji: string, viewerId: string): Promise<void> {
   const known = comment.reactions.find((r) => shown(r.emoji) === shown(emoji));
   const at = known ? known.userIds.indexOf(viewerId) : -1;
+  // Yours, just added: Linear hasn't said its id yet (the reload after the write will).
+  if (at >= 0 && !known!.ids[at]) return;
   const before = comment.reactions;
   // Shown at once; syncs leave the reactions alone until Linear answers.
   const after =
@@ -272,9 +305,17 @@ function Reactions({ comment, viewerId, users }: { comment: LinearComment; viewe
               }
             }}
           >
-            {EMOJI.map((emoji) => (
-              <button key={emoji} type="button" role="menuitem" tabIndex={-1} aria-label={emoji} onClick={() => toggle(emoji)}>
-                {emoji}
+            {PICKER.map(({ code, char }) => (
+              <button
+                key={code}
+                type="button"
+                role="menuitem"
+                tabIndex={-1}
+                aria-label={char}
+                data-tip={`:${code}:`}
+                onClick={() => toggle(code)}
+              >
+                {char}
               </button>
             ))}
           </div>
