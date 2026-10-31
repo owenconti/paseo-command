@@ -1,16 +1,18 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { motion, useIsPresent } from "framer-motion";
-import { CircleDashed, CornerLeftUp, Users, X } from "lucide-react";
+import { CircleDashed, CornerLeftUp, RefreshCcw, Users, X } from "lucide-react";
 import { readStore, removeStore, writeStore } from "../api";
 import { useFocusTrap } from "../focus";
 import { plainText } from "../ui";
+import { cycleName } from "./names";
 import { Picker, type PickerOption } from "./Picker";
 import { propertySpec, type PropertyField } from "./Properties";
 import { linearStore, loadIssue, useLinear } from "./store";
 import type { LinearIssue, LinearWorkspace } from "./types";
 
 /** What the dialog starts with: the place's team or project, or the parent of a sub-issue. */
-export type CreateInitial = { teamId?: string; parentId?: string; projectId?: string; stateId?: string };
+/** Where Create issue opened: a team, a project, a parent, a cycle (its team's, from a cycle's list). */
+export type CreateInitial = { teamId?: string; parentId?: string; projectId?: string; stateId?: string; cycleId?: string };
 
 /** What's typed and chosen, kept as a draft until Linear has the issue. */
 type Draft = {
@@ -113,6 +115,12 @@ export function CreateIssue({
   const data = useLinear((d) => d);
   const ws = data.workspace;
   const parent = useLinear((d) => (initial.parentId ? d.issues.get(initial.parentId) : undefined));
+  // Opened from a cycle: the issue goes in it, while the team stays the cycle's.
+  const cycle = useLinear((d) =>
+    initial.cycleId
+      ? ([...(d.workspace?.cycles ?? []), ...[...d.cycles.values()].flat()].find((c) => c.id === initial.cycleId) ?? null)
+      : null,
+  );
   const [draft, setDraft] = useState<Draft>(() => {
     // Where it opened (a team, a project, a parent) wins over the draft's choices; what's typed stays.
     const was = readDraft();
@@ -160,6 +168,7 @@ export function CreateIssue({
   const chooseTeam = (teamId: string) =>
     setDraft((d) => (teamId === d.teamId ? d : fit({ ...d, teamId, stateId: undefined }, ws)));
 
+  const inCycle = cycle && cycle.teamId === draft.teamId ? cycle : undefined;
   const submit = async () => {
     const name = draft.title.trim();
     if (!name || !draft.teamId || saving) return;
@@ -180,6 +189,7 @@ export function CreateIssue({
       ...(draft.labelIds.length ? { labelIds: draft.labelIds } : {}),
       ...(draft.projectId ? { projectId: draft.projectId } : {}),
       ...(initial.parentId ? { parentId: initial.parentId } : {}),
+      ...(inCycle ? { cycleId: inCycle.id } : {}),
     });
     setSaving(false);
     if ("error" in answer) {
@@ -275,6 +285,12 @@ export function CreateIssue({
             <CornerLeftUp size={12} aria-hidden="true" />
             <span>Sub-issue of {parent ? <b>{parent.key}</b> : "another issue"}</span>
             {parent && <span className="linear-create-parent-title">{parent.title}</span>}
+          </p>
+        )}
+        {inCycle && (
+          <p className="linear-create-parent">
+            <RefreshCcw size={12} aria-hidden="true" />
+            <span>In {cycleName(inCycle)}</span>
           </p>
         )}
         <input

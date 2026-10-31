@@ -81,6 +81,20 @@ test("a team's cycles: current and past with their progress, each opening its is
     await page.keyboard.type("Engineering's current cycle");
     await page.keyboard.press("Enter");
     await waitFor(() => rowKeys(page), (keys) => keys.join() === "ENG-1,ENG-2", "the current cycle from ⌘K");
+
+    // C there makes an issue in the cycle's team, in the cycle.
+    await view.locator('.linear-row[data-key="ENG-2"]').focus();
+    await page.keyboard.press("c");
+    const dialog = page.locator(".linear-create");
+    await dialog.getByRole("button", { name: "Team: Engineering" }).waitFor();
+    assert.match(await dialog.locator(".linear-create-parent").innerText(), /In Cycle 7/);
+    await dialog.getByRole("textbox", { name: "Issue title" }).fill("Plan the next cycle");
+    await page.keyboard.press("Meta+Enter");
+    await waitFor(() => rowKeys(page), (keys) => keys.length === 3, "the new issue in the cycle");
+    assert.equal(
+      linear.ws.issues.find((i) => i.title === "Plan the next cycle")?.cycle?.id,
+      FAKE_IDS.cycles.eng,
+    );
   } finally {
     linear.restore();
     await context.close();

@@ -375,7 +375,8 @@ export function LinearView({
     const p = placeRef.current;
     const workspace = linearStore.getState().workspace;
     if (!workspace) return;
-    if (p.screen === "team") setCreating({ teamId: p.teamId });
+    if (p.screen === "team" || p.screen === "cycles") setCreating({ teamId: p.teamId });
+    else if (p.screen === "cycle") setCreating({ teamId: p.teamId, cycleId: p.cycleId });
     else if (p.screen === "project") {
       const project = workspace.projects.find((x) => x.id === p.projectId);
       setCreating({ projectId: p.projectId, teamId: project?.teamIds[0] });
