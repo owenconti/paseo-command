@@ -36,8 +36,9 @@ export function rememberTimelineImages(items: TimelineItem[], local: boolean) {
  * - the file is opened once with O_NOFOLLOW (and O_NONBLOCK, so a FIFO can't
  *   stall the server), then fstat'ed and read through that same descriptor;
  * - after opening, the path must still name exactly that inode, with every
- *   directory unchanged (same device, inode and change time, which a rename
- *   away and back alters), checked before and after the directory walk; on
+ *   directory unchanged (same device and inode, and, under a folder others
+ *   can write to, change time, which a rename away and back alters), checked
+ *   before and after the directory walk; on
  *   Linux the kernel's own path for the descriptor must be the canonical
  *   path too;
  * - hard links are refused (a link count above one), as is anything that
@@ -115,15 +116,23 @@ function ancestors(path: string) {
 }
 
 /**
- * Device, inode and change time (ns) of each directory, or null if any is
- * missing or a symlink.
+ * Device and inode of each directory, or null if any is missing or a symlink.
+ * A directory's change time is added only when its parent is writable by
+ * someone other than root or this user: only they could rename it away and
+ * back, and anyone else able to could read the file directly anyway. Its
+ * ctime also moves whenever an entry is made in it, so checking it in a
+ * busy private folder (the user's $TMPDIR) refused reads for no reason.
  */
 async function directories(dirs: string[]) {
   const ids: string[] = [];
+  let shared = false;
   for (const dir of dirs) {
     const s = await lstat(dir, { bigint: true }).catch(() => null);
     if (!s?.isDirectory()) return null;
-    ids.push(`${s.dev}:${s.ino}:${s.ctimeNs}`);
+    ids.push(`${s.dev}:${s.ino}${shared ? `:${s.ctimeNs}` : ""}`);
+    shared =
+      (s.uid !== 0n && s.uid !== BigInt(process.getuid?.() ?? -1)) ||
+      (s.mode & 0o022n) !== 0n;
   }
   return ids;
 }
