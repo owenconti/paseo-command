@@ -143,11 +143,22 @@ describe("linear store", () => {
     linearStore.applySync(sync({ cursor: "2026-10-01T00:00:00Z" }));
     await syncTick();
     assert.deepEqual(scopeIssues(linearStore.getState(), "view:v1").map((i) => i.key), ["ENG-1"]);
-    // Not shown: a sync leaves it as it was.
+    // Not shown: a sync with changes doesn't ask now, but the view is asked again when it next shows.
     linearStore.setShownScope(undefined);
     calls = [];
+    members = ["i-1", "i-2"];
+    answers.sync = () => sync({ issues: [issue(2, { title: "Back", updatedAt: "2026-10-03T00:00:00Z" })] });
     await syncTick();
     assert.ok(!calls.some((c) => c.includes("scope=view")));
+    assert.equal(linearStore.getState().loadedScopes.has("view:v1"), false);
+    // Meanwhile it shows what it had.
+    assert.deepEqual(scopeIssues(linearStore.getState(), "view:v1").map((i) => i.key), ["ENG-1"]);
+    await loadScope("view:v1");
+    assert.deepEqual(scopeIssues(linearStore.getState(), "view:v1").map((i) => i.key), ["ENG-1", "ENG-2"]);
+    // A sync with nothing changed leaves a loaded view alone.
+    answers.sync = () => sync();
+    await syncTick();
+    assert.equal(linearStore.getState().loadedScopes.has("view:v1"), true);
   });
 
   it("a search lists what Linear found, most relevant first, and a refusal stays with the search", async () => {

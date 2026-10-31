@@ -755,9 +755,14 @@ async function syncOnce(): Promise<void> {
   applySync(answer, at);
   // More than one batch changed: reload instead of re-asking from the newer cursor, which would skip the older changes.
   if (answer.more) await reloadAll();
-  // Changed issues may have joined or left the view shown, by its own filter: ask Linear again.
-  else if (answer.issues.length && shownScope?.startsWith("view:") && state.loadedScopes.has(shownScope))
-    await pageScope(shownScope);
+  else if (answer.issues.length) {
+    // Changed issues may have joined or left a view, by its own filter: the one shown is asked
+    // again now, the others when they next show.
+    const loaded = new Set(state.loadedScopes);
+    for (const scope of state.loadedScopes) if (scope.startsWith("view:") && scope !== shownScope) loaded.delete(scope);
+    if (loaded.size !== state.loadedScopes.size) publish({ loadedScopes: loaded });
+    if (shownScope?.startsWith("view:") && state.loadedScopes.has(shownScope)) await pageScope(shownScope);
+  }
 }
 
 /**
