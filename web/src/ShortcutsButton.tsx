@@ -57,9 +57,31 @@ const NATIVE: Group = {
   rows: [
     { keys: [["⌃", "`"]], label: "Show or hide the terminal" },
     { keys: [["⌘", "`"]], label: "Next in the map's place: the map, the browser (Conquer), Linear" },
-    { keys: [["⌘", "S"]], label: "Linear: show or hide the sidebar" },
-    { keys: [["⌘", "Enter"]], label: "Linear: send a comment, reply or edit" },
-    { keys: [["⌘", "Enter"]], label: "Linear: create the issue (New issue)" },
+  ],
+};
+/** The Linear tab's keys (`linear/keys.ts`), as in Linear, while the keyboard is in it. */
+const LINEAR: Group = {
+  title: "Linear",
+  note: "In the Linear tab, outside text fields",
+  rows: [
+    { keys: [["J"], ["↓"]], label: "Next issue" },
+    { keys: [["K"], ["↑"]], label: "Previous issue" },
+    { keys: [["Enter"], ["O"]], label: "Open the issue" },
+    { keys: [["Esc"]], label: "Close the issue" },
+    { keys: [["/"]], label: "Search the list" },
+    { keys: [["C"]], label: "Create an issue" },
+    { keys: [["S"]], label: "Change the status" },
+    { keys: [["P"]], label: "Change the priority" },
+    { keys: [["A"]], label: "Assign" },
+    { keys: [["I"]], label: "Assign to you" },
+    { keys: [["L"]], label: "Change the labels" },
+    { keys: [["M"]], label: "Change the project" },
+    { keys: [["⇧", "C"]], label: "Change the cycle" },
+    { keys: [["⌘", "."]], label: "Copy the issue's branch name" },
+    { keys: [["⌘", "⇧", ","]], label: "Copy the issue's link" },
+    { keys: [["⌘", "S"]], label: "Show or hide the sidebar" },
+    { keys: [["⌘", "Enter"]], label: "Send a comment, reply or edit" },
+    { keys: [["⌘", "Enter"]], label: "Create the issue (New issue)" },
   ],
 };
 /** Conquer's own keys (the macOS app's browser), which it takes ahead of its pages
@@ -159,7 +181,7 @@ function ShortcutsDialog({ onClose }: { onClose: () => void }) {
     window.addEventListener("keydown", key, true);
     return () => window.removeEventListener("keydown", key, true);
   }, [present, onClose]);
-  const groups = macApp() ? [...GROUPS, NATIVE, CONQUER] : GROUPS;
+  const groups = macApp() ? [...GROUPS, NATIVE, LINEAR, CONQUER] : GROUPS;
   return (
     <motion.div
       className="modal-backdrop"

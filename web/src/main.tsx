@@ -828,7 +828,8 @@ function App() {
   const appMode = useAppMode();
   // The issue open in the Linear tab, for ⌘K's edits of it.
   const [linearIssueOpen, setLinearIssueOpen] = useState<
-    { key: string; subscribed: boolean; hasBranch: boolean; hasLink: boolean } | undefined
+    | { key: string; subscribed: boolean; hasBranch: boolean; hasLink: boolean; hasCycles: boolean; mine: boolean }
+    | undefined
   >();
   // Whether the Linear tab's workspace is in, for ⌘K's Create Linear issue.
   const [linearReady, setLinearReady] = useState(false);
@@ -1490,15 +1491,23 @@ function App() {
     ...(appMode === "linear" && linearIssueOpen
       ? (
           [
-            ["linear-status", "Change the Linear issue's status", "linear issue state workflow progress done todo"],
-            ["linear-priority", "Change the Linear issue's priority", "linear issue urgent high medium low"],
-            ["linear-assignee", "Assign the Linear issue", "linear issue assignee owner person unassign"],
-            ["linear-labels", "Change the Linear issue's labels", "linear issue labels tags bug feature"],
+            ["linear-status", "Change the Linear issue's status", "linear issue state workflow progress done todo", ["S"]],
+            ["linear-priority", "Change the Linear issue's priority", "linear issue urgent high medium low", ["P"]],
+            ["linear-assignee", "Assign the Linear issue", "linear issue assignee owner person unassign", ["A"]],
+            ...(linearIssueOpen.mine
+              ? []
+              : ([["linear-assign-me", "Assign the Linear issue to you", "linear issue assignee me myself take", ["I"]]] as const)),
+            ["linear-labels", "Change the Linear issue's labels", "linear issue labels tags bug feature", ["L"]],
+            ["linear-project", "Change the Linear issue's project", "linear issue project move", ["M"]],
+            ...(linearIssueOpen.hasCycles
+              ? ([["linear-cycle", "Change the Linear issue's cycle", "linear issue cycle sprint iteration", ["⇧", "C"]]] as const)
+              : []),
           ] as const
-        ).map(([command, label, keywords]) => ({
+        ).map(([command, label, keywords, keys]) => ({
           id: command,
           group: "App",
           label,
+          keys: [[...keys]],
           keywords,
           run: () => runAppCommand(command),
         }))
@@ -1509,6 +1518,7 @@ function App() {
             id: "linear-create",
             group: "App",
             label: "Create Linear issue",
+            keys: [["C"]],
             keywords: "linear new issue ticket task bug add write",
             run: () => runAppCommand("linear-create"),
           },
@@ -1527,18 +1537,28 @@ function App() {
               "linear issue notifications follow watch subscribe unsubscribe",
             ],
             ...(linearIssueOpen.hasBranch
-              ? ([["linear-copy-branch", `Copy ${linearIssueOpen.key}'s branch name`, "linear issue git branch clipboard"]] as const)
+              ? ([
+                  [
+                    "linear-copy-branch",
+                    `Copy ${linearIssueOpen.key}'s branch name`,
+                    "linear issue git branch clipboard",
+                    ["⌘", "."],
+                  ],
+                ] as const)
               : []),
             ...(linearIssueOpen.hasLink
-              ? ([["linear-copy-link", `Copy ${linearIssueOpen.key}'s link`, "linear issue url clipboard share"]] as const)
+              ? ([
+                  ["linear-copy-link", `Copy ${linearIssueOpen.key}'s link`, "linear issue url clipboard share", ["⌘", "⇧", ","]],
+                ] as const)
               : []),
             ["linear-archive", `Archive ${linearIssueOpen.key}`, "linear issue archive hide close"],
             ["linear-delete", `Move ${linearIssueOpen.key} to Linear's trash`, "linear issue delete remove trash"],
           ] as const
-        ).map(([command, label, keywords]) => ({
+        ).map(([command, label, keywords, keys]) => ({
           id: command,
           group: "App",
           label,
+          keys: keys ? [[...keys]] : undefined,
           keywords,
           run: () => runAppCommand(command),
         }))

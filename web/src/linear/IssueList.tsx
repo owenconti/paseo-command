@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type MutableRefObject, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { CircleDot, Search, SignalHigh, Tag, UserRound } from "lucide-react";
 import { plainText } from "../ui";
@@ -82,6 +82,9 @@ const MENU_ITEMS: [PropertyField, string, ReactNode][] = [
   ["assignee", "Assignee", <UserRound size={13} aria-hidden="true" />],
   ["labels", "Labels", <Tag size={13} aria-hidden="true" />],
 ];
+/** What the Linear tab's keys ask of the list shown. */
+export type IssueListNav = { move(by: number): void; open(): void; filter(): void };
+
 /** Room the menu and its pickers keep from the window's right edge. */
 const MENU_WIDTH = 260;
 
@@ -154,7 +157,7 @@ function RowMenu({ issueId, at, onClose }: { issueId: string; at: { x: number; y
  * from the store: an edit or a sync moves an issue between lists at once.
  * ↑/↓ move between rows; where the issue opens beside the list (`opensBeside`)
  * they open it too, else Enter does. A row's context menu edits its status,
- * priority, assignee and labels.
+ * priority, assignee and labels. `nav` takes the Linear tab's keys (J/K, O, /).
  */
 export function IssueList({
   title,
@@ -166,6 +169,7 @@ export function IssueList({
   error,
   actions,
   children,
+  nav,
 }: {
   title: ReactNode;
   scope: IssueScope;
@@ -178,6 +182,8 @@ export function IssueList({
   actions?: ReactNode;
   /** Shown between the title and the list (a project's summary). */
   children?: ReactNode;
+  /** Set to the list's moves, for the view's keys. */
+  nav?: MutableRefObject<IssueListNav | null>;
 }) {
   const data = useLinear((d) => d);
   const ws = data.workspace;
@@ -219,6 +225,29 @@ export function IssueList({
     listRef.current?.querySelector<HTMLElement>(`[data-key="${next.key}"]`)?.focus();
   };
 
+  const search = useRef<HTMLInputElement>(null);
+  /** The focused row's key, if a row has the focus. */
+  const focusedRow = () => {
+    const el = document.activeElement as HTMLElement | null;
+    return el && listRef.current?.contains(el) && el.matches(".linear-row") ? el.dataset.key : undefined;
+  };
+  useEffect(
+    () => () => {
+      if (nav) nav.current = null;
+    },
+    [nav],
+  );
+  if (nav)
+    nav.current = {
+      // From elsewhere, with no issue open, the first move lands on the row that takes Tab.
+      move: (by) => step(focusedRow() || openKey ? by : 0),
+      open: () => {
+        const key = focusedRow() ?? current;
+        if (key) onOpen(key);
+      },
+      filter: () => search.current?.focus(),
+    };
+
   return (
     <div className="linear-list">
       <ScreenHead title={title} count={loading && !issues.length ? undefined : issues.length}>
@@ -229,6 +258,7 @@ export function IssueList({
         <Search size={14} aria-hidden="true" />
         <input
           {...plainText}
+          ref={search}
           type="search"
           aria-label="Search these issues"
           placeholder="Search issues"

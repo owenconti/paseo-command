@@ -827,3 +827,63 @@ test("deletes only after confirming", async () => {
     await context.close();
   }
 });
+
+test("drives an issue from the keyboard", async () => {
+  // ENG-3 waits in Todo, so In Review changes it.
+  const ws = fakeWorkspace();
+  const eng3 = ws.issues.find((i) => i.identifier === "ENG-3")!;
+  eng3.state = { ...eng3.state, id: FAKE_IDS.states.eng.Todo };
+  const { context, page, linear, view, issue } = await openLinear(ws);
+  try {
+    await waitFor(() => rowKeys(page), (keys) => keys.join() === "ENG-1,ENG-3", "my issues");
+    const sidebar = view.locator(".linear-sidebar");
+    await sidebar.getByRole("button", { name: "Assigned" }).focus();
+
+    // j, j, Enter: the second row opens; the page's own J/K stay out of it.
+    await page.keyboard.press("j");
+    await page.keyboard.press("j");
+    await page.keyboard.press("Enter");
+    await issue.locator("h1", { hasText: "Review the sync design" }).waitFor();
+    assert.equal(await focusedName(page).then((n) => n.includes("ENG-3")), true);
+    // D, the page's New agent, stands down in the view.
+    await page.keyboard.press("d");
+    await page.waitForTimeout(100);
+    assert.equal(await page.locator(".new-agent").count(), 0);
+
+    // s opens Status; typing filters it and Enter sets In Review.
+    await page.keyboard.press("s");
+    const picker = page.getByRole("listbox", { name: "Status" });
+    await picker.waitFor();
+    await page.keyboard.type("rev");
+    await page.keyboard.press("Enter");
+    await issue.getByRole("button", { name: "Status: In Review" }).waitFor();
+    await waitFor(
+      () => Promise.resolve(fakeIssue(linear, "ENG-3").state.id),
+      (id) => id === FAKE_IDS.states.eng["In Review"],
+      "the status in Linear",
+    );
+
+    // While typing, letters are text: / filters the list, and c there types a c.
+    await page.keyboard.press("/");
+    const search = view.getByRole("searchbox", { name: "Search these issues" });
+    assert.equal(await focusedName(page), "Search these issues");
+    await page.keyboard.type("c");
+    assert.equal(await search.inputValue(), "c");
+    assert.equal(await createDialog(page).count(), 0);
+    await page.keyboard.press("Escape");
+    assert.equal(await search.inputValue(), "");
+
+    // Esc closes the issue, the keyboard staying on its row; c opens Create issue.
+    await prop(issue, "Priority").focus();
+    await page.keyboard.press("Escape");
+    await waitFor(() => issue.count(), (n) => n === 0, "the issue to close");
+    assert.equal(await focusedName(page).then((n) => n.includes("ENG-3")), true);
+    await page.keyboard.press("c");
+    await createDialog(page).waitFor();
+    assert.equal(await focusedName(page), "Issue title");
+    assert.deepEqual(writesMade(linear), ["IssueUpdate"]);
+  } finally {
+    linear.restore();
+    await context.close();
+  }
+});

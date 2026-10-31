@@ -12,6 +12,10 @@
   background: var(--surface);
   color: var(--text);
 }
+/* It takes focus only to keep Linear's keys (a click on its background): no ring. */
+.linear-view:focus {
+  outline: none;
+}
 .linear-view .linear-count {
   margin-left: 6px;
   font-size: var(--fs-xs);

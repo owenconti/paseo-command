@@ -262,12 +262,14 @@ export function PropertyPicker({
   );
 }
 
-/** ⌘K's edits of the open issue. */
+/** ⌘K's edits of the open issue (and the Linear tab's keys for them). */
 const COMMANDS: [AppCommand, PropertyField][] = [
   ["linear-status", "status"],
   ["linear-priority", "priority"],
   ["linear-assignee", "assignee"],
   ["linear-labels", "labels"],
+  ["linear-project", "project"],
+  ["linear-cycle", "cycle"],
 ];
 const FIELDS: PropertyField[] = ["status", "priority", "assignee", "labels", "estimate", "cycle", "project", "milestone", "parent"];
 
@@ -330,13 +332,26 @@ export function Properties({ issue }: { issue: LinearIssue }) {
   const ws = data.workspace;
   const [open, setOpen] = useState<PropertyField | null>(null);
   const buttons = useRef(new Map<PropertyField, HTMLButtonElement>());
+  const latest = useRef({ issue, data });
+  latest.current = { issue, data };
   useEffect(() => {
     const offs = COMMANDS.map(([command, field]) =>
       onAppCommand(command, () => {
+        // A property the issue's team doesn't use (cycles) has no button, nor a picker.
         const button = buttons.current.get(field);
-        button?.focus({ preventScroll: true });
-        button?.scrollIntoView({ block: "nearest" });
+        if (!button) return;
+        button.focus({ preventScroll: true });
+        button.scrollIntoView({ block: "nearest" });
         setOpen(field);
+      }),
+    );
+    // I: assigned to you, unless it already is.
+    offs.push(
+      onAppCommand("linear-assign-me", () => {
+        const { issue, data } = latest.current;
+        const me = data.workspace?.viewerId;
+        const spec = propertySpec("assignee", issue, data);
+        if (me && spec && issue.assigneeId !== me) save(issue, spec, me);
       }),
     );
     return () => offs.forEach((off) => off());

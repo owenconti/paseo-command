@@ -1,13 +1,16 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence } from "framer-motion";
 import { Archive, Box, ChevronRight, ListTodo, PanelLeftOpen, RefreshCw, X } from "lucide-react";
 import { errorMessage, readStore, writeStore } from "../api";
-import { onAppCommand } from "../appCommands";
+import { onAppCommand, runAppCommand, type AppCommand } from "../appCommands";
+import { modalOpen } from "../focus";
+import { isTyping } from "../worldShortcut";
 import { CreateIssue, type CreateInitial } from "./CreateIssue";
 import { InitiativeList } from "./InitiativeList";
 import { IssueDetail } from "./IssueDetail";
-import { IssueList } from "./IssueList";
+import { IssueList, type IssueListNav } from "./IssueList";
+import { linearKeyAction, type LinearKey } from "./keys";
 import { checkPlace, placeScope, readPlace, writePlace, type LinearPlace } from "./place";
 import { ProjectFacts, ProjectList } from "./ProjectList";
 import type { IssueContext } from "./prompt";
@@ -26,6 +29,21 @@ const BESIDE_MIN = 1100;
 /** How long the archive's Undo stays offered. */
 const UNDO_MS = 10_000;
 
+/** The keys that edit or copy from the open issue, by the command its ⌘K entry runs. */
+const ISSUE_KEYS: Partial<Record<LinearKey, AppCommand>> = {
+  status: "linear-status",
+  priority: "linear-priority",
+  assign: "linear-assignee",
+  assignMe: "linear-assign-me",
+  labels: "linear-labels",
+  project: "linear-project",
+  cycle: "linear-cycle",
+  copyBranch: "linear-copy-branch",
+  copyLink: "linear-copy-link",
+};
+/** Layers in the view that keep their own keys while open. */
+const LAYERS = ".popover-menu, .autocomplete, .lightbox, .inline-confirm";
+
 const MY_TITLE = { assigned: "Assigned to you", created: "Created by you", subscribed: "Subscribed" };
 const TEAM_TITLE = { triage: "Triage", active: "Active", backlog: "Backlog", all: "All issues" };
 
@@ -41,6 +59,8 @@ const TEAM_TITLE = { triage: "Triage", active: "Active", backlog: "Backlog", all
  * and the place comes back after a reload. New issue (the sidebar, ⌘K) opens
  * Create issue in the place's team; an archived issue leaves with Undo
  * offered in a bar at the view's foot; a deleted one leaves every list.
+ * While the keyboard is in the view (not typing), Linear's keys work
+ * (`keys.ts`), and the page's own letters and arrows (J/K, N, D…) stand down.
  */
 export function LinearView({
   onLaunch,
@@ -52,7 +72,9 @@ export function LinearView({
   onNotice: (message: string) => void;
   /** The open issue, or undefined (⌘K offers editing it, commenting on it, archiving it…, copying what it has). */
   onIssueOpen?: (
-    issue: { key: string; subscribed: boolean; hasBranch: boolean; hasLink: boolean } | undefined,
+    issue:
+      | { key: string; subscribed: boolean; hasBranch: boolean; hasLink: boolean; hasCycles: boolean; mine: boolean }
+      | undefined,
   ) => void;
   /** Whether Linear's workspace is in, so an issue can be created (⌘K offers it). */
   onReady?: (ready: boolean) => void;
@@ -173,9 +195,11 @@ export function LinearView({
   const subscribed = !!viewerId && !!openIssueRecord?.subscriberIds.includes(viewerId);
   const hasBranch = !!openIssueRecord?.branchName;
   const hasLink = !!openIssueRecord?.url;
+  const hasCycles = !!ws?.teams.find((t) => t.id === openIssueRecord?.teamId)?.cyclesEnabled;
+  const mine = !!viewerId && openIssueRecord?.assigneeId === viewerId;
   useEffect(() => {
-    onIssueOpen?.(openKey ? { key: openKey, subscribed, hasBranch, hasLink } : undefined);
-  }, [openKey, subscribed, hasBranch, hasLink, onIssueOpen]);
+    onIssueOpen?.(openKey ? { key: openKey, subscribed, hasBranch, hasLink, hasCycles, mine } : undefined);
+  }, [openKey, subscribed, hasBranch, hasLink, hasCycles, mine, onIssueOpen]);
   useEffect(() => () => onIssueOpen?.(undefined), [onIssueOpen]);
   useEffect(() => {
     onReady?.(!!ws);
@@ -244,6 +268,59 @@ export function LinearView({
     return done;
   };
 
+  const nav = useRef<IssueListNav | null>(null);
+  const onKey = (e: ReactKeyboardEvent<HTMLElement>) => {
+    const target = e.target as HTMLElement;
+    // Only the view's own elements: not its dialogs and menus elsewhere on the page.
+    if (!e.currentTarget.contains(target) || !e.key || modalOpen()) return;
+    const layered = [...e.currentTarget.querySelectorAll(LAYERS)].some((layer) => !layer.closest("[inert]"));
+    const { key, metaKey, shiftKey, ctrlKey, altKey } = e;
+    const action =
+      e.defaultPrevented || layered ? null : linearKeyAction({ key, metaKey, shiftKey, ctrlKey, altKey, target });
+    const plain = !e.metaKey && !e.ctrlKey && !e.altKey && !isTyping(target);
+    const run = action && keyAction(action, target);
+    if (run) {
+      e.preventDefault();
+      e.stopPropagation();
+    } else if (plain && (/^[a-z]$/i.test(e.key) || e.key.startsWith("Arrow"))) e.stopPropagation();
+  };
+  /** Does what `action` asks; false when it doesn't apply here (the key goes on as usual). */
+  const keyAction = (action: LinearKey, target: HTMLElement): boolean => {
+    const issueOpenNow = !!placeRef.current.issue;
+    switch (action) {
+      case "down":
+      case "up":
+        nav.current?.move(action === "down" ? 1 : -1);
+        return true;
+      case "open":
+        // Other buttons and links keep their own Enter.
+        if (target.closest("button,a,summary,[role=button],[role=tab],[role=menuitem]") && !target.closest(".linear-row"))
+          return false;
+        nav.current?.open();
+        return true;
+      case "back": {
+        if (!issueOpenNow) return false;
+        const key = placeRef.current.issue!;
+        // The keyboard stays in the view as the issue goes: on its row, else the view.
+        if (target.closest(".linear-detail"))
+          (view?.querySelector<HTMLElement>(`.linear-row[data-key="${key}"]`) ?? view)?.focus({ preventScroll: true });
+        closeIssue(key);
+        return true;
+      }
+      case "create":
+        createHere();
+        return true;
+      case "filter":
+        nav.current?.filter();
+        return true;
+      default: {
+        const command = ISSUE_KEYS[action];
+        if (command && issueOpenNow) runAppCommand(command);
+        return true;
+      }
+    }
+  };
+
   if (!ws && (unavailable || workspaceError))
     return (
       <section className="linear-view linear-unavailable" aria-label="Linear" ref={setView}>
@@ -299,6 +376,7 @@ export function LinearView({
         opensBeside={beside}
         loading={!loadedScopes.has(scope!) && !scopeErrors[scope!]}
         error={scopeErrors[scope!]}
+        nav={nav}
       >
         {project && (
           <div className="linear-project-summary">
@@ -321,6 +399,9 @@ export function LinearView({
       aria-label="Linear"
       ref={setView}
       style={{ gridTemplateColumns: columns.join(" ") }}
+      // A click on the view's background keeps the keyboard in it, for its keys.
+      tabIndex={-1}
+      onKeyDown={onKey}
     >
       <nav className="linear-sidebar" id="linear-sidebar" aria-label="Linear navigation" hidden={listHidden}>
         <Sidebar

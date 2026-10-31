@@ -215,19 +215,35 @@ Local assets belong in the repository and are included through local build tooli
   optionally seeded after confirmation through Conquer → Import Zen Cookies from Zen Browser's profile (`ZenCookies.swift`): a copy of
   `cookies.sqlite`, default space only, unpartitioned and unexpired; Zen is never written to. Its tabs (`conquerState`), sidebar width, zooms,
   history (`conquer-history.json` in the app's data folder, `~/Library/Application Support/Paseo Command/` for the release) and the mode come back on launch; tabs come back unloaded.
-- Linear (the mode bar's third tab, after Command and Conquer; View menu; palette "Show your Linear issues"): the page draws
-  `web/src/linear/LinearView.tsx` over the map's frame while the app reports `paseo:mode` `linear` (`useAppMode`, `web/src/appMode.ts`;
-  the page asks with a `mode` message). Its sidebar (`Sidebar.tsx`) navigates as Linear's: My issues (Assigned, Created, Subscribed),
+- Linear (the mode bar's third tab, after Command and Conquer; View menu; palette "Show your Linear issues"): a Linear client the page
+  draws (`web/src/linear/LinearView.tsx`) over the map's frame while the app reports `paseo:mode` `linear` (`useAppMode`, `web/src/appMode.ts`;
+  the page asks with a `mode` message). Navigation: its sidebar (`Sidebar.tsx`) is Linear's: My issues (Assigned, Created, Subscribed),
   each team (Triage where on, Active, Backlog, All), Projects (`ProjectList.tsx`, each opening its issues) and Initiatives
-  (`InitiativeList.tsx`). A place's issues (`IssueList.tsx`) are grouped by state; the open issue (`IssueDetail.tsx`: properties,
-  parent, sub-issues, relations, description, links, comments) shows beside the list from 1,100 px, else in its place with Back.
-  The place and open issue are kept in localStorage (`place.ts`). Everything shows from the page's store (`store.ts`, synced every
-  20 s only while the view shows) over the server's named reads (`web/server/linear/`, `GET /api/linear/q/…`, with
-  `LINEAR_API_KEY` or `linearApiKey` in `secrets.json`); read-only for now. Launch agent opens New agent with the issue (`DispatchTarget.issue`):
-  Worktree on Linear's branch name, the composer's draft naming the issue; presets take `{{issue}}` and the issue's details (`prompt.ts`).
-  As Conquer's sidebar, the Linear sidebar's inner edge resizes it and ⌘S hides or shows it (kept in localStorage). Images uploaded
-  to Linear load through `GET /api/linear/image?url=` (only `uploads.linear.app`, fetched with the key; `linearImages`).
-  e2e (`web/e2e/linear.e2e.ts`) runs the real route over the fake Linear (`web/e2e/linearFake.ts`, `web/server/linear/fake.ts`).
+  (`InitiativeList.tsx`). A place's issues (`IssueList.tsx`) are grouped by state; the open issue (`IssueDetail.tsx`) shows beside
+  the list from 1,100 px, else in its place with Back. The place and open issue are kept in localStorage (`place.ts`).
+  Editing: the open issue's properties (`Properties.tsx`: status, priority, assignee, labels, estimate and cycle where the team uses
+  them, project, milestone, parent, due date) open a `Picker.tsx` and save at once, as does a row's context menu (status, priority,
+  assignee, labels). Comments (`Comments.tsx`): write, edit, reply in threads, react (by Linear shortcode), resolve and delete.
+  Create issue (`CreateIssue.tsx`; the sidebar's New issue, C, ⌘K) in the place's team (or project) with its default status, and
+  Add sub-issue; relations (`Relations.tsx`: blocks, blocked by, related, duplicate) are added and removed; Subscribe, Archive (Undo in
+  a bar at the view's foot) and Delete (after confirming) from the detail or ⌘K. Every write is the user's own action (launching an
+  agent changes nothing in Linear): `linearStore.write` (`store.ts`) shows it at once and rolls it back, with a notice, if Linear refuses.
+  Keys (`keys.ts`, only while the keyboard is in the view and not typing or in a picker; the page's own J/K/N/D stand down there):
+  J/K or ↓/↑ move, Enter or O opens, Esc closes the issue, / searches the list, C creates, S P A L M ⇧C open status, priority,
+  assignee, labels, project and cycle, I assigns to you, ⌘. and ⌘⇧, copy the branch name and link; each has its ⌘K entry and a
+  row in the shortcuts dialog's Linear group. Everything shows from the page's store (`store.ts`), synced at most every 20 s only
+  while the view shows. Server (`web/server/linear/`, with `LINEAR_API_KEY` or `linearApiKey` in `secrets.json`; the page never
+  gets the key): named reads only (`reads.ts`, `GET /api/linear/q/workspace|issues|issue|sync|status`) and whitelisted writes
+  (`writes.ts` `linearWrite`, `POST /api/linear/m/<name>`, each input checked field by field; no passthrough GraphQL, no `@linear/sdk`),
+  over `client.ts`, which keeps to the key's hourly budget (2,500 requests, 3,000,000 complexity; reads stand down when it runs low,
+  writes still go). Launch agent opens New agent with the issue (`DispatchTarget.issue`): Worktree on Linear's branch name, the
+  composer's draft naming the issue; presets take `{{issue}}` and the issue's details (`prompt.ts`). As Conquer's sidebar, the Linear
+  sidebar's inner edge resizes it and ⌘S hides or shows it (kept in localStorage). Images uploaded to Linear load through
+  `GET /api/linear/image?url=` (only `uploads.linear.app`, fetched with the key; `linearImages`). Tests never reach Linear
+  (`web/server/test-setup.ts` drops the key): server tests and e2e (`web/e2e/linear.e2e.ts`, the real route) run over the fake
+  Linear (`web/server/linear/fake.ts`, `web/e2e/linearFake.ts`). `web/scripts/linear-write-check.ts`, run by hand
+  (`cd web && npx tsx scripts/linear-write-check.ts`), checks the writes against the real Linear on one issue only: team DE's
+  `Paseo Command write check (safe to delete)` (made if absent), putting its edits back.
 - Web links clicked in the chat (`.session`, `openInAppBrowser` in `web/src/Session.tsx`, `postAppLink` → the `openLink` message)
   switch to Conquer and open there as a new tab, once its tabs are restored (`whenStarted`).
 
