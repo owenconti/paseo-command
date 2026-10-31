@@ -313,7 +313,8 @@ export function IssueList({
   /** The place's team, if it has one: a board shows its every state. */
   teamId?: string;
   openKey?: string;
-  onOpen: (key: string) => void;
+  /** Opens an issue; "step" when it's moving through the list (↑/↓, J/K), not choosing one. */
+  onOpen: (key: string, how?: "step") => void;
   opensBeside: boolean;
   loading: boolean;
   /** The scope stopped at 1,000 issues: the list says so. */
@@ -425,7 +426,7 @@ export function IssueList({
 
   const focusIssue = (key: string) => {
     setFocusKey(key);
-    if (opensBeside) onOpen(key);
+    if (opensBeside) onOpen(key, "step");
     listRef.current?.querySelector<HTMLElement>(`[data-key="${key}"]`)?.focus();
   };
   const step = (by: number) => {

@@ -568,3 +568,60 @@ test("people show their avatar where Linear has one, else their initials", async
     await context.close();
   }
 });
+
+test("back and forward through the places and issues opened, not each step through a list", async () => {
+  const { context, page, linear, view, sidebar } = await openLinear();
+  try {
+    const title = view.locator(".linear-list-head h2");
+    const openTitle = () => view.locator(".linear-issue h1").innerText().catch(() => "");
+    const back = sidebar.getByRole("button", { name: "Go back", exact: true });
+    const forward = sidebar.getByRole("button", { name: "Go forward", exact: true });
+    assert.equal(await back.isDisabled(), true);
+
+    // Assigned, then ENG-1 opened, then ↓ to ENG-3 (moving through the list, not a new place).
+    await waitFor(() => rowKeys(page), (keys) => keys.length === 2, "your issues");
+    await view.locator('.linear-row[data-key="ENG-1"]').click();
+    await view.locator(".linear-issue h1", { hasText: "Ship the Linear tab" }).waitFor();
+    await view.locator('.linear-row[data-key="ENG-1"]').focus();
+    await page.keyboard.press("ArrowDown");
+    await view.locator(".linear-issue h1", { hasText: "Review the sync design" }).waitFor();
+    // Then ENG's All, and a search typed there.
+    await sidebar.getByRole("button", { name: /^ENG/ }).click();
+    await sidebar.locator('.linear-team[data-team="ENG"]').getByRole("button", { name: "All" }).click();
+    await title.filter({ hasText: "All issues" }).waitFor();
+    await sidebar.getByRole("button", { name: "Search Linear" }).click();
+    await page.keyboard.type("sync");
+    await waitFor(() => rowKeys(page), (keys) => keys.join() === "ENG-3", "the search");
+
+    // ⌘[: the search (once, not per letter), then ENG All, then Assigned with ENG-3 open.
+    await page.keyboard.press("Meta+[");
+    await title.filter({ hasText: "All issues" }).waitFor();
+    await back.click();
+    await title.filter({ hasText: "Assigned to you" }).waitFor();
+    await waitFor(openTitle, (t) => t === "Review the sync design", "ENG-3 open again");
+    await page.keyboard.press("Meta+[");
+    await waitFor(() => view.locator(".linear-issue").count(), (n) => n === 0, "Assigned with nothing open");
+    assert.equal(await back.isDisabled(), true);
+
+    // Forward: ⌘], the sidebar's arrow, a mouse's forward button, ⌘K.
+    await page.keyboard.press("Meta+]");
+    await waitFor(openTitle, (t) => t === "Review the sync design", "forward to ENG-3");
+    await forward.click();
+    await title.filter({ hasText: "All issues" }).waitFor();
+    await view.evaluate((el) => el.dispatchEvent(new MouseEvent("mouseup", { button: 4, bubbles: true })));
+    await view.getByRole("searchbox", { name: "Search all issues in Linear" }).waitFor();
+    assert.equal(await forward.isDisabled(), true);
+    await page.keyboard.press("Meta+k");
+    await page.keyboard.type("Go back (Linear)");
+    await page.keyboard.press("Enter");
+    await title.filter({ hasText: "All issues" }).waitFor();
+
+    // Somewhere new drops what was ahead.
+    await sidebar.getByRole("button", { name: "Projects" }).click();
+    await title.filter({ hasText: "Projects" }).waitFor();
+    assert.equal(await forward.isDisabled(), true);
+  } finally {
+    linear.restore();
+    await context.close();
+  }
+});

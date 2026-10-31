@@ -17,6 +17,8 @@ export type AppCommand =
   | "agent-archive"
   | "linear-refresh"
   | "linear-sidebar"
+  | "linear-back"
+  | "linear-forward"
   | "linear-filter"
   | "linear-find"
   | "linear-inbox-read-all"

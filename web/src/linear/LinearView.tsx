@@ -16,6 +16,7 @@ import { InitiativeList } from "./InitiativeList";
 import { IssueDetail } from "./IssueDetail";
 import { IssueList, type IssueListNav, type IssueListState } from "./IssueList";
 import { linearKeyAction, type LinearKey } from "./keys";
+import { currentPlace, startHistory, step, visit, type PlaceHistory } from "./history";
 import { checkPlace, DEFAULT_PLACE, placeScope, readPlace, writePlace, type LinearPlace } from "./place";
 import { cycleName } from "./bits";
 import { ProjectFacts, ProjectList } from "./ProjectList";
@@ -36,6 +37,9 @@ import {
   useLinearSync,
 } from "./store";
 import type { IssueScope, LinearIssue } from "./types";
+
+/** Where the tab has been, kept while the page lives (so it outlasts showing the map or Conquer). */
+let placeHistory: PlaceHistory | undefined;
 
 /** The sidebar's width: its default, and the least it and the rest of the view keep. */
 const LIST = { width: 320, min: 200, detailMin: 320 };
@@ -85,6 +89,9 @@ export type LinearViewState = {
   views: { id: string; name: string }[];
   /** The Inbox's unread rows, while it shows (⌘K offers marking them read). */
   inboxUnread?: number;
+  /** Whether there's somewhere to go back or forward to. */
+  canBack: boolean;
+  canForward: boolean;
   /** The list's layout and whether it's filtered, while one shows. */
   list?: Pick<IssueListState, "layout" | "filtered">;
 };
@@ -133,11 +140,41 @@ export function LinearView({
   const unavailable = useLinear((d) => d.unavailable);
   const loadedScopes = useLinear((d) => d.loadedScopes);
   const cappedScopes = useLinear((d) => d.cappedScopes);
-  const [place, setPlaceState] = useState<LinearPlace>(() => readPlace());
-  const setPlace = useCallback((next: LinearPlace) => {
+  const [place, setPlaceState] = useState<LinearPlace>(() => {
+    const remembered = readPlace();
+    placeHistory = placeHistory ? visit(placeHistory, remembered, true) : startHistory(remembered);
+    return remembered;
+  });
+  // Back and forward (⌘[ ⌘], the sidebar's arrows): redrawn as the history moves.
+  const [, setHistoryMoved] = useState(0);
+  /** Goes to `next`: a new history entry, or in the current one's place with `replace`. */
+  const setPlace = useCallback((next: LinearPlace, replace = false) => {
     setPlaceState(next);
     writePlace(next);
+    placeHistory = visit(placeHistory!, next, replace);
+    setHistoryMoved((n) => n + 1);
   }, []);
+  /** Corrects the place (a team, view or issue that's gone), in its history entry's place. */
+  const correctPlace = useCallback((fix: (was: LinearPlace) => LinearPlace) => {
+    setPlaceState((was) => {
+      const next = fix(was);
+      if (next === was) return was;
+      writePlace(next);
+      placeHistory = visit(placeHistory!, next, true);
+      return next;
+    });
+  }, []);
+  const goHistory = useCallback((by: -1 | 1) => {
+    const moved = step(placeHistory!, by);
+    if (!moved) return;
+    placeHistory = moved;
+    const next = currentPlace(moved);
+    setPlaceState(next);
+    writePlace(next);
+    setHistoryMoved((n) => n + 1);
+  }, []);
+  const canBack = placeHistory!.at > 0;
+  const canForward = placeHistory!.at < placeHistory!.stack.length - 1;
   const placeTeamId = "teamId" in place ? place.teamId : undefined;
   const teamCycles = useLinear((d) => (placeTeamId ? d.cycles.get(placeTeamId) : undefined));
   const [workspaceError, setWorkspaceError] = useState<string>();
@@ -217,22 +254,16 @@ export function LinearView({
   const views = useLinear((d) => d.views);
   useEffect(() => {
     if (!views) return;
-    setPlaceState((was) => {
-      if (was.screen !== "view" || views.some((v) => v.id === was.viewId)) return was;
-      writePlace(DEFAULT_PLACE);
-      return DEFAULT_PLACE;
-    });
-  }, [views]);
+    correctPlace((was) => (was.screen !== "view" || views.some((v) => v.id === was.viewId) ? was : DEFAULT_PLACE));
+  }, [views, correctPlace]);
   // Once the workspace is in, a remembered team or project it doesn't have goes back to the default.
   useEffect(() => {
     if (!ws) return;
-    setPlaceState((was) => {
+    correctPlace((was) => {
       const checked = checkPlace(was, ws);
-      if (JSON.stringify(checked) === JSON.stringify(was)) return was;
-      writePlace(checked);
-      return checked;
+      return JSON.stringify(checked) === JSON.stringify(was) ? was : checked;
     });
-  }, [ws]);
+  }, [ws, correctPlace]);
   const scope = placeScope(place);
   useEffect(() => {
     if (scope) loadPlace(scope, false).catch(() => {});
@@ -312,12 +343,17 @@ export function LinearView({
     watch.observe(view);
     return () => watch.disconnect();
   }, [view]);
-  // ⌘S, as in Conquer, and ⌘+ ⌘− ⌘0 (the text size): while Linear shows, the page has the keys.
+  // ⌘S, as in Conquer, ⌘[ ⌘] (back and forward) and ⌘+ ⌘− ⌘0 (the text size): while Linear shows, the page has the keys.
   useEffect(() => {
     const key = (e: KeyboardEvent) => {
       if (e.metaKey && !e.ctrlKey && !e.altKey && !e.shiftKey && e.key.toLowerCase() === "s") {
         e.preventDefault();
         toggleList();
+        return;
+      }
+      if (e.metaKey && !e.ctrlKey && !e.altKey && !e.shiftKey && (e.key === "[" || e.key === "]") && !modalOpen()) {
+        e.preventDefault();
+        goHistory(e.key === "[" ? -1 : 1);
         return;
       }
       const change = textSizeKey(e);
@@ -329,6 +365,8 @@ export function LinearView({
     window.addEventListener("keydown", key);
     const offs = [
       onAppCommand("linear-sidebar", toggleList),
+      onAppCommand("linear-back", () => goHistory(-1)),
+      onAppCommand("linear-forward", () => goHistory(1)),
       onAppCommand("linear-text-bigger", () => resizeText("bigger")),
       onAppCommand("linear-text-smaller", () => resizeText("smaller")),
       onAppCommand("linear-text-actual", () => resizeText("actual")),
@@ -412,10 +450,9 @@ export function LinearView({
   }, [undo]);
   /** Closes `key` if it's the open issue (it was archived or deleted). */
   const closeIssue = (key: string) =>
-    setPlaceState((was) => {
+    correctPlace((was) => {
       if (was.issue !== key) return was;
       const { issue: _, ...rest } = was;
-      writePlace(rest as LinearPlace);
       return rest as LinearPlace;
     });
   // The issue stays open until Linear has archived it; refused, it stays and the notice says why.
@@ -581,10 +618,12 @@ export function LinearView({
       undoKey,
       canSearch,
       views: JSON.parse(viewPlaces) as { id: string; name: string }[],
+      canBack,
+      canForward,
       ...(inboxUnread !== undefined ? { inboxUnread } : {}),
       ...(canSearch && listState?.key === listKey ? { list: { layout: listState.layout, filtered: listState.filtered } } : {}),
     });
-  }, [teamPlaces, viewPlaces, inboxUnread, undoKey, canSearch, listState, listKey, onViewState]);
+  }, [teamPlaces, viewPlaces, inboxUnread, canBack, canForward, undoKey, canSearch, listState, listKey, onViewState]);
   useEffect(() => () => onViewState?.(undefined), [onViewState]);
 
   if (!ws && (unavailable || workspaceError))
@@ -602,7 +641,8 @@ export function LinearView({
 
   const beside = wide;
   const openIssue = place.issue;
-  const open = (key: string) => setPlace({ ...place, issue: key });
+  // Moving through a list (↑/↓, J/K) changes the open issue in its history entry; choosing one is a new entry.
+  const open = (key: string, how?: "step") => setPlace({ ...place, issue: key }, how === "step");
   const close = () => {
     const { issue: _, ...rest } = place;
     setPlace(rest as LinearPlace);
@@ -642,7 +682,8 @@ export function LinearView({
           onListState={setListState}
           search={{
             value: place.query,
-            onChange: (query) => setPlace({ screen: "search", query }),
+            // Typing changes the search's history entry.
+            onChange: (query) => setPlace({ screen: "search", query }, true),
             label: "Search all issues in Linear",
             placeholder: "Search all issues",
           }}
@@ -754,6 +795,12 @@ export function LinearView({
       // A click on the view's background keeps the keyboard in it, for its keys.
       tabIndex={-1}
       onKeyDown={onKey}
+      // A mouse's back and forward buttons.
+      onMouseUp={(e) => {
+        if (e.button !== 3 && e.button !== 4) return;
+        e.preventDefault();
+        goHistory(e.button === 3 ? -1 : 1);
+      }}
     >
       <nav className="linear-sidebar" id="linear-sidebar" aria-label="Linear navigation" hidden={listHidden}>
         <Sidebar
@@ -764,6 +811,8 @@ export function LinearView({
           refreshing={refreshing}
           onCreate={ws ? createHere : undefined}
           onSearch={find}
+          onBack={canBack ? () => goHistory(-1) : undefined}
+          onForward={canForward ? () => goHistory(1) : undefined}
         />
         <div
           className="linear-resize"

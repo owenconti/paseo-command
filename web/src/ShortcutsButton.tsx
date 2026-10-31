@@ -91,6 +91,7 @@ const LINEAR: Group = {
     { keys: [["H"]], label: "Inbox: snooze the notification" },
     { keys: [["⌫"]], label: "Inbox: archive the notification" },
     { keys: [["⌘", "S"]], label: "Show or hide the sidebar" },
+    { keys: [["⌘", "["], ["⌘", "]"]], label: "Back or forward" },
     { keys: [["⌘", "+"], ["⌘", "−"]], label: "Bigger or smaller text" },
     { keys: [["⌘", "0"]], label: "Actual text size" },
     { keys: [["⌘", "Enter"]], label: "Send a comment, reply or edit" },

@@ -1,6 +1,8 @@
 import { useState, type ReactNode } from "react";
 import {
   ArrowDownToLine,
+  ArrowLeft,
+  ArrowRight,
   AtSign,
   Bell,
   Box,
@@ -72,6 +74,8 @@ export function Sidebar({
   refreshing,
   onCreate,
   onSearch,
+  onBack,
+  onForward,
 }: {
   place: LinearPlace;
   onPlace: (p: LinearPlace) => void;
@@ -82,6 +86,9 @@ export function Sidebar({
   onCreate?: () => void;
   /** Search the whole workspace. */
   onSearch: () => void;
+  /** Back and forward through where the tab has been; absent when there's nowhere to go. */
+  onBack?: () => void;
+  onForward?: () => void;
 }) {
   const teams = useLinear((d) => d.workspace?.teams);
   const views = useLinear((d) => d.views);
@@ -107,6 +114,12 @@ export function Sidebar({
     <>
       <header className="linear-sidebar-head">
         <h2>Linear</h2>
+        <button className="icon-btn" aria-label="Go back" data-tip="Back (⌘[)" disabled={!onBack} onClick={onBack}>
+          <ArrowLeft size={14} aria-hidden="true" />
+        </button>
+        <button className="icon-btn" aria-label="Go forward" data-tip="Forward (⌘])" disabled={!onForward} onClick={onForward}>
+          <ArrowRight size={14} aria-hidden="true" />
+        </button>
         <button
           className="icon-btn"
           aria-label="Search Linear"

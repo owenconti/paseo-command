@@ -1697,6 +1697,31 @@ function App() {
           },
         ]
       : []),
+    // Back and forward through where the Linear tab has been.
+    ...(integrations.linear && appMode === "linear" && linearView?.canBack
+      ? [
+          {
+            id: "linear-back",
+            group: "App",
+            label: "Go back (Linear)",
+            keys: [["⌘", "["]],
+            keywords: "linear back previous history return",
+            run: () => runAppCommand("linear-back"),
+          },
+        ]
+      : []),
+    ...(integrations.linear && appMode === "linear" && linearView?.canForward
+      ? [
+          {
+            id: "linear-forward",
+            group: "App",
+            label: "Go forward (Linear)",
+            keys: [["⌘", "]"]],
+            keywords: "linear forward next history",
+            run: () => runAppCommand("linear-forward"),
+          },
+        ]
+      : []),
     ...(integrations.linear && appMode === "linear" && linearView?.undoKey
       ? [
           {
