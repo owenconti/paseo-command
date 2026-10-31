@@ -93,3 +93,41 @@ test("no key: kind no-key, nothing sent", async () => {
   );
   assert.equal(seen.length, 0);
 });
+
+test("a RATELIMITED error is limited, with the reset time", async () => {
+  reply(
+    400,
+    { errors: [{ message: "Rate limit exceeded", extensions: { code: "RATELIMITED", userPresentableMessage: "Slow down" } }] },
+    budgetHeaders("0"),
+  );
+  await assert.rejects(
+    () => linearRequest("A", "query A { viewer { id } }", {}),
+    (e: unknown) => e instanceof LinearError && e.kind === "limited" && e.retryAt === 1793461871221,
+  );
+});
+
+test("a low complexity budget blocks a non-essential request", async () => {
+  reply(200, { data: {} }, { ...budgetHeaders("2400"), "x-ratelimit-complexity-remaining": "99999" });
+  await linearRequest("A", "query A { viewer { id } }", {});
+  await assert.rejects(
+    () => linearRequest("B", "query B { viewer { id } }", {}),
+    (e: unknown) => e instanceof LinearError && e.kind === "limited",
+  );
+  assert.equal(seen.length, 1);
+});
+
+test("HTTP 429 is limited", async () => {
+  reply(429, {}, budgetHeaders("0"));
+  await assert.rejects(
+    () => linearRequest("A", "query A { viewer { id } }", {}),
+    (e: unknown) => e instanceof LinearError && e.kind === "limited" && e.retryAt === 1793461871221,
+  );
+});
+
+test("a GraphQL AUTHENTICATION_ERROR is refused", async () => {
+  reply(200, { errors: [{ message: "x", extensions: { code: "AUTHENTICATION_ERROR" } }] });
+  await assert.rejects(
+    () => linearRequest("A", "query A { viewer { id } }", {}),
+    (e: unknown) => e instanceof LinearError && e.kind === "refused",
+  );
+});

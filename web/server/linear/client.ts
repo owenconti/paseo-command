@@ -71,10 +71,14 @@ type GraphQlError = {
 
 function errorFrom(errors: GraphQlError[]): LinearError {
   const first = errors[0] ?? {};
-  const type = first.extensions?.type ?? first.extensions?.code;
-  if (type === "AUTHENTICATION_ERROR" || type === "authentication error") {
+  const labels = [first.extensions?.code, first.extensions?.type].map((v) => (v ?? "").toLowerCase());
+  if (labels.includes("ratelimited")) {
+    return new LinearError("limited", "Linear's hourly limit is used up.", budget?.resetAt);
+  }
+  if (labels.includes("authentication_error") || labels.includes("authentication error")) {
     return new LinearError("refused", "Linear refused the API key.");
   }
+  const type = first.extensions?.type;
   const message = first.extensions?.userPresentableMessage || first.message || "Linear failed.";
   if (type === "InvalidInput" || first.extensions?.userPresentableMessage) {
     return new LinearError("invalid", message);
