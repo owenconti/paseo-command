@@ -23,7 +23,7 @@ const GROUPS: Group[] = [
       { keys: [["K"], ["↑"]], label: "Previous agent" },
       { keys: [["N"]], label: "Next agent that needs you" },
       { keys: [["F"]], label: "Fit the whole map" },
-      { keys: [["Esc"]], label: "Close the open layer, or go back" },
+      { keys: [["Esc"]], label: "Close the open layer, or go back (not from an agent)" },
       { keys: [["?"]], label: "Show these shortcuts" },
       { keys: [["B"]], label: "Open the mini games" },
       { keys: [["⌘", "K"]], label: "Command palette" },

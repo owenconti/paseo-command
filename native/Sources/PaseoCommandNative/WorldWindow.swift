@@ -27,8 +27,6 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
     let atlasView: AtlasView
     let scene: AtlasScene
     let options: Options
-    /// The map's Apple Music bar's player (`paseoMusic` messages).
-    let music = MusicController()
     private(set) var linearEnabled = false
     var nextMode: Mode {
         let modes: [Mode] = linearEnabled ? Mode.allCases : [.command, .conquer]
@@ -127,9 +125,6 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
             self?.web.evaluateJavaScript("window.dispatchEvent(new CustomEvent('paseo:command', { detail: 'toggle-panel' }))", completionHandler: nil)
         }
         configuration.userContentController.add(self, name: "paseoWorld")
-        configuration.userContentController.add(self, name: "paseoMusic")
-        music.send = { [weak self] reading in self?.send(reading, as: "paseo:music") }
-        music.visible = { [weak self] in self?.window.occlusionState.contains(.visible) ?? false }
         web.navigationDelegate = self
         web.uiDelegate = self
         window.delegate = self
@@ -169,20 +164,10 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         guard message.frameInfo.isMainFrame,
               WebOrigin.matches(scheme: sender.protocol, host: sender.host, port: sender.port, to: options.url) else { return }
         guard let body = message.body as? [String: Any], let type = body["type"] as? String else { return }
-        if message.name == "paseoMusic" {
-            switch type {
-            case "enabled": music.setEnabled(body["on"] as? Bool ?? false)
-            case "watch": music.watch(body["on"] as? Bool ?? false)
-            case "command": music.command(body["name"] as? String ?? "")
-            default: break
-            }
-            return
-        }
         switch type {
         case "integrations":
             linearEnabled = body["linear"] as? Bool == true
             modeBar.linearEnabled = linearEnabled
-            music.setEnabled(body["appleMusic"] as? Bool == true)
             if !linearEnabled && mode == .linear { show(.command) }
             else if linearEnabled && UserDefaults.standard.string(forKey: "mode") == "linear" { show(.linear) }
         case "art":

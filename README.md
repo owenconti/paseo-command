@@ -41,7 +41,7 @@ The map requires the macOS app; conversations and panels also work in a regular 
 
 ## Optional integrations
 
-**Linear, TypeSafe and Apple Music are off by default.** Open **Settings** from
+**Linear and TypeSafe are off by default.** Open **Settings** from
 ⌘K to enable the features you want. Each integration's API-key field and settings
 appear beneath its switch. Enter a key and choose **Save key**; saved keys show
 **Saved**, with **Replace…** and **Remove** controls. Saved key values are never
@@ -54,8 +54,7 @@ Integration choices are saved in
 {
   "integrations": {
     "linear": false,
-    "typesafe": false,
-    "appleMusic": false
+    "typesafe": false
   }
 }
 ```
@@ -81,8 +80,6 @@ choose **Restart app** in ⌘K to load your changes.
   agent replies and suggest answers. Its key field is beneath the TypeSafe
   switch. This sends reply excerpts to TypeSafe.
   Helper summaries and drafted answers use the daemon's configured model provider.
-- **Apple Music:** Enable Apple Music to show playback controls. No API key is
-  needed. macOS asks for Automation permission when the app first accesses Music.
 - **GitHub:** Install the [GitHub CLI](https://cli.github.com) and sign in with
   `gh auth login` for pull request and review status. The CLI manages its own login;
   Paseo Command does not need a GitHub API key.

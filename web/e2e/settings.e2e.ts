@@ -45,7 +45,6 @@ test("the gear opens every setting, and the radio's choice is kept", async () =>
     "Desktop notifications",
     "Linear",
     "TypeSafe",
-    "Apple Music",
   ])
     await dialog.getByText(label, { exact: true }).waitFor();
   const radio = dialog.getByRole("switch", { name: /Lofi radio/ });
@@ -73,7 +72,7 @@ test("the gear opens every setting, and the radio's choice is kept", async () =>
 test("API keys live under their integrations and can be saved, replaced and removed without readback", async () => {
   const context = await newContext(browser);
   const page = await context.newPage();
-  const file = { linearWorkspace: "acme", integrations: { linear: true, typesafe: true, appleMusic: false }, error: null };
+  const file = { linearWorkspace: "acme", integrations: { linear: true, typesafe: true }, error: null };
   const secretStatus = { configured: { linearApiKey: false, typesafeApiKey: false }, error: null };
   const values: Record<string, string> = {};
   const writes: any[] = [];
@@ -104,7 +103,7 @@ test("API keys live under their integrations and can be saved, replaced and remo
   assert.equal(await linear.getByLabel(/Linear workspace/).inputValue(), "acme");
   assert.equal(await typesafe.getByLabel("TypeSafe API key", { exact: true }).inputValue(), "");
   assert.equal(await dialog.getByRole("checkbox").count(), 0);
-  assert.equal(await dialog.getByRole("switch").count() >= 6, true);
+  assert.equal(await dialog.getByRole("switch").count() >= 5, true);
   if (process.env.KEY_SHOTS) {
     for (const colorScheme of ["light", "dark"] as const) {
       await page.emulateMedia({ colorScheme });
@@ -150,7 +149,7 @@ test("API keys live under their integrations and can be saved, replaced and remo
     { name: "linearApiKey", value: null },
   ]);
   assert.ok(!(await page.content()).includes("test-typesafe-saved"));
-  assert.deepEqual(file.integrations, { linear: true, typesafe: true, appleMusic: false });
+  assert.deepEqual(file.integrations, { linear: true, typesafe: true });
   await page.keyboard.press("Escape");
   await page.keyboard.press("Meta+k");
   const palette = page.getByRole("dialog", { name: "Command palette" });
@@ -194,7 +193,7 @@ test("the Linear workspace is kept in settings.json, moved there from this brows
   const page = await context.newPage();
   const file = {
     linearWorkspace: "",
-    integrations: { linear: true, typesafe: false, appleMusic: false },
+    integrations: { linear: true, typesafe: false },
     error: null,
   };
   const saved: unknown[] = [];
@@ -253,17 +252,12 @@ test("integrations opt in explicitly, persist, and stop their controls after opt
         if (message.type === "integrations") window.__integrationMessages.push(message);
         if (message.type === "art") setTimeout(() => window.dispatchEvent(new CustomEvent("paseo:world", { detail: { type: "ready" } })));
       } },
-      paseoMusic: { postMessage(message) {
-        window.__integrationMessages.push({ ...message, channel: "music" });
-        if (message.type === "watch" && message.on)
-          window.dispatchEvent(new CustomEvent("paseo:music", { detail: { state: "closed" } }));
-      } },
     } };
   })()`);
   const page = await context.newPage();
   const file = {
     linearWorkspace: "",
-    integrations: { linear: false, typesafe: false, appleMusic: false },
+    integrations: { linear: false, typesafe: false },
     error: null,
   };
   const writes: any[] = [];
@@ -290,7 +284,6 @@ test("integrations opt in explicitly, persist, and stop their controls after opt
   const dialog = page.getByRole("dialog", { name: "Settings" });
   const linear = dialog.getByRole("switch", { name: /^Linear / });
   const typesafe = dialog.getByRole("switch", { name: /^TypeSafe / });
-  const music = dialog.getByRole("switch", { name: /^Apple Music / });
   await waitFor(
     () => linear.isEnabled(),
     (v) => v,
@@ -298,23 +291,8 @@ test("integrations opt in explicitly, persist, and stop their controls after opt
   );
   assert.equal(await linear.isChecked(), false);
   assert.equal(await typesafe.isChecked(), false);
-  assert.equal(await music.isChecked(), false);
   assert.equal(asks, 0);
   assert.equal(await dialog.getByLabel(/Linear workspace/).count(), 0);
-  assert.equal(
-    await page
-      .getByRole("region", { name: "Apple Music", exact: true })
-      .count(),
-    0,
-  );
-  assert.equal(
-    await page.evaluate(() =>
-      (window as any).__integrationMessages.some(
-        (m: any) => m.channel === "music" && m.type === "watch" && m.on,
-      ),
-    ),
-    false,
-  );
   if (process.env.SHOT_DIR) {
     await page.screenshot({
       path: `${process.env.SHOT_DIR}/settings-desktop.png`,
@@ -333,31 +311,18 @@ test("integrations opt in explicitly, persist, and stop their controls after opt
     (n) => n > 0,
     "TypeSafe opt-in",
   );
-  await music.check();
-  await page
-    .getByRole("region", { name: "Apple Music", exact: true })
-    .waitFor();
   assert.deepEqual(writes, [
     { integrations: { linear: true } },
     { integrations: { typesafe: true } },
-    { integrations: { appleMusic: true } },
   ]);
   await page.reload();
   await page.getByRole("button", { name: "Settings", exact: true }).click();
   await waitFor(
-    () => music.isChecked(),
+    () => linear.isChecked(),
     (v) => v,
     "persisted opt-ins",
   );
-  assert.equal(await linear.isChecked(), true);
   assert.equal(await typesafe.isChecked(), true);
-  await music.uncheck();
-  await waitFor(
-    () =>
-      page.getByRole("region", { name: "Apple Music", exact: true }).count(),
-    (n) => n === 0,
-    "Music to stop",
-  );
   await linear.uncheck();
   await waitFor(
     () => dialog.getByLabel(/Linear workspace/).count(),
@@ -369,14 +334,12 @@ test("integrations opt in explicitly, persist, and stop their controls after opt
   assert.deepEqual(file.integrations, {
     linear: false,
     typesafe: false,
-    appleMusic: false,
   });
   await page.keyboard.press("Escape");
   await page.keyboard.press("Meta+k");
   const palette = page.getByRole("dialog", { name: "Command palette" });
   await palette.waitFor();
   assert.equal(await palette.getByRole("option", { name: "Show your Linear issues", exact: true }).count(), 0);
-  assert.equal(await palette.getByRole("option", { name: "Play or pause Apple Music", exact: true }).count(), 0);
   const search = palette.getByRole("combobox", { name: "Search commands" });
   await search.fill("Enable Linear");
   await palette.getByRole("option", { name: /^Enable Linear/ }).click();

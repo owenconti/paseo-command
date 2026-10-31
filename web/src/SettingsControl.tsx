@@ -314,11 +314,6 @@ function IntegrationSettings() {
             "TypeSafe",
             "Find questions and suggest replies. Sends reply excerpts to TypeSafe.",
           ],
-          [
-            "appleMusic",
-            "Apple Music",
-            "Playback controls. Requires macOS Automation permission.",
-          ],
         ] as const
       ).map(([name, label, description]) => (
         <section
@@ -344,7 +339,7 @@ function IntegrationSettings() {
               <small>{description}</small>
             </span>
           </label>
-          {integrations[name] && name !== "appleMusic" && (
+          {integrations[name] && (
             <div className="integration-fields">
               <ApiKeySetting
                 name={name === "linear" ? "linearApiKey" : "typesafeApiKey"}

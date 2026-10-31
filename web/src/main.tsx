@@ -49,7 +49,6 @@ import {
 import { SettingsControl } from "./SettingsControl";
 import { setSoundSettings, useSoundSettings } from "./sounds";
 import { setMusicSettings, useMusic } from "./music";
-import { musicAvailable, musicCommand } from "./MusicBar";
 import { setIntegration, useIntegrations } from "./integrationSettings";
 import { openPresetEditor } from "./presetsStore";
 import { copyText } from "./nativePlatform";
@@ -924,9 +923,10 @@ function App() {
           ].some((layer) => !layer.closest("[inert]"))
         )
           return;
-        // A subagent's conversation goes back to its agent's, then the fleet.
+        // A subagent's conversation goes back to its agent's; an agent's
+        // conversation stays open.
         if (selection?.subagent) select({ ...selection, subagent: undefined });
-        else if (selection) select(null);
+        else if (selection && selection.type !== "agent") select(null);
       } else if (key === "d") {
         e.preventDefault();
         openDispatch();
@@ -1812,7 +1812,6 @@ function App() {
           [
             ["linear", "Linear"],
             ["typesafe", "TypeSafe"],
-            ["appleMusic", "Apple Music"],
           ] as const
         ).map(([name, label]) => ({
           id: `integration-${name}`,
@@ -1854,21 +1853,6 @@ function App() {
       keywords: "music stream audio",
       run: () => setMusicSettings({ enabled: !radio.enabled }),
     },
-    ...(integrations.appleMusic && musicAvailable()
-      ? (
-          [
-            ["playpause", "Play or pause Apple Music"],
-            ["next", "Next track in Apple Music"],
-            ["previous", "Previous track in Apple Music"],
-          ] as const
-        ).map(([name, label]) => ({
-          id: `music-${name}`,
-          group: "App",
-          label,
-          keywords: "music song skip",
-          run: () => musicCommand(name),
-        }))
-      : []),
     {
       id: "games",
       group: "App",

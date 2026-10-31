@@ -104,7 +104,7 @@ sign() {
   fi
 }
 # Release signing adds the hardened runtime and timestamps ($hardened, empty for dev), and the
-# entitlements that runtime needs: JIT for Node, Apple Events (Music) for the app.
+# entitlements that runtime needs: JIT for Node.
 sign "$app/Contents/Resources/node/node" $hardened --entitlements "$here/entitlements/node.plist"
 sparkle="$app/Contents/Frameworks/Sparkle.framework/Versions/B"
 sign "$sparkle/XPCServices/Installer.xpc" -o runtime ${hardened:+--timestamp}
@@ -112,5 +112,5 @@ sign "$sparkle/XPCServices/Downloader.xpc" -o runtime ${hardened:+--timestamp} -
 sign "$sparkle/Autoupdate" -o runtime ${hardened:+--timestamp}
 sign "$sparkle/Updater.app" -o runtime ${hardened:+--timestamp}
 sign "$app/Contents/Frameworks/Sparkle.framework" -o runtime ${hardened:+--timestamp}
-sign "$app" $hardened --entitlements "$here/entitlements/app.plist"
+sign "$app" $hardened
 echo "$app"

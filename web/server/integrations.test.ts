@@ -99,14 +99,13 @@ test("integration choices validate booleans and preserve other settings", () => 
     linearWorkspace: "acme",
   });
   saveAppSettings({ integrations: { linear: true } });
-  saveAppSettings({ integrations: { appleMusic: true } });
+  saveAppSettings({ integrations: { typesafe: true } });
   assert.deepEqual(appSettings().integrations, {
     linear: true,
-    typesafe: false,
-    appleMusic: true,
+    typesafe: true,
   });
   assert.equal(appSettings().linearWorkspace, "acme");
-  for (const integrations of [null, [], { linear: "true" }, { unknown: true }])
+  for (const integrations of [null, [], { linear: "true" }, { unknown: true }, { appleMusic: true }])
     assert.throws(() => saveAppSettings({ integrations }), /Invalid/);
   writeFileSync(settingsFile(), "{invalid");
   assert.equal(integrationEnabled("linear"), false);
