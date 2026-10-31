@@ -1,0 +1,467 @@
+/* ── Activity tab ───────────────────────────────────────────────────────
+   In the map's place while the macOS app's mode bar shows Activity, as the
+   Linear tab is: filters in a sidebar, the feed, the selected item beside it.
+   Opaque, over the map's frame. */
+.activity-view {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  display: grid;
+  /* Columns are set inline: the preview shows beside the feed from 1,100 px. */
+  grid-template-columns: 220px minmax(0, 1fr);
+  min-height: 0;
+  background: var(--surface);
+  color: var(--text);
+  font-size: var(--fs-md);
+}
+/* Dark: the Linear tab's neutral near-black greys instead of the Galaxy theme's navy. */
+:root[data-theme="galaxy"] .activity-view {
+  --bg: #08090a;
+  --panel: #0c0d0f;
+  --panel-2: #0a0b0c;
+  --surface: #121315;
+  --panel-raised: #1a1b1e;
+  --input-bg: #0e0f11;
+  --fill-soft: #151619;
+  --fill: #1a1b1e;
+  --fill-strong: #26272b;
+  --row-hover: #1a1b1e;
+  --row-selected: #25231f;
+  --line-soft: #1c1d20;
+  --line: #25262a;
+  --line-mid: #2f3034;
+  --line-strong: #3c3d42;
+  --line-hover: #5a5b61;
+  --scrollbar: #393a3f;
+  --text: #d5d6d9;
+  --text-strong: #f3f3f4;
+  --text-2: #c2c3c7;
+  --text-mid: #aaabb1;
+  --text-3: #999aa0;
+  --text-4: #84858c;
+  --text-faint: #65666c;
+  --icon-muted: #8d8e95;
+  scrollbar-color: var(--scrollbar) var(--panel);
+}
+/* It takes focus only to keep its keys (a click on its background): no ring. */
+.activity-view:focus {
+  outline: none;
+}
+.activity-count {
+  margin-left: auto;
+  padding-left: 6px;
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-medium);
+  color: var(--text-4);
+  font-variant-numeric: tabular-nums;
+}
+.activity-note {
+  margin: var(--space-4);
+  font-size: var(--fs-sm);
+  color: var(--text-3);
+}
+
+/* The sidebar: the filters */
+.activity-sidebar {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  border-right: 1px solid var(--line);
+  background: var(--panel);
+}
+.activity-sidebar-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-3) var(--space-2) var(--space-1) var(--space-4);
+}
+.activity-sidebar-head h2 {
+  flex: 1;
+  margin: 0;
+  font-size: var(--fs-md);
+  font-weight: var(--fw-semibold);
+  color: var(--text-strong);
+}
+.activity-nav {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--space-2) var(--space-2) var(--space-4);
+}
+.activity-nav h3 {
+  margin: var(--space-3) var(--space-2) var(--space-1);
+  font-size: var(--fs-2xs);
+  font-weight: var(--fw-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-4);
+}
+.activity-nav-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  height: 28px;
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-md);
+  background: transparent;
+  text-align: left;
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-medium);
+  color: var(--text-2);
+}
+.activity-nav-item svg {
+  flex-shrink: 0;
+  color: var(--icon-muted);
+}
+.activity-nav-item:hover {
+  background: var(--row-hover);
+  color: var(--text);
+}
+.activity-nav-item.selected {
+  background: var(--row-selected);
+  color: var(--text-strong);
+}
+.activity-nav-item.selected svg {
+  color: var(--accent-text);
+}
+.activity-nav-item:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: -2px;
+}
+.activity-nav-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.activity-source-reason {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin: 2px var(--space-2) var(--space-2) calc(var(--space-2) + 14px + var(--space-2));
+  font-size: var(--fs-xs);
+  line-height: 1.35;
+  color: var(--amber-text);
+}
+.activity-source-reason svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+/* The feed */
+.activity-main {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+.activity-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 44px;
+  padding: var(--space-3) var(--space-3) 0 var(--space-4);
+}
+.activity-head h2 {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+  margin: 0;
+  font-size: var(--fs-lg);
+  font-weight: var(--fw-semibold);
+  color: var(--text-strong);
+}
+.activity-head h2 .activity-count {
+  margin-left: 6px;
+}
+.activity-tool {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: var(--control-sm);
+  padding: 0 var(--space-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: transparent;
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-medium);
+  color: var(--text-2);
+}
+.activity-tool:hover {
+  border-color: var(--line-hover);
+  color: var(--text);
+}
+.activity-banner {
+  margin: var(--space-3) var(--space-4) 0;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--amber-line);
+  border-radius: var(--radius-md);
+  background: var(--amber-soft);
+  font-size: var(--fs-sm);
+  color: var(--amber-text);
+}
+.activity-groups {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--space-2) var(--space-2) var(--space-6);
+}
+.activity-group h3 {
+  position: sticky;
+  top: calc(-1 * var(--space-2));
+  z-index: 1;
+  margin: 0;
+  padding: var(--space-3) var(--space-2) var(--space-1);
+  background: var(--surface);
+  font-size: var(--fs-2xs);
+  font-weight: var(--fw-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-4);
+}
+.activity-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 52px;
+  padding: var(--space-2);
+  border-radius: var(--radius-md);
+  font-size: var(--fs-sm);
+  color: var(--text-2);
+  cursor: pointer;
+}
+.activity-row:hover {
+  background: var(--row-hover);
+}
+.activity-row.selected {
+  background: var(--row-selected);
+}
+.activity-row:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: -2px;
+}
+.activity-dot {
+  flex-shrink: 0;
+  width: 7px;
+  height: 7px;
+  border-radius: var(--radius-pill);
+}
+.activity-row.unread .activity-dot {
+  background: var(--accent);
+}
+.activity-source-icon {
+  flex-shrink: 0;
+  color: var(--icon-muted);
+}
+.activity-subject {
+  display: inline-grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 16px;
+  color: var(--text-3);
+}
+.activity-subject.open,
+.activity-state.open {
+  color: var(--green-text);
+}
+.activity-subject.merged,
+.activity-state.merged {
+  color: var(--accent-text);
+}
+.activity-subject.closed,
+.activity-state.closed {
+  color: var(--red-text);
+}
+.activity-subject.draft,
+.activity-state.draft {
+  color: var(--text-4);
+}
+.activity-text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.activity-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-2);
+}
+.activity-row.unread .activity-title {
+  font-weight: var(--fw-semibold);
+  color: var(--text-strong);
+}
+.activity-sub {
+  display: flex;
+  gap: var(--space-2);
+  min-width: 0;
+  font-size: var(--fs-xs);
+  color: var(--text-4);
+}
+.activity-what {
+  flex-shrink: 0;
+  color: var(--text-3);
+}
+.activity-subtitle {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.activity-actor {
+  display: inline-grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  overflow: hidden;
+  border-radius: var(--radius-pill);
+  background: var(--fill-strong);
+  font-size: 9px;
+  font-weight: var(--fw-semibold);
+  color: var(--text-2);
+}
+.activity-actor img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.activity-time {
+  flex-shrink: 0;
+  min-width: 36px;
+  text-align: right;
+  font-size: var(--fs-xs);
+  color: var(--text-4);
+  font-variant-numeric: tabular-nums;
+}
+.activity-actions {
+  display: none;
+  flex-shrink: 0;
+  gap: 2px;
+}
+.activity-row:hover .activity-actions,
+.activity-row:focus-within .activity-actions {
+  display: inline-flex;
+}
+.activity-row:hover .activity-time,
+.activity-row:focus-within .activity-time {
+  display: none;
+}
+
+/* The selected item, beside the feed */
+.activity-preview {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--space-4);
+  border-left: 1px solid var(--line);
+  background: var(--surface);
+}
+.activity-preview-source {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-medium);
+  color: var(--text-3);
+}
+.activity-preview h2 {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  margin: 0;
+  font-size: var(--fs-lg);
+  font-weight: var(--fw-semibold);
+  line-height: 1.3;
+  color: var(--text-strong);
+  overflow-wrap: anywhere;
+}
+.activity-preview h2 .activity-subject {
+  margin-top: 3px;
+}
+.activity-preview-subtitle {
+  margin: 0;
+  font-size: var(--fs-sm);
+  line-height: 1.45;
+  color: var(--text-2);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.activity-preview-facts {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: var(--space-1) var(--space-3);
+  margin: 0;
+  font-size: var(--fs-sm);
+}
+.activity-preview-facts dt {
+  color: var(--text-4);
+}
+.activity-preview-facts dd {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  color: var(--text-2);
+}
+.activity-state {
+  text-transform: capitalize;
+}
+.activity-preview-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.activity-preview-actions button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.activity-preview-keys {
+  margin: 0;
+  font-size: var(--fs-xs);
+  color: var(--text-4);
+}
+.activity-preview-keys kbd {
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+}
+
+/* Nothing to show yet */
+.activity-empty {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: var(--space-6);
+  text-align: center;
+  color: var(--text-3);
+}
+.activity-empty h2 {
+  margin: 0;
+  font-size: var(--fs-lg);
+  color: var(--text-strong);
+}
+.activity-empty p {
+  max-width: 420px;
+  margin: 0 0 var(--space-2);
+  font-size: var(--fs-sm);
+}
+.activity-empty .secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}

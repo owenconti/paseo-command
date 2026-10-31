@@ -418,7 +418,8 @@ export function gh(cwd: string, args: string[]) {
       },
       (error, stdout, stderr) =>
         error
-          ? fail(Object.assign(error, { stderr: String(stderr ?? "") }))
+          ? // stdout too: a GraphQL answer with errors for some items exits non-zero with the rest of its data.
+            fail(Object.assign(error, { stderr: String(stderr ?? ""), stdout: String(stdout ?? "") }))
           : done(stdout),
     ),
   );

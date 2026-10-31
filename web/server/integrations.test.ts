@@ -18,6 +18,16 @@ import { linearWrite } from "./linear/writes";
 import { LINEAR, linearIssue, resetLinks } from "./links";
 import { createAsksService, type Judge } from "./asks";
 import { DEFAULT_INTEGRATIONS } from "../src/integrations";
+import { SLACK, SlackError, DISABLED as SLACK_DISABLED } from "./slack/client";
+import { noteSlackDemand } from "./slack/events";
+import { resetSlack } from "./slack/fake";
+import { slackAvatar, slackEmoji, slackFile, slackImage } from "./slack/files";
+import { readHistory, readSearch, readWorkspace as readSlackWorkspace } from "./slack/reads";
+import { slackRoute } from "./slack/route";
+import { tickSlackUnreads } from "./slack/unreads";
+import { slackWrite } from "./slack/writes";
+import { uploadToSlack } from "./slack/upload";
+import { readSlackActivity } from "./activity/slack";
 
 const file = () => join(dataDir(), "secrets.json");
 const secrets = (value: unknown) => {
@@ -102,6 +112,8 @@ test("integration choices validate booleans and preserve other settings", () => 
   saveAppSettings({ integrations: { typesafe: true } });
   assert.deepEqual(appSettings().integrations, {
     linear: true,
+    slack: false,
+    github: false,
     typesafe: true,
   });
   assert.equal(appSettings().linearWorkspace, "acme");
@@ -194,4 +206,54 @@ test("TypeSafe opt-out prevents a pending judgment from starting drafted answers
   saveAppSettings({ integrations: { typesafe: true } });
   assert.equal(service.request(client as never, "local", agent as never).pending, true,
     "opting back in can judge the same reply instead of keeping an abandoned pending entry");
+});
+
+test("Slack stays off with saved tokens: no read, write, file, socket or Activity reaches it", async () => {
+  secrets({ slackUserToken: "xoxp-test", slackAppToken: "xapp-test" });
+  assert.equal(appSettings().integrations.slack, false);
+  assert.equal(integrationKey("slack"), undefined);
+  assert.equal(integrationKey("slackApp"), undefined);
+  const realFetch = SLACK.fetch;
+  const realConnect = SLACK.connect;
+  let contacted = 0;
+  SLACK.fetch = (async () => {
+    contacted++;
+    throw new Error("Slack must not be contacted");
+  }) as typeof fetch;
+  SLACK.connect = () => {
+    contacted++;
+    throw new Error("Slack must not be contacted");
+  };
+  try {
+    resetSlack();
+    const disabled = (e: unknown) => e instanceof SlackError && e.kind === "no-key" && e.message === SLACK_DISABLED;
+    await assert.rejects(() => readSlackWorkspace(), disabled);
+    await assert.rejects(() => readHistory("C0GENERAL"), disabled);
+    await assert.rejects(() => readSearch("x"), disabled);
+    await assert.rejects(() => slackWrite("post", { conversationId: "C0GENERAL", markdown: "hi" }), disabled);
+    await assert.rejects(() => uploadToSlack(Buffer.from("x"), "a", "text/plain"), disabled);
+    await assert.rejects(() => readSlackActivity(), disabled);
+    assert.equal((await slackImage("https://files.slack.com/files-pri/T-F/x.png")).status, 404);
+    assert.equal((await slackFile("https://files.slack.com/files-pri/T-F/x.pdf")).status, 404);
+    assert.equal((await slackAvatar("U0SAM")).status, 404);
+    assert.equal((await slackEmoji("parrot")).status, 404);
+    noteSlackDemand();
+    assert.equal(await tickSlackUnreads(), undefined);
+    for (const path of ["q/workspace", "q/unreads", "q/history?conversation=C0GENERAL", "events"]) {
+      let answer: { status: number; body: any } | undefined;
+      await slackRoute(
+        { method: "GET", headers: {} } as never,
+        new URL(`/api/slack/${path}`, "http://localhost"),
+        {} as never,
+        (status, body) => (answer = { status, body }),
+      );
+      assert.deepEqual(answer, { status: 200, body: { available: false, reason: SLACK_DISABLED } }, path);
+    }
+    await new Promise((r) => setTimeout(r, 20));
+    assert.equal(contacted, 0);
+  } finally {
+    resetSlack();
+    SLACK.fetch = realFetch;
+    SLACK.connect = realConnect;
+  }
 });

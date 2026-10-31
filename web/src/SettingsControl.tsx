@@ -33,7 +33,7 @@ export function SettingsControl({
   const trigger = useRef<HTMLButtonElement>(null);
   const toggle = useRef<HTMLInputElement>(null);
   const [focusOnOpen, setFocusOnOpen] = useState(false);
-  const [keyTarget, setKeyTarget] = useState<"linear" | "typesafe" | null>(
+  const [keyTarget, setKeyTarget] = useState<"linear" | "slack" | "typesafe" | null>(
     null,
   );
   const id = useId();
@@ -41,7 +41,7 @@ export function SettingsControl({
   // with focus inside so Escape closes them again.
   // So does the command palette's Settings.
   useEffect(() => {
-    const show = (target: "linear" | "typesafe" | null = null) => {
+    const show = (target: "linear" | "slack" | "typesafe" | null = null) => {
       setKeyTarget(target);
       setOpen(true);
       setFocusOnOpen(true);
@@ -51,6 +51,7 @@ export function SettingsControl({
     });
     const offCommand = onAppCommand("show-settings", () => show());
     const offLinear = onAppCommand("manage-linear-key", () => show("linear"));
+    const offSlack = onAppCommand("manage-slack-key", () => show("slack"));
     const offTypesafe = onAppCommand("manage-typesafe-key", () =>
       show("typesafe"),
     );
@@ -58,6 +59,7 @@ export function SettingsControl({
       offMenu();
       offCommand();
       offLinear();
+      offSlack();
       offTypesafe();
     };
   }, []);
@@ -309,6 +311,12 @@ function IntegrationSettings() {
       {(
         [
           ["linear", "Linear", "Your assigned issues and links."],
+          ["slack", "Slack", "Your channels, messages and threads, as you."],
+          [
+            "github",
+            "GitHub",
+            "Your GitHub notifications in Activity, through gh.",
+          ],
           [
             "typesafe",
             "TypeSafe",
@@ -339,18 +347,37 @@ function IntegrationSettings() {
               <small>{description}</small>
             </span>
           </label>
-          {integrations[name] && (
+          {integrations[name] && name !== "github" && (
             <div className="integration-fields">
-              <ApiKeySetting
-                name={name === "linear" ? "linearApiKey" : "typesafeApiKey"}
-                label={label}
-                status={secrets}
-                onSaved={(status) => {
-                  secretVersion.current++;
-                  setSecrets(status);
-                }}
-              />
+              {(name === "slack"
+                ? ([
+                    ["slackUserToken", "User token", "xoxp-…"],
+                    ["slackAppToken", "App token (Socket Mode)", "xapp-…"],
+                  ] as const)
+                : ([
+                    [name === "linear" ? "linearApiKey" : "typesafeApiKey", "API key", "Enter API key"],
+                  ] as const)
+              ).map(([key, title, placeholder]) => (
+                <ApiKeySetting
+                  key={key}
+                  name={key}
+                  label={label}
+                  title={title}
+                  placeholder={placeholder}
+                  status={secrets}
+                  onSaved={(status) => {
+                    secretVersion.current++;
+                    setSecrets(status);
+                  }}
+                />
+              ))}
               {name === "linear" && <LinearWorkspaceSetting />}
+              {name === "slack" && (
+                <small className="integration-note">
+                  From your own Slack app: its user OAuth token, and an app-level token with
+                  connections:write for live messages (without it, Slack is checked every 20 s).
+                </small>
+              )}
             </div>
           )}
         </section>

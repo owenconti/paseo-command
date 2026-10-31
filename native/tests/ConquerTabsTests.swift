@@ -4,19 +4,24 @@ _ = NSApplication.shared
 NSApp.setActivationPolicy(.accessory)
 enum Log { static func line(_ message: String) {} }
 let fixture = URL(string: CommandLine.arguments.last!)!
-// The optional Linear tab is absent until explicitly enabled.
+// The optional Linear, Slack and Activity tabs are absent until explicitly enabled;
+// Activity's tab carries its unread count.
 do {
     let bar = ModeBar(frame: CGRect(x: 0, y: 0, width: 900, height: 32))
-    func findLinear(_ view: NSView) -> NSButton? {
-        if let button = view as? NSButton, button.title.trimmingCharacters(in: .whitespaces) == "Linear" { return button }
-        return view.subviews.compactMap(findLinear).first
+    func find(_ title: String, in view: NSView) -> NSButton? {
+        if let button = view as? NSButton, button.title.trimmingCharacters(in: .whitespaces).hasPrefix(title) { return button }
+        return view.subviews.compactMap { find(title, in: $0) }.first
     }
-    let linear = findLinear(bar)!
-    assert(linear.isHidden)
-    bar.linearEnabled = true
-    assert(!linear.isHidden)
-    bar.linearEnabled = false
-    assert(linear.isHidden)
+    let linear = find("Linear", in: bar)!, slack = find("Slack", in: bar)!, activity = find("Activity", in: bar)!
+    assert(linear.isHidden && slack.isHidden && activity.isHidden)
+    bar.enabled = [.linear, .activity]
+    assert(!linear.isHidden && slack.isHidden && !activity.isHidden)
+    bar.activityUnread = 4
+    assert(activity.title.hasSuffix("4"))
+    bar.activityUnread = 0
+    assert(activity.title.trimmingCharacters(in: .whitespaces) == "Activity")
+    bar.enabled = []
+    assert(linear.isHidden && slack.isHidden && activity.isHidden)
 }
 func browser() -> ConquerView { ConquerView(frame: CGRect(x: 0, y: 0, width: 900, height: 600), persistent: false) }
 func pin(_ browser: ConquerView, name: String = "Pinned") -> BrowserTab {

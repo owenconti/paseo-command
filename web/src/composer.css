@@ -1403,6 +1403,14 @@
 .api-key-setting form .api-key-actions { flex-shrink: 0; }
 .api-key-actions button { font-size: var(--fs-xs); }
 .api-key-setting .integration-error { margin: 8px 0 0; }
+.integration-fields .api-key-setting + .api-key-setting { margin-top: 12px; }
+.integration-note {
+  display: block;
+  margin-top: 10px;
+  color: var(--text-3);
+  font-size: var(--fs-2xs);
+  line-height: 1.4;
+}
 @media (max-width: 600px) {
   .panel-tools .settings-menu.right {
     position: fixed;

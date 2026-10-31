@@ -18,6 +18,8 @@ import { replyAsks } from "../asks";
 import { probeRoute } from "../probe";
 import { hostStatsRoute } from "../hostStats";
 import { linearRoute } from "../linear/route";
+import { slackRoute } from "../slack/route";
+import { activityRoute } from "../activity/route";
 import {
   concludeFork,
   createFork,
@@ -157,6 +159,10 @@ export async function handleApi(
   }
   // The Linear tab: named reads from Linear, never the daemon; uploaded images load only with the API key.
   if (url.pathname.startsWith("/api/linear/")) return linearRoute(req, url, res, reply);
+  // The Slack tab: named reads and writes with the user token, private files through the server, live events.
+  if (url.pathname.startsWith("/api/slack/")) return slackRoute(req, url, res, reply);
+  // The Activity tab: GitHub, Linear and Slack notifications in one feed, never the daemon.
+  if (url.pathname === "/api/activity" || url.pathname.startsWith("/api/activity/")) return activityRoute(req, url, reply);
   // The mini games' record: this app's own file, never the daemon.
   if (url.pathname === "/api/games" || url.pathname.startsWith("/api/games/"))
     return gamesRoute(req, url.pathname, reply);

@@ -3,15 +3,18 @@ import ImageIO
 import WebKit
 
 /// What stands in the map's place: the map (Command), the Conquer browser,
-/// or the page's Linear issues (Linear).
+/// or what the page draws itself: your Linear issues, Slack, and Activity
+/// (GitHub, Linear and Slack notifications together).
 enum Mode: String, CaseIterable {
-    case command, conquer, linear
+    case command, conquer, linear, slack, activity
 
     var title: String {
         switch self {
         case .command: "Command"
         case .conquer: "Conquer"
         case .linear: "Linear"
+        case .slack: "Slack"
+        case .activity: "Activity"
         }
     }
     var symbol: String {
@@ -19,18 +22,19 @@ enum Mode: String, CaseIterable {
         case .command: "map"
         case .conquer: "globe"
         case .linear: "checklist"
+        case .slack: "bubble.left.and.bubble.right"
+        case .activity: "bell"
         }
     }
-    /// The next tab round, as ⌘` steps: Command, Conquer, Linear, then Command again.
-    var next: Mode {
-        let all = Mode.allCases
-        return all[(all.firstIndex(of: self)! + 1) % all.count]
-    }
+    /// The page draws it over the map (the mode bar shows it only while its integration is on).
+    var drawnByPage: Bool { self == .linear || self == .slack || self == .activity }
     var tip: String {
         switch self {
         case .command: "The map (⌘`)"
         case .conquer: "The browser, in the map's place (⌘`)"
         case .linear: "Your Linear issues, in the map's place (⌘`)"
+        case .slack: "Slack, in the map's place (⌘`)"
+        case .activity: "GitHub, Linear and Slack notifications together, in the map's place (⌘`)"
         }
     }
 }
@@ -51,14 +55,17 @@ final class ModeButton: NSButton {
 }
 
 /// The strip across the top of the window that switches the map's place between the map (Command),
-/// the browser (Conquer) and your Linear issues (Linear); ⌘` steps through them in turn.
+/// the browser (Conquer), your Linear issues (Linear), Slack and Activity; ⌘` steps through them in turn.
 /// It stands in for the hidden title bar: the traffic lights sit at its left, it drags the
 /// window, and it says when a newer build is ready. It is the same surface as the
 /// chrome under it (the page's panel header, Conquer's sidebar), with no line between them,
 /// and its tabs are a small segmented control rather than a tab bar.
 final class ModeBar: NSView {
     var onSelect: ((Mode) -> Void)?
-    var linearEnabled = false { didSet { buttons.first { $0.0 == .linear }?.1.isHidden = !linearEnabled } }
+    /// The page's tabs whose integration is on (Command and Conquer always show).
+    var enabled: Set<Mode> = [] { didSet { for (mode, button) in buttons { button.isHidden = mode.drawnByPage && !enabled.contains(mode) } } }
+    /// Activity's unread notifications, shown on its tab.
+    var activityUnread = 0 { didSet { if activityUnread != oldValue { restyle() } } }
     var mode: Mode = .command { didSet { restyle() } }
     /// Where the tabs start: past the traffic lights.
     var leading: CGFloat = 0 { didSet { rowLeading?.constant = leading } }
@@ -97,7 +104,7 @@ final class ModeBar: NSView {
                 button.heightAnchor.constraint(equalToConstant: 20),
                 button.widthAnchor.constraint(greaterThanOrEqualToConstant: 92),
             ])
-            button.isHidden = mode == .linear && !linearEnabled
+            button.isHidden = mode.drawnByPage
             track.addArrangedSubview(button)
         }
         addSubview(track)
@@ -151,10 +158,18 @@ final class ModeBar: NSView {
             button.layer?.shadowOffset = CGSize(width: 0, height: -0.5)
             let ink = Ink.color(on ? Ink.strong : button.hovered ? Ink.mid : Ink.off, look)
             button.contentTintColor = ink
-            button.attributedTitle = NSAttributedString(string: " \(mode.title)", attributes: [
+            let title = NSMutableAttributedString(string: " \(mode.title)", attributes: [
                 .font: NSFont.systemFont(ofSize: 12, weight: on ? .semibold : .medium),
                 .foregroundColor: ink,
             ])
+            if mode == .activity && activityUnread > 0 {
+                title.append(NSAttributedString(string: "  \(activityUnread > 99 ? "99+" : String(activityUnread))", attributes: [
+                    .font: NSFont.monospacedDigitSystemFont(ofSize: 11, weight: .semibold),
+                    .foregroundColor: Ink.color(Ink.accent, look),
+                ]))
+            }
+            button.attributedTitle = title
+            button.toolTip = mode == .activity && activityUnread > 0 ? "\(activityUnread) unread · \(mode.tip)" : mode.tip
         }
     }
 }

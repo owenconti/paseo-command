@@ -1,11 +1,17 @@
 import { integrationSettings, type Integration } from "../src/integrations";
 import { readSettings } from "./settings";
-import { readSecret } from "./secrets";
+import { readSecret, type SecretName } from "./secrets";
 
 export const integrationEnabled = (name: Integration) =>
   integrationSettings(readSettings()?.integrations)[name];
 
-export const integrationKey = (name: "linear" | "typesafe") =>
-  integrationEnabled(name)
-    ? readSecret(name === "linear" ? "linearApiKey" : "typesafeApiKey")
-    : undefined;
+const KEYS = {
+  linear: "linearApiKey",
+  typesafe: "typesafeApiKey",
+  slack: "slackUserToken",
+  slackApp: "slackAppToken",
+} as const satisfies Record<string, SecretName>;
+
+/** A credential from secrets.json, only while its integration is enabled ("slackApp" is Slack's Socket Mode token). */
+export const integrationKey = (name: keyof typeof KEYS) =>
+  integrationEnabled(name === "slackApp" ? "slack" : name) ? readSecret(KEYS[name]) : undefined;

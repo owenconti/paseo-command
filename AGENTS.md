@@ -222,7 +222,7 @@ and GitHub publication; report the published version and release link.
 - Auto-merge: a PR's `autoMerge` comes from Paseo's GitHub facts (`autoMergeRequest`), else gh's (`web/server/links.ts`).
   While it's on, a teal seal with a merge mark sits on the review medallion's upper-right rim, else the CI one's (`placeSeals`,
   `paintSeal`, `AUTO_MERGE` in `rendering/src/prStatus.ts`); the medallion's hover card says how it merges and who turned it on.
-- Conquer (experiment): the COMMAND / CONQUER strip across the macOS app's top (⌘` steps Command → Conquer → Linear; View menu; the tabs light on hover)
+- Conquer (experiment): the COMMAND / CONQUER strip across the macOS app's top (⌘` steps Command → Conquer → Linear → Slack → Activity, those enabled; View menu; the tabs light on hover)
   switches the map's place between the map and Conquer, a WebKit browser (`native/Sources/PaseoCommandNative/Conquer.swift`),
   laid exactly over the map (`placeConquer` in `WorldWindow.swift`): the panels and terminal stay, and ⌘B (the page's panel toggle)
   gives it the window's width. The hidden side keeps running. Conquer takes its keys only while it has the keyboard (`hasKeyFocus`),
@@ -236,7 +236,7 @@ and GitHub publication; report the published version and release link.
   optionally seeded after confirmation through Conquer → Import Zen Cookies from Zen Browser's profile (`ZenCookies.swift`): a copy of
   `cookies.sqlite`, default space only, unpartitioned and unexpired; Zen is never written to. Its tabs (`conquerState`), sidebar width, zooms,
   history (`conquer-history.json` in the app's data folder, `~/Library/Application Support/Paseo Command/` for the release) and the mode come back on launch; tabs come back unloaded.
-- Linear (the mode bar's third tab, after Command and Conquer; View menu; palette "Show your Linear issues"; all only while Linear is enabled): a Linear client the page
+- Linear (the mode bar's third tab, after Command and Conquer and before Slack and Activity; View menu; palette "Show your Linear issues"; all only while Linear is enabled): a Linear client the page
   draws (`web/src/linear/LinearView.tsx`) over the map's frame while the app reports `paseo:mode` `linear` (`useAppMode`, `web/src/appMode.ts`;
   the page asks with a `mode` message). Navigation: its sidebar (`Sidebar.tsx`) is Linear's: Inbox (`Inbox.tsx`, `inboxRows.ts`; its unread rows counted in the sidebar; ⌘K "Go to your Linear inbox"): your notifications from `q/notifications` (250 a page, up to the 500 most recently updated, then a note saying so; asked again once archiving leaves it 50 below), kept current by sync, an issue's (or project's) in one row, newest first; a row opens its issue (beside) or project and is read from then; U marks it read or unread, H snoozes it (an hour, tomorrow at 9, next Monday at 9; Snoozed lists those, each to unsnooze), ⌫ archives it with Undo; Mark all read (and ⌘K) takes every unread row. Its writes act on a row's notifications together (Linear's `notification…All` by issue, project or one id, and `notificationUnarchive` for Undo), shown at once and put back if Linear refuses. Search (its head's search button, ⌘K "Search all Linear issues": every issue in the workspace matching the words, most relevant first, from `q/search`, Linear's `searchIssues`, asked 300 ms after typing pauses, from two characters, and kept as the place; the server keeps under Linear's 30 searches a minute, and a refused search says so on its screen without pausing the rest),  My issues (Assigned, Created, Subscribed),
   each team (Triage where on, Active, Backlog, All, and Cycles where it runs them: `Cycles.tsx` lists its current, upcoming and last 120 days' cycles with their progress from `q/cycles`, each opening its issues, the `cycle:` scope, under a header counting what's done), Views (your saved issue views and shared ones, `q/views`: each opens its issues, the `view:` scope, which Linear filters by the view's own filter, so the store keeps what Linear returned (`members`) and asks again whenever a sync brings changed issues while it shows; its Display starts as the view is set in Linear), Projects (`ProjectList.tsx`, each opening its issues) and Initiatives
@@ -282,6 +282,44 @@ and GitHub publication; report the published version and release link.
   writes a fake key to the test `secrets.json`, and `restore()` puts both files back; the e2e mocks `settings.integrations.linear`). `web/scripts/linear-write-check.ts`, run by hand
   (`cd web && PASEO_COMMAND_DATA=<data folder> npx tsx scripts/linear-write-check.ts`, the key read as the app reads it), checks the writes against the real Linear on one issue only: team DE's
   `Paseo Command write check (safe to delete)` (made if absent), putting its edits back.
+- Slack (the mode bar's fourth tab; View menu; palette "Show Slack"; all only while Slack is enabled): a Slack client the page draws
+  (`web/src/slack/SlackView.tsx`) over the map's frame while the app reports `paseo:mode` `slack`, as Linear is. Its sidebar
+  (`Sidebar.tsx`, `sections.ts`): search, Unreads, Starred, Channels, Direct messages (unread bold with a mention badge, muted dimmed; live
+  or polling shown at its foot; inner edge resizes, ⌘S hides). A conversation (`Conversation.tsx`, `MessageList.tsx`, `Message.tsx`,
+  `rich.tsx`): day dividers, senders grouped, Slack's rich text blocks drawn (else its mrkdwn, `mrkdwn.ts`), mentions, channel links, emoji
+  (standard, `emoji.ts`, and custom through `GET /api/slack/emoji`), files (images inline and in the lightbox, others downloading), link
+  previews, reactions (click toggles yours), edits and deletes of your own, a "New messages" line, older pages on scrolling up; read as you
+  read (`m/mark`). Threads (`Thread.tsx`) beside it from 1,100 px, else in its place, with "Also send to #channel". The composer
+  (`Composer.tsx`): Markdown sent as Slack's `markdown_text`, ↩ sends, ⇧↩ new line, @people and :emoji completion, files pasted, dropped or
+  attached (`POST /api/slack/upload`, then `m/share`), drafts kept, ↑ edits your last. Search (`Search.tsx`, `q/search`). Launch agent from a
+  message or thread opens New agent quoting it (`DispatchTarget.slack`, `slack/prompt.ts`; presets take `{{slack}}`). Keys (`keys.ts`):
+  ⌥↑/⌥↓ conversations, ⌥⇧↑/⌥⇧↓ unread ones, / search, C write, Esc closes the thread then search, ⌘+ ⌘− ⌘0 text size; each with its ⌘K
+  entry and the shortcuts dialog's Slack group. Its place is kept in localStorage (`place.ts`; `openSlackPlace` opens a conversation or
+  thread from elsewhere). Server (`web/server/slack/`; the page never gets a token): opt-in `integrations.slack`, then `slackUserToken`
+  (xoxp, the user's own Slack app; messages go as them) and optionally `slackAppToken` (xapp, Socket Mode) in the data directory's
+  `secrets.json`, edited in Settings under the Slack toggle; never the environment. `client.ts` (Web API calls, per-method cooldowns on
+  Slack's `Retry-After`), named reads (`reads.ts`: `GET /api/slack/q/workspace|history|replies|conversation|unreads|search`), whitelisted
+  writes (`writes.ts`, `POST /api/slack/m/post|edit|delete|react|unreact|mark|openDm|share`, inputs checked field by field), `unreads.ts`
+  (Slack has no bulk unread call for apps: each conversation's `last_read` and what's newer, checked by a paced queue, DMs first, only
+  while asked; unknown stays unknown), `files.ts` (`image`/`file` only from `files.slack.com` with the token, files as downloads;
+  `avatar` only the address Slack gives that person; `emoji`), `upload.ts` (`files.getUploadURLExternal`), `socket.ts` (Socket Mode
+  over `ws`: acks, reconnects with backoff, runs only while something asked recently), `events.ts` (`GET /api/slack/events`, server-sent
+  `SlackEvent`s; without Socket Mode the page polls every 20 s while the view shows). The Slack app needs the user scopes and event
+  subscriptions listed in `docs/superpowers/specs/2026-10-31-slack-and-activity-design.md`. Tests never reach Slack: the fake
+  (`web/server/slack/fake.ts`, `installFakeSlack`, with a fake socket) under server tests and e2e (`web/e2e/slack.e2e.ts`,
+  `slackFake.ts`, the real route).
+- Activity (the mode bar's fifth tab, while GitHub, Linear or Slack is enabled; its tab shows the unread count, the page's
+  `activity` message): GitHub, Linear and Slack notifications in one feed the page draws (`web/src/activity/ActivityView.tsx`), newest
+  first, grouped by day, filtered by source or unread, with the selected one's preview beside it from 1,100 px. Opening one
+  (`open.ts`) goes where it lives: GitHub in Conquer, Linear issues and projects in the Linear tab, Slack conversations and threads in
+  the Slack tab; it's read from then. Keys: J/K move, Enter/O open, U read/unread, ⇧U all shown read, E/⌫ done, 1–4 sources; each with
+  its ⌘K entry and the shortcuts dialog's Activity group. Server (`web/server/activity/`, `GET /api/activity`, `POST
+  /api/activity/m/read|unread|done` with `{keys}`): `github.ts` (opt-in `integrations.github`: `gh api /notifications` with the user's
+  own gh sign-in, unread and the past 14 days, cached a minute; read and done through gh; GitHub can't mark unread), `linear.ts` (the
+  Inbox's notifications, one per issue or project, through Linear's whitelisted writes), `slack.ts` (unread DMs, mentions of you from
+  search and the socket, replies in threads you're in; Slack keeps no thread read state for apps, so those and "done" are kept in the
+  data directory's `slack-activity.json`), `feed.ts` (a source that fails says why without hiding the rest). The page's store
+  (`store.ts`) polls every 30 s while the view shows, else every minute in the macOS app for the tab's count.
 - Web links clicked in the chat (`.session`, `openInAppBrowser` in `web/src/Session.tsx`, `postAppLink` → the `openLink` message)
   switch to Conquer and open there as a new tab, once its tabs are restored (`whenStarted`).
 

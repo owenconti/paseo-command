@@ -52,11 +52,33 @@ export type AppCommand =
   | "linear-copy-branch"
   | "linear-copy-link"
   | "linear-archive"
-  | "linear-delete";
+  | "linear-delete"
+  | "manage-slack-key"
+  | "slack-refresh"
+  | "slack-sidebar"
+  | "slack-search"
+  | "slack-go"
+  | "slack-open"
+  | "slack-next-unread"
+  | "slack-mark-read"
+  | "slack-close-thread"
+  | "slack-compose"
+  | "slack-launch"
+  | "slack-text-bigger"
+  | "slack-text-smaller"
+  | "slack-text-actual"
+  | "activity-refresh"
+  | "activity-filter"
+  | "activity-unread-only"
+  | "activity-open"
+  | "activity-read"
+  | "activity-unread"
+  | "activity-done"
+  | "activity-read-all";
 
 const EVENT = "paseo:command";
 
-/** Asks for `name`; `arg` is what it acts on, where it needs one (`linear-go`: the place). */
+/** Asks for `name`; `arg` is what it acts on, where it needs one (`linear-go`: the place; `slack-go`/`slack-open`: the conversation; `activity-filter`: the source or "all"). */
 export function runAppCommand(name: AppCommand, arg?: unknown) {
   // The detail stays the bare name: the macOS app sends its own that way.
   window.dispatchEvent(Object.assign(new CustomEvent(EVENT, { detail: name }), { arg }));

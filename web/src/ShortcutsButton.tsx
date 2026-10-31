@@ -7,6 +7,7 @@ import { macApp } from "./worldBridge";
 import { isTyping } from "./worldShortcut";
 import { onAppCommand } from "./appCommands";
 import { useIntegrations } from "./integrationSettings";
+import { activityEnabled } from "./integrations";
 
 type Shortcut = { keys: string[][]; label: string };
 type Group = { title: string; note?: string; rows: Shortcut[] };
@@ -96,6 +97,38 @@ const LINEAR: Group = {
     { keys: [["⌘", "0"]], label: "Actual text size" },
     { keys: [["⌘", "Enter"]], label: "Send a comment, reply or edit" },
     { keys: [["⌘", "Enter"]], label: "Create the issue (New issue)" },
+  ],
+};
+/** The Slack tab's keys (`slack/keys.ts`, `slack/Composer.tsx`), as in Slack. */
+const SLACK: Group = {
+  title: "Slack",
+  note: "In the Slack tab",
+  rows: [
+    { keys: [["⌥", "↑"], ["⌥", "↓"]], label: "Previous or next conversation" },
+    { keys: [["⌥", "⇧", "↑"], ["⌥", "⇧", "↓"]], label: "Previous or next unread conversation" },
+    { keys: [["/"]], label: "Search all messages" },
+    { keys: [["C"]], label: "Write a message (in the thread, when one is open)" },
+    { keys: [["Esc"]], label: "Close the thread, then the search" },
+    { keys: [["Enter"]], label: "Send the message" },
+    { keys: [["⇧", "Enter"]], label: "New line in the message" },
+    { keys: [["↑"]], label: "Edit your last message (in an empty message box)" },
+    { keys: [["⌘", "S"]], label: "Show or hide the sidebar" },
+    { keys: [["⌘", "+"], ["⌘", "−"]], label: "Bigger or smaller text" },
+    { keys: [["⌘", "0"]], label: "Actual text size" },
+  ],
+};
+/** The Activity tab's keys (`activity/ActivityView.tsx`), while the keyboard is in it. */
+const ACTIVITY: Group = {
+  title: "Activity",
+  note: "In the Activity tab, outside text fields",
+  rows: [
+    { keys: [["J"], ["↓"]], label: "Next notification" },
+    { keys: [["K"], ["↑"]], label: "Previous notification" },
+    { keys: [["Enter"], ["O"]], label: "Open it (GitHub in Conquer, Linear and Slack in their tabs)" },
+    { keys: [["U"]], label: "Mark it read or unread" },
+    { keys: [["⇧", "U"]], label: "Mark every shown notification read" },
+    { keys: [["E"], ["⌫"]], label: "Done: leave it out of Activity" },
+    { keys: [["1"], ["2"], ["3"], ["4"]], label: "Show all, GitHub, Linear or Slack" },
   ],
 };
 /** Conquer's own keys (the macOS app's browser), which it takes ahead of its pages
@@ -225,7 +258,14 @@ function ShortcutsDialog({ onClose }: { onClose: () => void }) {
   const { integrations } = useIntegrations();
   const groups = (
     macApp()
-      ? [...GROUPS, NATIVE, ...(integrations.linear ? [LINEAR] : []), CONQUER]
+      ? [
+          ...GROUPS,
+          NATIVE,
+          ...(integrations.linear ? [LINEAR] : []),
+          ...(integrations.slack ? [SLACK] : []),
+          ...(activityEnabled(integrations) ? [ACTIVITY] : []),
+          CONQUER,
+        ]
       : GROUPS
   ).map((group) => ({
     ...group,
@@ -236,11 +276,16 @@ function ShortcutsDialog({ onClose }: { onClose: () => void }) {
           !/^(Open the Linear issue|Linear:)/.test(row.label),
       )
       .map((row) =>
-        !integrations.linear &&
         row.label.startsWith("Next in the map's place")
           ? {
               ...row,
-              label: "Next in the map's place: the map, the browser (Conquer)",
+              label: `Next in the map's place: ${[
+                "the map",
+                "the browser (Conquer)",
+                ...(integrations.linear ? ["Linear"] : []),
+                ...(integrations.slack ? ["Slack"] : []),
+                ...(activityEnabled(integrations) ? ["Activity"] : []),
+              ].join(", ")}`,
             }
           : row,
       ),

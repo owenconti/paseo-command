@@ -1,7 +1,7 @@
 import { useId, useState } from "react";
 import { api, errorMessage } from "./api";
 
-export type ApiKeyName = "linearApiKey" | "typesafeApiKey";
+export type ApiKeyName = "linearApiKey" | "typesafeApiKey" | "slackUserToken" | "slackAppToken";
 export type SecretStatus = {
   configured: Record<ApiKeyName, boolean>;
   error: string | null;
@@ -13,9 +13,14 @@ export function ApiKeySetting({
   label,
   status,
   onSaved,
+  title = "API key",
+  placeholder = "Enter API key",
 }: {
   name: ApiKeyName;
   label: string;
+  /** The field's heading ("API key", or a token's name). */
+  title?: string;
+  placeholder?: string;
   status: SecretStatus | null;
   onSaved: (status: SecretStatus) => void;
 }) {
@@ -45,7 +50,7 @@ export function ApiKeySetting({
   return (
     <div className="api-key-setting">
       <div className="api-key-heading">
-        <b>API key</b>
+        <b>{title}</b>
         <small role="status">
           {!status
             ? "Checking…"
@@ -62,7 +67,7 @@ export function ApiKeySetting({
             type="button"
             className="secondary"
             disabled={disabled}
-            aria-label={`Replace ${label} API key`}
+            aria-label={`Replace ${label} ${title}`}
             onClick={() => {
               setEditing(true);
               setError("");
@@ -74,7 +79,7 @@ export function ApiKeySetting({
             type="button"
             className="secondary"
             disabled={disabled}
-            aria-label={`Remove ${label} API key`}
+            aria-label={`Remove ${label} ${title}`}
             onClick={() => void save(null)}
           >
             Remove
@@ -93,13 +98,13 @@ export function ApiKeySetting({
             name={name}
             value={draft}
             autoFocus={editing}
-            aria-label={`${label} API key`}
+            aria-label={`${label} ${title}`}
             autoComplete="new-password"
             maxLength={8192}
             autoCapitalize="none"
             autoCorrect="off"
             spellCheck={false}
-            placeholder={configured ? "Enter replacement key" : "Enter API key"}
+            placeholder={configured ? "Enter replacement key" : placeholder}
             disabled={disabled}
             onChange={(event) => setDraft(event.target.value)}
           />
@@ -107,7 +112,7 @@ export function ApiKeySetting({
             <button
               type="submit"
               className="secondary"
-              aria-label={`Save ${label} API key`}
+              aria-label={`Save ${label} ${title}`}
               disabled={disabled || !draft.trim()}
             >
               Save key
@@ -117,7 +122,7 @@ export function ApiKeySetting({
                 type="button"
                 className="secondary"
                 disabled={saving}
-                aria-label={`Cancel replacing ${label} API key`}
+                aria-label={`Cancel replacing ${label} ${title}`}
                 onClick={() => {
                   setDraft("");
                   setEditing(false);

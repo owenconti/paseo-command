@@ -5,6 +5,7 @@ import {
   macApp,
   nativeAvailable,
   nativeEvents,
+  postAppActivity,
   postAppMenu,
   postNative,
 } from "./worldBridge";
@@ -65,7 +66,12 @@ import {
   usePullRequest,
 } from "./links";
 import { NewAgent, type DispatchTarget } from "./Dispatch";
-import { useAppMode } from "./appMode";
+import { appTabs, useAppMode } from "./appMode";
+import type { ActivityViewState } from "./activity/ActivityView";
+import type { SlackViewState } from "./slack/SlackView";
+import type { SlackContext } from "./slack/prompt";
+import { useActivityUnread } from "./activity/store";
+import { SOURCE_LABEL } from "./activity/rows";
 import type { IssueContext } from "./linear/prompt";
 import type { LinearOpenIssue, LinearViewState } from "./linear/LinearView";
 import type { LinearPlace } from "./linear/place";
@@ -147,6 +153,23 @@ const NativeWorld = React.lazy(() =>
 const LinearView = React.lazy(() =>
   import("./linear/LinearView").then((module) => ({ default: module.LinearView })),
 );
+// The Slack tab, likewise.
+const SlackView = React.lazy(() =>
+  import("./slack/SlackView").then((module) => ({ default: module.SlackView })),
+);
+// The Activity tab (GitHub, Linear and Slack notifications), likewise.
+const ActivityView = React.lazy(() =>
+  import("./activity/ActivityView").then((module) => ({ default: module.ActivityView })),
+);
+
+/** Keeps the mode bar's Activity tab showing the feed's unread count (macOS app only). */
+function ActivityBadge() {
+  const unread = useActivityUnread();
+  useEffect(() => {
+    postAppActivity(unread ?? 0);
+  }, [unread]);
+  return null;
+}
 
 const spring = { type: "spring" as const, stiffness: 300, damping: 30 };
 function parsePermissions(value: unknown): PendingPermission[] {
@@ -851,6 +874,16 @@ function App() {
   const [linearView, setLinearView] = useState<LinearViewState | undefined>();
   // Whether the Linear tab's workspace is in, for ⌘K's Create Linear issue.
   const [linearReady, setLinearReady] = useState(false);
+  // The Slack tab's conversations and what's open, for ⌘K's entries for them.
+  const [slackView, setSlackView] = useState<SlackViewState | undefined>();
+  // From Slack messages or a thread: New agent, its first message quoting them.
+  const launchFromSlack = useCallback(
+    (slack: SlackContext) => openDispatch({ slack }),
+    [openDispatch],
+  );
+  // The Activity tab's filter and selected item, for ⌘K's entries for them.
+  const [activityView, setActivityView] = useState<ActivityViewState | undefined>();
+  const showActivity = appTabs(integrations).activity;
   const appUpdate = useAppUpdate();
   // From a Linear issue: New agent, where the host and project are chosen.
   const launchFromIssue = useCallback(
@@ -1211,6 +1244,16 @@ function App() {
       },
     ];
   };
+  // The mode bar's tabs shown, in order, for ⌘`'s entry.
+  const modeTabs = (
+    [
+      ["command", "map"],
+      ["conquer", "browser"],
+      ["linear", "Linear"],
+      ["slack", "Slack"],
+      ["activity", "Activity"],
+    ] as const
+  ).filter(([mode]) => mode === "command" || mode === "conquer" || appTabs(integrations)[mode]);
   const paletteCommands: Command[] = [
     {
       id: "new-agent",
@@ -1494,12 +1537,8 @@ function App() {
               ],
               [
                 "mode-next",
-                integrations.linear
-                  ? "Next in the map's place: map, browser, Linear"
-                  : "Next in the map's place: map, browser",
-                integrations.linear
-                  ? "switch rotate cycle mode tab conquer linear command"
-                  : "switch rotate cycle mode tab conquer command",
+                `Next in the map's place: ${modeTabs.map(([, name]) => name).join(", ")}`,
+                `switch rotate cycle mode tab conquer command ${modeTabs.map(([mode]) => mode).join(" ")}`,
                 ["⌘", "`"],
               ],
               [
@@ -1685,6 +1724,154 @@ function App() {
           keywords,
           run: () => runAppCommand(command),
         }))
+      : []),
+    ...(integrations.slack && appMode !== "slack"
+      ? [
+          {
+            id: "slack-show",
+            group: "App",
+            label: "Show Slack",
+            keywords: "slack messages channels chat dm conversations mode tab",
+            run: () => postAppMenu("slack"),
+          },
+        ]
+      : []),
+    ...(integrations.slack && appMode === "slack" && slackView
+      ? [
+          ...(
+            [
+              ["slack-refresh", "Refresh Slack", "slack reload update sync messages", undefined],
+              ["slack-sidebar", "Show or hide the Slack sidebar", "slack sidebar channels collapse panel", ["⌘", "S"]],
+              ["slack-search", "Search Slack messages", "slack search find messages", ["/"]],
+              ["slack-text-bigger", "Bigger Slack text", "slack zoom font size larger", ["⌘", "+"]],
+              ["slack-text-smaller", "Smaller Slack text", "slack zoom font size", ["⌘", "−"]],
+              ["slack-text-actual", "Actual Slack text size", "slack zoom font size reset default", ["⌘", "0"]],
+              ...(slackView.unreadCount > 0
+                ? ([["slack-next-unread", "Next unread Slack conversation", "slack unread next jump", ["⌥", "⇧", "↓"]]] as const)
+                : []),
+              ...(slackView.openConversationId
+                ? ([["slack-mark-read", "Mark the Slack conversation read", "slack read seen clear unread", undefined]] as const)
+                : []),
+              ...(slackView.openConversationId && !slackView.searching
+                ? ([["slack-compose", "Write a Slack message", "slack message reply compose send type", ["C"]]] as const)
+                : []),
+              ...(slackView.threadOpen
+                ? ([["slack-close-thread", "Close the Slack thread", "slack thread close back", ["Esc"]]] as const)
+                : []),
+              ...(slackView.canLaunch
+                ? ([["slack-launch", "Launch agent from this Slack thread or message", "slack agent dispatch new agent launch work thread", undefined]] as const)
+                : []),
+            ] as const
+          ).map(([command, label, keywords, keys]) => ({
+            id: command,
+            group: "App",
+            label,
+            ...(keys ? { keys: [[...keys]] } : {}),
+            keywords,
+            run: () => runAppCommand(command),
+          })),
+          ...slackView.conversations.map((c) => ({
+            id: `slack-go:${c.id}`,
+            group: "Navigate",
+            label: `Go to ${c.kind === "channel" || c.kind === "private" ? `#${c.name}` : c.name} in Slack`,
+            keywords: `slack conversation channel dm ${c.kind} ${c.unread ? "unread" : ""}`,
+            run: () => runAppCommand("slack-go", c.id),
+          })),
+        ]
+      : []),
+    ...(showActivity && appMode !== "activity"
+      ? [
+          {
+            id: "activity-show",
+            group: "App",
+            label: "Show Activity (GitHub, Linear and Slack notifications)",
+            keywords: "activity notifications inbox feed github linear slack mentions reviews mode tab",
+            run: () => postAppMenu("activity"),
+          },
+        ]
+      : []),
+    ...(showActivity && appMode === "activity" && activityView
+      ? [
+          {
+            id: "activity-refresh",
+            group: "App",
+            label: "Refresh activity",
+            keywords: "activity notifications reload update sync",
+            run: () => runAppCommand("activity-refresh"),
+          },
+          ...(["all", ...(["github", "linear", "slack"] as const).filter((source) => integrations[source])] as const)
+            .filter((filter) => filter !== activityView.filter)
+            .map((filter) => ({
+              id: `activity-filter:${filter}`,
+              group: "App",
+              label: filter === "all" ? "Show all activity" : `Show only ${SOURCE_LABEL[filter]} activity`,
+              keywords: `activity filter source ${filter} notifications`,
+              run: () => runAppCommand("activity-filter", filter),
+            })),
+          ...(activityView.filter !== "unread"
+            ? [
+                {
+                  id: "activity-unread-only",
+                  group: "App",
+                  label: "Show only unread activity",
+                  keywords: "activity filter unread new notifications",
+                  run: () => runAppCommand("activity-unread-only"),
+                },
+              ]
+            : []),
+          ...(activityView.selected
+            ? [
+                {
+                  id: "activity-open",
+                  group: "App",
+                  label: "Open the notification",
+                  keys: [["Enter"]],
+                  keywords: "activity notification open go view",
+                  run: () => runAppCommand("activity-open"),
+                },
+                activityView.selected.unread
+                  ? {
+                      id: "activity-read",
+                      group: "App",
+                      label: "Mark the notification read",
+                      keys: [["U"]],
+                      keywords: "activity notification read seen",
+                      run: () => runAppCommand("activity-read"),
+                    }
+                  : null,
+                !activityView.selected.unread && activityView.selected.canUnread
+                  ? {
+                      id: "activity-unread",
+                      group: "App",
+                      label: "Mark the notification unread",
+                      keys: [["U"]],
+                      keywords: "activity notification unread new",
+                      run: () => runAppCommand("activity-unread"),
+                    }
+                  : null,
+                {
+                  id: "activity-done",
+                  group: "App",
+                  label: "Mark the notification done",
+                  keys: [["E"]],
+                  keywords: "activity notification done archive dismiss remove",
+                  run: () => runAppCommand("activity-done"),
+                },
+              ].filter((command) => command !== null)
+            : []),
+          ...(activityView.unread > 0
+            ? [
+                {
+                  id: "activity-read-all",
+                  group: "App",
+                  label: "Mark all shown activity read",
+                  keys: [["⇧", "U"]],
+                  keywords: "activity notifications read all clear unread",
+                  run: () => runAppCommand("activity-read-all"),
+                },
+              ]
+            : []),
+        ]
       : []),
     ...(integrations.linear && appMode === "linear" && linearView?.inboxUnread
       ? [
@@ -1944,7 +2131,7 @@ function App() {
       group: "App",
       label: "Settings",
       keywords:
-        "preferences integrations api keys secrets sounds music notifications linear typesafe",
+        "preferences integrations api keys secrets sounds music notifications linear slack github typesafe",
       run: () => {
         setBrowsing(true);
         setRevealRevision((revision) => revision + 1);
@@ -1955,6 +2142,8 @@ function App() {
       ? (
           [
             ["linear", "Linear"],
+            ["slack", "Slack"],
+            ["github", "GitHub notifications"],
             ["typesafe", "TypeSafe"],
           ] as const
         ).map(([name, label]) => ({
@@ -1970,17 +2159,17 @@ function App() {
           },
         }))
       : []),
-    ...([ ["linear", "Linear"], ["typesafe", "TypeSafe"] ] as const)
+    ...([ ["linear", "Linear", "API key"], ["slack", "Slack", "tokens"], ["typesafe", "TypeSafe", "API key"] ] as const)
       .filter(([name]) => integrations[name])
-      .map(([name, label]) => ({
+      .map(([name, label, what]) => ({
         id: `manage-${name}-key`,
         group: "App",
-        label: `Manage ${label} API key…`,
-        keywords: `settings ${name} secrets credentials save replace remove`,
+        label: `Manage ${label} ${what}…`,
+        keywords: `settings ${name} secrets credentials api key token save replace remove`,
         run: () => {
           setBrowsing(true);
           setRevealRevision((revision) => revision + 1);
-          runAppCommand(name === "linear" ? "manage-linear-key" : "manage-typesafe-key");
+          runAppCommand(`manage-${name}-key`);
         },
       })),
     {
@@ -2114,6 +2303,17 @@ function App() {
                 loaded={!loading}
               />
             </React.Suspense>
+            {integrations.slack && appMode === "slack" && (
+              <React.Suspense fallback={null}>
+                <SlackView onLaunch={launchFromSlack} onNotice={setNotice} onViewState={setSlackView} />
+              </React.Suspense>
+            )}
+            {showActivity && macApp() && <ActivityBadge />}
+            {showActivity && appMode === "activity" && (
+              <React.Suspense fallback={null}>
+                <ActivityView onNotice={setNotice} onViewState={setActivityView} />
+              </React.Suspense>
+            )}
             {integrations.linear && appMode === "linear" && (
               <React.Suspense fallback={null}>
                 <LinearView

@@ -217,7 +217,10 @@ export const askAppUpdate = () => appChannel()?.postMessage({ type: "update" });
 /** Ask the macOS app which mode bar tab shows; it answers with a `paseo:mode` event. */
 export const askAppMode = () => appChannel()?.postMessage({ type: "mode" });
 /** Apply optional integrations to the native mode bar. */
-export const configureAppIntegrations = (integrations: { linear: boolean }) => appChannel()?.postMessage({ type: "integrations", ...integrations });
+export const configureAppIntegrations = (tabs: { linear: boolean; slack: boolean; activity: boolean }) =>
+  appChannel()?.postMessage({ type: "integrations", ...tabs });
+/** Activity's unread notifications, for its mode bar tab. */
+export const postAppActivity = (unread: number) => appChannel()?.postMessage({ type: "activity", unread });
 /** Open a web link in the macOS app's browser, Conquer, in the map's place (a new tab). */
 export const postAppLink = (url: string) =>
   appChannel()?.postMessage({ type: "openLink", url });

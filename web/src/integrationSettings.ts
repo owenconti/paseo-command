@@ -1,5 +1,6 @@
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { api, errorMessage } from "./api";
+import type { ApiKeyName } from "./ApiKeySetting";
 import {
   DEFAULT_INTEGRATIONS,
   integrationSettings,
@@ -83,7 +84,7 @@ export function useIntegrations() {
 }
 
 /** Refresh consumers immediately after a key is saved, replaced or removed. */
-export function useSecretRevision(name: "linearApiKey" | "typesafeApiKey") {
+export function useSecretRevision(name: ApiKeyName) {
   const [revision, setRevision] = useState(0);
   useEffect(() => {
     const changed = (event: Event) => {

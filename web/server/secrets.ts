@@ -9,7 +9,7 @@ import {
 import { join } from "node:path";
 import { dataDir } from "./subagentArchive";
 
-export const SECRET_NAMES = ["linearApiKey", "typesafeApiKey"] as const;
+export const SECRET_NAMES = ["linearApiKey", "typesafeApiKey", "slackUserToken", "slackAppToken"] as const;
 export type SecretName = (typeof SECRET_NAMES)[number];
 export const secretsFile = () => join(dataDir(), "secrets.json");
 const UNREADABLE =
@@ -33,10 +33,7 @@ export function secretsStatus() {
   const configured = (name: SecretName) =>
     typeof raw?.[name] === "string" && !!raw[name].trim();
   return {
-    configured: {
-      linearApiKey: configured("linearApiKey"),
-      typesafeApiKey: configured("typesafeApiKey"),
-    },
+    configured: Object.fromEntries(SECRET_NAMES.map((name) => [name, configured(name)])) as Record<SecretName, boolean>,
     error: raw ? null : UNREADABLE,
   };
 }

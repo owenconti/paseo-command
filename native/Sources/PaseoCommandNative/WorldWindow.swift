@@ -17,7 +17,7 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
     let content: NSView
     /// Covers the window until the map has drawn (see `revealWhenDrawn`).
     let splash: SplashView
-    /// The strip across the top that switches between Command, Conquer and Linear.
+    /// The strip across the top that switches between Command, Conquer, Linear, Slack and Activity.
     let modeBar: ModeBar
     /// Command: the split and its splash, under the mode bar.
     let command: NSView
@@ -27,9 +27,12 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
     let atlasView: AtlasView
     let scene: AtlasScene
     let options: Options
-    private(set) var linearEnabled = false
+    /// The page's tabs whose integration is on (the page says, with `integrations`).
+    private(set) var enabledModes: Set<Mode> = []
+    /// The tabs ⌘` steps through, in the mode bar's order.
+    var shownModes: [Mode] { Mode.allCases.filter { !$0.drawnByPage || enabledModes.contains($0) } }
     var nextMode: Mode {
-        let modes: [Mode] = linearEnabled ? Mode.allCases : [.command, .conquer]
+        let modes = shownModes
         return modes[((modes.firstIndex(of: mode) ?? 0) + 1) % modes.count]
     }
     /// Bridge messages decode their images here, in order, then apply on main.
@@ -166,10 +169,11 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         guard let body = message.body as? [String: Any], let type = body["type"] as? String else { return }
         switch type {
         case "integrations":
-            linearEnabled = body["linear"] as? Bool == true
-            modeBar.linearEnabled = linearEnabled
-            if !linearEnabled && mode == .linear { show(.command) }
-            else if linearEnabled && UserDefaults.standard.string(forKey: "mode") == "linear" { show(.linear) }
+            enabledModes = Set(Mode.allCases.filter { $0.drawnByPage && body[$0.rawValue] as? Bool == true })
+            modeBar.enabled = enabledModes
+            if mode.drawnByPage && !enabledModes.contains(mode) { show(.command) }
+            else if let saved = UserDefaults.standard.string(forKey: "mode").flatMap(Mode.init(rawValue:)),
+                    saved.drawnByPage, enabledModes.contains(saved) { show(saved) }
         case "art":
             decoding.async { [weak self] in
                 var frames: [String: CGImage] = [:]
@@ -207,8 +211,11 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         let point = CGPoint(x: body["x"] as? Double ?? 0, y: body["y"] as? Double ?? 0)
         switch type {
         case "mode":
-            // The page asks which side shows (it draws Linear itself, over the map).
+            // The page asks which side shows (it draws Linear, Slack and Activity itself, over the map).
             sendMode()
+        case "activity":
+            // Activity's unread count, for its tab.
+            modeBar.activityUnread = max(0, body["unread"] as? Int ?? 0)
         case "update":
             // The page asks for the version and whether updates can be checked for.
             send(Updater.event, as: "paseo:update")
@@ -252,6 +259,8 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
             case "conquer": show(.conquer)
             case "mode-next": show(nextMode)
             case "linear": show(.linear)
+            case "slack": show(.slack)
+            case "activity": show(.activity)
             case "command": show(.command)
             case "conquer-tab": show(.conquer); conquer.whenStarted { [weak self] in self?.conquer.newTab() }
             case "conquer-sidebar": show(.conquer); conquer.perform("toggleSidebar")
@@ -609,7 +618,7 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
     /// panel toggle) gives the browser the width.
     /// The side not shown keeps running: the map's page and Conquer's tabs stay live.
     func show(_ next: Mode) {
-        guard next != .linear || linearEnabled else { return }
+        guard !next.drawnByPage || enabledModes.contains(next) else { return }
         guard next != mode else { return }
         mode = next
         modeBar.mode = next
@@ -625,7 +634,7 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         if options.info == nil { UserDefaults.standard.set(next.rawValue, forKey: "mode") }
     }
 
-    /// Tell the page which side shows, so it draws Linear in the map's place.
+    /// Tell the page which side shows, so it draws Linear, Slack or Activity in the map's place.
     private func sendMode() { send(["mode": mode.rawValue], as: "paseo:mode") }
 
     /// Open `url` in a new Conquer tab (a link from the chat), in the map's

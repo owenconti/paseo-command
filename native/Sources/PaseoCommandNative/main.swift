@@ -149,6 +149,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
             main.show(main.mode == .command ? .conquer : .command)
         }
         listen("com.paseo.command.native.linear") { [weak self] in self?.main?.show(.linear) }
+        listen("com.paseo.command.native.slack") { [weak self] in self?.main?.show(.slack) }
+        listen("com.paseo.command.native.activity") { [weak self] in self?.main?.show(.activity) }
         // Run `<info>.do`'s Conquer steps, one a line, a second apart (checks; see `ConquerView.check`).
         listen("com.paseo.command.native.conquer") { [weak self] in
             guard let self, let info = self.options.info,
@@ -296,9 +298,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
             item.target = self
             item.representedObject = mode.rawValue
         }
-        // ⌘` steps Command → Conquer → Linear → Command (ahead of macOS's own window cycling, as
-        // the app has one window).
-        view.addItem(withTitle: "Next: Command, Conquer, Linear", action: #selector(toggleMode), keyEquivalent: "`").target = self
+        // ⌘` steps Command → Conquer → Linear → Slack → Activity → Command, through those shown
+        // (ahead of macOS's own window cycling, as the app has one window).
+        view.addItem(withTitle: "Next: Command, Conquer", action: #selector(toggleMode), keyEquivalent: "`").target = self
         view.addItem(.separator())
         // The terminals' text size. ⌘= reaches "Bigger" too, as ⌘+ needs ⇧ on most layouts.
         for (title, key, step, hidden) in [("Bigger Terminal Text", "+", 1, false), ("Bigger Terminal Text", "=", 1, true),
@@ -361,9 +363,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         switch item.action {
         case #selector(showMode(_:)):
             item.state = item.representedObject as? String == main.mode.rawValue ? .on : .off
-            return item.representedObject as? String != "linear" || main.linearEnabled
+            return (item.representedObject as? String).flatMap(Mode.init(rawValue:)).map(main.shownModes.contains) ?? false
         case #selector(toggleMode):
-            item.title = main.linearEnabled ? "Next: Command, Conquer, Linear" : "Next: Command, Conquer"
+            item.title = "Next: " + main.shownModes.map(\.title).joined(separator: ", ")
         case #selector(conquerCommand(_:)):
             if item.representedObject as? String == "togglePin" { item.title = main.conquer.current?.isPinned == true ? "Unpin Tab" : "Pin Tab" }
             return browser
@@ -372,10 +374,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         case #selector(maximizeTerminal):
             item.state = main.drawer.maximized ? .on : .off
             return !main.drawer.isHidden
-        // Only while the terminal shows, so the keys stay the page's otherwise; while Linear
-        // shows, only while the terminal has the keyboard (the page sizes Linear's text with them).
+        // Only while the terminal shows, so the keys stay the page's otherwise; while Linear or
+        // Slack shows, only while the terminal has the keyboard (the page sizes their text with them).
         case #selector(zoomTerminal(_:)):
-            return !main.drawer.isHidden && (main.mode != .linear || main.drawer.hasKeyFocus)
+            return !main.drawer.isHidden && ((main.mode != .linear && main.mode != .slack) || main.drawer.hasKeyFocus)
         default: break
         }
         return true
