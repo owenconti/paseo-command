@@ -14,7 +14,11 @@ export type AppCommand =
   | "agent-open-paseo"
   | "agent-archive"
   | "linear-refresh"
-  | "linear-sidebar";
+  | "linear-sidebar"
+  | "linear-status"
+  | "linear-priority"
+  | "linear-assignee"
+  | "linear-labels";
 
 const EVENT = "paseo:command";
 

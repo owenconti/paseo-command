@@ -1,5 +1,6 @@
 import { useEffect, useSyncExternalStore } from "react";
-import { isUnavailable, linearRead } from "./api";
+import { errorMessage } from "../api";
+import { isUnavailable, linearRead, linearWrite } from "./api";
 import type {
   IssueScope,
   LinearComment,
@@ -9,6 +10,7 @@ import type {
   LinearSync,
   LinearUnavailable,
   LinearWorkspace,
+  WriteName,
 } from "./types";
 
 /** Everything the Linear view knows, in one place; a screen selects what it shows. */
@@ -38,8 +40,11 @@ let state = empty();
 /** When the first load began: the first sync starts there, so nothing between load and sync is missed. */
 let loadStartedAt: string | undefined;
 const listeners = new Set<() => void>();
-/** Fields with a write in flight, by entity id; merges leave them as they are. Value: when it started. */
+/** Fields with a write in flight, by entity id; merges leave them as they are. Value: when it started (unique, rising). */
 const pending = new Map<string, Map<string, number>>();
+let lastMark = 0;
+/** Says why a write didn't happen (the Linear view sets it to the app's notice). */
+let notify: (message: string) => void = () => {};
 const scopeLoads = new Map<IssueScope, Promise<void>>();
 let syncing: Promise<void> | undefined;
 
@@ -51,7 +56,8 @@ function publish(next: Partial<LinearData>): void {
 /** Marks fields of an issue or comment as being written: merges keep their current values. */
 export function markPending(id: string, fields: readonly string[]): void {
   const marks = pending.get(id) ?? new Map<string, number>();
-  for (const field of fields) marks.set(field, Date.now());
+  lastMark = Math.max(Date.now(), lastMark + 1);
+  for (const field of fields) marks.set(field, lastMark);
   pending.set(id, marks);
 }
 
@@ -61,6 +67,17 @@ export function clearPending(id: string, fields: readonly string[]): void {
   if (!marks) return;
   for (const field of fields) marks.delete(field);
   if (marks.size === 0) pending.delete(id);
+}
+
+/** Clears the fields this write marked, leaving any a later write of the same field marked since. */
+function clearOwnPending(id: string, fields: readonly string[], mark: number): void {
+  const marks = pending.get(id);
+  clearPending(id, fields.filter((field) => marks?.get(field) === mark));
+}
+
+/** Where the Linear view says a write failed. */
+export function setLinearNotice(fn: (message: string) => void): void {
+  notify = fn;
 }
 
 /** The incoming record over the known one, keeping pending fields and detail fields the incoming one lacks. */
@@ -106,6 +123,67 @@ function mergeIssues(list: LinearIssue[]): void {
   publish({ issues, byKey });
 }
 
+/**
+ * Sets exactly these fields of a known issue (undefined removes one), whatever
+ * its updatedAt: an optimistic edit and its rollback, which `mergeIssues`'s
+ * stale-record guard must not skip.
+ */
+function patchIssue(id: string, fields: Partial<LinearIssue>): void {
+  const known = state.issues.get(id);
+  if (!known) return;
+  const next = { ...known } as Record<string, unknown>;
+  for (const [field, value] of Object.entries(fields)) {
+    if (value === undefined) delete next[field];
+    else next[field] = value;
+  }
+  publish({ issues: new Map(state.issues).set(id, next as LinearIssue) });
+}
+
+const same = (a: unknown, b: unknown) => a === b || JSON.stringify(a) === JSON.stringify(b);
+
+/**
+ * One whitelisted write. With `optimistic`, the issue shows `patch` at once and
+ * syncs leave those fields alone until Linear answers; Linear's answer then
+ * takes their place. When Linear refuses, the fields go back to what they
+ * were (unless a later edit changed them since) and the notice says why.
+ */
+async function write(
+  name: WriteName,
+  input: Record<string, unknown>,
+  optimistic?: { issueId: string; patch: Partial<LinearIssue> },
+): Promise<boolean> {
+  const fields = optimistic ? Object.keys(optimistic.patch) : [];
+  const known = optimistic ? state.issues.get(optimistic.issueId) : undefined;
+  const before: Record<string, unknown> = {};
+  for (const field of fields) before[field] = (known as Record<string, unknown> | undefined)?.[field];
+  let mark = 0;
+  if (optimistic && known) {
+    patchIssue(optimistic.issueId, optimistic.patch);
+    markPending(optimistic.issueId, fields);
+    mark = lastMark;
+  }
+  try {
+    const answer = await linearWrite<{ issue?: LinearIssue }>(name, input);
+    if (mark) clearOwnPending(optimistic!.issueId, fields, mark);
+    if (answer?.issue) mergeIssues([answer.issue]);
+    return true;
+  } catch (e) {
+    if (optimistic && mark) {
+      const id = optimistic.issueId;
+      const marks = pending.get(id);
+      const now = state.issues.get(id) as Record<string, unknown> | undefined;
+      // Only the fields still showing this write's value and not since edited again.
+      const back = fields.filter(
+        (f) => marks?.get(f) === mark && now !== undefined && same(now[f], (optimistic.patch as Record<string, unknown>)[f]),
+      );
+      clearOwnPending(id, fields, mark);
+      patchIssue(id, Object.fromEntries(back.map((f) => [f, before[f]])) as Partial<LinearIssue>);
+    }
+    notify(`Linear didn't save that: ${errorMessage(e) || "it didn't answer"}`);
+    return false;
+  }
+}
+
 function mergeComments(list: LinearComment[]): void {
   if (list.length === 0) return;
   const comments = new Map(state.comments);
@@ -146,6 +224,8 @@ export const linearStore = {
   mergeIssues,
   mergeComments,
   applySync,
+  patchIssue,
+  write,
   setWorkspace(workspace: LinearWorkspace): void {
     publish({ workspace: { ...workspace }, unavailable: undefined });
   },

@@ -566,12 +566,6 @@
   font-size: var(--fs-sm);
   color: var(--text-2);
 }
-.linear-state,
-.linear-meta-item {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
 .linear-issue h1 {
   margin: var(--space-2) 0 var(--space-3);
   font-size: var(--fs-2xl);
@@ -601,6 +595,221 @@
   margin: 2px 0 0;
   color: var(--text-2);
 }
+/* The open issue's properties: each a quiet button opening its picker. */
+.linear-facts.linear-props {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: var(--space-2) var(--space-4);
+}
+.linear-prop {
+  min-width: 0;
+}
+.linear-props dd {
+  min-width: 0;
+  margin-top: 2px;
+}
+.linear-prop-anchor {
+  max-width: 100%;
+}
+.linear-prop-btn,
+.linear-prop-fact,
+.linear-prop-date {
+  /* Text lines up with the labels above; the hover fill reaches past it. */
+  height: var(--control-sm);
+  margin-left: -6px;
+  padding: 0 6px;
+}
+.linear-prop-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: calc(100% + 6px);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  font-size: var(--fs-sm);
+  color: var(--text);
+  text-align: left;
+  transition: background-color var(--dur-1) var(--ease-out);
+}
+.linear-prop-btn > svg {
+  flex-shrink: 0;
+  color: var(--icon-muted);
+}
+.linear-prop-btn.empty {
+  color: var(--text-4);
+}
+.linear-prop-btn:hover,
+.linear-prop-btn[aria-expanded="true"] {
+  background: var(--row-hover);
+}
+.linear-prop-btn:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: -2px;
+}
+.linear-prop-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.linear-prop-dots {
+  display: inline-flex;
+  flex-shrink: 0;
+  gap: 3px;
+}
+.linear-props .linear-prop-fact {
+  display: flex;
+  align-items: center;
+  margin-left: 0;
+  padding: 0;
+  color: var(--text-2);
+}
+.linear-prop-due {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+}
+.linear-prop-date {
+  min-width: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  font: inherit;
+  font-size: var(--fs-sm);
+  color: var(--text);
+  color-scheme: inherit;
+}
+.linear-prop-date.empty {
+  color: var(--text-4);
+}
+.linear-prop-date:hover {
+  background: var(--row-hover);
+}
+.linear-prop-date:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: -2px;
+}
+.linear-prop-clear.icon-btn {
+  width: 22px;
+  height: 22px;
+}
+.linear-prop-due:not(:hover, :focus-within) .linear-prop-clear {
+  opacity: 0;
+}
+
+/* A property picker: a filter field over the options. */
+.popover-menu.linear-picker {
+  width: 248px;
+  max-height: 340px;
+  padding: 0;
+  overscroll-behavior: contain;
+}
+.linear-picker-filter {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: var(--control-md);
+  padding: 0 var(--space-3);
+  border-bottom: 1px solid var(--line);
+  background: var(--panel-raised);
+  color: var(--text-4);
+}
+.linear-picker-filter input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: none;
+  font-size: var(--fs-sm);
+  color: var(--text);
+}
+.linear-picker-filter input::placeholder {
+  color: var(--text-4);
+}
+.linear-picker-list {
+  padding: 4px;
+}
+.linear-picker-option {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 30px;
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-md);
+  font-size: var(--fs-sm);
+  color: var(--text);
+  cursor: pointer;
+}
+.linear-picker-option.active {
+  background: var(--fill-strong);
+}
+.linear-picker-icon {
+  display: inline-grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 16px;
+  color: var(--icon-muted);
+}
+.linear-picker-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.linear-picker-option small {
+  flex-shrink: 0;
+  font-size: var(--fs-xs);
+  color: var(--text-4);
+}
+.linear-picker-check {
+  flex-shrink: 0;
+  color: var(--accent-text);
+}
+.linear-picker-box {
+  display: inline-grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 14px;
+  height: 14px;
+  border: 1px solid var(--line-hover);
+  border-radius: var(--radius-xs);
+  color: var(--on-accent);
+}
+.linear-picker-box.on {
+  border-color: var(--accent);
+  background: var(--accent);
+}
+.linear-picker-empty {
+  margin: 0;
+  padding: var(--space-2);
+  font-size: var(--fs-sm);
+  color: var(--text-4);
+}
+
+/* A row's context menu, where it was opened. */
+.menu-anchor.linear-row-menu-anchor {
+  position: fixed;
+  z-index: 60;
+  width: 0;
+  height: 0;
+}
+.popover-menu.linear-row-menu {
+  min-width: 180px;
+}
+.linear-row-menu > button {
+  padding: 6px 9px;
+}
+.linear-row-menu > button > svg {
+  color: var(--icon-muted);
+}
+.linear-row-menu > button:focus-visible {
+  background: var(--fill-strong);
+}
+
 .linear-parent {
   margin-top: var(--space-3);
   max-width: 100%;
@@ -610,25 +819,6 @@
   color: var(--text-3);
   cursor: default;
   text-decoration: none;
-}
-.linear-labels {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin: var(--space-3) 0 0;
-  padding: 0;
-  list-style: none;
-}
-.linear-labels li {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  height: 22px;
-  padding: 0 var(--space-2);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-pill);
-  font-size: var(--fs-xs);
-  color: var(--text-2);
 }
 .linear-actions {
   display: flex;

@@ -7,7 +7,8 @@
  */
 import { after, before, test } from "node:test";
 import assert from "node:assert/strict";
-import type { Browser, Page } from "playwright";
+import type { Browser, Locator, Page } from "playwright";
+import { FAKE_IDS, fakeWorkspace } from "../server/linear/fake";
 import { PNG, launch, mockApi, newContext, startApp, waitFor } from "./harness";
 import { mockLinear } from "./linearFake";
 
@@ -179,6 +180,226 @@ test("Linear navigates my issues, teams, projects and initiatives, shows an issu
     assert.deepEqual(
       [...new Set(linear.requests.map((r) => r.operation))].filter((o) => !["Workspace", "Issues", "Issue", "Sync"].includes(o)),
       [],
+    );
+  } finally {
+    linear.restore();
+    await context.close();
+  }
+});
+
+/** ENG's next cycle, which the edit tests add. */
+const NEXT_CYCLE = "fa4e00ff-0000-4000-8000-000000000008";
+
+/** The sample workspace with ENG-1 outside any project and ENG's next cycle planned, so every edit changes something. */
+function editWorkspace() {
+  const ws = fakeWorkspace();
+  const eng1 = ws.issues.find((i) => i.identifier === "ENG-1")!;
+  eng1.project = null;
+  eng1.projectMilestone = null;
+  const active = ws.cycles.find((c) => c.id === FAKE_IDS.cycles.eng)!;
+  ws.cycles.push({ ...active, id: NEXT_CYCLE, number: 8, startsAt: active.endsAt, isActive: false, isNext: true });
+  return ws;
+}
+
+/** The Linear view, wide enough that the open issue shows beside the list, with nothing but Linear mocked. */
+async function openLinear(ws = fakeWorkspace()) {
+  const context = await newContext(browser);
+  const page = await context.newPage();
+  await page.setViewportSize({ width: 1800, height: 1000 });
+  await mockApi(page, { agents: () => [] });
+  const linear = await mockLinear(page, ws);
+  await page.goto(app.url);
+  await page.locator(".fleet-sidebar").waitFor();
+  await showLinear(page);
+  const view = page.locator(".linear-view");
+  await view.locator(".linear-sidebar").getByRole("button", { name: /^ENG/ }).waitFor();
+  return { context, page, linear, view, issue: view.locator(".linear-issue") };
+}
+
+/** A property's button in the open issue ("Status: In Progress"). */
+const prop = (issue: Locator, label: string) => issue.getByRole("button", { name: new RegExp(`^${label}:`) });
+const fakeIssue = (linear: Awaited<ReturnType<typeof mockLinear>>, key: string) =>
+  linear.ws.issues.find((i) => i.identifier === key)!;
+const focusedName = (page: Page) =>
+  page.evaluate(() => document.activeElement?.getAttribute("aria-label") ?? document.activeElement?.textContent ?? "");
+const writesMade = (linear: Awaited<ReturnType<typeof mockLinear>>) =>
+  linear.requests.map((r) => r.operation).filter((o) => !["Workspace", "Issues", "Issue", "Sync"].includes(o));
+
+test("edits each property", async () => {
+  const { context, page, linear, view, issue } = await openLinear(editWorkspace());
+  try {
+    const sidebar = view.locator(".linear-sidebar");
+    await sidebar.getByRole("button", { name: /^ENG/ }).click();
+    await sidebar.locator('.linear-team[data-team="ENG"]').getByRole("button", { name: "All" }).click();
+    const row = view.locator('.linear-list .linear-row[data-key="ENG-1"]');
+    await row.click();
+    await issue.locator("h1", { hasText: "Ship the Linear tab" }).waitFor();
+    const eng1 = () => fakeIssue(linear, "ENG-1");
+    const inLinear = (what: string, ok: () => boolean) => waitFor(() => Promise.resolve(ok()), Boolean, what);
+    const picker = (label: string) => page.getByRole("listbox", { name: label });
+
+    // Status, from the keyboard: the button opens the picker, typing filters, Enter picks, focus comes back.
+    await prop(issue, "Status").focus();
+    await page.keyboard.press("Enter");
+    await picker("Status").waitFor();
+    await page.keyboard.type("rev");
+    assert.deepEqual(await picker("Status").getByRole("option").allInnerTexts(), ["In Review"]);
+    await page.keyboard.press("Enter");
+    await issue.getByRole("button", { name: "Status: In Review" }).waitFor();
+    await view.locator('.linear-group[aria-label="In Review"] .linear-row[data-key="ENG-1"]').waitFor();
+    await inLinear("the status in Linear", () => eng1().state.id === FAKE_IDS.states.eng["In Review"]);
+    assert.equal(await picker("Status").count(), 0);
+    assert.equal(await focusedName(page), "Status: In Review");
+
+    // Priority, by clicking; ↓ and Esc close without changing anything, focus back on the button.
+    await prop(issue, "Priority").click();
+    await picker("Priority").getByRole("option", { name: "Urgent" }).click();
+    await issue.getByRole("button", { name: "Priority: Urgent" }).waitFor();
+    await row.locator('.linear-priority[aria-label="Urgent"]').waitFor();
+    await inLinear("the priority in Linear", () => eng1().priority === 1);
+    await prop(issue, "Priority").focus();
+    await page.keyboard.press("Enter");
+    await picker("Priority").waitFor();
+    await page.keyboard.press("ArrowDown");
+    await page.keyboard.press("Escape");
+    assert.equal(await picker("Priority").count(), 0);
+    assert.equal(await focusedName(page), "Priority: Urgent");
+    assert.equal(await issue.getByRole("button", { name: "Priority: Urgent" }).count(), 1);
+
+    await prop(issue, "Assignee").click();
+    await picker("Assignee").getByRole("option", { name: /^Sam Rivera/ }).click();
+    await issue.getByRole("button", { name: "Assignee: Sam Rivera" }).waitFor();
+    await row.locator('.linear-row-person [aria-label="Sam Rivera"]').waitFor();
+    await inLinear("the assignee in Linear", () => eng1().assignee?.id === FAKE_IDS.sam);
+
+    // Labels toggle and the picker stays open; Esc closes it.
+    await prop(issue, "Labels").click();
+    await picker("Labels").getByRole("option", { name: "Bug" }).click();
+    await waitFor(
+      () => picker("Labels").locator('[role=option][aria-selected="true"]').allInnerTexts(),
+      (names) => names.join() === "Bug,Feature",
+      "both labels chosen",
+    );
+    await page.keyboard.press("Escape");
+    assert.equal(await picker("Labels").count(), 0);
+    await waitFor(() => row.locator(".linear-row-labels").getAttribute("aria-label"), (v) => !!v?.includes("Bug") && v.includes("Feature"), "the row's labels");
+    await issue.getByRole("button", { name: /^Labels: (Feature, Bug|Bug, Feature)$/ }).waitFor();
+    await inLinear("the labels in Linear", () =>
+      eng1().labels.nodes.map((l) => l.id).sort().join() === [FAKE_IDS.labels.bug, FAKE_IDS.labels.feature].sort().join(),
+    );
+
+    // The team's estimate scale (fibonacci).
+    await prop(issue, "Estimate").click();
+    assert.deepEqual(await picker("Estimate").getByRole("option").allInnerTexts(), [
+      "No estimate",
+      "0 points",
+      "1 point",
+      "2 points",
+      "3 points",
+      "5 points",
+      "8 points",
+    ]);
+    await picker("Estimate").getByRole("option", { name: "3 points" }).click();
+    await issue.getByRole("button", { name: "Estimate: 3 points" }).waitFor();
+    await inLinear("the estimate in Linear", () => eng1().estimate === 3);
+
+    // The team's active and next cycles.
+    await prop(issue, "Cycle").click();
+    await picker("Cycle").getByRole("option", { name: /^Cycle 8/ }).click();
+    await issue.getByRole("button", { name: "Cycle: Cycle 8" }).waitFor();
+    await inLinear("the cycle in Linear", () => eng1().cycle?.id === NEXT_CYCLE);
+
+    // Without a project there's no milestone to choose; with one, its milestones.
+    assert.equal(await prop(issue, "Milestone").count(), 0);
+    await prop(issue, "Project").click();
+    await picker("Project").getByRole("option", { name: "Launch" }).click();
+    await issue.getByRole("button", { name: "Project: Launch" }).waitFor();
+    await row.locator(".linear-row-project", { hasText: "Launch" }).waitFor();
+    await inLinear("the project in Linear", () => eng1().project?.id === FAKE_IDS.projects.launch);
+    await prop(issue, "Milestone").click();
+    assert.deepEqual(await picker("Milestone").getByRole("option").allInnerTexts(), ["No milestone", "Beta", "GA"]);
+    await picker("Milestone").getByRole("option", { name: "Beta" }).click();
+    await issue.getByRole("button", { name: "Milestone: Beta" }).waitFor();
+    await inLinear("the milestone in Linear", () => eng1().projectMilestone?.id === FAKE_IDS.milestones.beta);
+
+    const due = issue.getByLabel("Due date", { exact: true });
+    await due.fill("2026-11-15");
+    await due.press("Enter");
+    await inLinear("the due date in Linear", () => eng1().dueDate === "2026-11-15");
+    assert.equal(await due.inputValue(), "2026-11-15");
+
+    // The parent, found by typing; its own sub-issue isn't offered.
+    await prop(issue, "Parent").click();
+    await page.keyboard.type("ENG-");
+    const offered = await picker("Parent").getByRole("option").allInnerTexts();
+    assert.ok(!offered.some((o) => o.startsWith("ENG-1 ") || o.startsWith("ENG-2 ")), `offered ${offered}`);
+    await page.keyboard.type("3");
+    await page.keyboard.press("Enter");
+    await issue.getByRole("button", { name: /Part of ENG-3/ }).waitFor();
+    await inLinear("the parent in Linear", () => eng1().parent?.id === FAKE_IDS.issues["ENG-3"]);
+
+    assert.ok(writesMade(linear).length >= 10);
+    assert.deepEqual([...new Set(writesMade(linear))], ["IssueUpdate"]);
+  } finally {
+    linear.restore();
+    await context.close();
+  }
+});
+
+test("rolls back a refused edit", async () => {
+  const { context, page, linear, view, issue } = await openLinear();
+  try {
+    linear.fail("IssueUpdate", { message: "Not allowed" });
+    await view.locator('.linear-row[data-key="ENG-1"]').click();
+    await issue.getByRole("button", { name: "Priority: High" }).waitFor();
+    await prop(issue, "Priority").click();
+    await page.getByRole("listbox", { name: "Priority" }).getByRole("option", { name: "Urgent" }).click();
+    await page.locator(".toast", { hasText: "Linear didn't save that: Not allowed" }).waitFor();
+    await issue.getByRole("button", { name: "Priority: High" }).waitFor();
+    await view.locator('.linear-list .linear-row[data-key="ENG-1"] .linear-priority[aria-label="High"]').waitFor();
+    assert.equal(fakeIssue(linear, "ENG-1").priority, 2);
+    assert.deepEqual(writesMade(linear), ["IssueUpdate"]);
+  } finally {
+    linear.restore();
+    await context.close();
+  }
+});
+
+test("moves an issue out of Assigned when assigned to someone else", async () => {
+  const { context, page, linear, view, issue } = await openLinear();
+  try {
+    await waitFor(() => rowKeys(page), (keys) => keys.join() === "ENG-1,ENG-3", "your assigned issues");
+    const menu = page.getByRole("menu", { name: "Edit ENG-3" });
+    // A row's context menu; Esc closes it and the row has the focus again.
+    await view.locator('.linear-row[data-key="ENG-3"]').click({ button: "right" });
+    await menu.waitFor();
+    assert.deepEqual(await menu.getByRole("menuitem").allInnerTexts(), ["Status", "Priority", "Assignee", "Labels"]);
+    await page.keyboard.press("Escape");
+    assert.equal(await menu.count(), 0);
+    assert.equal(await page.evaluate(() => (document.activeElement as HTMLElement | null)?.dataset.key), "ENG-3");
+
+    // From the menu, the assignee: ENG-1 is no longer yours, so it leaves the list.
+    await view.locator('.linear-row[data-key="ENG-1"]').click();
+    await issue.getByRole("button", { name: "Assignee: Owen Conti" }).waitFor();
+    await view.locator('.linear-row[data-key="ENG-1"]').click({ button: "right" });
+    await page.getByRole("menu", { name: "Edit ENG-1" }).getByRole("menuitem", { name: "Assignee" }).click();
+    await page.getByRole("listbox", { name: "Assignee" }).getByRole("option", { name: /^Sam Rivera/ }).click();
+    await waitFor(() => rowKeys(page), (keys) => keys.join() === "ENG-3", "ENG-1 to leave Assigned");
+    await issue.getByRole("button", { name: "Assignee: Sam Rivera" }).waitFor();
+    await waitFor(() => Promise.resolve(fakeIssue(linear, "ENG-1").assignee?.id), (id) => id === FAKE_IDS.sam, "Sam in Linear");
+
+    // ⌘K edits the open issue too: its status picker opens with the keyboard in it.
+    await page.keyboard.press("Meta+k");
+    await page.getByLabel("Search commands").fill("issue's status");
+    await page.keyboard.press("Enter");
+    await page.getByRole("listbox", { name: "Status" }).waitFor();
+    await page.keyboard.type("todo");
+    await page.keyboard.press("Enter");
+    await issue.getByRole("button", { name: "Status: Todo" }).waitFor();
+    await waitFor(
+      () => Promise.resolve(fakeIssue(linear, "ENG-1").state.id),
+      (id) => id === FAKE_IDS.states.eng.Todo,
+      "Todo in Linear",
     );
   } finally {
     linear.restore();

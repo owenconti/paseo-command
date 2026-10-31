@@ -1,12 +1,13 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { ArrowLeft, CalendarDays, CornerLeftUp, ExternalLink, GitBranch, Play, X } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { ArrowLeft, CornerLeftUp, ExternalLink, GitBranch, Play, X } from "lucide-react";
 import { ago, errorMessage } from "../api";
 import { openExternal } from "../links";
 import { Markdown } from "../Markdown";
-import { Dot, Person, Priority, PRIORITY_LABEL } from "./bits";
+import { Person } from "./bits";
 import { IssueRow } from "./IssueList";
+import { Properties } from "./Properties";
 import { issueContext, linearImages, type IssueContext } from "./prompt";
-import { loadIssue, useLinear } from "./store";
+import { linearStore, loadIssue, useLinear } from "./store";
 import type { LinearComment, LinearIssue, LinearRelation } from "./types";
 
 /** How a relation reads from the open issue's side. */
@@ -21,16 +22,9 @@ const RELATION_ORDER: LinearRelation["type"][] = ["blocked_by", "blocks", "relat
 
 /** Issues the page knows only by id (a parent, a related issue) asked for once each; a handful per issue. */
 const askedById = new Set<string>();
+/** Those Linear didn't give (failed, or no such issue): shown as unavailable, not loading. */
+const missingById = new Set<string>();
 const MAX_RELATED_LOADS = 10;
-
-function Fact({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <div>
-      <dt>{label}</dt>
-      <dd>{children}</dd>
-    </div>
-  );
-}
 
 /** The comments as threads: each top-level one, then its replies, oldest first. */
 function threads(comments: LinearComment[]): { comment: LinearComment; reply: boolean }[] {
@@ -46,7 +40,8 @@ function threads(comments: LinearComment[]): { comment: LinearComment; reply: bo
 /**
  * One issue, from the store, loaded afresh (description, comments, children)
  * when it opens: its properties, labels, parent, children and relations,
- * description, links and comments, and Launch agent. Read-only.
+ * description, links and comments, and Launch agent. Its properties are
+ * edited in place (`Properties`); the rest is read-only here.
  */
 export function IssueDetail({
   issueKey,
@@ -86,18 +81,27 @@ export function IssueDetail({
   // A parent or related issue not in the store yet: asked for by id, so it can be named.
   const unknownIds = useMemo(
     () =>
-      [issue?.parentId, ...(issue?.relations ?? []).map((r) => r.issueId)]
-        .filter((x): x is string => !!x && !data.issues.has(x))
-        .slice(0, MAX_RELATED_LOADS),
+      [issue?.parentId, ...(issue?.relations ?? []).map((r) => r.issueId)].filter(
+        (x): x is string => !!x && !data.issues.has(x),
+      ),
     [issue, data.issues],
   );
+  const [, setMissing] = useState(0);
   useEffect(() => {
-    for (const other of unknownIds) {
+    for (const other of unknownIds.slice(0, MAX_RELATED_LOADS)) {
       if (askedById.has(other)) continue;
       askedById.add(other);
-      loadIssue(other).catch(() => {});
+      const miss = () => {
+        if (linearStore.getState().issues.has(other)) return;
+        missingById.add(other);
+        setMissing((n) => n + 1);
+      };
+      loadIssue(other).then(miss, miss);
     }
   }, [unknownIds]);
+  /** Not loading any more: Linear didn't give it, or it's past the handful asked for. */
+  const unavailable = (other: string) =>
+    missingById.has(other) || unknownIds.indexOf(other) >= MAX_RELATED_LOADS;
 
   const comments = useMemo(
     () => (issue ? threads([...data.comments.values()].filter((c) => c.issueId === issue.id)) : []),
@@ -127,22 +131,16 @@ export function IssueDetail({
       </div>
     );
 
-  const state = ws?.states.find((s) => s.id === issue.stateId);
-  const team = ws?.teams.find((t) => t.id === issue.teamId);
   const user = (userId?: string) => ws?.users.find((u) => u.id === userId);
-  const assignee = user(issue.assigneeId);
-  const creator = user(issue.creatorId);
-  const project = ws?.projects.find((p) => p.id === issue.projectId);
-  const milestone = project?.milestones.find((m) => m.id === issue.milestoneId);
-  const cycle = ws?.cycles.find((c) => c.id === issue.cycleId);
   const parent = issue.parentId ? data.issues.get(issue.parentId) : undefined;
-  const labels = issue.labelIds.map((l) => ws?.labels.find((x) => x.id === l)).filter((l) => l !== undefined);
   const children = (issue.childIds ?? [])
     .map((c) => data.issues.get(c))
     .filter((c): c is LinearIssue => c !== undefined);
   const relations = RELATION_ORDER.map((type) => ({
     type,
-    issues: (issue.relations ?? []).filter((r) => r.type === type).map((r) => data.issues.get(r.issueId)),
+    issues: (issue.relations ?? [])
+      .filter((r) => r.type === type)
+      .map((r) => ({ id: r.issueId, issue: data.issues.get(r.issueId) })),
   })).filter((g) => g.issues.length > 0);
   const row = (other: LinearIssue) => (
     <IssueRow key={other.id} issue={other} ws={ws} open={false} focusable onOpen={onOpen} showState />
@@ -155,60 +153,18 @@ export function IssueDetail({
         <header>
           <div className="linear-issue-line">
             <span className="linear-key">{issue.key}</span>
-            {state && (
-              <span className="linear-state">
-                <Dot color={state.color} />
-                {state.name}
-              </span>
-            )}
-            <span className="linear-meta-item">
-              <Priority priority={issue.priority} />
-              {PRIORITY_LABEL[issue.priority]}
-            </span>
           </div>
           <h1>{issue.title}</h1>
-          <dl className="linear-facts">
-            <Fact label="Assignee">
-              {assignee ? (
-                <>
-                  <Person user={assignee} /> {assignee.name}
-                </>
-              ) : (
-                <span className="linear-none">Unassigned</span>
-              )}
-            </Fact>
-            {project && (
-              <Fact label="Project">
-                <Dot color={project.color} /> {project.name}
-              </Fact>
-            )}
-            {milestone && <Fact label="Milestone">{milestone.name}</Fact>}
-            {cycle && <Fact label="Cycle">{cycle.name ? `Cycle ${cycle.number} · ${cycle.name}` : `Cycle ${cycle.number}`}</Fact>}
-            {team && <Fact label="Team">{team.name}</Fact>}
-            {creator && <Fact label="Created by">{creator.name}</Fact>}
-            {issue.dueDate && (
-              <Fact label="Due">
-                <CalendarDays size={12} aria-hidden="true" /> {issue.dueDate}
-              </Fact>
-            )}
-            {issue.estimate != null && <Fact label="Estimate">{issue.estimate}</Fact>}
-            <Fact label="Updated">{ago(issue.updatedAt)}</Fact>
-          </dl>
+          <Properties issue={issue} />
           {issue.parentId && (
             <button className="link-btn linear-parent" disabled={!parent} onClick={() => parent && onOpen(parent.key)}>
               <CornerLeftUp size={12} aria-hidden="true" />
-              {parent ? `Part of ${parent.key}: ${parent.title}` : "Part of another issue"}
+              {parent
+                ? `Part of ${parent.key}: ${parent.title}`
+                : unavailable(issue.parentId)
+                  ? "Part of an issue that’s unavailable"
+                  : "Part of another issue"}
             </button>
-          )}
-          {labels.length > 0 && (
-            <ul className="linear-labels" aria-label="Labels">
-              {labels.map((l) => (
-                <li key={l.id}>
-                  <Dot color={l.color} />
-                  {l.name}
-                </li>
-              ))}
-            </ul>
           )}
           <div className="linear-actions">
             <button
@@ -262,8 +218,14 @@ export function IssueDetail({
               <div key={g.type} className="linear-relation-group">
                 <h4>{RELATION_LABEL[g.type]}</h4>
                 <div className="linear-related-rows">
-                  {g.issues.map((other, n) =>
-                    other ? row(other) : <p key={n} className="linear-note">Loading…</p>,
+                  {g.issues.map(({ id: otherId, issue: other }) =>
+                    other ? (
+                      row(other)
+                    ) : (
+                      <p key={otherId} className="linear-note">
+                        {unavailable(otherId) ? "Unavailable" : "Loading…"}
+                      </p>
+                    ),
                   )}
                 </div>
               </div>

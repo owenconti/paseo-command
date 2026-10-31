@@ -9,7 +9,7 @@ import { checkPlace, placeScope, readPlace, writePlace, type LinearPlace } from 
 import { ProjectFacts, ProjectList } from "./ProjectList";
 import type { IssueContext } from "./prompt";
 import { Sidebar } from "./Sidebar";
-import { loadScope, loadWorkspace, useLinear, useLinearSync } from "./store";
+import { loadScope, loadWorkspace, setLinearNotice, useLinear, useLinearSync } from "./store";
 import type { IssueScope } from "./types";
 
 /** The sidebar's width: its default, and the least it and the rest of the view keep. */
@@ -29,18 +29,24 @@ const TEAM_TITLE = { triage: "Triage", active: "Active", backlog: "Backlog", all
  * initiatives), the place's list, and the open issue beside it (or in its
  * place when narrow), from which an agent can be launched. Everything shows
  * from the page's Linear store, kept current by sync while the view shows.
- * Read-only: nothing here changes Linear. As Conquer's tab sidebar, the
+ * An issue's properties are edited in place (the detail's pickers, a row's
+ * context menu), saved to Linear at once. As Conquer's tab sidebar, the
  * sidebar's inner edge resizes it and ⌘S hides or shows it (both remembered),
  * and the place comes back after a reload.
  */
 export function LinearView({
   onLaunch,
   onNotice,
+  onIssueOpen,
 }: {
   onLaunch: (issue: IssueContext) => void;
   onNotice: (message: string) => void;
+  /** Whether an issue is open (⌘K offers editing it). */
+  onIssueOpen?: (open: boolean) => void;
 }) {
   useLinearSync(true);
+  // A write Linear refuses says why in the app's notice.
+  useEffect(() => setLinearNotice(onNotice), [onNotice]);
   const ws = useLinear((d) => d.workspace);
   const unavailable = useLinear((d) => d.unavailable);
   const loadedScopes = useLinear((d) => d.loadedScopes);
@@ -141,6 +147,12 @@ export function LinearView({
       off();
     };
   }, []);
+
+  const issueOpen = !!place.issue && !!ws;
+  useEffect(() => {
+    onIssueOpen?.(issueOpen);
+  }, [issueOpen, onIssueOpen]);
+  useEffect(() => () => onIssueOpen?.(false), [onIssueOpen]);
 
   if (!ws && (unavailable || workspaceError))
     return (

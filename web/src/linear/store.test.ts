@@ -9,6 +9,7 @@ import {
   loadWorkspace,
   markPending,
   scopeIssues,
+  setLinearNotice,
   syncTick,
 } from "./store";
 import type { LinearIssue, LinearState, LinearSync, LinearWorkspace } from "./types";
@@ -56,19 +57,33 @@ const sync = (patch: Partial<LinearSync> = {}): LinearSync => ({
 });
 
 let calls: string[];
-let answers: Record<string, (path: string) => unknown>;
+let answers: Record<string, (path: string, body?: unknown) => unknown>;
+let notices: string[];
 beforeEach(() => {
   linearStore.reset();
   calls = [];
   answers = {};
-  setLinearTransport(async (path) => {
+  notices = [];
+  setLinearNotice((message) => notices.push(message));
+  setLinearTransport(async (path, body) => {
     calls.push(path);
     const name = path.replace(/^linear\/q\//, "").split("?")[0];
     if (!answers[name]) throw new Error(`unexpected ${path}`);
-    return answers[name](path);
+    return answers[name](path, body);
   });
 });
 afterEach(() => setLinearTransport(null));
+
+/** A write's answer the test releases by hand, to look at the store while it's in flight. */
+function held<T>() {
+  let release!: (value: T) => void;
+  let refuse!: (error: Error) => void;
+  const promise = new Promise<T>((resolve, reject) => {
+    release = resolve;
+    refuse = reject;
+  });
+  return { promise, release, refuse };
+}
 
 describe("linear store", () => {
   it("scopes follow the store", () => {
@@ -187,5 +202,69 @@ describe("linear store", () => {
     await loadScope("assigned");
     assert.equal(linearStore.getState().unavailable?.reason, "no key");
     assert.equal(linearStore.getState().loadedScopes.has("assigned"), false);
+  });
+  it("writes optimistically, then keeps Linear's answer", async () => {
+    linearStore.mergeIssues([issue(1, { priority: 3 })]);
+    const answer = held<unknown>();
+    let sent: unknown;
+    answers["linear/m/issueUpdate"] = (_path, body) => {
+      sent = body;
+      return answer.promise;
+    };
+    const done = linearStore.write("issueUpdate", { id: "i-1", priority: 1 }, { issueId: "i-1", patch: { priority: 1 } });
+    assert.equal(linearStore.getState().issues.get("i-1")?.priority, 1);
+    // A sync from before the write lands meanwhile: the edited field keeps the edit.
+    linearStore.applySync(sync({ issues: [issue(1, { priority: 3, title: "Synced", updatedAt: "2026-10-02T00:00:00Z" })] }));
+    assert.equal(linearStore.getState().issues.get("i-1")?.priority, 1);
+    assert.equal(linearStore.getState().issues.get("i-1")?.title, "Synced");
+    answer.release({ issue: issue(1, { priority: 1, title: "Synced", updatedAt: "2026-10-03T00:00:00Z" }) });
+    assert.equal(await done, true);
+    assert.deepEqual(sent, { id: "i-1", priority: 1 });
+    assert.equal(linearStore.getState().issues.get("i-1")?.updatedAt, "2026-10-03T00:00:00Z");
+    assert.deepEqual(notices, []);
+    // Nothing is pending any more: the next sync sets the field.
+    linearStore.applySync(sync({ issues: [issue(1, { priority: 2, updatedAt: "2026-10-04T00:00:00Z" })] }));
+    assert.equal(linearStore.getState().issues.get("i-1")?.priority, 2);
+  });
+
+  it("rolls a refused write back, even after a newer sync", async () => {
+    linearStore.mergeIssues([issue(1, { priority: 3, labelIds: ["l-1"] })]);
+    const answer = held<unknown>();
+    answers["linear/m/issueUpdate"] = () => answer.promise;
+    const done = linearStore.write(
+      "issueUpdate",
+      { id: "i-1", priority: 1, assigneeId: ME, labelIds: [] },
+      { issueId: "i-1", patch: { priority: 1, assigneeId: ME, labelIds: [] } },
+    );
+    linearStore.applySync(sync({ issues: [issue(1, { priority: 3, labelIds: ["l-1"], title: "Synced", updatedAt: "2026-10-05T00:00:00Z" })] }));
+    answer.refuse(new Error("Not allowed"));
+    assert.equal(await done, false);
+    const got = linearStore.getState().issues.get("i-1")!;
+    assert.equal(got.priority, 3);
+    assert.deepEqual(got.labelIds, ["l-1"]);
+    assert.equal("assigneeId" in got, false);
+    assert.equal(got.title, "Synced");
+    assert.deepEqual(notices, ["Linear didn't save that: Not allowed"]);
+    // Pending is cleared: sync sets the field again.
+    linearStore.applySync(sync({ issues: [issue(1, { priority: 4, updatedAt: "2026-10-06T00:00:00Z" })] }));
+    assert.equal(linearStore.getState().issues.get("i-1")?.priority, 4);
+  });
+
+  it("a refused write leaves a later edit of the same field alone", async () => {
+    linearStore.mergeIssues([issue(1, { priority: 3 })]);
+    const first = held<unknown>();
+    const second = held<unknown>();
+    const queue = [first, second];
+    answers["linear/m/issueUpdate"] = () => queue.shift()!.promise;
+    const one = linearStore.write("issueUpdate", { id: "i-1", priority: 1 }, { issueId: "i-1", patch: { priority: 1 } });
+    const two = linearStore.write("issueUpdate", { id: "i-1", priority: 2 }, { issueId: "i-1", patch: { priority: 2 } });
+    first.refuse(new Error("Busy"));
+    assert.equal(await one, false);
+    assert.equal(linearStore.getState().issues.get("i-1")?.priority, 2);
+    // The second write is still pending: a sync doesn't undo it.
+    linearStore.applySync(sync({ issues: [issue(1, { priority: 3, updatedAt: "2026-10-02T00:00:00Z" })] }));
+    assert.equal(linearStore.getState().issues.get("i-1")?.priority, 2);
+    second.release({ issue: issue(1, { priority: 2, updatedAt: "2026-10-03T00:00:00Z" }) });
+    assert.equal(await two, true);
   });
 });

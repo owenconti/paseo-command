@@ -33,11 +33,14 @@ class Captured {
   }
 }
 
-/** Answers the page's Linear requests from `ws` (the sample workspace by default); `restore` puts Linear's fetch back. */
+/**
+ * Answers the page's Linear requests from `ws` (the sample workspace by default);
+ * `fail` makes an operation answer an error, `restore` puts Linear's fetch back.
+ */
 export async function mockLinear(
   page: Page,
   ws: FakeWorkspace = fakeWorkspace(),
-): Promise<{ ws: FakeWorkspace; requests: FakeLinear["requests"]; restore: () => void }> {
+): Promise<Pick<FakeLinear, "ws" | "requests" | "fail" | "clear" | "restore">> {
   const fake = installFakeLinear(ws);
   resetLinearReads();
   await page.route("**/api/linear/**", async (route) => {
@@ -62,5 +65,5 @@ export async function mockLinear(
       })
       .catch(() => {});
   });
-  return { ws: fake.ws, requests: fake.requests, restore: fake.restore };
+  return { ws: fake.ws, requests: fake.requests, fail: fake.fail, clear: fake.clear, restore: fake.restore };
 }

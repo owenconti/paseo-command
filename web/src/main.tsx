@@ -826,6 +826,8 @@ function App() {
 
   // The mode bar's tab (macOS app): Linear draws its issues in the map's place.
   const appMode = useAppMode();
+  // The issue open in the Linear tab, for ⌘K's edits of it.
+  const [linearIssueOpen, setLinearIssueOpen] = useState(false);
   // From a Linear issue: New agent, where the host and project are chosen.
   const launchFromIssue = useCallback(
     (issue: IssueContext) => openDispatch({ issue }),
@@ -1480,6 +1482,23 @@ function App() {
           },
         ]
       : []),
+    // The issue open in the Linear tab (shown only there): its pickers.
+    ...(appMode === "linear" && linearIssueOpen
+      ? (
+          [
+            ["linear-status", "Change the Linear issue's status", "linear issue state workflow progress done todo"],
+            ["linear-priority", "Change the Linear issue's priority", "linear issue urgent high medium low"],
+            ["linear-assignee", "Assign the Linear issue", "linear issue assignee owner person unassign"],
+            ["linear-labels", "Change the Linear issue's labels", "linear issue labels tags bug feature"],
+          ] as const
+        ).map(([command, label, keywords]) => ({
+          id: command,
+          group: "App",
+          label,
+          keywords,
+          run: () => runAppCommand(command),
+        }))
+      : []),
     {
       id: "sounds",
       group: "App",
@@ -1661,7 +1680,11 @@ function App() {
             </React.Suspense>
             {appMode === "linear" && (
               <React.Suspense fallback={null}>
-                <LinearView onLaunch={launchFromIssue} onNotice={setNotice} />
+                <LinearView
+                  onLaunch={launchFromIssue}
+                  onNotice={setNotice}
+                  onIssueOpen={setLinearIssueOpen}
+                />
               </React.Suspense>
             )}
           </div>
