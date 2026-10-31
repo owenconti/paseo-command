@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent a
 import { createPortal } from "react-dom";
 import { AnimatePresence } from "framer-motion";
 import { Archive, Box, ChevronRight, Layers, ListTodo, PanelLeftOpen, RefreshCcw, RefreshCw, Search, X } from "lucide-react";
-import { errorMessage, readStore, writeStore } from "../api";
+import { errorMessage, readStore, removeStore, writeStore } from "../api";
 import { onAppCommand, runAppCommand, type AppCommand } from "../appCommands";
 import { modalOpen } from "../focus";
 import { useSecretRevision } from "../integrationSettings";
@@ -42,6 +42,8 @@ const LIST = { width: 320, min: 200, detailMin: 320 };
 const listMax = (viewWidth: number) => Math.max(LIST.min, viewWidth - LIST.detailMin);
 const clampList = (width: number, viewWidth: number) =>
   Math.round(Math.min(listMax(viewWidth), Math.max(LIST.min, width)));
+/** The open issue beside the list: the least it keeps, and the least the list keeps beside it. */
+const DETAIL = { min: 360, listMin: 320 };
 /** From this width the open issue shows beside the list; narrower, in its place. */
 const BESIDE_MIN = 1100;
 
@@ -154,6 +156,21 @@ export function LinearView({
     setListWidth(w);
     writeStore("linear:listWidth", w);
   };
+  // The open issue's width beside the list, once its edge is dragged (else it shares the room with the list).
+  const [detailWidth, setDetailWidth] = useState<number | null>(() => readStore<number | null>("linear:detailWidth", null));
+  const detailDrag = useRef<{ x: number; width: number } | null>(null);
+  const detailMax = Math.max(DETAIL.min, viewWidth - (listHidden ? 0 : width) - DETAIL.listMin);
+  const clampDetail = (w: number) => Math.round(viewWidth ? Math.min(detailMax, Math.max(DETAIL.min, w)) : Math.max(DETAIL.min, w));
+  const detailW = detailWidth === null ? null : clampDetail(detailWidth);
+  const resizeDetail = (next: number | null) => {
+    const w = next === null ? null : clampDetail(next);
+    setDetailWidth(w);
+    if (w === null) removeStore("linear:detailWidth");
+    else writeStore("linear:detailWidth", w);
+  };
+  /** The open issue's width as shown now (its edge may not have been dragged yet). */
+  const shownDetailWidth = () =>
+    detailW ?? view?.querySelector<HTMLElement>(".linear-detail")?.getBoundingClientRect().width ?? DETAIL.min;
   // The view's text size (`textSize.ts`), set on the root so portalled menus and dialogs follow.
   const [textStep, setTextStep] = useState(() => checkTextStep(readStore<unknown>("linear:textSize", undefined)));
   useEffect(() => {
@@ -726,7 +743,7 @@ export function LinearView({
   const columns = [
     listHidden ? null : `${width}px`,
     showList ? "minmax(0, 1fr)" : null,
-    openIssue ? (showList ? "minmax(360px, 1.2fr)" : "minmax(0, 1fr)") : null,
+    openIssue ? (showList ? (detailW !== null ? `${detailW}px` : `minmax(${DETAIL.min}px, 1.2fr)`) : "minmax(0, 1fr)") : null,
   ].filter(Boolean);
   return (
     <section
@@ -798,6 +815,38 @@ export function LinearView({
             </p>
           )}
           {main()}
+          {openIssue && (
+            <div
+              className="linear-resize"
+              role="separator"
+              aria-orientation="vertical"
+              aria-label="Resize the open issue"
+              aria-controls="linear-detail"
+              aria-valuemin={DETAIL.min}
+              aria-valuemax={viewWidth ? detailMax : undefined}
+              aria-valuenow={detailW ?? undefined}
+              aria-description="Drag, or use the arrow keys, to change the width of the open issue beside the list. Shift resizes faster; double-click shares the room again."
+              tabIndex={0}
+              onPointerDown={(e) => {
+                if (e.button !== 0) return;
+                e.preventDefault();
+                e.currentTarget.setPointerCapture(e.pointerId);
+                detailDrag.current = { x: e.clientX, width: shownDetailWidth() };
+              }}
+              onPointerMove={(e) => {
+                if (detailDrag.current) resizeDetail(detailDrag.current.width - (e.clientX - detailDrag.current.x));
+              }}
+              onPointerUp={() => (detailDrag.current = null)}
+              onPointerCancel={() => (detailDrag.current = null)}
+              onLostPointerCapture={() => (detailDrag.current = null)}
+              onDoubleClick={() => resizeDetail(null)}
+              onKeyDown={(e) => {
+                if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+                e.preventDefault();
+                resizeDetail(shownDetailWidth() + (e.key === "ArrowLeft" ? 1 : -1) * (e.shiftKey ? 64 : 16));
+              }}
+            />
+          )}
         </div>
       )}
       {openIssue && (

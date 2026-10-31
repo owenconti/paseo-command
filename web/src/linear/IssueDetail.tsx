@@ -191,7 +191,7 @@ export function IssueDetail({
 
   if (!issue)
     return (
-      <div className="linear-detail" aria-live="polite">
+      <div className="linear-detail" id="linear-detail" aria-live="polite">
         <div className="linear-detail-bar">{close}</div>
         {load.error && load.key === issueKey ? (
           <p className="archive-error" role="alert">
@@ -236,7 +236,7 @@ export function IssueDetail({
   );
 
   return (
-    <div className="linear-detail" aria-live="polite">
+    <div className="linear-detail" id="linear-detail" aria-live="polite">
       <div className="linear-detail-bar">
         {closeLabel === "Back" ? (
           <>

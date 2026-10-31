@@ -507,3 +507,38 @@ test("attachments: links and uploaded files on an issue, files in a comment, rem
     await context.close();
   }
 });
+
+test("the edge between the list and the open issue resizes it, kept across a reload; double-click shares the room again", async () => {
+  const { context, page, linear, view } = await openLinear();
+  try {
+    await view.locator('.linear-row[data-key="ENG-1"]').click();
+    const detail = view.locator(".linear-detail");
+    await detail.locator("h1", { hasText: "Ship the Linear tab" }).waitFor();
+    const edge = view.getByRole("separator", { name: "Resize the open issue" });
+    const before = (await detail.boundingBox())!.width;
+    const box = (await edge.boundingBox())!;
+    await page.mouse.move(box.x + box.width / 2, box.y + 200);
+    await page.mouse.down();
+    await page.mouse.move(box.x + box.width / 2 - 120, box.y + 200, { steps: 5 });
+    await page.mouse.up();
+    const wider = (await detail.boundingBox())!.width;
+    assert.ok(Math.abs(wider - (before + 120)) <= 3, `${wider} is ${before} + 120`);
+
+    // Kept.
+    await page.reload();
+    await page.locator(".fleet-sidebar").waitFor();
+    await page.evaluate(() => window.dispatchEvent(new CustomEvent("paseo:mode", { detail: { mode: "linear" } })));
+    await detail.locator("h1", { hasText: "Ship the Linear tab" }).waitFor();
+    assert.ok(Math.abs((await detail.boundingBox())!.width - wider) <= 3);
+
+    // The keys narrow it; double-click goes back to sharing the room.
+    await edge.focus();
+    await page.keyboard.press("ArrowRight");
+    assert.ok(Math.abs((await detail.boundingBox())!.width - (wider - 16)) <= 3);
+    await edge.dblclick();
+    await waitFor(async () => (await detail.boundingBox())!.width, (w) => Math.abs(w - before) <= 3, "the shared width");
+  } finally {
+    linear.restore();
+    await context.close();
+  }
+});
