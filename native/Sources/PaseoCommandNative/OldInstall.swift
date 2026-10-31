@@ -100,7 +100,7 @@ enum OldInstall {
         let deadline = Date() + 5
         while kill(server.pid, 0) == 0 && Date() < deadline { Thread.sleep(forTimeInterval: 0.1) }
         if kill(server.pid, 0) == 0 {
-            throw Failure(errorDescription: "The older Paseo Command server (process \(server.pid)) didn’t stop. Stop it with npm run app:stop in \(server.checkout.path) and reopen Paseo Command.")
+            throw Failure(errorDescription: "The older Paseo Command server (process \(server.pid)) didn’t stop. Stop it with npm run app:stop in \(server.checkout.path) and reopen \(AppFlavor.name).")
         }
     }
 

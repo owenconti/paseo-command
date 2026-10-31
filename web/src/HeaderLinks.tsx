@@ -21,6 +21,7 @@ import {
 } from "./links";
 import type { Agent, PullRequest, Workspace } from "./types";
 import { plainText } from "./ui";
+import { useIntegrations } from "./integrationSettings";
 
 const PR_STATE = {
   open: { label: "Open", Icon: GitPullRequest },
@@ -57,12 +58,15 @@ export function HeaderLinks({
   workspace?: Workspace;
 }) {
   const pr = usePullRequest(workspace);
-  const key = linearKey({
-    branch: workspace?.branch || agent.branch,
-    prTitle: pr?.title,
-    prBody: pr?.body,
-    agentTitle: agent.name,
-  });
+  const { integrations } = useIntegrations();
+  const key = integrations.linear
+    ? linearKey({
+        branch: workspace?.branch || agent.branch,
+        prTitle: pr?.title,
+        prBody: pr?.body,
+        agentTitle: agent.name,
+      })
+    : null;
   return (
     <>
       {pr && <PrChip pr={pr} workspace={workspace} />}

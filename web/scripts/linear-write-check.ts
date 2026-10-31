@@ -1,7 +1,9 @@
 /**
  * Checks the server's whitelisted Linear writes against the real Linear, by
- * hand: `cd web && npx tsx scripts/linear-write-check.ts` (with LINEAR_API_KEY,
- * or linearApiKey in secrets.json). It writes to one issue only, in team DE,
+ * hand: `cd web && PASEO_COMMAND_DATA=<the app's data folder> npx tsx
+ * scripts/linear-write-check.ts`. It reads the key as the app does
+ * (`integrationKey("linear")`): Linear enabled in settings.json and
+ * `linearApiKey` in that data folder's secrets.json; never the environment. It writes to one issue only, in team DE,
  * titled exactly `Paseo Command write check (safe to delete)`: it creates that
  * issue (unassigned, in Backlog) if there is none, and refuses any issue whose
  * title or team differs. Every write goes through `linearWrite`, as the page's
@@ -9,7 +11,7 @@
  * one attempt to put the issue back). Edits are put back; the subscription is
  * left as the last step leaves it. Tests never run this.
  */
-import { LinearError, linearApiKey, linearBudget, linearRequest } from "../server/linear/client";
+import { LinearError, linearApiKey, linearBudget, linearRequest, linearUnavailable } from "../server/linear/client";
 import { readIssue, readWorkspace } from "../server/linear/reads";
 import { linearWrite } from "../server/linear/writes";
 import type { LinearComment, LinearIssue, WriteName } from "../src/linear/types";
@@ -34,7 +36,7 @@ function mustBeCheckIssue(issue: { title: string }, teamId: string, checkTeamId:
 }
 
 async function main() {
-  if (!linearApiKey()) throw new Stop("No Linear API key: set LINEAR_API_KEY, or linearApiKey in secrets.json.");
+  if (!linearApiKey()) throw new Stop(`No Linear API key: ${linearUnavailable()}`);
   const ws = await readWorkspace(true);
   const team = ws.teams.find((t) => t.key === TEAM_KEY);
   if (!team) throw new Stop(`No team ${TEAM_KEY} in this workspace.`);

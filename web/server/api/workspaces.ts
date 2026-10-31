@@ -156,7 +156,7 @@ export async function mergeQueueFor(rawId: string | null, rawHost: unknown) {
   return ghMergeQueue(ws.cwd, pr.url);
 }
 
-/** `GET /api/linear-issue?key=ABC-123`: title and state, with LINEAR_API_KEY. */
+/** `GET /api/linear-issue?key=ABC-123`: title and state, when Linear is enabled and configured. */
 export function linearIssueFor(key: string | null) {
   return linearIssue(key ?? "");
 }

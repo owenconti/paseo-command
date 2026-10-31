@@ -1,8 +1,6 @@
 /** Images uploaded to Linear, fetched with the API key (they load nowhere else). */
-import { linearApiKey } from "./client";
+import { linearApiKey, linearUnavailable } from "./client";
 import { LINEAR } from "../links";
-
-const NO_KEY = "Set LINEAR_API_KEY, or linearApiKey in secrets.json, to see your Linear issues.";
 
 /** Where Linear keeps uploaded files; they load only with the API key. */
 const UPLOADS = "uploads.linear.app";
@@ -27,7 +25,7 @@ export async function linearImage(
   const url = linearUpload(raw);
   if (!url) return { status: 400, error: "Only Linear uploads load here" };
   const token = linearApiKey();
-  if (!token) return { status: 404, error: NO_KEY };
+  if (!token) return { status: 404, error: linearUnavailable() };
   try {
     const res = await LINEAR.fetch(url.href, {
       headers: { Authorization: token },

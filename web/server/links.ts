@@ -15,11 +15,11 @@
  * `gh api graphql` query in a local checkout (`ghMergeQueue`).
  *
  * Linear: Paseo stores no Linear link (no field in its protocol or app), so
- * the issue key is found in the browser (src/links.ts). With LINEAR_API_KEY
- * in the environment, the issue's title and state are read here for the
+ * the issue key is found in the browser (src/links.ts). When Linear is enabled and has a key in secrets.json, the issue's title and state are read here for the
  * tooltip; without it nothing is fetched.
  */
 import { execFile } from "node:child_process";
+import { integrationKey } from "./integrations";
 import { statSync } from "node:fs";
 import { delimiter, isAbsolute } from "node:path";
 
@@ -267,14 +267,20 @@ export function autoMergeOf(raw: unknown): AutoMerge | undefined {
   const r = raw as Record<string, unknown>;
   const method = str(r.mergeMethod).toLowerCase();
   // Paseo reports a login; gh an actor object.
-  const by = clip(str(r.enabledBy) || str((r.enabledBy as Record<string, unknown> | null)?.login), 100);
+  const by = clip(
+    str(r.enabledBy) ||
+      str((r.enabledBy as Record<string, unknown> | null)?.login),
+    100,
+  );
   return {
     ...(method === "merge" || method === "squash" || method === "rebase" ? { method } : {}),
     ...(by ? { by } : {}),
   };
 }
 /** Auto-merge as Paseo's GitHub facts report it (`autoMergeRequest`). */
-export function autoMergeFromRuntime(pr: Record<string, unknown>): AutoMerge | undefined {
+export function autoMergeFromRuntime(
+  pr: Record<string, unknown>,
+): AutoMerge | undefined {
   for (const raw of [pr.forgeSpecific, pr.github]) {
     const facts = raw as Record<string, unknown> | null | undefined;
     if (!facts || typeof facts !== "object") continue;
@@ -581,20 +587,20 @@ export type LinearAnswer =
 const KEY = /^([a-z]{2,5}\d?)-(\d{1,6})$/i;
 const issueCache = new Map<
   string,
-  { at: number; value: Promise<LinearAnswer> }
+  { token: string; at: number; value: Promise<LinearAnswer> }
 >();
 
-/** The issue's title and state, when LINEAR_API_KEY is set; else unavailable. */
+/** The issue's title and state, only when Linear is enabled and configured. */
 export function linearIssue(
   rawKey: string,
   now = Date.now(),
 ): Promise<LinearAnswer> {
   const key = rawKey.trim().toUpperCase();
   if (!KEY.test(key)) return Promise.reject(new Error("Invalid issue key"));
-  const token = process.env.LINEAR_API_KEY?.trim();
+  const token = integrationKey("linear");
   if (!token) return Promise.resolve({ available: false });
   const hit = issueCache.get(key);
-  if (hit && now - hit.at < LINEAR.ttlMs) return hit.value;
+  if (hit?.token === token && now - hit.at < LINEAR.ttlMs) return hit.value;
   const value = (async (): Promise<LinearAnswer> => {
     const res = await LINEAR.fetch(LINEAR.endpoint, {
       method: "POST",
@@ -623,7 +629,7 @@ export function linearIssue(
       },
     };
   })().catch((): LinearAnswer => ({ available: false }));
-  issueCache.set(key, { at: now, value });
+  issueCache.set(key, { token, at: now, value });
   if (issueCache.size > 500) issueCache.delete(issueCache.keys().next().value!);
   return value;
 }

@@ -189,6 +189,10 @@ final class AtlasScene: SKScene {
             else { pieces[key] = Textures.texture(image) }
         }
         structures.removeAllChildren()
+        // While the camera shows the whole land (as at launch, when hosts connect one by
+        // one and the land grows), it keeps showing all of it.
+        let showingAll = fitted && animation == nil && viewSize.width > 0
+            && zoom <= rules.minimumZoom(land, view: viewSize) * 1.001
         if let b = m["bounds"] as? [String: Double] { land = box(b) }
         var keep = Set<String>()
         for piece in m["pieces"] as? [[String: Any]] ?? [] {
@@ -284,7 +288,7 @@ final class AtlasScene: SKScene {
             drawHover()
             reportHover()
         }
-        if !fitted && view != nil && size.width > 0 { fit() } else { constrain() }
+        if (!fitted || showingAll) && view != nil && size.width > 0 { fit() } else { constrain() }
         wake()
     }
 

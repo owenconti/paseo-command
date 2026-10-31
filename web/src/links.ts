@@ -14,6 +14,7 @@
  */
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { api, readStore } from "./api";
+import { useIntegrations, useSecretRevision } from "./integrationSettings";
 import { linearSlug } from "./linearSlug";
 import { branchKey, textKey } from "./display";
 import { nativeRequest } from "./nativePlatform";
@@ -160,7 +161,9 @@ export function setLinearWorkspace(value: string) {
 export async function refreshLinearWorkspace() {
   let saved: string;
   try {
-    const r = await api<{ linearWorkspace?: string; error?: string | null }>("settings");
+    const r = await api<{ linearWorkspace?: string; error?: string | null }>(
+      "settings",
+    );
     if (r.error) return;
     saved = linearSlug(r.linearWorkspace || "") ?? "";
   } catch {
@@ -348,12 +351,17 @@ export function useMergeQueue(
 
 /** The issue's title and state, when the server has a Linear API key. */
 export function useLinearIssue(key: string | null): LinearIssue | null {
+  const secretRevision = useSecretRevision("linearApiKey");
+  const { integrations } = useIntegrations();
+  key = integrations.linear ? key : null;
   const [found, setFound] = useState<{
     key: string;
     issue: LinearIssue | null;
   } | null>(null);
   useEffect(() => {
     if (!key) return;
+    setFound(null);
+    if (secretRevision) issues.delete(key);
     let live = true;
     void cached(issues, key, () =>
       api<{ available?: boolean; issue?: LinearIssue | null }>(
@@ -366,6 +374,6 @@ export function useLinearIssue(key: string | null): LinearIssue | null {
     return () => {
       live = false;
     };
-  }, [key]);
+  }, [key, secretRevision]);
   return key && found?.key === key ? found.issue : null;
 }

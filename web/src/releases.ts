@@ -7,6 +7,7 @@
  */
 import { useCallback, useEffect, useState } from "react";
 import { api, readStore, writeStore } from "./api";
+import { askAppUpdate } from "./worldBridge";
 
 export type Release = {
   version: string;
@@ -15,8 +16,23 @@ export type Release = {
   url: string;
 };
 type Answer = { installed: string; releases: Release[]; error?: string };
-/** The app's `paseo:update` event: this version, and the one waiting. */
-type UpdateEvent = { installed: string; pending: string | null };
+/** The app's `paseo:update` event: this version, the one waiting, and whether it can check for updates. */
+export type UpdateEvent = { installed: string; pending: string | null; canCheck?: boolean };
+
+/**
+ * The macOS app's update state (null in a browser, or until it answers): sent on page
+ * load and when an update is ready, and asked for here in case the page missed it.
+ */
+export function useAppUpdate() {
+  const [update, setUpdate] = useState<UpdateEvent | null>(null);
+  useEffect(() => {
+    const receive = (e: Event) => setUpdate((e as CustomEvent<UpdateEvent>).detail);
+    window.addEventListener("paseo:update", receive);
+    askAppUpdate();
+    return () => window.removeEventListener("paseo:update", receive);
+  }, []);
+  return update;
+}
 
 export const SEEN_KEY = "releases-seen";
 /** How often the notes are asked for (the server caches GitHub's answer for an hour). */
@@ -42,7 +58,7 @@ export function newSince(releases: Release[], seen: string | null) {
  */
 export function useReleases(open: boolean) {
   const [answer, setAnswer] = useState<Answer | null>(null);
-  const [update, setUpdate] = useState<UpdateEvent | null>(null);
+  const update = useAppUpdate();
   const [seen, setSeen] = useState<string | null>(() =>
     readStore<string | null>(SEEN_KEY, null),
   );
@@ -59,13 +75,6 @@ export function useReleases(open: boolean) {
       stopped = true;
       clearInterval(timer);
     };
-  }, []);
-  // The app posts this on page load and whenever an update is ready; the page
-  // may load before or after, so the installed version also comes from the API.
-  useEffect(() => {
-    const receive = (e: Event) => setUpdate((e as CustomEvent<UpdateEvent>).detail);
-    window.addEventListener("paseo:update", receive);
-    return () => window.removeEventListener("paseo:update", receive);
   }, []);
   // Other windows of this app share what was seen.
   useEffect(() => {

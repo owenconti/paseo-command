@@ -29,7 +29,8 @@ Never post credentials, personal data or exploit details in a public issue.
 
 Run `npm run public:check` before committing. It inspects tracked files, not your
 ignored local archives or browser data. `npm run public:check -- --history` also
-checks the history reachable from HEAD. Gitleaks runs in CI for credential patterns;
+checks the history reachable from HEAD. `npm run secrets:scan` runs Gitleaks for credential
+patterns (also part of `npm run check` and `npm run release`; there is no CI);
 neither check guarantees that all private information has been found. Review
 screenshots, fixtures and new integrations for privacy and ownership as well.
 

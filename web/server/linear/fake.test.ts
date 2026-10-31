@@ -1,8 +1,11 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { LINEAR } from "../links";
-import { LinearError, linearRequest } from "./client";
-import { FAKE_IDS, fakeWorkspace, installFakeLinear } from "./fake";
+import { existsSync } from "node:fs";
+import { secretsFile } from "../secrets";
+import { settingsFile } from "../settings";
+import { LinearError, linearApiKey, linearRequest } from "./client";
+import { FAKE_IDS, FAKE_KEY, fakeWorkspace, installFakeLinear } from "./fake";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
@@ -17,13 +20,15 @@ async function raw(operationName: string) {
 test("refuses an unknown operation and restores the real fetch", async () => {
   const real = LINEAR.fetch;
   const fake = installFakeLinear();
-  assert.equal(process.env.LINEAR_API_KEY, "lin_api_fake");
+  assert.equal(linearApiKey(), FAKE_KEY);
   const { body } = await raw("Nope");
   assert.match(body.errors[0].message, /Unknown operation Nope/);
   assert.deepEqual(fake.requests, [{ operation: "Nope", variables: {} }]);
   fake.restore();
   assert.equal(LINEAR.fetch, real);
-  assert.equal(process.env.LINEAR_API_KEY, undefined);
+  assert.equal(linearApiKey(), undefined);
+  assert.equal(existsSync(secretsFile()), false);
+  assert.equal(existsSync(settingsFile()), false);
 });
 
 test("answers rate-limit headers with a reset in the future", async () => {

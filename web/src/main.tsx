@@ -50,6 +50,7 @@ import { SettingsControl } from "./SettingsControl";
 import { setSoundSettings, useSoundSettings } from "./sounds";
 import { setMusicSettings, useMusic } from "./music";
 import { musicAvailable, musicCommand } from "./MusicBar";
+import { setIntegration, useIntegrations } from "./integrationSettings";
 import { openPresetEditor } from "./presetsStore";
 import { copyText } from "./nativePlatform";
 import { CommandPalette } from "./CommandPalette";
@@ -69,6 +70,7 @@ import { useAppMode } from "./appMode";
 import type { IssueContext } from "./linear/prompt";
 import type { LinearOpenIssue, LinearViewState } from "./linear/LinearView";
 import type { LinearPlace } from "./linear/place";
+import { useAppUpdate } from "./releases";
 import { AddProject } from "./AddProject";
 import {
   Fleet,
@@ -255,7 +257,9 @@ function App() {
   });
   // The host the lists are narrowed to ("" for local): chosen in the Hosts
   // tab or by picking its land on the map, where it shows as selected.
-  const [hostFilter, setHostFilter] = useState<string | null>(initial.hostFilter);
+  const [hostFilter, setHostFilter] = useState<string | null>(
+    initial.hostFilter,
+  );
   const defaultTab: Tab = unity ? "Workspaces" : "Agents";
   const [selection, setSelection] = useState<Selection>(initial.selection),
     [tab, setTab] = useState<Tab>(initial.tab ?? defaultTab),
@@ -332,7 +336,12 @@ function App() {
   );
   const active = useMemo(() => activeAgents(agents), [agents]);
   const workingOn = useWorkingOn(active, permissionAgents);
-  const asks = useAsks(active);
+  const {
+    integrations,
+    loaded: integrationsLoaded,
+    saving: integrationsSaving,
+  } = useIntegrations();
+  const asks = useAsks(active, integrations.typesafe);
   // Idle agents whose last reply waits on you: they need you as approvals do.
   const askingKey = active
     .filter((a) => asks[a.id]?.waiting && !permissionAgents.has(a.id))
@@ -747,12 +756,21 @@ function App() {
     selection?.type === "project"
       ? projects.find((p) => projectKey(p) === selection.id)
       : undefined;
+  // The open project's repository on GitHub, for G: its workspaces' remote.
+  const projectRepo = project
+    ? listedWorkspaces.find(
+        (w) =>
+          w.repo &&
+          w.projectId === project.projectId &&
+          (w.host ?? "") === (project.host ?? ""),
+      )?.repo
+    : undefined;
   // The open agent's or workspace's PR and Linear issue, for G and L (the
   // same ones the session header's chips link to).
   const linkWorkspace = agent ? workspaceOf(agent) : workspace;
   const linkPr = usePullRequest(linkWorkspace ?? undefined);
   const issueKey =
-    agent || workspace
+    (agent || workspace) && integrations.linear
       ? linearKey({
           branch: linkWorkspace?.branch || agent?.branch,
           prTitle: linkPr?.title,
@@ -834,6 +852,7 @@ function App() {
   const [linearView, setLinearView] = useState<LinearViewState | undefined>();
   // Whether the Linear tab's workspace is in, for ⌘K's Create Linear issue.
   const [linearReady, setLinearReady] = useState(false);
+  const appUpdate = useAppUpdate();
   // From a Linear issue: New agent, where the host and project are chosen.
   const launchFromIssue = useCallback(
     (issue: IssueContext) => openDispatch({ issue }),
@@ -923,6 +942,9 @@ function App() {
       } else if (key === "g" && linkPr) {
         e.preventDefault();
         openExternal(linkPr.url);
+      } else if (key === "g" && projectRepo) {
+        e.preventDefault();
+        openExternal(projectRepo);
       } else if (key === "l" && issueKey) {
         e.preventDefault();
         if (issueUrl) openExternal(issueUrl);
@@ -947,6 +969,7 @@ function App() {
     nextAttention,
     openDispatch,
     linkPr,
+    projectRepo,
     issueKey,
     issueUrl,
   ]);
@@ -1230,6 +1253,18 @@ function App() {
           },
         ]
       : []),
+    ...(projectRepo
+      ? [
+          {
+            id: "repo",
+            group: "Actions",
+            label: `Open ${project?.name || "the project"} on GitHub`,
+            keys: [["G"]],
+            keywords: "github repository repo",
+            run: () => openExternal(projectRepo),
+          },
+        ]
+      : []),
     ...(issueKey
       ? [
           {
@@ -1421,17 +1456,71 @@ function App() {
           },
           ...(
             [
-              ["terminal-dock", "Move the terminal (right or bottom)", "dock side bottom right", undefined],
-              ["terminal-maximize", "Maximize the terminal", "full expand restore", ["⇧", "⌘", "↩"]],
-              ["terminal-unsplit", "Unsplit terminals", "panes merge split", undefined],
-              ["terminal-bigger", "Bigger terminal text", "zoom font size larger", ["⌘", "+"]],
-              ["terminal-smaller", "Smaller terminal text", "zoom font size", ["⌘", "−"]],
-              ["terminal-actual", "Actual terminal text size", "zoom font reset", ["⌘", "0"]],
-              ["mode-next", "Next in the map's place: map, browser, Linear", "switch rotate cycle mode tab conquer linear command", ["⌘", "`"]],
-              ["conquer", "Show the browser (Conquer)", "conquer browser mode web", undefined],
+              [
+                "terminal-dock",
+                "Move the terminal (right or bottom)",
+                "dock side bottom right",
+                undefined,
+              ],
+              [
+                "terminal-maximize",
+                "Maximize the terminal",
+                "full expand restore",
+                ["⇧", "⌘", "↩"],
+              ],
+              [
+                "terminal-unsplit",
+                "Unsplit terminals",
+                "panes merge split",
+                undefined,
+              ],
+              [
+                "terminal-bigger",
+                "Bigger terminal text",
+                "zoom font size larger",
+                ["⌘", "+"],
+              ],
+              [
+                "terminal-smaller",
+                "Smaller terminal text",
+                "zoom font size",
+                ["⌘", "−"],
+              ],
+              [
+                "terminal-actual",
+                "Actual terminal text size",
+                "zoom font reset",
+                ["⌘", "0"],
+              ],
+              [
+                "mode-next",
+                integrations.linear
+                  ? "Next in the map's place: map, browser, Linear"
+                  : "Next in the map's place: map, browser",
+                integrations.linear
+                  ? "switch rotate cycle mode tab conquer linear command"
+                  : "switch rotate cycle mode tab conquer command",
+                ["⌘", "`"],
+              ],
+              [
+                "conquer",
+                "Show the browser (Conquer)",
+                "conquer browser mode web",
+                undefined,
+              ],
               ["conquer-tab", "New Conquer tab", "browser web open", undefined],
-              ["conquer-sidebar", "Show or hide Conquer’s tab sidebar", "browser tabs collapse", ["⌘", "S"]],
-              ["zen-cookies", "Import Zen cookies into Conquer", "browser sign in login sessions confirmation", undefined],
+              [
+                "conquer-sidebar",
+                "Show or hide Conquer’s tab sidebar",
+                "browser tabs collapse",
+                ["⌘", "S"],
+              ],
+              [
+                "zen-cookies",
+                "Import Zen cookies into Conquer",
+                "browser sign in login sessions confirmation",
+                undefined,
+              ],
             ] as const
           ).map(([action, label, keywords, keys]) => ({
             id: action,
@@ -1441,33 +1530,55 @@ function App() {
             keywords,
             run: () => postAppMenu(action),
           })),
-          ...(appMode !== "linear"
+          ...(appMode === "conquer"
             ? [
                 {
-                  id: "linear-show",
+                  id: "conquer-reload",
                   group: "App",
-                  label: "Show your Linear issues",
-                  keywords: "linear issues tickets assigned tasks mode tab",
-                  run: () => postAppMenu("linear"),
+                  label: "Reload Conquer page",
+                  keys: [["⌘", "R"]],
+                  keywords: "browser web refresh reload page",
+                  run: () => postAppMenu("conquer-reload"),
+                },
+                {
+                  id: "conquer-reload-without-cache",
+                  group: "App",
+                  label: "Reload Conquer page without cache",
+                  keys: [["⇧", "⌘", "R"]],
+                  keywords: "browser web refresh reload page hard bypass cache origin",
+                  run: () => postAppMenu("conquer-reload-without-cache"),
                 },
               ]
-            : [
-                {
-                  id: "linear-sidebar",
-                  group: "App",
-                  label: "Show or hide the Linear sidebar",
-                  keys: [["⌘", "S"]],
-                  keywords: "linear sidebar list navigation collapse panel",
-                  run: () => runAppCommand("linear-sidebar"),
-                },
-                {
-                  id: "linear-refresh",
-                  group: "App",
-                  label: "Refresh Linear issues",
-                  keywords: "linear issues projects reload update sync",
-                  run: () => runAppCommand("linear-refresh"),
-                },
-              ]),
+            : []),
+          ...(integrations.linear
+            ? appMode !== "linear"
+              ? [
+                  {
+                    id: "linear-show",
+                    group: "App",
+                    label: "Show your Linear issues",
+                    keywords: "linear issues tickets assigned tasks mode tab",
+                    run: () => postAppMenu("linear"),
+                  },
+                ]
+              : [
+                  {
+                    id: "linear-sidebar",
+                    group: "App",
+                    label: "Show or hide the Linear sidebar",
+                    keys: [["⌘", "S"]],
+                    keywords: "linear sidebar list navigation collapse panel",
+                    run: () => runAppCommand("linear-sidebar"),
+                  },
+                  {
+                    id: "linear-refresh",
+                    group: "App",
+                    label: "Refresh Linear issues",
+                    keywords: "linear issues projects reload update sync",
+                    run: () => runAppCommand("linear-refresh"),
+                  },
+                ]
+            : []),
           ...(appMode !== "command"
             ? [
                 {
@@ -1486,10 +1597,22 @@ function App() {
             keywords: "reload update refresh latest build",
             run: () => postAppMenu("reload"),
           },
+          // The released app only: dev copies update by being rebuilt.
+          ...(appUpdate?.canCheck
+            ? [
+                {
+                  id: "check-updates",
+                  group: "App",
+                  label: "Check for updates",
+                  keywords: "update version upgrade latest release sparkle",
+                  run: () => postAppMenu("check-updates"),
+                },
+              ]
+            : []),
         ]
       : []),
     // The issue open in the Linear tab (shown only there): its pickers.
-    ...(appMode === "linear" && linearIssueOpen
+    ...(integrations.linear && appMode === "linear" && linearIssueOpen
       ? (
           [
             ["linear-status", "Change the Linear issue's status", "linear issue state workflow progress done todo", ["S"]],
@@ -1514,7 +1637,7 @@ function App() {
         }))
       : []),
     // The open issue's other properties, and a relation to add.
-    ...(appMode === "linear" && linearIssueOpen
+    ...(integrations.linear && appMode === "linear" && linearIssueOpen
       ? (
           [
             ...(linearIssueOpen.hasEstimates
@@ -1539,7 +1662,7 @@ function App() {
           run: () => runAppCommand(command),
         }))
       : []),
-    ...(appMode === "linear" && linearView?.undoKey
+    ...(integrations.linear && appMode === "linear" && linearView?.undoKey
       ? [
           {
             id: "linear-undo-archive",
@@ -1550,7 +1673,7 @@ function App() {
           },
         ]
       : []),
-    ...(appMode === "linear" && linearView?.canSearch
+    ...(integrations.linear && appMode === "linear" && linearView?.canSearch
       ? [
           {
             id: "linear-search",
@@ -1563,7 +1686,7 @@ function App() {
         ]
       : []),
     // The Linear tab's places, as its sidebar has them (each team's views only when searched for).
-    ...(appMode === "linear" && linearView
+    ...(integrations.linear && appMode === "linear" && linearView
       ? (
           [
             [{ screen: "my", tab: "assigned" }, "Go to Linear issues assigned to you", "linear my issues assigned mine", false],
@@ -1599,7 +1722,7 @@ function App() {
           run: () => runAppCommand("linear-go", place),
         }))
       : []),
-    ...(appMode === "linear" && linearReady
+    ...(integrations.linear && appMode === "linear" && linearReady
       ? [
           {
             id: "linear-create",
@@ -1611,7 +1734,7 @@ function App() {
           },
         ]
       : []),
-    ...(appMode === "linear" && linearIssueOpen
+    ...(integrations.linear && appMode === "linear" && linearIssueOpen
       ? (
           [
             ["linear-comment", `Comment on ${linearIssueOpen.key}`, "linear issue comment reply write discuss note"],
@@ -1676,13 +1799,47 @@ function App() {
       id: "settings",
       group: "App",
       label: "Settings",
-      keywords: "preferences sounds music notifications linear",
+      keywords:
+        "preferences integrations api keys secrets sounds music notifications linear typesafe",
       run: () => {
         setBrowsing(true);
         setRevealRevision((revision) => revision + 1);
         runAppCommand("show-settings");
       },
     },
+    ...(integrationsLoaded && !integrationsSaving
+      ? (
+          [
+            ["linear", "Linear"],
+            ["typesafe", "TypeSafe"],
+            ["appleMusic", "Apple Music"],
+          ] as const
+        ).map(([name, label]) => ({
+          id: `integration-${name}`,
+          group: "App",
+          label: `${integrations[name] ? "Disable" : "Enable"} ${label}`,
+          keywords: `settings optional integrations ${name} ${name === "typesafe" ? "questions reply suggestions" : ""}`,
+          run: () => {
+            setBrowsing(true);
+            setRevealRevision((revision) => revision + 1);
+            runAppCommand("show-settings");
+            void setIntegration(name, !integrations[name]);
+          },
+        }))
+      : []),
+    ...([ ["linear", "Linear"], ["typesafe", "TypeSafe"] ] as const)
+      .filter(([name]) => integrations[name])
+      .map(([name, label]) => ({
+        id: `manage-${name}-key`,
+        group: "App",
+        label: `Manage ${label} API key…`,
+        keywords: `settings ${name} secrets credentials save replace remove`,
+        run: () => {
+          setBrowsing(true);
+          setRevealRevision((revision) => revision + 1);
+          runAppCommand(name === "linear" ? "manage-linear-key" : "manage-typesafe-key");
+        },
+      })),
     {
       id: "presets",
       group: "App",
@@ -1697,7 +1854,7 @@ function App() {
       keywords: "music stream audio",
       run: () => setMusicSettings({ enabled: !radio.enabled }),
     },
-    ...(musicAvailable()
+    ...(integrations.appleMusic && musicAvailable()
       ? (
           [
             ["playpause", "Play or pause Apple Music"],
@@ -1829,7 +1986,7 @@ function App() {
                 loaded={!loading}
               />
             </React.Suspense>
-            {appMode === "linear" && (
+            {integrations.linear && appMode === "linear" && (
               <React.Suspense fallback={null}>
                 <LinearView
                   onLaunch={launchFromIssue}
@@ -1972,7 +2129,9 @@ function App() {
                         await refresh();
                         // A new project has no workspace (so no place on the
                         // map): its first agent makes one.
-                        openDispatch({ projectId: projectKey({ projectId, host }) });
+                        openDispatch({
+                          projectId: projectKey({ projectId, host }),
+                        });
                       }}
                     />
                   ) : dispatchTarget ? (

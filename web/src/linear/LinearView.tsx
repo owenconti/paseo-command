@@ -5,6 +5,7 @@ import { Archive, Box, ChevronRight, ListTodo, PanelLeftOpen, RefreshCw, X } fro
 import { errorMessage, readStore, writeStore } from "../api";
 import { onAppCommand, runAppCommand, type AppCommand } from "../appCommands";
 import { modalOpen } from "../focus";
+import { useSecretRevision } from "../integrationSettings";
 import { isTyping } from "../worldShortcut";
 import { CreateIssue, type CreateInitial } from "./CreateIssue";
 import { InitiativeList } from "./InitiativeList";
@@ -180,6 +181,11 @@ export function LinearView({
   const refreshRef = useRef(refresh);
   refreshRef.current = refresh;
   useEffect(() => onAppCommand("linear-refresh", () => refreshRef.current()), []);
+  // A Linear key saved, replaced or removed in Settings: ask Linear again at once.
+  const secretRevision = useSecretRevision("linearApiKey");
+  useEffect(() => {
+    if (secretRevision) refreshRef.current();
+  }, [secretRevision]);
 
   useEffect(() => {
     if (!view) return;

@@ -19,4 +19,6 @@ enum AppFlavor {
             .appendingPathComponent(name ?? "Paseo Command Dev", isDirectory: true)
     }
     static var version: String { info("CFBundleShortVersionString") ?? "dev" }
+    /// "Paseo Command", or "Paseo Command Dev" for a dev copy, wherever the app names itself.
+    static var name: String { info("CFBundleName").flatMap { $0 == "PaseoCommandNative" ? nil : $0 } ?? "Paseo Command Dev" }
 }

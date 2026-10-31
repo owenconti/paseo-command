@@ -58,6 +58,7 @@ final class ModeButton: NSButton {
 /// and its tabs are a small segmented control rather than a tab bar.
 final class ModeBar: NSView {
     var onSelect: ((Mode) -> Void)?
+    var linearEnabled = false { didSet { buttons.first { $0.0 == .linear }?.1.isHidden = !linearEnabled } }
     var mode: Mode = .command { didSet { restyle() } }
     /// Where the tabs start: past the traffic lights.
     var leading: CGFloat = 0 { didSet { rowLeading?.constant = leading } }
@@ -96,6 +97,7 @@ final class ModeBar: NSView {
                 button.heightAnchor.constraint(equalToConstant: 20),
                 button.widthAnchor.constraint(greaterThanOrEqualToConstant: 92),
             ])
+            button.isHidden = mode == .linear && !linearEnabled
             track.addArrangedSubview(button)
         }
         addSubview(track)
@@ -182,6 +184,8 @@ final class ConquerView: NSView, WKNavigationDelegate, WKUIDelegate, NSTextField
         nil,
         Command(title: "Back", name: "back", key: "[", mods: .command),
         Command(title: "Forward", name: "forward", key: "]", mods: .command),
+        Command(title: "Reload Page", name: "reload", key: "r", mods: .command),
+        Command(title: "Reload Page Without Cache", name: "reloadWithoutCache", key: "r", mods: [.command, .shift]),
         Command(title: "Next Tab", name: "nextTab", key: "e", mods: .command),
         Command(title: "Next Tab", name: "nextTab", key: "\t", mods: .control, hidden: true),
         Command(title: "Previous Tab", name: "previousTab", key: "\t", mods: [.control, .shift]),
@@ -467,6 +471,8 @@ final class ConquerView: NSView, WKNavigationDelegate, WKUIDelegate, NSTextField
         case "toggleSidebar": toggleSidebar()
         case "back": goBack()
         case "forward": goForward()
+        case "reload": current?.web?.reload()
+        case "reloadWithoutCache": current?.web?.reloadFromOrigin()
         case "nextTab": cycle(1)
         case "previousTab": cycle(-1)
         case "togglePin": if let current { togglePin(current) }

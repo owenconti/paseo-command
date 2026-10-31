@@ -12,6 +12,28 @@ final class MusicController {
     /// Whether the window is on screen; nothing is read while it isn't.
     var visible: () -> Bool = { true }
 
+    private let isRunning: () -> Bool
+    private let execute: (String) -> (descriptor: NSAppleEventDescriptor?, error: Int?)
+    init(isRunning: (() -> Bool)? = nil,
+         execute: ((String) -> (descriptor: NSAppleEventDescriptor?, error: Int?))? = nil) {
+        self.isRunning = isRunning ?? { !NSRunningApplication.runningApplications(withBundleIdentifier: Self.bundleID).isEmpty }
+        self.execute = execute ?? Self.run
+    }
+
+    private let enabledLock = NSLock()
+    private var optedIn = false
+    private var enabled: Bool {
+        enabledLock.lock()
+        defer { enabledLock.unlock() }
+        return optedIn
+    }
+    func setEnabled(_ on: Bool) {
+        enabledLock.lock()
+        optedIn = on
+        enabledLock.unlock()
+        if !on { watch(false) }
+    }
+
     private let queue = DispatchQueue(label: "paseo.music", qos: .utility)
     private var timer: Timer?
     private var last: [String: Any] = [:]
@@ -23,7 +45,7 @@ final class MusicController {
     func watch(_ on: Bool) {
         timer?.invalidate()
         timer = nil
-        guard on else { return }
+        guard on && enabled else { return }
         last = [:]
         poll()
         timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
@@ -33,13 +55,15 @@ final class MusicController {
     }
 
     func command(_ name: String) {
+        guard enabled else { return }
         switch name {
         case "playpause", "next", "previous":
             let verb = ["playpause": "playpause", "next": "next track", "previous": "previous track"][name]!
             guard running else { return launchAndPlay() }
             queue.async { [weak self] in
-                _ = Self.run("tell application \"Music\" to \(verb)")
-                DispatchQueue.main.async { self?.poll() }
+                guard let self, self.enabled else { return }
+                _ = self.execute("tell application \"Music\" to \(verb)")
+                DispatchQueue.main.async { [weak self] in self?.poll() }
             }
         case "play":
             launchAndPlay()
@@ -48,15 +72,17 @@ final class MusicController {
     }
 
     private var running: Bool {
-        !NSRunningApplication.runningApplications(withBundleIdentifier: Self.bundleID).isEmpty
+        isRunning()
     }
 
     /// Open Music behind this window, never taking focus, then resume playback.
     private func launchAndPlay() {
+        guard enabled else { return }
         guard !running, let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: Self.bundleID) else {
             queue.async { [weak self] in
-                _ = Self.run("tell application \"Music\" to play")
-                DispatchQueue.main.async { self?.poll() }
+                guard let self, self.enabled else { return }
+                _ = self.execute("tell application \"Music\" to play")
+                DispatchQueue.main.async { [weak self] in self?.poll() }
             }
             return
         }
@@ -67,17 +93,19 @@ final class MusicController {
         NSWorkspace.shared.openApplication(at: url, configuration: configuration) { [weak self] _, _ in
             // Music answers scripting a moment after it launches.
             self?.queue.asyncAfter(deadline: .now() + 1.5) {
-                _ = Self.run("tell application \"Music\" to play")
-                DispatchQueue.main.async { self?.poll() }
+                guard let self, self.enabled else { return }
+                _ = self.execute("tell application \"Music\" to play")
+                DispatchQueue.main.async { [weak self] in self?.poll() }
             }
         }
     }
 
     private func poll() {
+        guard enabled else { return }
         // Asking a closed Music would launch it: check without scripting it.
         guard running else { return publish(["state": "closed"]) }
         queue.async { [weak self] in
-            guard let self else { return }
+            guard let self, self.enabled else { return }
             let reading = self.read()
             DispatchQueue.main.async { self.publish(reading) }
         }
@@ -97,7 +125,7 @@ final class MusicController {
             end try
         end tell
         """
-        let result = Self.run(script)
+        let result = execute(script)
         guard let list = result.descriptor else {
             // -1743: the user hasn't allowed this app to control Music.
             return ["state": result.error == -1743 ? "denied" : "closed"]
@@ -108,9 +136,9 @@ final class MusicController {
         reading["title"] = items[1]
         reading["artist"] = items[2]
         let id = items[3]
-        if id != artTrack {
+        if id != artTrack && enabled {
             artTrack = id
-            art = Self.run("tell application \"Music\" to get raw data of artwork 1 of current track").descriptor
+            art = execute("tell application \"Music\" to get raw data of artwork 1 of current track").descriptor
                 .flatMap { Self.thumbnail($0.data) }
         }
         if let art { reading["art"] = art }
@@ -118,6 +146,7 @@ final class MusicController {
     }
 
     private func publish(_ reading: [String: Any]) {
+        guard enabled else { return }
         guard !NSDictionary(dictionary: reading).isEqual(to: last) else { return }
         last = reading
         send(reading)

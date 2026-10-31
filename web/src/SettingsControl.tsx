@@ -3,17 +3,19 @@ import { Settings } from "lucide-react";
 import { placePopover } from "./popover";
 import { previewSound, setSoundSettings, useSoundSettings } from "./sounds";
 import { nativeEvents } from "./worldBridge";
-import { api } from "./api";
+import { setIntegration, useIntegrations } from "./integrationSettings";
 import { onAppCommand } from "./appCommands";
 import { LinearWorkspaceSetting } from "./HeaderLinks";
 import { setMusicSettings, useMusic } from "./music";
 import { openPresetEditor, usePresets } from "./presetsStore";
+import { api, errorMessage } from "./api";
+import { ApiKeySetting, type SecretStatus } from "./ApiKeySetting";
 
 /**
  * The app's settings, behind the panel header's gear: interface sounds and
  * the lofi radio (on/off and volume), desktop notifications, and the Linear
  * workspace issue links open in. Sounds, radio and notifications are kept
- * in this browser (or the app); the Linear workspace and the preset prompts
+ * in this browser (or the app); optional integrations, the Linear workspace and the preset prompts
  * (which open their own editor) in ~/.paseo-command/settings.json.
  */
 export function SettingsControl({
@@ -31,22 +33,32 @@ export function SettingsControl({
   const trigger = useRef<HTMLButtonElement>(null);
   const toggle = useRef<HTMLInputElement>(null);
   const [focusOnOpen, setFocusOnOpen] = useState(false);
+  const [keyTarget, setKeyTarget] = useState<"linear" | "typesafe" | null>(
+    null,
+  );
   const id = useId();
   // The app's Settings… menu item (Cmd+,) opens these, the only settings,
   // with focus inside so Escape closes them again.
   // So does the command palette's Settings.
   useEffect(() => {
-    const show = () => {
+    const show = (target: "linear" | "typesafe" | null = null) => {
+      setKeyTarget(target);
       setOpen(true);
       setFocusOnOpen(true);
     };
     const offMenu = nativeEvents((event) => {
       if (event.type === "menu" && event.action === "settings") show();
     });
-    const offCommand = onAppCommand("show-settings", show);
+    const offCommand = onAppCommand("show-settings", () => show());
+    const offLinear = onAppCommand("manage-linear-key", () => show("linear"));
+    const offTypesafe = onAppCommand("manage-typesafe-key", () =>
+      show("typesafe"),
+    );
     return () => {
       offMenu();
       offCommand();
+      offLinear();
+      offTypesafe();
     };
   }, []);
   useEffect(() => {
@@ -56,14 +68,21 @@ export function SettingsControl({
     let tries = 0;
     let timer: ReturnType<typeof setTimeout>;
     const attempt = () => {
-      toggle.current?.focus({ preventScroll: true });
-      if (document.activeElement === toggle.current || ++tries > 20)
+      const target = keyTarget
+        ? anchor.current?.querySelector<HTMLElement>(
+            `[data-integration="${keyTarget}"] input[type=password], [data-integration="${keyTarget}"] .api-key-actions button`,
+          )
+        : toggle.current;
+      target?.focus({ preventScroll: true });
+      if (target && document.activeElement === target)
+        target.scrollIntoView({ block: "nearest" });
+      if (document.activeElement === target || ++tries > 20)
         setFocusOnOpen(false);
       else timer = setTimeout(attempt, 25);
     };
     attempt();
     return () => clearTimeout(timer);
-  }, [open, focusOnOpen]);
+  }, [open, focusOnOpen, keyTarget]);
   const close = useCallback((refocus: boolean) => {
     setOpen(false);
     if (refocus) trigger.current?.focus({ preventScroll: true });
@@ -114,7 +133,7 @@ export function SettingsControl({
         aria-expanded={open}
         aria-controls={open ? id : undefined}
         aria-label="Settings"
-        data-tip="Settings — sounds, music, notifications"
+        data-tip="Settings — integrations, sounds, music, notifications"
         data-music={music.enabled ? music.state : "off"}
         onClick={() => setOpen(!open)}
       >
@@ -136,6 +155,7 @@ export function SettingsControl({
             <input
               ref={toggle}
               type="checkbox"
+              role="switch"
               checked={settings.enabled}
               onChange={(e) => {
                 setSoundSettings({ enabled: e.target.checked });
@@ -175,6 +195,7 @@ export function SettingsControl({
           <label className="sound-toggle">
             <input
               type="checkbox"
+              role="switch"
               checked={music.enabled}
               onChange={(e) => setMusicSettings({ enabled: e.target.checked })}
             />
@@ -204,6 +225,7 @@ export function SettingsControl({
             <label className="sound-toggle">
               <input
                 type="checkbox"
+                role="switch"
                 checked={notifications === "granted"}
                 disabled={notifications === "denied"}
                 onChange={onNotifications}
@@ -218,14 +240,13 @@ export function SettingsControl({
               </span>
             </label>
           )}
-          <LinearWorkspaceSetting />
+          <IntegrationSettings />
           <PresetsSetting
             onEdit={() => {
               close(false);
               openPresetEditor();
             }}
           />
-          <ReplyQuestionsStatus />
         </div>
       )}
     </span>
@@ -254,27 +275,105 @@ function PresetsSetting({ onEdit }: { onEdit: () => void }) {
   );
 }
 
-/** Whether replies' questions can be found (TypeSafe's Jev, server/asks.ts). */
-function ReplyQuestionsStatus() {
-  const [status, setStatus] = useState<{ available: boolean; error?: string } | null>(null);
-  useEffect(() => {
-    const controller = new AbortController();
-    api<{ available: boolean; error?: string }>("asks", undefined, controller.signal)
-      .then(setStatus)
-      .catch(() => {});
-    return () => controller.abort();
+/** Optional services stay off until their choice has been saved to settings.json. */
+function IntegrationSettings() {
+  const { integrations, loaded, saving, pending, error } = useIntegrations();
+  const [secrets, setSecrets] = useState<SecretStatus | null>(null);
+  const [secretError, setSecretError] = useState("");
+  const secretVersion = useRef(0);
+  const refreshSecrets = useCallback(() => {
+    const version = ++secretVersion.current;
+    return api<SecretStatus>("secrets").then(
+      (status) => {
+        if (version === secretVersion.current) {
+          setSecrets(status);
+          setSecretError("");
+        }
+      },
+      (error) => {
+        if (version === secretVersion.current)
+          setSecretError(
+            errorMessage(error) || "Couldn't check saved API keys.",
+          );
+      },
+    );
   }, []);
-  if (!status) return null;
+  useEffect(() => {
+    void refreshSecrets();
+    window.addEventListener("focus", refreshSecrets);
+    return () => window.removeEventListener("focus", refreshSecrets);
+  }, [refreshSecrets]);
   return (
-    <div className="linear-setting">
-      <span>
-        <b>Questions in replies</b>
-        <small>
-          {status.available
-            ? "Found by TypeSafe's Jev"
-            : status.error || "Unavailable"}
-        </small>
-      </span>
+    <div className="integration-settings">
+      <h3>Optional integrations</h3>
+      {(
+        [
+          ["linear", "Linear", "Your assigned issues and links."],
+          [
+            "typesafe",
+            "TypeSafe",
+            "Find questions and suggest replies. Sends reply excerpts to TypeSafe.",
+          ],
+          [
+            "appleMusic",
+            "Apple Music",
+            "Playback controls. Requires macOS Automation permission.",
+          ],
+        ] as const
+      ).map(([name, label, description]) => (
+        <section
+          className="integration-setting"
+          data-integration={name}
+          aria-label={`${label} integration`}
+          key={name}
+        >
+          <label className="sound-toggle">
+            <input
+              type="checkbox"
+              role="switch"
+              checked={
+                pending?.name === name ? pending.enabled : integrations[name]
+              }
+              disabled={!loaded || saving}
+              onChange={(event) =>
+                void setIntegration(name, event.target.checked)
+              }
+            />
+            <span>
+              <b>{label}</b>
+              <small>{description}</small>
+            </span>
+          </label>
+          {integrations[name] && name !== "appleMusic" && (
+            <div className="integration-fields">
+              <ApiKeySetting
+                name={name === "linear" ? "linearApiKey" : "typesafeApiKey"}
+                label={label}
+                status={secrets}
+                onSaved={(status) => {
+                  secretVersion.current++;
+                  setSecrets(status);
+                }}
+              />
+              {name === "linear" && <LinearWorkspaceSetting />}
+            </div>
+          )}
+        </section>
+      ))}
+      {(error || secrets?.error || secretError) && (
+        <p className="integration-error" role="alert">
+          {error || secrets?.error || secretError}
+          {secretError && (
+            <button
+              type="button"
+              className="secondary"
+              onClick={() => void refreshSecrets()}
+            >
+              Retry
+            </button>
+          )}
+        </p>
+      )}
     </div>
   );
 }

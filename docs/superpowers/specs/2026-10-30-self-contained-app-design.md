@@ -1,5 +1,10 @@
 # Self-contained Paseo Command app — design
 
+
+> **Update, 2026-10-31.** Owen now has an Apple Developer account. Releases are signed with his
+> Developer ID under the hardened runtime and notarized (and stapled) by `npm run release`; the
+> self-signed identity and the Open Anyway step below no longer apply. The app is Apple silicon only.
+
 ## Intent
 
 Paseo Command becomes a Mac app other Paseo users download from GitHub releases,

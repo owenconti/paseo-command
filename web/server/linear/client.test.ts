@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import { afterEach, beforeEach, test } from "node:test";
+import { rmSync } from "node:fs";
 import { LINEAR } from "../links";
-import { LinearError, linearBudget, linearRequest, resetLinearClient } from "./client";
+import { saveSecret, secretsFile } from "../secrets";
+import { settingsFile, writeSettings } from "../settings";
+import { DISABLED, LinearError, NO_KEY, linearBudget, linearRequest, resetLinearClient } from "./client";
 
 const realFetch = LINEAR.fetch;
 let seen: { body: any; auth: string | null }[] = [];
@@ -27,11 +30,13 @@ const budgetHeaders = (requests: string) => ({
 beforeEach(() => {
   seen = [];
   resetLinearClient();
-  process.env.LINEAR_API_KEY = "lin_api_test";
+  writeSettings({ integrations: { linear: true } });
+  saveSecret({ name: "linearApiKey", value: "lin_api_test" });
 });
 afterEach(() => {
   LINEAR.fetch = realFetch;
-  delete process.env.LINEAR_API_KEY;
+  rmSync(secretsFile(), { force: true });
+  rmSync(settingsFile(), { force: true });
 });
 
 test("sends the operation name, query and key", async () => {
@@ -86,13 +91,38 @@ test("names a refused key and Linear's own validation message", async () => {
 });
 
 test("no key: kind no-key, nothing sent", async () => {
-  delete process.env.LINEAR_API_KEY;
+  saveSecret({ name: "linearApiKey", value: null });
   reply(200, { data: {} });
   await assert.rejects(
     () => linearRequest("A", "query A { viewer { id } }", {}),
-    (e: unknown) => e instanceof LinearError && e.kind === "no-key",
+    (e: unknown) => e instanceof LinearError && e.kind === "no-key" && e.message === NO_KEY,
   );
   assert.equal(seen.length, 0);
+});
+
+test("Linear off: kind no-key saying to enable it, nothing sent, even with a key", async () => {
+  writeSettings({ integrations: { linear: false } });
+  reply(200, { data: {} });
+  await assert.rejects(
+    () => linearRequest("A", "query A { viewer { id } }", {}),
+    (e: unknown) => e instanceof LinearError && e.kind === "no-key" && e.message === DISABLED,
+  );
+  assert.equal(seen.length, 0);
+});
+
+test("the environment's LINEAR_API_KEY is never read", async () => {
+  saveSecret({ name: "linearApiKey", value: null });
+  process.env.LINEAR_API_KEY = "lin_api_env";
+  try {
+    reply(200, { data: {} });
+    await assert.rejects(
+      () => linearRequest("A", "query A { viewer { id } }", {}),
+      (e: unknown) => e instanceof LinearError && e.kind === "no-key",
+    );
+    assert.equal(seen.length, 0);
+  } finally {
+    delete process.env.LINEAR_API_KEY;
+  }
 });
 
 test("a RATELIMITED error is limited, with the reset time", async () => {

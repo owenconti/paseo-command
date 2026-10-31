@@ -6,6 +6,7 @@ import { modalOpen, useFocusTrap } from "./focus";
 import { macApp } from "./worldBridge";
 import { isTyping } from "./worldShortcut";
 import { onAppCommand } from "./appCommands";
+import { useIntegrations } from "./integrationSettings";
 
 type Shortcut = { keys: string[][]; label: string };
 type Group = { title: string; note?: string; rows: Shortcut[] };
@@ -35,7 +36,10 @@ const GROUPS: Group[] = [
       { keys: [["⌘", "B"]], label: "Show or hide the panel" },
       { keys: [["⌘", "L"], ["Enter"]], label: "Focus the message box" },
       { keys: [["R"]], label: "Reply to the selected agent" },
-      { keys: [["G"]], label: "Open the workspace's pull request" },
+      {
+        keys: [["G"]],
+        label: "Open the workspace's pull request, or the project on GitHub",
+      },
       { keys: [["L"]], label: "Open the Linear issue" },
     ],
   },
@@ -56,7 +60,10 @@ const NATIVE: Group = {
   title: "macOS app",
   rows: [
     { keys: [["⌃", "`"]], label: "Show or hide the terminal" },
-    { keys: [["⌘", "`"]], label: "Next in the map's place: the map, the browser (Conquer), Linear" },
+    {
+      keys: [["⌘", "`"]],
+      label: "Next in the map's place: the map, the browser (Conquer), Linear",
+    },
   ],
 };
 /** The Linear tab's keys (`linear/keys.ts`), as in Linear, while the keyboard is in it. */
@@ -94,13 +101,40 @@ const CONQUER: Group = {
     { keys: [["⌘", "T"]], label: "New tab" },
     { keys: [["⇧", "⌘", "T"]], label: "Reopen the closed tab" },
     { keys: [["⌘", "W"]], label: "Close the tab (a pinned one only unloads)" },
-    { keys: [["⌘", "E"], ["⌃", "Tab"]], label: "Next tab" },
+    {
+      keys: [
+        ["⌘", "E"],
+        ["⌃", "Tab"],
+      ],
+      label: "Next tab",
+    },
     { keys: [["⌘", "1…9"]], label: "Go to a tab (9: the last)" },
     { keys: [["⌘", "D"]], label: "Pin or unpin the tab" },
     { keys: [["⌘", "L"]], label: "Address bar" },
-    { keys: [["⌘", "["], ["⌘", "]"]], label: "Back, forward" },
-    { keys: [["⌘", "F"], ["⌘", "G"]], label: "Find in page, next match" },
-    { keys: [["⌘", "+"], ["⌘", "−"], ["⌘", "0"]], label: "Zoom (each site keeps its own)" },
+    { keys: [["⌘", "R"]], label: "Reload page" },
+    { keys: [["⇧", "⌘", "R"]], label: "Reload page without cache" },
+    {
+      keys: [
+        ["⌘", "["],
+        ["⌘", "]"],
+      ],
+      label: "Back, forward",
+    },
+    {
+      keys: [
+        ["⌘", "F"],
+        ["⌘", "G"],
+      ],
+      label: "Find in page, next match",
+    },
+    {
+      keys: [
+        ["⌘", "+"],
+        ["⌘", "−"],
+        ["⌘", "0"],
+      ],
+      label: "Zoom (each site keeps its own)",
+    },
     { keys: [["⌘", "P"]], label: "Print" },
     { keys: [["⇧", "⌘", "J"]], label: "Downloads" },
   ],
@@ -181,7 +215,29 @@ function ShortcutsDialog({ onClose }: { onClose: () => void }) {
     window.addEventListener("keydown", key, true);
     return () => window.removeEventListener("keydown", key, true);
   }, [present, onClose]);
-  const groups = macApp() ? [...GROUPS, NATIVE, LINEAR, CONQUER] : GROUPS;
+  const { integrations } = useIntegrations();
+  const groups = (
+    macApp()
+      ? [...GROUPS, NATIVE, ...(integrations.linear ? [LINEAR] : []), CONQUER]
+      : GROUPS
+  ).map((group) => ({
+    ...group,
+    rows: group.rows
+      .filter(
+        (row) =>
+          integrations.linear ||
+          !/^(Open the Linear issue|Linear:)/.test(row.label),
+      )
+      .map((row) =>
+        !integrations.linear &&
+        row.label.startsWith("Next in the map's place")
+          ? {
+              ...row,
+              label: "Next in the map's place: the map, the browser (Conquer)",
+            }
+          : row,
+      ),
+  }));
   return (
     <motion.div
       className="modal-backdrop"

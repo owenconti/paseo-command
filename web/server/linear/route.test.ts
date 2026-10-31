@@ -2,7 +2,9 @@ import assert from "node:assert/strict";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { afterEach, beforeEach, test } from "node:test";
 import { LINEAR } from "../links";
-import { resetLinearClient } from "./client";
+import { saveSecret } from "../secrets";
+import { writeSettings } from "../settings";
+import { DISABLED, NO_KEY, resetLinearClient } from "./client";
 import { FAKE_IDS as I, installFakeLinear, type FakeLinear } from "./fake";
 import { linearImage } from "./image";
 import { resetLinearReads } from "./reads";
@@ -69,11 +71,13 @@ test("answers no key as unavailable, and a failure as 502", async () => {
   const failed = await ask("/api/linear/q/issues?scope=assigned");
   assert.equal(failed.status, 502);
   assert.equal(failed.body.error, "boom");
-  delete process.env.LINEAR_API_KEY;
+  saveSecret({ name: "linearApiKey", value: null });
   const none = await ask("/api/linear/q/workspace");
   assert.equal(none.status, 200);
-  assert.deepEqual(none.body, { available: false, reason: none.body.reason });
-  assert.match(none.body.reason, /LINEAR_API_KEY/);
+  assert.deepEqual(none.body, { available: false, reason: NO_KEY });
+  writeSettings({ integrations: { linear: false } });
+  const off = await ask("/api/linear/q/workspace");
+  assert.deepEqual(off.body, { available: false, reason: DISABLED });
 });
 
 test("an uploaded image is fetched with the key; nothing else is", async () => {
@@ -93,4 +97,10 @@ test("an uploaded image is fetched with the key; nothing else is", async () => {
   assert.equal(fetched.length, 1);
   reply("text/html");
   assert.equal((await linearImage("https://uploads.linear.app/a/b/page")).status, 415);
+  const before = fetched.length;
+  saveSecret({ name: "linearApiKey", value: null });
+  assert.deepEqual(await linearImage("https://uploads.linear.app/a/b/image.png"), { status: 404, error: NO_KEY });
+  writeSettings({ integrations: { linear: false } });
+  assert.deepEqual(await linearImage("https://uploads.linear.app/a/b/image.png"), { status: 404, error: DISABLED });
+  assert.equal(fetched.length, before);
 });

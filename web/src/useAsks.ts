@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { api } from "./api";
 import { NO_ASKS, type Asks } from "./asks/types";
 import { isArchived, type Agent } from "./types";
+import { useSecretRevision } from "./integrationSettings";
 
 const turnKey = (a: Agent) =>
   `${a.id}|${a.updatedAt ?? ""}|${a.lastUserMessageAt ?? ""}`;
@@ -10,14 +11,24 @@ const eligible = (a: Agent) =>
 
 /** What each idle agent's last reply asks of you (server/asks.ts), polled
  *  until its turn is judged; each turn is judged once. */
-export function useAsks(agents: Agent[]): Record<string, Asks | undefined> {
+export function useAsks(
+  agents: Agent[],
+  enabled = false,
+): Record<string, Asks | undefined> {
   const latest = useRef(agents);
   latest.current = agents;
   const [values, setValues] = useState<Record<string, Asks>>({});
   const settled = useRef(new Set<string>());
+  const secretRevision = useSecretRevision("typesafeApiKey");
+  useEffect(() => { settled.current.clear(); setValues({}); }, [secretRevision]);
   const shown = agents.filter(eligible);
   const signature = shown.map(turnKey).sort().join("\n");
   useEffect(() => {
+    if (!enabled) {
+      settled.current.clear();
+      setValues({});
+      return;
+    }
     if (!signature) return;
     let stopped = false;
     let timer: ReturnType<typeof setTimeout>;
@@ -57,6 +68,8 @@ export function useAsks(agents: Agent[]): Record<string, Asks | undefined> {
       controller.abort();
       clearTimeout(timer);
     };
-  }, [signature]);
-  return Object.fromEntries(shown.map((a) => [a.id, values[turnKey(a)]]));
+  }, [signature, enabled, secretRevision]);
+  return !enabled
+    ? {}
+    : Object.fromEntries(shown.map((a) => [a.id, values[turnKey(a)]]));
 }

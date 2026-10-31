@@ -32,6 +32,7 @@ import { finishGame, gamesRecord, nextGame, saveGameState } from "../games";
 import { draftGet } from "./drafts";
 import { presets, savePresets } from "../presets";
 import { appSettings, saveAppSettings } from "../settings";
+import { saveSecret, secretsStatus } from "../secrets";
 import { createTerminal, killTerminal, listTerminals } from "./terminals";
 import {
   addProject,
@@ -124,6 +125,22 @@ export async function handleApi(
       return reply(200, saveAppSettings(await bodyOf(req)));
     } catch (error) {
       return reply(400, { error: errorText(error) });
+    }
+  }
+  if (url.pathname === "/api/secrets") {
+    if (url.search) return reply(400, { error: "Unexpected parameters" });
+    if (req.method === "GET") return reply(200, secretsStatus());
+    if (req.method !== "POST") return reply(405, { error: "Method not allowed" });
+    if (!req.headers["content-type"]?.startsWith("application/json"))
+      return reply(415, { error: "JSON required" });
+    try {
+      const body = await bodyOf(req, 12000);
+      const status = saveSecret(body);
+      if (body.name === "typesafeApiKey") replyAsks.reset();
+      return reply(200, status);
+    } catch {
+      // Neither parser nor filesystem errors may reflect a submitted key.
+      return reply(400, { error: "Couldn't save the API key. Check that secrets.json is readable and writable, and enter a valid key." });
     }
   }
   if (url.pathname === "/api/presets") {

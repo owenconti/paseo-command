@@ -14,8 +14,8 @@ npm run native:run -- --url http://127.0.0.1:4331/
 (bundle id `io.github.owenconti.paseo-command.dev`, port 4321, no updates, data in
 `~/Library/Application Support/Paseo Command Dev/`). `sh native/scripts/bundle.sh --release` (run by
 `npm run release`) makes `native/release/Paseo Command.app` (`io.github.owenconti.paseo-command`, port 4310,
-Sparkle updates, data in `~/Library/Application Support/Paseo Command/`), signed with the self-signed
-"Paseo Command Release" identity. Both carry `Contents/Resources/node/node` (Node for Apple silicon; the app supports Apple silicon Macs only),
+Sparkle updates, data in `~/Library/Application Support/Paseo Command/`), signed with the maintainer's
+Developer ID under the hardened runtime (entitlements in `native/entitlements/`) and notarized by `npm run release`. Both carry `Contents/Resources/node/node` (Node for Apple silicon; the app supports Apple silicon Macs only),
 `server/server.mjs` (an esbuild bundle of `web/server/native.ts`, from `npm run app:bundle-server`) and
 `ui/` (`web/dist`).
 
@@ -115,6 +115,7 @@ npm run native:run -- --url 'http://127.0.0.1:4332/?agent=a-1' --no-server
 
 The strip across the top switches the map's place between the map, Conquer and Linear (⌘` steps through them in turn); Conquer is a tabbed browser with its own persistent
 cookie store. ⌘B toggles the React app panel even while a browser page has focus; ⌘S toggles Conquer's tab sidebar, restoring its width.
+With the keyboard in Conquer, ⌘R reloads the current page and ⇧⌘R reloads it without cache; both are also in the Conquer menu and command palette.
 Its native toolbar, tab list, find bar, suggestions and downloads use shared flat control primitives matching the React panel.
 Their colors and control metrics are generated from `web/src/styles/tokens.css` (Light) and `web/src/themes.css` (Galaxy),
 and the app bundles the same Inter and Source Sans body fonts. After changing those CSS tokens, run

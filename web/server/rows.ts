@@ -79,6 +79,10 @@ export function workspaceRow(w: Loose<PaseoWorkspace>) {
     w?.gitRuntime?.currentBranch ?? w?.project?.checkout?.currentBranch;
   // Its PR as Paseo reports it (null: none); left out when Paseo can't tell.
   const pr = prFromRuntime(w?.githubRuntime);
+  // Its repository on GitHub, from the checkout's remote (G on its project).
+  const repo = githubRepoUrl(
+    w?.gitRuntime?.remoteUrl ?? w?.project?.checkout?.remoteUrl,
+  );
   return {
     workspaceId: str(w?.id),
     projectId: str(w?.projectId),
@@ -95,7 +99,22 @@ export function workspaceRow(w: Loose<PaseoWorkspace>) {
       : {}),
     ...(pr !== undefined ? { pr } : {}),
     ...(str(w?.createdAt) ? { createdAt: str(w?.createdAt) } : {}),
+    ...(repo ? { repo } : {}),
   };
+}
+
+/**
+ * A git remote's GitHub repository page (`https://github.com/owner/repo`),
+ * or null for a remote elsewhere or one that can't be read.
+ */
+export function githubRepoUrl(remote: unknown): string | null {
+  if (typeof remote !== "string") return null;
+  const m = remote
+    .trim()
+    .match(
+      /^(?:(?:https?|ssh|git):\/\/(?:[^@/]+@)?|[^@/]+@)?github\.com[:/]([\w.-]+)\/([\w.-]+?)(?:\.git)?\/?$/i,
+    );
+  return m ? `https://github.com/${m[1]}/${m[2]}` : null;
 }
 
 export function projectRow(p: Loose<PaseoProject>) {

@@ -1,15 +1,14 @@
 /**
  * Linear's GraphQL API, one request at a time, with the key and the hourly
- * budget kept here. The key is LINEAR_API_KEY, else `linearApiKey` in the data
- * directory's secrets.json. Every reply's `x-ratelimit-*` headers update the
+ * budget kept here. Linear is opt-in: the key is `linearApiKey` in the data
+ * directory's secrets.json, read only once Linear is enabled in settings.json
+ * (`integrationKey("linear")`); the environment is never read. Every reply's `x-ratelimit-*` headers update the
  * budget; below `LOW_BUDGET` only `essential` requests (the user's own writes)
  * go out until the budget resets.
  */
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
 import type { LinearBudget } from "../../src/linear/types";
+import { integrationEnabled, integrationKey } from "../integrations";
 import { LINEAR } from "../links";
-import { dataDir } from "../subagentArchive";
 
 export const LOW_BUDGET = { requests: 100, complexity: 100_000 };
 
@@ -26,17 +25,14 @@ export class LinearError extends Error {
   }
 }
 
-export function linearApiKey(): string | undefined {
-  const env = process.env.LINEAR_API_KEY?.trim();
-  if (env) return env;
-  try {
-    const secrets = JSON.parse(readFileSync(join(dataDir(), "secrets.json"), "utf8"));
-    const key = secrets?.linearApiKey;
-    return typeof key === "string" && key.trim() ? key.trim() : undefined;
-  } catch {
-    return undefined;
-  }
-}
+export const NO_KEY = "Add linearApiKey to secrets.json to use Linear.";
+export const DISABLED = "Enable Linear in Settings to see your issues.";
+
+/** The key, only while Linear is enabled; else undefined. */
+export const linearApiKey = () => integrationKey("linear");
+
+/** Why there is no key: Linear is off, or on without `linearApiKey`. */
+export const linearUnavailable = () => (integrationEnabled("linear") ? NO_KEY : DISABLED);
 
 let budget: LinearBudget | null = null;
 
@@ -110,7 +106,7 @@ export async function linearRequest<T>(
   opts: { essential?: boolean } = {},
 ): Promise<T> {
   const key = linearApiKey();
-  if (!key) throw new LinearError("no-key", "Set LINEAR_API_KEY, or linearApiKey in secrets.json, to use Linear.");
+  if (!key) throw new LinearError("no-key", linearUnavailable());
   if (
     !opts.essential &&
     budget &&

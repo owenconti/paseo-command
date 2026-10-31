@@ -7,7 +7,14 @@
 import { after, before, test } from "node:test";
 import assert from "node:assert/strict";
 import type { Browser } from "playwright";
-import { launch, mockApi, newContext, startApp, waitFor } from "./harness";
+import {
+  agentRow,
+  launch,
+  mockApi,
+  newContext,
+  startApp,
+  waitFor,
+} from "./harness";
 
 let app: Awaited<ReturnType<typeof startApp>>;
 let browser: Browser;
@@ -36,22 +43,139 @@ test("the gear opens every setting, and the radio's choice is kept", async () =>
     "Interface sounds",
     "Lofi radio",
     "Desktop notifications",
-    "Linear workspace",
+    "Linear",
+    "TypeSafe",
+    "Apple Music",
   ])
     await dialog.getByText(label, { exact: true }).waitFor();
-  const radio = dialog.getByRole("checkbox", { name: /Lofi radio/ });
+  const radio = dialog.getByRole("switch", { name: /Lofi radio/ });
   assert.equal(await radio.isChecked(), false);
   assert.equal(
     await dialog.getByRole("slider", { name: "Lofi radio volume" }).isDisabled(),
     true,
   );
-  await radio.check();
-  if (process.env.SHOT) await page.waitForTimeout(300), await page.screenshot({ path: process.env.SHOT });
+  await radio.focus();
+  await radio.press("Space");
+  assert.equal(await radio.isChecked(), true);
+  if (process.env.SHOT)
+    (await page.waitForTimeout(300),
+      await page.screenshot({ path: process.env.SHOT }));
   assert.deepEqual(
-    await page.evaluate(() => JSON.parse(localStorage.getItem("paseo-command:music")!)),
+    await page.evaluate(() =>
+      JSON.parse(localStorage.getItem("paseo-command:music")!),
+    ),
     { enabled: true, volume: 0.4 },
   );
   await radio.uncheck();
+  await context.close();
+});
+
+test("API keys live under their integrations and can be saved, replaced and removed without readback", async () => {
+  const context = await newContext(browser);
+  const page = await context.newPage();
+  const file = { linearWorkspace: "acme", integrations: { linear: true, typesafe: true, appleMusic: false }, error: null };
+  const secretStatus = { configured: { linearApiKey: false, typesafeApiKey: false }, error: null };
+  const values: Record<string, string> = {};
+  const writes: any[] = [];
+  await mockApi(page, {
+    agents: () => [], projects: () => [],
+    lists: { settings: file, secrets: secretStatus },
+    accept: (path, body) => {
+      if (path === "/api/secrets") {
+        writes.push(body);
+        if (body.value === null) delete values[body.name];
+        else values[body.name] = body.value;
+        secretStatus.configured.linearApiKey = !!values.linearApiKey;
+        secretStatus.configured.typesafeApiKey = !!values.typesafeApiKey;
+        return secretStatus;
+      }
+      if (path === "/api/settings") { file.linearWorkspace = body.linearWorkspace; return file; }
+      return false;
+    },
+  });
+  await page.goto(app.url);
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Settings" });
+  const linear = dialog.getByRole("region", { name: "Linear integration", exact: true });
+  const typesafe = dialog.getByRole("region", { name: "TypeSafe integration", exact: true });
+  const key = linear.getByLabel("Linear API key", { exact: true });
+  await waitFor(() => key.isEnabled(), (v) => v, "key status to load");
+  assert.equal(await key.getAttribute("type"), "password");
+  assert.equal(await linear.getByLabel(/Linear workspace/).inputValue(), "acme");
+  assert.equal(await typesafe.getByLabel("TypeSafe API key", { exact: true }).inputValue(), "");
+  assert.equal(await dialog.getByRole("checkbox").count(), 0);
+  assert.equal(await dialog.getByRole("switch").count() >= 6, true);
+  if (process.env.KEY_SHOTS) {
+    for (const colorScheme of ["light", "dark"] as const) {
+      await page.emulateMedia({ colorScheme });
+      await page.evaluate(() => document.fonts.ready);
+      await page.waitForTimeout(250);
+      for (const size of [{ width: 1440, height: 1000, name: "desktop" }, { width: 390, height: 844, name: "mobile" }]) {
+        await page.setViewportSize(size);
+        await dialog.locator(".integration-settings").scrollIntoViewIfNeeded();
+        await page.screenshot({ path: `${process.env.KEY_SHOTS}/keys-${colorScheme}-${size.name}.png` });
+      }
+    }
+    await page.setViewportSize({ width: 1440, height: 1000 });
+  }
+  await key.fill("test-linear-first");
+  await linear.getByRole("button", { name: "Save Linear API key", exact: true }).click();
+  await linear.getByRole("button", { name: "Replace Linear API key", exact: true }).waitFor();
+  assert.equal(await key.count(), 0);
+  assert.ok(!(await page.content()).includes("test-linear-first"));
+  await page.reload();
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await linear.getByRole("button", { name: "Replace Linear API key", exact: true }).click();
+  assert.equal(await key.inputValue(), "");
+  await key.fill("test-discarded-key");
+  await linear.getByRole("button", { name: "Cancel replacing Linear API key", exact: true }).click();
+  assert.equal(values.linearApiKey, "test-linear-first");
+  await linear.getByRole("button", { name: "Replace Linear API key", exact: true }).click();
+  assert.equal(await key.inputValue(), "");
+  await key.fill("test-linear-replaced");
+  await linear.getByRole("button", { name: "Save Linear API key", exact: true }).click();
+  await linear.getByRole("button", { name: "Remove Linear API key", exact: true }).waitFor();
+  await typesafe.getByLabel("TypeSafe API key", { exact: true }).fill("test-typesafe-saved");
+  await typesafe.getByRole("button", { name: "Save TypeSafe API key", exact: true }).click();
+  await typesafe.getByRole("button", { name: "Replace TypeSafe API key", exact: true }).waitFor();
+  await linear.getByRole("button", { name: "Remove Linear API key", exact: true }).click();
+  await key.waitFor();
+  assert.equal(await key.inputValue(), "");
+  assert.equal(values.linearApiKey, undefined);
+  assert.equal(values.typesafeApiKey, "test-typesafe-saved");
+  assert.deepEqual(writes, [
+    { name: "linearApiKey", value: "test-linear-first" },
+    { name: "linearApiKey", value: "test-linear-replaced" },
+    { name: "typesafeApiKey", value: "test-typesafe-saved" },
+    { name: "linearApiKey", value: null },
+  ]);
+  assert.ok(!(await page.content()).includes("test-typesafe-saved"));
+  assert.deepEqual(file.integrations, { linear: true, typesafe: true, appleMusic: false });
+  await page.keyboard.press("Escape");
+  await page.keyboard.press("Meta+k");
+  const palette = page.getByRole("dialog", { name: "Command palette" });
+  await palette.getByRole("combobox", { name: "Search commands" }).fill("Manage TypeSafe API key");
+  await palette.getByRole("option", { name: /^Manage TypeSafe API key/ }).click();
+  await waitFor(() => typesafe.getByRole("button", { name: "Replace TypeSafe API key", exact: true }).evaluate((el) => document.activeElement === el), (v) => v, "the key control to receive focus");
+  await context.close();
+});
+
+test("an API key save failure keeps the draft available for retry", async () => {
+  const context = await newContext(browser);
+  const page = await context.newPage();
+  await mockApi(page, { agents: () => [], projects: () => [], lists: { settings: { integrations: { linear: true }, error: null } } });
+  await page.route("**/api/secrets", (route) => route.request().method() === "POST"
+    ? route.fulfill({ status: 400, json: { error: "Couldn't save the API key. Check secrets.json." } })
+    : route.fulfill({ json: { configured: { linearApiKey: false, typesafeApiKey: false }, error: null } }));
+  await page.goto(app.url);
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  const linear = page.getByRole("region", { name: "Linear integration", exact: true });
+  const key = linear.getByLabel("Linear API key", { exact: true });
+  await key.fill("test-retry-key");
+  await linear.getByRole("button", { name: "Save Linear API key", exact: true }).click();
+  await linear.getByRole("alert").waitFor();
+  assert.equal(await key.inputValue(), "test-retry-key");
+  assert.equal(await linear.getByRole("button", { name: "Save Linear API key", exact: true }).isEnabled(), true);
   await context.close();
 });
 
@@ -60,12 +184,19 @@ test("the Linear workspace is kept in settings.json, moved there from this brows
   // An older version kept it in the browser.
   await context.addInitScript(() => {
     if (!sessionStorage.getItem("seeded")) {
-      localStorage.setItem("paseo-command:linear-workspace", JSON.stringify("acme"));
+      localStorage.setItem(
+        "paseo-command:linear-workspace",
+        JSON.stringify("acme"),
+      );
       sessionStorage.setItem("seeded", "1");
     }
   });
   const page = await context.newPage();
-  const file: { linearWorkspace: string; error: null } = { linearWorkspace: "", error: null };
+  const file = {
+    linearWorkspace: "",
+    integrations: { linear: true, typesafe: false, appleMusic: false },
+    error: null,
+  };
   const saved: unknown[] = [];
   await mockApi(page, {
     agents: () => [],
@@ -79,10 +210,16 @@ test("the Linear workspace is kept in settings.json, moved there from this brows
     },
   });
   await page.goto(app.url);
-  await waitFor(() => Promise.resolve(saved.length), (n) => n === 1, "the move to settings.json");
+  await waitFor(
+    () => Promise.resolve(saved.length),
+    (n) => n === 1,
+    "the move to settings.json",
+  );
   assert.deepEqual(saved, [{ linearWorkspace: "acme" }]);
   assert.equal(
-    await page.evaluate(() => localStorage.getItem("paseo-command:linear-workspace")),
+    await page.evaluate(() =>
+      localStorage.getItem("paseo-command:linear-workspace"),
+    ),
     null,
   );
   await page.getByRole("button", { name: "Settings" }).click();
@@ -91,7 +228,11 @@ test("the Linear workspace is kept in settings.json, moved there from this brows
   // A change is saved to the file, and read back from it after a reload.
   await field.fill("https://linear.app/umbrella/team");
   await field.press("Enter");
-  await waitFor(() => Promise.resolve(saved.length), (n) => n === 2, "the change");
+  await waitFor(
+    () => Promise.resolve(saved.length),
+    (n) => n === 2,
+    "the change",
+  );
   assert.deepEqual(saved[1], { linearWorkspace: "umbrella" });
   await page.reload();
   await page.getByRole("button", { name: "Settings" }).click();
@@ -100,5 +241,172 @@ test("the Linear workspace is kept in settings.json, moved there from this brows
     "umbrella",
   );
   assert.equal(saved.length, 2);
+  await context.close();
+});
+
+test("integrations opt in explicitly, persist, and stop their controls after opt-out", async () => {
+  const context = await newContext(browser);
+  await context.addInitScript(`(() => {
+    window.__integrationMessages = [];
+    window.webkit = { messageHandlers: {
+      paseoWorld: { postMessage(message) {
+        if (message.type === "integrations") window.__integrationMessages.push(message);
+        if (message.type === "art") setTimeout(() => window.dispatchEvent(new CustomEvent("paseo:world", { detail: { type: "ready" } })));
+      } },
+      paseoMusic: { postMessage(message) {
+        window.__integrationMessages.push({ ...message, channel: "music" });
+        if (message.type === "watch" && message.on)
+          window.dispatchEvent(new CustomEvent("paseo:music", { detail: { state: "closed" } }));
+      } },
+    } };
+  })()`);
+  const page = await context.newPage();
+  const file = {
+    linearWorkspace: "",
+    integrations: { linear: false, typesafe: false, appleMusic: false },
+    error: null,
+  };
+  const writes: any[] = [];
+  let asks = 0;
+  await mockApi(page, {
+    agents: () => [agentRow("a1", "idle", "Optional agent")],
+    projects: () => [],
+    lists: { settings: file },
+    accept: (path, body) => {
+      if (path === "/api/settings") {
+        writes.push(body);
+        Object.assign(file.integrations, body.integrations);
+        return file;
+      }
+      if (path === "/api/agents/a1/asks") {
+        asks++;
+        return { waiting: false, questions: [], pending: false };
+      }
+      return false;
+    },
+  });
+  await page.goto(app.url);
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Settings" });
+  const linear = dialog.getByRole("switch", { name: /^Linear / });
+  const typesafe = dialog.getByRole("switch", { name: /^TypeSafe / });
+  const music = dialog.getByRole("switch", { name: /^Apple Music / });
+  await waitFor(
+    () => linear.isEnabled(),
+    (v) => v,
+    "settings to load",
+  );
+  assert.equal(await linear.isChecked(), false);
+  assert.equal(await typesafe.isChecked(), false);
+  assert.equal(await music.isChecked(), false);
+  assert.equal(asks, 0);
+  assert.equal(await dialog.getByLabel(/Linear workspace/).count(), 0);
+  assert.equal(
+    await page
+      .getByRole("region", { name: "Apple Music", exact: true })
+      .count(),
+    0,
+  );
+  assert.equal(
+    await page.evaluate(() =>
+      (window as any).__integrationMessages.some(
+        (m: any) => m.channel === "music" && m.type === "watch" && m.on,
+      ),
+    ),
+    false,
+  );
+  if (process.env.SHOT_DIR) {
+    await page.screenshot({
+      path: `${process.env.SHOT_DIR}/settings-desktop.png`,
+    });
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.screenshot({
+      path: `${process.env.SHOT_DIR}/settings-mobile.png`,
+    });
+    await page.setViewportSize({ width: 1280, height: 800 });
+  }
+  await linear.check();
+  await dialog.getByLabel(/Linear workspace/).waitFor();
+  await typesafe.check();
+  await waitFor(
+    () => Promise.resolve(asks),
+    (n) => n > 0,
+    "TypeSafe opt-in",
+  );
+  await music.check();
+  await page
+    .getByRole("region", { name: "Apple Music", exact: true })
+    .waitFor();
+  assert.deepEqual(writes, [
+    { integrations: { linear: true } },
+    { integrations: { typesafe: true } },
+    { integrations: { appleMusic: true } },
+  ]);
+  await page.reload();
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await waitFor(
+    () => music.isChecked(),
+    (v) => v,
+    "persisted opt-ins",
+  );
+  assert.equal(await linear.isChecked(), true);
+  assert.equal(await typesafe.isChecked(), true);
+  await music.uncheck();
+  await waitFor(
+    () =>
+      page.getByRole("region", { name: "Apple Music", exact: true }).count(),
+    (n) => n === 0,
+    "Music to stop",
+  );
+  await linear.uncheck();
+  await waitFor(
+    () => dialog.getByLabel(/Linear workspace/).count(),
+    (n) => n === 0,
+    "Linear controls to hide",
+  );
+  await typesafe.uncheck();
+  await waitFor(() => typesafe.isEnabled(), (v) => v, "opt-out to save");
+  assert.deepEqual(file.integrations, {
+    linear: false,
+    typesafe: false,
+    appleMusic: false,
+  });
+  await page.keyboard.press("Escape");
+  await page.keyboard.press("Meta+k");
+  const palette = page.getByRole("dialog", { name: "Command palette" });
+  await palette.waitFor();
+  assert.equal(await palette.getByRole("option", { name: "Show your Linear issues", exact: true }).count(), 0);
+  assert.equal(await palette.getByRole("option", { name: "Play or pause Apple Music", exact: true }).count(), 0);
+  const search = palette.getByRole("combobox", { name: "Search commands" });
+  await search.fill("Enable Linear");
+  await palette.getByRole("option", { name: /^Enable Linear/ }).click();
+  await dialog.getByLabel(/Linear workspace/).waitFor();
+  assert.equal(file.integrations.linear, true);
+  await context.close();
+});
+
+test("a failed opt-in stays off and reports why it could not be saved", async () => {
+  const context = await newContext(browser);
+  const page = await context.newPage();
+  await mockApi(page, { agents: () => [], projects: () => [] });
+  await page.route("**/api/settings", (route) =>
+    route.request().method() === "POST"
+      ? route.fulfill({
+          status: 400,
+          json: { error: "settings.json can't be read." },
+        })
+      : route.fulfill({ json: { integrations: {}, error: null } }),
+  );
+  await page.goto(app.url);
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Settings" });
+  const linear = dialog.getByRole("switch", { name: /^Linear / });
+  await linear.click();
+  await dialog.getByRole("alert").waitFor();
+  assert.match(
+    await dialog.getByRole("alert").innerText(),
+    /settings.json can't be read/,
+  );
+  assert.equal(await linear.isChecked(), false);
   await context.close();
 });

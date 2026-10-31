@@ -4,6 +4,7 @@ import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 import { fleet, get, install, post } from "../fake-daemon";
 import { settingsFile } from "../presets";
+import { DEFAULT_INTEGRATIONS } from "../../src/integrations";
 import { legacySettingsFile } from "../settings";
 import { fillPreset, presetNeedsPr, prNumberOf } from "../../src/presets";
 
@@ -102,10 +103,10 @@ test("presets: a damaged settings.json is never overwritten", async () => {
 
 test("settings: the Linear workspace is saved beside the presets", async () => {
   writeSettings(JSON.stringify({ presets: [{ name: "Keep", prompt: "Kept." }] }));
-  assert.deepEqual((await get("settings")).data, { linearWorkspace: "", error: null });
+  assert.deepEqual((await get("settings")).data, { linearWorkspace: "", integrations: DEFAULT_INTEGRATIONS, error: null });
   const r = await post("settings", { linearWorkspace: "https://linear.app/Acme/issue/X-1" });
   assert.equal(r.status, 200, JSON.stringify(r.data));
-  assert.deepEqual(r.data, { linearWorkspace: "acme", error: null });
+  assert.deepEqual(r.data, { linearWorkspace: "acme", integrations: DEFAULT_INTEGRATIONS, error: null });
   assert.deepEqual(JSON.parse(readFileSync(settingsFile(), "utf8")), {
     presets: [{ name: "Keep", prompt: "Kept." }],
     linearWorkspace: "acme",

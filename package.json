@@ -1,6 +1,6 @@
 {
   "name": "paseo-command",
-  "version": "0.2.0",
+  "version": "0.5.0",
   "private": true,
   "type": "module",
   "description": "Paseo Command: the Paseo fleet drawn as the Atlas world (SpriteKit in the macOS app)",
@@ -25,6 +25,8 @@
     "native:mock": "web/node_modules/.bin/tsx native/scripts/mock-fleet.ts",
     "public:check": "node scripts/public-check.mjs",
     "native:test": "node native/scripts/test-native.mjs && node native/scripts/test-bundle.mjs && node native/scripts/test-conquer.mjs",
+    "secrets:scan": "if command -v gitleaks >/dev/null; then gitleaks git --log-opts=--all --redact=100 --no-banner; else echo 'gitleaks is not installed (brew install gitleaks); skipping the credential scan.'; fi",
+    "check": "npm run public:check -- --history && npm run secrets:scan && npm run app:test && npm run app:build && npm run native:test",
     "public:hooks": "node scripts/public-push-guard.mjs --install",
     "release": "node scripts/release.mjs",
     "release:setup": "node scripts/release-setup.mjs"

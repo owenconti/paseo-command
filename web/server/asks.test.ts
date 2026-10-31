@@ -1,6 +1,8 @@
-import { test } from "node:test";
+import { beforeEach, test } from "node:test";
 import assert from "node:assert/strict";
 import { createAsksService, judgeReply, type Judge } from "./asks";
+import { writeSettings } from "./settings";
+beforeEach(() => writeSettings({ integrations: { typesafe: true } }));
 import { parseAnswers } from "./askAnswers";
 
 const REPLY =
@@ -107,7 +109,7 @@ test("nothing when the user wrote last, the agent runs, or there's no key", asyn
   assert.deepEqual(service.request(client as never, "local", record() as never).questions, []);
   assert.equal(service.request(client as never, "local", record({ status: "running" }) as never).pending, false);
   const keyless = createAsksService(() => undefined);
-  assert.match(keyless.request(client as never, "local", record() as never).error!, /TYPESAFE_API_KEY/);
+  assert.match(keyless.request(client as never, "local", record() as never).error!, /typesafeApiKey.*secrets.json/);
   assert.equal(keyless.status().available, false);
 });
 
@@ -123,6 +125,11 @@ test("a refused key stops judging and says why", async () => {
   assert.match(service.request(client as never, "local", record({ id: "a2" }) as never).error!, /refused/);
   assert.equal(calls, 1);
   assert.equal(service.status().available, false);
+  service.reset();
+  assert.equal(service.status().available, true);
+  assert.equal(service.request(client as never, "local", record() as never).pending, true);
+  await settle();
+  assert.equal(calls, 2, "replacing a refused key retries immediately");
 });
 
 /** The fake's answers, with `suggest` chosen as `pick` at `p`. */

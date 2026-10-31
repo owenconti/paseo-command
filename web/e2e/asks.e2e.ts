@@ -28,6 +28,7 @@ type Q = { text: string; kind: string; options?: string[]; answers?: string[] };
 function world(questions: Q[], waiting = true, extra: object = {}) {
   const posts: { path: string; body: any }[] = [];
   const fleet = {
+    lists: { settings: { integrations: { typesafe: true } } },
     agents: () => [agentRow("a1", "idle", "Asking agent")],
     detail: (id: string) => detailOf(id, "idle"),
     timeline: () => ({

@@ -1,8 +1,11 @@
 #!/bin/sh
 # Build the native app with its own Node, server and page.
 #   sh native/scripts/bundle.sh             native/build/Paseo Command Dev.app (port 4321, ad-hoc signed)
-#   sh native/scripts/bundle.sh --release   native/release/Paseo Command.app (port 4310, signed as
-#                                           "Paseo Command Release", updating itself with Sparkle)
+#   sh native/scripts/bundle.sh --release   native/release/Paseo Command.app (port 4310, signed with
+#                                           your Developer ID under the hardened runtime, updating
+#                                           itself with Sparkle; release.mjs notarizes it)
+#   sh native/scripts/bundle.sh --release --unsigned   the same release app, ad hoc signed (no
+#                                           Developer ID: release.mjs --unsigned, not notarized)
 # The release goes to its own folder so it never replaces the old checkout app, which some
 # checkouts still have at native/build/Paseo Command.app.
 # Needs web/dist (npm run app:build) and web/dist-server/server.mjs (npm run app:bundle-server).
@@ -12,25 +15,32 @@ set -eu
 here=$(cd "$(dirname "$0")/.." && pwd)
 root=$(cd "$here/.." && pwd)
 config=release
-case "${1:-}" in
-  "") flavour=dev ;;
-  --release) flavour=release ;;
-  *) echo "usage: bundle.sh [--release]" >&2; exit 2 ;;
+case "${1:-} ${2:-}" in
+  " ") flavour=dev; unsigned= ;;
+  "--release ") flavour=release; unsigned= ;;
+  "--release --unsigned") flavour=release; unsigned=1 ;;
+  *) echo "usage: bundle.sh [--release [--unsigned]]" >&2; exit 2 ;;
 esac
 if [ "$flavour" = release ]; then
-  identity="Paseo Command Release"
   # Sparkle installs only updates signed by the key whose public half is here.
   if [ -z "$(/usr/libexec/PlistBuddy -c "Print :SUPublicEDKey" "$here/Info.plist" 2>/dev/null)" ]; then
     echo "No SUPublicEDKey in native/Info.plist. Run npm run release:setup first." >&2
     exit 1
   fi
-  if ! security find-identity -p codesigning | grep -q "\"$identity\""; then
-    echo "No \"$identity\" signing identity in the login keychain. Run npm run release:setup first." >&2
-    exit 1
+  if [ -n "$unsigned" ]; then
+    # Ad hoc, like dev: the hardened runtime would refuse Sparkle's framework without a Team ID.
+    identity=-
+    hardened=
+  else
+    # The Developer ID Application identity (scripts/signing.mjs explains a missing or ambiguous one).
+    identity=$(node "$root/scripts/signing.mjs" identity) || exit 1
+    # Notarization needs the hardened runtime and a secure timestamp on every signed binary.
+    hardened="-o runtime --timestamp"
   fi
   name="Paseo Command"; id=io.github.owenconti.paseo-command; port=4310; out=release
 else
   identity=-
+  hardened=
   name="Paseo Command Dev"; id=io.github.owenconti.paseo-command.dev; port=4321; out=build
 fi
 cd "$here"
@@ -93,12 +103,14 @@ sign() {
     exit 1
   fi
 }
-sign "$app/Contents/Resources/node/node"
+# Release signing adds the hardened runtime and timestamps ($hardened, empty for dev), and the
+# entitlements that runtime needs: JIT for Node, Apple Events (Music) for the app.
+sign "$app/Contents/Resources/node/node" $hardened --entitlements "$here/entitlements/node.plist"
 sparkle="$app/Contents/Frameworks/Sparkle.framework/Versions/B"
-sign "$sparkle/XPCServices/Installer.xpc" -o runtime
-sign "$sparkle/XPCServices/Downloader.xpc" -o runtime --preserve-metadata=entitlements
-sign "$sparkle/Autoupdate" -o runtime
-sign "$sparkle/Updater.app" -o runtime
-sign "$app/Contents/Frameworks/Sparkle.framework" -o runtime
-sign "$app"
+sign "$sparkle/XPCServices/Installer.xpc" -o runtime ${hardened:+--timestamp}
+sign "$sparkle/XPCServices/Downloader.xpc" -o runtime ${hardened:+--timestamp} --preserve-metadata=entitlements
+sign "$sparkle/Autoupdate" -o runtime ${hardened:+--timestamp}
+sign "$sparkle/Updater.app" -o runtime ${hardened:+--timestamp}
+sign "$app/Contents/Frameworks/Sparkle.framework" -o runtime ${hardened:+--timestamp}
+sign "$app" $hardened --entitlements "$here/entitlements/app.plist"
 echo "$app"

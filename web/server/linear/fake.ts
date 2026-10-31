@@ -4,7 +4,11 @@
  * Requests dispatch on `operationName` to one function in `OPERATIONS`; reads
  * and writes add theirs there. Nothing here reaches the network.
  */
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { dirname } from "node:path";
 import { LINEAR } from "../links";
+import { secretsFile } from "../secrets";
+import { readSettings, settingsFile, writeSettings } from "../settings";
 
 type Ref = { id: string };
 type Nodes<T> = { nodes: T[] };
@@ -786,13 +790,51 @@ export type FakeLinear = {
   restore(): void;
 };
 
-/** Points LINEAR.fetch at the fake workspace and sets a fake key; call `restore()` after. */
+/** A file's text, or undefined when it doesn't exist. */
+function snapshot(file: string): string | undefined {
+  try {
+    return readFileSync(file, "utf8");
+  } catch {
+    return undefined;
+  }
+}
+function putBack(file: string, text: string | undefined): void {
+  if (text === undefined) rmSync(file, { force: true });
+  else writeFileSync(file, text);
+}
+
+/** The fake's API key, as secrets.json keeps it. */
+export const FAKE_KEY = "lin_api_fake";
+
+/**
+ * Points LINEAR.fetch at the fake workspace and turns Linear on as a user
+ * would: `integrations.linear` in settings.json and a fake `linearApiKey` in
+ * the (test) data directory's secrets.json. `restore()` puts both files back.
+ */
 export function installFakeLinear(ws: FakeWorkspace = fakeWorkspace()): FakeLinear {
   const realFetch = LINEAR.fetch;
-  const hadKey = process.env.LINEAR_API_KEY;
   const failures = new Map<string, FakeFailure>();
   const requests: FakeLinear["requests"] = [];
-  process.env.LINEAR_API_KEY = "lin_api_fake";
+  const secrets = secretsFile();
+  const settings = settingsFile();
+  const hadSecrets = snapshot(secrets);
+  const hadSettings = snapshot(settings);
+  let kept: Record<string, unknown> = {};
+  try {
+    const raw: unknown = JSON.parse(hadSecrets ?? "{}");
+    if (raw && typeof raw === "object" && !Array.isArray(raw)) kept = raw as Record<string, unknown>;
+  } catch {
+    // An unreadable file is replaced for the test and put back by restore().
+  }
+  mkdirSync(dirname(secrets), { recursive: true });
+  writeFileSync(secrets, JSON.stringify({ ...kept, linearApiKey: FAKE_KEY }));
+  const integrations = readSettings()?.integrations;
+  writeSettings({
+    integrations: {
+      ...(integrations && typeof integrations === "object" ? integrations : {}),
+      linear: true,
+    },
+  });
 
   LINEAR.fetch = (async (_url: unknown, init?: RequestInit) => {
     const body = JSON.parse(String(init?.body ?? "{}")) as {
@@ -835,8 +877,8 @@ export function installFakeLinear(ws: FakeWorkspace = fakeWorkspace()): FakeLine
     clear: (operation) => void failures.delete(operation),
     restore() {
       LINEAR.fetch = realFetch;
-      if (hadKey === undefined) delete process.env.LINEAR_API_KEY;
-      else process.env.LINEAR_API_KEY = hadKey;
+      putBack(secrets, hadSecrets);
+      putBack(settings, hadSettings);
     },
   };
 }

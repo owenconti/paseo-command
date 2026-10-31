@@ -37,7 +37,10 @@ test("Linear navigates my issues, teams, projects and initiatives, shows an issu
   await mockApi(page, {
     agents: () => [],
     projects: () => [{ projectId: "prj_atlas", name: "atlas", kind: "git", path: "/work/atlas" }],
-    lists: { presets: { presets: [{ name: "Plan it", prompt: "Plan {{issue}}." }], error: null } },
+    lists: {
+      settings: { integrations: { linear: true } },
+      presets: { presets: [{ name: "Plan it", prompt: "Plan {{issue}}." }], error: null },
+    },
     accept: (path, body) => {
       if (path !== "/api/dispatch") return false;
       dispatched.push(body);
@@ -206,7 +209,7 @@ async function openLinear(ws = fakeWorkspace()) {
   const context = await newContext(browser);
   const page = await context.newPage();
   await page.setViewportSize({ width: 1800, height: 1000 });
-  await mockApi(page, { agents: () => [] });
+  await mockApi(page, { agents: () => [], lists: { settings: { integrations: { linear: true } } } });
   const linear = await mockLinear(page, ws);
   await page.goto(app.url);
   await page.locator(".fleet-sidebar").waitFor();

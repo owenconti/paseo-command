@@ -72,8 +72,8 @@ releasing: once a newer build is on disk its mode bar shows "Update ready · Res
 release app updates only through Sparkle releases. Never quit, relaunch or open either of the user's apps (the main
 checkout's `native/build/Paseo Command Dev.app` is the user's own copy), and do not run `app:restart`. Your check runs
 use a build in your own workspace, launched with `--info <file>` (which gives the copy a throwaway data folder) and
-either `--no-server` or a `--url` on a port of its own (e.g. `http://127.0.0.1:4322/`), never 4310 or 4321. Never run `npm run release` or `npm run release:setup`: releases are the user's. After pushing, tell the
-user a release is pending (`npm run release -- <next version>`), naming the user-visible changes since the last one.
+either `--no-server` or a `--url` on a port of its own (e.g. `http://127.0.0.1:4322/`), never 4310 or 4321. Run `npm run release` only when the user explicitly asks to cut or publish a release; `npm run release:setup` remains the user's. After pushing, tell the
+user a release is pending (ask an agent to cut it, or `npm run release`), naming the user-visible changes since the last one.
 If you made a Paseo workspace (worktree) for the work, archive it once its branch is merged into `main` and pushed
 (remove any `node_modules` symlinks you added to it first), so finished work leaves no workspace behind on the map.
 Report the commit, whether the push succeeded, whether the build succeeded, and that the workspace was archived.
@@ -92,11 +92,14 @@ Report the commit, whether the push succeeded, whether the build succeeded, and 
 - `npm run app:bundle-server`: esbuild-bundles `web/server/native.ts` into `web/dist-server/server.mjs` (ignored) for the app bundle.
 - `npm run app:update`: `app:build`, `app:bundle-server` and `native:build`, after merging to `main` (see above), as a build check.
 - `npm run native:test`: the native, bundle and Conquer checks (`native/scripts/test-native.mjs`, `test-bundle.mjs`, `test-conquer.mjs`).
-- `npm run release:setup`: once, by the user: a self-signed code-signing identity "Paseo Command Release" in the login keychain and
-  Sparkle EdDSA keys (`SUPublicEDKey` goes into `native/Info.plist`). `npm run release -- <version> [--notes <file>] [--dry-run]`
-  (`scripts/release.mjs`): checks, tests, builds, signs and zips the release app to `native/release/`, writes the Sparkle appcast, commits
-  `Release v<version>`, pushes `main` and runs `gh release create`. Releases are not notarized: a first open needs System Settings →
-  Privacy & Security → Open Anyway.
+- `npm run release:setup`: once, by the user: checks for a "Developer ID Application" certificate in the login keychain (explains
+  making one; installs Apple's intermediate), saves a notarytool login as `paseo-command-notary`, and makes Sparkle EdDSA keys
+  (`SUPublicEDKey` goes into `native/Info.plist`). `scripts/signing.mjs` picks the identity (`PASEO_COMMAND_SIGN_IDENTITY` when there are several). `npm run release -- [--bump patch|minor|major] [--notes <file>] [--dry-run]`
+  (`scripts/release.mjs`): checks, tests, builds the release app to `native/release/`, signs it with the Developer ID under the hardened
+  runtime (entitlements in `native/entitlements/`: Apple Events for the app, JIT for Node), notarizes and staples it, zips it (Sparkle downloads the zip), makes a drag-to-Applications `.dmg`
+  (`scripts/dmg.mjs`; signed, notarized and stapled too), writes the Sparkle appcast, commits
+  `Release v<version>`, pushes `main` and runs `gh release create`. Releases are notarized, so they open normally. `--unsigned` (with `release:setup -- --unsigned`) makes an
+  ad hoc signed, non-notarized release while no Developer ID is available; its notes explain Open Anyway.
 - `npm run app:typecheck`: checks React, API and Atlas TypeScript.
 - `npm run app:e2e`: browser tests of the Atlas against a mocked fleet (no daemon is reached).
 - `npm run native:build`, `native:run [-- --url …]`: the macOS app (`native/`) that draws the Atlas with
@@ -107,10 +110,26 @@ Report the commit, whether the push succeeded, whether the build succeeded, and 
   (web/dist). It runs that server itself and the server ends with the app (`ServerManager.swift`). Check runs pass `--no-server`.
   Launch it with `open -g` and `--background` for checks; it must never take the user's focus.
 - `npm run render:test`: layout and tile tests.
+- `npm run check`: every check, run locally (the repository has no GitHub Actions; do not add any): `public:check -- --history`,
+  `secrets:scan` (Gitleaks over all history, skipped with a note when `gitleaks` isn't installed), `app:test`, `app:build`, `native:test`.
 
 The earlier cached Phaser AE prototype, engine, generated build and prototype-only npm commands
 were removed at the user’s request.
 Local assets belong in the repository and are included through local build tooling.
+
+## Cutting a release
+
+When the user explicitly asks to cut or publish a release, do it without asking them for a version.
+Review the commits and diff since the latest published GitHub release and choose the bump:
+patch for fixes and maintenance, minor for compatible new features, major for incompatible changes
+at 1.0 or later (minor for incompatible changes while at 0.x). Run `npm run release -- --bump <kind> --notes <file>`
+with user-facing notes for those changes. The script computes the version from the newer of
+`package.json` and the highest published version, and prints it before building. Bare `npm run release`
+defaults to the next patch, or keeps a newer version already prepared in `package.json`; with no
+published releases it uses the package version. An exact version remains an optional override.
+Changing release tooling or completing a feature does not itself authorize publishing a release.
+After an explicit release request, the release script handles signing, notarization, commit, push
+and GitHub publication; report the published version and release link.
 
 ## Structure
 
@@ -133,7 +152,8 @@ Local assets belong in the repository and are included through local build tooli
   `.paseo-command/`. `LegacyState.swift` migrates the old app's (`local.paseo.command.native`) preferences, WebKit data and HTTPStorages once,
   after offering to quit the old app if it is open (declined or failed copies retry next launch).
   `Updater.swift`: Sparkle (feed `https://github.com/owenconti/paseo-command/releases/latest/download/appcast.xml`); the mode bar shows
-  "Update ready · Restart app", and Restart app (⌘K) installs and relaunches at the same page.
+  "Update ready · Restart app", and Restart app (⌘K) installs and relaunches at the same page. Check for Updates… (app menu; "Check for
+  updates" in ⌘K, shown only when the app's `paseo:update` says `canCheck`) asks Sparkle now; the page asks for that event with an `update` message.
 - `web/e2e/`: browser tests with every `/api` request answered in the browser.
 - `web/src/Dispatch.tsx` `NewAgent`: a new agent opens in the panel as an empty conversation (host, where and
   branch in a small form) with the usual composer; its first message creates the agent. Its /skills and @files
@@ -147,6 +167,11 @@ Local assets belong in the repository and are included through local build tooli
   directory is moved there on first read) show as buttons that launch the agent at once; `{{pr}}` names the chosen pull request.
   They are edited in the app (`web/src/PresetsEditor.tsx`, from Settings or New agent; `POST /api/presets` keeps the file's
   other keys and never overwrites an unreadable file); `web/src/presetsStore.ts` shares them across the page.
+  Optional integrations (`integrations.linear`, `integrations.typesafe`, `integrations.appleMusic`) default off in that file.
+  Integration keys are read only from the data directory's `secrets.json` (`web/server/secrets.ts`), never from environment variables.
+  Settings uses toggle switches, with each integration's API-key editor and settings grouped beneath it.
+  `GET /api/secrets` returns presence flags only; `POST /api/secrets` saves/replaces/removes a named key,
+  preserving other credentials in an atomic owner-only file. Saved values never return to the page.
   The same `settings.json` keeps the Linear workspace (`linearWorkspace`; `GET`/`POST /api/settings`,
   `web/server/settings.ts`), which the page once kept in localStorage and moves into the file on load.
 - `rendering/src/native/bridge.ts`: inside the native app, the Atlas world `mountAtlas` returns: it lays out and paints
@@ -167,7 +192,7 @@ Local assets belong in the repository and are included through local build tooli
   after confirming (`web/src/RemoveProjectDialog.tsx`, `POST /api/projects/:id/remove`: Paseo archives its workspaces and
   unregisters it; the folder stays). Moving a project's folder isn't offered: the daemon has no call for it.
 - `web/server/asks.ts`: what an idle agent's last reply asks of you, judged once per reply by TypeSafe's Jev
-  (`TYPESAFE_API_KEY`, else `typesafeApiKey` in the data directory's `secrets.json`): code splits the reply into
+  (opt-in `integrations.typesafe` in `settings.json`, with `typesafeApiKey` in the data directory's `secrets.json`): code splits the reply into
   sentences and keeps only questions and requests (`web/src/asks/sentences.ts`, `mayAsk`), Jev judges which ask you, their kind, a pick's options, and whether
   the reply waits on you. `POST /api/agents/:id/asks`, `GET /api/asks` (status). The composer offers the questions
   (`web/src/composer/AskStrip.tsx`) with quick replies; a reply that waits on you is the map's `asking` state
@@ -197,7 +222,7 @@ Local assets belong in the repository and are included through local build tooli
 - Auto-merge: a PR's `autoMerge` comes from Paseo's GitHub facts (`autoMergeRequest`), else gh's (`web/server/links.ts`).
   While it's on, a teal seal with a merge mark sits on the review medallion's upper-right rim, else the CI one's (`placeSeals`,
   `paintSeal`, `AUTO_MERGE` in `rendering/src/prStatus.ts`); the medallion's hover card says how it merges and who turned it on.
-- Apple Music bar: `web/src/MusicBar.tsx` floats in the map's top-left corner (macOS app only) with Music's current track,
+- Apple Music bar (opt-in `integrations.appleMusic` in `settings.json`; off by default): `web/src/MusicBar.tsx` floats in the map's top-left corner (macOS app only) with Music's current track,
   its art and ⏮ ⏯ ⏭; with Music closed it offers play, which opens Music without focus and resumes. The app reads and drives
   Music by AppleScript (`native/Sources/PaseoCommandNative/Music.swift`, about once a second while the window shows) over the
   `paseoMusic` message handler and `paseo:music` events; macOS asks once for Automation permission (`NSAppleEventsUsageDescription`).
@@ -215,7 +240,7 @@ Local assets belong in the repository and are included through local build tooli
   optionally seeded after confirmation through Conquer → Import Zen Cookies from Zen Browser's profile (`ZenCookies.swift`): a copy of
   `cookies.sqlite`, default space only, unpartitioned and unexpired; Zen is never written to. Its tabs (`conquerState`), sidebar width, zooms,
   history (`conquer-history.json` in the app's data folder, `~/Library/Application Support/Paseo Command/` for the release) and the mode come back on launch; tabs come back unloaded.
-- Linear (the mode bar's third tab, after Command and Conquer; View menu; palette "Show your Linear issues"): a Linear client the page
+- Linear (the mode bar's third tab, after Command and Conquer; View menu; palette "Show your Linear issues"; all only while Linear is enabled): a Linear client the page
   draws (`web/src/linear/LinearView.tsx`) over the map's frame while the app reports `paseo:mode` `linear` (`useAppMode`, `web/src/appMode.ts`;
   the page asks with a `mode` message). Navigation: its sidebar (`Sidebar.tsx`) is Linear's: My issues (Assigned, Created, Subscribed),
   each team (Triage where on, Active, Backlog, All), Projects (`ProjectList.tsx`, each opening its issues) and Initiatives
@@ -242,17 +267,22 @@ Local assets belong in the repository and are included through local build tooli
   request, 100 at most) and merged where they now belong; those Linear no longer lists, and any past the hundred, leave the
   store (re-asking keeps other lists truthful, which dropping all wouldn't). Sync's reload (`more`) also asks for the open issue
   and its comments. Linear doesn't move `updatedAt` on (un)subscribing, so a subscription changed elsewhere doesn't arrive by
-  sync: it shows on the next read of the issue or of Subscribed; a read begun before a write was saved never undoes it. Server (`web/server/linear/`, with `LINEAR_API_KEY` or `linearApiKey` in `secrets.json`; the page never
-  gets the key): named reads only (`reads.ts`, `GET /api/linear/q/workspace|issues|byId|issue|sync|status`) and whitelisted writes
+  sync: it shows on the next read of the issue or of Subscribed; a read begun before a write was saved never undoes it. Server (`web/server/linear/`; the page never
+  gets the key): Linear is opt-in, so `client.ts` takes the key only through `integrationKey("linear")` (`integrations.linear` in
+  `settings.json`, then `linearApiKey` in the data directory's `secrets.json`; the environment is never read). Off, every read and
+  write and the image route refuse with "Enable Linear in Settings to see your issues."; on without a key, "Add linearApiKey to
+  secrets.json to use Linear." (`LinearError` kind `no-key`; reads answer it as `LinearUnavailable`, which the view shows, writes
+  as 503). Saving, replacing or removing the key in Settings (`paseo:secrets`) refreshes the open view: named reads only (`reads.ts`, `GET /api/linear/q/workspace|issues|byId|issue|sync|status`) and whitelisted writes
   (`writes.ts` `linearWrite`, `POST /api/linear/m/<name>`, each input checked field by field; no passthrough GraphQL, no `@linear/sdk`),
   over `client.ts`, which keeps to the key's hourly budget (2,500 requests, 3,000,000 complexity; reads stand down when it runs low,
   writes still go). Launch agent opens New agent with the issue (`DispatchTarget.issue`): Worktree on Linear's branch name, the
   composer's draft naming the issue; presets take `{{issue}}` and the issue's details (`prompt.ts`). As Conquer's sidebar, the Linear
   sidebar's inner edge resizes it and ⌘S hides or shows it (kept in localStorage). Images uploaded to Linear load through
   `GET /api/linear/image?url=` (only `uploads.linear.app`, fetched with the key; `linearImages`). Tests never reach Linear
-  (`web/server/test-setup.ts` drops the key): server tests and e2e (`web/e2e/linear.e2e.ts`, the real route) run over the fake
-  Linear (`web/server/linear/fake.ts`, `web/e2e/linearFake.ts`). `web/scripts/linear-write-check.ts`, run by hand
-  (`cd web && npx tsx scripts/linear-write-check.ts`), checks the writes against the real Linear on one issue only: team DE's
+  (`web/server/test-setup.ts` points the data directory and settings file at a temporary folder): server tests and e2e (`web/e2e/linear.e2e.ts`, the real route) run over the fake
+  Linear (`web/server/linear/fake.ts`, `web/e2e/linearFake.ts`; `installFakeLinear` enables Linear in the test settings file and
+  writes a fake key to the test `secrets.json`, and `restore()` puts both files back; the e2e mocks `settings.integrations.linear`). `web/scripts/linear-write-check.ts`, run by hand
+  (`cd web && PASEO_COMMAND_DATA=<data folder> npx tsx scripts/linear-write-check.ts`, the key read as the app reads it), checks the writes against the real Linear on one issue only: team DE's
   `Paseo Command write check (safe to delete)` (made if absent), putting its edits back.
 - Web links clicked in the chat (`.session`, `openInAppBrowser` in `web/src/Session.tsx`, `postAppLink` → the `openLink` message)
   switch to Conquer and open there as a new tab, once its tabs are restored (`whenStarted`).

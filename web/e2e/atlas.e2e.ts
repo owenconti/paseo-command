@@ -307,7 +307,7 @@ test("Enter focuses the chat input; G and L open the PR and Linear issue", async
       projects: () => projects,
       workspaces: () => workspaces,
       // The Linear workspace, from settings.json.
-      lists: { settings: { linearWorkspace: "acme", error: null } },
+      lists: { settings: { linearWorkspace: "acme", integrations: { linear: true }, error: null } },
     });
     await page.goto(app.url);
     await waitFor(() => inspect(page), (i) => !!i?.agents?.length, "the Atlas", 30000);

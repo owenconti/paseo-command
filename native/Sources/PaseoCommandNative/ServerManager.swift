@@ -108,13 +108,13 @@ final class ServerManager {
         switch owner {
         case .ours: return .success(())
         case .otherHelper(_, let ownerPid) where !waited:
-            return .failure(Failure(errorDescription: "Port \(port) is used by another copy of Paseo Command (process \(ownerPid)). Quit it and reopen Paseo Command."))
+            return .failure(Failure(errorDescription: "Port \(port) is used by another copy of Paseo Command (process \(ownerPid)). Quit it and reopen \(AppFlavor.name)."))
         case .foreign:
             if let old = OldInstall.find(port: port), let handedOver = handOver(from: old) {
                 if case .failure = handedOver { return handedOver }
                 return start(port)
             }
-            return .failure(Failure(errorDescription: "Port \(port) is used by another program. Quit it and reopen Paseo Command."))
+            return .failure(Failure(errorDescription: "Port \(port) is used by another program. Quit it and reopen \(AppFlavor.name)."))
         default: return start(port)
         }
     }

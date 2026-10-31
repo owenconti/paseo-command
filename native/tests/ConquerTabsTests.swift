@@ -4,6 +4,20 @@ _ = NSApplication.shared
 NSApp.setActivationPolicy(.accessory)
 enum Log { static func line(_ message: String) {} }
 let fixture = URL(string: CommandLine.arguments.last!)!
+// The optional Linear tab is absent until explicitly enabled.
+do {
+    let bar = ModeBar(frame: CGRect(x: 0, y: 0, width: 900, height: 32))
+    func findLinear(_ view: NSView) -> NSButton? {
+        if let button = view as? NSButton, button.title.trimmingCharacters(in: .whitespaces) == "Linear" { return button }
+        return view.subviews.compactMap(findLinear).first
+    }
+    let linear = findLinear(bar)!
+    assert(linear.isHidden)
+    bar.linearEnabled = true
+    assert(!linear.isHidden)
+    bar.linearEnabled = false
+    assert(linear.isHidden)
+}
 func browser() -> ConquerView { ConquerView(frame: CGRect(x: 0, y: 0, width: 900, height: 600), persistent: false) }
 func pin(_ browser: ConquerView, name: String = "Pinned") -> BrowserTab {
     let tab = BrowserTab(url: fixture.appendingPathComponent(name), title: name)
@@ -71,4 +85,45 @@ do {
     b.closeTab()
     assert(b.current === openPin && b.tabs.isEmpty && closedPin.web == nil)
 }
-print("Conquer tab closing checks passed.")
+// Reload shortcuts choose the current page's normal or cache-bypassing reload,
+// even while it is loading; they do not act as the toolbar's Stop button.
+final class ReloadPage: WKWebView {
+    var reloads = 0
+    var originReloads = 0
+    var stops = 0
+    override var isLoading: Bool { true }
+    override func reload() -> WKNavigation? { reloads += 1; return nil }
+    override func reloadFromOrigin() -> WKNavigation? { originReloads += 1; return nil }
+    override func stopLoading() { stops += 1 }
+}
+do {
+    let b = browser()
+    let window = NSWindow(contentRect: b.frame, styleMask: [.titled], backing: .buffered, defer: false)
+    let content = NSView(frame: b.frame)
+    window.contentView = content
+    content.addSubview(b)
+    let page = ReloadPage(frame: .zero, configuration: b.configuration)
+    b.select(BrowserTab(web: page))
+    assert(window.makeFirstResponder(page))
+    func key(_ modifiers: NSEvent.ModifierFlags) -> NSEvent {
+        NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: modifiers, timestamp: 0,
+                         windowNumber: window.windowNumber, context: nil, characters: "r", charactersIgnoringModifiers: "r",
+                         isARepeat: false, keyCode: 15)!
+    }
+    assert(b.performKeyEquivalent(with: key(.command)))
+    assert(page.reloads == 1 && page.originReloads == 0 && page.stops == 0)
+    assert(b.performKeyEquivalent(with: key([.command, .shift])))
+    assert(page.reloads == 1 && page.originReloads == 1 && page.stops == 0)
+
+    // The adjacent app panel keeps its keys, and hidden Conquer cannot reload.
+    let panel = NSTextView()
+    content.addSubview(panel)
+    assert(window.makeFirstResponder(panel))
+    assert(!b.hasKeyFocus)
+    assert(!b.performKeyEquivalent(with: key(.command)))
+    assert(window.makeFirstResponder(page))
+    b.isHidden = true
+    assert(!b.performKeyEquivalent(with: key([.command, .shift])))
+    assert(page.reloads == 1 && page.originReloads == 1)
+}
+print("Conquer tab closing and reload shortcut checks passed.")
