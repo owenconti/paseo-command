@@ -42,6 +42,8 @@ export type FakeCycle = {
   endsAt: string;
   isActive: boolean;
   isNext: boolean;
+  isPast: boolean;
+  completedAt: string | null;
   team: Ref;
 };
 export type FakeProject = {
@@ -148,7 +150,7 @@ export const FAKE_IDS = {
     de: seq(4, STATE_NAMES),
   } as { eng: Record<string, string>; de: Record<string, string> },
   labels: seq(5, ["bug", "feature"]) as { bug: string; feature: string },
-  cycles: seq(6, ["eng", "de"]) as { eng: string; de: string },
+  cycles: seq(6, ["eng", "de", "engPast"]) as { eng: string; de: string; engPast: string },
   projects: seq(7, ["launch", "docs"]) as { launch: string; docs: string },
   milestones: seq(8, ["beta", "ga"]) as { beta: string; ga: string },
   initiatives: seq(9, ["q4"]) as { q4: string },
@@ -251,8 +253,9 @@ export function fakeWorkspace(): FakeWorkspace {
       { id: I.labels.feature, name: "Feature", color: "#bb87fc", team: null },
     ],
     cycles: [
-      { id: I.cycles.eng, number: 7, name: null, startsAt: ago(3), endsAt: ahead(11), isActive: true, isNext: false, team: ref(I.eng) },
-      { id: I.cycles.de, number: 2, name: "Polish", startsAt: ago(1), endsAt: ahead(13), isActive: true, isNext: false, team: ref(I.de) },
+      { id: I.cycles.eng, number: 7, name: null, startsAt: ago(3), endsAt: ahead(11), isActive: true, isNext: false, isPast: false, completedAt: null, team: ref(I.eng) },
+      { id: I.cycles.de, number: 2, name: "Polish", startsAt: ago(1), endsAt: ahead(13), isActive: true, isNext: false, isPast: false, completedAt: null, team: ref(I.de) },
+      { id: I.cycles.engPast, number: 6, name: "Groundwork", startsAt: ago(31), endsAt: ago(3), isActive: false, isNext: false, isPast: true, completedAt: ago(3), team: ref(I.eng) },
     ],
     projects: [
       {
@@ -356,6 +359,7 @@ export function fakeWorkspace(): FakeWorkspace {
         state: "Done",
         assignee: ref(I.sam),
         project: ref(I.projects.launch),
+        cycle: ref(I.cycles.engPast),
         completedAt: ago(20),
         updatedAt: ago(20),
       }),
@@ -458,6 +462,7 @@ function passes(ws: FakeWorkspace, issue: FakeIssue, filter: Filter): boolean {
         return cond.in ? cond.in.includes(issue.id) : issue.id === cond.eq;
       case "team":
       case "project":
+      case "cycle":
         return issue[field]?.id === cond.id.eq;
       case "subscribers":
         return issue.subscribers.nodes.some((u) => u.id === ws.viewerId) === cond.some.isMe.eq;
@@ -490,9 +495,35 @@ export const OPERATIONS: Record<string, FakeOperation> = {
       teams: { nodes: ws.teams },
       workflowStates: { nodes: ws.states },
       issueLabels: { nodes: ws.labels },
-      cycles: { nodes: ws.cycles.filter((c) => c.isActive || c.isNext) },
+      // What the workspace query asks of a cycle: no progress.
+      cycles: {
+        nodes: ws.cycles
+          .filter((c) => c.isActive || c.isNext)
+          .map(({ isPast: _, completedAt: __, ...c }) => c),
+      },
       projects: { nodes: ws.projects },
       initiatives: { nodes: ws.initiatives },
+    };
+  },
+  /** A team's cycles, current, upcoming and recently ended, each with its issues counted as Linear does. */
+  Cycles: ({ ws, variables }) => {
+    const cut = String(variables.cut);
+    const type = (i: FakeIssue) => ws.states.find((s) => s.id === i.state.id)?.type;
+    return {
+      cycles: {
+        nodes: ws.cycles
+          .filter((c) => c.team.id === variables.teamId && (!c.isPast || c.endsAt > cut))
+          .map((c) => {
+            const issues = ws.issues.filter((i) => i.cycle?.id === c.id && !i.archivedAt && !i.trashed);
+            const done = issues.filter((i) => type(i) === "completed" || type(i) === "canceled").length;
+            return {
+              ...c,
+              progress: issues.length ? done / issues.length : 0,
+              issueCountHistory: [0, issues.length],
+              completedIssueCountHistory: [0, done],
+            };
+          }),
+      },
     };
   },
   /** Pages are offsets into the filtered, newest-first list; the cursor is the next offset. */

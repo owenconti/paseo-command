@@ -239,7 +239,7 @@ and GitHub publication; report the published version and release link.
 - Linear (the mode bar's third tab, after Command and Conquer; View menu; palette "Show your Linear issues"; all only while Linear is enabled): a Linear client the page
   draws (`web/src/linear/LinearView.tsx`) over the map's frame while the app reports `paseo:mode` `linear` (`useAppMode`, `web/src/appMode.ts`;
   the page asks with a `mode` message). Navigation: its sidebar (`Sidebar.tsx`) is Linear's: My issues (Assigned, Created, Subscribed),
-  each team (Triage where on, Active, Backlog, All), Projects (`ProjectList.tsx`, each opening its issues) and Initiatives
+  each team (Triage where on, Active, Backlog, All, and Cycles where it runs them: `Cycles.tsx` lists its current, upcoming and last 120 days' cycles with their progress from `q/cycles`, each opening its issues, the `cycle:` scope, under a header counting what's done), Projects (`ProjectList.tsx`, each opening its issues) and Initiatives
   (`InitiativeList.tsx`). A place's issues (`IssueList.tsx`) are grouped by state; the open issue (`IssueDetail.tsx`) shows beside
   the list from 1,100 px, else in its place with Back. The place and open issue are kept in localStorage (`place.ts`).
   Editing: the open issue's properties (`Properties.tsx`: status, priority, assignee, labels, estimate and cycle where the team uses
@@ -270,7 +270,7 @@ and GitHub publication; report the published version and release link.
   `settings.json`, then `linearApiKey` in the data directory's `secrets.json`; the environment is never read). Off, every read and
   write and the image route refuse with "Enable Linear in Settings to see your issues."; on without a key, "Add linearApiKey to
   secrets.json to use Linear." (`LinearError` kind `no-key`; reads answer it as `LinearUnavailable`, which the view shows, writes
-  as 503). Saving, replacing or removing the key in Settings (`paseo:secrets`) refreshes the open view: named reads only (`reads.ts`, `GET /api/linear/q/workspace|issues|byId|issue|sync|status`) and whitelisted writes
+  as 503). Saving, replacing or removing the key in Settings (`paseo:secrets`) refreshes the open view: named reads only (`reads.ts`, `GET /api/linear/q/workspace|issues|byId|issue|cycles|sync|status`) and whitelisted writes
   (`writes.ts` `linearWrite`, `POST /api/linear/m/<name>`, each input checked field by field; no passthrough GraphQL, no `@linear/sdk`),
   over `client.ts`, which keeps to the key's hourly budget (2,500 requests, 3,000,000 complexity; reads stand down when it runs low,
   writes still go). Launch agent opens New agent with the issue (`DispatchTarget.issue`): Worktree on Linear's branch name, the

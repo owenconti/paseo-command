@@ -9,6 +9,8 @@ export type TeamTab = "triage" | "active" | "backlog" | "all";
 export type LinearPlace = (
   | { screen: "my"; tab: MyTab }
   | { screen: "team"; teamId: string; tab: TeamTab }
+  | { screen: "cycles"; teamId: string }
+  | { screen: "cycle"; teamId: string; cycleId: string }
   | { screen: "projects" }
   | { screen: "project"; projectId: string }
   | { screen: "initiatives" }
@@ -29,6 +31,8 @@ export function placeScope(p: LinearPlace): IssueScope | null {
       return `team:${p.teamId}:${p.tab}`;
     case "project":
       return `project:${p.projectId}`;
+    case "cycle":
+      return `cycle:${p.cycleId}`;
     default:
       return null;
   }
@@ -36,8 +40,11 @@ export function placeScope(p: LinearPlace): IssueScope | null {
 
 /** Whether two places are the same screen (the open issue aside): the sidebar marks it. */
 export function samePlace(a: LinearPlace, b: LinearPlace): boolean {
-  return placeScope(a) === placeScope(b) && a.screen === b.screen;
+  const team = (p: LinearPlace) => ("teamId" in p ? p.teamId : undefined);
+  return placeScope(a) === placeScope(b) && a.screen === b.screen && team(a) === team(b);
 }
+
+const ID = /^[0-9a-f-]{8,64}$/i;
 
 /**
  * A remembered (or otherwise untrusted) place as a valid one: anything
@@ -57,6 +64,15 @@ export function checkPlace(raw: unknown, ws?: LinearWorkspace): LinearPlace {
       if (ws && !team) return DEFAULT_PLACE;
       const tab = p.tab === "triage" && team && !team.triageEnabled ? "active" : (p.tab as TeamTab);
       return { screen: "team", teamId: p.teamId, tab, ...issue };
+    }
+    case "cycles":
+    case "cycle": {
+      if (typeof p.teamId !== "string") return DEFAULT_PLACE;
+      const team = ws?.teams.find((t) => t.id === p.teamId);
+      if (ws && !team?.cyclesEnabled) return DEFAULT_PLACE;
+      if (p.screen === "cycles") return { screen: "cycles", teamId: p.teamId, ...issue };
+      if (typeof p.cycleId !== "string" || !ID.test(p.cycleId)) return { screen: "cycles", teamId: p.teamId, ...issue };
+      return { screen: "cycle", teamId: p.teamId, cycleId: p.cycleId, ...issue };
     }
     case "project":
       if (typeof p.projectId !== "string" || (ws && !ws.projects.some((x) => x.id === p.projectId)))

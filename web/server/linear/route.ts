@@ -9,7 +9,7 @@ import { errorText } from "../wire";
 import { LinearError } from "./client";
 import { linearImage } from "./image";
 import { WRITES, linearWrite } from "./writes";
-import { readIssue, readIssues, readIssuesById, readStatus, readSync, readWorkspace } from "./reads";
+import { readCycles, readIssue, readIssues, readIssuesById, readStatus, readSync, readWorkspace } from "./reads";
 
 
 const WRITE_BODY_LIMIT = 1024 * 1024;
@@ -19,7 +19,7 @@ const isScope = (v: string): v is IssueScope =>
   v === "created" ||
   v === "subscribed" ||
   /^team:[0-9a-f-]{8,64}:(triage|active|backlog|all)$/i.test(v) ||
-  /^project:[0-9a-f-]{8,64}$/i.test(v);
+  /^(project|cycle):[0-9a-f-]{8,64}$/i.test(v);
 
 /** Linear can't be used right now (no key, refused, limited): a normal answer, not an error. */
 const unavailable = (e: LinearError): LinearUnavailable => ({
@@ -97,6 +97,8 @@ export async function linearRoute(
       if (after !== undefined && !/^[\w+/=.:-]{1,200}$/.test(after)) return reply(400, { error: "Invalid cursor" });
       return read(["scope", "after"], () => readIssues(scope, after));
     }
+    case "q/cycles":
+      return read(["team"], () => readCycles(param("team")));
     case "q/byId":
       return read(["ids"], () => readIssuesById(param("ids").split(",")));
     case "q/issue":

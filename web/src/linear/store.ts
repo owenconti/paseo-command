@@ -4,6 +4,7 @@ import { isUnavailable, linearRead, linearWrite } from "./api";
 import type {
   IssueScope,
   LinearComment,
+  LinearCycle,
   LinearInitiative,
   LinearIssue,
   LinearProject,
@@ -27,6 +28,8 @@ export type LinearData = {
   unavailable?: LinearUnavailable;
   /** Where the next sync starts: the newest cursor a sync returned. */
   cursor?: string;
+  /** Each team's cycles with their progress (`q/cycles`), by team id, newest first. */
+  cycles: Map<string, LinearCycle[]>;
 };
 
 const SYNC_EVERY_MS = 20_000;
@@ -38,7 +41,14 @@ const MAX_RECHECK = 100;
 const DETAIL_FIELDS = ["description", "childIds", "relations", "links"] as const;
 
 function empty(): LinearData {
-  return { issues: new Map(), byKey: new Map(), comments: new Map(), loadedScopes: new Set(), cappedScopes: new Set() };
+  return {
+    issues: new Map(),
+    byKey: new Map(),
+    comments: new Map(),
+    loadedScopes: new Set(),
+    cappedScopes: new Set(),
+    cycles: new Map(),
+  };
 }
 
 let state = empty();
@@ -388,6 +398,7 @@ export const linearStore = {
     confirmed.clear();
     writeQueues.clear();
     scopeLoads.clear();
+    cycleLoads.clear();
     written.clear();
     syncing = undefined;
     retryScope = undefined;
@@ -414,6 +425,7 @@ export function scopeIssues(d: LinearData, scope: IssueScope): LinearIssue[] {
   else if (scope === "created") keep = (i) => viewer !== undefined && i.creatorId === viewer && open(i);
   else if (scope === "subscribed") keep = (i) => viewer !== undefined && i.subscriberIds.includes(viewer) && open(i);
   else if (scope.startsWith("project:")) keep = (i) => i.projectId === scope.slice("project:".length);
+  else if (scope.startsWith("cycle:")) keep = (i) => i.cycleId === scope.slice("cycle:".length);
   else {
     const [, teamId, view] = scope.split(":");
     const types = { triage: ["triage"], active: ["unstarted", "started"], backlog: ["backlog"] }[view];
@@ -441,6 +453,23 @@ export async function loadWorkspace(fresh = false): Promise<void> {
   noteLoadStart();
   const answer = await linearRead<LinearWorkspace>("workspace", fresh ? { fresh: "1" } : {});
   if (accept(answer)) linearStore.setWorkspace(answer);
+}
+
+const cycleLoads = new Map<string, Promise<void>>();
+
+/** Loads a team's cycles with their progress; a team already loaded (or loading) isn't asked again unless `fresh`. */
+export function loadCycles(teamId: string, fresh = false): Promise<void> {
+  if (!fresh && state.cycles.has(teamId)) return Promise.resolve();
+  let load = cycleLoads.get(teamId);
+  if (!load) {
+    load = linearRead<{ cycles: LinearCycle[] }>("cycles", { team: teamId })
+      .then((answer) => {
+        if (accept(answer)) publish({ cycles: new Map(state.cycles).set(teamId, answer.cycles) });
+      })
+      .finally(() => cycleLoads.delete(teamId));
+    cycleLoads.set(teamId, load);
+  }
+  return load;
 }
 
 /** Takes issues out of the store, leaving other issues' sub-issues and relations naming them (those ask for them again). */

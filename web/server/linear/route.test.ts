@@ -34,6 +34,11 @@ test("answers named reads and refuses others", async () => {
   assert.equal(workspace.status, 200);
   assert.equal(workspace.body.viewerId, I.owen);
   assert.equal((await ask("/api/linear/q/nope")).status, 404);
+  const cycles = await ask(`/api/linear/q/cycles?team=${I.eng}`);
+  assert.deepEqual(cycles.body.cycles.map((c: { number: number }) => c.number), [7, 6]);
+  assert.equal((await ask(`/api/linear/q/cycles?team=${I.eng}&x=1`)).status, 400);
+  assert.equal((await ask(`/api/linear/q/cycles?team=nope`)).status, 400);
+  assert.equal((await ask(`/api/linear/q/issues?scope=cycle:${I.cycles.eng}`)).body.issues.length, 2);
   assert.equal((await ask("/api/linear/q/issues?scope=bad")).status, 400);
   assert.equal((await ask("/api/linear/q/issues")).status, 400);
   assert.equal((await ask("/api/linear/q/workspace?x=1")).body.error, "Unexpected parameters");

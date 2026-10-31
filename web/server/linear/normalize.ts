@@ -109,8 +109,24 @@ export function cycleOf(raw: Raw): LinearCycle | null {
     endsAt: str(raw.endsAt),
     isActive: raw.isActive === true,
     isNext: raw.isNext === true,
+    // A team's cycles (`q/cycles`) carry their progress; the workspace's don't.
+    ...("progress" in raw
+      ? {
+          isPast: raw.isPast === true,
+          completedAt: str(raw.completedAt) || undefined,
+          progress: Math.min(1, Math.max(0, num(raw.progress))),
+          scope: lastCount(raw.issueCountHistory),
+          done: lastCount(raw.completedIssueCountHistory),
+        }
+      : {}),
   };
 }
+
+/** The last of Linear's daily counts (a cycle's issues, its done ones); 0 before the first. */
+const lastCount = (v: unknown) => {
+  const last = Array.isArray(v) ? v[v.length - 1] : undefined;
+  return Math.max(0, Math.round(num(last)));
+};
 
 /** Linear's status is an object on projects and a plain word on initiatives. */
 const statusName = (v: unknown) => clip(typeof v === "string" ? v : str(rec(v).name), 60);

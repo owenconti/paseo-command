@@ -2,7 +2,16 @@ import assert from "node:assert/strict";
 import { afterEach, beforeEach, test } from "node:test";
 import { LinearError, resetLinearClient } from "./client";
 import { FAKE_IDS as I, installFakeLinear, type FakeLinear } from "./fake";
-import { readIssue, readIssues, readIssuesById, readStatus, readSync, readWorkspace, resetLinearReads } from "./reads";
+import {
+  readCycles,
+  readIssue,
+  readIssues,
+  readIssuesById,
+  readStatus,
+  readSync,
+  readWorkspace,
+  resetLinearReads,
+} from "./reads";
 
 let fake: FakeLinear;
 beforeEach(() => {
@@ -63,6 +72,28 @@ test("reads scopes", async () => {
   const all = await readIssues(`team:${I.eng}:all`);
   assert.deepEqual(keys(all.issues), ["ENG-1", "ENG-2", "ENG-3", "ENG-4", "ENG-5"]);
   await assert.rejects(readIssues("team:nope:all" as never), (e) => e instanceof LinearError && e.kind === "invalid");
+});
+
+test("reads a team's cycles with their progress, and a cycle's issues", async () => {
+  const { cycles } = await readCycles(I.eng);
+  assert.deepEqual(
+    cycles.map((c) => [c.number, c.name, c.isActive, c.isPast]),
+    [
+      [7, undefined, true, false],
+      [6, "Groundwork", false, true],
+    ],
+  );
+  const current = cycles[0];
+  assert.deepEqual([current.scope, current.done, current.progress], [2, 0, 0]);
+  const past = cycles[1];
+  assert.deepEqual([past.scope, past.done, past.progress], [1, 1, 1]);
+  assert.ok(past.completedAt);
+  // The workspace's cycles carry no progress.
+  assert.equal((await readWorkspace()).cycles.find((c) => c.number === 7)?.progress, undefined);
+  assert.deepEqual(keys((await readIssues(`cycle:${I.cycles.eng}`)).issues), ["ENG-1", "ENG-2"]);
+  assert.deepEqual(keys((await readIssues(`cycle:${I.cycles.engPast}`)).issues), ["ENG-6"]);
+  await assert.rejects(readCycles("nope"), (e) => e instanceof LinearError && e.kind === "invalid");
+  await assert.rejects(readIssues("cycle:nope" as never), (e) => e instanceof LinearError && e.kind === "invalid");
 });
 
 test("pages through a scope with a cursor", async () => {

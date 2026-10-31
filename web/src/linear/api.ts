@@ -11,7 +11,7 @@ export function setLinearTransport(next: Transport | null): void {
 
 /** One of the server's named Linear reads; `LinearUnavailable` when Linear can't be asked right now. */
 export function linearRead<T>(
-  name: "workspace" | "issues" | "byId" | "issue" | "sync" | "status",
+  name: "workspace" | "issues" | "byId" | "issue" | "cycles" | "sync" | "status",
   params: Record<string, string> = {},
 ): Promise<T | LinearUnavailable> {
   const query = new URLSearchParams(params).toString();

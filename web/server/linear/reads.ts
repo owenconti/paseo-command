@@ -7,12 +7,13 @@ import type {
   IssueScope,
   LinearBudget,
   LinearComment,
+  LinearCycle,
   LinearIssue,
   LinearSync,
   LinearWorkspace,
 } from "../../src/linear/types";
 import { LinearError, linearApiKey, linearBudget, linearRequest } from "./client";
-import { ISSUES_QUERY, ISSUE_QUERY, SYNC_QUERY, WORKSPACE_QUERY } from "./fragments";
+import { CYCLES_QUERY, ISSUES_QUERY, ISSUE_QUERY, SYNC_QUERY, WORKSPACE_QUERY } from "./fragments";
 import {
   commentOf,
   cycleOf,
@@ -78,7 +79,7 @@ export async function readWorkspace(fresh = false): Promise<LinearWorkspace> {
 
 const OPEN = { state: { type: { nin: ["completed", "canceled"] } } };
 
-/** Linear's issue filter for a scope; `all` and `project:` also keep what finished in the last 14 days. */
+/** Linear's issue filter for a scope; `all` and `project:` also keep what finished in the last 14 days, `cycle:` everything in it. */
 function filterFor(scope: IssueScope): Record<string, unknown> {
   const recent = new Date(Date.now() - 14 * DAY).toISOString();
   const openOrRecent = {
@@ -92,6 +93,11 @@ function filterFor(scope: IssueScope): Record<string, unknown> {
     if (!ID.test(project)) throw new LinearError("invalid", "Unknown issue scope.");
     return { project: { id: { eq: project } }, ...openOrRecent };
   }
+  const cycle = /^cycle:(.+)$/.exec(scope)?.[1];
+  if (cycle !== undefined) {
+    if (!ID.test(cycle)) throw new LinearError("invalid", "Unknown issue scope.");
+    return { cycle: { id: { eq: cycle } } };
+  }
   const team = /^team:([^:]+):(triage|active|backlog|all)$/.exec(scope);
   if (!team || !ID.test(team[1])) throw new LinearError("invalid", "Unknown issue scope.");
   const [, teamId, view] = team;
@@ -99,6 +105,23 @@ function filterFor(scope: IssueScope): Record<string, unknown> {
   if (view === "all") return { ...byTeam, ...openOrRecent };
   const types = { triage: ["triage"], active: ["unstarted", "started"], backlog: ["backlog"] }[view]!;
   return { ...byTeam, state: { type: { in: types } } };
+}
+
+/** How far back a team's past cycles go. */
+const PAST_CYCLES_DAYS = 120;
+
+/** A team's cycles with their progress: current, upcoming, and those that ended in the last 120 days. */
+export async function readCycles(teamId: string): Promise<{ cycles: LinearCycle[] }> {
+  if (!ID.test(teamId)) throw new LinearError("invalid", "Invalid team id");
+  const cut = new Date(Date.now() - PAST_CYCLES_DAYS * DAY).toISOString();
+  const data = await linearRequest<Data>("Cycles", CYCLES_QUERY, { teamId, cut });
+  return {
+    cycles: nodesOf(data.cycles)
+      .map(cycleOf)
+      .filter(nonNull)
+      .filter((c) => c.teamId === teamId)
+      .sort((a, b) => b.number - a.number),
+  };
 }
 
 /** One page of a scope's issues, most recently updated first; `next` is the cursor for the following page. */

@@ -1,23 +1,25 @@
 import { useCallback, useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence } from "framer-motion";
-import { Archive, Box, ChevronRight, ListTodo, PanelLeftOpen, RefreshCw, X } from "lucide-react";
+import { Archive, Box, ChevronRight, ListTodo, PanelLeftOpen, RefreshCcw, RefreshCw, X } from "lucide-react";
 import { errorMessage, readStore, writeStore } from "../api";
 import { onAppCommand, runAppCommand, type AppCommand } from "../appCommands";
 import { modalOpen } from "../focus";
 import { useSecretRevision } from "../integrationSettings";
 import { isTyping } from "../worldShortcut";
 import { CreateIssue, type CreateInitial } from "./CreateIssue";
+import { CycleFacts, CycleList } from "./Cycles";
 import { InitiativeList } from "./InitiativeList";
 import { IssueDetail } from "./IssueDetail";
 import { IssueList, type IssueListNav } from "./IssueList";
 import { linearKeyAction, type LinearKey } from "./keys";
 import { checkPlace, placeScope, readPlace, writePlace, type LinearPlace } from "./place";
+import { cycleName } from "./bits";
 import { ProjectFacts, ProjectList } from "./ProjectList";
 import type { IssueContext } from "./prompt";
 import { Sidebar } from "./Sidebar";
 import { changeTextStep, checkTextStep, textSizeKey, type TextChange } from "./textSize";
-import { linearStore, loadScope, loadWorkspace, setLinearNotice, useLinear, useLinearSync } from "./store";
+import { linearStore, loadCycles, loadScope, loadWorkspace, setLinearNotice, useLinear, useLinearSync } from "./store";
 import type { IssueScope, LinearIssue } from "./types";
 
 /** The sidebar's width: its default, and the least it and the rest of the view keep. */
@@ -56,7 +58,8 @@ export type LinearOpenIssue = {
 };
 /** What ⌘K needs to know of the view: its teams' places, the archive Undo offered, whether a list shows. */
 export type LinearViewState = {
-  teams: { id: string; name: string; triageEnabled: boolean }[];
+  /** Each team, whether it triages and runs cycles, and its current cycle's id. */
+  teams: { id: string; name: string; triageEnabled: boolean; cyclesEnabled: boolean; currentCycleId?: string }[];
   /** The issue whose archive Undo is offered (its bar shows). */
   undoKey?: string;
   /** A list of issues shows, so / searches it. */
@@ -112,6 +115,8 @@ export function LinearView({
     setPlaceState(next);
     writePlace(next);
   }, []);
+  const placeTeamId = "teamId" in place ? place.teamId : undefined;
+  const teamCycles = useLinear((d) => (placeTeamId ? d.cycles.get(placeTeamId) : undefined));
   const [workspaceError, setWorkspaceError] = useState<string>();
   const [scopeErrors, setScopeErrors] = useState<Partial<Record<IssueScope, string>>>({});
   const [refreshing, setRefreshing] = useState(false);
@@ -182,11 +187,21 @@ export function LinearView({
     if (scope) loadPlace(scope, false).catch(() => {});
   }, [scope, loadPlace]);
 
+  // A cycle's title and days: its team's cycles (a past one isn't among the workspace's).
+  const cycleTeam = place.screen === "cycle" ? place.teamId : undefined;
+  useEffect(() => {
+    if (cycleTeam) loadCycles(cycleTeam).catch(() => {});
+  }, [cycleTeam]);
+
   const refresh = () => {
     setRefreshing(true);
     setRevision((r) => r + 1);
     // The open issue is asked for again by its view, as `revision` changes.
-    Promise.all([loadWs(true), scope ? loadPlace(scope, true) : undefined])
+    Promise.all([
+      loadWs(true),
+      scope ? loadPlace(scope, true) : undefined,
+      cycleTeam ? loadCycles(cycleTeam, true) : undefined,
+    ])
       .catch((e) => onNotice(`Couldn’t refresh Linear: ${errorMessage(e)}`))
       .finally(() => setRefreshing(false));
   };
@@ -405,11 +420,26 @@ export function LinearView({
   const teams = ws?.teams;
   const undoKey = undo?.phase === "archived" ? undo.key : undefined;
   const canSearch = !!ws && !!scope && (!place.issue || viewWidth === 0 || viewWidth >= BESIDE_MIN);
-  const teamPlaces = JSON.stringify(teams?.map((t) => [t.id, t.name, t.triageEnabled]) ?? []);
+  const currentCycles = ws?.cycles.filter((c) => c.isActive);
+  const teamPlaces = JSON.stringify(
+    teams?.map((t) => [
+      t.id,
+      t.name,
+      t.triageEnabled,
+      t.cyclesEnabled,
+      currentCycles?.find((c) => c.teamId === t.id)?.id,
+    ]) ?? [],
+  );
   useEffect(() => {
-    const list = JSON.parse(teamPlaces) as [string, string, boolean][];
+    const list = JSON.parse(teamPlaces) as [string, string, boolean, boolean, string | null][];
     onViewState?.({
-      teams: list.map(([id, name, triageEnabled]) => ({ id, name, triageEnabled })),
+      teams: list.map(([id, name, triageEnabled, cyclesEnabled, currentCycleId]) => ({
+        id,
+        name,
+        triageEnabled,
+        cyclesEnabled,
+        ...(currentCycleId ? { currentCycleId } : {}),
+      })),
       undoKey,
       canSearch,
     });
@@ -438,20 +468,47 @@ export function LinearView({
   };
   const openProject = (projectId: string) => setPlace({ screen: "project", projectId });
   const showList = !openIssue || beside;
-  const team = place.screen === "team" ? ws?.teams.find((t) => t.id === place.teamId) : undefined;
+  const team = "teamId" in place ? ws?.teams.find((t) => t.id === place.teamId) : undefined;
+  const cycleId = place.screen === "cycle" ? place.cycleId : undefined;
+  const cycle = cycleId
+    ? (teamCycles?.find((c) => c.id === cycleId) ?? ws?.cycles.find((c) => c.id === cycleId))
+    : undefined;
   const project = place.screen === "project" ? ws?.projects.find((p) => p.id === place.projectId) : undefined;
 
   const main = () => {
     if (place.screen === "projects") return <ProjectList onProject={openProject} />;
     if (place.screen === "initiatives") return <InitiativeList onProject={openProject} />;
+    const teamCrumb = (
+      <>
+        <span className="linear-crumb">{team?.name ?? "Team"}</span>
+        <ChevronRight size={14} className="linear-crumb-sep" aria-hidden="true" />
+      </>
+    );
+    if (place.screen === "cycles")
+      return (
+        <CycleList
+          teamId={place.teamId}
+          title={<>{teamCrumb}Cycles</>}
+          revision={revision}
+          onCycle={(cycleId) => setPlace({ screen: "cycle", teamId: place.teamId, cycleId })}
+        />
+      );
     const title =
       place.screen === "my" ? (
         MY_TITLE[place.tab]
       ) : place.screen === "team" ? (
         <>
-          <span className="linear-crumb">{team?.name ?? "Team"}</span>
-          <ChevronRight size={14} className="linear-crumb-sep" aria-hidden="true" />
+          {teamCrumb}
           {TEAM_TITLE[place.tab]}
+        </>
+      ) : place.screen === "cycle" ? (
+        <>
+          {teamCrumb}
+          <button className="link-btn linear-crumb" onClick={() => setPlace({ screen: "cycles", teamId: place.teamId })}>
+            Cycles
+          </button>
+          <ChevronRight size={14} className="linear-crumb-sep" aria-hidden="true" />
+          {cycle ? cycleName(cycle) : "Cycle"}
         </>
       ) : (
         <>
@@ -478,6 +535,12 @@ export function LinearView({
           <div className="linear-project-summary">
             <Box size={14} style={{ color: project.color }} aria-hidden="true" />
             <ProjectFacts project={project} ws={ws} />
+          </div>
+        )}
+        {place.screen === "cycle" && (
+          <div className="linear-project-summary">
+            <RefreshCcw size={14} aria-hidden="true" className="linear-cycle-icon" />
+            <CycleFacts cycle={cycle} scope={`cycle:${place.cycleId}`} />
           </div>
         )}
       </IssueList>

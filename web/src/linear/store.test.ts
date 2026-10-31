@@ -6,6 +6,7 @@ import {
   clearPending,
   keepSynced,
   linearStore,
+  loadCycles,
   loadIssue,
   loadScope,
   loadWorkspace,
@@ -113,6 +114,29 @@ describe("linear store", () => {
     assert.deepEqual(scopeIssues(linearStore.getState(), "assigned").map((i) => i.key), ["ENG-1"]);
     linearStore.mergeIssues([issue(1, { assigneeId: ME, stateId: DONE.id, updatedAt: "2026-10-02T00:00:00Z" })]);
     assert.deepEqual(scopeIssues(linearStore.getState(), "assigned"), []);
+  });
+
+  it("a cycle's issues follow the store, finished ones too", () => {
+    linearStore.setWorkspace(WS);
+    linearStore.mergeIssues([issue(1, { cycleId: "c-7" }), issue(2, { cycleId: "c-7", stateId: DONE.id }), issue(3)]);
+    assert.deepEqual(scopeIssues(linearStore.getState(), "cycle:c-7").map((i) => i.key).sort(), ["ENG-1", "ENG-2"]);
+    linearStore.mergeIssues([issue(1, { updatedAt: "2026-10-02T00:00:00Z" })]);
+    assert.deepEqual(scopeIssues(linearStore.getState(), "cycle:c-7").map((i) => i.key), ["ENG-2"]);
+  });
+
+  it("loads a team's cycles once, and again when fresh", async () => {
+    const cycle = { id: "c-7", teamId: "t", number: 7, startsAt: "", endsAt: "", isActive: true, isNext: false, progress: 0.5 };
+    answers.cycles = () => ({ cycles: [cycle] });
+    await Promise.all([loadCycles("t"), loadCycles("t")]);
+    await loadCycles("t");
+    assert.deepEqual(calls, ["linear/q/cycles?team=t"]);
+    assert.deepEqual(linearStore.getState().cycles.get("t"), [cycle]);
+    await loadCycles("t", true);
+    assert.equal(calls.length, 2);
+    answers.cycles = () => ({ available: false, reason: "no key" });
+    await loadCycles("u");
+    assert.equal(linearStore.getState().cycles.has("u"), false);
+    assert.equal(linearStore.getState().unavailable?.reason, "no key");
   });
 
   it("sync merges newer issues and drops archived ones", () => {

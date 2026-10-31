@@ -2,10 +2,10 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Box, CircleDashed, CornerLeftUp, Diamond, Gauge, Minus, RefreshCcw, Tag, UserX, X } from "lucide-react";
 import { ago } from "../api";
 import { onAppCommand, type AppCommand } from "../appCommands";
-import { Dot, Person, Priority, PRIORITY_LABEL } from "./bits";
+import { cycleName, Dot, Person, Priority, PRIORITY_LABEL } from "./bits";
 import { Picker, type PickerOption } from "./Picker";
 import { linearStore, useLinear, type LinearData } from "./store";
-import type { LinearCycle, LinearIssue, LinearState } from "./types";
+import type { LinearIssue, LinearState } from "./types";
 
 /** The properties a picker edits. */
 export type PropertyField =
@@ -24,7 +24,6 @@ const STATE_ORDER: LinearState["type"][] = ["triage", "backlog", "unstarted", "s
 const PRIORITIES = [0, 1, 2, 3, 4] as const;
 
 const points = (n: number) => (n === 1 ? "1 point" : `${n} points`);
-const cycleName = (c: LinearCycle) => (c.name ? `Cycle ${c.number} · ${c.name}` : `Cycle ${c.number}`);
 
 type Spec = {
   label: string;

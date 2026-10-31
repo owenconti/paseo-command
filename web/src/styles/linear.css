@@ -515,6 +515,53 @@
   color: var(--text);
 }
 
+/* A team's cycles */
+.linear-cycle-section h3 {
+  margin: var(--space-3) var(--space-2) var(--space-1);
+  font-size: var(--fs-2xs);
+  font-weight: var(--fw-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-4);
+}
+.linear-cycle-section:first-child h3 {
+  margin-top: 0;
+}
+.linear-cycle-row {
+  display: grid;
+  grid-template-columns: minmax(160px, 2fr) minmax(120px, 1.2fr) minmax(90px, 1fr) 64px;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  min-height: 36px;
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-md);
+  background: transparent;
+  text-align: left;
+  font-size: var(--fs-sm);
+  color: var(--text-2);
+}
+.linear-cycle-row:hover {
+  background: var(--row-hover);
+}
+.linear-cycle-row:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: -2px;
+}
+.linear-cycle-row svg,
+.linear-cycle-icon {
+  flex-shrink: 0;
+  color: var(--icon-muted);
+}
+.linear-cycle-row svg.current {
+  color: var(--accent-text);
+}
+.linear-cycle-count {
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
 /* The list's inner edge resizes it, as the panel's does. */
 .linear-resize {
   position: absolute;

@@ -1731,8 +1731,31 @@ function App() {
                     `Go to ${team.name}'s ${name} (Linear)`,
                     `linear team ${team.name} ${name} view issues`,
                     true,
-                  ] as const,
+                  ] as [LinearPlace, string, string, boolean],
               ),
+            ),
+            // Each team's cycles, and its current one, where the team runs them.
+            ...linearView.teams.flatMap((team) =>
+              team.cyclesEnabled
+                ? [
+                    [
+                      { screen: "cycles", teamId: team.id },
+                      `Go to ${team.name}'s cycles (Linear)`,
+                      `linear team ${team.name} cycles sprints iterations`,
+                      true,
+                    ] as [LinearPlace, string, string, boolean],
+                    ...(team.currentCycleId
+                      ? [
+                          [
+                            { screen: "cycle", teamId: team.id, cycleId: team.currentCycleId },
+                            `Go to ${team.name}'s current cycle (Linear)`,
+                            `linear team ${team.name} current active cycle sprint iteration`,
+                            true,
+                          ] as [LinearPlace, string, string, boolean],
+                        ]
+                      : []),
+                  ]
+                : [],
             ),
             [{ screen: "projects" }, "Go to Linear projects", "linear projects roadmap", false],
             [{ screen: "initiatives" }, "Go to Linear initiatives", "linear initiatives goals", false],

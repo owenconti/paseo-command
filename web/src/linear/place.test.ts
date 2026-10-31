@@ -19,7 +19,7 @@ const team = (id: string, key: string, triageEnabled: boolean): LinearTeam => ({
   id,
   key,
   name: key,
-  cyclesEnabled: false,
+  cyclesEnabled: triageEnabled,
   triageEnabled,
   estimates: [],
 });
@@ -66,6 +66,19 @@ describe("linear place", () => {
     assert.deepEqual(readPlace(WS), { screen: "team", teamId: FAKE_IDS.de, tab: "active" });
   });
 
+  it("keeps a team's cycles only where the team uses them", () => {
+    const cycle = FAKE_IDS.cycles.eng;
+    writePlace({ screen: "cycle", teamId: FAKE_IDS.eng, cycleId: cycle, issue: "ENG-1" });
+    assert.deepEqual(readPlace(WS), { screen: "cycle", teamId: FAKE_IDS.eng, cycleId: cycle, issue: "ENG-1" });
+    writePlace({ screen: "cycles", teamId: FAKE_IDS.eng });
+    assert.deepEqual(readPlace(WS), { screen: "cycles", teamId: FAKE_IDS.eng });
+    // DE doesn't run cycles; a malformed cycle id is the team's cycles.
+    writePlace({ screen: "cycles", teamId: FAKE_IDS.de });
+    assert.deepEqual(readPlace(WS), DEFAULT_PLACE);
+    stored.set("paseo-command:linear:place", JSON.stringify({ screen: "cycle", teamId: FAKE_IDS.eng, cycleId: "x" }));
+    assert.deepEqual(readPlace(WS), { screen: "cycles", teamId: FAKE_IDS.eng });
+  });
+
   it("maps each place to the store's scope", () => {
     assert.equal(placeScope({ screen: "my", tab: "assigned" }), "assigned");
     assert.equal(placeScope({ screen: "my", tab: "created" }), "created");
@@ -73,6 +86,8 @@ describe("linear place", () => {
     for (const tab of ["triage", "active", "backlog", "all"] as const)
       assert.equal(placeScope({ screen: "team", teamId: FAKE_IDS.eng, tab }), `team:${FAKE_IDS.eng}:${tab}`);
     assert.equal(placeScope({ screen: "project", projectId: FAKE_IDS.projects.launch }), `project:${FAKE_IDS.projects.launch}`);
+    assert.equal(placeScope({ screen: "cycle", teamId: FAKE_IDS.eng, cycleId: FAKE_IDS.cycles.eng }), `cycle:${FAKE_IDS.cycles.eng}`);
+    assert.equal(placeScope({ screen: "cycles", teamId: FAKE_IDS.eng }), null);
     assert.equal(placeScope({ screen: "projects" }), null);
     assert.equal(placeScope({ screen: "initiatives" }), null);
   });

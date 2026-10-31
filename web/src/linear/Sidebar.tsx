@@ -12,6 +12,7 @@ import {
   PanelLeftClose,
   PenLine,
   SquarePen,
+  RefreshCcw,
   RefreshCw,
   Target,
 } from "lucide-react";
@@ -54,7 +55,8 @@ function Item({
 
 /**
  * The Linear view's navigation, as Linear's own sidebar: your issues, each
- * team's views (Triage only where the team triages), projects and initiatives.
+ * team's views (Triage only where the team triages, Cycles where it runs
+ * them), projects and initiatives.
  * Teams open and close; which are open is remembered.
  */
 export function Sidebar({
@@ -77,7 +79,7 @@ export function Sidebar({
   const [open, setOpen] = useState<string[]>(() => {
     const was = readStore<string[]>("linear:teamsOpen", []);
     // The team you're in starts open.
-    return place.screen === "team" && !was.includes(place.teamId) ? [...was, place.teamId] : was;
+    return "teamId" in place && !was.includes(place.teamId) ? [...was, place.teamId] : was;
   });
   const toggle = (id: string) =>
     setOpen((was) => {
@@ -161,6 +163,17 @@ export function Sidebar({
                         {t.label}
                       </Item>
                     ))}
+                    {team.cyclesEnabled && (
+                      <Item
+                        place={{ screen: "cycles", teamId: team.id }}
+                        // A cycle's issues are under Cycles.
+                        current={place.screen === "cycle" ? { screen: "cycles", teamId: place.teamId } : place}
+                        onPlace={onPlace}
+                        icon={<RefreshCcw size={14} aria-hidden="true" />}
+                      >
+                        Cycles
+                      </Item>
+                    )}
                   </div>
                 )}
               </div>

@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { Minus, OctagonAlert, SignalHigh, SignalLow, SignalMedium } from "lucide-react";
 import { initials } from "./group";
-import type { LinearUser } from "./types";
+import type { LinearCycle, LinearUser } from "./types";
 
 /** The small pieces the Linear screens share: priority, dots, people, dates, health. */
 
@@ -62,6 +62,24 @@ export function shortDate(day?: string): string {
     ...(y !== new Date().getFullYear() ? { year: "numeric" } : {}),
   });
 }
+
+/** "Cycle 7", or "Cycle 7 · Polish" when it has a name. */
+export const cycleName = (c: Pick<LinearCycle, "number" | "name">) =>
+  c.name ? `Cycle ${c.number} · ${c.name}` : `Cycle ${c.number}`;
+
+/** A moment as its local day, "Nov 30" (with the year when it isn't this one). */
+function localDay(at: string): string {
+  const date = new Date(at);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+    ...(date.getFullYear() !== new Date().getFullYear() ? { year: "numeric" } : {}),
+  });
+}
+
+/** A cycle's days, "Oct 28 – Nov 11". */
+export const dayRange = (start: string, end: string) => `${localDay(start)} – ${localDay(end)}`;
 
 /** A screen's title bar: its heading, then its actions at the right. */
 export function ScreenHead({ title, count, children }: { title: ReactNode; count?: number; children?: ReactNode }) {

@@ -29,6 +29,14 @@ export type LinearCycle = {
   endsAt: string;
   isActive: boolean;
   isNext: boolean;
+  /** The rest come with a team's cycles (`q/cycles`), not with the workspace's. */
+  isPast?: boolean;
+  completedAt?: string;
+  /** Done, of 0–1, as Linear counts it (estimates where the team uses them). */
+  progress?: number;
+  /** Issues in the cycle, and those done, as of Linear's last count. */
+  scope?: number;
+  done?: number;
 };
 export type LinearProject = {
   id: string;
@@ -129,7 +137,8 @@ export type IssueScope =
   | "created"
   | "subscribed"
   | `team:${string}:${"triage" | "active" | "backlog" | "all"}`
-  | `project:${string}`;
+  | `project:${string}`
+  | `cycle:${string}`;
 export type WriteName =
   | "issueUpdate"
   | "issueCreate"

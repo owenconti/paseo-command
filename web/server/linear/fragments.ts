@@ -32,6 +32,14 @@ export const WORKSPACE_QUERY = `query Workspace($projectCut: DateTimeOrDuration!
   initiatives(first: 100) { nodes { ${INITIATIVE_FIELDS} } }
 }`;
 
+/** A team's cycles: the current and upcoming ones, and those that ended since `cut`. */
+export const CYCLES_QUERY = `query Cycles($teamId: ID!, $cut: DateTimeOrDuration!) {
+  cycles(first: 50, filter: { team: { id: { eq: $teamId } }, or: [{ isPast: { eq: false } }, { endsAt: { gt: $cut } }] }) {
+    nodes { id number name startsAt endsAt isActive isNext isPast completedAt progress
+      issueCountHistory completedIssueCountHistory team { id } }
+  }
+}`;
+
 export const ISSUES_QUERY = `query Issues($filter: IssueFilter, $first: Int!, $after: String) {
   issues(filter: $filter, first: $first, after: $after, orderBy: updatedAt) {
     nodes { ${ISSUE_FIELDS} }
