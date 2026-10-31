@@ -12,7 +12,7 @@ import {
   setLinearNotice,
   syncTick,
 } from "./store";
-import type { LinearIssue, LinearState, LinearSync, LinearWorkspace } from "./types";
+import type { LinearComment, LinearIssue, LinearState, LinearSync, LinearWorkspace } from "./types";
 
 const ME = FAKE_IDS.owen;
 const TODO: LinearState = { id: "s-todo", name: "Todo", type: "unstarted", color: "#ccc", position: 1, teamId: "t" };
@@ -348,5 +348,35 @@ describe("linear store", () => {
     answer.refuse(new Error("Not allowed"));
     assert.equal(await done, false);
     assert.equal(linearStore.getState().issues.get("i-1")?.priority, 4);
+  });
+
+  it("a comment comes whole: a cleared field clears, a pending one stays, a write's comment is kept", async () => {
+    const comment = (patch: Partial<LinearComment> = {}): LinearComment => ({
+      id: "c-1",
+      issueId: "i-1",
+      authorId: ME,
+      body: "Hi",
+      createdAt: "2026-10-01T00:00:00Z",
+      reactions: [],
+      ...patch,
+    });
+    linearStore.mergeComments([comment({ resolvedAt: "2026-10-02T00:00:00Z" })]);
+    // As the page gets it over JSON: no resolvedAt at all.
+    linearStore.mergeComments([JSON.parse(JSON.stringify(comment({ resolvedAt: undefined })))]);
+    assert.equal(linearStore.getState().comments.get("c-1")?.resolvedAt, undefined);
+
+    const mine = [{ emoji: "👍", userIds: [ME], ids: [""] }];
+    markPending("c-1", ["reactions"]);
+    linearStore.patchComment("c-1", { reactions: mine });
+    linearStore.applySync(sync({ comments: [comment({ body: "Hi there" })] }));
+    assert.deepEqual(linearStore.getState().comments.get("c-1")?.reactions, mine);
+    assert.equal(linearStore.getState().comments.get("c-1")?.body, "Hi there");
+    clearPending("c-1", ["reactions"]);
+
+    answers["linear/m/commentUpdate"] = () => ({ comment: comment({ body: "Edited", editedAt: "2026-10-03T00:00:00Z" }) });
+    assert.equal(await linearStore.write("commentUpdate", { id: "c-1", body: "Edited" }), true);
+    assert.equal(linearStore.getState().comments.get("c-1")?.body, "Edited");
+    linearStore.removeComment("c-1");
+    assert.equal(linearStore.getState().comments.has("c-1"), false);
   });
 });

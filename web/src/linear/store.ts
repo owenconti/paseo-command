@@ -186,7 +186,7 @@ async function write(
     mark = lastMark;
   }
   const previous = (id && writeQueues.get(id)) || Promise.resolve();
-  const request = previous.then(() => linearWrite<{ issue?: LinearIssue }>(name, input));
+  const request = previous.then(() => linearWrite<{ issue?: LinearIssue; comment?: LinearComment }>(name, input));
   const queued = request.catch(() => {});
   if (id) writeQueues.set(id, queued);
   try {
@@ -198,6 +198,7 @@ async function write(
     }
     // Linear's answer, which also updates what's confirmed for fields a later edit still holds.
     if (answer?.issue) mergeIssues([answer.issue]);
+    if (answer?.comment) mergeComments([answer.comment]);
     if (mark) settle(id!);
     return true;
   } catch (e) {
@@ -220,9 +221,33 @@ function mergeComments(list: LinearComment[]): void {
   if (list.length === 0) return;
   const comments = new Map(state.comments);
   for (const incoming of list) {
-    if ((incoming as { archivedAt?: string }).archivedAt) comments.delete(incoming.id);
-    else comments.set(incoming.id, mergeRecord(comments.get(incoming.id), incoming));
+    if ((incoming as { archivedAt?: string }).archivedAt) {
+      comments.delete(incoming.id);
+      continue;
+    }
+    // A comment always comes whole, and JSON drops a cleared field (resolvedAt), so it replaces
+    // the known one: only fields with a write in flight keep what the page shows.
+    const known = comments.get(incoming.id) as Record<string, unknown> | undefined;
+    const held = [...(pending.get(incoming.id)?.keys() ?? [])].filter((f) => known && f in known);
+    comments.set(incoming.id, { ...incoming, ...Object.fromEntries(held.map((f) => [f, known![f]])) });
   }
+  publish({ comments });
+}
+
+/**
+ * Sets fields of a known comment at once (an optimistic reaction, or putting
+ * it back); syncs leave the fields alone while `pending` is marked on them.
+ */
+function patchComment(id: string, fields: Partial<LinearComment>): void {
+  const known = state.comments.get(id);
+  if (known) publish({ comments: new Map(state.comments).set(id, { ...known, ...fields }) });
+}
+
+/** A comment Linear deleted. */
+function removeComment(id: string): void {
+  if (!state.comments.has(id)) return;
+  const comments = new Map(state.comments);
+  comments.delete(id);
   publish({ comments });
 }
 
@@ -255,6 +280,8 @@ export const linearStore = {
   },
   mergeIssues,
   mergeComments,
+  patchComment,
+  removeComment,
   applySync,
   write,
   setWorkspace(workspace: LinearWorkspace): void {

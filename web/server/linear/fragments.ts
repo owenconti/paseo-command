@@ -8,7 +8,7 @@ export const ISSUE_FIELDS = `id identifier title url priority estimate sortOrder
   labels(first: 30) { nodes { id } } subscribers(first: 30) { nodes { id } }`;
 
 export const COMMENT_FIELDS = `id body createdAt editedAt updatedAt resolvedAt
-  issue { id } parent { id } user { id } reactions { emoji user { id } }`;
+  issue { id } parent { id } user { id } reactions { id emoji user { id } }`;
 
 export const PROJECT_FIELDS = `id name icon color status { name } health lead { id } targetDate progress
   teams(first: 5) { nodes { id } } projectMilestones(first: 15) { nodes { id name } } url updatedAt`;

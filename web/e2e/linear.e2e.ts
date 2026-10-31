@@ -406,3 +406,151 @@ test("moves an issue out of Assigned when assigned to someone else", async () =>
     await context.close();
   }
 });
+
+/** The open issue's comment that says `text` (its own block, not its replies'). */
+const commentSaying = (issue: Locator, text: string) =>
+  issue.locator(".linear-comment").filter({ has: issue.page().locator(".linear-comment-body", { hasText: text }) });
+
+test("writes, edits, replies to, reacts to, resolves and deletes a comment", async () => {
+  const { context, page, linear, view, issue } = await openLinear();
+  try {
+    const inLinear = (what: string, ok: () => boolean) => waitFor(() => Promise.resolve(ok()), Boolean, what);
+    const stored = (body: string) => linear.ws.comments.find((c) => c.body === body);
+    await view.locator('.linear-row[data-key="ENG-1"]').click();
+    await waitFor(() => issue.locator(".linear-comment").count(), (n) => n === 3, "three comments");
+
+    // Write one: ⌘↩ sends, the composer empties, and it's yours in Linear.
+    const composer = issue.getByRole("textbox", { name: "Write a comment" });
+    await composer.fill("Starting on the **list** now.");
+    await composer.press("Meta+Enter");
+    const mine = commentSaying(issue, "Starting on the list now.");
+    await mine.locator(".linear-comment-body strong", { hasText: "list" }).waitFor();
+    await inLinear("the comment in Linear", () => !!stored("Starting on the **list** now."));
+    const created = stored("Starting on the **list** now.")!;
+    assert.equal(created.user?.id, linear.ws.viewerId);
+    assert.equal(created.parent, null);
+    assert.equal(await composer.inputValue(), "");
+
+    // Edit it: marked edited.
+    const edited = issue.locator(`[data-comment="${created.id}"]`);
+    await edited.getByRole("button", { name: "Edit" }).click();
+    const editor = edited.getByRole("textbox", { name: "Edit comment" });
+    await editor.fill("Starting on the list today.");
+    await editor.press("Meta+Enter");
+    await edited.locator(".linear-comment-body", { hasText: "Starting on the list today." }).waitFor();
+    await edited.locator(".linear-comment-head", { hasText: "edited" }).waitFor();
+    await inLinear("the edit in Linear", () => created.body === "Starting on the list today." && !!created.editedAt);
+    // Someone else's comment can't be edited or deleted.
+    const sams = commentSaying(issue, "Can we start with the list?");
+    assert.equal(await sams.getByRole("button", { name: "Edit" }).count(), 0);
+    assert.equal(await sams.getByRole("button", { name: "Delete" }).count(), 0);
+
+    // Reply to Sam's thread: indented under it.
+    await sams.getByRole("button", { name: "Reply" }).click();
+    const reply = issue.getByRole("textbox", { name: "Reply to Sam Rivera" });
+    await reply.fill("And the detail after.");
+    await reply.press("Meta+Enter");
+    await issue.locator(".linear-comment.reply", { hasText: "And the detail after." }).waitFor();
+    await inLinear("the reply in Linear", () => stored("And the detail after.")?.parent?.id === FAKE_IDS.comments.first);
+
+    // React: 👍 beside Sam's adds yours, again takes it away; the picker adds another.
+    const beta = commentSaying(issue, "Beta is on track.");
+    const thumbs = beta.getByRole("button", { name: /^👍/ });
+    assert.equal(await thumbs.getAttribute("aria-pressed"), "false");
+    await thumbs.click();
+    await waitFor(() => thumbs.innerText(), (t) => t.includes("2"), "two 👍");
+    await waitFor(() => thumbs.getAttribute("aria-pressed"), (v) => v === "true", "your 👍");
+    const reacted = linear.ws.comments.find((c) => c.id === FAKE_IDS.comments.reacted)!;
+    await inLinear("your 👍 in Linear", () => reacted.reactions.some((r) => r.emoji === "👍" && r.user.id === linear.ws.viewerId));
+    await thumbs.click();
+    await waitFor(() => thumbs.innerText(), (t) => t.includes("1"), "one 👍");
+    await inLinear("your 👍 gone from Linear", () => reacted.reactions.length === 1 && reacted.reactions[0].user.id === FAKE_IDS.sam);
+    await beta.getByRole("button", { name: "Add a reaction" }).click();
+    await page.getByRole("menu", { name: "Reactions" }).getByRole("menuitem", { name: "🎉" }).click();
+    await beta.getByRole("button", { name: /^🎉/ }).waitFor();
+    await inLinear("your 🎉 in Linear", () => reacted.reactions.some((r) => r.emoji === "🎉"));
+
+    // Resolve Sam's thread: one line with Unresolve, its replies hidden; Unresolve opens it again.
+    const thread = issue.locator(".linear-thread").filter({ has: page.locator(".linear-comment-body", { hasText: "Can we start with the list?" }) });
+    await thread.getByRole("button", { name: "Resolve" }).click();
+    const folded = issue.locator(".linear-thread.resolved");
+    await folded.getByRole("button", { name: "Unresolve" }).waitFor();
+    assert.equal(await folded.locator(".linear-comment").count(), 0);
+    assert.equal(await issue.locator(".linear-comment", { hasText: "Yes, list first." }).count(), 0);
+    const first = linear.ws.comments.find((c) => c.id === FAKE_IDS.comments.first)!;
+    await inLinear("resolved in Linear", () => !!first.resolvedAt);
+    await folded.getByRole("button", { name: "Unresolve" }).click();
+    await issue.locator(".linear-comment.reply", { hasText: "Yes, list first." }).waitFor();
+    await inLinear("open in Linear", () => first.resolvedAt === null);
+
+    // Delete yours, after the inline question: Keep keeps it, Delete deletes it.
+    await edited.getByRole("button", { name: "Delete" }).click();
+    await edited.getByText("Delete this comment?").waitFor();
+    await edited.getByRole("button", { name: "Keep" }).click();
+    assert.equal(await edited.getByText("Delete this comment?").count(), 0);
+    await edited.getByRole("button", { name: "Delete" }).click();
+    await edited.getByRole("button", { name: "Delete", exact: true }).last().click();
+    await waitFor(() => edited.count(), (n) => n === 0, "the comment to go");
+    await inLinear("deleted in Linear", () => !linear.ws.comments.some((c) => c.id === created.id));
+
+    assert.deepEqual([...new Set(writesMade(linear))].sort(), [
+      "CommentCreate",
+      "CommentDelete",
+      "CommentResolve",
+      "CommentUnresolve",
+      "CommentUpdate",
+      "ReactionCreate",
+      "ReactionDelete",
+    ]);
+  } finally {
+    linear.restore();
+    await context.close();
+  }
+});
+
+test("keeps a comment draft across remounts", async () => {
+  const { context, page, linear, view, issue } = await openLinear();
+  try {
+    const eng1 = FAKE_IDS.issues["ENG-1"];
+    const draft = () => page.evaluate((key) => localStorage.getItem(key), `paseo-command:linear:draft:${eng1}`);
+    await view.locator('.linear-row[data-key="ENG-1"]').click();
+    const composer = issue.getByRole("textbox", { name: "Write a comment" });
+    await composer.fill("Half a thought");
+
+    // Back to the map and to Linear again: still there.
+    await page.evaluate(() => window.dispatchEvent(new CustomEvent("paseo:mode", { detail: { mode: "command" } })));
+    await waitFor(() => view.count(), (n) => n === 0, "the Linear view to close");
+    await showLinear(page);
+    await waitFor(() => composer.inputValue(), (v) => v === "Half a thought", "the draft after a remount");
+
+    // And after a reload.
+    await page.reload();
+    await page.locator(".fleet-sidebar").waitFor();
+    await showLinear(page);
+    await waitFor(() => composer.inputValue(), (v) => v === "Half a thought", "the draft after a reload");
+
+    // A refused send keeps the text and says why.
+    linear.fail("CommentCreate", { message: "Not allowed" });
+    await composer.press("Meta+Enter");
+    await page.locator(".toast", { hasText: "Linear didn't save that: Not allowed" }).waitFor();
+    assert.equal(await composer.inputValue(), "Half a thought");
+    assert.equal(await draft(), JSON.stringify("Half a thought"));
+
+    // Sent: the draft is gone.
+    linear.clear("CommentCreate");
+    await composer.press("Meta+Enter");
+    await commentSaying(issue, "Half a thought").waitFor();
+    assert.equal(await composer.inputValue(), "");
+    await waitFor(draft, (v) => v === null, "the draft to be removed");
+
+    // ⌘K's "Comment on ENG-1" puts the keyboard in the composer.
+    await page.locator("body").click({ position: { x: 5, y: 5 } }).catch(() => {});
+    await page.keyboard.press("Meta+k");
+    await page.getByLabel("Search commands").fill("Comment on ENG-1");
+    await page.keyboard.press("Enter");
+    await waitFor(() => focusedName(page), (name) => name === "Write a comment", "the composer focused");
+  } finally {
+    linear.restore();
+    await context.close();
+  }
+});

@@ -223,12 +223,15 @@ export function commentOf(raw: Raw): LinearComment | null {
   const id = str(raw.id);
   const issueId = refId(raw.issue);
   if (!id || !issueId) return null;
-  const reactions = new Map<string, string[]>();
+  // Each emoji once, with who reacted and their reactions' ids (to take one's own away).
+  const reactions = new Map<string, { userIds: string[]; ids: string[] }>();
   for (const r of Array.isArray(raw.reactions) ? raw.reactions.map(rec) : []) {
     const emoji = clip(str(r.emoji), 40);
     const userId = refId(r.user);
-    if (!emoji || !userId) continue;
-    reactions.set(emoji, [...(reactions.get(emoji) ?? []), userId]);
+    const reactionId = str(r.id);
+    if (!emoji || !userId || !reactionId) continue;
+    const known = reactions.get(emoji) ?? { userIds: [], ids: [] };
+    reactions.set(emoji, { userIds: [...known.userIds, userId], ids: [...known.ids, reactionId] });
   }
   return {
     id,
@@ -239,7 +242,7 @@ export function commentOf(raw: Raw): LinearComment | null {
     createdAt: str(raw.createdAt),
     editedAt: str(raw.editedAt) || undefined,
     resolvedAt: str(raw.resolvedAt) || undefined,
-    reactions: [...reactions].map(([emoji, userIds]) => ({ emoji, userIds })),
+    reactions: [...reactions].map(([emoji, who]) => ({ emoji, ...who })),
   };
 }
 

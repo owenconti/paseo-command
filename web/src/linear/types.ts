@@ -99,7 +99,8 @@ export type LinearComment = {
   createdAt: string;
   editedAt?: string;
   resolvedAt?: string;
-  reactions: { emoji: string; userIds: string[] }[];
+  /** Each emoji once: who reacted, and each one's reaction id (`ids[i]` is `userIds[i]`'s). */
+  reactions: { emoji: string; userIds: string[]; ids: string[] }[];
 };
 export type LinearWorkspace = {
   viewerId: string;

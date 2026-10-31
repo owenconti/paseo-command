@@ -827,7 +827,7 @@ function App() {
   // The mode bar's tab (macOS app): Linear draws its issues in the map's place.
   const appMode = useAppMode();
   // The issue open in the Linear tab, for ⌘K's edits of it.
-  const [linearIssueOpen, setLinearIssueOpen] = useState(false);
+  const [linearIssueOpen, setLinearIssueOpen] = useState<string | undefined>();
   // From a Linear issue: New agent, where the host and project are chosen.
   const launchFromIssue = useCallback(
     (issue: IssueContext) => openDispatch({ issue }),
@@ -1498,6 +1498,17 @@ function App() {
           keywords,
           run: () => runAppCommand(command),
         }))
+      : []),
+    ...(appMode === "linear" && linearIssueOpen
+      ? [
+          {
+            id: "linear-comment",
+            group: "App",
+            label: `Comment on ${linearIssueOpen}`,
+            keywords: "linear issue comment reply write discuss note",
+            run: () => runAppCommand("linear-comment"),
+          },
+        ]
       : []),
     {
       id: "sounds",

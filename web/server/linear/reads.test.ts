@@ -88,7 +88,9 @@ test("reads an issue with comments, children and both sides of a relation", asyn
   assert.deepEqual(eng1.children.map((c) => c.key), ["ENG-2"]);
   assert.equal(eng1.comments.length, 3);
   assert.deepEqual(eng1.comments.filter((c) => c.parentId).map((c) => c.parentId), [I.comments.first]);
-  assert.deepEqual(eng1.comments.find((c) => c.id === I.comments.reacted)!.reactions, [{ emoji: "👍", userIds: [I.sam] }]);
+  assert.deepEqual(eng1.comments.find((c) => c.id === I.comments.reacted)!.reactions, [
+    { emoji: "👍", userIds: [I.sam], ids: [fake.ws.comments.find((c) => c.id === I.comments.reacted)!.reactions[0].id] },
+  ]);
   assert.match(eng1.issue.description!, /parent/);
   assert.deepEqual(eng1.issue.links, [{ title: "Design doc", url: "https://example.com/design" }]);
 

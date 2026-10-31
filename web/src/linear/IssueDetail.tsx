@@ -1,14 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
 import { ArrowLeft, CornerLeftUp, ExternalLink, GitBranch, Play, X } from "lucide-react";
-import { ago, errorMessage } from "../api";
+import { errorMessage } from "../api";
 import { openExternal } from "../links";
 import { Markdown } from "../Markdown";
-import { Person } from "./bits";
+import { Comments } from "./Comments";
 import { IssueRow } from "./IssueList";
 import { Properties } from "./Properties";
 import { issueContext, linearImages, type IssueContext } from "./prompt";
 import { linearStore, loadIssue, useLinear } from "./store";
-import type { LinearComment, LinearIssue, LinearRelation } from "./types";
+import type { LinearIssue, LinearRelation } from "./types";
 
 /** How a relation reads from the open issue's side. */
 const RELATION_LABEL: Record<LinearRelation["type"], string> = {
@@ -26,22 +26,11 @@ const askedById = new Set<string>();
 const missingById = new Set<string>();
 const MAX_RELATED_LOADS = 10;
 
-/** The comments as threads: each top-level one, then its replies, oldest first. */
-function threads(comments: LinearComment[]): { comment: LinearComment; reply: boolean }[] {
-  const byTime = [...comments].sort((a, b) => a.createdAt.localeCompare(b.createdAt));
-  const ids = new Set(byTime.map((c) => c.id));
-  const roots = byTime.filter((c) => !c.parentId || !ids.has(c.parentId));
-  return roots.flatMap((root) => [
-    { comment: root, reply: false },
-    ...byTime.filter((c) => c.parentId === root.id).map((comment) => ({ comment, reply: true })),
-  ]);
-}
-
 /**
  * One issue, from the store, loaded afresh (description, comments, children)
  * when it opens: its properties, labels, parent, children and relations,
  * description, links and comments, and Launch agent. Its properties are
- * edited in place (`Properties`); the rest is read-only here.
+ * edited in place (`Properties`), its comments read and written (`Comments`).
  */
 export function IssueDetail({
   issueKey,
@@ -102,11 +91,6 @@ export function IssueDetail({
   /** Not loading any more: Linear didn't give it, or it's past the handful asked for. */
   const unavailable = (other: string) =>
     missingById.has(other) || unknownIds.indexOf(other) >= MAX_RELATED_LOADS;
-
-  const comments = useMemo(
-    () => (issue ? threads([...data.comments.values()].filter((c) => c.issueId === issue.id)) : []),
-    [data.comments, issue],
-  );
 
   const close = (
     <button className="ghost-btn linear-close" onClick={onClose} aria-label={closeLabel}>
@@ -247,40 +231,7 @@ export function IssueDetail({
             </ul>
           </section>
         )}
-        {comments.length > 0 && (
-          <section className="linear-section">
-            <h3>
-              Comments <span className="linear-count">{comments.length}</span>
-            </h3>
-            {comments.map(({ comment: c, reply }) => {
-              const author = user(c.authorId);
-              return (
-                <div key={c.id} className={`linear-comment${reply ? " reply" : ""}${c.resolvedAt ? " resolved" : ""}`}>
-                  <p className="linear-comment-head">
-                    <Person user={author} />
-                    <b>{author?.name ?? "Someone"}</b> <span>{ago(c.createdAt)}</span>
-                    {c.editedAt && <span>· edited</span>}
-                    {c.resolvedAt && <span className="linear-resolved">Resolved</span>}
-                  </p>
-                  <Markdown text={linearImages(c.body, location.origin)} />
-                  {c.reactions.length > 0 && (
-                    <ul className="linear-reactions" aria-label="Reactions">
-                      {c.reactions.map((r) => (
-                        <li
-                          key={r.emoji}
-                          className="linear-reaction"
-                          data-tip={r.userIds.map((u) => user(u)?.name ?? "Someone").join(", ")}
-                        >
-                          {r.emoji} <span>{r.userIds.length}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
-              );
-            })}
-          </section>
-        )}
+        <Comments issueId={issue.id} />
       </article>
     </div>
   );

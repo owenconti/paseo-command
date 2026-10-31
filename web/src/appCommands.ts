@@ -18,7 +18,8 @@ export type AppCommand =
   | "linear-status"
   | "linear-priority"
   | "linear-assignee"
-  | "linear-labels";
+  | "linear-labels"
+  | "linear-comment";
 
 const EVENT = "paseo:command";
 

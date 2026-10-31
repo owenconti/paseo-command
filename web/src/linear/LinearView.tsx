@@ -41,8 +41,8 @@ export function LinearView({
 }: {
   onLaunch: (issue: IssueContext) => void;
   onNotice: (message: string) => void;
-  /** Whether an issue is open (⌘K offers editing it). */
-  onIssueOpen?: (open: boolean) => void;
+  /** The open issue's key, or undefined (⌘K offers editing it and commenting on it). */
+  onIssueOpen?: (key: string | undefined) => void;
 }) {
   useLinearSync(true);
   // A write Linear refuses says why in the app's notice.
@@ -151,10 +151,11 @@ export function LinearView({
   // ⌘K's edits only once the open issue is in the store (its properties show).
   const issueKnown = useLinear((d) => !!place.issue && d.byKey.has(place.issue));
   const issueOpen = issueKnown && !!ws;
+  const openKey = issueOpen ? place.issue : undefined;
   useEffect(() => {
-    onIssueOpen?.(issueOpen);
-  }, [issueOpen, onIssueOpen]);
-  useEffect(() => () => onIssueOpen?.(false), [onIssueOpen]);
+    onIssueOpen?.(openKey);
+  }, [openKey, onIssueOpen]);
+  useEffect(() => () => onIssueOpen?.(undefined), [onIssueOpen]);
 
   if (!ws && (unavailable || workspaceError))
     return (
