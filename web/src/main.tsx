@@ -745,6 +745,15 @@ function App() {
     selection?.type === "project"
       ? projects.find((p) => projectKey(p) === selection.id)
       : undefined;
+  // The open project's repository on GitHub, for G: its workspaces' remote.
+  const projectRepo = project
+    ? listedWorkspaces.find(
+        (w) =>
+          w.repo &&
+          w.projectId === project.projectId &&
+          (w.host ?? "") === (project.host ?? ""),
+      )?.repo
+    : undefined;
   // The open agent's or workspace's PR and Linear issue, for G and L (the
   // same ones the session header's chips link to).
   const linkWorkspace = agent ? workspaceOf(agent) : workspace;
@@ -915,6 +924,9 @@ function App() {
       } else if (key === "g" && linkPr) {
         e.preventDefault();
         openExternal(linkPr.url);
+      } else if (key === "g" && projectRepo) {
+        e.preventDefault();
+        openExternal(projectRepo);
       } else if (key === "l" && issueKey) {
         e.preventDefault();
         if (issueUrl) openExternal(issueUrl);
@@ -939,6 +951,7 @@ function App() {
     nextAttention,
     openDispatch,
     linkPr,
+    projectRepo,
     issueKey,
     issueUrl,
   ]);
@@ -1219,6 +1232,18 @@ function App() {
             keys: [["G"]],
             keywords: "github pr",
             run: () => openExternal(linkPr.url),
+          },
+        ]
+      : []),
+    ...(projectRepo
+      ? [
+          {
+            id: "repo",
+            group: "Actions",
+            label: `Open ${project?.name || "the project"} on GitHub`,
+            keys: [["G"]],
+            keywords: "github repository repo",
+            run: () => openExternal(projectRepo),
           },
         ]
       : []),

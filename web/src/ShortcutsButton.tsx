@@ -35,7 +35,10 @@ const GROUPS: Group[] = [
       { keys: [["⌘", "B"]], label: "Show or hide the panel" },
       { keys: [["⌘", "L"], ["Enter"]], label: "Focus the message box" },
       { keys: [["R"]], label: "Reply to the selected agent" },
-      { keys: [["G"]], label: "Open the workspace's pull request" },
+      {
+        keys: [["G"]],
+        label: "Open the workspace's pull request, or the project on GitHub",
+      },
       { keys: [["L"]], label: "Open the Linear issue" },
     ],
   },

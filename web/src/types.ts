@@ -89,6 +89,8 @@ export type Workspace = {
   pr?: PullRequest | null;
   /** When the daemon created it (ISO), if known. */
   createdAt?: string;
+  /** Its repository's GitHub page, from the checkout's remote, if on GitHub. */
+  repo?: string;
   host?: string;
   hostLabel?: string;
   stale?: boolean;
