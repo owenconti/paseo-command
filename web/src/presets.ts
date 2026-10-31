@@ -5,7 +5,7 @@
  * pull request chosen for its worktree, and `{{issue}}` the Linear issue it
  * was opened from (whose details follow the prompt).
  */
-import { issueBlock, type IssueContext } from "./linearIssues";
+import { issueBlock, type IssueContext } from "./linear/prompt";
 
 export type Preset = { name: string; prompt: string };
 /** A pull request a new worktree checks out. */

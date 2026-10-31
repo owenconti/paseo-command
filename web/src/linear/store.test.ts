@@ -174,6 +174,14 @@ describe("linear store", () => {
     assert.ok(linearStore.getState().loadedScopes.has("assigned"));
   });
 
+  it("asks again for a loaded scope when fresh (Refresh)", async () => {
+    linearStore.setWorkspace(WS);
+    answers.issues = () => ({ issues: [issue(1, { assigneeId: ME })] });
+    await loadScope("assigned");
+    await loadScope("assigned", true);
+    assert.equal(calls.length, 2);
+  });
+
   it("records unavailable and leaves the scope unloaded", async () => {
     answers.issues = () => ({ available: false, reason: "no key" });
     await loadScope("assigned");

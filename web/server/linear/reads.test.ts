@@ -92,6 +92,9 @@ test("reads an issue with comments, children and both sides of a relation", asyn
   assert.match(eng1.issue.description!, /parent/);
   assert.deepEqual(eng1.issue.links, [{ title: "Design doc", url: "https://example.com/design" }]);
 
+  // By id too: a parent or related issue the page knows only by id.
+  assert.equal((await readIssue(I.issues["ENG-4"]))!.issue.key, "ENG-4");
+
   assert.equal(await readIssue("ENG-404"), null);
   // Real Linear answers a missing issue with an error, not null.
   fake.fail("Issue", { message: "Could not find referenced Issue.", type: "InvalidInput" });

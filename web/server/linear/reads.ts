@@ -117,12 +117,13 @@ export async function readIssues(
   };
 }
 
-/** One issue by key with its description, children, relations, links and comments; null when Linear has none. */
+/** One issue by key (or id) with its description, children, relations, links and comments; null when Linear has none. */
 export async function readIssue(
   rawKey: string,
 ): Promise<{ issue: LinearIssue; comments: LinearComment[]; children: LinearIssue[] } | null> {
-  const key = rawKey.trim().toUpperCase();
-  if (!KEY.test(key)) throw new LinearError("invalid", "Invalid issue key");
+  const trimmed = rawKey.trim();
+  const key = ID.test(trimmed) && !KEY.test(trimmed) ? trimmed.toLowerCase() : trimmed.toUpperCase();
+  if (!KEY.test(key) && !ID.test(key)) throw new LinearError("invalid", "Invalid issue key");
   let data: Data;
   try {
     data = await linearRequest<Data>("Issue", ISSUE_QUERY, { id: key });

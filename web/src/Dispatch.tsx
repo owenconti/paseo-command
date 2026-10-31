@@ -2,7 +2,7 @@ import { soundEvent } from "./soundCues";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, ChevronDown, GitBranch, MessageSquare, Pencil, Play } from "lucide-react";
 import { api, errorMessage, readStore, writeStore } from "./api";
-import { issuePrompt, type IssueContext } from "./linearIssues";
+import { issuePrompt, type IssueContext } from "./linear/prompt";
 import { Composer } from "./Composer";
 import type { Outgoing } from "./composer/types";
 import type {

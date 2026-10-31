@@ -227,9 +227,9 @@ async function pageScope(scope: IssueScope): Promise<void> {
   publish({ loadedScopes: new Set(state.loadedScopes).add(scope) });
 }
 
-/** Loads a scope's issues, paging up to 1,000; a scope already loaded (or loading) is not asked again. */
-export function loadScope(scope: IssueScope): Promise<void> {
-  if (state.loadedScopes.has(scope)) return Promise.resolve();
+/** Loads a scope's issues, paging up to 1,000; a scope already loaded (or loading) is not asked again unless `fresh`. */
+export function loadScope(scope: IssueScope, fresh = false): Promise<void> {
+  if (!fresh && state.loadedScopes.has(scope)) return Promise.resolve();
   let load = scopeLoads.get(scope);
   if (!load) {
     load = pageScope(scope).finally(() => scopeLoads.delete(scope));

@@ -216,13 +216,18 @@ Local assets belong in the repository and are included through local build tooli
   `cookies.sqlite`, default space only, unpartitioned and unexpired; Zen is never written to. Its tabs (`conquerState`), sidebar width, zooms,
   history (`conquer-history.json` in the app's data folder, `~/Library/Application Support/Paseo Command/` for the release) and the mode come back on launch; tabs come back unloaded.
 - Linear (the mode bar's third tab, after Command and Conquer; View menu; palette "Show your Linear issues"): the page draws
-  `web/src/LinearView.tsx` over the map's frame while the app reports `paseo:mode` `linear` (`useAppMode`, `web/src/appMode.ts`;
-  the page asks with a `mode` message). It lists the open issues assigned to you, grouped by state, beside the chosen one's
-  details (description, links, comments), read-only from Linear (`web/server/linear.ts`, `GET /api/linear/issues[/KEY]`, with
-  `LINEAR_API_KEY` or `linearApiKey` in `secrets.json`). Launch agent opens New agent with the issue (`DispatchTarget.issue`):
-  Worktree on Linear's branch name, the composer's draft naming the issue; presets take `{{issue}}` and the issue's details.
-  As Conquer's sidebar, the issue list's inner edge resizes it and ⌘S hides or shows it (kept in localStorage). Images uploaded
+  `web/src/linear/LinearView.tsx` over the map's frame while the app reports `paseo:mode` `linear` (`useAppMode`, `web/src/appMode.ts`;
+  the page asks with a `mode` message). Its sidebar (`Sidebar.tsx`) navigates as Linear's: My issues (Assigned, Created, Subscribed),
+  each team (Triage where on, Active, Backlog, All), Projects (`ProjectList.tsx`, each opening its issues) and Initiatives
+  (`InitiativeList.tsx`). A place's issues (`IssueList.tsx`) are grouped by state; the open issue (`IssueDetail.tsx`: properties,
+  parent, sub-issues, relations, description, links, comments) shows beside the list from 1,100 px, else in its place with Back.
+  The place and open issue are kept in localStorage (`place.ts`). Everything shows from the page's store (`store.ts`, synced every
+  20 s only while the view shows) over the server's named reads (`web/server/linear/`, `GET /api/linear/q/…`, with
+  `LINEAR_API_KEY` or `linearApiKey` in `secrets.json`); read-only for now. Launch agent opens New agent with the issue (`DispatchTarget.issue`):
+  Worktree on Linear's branch name, the composer's draft naming the issue; presets take `{{issue}}` and the issue's details (`prompt.ts`).
+  As Conquer's sidebar, the Linear sidebar's inner edge resizes it and ⌘S hides or shows it (kept in localStorage). Images uploaded
   to Linear load through `GET /api/linear/image?url=` (only `uploads.linear.app`, fetched with the key; `linearImages`).
+  e2e (`web/e2e/linear.e2e.ts`) runs the real route over the fake Linear (`web/e2e/linearFake.ts`, `web/server/linear/fake.ts`).
 - Web links clicked in the chat (`.session`, `openInAppBrowser` in `web/src/Session.tsx`, `postAppLink` → the `openLink` message)
   switch to Conquer and open there as a new tab, once its tabs are restored (`whenStarted`).
 

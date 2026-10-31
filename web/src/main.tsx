@@ -66,7 +66,7 @@ import {
 } from "./links";
 import { NewAgent, type DispatchTarget } from "./Dispatch";
 import { useAppMode } from "./appMode";
-import type { IssueContext } from "./linearIssues";
+import type { IssueContext } from "./linear/prompt";
 import { AddProject } from "./AddProject";
 import {
   Fleet,
@@ -142,7 +142,7 @@ const NativeWorld = React.lazy(() =>
 );
 // The Linear tab, drawn over the map while the app's mode bar shows it.
 const LinearView = React.lazy(() =>
-  import("./LinearView").then((module) => ({ default: module.LinearView })),
+  import("./linear/LinearView").then((module) => ({ default: module.LinearView })),
 );
 
 const spring = { type: "spring" as const, stiffness: 300, damping: 30 };
@@ -1447,16 +1447,16 @@ function App() {
                 {
                   id: "linear-sidebar",
                   group: "App",
-                  label: "Show or hide the Linear issue list",
+                  label: "Show or hide the Linear sidebar",
                   keys: [["⌘", "S"]],
-                  keywords: "linear sidebar list collapse panel",
+                  keywords: "linear sidebar list navigation collapse panel",
                   run: () => runAppCommand("linear-sidebar"),
                 },
                 {
                   id: "linear-refresh",
                   group: "App",
                   label: "Refresh Linear issues",
-                  keywords: "linear issues reload update",
+                  keywords: "linear issues projects reload update sync",
                   run: () => runAppCommand("linear-refresh"),
                 },
               ]),
@@ -1661,7 +1661,7 @@ function App() {
             </React.Suspense>
             {appMode === "linear" && (
               <React.Suspense fallback={null}>
-                <LinearView onLaunch={launchFromIssue} />
+                <LinearView onLaunch={launchFromIssue} onNotice={setNotice} />
               </React.Suspense>
             )}
           </div>
