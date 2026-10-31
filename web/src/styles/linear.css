@@ -348,6 +348,15 @@
   letter-spacing: 0.02em;
   color: var(--accent-text);
 }
+.linear-person.has-avatar {
+  overflow: hidden;
+  background: var(--fill-strong);
+}
+.linear-person img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
 .linear-none {
   color: var(--text-4);
 }

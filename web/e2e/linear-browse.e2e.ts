@@ -542,3 +542,21 @@ test("the edge between the list and the open issue resizes it, kept across a rel
     await context.close();
   }
 });
+
+test("people show their avatar where Linear has one, else their initials", async () => {
+  const { context, page, linear, view, sidebar } = await openLinear();
+  try {
+    await sidebar.getByRole("button", { name: /^ENG/ }).click();
+    await sidebar.locator('.linear-team[data-team="ENG"]').getByRole("button", { name: "All" }).click();
+    const sam = view.locator('.linear-row[data-key="ENG-2"] .linear-person');
+    const img = sam.locator("img");
+    await waitFor(() => img.evaluate((el) => (el as HTMLImageElement).complete && (el as HTMLImageElement).naturalWidth), (w) => w === 1, "Sam's avatar");
+    assert.equal(await sam.getAttribute("aria-label"), "Sam Rivera");
+    const owen = view.locator('.linear-row[data-key="ENG-1"] .linear-person');
+    assert.equal(await owen.innerText(), "OC");
+    assert.equal(await owen.locator("img").count(), 0);
+  } finally {
+    linear.restore();
+    await context.close();
+  }
+});

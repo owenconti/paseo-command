@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { Minus, OctagonAlert, SignalHigh, SignalLow, SignalMedium } from "lucide-react";
 import { initials } from "./group";
 import { PRIORITY_LABEL } from "./names";
@@ -23,12 +23,33 @@ export function Dot({ color, className = "linear-state-dot" }: { color: string; 
   return <span className={className} style={{ background: color }} aria-hidden="true" />;
 }
 
-/** A person's initials in a round chip (no avatars load: they'd come from Linear's CDN). */
+/** Avatars that didn't load, by user: their initials show from then on, without asking again. */
+const noAvatar = new Set<string>();
+
+/**
+ * A person in a round chip: their avatar, through the app server (which
+ * loads only the address Linear gives for them), else their initials.
+ */
 export function Person({ user, size = "sm" }: { user?: LinearUser; size?: "sm" | "md" }) {
+  const [broken, setBroken] = useState(false);
   if (!user) return null;
+  const avatar = !!user.avatarUrl && !broken && !noAvatar.has(user.id);
   return (
-    <span className={`linear-person ${size}`} data-tip={user.name} aria-label={user.name}>
-      {initials(user)}
+    <span className={`linear-person ${size}${avatar ? " has-avatar" : ""}`} data-tip={user.name} aria-label={user.name}>
+      {avatar ? (
+        <img
+          src={`/api/linear/avatar?user=${encodeURIComponent(user.id)}`}
+          alt=""
+          loading="lazy"
+          draggable={false}
+          onError={() => {
+            noAvatar.add(user.id);
+            setBroken(true);
+          }}
+        />
+      ) : (
+        initials(user)
+      )}
     </span>
   );
 }

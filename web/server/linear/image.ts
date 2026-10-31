@@ -55,3 +55,41 @@ export function linearImage(raw: string): Promise<Fetched> {
 export function linearFile(raw: string): Promise<Fetched> {
   return fetchUpload(raw, LINEAR_IMAGE.maxFileBytes, () => true);
 }
+
+/** Avatars kept for an hour, by user and address (a new avatar has a new address). */
+const avatars = new Map<string, { at: number; type: string; bytes: Buffer }>();
+const AVATAR = { maxBytes: 2 * 1024 * 1024, keepMs: 60 * 60_000 };
+
+/** Forgets the avatars kept (tests). */
+export function resetAvatars(): void {
+  avatars.clear();
+}
+
+/**
+ * A workspace member's avatar, as an image, by their id: only the address
+ * Linear gives for them (never one the page names). Linear's own uploads load
+ * with the key; any other host (Google, Gravatar) without it. Kept an hour.
+ */
+export async function linearAvatar(avatarUrl: string | undefined): Promise<Fetched> {
+  if (!avatarUrl) return { status: 404, error: "No avatar" };
+  const kept = avatars.get(avatarUrl);
+  if (kept && Date.now() - kept.at < AVATAR.keepMs) return { status: 200, type: kept.type, bytes: kept.bytes };
+  const isImage = (type: string) => /^image\/(png|jpeg|gif|webp|avif)$/.test(type);
+  let got: Fetched;
+  if (linearUpload(avatarUrl)) got = await fetchUpload(avatarUrl, AVATAR.maxBytes, isImage);
+  else {
+    try {
+      const res = await LINEAR.fetch(avatarUrl, { redirect: "follow", signal: AbortSignal.timeout(LINEAR.timeoutMs) });
+      const type = res.headers.get("content-type")?.split(";")[0].trim().toLowerCase() ?? "";
+      const bytes = res.ok && isImage(type) ? Buffer.from(await res.arrayBuffer()) : undefined;
+      got =
+        bytes && bytes.length <= AVATAR.maxBytes
+          ? { status: 200, type, bytes }
+          : { status: res.ok ? 415 : 502, error: "No avatar there" };
+    } catch {
+      got = { status: 504, error: "The avatar didn't load" };
+    }
+  }
+  if (got.bytes && got.type) avatars.set(avatarUrl, { at: Date.now(), type: got.type, bytes: got.bytes });
+  return got;
+}

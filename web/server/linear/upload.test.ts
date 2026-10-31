@@ -3,7 +3,8 @@ import { Readable } from "node:stream";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { afterEach, beforeEach, test } from "node:test";
 import { resetLinearClient } from "./client";
-import { installFakeLinear, type FakeLinear } from "./fake";
+import { FAKE_IDS, installFakeLinear, type FakeLinear } from "./fake";
+import { resetAvatars } from "./image";
 import { resetLinearReads } from "./reads";
 import { linearRoute } from "./route";
 import { LINEAR_UPLOAD, uploadName, uploadType } from "./upload";
@@ -13,6 +14,7 @@ beforeEach(() => {
   fake = installFakeLinear();
   resetLinearClient();
   resetLinearReads();
+  resetAvatars();
 });
 afterEach(() => fake.restore());
 
@@ -83,4 +85,27 @@ test("names and types files safely", () => {
   assert.equal(uploadType("Image/PNG"), "image/png");
   assert.equal(uploadType("text/html; charset=utf-8"), "application/octet-stream");
   assert.equal(uploadType(""), "application/octet-stream");
+});
+
+test("a member's avatar, by their id, from the address Linear gives (without the key off Linear), kept an hour", async () => {
+  const sam = await call(`/api/linear/avatar?user=${FAKE_IDS.sam}`);
+  assert.equal(sam.status, 200, JSON.stringify(sam.json?.body));
+  assert.equal(sam.headers["content-type"], "image/png");
+  assert.equal(sam.headers["x-content-type-options"], "nosniff");
+  assert.ok(sam.raw?.length);
+  // Kept: Linear's workspace is asked once, the avatar's host not again.
+  let asked = 0;
+  const { LINEAR } = await import("../links");
+  const real = LINEAR.fetch;
+  LINEAR.fetch = ((url: unknown, init?: RequestInit) => {
+    if (String(url).includes("avatars.fake")) asked++;
+    return real(url as string, init);
+  }) as typeof fetch;
+  await call(`/api/linear/avatar?user=${FAKE_IDS.sam}`);
+  LINEAR.fetch = real;
+  assert.equal(asked, 0);
+  // No avatar (Owen), someone not in the workspace, or another parameter.
+  assert.equal((await call(`/api/linear/avatar?user=${FAKE_IDS.owen}`)).status, 404);
+  assert.equal((await call("/api/linear/avatar?user=nobody")).status, 404);
+  assert.equal((await call(`/api/linear/avatar?user=${FAKE_IDS.sam}&url=https://evil.example`)).status, 400);
 });

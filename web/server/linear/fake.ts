@@ -290,7 +290,7 @@ export function fakeWorkspace(): FakeWorkspace {
     viewerId: I.owen,
     users: [
       { id: I.owen, name: "Owen Conti", displayName: "Owen" },
-      { id: I.sam, name: "Sam Rivera", displayName: "Sam" },
+      { id: I.sam, name: "Sam Rivera", displayName: "Sam", avatarUrl: FAKE_AVATAR },
     ],
     teams: [
       team(I.eng, "ENG", "Engineering", {
@@ -1171,6 +1171,13 @@ function putBack(file: string, text: string | undefined): void {
   else writeFileSync(file, text);
 }
 
+/** Sam's avatar, on a host that isn't Linear's (as Google's or Gravatar's are), and its image: a 1×1 PNG. */
+export const FAKE_AVATAR = "https://avatars.fake.example/sam.png";
+const AVATAR_PNG = Buffer.from(
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
+  "base64",
+);
+
 /** Where the fake's FileUpload says to put files, and which upload each place is for. */
 const FAKE_STORAGE = "https://storage.fake.linear/upload/";
 const slots = new Map<string, string>();
@@ -1218,6 +1225,11 @@ export function installFakeLinear(ws: FakeWorkspace = fakeWorkspace()): FakeLine
       const type = new Headers(init.headers).get("content-type") ?? "application/octet-stream";
       uploads.set(slot, { type, bytes: Buffer.from(init.body as Uint8Array) });
       return new Response("", { status: 200 });
+    }
+    if (address === FAKE_AVATAR) {
+      // Never with the key: it isn't Linear's.
+      if (new Headers(init?.headers).get("authorization")) return new Response("", { status: 400 });
+      return new Response(new Uint8Array(AVATAR_PNG), { status: 200, headers: { "content-type": "image/png" } });
     }
     if (address.startsWith("https://uploads.linear.app/")) {
       const file = uploads.get(address);

@@ -7,7 +7,7 @@ import type { IssueScope, LinearUnavailable } from "../../src/linear/types";
 import { bodyOf, rawBody } from "../api/http";
 import { errorText } from "../wire";
 import { LinearError } from "./client";
-import { linearFile, linearImage } from "./image";
+import { linearAvatar, linearFile, linearImage } from "./image";
 import { LINEAR_UPLOAD, uploadToLinear } from "./upload";
 import { WRITES, linearWrite } from "./writes";
 import {
@@ -107,6 +107,26 @@ export async function linearRoute(
     res.setHeader("Content-Type", image.type!);
     res.setHeader("Cache-Control", "private, max-age=86400");
     res.end(image.bytes);
+    return;
+  }
+
+  // A workspace member's avatar, by their id (the address is Linear's, never the page's).
+  if (path === "avatar") {
+    if (!only("user")) return reply(400, { error: "Unexpected parameters" });
+    const id = url.searchParams.get("user") ?? "";
+    let avatarUrl: string | undefined;
+    try {
+      avatarUrl = (await readWorkspace()).users.find((u) => u.id === id)?.avatarUrl;
+    } catch {
+      return reply(404, { error: "No avatar" });
+    }
+    const avatar = await linearAvatar(avatarUrl);
+    if (!avatar.bytes) return reply(avatar.status, { error: avatar.error });
+    res.statusCode = 200;
+    res.setHeader("Content-Type", avatar.type!);
+    res.setHeader("X-Content-Type-Options", "nosniff");
+    res.setHeader("Cache-Control", "private, max-age=3600");
+    res.end(avatar.bytes);
     return;
   }
 
