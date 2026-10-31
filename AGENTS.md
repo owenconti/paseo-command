@@ -109,6 +109,8 @@ Report the commit, whether the push succeeded, whether the build succeeded, and 
   (web/dist). It runs that server itself and the server ends with the app (`ServerManager.swift`). Check runs pass `--no-server`.
   Launch it with `open -g` and `--background` for checks; it must never take the user's focus.
 - `npm run render:test`: layout and tile tests.
+- `npm run check`: every check, run locally (the repository has no GitHub Actions; do not add any): `public:check -- --history`,
+  `secrets:scan` (Gitleaks over all history, skipped with a note when `gitleaks` isn't installed), `app:test`, `app:build`, `native:test`.
 
 The earlier cached Phaser AE prototype, engine, generated build and prototype-only npm commands
 were removed at the user’s request.

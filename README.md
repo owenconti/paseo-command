@@ -188,7 +188,9 @@ Tests use fake daemons. Never test mutations against a real fleet.
 
 Run `npm run public:hooks` to install the local publication push guard. It checks
 the exact history being pushed and refuses old private branches or tags. This
-checkout publishes `main` only. Gitleaks also checks credential patterns in CI.
+checkout publishes `main` only. `npm run check` runs every
+check locally (this repository has no GitHub Actions), including a Gitleaks
+credential scan when `gitleaks` is installed.
 
 - `web/`: React panels and a local API built with the official Paseo SDK.
 - `native/`: AppKit, WebKit, SpriteKit and SwiftTerm desktop application.

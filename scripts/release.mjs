@@ -187,7 +187,7 @@ async function main(original, tmp) {
 
   step('Tests');
   const failures = [];
-  for (const script of [['run', 'public:check', '--', '--history'], ['run', 'app:test'], ['run', 'render:test'], ['run', 'native:test']])
+  for (const script of [['run', 'public:check', '--', '--history'], ['run', 'secrets:scan'], ['run', 'app:test'], ['run', 'render:test'], ['run', 'native:test']])
     try {
       out('npm', script, { stdio: 'inherit' });
     } catch {
