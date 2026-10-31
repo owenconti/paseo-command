@@ -1445,6 +1445,14 @@ function App() {
               ]
             : [
                 {
+                  id: "linear-sidebar",
+                  group: "App",
+                  label: "Show or hide the Linear issue list",
+                  keys: [["⌘", "S"]],
+                  keywords: "linear sidebar list collapse panel",
+                  run: () => runAppCommand("linear-sidebar"),
+                },
+                {
                   id: "linear-refresh",
                   group: "App",
                   label: "Refresh Linear issues",

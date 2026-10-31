@@ -217,6 +217,8 @@ Local assets belong in the repository and are included through local build tooli
   details (description, links, comments), read-only from Linear (`web/server/linear.ts`, `GET /api/linear/issues[/KEY]`, with
   `LINEAR_API_KEY` or `linearApiKey` in `secrets.json`). Launch agent opens New agent with the issue (`DispatchTarget.issue`):
   Worktree on Linear's branch name, the composer's draft naming the issue; presets take `{{issue}}` and the issue's details.
+  As Conquer's sidebar, the issue list's inner edge resizes it and ⌘S hides or shows it (kept in localStorage). Images uploaded
+  to Linear load through `GET /api/linear/image?url=` (only `uploads.linear.app`, fetched with the key; `linearImages`).
 - Web links clicked in the chat (`.session`, `openInAppBrowser` in `web/src/Session.tsx`, `postAppLink` → the `openLink` message)
   switch to Conquer and open there as a new tab, once its tabs are restored (`whenStarted`).
 

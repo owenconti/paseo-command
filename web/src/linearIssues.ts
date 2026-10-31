@@ -75,6 +75,17 @@ export function issueMatches(issue: LinearIssueRow, query: string) {
   return words.every((w) => text.includes(w));
 }
 
+/** Markdown images uploaded to Linear (which load only with the API key) as
+ * the app server's route to them, `origin`'s `/api/linear/image`. Links to
+ * uploads, and images elsewhere, are left as they are. */
+export function linearImages(markdown: string, origin: string) {
+  return markdown.replace(
+    /(!\[[^\]]*\]\()\s*<?(https:\/\/uploads\.linear\.app\/[^)\s>]+)>?/g,
+    (_, head: string, url: string) =>
+      `${head}${origin}/api/linear/image?url=${encodeURIComponent(url)}`,
+  );
+}
+
 /** How much of a description goes into a prompt. */
 const DESCRIPTION_LIMIT = 8000;
 

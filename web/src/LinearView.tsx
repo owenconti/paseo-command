@@ -8,6 +8,8 @@ import {
   LoaderCircle,
   Minus,
   OctagonAlert,
+  PanelLeftClose,
+  PanelLeftOpen,
   Play,
   RefreshCw,
   Search,
@@ -24,11 +26,18 @@ import {
   groupIssues,
   issueContext,
   issueMatches,
+  linearImages,
   useAssignedIssues,
   useIssueDetail,
   type IssueContext,
   type LinearIssueRow,
 } from "./linearIssues";
+
+/** The issue list's width: its default, and the least it and the details keep. */
+const LIST = { width: 320, min: 200, detailMin: 320 };
+const listMax = (viewWidth: number) => Math.max(LIST.min, viewWidth - LIST.detailMin);
+const clampList = (width: number, viewWidth: number) =>
+  Math.round(Math.min(listMax(viewWidth), Math.max(LIST.min, width)));
 
 const PRIORITY_ICON = [Minus, OctagonAlert, SignalHigh, SignalMedium, SignalLow];
 
@@ -53,7 +62,8 @@ function StateDot({ color }: { color: string }) {
  * The Linear tab, in the map's place (the macOS app's mode bar): the open
  * issues assigned to you, grouped by state, beside the chosen one's details,
  * from which an agent can be launched (New agent opens in the panel with the
- * issue). Read-only: nothing here changes Linear.
+ * issue). Read-only: nothing here changes Linear. As Conquer's tab sidebar,
+ * the list's inner edge resizes it and ⌘S hides or shows it (both remembered).
  */
 export function LinearView({ onLaunch }: { onLaunch: (issue: IssueContext) => void }) {
   const list = useAssignedIssues();
@@ -61,6 +71,44 @@ export function LinearView({ onLaunch }: { onLaunch: (issue: IssueContext) => vo
   const [selected, setSelected] = useState<string | null>(() => readStore("linear:selected", null));
   const [revision, setRevision] = useState(0);
   const listRef = useRef<HTMLDivElement>(null);
+  const viewRef = useRef<HTMLElement>(null);
+  const [listWidth, setListWidth] = useState(() => readStore("linear:listWidth", LIST.width));
+  const [listHidden, setListHidden] = useState(() => readStore("linear:listHidden", false));
+  const [viewWidth, setViewWidth] = useState(0);
+  const drag = useRef<{ x: number; width: number } | null>(null);
+  const width = viewWidth ? clampList(listWidth, viewWidth) : listWidth;
+  const resizeTo = (next: number) => {
+    const w = viewWidth ? clampList(next, viewWidth) : next;
+    setListWidth(w);
+    writeStore("linear:listWidth", w);
+  };
+  const toggleList = () =>
+    setListHidden((hidden) => {
+      writeStore("linear:listHidden", !hidden);
+      return !hidden;
+    });
+  useEffect(() => {
+    const view = viewRef.current;
+    if (!view) return;
+    const watch = new ResizeObserver(() => setViewWidth(view.clientWidth));
+    watch.observe(view);
+    return () => watch.disconnect();
+  }, [list.answer?.available]);
+  // ⌘S, as in Conquer: while Linear shows, the page has the key.
+  useEffect(() => {
+    const key = (e: KeyboardEvent) => {
+      if (e.metaKey && !e.ctrlKey && !e.altKey && !e.shiftKey && e.key.toLowerCase() === "s") {
+        e.preventDefault();
+        toggleList();
+      }
+    };
+    window.addEventListener("keydown", key);
+    const off = onAppCommand("linear-sidebar", toggleList);
+    return () => {
+      window.removeEventListener("keydown", key);
+      off();
+    };
+  }, []);
   const issues = list.answer?.available ? list.answer.issues : [];
   const shown = useMemo(() => issues.filter((i) => issueMatches(i, query)), [issues, query]);
   const groups = useMemo(() => groupIssues(shown), [shown]);
@@ -110,13 +158,26 @@ export function LinearView({ onLaunch }: { onLaunch: (issue: IssueContext) => vo
 
   const issue = detail?.answer?.available ? detail.answer.issue : null;
   return (
-    <section className="linear-view" aria-label="Linear issues">
-      <div className="linear-list">
+    <section
+      className="linear-view"
+      aria-label="Linear issues"
+      ref={viewRef}
+      style={{ gridTemplateColumns: listHidden ? "minmax(0, 1fr)" : `${width}px minmax(0, 1fr)` }}
+    >
+      <div className="linear-list" id="linear-list" hidden={listHidden}>
         <header className="linear-list-head">
           <h2>
             Assigned to you
             {list.answer?.available && <span className="linear-count">{issues.length}</span>}
           </h2>
+          <button
+            className="icon-btn"
+            aria-label="Hide the issue list"
+            data-tip="Hide the issue list (⌘S)"
+            onClick={toggleList}
+          >
+            <PanelLeftClose size={14} aria-hidden="true" />
+          </button>
           <button
             className="icon-btn"
             aria-label="Refresh"
@@ -198,8 +259,48 @@ export function LinearView({ onLaunch }: { onLaunch: (issue: IssueContext) => vo
             </div>
           ))}
         </div>
+        <div
+          className="linear-resize"
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="Resize the issue list"
+          aria-controls="linear-list"
+          aria-valuemin={LIST.min}
+          aria-valuemax={viewWidth ? listMax(viewWidth) : undefined}
+          aria-valuenow={width}
+          aria-description="Drag, or use the arrow keys, to change the issue list's width. Shift resizes faster; double-click restores the default."
+          tabIndex={0}
+          onPointerDown={(e) => {
+            if (e.button !== 0) return;
+            e.preventDefault();
+            e.currentTarget.setPointerCapture(e.pointerId);
+            drag.current = { x: e.clientX, width };
+          }}
+          onPointerMove={(e) => {
+            if (drag.current) resizeTo(drag.current.width + e.clientX - drag.current.x);
+          }}
+          onPointerUp={() => (drag.current = null)}
+          onPointerCancel={() => (drag.current = null)}
+          onLostPointerCapture={() => (drag.current = null)}
+          onDoubleClick={() => resizeTo(LIST.width)}
+          onKeyDown={(e) => {
+            if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+            e.preventDefault();
+            resizeTo(width + (e.key === "ArrowRight" ? 1 : -1) * (e.shiftKey ? 64 : 16));
+          }}
+        />
       </div>
       <div className="linear-detail" aria-live="polite">
+        {listHidden && (
+          <button
+            className="icon-btn linear-show-list"
+            aria-label="Show the issue list"
+            data-tip="Show the issue list (⌘S)"
+            onClick={toggleList}
+          >
+            <PanelLeftOpen size={14} aria-hidden="true" />
+          </button>
+        )}
         {!current ? (
           <p className="linear-note">Choose an issue to see it here.</p>
         ) : detail?.error || (detail?.answer && !detail.answer.available) ? (
@@ -303,7 +404,7 @@ export function LinearView({ onLaunch }: { onLaunch: (issue: IssueContext) => vo
             </header>
             <div className="linear-description">
               {issue.description.trim() ? (
-                <Markdown text={issue.description} />
+                <Markdown text={linearImages(issue.description, location.origin)} />
               ) : (
                 <p className="linear-note">No description.</p>
               )}
@@ -333,7 +434,7 @@ export function LinearView({ onLaunch }: { onLaunch: (issue: IssueContext) => vo
                     <p className="linear-comment-head">
                       <b>{c.author}</b> <span>{ago(c.createdAt)}</span>
                     </p>
-                    <Markdown text={c.body} />
+                    <Markdown text={linearImages(c.body, location.origin)} />
                   </div>
                 ))}
               </section>

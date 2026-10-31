@@ -6,7 +6,7 @@
 import { after, before, test } from "node:test";
 import assert from "node:assert/strict";
 import type { Browser } from "playwright";
-import { launch, mockApi, newContext, startApp, waitFor } from "./harness";
+import { PNG, launch, mockApi, newContext, startApp, waitFor } from "./harness";
 
 let app: Awaited<ReturnType<typeof startApp>>;
 let browser: Browser;
@@ -52,6 +52,11 @@ test("Linear lists your issues, shows one, and launches New agent from it", asyn
       return { agentId: "a-new" };
     },
   });
+  const imageAsked: string[] = [];
+  await page.route("**/api/linear/image**", (route) => {
+    imageAsked.push(new URL(route.request().url()).searchParams.get("url")!);
+    return route.fulfill({ body: PNG, contentType: "image/png" });
+  });
   await page.route("**/api/linear/issues**", (route) => {
     const path = new URL(route.request().url()).pathname;
     if (path === "/api/linear/issues")
@@ -63,7 +68,7 @@ test("Linear lists your issues, shows one, and launches New agent from it", asyn
         available: true,
         issue: issue && {
           ...issue,
-          description: `About **${key}**.`,
+          description: `About **${key}**.\n\n![shot.png](https://uploads.linear.app/a/b/shot.png)`,
           createdAt: "2026-10-01T00:00:00.000Z",
           links: [],
           comments: [{ author: "Sam", body: "Seen it too.", createdAt: "2026-10-02T00:00:00.000Z" }],
@@ -86,6 +91,9 @@ test("Linear lists your issues, shows one, and launches New agent from it", asyn
   );
   await view.locator(".linear-issue h1", { hasText: "Fix the login page" }).waitFor();
   await view.locator(".linear-comment", { hasText: "Seen it too." }).waitFor();
+  // An image uploaded to Linear loads through the app server, which holds the key.
+  await view.locator(".linear-description img").waitFor();
+  assert.ok(imageAsked.some((u) => u === "https://uploads.linear.app/a/b/shot.png"));
   // Another, by keyboard.
   await view.locator('.linear-row[data-key="ENG-12"]').focus();
   await page.keyboard.press("ArrowDown");
@@ -110,7 +118,21 @@ test("Linear lists your issues, shows one, and launches New agent from it", asyn
   await waitFor(() => Promise.resolve(dispatched.length), (n) => n === 1, "the dispatch");
   assert.equal(dispatched[0].projectId, "prj_atlas");
   assert.equal(dispatched[0].branch, "owen/eng-7-work");
-  assert.match(dispatched[0].prompt, /^Plan ENG-7 \(Tidy the docs\)\.\n\nLinear issue ENG-7: Tidy the docs\nhttps:\/\/linear\.app\/acme\/issue\/ENG-7\n\nAbout \*\*ENG-7\*\*\.$/);
+  assert.match(dispatched[0].prompt, /^Plan ENG-7 \(Tidy the docs\)\.\n\nLinear issue ENG-7: Tidy the docs\nhttps:\/\/linear\.app\/acme\/issue\/ENG-7\n\nAbout \*\*ENG-7\*\*\.\n\n!\[shot\.png\]/);
+
+  // The list's edge resizes it; ⌘S hides and shows it, as in Conquer.
+  const list = view.locator(".linear-list");
+  const before = (await list.boundingBox())!.width;
+  const edge = (await view.locator(".linear-resize").boundingBox())!;
+  await page.mouse.move(edge.x + edge.width / 2, edge.y + 100);
+  await page.mouse.down();
+  await page.mouse.move(edge.x + edge.width / 2 + 80, edge.y + 100, { steps: 4 });
+  await page.mouse.up();
+  assert.ok(Math.abs((await list.boundingBox())!.width - (before + 80)) <= 2);
+  await page.keyboard.press("Meta+s");
+  await waitFor(() => list.isVisible(), (v) => !v, "the list to hide");
+  await view.getByRole("button", { name: "Show the issue list" }).click();
+  await waitFor(() => list.isVisible(), (v) => v, "the list to show");
 
   // Back to the map: the view goes.
   await page.evaluate(() =>

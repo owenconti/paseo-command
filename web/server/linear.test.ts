@@ -1,7 +1,7 @@
 import { afterEach, test } from "node:test";
 import assert from "node:assert/strict";
 import { LINEAR } from "./links";
-import { assignedIssues, issueDetail, resetLinear } from "./linear";
+import { assignedIssues, issueDetail, linearImage, resetLinear } from "./linear";
 
 // Linear is never reached: LINEAR.fetch answers here.
 const realFetch = LINEAR.fetch;
@@ -143,4 +143,24 @@ test("linear: an issue Linear doesn't know is null", async () => {
   process.env.LINEAR_API_KEY = "lin_api_test";
   answer({ data: { issue: null } });
   assert.deepEqual(await issueDetail("ENG-404"), { available: true, issue: null });
+});
+
+test("linear: an uploaded image is fetched with the key; nothing else is", async () => {
+  process.env.LINEAR_API_KEY = "lin_api_test";
+  const fetched: { url: string; auth: string }[] = [];
+  const reply = (type: string) =>
+    (LINEAR.fetch = (async (url: string, init?: RequestInit) => {
+      fetched.push({ url, auth: String((init?.headers as Record<string, string>).Authorization) });
+      return new Response(new Uint8Array([137, 80, 78, 71]), { headers: { "content-type": type } });
+    }) as typeof fetch);
+  reply("image/png");
+  const ok = await linearImage("https://uploads.linear.app/a/b/image.png");
+  assert.equal(ok.status, 200);
+  assert.equal(ok.type, "image/png");
+  assert.deepEqual(fetched, [{ url: "https://uploads.linear.app/a/b/image.png", auth: "lin_api_test" }]);
+  for (const url of ["https://example.com/x.png", "http://uploads.linear.app/x.png", "https://u:p@uploads.linear.app/x.png", "nonsense"])
+    assert.equal((await linearImage(url)).status, 400);
+  assert.equal(fetched.length, 1);
+  reply("text/html");
+  assert.equal((await linearImage("https://uploads.linear.app/a/b/page")).status, 415);
 });

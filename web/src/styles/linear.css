@@ -6,7 +6,8 @@
   inset: 0;
   z-index: 20;
   display: grid;
-  grid-template-columns: minmax(240px, 34%) minmax(0, 1fr);
+  /* The list's width is set inline: it resizes, and ⌘S hides it. */
+  grid-template-columns: 320px minmax(0, 1fr);
   min-height: 0;
   background: var(--surface);
   color: var(--text);
@@ -53,6 +54,7 @@
 
 /* The list */
 .linear-list {
+  position: relative;
   display: flex;
   flex-direction: column;
   min-height: 0;
@@ -67,6 +69,7 @@
   padding: var(--space-3) var(--space-3) 0 var(--space-4);
 }
 .linear-list-head h2 {
+  flex: 1;
   margin: 0;
   font-size: var(--fs-lg);
   font-weight: var(--fw-semibold);
@@ -133,8 +136,36 @@
   white-space: nowrap;
 }
 
+/* The list's inner edge resizes it, as the panel's does. */
+.linear-resize {
+  position: absolute;
+  top: 0;
+  right: -5px;
+  bottom: 0;
+  z-index: 2;
+  width: 9px;
+  cursor: col-resize;
+  touch-action: none;
+}
+.linear-resize::after {
+  content: "";
+  position: absolute;
+  inset: 0 3px;
+  background: transparent;
+  transition: background-color 120ms ease;
+}
+.linear-resize:hover::after,
+.linear-resize:active::after,
+.linear-resize:focus-visible::after {
+  background: var(--accent);
+}
+.linear-resize:focus-visible {
+  outline: none;
+}
+
 /* The chosen issue */
 .linear-detail {
+  position: relative;
   min-width: 0;
   min-height: 0;
   overflow-y: auto;
@@ -327,11 +358,20 @@
   color: var(--text-2);
 }
 
+.linear-show-list {
+  position: absolute;
+  top: var(--space-3);
+  left: var(--space-3);
+  z-index: 1;
+}
+.linear-list[hidden] + .linear-detail .linear-issue {
+  padding-left: calc(var(--space-6) + var(--control-sm));
+}
 @media (max-width: 1100px) {
-  .linear-view {
-    grid-template-columns: minmax(200px, 40%) minmax(0, 1fr);
-  }
   .linear-issue {
     padding: var(--space-4);
   }
+}
+.linear-list[hidden] {
+  display: none;
 }

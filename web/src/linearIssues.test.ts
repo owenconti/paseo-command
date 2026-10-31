@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { groupIssues, issueMatches, issuePrompt, type LinearIssueRow } from "./linearIssues";
+import { groupIssues, issueMatches, issuePrompt, linearImages, type LinearIssueRow } from "./linearIssues";
 import { fillPreset } from "./presets";
 
 const row = (key: string, state: [string, string], priority: number, updatedAt: string, extra: Partial<LinearIssueRow> = {}): LinearIssueRow => ({
@@ -62,4 +62,12 @@ test("linear issues: the prompt and presets carry the issue", () => {
   );
   // Without an issue, presets are as they were.
   assert.equal(fillPreset("Review {{pr}}.", { number: 7 }), "Review #7.");
+});
+
+test("linear issues: images uploaded to Linear load through the app server; links and other images don't", () => {
+  const up = "https://uploads.linear.app/79bf/abc/image.png";
+  assert.equal(
+    linearImages(`See ![image.png](${up}) and ![x](<${up}>), [file](${up}), ![y](https://example.com/y.png).`, "http://127.0.0.1:4310"),
+    `See ![image.png](http://127.0.0.1:4310/api/linear/image?url=${encodeURIComponent(up)}) and ![x](http://127.0.0.1:4310/api/linear/image?url=${encodeURIComponent(up)}), [file](${up}), ![y](https://example.com/y.png).`,
+  );
 });

@@ -13,7 +13,8 @@ export type AppCommand =
   | "agent-interrupt"
   | "agent-open-paseo"
   | "agent-archive"
-  | "linear-refresh";
+  | "linear-refresh"
+  | "linear-sidebar";
 
 const EVENT = "paseo:command";
 
