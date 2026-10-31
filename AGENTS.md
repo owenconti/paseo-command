@@ -66,9 +66,13 @@ npm run app:update   # app:build && app:bundle-server && native:build
 ```
 
 This builds the web app (`web/dist/`, which a browser preview serves without a restart), bundles the server and
-builds the dev flavour `native/build/Paseo Command Dev.app`. It is a build check only: the user's installed app updates
-through Sparkle releases, not through this command. Never quit, relaunch or open the user's macOS app, and do not run
-`app:restart`. Never run `npm run release` or `npm run release:setup`: releases are the user's. After pushing, tell the
+rebuilds the dev flavour `native/build/Paseo Command Dev.app` in place. The user tests changes in that Dev app before
+releasing: once a newer build is on disk its mode bar shows "Update ready · Restart app", and the user chooses
+**Restart app** in its command palette (⌘K) to load it. Tell the user the Dev app is ready to restart. The installed
+release app updates only through Sparkle releases. Never quit, relaunch or open either of the user's apps (the main
+checkout's `native/build/Paseo Command Dev.app` is the user's own copy), and do not run `app:restart`. Your check runs
+use a build in your own workspace, launched with `--info <file>` (which gives the copy a throwaway data folder) and
+either `--no-server` or a `--url` on a port of its own (e.g. `http://127.0.0.1:4322/`), never 4310 or 4321. Never run `npm run release` or `npm run release:setup`: releases are the user's. After pushing, tell the
 user a release is pending (`npm run release -- <next version>`), naming the user-visible changes since the last one.
 If you made a Paseo workspace (worktree) for the work, archive it once its branch is merged into `main` and pushed
 (remove any `node_modules` symlinks you added to it first), so finished work leaves no workspace behind on the map.

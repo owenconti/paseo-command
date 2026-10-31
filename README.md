@@ -16,7 +16,7 @@ browser the conversations and panels work; the map requires the macOS app.
    **System Settings → Privacy & Security → Open Anyway** for Paseo Command, then open it
    again. Later opens and updates need nothing.
 
-Requirements: macOS 14 or later, and [Paseo](https://paseo.sh) installed in Applications and
+Requirements: a Mac with Apple silicon (M1 or later; Intel Macs aren't supported), macOS 14 or later, and [Paseo](https://paseo.sh) installed in Applications and
 opened once, so its daemon is running (check with `paseo status`, or
 `/Applications/Paseo.app/Contents/Resources/bin/paseo status`). Optional: the
 [GitHub CLI](https://cli.github.com), signed in with `gh auth login`, for pull request and
@@ -102,7 +102,15 @@ npm run native:run    # opens Paseo Command Dev on http://127.0.0.1:4321, withou
 This needs Apple's Command Line Tools (`xcode-select --install`) and Node.js 20.19+ or 22.12+
 with npm. `native:build` makes `native/build/Paseo Command Dev.app`, a separate app from the
 released one (its own bundle id, port 4321 and data folder, and no updates). It carries its own
-Node and server, so it can live anywhere.
+Node and server, so it can live anywhere, and it runs beside the released app.
+
+### Testing changes before a release
+
+Keep `native/build/Paseo Command Dev.app` (in the main checkout) open while changes are made. After
+each change is merged, `npm run app:update` from the main checkout rebuilds it in place; the running
+Dev app then shows **Update ready · Restart app** in its mode bar. Choose **Restart app** from its
+command palette (⌘K): it restarts with the new page, server and app, at the same window position and page.
+Once you're happy, publish the changes with `npm run release -- <version>`.
 
 Without the macOS app, `npm run app:dev` (development) or `npm run app:start` (built preview)
 serves the app at http://127.0.0.1:4310 in any browser. Conversations and panels work there,

@@ -460,6 +460,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     }
 }
 
+if let info = Options(CommandLine.arguments).info {
+    AppFlavor.checkData = FileManager.default.temporaryDirectory
+        .appendingPathComponent("paseo-command-check-" + ((info as NSString).lastPathComponent as NSString).deletingPathExtension, isDirectory: true)
+}
 let app = NSApplication.shared
 let delegate = AppDelegate()
 app.delegate = delegate

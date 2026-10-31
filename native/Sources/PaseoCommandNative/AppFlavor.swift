@@ -8,8 +8,12 @@ enum AppFlavor {
     private static func info(_ key: String) -> String? { Bundle.main.object(forInfoDictionaryKey: key) as? String }
     static var isRelease: Bool { info("PaseoCommandFlavor") == "release" }
     static var port: Int { info("PaseoCommandPort").flatMap(Int.init) ?? (isRelease ? 4310 : 4321) }
+    /// A check copy's (`--info`) own throwaway data folder, so checks never write the data of
+    /// the copy you run, which may be this very dev build.
+    static var checkData: URL?
     /// `~/Library/Application Support/<app name>/`: the server's data and logs.
     static var dataFolder: URL {
+        if let checkData { return checkData }
         let name = info("PaseoCommandFlavor") == nil ? nil : info("CFBundleName")
         return FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
             .appendingPathComponent(name ?? "Paseo Command Dev", isDirectory: true)
