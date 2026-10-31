@@ -12,9 +12,8 @@ browser the conversations and panels work; the map requires the macOS app.
 1. Download the latest `Paseo-Command-<version>.zip` from
    [GitHub Releases](https://github.com/owenconti/paseo-command/releases/latest).
 2. Unzip it and drag **Paseo Command** to Applications.
-3. Open it. Releases are not notarized by Apple, so the first open is blocked: choose
-   **System Settings → Privacy & Security → Open Anyway** for Paseo Command, then open it
-   again. Later opens and updates need nothing.
+3. Open it. Releases are signed with a Developer ID and notarized by Apple, so macOS only asks
+   once whether to open an app downloaded from the internet.
 
 Requirements: a Mac with Apple silicon (M1 or later; Intel Macs aren't supported), macOS 14 or later, and [Paseo](https://paseo.sh) installed in Applications and
 opened once, so its daemon is running (check with `paseo status`, or
@@ -73,9 +72,8 @@ the release notes.
 
 ## Troubleshooting
 
-- **macOS says the app can't be opened, or is from an unidentified developer**: open System
-  Settings → Privacy & Security, scroll to the message about Paseo Command and choose
-  **Open Anyway**.
+- **macOS says the app can't be opened**: make sure it's an Apple silicon Mac on macOS 14 or
+  later, and that the app came from the GitHub release (a copy built from source isn't notarized).
 - **Port 4310 in use**: another program holds the port. The app never stops it; quit that
   program (or the old checkout server, if the app offers to stop it) and restart the app.
 - **"Paseo CLI was not found"**: install Paseo in `/Applications` or
@@ -83,9 +81,6 @@ the release notes.
 - **No hosts or "The local daemon isn't answering"**: open Paseo and check
   `paseo status`. To use a fixed daemon address, set `PASEO_COMMAND_DAEMON=host:port`
   (loopback only).
-- **The server didn't start after Open Anyway**: quit the app and clear the download's
-  quarantine flag, then open it again:
-  `xattr -dr com.apple.quarantine "/Applications/Paseo Command.app"`.
 - **The app shows a blank page or no server**: read
   `~/Library/Application Support/Paseo Command/logs/server.log`, then restart the app.
 
@@ -121,10 +116,22 @@ checks against a mocked fleet.
 
 ### Releasing (maintainers)
 
-Once, on the maintainer's Mac: `npm run release:setup` creates the self-signed code-signing
-identity "Paseo Command Release" in the login keychain and the Sparkle update keys, and writes
-the public key (`SUPublicEDKey`) into `native/Info.plist` for you to commit and push. Then
-release from `main`. It needs the checkout on `main`, clean, a full (not shallow) clone and equal to
+Releases are signed with the maintainer's Developer ID (an Apple Developer Program membership)
+and notarized. Once, on the maintainer's Mac, run `npm run release:setup`. It walks through three
+things and keeps whatever already exists:
+
+1. A **Developer ID Application** certificate in the login keychain. If there's none it says how to
+   make one: a certificate request from Keychain Access, then developer.apple.com → Certificates →
+   Developer ID Application, then double-click the downloaded `.cer`. It installs Apple's
+   intermediate certificate if that's missing.
+2. A **notarization login**, saved in the keychain as `paseo-command-notary` by
+   `xcrun notarytool store-credentials`: your Apple ID, team and an app-specific password
+   (account.apple.com → Sign-In and Security → App-Specific Passwords).
+3. The **Sparkle update keys**: the private key stays in the keychain, and the public key
+   (`SUPublicEDKey`) is written into `native/Info.plist` for you to commit and push.
+
+With more than one Developer ID identity in the keychain, set `PASEO_COMMAND_SIGN_IDENTITY` to the
+one to use. Then release from `main`. It needs the checkout on `main`, clean, a full (not shallow) clone and equal to
 `origin/main`, `gh` signed in, and a version greater than the latest GitHub release
 (`--dry-run` only warns about the first three):
 
@@ -132,16 +139,18 @@ release from `main`. It needs the checkout on `main`, clean, a full (not shallow
 npm run release -- 0.2.1 [--notes notes.md] [--dry-run]
 ```
 
-It runs the checks and tests, builds and signs `native/release/Paseo Command.app` (apart from
-`native/build/`, where an older checkout app may live), zips it, writes the Sparkle appcast,
+It runs the checks and tests, builds `native/release/Paseo Command.app` (apart from
+`native/build/`, where an older checkout app may live), signs it with your Developer ID under the
+hardened runtime, has Apple notarize it (`xcrun notarytool submit --wait`, usually a few minutes),
+staples the ticket and checks Gatekeeper accepts it, zips it, writes the Sparkle appcast,
 commits the version bump as `Release v0.2.1` (if package.json changes), pushes `main` and
 creates the GitHub release with `gh release create`. The build number (the commit count) must be
-greater than the published appcast's, so updates always install. `--dry-run` does everything
-except commit, push and publish. The private keys stay in the keychain; nothing secret enters
+greater than the published appcast's, so updates always install. `--dry-run` does everything,
+notarization included, except commit, push and publish. The private keys stay in the keychain; nothing secret enters
 the repository.
 
-Before announcing a release, download the published zip in Safari, install it, choose Open
-Anyway and confirm it starts; after 0.2.1, also confirm that an update installs.
+Before announcing a release, download the published zip in Safari, install it and confirm it opens
+without a warning beyond macOS's usual first-open question; after 0.2.1, also confirm that an update installs.
 
 #### Switching from the checkout app
 
@@ -153,7 +162,7 @@ For the maintainer moving from the app built in a checkout (`local.paseo.command
 4. `npm run release -- 0.2.0`.
 5. Download `Paseo-Command-0.2.0.zip` from the release and drag the app to `/Applications`.
 6. Quit the old checkout app.
-7. Open the new app (Open Anyway on first launch). It offers to stop the old server, then brings
+7. Open the new app. It offers to stop the old server, then brings
    over the old app's tabs, settings and data.
 8. Remove the old checkout app from the Dock and from Login Items.
 

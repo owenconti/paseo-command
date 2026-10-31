@@ -92,11 +92,12 @@ Report the commit, whether the push succeeded, whether the build succeeded, and 
 - `npm run app:bundle-server`: esbuild-bundles `web/server/native.ts` into `web/dist-server/server.mjs` (ignored) for the app bundle.
 - `npm run app:update`: `app:build`, `app:bundle-server` and `native:build`, after merging to `main` (see above), as a build check.
 - `npm run native:test`: the native, bundle and Conquer checks (`native/scripts/test-native.mjs`, `test-bundle.mjs`, `test-conquer.mjs`).
-- `npm run release:setup`: once, by the user: a self-signed code-signing identity "Paseo Command Release" in the login keychain and
-  Sparkle EdDSA keys (`SUPublicEDKey` goes into `native/Info.plist`). `npm run release -- <version> [--notes <file>] [--dry-run]`
-  (`scripts/release.mjs`): checks, tests, builds, signs and zips the release app to `native/release/`, writes the Sparkle appcast, commits
-  `Release v<version>`, pushes `main` and runs `gh release create`. Releases are not notarized: a first open needs System Settings →
-  Privacy & Security → Open Anyway.
+- `npm run release:setup`: once, by the user: checks for a "Developer ID Application" certificate in the login keychain (explains
+  making one; installs Apple's intermediate), saves a notarytool login as `paseo-command-notary`, and makes Sparkle EdDSA keys
+  (`SUPublicEDKey` goes into `native/Info.plist`). `scripts/signing.mjs` picks the identity (`PASEO_COMMAND_SIGN_IDENTITY` when there are several). `npm run release -- <version> [--notes <file>] [--dry-run]`
+  (`scripts/release.mjs`): checks, tests, builds the release app to `native/release/`, signs it with the Developer ID under the hardened
+  runtime (entitlements in `native/entitlements/`: Apple Events for the app, JIT for Node), notarizes and staples it, zips it, writes the Sparkle appcast, commits
+  `Release v<version>`, pushes `main` and runs `gh release create`. Releases are notarized, so they open normally.
 - `npm run app:typecheck`: checks React, API and Atlas TypeScript.
 - `npm run app:e2e`: browser tests of the Atlas against a mocked fleet (no daemon is reached).
 - `npm run native:build`, `native:run [-- --url …]`: the macOS app (`native/`) that draws the Atlas with

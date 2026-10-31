@@ -14,8 +14,8 @@ npm run native:run -- --url http://127.0.0.1:4331/
 (bundle id `io.github.owenconti.paseo-command.dev`, port 4321, no updates, data in
 `~/Library/Application Support/Paseo Command Dev/`). `sh native/scripts/bundle.sh --release` (run by
 `npm run release`) makes `native/release/Paseo Command.app` (`io.github.owenconti.paseo-command`, port 4310,
-Sparkle updates, data in `~/Library/Application Support/Paseo Command/`), signed with the self-signed
-"Paseo Command Release" identity. Both carry `Contents/Resources/node/node` (Node for Apple silicon; the app supports Apple silicon Macs only),
+Sparkle updates, data in `~/Library/Application Support/Paseo Command/`), signed with the maintainer's
+Developer ID under the hardened runtime (entitlements in `native/entitlements/`) and notarized by `npm run release`. Both carry `Contents/Resources/node/node` (Node for Apple silicon; the app supports Apple silicon Macs only),
 `server/server.mjs` (an esbuild bundle of `web/server/native.ts`, from `npm run app:bundle-server`) and
 `ui/` (`web/dist`).
 

@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 /**
  * npm run release -- <version> [--notes <file>] [--dry-run]
- * Tests, builds, signs and zips the app, writes the Sparkle appcast, then (unless --dry-run) commits
+ * Tests, builds and signs the app with your Developer ID, has Apple notarize it (a dry run too) and
+ * staples the ticket, zips it, writes the Sparkle appcast, then (unless --dry-run) commits
  * the version, pushes main and creates the GitHub release. The tag is made by GitHub (`gh release
  * create --target`), as the publication guard refuses to push tags. A dry run leaves the tree as it found it.
  */
@@ -11,6 +12,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { appcastXML } from './appcast.mjs';
+import { NOTARY_PROFILE, isNotarized, notaryResult, pickIdentity, validIdentities } from './signing.mjs';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const packagePath = join(root, 'package.json');
@@ -155,6 +157,13 @@ async function main(original, tmp) {
   } catch {
     throw new Error('gh is not signed in. Run gh auth login first.');
   }
+  const identity = pickIdentity(validIdentities());
+  console.log(`Signing as ${identity.name}.`);
+  try {
+    out('xcrun', ['notarytool', 'history', '--keychain-profile', NOTARY_PROFILE], { stdio: 'pipe' });
+  } catch {
+    throw new Error(`No working notarytool login "${NOTARY_PROFILE}" in the keychain. Run npm run release:setup first.`);
+  }
   const published = JSON.parse(out('gh', ['release', 'list', '--limit', '200', '--json', 'tagName']));
   const tags = published.map((release) => release.tagName);
   if (tags.includes(`v${version}`)) throw new Error(`A GitHub release v${version} already exists.`);
@@ -188,6 +197,31 @@ async function main(original, tmp) {
   if (bundle.status !== 0) throw new Error('The release build failed (see above). If it asks for it, run npm run release:setup first.');
   const app = join(releaseDir, 'Paseo Command.app');
 
+  step('Notarizing (Apple usually answers within a few minutes)');
+  const upload = join(tmp, 'notarize.zip');
+  out('ditto', ['-c', '-k', '--keepParent', app, upload]);
+  const submitted = spawnSync('xcrun', ['notarytool', 'submit', upload, '--keychain-profile', NOTARY_PROFILE, '--wait', '--output-format', 'json'], { encoding: 'utf8' });
+  if (submitted.status !== 0 && !submitted.stdout.trim()) throw new Error(`notarytool submit failed:\n${submitted.stderr}`);
+  const notary = notaryResult(submitted.stdout);
+  if (!notary.accepted) {
+    let log = '';
+    try {
+      log = out('xcrun', ['notarytool', 'log', notary.id, '--keychain-profile', NOTARY_PROFILE]);
+    } catch {
+      // The status alone still says why it stopped.
+    }
+    throw new Error(`Apple did not notarize the app (status ${notary.status}, submission ${notary.id}).\n${log}`);
+  }
+  console.log(`Notarized (submission ${notary.id}).`);
+  out('xcrun', ['stapler', 'staple', app], { stdio: 'inherit' });
+  out('xcrun', ['stapler', 'validate', app]);
+  const assess = (path) => {
+    const result = spawnSync('spctl', ['--assess', '--type', 'execute', '-vv', path], { encoding: 'utf8' });
+    return `${result.stdout}${result.stderr}`;
+  };
+  const assessment = assess(app);
+  if (!isNotarized(assessment)) throw new Error(`Gatekeeper doesn't accept the stapled app as notarized:\n${assessment}`);
+
   step('Zipping and signing');
   mkdirSync(releaseDir, { recursive: true });
   const zip = join(releaseDir, `Paseo-Command-${version}.zip`);
@@ -219,7 +253,10 @@ async function main(original, tmp) {
   const unpacked = join(tmp, 'unzipped');
   mkdirSync(unpacked);
   out('ditto', ['-x', '-k', zip, unpacked]);
-  console.log(`bundled node ${out(join(unpacked, 'Paseo Command.app', 'Contents', 'Resources', 'node', 'node'), ['--version'])}`);
+  const unpackedApp = join(unpacked, 'Paseo Command.app');
+  console.log(`bundled node ${out(join(unpackedApp, 'Contents', 'Resources', 'node', 'node'), ['--version'])}`);
+  const shipped = assess(unpackedApp);
+  if (!isNotarized(shipped)) throw new Error(`The zipped app isn't accepted as notarized:\n${shipped}`);
 
   if (dryRun) {
     console.log(`\nDry run done: ${zip} and appcast.xml are in native/release. Nothing was committed, pushed or published.`);

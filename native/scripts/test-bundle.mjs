@@ -1,4 +1,4 @@
-// Checks the built app bundles: each flavour carries a universal Node of the pinned version,
+// Checks the built app bundles: each flavour carries an Apple silicon Node of the pinned version,
 // the server and the page, with the right identity, and verifies as signed.
 import { existsSync, lstatSync, readFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
@@ -50,6 +50,18 @@ for (const f of flavours) {
   const build = key('CFBundleVersion');
   check('CFBundleVersion', /^[1-9][0-9]*$/.test(build), `(got ${build}, want a positive integer)`);
   try { run('codesign', ['--verify', '--deep', '--strict', app]); } catch (e) { check('codesign', false, String(e.stderr ?? e).trim()); }
+  if (f.flavour === 'release') {
+    // Notarization needs Developer ID signatures under the hardened runtime, with the entitlements it needs.
+    for (const path of [app, join(res, 'node/node')]) {
+      const info = execFileSync('sh', ['-c', 'codesign -dvv "$0" 2>&1', path], { encoding: 'utf8' });
+      check(`${path.slice(app.length) || 'app'} Developer ID`, /Authority=Developer ID Application: /.test(info));
+      check(`${path.slice(app.length) || 'app'} hardened runtime`, /flags=0x\w*\(runtime\)/.test(info));
+      check(`${path.slice(app.length) || 'app'} timestamp`, /Timestamp=/.test(info));
+    }
+    const entitlements = (path) => execFileSync('sh', ['-c', 'codesign -d --entitlements - --xml "$0" 2>/dev/null', path], { encoding: 'utf8' });
+    check('app may send Apple Events', entitlements(app).includes('com.apple.security.automation.apple-events'));
+    check('node may JIT', entitlements(join(res, 'node/node')).includes('com.apple.security.cs.allow-jit'));
+  }
   checked++;
 }
 if (failures.length) { console.error(failures.join('\n')); process.exit(1); }
