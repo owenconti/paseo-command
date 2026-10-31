@@ -380,3 +380,28 @@ test("the inbox: your notifications by issue, read as they open, U, H and ⌫, s
     await context.close();
   }
 });
+
+test("the inbox's Mark all read works from ⌘K while an issue opened from it takes its place", async () => {
+  const { context, page, linear, view, sidebar } = await openLinear();
+  try {
+    await page.setViewportSize({ width: 1000, height: 900 });
+    await sidebar.getByRole("button", { name: /^Inbox/ }).click();
+    const inbox = view.locator(".linear-inbox");
+    await inbox.locator(".linear-inbox-row").nth(2).waitFor();
+    // Narrow: the issue opens in the Inbox's place.
+    await inbox.locator(".linear-inbox-row").first().click();
+    await view.locator(".linear-issue h1", { hasText: "Ship the Linear tab" }).waitFor();
+    assert.equal(await inbox.count(), 0);
+    await page.keyboard.press("Meta+k");
+    await page.keyboard.type("Mark all Linear notifications read");
+    await page.keyboard.press("Enter");
+    await waitFor(
+      async () => linear.ws.notifications.filter((n) => !n.snoozedUntilAt).every((n) => n.readAt),
+      (v) => v,
+      "every notification read in Linear",
+    );
+  } finally {
+    linear.restore();
+    await context.close();
+  }
+});

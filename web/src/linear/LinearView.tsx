@@ -10,7 +10,7 @@ import { isTyping } from "../worldShortcut";
 import { CreateIssue, type CreateInitial } from "./CreateIssue";
 import { CycleFacts, CycleList } from "./Cycles";
 import { DEFAULT_DISPLAY, readListView, type Display } from "./display";
-import { Inbox } from "./Inbox";
+import { Inbox, markAllRead } from "./Inbox";
 import { unreadCount } from "./inboxRows";
 import { InitiativeList } from "./InitiativeList";
 import { IssueDetail } from "./IssueDetail";
@@ -536,6 +536,8 @@ export function LinearView({
   const canSearch = !!ws && !!listScope && (!place.issue || wide);
   const viewPlaces = JSON.stringify(views?.map((v) => ({ id: v.id, name: v.name })) ?? []);
   const inboxShown = place.screen === "inbox";
+  // ⌘K's Mark all read: here, as the Inbox gives way to an issue opened from it when narrow.
+  useEffect(() => onAppCommand("linear-inbox-read-all", markAllRead), []);
   const inboxUnread = useLinear((d) =>
     inboxShown && d.notificationsLoaded ? unreadCount(d.notifications.values(), Date.now()) : undefined,
   );

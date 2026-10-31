@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type MutableRefObject } from "react";
 import { Archive, AlarmClock, AlarmClockOff, Bell, Box, CheckCheck, Mail, MailOpen, X } from "lucide-react";
 import { ago, errorMessage } from "../api";
-import { onAppCommand } from "../appCommands";
 import { Person, ScreenHead } from "./bits";
 import { inboxEntity, inboxGroups, inboxText, snoozeTimes, type InboxGroup } from "./inboxRows";
 import type { IssueListNav } from "./IssueList";
@@ -20,6 +19,12 @@ export function markRead(group: InboxGroup, read: boolean): Promise<boolean> {
   return read
     ? linearStore.writeNotifications("notificationMarkReadAll", { ...inboxEntity(group), readAt: at }, ids, { readAt: at })
     : linearStore.writeNotifications("notificationMarkUnreadAll", inboxEntity(group), ids, { readAt: undefined });
+}
+
+/** Marks every unread Inbox row read (not the snoozed ones): Mark all read, and ⌘K's. */
+export function markAllRead(): void {
+  const rows = inboxGroups(linearStore.getState().notifications.values(), Date.now());
+  for (const g of rows) if (g.unread) void markRead(g, true);
 }
 
 /** A row's snooze choices (an hour, tomorrow, next week), at its button or where H was pressed. */
@@ -117,9 +122,6 @@ export function Inbox({
   const rows = useMemo(() => inboxGroups(all, tick, snoozedTab), [all, tick, snoozedTab]);
   const snoozedCount = useMemo(() => inboxGroups(all, tick, true).length, [all, tick]);
   const unread = rows.filter((g) => g.unread);
-  const readAll = useRef(() => {});
-  readAll.current = () => unread.forEach((g) => void markRead(g, true));
-  useEffect(() => onAppCommand("linear-inbox-read-all", () => readAll.current()), []);
 
   const listRef = useRef<HTMLDivElement>(null);
   const [focusKey, setFocusKey] = useState<string>();
@@ -218,7 +220,7 @@ export function Inbox({
       <ScreenHead title={snoozedTab ? "Snoozed" : "Inbox"} count={loaded ? rows.length : undefined}>
         <span className="linear-tools">
           {!snoozedTab && unread.length > 0 && (
-            <button className="linear-tool" onClick={() => readAll.current()}>
+            <button className="linear-tool" onClick={markAllRead}>
               <CheckCheck size={13} aria-hidden="true" />
               Mark all read
             </button>
