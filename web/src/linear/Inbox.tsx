@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type MutableRefObject } from "react";
 import { Archive, AlarmClock, AlarmClockOff, Bell, Box, CheckCheck, Mail, MailOpen, X } from "lucide-react";
 import { ago, errorMessage } from "../api";
-import { Person, ScreenHead } from "./bits";
+import { Actor, Person, ScreenHead } from "./bits";
 import { inboxEntity, inboxGroups, inboxText, snoozeTimes, type InboxGroup } from "./inboxRows";
 import type { IssueListNav } from "./IssueList";
 import { placeBelow } from "./Picker";
@@ -286,7 +286,16 @@ export function Inbox({
                 onClick={() => open(g)}
               >
                 <span className="linear-inbox-dot" aria-label={g.unread ? "Unread" : undefined} />
-                {actor ? <Person user={actor} /> : <span className="linear-person linear-person-none" aria-hidden="true" />}
+                {actor ? (
+                  <Person user={actor} />
+                ) : (
+                  <Actor
+                    name={g.latest.actorName}
+                    avatarUrl={g.latest.actorAvatarUrl}
+                    initials={g.latest.actorInitials}
+                    color={g.latest.actorColor}
+                  />
+                )}
                 <span className="linear-inbox-text">
                   <span className="linear-inbox-title">
                     {text.key ? <span className="linear-key">{text.key}</span> : g.projectId ? <Box size={12} aria-hidden="true" /> : null}

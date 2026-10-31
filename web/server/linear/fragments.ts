@@ -20,7 +20,7 @@ export const INITIATIVE_FIELDS = `id name status health owner { id } targetDate
 
 /** A notification, and what it's about: an issue (and comment), or a project. */
 export const NOTIFICATION_FIELDS = `id type title subtitle url createdAt updatedAt readAt snoozedUntilAt archivedAt
-  actor { id }
+  actor { id } actorAvatarUrl actorInitials actorAvatarColor botActor { name } externalUserActor { name }
   ... on IssueNotification { issue { id identifier } comment { id body } reactionEmoji }
   ... on ProjectNotification { project { id } }`;
 

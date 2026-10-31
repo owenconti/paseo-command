@@ -882,9 +882,6 @@
 .linear-inbox-row.unread .linear-inbox-dot {
   background: var(--accent);
 }
-.linear-person-none {
-  background: var(--fill-strong);
-}
 .linear-inbox-text {
   display: flex;
   flex: 1;

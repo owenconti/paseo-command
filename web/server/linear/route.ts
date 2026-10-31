@@ -7,7 +7,7 @@ import type { IssueScope, LinearUnavailable } from "../../src/linear/types";
 import { bodyOf, rawBody } from "../api/http";
 import { errorText } from "../wire";
 import { LinearError } from "./client";
-import { linearAvatar, linearFile, linearImage } from "./image";
+import { avatarAllowed, linearAvatar, linearFile, linearImage } from "./image";
 import { LINEAR_UPLOAD, uploadToLinear } from "./upload";
 import { WRITES, linearWrite } from "./writes";
 import {
@@ -111,14 +111,22 @@ export async function linearRoute(
   }
 
   // A workspace member's avatar, by their id (the address is Linear's, never the page's).
+  // Or another actor's (an app, a bot), by the address a notification named; never one Linear didn't.
   if (path === "avatar") {
-    if (!only("user")) return reply(400, { error: "Unexpected parameters" });
-    const id = url.searchParams.get("user") ?? "";
+    const byUrl = url.searchParams.has("url");
+    if (!only(byUrl ? "url" : "user")) return reply(400, { error: "Unexpected parameters" });
     let avatarUrl: string | undefined;
-    try {
-      avatarUrl = (await readWorkspace()).users.find((u) => u.id === id)?.avatarUrl;
-    } catch {
-      return reply(404, { error: "No avatar" });
+    if (byUrl) {
+      const asked = url.searchParams.get("url") ?? "";
+      if (!avatarAllowed(asked)) return reply(404, { error: "No avatar" });
+      avatarUrl = asked;
+    } else {
+      const id = url.searchParams.get("user") ?? "";
+      try {
+        avatarUrl = (await readWorkspace()).users.find((u) => u.id === id)?.avatarUrl;
+      } catch {
+        return reply(404, { error: "No avatar" });
+      }
     }
     const avatar = await linearAvatar(avatarUrl);
     if (!avatar.bytes) return reply(avatar.status, { error: avatar.error });

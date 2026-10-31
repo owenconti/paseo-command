@@ -336,6 +336,14 @@ test("the inbox: your notifications by issue, read as they open, U, H and ⌫, s
     assert.match(await eng1.innerText(), /Ship the Linear tab/);
     assert.match(await eng1.innerText(), /Sam Rivera commented: “Can we start with the list\?”/);
     assert.equal(await eng1.locator(".linear-count").innerText(), "2");
+    // An app's notification shows its avatar, as Linear names it.
+    const probe = launch.locator(".linear-person");
+    assert.equal(await probe.getAttribute("aria-label"), "Probe");
+    await waitFor(
+      () => probe.locator("img").evaluate((el) => (el as HTMLImageElement).complete && (el as HTMLImageElement).naturalWidth),
+      (w) => w === 1,
+      "Probe's avatar",
+    );
     const note = (id: string) => linear.ws.notifications.find((n) => n.id === id)!;
 
     // Opening a row opens its issue beside, and reads it, in Linear too.

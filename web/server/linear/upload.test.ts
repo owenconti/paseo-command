@@ -3,7 +3,7 @@ import { Readable } from "node:stream";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { afterEach, beforeEach, test } from "node:test";
 import { resetLinearClient } from "./client";
-import { FAKE_IDS, installFakeLinear, type FakeLinear } from "./fake";
+import { FAKE_BOT_AVATAR, FAKE_IDS, installFakeLinear, type FakeLinear } from "./fake";
 import { resetAvatars } from "./image";
 import { resetLinearReads } from "./reads";
 import { linearRoute } from "./route";
@@ -108,4 +108,17 @@ test("a member's avatar, by their id, from the address Linear gives (without the
   assert.equal((await call(`/api/linear/avatar?user=${FAKE_IDS.owen}`)).status, 404);
   assert.equal((await call("/api/linear/avatar?user=nobody")).status, 404);
   assert.equal((await call(`/api/linear/avatar?user=${FAKE_IDS.sam}&url=https://evil.example`)).status, 400);
+});
+
+test("an app's avatar loads by its address only once a notification named it", async () => {
+  const ask = () => call(`/api/linear/avatar?url=${encodeURIComponent(FAKE_BOT_AVATAR)}`);
+  assert.equal((await ask()).status, 404, "not named yet");
+  const inbox = await call("/api/linear/q/notifications");
+  const probe = inbox.json!.body.notifications.find((n: { actorName?: string }) => n.actorName === "Probe");
+  assert.deepEqual([probe.actorAvatarUrl, probe.actorInitials, probe.actorColor, probe.actorId], [FAKE_BOT_AVATAR, "P", "#5e6ad2", undefined]);
+  const loaded = await ask();
+  assert.equal(loaded.status, 200);
+  assert.equal(loaded.headers["content-type"], "image/png");
+  assert.equal((await call(`/api/linear/avatar?url=${encodeURIComponent("https://evil.example/x.png")}`)).status, 404);
+  assert.equal((await call(`/api/linear/avatar?url=${encodeURIComponent(FAKE_BOT_AVATAR)}&user=x`)).status, 400);
 });

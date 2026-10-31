@@ -20,6 +20,8 @@ import type {
   LinearUser,
 } from "../../src/linear/types";
 
+import { allowAvatar } from "./image";
+
 type Raw = Record<string, unknown>;
 
 const str = (v: unknown) => (typeof v === "string" ? v : "");
@@ -365,6 +367,9 @@ export function notificationOf(raw: Raw): LinearNotification | null {
   const issue = rec(raw.issue);
   const comment = rec(raw.comment);
   const key = clip(str(issue.identifier).toUpperCase(), 30);
+  // The server may load this avatar for the page from now on: Linear named it.
+  const avatar = httpsUrl(raw.actorAvatarUrl);
+  if (avatar) allowAvatar(avatar);
   return {
     id,
     type: clip(str(raw.type), 60),
@@ -372,6 +377,10 @@ export function notificationOf(raw: Raw): LinearNotification | null {
     subtitle: clip(str(raw.subtitle), 300),
     url: httpsUrl(raw.url),
     actorId: optId(raw.actor),
+    actorName: clip(str(rec(raw.botActor).name) || str(rec(raw.externalUserActor).name), 120) || undefined,
+    actorAvatarUrl: avatar || undefined,
+    actorInitials: clip(str(raw.actorInitials), 3) || undefined,
+    actorColor: /^#[0-9a-f]{6}$/i.test(str(raw.actorAvatarColor)) ? str(raw.actorAvatarColor) : undefined,
     createdAt: str(raw.createdAt),
     updatedAt: str(raw.updatedAt),
     readAt: str(raw.readAt) || undefined,

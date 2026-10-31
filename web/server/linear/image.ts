@@ -60,9 +60,22 @@ export function linearFile(raw: string): Promise<Fetched> {
 const avatars = new Map<string, { at: number; type: string; bytes: Buffer }>();
 const AVATAR = { maxBytes: 2 * 1024 * 1024, keepMs: 60 * 60_000 };
 
+/** Avatar addresses Linear named (a notification's actor: an app, a bot, someone outside the workspace). */
+const allowed = new Set<string>();
+const MAX_ALLOWED = 2000;
+
+/** Lets the page load this avatar by its address: Linear gave it. */
+export function allowAvatar(url: string): void {
+  if (allowed.size >= MAX_ALLOWED) allowed.clear();
+  allowed.add(url);
+}
+/** Whether Linear named this avatar address. */
+export const avatarAllowed = (url: string) => allowed.has(url);
+
 /** Forgets the avatars kept (tests). */
 export function resetAvatars(): void {
   avatars.clear();
+  allowed.clear();
 }
 
 /**

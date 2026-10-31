@@ -156,6 +156,11 @@ export type LinearNotification = {
   subtitle: string;
   url: string;
   actorId?: string;
+  /** Whoever acted, member or not (an app, a bot, someone outside): their name, avatar, initials and colour as Linear gives them. */
+  actorName?: string;
+  actorAvatarUrl?: string;
+  actorInitials?: string;
+  actorColor?: string;
   createdAt: string;
   updatedAt: string;
   readAt?: string;

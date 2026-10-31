@@ -157,6 +157,11 @@ export type FakeNotification = {
   snoozedUntilAt: string | null;
   archivedAt: string | null;
   actor: Ref | null;
+  /** An app or bot that acted (no workspace member), with the avatar, initials and colour Linear gives. */
+  botActor?: { name: string } | null;
+  actorAvatarUrl?: string | null;
+  actorInitials?: string | null;
+  actorAvatarColor?: string;
   issue?: { id: string; identifier: string };
   comment?: { id: string; body: string } | null;
   reactionEmoji?: string | null;
@@ -580,14 +585,18 @@ export function fakeWorkspace(): FakeWorkspace {
         kind: "project",
         type: "projectUpdateCreated",
         title: "Launch",
-        subtitle: "Sam Rivera posted a project update",
+        subtitle: "Probe posted a project update",
         url: "https://linear.app/fake/project/launch",
         createdAt: ago(2),
         updatedAt: ago(2),
         readAt: null,
         snoozedUntilAt: null,
         archivedAt: null,
-        actor: ref(I.sam),
+        actor: null,
+        botActor: { name: "Probe" },
+        actorAvatarUrl: FAKE_BOT_AVATAR,
+        actorInitials: "P",
+        actorAvatarColor: "#5e6ad2",
         project: ref(I.projects.launch),
       },
       {
@@ -1173,6 +1182,8 @@ function putBack(file: string, text: string | undefined): void {
 
 /** Sam's avatar, on a host that isn't Linear's (as Google's or Gravatar's are), and its image: a 1×1 PNG. */
 export const FAKE_AVATAR = "https://avatars.fake.example/sam.png";
+/** The Probe app's avatar, which only its notifications name. */
+export const FAKE_BOT_AVATAR = "https://avatars.fake.example/probe.png";
 const AVATAR_PNG = Buffer.from(
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
   "base64",
@@ -1226,7 +1237,7 @@ export function installFakeLinear(ws: FakeWorkspace = fakeWorkspace()): FakeLine
       uploads.set(slot, { type, bytes: Buffer.from(init.body as Uint8Array) });
       return new Response("", { status: 200 });
     }
-    if (address === FAKE_AVATAR) {
+    if (address === FAKE_AVATAR || address === FAKE_BOT_AVATAR) {
       // Never with the key: it isn't Linear's.
       if (new Headers(init?.headers).get("authorization")) return new Response("", { status: 400 });
       return new Response(new Uint8Array(AVATAR_PNG), { status: 200, headers: { "content-type": "image/png" } });

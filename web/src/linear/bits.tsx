@@ -54,6 +54,50 @@ export function Person({ user, size = "sm" }: { user?: LinearUser; size?: "sm" |
   );
 }
 
+/**
+ * Whoever acted on a notification when they aren't a workspace member (an
+ * app, a bot, someone outside): their avatar through the app server (only an
+ * address Linear named), else their initials on their colour.
+ */
+export function Actor({
+  name,
+  avatarUrl,
+  initials: letters,
+  color,
+}: {
+  name?: string;
+  avatarUrl?: string;
+  initials?: string;
+  color?: string;
+}) {
+  const [broken, setBroken] = useState(false);
+  const label = name || "Someone";
+  const avatar = !!avatarUrl && !broken && !noAvatar.has(avatarUrl);
+  return (
+    <span
+      className={`linear-person sm${avatar ? " has-avatar" : ""}`}
+      data-tip={label}
+      aria-label={label}
+      style={!avatar && color ? { background: color, color: "#fff" } : undefined}
+    >
+      {avatar ? (
+        <img
+          src={`/api/linear/avatar?url=${encodeURIComponent(avatarUrl!)}`}
+          alt=""
+          loading="lazy"
+          draggable={false}
+          onError={() => {
+            noAvatar.add(avatarUrl!);
+            setBroken(true);
+          }}
+        />
+      ) : (
+        (letters || label.slice(0, 1)).toUpperCase()
+      )}
+    </span>
+  );
+}
+
 const HEALTH: Record<string, { label: string; tone: string }> = {
   onTrack: { label: "On track", tone: "green" },
   atRisk: { label: "At risk", tone: "amber" },
