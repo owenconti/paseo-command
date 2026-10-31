@@ -5,11 +5,10 @@
  * Without a key, or when Linear refuses it, the answer says so and nothing is
  * shown. Lists are cached for `LINEAR_LIST.ttlMs`, details for as long.
  */
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
+import { linearApiKey } from "./linear/client";
 import { LINEAR } from "./links";
-import { dataDir } from "./subagentArchive";
 
+export { linearApiKey };
 export const LINEAR_LIST = { ttlMs: 30000, limit: 100 };
 
 export type LinearState = {
@@ -56,18 +55,6 @@ export type LinearDetail =
 const NO_KEY =
   "Set LINEAR_API_KEY, or linearApiKey in secrets.json, to see your Linear issues.";
 const KEY = /^([a-z]{2,10}\d?)-(\d{1,6})$/i;
-
-export function linearApiKey(): string | undefined {
-  const env = process.env.LINEAR_API_KEY?.trim();
-  if (env) return env;
-  try {
-    const secrets = JSON.parse(readFileSync(join(dataDir(), "secrets.json"), "utf8"));
-    const key = secrets?.linearApiKey;
-    return typeof key === "string" && key.trim() ? key.trim() : undefined;
-  } catch {
-    return undefined;
-  }
-}
 
 const str = (v: unknown) => (typeof v === "string" ? v : "");
 const clip = (s: string, n: number) => (s.length > n ? s.slice(0, n) : s);
