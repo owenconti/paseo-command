@@ -26,6 +26,17 @@ describe("app links", () => {
     );
   });
 
+  it("reads a GitHub pull request's link, at its tab", () => {
+    assert.deepEqual(parseAppLink("https://github.com/acme/web.app/pull/42"), {
+      kind: "github",
+      place: { kind: "pr", repo: "acme/web.app", number: 42, tab: "conversation" },
+    });
+    assert.deepEqual(parseAppLink("https://github.com/acme/web/pull/7/files#diff-abc"), {
+      kind: "github",
+      place: { kind: "pr", repo: "acme/web", number: 7, tab: "files" },
+    });
+  });
+
   it("leaves other links alone", () => {
     for (const href of [
       "https://linear.app/acme/project/thing-abc123",
@@ -34,6 +45,10 @@ describe("app links", () => {
       "https://linear.app.evil.example/acme/issue/DE-1",
       "https://slack.com/archives/C0123",
       "https://acme.slack.com/client/T1/C0123",
+      "https://github.com/acme/web/issues/3",
+      "https://github.com/acme/web/pull/abc",
+      "https://github.com.evil.example/acme/web/pull/1",
+      "https://gist.github.com/acme/web/pull/1",
       "javascript:alert(1)",
       "not a url",
     ])

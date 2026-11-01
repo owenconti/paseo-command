@@ -32,6 +32,7 @@ import { onAppCommand } from "../appCommands";
 import { ResizeEdge } from "../ResizeEdge";
 import { modalOpen } from "../focus";
 import { isTyping } from "../worldShortcut";
+import { prPlaceOf } from "../github/place";
 import { canOpen, openActivityItem } from "./open";
 import { filterItems, groupByDay, isFilter, shortAgo, SOURCE_LABEL, whatHappened, type ActivityFilter } from "./rows";
 import { canUnread, loadActivity, setActivityNotice, useActivity, useActivityPoll, writeItems } from "./store";
@@ -139,7 +140,13 @@ function Actor({ actor }: { actor?: ActivityItem["actor"] }) {
 
 /** Where opening an item takes you, in words. */
 const openLabel = (item: ActivityItem) =>
-  item.open?.kind === "slack" ? "Open in Slack" : item.open ? "Open in Linear" : "Open in Conquer";
+  item.open?.kind === "slack"
+    ? "Open in Slack"
+    : item.open
+      ? "Open in Linear"
+      : item.url && prPlaceOf(item.url)
+        ? "Review in GitHub"
+        : "Open in Conquer";
 
 /** The selected row, kept while the view comes and goes. */
 let lastSelected: string | undefined;

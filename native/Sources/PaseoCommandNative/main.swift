@@ -151,6 +151,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         }
         listen("com.paseo.command.native.linear") { [weak self] in self?.main?.show(.linear) }
         listen("com.paseo.command.native.slack") { [weak self] in self?.main?.show(.slack) }
+        listen("com.paseo.command.native.github") { [weak self] in self?.main?.show(.github) }
         listen("com.paseo.command.native.activity") { [weak self] in self?.main?.show(.activity) }
         // Run `<info>.do`'s Conquer steps, one a line, a second apart (checks; see `ConquerView.check`).
         listen("com.paseo.command.native.conquer") { [weak self] in
@@ -314,7 +315,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
             item.target = self
             item.representedObject = mode.rawValue
         }
-        // ⌘` steps Command → Conquer → Linear → Slack → Activity → Command, through those shown
+        // ⌘` steps Command → Conquer → Linear → Slack → GitHub → Activity → Command, through those shown
         // (ahead of macOS's own window cycling, as the app has one window).
         view.addItem(withTitle: "Next: Command, Conquer", action: #selector(toggleMode), keyEquivalent: "`").target = self
         view.addItem(.separator())
@@ -391,9 +392,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
             item.state = main.drawer.maximized ? .on : .off
             return !main.drawer.isHidden
         // Only while the terminal shows, so the keys stay the page's otherwise; while Linear or
-        // Slack shows, only while the terminal has the keyboard (the page sizes their text with them).
+        // Slack or GitHub shows, only while the terminal has the keyboard (the page sizes their text with them).
         case #selector(zoomTerminal(_:)):
-            return !main.drawer.isHidden && ((main.mode != .linear && main.mode != .slack) || main.drawer.hasKeyFocus)
+            return !main.drawer.isHidden && ((main.mode != .linear && main.mode != .slack && main.mode != .github) || main.drawer.hasKeyFocus)
         default: break
         }
         return true

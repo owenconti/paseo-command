@@ -1,11 +1,12 @@
 /**
- * Links to a Linear issue or a Slack message, opened in the macOS app's own
- * Linear and Slack tabs instead of a browser. The app sends the page each such
+ * Links to a Linear issue, a Slack message or a GitHub pull request, opened in
+ * the macOS app's own Linear, Slack and GitHub tabs instead of a browser. The app sends the page each such
  * link clicked anywhere (the chat, a Conquer page, an issue's description) as
  * `paseo:link`, only while that tab is on; the page opens it there, or, when
  * it isn't this workspace's, hands it back to open in Conquer.
  */
 import { runAppCommand } from "./appCommands";
+import { openGithubPlace, prPlaceOf, type GithubPlace } from "./github/place";
 import { readPlace as readLinearPlace, writePlace as writeLinearPlace } from "./linear/place";
 import { linearStore } from "./linear/store";
 import { openSlackPlace } from "./slack/place";
@@ -14,7 +15,8 @@ import { postAppLink, postAppMenu } from "./worldBridge";
 
 export type AppLink =
   | { kind: "linear"; issue: string }
-  | { kind: "slack"; host: string; conversationId: string; threadTs?: string; ts?: string };
+  | { kind: "slack"; host: string; conversationId: string; threadTs?: string; ts?: string }
+  | { kind: "github"; place: Extract<GithubPlace, { kind: "pr" }> };
 
 const ISSUE = /^[a-z][a-z0-9]{0,9}-\d{1,6}$/i;
 const CONVERSATION = /^[CDG][A-Z0-9]{1,30}$/;
@@ -25,7 +27,8 @@ const permalinkTs = (p: string) => (/^p\d{16}$/.test(p) ? `${p.slice(1, 11)}.${p
 
 /**
  * What a link opens in the app's tabs: `linear.app/<workspace>/issue/<KEY>…`,
- * or `<team>.slack.com/archives/<conversation>[/p<ts>][?thread_ts=…]`; else null.
+ * `<team>.slack.com/archives/<conversation>[/p<ts>][?thread_ts=…]`, or
+ * `github.com/<owner>/<name>/pull/<n>[/files|/commits|/checks]`; else null.
  * (The app's `WorldWindow.pageMode` matches the same shapes.)
  */
 export function parseAppLink(href: string): AppLink | null {
@@ -53,11 +56,15 @@ export function parseAppLink(href: string): AppLink | null {
       ...(ts ? { ts } : {}),
     };
   }
+  const pr = prPlaceOf(href);
+  if (pr) return { kind: "github", place: pr };
   return null;
 }
 
 /** Whether the link is this workspace's: its team, or its Slack address. Before the workspace is in, it stands. */
 function ours(link: AppLink): boolean {
+  // Any pull request gh can read opens in the GitHub tab.
+  if (link.kind === "github") return true;
   if (link.kind === "linear") {
     const ws = linearStore.getState().workspace;
     const team = link.issue.split("-")[0];
@@ -76,6 +83,11 @@ function ours(link: AppLink): boolean {
 export function openAppLink(href: string): void {
   const link = parseAppLink(href);
   if (!link || !ours(link)) return postAppLink(href, true);
+  if (link.kind === "github") {
+    openGithubPlace(link.place);
+    postAppMenu("github");
+    return;
+  }
   if (link.kind === "linear") {
     // Where you last were in Linear, with the issue open; asked of the view at once if it shows.
     const place = { ...readLinearPlace(), issue: link.issue };

@@ -332,7 +332,7 @@ function IntegrationSettings() {
           [
             "github",
             "GitHub",
-            "Your GitHub notifications in Activity, through gh.",
+            "Pull requests to review and your workspaces' changes in the GitHub tab, and notifications in Activity, through gh.",
           ],
           [
             "typesafe",

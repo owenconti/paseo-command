@@ -94,6 +94,11 @@ export class FakeDaemon {
   /** The host's folders (absolute paths), for browsing and adding projects. */
   home = "/home/review";
   folders = new Set(["/", "/home", "/home/review", "/home/review/code"]);
+  /**
+   * Checkouts' diffs and status, by cwd (`getCheckoutDiff`, `getCheckoutStatus`):
+   * `diffs` by compare mode; a checkout not set here isn't a git repository.
+   */
+  checkouts = new Map<string, { diffs: Partial<Record<string, any[]>>; status: Record<string, unknown>; tooLarge?: boolean }>();
   /** Terminals: what each has printed, the input it was sent, and who watches. */
   terminals = new Map<
     string,
@@ -1151,6 +1156,18 @@ export class FakeClient {
       typeof q === "object" ? q : {},
       this.sync,
     );
+  }
+  async getCheckoutDiff(cwd: string, compare: { mode: string; baseRef?: string }) {
+    await this.gate("getCheckoutDiff", cwd, compare);
+    const c = this.daemon.checkouts.get(cwd);
+    if (!c) return { cwd, files: [], error: { code: "NOT_GIT_REPO", message: "Not a git repository" }, requestId: "r" };
+    return { cwd, files: c.diffs[compare.mode] ?? [], error: null, ...(c.tooLarge ? { diffTooLarge: true } : {}), requestId: "r" };
+  }
+  async getCheckoutStatus(cwd: string) {
+    await this.gate("getCheckoutStatus", cwd);
+    const c = this.daemon.checkouts.get(cwd);
+    if (!c) return { cwd, isGit: false, error: null, requestId: "r" };
+    return { cwd, isGit: true, error: null, requestId: "r", ...c.status };
   }
   async listTerminals(cwd?: string, _requestId?: string, options: { workspaceId?: string } = {}) {
     await this.gate("listTerminals", cwd, options);

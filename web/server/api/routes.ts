@@ -20,6 +20,8 @@ import { hostStatsRoute } from "../hostStats";
 import { linearRoute } from "../linear/route";
 import { slackRoute } from "../slack/route";
 import { activityRoute } from "../activity/route";
+import { githubRoute } from "../github/route";
+import { changesFor } from "./changes";
 import {
   concludeFork,
   createFork,
@@ -164,6 +166,8 @@ export async function handleApi(
   if (url.pathname.startsWith("/api/slack/")) return slackRoute(req, url, res, reply);
   // The Activity tab: GitHub, Linear and Slack notifications in one feed, never the daemon.
   if (url.pathname === "/api/activity" || url.pathname.startsWith("/api/activity/")) return activityRoute(req, url, reply);
+  // The GitHub tab: named reads and whitelisted writes through the user's gh sign-in, never the daemon.
+  if (url.pathname.startsWith("/api/github/")) return githubRoute(req, url, reply);
   // The mini games' record: this app's own file, never the daemon.
   if (url.pathname === "/api/games" || url.pathname.startsWith("/api/games/"))
     return gamesRoute(req, url.pathname, reply);
@@ -223,6 +227,9 @@ export async function handleApi(
           }
           case "terminals":
             result = await listTerminals(url);
+            break;
+          case "changes":
+            result = await changesFor(url.searchParams);
             break;
           case "usage":
             result = await usage();

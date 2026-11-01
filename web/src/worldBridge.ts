@@ -217,7 +217,7 @@ export const askAppUpdate = () => appChannel()?.postMessage({ type: "update" });
 /** Ask the macOS app which mode bar tab shows; it answers with a `paseo:mode` event. */
 export const askAppMode = () => appChannel()?.postMessage({ type: "mode" });
 /** Apply optional integrations to the native mode bar. */
-export const configureAppIntegrations = (tabs: { linear: boolean; slack: boolean; activity: boolean }) =>
+export const configureAppIntegrations = (tabs: { linear: boolean; slack: boolean; github: boolean; activity: boolean }) =>
   appChannel()?.postMessage({ type: "integrations", ...tabs });
 /** Activity's unread notifications, for its mode bar tab. */
 export const postAppActivity = (unread: number) => appChannel()?.postMessage({ type: "activity", unread });

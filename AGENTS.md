@@ -235,7 +235,7 @@ and GitHub publication; report the published version and release link.
   page are `command`'s; the split (terminal panel, Conquer) is the window root's, over `command` and below the bar, its page side passing events through
   (`PassThroughView`): a view after the web view in its own parent stays off screen until the web view is hidden and shown again. Check such layout with
   `.windowshot` (the screen's pixels), not `.snapshot`. The panel has no header of its own and, hidden (⌘B), takes no width.
-- Conquer (experiment): the COMMAND / CONQUER strip across the macOS app's top (⌘` steps Command → Conquer → Linear → Slack → Activity, those enabled; View menu; the tabs light on hover)
+- Conquer (experiment): the COMMAND / CONQUER strip across the macOS app's top (⌘` steps Command → Conquer → Linear → Slack → GitHub → Activity, those enabled; View menu; the tabs light on hover)
   switches the map's place between the map and Conquer, a WebKit browser (`native/Sources/PaseoCommandNative/Conquer.swift`),
   laid exactly over the map (`placeConquer` in `WorldWindow.swift`): the panels and terminal stay, and ⌘B (the page's panel toggle)
   gives it the window's width. The hidden side keeps running. Conquer takes its keys only while it has the keyboard (`hasKeyFocus`),
@@ -249,7 +249,7 @@ and GitHub publication; report the published version and release link.
   optionally seeded after confirmation through Conquer → Import Zen Cookies from Zen Browser's profile (`ZenCookies.swift`): a copy of
   `cookies.sqlite`, default space only, unpartitioned and unexpired; Zen is never written to. Its tabs (`conquerState`), sidebar width, zooms,
   history (`conquer-history.json` in the app's data folder, `~/Library/Application Support/Paseo Command/` for the release) and the mode come back on launch; tabs come back unloaded.
-- Linear (the mode bar's third tab, after Command and Conquer and before Slack and Activity; View menu; palette "Show your Linear issues"; all only while Linear is enabled): a Linear client the page
+- Linear (the mode bar's third tab, after Command and Conquer and before Slack, GitHub and Activity; View menu; palette "Show your Linear issues"; all only while Linear is enabled): a Linear client the page
   draws (`web/src/linear/LinearView.tsx`) over the map's frame while the app reports `paseo:mode` `linear` (`useAppMode`, `web/src/appMode.ts`;
   the page asks with a `mode` message). Navigation: its sidebar (`Sidebar.tsx`) is Linear's: Inbox (`Inbox.tsx`, `inboxRows.ts`; its unread rows counted in the sidebar; ⌘K "Go to your Linear inbox"): your notifications from `q/notifications` (250 a page, up to the 500 most recently updated, then a note saying so; asked again once archiving leaves it 50 below), kept current by sync, an issue's (or project's) in one row, newest first; a row opens its issue (beside) or project and is read from then; U marks it read or unread, H snoozes it (an hour, tomorrow at 9, next Monday at 9; Snoozed lists those, each to unsnooze), ⌫ archives it with Undo; Mark all read (and ⌘K) takes every unread row. Its writes act on a row's notifications together (Linear's `notification…All` by issue, project or one id, and `notificationUnarchive` for Undo), shown at once and put back if Linear refuses. Search (its head's search button, ⌘K "Search all Linear issues": every issue in the workspace matching the words, most relevant first, from `q/search`, Linear's `searchIssues`, asked 300 ms after typing pauses, from two characters, and kept as the place; the server keeps under Linear's 30 searches a minute, and a refused search says so on its screen without pausing the rest),  My issues (Assigned, Created, Subscribed),
   each team (Triage where on, Active, Backlog, All, and Cycles where it runs them: `Cycles.tsx` lists its current, upcoming and last 120 days' cycles with their progress from `q/cycles`, each opening its issues, the `cycle:` scope, under a header counting what's done), Views (your saved issue views and shared ones, `q/views`: each opens its issues, the `view:` scope, which Linear filters by the view's own filter, so the store keeps what Linear returned (`members`) and asks again whenever a sync brings changed issues while it shows; its Display starts as the view is set in Linear), Projects (`ProjectList.tsx`, each opening its issues) and Initiatives
@@ -323,10 +323,10 @@ and GitHub publication; report the published version and release link.
   where the two tokens come from (the app-level token by hand); ⌘K "Create the Slack app" and "Copy the Slack app manifest" too. Tests never reach Slack: the fake
   (`web/server/slack/fake.ts`, `installFakeSlack`, with a fake socket) under server tests and e2e (`web/e2e/slack.e2e.ts`,
   `slackFake.ts`, the real route).
-- Activity (the mode bar's fifth tab, while GitHub, Linear or Slack is enabled; its tab shows the unread count, the page's
+- Activity (the mode bar's last tab, while GitHub, Linear or Slack is enabled; its tab shows the unread count, the page's
   `activity` message): GitHub, Linear and Slack notifications in one feed the page draws (`web/src/activity/ActivityView.tsx`), newest
   first, grouped by day, filtered by source or unread, with the selected one's preview beside it from 1,100 px; the sidebar's and the preview's edges resize them (`web/src/ResizeEdge.tsx`; arrow keys too, double-click restores the default; kept in localStorage). Opening one
-  (`open.ts`) goes where it lives: GitHub in Conquer, Linear issues and projects in the Linear tab, Slack conversations and threads in
+  (`open.ts`) goes where it lives: pull requests in the GitHub tab ("Review in GitHub", through the app's link routing), other GitHub in Conquer, Linear issues and projects in the Linear tab, Slack conversations and threads in
   the Slack tab; it's read from then. Keys: J/K move, Enter/O open, U read/unread, ⇧U all shown read, E/⌫ done, ⇧E all shown done (Mark all done; asks first), 1–4 sources; each with
   its ⌘K entry and the shortcuts dialog's Activity group. Server (`web/server/activity/`, `GET /api/activity`, `POST
   /api/activity/m/read|unread|done` with `{keys}`): `github.ts` (opt-in `integrations.github`: `gh api /notifications` with the user's
@@ -335,9 +335,30 @@ and GitHub publication; report the published version and release link.
   search and the socket, replies in threads you're in; Slack keeps no thread read state for apps, so those and "done" are kept in the
   data directory's `slack-activity.json`), `feed.ts` (a source that fails says why without hiding the rest). The page's store
   (`store.ts`) polls every 30 s while the view shows, else every minute in the macOS app for the tab's count.
+- GitHub (the mode bar's tab after Slack; View menu; palette "Show GitHub"; all only while `integrations.github` is on): pull
+  requests and workspaces' changes the page draws (`web/src/github/GitHubView.tsx`) over the map's frame while the app reports `paseo:mode`
+  `github`, as Linear is. Its sidebar: Workspace (the selected workspace's, or the selected agent's, Changes, and its PR when known) and
+  Pull requests (Review requests, Your pull requests, Involving you, each counted). Changes (`ChangesView.tsx`; the workspace view's
+  Changes button and ⌘K "Show …'s changes against main" open it): the branch against its base from its host's daemon (`getCheckoutDiff`,
+  so remote hosts too; `GET /api/changes?workspace=&host=&mode=all|base|uncommitted`, `web/server/api/changes.ts`, not gated on the
+  integration), all changes, committed or uncommitted, with ahead/behind, Review #N and Compare on GitHub; asked every 15 s while shown.
+  A PR (`PrView.tsx`): Conversation (its body, comments and reviews, a comment box), Files changed (the review), Commits, Checks. The diff
+  (`DiffView.tsx`, rows from `rows.ts`): files by directory beside it, unified or split, the daemon's highlight tokens (else
+  `web/src/highlight.ts`), big and viewed files folded; in a review each line's gutter + takes a comment (⇧-click another for a range):
+  into your pending review (`drafts.ts`, localStorage per PR until sent or discarded) or at once (Add single comment); threads sit under
+  their lines with Reply and Resolve; Viewed per file. Review opens Finish your review: a summary and Comment, Approve or Request changes
+  (only Comment on your own PR), sent with the drafted comments at the head read. Places (`place.ts`, kept in localStorage; `openGithubPlace`
+  opens one from elsewhere) and PR links: `github.com/<owner>/<name>/pull/<n>` opens in the tab wherever clicked (`prPlaceOf`;
+  `WorldWindow.pageMode` matches it). Keys (`GitHubView.tsx`): J/K move (a diff's files), Enter/O open, Esc back, 1–4 PR tabs, R review,
+  C comment, V viewed, U unified/split, F file list, M which changes; each with its ⌘K entry and the shortcuts dialog's GitHub group.
+  Server (`web/server/github/`, the user's own gh sign-in, never a token of the app's): named reads (`reads.ts`, `GET
+  /api/github/q/viewer|prs|pr|diff`, cached 15 s, `fresh=1` past it; `GithubUnavailable` when off, gh missing or signed out) and
+  whitelisted writes (`writes.ts`, `POST /api/github/m/comment|review|reply|resolve|viewed`, each field checked; JSON bodies through gh's
+  stdin), over `client.ts` (`GITHUB_TAB.run`). Tests never reach GitHub: `fake.ts` under server tests (`test-setup.ts` makes gh refuse
+  otherwise) and `web/e2e/github.e2e.ts` in the browser.
 - Web links clicked in the chat (`.session`, `openInAppBrowser` in `web/src/Session.tsx`, `postAppLink` → the `openLink` message)
   switch to Conquer and open there as a new tab, once its tabs are restored (`whenStarted`).
-- Links to a Linear issue (`linear.app/<workspace>/issue/<KEY>`) or a Slack conversation or message (`<team>.slack.com/archives/…`,
+- Links to a GitHub pull request (see GitHub, above), a Linear issue (`linear.app/<workspace>/issue/<KEY>`) or a Slack conversation or message (`<team>.slack.com/archives/…`,
   a reply's `thread_ts` opening its thread) open in the Linear and Slack tabs while those are on, wherever they're clicked: the chat,
   a Conquer page (⌥-click stays there), an issue's description, the header's issue chip. The app matches them (`pageMode`, `routeLink`
   in `WorldWindow.swift`) and sends the page `paseo:link`; `web/src/appLinks.ts` (`parseAppLink`, the same shapes) opens it, or

@@ -124,12 +124,31 @@ const ACTIVITY: Group = {
   rows: [
     { keys: [["J"], ["↓"]], label: "Next notification" },
     { keys: [["K"], ["↑"]], label: "Previous notification" },
-    { keys: [["Enter"], ["O"]], label: "Open it (GitHub in Conquer, Linear and Slack in their tabs)" },
+    { keys: [["Enter"], ["O"]], label: "Open it (pull requests, Linear and Slack in their tabs, other GitHub in Conquer)" },
     { keys: [["U"]], label: "Mark it read or unread" },
     { keys: [["⇧", "U"]], label: "Mark every shown notification read" },
     { keys: [["E"], ["⌫"]], label: "Done: leave it out of Activity" },
     { keys: [["⇧", "E"]], label: "Mark every shown notification done (asks first)" },
     { keys: [["1"], ["2"], ["3"], ["4"]], label: "Show all, GitHub, Linear or Slack" },
+  ],
+};
+/** The GitHub tab's keys (`github/GitHubView.tsx`), while the keyboard is in it. */
+const GITHUB: Group = {
+  title: "GitHub",
+  note: "In the GitHub tab, outside text fields",
+  rows: [
+    { keys: [["J"], ["↓"]], label: "Next pull request, or the diff's next file" },
+    { keys: [["K"], ["↑"]], label: "Previous pull request, or the diff's previous file" },
+    { keys: [["Enter"], ["O"]], label: "Open the pull request" },
+    { keys: [["Esc"]], label: "Back to the list" },
+    { keys: [["1"], ["2"], ["3"], ["4"]], label: "Conversation, Files changed, Commits or Checks" },
+    { keys: [["R"]], label: "Finish your review (comment, approve or request changes)" },
+    { keys: [["C"]], label: "Comment on the pull request" },
+    { keys: [["V"]], label: "Mark the file in view viewed" },
+    { keys: [["U"]], label: "Unified or split diff" },
+    { keys: [["F"]], label: "Show or hide the diff's file list" },
+    { keys: [["M"]], label: "A workspace's changes: all, committed or uncommitted" },
+    { keys: [["⌘", "↩"]], label: "Send the comment or review being written" },
   ],
 };
 /** Conquer's own keys (the macOS app's browser), which it takes ahead of its pages
@@ -264,6 +283,7 @@ function ShortcutsDialog({ onClose }: { onClose: () => void }) {
           NATIVE,
           ...(integrations.linear ? [LINEAR] : []),
           ...(integrations.slack ? [SLACK] : []),
+          ...(integrations.github ? [GITHUB] : []),
           ...(activityEnabled(integrations) ? [ACTIVITY] : []),
           CONQUER,
         ]
@@ -285,6 +305,7 @@ function ShortcutsDialog({ onClose }: { onClose: () => void }) {
                 "the browser (Conquer)",
                 ...(integrations.linear ? ["Linear"] : []),
                 ...(integrations.slack ? ["Slack"] : []),
+                ...(integrations.github ? ["GitHub"] : []),
                 ...(activityEnabled(integrations) ? ["Activity"] : []),
               ].join(", ")}`,
             }

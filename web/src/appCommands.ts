@@ -75,11 +75,25 @@ export type AppCommand =
   | "activity-unread"
   | "activity-done"
   | "activity-read-all"
-  | "activity-done-all";
+  | "activity-done-all"
+  | "github-open"
+  | "github-go"
+  | "github-refresh"
+  | "github-back"
+  | "github-tab"
+  | "github-layout"
+  | "github-files"
+  | "github-review"
+  | "github-comment"
+  | "github-next-file"
+  | "github-prev-file"
+  | "github-viewed"
+  | "github-changes-mode"
+  | "github-open-browser";
 
 const EVENT = "paseo:command";
 
-/** Asks for `name`; `arg` is what it acts on, where it needs one (`linear-go`: the place; `slack-go`/`slack-open`: the conversation; `activity-filter`: the source or "all"). */
+/** Asks for `name`; `arg` is what it acts on, where it needs one (`linear-go`: the place; `slack-go`/`slack-open`: the conversation; `activity-filter`: the source or "all"; `github-open`/`github-go`: the place; `github-tab`: the PR's tab; `github-review`: the verdict). */
 export function runAppCommand(name: AppCommand, arg?: unknown) {
   // The detail stays the bare name: the macOS app sends its own that way.
   window.dispatchEvent(Object.assign(new CustomEvent(EVENT, { detail: name }), { arg }));

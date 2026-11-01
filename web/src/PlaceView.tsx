@@ -5,6 +5,7 @@ import {
   ArrowLeft,
   Box,
   GitBranch,
+  GitCompare,
   LoaderCircle,
   Plus,
   Server,
@@ -217,6 +218,7 @@ export function WorkspaceView({
   select,
   permissionAgents,
   unread,
+  onChanges,
 }: {
   workspace: Workspace;
   agents: Agent[];
@@ -233,6 +235,8 @@ export function WorkspaceView({
 
   permissionAgents: Set<string>;
   unread: Set<string>;
+  /** Shows its branch against main in the GitHub tab (macOS app, GitHub on). */
+  onChanges?: () => void;
 }) {
   return (
     <div className="place">
@@ -318,6 +322,16 @@ export function WorkspaceView({
           <Plus size={14} />
           {real ? "Dispatch into this workspace" : "Dispatch to this project"}
         </button>
+        {real && onChanges && (
+          <button
+            className="secondary"
+            aria-description="Its branch against main, in the GitHub tab"
+            onClick={onChanges}
+          >
+            <GitCompare size={14} />
+            Changes
+          </button>
+        )}
         {real && (
           <button
             className="workspace-archive"

@@ -57,7 +57,7 @@ import { CommandPalette } from "./CommandPalette";
 import { PresetsEditorHost } from "./PresetsEditor";
 import { ProfilesEditorHost } from "./ProfilesEditor";
 import { openProfileEditor } from "./profilesStore";
-import { runAppCommand } from "./appCommands";
+import { runAppCommand, type AppCommand } from "./appCommands";
 import type { Command } from "./palette";
 import {
   linearKey,
@@ -70,6 +70,9 @@ import {
 import { NewAgent, type DispatchTarget } from "./Dispatch";
 import { appTabs, useAppMode } from "./appMode";
 import type { ActivityViewState } from "./activity/ActivityView";
+import type { GithubViewState, GithubWorkspace } from "./github/GitHubView";
+import { openGithubPlace, prPlaceOf } from "./github/place";
+import { MODE_LABEL as CHANGES_MODE_LABEL, SCOPE_TITLE as PR_SCOPE_TITLE, TAB_LABEL as PR_TAB_LABEL } from "./github/names";
 import type { SlackViewState } from "./slack/SlackView";
 import type { SlackContext } from "./slack/prompt";
 import { useActivityUnread } from "./activity/store";
@@ -163,6 +166,10 @@ const SlackView = React.lazy(() =>
 // The Activity tab (GitHub, Linear and Slack notifications), likewise.
 const ActivityView = React.lazy(() =>
   import("./activity/ActivityView").then((module) => ({ default: module.ActivityView })),
+);
+// The GitHub tab (pull requests to review, the selected workspace's changes), likewise.
+const GitHubView = React.lazy(() =>
+  import("./github/GitHubView").then((module) => ({ default: module.GitHubView })),
 );
 
 /** Keeps the mode bar's Activity tab showing the feed's unread count (macOS app only). */
@@ -887,6 +894,26 @@ function App() {
   // The Activity tab's filter and selected item, for ⌘K's entries for them.
   const [activityView, setActivityView] = useState<ActivityViewState | undefined>();
   const showActivity = appTabs(integrations).activity;
+  // The GitHub tab's place and open PR, for ⌘K's entries for them.
+  const [githubView, setGithubView] = useState<GithubViewState | undefined>();
+  // The workspace whose changes the GitHub tab shows: the selected one, or the selected agent's.
+  const githubWorkspace = useMemo<GithubWorkspace | undefined>(() => {
+    const a = selection?.type === "agent" ? agents.find((x) => x.id === selection.id) : undefined;
+    const ws = a ? workspaceOf(a) : workspace;
+    if (!ws || !realWorkspaceIds.has(workspaceKey(ws))) return undefined;
+    return {
+      id: ws.workspaceId,
+      ...(ws.host ? { host: ws.host } : {}),
+      name: placeText(ws.name, "Workspace"),
+      branch: ws.branch,
+      pr: ws.pr ? { number: ws.pr.number, url: ws.pr.url, title: ws.pr.title } : ws.pr,
+    };
+  }, [selection, agents, workspaceOf, workspace, realWorkspaceIds]);
+  // The workspace's changes (or its PR) in the GitHub tab.
+  const showWorkspaceChanges = useCallback(() => {
+    openGithubPlace({ kind: "changes" });
+    postAppMenu("github");
+  }, []);
   const appUpdate = useAppUpdate();
   // From a Linear issue: New agent, where the host and project are chosen.
   const launchFromIssue = useCallback(
@@ -1254,6 +1281,7 @@ function App() {
       ["conquer", "browser"],
       ["linear", "Linear"],
       ["slack", "Slack"],
+      ["github", "GitHub"],
       ["activity", "Activity"],
     ] as const
   ).filter(([mode]) => mode === "command" || mode === "conquer" || appTabs(integrations)[mode]);
@@ -1805,6 +1833,112 @@ function App() {
           })),
         ]
       : []),
+    ...(integrations.github && appMode !== "github"
+      ? [
+          {
+            id: "github-show",
+            group: "App",
+            label: "Show GitHub (pull requests and workspace changes)",
+            keywords: "github pull requests prs review diff changes code mode tab",
+            run: () => postAppMenu("github"),
+          },
+        ]
+      : []),
+    ...(integrations.github && githubWorkspace && !(appMode === "github" && githubView?.place.kind === "changes")
+      ? [
+          {
+            id: "github-workspace-changes",
+            group: "Actions",
+            label: `Show ${githubWorkspace.name}’s changes against main`,
+            keywords: "github diff changes branch main compare git files review workspace",
+            run: showWorkspaceChanges,
+          },
+        ]
+      : []),
+    ...(() => {
+      const pr = integrations.github && githubWorkspace?.pr ? prPlaceOf(githubWorkspace.pr.url) : null;
+      const open = githubView?.place.kind === "pr" && githubView.place.repo === pr?.repo && githubView.place.number === pr?.number;
+      return pr && !(appMode === "github" && open)
+        ? [
+            {
+              id: "github-workspace-pr",
+              group: "Actions",
+              label: `Review ${githubWorkspace!.name}’s pull request #${pr.number}`,
+              keywords: "github pull request pr review diff files approve workspace",
+              run: () => {
+                openGithubPlace({ ...pr, tab: "files" });
+                postAppMenu("github");
+              },
+            },
+          ]
+        : [];
+    })(),
+    ...(integrations.github && appMode === "github" && githubView
+      ? (() => {
+          const v = githubView;
+          const place = v.place;
+          const command = (id: AppCommand, label: string, keywords: string, keys?: string[], arg?: unknown, group = "App") => ({
+            id: arg === undefined ? id : `${id}:${String(arg)}`,
+            group,
+            label,
+            ...(keys ? { keys: [keys] } : {}),
+            keywords: `github ${keywords}`,
+            run: () => runAppCommand(id, arg),
+          });
+          return [
+            command("github-refresh", "Refresh GitHub", "reload update sync pull requests"),
+            ...(["review", "mine", "involved"] as const)
+              .filter((scope) => !(place.kind === "prs" && place.scope === scope))
+              .map((scope) =>
+                command("github-go", `Go to ${PR_SCOPE_TITLE[scope].toLowerCase()} in GitHub`, `pull requests list ${scope}`, undefined, { kind: "prs", scope }, "Navigate"),
+              ),
+            ...(place.kind !== "changes"
+              ? [command("github-go", "Go to the workspace’s changes in GitHub", "diff branch changes main", undefined, { kind: "changes" }, "Navigate")]
+              : []),
+            ...(v.diff
+              ? [
+                  command("github-next-file", "Next file in the diff", "diff file next down", ["J"]),
+                  command("github-prev-file", "Previous file in the diff", "diff file previous up", ["K"]),
+                  command("github-layout", v.layout === "split" ? "Unified diff" : "Split diff", "diff layout side by side split unified", ["U"]),
+                  command("github-files", v.listShown ? "Hide the diff’s file list" : "Show the diff’s file list", "diff files list tree sidebar", ["F"]),
+                ]
+              : []),
+            ...(place.kind === "changes"
+              ? (["all", "base", "uncommitted"] as const)
+                  .filter((m) => m !== v.changesMode)
+                  .map((m) => command("github-changes-mode", `Show ${CHANGES_MODE_LABEL[m].toLowerCase()} changes`, `diff changes mode ${m} committed uncommitted`, ["M"], m))
+              : []),
+            ...(place.kind === "pr"
+              ? [
+                  command("github-back", "Back to the pull request list", "back list close", ["Esc"]),
+                  ...(["conversation", "files", "commits", "checks"] as const)
+                    .filter((t) => t !== place.tab)
+                    .map((t) =>
+                      command("github-tab", `Show the pull request’s ${PR_TAB_LABEL[t].toLowerCase()}`, `pull request tab ${t}`, [String(["conversation", "files", "commits", "checks"].indexOf(t) + 1)], t),
+                    ),
+                  ...(v.pr
+                    ? [
+                        command("github-open-browser", "Open the pull request on GitHub", "browser conquer web open external"),
+                        command("github-comment", "Comment on the pull request", "comment conversation reply write", ["C"]),
+                        ...(v.pr.open
+                          ? [
+                              command("github-review", v.pr.pending ? `Submit your review (${v.pr.pending} pending)…` : "Submit your review…", "review submit finish comment", ["R"]),
+                              ...(!v.pr.viewerIsAuthor
+                                ? [
+                                    command("github-review", "Approve the pull request…", "review approve lgtm accept", undefined, "APPROVE"),
+                                    command("github-review", "Request changes on the pull request…", "review request changes reject block", undefined, "REQUEST_CHANGES"),
+                                  ]
+                                : []),
+                            ]
+                          : []),
+                        ...(place.tab === "files" ? [command("github-viewed", "Mark this file viewed or not", "viewed reviewed file done check", ["V"])] : []),
+                      ]
+                    : []),
+                ]
+              : []),
+          ];
+        })()
+      : []),
     ...(showActivity && appMode !== "activity"
       ? [
           {
@@ -2353,6 +2487,11 @@ function App() {
                 <SlackView onLaunch={launchFromSlack} onNotice={setNotice} onViewState={setSlackView} />
               </React.Suspense>
             )}
+            {integrations.github && appMode === "github" && (
+              <React.Suspense fallback={null}>
+                <GitHubView workspace={githubWorkspace} onNotice={setNotice} onViewState={setGithubView} />
+              </React.Suspense>
+            )}
             {showActivity && macApp() && <ActivityBadge />}
             {showActivity && appMode === "activity" && (
               <React.Suspense fallback={null}>
@@ -2597,6 +2736,7 @@ function App() {
 
                       permissionAgents={permissionAgents}
                       unread={unread}
+                      onChanges={integrations.github && macApp() ? showWorkspaceChanges : undefined}
                     />
                   ) : project ? (
                     <ProjectView

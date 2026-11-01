@@ -1,7 +1,8 @@
 /**
  * Opening an Activity item where it lives: a Linear issue or project in the
- * Linear tab, a Slack conversation or thread in the Slack tab, anything else
- * (GitHub) in Conquer. Opening marks it read.
+ * Linear tab, a Slack conversation or thread in the Slack tab, a pull request
+ * in the GitHub tab (the app routes its link there), anything else (GitHub) in
+ * Conquer. Opening marks it read.
  */
 import { readPlace, writePlace } from "../linear/place";
 import { openSlackPlace } from "../slack/place";

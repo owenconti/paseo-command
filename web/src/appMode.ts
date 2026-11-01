@@ -5,14 +5,15 @@ import { useIntegrations } from "./integrationSettings";
 import { activityEnabled, type Integrations } from "./integrations";
 
 /** What stands in the map's place in the macOS app (its mode bar's tabs):
- * the map, the Conquer browser, or what the page draws itself: Linear, Slack
- * and Activity (GitHub, Linear and Slack notifications together). */
-export type AppMode = "command" | "conquer" | "linear" | "slack" | "activity";
+ * the map, the Conquer browser, or what the page draws itself: Linear, Slack,
+ * GitHub (pull requests and the workspace's changes) and Activity (GitHub,
+ * Linear and Slack notifications together). */
+export type AppMode = "command" | "conquer" | "linear" | "slack" | "github" | "activity";
 
-const MODES: AppMode[] = ["command", "conquer", "linear", "slack", "activity"];
+const MODES: AppMode[] = ["command", "conquer", "linear", "slack", "github", "activity"];
 
 /** The page's tabs whose integration is on. */
-export const appTabs = (i: Integrations) => ({ linear: i.linear, slack: i.slack, activity: activityEnabled(i) });
+export const appTabs = (i: Integrations) => ({ linear: i.linear, slack: i.slack, github: i.github, activity: activityEnabled(i) });
 
 /** The mode bar's tab, as the app reports it (`paseo:mode`); always the map in a browser. */
 export function useAppMode(): AppMode {
@@ -33,7 +34,7 @@ export function useAppMode(): AppMode {
       if (typeof url === "string") openAppLink(url);
     };
     window.addEventListener("paseo:link", link);
-    // Ask once listening: a page that (re)loads in Linear, Slack or Activity shows it at once.
+    // Ask once listening: a page that (re)loads in Linear, Slack, GitHub or Activity shows it at once.
     askAppMode();
     return () => {
       window.removeEventListener("paseo:mode", receive);
@@ -41,5 +42,5 @@ export function useAppMode(): AppMode {
     };
   }, []);
   const tabs = appTabs(integrations);
-  return mode === "linear" || mode === "slack" || mode === "activity" ? (tabs[mode] ? mode : "command") : mode;
+  return mode === "linear" || mode === "slack" || mode === "github" || mode === "activity" ? (tabs[mode] ? mode : "command") : mode;
 }

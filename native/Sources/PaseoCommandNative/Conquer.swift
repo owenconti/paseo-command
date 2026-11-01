@@ -3,10 +3,10 @@ import ImageIO
 import WebKit
 
 /// What stands in the map's place: the map (Command), the Conquer browser,
-/// or what the page draws itself: your Linear issues, Slack, and Activity
-/// (GitHub, Linear and Slack notifications together).
+/// or what the page draws itself: your Linear issues, Slack, GitHub (pull requests and your
+/// workspaces' changes) and Activity (GitHub, Linear and Slack notifications together).
 enum Mode: String, CaseIterable {
-    case command, conquer, linear, slack, activity
+    case command, conquer, linear, slack, github, activity
 
     var title: String {
         switch self {
@@ -14,6 +14,7 @@ enum Mode: String, CaseIterable {
         case .conquer: "Conquer"
         case .linear: "Linear"
         case .slack: "Slack"
+        case .github: "GitHub"
         case .activity: "Activity"
         }
     }
@@ -23,17 +24,19 @@ enum Mode: String, CaseIterable {
         case .conquer: "globe"
         case .linear: "checklist"
         case .slack: "bubble.left.and.bubble.right"
+        case .github: "arrow.triangle.pull"
         case .activity: "bell"
         }
     }
     /// The page draws it over the map (the mode bar shows it only while its integration is on).
-    var drawnByPage: Bool { self == .linear || self == .slack || self == .activity }
+    var drawnByPage: Bool { self == .linear || self == .slack || self == .github || self == .activity }
     var tip: String {
         switch self {
         case .command: "The map (⌘`)"
         case .conquer: "The browser, in the map's place (⌘`)"
         case .linear: "Your Linear issues, in the map's place (⌘`)"
         case .slack: "Slack, in the map's place (⌘`)"
+        case .github: "Pull requests and your workspaces' changes, in the map's place (⌘`)"
         case .activity: "GitHub, Linear and Slack notifications together, in the map's place (⌘`)"
         }
     }
@@ -60,7 +63,7 @@ private final class BarFill: NSView {
 }
 
 /// The strip across the top of the window that switches the map's place between the map (Command),
-/// the browser (Conquer), your Linear issues (Linear), Slack and Activity; ⌘` steps through them in turn.
+/// the browser (Conquer), your Linear issues (Linear), Slack, GitHub and Activity; ⌘` steps through them in turn.
 /// It stands in for the hidden title bar: the traffic lights sit at its left, it drags the
 /// window, and it says when a newer build is ready. It is the same surface as the
 /// chrome under it (the page's panels, Conquer's sidebar), with no line between them,
@@ -315,7 +318,7 @@ final class ConquerView: NSView, WKNavigationDelegate, WKUIDelegate, NSTextField
     private var placedSidebar = false
     private var sidebarWidth: CGFloat = 240
     var onTogglePanel: (() -> Void)?
-    /// A link clicked in a page: true when the app opens it elsewhere (a Linear issue or Slack message in its tab).
+    /// A link clicked in a page: true when the app opens it elsewhere (a Linear issue, Slack message or GitHub pull request in its tab).
     var onLink: ((URL) -> Bool)?
     private var saving: DispatchWorkItem?
     private var icons: [URL: NSImage] = [:]
@@ -1355,7 +1358,7 @@ final class ConquerView: NSView, WKNavigationDelegate, WKUIDelegate, NSTextField
     func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction,
                  decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
         if navigationAction.shouldPerformDownload { return decisionHandler(.download) }
-        // Linear issues and Slack messages open in their own tabs (⌥-click stays here).
+        // Linear issues, Slack messages and GitHub pull requests open in their own tabs (⌥-click stays here).
         if navigationAction.navigationType == .linkActivated, !navigationAction.modifierFlags.contains(.option),
            let url = navigationAction.request.url, onLink?(url) == true {
             return decisionHandler(.cancel)
