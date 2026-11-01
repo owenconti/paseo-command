@@ -71,26 +71,54 @@ function Files({ files }: { files: SlackFile[] }) {
   );
 }
 
-/** Link previews (Slack's legacy attachments): a coloured edge, the service, the title and its words. */
+/** What Slack says when it couldn't preview a link (a private page): not words to show. */
+const NO_PREVIEW = /^\[no preview available\]$/i;
+
+/** A link's site ("docs.google.com"), or "" for anything that isn't an address. */
+const siteOf = (url: string) => {
+  try {
+    return new URL(url).hostname.replace(/^www\./, "");
+  } catch {
+    return "";
+  }
+};
+
+/**
+ * Link previews (Slack's legacy attachments): a coloured edge, the service (or
+ * the link's site), the title (else the address) and its words. A link Slack
+ * couldn't preview still shows where it goes.
+ */
 function Unfurls({ attachments }: { attachments: NonNullable<SlackMessage["attachments"]> }) {
+  const shown = attachments
+    .map((a) => ({ ...a, text: a.text && !NO_PREVIEW.test(a.text.trim()) ? a.text : undefined }))
+    .filter((a) => a.title || a.text || a.url);
+  if (!shown.length) return null;
   return (
     <div className="slack-unfurls">
-      {attachments
-        .filter((a) => a.title || a.text)
-        .map((a, i) => (
+      {shown.map((a, i) => {
+        const site = a.url ? siteOf(a.url) : "";
+        const title = a.title ?? (a.url ? a.url.replace(/^https?:\/\/(www\.)?/, "") : undefined);
+        return (
           <div key={i} className="slack-unfurl" style={a.color ? { borderLeftColor: `#${a.color.replace(/^#/, "")}` } : undefined}>
-            {a.serviceName && <span className="slack-unfurl-service">{a.serviceName}</span>}
-            {a.title &&
+            {(a.serviceName || site) && <span className="slack-unfurl-service">{a.serviceName ?? site}</span>}
+            {title &&
               (a.url ? (
-                <a className="slack-unfurl-title" href={a.url} target="_blank" rel="noreferrer noopener" onClick={onLinkClick}>
-                  {a.title}
+                <a
+                  className={`slack-unfurl-title${a.title ? "" : " address"}`}
+                  href={a.url}
+                  target="_blank"
+                  rel="noreferrer noopener"
+                  onClick={onLinkClick}
+                >
+                  {title}
                 </a>
               ) : (
-                <span className="slack-unfurl-title">{a.title}</span>
+                <span className="slack-unfurl-title">{title}</span>
               ))}
             {a.text && <MessageText message={{ text: a.text }} />}
           </div>
-        ))}
+        );
+      })}
     </div>
   );
 }

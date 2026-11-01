@@ -157,6 +157,10 @@ export function blocksOf(raw: unknown): SlackBlock[] | undefined {
     if (b.type === "rich_text") {
       const elements = listOf(b.elements).map((x) => elementOf(x, 0)).filter((x): x is SlackRichElement => !!x);
       blocks.push({ type: "rich_text", ...(block_id ? { block_id } : {}), elements });
+    } else if (b.type === "markdown") {
+      // A message sent with markdown_text: its Markdown as Slack keeps it.
+      const text = strOf(b.text);
+      if (text) blocks.push({ type: "markdown", ...(block_id ? { block_id } : {}), text: { type: "markdown", text: clip(text, 40_000) } });
     } else if (b.type === "section") {
       const t = recOf(b.text);
       const text = strOf(t.text);
@@ -221,7 +225,8 @@ export function messageOf(raw: unknown, conversationId: string): SlackMessage | 
       serviceName: opt(strOf(a.service_name), 120),
       color: /^#?[0-9a-f]{6}$/i.test(strOf(a.color)) ? strOf(a.color).replace(/^#?/, "#") : undefined,
     }))
-    .filter((a) => a.title || a.text);
+    // One with only an address (Slack couldn't preview it) still says where it goes.
+    .filter((a) => a.title || a.text || a.url);
   const profile = recOf(m.bot_profile);
   const icons = recOf(m.icons);
   const replyUserIds = Array.isArray(m.reply_users) ? m.reply_users.map(idOf).filter((u): u is string => !!u) : [];

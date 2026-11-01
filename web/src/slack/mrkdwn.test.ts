@@ -191,3 +191,41 @@ describe("dates and emoji", () => {
     assert.equal(matchEmoji("parr", { parrot: "u" })[0], "parrot");
   });
 });
+
+describe("slack markdown blocks (a message sent as Markdown)", () => {
+  const md = (text: string): SlackBlock[] => [{ type: "markdown", text: { type: "markdown", text } }];
+  it("draws its links, styles, code, headings, bullets and quotes", () => {
+    const blocks = messageBlocks({
+      text: "Here is the deck: File-based Diagonal",
+      blocks: md("Here is the deck: [File-based Diagonal](https://docs.example.com/d?a=1&b=2)"),
+    });
+    assert.deepEqual(blocks, [
+      {
+        t: "paragraph",
+        inlines: [
+          { t: "text", text: "Here is the deck: " },
+          { t: "link", url: "https://docs.example.com/d?a=1&b=2", label: "File-based Diagonal" },
+        ],
+      },
+    ]);
+    const styled = messageBlocks({ text: "", blocks: md("**bold** and *it* and ~~gone~~ and `a<b` & <@U1> see https://x.example/y.") })[0];
+    assert.ok(styled.t === "paragraph");
+    assert.deepEqual(
+      styled.inlines.filter((i) => i.t !== "text" || i.bold || i.italic || i.strike || i.code),
+      [
+        { t: "text", text: "bold", bold: true },
+        { t: "text", text: "it", italic: true },
+        { t: "text", text: "gone", strike: true },
+        { t: "text", text: "a<b", code: true },
+        { t: "user", id: "U1" },
+        { t: "link", url: "https://x.example/y" },
+      ],
+    );
+    const shaped = messageBlocks({ text: "", blocks: md("# Plan\n- one\n> quoted\n```\nx < y\n```") });
+    assert.deepEqual(shaped.map((b) => b.t), ["paragraph", "quote", "pre"]);
+    assert.equal(shaped[2].t === "pre" && shaped[2].text, "x < y");
+  });
+  it("is edited as it was written", () => {
+    assert.equal(editableText({ text: "x", blocks: md("**a** [b](https://c)") }), "**a** [b](https://c)");
+  });
+});

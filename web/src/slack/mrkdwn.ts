@@ -303,9 +303,72 @@ function richBlocks(elements: SlackRichElement[] = []): Block[] {
   return out;
 }
 
-/** Whether these blocks say everything the message says (rich text, or mrkdwn sections), so `text` isn't needed. */
+// ── Markdown blocks ──────────────────────────────────────────────────
+
+/**
+ * A `markdown` block's text (standard Markdown, as Slack keeps a message sent
+ * with `markdown_text`) as mrkdwn, which the page already draws: links
+ * `[label](url)` and bare addresses as `<url|label>`, `**bold**` and `__bold__`
+ * as `*bold*`, `*italic*` as `_italic_`, `~~strike~~` as `~strike~`, headings
+ * as bold lines, `-`/`*`/`+` items as bullets; code (spans and fences) as is.
+ */
+export function markdownToMrkdwn(markdown: string): string {
+  const escape = (t: string) => t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const inline = (t: string) =>
+    t
+      .split(/(`[^`\n]+`)/)
+      .map((part, i) => {
+        if (i % 2) return escape(part);
+        const links: string[] = [];
+        const hold = (link: string) => `\u0000${links.push(link) - 1}\u0000`;
+        let out = part
+          // Slack's own specials (mentions, channels, @here) stay as they are.
+          .replace(/<(?:@[UW][A-Z0-9]+|#C[A-Z0-9]+(?:\|[^<>\n]*)?|![a-z]+(?:\^[^<>\n]*)?(?:\|[^<>\n]*)?)>/g, (special) => hold(special))
+          .replace(/\[([^\]\n]+)\]\((https?:\/\/[^\s)]+|mailto:[^\s)]+)\)/g, (_, label: string, url: string) =>
+            hold(`<${escape(url)}|${escape(label).replace(/\|/g, "∣")}>`),
+          )
+          .replace(/<(https?:\/\/[^\s>]+)>/g, (_, url: string) => hold(`<${escape(url)}>`))
+          .replace(/(^|[\s(])(https?:\/\/[^\s<>)]+[^\s<>).,;:!?'"])/g, (_, head: string, url: string) => `${head}${hold(`<${escape(url)}>`)}`);
+        out = escape(out)
+          .replace(/(\*\*|__)(?=\S)(.+?)(?<=\S)\1/g, "\u0001$2\u0001")
+          .replace(/(^|[^*\w])\*(?=\S)([^*\n]+?)(?<=\S)\*(?![*\w])/g, "$1_$2_")
+          .replace(/~~(?=\S)(.+?)(?<=\S)~~/g, "~$1~")
+          .replace(/\u0001/g, "*");
+        return out.replace(/\u0000(\d+)\u0000/g, (_, n: string) => links[Number(n)]);
+      })
+      .join("");
+  const lines: string[] = [];
+  let fenced = false;
+  for (const line of markdown.split("\n")) {
+    if (/^\s*```/.test(line)) {
+      fenced = !fenced;
+      lines.push(line.trim());
+      continue;
+    }
+    if (fenced) {
+      lines.push(escape(line));
+      continue;
+    }
+    const heading = /^\s{0,3}#{1,6}\s+(.*?)\s*#*\s*$/.exec(line);
+    if (heading) {
+      lines.push(`*${inline(heading[1])}*`);
+      continue;
+    }
+    const item = /^(\s*)[-*+]\s+(.*)$/.exec(line);
+    if (item) {
+      lines.push(`${item[1]}• ${inline(item[2])}`);
+      continue;
+    }
+    const quote = /^\s*>\s?(.*)$/.exec(line);
+    lines.push(quote ? `> ${inline(quote[1])}` : inline(line));
+  }
+  return lines.join("\n");
+}
+
+/** Whether these blocks say everything the message says (rich text, mrkdwn sections or Markdown), so `text` isn't needed. */
 const richEnough = (blocks: SlackBlock[] | undefined) =>
-  !!blocks?.length && blocks.some((b) => b.type === "rich_text" || (b.type === "section" && !!b.text?.text));
+  !!blocks?.length &&
+  blocks.some((b) => b.type === "rich_text" || ((b.type === "section" || b.type === "markdown") && !!b.text?.text));
 
 /**
  * A message's text as blocks: its rich text where it has some (and sections'
@@ -316,6 +379,7 @@ export function messageBlocks(message: Pick<SlackMessage, "text" | "blocks">): B
   const out: Block[] = [];
   for (const block of message.blocks!) {
     if (block.type === "rich_text") out.push(...richBlocks(block.elements));
+    else if (block.type === "markdown" && block.text?.text) out.push(...parseMrkdwn(markdownToMrkdwn(block.text.text)));
     else if (block.type === "section" && block.text?.text)
       out.push(...(block.text.type === "mrkdwn" ? parseMrkdwn(block.text.text) : [{ t: "paragraph" as const, inlines: [{ t: "text" as const, text: block.text.text }] }]));
   }
@@ -482,4 +546,8 @@ export function toMarkdown(blocks: Block[]): string {
 }
 
 /** A message's text as Markdown to edit. */
-export const editableText = (message: Pick<SlackMessage, "text" | "blocks">) => toMarkdown(messageBlocks(message));
+export const editableText = (message: Pick<SlackMessage, "text" | "blocks">) => {
+  // Sent as Markdown (one markdown block): edited as it was written.
+  const markdown = message.blocks?.length === 1 && message.blocks[0].type === "markdown" ? message.blocks[0].text?.text : undefined;
+  return markdown ?? toMarkdown(messageBlocks(message));
+};

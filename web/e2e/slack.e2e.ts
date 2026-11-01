@@ -8,7 +8,7 @@
 import { after, before, test } from "node:test";
 import assert from "node:assert/strict";
 import type { Browser, Page } from "playwright";
-import { FAKE_IDS } from "../server/slack/fake";
+import { FAKE_IDS, fakeWorkspace } from "../server/slack/fake";
 import { PNG, launch, mockApi, newContext, startApp, waitFor } from "./harness";
 import { mockSlack } from "./slackFake";
 
@@ -104,6 +104,55 @@ test("Slack shows conversations and threads, sends Markdown and replies, searche
     await dm.getByRole("button", { name: "Launch agent" }).click();
     const form = page.locator(".new-agent");
     await form.locator(".new-agent-issue", { hasText: "Slack" }).waitFor();
+  } finally {
+    slack.restore();
+    await context.close();
+  }
+});
+
+test("a message sent as Markdown keeps its links; a link Slack couldn't preview says where it goes; people from elsewhere are named", async () => {
+  const context = await newContext(browser);
+  const page = await context.newPage();
+  await mockApi(page, { agents: () => [], lists: { settings: { integrations: { slack: true } } } });
+  const ws = fakeWorkspace();
+  const deck = "https://docs.example.com/presentation/d/abc?usp=sharing&x=1";
+  ws.messages.push(
+    {
+      channel: FAKE_IDS.random,
+      ts: "1730000100.000100",
+      user: FAKE_IDS.owen,
+      text: "Here is the deck: File-based Diagonal",
+      blocks: [{ type: "markdown", block_id: "m1", text: `Here is the **deck**: [File-based Diagonal](${deck})` }],
+      attachments: [{ from_url: "https://linear.app/acme/initiative/file-based-diagonal", text: "[no preview available]", fallback: "[no preview available]" }],
+    },
+    {
+      channel: FAKE_IDS.random,
+      ts: "1730000200.000100",
+      user: "U0JO",
+      text: "Has anyone got access?",
+      user_profile: { name: "jo", display_name: "Jo", real_name: "Jo Lee" },
+    },
+  );
+  const slack = await mockSlack(page, ws);
+  await page.route("**/api/slack/avatar**", (route) => route.fulfill({ body: PNG, contentType: "image/png" }));
+  try {
+    await page.goto(app.url);
+    await page.locator(".fleet-sidebar").waitFor();
+    await showSlack(page);
+    const view = page.locator(".slack-view");
+    await view.locator(`[data-conversation="${FAKE_IDS.random}"]`).click();
+    const message = view.locator('.slack-message[data-ts="1730000100.000100"]');
+    await message.waitFor();
+    const link = message.getByRole("link", { name: "File-based Diagonal" });
+    assert.equal(await link.getAttribute("href"), deck);
+    assert.equal(await message.locator("strong, b", { hasText: "deck" }).count(), 1);
+    // No "[no preview available]": the site and the address instead.
+    const card = message.locator(".slack-unfurl");
+    assert.ok(!(await card.innerText()).includes("no preview"));
+    assert.match(await card.locator(".slack-unfurl-service").innerText(), /^linear\.app$/);
+    assert.equal(await card.getByRole("link").getAttribute("href"), "https://linear.app/acme/initiative/file-based-diagonal");
+    // Jo isn't the workspace's: named from her message's own profile.
+    await view.locator('.slack-message[data-ts="1730000200.000100"]', { hasText: "Jo" }).waitFor();
   } finally {
     slack.restore();
     await context.close();

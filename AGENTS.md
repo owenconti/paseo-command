@@ -286,9 +286,9 @@ and GitHub publication; report the published version and release link.
   (`web/src/slack/SlackView.tsx`) over the map's frame while the app reports `paseo:mode` `slack`, as Linear is. Its sidebar
   (`Sidebar.tsx`, `sections.ts`): search, Unreads, Starred, Channels, Direct messages (unread bold with a mention badge, muted dimmed; live
   or polling shown at its foot; inner edge resizes, ⌘S hides). A conversation (`Conversation.tsx`, `MessageList.tsx`, `Message.tsx`,
-  `rich.tsx`): day dividers, senders grouped, Slack's rich text blocks drawn (else its mrkdwn, `mrkdwn.ts`), mentions, channel links, emoji
+  `rich.tsx`): day dividers, senders grouped, Slack's rich text blocks drawn (and `markdown` blocks, a message sent as Markdown, through `markdownToMrkdwn`; else its mrkdwn, `mrkdwn.ts`), mentions, channel links, emoji
   (standard, `emoji.ts`, and custom through `GET /api/slack/emoji`), files (images inline and in the lightbox, others downloading), link
-  previews, reactions (click toggles yours), edits and deletes of your own, a "New messages" line, older pages on scrolling up; read as you
+  previews (a link Slack couldn't preview shows its site and address, not "[no preview available]"), reactions (click toggles yours), edits and deletes of your own, a "New messages" line, older pages on scrolling up; read as you
   read (`m/mark`). Threads (`Thread.tsx`) beside it from 1,100 px, else in its place, with "Also send to #channel". The composer
   (`Composer.tsx`): Markdown sent as Slack's `markdown_text`, ↩ sends, ⇧↩ new line, @people and :emoji completion, files pasted, dropped or
   attached (`POST /api/slack/upload`, then `m/share`), drafts kept, ↑ edits your last. Search (`Search.tsx`, `q/search`). Launch agent from a

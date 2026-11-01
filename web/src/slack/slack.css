@@ -808,6 +808,13 @@ button.slack-mention:hover {
 a.slack-unfurl-title:hover {
   text-decoration: underline;
 }
+/* No title: the address itself, on one line. */
+.slack-unfurl-title.address {
+  overflow: hidden;
+  font-weight: var(--fw-medium);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .slack-unfurl .slack-rich {
   color: var(--text-2);
 }
