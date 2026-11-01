@@ -10,6 +10,7 @@ import { placeBelow } from "./Picker";
 import { PropertyPicker, type PropertyField } from "./Properties";
 import { linearStore, scopeIssues, useLinear } from "./store";
 import type { IssueScope, LinearIssue, LinearState, LinearWorkspace } from "./types";
+import { shownTextScale } from "./textSize";
 
 /** One issue as a list shows it: priority, key, title, labels' dots, project and assignee. */
 export function IssueRow({
@@ -124,7 +125,7 @@ function RowMenu({ issueId, at, onClose }: { issueId: string; at: { x: number; y
   return createPortal(
     <span
       className="menu-anchor linear-row-menu-anchor"
-      style={{ left: Math.max(8, Math.min(at.x, window.innerWidth - MENU_WIDTH)), top: at.y }}
+      style={{ left: Math.max(8, Math.min(at.x, window.innerWidth - MENU_WIDTH * shownTextScale())), top: at.y }}
     >
       {field ? (
         <PropertyPicker field={field} issue={issue} onClose={onClose} />

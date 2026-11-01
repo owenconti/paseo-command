@@ -22,7 +22,7 @@ import { cycleName } from "./bits";
 import { ProjectFacts, ProjectList } from "./ProjectList";
 import type { IssueContext } from "./prompt";
 import { Sidebar } from "./Sidebar";
-import { changeTextStep, checkTextStep, textSizeKey, type TextChange } from "./textSize";
+import { changeTextStep, checkTextStep, textScale, textSizeKey, type TextChange } from "./textSize";
 import {
   linearStore,
   loadCycles,
@@ -212,6 +212,7 @@ export function LinearView({
   const [textStep, setTextStep] = useState(() => checkTextStep(readStore<unknown>("linear:textSize", undefined)));
   useEffect(() => {
     document.documentElement.style.setProperty("--linear-text", `${textStep}px`);
+    document.documentElement.style.setProperty("--linear-scale", String(textScale(textStep)));
   }, [textStep]);
   const resizeText = (change: TextChange) =>
     setTextStep((step) => {
