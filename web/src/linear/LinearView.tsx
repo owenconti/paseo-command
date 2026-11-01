@@ -22,7 +22,6 @@ import { cycleName } from "./bits";
 import { ProjectFacts, ProjectList } from "./ProjectList";
 import type { IssueContext } from "./prompt";
 import { Sidebar } from "./Sidebar";
-import { changeTextStep, checkTextStep, textScale, textSizeKey, type TextChange } from "./textSize";
 import {
   linearStore,
   loadCycles,
@@ -208,18 +207,6 @@ export function LinearView({
   /** The open issue's width as shown now (its edge may not have been dragged yet). */
   const shownDetailWidth = () =>
     detailW ?? view?.querySelector<HTMLElement>(".linear-detail")?.getBoundingClientRect().width ?? DETAIL.min;
-  // The view's text size (`textSize.ts`), set on the root so portalled menus and dialogs follow.
-  const [textStep, setTextStep] = useState(() => checkTextStep(readStore<unknown>("linear:textSize", undefined)));
-  useEffect(() => {
-    document.documentElement.style.setProperty("--linear-text", `${textStep}px`);
-    document.documentElement.style.setProperty("--linear-scale", String(textScale(textStep)));
-  }, [textStep]);
-  const resizeText = (change: TextChange) =>
-    setTextStep((step) => {
-      const next = changeTextStep(step, change);
-      writeStore("linear:textSize", next);
-      return next;
-    });
   const toggleList = () =>
     setListHidden((hidden) => {
       writeStore("linear:listHidden", !hidden);
@@ -355,12 +342,6 @@ export function LinearView({
       if (e.metaKey && !e.ctrlKey && !e.altKey && !e.shiftKey && (e.key === "[" || e.key === "]") && !modalOpen()) {
         e.preventDefault();
         goHistory(e.key === "[" ? -1 : 1);
-        return;
-      }
-      const change = textSizeKey(e);
-      if (change) {
-        e.preventDefault();
-        resizeText(change);
       }
     };
     window.addEventListener("keydown", key);
@@ -368,9 +349,6 @@ export function LinearView({
       onAppCommand("linear-sidebar", toggleList),
       onAppCommand("linear-back", () => goHistory(-1)),
       onAppCommand("linear-forward", () => goHistory(1)),
-      onAppCommand("linear-text-bigger", () => resizeText("bigger")),
-      onAppCommand("linear-text-smaller", () => resizeText("smaller")),
-      onAppCommand("linear-text-actual", () => resizeText("actual")),
     ];
     return () => {
       window.removeEventListener("keydown", key);

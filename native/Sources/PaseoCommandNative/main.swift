@@ -397,7 +397,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         // Only while the terminal shows, so the keys stay the page's otherwise; while Linear or
         // Slack shows, only while the terminal has the keyboard (the page sizes their text with them).
         case #selector(zoomTerminal(_:)):
-            return !main.drawer.isHidden && ((main.mode != .linear && main.mode != .slack) || main.drawer.hasKeyFocus)
+            // The pages (Linear, Slack, Activity, Settings) size their own text with these keys.
+            return !main.drawer.isHidden && (!main.mode.drawnByPage || main.drawer.hasKeyFocus)
         default: break
         }
         return true

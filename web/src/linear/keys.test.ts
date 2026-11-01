@@ -57,6 +57,9 @@ describe("linearKeyAction", () => {
 
   it("leaves other keys and other modifiers alone", () => {
     assert.equal(press("s", { meta: true }), null); // ⌘S: left to the view's sidebar toggle
+    // ⌘F searches the list, as / does, even from a text field.
+    assert.equal(press("f", { meta: true }), "filter");
+    assert.equal(press("f", { meta: true }, { tagName: "INPUT" }), "filter");
     assert.equal(press("x"), null);
     assert.equal(press("n"), null);
     assert.equal(press("c", { meta: true }), null);

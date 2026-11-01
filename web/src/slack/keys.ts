@@ -8,7 +8,7 @@ const typing = (target: Target) =>
 /**
  * The Slack tab's key for a keydown: ⌥↑ and ⌥↓ go to the previous and next
  * conversation (with ⇧, the previous and next unread one), as they do while
- * typing in Slack; and, while not typing, / searches, Esc closes the thread
+ * typing in Slack; ⌘F searches, typing or not; and, while not typing, / searches, Esc closes the thread
  * (then the search) and C writes in the open conversation. Null for every
  * other key, ⌘S (the sidebar), ⌘K (the palette) and ⌘+ ⌘− ⌘0 (the text) included.
  */
@@ -20,6 +20,7 @@ export function slackKeyAction(e: {
   altKey: boolean;
   target: Target;
 }): SlackKey | null {
+  if (e.metaKey && !e.shiftKey && !e.ctrlKey && !e.altKey && e.key.toLowerCase() === "f") return "search";
   if (e.metaKey || e.ctrlKey) return null;
   if (e.altKey) {
     if (e.key === "ArrowUp") return e.shiftKey ? "previousUnread" : "previous";

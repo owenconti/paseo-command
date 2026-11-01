@@ -95,8 +95,6 @@ const LINEAR: Group = {
     { keys: [["⌫"]], label: "Inbox: archive the notification" },
     { keys: [["⌘", "S"]], label: "Show or hide the sidebar" },
     { keys: [["⌘", "["], ["⌘", "]"]], label: "Back or forward" },
-    { keys: [["⌘", "+"], ["⌘", "−"]], label: "Bigger or smaller text" },
-    { keys: [["⌘", "0"]], label: "Actual text size" },
     { keys: [["⌘", "Enter"]], label: "Send a comment, reply or edit" },
     { keys: [["⌘", "Enter"]], label: "Create the issue (New issue)" },
   ],
@@ -115,8 +113,16 @@ const SLACK: Group = {
     { keys: [["⇧", "Enter"]], label: "New line in the message" },
     { keys: [["↑"]], label: "Edit your last message (in an empty message box)" },
     { keys: [["⌘", "S"]], label: "Show or hide the sidebar" },
-    { keys: [["⌘", "+"], ["⌘", "−"]], label: "Bigger or smaller text" },
+  ],
+};
+/** What every page (Linear, Slack, Activity, Settings) takes, while it shows (`pageText.ts`). */
+const PAGES: Group = {
+  title: "Pages",
+  note: "In Linear, Slack, Activity and Settings",
+  rows: [
+    { keys: [["⌘", "+"], ["⌘", "−"]], label: "Bigger or smaller text (one size for every page)" },
     { keys: [["⌘", "0"]], label: "Actual text size" },
+    { keys: [["⌘", "F"], ["/"]], label: "Search (Linear's list, Slack's messages)" },
   ],
 };
 /** The Activity tab's keys (`activity/ActivityView.tsx`), while the keyboard is in it. */
@@ -267,6 +273,7 @@ function ShortcutsDialog({ onClose }: { onClose: () => void }) {
       ? [
           ...GROUPS,
           NATIVE,
+          PAGES,
           ...(integrations.linear ? [LINEAR] : []),
           ...(integrations.slack ? [SLACK] : []),
           ...(activityEnabled(integrations) ? [ACTIVITY] : []),

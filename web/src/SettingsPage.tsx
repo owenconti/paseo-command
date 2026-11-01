@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
-import { X } from "lucide-react";
+import { Bell, Bot, Plug, Volume2, X } from "lucide-react";
+import { ResizeEdge } from "./ResizeEdge";
+import { readStore, writeStore } from "./api";
 import { previewSound, setSoundSettings, useSoundSettings } from "./sounds";
 import { setIntegration, useIntegrations } from "./integrationSettings";
 import { LinearWorkspaceSetting } from "./HeaderLinks";
@@ -12,13 +14,16 @@ import { ApiKeySetting, type SecretStatus } from "./ApiKeySetting";
 import { closeSettings, useSettingsRequest } from "./settingsStore";
 import { macApp } from "./worldBridge";
 
-/** The page's sections, in order: the side list jumps to each. */
+/** The page's sections, in its sidebar's order; one shows at a time, as the other pages' places do. */
 const SECTIONS = [
-  { id: "settings-sound", label: "Sound and music" },
-  { id: "settings-notifications", label: "Notifications" },
-  { id: "settings-integrations", label: "Integrations" },
-  { id: "settings-new-agent", label: "New agent" },
+  { id: "sound", label: "Sound and music", icon: <Volume2 size={14} aria-hidden="true" /> },
+  { id: "notifications", label: "Notifications", icon: <Bell size={14} aria-hidden="true" /> },
+  { id: "integrations", label: "Integrations", icon: <Plug size={14} aria-hidden="true" /> },
+  { id: "new-agent", label: "New agent", icon: <Bot size={14} aria-hidden="true" /> },
 ] as const;
+type Section = (typeof SECTIONS)[number]["id"];
+/** The sidebar's width: as Activity's, it resizes and is kept. */
+const SIDEBAR = { default: 220, min: 180, max: 360 };
 
 /**
  * The app's settings, a page in the map's place (`settingsStore.ts`; in the
@@ -27,7 +32,9 @@ const SECTIONS = [
  * agent's preset prompts and agent profiles. Sounds, radio and notifications
  * are kept in this browser (or the app); integrations, the Linear workspace and
  * the presets in the data directory's settings.json, keys beside it in
- * secrets.json. A list of its sections stands beside them on wide windows.
+ * secrets.json. Laid out as the other pages are: a sidebar of its sections
+ * (Sound and music, Notifications, Integrations, New agent), and the chosen one
+ * beside it under its own heading.
  */
 export function SettingsPage({
   notifications,
@@ -40,16 +47,33 @@ export function SettingsPage({
   const music = useMusic();
   const musicPercent = Math.round(music.volume * 100);
   const page = useRef<HTMLElement>(null);
-  const body = useRef<HTMLDivElement>(null);
-  const first = useRef<HTMLInputElement>(null);
+  const first = useRef<HTMLButtonElement>(null);
   const request = useSettingsRequest();
   // In the macOS app Settings is a tab; in a browser the page closes back to the map.
   const closable = !macApp();
-  const sections = SECTIONS.filter((s) => s.id !== "settings-notifications" || notifications !== "unsupported");
-  const [current, setCurrent] = useState<string>(SECTIONS[0].id);
+  const sections = SECTIONS.filter((s) => s.id !== "notifications" || notifications !== "unsupported");
+  const [section, setSectionState] = useState<Section>(() => {
+    const kept = readStore<string>("settings:section", "sound");
+    return sections.some((s) => s.id === kept) ? (kept as Section) : "sound";
+  });
+  const setSection = (next: Section) => {
+    setSectionState(next);
+    writeStore("settings:section", next);
+  };
+  const [sidebarW, setSidebarW] = useState(() => {
+    const kept = readStore<number | null>("settings:sidebarWidth", null);
+    return typeof kept === "number" ? Math.min(SIDEBAR.max, Math.max(SIDEBAR.min, kept)) : SIDEBAR.default;
+  });
+  const resizeSidebar = (w: number | null) => {
+    const next = w === null ? SIDEBAR.default : Math.round(Math.min(SIDEBAR.max, Math.max(SIDEBAR.min, w)));
+    setSidebarW(next);
+    if (w === null) writeStore("settings:sidebarWidth", null);
+    else writeStore("settings:sidebarWidth", next);
+  };
   // Opening (the tab, ⌘,, the palette, Manage … key) puts the keyboard in the
-  // page: on its first switch, or on the asked integration's key editor.
+  // page: on its section in the sidebar, or on the asked integration's key editor.
   useEffect(() => {
+    if (request.target) setSectionState("integrations");
     let tries = 0;
     let timer: ReturnType<typeof setTimeout>;
     // The page may still be appearing. (Timers, not animation frames: a hidden native window draws none.)
@@ -66,25 +90,7 @@ export function SettingsPage({
     attempt();
     return () => clearTimeout(timer);
   }, [request]);
-  // The side list marks the section at the top of the view as it scrolls.
-  useEffect(() => {
-    const scroller = body.current;
-    if (!scroller) return;
-    const mark = () => {
-      const top = scroller.getBoundingClientRect().top + 24;
-      let shown: string = SECTIONS[0].id;
-      for (const s of SECTIONS) {
-        const el = document.getElementById(s.id);
-        if (el && el.getBoundingClientRect().top <= top) shown = s.id;
-      }
-      // At the end, the last section is the one being read.
-      if (scroller.scrollTop + scroller.clientHeight >= scroller.scrollHeight - 2) shown = SECTIONS[SECTIONS.length - 1].id;
-      setCurrent(shown);
-    };
-    mark();
-    scroller.addEventListener("scroll", mark, { passive: true });
-    return () => scroller.removeEventListener("scroll", mark);
-  }, []);
+  const shown = sections.find((s) => s.id === section) ?? sections[0]!;
   const percent = Math.round(settings.volume * 100);
   const musicStatus = !music.enabled
     ? "Streams laut.fm's lofi station"
@@ -98,6 +104,7 @@ export function SettingsPage({
       ref={page}
       className="settings-page settings-menu"
       aria-label="Settings"
+      style={{ gridTemplateColumns: `${sidebarW}px minmax(0, 1fr)` }}
       // Keys pressed here are the page's (not J/K/N/D shortcuts); in a browser Escape
       // closes it unless a field took it first.
       onKeyDown={(e) => {
@@ -108,34 +115,61 @@ export function SettingsPage({
         if (e.key !== "Tab" && !e.metaKey) e.stopPropagation();
       }}
     >
-      <header className="settings-page-head">
-        <div>
+      <nav className="settings-sidebar" id="settings-sidebar" aria-label="Settings sections">
+        <div className="settings-sidebar-head">
           <h2>Settings</h2>
-          <p>Kept for this copy of the app.</p>
+          {closable && (
+            <button className="icon-btn" aria-label="Close settings" data-tip="Close settings (Esc)" onClick={closeSettings}>
+              <X size={14} aria-hidden="true" />
+            </button>
+          )}
         </div>
-        {closable && (
-          <button className="icon-btn" aria-label="Close settings" data-tip="Close settings (Esc)" onClick={closeSettings}>
-            <X size={18} />
-          </button>
-        )}
-      </header>
-      <div ref={body} className="settings-page-body">
-        <div className="settings-layout">
-          <nav className="settings-nav" aria-label="Settings sections">
-            {sections.map((s) => (
-              <button
-                key={s.id}
-                aria-current={current === s.id ? "true" : undefined}
-                onClick={() => document.getElementById(s.id)?.scrollIntoView({ block: "start", behavior: "smooth" })}
-              >
-                {s.label}
-              </button>
-            ))}
-          </nav>
-          <div className="settings-sections">
-            <SettingsGroup id="settings-sound" title="Sound and music">
+        <div
+          className="settings-nav"
+          // ↑/↓ step through the sections, as a list.
+          onKeyDown={(e) => {
+            if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
+            e.preventDefault();
+            const at = sections.findIndex((s) => s.id === shown.id);
+            const next = sections[(at + (e.key === "ArrowDown" ? 1 : sections.length - 1)) % sections.length]!;
+            setSection(next.id);
+            page.current?.querySelector<HTMLElement>(`[data-section="${next.id}"]`)?.focus();
+          }}
+        >
+          {sections.map((s) => (
+            <button
+              key={s.id}
+              ref={s.id === shown.id ? first : undefined}
+              data-section={s.id}
+              className={`settings-nav-item${s.id === shown.id ? " selected" : ""}`}
+              aria-current={s.id === shown.id ? "page" : undefined}
+              onClick={() => setSection(s.id)}
+            >
+              {s.icon}
+              <span className="settings-nav-label">{s.label}</span>
+            </button>
+          ))}
+        </div>
+        <ResizeEdge
+          label="Resize the settings sidebar"
+          controls="settings-sidebar"
+          value={sidebarW}
+          min={SIDEBAR.min}
+          max={SIDEBAR.max}
+          grows="right"
+          onResize={resizeSidebar}
+          onReset={() => resizeSidebar(null)}
+        />
+      </nav>
+      <div className="settings-main">
+        <header className="settings-head">
+          <h2>{shown.label}</h2>
+          <small>Kept for this copy of the app</small>
+        </header>
+        <div className="settings-page-body">
+          {shown.id === "sound" && (
+            <SettingsGroup>
               <SwitchRow
-                inputRef={first}
                 title="Interface sounds"
                 description="Selections, dispatches, finished agents, approvals"
                 checked={settings.enabled}
@@ -167,27 +201,27 @@ export function SettingsPage({
                 />
               )}
             </SettingsGroup>
-            {notifications !== "unsupported" && (
-              <SettingsGroup id="settings-notifications" title="Notifications">
-                <SwitchRow
-                  title="Desktop notifications"
-                  description={
-                    notifications === "denied" ? "Blocked in browser settings" : "When an agent finishes or needs your approval"
-                  }
-                  checked={notifications === "granted"}
-                  disabled={notifications === "denied"}
-                  onChange={onNotifications}
-                />
-              </SettingsGroup>
-            )}
-            <SettingsGroup
-              id="settings-integrations"
-              title="Integrations"
-              note="Optional, and off until you turn them on. Keys are saved on this Mac and never shown again."
-            >
+          )}
+          {shown.id === "notifications" && (
+            <SettingsGroup>
+              <SwitchRow
+                title="Desktop notifications"
+                description={
+                  notifications === "denied" ? "Blocked in browser settings" : "When an agent finishes or needs your approval"
+                }
+                checked={notifications === "granted"}
+                disabled={notifications === "denied"}
+                onChange={onNotifications}
+              />
+            </SettingsGroup>
+          )}
+          {shown.id === "integrations" && (
+            <SettingsGroup note="Optional, and off until you turn them on. Keys are saved on this Mac and never shown again.">
               <IntegrationSettings />
             </SettingsGroup>
-            <SettingsGroup id="settings-new-agent" title="New agent">
+          )}
+          {shown.id === "new-agent" && (
+            <SettingsGroup>
               <PresetsSetting />
               <div className="settings-row presets-setting profiles-setting">
                 <span className="settings-row-text">
@@ -199,17 +233,16 @@ export function SettingsPage({
                 </button>
               </div>
             </SettingsGroup>
-          </div>
+          )}
         </div>
       </div>
     </section>
   );
 }
 
-function SettingsGroup({ id, title, note, children }: { id: string; title: string; note?: string; children: ReactNode }) {
+function SettingsGroup({ note, children }: { note?: string; children: ReactNode }) {
   return (
-    <section id={id} className="settings-group" aria-labelledby={`${id}-title`}>
-      <h3 id={`${id}-title`}>{title}</h3>
+    <section className="settings-group">
       {note && <p className="settings-group-note">{note}</p>}
       <div className="settings-card">{children}</div>
     </section>
@@ -224,7 +257,6 @@ function SwitchRow({
   disabled,
   live,
   badge,
-  inputRef,
   onChange,
 }: {
   title: string;
@@ -234,7 +266,6 @@ function SwitchRow({
   /** Its description changes as it works (the radio connecting). */
   live?: boolean;
   badge?: ReactNode;
-  inputRef?: React.Ref<HTMLInputElement>;
   onChange: (on: boolean) => void;
 }) {
   return (
@@ -247,7 +278,6 @@ function SwitchRow({
         <small aria-live={live ? "polite" : undefined}>{description}</small>
       </span>
       <input
-        ref={inputRef}
         type="checkbox"
         role="switch"
         checked={checked}

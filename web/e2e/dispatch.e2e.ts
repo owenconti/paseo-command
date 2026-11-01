@@ -344,6 +344,7 @@ test("presets are added in their editor and offered in New agent", async () => {
   await view.getByRole("button", { name: "Tidy" }).waitFor();
   // Settings opens the same editor, with the saved preset; Esc drops edits.
   await page.getByRole("button", { name: "Settings" }).click();
+  await page.locator('.settings-nav-item[data-section="new-agent"]').click();
   await page.locator(".presets-setting:not(.profiles-setting)").getByRole("button", { name: "Edit presets…" }).click();
   await dialog.waitFor();
   assert.equal(await dialog.getByLabel("Name").inputValue(), "Tidy");

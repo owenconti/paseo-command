@@ -173,10 +173,11 @@ and GitHub publication; report the published version and release link.
   other keys and never overwrites an unreadable file); `web/src/presetsStore.ts` shares them across the page.
   Optional integrations (`integrations.linear`, `integrations.typesafe`) default off in that file.
   Integration keys are read only from the data directory's `secrets.json` (`web/server/secrets.ts`), never from environment variables.
-  Settings is a page in the map's place (`web/src/SettingsPage.tsx`, opened through `settingsStore.ts`), its text 2 px over the app's sizes: in the macOS app
+  Settings is a page in the map's place (`web/src/SettingsPage.tsx`, opened through `settingsStore.ts`), its text the pages': in the macOS app
   the mode bar's last tab (`Mode.settings`; ⌘` steps to it, the app menu's Settings… ⌘, opens it and goes back to the side before, the palette's Settings
-  asks with `menu` `settings`), in a browser the page's own state (its bar's gear; Esc or its × closes it). Its sections, listed beside them on wide windows:
-  sound and music (a volume only while its sound is on), notifications, integrations, New agent (presets, profiles). Rows put what a setting is on the left and
+  asks with `menu` `settings`), in a browser the page's own state (its bar's gear; Esc or its × closes it). Laid out as the other pages (a resizable sidebar of its
+  sections, the chosen one beside it under its heading, kept in localStorage; ↑/↓ step through them; Manage … key opens Integrations): sound and music (a
+  volume only while its sound is on), notifications, integrations, New agent (presets, profiles). Rows put what a setting is on the left and
   its switch or button on the right; a switched-on integration shows its state (Ready, needs a key, Live) and its keys and settings in a well beneath it.
   `GET /api/secrets` returns presence flags only; `POST /api/secrets` saves/replaces/removes a named key,
   preserving other credentials in an atomic owner-only file. Saved values never return to the page.
@@ -255,6 +256,11 @@ and GitHub publication; report the published version and release link.
   optionally seeded after confirmation through Conquer → Import Zen Cookies from Zen Browser's profile (`ZenCookies.swift`): a copy of
   `cookies.sqlite`, default space only, unpartitioned and unexpired; Zen is never written to. Its tabs (`conquerState`), sidebar width, zooms,
   history (`conquer-history.json` in the app's data folder, `~/Library/Application Support/Paseo Command/` for the release) and the mode come back on launch; tabs come back unloaded.
+- Pages: Linear, Slack, Activity and Settings, which the page draws in the map's place, share one look (`web/src/styles/pages.css`): one type scale (the
+  app's sizes plus `--page-text`, 2 px by default), one width scale (`--lz`, from `--page-scale`, for columns, rows, controls and icons) and, in dark, one
+  neutral near-black palette; each is a sidebar headed by its name beside its content, the same rows and heads. One text size serves them all
+  (`web/src/pageText.ts`, kept in localStorage): ⌘+ / ⌘− / ⌘0 anywhere in the page while one shows, ⌘K "Bigger text", "Smaller text", "Actual text size",
+  and the shortcuts dialog's Pages group; the terminal keeps those keys only while it has the keyboard. ⌘F searches where a page has search (Linear's list, Slack).
 - Linear (the mode bar's third tab, after Command and Conquer and before Slack and Activity; View menu; palette "Show your Linear issues"; all only while Linear is enabled): a Linear client the page
   draws (`web/src/linear/LinearView.tsx`) over the map's frame while the app reports `paseo:mode` `linear` (`useAppMode`, `web/src/appMode.ts`;
   the page asks with a `mode` message). Navigation: its sidebar (`Sidebar.tsx`) is Linear's: Inbox (`Inbox.tsx`, `inboxRows.ts`; its unread rows counted in the sidebar; ⌘K "Go to your Linear inbox"): your notifications from `q/notifications` (250 a page, up to the 500 most recently updated, then a note saying so; asked again once archiving leaves it 50 below), kept current by sync, an issue's (or project's) in one row, newest first; a row opens its issue (beside) or project and is read from then; U marks it read or unread, H snoozes it (an hour, tomorrow at 9, next Monday at 9; Snoozed lists those, each to unsnooze), ⌫ archives it with Undo; Mark all read (and ⌘K) takes every unread row. Its writes act on a row's notifications together (Linear's `notification…All` by issue, project or one id, and `notificationUnarchive` for Undo), shown at once and put back if Linear refuses. Search (its head's search button, ⌘K "Search all Linear issues": every issue in the workspace matching the words, most relevant first, from `q/search`, Linear's `searchIssues`, asked 300 ms after typing pauses, from two characters, and kept as the place; the server keeps under Linear's 30 searches a minute, and a refused search says so on its screen without pausing the rest),  My issues (Assigned, Created, Subscribed),
@@ -294,7 +300,7 @@ and GitHub publication; report the published version and release link.
   over `client.ts`, which keeps to the key's hourly budget (2,500 requests, 3,000,000 complexity; reads stand down when it runs low,
   writes still go). Launch agent opens New agent with the issue (`DispatchTarget.issue`): Worktree on Linear's branch name, the
   composer's draft naming the issue; presets take `{{issue}}` and the issue's details (`prompt.ts`). As Conquer's sidebar, the Linear
-  sidebar's inner edge resizes it and ⌘S hides or shows it (kept in localStorage). Its text is 2 px over the app's sizes by default; ⌘+ / ⌘− / ⌘0 (anywhere in the page while Linear shows; ⌘K "Bigger/Smaller/Actual Linear text") step it (`linear/textSize.ts`, `--linear-text` on the root, kept in localStorage; `--linear-scale` grows its columns, rows, controls, menus and icons with the text), and the terminal keeps those keys only while it has the keyboard. People show their avatar through `GET /api/linear/avatar?user=<id>` (only the address Linear gives for that member: Linear's own uploads with the key, other hosts without it; kept an hour), else their initials; a notification's actor who isn't a member (an app, a bot) shows the avatar Linear names for it (`?url=`, only addresses a notification named), else its initials on its colour. Images uploaded to Linear load through
+  sidebar's inner edge resizes it and ⌘S hides or shows it (kept in localStorage). Its text is the pages' (see Pages below), and the terminal keeps those keys only while it has the keyboard. People show their avatar through `GET /api/linear/avatar?user=<id>` (only the address Linear gives for that member: Linear's own uploads with the key, other hosts without it; kept an hour), else their initials; a notification's actor who isn't a member (an app, a bot) shows the avatar Linear names for it (`?url=`, only addresses a notification named), else its initials on its colour. Images uploaded to Linear load through
   `GET /api/linear/image?url=` (only `uploads.linear.app`, fetched with the key; `linearImages`). Tests never reach Linear
   (`web/server/test-setup.ts` points the data directory and settings file at a temporary folder): server tests and e2e (`web/e2e/linear.e2e.ts`, the real route) run over the fake
   Linear (`web/server/linear/fake.ts`, `web/e2e/linearFake.ts`; `installFakeLinear` enables Linear in the test settings file and
@@ -312,7 +318,7 @@ and GitHub publication; report the published version and release link.
   (`Composer.tsx`): Markdown sent as Slack's `markdown_text`, ↩ sends, ⇧↩ new line, @people and :emoji completion, files pasted, dropped or
   attached (`POST /api/slack/upload`, then `m/share`), drafts kept, ↑ edits your last. Search (`Search.tsx`, `q/search`). Launch agent from a
   message or thread opens New agent quoting it (`DispatchTarget.slack`, `slack/prompt.ts`; presets take `{{slack}}`). Keys (`keys.ts`):
-  ⌥↑/⌥↓ conversations, ⌥⇧↑/⌥⇧↓ unread ones, / search, C write, Esc closes the thread then search, ⌘+ ⌘− ⌘0 text size; each with its ⌘K
+  ⌥↑/⌥↓ conversations, ⌥⇧↑/⌥⇧↓ unread ones, / or ⌘F search, C write, Esc closes the thread then search; each with its ⌘K
   entry and the shortcuts dialog's Slack group. Its place is kept in localStorage (`place.ts`; `openSlackPlace` opens a conversation or
   thread from elsewhere). Server (`web/server/slack/`; the page never gets a token): opt-in `integrations.slack`, then `slackUserToken`
   (xoxp, the user's own Slack app; messages go as them) and optionally `slackAppToken` (xapp, Socket Mode) in the data directory's

@@ -49,6 +49,7 @@ import {
 } from "./archives";
 import { SettingsPage } from "./SettingsPage";
 import { closeSettings, openSettings, useSettingsShown } from "./settingsStore";
+import { usePageTextKeys } from "./pageText";
 import { setSoundSettings, useSoundSettings } from "./sounds";
 import { setMusicSettings, useMusic } from "./music";
 import { setIntegration, useIntegrations } from "./integrationSettings";
@@ -877,6 +878,13 @@ function App() {
   // The Activity tab's filter and selected item, for ⌘K's entries for them.
   const [activityView, setActivityView] = useState<ActivityViewState | undefined>();
   const showActivity = appTabs(integrations).activity;
+  // Linear, Slack, Activity and Settings share one text size (⌘+ ⌘− ⌘0, `pageText.ts`).
+  const pageShown =
+    settingsShown ||
+    (appMode === "linear" && integrations.linear) ||
+    (appMode === "slack" && integrations.slack) ||
+    (appMode === "activity" && showActivity);
+  usePageTextKeys(pageShown);
   const appUpdate = useAppUpdate();
   // From a Linear issue: New agent, where the host and project are chosen.
   const launchFromIssue = useCallback(
@@ -1603,30 +1611,6 @@ function App() {
                     run: () => runAppCommand("linear-sidebar"),
                   },
                   {
-                    id: "linear-text-bigger",
-                    group: "App",
-                    label: "Bigger Linear text",
-                    keys: [["⌘", "+"]],
-                    keywords: "linear zoom font size larger",
-                    run: () => runAppCommand("linear-text-bigger"),
-                  },
-                  {
-                    id: "linear-text-smaller",
-                    group: "App",
-                    label: "Smaller Linear text",
-                    keys: [["⌘", "−"]],
-                    keywords: "linear zoom font size",
-                    run: () => runAppCommand("linear-text-smaller"),
-                  },
-                  {
-                    id: "linear-text-actual",
-                    group: "App",
-                    label: "Actual Linear text size",
-                    keys: [["⌘", "0"]],
-                    keywords: "linear zoom font size reset default",
-                    run: () => runAppCommand("linear-text-actual"),
-                  },
-                  {
                     id: "linear-refresh",
                     group: "App",
                     label: "Refresh Linear issues",
@@ -1759,9 +1743,6 @@ function App() {
               ["slack-refresh", "Refresh Slack", "slack reload update sync messages", undefined],
               ["slack-sidebar", "Show or hide the Slack sidebar", "slack sidebar channels collapse panel", ["⌘", "S"]],
               ["slack-search", "Search Slack messages", "slack search find messages", ["/"]],
-              ["slack-text-bigger", "Bigger Slack text", "slack zoom font size larger", ["⌘", "+"]],
-              ["slack-text-smaller", "Smaller Slack text", "slack zoom font size", ["⌘", "−"]],
-              ["slack-text-actual", "Actual Slack text size", "slack zoom font size reset default", ["⌘", "0"]],
               ...(slackView.unreadCount > 0
                 ? ([["slack-next-unread", "Next unread Slack conversation", "slack unread next jump", ["⌥", "⇧", "↓"]]] as const)
                 : []),
@@ -2153,6 +2134,22 @@ function App() {
             run: () => void attention.requestNotifications(),
           },
         ]
+      : []),
+    ...(pageShown
+      ? (
+          [
+            ["page-text-bigger", "Bigger text", ["⌘", "+"], "zoom in font size larger"],
+            ["page-text-smaller", "Smaller text", ["⌘", "−"], "zoom out font size"],
+            ["page-text-actual", "Actual text size", ["⌘", "0"], "zoom reset font size default"],
+          ] as const
+        ).map(([id, label, keys, words]) => ({
+          id,
+          group: "App",
+          label,
+          keys: [[...keys]],
+          keywords: `${words} linear slack activity settings page`,
+          run: () => runAppCommand(id),
+        }))
       : []),
     // In the macOS app Settings is a tab (⌘,); in a browser a page that closes again.
     ...(!settingsShown
