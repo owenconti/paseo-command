@@ -146,6 +146,21 @@ test("Activity gathers GitHub, Linear and Slack, filters them, and marks them re
     await waitFor(() => Promise.resolve(writes.length), (n) => n === 3, "the read-all write");
     assert.deepEqual(writes[2], { name: "read", keys: ["github:101"] });
     await waitFor(() => view.locator(".activity-row.unread").count(), (n) => n === 0, "nothing unread");
+
+    // Mark all done asks first; Cancel (or Esc) leaves everything, Mark done takes every shown item.
+    await view.getByRole("button", { name: "Mark all done" }).click();
+    await view.getByRole("button", { name: "Cancel" }).click();
+    assert.equal(writes.length, 3, "cancelling writes nothing");
+    await view.locator(".activity-row").first().focus();
+    await page.keyboard.press("Shift+E");
+    await page.keyboard.press("Escape");
+    await view.getByRole("button", { name: "Mark all done" }).waitFor();
+    assert.equal(writes.length, 3, "Esc writes nothing");
+    await view.locator(".activity-row").first().focus();
+    await page.keyboard.press("Shift+E");
+    await view.getByRole("button", { name: "Mark done", exact: true }).click();
+    await waitFor(() => rowKeys(page), (keys) => keys.length === 0, "the feed emptied");
+    assert.deepEqual(writes[3], { name: "done", keys: ["github:101", ITEMS[2].key] });
   } finally {
     await context.close();
   }

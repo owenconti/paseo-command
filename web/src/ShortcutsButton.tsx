@@ -128,6 +128,7 @@ const ACTIVITY: Group = {
     { keys: [["U"]], label: "Mark it read or unread" },
     { keys: [["⇧", "U"]], label: "Mark every shown notification read" },
     { keys: [["E"], ["⌫"]], label: "Done: leave it out of Activity" },
+    { keys: [["⇧", "E"]], label: "Mark every shown notification done (asks first)" },
     { keys: [["1"], ["2"], ["3"], ["4"]], label: "Show all, GitHub, Linear or Slack" },
   ],
 };

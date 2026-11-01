@@ -1895,6 +1895,18 @@ function App() {
                 },
               ]
             : []),
+          ...(activityView.shown > 0
+            ? [
+                {
+                  id: "activity-done-all",
+                  group: "App",
+                  label: "Mark all shown activity done",
+                  keys: [["⇧", "E"]],
+                  keywords: "activity notifications done all clear archive dismiss remove",
+                  run: () => runAppCommand("activity-done-all"),
+                },
+              ]
+            : []),
         ]
       : []),
     ...(integrations.linear && appMode === "linear" && linearView?.inboxUnread

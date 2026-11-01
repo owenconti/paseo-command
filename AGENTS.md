@@ -314,7 +314,7 @@ and GitHub publication; report the published version and release link.
   `activity` message): GitHub, Linear and Slack notifications in one feed the page draws (`web/src/activity/ActivityView.tsx`), newest
   first, grouped by day, filtered by source or unread, with the selected one's preview beside it from 1,100 px; the sidebar's and the preview's edges resize them (`web/src/ResizeEdge.tsx`; arrow keys too, double-click restores the default; kept in localStorage). Opening one
   (`open.ts`) goes where it lives: GitHub in Conquer, Linear issues and projects in the Linear tab, Slack conversations and threads in
-  the Slack tab; it's read from then. Keys: J/K move, Enter/O open, U read/unread, ⇧U all shown read, E/⌫ done, 1–4 sources; each with
+  the Slack tab; it's read from then. Keys: J/K move, Enter/O open, U read/unread, ⇧U all shown read, E/⌫ done, ⇧E all shown done (Mark all done; asks first), 1–4 sources; each with
   its ⌘K entry and the shortcuts dialog's Activity group. Server (`web/server/activity/`, `GET /api/activity`, `POST
   /api/activity/m/read|unread|done` with `{keys}`): `github.ts` (opt-in `integrations.github`: `gh api /notifications` with the user's
   own gh sign-in, unread and the past 14 days, cached a minute; read and done through gh; GitHub can't mark unread), `linear.ts` (the

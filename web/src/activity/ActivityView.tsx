@@ -17,6 +17,7 @@ import {
   Github,
   Inbox,
   ListChecks,
+  ListX,
   ListTodo,
   Mail,
   MailOpen,
@@ -47,6 +48,8 @@ const FILTER_KEYS: Record<string, ActivityFilter> = { "1": "all", "2": "github",
 /** What ⌘K needs to know: the unread count, the selected item and what it allows, and the filter. */
 export type ActivityViewState = {
   unread: number;
+  /** How many items the feed shows (Mark all done takes them). */
+  shown: number;
   selected?: { key: string; unread: boolean; source: ActivitySource; canUnread: boolean };
   filter: ActivityFilter;
 };
@@ -150,7 +153,8 @@ let lastSelected: string | undefined;
  * where it lives (Conquer, the Linear tab, the Slack tab) and marks it read.
  * While the keyboard is in the view (not typing): J/K or ↓/↑ move, Enter or O
  * open, U marks read or unread, E or ⌫ marks done, ⇧U marks every shown item
- * read, 1–4 filter All, GitHub, Linear, Slack.
+ * read, ⇧E marks every shown item done (after confirming), 1–4 filter All,
+ * GitHub, Linear, Slack.
  */
 export function ActivityView({
   onNotice,
@@ -263,6 +267,16 @@ export function ActivityView({
   const readAll = () => {
     if (shownUnread.length) void writeItems("read", shownUnread.map((i) => i.key));
   };
+  // Mark all done asks first in the head: Done can't be undone here.
+  const [confirmAllDone, setConfirmAllDone] = useState(false);
+  useEffect(() => setConfirmAllDone(false), [shownFilter]);
+  const askAllDone = () => {
+    if (items.length) setConfirmAllDone(true);
+  };
+  const doneAll = () => {
+    setConfirmAllDone(false);
+    if (items.length) void writeItems("done", items.map((i) => i.key));
+  };
   const open = (item: ActivityItem) => {
     setSelectedKey(item.key);
     if (canOpen(item)) openActivityItem(item);
@@ -270,8 +284,8 @@ export function ActivityView({
   };
 
   // ⌘K's commands, on the selected item or the shown ones.
-  const current = useRef({ selected, readAll, toggleRead, done, open, filter: shownFilter });
-  current.current = { selected, readAll, toggleRead, done, open, filter: shownFilter };
+  const current = useRef({ selected, readAll, askAllDone, toggleRead, done, open, filter: shownFilter });
+  current.current = { selected, readAll, askAllDone, toggleRead, done, open, filter: shownFilter };
   useEffect(() => {
     const offs = [
       onAppCommand("activity-refresh", () => void loadActivity(true)),
@@ -296,6 +310,7 @@ export function ActivityView({
         if (s) current.current.done(s);
       }),
       onAppCommand("activity-read-all", () => current.current.readAll()),
+      onAppCommand("activity-done-all", () => current.current.askAllDone()),
     ];
     return () => offs.forEach((off) => off());
   }, [setFilter]);
@@ -304,6 +319,7 @@ export function ActivityView({
   useEffect(() => {
     onViewState?.({
       unread: unreadTotal,
+      shown: items.length,
       filter: shownFilter,
       ...(selected
         ? {
@@ -316,7 +332,7 @@ export function ActivityView({
           }
         : {}),
     });
-  }, [unreadTotal, shownFilter, selected?.key, selected?.unread, selected?.source, onViewState]);
+  }, [unreadTotal, items.length, shownFilter, selected?.key, selected?.unread, selected?.source, onViewState]);
   useEffect(() => () => onViewState?.(undefined), [onViewState]);
 
   const onKey = (e: ReactKeyboardEvent<HTMLElement>) => {
@@ -332,6 +348,7 @@ export function ActivityView({
     else if ((key === "Enter" && !onButton) || lower === "o") {
       if (selected) open(selected);
     } else if (key === "U" || (lower === "u" && e.shiftKey)) readAll();
+    else if (key === "E" || (lower === "e" && e.shiftKey)) askAllDone();
     else if (lower === "u") {
       if (selected) toggleRead(selected);
     } else if (lower === "e" || key === "Backspace" || key === "Delete") {
@@ -529,6 +546,36 @@ export function ActivityView({
               Mark all read
             </button>
           )}
+          {items.length > 0 &&
+            (confirmAllDone ? (
+              <span className="activity-confirm" role="group" aria-label="Confirm marking all done">
+                <span>
+                  Mark {items.length === 1 ? "1 notification" : `all ${items.length}`} done?
+                </span>
+                <button
+                  className="activity-tool danger"
+                  autoFocus
+                  onClick={doneAll}
+                  onKeyDown={(e) => {
+                    if (e.key === "Escape") {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setConfirmAllDone(false);
+                    }
+                  }}
+                >
+                  Mark done
+                </button>
+                <button className="activity-tool" onClick={() => setConfirmAllDone(false)}>
+                  Cancel
+                </button>
+              </span>
+            ) : (
+              <button className="activity-tool" onClick={askAllDone} data-tip="Mark all shown done (⇧E)">
+                <ListX size={13} aria-hidden="true" />
+                Mark all done
+              </button>
+            ))}
         </header>
         {feed && error && (
           <p className="activity-banner" role="status">

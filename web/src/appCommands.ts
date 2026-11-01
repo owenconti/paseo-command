@@ -74,7 +74,8 @@ export type AppCommand =
   | "activity-read"
   | "activity-unread"
   | "activity-done"
-  | "activity-read-all";
+  | "activity-read-all"
+  | "activity-done-all";
 
 const EVENT = "paseo:command";
 
