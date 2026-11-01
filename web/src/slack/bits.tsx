@@ -19,9 +19,9 @@ const initials = (name: string) =>
     .join("") || "?";
 
 /** A person's square avatar (Slack's), through the app server, else their initials on their colour. */
-export function Avatar({ user, size = 36, botIcon }: { user?: SlackUser; size?: number; botIcon?: string }) {
+export function Avatar({ user, name: shown, size = 36, botIcon }: { user?: SlackUser; name?: string; size?: number; botIcon?: string }) {
   const [broken, setBroken] = useState(false);
-  const name = user?.name ?? "Someone";
+  const name = shown ?? user?.name ?? "Someone";
   const src = botIcon ? undefined : user?.avatarUrl && !broken && !noAvatar.has(user.id) ? slackAvatarHref(user.id) : undefined;
   return (
     <span

@@ -340,6 +340,11 @@ export const METHODS: Record<string, (ctx: FakeContext) => Raw> = {
     if (!found) throw fail("user_not_found");
     return { user: found };
   },
+  // Integrations that post with only their bot_id.
+  "bots.info": ({ params }) => {
+    if (params.bot !== "B0ALERTS") throw fail("bot_not_found");
+    return { bot: { id: "B0ALERTS", name: "Alerts", deleted: false, icons: { image_72: "https://avatars.slack-edge.com/fake/alerts_72.png" } } };
+  },
   "users.conversations": ({ ws, params }) => {
     const types = str(params.types).split(",");
     const list = ws.conversations

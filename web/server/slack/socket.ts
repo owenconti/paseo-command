@@ -14,7 +14,7 @@ import { SLACK, SlackError, slackAppToken, slackCall, slackEnabled, type SlackSo
 import { emitSlack, onSlackDemand, slackWanted } from "./events";
 import { setSlackLive } from "./live";
 import { messageOf, reactionsOf, recOf, strOf, tsOf, userOf } from "./normalize";
-import { conversationFrom, keepConversation, keepUser, keptWorkspace, slackSelf } from "./reads";
+import { conversationFrom, keepConversation, keepUser, keptWorkspace, nameBots, slackSelf } from "./reads";
 import { noteDeleted, noteMarked, noteMessage, setUnreadsLive } from "./unreads";
 
 export const SOCKET = {
@@ -314,7 +314,7 @@ export async function onEvent(e: Record<string, unknown>): Promise<void> {
   }
 }
 
-function onMessage(e: Record<string, unknown>): void {
+async function onMessage(e: Record<string, unknown>): Promise<void> {
   const conversationId = strOf(e.channel);
   if (!conversationId) return;
   let event: SlackEvent | undefined;
@@ -337,11 +337,16 @@ function onMessage(e: Record<string, unknown>): void {
       const message: SlackMessage | null = messageOf(e, conversationId);
       if (!message) return;
       noteMessage(message);
+      await nameBots([message]).catch(() => []);
       noteSlackActivityMessage(message, strOf(e.parent_user_id) || undefined);
       event = { type: "message", message };
     }
   }
-  if (event) emitSlack(event);
+  if (!event) return;
+  // A bot that posts with only its bot_id is named (and its avatar sent) before the message goes out.
+  if (event.type === "message" || event.type === "changed")
+    for (const user of await nameBots([event.message]).catch(() => [])) emitSlack({ type: "user", user });
+  emitSlack(event);
 }
 
 onSlackDemand(ensureSlackSocket);

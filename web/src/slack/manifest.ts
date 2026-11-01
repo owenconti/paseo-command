@@ -25,6 +25,8 @@ export const METHOD_SCOPES: Record<string, string[]> = {
   "users.list": ["users:read"],
   // People from another organisation in a shared channel.
   "users.info": ["users:read"],
+  // The bots that post with only their bot_id.
+  "bots.info": ["users:read"],
   "emoji.list": ["emoji:read"],
   "reactions.get": ["reactions:read"],
   "reactions.add": ["reactions:write"],

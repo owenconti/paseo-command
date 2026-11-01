@@ -49,16 +49,76 @@ let loading: { token: string; promise: Promise<Omit<SlackWorkspace, "live">> } |
 const strangers = new Map<string, { at: number; user: SlackUser | null }>();
 const STRANGERS = { keepMs: 60 * 60_000, lookupsPerRead: 20, atOnce: 5 };
 
+/**
+ * Bots and integrations by their `B…` id, as `bots.info` described them (a
+ * name and icon), or null when Slack didn't know them. Kept an hour: an app's
+ * messages often carry only its `bot_id`.
+ */
+const bots = new Map<string, { at: number; user: SlackUser | null }>();
+const BOTS = { lookupsPerRead: 10 };
+
 /** Forgets what the reads kept (tests). */
 export function resetSlackReads(): void {
   self = undefined;
   kept = undefined;
   loading = undefined;
   strangers.clear();
+  bots.clear();
 }
 
-/** Someone from elsewhere a read named (a shared channel's), as Slack described them; undefined if none has. */
-export const slackStranger = (id: string): SlackUser | undefined => strangers.get(id)?.user ?? undefined;
+/** Someone from elsewhere a read named (a shared channel's), or a bot, as Slack described them; undefined if none has. */
+export const slackStranger = (id: string): SlackUser | undefined => (strangers.get(id) ?? bots.get(id))?.user ?? undefined;
+
+/** A `bots.info` bot as a person the page can show: its name and icon. */
+function botUserOf(id: string, raw: unknown): SlackUser | null {
+  const b = recOf(raw);
+  const name = strOf(b.name).slice(0, 120);
+  if (!name) return null;
+  const icons = recOf(b.icons);
+  return {
+    id,
+    name,
+    realName: name,
+    avatarUrl: httpsUrl(icons.image_72) ?? httpsUrl(icons.image_48) ?? httpsUrl(icons.image_36),
+    isBot: true,
+    deleted: b.deleted === true,
+  };
+}
+
+/**
+ * Names the messages that came from a bot without saying its name (only a
+ * `bot_id`, as many integrations post): `bots.info` once each (at most 10 a
+ * read, a few at a time), kept an hour. Returns those bots, as people, for
+ * their avatars.
+ */
+export async function nameBots(messages: SlackMessage[]): Promise<SlackUser[]> {
+  const unnamed = messages.filter((m) => m.botId && !m.botName && !m.userId);
+  if (!unnamed.length) return [];
+  const ids = new Set(unnamed.map((m) => m.botId!));
+  const now = Date.now();
+  const ask = [...ids]
+    .filter((id) => {
+      const known = bots.get(id);
+      return !known || now - known.at > STRANGERS.keepMs;
+    })
+    .slice(0, BOTS.lookupsPerRead);
+  for (let i = 0; i < ask.length; i += STRANGERS.atOnce)
+    await Promise.all(
+      ask.slice(i, i + STRANGERS.atOnce).map(async (id) => {
+        try {
+          const r = await slackCall("bots.info", { bot: id });
+          bots.set(id, { at: Date.now(), user: botUserOf(id, r.bot) });
+        } catch (e) {
+          if (e instanceof SlackError && e.code === "bot_not_found") bots.set(id, { at: Date.now(), user: null });
+        }
+      }),
+    );
+  for (const m of unnamed) {
+    const name = bots.get(m.botId!)?.user?.name;
+    if (name) m.botName = name;
+  }
+  return [...ids].map((id) => bots.get(id)?.user ?? null).filter(nonNull);
+}
 
 /** Learns people from the profile Slack attaches to some messages (a shared channel's especially). */
 function learnProfiles(raw: unknown[]): void {
@@ -77,7 +137,7 @@ function learnProfiles(raw: unknown[]): void {
  * (users.info, at most 20 a read, a few at a time). Slack's refusals other
  * than "no such person" leave them for the next read.
  */
-async function strangersIn(messages: SlackMessage[], raw: unknown[]): Promise<SlackUser[]> {
+async function peopleIn(messages: SlackMessage[], raw: unknown[]): Promise<SlackUser[]> {
   if (!kept) await readWorkspace().catch(() => undefined);
   const members = new Set(kept?.value.users.map((u) => u.id));
   const ids = new Set<string>();
@@ -87,6 +147,12 @@ async function strangersIn(messages: SlackMessage[], raw: unknown[]): Promise<Sl
   if (!ids.size) return [];
   learnProfiles(raw);
   return lookUpStrangers(ids, STRANGERS.lookupsPerRead);
+}
+
+/** Those people, and the bots that sent messages without their names (`nameBots`). */
+async function strangersIn(messages: SlackMessage[], raw: unknown[]): Promise<SlackUser[]> {
+  const named = await nameBots(messages);
+  return [...(await peopleIn(messages, raw)), ...named];
 }
 
 /** These people, from what's kept, else users.info once each (at most `max`, a few at a time). */

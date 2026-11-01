@@ -117,6 +117,8 @@ export type SlackMessage = {
   /** Set on a thread's parent (equal to `ts`) and on its replies (the parent's ts). */
   threadTs?: string;
   userId?: string;
+  /** The bot or integration that sent it (`B…`); the server names it from `bots.info` when the message doesn't. */
+  botId?: string;
   /** A bot's or integration's name, when not from a person. */
   botName?: string;
   botIconUrl?: string;

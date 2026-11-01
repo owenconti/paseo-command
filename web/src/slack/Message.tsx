@@ -216,7 +216,11 @@ export type MessageRowProps = {
  * launch an agent, and edit or delete your own.
  */
 export const MessageRow = memo(function MessageRow({ message, compact, highlighted, editing, onEdit, onThread, onLaunch, permalink, onSelect }: MessageRowProps) {
-  const user = useSlack((d) => (message.userId ? d.users.get(message.userId) : undefined));
+  // A bot without a person behind it shows as itself (the server names it from bots.info).
+  const user = useSlack((d) => {
+    const id = message.userId ?? message.botId;
+    return id ? d.users.get(id) : undefined;
+  });
   const self = useSlack((d) => d.workspace?.selfId);
   const [picking, setPicking] = useState(false);
   const [confirming, setConfirming] = useState(false);
@@ -277,7 +281,7 @@ export const MessageRow = memo(function MessageRow({ message, compact, highlight
             {message.pending ? "" : timeOf(message.ts).replace(/\s?[AP]M$/i, "")}
           </time>
         ) : (
-          <Avatar user={user} size={36} botIcon={message.botIconUrl} />
+          <Avatar user={user} name={name} size={36} botIcon={message.botIconUrl} />
         )}
       </span>
       <div className="slack-body">

@@ -10,7 +10,10 @@ import type { SlackSearch, SlackSearchHit } from "./types";
 function Hit({ hit, onOpen }: { hit: SlackSearchHit; onOpen: () => void }) {
   const conversation = useSlack((d) => d.conversations.get(hit.conversationId));
   const where = useSlack((d) => (conversation ? conversationTitle(d, conversation) : "A conversation"));
-  const user = useSlack((d) => (hit.userId ? d.users.get(hit.userId) : undefined));
+  const user = useSlack((d) => {
+    const id = hit.userId ?? hit.botId;
+    return id ? d.users.get(id) : undefined;
+  });
   const date = tsDate(hit.ts);
   return (
     <li>
@@ -21,7 +24,7 @@ function Hit({ hit, onOpen }: { hit: SlackSearchHit; onOpen: () => void }) {
           {hit.threadTs && hit.threadTs !== hit.ts && <span className="slack-hit-thread">in a thread</span>}
         </span>
         <span className="slack-hit-main">
-          <Avatar user={user} size={28} botIcon={hit.botIconUrl} />
+          <Avatar user={user} name={hit.botName ?? user?.name} size={28} botIcon={hit.botIconUrl} />
           <span className="slack-hit-body">
             <span className="slack-head">
               <b className="slack-name">{hit.botName ?? user?.name ?? "Someone"}</b>

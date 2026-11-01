@@ -248,6 +248,7 @@ export function messageOf(raw: unknown, conversationId: string): SlackMessage | 
     conversationId,
     ...(tsOf(m.thread_ts) ? { threadTs: tsOf(m.thread_ts) } : {}),
     ...(idOf(m.user) ? { userId: idOf(m.user) } : {}),
+    ...(/^B[A-Z0-9]{2,20}$/.test(strOf(m.bot_id)) ? { botId: strOf(m.bot_id) } : {}),
     ...(opt(strOf(m.username) || strOf(profile.name)) ? { botName: opt(strOf(m.username) || strOf(profile.name)) } : {}),
     ...(httpsUrl(icons.image_48) ?? httpsUrl(recOf(profile.icons).image_48)
       ? { botIconUrl: httpsUrl(icons.image_48) ?? httpsUrl(recOf(profile.icons).image_48) }

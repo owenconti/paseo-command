@@ -201,6 +201,23 @@ test("people from elsewhere (a shared channel's): from a message's own profile, 
   assert.equal((await slackAvatar("U0KIM")).status, 404, "no avatar");
 });
 
+test("a bot that posts with only its bot_id is named from bots.info, once, with its avatar", async () => {
+  const at = (n: number) => `17300000${n}0.000200`;
+  fake.ws.messages.push(
+    { channel: I.random, ts: at(1), subtype: "bot_message", bot_id: "B0ALERTS", text: "CI failed" },
+    { channel: I.random, ts: at(2), subtype: "bot_message", bot_id: "B0ALERTS", text: "CI failed again" },
+    { channel: I.random, ts: at(3), subtype: "bot_message", bot_id: "B0GONE", text: "From nowhere" },
+  );
+  const h = await readHistory(I.random);
+  const named = h.messages.filter((m) => m.botId === "B0ALERTS");
+  assert.deepEqual(named.map((m) => m.botName), ["Alerts", "Alerts"]);
+  assert.equal(h.messages.find((m) => m.botId === "B0GONE")!.botName, undefined);
+  assert.deepEqual(h.users?.map((u) => [u.id, u.name, u.isBot]), [["B0ALERTS", "Alerts", true]]);
+  await readHistory(I.random);
+  assert.deepEqual(fake.calls.filter((c) => c.method === "bots.info").map((c) => c.params.bot).sort(), ["B0ALERTS", "B0GONE"]);
+  assert.equal((await slackAvatar("B0ALERTS")).status, 200);
+});
+
 test("a group DM with people from elsewhere: its members asked for, and named", async () => {
   // Slack names it by handles; jo and kim's aren't the workspace's.
   fake.ws.conversations.push({
