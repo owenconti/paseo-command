@@ -53,6 +53,8 @@ export type FakeWorkspace = {
   team: { id: string; name: string; url: string };
   selfId: string;
   users: FakeUser[];
+  /** People from another organisation (a shared channel's): not in users.list, but users.info knows them. */
+  externals: FakeUser[];
   conversations: FakeConversation[];
   messages: FakeMessage[];
   emoji: Record<string, string>;
@@ -157,6 +159,10 @@ export function fakeWorkspace(): FakeWorkspace {
       user(I.ria, "ria", "", "Ria Patel", {}, "https://evil.example/ria.png"),
       user(I.bot, "ci", "CI", "CI Bot", { is_bot: true }),
       user("U0GONE", "gone", "Gone", "Gone Person", { deleted: true }),
+    ],
+    externals: [
+      user("U0JO", "jo", "Jo", "Jo Lee", { team_id: "T0PARTNER" } as Partial<FakeUser>, "https://avatars.slack-edge.com/fake/jo_72.png"),
+      user("U0KIM", "kim", "", "Kim Park", { team_id: "T0PARTNER" } as Partial<FakeUser>),
     ],
     conversations: [
       { id: I.general, name: "general", is_channel: true, is_member: true, topic: { value: "Company news" }, purpose: { value: "Everyone" }, num_members: 4, last_read: T.image },
@@ -324,6 +330,11 @@ function post(ws: FakeWorkspace, channel: string, fields: Partial<FakeMessage> &
 export const METHODS: Record<string, (ctx: FakeContext) => Raw> = {
   "auth.test": ({ ws }) => ({ url: ws.team.url, team: ws.team.name, team_id: ws.team.id, user: "owen", user_id: ws.selfId }),
   "users.list": ({ ws, params }) => paged(ws.users, params, "members"),
+  "users.info": ({ ws, params }) => {
+    const found = [...ws.users, ...ws.externals].find((u) => u.id === params.user);
+    if (!found) throw fail("user_not_found");
+    return { user: found };
+  },
   "users.conversations": ({ ws, params }) => {
     const types = str(params.types).split(",");
     const list = ws.conversations
@@ -697,7 +708,7 @@ export function installFakeSlack(ws: FakeWorkspace = fakeWorkspace(), opts: { ap
         headers: { "content-type": file.type, "content-length": String(file.bytes.length) },
       });
     }
-    if (address === FAKE_AVATAR || address === FAKE_EMOJI) {
+    if (address.startsWith("https://avatars.slack-edge.com/fake/") || address === FAKE_EMOJI) {
       // Public CDNs: never with the token.
       if (token) return new Response("", { status: 400 });
       return new Response(new Uint8Array(PNG), { status: 200, headers: { "content-type": address === FAKE_EMOJI ? "image/gif" : "image/png" } });

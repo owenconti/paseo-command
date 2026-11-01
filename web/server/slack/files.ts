@@ -6,7 +6,7 @@
  * name, from the workspace), never any other the page names.
  */
 import { SLACK, slackUnavailable, slackUserToken } from "./client";
-import { keptWorkspace, readWorkspace } from "./reads";
+import { keptWorkspace, readWorkspace, slackStranger } from "./reads";
 
 export const SLACK_FILES = {
   maxImageBytes: 20 * 1024 * 1024,
@@ -122,7 +122,8 @@ export async function slackAvatar(userId: string): Promise<Fetched> {
   if (!/^[UWB][A-Z0-9]{2,20}$/.test(userId)) return { status: 400, error: "Unknown person" };
   const ws = await workspace();
   if (!ws) return { status: 404, error: slackUnavailable() };
-  const address = ws.users.find((u) => u.id === userId)?.avatarUrl;
+  // A member's, else someone from elsewhere a read named (a shared channel's).
+  const address = ws.users.find((u) => u.id === userId)?.avatarUrl ?? slackStranger(userId)?.avatarUrl;
   const url = address ? onHost(address, AVATAR_HOSTS) : null;
   if (!url) return { status: 404, error: "No avatar" };
   return kept(avatars, url.href, SLACK_FILES.avatarKeepMs, () =>

@@ -21,6 +21,8 @@ export const METHOD_SCOPES: Record<string, string[]> = {
   "conversations.mark": ["channels:write", "groups:write", "im:write", "mpim:write"],
   "conversations.open": ["im:write", "mpim:write"],
   "users.list": ["users:read"],
+  // People from another organisation in a shared channel.
+  "users.info": ["users:read"],
   "emoji.list": ["emoji:read"],
   "reactions.get": ["reactions:read"],
   "reactions.add": ["reactions:write"],

@@ -301,7 +301,7 @@ and GitHub publication; report the published version and release link.
   Slack's `Retry-After`), named reads (`reads.ts`: `GET /api/slack/q/workspace|history|replies|conversation|unreads|search`), whitelisted
   writes (`writes.ts`, `POST /api/slack/m/post|edit|delete|react|unreact|mark|openDm|share`, inputs checked field by field), `unreads.ts`
   (Slack has no bulk unread call for apps: each conversation's `last_read` and what's newer, checked by a paced queue, DMs first, only
-  while asked; unknown stays unknown), `files.ts` (`image`/`file` only from `files.slack.com` with the token, files as downloads;
+  while asked; unknown stays unknown), people messages name who aren't the workspace's members (a shared channel's, from another organisation) come with each history, thread and search answer (`users`: from a message's own `user_profile`, else `users.info` once each, 20 at most a read, kept an hour; their avatars load too), `files.ts` (`image`/`file` only from `files.slack.com` with the token, files as downloads;
   `avatar` only the address Slack gives that person; `emoji`), `upload.ts` (`files.getUploadURLExternal`), `socket.ts` (Socket Mode
   over `ws`: acks, reconnects with backoff, runs only while something asked recently), `events.ts` (`GET /api/slack/events`, server-sent
   `SlackEvent`s; without Socket Mode the page polls every 20 s while the view shows). The Slack app it needs is a manifest (`web/src/slack/manifest.ts`: user scopes from `METHOD_SCOPES`, one per Web API method

@@ -88,6 +88,20 @@ async function withHistory(messages: SlackMessage[], more = false) {
   await loadHistory("C1");
 }
 
+describe("slack store: people from elsewhere", () => {
+  it("a read's people (a shared channel's) join the page's, and outlast the workspace read again", async () => {
+    slackStore.setWorkspace(WS);
+    const jo = { id: "U0JO", name: "Jo", realName: "Jo Lee", isBot: false, deleted: false };
+    answers.history = () => ({ messages: [msg(1, { userId: "U0JO" })], more: false, users: [jo] });
+    await loadHistory("C1");
+    assert.equal(slackStore.getState().users.get("U0JO")?.name, "Jo");
+    answers.workspace = () => WS;
+    await loadWorkspace(true);
+    assert.equal(slackStore.getState().users.get("U0JO")?.name, "Jo");
+    assert.equal(slackStore.getState().users.get("U1")?.name, "ana");
+  });
+});
+
 describe("slack store: reads", () => {
   it("the workspace brings people, conversations and the live mode; not now says why", async () => {
     answers.workspace = () => WS;

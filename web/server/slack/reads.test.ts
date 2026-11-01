@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { afterEach, beforeEach, test } from "node:test";
 import { SlackError } from "./client";
 import { FAKE_AVATAR, FAKE_EMOJI, FAKE_IDS as I, FAKE_IMAGE, installFakeSlack, type FakeSlack } from "./fake";
+import { slackAvatar } from "./files";
 import { readConversation, readHistory, readReplies, readSearch, readWorkspace } from "./reads";
 
 let fake: FakeSlack;
@@ -174,4 +175,28 @@ test("reads at the same moment share one workspace sweep", async () => {
   await assert.rejects(() => readWorkspace(true));
   fake.clear("users.list");
   assert.ok(await readWorkspace(true));
+});
+
+test("people from elsewhere (a shared channel's): from a message's own profile, else users.info once each", async () => {
+  const at = (n: number) => `17300000${n}0.000100`;
+  fake.ws.messages.push(
+    // Jo's message carries her profile; Kim's doesn't (users.info knows her); nobody's is unknown to Slack too.
+    { channel: I.random, ts: at(1), user: "U0JO", text: "Has anyone got access?", user_profile: { name: "jo", display_name: "Jo", real_name: "Jo Lee", image_72: "https://avatars.slack-edge.com/fake/jo_72.png" }, reply_users: ["U0KIM"], reactions: [{ name: "eyes", count: 1, users: ["U0NOBODY"] }] },
+    { channel: I.random, ts: at(2), user: "U0KIM", text: "Yes" },
+  );
+  const first = await readHistory(I.random);
+  assert.deepEqual(first.users?.map((u) => [u.id, u.name, u.avatarUrl]).sort(), [
+    ["U0JO", "Jo", "https://avatars.slack-edge.com/fake/jo_72.png"],
+    ["U0KIM", "Kim Park", undefined],
+  ]);
+  // Asked about Kim and the unknown one, not Jo (her message said); members never.
+  assert.deepEqual(fake.calls.filter((c) => c.method === "users.info").map((c) => c.params.user).sort(), ["U0KIM", "U0NOBODY"]);
+  // Kept: read again, nobody is asked about again; the workspace's members are never in `users`.
+  await readHistory(I.random);
+  assert.equal(fake.count("users.info"), 2);
+  const general = await readHistory(I.general);
+  assert.equal(general.users, undefined);
+  // Their avatars load too, from the address Slack gave.
+  assert.equal((await slackAvatar("U0JO")).status, 200);
+  assert.equal((await slackAvatar("U0KIM")).status, 404, "no avatar");
 });

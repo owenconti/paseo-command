@@ -41,11 +41,71 @@ type Kept = { token: string; at: number; value: Omit<SlackWorkspace, "live">; ha
 let kept: Kept | undefined;
 let loading: { token: string; promise: Promise<Omit<SlackWorkspace, "live">> } | undefined;
 
+/**
+ * People messages name who aren't the workspace's members (a shared channel's,
+ * from another organisation), by id: as a message's own profile or users.info
+ * gave them, or null when Slack didn't know them. Kept an hour.
+ */
+const strangers = new Map<string, { at: number; user: SlackUser | null }>();
+const STRANGERS = { keepMs: 60 * 60_000, lookupsPerRead: 20, atOnce: 5 };
+
 /** Forgets what the reads kept (tests). */
 export function resetSlackReads(): void {
   self = undefined;
   kept = undefined;
   loading = undefined;
+  strangers.clear();
+}
+
+/** Someone from elsewhere a read named (a shared channel's), as Slack described them; undefined if none has. */
+export const slackStranger = (id: string): SlackUser | undefined => strangers.get(id)?.user ?? undefined;
+
+/** Learns people from the profile Slack attaches to some messages (a shared channel's especially). */
+function learnProfiles(raw: unknown[]): void {
+  for (const m of raw.map(recOf)) {
+    const id = strOf(m.user);
+    const profile = recOf(m.user_profile);
+    if (!id || !Object.keys(profile).length || strangers.get(id)?.user) continue;
+    const user = userOf({ id, name: profile.name, profile });
+    if (user) strangers.set(id, { at: Date.now(), user });
+  }
+}
+
+/**
+ * The people messages name (senders, repliers, reactors) whom the workspace
+ * doesn't list: from their messages' own profiles, else looked up once each
+ * (users.info, at most 20 a read, a few at a time). Slack's refusals other
+ * than "no such person" leave them for the next read.
+ */
+async function strangersIn(messages: SlackMessage[], raw: unknown[]): Promise<SlackUser[]> {
+  if (!kept) await readWorkspace().catch(() => undefined);
+  const members = new Set(kept?.value.users.map((u) => u.id));
+  const ids = new Set<string>();
+  for (const m of messages)
+    for (const id of [m.userId, ...(m.replyUserIds ?? []), ...(m.reactions ?? []).flatMap((r) => r.userIds)])
+      if (id && !members.has(id)) ids.add(id);
+  if (!ids.size) return [];
+  learnProfiles(raw);
+  const now = Date.now();
+  const ask = [...ids]
+    .filter((id) => {
+      const known = strangers.get(id);
+      return !known || now - known.at > STRANGERS.keepMs;
+    })
+    .slice(0, STRANGERS.lookupsPerRead);
+  for (let i = 0; i < ask.length; i += STRANGERS.atOnce)
+    await Promise.all(
+      ask.slice(i, i + STRANGERS.atOnce).map(async (id) => {
+        try {
+          const r = await slackCall("users.info", { user: id });
+          strangers.set(id, { at: Date.now(), user: userOf(r.user) });
+        } catch (e) {
+          if (e instanceof SlackError && (e.code === "user_not_found" || e.code === "users_not_found"))
+            strangers.set(id, { at: Date.now(), user: null });
+        }
+      }),
+    );
+  return [...ids].map((id) => strangers.get(id)?.user ?? null).filter(nonNull);
 }
 
 /** You and your workspace (`auth.test`), kept per token. */
@@ -186,12 +246,14 @@ export async function readHistory(conversationId: string, before?: string): Prom
     limit: SLACK_READS.historySize,
     ...(before ? { latest: before, inclusive: false } : {}),
   });
-  const messages = listOf(r.messages)
+  const raw = listOf(r.messages);
+  const messages = raw
     .map((m) => messageOf(m, conversationId))
     .filter(nonNull)
     .sort((a, b) => Number(a.ts) - Number(b.ts));
   if (!before) noteHistory(conversationId, messages);
-  return { messages, more: r.has_more === true };
+  const users = await strangersIn(messages, raw);
+  return { messages, more: r.has_more === true, ...(users.length ? { users } : {}) };
 }
 
 /** A thread: its parent and replies, oldest first; `after` is the newest reply already shown (exclusive). */
@@ -207,12 +269,14 @@ export async function readReplies(conversationId: string, ts: string, after?: st
     limit: SLACK_READS.repliesSize,
     ...(after ? { oldest: after, inclusive: false } : {}),
   });
-  const all = listOf(r.messages).map((m) => messageOf(m, conversationId)).filter(nonNull);
+  const raw = listOf(r.messages);
+  const all = raw.map((m) => messageOf(m, conversationId)).filter(nonNull);
   const parent = all.find((m) => m.ts === ts);
   const replies = all
     .filter((m) => m.ts !== ts && (!after || Number(m.ts) > Number(after)))
     .sort((a, b) => Number(a.ts) - Number(b.ts));
-  return { ...(parent ? { parent } : {}), replies, more: r.has_more === true };
+  const users = await strangersIn(all, raw);
+  return { ...(parent ? { parent } : {}), replies, more: r.has_more === true, ...(users.length ? { users } : {}) };
 }
 
 /** One conversation, with where you've read to (`conversations.info` gives user tokens `last_read`). */
@@ -240,8 +304,10 @@ export async function readSearch(raw: string): Promise<SlackSearch> {
     highlight: false,
   });
   const box = recOf(r.messages);
-  const messages = listOf(box.matches).map(searchHitOf).filter(nonNull);
-  return { term, messages, total: typeof box.total === "number" ? box.total : messages.length };
+  const matches = listOf(box.matches);
+  const messages = matches.map(searchHitOf).filter(nonNull);
+  const users = await strangersIn(messages, matches);
+  return { term, messages, total: typeof box.total === "number" ? box.total : messages.length, ...(users.length ? { users } : {}) };
 }
 
 /** One `search.messages` match as a message, with its conversation, permalink and (from it) its thread. */

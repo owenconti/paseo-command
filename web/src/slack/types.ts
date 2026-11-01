@@ -162,16 +162,20 @@ export type SlackHistory = {
   messages: SlackMessage[];
   /** Older messages remain (ask with `before` = the oldest ts here). */
   more: boolean;
+  /** People the messages name whom the workspace doesn't list (a shared channel's, from another organisation). */
+  users?: SlackUser[];
 };
 
 export type SlackThread = {
   parent?: SlackMessage;
   replies: SlackMessage[];
   more: boolean;
+  /** As a history's: people not in the workspace's list. */
+  users?: SlackUser[];
 };
 
 export type SlackSearchHit = SlackMessage & { permalink?: string };
-export type SlackSearch = { term: string; messages: SlackSearchHit[]; total: number };
+export type SlackSearch = { term: string; messages: SlackSearchHit[]; total: number; users?: SlackUser[] };
 
 /** Each conversation's read state, from the server's unread tracker. */
 export type SlackUnreads = {

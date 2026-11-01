@@ -409,9 +409,10 @@ export async function loadWorkspace(fresh = false): Promise<void> {
   for (const c of answer.conversations) conversations.set(c.id, mergeConversation(state.conversations.get(c.id), c));
   // One opened since (a DM started, one Activity opened) stays until Slack's next word.
   for (const [id, c] of state.conversations) if (!conversations.has(id)) conversations.set(id, c);
+  // The workspace's people, and those reads have named from elsewhere (a shared channel's) kept.
   publish({
     workspace: answer,
-    users: new Map(answer.users.map((u) => [u.id, u])),
+    users: new Map([...state.users, ...answer.users.map((u) => [u.id, u] as const)]),
     conversations,
     live: answer.live,
   });
@@ -423,6 +424,14 @@ export async function loadConversation(id: string): Promise<SlackConversation | 
   if (!accept(answer)) return undefined;
   upsertConversations([answer.conversation]);
   return answer.conversation;
+}
+
+/** People a read named whom the workspace doesn't list (a shared channel's): the page knows them from then on. */
+function learnPeople(users: SlackUser[] | undefined): void {
+  if (!users?.length) return;
+  const next = new Map(state.users);
+  for (const u of users) next.set(u.id, u);
+  publish({ users: next });
 }
 
 /** Loads a conversation's newest messages (once, unless `fresh`: then they're read again in place). */
@@ -439,6 +448,7 @@ export function loadHistory(conversationId: string, fresh = false): Promise<void
         throw e;
       }
       if (!accept(answer)) return setHistory(conversationId, { error: answer.reason });
+      learnPeople(answer.users);
       const shown = answer.messages.filter(inConversation);
       const was = state.history.get(conversationId);
       if (!was?.loaded) {
@@ -465,6 +475,7 @@ export async function loadOlder(conversationId: string): Promise<void> {
   try {
     const answer = await slackRead<SlackHistory>("history", { conversation: conversationId, before: oldest });
     if (!accept(answer)) return setHistory(conversationId, { loadingOlder: false, error: answer.reason });
+    learnPeople(answer.users);
     const now = state.history.get(conversationId)!;
     setHistory(conversationId, {
       messages: mergeList(now.messages, answer.messages.filter(inConversation)),
@@ -492,6 +503,7 @@ export function loadThread(conversationId: string, threadTs: string, fresh = fal
         throw e;
       }
       if (!accept(answer)) return setThread(key, { error: answer.reason });
+      learnPeople(answer.users);
       const was = state.threads.get(key);
       const replies = answer.replies.filter((m) => m.ts !== threadTs);
       for (const r of replies) countedReplies.add(messageKey(conversationId, r.ts));
@@ -528,6 +540,7 @@ export async function searchSlack(term: string, fresh = false): Promise<{ result
   try {
     const answer = await slackRead<SlackSearch>("search", { term: key });
     if (isUnavailable(answer)) return { error: answer.reason };
+    learnPeople(answer.users);
     searches.set(key, { at: Date.now(), result: answer });
     return { result: answer };
   } catch (e) {
