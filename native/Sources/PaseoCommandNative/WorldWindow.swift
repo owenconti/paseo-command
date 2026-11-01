@@ -84,7 +84,8 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         let barHeight: CGFloat = titlebar > 0 ? titlebar : 30
         modeBar = ModeBar(frame: CGRect(x: 0, y: root.bounds.height - barHeight, width: root.bounds.width, height: barHeight))
         modeBar.autoresizingMask = [.width, .minYMargin]
-        command = NSView(frame: CGRect(x: 0, y: 0, width: root.bounds.width, height: root.bounds.height - barHeight))
+        // The page reaches the window's top, under the mode bar, and draws its tools at the bar's end.
+        command = NSView(frame: root.bounds)
         command.autoresizingMask = [.width, .height]
         split.frame = command.bounds
         command.addSubview(split)
@@ -103,6 +104,7 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         // The panel joins the split only while it shows (see `attachDrawer`).
         drawer.isHidden = true
         drawer.dock = dock
+        drawer.barInset = barHeight
 
         scene = AtlasScene(size: content.bounds.size)
         atlasView = AtlasView(frame: content.bounds, scene: scene)
@@ -114,6 +116,10 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         // user's copy's, a check that quits stops that copy's storage saving to disk.
         configuration.websiteDataStore = options.info == nil ? .default() : .nonPersistent()
         configuration.preferences.setValue(true, forKey: "developerExtrasEnabled")
+        // The mode bar's height, which the page leaves as its own top bar.
+        configuration.userContentController.addUserScript(WKUserScript(
+            source: "document.documentElement.style.setProperty('--app-bar', '\(Int(barHeight))px')",
+            injectionTime: .atDocumentStart, forMainFrameOnly: true))
         web = WKWebView(frame: content.bounds, configuration: configuration)
         web.autoresizingMask = [.width, .height]
         // The page is transparent where the map is; SpriteKit shows through.
@@ -220,6 +226,11 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         case "update":
             // The page asks for the version and whether updates can be checked for.
             send(Updater.event, as: "paseo:update")
+        case "appBar":
+            // Where the page draws its tools in the top bar, in its own coordinates.
+            let rect = CGRect(x: body["x"] as? Double ?? 0, y: body["y"] as? Double ?? 0,
+                              width: body["width"] as? Double ?? 0, height: body["height"] as? Double ?? 0)
+            modeBar.tools = rect.isEmpty ? .zero : modeBar.convert(rect, from: web)
         case "viewport":
             viewport = CGRect(x: body["x"] as? Double ?? 0, y: body["y"] as? Double ?? 0,
                               width: body["width"] as? Double ?? 0, height: body["height"] as? Double ?? 0)
@@ -577,6 +588,14 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
             layer.render(in: ctx)
             cover = ctx.makeImage()
         }
+        // The mode bar, over the page's top bar but for the page's tools.
+        var bar: CGImage?
+        if let layer = modeBar.layer,
+           let ctx = Textures.context(Int(modeBar.bounds.width * scale), Int(modeBar.bounds.height * scale)) {
+            ctx.scaleBy(x: scale, y: scale)
+            layer.render(in: ctx)
+            bar = ctx.makeImage()
+        }
         var world: CGImage?
         if !atlasView.isHidden, let texture = atlasView.texture(from: scene) { world = texture.cgImage() }
         web.takeSnapshot(with: nil) { [weak self] page, error in
@@ -602,6 +621,7 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
                 let r = self.split.convert(self.drawer.frame, from: self.drawer.superview)
                 ctx.draw(terminal, in: CGRect(x: r.minX, y: whole.height - r.maxY, width: r.width, height: r.height))
             }
+            if let bar { ctx.draw(bar, in: self.modeBar.frame) }
             if let cover { ctx.draw(cover, in: whole) }
             guard let image = ctx.makeImage(),
                   let destination = CGImageDestinationCreateWithURL(URL(fileURLWithPath: path) as CFURL, "public.png" as CFString, 1, nil)

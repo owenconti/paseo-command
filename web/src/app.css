@@ -167,7 +167,7 @@
   padding: 0;
 }
 .unity-command .native-world-frame {
-  inset: 0 0 0 var(--unity-sidebar, 0px);
+  inset: var(--app-bar) 0 0 var(--unity-sidebar, 0px);
   width: auto;
   height: auto;
 }
@@ -176,7 +176,7 @@
 }
 .unity-command > .connection-error {
   position: absolute;
-  top: 78px;
+  top: calc(var(--app-bar) + 78px);
   left: var(--unity-sidebar, 0px);
   max-width: 460px;
 }
@@ -187,9 +187,51 @@
   );
   max-width: min(520px, calc(100% - var(--unity-sidebar, 0px) - 32px));
 }
+/* The window's top bar, above the panel and the map: the panel's tools at its
+   end. In the macOS app its mode bar (traffic lights and tabs) lies over the
+   rest, and the app says the bar's height (--app-bar); browsers show the
+   product's name there. */
+:root {
+  --app-bar: 40px;
+}
+.app-bar {
+  position: fixed;
+  inset: 0 0 auto 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  height: var(--app-bar);
+  padding: 0 8px 0 14px;
+  background: var(--panel);
+  color: var(--text);
+}
+.app-bar-title {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: var(--fs-md);
+  font-weight: var(--fw-bold);
+  letter-spacing: -0.01em;
+  color: var(--text-strong);
+}
+.app-bar-tools {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  height: 100%;
+  margin-left: auto;
+}
+.app-bar .panel-tool,
+.app-bar .panel-tools :is(.icon-btn, .usage-card) {
+  flex: 0 0 28px;
+  width: 28px;
+  height: 26px;
+  border-radius: var(--radius-md);
+}
 .floating-command {
   position: absolute;
-  inset: 0 auto 0 0;
+  inset: var(--app-bar) auto 0 0;
   z-index: 40;
   display: flex;
   flex-direction: column;
@@ -198,33 +240,9 @@
   background: var(--panel);
   border-right: 1px solid var(--line);
 }
-.floating-command-header {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  flex: 0 0 48px;
-  padding: 6px 10px 6px 12px;
-  /* The chrome continues the fleet pane's paper (forest green in Lake). */
-  background: var(--panel-2);
-  color: var(--text);
-}
-/* Collapsed, the sidebar is a full-height rail: restore, attention, expand. */
-.floating-command[data-collapsed="true"] .floating-command-header {
-  flex: 1;
-  flex-direction: column-reverse;
-  justify-content: flex-end;
-  gap: 8px;
-  padding: 8px 0;
-}
-.floating-command[data-collapsed="true"] .panel-title {
-  flex: 0 1 auto;
-  min-height: 0;
-  padding: 4px 0;
-  writing-mode: vertical-rl;
-}
-.floating-command[data-collapsed="true"] .panel-attention {
-  padding: 7px 4px;
-  writing-mode: vertical-rl;
+/* Collapsed (⌘B), the panel gives the map the window; the top bar keeps its controls. */
+.floating-command[data-collapsed="true"] {
+  display: none;
 }
 .panel-tool {
   display: grid;
@@ -342,27 +360,9 @@
   color: var(--unread-text);
   font-size: var(--fs-2xs);
 }
-.panel-title {
-  flex: 1;
-  min-width: 0;
-  padding: 6px 2px;
-  text-align: left;
-  background: none;
-  border: 0;
-  /* The panel's only product title: the fleet summary drops its own copy. */
-  font-size: var(--fs-md);
-  font-weight: var(--fw-bold);
-  letter-spacing: -0.01em;
-  color: var(--text-strong);
-}
-.panel-title span {
-  display: block;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
 .panel-attention {
   flex-shrink: 0;
+  margin-right: 4px;
   background: var(--amber-soft);
   color: var(--amber-text);
   padding: 4px 7px;
@@ -437,10 +437,10 @@
    against the sidebar mirror with it, so the world's controls, notices and
    star chart keep hugging the sidebar's side of the world. */
 :root[data-panel-side="right"] .unity-command .native-world-frame {
-  inset: 0 var(--unity-sidebar, 0px) 0 0;
+  inset: var(--app-bar) var(--unity-sidebar, 0px) 0 0;
 }
 .floating-command[data-side="right"] {
-  inset: 0 0 0 auto;
+  inset: var(--app-bar) 0 0 auto;
   border-right: 0;
   border-left: 1px solid var(--line);
 }
@@ -470,11 +470,6 @@
     right: 10px;
   }
 }
-@media (max-width: 600px) {
-  .floating-command-header {
-    padding-right: 6px;
-  }
-}
 .unity-command .native-world-frame {
   z-index: 0;
 }
@@ -485,21 +480,11 @@
   white-space: normal;
   overflow-wrap: anywhere;
 }
-/* App-wide tools in the panel header (Fleet.tsx FleetTools), sized as its own. */
+/* App-wide tools in the top bar (Fleet.tsx FleetTools), sized as its own. */
 .panel-tools {
   display: flex;
   align-items: center;
   margin-left: auto;
-}
-/* Its popovers (usage, sounds) open over the panel's content. */
-.floating-command-header:has(.panel-tools) {
-  position: relative;
-  z-index: 50;
-}
-/* Near the panel's left edge, the sounds menu opens rightward. */
-.panel-tools .popover-menu.right {
-  right: auto;
-  left: 0;
 }
 .panel-tools :is(.icon-btn, .usage-card) {
   flex: 0 0 32px;

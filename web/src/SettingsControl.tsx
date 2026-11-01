@@ -14,7 +14,7 @@ import { SlackAppSetup } from "./slack/SlackAppSetup";
 import { ApiKeySetting, type SecretStatus } from "./ApiKeySetting";
 
 /**
- * The app's settings, behind the panel header's gear: interface sounds and
+ * The app's settings, behind the top bar's gear: interface sounds and
  * the lofi radio (on/off and volume), desktop notifications, and the Linear
  * workspace issue links open in. Sounds, radio and notifications are kept
  * in this browser (or the app); optional integrations, the Linear workspace and the preset prompts

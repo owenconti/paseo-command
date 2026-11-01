@@ -26,7 +26,7 @@ const store = (name: string, value: unknown) => {
 };
 
 /**
- * The panel header's games button: a small floating window with one mini
+ * The top bar's games button: a small floating window with one mini
  * game, dealt at random by the server, for the short waits while agents
  * work. There is no choosing or restarting: a game is played to its end,
  * then the next is dealt. It doesn't block the page, and agents finishing

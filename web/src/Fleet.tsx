@@ -333,7 +333,7 @@ function hostTitle(h: Host) {
   return parts.join("\n");
 }
 
-/** The panel header's tools: usage and the settings gear. */
+/** The top bar's tools: usage and the settings gear. */
 export function FleetTools({
   usage,
   settings,

@@ -9,7 +9,6 @@ import {
 } from "react";
 import {
   Columns2,
-  Maximize2,
   Minus,
   PanelLeft,
   PanelRight,
@@ -20,7 +19,7 @@ import { ReleasesButton } from "./ReleasesButton";
 import { ShortcutsButton } from "./ShortcutsButton";
 import { GamesButton } from "./games/GamesButton";
 import { onAppCommand } from "./appCommands";
-import { nativeEvents, postNative } from "./worldBridge";
+import { macApp, nativeEvents, postAppBar, postNative } from "./worldBridge";
 import { worldFrame } from "./viewControls";
 import {
   arrowWidth,
@@ -73,6 +72,7 @@ export function FloatingPanel(props: Props) {
   current.current = state;
   const drag = useRef<{ x: number; width: number } | null>(null);
   const restoreButton = useRef<HTMLButtonElement>(null);
+  const toolsRef = useRef<HTMLDivElement>(null);
   const width = fitSidebar(state.width, windowWidth);
   const extent = sidebarExtent(state, windowWidth);
   const compact = state.mode === "compact" || width < SPLIT_MIN;
@@ -96,6 +96,26 @@ export function FloatingPanel(props: Props) {
       delete root.dataset.panelSide;
     };
   }, [enabled, extent, side]);
+  // The page draws its tools at the end of the window's top bar (the app's
+  // mode bar lies over the rest of it); the app leaves their rectangle to
+  // the page, unpainted and taking no clicks of its own.
+  useLayoutEffect(() => {
+    const tools = toolsRef.current;
+    if (!enabled || !tools || !macApp()) return;
+    const report = () => {
+      const r = tools.getBoundingClientRect();
+      postAppBar({ x: r.left, y: r.top, width: r.width, height: r.height });
+    };
+    report();
+    const observer = new ResizeObserver(report);
+    observer.observe(tools);
+    addEventListener("resize", report);
+    return () => {
+      observer.disconnect();
+      removeEventListener("resize", report);
+      postAppBar({ x: 0, y: 0, width: 0, height: 0 });
+    };
+  }, [enabled]);
   // The app's View menu names the other side; it learns this one from here
   // and asks for a side through a menu event.
   useEffect(() => {
@@ -205,59 +225,26 @@ export function FloatingPanel(props: Props) {
     });
   };
   return (
-    <section
-      className="floating-command"
-      data-compact={compact}
-      data-collapsed={state.collapsed}
-      data-docked="true"
-      data-side={side}
-      aria-label="Session panel"
-      style={{ width: extent }}
-    >
-      <header className="floating-command-header">
-        <button
-          className="panel-title"
-          onClick={() => {
-            if (state.collapsed) {
-              expand();
-              return;
-            }
-            if (props.hasActive) props.onActive();
-            else props.onBrowse();
-          }}
-          aria-label={
-            state.collapsed
-              ? "Restore session panel"
-              : props.hasActive
-                ? "Show active session"
-                : "Show workspaces"
-          }
-        >
-          <span>
-            {state.collapsed
-              ? props.browsing || !props.activeKey
-                ? "Workspaces"
-                : props.activeLabel
-              : "Paseo Command"}
-          </span>
-        </button>
-        {props.attention > 0 && (
-          <button
-            className="panel-attention"
-            aria-label={`${props.attention} approvals need attention`}
-            onClick={() => {
-              expand();
-              props.onAttention();
-            }}
-          >
-            {props.attention} need you
-          </button>
-        )}
-        {!state.collapsed && props.tools}
-        {!state.collapsed && <ReleasesButton />}
-        <GamesButton hidden={state.collapsed} />
-        <ShortcutsButton hidden={state.collapsed} />
-        {!state.collapsed && (
+    <>
+      <header className="app-bar" aria-label="Toolbar">
+        {!macApp() && <span className="app-bar-title">Paseo Command</span>}
+        <div ref={toolsRef} className="app-bar-tools">
+          {props.attention > 0 && (
+            <button
+              className="panel-attention"
+              aria-label={`${props.attention} approvals need attention`}
+              onClick={() => {
+                expand();
+                props.onAttention();
+              }}
+            >
+              {props.attention} need you
+            </button>
+          )}
+          {props.tools}
+          <ReleasesButton />
+          <GamesButton />
+          <ShortcutsButton />
           <button
             className="panel-tool"
             aria-label={
@@ -266,23 +253,15 @@ export function FloatingPanel(props: Props) {
                 : "Move session panel to the left"
             }
             data-tip={
-              side === "left"
-                ? "Move panel to the right"
-                : "Move panel to the left"
+              side === "left" ? "Move panel to the right" : "Move panel to the left"
             }
             onClick={() => moveTo(side === "left" ? "right" : "left")}
           >
-            {side === "left" ? (
-              <PanelRight size={16} />
-            ) : (
-              <PanelLeft size={16} />
-            )}
+            {side === "left" ? <PanelRight size={16} /> : <PanelLeft size={16} />}
           </button>
-        )}
-        {!state.collapsed && (
           <button
             className="panel-tool"
-            disabled={!splitFits(windowWidth)}
+            disabled={state.collapsed || !splitFits(windowWidth)}
             aria-label={
               compact ? "Show list and details together" : "Use compact panel"
             }
@@ -293,26 +272,43 @@ export function FloatingPanel(props: Props) {
           >
             {compact ? <Columns2 size={16} /> : <PanelRightClose size={16} />}
           </button>
-        )}
-        <button
-          ref={restoreButton}
-          className="panel-tool"
-          aria-label={
-            state.collapsed ? "Expand session panel" : "Collapse session panel"
-          }
-          data-tip={
-            state.collapsed ? "Expand session panel (⌘B)" : "Collapse session panel (⌘B)"
-          }
-          aria-expanded={!state.collapsed}
-          aria-controls="floating-command-content"
-          onClick={() => {
-            setState((s) => ({ ...s, collapsed: !s.collapsed }));
-            restoreButton.current?.focus();
-          }}
-        >
-          {state.collapsed ? <Maximize2 size={16} /> : <Minus size={16} />}
-        </button>
+          <button
+            ref={restoreButton}
+            className="panel-tool"
+            aria-label={
+              state.collapsed ? "Show session panel" : "Hide session panel"
+            }
+            data-tip={
+              state.collapsed ? "Show session panel (⌘B)" : "Hide session panel (⌘B)"
+            }
+            aria-expanded={!state.collapsed}
+            aria-controls="floating-command-content"
+            onClick={() => {
+              setState((s) => ({ ...s, collapsed: !s.collapsed }));
+              restoreButton.current?.focus();
+            }}
+          >
+            {state.collapsed ? (
+              side === "left" ? (
+                <PanelLeft size={16} />
+              ) : (
+                <PanelRight size={16} />
+              )
+            ) : (
+              <Minus size={16} />
+            )}
+          </button>
+        </div>
       </header>
+      <section
+        className="floating-command"
+        data-compact={compact}
+        data-collapsed={state.collapsed}
+        data-docked="true"
+        data-side={side}
+        aria-label="Session panel"
+        style={{ width: extent }}
+      >
       <div
         id="floating-command-content"
         className="floating-command-content"
@@ -341,6 +337,7 @@ export function FloatingPanel(props: Props) {
           onKeyDown={key}
         />
       )}
-    </section>
+      </section>
+    </>
   );
 }

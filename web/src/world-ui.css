@@ -17,10 +17,6 @@
 .unity-command .floating-command .timeline {
   background: transparent;
 }
-/* The chrome shares the fleet pane's paper so the two read as one surface. */
-.unity-command .floating-command .floating-command-header {
-  background: color-mix(in srgb, var(--panel-2) 94%, transparent);
-}
 .registry-tabs {
   display: flex;
   flex-wrap: nowrap;

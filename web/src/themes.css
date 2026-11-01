@@ -212,10 +212,10 @@
 }
 
 :root:is([data-theme="lake-country"], [data-theme="galaxy"])
-  :is(h1, h2, h3, .panel-title) {
+  :is(h1, h2, h3, .app-bar-title) {
   font-family: var(--font-heading);
 }
-:root[data-theme="lake-country"] .panel-title {
+:root[data-theme="lake-country"] .app-bar-title {
   font-size: 20px;
   font-weight: 600;
 }
@@ -330,7 +330,7 @@
   background: var(--panel-2);
   color: var(--text);
 }
-:root[data-theme="galaxy"] .panel-title {
+:root[data-theme="galaxy"] .app-bar-title {
   font-size: 17px;
   font-weight: 600;
   letter-spacing: 0.08em;

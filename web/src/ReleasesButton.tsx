@@ -19,7 +19,7 @@ const WIDTH = 400;
 const MARGIN = 8;
 
 /**
- * The panel header's "What's new": the running version, the update waiting
+ * The top bar's "What's new": the running version, the update waiting
  * (if any) and Paseo Command's release notes, newest first, with a dot while
  * there is a release the user hasn't seen.
  */

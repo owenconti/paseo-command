@@ -439,9 +439,15 @@ final class TerminalDrawer: NSView {
     /// The separator along the edge that faces the map: left when docked right, top when at the bottom.
     private let line = NSBox()
     private var lineConstraints: [NSLayoutConstraint] = []
-    var dock: TerminalDock = .right { didSet { placeLine() } }
+    var dock: TerminalDock = .right { didSet { placeLine(); placeTop() } }
     /// Over the map (the page's panels stay beside it) rather than in the split.
-    var maximized = false { didSet { placeGrow() } }
+    var maximized = false { didSet { placeGrow(); placeTop() } }
+    /// The window's top bar's height: docked right, the panel reaches the window's top,
+    /// under the bar, so its tab bar starts below it.
+    var barInset: CGFloat = 0 { didSet { placeTop() } }
+    private var barTop: NSLayoutConstraint?
+
+    private func placeTop() { barTop?.constant = 1 + (dock == .right && !maximized ? barInset : 0) }
 
     private func placeGrow() {
         line.isHidden = maximized
@@ -536,8 +542,11 @@ final class TerminalDrawer: NSView {
         addSubview(line)
         placeLine()
         placeGrow()
+        let barTop = bar.topAnchor.constraint(equalTo: topAnchor, constant: 1)
+        self.barTop = barTop
+        placeTop()
         NSLayoutConstraint.activate([
-            bar.topAnchor.constraint(equalTo: topAnchor, constant: 1),
+            barTop,
             bar.leadingAnchor.constraint(equalTo: leadingAnchor),
             bar.trailingAnchor.constraint(equalTo: trailingAnchor),
             bar.heightAnchor.constraint(equalToConstant: 30),

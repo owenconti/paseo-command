@@ -181,7 +181,7 @@ const CONQUER: Group = {
   ],
 };
 
-/** The panel header's keyboard button, and ? from anywhere outside a text
+/** The top bar's keyboard button, and ? from anywhere outside a text
  * field: opens a dialog listing the shortcuts. `hidden` drops the button
  * (a collapsed panel) but keeps ?. */
 export function ShortcutsButton({ hidden = false }: { hidden?: boolean }) {

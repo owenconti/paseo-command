@@ -143,7 +143,7 @@ and GitHub publication; report the published version and release link.
   forwards map picks as selections and draws app selections on the map.
 - `web/server/`: inherited official Paseo SDK API, served with the app on loopback only. `native.ts` is the entry the app
   bundle runs (`server.mjs`, env `PASEO_COMMAND_DATA`, `PASEO_NATIVE_OWNER_PID`); `scripts/app-server.mjs` (`app:start`) instead serves a checkout's `web/dist` and API through Vite preview for browser-only work.
-- `web/server/releases.ts`: `GET /api/releases`, the GitHub releases and their notes; `web/src/ReleasesButton.tsx` (panel header,
+- `web/server/releases.ts`: `GET /api/releases`, the GitHub releases and their notes; `web/src/ReleasesButton.tsx` (top bar,
   "What's new" in ⌘K) shows them in place of the old commit list.
 - `native/Sources/PaseoCommandNative/ServerManager.swift`: starts the bundled Node server with the user's shell environment
   (`ShellEnvironment.swift`), keeps its log in `<data>/logs/server.log`, restarts it if the page finds it gone and stops only a
@@ -209,7 +209,7 @@ and GitHub publication; report the published version and release link.
   Hovering the strip marks the questions' sentences in the transcript (`web/src/asks/highlight.ts`, CSS Highlight API).
 - `web/src/urlState.ts`: the panel's place (selection, subagent, tab, filter, host filter, list toggle) kept in
   the page's query, so a refresh returns there; a new selection pushes history, other changes replace it.
-- `web/src/games/`: the panel header's mini games (gamepad button), a floating non-modal window with one game dealt at
+- `web/src/games/`: the top bar's mini games (gamepad button), a floating non-modal window with one game dealt at
   random by the server (`web/server/games.ts`, `/api/games`): no choosing or restarting, the next game only once it ends.
   Progress and each game's best score are kept in the data directory's `games.json`. Games implement `types.tsx`'s
   `GameDef` (plain JSON state) and are listed in `catalog.ts` and `registry.ts`.
@@ -226,6 +226,10 @@ and GitHub publication; report the published version and release link.
 - Auto-merge: a PR's `autoMerge` comes from Paseo's GitHub facts (`autoMergeRequest`), else gh's (`web/server/links.ts`).
   While it's on, a teal seal with a merge mark sits on the review medallion's upper-right rim, else the CI one's (`placeSeals`,
   `paintSeal`, `AUTO_MERGE` in `rendering/src/prStatus.ts`); the medallion's hover card says how it merges and who turned it on.
+- Top bar: the macOS app's mode bar (`ModeBar` in `Conquer.swift`: traffic lights, the mode tabs, Update ready) runs across the window's top
+  over the page, which reaches the top under it (`--app-bar`, the bar's height, set by the app) and draws the panel's tools at the bar's end
+  (`.app-bar` in `FloatingPanel.tsx`: need you, usage, settings, What's new, games, shortcuts, panel side, layout, show/hide). The page posts
+  their rectangle (`appBar`); the bar leaves it unpainted and passes its clicks through. The panel has no header of its own and, hidden (⌘B), takes no width.
 - Conquer (experiment): the COMMAND / CONQUER strip across the macOS app's top (⌘` steps Command → Conquer → Linear → Slack → Activity, those enabled; View menu; the tabs light on hover)
   switches the map's place between the map and Conquer, a WebKit browser (`native/Sources/PaseoCommandNative/Conquer.swift`),
   laid exactly over the map (`placeConquer` in `WorldWindow.swift`): the panels and terminal stay, and ⌘B (the page's panel toggle)

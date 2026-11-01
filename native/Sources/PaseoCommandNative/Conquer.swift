@@ -54,12 +54,19 @@ final class ModeButton: NSButton {
     override func resetCursorRects() { addCursorRect(bounds, cursor: .pointingHand) }
 }
 
+/// The mode bar's surface: drawn only, its clicks the bar's.
+private final class BarFill: NSView {
+    override func hitTest(_ point: NSPoint) -> NSView? { nil }
+}
+
 /// The strip across the top of the window that switches the map's place between the map (Command),
 /// the browser (Conquer), your Linear issues (Linear), Slack and Activity; ⌘` steps through them in turn.
 /// It stands in for the hidden title bar: the traffic lights sit at its left, it drags the
 /// window, and it says when a newer build is ready. It is the same surface as the
-/// chrome under it (the page's panel header, Conquer's sidebar), with no line between them,
-/// and its tabs are a small segmented control rather than a tab bar.
+/// chrome under it (the page's panels, Conquer's sidebar), with no line between them,
+/// and its tabs are a small segmented control rather than a tab bar. The page lies under
+/// it and draws its own tools at the bar's right end (`tools`): the bar leaves that
+/// rectangle unpainted and lets its clicks through to the page.
 final class ModeBar: NSView {
     var onSelect: ((Mode) -> Void)?
     /// The page's tabs whose integration is on (Command and Conquer always show).
@@ -70,7 +77,13 @@ final class ModeBar: NSView {
     /// Where the tabs start: past the traffic lights.
     var leading: CGFloat = 0 { didSet { rowLeading?.constant = leading } }
     var updateReady = false { didSet { if updateReady != oldValue { update.isHidden = !updateReady } } }
+    /// Where the page draws its tools in the bar, in the bar's coordinates (none until it says).
+    var tools: CGRect = .zero { didSet { if tools != oldValue { placeTools() } } }
     private var rowLeading: NSLayoutConstraint?
+    private var updateTrailing: NSLayoutConstraint?
+    /// The bar's surface, all but the page's tools.
+    private let fill = BarFill()
+    private let hole = CAShapeLayer()
     private let update = NSTextField(labelWithString: "Update ready · Restart app")
     private let buttons: [(Mode, ModeButton)]
     /// The control's track, behind the tabs.
@@ -80,6 +93,10 @@ final class ModeBar: NSView {
         buttons = Mode.allCases.map { ($0, ModeButton()) }
         super.init(frame: frame)
         wantsLayer = true
+        fill.wantsLayer = true
+        fill.layer?.mask = hole
+        hole.fillRule = .evenOdd
+        addSubview(fill)
         track.orientation = .horizontal
         track.spacing = 2
         track.edgeInsets = NSEdgeInsets(top: 2, left: 2, bottom: 2, right: 2)
@@ -115,10 +132,12 @@ final class ModeBar: NSView {
         addSubview(update)
         let rowLeading = track.leadingAnchor.constraint(equalTo: leadingAnchor, constant: leading)
         self.rowLeading = rowLeading
+        let updateTrailing = update.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -14)
+        self.updateTrailing = updateTrailing
         NSLayoutConstraint.activate([
             rowLeading,
             track.centerYAnchor.constraint(equalTo: centerYAnchor),
-            update.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -14),
+            updateTrailing,
             update.centerYAnchor.constraint(equalTo: centerYAnchor),
         ])
         restyle()
@@ -126,6 +145,32 @@ final class ModeBar: NSView {
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 
     @objc private func pick(_ sender: NSButton) { onSelect?(Mode.allCases[sender.tag]) }
+
+    override func layout() {
+        super.layout()
+        placeTools()
+    }
+
+    /// Leave the page's tools unpainted, and say "Update ready" just before them.
+    private func placeTools() {
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        fill.frame = bounds
+        hole.frame = fill.bounds
+        let path = CGMutablePath()
+        path.addRect(bounds)
+        let cut = tools.intersection(bounds)
+        if !cut.isNull, !cut.isEmpty { path.addRect(cut) }
+        hole.path = path
+        CATransaction.commit()
+        updateTrailing?.constant = tools.isEmpty ? -14 : tools.minX - bounds.width - 10
+    }
+
+    /// The page's tools take their own clicks; the rest of the bar is the bar's.
+    override func hitTest(_ point: NSPoint) -> NSView? {
+        if !tools.isEmpty, tools.contains(convert(point, from: superview)) { return nil }
+        return super.hitTest(point)
+    }
 
     // As a title bar: drag to move the window, double-click as System Settings says.
     override var mouseDownCanMoveWindow: Bool { true }
@@ -146,7 +191,7 @@ final class ModeBar: NSView {
     /// Dark or light with the system, as the page's panels are.
     private func restyle() {
         let look = effectiveAppearance
-        layer?.backgroundColor = Ink.color(Ink.base, look).cgColor
+        fill.layer?.backgroundColor = Ink.color(Ink.base, look).cgColor
         track.layer?.backgroundColor = Ink.color(Ink.tabShown, look).cgColor
         update.textColor = Ink.color(Ink.accent, look)
         for (mode, button) in buttons {

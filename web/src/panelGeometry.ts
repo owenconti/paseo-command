@@ -7,14 +7,12 @@ export type PanelState = {
   width: number;
   mode: "compact" | "split";
   collapsed: boolean;
-  /** The window edge the sidebar (and its collapsed rail) docks to. */
+  /** The window edge the sidebar docks to. */
   side: PanelSide;
 };
 export const SIDEBAR_MIN = 320;
 export const SIDEBAR_MAX = 960;
 export const SIDEBAR_DEFAULT = 440;
-/** Width of the collapsed rail. */
-export const SIDEBAR_RAIL = 48;
 /** The two-pane layout needs at least this much sidebar. */
 export const SPLIT_MIN = 720;
 /** The world always keeps at least this much width when the window allows. */
@@ -35,11 +33,10 @@ export function fitSidebar(width: number, viewportWidth: number) {
     Math.min(sidebarLimit(viewportWidth), Math.max(lower, value)),
   );
 }
-/** The width the sidebar occupies on screen (the rail when collapsed). */
+/** The width the sidebar occupies on screen (none when collapsed: its
+ * controls live in the window's top bar). */
 export function sidebarExtent(state: PanelState, viewportWidth: number) {
-  return state.collapsed
-    ? Math.min(SIDEBAR_RAIL, viewportWidth)
-    : fitSidebar(state.width, viewportWidth);
+  return state.collapsed ? 0 : fitSidebar(state.width, viewportWidth);
 }
 /** The width after dragging the sidebar's inner edge `dx` pixels to the
  * right: a left sidebar grows with it, a right sidebar shrinks. */
