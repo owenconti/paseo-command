@@ -24,13 +24,13 @@
   background-color: color-mix(in srgb, var(--accent) 22%, transparent);
 }
 /* A settled reply's blocks can be picked with a click: the one under the
-   pointer (the innermost) sits on a rounded wash, drawn behind its text
-   and reaching a little beyond it (and over a list item's number). */
+   pointer (the innermost) gets a bar in the gutter to its left (left of a
+   list item's number), its text left as it is. */
 .session .msg.assistant:not([data-live]):not(.fork-pane *)
   :is(p, li, h1, h2, h3, h4, h5, h6, pre, blockquote, tr):hover:not(
     :has(:is(p, li, h1, h2, h3, h4, h5, h6, pre, blockquote, tr):hover)
   ) {
-  --pick-left: 6px;
+  --pick-left: 9px;
   cursor: pointer;
   position: relative;
   isolation: isolate;
@@ -41,23 +41,24 @@
   )::before {
   content: "";
   position: absolute;
-  z-index: -1;
-  inset: -2px -6px -2px calc(-1 * var(--pick-left));
-  border-radius: var(--radius-sm);
-  background: color-mix(in srgb, var(--accent) 9%, transparent);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 22%, transparent);
+  top: 1px;
+  bottom: 1px;
+  left: calc(-1 * var(--pick-left));
+  width: 3px;
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--accent) 75%, transparent);
   pointer-events: none;
 }
 .session .msg.assistant:not([data-live]):not(.fork-pane *)
   li:hover:not(
     :has(:is(p, li, h1, h2, h3, h4, h5, h6, pre, blockquote, tr):hover)
   ) {
-  --pick-left: calc(var(--space-5) + 2px);
+  --pick-left: calc(var(--space-5) + 5px);
 }
-/* A table row can't hold a positioned wash; its cells take a plain one. */
+/* A table row can't hold a positioned bar: its first cell takes one on its inside edge. */
 .session .msg.assistant:not([data-live]):not(.fork-pane *)
-  tr:hover:not(:has(:is(p, li, pre, blockquote):hover)) > * {
-  background-color: color-mix(in srgb, var(--accent) 9%, transparent);
+  tr:hover:not(:has(:is(p, li, pre, blockquote):hover)) > :first-child {
+  box-shadow: inset 3px 0 0 color-mix(in srgb, var(--accent) 75%, transparent);
 }
 
 .fork-pill {
