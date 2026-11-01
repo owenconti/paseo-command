@@ -18,6 +18,8 @@ export default defineConfig({
     strictPort: false,
     allowedHosts: ["localhost"],
   },
+  // ES module workers: the GitHub tab's diff highlighter (@pierre/diffs) loads its languages on demand.
+  worker: { format: "es" },
   build: {
     chunkSizeWarningLimit: 1500,
     rollupOptions: {

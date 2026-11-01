@@ -10,6 +10,7 @@ import { changesPath, invalidate, readPath, useGithubRead } from "./api";
 import { createGithubToken } from "../GithubTokenSetup";
 import { Avatar } from "./bits";
 import { ChangesView } from "./ChangesView";
+import { DiffWorkers } from "./diffWorkers";
 import type { DiffLayout, DiffViewHandle } from "./DiffView";
 import { checkPlace, PR_TABS, readPlace, samePlace, writePlace, type GithubPlace, type PrTab } from "./place";
 import { SCOPE_TITLE } from "./names";
@@ -344,99 +345,101 @@ export function GitHubView({
     );
 
   return (
-    <section
-      className="github-view"
-      aria-label="GitHub"
-      ref={setView}
-      style={{ gridTemplateColumns: `${sidebarW}px minmax(0, 1fr)` }}
-      tabIndex={-1}
-      onKeyDown={onKey}
-    >
-      <nav className="gh-sidebar" id="github-sidebar" aria-label="GitHub places">
-          <div className="gh-sidebar-head">
-            <h2>GitHub</h2>
-            <button className="icon-btn" aria-label="Refresh GitHub" data-tip="Refresh" onClick={refresh}>
-              <RefreshCw size={13} aria-hidden="true" />
-            </button>
-          </div>
-          <div className="gh-nav">
-            <h3>Workspace</h3>
-            {navItem(
-              "changes",
-              place.kind === "changes",
-              <GitBranch size={14} aria-hidden="true" />,
-              workspace ? workspace.name : "Changes",
-              workspace ? `${workspace.name}'s branch against main` : "Select a workspace to see its changes",
-              () => go({ kind: "changes" }),
-              fileCount,
-            )}
-            {workspacePr &&
-              navItem(
-                "workspace-pr",
-                place.kind === "pr" && place.repo === workspacePr.repo && place.number === workspacePr.number,
-                <GitPullRequestArrow size={14} aria-hidden="true" />,
-                `Its pull request #${workspacePr.number}`,
-                "Review the workspace's pull request",
-                () => openRow(workspacePr.repo, workspacePr.number, "files"),
-              )}
-            <h3>Pull requests</h3>
-            {PR_SCOPES.map((scope) => {
-              const Icon = SCOPE_ICON[scope];
-              return navItem(
-                scope,
-                place.kind === "prs" && place.scope === scope,
-                <Icon size={14} aria-hidden="true" />,
-                SCOPE_TITLE[scope],
-                SCOPE_HINT[scope],
-                () => go({ kind: "prs", scope }),
-                counts[scope],
-              );
-            })}
-            {place.kind === "pr" &&
-              !(workspacePr && place.repo === workspacePr.repo && place.number === workspacePr.number) &&
-              navItem(
-                "open-pr",
-                true,
-                <GitPullRequest size={14} aria-hidden="true" />,
-                `${place.repo.split("/")[1]}#${place.number}`,
-                `${place.repo}#${place.number}`,
-                () => {},
-              )}
-          </div>
-          {!!viewer.data?.missingScopes?.length && (
-            <div className="gh-scopes" role="status">
-              <p>
-                The GitHub token lacks {viewer.data.missingScopes.join(", ")}, so some of this tab won’t work.
-              </p>
-              <button className="secondary" onClick={createGithubToken}>
-                Create a new token
+    <DiffWorkers>
+      <section
+        className="github-view"
+        aria-label="GitHub"
+        ref={setView}
+        style={{ gridTemplateColumns: `${sidebarW}px minmax(0, 1fr)` }}
+        tabIndex={-1}
+        onKeyDown={onKey}
+      >
+        <nav className="gh-sidebar" id="github-sidebar" aria-label="GitHub places">
+            <div className="gh-sidebar-head">
+              <h2>GitHub</h2>
+              <button className="icon-btn" aria-label="Refresh GitHub" data-tip="Refresh" onClick={refresh}>
+                <RefreshCw size={13} aria-hidden="true" />
               </button>
             </div>
-          )}
-          {(viewer.data || viewer.unavailable) && (
-            <p className="gh-sidebar-foot">
-              {viewer.data ? (
-                <>
-                  <Avatar person={viewer.data.viewer} size={18} />
-                  <span>{viewer.data.viewer.login}</span>
-                </>
-              ) : (
-                <span className="gh-hint">{viewer.unavailable}</span>
+            <div className="gh-nav">
+              <h3>Workspace</h3>
+              {navItem(
+                "changes",
+                place.kind === "changes",
+                <GitBranch size={14} aria-hidden="true" />,
+                workspace ? workspace.name : "Changes",
+                workspace ? `${workspace.name}'s branch against main` : "Select a workspace to see its changes",
+                () => go({ kind: "changes" }),
+                fileCount,
               )}
-            </p>
-          )}
-          <ResizeEdge
-            label="Resize the GitHub sidebar"
-            controls="github-sidebar"
-            value={sidebarW}
-            min={PANELS.sidebarMin}
-            max={sidebarMax}
-            grows="right"
-            onResize={resizeSidebar}
-            onReset={() => resizeSidebar(null)}
-          />
-      </nav>
-      <div className="gh-main">{main}</div>
-    </section>
+              {workspacePr &&
+                navItem(
+                  "workspace-pr",
+                  place.kind === "pr" && place.repo === workspacePr.repo && place.number === workspacePr.number,
+                  <GitPullRequestArrow size={14} aria-hidden="true" />,
+                  `Its pull request #${workspacePr.number}`,
+                  "Review the workspace's pull request",
+                  () => openRow(workspacePr.repo, workspacePr.number, "files"),
+                )}
+              <h3>Pull requests</h3>
+              {PR_SCOPES.map((scope) => {
+                const Icon = SCOPE_ICON[scope];
+                return navItem(
+                  scope,
+                  place.kind === "prs" && place.scope === scope,
+                  <Icon size={14} aria-hidden="true" />,
+                  SCOPE_TITLE[scope],
+                  SCOPE_HINT[scope],
+                  () => go({ kind: "prs", scope }),
+                  counts[scope],
+                );
+              })}
+              {place.kind === "pr" &&
+                !(workspacePr && place.repo === workspacePr.repo && place.number === workspacePr.number) &&
+                navItem(
+                  "open-pr",
+                  true,
+                  <GitPullRequest size={14} aria-hidden="true" />,
+                  `${place.repo.split("/")[1]}#${place.number}`,
+                  `${place.repo}#${place.number}`,
+                  () => {},
+                )}
+            </div>
+            {!!viewer.data?.missingScopes?.length && (
+              <div className="gh-scopes" role="status">
+                <p>
+                  The GitHub token lacks {viewer.data.missingScopes.join(", ")}, so some of this tab won’t work.
+                </p>
+                <button className="secondary" onClick={createGithubToken}>
+                  Create a new token
+                </button>
+              </div>
+            )}
+            {(viewer.data || viewer.unavailable) && (
+              <p className="gh-sidebar-foot">
+                {viewer.data ? (
+                  <>
+                    <Avatar person={viewer.data.viewer} size={18} />
+                    <span>{viewer.data.viewer.login}</span>
+                  </>
+                ) : (
+                  <span className="gh-hint">{viewer.unavailable}</span>
+                )}
+              </p>
+            )}
+            <ResizeEdge
+              label="Resize the GitHub sidebar"
+              controls="github-sidebar"
+              value={sidebarW}
+              min={PANELS.sidebarMin}
+              max={sidebarMax}
+              grows="right"
+              onResize={resizeSidebar}
+              onReset={() => resizeSidebar(null)}
+            />
+        </nav>
+        <div className="gh-main">{main}</div>
+      </section>
+    </DiffWorkers>
   );
 }

@@ -14,10 +14,11 @@ import {
   Undo2,
 } from "lucide-react";
 import { getSingularPatch, type DiffLineAnnotation, type FileDiffMetadata, type SelectedLineRange } from "@pierre/diffs";
-import { FileDiff } from "@pierre/diffs/react";
+import { FileDiff, Virtualizer } from "@pierre/diffs/react";
 import { copyText } from "../nativePlatform";
 import { useTheme } from "../theme";
 import { Avatar, Body, CommentBox, Time } from "./bits";
+import { DIFF_THEMES } from "./diffWorkers";
 import type { ReviewDraft } from "./drafts";
 import { anchorKey, byDirectory, lineCount, patchOf, placeThreads, splitPath, type Anchor, type Side } from "./rows";
 import type { DiffFile, DraftComment, ReviewThread } from "./types";
@@ -284,7 +285,7 @@ function FileBody({
       overflow: "wrap" as const,
       disableFileHeader: true,
       themeType: resolved === "light" ? ("light" as const) : ("dark" as const),
-      theme: { dark: "pierre-dark", light: "pierre-light" },
+      theme: DIFF_THEMES,
       enableGutterUtility: !!review,
       onGutterUtilityClick: (range: SelectedLineRange) => {
         const side = fromSide(range.endSide ?? range.side);
@@ -453,7 +454,9 @@ export function DiffView({
   head?: ReactNode;
   handle?: Ref<DiffViewHandle>;
 }) {
-  const scroller = useRef<HTMLDivElement>(null);
+  // The virtualizer's own element scrolls (it draws only the lines in view); this finds it.
+  const wrap = useRef<HTMLDivElement>(null);
+  const scrollerOf = () => wrap.current?.querySelector<HTMLElement>(":scope > .gd-scroll") ?? null;
   const [composing, setComposing] = useState<Composing | null>(null);
   // Folding: what you chose, else viewed and big files fold.
   const [chosen, setChosen] = useState<Map<string, boolean>>(new Map());
@@ -475,9 +478,18 @@ export function DiffView({
 
   const [current, setCurrent] = useState<string | undefined>(files[0]?.path);
   useEffect(() => {
-    const el = scroller.current;
+    const el = scrollerOf();
     if (!el) return;
+    // Which file is in view, once a frame at most.
+    let frame = 0;
     const onScroll = () => {
+      if (frame) return;
+      frame = requestAnimationFrame(() => {
+        frame = 0;
+        measure();
+      });
+    };
+    const measure = () => {
       const top = el.getBoundingClientRect().top + 8;
       let at: string | undefined;
       for (const s of el.querySelectorAll<HTMLElement>(".gd-file")) {
@@ -488,16 +500,19 @@ export function DiffView({
       }
       setCurrent(at);
     };
-    onScroll();
+    measure();
     el.addEventListener("scroll", onScroll, { passive: true });
-    return () => el.removeEventListener("scroll", onScroll);
+    return () => {
+      cancelAnimationFrame(frame);
+      el.removeEventListener("scroll", onScroll);
+    };
   }, [files]);
 
   const show = useCallback((path: string) => {
-    const el = scroller.current?.querySelector<HTMLElement>(`.gd-file[data-path="${CSS.escape(path)}"]`);
-    if (el && scroller.current) {
-      // The scroller is the sections' offset parent.
-      scroller.current.scrollTo({ top: el.offsetTop });
+    const scroller = scrollerOf();
+    const el = scroller?.querySelector<HTMLElement>(`.gd-file[data-path="${CSS.escape(path)}"]`);
+    if (el && scroller) {
+      scroller.scrollTo({ top: scroller.scrollTop + el.getBoundingClientRect().top - scroller.getBoundingClientRect().top });
       setCurrent(path);
     }
   }, []);
@@ -566,25 +581,27 @@ export function DiffView({
           ))}
         </nav>
       )}
-      <div className="gd-scroll" ref={scroller}>
-        {head}
-        {files.length ? (
-          files.map((f) => (
-            <FileSection
-              key={f.path}
-              file={f}
-              layout={layout}
-              review={reviewed}
-              folded={isFolded(f)}
-              onFold={onFold}
-              composing={composing?.path === f.path ? composing : null}
-              setComposing={setComposing}
-              notes={notesOf.get(f.path) ?? 0}
-            />
-          ))
-        ) : (
-          <div className="gh-empty">{empty}</div>
-        )}
+      <div className="gd-scroll-wrap" ref={wrap}>
+        <Virtualizer className="gd-scroll">
+          {head}
+          {files.length ? (
+            files.map((f) => (
+              <FileSection
+                key={f.path}
+                file={f}
+                layout={layout}
+                review={reviewed}
+                folded={isFolded(f)}
+                onFold={onFold}
+                composing={composing?.path === f.path ? composing : null}
+                setComposing={setComposing}
+                notes={notesOf.get(f.path) ?? 0}
+              />
+            ))
+          ) : (
+            <div className="gh-empty">{empty}</div>
+          )}
+        </Virtualizer>
       </div>
     </div>
   );

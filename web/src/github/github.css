@@ -956,7 +956,13 @@
 .gd-file-icon.del {
   color: var(--red-text);
 }
+.gd-scroll-wrap {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+}
 .gd-scroll {
+  flex: 1;
   position: relative;
   min-width: 0;
   min-height: 0;

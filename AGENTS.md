@@ -344,7 +344,8 @@ and GitHub publication; report the published version and release link.
   integration), all changes, committed or uncommitted, with ahead/behind, Review #N and Compare on GitHub; asked every 15 s while shown.
   A PR (`PrView.tsx`): Conversation (its body, comments and reviews, a comment box), Files changed (the review), Commits, Checks. The diff
   (`DiffView.tsx`): files by directory beside it, each file drawn by @pierre/diffs (`FileDiff`, from the parsed file as patch text,
-  `patchOf` in `rows.ts`; Shiki highlighting, word-level changes, unified or split, its pierre-dark/-light theme by the app's), big and
+  `patchOf` in `rows.ts`; Shiki highlighting, word-level changes, unified or split, its pierre-dark/-light theme by the app's; highlighted in a pool of web workers, `diffWorkers.tsx`, with `worker: { format: "es" }`
+  in `vite.config.ts`, and drawn only where in view, its `Virtualizer` being the diff's scroller), big and
   viewed files folded; in a review its gutter utility's + takes a comment (drag across lines for a range):
   into your pending review (`drafts.ts`, localStorage per PR until sent or discarded) or at once (Add single comment); threads sit under
   their lines (its line annotations, slotted, so our components and CSS draw them) with Reply and Resolve; Viewed per file. Review opens Finish your review: a summary and Comment, Approve or Request changes
