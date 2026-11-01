@@ -65,8 +65,9 @@ private final class BarFill: NSView {
 /// window, and it says when a newer build is ready. It is the same surface as the
 /// chrome under it (the page's panels, Conquer's sidebar), with no line between them,
 /// and its tabs are a small segmented control rather than a tab bar. The page lies under
-/// it and draws its own tools at the bar's right end (`tools`): the bar leaves that
-/// rectangle unpainted and lets its clicks through to the page.
+/// it and draws the product's name past the traffic lights (`title`; the tabs follow it)
+/// and its own tools at the bar's right end (`tools`): the bar leaves both unpainted
+/// and lets the tools' clicks through to the page.
 final class ModeBar: NSView {
     var onSelect: ((Mode) -> Void)?
     /// The page's tabs whose integration is on (Command and Conquer always show).
@@ -74,11 +75,13 @@ final class ModeBar: NSView {
     /// Activity's unread notifications, shown on its tab.
     var activityUnread = 0 { didSet { if activityUnread != oldValue { restyle() } } }
     var mode: Mode = .command { didSet { restyle() } }
-    /// Where the tabs start: past the traffic lights.
-    var leading: CGFloat = 0 { didSet { rowLeading?.constant = leading } }
+    /// Where the bar's content starts: past the traffic lights.
+    var leading: CGFloat = 0 { didSet { placeTools() } }
     var updateReady = false { didSet { if updateReady != oldValue { update.isHidden = !updateReady } } }
     /// Where the page draws its tools in the bar, in the bar's coordinates (none until it says).
     var tools: CGRect = .zero { didSet { if tools != oldValue { placeTools() } } }
+    /// Where the page draws the product's name, in the bar's coordinates; the tabs follow it.
+    var title: CGRect = .zero { didSet { if title != oldValue { placeTools() } } }
     private var rowLeading: NSLayoutConstraint?
     private var updateTrailing: NSLayoutConstraint?
     /// The bar's surface, all but the page's tools.
@@ -151,7 +154,8 @@ final class ModeBar: NSView {
         placeTools()
     }
 
-    /// Leave the page's tools unpainted, and say "Update ready" just before them.
+    /// Leave the page's name and tools unpainted, start the tabs past the name, and
+    /// say "Update ready" just before the tools.
     private func placeTools() {
         CATransaction.begin()
         CATransaction.setDisableActions(true)
@@ -161,8 +165,11 @@ final class ModeBar: NSView {
         path.addRect(bounds)
         let cut = tools.intersection(bounds)
         if !cut.isNull, !cut.isEmpty { path.addRect(cut) }
+        let name = title.intersection(bounds)
+        if !name.isNull, !name.isEmpty { path.addRect(name) }
         hole.path = path
         CATransaction.commit()
+        rowLeading?.constant = title.isEmpty ? leading : max(leading, title.maxX + 16)
         updateTrailing?.constant = tools.isEmpty ? -14 : tools.minX - bounds.width - 10
     }
 

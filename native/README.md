@@ -140,7 +140,7 @@ draws Conquer over the map while it shows. `….appopen.<run>` opens `<info>.url
 launched with `--info` listens, under names ending in its info file's name, so the user's own copy
 ignores them; such a copy keeps its page storage in memory, apart from the user's copy):
 `com.paseo.command.native.eval` runs `/tmp/x.js` in the page and writes `/tmp/x.out`;
-`.snapshot` writes `/tmp/x.png` (SpriteKit's frame under the page's snapshot); `.info` rewrites
+`.snapshot` writes `/tmp/x.png` (SpriteKit's frame under the page's snapshot; it draws the terminal panel's text blank, and shows views that aren't on screen); `.windowshot` writes `/tmp/x-window.png`, the window as the screen shows it (with `--ignore-occlusion`, or the map pauses while covered); `.info` rewrites
 `/tmp/x.json` (with the terminal panel's state); `.pan` drags the map for 10 s; `.resize` alternates
 the window size; `.reload` runs the palette’s Restart app command; `.terminal` toggles the panel; `.dock` moves it between right and bottom; `.maximize` lays it over the map and back; `.divider` drags the panel's divider 150 points towards the map; `.split` splits the current pane with another tab; `.unsplit` returns to one pane; `.newterminal` opens a terminal; `.zoom` enlarges its text; `.type` types
 `/tmp/x.type` into its terminal; `.quit`.

@@ -75,6 +75,7 @@ export function FloatingPanel(props: Props) {
   const drag = useRef<{ x: number; width: number } | null>(null);
   const restoreButton = useRef<HTMLButtonElement>(null);
   const toolsRef = useRef<HTMLDivElement>(null);
+  const titleRef = useRef<HTMLSpanElement>(null);
   const width = fitSidebar(state.width, windowWidth);
   const extent = sidebarExtent(state, windowWidth);
   const compact = state.mode === "compact" || width < SPLIT_MIN;
@@ -98,24 +99,29 @@ export function FloatingPanel(props: Props) {
       delete root.dataset.panelSide;
     };
   }, [enabled, extent, side]);
-  // The page draws its tools at the right end of the window's top bar (the
-  // app's mode bar lies over the rest of it); the app leaves their rectangle
-  // to the page, unpainted and taking no clicks of its own.
+  // The page draws the product's name past the traffic lights and its tools at
+  // the right end of the window's top bar (the app's mode bar lies over the
+  // rest of it, its tabs after the name); the app leaves both rectangles to
+  // the page, unpainted, and the tools take their own clicks.
   useLayoutEffect(() => {
     const tools = toolsRef.current;
-    if (!enabled || !tools || !macApp()) return;
-    const report = () => {
-      const r = tools.getBoundingClientRect();
-      postAppBar({ x: r.left, y: r.top, width: r.width, height: r.height });
+    const title = titleRef.current;
+    if (!enabled || !tools || !title || !macApp()) return;
+    const rect = (el: Element) => {
+      const r = el.getBoundingClientRect();
+      return { x: r.left, y: r.top, width: r.width, height: r.height };
     };
+    const report = () => postAppBar(rect(tools), rect(title));
     report();
     const observer = new ResizeObserver(report);
     observer.observe(tools);
+    observer.observe(title);
     addEventListener("resize", report);
     return () => {
       observer.disconnect();
       removeEventListener("resize", report);
-      postAppBar({ x: 0, y: 0, width: 0, height: 0 });
+      const none = { x: 0, y: 0, width: 0, height: 0 };
+      postAppBar(none, none);
     };
   }, [enabled]);
   // The app's View menu names the other side; it learns this one from here
@@ -229,7 +235,9 @@ export function FloatingPanel(props: Props) {
   return (
     <>
       <header className="app-bar" aria-label="Toolbar">
-        {!macApp() && <span className="app-bar-title">Paseo Command</span>}
+        <span ref={titleRef} className="app-bar-title">
+          Paseo Command
+        </span>
         <div ref={toolsRef} className="app-bar-tools">
           {props.attention > 0 && (
             <button

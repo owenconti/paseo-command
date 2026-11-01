@@ -187,10 +187,11 @@
   );
   max-width: min(520px, calc(100% - var(--unity-sidebar, 0px) - 32px));
 }
-/* The window's top bar, across the whole window: the panel's tools at its
-   right end. In the macOS app its mode bar (traffic lights and tabs) lies over
-   the rest, and the app says the bar's height (--app-bar); browsers show the
-   product's name there. */
+/* The window's top bar, across the whole window: the product's name at its
+   start, the panel's tools at its right end. In the macOS app its mode bar
+   (traffic lights and tabs) lies over the rest, and the app says the bar's
+   height (--app-bar) and where its content starts, past the traffic lights
+   (--app-bar-lead); the bar's tabs follow the name. */
 :root {
   --app-bar: 40px;
 }
@@ -201,7 +202,7 @@
   display: flex;
   align-items: center;
   height: var(--app-bar);
-  padding: 0 8px 0 14px;
+  padding: 0 8px 0 var(--app-bar-lead, 14px);
   background: var(--panel);
   color: var(--text);
 }

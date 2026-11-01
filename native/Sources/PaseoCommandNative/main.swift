@@ -1,3 +1,4 @@
+import ImageIO
 import AppKit
 import Foundation
 import notify
@@ -198,6 +199,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
             var frame = window.frame
             frame.size = small ? CGSize(width: 1000, height: 960) : (self?.options.size ?? CGSize(width: 1440, height: 900))
             window.setFrame(window.frameRect(forContentRect: CGRect(origin: frame.origin, size: frame.size)), display: true)
+        }
+        // The window as the screen shows it (`<info>-window.png`), unlike `snapshot`, which
+        // composes its parts and can show a view that isn't actually on screen. An app
+        // may capture its own windows; the call is looked up as newer SDKs hide it.
+        listen("com.paseo.command.native.windowshot") { [weak self] in
+            guard let self, let info = self.options.info, let window = self.main?.window else { return }
+            typealias Capture = @convention(c) (CGRect, UInt32, UInt32, UInt32) -> Unmanaged<CGImage>?
+            guard let symbol = dlsym(UnsafeMutableRawPointer(bitPattern: -2), "CGWindowListCreateImage") else { return }
+            // Just this window, at its pixel size, without its shadow.
+            let capture = unsafeBitCast(symbol, to: Capture.self)
+            guard let image = capture(.null, 1 << 3, UInt32(window.windowNumber), 1 << 0 | 1 << 3)?.takeRetainedValue() else { return }
+            let url = URL(fileURLWithPath: (info as NSString).deletingPathExtension + "-window.png")
+            guard let destination = CGImageDestinationCreateWithURL(url as CFURL, "public.png" as CFString, 1, nil) else { return }
+            CGImageDestinationAddImage(destination, image, nil)
+            CGImageDestinationFinalize(destination)
         }
         listen("com.paseo.command.native.snapshot") { [weak self] in
             guard let self, let info = self.options.info else { return }

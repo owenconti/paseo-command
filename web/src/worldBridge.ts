@@ -221,10 +221,21 @@ export const configureAppIntegrations = (tabs: { linear: boolean; slack: boolean
   appChannel()?.postMessage({ type: "integrations", ...tabs });
 /** Activity's unread notifications, for its mode bar tab. */
 export const postAppActivity = (unread: number) => appChannel()?.postMessage({ type: "activity", unread });
-/** Where the page draws its tools in the window's top bar (page pixels; empty for none),
- * which the macOS app's mode bar leaves unpainted and passes clicks through to. */
-export const postAppBar = (r: { x: number; y: number; width: number; height: number }) =>
-  appChannel()?.postMessage({ type: "appBar", ...r });
+/** Where the page draws its tools and the product's name in the window's top bar (page
+ * pixels; empty for none). The macOS app's mode bar leaves both unpainted, passes the
+ * tools' clicks through and starts its tabs past the name. */
+export const postAppBar = (
+  r: { x: number; y: number; width: number; height: number },
+  title: { x: number; y: number; width: number; height: number },
+) =>
+  appChannel()?.postMessage({
+    type: "appBar",
+    ...r,
+    titleX: title.x,
+    titleY: title.y,
+    titleWidth: title.width,
+    titleHeight: title.height,
+  });
 /** Open a web link in the macOS app's browser, Conquer, in the map's place (a new tab).
  * A Linear issue's or Slack message's link comes back as `paseo:link` for its tab,
  * unless `direct` (one the page has already looked at). */

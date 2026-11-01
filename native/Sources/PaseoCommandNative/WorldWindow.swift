@@ -65,6 +65,10 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         // No title bar: the mode bar takes its place, the traffic lights at its left.
         window.titleVisibility = .hidden
         window.titlebarAppearsTransparent = true
+        // An empty toolbar makes the title bar tall enough for the page's name beside the
+        // tabs, and centres the traffic lights in it.
+        window.toolbar = NSToolbar(identifier: "bar")
+        window.toolbarStyle = .unifiedCompact
         // Where the user left it, across launches and app restarts (checks pass --size).
         if options.size == nil {
             window.setFrameUsingName(WorldWindow.frameName)
@@ -96,7 +100,6 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         splash.autoresizingMask = [.width, .height]
         conquer = ConquerView(frame: command.frame, persistent: options.info == nil)
         conquer.isHidden = true
-        for v in [command, modeBar] { root.addSubview(v) }
         window.contentView = root
         content = PassThroughView(frame: split.bounds)
         content.autoresizingMask = [.width, .height]
@@ -120,7 +123,8 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         configuration.preferences.setValue(true, forKey: "developerExtrasEnabled")
         // The mode bar's height, which the page leaves as its own top bar.
         configuration.userContentController.addUserScript(WKUserScript(
-            source: "document.documentElement.style.setProperty('--app-bar', '\(Int(barHeight))px')",
+            source: "document.documentElement.style.setProperty('--app-bar', '\(Int(barHeight))px')" +
+                ";document.documentElement.style.setProperty('--app-bar-lead', '\(Int(WorldWindow.barLead(window, fullScreen: false)))px')",
             injectionTime: .atDocumentStart, forMainFrameOnly: true))
         web = WKWebView(frame: command.bounds, configuration: configuration)
         web.autoresizingMask = [.width, .height]
@@ -130,11 +134,12 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         // Measurements and checks draw while covered: WebKit stops throttling too.
         let occlusion = NSSelectorFromString("_setWindowOcclusionDetectionEnabled:")
         if AtlasView.ignoreOcclusion, web.responds(to: occlusion) { web.perform(occlusion, with: false) }
-        // Map, page, then the split: its page side lets everything through to the page
-        // but Conquer and the maximized panel; the panel beside it is its own.
+        // Map and page, then over them the split: its page side lets everything through
+        // to the page but Conquer and the maximized panel; the panel beside it is its own.
+        // The split is the window's, not the page's sibling: views after a web view in its
+        // own parent stay off screen until the web view is hidden and shown again.
         command.addSubview(web)
-        command.addSubview(split)
-        command.addSubview(splash)
+        for v in [command, split, splash, modeBar] { root.addSubview(v) }
         super.init()
         split.onResize = { [weak self] in self?.layoutWorkspace() }
         conquer.onTogglePanel = { [weak self] in
@@ -238,6 +243,9 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
             let rect = CGRect(x: body["x"] as? Double ?? 0, y: body["y"] as? Double ?? 0,
                               width: body["width"] as? Double ?? 0, height: body["height"] as? Double ?? 0)
             modeBar.tools = rect.isEmpty ? .zero : modeBar.convert(rect, from: web)
+            let title = CGRect(x: body["titleX"] as? Double ?? 0, y: body["titleY"] as? Double ?? 0,
+                               width: body["titleWidth"] as? Double ?? 0, height: body["titleHeight"] as? Double ?? 0)
+            modeBar.title = title.isEmpty ? .zero : modeBar.convert(title, from: web)
         case "viewport":
             layoutWorkspace()
             viewport = CGRect(x: body["x"] as? Double ?? 0, y: body["y"] as? Double ?? 0,
@@ -380,8 +388,15 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
     /// The mode bar's tabs start past the traffic lights, or at the edge in
     /// full screen, where the lights are hidden.
     private func placeModeBar() {
-        let fullScreen = window.styleMask.contains(.fullScreen)
-        modeBar.leading = fullScreen ? 10 : (window.standardWindowButton(.zoomButton)?.frame.maxX ?? 0) + 16
+        let lead = WorldWindow.barLead(window, fullScreen: window.styleMask.contains(.fullScreen))
+        modeBar.leading = lead
+        // The page draws the product's name there, and the tabs follow it.
+        web.evaluateJavaScript("document.documentElement.style.setProperty('--app-bar-lead', '\(Int(lead))px')", completionHandler: nil)
+    }
+
+    /// Where the bar's content starts: past the traffic lights, or at the edge in full screen.
+    private static func barLead(_ window: NSWindow, fullScreen: Bool) -> CGFloat {
+        fullScreen ? 14 : (window.standardWindowButton(.zoomButton)?.frame.maxX ?? 0) + 16
     }
 
     func windowDidEnterFullScreen(_ notification: Notification) { placeModeBar() }
@@ -792,6 +807,7 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         drawer.removeFromSuperview()
         split.addArrangedSubview(drawer)
         split.setHoldingPriority(.defaultHigh, forSubviewAt: 1)
+        layoutWorkspace()
     }
 
     private func detachDrawer() {
@@ -799,6 +815,8 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         if parent === split { split.removeArrangedSubview(drawer) }
         drawer.removeFromSuperview()
         split.adjustSubviews()
+        // The page's side may not have changed size in the split's eyes: say so anyway.
+        layoutWorkspace()
     }
 
     /// The maximized panel lies exactly over the page's map (it follows the map as the page lays out).
