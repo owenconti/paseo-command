@@ -19,7 +19,7 @@ import { ReleasesButton } from "./ReleasesButton";
 import { ShortcutsButton } from "./ShortcutsButton";
 import { GamesButton } from "./games/GamesButton";
 import { onAppCommand } from "./appCommands";
-import { nativeEvents, postNative } from "./worldBridge";
+import { macApp, nativeEvents, postAppBar, postNative } from "./worldBridge";
 import { worldFrame } from "./viewControls";
 import {
   arrowWidth,
@@ -74,6 +74,7 @@ export function FloatingPanel(props: Props) {
   current.current = state;
   const drag = useRef<{ x: number; width: number } | null>(null);
   const restoreButton = useRef<HTMLButtonElement>(null);
+  const toolsRef = useRef<HTMLDivElement>(null);
   const width = fitSidebar(state.width, windowWidth);
   const extent = sidebarExtent(state, windowWidth);
   const compact = state.mode === "compact" || width < SPLIT_MIN;
@@ -97,6 +98,26 @@ export function FloatingPanel(props: Props) {
       delete root.dataset.panelSide;
     };
   }, [enabled, extent, side]);
+  // The page draws its tools at the right end of the window's top bar (the
+  // app's mode bar lies over the rest of it); the app leaves their rectangle
+  // to the page, unpainted and taking no clicks of its own.
+  useLayoutEffect(() => {
+    const tools = toolsRef.current;
+    if (!enabled || !tools || !macApp()) return;
+    const report = () => {
+      const r = tools.getBoundingClientRect();
+      postAppBar({ x: r.left, y: r.top, width: r.width, height: r.height });
+    };
+    report();
+    const observer = new ResizeObserver(report);
+    observer.observe(tools);
+    addEventListener("resize", report);
+    return () => {
+      observer.disconnect();
+      removeEventListener("resize", report);
+      postAppBar({ x: 0, y: 0, width: 0, height: 0 });
+    };
+  }, [enabled]);
   // The app's View menu names the other side; it learns this one from here
   // and asks for a side through a menu event.
   useEffect(() => {
@@ -208,8 +229,8 @@ export function FloatingPanel(props: Props) {
   return (
     <>
       <header className="app-bar" aria-label="Toolbar">
-        <span className="app-bar-title">Paseo Command</span>
-        <div className="app-bar-tools">
+        {!macApp() && <span className="app-bar-title">Paseo Command</span>}
+        <div ref={toolsRef} className="app-bar-tools">
           {props.attention > 0 && (
             <button
               className="panel-attention"

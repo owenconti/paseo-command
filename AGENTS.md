@@ -227,9 +227,9 @@ and GitHub publication; report the published version and release link.
   While it's on, a teal seal with a merge mark sits on the review medallion's upper-right rim, else the CI one's (`placeSeals`,
   `paintSeal`, `AUTO_MERGE` in `rendering/src/prStatus.ts`); the medallion's hover card says how it merges and who turned it on.
 - Top bar: the macOS app's mode bar (`ModeBar` in `Conquer.swift`: traffic lights, the mode tabs, Update ready) runs across the window's top
-  over the page, which reaches the top under it (`--app-bar`, the bar's height, set by the app) and draws the panel's tools at the bar's end
+  over the page, which reaches the top under it (`--app-bar`, the bar's height, set by the app) and draws the panel's tools at the window's right end, past the terminal panel
   (`.app-bar` in `FloatingPanel.tsx`: need you, usage, settings, What's new, games, shortcuts, panel side, layout, show/hide). The page posts
-  their rectangle (`appBar`); the bar leaves it unpainted and passes its clicks through. The panel has no header of its own and, hidden (⌘B), takes no width.
+  their rectangle (`appBar`); the bar leaves it unpainted and passes its clicks through. The page's other content keeps to the split's page side (`--workspace-width`/`--workspace-height`, `layoutWorkspace`); the map lies under the page and the split (terminal panel, Conquer) over it, below the bar, its page side passing events through (`PassThroughView`). The panel has no header of its own and, hidden (⌘B), takes no width.
 - Conquer (experiment): the COMMAND / CONQUER strip across the macOS app's top (⌘` steps Command → Conquer → Linear → Slack → Activity, those enabled; View menu; the tabs light on hover)
   switches the map's place between the map and Conquer, a WebKit browser (`native/Sources/PaseoCommandNative/Conquer.swift`),
   laid exactly over the map (`placeConquer` in `WorldWindow.swift`): the panels and terminal stay, and ⌘B (the page's panel toggle)

@@ -187,8 +187,10 @@
   );
   max-width: min(520px, calc(100% - var(--unity-sidebar, 0px) - 32px));
 }
-/* The global title and tools span the entire window. Native mode tabs and
-   traffic lights occupy a separate row above the web view. */
+/* The window's top bar, across the whole window: the panel's tools at its
+   right end. In the macOS app its mode bar (traffic lights and tabs) lies over
+   the rest, and the app says the bar's height (--app-bar); browsers show the
+   product's name there. */
 :root {
   --app-bar: 40px;
 }
@@ -503,7 +505,7 @@
   overflow-wrap: anywhere;
 }
 
-/* Native reserves the terminal beside/below the workspace, while the header spans the window. */
+/* In the macOS app the page keeps beside (or above) the terminal panel; only its top bar spans the window. */
 :root[data-native-workspace] .command-app.unity-command {
   position: relative;
   width: var(--workspace-width);

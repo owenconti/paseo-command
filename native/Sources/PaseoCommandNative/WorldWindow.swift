@@ -19,8 +19,10 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
     let splash: SplashView
     /// The strip across the top that switches between Command, Conquer, Linear, Slack and Activity.
     let modeBar: ModeBar
-    /// Command: the split and its splash, under the mode bar.
+    /// Command: the map, the page over it, the split over that and its splash, under the mode bar.
     let command: NSView
+    /// The mode bar's height: the page's own top bar, whose tools show at its right end.
+    let barHeight: CGFloat
     /// Conquer: the browser, in the map's place while it shows.
     let conquer: ConquerView
     private(set) var mode: Mode = .command
@@ -81,22 +83,22 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         let root = NSView(frame: split.frame)
         // The title bar's height, so the traffic lights sit centred in the mode bar.
         let titlebar = window.frame.height - window.contentLayoutRect.height
-        let barHeight: CGFloat = titlebar > 0 ? titlebar : 30
+        barHeight = titlebar > 0 ? titlebar : 30
         modeBar = ModeBar(frame: CGRect(x: 0, y: root.bounds.height - barHeight, width: root.bounds.width, height: barHeight))
         modeBar.autoresizingMask = [.width, .minYMargin]
-        // The native row is above the full-width React header and the workspace.
-        command = NSView(frame: CGRect(x: 0, y: 0, width: root.bounds.width, height: root.bounds.height - barHeight))
+        // The page reaches the window's top, under the mode bar, and draws its tools at the
+        // bar's right end. The split (the page's place beside the terminal panel) lies below
+        // the bar and over the page, so the panel is never under the page.
+        command = NSView(frame: root.bounds)
         command.autoresizingMask = [.width, .height]
-        split.frame = CGRect(x: 0, y: 0, width: command.bounds.width, height: command.bounds.height - 40)
-        command.addSubview(split)
+        split.frame = CGRect(x: 0, y: 0, width: command.bounds.width, height: command.bounds.height - barHeight)
         splash = SplashView(frame: command.bounds)
         splash.autoresizingMask = [.width, .height]
-        command.addSubview(splash)
         conquer = ConquerView(frame: command.frame, persistent: options.info == nil)
         conquer.isHidden = true
         for v in [command, modeBar] { root.addSubview(v) }
         window.contentView = root
-        content = NSView(frame: split.bounds)
+        content = PassThroughView(frame: split.bounds)
         content.autoresizingMask = [.width, .height]
         drawer = TerminalDrawer(frame: CGRect(x: 0, y: 0, width: 460, height: split.bounds.height))
         split.addArrangedSubview(content)
@@ -109,18 +111,18 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         scene = AtlasScene(size: content.bounds.size)
         atlasView = AtlasView(frame: content.bounds, scene: scene)
         atlasView.autoresizingMask = []
-        content.addSubview(atlasView)
+        command.addSubview(atlasView)
 
         let configuration = WKWebViewConfiguration()
         // Check runs (`--info`) keep their page storage to themselves: sharing the
         // user's copy's, a check that quits stops that copy's storage saving to disk.
         configuration.websiteDataStore = options.info == nil ? .default() : .nonPersistent()
         configuration.preferences.setValue(true, forKey: "developerExtrasEnabled")
-        // The global React header has its own row beneath the native mode bar.
+        // The mode bar's height, which the page leaves as its own top bar.
         configuration.userContentController.addUserScript(WKUserScript(
-            source: "document.documentElement.style.setProperty('--app-bar', '40px')",
+            source: "document.documentElement.style.setProperty('--app-bar', '\(Int(barHeight))px')",
             injectionTime: .atDocumentStart, forMainFrameOnly: true))
-        web = WorkspaceWebView(frame: command.bounds, configuration: configuration)
+        web = WKWebView(frame: command.bounds, configuration: configuration)
         web.autoresizingMask = [.width, .height]
         // The page is transparent where the map is; SpriteKit shows through.
         web.setValue(false, forKey: "drawsBackground")
@@ -128,17 +130,12 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         // Measurements and checks draw while covered: WebKit stops throttling too.
         let occlusion = NSSelectorFromString("_setWindowOcclusionDetectionEnabled:")
         if AtlasView.ignoreOcclusion, web.responds(to: occlusion) { web.perform(occlusion, with: false) }
+        // Map, page, then the split: its page side lets everything through to the page
+        // but Conquer and the maximized panel; the panel beside it is its own.
         command.addSubview(web)
+        command.addSubview(split)
+        command.addSubview(splash)
         super.init()
-        (web as? WorkspaceWebView)?.acceptsPoint = { [weak self] point in
-            guard let self else { return true }
-            if (self.web.isFlipped ? point.y : self.web.bounds.height - point.y) < 40 { return true }
-            let local = self.content.convert(point, from: self.web)
-            guard self.content.bounds.contains(local) else { return false }
-            if self.drawer.maximized && self.drawer.frame.contains(local) { return false }
-            if self.mode == .conquer && self.conquer.frame.contains(local) { return false }
-            return true
-        }
         split.onResize = { [weak self] in self?.layoutWorkspace() }
         conquer.onTogglePanel = { [weak self] in
             self?.web.evaluateJavaScript("window.dispatchEvent(new CustomEvent('paseo:command', { detail: 'toggle-panel' }))", completionHandler: nil)
@@ -341,9 +338,9 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         DispatchQueue.main.asyncAfter(deadline: .now() + seconds, execute: work)
     }
 
-    /// Keep the web header window-wide while its workspace follows the terminal split.
+    /// The page's top bar spans the window; the rest of the page keeps to the split's page side.
     private func layoutWorkspace() {
-        let height = content.bounds.height + 40
+        let height = content.bounds.height + barHeight
         web.evaluateJavaScript("""
             (() => {
                 const root = document.documentElement;
@@ -357,11 +354,16 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
             """, completionHandler: nil)
     }
 
+    /// The map's rectangle in the split's page side, where Conquer and the maximized panel go.
+    private var mapInContent: CGRect {
+        viewport == nil ? content.bounds : content.convert(atlasView.frame, from: command)
+    }
+
     /// Lay the SpriteKit view exactly under the page's map surface.
     private func layoutAtlas() {
         guard let viewport, viewport.width > 0, viewport.height > 0 else { return }
         let webRect = web.isFlipped ? viewport : CGRect(x: viewport.minX, y: web.bounds.height - viewport.maxY, width: viewport.width, height: viewport.height)
-        let frame = content.convert(webRect, from: web)
+        let frame = command.convert(webRect, from: web)
         let resized = atlasView.frame.size != frame.size
         atlasView.frame = frame
         atlasView.isHidden = !scene.hasArt
@@ -371,7 +373,7 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
             scene.viewportChanged()
         }
         atlasView.govern()
-        if mode == .conquer { conquer.frame = frame }
+        if mode == .conquer { conquer.frame = mapInContent }
         placeMaximized()
     }
 
@@ -728,10 +730,10 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
     private func placeConquer() {
         if conquer.superview !== content {
             conquer.removeFromSuperview()
-            content.addSubview(conquer, positioned: .above, relativeTo: web)
+            content.addSubview(conquer)
         }
         conquer.autoresizingMask = []
-        conquer.frame = viewport == nil ? content.bounds : atlasView.frame
+        conquer.frame = mapInContent
         conquer.isHidden = mode != .conquer
     }
 
@@ -802,7 +804,7 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
     /// The maximized panel lies exactly over the page's map (it follows the map as the page lays out).
     private func placeMaximized() {
         guard drawer.maximized else { return }
-        drawer.frame = viewport == nil ? content.bounds : atlasView.frame
+        drawer.frame = mapInContent
     }
 
     /// The panel's key for its saved size along the split: width on the right, height at the bottom.
@@ -899,7 +901,9 @@ final class PanelSplitView: NSSplitView, NSSplitViewDelegate {
 
     override func hitTest(_ point: NSPoint) -> NSView? {
         if let handle, handle.contains(convert(point, from: superview)) { return self }
-        return super.hitTest(point)
+        // Elsewhere only its sides' own views: the page under it takes the rest.
+        let hit = super.hitTest(point)
+        return hit === self ? nil : hit
     }
 
     override func resetCursorRects() {
@@ -923,11 +927,10 @@ final class PanelSplitView: NSSplitView, NSSplitViewDelegate {
     }
 }
 
-/// Transparent workspace regions let the native terminal and browser receive their own input.
-private final class WorkspaceWebView: WKWebView {
-    var acceptsPoint: ((NSPoint) -> Bool)?
+/// A view that takes no events of its own: those reach what lies under it.
+final class PassThroughView: NSView {
     override func hitTest(_ point: NSPoint) -> NSView? {
-        guard acceptsPoint?(convert(point, from: superview)) != false else { return nil }
-        return super.hitTest(point)
+        let hit = super.hitTest(point)
+        return hit === self ? nil : hit
     }
 }
