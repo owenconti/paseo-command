@@ -1,11 +1,15 @@
 /**
  * Turns Slack's Web API and event records into the page's shared types
  * (`web/src/slack/types.ts`). Everything is checked and clipped here (text
- * 40,000, names 120; https addresses only), only `rich_text` and `section`
- * blocks are kept, and malformed records come back as null and are dropped.
+ * 40,000, names 120; https addresses only), only the blocks the page draws
+ * are kept (`blocksOf`), and malformed records come back as null and are dropped.
  */
 import type {
+  SlackAttachment,
+  SlackAttachmentField,
   SlackBlock,
+  SlackBlockButton,
+  SlackBlockText,
   SlackConversation,
   SlackConversationKind,
   SlackFile,
@@ -158,32 +162,93 @@ function elementOf(raw: unknown, depth: number): SlackRichElement | null {
   return out;
 }
 
-/** Rich text and section blocks only; anything else Slack sends is dropped. */
+/** A block's text object, clipped; undefined without words. */
+function blockTextOf(raw: unknown, max = 40_000): SlackBlockText | undefined {
+  const t = recOf(raw);
+  const text = strOf(t.text);
+  if (!text.trim()) return undefined;
+  return { type: t.type === "plain_text" ? "plain_text" : "mrkdwn", text: clip(text, max) };
+}
+
+/** A button as the page can show it: its label, and its address when it's a link. */
+function buttonOf(raw: unknown): SlackBlockButton | undefined {
+  const b = recOf(raw);
+  if (b.type !== "button") return undefined;
+  const text = strOf(recOf(b.text).text);
+  if (!text.trim()) return undefined;
+  const url = httpsUrl(b.url);
+  return {
+    text: clip(text, 120),
+    ...(url ? { url } : {}),
+    ...(b.style === "primary" || b.style === "danger" ? { style: b.style } : {}),
+  };
+}
+
+/**
+ * The blocks the page draws (rich text, Markdown, headers, sections with
+ * their fields and button, context lines, dividers and buttons); images,
+ * menus and inputs are dropped.
+ */
 export function blocksOf(raw: unknown): SlackBlock[] | undefined {
   if (!Array.isArray(raw)) return undefined;
   const blocks: SlackBlock[] = [];
   for (const item of raw.slice(0, 50)) {
     const b = recOf(item);
     const block_id = opt(strOf(b.block_id), 255);
+    const id = block_id ? { block_id } : {};
     if (b.type === "rich_text") {
       const elements = listOf(b.elements).map((x) => elementOf(x, 0)).filter((x): x is SlackRichElement => !!x);
-      blocks.push({ type: "rich_text", ...(block_id ? { block_id } : {}), elements });
+      blocks.push({ type: "rich_text", ...id, elements });
     } else if (b.type === "markdown") {
       // A message sent with markdown_text: its Markdown as Slack keeps it.
       const text = strOf(b.text);
-      if (text) blocks.push({ type: "markdown", ...(block_id ? { block_id } : {}), text: { type: "markdown", text: clip(text, 40_000) } });
+      if (text) blocks.push({ type: "markdown", ...id, text: { type: "markdown", text: clip(text, 40_000) } });
+    } else if (b.type === "header") {
+      const text = blockTextOf(b.text, 300);
+      if (text) blocks.push({ type: "header", ...id, text: { ...text, type: "plain_text" } });
     } else if (b.type === "section") {
-      const t = recOf(b.text);
-      const text = strOf(t.text);
-      if (!text) continue;
-      blocks.push({
-        type: "section",
-        ...(block_id ? { block_id } : {}),
-        text: { type: t.type === "plain_text" ? "plain_text" : "mrkdwn", text: clip(text, 40_000) },
-      });
+      const text = blockTextOf(b.text);
+      const fields = listOf(b.fields).slice(0, 10).map((f) => blockTextOf(f, 2000)).filter((f): f is SlackBlockText => !!f);
+      const button = buttonOf(b.accessory);
+      if (!text && !fields.length) continue;
+      blocks.push({ type: "section", ...id, ...(text ? { text } : {}), ...(fields.length ? { fields } : {}), ...(button ? { buttons: [button] } : {}) });
+    } else if (b.type === "context") {
+      const texts = listOf(b.elements).slice(0, 10).map((e) => blockTextOf(e, 2000)).filter((t): t is SlackBlockText => !!t);
+      if (texts.length) blocks.push({ type: "context", ...id, texts });
+    } else if (b.type === "divider") {
+      blocks.push({ type: "divider", ...id });
+    } else if (b.type === "actions") {
+      const buttons = listOf(b.elements).slice(0, 25).map(buttonOf).filter((x): x is SlackBlockButton => !!x);
+      if (buttons.length) blocks.push({ type: "actions", ...id, buttons });
     }
   }
   return blocks.length ? blocks : undefined;
+}
+
+/** A legacy attachment (a link preview, or an app's card), or null when it has nothing to show. */
+export function attachmentOf(raw: unknown): SlackAttachment | null {
+  const a = recOf(raw);
+  const blocks = blocksOf(a.blocks);
+  const fields = listOf(a.fields)
+    .slice(0, 20)
+    .map((f): SlackAttachmentField => ({ title: opt(strOf(f.title), 300), value: opt(strOf(f.value), 2000), ...(f.short === true ? { short: true } : {}) }))
+    .filter((f) => f.title || f.value);
+  const out: SlackAttachment = {
+    pretext: opt(strOf(a.pretext), 3000),
+    authorName: opt(strOf(a.author_name), 120),
+    title: opt(strOf(a.title), 300),
+    // With blocks of its own, its fallback only repeats them.
+    text: opt(strOf(a.text) || (blocks ? "" : strOf(a.fallback)), 3000),
+    url: httpsUrl(a.title_link) ?? httpsUrl(a.from_url) ?? httpsUrl(a.original_url),
+    serviceName: opt(strOf(a.service_name), 120),
+    color: /^#?[0-9a-f]{6}$/i.test(strOf(a.color)) ? strOf(a.color).replace(/^#?/, "#") : undefined,
+    ...(blocks ? { blocks } : {}),
+    ...(fields.length ? { fields } : {}),
+    footer: opt(strOf(a.footer), 300),
+  };
+  for (const k of Object.keys(out) as (keyof SlackAttachment)[]) if (out[k] === undefined) delete out[k];
+  // One with only an address (Slack couldn't preview it) still says where it goes.
+  return out.title || out.text || out.url || out.pretext || blocks || fields.length ? out : null;
 }
 
 export function fileOf(raw: unknown): SlackFile | null {
@@ -229,15 +294,8 @@ export function messageOf(raw: unknown, conversationId: string): SlackMessage | 
   const blocks = blocksOf(m.blocks);
   const attachments = listOf(m.attachments)
     .slice(0, 10)
-    .map((a) => ({
-      title: opt(strOf(a.title), 300),
-      text: opt(strOf(a.text) || strOf(a.fallback), 3000),
-      url: httpsUrl(a.title_link) ?? httpsUrl(a.from_url) ?? httpsUrl(a.original_url),
-      serviceName: opt(strOf(a.service_name), 120),
-      color: /^#?[0-9a-f]{6}$/i.test(strOf(a.color)) ? strOf(a.color).replace(/^#?/, "#") : undefined,
-    }))
-    // One with only an address (Slack couldn't preview it) still says where it goes.
-    .filter((a) => a.title || a.text || a.url);
+    .map(attachmentOf)
+    .filter((a): a is SlackAttachment => !!a);
   const profile = recOf(m.bot_profile);
   const icons = recOf(m.icons);
   const replyUserIds = Array.isArray(m.reply_users) ? m.reply_users.map(idOf).filter((u): u is string => !!u) : [];

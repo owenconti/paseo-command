@@ -128,6 +128,53 @@ export function RichBlocks({ blocks, trailing }: { blocks: Block[]; trailing?: R
               </List>
             );
           }
+          case "header":
+            return (
+              <h4 key={i} className="slack-block-header">
+                <Inlines nodes={b.inlines} />
+                {tail(i)}
+              </h4>
+            );
+          case "fields":
+            return (
+              <div key={i} className="slack-block-fields">
+                {b.fields.map((f, n) => (
+                  <RichBlocks key={n} blocks={f} />
+                ))}
+                {tail(i)}
+              </div>
+            );
+          case "context":
+            return (
+              <p key={i} className="slack-block-context">
+                {b.parts.map((part, n) => (
+                  <span key={n}>
+                    <Inlines nodes={part} />
+                  </span>
+                ))}
+                {tail(i)}
+              </p>
+            );
+          case "divider":
+            return <hr key={i} className="slack-block-divider" />;
+          case "buttons":
+            return (
+              <div key={i} className="slack-block-buttons">
+                {b.buttons.map((x, n) =>
+                  x.url ? (
+                    <a key={n} className={`slack-block-button${x.style ? ` ${x.style}` : ""}`} href={x.url} target="_blank" rel="noreferrer noopener" onClick={onLinkClick}>
+                      {x.label}
+                    </a>
+                  ) : (
+                    // It calls the app that sent it, which only Slack can do.
+                    <span key={n} className="slack-block-button inert" data-tip="Only in Slack">
+                      {x.label}
+                    </span>
+                  ),
+                )}
+                {tail(i)}
+              </div>
+            );
           default:
             return <Fragment key={i} />;
         }

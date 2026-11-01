@@ -1,4 +1,4 @@
-import { memo, useState } from "react";
+import { Fragment, memo, useState } from "react";
 import { Check, FileText, ImageOff, Link2, MessageSquareText, Pencil, Play, SmilePlus, Trash2 } from "lucide-react";
 import { ago } from "../api";
 import { Lightbox } from "../Images";
@@ -84,23 +84,28 @@ const siteOf = (url: string) => {
 };
 
 /**
- * Link previews (Slack's legacy attachments): a coloured edge, the service (or
- * the link's site), the title (else the address) and its words. A link Slack
- * couldn't preview still shows where it goes.
+ * Link previews and apps' cards (Slack's legacy attachments): its pretext
+ * above, then a coloured edge, the service (or the link's site) or author, the
+ * title (else the address), its words, its own blocks, its fields and footer.
+ * A link Slack couldn't preview still shows where it goes.
  */
 function Unfurls({ attachments }: { attachments: NonNullable<SlackMessage["attachments"]> }) {
   const shown = attachments
     .map((a) => ({ ...a, text: a.text && !NO_PREVIEW.test(a.text.trim()) ? a.text : undefined }))
-    .filter((a) => a.title || a.text || a.url);
+    .filter((a) => a.title || a.text || a.url || a.pretext || a.blocks || a.fields);
   if (!shown.length) return null;
   return (
     <div className="slack-unfurls">
       {shown.map((a, i) => {
         const site = a.url ? siteOf(a.url) : "";
-        const title = a.title ?? (a.url ? a.url.replace(/^https?:\/\/(www\.)?/, "") : undefined);
+        // A card of blocks alone doesn't name its link as a title.
+        const title = a.title ?? (a.url && !a.blocks && !a.fields ? a.url.replace(/^https?:\/\/(www\.)?/, "") : undefined);
+        const service = a.serviceName ?? a.authorName ?? (a.blocks || a.fields ? undefined : site);
         return (
-          <div key={i} className="slack-unfurl" style={a.color ? { borderLeftColor: `#${a.color.replace(/^#/, "")}` } : undefined}>
-            {(a.serviceName || site) && <span className="slack-unfurl-service">{a.serviceName ?? site}</span>}
+          <Fragment key={i}>
+          {a.pretext && <MessageText message={{ text: a.pretext }} />}
+          <div className="slack-unfurl" style={a.color ? { borderLeftColor: `#${a.color.replace(/^#/, "")}` } : undefined}>
+            {service && <span className="slack-unfurl-service">{service}</span>}
             {title &&
               (a.url ? (
                 <a
@@ -116,7 +121,20 @@ function Unfurls({ attachments }: { attachments: NonNullable<SlackMessage["attac
                 <span className="slack-unfurl-title">{title}</span>
               ))}
             {a.text && <MessageText message={{ text: a.text }} />}
+            {a.blocks && <MessageText message={{ text: "", blocks: a.blocks }} />}
+            {a.fields && (
+              <div className="slack-block-fields">
+                {a.fields.map((f, n) => (
+                  <div key={n} className={f.short ? undefined : "wide"}>
+                    {f.title && <b className="slack-field-title">{f.title}</b>}
+                    {f.value && <MessageText message={{ text: f.value }} />}
+                  </div>
+                ))}
+              </div>
+            )}
+            {a.footer && <span className="slack-unfurl-footer">{a.footer}</span>}
           </div>
+          </Fragment>
         );
       })}
     </div>

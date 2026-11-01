@@ -75,7 +75,7 @@ test("people and conversations are read page by page", async () => {
   assert.equal(conv.exclude_archived, "true");
 });
 
-test("history: oldest first, 50 a page, before is exclusive; blocks kept only when rich text or section", async () => {
+test("history: oldest first, 50 a page, before is exclusive; the blocks the page draws are kept", async () => {
   const h = await readHistory(I.general);
   assert.deepEqual(
     h.messages.map((m) => m.ts),
@@ -89,15 +89,17 @@ test("history: oldest first, 50 a page, before is exclusive; blocks kept only wh
   assert.equal(parent.replyCount, 2);
   assert.deepEqual(parent.replyUserIds, [I.sam, I.ria]);
   assert.equal(parent.latestReply, T.reply2);
-  assert.equal(parent.blocks!.length, 1);
+  assert.equal(parent.blocks!.length, 2);
+  // A button without an address only works in Slack: kept, as its label.
+  assert.deepEqual(parent.blocks![1], { type: "actions", block_id: "b2", buttons: [{ text: "Click" }] });
   const section = parent.blocks![0].elements![0];
   assert.deepEqual(section.elements![1], { type: "text", text: "Friday", style: { bold: true } });
   assert.equal(parent.blocks![0].elements![1].list_style, "bullet");
   const bot = h.messages.find((m) => m.ts === T.bot)!;
-  assert.deepEqual(bot.blocks, [{ type: "section", text: { type: "mrkdwn", text: "*Build* passed" } }]);
+  assert.deepEqual(bot.blocks, [{ type: "section", text: { type: "mrkdwn", text: "*Build* passed" } }, { type: "divider" }]);
   assert.equal(bot.botName, "CI");
   assert.equal(bot.subtype, "bot_message");
-  assert.deepEqual(bot.attachments, [{ title: "Run 42", text: "All green", url: "https://ci.example/run/42", serviceName: undefined, color: "#2eb886" }]);
+  assert.deepEqual(bot.attachments, [{ title: "Run 42", text: "All green", url: "https://ci.example/run/42", color: "#2eb886" }]);
   const image = h.messages.find((m) => m.ts === T.image)!;
   assert.deepEqual(image.files![0], {
     id: I.image,

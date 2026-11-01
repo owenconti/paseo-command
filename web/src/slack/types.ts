@@ -108,7 +108,27 @@ export type SlackRichElement = {
   border?: number;
   elements?: SlackRichElement[];
 };
-export type SlackBlock = { type: string; block_id?: string; elements?: SlackRichElement[]; text?: { type: string; text: string } };
+/** A block's text object: `mrkdwn` (or `markdown`) is formatted, `plain_text` only has its :emoji: drawn. */
+export type SlackBlockText = { type: string; text: string };
+/** A block's button: a link when it has an address; others only work in Slack (they call the app that sent it). */
+export type SlackBlockButton = { text: string; url?: string; style?: "primary" | "danger" };
+/**
+ * The blocks the page draws: `rich_text` (its `elements`), `markdown`,
+ * `header` and `section` (`text`, a section's `fields` and accessory button
+ * in `buttons`), `context` (its words in `texts`), `divider` and `actions`
+ * (its `buttons`).
+ */
+export type SlackBlock = {
+  type: string;
+  block_id?: string;
+  elements?: SlackRichElement[];
+  text?: SlackBlockText;
+  fields?: SlackBlockText[];
+  texts?: SlackBlockText[];
+  buttons?: SlackBlockButton[];
+};
+/** A legacy attachment's field: a title over its value, `short` ones two to a row. */
+export type SlackAttachmentField = { title?: string; value?: string; short?: boolean };
 
 export type SlackMessage = {
   /** Its timestamp, which is its id within its conversation. */
@@ -136,8 +156,22 @@ export type SlackMessage = {
   edited?: string;
   /** Slack's subtype ("channel_join", "bot_message", "thread_broadcast", "tombstone"…). */
   subtype?: string;
-  /** Attachments' (legacy unfurls') titles and text, for link previews. */
-  attachments?: { title?: string; text?: string; url?: string; serviceName?: string; color?: string }[];
+  /** Attachments (link previews, and apps' cards): titles, text, their own blocks and fields. */
+  attachments?: SlackAttachment[];
+};
+
+export type SlackAttachment = {
+  /** The line above the card. */
+  pretext?: string;
+  authorName?: string;
+  title?: string;
+  text?: string;
+  url?: string;
+  serviceName?: string;
+  color?: string;
+  blocks?: SlackBlock[];
+  fields?: SlackAttachmentField[];
+  footer?: string;
 };
 
 export type SlackWorkspace = {

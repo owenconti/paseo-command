@@ -22,7 +22,16 @@ export type Block =
   | { t: "paragraph"; inlines: Inline[] }
   | { t: "quote"; inlines: Inline[] }
   | { t: "pre"; text: string }
-  | { t: "list"; style: "bullet" | "ordered"; indent: number; offset: number; items: Inline[][] };
+  | { t: "list"; style: "bullet" | "ordered"; indent: number; offset: number; items: Inline[][] }
+  /** An app's block-kit parts: a header, a section's fields, a context line's parts, a divider, buttons. */
+  | { t: "header"; inlines: Inline[] }
+  | { t: "fields"; fields: Block[][] }
+  | { t: "context"; parts: Inline[][] }
+  | { t: "divider" }
+  | { t: "buttons"; buttons: Button[] };
+
+/** A button: a link when it has an address, else it only works in Slack. */
+export type Button = { label: string; url?: string; style?: "primary" | "danger" };
 
 const ENTITIES: Record<string, string> = { "&amp;": "&", "&lt;": "<", "&gt;": ">", "&quot;": '"', "&#39;": "'" };
 /** Slack escapes &, < and > in mrkdwn. */
@@ -59,7 +68,15 @@ function special(body: string, style: Style): Inline {
     return { t: "text", text: decodeEntities(label ?? `@${range}`), ...style };
   }
   const url = decodeEntities(head);
-  return { t: "link", url, ...(label ? { label: decodeEntities(label) } : {}), ...style };
+  if (!label) return { t: "link", url, ...style };
+  // A label wrapped in marks (`<url|*Title*>`, as apps write) takes their style.
+  let text = label;
+  const marked = { ...style };
+  for (let m = /^([*_~])(\S(?:.*\S)?)\1$/.exec(text); m; m = /^([*_~])(\S(?:.*\S)?)\1$/.exec(text)) {
+    marked[MARKS[m[1]]] = true;
+    text = m[2];
+  }
+  return { t: "link", url, label: decodeEntities(text), ...marked };
 }
 
 function splitOnce(s: string, sep: string): [string, string | undefined] {
@@ -368,7 +385,59 @@ export function markdownToMrkdwn(markdown: string): string {
 /** Whether these blocks say everything the message says (rich text, mrkdwn sections or Markdown), so `text` isn't needed. */
 const richEnough = (blocks: SlackBlock[] | undefined) =>
   !!blocks?.length &&
-  blocks.some((b) => b.type === "rich_text" || ((b.type === "section" || b.type === "markdown") && !!b.text?.text));
+  blocks.some(
+    (b) =>
+      b.type === "rich_text" ||
+      ((b.type === "section" || b.type === "markdown" || b.type === "header") && !!b.text?.text) ||
+      !!b.fields?.length ||
+      !!b.texts?.length,
+  );
+
+/** Plain text with only its `:emoji:` drawn (Slack's `plain_text` with `emoji: true`). */
+export function plainInlines(text: string): Inline[] {
+  const out: Inline[] = [];
+  let last = 0;
+  for (const m of text.matchAll(/:([a-z0-9_+'-]{1,100}):/g)) {
+    if (m.index > last) out.push({ t: "text", text: text.slice(last, m.index) });
+    out.push({ t: "emoji", name: m[1] });
+    last = m.index + m[0].length;
+  }
+  if (last < text.length) out.push({ t: "text", text: text.slice(last) });
+  return out;
+}
+
+/** A block text object as blocks: mrkdwn parsed, plain text as one paragraph. */
+const textObjectBlocks = (t: { type: string; text: string }): Block[] =>
+  t.type === "plain_text" ? [{ t: "paragraph", inlines: plainInlines(t.text) }] : parseMrkdwn(t.text);
+
+/** A block text object on one line (a context part): its paragraphs' words, joined. */
+const textObjectLine = (t: { type: string; text: string }): Inline[] =>
+  textObjectBlocks(t).flatMap((b, i) => {
+    const inlines = b.t === "paragraph" || b.t === "quote" ? b.inlines : b.t === "pre" ? [{ t: "text" as const, text: b.text }] : [];
+    return i ? [{ t: "text" as const, text: " " }, ...inlines] : inlines;
+  });
+
+const buttonsOf = (buttons: SlackBlock["buttons"]): Block[] =>
+  buttons?.length ? [{ t: "buttons", buttons: buttons.map((b) => ({ label: b.text, ...(b.url ? { url: b.url } : {}), ...(b.style ? { style: b.style } : {}) })) }] : [];
+
+/** Slack's blocks as the page's (`messageBlocks` when the message has some worth showing; an attachment's blocks too). */
+export function slackBlocks(blocks: SlackBlock[]): Block[] {
+  const out: Block[] = [];
+  for (const block of blocks) {
+    if (block.type === "rich_text") out.push(...richBlocks(block.elements));
+    else if (block.type === "markdown" && block.text?.text) out.push(...parseMrkdwn(markdownToMrkdwn(block.text.text)));
+    else if (block.type === "header" && block.text?.text) out.push({ t: "header", inlines: plainInlines(block.text.text) });
+    else if (block.type === "section") {
+      if (block.text?.text) out.push(...textObjectBlocks(block.text));
+      if (block.fields?.length) out.push({ t: "fields", fields: block.fields.map(textObjectBlocks) });
+      out.push(...buttonsOf(block.buttons));
+    } else if (block.type === "context" && block.texts?.length) out.push({ t: "context", parts: block.texts.map(textObjectLine) });
+    else if (block.type === "divider") out.push({ t: "divider" });
+    else if (block.type === "actions") out.push(...buttonsOf(block.buttons));
+  }
+  // A divider only separates: none first or last, nor two together.
+  return out.filter((b, i) => b.t !== "divider" || (i > 0 && i < out.length - 1 && out[i + 1].t !== "divider"));
+}
 
 /**
  * A message's text as blocks: its rich text where it has some (and sections'
@@ -376,14 +445,7 @@ const richEnough = (blocks: SlackBlock[] | undefined) =>
  */
 export function messageBlocks(message: Pick<SlackMessage, "text" | "blocks">): Block[] {
   if (!richEnough(message.blocks)) return parseMrkdwn(message.text ?? "");
-  const out: Block[] = [];
-  for (const block of message.blocks!) {
-    if (block.type === "rich_text") out.push(...richBlocks(block.elements));
-    else if (block.type === "markdown" && block.text?.text) out.push(...parseMrkdwn(markdownToMrkdwn(block.text.text)));
-    else if (block.type === "section" && block.text?.text)
-      out.push(...(block.text.type === "mrkdwn" ? parseMrkdwn(block.text.text) : [{ t: "paragraph" as const, inlines: [{ t: "text" as const, text: block.text.text }] }]));
-  }
-  return out;
+  return slackBlocks(message.blocks!);
 }
 
 // ── Dates ────────────────────────────────────────────────────────────
@@ -482,6 +544,16 @@ export function plainText(blocks: Block[], names: Names): string {
           return b.items
             .map((item, n) => `${"  ".repeat(b.indent)}${b.style === "ordered" ? `${b.offset + n + 1}.` : "•"} ${line(item)}`)
             .join("\n");
+        case "header":
+          return line(b.inlines);
+        case "fields":
+          return b.fields.map((f) => plainText(f, names)).join("\n");
+        case "context":
+          return b.parts.map(line).join(" · ");
+        case "divider":
+          return "———";
+        case "buttons":
+          return b.buttons.map((x) => (x.url ? `[${x.label}] (${x.url})` : `[${x.label}]`)).join(" ");
       }
     })
     .join("\n")
@@ -539,6 +611,16 @@ export function toMarkdown(blocks: Block[]): string {
           return b.items
             .map((item, n) => `${"  ".repeat(b.indent)}${b.style === "ordered" ? `${b.offset + n + 1}.` : "-"} ${line(item)}`)
             .join("\n");
+        case "header":
+          return `**${line(b.inlines)}**`;
+        case "fields":
+          return b.fields.map(toMarkdown).join("\n");
+        case "context":
+          return b.parts.map(line).join(" · ");
+        case "divider":
+          return "---";
+        case "buttons":
+          return b.buttons.map((x) => (x.url ? `[${x.label}](${x.url})` : x.label)).join(" ");
       }
     })
     .join("\n")

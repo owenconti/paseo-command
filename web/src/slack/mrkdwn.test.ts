@@ -152,6 +152,46 @@ describe("rich text blocks", () => {
     ]);
   });
 
+  it("a link label wrapped in marks takes their style", () => {
+    assert.deepEqual(parseInline("<https://x.y/?a=1&amp;b=2|*TypeError*> <https://x.y|_*both*_> <https://x.y|a *b*>"), [
+      { t: "link", url: "https://x.y/?a=1&b=2", label: "TypeError", bold: true },
+      { t: "text", text: " " },
+      { t: "link", url: "https://x.y", label: "both", italic: true, bold: true },
+      { t: "text", text: " " },
+      { t: "link", url: "https://x.y", label: "a *b*" },
+    ]);
+  });
+
+  it("apps' blocks: a header with its emoji, fields, context, buttons; dividers only between", () => {
+    const shown = messageBlocks({
+      text: "fallback",
+      blocks: [
+        { type: "divider" },
+        { type: "header", text: { type: "plain_text", text: ":rotating_light: Tests *failed*" } },
+        { type: "section", fields: [{ type: "mrkdwn", text: "*Repo:*\nacme" }, { type: "plain_text", text: "two" }] },
+        { type: "divider" },
+        { type: "divider" },
+        { type: "context", texts: [{ type: "mrkdwn", text: "*Status*  Active" }, { type: "plain_text", text: "Owen" }] },
+        { type: "actions", buttons: [{ text: "View run", url: "https://ci.example/1" }, { text: "Resolve" }] },
+        { type: "divider" },
+      ],
+    });
+    assert.deepEqual(shown, [
+      { t: "header", inlines: [{ t: "emoji", name: "rotating_light" }, { t: "text", text: " Tests *failed*" }] },
+      {
+        t: "fields",
+        fields: [
+          [{ t: "paragraph", inlines: [{ t: "text", text: "Repo:", bold: true }, { t: "text", text: "\nacme" }] }],
+          [{ t: "paragraph", inlines: [{ t: "text", text: "two" }] }],
+        ],
+      },
+      { t: "divider" },
+      { t: "context", parts: [[{ t: "text", text: "Status", bold: true }, { t: "text", text: "  Active" }], [{ t: "text", text: "Owen" }]] },
+      { t: "buttons", buttons: [{ label: "View run", url: "https://ci.example/1" }, { label: "Resolve" }] },
+    ]);
+    assert.equal(plainText(shown, NAMES), ":rotating_light: Tests *failed*\nRepo:\nacme\ntwo\n———\nStatus  Active · Owen\n[View run] (https://ci.example/1) [Resolve]");
+  });
+
   it("plain text names people and channels; Markdown keeps mentions for editing", () => {
     const shown = messageBlocks({ text: "", blocks });
     assert.equal(
