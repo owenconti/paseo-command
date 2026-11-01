@@ -75,6 +75,7 @@ import { SOURCE_LABEL } from "./activity/rows";
 import type { IssueContext } from "./linear/prompt";
 import type { LinearOpenIssue, LinearViewState } from "./linear/LinearView";
 import type { LinearPlace } from "./linear/place";
+import { copySlackManifest, createSlackApp } from "./slack/SlackAppSetup";
 import { useAppUpdate } from "./releases";
 import { AddProject } from "./AddProject";
 import {
@@ -1724,6 +1725,29 @@ function App() {
           keywords,
           run: () => runAppCommand(command),
         }))
+      : []),
+    // Making the Slack app the Slack tab needs (Settings' Set up a Slack app).
+    ...(integrations.slack
+      ? [
+          {
+            id: "slack-create-app",
+            group: "App",
+            label: "Create the Slack app (opens Slack with its manifest)",
+            keywords: "slack app manifest create setup token scopes install",
+            run: createSlackApp,
+          },
+          {
+            id: "slack-copy-manifest",
+            group: "App",
+            label: "Copy the Slack app manifest",
+            keywords: "slack app manifest copy setup scopes json",
+            run: () =>
+              void copySlackManifest().then(
+                () => setNotice("Slack app manifest copied: paste it in Slack's Create New App → From a manifest."),
+                (e) => setNotice(errorMessage(e) || "Couldn't copy the manifest."),
+              ),
+          },
+        ]
       : []),
     ...(integrations.slack && appMode !== "slack"
       ? [

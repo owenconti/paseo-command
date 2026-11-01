@@ -58,8 +58,11 @@ Not a GitHub client (Activity opens GitHub in Conquer).
 
 ## Slack app setup (the user's)
 
-User token scopes: `channels:history channels:read groups:history groups:read im:history im:read mpim:history mpim:read
-chat:write reactions:read reactions:write files:read files:write users:read search:read emoji:read`.
-Socket Mode on, an app-level token with `connections:write`; event subscriptions on behalf of users:
-`message.channels message.groups message.im message.mpim reaction_added reaction_removed channel_marked group_marked im_marked
-mpim_marked user_change channel_rename`.
+The app's manifest is `web/src/slack/manifest.ts` (Settings → Slack → Set up a Slack app opens Slack's Create app
+page with it filled in, or copies it; ⌘K has both). User token scopes, one table per Web API method the server calls
+(`METHOD_SCOPES`, checked against the server's code by `manifest.test.ts`): `channels:history channels:read channels:write
+groups:history groups:read groups:write im:history im:read im:write mpim:history mpim:read mpim:write chat:write
+reactions:read reactions:write files:read files:write users:read search:read emoji:read` (marking read and opening a DM are
+writes). Socket Mode on, user events `message.channels message.groups message.im message.mpim reaction_added
+reaction_removed channel_marked group_marked im_marked mpim_marked channel_rename group_rename member_joined_channel
+user_change`; the app-level token with `connections:write` is made by hand (a manifest can't).

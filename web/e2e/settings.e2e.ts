@@ -373,3 +373,44 @@ test("a failed opt-in stays off and reports why it could not be saved", async ()
   assert.equal(await linear.isChecked(), false);
   await context.close();
 });
+
+test("Slack's setup offers its app manifest: opened in Slack filled in, or copied", async () => {
+  const context = await newContext(browser);
+  await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+  const page = await context.newPage();
+  // What the page opens: kept here instead of a new window.
+  await page.addInitScript(() => {
+    (window as unknown as { opened: string[] }).opened = [];
+    window.open = ((url: string) => {
+      (window as unknown as { opened: string[] }).opened.push(String(url));
+      return null;
+    }) as typeof window.open;
+  });
+  await mockApi(page, {
+    agents: () => [],
+    projects: () => [],
+    lists: {
+      settings: { integrations: { slack: true }, error: null },
+      secrets: { configured: { slackUserToken: false, slackAppToken: false }, error: null },
+    },
+  });
+  await page.goto(app.url);
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  const slack = page.getByRole("dialog", { name: "Settings" }).getByRole("region", { name: "Slack integration", exact: true });
+  await slack.getByText("Set up a Slack app").click();
+  await slack.getByRole("button", { name: "Create the app in Slack" }).click();
+  const opened = await page.evaluate(() => (window as unknown as { opened: string[] }).opened);
+  assert.equal(opened.length, 1);
+  const url = new URL(opened[0]);
+  assert.equal(url.origin + url.pathname, "https://api.slack.com/apps");
+  const manifest = JSON.parse(url.searchParams.get("manifest_json")!);
+  assert.equal(manifest.settings.socket_mode_enabled, true);
+  for (const scope of ["chat:write", "im:write", "search:read", "files:write"])
+    assert.ok(manifest.oauth_config.scopes.user.includes(scope), scope);
+
+  await slack.getByRole("button", { name: "Copy manifest" }).click();
+  await slack.getByRole("button", { name: "Copied" }).waitFor();
+  const copied = JSON.parse(await page.evaluate(() => navigator.clipboard.readText()));
+  assert.deepEqual(copied, manifest);
+  await context.close();
+});

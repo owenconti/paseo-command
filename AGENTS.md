@@ -304,8 +304,10 @@ and GitHub publication; report the published version and release link.
   while asked; unknown stays unknown), `files.ts` (`image`/`file` only from `files.slack.com` with the token, files as downloads;
   `avatar` only the address Slack gives that person; `emoji`), `upload.ts` (`files.getUploadURLExternal`), `socket.ts` (Socket Mode
   over `ws`: acks, reconnects with backoff, runs only while something asked recently), `events.ts` (`GET /api/slack/events`, server-sent
-  `SlackEvent`s; without Socket Mode the page polls every 20 s while the view shows). The Slack app needs the user scopes and event
-  subscriptions listed in `docs/superpowers/specs/2026-10-31-slack-and-activity-design.md`. Tests never reach Slack: the fake
+  `SlackEvent`s; without Socket Mode the page polls every 20 s while the view shows). The Slack app it needs is a manifest (`web/src/slack/manifest.ts`: user scopes from `METHOD_SCOPES`, one per Web API method
+  the server calls, checked against its code by `manifest.test.ts`; Socket Mode and the user events the socket handles): Settings → Slack →
+  Set up a Slack app (`SlackAppSetup.tsx`) opens Slack's Create app page with it filled in (`manifest_json`) or copies it, then says
+  where the two tokens come from (the app-level token by hand); ⌘K "Create the Slack app" and "Copy the Slack app manifest" too. Tests never reach Slack: the fake
   (`web/server/slack/fake.ts`, `installFakeSlack`, with a fake socket) under server tests and e2e (`web/e2e/slack.e2e.ts`,
   `slackFake.ts`, the real route).
 - Activity (the mode bar's fifth tab, while GitHub, Linear or Slack is enabled; its tab shows the unread count, the page's

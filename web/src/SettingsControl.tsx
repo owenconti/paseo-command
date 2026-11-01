@@ -9,6 +9,7 @@ import { LinearWorkspaceSetting } from "./HeaderLinks";
 import { setMusicSettings, useMusic } from "./music";
 import { openPresetEditor, usePresets } from "./presetsStore";
 import { api, errorMessage } from "./api";
+import { SlackAppSetup } from "./slack/SlackAppSetup";
 import { ApiKeySetting, type SecretStatus } from "./ApiKeySetting";
 
 /**
@@ -372,6 +373,7 @@ function IntegrationSettings() {
                 />
               ))}
               {name === "linear" && <LinearWorkspaceSetting />}
+              {name === "slack" && <SlackAppSetup />}
               {name === "slack" && (
                 <small className="integration-note">
                   From your own Slack app: its user OAuth token, and an app-level token with
