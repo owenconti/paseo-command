@@ -52,6 +52,7 @@ import {
   uploadFile,
   type Changed,
 } from "./commands";
+import { profileEditor, profileFeatures, saveProfiles } from "./profiles";
 import {
   HostOffline,
   hostChips,
@@ -271,6 +272,17 @@ export async function handleApi(
         if (host) assertReachable(host.serverId, host.label);
         result = await models(provider, host);
       } else if (
+        parts[0] === "profiles" &&
+        parts.length === 2 &&
+        (parts[1] === "editor" || parts[1] === "features")
+      ) {
+        const host = await resolveHost(url.searchParams.get("host"));
+        if (host) assertReachable(host.serverId, host.label);
+        result =
+          parts[1] === "editor"
+            ? await profileEditor(host)
+            : await profileFeatures(url, host);
+      } else if (
         parts[0] === "drafts" &&
         parts.length === 2 &&
         (parts[1] === "commands" || parts[1] === "files" || parts[1] === "prs")
@@ -385,6 +397,8 @@ export async function handleApi(
       try {
         if (parts[0] === "dispatch" && parts.length === 1)
           result = await dispatchRoute(body, mark);
+        else if (parts[0] === "profiles" && parts.length === 1)
+          result = await saveProfiles(body, mark);
         else if (parts[0] === "terminals" && parts.length === 2 && parts[1] === "create")
           result = await createTerminal(body);
         else if (parts[0] === "terminals" && parts.length === 2 && parts[1] === "kill")

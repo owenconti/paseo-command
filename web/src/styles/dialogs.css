@@ -528,3 +528,69 @@
 .presets-dialog > .presets-error {
   margin-bottom: var(--space-3);
 }
+
+/* ── Agent profiles' editor (ProfilesEditor.tsx), on the presets' list ── */
+.profiles-dialog {
+  width: 700px;
+}
+.profiles-host {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-semibold);
+  color: var(--text-2);
+}
+.profiles-host select {
+  flex: 1;
+  height: var(--control-sm);
+  font-size: var(--fs-sm);
+}
+.profiles-row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.profiles-settings {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-2);
+}
+.presets-list .profiles-settings select,
+.presets-list .profiles-feature select {
+  height: var(--control-sm);
+  padding-left: var(--space-2);
+  font-size: var(--fs-sm);
+}
+.profiles-features {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
+}
+.presets-list .profiles-feature {
+  flex: 0 0 auto;
+  flex-direction: row;
+  align-items: center;
+  gap: var(--space-2);
+  font-weight: var(--fw-regular);
+}
+.presets-list .profiles-feature input {
+  width: auto;
+  height: auto;
+}
+.profiles-feature.other {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+}
+.presets-list textarea.profiles-notes {
+  min-height: 52px;
+}

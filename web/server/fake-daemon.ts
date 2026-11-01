@@ -141,6 +141,7 @@ export class FakeDaemon {
   features: Record<string, boolean> = {
     agentForkContext: true,
     agentForkContextCursor: true,
+    agentProfiles: true,
   };
   /** What an agent's next finished turn says (waitForFinish's lastMessage). */
   replies = new Map<string, string>();
@@ -1339,6 +1340,11 @@ export class FakeClient {
   }
   async getDaemonConfig() {
     await this.gate("getDaemonConfig");
+    return { requestId: "config", config: { agentProfiles: this.daemon.agentProfiles } };
+  }
+  async patchDaemonConfig(patch: any) {
+    await this.gate("patchDaemonConfig", patch);
+    if (patch?.agentProfiles) this.daemon.agentProfiles = patch.agentProfiles;
     return { requestId: "config", config: { agentProfiles: this.daemon.agentProfiles } };
   }
   async listProviderModels(provider: string) {

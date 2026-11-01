@@ -344,7 +344,7 @@ test("presets are added in their editor and offered in New agent", async () => {
   await view.getByRole("button", { name: "Tidy" }).waitFor();
   // Settings opens the same editor, with the saved preset; Esc drops edits.
   await page.getByRole("button", { name: "Settings" }).click();
-  await page.locator(".presets-setting").getByRole("button", { name: "Edit…" }).click();
+  await page.locator(".presets-setting:not(.profiles-setting)").getByRole("button", { name: "Edit…" }).click();
   await dialog.waitFor();
   assert.equal(await dialog.getByLabel("Name").inputValue(), "Tidy");
   await dialog.getByLabel("Name").fill("Changed");
@@ -442,5 +442,94 @@ test("a Paseo agent profile in the provider picker sets the agent's settings", a
   await waitFor(() => Promise.resolve(dispatched.length), (n) => n === 2, "the second dispatch");
   assert.equal(dispatched[1].model, "sonnet");
   assert.equal(dispatched[1].features, undefined);
+  await context.close();
+});
+
+test("the provider picker opens the profiles' editor, whose save the picker shows", async () => {
+  const context = await newContext(browser);
+  const page = await context.newPage();
+  await mockApi(page, {
+    agents: () => [],
+    projects: () => [
+      { projectId: "prj_atlas", name: "atlas", kind: "git", path: "/work/atlas" },
+    ],
+  });
+  let profiles = [
+    {
+      id: "agent_profile_ship",
+      name: "Shipper",
+      provider: "claude",
+      model: "opus",
+      mode: "bypassPermissions",
+      thinking: "high",
+      features: {},
+      notes: "",
+    },
+  ];
+  const saved: any[] = [];
+  await page.route("**/api/profiles**", (route) => {
+    const url = new URL(route.request().url());
+    if (route.request().method() === "POST") {
+      const body = route.request().postDataJSON();
+      saved.push(body);
+      profiles = body.profiles.map((p: any, i: number) => ({ id: p.id ?? `agent_profile_new${i}`, ...p }));
+      return route.fulfill({ json: profiles });
+    }
+    if (url.pathname.endsWith("/editor"))
+      return route.fulfill({ json: { supported: true, profiles } });
+    if (url.pathname.endsWith("/features"))
+      return route.fulfill({
+        json: [{ id: "fast_mode", type: "toggle", label: "Fast mode", value: false }],
+      });
+    return route.fulfill({ json: profiles });
+  });
+  await page.route("**/api/providers/claude/models**", (route) =>
+    route.fulfill({
+      json: [{ id: "opus", model: "Opus", thinkingOptionIds: ["low", "high"] }],
+    }),
+  );
+  await page.goto(app.url);
+  await page.locator("body").press("d");
+  const view = page.locator(".new-agent");
+  const picker = view.getByLabel("Provider or profile");
+  await waitFor(() => picker.count(), (n) => n === 1, "the profile picker");
+  await picker.selectOption("edit-profiles");
+  const dialog = page.getByRole("dialog", { name: "Agent profiles" });
+  await dialog.waitFor();
+  const name = dialog.getByLabel("Name");
+  await waitFor(() => name.inputValue(), (v) => v === "Shipper", "the profile");
+  await name.fill("Fast shipper");
+  await dialog.getByRole("switch", { name: "Fast mode" }).check();
+  await dialog.getByRole("button", { name: "Save" }).click();
+  await waitFor(() => dialog.count(), (n) => n === 0, "the editor closing");
+  assert.deepEqual(saved, [
+    {
+      base: ["agent_profile_ship"],
+      profiles: [
+        {
+          id: "agent_profile_ship",
+          name: "Fast shipper",
+          provider: "claude",
+          model: "opus",
+          mode: "bypassPermissions",
+          thinking: "high",
+          features: { fast_mode: true },
+          notes: "",
+        },
+      ],
+    },
+  ]);
+  await waitFor(
+    () => picker.locator("option").allInnerTexts().then((t) => t.join("|")),
+    (t) => t.includes("Fast shipper"),
+    "the saved profile in the picker",
+  );
+  // ⌘K offers the editor too.
+  await page.keyboard.press("Meta+k");
+  await page.keyboard.type("agent profiles");
+  await page.keyboard.press("Enter");
+  await dialog.waitFor();
+  await page.keyboard.press("Escape");
+  await waitFor(() => dialog.count(), (n) => n === 0, "the editor closing on Esc");
   await context.close();
 });

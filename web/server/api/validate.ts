@@ -287,7 +287,7 @@ export function dispatchPlan(
 }
 
 /** A profile's provider features, as `{ id: value }` (`fast_mode: true`). */
-function featureValues(v: unknown) {
+export function featureValues(v: unknown) {
   if (!v || typeof v !== "object" || Array.isArray(v))
     throw new Error("Invalid features");
   const entries = Object.entries(v as Record<string, unknown>);

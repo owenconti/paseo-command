@@ -160,6 +160,10 @@ and GitHub publication; report the published version and release link.
   come from `GET /api/drafts/commands|files` (`web/server/api/drafts.ts`), as no agent exists yet.
   Its provider picker also lists the host's Paseo agent profiles (`GET /api/profiles`, the daemon config's `agentProfiles`):
   one sets provider, model, thinking and mode, and sends its feature values (`features` in `POST /api/dispatch`) while unchanged.
+  The profiles are managed in the app (`web/src/ProfilesEditor.tsx`: the picker's Edit profiles…, Settings, ⌘K "Edit agent profiles…"):
+  per host, each one's name, provider, model, thinking, mode, provider features and notes, in order (`web/server/api/profiles.ts`:
+  `GET /api/profiles/editor|features`, `POST /api/profiles`, written with the daemon's `patchDaemonConfig`, keeping fields the editor
+  doesn't show and profiles added elsewhere meanwhile; read only on a daemon without the `agentProfiles` feature).
   In Worktree mode a pull request can be chosen instead of a new branch (`web/src/PrPicker.tsx`: paste a number or URL,
   or search via `GET /api/drafts/prs`); the worktree checks out its branch as the Paseo app does (`pr` in `POST /api/dispatch`).
   Preset prompts from `~/.paseo-command/settings.json` (`{"presets":[{"name","prompt"}]}`, `GET /api/presets`,

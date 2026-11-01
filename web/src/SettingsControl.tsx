@@ -8,6 +8,7 @@ import { onAppCommand } from "./appCommands";
 import { LinearWorkspaceSetting } from "./HeaderLinks";
 import { setMusicSettings, useMusic } from "./music";
 import { openPresetEditor, usePresets } from "./presetsStore";
+import { openProfileEditor } from "./profilesStore";
 import { api, errorMessage } from "./api";
 import { SlackAppSetup } from "./slack/SlackAppSetup";
 import { ApiKeySetting, type SecretStatus } from "./ApiKeySetting";
@@ -250,6 +251,21 @@ export function SettingsControl({
               openPresetEditor();
             }}
           />
+          <div className="linear-setting presets-setting profiles-setting">
+            <span>
+              <b>Agent profiles</b>
+              <small>Paseo’s named launch settings, in New agent</small>
+            </span>
+            <button
+              className="secondary"
+              onClick={() => {
+                close(false);
+                openProfileEditor();
+              }}
+            >
+              Edit…
+            </button>
+          </div>
         </div>
       )}
     </span>

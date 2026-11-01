@@ -69,7 +69,7 @@ export function repoText(value: unknown) {
 }
 
 /** The host's home folder: the parent of its home's own suggestions. */
-function homeOf(host?: Remote) {
+export function homeOf(host?: Remote) {
   return remember(`${scopeOf(host?.target)}|home`, 600000, async () => {
     const client = await sdk(host);
     const r = await timed(

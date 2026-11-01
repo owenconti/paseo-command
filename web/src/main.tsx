@@ -55,6 +55,8 @@ import { openPresetEditor } from "./presetsStore";
 import { copyText } from "./nativePlatform";
 import { CommandPalette } from "./CommandPalette";
 import { PresetsEditorHost } from "./PresetsEditor";
+import { ProfilesEditorHost } from "./ProfilesEditor";
+import { openProfileEditor } from "./profilesStore";
 import { runAppCommand } from "./appCommands";
 import type { Command } from "./palette";
 import {
@@ -2216,6 +2218,13 @@ function App() {
       run: openPresetEditor,
     },
     {
+      id: "profiles",
+      group: "App",
+      label: "Edit agent profiles…",
+      keywords: "profiles paseo provider model thinking mode new agent settings",
+      run: () => openProfileEditor(),
+    },
+    {
       id: "radio",
       group: "App",
       label: radio.enabled ? "Turn the lofi radio off" : "Turn the lofi radio on",
@@ -2697,6 +2706,7 @@ function App() {
           )}
         </AnimatePresence>
         <PresetsEditorHost />
+        <ProfilesEditorHost hosts={hosts} providers={providers} />
         <CommandPalette
           commands={paletteCommands}
           blocked={confirming}

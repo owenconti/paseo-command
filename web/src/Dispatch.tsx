@@ -30,6 +30,7 @@ import {
   type PullRequestChoice,
 } from "./presets";
 import { openPresetEditor, usePresets } from "./presetsStore";
+import { openProfileEditor, useProfilesRevision } from "./profilesStore";
 import { sendBody } from "./sent";
 
 /** As many images as the daemon takes with a prompt. */
@@ -87,7 +88,7 @@ const KNOWN_MODES: Record<string, Mode[]> = {
     { id: "full-access", label: "Full Access" },
   ],
 };
-const providerModes = (provider: string) => {
+export const providerModes = (provider: string) => {
   const seen = readStore<Mode[]>(`modes:${provider}`, []);
   return seen.length ? seen : (KNOWN_MODES[provider] ?? []);
 };
@@ -294,14 +295,22 @@ export function NewAgent({
           available[0].provider,
       );
   }, [available, provider, prefs.provider]);
-  // The host's agent profiles, from its daemon config.
+  // The host's agent profiles, from its daemon config, read again once the
+  // profiles' editor saves.
+  const profilesRevision = useProfilesRevision();
   useEffect(() => {
     const controller = new AbortController();
     api<Profile[]>(`profiles${hostQuery(host)}`, undefined, controller.signal)
-      .then((rows) => setProfiles({ host, rows: Array.isArray(rows) ? rows : [] }))
+      .then((rows) => {
+        const list = Array.isArray(rows) ? rows : [];
+        setProfiles({ host, rows: list });
+        // The chosen profile, edited, applies as it now is.
+        const edited = applied && list.find((p) => p.id === applied.id);
+        if (edited) applyProfile(edited);
+      })
       .catch(() => {});
     return () => controller.abort();
-  }, [host]);
+  }, [host, profilesRevision]);
   const hostProfiles = useMemo(
     () =>
       profiles.host === host
@@ -493,34 +502,28 @@ export function NewAgent({
             ? hostProfiles.find((p) => `profile:${p.id}` === v)
             : undefined;
           if (p) return applyProfile(p);
+          if (v === EDIT_PROFILES) return openProfileEditor(host);
           setProfile(null);
           setProvider(v);
         }}
       >
-        {hostProfiles.length ? (
-          <>
-            <optgroup label="Providers">
-              {available.map((p) => (
-                <option key={p.provider} value={p.provider}>
-                  {p.label}
-                </option>
-              ))}
-            </optgroup>
-            <optgroup label="Profiles">
-              {hostProfiles.map((p) => (
-                <option key={p.id} value={`profile:${p.id}`} title={p.notes || undefined}>
-                  {p.name}
-                </option>
-              ))}
-            </optgroup>
-          </>
-        ) : (
-          available.map((p) => (
+        <optgroup label="Providers">
+          {available.map((p) => (
             <option key={p.provider} value={p.provider}>
               {p.label}
             </option>
-          ))
-        )}
+          ))}
+        </optgroup>
+        <optgroup label="Profiles">
+          {hostProfiles.map((p) => (
+            <option key={p.id} value={`profile:${p.id}`} title={p.notes || undefined}>
+              {p.name}
+            </option>
+          ))}
+          <option value={EDIT_PROFILES}>
+            {hostProfiles.length ? "Edit profiles…" : "New profile…"}
+          </option>
+        </optgroup>
       </Pick>
       <Pick
         label="Model"
@@ -822,6 +825,8 @@ export function NewAgent({
 
 /** The local daemon's key in the Host field. */
 const LOCAL = "local";
+/** The provider picker's entry opening the profiles' editor. */
+const EDIT_PROFILES = "edit-profiles";
 const STATE_TEXT = {
   online: "online",
   loading: "loading",
