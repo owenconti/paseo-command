@@ -4,6 +4,12 @@ html[data-renderer="native"] body,
 html[data-renderer="native"] #root {
   background: transparent;
 }
+/* The page lies under the macOS app's mode bar: it never rubber-bands, which slid its top bar
+   (name and tools) out from under the mode bar. Scrolls past a list's end stop there. */
+html[data-renderer="native"],
+html[data-renderer="native"] body {
+  overscroll-behavior: none;
+}
 .native-map-surface {
   position: absolute;
   inset: 0;
