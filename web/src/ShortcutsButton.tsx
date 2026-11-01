@@ -64,9 +64,9 @@ const NATIVE: Group = {
     { keys: [["⌃", "`"]], label: "Show or hide the terminal" },
     {
       keys: [["⌘", "`"]],
-      label: "Next in the map's place: the map, the browser (Conquer), Linear",
+      label: "Next in the map's place: the map, the browser (Conquer), Linear, Slack, Activity, Settings",
     },
-    { keys: [["⌘", ","]], label: "Open or close Settings" },
+    { keys: [["⌘", ","]], label: "Settings, or back from it" },
   ],
 };
 /** The Linear tab's keys (`linear/keys.ts`), as in Linear, while the keyboard is in it. */

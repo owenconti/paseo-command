@@ -317,7 +317,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
             item.target = self
             item.representedObject = mode.rawValue
         }
-        // ⌘` steps Command → Conquer → Linear → Slack → Activity → Command, through those shown
+        // ⌘` steps Command → Conquer → Linear → Slack → Activity → Settings → Command, through those shown
         // (ahead of macOS's own window cycling, as the app has one window).
         view.addItem(withTitle: "Next: Command, Conquer", action: #selector(toggleMode), keyEquivalent: "`").target = self
         view.addItem(.separator())

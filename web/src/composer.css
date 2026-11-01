@@ -1183,8 +1183,17 @@
 }
 
 /* Settings as a page in the map's place (SettingsPage.tsx), as the Linear tab is:
-   opaque over the map's frame, its groups in one readable column. */
+   opaque over the map's frame. Its text runs 2 px over the app's sizes. Its sections
+   (a list of them beside, on wide windows) are cards of rows: what a setting is on
+   the left, its control on the right. */
 .settings-page.settings-menu {
+  --fs-2xs: 12px;
+  --fs-xs: 13px;
+  --fs-sm: 14px;
+  --fs-md: 16px;
+  --fs-lg: 17px;
+  --fs-xl: 20px;
+  --fs-2xl: 24px;
   position: absolute;
   inset: 0;
   z-index: 20;
@@ -1197,53 +1206,267 @@
   overflow: hidden;
   background: var(--surface, var(--panel));
   color: var(--text);
+  font-size: var(--fs-md);
 }
 .settings-page-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--space-3);
-  padding: var(--space-4) var(--space-5) var(--space-3);
+  padding: var(--space-5) var(--space-6) var(--space-4);
   border-bottom: 1px solid var(--line);
 }
 .settings-page-head h2 {
   margin: 0;
-  font-size: var(--fs-xl);
+  font-size: var(--fs-2xl);
   font-weight: var(--fw-semibold);
   color: var(--text-strong);
+}
+.settings-page-head p {
+  margin: 2px 0 0;
+  font-size: var(--fs-sm);
+  color: var(--text-3);
 }
 .settings-page-body {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
-  padding: var(--space-4) var(--space-5) var(--space-6);
+  padding: var(--space-5) var(--space-6) var(--space-7, 48px);
+  scroll-padding-top: var(--space-5);
+}
+.settings-layout {
+  display: grid;
+  grid-template-columns: 180px minmax(0, 720px);
+  justify-content: center;
+  gap: var(--space-6);
+}
+.settings-nav {
+  position: sticky;
+  top: 0;
+  align-self: start;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.settings-nav button {
+  padding: 8px 12px;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: none;
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+  text-align: left;
+}
+.settings-nav button:hover {
+  background: var(--row-hover);
+  color: var(--text);
+}
+.settings-nav button[aria-current="true"] {
+  background: var(--row-selected);
+  color: var(--text-strong);
+  font-weight: var(--fw-medium);
+}
+/* Narrow: the sections alone. */
+@media (max-width: 900px) {
+  .settings-layout {
+    grid-template-columns: minmax(0, 720px);
+  }
+  .settings-nav {
+    display: none;
+  }
 }
 .settings-group {
-  max-width: 640px;
-  margin: 0 auto var(--space-4);
-  padding: var(--space-2);
+  margin-bottom: var(--space-6);
+}
+.settings-group > h3 {
+  margin: 0 0 var(--space-2);
+  font-size: var(--fs-lg);
+  font-weight: var(--fw-semibold);
+  color: var(--text-strong);
+}
+.settings-group-note {
+  margin: 0 0 var(--space-3);
+  font-size: var(--fs-sm);
+  color: var(--text-3);
+}
+.settings-card {
   border: 1px solid var(--line);
   border-radius: var(--radius-lg);
   background: var(--panel);
+  overflow: hidden;
 }
-.settings-group > h3 {
-  margin: var(--space-1) 8px var(--space-2);
-  font-size: var(--fs-xs);
-  font-weight: var(--fw-semibold);
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--text-3);
+.settings-page .settings-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  margin: 0;
+  padding: 14px 18px;
+  border-top: 1px solid var(--line);
+  font-size: var(--fs-md);
+  color: var(--text);
 }
-/* Inside a group, settings divide with hairlines; a group's first one has none. */
-.settings-page .settings-group > h3 + .sound-toggle {
-  margin-top: 0;
+.settings-page .settings-card > .settings-row:first-child,
+.settings-page .settings-card > .integration-settings > .integration-setting:first-child > .settings-row {
   border-top: 0;
 }
-.settings-page .integration-settings {
-  margin-top: 0;
+.settings-page label.settings-row {
+  cursor: pointer;
+}
+.settings-row-text {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+.settings-row-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.settings-row-text b {
+  font-weight: var(--fw-semibold);
+  color: var(--text-strong);
+}
+.settings-row-text small {
+  font-size: var(--fs-sm);
+  color: var(--text-3);
+  overflow-wrap: anywhere;
+}
+.settings-page .settings-row > button {
+  flex-shrink: 0;
+}
+/* A volume sits under its sound, indented, with no line between them. */
+.settings-page .settings-volume {
   padding-top: 0;
   border-top: 0;
+  padding-left: 34px;
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+}
+.settings-volume input {
+  flex: 1;
+  min-width: 0;
+  accent-color: var(--accent);
+}
+.settings-volume output {
+  min-width: 4ch;
+  text-align: right;
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+}
+.settings-page input[role="switch"] {
+  flex: 0 0 40px;
+  width: 40px;
+  height: 24px;
+}
+.settings-page input[role="switch"]::before {
+  width: 18px;
+  height: 18px;
+}
+.settings-page input[role="switch"]:checked::before {
+  transform: translateX(16px);
+}
+/* An integration's state, beside its name, while it is on. */
+.settings-badge {
+  padding: 1px 8px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-pill);
+  font-size: var(--fs-2xs);
+  font-weight: var(--fw-medium);
+  color: var(--text-2);
+}
+.settings-badge[data-tone="ready"] {
+  border-color: var(--green-line, var(--line));
+  color: var(--green-text, var(--text-2));
+}
+.settings-badge[data-tone="needs"] {
+  border-color: var(--amber-line, var(--line));
+  color: var(--amber-text, var(--text-2));
+}
+/* A switched-on integration's keys and settings, in a well under it. */
+.settings-page .integration-settings {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.settings-page .integration-setting + .integration-setting {
+  margin: 0;
+  padding: 0;
+  border-top: 0;
+}
+.settings-page .integration-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin: 0 18px 16px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface, var(--panel-2));
+}
+.settings-page .integration-fields .api-key-setting + .api-key-setting,
+.settings-page .integration-fields .linear-setting,
+.settings-page .integration-fields .slack-app-setup {
+  margin-top: 0;
+}
+.settings-page .api-key-heading {
+  margin-bottom: 8px;
+}
+.settings-page .api-key-heading b,
+.settings-page .integration-fields .linear-setting b {
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-semibold);
+  color: var(--text-strong);
+}
+.settings-page .api-key-heading small {
+  font-size: var(--fs-xs);
+}
+.settings-page .api-key-setting input,
+.settings-page .linear-slug-field {
+  min-height: 38px;
+  font-size: var(--fs-sm);
+}
+.settings-page .api-key-actions button,
+.settings-page .settings-row > button {
+  min-height: 34px;
+  padding: 0 14px;
+  font-size: var(--fs-sm);
+}
+/* Buttons in the well stand out from it. */
+.settings-page .integration-fields button.secondary {
+  border: 1px solid var(--line-strong);
+  background: var(--panel);
+}
+.settings-page .integration-fields button.secondary:hover:not(:disabled) {
+  background: var(--row-hover);
+}
+.settings-page .integration-note,
+.settings-page .slack-app-setup {
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+}
+.settings-page .integration-fields .linear-setting {
+  display: block;
+  padding: 0;
+  border: 0;
+}
+.settings-page .integration-fields .linear-setting label {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: 8px;
+  padding: 0;
+}
+.settings-page .integration-fields .linear-setting small {
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+}
+.settings-page .integration-error {
+  margin: 0;
+  padding: 12px 18px;
 }
 
 /* Lofi radio (music.ts): the settings gear pulses while it connects. */

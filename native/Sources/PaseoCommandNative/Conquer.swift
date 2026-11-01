@@ -28,12 +28,11 @@ enum Mode: String, CaseIterable {
         case .settings: "gearshape"
         }
     }
-    /// The page draws it over the map (the mode bar shows its tab only while its integration is on).
+    /// The page draws it over the map (the mode bar shows Linear's, Slack's and Activity's
+    /// tabs only while their integration is on; Settings' always).
     var drawnByPage: Bool { self == .linear || self == .slack || self == .activity || self == .settings }
-    /// One of the mode bar's tabs (and ⌘`'s steps); Settings is the bar's gear instead.
-    var isTab: Bool { self != .settings }
     /// The tabs, in the bar's order.
-    static let tabs = allCases.filter(\.isTab)
+    static let tabs = allCases
     var tip: String {
         switch self {
         case .command: "The map (⌘`)"
@@ -41,7 +40,7 @@ enum Mode: String, CaseIterable {
         case .linear: "Your Linear issues, in the map's place (⌘`)"
         case .slack: "Slack, in the map's place (⌘`)"
         case .activity: "GitHub, Linear and Slack notifications together, in the map's place (⌘`)"
-        case .settings: "Settings: integrations, sounds, music, notifications (⌘,)"
+        case .settings: "Settings: sounds, notifications, integrations, New agent, in the map's place (⌘, or ⌘`)"
         }
     }
 }
@@ -177,8 +176,8 @@ final class UsageMeters: NSButton {
 
 /// The strip across the top of the window: the traffic lights, the product's name, the tabs that
 /// switch the map's place between the map (Command), the browser (Conquer), your Linear issues
-/// (Linear), Slack and Activity (⌘` steps through them), "Update ready" when a newer build is
-/// in, and the app's tools at the right: who needs you, usage, Settings, What's new, mini games,
+/// (Linear), Slack, Activity and Settings (⌘` steps through them), "Update ready" when a newer build
+/// is in, and the app's tools at the right: who needs you, usage, What's new, mini games,
 /// keyboard shortcuts and the session panel's side, layout and visibility. All of it is native;
 /// the page says what the tools show (`apply`) and opens what they ask for (`onAction`, with the
 /// button, so its popovers open beneath it). It stands in for the hidden title bar: it drags the
@@ -204,7 +203,6 @@ final class ModeBar: NSView {
     private let tools = NSStackView()
     private let attention = NSButton()
     private let usage = UsageMeters()
-    private let settings = BarButton(symbol: "gearshape", label: "Settings", tip: Mode.settings.tip)
     private let releases = BarButton(symbol: "sparkles", label: "What's new", tip: "What's new")
     private let games = BarButton(symbol: "gamecontroller", label: "Mini games", tip: "Mini games (B)")
     private let shortcuts = BarButton(symbol: "keyboard", label: "Keyboard shortcuts", tip: "Keyboard shortcuts (?)")
@@ -281,8 +279,6 @@ final class ModeBar: NSView {
             guard let self else { return }
             self.onAction?(inside ? "usage-enter" : "usage-leave", self.usage)
         }
-        settings.target = self
-        settings.action = #selector(openSettings)
         for (button, name) in [(releases, "releases"), (games, "games"), (shortcuts, "shortcuts"),
                                (panelSide, "panel-side"), (panelLayout, "panel-layout"), (panelToggle, "panel-toggle")] {
             button.target = self
@@ -292,7 +288,7 @@ final class ModeBar: NSView {
         tools.orientation = .horizontal
         tools.spacing = 2
         tools.translatesAutoresizingMaskIntoConstraints = false
-        for view in [update, attention, usage, settings, releases, games, shortcuts, panelSide, panelLayout, panelToggle] as [NSView] {
+        for view in [update, attention, usage, releases, games, shortcuts, panelSide, panelLayout, panelToggle] as [NSView] {
             tools.addArrangedSubview(view)
         }
         tools.setCustomSpacing(10, after: update)
@@ -317,7 +313,6 @@ final class ModeBar: NSView {
     @objc private func tool(_ sender: NSView) {
         if let name = sender.identifier?.rawValue { onAction?(name, sender) }
     }
-    @objc private func openSettings() { onSelect?(.settings) }
 
     /// What the page says the tools show (its `barState` message).
     func apply(_ state: [String: Any]) {
@@ -347,9 +342,9 @@ final class ModeBar: NSView {
         restyle()
     }
 
-    /// The gear pulses while the lofi radio connects, as the page's did.
+    /// The Settings tab pulses while the lofi radio connects, as the page's gear did.
     private func setMusicConnecting(_ on: Bool) {
-        guard let layer = settings.layer else { return }
+        guard let layer = buttons.first(where: { $0.0 == .settings })?.1.layer else { return }
         if on, layer.animation(forKey: "connecting") == nil {
             let pulse = CABasicAnimation(keyPath: "opacity")
             pulse.fromValue = 1
@@ -397,8 +392,7 @@ final class ModeBar: NSView {
             .font: NSFont.systemFont(ofSize: 12, weight: .semibold),
             .foregroundColor: Ink.color(Ink.onAccent, look),
         ])
-        settings.on = mode == .settings
-        for button in [settings, releases, games, shortcuts, panelSide, panelLayout, panelToggle] { button.restyle() }
+        for button in [releases, games, shortcuts, panelSide, panelLayout, panelToggle] { button.restyle() }
         for (mode, button) in buttons {
             let on = mode == self.mode
             button.layer?.backgroundColor = on ? Ink.color(Ink.pane, look).cgColor

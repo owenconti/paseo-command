@@ -2154,24 +2154,31 @@ function App() {
           },
         ]
       : []),
-    settingsShown
-      ? {
-          id: "settings",
-          group: "App",
-          label: "Close settings",
-          keys: [["Esc"]],
-          keywords: "preferences integrations back",
-          run: closeSettings,
-        }
-      : {
-          id: "settings",
-          group: "App",
-          label: "Settings",
-          keys: [["⌘", ","]],
-          keywords:
-            "preferences integrations api keys secrets sounds music notifications linear slack github typesafe",
-          run: () => openSettings(),
-        },
+    // In the macOS app Settings is a tab (⌘,); in a browser a page that closes again.
+    ...(!settingsShown
+      ? [
+          {
+            id: "settings",
+            group: "App",
+            label: "Settings",
+            keys: macApp() ? [["⌘", ","]] : undefined,
+            keywords:
+              "preferences integrations api keys secrets sounds music notifications linear slack github typesafe tab",
+            run: () => openSettings(),
+          },
+        ]
+      : !macApp()
+        ? [
+            {
+              id: "settings",
+              group: "App",
+              label: "Close settings",
+              keys: [["Esc"]],
+              keywords: "preferences integrations back",
+              run: closeSettings,
+            },
+          ]
+        : []),
     ...(integrationsLoaded && !integrationsSaving
       ? (
           [

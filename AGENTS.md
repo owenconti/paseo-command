@@ -173,10 +173,11 @@ and GitHub publication; report the published version and release link.
   other keys and never overwrites an unreadable file); `web/src/presetsStore.ts` shares them across the page.
   Optional integrations (`integrations.linear`, `integrations.typesafe`) default off in that file.
   Integration keys are read only from the data directory's `secrets.json` (`web/server/secrets.ts`), never from environment variables.
-  Settings is a page in the map's place (`web/src/SettingsPage.tsx`, opened and closed through `settingsStore.ts`): in the macOS app the side `settings`
-  (`Mode.settings`, not a tab: the bar's gear, the app menu's Settings… ⌘, and the palette switch to it and back to the side before; the page asks with
-  `menu` `settings`/`settings-close`), in a browser the page's own state (its bar's gear). Esc or its × closes it. Its groups: sound and music, notifications,
-  optional integrations, New agent (presets, profiles). It uses toggle switches, with each integration's API-key editor and settings grouped beneath it.
+  Settings is a page in the map's place (`web/src/SettingsPage.tsx`, opened through `settingsStore.ts`), its text 2 px over the app's sizes: in the macOS app
+  the mode bar's last tab (`Mode.settings`; ⌘` steps to it, the app menu's Settings… ⌘, opens it and goes back to the side before, the palette's Settings
+  asks with `menu` `settings`), in a browser the page's own state (its bar's gear; Esc or its × closes it). Its sections, listed beside them on wide windows:
+  sound and music (a volume only while its sound is on), notifications, integrations, New agent (presets, profiles). Rows put what a setting is on the left and
+  its switch or button on the right; a switched-on integration shows its state (Ready, needs a key, Live) and its keys and settings in a well beneath it.
   `GET /api/secrets` returns presence flags only; `POST /api/secrets` saves/replaces/removes a named key,
   preserving other credentials in an atomic owner-only file. Saved values never return to the page.
   The same `settings.json` keeps the Linear workspace (`linearWorkspace`; `GET`/`POST /api/settings`,
@@ -230,7 +231,7 @@ and GitHub publication; report the published version and release link.
   While it's on, a teal seal with a merge mark sits on the review medallion's upper-right rim, else the CI one's (`placeSeals`,
   `paintSeal`, `AUTO_MERGE` in `rendering/src/prStatus.ts`); the medallion's hover card says how it merges and who turned it on.
 - Top bar: native, all of it, in the macOS app (`ModeBar` in `Conquer.swift`, its height an empty unified-compact toolbar's, which centres the traffic
-  lights): the traffic lights, "PASEO COMMAND" (the bundled Barlow), the mode tabs, Update ready, and the tools: need you, usage meters, the Settings gear,
+  lights): the traffic lights, "PASEO COMMAND" (the bundled Barlow), the mode tabs (Settings the last), Update ready, and the tools: need you, usage meters,
   What's new, mini games, keyboard shortcuts and the session panel's side, layout and show/hide (`BarButton`, `UsageMeters`). The page lies below the bar
   (`--app-bar` 0) and draws no bar of its own there (`.app-bar-hosted` in `FloatingPanel.tsx` keeps what the tools open). The page says what the tools show
   (`postAppBarState` → `barState`: attention, usage meters, What's new unseen, the radio connecting, panel side, layout and visibility), and a tool's click

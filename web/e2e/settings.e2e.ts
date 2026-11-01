@@ -48,13 +48,12 @@ test("the gear opens every setting, and the radio's choice is kept", async () =>
     await dialog.getByText(label, { exact: true }).waitFor();
   const radio = dialog.getByRole("switch", { name: /Lofi radio/ });
   assert.equal(await radio.isChecked(), false);
-  assert.equal(
-    await dialog.getByRole("slider", { name: "Lofi radio volume" }).isDisabled(),
-    true,
-  );
+  // A sound's volume shows only while it is on.
+  assert.equal(await dialog.getByRole("slider", { name: "Lofi radio volume" }).count(), 0);
   await radio.focus();
   await radio.press("Space");
   assert.equal(await radio.isChecked(), true);
+  await dialog.getByRole("slider", { name: "Lofi radio volume" }).waitFor();
   if (process.env.SHOT)
     (await page.waitForTimeout(300),
       await page.screenshot({ path: process.env.SHOT }));

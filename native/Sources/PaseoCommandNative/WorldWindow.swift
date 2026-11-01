@@ -155,11 +155,8 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         drawer.server = { [weak self] in self?.serverURL ?? options.url }
         drawer.onMove = { [weak self] in self?.moveTerminal() }
         drawer.onMaximize = { [weak self] in self?.maximizeTerminal() }
-        modeBar.onSelect = { [weak self] mode in
-            guard let self else { return }
-            // The gear opens Settings, and closes it again.
-            if mode == .settings && self.mode == .settings { self.show(self.beforeSettings) } else { self.show(mode) }
-        }
+        modeBar.onSelect = { [weak self] mode in self?.show(mode) }
+        modeBar.enabled = enabledModes
         modeBar.onAction = { [weak self] action, view in self?.barAction(action, view) }
         placeModeBar()
         // Where the user left it, across launches and app restarts.
@@ -708,7 +705,7 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         } else {
             window.makeFirstResponder(web)
         }
-        if options.info == nil, next.isTab { UserDefaults.standard.set(next.rawValue, forKey: "mode") }
+        if options.info == nil { UserDefaults.standard.set(next.rawValue, forKey: "mode") }
     }
 
     /// Settings, from the app menu (⌘,): opens it, or closes it again.
