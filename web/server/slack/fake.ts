@@ -284,7 +284,8 @@ const latestOf = (ws: FakeWorkspace, id: string) =>
  * leaves out is_member and num_members, as Slack does.
  */
 const conversationRecord = (ws: FakeWorkspace, c: FakeConversation, info = false, opts: { listed?: boolean; counts?: boolean } = {}): Raw => {
-  const { last_read, is_member, num_members, ...rest } = c;
+  // Slack lists no group DM's members here (conversations.members does).
+  const { last_read, is_member, num_members, members: _members, ...rest } = c;
   const latest = latestOf(ws, c.id);
   return {
     ...rest,
@@ -330,6 +331,10 @@ function post(ws: FakeWorkspace, channel: string, fields: Partial<FakeMessage> &
 export const METHODS: Record<string, (ctx: FakeContext) => Raw> = {
   "auth.test": ({ ws }) => ({ url: ws.team.url, team: ws.team.name, team_id: ws.team.id, user: "owen", user_id: ws.selfId }),
   "users.list": ({ ws, params }) => paged(ws.users, params, "members"),
+  "conversations.members": ({ ws, params }) => {
+    const c = conversationFor(ws, params.channel);
+    return { members: c.members ?? (c.is_im ? [ws.selfId, c.user] : ws.users.map((u) => u.id)) };
+  },
   "users.info": ({ ws, params }) => {
     const found = [...ws.users, ...ws.externals].find((u) => u.id === params.user);
     if (!found) throw fail("user_not_found");

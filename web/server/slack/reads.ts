@@ -86,13 +86,18 @@ async function strangersIn(messages: SlackMessage[], raw: unknown[]): Promise<Sl
       if (id && !members.has(id)) ids.add(id);
   if (!ids.size) return [];
   learnProfiles(raw);
+  return lookUpStrangers(ids, STRANGERS.lookupsPerRead);
+}
+
+/** These people, from what's kept, else users.info once each (at most `max`, a few at a time). */
+async function lookUpStrangers(ids: Set<string>, max: number): Promise<SlackUser[]> {
   const now = Date.now();
   const ask = [...ids]
     .filter((id) => {
       const known = strangers.get(id);
       return !known || now - known.at > STRANGERS.keepMs;
     })
-    .slice(0, STRANGERS.lookupsPerRead);
+    .slice(0, max);
   for (let i = 0; i < ask.length; i += STRANGERS.atOnce)
     await Promise.all(
       ask.slice(i, i + STRANGERS.atOnce).map(async (id) => {
@@ -146,6 +151,47 @@ function peopleOf(selfId: string, users: SlackUser[], handles: Map<string, strin
   return { selfId, byId: new Map(users.map((u) => [u.id, u])), byHandle: handles };
 }
 
+/** At most this many group DMs have their members asked for in a workspace read, and this many people looked up. */
+const GROUPS = { membersAsked: 50, lookups: 100 };
+
+/**
+ * Group DMs whose names name someone the workspace doesn't have (a handle
+ * from another organisation): each one's members (conversations.members),
+ * and the people among them who aren't members, looked up.
+ */
+async function groupOutsiders(
+  raw: Record<string, unknown>[],
+  people: People,
+  handles: Map<string, string>,
+): Promise<{ members: Map<string, string[]>; users: SlackUser[] }> {
+  const partial = raw
+    .filter((c) => c.is_mpim === true && !Array.isArray(c.members))
+    .filter((c) =>
+      strOf(c.name)
+        .replace(/^mpdm-/, "")
+        .replace(/-\d+$/, "")
+        .split("--")
+        .some((h) => h && !handles.has(h)),
+    )
+    .slice(0, GROUPS.membersAsked);
+  const members = new Map<string, string[]>();
+  for (let i = 0; i < partial.length; i += STRANGERS.atOnce)
+    await Promise.all(
+      partial.slice(i, i + STRANGERS.atOnce).map(async (c) => {
+        try {
+          const r = await slackCall("conversations.members", { channel: strOf(c.id), limit: 100 });
+          const list: unknown[] = Array.isArray(r.members) ? r.members : [];
+          const ids = list.filter((m): m is string => typeof m === "string" && /^[UW][A-Z0-9]{2,20}$/.test(m));
+          if (ids.length) members.set(strOf(c.id), ids);
+        } catch {
+          // Not now: the handles it can name stand.
+        }
+      }),
+    );
+  const unknown = new Set([...members.values()].flat().filter((id) => !people.byId.has(id)));
+  return { members, users: unknown.size ? await lookUpStrangers(unknown, GROUPS.lookups) : [] };
+}
+
 /** Custom emoji: name → an https image address, or "alias:other". */
 function emojiOf(raw: unknown): Record<string, string> {
   const out: Record<string, string> = {};
@@ -185,7 +231,18 @@ async function loadWorkspace(token: string): Promise<Omit<SlackWorkspace, "live"
     { types: "public_channel,private_channel,mpim,im", exclude_archived: true },
     "channels",
   );
-  const conversations = rawConversations.map((c) => conversationOf({ ...recOf(c), is_member: true }, people)).filter(nonNull);
+  // Group DMs with people from elsewhere (a Slack Connect one's): their handles aren't the workspace's,
+  // so their members are asked for, and those people looked up.
+  const outsiders = await groupOutsiders(rawConversations.map(recOf), people, handles);
+  for (const u of outsiders.users) if (!people.byId.has(u.id)) people.byId.set(u.id, u);
+  const conversations = rawConversations
+    .map((c) => {
+      const raw = recOf(c);
+      const members = outsiders.members.get(strOf(raw.id));
+      return conversationOf({ ...raw, is_member: true, ...(members ? { members } : {}) }, people);
+    })
+    .filter(nonNull);
+  users.push(...outsiders.users.filter((u) => !users.some((m) => m.id === u.id)));
   let emoji: Record<string, string> = {};
   try {
     emoji = emojiOf((await slackCall("emoji.list")).emoji);

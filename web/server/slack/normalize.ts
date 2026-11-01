@@ -71,10 +71,19 @@ export const kindOf = (c: Raw): SlackConversationKind =>
 /** What the conversation builder needs of the workspace: you, and people by id and by handle. */
 export type People = { selfId: string; byId: Map<string, SlackUser>; byHandle: Map<string, string> };
 
-/** A group DM's people (not you), from Slack's `mpdm-alice--bob--you-1` name. */
+/** A group DM's handles (not yours), from Slack's `mpdm-alice--bob--you-1` name. */
+const mpimHandles = (name: string, people: People) =>
+  name
+    .replace(/^mpdm-/, "")
+    .replace(/-\d+$/, "")
+    .split("--")
+    .filter((h) => h && people.byHandle.get(h) !== people.selfId);
+
+/** A group DM's people (not you) the workspace knows, from its name. */
 function mpimPeople(name: string, people: People): string[] {
-  const handles = name.replace(/^mpdm-/, "").replace(/-\d+$/, "").split("--");
-  return handles.map((h) => people.byHandle.get(h)).filter((id): id is string => !!id && id !== people.selfId);
+  return mpimHandles(name, people)
+    .map((h) => people.byHandle.get(h))
+    .filter((id): id is string => !!id);
 }
 
 export function conversationOf(raw: unknown, people: People): SlackConversation | null {
@@ -93,6 +102,8 @@ export function conversationOf(raw: unknown, people: People): SlackConversation 
     const members = Array.isArray(c.members) ? c.members.map(idOf).filter((m): m is string => !!m && m !== people.selfId) : [];
     userIds = members.length ? members : mpimPeople(named, people);
     const names = userIds.map((u) => people.byId.get(u)?.name ?? u);
+    // Handles the workspace doesn't know (someone from elsewhere): named as Slack has them, not left out.
+    if (!members.length) names.push(...mpimHandles(named, people).filter((h) => !people.byHandle.has(h)));
     name = clip(names.join(", ") || named || "Group message", 120);
   }
   const latest = tsOf(recOf(c.latest).ts) ?? tsOf(c.latest);

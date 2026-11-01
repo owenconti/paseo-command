@@ -200,3 +200,32 @@ test("people from elsewhere (a shared channel's): from a message's own profile, 
   assert.equal((await slackAvatar("U0JO")).status, 200);
   assert.equal((await slackAvatar("U0KIM")).status, 404, "no avatar");
 });
+
+test("a group DM with people from elsewhere: its members asked for, and named", async () => {
+  // Slack names it by handles; jo and kim's aren't the workspace's.
+  fake.ws.conversations.push({
+    id: "G0SHARED",
+    name: "mpdm-owen--sam--jo--kim-1",
+    is_mpim: true,
+    is_group: true,
+    is_member: true,
+    members: [I.owen, I.sam, "U0JO", "U0KIM"],
+    last_read: "0000000000.000000",
+  });
+  const ws = await readWorkspace(true);
+  const shared = ws.conversations.find((c) => c.id === "G0SHARED")!;
+  assert.deepEqual(shared.userIds, [I.sam, "U0JO", "U0KIM"]);
+  assert.equal(shared.name, "Sam, Jo, Kim Park");
+  assert.deepEqual(ws.users.filter((u) => ["U0JO", "U0KIM"].includes(u.id)).map((u) => u.name).sort(), ["Jo", "Kim Park"]);
+  // Only the group DM with a stranger's handle was asked about.
+  assert.deepEqual(fake.calls.filter((c) => c.method === "conversations.members").map((c) => c.params.channel), ["G0SHARED"]);
+  // The workspace's own group DM is named from its handles, as before.
+  assert.deepEqual(ws.conversations.find((c) => c.id === I.group)!.userIds?.sort(), [I.ria, I.sam].sort());
+});
+
+test("a group DM whose members can't be asked for still names the handles it has", async () => {
+  fake.ws.conversations.push({ id: "G0SHARED", name: "mpdm-owen--sam--jo-1", is_mpim: true, is_group: true, is_member: true, last_read: "0000000000.000000" });
+  fake.fail("conversations.members", { error: "missing_scope" });
+  const ws = await readWorkspace(true);
+  assert.equal(ws.conversations.find((c) => c.id === "G0SHARED")!.name, "Sam, jo");
+});

@@ -17,6 +17,8 @@ export const METHOD_SCOPES: Record<string, string[]> = {
   "conversations.replies": ["channels:history", "groups:history", "im:history", "mpim:history"],
   "conversations.info": ["channels:read", "groups:read", "im:read", "mpim:read"],
   "users.conversations": ["channels:read", "groups:read", "im:read", "mpim:read"],
+  // A group DM's members, when its name has someone from elsewhere.
+  "conversations.members": ["channels:read", "groups:read", "im:read", "mpim:read"],
   // Marking read is a write, for each kind of conversation.
   "conversations.mark": ["channels:write", "groups:write", "im:write", "mpim:write"],
   "conversations.open": ["im:write", "mpim:write"],
