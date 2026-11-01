@@ -325,7 +325,7 @@ and GitHub publication; report the published version and release link.
   the Slack tab; it's read from then. Keys: J/K move, Enter/O open, U read/unread, ⇧U all shown read, E/⌫ done, ⇧E all shown done (Mark all done; asks first), 1–4 sources; each with
   its ⌘K entry and the shortcuts dialog's Activity group. Server (`web/server/activity/`, `GET /api/activity`, `POST
   /api/activity/m/read|unread|done` with `{keys}`): `github.ts` (opt-in `integrations.github`: `gh api /notifications` with the user's
-  own gh sign-in, unread and the past 14 days, cached a minute; read and done through gh; GitHub can't mark unread), `linear.ts` (the
+  own gh sign-in, unread and the past 14 days, cached a minute; read and done through gh; GitHub can't mark unread, and its list still has threads marked done, as read ones, so those done here are kept in the data directory's `github-activity.json` by when GitHub last changed them and left out across launches until they change again), `linear.ts` (the
   Inbox's notifications, one per issue or project, through Linear's whitelisted writes), `slack.ts` (unread DMs, mentions of you from
   search and the socket, replies in threads you're in; Slack keeps no thread read state for apps, so those and "done" are kept in the
   data directory's `slack-activity.json`), `feed.ts` (a source that fails says why without hiding the rest). The page's store

@@ -2,11 +2,13 @@
  * Activity's GitHub source over a fake gh: nothing here runs gh or reaches GitHub.
  */
 import assert from "node:assert/strict";
+import { existsSync, readFileSync } from "node:fs";
 import { afterEach, beforeEach, test } from "node:test";
 import {
   GITHUB_ACTIVITY,
   NO_GH,
   SIGNED_OUT,
+  githubActivityFile,
   githubItem,
   readGithubActivity,
   resetGithubActivity,
@@ -150,4 +152,26 @@ test("writes read and done; unread can't be done on GitHub", async () => {
   assert.match(unread[0]!.error, /can't mark a notification unread/);
   answer = () => new Error("HTTP 401: Bad credentials");
   assert.deepEqual(await writeGithubActivity("read", [five!]), [{ key: "github:5", error: SIGNED_OUT }]);
+});
+
+test("what's marked done stays done after the app reopens, until GitHub has something new on it", async () => {
+  const yesterday = new Date(Date.now() - 86_400_000).toISOString();
+  let seven = thread("7", { unread: false, at: yesterday });
+  // GitHub's list (all=true) still has a thread marked done, as read.
+  answer = (args) => (args[1] === "graphql" ? "{}" : args[2] === "GET" ? JSON.stringify([thread("5", { at: yesterday }), seven]) : "");
+  const items = await readGithubActivity();
+  assert.deepEqual(await writeGithubActivity("done", [items.find((i) => i.id === "7")!]), []);
+  assert.deepEqual(JSON.parse(readFileSync(githubActivityFile(), "utf8")), { done: { "7": yesterday } });
+
+  // Reopened: nothing kept in memory, the file read again.
+  resetGithubActivity({ relaunch: true });
+  assert.deepEqual((await readGithubActivity()).map((i) => i.id), ["5"]);
+
+  // New activity on it: back, as in GitHub's inbox.
+  seven = thread("7", { at: new Date().toISOString() });
+  assert.deepEqual((await readGithubActivity(true)).map((i) => i.id).sort(), ["5", "7"]);
+
+  // A test's own reset leaves no file behind.
+  resetGithubActivity();
+  assert.equal(existsSync(githubActivityFile()), false);
 });

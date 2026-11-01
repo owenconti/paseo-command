@@ -5,11 +5,18 @@
  * for `GITHUB_ACTIVITY.ttlMs`; each pull request's or issue's state is asked
  * for in one GraphQL query alongside, and left out when gh can't answer it.
  * Writes: read (`PATCH /notifications/threads/:id`) and done (`DELETE`).
- * GitHub can't mark a notification unread.
+ * GitHub can't mark a notification unread. GitHub's list (`all=true`) still
+ * has threads marked done, as read ones, so those done here are kept in the
+ * data directory's `github-activity.json` (by when GitHub last changed them)
+ * and left out until they change again, across launches.
  */
+import { randomUUID } from "node:crypto";
+import { mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
+import { join } from "node:path";
 import type { ActivityItem, ActivityWriteName } from "../../src/activity/types";
 import { gh } from "../links";
+import { dataDir } from "../subagentArchive";
 
 export const GITHUB_ACTIVITY = {
   ttlMs: 60_000,
@@ -177,11 +184,46 @@ export function statesFrom(items: { repo: string; number: string }[], answer: un
 let cache: { at: number; items: Promise<ActivityItem[]> } | undefined;
 /** Threads marked done here, by when GitHub last changed them: left out until they change again. */
 const done = new Map<string, string>();
+let doneLoaded = false;
 
-/** Forgets what was kept (tests). */
-export function resetGithubActivity(): void {
+export const githubActivityFile = () => join(dataDir(), "github-activity.json");
+
+/** The threads marked done, from the file (once a launch). */
+function loadDone(): void {
+  if (doneLoaded) return;
+  doneLoaded = true;
+  try {
+    const raw = JSON.parse(readFileSync(githubActivityFile(), "utf8")) as { done?: unknown };
+    const kept = raw.done && typeof raw.done === "object" && !Array.isArray(raw.done) ? raw.done : {};
+    for (const [id, at] of Object.entries(kept))
+      if (/^\d{1,30}$/.test(id) && typeof at === "string" && Number.isFinite(Date.parse(at))) done.set(id, at);
+  } catch {
+    // None yet (or unreadable): nothing was marked done.
+  }
+}
+
+/** Saves them, without those older than the list reaches (they won't show again anyway), at most 1,000. */
+function saveDone(): void {
+  const cut = Date.now() - (GITHUB_ACTIVITY.days + 1) * 86_400_000;
+  for (const [id, at] of done) if (Date.parse(at) < cut) done.delete(id);
+  while (done.size > 1000) done.delete(done.keys().next().value!);
+  mkdirSync(dataDir(), { recursive: true });
+  const file = githubActivityFile();
+  const tmp = `${file}.${randomUUID()}.tmp`;
+  try {
+    writeFileSync(tmp, JSON.stringify({ done: Object.fromEntries(done) }) + "\n", { mode: 0o600 });
+    renameSync(tmp, file);
+  } finally {
+    rmSync(tmp, { force: true });
+  }
+}
+
+/** Forgets what was kept (tests); `relaunch` keeps the file, as a new launch would find it. */
+export function resetGithubActivity({ relaunch = false } = {}): void {
   cache = undefined;
   done.clear();
+  doneLoaded = false;
+  if (!relaunch) rmSync(githubActivityFile(), { force: true });
 }
 
 const repoOf = (item: ActivityItem) => {
@@ -264,6 +306,7 @@ export async function readGithubActivity(fresh = false): Promise<ActivityItem[]>
     });
   }
   const items = await cache.items;
+  loadDone();
   return items.filter((i) => !(done.has(i.id) && i.at <= done.get(i.id)!)).map((i) => ({ ...i }));
 }
 
@@ -276,6 +319,8 @@ export async function writeGithubActivity(
     return items.map((i) => ({ key: i.key, error: "GitHub can't mark a notification unread." }));
   const failed: { key: string; error: string }[] = [];
   const kept = cache ? await cache.items.catch(() => undefined) : undefined;
+  loadDone();
+  let marked = false;
   await Promise.all(
     items.map(async (item) => {
       if (!/^\d{1,30}$/.test(item.id)) return void failed.push({ key: item.key, error: "Not a GitHub notification." });
@@ -290,9 +335,17 @@ export async function writeGithubActivity(
       if (name === "read" && mine) mine.unread = false;
       if (name === "done") {
         done.set(item.id, mine?.at ?? item.at);
-        if (done.size > 1000) done.delete(done.keys().next().value!);
+        marked = true;
       }
     }),
   );
+  // Kept across launches: GitHub's list still has them.
+  if (marked) {
+    try {
+      saveDone();
+    } catch {
+      // Not saved: they stay left out until the app closes.
+    }
+  }
   return failed;
 }
