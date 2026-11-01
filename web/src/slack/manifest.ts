@@ -43,15 +43,18 @@ export const USER_EVENTS = [
   "message.mpim",
   "reaction_added",
   "reaction_removed",
-  "channel_marked",
-  "group_marked",
-  "im_marked",
-  "mpim_marked",
   "channel_rename",
   "group_rename",
   "member_joined_channel",
   "user_change",
 ];
+
+/**
+ * Events the socket handles that the Events API doesn't offer an app (Slack's
+ * old real-time API only): a conversation read in another Slack client doesn't
+ * arrive live, and shows when its unread state is next checked.
+ */
+export const RTM_ONLY_EVENTS = ["channel_marked", "group_marked", "im_marked", "mpim_marked"];
 
 /** Every user scope the manifest asks for. */
 export const USER_SCOPES = [...new Set([...Object.values(METHOD_SCOPES).flat(), ...FILE_READ])].sort();

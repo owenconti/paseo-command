@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { test } from "node:test";
-import { createAppUrl, METHOD_SCOPES, slackManifest, USER_EVENTS, USER_SCOPES } from "./manifest";
+import { createAppUrl, METHOD_SCOPES, RTM_ONLY_EVENTS, slackManifest, USER_EVENTS, USER_SCOPES } from "./manifest";
 
 const SERVER = join(import.meta.dirname, "../../server/slack");
 /** The server's own code: what it calls of Slack (not its tests or its fake). */
@@ -27,9 +27,12 @@ test("slack manifest: every Web API method the server calls has its scopes asked
   for (const scope of ["im:write", "mpim:write", "channels:write", "groups:write"]) assert.ok(USER_SCOPES.includes(scope), scope);
 });
 
-test("slack manifest: every event the socket handles is subscribed, as the user, over Socket Mode", () => {
+test("slack manifest: every event the socket handles that apps can have is subscribed, as the user, over Socket Mode", () => {
   const handled = new Set([...sources.matchAll(/"([a-z]+_(?:added|removed|marked|rename|change|joined_channel))"/g)].map((m) => m[1]));
-  for (const event of handled) assert.ok(USER_EVENTS.includes(event), `${event} is subscribed`);
+  for (const event of handled)
+    if (!RTM_ONLY_EVENTS.includes(event)) assert.ok(USER_EVENTS.includes(event), `${event} is subscribed`);
+  // Slack refuses a manifest that subscribes to events only its old real-time API has.
+  for (const event of RTM_ONLY_EVENTS) assert.ok(!USER_EVENTS.includes(event), `${event} isn't subscribed`);
   for (const kind of ["channels", "groups", "im", "mpim"]) assert.ok(USER_EVENTS.includes(`message.${kind}`));
   const manifest = slackManifest();
   assert.equal(manifest.settings.socket_mode_enabled, true);

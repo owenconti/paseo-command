@@ -64,5 +64,5 @@ page with it filled in, or copies it; ⌘K has both). User token scopes, one tab
 groups:history groups:read groups:write im:history im:read im:write mpim:history mpim:read mpim:write chat:write
 reactions:read reactions:write files:read files:write users:read search:read emoji:read` (marking read and opening a DM are
 writes). Socket Mode on, user events `message.channels message.groups message.im message.mpim reaction_added
-reaction_removed channel_marked group_marked im_marked mpim_marked channel_rename group_rename member_joined_channel
-user_change`; the app-level token with `connections:write` is made by hand (a manifest can't).
+reaction_removed channel_rename group_rename member_joined_channel user_change` (not the `*_marked` events: those are
+Slack's old real-time API's, which a manifest refuses, so a conversation read elsewhere shows at the next unread check); the app-level token with `connections:write` is made by hand (a manifest can't).
