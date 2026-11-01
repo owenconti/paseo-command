@@ -26,8 +26,9 @@ import {
   Slack,
   Tag,
 } from "lucide-react";
-import { readStore, writeStore } from "../api";
+import { readStore, removeStore, writeStore } from "../api";
 import { onAppCommand } from "../appCommands";
+import { ResizeEdge } from "../ResizeEdge";
 import { modalOpen } from "../focus";
 import { isTyping } from "../worldShortcut";
 import { canOpen, openActivityItem } from "./open";
@@ -38,6 +39,8 @@ import "./activity.css";
 
 /** From this width the selected item's preview shows beside the feed. */
 const PREVIEW_MIN = 1100;
+/** The panels' widths: the sidebar's default and least, the preview's least, and the least the feed keeps between them. */
+const PANELS = { sidebar: 220, sidebarMin: 170, previewMin: 320, feedMin: 360 };
 const SOURCES: ActivitySource[] = ["github", "linear", "slack"];
 const FILTER_KEYS: Record<string, ActivityFilter> = { "1": "all", "2": "github", "3": "linear", "4": "slack" };
 
@@ -208,6 +211,24 @@ export function ActivityView({
     return () => watch.disconnect();
   }, [view]);
   const wide = viewWidth === 0 || viewWidth >= PREVIEW_MIN;
+  // The sidebar's and the preview's widths: their edges resize them (kept), double-click puts the default back.
+  const [sidebarWidth, setSidebarWidth] = useState(() => readStore<number>("activity:sidebarWidth", PANELS.sidebar));
+  const [previewWidth, setPreviewWidth] = useState(() => readStore<number | null>("activity:previewWidth", null));
+  const sidebarMax = Math.max(PANELS.sidebarMin, (viewWidth || 1600) - PANELS.feedMin - (wide ? PANELS.previewMin : 0));
+  const sidebarW = Math.round(Math.min(sidebarMax, Math.max(PANELS.sidebarMin, sidebarWidth)));
+  const previewMax = Math.max(PANELS.previewMin, (viewWidth || 1600) - sidebarW - PANELS.feedMin);
+  const previewW = previewWidth === null ? null : Math.round(Math.min(previewMax, Math.max(PANELS.previewMin, previewWidth)));
+  const resizeSidebar = (w: number | null) => {
+    const next = w === null ? PANELS.sidebar : Math.round(Math.min(sidebarMax, Math.max(PANELS.sidebarMin, w)));
+    setSidebarWidth(next);
+    writeStore("activity:sidebarWidth", next);
+  };
+  const resizePreview = (w: number | null) => {
+    const next = w === null ? null : Math.round(Math.min(previewMax, Math.max(PANELS.previewMin, w)));
+    setPreviewWidth(next);
+    if (next === null) removeStore("activity:previewWidth");
+    else writeStore("activity:previewWidth", next);
+  };
 
   const listRef = useRef<HTMLDivElement>(null);
   const focusRow = (key: string) =>
@@ -344,7 +365,11 @@ export function ActivityView({
 
   const title =
     shownFilter === "all" ? "All activity" : shownFilter === "unread" ? "Unread" : SOURCE_LABEL[shownFilter];
-  const columns = ["220px", "minmax(0, 1fr)", wide && selected ? "minmax(320px, 400px)" : null].filter(Boolean);
+  const columns = [
+    `${sidebarW}px`,
+    "minmax(0, 1fr)",
+    wide && selected ? (previewW !== null ? `${previewW}px` : `minmax(${PANELS.previewMin}px, 400px)`) : null,
+  ].filter(Boolean);
 
   let body: ReactNode;
   if (!enabled)
@@ -447,7 +472,7 @@ export function ActivityView({
       tabIndex={-1}
       onKeyDown={onKey}
     >
-      <nav className="activity-sidebar" aria-label="Activity filters">
+      <nav className="activity-sidebar" id="activity-sidebar" aria-label="Activity filters">
         <div className="activity-sidebar-head">
           <h2>Activity</h2>
           <button
@@ -481,6 +506,16 @@ export function ActivityView({
             );
           })}
         </div>
+        <ResizeEdge
+          label="Resize the activity sidebar"
+          controls="activity-sidebar"
+          value={sidebarW}
+          min={PANELS.sidebarMin}
+          max={sidebarMax}
+          grows="right"
+          onResize={resizeSidebar}
+          onReset={() => resizeSidebar(null)}
+        />
       </nav>
       <div className="activity-main">
         <header className="activity-head">
@@ -501,9 +536,21 @@ export function ActivityView({
           </p>
         )}
         {body}
+        {wide && selected && (
+          <ResizeEdge
+            label="Resize the preview"
+            controls="activity-preview"
+            value={previewW ?? view?.querySelector<HTMLElement>(".activity-preview")?.getBoundingClientRect().width ?? 400}
+            min={PANELS.previewMin}
+            max={previewMax}
+            grows="left"
+            onResize={resizePreview}
+            onReset={() => resizePreview(null)}
+          />
+        )}
       </div>
       {wide && selected && (
-        <aside className="activity-preview" aria-label="Selected notification">
+        <aside className="activity-preview" id="activity-preview" aria-label="Selected notification">
           <p className="activity-preview-source">
             <SourceIcon source={selected.source} />
             {SOURCE_LABEL[selected.source]}

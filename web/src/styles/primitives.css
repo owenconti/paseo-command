@@ -560,3 +560,30 @@
   border-color: var(--focus);
   box-shadow: var(--focus-ring);
 }
+
+/* A panel's edge that resizes it (ResizeEdge.tsx), on its parent's right edge. */
+.resize-edge {
+  position: absolute;
+  top: 0;
+  right: -5px;
+  bottom: 0;
+  z-index: 2;
+  width: 9px;
+  cursor: col-resize;
+  touch-action: none;
+}
+.resize-edge::after {
+  content: "";
+  position: absolute;
+  inset: 0 3px;
+  background: transparent;
+  transition: background-color 120ms ease;
+}
+.resize-edge:hover::after,
+.resize-edge:active::after,
+.resize-edge:focus-visible::after {
+  background: var(--accent);
+}
+.resize-edge:focus-visible {
+  outline: none;
+}

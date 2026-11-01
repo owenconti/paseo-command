@@ -150,3 +150,58 @@ test("Activity gathers GitHub, Linear and Slack, filters them, and marks them re
     await context.close();
   }
 });
+
+test("Activity's sidebar and preview resize from their edges, kept across a reload", async () => {
+  const context = await newContext(browser);
+  const page = await context.newPage();
+  await page.setViewportSize({ width: 1800, height: 1000 });
+  await mockApi(page, {
+    agents: () => [],
+    lists: { settings: { integrations: { github: true, linear: true, slack: true } } },
+  });
+  await page.route("**/api/activity**", (route) => route.fulfill({ json: feedOf(ITEMS) }));
+  try {
+    await page.goto(app.url);
+    await page.locator(".fleet-sidebar").waitFor();
+    await showActivity(page);
+    const view = page.locator(".activity-view");
+    await waitFor(() => rowKeys(page), (keys) => keys.length === 3, "the feed");
+    await view.locator(".activity-row").first().click();
+    const sidebar = view.locator(".activity-sidebar");
+    const preview = view.locator(".activity-preview");
+    await preview.waitFor();
+    const width = async (el: typeof sidebar) => (await el.boundingBox())!.width;
+    const drag = async (name: string, by: number) => {
+      const box = (await view.getByRole("separator", { name }).boundingBox())!;
+      await page.mouse.move(box.x + box.width / 2, box.y + 300);
+      await page.mouse.down();
+      await page.mouse.move(box.x + box.width / 2 + by, box.y + 300, { steps: 5 });
+      await page.mouse.up();
+    };
+
+    const sidebarBefore = await width(sidebar);
+    await drag("Resize the activity sidebar", 80);
+    assert.ok(Math.abs((await width(sidebar)) - (sidebarBefore + 80)) <= 3, "the sidebar 80 wider");
+    const previewBefore = await width(preview);
+    await drag("Resize the preview", -150);
+    assert.ok(Math.abs((await width(preview)) - (previewBefore + 150)) <= 3, "the preview 150 wider");
+
+    // Kept; the arrow keys step them; double-click restores the default.
+    await page.reload();
+    await page.locator(".fleet-sidebar").waitFor();
+    await showActivity(page);
+    await view.locator(".activity-row").first().click();
+    await preview.waitFor();
+    assert.ok(Math.abs((await width(sidebar)) - (sidebarBefore + 80)) <= 3);
+    assert.ok(Math.abs((await width(preview)) - (previewBefore + 150)) <= 3);
+    await view.getByRole("separator", { name: "Resize the activity sidebar" }).focus();
+    await page.keyboard.press("ArrowLeft");
+    assert.ok(Math.abs((await width(sidebar)) - (sidebarBefore + 64)) <= 3, "16 narrower");
+    await view.getByRole("separator", { name: "Resize the activity sidebar" }).dblclick();
+    await view.getByRole("separator", { name: "Resize the preview" }).dblclick();
+    await waitFor(() => width(sidebar), (w) => Math.abs(w - sidebarBefore) <= 3, "the sidebar's default");
+    await waitFor(() => width(preview), (w) => Math.abs(w - previewBefore) <= 3, "the preview's default");
+  } finally {
+    await context.close();
+  }
+});

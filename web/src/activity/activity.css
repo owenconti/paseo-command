@@ -63,6 +63,7 @@
 
 /* The sidebar: the filters */
 .activity-sidebar {
+  position: relative;
   display: flex;
   flex-direction: column;
   min-width: 0;
@@ -153,6 +154,7 @@
 
 /* The feed */
 .activity-main {
+  position: relative;
   display: flex;
   flex-direction: column;
   min-width: 0;
