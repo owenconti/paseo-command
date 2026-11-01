@@ -299,7 +299,7 @@ export const MessageRow = memo(function MessageRow({ message, compact, highlight
             {message.pending ? "" : timeOf(message.ts).replace(/\s?[AP]M$/i, "")}
           </time>
         ) : (
-          <Avatar user={user} name={name} size={36} botIcon={message.botIconUrl} />
+          <Avatar user={user} name={name} size={36} />
         )}
       </span>
       <div className="slack-body">

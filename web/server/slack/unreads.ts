@@ -5,10 +5,12 @@
  * (100 at most) gives the unread messages from others, the mentions of you
  * among them (in DMs and group DMs every one counts). A paced queue checks one
  * conversation every 3 s (20 a minute, well inside Slack's Tier 3 50 a minute
- * per method), DMs and group DMs first, then channels by recent activity;
+ * per method), DMs and channels in turn, each by recent activity;
  * it runs only while Slack is enabled and something asked within the last few
  * minutes. Live events change the state at once. A state not yet known stays
- * undefined: never reported as 0.
+ * undefined: never reported as 0. A conversation never read (`last_read` all
+ * zeros) counts every message, unless it's a DM Slack keeps closed (not in
+ * its sidebar), which counts none.
  */
 import type { SlackConversation, SlackConversationKind, SlackMessage, SlackUnreads } from "../../src/slack/types";
 import { SlackError, slackCall, slackEnabled, slackUserToken } from "./client";
@@ -16,8 +18,8 @@ import { emitSlack, onSlackDemand, slackWanted } from "./events";
 import { isSpoken, listOf, messageOf, recOf, tsOf } from "./normalize";
 
 export const UNREADS = {
-  /** One conversation checked per interval: 20 a minute. */
-  intervalMs: 3_000,
+  /** One conversation checked per interval: 30 a minute. */
+  intervalMs: 2_000,
   /** At most this many unread messages are counted per conversation (`unreadMore` past it). */
   maxCount: 100,
   /** How long a check stays fresh: with live events, and while polling (DMs, then channels). */
@@ -61,6 +63,8 @@ let checking = false;
 let waiters: (() => void)[] = [];
 /** The queue's next turn (after a check, by it or by Activity). */
 let turnAt = 0;
+/** The last never-checked conversation the queue took was a DM: a channel's turn next. */
+let dmTurnTaken = false;
 /** Conversations whose check failed lately (not a limit or refusal), until when they're left alone. */
 const failedUntil = new Map<string, number>();
 
@@ -71,6 +75,7 @@ export function resetSlackUnreads(): void {
   selfId = "";
   pausedUntil = 0;
   turnAt = 0;
+  dmTurnTaken = false;
   failedUntil.clear();
   if (timer) clearTimeout(timer);
   if (emitTimer) clearTimeout(emitTimer);
@@ -143,12 +148,13 @@ function stateOf(e: Entry): Pick<SlackConversation, "lastRead" | "latest" | "unr
   };
 }
 
-/** Every known conversation's read state, and how many are still being checked. */
+/** Every known conversation's read state, and how many are still being checked (not those whose check failed lately). */
 export function slackUnreads(): SlackUnreads {
   const conversations: SlackUnreads["conversations"] = [];
   let pending = 0;
+  const now = Date.now();
   for (const e of entries.values()) {
-    if (!e.unread && !e.noReadState && !e.archived) pending++;
+    if (!e.unread && !e.noReadState && !e.archived && (failedUntil.get(e.id) ?? 0) <= now) pending++;
     const state = stateOf(e);
     if (Object.keys(state).length) conversations.push({ id: e.id, ...state });
   }
@@ -258,10 +264,20 @@ async function check(e: Entry): Promise<void> {
     e.noReadState = true;
     return;
   }
+  // Never read: a DM Slack keeps closed has nothing unread, as in Slack; else every message is.
+  const never = !(Number(lastRead) > 0);
+  if (never && isDm(e.kind) && info.is_open === false) {
+    e.lastRead = lastRead;
+    e.noReadState = false;
+    e.unread = [];
+    e.more = false;
+    changed();
+    return;
+  }
+  // Slack refuses a zero `oldest` (invalid_ts_oldest).
   const h = await slackCall("conversations.history", {
     channel: e.id,
-    oldest: lastRead,
-    inclusive: false,
+    ...(never ? {} : { oldest: lastRead, inclusive: false }),
     limit: UNREADS.maxCount,
   });
   const messages = listOf(h.messages)
@@ -290,7 +306,11 @@ export function setUnreadsLive(fn: () => boolean): void {
   liveNow = fn;
 }
 
-/** The next conversation to check: asked-for first, then never checked (DMs first, then by activity), then the stalest. */
+/**
+ * The next conversation to check: asked-for first, then never checked (DMs and
+ * channels in turn, each by activity, so channels aren't left until every
+ * group DM is done), then the stalest.
+ */
 export function nextToCheck(now = Date.now()): string | undefined {
   for (const id of urgent) {
     if (entries.has(id)) return id;
@@ -298,9 +318,14 @@ export function nextToCheck(now = Date.now()): string | undefined {
   }
   const all = [...entries.values()].filter((e) => !e.archived && (failedUntil.get(e.id) ?? 0) <= now);
   const byActivity = (a: Entry, b: Entry) =>
-    Number(isDm(b.kind)) - Number(isDm(a.kind)) || Number(b.latest ?? 0) - Number(a.latest ?? 0);
+    Number(b.kind === "im") - Number(a.kind === "im") || Number(b.latest ?? 0) - Number(a.latest ?? 0);
   const fresh = all.filter((e) => e.checkedAt === undefined).sort(byActivity);
-  if (fresh.length) return fresh[0].id;
+  if (fresh.length) {
+    const dms = fresh.filter((e) => isDm(e.kind));
+    const channels = fresh.filter((e) => !isDm(e.kind));
+    const next = (dmTurnTaken ? channels[0] : dms[0]) ?? dms[0] ?? channels[0];
+    return next.id;
+  }
   const live = liveNow();
   const stale = all
     .filter((e) => !e.noReadState && now - (e.checkedAt ?? 0) > freshFor(e, live))
@@ -318,6 +343,7 @@ const mayAsk = () => Date.now() >= pausedUntil && slackEnabled() && !!slackUserT
  */
 async function runCheck(e: Entry): Promise<void> {
   checking = true;
+  if (e.checkedAt === undefined) dmTurnTaken = isDm(e.kind);
   urgent.delete(e.id);
   try {
     await check(e);

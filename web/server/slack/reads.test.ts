@@ -220,6 +220,14 @@ test("a bot that posts with only its bot_id is named from bots.info, once, with 
   assert.equal((await slackAvatar("B0ALERTS")).status, 200);
 });
 
+test("a bot that posts under a username without an icon still shows its bot's avatar", async () => {
+  fake.ws.messages.push({ channel: I.random, ts: "1730000010.000300", subtype: "bot_message", bot_id: "B0ALERTS", username: "Deploys", text: "Deployed" });
+  const h = await readHistory(I.random);
+  assert.equal(h.messages.find((m) => m.botId === "B0ALERTS")!.botName, "Deploys");
+  assert.deepEqual(h.users?.map((u) => [u.id, u.isBot, !!u.avatarUrl]), [["B0ALERTS", true, true]]);
+  assert.equal((await slackAvatar("B0ALERTS")).status, 200);
+});
+
 test("a group DM with people from elsewhere: its members asked for, and named", async () => {
   // Slack names it by handles; jo and kim's aren't the workspace's.
   fake.ws.conversations.push({

@@ -86,15 +86,17 @@ function botUserOf(id: string, raw: unknown): SlackUser | null {
 }
 
 /**
- * Names the messages that came from a bot without saying its name (only a
- * `bot_id`, as many integrations post): `bots.info` once each (at most 10 a
- * read, a few at a time), kept an hour. Returns those bots, as people, for
- * their avatars.
+ * The bots that sent messages without a person behind them (a `bot_id`, as
+ * many integrations post): `bots.info` once each (at most 10 a read, a few at
+ * a time), kept an hour. Names the messages that didn't say who sent them, and
+ * returns those bots, as people, for their avatars (a message carrying only a
+ * `username` still shows its bot's icon).
  */
 export async function nameBots(messages: SlackMessage[]): Promise<SlackUser[]> {
-  const unnamed = messages.filter((m) => m.botId && !m.botName && !m.userId);
-  if (!unnamed.length) return [];
-  const ids = new Set(unnamed.map((m) => m.botId!));
+  const fromBots = messages.filter((m) => m.botId && !m.userId);
+  if (!fromBots.length) return [];
+  const unnamed = fromBots.filter((m) => !m.botName);
+  const ids = new Set(fromBots.map((m) => m.botId!));
   const now = Date.now();
   const ask = [...ids]
     .filter((id) => {

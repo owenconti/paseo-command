@@ -18,11 +18,11 @@ const initials = (name: string) =>
     .map((w) => [...w][0]?.toUpperCase() ?? "")
     .join("") || "?";
 
-/** A person's square avatar (Slack's), through the app server, else their initials on their colour. */
-export function Avatar({ user, name: shown, size = 36, botIcon }: { user?: SlackUser; name?: string; size?: number; botIcon?: string }) {
+/** A person's (or bot's) square avatar (Slack's), through the app server, else their initials on their colour. */
+export function Avatar({ user, name: shown, size = 36 }: { user?: SlackUser; name?: string; size?: number }) {
   const [broken, setBroken] = useState(false);
   const name = shown ?? user?.name ?? "Someone";
-  const src = botIcon ? undefined : user?.avatarUrl && !broken && !noAvatar.has(user.id) ? slackAvatarHref(user.id) : undefined;
+  const src = user?.avatarUrl && !broken && !noAvatar.has(user.id) ? slackAvatarHref(user.id) : undefined;
   return (
     <span
       className="slack-avatar"

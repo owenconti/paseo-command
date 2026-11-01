@@ -47,6 +47,8 @@ export type FakeConversation = {
   purpose?: { value: string };
   num_members?: number;
   last_read: string;
+  /** A DM or group DM shown in Slack's sidebar; closed ones (`false`) aren't. */
+  is_open?: boolean;
 };
 export type FakeMessage = Raw & { ts: string; channel: string; user?: string; text: string; thread_ts?: string; subtype?: string };
 export type FakeWorkspace = {
@@ -362,6 +364,8 @@ export const METHODS: Record<string, (ctx: FakeContext) => Raw> = {
   }),
   "conversations.history": ({ ws, params }) => {
     const c = conversationFor(ws, params.channel);
+    // Slack refuses a never-read conversation's last_read as a bound.
+    if (params.oldest !== undefined && !(n(params.oldest) > 0)) throw fail("invalid_ts_oldest");
     const inclusive = params.inclusive === "true";
     const latest = params.latest ? n(params.latest) : Infinity;
     const oldest = params.oldest ? n(params.oldest) : -Infinity;

@@ -41,16 +41,19 @@ async function checkAll() {
 }
 
 test("the pace stays well inside Slack's Tier 3 limit", () => {
-  // Two Tier 3 calls per check (info, then history): each method at most 20 a minute.
-  assert.ok(60_000 / UNREADS.intervalMs <= 20);
+  // Two Tier 3 calls per check (info, then history): each method at most 30 a minute, of Slack's 50.
+  assert.ok(60_000 / UNREADS.intervalMs <= 30);
 });
 
-test("counts unread messages from others and mentions of you, DMs and group DMs first", async () => {
+test("counts unread messages from others and mentions of you, DMs and channels in turn", async () => {
   await readWorkspace();
   assert.equal(slackUnreads().pending, 5);
   assert.deepEqual(slackUnreads().conversations, []);
   const order = await checkAll();
-  assert.deepEqual(order.slice(0, 2).sort(), [I.dm, I.group]);
+  // The DM first, then a channel, the group DM, and the other channels.
+  const dms = [I.dm, I.group];
+  assert.deepEqual(order.map((id) => dms.includes(id)), [true, false, true, false, false]);
+  assert.equal(order[0], I.dm);
   assert.equal(order.length, 5);
   assert.equal(slackUnreads().pending, 0);
   // #general: Sam's mention and CI's message (the channel join and the thread replies don't count).
@@ -62,6 +65,9 @@ test("counts unread messages from others and mentions of you, DMs and group DMs 
   assert.deepEqual(state(I.group), { id: I.group, lastRead: T.group2, latest: T.group2, unread: 0, mentions: 0 });
   const history = fake.calls.find((c) => c.method === "conversations.history" && c.params.channel === I.general)!.params;
   assert.deepEqual([history.oldest, history.limit, history.inclusive], [T.image, "100", "false"]);
+  // Never read: no `oldest` (Slack refuses all zeros), every message counted.
+  const never = fake.calls.find((c) => c.method === "conversations.history" && c.params.channel === I.secret)!.params;
+  assert.deepEqual([never.oldest, never.inclusive], [undefined, undefined]);
   // The workspace now carries the counts.
   const ws = await readWorkspace();
   assert.equal(ws.conversations.find((c) => c.id === I.dm)!.unread, 2);
@@ -187,4 +193,18 @@ test("Activity's checks keep the queue's lock and pause, go past a failing conve
   }) as typeof fetch;
   await Promise.all([tickSlackUnreads(), ensureLastRead([I.general, I.random, I.secret])]);
   assert.equal(most, 1);
+});
+
+test("a never-read DM Slack keeps closed has nothing unread; a failing check stops counting as pending", async () => {
+  const sam = fake.ws.conversations.find((c) => c.id === I.dm)!;
+  sam.last_read = "0000000000.000000";
+  sam.is_open = false;
+  await readWorkspace();
+  fake.ws.conversations = fake.ws.conversations.filter((c) => c.id !== I.general);
+  await checkAll();
+  assert.deepEqual(state(I.dm), { id: I.dm, lastRead: "0000000000.000000", latest: T.dm2, unread: 0, mentions: 0 });
+  assert.equal(fake.calls.filter((c) => c.method === "conversations.history" && c.params.channel === I.dm).length, 0);
+  // #general's check failed (channel_not_found): it's left alone, and the sidebar stops waiting on it.
+  assert.equal(state(I.general), undefined);
+  assert.equal(slackUnreads().pending, 0);
 });

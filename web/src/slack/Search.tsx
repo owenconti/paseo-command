@@ -24,7 +24,7 @@ function Hit({ hit, onOpen }: { hit: SlackSearchHit; onOpen: () => void }) {
           {hit.threadTs && hit.threadTs !== hit.ts && <span className="slack-hit-thread">in a thread</span>}
         </span>
         <span className="slack-hit-main">
-          <Avatar user={user} name={hit.botName ?? user?.name} size={28} botIcon={hit.botIconUrl} />
+          <Avatar user={user} name={hit.botName ?? user?.name} size={28} />
           <span className="slack-hit-body">
             <span className="slack-head">
               <b className="slack-name">{hit.botName ?? user?.name ?? "Someone"}</b>
