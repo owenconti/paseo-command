@@ -4,11 +4,11 @@
  * (rendering/src/prStatus.ts names them). The Paseo
  * app shows them, and the Atlas plants a flag for each.
  *
- * - The PR is Paseo's (the workspace row's `pr`), else, for a checkout on
- *   this machine, gh's (read-only `gh pr view`, cached in server/links.ts).
+ * - The PR is Paseo's (the workspace row's `pr`), else GitHub's for the
+ *   branch in the workspace's repository (the GitHub token; cached in server/links.ts).
  * - Only a definite answer removes labels: no PR, merged or closed. A lookup
- *   that fails, or can't be made (a remote checkout Paseo can't tell about),
- *   and a stale host's rows, leave the labels as they are.
+ *   that fails, or can't be made (no GitHub token, no GitHub remote), and a
+ *   stale host's rows, leave the labels as they are.
  * - The seven names are the labeller's: a pass sets them as GitHub says,
  *   whoever changed them. Every other label is left alone.
  * - Only changes are sent. A label already in the host's catalog keeps the
@@ -16,7 +16,7 @@
  */
 import { PR_LABELS, labelKey as key } from "../../rendering/src/prStatus";
 import type { DaemonClient } from "./api/hosts";
-import { BASE_BRANCHES, ghPullRequest, type GhAnswer, type PullRequest } from "./links";
+import { BASE_BRANCHES, githubPullRequest, type PrAnswer, type PullRequest } from "./links";
 
 type LabelColor = Parameters<DaemonClient["setWorkspaceLabel"]>[0]["label"]["color"];
 
@@ -47,15 +47,16 @@ export type LabelRow = {
   workspaceId: string;
   /** Its host's serverId; absent for this machine's daemon. */
   host?: string;
-  cwd?: string;
   branch?: string;
+  /** Its repository's GitHub page, from the checkout's remote. */
+  repo?: string;
   pr?: PullRequest | null;
   labels?: string[];
   stale?: boolean;
 };
 export type LabellerDeps = {
   rows(): Promise<LabelRow[]>;
-  gh(cwd: string, branch: string): Promise<GhAnswer>;
+  pr(repo: string, branch: string): Promise<PrAnswer>;
   catalog(host: string | undefined): Promise<{ name: string; color: string }[]>;
   setLabel(
     host: string | undefined,
@@ -73,8 +74,8 @@ export function createPrLabeller(deps: LabellerDeps) {
     const branch = (row.branch ?? "").trim();
     if (BASE_BRANCHES.test(branch)) return null;
     if (row.pr !== undefined) return row.pr;
-    if (row.host || !row.cwd) return undefined;
-    const answer = await deps.gh(row.cwd, branch);
+    if (!row.repo) return undefined;
+    const answer = await deps.pr(row.repo, branch);
     return answer.available ? answer.pr : undefined;
   }
   async function pass(): Promise<void> {
@@ -135,7 +136,7 @@ function appDeps(): LabellerDeps {
       const { aggregate } = await import("./api/reads");
       return (await aggregate("workspaces")).rows as LabelRow[];
     },
-    gh: (cwd, branch) => ghPullRequest(cwd, branch),
+    pr: (repo, branch) => githubPullRequest(repo, branch),
     catalog: async (host) => {
       const [{ labelCatalog }, { resolveHost }] = await Promise.all([
         import("./api/reads"),

@@ -3,11 +3,11 @@
  * issue (src/HeaderLinks.tsx draws them).
  *
  * - The PR is Paseo's (the workspace row's `pr`); when Paseo can't tell, the
- *   server asks `gh` (GET /api/pull-request). PR lookups refresh every 15
+ *   server asks GitHub with the GitHub token (GET /api/pull-request). PR lookups refresh every 15
  *   seconds and never hold up the header.
  * - Its CI checks come with it. Its merge queue standing is Paseo's two flags
  *   (uses a queue, is in it); the entry's state and position are asked of
- *   the server (gh, GET /api/merge-queue) for checkouts on this machine.
+ *   the server (GitHub, GET /api/merge-queue), with the GitHub token.
  * - The Linear key comes from the branch, else the PR's title or body, else
  *   the agent's title. Its link needs the Linear workspace's URL slug, a
  *   one-time setting kept in settings.json with the app's other settings.
@@ -245,7 +245,7 @@ export function resetLinkCache() {
 
 /**
  * The workspace's PR: Paseo's answer when the row has one, else the
- * server's (gh, for a checkout on this machine). Null while unknown.
+ * server's (GitHub's, with the GitHub token). Null while unknown.
  */
 export function usePullRequest(workspace?: Workspace): PullRequest | null {
   const branch = workspace?.branch ?? "";

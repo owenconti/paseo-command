@@ -10,6 +10,7 @@ const KEYS = {
   typesafe: "typesafeApiKey",
   slack: "slackUserToken",
   slackApp: "slackAppToken",
+  github: "githubToken",
 } as const satisfies Record<string, SecretName>;
 
 /** A credential from secrets.json, only while its integration is enabled ("slackApp" is Slack's Socket Mode token). */

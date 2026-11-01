@@ -1,6 +1,6 @@
 /**
  * Probe's verdict from GitHub's GraphQL answer, and which workspaces get one.
- * Pure parsing and fakes only; nothing runs gh or reaches GitHub.
+ * Pure parsing and fakes only; nothing reaches GitHub.
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -112,17 +112,37 @@ test("verdicts are keyed by host and workspace, for open PRs only", async () => 
     { workspaceId: "w2", host: "srv", branch: "feat/b", pr: pr("https://github.com/a/b/pull/2", "draft") },
     { workspaceId: "w3", branch: "feat/c", pr: pr("https://github.com/a/b/pull/3", "merged") },
     { workspaceId: "w4", branch: "main", pr: pr("https://github.com/a/b/pull/4") },
-    { workspaceId: "w5", branch: "feat/e", cwd: "/repo" },
-    { workspaceId: "w6", host: "srv", branch: "feat/f", cwd: "/repo" },
+    { workspaceId: "w5", branch: "feat/e", repo: "https://github.com/a/b" },
+    { workspaceId: "w6", host: "srv", branch: "feat/f", repo: "https://github.com/a/b" },
+    { workspaceId: "w8", branch: "feat/h" },
     { workspaceId: "w7", branch: "feat/g", pr: null },
   ];
   const asked: string[] = [];
   const out = await probeVerdicts({
     rows: async () => rows,
-    pr: async (cwd, branch) => (asked.push(`${cwd} ${branch}`), pr("https://github.com/a/b/pull/5")),
+    pr: async (repo, branch) => (asked.push(`${repo} ${branch}`), pr("https://github.com/a/b/pull/5")),
     probe: async (url) => (url.endsWith("/1") ? null : { state: "approved" }),
   });
-  assert.deepEqual(out, { "srv:w2": { state: "approved" }, "local:w5": { state: "approved" } });
-  // gh is asked only for a local checkout Paseo can't tell about.
-  assert.deepEqual(asked, ["/repo feat/e"]);
+  assert.deepEqual(out, { "srv:w2": { state: "approved" }, "local:w5": { state: "approved" }, "srv:w6": { state: "approved" } });
+  // GitHub is asked only for a workspace with a GitHub remote that Paseo can't tell about, on any host.
+  assert.deepEqual(asked.sort(), ["https://github.com/a/b feat/e", "https://github.com/a/b feat/f"]);
+});
+
+test("Probe is asked of GitHub with the token, and not at all without one", async () => {
+  const { githubProbe } = await import("./probe");
+  const { installGithubApi } = await import("./githubFake");
+  const off = installGithubApi(() => ({ json: {} }), { token: null });
+  try {
+    assert.equal(await githubProbe("https://github.com/a/b/pull/9"), undefined);
+    assert.equal(off.calls.length, 0);
+  } finally {
+    off.restore();
+  }
+  const fake = installGithubApi(() => ({ json: { data: { repository: { pullRequest: { state: "MERGED" } } } } }));
+  try {
+    assert.equal(await githubProbe("https://github.com/a/b/pull/10"), null);
+    assert.deepEqual((fake.calls[0]!.body as { variables: unknown }).variables, { owner: "a", name: "b", number: 10 });
+  } finally {
+    fake.restore();
+  }
 });

@@ -1,8 +1,8 @@
 import { TUNING } from "../fleet";
 import {
   BASE_BRANCHES,
-  ghMergeQueue,
-  ghPullRequest,
+  githubMergeQueue,
+  githubPullRequest,
   linearIssue,
   type PullRequest,
 } from "../links";
@@ -99,10 +99,9 @@ export async function renameWorkspace(rawId: string, body: Body, mark: Mark) {
 
 /**
  * `GET /api/pull-request?workspace=<id>[&host=<id>]`: the workspace's PR.
- * Paseo's own answer when it has one (the row's `pr`); otherwise, for a
- * checkout on this machine, a read-only `gh pr view` (server/links.ts).
- * Remote checkouts gh can't reach are skipped. Never fails for a lookup:
- * no PR, or none knowable, is `pr: null`.
+ * Paseo's own answer when it has one (the row's `pr`); otherwise GitHub's,
+ * for the branch in the workspace's repository (server/links.ts; needs the
+ * GitHub token). Never fails for a lookup: no PR, or none knowable, is `pr: null`.
  */
 export async function pullRequestFor(rawId: string | null, rawHost: unknown) {
   const { host, ws } = await workspaceRowFor(rawId, rawHost);
@@ -112,9 +111,8 @@ export async function pullRequestFor(rawId: string | null, rawHost: unknown) {
     return { source: "none", available: true, pr: null };
   if (ws.pr !== undefined)
     return { source: "paseo", available: true, pr: ws.pr };
-  if (host || !ws.cwd) return { source: "none", available: false, pr: null };
-  const r = await ghPullRequest(ws.cwd, branch);
-  return { source: r.available ? "gh" : "none", ...r };
+  const r = await githubPullRequest(ws.repo, branch);
+  return { source: r.available ? "github" : "none", ...r };
 }
 
 async function workspaceRowFor(rawId: string | null, rawHost: unknown) {
@@ -126,6 +124,7 @@ async function workspaceRowFor(rawId: string | null, rawHost: unknown) {
     host?: string;
     cwd?: string;
     branch?: string;
+    repo?: string;
     pr?: PullRequest | null;
   }[];
   const ws = rows.find(
@@ -138,22 +137,22 @@ async function workspaceRowFor(rawId: string | null, rawHost: unknown) {
 
 /**
  * `GET /api/merge-queue?workspace=<id>[&host=<id>]`: the merge queue
- * standing and current state of the workspace's PR (Paseo's, else gh's), from a
- * read-only `gh api graphql` query in a checkout on this machine. Remote
- * checkouts are skipped (`available: false`; the row's own `pr.queue`, from
- * Paseo, stands). Never fails for a lookup.
+ * standing and current state of the workspace's PR (Paseo's, else GitHub's),
+ * from a read-only GraphQL query (needs the GitHub token; without it
+ * `available: false`, and the row's own `pr.queue`, from Paseo, stands).
+ * Never fails for a lookup.
  */
 export async function mergeQueueFor(rawId: string | null, rawHost: unknown) {
-  const { host, ws } = await workspaceRowFor(rawId, rawHost);
-  if (!ws || host || !ws.cwd) return { available: false, queue: null };
+  const { ws } = await workspaceRowFor(rawId, rawHost);
+  if (!ws) return { available: false, queue: null };
   const branch = ws.branch || "";
   if (BASE_BRANCHES.test(branch.trim()))
     return { available: true, queue: null };
   const pr =
-    ws.pr !== undefined ? ws.pr : (await ghPullRequest(ws.cwd, branch)).pr;
+    ws.pr !== undefined ? ws.pr : (await githubPullRequest(ws.repo, branch)).pr;
   // Refresh every known PR, including closed/merged ones that may reopen.
   if (!pr) return { available: true, queue: null };
-  return ghMergeQueue(ws.cwd, pr.url);
+  return githubMergeQueue(pr.url);
 }
 
 /** `GET /api/linear-issue?key=ABC-123`: title and state, when Linear is enabled and configured. */

@@ -33,7 +33,7 @@ export const SOURCES: Record<ActivitySource, ActivitySourceDef> = {
 };
 const ORDER: ActivitySource[] = ["github", "linear", "slack"];
 
-/** A source's failure in words: its own message (a SlackError's, a LinearError's, gh's), else a plain one. */
+/** A source's failure in words: its own message (a SlackError's, a LinearError's, a GithubApiError's), else a plain one. */
 export function reasonOf(source: ActivitySource, e: unknown): string {
   const message = e && typeof e === "object" && "message" in e ? (e as { message?: unknown }).message : undefined;
   return typeof message === "string" && message.trim() ? message.trim().slice(0, 300) : `${SOURCE_NAMES[source]} didn't answer.`;

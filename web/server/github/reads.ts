@@ -1,11 +1,11 @@
 /**
- * The GitHub tab's named reads, each one gh call (a PR's further file pages
- * aside), shaped defensively into `web/src/github/types.ts`:
+ * The GitHub tab's named reads, each one GitHub API call (a PR's further file
+ * pages aside), shaped defensively into `web/src/github/types.ts`:
  *
- *   viewer             who gh is signed in as
+ *   viewer             whose the token is, and the scopes it lacks
  *   prs?scope=…        open PRs: review requested from you, yours, or involving you (50, newest first)
  *   pr?repo=&number=   one PR: body, files (viewed or not), conversation, threads, commits, checks, reviewers
- *   diff?repo=&number= its diff, parsed (`gh pr diff`; GitHub's file patches when the diff is too large for it)
+ *   diff?repo=&number= its diff, parsed (GitHub's diff media type; its file patches when the diff is too large for it)
  */
 import { parseUnifiedDiff } from "../../src/github/diff";
 import {
@@ -28,7 +28,8 @@ import {
   type Viewer,
   type YourReview,
 } from "../../src/github/types";
-import { cached, gh, GITHUB_TAB, graphql, GithubTabError, tabFailure } from "./client";
+import { GithubApiError, githubGraphql as graphql, githubPaged, githubRest, githubText, missingScopes } from "../githubApi";
+import { cached } from "./client";
 
 type Raw = Record<string, unknown>;
 const rec = (v: unknown): Raw => (v && typeof v === "object" && !Array.isArray(v) ? (v as Raw) : {});
@@ -132,12 +133,14 @@ export function rowOf(v: unknown): PrRow | null {
 }
 
 // ── viewer ───────────────────────────────────────────────────────────────────
+/** Whose the token is (REST `GET user`, whose `X-OAuth-Scopes` says what the token may do). */
 export function readViewer(fresh = false): Promise<Viewer> {
   return cached("viewer", fresh, async () => {
-    const data = await graphql("query { viewer { login name avatarUrl } }");
-    const viewer = personOf(data.viewer);
-    if (!viewer) throw new GithubTabError("signed-out", "gh isn't signed in to GitHub.");
-    return { viewer };
+    const { data, headers } = await githubRest<Raw>("GET", "user");
+    const viewer = personOf({ login: rec(data).login, name: rec(data).name, avatarUrl: rec(data).avatar_url });
+    if (!viewer) throw new GithubApiError("failed", "GitHub didn't say whose the token is.");
+    const missing = missingScopes(headers);
+    return { viewer, ...(missing.length ? { missingScopes: missing } : {}) };
   });
 }
 
@@ -156,7 +159,7 @@ export function readPrs(scope: PrScope, fresh = false): Promise<PrList> {
   return cached(`prs:${scope}`, fresh, async () => {
     const data = await graphql(PRS_QUERY, { q: SCOPE_QUERY[scope] });
     const viewer = personOf(data.viewer);
-    if (!viewer) throw new GithubTabError("signed-out", "gh isn't signed in to GitHub.");
+    if (!viewer) throw new GithubApiError("failed", "GitHub didn't say whose the token is.");
     const rows = nodes(data.search)
       .map(rowOf)
       .filter((r): r is PrRow => r !== null)
@@ -380,23 +383,17 @@ export function readPr(repo: string, number: number, fresh = false): Promise<PrD
       page = rec(rec(more.files).pageInfo);
     }
     const detail = detailOf(p, extra);
-    if (!detail) throw new GithubTabError("failed", `GitHub has no pull request #${number} in ${repo}, or gh's sign-in can't see it.`);
+    if (!detail) throw new GithubApiError("not-found", `GitHub has no pull request #${number} in ${repo}, or the token can't see it.`);
     return detail;
   });
 }
 
 // ── diff ─────────────────────────────────────────────────────────────────────
-/** GitHub's REST file list (`pulls/:n/files`, one JSON object a line) as diff files, from their patches. */
-export function filesFromPatches(lines: string): DiffFile[] {
+/** GitHub's REST file list (`pulls/:n/files`) as diff files, from their patches. */
+export function filesFromPatches(list: unknown[]): DiffFile[] {
   const files: DiffFile[] = [];
-  for (const line of lines.split("\n")) {
-    if (!line.trim()) continue;
-    let f: Raw;
-    try {
-      f = rec(JSON.parse(line));
-    } catch {
-      continue;
-    }
+  for (const raw of list) {
+    const f = rec(raw);
     const path = str(f.filename);
     if (!path) continue;
     const old = str(f.previous_filename);
@@ -424,32 +421,32 @@ export function filesFromPatches(lines: string): DiffFile[] {
   return files;
 }
 
-/** Whether gh refused the diff as too large for GitHub to make (HTTP 406, or its words for it). */
-const diffTooLargeForGithub = (e: unknown) => {
-  const err = e as { stderr?: unknown; stdout?: unknown; message?: unknown };
-  return /too_large|too large|exceeded the maximum|maximum number|HTTP 406/i.test(`${str(err?.stderr)} ${str(err?.stdout)} ${str(err?.message)}`);
-};
+/** GitHub refused to make the diff as too large (406, or its words for it). */
+const diffTooLargeForGithub = (e: unknown) =>
+  e instanceof GithubApiError && (e.status === 406 || /too_large|too large|exceeded the maximum|maximum number/i.test(e.message));
+
+/** GitHub lists at most 3,000 of a PR's files. */
+export const MAX_PATCH_FILES = 3000;
 
 export function readDiff(repo: string, number: number, fresh = false): Promise<PrDiff> {
   return cached(diffKey(repo, number), fresh, async () => {
     try {
-      return parseUnifiedDiff(await GITHUB_TAB.run(["pr", "diff", String(number), "-R", repo, "--color", "never"]));
+      return parseUnifiedDiff(await githubText(`repos/${repo}/pulls/${number}`, "application/vnd.github.diff"));
     } catch (e) {
-      if (!diffTooLargeForGithub(e)) throw tabFailure(e);
+      if (!diffTooLargeForGithub(e)) throw e;
     }
-    const out = await gh(["api", "--paginate", `repos/${repo}/pulls/${number}/files?per_page=100`, "--jq", ".[]"]);
-    // GitHub lists at most 3,000 files.
-    return { files: filesFromPatches(out), tooLarge: true };
+    const list = await githubPaged<unknown>(`repos/${repo}/pulls/${number}/files?per_page=100`, MAX_PATCH_FILES);
+    return { files: filesFromPatches(list), tooLarge: true };
   });
 }
 
 // ── Parameters ───────────────────────────────────────────────────────────────
 /** A `repo` and `number` query, checked; nothing else may be given (but `fresh=1`). */
 export function prParams(params: URLSearchParams): { repo: string; number: number } {
-  for (const k of params.keys()) if (!["repo", "number", "fresh"].includes(k)) throw new GithubTabError("invalid", `Unexpected parameter ${k}`);
+  for (const k of params.keys()) if (!["repo", "number", "fresh"].includes(k)) throw new GithubApiError("invalid", `Unexpected parameter ${k}`);
   const repo = params.get("repo") ?? "";
   const n = params.get("number") ?? "";
-  if (!REPO.test(repo) || repo.includes("..")) throw new GithubTabError("invalid", "Name the repository: repo=owner/name");
-  if (!/^[1-9]\d{0,8}$/.test(n)) throw new GithubTabError("invalid", "Name the pull request: number");
+  if (!REPO.test(repo) || repo.includes("..")) throw new GithubApiError("invalid", "Name the repository: repo=owner/name");
+  if (!/^[1-9]\d{0,8}$/.test(n)) throw new GithubApiError("invalid", "Name the pull request: number");
   return { repo, number: Number(n) };
 }

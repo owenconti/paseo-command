@@ -1,5 +1,5 @@
 /**
- * Unified diffs (`git diff`, `gh pr diff`) as the daemon's parsed shape
+ * Unified diffs (`git diff`, GitHub's pull request diffs) as the daemon's parsed shape
  * (`DiffFile`), and the line numbers the views need. Pure: the server parses
  * PR diffs with it; the page numbers both kinds.
  */

@@ -45,7 +45,7 @@ export type ActivitySourceStatus = {
   source: ActivitySource;
   /** On in settings. */
   enabled: boolean;
-  /** Answered this time; false with `reason` when it couldn't (no key, gh not signed in, rate limited). */
+  /** Answered this time; false with `reason` when it couldn't (no key or token, rate limited). */
   ok: boolean;
   reason?: string;
   /** Unread items from it. */

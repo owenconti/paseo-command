@@ -146,19 +146,19 @@ test("the route answers the feed and the writes, and nothing else", async () => 
 test("the real sources contact nothing while their integrations are off", async () => {
   Object.assign(SOURCES, real);
   enable({});
-  const { GITHUB_ACTIVITY } = await import("./github");
+  const { GITHUB_API } = await import("../githubApi");
   const { LINEAR } = await import("../links");
-  const run = GITHUB_ACTIVITY.run;
+  const run = GITHUB_API.fetch;
   const fetch = LINEAR.fetch;
   let contacted = 0;
-  GITHUB_ACTIVITY.run = async () => (contacted++, "[]");
+  GITHUB_API.fetch = async () => (contacted++, new Response("[]"));
   LINEAR.fetch = (async () => (contacted++, new Response("{}"))) as typeof LINEAR.fetch;
   try {
     const feed = await activityFeed(true);
     assert.equal(contacted, 0);
     assert.ok(feed.sources.every((s) => !s.enabled));
   } finally {
-    GITHUB_ACTIVITY.run = run;
+    GITHUB_API.fetch = run;
     LINEAR.fetch = fetch;
   }
 });

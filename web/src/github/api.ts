@@ -30,7 +30,7 @@ export function githubWrite<N extends GithubWriteName>(name: N, input: GithubWri
   return transport(`github/m/${name}`, input) as Promise<GithubWriteResult>;
 }
 
-/** Whether a read answered "not now" (off, gh missing or signed out, not a checkout) instead of with data. */
+/** Whether a read answered "not now" (off, no GitHub token, not a checkout) instead of with data. */
 export function isUnavailable(value: unknown): value is GithubUnavailable {
   return typeof value === "object" && value !== null && (value as { available?: unknown }).available === false;
 }

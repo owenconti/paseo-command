@@ -166,7 +166,7 @@ export async function handleApi(
   if (url.pathname.startsWith("/api/slack/")) return slackRoute(req, url, res, reply);
   // The Activity tab: GitHub, Linear and Slack notifications in one feed, never the daemon.
   if (url.pathname === "/api/activity" || url.pathname.startsWith("/api/activity/")) return activityRoute(req, url, reply);
-  // The GitHub tab: named reads and whitelisted writes through the user's gh sign-in, never the daemon.
+  // The GitHub tab: named reads and whitelisted writes with the user's GitHub token, never the daemon.
   if (url.pathname.startsWith("/api/github/")) return githubRoute(req, url, reply);
   // The mini games' record: this app's own file, never the daemon.
   if (url.pathname === "/api/games" || url.pathname.startsWith("/api/games/"))

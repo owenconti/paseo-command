@@ -9,7 +9,7 @@ import {
 import { join } from "node:path";
 import { dataDir } from "./subagentArchive";
 
-export const SECRET_NAMES = ["linearApiKey", "typesafeApiKey", "slackUserToken", "slackAppToken"] as const;
+export const SECRET_NAMES = ["linearApiKey", "typesafeApiKey", "slackUserToken", "slackAppToken", "githubToken"] as const;
 export type SecretName = (typeof SECRET_NAMES)[number];
 export const secretsFile = () => join(dataDir(), "secrets.json");
 const UNREADABLE =

@@ -41,7 +41,7 @@ test("secrets: save, replace and remove one key without returning it or touching
   });
   assert.equal(saved.status, 200);
   assert.deepEqual(saved.data, {
-    configured: { linearApiKey: true, typesafeApiKey: true, slackUserToken: false, slackAppToken: false },
+    configured: { linearApiKey: true, typesafeApiKey: true, slackUserToken: false, slackAppToken: false, githubToken: false },
     error: null,
   });
   assert.equal(readSecret("linearApiKey"), "test-first-key");
@@ -70,7 +70,7 @@ test("secrets: save, replace and remove one key without returning it or touching
 
 test("secrets: create an owner-only file and reject invalid updates without echoing input", async () => {
   assert.deepEqual((await get("secrets")).data, {
-    configured: { linearApiKey: false, typesafeApiKey: false, slackUserToken: false, slackAppToken: false },
+    configured: { linearApiKey: false, typesafeApiKey: false, slackUserToken: false, slackAppToken: false, githubToken: false },
     error: null,
   });
   assert.equal(

@@ -9,7 +9,7 @@ import { randomUUID } from "node:crypto";
 import { rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { GITHUB_TAB } from "./github/client";
+import { GITHUB_API } from "./githubApi";
 import { SLACK } from "./slack/client";
 
 const root = join(tmpdir(), `paseo-command-test-${randomUUID()}`);
@@ -26,7 +26,7 @@ SLACK.fetch = (async () => {
 SLACK.connect = () => {
   throw new Error("Tests never reach Slack: install the fake Slack (installFakeSlack).");
 };
-// Tests never reach GitHub through the GitHub tab's gh unless a test installs the fake (`github/fake.ts`).
-GITHUB_TAB.run = async () => {
-  throw new Error("Tests never reach GitHub: install the fake gh (installFakeGithub).");
+// Tests never reach GitHub's API unless a test installs the fake (`githubFake.ts`).
+GITHUB_API.fetch = async () => {
+  throw new Error("Tests never reach GitHub: install the fake GitHub API (installGithubApi).");
 };

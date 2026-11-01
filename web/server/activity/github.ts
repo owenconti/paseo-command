@@ -1,9 +1,9 @@
 /**
- * Activity's GitHub source: your notifications, through gh (`gh api
- * /notifications`, the user's own gh sign-in), only while `integrations.github`
- * is on. Unread ones and those read in the last 14 days, at most 100, kept
+ * Activity's GitHub source: your notifications, from GitHub's API with the
+ * GitHub token (`githubApi.ts`: `GET /notifications`), only while
+ * `integrations.github` is on. Unread ones and those read in the last 14 days, at most 100, kept
  * for `GITHUB_ACTIVITY.ttlMs`; each pull request's or issue's state is asked
- * for in one GraphQL query alongside, and left out when gh can't answer it.
+ * for in one GraphQL query alongside, and left out when GitHub can't answer it.
  * Writes: read (`PATCH /notifications/threads/:id`) and done (`DELETE`).
  * GitHub can't mark a notification unread. GitHub's list (`all=true`) still
  * has threads marked done, as read ones, so those done here are kept in the
@@ -12,10 +12,9 @@
  */
 import { randomUUID } from "node:crypto";
 import { mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
-import { homedir } from "node:os";
 import { join } from "node:path";
 import type { ActivityItem, ActivityWriteName } from "../../src/activity/types";
-import { gh } from "../links";
+import { githubGraphql, githubRest } from "../githubApi";
 import { dataDir } from "../subagentArchive";
 
 export const GITHUB_ACTIVITY = {
@@ -23,41 +22,13 @@ export const GITHUB_ACTIVITY = {
   days: 14,
   perPage: 50,
   max: 100,
-  /** Runs gh with these arguments and answers its output (tests put a fake here). */
-  run: (args: string[]): Promise<string> => gh(homedir(), args),
 };
-
-export class GithubActivityError extends Error {
-  kind: "no-gh" | "signed-out" | "failed";
-  constructor(kind: GithubActivityError["kind"], message: string) {
-    super(message);
-    this.name = "GithubActivityError";
-    this.kind = kind;
-  }
-}
-
-export const SIGNED_OUT = "Sign in with gh auth login to see GitHub notifications.";
-export const NO_GH = "Install the GitHub CLI (gh) and sign in with gh auth login to see GitHub notifications.";
-export const NO_SCOPE = "gh's sign-in can't read notifications: run gh auth refresh -s notifications.";
 
 type Raw = Record<string, unknown>;
 const rec = (v: unknown): Raw => (v && typeof v === "object" && !Array.isArray(v) ? (v as Raw) : {});
 const str = (v: unknown) => (typeof v === "string" ? v : "");
 const clip = (s: string, n: number) => (s.length > n ? `${s.slice(0, n - 1)}…` : s);
 const SLUG = /^[\w.-]{1,100}$/;
-
-/** What gh's failure means, in words for the sidebar. */
-export function ghFailure(e: unknown): GithubActivityError {
-  if (e instanceof GithubActivityError) return e;
-  const err = e as { code?: unknown; stderr?: unknown; message?: unknown };
-  if (err?.code === "ENOENT") return new GithubActivityError("no-gh", NO_GH);
-  const text = `${str(err?.stderr)} ${str(err?.message)}`;
-  if (/gh auth login|not logged in|authentication|HTTP 401|Bad credentials/i.test(text))
-    return new GithubActivityError("signed-out", SIGNED_OUT);
-  if (/HTTP 403|HTTP 404|Resource not accessible|scope/i.test(text)) return new GithubActivityError("failed", NO_SCOPE);
-  if (/timed? ?out|ETIMEDOUT|SIGTERM/i.test(text)) return new GithubActivityError("failed", "GitHub didn't answer in time.");
-  return new GithubActivityError("failed", "GitHub didn't answer.");
-}
 
 /** A notification's subject as Activity's: pull, issue, release, discussion, commit, check, else alert. */
 export function subjectKind(type: string): string {
@@ -114,7 +85,7 @@ export function subjectUrl(apiUrl: string, type: string, repo?: string): string 
 /** The subject's number (a pull request's, an issue's, a discussion's), from its API address. */
 const subjectNumber = (apiUrl: string) => /\/(?:pulls|issues|discussions)\/(\d+)$/.exec(apiUrl)?.[1];
 
-/** One of gh's notifications as an Activity item; null without an id. */
+/** One of GitHub's notifications as an Activity item; null without an id. */
 export function githubItem(raw: unknown): ActivityItem | null {
   const n = rec(raw);
   const id = str(n.id);
@@ -234,24 +205,11 @@ const repoOf = (item: ActivityItem) => {
 async function gather(): Promise<ActivityItem[]> {
   const since = new Date(Date.now() - GITHUB_ACTIVITY.days * 86_400_000).toISOString();
   const page = async (n: number) => {
-    let out: string;
-    try {
-      out = await GITHUB_ACTIVITY.run([
-        "api",
-        "-X",
-        "GET",
-        `/notifications?all=true&since=${encodeURIComponent(since)}&per_page=${GITHUB_ACTIVITY.perPage}&page=${n}`,
-      ]);
-    } catch (e) {
-      throw ghFailure(e);
-    }
-    let list: unknown;
-    try {
-      list = JSON.parse(out);
-    } catch {
-      throw new GithubActivityError("failed", "GitHub's answer couldn't be read.");
-    }
-    return Array.isArray(list) ? list : [];
+    const { data } = await githubRest<unknown>(
+      "GET",
+      `notifications?all=true&since=${encodeURIComponent(since)}&per_page=${GITHUB_ACTIVITY.perPage}&page=${n}`,
+    );
+    return Array.isArray(data) ? data : [];
   };
   const raw: unknown[] = [];
   for (let n = 1; raw.length < GITHUB_ACTIVITY.max; n++) {
@@ -267,18 +225,10 @@ async function gather(): Promise<ActivityItem[]> {
   const refs = items.map(repoOf).filter((r) => r !== null);
   const query = stateQuery(refs);
   if (query) {
-    let out: string | undefined;
-    try {
-      out = await GITHUB_ACTIVITY.run(["api", "graphql", "-f", `query=${query}`]);
-    } catch (e) {
-      // GraphQL errors for some items (a deleted repo, no access) make gh exit non-zero, but the
-      // others' data is still in its output: use what's there.
-      const stdout = (e as { stdout?: unknown })?.stdout;
-      out = typeof stdout === "string" && stdout.trim() ? stdout : undefined;
-    }
     let answer: unknown;
     try {
-      answer = out === undefined ? undefined : JSON.parse(out);
+      // Errors for some items (a deleted repo, no access) still leave the others' data.
+      answer = { data: await githubGraphql(query) };
     } catch {
       // Without states.
     }
@@ -294,7 +244,7 @@ async function gather(): Promise<ActivityItem[]> {
   return items;
 }
 
-/** Your GitHub notifications as Activity items; throws a GithubActivityError when gh can't answer. */
+/** Your GitHub notifications as Activity items; throws a GithubApiError (off, no token, refused…) when GitHub can't answer. */
 export async function readGithubActivity(fresh = false): Promise<ActivityItem[]> {
   const now = Date.now();
   if (fresh || !cache || now - cache.at >= GITHUB_ACTIVITY.ttlMs) {
@@ -325,9 +275,9 @@ export async function writeGithubActivity(
     items.map(async (item) => {
       if (!/^\d{1,30}$/.test(item.id)) return void failed.push({ key: item.key, error: "Not a GitHub notification." });
       try {
-        await GITHUB_ACTIVITY.run(["api", "-X", name === "read" ? "PATCH" : "DELETE", `/notifications/threads/${item.id}`]);
+        await githubRest(name === "read" ? "PATCH" : "DELETE", `notifications/threads/${item.id}`);
       } catch (e) {
-        failed.push({ key: item.key, error: ghFailure(e).message });
+        failed.push({ key: item.key, error: e instanceof Error ? e.message : "GitHub didn't answer." });
         return;
       }
       // What GitHub now has, without asking it again (its list can lag behind).

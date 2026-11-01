@@ -11,6 +11,7 @@ import { openPresetEditor, usePresets } from "./presetsStore";
 import { openProfileEditor } from "./profilesStore";
 import { api, errorMessage } from "./api";
 import { SlackAppSetup } from "./slack/SlackAppSetup";
+import { GithubTokenSetup } from "./GithubTokenSetup";
 import { ApiKeySetting, type SecretStatus } from "./ApiKeySetting";
 
 /**
@@ -332,7 +333,7 @@ function IntegrationSettings() {
           [
             "github",
             "GitHub",
-            "Pull requests to review and your workspaces' changes in the GitHub tab, and notifications in Activity, through gh.",
+            "Pull requests to review and your workspaces' changes in the GitHub tab, and notifications in Activity, with your own token.",
           ],
           [
             "typesafe",
@@ -364,14 +365,16 @@ function IntegrationSettings() {
               <small>{description}</small>
             </span>
           </label>
-          {integrations[name] && name !== "github" && (
+          {integrations[name] && (
             <div className="integration-fields">
               {(name === "slack"
                 ? ([
                     ["slackUserToken", "User token", "xoxp-…"],
                     ["slackAppToken", "App token (Socket Mode)", "xapp-…"],
                   ] as const)
-                : ([
+                : name === "github"
+                  ? ([["githubToken", "Personal access token (classic)", "ghp_…"]] as const)
+                  : ([
                     [name === "linear" ? "linearApiKey" : "typesafeApiKey", "API key", "Enter API key"],
                   ] as const)
               ).map(([key, title, placeholder]) => (
@@ -390,6 +393,7 @@ function IntegrationSettings() {
               ))}
               {name === "linear" && <LinearWorkspaceSetting />}
               {name === "slack" && <SlackAppSetup />}
+              {name === "github" && <GithubTokenSetup />}
               {name === "slack" && (
                 <small className="integration-note">
                   From your own Slack app: its user OAuth token, and an app-level token with

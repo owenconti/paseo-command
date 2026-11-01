@@ -100,9 +100,9 @@ export type PullRequest = {
   title: string;
   state: "open" | "draft" | "merged" | "closed";
   url: string;
-  /** From gh only (Paseo doesn't report it). */
+  /** From GitHub only (Paseo doesn't report it). */
   body?: string;
-  /** Its head's CI checks (Paseo's, else gh's); absent when unknown. */
+  /** Its head's CI checks (Paseo's, else GitHub's); absent when unknown. */
   ci?: PrCi;
   /** Its merge queue standing; absent when unknown. */
   queue?: MergeQueue;
@@ -128,7 +128,7 @@ export type MergeQueue = {
   enabled: boolean;
   /** The PR is in it. */
   queued: boolean;
-  /** Entry details: from gh, on this machine's checkouts only. */
+  /** Entry details: from GitHub (with the GitHub token) only. */
   state?: "queued" | "awaiting_checks" | "mergeable" | "unmergeable" | "locked";
   position?: number;
   enqueuedAt?: string;

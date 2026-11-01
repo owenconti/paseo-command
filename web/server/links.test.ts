@@ -1,16 +1,20 @@
 /**
- * The PR's CI and merge queue facts: from Paseo's `githubRuntime`, from
- * `gh pr view --json statusCheckRollup` and from GitHub's GraphQL answer.
- * Pure parsing only; nothing runs gh or reaches GitHub.
+ * The PR's CI and merge queue facts: from Paseo's `githubRuntime` and from
+ * GitHub's GraphQL answers; the GitHub lookups over the fake GitHub API.
+ * Nothing reaches GitHub.
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { installGithubApi } from "./githubFake";
 import {
   MAX_CHECKS,
   ciFromRollup,
   ciFromRuntime,
-  ghMergeQueue,
-  ghPr,
+  githubMergeQueue,
+  githubPullRequest,
+  prFromGraphql,
+  repoCoordinates,
+  resetLinks,
   prCoordinates,
   prFromRuntime,
   prStateFromGraphql,
@@ -132,7 +136,7 @@ test("Paseo's merge queue flags come from its GitHub facts", () => {
   assert.equal(prFromRuntime(runtimePr())?.queue, undefined);
 });
 
-test("auto-merge comes from Paseo's GitHub facts, else gh's autoMergeRequest", () => {
+test("auto-merge comes from Paseo's GitHub facts, else GitHub's autoMergeRequest", () => {
   const on = prFromRuntime(
     runtimePr({
       forgeSpecific: {
@@ -148,14 +152,14 @@ test("auto-merge comes from Paseo's GitHub facts, else gh's autoMergeRequest", (
   );
   assert.equal(prFromRuntime(runtimePr())?.autoMerge, undefined);
   assert.deepEqual(
-    ghPr({ url: URL_, number: 1, title: "t", state: "OPEN", autoMergeRequest: { mergeMethod: "REBASE", enabledBy: { login: "bot" } } })
+    prFromGraphql({ url: URL_, number: 1, title: "t", state: "OPEN", autoMergeRequest: { mergeMethod: "REBASE", enabledBy: { login: "bot" } } })
       ?.autoMerge,
     { method: "rebase", by: "bot" },
   );
-  assert.equal(ghPr({ url: URL_, number: 1, title: "t", state: "OPEN", autoMergeRequest: null })?.autoMerge, undefined);
+  assert.equal(prFromGraphql({ url: URL_, number: 1, title: "t", state: "OPEN", autoMergeRequest: null })?.autoMerge, undefined);
 });
 
-test("gh's statusCheckRollup folds check runs and status contexts", () => {
+test("GitHub's statusCheckRollup folds check runs and status contexts", () => {
   const ci = ciFromRollup([
     {
       __typename: "CheckRun",
@@ -216,22 +220,34 @@ test("gh's statusCheckRollup folds check runs and status contexts", () => {
   assert.equal(ciFromRollup(undefined), undefined);
 });
 
-test("gh's PR carries its checks", () => {
-  const pr = ghPr({
+test("GitHub's PR carries its head's checks", () => {
+  const pr = prFromGraphql({
     number: 42,
     title: "Add the thing",
     state: "OPEN",
     isDraft: false,
     url: URL_,
     body: "",
-    statusCheckRollup: [
-      {
-        __typename: "CheckRun",
-        name: "build",
-        status: "QUEUED",
-        conclusion: "",
-      },
-    ],
+    commits: {
+      nodes: [
+        {
+          commit: {
+            statusCheckRollup: {
+              contexts: {
+                nodes: [
+                  {
+                    __typename: "CheckRun",
+                    name: "build",
+                    status: "QUEUED",
+                    conclusion: "",
+                  },
+                ],
+              },
+            },
+          },
+        },
+      ],
+    },
   });
   assert.deepEqual(pr?.ci, {
     state: "pending",
@@ -324,21 +340,80 @@ test("only github.com PR URLs are asked about", async () => {
   assert.equal(prCoordinates("https://github.example.com/a/b/pull/1"), null);
   assert.equal(prCoordinates("https://github.com/a/b/issues/1"), null);
   assert.equal(prCoordinates("https://github.com/-x/b/pull/1;rm"), null);
-  // Without a usable URL or checkout, gh is never run.
+  // Without a usable URL, or without GitHub on and a token, GitHub is never asked.
   assert.deepEqual(
-    await ghMergeQueue("/", "https://gitlab.com/a/b/-/merge_requests/1"),
+    await githubMergeQueue("https://gitlab.com/a/b/-/merge_requests/1"),
     {
       available: false,
       queue: null,
     },
   );
-  assert.deepEqual(await ghMergeQueue("relative/dir", URL_), {
+  assert.deepEqual(await githubMergeQueue(URL_), {
     available: false,
     queue: null,
   });
 });
 
-test("runtime and gh distinguish PR lifecycle states, with terminal states taking precedence", () => {
+test("repositories are read from their GitHub page or owner/name", () => {
+  assert.deepEqual(repoCoordinates("https://github.com/acme/app"), { owner: "acme", name: "app" });
+  assert.deepEqual(repoCoordinates("acme/app.js"), { owner: "acme", name: "app.js" });
+  for (const bad of [undefined, "", "https://gitlab.com/a/b", "acme/..", "-x/b;rm", "a/b/c"])
+    assert.equal(repoCoordinates(bad), null, String(bad));
+});
+
+test("a branch's PR is asked of GitHub with the token, cached, and quiet when it can't be", async () => {
+  resetLinks();
+  // Off, or no token: nothing is asked.
+  for (const opts of [{ enabled: false }, { token: null }]) {
+    const fake = installGithubApi(() => ({ json: {} }), opts);
+    try {
+      assert.deepEqual(await githubPullRequest("https://github.com/acme/app", "feature"), { available: false, pr: null });
+      assert.equal(fake.calls.length, 0);
+    } finally {
+      fake.restore();
+    }
+  }
+  let nodes: unknown[] = [{ number: 42, title: "Add it", state: "OPEN", isDraft: false, url: URL_, reviewDecision: "APPROVED", mergeable: "MERGEABLE" }];
+  const fake = installGithubApi((req) =>
+    req.path === "graphql" ? { json: { data: { repository: { pullRequests: { nodes } } } } } : { status: 404 },
+  );
+  try {
+    const t = 1_000_000;
+    const answer = await githubPullRequest("https://github.com/acme/app", "feature", t);
+    assert.equal(answer.available, true);
+    assert.equal(answer.pr?.number, 42);
+    assert.equal(answer.pr?.review, "approved");
+    assert.equal(answer.pr?.conflicts, false);
+    assert.deepEqual((fake.calls[0]!.body as { variables: unknown }).variables, { owner: "acme", name: "app", branch: "feature" });
+    await githubPullRequest("https://github.com/acme/app", "feature", t + 1000);
+    assert.equal(fake.calls.length, 1, "cached");
+    // A base branch never has its own PR, and isn't asked about.
+    assert.deepEqual(await githubPullRequest("acme/app", "main"), { available: true, pr: null });
+    // No PR for the branch.
+    nodes = [];
+    assert.deepEqual(await githubPullRequest("acme/app", "other", t), { available: true, pr: null });
+    // A merge queue entry, by the PR's URL.
+    resetLinks();
+    const queue = installGithubApi(() => ({
+      json: { data: { repository: { pullRequest: { state: "OPEN", isDraft: false, isMergeQueueEnabled: true, isInMergeQueue: true, mergeQueueEntry: { state: "QUEUED", position: 2 } } } } },
+    }));
+    try {
+      assert.deepEqual(await githubMergeQueue(URL_), {
+        available: true,
+        queue: { enabled: true, queued: true, state: "queued", position: 2 },
+        state: "open",
+      });
+      assert.deepEqual((queue.calls[0]!.body as { variables: unknown }).variables, { owner: "acme", name: "app", number: 42 });
+    } finally {
+      queue.restore();
+    }
+  } finally {
+    fake.restore();
+    resetLinks();
+  }
+});
+
+test("runtime and GitHub distinguish PR lifecycle states, with terminal states taking precedence", () => {
   for (const [facts, expected] of [
     [{ state: "closed", isDraft: true }, "closed"],
     [{ state: "draft" }, "draft"],
@@ -347,7 +422,7 @@ test("runtime and gh distinguish PR lifecycle states, with terminal states takin
     [{ state: "MERGED", isDraft: true }, "merged"],
   ] as const) {
     assert.equal(prFromRuntime(runtimePr(facts))?.state, expected);
-    assert.equal(ghPr({ url: URL_, ...facts })?.state, expected);
+    assert.equal(prFromGraphql({ url: URL_, ...facts })?.state, expected);
   }
   assert.equal(
     prFromRuntime(runtimePr({ state: "closed", isMerged: true }))?.state,
@@ -366,23 +441,23 @@ test("Paseo's review decision is carried through", () => {
   assert.equal("review" in prFromRuntime(runtimePr())!, false);
 });
 
-test("gh's review decision is read", () => {
+test("GitHub's review decision is read", () => {
   const pr = (reviewDecision: string) =>
-    ghPr({ url: URL_, number: 42, title: "t", state: "OPEN", reviewDecision });
+    prFromGraphql({ url: URL_, number: 42, title: "t", state: "OPEN", reviewDecision });
   assert.equal(pr("APPROVED")?.review, "approved");
   assert.equal(pr("CHANGES_REQUESTED")?.review, "changes_requested");
   assert.equal(pr("REVIEW_REQUIRED")?.review, "pending");
   assert.equal(pr("")?.review, undefined);
 });
 
-test("merge conflicts are read from Paseo and gh; unknown stays unknown", () => {
+test("merge conflicts are read from Paseo and GitHub; unknown stays unknown", () => {
   assert.equal(prFromRuntime(runtimePr({ mergeable: "CONFLICTING" }))?.conflicts, true);
   assert.equal(prFromRuntime(runtimePr({ mergeable: "MERGEABLE" }))?.conflicts, false);
   assert.equal("conflicts" in prFromRuntime(runtimePr({ mergeable: "UNKNOWN" }))!, false);
   assert.equal("conflicts" in prFromRuntime(runtimePr())!, false);
-  const gh = (mergeable: string) =>
-    ghPr({ url: URL_, number: 42, title: "t", state: "OPEN", mergeable });
-  assert.equal(gh("CONFLICTING")?.conflicts, true);
-  assert.equal(gh("MERGEABLE")?.conflicts, false);
-  assert.equal(gh("UNKNOWN")?.conflicts, undefined);
+  const github = (mergeable: string) =>
+    prFromGraphql({ url: URL_, number: 42, title: "t", state: "OPEN", mergeable });
+  assert.equal(github("CONFLICTING")?.conflicts, true);
+  assert.equal(github("MERGEABLE")?.conflicts, false);
+  assert.equal(github("UNKNOWN")?.conflicts, undefined);
 });

@@ -5,7 +5,7 @@
  * Reads: `GET /api/github/q/viewer|prs|pr|diff` (named, no passthrough) and
  * `GET /api/changes?workspace=<id>[&host=<id>][&mode=all|base|uncommitted]`
  * (the workspace's branch against its base, from the daemon). A read that
- * can't be answered right now (GitHub off, gh missing or signed out, not a git
+ * can't be answered right now (GitHub off, no GitHub token or a refused one, not a git
  * checkout) answers `GithubUnavailable`, not an error.
  * Writes: `POST /api/github/m/<GithubWriteName>` with `GithubWriteInputs[name]`,
  * each field checked; they fail with GitHub's message.
@@ -38,7 +38,7 @@ export type DiffFile = {
 export type ChangesMode = "all" | "base" | "uncommitted";
 export const CHANGES_MODES: ChangesMode[] = ["all", "base", "uncommitted"];
 
-/** The workspace's PR, when Paseo or gh knows it. */
+/** The workspace's PR, when Paseo or GitHub knows it. */
 export type ChangesPr = { number: number; url: string; title: string; state: string; repo?: string };
 
 /** `GET /api/changes`: the workspace's branch against its base (main). */
@@ -176,8 +176,8 @@ export type PrDetail = PrRow & {
 /** `GET /api/github/q/diff?repo=owner/name&number=N`: the PR's diff, parsed. */
 export type PrDiff = { files: DiffFile[]; tooLarge: boolean };
 
-/** `GET /api/github/q/viewer`: who gh is signed in as. */
-export type Viewer = { viewer: Person };
+/** `GET /api/github/q/viewer`: whose the token is, and the scopes it lacks (absent when none). */
+export type Viewer = { viewer: Person; missingScopes?: string[] };
 
 // ── Writes ───────────────────────────────────────────────────────────────────
 /** A line comment drafted for a review. `line` is in the new file on RIGHT, the old on LEFT. */

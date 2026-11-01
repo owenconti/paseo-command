@@ -2,7 +2,7 @@
  * `GET /api/changes?workspace=<id>[&host=<id>][&mode=all|base|uncommitted]`:
  * the workspace's branch against its base (main), from its host's daemon
  * (`getCheckoutDiff`, `getCheckoutStatus`), so remote hosts' checkouts work
- * too. Read only; not the GitHub integration's (gh isn't used). A checkout the
+ * too. Read only; not the GitHub integration's (no GitHub token is used). A checkout the
  * daemon can't diff answers `GithubUnavailable`.
  */
 import { CHANGES_MODES, REPO, type ChangesMode, type ChangesPr, type DiffFile, type GithubUnavailable, type WorkspaceChanges } from "../../src/github/types";

@@ -214,7 +214,7 @@ and GitHub publication; report the published version and release link.
   Progress and each game's best score are kept in the data directory's `games.json`. Games implement `types.tsx`'s
   `GameDef` (plain JSON state) and are listed in `catalog.ts` and `registry.ts`.
 - `web/server/probe.ts`: Probe's verdict (Diagonal's `diagonalprobe` review bot) on each workspace's open PR, from one
-  read-only `gh api graphql` query per PR (`GET /api/probe`, polled by `web/src/useProbe.ts`): reviewing, approved,
+  read-only GitHub GraphQL query per PR (`githubApi.ts`, the GitHub token) (`GET /api/probe`, polled by `web/src/useProbe.ts`): reviewing, approved,
   findings open (with their count), stale (new commits since, or deferred) or failed. The Atlas sets a medallion of its own in the
   workspace's first cell (the one facing its landmark): enamel in the verdict's colour round an original review magnifier,
   with a glyph badge (`rendering/src/probe.ts`, `placeProbes`, `paintProbe`); its hover card
@@ -223,7 +223,7 @@ and GitHub publication; report the published version and release link.
   daemon for the `host-stats` plugin's `stats.snapshot` (github.com/owenconti/paseo-cc-plugins, installed per daemon) over
   `invokePluginRpc`; a host without it is left out. Its host banner gains a second line, `CPU · MEM · DISK` percents
   (`statParts` in `rendering/src/placement.ts`, `RIBBON_DETAIL` in `ribbon.ts`; 90% and over in red). `native:mock -- --stats` shows it.
-- Auto-merge: a PR's `autoMerge` comes from Paseo's GitHub facts (`autoMergeRequest`), else gh's (`web/server/links.ts`).
+- Auto-merge: a PR's `autoMerge` comes from Paseo's GitHub facts (`autoMergeRequest`), else GitHub's API (`web/server/links.ts`, the GitHub token).
   While it's on, a teal seal with a merge mark sits on the review medallion's upper-right rim, else the CI one's (`placeSeals`,
   `paintSeal`, `AUTO_MERGE` in `rendering/src/prStatus.ts`); the medallion's hover card says how it merges and who turned it on.
 - Top bar: the macOS app's mode bar (`ModeBar` in `Conquer.swift`: traffic lights, the mode tabs, Update ready) runs across the window's top
@@ -329,8 +329,8 @@ and GitHub publication; report the published version and release link.
   (`open.ts`) goes where it lives: pull requests in the GitHub tab ("Review in GitHub", through the app's link routing), other GitHub in Conquer, Linear issues and projects in the Linear tab, Slack conversations and threads in
   the Slack tab; it's read from then. Keys: J/K move, Enter/O open, U read/unread, ⇧U all shown read, E/⌫ done, ⇧E all shown done (Mark all done; asks first), 1–4 sources; each with
   its ⌘K entry and the shortcuts dialog's Activity group. Server (`web/server/activity/`, `GET /api/activity`, `POST
-  /api/activity/m/read|unread|done` with `{keys}`): `github.ts` (opt-in `integrations.github`: `gh api /notifications` with the user's
-  own gh sign-in, unread and the past 14 days, cached a minute; read and done through gh; GitHub can't mark unread, and its list still has threads marked done, as read ones, so those done here are kept in the data directory's `github-activity.json` by when GitHub last changed them and left out across launches until they change again), `linear.ts` (the
+  /api/activity/m/read|unread|done` with `{keys}`): `github.ts` (opt-in `integrations.github`: `GET /notifications` with the GitHub
+  token, unread and the past 14 days, cached a minute; read and done through the API; GitHub can't mark unread, and its list still has threads marked done, as read ones, so those done here are kept in the data directory's `github-activity.json` by when GitHub last changed them and left out across launches until they change again), `linear.ts` (the
   Inbox's notifications, one per issue or project, through Linear's whitelisted writes), `slack.ts` (unread DMs, mentions of you from
   search and the socket, replies in threads you're in; Slack keeps no thread read state for apps, so those and "done" are kept in the
   data directory's `slack-activity.json`), `feed.ts` (a source that fails says why without hiding the rest). The page's store
@@ -351,10 +351,16 @@ and GitHub publication; report the published version and release link.
   opens one from elsewhere) and PR links: `github.com/<owner>/<name>/pull/<n>` opens in the tab wherever clicked (`prPlaceOf`;
   `WorldWindow.pageMode` matches it). Keys (`GitHubView.tsx`): J/K move (a diff's files), Enter/O open, Esc back, 1–4 PR tabs, R review,
   C comment, V viewed, U unified/split, F file list, M which changes; each with its ⌘K entry and the shortcuts dialog's GitHub group.
-  Server (`web/server/github/`, the user's own gh sign-in, never a token of the app's): named reads (`reads.ts`, `GET
-  /api/github/q/viewer|prs|pr|diff`, cached 15 s, `fresh=1` past it; `GithubUnavailable` when off, gh missing or signed out) and
-  whitelisted writes (`writes.ts`, `POST /api/github/m/comment|review|reply|resolve|viewed`, each field checked; JSON bodies through gh's
-  stdin), over `client.ts` (`GITHUB_TAB.run`). Tests never reach GitHub: `fake.ts` under server tests (`test-setup.ts` makes gh refuse
+  Credential (GitHub's, for the tab, Activity and every PR lookup; the app never runs gh): a classic personal access token,
+  `githubToken` in the data directory's `secrets.json` through `integrationKey("github")` (only while GitHub is on; never the
+  environment), with the scopes `repo`, `notifications` and `read:org` (`web/src/githubToken.ts`). Settings → GitHub has its editor and
+  "Create a classic token on GitHub" (`GithubTokenSetup.tsx`; ⌘K "Create a classic GitHub token"), which opens GitHub's New token page
+  with those scopes ticked; the tab's sidebar names any the token lacks (`missingScopes`, from `X-OAuth-Scopes`). `web/server/githubApi.ts`
+  (`githubRest`, `githubText`, `githubPaged`, `githubGraphql`; `GITHUB_API.fetch`, faked by `githubFake.ts`'s `installGithubApi`) makes
+  every GitHub call; with GitHub off or no token, PR lookups (`links.ts`, `probe.ts`, `prLabels.ts`) quietly answer unknown.
+  Server (`web/server/github/`, over `web/server/githubApi.ts`): named reads (`reads.ts`, `GET
+  /api/github/q/viewer|prs|pr|diff`, cached 15 s, `fresh=1` past it; `GithubUnavailable` when off, without a token, refused or rate limited) and
+  whitelisted writes (`writes.ts`, `POST /api/github/m/comment|review|reply|resolve|viewed`, each field checked), over `client.ts`. Tests never reach GitHub: `fake.ts` under server tests (`test-setup.ts` makes `GITHUB_API.fetch` refuse
   otherwise) and `web/e2e/github.e2e.ts` in the browser.
 - Web links clicked in the chat (`.session`, `openInAppBrowser` in `web/src/Session.tsx`, `postAppLink` → the `openLink` message)
   switch to Conquer and open there as a new tab, once its tabs are restored (`whenStarted`).

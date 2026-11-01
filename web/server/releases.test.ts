@@ -13,7 +13,7 @@ function stub(answer: () => Response | Promise<Response>) {
   }) as typeof fetch;
 }
 const json = (body: unknown) => new Response(JSON.stringify(body), { status: 200 });
-const gh = (tag: string, extra: Record<string, unknown> = {}) => ({
+const release = (tag: string, extra: Record<string, unknown> = {}) => ({
   tag_name: tag,
   published_at: "2026-10-30T12:00:00Z",
   body: `Notes for ${tag}`,
@@ -33,7 +33,7 @@ afterEach(() => {
 });
 
 test("maps GitHub's releases, leaving out drafts and prereleases", async () => {
-  stub(() => json([gh("v0.3.0"), gh("v0.3.1-rc1", { prerelease: true }), gh("v0.2.5", { draft: true }), gh("v0.2.0")]));
+  stub(() => json([release("v0.3.0"), release("v0.3.1-rc1", { prerelease: true }), release("v0.2.5", { draft: true }), release("v0.2.0")]));
   const view = await releasesView();
   assert.equal(calls[0], RELEASES_URL);
   assert.equal(view.installed, "0.2.0");
@@ -54,7 +54,7 @@ test("installed is dev without the app's version", async () => {
 });
 
 test("a second call within the hour does not fetch", async () => {
-  stub(() => json([gh("v0.3.0")]));
+  stub(() => json([release("v0.3.0")]));
   let now = 1_000_000;
   await releasesView(() => now);
   now += 59 * 60_000;
@@ -66,7 +66,7 @@ test("a second call within the hour does not fetch", async () => {
 });
 
 test("releaseNotesSurviveFetchFailure", async () => {
-  stub(() => json([gh("v0.3.0")]));
+  stub(() => json([release("v0.3.0")]));
   let now = 0;
   await releasesView(() => now);
   stub(() => Promise.reject(new Error("offline")));

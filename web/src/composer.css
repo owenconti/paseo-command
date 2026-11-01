@@ -1443,6 +1443,18 @@
   margin-top: 4px;
   color: var(--red-text);
 }
+.github-token-setup {
+  margin-top: 12px;
+}
+.github-token-setup button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: var(--fs-xs);
+}
+.github-token-setup .integration-note {
+  margin-top: 6px;
+}
 .integration-note {
   display: block;
   margin-top: 10px;

@@ -1,7 +1,7 @@
 /**
  * The GitHub tab's whitelisted writes (`POST /api/github/m/<name>`), each the
- * user's own action through their gh sign-in. Inputs are checked field by
- * field; anything unexpected is refused before gh runs. Each clears the
+ * user's own action with their GitHub token. Inputs are checked field by
+ * field; anything unexpected is refused before GitHub is asked. Each clears the
  * cached reads it changes.
  */
 import {
@@ -13,7 +13,8 @@ import {
   type GithubWriteResult,
   type ReviewEvent,
 } from "../../src/github/types";
-import { assertEnabled, forget, gh, graphql, GithubTabError } from "./client";
+import { GithubApiError, githubGraphql as graphql, githubRest } from "../githubApi";
+import { assertEnabled, forget } from "./client";
 import { BODY_MAX, diffKey, prKey } from "./reads";
 
 export const MAX_DRAFTS = 100;
@@ -21,7 +22,7 @@ const EVENTS: ReviewEvent[] = ["APPROVE", "REQUEST_CHANGES", "COMMENT"];
 const SIDES = ["LEFT", "RIGHT"] as const;
 
 type Raw = Record<string, unknown>;
-const invalid = (message: string) => new GithubTabError("invalid", message);
+const invalid = (message: string) => new GithubApiError("invalid", message);
 
 function fields(raw: unknown, allowed: string[], optional: string[] = []): Raw {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) throw invalid("Invalid request body");
@@ -113,14 +114,12 @@ const forgetPr = (repo: string, number: number) => forget(prKey(repo, number), d
 /** The PR a node id belongs to isn't known here: every PR's cached read goes. */
 const forgetPrs = () => forget("pr:", "prs:");
 
-const urlOf = (out: string): string | undefined => {
-  try {
-    const u = (JSON.parse(out) as { html_url?: unknown }).html_url;
-    return typeof u === "string" && /^https:\/\/github\.com\//.test(u) ? u : undefined;
-  } catch {
-    return undefined;
-  }
+/** The written thing's page, from GitHub's answer. */
+const urlOf = (out: unknown): string | undefined => {
+  const u = (out as { html_url?: unknown } | null)?.html_url;
+  return typeof u === "string" && /^https:\/\/github\.com\//.test(u) ? u : undefined;
 };
+const post = async (path: string, body: unknown) => (await githubRest("POST", path, body)).data;
 
 export async function githubWrite(name: GithubWriteName, raw: unknown): Promise<GithubWriteResult> {
   if (!GITHUB_WRITES.includes(name)) throw invalid("Unknown write");
@@ -128,7 +127,7 @@ export async function githubWrite(name: GithubWriteName, raw: unknown): Promise<
   switch (name) {
     case "comment": {
       const w = checkWrite("comment", raw);
-      const out = await gh(["api", "-X", "POST", `repos/${w.repo}/issues/${w.number}/comments`, "--input", "-"], JSON.stringify({ body: w.body }));
+      const out = await post(`repos/${w.repo}/issues/${w.number}/comments`, { body: w.body });
       forgetPr(w.repo, w.number);
       return { ok: true, ...(urlOf(out) ? { url: urlOf(out) } : {}) };
     }
@@ -146,16 +145,13 @@ export async function githubWrite(name: GithubWriteName, raw: unknown): Promise<
           body: c.body,
         })),
       };
-      const out = await gh(["api", "-X", "POST", `repos/${w.repo}/pulls/${w.number}/reviews`, "--input", "-"], JSON.stringify(input));
+      const out = await post(`repos/${w.repo}/pulls/${w.number}/reviews`, input);
       forgetPr(w.repo, w.number);
       return { ok: true, ...(urlOf(out) ? { url: urlOf(out) } : {}) };
     }
     case "reply": {
       const w = checkWrite("reply", raw);
-      const out = await gh(
-        ["api", "-X", "POST", `repos/${w.repo}/pulls/${w.number}/comments/${w.commentId}/replies`, "--input", "-"],
-        JSON.stringify({ body: w.body }),
-      );
+      const out = await post(`repos/${w.repo}/pulls/${w.number}/comments/${w.commentId}/replies`, { body: w.body });
       forgetPr(w.repo, w.number);
       return { ok: true, ...(urlOf(out) ? { url: urlOf(out) } : {}) };
     }

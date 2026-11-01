@@ -7,6 +7,7 @@ import { ResizeEdge } from "../ResizeEdge";
 import { macApp, postAppLink } from "../worldBridge";
 import { isTyping } from "../worldShortcut";
 import { changesPath, invalidate, readPath, useGithubRead } from "./api";
+import { createGithubToken } from "../GithubTokenSetup";
 import { Avatar } from "./bits";
 import { ChangesView } from "./ChangesView";
 import type { DiffLayout, DiffViewHandle } from "./DiffView";
@@ -57,7 +58,7 @@ const prOf = (url: string | undefined) => {
 
 /**
  * The GitHub tab, in the map's place (the macOS app's mode bar), through the
- * user's own gh sign-in: the selected workspace's branch against main (from
+ * user's own classic token (Settings → GitHub): the selected workspace's branch against main (from
  * its host's daemon, so remote workspaces too), and pull requests to review:
  * those waiting on you, yours and those involving you, each opening to its
  * conversation, files (the review), commits and checks.
@@ -402,6 +403,16 @@ export function GitHubView({
                 () => {},
               )}
           </div>
+          {!!viewer.data?.missingScopes?.length && (
+            <div className="gh-scopes" role="status">
+              <p>
+                The GitHub token lacks {viewer.data.missingScopes.join(", ")}, so some of this tab won’t work.
+              </p>
+              <button className="secondary" onClick={createGithubToken}>
+                Create a new token
+              </button>
+            </div>
+          )}
           {(viewer.data || viewer.unavailable) && (
             <p className="gh-sidebar-foot">
               {viewer.data ? (

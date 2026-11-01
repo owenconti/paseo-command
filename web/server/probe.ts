@@ -5,14 +5,14 @@
  * `diagonalprobe` ("Review: Approved", "Review: Comment" with the findings
  * left open, or a deferral), ending in a `probe-review:v1 … head=<sha>` marker.
  *
- * - The PR is Paseo's (the workspace row's `pr`), else, for a checkout on
- *   this machine, gh's. Remote hosts' PRs are covered when Paseo reports them.
- * - One read-only `gh api graphql` query per open PR, cached for `PROBE.ttlMs`.
- * - No verdict when Probe was never asked, the PR isn't open, or gh can't answer.
+ * - The PR is Paseo's (the workspace row's `pr`), else GitHub's for the
+ *   branch in the workspace's repository (any host).
+ * - One read-only GraphQL query per open PR (the GitHub token), cached for `PROBE.ttlMs`.
+ * - No verdict when Probe was never asked, the PR isn't open, or GitHub can't answer (off, no token).
  */
-import { homedir } from "node:os";
 import type { ProbeVerdict } from "../../rendering/src/probe";
-import { BASE_BRANCHES, gh, ghPullRequest, prCoordinates, type PullRequest } from "./links";
+import { githubGraphql, githubReady } from "./githubApi";
+import { BASE_BRANCHES, githubPullRequest, prCoordinates, type PullRequest } from "./links";
 
 export const PROBE = { login: "diagonalprobe", ttlMs: 30000 };
 
@@ -78,27 +78,15 @@ export function probeVerdict(raw: unknown): ProbeVerdict | null {
 
 const cache = new Map<string, { at: number; value: Promise<ProbeVerdict | null | undefined> }>();
 
-/** Probe's verdict on a github.com PR; undefined when gh can't answer. Never throws. */
-export function ghProbe(prUrl: string, now = Date.now()): Promise<ProbeVerdict | null | undefined> {
+/** Probe's verdict on a github.com PR; undefined when GitHub can't answer. Never throws. */
+export function githubProbe(prUrl: string, now = Date.now()): Promise<ProbeVerdict | null | undefined> {
   const at = prCoordinates(prUrl);
-  if (!at) return Promise.resolve(undefined);
+  if (!at || !githubReady()) return Promise.resolve(undefined);
   const key = `${at.owner}/${at.name}#${at.number}`;
   const hit = cache.get(key);
   if (hit && now - hit.at < PROBE.ttlMs) return hit.value;
-  const value = gh(homedir(), [
-    "api", "graphql",
-    "-f", `query=${PROBE_QUERY}`,
-    "-f", `owner=${at.owner}`,
-    "-f", `name=${at.name}`,
-    "-F", `number=${at.number}`,
-  ]).then(
-    (out) => {
-      try {
-        return probeVerdict(JSON.parse(out));
-      } catch {
-        return undefined;
-      }
-    },
+  const value = githubGraphql(PROBE_QUERY, { owner: at.owner, name: at.name, number: at.number }).then(
+    (data) => probeVerdict({ data }),
     () => undefined,
   );
   cache.set(key, { at: now, value });
@@ -109,14 +97,15 @@ export function ghProbe(prUrl: string, now = Date.now()): Promise<ProbeVerdict |
 export type ProbeRow = {
   workspaceId?: string;
   host?: string;
-  cwd?: string;
   branch?: string;
+  /** Its repository's GitHub page, from the checkout's remote. */
+  repo?: string;
   pr?: PullRequest | null;
   stale?: boolean;
 };
 export type ProbeDeps = {
   rows(): Promise<ProbeRow[]>;
-  pr(cwd: string, branch: string): Promise<PullRequest | null | undefined>;
+  pr(repo: string, branch: string): Promise<PullRequest | null | undefined>;
   probe(prUrl: string): Promise<ProbeVerdict | null | undefined>;
 };
 
@@ -128,7 +117,7 @@ export async function probeVerdicts(deps: ProbeDeps): Promise<Record<string, Pro
       const branch = (row.branch ?? "").trim();
       if (!row.workspaceId || row.stale || BASE_BRANCHES.test(branch)) return;
       const pr =
-        row.pr !== undefined ? row.pr : !row.host && row.cwd ? await deps.pr(row.cwd, branch) : undefined;
+        row.pr !== undefined ? row.pr : row.repo ? await deps.pr(row.repo, branch) : undefined;
       if (!pr || (pr.state !== "open" && pr.state !== "draft")) return;
       const verdict = await deps.probe(pr.url);
       if (verdict) out[`${row.host || "local"}:${row.workspaceId}`] = verdict;
@@ -144,10 +133,10 @@ export function probeRoute() {
       const { aggregate } = await import("./api/reads");
       return (await aggregate("workspaces")).rows as ProbeRow[];
     },
-    pr: async (cwd, branch) => {
-      const answer = await ghPullRequest(cwd, branch);
+    pr: async (repo, branch) => {
+      const answer = await githubPullRequest(repo, branch);
       return answer.available ? answer.pr : undefined;
     },
-    probe: (url) => ghProbe(url),
+    probe: (url) => githubProbe(url),
   });
 }

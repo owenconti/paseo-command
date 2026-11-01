@@ -1,13 +1,12 @@
 /**
- * Activity's GitHub source over a fake gh: nothing here runs gh or reaches GitHub.
+ * Activity's GitHub source over a fake GitHub API (`githubFake.ts`): nothing here reaches GitHub.
  */
 import assert from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";
 import { afterEach, beforeEach, test } from "node:test";
+import { NO_KEY, OFF, REFUSED } from "../githubApi";
+import { installGithubApi, type FakeAnswer, type FakeRequest } from "../githubFake";
 import {
-  GITHUB_ACTIVITY,
-  NO_GH,
-  SIGNED_OUT,
   githubActivityFile,
   githubItem,
   readGithubActivity,
@@ -18,9 +17,10 @@ import {
   writeGithubActivity,
 } from "./github";
 
-const realRun = GITHUB_ACTIVITY.run;
-let calls: string[][] = [];
-let answer: (args: string[]) => string | Error;
+let fake: ReturnType<typeof installGithubApi>;
+let answer: (req: FakeRequest) => FakeAnswer;
+const calls = () => fake.calls;
+const isList = (r: FakeRequest) => r.method === "GET" && r.path === "notifications";
 
 const thread = (id: string, o: { type?: string; url?: string | null; unread?: boolean; at?: string; reason?: string } = {}) => ({
   id,
@@ -37,17 +37,11 @@ const thread = (id: string, o: { type?: string; url?: string | null; unread?: bo
 
 beforeEach(() => {
   resetGithubActivity();
-  calls = [];
-  answer = () => "[]";
-  GITHUB_ACTIVITY.run = async (args) => {
-    calls.push(args);
-    const out = answer(args);
-    if (out instanceof Error) throw out;
-    return out;
-  };
+  answer = () => ({ json: [] });
+  fake = installGithubApi((req) => answer(req));
 });
 afterEach(() => {
-  GITHUB_ACTIVITY.run = realRun;
+  fake.restore();
 });
 
 test("subjects open on their GitHub pages", () => {
@@ -96,69 +90,76 @@ test("states come from one query by alias", () => {
 });
 
 test("reads notifications, pages to 100, adds states and caches a minute", async () => {
-  answer = (args) => {
-    if (args[1] === "graphql") return JSON.stringify({ data: { r0: { n1: { state: "OPEN", isDraft: false } } } });
-    const page = Number(/page=(\d+)$/.exec(args[3]!)![1]);
-    return JSON.stringify(Array.from({ length: 50 }, (_, i) => thread(String((page - 1) * 50 + i + 1))));
+  answer = (req) => {
+    if (req.path === "graphql") return { json: { data: { r0: { n1: { state: "OPEN", isDraft: false } } } } };
+    const page = Number(req.query.get("page"));
+    return { json: Array.from({ length: 50 }, (_, i) => thread(String((page - 1) * 50 + i + 1))) };
   };
   const items = await readGithubActivity();
   assert.equal(items.length, 100);
-  assert.equal(calls.filter((c) => c[1] !== "graphql").length, 2);
-  assert.match(calls[0]![3]!, /^\/notifications\?all=true&since=[^&]+&per_page=50&page=1$/);
+  assert.equal(calls().filter(isList).length, 2);
+  const first = calls()[0]!;
+  assert.equal(first.query.get("all"), "true");
+  assert.ok(first.query.get("since"));
+  assert.equal(first.query.get("per_page"), "50");
+  assert.equal(first.query.get("page"), "1");
+  assert.match(first.authorization, /^Bearer ghp_/);
   assert.equal(items.find((i) => i.id === "1")!.state, "open");
   await readGithubActivity();
-  assert.equal(calls.length, 3, "cached");
+  assert.equal(calls().length, 3, "cached");
   await readGithubActivity(true);
-  assert.equal(calls.length, 6, "fresh asks again");
+  assert.equal(calls().length, 6, "fresh asks again");
 });
 
 test("a failing state query leaves items without states", async () => {
-  answer = (args) => (args[1] === "graphql" ? new Error("boom") : JSON.stringify([thread("1")]));
+  answer = (req) => (req.path === "graphql" ? { status: 502, json: { message: "boom" } } : { json: [thread("1")] });
   const items = await readGithubActivity();
   assert.equal(items.length, 1);
   assert.equal(items[0]!.state, undefined);
 });
 
 test("a state query with errors for some items keeps the states it did answer", async () => {
-  answer = (args) =>
-    args[1] === "graphql"
-      ? Object.assign(new Error("gh exited 1"), {
-          stderr: "GraphQL: Could not resolve to a Repository",
-          stdout: JSON.stringify({ data: { r0: { n1: { state: "MERGED", isDraft: false } } }, errors: [{ message: "Could not resolve" }] }),
-        })
-      : JSON.stringify([thread("1")]);
+  answer = (req) =>
+    req.path === "graphql"
+      ? { json: { data: { r0: { n1: { state: "MERGED", isDraft: false } } }, errors: [{ message: "Could not resolve" }] } }
+      : { json: [thread("1")] };
   const items = await readGithubActivity();
   assert.equal(items[0]!.state, "merged");
 });
 
-test("gh missing or signed out says so plainly", async () => {
-  answer = () => Object.assign(new Error("spawn gh ENOENT"), { code: "ENOENT" });
-  await assert.rejects(readGithubActivity(), { message: NO_GH });
-  answer = () => Object.assign(new Error("exit 4"), { stderr: "To get started with GitHub CLI, please run:  gh auth login" });
-  await assert.rejects(readGithubActivity(), { message: SIGNED_OUT });
+test("no token, a refused token or GitHub off says so plainly", async () => {
+  answer = () => ({ status: 401, json: { message: "Bad credentials" } });
+  await assert.rejects(readGithubActivity(), { message: REFUSED });
+  fake.restore();
+  fake = installGithubApi(() => ({ json: [] }), { token: null });
+  await assert.rejects(readGithubActivity(), { message: NO_KEY });
+  fake.restore();
+  fake = installGithubApi(() => ({ json: [] }), { enabled: false });
+  await assert.rejects(readGithubActivity(), { message: OFF });
+  assert.equal(fake.calls.length, 0, "nothing asked without a token or while off");
 });
 
 test("writes read and done; unread can't be done on GitHub", async () => {
-  answer = (args) => (args[1] === "graphql" ? "{}" : args[1] === "-X" && args[2] === "GET" ? JSON.stringify([thread("5"), thread("6")]) : "");
+  answer = (req) => (req.path === "graphql" ? { json: { data: {} } } : isList(req) ? { json: [thread("5"), thread("6")] } : { status: 205 });
   const [five, six] = await readGithubActivity();
   assert.deepEqual(await writeGithubActivity("read", [five!]), []);
-  assert.deepEqual(calls.at(-1), ["api", "-X", "PATCH", "/notifications/threads/5"]);
+  assert.deepEqual([calls().at(-1)!.method, calls().at(-1)!.path], ["PATCH", "notifications/threads/5"]);
   assert.equal((await readGithubActivity()).find((i) => i.id === "5")!.unread, false);
   assert.deepEqual(await writeGithubActivity("done", [six!]), []);
-  assert.deepEqual(calls.at(-1), ["api", "-X", "DELETE", "/notifications/threads/6"]);
+  assert.deepEqual([calls().at(-1)!.method, calls().at(-1)!.path], ["DELETE", "notifications/threads/6"]);
   assert.deepEqual((await readGithubActivity()).map((i) => i.id), ["5"]);
   const unread = await writeGithubActivity("unread", [five!]);
   assert.equal(unread.length, 1);
   assert.match(unread[0]!.error, /can't mark a notification unread/);
-  answer = () => new Error("HTTP 401: Bad credentials");
-  assert.deepEqual(await writeGithubActivity("read", [five!]), [{ key: "github:5", error: SIGNED_OUT }]);
+  answer = () => ({ status: 401, json: { message: "Bad credentials" } });
+  assert.deepEqual(await writeGithubActivity("read", [five!]), [{ key: "github:5", error: REFUSED }]);
 });
 
 test("what's marked done stays done after the app reopens, until GitHub has something new on it", async () => {
   const yesterday = new Date(Date.now() - 86_400_000).toISOString();
   let seven = thread("7", { unread: false, at: yesterday });
   // GitHub's list (all=true) still has a thread marked done, as read.
-  answer = (args) => (args[1] === "graphql" ? "{}" : args[2] === "GET" ? JSON.stringify([thread("5", { at: yesterday }), seven]) : "");
+  answer = (req) => (req.path === "graphql" ? { json: { data: {} } } : isList(req) ? { json: [thread("5", { at: yesterday }), seven] } : { status: 204 });
   const items = await readGithubActivity();
   assert.deepEqual(await writeGithubActivity("done", [items.find((i) => i.id === "7")!]), []);
   assert.deepEqual(JSON.parse(readFileSync(githubActivityFile(), "utf8")), { done: { "7": yesterday } });

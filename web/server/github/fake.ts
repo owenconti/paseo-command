@@ -1,11 +1,12 @@
 /**
- * A fake gh for the GitHub tab's tests: it answers the exact calls the server
- * makes (`client.ts`, `reads.ts`, `writes.ts`) from its state and records the
- * writes. `installFakeGithub` enables GitHub in the test settings file and
- * puts gh back (and the settings) on `restore()`. Nothing reaches GitHub.
+ * A fake GitHub API for the GitHub tab's tests (over `../githubFake.ts`): it
+ * answers the exact requests the server makes (`reads.ts`, `writes.ts`) from
+ * its state and records the writes. `installFakeGithub` enables GitHub with a
+ * fake token in the test settings and secrets, and puts them back on
+ * `restore()`. Nothing reaches GitHub.
  */
-import { readSettings, writeSettings } from "../settings";
-import { GITHUB_TAB, resetGithubTab } from "./client";
+import { installGithubApi, type FakeAnswer, type FakeRequest } from "../githubFake";
+import { resetGithubTab } from "./client";
 
 type Raw = Record<string, unknown>;
 export const SHA = "a".repeat(40);
@@ -79,87 +80,80 @@ index 1..2 100644
 `;
 
 export type FakeGithub = {
+  /** `GET user`'s answer. */
   viewer: Raw;
+  /** The token's scopes, as `X-OAuth-Scopes` says them. */
+  scopes: string;
   /** Search results by scope's query text. */
   search: Record<string, Raw[]>;
   /** PRs by `owner/name#n`. */
   prs: Map<string, Raw>;
-  diffs: Map<string, string | Error>;
-  /** Every gh call: its arguments and stdin. */
-  calls: { args: string[]; input?: string }[];
-  /** The writes: REST posts with their parsed input, and GraphQL mutations with their variables. */
-  writes: { path?: string; mutation?: string; input?: unknown; vars?: Record<string, string> }[];
-  /** Answered instead of everything, while set (a failing gh). */
-  fail?: Error;
+  /** Diffs by `owner/name#n`, or GitHub's refusal. */
+  diffs: Map<string, string | FakeAnswer>;
+  /** Every request made. */
+  calls: FakeRequest[];
+  /** The writes: REST posts with their body, and GraphQL mutations with their variables. */
+  writes: { path?: string; mutation?: string; input?: unknown; vars?: Record<string, unknown> }[];
+  /** Answered instead of everything, while set (GitHub refusing). */
+  fail?: FakeAnswer;
   restore: () => void;
 };
 
-/** gh's `-f`/`-F` fields as an object. */
-function fieldsOf(args: string[]): Record<string, string> {
-  const out: Record<string, string> = {};
-  for (let i = 0; i < args.length; i++)
-    if ((args[i] === "-f" || args[i] === "-F") && args[i + 1]) {
-      const at = args[i + 1]!.indexOf("=");
-      out[args[i + 1]!.slice(0, at)] = args[i + 1]!.slice(at + 1);
-      i++;
-    }
-  return out;
-}
+const notFound: FakeAnswer = { status: 404, json: { message: "Not Found" } };
 
-export function installFakeGithub(): FakeGithub {
-  const realRun = GITHUB_TAB.run;
-  const had = readSettings();
-  writeSettings({ integrations: { ...((had?.integrations as object) ?? {}), github: true } });
+export function installFakeGithub(opts: { enabled?: boolean; token?: string | null } = {}): FakeGithub {
   resetGithubTab();
   const fake: FakeGithub = {
-    viewer: { login: "me", name: "Me", avatarUrl: "https://avatars.githubusercontent.com/u/9?v=4" },
+    viewer: { login: "me", name: "Me", avatar_url: "https://avatars.githubusercontent.com/u/9?v=4" },
+    scopes: "repo, notifications, read:org",
     search: {},
     prs: new Map(),
     diffs: new Map(),
     calls: [],
     writes: [],
-    restore: () => {
-      GITHUB_TAB.run = realRun;
-      writeSettings({ integrations: (had?.integrations as object) ?? {} });
-      resetGithubTab();
-    },
+    restore: () => {},
   };
-  GITHUB_TAB.run = async (args, input) => {
-    fake.calls.push({ args, ...(input !== undefined ? { input } : {}) });
-    if (fake.fail) throw fake.fail;
-    if (args[0] === "api" && args[1] === "graphql") {
-      const vars = fieldsOf(args);
-      const query = vars.query ?? "";
-      delete vars.query;
-      if (query.startsWith("mutation")) {
+  const answer = (req: FakeRequest): FakeAnswer => {
+    if (fake.fail) return fake.fail;
+    const body = (req.body ?? {}) as { query?: string; variables?: Record<string, unknown> };
+    if (req.method === "POST" && req.path === "graphql") {
+      const query = body.query ?? "";
+      const vars = body.variables ?? {};
+      if (query.trimStart().startsWith("mutation")) {
         fake.writes.push({ mutation: /\{\s*(\w+)\(/.exec(query)?.[1], vars });
-        return JSON.stringify({ data: { ok: true } });
+        return { json: { data: { ok: true } } };
       }
-      if (query.includes("search(")) return JSON.stringify({ data: { viewer: fake.viewer, search: { nodes: fake.search[vars.q ?? ""] ?? [] } } });
+      const viewer = { login: fake.viewer.login, name: fake.viewer.name, avatarUrl: fake.viewer.avatar_url };
+      if (query.includes("search(")) return { json: { data: { viewer, search: { nodes: fake.search[String(vars.q ?? "")] ?? [] } } } };
       if (query.includes("pullRequest(")) {
         const pr = fake.prs.get(`${vars.owner}/${vars.name}#${vars.number}`) ?? null;
-        if (pr && vars.after) return JSON.stringify({ data: { repository: { pullRequest: { files: (pr.morefiles as Raw) ?? { nodes: [] } } } } });
-        return JSON.stringify({ data: { repository: { pullRequest: pr } } });
+        if (pr && vars.after) return { json: { data: { repository: { pullRequest: { files: (pr.morefiles as Raw) ?? { nodes: [] } } } } } };
+        return { json: { data: { repository: { pullRequest: pr } } } };
       }
-      if (query.includes("viewer")) return JSON.stringify({ data: { viewer: fake.viewer } });
-      throw new Error(`The fake gh doesn't know this query: ${query.slice(0, 80)}`);
+      return { status: 400, json: { message: `The fake GitHub doesn't know this query: ${query.slice(0, 80)}` } };
     }
-    if (args[0] === "pr" && args[1] === "diff") {
-      const d = fake.diffs.get(`${args[4]}#${args[2]}`);
-      if (d instanceof Error) throw d;
-      if (d === undefined) throw Object.assign(new Error("gh failed"), { stderr: "no pull requests found" });
-      return d;
+    if (req.method === "GET" && req.path === "user") return { json: fake.viewer, headers: { "x-oauth-scopes": fake.scopes } };
+    const pull = /^repos\/([\w.-]+\/[\w.-]+)\/pulls\/(\d+)(\/files)?$/.exec(req.path);
+    if (req.method === "GET" && pull) {
+      const key = `${pull[1]}#${pull[2]}`;
+      if (pull[3]) return { json: (fake.prs.get(key)?.restFiles as Raw[]) ?? [] };
+      const d = fake.diffs.get(key);
+      if (d === undefined) return notFound;
+      if (typeof d !== "string") return d;
+      if (req.accept !== "application/vnd.github.diff") return { status: 415, json: { message: "Ask for the diff media type" } };
+      return { text: d };
     }
-    if (args[0] === "api" && args[1] === "--paginate") {
-      const m = /^repos\/([\w.-]+\/[\w.-]+)\/pulls\/(\d+)\/files/.exec(args[2] ?? "");
-      const pr = m ? fake.prs.get(`${m[1]}#${m[2]}`) : undefined;
-      return ((pr?.restFiles as Raw[]) ?? []).map((f) => JSON.stringify(f)).join("\n");
+    if (req.method === "POST") {
+      fake.writes.push({ path: req.path, input: req.body });
+      return { status: 201, json: { html_url: `https://github.com/${req.path}/1` } };
     }
-    if (args[0] === "api" && args[1] === "-X" && args[2] === "POST") {
-      fake.writes.push({ path: args[3], input: input ? JSON.parse(input) : undefined });
-      return JSON.stringify({ html_url: `https://github.com/${args[3]}/1` });
-    }
-    throw new Error(`The fake gh doesn't know: gh ${args.join(" ").slice(0, 80)}`);
+    return { status: 400, json: { message: `The fake GitHub doesn't know: ${req.method} ${req.path}` } };
+  };
+  const api = installGithubApi((req) => answer(req), opts);
+  fake.calls = api.calls;
+  fake.restore = () => {
+    api.restore();
+    resetGithubTab();
   };
   return fake;
 }

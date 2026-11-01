@@ -63,7 +63,7 @@ export function parseAppLink(href: string): AppLink | null {
 
 /** Whether the link is this workspace's: its team, or its Slack address. Before the workspace is in, it stands. */
 function ours(link: AppLink): boolean {
-  // Any pull request gh can read opens in the GitHub tab.
+  // Any pull request opens in the GitHub tab.
   if (link.kind === "github") return true;
   if (link.kind === "linear") {
     const ws = linearStore.getState().workspace;

@@ -1,7 +1,7 @@
 import { useId, useState } from "react";
 import { api, errorMessage } from "./api";
 
-export type ApiKeyName = "linearApiKey" | "typesafeApiKey" | "slackUserToken" | "slackAppToken";
+export type ApiKeyName = "linearApiKey" | "typesafeApiKey" | "slackUserToken" | "slackAppToken" | "githubToken";
 export type SecretStatus = {
   configured: Record<ApiKeyName, boolean>;
   error: string | null;

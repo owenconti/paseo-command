@@ -81,6 +81,7 @@ import type { IssueContext } from "./linear/prompt";
 import type { LinearOpenIssue, LinearViewState } from "./linear/LinearView";
 import type { LinearPlace } from "./linear/place";
 import { copySlackManifest, createSlackApp } from "./slack/SlackAppSetup";
+import { createGithubToken } from "./GithubTokenSetup";
 import { useAppUpdate } from "./releases";
 import { AddProject } from "./AddProject";
 import {
@@ -1757,6 +1758,17 @@ function App() {
         }))
       : []),
     // Making the Slack app the Slack tab needs (Settings' Set up a Slack app).
+    ...(integrations.github
+      ? [
+          {
+            id: "github-create-token",
+            group: "App",
+            label: "Create a classic GitHub token (opens GitHub with its scopes ticked)",
+            keywords: "github token pat personal access classic create setup scopes key",
+            run: createGithubToken,
+          },
+        ]
+      : []),
     ...(integrations.slack
       ? [
           {

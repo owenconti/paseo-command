@@ -1,6 +1,6 @@
 /**
  * The PR labeller: which labels a PR calls for, and the changes a pass sends.
- * Daemons are injected (recorded calls, or the fake daemon); nothing runs gh.
+ * Daemons are injected (recorded calls, or the fake daemon); nothing reaches GitHub.
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -58,11 +58,11 @@ test("a PR with merge conflicts carries their label; a merged one doesn't", () =
 type SetCall = { host?: string; workspaceId: string; name: string; color: string; assigned: boolean };
 function deps(rows: LabelRow[], extra: Partial<LabellerDeps> = {}) {
   const calls: SetCall[] = [];
-  const ghAsked: string[] = [];
+  const asked: string[] = [];
   const d: LabellerDeps = {
     rows: async () => rows,
-    gh: async (cwd) => {
-      ghAsked.push(cwd);
+    pr: async (repo) => {
+      asked.push(repo);
       return { available: false, pr: null };
     },
     catalog: async () => [],
@@ -72,11 +72,11 @@ function deps(rows: LabelRow[], extra: Partial<LabellerDeps> = {}) {
     log: () => {},
     ...extra,
   };
-  return { d, calls, ghAsked };
+  return { d, calls, asked };
 }
 const row = (extra: Partial<LabelRow> = {}): LabelRow => ({
   workspaceId: "wks_a",
-  cwd: "/work/a",
+  repo: "https://github.com/acme/app",
   branch: "feat/flags",
   ...extra,
 });
@@ -107,31 +107,31 @@ test("stale rows are left alone", async () => {
 });
 
 test("an unknown PR keeps its labels", async () => {
-  const { d, calls, ghAsked } = deps([row({ labels: ["Approved"] })]);
+  const { d, calls, asked } = deps([row({ labels: ["Approved"] })]);
   await createPrLabeller(d).pass();
-  assert.deepEqual(ghAsked, ["/work/a"]);
+  assert.deepEqual(asked, ["https://github.com/acme/app"]);
   assert.deepEqual(calls, []);
 });
 
-test("a remote workspace without Paseo's PR facts is skipped", async () => {
-  const { d, calls, ghAsked } = deps([row({ host: "srv_far", labels: ["Approved"] })]);
+test("a workspace without a GitHub remote, or Paseo's PR facts, is skipped", async () => {
+  const { d, calls, asked } = deps([row({ repo: undefined, labels: ["Approved"] })]);
   await createPrLabeller(d).pass();
-  assert.deepEqual(ghAsked, []);
+  assert.deepEqual(asked, []);
   assert.deepEqual(calls, []);
 });
 
-test("gh answers for a local workspace Paseo can't tell about", async () => {
-  const { d, calls } = deps([row()], {
-    gh: async () => ({ available: true, pr: pr({ state: "draft", ci: ci("failing") }) }),
+test("GitHub answers for a workspace Paseo can't tell about, on any host", async () => {
+  const { d, calls } = deps([row({ host: "srv_far" })], {
+    pr: async () => ({ available: true, pr: pr({ state: "draft", ci: ci("failing") }) }),
   });
   await createPrLabeller(d).pass();
   assert.deepEqual(calls.map((c) => [c.name, c.assigned]), [["CI failing", true]]);
 });
 
 test("a base branch has no PR labels", async () => {
-  const { d, calls, ghAsked } = deps([row({ branch: "main", labels: ["Approved"] })]);
+  const { d, calls, asked } = deps([row({ branch: "main", labels: ["Approved"] })]);
   await createPrLabeller(d).pass();
-  assert.deepEqual(ghAsked, []);
+  assert.deepEqual(asked, []);
   assert.deepEqual(calls.map((c) => [c.name, c.assigned]), [["Approved", false]]);
 });
 

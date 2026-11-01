@@ -2,14 +2,14 @@
  * `/api/github/…`: the GitHub tab's named reads (`GET q/viewer|prs|pr|diff`,
  * `fresh=1` past the cache) and whitelisted writes (`POST m/<name>`). No
  * passthrough: an unknown name is a 404. A read GitHub can't answer right now
- * (off, gh missing or signed out, refused) is a `GithubUnavailable` 200; a bad
+ * (off, no token, refused, limited) is a `GithubUnavailable` 200; a bad
  * parameter a 400. A write that didn't happen is an error.
  */
 import type { IncomingMessage } from "node:http";
 import { GITHUB_WRITES, PR_SCOPES, type GithubWriteName, type PrScope } from "../../src/github/types";
 import { bodyOf } from "../api/http";
 import { errorText } from "../wire";
-import { assertEnabled, GithubTabError, unavailable } from "./client";
+import { apiFailure, assertEnabled, GithubApiError, unavailable, writeStatus } from "./client";
 import { prParams, readDiff, readPr, readPrs, readViewer } from "./reads";
 import { githubWrite } from "./writes";
 
@@ -20,12 +20,12 @@ export const WRITE_BODY_LIMIT = 2 * 1024 * 1024;
 
 function fresh(params: URLSearchParams): boolean {
   const f = params.get("fresh");
-  if (f !== null && f !== "1") throw new GithubTabError("invalid", "Unexpected parameter fresh");
+  if (f !== null && f !== "1") throw new GithubApiError("invalid", "Unexpected parameter fresh");
   return f === "1";
 }
 function only(params: URLSearchParams, allowed: string[]) {
-  for (const k of new Set(params.keys())) if (!allowed.includes(k)) throw new GithubTabError("invalid", `Unexpected parameter ${k}`);
-  for (const k of allowed) if (params.getAll(k).length > 1) throw new GithubTabError("invalid", `One ${k} only`);
+  for (const k of new Set(params.keys())) if (!allowed.includes(k)) throw new GithubApiError("invalid", `Unexpected parameter ${k}`);
+  for (const k of allowed) if (params.getAll(k).length > 1) throw new GithubApiError("invalid", `One ${k} only`);
 }
 
 async function read(name: ReadName, params: URLSearchParams): Promise<unknown> {
@@ -37,7 +37,7 @@ async function read(name: ReadName, params: URLSearchParams): Promise<unknown> {
     case "prs": {
       only(params, ["scope", "fresh"]);
       const scope = params.get("scope") as PrScope | null;
-      if (!scope || !PR_SCOPES.includes(scope)) throw new GithubTabError("invalid", "Name the list: scope=review|mine|involved");
+      if (!scope || !PR_SCOPES.includes(scope)) throw new GithubApiError("invalid", "Name the list: scope=review|mine|involved");
       assertEnabled();
       return readPrs(scope, fresh(params));
     }
@@ -64,8 +64,9 @@ export async function githubRoute(
     try {
       return reply(200, await read(q as ReadName, url.searchParams));
     } catch (e) {
-      if (e instanceof GithubTabError) return e.kind === "invalid" ? reply(400, { error: e.message }) : reply(200, unavailable(e));
-      return reply(502, { error: errorText(e) });
+      const f = apiFailure(e);
+      if (f.kind === "invalid" && !(f.status && f.status >= 400)) return reply(400, { error: f.message });
+      return reply(200, unavailable(f));
     }
   }
   const m = /^\/api\/github\/m\/([a-z]+)$/.exec(url.pathname)?.[1] as GithubWriteName | undefined;
@@ -83,10 +84,7 @@ export async function githubRoute(
   try {
     return reply(200, await githubWrite(m, body));
   } catch (e) {
-    if (e instanceof GithubTabError) {
-      const status = e.kind === "invalid" ? 400 : e.kind === "off" || e.kind === "no-gh" ? 503 : e.kind === "signed-out" ? 401 : 502;
-      return reply(status, { error: e.message });
-    }
-    return reply(502, { error: errorText(e) });
+    if (!(e instanceof GithubApiError)) return reply(502, { error: errorText(e) });
+    return reply(writeStatus(e), { error: e.message });
   }
 }

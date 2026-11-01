@@ -3,7 +3,7 @@
  * pull requests to review, one PR's conversation and files with a review
  * drafted and submitted, Viewed, and the selected workspace's changes against
  * main. `/api/github/…` and `/api/changes` are answered in the browser from
- * samples; nothing reaches GitHub, gh or a daemon.
+ * samples; nothing reaches GitHub or a daemon.
  */
 import { after, before, test } from "node:test";
 import assert from "node:assert/strict";

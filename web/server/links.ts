@@ -4,24 +4,24 @@
  * The PR comes from Paseo first: the daemon reports each workspace's forge
  * facts (`githubRuntime.pullRequest`, the same field the Paseo app reads), so
  * remote hosts are covered too. Only when Paseo can't tell (an older daemon,
- * forge features off, its own lookup failing) is `gh pr view <branch>` run,
- * read-only, in the workspace's checkout on this machine; remote checkouts
- * are skipped. Answers are cached per checkout and branch for `GH.ttlMs`.
+ * forge features off, its own lookup failing) is GitHub asked, with the
+ * GitHub token (`githubApi.ts`, only while the integration is on), for the
+ * branch's PR in the workspace's repository (its checkout's remote), so remote
+ * hosts' workspaces too. Answers are cached per repository and branch for
+ * `GITHUB_LOOKUP.ttlMs`.
  *
- * CI: Paseo's `checks` and `checksStatus`, else gh's `statusCheckRollup`,
+ * CI: Paseo's `checks` and `checksStatus`, else GitHub's `statusCheckRollup`,
  * folded the way Paseo folds them. Merge queue: Paseo reports only whether
  * the base branch uses one and whether the PR is in it (its GitHub facts);
- * the entry's state, position and estimate come from a read-only
- * `gh api graphql` query in a local checkout (`ghMergeQueue`).
+ * the entry's state, position and estimate come from a read-only GraphQL
+ * query (`githubMergeQueue`).
  *
  * Linear: Paseo stores no Linear link (no field in its protocol or app), so
  * the issue key is found in the browser (src/links.ts). When Linear is enabled and has a key in secrets.json, the issue's title and state are read here for the
  * tooltip; without it nothing is fetched.
  */
-import { execFile } from "node:child_process";
+import { githubGraphql, githubReady } from "./githubApi";
 import { integrationKey } from "./integrations";
-import { statSync } from "node:fs";
-import { delimiter, isAbsolute } from "node:path";
 
 export type PrState = "open" | "draft" | "merged" | "closed";
 export type PullRequest = {
@@ -29,7 +29,7 @@ export type PullRequest = {
   title: string;
   state: PrState;
   url: string;
-  /** From gh only (Paseo doesn't report it): for finding a Linear key. */
+  /** From GitHub only (Paseo doesn't report it): for finding a Linear key. */
   body?: string;
   /** Its head's CI checks; absent when unknown. */
   ci?: Ci;
@@ -64,7 +64,7 @@ export type MergeQueue = {
   enabled: boolean;
   /** The PR is in it. */
   queued: boolean;
-  /** Entry details, from gh only (Paseo reports just the two flags). */
+  /** Entry details, from GitHub only (Paseo reports just the two flags). */
   state?: QueueState;
   position?: number;
   enqueuedAt?: string;
@@ -90,7 +90,7 @@ function stateOf(state: unknown, merged: boolean, draft: boolean): PrState {
   if (s === "closed") return "closed";
   return draft || s === "draft" ? "draft" : "open";
 }
-/** Paseo's review decision, or gh's (`APPROVED`, `REVIEW_REQUIRED`, …). */
+/** Paseo's review decision, or GitHub's (`APPROVED`, `REVIEW_REQUIRED`, …). */
 function reviewOf(decision: unknown): ReviewState | undefined {
   switch (str(decision).toLowerCase()) {
     case "approved":
@@ -103,7 +103,7 @@ function reviewOf(decision: unknown): ReviewState | undefined {
   }
   return undefined;
 }
-/** GitHub's `mergeable` (Paseo's and gh's): `CONFLICTING` or `MERGEABLE`; `UNKNOWN` while it works it out. */
+/** GitHub's `mergeable` (Paseo's and GitHub's): `CONFLICTING` or `MERGEABLE`; `UNKNOWN` while it works it out. */
 function conflictsOf(mergeable: unknown): boolean | undefined {
   const m = str(mergeable).toUpperCase();
   return m === "CONFLICTING" ? true : m === "MERGEABLE" ? false : undefined;
@@ -215,9 +215,9 @@ const timeOf = (...values: unknown[]) => {
 };
 
 /**
- * `gh pr view --json statusCheckRollup` as checks: check runs and commit
+ * GitHub's `statusCheckRollup` contexts as checks: check runs and commit
  * status contexts, one per name (a re-run's latest attempt wins). Undefined
- * when gh didn't answer the field.
+ * when GitHub didn't answer the field.
  */
 export function ciFromRollup(rollup: unknown): Ci | undefined {
   if (!Array.isArray(rollup)) return undefined;
@@ -242,7 +242,7 @@ export function ciFromRollup(rollup: unknown): Ci | undefined {
 /**
  * The merge-queue flags Paseo reports among its GitHub facts
  * (`forgeSpecific`, or `github` as older daemons put it). No position or
- * state: those come from gh (`ghMergeQueue`). Undefined when absent.
+ * state: those come from GitHub (`githubMergeQueue`). Undefined when absent.
  */
 export function queueFromRuntime(
   pr: Record<string, unknown>,
@@ -261,12 +261,12 @@ export function queueFromRuntime(
   return undefined;
 }
 
-/** GitHub's `autoMergeRequest` (Paseo's facts or gh's), or undefined when it's off. */
+/** GitHub's `autoMergeRequest` (Paseo's facts or GitHub's), or undefined when it's off. */
 export function autoMergeOf(raw: unknown): AutoMerge | undefined {
   if (!raw || typeof raw !== "object") return undefined;
   const r = raw as Record<string, unknown>;
   const method = str(r.mergeMethod).toLowerCase();
-  // Paseo reports a login; gh an actor object.
+  // Paseo reports a login; GitHub an actor object.
   const by = clip(
     str(r.enabledBy) ||
       str((r.enabledBy as Record<string, unknown> | null)?.login),
@@ -346,7 +346,7 @@ export function prCoordinates(url: string) {
 
 /**
  * A workspace's PR as Paseo reports it: the PR, null when Paseo says there
- * is none, undefined when Paseo can't tell (then `gh` may be asked).
+ * is none, undefined when Paseo can't tell (then GitHub may be asked).
  */
 export function prFromRuntime(
   runtime: unknown,
@@ -379,60 +379,43 @@ export function prFromRuntime(
   };
 }
 
-// ── gh fallback ────────────────────────────────────────────────────────────
-export const GH = {
-  ttlMs: 15000,
-  timeoutMs: 10000,
-  /** Where gh usually lives, for a helper started without a login PATH. */
-  extraPath: ["/opt/homebrew/bin", "/usr/local/bin"],
-};
-export type GhAnswer = { available: boolean; pr: PullRequest | null };
+// ── GitHub fallback ────────────────────────────────────────────────────────
+export const GITHUB_LOOKUP = { ttlMs: 15000 };
+export type PrAnswer = { available: boolean; pr: PullRequest | null };
 /** Branches that never have a PR of their own. */
 export const BASE_BRANCHES = /^(main|master|HEAD)?$/;
 
-/** Runs gh read-only and non-interactively in `cwd`. */
-export function gh(cwd: string, args: string[]) {
-  // Read-only and non-interactive: no prompts, no update checks, no pager.
-  const env: NodeJS.ProcessEnv = {};
-  for (const [k, v] of Object.entries(process.env))
-    if (!k.startsWith("GIT_")) env[k] = v;
-  env.PATH = [env.PATH, ...GH.extraPath].filter(Boolean).join(delimiter);
-  Object.assign(env, {
-    GH_PROMPT_DISABLED: "1",
-    GH_NO_UPDATE_NOTIFIER: "1",
-    GH_PAGER: "cat",
-    NO_COLOR: "1",
-    GIT_TERMINAL_PROMPT: "0",
-    GIT_OPTIONAL_LOCKS: "0",
-  });
-  return new Promise<string>((done, fail) =>
-    execFile(
-      "gh",
-      args,
-      {
-        cwd,
-        env,
-        encoding: "utf8",
-        timeout: GH.timeoutMs,
-        maxBuffer: 2 * 1024 * 1024,
-      },
-      (error, stdout, stderr) =>
-        error
-          ? // stdout too: a GraphQL answer with errors for some items exits non-zero with the rest of its data.
-            fail(Object.assign(error, { stderr: String(stderr ?? ""), stdout: String(stdout ?? "") }))
-          : done(stdout),
-    ),
-  );
+/** `owner/name` from a repository's page (`https://github.com/owner/name`) or `owner/name` itself. */
+export function repoCoordinates(repo: string | undefined | null) {
+  const m = /^(?:https:\/\/github\.com\/)?([A-Za-z0-9-]{1,39})\/([A-Za-z0-9._-]{1,100})\/?$/.exec(repo ?? "");
+  if (!m || m[2] === "." || m[2] === "..") return null;
+  return { owner: m[1]!, name: m[2]!.replace(/\.git$/, "") };
 }
 
-/** `gh pr view --json …` as a PullRequest, its checks included. */
-export function ghPr(raw: unknown): PullRequest | null {
+const PR_FIELDS = `number title state isDraft url body reviewDecision mergeable
+  autoMergeRequest { mergeMethod enabledBy { login } }
+  commits(last: 1) { nodes { commit { statusCheckRollup { contexts(first: 100) { nodes {
+    __typename
+    ... on CheckRun { name status conclusion detailsUrl startedAt completedAt }
+    ... on StatusContext { context state targetUrl createdAt }
+  } } } } } }`;
+const BRANCH_PR_QUERY = `query BranchPullRequest($owner: String!, $name: String!, $branch: String!) {
+  repository(owner: $owner, name: $name) {
+    pullRequests(headRefName: $branch, first: 1, orderBy: { field: CREATED_AT, direction: DESC }) { nodes { ${PR_FIELDS} } }
+  }
+}`;
+
+/** A GraphQL pull request (`PR_FIELDS`) as a PullRequest, its checks included. */
+export function prFromGraphql(raw: unknown): PullRequest | null {
   const pr = raw as Record<string, unknown> | null;
   const url = httpsUrl(pr?.url);
   if (!pr || !url) return null;
   const number = numberOf(pr.number, url);
   if (!number) return null;
-  const ci = ciFromRollup(pr.statusCheckRollup);
+  const commit = (pr.commits as { nodes?: { commit?: { statusCheckRollup?: { contexts?: { nodes?: unknown } } | null } }[] } | null)
+    ?.nodes?.[0]?.commit;
+  const rollup = commit?.statusCheckRollup;
+  const ci = rollup ? ciFromRollup(rollup.contexts?.nodes) : undefined;
   const review = reviewOf(pr.reviewDecision);
   const conflicts = conflictsOf(pr.mergeable);
   const autoMerge = autoMergeOf(pr.autoMergeRequest);
@@ -449,43 +432,28 @@ export function ghPr(raw: unknown): PullRequest | null {
   };
 }
 
-const prCache = new Map<string, { at: number; value: Promise<GhAnswer> }>();
+const prCache = new Map<string, { at: number; value: Promise<PrAnswer> }>();
 
 /**
- * The PR `gh` finds for `branch`, asked in `cwd` (a checkout on this
- * machine). Never throws: gh missing, signed out or failing is
- * `available: false`; "no pull requests found" is `pr: null`.
+ * The newest PR GitHub has for `branch` in `repo` (its page or `owner/name`).
+ * Never throws: GitHub off, no token, or failing is `available: false`;
+ * no PR for the branch is `pr: null`.
  */
-export function ghPullRequest(
-  cwd: string,
-  branch: string,
-  now = Date.now(),
-): Promise<GhAnswer> {
-  if (BASE_BRANCHES.test(branch.trim()))
-    return Promise.resolve({ available: true, pr: null });
-  if (!isAbsolute(cwd) || !isDirectory(cwd) || branch.startsWith("-"))
-    return Promise.resolve({ available: false, pr: null });
-  const key = `${cwd}\n${branch}`;
+export function githubPullRequest(repo: string | undefined | null, branch: string, now = Date.now()): Promise<PrAnswer> {
+  if (BASE_BRANCHES.test(branch.trim())) return Promise.resolve({ available: true, pr: null });
+  const at = repoCoordinates(repo);
+  if (!at || !branch.trim() || !githubReady()) return Promise.resolve({ available: false, pr: null });
+  const key = `${at.owner}/${at.name}\n${branch}`;
   const hit = prCache.get(key);
-  if (hit && now - hit.at < GH.ttlMs) return hit.value;
-  const value = gh(cwd, [
-    "pr",
-    "view",
-    branch,
-    "--json",
-    "number,title,state,isDraft,url,body,statusCheckRollup,reviewDecision,mergeable,autoMergeRequest",
-  ]).then(
-    (out): GhAnswer => {
-      try {
-        return { available: true, pr: ghPr(JSON.parse(out)) };
-      } catch {
-        return { available: false, pr: null };
-      }
+  if (hit && now - hit.at < GITHUB_LOOKUP.ttlMs) return hit.value;
+  const value = githubGraphql(BRANCH_PR_QUERY, { owner: at.owner, name: at.name, branch }).then(
+    (data): PrAnswer => {
+      const repository = data.repository as { pullRequests?: { nodes?: unknown[] } } | null;
+      if (!repository) return { available: false, pr: null };
+      const node = repository.pullRequests?.nodes?.[0];
+      return { available: true, pr: node ? prFromGraphql(node) : null };
     },
-    (error: { code?: unknown; stderr?: string }): GhAnswer =>
-      /no (open )?pull requests? found/i.test(error.stderr ?? "")
-        ? { available: true, pr: null }
-        : { available: false, pr: null },
+    (): PrAnswer => ({ available: false, pr: null }),
   );
   prCache.set(key, { at: now, value });
   if (prCache.size > 500) prCache.delete(prCache.keys().next().value!);
@@ -514,60 +482,34 @@ const queueCache = new Map<
 >();
 
 /**
- * The PR's merge queue standing, from a read-only GraphQL query
- * (`gh api graphql`) run in `cwd`, a checkout on this machine; github.com
- * PRs only. Never throws: gh missing, signed out or failing is
+ * The PR's merge queue standing, from a read-only GraphQL query; github.com
+ * PRs only. Never throws: GitHub off, no token, or failing is
  * `available: false`; a PR GitHub doesn't know is `queue: null`.
  */
-export function ghMergeQueue(
-  cwd: string,
+export function githubMergeQueue(
   prUrl: string,
   now = Date.now(),
 ): Promise<QueueAnswer> {
   const at = prCoordinates(prUrl);
-  if (!at || !isAbsolute(cwd) || !isDirectory(cwd))
-    return Promise.resolve({ available: false, queue: null });
-  const key = `${cwd}\n${at.owner}/${at.name}#${at.number}`;
+  if (!at || !githubReady()) return Promise.resolve({ available: false, queue: null });
+  const key = `${at.owner}/${at.name}#${at.number}`;
   const hit = queueCache.get(key);
-  if (hit && now - hit.at < GH.ttlMs) return hit.value;
-  const value = gh(cwd, [
-    "api",
-    "graphql",
-    "-f",
-    `query=${QUEUE_QUERY}`,
-    "-f",
-    `owner=${at.owner}`,
-    "-f",
-    `name=${at.name}`,
-    "-F",
-    `number=${at.number}`,
-  ]).then(
-    (out): QueueAnswer => {
-      try {
-        const raw = JSON.parse(out);
-        const state = prStateFromGraphql(raw);
-        return {
-          available: true,
-          queue: queueFromGraphql(raw),
-          ...(state && { state }),
-        };
-      } catch {
-        return { available: false, queue: null };
-      }
+  if (hit && now - hit.at < GITHUB_LOOKUP.ttlMs) return hit.value;
+  const value = githubGraphql(QUEUE_QUERY, { owner: at.owner, name: at.name, number: at.number }).then(
+    (data): QueueAnswer => {
+      const raw = { data };
+      const state = prStateFromGraphql(raw);
+      return {
+        available: true,
+        queue: queueFromGraphql(raw),
+        ...(state && { state }),
+      };
     },
     (): QueueAnswer => ({ available: false, queue: null }),
   );
   queueCache.set(key, { at: now, value });
   if (queueCache.size > 500) queueCache.delete(queueCache.keys().next().value!);
   return value;
-}
-
-function isDirectory(path: string) {
-  try {
-    return statSync(path).isDirectory();
-  } catch {
-    return false;
-  }
 }
 
 // ── Linear ─────────────────────────────────────────────────────────────────
