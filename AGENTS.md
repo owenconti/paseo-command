@@ -324,6 +324,12 @@ and GitHub publication; report the published version and release link.
   (`store.ts`) polls every 30 s while the view shows, else every minute in the macOS app for the tab's count.
 - Web links clicked in the chat (`.session`, `openInAppBrowser` in `web/src/Session.tsx`, `postAppLink` → the `openLink` message)
   switch to Conquer and open there as a new tab, once its tabs are restored (`whenStarted`).
+- Links to a Linear issue (`linear.app/<workspace>/issue/<KEY>`) or a Slack conversation or message (`<team>.slack.com/archives/…`,
+  a reply's `thread_ts` opening its thread) open in the Linear and Slack tabs while those are on, wherever they're clicked: the chat,
+  a Conquer page (⌥-click stays there), an issue's description, the header's issue chip. The app matches them (`pageMode`, `routeLink`
+  in `WorldWindow.swift`) and sends the page `paseo:link`; `web/src/appLinks.ts` (`parseAppLink`, the same shapes) opens it, or
+  hands it back to Conquer (`openLink` with `direct`) when it isn't the workspace's team or Slack address. "Open in Linear" posts
+  `external`, the default browser.
 
 ## Atlas world
 
