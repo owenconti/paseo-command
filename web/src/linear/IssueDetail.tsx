@@ -16,6 +16,7 @@ import {
 import { errorMessage } from "../api";
 import { onAppCommand } from "../appCommands";
 import { openExternal } from "../links";
+import { macApp, postAppExternal } from "../worldBridge";
 import { copyText } from "../nativePlatform";
 import { Comments } from "./Comments";
 import { Attachments } from "./Attachments";
@@ -300,7 +301,7 @@ export function IssueDetail({
               Launch agent
             </button>
             {issue.url && (
-              <button className="secondary" onClick={() => openExternal(issue.url)}>
+              <button className="secondary" onClick={() => (macApp() ? postAppExternal(issue.url) : openExternal(issue.url))}>
                 <ExternalLink size={13} aria-hidden="true" />
                 Open in Linear
               </button>

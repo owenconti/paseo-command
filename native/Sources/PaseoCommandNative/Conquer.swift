@@ -263,6 +263,8 @@ final class ConquerView: NSView, WKNavigationDelegate, WKUIDelegate, NSTextField
     private var placedSidebar = false
     private var sidebarWidth: CGFloat = 240
     var onTogglePanel: (() -> Void)?
+    /// A link clicked in a page: true when the app opens it elsewhere (a Linear issue or Slack message in its tab).
+    var onLink: ((URL) -> Bool)?
     private var saving: DispatchWorkItem?
     private var icons: [URL: NSImage] = [:]
     /// Each site's zoom, by host (check runs keep it in memory).
@@ -1301,6 +1303,11 @@ final class ConquerView: NSView, WKNavigationDelegate, WKUIDelegate, NSTextField
     func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction,
                  decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
         if navigationAction.shouldPerformDownload { return decisionHandler(.download) }
+        // Linear issues and Slack messages open in their own tabs (⌥-click stays here).
+        if navigationAction.navigationType == .linkActivated, !navigationAction.modifierFlags.contains(.option),
+           let url = navigationAction.request.url, onLink?(url) == true {
+            return decisionHandler(.cancel)
+        }
         // ⌘-click opens a link in a tab behind this one.
         if navigationAction.navigationType == .linkActivated, navigationAction.modifierFlags.contains(.command),
            let url = navigationAction.request.url {
@@ -1363,6 +1370,8 @@ final class ConquerView: NSView, WKNavigationDelegate, WKUIDelegate, NSTextField
     /// that keeps its opener, so popups can report back.
     func webView(_ webView: WKWebView, createWebViewWith configuration: WKWebViewConfiguration,
                  for navigationAction: WKNavigationAction, windowFeatures: WKWindowFeatures) -> WKWebView? {
+        if navigationAction.navigationType == .linkActivated, !navigationAction.modifierFlags.contains(.option),
+           let url = navigationAction.request.url, onLink?(url) == true { return nil }
         let web = WKWebView(frame: body.bounds, configuration: configuration)
         prepare(web)
         let tab = BrowserTab(web: web)

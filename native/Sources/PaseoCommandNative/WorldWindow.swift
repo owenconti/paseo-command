@@ -127,6 +127,7 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         conquer.onTogglePanel = { [weak self] in
             self?.web.evaluateJavaScript("window.dispatchEvent(new CustomEvent('paseo:command', { detail: 'toggle-panel' }))", completionHandler: nil)
         }
+        conquer.onLink = { [weak self] url in self?.routeLink(url) ?? false }
         configuration.userContentController.add(self, name: "paseoWorld")
         web.navigationDelegate = self
         web.uiDelegate = self
@@ -240,7 +241,15 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
             drawer.show(selected)
         case "openLink":
             // A link clicked in the chat: a new Conquer tab, in the map's place.
-            if let text = body["url"] as? String, let url = URL(string: text), url.scheme?.hasPrefix("http") == true { openInApp(url) }
+            // A Linear issue or Slack message goes to the page for its tab, unless the page sent it `direct`.
+            if let text = body["url"] as? String, let url = URL(string: text), url.scheme?.hasPrefix("http") == true {
+                if body["direct"] as? Bool == true || !routeLink(url) { openInApp(url) }
+            }
+        case "external":
+            // "Open in Linear": the default browser, never the app's own tabs.
+            if let text = body["url"] as? String, let url = URL(string: text), ["http", "https"].contains(url.scheme?.lowercased() ?? "") {
+                NSWorkspace.shared.open(url)
+            }
         case "loaded":
             // The page has its first fleet and has handed it to the world.
             fleetLoaded = true
@@ -483,7 +492,8 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
     /// mail links only, never `file:` or another app's URL scheme.
     func webView(_ webView: WKWebView, createWebViewWith configuration: WKWebViewConfiguration,
                  for navigationAction: WKNavigationAction, windowFeatures: WKWindowFeatures) -> WKWebView? {
-        if let url = navigationAction.request.url, ["http", "https", "mailto"].contains(url.scheme?.lowercased() ?? "") {
+        if let url = navigationAction.request.url, ["http", "https", "mailto"].contains(url.scheme?.lowercased() ?? ""),
+           !routeLink(url) {
             NSWorkspace.shared.open(url)
         }
         return nil
@@ -497,7 +507,7 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         if !blank { noticing = false }
         if let url = navigationAction.request.url, !notice, !WebOrigin.matches(url, to: options.url) {
             if navigationAction.navigationType == .linkActivated,
-               ["http", "https", "mailto"].contains(url.scheme?.lowercased() ?? "") {
+               ["http", "https", "mailto"].contains(url.scheme?.lowercased() ?? ""), !routeLink(url) {
                 NSWorkspace.shared.open(url)
             }
             return decisionHandler(.cancel)
@@ -639,6 +649,28 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
 
     /// Open `url` in a new Conquer tab (a link from the chat), in the map's
     /// place, once its tabs and cookies are in.
+    /// The page's tab a link opens in: a Linear issue (`linear.app/<workspace>/issue/<KEY>`) or a Slack
+    /// conversation or message (`<team>.slack.com/archives/<id>…`), as the page's `parseAppLink` reads them.
+    static func pageMode(for url: URL) -> Mode? {
+        guard ["http", "https"].contains(url.scheme?.lowercased() ?? ""), let host = url.host?.lowercased() else { return nil }
+        let parts = url.path.split(separator: "/").map(String.init)
+        func matches(_ text: String, _ pattern: String) -> Bool {
+            text.range(of: pattern, options: [.regularExpression, .caseInsensitive]) != nil
+        }
+        if host == "linear.app", parts.count >= 3, parts[1] == "issue", matches(parts[2], "^[a-z][a-z0-9]{0,9}-[0-9]{1,6}$") { return .linear }
+        if host.hasSuffix(".slack.com"), parts.count >= 2, parts[0] == "archives",
+           parts[1].range(of: "^[CDG][A-Z0-9]{1,30}$", options: .regularExpression) != nil { return .slack }
+        return nil
+    }
+
+    /// Hands a Linear issue's or Slack message's link to the page, which opens it in that tab
+    /// (or back in Conquer when it isn't the workspace's); false when that tab is off or it's another link.
+    func routeLink(_ url: URL) -> Bool {
+        guard let mode = Self.pageMode(for: url), enabledModes.contains(mode) else { return false }
+        send(["url": url.absoluteString], as: "paseo:link")
+        return true
+    }
+
     func openInApp(_ url: URL) {
         show(.conquer)
         conquer.whenStarted { [weak self] in self?.conquer.open(url) }

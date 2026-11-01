@@ -221,9 +221,13 @@ export const configureAppIntegrations = (tabs: { linear: boolean; slack: boolean
   appChannel()?.postMessage({ type: "integrations", ...tabs });
 /** Activity's unread notifications, for its mode bar tab. */
 export const postAppActivity = (unread: number) => appChannel()?.postMessage({ type: "activity", unread });
-/** Open a web link in the macOS app's browser, Conquer, in the map's place (a new tab). */
-export const postAppLink = (url: string) =>
-  appChannel()?.postMessage({ type: "openLink", url });
+/** Open a web link in the macOS app's browser, Conquer, in the map's place (a new tab).
+ * A Linear issue's or Slack message's link comes back as `paseo:link` for its tab,
+ * unless `direct` (one the page has already looked at). */
+export const postAppLink = (url: string, direct = false) =>
+  appChannel()?.postMessage({ type: "openLink", url, ...(direct ? { direct } : {}) });
+/** Open a web link in the default browser, never in the app's own tabs ("Open in Linear"). */
+export const postAppExternal = (url: string) => appChannel()?.postMessage({ type: "external", url });
 export function postNative(message: { type: string; [key: string]: unknown }) {
   window.webkit?.messageHandlers?.worldBridge?.postMessage({
     ...message,

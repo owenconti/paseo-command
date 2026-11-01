@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { openAppLink } from "./appLinks";
 import { askAppMode, configureAppIntegrations } from "./worldBridge";
 import { useIntegrations } from "./integrationSettings";
 import { activityEnabled, type Integrations } from "./integrations";
@@ -27,9 +28,17 @@ export function useAppMode(): AppMode {
       if (MODES.includes(next)) setMode(next);
     };
     window.addEventListener("paseo:mode", receive);
+    const link = (event: Event) => {
+      const url = (event as CustomEvent).detail?.url;
+      if (typeof url === "string") openAppLink(url);
+    };
+    window.addEventListener("paseo:link", link);
     // Ask once listening: a page that (re)loads in Linear, Slack or Activity shows it at once.
     askAppMode();
-    return () => window.removeEventListener("paseo:mode", receive);
+    return () => {
+      window.removeEventListener("paseo:mode", receive);
+      window.removeEventListener("paseo:link", link);
+    };
   }, []);
   const tabs = appTabs(integrations);
   return mode === "linear" || mode === "slack" || mode === "activity" ? (tabs[mode] ? mode : "command") : mode;
