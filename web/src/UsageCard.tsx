@@ -2,6 +2,7 @@ import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { UsageReport } from "./types";
 import { placeText } from "./names";
+import { onAppBar, postAppBarState, type BarRect } from "./worldBridge";
 
 type Limit = {
   key: string;
@@ -20,13 +21,20 @@ const number = (value: number, unit?: string) =>
       }).format(value)
     : `${new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 }).format(value)}${unit ? ` ${unit}` : ""}`;
 
-export function UsageCard({ reports }: { reports: UsageReport[] }) {
+/**
+ * The providers' usage: up to four meters, and the breakdown beside them on
+ * hover or click. `hosted`: the macOS app's top bar draws the meters (from
+ * `postAppBarState`) and says when its button is hovered or clicked, and where.
+ */
+export function UsageCard({ reports, hosted = false }: { reports: UsageReport[]; hosted?: boolean }) {
   const [open, setOpen] = useState(false);
   const [position, setPosition] = useState<{
     left: number;
     top: number;
   } | null>(null);
   const anchor = useRef<HTMLButtonElement>(null);
+  /** The app's top bar button, when it opened the breakdown. */
+  const [barRect, setBarRect] = useState<BarRect | null>(null);
   const panel = useRef<HTMLDivElement>(null);
   const closeTimer = useRef<ReturnType<typeof setTimeout> | undefined>(
     undefined,
@@ -84,9 +92,42 @@ export function UsageCard({ reports }: { reports: UsageReport[] }) {
     closeTimer.current = setTimeout(() => setOpen(false), 180);
   };
   useEffect(() => () => clearTimeout(closeTimer.current), []);
+  const meterKey = meters.map((m) => `${percent(m.pct ?? 0)}:${tone(m.pct ?? 0)}`).join(",");
+  useEffect(() => {
+    if (!hosted) return;
+    postAppBarState({
+      usage: reports.length
+        ? (meters.length ? meters : [{ pct: 0 }]).map((m) => ({ pct: percent(m.pct ?? 0), tone: tone(m.pct ?? 0) }))
+        : [],
+    });
+    // The meters' values, not their array, decide when the bar is told again.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hosted, meterKey, reports.length]);
+  const reveal_ = useRef(reveal);
+  reveal_.current = reveal;
+  const leave_ = useRef(leave);
+  leave_.current = leave;
+  useEffect(() => {
+    if (!hosted) return;
+    const offs = [
+      onAppBar("usage-enter", (rect) => {
+        setBarRect(rect);
+        reveal_.current();
+      }),
+      onAppBar("usage-leave", () => leave_.current()),
+      onAppBar("usage", (rect) => {
+        setBarRect(rect);
+        clearTimeout(closeTimer.current);
+        setOpen((value) => !value);
+      }),
+    ];
+    return () => offs.forEach((off) => off());
+  }, [hosted]);
   useLayoutEffect(() => {
-    if (!open || !anchor.current || !panel.current) return;
-    const a = anchor.current.getBoundingClientRect();
+    const a = hosted
+      ? barRect && { top: barRect.y, bottom: barRect.y + barRect.height, right: barRect.x + barRect.width }
+      : anchor.current?.getBoundingClientRect();
+    if (!open || !a || !panel.current) return;
     const p = panel.current.getBoundingClientRect();
     const top =
       a.bottom + 8 + p.height <= innerHeight - 12
@@ -99,7 +140,7 @@ export function UsageCard({ reports }: { reports: UsageReport[] }) {
       ),
       top,
     });
-  }, [open, reports]);
+  }, [open, reports, hosted, barRect]);
   useEffect(() => {
     if (!open) return;
     const close = () => setOpen(false);
@@ -134,7 +175,7 @@ export function UsageCard({ reports }: { reports: UsageReport[] }) {
   }, [open]);
   return (
     <>
-      <button
+      {!hosted && <button
         ref={anchor}
         className="usage-card"
         aria-label="Usage breakdown"
@@ -181,7 +222,7 @@ export function UsageCard({ reports }: { reports: UsageReport[] }) {
             ),
           )}
         </span>
-      </button>
+      </button>}
       {open &&
         createPortal(
           <div

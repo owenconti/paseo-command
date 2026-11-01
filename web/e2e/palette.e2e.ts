@@ -137,11 +137,11 @@ test("the open agent's actions and the header's tools are in the palette", async
     await palette.getByRole("option", { name: "Interrupt the agent" }).count(),
     0,
   );
-  // Settings opens the header's settings.
+  // Settings opens the Settings page, in the map's place.
   await search.fill("settings");
   await page.keyboard.press("Enter");
   await palette.waitFor({ state: "detached" });
-  await page.getByRole("dialog", { name: "Settings" }).waitFor();
+  await page.getByRole("region", { name: "Settings", exact: true }).waitFor();
   await context.close();
 });
 
@@ -155,7 +155,32 @@ test("in the macOS app, the terminal's menu commands are listed and reach the ap
   `);
   await mockApi(page, { agents: () => [] });
   await page.goto(app.url);
-  await page.getByRole("button", { name: "Keyboard shortcuts" }).waitFor();
+  await page.locator(".fleet-sidebar").waitFor();
+  // The app's top bar is native: the page draws none, and tells the app what its tools show.
+  assert.equal(await page.locator(".app-bar").count(), 0);
+  await page.waitForFunction(() =>
+    (window as unknown as { sentToApp: { type: string; panelSide?: string }[] }).sentToApp.some(
+      (m) => m.type === "barState" && m.panelSide !== undefined,
+    ),
+  );
+  // Its buttons open what they name beneath themselves (their rectangle is above the page).
+  const bar = (action: string) =>
+    page.evaluate((action) => window.dispatchEvent(new CustomEvent("paseo:bar", { detail: { action, x: 1100, y: -34, width: 28, height: 26 } })), action);
+  await bar("releases");
+  const notes = page.getByRole("dialog", { name: "What's new" });
+  await notes.waitFor();
+  assert.ok((await notes.boundingBox())!.y < 20);
+  await bar("releases");
+  await notes.waitFor({ state: "detached" });
+  await bar("panel-toggle");
+  await page.locator(".floating-command[data-collapsed='true']").waitFor({ state: "attached" });
+  await page.waitForFunction(() =>
+    (window as unknown as { sentToApp: { type: string; panelCollapsed?: boolean }[] }).sentToApp.some(
+      (m) => m.type === "barState" && m.panelCollapsed === true,
+    ),
+  );
+  await bar("panel-toggle");
+  await page.locator(".floating-command[data-collapsed='false']").waitFor();
   const palette = page.getByRole("dialog", { name: "Command palette" });
   const search = palette.getByRole("combobox", { name: "Search commands" });
   await page.keyboard.press("Meta+k");

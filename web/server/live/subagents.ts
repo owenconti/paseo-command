@@ -49,6 +49,9 @@ export type SubagentRow = {
    *  Opus 5.5 · Medium · 145.7k tokens"), a hidden child's provider, model
    *  and thinking. */
   detail?: string;
+  /** Its provider and model, as far as the daemon says (the map colours its drone by it):
+   *  a hidden child's `provider/model`, a provider subagent's provider and facts line. */
+  model?: string;
   /** For a provider subagent: the daemon agent whose turn runs it (whose
    *  timeline API reads its conversation), when that isn't the row's own
    *  agent (one run by a hidden daemon subagent). */
@@ -92,6 +95,7 @@ export function subagentRow(s: SubagentRecord): SubagentRow {
   const kind = text(s.title),
     parent = text(s.parentSubagentId),
     detail = text(s.subtitle);
+  const model = [text(s.provider), detail].filter(Boolean).join(" ");
   return {
     id: s.id,
     name: text(s.description) || kind || "Subagent",
@@ -100,6 +104,7 @@ export function subagentRow(s: SubagentRecord): SubagentRow {
     source: "provider",
     ...(parent && parent !== s.id ? { parent } : {}),
     ...(detail ? { detail } : {}),
+    ...(model ? { model } : {}),
     ...(text(s.createdAt) ? { startedAt: text(s.createdAt) } : {}),
   };
 }

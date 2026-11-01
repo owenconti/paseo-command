@@ -7,10 +7,10 @@ import { activityEnabled, type Integrations } from "./integrations";
 /** What stands in the map's place in the macOS app (its mode bar's tabs):
  * the map, the Conquer browser, or what the page draws itself: Linear, Slack,
  * GitHub (pull requests and the workspace's changes) and Activity (GitHub,
- * Linear and Slack notifications together). */
-export type AppMode = "command" | "conquer" | "linear" | "slack" | "github" | "activity";
+ * Linear and Slack notifications together), and Settings (the bar's gear, not a tab). */
+export type AppMode = "command" | "conquer" | "linear" | "slack" | "github" | "activity" | "settings";
 
-const MODES: AppMode[] = ["command", "conquer", "linear", "slack", "github", "activity"];
+const MODES: AppMode[] = ["command", "conquer", "linear", "slack", "github", "activity", "settings"];
 
 /** The page's tabs whose integration is on. */
 export const appTabs = (i: Integrations) => ({ linear: i.linear, slack: i.slack, github: i.github, activity: activityEnabled(i) });

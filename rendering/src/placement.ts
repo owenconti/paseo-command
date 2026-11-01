@@ -314,10 +314,11 @@ export function locations(layout: AtlasLayout): Map<string, Box> {
 }
 
 /** Each agent's robot, centred on its own cell: working ones potter about,
- * and running subagents circle it as drones (up to four; none when offline). */
+ * and running subagents circle it as drones (up to four; none when offline),
+ * each in its own model's colour (`droneArts`; its agent's where unknown). */
 export function robots(
   layout: AtlasLayout,
-): { id: string; x: number; y: number; art: string; offline: boolean; busy: boolean; drones: number }[] {
+): { id: string; x: number; y: number; art: string; offline: boolean; busy: boolean; drones: number; droneArts: string[] }[] {
   return layout.agents.map((a) => {
     const { x, y } = point(a.position);
     const offline = a.state === "offline";
@@ -329,6 +330,7 @@ export function robots(
       offline,
       busy: a.state === "running",
       drones: !a.subagents || offline ? 0 : Math.min(4, a.subagents),
+      droneArts: offline ? [] : (a.droneArts ?? []).slice(0, 4),
     };
   });
 }

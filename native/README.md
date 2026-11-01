@@ -100,7 +100,7 @@ pane. The unsplit button (shown while split; View → Unsplit Terminals) returns
 others staying as tabs; a pane's tab dropped back on the tab bar leaves the panes too. Each workspace keeps its panes while the app runs. Its inner edge drags to resize it. The dock button (or View → Terminal at
 Bottom) moves it under the map and panels and back; each side keeps its own size. The maximize button (View → Maximize
 Terminal, ⇧⌘↩) lays the panel over the whole map, leaving the page's panels in view, and back. ⌘+ / ⌘− / ⌘0 (View) change
-the terminals' text size while the panel shows (in Linear, Slack and GitHub, only while it has the keyboard: the page sizes their text with them), kept across launches. Closing the panel or switching workspace leaves terminals
+the terminals' text size while the panel shows (in Linear, Slack, GitHub, Activity and Settings, only while it has the keyboard: the page sizes their text with them), kept across launches. Closing the panel or switching workspace leaves terminals
 running on the daemon. SwiftTerm draws them; the app server relays each over `/api/terminal`
 (`web/server/api/terminals.ts`), replaying its recent screen first. To check it without a real
 daemon:

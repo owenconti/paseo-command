@@ -45,8 +45,8 @@ const typing = (target: Target) =>
  * The Linear tab's key for a keydown: j/↓ and k/↑ move through the list,
  * Enter or O opens, Esc goes back, C creates, S, P, A, L, M and ⇧C open the
  * open issue's status, priority, assignee, labels, project and cycle pickers,
- * I assigns it to you, ⌘. and ⌘⇧, copy its branch name and link, / searches
- * the list and F opens its Filter menu. Null while typing (an input, a textarea, a select, anything
+ * I assigns it to you, ⌘. and ⌘⇧, copy its branch name and link, / (or ⌘F,
+ * even while typing) searches the list and F opens its Filter menu. Null while typing (an input, a textarea, a select, anything
  * editable) and for every other key, ⌘S included (the view's sidebar toggle).
  */
 export function linearKeyAction(e: {
@@ -57,6 +57,7 @@ export function linearKeyAction(e: {
   altKey: boolean;
   target: Target;
 }): LinearKey | null {
+  if (e.metaKey && !e.shiftKey && !e.ctrlKey && !e.altKey && e.key.toLowerCase() === "f") return "filter";
   if (typing(e.target) || e.ctrlKey || e.altKey) return null;
   if (e.metaKey) {
     if (!e.shiftKey && e.key === ".") return "copyBranch";

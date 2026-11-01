@@ -13,13 +13,18 @@ import {
   PanelLeft,
   PanelRight,
   PanelRightClose,
+  Settings,
 } from "lucide-react";
 import { readStore, writeStore } from "./api";
 import { ReleasesButton } from "./ReleasesButton";
 import { ShortcutsButton } from "./ShortcutsButton";
 import { GamesButton } from "./games/GamesButton";
 import { onAppCommand } from "./appCommands";
-import { macApp, nativeEvents, postAppBar, postNative } from "./worldBridge";
+import { macApp, nativeEvents, onAppBar, postAppBarState, postNative } from "./worldBridge";
+import { UsageCard } from "./UsageCard";
+import type { UsageReport } from "./types";
+import { closeSettings, openSettings, useSettingsShown } from "./settingsStore";
+import { useMusic } from "./music";
 import { worldFrame } from "./viewControls";
 import {
   arrowWidth,
@@ -52,8 +57,8 @@ type Props = {
   onVisibility: (state: { compact: boolean; collapsed: boolean }) => void;
   attention: number;
   onAttention: () => void;
-  /** App-wide tools shown in the header (usage, sounds, notifications, theme). */
-  tools?: ReactNode;
+  /** The providers' usage, behind the top bar's meters. */
+  usage: UsageReport[];
 };
 const viewportWidth = () =>
   parseFloat(document.documentElement.style.getPropertyValue("--workspace-width")) ||
@@ -74,8 +79,6 @@ export function FloatingPanel(props: Props) {
   current.current = state;
   const drag = useRef<{ x: number; width: number } | null>(null);
   const restoreButton = useRef<HTMLButtonElement>(null);
-  const toolsRef = useRef<HTMLDivElement>(null);
-  const titleRef = useRef<HTMLSpanElement>(null);
   const width = fitSidebar(state.width, windowWidth);
   const extent = sidebarExtent(state, windowWidth);
   const compact = state.mode === "compact" || width < SPLIT_MIN;
@@ -99,30 +102,32 @@ export function FloatingPanel(props: Props) {
       delete root.dataset.panelSide;
     };
   }, [enabled, extent, side]);
-  // The page draws the product's name past the traffic lights and its tools at
-  // the right end of the window's top bar (the app's mode bar lies over the
-  // rest of it, its tabs after the name); the app leaves both rectangles to
-  // the page, unpainted, and the tools take their own clicks.
-  useLayoutEffect(() => {
-    const tools = toolsRef.current;
-    const title = titleRef.current;
-    if (!enabled || !tools || !title || !macApp()) return;
-    const rect = (el: Element) => {
-      const r = el.getBoundingClientRect();
-      return { x: r.left, y: r.top, width: r.width, height: r.height };
-    };
-    const report = () => postAppBar(rect(tools), rect(title));
-    report();
-    const observer = new ResizeObserver(report);
-    observer.observe(tools);
-    observer.observe(title);
-    addEventListener("resize", report);
-    return () => {
-      observer.disconnect();
-      removeEventListener("resize", report);
-      const none = { x: 0, y: 0, width: 0, height: 0 };
-      postAppBar(none, none);
-    };
+  // In the macOS app its top bar is native: it shows the panel's side, layout and
+  // visibility and the need-you count from here, and its panel buttons act here.
+  const layoutEnabled = !state.collapsed && splitFits(windowWidth);
+  const music = useMusic();
+  const musicConnecting = music.enabled && music.state === "connecting";
+  useEffect(() => {
+    if (!enabled || !macApp()) return;
+    postAppBarState({
+      attention: props.attention,
+      panelSide: side,
+      panelCompact: compact,
+      panelCollapsed: state.collapsed,
+      layoutEnabled,
+      musicConnecting,
+    });
+  }, [enabled, props.attention, side, compact, state.collapsed, layoutEnabled, musicConnecting]);
+  const barActions = useRef({ attention: () => {}, layout: () => {} });
+  useEffect(() => {
+    if (!enabled || !macApp()) return;
+    const offs = [
+      onAppBar("attention", () => barActions.current.attention()),
+      onAppBar("panel-side", () => setState((s) => ({ ...s, side: s.side === "left" ? "right" : "left" }))),
+      onAppBar("panel-layout", () => barActions.current.layout()),
+      onAppBar("panel-toggle", () => setState((s) => ({ ...s, collapsed: !s.collapsed }))),
+    ];
+    return () => offs.forEach((off) => off());
   }, [enabled]);
   // The app's View menu names the other side; it learns this one from here
   // and asks for a side through a menu event.
@@ -232,84 +237,102 @@ export function FloatingPanel(props: Props) {
       width: split ? Math.max(800, width) : SIDEBAR_DEFAULT,
     });
   };
+  barActions.current = {
+    attention: () => {
+      expand();
+      props.onAttention();
+    },
+    layout: () => {
+      if (layoutEnabled) toggleLayout();
+    },
+  };
   return (
     <>
-      <header className="app-bar" aria-label="Toolbar">
-        <span ref={titleRef} className="app-bar-title">
-          Paseo Command
-        </span>
-        <div ref={toolsRef} className="app-bar-tools">
-          {props.attention > 0 && (
+      {macApp() ? (
+        // The app's native top bar has the buttons; what they open lives here.
+        <div className="app-bar-hosted">
+          <UsageCard reports={props.usage} hosted />
+          <ReleasesButton hosted />
+          <GamesButton hidden />
+          <ShortcutsButton hidden />
+        </div>
+      ) : (
+        <header className="app-bar" aria-label="Toolbar">
+          <span className="app-bar-title">Paseo Command</span>
+          <div className="app-bar-tools">
+            {props.attention > 0 && (
+              <button
+                className="panel-attention"
+                aria-label={`${props.attention} approvals need attention`}
+                onClick={() => {
+                  expand();
+                  props.onAttention();
+                }}
+              >
+                {props.attention} need you
+              </button>
+            )}
+            {props.usage.length > 0 && <UsageCard reports={props.usage} />}
+            <SettingsButton />
+            <ReleasesButton />
+            <GamesButton />
+            <ShortcutsButton />
             <button
-              className="panel-attention"
-              aria-label={`${props.attention} approvals need attention`}
+              className="panel-tool"
+              aria-label={
+                side === "left"
+                  ? "Move session panel to the right"
+                  : "Move session panel to the left"
+              }
+              data-tip={
+                side === "left" ? "Move panel to the right" : "Move panel to the left"
+              }
+              onClick={() => moveTo(side === "left" ? "right" : "left")}
+            >
+              {side === "left" ? <PanelRight size={16} /> : <PanelLeft size={16} />}
+            </button>
+            <button
+              className="panel-tool"
+              disabled={state.collapsed || !splitFits(windowWidth)}
+              aria-label={
+                compact ? "Show list and details together" : "Use compact panel"
+              }
+              data-tip={
+                compact ? "Show list and details together" : "Use compact panel"
+              }
+              onClick={toggleLayout}
+            >
+              {compact ? <Columns2 size={16} /> : <PanelRightClose size={16} />}
+            </button>
+            <button
+              ref={restoreButton}
+              className="panel-tool"
+              aria-label={
+                state.collapsed ? "Show session panel" : "Hide session panel"
+              }
+              data-tip={
+                state.collapsed ? "Show session panel (⌘B)" : "Hide session panel (⌘B)"
+              }
+              aria-expanded={!state.collapsed}
+              aria-controls="floating-command-content"
               onClick={() => {
-                expand();
-                props.onAttention();
+                setState((s) => ({ ...s, collapsed: !s.collapsed }));
+                restoreButton.current?.focus();
               }}
             >
-              {props.attention} need you
-            </button>
-          )}
-          {props.tools}
-          <ReleasesButton />
-          <GamesButton />
-          <ShortcutsButton />
-          <button
-            className="panel-tool"
-            aria-label={
-              side === "left"
-                ? "Move session panel to the right"
-                : "Move session panel to the left"
-            }
-            data-tip={
-              side === "left" ? "Move panel to the right" : "Move panel to the left"
-            }
-            onClick={() => moveTo(side === "left" ? "right" : "left")}
-          >
-            {side === "left" ? <PanelRight size={16} /> : <PanelLeft size={16} />}
-          </button>
-          <button
-            className="panel-tool"
-            disabled={state.collapsed || !splitFits(windowWidth)}
-            aria-label={
-              compact ? "Show list and details together" : "Use compact panel"
-            }
-            data-tip={
-              compact ? "Show list and details together" : "Use compact panel"
-            }
-            onClick={toggleLayout}
-          >
-            {compact ? <Columns2 size={16} /> : <PanelRightClose size={16} />}
-          </button>
-          <button
-            ref={restoreButton}
-            className="panel-tool"
-            aria-label={
-              state.collapsed ? "Show session panel" : "Hide session panel"
-            }
-            data-tip={
-              state.collapsed ? "Show session panel (⌘B)" : "Hide session panel (⌘B)"
-            }
-            aria-expanded={!state.collapsed}
-            aria-controls="floating-command-content"
-            onClick={() => {
-              setState((s) => ({ ...s, collapsed: !s.collapsed }));
-              restoreButton.current?.focus();
-            }}
-          >
-            {state.collapsed ? (
-              side === "left" ? (
-                <PanelLeft size={16} />
+              {state.collapsed ? (
+                side === "left" ? (
+                  <PanelLeft size={16} />
+                ) : (
+                  <PanelRight size={16} />
+                )
               ) : (
-                <PanelRight size={16} />
-              )
-            ) : (
-              <Minus size={16} />
-            )}
-          </button>
-        </div>
-      </header>
+                <Minus size={16} />
+              )}
+            </button>
+          </div>
+        </header>
+      )}
       <section
         className="floating-command"
         data-compact={compact}
@@ -349,5 +372,25 @@ export function FloatingPanel(props: Props) {
       )}
       </section>
     </>
+  );
+}
+
+/** The browser's top bar gear: Settings, a page in the map's place (`settingsStore.ts`). */
+function SettingsButton() {
+  const shown = useSettingsShown("command");
+  const music = useMusic();
+  return (
+    <span className="settings-anchor">
+      <button
+        className="icon-btn"
+        aria-pressed={shown}
+        aria-label={shown ? "Close settings" : "Settings"}
+        data-tip="Settings — integrations, sounds, music, notifications"
+        data-music={music.enabled ? music.state : "off"}
+        onClick={() => (shown ? closeSettings() : openSettings())}
+      >
+        <Settings size={14} />
+      </button>
+    </span>
   );
 }

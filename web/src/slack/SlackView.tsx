@@ -28,7 +28,6 @@ import {
   useSlackLive,
   type ShownMessage,
 } from "./store";
-import { changeTextStep, checkTextStep, textSizeKey, type TextChange } from "./textSize";
 import { Thread } from "./Thread";
 import type { SlackConversationKind, SlackSearchHit } from "./types";
 import "./slack.css";
@@ -156,16 +155,6 @@ export function SlackView({
     watch.observe(view);
     return () => watch.disconnect();
   }, [view]);
-  const [textStep, setTextStep] = useState(() => checkTextStep(readStore<unknown>("slack:textSize", undefined)));
-  useEffect(() => {
-    document.documentElement.style.setProperty("--slack-text", `${textStep}px`);
-  }, [textStep]);
-  const resizeText = (change: TextChange) =>
-    setTextStep((step) => {
-      const next = changeTextStep(step, change);
-      writeStore("slack:textSize", next);
-      return next;
-    });
   const toggleSidebar = () =>
     setSidebarHidden((hidden) => {
       writeStore("slack:sidebarHidden", !hidden);
@@ -317,25 +306,16 @@ export function SlackView({
         requestAnimationFrame(() => composerFocus.current?.());
       }),
       onAppCommand("slack-launch", () => launchFrom()),
-      onAppCommand("slack-text-bigger", () => resizeText("bigger")),
-      onAppCommand("slack-text-smaller", () => resizeText("smaller")),
-      onAppCommand("slack-text-actual", () => resizeText("actual")),
     ];
     return () => offs.forEach((off) => off());
   }, [find, openConversation, setPlace, step, closeThread, launchFrom, onNotice]);
 
-  // ⌘S, as in Conquer, and ⌘+ ⌘− ⌘0 (the text size): while Slack shows, the page has the keys.
+  // ⌘S, as in Conquer: while Slack shows, the page has the key (⌘+ ⌘− ⌘0 are the pages', `pageText.ts`).
   useEffect(() => {
     const key = (e: KeyboardEvent) => {
       if (e.metaKey && !e.ctrlKey && !e.altKey && !e.shiftKey && e.key.toLowerCase() === "s") {
         e.preventDefault();
         toggleSidebar();
-        return;
-      }
-      const change = textSizeKey(e);
-      if (change) {
-        e.preventDefault();
-        resizeText(change);
       }
     };
     window.addEventListener("keydown", key);

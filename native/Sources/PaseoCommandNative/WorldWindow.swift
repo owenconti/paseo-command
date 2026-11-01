@@ -29,10 +29,13 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
     let atlasView: AtlasView
     let scene: AtlasScene
     let options: Options
-    /// The page's tabs whose integration is on (the page says, with `integrations`).
-    private(set) var enabledModes: Set<Mode> = []
+    /// The page's sides that can show: those whose integration is on (the page says, with
+    /// `integrations`), and Settings.
+    private(set) var enabledModes: Set<Mode> = [.settings]
     /// The tabs ⌘` steps through, in the mode bar's order.
-    var shownModes: [Mode] { Mode.allCases.filter { !$0.drawnByPage || enabledModes.contains($0) } }
+    var shownModes: [Mode] { Mode.tabs.filter { !$0.drawnByPage || enabledModes.contains($0) } }
+    /// The side Settings returns to when it closes.
+    private var beforeSettings: Mode = .command
     var nextMode: Mode {
         let modes = shownModes
         return modes[((modes.firstIndex(of: mode) ?? 0) + 1) % modes.count]
@@ -90,13 +93,12 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         barHeight = titlebar > 0 ? titlebar : 30
         modeBar = ModeBar(frame: CGRect(x: 0, y: root.bounds.height - barHeight, width: root.bounds.width, height: barHeight))
         modeBar.autoresizingMask = [.width, .minYMargin]
-        // The page reaches the window's top, under the mode bar, and draws its tools at the
-        // bar's right end. The split (the page's place beside the terminal panel) lies below
-        // the bar and over the page, so the panel is never under the page.
-        command = NSView(frame: root.bounds)
+        // The bar is native, all of it; the page and the split (the page's place beside the
+        // terminal panel) lie below it, the split over the page so the panel is never under it.
+        command = NSView(frame: CGRect(x: 0, y: 0, width: root.bounds.width, height: root.bounds.height - barHeight))
         command.autoresizingMask = [.width, .height]
-        split.frame = CGRect(x: 0, y: 0, width: command.bounds.width, height: command.bounds.height - barHeight)
-        splash = SplashView(frame: command.bounds)
+        split.frame = command.frame
+        splash = SplashView(frame: command.frame)
         splash.autoresizingMask = [.width, .height]
         conquer = ConquerView(frame: command.frame, persistent: options.info == nil)
         conquer.isHidden = true
@@ -121,10 +123,9 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         // user's copy's, a check that quits stops that copy's storage saving to disk.
         configuration.websiteDataStore = options.info == nil ? .default() : .nonPersistent()
         configuration.preferences.setValue(true, forKey: "developerExtrasEnabled")
-        // The mode bar's height, which the page leaves as its own top bar.
+        // The page draws no top bar of its own: the app's is above it.
         configuration.userContentController.addUserScript(WKUserScript(
-            source: "document.documentElement.style.setProperty('--app-bar', '\(Int(barHeight))px')" +
-                ";document.documentElement.style.setProperty('--app-bar-lead', '\(Int(WorldWindow.barLead(window, fullScreen: false)))px')",
+            source: "document.documentElement.style.setProperty('--app-bar', '0px')",
             injectionTime: .atDocumentStart, forMainFrameOnly: true))
         web = WKWebView(frame: command.bounds, configuration: configuration)
         web.autoresizingMask = [.width, .height]
@@ -155,6 +156,8 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         drawer.onMove = { [weak self] in self?.moveTerminal() }
         drawer.onMaximize = { [weak self] in self?.maximizeTerminal() }
         modeBar.onSelect = { [weak self] mode in self?.show(mode) }
+        modeBar.enabled = enabledModes
+        modeBar.onAction = { [weak self] action, view in self?.barAction(action, view) }
         placeModeBar()
         // Where the user left it, across launches and app restarts.
         if options.info == nil, let saved = UserDefaults.standard.string(forKey: "mode").flatMap(Mode.init(rawValue:)), saved != .command {
@@ -188,10 +191,10 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         guard let body = message.body as? [String: Any], let type = body["type"] as? String else { return }
         switch type {
         case "integrations":
-            enabledModes = Set(Mode.allCases.filter { $0.drawnByPage && body[$0.rawValue] as? Bool == true })
+            enabledModes = Set(Mode.tabs.filter { $0.drawnByPage && body[$0.rawValue] as? Bool == true }).union([.settings])
             modeBar.enabled = enabledModes
             if mode.drawnByPage && !enabledModes.contains(mode) { show(.command) }
-            else if let saved = UserDefaults.standard.string(forKey: "mode").flatMap(Mode.init(rawValue:)),
+            else if mode != .settings, let saved = UserDefaults.standard.string(forKey: "mode").flatMap(Mode.init(rawValue:)),
                     saved.drawnByPage, enabledModes.contains(saved) { show(saved) }
         case "art":
             decoding.async { [weak self] in
@@ -238,14 +241,9 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         case "update":
             // The page asks for the version and whether updates can be checked for.
             send(Updater.event, as: "paseo:update")
-        case "appBar":
-            // Where the page draws its tools in the top bar, in its own coordinates.
-            let rect = CGRect(x: body["x"] as? Double ?? 0, y: body["y"] as? Double ?? 0,
-                              width: body["width"] as? Double ?? 0, height: body["height"] as? Double ?? 0)
-            modeBar.tools = rect.isEmpty ? .zero : modeBar.convert(rect, from: web)
-            let title = CGRect(x: body["titleX"] as? Double ?? 0, y: body["titleY"] as? Double ?? 0,
-                               width: body["titleWidth"] as? Double ?? 0, height: body["titleHeight"] as? Double ?? 0)
-            modeBar.title = title.isEmpty ? .zero : modeBar.convert(title, from: web)
+        case "barState":
+            // What the top bar's tools show: who needs you, usage, What's new, the panel's state.
+            modeBar.apply(body)
         case "viewport":
             layoutWorkspace()
             viewport = CGRect(x: body["x"] as? Double ?? 0, y: body["y"] as? Double ?? 0,
@@ -298,6 +296,8 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
             case "slack": show(.slack)
             case "github": show(.github)
             case "activity": show(.activity)
+            case "settings": show(.settings)
+            case "settings-close": if mode == .settings { show(beforeSettings) }
             case "command": show(.command)
             case "conquer-tab": show(.conquer); conquer.whenStarted { [weak self] in self?.conquer.newTab() }
             case "conquer-sidebar": show(.conquer); conquer.perform("toggleSidebar")
@@ -349,7 +349,7 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
 
     /// The page's top bar spans the window; the rest of the page keeps to the split's page side.
     private func layoutWorkspace() {
-        let height = content.bounds.height + barHeight
+        let height = content.bounds.height
         web.evaluateJavaScript("""
             (() => {
                 const root = document.documentElement;
@@ -391,8 +391,6 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
     private func placeModeBar() {
         let lead = WorldWindow.barLead(window, fullScreen: window.styleMask.contains(.fullScreen))
         modeBar.leading = lead
-        // The page draws the product's name there, and the tabs follow it.
-        web.evaluateJavaScript("document.documentElement.style.setProperty('--app-bar-lead', '\(Int(lead))px')", completionHandler: nil)
     }
 
     /// Where the bar's content starts: past the traffic lights, or at the edge in full screen.
@@ -696,6 +694,7 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
     func show(_ next: Mode) {
         guard !next.drawnByPage || enabledModes.contains(next) else { return }
         guard next != mode else { return }
+        if next == .settings { beforeSettings = mode }
         mode = next
         modeBar.mode = next
         atlasView.covered = next != .command
@@ -708,6 +707,18 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
             window.makeFirstResponder(web)
         }
         if options.info == nil { UserDefaults.standard.set(next.rawValue, forKey: "mode") }
+    }
+
+    /// Settings, from the app menu (⌘,): opens it, or closes it again.
+    @objc func toggleSettings() { show(mode == .settings ? beforeSettings : .settings) }
+
+    /// A top bar tool was used: the page opens what it asks for beneath its button
+    /// (`paseo:bar`, with the button's rectangle in the page's coordinates).
+    private func barAction(_ action: String, _ view: NSView) {
+        let button = view.convert(view.bounds, to: nil)
+        let page = web.convert(web.bounds, to: nil)
+        send(["action": action, "x": button.minX - page.minX, "y": page.maxY - button.maxY,
+              "width": button.width, "height": button.height], as: "paseo:bar")
     }
 
     /// Tell the page which side shows, so it draws Linear, Slack, GitHub or Activity in the map's place.

@@ -5,7 +5,6 @@ import { dirname } from "node:path";
 import { fleet, get, install, post } from "../fake-daemon";
 import { settingsFile } from "../presets";
 import { DEFAULT_INTEGRATIONS } from "../../src/integrations";
-import { legacySettingsFile } from "../settings";
 import { fillPreset, presetNeedsPr, prNumberOf } from "../../src/presets";
 
 // Only fake daemons: install() points the app's connector at them.
@@ -120,19 +119,6 @@ test("settings: the Linear workspace is saved beside the presets", async () => {
   assert.match((await get("settings")).data.error, /can't be read/);
   assert.equal((await post("settings", { linearWorkspace: "acme" })).status, 400);
   assert.equal(readFileSync(settingsFile(), "utf8"), "[1]");
-});
-
-test("settings: a file an earlier version kept in the data directory is moved into place", async () => {
-  rmSync(settingsFile(), { force: true });
-  mkdirSync(dirname(legacySettingsFile()), { recursive: true });
-  writeFileSync(legacySettingsFile(), JSON.stringify({ linearWorkspace: "acme" }));
-  assert.equal((await get("settings")).data.linearWorkspace, "acme");
-  assert.deepEqual(JSON.parse(readFileSync(settingsFile(), "utf8")), { linearWorkspace: "acme" });
-  assert.throws(() => readFileSync(legacySettingsFile()));
-  // Once the new file exists, an old one is left alone.
-  writeFileSync(legacySettingsFile(), JSON.stringify({ linearWorkspace: "old" }));
-  assert.equal((await get("settings")).data.linearWorkspace, "acme");
-  rmSync(legacySettingsFile());
 });
 
 test("fillPreset names the pull request; prNumberOf reads numbers and URLs", () => {

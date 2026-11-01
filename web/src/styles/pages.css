@@ -1,0 +1,54 @@
+/* ── The pages ──────────────────────────────────────────────────────────
+   Linear, Slack, GitHub, Activity and Settings: what the page draws in the map's place
+   (in the macOS app, its mode bar's tabs). They share one type scale, one width
+   scale and, in dark, one palette, so the same thing reads the same on each.
+
+   Text: the app's sizes plus --page-text (⌘+ ⌘− ⌘0, `pageText.ts`, 2 px by
+   default), for the views and the menus and dialogs they portal out. Sizes that
+   hold text (columns, rows, controls, menus) multiply by --lz, 1 at the default. */
+:is(.linear-view, .linear-create, .linear-row-menu-anchor, .slack-view, .activity-view, .github-view, .settings-page) {
+  --fs-2xs: calc(10px + var(--page-text, 2px));
+  --fs-xs: calc(11px + var(--page-text, 2px));
+  --fs-sm: calc(12px + var(--page-text, 2px));
+  --fs-md: calc(14px + var(--page-text, 2px));
+  --fs-lg: calc(15px + var(--page-text, 2px));
+  --fs-xl: calc(18px + var(--page-text, 2px));
+  --fs-2xl: calc(22px + var(--page-text, 2px));
+  --lz: var(--page-scale, 1);
+  font-size: var(--fs-md);
+}
+/* Their icons are sized in script (lucide's `size`): they grow with the text too. */
+:is(.linear-view, .linear-create, .linear-row-menu-anchor, .slack-view, .activity-view, .github-view, .settings-page) svg:not(svg svg) {
+  zoom: var(--lz);
+}
+/* Dark: neutral near-black greys instead of the Galaxy theme's navy, in two planes: the
+   sidebar darkest, the content one plane divided by a hairline. Text and lines go neutral
+   too; the accent stays the theme's. Light keeps the theme's own. */
+:root[data-theme="galaxy"] :is(.linear-view, .linear-create, .linear-row-menu-anchor, .slack-view, .activity-view, .github-view, .settings-page) {
+  --bg: #08090a;
+  --panel: #0c0d0f;
+  --panel-2: #0a0b0c;
+  --surface: #121315;
+  --panel-raised: #1a1b1e;
+  --input-bg: #0e0f11;
+  --fill-soft: #151619;
+  --fill: #1a1b1e;
+  --fill-strong: #26272b;
+  --row-hover: #1a1b1e;
+  --row-selected: #25231f;
+  --line-soft: #1c1d20;
+  --line: #25262a;
+  --line-mid: #2f3034;
+  --line-strong: #3c3d42;
+  --line-hover: #5a5b61;
+  --scrollbar: #393a3f;
+  --text: #d5d6d9;
+  --text-strong: #f3f3f4;
+  --text-2: #c2c3c7;
+  --text-mid: #aaabb1;
+  --text-3: #999aa0;
+  --text-4: #84858c;
+  --text-faint: #65666c;
+  --icon-muted: #8d8e95;
+  scrollbar-color: var(--scrollbar) var(--panel);
+}

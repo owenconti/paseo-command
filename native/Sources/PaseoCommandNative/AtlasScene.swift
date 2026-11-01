@@ -394,11 +394,13 @@ final class AtlasScene: SKScene {
             agentLayer.addChild(node)
             var robot = Robot(id: id, node: node, hands: hands, home: home, busy: r["busy"] as? Bool ?? false, drones: [])
             let count = r["drones"] as? Int ?? 0
+            // Each drone in its own subagent's model's colour, else its agent's.
+            let droneArts = r["droneArts"] as? [String] ?? []
             if count > 0 {
                 var rng = Seeded(UInt32(truncatingIfNeeded: r["droneSeed"] as? Int ?? 0))
                 let phase = Double(rng.next())
                 for i in 0..<count {
-                    guard let drone = sprite(art, width: droneSize) else { continue }
+                    guard let drone = sprite(i < droneArts.count ? droneArts[i] : art, width: droneSize) else { continue }
                     let shadow = SKSpriteNode(texture: Textures.shadow, size: CGSize(width: 18, height: 18))
                     shadow.zPosition = 34
                     agentLayer.addChild(shadow)

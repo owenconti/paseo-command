@@ -8,6 +8,7 @@ import { isTyping } from "./worldShortcut";
 import { onAppCommand } from "./appCommands";
 import { useIntegrations } from "./integrationSettings";
 import { activityEnabled } from "./integrations";
+import { onAppBar } from "./worldBridge";
 
 type Shortcut = { keys: string[][]; label: string };
 type Group = { title: string; note?: string; rows: Shortcut[] };
@@ -63,8 +64,9 @@ const NATIVE: Group = {
     { keys: [["⌃", "`"]], label: "Show or hide the terminal" },
     {
       keys: [["⌘", "`"]],
-      label: "Next in the map's place: the map, the browser (Conquer), Linear",
+      label: "Next in the map's place: the map, the browser (Conquer), Linear, Slack, Activity, Settings",
     },
+    { keys: [["⌘", ","]], label: "Settings, or back from it" },
   ],
 };
 /** The Linear tab's keys (`linear/keys.ts`), as in Linear, while the keyboard is in it. */
@@ -93,8 +95,6 @@ const LINEAR: Group = {
     { keys: [["⌫"]], label: "Inbox: archive the notification" },
     { keys: [["⌘", "S"]], label: "Show or hide the sidebar" },
     { keys: [["⌘", "["], ["⌘", "]"]], label: "Back or forward" },
-    { keys: [["⌘", "+"], ["⌘", "−"]], label: "Bigger or smaller text" },
-    { keys: [["⌘", "0"]], label: "Actual text size" },
     { keys: [["⌘", "Enter"]], label: "Send a comment, reply or edit" },
     { keys: [["⌘", "Enter"]], label: "Create the issue (New issue)" },
   ],
@@ -113,8 +113,16 @@ const SLACK: Group = {
     { keys: [["⇧", "Enter"]], label: "New line in the message" },
     { keys: [["↑"]], label: "Edit your last message (in an empty message box)" },
     { keys: [["⌘", "S"]], label: "Show or hide the sidebar" },
-    { keys: [["⌘", "+"], ["⌘", "−"]], label: "Bigger or smaller text" },
+  ],
+};
+/** What every page (Linear, Slack, Activity, Settings) takes, while it shows (`pageText.ts`). */
+const PAGES: Group = {
+  title: "Pages",
+  note: "In Linear, Slack, Activity and Settings",
+  rows: [
+    { keys: [["⌘", "+"], ["⌘", "−"]], label: "Bigger or smaller text (one size for every page)" },
     { keys: [["⌘", "0"]], label: "Actual text size" },
+    { keys: [["⌘", "F"], ["/"]], label: "Search (Linear's list, Slack's messages)" },
   ],
 };
 /** The Activity tab's keys (`activity/ActivityView.tsx`), while the keyboard is in it. */
@@ -222,9 +230,12 @@ export function ShortcutsButton({ hidden = false }: { hidden?: boolean }) {
     };
     window.addEventListener("keydown", key);
     const offCommand = onAppCommand("show-shortcuts", () => setOpen(true));
+    // The macOS app's top bar button (its own; this one is then hidden).
+    const offBar = onAppBar("shortcuts", () => setOpen((o) => !o));
     return () => {
       window.removeEventListener("keydown", key);
       offCommand();
+      offBar();
     };
   }, []);
   // In the app's main, as the archive dialog is, so it takes the panel theme.
@@ -281,6 +292,7 @@ function ShortcutsDialog({ onClose }: { onClose: () => void }) {
       ? [
           ...GROUPS,
           NATIVE,
+          PAGES,
           ...(integrations.linear ? [LINEAR] : []),
           ...(integrations.slack ? [SLACK] : []),
           ...(integrations.github ? [GITHUB] : []),

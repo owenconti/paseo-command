@@ -13,35 +13,6 @@
   color: var(--text);
   font-size: var(--fs-md);
 }
-/* Dark: the Linear tab's neutral near-black greys instead of the Galaxy theme's navy. */
-:root[data-theme="galaxy"] .github-view {
-  --bg: #08090a;
-  --panel: #0c0d0f;
-  --panel-2: #0a0b0c;
-  --surface: #121315;
-  --panel-raised: #1a1b1e;
-  --input-bg: #0e0f11;
-  --fill-soft: #151619;
-  --fill: #1a1b1e;
-  --fill-strong: #26272b;
-  --row-hover: #1a1b1e;
-  --row-selected: #25231f;
-  --line-soft: #1c1d20;
-  --line: #25262a;
-  --line-mid: #2f3034;
-  --line-strong: #3c3d42;
-  --line-hover: #5a5b61;
-  --scrollbar: #393a3f;
-  --text: #d5d6d9;
-  --text-strong: #f3f3f4;
-  --text-2: #c2c3c7;
-  --text-mid: #aaabb1;
-  --text-3: #999aa0;
-  --text-4: #84858c;
-  --text-faint: #65666c;
-  --icon-muted: #8d8e95;
-  scrollbar-color: var(--scrollbar) var(--panel);
-}
 .github-view:focus {
   outline: none;
 }
@@ -151,7 +122,7 @@
   align-items: center;
   gap: var(--space-2);
   width: 100%;
-  height: 28px;
+  height: calc(28px * var(--lz));
   padding: 0 var(--space-2);
   border-radius: var(--radius-md);
   background: transparent;
@@ -229,7 +200,7 @@
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  min-height: 44px;
+  min-height: calc(44px * var(--lz));
   padding: var(--space-2) var(--space-3) 0 var(--space-4);
 }
 .gh-head h2 {
@@ -466,7 +437,7 @@
   display: flex;
   align-items: center;
   gap: var(--space-3);
-  min-height: 54px;
+  min-height: calc(54px * var(--lz));
   padding: var(--space-2) var(--space-3);
   border-radius: var(--radius-md);
   font-size: var(--fs-sm);
@@ -587,7 +558,7 @@
 .gh-tabs [role="tab"] {
   display: inline-flex;
   align-items: center;
-  height: 38px;
+  height: calc(38px * var(--lz));
   padding: 0 var(--space-2);
   border-bottom: 2px solid transparent;
   background: transparent;
@@ -880,7 +851,7 @@
   min-height: 0;
 }
 .gd-view.with-list {
-  grid-template-columns: 240px minmax(0, 1fr);
+  grid-template-columns: calc(240px * var(--lz)) minmax(0, 1fr);
 }
 .gd-list {
   min-height: 0;
@@ -917,7 +888,7 @@
   align-items: center;
   gap: 6px;
   width: 100%;
-  height: 26px;
+  height: calc(26px * var(--lz));
   padding: 0 var(--space-2) 0 calc(var(--space-2) + 6px);
   border-radius: var(--radius-sm);
   background: transparent;
@@ -985,7 +956,7 @@
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  min-height: 38px;
+  min-height: calc(38px * var(--lz));
   padding: 0 var(--space-2);
   border-bottom: 1px solid var(--line);
   border-radius: var(--radius-lg) var(--radius-lg) 0 0;
@@ -1085,8 +1056,9 @@
   overflow: hidden;
   border-radius: 0 0 var(--radius-lg) var(--radius-lg);
   --diffs-font-family: var(--font-mono);
-  --diffs-font-size: 12px;
-  --diffs-line-height: 20px;
+  /* The code follows the pages' text size (⌘+ ⌘− ⌘0): 12 px at the default. */
+  --diffs-font-size: calc(10px + var(--page-text, 2px));
+  --diffs-line-height: calc(20px * var(--lz, 1));
   --diffs-tab-size: 4;
 }
 /* Threads and drafts under a line */

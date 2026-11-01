@@ -20,6 +20,10 @@ describe("slack keys", () => {
     assert.equal(key("/", {}, { tagName: "TEXTAREA" }), null);
     assert.equal(key("Escape", {}, { tagName: "INPUT" }), null);
   });
+  it("⌘F searches, typing or not", () => {
+    assert.equal(key("f", { metaKey: true }), "search");
+    assert.equal(key("f", { metaKey: true }, { tagName: "TEXTAREA" }), "search");
+  });
   it("leaves the page's and the app's keys alone", () => {
     assert.equal(key("k", { metaKey: true }), null);
     assert.equal(key("s", { metaKey: true }), null);

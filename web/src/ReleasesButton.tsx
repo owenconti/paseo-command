@@ -12,6 +12,7 @@ import { ago } from "./api";
 import { onAppCommand } from "./appCommands";
 import { Markdown } from "./Markdown";
 import { newSince, useReleases, type Release } from "./releases";
+import { onAppBar, postAppBarState, type BarRect } from "./worldBridge";
 
 /** Release links go only to GitHub over https. */
 const SAFE_URL = /^https:\/\/github\.com\//;
@@ -21,9 +22,10 @@ const MARGIN = 8;
 /**
  * The top bar's "What's new": the running version, the update waiting
  * (if any) and Paseo Command's release notes, newest first, with a dot while
- * there is a release the user hasn't seen.
+ * there is a release the user hasn't seen. `hosted`: the macOS app's top bar has
+ * the button (and its dot, from `postAppBarState`) and opens the notes beneath it.
  */
-export function ReleasesButton() {
+export function ReleasesButton({ hosted = false }: { hosted?: boolean }) {
   const [open, setOpen] = useState(false);
   const { installed, releases, pending, error, seen, unread, markRead } =
     useReleases(open);
@@ -32,13 +34,33 @@ export function ReleasesButton() {
   const anchor = useRef<HTMLSpanElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
   const [place, setPlace] = useState<CSSProperties>({});
+  /** The app's top bar button, when it opened the notes. */
+  const [barRect, setBarRect] = useState<BarRect | null>(null);
   const id = useId();
   const close = useCallback((refocus: boolean) => {
     setOpen(false);
     if (refocus) trigger.current?.focus({ preventScroll: true });
   }, []);
+  const toggle = () => {
+    if (open) return close(false);
+    setOpenedSeen(seen);
+    if (releases[0]) markRead(releases[0].version);
+    setOpen(true);
+  };
+  const toggle_ = useRef(toggle);
+  toggle_.current = toggle;
   // The command palette's What's new.
   useEffect(() => onAppCommand("show-releases", () => setOpen(true)), []);
+  useEffect(() => {
+    if (!hosted) return;
+    return onAppBar("releases", (rect) => {
+      setBarRect(rect);
+      toggle_.current();
+    });
+  }, [hosted]);
+  useEffect(() => {
+    if (hosted) postAppBarState({ releasesUnread: unread && !open });
+  }, [hosted, unread, open]);
   useEffect(() => {
     if (!open) return;
     const down = (e: MouseEvent) => {
@@ -61,7 +83,9 @@ export function ReleasesButton() {
   useLayoutEffect(() => {
     if (!open) return;
     const fit = () => {
-      const r = trigger.current?.getBoundingClientRect();
+      const r = hosted
+        ? barRect && { right: barRect.x + barRect.width, bottom: barRect.y + barRect.height }
+        : trigger.current?.getBoundingClientRect();
       if (!r) return;
       const vw = window.visualViewport?.width || innerWidth;
       const vh = window.visualViewport?.height || innerHeight;
@@ -80,7 +104,7 @@ export function ReleasesButton() {
     fit();
     addEventListener("resize", fit);
     return () => removeEventListener("resize", fit);
-  }, [open]);
+  }, [open, hosted, barRect]);
   const count = newSince(releases, seen);
   const fresh = new Set(
     open
@@ -89,7 +113,7 @@ export function ReleasesButton() {
   );
   return (
     <span ref={anchor} className="releases-anchor">
-      <button
+      {!hosted && <button
         ref={trigger}
         className="panel-tool releases-button"
         aria-haspopup="dialog"
@@ -101,16 +125,11 @@ export function ReleasesButton() {
             : "What's new"
         }
         data-tip="What's new"
-        onClick={() => {
-          if (open) return close(false);
-          setOpenedSeen(seen);
-          if (releases[0]) markRead(releases[0].version);
-          setOpen(true);
-        }}
+        onClick={toggle}
       >
         <Sparkles size={16} />
         {unread && !open && <span className="releases-dot" aria-hidden />}
-      </button>
+      </button>}
       {open && (
         <div
           id={id}

@@ -1,19 +1,17 @@
 /**
- * This app's settings file, `~/.paseo-command/settings.json`
- * (`PASEO_COMMAND_SETTINGS` overrides): preset prompts (presets.ts), optional
+ * This app's settings file, `settings.json` in its data directory beside
+ * `secrets.json` (`PASEO_COMMAND_SETTINGS` overrides), so the macOS app's Dev and
+ * release copies each keep their own: preset prompts (presets.ts), optional
  * integration opt-ins and the Linear workspace issue links open in (`GET /api/settings`,
  * `POST /api/settings`). Each save keeps the file's other keys; an
- * unreadable file is never overwritten. A file an earlier version kept in
- * the data directory is moved here when this one doesn't exist yet.
+ * unreadable file is never overwritten.
  */
 import {
-  existsSync,
   mkdirSync,
   readFileSync,
   renameSync,
   writeFileSync,
 } from "node:fs";
-import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { linearSlug } from "../src/linearSlug";
 import { dataDir } from "./subagentArchive";
@@ -24,27 +22,12 @@ import {
 } from "../src/integrations";
 
 export const settingsFile = () =>
-  process.env.PASEO_COMMAND_SETTINGS || join(homedir(), ".paseo-command", "settings.json");
-/** Where earlier versions kept it. */
-export const legacySettingsFile = () => join(dataDir(), "settings.json");
-
-/** Move an earlier version's file into place, once. */
-function adoptLegacy(file: string) {
-  const legacy = legacySettingsFile();
-  if (legacy === file || existsSync(file) || !existsSync(legacy)) return;
-  try {
-    mkdirSync(dirname(file), { recursive: true });
-    renameSync(legacy, file);
-  } catch {
-    // Left where it is: read from the new place, it is simply absent.
-  }
-}
+  process.env.PASEO_COMMAND_SETTINGS || join(dataDir(), "settings.json");
 export const UNREADABLE = "settings.json can't be read.";
 
 /** The file's contents: `{}` when there is none, null when it can't be read. */
 export function readSettings(): Record<string, unknown> | null {
   const file = settingsFile();
-  adoptLegacy(file);
   let raw: unknown;
   try {
     raw = JSON.parse(readFileSync(file, "utf8"));
