@@ -8,6 +8,7 @@ import { isTyping } from "../worldShortcut";
 import { amount, CATALOG, type GamesRecord } from "./catalog";
 import { GAMES } from "./registry";
 import "./games.css";
+import { onAppBar } from "../worldBridge";
 
 const remember = <T,>(name: string, fallback: T): T => {
   try {
@@ -58,9 +59,12 @@ export function GamesButton({ hidden = false }: { hidden?: boolean }) {
     window.addEventListener("keydown", key);
     // The command palette's Mini games.
     const offCommand = onAppCommand("show-games", () => setOpen(true));
+    // The macOS app's top bar button (its own; this one is then hidden).
+    const offBar = onAppBar("games", () => setOpen((o) => !o));
     return () => {
       window.removeEventListener("keydown", key);
       offCommand();
+      offBar();
     };
   }, []);
   const host = document.querySelector("main.command-app") ?? document.body;

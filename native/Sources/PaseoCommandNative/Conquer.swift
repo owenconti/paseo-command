@@ -6,7 +6,7 @@ import WebKit
 /// or what the page draws itself: your Linear issues, Slack, and Activity
 /// (GitHub, Linear and Slack notifications together).
 enum Mode: String, CaseIterable {
-    case command, conquer, linear, slack, activity
+    case command, conquer, linear, slack, activity, settings
 
     var title: String {
         switch self {
@@ -15,6 +15,7 @@ enum Mode: String, CaseIterable {
         case .linear: "Linear"
         case .slack: "Slack"
         case .activity: "Activity"
+        case .settings: "Settings"
         }
     }
     var symbol: String {
@@ -24,10 +25,15 @@ enum Mode: String, CaseIterable {
         case .linear: "checklist"
         case .slack: "bubble.left.and.bubble.right"
         case .activity: "bell"
+        case .settings: "gearshape"
         }
     }
-    /// The page draws it over the map (the mode bar shows it only while its integration is on).
-    var drawnByPage: Bool { self == .linear || self == .slack || self == .activity }
+    /// The page draws it over the map (the mode bar shows its tab only while its integration is on).
+    var drawnByPage: Bool { self == .linear || self == .slack || self == .activity || self == .settings }
+    /// One of the mode bar's tabs (and ⌘`'s steps); Settings is the bar's gear instead.
+    var isTab: Bool { self != .settings }
+    /// The tabs, in the bar's order.
+    static let tabs = allCases.filter(\.isTab)
     var tip: String {
         switch self {
         case .command: "The map (⌘`)"
@@ -35,6 +41,7 @@ enum Mode: String, CaseIterable {
         case .linear: "Your Linear issues, in the map's place (⌘`)"
         case .slack: "Slack, in the map's place (⌘`)"
         case .activity: "GitHub, Linear and Slack notifications together, in the map's place (⌘`)"
+        case .settings: "Settings: integrations, sounds, music, notifications (⌘,)"
         }
     }
 }
@@ -54,65 +61,186 @@ final class ModeButton: NSButton {
     override func resetCursorRects() { addCursorRect(bounds, cursor: .pointingHand) }
 }
 
-/// The mode bar's surface: drawn only, its clicks the bar's.
-private final class BarFill: NSView {
-    override func hitTest(_ point: NSPoint) -> NSView? { nil }
+/// One of the top bar's icon buttons: an SF Symbol that lights on hover, with a pointing hand.
+final class BarButton: NSButton {
+    var onHover: ((Bool) -> Void)?
+    private(set) var hovered = false
+    /// Shown as on (the gear while Settings shows).
+    var on = false { didSet { if on != oldValue { restyle() } } }
+    /// A small accent dot at its corner (What's new has unseen notes).
+    var dot = false { didSet { dotLayer.isHidden = !dot } }
+    private let dotLayer = CALayer()
+
+    init(symbol: String, label: String, tip: String) {
+        super.init(frame: .zero)
+        isBordered = false
+        wantsLayer = true
+        layer?.cornerRadius = 6
+        imagePosition = .imageOnly
+        setSymbol(symbol, label: label)
+        toolTip = tip
+        dotLayer.isHidden = true
+        dotLayer.cornerRadius = 3
+        layer?.addSublayer(dotLayer)
+        translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            widthAnchor.constraint(equalToConstant: 28),
+            heightAnchor.constraint(equalToConstant: 26),
+        ])
+        restyle()
+    }
+    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+
+    func setSymbol(_ symbol: String, label: String) {
+        image = NSImage(systemSymbolName: symbol, accessibilityDescription: label)?
+            .withSymbolConfiguration(.init(pointSize: 13, weight: .regular))
+        setAccessibilityLabel(label)
+    }
+
+    override func layout() {
+        super.layout()
+        dotLayer.frame = CGRect(x: bounds.width - 9, y: bounds.height - 9, width: 6, height: 6)
+    }
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        trackingAreas.forEach(removeTrackingArea)
+        addTrackingArea(NSTrackingArea(rect: bounds, options: [.mouseEnteredAndExited, .activeAlways, .inVisibleRect], owner: self))
+    }
+    override func mouseEntered(with event: NSEvent) { hovered = true; restyle(); onHover?(true) }
+    override func mouseExited(with event: NSEvent) { hovered = false; restyle(); onHover?(false) }
+    override func resetCursorRects() { addCursorRect(bounds, cursor: .pointingHand) }
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        restyle()
+    }
+    override var isEnabled: Bool { didSet { restyle() } }
+
+    func restyle() {
+        let look = effectiveAppearance
+        layer?.backgroundColor = on ? Ink.color(Ink.pane, look).cgColor
+            : hovered && isEnabled ? Ink.color(Ink.tabFocused, look, 0.6).cgColor : nil
+        contentTintColor = Ink.color(!isEnabled ? Ink.off : on || hovered ? Ink.strong : Ink.mid, look)
+        dotLayer.backgroundColor = Ink.color(Ink.accent, look).cgColor
+    }
 }
 
-/// The strip across the top of the window that switches the map's place between the map (Command),
-/// the browser (Conquer), your Linear issues (Linear), Slack and Activity; ⌘` steps through them in turn.
-/// It stands in for the hidden title bar: the traffic lights sit at its left, it drags the
-/// window, and it says when a newer build is ready. It is the same surface as the
-/// chrome under it (the page's panels, Conquer's sidebar), with no line between them,
-/// and its tabs are a small segmented control rather than a tab bar. The page lies under
-/// it and draws the product's name past the traffic lights (`title`; the tabs follow it)
-/// and its own tools at the bar's right end (`tools`): the bar leaves both unpainted
-/// and lets the tools' clicks through to the page.
+/// The top bar's usage meters (up to four providers' limits, as bars filling with use);
+/// hovering shows the page's breakdown beneath it.
+final class UsageMeters: NSButton {
+    var meters: [(pct: Double, tone: String)] = [] { didSet { needsDisplay = true } }
+    var onHover: ((Bool) -> Void)?
+    var onClick: (() -> Void)?
+
+    // A button, so the title bar passes its clicks through as it does the other tools'.
+    override init(frame: NSRect) {
+        super.init(frame: frame)
+        isBordered = false
+        title = ""
+        target = self
+        action = #selector(clicked)
+        toolTip = "Usage limits by provider and account"
+        setAccessibilityLabel("Usage breakdown")
+        translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([widthAnchor.constraint(equalToConstant: 26), heightAnchor.constraint(equalToConstant: 26)])
+    }
+    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+
+    @objc private func clicked() { onClick?() }
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        trackingAreas.forEach(removeTrackingArea)
+        addTrackingArea(NSTrackingArea(rect: bounds, options: [.mouseEnteredAndExited, .activeAlways, .inVisibleRect], owner: self))
+    }
+    override func mouseEntered(with event: NSEvent) { onHover?(true) }
+    override func mouseExited(with event: NSEvent) { onHover?(false) }
+    override func resetCursorRects() { addCursorRect(bounds, cursor: .pointingHand) }
+    override func viewDidChangeEffectiveAppearance() { super.viewDidChangeEffectiveAppearance(); needsDisplay = true }
+
+    override func draw(_ dirtyRect: NSRect) {
+        let look = effectiveAppearance
+        let shown = meters.isEmpty ? [(pct: 0.0, tone: "")] : meters
+        let bar: CGFloat = 3, gap: CGFloat = 2
+        let width: CGFloat = 20
+        let total = CGFloat(shown.count) * bar + CGFloat(shown.count - 1) * gap
+        var y = (bounds.height + total) / 2 - bar
+        for meter in shown {
+            let track = NSRect(x: (bounds.width - width) / 2, y: y, width: width, height: bar)
+            Ink.color(Ink.tabShown, look).setFill()
+            NSBezierPath(roundedRect: track, xRadius: bar / 2, yRadius: bar / 2).fill()
+            let used = NSRect(x: track.minX, y: y, width: width * CGFloat(max(0, min(100, meter.pct))) / 100, height: bar)
+            (meter.tone == "red" ? Ink.color("red-text", look) : meter.tone == "amber" ? NSColor.systemOrange : Ink.color(Ink.mid, look)).setFill()
+            NSBezierPath(roundedRect: used, xRadius: bar / 2, yRadius: bar / 2).fill()
+            y -= bar + gap
+        }
+    }
+}
+
+/// The strip across the top of the window: the traffic lights, the product's name, the tabs that
+/// switch the map's place between the map (Command), the browser (Conquer), your Linear issues
+/// (Linear), Slack and Activity (⌘` steps through them), "Update ready" when a newer build is
+/// in, and the app's tools at the right: who needs you, usage, Settings, What's new, mini games,
+/// keyboard shortcuts and the session panel's side, layout and visibility. All of it is native;
+/// the page says what the tools show (`apply`) and opens what they ask for (`onAction`, with the
+/// button, so its popovers open beneath it). It stands in for the hidden title bar: it drags the
+/// window, and it is the same surface as the chrome under it, with no line between them.
 final class ModeBar: NSView {
     var onSelect: ((Mode) -> Void)?
+    /// A tool was used: its action's name and its button.
+    var onAction: ((String, NSView) -> Void)?
     /// The page's tabs whose integration is on (Command and Conquer always show).
     var enabled: Set<Mode> = [] { didSet { for (mode, button) in buttons { button.isHidden = mode.drawnByPage && !enabled.contains(mode) } } }
     /// Activity's unread notifications, shown on its tab.
     var activityUnread = 0 { didSet { if activityUnread != oldValue { restyle() } } }
     var mode: Mode = .command { didSet { restyle() } }
     /// Where the bar's content starts: past the traffic lights.
-    var leading: CGFloat = 0 { didSet { placeTools() } }
+    var leading: CGFloat = 0 { didSet { titleLeading?.constant = leading } }
     var updateReady = false { didSet { if updateReady != oldValue { update.isHidden = !updateReady } } }
-    /// Where the page draws its tools in the bar, in the bar's coordinates (none until it says).
-    var tools: CGRect = .zero { didSet { if tools != oldValue { placeTools() } } }
-    /// Where the page draws the product's name, in the bar's coordinates; the tabs follow it.
-    var title: CGRect = .zero { didSet { if title != oldValue { placeTools() } } }
-    private var rowLeading: NSLayoutConstraint?
-    private var updateTrailing: NSLayoutConstraint?
-    /// The bar's surface, all but the page's tools.
-    private let fill = BarFill()
-    private let hole = CAShapeLayer()
+    private var titleLeading: NSLayoutConstraint?
+    private let title = NSTextField(labelWithString: "")
     private let update = NSTextField(labelWithString: "Update ready · Restart app")
     private let buttons: [(Mode, ModeButton)]
     /// The control's track, behind the tabs.
     private let track = NSStackView()
+    private let tools = NSStackView()
+    private let attention = NSButton()
+    private let usage = UsageMeters()
+    private let settings = BarButton(symbol: "gearshape", label: "Settings", tip: Mode.settings.tip)
+    private let releases = BarButton(symbol: "sparkles", label: "What's new", tip: "What's new")
+    private let games = BarButton(symbol: "gamecontroller", label: "Mini games", tip: "Mini games (B)")
+    private let shortcuts = BarButton(symbol: "keyboard", label: "Keyboard shortcuts", tip: "Keyboard shortcuts (?)")
+    private let panelSide = BarButton(symbol: "sidebar.right", label: "Move panel to the right", tip: "Move panel to the right")
+    private let panelLayout = BarButton(symbol: "rectangle.split.2x1", label: "Show list and details together", tip: "Show list and details together")
+    private let panelToggle = BarButton(symbol: "minus", label: "Hide session panel", tip: "Hide session panel (⌘B)")
+    private var attentionCount = 0
+
+    /// The product's name is the page's header font, bundled beside the icon (see native/scripts/bundle.sh).
+    private static let registerFont: Void = {
+        if let url = Bundle.main.url(forResource: "paseo-barlow-600", withExtension: "woff2") {
+            CTFontManagerRegisterFontsForURL(url as CFURL, .process, nil)
+        }
+    }()
 
     override init(frame: NSRect) {
-        buttons = Mode.allCases.map { ($0, ModeButton()) }
+        buttons = Mode.tabs.map { ($0, ModeButton()) }
         super.init(frame: frame)
         wantsLayer = true
-        fill.wantsLayer = true
-        fill.layer?.mask = hole
-        hole.fillRule = .evenOdd
-        addSubview(fill)
+        ModeBar.registerFont
+        title.setAccessibilityLabel("Paseo Command")
+        title.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(title)
         track.orientation = .horizontal
         track.spacing = 2
         track.edgeInsets = NSEdgeInsets(top: 2, left: 2, bottom: 2, right: 2)
         track.wantsLayer = true
         track.layer?.cornerRadius = 8
         track.translatesAutoresizingMaskIntoConstraints = false
-        for (mode, button) in buttons {
+        for (index, (mode, button)) in buttons.enumerated() {
             button.isBordered = false
             button.wantsLayer = true
             button.layer?.cornerRadius = 6
             button.target = self
             button.action = #selector(pick(_:))
-            button.tag = Mode.allCases.firstIndex(of: mode) ?? 0
+            button.tag = index
             button.toolTip = mode.tip
             let symbol = NSImage(systemSymbolName: mode.symbol, accessibilityDescription: nil)
             button.image = symbol?.withSymbolConfiguration(.init(pointSize: 11, weight: .medium))
@@ -132,51 +260,107 @@ final class ModeBar: NSView {
         update.toolTip = "An update is ready: choose Restart app in the command palette (⌘K)"
         update.isHidden = true
         update.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(update)
-        let rowLeading = track.leadingAnchor.constraint(equalTo: leadingAnchor, constant: leading)
-        self.rowLeading = rowLeading
-        let updateTrailing = update.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -14)
-        self.updateTrailing = updateTrailing
+        update.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        // The tools, right to left as the page had them: need you, usage, settings, What's new,
+        // games, shortcuts, then the panel's side, layout and visibility.
+        attention.isBordered = false
+        attention.wantsLayer = true
+        attention.layer?.cornerRadius = 11
+        attention.isHidden = true
+        attention.target = self
+        attention.action = #selector(tool(_:))
+        attention.identifier = NSUserInterfaceItemIdentifier("attention")
+        attention.translatesAutoresizingMaskIntoConstraints = false
+        attention.heightAnchor.constraint(equalToConstant: 22).isActive = true
+        usage.isHidden = true
+        usage.onClick = { [weak self] in
+            guard let self else { return }
+            self.onAction?("usage", self.usage)
+        }
+        usage.onHover = { [weak self] inside in
+            guard let self else { return }
+            self.onAction?(inside ? "usage-enter" : "usage-leave", self.usage)
+        }
+        settings.target = self
+        settings.action = #selector(openSettings)
+        for (button, name) in [(releases, "releases"), (games, "games"), (shortcuts, "shortcuts"),
+                               (panelSide, "panel-side"), (panelLayout, "panel-layout"), (panelToggle, "panel-toggle")] {
+            button.target = self
+            button.action = #selector(tool(_:))
+            button.identifier = NSUserInterfaceItemIdentifier(name)
+        }
+        tools.orientation = .horizontal
+        tools.spacing = 2
+        tools.translatesAutoresizingMaskIntoConstraints = false
+        for view in [update, attention, usage, settings, releases, games, shortcuts, panelSide, panelLayout, panelToggle] as [NSView] {
+            tools.addArrangedSubview(view)
+        }
+        tools.setCustomSpacing(10, after: update)
+        tools.setCustomSpacing(6, after: attention)
+        addSubview(tools)
+        let titleLeading = title.leadingAnchor.constraint(equalTo: leadingAnchor, constant: leading)
+        self.titleLeading = titleLeading
         NSLayoutConstraint.activate([
-            rowLeading,
+            titleLeading,
+            title.centerYAnchor.constraint(equalTo: centerYAnchor),
+            track.leadingAnchor.constraint(equalTo: title.trailingAnchor, constant: 16),
             track.centerYAnchor.constraint(equalTo: centerYAnchor),
-            updateTrailing,
-            update.centerYAnchor.constraint(equalTo: centerYAnchor),
+            tools.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -8),
+            tools.centerYAnchor.constraint(equalTo: centerYAnchor),
+            tools.leadingAnchor.constraint(greaterThanOrEqualTo: track.trailingAnchor, constant: 12),
         ])
         restyle()
     }
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 
-    @objc private func pick(_ sender: NSButton) { onSelect?(Mode.allCases[sender.tag]) }
+    @objc private func pick(_ sender: NSButton) { onSelect?(buttons[sender.tag].0) }
+    @objc private func tool(_ sender: NSView) {
+        if let name = sender.identifier?.rawValue { onAction?(name, sender) }
+    }
+    @objc private func openSettings() { onSelect?(.settings) }
 
-    override func layout() {
-        super.layout()
-        placeTools()
+    /// What the page says the tools show (its `barState` message).
+    func apply(_ state: [String: Any]) {
+        attentionCount = state["attention"] as? Int ?? 0
+        attention.isHidden = attentionCount <= 0
+        attention.toolTip = "\(attentionCount) approvals need attention"
+        attention.setAccessibilityLabel(attention.toolTip)
+        let meters = (state["usage"] as? [[String: Any]] ?? []).map { (pct: $0["pct"] as? Double ?? 0, tone: $0["tone"] as? String ?? "") }
+        usage.meters = meters
+        usage.isHidden = meters.isEmpty
+        releases.dot = state["releasesUnread"] as? Bool ?? false
+        releases.setAccessibilityLabel(releases.dot ? "What's new, unseen notes" : "What's new")
+        setMusicConnecting(state["musicConnecting"] as? Bool ?? false)
+        let left = (state["panelSide"] as? String ?? "left") == "left"
+        let compact = state["panelCompact"] as? Bool ?? true
+        let collapsed = state["panelCollapsed"] as? Bool ?? false
+        let move = left ? "Move panel to the right" : "Move panel to the left"
+        panelSide.setSymbol(left ? "sidebar.right" : "sidebar.left", label: move)
+        panelSide.toolTip = move
+        let layout = compact ? "Show list and details together" : "Use compact panel"
+        panelLayout.setSymbol(compact ? "rectangle.split.2x1" : "sidebar.squares.right", label: layout)
+        panelLayout.toolTip = layout
+        panelLayout.isEnabled = state["layoutEnabled"] as? Bool ?? true
+        let toggle = collapsed ? "Show session panel" : "Hide session panel"
+        panelToggle.setSymbol(collapsed ? (left ? "sidebar.left" : "sidebar.right") : "minus", label: toggle)
+        panelToggle.toolTip = "\(toggle) (⌘B)"
+        restyle()
     }
 
-    /// Leave the page's name and tools unpainted, start the tabs past the name, and
-    /// say "Update ready" just before the tools.
-    private func placeTools() {
-        CATransaction.begin()
-        CATransaction.setDisableActions(true)
-        fill.frame = bounds
-        hole.frame = fill.bounds
-        let path = CGMutablePath()
-        path.addRect(bounds)
-        let cut = tools.intersection(bounds)
-        if !cut.isNull, !cut.isEmpty { path.addRect(cut) }
-        let name = title.intersection(bounds)
-        if !name.isNull, !name.isEmpty { path.addRect(name) }
-        hole.path = path
-        CATransaction.commit()
-        rowLeading?.constant = title.isEmpty ? leading : max(leading, title.maxX + 16)
-        updateTrailing?.constant = tools.isEmpty ? -14 : tools.minX - bounds.width - 10
-    }
-
-    /// The page's tools take their own clicks; the rest of the bar is the bar's.
-    override func hitTest(_ point: NSPoint) -> NSView? {
-        if !tools.isEmpty, tools.contains(convert(point, from: superview)) { return nil }
-        return super.hitTest(point)
+    /// The gear pulses while the lofi radio connects, as the page's did.
+    private func setMusicConnecting(_ on: Bool) {
+        guard let layer = settings.layer else { return }
+        if on, layer.animation(forKey: "connecting") == nil {
+            let pulse = CABasicAnimation(keyPath: "opacity")
+            pulse.fromValue = 1
+            pulse.toValue = 0.35
+            pulse.duration = 0.6
+            pulse.autoreverses = true
+            pulse.repeatCount = .infinity
+            if !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion { layer.add(pulse, forKey: "connecting") }
+        } else if !on {
+            layer.removeAnimation(forKey: "connecting")
+        }
     }
 
     // As a title bar: drag to move the window, double-click as System Settings says.
@@ -198,9 +382,23 @@ final class ModeBar: NSView {
     /// Dark or light with the system, as the page's panels are.
     private func restyle() {
         let look = effectiveAppearance
-        fill.layer?.backgroundColor = Ink.color(Ink.base, look).cgColor
+        layer?.backgroundColor = Ink.color(Ink.base, look).cgColor
         track.layer?.backgroundColor = Ink.color(Ink.tabShown, look).cgColor
         update.textColor = Ink.color(Ink.accent, look)
+        // The product's name, as the page's header had it: Barlow semibold, upper case, 0.08em apart.
+        let size: CGFloat = 17
+        title.attributedStringValue = NSAttributedString(string: "PASEO COMMAND", attributes: [
+            .font: NSFont(name: "BarlowSemiCondensed-SemiBold", size: size) ?? .systemFont(ofSize: size - 3, weight: .semibold),
+            .foregroundColor: Ink.color(Ink.strong, look),
+            .kern: size * 0.08,
+        ])
+        attention.layer?.backgroundColor = Ink.color(Ink.accent, look).cgColor
+        attention.attributedTitle = NSAttributedString(string: "  \(attentionCount) need you  ", attributes: [
+            .font: NSFont.systemFont(ofSize: 12, weight: .semibold),
+            .foregroundColor: Ink.color(Ink.onAccent, look),
+        ])
+        settings.on = mode == .settings
+        for button in [settings, releases, games, shortcuts, panelSide, panelLayout, panelToggle] { button.restyle() }
         for (mode, button) in buttons {
             let on = mode == self.mode
             button.layer?.backgroundColor = on ? Ink.color(Ink.pane, look).cgColor

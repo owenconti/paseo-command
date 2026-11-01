@@ -8,6 +8,7 @@ import { isTyping } from "./worldShortcut";
 import { onAppCommand } from "./appCommands";
 import { useIntegrations } from "./integrationSettings";
 import { activityEnabled } from "./integrations";
+import { onAppBar } from "./worldBridge";
 
 type Shortcut = { keys: string[][]; label: string };
 type Group = { title: string; note?: string; rows: Shortcut[] };
@@ -65,6 +66,7 @@ const NATIVE: Group = {
       keys: [["⌘", "`"]],
       label: "Next in the map's place: the map, the browser (Conquer), Linear",
     },
+    { keys: [["⌘", ","]], label: "Open or close Settings" },
   ],
 };
 /** The Linear tab's keys (`linear/keys.ts`), as in Linear, while the keyboard is in it. */
@@ -203,9 +205,12 @@ export function ShortcutsButton({ hidden = false }: { hidden?: boolean }) {
     };
     window.addEventListener("keydown", key);
     const offCommand = onAppCommand("show-shortcuts", () => setOpen(true));
+    // The macOS app's top bar button (its own; this one is then hidden).
+    const offBar = onAppBar("shortcuts", () => setOpen((o) => !o));
     return () => {
       window.removeEventListener("keydown", key);
       offCommand();
+      offBar();
     };
   }, []);
   // In the app's main, as the archive dialog is, so it takes the panel theme.

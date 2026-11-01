@@ -1,6 +1,6 @@
 /**
- * The panel header's gear holds the app's settings: interface sounds, the
- * lofi radio, desktop notifications and the Linear workspace. Every /api
+ * The top bar's gear opens Settings, a page in the map's place: interface sounds,
+ * the lofi radio, desktop notifications, the integrations and the Linear workspace. Every /api
  * request is answered in the browser; none reaches a daemon, and the radio
  * stream is answered empty.
  */
@@ -35,10 +35,9 @@ test("the gear opens every setting, and the radio's choice is kept", async () =>
     route.fulfill({ status: 204 }),
   );
   await page.goto(app.url);
-  const header = page.locator(".panel-tools");
-  assert.equal(await header.getByRole("button").count(), 1);
-  await header.getByRole("button", { name: "Settings" }).click();
-  const dialog = page.getByRole("dialog", { name: "Settings" });
+  const header = page.locator(".app-bar-tools");
+  await header.getByRole("button", { name: "Settings", exact: true }).click();
+  const dialog = page.getByRole("region", { name: "Settings", exact: true });
   for (const label of [
     "Interface sounds",
     "Lofi radio",
@@ -94,7 +93,7 @@ test("API keys live under their integrations and can be saved, replaced and remo
   });
   await page.goto(app.url);
   await page.getByRole("button", { name: "Settings", exact: true }).click();
-  const dialog = page.getByRole("dialog", { name: "Settings" });
+  const dialog = page.getByRole("region", { name: "Settings", exact: true });
   const linear = dialog.getByRole("region", { name: "Linear integration", exact: true });
   const typesafe = dialog.getByRole("region", { name: "TypeSafe integration", exact: true });
   const key = linear.getByLabel("Linear API key", { exact: true });
@@ -222,7 +221,7 @@ test("the Linear workspace is kept in settings.json, moved there from this brows
     null,
   );
   await page.getByRole("button", { name: "Settings" }).click();
-  const field = page.getByRole("dialog", { name: "Settings" }).getByLabel(/Linear workspace/);
+  const field = page.getByRole("region", { name: "Settings", exact: true }).getByLabel(/Linear workspace/);
   assert.equal(await field.inputValue(), "acme");
   // A change is saved to the file, and read back from it after a reload.
   await field.fill("https://linear.app/umbrella/team");
@@ -236,7 +235,7 @@ test("the Linear workspace is kept in settings.json, moved there from this brows
   await page.reload();
   await page.getByRole("button", { name: "Settings" }).click();
   assert.equal(
-    await page.getByRole("dialog", { name: "Settings" }).getByLabel(/Linear workspace/).inputValue(),
+    await page.getByRole("region", { name: "Settings", exact: true }).getByLabel(/Linear workspace/).inputValue(),
     "umbrella",
   );
   assert.equal(saved.length, 2);
@@ -251,6 +250,10 @@ test("integrations opt in explicitly, persist, and stop their controls after opt
       paseoWorld: { postMessage(message) {
         if (message.type === "integrations") window.__integrationMessages.push(message);
         if (message.type === "art") setTimeout(() => window.dispatchEvent(new CustomEvent("paseo:world", { detail: { type: "ready" } })));
+        // Settings is one of the app's sides: it switches there, and back, as the page asks.
+        const mode = (m) => setTimeout(() => window.dispatchEvent(new CustomEvent("paseo:mode", { detail: { mode: m } })));
+        if (message.type === "menu" && message.action === "settings") mode("settings");
+        if (message.type === "menu" && message.action === "settings-close") mode("command");
       } },
     } };
   })()`);
@@ -280,8 +283,9 @@ test("integrations opt in explicitly, persist, and stop their controls after opt
     },
   });
   await page.goto(app.url);
-  await page.getByRole("button", { name: "Settings", exact: true }).click();
-  const dialog = page.getByRole("dialog", { name: "Settings" });
+  // The app's native gear switches to Settings.
+  await page.evaluate(() => window.dispatchEvent(new CustomEvent("paseo:mode", { detail: { mode: "settings" } })));
+  const dialog = page.getByRole("region", { name: "Settings", exact: true });
   const linear = dialog.getByRole("switch", { name: /^Linear / });
   const typesafe = dialog.getByRole("switch", { name: /^TypeSafe / });
   await waitFor(
@@ -316,7 +320,8 @@ test("integrations opt in explicitly, persist, and stop their controls after opt
     { integrations: { typesafe: true } },
   ]);
   await page.reload();
-  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  // The app's native gear switches to Settings.
+  await page.evaluate(() => window.dispatchEvent(new CustomEvent("paseo:mode", { detail: { mode: "settings" } })));
   await waitFor(
     () => linear.isChecked(),
     (v) => v,
@@ -362,7 +367,7 @@ test("a failed opt-in stays off and reports why it could not be saved", async ()
   );
   await page.goto(app.url);
   await page.getByRole("button", { name: "Settings", exact: true }).click();
-  const dialog = page.getByRole("dialog", { name: "Settings" });
+  const dialog = page.getByRole("region", { name: "Settings", exact: true });
   const linear = dialog.getByRole("switch", { name: /^Linear / });
   await linear.click();
   await dialog.getByRole("alert").waitFor();
@@ -396,7 +401,7 @@ test("Slack's setup offers its app manifest: opened in Slack filled in, or copie
   });
   await page.goto(app.url);
   await page.getByRole("button", { name: "Settings", exact: true }).click();
-  const slack = page.getByRole("dialog", { name: "Settings" }).getByRole("region", { name: "Slack integration", exact: true });
+  const slack = page.getByRole("region", { name: "Settings", exact: true }).getByRole("region", { name: "Slack integration", exact: true });
   await slack.getByText("Set up a Slack app").click();
   await slack.getByRole("button", { name: "Create the app in Slack" }).click();
   const opened = await page.evaluate(() => (window as unknown as { opened: string[] }).opened);

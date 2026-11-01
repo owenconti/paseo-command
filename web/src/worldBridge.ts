@@ -221,21 +221,48 @@ export const configureAppIntegrations = (tabs: { linear: boolean; slack: boolean
   appChannel()?.postMessage({ type: "integrations", ...tabs });
 /** Activity's unread notifications, for its mode bar tab. */
 export const postAppActivity = (unread: number) => appChannel()?.postMessage({ type: "activity", unread });
-/** Where the page draws its tools and the product's name in the window's top bar (page
- * pixels; empty for none). The macOS app's mode bar leaves both unpainted, passes the
- * tools' clicks through and starts its tabs past the name. */
-export const postAppBar = (
-  r: { x: number; y: number; width: number; height: number },
-  title: { x: number; y: number; width: number; height: number },
-) =>
-  appChannel()?.postMessage({
-    type: "appBar",
-    ...r,
-    titleX: title.x,
-    titleY: title.y,
-    titleWidth: title.width,
-    titleHeight: title.height,
-  });
+/** What the macOS app's top bar shows for the page: the need-you count, the usage meters,
+ * whether What's new has unseen notes, the lofi radio connecting, and the session panel's
+ * side, layout and visibility. Each part comes from where it lives; the app gets them merged. */
+export type AppBarState = {
+  attention: number;
+  usage: { pct: number; tone: string }[];
+  releasesUnread: boolean;
+  musicConnecting: boolean;
+  panelSide: "left" | "right";
+  panelCompact: boolean;
+  panelCollapsed: boolean;
+  layoutEnabled: boolean;
+};
+let barState: Partial<AppBarState> = {};
+export function postAppBarState(part: Partial<AppBarState>) {
+  barState = { ...barState, ...part };
+  appChannel()?.postMessage({ type: "barState", ...barState });
+}
+/** A rectangle of the app's top bar (a button), in the page's coordinates: above it, so
+ * its top is negative; popovers open beneath it. */
+export type BarRect = { x: number; y: number; width: number; height: number };
+export type BarAction =
+  | "attention"
+  | "usage-enter"
+  | "usage-leave"
+  | "usage"
+  | "releases"
+  | "games"
+  | "shortcuts"
+  | "panel-side"
+  | "panel-layout"
+  | "panel-toggle";
+/** A button of the macOS app's top bar was used (`paseo:bar`), with where it is. */
+export function onAppBar(action: BarAction, handler: (rect: BarRect) => void) {
+  const receive = (event: Event) => {
+    const detail = (event as CustomEvent).detail;
+    if (detail?.action !== action) return;
+    handler({ x: detail.x ?? 0, y: detail.y ?? 0, width: detail.width ?? 0, height: detail.height ?? 0 });
+  };
+  window.addEventListener("paseo:bar", receive);
+  return () => window.removeEventListener("paseo:bar", receive);
+}
 /** Open a web link in the macOS app's browser, Conquer, in the map's place (a new tab).
  * A Linear issue's or Slack message's link comes back as `paseo:link` for its tab,
  * unless `direct` (one the page has already looked at). */

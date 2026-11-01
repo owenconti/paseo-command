@@ -173,7 +173,10 @@ and GitHub publication; report the published version and release link.
   other keys and never overwrites an unreadable file); `web/src/presetsStore.ts` shares them across the page.
   Optional integrations (`integrations.linear`, `integrations.typesafe`) default off in that file.
   Integration keys are read only from the data directory's `secrets.json` (`web/server/secrets.ts`), never from environment variables.
-  Settings uses toggle switches, with each integration's API-key editor and settings grouped beneath it.
+  Settings is a page in the map's place (`web/src/SettingsPage.tsx`, opened and closed through `settingsStore.ts`): in the macOS app the side `settings`
+  (`Mode.settings`, not a tab: the bar's gear, the app menu's Settings… ⌘, and the palette switch to it and back to the side before; the page asks with
+  `menu` `settings`/`settings-close`), in a browser the page's own state (its bar's gear). Esc or its × closes it. Its groups: sound and music, notifications,
+  optional integrations, New agent (presets, profiles). It uses toggle switches, with each integration's API-key editor and settings grouped beneath it.
   `GET /api/secrets` returns presence flags only; `POST /api/secrets` saves/replaces/removes a named key,
   preserving other credentials in an atomic owner-only file. Saved values never return to the page.
   The same `settings.json` keeps the Linear workspace (`linearWorkspace`; `GET`/`POST /api/settings`,
@@ -226,15 +229,17 @@ and GitHub publication; report the published version and release link.
 - Auto-merge: a PR's `autoMerge` comes from Paseo's GitHub facts (`autoMergeRequest`), else gh's (`web/server/links.ts`).
   While it's on, a teal seal with a merge mark sits on the review medallion's upper-right rim, else the CI one's (`placeSeals`,
   `paintSeal`, `AUTO_MERGE` in `rendering/src/prStatus.ts`); the medallion's hover card says how it merges and who turned it on.
-- Top bar: the macOS app's mode bar (`ModeBar` in `Conquer.swift`: traffic lights, the mode tabs, Update ready) runs across the window's top
-  over the page, which reaches the top under it (`--app-bar`, the bar's height, set by the app; an empty unified-compact toolbar makes the title bar
-  that tall and centres the traffic lights). The page draws "Paseo Command" past the traffic lights (`--app-bar-lead`, set by the app) and the panel's
-  tools at the window's right end, past the terminal panel (`.app-bar` in `FloatingPanel.tsx`: need you, usage, settings, What's new, games, shortcuts,
-  panel side, layout, show/hide). The page posts both rectangles (`appBar`); the bar leaves them unpainted, starts its tabs past the name and passes the
-  tools' clicks through. The page's other content keeps to the split's page side (`--workspace-width`/`--workspace-height`, `layoutWorkspace`). The map and
-  page are `command`'s; the split (terminal panel, Conquer) is the window root's, over `command` and below the bar, its page side passing events through
-  (`PassThroughView`): a view after the web view in its own parent stays off screen until the web view is hidden and shown again. Check such layout with
-  `.windowshot` (the screen's pixels), not `.snapshot`. The panel has no header of its own and, hidden (⌘B), takes no width.
+- Top bar: native, all of it, in the macOS app (`ModeBar` in `Conquer.swift`, its height an empty unified-compact toolbar's, which centres the traffic
+  lights): the traffic lights, "PASEO COMMAND" (the bundled Barlow), the mode tabs, Update ready, and the tools: need you, usage meters, the Settings gear,
+  What's new, mini games, keyboard shortcuts and the session panel's side, layout and show/hide (`BarButton`, `UsageMeters`). The page lies below the bar
+  (`--app-bar` 0) and draws no bar of its own there (`.app-bar-hosted` in `FloatingPanel.tsx` keeps what the tools open). The page says what the tools show
+  (`postAppBarState` → `barState`: attention, usage meters, What's new unseen, the radio connecting, panel side, layout and visibility), and a tool's click
+  comes to the page as `paseo:bar` (`onAppBar`) with the button's rectangle in page coordinates, so usage, What's new, games and shortcuts open beneath it.
+  In a browser the page keeps its own `.app-bar` (name, tools, gear). The page's other content keeps to the split's page side (`--workspace-width`/
+  `--workspace-height`, `layoutWorkspace`). The map and page are `command`'s; the split (terminal panel, Conquer) is the window root's, over `command` and
+  below the bar, its page side passing events through (`PassThroughView`): a view after the web view in its own parent stays off screen until the web view is
+  hidden and shown again. Check such layout with `.windowshot` (the screen's pixels), not `.snapshot`. Bar controls must be `NSButton`s: the title bar's
+  toolbar passes clicks through only to controls. The panel has no header of its own and, hidden (⌘B), takes no width.
 - Conquer (experiment): the COMMAND / CONQUER strip across the macOS app's top (⌘` steps Command → Conquer → Linear → Slack → Activity, those enabled; View menu; the tabs light on hover)
   switches the map's place between the map and Conquer, a WebKit browser (`native/Sources/PaseoCommandNative/Conquer.swift`),
   laid exactly over the map (`placeConquer` in `WorldWindow.swift`): the panels and terminal stay, and ⌘B (the page's panel toggle)

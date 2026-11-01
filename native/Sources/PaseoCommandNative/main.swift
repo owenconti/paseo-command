@@ -279,6 +279,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
             check.target = updater
             appMenu.addItem(.separator())
         }
+        // Settings, a page in the map's place (the top bar's gear).
+        appMenu.addItem(withTitle: "Settings…", action: #selector(showSettings), keyEquivalent: ",").target = self
+        appMenu.addItem(.separator())
         appMenu.addItem(withTitle: "Hide \(AppFlavor.name)", action: #selector(NSApplication.hide(_:)), keyEquivalent: "h")
         appMenu.addItem(.separator())
         appMenu.addItem(withTitle: "Quit \(AppFlavor.name)", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
@@ -309,7 +312,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         let unsplit = view.addItem(withTitle: "Unsplit Terminals", action: #selector(unsplitTerminals), keyEquivalent: "")
         unsplit.target = self
         view.addItem(.separator())
-        for mode in Mode.allCases {
+        for mode in Mode.tabs {
             let item = view.addItem(withTitle: mode.title, action: #selector(showMode(_:)), keyEquivalent: "")
             item.target = self
             item.representedObject = mode.rawValue
@@ -362,6 +365,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         guard let main else { return }
         main.show(main.nextMode)
     }
+    @objc private func showSettings() { main?.toggleSettings() }
     @objc private func showMode(_ sender: NSMenuItem) {
         if let mode = (sender.representedObject as? String).flatMap(Mode.init(rawValue:)) { main?.show(mode) }
     }

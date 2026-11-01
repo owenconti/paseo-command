@@ -674,11 +674,20 @@ export function mountNativeAtlas(parent: HTMLElement, handlers: AtlasHandlers = 
   window.addEventListener("paseo:world", receive);
 
   // The map's rectangle in the page, so Swift can lay its view under it.
+  let lastViewport = "";
   const viewport = () => {
     if (destroyed) return;
     const r = parent.getBoundingClientRect();
+    lastViewport = `${r.x},${r.y},${r.width},${r.height}`;
     post({ type: "viewport", x: r.x, y: r.y, width: r.width, height: r.height });
   };
+  // The map moves without resizing when the session panel changes sides: the root's
+  // attributes say so (`data-panel-side`, `--unity-sidebar`). Only a real move is posted.
+  const moved = new MutationObserver(() => {
+    const r = parent.getBoundingClientRect();
+    if (`${r.x},${r.y},${r.width},${r.height}` !== lastViewport) viewport();
+  });
+  moved.observe(document.documentElement, { attributes: true, attributeFilter: ["style", "data-panel-side"] });
   let lastAspect = aspect();
   const resized = () => {
     viewport();
@@ -872,6 +881,7 @@ export function mountNativeAtlas(parent: HTMLElement, handlers: AtlasHandlers = 
       destroyed = true;
       ready = false;
       resize.disconnect();
+      moved.disconnect();
       window.removeEventListener("resize", resized);
       window.removeEventListener("paseo:world", receive);
       for (const [type, listener, options] of listeners) parent.removeEventListener(type, listener, options);

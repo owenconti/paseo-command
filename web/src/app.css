@@ -206,6 +206,11 @@
   background: var(--panel);
   color: var(--text);
 }
+/* In the macOS app the top bar is native: what its tools open (usage, What's new,
+   games, shortcuts) still lives in the page, without buttons of its own. */
+.app-bar-hosted {
+  display: contents;
+}
 .app-bar-title {
   min-width: 0;
   overflow: hidden;

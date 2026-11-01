@@ -47,7 +47,8 @@ import {
   useArchiveJobs,
   type ArchiveJob,
 } from "./archives";
-import { SettingsControl } from "./SettingsControl";
+import { SettingsPage } from "./SettingsPage";
+import { closeSettings, openSettings, useSettingsShown } from "./settingsStore";
 import { setSoundSettings, useSoundSettings } from "./sounds";
 import { setMusicSettings, useMusic } from "./music";
 import { setIntegration, useIntegrations } from "./integrationSettings";
@@ -83,7 +84,6 @@ import { AddProject } from "./AddProject";
 import {
   Fleet,
   FleetSummary,
-  FleetTools,
   useFleetView,
   type Filter,
   type Tab,
@@ -261,17 +261,6 @@ function App() {
   const [focusRevision, setFocusRevision] = useState(initial.selection ? 1 : 0);
   const [dispatchRevision, setDispatchRevision] = useState(0);
   const [browsing, setBrowsing] = useState(initial.browsing);
-  // The app's Settings… (Cmd+,) opens the settings control in the
-  // fleet sidebar: show the sidebar and expand the panel (SettingsControl opens).
-  const [revealRevision, setRevealRevision] = useState(0);
-  useEffect(() => {
-    if (!native) return;
-    return nativeEvents((event) => {
-      if (event.type !== "menu" || event.action !== "settings") return;
-      setBrowsing(true);
-      setRevealRevision((revision) => revision + 1);
-    });
-  }, []);
   const compact = useCompactLayout();
   const [floatingVisibility, setFloatingVisibility] = useState({
     compact: true,
@@ -871,6 +860,7 @@ function App() {
 
   // The mode bar's tab (macOS app): Linear draws its issues in the map's place.
   const appMode = useAppMode();
+  const settingsShown = useSettingsShown(appMode);
   // The issue open in the Linear tab, for ⌘K's edits of it.
   const [linearIssueOpen, setLinearIssueOpen] = useState<LinearOpenIssue | undefined>();
   // The Linear tab's places, Undo and list, for ⌘K's entries for them.
@@ -2164,18 +2154,24 @@ function App() {
           },
         ]
       : []),
-    {
-      id: "settings",
-      group: "App",
-      label: "Settings",
-      keywords:
-        "preferences integrations api keys secrets sounds music notifications linear slack github typesafe",
-      run: () => {
-        setBrowsing(true);
-        setRevealRevision((revision) => revision + 1);
-        runAppCommand("show-settings");
-      },
-    },
+    settingsShown
+      ? {
+          id: "settings",
+          group: "App",
+          label: "Close settings",
+          keys: [["Esc"]],
+          keywords: "preferences integrations back",
+          run: closeSettings,
+        }
+      : {
+          id: "settings",
+          group: "App",
+          label: "Settings",
+          keys: [["⌘", ","]],
+          keywords:
+            "preferences integrations api keys secrets sounds music notifications linear slack github typesafe",
+          run: () => openSettings(),
+        },
     ...(integrationsLoaded && !integrationsSaving
       ? (
           [
@@ -2190,9 +2186,7 @@ function App() {
           label: `${integrations[name] ? "Disable" : "Enable"} ${label}`,
           keywords: `settings optional integrations ${name} ${name === "typesafe" ? "questions reply suggestions" : ""}`,
           run: () => {
-            setBrowsing(true);
-            setRevealRevision((revision) => revision + 1);
-            runAppCommand("show-settings");
+            openSettings();
             void setIntegration(name, !integrations[name]);
           },
         }))
@@ -2204,11 +2198,7 @@ function App() {
         group: "App",
         label: `Manage ${label} ${what}…`,
         keywords: `settings ${name} secrets credentials api key token save replace remove`,
-        run: () => {
-          setBrowsing(true);
-          setRevealRevision((revision) => revision + 1);
-          runAppCommand(`manage-${name}-key`);
-        },
+        run: () => openSettings(name),
       })),
     {
       id: "presets",
@@ -2370,6 +2360,12 @@ function App() {
                 />
               </React.Suspense>
             )}
+            {settingsShown && (
+              <SettingsPage
+                notifications={attention.notifications}
+                onNotifications={() => void attention.requestNotifications()}
+              />
+            )}
           </div>
         )}
         {errors.length > 0 && (
@@ -2404,7 +2400,6 @@ function App() {
           }
           hasActive={!!activeTarget || !!dispatchTarget || addingProject}
           openRevision={focusRevision}
-          revealRevision={revealRevision}
           browsing={browsing}
           onBrowse={() => {
             setTab("Workspaces");
@@ -2414,17 +2409,7 @@ function App() {
             if (activeTarget) setBrowsing(false);
           }}
           onVisibility={setFloatingVisibility}
-          tools={
-            <FleetTools
-              usage={usage}
-              settings={
-                <SettingsControl
-                  notifications={attention.notifications}
-                  onNotifications={() => void attention.requestNotifications()}
-                />
-              }
-            />
-          }
+          usage={usage}
           attention={permissions.length}
           onAttention={() => {
             setTab("Agents");

@@ -1,10 +1,7 @@
-import { useCallback, useEffect, useId, useRef, useState } from "react";
-import { Settings } from "lucide-react";
-import { placePopover } from "./popover";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { X } from "lucide-react";
 import { previewSound, setSoundSettings, useSoundSettings } from "./sounds";
-import { nativeEvents } from "./worldBridge";
 import { setIntegration, useIntegrations } from "./integrationSettings";
-import { onAppCommand } from "./appCommands";
 import { LinearWorkspaceSetting } from "./HeaderLinks";
 import { setMusicSettings, useMusic } from "./music";
 import { openPresetEditor, usePresets } from "./presetsStore";
@@ -12,15 +9,17 @@ import { openProfileEditor } from "./profilesStore";
 import { api, errorMessage } from "./api";
 import { SlackAppSetup } from "./slack/SlackAppSetup";
 import { ApiKeySetting, type SecretStatus } from "./ApiKeySetting";
+import { closeSettings, useSettingsRequest } from "./settingsStore";
 
 /**
- * The app's settings, behind the top bar's gear: interface sounds and
- * the lofi radio (on/off and volume), desktop notifications, and the Linear
- * workspace issue links open in. Sounds, radio and notifications are kept
- * in this browser (or the app); optional integrations, the Linear workspace and the preset prompts
- * (which open their own editor) in ~/.paseo-command/settings.json.
+ * The app's settings, a page in the map's place (`settingsStore.ts`): interface
+ * sounds and the lofi radio (on/off and volume), desktop notifications, the
+ * optional integrations with their keys, and New agent's preset prompts and
+ * agent profiles. Sounds, radio and notifications are kept in this browser (or
+ * the app); integrations, the Linear workspace and the presets in
+ * ~/.paseo-command/settings.json, keys in the data directory's secrets.json.
  */
-export function SettingsControl({
+export function SettingsPage({
   notifications,
   onNotifications,
 }: {
@@ -30,85 +29,28 @@ export function SettingsControl({
   const settings = useSoundSettings();
   const music = useMusic();
   const musicPercent = Math.round(music.volume * 100);
-  const [open, setOpen] = useState(false);
-  const anchor = useRef<HTMLSpanElement>(null);
-  const trigger = useRef<HTMLButtonElement>(null);
-  const toggle = useRef<HTMLInputElement>(null);
-  const [focusOnOpen, setFocusOnOpen] = useState(false);
-  const [keyTarget, setKeyTarget] = useState<"linear" | "slack" | "typesafe" | null>(
-    null,
-  );
-  const id = useId();
-  // The app's Settings… menu item (Cmd+,) opens these, the only settings,
-  // with focus inside so Escape closes them again.
-  // So does the command palette's Settings.
+  const page = useRef<HTMLElement>(null);
+  const first = useRef<HTMLInputElement>(null);
+  const request = useSettingsRequest();
+  // Opening (the gear, ⌘,, the palette, Manage … key) puts the keyboard in the
+  // page: on its first switch, or on the asked integration's key editor.
   useEffect(() => {
-    const show = (target: "linear" | "slack" | "typesafe" | null = null) => {
-      setKeyTarget(target);
-      setOpen(true);
-      setFocusOnOpen(true);
-    };
-    const offMenu = nativeEvents((event) => {
-      if (event.type === "menu" && event.action === "settings") show();
-    });
-    const offCommand = onAppCommand("show-settings", () => show());
-    const offLinear = onAppCommand("manage-linear-key", () => show("linear"));
-    const offSlack = onAppCommand("manage-slack-key", () => show("slack"));
-    const offTypesafe = onAppCommand("manage-typesafe-key", () =>
-      show("typesafe"),
-    );
-    return () => {
-      offMenu();
-      offCommand();
-      offLinear();
-      offSlack();
-      offTypesafe();
-    };
-  }, []);
-  useEffect(() => {
-    if (!open || !focusOnOpen) return;
-    // The sidebar and panel holding the control may still be appearing.
-    // (Timers, not animation frames: a hidden native window draws none.)
     let tries = 0;
     let timer: ReturnType<typeof setTimeout>;
+    // The page may still be appearing. (Timers, not animation frames: a hidden native window draws none.)
     const attempt = () => {
-      const target = keyTarget
-        ? anchor.current?.querySelector<HTMLElement>(
-            `[data-integration="${keyTarget}"] input[type=password], [data-integration="${keyTarget}"] .api-key-actions button`,
+      const target = request.target
+        ? page.current?.querySelector<HTMLElement>(
+            `[data-integration="${request.target}"] input[type=password], [data-integration="${request.target}"] .api-key-actions button`,
           )
-        : toggle.current;
+        : first.current;
       target?.focus({ preventScroll: true });
-      if (target && document.activeElement === target)
-        target.scrollIntoView({ block: "nearest" });
-      if (document.activeElement === target || ++tries > 20)
-        setFocusOnOpen(false);
-      else timer = setTimeout(attempt, 25);
+      if (target && document.activeElement === target) target.scrollIntoView({ block: "nearest" });
+      if (document.activeElement !== target && ++tries <= 20) timer = setTimeout(attempt, 25);
     };
     attempt();
     return () => clearTimeout(timer);
-  }, [open, focusOnOpen, keyTarget]);
-  const close = useCallback((refocus: boolean) => {
-    setOpen(false);
-    if (refocus) trigger.current?.focus({ preventScroll: true });
-  }, []);
-  useEffect(() => {
-    if (!open) return;
-    const down = (e: MouseEvent) => {
-      if (!anchor.current?.contains(e.target as Node)) close(false);
-    };
-    const key = (e: KeyboardEvent) => {
-      if (e.key !== "Escape") return;
-      e.stopImmediatePropagation();
-      e.preventDefault();
-      close(true);
-    };
-    document.addEventListener("mousedown", down);
-    window.addEventListener("keydown", key, true);
-    return () => {
-      document.removeEventListener("mousedown", down);
-      window.removeEventListener("keydown", key, true);
-    };
-  }, [open, close]);
+  }, [request]);
   const percent = Math.round(settings.volume * 100);
   const musicStatus = !music.enabled
     ? "Streams laut.fm's lofi station"
@@ -118,46 +60,32 @@ export function SettingsControl({
         ? "Starts with your next click"
         : "Connecting…";
   return (
-    <span
-      ref={anchor}
-      className="menu-anchor settings-anchor"
-      onBlur={(e) => {
-        if (
-          open &&
-          e.relatedTarget &&
-          !anchor.current?.contains(e.relatedTarget as Node)
-        )
-          close(false);
+    <section
+      ref={page}
+      className="settings-page sound-menu settings-menu"
+      aria-label="Settings"
+      // Keys pressed here are the page's (not J/K/N/D shortcuts); Escape closes it
+      // unless a field took it first.
+      onKeyDown={(e) => {
+        if (e.key === "Escape" && !e.defaultPrevented) {
+          e.preventDefault();
+          closeSettings();
+        }
+        if (e.key !== "Tab" && !e.metaKey) e.stopPropagation();
       }}
     >
-      <button
-        ref={trigger}
-        className="icon-btn"
-        aria-haspopup="dialog"
-        aria-expanded={open}
-        aria-controls={open ? id : undefined}
-        aria-label="Settings"
-        data-tip="Settings — integrations, sounds, music, notifications"
-        data-music={music.enabled ? music.state : "off"}
-        onClick={() => setOpen(!open)}
-      >
-        <Settings size={14} />
-      </button>
-      {open && (
-        <div
-          ref={placePopover}
-          id={id}
-          role="dialog"
-          aria-label="Settings"
-          className="popover-menu right sound-menu settings-menu"
-          // Keys pressed here are the control's (not J/K/N/D shortcuts).
-          onKeyDown={(e) => {
-            if (e.key !== "Tab" && e.key !== "Escape") e.stopPropagation();
-          }}
-        >
+      <header className="settings-page-head">
+        <h2>Settings</h2>
+        <button className="icon-btn" aria-label="Close settings" data-tip="Close settings (Esc)" onClick={closeSettings}>
+          <X size={16} />
+        </button>
+      </header>
+      <div className="settings-page-body">
+        <section className="settings-group" aria-labelledby="settings-sound">
+          <h3 id="settings-sound">Sound and music</h3>
           <label className="sound-toggle">
             <input
-              ref={toggle}
+              ref={first}
               type="checkbox"
               role="switch"
               checked={settings.enabled}
@@ -181,17 +109,10 @@ export function SettingsControl({
               value={percent}
               disabled={!settings.enabled}
               aria-valuetext={`${percent}%`}
-              onChange={(e) =>
-                setSoundSettings({ volume: Number(e.target.value) / 100 })
-              }
+              onChange={(e) => setSoundSettings({ volume: Number(e.target.value) / 100 })}
               onPointerUp={previewSound}
               onKeyUp={(e) => {
-                if (
-                  e.key.startsWith("Arrow") ||
-                  e.key === "Home" ||
-                  e.key === "End"
-                )
-                  previewSound();
+                if (e.key.startsWith("Arrow") || e.key === "Home" || e.key === "End") previewSound();
               }}
             />
             <output>{percent}%</output>
@@ -219,13 +140,14 @@ export function SettingsControl({
               disabled={!music.enabled}
               aria-label="Lofi radio volume"
               aria-valuetext={`${musicPercent}%`}
-              onChange={(e) =>
-                setMusicSettings({ volume: Number(e.target.value) / 100 })
-              }
+              onChange={(e) => setMusicSettings({ volume: Number(e.target.value) / 100 })}
             />
             <output>{musicPercent}%</output>
           </label>
-          {notifications !== "unsupported" && (
+        </section>
+        {notifications !== "unsupported" && (
+          <section className="settings-group" aria-labelledby="settings-notifications">
+            <h3 id="settings-notifications">Notifications</h3>
             <label className="sound-toggle">
               <input
                 type="checkbox"
@@ -237,38 +159,31 @@ export function SettingsControl({
               <span>
                 <b>Desktop notifications</b>
                 <small>
-                  {notifications === "denied"
-                    ? "Blocked in browser settings"
-                    : "Finished agents and approvals"}
+                  {notifications === "denied" ? "Blocked in browser settings" : "Finished agents and approvals"}
                 </small>
               </span>
             </label>
-          )}
+          </section>
+        )}
+        <section className="settings-group" aria-labelledby="settings-integrations">
+          <h3 id="settings-integrations">Optional integrations</h3>
           <IntegrationSettings />
-          <PresetsSetting
-            onEdit={() => {
-              close(false);
-              openPresetEditor();
-            }}
-          />
+        </section>
+        <section className="settings-group" aria-labelledby="settings-new-agent">
+          <h3 id="settings-new-agent">New agent</h3>
+          <PresetsSetting onEdit={openPresetEditor} />
           <div className="linear-setting presets-setting profiles-setting">
             <span>
               <b>Agent profiles</b>
               <small>Paseo’s named launch settings, in New agent</small>
             </span>
-            <button
-              className="secondary"
-              onClick={() => {
-                close(false);
-                openProfileEditor();
-              }}
-            >
+            <button className="secondary" onClick={() => openProfileEditor()}>
               Edit…
             </button>
           </div>
-        </div>
-      )}
-    </span>
+        </section>
+      </div>
+    </section>
   );
 }
 
@@ -324,7 +239,6 @@ function IntegrationSettings() {
   }, [refreshSecrets]);
   return (
     <div className="integration-settings">
-      <h3>Optional integrations</h3>
       {(
         [
           ["linear", "Linear", "Your assigned issues and links."],
