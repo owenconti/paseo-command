@@ -10,27 +10,17 @@ import {
   Folder,
   MessageSquare,
   Pencil,
-  Plus,
   Trash2,
   Undo2,
 } from "lucide-react";
+import { getSingularPatch, type DiffLineAnnotation, type FileDiffMetadata, type SelectedLineRange } from "@pierre/diffs";
+import { FileDiff } from "@pierre/diffs/react";
 import { copyText } from "../nativePlatform";
-import { highlight } from "../highlight";
+import { useTheme } from "../theme";
 import { Avatar, Body, CommentBox, Time } from "./bits";
 import type { ReviewDraft } from "./drafts";
-import {
-  anchorKey,
-  byDirectory,
-  lineCount,
-  placeThreads,
-  splitPath,
-  splitRows,
-  unifiedRows,
-  type Anchor,
-  type Cell,
-  type Side,
-} from "./rows";
-import type { DiffFile, DiffLine, DraftComment, ReviewThread } from "./types";
+import { anchorKey, byDirectory, lineCount, patchOf, placeThreads, splitPath, type Anchor, type Side } from "./rows";
+import type { DiffFile, DraftComment, ReviewThread } from "./types";
 
 export type DiffLayout = "unified" | "split";
 
@@ -62,51 +52,12 @@ export type DiffViewHandle = {
 /** Files with more lines than this show folded until asked. */
 const BIG_FILE = 1500;
 
-const EXT_LANG: Record<string, string> = { mts: "ts", cts: "ts", yml: "yaml", md: "markdown", h: "c", hpp: "cpp", cc: "cpp" };
-const langOf = (path: string) => {
-  const ext = /\.([a-z0-9]+)$/i.exec(path)?.[1]?.toLowerCase() ?? "";
-  if (path.endsWith("Dockerfile")) return "sh";
-  return EXT_LANG[ext] ?? ext;
-};
-
-/** A line's text with its highlight: the daemon's tokens, else the page's own highlighter. */
-const Code = memo(function Code({ line, lang }: { line: DiffLine; lang: string }) {
-  if (line.tokens?.length)
-    return (
-      <>
-        {line.tokens.map((t, i) =>
-          t.style ? (
-            <span key={i} className={t.style.split(/\s+/).map((s) => `tk-${s}`).join(" ")}>
-              {t.text}
-            </span>
-          ) : (
-            t.text
-          ),
-        )}
-      </>
-    );
-  if (!lang) return <>{line.content}</>;
-  return (
-    <>
-      {highlight(line.content, lang).map((t, i) =>
-        t.kind ? (
-          <span key={i} className={`tk-${t.kind}`}>
-            {t.text}
-          </span>
-        ) : (
-          t.text
-        ),
-      )}
-    </>
-  );
-});
-
-const SIGN = { add: "+", remove: "−", context: " " } as const;
-
 /** The comment being written: on one line, or a range of them on one side. */
 type Composing = { path: string; side: Side; line: number; startLine?: number };
-const inRange = (c: Composing | null, path: string, a: Anchor) =>
-  !!c && c.path === path && c.side === a.side && a.line <= c.line && a.line >= (c.startLine ?? c.line);
+
+/** Our sides as @pierre/diffs names them, and back. */
+const toSide = (s: Side) => (s === "LEFT" ? "deletions" : "additions");
+const fromSide = (s: string | undefined): Side => (s === "deletions" ? "LEFT" : "RIGHT");
 
 function Thread({ thread, review }: { thread: ReviewThread; review: DiffReview }) {
   const [open, setOpen] = useState(!thread.isResolved);
@@ -287,48 +238,12 @@ function Notes({
   );
 }
 
-function Gutter({
-  cell,
-  path,
-  review,
-  composing,
-  onComment,
-  both,
-}: {
-  cell: Cell;
-  path: string;
-  review?: DiffReview;
-  composing: Composing | null;
-  onComment: (path: string, a: Anchor, extend: boolean) => void;
-  /** Unified: both numbers; split: the side's own. */
-  both: boolean;
-}) {
-  const num = (n: number | null) => <span className="gd-num">{n ?? ""}</span>;
-  return (
-    <>
-      {both ? (
-        <>
-          {num(cell.old)}
-          {num(cell.new)}
-        </>
-      ) : (
-        num(cell.anchor.side === "LEFT" ? cell.old : cell.new)
-      )}
-      {review && (
-        <button
-          className="gd-add"
-          tabIndex={-1}
-          aria-label={`Comment on line ${cell.anchor.line}`}
-          data-tip={composing ? "Comment (⇧-click to take in lines)" : "Comment on this line (⇧-click another to take in a range)"}
-          onClick={(e) => onComment(path, cell.anchor, e.shiftKey)}
-        >
-          <Plus size={11} aria-hidden="true" />
-        </button>
-      )}
-    </>
-  );
-}
-
+/**
+ * A file's changes, drawn by @pierre/diffs (unified or split, Shiki's
+ * highlighting, wrapped lines). In a review, its gutter's + takes a comment
+ * on a line, or on the lines dragged across; threads, your drafts and the
+ * comment being written hang under their lines as its annotations.
+ */
 function FileBody({
   file,
   layout,
@@ -342,35 +257,56 @@ function FileBody({
   composing: Composing | null;
   setComposing: (c: Composing | null) => void;
 }) {
-  const lang = useMemo(() => langOf(file.path), [file.path]);
+  const { resolved } = useTheme();
+  const fileDiff = useMemo<FileDiffMetadata | null>(() => {
+    if (file.status === "binary" || file.status === "too_large" || !file.hunks.length) return null;
+    try {
+      return getSingularPatch(patchOf(file));
+    } catch {
+      return null;
+    }
+  }, [file]);
   const { placed, apart } = useMemo(() => placeThreads(file, review?.threads ?? []), [file, review?.threads]);
-  const onComment = useCallback(
-    (path: string, a: Anchor, extend: boolean) => {
-      if (extend && composing && composing.path === path && composing.side === a.side && composing.line !== a.line) {
-        const lo = Math.min(composing.startLine ?? composing.line, composing.line, a.line);
-        const hi = Math.max(composing.line, a.line);
-        setComposing({ path, side: a.side, line: hi, startLine: lo });
-      } else setComposing({ path, side: a.side, line: a.line });
-    },
-    [composing, setComposing],
+  // One annotation per line that has something under it.
+  const annotations = useMemo<DiffLineAnnotation<string>[]>(() => {
+    if (!review) return [];
+    const keys = new Set<string>(placed.keys());
+    for (const d of review.drafts) if (d.path === file.path) keys.add(anchorKey({ side: d.side, line: d.line }));
+    if (composing) keys.add(anchorKey({ side: composing.side, line: composing.line }));
+    return [...keys].map((key) => {
+      const [side, line] = key.split(":");
+      return { side: toSide(side as Side), lineNumber: Number(line), metadata: key };
+    });
+  }, [review, placed, file.path, composing]);
+  const options = useMemo(
+    () => ({
+      diffStyle: layout,
+      overflow: "wrap" as const,
+      disableFileHeader: true,
+      themeType: resolved === "light" ? ("light" as const) : ("dark" as const),
+      theme: { dark: "pierre-dark", light: "pierre-light" },
+      enableGutterUtility: !!review,
+      onGutterUtilityClick: (range: SelectedLineRange) => {
+        const side = fromSide(range.endSide ?? range.side);
+        const lo = Math.min(range.start, range.end);
+        const hi = Math.max(range.start, range.end);
+        setComposing({ path: file.path, side, line: hi, ...(lo !== hi && fromSide(range.side) === side ? { startLine: lo } : {}) });
+      },
+    }),
+    [layout, resolved, review, file.path, setComposing],
+  );
+  const selected = useMemo<SelectedLineRange | null>(
+    () =>
+      composing
+        ? { start: composing.startLine ?? composing.line, end: composing.line, side: toSide(composing.side), endSide: toSide(composing.side) }
+        : null,
+    [composing],
   );
   if (file.status === "binary") return <p className="gd-note">Binary file not shown.</p>;
   if (file.status === "too_large") return <p className="gd-note">This file’s diff is too large to show.</p>;
   if (!file.hunks.length)
     return <p className="gd-note">{file.oldPath && file.oldPath !== file.path ? "Renamed without changes." : "No changes to show."}</p>;
-  const notes = (anchors: Anchor[]) => (
-    <Notes path={file.path} anchors={anchors} threads={placed} review={review} composing={composing} setComposing={setComposing} />
-  );
-  const code = (cell: Cell) => (
-    <>
-      <span className="gd-sign" aria-hidden="true">
-        {SIGN[cell.type]}
-      </span>
-      <code className="gd-code">
-        <Code line={cell.line} lang={lang} />
-      </code>
-    </>
-  );
+  if (!fileDiff) return <p className="gd-note">This file’s diff couldn’t be drawn.</p>;
   return (
     <>
       {apart.length > 0 && (
@@ -382,54 +318,26 @@ function FileBody({
           {review && apart.map((t) => <Thread key={t.id} thread={t} review={review} />)}
         </div>
       )}
-      {layout === "unified" ? (
-        <div className="gd-lines unified">
-          {unifiedRows(file).map((row) =>
-            row.kind === "hunk" ? (
-              <div key={row.key} className="gd-hunk">
-                {row.header}
-              </div>
-            ) : (
-              <div key={row.key}>
-                <div className={`gd-row ${row.type}${inRange(composing, file.path, row.anchor) ? " picked" : ""}`}>
-                  <Gutter cell={row} path={file.path} review={review} composing={composing} onComment={onComment} both />
-                  {code(row)}
-                </div>
-                {notes([row.anchor, ...(row.type === "context" && row.old !== null ? [{ side: "LEFT" as const, line: row.old }] : [])])}
-              </div>
-            ),
-          )}
-        </div>
-      ) : (
-        <div className="gd-lines split">
-          {splitRows(file).map((row) =>
-            row.kind === "hunk" ? (
-              <div key={row.key} className="gd-hunk">
-                {row.header}
-              </div>
-            ) : (
-              <div key={row.key}>
-                <div className="gd-pair">
-                  {[row.left, row.right].map((cell, i) =>
-                    cell ? (
-                      <div
-                        key={i}
-                        className={`gd-row ${cell.type}${inRange(composing, file.path, cell.anchor) ? " picked" : ""}`}
-                      >
-                        <Gutter cell={cell} path={file.path} review={review} composing={composing} onComment={onComment} both={false} />
-                        {code(cell)}
-                      </div>
-                    ) : (
-                      <div key={i} className="gd-row empty" />
-                    ),
-                  )}
-                </div>
-                {notes([row.left?.anchor, row.right?.anchor].filter((a): a is Anchor => !!a))}
-              </div>
-            ),
-          )}
-        </div>
-      )}
+      <FileDiff<string>
+        className="gd-diff"
+        fileDiff={fileDiff}
+        options={options}
+        lineAnnotations={annotations}
+        selectedLines={selected}
+        renderAnnotation={(a) => {
+          const [side, line] = (a.metadata ?? "").split(":");
+          return (
+            <Notes
+              path={file.path}
+              anchors={[{ side: side as Side, line: Number(line) }]}
+              threads={placed}
+              review={review}
+              composing={composing}
+              setComposing={setComposing}
+            />
+          );
+        }}
+      />
     </>
   );
 }

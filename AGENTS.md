@@ -343,10 +343,11 @@ and GitHub publication; report the published version and release link.
   so remote hosts too; `GET /api/changes?workspace=&host=&mode=all|base|uncommitted`, `web/server/api/changes.ts`, not gated on the
   integration), all changes, committed or uncommitted, with ahead/behind, Review #N and Compare on GitHub; asked every 15 s while shown.
   A PR (`PrView.tsx`): Conversation (its body, comments and reviews, a comment box), Files changed (the review), Commits, Checks. The diff
-  (`DiffView.tsx`, rows from `rows.ts`): files by directory beside it, unified or split, the daemon's highlight tokens (else
-  `web/src/highlight.ts`), big and viewed files folded; in a review each line's gutter + takes a comment (⇧-click another for a range):
+  (`DiffView.tsx`): files by directory beside it, each file drawn by @pierre/diffs (`FileDiff`, from the parsed file as patch text,
+  `patchOf` in `rows.ts`; Shiki highlighting, word-level changes, unified or split, its pierre-dark/-light theme by the app's), big and
+  viewed files folded; in a review its gutter utility's + takes a comment (drag across lines for a range):
   into your pending review (`drafts.ts`, localStorage per PR until sent or discarded) or at once (Add single comment); threads sit under
-  their lines with Reply and Resolve; Viewed per file. Review opens Finish your review: a summary and Comment, Approve or Request changes
+  their lines (its line annotations, slotted, so our components and CSS draw them) with Reply and Resolve; Viewed per file. Review opens Finish your review: a summary and Comment, Approve or Request changes
   (only Comment on your own PR), sent with the drafted comments at the head read. Places (`place.ts`, kept in localStorage; `openGithubPlace`
   opens one from elsewhere) and PR links: `github.com/<owner>/<name>/pull/<n>` opens in the tab wherever clicked (`prPlaceOf`;
   `WorldWindow.pageMode` matches it). Keys (`GitHubView.tsx`): J/K move (a diff's files), Enter/O open, Esc back, 1–4 PR tabs, R review,

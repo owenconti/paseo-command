@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { byDirectory, placeThreads, splitRows, unifiedRows } from "./rows";
+import { anchorsOf, byDirectory, patchOf, placeThreads } from "./rows";
 import type { DiffFile, ReviewThread } from "./types";
 
 const file: DiffFile = {
@@ -27,35 +27,29 @@ const file: DiffFile = {
   ],
 };
 
-test("unified rows number each line and anchor it", () => {
-  const rows = unifiedRows(file);
-  assert.equal(rows[0]!.kind, "hunk");
-  assert.equal(rows[0]!.kind === "hunk" && rows[0]!.header, "@@ -10,3 +10,4 @@ function f()");
-  const lines = rows.filter((r) => r.kind === "line");
-  assert.deepEqual(
-    lines.map((r) => [r.type, r.old, r.new, `${r.anchor.side}${r.anchor.line}`]),
+test("a file becomes the patch @pierre/diffs reads", () => {
+  assert.equal(
+    patchOf(file),
     [
-      ["context", 10, 10, "RIGHT10"],
-      ["remove", 11, null, "LEFT11"],
-      ["add", null, 11, "RIGHT11"],
-      ["add", null, 12, "RIGHT12"],
-      ["context", 12, 13, "RIGHT13"],
-    ],
+      "diff --git a/src/a.ts b/src/a.ts",
+      "--- a/src/a.ts",
+      "+++ b/src/a.ts",
+      "@@ -10,3 +10,4 @@ function f()",
+      " a",
+      "-b",
+      "+B",
+      "+C",
+      " d",
+      "",
+    ].join("\n"),
   );
-  assert.equal(new Set(rows.map((r) => r.key)).size, rows.length);
+  const created = patchOf({ ...file, path: "n.ts", isNew: true });
+  assert.match(created, /new file mode 100644\n--- \/dev\/null\n\+\+\+ b\/n.ts/);
+  assert.match(patchOf({ ...file, oldPath: "old.ts" }), /rename from old.ts\nrename to src\/a.ts/);
 });
 
-test("split rows pair removals with additions, unchanged lines on both sides", () => {
-  const rows = splitRows(file).filter((r) => r.kind === "pair");
-  assert.deepEqual(
-    rows.map((r) => [r.left?.old ?? null, r.left?.anchor.side ?? null, r.right?.new ?? null]),
-    [
-      [10, "LEFT", 10],
-      [11, "LEFT", 11],
-      [null, null, 12],
-      [12, "LEFT", 13],
-    ],
-  );
+test("anchors cover each line, and an unchanged line's left side", () => {
+  assert.deepEqual([...anchorsOf(file)].sort(), ["LEFT:10", "LEFT:11", "LEFT:12", "RIGHT:10", "RIGHT:11", "RIGHT:12", "RIGHT:13"]);
 });
 
 test("threads sit on their line, outdated ones apart", () => {

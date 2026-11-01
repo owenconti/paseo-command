@@ -12,12 +12,6 @@
   background: var(--surface);
   color: var(--text);
   font-size: var(--fs-md);
-  --gd-add-bg: color-mix(in srgb, var(--green) 14%, transparent);
-  --gd-add-num: color-mix(in srgb, var(--green) 22%, transparent);
-  --gd-del-bg: color-mix(in srgb, var(--red) 13%, transparent);
-  --gd-del-num: color-mix(in srgb, var(--red) 21%, transparent);
-  --gd-hunk-bg: color-mix(in srgb, var(--accent) 9%, transparent);
-  --gd-pick: color-mix(in srgb, var(--amber) 22%, transparent);
 }
 /* Dark: the Linear tab's neutral near-black greys instead of the Galaxy theme's navy. */
 :root[data-theme="galaxy"] .github-view {
@@ -1077,166 +1071,18 @@
   font-size: var(--fs-sm);
   color: var(--accent-text);
 }
-.gd-lines {
-  overflow-x: auto;
-  font-family: var(--font-mono);
-  font-size: 12px;
-  line-height: 20px;
-  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
-}
-.gd-hunk {
-  padding: 2px var(--space-3);
-  background: var(--gd-hunk-bg);
-  color: var(--text-4);
-  white-space: pre;
+/* The changes themselves: @pierre/diffs draws them in its own shadow root;
+   these set its font and size. Threads and drafts are slotted in, so the
+   rules below reach them. */
+.gd-diff {
+  display: block;
   overflow: hidden;
-  text-overflow: ellipsis;
+  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+  --diffs-font-family: var(--font-mono);
+  --diffs-font-size: 12px;
+  --diffs-line-height: 20px;
+  --diffs-tab-size: 4;
 }
-.gd-row {
-  position: relative;
-  display: grid;
-  /* Numbers, the +/− sign, then the code, which wraps under itself. */
-  grid-template-columns: 48px 48px 20px minmax(0, 1fr);
-  min-height: 20px;
-}
-.gd-lines.split .gd-row {
-  grid-template-columns: 48px 20px minmax(0, 1fr);
-}
-.gd-pair {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-}
-.gd-pair > .gd-row:first-child {
-  border-right: 1px solid var(--line);
-}
-.gd-row.empty {
-  background: var(--fill-soft);
-}
-.gd-num {
-  padding: 0 8px;
-  text-align: right;
-  color: var(--text-faint);
-  user-select: none;
-  font-variant-numeric: tabular-nums;
-}
-.gd-code {
-  min-width: 0;
-  padding: 0 var(--space-3) 0 0;
-  font-family: inherit;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-  color: var(--text);
-  tab-size: 4;
-}
-.gd-sign {
-  padding-left: 6px;
-  color: var(--text-4);
-  user-select: none;
-}
-.gd-row.add {
-  background: var(--gd-add-bg);
-}
-.gd-row.add .gd-num {
-  background: var(--gd-add-num);
-}
-.gd-row.add .gd-sign {
-  color: var(--green-text);
-}
-.gd-row.remove {
-  background: var(--gd-del-bg);
-}
-.gd-row.remove .gd-num {
-  background: var(--gd-del-num);
-}
-.gd-row.remove .gd-sign {
-  color: var(--red-text);
-}
-.gd-row.picked,
-.gd-row.picked .gd-num {
-  background: var(--gd-pick);
-}
-.gd-add {
-  position: absolute;
-  top: 1px;
-  left: 4px;
-  display: none;
-  place-items: center;
-  width: 18px;
-  height: 18px;
-  border-radius: var(--radius-sm);
-  background: var(--accent);
-  color: #fff;
-}
-.gd-row:hover .gd-add {
-  display: grid;
-}
-/* The daemon's highlight tags, and the page's own highlighter's kinds. */
-.tk-keyword,
-.tk-modifier {
-  color: #c678dd;
-}
-.tk-string,
-.tk-regexp,
-.tk-escape {
-  color: #98c379;
-}
-.tk-comment {
-  color: var(--text-4);
-  font-style: italic;
-}
-.tk-number,
-.tk-literal,
-.tk-atom,
-.tk-bool {
-  color: #d19a66;
-}
-.tk-type,
-.tk-class,
-.tk-namespace {
-  color: #e5c07b;
-}
-.tk-function,
-.tk-definition.tk-variable {
-  color: #61afef;
-}
-.tk-property,
-.tk-attribute {
-  color: #e06c75;
-}
-.tk-tag,
-.tk-heading {
-  color: #e06c75;
-  font-weight: var(--fw-semibold);
-}
-.tk-meta,
-.tk-operator,
-.tk-punctuation {
-  color: var(--text-3);
-}
-:root:not([data-theme="galaxy"]) .tk-keyword {
-  color: #a626a4;
-}
-:root:not([data-theme="galaxy"]) .tk-string,
-:root:not([data-theme="galaxy"]) .tk-regexp {
-  color: #50a14f;
-}
-:root:not([data-theme="galaxy"]) .tk-number,
-:root:not([data-theme="galaxy"]) .tk-literal {
-  color: #986801;
-}
-:root:not([data-theme="galaxy"]) .tk-type,
-:root:not([data-theme="galaxy"]) .tk-class {
-  color: #c18401;
-}
-:root:not([data-theme="galaxy"]) .tk-function {
-  color: #4078f2;
-}
-:root:not([data-theme="galaxy"]) .tk-property,
-:root:not([data-theme="galaxy"]) .tk-attribute,
-:root:not([data-theme="galaxy"]) .tk-tag {
-  color: #e45649;
-}
-
 /* Threads and drafts under a line */
 .gh-notes {
   padding: var(--space-2) var(--space-3);

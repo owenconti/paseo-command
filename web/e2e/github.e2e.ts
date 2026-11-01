@@ -191,15 +191,16 @@ test("GitHub lists PRs to review, opens one, drafts a line comment and submits a
       await view.locator(".gd-file").evaluateAll((s) => s.map((e) => (e as HTMLElement).dataset.path)),
       ["src/a.ts", "src/b.ts"],
     );
+    // @pierre/diffs draws them in an open shadow root, which locators reach.
     await page.keyboard.press("u");
-    await view.locator(".gd-lines.split").first().waitFor();
+    await view.locator('[data-diff-type="split"]').first().waitFor();
     await page.keyboard.press("u");
-    await view.locator(".gd-lines.unified").first().waitFor();
+    await view.locator('[data-diff-type="single"]').first().waitFor();
 
     // A line comment on src/a.ts's new line 3 ("const c = 4;"), kept as a pending draft.
-    const added = view.locator('.gd-file[data-path="src/a.ts"] .gd-row.add').nth(1);
+    const added = view.locator('.gd-file[data-path="src/a.ts"] [data-line="3"][data-line-type="change-addition"]').first();
     await added.hover();
-    await added.locator(".gd-add").click();
+    await view.locator('.gd-file[data-path="src/a.ts"] [data-utility-button]').click();
     const box = view.locator(".gh-notes textarea");
     await box.fill("Name this constant?");
     await box.press("Meta+Enter");

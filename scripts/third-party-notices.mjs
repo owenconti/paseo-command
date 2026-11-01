@@ -22,6 +22,9 @@ for (const [path, row] of Object.entries(json('web/package-lock.json').packages)
     texts = [{ file: 'esbuild/LICENSE.md', text: read('web/node_modules/esbuild/LICENSE.md') }];
   if (!texts.length && pkg.name.startsWith('@rollup/'))
     texts = [{ file: 'rollup/LICENSE.md', text: read('web/node_modules/rollup/LICENSE.md') }];
+  // lru_map (MIT) ships no license file: its upstream one, rsms/js-lru's LICENSE.txt.
+  if (!texts.length && pkg.name === 'lru_map')
+    texts = [{ file: 'upstream LICENSE.txt (rsms/js-lru)', text: read('licenses/lru_map.txt') }];
   if (!texts.length) throw new Error(`No license text for ${pkg.name}; resolve before distribution`);
   entries.push({ name: `${pkg.name} ${pkg.version}`, license: row.license ?? 'Apache-2.0 (upstream Paseo)', texts });
 }

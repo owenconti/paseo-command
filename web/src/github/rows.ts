@@ -1,20 +1,15 @@
 import type { DiffFile, DiffLine, ReviewThread } from "./types";
 
 /**
- * A file's diff as the rows the view draws, unified (one column) or split
- * (old on the left, new on the right, a hunk's removals beside its additions).
- * Each line carries its numbers in the old and new file, and the place a
- * comment on it anchors to: RIGHT at its new number (added and unchanged
- * lines), LEFT at its old number (removed lines; and the left side of a split).
+ * A file's diff lines with their numbers in the old and new file, and the
+ * place a comment on each anchors to: RIGHT at its new number (added and
+ * unchanged lines), LEFT at its old number (removed lines, and an unchanged
+ * line's left side in a split); and the file as patch text for @pierre/diffs.
  */
 export type Side = "LEFT" | "RIGHT";
 export type Anchor = { side: Side; line: number };
 export type Cell = { type: "context" | "add" | "remove"; line: DiffLine; old: number | null; new: number | null; anchor: Anchor };
 
-export type UnifiedRow = { kind: "hunk"; header: string; key: string } | ({ kind: "line"; key: string } & Cell);
-export type SplitRow =
-  | { kind: "hunk"; header: string; key: string }
-  | { kind: "pair"; key: string; left?: Cell; right?: Cell };
 
 export const anchorKey = (a: Anchor) => `${a.side}:${a.line}`;
 
@@ -48,59 +43,6 @@ function* cells(file: DiffFile): Generator<{ hunk: number; header?: string; cell
     }
     if (header !== undefined) yield { hunk: h, header };
   }
-}
-
-export function unifiedRows(file: DiffFile): UnifiedRow[] {
-  const rows: UnifiedRow[] = [];
-  for (const { hunk, header, cell } of cells(file)) {
-    if (header !== undefined) rows.push({ kind: "hunk", header, key: `h${hunk}` });
-    else if (cell) rows.push({ kind: "line", key: `${hunk}:${cell.old ?? ""}:${cell.new ?? ""}`, ...cell });
-  }
-  return rows;
-}
-
-/** The left side's copy of an unchanged line: anchored on the old file. */
-const leftOf = (c: Cell): Cell => (c.type === "context" && c.old !== null ? { ...c, anchor: { side: "LEFT", line: c.old } } : c);
-
-export function splitRows(file: DiffFile): SplitRow[] {
-  const rows: SplitRow[] = [];
-  let removes: Cell[] = [];
-  let adds: Cell[] = [];
-  let hunkAt = 0;
-  const flush = () => {
-    for (let i = 0; i < Math.max(removes.length, adds.length); i++) {
-      const left = removes[i];
-      const right = adds[i];
-      rows.push({
-        kind: "pair",
-        key: `${hunkAt}:${left?.old ?? ""}:${right?.new ?? ""}`,
-        ...(left ? { left } : {}),
-        ...(right ? { right } : {}),
-      });
-    }
-    removes = [];
-    adds = [];
-  };
-  for (const { hunk, header, cell } of cells(file)) {
-    if (header !== undefined) {
-      flush();
-      hunkAt = hunk;
-      rows.push({ kind: "hunk", header, key: `h${hunk}` });
-      continue;
-    }
-    if (!cell) continue;
-    if (cell.type === "remove") {
-      // Removals after additions start a new block.
-      if (adds.length) flush();
-      removes.push(cell);
-    } else if (cell.type === "add") adds.push(cell);
-    else {
-      flush();
-      rows.push({ kind: "pair", key: `${hunk}:${cell.old}:${cell.new}`, left: leftOf(cell), right: cell });
-    }
-  }
-  flush();
-  return rows;
 }
 
 /** The anchors a file's diff shows (where a thread or draft can sit). */
@@ -145,4 +87,23 @@ export function byDirectory<T extends { path: string }>(files: T[]): { dir: stri
     groups.set(dir, [...(groups.get(dir) ?? []), f]);
   }
   return [...groups.entries()].sort(([a], [b]) => (a === "" ? -1 : b === "" ? 1 : a.localeCompare(b))).map(([dir, files]) => ({ dir, files }));
+}
+
+/** The file as a unified patch (git's headers, then its hunks), as @pierre/diffs reads one. */
+export function patchOf(file: DiffFile): string {
+  const from = file.oldPath ?? file.path;
+  const out = [`diff --git a/${from} b/${file.path}`];
+  if (file.isNew) out.push("new file mode 100644");
+  if (file.isDeleted) out.push("deleted file mode 100644");
+  if (from !== file.path) out.push(`rename from ${from}`, `rename to ${file.path}`);
+  out.push(`--- ${file.isNew ? "/dev/null" : `a/${from}`}`, `+++ ${file.isDeleted ? "/dev/null" : `b/${file.path}`}`);
+  for (const hunk of file.hunks) {
+    const header = hunk.lines[0]?.type === "header" ? hunk.lines[0].content : "";
+    out.push(/^@@ /.test(header) ? header : `@@ -${hunk.oldStart},${hunk.oldCount} +${hunk.newStart},${hunk.newCount} @@`);
+    for (const line of hunk.lines) {
+      if (line.type === "header") continue;
+      out.push(`${line.type === "add" ? "+" : line.type === "remove" ? "-" : " "}${line.content}`);
+    }
+  }
+  return `${out.join("\n")}\n`;
 }
