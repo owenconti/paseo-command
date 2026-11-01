@@ -1,12 +1,14 @@
 /**
- * This app's settings file, `~/.paseo-command/settings.json`
- * (`PASEO_COMMAND_SETTINGS` overrides): preset prompts (presets.ts), optional
+ * This app's settings file, `settings.json` in its data directory beside
+ * `secrets.json` (`PASEO_COMMAND_SETTINGS` overrides), so the macOS app's Dev and
+ * release copies each keep their own: preset prompts (presets.ts), optional
  * integration opt-ins and the Linear workspace issue links open in (`GET /api/settings`,
  * `POST /api/settings`). Each save keeps the file's other keys; an
- * unreadable file is never overwritten. A file an earlier version kept in
- * the data directory is moved here when this one doesn't exist yet.
+ * unreadable file is never overwritten. The file earlier versions shared in
+ * `~/.paseo-command/` is copied here when this one doesn't exist yet, and left there.
  */
 import {
+  copyFileSync,
   existsSync,
   mkdirSync,
   readFileSync,
@@ -24,17 +26,18 @@ import {
 } from "../src/integrations";
 
 export const settingsFile = () =>
-  process.env.PASEO_COMMAND_SETTINGS || join(homedir(), ".paseo-command", "settings.json");
-/** Where earlier versions kept it. */
-export const legacySettingsFile = () => join(dataDir(), "settings.json");
+  process.env.PASEO_COMMAND_SETTINGS || join(dataDir(), "settings.json");
+/** Where earlier versions kept it, shared by every copy of the app (tests point it elsewhere). */
+export const legacySettingsFile = () =>
+  process.env.PASEO_COMMAND_LEGACY_SETTINGS || join(homedir(), ".paseo-command", "settings.json");
 
-/** Move an earlier version's file into place, once. */
+/** Copy the earlier shared file into place, once: each copy of the app takes its own. */
 function adoptLegacy(file: string) {
   const legacy = legacySettingsFile();
   if (legacy === file || existsSync(file) || !existsSync(legacy)) return;
   try {
     mkdirSync(dirname(file), { recursive: true });
-    renameSync(legacy, file);
+    copyFileSync(legacy, file);
   } catch {
     // Left where it is: read from the new place, it is simply absent.
   }

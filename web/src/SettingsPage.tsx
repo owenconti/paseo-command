@@ -17,7 +17,7 @@ import { closeSettings, useSettingsRequest } from "./settingsStore";
  * optional integrations with their keys, and New agent's preset prompts and
  * agent profiles. Sounds, radio and notifications are kept in this browser (or
  * the app); integrations, the Linear workspace and the presets in
- * ~/.paseo-command/settings.json, keys in the data directory's secrets.json.
+ * the data directory's settings.json, keys beside it in secrets.json.
  */
 export function SettingsPage({
   notifications,

@@ -122,13 +122,14 @@ test("settings: the Linear workspace is saved beside the presets", async () => {
   assert.equal(readFileSync(settingsFile(), "utf8"), "[1]");
 });
 
-test("settings: a file an earlier version kept in the data directory is moved into place", async () => {
+test("settings: the file earlier versions shared in ~/.paseo-command is copied into place, and left there", async () => {
   rmSync(settingsFile(), { force: true });
   mkdirSync(dirname(legacySettingsFile()), { recursive: true });
   writeFileSync(legacySettingsFile(), JSON.stringify({ linearWorkspace: "acme" }));
   assert.equal((await get("settings")).data.linearWorkspace, "acme");
   assert.deepEqual(JSON.parse(readFileSync(settingsFile(), "utf8")), { linearWorkspace: "acme" });
-  assert.throws(() => readFileSync(legacySettingsFile()));
+  // Another copy of the app (Dev or release) takes its own from it too.
+  assert.deepEqual(JSON.parse(readFileSync(legacySettingsFile(), "utf8")), { linearWorkspace: "acme" });
   // Once the new file exists, an old one is left alone.
   writeFileSync(legacySettingsFile(), JSON.stringify({ linearWorkspace: "old" }));
   assert.equal((await get("settings")).data.linearWorkspace, "acme");

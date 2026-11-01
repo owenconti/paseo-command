@@ -1,8 +1,8 @@
 /**
  * Loaded before every test file (`npm test`): the app's data directory,
- * repository and settings file point into a temporary directory of their
- * own, so no test reads or writes a real checkout's `.paseo-command` or
- * `~/.paseo-command/settings.json`.
+ * repository and settings files point into a temporary directory of their
+ * own, so no test reads or writes a real checkout's `.paseo-command`, an app's
+ * data folder or the earlier shared `~/.paseo-command/settings.json`.
  * Nothing is created up front (other suites watch the OS temp directory).
  */
 import { randomUUID } from "node:crypto";
@@ -14,7 +14,8 @@ import { SLACK } from "./slack/client";
 const root = join(tmpdir(), `paseo-command-test-${randomUUID()}`);
 process.env.PASEO_COMMAND_DATA = join(root, "data");
 process.env.PASEO_COMMAND_REPO = join(root, "repo");
-process.env.PASEO_COMMAND_SETTINGS = join(root, "home", "settings.json");
+process.env.PASEO_COMMAND_SETTINGS = join(root, "data", "settings.json");
+process.env.PASEO_COMMAND_LEGACY_SETTINGS = join(root, "home", ".paseo-command", "settings.json");
 process.on("exit", () => rmSync(root, { recursive: true, force: true }));
 // Tests never reach Linear's API, whatever the shell exports.
 delete process.env.LINEAR_API_KEY;

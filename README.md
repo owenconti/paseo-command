@@ -47,8 +47,9 @@ appear beneath its switch. Enter a key and choose **Save key**; saved keys show
 **Saved**, with **Replace…** and **Remove** controls. Saved key values are never
 shown again.
 
-Integration choices are saved in
-`~/.paseo-command/settings.json`; you can also edit the file directly:
+Integration choices are saved in the app's data folder, beside `secrets.json`
+(`settings.json` in `~/Library/Application Support/Paseo Command/`, or `Paseo Command Dev/` for the dev build);
+you can also edit the file directly:
 
 ```json
 {
@@ -96,7 +97,7 @@ Choose **What's new** in the command palette to read release notes.
 ## Settings and local data
 
 Presets, integration choices and your Linear workspace are edited in the app and saved in
-`~/.paseo-command/settings.json`.
+the app's data folder's `settings.json`, beside `secrets.json`.
 
 Logs, game progress, conversation forks and local credentials are stored in
 `~/Library/Application Support/Paseo Command/`. The server log is
