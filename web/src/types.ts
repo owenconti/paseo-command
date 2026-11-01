@@ -59,6 +59,8 @@ export type Subagent = {
   /** Its facts line under the name, as the Paseo app's dropdown shows it
    *  ("general-purpose · Opus 5.5 · Medium · 145.7k tokens"). */
   detail?: string;
+  /** Its provider and model, as far as known: the map colours its drone by it. */
+  model?: string;
   /** A provider subagent run by a hidden daemon subagent: that agent's ID
    *  (its conversation is read from it). */
   owner?: string;

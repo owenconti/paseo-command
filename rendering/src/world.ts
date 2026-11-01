@@ -48,6 +48,8 @@ export type AtlasData = {
     state: State;
     /** Subagents running now. */
     subagents?: number;
+    /** Their provider/models, oldest first: each drone takes its own model's colour. */
+    subagentModels?: string[];
     /** When it was created (ISO 8601): older agents take the nearer cells. */
     created?: string;
   }[];
@@ -66,6 +68,8 @@ export type Entity = {
   model?: Model;
   modelName?: string;
   subagents?: number;
+  /** Its running subagents' robot art, oldest first (their drones). */
+  droneArts?: string[];
   stale?: boolean;
   /** A workspace standing in for agents the daemon reports without one. */
   camp?: boolean;
@@ -888,6 +892,7 @@ export function layoutAtlas(data: AtlasData, aspect = 1.6): AtlasLayout {
       art: `robot-${modelColor(a.model)}`,
       state: online.get(a.host) ? a.state : "offline",
       subagents: a.subagents ?? 0,
+      droneArts: (a.subagentModels ?? []).map((m) => `robot-${modelColor(m)}`),
     });
   }
   const signature = JSON.stringify([

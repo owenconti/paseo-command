@@ -186,6 +186,10 @@ export function hostRows(input: {
       .map((v) => (typeof v === "string" ? v.trim() : ""))
       .filter(Boolean)
       .join(" · ");
+    const model = [e.agent.provider, e.agent.model ?? e.agent.runtimeInfo?.model]
+      .map((v) => (typeof v === "string" ? v.trim() : ""))
+      .filter(Boolean)
+      .join("/");
     add(owner, [
       {
         id: e.agent.id,
@@ -197,6 +201,7 @@ export function hostRows(input: {
         source: "agent" as const,
         ...(direct && direct !== owner ? { parent: direct } : {}),
         ...(detail ? { detail } : {}),
+        ...(model ? { model } : {}),
         ...(typeof e.agent.createdAt === "string"
           ? { startedAt: e.agent.createdAt }
           : {}),

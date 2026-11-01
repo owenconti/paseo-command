@@ -247,3 +247,15 @@ test("a host's load reads on its banner's second line, its foot where it was", a
   assert.notEqual(plain.signature, loaded.signature, "a new load repaints the banner");
   assert.deepEqual(statParts({ memory: 12 }), [{ text: "MEM 12%", alert: false }]);
 });
+
+test("each subagent's drone takes its own model's colour, not its agent's", async () => {
+  const { robots } = await import("../src/placement.ts");
+  const data = structuredClone(SAMPLE);
+  const agent = data.agents.find((a) => (a.subagents ?? 0) > 0);
+  agent.model = "claude/claude-opus-5-5";
+  agent.subagents = 2;
+  agent.subagentModels = ["codex/gpt-6.1-sol", "claude/claude-sonnet-5-5"];
+  const robot = robots(layoutAtlas(data)).find((r) => r.drones === 2);
+  assert.equal(robot.art, "robot-orange");
+  assert.deepEqual(robot.droneArts, ["robot-white", "robot-orange"]);
+});

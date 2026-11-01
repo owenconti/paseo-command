@@ -361,7 +361,7 @@ across all three, with no plants beside it so its PR medallions stand clear. Eac
 the landmark, oldest first: straight out, then alternating left and right. Islands are only these built cells:
 no empty sand around them (the user removed it). A host's islands share one landmass of grass hex tiles (hexes everywhere) with a hex-edged shore in a generated sea, under the host's
 banner (offline hosts are faded and labeled). Each agent's state shows only on its sand hex (fill, border colour, border motion: a light runs round
-running borders, states that need you pulse); robots carry no rings or badges. Hosts, projects, workspaces and
+running borders, states that need you pulse); robots carry no rings or badges. Running subagents circle their agent as drones (up to four), each in its own provider's colour (`subagentModels` → `droneArts`), its agent's where the daemon doesn't say. Hosts, projects, workspaces and
 agents each have their own hover border colour; hosts are not interactive on the map (no hover, no pick from land or banner). The user asked for water back (rejecting chart paper, and a plain meadow background), with each
 host as a landmass; project islands sit on it on earthen banks with soft shadows.
 The layout follows the map's aspect ratio: hosts shelf-pack and tall maps stack vertically.
