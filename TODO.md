@@ -64,6 +64,10 @@ mark it done with its commit once merged into `main`.
   Command (the workspace itself if it has no agent; a chooser if several workspaces match). Without a match,
   offer nothing new (Launch agent on the PR stays as it is). Add its ⌘K entry, shown only when a match exists.
   Workspace: `github-open-paseo-agent`.
+- [ ] **GitHub diff: resizable file list.** The diff view's file list (`DiffView.tsx`, "16 files · 0 / 16 viewed")
+  is a fixed width, cutting off directory and file names. Its inner edge resizes it (`web/src/ResizeEdge.tsx`, as
+  Activity's panes: drag, arrow keys, double-click restores the default), kept in localStorage; long names show
+  in full on hover. Workspace: `github-diff-file-list-resize`.
 
 ## Done
 
