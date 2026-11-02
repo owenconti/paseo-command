@@ -5,14 +5,6 @@ mark it done with its commit once merged into `main`.
 
 ## Open
 
-- [ ] **macOS app: a deleted app says so instead of "The file node doesn't exist".** A Dev app launched from
-  a worktree that was later archived keeps running from memory; Restart app (and the server's restart when the
-  page finds it gone, `ServerManager.swift`) then fails with "The app server didn't start / The file "node"
-  doesn't exist". When the running bundle's path no longer exists (or its `Contents/Resources/node/node` or
-  `server/server.mjs` is missing), say that this copy of the app was deleted or moved and name where to open
-  one, e.g. the main checkout's `native/build/Paseo Command Dev.app` for the dev flavour, `/Applications` for the
-  release. Don't relaunch into the missing bundle. Check with a throwaway build (`--info`, `--no-server` or own
-  port), never the user's apps. Workspace: `fix-deleted-app-restart`.
 - [ ] **Conquer: filling passwords with 1Password.** Conquer is a WKWebView (`Conquer.swift`), so the
   1Password browser extension can't run in it. Make 1Password filling work there, finding out first which
   ways do: 1Password 8's Universal Autofill (⌘\ in any app, through the accessibility tree; check the page's
@@ -87,6 +79,14 @@ mark it done with its commit once merged into `main`.
 
 ## Done
 
+- [x] **macOS app: a deleted app says so instead of "The file node doesn't exist".** Restart app and the server's
+  restart first check the running bundle, its Node and `server.mjs` are still there (`BundleHome.swift`); when not, a
+  sheet says this copy was deleted or moved (its old path) and can't restart, names another copy (a dev copy: the main
+  checkout's `native/build/Paseo Command Dev.app`, recorded at build time; the release: /Applications, ~/Applications,
+  else Launch Services) and offers Open it, Show in Finder and Quit (Not Now from Restart app, whose window still works).
+  It never relaunches into the missing bundle. Every dev build had defaulted to port 4321 and the Dev data folder, sharing
+  the Dev bundle id with the main checkout's copy, so a workspace build opened without `--url` became the user's Dev app;
+  a workspace build now won't run a server on 4321 (`AppFlavor.isWorkspaceBuild`). Commit "macOS app: a deleted copy says so".
 - [x] **Linear: project views, and managing views.** The sidebar's Views lists project views too (marked), each opening
   the projects its filter lets through, displayed as Linear sets them (the Projects list gained Filter and Display); a
   project's own views show under its summary. Views are made from what a list shows (Save as view beside the filters,

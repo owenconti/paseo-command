@@ -44,6 +44,7 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
     private let decoding = DispatchQueue(label: "paseo.world.decode", qos: .userInitiated)
     /// Runs the app's own server when the page is that server's (see `ServerManager`).
     let server: ServerManager?
+    private let refusedPort: Bool
     /// When the server was last (re)started for an unreachable page, so a
     /// server that won't come up shows its error rather than looping.
     private var recovered: Date?
@@ -58,7 +59,9 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
     init(options: Options) {
         self.options = options
         let local = ["127.0.0.1", "localhost"].contains(options.url.host ?? "")
-        server = options.manageServer && local ? ServerManager() : nil
+        // A workspace's build never runs a server on the main checkout's Dev port (see `AppFlavor.isWorkspaceBuild`).
+        refusedPort = options.manageServer && local && AppFlavor.isWorkspaceBuild && options.url.port == AppFlavor.port
+        server = options.manageServer && local && !refusedPort ? ServerManager() : nil
         let screen = NSScreen.main?.visibleFrame ?? CGRect(x: 0, y: 0, width: 1440, height: 900)
         let size = options.size ?? CGSize(width: min(1440, screen.width - 80), height: min(900, screen.height - 80))
         window = NSWindow(contentRect: CGRect(x: screen.minX + 40, y: screen.maxY - size.height - 40, width: size.width, height: size.height),
@@ -172,6 +175,12 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
             showSplash("Starting the app server…")
             notice("Starting \(AppFlavor.name)…", "Starting the app server on \(options.url.host ?? ""):\(options.url.port ?? 4310).")
             startServer { [weak self] in self?.splash.say("Loading…"); self?.web.load(URLRequest(url: options.url)) }
+        } else if refusedPort {
+            Log.line("a workspace build: not running a server on port \(AppFlavor.port)")
+            failure("This workspace build leaves port \(AppFlavor.port) alone",
+                    "It was built in \(Self.html(AppFlavor.checkout ?? "a workspace")). Port \(AppFlavor.port) is the main checkout’s \(AppFlavor.name)’s" +
+                    (AppFlavor.mainCheckout.map { " (\(Self.html($0))/native/build/\(AppFlavor.name).app)" } ?? "") +
+                    ". Launch this copy with <code>--url</code> on a port of its own, or <code>--no-server</code>.")
         } else {
             showSplash("Loading…")
             web.load(URLRequest(url: options.url))
@@ -528,9 +537,71 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         server?.ensure(port: options.url.port ?? 80) { [weak self] result in
             switch result {
             case .success: then()
+            case .failure(let error as BundleHome.Gone):
+                self?.bundleGone(error, canStay: false)
             case .failure(let error):
-                let text = error.localizedDescription.replacingOccurrences(of: "<", with: "&lt;")
-                self?.failure("The app server didn’t start", "<pre style='white-space:pre-wrap'>\(text)</pre>Fix it and restart \(AppFlavor.name).")
+                self?.failure("The app server didn’t start", "<pre style='white-space:pre-wrap'>\(Self.html(error.localizedDescription))</pre>Fix it and restart \(AppFlavor.name).")
+            }
+        }
+    }
+
+    private static func html(_ text: String) -> String {
+        text.replacingOccurrences(of: "&", with: "&amp;").replacingOccurrences(of: "<", with: "&lt;")
+    }
+
+    /// This copy's bundle was deleted or moved: say so and where another copy is, and
+    /// offer to open that one (only on the user's click) or quit. Never relaunches into
+    /// the missing bundle. `canStay`: this window still works (its server runs on), so
+    /// it may stay open; otherwise the page says so too.
+    func bundleGone(_ gone: BundleHome.Gone = BundleHome.Gone(app: Bundle.main.bundleURL), canStay: Bool) {
+        let other = BundleHome.replacement()
+        Log.line("bundle gone: \(gone.app.path); another copy: \(other?.path ?? "none")")
+        let elsewhere = other.map { "Open the one at \($0.path)." } ?? (AppFlavor.isRelease
+            ? "Download Paseo Command again from github.com/owenconti/paseo-command/releases into /Applications."
+            : "Build one with npm run app:update in the main checkout and open its native/build/\(AppFlavor.name).app.")
+        if !canStay { failure("This copy of \(AppFlavor.name) is gone", "\(Self.html(gone.localizedDescription)) \(Self.html(elsewhere))") }
+        splash.hide()
+        let alert = NSAlert()
+        alert.messageText = "This copy of \(AppFlavor.name) was deleted or moved."
+        alert.informativeText = "It was at \(gone.app.path), so it can’t restart. \(elsewhere)" +
+            (canStay ? " This window keeps working until you quit it." : "")
+        if let other { alert.addButton(withTitle: "Open \(other.deletingPathExtension().lastPathComponent)"); alert.addButton(withTitle: "Show in Finder") }
+        alert.addButton(withTitle: "Quit")
+        if canStay { alert.addButton(withTitle: "Not Now") }
+        goneAlert = alert
+        alert.beginSheetModal(for: window) { [weak self] response in
+            guard let self else { return }
+            self.goneAlert = nil
+            let index = response.rawValue - NSApplication.ModalResponse.alertFirstButtonReturn.rawValue
+            let title = index >= 0 && index < alert.buttons.count ? alert.buttons[index].title : ""
+            switch title {
+            case "Quit": NSApp.terminate(nil)
+            case "Show in Finder": if let other { NSWorkspace.shared.activateFileViewerSelecting([other]) }
+                if !canStay { self.bundleGone(gone, canStay: canStay) }
+            case "Not Now": break
+            default: if let other { self.handOff(to: other) }
+            }
+        }
+    }
+    /// The deleted-copy alert, while it shows (checks read and press it).
+    private(set) var goneAlert: NSAlert?
+
+    /// Stop our server (the other copy needs the port), open `other` and quit.
+    private func handOff(to other: URL) {
+        showSplash("Opening \(other.deletingPathExtension().lastPathComponent)…")
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            self?.server?.stop()
+            DispatchQueue.main.async {
+                let configuration = NSWorkspace.OpenConfiguration()
+                configuration.createsNewApplicationInstance = true
+                NSWorkspace.shared.openApplication(at: other, configuration: configuration) { _, error in
+                    DispatchQueue.main.async {
+                        if let error {
+                            Log.line("opening \(other.path) failed: \(error.localizedDescription)")
+                            self?.bundleGone(canStay: false)
+                        } else { NSApp.terminate(nil) }
+                    }
+                }
             }
         }
     }

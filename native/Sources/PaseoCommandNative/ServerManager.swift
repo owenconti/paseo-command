@@ -51,6 +51,7 @@ final class ServerManager {
     /// answers once). Without it the port reads as another program's.
     var confirmHandOver: ((OldServer, @escaping (Bool) -> Void) -> Void)?
 
+    private let app: URL
     private let resources: Resources
     private let lock = NSLock()
     private var running: Process?
@@ -61,6 +62,7 @@ final class ServerManager {
         let found = Self.resources(in: bundle.bundleURL)
         guard FileManager.default.isExecutableFile(atPath: found.node.path),
               FileManager.default.fileExists(atPath: found.server.path) else { return nil }
+        app = bundle.bundleURL
         resources = found
     }
 
@@ -138,6 +140,11 @@ final class ServerManager {
 
     /// Launch the server and wait until its health says it is ours.
     private func start(_ port: Int) -> Result<Void, Error> {
+        // A copy running on after its bundle was deleted or moved has nothing to start.
+        if let gone = BundleHome.missing(in: app) {
+            Log.line("server: \(gone) is gone; not starting")
+            return .failure(BundleHome.Gone(app: app))
+        }
         let data = AppFlavor.dataFolder
         let logURL = data.appendingPathComponent("logs/server.log")
         let log: FileHandle

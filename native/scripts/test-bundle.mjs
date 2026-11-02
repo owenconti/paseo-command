@@ -37,6 +37,12 @@ for (const f of flavours) {
     ['CFBundleIdentifier', f.id], ['CFBundleName', f.name], ['CFBundleShortVersionString', version],
     ['PaseoCommandFlavor', f.flavour], ['PaseoCommandPort', f.port],
   ]) check(k, key(k) === want, `(got ${key(k)}, want ${want})`);
+  // A dev copy records where it was built and the main checkout (a deleted workspace copy names the
+  // main one; a workspace copy leaves its port alone); the release, published, carries no paths.
+  if (f.flavour === 'dev') {
+    check('PaseoCommandCheckout', key('PaseoCommandCheckout') === root.replace(/\/$/, ''), `(got ${key('PaseoCommandCheckout')})`);
+    check('PaseoCommandMainCheckout', existsSync(key('PaseoCommandMainCheckout')), `(got ${key('PaseoCommandMainCheckout')})`);
+  } else for (const k of ['PaseoCommandCheckout', 'PaseoCommandMainCheckout']) check(k, key(k) === '<missing>', `(got ${key(k)})`);
   // Sparkle: its framework with symlinks kept; updates (and their keys) in the release only.
   const sparkle = join(app, 'Contents/Frameworks/Sparkle.framework');
   check('Sparkle.framework', existsSync(join(sparkle, 'Versions/B/Sparkle')));

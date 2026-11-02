@@ -437,6 +437,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     /// position and page with the latest build, whose copy starts its own.
     @objc func reloadApp(_ sender: Any?) {
         guard let main, !reloading else { return }
+        // Deleted or moved (an archived workspace's build): there's nothing to relaunch
+        // or install into; this window runs on until quit.
+        if BundleHome.missing(in: Bundle.main.bundleURL) != nil {
+            Log.line("restart: this copy's bundle is gone")
+            return main.bundleGone(canStay: true)
+        }
         reloading = true
         if let updater = Updater.shared, updater.pendingVersion != nil {
             main.showSplash("Updating…")

@@ -72,6 +72,11 @@ if [ "$flavour" = release ]; then
 else
   # Dev copies never update themselves (Updater.shared is nil).
   buddy "Delete :SUPublicEDKey"
+  # Where it was built, and the main checkout (git's first worktree): a deleted workspace copy names the
+  # main checkout's to open, and a workspace copy leaves the main one's port alone (AppFlavor.isWorkspaceBuild).
+  main=$(git -C "$root" worktree list --porcelain | sed -n '1s/^worktree //p')
+  plutil -insert PaseoCommandCheckout -string "$root" "$plist"
+  plutil -insert PaseoCommandMainCheckout -string "${main:-$root}" "$plist"
 fi
 cp "$here/AppIcon.icns" "$app/Contents/Resources/AppIcon.icns"
 cp "$here/../LICENSE" "$here/../THIRD_PARTY_NOTICES.md" "$app/Contents/Resources/"

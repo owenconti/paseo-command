@@ -19,6 +19,16 @@ enum AppFlavor {
             .appendingPathComponent(name ?? "Paseo Command Dev", isDirectory: true)
     }
     static var version: String { info("CFBundleShortVersionString") ?? "dev" }
+    /// A dev copy's checkout, and the repository's main checkout (`bundle.sh` writes both;
+    /// the release carries neither).
+    static var checkout: String? { info("PaseoCommandCheckout") }
+    static var mainCheckout: String? { info("PaseoCommandMainCheckout") }
+    /// A dev copy built in a workspace (a worktree) rather than the main checkout: the
+    /// main checkout's copy is the user's own, on `port`, so this one doesn't run a server there.
+    static var isWorkspaceBuild: Bool {
+        guard let checkout, let mainCheckout else { return false }
+        return URL(fileURLWithPath: checkout).standardizedFileURL != URL(fileURLWithPath: mainCheckout).standardizedFileURL
+    }
     /// "Paseo Command", or "Paseo Command Dev" for a dev copy, wherever the app names itself.
     static var name: String { info("CFBundleName").flatMap { $0 == "PaseoCommandNative" ? nil : $0 } ?? "Paseo Command Dev" }
 }
