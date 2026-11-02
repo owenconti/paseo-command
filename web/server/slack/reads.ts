@@ -19,6 +19,7 @@ import { SlackError, slackCall, slackUserToken } from "./client";
 import { noteSlackDemand } from "./events";
 import { conversationOf, httpsUrl, listOf, messageOf, recOf, strOf, tsOf, userOf, type People } from "./normalize";
 import { slackLive } from "./live";
+import { readSlackSections } from "./sections";
 import { mergeUnreads, noteHistory, noteLastRead, trackSlackConversations } from "./unreads";
 
 export const SLACK_READS = {
@@ -324,9 +325,9 @@ async function loadWorkspace(token: string): Promise<Omit<SlackWorkspace, "live"
   return value;
 }
 
-/** The kept workspace with the unread tracker's state and the socket's liveness laid over it. */
+/** The kept workspace with the unread tracker's state, the socket's liveness and the app's sidebar sections laid over it. */
 function withState(value: Omit<SlackWorkspace, "live">): SlackWorkspace {
-  return { ...value, conversations: value.conversations.map(mergeUnreads), live: slackLive() };
+  return { ...value, conversations: value.conversations.map(mergeUnreads), live: slackLive(), sections: readSlackSections(value.teamId) };
 }
 
 /** The workspace kept now, without asking Slack (undefined before the first read). */

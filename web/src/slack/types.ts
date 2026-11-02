@@ -186,7 +186,33 @@ export type SlackWorkspace = {
   emoji: Record<string, string>;
   /** Whether messages arrive live (Socket Mode) or by polling. */
   live: SlackLive;
+  /** The sidebar sections made in this app (Slack's own can't be read with a user token), from settings.json. */
+  sections?: SlackSection[];
 };
+
+/**
+ * A sidebar section made in this app: its name and its conversations, in
+ * order. Slack's Web API offers apps no way to read the sections made in
+ * Slack, so these are the app's own, kept per workspace in settings.json.
+ */
+export type SlackSection = { id: string; name: string; conversationIds: string[] };
+
+/** A thread you're in (you started or replied in it, or were mentioned there), for the sidebar's Recent. */
+export type SlackRecentThread = {
+  conversationId: string;
+  threadTs: string;
+  /** The newest message in it (a reply from anyone, else the parent), as known. */
+  latest: string;
+  /** The parent's first words, when known. */
+  text?: string;
+  /** A reply from someone else since you last read the thread. */
+  unread: boolean;
+  /** That reply mentions you. */
+  mention?: boolean;
+};
+
+/** `q/recent`: the threads you're in, newest first. */
+export type SlackRecent = { threads: SlackRecentThread[] };
 
 export type SlackLive = {
   /** "socket": live; "polling": no app token, or the socket is down (then `reason`). */
@@ -248,7 +274,9 @@ export type SlackWriteName =
   | "unreact"
   | "mark"
   | "openDm"
-  | "share";
+  | "share"
+  | "readThread"
+  | "sections";
 
 export type SlackWriteInputs = {
   /** `markdown` is Markdown (sent as `markdown_text`); `threadTs` replies in a thread; `broadcast` also sends it to the channel. */
@@ -262,11 +290,16 @@ export type SlackWriteInputs = {
   openDm: { userIds: string[] };
   /** Shares files uploaded with `POST /api/slack/upload` into a conversation (or thread), with an optional Markdown comment. */
   share: { conversationId: string; fileIds: string[]; markdown?: string; threadTs?: string };
+  /** You read a thread you're in up to `ts` (kept by the app: Slack keeps no thread read state apps can read). */
+  readThread: { conversationId: string; threadTs: string; ts: string };
+  /** The app's sidebar sections, all of them, in order (settings.json). */
+  sections: { sections: SlackSection[] };
 };
 
 export type SlackWriteResult = {
   message?: SlackMessage;
   conversation?: SlackConversation;
   reactions?: SlackReaction[];
+  sections?: SlackSection[];
   ok?: true;
 };

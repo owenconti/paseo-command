@@ -13,7 +13,7 @@ import { randomUUID } from "node:crypto";
 import { mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { ActivityItem, ActivityWriteName } from "../../src/activity/types";
-import type { SlackConversation, SlackMessage, SlackSearchHit, SlackUser, SlackWorkspace } from "../../src/slack/types";
+import type { SlackConversation, SlackMessage, SlackRecentThread, SlackSearchHit, SlackUser, SlackWorkspace } from "../../src/slack/types";
 import { dataDir } from "../subagentArchive";
 import { SlackError, slackCall, slackUnavailable, slackUserToken } from "../slack/client";
 import { noteSlackDemand } from "../slack/events";
@@ -32,12 +32,22 @@ export const SLACK_ACTIVITY = {
   unknownUnreadMs: 24 * 60 * 60_000,
   /** A read DM stays in Activity (as read) this long. */
   keepDmMs: 3 * 24 * 60 * 60_000,
+  /** The sidebar's Recent: at most this many threads, and this many parents' first words asked of Slack a read. */
+  recentThreads: 20,
+  recentLookups: 3,
+  /** A parent Slack wouldn't give isn't asked for again for this long. */
+  lookupRetryMs: 60 * 60_000,
 };
 
 type Reply = { ts: string; userId?: string; text: string };
+type Thread = { at: number; reply?: Reply; readTs?: string; latest?: string; text?: string; askedAt?: number };
 type Record_ = {
-  /** Threads you're in, by `<conversationId>:<threadTs>`: when you joined, the newest reply from others, read to. */
-  threads: Record<string, { at: number; reply?: Reply; readTs?: string }>;
+  /**
+   * Threads you're in, by `<conversationId>:<threadTs>`: when you joined, the newest reply from others, read to,
+   * and for the sidebar's Recent the newest message from anyone, the parent's first words (once asked: "" when
+   * Slack wouldn't say, then `askedAt`).
+   */
+  threads: Record<string, Thread>;
   /** DMs' newest unread message as last seen, so a read one stays a while. */
   dms: Record<string, Reply & { at: number }>;
   read: string[];
@@ -101,12 +111,20 @@ export function resetSlackActivity(): void {
   liveMentions = [];
 }
 
-/** You're in this thread (you replied, or were mentioned there): its replies from others come to Activity. */
-export function followSlackThread(conversationId: string, threadTs: string): void {
+/**
+ * You're in this thread (you replied, or were mentioned there): its replies from others come to Activity.
+ * `yours` is your reply's ts: the thread is newest and read to there.
+ */
+export function followSlackThread(conversationId: string, threadTs: string, yours?: string): void {
   const rec = load();
   const id = `${conversationId}:${threadTs}`;
-  if (rec.threads[id]) return;
-  rec.threads[id] = { at: Date.now() };
+  const known = rec.threads[id];
+  if (known && !yours) return;
+  const thread = (rec.threads[id] ??= { at: Date.now() });
+  if (yours) {
+    thread.latest = later(yours, thread.latest);
+    thread.readTs = later(yours, thread.readTs);
+  }
   save(rec);
 }
 
@@ -116,7 +134,7 @@ export function noteSlackActivityMessage(m: SlackMessage, parentUserId?: string)
   if (!self) return;
   const inThread = !!m.threadTs && m.threadTs !== m.ts;
   if (m.userId === self) {
-    if (inThread) followSlackThread(m.conversationId, m.threadTs!);
+    if (inThread) followSlackThread(m.conversationId, m.threadTs!, m.ts);
     return;
   }
   if (m.text.includes(`<@${self}>`) && !/^D/.test(m.conversationId)) {
@@ -130,8 +148,91 @@ export function noteSlackActivityMessage(m: SlackMessage, parentUserId?: string)
   if (!thread) return;
   if (!thread.reply || Number(m.ts) > Number(thread.reply.ts)) {
     thread.reply = { ts: m.ts, ...(m.userId ? { userId: m.userId } : {}), text: m.text.slice(0, 1000) };
+    thread.latest = later(m.ts, thread.latest);
     save(rec);
   }
+}
+
+/** Whether a thread's newest reply from others is unread: by its key's mark, else by where it's read to. */
+function threadUnread(rec: Record_, conversationId: string, thread: Thread, self: string): boolean {
+  const reply = thread.reply;
+  if (!reply || reply.userId === self) return false;
+  const key = keyOf(conversationId, reply.ts);
+  if (rec.unread.includes(key)) return true;
+  return !rec.read.includes(key) && (!thread.readTs || Number(reply.ts) > Number(thread.readTs));
+}
+
+/**
+ * The sidebar's Recent threads: those you're in, newest first (by the newest
+ * message from anyone, as seen), in conversations of the workspace, at most
+ * `recentThreads`. A parent's first words come from `conversations.replies`
+ * (one message), asked for at most `recentLookups` threads a read and kept;
+ * Slack's limits and cooldowns stop the asking until a later read.
+ */
+export async function readRecentThreads(): Promise<SlackRecentThread[]> {
+  if (!slackUserToken()) throw new SlackError("no-key", slackUnavailable());
+  noteSlackDemand();
+  const ws = await readWorkspace();
+  const self = ws.selfId;
+  const users = new Map(ws.users.map((u) => [u.id, u]));
+  const known = new Set(ws.conversations.map((c) => c.id));
+  const newest = (id: string, t: Thread) => later(later(t.latest, t.reply?.ts), id.split(":")[1])!;
+  const pick = (rec: Record_) =>
+    Object.entries(rec.threads)
+      .filter(([id]) => known.has(id.split(":")[0]))
+      .sort((a, b) => Number(newest(b[0], b[1])) - Number(newest(a[0], a[1])))
+      .slice(0, SLACK_ACTIVITY.recentThreads);
+  // Asked before the record is read for its answer: nothing awaits between that load and its save.
+  const found = new Map<string, { text: string; latest?: string }>();
+  const ask = pick(load())
+    .filter(([, t]) => t.text === undefined || (!t.text && Date.now() - (t.askedAt ?? 0) > SLACK_ACTIVITY.lookupRetryMs))
+    .slice(0, SLACK_ACTIVITY.recentLookups);
+  for (const [id] of ask) {
+    const [channel, ts] = id.split(":");
+    try {
+      const r = await slackCall("conversations.replies", { channel, ts, limit: 1 });
+      const parent = recOf(listOf(r.messages)[0]);
+      const latest = typeof parent.latest_reply === "string" && /^\d+\.\d+$/.test(parent.latest_reply) ? parent.latest_reply : undefined;
+      found.set(id, { text: plainText(typeof parent.text === "string" ? parent.text : "", users).slice(0, 120), latest });
+    } catch (e) {
+      // Limited or cooling down: the rest wait for a later read. Gone (thread_not_found…): not asked again for a while.
+      if (e instanceof SlackError && (e.kind === "limited" || e.kind === "no-key" || e.kind === "refused")) break;
+      found.set(id, { text: "" });
+    }
+  }
+  const rec = load();
+  if (found.size) {
+    for (const [id, got] of found) {
+      const t = rec.threads[id];
+      if (!t) continue;
+      t.text = got.text;
+      if (!got.text) t.askedAt = Date.now();
+      t.latest = later(got.latest, t.latest);
+    }
+    save(rec);
+  }
+  return pick(rec).map(([id, t]) => {
+    const [conversationId, threadTs] = id.split(":");
+    const unread = threadUnread(rec, conversationId, t, self);
+    return {
+      conversationId,
+      threadTs,
+      latest: newest(id, t),
+      ...(t.text ? { text: t.text } : {}),
+      unread,
+      ...(unread && t.reply?.text.includes(`<@${self}>`) ? { mention: true } : {}),
+    };
+  });
+}
+
+/** You read a thread you're in up to `ts` (the Slack tab showed it): its replies from others to there are read. */
+export function readSlackThread(conversationId: string, threadTs: string, ts: string): void {
+  const rec = load();
+  const thread = rec.threads[`${conversationId}:${threadTs}`];
+  if (!thread) return;
+  thread.readTs = later(ts, thread.readTs);
+  if (thread.reply && Number(thread.reply.ts) <= Number(ts)) rec.unread = drop(rec.unread, keyOf(conversationId, thread.reply.ts));
+  save(rec);
 }
 
 /** Slack's mrkdwn as words: people and channels by name, links by their text, entities decoded; clipped to 300. */
@@ -314,8 +415,7 @@ export async function readSlackActivity(): Promise<ActivityItem[]> {
     const [conversationId, threadTs] = id.split(":");
     const key = keyOf(conversationId, reply.ts);
     const c = conversations.get(conversationId);
-    const unread =
-      unreadKeys.has(key) || (!readKeys.has(key) && (!thread.readTs || Number(reply.ts) > Number(thread.readTs)));
+    const unread = threadUnread(rec, conversationId, thread, self);
     put({
       key,
       source: "slack",

@@ -1801,6 +1801,10 @@ function App() {
               ...(slackView.canLaunch
                 ? ([["slack-launch", "Launch agent from this Slack thread or message", "slack agent dispatch new agent launch work thread", undefined]] as const)
                 : []),
+              ...(slackView.hasRecent
+                ? ([["slack-recent", "Go to Recent in Slack", "slack recent latest newest threads conversations activity sidebar", undefined]] as const)
+                : []),
+              ["slack-new-section", "New Slack sidebar section…", "slack section sidebar group folder create new add", undefined],
             ] as const
           ).map(([command, label, keywords, keys]) => ({
             id: command,
@@ -1810,6 +1814,42 @@ function App() {
             keywords,
             run: () => runAppCommand(command),
           })),
+          ...(() => {
+            const open = slackView.conversations.find((c) => c.id === slackView.openConversationId);
+            if (!open) return [];
+            const name = open.kind === "channel" || open.kind === "private" ? `#${open.name}` : open.name;
+            const current = slackView.sections.find((x) => x.id === slackView.openSectionId);
+            const keywords = "slack section sidebar move group folder organize";
+            return [
+              ...slackView.sections
+                .filter((x) => x.id !== slackView.openSectionId)
+                .map((x) => ({
+                  id: `slack-move-to-section:${x.id}`,
+                  group: "App",
+                  label: `Move ${name} to the ${x.name} section`,
+                  keywords,
+                  run: () => runAppCommand("slack-move-to-section", x.id),
+                })),
+              {
+                id: "slack-move-to-section:new",
+                group: "App",
+                label: `Move ${name} to a new section…`,
+                keywords: `${keywords} new create`,
+                run: () => runAppCommand("slack-move-to-section", "new"),
+              },
+              ...(current
+                ? [
+                    {
+                      id: "slack-move-to-section:none",
+                      group: "App",
+                      label: `Remove ${name} from the ${current.name} section`,
+                      keywords: `${keywords} remove out back channels`,
+                      run: () => runAppCommand("slack-move-to-section", null),
+                    },
+                  ]
+                : []),
+            ];
+          })(),
           ...slackView.conversations.map((c) => ({
             id: `slack-go:${c.id}`,
             group: "Navigate",

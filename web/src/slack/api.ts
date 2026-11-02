@@ -9,7 +9,7 @@ export function setSlackTransport(next: Transport | null): void {
   transport = next ?? ((path, body) => api(path, body));
 }
 
-export type SlackReadName = "workspace" | "history" | "replies" | "conversation" | "unreads" | "search";
+export type SlackReadName = "workspace" | "history" | "replies" | "conversation" | "unreads" | "search" | "recent";
 
 /** One of the server's named Slack reads; `SlackUnavailable` when Slack can't be asked right now. */
 export function slackRead<T>(name: SlackReadName, params: Record<string, string> = {}): Promise<T | SlackUnavailable> {

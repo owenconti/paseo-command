@@ -6,11 +6,12 @@
  * has the method cooling down).
  */
 import type { SlackConversation, SlackReaction, SlackWriteName, SlackWriteResult } from "../../src/slack/types";
-import { followSlackThread } from "../activity/slack";
-import { SlackError, slackCall } from "./client";
+import { followSlackThread, readSlackThread } from "../activity/slack";
+import { SlackError, slackCall, slackEnabled, slackUnavailable, slackUserToken } from "./client";
 import { toMrkdwn } from "./mrkdwn";
 import { messageOf, reactionsOf, recOf } from "./normalize";
-import { CONVERSATION_ID, conversationFrom, keepConversation, keptWorkspace, readWorkspace, TS_PATTERN } from "./reads";
+import { CONVERSATION_ID, conversationFrom, keepConversation, keptWorkspace, readWorkspace, slackSelf, TS_PATTERN } from "./reads";
+import { saveSlackSections } from "./sections";
 import { noteMarked } from "./unreads";
 
 type Vars = Record<string, unknown>;
@@ -69,6 +70,11 @@ function fields(input: unknown, required: Record<string, Check>, optional: Recor
   return out;
 }
 
+/** The app's own writes (which don't reach Slack) still want Slack on, with a token, as the rest do. */
+function usable(): void {
+  if (!slackEnabled() || !slackUserToken()) throw new SlackError("no-key", slackUnavailable());
+}
+
 type Write = { validate(input: unknown): Vars; run(vars: Vars): Promise<SlackWriteResult> };
 
 const essential = { essential: true } as const;
@@ -107,7 +113,7 @@ export const WRITES: Record<SlackWriteName, Write> = {
       );
       const channel = typeof r.channel === "string" && CONVERSATION_ID.test(r.channel) ? r.channel : (v.conversationId as string);
       const message = messageOf({ ...recOf(r.message), ts: recOf(r.message).ts ?? r.ts }, channel);
-      if (v.threadTs) followSlackThread(channel, v.threadTs as string);
+      if (v.threadTs) followSlackThread(channel, v.threadTs as string, message?.ts);
       return message ? { message } : { ok: true };
     },
   },
@@ -201,6 +207,23 @@ export const WRITES: Record<SlackWriteName, Write> = {
       );
       if (v.threadTs) followSlackThread(v.conversationId as string, v.threadTs as string);
       return { ok: true };
+    },
+  },
+  // The app's own: where you've read a thread to (slack-activity.json); Slack isn't asked.
+  readThread: {
+    validate: (input) => fields(input, { conversationId: conversation, threadTs: ts, ts }),
+    async run(v) {
+      usable();
+      readSlackThread(v.conversationId as string, v.threadTs as string, v.ts as string);
+      return { ok: true };
+    },
+  },
+  // The app's own sidebar sections (settings.json, `sections.ts`), for the token's workspace.
+  sections: {
+    validate: (input) => fields(input, { sections: (value) => value }),
+    async run(v) {
+      const me = await slackSelf();
+      return { sections: saveSlackSections(me.teamId, v.sections) };
     },
   },
 };

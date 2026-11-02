@@ -8,7 +8,10 @@ import type {
   SlackLive,
   SlackMessage,
   SlackReaction,
+  SlackRecent,
+  SlackRecentThread,
   SlackSearch,
+  SlackSection,
   SlackThread,
   SlackUnavailable,
   SlackUnreads,
@@ -64,6 +67,10 @@ export type SlackData = {
   unreadsPending: number;
   live?: SlackLive;
   stream: StreamState;
+  /** Threads you're in, newest first (`q/recent`), for the sidebar's Recent. */
+  recentThreads: SlackRecentThread[];
+  /** The app's own sidebar sections, in order (settings.json, through the workspace and the `sections` write). */
+  sections: SlackSection[];
 };
 
 const POLL_EVERY_MS = 20_000;
@@ -84,6 +91,8 @@ function empty(): SlackData {
     unreadsLoaded: false,
     unreadsPending: 0,
     stream: "off",
+    recentThreads: [],
+    sections: [],
   };
 }
 
@@ -104,6 +113,12 @@ let open: { conversationId?: string; threadTs?: string } = {};
 const historyLoads = new Map<string, Promise<void>>();
 const threadLoads = new Map<string, Promise<void>>();
 let unreadsLoad: Promise<void> | undefined;
+let recentLoad: Promise<void> | undefined;
+let recentTimer: ReturnType<typeof setTimeout> | undefined;
+/** Sections saves in flight: workspace reads meanwhile keep the page's. */
+let sectionsSaving = 0;
+/** A thread event asks for Recent again after this long (several replies, one read). */
+const RECENT_AFTER_MS = 1500;
 let polling: Promise<void> | undefined;
 
 function publish(next: Partial<SlackData>): void {
@@ -247,9 +262,39 @@ function addMessage(message: SlackMessage): void {
       if (isReply(message)) setThread(key, { replies: mergeList(thread.replies, [message]) });
       else setThread(key, { parent: mergeOne(thread.parent, message) });
     }
-    if (isReply(message)) countReply(message);
+    if (isReply(message)) {
+      countReply(message);
+      noteThreadReply(message);
+    }
   }
 }
+
+/**
+ * A thread reply arrived: a thread in Recent is newest (and unread, from
+ * someone else, unless it shows); one you've replied to or been mentioned in
+ * joins Recent with the server's next word.
+ */
+function noteThreadReply(reply: SlackMessage): void {
+  const known = state.recentThreads.find((t) => t.conversationId === reply.conversationId && t.threadTs === reply.threadTs);
+  const self = selfId();
+  if (!known) {
+    if (reply.userId === self || mentionsYou(reply.text, self)) scheduleRecent();
+    return;
+  }
+  const mine = !!self && reply.userId === self;
+  const shows = open.conversationId === reply.conversationId && open.threadTs === reply.threadTs;
+  const fromOther = !mine && !shows;
+  const next: SlackRecentThread = {
+    ...known,
+    latest: newer(known.latest, reply.ts)!,
+    unread: mine || shows ? false : known.unread || fromOther,
+    ...(fromOther && mentionsYou(reply.text, self) ? { mention: true } : {}),
+  };
+  if (!next.unread) delete next.mention;
+  publish({ recentThreads: sortRecent(state.recentThreads.map((t) => (t === known ? next : t))) });
+}
+
+const sortRecent = (list: SlackRecentThread[]) => [...list].sort((a, b) => compareTs(b.latest, a.latest));
 
 /** A reply the page hadn't seen: its parent's count, people and latest reply follow (until Slack's own word on the parent). */
 function countReply(reply: SlackMessage): void {
@@ -415,6 +460,7 @@ export async function loadWorkspace(fresh = false): Promise<void> {
     users: new Map([...state.users, ...answer.users.map((u) => [u.id, u] as const)]),
     conversations,
     live: answer.live,
+    ...(sectionsSaving ? {} : { sections: answer.sections ?? [] }),
   });
 }
 
@@ -459,6 +505,10 @@ export function loadHistory(conversationId: string, fresh = false): Promise<void
         setHistory(conversationId, { messages, more: gap || !hadReal ? answer.more : was.more, loaded: true, error: undefined });
       }
       for (const m of answer.messages) if (isReply(m)) countedReplies.add(messageKey(m.conversationId, m.ts));
+      // Its newest message is known now (Recent orders by it).
+      const c = state.conversations.get(conversationId);
+      const newest = newestTs(conversationId);
+      if (c && newest && newer(c.latest, newest) !== c.latest) patchConversation(conversationId, { latest: newest });
     })().finally(() => historyLoads.delete(conversationId));
     historyLoads.set(conversationId, load);
   }
@@ -518,6 +568,34 @@ export function loadThread(conversationId: string, threadTs: string, fresh = fal
   return load;
 }
 
+/** Loads the threads you're in (`q/recent`), for the sidebar's Recent. */
+export function loadRecent(): Promise<void> {
+  recentLoad ??= slackRead<SlackRecent>("recent")
+    .then((answer) => {
+      if (isUnavailable(answer)) return;
+      // A thread read here meanwhile stays read.
+      const read = new Map(state.recentThreads.filter((t) => !t.unread).map((t) => [threadKey(t.conversationId, t.threadTs), t.latest]));
+      const threads = answer.threads.map((t) => {
+        const was = read.get(threadKey(t.conversationId, t.threadTs));
+        return t.unread && was && compareTs(was, t.latest) >= 0 ? { ...t, unread: false, mention: undefined } : t;
+      });
+      publish({ recentThreads: sortRecent(threads) });
+    })
+    .finally(() => {
+      recentLoad = undefined;
+    });
+  return recentLoad;
+}
+
+/** Asks for Recent again shortly (a thread you're in may have joined it). */
+function scheduleRecent(): void {
+  if (recentTimer) return;
+  recentTimer = setTimeout(() => {
+    recentTimer = undefined;
+    void loadRecent().catch(() => {});
+  }, RECENT_AFTER_MS);
+}
+
 /** Loads each conversation's read state from the server's tracker. */
 export function loadUnreads(): Promise<void> {
   unreadsLoad ??= slackRead<SlackUnreads>("unreads")
@@ -559,6 +637,8 @@ const VERB: Record<SlackWriteName, string> = {
   mark: "mark that read",
   openDm: "open that conversation",
   share: "share those files",
+  readThread: "mark that thread read",
+  sections: "save your sections",
 };
 
 async function send<N extends SlackWriteName>(name: N, input: SlackWriteInputs[N]): Promise<SlackWriteResult | undefined> {
@@ -717,6 +797,44 @@ async function markRead(conversationId: string, ts: string): Promise<boolean> {
   return false;
 }
 
+/** Marks a thread you're in read to `ts`, here (Recent, Activity): shown at once; refused, it comes back. */
+async function readThread(conversationId: string, threadTs: string, ts: string): Promise<boolean> {
+  const known = state.recentThreads.find((t) => t.conversationId === conversationId && t.threadTs === threadTs);
+  if (!known?.unread || isLocal(ts) || compareTs(ts, known.latest) < 0) return true;
+  const set = (patch: Partial<SlackRecentThread>) =>
+    publish({ recentThreads: state.recentThreads.map((t) => (t.conversationId === conversationId && t.threadTs === threadTs ? { ...t, ...patch } : t)) });
+  set({ unread: false, mention: undefined });
+  try {
+    await slackWrite("readThread", { conversationId, threadTs, ts });
+    return true;
+  } catch {
+    // Quietly: the thread shows as unread again, and nothing else was lost.
+    set({ unread: known.unread, mention: known.mention });
+    return false;
+  }
+}
+
+/**
+ * Saves the app's sidebar sections, all of them, in order: shown at once;
+ * refused, the ones before come back and the notice says why.
+ */
+async function saveSections(next: SlackSection[]): Promise<boolean> {
+  const before = state.sections;
+  publish({ sections: next });
+  sectionsSaving++;
+  try {
+    const answer = await send("sections", { sections: next });
+    if (!answer) {
+      if (state.sections === next) publish({ sections: before });
+      return false;
+    }
+    if (answer.sections && state.sections === next) publish({ sections: answer.sections });
+    return true;
+  } finally {
+    sectionsSaving--;
+  }
+}
+
 /** Opens (or finds) a direct message with these people; its id, or undefined (with the notice) if Slack refused. */
 async function openDm(userIds: string[]): Promise<string | undefined> {
   const answer = await send("openDm", { userIds });
@@ -775,6 +893,7 @@ export async function resync(): Promise<void> {
   const { conversationId, threadTs } = open;
   await Promise.all([
     loadUnreads().catch(() => {}),
+    loadRecent().catch(() => {}),
     conversationId && state.history.get(conversationId)?.loaded ? loadHistory(conversationId, true).catch(() => {}) : undefined,
     conversationId && threadTs && state.threads.get(threadKey(conversationId, threadTs))?.loaded
       ? loadThread(conversationId, threadTs, true).catch(() => {})
@@ -885,6 +1004,8 @@ export const slackStore = {
   toggleReaction,
   markRead,
   openDm,
+  readThread,
+  saveSections,
   /** Says something went wrong, in the app's notice (as a refused write does). */
   notice: (message: string) => notify(message),
   /** What shows (polling and resync read it again). */
@@ -898,6 +1019,7 @@ export const slackStore = {
       conversations: new Map(workspace.conversations.map((c) => [c.id, c])),
       live: workspace.live,
       unavailable: undefined,
+      sections: workspace.sections ?? [],
     });
   },
   /** Back to empty (tests). */
@@ -911,6 +1033,10 @@ export const slackStore = {
     threadLoads.clear();
     searches.clear();
     unreadsLoad = undefined;
+    recentLoad = undefined;
+    clearTimeout(recentTimer);
+    recentTimer = undefined;
+    sectionsSaving = 0;
     polling = undefined;
     open = {};
     for (const fn of [...listeners]) fn();
