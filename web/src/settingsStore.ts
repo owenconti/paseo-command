@@ -2,7 +2,7 @@ import { useSyncExternalStore } from "react";
 import { macApp, postAppMenu } from "./worldBridge";
 
 /** A part of Settings to open at: an integration's key editor. */
-export type SettingsTarget = "linear" | "slack" | "typesafe" | null;
+export type SettingsTarget = "linear" | "typesafe" | null;
 
 /**
  * Settings is a page in the map's place. In the macOS app it is one of the

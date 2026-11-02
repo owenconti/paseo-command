@@ -24,7 +24,6 @@ import {
   MessageSquare,
   MessagesSquare,
   RefreshCw,
-  Slack,
   Tag,
 } from "lucide-react";
 import { readStore, removeStore, writeStore } from "../api";
@@ -45,8 +44,8 @@ import "./activity.css";
 const PREVIEW_MIN = 1100;
 /** The panels' widths: the sidebar's default and least, the preview's least, and the least the feed keeps between them. */
 const PANELS = { sidebar: 220, sidebarMin: 170, previewMin: 320, feedMin: 360 };
-const SOURCES: ActivitySource[] = ["github", "linear", "slack"];
-const FILTER_KEYS: Record<string, ActivityFilter> = { "1": "all", "2": "github", "3": "linear", "4": "slack" };
+const SOURCES: ActivitySource[] = ["github", "linear"];
+const FILTER_KEYS: Record<string, ActivityFilter> = { "1": "all", "2": "github", "3": "linear" };
 
 /** What ⌘K needs to know: the unread count, the selected item and what it allows, and the filter. */
 export type ActivityViewState = {
@@ -57,7 +56,7 @@ export type ActivityViewState = {
   filter: ActivityFilter;
 };
 
-const SOURCE_ICON: Record<ActivitySource, typeof Github> = { github: Github, linear: ListTodo, slack: Slack };
+const SOURCE_ICON: Record<ActivitySource, typeof Github> = { github: Github, linear: ListTodo };
 
 export function SourceIcon({ source, size = 14 }: { source: ActivitySource; size?: number }) {
   const Icon = SOURCE_ICON[source];
@@ -142,28 +141,26 @@ function Actor({ actor }: { actor?: ActivityItem["actor"] }) {
 
 /** Where opening an item takes you, in words. */
 const openLabel = (item: ActivityItem) =>
-  item.open?.kind === "slack"
-    ? "Open in Slack"
-    : item.open || (item.url && parseAppLink(item.url)?.kind === "linear")
-      ? "Open in Linear"
-      : item.url && prPlaceOf(item.url)
-        ? "Review in GitHub"
-        : "Open in Conquer";
+  item.open || (item.url && parseAppLink(item.url)?.kind === "linear")
+    ? "Open in Linear"
+    : item.url && prPlaceOf(item.url)
+      ? "Review in GitHub"
+      : "Open in Conquer";
 
 /** The selected row, kept while the view comes and goes. */
 let lastSelected: string | undefined;
 
 /**
- * The Activity tab, in the map's place (the macOS app's mode bar): GitHub,
- * Linear and Slack notifications in one feed, newest first, grouped by day.
+ * The Activity tab, in the map's place (the macOS app's mode bar): GitHub
+ * and Linear notifications in one feed, newest first, grouped by day.
  * The sidebar filters it (All, Unread, each enabled source with its unread
  * count, or why it couldn't answer); the selected item shows beside the feed
  * from 1,100 px with Open, Mark read/unread and Done. Opening takes an item
- * where it lives (Conquer, the Linear tab, the Slack tab) and marks it read.
+ * where it lives (Conquer, the Linear tab, the GitHub tab) and marks it read.
  * While the keyboard is in the view (not typing): J/K or ↓/↑ move, Enter or O
  * open, U marks read or unread, E or ⌫ marks done, ⇧U marks every shown item
- * read, ⇧E marks every shown item done (after confirming), 1–4 filter All,
- * GitHub, Linear, Slack.
+ * read, ⇧E marks every shown item done (after confirming), 1–3 filter All,
+ * GitHub, Linear.
  */
 export function ActivityView({
   onNotice,
@@ -404,7 +401,7 @@ export function ActivityView({
       <div className="activity-empty">
         <Inbox size={28} strokeWidth={1.5} aria-hidden="true" />
         <h2>Nothing to gather yet</h2>
-        <p>Turn on GitHub, Linear or Slack in Settings to see their notifications here.</p>
+        <p>Turn on GitHub or Linear in Settings to see their notifications here.</p>
       </div>
     );
   else if (!feed)

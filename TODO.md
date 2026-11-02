@@ -5,21 +5,8 @@ mark it done with its commit once merged into `main`.
 
 ## Open
 
-- [ ] **Remove the Slack feature entirely (next, at the user's request).** Delete the Slack integration end to end:
-  the Slack tab and its mode (`web/src/slack/`, the mode bar's Slack tab and View menu item in the native app,
-  ⌘1–7 numbering adjusting, `paseo:mode` `slack`), the server (`web/server/slack/`, its routes, socket, events,
-  unreads queue, uploads, the `ws` dependency if nothing else uses it), Activity's Slack source
-  (`web/server/activity/slack.ts`, the source filter and its 1–4 keys), Slack link routing (`pageMode`/`routeLink`
-  in `WorldWindow.swift`, `parseAppLink` in `web/src/appLinks.ts`), launching agents from Slack
-  (`DispatchTarget.slack`, `slack/prompt.ts`, presets' `{{slack}}`), Settings → Slack (toggle, token editors,
-  `SlackAppSetup.tsx`, manifest), ⌘K entries, shortcuts-dialog groups, tests, e2e, fakes and the docs (CLAUDE.md /
-  AGENTS.md, README, native/README). Slack links then open as ordinary links (Conquer). Leave the user's data
-  alone: `settings.json`'s `integrations.slack`, Slack sections and `secrets.json`'s Slack tokens are ignored, not
-  deleted; `slack-activity.json` stays where it is. Remove TODO items that only concern Slack. Everything else
-  (Linear, GitHub, Activity's GitHub and Linear sources) keeps working; `npm run check` passes.
-  Workspace: `remove-slack`.
 - [ ] **Linear: an issue opened from outside the tab gets an issue-focused view.** Clicking a Linear issue link
-  anywhere outside the Linear tab (the chat, Conquer, Activity, Slack, `paseo:link`/`parseAppLink`,
+  anywhere outside the Linear tab (the chat, Conquer, Activity, `paseo:link`/`parseAppLink`,
   `openActivityItem`'s `writePlace({ ...readPlace(), issue })`) opens the issue beside whatever list you last
   had (e.g. Engineering › Active). Instead it should open in an issue-focused place that replaces the list: the
   issue alone, full width, the sidebar selecting nothing. That's a new history entry, so Back (⌘[, the arrows)
@@ -71,6 +58,15 @@ mark it done with its commit once merged into `main`.
 
 ## Done
 
+- [x] **Removed the Slack feature entirely, at the user's request.** Gone: the Slack tab and its mode (`web/src/slack/`,
+  the mode bar's tab and View menu item, `paseo:mode` `slack`; ⌘1…⌘6 now number the tabs shown), the server
+  (`web/server/slack/`: routes, Socket Mode, events, the unreads queue, uploads, the fake), Activity's Slack source (its
+  filter; 1–3 now pick All, GitHub, Linear), Slack link routing (`pageMode`/`routeLink`, `parseAppLink`: Slack links open
+  in Conquer as other links do), launching agents from Slack (`DispatchTarget.slack`, presets' `{{slack}}`), Settings →
+  Slack (its toggle, tokens, app setup and manifest), its ⌘K entries, shortcuts group, CSS, tests and e2e. `ws` stays (the
+  terminal and fleet sockets use it). The user's Slack data is left in place and ignored: `integrations.slack` and
+  `slackSections` in `settings.json`, the Slack tokens in `secrets.json` (saving either keeps them; a test checks it) and
+  `slack-activity.json`.
 - [x] **Page heads never overlap when narrow.** The pages' heads (Linear's lists, Activity, GitHub's lists and Changes,
   Slack's conversation and thread, Settings) share one rule set, `.page-head` in `web/src/styles/pages.css`: the title takes
   what the tools leave and clips, a breadcrumb's earlier parts cut short (…) before the name, and the whole title shows on

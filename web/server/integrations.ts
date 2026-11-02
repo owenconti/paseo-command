@@ -8,11 +8,9 @@ export const integrationEnabled = (name: Integration) =>
 const KEYS = {
   linear: "linearApiKey",
   typesafe: "typesafeApiKey",
-  slack: "slackUserToken",
-  slackApp: "slackAppToken",
   github: "githubToken",
 } as const satisfies Record<string, SecretName>;
 
-/** A credential from secrets.json, only while its integration is enabled ("slackApp" is Slack's Socket Mode token). */
+/** A credential from secrets.json, only while its integration is enabled. */
 export const integrationKey = (name: keyof typeof KEYS) =>
-  integrationEnabled(name === "slackApp" ? "slack" : name) ? readSecret(KEYS[name]) : undefined;
+  integrationEnabled(name) ? readSecret(KEYS[name]) : undefined;

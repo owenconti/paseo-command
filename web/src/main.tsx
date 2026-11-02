@@ -77,15 +77,12 @@ import { openGithubPlace, prPlaceOf } from "./github/place";
 import { paseoMatches, type PaseoMatch, type PrHead } from "./github/paseo";
 import { MODE_LABEL as CHANGES_MODE_LABEL, SCOPE_TITLE as PR_SCOPE_TITLE, TAB_LABEL as PR_TAB_LABEL } from "./github/names";
 import { FILTERS as PR_FILTERS, fieldLabel as prFieldLabel, filtersSet as prFiltersSet, ME as PR_ME, PEOPLE_FIELDS as PR_PEOPLE_FIELDS, VALUE_FIELDS as PR_VALUE_FIELDS } from "./github/filters";
-import type { SlackViewState } from "./slack/SlackView";
-import type { SlackContext } from "./slack/prompt";
 import { useActivityUnread } from "./activity/store";
 import { SOURCE_LABEL } from "./activity/rows";
 import type { IssueContext } from "./linear/prompt";
 import type { LinearOpenIssue, LinearViewState } from "./linear/LinearView";
 import type { LinearPlace } from "./linear/place";
 import { GROUPING_LABEL } from "./linear/display";
-import { copySlackManifest, createSlackApp } from "./slack/SlackAppSetup";
 import { createGithubToken } from "./GithubTokenSetup";
 import { useAppUpdate } from "./releases";
 import { AddProject } from "./AddProject";
@@ -160,7 +157,6 @@ const MODE_PAGES: Record<AppMode, Page> = {
   conquer: "Conquer",
   activity: "Activity",
   linear: "Linear",
-  slack: "Slack",
   github: "GitHub",
   settings: "Settings",
 };
@@ -174,11 +170,7 @@ const NativeWorld = React.lazy(() =>
 const LinearView = React.lazy(() =>
   import("./linear/LinearView").then((module) => ({ default: module.LinearView })),
 );
-// The Slack tab, likewise.
-const SlackView = React.lazy(() =>
-  import("./slack/SlackView").then((module) => ({ default: module.SlackView })),
-);
-// The Activity tab (GitHub, Linear and Slack notifications), likewise.
+// The Activity tab (GitHub and Linear notifications), likewise.
 const ActivityView = React.lazy(() =>
   import("./activity/ActivityView").then((module) => ({ default: module.ActivityView })),
 );
@@ -889,13 +881,6 @@ function App() {
   const [linearView, setLinearView] = useState<LinearViewState | undefined>();
   // Whether the Linear tab's workspace is in, for ⌘K's Create Linear issue.
   const [linearReady, setLinearReady] = useState(false);
-  // The Slack tab's conversations and what's open, for ⌘K's entries for them.
-  const [slackView, setSlackView] = useState<SlackViewState | undefined>();
-  // From Slack messages or a thread: New agent, its first message quoting them.
-  const launchFromSlack = useCallback(
-    (slack: SlackContext) => openDispatch({ slack }),
-    [openDispatch],
-  );
   // The Activity tab's filter and selected item, for ⌘K's entries for them.
   const [activityView, setActivityView] = useState<ActivityViewState | undefined>();
   const showActivity = appTabs(integrations).activity;
@@ -938,11 +923,10 @@ function App() {
     openGithubPlace({ kind: "changes" });
     postAppMenu("github");
   }, []);
-  // Linear, Slack, GitHub, Activity and Settings share one text size (⌘+ ⌘− ⌘0, `pageText.ts`).
+  // Linear, GitHub, Activity and Settings share one text size (⌘+ ⌘− ⌘0, `pageText.ts`).
   const pageShown =
     settingsShown ||
     (appMode === "linear" && integrations.linear) ||
-    (appMode === "slack" && integrations.slack) ||
     (appMode === "github" && integrations.github) ||
     (appMode === "activity" && showActivity);
   usePageTextKeys(pageShown);
@@ -1320,12 +1304,11 @@ function App() {
     conquer: "browser",
     activity: "Activity",
     linear: "Linear",
-    slack: "Slack",
     github: "GitHub",
     settings: "Settings",
   };
   const modeTabs = shownModes(integrations).map((mode) => [mode, modeNames[mode]] as const);
-  // A tab's ⌘1…⌘7, in the macOS app.
+  // A tab's ⌘1…⌘6, in the macOS app.
   const tabKeys = (mode: AppMode) => (macApp() ? [modeKey(integrations, mode)] : undefined);
   const paletteCommands: Command[] = [
     {
@@ -1813,7 +1796,6 @@ function App() {
           run: () => runAppCommand(command),
         }))
       : []),
-    // Making the Slack app the Slack tab needs (Settings' Set up a Slack app).
     ...(integrations.github
       ? [
           {
@@ -1824,128 +1806,6 @@ function App() {
             keywords: "github token pat personal access classic create setup scopes key",
             run: createGithubToken,
           },
-        ]
-      : []),
-    ...(integrations.slack
-      ? [
-          {
-            id: "slack-create-app",
-            group: "App",
-            page: "Settings" as const,
-            label: "Create the Slack app (opens Slack with its manifest)",
-            keywords: "slack app manifest create setup token scopes install",
-            run: createSlackApp,
-          },
-          {
-            id: "slack-copy-manifest",
-            group: "App",
-            page: "Settings" as const,
-            label: "Copy the Slack app manifest",
-            keywords: "slack app manifest copy setup scopes json",
-            run: () =>
-              void copySlackManifest().then(
-                () => setNotice("Slack app manifest copied: paste it in Slack's Create New App → From a manifest."),
-                (e) => setNotice(errorMessage(e) || "Couldn't copy the manifest."),
-              ),
-          },
-        ]
-      : []),
-    ...(integrations.slack && appMode !== "slack"
-      ? [
-          {
-            id: "slack-show",
-            group: "App",
-            page: "Slack" as const,
-            label: "Show Slack",
-            keys: tabKeys("slack"),
-            keywords: "slack messages channels chat dm conversations mode tab",
-            run: () => postAppMenu("slack"),
-          },
-        ]
-      : []),
-    ...(integrations.slack && appMode === "slack" && slackView
-      ? [
-          ...(
-            [
-              ["slack-refresh", "Refresh Slack", "slack reload update sync messages", undefined],
-              ["slack-sidebar", "Show or hide the Slack sidebar", "slack sidebar channels collapse panel", ["⌘", "S"]],
-              ["slack-search", "Search Slack messages", "slack search find messages", ["/"]],
-              ...(slackView.unreadCount > 0
-                ? ([["slack-next-unread", "Next unread Slack conversation", "slack unread next jump", ["⌥", "⇧", "↓"]]] as const)
-                : []),
-              ...(slackView.openConversationId
-                ? ([["slack-mark-read", "Mark the Slack conversation read", "slack read seen clear unread", undefined]] as const)
-                : []),
-              ...(slackView.openConversationId && !slackView.searching
-                ? ([["slack-compose", "Write a Slack message", "slack message reply compose send type", ["C"]]] as const)
-                : []),
-              ...(slackView.threadOpen
-                ? ([["slack-close-thread", "Close the Slack thread", "slack thread close back", ["Esc"]]] as const)
-                : []),
-              ...(slackView.canLaunch
-                ? ([["slack-launch", "Launch agent from this Slack thread or message", "slack agent dispatch new agent launch work thread", undefined]] as const)
-                : []),
-              ...(slackView.hasRecent
-                ? ([["slack-recent", "Go to Recent in Slack", "slack recent latest newest threads conversations activity sidebar", undefined]] as const)
-                : []),
-              ["slack-new-section", "New Slack sidebar section…", "slack section sidebar group folder create new add", undefined],
-            ] as const
-          ).map(([command, label, keywords, keys]) => ({
-            id: command,
-            group: "App",
-            page: "Linear" as const,
-            label,
-            ...(keys ? { keys: [[...keys]] } : {}),
-            keywords,
-            run: () => runAppCommand(command),
-          })),
-          ...(() => {
-            const open = slackView.conversations.find((c) => c.id === slackView.openConversationId);
-            if (!open) return [];
-            const name = open.kind === "channel" || open.kind === "private" ? `#${open.name}` : open.name;
-            const current = slackView.sections.find((x) => x.id === slackView.openSectionId);
-            const keywords = "slack section sidebar move group folder organize";
-            return [
-              ...slackView.sections
-                .filter((x) => x.id !== slackView.openSectionId)
-                .map((x) => ({
-                  id: `slack-move-to-section:${x.id}`,
-                  group: "App",
-                  page: "Slack" as const,
-                  label: `Move ${name} to the ${x.name} section`,
-                  keywords,
-                  run: () => runAppCommand("slack-move-to-section", x.id),
-                })),
-              {
-                id: "slack-move-to-section:new",
-                group: "App",
-                page: "Slack" as const,
-                label: `Move ${name} to a new section…`,
-                keywords: `${keywords} new create`,
-                run: () => runAppCommand("slack-move-to-section", "new"),
-              },
-              ...(current
-                ? [
-                    {
-                      id: "slack-move-to-section:none",
-                      group: "App",
-                      page: "Slack" as const,
-                      label: `Remove ${name} from the ${current.name} section`,
-                      keywords: `${keywords} remove out back channels`,
-                      run: () => runAppCommand("slack-move-to-section", null),
-                    },
-                  ]
-                : []),
-            ];
-          })(),
-          ...slackView.conversations.map((c) => ({
-            id: `slack-go:${c.id}`,
-            group: "Navigate",
-            page: "Slack" as const,
-            label: `Go to ${c.kind === "channel" || c.kind === "private" ? `#${c.name}` : c.name} in Slack`,
-            keywords: `slack conversation channel dm ${c.kind} ${c.unread ? "unread" : ""}`,
-            run: () => runAppCommand("slack-go", c.id),
-          })),
         ]
       : []),
     ...(integrations.github && appMode !== "github"
@@ -2150,9 +2010,9 @@ function App() {
             id: "activity-show",
             group: "App",
             page: "Activity" as const,
-            label: "Show Activity (GitHub, Linear and Slack notifications)",
+            label: "Show Activity (GitHub and Linear notifications)",
             keys: tabKeys("activity"),
-            keywords: "activity notifications inbox feed github linear slack mentions reviews mode tab",
+            keywords: "activity notifications inbox feed github linear mentions reviews mode tab",
             run: () => postAppMenu("activity"),
           },
         ]
@@ -2167,7 +2027,7 @@ function App() {
             keywords: "activity notifications reload update sync",
             run: () => runAppCommand("activity-refresh"),
           },
-          ...(["all", ...(["github", "linear", "slack"] as const).filter((source) => integrations[source])] as const)
+          ...(["all", ...(["github", "linear"] as const).filter((source) => integrations[source])] as const)
             .filter((filter) => filter !== activityView.filter)
             .map((filter) => ({
               id: `activity-filter:${filter}`,
@@ -2615,7 +2475,7 @@ function App() {
           page: "App" as const,
           label,
           keys: [[...keys]],
-          keywords: `${words} linear slack activity settings page`,
+          keywords: `${words} linear github activity settings page`,
           run: () => runAppCommand(id),
         }))
       : []),
@@ -2629,7 +2489,7 @@ function App() {
             label: "Settings",
             keys: macApp() ? [["⌘", ","], modeKey(integrations, "settings")] : undefined,
             keywords:
-              "preferences integrations api keys secrets sounds music notifications linear slack github typesafe tab",
+              "preferences integrations api keys secrets sounds music notifications linear github typesafe tab",
             run: () => openSettings(),
           },
         ]
@@ -2650,7 +2510,6 @@ function App() {
       ? (
           [
             ["linear", "Linear"],
-            ["slack", "Slack"],
             ["github", "GitHub notifications"],
             ["typesafe", "TypeSafe"],
           ] as const
@@ -2666,7 +2525,7 @@ function App() {
           },
         }))
       : []),
-    ...([ ["linear", "Linear", "API key"], ["slack", "Slack", "tokens"], ["typesafe", "TypeSafe", "API key"] ] as const)
+    ...([ ["linear", "Linear", "API key"], ["typesafe", "TypeSafe", "API key"] ] as const)
       .filter(([name]) => integrations[name])
       .map(([name, label, what]) => ({
         id: `manage-${name}-key`,
@@ -2828,11 +2687,6 @@ function App() {
                 loaded={!loading}
               />
             </React.Suspense>
-            {integrations.slack && appMode === "slack" && (
-              <React.Suspense fallback={null}>
-                <SlackView onLaunch={launchFromSlack} onNotice={setNotice} onViewState={setSlackView} />
-              </React.Suspense>
-            )}
             {integrations.github && appMode === "github" && (
               <React.Suspense fallback={null}>
                 <GitHubView workspace={githubWorkspace} onNotice={setNotice} onViewState={setGithubView} paseoFor={paseoFor} onOpenPaseo={openPaseo} />

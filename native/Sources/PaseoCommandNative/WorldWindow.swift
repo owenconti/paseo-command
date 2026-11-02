@@ -12,11 +12,11 @@ final class AppWindow: NSWindow {
         guard let url = document(), ["http", "https"].contains(url.scheme ?? "") else { return super.accessibilityDocument() }
         return url.absoluteString
     }
-    /// ⌘1…⌘7 pick the mode bar's tabs (the View menu's) from anywhere in the window, ahead of its
+    /// ⌘1…⌘6 pick the mode bar's tabs (the View menu's) from anywhere in the window, ahead of its
     /// views: the page, the terminal panel, and Conquer's pages even while it has the keyboard.
     override func performKeyEquivalent(with event: NSEvent) -> Bool {
         if event.type == .keyDown, event.modifierFlags.intersection([.command, .shift, .control, .option]) == .command,
-           let key = event.charactersIgnoringModifiers, ("1"..."7").contains(key),
+           let key = event.charactersIgnoringModifiers, ("1"..."6").contains(key),
            NSApp.mainMenu?.performKeyEquivalent(with: event) == true { return true }
         return super.performKeyEquivalent(with: event)
     }
@@ -36,7 +36,7 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
     let content: NSView
     /// Covers the window until the map has drawn (see `revealWhenDrawn`).
     let splash: SplashView
-    /// The strip across the top that switches between Command, Conquer, Activity, Linear, Slack, GitHub and Settings.
+    /// The strip across the top that switches between Command, Conquer, Activity, Linear, GitHub and Settings.
     let modeBar: ModeBar
     /// Command: the map, the page over it, the split over that and its splash, under the mode bar.
     let command: NSView
@@ -53,7 +53,7 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
     private(set) var enabledModes: Set<Mode> = [.settings] { didSet { if enabledModes != oldValue { onModesChanged?() } } }
     /// The tabs shown changed (the View menu renumbers its keys).
     var onModesChanged: (() -> Void)?
-    /// The tabs shown, in the mode bar's order: ⌘` steps through them, ⌘1…⌘7 pick one.
+    /// The tabs shown, in the mode bar's order: ⌘` steps through them, ⌘1…⌘6 pick one.
     var shownModes: [Mode] { Mode.tabs.filter { !$0.drawnByPage || enabledModes.contains($0) } }
     /// The side Settings returns to when it closes.
     private var beforeSettings: Mode = .command
@@ -264,7 +264,7 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         let point = CGPoint(x: body["x"] as? Double ?? 0, y: body["y"] as? Double ?? 0)
         switch type {
         case "mode":
-            // The page asks which side shows (it draws Linear, Slack, GitHub and Activity itself, over the map).
+            // The page asks which side shows (it draws Linear, GitHub and Activity itself, over the map).
             sendMode()
         case "activity":
             // Activity's unread count, for its tab.
@@ -297,7 +297,7 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
             drawer.show(selected)
         case "openLink":
             // A link clicked in the chat: a new Conquer tab, in the map's place.
-            // A Linear issue, Slack message or GitHub pull request goes to the page for its tab, unless the page sent it `direct`.
+            // A Linear issue or GitHub pull request goes to the page for its tab, unless the page sent it `direct`.
             if let text = body["url"] as? String, let url = URL(string: text), url.scheme?.hasPrefix("http") == true {
                 if body["direct"] as? Bool == true || !routeLink(url) { openInApp(url) }
             }
@@ -324,7 +324,6 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
             case "conquer": show(.conquer)
             case "mode-next": show(nextMode)
             case "linear": show(.linear)
-            case "slack": show(.slack)
             case "github": show(.github)
             case "activity": show(.activity)
             case "settings": show(.settings)
@@ -814,14 +813,13 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
               "width": button.width, "height": button.height], as: "paseo:bar")
     }
 
-    /// Tell the page which side shows, so it draws Linear, Slack, GitHub or Activity in the map's place.
+    /// Tell the page which side shows, so it draws Linear, GitHub or Activity in the map's place.
     private func sendMode() { send(["mode": mode.rawValue], as: "paseo:mode") }
 
     /// Open `url` in a new Conquer tab (a link from the chat), in the map's
     /// place, once its tabs and cookies are in.
-    /// The page's tab a link opens in: a Linear issue (`linear.app/<workspace>/issue/<KEY>`) or a Slack
-    /// conversation or message (`<team>.slack.com/archives/<id>…`), or a GitHub pull request
-    /// (`github.com/<owner>/<repo>/pull/<n>…`), as the page's `parseAppLink` reads them.
+    /// The page's tab a link opens in: a Linear issue (`linear.app/<workspace>/issue/<KEY>`) or a GitHub
+    /// pull request (`github.com/<owner>/<repo>/pull/<n>…`), as the page's `parseAppLink` reads them.
     static func pageMode(for url: URL) -> Mode? {
         guard ["http", "https"].contains(url.scheme?.lowercased() ?? ""), let host = url.host?.lowercased() else { return nil }
         let parts = url.path.split(separator: "/").map(String.init)
@@ -829,15 +827,13 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
             text.range(of: pattern, options: [.regularExpression, .caseInsensitive]) != nil
         }
         if host == "linear.app", parts.count >= 3, parts[1] == "issue", matches(parts[2], "^[a-z][a-z0-9]{0,9}-[0-9]{1,6}$") { return .linear }
-        if host.hasSuffix(".slack.com"), parts.count >= 2, parts[0] == "archives",
-           parts[1].range(of: "^[CDG][A-Z0-9]{1,30}$", options: .regularExpression) != nil { return .slack }
         if host == "github.com" || host == "www.github.com", parts.count >= 4, parts[2] == "pull",
            matches(parts[0], "^[A-Za-z0-9_.-]{1,100}$"), matches(parts[1], "^[A-Za-z0-9_.-]{1,100}$"),
            matches(parts[3], "^[0-9]{1,9}$") { return .github }
         return nil
     }
 
-    /// Hands a Linear issue's, Slack message's or GitHub pull request's link to the page, which opens it in that tab
+    /// Hands a Linear issue's or GitHub pull request's link to the page, which opens it in that tab
     /// (or back in Conquer when it isn't the workspace's); false when that tab is off or it's another link.
     func routeLink(_ url: URL) -> Bool {
         guard let mode = Self.pageMode(for: url), enabledModes.contains(mode) else { return false }

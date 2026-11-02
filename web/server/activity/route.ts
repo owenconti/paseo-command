@@ -8,7 +8,7 @@ import { bodyOf } from "../api/http";
 import { errorText } from "../wire";
 import { activityFeed, activityWrite } from "./feed";
 
-export const ACTIVITY_KEY = /^(github|linear|slack):[\w:.-]{1,200}$/;
+export const ACTIVITY_KEY = /^(github|linear):[\w:.-]{1,200}$/;
 export const MAX_KEYS = 200;
 const WRITES: ActivityWriteName[] = ["read", "unread", "done"];
 

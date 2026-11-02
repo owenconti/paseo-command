@@ -1,12 +1,11 @@
 /**
  * Opening an Activity item where it lives: a Linear issue or project in the
- * Linear tab (a Linear pull request notification, the issue it names), a Slack conversation or thread in the Slack tab, a pull request
+ * Linear tab (a Linear pull request notification, the issue it names), a pull request
  * in the GitHub tab (the app routes its link there), anything else (GitHub) in
  * Conquer. Opening marks it read.
  */
 import { openLinearIssue } from "../appLinks";
 import { writePlace } from "../linear/place";
-import { openSlackPlace } from "../slack/place";
 import { macApp, postAppLink, postAppMenu } from "../worldBridge";
 import { writeItems } from "./store";
 import type { ActivityItem } from "./types";
@@ -26,15 +25,6 @@ export function openActivityItem(item: ActivityItem): void {
     if (open.kind === "linear-project") {
       writePlace({ screen: "project", projectId: open.id });
       postAppMenu("linear");
-      return;
-    }
-    if (open.kind === "slack") {
-      openSlackPlace({
-        conversationId: open.conversationId,
-        ...(open.threadTs ? { threadTs: open.threadTs } : {}),
-        ...(open.ts ? { ts: open.ts } : {}),
-      });
-      postAppMenu("slack");
       return;
     }
   }

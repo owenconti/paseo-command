@@ -1,29 +1,28 @@
 /**
  * The Activity tab's shapes, shared by the server (`web/server/activity/`,
- * which gathers GitHub, Linear and Slack notifications into one feed) and the
+ * which gathers GitHub and Linear notifications into one feed) and the
  * page (`web/src/activity/`).
  */
 
-export type ActivitySource = "github" | "linear" | "slack";
+export type ActivitySource = "github" | "linear";
 
 export type ActivityItem = {
   /** Unique across sources: `<source>:<source's own id>`. */
   key: string;
   source: ActivitySource;
-  /** The source's own id: a GitHub notification thread, a Linear notification, a Slack conversation + ts. */
+  /** The source's own id: a GitHub notification thread, a Linear notification. */
   id: string;
   /**
    * What happened, in the source's words, as a short kind:
    * GitHub: review_requested, mention, team_mention, author, comment, assign, ci_activity, state_change, subscribed, …
    * Linear: its notification type (issueNewComment, issueAssignedToYou, …).
-   * Slack: dm, mention, thread.
    */
   kind: string;
-  /** The line people read first: a PR's or issue's title, a Slack conversation's name. */
+  /** The line people read first: a PR's or issue's title. */
   title: string;
-  /** A second line: a repo and number, an issue key, the message's words (clipped to 300 characters). */
+  /** A second line: a repo and number, an issue key, a comment's words (clipped to 300 characters). */
   subtitle?: string;
-  /** What it's about, for its icon: pull, issue, release, discussion, commit, check; issue, project; message. */
+  /** What it's about, for its icon: pull, issue, release, discussion, commit, check; issue, project. */
   subject: string;
   /** Who did it, when known. */
   actor?: { name: string; avatarUrl?: string };
@@ -32,11 +31,10 @@ export type ActivityItem = {
   unread: boolean;
   /** Where it opens: a web address (GitHub, else the source's page). */
   url?: string;
-  /** Where it opens in the app, when it can: a Linear issue (by key) or project, a Slack conversation or thread. */
+  /** Where it opens in the app, when it can: a Linear issue (by key) or project. */
   open?:
     | { kind: "linear-issue"; key: string }
-    | { kind: "linear-project"; id: string }
-    | { kind: "slack"; conversationId: string; ts?: string; threadTs?: string };
+    | { kind: "linear-project"; id: string };
   /** GitHub: the PR's or issue's state, when known (open, closed, merged, draft). */
   state?: string;
 };

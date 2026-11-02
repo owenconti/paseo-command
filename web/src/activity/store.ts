@@ -140,8 +140,8 @@ export function setActivityNotice(next: ((message: string) => void) | null): voi
 
 let integrationsKey = "";
 /** Which sources are on: off forgets the feed; a change asks again at once. */
-export function setActivityIntegrations(integrations: Pick<Integrations, "github" | "linear" | "slack">): void {
-  const key = JSON.stringify([integrations.github, integrations.linear, integrations.slack]);
+export function setActivityIntegrations(integrations: Pick<Integrations, "github" | "linear">): void {
+  const key = JSON.stringify([integrations.github, integrations.linear]);
   if (key === integrationsKey) return;
   integrationsKey = key;
   const enabled = activityEnabled(integrations as Integrations);

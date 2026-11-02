@@ -58,20 +58,6 @@ export type AppCommand =
   | "linear-copy-link"
   | "linear-archive"
   | "linear-delete"
-  | "manage-slack-key"
-  | "slack-refresh"
-  | "slack-sidebar"
-  | "slack-search"
-  | "slack-go"
-  | "slack-open"
-  | "slack-next-unread"
-  | "slack-mark-read"
-  | "slack-close-thread"
-  | "slack-compose"
-  | "slack-launch"
-  | "slack-recent"
-  | "slack-new-section"
-  | "slack-move-to-section"
   | "activity-refresh"
   | "activity-filter"
   | "activity-unread-only"
@@ -105,7 +91,7 @@ export type AppCommand =
 
 const EVENT = "paseo:command";
 
-/** Asks for `name`; `arg` is what it acts on, where it needs one (`linear-go`: the place; `slack-go`/`slack-open`: the conversation; `activity-filter`: the source or "all"; `github-open`/`github-go`: the place; `github-tab`: the PR's tab; `github-review`: the verdict; `github-star`: `{kind, name, starred}`; `github-filter`: the filter to open; `github-set-filter`: `{field, value}` (a people filter's value: its logins) or "clear"). */
+/** Asks for `name`; `arg` is what it acts on, where it needs one (`linear-go`: the place; `activity-filter`: the source or "all"; `github-open`/`github-go`: the place; `github-tab`: the PR's tab; `github-review`: the verdict; `github-star`: `{kind, name, starred}`; `github-filter`: the filter to open; `github-set-filter`: `{field, value}` (a people filter's value: its logins) or "clear"). */
 export function runAppCommand(name: AppCommand, arg?: unknown) {
   // The detail stays the bare name: the macOS app sends its own that way.
   window.dispatchEvent(Object.assign(new CustomEvent(EVENT, { detail: name }), { arg }));

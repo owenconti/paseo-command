@@ -8,24 +8,6 @@ describe("app links", () => {
     assert.deepEqual(parseAppLink("https://linear.app/acme/issue/DE-7"), { kind: "linear", issue: "DE-7" });
   });
 
-  it("reads a Slack conversation's, message's and reply's links", () => {
-    assert.deepEqual(parseAppLink("https://acme.slack.com/archives/C0123ABC"), {
-      kind: "slack",
-      host: "acme.slack.com",
-      conversationId: "C0123ABC",
-    });
-    assert.deepEqual(parseAppLink("https://acme.slack.com/archives/C0123ABC/p1700000000123456"), {
-      kind: "slack",
-      host: "acme.slack.com",
-      conversationId: "C0123ABC",
-      ts: "1700000000.123456",
-    });
-    assert.deepEqual(
-      parseAppLink("https://acme.slack.com/archives/D0123/p1700000001000200?thread_ts=1700000000.123456&cid=D0123"),
-      { kind: "slack", host: "acme.slack.com", conversationId: "D0123", threadTs: "1700000000.123456", ts: "1700000001.000200" },
-    );
-  });
-
   it("reads a GitHub pull request's link, at its tab", () => {
     assert.deepEqual(parseAppLink("https://github.com/acme/web.app/pull/42"), {
       kind: "github",
@@ -43,8 +25,9 @@ describe("app links", () => {
       "https://linear.app/acme/settings",
       "https://evil.example/acme/issue/DE-1",
       "https://linear.app.evil.example/acme/issue/DE-1",
-      "https://slack.com/archives/C0123",
-      "https://acme.slack.com/client/T1/C0123",
+      // Slack links open as ordinary links, in Conquer.
+      "https://acme.slack.com/archives/C0123ABC",
+      "https://acme.slack.com/archives/D0123/p1700000001000200?thread_ts=1700000000.123456",
       "https://github.com/acme/web/issues/3",
       "https://github.com/acme/web/pull/abc",
       "https://github.com.evil.example/acme/web/pull/1",

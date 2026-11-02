@@ -27,7 +27,7 @@ const item = (source: ActivitySource, id: string, unread = true, at = "2026-10-3
 });
 const feedOf = (items: ActivityItem[]): ActivityFeed => ({
   items,
-  sources: (["github", "linear", "slack"] as const).map((source) => ({
+  sources: (["github", "linear"] as const).map((source) => ({
     source,
     enabled: true,
     ok: true,
@@ -40,11 +40,11 @@ let server: ActivityItem[];
 let requests: { path: string; body?: unknown }[];
 let writeAnswer: (keys: string[]) => Promise<unknown>;
 let notices: string[];
-const on = { github: true, linear: true, slack: true };
+const on = { github: true, linear: true };
 
 beforeEach(() => {
   resetActivityStore();
-  server = [item("github", "1"), item("linear", "issue:abcdef12"), item("slack", "C1:1", false)];
+  server = [item("github", "1"), item("linear", "issue:abcdef12"), item("linear", "issue:fedcba98", false)];
   requests = [];
   notices = [];
   writeAnswer = async () => ({ feed: feedOf(server) });
@@ -58,7 +58,7 @@ beforeEach(() => {
 afterEach(() => setActivityTransport(null));
 
 test("asks nothing while every source is off", async () => {
-  setActivityIntegrations({ github: false, linear: false, slack: false });
+  setActivityIntegrations({ github: false, linear: false });
   await loadActivity();
   assert.equal(requests.length, 0);
   assert.equal(unreadOf(activityStore.getState()), undefined);
@@ -107,13 +107,13 @@ test("a refused write is put back with a notice", async () => {
 });
 
 test("GitHub items aren't marked unread; those already so aren't asked", async () => {
-  server = [item("github", "1", false), item("slack", "C1:1", false)];
+  server = [item("github", "1", false), item("linear", "issue:fedcba98", false)];
   setActivityIntegrations(on);
   await loadActivity();
   assert.equal(await writeItems("unread", ["github:1"]), true);
   assert.equal(requests.length, 1);
-  await writeItems("unread", ["github:1", "slack:C1:1"]);
-  assert.deepEqual(requests.at(-1)!.body, { keys: ["slack:C1:1"] });
+  await writeItems("unread", ["github:1", "linear:issue:fedcba98"]);
+  assert.deepEqual(requests.at(-1)!.body, { keys: ["linear:issue:fedcba98"] });
 });
 
 test("a poll answered after a write settled doesn't undo it", async () => {
@@ -139,12 +139,12 @@ test("polls every 30 s while shown and visible, else a minute", () => {
 });
 
 test("applies done and read over the server's feed", () => {
-  const feed = feedOf([item("github", "1"), item("slack", "C1:1")]);
+  const feed = feedOf([item("github", "1"), item("linear", "issue:fedcba98")]);
   const out = applyWrites(feed, [
     { name: "done", keys: new Set(["github:1"]) },
-    { name: "read", keys: new Set(["slack:C1:1"]) },
+    { name: "read", keys: new Set(["linear:issue:fedcba98"]) },
   ]);
-  assert.deepEqual(out.items.map((i) => [i.key, i.unread]), [["slack:C1:1", false]]);
+  assert.deepEqual(out.items.map((i) => [i.key, i.unread]), [["linear:issue:fedcba98", false]]);
   assert.equal(applyWrites(feed, []), feed);
 });
 
@@ -155,11 +155,10 @@ test("rows: filters, day groups and words", () => {
   assert.equal(dayGroup(at(30, 23), now), "Yesterday");
   assert.equal(dayGroup(at(26), now), "This week");
   assert.equal(dayGroup(at(20), now), "Older");
-  const items = [item("github", "1", true, at(31)), item("linear", "issue:x1234567", false, at(31, 9)), item("slack", "C:1", true, at(20))];
+  const items = [item("github", "1", true, at(31)), item("linear", "issue:x1234567", false, at(31, 9)), item("linear", "issue:fedcba98", true, at(20))];
   assert.deepEqual(groupByDay(items, now).map((g) => [g.group, g.items.length]), [["Today", 2], ["Older", 1]]);
-  assert.deepEqual(filterItems(items, "unread").map((i) => i.source), ["github", "slack"]);
-  assert.deepEqual(filterItems(items, "linear").map((i) => i.source), ["linear"]);
+  assert.deepEqual(filterItems(items, "unread").map((i) => i.source), ["github", "linear"]);
+  assert.deepEqual(filterItems(items, "linear").map((i) => i.source), ["linear", "linear"]);
   assert.equal(whatHappened({ source: "github", kind: "review_requested" }), "Review requested");
   assert.equal(whatHappened({ source: "linear", kind: "issueSomethingNew" }), "Issue something new");
-  assert.equal(whatHappened({ source: "slack", kind: "dm" }), "Direct message");
 });

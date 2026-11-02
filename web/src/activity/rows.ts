@@ -2,9 +2,9 @@
 import type { ActivityItem, ActivitySource } from "./types";
 
 export type ActivityFilter = "all" | "unread" | ActivitySource;
-export const FILTERS: ActivityFilter[] = ["all", "unread", "github", "linear", "slack"];
+export const FILTERS: ActivityFilter[] = ["all", "unread", "github", "linear"];
 export const isFilter = (v: unknown): v is ActivityFilter => FILTERS.includes(v as ActivityFilter);
-export const SOURCE_LABEL: Record<ActivitySource, string> = { github: "GitHub", linear: "Linear", slack: "Slack" };
+export const SOURCE_LABEL: Record<ActivitySource, string> = { github: "GitHub", linear: "Linear" };
 
 export function filterItems(items: ActivityItem[], filter: ActivityFilter): ActivityItem[] {
   if (filter === "all") return items;
@@ -77,11 +77,10 @@ const LINEAR: Record<string, string> = {
   projectUpdateNewComment: "Comment on a project update",
   projectUpdatePrompt: "Project update due",
 };
-const SLACK: Record<string, string> = { dm: "Direct message", mention: "Mentioned you", thread: "Reply in a thread" };
 
-/** What happened, in words: a GitHub reason, a Linear notification type, a Slack kind. */
+/** What happened, in words: a GitHub reason, a Linear notification type. */
 export function whatHappened(item: Pick<ActivityItem, "source" | "kind">): string {
-  const known = (item.source === "github" ? GITHUB : item.source === "linear" ? LINEAR : SLACK)[item.kind];
+  const known = (item.source === "github" ? GITHUB : LINEAR)[item.kind];
   if (known) return known;
   const words = item.kind
     .replace(/_/g, " ")
