@@ -48,6 +48,10 @@ mark it done with its commit once merged into `main`.
   `application/vnd.github.html+json` `body_html`, images through camo), sanitized again in the page (an allowlist;
   no scripts, styles, event handlers or forms), links opening as other links do in the app. Keep it light/dark
   correct and the page's text size. Workspace: `github-render-comments`.
+- [ ] **Flaky e2e tests.** Agents saw these time out and pass on rerun: Linear sub-grouping (in full runs,
+  twice) and GitHub "drafts a line comment" (twice, as the first test after a fresh start, at the diff's comment
+  button). Find each cause (waits on timing, not state; worker/highlighting warm-up) and fix it so the full
+  `npm run app:e2e` passes 5 runs in a row. Workspace: `fix-flaky-e2e`.
 
 ## Done
 
