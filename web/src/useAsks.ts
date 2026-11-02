@@ -10,7 +10,8 @@ const eligible = (a: Agent) =>
   a.status === "idle" && !a.stale && !a.child && !isArchived(a);
 
 /** What each idle agent's last reply asks of you (server/asks.ts), polled
- *  until its turn is judged; each turn is judged once. */
+ *  until its turn is judged and any answers drafted; each turn is judged
+ *  once. */
 export function useAsks(
   agents: Agent[],
   enabled = false,
@@ -48,7 +49,8 @@ export function useAsks(
               controller.signal,
             ).catch(() => ({ ...NO_ASKS, error: "unavailable" }));
             if (stopped) return;
-            if (asks.pending) retry = 3000;
+            // Drafted answers land later; keep asking until they have.
+            if (asks.pending || asks.answering) retry = 3000;
             else if (asks.error) retry ||= 30000;
             else settled.current.add(key);
             setValues((old) =>

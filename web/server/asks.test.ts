@@ -200,3 +200,92 @@ test("drafted answers are read from the helper's JSON, one list per question", (
   assert.deepEqual(parseAnswers('{"answers": [["a", "b", "c", "d"]]}', 2), [["a", "b", "c"], []]);
   assert.throws(() => parseAnswers("I can't help with that.", 1));
 });
+
+const PUSH = "Should I push the branch and open a PR, or do you want the chamber fixtures deleted first?";
+/** Jev as it judged the reported reply: a question, but open. */
+const openJudge = (kind: string, calls: unknown[] = []): Judge => async (req) => {
+  calls.push(req);
+  const state = req.state as { sentences?: string[] };
+  return {
+    answers: Object.fromEntries(
+      Object.keys(req.questions).map((n) => {
+        const s = state.sentences?.[Number(n.split("_")[1])] ?? "";
+        if (n === "waiting") return [n, { noul: 0.9 }];
+        if (n.startsWith("ask_")) return [n, { noul: /\?$/.test(s) ? 0.95 : 0.05 }];
+        if (n.startsWith("kind_")) return [n, { choice: kind }];
+        return [n, { choice: "none" }];
+      }),
+    ),
+  };
+};
+
+test("an either/or question is a pick with its options, whatever kind Jev gives it", async () => {
+  for (const kind of ["open", "yes_no", "pick"]) {
+    const calls: unknown[] = [];
+    const asks = await judgeReply(openJudge(kind, calls), `Tests pass and the fixtures are in. ${PUSH}`);
+    assert.deepEqual(asks.questions, [
+      {
+        text: PUSH,
+        kind: "pick",
+        options: ["Push the branch and open a PR", "Delete the chamber fixtures first"],
+      },
+    ]);
+    // Its only reading needs no second request.
+    assert.equal(calls.length, 1, kind);
+  }
+  const more = await judgeReply(
+    openJudge("open"),
+    "Done. Do you want me to fix it now, or leave it for a follow-up PR?",
+  );
+  assert.deepEqual(more.questions[0].options, ["Fix it now", "Leave it for a follow-up PR"]);
+});
+
+test("plain yes/no and open questions keep their kinds", async () => {
+  const yes = await judgeReply(openJudge("yes_no"), "The build is green. Should I merge it, or not?");
+  assert.deepEqual(yes.questions, [{ text: "Should I merge it, or not?", kind: "yes_no" }]);
+  const open = await judgeReply(openJudge("open"), "I need the host name. Which host should I deploy to?");
+  assert.deepEqual(open.questions, [{ text: "Which host should I deploy to?", kind: "open" }]);
+});
+
+test("a pick's options never wait on drafted answers", async () => {
+  let drafts = 0;
+  const service = createAsksService(() => openJudge("open"), Date.now, async () => {
+    drafts++;
+    return new Promise<string[][]>(() => {});
+  });
+  const client = daemon([{ type: "assistant_message", text: PUSH, messageId: "m1" }]);
+  service.request(client as never, "local", record() as never);
+  await settle();
+  const asks = service.request(client as never, "local", record() as never);
+  assert.equal(asks.pending, false);
+  assert.equal(asks.answering, undefined);
+  assert.equal(asks.questions[0].options?.length, 2);
+  assert.equal(drafts, 0);
+});
+
+test("answers that never come stop being drafted in bounded time", async () => {
+  const service = createAsksService(
+    () => openJudge("open"),
+    Date.now,
+    () => new Promise<string[][]>(() => {}),
+    () => true,
+    30,
+  );
+  const client = daemon([{ type: "assistant_message", text: "Which host should I deploy to?", messageId: "m1" }]);
+  service.request(client as never, "local", record() as never);
+  await settle();
+  assert.equal(service.request(client as never, "local", record() as never).answering, true);
+  await new Promise((r) => setTimeout(r, 60));
+  const done = service.request(client as never, "local", record() as never);
+  assert.equal(done.answering, undefined);
+  assert.deepEqual(done.questions, [{ text: "Which host should I deploy to?", kind: "open" }]);
+  // A failing helper ends it at once, too.
+  const failing = createAsksService(() => openJudge("open"), Date.now, async () => {
+    throw new Error("no metadata model");
+  });
+  failing.request(client as never, "local", record() as never);
+  await settle();
+  const after = failing.request(client as never, "local", record() as never);
+  assert.equal(after.answering, undefined);
+  assert.equal(after.error, undefined);
+});

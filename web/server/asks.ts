@@ -20,7 +20,12 @@ import {
   type Asks,
   type ReplyQuestion,
 } from "../src/asks/types";
-import { mayAsk, optionReadings, replySentences } from "../src/asks/sentences";
+import {
+  mayAsk,
+  optionReadings,
+  pickOptions,
+  replySentences,
+} from "../src/asks/sentences";
 import {
   fillSuggestions,
   type SuggestionTemplate,
@@ -40,6 +45,8 @@ export const ASKS_YES = 0.7;
 export const SUGGEST_YES = 0.85;
 const PER_REQUEST = 20;
 const RETRY_MS = 60_000;
+/** Drafted answers are dropped past this, so "Drafting answers…" ends. */
+export const ANSWERS_MS = 90_000;
 const REFUSED_RETRY_MS = 10 * 60_000;
 
 type Answers = Record<
@@ -89,8 +96,9 @@ const kind = (i: number) =>
     type: "choice",
     instructions: `What kind of answer does \`sentences[${i}]\` ask the user for?`,
     criteria: {
-      yes_no: "Yes or no: to approve, confirm or decline one thing.",
-      pick: "One of two to four alternatives that it names itself.",
+      yes_no:
+        'Yes or no: to approve, confirm or decline one thing ("Should I merge it?").',
+      pick: 'One of two to four alternatives that it names itself, even whole actions: "Per-host or global?", "Should I push the branch, or do you want the fixtures deleted first?"',
       open: "Free-form information, or anything else.",
     },
   }) as const;
@@ -142,31 +150,35 @@ export async function judgeReply(
     )),
   ) as Answers;
   const questions: ReplyQuestion[] = [];
-  const picks: { q: ReplyQuestion; readings: string[][] }[] = [];
+  const picks: { q: ReplyQuestion; readings: string[][]; clear: string[] }[] = [];
   sentences.forEach((text, i) => {
     if ((answers[`ask_${i}`]?.noul ?? 0) < ASKS_YES) return;
-    const k = (answers[`kind_${i}`]?.choice ?? "open") as AskKind;
+    // An "A, or B?" question is a pick, whatever kind Jev gives it.
+    const clear = pickOptions(text);
+    const k = clear.length
+      ? "pick"
+      : ((answers[`kind_${i}`]?.choice ?? "open") as AskKind);
     const q: ReplyQuestion = { text, kind: k };
     questions.push(q);
-    if (k === "pick") {
-      const readings = optionReadings(text);
-      if (readings.length) picks.push({ q, readings });
-      else q.kind = "open";
-    }
+    if (k !== "pick") return;
+    const readings = [clear, ...optionReadings(text)].filter((r) => r.length);
+    if (readings.length === 1) q.options = readings[0];
+    else if (readings.length) picks.push({ q, readings, clear });
+    else q.kind = "open";
   });
   if (picks.length) {
     // Select among code's readings of the options rather than write them.
     const questions: Questions = {};
     picks.forEach(({ readings }, n) => {
       const criteria: Record<string, string> = {
-        none: "None of these lists the alternatives exactly.",
+        none: "None of these lists the alternatives.",
       };
       readings.forEach(
         (r, j) => (criteria[`r${j}`] = r.map((o) => `“${o}”`).join(" / ")),
       );
       questions[`options_${n}`] = {
         type: "choice",
-        instructions: `Which list names exactly the alternatives that \`picks[${n}]\` asks the user to choose between, each in full and nothing more?`,
+        instructions: `Which list names the alternatives that \`picks[${n}]\` asks the user to choose between, each in full and nothing more, as replies the user could send?`,
         criteria,
       };
     });
@@ -174,10 +186,11 @@ export async function judgeReply(
       state: { picks: picks.map((p) => p.q.text) },
       questions,
     });
-    picks.forEach(({ q, readings }, n) => {
+    picks.forEach(({ q, readings, clear }, n) => {
       const c = chosen[`options_${n}`]?.choice;
       const j = c && c !== "none" ? Number(c.slice(1)) : -1;
       if (readings[j]) q.options = readings[j];
+      else if (clear.length) q.options = clear;
       else q.kind = "open";
     });
   }
@@ -209,8 +222,8 @@ export function lastReply(items: Parameters<typeof fromTimeline>[0]) {
 
 type Entry = { turn: string; at: number; value: Asks };
 
-/** Injectable for tests: the judge, when there's a key, the clock, and the
- *  writer of answers to open questions. */
+/** Injectable for tests: the judge, when there's a key, the clock, the
+ *  writer of answers to open questions, and how long it may take. */
 export function createAsksService(
   judgeFor: () => Judge | undefined = () => {
     const key = typesafeKey();
@@ -219,6 +232,7 @@ export function createAsksService(
   now = Date.now,
   writeAnswers: WriteAnswers = helperAnswers,
   enabled: () => boolean = () => integrationEnabled("typesafe"),
+  answersMs = ANSWERS_MS,
 ) {
   const cache = new Map<string, Entry>();
   /** Judged replies by their text, so a turn's re-read never asks again. */
@@ -268,12 +282,14 @@ export function createAsksService(
         messageId: reply.messageId,
         pending: false,
       });
-      const drafted = await writeAnswers(
-        client,
-        source,
-        reply.text,
-        open.map((q) => q.text),
-      ).catch(() => open.map(() => []));
+      // A helper that fails, or never finishes, leaves the questions as they
+      // are: answers are a nicety, never a wait.
+      const none = () => open.map((): string[] => []);
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      const drafted = await Promise.race([
+        writeAnswers(client, source, reply.text, open.map((q) => q.text)).catch(none),
+        new Promise<string[][]>((r) => (timer = setTimeout(() => r(none()), answersMs))),
+      ]).finally(() => clearTimeout(timer));
       value = {
         ...value,
         questions: value.questions.map((q) => {

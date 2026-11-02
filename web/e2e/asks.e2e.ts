@@ -172,6 +172,32 @@ test("while answers are drafted, the open question says so", async () => {
   await close();
 });
 
+test("drafting answers ends once they land", async () => {
+  const w = world([{ text: CACHE, kind: "open" }], true, { answering: true });
+  const accept = w.fleet.accept;
+  let asked = 0;
+  w.fleet.accept = (path: string, body: any) =>
+    path === "/api/agents/a1/asks" && ++asked > 1
+      ? { messageId: "r1", waiting: true, questions: [{ text: CACHE, kind: "open", answers: ["Keep it global."] }], pending: false }
+      : accept(path, body);
+  const { page, close } = await open(w);
+  await strip(page).getByText("Drafting answers…").waitFor();
+  await strip(page).getByRole("button", { name: "Keep it global." }).waitFor();
+  assert.equal(await strip(page).getByText("Drafting answers…").count(), 0);
+  await close();
+});
+
+test("an either/or question offers its options at once", async () => {
+  const PUSH = "Should I push the branch and open a PR, or do you want the chamber fixtures deleted first?";
+  const w = world([{ text: PUSH, kind: "pick", options: ["Push the branch and open a PR", "Delete the chamber fixtures first"] }]);
+  const { page, close } = await open(w);
+  await strip(page).getByRole("button", { name: "Delete the chamber fixtures first" }).click();
+  const send = await waitFor(() => w.posts.find((p) => p.path === "/api/agents/a1/send"));
+  assert.equal(send.body.prompt, `> ${PUSH}\nDelete the chamber fixtures first`);
+  assert.equal(await strip(page).getByText("Drafting answers…").count(), 0);
+  await close();
+});
+
 test("a suggested reply sends in one click", async () => {
   const w = world([], true, { suggestion: "Okay, I've merged PR #3." });
   const { page, close } = await open(w);

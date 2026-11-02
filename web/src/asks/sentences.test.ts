@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mayAsk, optionReadings, replySentences } from "./sentences";
+import { mayAsk, optionReadings, pickOptions, replySentences } from "./sentences";
 
 test("sentences and list items, without code or marks", () => {
   assert.deepEqual(
@@ -44,4 +44,36 @@ test("only questions and requests may ask the user anything", () => {
     false,
   );
   assert.equal(mayAsk("I'll fix that alongside the next change."), false);
+});
+
+test("an \"A, or B?\" question's alternatives, as replies", () => {
+  const cases: [string, string[]][] = [
+    [
+      "Should I push the branch and open a PR, or do you want the chamber fixtures deleted first?",
+      ["Push the branch and open a PR", "Delete the chamber fixtures first"],
+    ],
+    [
+      "Should I push the branch and open a PR or do you want the chamber fixtures deleted first?",
+      ["Push the branch and open a PR", "Delete the chamber fixtures first"],
+    ],
+    ["Do you want me to fix it now, or leave it for a follow-up PR?", ["Fix it now", "Leave it for a follow-up PR"]],
+    [
+      "Would you like me to open a PR, or would you rather I keep going on this branch?",
+      ["Open a PR", "Keep going on this branch"],
+    ],
+    ["Keep the old endpoint, or remove it?", ["Keep the old endpoint", "Remove it"]],
+    ["Should I squash the commits or just rebase?", ["Squash the commits", "Just rebase"]],
+  ];
+  for (const [q, options] of cases) assert.deepEqual(pickOptions(q), options, q);
+  // Not clear alternatives: left to Jev and the readings.
+  for (const q of [
+    "Should I merge it, or not?",
+    "Should the cache be per-host or global?",
+    "Is it per-host, or global?",
+    "Use Redis, Memcached, or an in-memory map?",
+    "Can you check the logs, or should I?",
+    "Shall I continue?",
+    "Push the branch, or open a PR.",
+  ])
+    assert.deepEqual(pickOptions(q), [], q);
 });

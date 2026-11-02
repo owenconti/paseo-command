@@ -214,8 +214,13 @@ and GitHub publication; report the published version and release link.
   In the same request Jev picks an obvious next reply, if one clearly fits (≥ 0.85), from fixed templates in
   `web/src/asks/suggestions.ts` (`{pr}` filled from the reply when it names one PR); never when the reply asks a pick or open
   question. The composer shows it as "You might say" (`web/src/composer/SuggestStrip.tsx`); one click sends it.
+  A clear "A, or B?" question ("Should I push the branch, or do you want the fixtures deleted first?") is a pick whatever kind
+  Jev gives it, its two options phrased as replies by code (`pickOptions` in `sentences.ts`: "Push the branch", "Delete the fixtures
+  first"); other picks' options are Jev's choice among code's readings (`optionReadings`), falling back to those. A pick's options show at once.
   Open questions then get two or three answers drafted by a helper agent on the daemon's metadata model, as the current
   work summary is (`web/server/askAnswers.ts`, `runHelper` in `workingOn.ts`); the strip shows them as quick replies.
+  "Drafting answers…" ends within `ANSWERS_MS` (90 s): a helper that fails or doesn't finish leaves the question without answers;
+  the page (`web/src/useAsks.ts`) keeps polling while `answering`.
   Hovering the strip marks the questions' sentences in the transcript (`web/src/asks/highlight.ts`, CSS Highlight API).
 - `web/src/urlState.ts`: the panel's place (selection, subagent, tab, filter, host filter, list toggle) kept in
   the page's query, so a refresh returns there; a new selection pushes history, other changes replace it.

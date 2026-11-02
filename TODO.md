@@ -5,15 +5,6 @@ mark it done with its commit once merged into `main`.
 
 ## Open
 
-- [ ] **Asks: an either/or question gets its options as quick replies.** An agent's reply ended "Should I push
-  the branch and open a PR, or do you want the chamber fixtures deleted first?" The composer's "This reply asks"
-  strip (`web/src/composer/AskStrip.tsx`) showed the question with only "Drafting answers…", no options. An
-  "A, or B?" question is a pick: Jev (`web/server/asks.ts`, TypeSafe) should judge it as one with its options
-  ("Push the branch and open a PR", "Delete the chamber fixtures first"), offered at once as quick replies, without
-  waiting on the helper's drafted answers (`askAnswers.ts`). Find why it wasn't: the sentence split
-  (`web/src/asks/sentences.ts`, `mayAsk`), the prompt/schema given to Jev, or the strip's handling of a pick.
-  Also check "Drafting answers…" can't hang: it ends in answers, or a quiet fallback, within a bounded time.
-  Tests over fakes; never call TypeSafe or a real daemon. Workspace: `asks-either-or-options`.
 - [ ] **GitHub PR view: manage merge state, close and reopen.** The PR view (`PrView.tsx`) has Review and a
   read-only Merge section ("No conflicts with the base branch."). Make it act as GitHub's merge box, each action
   only where it applies and the token may (`viewerCanUpdate`, `viewerCanMergeAsAdmin`, the repo's allowed methods):
@@ -39,6 +30,12 @@ mark it done with its commit once merged into `main`.
 
 ## Done
 
+- [x] **Asks: an either/or question gets its options as quick replies.** "Should I push the branch and open a PR, or
+  do you want the chamber fixtures deleted first?" got no options: `optionReadings` refused alternatives over six words, so
+  the pick fell back to open and waited on drafted answers. Now a clear "A, or B?" question is a pick whatever Jev says, its
+  options phrased as replies by `pickOptions` (`sentences.ts`), shown at once; Jev's kind criteria name either/or picks. And
+  "Drafting answers…" could hang: the page stopped polling once a reply was judged, while answers were still drafted
+  (`useAsks.ts` now polls while `answering`), and the server gives the helper at most `ANSWERS_MS` (90 s).
 - [x] **GitHub PR conversation: newest first.** The Conversation tab lists newest first by default: the comment
   box on top, the newest entry under it, the description last (a review's own comments keep their order). A
   Newest first / Oldest first toggle at its head (and ⌘K) switches, one setting for every PR, kept in localStorage;
