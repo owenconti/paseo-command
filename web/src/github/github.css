@@ -961,9 +961,20 @@ button.gh-side-check-name:hover {
   min-height: 0;
 }
 .gd-view.with-list {
-  grid-template-columns: calc(240px * var(--lz)) minmax(0, 1fr);
+  /* The default leaves the diff its least (420 px) in a narrow window; a width chosen by the edge is set inline. */
+  --gd-list-width: min(calc(240px * var(--lz)), calc(100% - 420px));
+  grid-template-columns: var(--gd-list-width) minmax(0, 1fr);
+}
+/* The file list and, on its right edge, the edge that resizes it (ResizeEdge.tsx). */
+.gd-list-pane {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
 }
 .gd-list {
+  flex: 1;
   min-height: 0;
   overflow-y: auto;
   padding: var(--space-2) var(--space-2) var(--space-6);

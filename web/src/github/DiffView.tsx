@@ -15,7 +15,9 @@ import {
 } from "lucide-react";
 import { getSingularPatch, type DiffLineAnnotation, type FileDiffMetadata, type SelectedLineRange } from "@pierre/diffs";
 import { FileDiff, Virtualizer } from "@pierre/diffs/react";
+import { readStore, removeStore, writeStore } from "../api";
 import { copyText } from "../nativePlatform";
+import { ResizeEdge } from "../ResizeEdge";
 import { useTheme } from "../theme";
 import { Avatar, Body, CommentBox, Time } from "./bits";
 import { DIFF_THEMES } from "./diffWorkers";
@@ -24,6 +26,9 @@ import { anchorKey, byDirectory, lineCount, patchOf, placeThreads, splitPath, ty
 import type { DiffFile, DraftComment, ReviewThread } from "./types";
 
 export type DiffLayout = "unified" | "split";
+
+/** The file list's widths: its least, and the least the diff keeps beside it. Its default is the CSS's (240 px, scaled). */
+const LIST = { min: 160, diffMin: 420, key: "github:diffListWidth" };
 
 /** What a PR's review adds to its diff: threads, your drafted comments, and viewed files. */
 export type DiffReview = {
@@ -541,45 +546,84 @@ export function DiffView({
 
   const viewedCount = review ? files.filter((f) => review.viewed.get(f.path)).length : 0;
 
+  // The file list's width: its edge resizes it, kept for every diff (PR and Changes); double-click puts the default back.
+  const view = useRef<HTMLDivElement>(null);
+  const [viewWidth, setViewWidth] = useState(0);
+  useEffect(() => {
+    const el = view.current;
+    if (!el) return;
+    const watch = new ResizeObserver(() => setViewWidth(el.clientWidth));
+    watch.observe(el);
+    return () => watch.disconnect();
+  }, []);
+  const [listWidth, setListWidth] = useState(() => readStore<number | null>(LIST.key, null));
+  const listMax = Math.max(LIST.min, (viewWidth || 1600) - LIST.diffMin);
+  const clampList = (w: number) => Math.round(Math.min(listMax, Math.max(LIST.min, w)));
+  const listW = listWidth === null ? null : clampList(listWidth);
+  const resizeList = (w: number | null) => {
+    const next = w === null ? null : clampList(w);
+    setListWidth(next);
+    if (next === null) removeStore(LIST.key);
+    else writeStore(LIST.key, next);
+  };
+  // Too narrow for both, the list gives way so the diff keeps its least width.
+  const withList = listShown && files.length > 0 && (viewWidth === 0 || viewWidth >= LIST.min + LIST.diffMin);
+
   return (
-    <div className={`gd-view${listShown && files.length ? " with-list" : ""}`}>
-      {listShown && files.length > 0 && (
-        <nav className="gd-list" aria-label="Changed files">
-          <p className="gd-list-head">
-            {files.length === 1 ? "1 file" : `${files.length} files`}
-            {review && (
-              <span className="gh-hint">
-                {viewedCount} / {files.length} viewed
-              </span>
-            )}
-          </p>
-          {byDirectory(files).map((g) => (
-            <div key={g.dir} className="gd-list-group">
-              {g.dir && (
-                <p className="gd-list-dir" title={g.dir}>
-                  <Folder size={12} aria-hidden="true" />
-                  {g.dir}
-                </p>
+    <div
+      ref={view}
+      className={`gd-view${withList ? " with-list" : ""}`}
+      style={withList && listW !== null ? { gridTemplateColumns: `${listW}px minmax(0, 1fr)` } : undefined}
+    >
+      {withList && (
+        <div className="gd-list-pane">
+          <nav className="gd-list" id="gd-list" aria-label="Changed files">
+            <p className="gd-list-head">
+              {files.length === 1 ? "1 file" : `${files.length} files`}
+              {review && (
+                <span className="gh-hint">
+                  {viewedCount} / {files.length} viewed
+                </span>
               )}
-              {g.files.map((f) => (
-                <button
-                  key={f.path}
-                  className={`gd-list-file${current === f.path ? " current" : ""}${review?.viewed.get(f.path) ? " viewed" : ""}`}
-                  onClick={() => show(f.path)}
-                  title={f.path}
-                >
-                  <FileIcon file={f} />
-                  <span className="gd-list-name">{splitPath(f.path).name}</span>
-                  {(notesOf.get(f.path) ?? 0) > 0 && <MessageSquare size={11} aria-hidden="true" className="gd-list-notes" />}
-                  <span className="gh-churn small">
-                    {f.additions > 0 && <span className="add">+{f.additions}</span>}
-                    {f.deletions > 0 && <span className="del">−{f.deletions}</span>}
-                  </span>
-                </button>
-              ))}
-            </div>
-          ))}
-        </nav>
+            </p>
+            {byDirectory(files).map((g) => (
+              <div key={g.dir} className="gd-list-group">
+                {g.dir && (
+                  <p className="gd-list-dir" title={g.dir}>
+                    <Folder size={12} aria-hidden="true" />
+                    {g.dir}
+                  </p>
+                )}
+                {g.files.map((f) => (
+                  <button
+                    key={f.path}
+                    className={`gd-list-file${current === f.path ? " current" : ""}${review?.viewed.get(f.path) ? " viewed" : ""}`}
+                    onClick={() => show(f.path)}
+                    title={f.path}
+                  >
+                    <FileIcon file={f} />
+                    <span className="gd-list-name">{splitPath(f.path).name}</span>
+                    {(notesOf.get(f.path) ?? 0) > 0 && <MessageSquare size={11} aria-hidden="true" className="gd-list-notes" />}
+                    <span className="gh-churn small">
+                      {f.additions > 0 && <span className="add">+{f.additions}</span>}
+                      {f.deletions > 0 && <span className="del">−{f.deletions}</span>}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            ))}
+          </nav>
+          <ResizeEdge
+            label="Resize the file list"
+            controls="gd-list"
+            value={listW ?? view.current?.querySelector<HTMLElement>(".gd-list-pane")?.getBoundingClientRect().width ?? 240}
+            min={LIST.min}
+            max={listMax}
+            grows="right"
+            onResize={resizeList}
+            onReset={() => resizeList(null)}
+          />
+        </div>
       )}
       <div className="gd-scroll-wrap" ref={wrap}>
         <Virtualizer className="gd-scroll">

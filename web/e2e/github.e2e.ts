@@ -527,6 +527,94 @@ test("GitHub shows the selected workspace's changes against main, all or committ
   }
 });
 
+test("The diff's file list resizes by its edge (drag, keys, double-click), kept across reloads, and leaves the diff room", async () => {
+  const context = await newContext(browser);
+  const page = await context.newPage();
+  await page.setViewportSize({ width: 1600, height: 1000 });
+  await setUp(page);
+  try {
+    const open = async () => {
+      await page.goto(`${app.url}?workspace=wks_a`);
+      await page.locator(".place").waitFor();
+      await showGithub(page);
+      await page
+        .locator(".github-view")
+        .getByRole("button", { name: /Map polish/ })
+        .click();
+      await page.locator(".gd-file").nth(1).waitFor();
+    };
+    const width = (sel: string) =>
+      page
+        .locator(sel)
+        .evaluate((e) => Math.round(e.getBoundingClientRect().width));
+    await open();
+    const edge = page.getByRole("separator", { name: "Resize the file list" });
+    const start = await width(".gd-list-pane");
+    // Drag it 120 px wider.
+    const box = (await edge.boundingBox())!;
+    await page.mouse.move(box.x + box.width / 2, box.y + 200);
+    await page.mouse.down();
+    await page.mouse.move(box.x + box.width / 2 + 120, box.y + 200, {
+      steps: 6,
+    });
+    await page.mouse.up();
+    await waitFor(
+      () => width(".gd-list-pane"),
+      (w) => Math.abs(w - (start + 120)) <= 1,
+      "the dragged width",
+    );
+    // ← narrows by 16, ⇧→ widens by 64.
+    await edge.focus();
+    await page.keyboard.press("ArrowLeft");
+    await page.keyboard.press("Shift+ArrowRight");
+    const chosen = start + 120 - 16 + 64;
+    await waitFor(
+      () => width(".gd-list-pane"),
+      (w) => Math.abs(w - chosen) <= 1,
+      "the keyed width",
+    );
+    // Kept across a reload.
+    await open();
+    await waitFor(
+      () => width(".gd-list-pane"),
+      (w) => Math.abs(w - chosen) <= 1,
+      "the kept width",
+    );
+    // A narrow window keeps the diff usable: the list gives way.
+    await page.setViewportSize({ width: 1300, height: 800 });
+    await waitFor(
+      () => width(".gd-scroll-wrap"),
+      (w) => w >= 419,
+      "the diff's least width",
+    );
+    assert.ok((await width(".gd-list-pane")) < chosen, "the list gives way");
+    // Too narrow for both, the list hides.
+    await page.setViewportSize({ width: 900, height: 800 });
+    await page.locator(".gd-list-pane").waitFor({ state: "detached" });
+    await page.setViewportSize({ width: 1600, height: 1000 });
+    // Double-click restores the default.
+    await edge.dblclick();
+    await waitFor(
+      () => width(".gd-list-pane"),
+      (w) => Math.abs(w - start) <= 1,
+      "the default width",
+    );
+    assert.equal(
+      await page.evaluate(() =>
+        localStorage.getItem("paseo-command:github:diffListWidth"),
+      ),
+      null,
+    );
+    // Long names show in full on hover.
+    assert.equal(
+      await page.locator(".gd-list-file").first().getAttribute("title"),
+      "src/committed.ts",
+    );
+  } finally {
+    await context.close();
+  }
+});
+
 test("GitHub's sidebar: favourites, finding any repository, ⌘S, and a repository's filters (people too)", async () => {
   const context = await newContext(browser);
   const page = await context.newPage();

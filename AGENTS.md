@@ -407,7 +407,9 @@ and GitHub publication; report the published version and release link.
   ⌘K "Request review…" (open PRs) and "Assign…". Merge, then Checks: the count, then each check run and status, failing, then pending,
   then passing and skipped (folded behind "Show N passing" past five), with its workflow or app, how long it took (or "running for …")
   and its details opening as links do (Conquer). The diff
-  (`DiffView.tsx`): files by directory beside it, each file drawn by @pierre/diffs (`FileDiff`, from the parsed file as patch text,
+  (`DiffView.tsx`): files by directory beside it (its inner edge resizes the list, `ResizeEdge`: drag, ←/→, double-click for the default;
+  `github:diffListWidth` in localStorage, one width for every diff; the diff keeps 420 px, the list hiding when there's no room for both;
+  full paths on hover), each file drawn by @pierre/diffs (`FileDiff`, from the parsed file as patch text,
   `patchOf` in `rows.ts`; Shiki highlighting, word-level changes, unified or split, its pierre-dark/-light theme by the app's; highlighted in a pool of web workers, `diffWorkers.tsx`, with `worker: { format: "es" }`
   in `vite.config.ts`, and drawn only where in view, its `Virtualizer` being the diff's scroller), big and
   viewed files folded; in a review its gutter utility's + takes a comment (drag across lines for a range):

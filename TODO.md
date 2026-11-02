@@ -5,10 +5,6 @@ mark it done with its commit once merged into `main`.
 
 ## Open
 
-- [ ] **GitHub diff: resizable file list.** The diff view's file list (`DiffView.tsx`, "16 files · 0 / 16 viewed")
-  is a fixed width, cutting off directory and file names. Its inner edge resizes it (`web/src/ResizeEdge.tsx`, as
-  Activity's panes: drag, arrow keys, double-click restores the default), kept in localStorage; long names show
-  in full on hover. Workspace: `github-diff-file-list-resize`.
 - [ ] **Command palette: each entry names the page it's for.** The palette's right-hand label is a loose
   category (Actions, Lists, App, Agents, Workspaces, Projects), and entries with keys show only the key (e.g.
   "Change the Linear issue's project · M"). Label every entry with the part of Paseo Command it belongs to:
@@ -54,6 +50,10 @@ mark it done with its commit once merged into `main`.
 
 ## Done
 
+- [x] **GitHub diff: resizable file list.** The diff view's file list (`DiffView.tsx`) resizes by its inner edge
+  (`ResizeEdge`: drag, ←/→ with ⇧ for bigger steps, double-click restores the default), 160 px at least and leaving the
+  diff 420 px; the width is kept in localStorage for every diff (PR and workspace Changes), the list hides when the view
+  is too narrow for both, and long names show in full on hover.
 - [x] **GitHub PR view: "Open Paseo agent" for the PR's branch.** A PR's header shows Open Paseo agent while a Paseo
   workspace (on any host) has its branch checked out (`web/src/github/paseo.ts`): the PR Paseo names for the workspace,
   else its branch and remote against the PR's head ref and head repository (a fork's for a PR from one). It selects the
