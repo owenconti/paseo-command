@@ -176,10 +176,12 @@ export function customViewOf(raw: Raw): LinearCustomView | null {
   const display: LinearCustomView["display"] = {};
   const layout = pick(LAYOUT, prefs.layout);
   const grouping = pick(GROUPING, prefs.issueGrouping);
+  const subGrouping = pick(GROUPING, prefs.issueSubGrouping);
   const ordering = pick(ORDERING, prefs.viewOrdering);
   const completed = pick(COMPLETED, prefs.showCompletedIssues);
   if (layout) display.layout = layout;
   if (grouping) display.grouping = grouping;
+  if (subGrouping) display.subGrouping = subGrouping;
   if (ordering) display.ordering = ordering;
   if (completed) display.completed = completed;
   return {

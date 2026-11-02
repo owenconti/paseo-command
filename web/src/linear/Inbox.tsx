@@ -216,6 +216,8 @@ export function Inbox({
       filterBy: () => {},
       display: () => {},
       setLayout: () => {},
+      setSubGrouping: () => {},
+      swapGroupings: () => {},
       clearFilters: () => {},
     };
 

@@ -83,6 +83,7 @@ import { SOURCE_LABEL } from "./activity/rows";
 import type { IssueContext } from "./linear/prompt";
 import type { LinearOpenIssue, LinearViewState } from "./linear/LinearView";
 import type { LinearPlace } from "./linear/place";
+import { GROUPING_LABEL } from "./linear/display";
 import { copySlackManifest, createSlackApp } from "./slack/SlackAppSetup";
 import { createGithubToken } from "./GithubTokenSetup";
 import { useAppUpdate } from "./releases";
@@ -2149,7 +2150,7 @@ function App() {
             id: "linear-display",
             group: "App",
             label: "Linear display options",
-            keywords: "linear issues display view group grouping order ordering sort completed board list",
+            keywords: "linear issues display view group grouping sub-grouping order ordering sort completed board list",
             run: () => runAppCommand("linear-display"),
           },
           linearView.list?.layout === "board"
@@ -2167,6 +2168,41 @@ function App() {
                 keywords: "linear issues layout board kanban columns display",
                 run: () => runAppCommand("linear-layout", "board"),
               },
+          // Sub-grouping: by any property but the grouping's (a list that's grouped), cycles where a team runs them.
+          ...(linearView.list && linearView.list.grouping !== "none"
+            ? (["status", "assignee", "priority", "project", "cycle"] as const)
+                .filter(
+                  (g) =>
+                    g !== linearView.list!.grouping &&
+                    g !== linearView.list!.subGrouping &&
+                    (g !== "cycle" || linearView.teams.some((t) => t.cyclesEnabled)),
+                )
+                .map((g) => ({
+                  id: `linear-sub-group-${g}`,
+                  group: "App",
+                  label: `Sub-group the Linear list by ${GROUPING_LABEL[g].toLowerCase()}`,
+                  keywords: `linear issues display sub-grouping subgroup sub-group group swimlanes rows ${g}`,
+                  run: () => runAppCommand("linear-sub-group", g),
+                }))
+            : []),
+          ...(linearView.list && linearView.list.subGrouping !== "none"
+            ? [
+                {
+                  id: "linear-sub-group-none",
+                  group: "App",
+                  label: "Clear the Linear list's sub-grouping",
+                  keywords: "linear issues display sub-grouping subgroup sub-group remove none swimlanes",
+                  run: () => runAppCommand("linear-sub-group", "none"),
+                },
+                {
+                  id: "linear-swap-groupings",
+                  group: "App",
+                  label: "Swap the Linear list's grouping and sub-grouping",
+                  keywords: "linear issues display grouping sub-grouping subgroup swap exchange flip switch",
+                  run: () => runAppCommand("linear-swap-groupings"),
+                },
+              ]
+            : []),
           ...(linearView.list?.filtered
             ? [
                 {

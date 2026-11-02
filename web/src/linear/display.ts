@@ -3,7 +3,8 @@ import type { LinearIssue, LinearWorkspace } from "./types";
 
 /**
  * How a list of issues shows, as Linear's Display options: a list or a board,
- * grouped and ordered by a property, with or without what's finished. And
+ * grouped (and within each group sub-grouped) and ordered by a property, with
+ * or without what's finished. And
  * which issues it shows: Linear's filters, any of the chosen values of a
  * property, every property chosen. Both are kept per place (localStorage).
  */
@@ -11,9 +12,15 @@ export type Layout = "list" | "board";
 export type Grouping = "status" | "assignee" | "priority" | "project" | "cycle" | "none";
 export type Ordering = "priority" | "updated" | "created" | "manual" | "due" | "title" | "relevance";
 export type Completed = "all" | "week" | "month" | "none";
-export type Display = { layout: Layout; grouping: Grouping; ordering: Ordering; completed: Completed };
+export type Display = { layout: Layout; grouping: Grouping; subGrouping: Grouping; ordering: Ordering; completed: Completed };
 
-export const DEFAULT_DISPLAY: Display = { layout: "list", grouping: "status", ordering: "priority", completed: "all" };
+export const DEFAULT_DISPLAY: Display = {
+  layout: "list",
+  grouping: "status",
+  subGrouping: "none",
+  ordering: "priority",
+  completed: "all",
+};
 
 export const LAYOUTS: Layout[] = ["list", "board"];
 export const GROUPINGS: Grouping[] = ["status", "assignee", "priority", "project", "cycle", "none"];
@@ -28,6 +35,7 @@ export const GROUPING_LABEL: Record<Grouping, string> = {
   cycle: "Cycle",
   none: "No grouping",
 };
+export const SUB_GROUPING_LABEL: Record<Grouping, string> = { ...GROUPING_LABEL, none: "None" };
 export const ORDERING_LABEL: Record<Ordering, string> = {
   priority: "Priority",
   updated: "Last updated",
@@ -62,16 +70,53 @@ export function scopeCompleted(completed: Completed, choices: Completed[]): Comp
   return !choices.length || choices.includes(completed) ? completed : choices[0];
 }
 
-/** A remembered (or Linear's) display, with anything unknown taken from `fallback`. */
+/**
+ * A display as it can show: a board is grouped by something (status unless
+ * chosen); a sub-grouping needs a grouping and is never the same.
+ */
+export function settleDisplay(display: Display): Display {
+  const next = { ...display };
+  if (next.layout === "board" && next.grouping === "none")
+    next.grouping = next.subGrouping !== "none" && next.subGrouping !== "status" ? next.subGrouping : "status";
+  if (next.grouping === "none" || next.subGrouping === next.grouping) next.subGrouping = "none";
+  return next;
+}
+
+/**
+ * The display with its grouping or sub-grouping changed, as Linear's Display
+ * options do it: grouping by the sub-grouping's property swaps them (No
+ * grouping clears the sub-grouping), sub-grouping by the grouping's swaps them
+ * too, or clears it when the other has none to give.
+ */
+export function regroup(display: Display, field: "grouping" | "subGrouping", value: Grouping): Display {
+  const { grouping, subGrouping } = display;
+  if (field === "grouping")
+    return settleDisplay({ ...display, grouping: value, subGrouping: value === subGrouping ? grouping : subGrouping });
+  if (value === grouping && value !== "none")
+    return settleDisplay(subGrouping === "none" ? { ...display, subGrouping: "none" } : { ...display, grouping: subGrouping, subGrouping: grouping });
+  return settleDisplay({ ...display, subGrouping: value });
+}
+
+/** Grouping and sub-grouping exchanged (⇅); unchanged without a sub-grouping. */
+export function swapGroupings(display: Display): Display {
+  if (display.subGrouping === "none" || display.grouping === "none") return display;
+  return settleDisplay({ ...display, grouping: display.subGrouping, subGrouping: display.grouping });
+}
+
+/**
+ * A remembered (or Linear's) display, with anything unknown taken from
+ * `fallback`; one kept before sub-groupings were offered has none.
+ */
 export function checkDisplay(raw: unknown, fallback: Display = DEFAULT_DISPLAY): Display {
   const r = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
   const pick = <T extends string>(value: unknown, allowed: T[], or: T) => (allowed.includes(value as T) ? (value as T) : or);
-  return {
+  return settleDisplay({
     layout: pick(r.layout, LAYOUTS, fallback.layout),
     grouping: pick(r.grouping, GROUPINGS, fallback.grouping),
+    subGrouping: pick(r.subGrouping, GROUPINGS, raw && typeof raw === "object" ? "none" : fallback.subGrouping),
     ordering: pick(r.ordering, ORDERINGS, fallback.ordering),
     completed: pick(r.completed, COMPLETED, fallback.completed),
-  };
+  });
 }
 
 export type FilterField = "status" | "assignee" | "priority" | "labels" | "project" | "cycle";

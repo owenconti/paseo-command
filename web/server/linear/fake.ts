@@ -141,7 +141,13 @@ export type FakeView = {
   owner: Ref;
   /** The view's IssueFilter, which its issues pass. */
   filterData: Record<string, unknown>;
-  viewPreferencesValues: { layout?: string; issueGrouping?: string; viewOrdering?: string; showCompletedIssues?: string } | null;
+  viewPreferencesValues: {
+    layout?: string;
+    issueGrouping?: string;
+    issueSubGrouping?: string;
+    viewOrdering?: string;
+    showCompletedIssues?: string;
+  } | null;
 };
 export type FakeNotification = {
   id: string;
@@ -498,7 +504,13 @@ export function fakeWorkspace(): FakeWorkspace {
         team: null,
         owner: ref(I.sam),
         filterData: { project: { id: { eq: I.projects.launch } }, state: { type: { eq: "started" } } },
-        viewPreferencesValues: { layout: "board", issueGrouping: "assignee", viewOrdering: "priority", showCompletedIssues: "all" },
+        viewPreferencesValues: {
+          layout: "board",
+          issueGrouping: "assignee",
+          issueSubGrouping: "priority",
+          viewOrdering: "priority",
+          showCompletedIssues: "all",
+        },
       },
       {
         id: I.views.samsWork,

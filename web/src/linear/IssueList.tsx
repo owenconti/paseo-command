@@ -1,10 +1,28 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type MutableRefObject, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { Box, CircleDot, RefreshCcw, Search, SignalHigh, Tag, UserRound, UserX } from "lucide-react";
+import { Box, ChevronRight, CircleDot, RefreshCcw, Search, SignalHigh, Tag, UserRound, UserX } from "lucide-react";
 import { plainText } from "../ui";
 import { Dot, Person, Priority, ScreenHead } from "./bits";
-import { checkDisplay, completedChoices, DEFAULT_DISPLAY, filterIssues, hasFilters, hasOwnDisplay, readListView, scopeCompleted, writeDisplay, writeFilters, type Display, type Filters, type Layout } from "./display";
-import { arrangeIssues, dropChange, issueMatches, type IssueGroup } from "./group";
+import {
+  checkDisplay,
+  completedChoices,
+  DEFAULT_DISPLAY,
+  filterIssues,
+  hasFilters,
+  hasOwnDisplay,
+  readListView,
+  regroup,
+  scopeCompleted,
+  settleDisplay,
+  swapGroupings,
+  writeDisplay,
+  writeFilters,
+  type Display,
+  type Filters,
+  type Grouping,
+  type Layout,
+} from "./display";
+import { arrangeIssues, dropChanges, issueMatches, swimlanes, type IssueGroup } from "./group";
 import { DisplayButton, FilterButton, FilterChips, type DisplayControl, type FilterControl } from "./ListControls";
 import { placeBelow } from "./Picker";
 import { PropertyPicker, type PropertyField } from "./Properties";
@@ -95,10 +113,14 @@ export type IssueListNav = {
   /** The display options. */
   display(): void;
   setLayout(layout: Layout): void;
+  /** Sub-groups by a property ("none" clears it), as the Display options' choice does. */
+  setSubGrouping(grouping: Grouping): void;
+  /** ⇅: grouping and sub-grouping exchanged. */
+  swapGroupings(): void;
   clearFilters(): void;
 };
-/** What ⌘K needs of the list: its layout, whether filters are on; `key` is where they're kept (its place). */
-export type IssueListState = { key: string; layout: Layout; filtered: boolean };
+/** What ⌘K needs of the list: its layout, groupings, whether filters are on; `key` is where they're kept (its place). */
+export type IssueListState = { key: string; layout: Layout; grouping: Grouping; subGrouping: Grouping; filtered: boolean };
 
 /** Room the menu and its pickers keep from the window's right edge. */
 const MENU_WIDTH = 260;
@@ -272,13 +294,15 @@ function boardStates(scope: IssueScope, teamId: string | undefined, ws: LinearWo
  * A place's issues, from the store (an edit or a sync moves an issue between
  * lists at once), shown as the place's Display options say: a list or a
  * board, grouped (by status unless changed: started first, done and canceled
- * last) and ordered, and only what its filters and the search let through.
+ * last), perhaps sub-grouped (a list's groups hold sub-groups, a board's rows
+ * are swimlanes, each collapsible) and ordered, and only what its filters and
+ * the search let through.
  * The display and filters are kept per place (`viewKey`). ↑/↓ move between
  * issues (on a board, ←/→ between columns); where the issue opens beside the
  * list (`opensBeside`) they open it too, else Enter does. A row's context
  * menu edits its status, priority, assignee and labels; a card dragged to
  * another column takes that column's status, assignee, priority, project or
- * cycle. `nav` takes the Linear tab's keys (J/K, O, /, F) and ⌘K's.
+ * cycle (and another swimlane, the lane's). `nav` takes the Linear tab's keys (J/K, O, /, F) and ⌘K's.
  */
 export function IssueList({
   title,
@@ -388,7 +412,25 @@ export function IssueList({
       }),
     [shown, ws, display, completed, board, scope, singleTeam, teamCycles, rank],
   );
-  const order = groups.flatMap((g) => g.issues);
+  const lanes = useMemo(
+    () => (board ? swimlanes(groups, ws, display, { cycles: teamCycles, rank }) : null),
+    [board, groups, ws, display, teamCycles, rank],
+  );
+  // Swimlanes folded on the board, while the place shows.
+  const [folded, setFolded] = useState<ReadonlySet<string>>(new Set());
+  const [foldedOf, setFoldedOf] = useState(viewKey);
+  if (foldedOf !== viewKey) {
+    setFoldedOf(viewKey);
+    setFolded(new Set());
+  }
+  const toggleLane = (key: string) =>
+    setFolded((f) => {
+      const next = new Set(f);
+      if (!next.delete(key)) next.add(key);
+      return next;
+    });
+  // The issues in display order: a board's lane by lane (those unfolded), each across its columns.
+  const order = lanes ? lanes.filter((l) => !folded.has(l.lane.key)).flatMap((l) => l.lane.issues) : groups.flatMap((g) => g.issues);
   const listRef = useRef<HTMLDivElement>(null);
   const headId = useId();
   const filterControl = useRef<FilterControl | null>(null);
@@ -422,37 +464,57 @@ export function IssueList({
         ?.scrollIntoView({ block: "nearest", inline: "nearest" });
   }, [openKey]);
   useEffect(() => {
-    onListState?.({ key: viewKey, layout: display.layout, filtered: hasFilters(filters) });
-  }, [viewKey, display.layout, filters, onListState]);
+    onListState?.({
+      key: viewKey,
+      layout: display.layout,
+      grouping: display.grouping,
+      subGrouping: display.subGrouping,
+      filtered: hasFilters(filters),
+    });
+  }, [viewKey, display.layout, display.grouping, display.subGrouping, filters, onListState]);
 
   const focusIssue = (key: string) => {
     setFocusKey(key);
     if (opensBeside) onOpen(key, "step");
     listRef.current?.querySelector<HTMLElement>(`[data-key="${key}"]`)?.focus();
   };
+  // Moves start from the focused row (a click or Tab may have put it elsewhere), else the one that takes Tab.
   const step = (by: number) => {
-    const at = order.findIndex((i) => i.key === current);
+    const from = focusedRow() ?? current;
+    const at = order.findIndex((i) => i.key === from);
     const next = order[Math.min(order.length - 1, Math.max(0, at < 0 ? 0 : at + by))];
     if (next) focusIssue(next.key);
   };
-  /** On a board: the issue as far down the next column (or the previous) that has any. */
+  /** On a board: the issue as far down the next column (or the previous) that has any, in its swimlane. */
   const across = (by: 1 | -1) => {
-    const g = groups.findIndex((group) => group.issues.some((i) => i.key === current));
+    const from = focusedRow() ?? current;
+    const row = lanes?.find((l) => l.lane.issues.some((i) => i.key === from))?.cells ?? groups;
+    const g = row.findIndex((group) => group.issues.some((i) => i.key === from));
     if (g < 0) return;
-    const at = groups[g].issues.findIndex((i) => i.key === current);
-    for (let n = g + by; n >= 0 && n < groups.length; n += by) {
-      const column = groups[n].issues;
+    const at = row[g].issues.findIndex((i) => i.key === from);
+    for (let n = g + by; n >= 0 && n < row.length; n += by) {
+      const column = row[n].issues;
       if (column.length) return focusIssue(column[Math.min(at, column.length - 1)].key);
     }
   };
 
-  // Board: a card dragged over a column it can go to; dropped, the issue takes the column's value.
+  // Board: a card dragged over a cell it can go to; dropped, the issue takes the column's value (and its swimlane's).
   const [dragging, setDragging] = useState<LinearIssue | null>(null);
   const [over, setOver] = useState<string | null>(null);
-  const dropFor = (group: IssueGroup) =>
-    dragging ? dropChange(dragging, group, display.grouping, ws, teamCycles) : null;
-  const drop = (group: IssueGroup) => {
-    const change = dropFor(group);
+  const dropFor = (column: IssueGroup, lane?: IssueGroup) =>
+    dragging
+      ? dropChanges(
+          dragging,
+          [
+            { group: column, grouping: display.grouping },
+            ...(lane ? [{ group: lane, grouping: display.subGrouping }] : []),
+          ],
+          ws,
+          teamCycles,
+        )
+      : null;
+  const drop = (column: IssueGroup, lane?: IssueGroup) => {
+    const change = dropFor(column, lane);
     setOver(null);
     setDragging(null);
     if (!change || !dragging) return;
@@ -482,9 +544,55 @@ export function IssueList({
       filter: () => search.current?.focus(),
       filterBy: () => filterControl.current?.open(),
       display: () => displayControl.current?.open(),
-      setLayout: (layout) => setDisplay({ ...display, layout, grouping: layout === "board" && display.grouping === "none" ? "status" : display.grouping }),
+      setLayout: (layout) => setDisplay(settleDisplay({ ...display, layout })),
+      setSubGrouping: (grouping) => setDisplay(regroup(display, "subGrouping", grouping)),
+      swapGroupings: () => setDisplay(swapGroupings(display)),
       clearFilters: () => setFilters({}),
     };
+
+  /** A board's column (or a swimlane's cell) as a drop target, `at` its key. */
+  const dropTarget = (at: string, column: IssueGroup, lane?: IssueGroup) => ({
+    onDragOver: (e: React.DragEvent) => {
+      if (!dragging || !dropFor(column, lane)) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = "move";
+      if (over !== at) setOver(at);
+    },
+    onDragLeave: (e: React.DragEvent) => {
+      if (!e.currentTarget.contains(e.relatedTarget as Node)) setOver((o) => (o === at ? null : o));
+    },
+    onDrop: (e: React.DragEvent) => {
+      e.preventDefault();
+      drop(column, lane);
+    },
+  });
+  const card = (i: LinearIssue) => (
+    <IssueCard
+      key={i.id}
+      issue={i}
+      ws={ws}
+      open={i.key === openKey}
+      focusable={i.key === current}
+      onOpen={onOpen}
+      onMenu={openMenu}
+      onDrag={(issue) => {
+        setDragging(issue);
+        if (!issue) setOver(null);
+      }}
+    />
+  );
+  const row = (i: LinearIssue) => (
+    <IssueRow
+      key={i.id}
+      issue={i}
+      ws={ws}
+      open={i.key === openKey}
+      focusable={i.key === current}
+      onOpen={onOpen}
+      onMenu={openMenu}
+      showState={display.grouping !== "status" && display.subGrouping !== "status"}
+    />
+  );
 
   const cyclesUsed = !!ws?.teams.some((t) => t.cyclesEnabled);
   return (
@@ -534,7 +642,7 @@ export function IssueList({
         </p>
       )}
       {/* The scroller holds the notes; the listbox only groups of options. */}
-      <div className={board ? "linear-board-scroll" : "linear-groups"}>
+      <div className={board ? `linear-board-scroll${lanes ? " has-lanes" : ""}` : "linear-groups"}>
         {loading && !scoped.length && <p className="linear-note">Loading issues…</p>}
         {!loading && !error && !scoped.length && <p className="linear-note">{emptyNote}</p>}
         {scoped.length > 0 && !shown.length && (
@@ -547,7 +655,7 @@ export function IssueList({
           role="listbox"
           aria-label="Issues"
           aria-orientation={board ? "horizontal" : "vertical"}
-          className={board ? "linear-board" : undefined}
+          className={board ? `linear-board${lanes ? " has-lanes" : ""}` : undefined}
           onKeyDown={(e) => {
             if (e.key === "ArrowDown" || e.key === "ArrowUp") {
               e.preventDefault();
@@ -558,9 +666,95 @@ export function IssueList({
             }
           }}
         >
-          {(shown.length > 0 || board) &&
+          {lanes ? (
+            <>
+              {/* The columns' heads, over every swimlane; the cells' groups carry their names. */}
+              <div className="linear-board-heads" aria-hidden="true">
+                {groups.map((g) => (
+                  <div key={g.key} className="linear-column-head" data-group={g.key}>
+                    <h3>
+                      <GroupMark group={g} />
+                      <span className="linear-column-label">{g.label}</span>
+                      <span className="linear-count">{g.issues.length}</span>
+                    </h3>
+                  </div>
+                ))}
+              </div>
+              {lanes.map(({ lane, cells }, n) => {
+                const open = !folded.has(lane.key);
+                return (
+                  <div key={lane.key} role="none" className={`linear-lane${open ? "" : " folded"}`} data-lane={lane.key}>
+                    <h4 role="none" className="linear-lane-head">
+                      <button
+                        id={`${headId}-lane-${n}`}
+                        tabIndex={-1}
+                        aria-expanded={open}
+                        onClick={() => toggleLane(lane.key)}
+                      >
+                        <ChevronRight size={12} aria-hidden="true" className="linear-lane-chevron" />
+                        <GroupMark group={lane} />
+                        <span className="linear-lane-label">{lane.label}</span>
+                        <span className="linear-count">{lane.issues.length}</span>
+                      </button>
+                    </h4>
+                    {open && (
+                      <div role="none" className="linear-lane-cells">
+                        {cells.map((cell) => {
+                          const at = `${lane.key}|${cell.key}`;
+                          return (
+                            <div
+                              key={cell.key}
+                              role="group"
+                              aria-label={`${cell.label} · ${lane.label}`}
+                              className={`linear-column linear-cell${over === at && dragging && dropFor(cell, lane) ? " drop" : ""}`}
+                              data-group={cell.key}
+                              {...dropTarget(at, cell, lane)}
+                            >
+                              <div className="linear-column-cards">{cell.issues.map(card)}</div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </>
+          ) : (
+            (shown.length > 0 || board) &&
             groups.map((g, n) => {
               const target = dragging && dropFor(g) !== null;
+              const head = (
+                // Hidden from the listbox's tree (it owns only groups and options); its name still labels the group.
+                <h3 aria-hidden="true" className={display.grouping === "none" && !board ? "sr-only" : undefined}>
+                  <GroupMark group={g} />
+                  <span id={`${headId}-${n}`}>{g.label}</span>
+                  <span className="linear-count">{g.issues.length}</span>
+                </h3>
+              );
+              // A list's group of sub-groups: the sub-groups are the listbox's groups, each named for both.
+              if (!board && g.subgroups)
+                return (
+                  <div key={g.key} role="none" className="linear-group" data-group={g.key}>
+                    {head}
+                    {g.subgroups.map((sg) => (
+                      <div
+                        key={sg.key}
+                        role="group"
+                        aria-label={`${g.label} · ${sg.label}`}
+                        className="linear-subgroup"
+                        data-group={sg.key}
+                      >
+                        <h4 aria-hidden="true">
+                          <GroupMark group={sg} />
+                          <span>{sg.label}</span>
+                          <span className="linear-count">{sg.issues.length}</span>
+                        </h4>
+                        {sg.issues.map(row)}
+                      </div>
+                    ))}
+                  </div>
+                );
               return (
                 <div
                   key={g.key}
@@ -568,73 +762,14 @@ export function IssueList({
                   role="group"
                   aria-labelledby={`${headId}-${n}`}
                   data-group={g.key}
-                  onDragOver={
-                    board
-                      ? (e) => {
-                          if (!target) return;
-                          e.preventDefault();
-                          e.dataTransfer.dropEffect = "move";
-                          if (over !== g.key) setOver(g.key);
-                        }
-                      : undefined
-                  }
-                  onDragLeave={
-                    board
-                      ? (e) => {
-                          if (!e.currentTarget.contains(e.relatedTarget as Node)) setOver((o) => (o === g.key ? null : o));
-                        }
-                      : undefined
-                  }
-                  onDrop={
-                    board
-                      ? (e) => {
-                          e.preventDefault();
-                          drop(g);
-                        }
-                      : undefined
-                  }
+                  {...(board ? dropTarget(g.key, g) : {})}
                 >
-                  {/* Hidden from the listbox's tree (it owns only groups and options); its name still labels the group. */}
-                  <h3 aria-hidden="true" className={display.grouping === "none" && !board ? "sr-only" : undefined}>
-                    <GroupMark group={g} />
-                    <span id={`${headId}-${n}`}>{g.label}</span>
-                    <span className="linear-count">{g.issues.length}</span>
-                  </h3>
-                  {board ? (
-                    <div className="linear-column-cards">
-                      {g.issues.map((i) => (
-                        <IssueCard
-                          key={i.id}
-                          issue={i}
-                          ws={ws}
-                          open={i.key === openKey}
-                          focusable={i.key === current}
-                          onOpen={onOpen}
-                          onMenu={openMenu}
-                          onDrag={(issue) => {
-                            setDragging(issue);
-                            if (!issue) setOver(null);
-                          }}
-                        />
-                      ))}
-                    </div>
-                  ) : (
-                    g.issues.map((i) => (
-                      <IssueRow
-                        key={i.id}
-                        issue={i}
-                        ws={ws}
-                        open={i.key === openKey}
-                        focusable={i.key === current}
-                        onOpen={onOpen}
-                        onMenu={openMenu}
-                        showState={display.grouping !== "status"}
-                      />
-                    ))
-                  )}
+                  {head}
+                  {board ? <div className="linear-column-cards">{g.issues.map(card)}</div> : g.issues.map(row)}
                 </div>
               );
-            })}
+            })
+          )}
         </div>
         {capped && <p className="linear-note">Showing the 1,000 most recently updated</p>}
       </div>

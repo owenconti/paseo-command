@@ -5,12 +5,6 @@ mark it done with its commit once merged into `main`.
 
 ## Open
 
-- [ ] **Linear: sub-grouping in lists and boards, as Linear has.** The Display options (`ListControls.tsx`,
-  `display.ts`, kept per place) offer Grouping, Ordering and Completed issues. Add Sub-grouping (the same
-  properties as Grouping, plus none; never the same as Grouping) and Linear's swap button beside Grouping that
-  exchanges the two. In a list, each group holds its sub-groups under their own heads; on a board, sub-groups are
-  swimlane rows across the columns, a card dropped into a cell taking both its column's and its row's value
-  (`dropChange` in `group.ts`). Views start with their sub-grouping as set in Linear. Workspace: `linear-sub-grouping`.
 - [ ] **Slack: a Recent section, and your own channel sections.** The sidebar (`web/src/slack/Sidebar.tsx`,
   `sections.ts`) has Channels and Direct messages. Add Recent at the top: the ~20 most recent conversations,
   threads and group DMs with activity (yours or others'), newest first, each opening its conversation or
@@ -53,6 +47,13 @@ mark it done with its commit once merged into `main`.
   and CLAUDE.md. Workspace: `mode-tab-order-and-keys`.
 
 ## Done
+
+- [x] **Linear: sub-grouping in lists and boards, as Linear has.** Display offers Sub-grouping (none, or any property
+  but Grouping's; picking Grouping's swaps or clears it) and ⇅ beside Grouping to swap them; kept per place, displays
+  saved before keep none. A list's groups hold sub-groups under their own heads; a board's sub-groups are swimlanes
+  across its columns, each folding, a card dropped in a cell taking both values in one write (rolled back if
+  refused). Views start with Linear's `issueSubGrouping`. ⌘K sets, clears and swaps it. Commit "Linear: sub-grouping
+  in lists and swimlanes on boards".
 
 - [x] **GitHub tab: pull requests by repository, with filters and favourites.** The sidebar gains Repositories
   (`RepoNav.tsx`, `q/repos`: one GraphQL query): favourites first (starred repositories and those of starred

@@ -9,7 +9,7 @@ import { useSecretRevision } from "../integrationSettings";
 import { isTyping } from "../worldShortcut";
 import { CreateIssue, type CreateInitial } from "./CreateIssue";
 import { CycleFacts, CycleList } from "./Cycles";
-import { DEFAULT_DISPLAY, readListView, type Display } from "./display";
+import { DEFAULT_DISPLAY, GROUPINGS, readListView, type Display, type Grouping } from "./display";
 import { Inbox, markAllRead } from "./Inbox";
 import { unreadCount } from "./inboxRows";
 import { InitiativeList } from "./InitiativeList";
@@ -91,8 +91,8 @@ export type LinearViewState = {
   /** Whether there's somewhere to go back or forward to. */
   canBack: boolean;
   canForward: boolean;
-  /** The list's layout and whether it's filtered, while one shows. */
-  list?: Pick<IssueListState, "layout" | "filtered">;
+  /** The list's layout, groupings and whether it's filtered, while one shows. */
+  list?: Pick<IssueListState, "layout" | "grouping" | "subGrouping" | "filtered">;
 };
 
 /** Layers in the view that keep their own keys while open. */
@@ -470,6 +470,10 @@ export function LinearView({
       onAppCommand("linear-layout", (arg) => {
         if (arg === "list" || arg === "board") nav.current?.setLayout(arg);
       }),
+      onAppCommand("linear-sub-group", (arg) => {
+        if (typeof arg === "string" && (GROUPINGS as string[]).includes(arg)) nav.current?.setSubGrouping(arg as Grouping);
+      }),
+      onAppCommand("linear-swap-groupings", () => nav.current?.swapGroupings()),
     ];
     return () => offs.forEach((off) => off());
   }, []);
@@ -600,7 +604,14 @@ export function LinearView({
       canBack,
       canForward,
       ...(inboxUnread !== undefined ? { inboxUnread } : {}),
-      ...(canSearch && listState?.key === listKey ? { list: { layout: listState.layout, filtered: listState.filtered } } : {}),
+      ...(canSearch && listState?.key === listKey ? {
+            list: {
+              layout: listState.layout,
+              grouping: listState.grouping,
+              subGrouping: listState.subGrouping,
+              filtered: listState.filtered,
+            },
+          } : {}),
     });
   }, [teamPlaces, viewPlaces, inboxUnread, canBack, canForward, undoKey, canSearch, listState, listKey, onViewState]);
   useEffect(() => () => onViewState?.(undefined), [onViewState]);
