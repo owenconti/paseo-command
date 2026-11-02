@@ -10,13 +10,18 @@
  *   repoSearch?q=…     repositories by name, `owner/name` or owner: those known first, then GitHub's search
  *   people?repo=…      who its people filters offer: you, recent PRs' authors, its assignable users
  *   teams?repo=…       the teams with access to it, for its reviewer picker (REST; none for a personal repository)
- *   pr?repo=&number=   one PR: body, files (viewed or not), conversation, threads, commits, checks, reviewers, assignees
+ *   pr?repo=&number=   one PR: body, files (viewed or not), conversation, threads, commits, checks, reviewers, assignees, merge box
  *   diff?repo=&number= its diff, parsed (GitHub's diff media type; its file patches when the diff is too large for it)
  */
 import { parseUnifiedDiff } from "../../src/github/diff";
 import {
+  MERGE_METHODS,
   OWNER,
   REPO,
+  type MergeMethod,
+  type MergeStatus,
+  type PrMerge,
+  type QueueEntryState,
   type ChecksState,
   type DiffFile,
   type Person,
@@ -511,6 +516,17 @@ export function readTeams(repo: string, fresh = false): Promise<RepoTeams> {
 }
 
 // ── pr ───────────────────────────────────────────────────────────────────────
+/** What the PR's merge box needs: its merge state, the repository's methods and what the token may do. */
+const MERGE_FIELDS = `
+    mergeStateStatus isMergeQueueEnabled isInMergeQueue mergeQueueEntry { state position }
+    viewerCanUpdate viewerCanClose viewerCanReopen viewerCanMergeAsAdmin viewerCanUpdateBranch
+    viewerCanEnableAutoMerge viewerCanDisableAutoMerge viewerCanDeleteHeadRef
+    autoMergeRequest { mergeMethod enabledAt enabledBy { login avatarUrl ... on User { name } } }
+    headRef { id }
+    mergedAt closedAt mergedBy { login avatarUrl ... on User { name } }
+    mergeTitle: viewerMergeHeadlineText(mergeType: MERGE) mergeBody: viewerMergeBodyText(mergeType: MERGE)
+    squashTitle: viewerMergeHeadlineText(mergeType: SQUASH) squashBody: viewerMergeBodyText(mergeType: SQUASH)
+    baseRepo: repository { viewerPermission mergeCommitAllowed squashMergeAllowed rebaseMergeAllowed autoMergeAllowed deleteBranchOnMerge }`;
 const FILES = "files(first: 100, after: $after) { nodes { path additions deletions changeType viewerViewedState } pageInfo { hasNextPage endCursor } }";
 export const PR_QUERY = `query($owner: String!, $name: String!, $number: Int!, $after: String) {
   repository(owner: $owner, name: $name) { pullRequest(number: $number) {
@@ -534,6 +550,7 @@ export const PR_QUERY = `query($owner: String!, $name: String!, $number: Int!, $
     } } }
     latestReviews(first: 30) { nodes { ${AUTHOR} state } }
     assignees(first: 20) { nodes { login name avatarUrl } }
+    ${MERGE_FIELDS}
   } }
 }`;
 export const FILES_QUERY = `query($owner: String!, $name: String!, $number: Int!, $after: String) {
@@ -737,6 +754,66 @@ export function reviewersOf(requests: Raw[], latest: Raw[], author?: string): Pr
 
 const MERGEABLE: Record<string, PrDetail["mergeable"]> = { MERGEABLE: "mergeable", CONFLICTING: "conflicting" };
 
+const MERGE_STATUS: MergeStatus[] = ["clean", "blocked", "behind", "dirty", "draft", "has_hooks", "unstable", "unknown"];
+const QUEUE_STATES: QueueEntryState[] = ["queued", "awaiting_checks", "mergeable", "unmergeable", "locked"];
+const methodOf = (v: unknown): MergeMethod | undefined => {
+  const m = str(v).toLowerCase();
+  return MERGE_METHODS.includes(m as MergeMethod) ? (m as MergeMethod) : undefined;
+};
+const when = (v: unknown) => (Number.isFinite(Date.parse(str(v))) ? str(v) : undefined);
+
+/** The PR's merge box (`PrMerge`), from `MERGE_FIELDS`. */
+export function mergeOf(p: Raw): PrMerge {
+  const repo = rec(p.baseRepo);
+  const status = str(p.mergeStateStatus).toLowerCase() as MergeStatus;
+  const methods = MERGE_METHODS.filter(
+    (m) => repo[m === "merge" ? "mergeCommitAllowed" : m === "squash" ? "squashMergeAllowed" : "rebaseMergeAllowed"] === true,
+  );
+  const auto = p.autoMergeRequest ? rec(p.autoMergeRequest) : null;
+  const autoMethod = auto ? methodOf(auto.mergeMethod) : undefined;
+  const autoBy = auto ? personOf(auto.enabledBy) : null;
+  const entry = p.mergeQueueEntry ? rec(p.mergeQueueEntry) : null;
+  const entryState = str(entry?.state).toLowerCase() as QueueEntryState;
+  const position = entry?.position;
+  const messages: PrMerge["messages"] = {};
+  for (const m of ["merge", "squash"] as const) {
+    const title = str(p[`${m}Title`]);
+    if (title) messages[m] = { title: clip(title, 500), body: clip(str(p[`${m}Body`]), BODY_MAX) };
+  }
+  const mergedBy = personOf(p.mergedBy);
+  const mergedAt = when(p.mergedAt);
+  const closedAt = when(p.closedAt);
+  const headBranchExists = !!p.headRef && !!str(rec(p.headRef).id);
+  return {
+    status: MERGE_STATUS.includes(status) ? status : "unknown",
+    methods,
+    canMerge: ["ADMIN", "MAINTAIN", "WRITE"].includes(str(repo.viewerPermission)) || p.viewerCanMergeAsAdmin === true,
+    canMergeAsAdmin: p.viewerCanMergeAsAdmin === true,
+    canUpdate: p.viewerCanUpdate === true,
+    canClose: p.viewerCanClose === true,
+    canReopen: p.viewerCanReopen === true,
+    canUpdateBranch: p.viewerCanUpdateBranch === true,
+    autoMergeAllowed: repo.autoMergeAllowed === true,
+    canEnableAutoMerge: p.viewerCanEnableAutoMerge === true,
+    canDisableAutoMerge: p.viewerCanDisableAutoMerge === true,
+    autoMerge: auto && autoMethod ? { method: autoMethod, ...(autoBy ? { by: autoBy } : {}), ...(when(auto.enabledAt) ? { at: when(auto.enabledAt) } : {}) } : null,
+    queueRequired: p.isMergeQueueEnabled === true,
+    queue:
+      entry && QUEUE_STATES.includes(entryState)
+        ? { state: entryState, ...(typeof position === "number" && Number.isSafeInteger(position) ? { position } : {}) }
+        : p.isInMergeQueue === true
+          ? { state: "queued" }
+          : null,
+    deleteBranchOnMerge: repo.deleteBranchOnMerge === true,
+    headBranchExists,
+    canDeleteBranch: headBranchExists && p.viewerCanDeleteHeadRef === true,
+    messages,
+    ...(mergedBy ? { mergedBy } : {}),
+    ...(mergedAt ? { mergedAt } : {}),
+    ...(closedAt ? { closedAt } : {}),
+  };
+}
+
 /** GitHub's pullRequest object (and its further file pages) as a PrDetail; null when it isn't one. */
 export function detailOf(p: Raw, extraFiles: Raw[] = []): PrDetail | null {
   const row = rowOf(p);
@@ -764,6 +841,7 @@ export function detailOf(p: Raw, extraFiles: Raw[] = []): PrDetail | null {
     assignees: nodes(p.assignees)
       .map(personOf)
       .filter((a): a is Person => a !== null),
+    merge: mergeOf(p),
   };
 }
 

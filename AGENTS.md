@@ -401,7 +401,24 @@ and GitHub publication; report the published version and release link.
   request or remove reviews and assign or unassign; a row re-requests a reviewer's review or removes a request or an assignee
   (`POST /api/github/m/reviewers` over REST `requested_reviewers`, `m/assignees` over `issues/:n/assignees`, `action` add or remove,
   each login and team slug checked); shown at once, put back with a notice if GitHub refuses (`withReviewers`, `withAssignees`);
-  ⌘K "Request review…" (open PRs) and "Assign…". Merge, then Checks: the count, then each check run and status, failing, then pending,
+  ⌘K "Request review…" (open PRs) and "Assign…". Merge (`MergeBox.tsx`, `merge.ts`), GitHub's merge box: merged by whom, closed, or each
+  thing blocking it (draft, conflicts, behind, changes requested, review required, checks failing or pending, else the base branch's rules;
+  failing checks that aren't required only warn), auto-merge (its method, who turned it on, when) and the merge queue (position, state), then
+  a button for each action that applies (`mergeActions`): only where it applies and the token may, from the `q/pr` read's `merge`
+  (`PrMerge`, `mergeOf` in `reads.ts`: `mergeStateStatus`, the repository's allowed methods, `viewerCan…`, `autoMergeRequest`, the queue,
+  `deleteBranchOnMerge`, GitHub's default commit text per method). The header has the main one beside Review (a split Merge button whose
+  ▾ picks the method, else Merge when ready, Enable auto-merge, Remove from queue, Disable auto-merge, Ready for review, a disabled Merge
+  saying why, Reopen, Delete branch) and ⋯ listing them all. Merge and auto-merge confirm in a panel beneath: the repository's methods
+  (the last used per repository, `github:mergeMethod` in localStorage), the commit title and message for merge and squash (GitHub's,
+  editable), delete the branch after merging (offered where the token may and the repository doesn't already; remembered,
+  `github:deleteBranchAfterMerge`), and for an administrator past unmet requirements the reasons and a bypass box; ⌘↩ confirms. Close
+  confirms in a panel with an optional comment, posted first. Update branch merges or rebases when behind. Writes (`POST /api/github/m/merge|autoMerge|queue|ready|updateBranch|state|deleteBranch`,
+  GraphQL mutations by the PR's node id at the head read, `expectedHeadOid`; `deleteBranch` reads the PR itself and deletes only its head
+  branch once merged or closed, where `viewerCanDeleteHeadRef`): ready/draft, auto-merge off, the queue, reopen shown at once and put back
+  with a notice if GitHub refuses; a merge, close and update branch wait for GitHub's answer. Afterwards the PR, the lists and counts are
+  asked again, and the server forgets its lookups of the PR (`forgetPullRequest` in `links.ts`) and the page its (`resetLinkCache`), so
+  the header chip, the map's medallions and auto-merge seal follow as soon as Paseo's or GitHub's facts do. ⌘K has each (`github-merge`,
+  a merge and auto-merge once per allowed method), only when it applies. Then Checks: the count, then each check run and status, failing, then pending,
   then passing and skipped (folded behind "Show N passing" past five), with its workflow or app, how long it took (or "running for …")
   and its details opening as links do (Conquer). The diff
   (`DiffView.tsx`): files by directory beside it (its inner edge resizes the list, `ResizeEdge`: drag, ←/→, double-click for the default;
@@ -425,7 +442,7 @@ and GitHub publication; report the published version and release link.
   every GitHub call; with GitHub off or no token, PR lookups (`links.ts`, `probe.ts`, `prLabels.ts`) quietly answer unknown.
   Server (`web/server/github/`, over `web/server/githubApi.ts`): named reads (`reads.ts`, `GET
   /api/github/q/viewer|prs|repos|repoSearch|people|teams|pr|diff`, cached 15 s, `fresh=1` past it; `GithubUnavailable` when off, without a token, refused or rate limited) and
-  whitelisted writes (`writes.ts`, `POST /api/github/m/comment|review|reply|resolve|viewed|reviewers|assignees|star`, each field checked), over `client.ts`. Tests never reach GitHub: `fake.ts` under server tests (`test-setup.ts` makes `GITHUB_API.fetch` refuse
+  whitelisted writes (`writes.ts`, `POST /api/github/m/comment|review|reply|resolve|viewed|reviewers|assignees|merge|autoMerge|queue|ready|updateBranch|state|deleteBranch|star`, each field checked), over `client.ts`. Tests never reach GitHub: `fake.ts` under server tests (`test-setup.ts` makes `GITHUB_API.fetch` refuse
   otherwise) and `web/e2e/github.e2e.ts` in the browser.
 - Web links clicked in the chat (`.session`, `openInAppBrowser` in `web/src/Session.tsx`, `postAppLink` → the `openLink` message)
   switch to Conquer and open there as a new tab, once its tabs are restored (`whenStarted`).

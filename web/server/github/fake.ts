@@ -9,6 +9,7 @@ import { installGithubApi, type FakeAnswer, type FakeRequest } from "../githubFa
 import { resetGithubTab } from "./client";
 
 type Raw = Record<string, unknown>;
+const rec = (v: unknown): Raw => (v && typeof v === "object" ? (v as Raw) : {});
 export const SHA = "a".repeat(40);
 
 /** A dependency bot's comment (socket-security's) as written, with its table, images and hidden marker. */
@@ -109,6 +110,29 @@ export function fakePr(o: Partial<Raw> & { number: number; repo?: string } = { n
     reviewRequests: { nodes: [{ requestedReviewer: { __typename: "User", login: "me", name: "Me" } }] },
     latestReviews: { nodes: [] },
     assignees: { nodes: [{ login: "ada", name: "Ada", avatarUrl: "https://avatars.githubusercontent.com/u/1?v=4" }] },
+    // The merge box: clean, every method allowed, the token may do everything; no queue, no auto-merge.
+    mergeStateStatus: "CLEAN",
+    isMergeQueueEnabled: false,
+    isInMergeQueue: false,
+    mergeQueueEntry: null,
+    viewerCanUpdate: true,
+    viewerCanClose: true,
+    viewerCanReopen: true,
+    viewerCanMergeAsAdmin: false,
+    viewerCanUpdateBranch: false,
+    viewerCanEnableAutoMerge: true,
+    viewerCanDisableAutoMerge: true,
+    viewerCanDeleteHeadRef: true,
+    autoMergeRequest: null,
+    headRef: { id: `REF_${o.number}` },
+    mergedAt: null,
+    closedAt: null,
+    mergedBy: null,
+    mergeTitle: `Merge pull request #${o.number} from ada/feature-${o.number}`,
+    mergeBody: `PR ${o.number}`,
+    squashTitle: `PR ${o.number} (#${o.number})`,
+    squashBody: "* Change b",
+    baseRepo: { viewerPermission: "WRITE", mergeCommitAllowed: true, squashMergeAllowed: true, rebaseMergeAllowed: true, autoMergeAllowed: true, deleteBranchOnMerge: false },
     ...rest,
   };
 }
@@ -159,6 +183,8 @@ export type FakeGithub = {
   writes: { method?: string; path?: string; mutation?: string; input?: unknown; vars?: Record<string, unknown> }[];
   /** Answered instead of everything, while set (GitHub refusing). */
   fail?: FakeAnswer;
+  /** GraphQL mutations GitHub refuses, by name, with its error's message. */
+  refuse: Record<string, string>;
   restore: () => void;
 };
 
@@ -181,7 +207,47 @@ export function installFakeGithub(opts: { enabled?: boolean; token?: string | nu
     diffs: new Map(),
     calls: [],
     writes: [],
+    refuse: {},
     restore: () => {},
+  };
+  /** A mutation done to the PR it names (`vars.id`): GitHub keeps it, so the next read says so. */
+  const mutate = (name: string, vars: Record<string, unknown>): Raw => {
+    const pr = [...fake.prs.values()].find((p) => p.id === vars.id);
+    if (!pr) return {};
+    const now = "2026-10-31T12:00:00Z";
+    switch (name) {
+      case "mergePullRequest":
+        Object.assign(pr, { state: "MERGED", mergedAt: now, closedAt: now, mergedBy: { login: fake.viewer.login }, autoMergeRequest: null, isInMergeQueue: false, mergeQueueEntry: null });
+        return { pullRequest: { state: "MERGED", merged: true } };
+      case "enablePullRequestAutoMerge":
+        pr.autoMergeRequest = { mergeMethod: vars.method, enabledAt: now, enabledBy: { login: fake.viewer.login } };
+        break;
+      case "disablePullRequestAutoMerge":
+        pr.autoMergeRequest = null;
+        break;
+      case "enqueuePullRequest":
+        Object.assign(pr, { isInMergeQueue: true, mergeQueueEntry: { state: "QUEUED", position: 1 } });
+        break;
+      case "dequeuePullRequest":
+        Object.assign(pr, { isInMergeQueue: false, mergeQueueEntry: null });
+        break;
+      case "markPullRequestReadyForReview":
+        Object.assign(pr, { isDraft: false, mergeStateStatus: pr.mergeStateStatus === "DRAFT" ? "CLEAN" : pr.mergeStateStatus });
+        break;
+      case "convertPullRequestToDraft":
+        Object.assign(pr, { isDraft: true, mergeStateStatus: "DRAFT" });
+        break;
+      case "updatePullRequestBranch":
+        pr.mergeStateStatus = "CLEAN";
+        break;
+      case "closePullRequest":
+        Object.assign(pr, { state: "CLOSED", closedAt: now });
+        break;
+      case "reopenPullRequest":
+        Object.assign(pr, { state: "OPEN", closedAt: null });
+        break;
+    }
+    return { pullRequest: { id: pr.id } };
   };
   const answer = (req: FakeRequest): FakeAnswer => {
     if (fake.fail) return fake.fail;
@@ -190,8 +256,10 @@ export function installFakeGithub(opts: { enabled?: boolean; token?: string | nu
       const query = body.query ?? "";
       const vars = body.variables ?? {};
       if (query.trimStart().startsWith("mutation")) {
-        fake.writes.push({ mutation: /\{\s*(\w+)\(/.exec(query)?.[1], vars });
-        return { json: { data: { ok: true } } };
+        const name = /\{\s*(\w+)\(/.exec(query)?.[1] ?? "";
+        fake.writes.push({ mutation: name, vars });
+        if (fake.refuse[name]) return { json: { data: { [name]: null }, errors: [{ type: "UNPROCESSABLE", message: fake.refuse[name] }] } };
+        return { json: { data: { ok: true, [name]: mutate(name, vars) } } };
       }
       const viewer = { login: fake.viewer.login, name: fake.viewer.name, avatarUrl: fake.viewer.avatar_url };
       if (query.includes("type: REPOSITORY")) {
@@ -260,6 +328,14 @@ export function installFakeGithub(opts: { enabled?: boolean; token?: string | nu
     }
     if (req.method === "DELETE") {
       fake.writes.push({ method: "DELETE", path: req.path, input: req.body });
+      const ref = /^repos\/([\w.-]+\/[\w.-]+)\/git\/refs\/heads\/(.+)$/.exec(req.path);
+      if (ref) {
+        const branch = ref[2]!.split("/").map(decodeURIComponent).join("/");
+        const pr = [...fake.prs.values()].find((p) => p.headRefName === branch && (rec(p.headRepository).nameWithOwner ?? "") === ref[1]);
+        if (!pr?.headRef) return { status: 422, json: { message: "Reference does not exist" } };
+        pr.headRef = null;
+        return { status: 204 };
+      }
       return { json: {} };
     }
     return { status: 400, json: { message: `The fake GitHub doesn't know: ${req.method} ${req.path}` } };

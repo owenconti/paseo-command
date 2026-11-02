@@ -243,6 +243,53 @@ export type PrDetail = PrRow & {
   /** Who's asked to review (people and teams) and who has reviewed, with their latest verdict; never the author. */
   reviewers: PrReviewer[];
   assignees: Person[];
+  /** What its merge box shows and allows (`merge.ts` says what's blocking it). */
+  merge: PrMerge;
+};
+
+/** How a PR merges: a merge commit, squashed into one, or rebased onto the base. */
+export type MergeMethod = "merge" | "squash" | "rebase";
+export const MERGE_METHODS: MergeMethod[] = ["merge", "squash", "rebase"];
+/** GitHub's `mergeStateStatus`, lower-cased: clean, blocked (requirements unmet), behind, dirty (conflicts), draft, has_hooks, unstable (non-required checks failing), unknown. */
+export type MergeStatus = "clean" | "blocked" | "behind" | "dirty" | "draft" | "has_hooks" | "unstable" | "unknown";
+/** GitHub's merge queue entry states, lower-cased. */
+export type QueueEntryState = "queued" | "awaiting_checks" | "mergeable" | "unmergeable" | "locked";
+
+/**
+ * A PR's merge box: GitHub's merge state, what the repository allows and
+ * what the token may do. `methods` are the repository's allowed ones, in
+ * GitHub's order; `messages` GitHub's default commit title and message per method.
+ */
+export type PrMerge = {
+  status: MergeStatus;
+  methods: MergeMethod[];
+  /** The token can push to the base (merge), or merge past unmet requirements as an administrator. */
+  canMerge: boolean;
+  canMergeAsAdmin: boolean;
+  /** Edit it: ready for review, convert to draft. */
+  canUpdate: boolean;
+  canClose: boolean;
+  canReopen: boolean;
+  /** Bring its branch up to date with the base. */
+  canUpdateBranch: boolean;
+  /** The repository allows auto-merge, and the token may turn it on or off. */
+  autoMergeAllowed: boolean;
+  canEnableAutoMerge: boolean;
+  canDisableAutoMerge: boolean;
+  /** On: GitHub merges it once its requirements pass; how, who turned it on and when. */
+  autoMerge: { method: MergeMethod; by?: Person; at?: string } | null;
+  /** The base branch merges through a merge queue; the PR's place in it, while queued. */
+  queueRequired: boolean;
+  queue: { state: QueueEntryState; position?: number } | null;
+  /** GitHub deletes the head branch after merging (the repository's setting). */
+  deleteBranchOnMerge: boolean;
+  /** The head branch still exists, and the token may delete it (never a fork it can't push to). */
+  headBranchExists: boolean;
+  canDeleteBranch: boolean;
+  messages: Partial<Record<"merge" | "squash", { title: string; body: string }>>;
+  mergedBy?: Person;
+  mergedAt?: string;
+  closedAt?: string;
 };
 
 /** A verdict a review left. */
@@ -295,17 +342,50 @@ export type GithubWriteInputs = {
   reviewers: { repo: string; number: number; action: "add" | "remove"; users: string[]; teams: string[] };
   /** Assigns people to the PR, or unassigns them. */
   assignees: { repo: string; number: number; action: "add" | "remove"; users: string[] };
+  /**
+   * Merges it with one of the repository's methods (title and message for merge and squash), at `headSha`
+   * (the head it was read at, so nothing pushed since merges unseen). An administrator's merge goes past unmet requirements.
+   */
+  merge: { repo: string; number: number; prId: string; method: MergeMethod; headSha: string; title?: string; message?: string };
+  /** Turns auto-merge on (with a method, and title and message for merge and squash) or off. */
+  autoMerge: { repo: string; number: number; prId: string; enable: boolean; method?: MergeMethod; headSha?: string; title?: string; message?: string };
+  /** Adds it to its base's merge queue, or removes it. */
+  queue: { repo: string; number: number; prId: string; action: "add" | "remove"; headSha?: string };
+  /** Ready for review (true) or back to a draft (false). */
+  ready: { repo: string; number: number; prId: string; ready: boolean };
+  /** Brings its branch up to date with the base, by a merge commit or a rebase. */
+  updateBranch: { repo: string; number: number; prId: string; method: "merge" | "rebase"; headSha: string };
+  /** Closes it (after posting `comment`, when given) or reopens it. */
+  state: { repo: string; number: number; prId: string; state: "closed" | "open"; comment?: string };
+  /** Deletes its head branch, once it's merged or closed (the server reads which branch). */
+  deleteBranch: { repo: string; number: number };
   /** Stars or unstars a repository (`owner/name`) or an organization (its login) as a favourite: kept in `settings.json`, not on GitHub. */
   star: { kind: "repo" | "org"; name: string; starred: boolean };
 };
 export type GithubWriteName = keyof GithubWriteInputs;
-export const GITHUB_WRITES: GithubWriteName[] = ["comment", "review", "reply", "resolve", "viewed", "reviewers", "assignees", "star"];
+export const GITHUB_WRITES: GithubWriteName[] = [
+  "comment",
+  "review",
+  "reply",
+  "resolve",
+  "viewed",
+  "reviewers",
+  "assignees",
+  "merge",
+  "autoMerge",
+  "queue",
+  "ready",
+  "updateBranch",
+  "state",
+  "deleteBranch",
+  "star",
+];
 /** At most this many people (or teams) in one reviewers or assignees write, as GitHub allows (10 assignees, 15 reviewers). */
 export const MAX_REVIEWERS = 15;
 export const MAX_ASSIGNEES = 10;
 /** A team's slug. */
 export const TEAM_SLUG = /^[A-Za-z0-9][A-Za-z0-9_.-]{0,99}$/;
-export type GithubWriteResult = { ok: true; url?: string; stars?: GithubStars };
+export type GithubWriteResult = { ok: true; url?: string; stars?: GithubStars; /** A merge: GitHub merged it (false: it was queued or auto-merge took it). */ merged?: boolean };
 
 /** `owner/name`, as GitHub allows them (never `.` or `..`, which would climb an API path). */
 export const REPO = /^(?!\.\.?\/)[\w.-]{1,100}\/(?!\.\.?$)[\w.-]{1,100}$/;

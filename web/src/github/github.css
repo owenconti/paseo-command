@@ -1649,3 +1649,243 @@ button.gh-side-check-name:hover {
 .gh-filters {
   margin-top: 0;
 }
+
+/* Merge box: the header's split Merge button and ⋯, its panels, and the Conversation's Merge section */
+.gh-merge-anchor {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+.gh-merge-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: var(--control-md);
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--green-strong);
+  color: #fff;
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-semibold);
+  white-space: nowrap;
+  box-shadow: inset 0 1px 0 #ffffff24;
+}
+.gh-merge-btn:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--green-strong) 88%, #000);
+}
+.gh-merge-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.gh-split {
+  display: inline-flex;
+}
+.gh-split > .gh-merge-btn:first-child:not(:last-child) {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+.gh-split > .gh-split-more {
+  padding: 0 7px;
+  border-left: 1px solid color-mix(in srgb, #000 22%, transparent);
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+}
+.gh-more {
+  color: var(--icon-muted);
+}
+.popover-menu.gh-method-menu {
+  width: min(340px, 70vw);
+  padding: 4px;
+}
+.gh-method-menu > button {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  width: 100%;
+  padding: var(--space-2);
+  border-radius: var(--radius-md);
+  background: transparent;
+  text-align: left;
+}
+.gh-method-menu > button:hover,
+.gh-method-menu > button:focus-visible {
+  background: var(--row-hover);
+  outline: none;
+}
+.gh-method-menu .gh-method-check {
+  display: inline-grid;
+  place-items: center;
+  flex: 0 0 14px;
+  margin-top: 2px;
+  color: var(--accent);
+}
+.gh-method-menu span:last-child {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.gh-method-menu b {
+  font-size: var(--fs-sm);
+  color: var(--text-strong);
+}
+.gh-method-menu small {
+  font-size: var(--fs-xs);
+  color: var(--text-4);
+}
+.gh-more-menu > button {
+  white-space: nowrap;
+}
+.gh-merge-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.gh-merge-panel h3 {
+  margin: 0;
+}
+.gh-merge-panel .gh-hint {
+  margin: 0;
+}
+.gh-merge-panel .gh-verdicts {
+  margin-top: 0;
+}
+.gh-merge-message {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.gh-merge-message label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-semibold);
+  color: var(--text-3);
+}
+.gh-merge-message :is(input, textarea) {
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px solid var(--line-mid);
+  border-radius: var(--radius-md);
+  background: var(--panel);
+  color: var(--text);
+  font: inherit;
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-regular);
+}
+.gh-merge-message textarea {
+  resize: vertical;
+  min-height: 72px;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: var(--fs-xs);
+}
+.gh-merge-message :is(input, textarea):focus {
+  border-color: var(--accent);
+  outline: none;
+}
+.gh-check {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--fs-sm);
+  color: var(--text-2);
+  cursor: pointer;
+}
+.gh-check code {
+  font-size: var(--fs-xs);
+}
+.gh-bypass {
+  padding: var(--space-2);
+  border: 1px solid var(--amber-line);
+  border-radius: var(--radius-md);
+  background: var(--amber-soft);
+  color: var(--amber-text);
+}
+.gh-merge-panel .gh-error {
+  margin: 0;
+  font-size: var(--fs-sm);
+  color: var(--red-text);
+}
+.gh-merge-panel-foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
+.gh-merge-reasons {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--fs-sm);
+  color: var(--text-2);
+}
+.gh-merge-reasons li {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  line-height: 1.35;
+}
+.gh-merge-reasons li > svg {
+  flex: 0 0 13px;
+  margin-top: 2px;
+}
+.gh-merge-reasons li.block > svg {
+  color: var(--red-text);
+}
+.gh-merge-reasons li.warn > svg {
+  color: var(--amber-text);
+}
+.gh-merge-reasons li.ok > svg {
+  color: var(--green-text);
+}
+.gh-merge-reasons li.merged > svg,
+.gh-merge-reasons li.auto > svg {
+  color: var(--accent);
+}
+.gh-merge-reasons li.closed > svg {
+  color: var(--red-text);
+}
+.gh-merge-reasons li.info > svg {
+  color: var(--icon-muted);
+}
+.gh-merge-reasons b {
+  color: var(--text-strong);
+}
+.gh-merge-reasons .gh-avatar {
+  vertical-align: -2px;
+}
+.gh-merge-reasons.admin {
+  padding: var(--space-2);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-md);
+}
+.gh-merge-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
+}
+.gh-merge-section .gh-hint {
+  margin: 0;
+}
+.gh-merge-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.gh-merge-actions > button {
+  justify-content: flex-start;
+  width: 100%;
+  height: auto;
+  min-height: var(--control-md);
+  padding-block: 5px;
+  white-space: normal;
+  text-align: left;
+}
+.secondary.gh-danger {
+  color: var(--red-text);
+}

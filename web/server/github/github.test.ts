@@ -279,7 +279,8 @@ test("write inputs are checked field by field", async () => {
   assert.throws(() => checkWrite("assignees", { repo: "owen/app", number: 7, action: "add", users: Array.from({ length: 11 }, (_, i) => `u${i}`) }));
   assert.throws(() => checkWrite("assignees", { repo: "owen/app", number: 7, action: "add", users: ["ada"], teams: [] }));
   assert.equal((await ask("/api/github/m/review", "POST", { ...review, event: "MERGE" })).status, 400);
-  assert.equal((await ask("/api/github/m/merge", "POST", review)).status, 404);
+  assert.equal((await ask("/api/github/m/squash", "POST", review)).status, 404);
+  assert.equal((await ask("/api/github/m/merge", "POST", review)).status, 400);
   assert.equal((await ask("/api/github/m/comment")).status, 405);
   assert.equal((await ask("/api/github/m/comment", "POST", review, "text/plain")).status, 415);
   assert.equal((await ask("/api/github/m/comment?x=1", "POST", review)).status, 400);

@@ -76,6 +76,7 @@ export type AppCommand =
   | "github-files"
   | "github-review"
   | "github-comment"
+  | "github-merge"
   | "github-conversation-order"
   | "github-reviewers"
   | "github-assignees"
@@ -92,7 +93,7 @@ export type AppCommand =
 
 const EVENT = "paseo:command";
 
-/** Asks for `name`; `arg` is what it acts on, where it needs one (`linear-go`: the place; `activity-filter`: the source or "all"; `github-open`/`github-go`: the place; `github-tab`: the PR's tab; `github-review`: the verdict; `github-star`: `{kind, name, starred}`; `github-filter`: the filter to open; `github-set-filter`: `{field, value}` (a people filter's value: its logins) or "clear"). */
+/** Asks for `name`; `arg` is what it acts on, where it needs one (`linear-go`: the place; `activity-filter`: the source or "all"; `github-open`/`github-go`: the place; `github-tab`: the PR's tab; `github-review`: the verdict; `github-merge`: the merge box's action (`merge.ts` `MergeAction`); `github-star`: `{kind, name, starred}`; `github-filter`: the filter to open; `github-set-filter`: `{field, value}` (a people filter's value: its logins) or "clear"). */
 export function runAppCommand(name: AppCommand, arg?: unknown) {
   // The detail stays the bare name: the macOS app sends its own that way.
   window.dispatchEvent(Object.assign(new CustomEvent(EVENT, { detail: name }), { arg }));

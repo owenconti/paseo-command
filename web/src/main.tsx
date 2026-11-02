@@ -76,6 +76,7 @@ import type { GithubViewState, GithubWorkspace } from "./github/GitHubView";
 import { openGithubPlace, prPlaceOf } from "./github/place";
 import { paseoMatches, type PaseoMatch, type PrHead } from "./github/paseo";
 import { MODE_LABEL as CHANGES_MODE_LABEL, SCOPE_TITLE as PR_SCOPE_TITLE, TAB_LABEL as PR_TAB_LABEL } from "./github/names";
+import type { MergeAction } from "./github/merge";
 import { FILTERS as PR_FILTERS, fieldLabel as prFieldLabel, filtersSet as prFiltersSet, ME as PR_ME, PEOPLE_FIELDS as PR_PEOPLE_FIELDS, VALUE_FIELDS as PR_VALUE_FIELDS } from "./github/filters";
 import { useActivityUnread } from "./activity/store";
 import { SOURCE_LABEL } from "./activity/rows";
@@ -188,6 +189,20 @@ function ActivityBadge() {
   return null;
 }
 
+/** ⌘K's words for the open PR's merge box actions. */
+const PR_ACTION_WORDS: Record<MergeAction["kind"], string> = {
+  merge: "merge squash rebase commit land ship confirm",
+  auto: "auto-merge automerge auto merge when ready checks pass enable",
+  "auto-off": "auto-merge automerge disable turn off cancel stop",
+  queue: "merge queue enqueue add when ready land",
+  dequeue: "merge queue dequeue remove leave",
+  ready: "ready for review undraft publish draft",
+  draft: "convert to draft work in progress wip",
+  update: "update branch behind base sync main merge rebase out of date",
+  close: "close pull request reject abandon comment",
+  reopen: "reopen pull request open again",
+  "delete-branch": "delete branch remove head ref cleanup",
+};
 const spring = { type: "spring" as const, stiffness: 300, damping: 30 };
 function parsePermissions(value: unknown): PendingPermission[] {
   // Daemon versions name the fields differently.
@@ -1991,6 +2006,7 @@ function App() {
                             ]
                           : []),
                         command("github-assignees", "Assign…", "assign assignee assignees unassign people person owner pull request"),
+                        ...v.pr.actions.map((a) => command("github-merge", a.label, `pull request ${PR_ACTION_WORDS[a.action.kind]}`, undefined, a.action)),
                         ...(v.pr.open
                           ? [
                               command("github-reviewers", "Request review…", "request review reviewer reviewers re-request remove people team ask pull request"),

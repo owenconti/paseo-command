@@ -112,6 +112,26 @@ const detail = (r: PrRow): PrDetail => ({
   checkRuns: [{ name: "test", state: "passing" }],
   reviewers: [{ kind: "user", login: "me", requested: true, verdict: null }],
   assignees: [],
+  merge: {
+    status: "clean",
+    methods: ["merge", "squash"],
+    canMerge: true,
+    canMergeAsAdmin: false,
+    canUpdate: true,
+    canClose: true,
+    canReopen: true,
+    canUpdateBranch: false,
+    autoMergeAllowed: false,
+    canEnableAutoMerge: false,
+    canDisableAutoMerge: false,
+    autoMerge: null,
+    queueRequired: false,
+    queue: null,
+    deleteBranchOnMerge: false,
+    headBranchExists: true,
+    canDeleteBranch: true,
+    messages: {},
+  },
 });
 /** #20 as GitHub renders it: a description with a folded block and an alert, a dependency bot's table, a hostile
  * comment, one of only a hidden marker, and a line comment; each beside its Markdown. */

@@ -577,6 +577,17 @@ export function linearIssue(
   return value;
 }
 
+/**
+ * Forgets what's looked up about a PR (`owner/name` and number) and its
+ * repository's branch PRs, after the GitHub tab changed it (merged, closed,
+ * auto-merge, queued): the map's medallions and the header ask again.
+ */
+export function forgetPullRequest(repo: string, number: number) {
+  const r = repo.toLowerCase();
+  for (const key of [...prCache.keys()]) if (key.toLowerCase().startsWith(`${r}\n`)) prCache.delete(key);
+  for (const key of [...queueCache.keys()]) if (key.toLowerCase() === `${r}#${number}`) queueCache.delete(key);
+}
+
 export function resetLinks() {
   prCache.clear();
   queueCache.clear();

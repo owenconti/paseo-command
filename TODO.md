@@ -5,21 +5,6 @@ mark it done with its commit once merged into `main`.
 
 ## Open
 
-- [ ] **GitHub PR view: manage merge state, close and reopen.** The PR view (`PrView.tsx`) has Review and a
-  read-only Merge section ("No conflicts with the base branch."). Make it act as GitHub's merge box, each action
-  only where it applies and the token may (`viewerCanUpdate`, `viewerCanMergeAsAdmin`, the repo's allowed methods):
-  - Merge: Merge, Squash and merge, or Rebase and merge (a method picker remembering the last per repo, only the
-    repo's allowed ones), with editable commit title and message for merge/squash; confirm; delete the branch
-    afterwards (offered, remembered). Blocked states say why (checks, reviews required, conflicts, behind).
-  - Auto-merge: enable (with method) and disable (GraphQL `enablePullRequestAutoMerge`/`disable…`), shown with who
-    turned it on; the merge queue where the repo uses one (add/remove).
-  - Ready for review / Convert to draft; Update branch (merge or rebase) when behind.
-  - Close pull request (optional comment, sent first; confirm) and, on a closed unmerged PR, Reopen.
-  In the Merge section, with the main ones in the header (e.g. a split Merge button and a ⋯ menu beside Review),
-  and ⌘K entries for each. Whitelisted writes in `web/server/github/writes.ts` (`m/merge`, `m/autoMerge`,
-  `m/ready`, `m/updateBranch`, `m/state`; each field checked), shown at once and rolled back with a notice if GitHub
-  refuses; the PR, its lists and counts, the map's PR medallions/auto-merge seal refresh. Tests over the fake;
-  never real GitHub. Workspace: `github-pr-merge-state`.
 - [ ] **Linear board: cards show through the column heads when scrolled.** On a board (e.g. Current Cycle grouped
   by assignee), scrolling down a column leaves cards visible above and behind the sticky column heads
   ("Cody 1", "Craig 3", …): card text and avatars peek out in the gap between the search field and the heads, and
@@ -30,6 +15,13 @@ mark it done with its commit once merged into `main`.
 
 ## Done
 
+- [x] **GitHub PR view: manage merge state, close and reopen.** The PR view's Merge section is GitHub's merge box: what blocks a
+  merge and why, auto-merge (who turned it on) and the merge queue, and each action that applies and the token may: Merge, Squash and
+  merge or Rebase and merge (the repository's methods, the last per repository; commit title and message; confirmed; delete the branch
+  after, remembered), auto-merge on and off, Merge when ready and Remove from queue, Ready for review and Convert to draft, Update branch
+  (merge or rebase), Close (an optional comment first) and Reopen, Delete branch. The header has a split Merge button and ⋯ beside
+  Review; ⌘K has each while it applies. Whitelisted writes `m/merge|autoMerge|queue|ready|updateBranch|state|deleteBranch`; the PR,
+  its lists and counts and the map's lookups refresh after.
 - [x] **Asks: an either/or question gets its options as quick replies.** "Should I push the branch and open a PR, or
   do you want the chamber fixtures deleted first?" got no options: `optionReadings` refused alternatives over six words, so
   the pick fell back to open and waited on drafted answers. Now a clear "A, or B?" question is a pick whatever Jev says, its

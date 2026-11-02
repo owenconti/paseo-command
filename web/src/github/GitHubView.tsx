@@ -33,6 +33,7 @@ import { SCOPE_TITLE } from "./names";
 import { LIST_POLL_MS, PrList } from "./PrList";
 import type { PaseoMatch, PrHead } from "./paseo";
 import { PrView, type PrViewApi } from "./PrView";
+import { actionKey, actionLabel, MERGE_ACTION_KINDS, mergeActions, mergeMethodFor, type MergeAction } from "./merge";
 import { CHANGES_MODES, PR_SCOPES, type ChangesMode, type PrDetail, type PrList as PrListData, type PrScope, type RepoList, type ReviewEvent, type Viewer, type WorkspaceChanges } from "./types";
 import "./github.css";
 
@@ -53,7 +54,19 @@ export type GithubViewState = {
   listShown: boolean;
   /** A diff shows (Files changed, or the workspace's changes). */
   diff: boolean;
-  pr?: { repo: string; number: number; url: string; title: string; viewerIsAuthor: boolean; open: boolean; pending: number; headRef: string; headRepo: string | null };
+  pr?: {
+    repo: string;
+    number: number;
+    url: string;
+    title: string;
+    viewerIsAuthor: boolean;
+    open: boolean;
+    pending: number;
+    headRef: string;
+    headRepo: string | null;
+    /** The merge box's actions that apply now (a merge and auto-merge once per allowed method, the remembered first), with their words. */
+    actions: { key: string; label: string; action: MergeAction }[];
+  };
   /** The PR the workspace's changes belong to. */
   workspacePr?: { repo: string; number: number };
   changesMode: ChangesMode;
@@ -76,6 +89,15 @@ const SCOPE_HINT: Record<PrScope, string> = {
   mine: "Open pull requests you opened",
   involved: "Open pull requests you're assigned, mentioned in or have commented on",
 };
+
+/** The merge box's actions for ⌘K: a merge and auto-merge once for each allowed method, the one last used first. */
+function prActions(pr: PrDetail): { key: string; label: string; action: MergeAction }[] {
+  const first = mergeMethodFor(pr.repo, pr.merge.methods);
+  const methods = [first, ...pr.merge.methods.filter((m) => m !== first)];
+  return mergeActions(pr, first)
+    .flatMap((a): MergeAction[] => (a.kind === "merge" || a.kind === "auto" ? methods.map((method) => ({ kind: a.kind, method })) : [a]))
+    .map((action) => ({ key: actionKey(action), label: actionLabel(action, pr), action }));
+}
 
 /** A PR's repository and number from its github.com address. */
 const prOf = (url: string | undefined) => {
@@ -312,6 +334,14 @@ export function GitHubView({
         setConversationOrder(arg === "newest" || arg === "oldest" ? arg : c().conversationOrder === "newest" ? "oldest" : "newest"),
       ),
       onAppCommand("github-comment", () => prApi.current?.focusComment()),
+      onAppCommand("github-merge", (arg) => {
+        const a = arg as MergeAction | undefined;
+        const pr = c().openPr.pr;
+        if (c().place.kind !== "pr" || !pr || !a || !MERGE_ACTION_KINDS.includes(a.kind)) return;
+        // Only what applies to it now (the method among the repository's).
+        if (!prActions(pr).some((x) => actionKey(x.action) === actionKey(a))) return;
+        prApi.current?.mergeAction(a);
+      }),
       onAppCommand("github-reviewers", () => {
         if (c().place.kind === "pr") prApi.current?.editPeople("reviewers");
       }),
@@ -377,6 +407,7 @@ export function GitHubView({
               pending: openPr.pending,
               headRef: pr.headRef,
               headRepo: pr.headRepo ?? null,
+              actions: prActions(pr),
             },
           }
         : {}),

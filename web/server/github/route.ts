@@ -116,7 +116,7 @@ export async function githubRoute(
       return reply(200, unavailable(f));
     }
   }
-  const m = /^\/api\/github\/m\/([a-z]+)$/.exec(url.pathname)?.[1] as GithubWriteName | undefined;
+  const m = /^\/api\/github\/m\/([a-zA-Z]+)$/.exec(url.pathname)?.[1] as GithubWriteName | undefined;
   if (!m || !GITHUB_WRITES.includes(m)) return reply(404, { error: "Unknown endpoint" });
   if (req.method !== "POST") return reply(405, { error: "Method not allowed" });
   if (url.search) return reply(400, { error: "Unexpected parameters" });

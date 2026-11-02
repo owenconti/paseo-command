@@ -21,6 +21,8 @@ import { addComment, editComment, removeComment, reviewComments, useReviewDraft 
 import type { ConversationOrder, PrTab } from "./place";
 import { OpenPaseoButton } from "./OpenPaseo";
 import type { PaseoMatch, PrHead } from "./paseo";
+import type { MergeAction } from "./merge";
+import { MergeHeader, MergeSection, useMergeBox, type MergeBox } from "./MergeBox";
 import { Assignees, ChecksSummary, Reviewers, type PeopleChange, type PickerControl } from "./PrSide";
 import type { DraftComment, Person, PrDetail, PrDiff, PrReviewer, ReviewEvent, ReviewThread } from "./types";
 
@@ -45,6 +47,8 @@ export type PrViewApi = {
   focusComment: () => void;
   /** Opens the Reviewers or Assignees picker (on Conversation). */
   editPeople: (which: "reviewers" | "assignees") => void;
+  /** One of the merge box's actions (`merge.ts`): a merge, auto-merge or close opens its confirmation. */
+  mergeAction: (action: MergeAction) => void;
 };
 
 const personOf = (p: Person): Person => ({ login: p.login, ...(p.name ? { name: p.name } : {}), ...(p.avatarUrl ? { avatarUrl: p.avatarUrl } : {}) });
@@ -193,8 +197,10 @@ function Conversation({
   onExternal,
   reviewersControl,
   assigneesControl,
+  mergeBox,
 }: {
   pr: PrDetail;
+  mergeBox: MergeBox;
   order: ConversationOrder;
   setOrder: (order: ConversationOrder) => void;
   onComment: (body: string) => Promise<boolean>;
@@ -315,17 +321,7 @@ function Conversation({
           </>
         )}
         <h4>Merge</h4>
-        <p className="gh-hint">
-          {pr.state === "merged"
-            ? "Merged."
-            : pr.state === "closed"
-              ? "Closed without merging."
-              : pr.mergeable === "conflicting"
-                ? "This branch has conflicts to resolve."
-                : pr.mergeable === "mergeable"
-                  ? "No conflicts with the base branch."
-                  : "Checking for conflicts…"}
-        </p>
+        <MergeSection pr={pr} box={mergeBox} />
         {pr.checkRuns.length > 0 && (
           <>
             <h4>Checks</h4>
@@ -538,6 +534,12 @@ export function PrView({
   const onReviewers = useCallback((c: PeopleChange) => changePeople("reviewers", c), [changePeople]);
   const onAssignees = useCallback((c: PeopleChange) => changePeople("assignees", c), [changePeople]);
 
+  const mergeBox = useMergeBox({ pr, prPath, onNotice });
+  // One panel at a time beneath the header's buttons.
+  useEffect(() => {
+    if (mergeBox.panel) setReviewOpen(false);
+  }, [mergeBox.panel]);
+
   const submit = async (text: string) => {
     if (!pr) return false;
     setSubmitting(true);
@@ -578,6 +580,7 @@ export function PrView({
       setTab("conversation");
       setTimeout(() => (which === "reviewers" ? reviewersControl : assigneesControl).current?.open(), 0);
     },
+    mergeAction: (a) => mergeBox.run(a),
     focusComment: () => {
       setTab("conversation");
       setTimeout(() => {
@@ -681,7 +684,10 @@ export function PrView({
             <div className="gh-review-anchor">
               <button
                 className="primary"
-                onClick={() => setReviewOpen(!reviewOpen)}
+                onClick={() => {
+                  setReviewOpen(!reviewOpen);
+                  mergeBox.setPanel(null);
+                }}
                 aria-expanded={reviewOpen}
                 data-tip="Finish your review (R)"
                 disabled={pr.state === "merged" || pr.state === "closed"}
@@ -708,6 +714,7 @@ export function PrView({
                 />
               )}
             </div>
+            <MergeHeader pr={pr} box={mergeBox} />
           </nav>
           {tab === "conversation" && (
             <Conversation
@@ -720,6 +727,7 @@ export function PrView({
               onExternal={onExternal}
               reviewersControl={reviewersControl}
               assigneesControl={assigneesControl}
+              mergeBox={mergeBox}
             />
           )}
           {tab === "files" && (
