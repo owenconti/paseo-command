@@ -53,6 +53,7 @@ export type LinearCustomView = {
   display: {
     layout?: "list" | "board";
     grouping?: "status" | "assignee" | "priority" | "project" | "cycle" | "none";
+    subGrouping?: "status" | "assignee" | "priority" | "project" | "cycle" | "none";
     ordering?: "priority" | "updated" | "created" | "manual" | "due" | "title";
     completed?: "all" | "week" | "month" | "none";
   };

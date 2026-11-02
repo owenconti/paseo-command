@@ -53,7 +53,7 @@ export const CYCLES_QUERY = `query Cycles($teamId: ID!, $cut: DateTimeOrDuration
 export const VIEWS_QUERY = `query CustomViews {
   customViews(first: 100) {
     nodes { id name description icon color shared modelName updatedAt team { id } owner { id }
-      viewPreferencesValues { layout issueGrouping viewOrdering showCompletedIssues } }
+      viewPreferencesValues { layout issueGrouping issueSubGrouping viewOrdering showCompletedIssues } }
   }
 }`;
 

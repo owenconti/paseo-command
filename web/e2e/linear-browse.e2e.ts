@@ -102,8 +102,11 @@ test("a team's cycles: current and past with their progress, each opening its is
   }
 });
 
+/** A list's groups, or a board's columns (over its swimlanes, when it has them). */
 const groupNames = (page: Page) =>
-  page.locator(".linear-list .linear-group h3 span[id]").allInnerTexts();
+  page.locator(".linear-list .linear-group h3 span[id], .linear-list .linear-column-label").allInnerTexts();
+const subNames = (page: Page) => page.locator(".linear-list .linear-subgroup").evaluateAll((els) => els.map((e) => e.getAttribute("aria-label")));
+const laneNames = (page: Page) => page.locator(".linear-list .linear-lane-label").allInnerTexts();
 const focusedKey = (page: Page) => page.evaluate(() => (document.activeElement as HTMLElement | null)?.dataset.key);
 
 test("a list's display: grouping, ordering and finished issues, kept for the place; filters as chips", async () => {
@@ -117,7 +120,7 @@ test("a list's display: grouping, ordering and finished issues, kept for the pla
     // Grouped by assignee (you first), ordered by title, without what's finished.
     await view.getByRole("button", { name: "Display" }).click();
     const menu = view.getByRole("dialog", { name: "Display options" });
-    await menu.getByLabel("Grouping").selectOption("assignee");
+    await menu.getByLabel("Grouping", { exact: true }).selectOption("assignee");
     await menu.getByLabel("Ordering").selectOption("title");
     assert.deepEqual(await groupNames(page), ["Owen Conti", "Sam Rivera", "No assignee"]);
     assert.deepEqual(await rowKeys(page), ["ENG-5", "ENG-3", "ENG-1", "ENG-2", "ENG-6", "ENG-4"]);
@@ -222,6 +225,137 @@ test("a board: a column for each of the team's states, cards dragged between the
   }
 });
 
+test("sub-grouping: groups hold sub-groups in a list, swimlanes on a board; swapped, cleared, and drops take both", async () => {
+  const { context, page, linear, view, sidebar } = await openLinear();
+  try {
+    await sidebar.getByRole("button", { name: /^ENG/ }).click();
+    await sidebar.locator('.linear-team[data-team="ENG"]').getByRole("button", { name: "All" }).click();
+    await waitFor(() => rowKeys(page), (keys) => keys.length === 6, "ENG's issues");
+
+    // Sub-grouped by assignee; ⇅ (only with a sub-grouping) swaps the two.
+    await view.getByRole("button", { name: "Display" }).click();
+    const menu = view.getByRole("dialog", { name: "Display options" });
+    const swap = menu.getByRole("button", { name: "Swap grouping and sub-grouping" });
+    await menu.waitFor();
+    assert.equal(await swap.count(), 0);
+    assert.deepEqual(await menu.getByLabel("Sub-grouping", { exact: true }).locator("option").allInnerTexts(), [
+      "None",
+      "Status",
+      "Assignee",
+      "Priority",
+      "Project",
+      "Cycle",
+    ]);
+    await menu.getByLabel("Sub-grouping", { exact: true }).selectOption("assignee");
+    await waitFor(() => subNames(page), (names) => names.length === 6, "sub-groups");
+    assert.deepEqual((await subNames(page)).slice(0, 2), ["In Progress · Owen Conti", "In Review · Owen Conti"]);
+    await swap.click();
+    assert.equal(await menu.getByLabel("Grouping", { exact: true }).inputValue(), "assignee");
+    assert.equal(await menu.getByLabel("Sub-grouping", { exact: true }).inputValue(), "status");
+    assert.deepEqual(await groupNames(page), ["Owen Conti", "Sam Rivera", "No assignee"]);
+    assert.deepEqual(await subNames(page), [
+      "Owen Conti · In Progress",
+      "Owen Conti · In Review",
+      "Owen Conti · Done",
+      "Sam Rivera · Todo",
+      "Sam Rivera · Done",
+      "No assignee · Triage",
+    ]);
+    // Rows in display order (not the group's priority order).
+    assert.deepEqual(await rowKeys(page), ["ENG-1", "ENG-3", "ENG-5", "ENG-2", "ENG-6", "ENG-4"]);
+    // Sub-grouped by the grouping's own property: swapped back.
+    await menu.getByLabel("Sub-grouping", { exact: true }).selectOption("assignee");
+    assert.equal(await menu.getByLabel("Grouping", { exact: true }).inputValue(), "status");
+    assert.equal(await menu.getByLabel("Sub-grouping", { exact: true }).inputValue(), "assignee");
+    await swap.click();
+    await page.keyboard.press("Escape");
+    await menu.waitFor({ state: "detached" });
+
+    // J/K go through the rows as shown.
+    await view.locator('.linear-row[data-key="ENG-1"]').focus();
+    for (const key of ["ENG-3", "ENG-5", "ENG-2"]) {
+      await page.keyboard.press("j");
+      assert.equal(await focusedKey(page), key);
+    }
+    await page.keyboard.press("k");
+    assert.equal(await focusedKey(page), "ENG-5");
+
+    // Kept for the place across a reload.
+    await page.reload();
+    await page.locator(".fleet-sidebar").waitFor();
+    await page.evaluate(() => window.dispatchEvent(new CustomEvent("paseo:mode", { detail: { mode: "linear" } })));
+    await waitFor(() => subNames(page), (names) => names[0] === "Owen Conti · In Progress", "the sub-groups again");
+
+    // ⌘K swaps and clears.
+    const palette = async (label: string) => {
+      await page.keyboard.press("Meta+k");
+      await page.keyboard.type(label);
+      await page.getByRole("option", { name: label }).first().waitFor();
+      await page.keyboard.press("Enter");
+    };
+    await palette("Swap the Linear list's grouping and sub-grouping");
+    await waitFor(() => groupNames(page), (names) => names[0] === "In Progress", "grouped by status");
+    await palette("Clear the Linear list's sub-grouping");
+    await waitFor(() => subNames(page), (names) => names.length === 0, "no sub-groups");
+    await palette("Sub-group the Linear list by assignee");
+    await waitFor(() => subNames(page), (names) => names.length === 6, "sub-grouped by assignee");
+
+    // A board: the team's states as columns, a swimlane for each assignee with issues.
+    // (A board's issue opens in its place: none open.)
+    await view.locator(".linear-close").click();
+    await view.locator(".linear-issue").waitFor({ state: "detached" });
+    await palette("Show the Linear issues as a board");
+    await view.locator(".linear-board.has-lanes").waitFor();
+    assert.deepEqual(await groupNames(page), ["In Progress", "In Review", "Todo", "Triage", "Backlog", "Done", "Canceled"]);
+    assert.deepEqual(await laneNames(page), ["Owen Conti", "Sam Rivera", "No assignee"]);
+    const cell = (lane: string, column: string) =>
+      view.locator(`.linear-lane[data-lane="${lane}"] .linear-cell[data-group="state:${column}"]`);
+    const sam = `user:${FAKE_IDS.sam}`;
+    const owen = `user:${FAKE_IDS.owen}`;
+    assert.equal(await cell(sam, "Todo").locator(".linear-card").count(), 1);
+    // ←/→ stay in the lane.
+    await cell(owen, "In Progress").locator('.linear-card[data-key="ENG-1"]').focus();
+    await page.keyboard.press("ArrowRight");
+    assert.equal(await focusedKey(page), "ENG-3");
+    await page.keyboard.press("ArrowRight");
+    assert.equal(await focusedKey(page), "ENG-5");
+    await page.keyboard.press("ArrowLeft");
+    await page.keyboard.press("ArrowLeft");
+    assert.equal(await focusedKey(page), "ENG-1");
+
+    // Dropped in Owen's In Progress: both its status and assignee, as one write.
+    const writes = () => linear.requests.filter((r) => r.operation === "IssueUpdate").length;
+    const before = writes();
+    await cell(sam, "Todo").locator('.linear-card[data-key="ENG-2"]').dragTo(cell(owen, "In Progress"));
+    await cell(owen, "In Progress").locator('.linear-card[data-key="ENG-2"]').waitFor();
+    await waitFor(
+      async () => {
+        const eng2 = linear.ws.issues.find((i) => i.identifier === "ENG-2")!;
+        return [eng2.state.id, eng2.assignee?.id];
+      },
+      ([state, assignee]) => state === FAKE_IDS.states.eng["In Progress"] && assignee === FAKE_IDS.owen,
+      "the status and assignee in Linear",
+    );
+    assert.equal(writes(), before + 1);
+    // Refused: it goes back where it was.
+    linear.fail("IssueUpdate", { message: "Not allowed" });
+    await cell(owen, "In Progress").locator('.linear-card[data-key="ENG-2"]').dragTo(cell("user:none", "Triage"));
+    await page.locator(".toast", { hasText: "Not allowed" }).waitFor();
+    await cell(owen, "In Progress").locator('.linear-card[data-key="ENG-2"]').waitFor();
+
+    // A lane folds and unfolds.
+    const samHead = view.locator(`.linear-lane[data-lane="${sam}"] .linear-lane-head button`);
+    await samHead.click();
+    assert.equal(await samHead.getAttribute("aria-expanded"), "false");
+    assert.equal(await view.locator(`.linear-lane[data-lane="${sam}"] .linear-card`).count(), 0);
+    await samHead.click();
+    await view.locator(`.linear-lane[data-lane="${sam}"] .linear-card[data-key="ENG-6"]`).waitFor();
+  } finally {
+    linear.restore();
+    await context.close();
+  }
+});
+
 test("saved views: listed in the sidebar, each with its own filter and Linear's display, kept current as issues change", async () => {
   const { context, page, linear, view, sidebar } = await openLinear();
   try {
@@ -237,10 +371,11 @@ test("saved views: listed in the sidebar, each with its own filter and Linear's 
     assert.match(await view.locator(".linear-view-about").innerText(), /Only you · by Owen Conti/);
     assert.ok(linear.requests.some((r) => r.operation === "ViewIssues"));
 
-    // Launch in flight: a board by assignee.
+    // Launch in flight: a board by assignee, its swimlanes by priority.
     await views.getByRole("button", { name: "Launch in flight" }).click();
     await view.locator(".linear-board").waitFor();
     await waitFor(() => groupNames(page), (names) => names.join() === "Owen Conti", "a column for Owen");
+    assert.deepEqual(await laneNames(page), ["Urgent", "High"]);
     assert.deepEqual(
       await view.locator(".linear-card").evaluateAll((cards) => cards.map((c) => (c as HTMLElement).dataset.key)),
       ["ENG-3", "ENG-1"],

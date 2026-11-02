@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from "react";
 import {
   CircleDot,
   Columns3,
@@ -13,6 +13,7 @@ import {
   Box,
   X,
   Minus,
+  ArrowDownUp,
 } from "lucide-react";
 import { cycleName, Dot, Person, Priority, PRIORITY_LABEL } from "./bits";
 import {
@@ -25,7 +26,11 @@ import {
   hasFilters,
   ORDERING_LABEL,
   ORDERINGS,
+  regroup,
   scopeCompleted,
+  settleDisplay,
+  SUB_GROUPING_LABEL,
+  swapGroupings,
   type Display,
   type FilterField,
   type Filters,
@@ -335,8 +340,8 @@ export function FilterChips({
 export type DisplayControl = { open(): void };
 
 /**
- * Display: List or Board, grouping, ordering and how far back finished issues
- * show. `fallback` is what Reset puts back (the place's own default: a view's
+ * Display: List or Board, grouping and sub-grouping (⇅ swaps them), ordering
+ * and how far back finished issues show. `fallback` is what Reset puts back (the place's own default: a view's
  * Linear settings); Relevance is offered only where the list has one (a search).
  */
 export function DisplayButton({
@@ -359,6 +364,7 @@ export function DisplayButton({
   control?: React.MutableRefObject<DisplayControl | null>;
 }) {
   const [open, setOpen] = useState(false);
+  const id = useId();
   const anchor = useRef<HTMLSpanElement>(null);
   const button = useRef<HTMLButtonElement>(null);
   const close = useCallback(() => setOpen(false), []);
@@ -375,15 +381,12 @@ export function DisplayButton({
         setOpen(true);
       },
     };
-  const set = (patch: Partial<Display>) => {
-    const next = { ...display, ...patch };
-    // A board has columns: it's grouped by something.
-    if (next.layout === "board" && next.grouping === "none") next.grouping = "status";
-    onDisplay(next);
-  };
-  const groupings = GROUPINGS.filter((g) => g !== "cycle" || cycles).filter(
-    (g) => g !== "none" || display.layout === "list",
-  );
+  // A board has columns: it's grouped by something.
+  const set = (patch: Partial<Display>) => onDisplay(settleDisplay({ ...display, ...patch }));
+  const offered = GROUPINGS.filter((g) => g !== "cycle" || cycles);
+  const groupings = offered.filter((g) => g !== "none" || display.layout === "list");
+  // None first, as Linear lists it.
+  const subGroupings: Display["grouping"][] = ["none", ...offered.filter((g) => g !== "none")];
   const orderings = ORDERINGS.filter((o) => o !== "relevance" || relevance);
   const changed = JSON.stringify(display) !== JSON.stringify(fallback);
   return (
@@ -434,16 +437,48 @@ export function DisplayButton({
               </button>
             ))}
           </div>
-          <label className="linear-display-row">
-            <span>Grouping</span>
-            <select value={display.grouping} onChange={(e) => set({ grouping: e.target.value as Display["grouping"] })}>
-              {groupings.map((g) => (
-                <option key={g} value={g}>
-                  {GROUPING_LABEL[g]}
-                </option>
-              ))}
-            </select>
-          </label>
+          <div className="linear-display-row">
+            <label htmlFor={`${id}-grouping`}>Grouping</label>
+            <span className="linear-display-pair">
+              {display.subGrouping !== "none" && (
+                <button
+                  className="icon-btn linear-display-swap"
+                  aria-label="Swap grouping and sub-grouping"
+                  data-tip="Swap grouping and sub-grouping"
+                  onClick={() => onDisplay(swapGroupings(display))}
+                >
+                  <ArrowDownUp size={13} aria-hidden="true" />
+                </button>
+              )}
+              <select
+                id={`${id}-grouping`}
+                value={display.grouping}
+                onChange={(e) => onDisplay(regroup(display, "grouping", e.target.value as Display["grouping"]))}
+              >
+                {groupings.map((g) => (
+                  <option key={g} value={g}>
+                    {GROUPING_LABEL[g]}
+                  </option>
+                ))}
+              </select>
+            </span>
+          </div>
+          {display.grouping !== "none" && (
+            <div className="linear-display-row">
+              <label htmlFor={`${id}-sub-grouping`}>Sub-grouping</label>
+              <select
+                id={`${id}-sub-grouping`}
+                value={display.subGrouping}
+                onChange={(e) => onDisplay(regroup(display, "subGrouping", e.target.value as Display["grouping"]))}
+              >
+                {subGroupings.map((g) => (
+                  <option key={g} value={g}>
+                    {SUB_GROUPING_LABEL[g]}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
           <label className="linear-display-row">
             <span>Ordering</span>
             <select value={display.ordering} onChange={(e) => set({ ordering: e.target.value as Display["ordering"] })}>

@@ -110,7 +110,11 @@ test("reads the issue views with their display, and a view's issues by its own f
   assert.deepEqual(
     views.map((v) => [v.name, v.shared, v.display]),
     [
-      ["Launch in flight", true, { layout: "board", grouping: "assignee", ordering: "priority", completed: "all" }],
+      [
+        "Launch in flight",
+        true,
+        { layout: "board", grouping: "assignee", subGrouping: "priority", ordering: "priority", completed: "all" },
+      ],
       ["Sam's work", false, { layout: "list", grouping: "none", ordering: "updated", completed: "none" }],
     ],
     "a project view isn't listed",

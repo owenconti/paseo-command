@@ -21,7 +21,10 @@ export type IssueGroup = {
     | { kind: "none" };
   /** What an issue dropped here takes, for the grouping's property: a state's name, an id or priority; null clears it. */
   value: string | number | null;
+  /** In display order (its sub-groups' in turn, when it has them). */
   issues: LinearIssue[];
+  /** Its issues by the display's sub-grouping, when it has one. */
+  subgroups?: IssueGroup[];
 };
 
 /** Urgent first, none last; then the most recently updated. */
@@ -156,16 +159,58 @@ const compareOrder = (a: (string | number)[], b: (string | number)[]) => {
  * and canceled last, one group per state name across teams), assignee (you
  * first, nobody last), priority (urgent first, none last), project or cycle
  * (the current one first), or one group; each sorted by the display's
- * ordering. `states` adds empty groups for those states (a board's columns),
- * `cycles` names cycles the workspace doesn't list, `rank` is a search's order.
+ * ordering. With a sub-grouping, each group holds its issues in sub-groups
+ * (only those with issues), its `issues` theirs in turn. `states` adds empty
+ * groups for those states (a board's columns), `cycles` names cycles the
+ * workspace doesn't list, `rank` is a search's order.
  */
 export function arrangeIssues(
   issues: LinearIssue[],
   ws: LinearWorkspace | undefined,
-  display: Pick<Display, "grouping" | "ordering"> = DEFAULT_DISPLAY,
+  display: Pick<Display, "grouping" | "ordering"> & Partial<Pick<Display, "subGrouping">> = DEFAULT_DISPLAY,
   opts: { states?: LinearState[]; cycles?: LinearCycle[]; rank?: Map<string, number> } = {},
 ): IssueGroup[] {
-  const { of, ofState } = grouper(display.grouping, ws, opts.cycles ?? []);
+  const groups = arrange(issues, ws, display.grouping, display.ordering, opts);
+  const sub = display.subGrouping ?? "none";
+  if (sub === "none" || sub === display.grouping || display.grouping === "none") return groups;
+  return groups.map((g) => {
+    const subgroups = arrange(g.issues, ws, sub, display.ordering, { cycles: opts.cycles, rank: opts.rank });
+    return { ...g, issues: subgroups.flatMap((s) => s.issues), subgroups };
+  });
+}
+
+/**
+ * A board's swimlanes, one for each sub-group with issues, in the
+ * sub-grouping's order: its cells, one for each of the columns (`columns`,
+ * `arrangeIssues`'s groups for the same display), hold the lane's issues in
+ * that column. Null without a sub-grouping.
+ */
+export type Swimlane = { lane: IssueGroup; cells: IssueGroup[] };
+export function swimlanes(
+  columns: IssueGroup[],
+  ws: LinearWorkspace | undefined,
+  display: Pick<Display, "subGrouping" | "ordering">,
+  opts: { cycles?: LinearCycle[]; rank?: Map<string, number> } = {},
+): Swimlane[] | null {
+  if (!columns.some((c) => c.subgroups)) return null;
+  const lanes = arrange(columns.flatMap((c) => c.issues), ws, display.subGrouping, display.ordering, opts);
+  return lanes.map(({ issues: _, ...lane }) => {
+    const cells = columns.map(({ subgroups, ...c }) => ({
+      ...c,
+      issues: subgroups?.find((s) => s.key === lane.key)?.issues ?? [],
+    }));
+    return { lane: { ...lane, issues: cells.flatMap((c) => c.issues) }, cells };
+  });
+}
+
+function arrange(
+  issues: LinearIssue[],
+  ws: LinearWorkspace | undefined,
+  grouping: Grouping,
+  ordering: Ordering,
+  opts: { states?: LinearState[]; cycles?: LinearCycle[]; rank?: Map<string, number> },
+): IssueGroup[] {
+  const { of, ofState } = grouper(grouping, ws, opts.cycles ?? []);
   const groups = new Map<string, { keyed: Keyed; issues: LinearIssue[] }>();
   if (ofState)
     for (const state of opts.states ?? []) {
@@ -178,7 +223,7 @@ export function arrangeIssues(
     if (known) known.issues.push(issue);
     else groups.set(keyed.group.key, { keyed, issues: [issue] });
   }
-  const sort = comparator(display.ordering, opts.rank);
+  const sort = comparator(ordering, opts.rank);
   return [...groups.values()]
     .sort((a, b) => compareOrder(a.keyed.order, b.keyed.order))
     .map(({ keyed, issues }) => ({ ...keyed.group, issues: issues.sort(sort) }));
@@ -260,4 +305,28 @@ export function dropChange(
     case "none":
       return null;
   }
+}
+
+/**
+ * What dropping `issue` in a board's cell changes: its column's value and
+ * its swimlane's (`targets`, each with its grouping), as one issueUpdate; null
+ * when it changes nothing, or when either can't be taken (the issue would
+ * land in another cell than the one it was dropped in).
+ */
+export function dropChanges(
+  issue: LinearIssue,
+  targets: { group: Pick<IssueGroup, "key" | "value">; grouping: Grouping }[],
+  ws: LinearWorkspace | undefined,
+  cycles: LinearCycle[] = [],
+): { input: Record<string, unknown>; patch: Partial<LinearIssue> } | null {
+  const input: Record<string, unknown> = {};
+  const patch: Partial<LinearIssue> = {};
+  for (const { group, grouping } of targets) {
+    if (grouping === "none" || grouper(grouping, ws, cycles).of(issue).group.key === group.key) continue;
+    const change = dropChange(issue, group, grouping, ws, cycles);
+    if (!change) return null;
+    Object.assign(input, change.input);
+    Object.assign(patch, change.patch);
+  }
+  return Object.keys(input).length ? { input, patch } : null;
 }

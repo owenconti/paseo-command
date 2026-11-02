@@ -24,6 +24,8 @@ export type AppCommand =
   | "linear-inbox-read-all"
   | "linear-display"
   | "linear-layout"
+  | "linear-sub-group"
+  | "linear-swap-groupings"
   | "linear-clear-filters"
   | "page-text-bigger"
   | "page-text-smaller"

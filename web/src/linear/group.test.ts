@@ -6,10 +6,14 @@ import {
   completedChoices,
   DEFAULT_DISPLAY,
   filterIssues,
+  regroup,
   scopeCompleted,
+  settleDisplay,
+  swapGroupings,
+  type Display,
   type Ordering,
 } from "./display";
-import { arrangeIssues, dropChange, issueMatches } from "./group";
+import { arrangeIssues, dropChange, dropChanges, issueMatches, swimlanes } from "./group";
 import type { LinearIssue, LinearState, LinearWorkspace } from "./types";
 
 const state = (id: string, name: string, type: LinearState["type"], position: number): LinearState => ({
@@ -238,4 +242,103 @@ test("linear display: the Completed choices are what the list's scope keeps", ()
   assert.equal(scopeCompleted("all", completedChoices("project:p")), "month");
   assert.equal(scopeCompleted("week", completedChoices("project:p")), "week");
   assert.equal(scopeCompleted("all", completedChoices("assigned")), "all");
+});
+
+test("linear sub-groups: each group's issues by the sub-grouping, its issues theirs in turn; a board's swimlanes", () => {
+  const issues = [
+    issue(1, "todo", 2, "2026-10-01", { assigneeId: "sam" }),
+    issue(2, "prog", 1, "2026-10-02", { assigneeId: "me" }),
+    issue(3, "todo", 1, "2026-10-03", { assigneeId: "me" }),
+    issue(4, "todo", 3, "2026-10-04"),
+    issue(5, "prog", 2, "2026-10-05", { assigneeId: "sam" }),
+  ];
+  const display = { grouping: "status", subGrouping: "assignee", ordering: "priority" } as const;
+  const groups = arrangeIssues(issues, ME_WS, display);
+  assert.deepEqual(
+    groups.map((g) => [g.label, g.subgroups?.map((s) => [s.label, s.issues.map((i) => i.key)])]),
+    [
+      ["In Progress", [["Owen Conti", ["ENG-2"]], ["Sam Rivera", ["ENG-5"]]]],
+      ["Todo", [["Owen Conti", ["ENG-3"]], ["Sam Rivera", ["ENG-1"]], ["No assignee", ["ENG-4"]]]],
+    ],
+  );
+  // The group's issues in display order: its sub-groups', in turn.
+  assert.deepEqual(groups[1].issues.map((i) => i.key), ["ENG-3", "ENG-1", "ENG-4"]);
+  // None, or the grouping's own property: no sub-groups.
+  assert.equal(arrangeIssues(issues, ME_WS, { ...display, subGrouping: "none" })[0].subgroups, undefined);
+  assert.equal(arrangeIssues(issues, ME_WS, { ...display, subGrouping: "status" })[0].subgroups, undefined);
+  const none = { ...display, subGrouping: "none" } as const;
+  assert.equal(swimlanes(arrangeIssues(issues, ME_WS, none), ME_WS, none), null);
+
+  // A board: the team's every state a column, a lane for each sub-group with issues, a cell for each column.
+  const lanes = swimlanes(arrangeIssues(issues, ME_WS, display, { states: STATES }), ME_WS, display)!;
+  assert.deepEqual(
+    lanes.map((l) => [l.lane.label, l.lane.issues.map((i) => i.key)]),
+    [
+      ["Owen Conti", ["ENG-2", "ENG-3"]],
+      ["Sam Rivera", ["ENG-5", "ENG-1"]],
+      ["No assignee", ["ENG-4"]],
+    ],
+  );
+  assert.deepEqual(
+    lanes[2].cells.map((c) => [c.label, c.issues.map((i) => i.key)]),
+    [["In Progress", []], ["In Review", []], ["Todo", ["ENG-4"]], ["Triage", []], ["Backlog", []], ["Done", []], ["Canceled", []]],
+  );
+  // A lane that only a later column has still comes in the sub-grouping's order.
+  const later = swimlanes(
+    arrangeIssues([issue(6, "prog", 1, "", { assigneeId: "sam" }), issue(7, "todo", 1, "", { assigneeId: "me" })], ME_WS, display),
+    ME_WS,
+    display,
+  )!;
+  assert.deepEqual(later.map((l) => l.lane.label), ["Owen Conti", "Sam Rivera"]);
+});
+
+test("linear board: a drop in a swimlane's cell takes the column's and the lane's values, as one change", () => {
+  const two = issue(2, "todo", 3, "", { assigneeId: "sam", cycleId: "c7" });
+  const prog = { key: "state:In Progress", value: "In Progress" };
+  const todo = { key: "state:Todo", value: "Todo" };
+  const me = { key: "user:me", value: "me" };
+  const sam = { key: "user:sam", value: "sam" };
+  const both = (column: typeof prog, lane: typeof me) =>
+    dropChanges(two, [{ group: column, grouping: "status" }, { group: lane, grouping: "assignee" }], ME_WS);
+  assert.deepEqual(both(prog, me), {
+    input: { stateId: "prog", assigneeId: "me" },
+    patch: { stateId: "prog", assigneeId: "me" },
+  });
+  assert.deepEqual(both(prog, sam), { input: { stateId: "prog" }, patch: { stateId: "prog" } });
+  assert.deepEqual(both(todo, me), { input: { assigneeId: "me" }, patch: { assigneeId: "me" } });
+  assert.equal(both(todo, sam), null, "its own cell");
+  // Either it can't take: no drop at all (it would land elsewhere).
+  const x1 = { key: "cycle:x1", value: "x1" };
+  assert.equal(
+    dropChanges(two, [{ group: prog, grouping: "status" }, { group: x1, grouping: "cycle" }], ME_WS),
+    null,
+    "another team's cycle",
+  );
+  // Without a lane, as a column drop.
+  assert.deepEqual(dropChanges(two, [{ group: prog, grouping: "status" }], ME_WS), dropChange(two, prog, "status", ME_WS));
+});
+
+test("linear display: sub-grouping as Linear's Display options have it", () => {
+  const d = (patch: Partial<Display>): Display => ({ ...DEFAULT_DISPLAY, ...patch });
+  // Sub-grouped by another property; by the grouping's own: swapped, or cleared when there's nothing to swap.
+  assert.equal(regroup(d({}), "subGrouping", "assignee").subGrouping, "assignee");
+  const sub = d({ grouping: "status", subGrouping: "assignee" });
+  assert.deepEqual(regroup(sub, "subGrouping", "status"), d({ grouping: "assignee", subGrouping: "status" }));
+  assert.deepEqual(regroup(d({}), "subGrouping", "status"), d({}));
+  // Grouped by the sub-grouping's property: swapped; by none: no sub-grouping.
+  assert.deepEqual(regroup(sub, "grouping", "assignee"), d({ grouping: "assignee", subGrouping: "status" }));
+  assert.deepEqual(regroup(sub, "grouping", "priority"), d({ grouping: "priority", subGrouping: "assignee" }));
+  assert.deepEqual(regroup(sub, "grouping", "none"), d({ grouping: "none", subGrouping: "none" }));
+  // ⇅
+  assert.deepEqual(swapGroupings(sub), d({ grouping: "assignee", subGrouping: "status" }));
+  assert.deepEqual(swapGroupings(d({})), d({}));
+  // A board is grouped; a sub-grouping is never the grouping.
+  assert.deepEqual(settleDisplay(d({ layout: "board", grouping: "none" })), d({ layout: "board", grouping: "status" }));
+  assert.deepEqual(settleDisplay(d({ grouping: "priority", subGrouping: "priority" })), d({ grouping: "priority" }));
+  // Remembered displays: one kept before sub-groupings has none, even where the place's default has one.
+  const viewDefault = d({ layout: "board", grouping: "assignee", subGrouping: "priority" });
+  assert.equal(checkDisplay({ layout: "list", grouping: "status", ordering: "priority", completed: "all" }, viewDefault).subGrouping, "none");
+  assert.equal(checkDisplay(null, viewDefault).subGrouping, "priority");
+  assert.equal(checkDisplay({ grouping: "assignee", subGrouping: "assignee" }).subGrouping, "none");
+  assert.equal(checkDisplay({ grouping: "none", subGrouping: "assignee" }).subGrouping, "none");
 });
