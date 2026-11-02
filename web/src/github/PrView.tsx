@@ -558,9 +558,9 @@ export function PrView({
   return (
     <div className="gh-main-inner gh-pr">
       <header className="gh-head">
-        <button className="ghost-btn" onClick={onBack} aria-description="Back (Esc)">
+        <button className="ghost-btn gh-back" onClick={onBack} aria-description="Back (Esc)">
           <ArrowLeft size={14} aria-hidden="true" />
-          {backLabel}
+          <span>{backLabel}</span>
         </button>
         <span className="gh-spacer" />
         {pr && (

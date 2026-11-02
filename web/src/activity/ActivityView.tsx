@@ -38,6 +38,7 @@ import { canOpen, openActivityItem } from "./open";
 import { filterItems, groupByDay, isFilter, shortAgo, SOURCE_LABEL, whatHappened, type ActivityFilter } from "./rows";
 import { canUnread, loadActivity, setActivityNotice, useActivity, useActivityPoll, writeItems } from "./store";
 import type { ActivityItem, ActivitySource } from "./types";
+import { usePageTitleTip } from "../pageHead";
 import "./activity.css";
 
 /** From this width the selected item's preview shows beside the feed. */
@@ -388,6 +389,7 @@ export function ActivityView({
     </div>
   );
 
+  const titleTip = usePageTitleTip<HTMLHeadingElement>();
   const title =
     shownFilter === "all" ? "All activity" : shownFilter === "unread" ? "Unread" : SOURCE_LABEL[shownFilter];
   const columns = [
@@ -543,21 +545,21 @@ export function ActivityView({
         />
       </nav>
       <div className="activity-main">
-        <header className="activity-head">
-          <h2>
-            {title}
-            {feed && <span className="activity-count">{items.length}</span>}
+        <header className="activity-head page-head">
+          <h2 className="page-head-title" ref={titleTip}>
+            <span className="page-head-name">{title}</span>
+            {feed && <span className="activity-count page-head-count">{items.length}</span>}
           </h2>
           {shownUnread.length > 0 && (
             <button className="activity-tool" onClick={readAll} data-tip="Mark all shown read (⇧U)">
               <CheckCheck size={13} aria-hidden="true" />
-              Mark all read
+              <span className="page-tool-label">Mark all read</span>
             </button>
           )}
           {items.length > 0 &&
             (confirmAllDone ? (
               <span className="activity-confirm" role="group" aria-label="Confirm marking all done">
-                <span>
+                <span className="page-tool-label">
                   Mark {items.length === 1 ? "1 notification" : `all ${items.length}`} done?
                 </span>
                 <button
@@ -581,7 +583,7 @@ export function ActivityView({
             ) : (
               <button className="activity-tool" onClick={askAllDone} data-tip="Mark all shown done (⇧E)">
                 <ListX size={13} aria-hidden="true" />
-                Mark all done
+                <span className="page-tool-label">Mark all done</span>
               </button>
             ))}
         </header>

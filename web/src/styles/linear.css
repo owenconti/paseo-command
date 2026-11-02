@@ -388,6 +388,9 @@
 .linear-tool svg {
   color: var(--icon-muted);
 }
+.linear-tool-count {
+  font-variant-numeric: tabular-nums;
+}
 .linear-tool:hover,
 .linear-tool[aria-expanded="true"] {
   background: var(--row-hover);

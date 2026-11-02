@@ -224,7 +224,7 @@ export function FilterButton<F extends string = FilterField>({
         }}
       >
         <ListFilter size={13} aria-hidden="true" />
-        Filter
+        <span className="page-tool-label">Filter</span>
       </button>
       {open === "menu" && (
         <div
@@ -416,7 +416,7 @@ export function DisplayButton({
         }}
       >
         <SlidersHorizontal size={13} aria-hidden="true" />
-        Display
+        <span className="page-tool-label">Display</span>
       </button>
       {open && (
         <div

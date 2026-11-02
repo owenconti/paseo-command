@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { CircleAlert, RefreshCw } from "lucide-react";
+import { usePageTitleTip } from "../pageHead";
 import { readPath, useGithubRead } from "./api";
 import { Avatar, ChecksIcon, Churn, CommentCount, Decision, PrStateIcon, Time, YOUR_REVIEW_LABEL } from "./bits";
 import { SCOPE_TITLE } from "./names";
@@ -53,6 +54,7 @@ export function PrList({
   const which = repo ? `repo:${repo.toLowerCase()}` : (scope ?? "review");
   const name = repo ?? SCOPE_TITLE[scope ?? "review"];
   const list = useGithubRead<PrListData>(path, LIST_POLL_MS);
+  const titleTip = usePageTitleTip<HTMLHeadingElement>();
   const rows = list.data?.rows ?? [];
   const [selectedId, setSelectedId] = useState<string | undefined>(lastSelected.get(which));
   useEffect(() => setSelectedId(lastSelected.get(which)), [which]);
@@ -88,10 +90,10 @@ export function PrList({
 
   return (
     <div className="gh-main-inner">
-      <header className="gh-head">
-        <h2>
-          {title ?? name}
-          {list.data && <span className="gh-count">{repo ? Math.max(list.data.total ?? 0, rows.length) : rows.length}</span>}
+      <header className="gh-head page-head">
+        <h2 className="page-head-title" ref={titleTip}>
+          <span className="page-head-name">{title ?? name}</span>
+          {list.data && <span className="gh-count page-head-count">{repo ? Math.max(list.data.total ?? 0, rows.length) : rows.length}</span>}
         </h2>
         <span className="gh-spacer" />
         {tools}

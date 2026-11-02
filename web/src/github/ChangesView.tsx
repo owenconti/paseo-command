@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { ArrowDown, ArrowUp, CircleAlert, ExternalLink, GitBranch, GitPullRequest, PanelLeft, RefreshCw } from "lucide-react";
 import { changesPath, useGithubRead } from "./api";
 import { Churn } from "./bits";
+import { usePageTitleTip } from "../pageHead";
 import { DiffView, type DiffLayout, type DiffViewHandle } from "./DiffView";
 import { MODE_LABEL } from "./names";
 import type { ChangesMode, WorkspaceChanges } from "./types";
@@ -44,6 +45,7 @@ export function ChangesView({
   onExternal: (url: string) => void;
   handle: React.RefObject<DiffViewHandle | null>;
 }) {
+  const titleTip = usePageTitleTip<HTMLHeadingElement>();
   const changes = useGithubRead<WorkspaceChanges>(
     workspace ? changesPath(workspace.id, workspace.host, mode) : null,
     CHANGES_POLL_MS,
@@ -67,8 +69,10 @@ export function ChangesView({
   if (!workspace)
     return (
       <div className="gh-main-inner">
-        <header className="gh-head">
-          <h2>Workspace changes</h2>
+        <header className="gh-head page-head">
+          <h2 className="page-head-title">
+            <span className="page-head-name">Workspace changes</span>
+          </h2>
         </header>
         <div className="gh-empty">
           <GitBranch size={26} strokeWidth={1.5} aria-hidden="true" />
@@ -80,13 +84,13 @@ export function ChangesView({
 
   return (
     <div className="gh-main-inner">
-      <header className="gh-head">
-        <h2 className="gh-changes-title">
+      <header className="gh-head page-head">
+        <h2 className="gh-changes-title page-head-title" ref={titleTip}>
           <GitBranch size={15} aria-hidden="true" />
-          <span>{workspace.name}</span>
+          <span className="page-head-name">{workspace.name}</span>
         </h2>
         {data && (
-          <span className="gh-branches" data-tip={`${data.branch ?? "This checkout"} compared with ${data.baseRef ?? "its base"}`}>
+          <span className="gh-branches page-head-aside" data-tip={`${data.branch ?? "This checkout"} compared with ${data.baseRef ?? "its base"}`}>
             <code>{data.branch ?? "detached"}</code>
             <span aria-hidden="true">→</span>
             <code>{data.baseRef ?? "base"}</code>
@@ -108,7 +112,7 @@ export function ChangesView({
         {pr && prRepo && (
           <button className="secondary" onClick={() => onOpenPr(prRepo, pr.number)} data-tip={pr.title}>
             <GitPullRequest size={13} aria-hidden="true" />
-            Review #{pr.number}
+            <span className="page-tool-label">Review #{pr.number}</span>
           </button>
         )}
         {compare && (

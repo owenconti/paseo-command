@@ -826,7 +826,7 @@ export function LinearView({
           title={
             <>
               <Search size={16} aria-hidden="true" className="linear-view-icon" />
-              Search
+              <span className="page-head-name">Search</span>
             </>
           }
           scope={listScope!}
@@ -871,7 +871,7 @@ export function LinearView({
           title={
             <>
               <ViewIcon view={shownView ?? { model: "project", color: "" }} size={16} />
-              {shownView?.name ?? "View"}
+              <span className="page-head-name">{shownView?.name ?? "View"}</span>
             </>
           }
           projects={viewProjects}
@@ -888,7 +888,7 @@ export function LinearView({
     if (place.screen === "initiatives") return <InitiativeList onProject={openProject} />;
     const teamCrumb = (
       <>
-        <span className="linear-crumb">{team?.name ?? "Team"}</span>
+        <span className="linear-crumb page-crumb">{team?.name ?? "Team"}</span>
         <ChevronRight size={14} className="linear-crumb-sep" aria-hidden="true" />
       </>
     );
@@ -896,7 +896,7 @@ export function LinearView({
       return (
         <CycleList
           teamId={place.teamId}
-          title={<>{teamCrumb}Cycles</>}
+          title={<>{teamCrumb}<span className="page-head-name">Cycles</span></>}
           revision={revision}
           onCycle={(cycleId) => setPlace({ screen: "cycle", teamId: place.teamId, cycleId })}
         />
@@ -907,41 +907,41 @@ export function LinearView({
       ) : place.screen === "team" ? (
         <>
           {teamCrumb}
-          {TEAM_TITLE[place.tab]}
+          <span className="page-head-name">{TEAM_TITLE[place.tab]}</span>
         </>
       ) : place.screen === "view" ? (
         <>
           {viewProject && (
             <>
-              <button className="link-btn linear-crumb" onClick={() => setPlace({ screen: "projects" })}>
+              <button className="link-btn linear-crumb page-crumb" onClick={() => setPlace({ screen: "projects" })}>
                 Projects
               </button>
               <ChevronRight size={14} className="linear-crumb-sep" aria-hidden="true" />
-              <button className="link-btn linear-crumb" onClick={() => openProject(viewProject.id)}>
+              <button className="link-btn linear-crumb page-crumb" onClick={() => openProject(viewProject.id)}>
                 {viewProject.name}
               </button>
               <ChevronRight size={14} className="linear-crumb-sep" aria-hidden="true" />
             </>
           )}
           <ViewIcon view={shownView ?? { model: "issue", color: "" }} size={16} />
-          {shownView?.name ?? "View"}
+          <span className="page-head-name">{shownView?.name ?? "View"}</span>
         </>
       ) : place.screen === "cycle" ? (
         <>
           {teamCrumb}
-          <button className="link-btn linear-crumb" onClick={() => setPlace({ screen: "cycles", teamId: place.teamId })}>
+          <button className="link-btn linear-crumb page-crumb" onClick={() => setPlace({ screen: "cycles", teamId: place.teamId })}>
             Cycles
           </button>
           <ChevronRight size={14} className="linear-crumb-sep" aria-hidden="true" />
-          {cycle ? cycleName(cycle) : "Cycle"}
+          <span className="page-head-name">{cycle ? cycleName(cycle) : "Cycle"}</span>
         </>
       ) : (
         <>
-          <button className="link-btn linear-crumb" onClick={() => setPlace({ screen: "projects" })}>
+          <button className="link-btn linear-crumb page-crumb" onClick={() => setPlace({ screen: "projects" })}>
             Projects
           </button>
           <ChevronRight size={14} className="linear-crumb-sep" aria-hidden="true" />
-          {project?.name ?? "Project"}
+          <span className="page-head-name">{project?.name ?? "Project"}</span>
         </>
       );
     return (

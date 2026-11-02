@@ -52,3 +52,92 @@
   --icon-muted: #8d8e95;
   scrollbar-color: var(--scrollbar) var(--panel);
 }
+
+/* ── A page's head ──────────────────────────────────────────────────────
+   Its title (breadcrumb parts, the last the place's name, then a count), what
+   sits beside it, then its tools at the right. Nothing in it ever overlaps and
+   nothing wraps early: the title and its asides grow up to their own width
+   (the title first) out of what the tools leave, and clip. In the
+   title the earlier parts cut short (…) first, then the name; the whole title
+   shows on hover (`usePageTitleTip`). As the head narrows (its own width, in
+   its text's em, so ⌘+ ⌘− move the steps too) the tools drop their words for
+   their icons (`.page-tool-label`: the word stays the button's name, its
+   `data-tip` the hint), then the asides and the count go. Only when the tools
+   leave the title less than its least (7em) do they wrap under it. */
+.page-head {
+  container: page-head / inline-size;
+  flex-wrap: wrap;
+  row-gap: var(--space-1);
+}
+.page-head > * {
+  flex-shrink: 0;
+}
+.page-head > .page-head-title {
+  display: flex;
+  flex: 1000 1 0;
+  align-items: center;
+  min-width: min(7em, 100%);
+  max-width: max-content;
+  margin-right: auto;
+  overflow: hidden;
+  white-space: nowrap;
+}
+.page-head > .page-head-title:has(+ .page-head-aside) {
+  margin-right: 0;
+}
+/* What sits beside the title (a branch, a note): cut short, and gone when narrow. */
+.page-head > .page-head-aside {
+  flex: 1 1 0;
+  min-width: 0;
+  max-width: max-content;
+  margin-right: auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.page-head > .gh-spacer {
+  display: none;
+}
+.page-head-title > * {
+  flex-shrink: 0;
+}
+.page-head-title > .page-crumb,
+.page-head-title > .page-head-name {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* Earlier parts give way long before the name does. */
+.page-head-title > .page-crumb {
+  flex: 0 1000 auto;
+  min-width: 2.5em;
+}
+.page-head-title > .page-head-name {
+  flex: 0 1 auto;
+  min-width: 0;
+}
+@container page-head (max-width: 28em) {
+  .page-tool-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+    border: 0;
+  }
+  .page-head > .page-head-aside {
+    display: none;
+  }
+  .page-head > .page-head-title {
+    margin-right: auto;
+  }
+}
+@container page-head (max-width: 18em) {
+  .page-head-count {
+    display: none;
+  }
+}

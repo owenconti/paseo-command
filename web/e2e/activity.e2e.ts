@@ -9,7 +9,7 @@ import { after, before, test } from "node:test";
 import assert from "node:assert/strict";
 import type { Browser, Page } from "playwright";
 import type { ActivityFeed, ActivityItem } from "../src/activity/types";
-import { launch, mockApi, newContext, startApp, waitFor } from "./harness";
+import { headOverlaps, launch, mockApi, newContext, startApp, waitFor } from "./harness";
 import { mockLinear } from "./linearFake";
 
 let app: Awaited<ReturnType<typeof startApp>>;
@@ -266,6 +266,70 @@ test("Activity's sidebar and preview resize from their edges, kept across a relo
     await view.getByRole("separator", { name: "Resize the preview" }).dblclick();
     await waitFor(() => width(sidebar), (w) => Math.abs(w - sidebarBefore) <= 3, "the sidebar's default");
     await waitFor(() => width(preview), (w) => Math.abs(w - previewBefore) <= 3, "the preview's default");
+  } finally {
+    await context.close();
+  }
+});
+
+test("Activity's head never overlaps, its tools going to icons and wrapping only at the narrowest", async () => {
+  const context = await newContext(browser);
+  const page = await context.newPage();
+  await page.setViewportSize({ width: 1800, height: 900 });
+  await mockApi(page, {
+    agents: () => [],
+    lists: { settings: { integrations: { github: true, linear: true, slack: true } } },
+  });
+  await page.route("**/api/activity**", (route) => route.fulfill({ json: feedOf(ITEMS.map((i) => ({ ...i, unread: true }))) }));
+  try {
+    await page.goto(app.url);
+    await page.locator(".fleet-sidebar").waitFor();
+    await showActivity(page);
+    const view = page.locator(".activity-view");
+    await waitFor(() => rowKeys(page), (keys) => keys.length === 3, "the feed");
+    await view.locator(".activity-row").first().click();
+    await view.locator(".activity-preview").waitFor();
+    const head = view.locator(".activity-head");
+    const readAll = head.getByRole("button", { name: "Mark all read" });
+    const width = async () => (await head.boundingBox())!.width;
+    let last = "";
+    const settled = () =>
+      waitFor(
+        async () => JSON.stringify(await head.boundingBox()),
+        (now) => {
+          const same = now === last;
+          last = now;
+          return same;
+        },
+        "the head to settle",
+      );
+    const labelShown = () => readAll.locator(".page-tool-label").evaluate((e) => e.getBoundingClientRect().width > 1);
+
+    // Wide: the tools have their words.
+    assert.deepEqual(await headOverlaps(head), []);
+    assert.equal(await labelShown(), true);
+    // Narrower, with the preview beside: icons, still named, hinted.
+    for (const w of [1100, 1000, 860, 760]) {
+      await page.setViewportSize({ width: w, height: 900 });
+      await settled();
+      assert.deepEqual(await headOverlaps(head), [], `nothing in the head overlaps at ${w}`);
+      const tools = (await readAll.boundingBox())!;
+      const own = (await head.boundingBox())!;
+      assert.ok(tools.x + tools.width <= own.x + own.width + 0.5, `the tools stay in the head at ${w}`);
+    }
+    assert.ok((await width()) < 200, "the narrowest head");
+    assert.equal(await labelShown(), false);
+    assert.equal(await readAll.getAttribute("data-tip"), "Mark all shown read (⇧U)");
+    // At the narrowest the tools wrap under the title rather than squeeze it.
+    const title = (await head.locator("h2").boundingBox())!;
+    assert.ok((await readAll.boundingBox())!.y >= title.y + title.height - 0.5, "the tools under the title");
+
+    // Asking to mark all done: its question and buttons keep inside the head too.
+    await head.getByRole("button", { name: "Mark all done" }).click();
+    await head.getByRole("button", { name: "Mark done" }).waitFor();
+    assert.deepEqual(await headOverlaps(head), [], "nothing overlaps while it asks");
+    const own = (await head.boundingBox())!;
+    const cancel = (await head.getByRole("button", { name: "Cancel" }).boundingBox())!;
+    assert.ok(cancel.x + cancel.width <= own.x + own.width + 0.5, "Cancel stays in the head");
   } finally {
     await context.close();
   }

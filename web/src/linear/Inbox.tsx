@@ -226,14 +226,21 @@ export function Inbox({
       <ScreenHead title={snoozedTab ? "Snoozed" : "Inbox"} count={loaded ? rows.length : undefined}>
         <span className="linear-tools">
           {!snoozedTab && unread.length > 0 && (
-            <button className="linear-tool" onClick={markAllRead}>
+            <button className="linear-tool" onClick={markAllRead} data-tip="Mark all read">
               <CheckCheck size={13} aria-hidden="true" />
-              Mark all read
+              <span className="page-tool-label">Mark all read</span>
             </button>
           )}
-          <button className="linear-tool" aria-pressed={snoozedTab} onClick={() => setSnoozedTab(!snoozedTab)}>
+          <button
+            className="linear-tool"
+            aria-pressed={snoozedTab}
+            aria-label={snoozedTab ? "Inbox" : `Snoozed${snoozedCount ? ` ${snoozedCount}` : ""}`}
+            data-tip={snoozedTab ? "Back to the inbox" : "Snoozed notifications"}
+            onClick={() => setSnoozedTab(!snoozedTab)}
+          >
             {snoozedTab ? <Bell size={13} aria-hidden="true" /> : <AlarmClock size={13} aria-hidden="true" />}
-            {snoozedTab ? "Inbox" : `Snoozed${snoozedCount ? ` ${snoozedCount}` : ""}`}
+            <span className="page-tool-label">{snoozedTab ? "Inbox" : "Snoozed"}</span>
+            {!snoozedTab && snoozedCount > 0 && <span className="linear-tool-count">{snoozedCount}</span>}
           </button>
         </span>
       </ScreenHead>

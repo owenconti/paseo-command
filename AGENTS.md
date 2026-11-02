@@ -275,7 +275,11 @@ and GitHub publication; report the published version and release link.
   granted by Apple) covers passkeys only. So there's no Conquer menu or ⌘K entry for it.
 - Pages: Linear, Slack, GitHub, Activity and Settings, which the page draws in the map's place, share one look (`web/src/styles/pages.css`): one type scale (the
   app's sizes plus `--page-text`, 2 px by default), one width scale (`--lz`, from `--page-scale`, for columns, rows, controls and icons) and, in dark, one
-  neutral near-black palette; each is a sidebar headed by its name beside its content, the same rows and heads. One text size serves them all
+  neutral near-black palette; each is a sidebar headed by its name beside its content, the same rows and heads. A content head is a
+  `.page-head` (`pages.css`) and never overlaps: its title (`.page-crumb` parts, then `.page-head-name`, then `.page-head-count`)
+  clips and cuts short earlier parts first, showing whole on hover (`usePageTitleTip`, `web/src/pageHead.ts`); by the head's
+  width (container queries) tools drop their `.page-tool-label` words for icons, then `.page-head-aside`s and the count go,
+  and the tools wrap under the title only when it would have less than 7em. One text size serves them all
   (`web/src/pageText.ts`, kept in localStorage): ⌘+ / ⌘− / ⌘0 anywhere in the page while one shows, ⌘K "Bigger text", "Smaller text", "Actual text size",
   and the shortcuts dialog's Pages group; the terminal keeps those keys only while it has the keyboard. ⌘F searches where a page has search (Linear's list, Slack).
 - Linear (the mode bar's tab after Activity and before Slack and GitHub; View menu; palette "Show your Linear issues"; all only while Linear is enabled): a Linear client the page
