@@ -43,6 +43,14 @@ mark it done with its commit once merged into `main`.
   handling of ⌘\ by Conquer's commands). Document what works in CLAUDE.md, and add a Conquer menu/⌘K entry
   only if there's a real action to offer. Don't read 1Password's data or store passwords. Check with a
   throwaway build, never the user's apps. Workspace: `conquer-1password`.
+- [ ] **Mode bar: Activity first of the pages, and ⌘1–7 switch tabs.** Order the macOS app's mode tabs
+  Command, Conquer, Activity, Linear, Slack, GitHub, Settings (those enabled), in the bar (`ModeBar` in
+  `Conquer.swift`), the View menu, ⌘\` stepping and the palette. ⌘1…⌘7 jump to the tab in that position
+  (counting only the tabs shown), from anywhere in the app, including the page, the terminal and Conquer.
+  Conquer's own tab keys move from ⌘1…⌘8/⌘9 to ⌥⌘1…⌥⌘8 (that tab) and ⌥⌘9 (the last). ⌘\` keeps stepping. Make
+  sure nothing else in the page still takes ⌘1–7 (e.g. the GitHub tab's 1–4 PR tabs and Activity's 1–4 sources are
+  bare keys, which is fine). Update the native menus, ⌘K entries' `keys`, the shortcuts dialog (`ShortcutsButton.tsx`)
+  and CLAUDE.md. Workspace: `mode-tab-order-and-keys`.
 
 ## Done
 
