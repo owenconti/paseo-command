@@ -2,7 +2,7 @@
  * The GitHub tab's wire types, shared by the page (`web/src/github/`) and the
  * server (`web/server/github/`, `GET /api/changes`).
  *
- * Reads: `GET /api/github/q/viewer|prs|pr|diff` (named, no passthrough) and
+ * Reads: `GET /api/github/q/viewer|prs|repos|pr|diff` (named, no passthrough) and
  * `GET /api/changes?workspace=<id>[&host=<id>][&mode=all|base|uncommitted]`
  * (the workspace's branch against its base, from the daemon). A read that
  * can't be answered right now (GitHub off, no GitHub token or a refused one, not a git
@@ -99,8 +99,37 @@ export type PrRow = {
   labels: { name: string; color: string }[];
 };
 
-/** `GET /api/github/q/prs?scope=…`: open PRs, most recently updated first (at most 50). */
-export type PrList = { scope: PrScope; rows: PrRow[]; viewer: Person };
+/**
+ * `GET /api/github/q/prs?scope=…`: open PRs, most recently updated first (at most 50).
+ * `GET /api/github/q/prs?repo=owner/name[&state=…][&author=…][&review=…][&draft=…][&checks=…]`:
+ * a repository's PRs with those filters (`filters.ts`); `total` is how many GitHub found.
+ */
+export type PrList = { scope?: PrScope; repo?: string; total?: number; rows: PrRow[]; viewer: Person };
+
+// ── Repositories ─────────────────────────────────────────────────────────────
+/** Starred (favourite) repositories, `owner/name`, and organizations (or users), by login; kept in `settings.json`. */
+export type GithubStars = { repos: string[]; orgs: string[] };
+
+/** A repository in the sidebar, with its open PRs. */
+export type RepoRow = {
+  repo: string;
+  owner: string;
+  /** Its open pull requests. */
+  open: number;
+  /** You starred it, or its owner. */
+  starred: boolean;
+  ownerStarred: boolean;
+  private: boolean;
+  /** Starred, but GitHub has no such repository the token can see. */
+  missing?: true;
+};
+
+/**
+ * `GET /api/github/q/repos`: favourites first (starred repositories and those
+ * of starred organizations), then the others with open PRs: yours, your
+ * organizations' and collaborations', and those of PRs involving you.
+ */
+export type RepoList = { repos: RepoRow[]; stars: GithubStars };
 
 /** A changed file in the PR, as GitHub lists it, with whether you've marked it viewed. */
 export type PrFile = {
@@ -204,10 +233,14 @@ export type GithubWriteInputs = {
   resolve: { threadId: string; resolved: boolean };
   /** Marks a file viewed or not viewed, as GitHub's "Viewed" checkbox. */
   viewed: { prId: string; path: string; viewed: boolean };
+  /** Stars or unstars a repository (`owner/name`) or an organization (its login) as a favourite: kept in `settings.json`, not on GitHub. */
+  star: { kind: "repo" | "org"; name: string; starred: boolean };
 };
 export type GithubWriteName = keyof GithubWriteInputs;
-export const GITHUB_WRITES: GithubWriteName[] = ["comment", "review", "reply", "resolve", "viewed"];
-export type GithubWriteResult = { ok: true; url?: string };
+export const GITHUB_WRITES: GithubWriteName[] = ["comment", "review", "reply", "resolve", "viewed", "star"];
+export type GithubWriteResult = { ok: true; url?: string; stars?: GithubStars };
 
 /** `owner/name`, as GitHub allows them (never `.` or `..`, which would climb an API path). */
 export const REPO = /^(?!\.\.?\/)[\w.-]{1,100}\/(?!\.\.?$)[\w.-]{1,100}$/;
+/** An organization's or user's login. */
+export const OWNER = /^[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})$/;

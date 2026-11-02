@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { CircleAlert, RefreshCw } from "lucide-react";
 import { readPath, useGithubRead } from "./api";
 import { Avatar, ChecksIcon, Churn, CommentCount, Decision, PrStateIcon, Time, YOUR_REVIEW_LABEL } from "./bits";
 import { SCOPE_TITLE } from "./names";
+import { filterParams, filtersSet, type RepoFilters } from "./filters";
 import type { PrList as PrListData, PrRow, PrScope } from "./types";
 
 const SCOPE_EMPTY: Record<PrScope, string> = {
@@ -15,36 +16,59 @@ const SCOPE_EMPTY: Record<PrScope, string> = {
 export const LIST_POLL_MS = 60_000;
 
 /** The selected row of each list, kept while the view comes and goes. */
-const lastSelected = new Map<PrScope, string>();
+const lastSelected = new Map<string, string>();
+
+/** What a repository's list says when nothing matches. */
+const repoEmpty = (filters: RepoFilters) =>
+  filtersSet({ ...filters, state: "open" }) ? "No pull requests match these filters." : `No ${filters.state} pull requests.`;
 
 /**
- * Open pull requests in one of the sidebar's lists, most recently updated
- * first: each with its state, repository and number, author, labels, checks,
- * review decision and your own review, comments and size. J/K or ↓/↑ move,
- * Enter or O open (a click opens too).
+ * Pull requests in one of the sidebar's lists (open ones), or a repository's
+ * with its filters (`tools` beside the head, `below` it: the filter's
+ * button and chips), most recently updated first: each with its state,
+ * repository and number, author, labels, checks, review decision and your
+ * own review, comments and size. J/K or ↓/↑ move, Enter or O open (a click opens too).
  */
 export function PrList({
   scope,
+  repo,
+  filters,
+  title,
+  tools,
+  below,
   onOpen,
   keys,
 }: {
-  scope: PrScope;
+  scope?: PrScope;
+  repo?: string;
+  filters?: RepoFilters;
+  title?: ReactNode;
+  tools?: ReactNode;
+  below?: ReactNode;
   onOpen: (row: PrRow) => void;
   /** The view hands its keys here while the list shows. */
   keys: React.MutableRefObject<((e: KeyboardEvent | React.KeyboardEvent) => boolean) | null>;
 }) {
-  const list = useGithubRead<PrListData>(readPath("prs", { scope }), LIST_POLL_MS);
+  const path = repo ? readPath("prs", { repo, ...filterParams(filters ?? { state: "open" }) }) : readPath("prs", { scope: scope ?? "review" });
+  const which = repo ? `repo:${repo.toLowerCase()}` : (scope ?? "review");
+  const name = repo ?? SCOPE_TITLE[scope ?? "review"];
+  const list = useGithubRead<PrListData>(path, LIST_POLL_MS);
   const rows = list.data?.rows ?? [];
-  const [selectedId, setSelectedId] = useState<string | undefined>(lastSelected.get(scope));
-  useEffect(() => setSelectedId(lastSelected.get(scope)), [scope]);
+  const [selectedId, setSelectedId] = useState<string | undefined>(lastSelected.get(which));
+  useEffect(() => setSelectedId(lastSelected.get(which)), [which]);
   const selected = rows.find((r) => r.id === selectedId) ?? rows[0];
   useEffect(() => {
-    if (selected) lastSelected.set(scope, selected.id);
-  }, [scope, selected]);
+    if (selected) lastSelected.set(which, selected.id);
+  }, [which, selected]);
   const listRef = useRef<HTMLDivElement>(null);
+  // Only the latest move focuses its row: an earlier one's focus landing late would select its row again.
+  const wanted = useRef<string | undefined>(undefined);
   const select = (row: PrRow) => {
     setSelectedId(row.id);
-    setTimeout(() => listRef.current?.querySelector<HTMLElement>(`[data-id="${CSS.escape(row.id)}"]`)?.focus(), 0);
+    wanted.current = row.id;
+    setTimeout(() => {
+      if (wanted.current === row.id) listRef.current?.querySelector<HTMLElement>(`[data-id="${CSS.escape(row.id)}"]`)?.focus();
+    }, 0);
   };
   keys.current = (e) => {
     const lower = e.key.toLowerCase();
@@ -66,14 +90,16 @@ export function PrList({
     <div className="gh-main-inner">
       <header className="gh-head">
         <h2>
-          {SCOPE_TITLE[scope]}
-          {list.data && <span className="gh-count">{rows.length}</span>}
+          {title ?? name}
+          {list.data && <span className="gh-count">{repo ? Math.max(list.data.total ?? 0, rows.length) : rows.length}</span>}
         </h2>
         <span className="gh-spacer" />
+        {tools}
         <button className="icon-btn" aria-label="Refresh" data-tip="Refresh" onClick={list.reload}>
           <RefreshCw size={13} aria-hidden="true" className={list.loading ? "spinning" : undefined} />
         </button>
       </header>
+      {below}
       {list.data && list.error && (
         <p className="gh-banner" role="status">
           Couldn’t refresh: {list.error}
@@ -98,9 +124,9 @@ export function PrList({
           <p className="gh-note">Loading pull requests…</p>
         )
       ) : !rows.length ? (
-        <p className="gh-note">{SCOPE_EMPTY[scope]}</p>
+        <p className="gh-note">{repo ? repoEmpty(filters ?? { state: "open" }) : SCOPE_EMPTY[scope ?? "review"]}</p>
       ) : (
-        <div className="gh-rows" role="listbox" aria-label={SCOPE_TITLE[scope]} ref={listRef}>
+        <div className="gh-rows" role="listbox" aria-label={name} ref={listRef}>
           {rows.map((row) => (
             <div
               key={row.id}
@@ -123,9 +149,7 @@ export function PrList({
                   ))}
                 </span>
                 <span className="gh-row-sub">
-                  <span className="gh-repo">
-                    {row.repo}#{row.number}
-                  </span>
+                  <span className="gh-repo">{repo ? `#${row.number}` : `${row.repo}#${row.number}`}</span>
                   <span>
                     by {row.author?.login ?? "ghost"} · updated <Time at={row.updatedAt} />
                   </span>
@@ -142,6 +166,11 @@ export function PrList({
             </div>
           ))}
         </div>
+      )}
+      {repo && rows.length > 0 && (list.data?.total ?? 0) > rows.length && (
+        <p className="gh-note">
+          The {rows.length} most recently updated of {list.data!.total}. Filter to find others.
+        </p>
       )}
     </div>
   );

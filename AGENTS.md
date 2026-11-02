@@ -352,7 +352,17 @@ and GitHub publication; report the published version and release link.
 - GitHub (the mode bar's tab after Slack; View menu; palette "Show GitHub"; all only while `integrations.github` is on): pull
   requests and workspaces' changes the page draws (`web/src/github/GitHubView.tsx`) over the map's frame while the app reports `paseo:mode`
   `github`, as Linear is. Its sidebar: Workspace (the selected workspace's, or the selected agent's, Changes, and its PR when known) and
-  Pull requests (Review requests, Your pull requests, Involving you, each counted). Changes (`ChangesView.tsx`; the workspace view's
+  Pull requests (Review requests, Your pull requests, Involving you, each counted), then Repositories (`RepoNav.tsx`, `GET /api/github/q/repos`:
+  one GraphQL query for your, your organizations' and collaborations' repositories, those of PRs involving you and of your favourites, each
+  counting its open PRs): Favourites first (starred repositories, and those of starred organizations, whose heads show even with none open),
+  then the others with open PRs, grouped by owner. A star on a repository's row or an owner's head (S, ⌘K) stars it, and + (⌘K "Star a
+  repository or organization…") stars one by name (`owner/name`, a login, or its github.com address); stars are the app's own, kept in the data
+  directory's `settings.json` as `githubStars` (`web/server/github/stars.ts`, `POST /api/github/m/star`; the file's other keys kept, an
+  unreadable file never overwritten). A repository's PRs (the `repo` place; `GET /api/github/q/prs?repo=&state=&author=&review=&draft=&checks=`,
+  one GitHub search, 50 newest) show with filters as Linear's do (`RepoFilters.tsx`, `filters.ts`: Filter (F) and chips under the head): state
+  (open by default, closed, merged), author (anyone, you), review (required, approved, changes requested), draft or ready, and CI (passing,
+  failing, pending), kept per repository in localStorage (`readRepoFilters` in `place.ts`); ⌘K opens each repository and sets each filter.
+  Searches keep under GitHub's 30 a minute (`searchSlot` in `client.ts`, 25 for the tab; over it a cached list answers again). Changes (`ChangesView.tsx`; the workspace view's
   Changes button and ⌘K "Show …'s changes against main" open it): the branch against its base from its host's daemon (`getCheckoutDiff`,
   so remote hosts too; `GET /api/changes?workspace=&host=&mode=all|base|uncommitted`, `web/server/api/changes.ts`, not gated on the
   integration), all changes, committed or uncommitted, with ahead/behind, Review #N and Compare on GitHub; asked every 15 s while shown.
@@ -366,7 +376,7 @@ and GitHub publication; report the published version and release link.
   (only Comment on your own PR), sent with the drafted comments at the head read. Places (`place.ts`, kept in localStorage; `openGithubPlace`
   opens one from elsewhere) and PR links: `github.com/<owner>/<name>/pull/<n>` opens in the tab wherever clicked (`prPlaceOf`;
   `WorldWindow.pageMode` matches it). Keys (`GitHubView.tsx`): J/K move (a diff's files), Enter/O open, Esc back, 1–4 PR tabs, R review,
-  C comment, V viewed, U unified/split, F file list, M which changes; each with its ⌘K entry and the shortcuts dialog's GitHub group.
+  C comment, V viewed, U unified/split, F file list (a repository's filters), M which changes, S star the repository; each with its ⌘K entry and the shortcuts dialog's GitHub group.
   Credential (GitHub's, for the tab, Activity and every PR lookup; the app never runs gh): a classic personal access token,
   `githubToken` in the data directory's `secrets.json` through `integrationKey("github")` (only while GitHub is on; never the
   environment), with the scopes `repo`, `notifications` and `read:org` (`web/src/githubToken.ts`). Settings → GitHub has its editor and
@@ -375,8 +385,8 @@ and GitHub publication; report the published version and release link.
   (`githubRest`, `githubText`, `githubPaged`, `githubGraphql`; `GITHUB_API.fetch`, faked by `githubFake.ts`'s `installGithubApi`) makes
   every GitHub call; with GitHub off or no token, PR lookups (`links.ts`, `probe.ts`, `prLabels.ts`) quietly answer unknown.
   Server (`web/server/github/`, over `web/server/githubApi.ts`): named reads (`reads.ts`, `GET
-  /api/github/q/viewer|prs|pr|diff`, cached 15 s, `fresh=1` past it; `GithubUnavailable` when off, without a token, refused or rate limited) and
-  whitelisted writes (`writes.ts`, `POST /api/github/m/comment|review|reply|resolve|viewed`, each field checked), over `client.ts`. Tests never reach GitHub: `fake.ts` under server tests (`test-setup.ts` makes `GITHUB_API.fetch` refuse
+  /api/github/q/viewer|prs|repos|pr|diff`, cached 15 s, `fresh=1` past it; `GithubUnavailable` when off, without a token, refused or rate limited) and
+  whitelisted writes (`writes.ts`, `POST /api/github/m/comment|review|reply|resolve|viewed|star`, each field checked), over `client.ts`. Tests never reach GitHub: `fake.ts` under server tests (`test-setup.ts` makes `GITHUB_API.fetch` refuse
   otherwise) and `web/e2e/github.e2e.ts` in the browser.
 - Web links clicked in the chat (`.session`, `openInAppBrowser` in `web/src/Session.tsx`, `postAppLink` → the `openLink` message)
   switch to Conquer and open there as a new tab, once its tabs are restored (`whenStarted`).

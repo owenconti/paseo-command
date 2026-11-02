@@ -1177,3 +1177,100 @@
   font-weight: var(--fw-semibold);
   color: var(--amber-text);
 }
+
+/* The sidebar's repositories: favourites first, grouped by owner, each with a star */
+.gh-nav h3.gh-nav-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-right: 0;
+}
+.gh-nav-head .icon-btn {
+  width: calc(20px * var(--lz));
+  height: calc(20px * var(--lz));
+}
+.gh-nav-sub {
+  margin: var(--space-2) var(--space-2) 0;
+  font-size: var(--fs-2xs);
+  font-weight: var(--fw-medium);
+  color: var(--text-4);
+}
+.gh-repo-group {
+  margin-top: var(--space-1);
+}
+.gh-org-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  height: calc(24px * var(--lz));
+  padding: 0 0 0 var(--space-2);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-semibold);
+  color: var(--text-3);
+}
+.gh-org-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.gh-repo-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.gh-repo-row .gh-nav-item {
+  padding-right: calc(26px * var(--lz));
+}
+.gh-repo-row .gh-star {
+  position: absolute;
+  right: 2px;
+}
+.gh-star.icon-btn {
+  width: calc(22px * var(--lz));
+  height: calc(22px * var(--lz));
+  color: var(--icon-muted);
+}
+/* An unstarred star shows on hover (and focus), a starred one always. */
+.gh-repo-row .gh-star:not(.on),
+.gh-org-head .gh-star:not(.on) {
+  opacity: 0;
+}
+.gh-repo-row:hover .gh-star,
+.gh-org-head:hover .gh-star,
+.gh-star:focus-visible {
+  opacity: 1;
+}
+.gh-star.on {
+  color: var(--amber-text);
+}
+.gh-star-add {
+  margin: 0 var(--space-2) var(--space-2);
+}
+.gh-star-add input {
+  width: 100%;
+  height: calc(28px * var(--lz));
+  padding: 0 var(--space-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--panel);
+  font-size: var(--fs-sm);
+  color: var(--text);
+}
+.gh-star-add input::placeholder {
+  color: var(--text-4);
+}
+.gh-star-add input:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: -1px;
+}
+.gh-repo-none {
+  margin: 0 var(--space-2) var(--space-1);
+  padding-left: var(--space-2);
+  font-size: var(--fs-xs);
+  color: var(--text-4);
+}
+.gh-filters {
+  margin-top: 0;
+}

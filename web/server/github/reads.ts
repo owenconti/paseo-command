@@ -4,6 +4,8 @@
  *
  *   viewer             whose the token is, and the scopes it lacks
  *   prs?scope=…        open PRs: review requested from you, yours, or involving you (50, newest first)
+ *   prs?repo=…&<filters> a repository's PRs with the filters (`src/github/filters.ts`; 50, newest first)
+ *   repos              favourites (stars, `stars.ts`), then other repositories with open PRs, each counted
  *   pr?repo=&number=   one PR: body, files (viewed or not), conversation, threads, commits, checks, reviewers
  *   diff?repo=&number= its diff, parsed (GitHub's diff media type; its file patches when the diff is too large for it)
  */
@@ -22,6 +24,8 @@ import {
   type PrRow,
   type PrScope,
   type PrState,
+  type RepoList,
+  type RepoRow,
   type ReviewDecision,
   type ReviewThread,
   type TimelineEntry,
@@ -29,7 +33,9 @@ import {
   type YourReview,
 } from "../../src/github/types";
 import { GithubApiError, githubGraphql as graphql, githubPaged, githubRest, githubText, missingScopes } from "../githubApi";
-import { cached } from "./client";
+import { filterQuery, type RepoFilters } from "../../src/github/filters";
+import { cached, searchSlot } from "./client";
+import { readStars } from "./stars";
 
 type Raw = Record<string, unknown>;
 const rec = (v: unknown): Raw => (v && typeof v === "object" && !Array.isArray(v) ? (v as Raw) : {});
@@ -157,14 +163,112 @@ export const PRS_QUERY = `query($q: String!) {
 
 export function readPrs(scope: PrScope, fresh = false): Promise<PrList> {
   return cached(`prs:${scope}`, fresh, async () => {
+    searchSlot();
     const data = await graphql(PRS_QUERY, { q: SCOPE_QUERY[scope] });
-    const viewer = personOf(data.viewer);
-    if (!viewer) throw new GithubApiError("failed", "GitHub didn't say whose the token is.");
-    const rows = nodes(data.search)
-      .map(rowOf)
-      .filter((r): r is PrRow => r !== null)
-      .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
-    return { scope, rows, viewer };
+    return { scope, ...searchRows(data) };
+  });
+}
+
+function searchRows(data: Raw): { rows: PrRow[]; viewer: PrList["viewer"]; total: number } {
+  const viewer = personOf(data.viewer);
+  if (!viewer) throw new GithubApiError("failed", "GitHub didn't say whose the token is.");
+  const rows = nodes(data.search)
+    .map(rowOf)
+    .filter((r): r is PrRow => r !== null)
+    .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+  const count = rec(data.search).issueCount;
+  return { rows, viewer, total: typeof count === "number" && Number.isSafeInteger(count) ? count : rows.length };
+}
+
+export const REPO_PRS_QUERY = `query($q: String!) {
+  viewer { login name avatarUrl }
+  search(query: $q, type: ISSUE, first: 50) { issueCount nodes { ... on PullRequest { ${ROW} } } }
+}`;
+
+/** A repository's pull requests with these filters (one search). */
+export function readRepoPrs(repo: string, filters: RepoFilters, fresh = false): Promise<PrList> {
+  const q = filterQuery(repo, filters);
+  return cached(`prs:repo:${q.toLowerCase()}`, fresh, async () => {
+    searchSlot();
+    const data = await graphql(REPO_PRS_QUERY, { q });
+    // GitHub's search matches the repository whatever its case; keep only its own.
+    const found = searchRows(data);
+    return { repo, ...found, rows: found.rows.filter((r) => r.repo.toLowerCase() === repo.toLowerCase()) };
+  });
+}
+
+// ── repos ────────────────────────────────────────────────────────────────────
+/** At most this many starred (or involving) repositories, and starred owners, are asked of GitHub by name. */
+export const MAX_NAMED_REPOS = 40;
+export const MAX_NAMED_OWNERS = 20;
+const REPO_FIELDS = "fragment R on Repository { nameWithOwner isArchived isPrivate owner { login } pullRequests(states: OPEN) { totalCount } }";
+const VIEWER_REPOS =
+  "viewer { repositories(first: 100, affiliations: [OWNER, COLLABORATOR, ORGANIZATION_MEMBER], ownerAffiliations: [OWNER, COLLABORATOR, ORGANIZATION_MEMBER], orderBy: { field: PUSHED_AT, direction: DESC }) { nodes { ...R } } }";
+
+/** One GraphQL query for your repositories, these by name, and these owners' (most recently pushed first). */
+export function reposQuery(repos: string[], owners: string[]): { query: string; variables: Record<string, string> } {
+  const params: string[] = [];
+  const fields: string[] = [VIEWER_REPOS];
+  const variables: Record<string, string> = {};
+  repos.forEach((r, i) => {
+    const [owner, name] = r.split("/") as [string, string];
+    params.push(`$r${i}o: String!`, `$r${i}n: String!`);
+    fields.push(`r${i}: repository(owner: $r${i}o, name: $r${i}n) { ...R }`);
+    variables[`r${i}o`] = owner;
+    variables[`r${i}n`] = name;
+  });
+  owners.forEach((o, i) => {
+    params.push(`$o${i}: String!`);
+    fields.push(`o${i}: repositoryOwner(login: $o${i}) { repositories(first: 100, orderBy: { field: PUSHED_AT, direction: DESC }) { nodes { ...R } } }`);
+    variables[`o${i}`] = o;
+  });
+  return { query: `query${params.length ? `(${params.join(", ")})` : ""} {\n  ${fields.join("\n  ")}\n}\n${REPO_FIELDS}`, variables };
+}
+
+/**
+ * The sidebar's repositories: favourites first (starred, then of starred
+ * owners), then the rest with open PRs, most open first. A starred repository
+ * always shows (`missing` when GitHub has none the token sees); others only
+ * with open PRs, and archived ones not at all.
+ */
+export function readRepos(fresh = false): Promise<RepoList> {
+  const stars = readStars();
+  return cached(`repos:${JSON.stringify(stars).toLowerCase()}`, fresh, async () => {
+    // The repositories of PRs involving you (from that list, shared with the sidebar's count), as far as it answers.
+    const involved = await readPrs("involved").then(
+      (l) => l.rows.map((r) => r.repo),
+      () => [] as string[],
+    );
+    const named: string[] = [];
+    for (const r of [...stars.repos, ...involved]) if (!named.some((n) => n.toLowerCase() === r.toLowerCase())) named.push(r);
+    const { query, variables } = reposQuery(named.slice(0, MAX_NAMED_REPOS), stars.orgs.slice(0, MAX_NAMED_OWNERS));
+    const data = await graphql(query, variables);
+    const raw: Raw[] = [...nodes(rec(data.viewer).repositories)];
+    for (const [k, v] of Object.entries(data)) {
+      if (/^r\d+$/.test(k) && v) raw.push(rec(v));
+      if (/^o\d+$/.test(k)) raw.push(...nodes(rec(v).repositories));
+    }
+    const lower = (s: string) => s.toLowerCase();
+    const starredRepo = new Set(stars.repos.map(lower));
+    const starredOwner = new Set(stars.orgs.map(lower));
+    const byName = new Map<string, RepoRow>();
+    for (const r of raw) {
+      const repo = str(r.nameWithOwner);
+      if (!REPO.test(repo) || byName.has(lower(repo))) continue;
+      const owner = str(rec(r.owner).login) || repo.split("/")[0]!;
+      const starred = starredRepo.has(lower(repo));
+      const open = num(rec(r.pullRequests).totalCount);
+      if (!starred && (r.isArchived === true || open === 0)) continue;
+      byName.set(lower(repo), { repo, owner, open, starred, ownerStarred: starredOwner.has(lower(owner)), private: r.isPrivate === true });
+    }
+    for (const repo of stars.repos)
+      if (!byName.has(lower(repo))) {
+        const owner = repo.split("/")[0]!;
+        byName.set(lower(repo), { repo, owner, open: 0, starred: true, ownerStarred: starredOwner.has(lower(owner)), private: false, missing: true });
+      }
+    const rank = (r: RepoRow) => (r.starred ? 0 : r.ownerStarred ? 1 : 2);
+    const repos = [...byName.values()].sort((a, b) => rank(a) - rank(b) || b.open - a.open || lower(a.repo).localeCompare(lower(b.repo)));
+    return { repos, stars };
   });
 }
 

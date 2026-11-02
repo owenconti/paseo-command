@@ -8,7 +8,7 @@
 import { after, before, test } from "node:test";
 import assert from "node:assert/strict";
 import type { Browser, Page } from "playwright";
-import type { DiffFile, PrDetail, PrDiff, PrList, PrRow, WorkspaceChanges } from "../src/github/types";
+import type { DiffFile, PrDetail, PrDiff, PrList, PrRow, RepoList, WorkspaceChanges } from "../src/github/types";
 import { small } from "./fleets";
 import { launch, mockApi, newContext, startApp, waitFor } from "./harness";
 
@@ -51,6 +51,14 @@ const row = (number: number, title: string, extra: Partial<PrRow> = {}): PrRow =
 });
 const REVIEW: PrRow[] = [row(12, "Add the GitHub tab"), row(13, "Fix the shoreline")];
 const MINE: PrRow[] = [row(20, "My own change", { author: { login: "me" } })];
+const TOOLS: PrRow[] = [row(31, "Tools: faster build", { repo: "sam/tools", url: "https://github.com/sam/tools/pull/31" }), row(32, "Tools: approved one", { repo: "sam/tools", url: "https://github.com/sam/tools/pull/32", reviewDecision: "approved" })];
+const REPOS: RepoList = {
+  repos: [
+    { repo: "acme/atlas", owner: "acme", open: 3, starred: true, ownerStarred: false, private: false },
+    { repo: "sam/tools", owner: "sam", open: 2, starred: false, ownerStarred: false, private: true },
+  ],
+  stars: { repos: ["acme/atlas"], orgs: [] },
+};
 
 const file = (path: string): DiffFile => ({
   path,
@@ -126,11 +134,18 @@ async function setUp(page: Page) {
     if (route.request().method() === "POST") {
       entry.body = route.request().postDataJSON();
       writes.push(entry);
-      return route.fulfill({ json: { ok: true } });
+      return route.fulfill({ json: entry.path.endsWith("/m/star") ? { ok: true, stars: REPOS.stars } : { ok: true } });
     }
     asked.push(entry);
     const name = u.pathname.replace("/api/github/q/", "");
     if (name === "viewer") return route.fulfill({ json: { viewer: { login: "me" } } });
+    if (name === "repos") return route.fulfill({ json: REPOS });
+    if (name === "prs" && u.searchParams.get("repo")) {
+      const repo = u.searchParams.get("repo")!;
+      let rows = repo === "sam/tools" ? TOOLS : REVIEW;
+      if (u.searchParams.get("review") === "approved") rows = rows.filter((r) => r.reviewDecision === "approved");
+      return route.fulfill({ json: { repo, rows, total: rows.length, viewer: { login: "me" } } satisfies PrList });
+    }
     if (name === "prs") {
       const scope = u.searchParams.get("scope") as PrList["scope"];
       const rows = scope === "review" ? REVIEW : scope === "mine" ? MINE : [...REVIEW, ...MINE];
@@ -167,7 +182,7 @@ test("GitHub lists PRs to review, opens one, drafts a line comment and submits a
     assert.deepEqual(await view.locator(".gh-row-title").allTextContents(), ["Add the GitHub tab", "Fix the shoreline"]);
     await waitFor(
       () => view.locator(".gh-nav-item .gh-count").allTextContents(),
-      (counts) => counts.join() === "2,1,3",
+      (counts) => counts.join() === "2,1,3,3,2",
       "the sidebar's counts",
     );
     // Keyboard: J moves, K back, J again, Enter opens #13.
@@ -292,6 +307,79 @@ test("GitHub shows the selected workspace's changes against main, all or committ
     await waitFor(() => view.locator(".gd-file").count(), (n) => n === 1, "only what's committed");
     assert.equal(last().query.mode, "base");
     assert.equal(await view.getByRole("radio", { name: "Committed", exact: true }).getAttribute("aria-checked"), "true");
+  } finally {
+    await context.close();
+  }
+});
+
+test("GitHub lists repositories, favourites first, filters a repository's PRs and stars by name", async () => {
+  const context = await newContext(browser);
+  const page = await context.newPage();
+  await page.setViewportSize({ width: 1600, height: 1000 });
+  const { asked, writes } = await setUp(page);
+  try {
+    await page.goto(app.url);
+    await page.locator(".fleet-sidebar").waitFor();
+    await showGithub(page);
+    const view = page.locator(".github-view");
+
+    // Favourites (the starred acme/atlas) first, then the others, grouped by owner.
+    await view.locator(".gh-repo-row").nth(1).waitFor();
+    assert.deepEqual(await view.locator(".gh-nav-sub").allTextContents(), ["Favourites", "Others"]);
+    assert.deepEqual(await view.locator(".gh-org-name").allTextContents(), ["acme", "sam"]);
+    assert.equal(await view.getByRole("button", { name: "Unstar acme/atlas" }).getAttribute("aria-pressed"), "true");
+
+    // A repository lists its PRs, open by default, its state a chip under the head.
+    await view.locator(".gh-repo-row", { hasText: "tools" }).locator(".gh-nav-item").click();
+    await view.locator(".gh-head h2", { hasText: "sam/tools" }).waitFor();
+    assert.deepEqual(await view.locator(".gh-row-title").allTextContents(), ["Tools: faster build", "Tools: approved one"]);
+    assert.equal(await view.locator(".gh-filters .linear-filter-chip").textContent(), "StateisOpen");
+    assert.ok(asked.some((a) => a.path.endsWith("/q/prs") && a.query.repo === "sam/tools" && a.query.state === "open"));
+
+    // F: the filter menu; Review → Approved asks GitHub with it, shown as a chip.
+    await view.locator(".gh-row").first().focus();
+    await page.keyboard.press("f");
+    const menu = view.getByRole("menu", { name: "Filter by" });
+    await menu.getByRole("menuitem", { name: /Review/ }).click();
+    await view.getByRole("listbox", { name: "Review" }).getByRole("option", { name: "Approved" }).click();
+    await waitFor(() => view.locator(".gh-row-title").allTextContents(), (t) => t.join() === "Tools: approved one", "the filtered list");
+    assert.ok(asked.some((a) => a.query.repo === "sam/tools" && a.query.review === "approved"));
+    await view.getByRole("button", { name: "Review: Approved. Change" }).waitFor();
+
+    // The place and its filters come back after a reload.
+    await page.reload();
+    await page.locator(".fleet-sidebar").waitFor();
+    await showGithub(page);
+    await view.locator(".gh-head h2", { hasText: "sam/tools" }).waitFor();
+    await view.getByRole("button", { name: "Review: Approved. Change" }).waitFor();
+    // × removes the filter.
+    await view.getByRole("button", { name: "Remove the review filter" }).click();
+    await waitFor(() => view.locator(".gh-row").count(), (n) => n === 2, "the unfiltered list");
+
+    // S stars the repository in view.
+    await view.locator(".gh-row").first().focus();
+    await page.keyboard.press("s");
+    await waitFor(() => Promise.resolve(writes.length), (n) => n === 1, "the star write");
+    assert.deepEqual(writes[0], { path: "/api/github/m/star", query: {}, body: { kind: "repo", name: "sam/tools", starred: true } });
+
+    // ⌘K stars an organization by name.
+    await page.keyboard.press("Meta+k");
+    const palette = page.getByRole("dialog", { name: "Command palette" });
+    await palette.getByRole("combobox", { name: "Search commands" }).fill("Star a repository or organization");
+    await palette.getByRole("option", { name: /Star a repository or organization/ }).click();
+    await palette.waitFor({ state: "detached" });
+    const box = view.getByRole("textbox", { name: /to star/ });
+    await box.waitFor();
+    await box.fill("https://github.com/octo");
+    await box.press("Enter");
+    await waitFor(() => Promise.resolve(writes.length), (n) => n === 2, "the organization's star");
+    assert.deepEqual(writes[1]!.body, { kind: "org", name: "octo", starred: true });
+
+    // ⌘K opens a repository's pull requests.
+    await page.keyboard.press("Meta+k");
+    await palette.getByRole("combobox", { name: "Search commands" }).fill("Open acme/atlas");
+    await palette.getByRole("option", { name: /Open acme\/atlas’s pull requests/ }).click();
+    await view.locator(".gh-head h2", { hasText: "acme/atlas" }).waitFor();
   } finally {
     await context.close();
   }

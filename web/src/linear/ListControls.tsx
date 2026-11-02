@@ -123,7 +123,7 @@ function chosenText(field: FilterField, values: string[], options: PickerOption<
 }
 
 /** A small menu's arrow keys, Home/End and Esc, as the row menu's. */
-function menuKeys(e: React.KeyboardEvent<HTMLElement>, onClose: () => void) {
+export function menuKeys(e: React.KeyboardEvent<HTMLElement>, onClose: () => void) {
   if (e.key === "Tab") return;
   e.stopPropagation();
   const items = [...e.currentTarget.querySelectorAll<HTMLElement>("[role=menuitem]")];

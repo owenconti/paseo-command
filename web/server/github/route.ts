@@ -1,19 +1,20 @@
 /**
- * `/api/github/…`: the GitHub tab's named reads (`GET q/viewer|prs|pr|diff`,
+ * `/api/github/…`: the GitHub tab's named reads (`GET q/viewer|prs|repos|pr|diff`,
  * `fresh=1` past the cache) and whitelisted writes (`POST m/<name>`). No
  * passthrough: an unknown name is a 404. A read GitHub can't answer right now
  * (off, no token, refused, limited) is a `GithubUnavailable` 200; a bad
  * parameter a 400. A write that didn't happen is an error.
  */
 import type { IncomingMessage } from "node:http";
-import { GITHUB_WRITES, PR_SCOPES, type GithubWriteName, type PrScope } from "../../src/github/types";
+import { GITHUB_WRITES, PR_SCOPES, REPO, type GithubWriteName, type PrScope } from "../../src/github/types";
 import { bodyOf } from "../api/http";
 import { errorText } from "../wire";
 import { apiFailure, assertEnabled, GithubApiError, unavailable, writeStatus } from "./client";
-import { prParams, readDiff, readPr, readPrs, readViewer } from "./reads";
+import { checkFilters, FILTER_FIELDS, FILTERS } from "../../src/github/filters";
+import { prParams, readDiff, readPr, readPrs, readRepoPrs, readRepos, readViewer } from "./reads";
 import { githubWrite } from "./writes";
 
-const READS = ["viewer", "prs", "pr", "diff"] as const;
+const READS = ["viewer", "prs", "repos", "pr", "diff"] as const;
 type ReadName = (typeof READS)[number];
 /** A review with 100 drafted comments of some length fits; nothing larger is read. */
 export const WRITE_BODY_LIMIT = 2 * 1024 * 1024;
@@ -34,7 +35,26 @@ async function read(name: ReadName, params: URLSearchParams): Promise<unknown> {
       only(params, ["fresh"]);
       assertEnabled();
       return readViewer(fresh(params));
+    case "repos":
+      only(params, ["fresh"]);
+      assertEnabled();
+      return readRepos(fresh(params));
     case "prs": {
+      if (params.has("repo")) {
+        only(params, ["repo", ...FILTER_FIELDS, "fresh"]);
+        const repo = params.get("repo")!;
+        if (!REPO.test(repo) || repo.includes("..")) throw new GithubApiError("invalid", "Name the repository: repo=owner/name");
+        const raw: Record<string, string> = {};
+        for (const field of FILTER_FIELDS) {
+          const v = params.get(field);
+          if (v === null) continue;
+          if (!Object.hasOwn(FILTERS[field].values, v)) throw new GithubApiError("invalid", `Unexpected ${field}`);
+          raw[field] = v;
+        }
+        const f = fresh(params);
+        assertEnabled();
+        return readRepoPrs(repo, checkFilters(raw), f);
+      }
       only(params, ["scope", "fresh"]);
       const scope = params.get("scope") as PrScope | null;
       if (!scope || !PR_SCOPES.includes(scope)) throw new GithubApiError("invalid", "Name the list: scope=review|mine|involved");
