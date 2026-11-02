@@ -367,6 +367,8 @@ export function notificationOf(raw: Raw): LinearNotification | null {
   const issue = rec(raw.issue);
   const comment = rec(raw.comment);
   const key = clip(str(issue.identifier).toUpperCase(), 30);
+  const pr = rec(raw.pullRequest);
+  const prKeys = issueKeysIn(`${str(pr.sourceBranch).slice(0, 300)} ${str(pr.title).slice(0, 300)}`);
   // The server may load this avatar for the page from now on: Linear named it.
   const avatar = httpsUrl(raw.actorAvatarUrl);
   if (avatar) allowAvatar(avatar);
@@ -392,7 +394,19 @@ export function notificationOf(raw: Raw): LinearNotification | null {
     commentBody: clip(str(comment.body), 300) || undefined,
     reactionEmoji: clip(str(raw.reactionEmoji), 40) || undefined,
     projectId: optId(raw.project),
+    pullRequestId: optId(raw.pullRequest),
+    ...(prKeys.length ? { pullRequestIssueKeys: prKeys } : {}),
   };
+}
+
+/**
+ * The issue keys a pull request's branch and title name (`owen/de-7919-…`,
+ * `DE-7919: …`), as Linear links them, uppercased, at most five; which are
+ * this workspace's teams' is for the reader to say.
+ */
+export function issueKeysIn(text: string): string[] {
+  const keys = [...text.matchAll(/(?<![a-z0-9])([a-z][a-z0-9]{0,9}-\d{1,7})(?![0-9])/gi)].map((m) => m[1]!.toUpperCase());
+  return [...new Set(keys)].slice(0, 5);
 }
 
 export { nodes as nodesOf, rec as recOf, str as strOf };

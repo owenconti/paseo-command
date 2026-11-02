@@ -174,6 +174,9 @@ export type LinearNotification = {
   commentBody?: string;
   reactionEmoji?: string;
   projectId?: string;
+  /** A pull request notification's pull request, and the issue keys its branch and title name (any team's). */
+  pullRequestId?: string;
+  pullRequestIssueKeys?: string[];
 };
 export type LinearWorkspace = {
   viewerId: string;

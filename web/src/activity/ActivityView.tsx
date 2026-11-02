@@ -29,6 +29,7 @@ import {
 } from "lucide-react";
 import { readStore, removeStore, writeStore } from "../api";
 import { onAppCommand } from "../appCommands";
+import { parseAppLink } from "../appLinks";
 import { ResizeEdge } from "../ResizeEdge";
 import { modalOpen } from "../focus";
 import { isTyping } from "../worldShortcut";
@@ -142,7 +143,7 @@ function Actor({ actor }: { actor?: ActivityItem["actor"] }) {
 const openLabel = (item: ActivityItem) =>
   item.open?.kind === "slack"
     ? "Open in Slack"
-    : item.open
+    : item.open || (item.url && parseAppLink(item.url)?.kind === "linear")
       ? "Open in Linear"
       : item.url && prPlaceOf(item.url)
         ? "Review in GitHub"

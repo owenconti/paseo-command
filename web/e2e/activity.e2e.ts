@@ -10,6 +10,7 @@ import assert from "node:assert/strict";
 import type { Browser, Page } from "playwright";
 import type { ActivityFeed, ActivityItem } from "../src/activity/types";
 import { launch, mockApi, newContext, startApp, waitFor } from "./harness";
+import { mockLinear } from "./linearFake";
 
 let app: Awaited<ReturnType<typeof startApp>>;
 let browser: Browser;
@@ -162,6 +163,55 @@ test("Activity gathers GitHub, Linear and Slack, filters them, and marks them re
     await waitFor(() => rowKeys(page), (keys) => keys.length === 0, "the feed emptied");
     assert.deepEqual(writes[3], { name: "done", keys: ["github:101", ITEMS[2].key] });
   } finally {
+    await context.close();
+  }
+});
+
+test("in the macOS app, a Linear pull request notification opens its issue in the Linear tab, not yet visited", async () => {
+  const context = await newContext(browser);
+  const page = await context.newPage();
+  await page.setViewportSize({ width: 1800, height: 1000 });
+  // The app's message channel, recording what the page asks of it.
+  await page.addInitScript(`
+    window.sentToApp = [];
+    window.webkit = { messageHandlers: { paseoWorld: { postMessage: (m) => window.sentToApp.push(m) } } };
+  `);
+  await mockApi(page, { agents: () => [], lists: { settings: { integrations: { linear: true } } } });
+  const linear = await mockLinear(page);
+  // As the server gives it: the pull request's branch names DE-1; its address is the pull request's.
+  const item: ActivityItem = {
+    key: "linear:notification:90000001-0000-4000-8000-000000000001",
+    source: "linear",
+    id: "notification:90000001-0000-4000-8000-000000000001",
+    kind: "pullRequestChecksFailed",
+    title: "Refresh the docs theme",
+    subtitle: "DE-1 · merge-gate / pass check failed",
+    subject: "pull",
+    at: ago(5),
+    unread: true,
+    url: "https://github.com/acme/site/pull/7",
+    open: { kind: "linear-issue", key: "DE-1" },
+  };
+  await page.route("**/api/activity**", (route) =>
+    route.fulfill({ json: route.request().method() === "POST" ? { feed: feedOf([{ ...item, unread: false }]) } : feedOf([item]) }),
+  );
+  try {
+    await page.goto(app.url);
+    await page.locator(".fleet-sidebar").waitFor();
+    await showActivity(page);
+    const view = page.locator(".activity-view");
+    await view.locator(`.activity-row[data-key="${item.key}"]`).click();
+    await view.getByRole("button", { name: "Open in Linear" }).click();
+    // The page asks the app for the Linear tab, not the pull request's address.
+    const sent = () =>
+      page.evaluate(() => (window as unknown as { sentToApp: { type: string; action?: string; url?: string }[] }).sentToApp);
+    await waitFor(sent, (m) => m.some((x) => x.type === "menu" && x.action === "linear"), "the Linear tab asked for");
+    assert.ok(!(await sent()).some((x) => x.url === item.url), "the pull request's address isn't opened");
+    // The app switches: the Linear tab mounts with DE-1 open.
+    await page.evaluate(() => window.dispatchEvent(new CustomEvent("paseo:mode", { detail: { mode: "linear" } })));
+    await page.locator(".linear-view .linear-issue h1", { hasText: "Refresh the docs theme" }).waitFor();
+  } finally {
+    linear.restore();
     await context.close();
   }
 });

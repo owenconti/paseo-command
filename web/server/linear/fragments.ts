@@ -18,11 +18,12 @@ export const PROJECT_FIELDS = `id name icon color status { name } health lead { 
 export const INITIATIVE_FIELDS = `id name status health owner { id } targetDate
   projects(first: 30) { nodes { id } } url updatedAt`;
 
-/** A notification, and what it's about: an issue (and comment), or a project. */
+/** A notification, and what it's about: an issue (and comment), a project, or a pull request (its branch and title name its issue). */
 export const NOTIFICATION_FIELDS = `id type title subtitle url createdAt updatedAt readAt snoozedUntilAt archivedAt
   actor { id } actorAvatarUrl actorInitials actorAvatarColor botActor { name } externalUserActor { name }
   ... on IssueNotification { issue { id identifier } comment { id body } reactionEmoji }
-  ... on ProjectNotification { project { id } }`;
+  ... on ProjectNotification { project { id } }
+  ... on PullRequestNotification { pullRequest { id title sourceBranch } }`;
 
 export const WORKSPACE_QUERY = `query Workspace($projectCut: DateTimeOrDuration!) {
   viewer { id name displayName avatarUrl }

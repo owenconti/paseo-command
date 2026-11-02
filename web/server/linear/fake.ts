@@ -145,8 +145,8 @@ export type FakeView = {
 };
 export type FakeNotification = {
   id: string;
-  /** IssueNotification or ProjectNotification: which of `issue` (with `comment`) or `project` it has. */
-  kind: "issue" | "project";
+  /** IssueNotification, ProjectNotification or PullRequestNotification: which of `issue` (with `comment`), `project` or `pullRequest` it has. */
+  kind: "issue" | "project" | "pullRequest";
   type: string;
   title: string;
   subtitle: string;
@@ -166,6 +166,7 @@ export type FakeNotification = {
   comment?: { id: string; body: string } | null;
   reactionEmoji?: string | null;
   project?: Ref;
+  pullRequest?: { id: string; title: string; sourceBranch: string };
 };
 export type FakeWorkspace = {
   viewerId: string;
@@ -813,9 +814,12 @@ export const OPERATIONS: Record<string, FakeOperation> = {
   ...writes(),
 };
 
-/** A notification as Linear answers it: an IssueNotification's issue and comment, or a ProjectNotification's project. */
+/** A notification as Linear answers it: an IssueNotification's issue and comment, a ProjectNotification's project, or a PullRequestNotification's pull request. */
 function notificationNode({ kind, ...n }: FakeNotification) {
-  return kind === "issue" ? n : { ...n, issue: undefined, comment: undefined, reactionEmoji: undefined };
+  const { pullRequest, ...rest } = n;
+  if (kind === "issue") return rest;
+  const other = { ...rest, issue: undefined, comment: undefined, reactionEmoji: undefined };
+  return kind === "pullRequest" ? { ...other, project: undefined, pullRequest } : other;
 }
 
 function writes(): Record<string, FakeOperation> {

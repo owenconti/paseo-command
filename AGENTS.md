@@ -343,7 +343,9 @@ and GitHub publication; report the published version and release link.
   its ⌘K entry and the shortcuts dialog's Activity group. Server (`web/server/activity/`, `GET /api/activity`, `POST
   /api/activity/m/read|unread|done` with `{keys}`): `github.ts` (opt-in `integrations.github`: `GET /notifications` with the GitHub
   token, unread and the past 14 days, cached a minute; read and done through the API; GitHub can't mark unread, and its list still has threads marked done, as read ones, so those done here are kept in the data directory's `github-activity.json` by when GitHub last changed them and left out across launches until they change again), `linear.ts` (the
-  Inbox's notifications, one per issue or project, through Linear's whitelisted writes), `slack.ts` (unread DMs, mentions of you from
+  Inbox's notifications, one per issue or project, through Linear's whitelisted writes; a pull request notification, which Linear
+  gives no issue, opens the issue its branch or title names, of the workspace's teams: `issueKeysIn` in `normalize.ts`,
+  `pullRequestIssueKey` in `inboxRows.ts`, as the Linear tab's Inbox does), `slack.ts` (unread DMs, mentions of you from
   search and the socket, replies in threads you're in; Slack keeps no thread read state for apps, so those and "done" are kept in the
   data directory's `slack-activity.json`), `feed.ts` (a source that fails says why without hiding the rest). The page's store
   (`store.ts`) polls every 30 s while the view shows, else every minute in the macOS app for the tab's count.

@@ -79,6 +79,18 @@ function ours(link: AppLink): boolean {
   }
 }
 
+/**
+ * Opens an issue in the Linear tab, where you last were in Linear with the
+ * issue open (beside the list, or in its place): read as the view mounts,
+ * and asked of the view at once if it shows.
+ */
+export function openLinearIssue(key: string): void {
+  const place = { ...readLinearPlace(), issue: key };
+  writeLinearPlace(place);
+  runAppCommand("linear-go", place);
+  postAppMenu("linear");
+}
+
 /** Opens a link the app sent (`paseo:link`) in its tab, else in Conquer. */
 export function openAppLink(href: string): void {
   const link = parseAppLink(href);
@@ -88,14 +100,7 @@ export function openAppLink(href: string): void {
     postAppMenu("github");
     return;
   }
-  if (link.kind === "linear") {
-    // Where you last were in Linear, with the issue open; asked of the view at once if it shows.
-    const place = { ...readLinearPlace(), issue: link.issue };
-    writeLinearPlace(place);
-    runAppCommand("linear-go", place);
-    postAppMenu("linear");
-    return;
-  }
+  if (link.kind === "linear") return openLinearIssue(link.issue);
   openSlackPlace({
     conversationId: link.conversationId,
     // A reply's permalink opens its thread at the reply; a thread's own message, the thread.

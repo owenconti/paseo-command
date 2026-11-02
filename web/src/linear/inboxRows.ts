@@ -17,12 +17,25 @@ export type InboxGroup = {
 const isSnoozed = (n: LinearNotification, now: number) =>
   !!n.snoozedUntilAt && Date.parse(n.snoozedUntilAt) > now;
 
+/** The issue a pull request notification is about: the first key its branch or title names of one of these teams. */
+export function pullRequestIssueKey(n: LinearNotification, teamKeys: Iterable<string>): string | undefined {
+  const teams = new Set([...teamKeys].map((k) => k.toUpperCase()));
+  return n.pullRequestIssueKeys?.find((key) => teams.has(key.split("-")[0]!));
+}
+
 /**
  * The notifications as Inbox rows, newest first: an issue's together, a
  * project's together, any other alone; unread if any is, snoozed if all
- * are. `snoozed` picks the snoozed rows instead of the rest.
+ * are. `snoozed` picks the snoozed rows instead of the rest. A pull
+ * request's row opens the issue its branch or title names, of `teamKeys`.
  */
-export function inboxGroups(list: Iterable<LinearNotification>, now: number, snoozed = false): InboxGroup[] {
+export function inboxGroups(
+  list: Iterable<LinearNotification>,
+  now: number,
+  snoozed = false,
+  teamKeys: Iterable<string> = [],
+): InboxGroup[] {
+  const teams = [...teamKeys];
   const groups = new Map<string, LinearNotification[]>();
   for (const n of list) {
     if (n.archivedAt) continue;
@@ -36,7 +49,9 @@ export function inboxGroups(list: Iterable<LinearNotification>, now: number, sno
       return {
         key,
         issueId: latest.issueId,
-        issueKey: sorted.find((n) => n.issueKey)?.issueKey,
+        issueKey:
+          sorted.find((n) => n.issueKey)?.issueKey ??
+          sorted.map((n) => pullRequestIssueKey(n, teams)).find(Boolean),
         projectId: latest.projectId,
         latest,
         notifications: sorted,

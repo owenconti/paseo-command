@@ -6,6 +6,7 @@ import { afterEach, beforeEach, test } from "node:test";
 import { resetLinearClient } from "../linear/client";
 import { FAKE_IDS as I, installFakeLinear, type FakeLinear } from "../linear/fake";
 import { resetLinearReads } from "../linear/reads";
+import { issueKeysIn } from "../linear/normalize";
 import { linearEntity, readLinearActivity, resetLinearActivity, writeLinearActivity } from "./linear";
 
 let fake: FakeLinear;
@@ -65,4 +66,57 @@ test("ids name an issue, project or notification", () => {
   assert.deepEqual(linearEntity(`issue:${I.issues["ENG-1"]}`), { issueId: I.issues["ENG-1"] });
   assert.deepEqual(linearEntity(`notification:${I.notifications.eng1Comment}`), { id: I.notifications.eng1Comment });
   assert.equal(linearEntity("team:x"), null);
+});
+
+test("a pull request notification opens the issue its branch or title names", async () => {
+  const at = new Date().toISOString();
+  const pr = (id: string, type: string, pullRequest: { title: string; sourceBranch: string }) => ({
+    id,
+    kind: "pullRequest" as const,
+    type,
+    title: pullRequest.title,
+    subtitle: "merge-gate / pass check failed",
+    url: `https://github.com/acme/site/pull/${id.length}`,
+    createdAt: at,
+    updatedAt: at,
+    readAt: null,
+    snoozedUntilAt: null,
+    archivedAt: null,
+    actor: null,
+    pullRequest: { id: `0000000${id.length}-pr00-4000-8000-000000000000`, ...pullRequest },
+  });
+  fake.ws.notifications.push(
+    pr("90000001-0000-4000-8000-000000000001", "pullRequestChecksFailed", {
+      title: "Build file-based pages as immutable ES modules",
+      sourceBranch: "owen/de-1-build-file-based-pages",
+    }),
+    pr("90000001-0000-4000-8000-000000000002", "pullRequestCommented", {
+      title: "ENG-2: Tidy the sidebar",
+      sourceBranch: "tidy-sidebar",
+    }),
+    pr("90000001-0000-4000-8000-000000000003", "pullRequestCommented", {
+      title: "Release 2026",
+      sourceBranch: "release-2026",
+    }),
+  );
+  const items = await readLinearActivity();
+  const of = (id: string) => items.find((i) => i.key === `linear:notification:${id}`)!;
+  const checks = of("90000001-0000-4000-8000-000000000001");
+  assert.deepEqual(checks.open, { kind: "linear-issue", key: "DE-1" });
+  assert.equal(checks.subject, "pull");
+  assert.equal(checks.kind, "pullRequestChecksFailed");
+  assert.match(checks.subtitle!, /^DE-1 · merge-gate/);
+  assert.deepEqual(of("90000001-0000-4000-8000-000000000002").open, { kind: "linear-issue", key: "ENG-2" });
+  // No team of the workspace's: its address, as before.
+  const release = of("90000001-0000-4000-8000-000000000003");
+  assert.equal(release.open, undefined);
+  assert.equal(release.url, "https://github.com/acme/site/pull/36");
+  assert.ok(fake.requests.some((r) => r.operation === "Notifications"));
+});
+
+test("issue keys in a branch or title", () => {
+  assert.deepEqual(issueKeysIn("owen/de-7919-build-file-based-pages DE-7919: Build"), ["DE-7919"]);
+  assert.deepEqual(issueKeysIn("[ENG-12] fix, see eng-13"), ["ENG-12", "ENG-13"]);
+  assert.deepEqual(issueKeysIn("feature/x2-3 v1.2-3 node-v20"), ["X2-3"]);
+  assert.deepEqual(issueKeysIn("main"), []);
 });

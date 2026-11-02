@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { inboxEntity, inboxGroups, inboxText, snoozeTimes, unreadCount } from "./inboxRows";
+import { inboxEntity, inboxGroups, inboxText, pullRequestIssueKey, snoozeTimes, unreadCount } from "./inboxRows";
 import type { LinearNotification } from "./types";
 
 const NOW = Date.parse("2026-10-31T12:00:00Z");
@@ -55,4 +55,24 @@ test("inbox: snoozing for an hour, until tomorrow at 9, or next Monday at 9", ()
   assert.deepEqual([week.at.getDay(), week.at.getDate(), week.at.getHours()], [1, 2, 9]);
   // On a Monday, next week is the Monday after.
   assert.equal(snoozeTimes(new Date(2026, 10, 2, 8))[2].at.getDate(), 9);
+});
+
+test("inbox: a pull request's row opens the issue its branch or title names, of the workspace's teams", () => {
+  const pr = (id: string, keys: string[]) =>
+    n(id, "2026-10-31T11:00:00Z", { type: "pullRequestChecksFailed", pullRequestId: `pr-${id}`, pullRequestIssueKeys: keys });
+  const list = [pr("a", ["DE-7919"]), pr("b", ["RELEASE-2026", "DE-12"]), pr("c", ["RELEASE-2026"])];
+  assert.equal(pullRequestIssueKey(list[0]!, ["de", "ENG"]), "DE-7919");
+  assert.equal(pullRequestIssueKey(list[1]!, ["DE"]), "DE-12");
+  assert.equal(pullRequestIssueKey(list[2]!, ["DE"]), undefined);
+  const rows = inboxGroups(list, NOW, false, ["DE"]);
+  // Alone, as Linear's writes name a notification, an issue or a project, not a pull request.
+  assert.deepEqual(
+    rows.map((g) => [g.key, g.issueKey]),
+    [
+      ["notification:a", "DE-7919"],
+      ["notification:b", "DE-12"],
+      ["notification:c", undefined],
+    ],
+  );
+  assert.equal(inboxGroups(list, NOW)[0]!.issueKey, undefined);
 });

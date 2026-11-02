@@ -1,7 +1,8 @@
 /**
  * Activity's Linear source: your Inbox (its first page, up to 250
  * notifications), one item per issue (or project, or lone notification) as
- * the Inbox shows them, not archived and not snoozed. Only while Linear is on
+ * the Inbox shows them, not archived and not snoozed; a pull request's opens
+ * the issue its branch or title names. Only while Linear is on
  * (the reads take the key through `integrationKey("linear")`). Writes are
  * the Inbox's: read, unread and done (archive) on a row's notifications together.
  */
@@ -32,7 +33,7 @@ export function linearItem(group: InboxGroup, users: LinearUser[] = []): Activit
     kind: n.type || "notification",
     title: text.title || n.title || "Linear notification",
     ...(text.what || text.key ? { subtitle: [text.key, text.what].filter(Boolean).join(" · ").slice(0, 300) } : {}),
-    subject: group.issueId ? "issue" : group.projectId ? "project" : "notification",
+    subject: group.issueId ? "issue" : group.projectId ? "project" : n.pullRequestId ? "pull" : "notification",
     ...(actor
       ? {
           actor: {
@@ -54,12 +55,10 @@ export function linearItem(group: InboxGroup, users: LinearUser[] = []): Activit
 
 async function gather(): Promise<ActivityItem[]> {
   const { notifications } = await readNotifications();
-  // People's names are nice to have: the workspace is kept five minutes by the reads.
-  const users = await readWorkspace().then(
-    (ws) => ws.users,
-    () => [],
-  );
-  return inboxGroups(notifications, Date.now()).map((g) => linearItem(g, users));
+  // People's names, and the teams whose issues pull requests name, are nice to have: the workspace is kept five minutes by the reads.
+  const ws = await readWorkspace().catch(() => undefined);
+  const teams = ws?.teams.map((t) => t.key) ?? [];
+  return inboxGroups(notifications, Date.now(), false, teams).map((g) => linearItem(g, ws?.users));
 }
 
 /** Your Linear Inbox as Activity items; throws a LinearError when Linear can't answer. */

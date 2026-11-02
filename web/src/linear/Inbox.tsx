@@ -105,6 +105,7 @@ export function Inbox({
   const loaded = useLinear((d) => d.notificationsLoaded);
   const capped = useLinear((d) => d.notificationsCapped);
   const users = useLinear((d) => d.workspace?.users);
+  const teams = useLinear((d) => d.workspace?.teams);
   const issues = useLinear((d) => d.issues);
   const byKey = useLinear((d) => d.byKey);
   const [snoozedTab, setSnoozedTab] = useState(false);
@@ -120,7 +121,9 @@ export function Inbox({
     loadNotifications(revision > 0).catch((e) => setError(errorMessage(e)));
   }, [revision]);
   const all = useMemo(() => [...notifications.values()], [notifications]);
-  const rows = useMemo(() => inboxGroups(all, tick, snoozedTab), [all, tick, snoozedTab]);
+  // A pull request's row opens the issue it names, of the workspace's teams.
+  const teamKeys = useMemo(() => (teams ?? []).map((t) => t.key), [teams]);
+  const rows = useMemo(() => inboxGroups(all, tick, snoozedTab, teamKeys), [all, tick, snoozedTab, teamKeys]);
   const snoozedCount = useMemo(() => inboxGroups(all, tick, true).length, [all, tick]);
   const unread = rows.filter((g) => g.unread);
 
