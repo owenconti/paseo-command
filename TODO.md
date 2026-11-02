@@ -76,6 +76,14 @@ mark it done with its commit once merged into `main`.
   styled. Give `paletteCommands`/`agentCommands` entries (`web/src/main.tsx`) a page, derived where it can be,
   and check every entry; the ranking (`palette.ts`) may favour the page that's showing. Update `CommandPalette.tsx`,
   its tests/e2e and CLAUDE.md's Command palette section. Workspace: `palette-page-labels`.
+- [ ] **Linear list head overlaps when narrow.** In a narrow issue list (e.g. beside an open issue, with the
+  sidebar shown), the head's title "Engineering › Active" and its count (260) run under the Filter and Display
+  buttons, which overlap the text. The head must never overlap at any width: the breadcrumb truncates with an
+  ellipsis (the last part kept longest, full on hover), the count stays readable or hides, and the buttons
+  shrink to icons before anything overlaps, wrapping under the title as a last resort. Check the same heads in
+  the other pages (Slack, GitHub, Activity, Settings) for the same fault and fix it in the shared page styles
+  (`web/src/styles/pages.css`) where it is shared. Add an e2e check at a narrow width.
+  Workspace: `fix-page-head-overlap`.
 
 ## Done
 
