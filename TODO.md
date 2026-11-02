@@ -17,6 +17,13 @@ mark it done with its commit once merged into `main`.
   exchanges the two. In a list, each group holds its sub-groups under their own heads; on a board, sub-groups are
   swimlane rows across the columns, a card dropped into a cell taking both its column's and its row's value
   (`dropChange` in `group.ts`). Views start with their sub-grouping as set in Linear. Workspace: `linear-sub-grouping`.
+- [ ] **Slack: a Recent section, and your own channel sections.** The sidebar (`web/src/slack/Sidebar.tsx`,
+  `sections.ts`) has Channels and Direct messages. Add Recent at the top: the ~20 most recent conversations,
+  threads and group DMs with activity (yours or others'), newest first, each opening its conversation or
+  thread. Ideally the sidebar also shows the custom sections you've made in the Slack app. Slack's public Web
+  API doesn't expose sidebar sections (the client's `users.channelSections.*` is undocumented and wants a
+  browser session token), so check first. If no documented, user-token way exists, don't use the internal one:
+  report back, and offer sections made in the app instead (kept in `settings.json`). Workspace: `slack-recent-and-sections`.
 
 ## Done
 
