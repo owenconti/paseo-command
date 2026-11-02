@@ -25,6 +25,16 @@ mark it done with its commit once merged into `main`.
   with the classic token. Intersect the repository's methods with the base branch's rules, label the button by its
   method ("Squash and merge"), default to the only/first allowed one, and never offer a method GitHub would refuse.
   Tests over the fake (a ruleset allowing only squash); never real GitHub. Workspace: `fix-github-merge-methods`.
+- [ ] **GitHub PR view: deslop the buttons and merge box.** The PR header's and side panel's controls are oversized and
+  heavy: Review (a big filled gold block), the split "Merge pull request" button, "Open Paseo agent" on its own row,
+  the conversation's Newest/Oldest toggle, Comment, and the Merge section's full-width stacked blocks ("Merge pull
+  request…", "Enable auto-merge (merge commit)…" wrapping onto two lines). Bring them to the pages' control scale
+  (`--lz`, `pages.css`; compare Linear's and Activity's head tools): one compact height for header buttons, one primary
+  action at most (filled, modest), others quiet (outline or ghost), short labels ("Squash and merge", "Auto-merge"), no
+  wrapping, header actions on one row with Open Paseo agent, and the Merge section as a short list of small buttons or
+  links under its status lines rather than full-width slabs. Also check: while "Review required" or checks are pending,
+  Merge shouldn't look like the ready primary action unless it's an admin bypass (then say so). Light and dark,
+  screenshots before and after; keep e2e passing. Workspace: `github-pr-deslop-buttons`.
 
 ## Done
 
