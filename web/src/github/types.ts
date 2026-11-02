@@ -2,7 +2,7 @@
  * The GitHub tab's wire types, shared by the page (`web/src/github/`) and the
  * server (`web/server/github/`, `GET /api/changes`).
  *
- * Reads: `GET /api/github/q/viewer|prs|repos|pr|diff` (named, no passthrough) and
+ * Reads: `GET /api/github/q/viewer|prs|repos|repoSearch|people|teams|pr|diff` (named, no passthrough) and
  * `GET /api/changes?workspace=<id>[&host=<id>][&mode=all|base|uncommitted]`
  * (the workspace's branch against its base, from the daemon). A read that
  * can't be answered right now (GitHub off, no GitHub token or a refused one, not a git
@@ -146,6 +146,16 @@ export type RepoSearch = { query: string; repos: RepoRow[]; owner?: { login: str
  */
 export type RepoPeople = { repo: string; viewer: Person; people: Person[] };
 
+/** A team that can be asked to review: its `slug` (what GitHub's requests take) and name. */
+export type Team = { slug: string; name: string };
+
+/**
+ * `GET /api/github/q/teams?repo=owner/name`: the teams with access to a
+ * repository, for its reviewer picker. A personal repository has none; `note`
+ * says why none are listed when the token can't list them.
+ */
+export type RepoTeams = { repo: string; teams: Team[]; note?: string };
+
 /** A changed file in the PR, as GitHub lists it, with whether you've marked it viewed. */
 export type PrFile = {
   path: string;
@@ -198,7 +208,17 @@ export type TimelineEntry =
       comments: number;
     };
 
-export type PrCheck = { name: string; state: ChecksState | "skipped"; url?: string; summary?: string };
+export type PrCheck = {
+  name: string;
+  state: ChecksState | "skipped";
+  url?: string;
+  summary?: string;
+  /** Its workflow (GitHub Actions) or app, or a status's creator. */
+  source?: string;
+  /** When it started and finished (a status: when it was last set). */
+  startedAt?: string;
+  completedAt?: string;
+};
 export type PrCommit = { sha: string; title: string; author: Person | null; at: string };
 
 /** `GET /api/github/q/pr?repo=owner/name&number=N`. */
@@ -213,8 +233,24 @@ export type PrDetail = PrRow & {
   commits: PrCommit[];
   /** Its head's check runs and statuses (`checks` is their rollup). */
   checkRuns: PrCheck[];
-  /** Review requested from these people (and teams, by name). */
-  reviewers: { name: string; state: YourReview | "requested" }[];
+  /** Who's asked to review (people and teams) and who has reviewed, with their latest verdict; never the author. */
+  reviewers: PrReviewer[];
+  assignees: Person[];
+};
+
+/** A verdict a review left. */
+export type ReviewVerdict = "approved" | "changes" | "commented" | "dismissed";
+/**
+ * A reviewer: a person (`login`) or a team (its slug as `login`, its name).
+ * `requested` while a review is asked of them (again, after `verdict`).
+ */
+export type PrReviewer = {
+  kind: "user" | "team";
+  login: string;
+  name?: string;
+  avatarUrl?: string;
+  requested: boolean;
+  verdict: ReviewVerdict | null;
 };
 
 /** `GET /api/github/q/diff?repo=owner/name&number=N`: the PR's diff, parsed. */
@@ -248,11 +284,20 @@ export type GithubWriteInputs = {
   resolve: { threadId: string; resolved: boolean };
   /** Marks a file viewed or not viewed, as GitHub's "Viewed" checkbox. */
   viewed: { prId: string; path: string; viewed: boolean };
+  /** Requests reviews from people and teams (by slug), again from those who reviewed, or removes the requests. */
+  reviewers: { repo: string; number: number; action: "add" | "remove"; users: string[]; teams: string[] };
+  /** Assigns people to the PR, or unassigns them. */
+  assignees: { repo: string; number: number; action: "add" | "remove"; users: string[] };
   /** Stars or unstars a repository (`owner/name`) or an organization (its login) as a favourite: kept in `settings.json`, not on GitHub. */
   star: { kind: "repo" | "org"; name: string; starred: boolean };
 };
 export type GithubWriteName = keyof GithubWriteInputs;
-export const GITHUB_WRITES: GithubWriteName[] = ["comment", "review", "reply", "resolve", "viewed", "star"];
+export const GITHUB_WRITES: GithubWriteName[] = ["comment", "review", "reply", "resolve", "viewed", "reviewers", "assignees", "star"];
+/** At most this many people (or teams) in one reviewers or assignees write, as GitHub allows (10 assignees, 15 reviewers). */
+export const MAX_REVIEWERS = 15;
+export const MAX_ASSIGNEES = 10;
+/** A team's slug. */
+export const TEAM_SLUG = /^[A-Za-z0-9][A-Za-z0-9_.-]{0,99}$/;
 export type GithubWriteResult = { ok: true; url?: string; stars?: GithubStars };
 
 /** `owner/name`, as GitHub allows them (never `.` or `..`, which would climb an API path). */

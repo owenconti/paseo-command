@@ -68,8 +68,19 @@ test("a PR's detail: files, conversation, threads, commits, checks and reviewers
   assert.equal(pr.threads[0].comments[0].databaseId, 101);
   assert.equal(pr.threads[0].canResolve, true);
   assert.equal(pr.commits[0].sha, SHA);
-  assert.deepEqual(pr.checkRuns, [{ name: "test", state: "passing", url: "https://github.com/x", summary: "All good" }]);
-  assert.deepEqual(pr.reviewers, [{ name: "me", state: "requested" }]);
+  assert.deepEqual(pr.checkRuns, [
+    {
+      name: "test",
+      state: "passing",
+      url: "https://github.com/x",
+      summary: "All good",
+      source: "CI",
+      startedAt: "2026-10-30T09:00:00Z",
+      completedAt: "2026-10-30T09:02:05Z",
+    },
+  ]);
+  assert.deepEqual(pr.reviewers, [{ kind: "user", login: "me", name: "Me", requested: true, verdict: null }]);
+  assert.deepEqual(pr.assignees, [{ login: "ada", name: "Ada", avatarUrl: "https://avatars.githubusercontent.com/u/1?v=4" }]);
   assert.deepEqual((fake.calls[0]!.body as { variables: unknown }).variables, { owner: "owen", name: "app", number: 7 });
 });
 
@@ -140,7 +151,7 @@ test("writes send exactly what was asked, and clear the PR's cached read", async
   await ask("/api/github/q/pr?repo=owen/app&number=7");
   const comment = await ask("/api/github/m/comment", "POST", { repo: "owen/app", number: 7, body: "Thanks!" });
   assert.equal(comment.status, 200, JSON.stringify(comment.body));
-  assert.deepEqual(fake.writes.at(-1), { path: "repos/owen/app/issues/7/comments", input: { body: "Thanks!" } });
+  assert.deepEqual(fake.writes.at(-1), { method: "POST", path: "repos/owen/app/issues/7/comments", input: { body: "Thanks!" } });
   assert.equal(comment.body.url, "https://github.com/repos/owen/app/issues/7/comments/1");
   const review = await ask("/api/github/m/review", "POST", {
     repo: "owen/app",
@@ -155,6 +166,7 @@ test("writes send exactly what was asked, and clear the PR's cached read", async
   });
   assert.equal(review.status, 200, JSON.stringify(review.body));
   assert.deepEqual(fake.writes.at(-1), {
+    method: "POST",
     path: "repos/owen/app/pulls/7/reviews",
     input: {
       event: "REQUEST_CHANGES",
@@ -172,6 +184,14 @@ test("writes send exactly what was asked, and clear the PR's cached read", async
   assert.deepEqual(fake.writes.at(-1), { mutation: "resolveReviewThread", vars: { id: "RT_1" } });
   await ask("/api/github/m/viewed", "POST", { prId: "PR_7", path: "src/app.ts", viewed: false });
   assert.deepEqual(fake.writes.at(-1), { mutation: "unmarkFileAsViewed", vars: { id: "PR_7", path: "src/app.ts" } });
+  await ask("/api/github/m/reviewers", "POST", { repo: "owen/app", number: 7, action: "add", users: ["bob", "Bob"], teams: ["core"] });
+  assert.deepEqual(fake.writes.at(-1), { method: "POST", path: "repos/owen/app/pulls/7/requested_reviewers", input: { reviewers: ["bob"], team_reviewers: ["core"] } });
+  await ask("/api/github/m/reviewers", "POST", { repo: "owen/app", number: 7, action: "remove", users: ["me"], teams: [] });
+  assert.deepEqual(fake.writes.at(-1), { method: "DELETE", path: "repos/owen/app/pulls/7/requested_reviewers", input: { reviewers: ["me"], team_reviewers: [] } });
+  await ask("/api/github/m/assignees", "POST", { repo: "owen/app", number: 7, action: "add", users: ["me"] });
+  assert.deepEqual(fake.writes.at(-1), { method: "POST", path: "repos/owen/app/issues/7/assignees", input: { assignees: ["me"] } });
+  await ask("/api/github/m/assignees", "POST", { repo: "owen/app", number: 7, action: "remove", users: ["ada"] });
+  assert.deepEqual(fake.writes.at(-1), { method: "DELETE", path: "repos/owen/app/issues/7/assignees", input: { assignees: ["ada"] } });
   // The PR is read again after a write.
   const before = fake.calls.length;
   await ask("/api/github/q/pr?repo=owen/app&number=7");
@@ -201,6 +221,24 @@ test("write inputs are checked field by field", async () => {
   assert.throws(() => checkWrite("resolve", { threadId: "RT 1", resolved: true }));
   assert.throws(() => checkWrite("viewed", { prId: "PR_1", path: "a", viewed: "yes" }));
   assert.throws(() => checkWrite("reply", { repo: "owen/app", number: 7, commentId: 1.5, body: "x" }));
+  const reviewers = { repo: "owen/app", number: 7, action: "add", users: ["bob"], teams: [] };
+  assert.doesNotThrow(() => checkWrite("reviewers", reviewers));
+  for (const bad of [
+    { ...reviewers, action: "merge" },
+    { ...reviewers, users: [], teams: [] },
+    { ...reviewers, users: ["bob/../x"] },
+    { ...reviewers, users: "bob" },
+    { ...reviewers, teams: ["a team"] },
+    { ...reviewers, users: Array.from({ length: 16 }, (_, i) => `u${i}`) },
+    { ...reviewers, users: Array.from({ length: 10 }, (_, i) => `u${i}`), teams: Array.from({ length: 6 }, (_, i) => `t${i}`) },
+    { ...reviewers, extra: 1 },
+    { repo: "owen/app", number: 7, action: "add", users: ["bob"] },
+  ])
+    assert.throws(() => checkWrite("reviewers", bad), JSON.stringify(bad).slice(0, 80));
+  assert.doesNotThrow(() => checkWrite("assignees", { repo: "owen/app", number: 7, action: "remove", users: ["ada"] }));
+  assert.throws(() => checkWrite("assignees", { repo: "owen/app", number: 7, action: "add", users: [] }));
+  assert.throws(() => checkWrite("assignees", { repo: "owen/app", number: 7, action: "add", users: Array.from({ length: 11 }, (_, i) => `u${i}`) }));
+  assert.throws(() => checkWrite("assignees", { repo: "owen/app", number: 7, action: "add", users: ["ada"], teams: [] }));
   assert.equal((await ask("/api/github/m/review", "POST", { ...review, event: "MERGE" })).status, 400);
   assert.equal((await ask("/api/github/m/merge", "POST", review)).status, 404);
   assert.equal((await ask("/api/github/m/comment")).status, 405);
@@ -243,9 +281,35 @@ test("shaping keeps to GitHub's own addresses and known states", () => {
   assert.equal(checkOf({ __typename: "CheckRun", name: "lint", status: "COMPLETED", conclusion: "TIMED_OUT" })!.state, "failing");
   assert.equal(checkOf({ __typename: "StatusContext", context: "ci", state: "SUCCESS", targetUrl: "http://x" })!.url, undefined);
   assert.deepEqual(
-    reviewersOf([{ requestedReviewer: { __typename: "Team", name: "core" } }], [{ author: { login: "bob" }, state: "APPROVED" }, { author: { login: "ada" }, state: "COMMENTED" }], "ada"),
-    [{ name: "bob", state: "approved" }, { name: "core", state: "requested" }],
+    reviewersOf(
+      [
+        { requestedReviewer: { __typename: "Team", slug: "core", name: "Core" } },
+        { requestedReviewer: { __typename: "User", login: "carl" } },
+        { requestedReviewer: { __typename: "Team", slug: "no team" } },
+      ],
+      [
+        { author: { login: "bob" }, state: "APPROVED" },
+        { author: { login: "ada" }, state: "COMMENTED" },
+        { author: { login: "carl" }, state: "CHANGES_REQUESTED" },
+        { author: { login: "dee" }, state: "PENDING" },
+      ],
+      "ada",
+    ),
+    [
+      { kind: "user", login: "bob", requested: false, verdict: "approved" },
+      // Re-requested: the earlier verdict stays beside the request.
+      { kind: "user", login: "carl", requested: true, verdict: "changes" },
+      { kind: "team", login: "core", name: "Core", requested: true, verdict: null },
+    ],
   );
+  assert.deepEqual(checkOf({ __typename: "StatusContext", context: "deploy", state: "PENDING", createdAt: "2026-10-30T09:00:00Z", creator: { login: "vercel" } }), {
+    name: "deploy",
+    state: "pending",
+    source: "vercel",
+    startedAt: "2026-10-30T09:00:00Z",
+  });
+  assert.equal(checkOf({ __typename: "CheckRun", name: "lint", status: "COMPLETED", conclusion: "SUCCESS", startedAt: "yesterday", checkSuite: { app: { name: "Circle" } } })!.source, "Circle");
+  assert.equal(checkOf({ __typename: "CheckRun", name: "lint", status: "COMPLETED", conclusion: "SUCCESS", startedAt: "yesterday" })!.startedAt, undefined);
   assert.deepEqual(filesFromPatches([{ filename: "r.ts", previous_filename: "q.ts", status: "renamed", additions: 0, deletions: 0 }, "not a file"]), [
     { path: "r.ts", oldPath: "q.ts", isNew: false, isDeleted: false, additions: 0, deletions: 0, hunks: [], status: "ok" },
   ]);
@@ -438,6 +502,19 @@ test("a repository's people: you, recent authors, then its assignable users", as
   assert.equal(fake.calls.length, before);
   assert.equal((await ask("/api/github/q/people?repo=no/where")).body.available, false);
   assert.equal((await ask("/api/github/q/people?repo=nope")).status, 400);
+});
+
+test("a repository's teams, for its reviewers: by name, none when the token can't list them", async () => {
+  fake.teams.set("acme/web", [{ slug: "web-core", name: "Web core" }, { slug: "bad slug", name: "x" }, { slug: "api", name: "API" }]);
+  const r = await ask("/api/github/q/teams?repo=acme/web");
+  assert.equal(r.status, 200, JSON.stringify(r.body));
+  assert.deepEqual(r.body, { repo: "acme/web", teams: [{ slug: "api", name: "API" }, { slug: "web-core", name: "Web core" }] });
+  assert.equal(fake.calls.at(-1)!.path, "repos/acme/web/teams");
+  fake.teams.set("acme/secret", { status: 403, json: { message: "Must have admin rights" } });
+  assert.deepEqual((await ask("/api/github/q/teams?repo=acme/secret")).body, { repo: "acme/secret", teams: [], note: "The token can't list this repository's teams." });
+  assert.deepEqual((await ask("/api/github/q/teams?repo=owen/app")).body, { repo: "owen/app", teams: [] });
+  assert.equal((await ask("/api/github/q/teams?repo=nope")).status, 400);
+  assert.equal((await ask("/api/github/q/teams?repo=owen/app&x=1")).status, 400);
 });
 
 test("searches keep under GitHub's 30 a minute, answering the last answer meanwhile", async () => {

@@ -19,7 +19,8 @@ import { DiffView, type DiffLayout, type DiffReview, type DiffViewHandle } from 
 import { TAB_LABEL } from "./names";
 import { addComment, editComment, removeComment, reviewComments, useReviewDraft } from "./drafts";
 import type { PrTab } from "./place";
-import type { DraftComment, PrDetail, PrDiff, ReviewEvent, ReviewThread } from "./types";
+import { Assignees, ChecksSummary, Reviewers, type PeopleChange, type PickerControl } from "./PrSide";
+import type { DraftComment, Person, PrDetail, PrDiff, PrReviewer, ReviewEvent, ReviewThread } from "./types";
 
 const VERDICT_LABEL: Record<ReviewEvent, string> = {
   COMMENT: "Comment",
@@ -40,7 +41,58 @@ const REVIEW_STATE_LABEL = { approved: "approved these changes", changes: "reque
 export type PrViewApi = {
   openReview: (verdict?: ReviewEvent) => void;
   focusComment: () => void;
+  /** Opens the Reviewers or Assignees picker (on Conversation). */
+  editPeople: (which: "reviewers" | "assignees") => void;
 };
+
+const personOf = (p: Person): Person => ({ login: p.login, ...(p.name ? { name: p.name } : {}), ...(p.avatarUrl ? { avatarUrl: p.avatarUrl } : {}) });
+const same = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
+
+/** The PR with a reviewers change shown: asked ones requested (a reviewer keeps their verdict), removed ones no longer (dropped unless they reviewed). */
+export function withReviewers(pr: PrDetail, c: PeopleChange): PrDetail {
+  let reviewers = [...pr.reviewers];
+  const items: Pick<PrReviewer, "kind" | "login" | "name" | "avatarUrl">[] = [
+    ...c.users.map((u) => ({ kind: "user" as const, ...personOf(u) })),
+    ...c.teams.map((t) => ({ kind: "team" as const, login: t.slug, ...(t.name !== t.slug ? { name: t.name } : {}) })),
+  ];
+  for (const item of items) {
+    const at = reviewers.findIndex((r) => r.kind === item.kind && same(r.login, item.login));
+    const was = reviewers[at];
+    if (c.action === "add") {
+      if (was) reviewers[at] = { ...was, requested: true };
+      else reviewers.push({ ...item, requested: true, verdict: null });
+    } else if (was) {
+      if (was.verdict) reviewers[at] = { ...was, requested: false };
+      else reviewers = reviewers.filter((_, i) => i !== at);
+    }
+  }
+  return { ...pr, reviewers };
+}
+
+/** The PR with an assignees change shown. */
+export function withAssignees(pr: PrDetail, c: PeopleChange): PrDetail {
+  if (c.action === "remove") return { ...pr, assignees: pr.assignees.filter((a) => !c.users.some((u) => same(u.login, a.login))) };
+  const added = c.users.filter((u) => !pr.assignees.some((a) => same(a.login, u.login))).map(personOf);
+  return { ...pr, assignees: [...pr.assignees, ...added] };
+}
+
+/** Puts back what a refused change touched, from the PR as it was, leaving everything else as it is now. */
+function undoPeople(field: "reviewers" | "assignees", before: PrDetail, c: PeopleChange) {
+  return (now: PrDetail): PrDetail => {
+    if (field === "assignees") {
+      const touched = (login: string) => c.users.some((u) => same(u.login, login));
+      const kept = now.assignees.filter((a) => !touched(a.login));
+      return { ...now, assignees: [...kept, ...before.assignees.filter((a) => touched(a.login))] };
+    }
+    const touched = (r: Pick<PrReviewer, "kind" | "login">) =>
+      r.kind === "team" ? c.teams.some((t) => same(t.slug, r.login)) : c.users.some((u) => same(u.login, r.login));
+    const out = now.reviewers.filter((r) => !touched(r));
+    for (const r of before.reviewers) if (touched(r)) out.push(r);
+    return { ...now, reviewers: out };
+  };
+}
+
+const names = (c: PeopleChange) => [...c.users.map((u) => u.login), ...c.teams.map((t) => t.name)].join(", ");
 
 /**
  * Your review of it before it's sent: a summary and a verdict (comment,
@@ -129,7 +181,23 @@ function ReviewPanel({
   );
 }
 
-function Conversation({ pr, onComment }: { pr: PrDetail; onComment: (body: string) => Promise<boolean> }) {
+function Conversation({
+  pr,
+  onComment,
+  onReviewers,
+  onAssignees,
+  onExternal,
+  reviewersControl,
+  assigneesControl,
+}: {
+  pr: PrDetail;
+  onComment: (body: string) => Promise<boolean>;
+  onReviewers: (change: PeopleChange) => void;
+  onAssignees: (change: PeopleChange) => void;
+  onExternal: (url: string) => void;
+  reviewersControl: React.MutableRefObject<PickerControl | null>;
+  assigneesControl: React.MutableRefObject<PickerControl | null>;
+}) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
   return (
@@ -192,21 +260,8 @@ function Conversation({ pr, onComment }: { pr: PrDetail; onComment: (body: strin
         </div>
       </div>
       <aside className="gh-conversation-side" aria-label="About this pull request">
-        <h4>Reviewers</h4>
-        {pr.reviewers.length ? (
-          <ul className="gh-reviewers">
-            {pr.reviewers.map((r) => (
-              <li key={r.name}>
-                <span>{r.name}</span>
-                <span className={`gh-reviewer-state ${r.state}`}>
-                  {r.state === "approved" ? "Approved" : r.state === "changes" ? "Changes" : r.state === "commented" ? "Commented" : r.state === "pending" ? "Pending" : "Requested"}
-                </span>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p className="gh-hint">No reviews yet</p>
-        )}
+        <Reviewers pr={pr} onChange={onReviewers} control={reviewersControl} />
+        <Assignees pr={pr} onChange={onAssignees} control={assigneesControl} />
         {pr.labels.length > 0 && (
           <>
             <h4>Labels</h4>
@@ -234,13 +289,7 @@ function Conversation({ pr, onComment }: { pr: PrDetail; onComment: (body: strin
         {pr.checkRuns.length > 0 && (
           <>
             <h4>Checks</h4>
-            <p className="gh-hint">
-              {(["failing", "pending", "passing"] as const)
-                .map((s) => [s, pr.checkRuns.filter((c) => c.state === s).length] as const)
-                .filter(([, n]) => n > 0)
-                .map(([s, n]) => `${n} ${s}`)
-                .join(" · ")}
-            </p>
+            <ChecksSummary checks={pr.checkRuns} onOpen={onExternal} />
           </>
         )}
       </aside>
@@ -410,6 +459,35 @@ export function PrView({
     [pr, draft.comments, setDraft, reply, resolve, single, viewed, setViewed],
   );
 
+  const reviewersControl = useRef<PickerControl | null>(null);
+  const assigneesControl = useRef<PickerControl | null>(null);
+  const changePeople = useCallback(
+    (field: "reviewers" | "assignees", c: PeopleChange) => {
+      if (!pr || (!c.users.length && !c.teams.length)) return;
+      const before = pr;
+      patch<PrDetail>(prPath, (p) => (field === "reviewers" ? withReviewers(p, c) : withAssignees(p, c)));
+      const write =
+        field === "reviewers"
+          ? githubWrite("reviewers", { repo, number, action: c.action, users: c.users.map((u) => u.login), teams: c.teams.map((t) => t.slug) })
+          : githubWrite("assignees", { repo, number, action: c.action, users: c.users.map((u) => u.login) });
+      write.then(afterWrite, (e) => {
+        patch<PrDetail>(prPath, undoPeople(field, before, c));
+        const what =
+          field === "reviewers"
+            ? c.action === "add"
+              ? `request a review from ${names(c)}`
+              : `remove the review request for ${names(c)}`
+            : c.action === "add"
+              ? `assign ${names(c)}`
+              : `unassign ${names(c)}`;
+        onNotice(`Couldn’t ${what}: ${errorMessage(e)}`);
+      });
+    },
+    [pr, prPath, repo, number, afterWrite, onNotice],
+  );
+  const onReviewers = useCallback((c: PeopleChange) => changePeople("reviewers", c), [changePeople]);
+  const onAssignees = useCallback((c: PeopleChange) => changePeople("assignees", c), [changePeople]);
+
   const submit = async (text: string) => {
     if (!pr) return false;
     setSubmitting(true);
@@ -445,6 +523,10 @@ export function PrView({
     openReview: (v) => {
       if (v && !(pr?.viewerIsAuthor && v !== "COMMENT")) setVerdict(v);
       setReviewOpen(true);
+    },
+    editPeople: (which) => {
+      setTab("conversation");
+      setTimeout(() => (which === "reviewers" ? reviewersControl : assigneesControl).current?.open(), 0);
     },
     focusComment: () => {
       setTab("conversation");
@@ -574,7 +656,17 @@ export function PrView({
               )}
             </div>
           </nav>
-          {tab === "conversation" && <Conversation pr={pr} onComment={comment} />}
+          {tab === "conversation" && (
+            <Conversation
+              pr={pr}
+              onComment={comment}
+              onReviewers={onReviewers}
+              onAssignees={onAssignees}
+              onExternal={onExternal}
+              reviewersControl={reviewersControl}
+              assigneesControl={assigneesControl}
+            />
+          )}
           {tab === "files" && (
             <>
               <div className="gh-toolbar">

@@ -390,7 +390,16 @@ and GitHub publication; report the published version and release link.
   Changes button and ⌘K "Show …'s changes against main" open it): the branch against its base from its host's daemon (`getCheckoutDiff`,
   so remote hosts too; `GET /api/changes?workspace=&host=&mode=all|base|uncommitted`, `web/server/api/changes.ts`, not gated on the
   integration), all changes, committed or uncommitted, with ahead/behind, Review #N and Compare on GitHub; asked every 15 s while shown.
-  A PR (`PrView.tsx`): Conversation (its body, comments and reviews, a comment box), Files changed (the review), Commits, Checks. The diff
+  A PR (`PrView.tsx`): Conversation (its body, comments and reviews, a comment box), Files changed (the review), Commits, Checks.
+  The Conversation's side panel (`PrSide.tsx`): Reviewers (people and teams asked, and who reviewed with their latest verdict, avatars;
+  never the author) and Assignees, each with a gear opening a picker (the `q/people` read, you first, searchable; reviewers also the
+  repository's teams, `GET /api/github/q/teams?repo=`, `readTeams`, REST `repos/:repo/teams`, none when the token can't list them) to
+  request or remove reviews and assign or unassign; a row re-requests a reviewer's review or removes a request or an assignee
+  (`POST /api/github/m/reviewers` over REST `requested_reviewers`, `m/assignees` over `issues/:n/assignees`, `action` add or remove,
+  each login and team slug checked); shown at once, put back with a notice if GitHub refuses (`withReviewers`, `withAssignees`);
+  ⌘K "Request review…" (open PRs) and "Assign…". Merge, then Checks: the count, then each check run and status, failing, then pending,
+  then passing and skipped (folded behind "Show N passing" past five), with its workflow or app, how long it took (or "running for …")
+  and its details opening as links do (Conquer). The diff
   (`DiffView.tsx`): files by directory beside it, each file drawn by @pierre/diffs (`FileDiff`, from the parsed file as patch text,
   `patchOf` in `rows.ts`; Shiki highlighting, word-level changes, unified or split, its pierre-dark/-light theme by the app's; highlighted in a pool of web workers, `diffWorkers.tsx`, with `worker: { format: "es" }`
   in `vite.config.ts`, and drawn only where in view, its `Virtualizer` being the diff's scroller), big and
@@ -409,8 +418,8 @@ and GitHub publication; report the published version and release link.
   (`githubRest`, `githubText`, `githubPaged`, `githubGraphql`; `GITHUB_API.fetch`, faked by `githubFake.ts`'s `installGithubApi`) makes
   every GitHub call; with GitHub off or no token, PR lookups (`links.ts`, `probe.ts`, `prLabels.ts`) quietly answer unknown.
   Server (`web/server/github/`, over `web/server/githubApi.ts`): named reads (`reads.ts`, `GET
-  /api/github/q/viewer|prs|repos|pr|diff`, cached 15 s, `fresh=1` past it; `GithubUnavailable` when off, without a token, refused or rate limited) and
-  whitelisted writes (`writes.ts`, `POST /api/github/m/comment|review|reply|resolve|viewed|star`, each field checked), over `client.ts`. Tests never reach GitHub: `fake.ts` under server tests (`test-setup.ts` makes `GITHUB_API.fetch` refuse
+  /api/github/q/viewer|prs|repos|repoSearch|people|teams|pr|diff`, cached 15 s, `fresh=1` past it; `GithubUnavailable` when off, without a token, refused or rate limited) and
+  whitelisted writes (`writes.ts`, `POST /api/github/m/comment|review|reply|resolve|viewed|reviewers|assignees|star`, each field checked), over `client.ts`. Tests never reach GitHub: `fake.ts` under server tests (`test-setup.ts` makes `GITHUB_API.fetch` refuse
   otherwise) and `web/e2e/github.e2e.ts` in the browser.
 - Web links clicked in the chat (`.session`, `openInAppBrowser` in `web/src/Session.tsx`, `postAppLink` → the `openLink` message)
   switch to Conquer and open there as a new tab, once its tabs are restored (`whenStarted`).

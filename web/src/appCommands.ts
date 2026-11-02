@@ -90,6 +90,8 @@ export type AppCommand =
   | "github-files"
   | "github-review"
   | "github-comment"
+  | "github-reviewers"
+  | "github-assignees"
   | "github-next-file"
   | "github-prev-file"
   | "github-viewed"

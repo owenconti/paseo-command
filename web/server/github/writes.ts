@@ -6,8 +6,11 @@
  */
 import {
   GITHUB_WRITES,
+  MAX_ASSIGNEES,
+  MAX_REVIEWERS,
   OWNER,
   REPO,
+  TEAM_SLUG,
   type DraftComment,
   type GithubWriteInputs,
   type GithubWriteName,
@@ -60,6 +63,21 @@ function path(v: unknown): string {
   return v;
 }
 
+function action(v: unknown): "add" | "remove" {
+  if (v !== "add" && v !== "remove") throw invalid("Invalid action");
+  return v;
+}
+/** Logins (or team slugs), each once, at most `max`. */
+function names(v: unknown, what: string, pattern: RegExp, max: number): string[] {
+  if (!Array.isArray(v) || v.length > max) throw invalid(`At most ${max} ${what} at once`);
+  const out: string[] = [];
+  for (const n of v) {
+    if (typeof n !== "string" || !pattern.test(n)) throw invalid(`Invalid ${what}`);
+    if (!out.some((o) => o.toLowerCase() === n.toLowerCase())) out.push(n);
+  }
+  return out;
+}
+
 function draft(raw: unknown): DraftComment {
   const o = fields(raw, ["path", "line", "side", "body"], ["startLine", "startSide"]);
   const d: DraftComment = { path: path(o.path), line: positive(o.line, "line"), side: side(o.side), body: text(o.body, "comment") };
@@ -107,6 +125,20 @@ export function checkWrite<N extends GithubWriteName>(name: N, raw: unknown): Gi
       const o = fields(raw, ["prId", "path", "viewed"]);
       if (typeof o.viewed !== "boolean") throw invalid("Invalid viewed");
       return { prId: nodeId(o.prId, "prId"), path: path(o.path), viewed: o.viewed } as GithubWriteInputs[N];
+    }
+    case "reviewers": {
+      const o = fields(raw, ["repo", "number", "action", "users", "teams"]);
+      const users = names(o.users, "people", OWNER, MAX_REVIEWERS);
+      const teams = names(o.teams, "teams", TEAM_SLUG, MAX_REVIEWERS);
+      if (!users.length && !teams.length) throw invalid("Name someone to ask for a review");
+      if (users.length + teams.length > MAX_REVIEWERS) throw invalid(`At most ${MAX_REVIEWERS} reviewers at once`);
+      return { repo: repoOf(o.repo), number: positive(o.number, "number"), action: action(o.action), users, teams } as GithubWriteInputs[N];
+    }
+    case "assignees": {
+      const o = fields(raw, ["repo", "number", "action", "users"]);
+      const users = names(o.users, "people", OWNER, MAX_ASSIGNEES);
+      if (!users.length) throw invalid("Name someone to assign");
+      return { repo: repoOf(o.repo), number: positive(o.number, "number"), action: action(o.action), users } as GithubWriteInputs[N];
     }
     case "star": {
       const o = fields(raw, ["kind", "name", "starred"]);
@@ -180,6 +212,22 @@ export async function githubWrite(name: GithubWriteName, raw: unknown): Promise<
         path: w.path,
       }, true);
       forgetPrs();
+      return { ok: true };
+    }
+    case "reviewers": {
+      // Asking again someone who reviewed re-requests their review, as GitHub's own button does.
+      const w = checkWrite("reviewers", raw);
+      await githubRest(w.action === "add" ? "POST" : "DELETE", `repos/${w.repo}/pulls/${w.number}/requested_reviewers`, {
+        reviewers: w.users,
+        team_reviewers: w.teams,
+      });
+      forgetPr(w.repo, w.number);
+      return { ok: true };
+    }
+    case "assignees": {
+      const w = checkWrite("assignees", raw);
+      await githubRest(w.action === "add" ? "POST" : "DELETE", `repos/${w.repo}/issues/${w.number}/assignees`, { assignees: w.users });
+      forgetPr(w.repo, w.number);
       return { ok: true };
     }
     case "star": {

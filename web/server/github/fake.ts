@@ -60,9 +60,35 @@ export function fakePr(o: Partial<Raw> & { number: number; repo?: string } = { n
       ],
     },
     commits: { nodes: [{ commit: { oid: SHA, messageHeadline: "Change b", committedDate: "2026-10-30T08:00:00Z", author: { name: "Ada", user: { login: "ada", avatarUrl: null } } } }] },
-    rollup: { nodes: [{ commit: { statusCheckRollup: { state: "SUCCESS", contexts: { nodes: [{ __typename: "CheckRun", name: "test", status: "COMPLETED", conclusion: "SUCCESS", detailsUrl: "https://github.com/x", title: "All good" }] } } } }] },
-    reviewRequests: { nodes: [{ requestedReviewer: { __typename: "User", login: "me" } }] },
+    rollup: {
+      nodes: [
+        {
+          commit: {
+            statusCheckRollup: {
+              state: "SUCCESS",
+              contexts: {
+                nodes: [
+                  {
+                    __typename: "CheckRun",
+                    name: "test",
+                    status: "COMPLETED",
+                    conclusion: "SUCCESS",
+                    detailsUrl: "https://github.com/x",
+                    title: "All good",
+                    startedAt: "2026-10-30T09:00:00Z",
+                    completedAt: "2026-10-30T09:02:05Z",
+                    checkSuite: { app: { name: "GitHub Actions" }, workflowRun: { workflow: { name: "CI" } } },
+                  },
+                ],
+              },
+            },
+          },
+        },
+      ],
+    },
+    reviewRequests: { nodes: [{ requestedReviewer: { __typename: "User", login: "me", name: "Me" } }] },
     latestReviews: { nodes: [] },
+    assignees: { nodes: [{ login: "ada", name: "Ada", avatarUrl: "https://avatars.githubusercontent.com/u/1?v=4" }] },
     ...rest,
   };
 }
@@ -97,6 +123,8 @@ export type FakeGithub = {
   repoSearch: Record<string, Raw[]>;
   /** A repository's assignable users and its recent PRs' authors, by `owner/name` (lowercase), for the people query. */
   people: Map<string, { assignable: Raw[]; authors: Raw[] }>;
+  /** The teams with access to a repository, by `owner/name`, as REST lists them (`{ slug, name }`), or GitHub's refusal. */
+  teams: Map<string, Raw[] | FakeAnswer>;
   /** The viewer's repositories, repositories by `owner/name` (lowercase), and owners' (by lowercase login), for the repos query. */
   viewerRepos: Raw[];
   repos: Map<string, Raw>;
@@ -108,7 +136,7 @@ export type FakeGithub = {
   /** Every request made. */
   calls: FakeRequest[];
   /** The writes: REST posts with their body, and GraphQL mutations with their variables. */
-  writes: { path?: string; mutation?: string; input?: unknown; vars?: Record<string, unknown> }[];
+  writes: { method?: string; path?: string; mutation?: string; input?: unknown; vars?: Record<string, unknown> }[];
   /** Answered instead of everything, while set (GitHub refusing). */
   fail?: FakeAnswer;
   restore: () => void;
@@ -125,6 +153,7 @@ export function installFakeGithub(opts: { enabled?: boolean; token?: string | nu
     counts: {},
     repoSearch: {},
     people: new Map(),
+    teams: new Map(),
     viewerRepos: [],
     repos: new Map(),
     owners: new Map(),
@@ -190,6 +219,11 @@ export function installFakeGithub(opts: { enabled?: boolean; token?: string | nu
       return { status: 400, json: { message: `The fake GitHub doesn't know this query: ${query.slice(0, 80)}` } };
     }
     if (req.method === "GET" && req.path === "user") return { json: fake.viewer, headers: { "x-oauth-scopes": fake.scopes } };
+    const teams = /^repos\/([\w.-]+\/[\w.-]+)\/teams$/.exec(req.path);
+    if (req.method === "GET" && teams) {
+      const t = fake.teams.get(teams[1]!);
+      return t === undefined ? { json: [] } : Array.isArray(t) ? { json: t } : t;
+    }
     const pull = /^repos\/([\w.-]+\/[\w.-]+)\/pulls\/(\d+)(\/files)?$/.exec(req.path);
     if (req.method === "GET" && pull) {
       const key = `${pull[1]}#${pull[2]}`;
@@ -201,8 +235,12 @@ export function installFakeGithub(opts: { enabled?: boolean; token?: string | nu
       return { text: d };
     }
     if (req.method === "POST") {
-      fake.writes.push({ path: req.path, input: req.body });
+      fake.writes.push({ method: "POST", path: req.path, input: req.body });
       return { status: 201, json: { html_url: `https://github.com/${req.path}/1` } };
+    }
+    if (req.method === "DELETE") {
+      fake.writes.push({ method: "DELETE", path: req.path, input: req.body });
+      return { json: {} };
     }
     return { status: 400, json: { message: `The fake GitHub doesn't know: ${req.method} ${req.path}` } };
   };
