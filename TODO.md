@@ -68,6 +68,14 @@ mark it done with its commit once merged into `main`.
   is a fixed width, cutting off directory and file names. Its inner edge resizes it (`web/src/ResizeEdge.tsx`, as
   Activity's panes: drag, arrow keys, double-click restores the default), kept in localStorage; long names show
   in full on hover. Workspace: `github-diff-file-list-resize`.
+- [ ] **Command palette: each entry names the page it's for.** The palette's right-hand label is a loose
+  category (Actions, Lists, App, Agents, Workspaces, Projects), and entries with keys show only the key (e.g.
+  "Change the Linear issue's project · M"). Label every entry with the part of Paseo Command it belongs to:
+  Command (map, agents, workspaces, projects, hosts), Conquer, Activity, Linear, Slack, GitHub, Settings,
+  Terminal, App (window, updates, text size), shown alongside any keys (both, keys after the page), consistently
+  styled. Give `paletteCommands`/`agentCommands` entries (`web/src/main.tsx`) a page, derived where it can be,
+  and check every entry; the ranking (`palette.ts`) may favour the page that's showing. Update `CommandPalette.tsx`,
+  its tests/e2e and CLAUDE.md's Command palette section. Workspace: `palette-page-labels`.
 
 ## Done
 
