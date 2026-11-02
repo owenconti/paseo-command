@@ -50,6 +50,14 @@ mark it done with its commit once merged into `main`.
   returns to the list you had. Issues opened from within the tab (a list row, a relation, a parent, a sub-issue,
   a link in a description or comment) keep today's behaviour. Kept in `place.ts`, so a reload returns there.
   Workspace: `linear-issue-focused-view`.
+- [ ] **GitHub: comments and PR bodies render as GitHub shows them.** A bot comment (socket-security's
+  dependency table) shows its raw HTML (`<table> <thead> <tr> <th>Diff</th> …`, `<img …>`, `<br/>`) and its
+  `<!-- overview-comment -->` marker as text. PR bodies, comments, review comments and replies must render
+  GitHub-flavoured Markdown with its HTML (tables, images with width/height, `<details>`/`<summary>`, `<br>`,
+  alignment, hidden comments). Prefer GitHub's own rendering (GraphQL `bodyHTML` or REST
+  `application/vnd.github.html+json` `body_html`, images through camo), sanitized again in the page (an allowlist;
+  no scripts, styles, event handlers or forms), links opening as other links do in the app. Keep it light/dark
+  correct and the page's text size. Workspace: `github-render-comments`.
 
 ## Done
 
