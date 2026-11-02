@@ -84,6 +84,14 @@ mark it done with its commit once merged into `main`.
   the other pages (Slack, GitHub, Activity, Settings) for the same fault and fix it in the shared page styles
   (`web/src/styles/pages.css`) where it is shared. Add an e2e check at a narrow width.
   Workspace: `fix-page-head-overlap`.
+- [ ] **Linear: an issue opened from outside the tab gets an issue-focused view.** Clicking a Linear issue link
+  anywhere outside the Linear tab (the chat, Conquer, Activity, Slack, `paseo:link`/`parseAppLink`,
+  `openActivityItem`'s `writePlace({ ...readPlace(), issue })`) opens the issue beside whatever list you last
+  had (e.g. Engineering › Active). Instead it should open in an issue-focused place that replaces the list: the
+  issue alone, full width, the sidebar selecting nothing. That's a new history entry, so Back (⌘[, the arrows)
+  returns to the list you had. Issues opened from within the tab (a list row, a relation, a parent, a sub-issue,
+  a link in a description or comment) keep today's behaviour. Kept in `place.ts`, so a reload returns there.
+  Workspace: `linear-issue-focused-view`.
 
 ## Done
 
