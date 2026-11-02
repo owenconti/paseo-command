@@ -45,6 +45,12 @@ mark it done with its commit once merged into `main`.
   twice) and GitHub "drafts a line comment" (twice, as the first test after a fresh start, at the diff's comment
   button). Find each cause (waits on timing, not state; worker/highlighting warm-up) and fix it so the full
   `npm run app:e2e` passes 5 runs in a row. Workspace: `fix-flaky-e2e`.
+- [ ] **GitHub PR conversation: newest first.** The Conversation tab lists the PR's description, comments,
+  reviews and events oldest first, so a long description fills the screen before any recent activity. List the
+  timeline in reverse chronological order (newest at the top), the PR's description, as its oldest entry, at
+  the bottom; a review's own comments and threads' replies keep their order inside it. The comment box goes at
+  the top, above the newest entry. Add a small Newest/Oldest first toggle, remembered (localStorage), with its
+  ⌘K entry. Workspace: `github-conversation-newest-first`.
 
 ## Done
 
