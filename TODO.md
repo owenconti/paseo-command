@@ -31,8 +31,9 @@ mark it done with its commit once merged into `main`.
   correct and the page's text size. Workspace: `github-render-comments`.
 - [ ] **Flaky e2e tests.** Agents saw these time out and pass on rerun: Linear sub-grouping (in full runs,
   twice) and GitHub "drafts a line comment" (twice, as the first test after a fresh start, at the diff's comment
-  button). Find each cause (waits on timing, not state; worker/highlighting warm-up) and fix it so the full
-  `npm run app:e2e` passes 5 runs in a row. Workspace: `fix-flaky-e2e`.
+  button), and the unit test "one labeller loop runs per process, until stopped" (failed 2 of 3 full
+  `app:test` runs). Find each cause (waits on timing, not state; worker/highlighting warm-up) and fix it so the full
+  `npm run app:e2e` and `npm run app:test` each pass 5 runs in a row. Workspace: `fix-flaky-e2e`.
 - [ ] **GitHub PR conversation: newest first.** The Conversation tab lists the PR's description, comments,
   reviews and events oldest first, so a long description fills the screen before any recent activity. List the
   timeline in reverse chronological order (newest at the top), the PR's description, as its oldest entry, at
