@@ -126,6 +126,12 @@ With no replacement, the browser stays empty; the address bar and New Tab still 
 Closing a pinned page only unloads it. `npm run native:test` checks these transitions in an
 isolated process with nonpersistent storage and a loopback page fixture.
 
+1Password fills Conquer's pages with its Universal Autofill (⌘\\, a system hotkey the app never sees) through the
+accessibility tree: the page's fields (iframes' too) and its address (the web area's `AXURL`, and the window's `AXDocument`
+while Conquer shows, `AppWindow`). It fills only apps with a real code signature, so use the release app, not the ad hoc
+Dev build. macOS AutoFill isn't offered for other sites in a third-party WKWebView (see CLAUDE.md's Conquer notes).
+`….key.<run>` with `\` in `<info>.key` sends ⌘\\ through the app's key path.
+
 Conquer → Import Zen Cookies optionally copies Zen Browser's unexpired sessions after confirmation
 (from its profile's `cookies.sqlite`, default space only); opening Conquer does not import cookies automatically. Check runs (`--info`) keep its
 cookies and tabs to themselves; `notifyutil -p com.paseo.command.native.mode.<run>` switches sides, `….open.<run>`
