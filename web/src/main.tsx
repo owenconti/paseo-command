@@ -2157,6 +2157,35 @@ function App() {
           },
         ]
       : []),
+    ...(integrations.linear && appMode === "linear" && linearView?.canSaveView
+      ? [
+          {
+            id: "linear-save-view",
+            group: "App",
+            label: "Save the Linear list as a view…",
+            keywords: "linear view save custom saved filters display new create bookmark",
+            run: () => runAppCommand("linear-save-view"),
+          },
+        ]
+      : []),
+    ...(integrations.linear && appMode === "linear" && linearView?.shownView
+      ? [
+          {
+            id: "linear-edit-view",
+            group: "App",
+            label: `Edit the Linear view ${linearView.shownView.name}…`,
+            keywords: "linear view edit rename icon colour color description share sharing team workspace filters display update save",
+            run: () => runAppCommand("linear-edit-view"),
+          },
+          {
+            id: "linear-delete-view",
+            group: "App",
+            label: `Delete the Linear view ${linearView.shownView.name}…`,
+            keywords: "linear view delete remove trash custom saved",
+            run: () => runAppCommand("linear-delete-view"),
+          },
+        ]
+      : []),
     ...(integrations.linear && appMode === "linear" && linearView?.undoKey
       ? [
           {
@@ -2305,13 +2334,15 @@ function App() {
                   ]
                 : [],
             ),
-            // Your saved views.
+            // Your saved views: of issues, of projects, and projects' own.
             ...linearView.views.map(
               (view) =>
                 [
-                  { screen: "view", viewId: view.id },
-                  `Go to ${view.name} (Linear view)`,
-                  `linear saved custom view ${view.name}`,
+                  view.model === "project" ? { screen: "projectView", viewId: view.id } : { screen: "view", viewId: view.id },
+                  view.project
+                    ? `Go to ${view.project}'s view ${view.name} (Linear)`
+                    : `Go to ${view.name} (Linear ${view.model === "project" ? "project view" : "view"})`,
+                  `linear saved custom view ${view.model === "project" ? "projects project view" : "issues"} ${view.name} ${view.project ?? ""}`,
                   true,
                 ] as [LinearPlace, string, string, boolean],
             ),

@@ -11,6 +11,7 @@ import type {
   LinearCycle,
   LinearIssue,
   LinearNotification,
+  LinearProject,
   LinearSync,
   LinearWorkspace,
 } from "../../src/linear/types";
@@ -23,6 +24,7 @@ import {
   SEARCH_QUERY,
   SYNC_QUERY,
   VIEW_ISSUES_QUERY,
+  VIEW_PROJECTS_QUERY,
   VIEWS_QUERY,
   WORKSPACE_QUERY,
 } from "./fragments";
@@ -155,7 +157,7 @@ export async function readCycles(teamId: string): Promise<{ cycles: LinearCycle[
   };
 }
 
-/** The issue views you can see, yours and shared (not those of projects or initiatives). */
+/** The views you can see, yours and shared: of issues and of projects, the workspace's and projects' own. */
 export async function readViews(): Promise<{ views: LinearCustomView[] }> {
   const data = await linearRequest<Data>("CustomViews", VIEWS_QUERY, {});
   return {
@@ -164,6 +166,13 @@ export async function readViews(): Promise<{ views: LinearCustomView[] }> {
       .filter(nonNull)
       .sort((a, b) => a.name.localeCompare(b.name)),
   };
+}
+
+/** A project view's projects (up to 250), by its own filter, which Linear applies. */
+export async function readViewProjects(viewId: string): Promise<{ projects: LinearProject[] }> {
+  if (!ID.test(viewId)) throw new LinearError("invalid", "Invalid view id");
+  const data = await linearRequest<Data>("ViewProjects", VIEW_PROJECTS_QUERY, { id: viewId, first: LINEAR_READS.pageSize });
+  return { projects: nodesOf(recOf(recOf(data.customView).projects)).map(projectOf).filter(nonNull) };
 }
 
 let searches: number[] = [];

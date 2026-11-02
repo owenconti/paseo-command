@@ -5,14 +5,6 @@ mark it done with its commit once merged into `main`.
 
 ## Open
 
-- [ ] **Linear: project views, and managing views.** The sidebar's Views (`q/views`) lists only issue views.
-  Show Linear's project views too (custom views of projects, with their project filter), each opening a project
-  list filtered as the view says (`ProjectList.tsx`), and a project's own views where Linear has them. Add view
-  management: create a view from the current place's filters and display (name, icon/colour, description,
-  personal or shared with a team or the workspace), edit it (rename, change its filters and display, sharing),
-  and delete it after confirming. Use the sidebar's context menu, a Save as view button by the filters, and ⌘K.
-  Whitelisted writes in `web/server/linear/writes.ts` (`customViewCreate|Update|Delete`, checked field by field),
-  shown at once and rolled back if Linear refuses; tests over the fake. Workspace: `linear-views`.
 - [ ] **macOS app: a deleted app says so instead of "The file node doesn't exist".** A Dev app launched from
   a worktree that was later archived keeps running from memory; Restart app (and the server's restart when the
   page finds it gone, `ServerManager.swift`) then fails with "The app server didn't start / The file "node"
@@ -67,6 +59,13 @@ mark it done with its commit once merged into `main`.
 
 ## Done
 
+- [x] **Linear: project views, and managing views.** The sidebar's Views lists project views too (marked), each opening
+  the projects its filter lets through, displayed as Linear sets them (the Projects list gained Filter and Display); a
+  project's own views show under its summary. Views are made from what a list shows (Save as view beside the filters,
+  ⌘K), edited (name, icon and colour, description, sharing; Save to view takes the filters and display shown) and
+  deleted after confirming, from the head, the sidebar's context menu and ⌘K. Whitelisted `customViewCreate|Update|Delete`
+  (with the display as view preferences), shown at once and rolled back if Linear refuses; a filter the app can't say
+  opens and edits only its name, icon, description and sharing. Commit "Linear: project views, and managing views".
 - [x] **Slack: a Recent section, and your own channel sections.** Recent tops the sidebar: the 20 conversations and
   threads you're in with the newest messages, newest first, each opening its conversation or thread (threads read as
   they show). Slack's Web API has no documented method for the sections made in Slack (only the client's undocumented

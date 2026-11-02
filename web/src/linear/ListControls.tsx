@@ -23,7 +23,6 @@ import {
   FILTER_LABEL,
   GROUPING_LABEL,
   GROUPINGS,
-  hasFilters,
   ORDERING_LABEL,
   ORDERINGS,
   regroup,
@@ -33,7 +32,6 @@ import {
   swapGroupings,
   type Display,
   type FilterField,
-  type Filters,
 } from "./display";
 import { Picker, placeBelow, type PickerOption } from "./Picker";
 import type { LinearCycle, LinearState, LinearWorkspace } from "./types";
@@ -121,10 +119,22 @@ export function filterOptions(
   }
 }
 
+/** What a list can be filtered by: its properties, their names and icons, and each one's choices. */
+export type FilterSpec<F extends string> = {
+  fields: F[];
+  label: Record<F, string>;
+  icon: Record<F, ReactNode>;
+  options: (field: F) => PickerOption<string>[];
+};
+/** An issue list's filters. */
+export function issueFilterSpec(ws: LinearWorkspace | undefined, cycles?: LinearCycle[]): FilterSpec<FilterField> {
+  return { fields: filterFields(ws), label: FILTER_LABEL, icon: FIELD_ICON, options: (f) => filterOptions(f, ws, cycles) };
+}
+
 /** A filter's chosen values in words ("Todo, In Progress"). */
-function chosenText(field: FilterField, values: string[], options: PickerOption<string>[]): string {
+export function chosenText(label: string, values: string[], options: PickerOption<string>[]): string {
   const names = values.map((v) => options.find((o) => o.value === v)?.text ?? "Unknown");
-  return names.length > 2 ? `${names.length} ${FILTER_LABEL[field].toLowerCase()}` : names.join(", ");
+  return names.length > 2 ? `${names.length} ${label.toLowerCase()}` : names.join(", ");
 }
 
 /** A small menu's arrow keys, Home/End and Esc, as the row menu's. */
@@ -162,21 +172,19 @@ export type FilterControl = { open(): void };
  * (any of them shows an issue). Chosen filters show as chips under the
  * list's head, each reopening its picker or removed with its ×.
  */
-export function FilterButton({
+export function FilterButton<F extends string = FilterField>({
   filters,
   onFilters,
-  ws,
-  cycles,
+  spec,
   control,
 }: {
-  filters: Filters;
-  onFilters: (next: Filters) => void;
-  ws: LinearWorkspace | undefined;
-  cycles?: LinearCycle[];
+  filters: Partial<Record<F, string[]>>;
+  onFilters: (next: Partial<Record<F, string[]>>) => void;
+  spec: FilterSpec<F>;
   /** Set to the button's opener, for F and ⌘K. */
   control?: React.MutableRefObject<FilterControl | null>;
 }) {
-  const [open, setOpen] = useState<"menu" | FilterField | null>(null);
+  const [open, setOpen] = useState<"menu" | F | null>(null);
   const anchor = useRef<HTMLSpanElement>(null);
   const button = useRef<HTMLButtonElement>(null);
   const close = useCallback(() => setOpen(null), []);
@@ -195,17 +203,18 @@ export function FilterButton({
         setOpen("menu");
       },
     };
-  const set = (field: FilterField, values: string[]) => {
+  const set = (field: F, values: string[]) => {
     const next = { ...filters };
     if (values.length) next[field] = values;
     else delete next[field];
     onFilters(next);
   };
+  const filtered = spec.fields.some((f) => filters[f]?.length);
   return (
     <span className="menu-anchor" ref={anchor}>
       <button
         ref={button}
-        className={`linear-tool${hasFilters(filters) ? " on" : ""}`}
+        className={`linear-tool${filtered ? " on" : ""}`}
         aria-haspopup="menu"
         aria-expanded={open !== null}
         data-tip="Filter (F)"
@@ -228,7 +237,7 @@ export function FilterButton({
             button.current?.focus({ preventScroll: true });
           })}
         >
-          {filterFields(ws).map((field) => (
+          {spec.fields.map((field) => (
             <button
               key={field}
               role="menuitem"
@@ -239,8 +248,8 @@ export function FilterButton({
                 setOpen(field);
               }}
             >
-              {FIELD_ICON[field]}
-              {FILTER_LABEL[field]}
+              {spec.icon[field]}
+              {spec.label[field]}
               {filters[field]?.length ? <small className="linear-menu-count">{filters[field]!.length}</small> : null}
             </button>
           ))}
@@ -248,8 +257,8 @@ export function FilterButton({
       )}
       {open && open !== "menu" && (
         <Picker
-          label={FILTER_LABEL[open]}
-          options={filterOptions(open, ws, cycles)}
+          label={spec.label[open]}
+          options={spec.options(open)}
           value={filters[open] ?? []}
           multiple
           onPick={(values) => set(open, values as string[])}
@@ -260,23 +269,26 @@ export function FilterButton({
   );
 }
 
-/** The chosen filters as chips: each reopens its picker; × removes it; Clear removes them all. */
-export function FilterChips({
+/**
+ * The chosen filters as chips: each reopens its picker; × removes it; Clear
+ * removes them all. `extra` (Save as view) follows them, and shows without them.
+ */
+export function FilterChips<F extends string = FilterField>({
   filters,
   onFilters,
-  ws,
-  cycles,
+  spec,
+  extra,
 }: {
-  filters: Filters;
-  onFilters: (next: Filters) => void;
-  ws: LinearWorkspace | undefined;
-  cycles?: LinearCycle[];
+  filters: Partial<Record<F, string[]>>;
+  onFilters: (next: Partial<Record<F, string[]>>) => void;
+  spec: FilterSpec<F>;
+  extra?: ReactNode;
 }) {
-  const [open, setOpen] = useState<FilterField | null>(null);
+  const [open, setOpen] = useState<F | null>(null);
   const close = useCallback(() => setOpen(null), []);
-  const fields = (Object.keys(filters) as FilterField[]).filter((f) => filters[f]?.length);
-  if (!fields.length) return null;
-  const set = (field: FilterField, values: string[]) => {
+  const fields = spec.fields.filter((f) => filters[f]?.length);
+  if (!fields.length && !extra) return null;
+  const set = (field: F, values: string[]) => {
     const next = { ...filters };
     if (values.length) next[field] = values;
     else delete next[field];
@@ -285,15 +297,15 @@ export function FilterChips({
   return (
     <div className="linear-filters" role="group" aria-label="Filters">
       {fields.map((field) => {
-        const options = filterOptions(field, ws, cycles);
+        const options = spec.options(field);
         const values = filters[field]!;
-        const text = chosenText(field, values, options);
+        const text = chosenText(spec.label[field], values, options);
         return (
           <span key={field} className="linear-filter-chip">
             <span className="menu-anchor">
               <button
                 className="linear-filter-edit"
-                aria-label={`${FILTER_LABEL[field]}: ${text}. Change`}
+                aria-label={`${spec.label[field]}: ${text}. Change`}
                 aria-haspopup="listbox"
                 aria-expanded={open === field}
                 onClick={(e) => {
@@ -301,14 +313,14 @@ export function FilterChips({
                   setOpen(open === field ? null : field);
                 }}
               >
-                {FIELD_ICON[field]}
-                <span className="linear-filter-field">{FILTER_LABEL[field]}</span>
+                {spec.icon[field]}
+                <span className="linear-filter-field">{spec.label[field]}</span>
                 <span className="linear-filter-op">{values.length > 1 ? "is any of" : "is"}</span>
                 <span className="linear-filter-values">{text}</span>
               </button>
               {open === field && (
                 <Picker
-                  label={FILTER_LABEL[field]}
+                  label={spec.label[field]}
                   options={options}
                   value={values}
                   multiple
@@ -319,7 +331,7 @@ export function FilterChips({
             </span>
             <button
               className="icon-btn linear-filter-remove"
-              aria-label={`Remove the ${FILTER_LABEL[field].toLowerCase()} filter`}
+              aria-label={`Remove the ${spec.label[field].toLowerCase()} filter`}
               data-tip="Remove"
               onClick={() => set(field, [])}
             >
@@ -333,6 +345,7 @@ export function FilterChips({
           Clear
         </button>
       )}
+      {extra}
     </div>
   );
 }

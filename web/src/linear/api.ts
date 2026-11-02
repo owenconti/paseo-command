@@ -18,6 +18,7 @@ export function linearRead<T>(
     | "issue"
     | "cycles"
     | "views"
+    | "viewProjects"
     | "search"
     | "notifications"
     | "sync"

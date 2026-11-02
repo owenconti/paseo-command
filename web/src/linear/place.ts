@@ -12,6 +12,8 @@ export type LinearPlace = (
   | { screen: "cycles"; teamId: string }
   | { screen: "cycle"; teamId: string; cycleId: string }
   | { screen: "view"; viewId: string }
+  /** A project view: the projects its filter lets through. */
+  | { screen: "projectView"; viewId: string }
   | { screen: "search"; query: string }
   | { screen: "inbox" }
   | { screen: "projects" }
@@ -46,7 +48,8 @@ export function placeScope(p: LinearPlace): IssueScope | null {
 /** Whether two places are the same screen (the open issue aside): the sidebar marks it. */
 export function samePlace(a: LinearPlace, b: LinearPlace): boolean {
   const team = (p: LinearPlace) => ("teamId" in p ? p.teamId : undefined);
-  return placeScope(a) === placeScope(b) && a.screen === b.screen && team(a) === team(b);
+  const view = (p: LinearPlace) => ("viewId" in p ? p.viewId : undefined);
+  return placeScope(a) === placeScope(b) && a.screen === b.screen && team(a) === team(b) && view(a) === view(b);
 }
 
 const ID = /^[0-9a-f-]{8,64}$/i;
@@ -82,9 +85,10 @@ export function checkPlace(raw: unknown, ws?: LinearWorkspace): LinearPlace {
     case "search":
       return { screen: "search", query: typeof p.query === "string" ? p.query.slice(0, 200) : "", ...issue };
     case "view":
+    case "projectView":
       // Whether you can see the view is known once the views are in (the Linear view checks).
       if (typeof p.viewId !== "string" || !ID.test(p.viewId)) return DEFAULT_PLACE;
-      return { screen: "view", viewId: p.viewId, ...issue };
+      return { screen: p.screen, viewId: p.viewId, ...issue };
     case "project":
       if (typeof p.projectId !== "string" || (ws && !ws.projects.some((x) => x.id === p.projectId)))
         return DEFAULT_PLACE;

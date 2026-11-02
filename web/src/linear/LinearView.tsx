@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence } from "framer-motion";
-import { Archive, Box, ChevronRight, Layers, ListTodo, PanelLeftOpen, RefreshCcw, RefreshCw, Search, X } from "lucide-react";
+import { Archive, Box, ChevronRight, ListTodo, PanelLeftOpen, Pencil, RefreshCcw, RefreshCw, Search, Trash2, X } from "lucide-react";
 import { errorMessage, readStore, removeStore, writeStore } from "../api";
 import { onAppCommand, runAppCommand, type AppCommand } from "../appCommands";
 import { modalOpen } from "../focus";
@@ -9,25 +9,28 @@ import { useSecretRevision } from "../integrationSettings";
 import { isTyping } from "../worldShortcut";
 import { CreateIssue, type CreateInitial } from "./CreateIssue";
 import { CycleFacts, CycleList } from "./Cycles";
-import { DEFAULT_DISPLAY, GROUPINGS, readListView, type Display, type Grouping } from "./display";
+import { DEFAULT_DISPLAY, GROUPINGS, readListView, writeFilters, type Display, type Grouping } from "./display";
 import { Inbox, markAllRead } from "./Inbox";
 import { unreadCount } from "./inboxRows";
 import { InitiativeList } from "./InitiativeList";
 import { IssueDetail } from "./IssueDetail";
-import { IssueList, type IssueListNav, type IssueListState } from "./IssueList";
+import { IssueList, type IssueListNav, type IssueListState, type SaveViewAction } from "./IssueList";
 import { linearKeyAction, type LinearKey } from "./keys";
 import { currentPlace, startHistory, step, visit, type PlaceHistory } from "./history";
 import { checkPlace, DEFAULT_PLACE, placeScope, readPlace, writePlace, type LinearPlace } from "./place";
 import { cycleName } from "./bits";
-import { ProjectFacts, ProjectList } from "./ProjectList";
+import { clearProjectView, ProjectFacts, ProjectList, type ProjectListState } from "./ProjectList";
 import type { IssueContext } from "./prompt";
-import { Sidebar } from "./Sidebar";
+import { Sidebar, viewPlace } from "./Sidebar";
+import { DeleteViewDialog, ViewDialog, ViewIcon, type ViewDialogMode, type ViewSource } from "./ViewDialog";
+import { baseOfScope, DEFAULT_PROJECT_DISPLAY, intersectFilters, resolveIssueFilter, type ProjectDisplay } from "./viewFilter";
 import {
   linearStore,
   loadCycles,
   loadNotifications,
   loadScope,
   loadSearch,
+  loadViewProjects,
   loadViews,
   loadWorkspace,
   searchScope,
@@ -35,7 +38,7 @@ import {
   useLinear,
   useLinearSync,
 } from "./store";
-import type { IssueScope, LinearIssue } from "./types";
+import type { IssueScope, LinearCustomView, LinearIssue } from "./types";
 
 /** Where the tab has been, kept while the page lives (so it outlasts showing the map or Conquer). */
 let placeHistory: PlaceHistory | undefined;
@@ -84,8 +87,12 @@ export type LinearViewState = {
   undoKey?: string;
   /** A list of issues shows, so / searches it, F filters it and its display can change. */
   canSearch: boolean;
-  /** Your saved views, by name. */
-  views: { id: string; name: string }[];
+  /** Your saved views, by name: of issues or projects, and the project a project's own view is in. */
+  views: { id: string; name: string; model: "issue" | "project"; project?: string }[];
+  /** What shows can be saved as a view (a list whose filters a view can say). */
+  canSaveView: boolean;
+  /** The view shown, which ⌘K offers to edit or delete. */
+  shownView?: { id: string; name: string };
   /** The Inbox's unread rows, while it shows (⌘K offers marking them read). */
   inboxUnread?: number;
   /** Whether there's somewhere to go back or forward to. */
@@ -238,11 +245,17 @@ export function LinearView({
     // The sidebar counts what's unread.
     loadNotifications().catch(() => {});
   }, [loadWs]);
-  // A view you can no longer see (deleted, unshared) goes back to the default place.
+  // A view you can no longer see (deleted, unshared) goes back to the default place; one of projects lists its projects.
   const views = useLinear((d) => d.views);
   useEffect(() => {
     if (!views) return;
-    correctPlace((was) => (was.screen !== "view" || views.some((v) => v.id === was.viewId) ? was : DEFAULT_PLACE));
+    correctPlace((was) => {
+      if (was.screen !== "view" && was.screen !== "projectView") return was;
+      const view = views.find((v) => v.id === was.viewId);
+      if (!view) return DEFAULT_PLACE;
+      const right = viewPlace(view);
+      return right.screen === was.screen ? was : { ...right, ...(was.issue ? { issue: was.issue } : {}) };
+    });
   }, [views, correctPlace]);
   // Once the workspace is in, a remembered team or project it doesn't have goes back to the default.
   useEffect(() => {
@@ -297,6 +310,13 @@ export function LinearView({
   }, [findRevision]);
   useEffect(() => onAppCommand("linear-find", find), [find]);
 
+  // A project view's projects, by its filter.
+  const projectViewId = place.screen === "projectView" ? place.viewId : undefined;
+  useEffect(() => {
+    if (projectViewId) loadViewProjects(projectViewId).catch(() => {});
+  }, [projectViewId]);
+  const viewProjects = useLinear((d) => (projectViewId ? d.viewProjects.get(projectViewId) : undefined));
+
   // A cycle's title and days: its team's cycles (a past one isn't among the workspace's).
   const cycleTeam = place.screen === "cycle" ? place.teamId : undefined;
   useEffect(() => {
@@ -312,6 +332,7 @@ export function LinearView({
       loadViews(true),
       scope ? loadPlace(scope, true) : undefined,
       cycleTeam ? loadCycles(cycleTeam, true) : undefined,
+      projectViewId ? loadViewProjects(projectViewId, true) : undefined,
     ])
       .catch((e) => onNotice(`Couldn’t refresh Linear: ${errorMessage(e)}`))
       .finally(() => setRefreshing(false));
@@ -551,7 +572,8 @@ export function LinearView({
   const teams = ws?.teams;
   const undoKey = undo?.phase === "archived" ? undo.key : undefined;
   // A view's own display, as set in Linear, until it's changed here.
-  const shownView = place.screen === "view" ? views?.find((v) => v.id === place.viewId) : undefined;
+  const shownView =
+    place.screen === "view" || place.screen === "projectView" ? views?.find((v) => v.id === place.viewId) : undefined;
   const isSearch = place.screen === "search";
   const placeDisplay = useMemo<Display>(
     () =>
@@ -571,8 +593,118 @@ export function LinearView({
   const boardShown = layout === "board";
   const wide = (viewWidth === 0 || viewWidth >= BESIDE_MIN) && !boardShown;
   const canSearch = !!ws && !!listScope && (!place.issue || wide);
-  const viewPlaces = JSON.stringify(views?.map((v) => ({ id: v.id, name: v.name })) ?? []);
+
+  // Views: what the place shows, as a view would keep it (its base, its filters ∩ the list's, the display shown).
+  const [projectListState, setProjectListState] = useState<ProjectListState>();
+  const projectListKey =
+    place.screen === "projects" ? "projects" : place.screen === "projectView" ? `projectView:${place.viewId}` : undefined;
+  const projectDisplay = useMemo<ProjectDisplay>(
+    () => ({ ...DEFAULT_PROJECT_DISPLAY, ...shownView?.projectDisplay }),
+    [shownView?.projectDisplay],
+  );
+  const viewSource = useMemo<ViewSource | undefined>(() => {
+    if (!ws) return undefined;
+    if (projectListKey) {
+      if (shownView && !shownView.projectFilter) return undefined;
+      const local = projectListState?.key === projectListKey ? projectListState : undefined;
+      return {
+        model: "project",
+        projectFilter: intersectFilters(shownView?.projectFilter ?? {}, local?.filters ?? {}),
+        projectDisplay: local?.display ?? projectDisplay,
+      };
+    }
+    if (!scope || !listKey) return undefined;
+    const local = listState?.key === listKey ? listState : undefined;
+    const start = shownView
+      ? shownView.filter
+        ? resolveIssueFilter(shownView.filter, ws.states)
+        : null
+      : baseOfScope(scope);
+    if (!start) return undefined;
+    return {
+      model: "issue",
+      filter: { base: start.base, filters: intersectFilters(start.filters, local?.filters ?? {}) },
+      display: local?.display ?? readListView(listKey, placeDisplay).display,
+    };
+  }, [ws, projectListKey, shownView, projectListState, projectDisplay, scope, listKey, listState, placeDisplay]);
+  /** Whether the list shows other filters or display than its place's own. */
+  const shownChanged = projectListKey
+    ? projectListState?.key === projectListKey && projectListState.changed
+    : listState?.key === listKey && !!listState?.changed;
+  const shownViewEditable = !!shownView && (shownView.model === "project" ? !!shownView.projectFilter : !!shownView.filter);
+  // The view dialogs; each opening its own (by `serial`), not one still animating out.
+  type Dialog = (ViewDialogMode | { kind: "delete"; viewId: string }) & { serial: number };
+  const [dialog, setDialogState] = useState<Dialog | null>(null);
+  const setDialog = (next: ViewDialogMode | { kind: "delete"; viewId: string } | null) =>
+    setDialogState(next && { ...next, serial: ++serial.current });
+  const viewSourceRef = useRef(viewSource);
+  viewSourceRef.current = viewSource;
+  const openCreateView = () => {
+    const source = viewSourceRef.current;
+    if (!source) return;
+    const p = placeRef.current;
+    const teamId = source.model === "issue" ? source.filter.base.teamId : undefined;
+    const projectId = p.screen === "project" ? p.projectId : shownView?.projectId;
+    setDialog({ kind: "create", source, ...(teamId ? { teamId } : {}), ...(projectId ? { projectId } : {}) });
+  };
+  const openEditView = (viewId: string, useShown: boolean) =>
+    setDialog({
+      kind: "edit",
+      viewId,
+      ...(viewId === shownView?.id && shownChanged && viewSourceRef.current ? { shown: viewSourceRef.current, useShown } : {}),
+    });
+  const viewCommands = useRef({ create: openCreateView, edit: () => {}, remove: () => {} });
+  viewCommands.current = {
+    create: openCreateView,
+    edit: () => shownView && openEditView(shownView.id, shownChanged),
+    remove: () => shownView && setDialog({ kind: "delete", viewId: shownView.id }),
+  };
+  useEffect(() => {
+    const offs = [
+      onAppCommand("linear-save-view", () => viewCommands.current.create()),
+      onAppCommand("linear-edit-view", () => viewCommands.current.edit()),
+      onAppCommand("linear-delete-view", () => viewCommands.current.remove()),
+    ];
+    return () => offs.forEach((off) => off());
+  }, []);
+  /** Deletes a view, after the dialog confirmed: the place leaves it first (for its project's, or the default). */
+  const deleteView = (view: LinearCustomView) => {
+    const p = placeRef.current;
+    if ((p.screen === "view" || p.screen === "projectView") && p.viewId === view.id)
+      setPlace(view.projectId ? { screen: "project", projectId: view.projectId } : view.model === "project" ? { screen: "projects" } : DEFAULT_PLACE);
+    void linearStore.deleteView(view.id);
+  };
+  // A view saved with what its list showed: the list starts again from the view (its own filters and display put away).
+  const [listRevision, setListRevision] = useState(0);
+  const viewSaved = (view: LinearCustomView) => {
+    if (view.model === "project") clearProjectView(`projectView:${view.id}`);
+    else {
+      writeFilters(`view:${view.id}`, {});
+      removeStore(`linear:display:view:${view.id}`);
+    }
+    setListRevision((n) => n + 1);
+  };
+  const saveAction: SaveViewAction | undefined = !viewSource
+    ? undefined
+    : shownView
+      ? shownViewEditable
+        ? { label: "Save to view", tip: "Save these filters and display to the view", run: () => openEditView(shownView.id, true) }
+        : undefined
+      : { label: "Save as view", tip: "Save these filters and display as a Linear view", run: openCreateView };
+  const viewPlaces = JSON.stringify(
+    views
+      ?.filter((v) => !v.id.startsWith("pending-"))
+      .map((v) => ({
+        id: v.id,
+        name: v.name,
+        model: v.model,
+        ...(v.projectId ? { project: ws?.projects.find((p) => p.id === v.projectId)?.name ?? "a project" } : {}),
+      })) ?? [],
+  );
   const inboxShown = place.screen === "inbox";
+  const canSaveView = !!viewSource && !shownView;
+  const shownViewPlace =
+    shownView && !shownView.id.startsWith("pending-") ? JSON.stringify({ id: shownView.id, name: shownView.name }) : undefined;
   // ⌘K's Mark all read: here, as the Inbox gives way to an issue opened from it when narrow.
   useEffect(() => onAppCommand("linear-inbox-read-all", markAllRead), []);
   const inboxUnread = useLinear((d) =>
@@ -600,7 +732,9 @@ export function LinearView({
       })),
       undoKey,
       canSearch,
-      views: JSON.parse(viewPlaces) as { id: string; name: string }[],
+      views: JSON.parse(viewPlaces) as LinearViewState["views"],
+      canSaveView,
+      ...(shownViewPlace ? { shownView: JSON.parse(shownViewPlace) as { id: string; name: string } } : {}),
       canBack,
       canForward,
       ...(inboxUnread !== undefined ? { inboxUnread } : {}),
@@ -613,7 +747,7 @@ export function LinearView({
             },
           } : {}),
     });
-  }, [teamPlaces, viewPlaces, inboxUnread, canBack, canForward, undoKey, canSearch, listState, listKey, onViewState]);
+  }, [teamPlaces, viewPlaces, inboxUnread, canBack, canForward, undoKey, canSearch, listState, listKey, canSaveView, shownViewPlace, onViewState]);
   useEffect(() => () => onViewState?.(undefined), [onViewState]);
 
   if (!ws && (unavailable || workspaceError))
@@ -645,6 +779,42 @@ export function LinearView({
     ? (teamCycles?.find((c) => c.id === cycleId) ?? ws?.cycles.find((c) => c.id === cycleId))
     : undefined;
   const project = place.screen === "project" ? ws?.projects.find((p) => p.id === place.projectId) : undefined;
+  // A project's own views, under its summary.
+  const ownViews = project ? (views ?? []).filter((v) => v.projectId === project.id && !v.id.startsWith("pending-")) : [];
+  const viewProject = shownView?.projectId ? ws?.projects.find((p) => p.id === shownView.projectId) : undefined;
+  const viewActions =
+    shownView && !shownView.id.startsWith("pending-") ? (
+      <span className="linear-view-actions">
+        <button
+          className="icon-btn"
+          aria-label={`Edit the view ${shownView.name}`}
+          data-tip="Edit view"
+          onClick={() => openEditView(shownView.id, shownChanged)}
+        >
+          <Pencil size={14} aria-hidden="true" />
+        </button>
+        <button
+          className="icon-btn"
+          aria-label={`Delete the view ${shownView.name}`}
+          data-tip="Delete view"
+          onClick={() => setDialog({ kind: "delete", viewId: shownView.id })}
+        >
+          <Trash2 size={14} aria-hidden="true" />
+        </button>
+      </span>
+    ) : undefined;
+  const sharedWith = (v: LinearCustomView) =>
+    !v.shared ? "Only you" : v.teamId ? `Shared with ${ws?.teams.find((t) => t.id === v.teamId)?.name ?? "a team"}` : "Shared with the workspace";
+  const viewAbout = shownView && (
+    <p className="linear-view-about">
+      {shownView.description && <span>{shownView.description}</span>}
+      <span className="linear-view-owner">
+        {sharedWith(shownView)}
+        {ws?.users.find((u) => u.id === shownView.ownerId) && ` · by ${ws.users.find((u) => u.id === shownView.ownerId)!.name}`}
+        {!shownViewEditable && " · Filtered as set in Linear"}
+      </span>
+    </p>
+  );
 
   const main = () => {
     if (place.screen === "search") {
@@ -652,6 +822,7 @@ export function LinearView({
       const answered = searchState?.term === searchTerm;
       return (
         <IssueList
+          key={listRevision}
           title={
             <>
               <Search size={16} aria-hidden="true" className="linear-view-icon" />
@@ -682,7 +853,38 @@ export function LinearView({
     }
     if (place.screen === "inbox")
       return <Inbox openKey={openIssue} onOpen={open} onProject={openProject} revision={revision} nav={nav} />;
-    if (place.screen === "projects") return <ProjectList onProject={openProject} />;
+    if (place.screen === "projects")
+      return (
+        <ProjectList
+          key={listRevision}
+          onProject={openProject}
+          viewKey="projects"
+          saveView={saveAction}
+          onListState={setProjectListState}
+        />
+      );
+    if (place.screen === "projectView")
+      return (
+        <ProjectList
+          key={listRevision}
+          onProject={openProject}
+          title={
+            <>
+              <ViewIcon view={shownView ?? { model: "project", color: "" }} size={16} />
+              {shownView?.name ?? "View"}
+            </>
+          }
+          projects={viewProjects}
+          loading={!viewProjects}
+          viewKey={projectListKey}
+          defaultDisplay={projectDisplay}
+          actions={viewActions}
+          saveView={saveAction}
+          onListState={setProjectListState}
+        >
+          {viewAbout}
+        </ProjectList>
+      );
     if (place.screen === "initiatives") return <InitiativeList onProject={openProject} />;
     const teamCrumb = (
       <>
@@ -709,7 +911,19 @@ export function LinearView({
         </>
       ) : place.screen === "view" ? (
         <>
-          <Layers size={16} aria-hidden="true" className="linear-view-icon" style={{ color: shownView?.color }} />
+          {viewProject && (
+            <>
+              <button className="link-btn linear-crumb" onClick={() => setPlace({ screen: "projects" })}>
+                Projects
+              </button>
+              <ChevronRight size={14} className="linear-crumb-sep" aria-hidden="true" />
+              <button className="link-btn linear-crumb" onClick={() => openProject(viewProject.id)}>
+                {viewProject.name}
+              </button>
+              <ChevronRight size={14} className="linear-crumb-sep" aria-hidden="true" />
+            </>
+          )}
+          <ViewIcon view={shownView ?? { model: "issue", color: "" }} size={16} />
           {shownView?.name ?? "View"}
         </>
       ) : place.screen === "cycle" ? (
@@ -732,8 +946,11 @@ export function LinearView({
       );
     return (
       <IssueList
+        key={listRevision}
         title={title}
         scope={scope!}
+        actions={viewActions}
+        saveView={saveAction}
         openKey={openIssue}
         onOpen={open}
         opensBeside={beside}
@@ -745,21 +962,23 @@ export function LinearView({
         defaultDisplay={placeDisplay}
         onListState={setListState}
       >
-        {shownView && (shownView.description || ws) && (
-          <p className="linear-view-about">
-            {shownView.description && <span>{shownView.description}</span>}
-            <span className="linear-view-owner">
-              {shownView.shared ? "Shared" : "Only you"}
-              {ws?.users.find((u) => u.id === shownView.ownerId) &&
-                ` · by ${ws.users.find((u) => u.id === shownView.ownerId)!.name}`}
-            </span>
-          </p>
-        )}
+        {viewAbout}
         {project && (
           <div className="linear-project-summary">
             <Box size={14} style={{ color: project.color }} aria-hidden="true" />
             <ProjectFacts project={project} ws={ws} />
           </div>
+        )}
+        {ownViews.length > 0 && (
+          <nav className="linear-project-views" aria-label={`${project!.name}’s views`}>
+            <span className="linear-project-views-label">Views</span>
+            {ownViews.map((v) => (
+              <button key={v.id} className="linear-project-view" onClick={() => setPlace(viewPlace(v))}>
+                <ViewIcon view={v} size={12} />
+                {v.name}
+              </button>
+            ))}
+          </nav>
         )}
         {place.screen === "cycle" && (
           <div className="linear-project-summary">
@@ -803,6 +1022,8 @@ export function LinearView({
           onSearch={find}
           onBack={canBack ? () => goHistory(-1) : undefined}
           onForward={canForward ? () => goHistory(1) : undefined}
+          onEditView={(viewId) => openEditView(viewId, false)}
+          onDeleteView={(viewId) => setDialog({ kind: "delete", viewId })}
         />
         <div
           className="linear-resize"
@@ -942,6 +1163,29 @@ export function LinearView({
                 setCreating(null);
                 if (created) setPlace({ ...placeRef.current, issue: created.key });
               }}
+            />
+          )}
+          {dialog && dialog.kind !== "delete" && (
+            <ViewDialog
+              key={dialog.serial}
+              mode={dialog}
+              onClose={(saved, tookShown) => {
+                setDialog(null);
+                if (!saved) return;
+                if (dialog.kind === "create") setPlace(viewPlace(saved));
+                else if (tookShown) viewSaved(saved);
+              }}
+            />
+          )}
+          {dialog?.kind === "delete" && (
+            <DeleteViewDialog
+              key={dialog.serial}
+              viewId={dialog.viewId}
+              onConfirm={(view) => {
+                setDialog(null);
+                deleteView(view);
+              }}
+              onClose={() => setDialog(null)}
             />
           )}
         </AnimatePresence>,

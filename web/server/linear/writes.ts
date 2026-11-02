@@ -4,11 +4,36 @@
  * unknown name or field is refused; every request is `essential` (it is the
  * user's own action, so it goes out even when the hourly budget is low).
  */
-import type { LinearAttachment, LinearComment, LinearIssue, LinearNotification, WriteName } from "../../src/linear/types";
+import type {
+  LinearAttachment,
+  LinearComment,
+  LinearCustomView,
+  LinearIssue,
+  LinearNotification,
+  WriteName,
+} from "../../src/linear/types";
+import {
+  issuePreferences,
+  PROJECT_HEALTHS,
+  projectPreferences,
+  toIssueFilter,
+  toProjectFilter,
+  type IssueViewFilter,
+  type ProjectDisplay,
+  type ProjectFilters,
+} from "../../src/linear/viewFilter";
+import type { Display } from "../../src/linear/display";
 import { LinearError, linearRequest } from "./client";
-import { ATTACHMENT_FIELDS, COMMENT_FIELDS, ISSUE_FIELDS, NOTIFICATION_FIELDS } from "./fragments";
+import {
+  ATTACHMENT_FIELDS,
+  COMMENT_FIELDS,
+  ISSUE_FIELDS,
+  NOTIFICATION_FIELDS,
+  VIEW_FIELDS,
+  VIEW_PREFERENCES_QUERY,
+} from "./fragments";
 import { linearUpload } from "./image";
-import { attachmentOf, commentOf, issueOf, notificationOf, recOf } from "./normalize";
+import { attachmentOf, commentOf, customViewOf, issueOf, notificationOf, recOf } from "./normalize";
 
 type Vars = Record<string, unknown>;
 type WriteResult = {
@@ -16,6 +41,9 @@ type WriteResult = {
   comment?: LinearComment;
   notifications?: LinearNotification[];
   attachment?: LinearAttachment;
+  view?: LinearCustomView;
+  /** False when Linear saved the view but refused its display. */
+  displaySaved?: boolean;
   ok?: true;
 };
 type Check = (value: unknown, name: string) => unknown;
@@ -210,6 +238,219 @@ const issueWrite = (field: string, operation: string, resultField: "issue" | "en
     },
   );
 
+/** A list of at most `max` distinct values, each passing `each`. */
+const listOf =
+  (each: Check, max = 100): Check =>
+  (v, name) => {
+    if (!Array.isArray(v) || v.length === 0 || v.length > max) throw invalid(`${name} must be 1 to ${max} values`);
+    return [...new Set(v.map((x) => each(x, name)))];
+  };
+/** An id, or "none" (the issues or projects without one). */
+const idOrNone: Check = (v, name) => (v === "none" ? v : id(v, name));
+const STATE_TYPES = ["triage", "backlog", "unstarted", "started", "completed", "canceled"];
+
+/** A view's issue filter, as the page's `Filters` and its place's base: only what the app can express. */
+const issueViewFilter: Check = (v) => {
+  const checked = fields(v, {}, { base: (b) => b, filters: (f) => f });
+  const base = fields(checked.base ?? {}, {}, {
+    teamId: id,
+    stateTypes: listOf(oneOf(...STATE_TYPES), 6),
+    me: oneOf("assignee", "creator", "subscriber"),
+  });
+  const filters = fields(checked.filters ?? {}, {}, {
+    status: listOf(text(1, 200, false)),
+    assignee: listOf(idOrNone),
+    priority: listOf(oneOf("0", "1", "2", "3", "4"), 5),
+    labels: listOf(idOrNone),
+    project: listOf(idOrNone),
+    cycle: listOf(idOrNone),
+  });
+  return { base, filters };
+};
+const projectViewFilter: Check = (v) =>
+  fields(v, {}, {
+    status: listOf(text(1, 200, false)),
+    health: listOf(oneOf(...PROJECT_HEALTHS), 3),
+    lead: listOf(idOrNone),
+    team: listOf(id),
+  });
+const issueDisplay: Check = (v) => {
+  const grouping = oneOf("status", "assignee", "priority", "project", "cycle", "none");
+  return fields(v, {
+    layout: oneOf("list", "board"),
+    grouping,
+    subGrouping: grouping,
+    ordering: oneOf("priority", "updated", "created", "manual", "due", "title", "relevance"),
+    completed: oneOf("all", "month", "week", "none"),
+  });
+};
+const projectDisplay: Check = (v) =>
+  fields(v, {
+    grouping: oneOf("none", "status", "health", "lead"),
+    ordering: oneOf("status", "name", "target", "progress", "updated"),
+    completed: oneOf("all", "none"),
+  });
+/** A view's icon: one of Linear's icon names, or an emoji (no spaces); null for none. */
+const viewIcon: Check = (v, name) => {
+  if (v === null) return null;
+  if (typeof v !== "string" || !/^[^\s<>"'`]{1,40}$/u.test(v)) throw invalid(`${name} must be an icon name or emoji`);
+  return v;
+};
+const viewColor: Check = (v, name) => {
+  if (typeof v !== "string" || !/^#[0-9a-f]{6}$/i.test(v)) throw invalid(`${name} must be a #rrggbb colour`);
+  return v.toLowerCase();
+};
+
+const VIEW_INPUT: Record<string, Check> = {
+  name: text(1, 255, true),
+  description: text(0, 500, true),
+  icon: viewIcon,
+  color: viewColor,
+  sharing: oneOf("personal", "team", "workspace"),
+  teamId: id,
+  filter: issueViewFilter,
+  projectFilter: projectViewFilter,
+  display: issueDisplay,
+  projectDisplay,
+};
+
+/** Linear's CustomViewCreateInput / CustomViewUpdateInput fields for the checked ones, and the display to save after. */
+function viewInput(checked: Vars, model: "issue" | "project" | undefined): { input: Vars; preferences?: Record<string, string> } {
+  const input: Vars = {};
+  for (const key of ["name", "description", "icon", "color"]) if (checked[key] !== undefined) input[key] = checked[key];
+  const { sharing, teamId } = checked;
+  if (teamId !== undefined && sharing !== "team") throw invalid("teamId is only for a view shared with a team");
+  if (sharing === "team" && teamId === undefined) throw invalid("Name the team to share the view with");
+  if (sharing !== undefined) {
+    input.shared = sharing !== "personal";
+    input.teamId = sharing === "team" ? teamId : null;
+  }
+  if (checked.filter !== undefined && checked.projectFilter !== undefined) throw invalid("Give an issue filter or a project filter");
+  if (model === "project" && (checked.filter !== undefined || checked.display !== undefined))
+    throw invalid("A project view takes a project filter and display");
+  if (model === "issue" && (checked.projectFilter !== undefined || checked.projectDisplay !== undefined))
+    throw invalid("An issue view takes an issue filter and display");
+  if (checked.filter !== undefined) input.filterData = toIssueFilter(checked.filter as IssueViewFilter);
+  if (checked.projectFilter !== undefined) input.projectFilterData = toProjectFilter(checked.projectFilter as ProjectFilters);
+  if (checked.display !== undefined && checked.projectDisplay !== undefined) throw invalid("Give one display");
+  const preferences =
+    checked.display !== undefined
+      ? issuePreferences(checked.display as Display)
+      : checked.projectDisplay !== undefined
+        ? projectPreferences(checked.projectDisplay as ProjectDisplay)
+        : undefined;
+  return { input, ...(preferences ? { preferences } : {}) };
+}
+
+/** The view Linear answered, with the display just saved (its answer was made before the preferences were). */
+function viewOut(raw: unknown, preferences: Record<string, string> | undefined): LinearCustomView {
+  const r = recOf(raw);
+  const view = customViewOf(
+    preferences ? { ...r, viewPreferencesValues: { ...recOf(r.viewPreferencesValues), ...preferences } } : r,
+  );
+  if (!view) throw new LinearError("failed", "Linear did not return the view.");
+  return view;
+}
+
+const essential = { essential: true };
+const PREFERENCES_CREATE = `mutation ViewPreferencesCreate($input: ViewPreferencesCreateInput!) {
+  viewPreferencesCreate(input: $input) { success } }`;
+const PREFERENCES_UPDATE = `mutation ViewPreferencesUpdate($id: String!, $input: ViewPreferencesUpdateInput!) {
+  viewPreferencesUpdate(id: $id, input: $input) { success } }`;
+
+/**
+ * Saves a view's display as its preferences: a shared view's for everyone (the
+ * workspace's, and yours too where you have your own, so you see it), a
+ * personal one's as yours. False when Linear refused.
+ */
+async function savePreferences(viewId: string, preferences: Record<string, string>, created?: { shared: boolean }): Promise<boolean> {
+  try {
+    const known = created
+      ? { shared: created.shared, organizationViewPreferences: null, userViewPreferences: null }
+      : recOf(recOf(await linearRequest<unknown>("ViewPreferencesOf", VIEW_PREFERENCES_QUERY, { id: viewId }, essential)).customView);
+    const orgId = recOf(known.organizationViewPreferences).id;
+    const userId = recOf(known.userViewPreferences).id;
+    const put = async (type: "organization" | "user", existing: unknown) => {
+      const data =
+        typeof existing === "string" && existing
+          ? await linearRequest<unknown>("ViewPreferencesUpdate", PREFERENCES_UPDATE, { id: existing, input: { preferences } }, essential)
+          : await linearRequest<unknown>(
+              "ViewPreferencesCreate",
+              PREFERENCES_CREATE,
+              { input: { customViewId: viewId, type, viewType: "customView", preferences } },
+              essential,
+            );
+      succeeded(data, typeof existing === "string" && existing ? "viewPreferencesUpdate" : "viewPreferencesCreate");
+    };
+    if (known.shared === true) {
+      await put("organization", orgId);
+      if (typeof userId === "string" && userId) await put("user", userId);
+    } else await put("user", userId);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+const VIEW_CREATE = `mutation CustomViewCreate($input: CustomViewCreateInput!) {
+  customViewCreate(input: $input) { success customView { ${VIEW_FIELDS} } } }`;
+const VIEW_UPDATE = `mutation CustomViewUpdate($id: String!, $input: CustomViewUpdateInput!) {
+  customViewUpdate(id: $id, input: $input) { success customView { ${VIEW_FIELDS} } } }`;
+const VIEW_QUERY = `query CustomView($id: String!) { customView(id: $id) { ${VIEW_FIELDS} } }`;
+
+/** Creates a view: its fields, then its display; answers the view as saved. */
+const viewCreate: Write = {
+  validate(input) {
+    const checked = fields(input, { name: VIEW_INPUT.name, sharing: VIEW_INPUT.sharing }, {
+      ...VIEW_INPUT,
+      model: oneOf("issue", "project"),
+      projectId: id,
+    });
+    const model = (checked.model ?? "issue") as "issue" | "project";
+    if (checked.projectId !== undefined && model !== "issue") throw invalid("A project's own views are of issues");
+    const { input: linear, preferences } = viewInput(checked, model);
+    if (model === "project" && linear.projectFilterData === undefined) linear.projectFilterData = {};
+    if (model === "issue" && linear.filterData === undefined) linear.filterData = {};
+    if (checked.projectId !== undefined) linear.projectId = checked.projectId;
+    if (linear.teamId === null) delete linear.teamId;
+    return { input: linear, ...(preferences ? { preferences } : {}) };
+  },
+  async run({ input, preferences }) {
+    const data = await linearRequest<unknown>("CustomViewCreate", VIEW_CREATE, { input }, essential);
+    succeeded(data, "customViewCreate");
+    const raw = recOf(recOf(data).customViewCreate).customView;
+    const view = viewOut(raw, undefined);
+    if (!preferences) return { view };
+    const displaySaved = await savePreferences(view.id, preferences as Record<string, string>, { shared: view.shared });
+    return { view: viewOut(raw, displaySaved ? (preferences as Record<string, string>) : undefined), displaySaved };
+  },
+};
+
+/** Changes a view: the fields given, then (if given) its display; answers the view as saved. */
+const viewUpdate: Write = {
+  validate(input) {
+    const checked = fields(input, { id }, VIEW_INPUT);
+    if (Object.keys(checked).length < 2) throw invalid("Nothing to change");
+    const { input: linear, preferences } = viewInput(checked, undefined);
+    return { id: checked.id, input: linear, ...(preferences ? { preferences } : {}) };
+  },
+  async run({ id: viewId, input, preferences }) {
+    let raw: unknown;
+    if (Object.keys(input as Vars).length) {
+      const data = await linearRequest<unknown>("CustomViewUpdate", VIEW_UPDATE, { id: viewId, input }, essential);
+      succeeded(data, "customViewUpdate");
+      raw = recOf(recOf(data).customViewUpdate).customView;
+    }
+    if (!preferences) return { view: viewOut(raw, undefined) };
+    const displaySaved = await savePreferences(viewId as string, preferences as Record<string, string>);
+    if (raw === undefined) {
+      if (!displaySaved) throw new LinearError("failed", "Linear did not save the view's display.");
+      raw = recOf(await linearRequest<unknown>("CustomView", VIEW_QUERY, { id: viewId }, essential)).customView;
+    }
+    return { view: viewOut(raw, displaySaved ? (preferences as Record<string, string>) : undefined), displaySaved };
+  },
+};
+
 const idOnly = (input: unknown) => fields(input, { id });
 const okShape = (field: string) => (data: unknown) => {
   succeeded(data, field);
@@ -351,6 +592,14 @@ export const WRITES: Record<WriteName, Write> = {
     `mutation AttachmentDelete($id: String!) { attachmentDelete(id: $id) { success } }`,
     idOnly,
     okShape("attachmentDelete"),
+  ),
+  customViewCreate: viewCreate,
+  customViewUpdate: viewUpdate,
+  customViewDelete: write(
+    "CustomViewDelete",
+    `mutation CustomViewDelete($id: String!) { customViewDelete(id: $id) { success } }`,
+    idOnly,
+    okShape("customViewDelete"),
   ),
   notificationUnarchive: write(
     "NotificationUnarchive",

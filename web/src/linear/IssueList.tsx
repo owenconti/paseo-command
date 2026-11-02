@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type MutableRefObject, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { Box, ChevronRight, CircleDot, RefreshCcw, Search, SignalHigh, Tag, UserRound, UserX } from "lucide-react";
+import { BookmarkPlus, Box, ChevronRight, CircleDot, RefreshCcw, Search, SignalHigh, Tag, UserRound, UserX } from "lucide-react";
 import { plainText } from "../ui";
 import { Dot, Person, Priority, ScreenHead } from "./bits";
 import {
@@ -23,7 +23,14 @@ import {
   type Layout,
 } from "./display";
 import { arrangeIssues, dropChanges, issueMatches, swimlanes, type IssueGroup } from "./group";
-import { DisplayButton, FilterButton, FilterChips, type DisplayControl, type FilterControl } from "./ListControls";
+import {
+  DisplayButton,
+  FilterButton,
+  FilterChips,
+  issueFilterSpec,
+  type DisplayControl,
+  type FilterControl,
+} from "./ListControls";
 import { placeBelow } from "./Picker";
 import { PropertyPicker, type PropertyField } from "./Properties";
 import { linearStore, scopeIssues, useLinear } from "./store";
@@ -119,8 +126,24 @@ export type IssueListNav = {
   swapGroupings(): void;
   clearFilters(): void;
 };
-/** What ⌘K needs of the list: its layout, groupings, whether filters are on; `key` is where they're kept (its place). */
-export type IssueListState = { key: string; layout: Layout; grouping: Grouping; subGrouping: Grouping; filtered: boolean };
+/**
+ * What ⌘K needs of the list: its layout, groupings, whether filters are on;
+ * `key` is where they're kept (its place). Its display and filters as shown,
+ * and whether either differs from the place's own (a view saves them).
+ */
+export type IssueListState = {
+  key: string;
+  layout: Layout;
+  grouping: Grouping;
+  subGrouping: Grouping;
+  filtered: boolean;
+  display: Display;
+  filters: Filters;
+  changed: boolean;
+};
+
+/** A list's Save as view button: what it says, and what it does. */
+export type SaveViewAction = { label: string; tip: string; run: () => void };
 
 /** Room the menu and its pickers keep from the window's right edge. */
 const MENU_WIDTH = 260;
@@ -186,6 +209,16 @@ function RowMenu({ issueId, at, onClose }: { issueId: string; at: { x: number; y
       )}
     </span>,
     document.body,
+  );
+}
+
+/** Save as view (or Save to view), at the end of the filter chips. */
+export function SaveViewButton({ action }: { action: SaveViewAction }) {
+  return (
+    <button className="link-btn linear-save-view" data-tip={action.tip} onClick={action.run}>
+      <BookmarkPlus size={13} aria-hidden="true" />
+      {action.label}
+    </button>
   );
 }
 
@@ -324,6 +357,7 @@ export function IssueList({
   onListState,
   search: asks,
   emptyNote = "No issues here.",
+  saveView,
 }: {
   title: ReactNode;
   scope: IssueScope;
@@ -357,6 +391,8 @@ export function IssueList({
   search?: { value: string; onChange: (value: string) => void; label: string; placeholder: string };
   /** What an empty list says ("No issues here." by default). */
   emptyNote?: string;
+  /** Save as view, beside the filters: offered once the filters or display differ from the place's own. */
+  saveView?: SaveViewAction;
 }) {
   const data = useLinear((d) => d);
   const ws = data.workspace;
@@ -385,6 +421,7 @@ export function IssueList({
     writeFilters(viewKey, next);
   };
   const teamCycles = useMemo(() => [...data.cycles.values()].flat(), [data.cycles]);
+  const filterSpec = useMemo(() => issueFilterSpec(ws, teamCycles), [ws, teamCycles]);
   // Finished issues as far back as the scope keeps them.
   const choices = useMemo(() => completedChoices(scope), [scope]);
   const completed = scopeCompleted(display.completed, choices);
@@ -463,6 +500,7 @@ export function IssueList({
         ?.querySelector<HTMLElement>(`[data-key="${openKey}"]`)
         ?.scrollIntoView({ block: "nearest", inline: "nearest" });
   }, [openKey]);
+  const changed = hasFilters(filters) || JSON.stringify(display) !== JSON.stringify(fallback);
   useEffect(() => {
     onListState?.({
       key: viewKey,
@@ -470,8 +508,11 @@ export function IssueList({
       grouping: display.grouping,
       subGrouping: display.subGrouping,
       filtered: hasFilters(filters),
+      display,
+      filters,
+      changed,
     });
-  }, [viewKey, display.layout, display.grouping, display.subGrouping, filters, onListState]);
+  }, [viewKey, display, filters, changed, onListState]);
 
   const focusIssue = (key: string) => {
     setFocusKey(key);
@@ -600,7 +641,7 @@ export function IssueList({
       <ScreenHead title={title} count={loading && !scoped.length ? undefined : issues.length}>
         {actions}
         <span className="linear-tools">
-          <FilterButton filters={filters} onFilters={setFilters} ws={ws} cycles={teamCycles} control={filterControl} />
+          <FilterButton filters={filters} onFilters={setFilters} spec={filterSpec} control={filterControl} />
           <DisplayButton
             display={display}
             onDisplay={setDisplay}
@@ -635,7 +676,12 @@ export function IssueList({
           }}
         />
       </label>
-      <FilterChips filters={filters} onFilters={setFilters} ws={ws} cycles={teamCycles} />
+      <FilterChips
+        filters={filters}
+        onFilters={setFilters}
+        spec={filterSpec}
+        extra={saveView && changed ? <SaveViewButton action={saveView} /> : undefined}
+      />
       {error && (
         <p className="archive-error" role="alert">
           {error}

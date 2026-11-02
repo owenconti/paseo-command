@@ -11,6 +11,7 @@ import {
   loadNotifications,
   loadScope,
   loadSearch,
+  loadViewProjects,
   loadViews,
   loadWorkspace,
   markPending,
@@ -18,7 +19,7 @@ import {
   setLinearNotice,
   syncTick,
 } from "./store";
-import type { LinearComment, LinearIssue, LinearNotification, LinearState, LinearSync, LinearWorkspace } from "./types";
+import type { LinearComment, LinearCustomView, LinearIssue, LinearNotification, LinearState, LinearSync, LinearWorkspace } from "./types";
 
 const ME = FAKE_IDS.owen;
 const TODO: LinearState = { id: "s-todo", name: "Todo", type: "unstarted", color: "#ccc", position: 1, teamId: "t" };
@@ -379,13 +380,76 @@ describe("linear store", () => {
   });
 
   it("loads the views once, and again when fresh", async () => {
-    const view = { id: "v1", name: "Mine", color: "#000", shared: false, updatedAt: "", display: { layout: "board" } };
+    const view = { id: "v1", name: "Mine", color: "#000", model: "issue", shared: false, updatedAt: "", display: { layout: "board" } };
     answers.views = () => ({ views: [view] });
     await Promise.all([loadViews(), loadViews()]);
     await loadViews();
     assert.deepEqual(calls, ["linear/q/views"]);
     assert.deepEqual(linearStore.getState().views, [view]);
     await loadViews(true);
+    assert.equal(calls.length, 2);
+  });
+
+  it("creates, changes and deletes views at once, putting them back when Linear refuses", async () => {
+    const view = (id: string, name: string, patch: Partial<LinearCustomView> = {}): LinearCustomView => ({
+      id,
+      name,
+      color: "#5e6ad2",
+      model: "issue",
+      shared: false,
+      updatedAt: "",
+      display: {},
+      ...patch,
+    });
+    answers.views = () => ({ views: [view("v-b", "B")] });
+    await loadViews();
+    const names = () => linearStore.getState().views?.map((v) => v.name);
+    // Created: listed at once (pending), then as Linear saved it.
+    let answer = held<unknown>();
+    answers["linear/m/customViewCreate"] = () => answer.promise;
+    const { id: _, updatedAt: __, ...shown } = view("x", "A");
+    const created = linearStore.createView({ name: "A", sharing: "personal" }, shown);
+    assert.deepEqual(names(), ["A", "B"]);
+    assert.match(linearStore.getState().views![0].id, /^pending-/);
+    answer.release({ view: view("v-a", "A"), displaySaved: false });
+    assert.equal((await created)?.id, "v-a");
+    assert.deepEqual(linearStore.getState().views?.map((v) => v.id), ["v-a", "v-b"]);
+    assert.match(notices.at(-1) ?? "", /not its display/);
+    // Refused: gone again, and the notice says why.
+    answers["linear/m/customViewCreate"] = () => Promise.reject(new Error("Name taken"));
+    assert.equal(await linearStore.createView({ name: "C", sharing: "personal" }, { ...shown, name: "C" }), null);
+    assert.deepEqual(names(), ["A", "B"]);
+    assert.match(notices.at(-1) ?? "", /Name taken/);
+    // Renamed at once; refused, the old name comes back.
+    answer = held<unknown>();
+    answers["linear/m/customViewUpdate"] = () => answer.promise;
+    const renamed = linearStore.updateView("v-b", { name: "Z" }, { name: "Z" });
+    assert.deepEqual(names(), ["A", "Z"]);
+    answer.refuse(new Error("Not yours"));
+    assert.equal(await renamed, false);
+    assert.deepEqual(names(), ["A", "B"]);
+    // A new filter: Linear's view takes its place, and its issues are asked for again.
+    answers["linear/m/customViewUpdate"] = () => ({ view: view("v-b", "B", { filter: { base: {}, filters: { priority: ["1"] } } }) });
+    answers.issues = () => ({ issues: [] });
+    assert.equal(await linearStore.updateView("v-b", { filter: { base: {}, filters: { priority: ["1"] } } }, {}), true);
+    assert.deepEqual(linearStore.getState().views?.find((v) => v.id === "v-b")?.filter?.filters, { priority: ["1"] });
+    assert.ok(calls.includes("linear/q/issues?scope=view%3Av-b"));
+    // Deleted at once; refused, it's back.
+    answers["linear/m/customViewDelete"] = () => Promise.reject(new Error("Locked"));
+    assert.equal(await linearStore.deleteView("v-a"), false);
+    assert.deepEqual(names(), ["A", "B"]);
+    answers["linear/m/customViewDelete"] = () => ({ ok: true });
+    assert.equal(await linearStore.deleteView("v-a"), true);
+    assert.deepEqual(names(), ["B"]);
+  });
+
+  it("loads a project view's projects once, and again when fresh", async () => {
+    answers.viewProjects = () => ({ projects: [{ id: "p1", name: "Launch" }] });
+    await Promise.all([loadViewProjects("v1"), loadViewProjects("v1")]);
+    await loadViewProjects("v1");
+    assert.deepEqual(calls, ["linear/q/viewProjects?view=v1"]);
+    assert.equal(linearStore.getState().viewProjects.get("v1")?.[0].name, "Launch");
+    await loadViewProjects("v1", true);
     assert.equal(calls.length, 2);
   });
 

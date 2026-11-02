@@ -12,6 +12,7 @@ import {
   readSearch,
   readStatus,
   readSync,
+  readViewProjects,
   readViews,
   readWorkspace,
   resetLinearReads,
@@ -105,26 +106,61 @@ test("reads a team's cycles with their progress, and a cycle's issues", async ()
   await assert.rejects(readIssues("cycle:nope" as never), (e) => e instanceof LinearError && e.kind === "invalid");
 });
 
-test("reads the issue views with their display, and a view's issues by its own filter", async () => {
+test("reads the views with their display and filters, and a view's issues by its own filter", async () => {
   const { views } = await readViews();
   assert.deepEqual(
-    views.map((v) => [v.name, v.shared, v.display]),
+    views.map((v) => [v.name, v.model, v.shared, v.projectId ?? null]),
     [
-      [
-        "Launch in flight",
-        true,
-        { layout: "board", grouping: "assignee", subGrouping: "priority", ordering: "priority", completed: "all" },
-      ],
-      ["Sam's work", false, { layout: "list", grouping: "none", ordering: "updated", completed: "none" }],
+      ["Due soon", "project", false, null],
+      ["Estimated work", "issue", false, null],
+      ["Launch bugs", "issue", true, I.projects.launch],
+      ["Launch in flight", "issue", true, null],
+      ["Sam's work", "issue", false, null],
+      ["Under way", "project", true, null],
     ],
-    "a project view isn't listed",
   );
-  assert.equal(views[0].ownerId, I.sam);
-  assert.equal(views[0].description, "Started work on the launch");
+  const byName = (name: string) => views.find((v) => v.name === name)!;
+  assert.deepEqual(byName("Launch in flight").display, {
+    layout: "board",
+    grouping: "assignee",
+    subGrouping: "priority",
+    ordering: "priority",
+    completed: "all",
+  });
+  assert.deepEqual(byName("Sam's work").display, { layout: "list", grouping: "none", ordering: "updated", completed: "none" });
+  assert.equal(byName("Launch in flight").ownerId, I.sam);
+  assert.equal(byName("Launch in flight").description, "Started work on the launch");
+  // Filters the app can say, in its words; one it can't (an estimate, a target date) isn't given.
+  assert.deepEqual(byName("Launch in flight").filter, {
+    base: { stateTypes: ["started"] },
+    filters: { project: [I.projects.launch] },
+  });
+  assert.deepEqual(byName("Sam's work").filter, { base: {}, filters: { assignee: [I.sam] } });
+  assert.deepEqual(byName("Launch bugs").filter, {
+    base: {},
+    filters: { project: [I.projects.launch], labels: [I.labels.bug] },
+  });
+  assert.equal(byName("Estimated work").filter, undefined);
+  assert.deepEqual(byName("Under way").projectFilter, { status: ["Started"] });
+  assert.deepEqual(byName("Under way").projectDisplay, { grouping: "health", ordering: "name", completed: "all" });
+  assert.equal(byName("Under way").icon, "Rocket");
+  assert.equal(byName("Due soon").projectFilter, undefined);
+  // A filter too big to read isn't taken for none.
+  const huge = fake.ws.views.find((v) => v.id === I.views.samsWork)!;
+  huge.filterData = { or: Array.from({ length: 2000 }, (_, n) => ({ priority: { eq: n % 5 } })) };
+  assert.equal((await readViews()).views.find((v) => v.id === huge.id)?.filter, undefined);
+  huge.filterData = { assignee: { id: { eq: I.sam } } };
   assert.deepEqual(keys((await readIssues(`view:${I.views.launchStarted}`)).issues), ["ENG-1", "ENG-3"]);
   assert.deepEqual(keys((await readIssues(`view:${I.views.samsWork}`)).issues), ["DE-1", "ENG-2", "ENG-6"]);
   assert.equal(fake.requests.at(-1)?.operation, "ViewIssues");
   await assert.rejects(readIssues("view:nope" as never), (e) => e instanceof LinearError && e.kind === "invalid");
+});
+
+test("reads a project view's projects by its own filter", async () => {
+  assert.deepEqual((await readViewProjects(I.views.projects)).projects.map((p) => [p.name, p.statusType]), [["Launch", "started"]]);
+  assert.deepEqual((await readViewProjects(I.views.dueSoon)).projects.map((p) => p.name), ["Launch"]);
+  assert.equal(fake.requests.at(-1)?.operation, "ViewProjects");
+  await assert.rejects(readViewProjects("nope"), (e) => e instanceof LinearError && e.kind === "invalid");
 });
 
 test("reads your inbox: what each notification is about, newest first, nothing archived", async () => {
