@@ -5,14 +5,6 @@ mark it done with its commit once merged into `main`.
 
 ## Open
 
-- [ ] **Command palette: each entry names the page it's for.** The palette's right-hand label is a loose
-  category (Actions, Lists, App, Agents, Workspaces, Projects), and entries with keys show only the key (e.g.
-  "Change the Linear issue's project · M"). Label every entry with the part of Paseo Command it belongs to:
-  Command (map, agents, workspaces, projects, hosts), Conquer, Activity, Linear, Slack, GitHub, Settings,
-  Terminal, App (window, updates, text size), shown alongside any keys (both, keys after the page), consistently
-  styled. Give `paletteCommands`/`agentCommands` entries (`web/src/main.tsx`) a page, derived where it can be,
-  and check every entry; the ranking (`palette.ts`) may favour the page that's showing. Update `CommandPalette.tsx`,
-  its tests/e2e and CLAUDE.md's Command palette section. Workspace: `palette-page-labels`.
 - [ ] **Linear list head overlaps when narrow.** In a narrow issue list (e.g. beside an open issue, with the
   sidebar shown), the head's title "Engineering › Active" and its count (260) run under the Filter and Display
   buttons, which overlap the text. The head must never overlap at any width: the breadcrumb truncates with an
@@ -50,6 +42,10 @@ mark it done with its commit once merged into `main`.
 
 ## Done
 
+- [x] **Command palette: each entry names the page it's for.** Every entry has a `page` (`web/src/palette.ts`'s `PAGES`:
+  Command, Conquer, Activity, Linear, Slack, GitHub, Settings, Terminal, App), shown on its right before any keys in one
+  style; found agents, workspaces, projects and hosts add their kind ("Command · Agent"). Among equally good matches the
+  page on screen comes first, never ahead of a better match. The type requires a page; the e2e checks every row names one.
 - [x] **GitHub diff: resizable file list.** The diff view's file list (`DiffView.tsx`) resizes by its inner edge
   (`ResizeEdge`: drag, ←/→ with ⇧ for bigger steps, double-click restores the default), 160 px at least and leaving the
   diff 420 px; the width is kept in localStorage for every diff (PR and workspace Changes), the list hides when the view

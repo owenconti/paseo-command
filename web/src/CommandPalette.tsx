@@ -4,18 +4,21 @@ import { AnimatePresence, motion, useIsPresent } from "framer-motion";
 import { Search } from "lucide-react";
 import { isPaletteShortcut } from "./appCommands";
 import { modalOpen, useFocusTrap } from "./focus";
-import { rankCommands, type Command } from "./palette";
+import { rankCommands, type Command, type Page } from "./palette";
 import { plainText } from "./ui";
 
 /** Cmd+K, from anywhere: a searchable list of the app's commands (each with
  * its own keys) and, as you type, its agents, workspaces, projects and hosts.
  * Enter runs the highlighted one; the palette closes first, so the command
- * finds the page as it was. `blocked` (a modal on screen) keeps it shut. */
+ * finds the page as it was. `blocked` (a modal on screen) keeps it shut.
+ * Each row names its page; `shown`'s (the one on screen) win ties. */
 export function CommandPalette({
   commands,
+  shown,
   blocked = false,
 }: {
   commands: Command[];
+  shown?: Page;
   blocked?: boolean;
 }) {
   const [open, setOpen] = useState(false);
@@ -53,6 +56,7 @@ export function CommandPalette({
       {open && (
         <PaletteDialog
           commands={commands}
+          shown={shown}
           onClose={() => setOpen(false)}
           onRun={(command) => {
             pending.current = command.run;
@@ -70,10 +74,12 @@ const ENTER = { duration: 0.16, ease: [0.2, 0.8, 0.2, 1] } as const;
 
 function PaletteDialog({
   commands,
+  shown,
   onClose,
   onRun,
 }: {
   commands: Command[];
+  shown?: Page;
   onClose: () => void;
   onRun: (command: Command) => void;
 }) {
@@ -85,7 +91,7 @@ function PaletteDialog({
   useFocusTrap(dialog, input, present);
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(0);
-  const results = rankCommands(commands, query);
+  const results = rankCommands(commands, query, shown);
   const searching = query.trim() !== "";
   const current = Math.min(active, results.length - 1);
   // Leaving: keys go back to the page at once, not to the fading dialog.
@@ -198,7 +204,6 @@ function PaletteDialog({
                   ? command.group
                   : undefined
               }
-              searching={searching}
               active={i === current}
               onHover={() => setActive(i)}
               onRun={() => onRun(command)}
@@ -220,7 +225,6 @@ function PaletteRow({
   index,
   command,
   heading,
-  searching,
   active,
   onHover,
   onRun,
@@ -229,7 +233,6 @@ function PaletteRow({
   index: number;
   command: Command;
   heading?: string;
-  searching: boolean;
   active: boolean;
   onHover: () => void;
   onRun: () => void;
@@ -257,15 +260,19 @@ function PaletteRow({
           {command.label}
           {command.detail && <small>{command.detail}</small>}
         </span>
-        {command.keys ? (
-          <span className="palette-keys">
-            {command.keys[0].map((k) => (
-              <kbd key={k}>{k}</kbd>
-            ))}
+        <span className="palette-meta">
+          <span className="palette-page">
+            {command.page}
+            {command.kind && <span className="palette-kind"> · {command.kind}</span>}
           </span>
-        ) : (
-          searching && <span className="palette-group">{command.group}</span>
-        )}
+          {command.keys && (
+            <span className="palette-keys">
+              {command.keys[0].map((k) => (
+                <kbd key={k}>{k}</kbd>
+              ))}
+            </span>
+          )}
+        </span>
       </li>
     </>
   );

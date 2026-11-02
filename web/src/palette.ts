@@ -1,9 +1,29 @@
+/** The part of Paseo Command an entry belongs to, shown on its right. */
+export const PAGES = [
+  "Command",
+  "Conquer",
+  "Activity",
+  "Linear",
+  "Slack",
+  "GitHub",
+  "Settings",
+  "Terminal",
+  "App",
+] as const;
+export type Page = (typeof PAGES)[number];
+
 /** One row of the command palette. */
 export type Command = {
   id: string;
   label: string;
   /** The section it is listed under ("Actions", "Agents", …). */
   group: string;
+  /** Its page: Command for the map and what's on it, Conquer, Activity,
+   * Linear, Slack, GitHub, Settings, Terminal, else App (the window,
+   * updates, text size, what's new, games). */
+  page: Page;
+  /** What a found thing is ("Agent", "Workspace", …), after its page. */
+  kind?: string;
   /** Muted text after the label (where an agent or workspace is). */
   detail?: string;
   /** The keys that do the same, as the shortcuts dialog shows them. */
@@ -29,8 +49,14 @@ const subsequence = (needle: string, hay: string) => {
 /** The commands for `query`: with none, every command not kept for search,
  * in their own order; otherwise those matching every word, best first (a
  * match at the label's start, then at a word's start, then anywhere in the
- * label, then in its detail or keywords; scattered letters last). */
-export function rankCommands(commands: Command[], query: string): Command[] {
+ * label, then in its detail or keywords; scattered letters last). Among
+ * equally good matches, those for `shown` (the page on screen) come first:
+ * never ahead of a better match. */
+export function rankCommands(
+  commands: Command[],
+  query: string,
+  shown?: Page,
+): Command[] {
   const words = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
   if (!words.length) return commands.filter((c) => !c.searchOnly);
   const scored: { command: Command; score: number; index: number }[] = [];
@@ -50,6 +76,8 @@ export function rankCommands(commands: Command[], query: string): Command[] {
       else if (subsequence(word, label)) score += 1;
       else return;
     }
+    // Under any step between kinds of match (1), so it only breaks ties.
+    if (command.page === shown) score += 0.5;
     scored.push({ command, score, index });
   });
   return scored

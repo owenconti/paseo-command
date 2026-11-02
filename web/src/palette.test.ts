@@ -7,6 +7,7 @@ const command = (label: string, extra: Partial<Command> = {}): Command => ({
   id: label,
   label,
   group: "Actions",
+  page: "Command",
   run: () => {},
   ...extra,
 });
@@ -50,4 +51,38 @@ test("scattered letters match the label, after real matches", () => {
   assert.deepEqual(labels(rankCommands(COMMANDS, "ftwm")), [
     "Fit the whole map",
   ]);
+});
+
+test("among equal matches the page on screen comes first, never ahead of a better one", () => {
+  const rows = [
+    command("Add project", { page: "Command" }),
+    command("Show projects", { page: "Command", group: "Lists" }),
+    command("Change the Linear issue's project", { page: "Linear", keys: [["M"]] }),
+    command("Go to Linear projects", { page: "Linear" }),
+    command("project", { page: "Linear" }),
+  ];
+  // Command shown: the order the matches alone give.
+  assert.deepEqual(labels(rankCommands(rows, "project", "Command")), [
+    "project",
+    "Add project",
+    "Show projects",
+    "Change the Linear issue's project",
+    "Go to Linear projects",
+  ]);
+  // Linear shown: its own lead among the word-start matches, but the exact
+  // label still leads and Command's word-start matches stay above Linear's
+  // weaker ones.
+  assert.deepEqual(labels(rankCommands(rows, "project", "Linear")), [
+    "project",
+    "Change the Linear issue's project",
+    "Go to Linear projects",
+    "Add project",
+    "Show projects",
+  ]);
+  assert.deepEqual(labels(rankCommands(rows, "add", "Linear")), ["Add project"]);
+  // No query: the page on screen changes nothing.
+  assert.deepEqual(
+    labels(rankCommands(rows, "", "Linear")),
+    labels(rankCommands(rows, "")),
+  );
 });

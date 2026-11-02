@@ -60,7 +60,7 @@ import { PresetsEditorHost } from "./PresetsEditor";
 import { ProfilesEditorHost } from "./ProfilesEditor";
 import { openProfileEditor } from "./profilesStore";
 import { runAppCommand, type AppCommand } from "./appCommands";
-import type { Command } from "./palette";
+import type { Command, Page } from "./palette";
 import {
   linearKey,
   linearUrl,
@@ -154,6 +154,16 @@ import { agentName, idLike, placeText, useKnownIds } from "./names";
 import { PeersContext, type Peers } from "./peers";
 
 installNativeLinks();
+// The palette's page for each of the mode bar's places (its entries for the page on screen win ties).
+const MODE_PAGES: Record<AppMode, Page> = {
+  command: "Command",
+  conquer: "Conquer",
+  activity: "Activity",
+  linear: "Linear",
+  slack: "Slack",
+  github: "GitHub",
+  settings: "Settings",
+};
 // The map surface (drawn by the macOS app) beside the inherited docked session layout.
 const native = true;
 const unity = true;
@@ -1216,6 +1226,7 @@ function App() {
             {
               id: "approve",
               group: "Actions",
+              page: "Command" as const,
               label: `Approve ${permission.name}`,
               keywords: "allow permission yes",
               run: () => void respond(permission, true),
@@ -1223,6 +1234,7 @@ function App() {
             {
               id: "deny",
               group: "Actions",
+              page: "Command" as const,
               label: `Deny ${permission.name}`,
               keywords: "reject permission no",
               run: () => void respond(permission, false),
@@ -1234,6 +1246,7 @@ function App() {
             {
               id: "read",
               group: "Actions",
+              page: "Command" as const,
               label: "Mark the agent as read",
               keywords: "unread seen",
               run: () => markRead([a.id]),
@@ -1245,6 +1258,7 @@ function App() {
             {
               id: "interrupt",
               group: "Actions",
+              page: "Command" as const,
               label: "Interrupt the agent",
               keywords: "stop cancel halt",
               run: () => runAppCommand("agent-interrupt"),
@@ -1256,6 +1270,7 @@ function App() {
             {
               id: "rename-agent",
               group: "Actions",
+              page: "Command" as const,
               label: `Rename “${name}”…`,
               keywords: "title name agent",
               run: () => {
@@ -1268,6 +1283,7 @@ function App() {
                   {
                     id: "archive-agent",
                     group: "Actions",
+                    page: "Command" as const,
                     label: `Archive “${name}”…`,
                     keywords: "remove delete agent",
                     run: () => runAppCommand("agent-archive"),
@@ -1279,6 +1295,7 @@ function App() {
       {
         id: "open-paseo",
         group: "Actions",
+        page: "Command" as const,
         label: "Open the agent in Paseo",
         keywords: "app external",
         run: () => runAppCommand("agent-open-paseo"),
@@ -1286,6 +1303,7 @@ function App() {
       {
         id: "copy-agent-id",
         group: "Actions",
+        page: "Command" as const,
         label: "Copy the agent's ID",
         keywords: "clipboard identifier",
         run: () =>
@@ -1313,6 +1331,7 @@ function App() {
     {
       id: "new-agent",
       group: "Actions",
+      page: "Command" as const,
       label: "New agent",
       keys: [["⌘", "N"]],
       keywords: "dispatch start worktree branch pull request PR",
@@ -1321,6 +1340,7 @@ function App() {
     {
       id: "add-project",
       group: "Actions",
+      page: "Command" as const,
       label: "Add project",
       keywords: "clone folder repository",
       run: addProject,
@@ -1330,6 +1350,7 @@ function App() {
           {
             id: "composer",
             group: "Actions",
+            page: "Command" as const,
             label: agent
               ? "Reply to the selected agent"
               : "Focus the message box",
@@ -1344,6 +1365,7 @@ function App() {
           {
             id: "pr",
             group: "Actions",
+            page: "Command" as const,
             label: `Open pull request #${linkPr.number}`,
             keys: [["G"]],
             keywords: "github pr",
@@ -1356,6 +1378,7 @@ function App() {
           {
             id: "repo",
             group: "Actions",
+            page: "Command" as const,
             label: `Open ${project?.name || "the project"} on GitHub`,
             keys: [["G"]],
             keywords: "github repository repo",
@@ -1368,6 +1391,7 @@ function App() {
           {
             id: "linear",
             group: "Actions",
+            page: "Command" as const,
             label: `Open Linear issue ${issueKey}`,
             keys: [["L"]],
             run: () =>
@@ -1384,6 +1408,7 @@ function App() {
           {
             id: "read-all",
             group: "Actions",
+            page: "Command" as const,
             label: "Mark all as read",
             keywords: "unread clear",
             run: () => markRead([...unread]),
@@ -1395,6 +1420,7 @@ function App() {
           {
             id: "archive",
             group: "Actions",
+            page: "Command" as const,
             label: `Archive workspace “${placeText(archivable.name, "workspace")}”…`,
             keywords: "remove delete",
             run: () => openArchive(archivable),
@@ -1406,6 +1432,7 @@ function App() {
           {
             id: "rename-project",
             group: "Actions",
+            page: "Command" as const,
             label: `Rename project “${placeText(project.name, "project")}”…`,
             keywords: "title name",
             run: () => requestRename("project", projectKey(project)),
@@ -1413,6 +1440,7 @@ function App() {
           {
             id: "remove-project",
             group: "Actions",
+            page: "Command" as const,
             label: `Remove project “${placeText(project.name, "project")}”…`,
             keywords: "delete archive unregister",
             run: () => openRemoveProject(project),
@@ -1427,6 +1455,7 @@ function App() {
           {
             id: "rename-workspace",
             group: "Actions",
+            page: "Command" as const,
             label: `Rename workspace “${placeText(workspace.name, "workspace")}”…`,
             keywords: "title name",
             run: () => requestRename("workspace", workspaceKey(workspace)),
@@ -1438,6 +1467,7 @@ function App() {
           {
             id: "retry",
             group: "Actions",
+            page: "Command" as const,
             label: "Retry reaching Paseo",
             keywords: "refresh reconnect",
             run: () => void refresh(),
@@ -1447,6 +1477,7 @@ function App() {
     {
       id: "next",
       group: "Navigate",
+      page: "Command" as const,
       label: "Next agent",
       keys: [["J"]],
       run: () => step(1),
@@ -1454,6 +1485,7 @@ function App() {
     {
       id: "previous",
       group: "Navigate",
+      page: "Command" as const,
       label: "Previous agent",
       keys: [["K"]],
       run: () => step(-1),
@@ -1461,6 +1493,7 @@ function App() {
     {
       id: "next-attention",
       group: "Navigate",
+      page: "Command" as const,
       label: "Next agent that needs you",
       keys: [["N"]],
       keywords: "attention approval question",
@@ -1471,6 +1504,7 @@ function App() {
           {
             id: "back",
             group: "Navigate",
+            page: "Command" as const,
             label: selection.subagent
               ? "Back to the parent agent"
               : "Close the open item",
@@ -1490,6 +1524,7 @@ function App() {
           {
             id: "fit",
             group: "Navigate",
+            page: "Command" as const,
             label: "Fit the whole map",
             keys: [["F"]],
             keywords: "zoom home world",
@@ -1500,6 +1535,7 @@ function App() {
     ...(["Agents", "Workspaces", "Projects", "Hosts"] as const).map((t) => ({
       id: `tab-${t}`,
       group: "Lists",
+      page: "Command" as const,
       label: `Show ${t.toLowerCase()}`,
       keywords: "tab list",
       run: () => showList(t),
@@ -1519,6 +1555,7 @@ function App() {
     ).map(([f, label, keywords]) => ({
       id: `filter-${f}`,
       group: "Lists",
+      page: "Command" as const,
       label,
       keywords: `filter ${keywords}`,
       run: () => showList("Agents", f),
@@ -1528,6 +1565,7 @@ function App() {
           {
             id: "all-hosts",
             group: "Lists",
+            page: "Command" as const,
             label: "Show every host",
             keywords: "filter clear",
             run: () => setHostFilter(null),
@@ -1537,6 +1575,7 @@ function App() {
     {
       id: "panel",
       group: "App",
+      page: "App" as const,
       label: "Show or hide the panel",
       keys: [["⌘", "B"]],
       keywords: "sidebar collapse react conquer",
@@ -1547,6 +1586,7 @@ function App() {
           {
             id: "terminal",
             group: "App",
+            page: "Terminal" as const,
             label: "Show or hide the terminal",
             keys: [["⌃", "`"]],
             keywords: "shell console",
@@ -1619,6 +1659,11 @@ function App() {
           ).map(([action, label, keywords, keys]) => ({
             id: action,
             group: "App",
+            page: action.startsWith("terminal")
+              ? ("Terminal" as const)
+              : action === "mode-next"
+                ? ("App" as const)
+                : ("Conquer" as const),
             label,
             keys: keys && [[...keys]],
             keywords,
@@ -1629,6 +1674,7 @@ function App() {
                 {
                   id: "conquer-reload",
                   group: "App",
+                  page: "Conquer" as const,
                   label: "Reload Conquer page",
                   keys: [["⌘", "R"]],
                   keywords: "browser web refresh reload page",
@@ -1637,6 +1683,7 @@ function App() {
                 {
                   id: "conquer-reload-without-cache",
                   group: "App",
+                  page: "Conquer" as const,
                   label: "Reload Conquer page without cache",
                   keys: [["⇧", "⌘", "R"]],
                   keywords: "browser web refresh reload page hard bypass cache origin",
@@ -1650,6 +1697,7 @@ function App() {
                   {
                     id: "linear-show",
                     group: "App",
+                    page: "Linear" as const,
                     label: "Show your Linear issues",
                     keys: tabKeys("linear"),
                     keywords: "linear issues tickets assigned tasks mode tab",
@@ -1660,6 +1708,7 @@ function App() {
                   {
                     id: "linear-sidebar",
                     group: "App",
+                    page: "Linear" as const,
                     label: "Show or hide the Linear sidebar",
                     keys: [["⌘", "S"]],
                     keywords: "linear sidebar list navigation collapse panel",
@@ -1668,6 +1717,7 @@ function App() {
                   {
                     id: "linear-refresh",
                     group: "App",
+                    page: "Linear" as const,
                     label: "Refresh Linear issues",
                     keywords: "linear issues projects reload update sync",
                     run: () => runAppCommand("linear-refresh"),
@@ -1679,6 +1729,7 @@ function App() {
                 {
                   id: "command-show",
                   group: "App",
+                  page: "Command" as const,
                   label: "Show the map",
                   keys: tabKeys("command"),
                   keywords: "command atlas world mode tab",
@@ -1689,6 +1740,7 @@ function App() {
           {
             id: "restart",
             group: "App",
+            page: "App" as const,
             label: "Restart app",
             keywords: "reload update refresh latest build",
             run: () => postAppMenu("reload"),
@@ -1699,6 +1751,7 @@ function App() {
                 {
                   id: "check-updates",
                   group: "App",
+                  page: "App" as const,
                   label: "Check for updates",
                   keywords: "update version upgrade latest release sparkle",
                   run: () => postAppMenu("check-updates"),
@@ -1726,6 +1779,7 @@ function App() {
         ).map(([command, label, keywords, keys]) => ({
           id: command,
           group: "App",
+          page: "Linear" as const,
           label,
           keys: [[...keys]],
           keywords,
@@ -1753,6 +1807,7 @@ function App() {
         ).map(([command, label, keywords]) => ({
           id: command,
           group: "App",
+          page: "Linear" as const,
           label,
           keywords,
           run: () => runAppCommand(command),
@@ -1764,6 +1819,7 @@ function App() {
           {
             id: "github-create-token",
             group: "App",
+            page: "Settings" as const,
             label: "Create a classic GitHub token (opens GitHub with its scopes ticked)",
             keywords: "github token pat personal access classic create setup scopes key",
             run: createGithubToken,
@@ -1775,6 +1831,7 @@ function App() {
           {
             id: "slack-create-app",
             group: "App",
+            page: "Settings" as const,
             label: "Create the Slack app (opens Slack with its manifest)",
             keywords: "slack app manifest create setup token scopes install",
             run: createSlackApp,
@@ -1782,6 +1839,7 @@ function App() {
           {
             id: "slack-copy-manifest",
             group: "App",
+            page: "Settings" as const,
             label: "Copy the Slack app manifest",
             keywords: "slack app manifest copy setup scopes json",
             run: () =>
@@ -1797,6 +1855,7 @@ function App() {
           {
             id: "slack-show",
             group: "App",
+            page: "Slack" as const,
             label: "Show Slack",
             keys: tabKeys("slack"),
             keywords: "slack messages channels chat dm conversations mode tab",
@@ -1834,6 +1893,7 @@ function App() {
           ).map(([command, label, keywords, keys]) => ({
             id: command,
             group: "App",
+            page: "Linear" as const,
             label,
             ...(keys ? { keys: [[...keys]] } : {}),
             keywords,
@@ -1851,6 +1911,7 @@ function App() {
                 .map((x) => ({
                   id: `slack-move-to-section:${x.id}`,
                   group: "App",
+                  page: "Slack" as const,
                   label: `Move ${name} to the ${x.name} section`,
                   keywords,
                   run: () => runAppCommand("slack-move-to-section", x.id),
@@ -1858,6 +1919,7 @@ function App() {
               {
                 id: "slack-move-to-section:new",
                 group: "App",
+                page: "Slack" as const,
                 label: `Move ${name} to a new section…`,
                 keywords: `${keywords} new create`,
                 run: () => runAppCommand("slack-move-to-section", "new"),
@@ -1867,6 +1929,7 @@ function App() {
                     {
                       id: "slack-move-to-section:none",
                       group: "App",
+                      page: "Slack" as const,
                       label: `Remove ${name} from the ${current.name} section`,
                       keywords: `${keywords} remove out back channels`,
                       run: () => runAppCommand("slack-move-to-section", null),
@@ -1878,6 +1941,7 @@ function App() {
           ...slackView.conversations.map((c) => ({
             id: `slack-go:${c.id}`,
             group: "Navigate",
+            page: "Slack" as const,
             label: `Go to ${c.kind === "channel" || c.kind === "private" ? `#${c.name}` : c.name} in Slack`,
             keywords: `slack conversation channel dm ${c.kind} ${c.unread ? "unread" : ""}`,
             run: () => runAppCommand("slack-go", c.id),
@@ -1889,6 +1953,7 @@ function App() {
           {
             id: "github-show",
             group: "App",
+            page: "GitHub" as const,
             label: "Show GitHub (pull requests and workspace changes)",
             keys: tabKeys("github"),
             keywords: "github pull requests prs review diff changes code mode tab",
@@ -1901,6 +1966,7 @@ function App() {
           {
             id: "github-workspace-changes",
             group: "Actions",
+            page: "GitHub" as const,
             label: `Show ${githubWorkspace.name}’s changes against main`,
             keywords: "github diff changes branch main compare git files review workspace",
             run: showWorkspaceChanges,
@@ -1915,6 +1981,7 @@ function App() {
             {
               id: "github-workspace-pr",
               group: "Actions",
+              page: "GitHub" as const,
               label: `Review ${githubWorkspace!.name}’s pull request #${pr.number}`,
               keywords: "github pull request pr review diff files approve workspace",
               run: () => {
@@ -1931,6 +1998,7 @@ function App() {
       return matches.map((m) => ({
         id: `github-open-paseo:${m.workspace.host ?? ""}:${m.workspace.workspaceId}`,
         group: "Actions",
+        page: "GitHub" as const,
         label: matches.length > 1 ? `Open the Paseo agent for this pull request in ${m.label}` : "Open the Paseo agent for this pull request",
         keywords: `github pull request pr paseo agent workspace branch map command open ${m.agent?.name ?? ""} ${m.workspace.name}`,
         run: () => openPaseo(m),
@@ -1943,6 +2011,7 @@ function App() {
           const command = (id: AppCommand, label: string, keywords: string, keys?: string[], arg?: unknown, group = "App") => ({
             id: arg === undefined ? id : `${id}:${typeof arg === "object" ? JSON.stringify(arg) : String(arg)}`,
             group,
+            page: "GitHub" as const,
             label,
             ...(keys ? { keys: [keys] } : {}),
             keywords: `github ${keywords}`,
@@ -2080,6 +2149,7 @@ function App() {
           {
             id: "activity-show",
             group: "App",
+            page: "Activity" as const,
             label: "Show Activity (GitHub, Linear and Slack notifications)",
             keys: tabKeys("activity"),
             keywords: "activity notifications inbox feed github linear slack mentions reviews mode tab",
@@ -2092,6 +2162,7 @@ function App() {
           {
             id: "activity-refresh",
             group: "App",
+            page: "Activity" as const,
             label: "Refresh activity",
             keywords: "activity notifications reload update sync",
             run: () => runAppCommand("activity-refresh"),
@@ -2101,6 +2172,7 @@ function App() {
             .map((filter) => ({
               id: `activity-filter:${filter}`,
               group: "App",
+              page: "Activity" as const,
               label: filter === "all" ? "Show all activity" : `Show only ${SOURCE_LABEL[filter]} activity`,
               keywords: `activity filter source ${filter} notifications`,
               run: () => runAppCommand("activity-filter", filter),
@@ -2110,6 +2182,7 @@ function App() {
                 {
                   id: "activity-unread-only",
                   group: "App",
+                  page: "Activity" as const,
                   label: "Show only unread activity",
                   keywords: "activity filter unread new notifications",
                   run: () => runAppCommand("activity-unread-only"),
@@ -2121,6 +2194,7 @@ function App() {
                 {
                   id: "activity-open",
                   group: "App",
+                  page: "Activity" as const,
                   label: "Open the notification",
                   keys: [["Enter"]],
                   keywords: "activity notification open go view",
@@ -2130,6 +2204,7 @@ function App() {
                   ? {
                       id: "activity-read",
                       group: "App",
+                      page: "Activity" as const,
                       label: "Mark the notification read",
                       keys: [["U"]],
                       keywords: "activity notification read seen",
@@ -2140,6 +2215,7 @@ function App() {
                   ? {
                       id: "activity-unread",
                       group: "App",
+                      page: "Activity" as const,
                       label: "Mark the notification unread",
                       keys: [["U"]],
                       keywords: "activity notification unread new",
@@ -2149,6 +2225,7 @@ function App() {
                 {
                   id: "activity-done",
                   group: "App",
+                  page: "Activity" as const,
                   label: "Mark the notification done",
                   keys: [["E"]],
                   keywords: "activity notification done archive dismiss remove",
@@ -2161,6 +2238,7 @@ function App() {
                 {
                   id: "activity-read-all",
                   group: "App",
+                  page: "Activity" as const,
                   label: "Mark all shown activity read",
                   keys: [["⇧", "U"]],
                   keywords: "activity notifications read all clear unread",
@@ -2173,6 +2251,7 @@ function App() {
                 {
                   id: "activity-done-all",
                   group: "App",
+                  page: "Activity" as const,
                   label: "Mark all shown activity done",
                   keys: [["⇧", "E"]],
                   keywords: "activity notifications done all clear archive dismiss remove",
@@ -2187,6 +2266,7 @@ function App() {
           {
             id: "linear-inbox-read-all",
             group: "App",
+            page: "Linear" as const,
             label: "Mark all Linear notifications read",
             keywords: "linear inbox notifications read all clear unread",
             run: () => runAppCommand("linear-inbox-read-all"),
@@ -2199,6 +2279,7 @@ function App() {
           {
             id: "linear-back",
             group: "App",
+            page: "Linear" as const,
             label: "Go back (Linear)",
             keys: [["⌘", "["]],
             keywords: "linear back previous history return",
@@ -2211,6 +2292,7 @@ function App() {
           {
             id: "linear-forward",
             group: "App",
+            page: "Linear" as const,
             label: "Go forward (Linear)",
             keys: [["⌘", "]"]],
             keywords: "linear forward next history",
@@ -2223,6 +2305,7 @@ function App() {
           {
             id: "linear-save-view",
             group: "App",
+            page: "Linear" as const,
             label: "Save the Linear list as a view…",
             keywords: "linear view save custom saved filters display new create bookmark",
             run: () => runAppCommand("linear-save-view"),
@@ -2234,6 +2317,7 @@ function App() {
           {
             id: "linear-edit-view",
             group: "App",
+            page: "Linear" as const,
             label: `Edit the Linear view ${linearView.shownView.name}…`,
             keywords: "linear view edit rename icon colour color description share sharing team workspace filters display update save",
             run: () => runAppCommand("linear-edit-view"),
@@ -2241,6 +2325,7 @@ function App() {
           {
             id: "linear-delete-view",
             group: "App",
+            page: "Linear" as const,
             label: `Delete the Linear view ${linearView.shownView.name}…`,
             keywords: "linear view delete remove trash custom saved",
             run: () => runAppCommand("linear-delete-view"),
@@ -2252,6 +2337,7 @@ function App() {
           {
             id: "linear-undo-archive",
             group: "App",
+            page: "Linear" as const,
             label: `Undo archiving ${linearView.undoKey}`,
             keywords: "linear issue unarchive restore archive undo back",
             run: () => runAppCommand("linear-undo-archive"),
@@ -2263,6 +2349,7 @@ function App() {
           {
             id: "linear-search",
             group: "App",
+            page: "Linear" as const,
             label: "Search the Linear list",
             keys: [["/"]],
             keywords: "linear issues filter find search list",
@@ -2271,6 +2358,7 @@ function App() {
           {
             id: "linear-filter",
             group: "App",
+            page: "Linear" as const,
             label: "Filter the Linear list",
             keys: [["F"]],
             keywords: "linear issues filter status assignee priority labels project cycle narrow",
@@ -2279,6 +2367,7 @@ function App() {
           {
             id: "linear-display",
             group: "App",
+            page: "Linear" as const,
             label: "Linear display options",
             keywords: "linear issues display view group grouping sub-grouping order ordering sort completed board list",
             run: () => runAppCommand("linear-display"),
@@ -2287,6 +2376,7 @@ function App() {
             ? {
                 id: "linear-layout-list",
                 group: "App",
+                page: "Linear" as const,
                 label: "Show the Linear issues as a list",
                 keywords: "linear issues layout list rows display",
                 run: () => runAppCommand("linear-layout", "list"),
@@ -2294,6 +2384,7 @@ function App() {
             : {
                 id: "linear-layout-board",
                 group: "App",
+                page: "Linear" as const,
                 label: "Show the Linear issues as a board",
                 keywords: "linear issues layout board kanban columns display",
                 run: () => runAppCommand("linear-layout", "board"),
@@ -2310,6 +2401,7 @@ function App() {
                 .map((g) => ({
                   id: `linear-sub-group-${g}`,
                   group: "App",
+                  page: "Linear" as const,
                   label: `Sub-group the Linear list by ${GROUPING_LABEL[g].toLowerCase()}`,
                   keywords: `linear issues display sub-grouping subgroup sub-group group swimlanes rows ${g}`,
                   run: () => runAppCommand("linear-sub-group", g),
@@ -2320,6 +2412,7 @@ function App() {
                 {
                   id: "linear-sub-group-none",
                   group: "App",
+                  page: "Linear" as const,
                   label: "Clear the Linear list's sub-grouping",
                   keywords: "linear issues display sub-grouping subgroup sub-group remove none swimlanes",
                   run: () => runAppCommand("linear-sub-group", "none"),
@@ -2327,6 +2420,7 @@ function App() {
                 {
                   id: "linear-swap-groupings",
                   group: "App",
+                  page: "Linear" as const,
                   label: "Swap the Linear list's grouping and sub-grouping",
                   keywords: "linear issues display grouping sub-grouping subgroup swap exchange flip switch",
                   run: () => runAppCommand("linear-swap-groupings"),
@@ -2338,6 +2432,7 @@ function App() {
                 {
                   id: "linear-clear-filters",
                   group: "App",
+                  page: "Linear" as const,
                   label: "Clear the Linear list's filters",
                   keywords: "linear issues filters remove reset clear all",
                   run: () => runAppCommand("linear-clear-filters"),
@@ -2413,6 +2508,7 @@ function App() {
         ).map(([place, label, keywords, searchOnly]) => ({
           id: `linear-go:${JSON.stringify(place)}`,
           group: "App",
+          page: "Linear" as const,
           label,
           keywords,
           searchOnly: searchOnly || undefined,
@@ -2424,6 +2520,7 @@ function App() {
           {
             id: "linear-find",
             group: "App",
+            page: "Linear" as const,
             label: "Search all Linear issues",
             keywords: "linear search find issues workspace everywhere all teams",
             run: () => runAppCommand("linear-find"),
@@ -2431,6 +2528,7 @@ function App() {
           {
             id: "linear-create",
             group: "App",
+            page: "Linear" as const,
             label: "Create Linear issue",
             keys: [["C"]],
             keywords: "linear new issue ticket task bug add write",
@@ -2473,6 +2571,7 @@ function App() {
         ).map(([command, label, keywords, keys]) => ({
           id: command,
           group: "App",
+          page: "Linear" as const,
           label,
           keys: keys ? [[...keys]] : undefined,
           keywords,
@@ -2482,6 +2581,7 @@ function App() {
     {
       id: "sounds",
       group: "App",
+      page: "Settings" as const,
       label: sounds.enabled ? "Turn sounds off" : "Turn sounds on",
       keywords: "audio mute volume",
       run: () => setSoundSettings({ enabled: !sounds.enabled }),
@@ -2492,6 +2592,7 @@ function App() {
           {
             id: "notifications",
             group: "App",
+            page: "Settings" as const,
             label:
               attention.notifications === "granted"
                 ? "Turn desktop notifications off"
@@ -2511,6 +2612,7 @@ function App() {
         ).map(([id, label, keys, words]) => ({
           id,
           group: "App",
+          page: "App" as const,
           label,
           keys: [[...keys]],
           keywords: `${words} linear slack activity settings page`,
@@ -2523,6 +2625,7 @@ function App() {
           {
             id: "settings",
             group: "App",
+            page: "Settings" as const,
             label: "Settings",
             keys: macApp() ? [["⌘", ","], modeKey(integrations, "settings")] : undefined,
             keywords:
@@ -2535,6 +2638,7 @@ function App() {
             {
               id: "settings",
               group: "App",
+              page: "Settings" as const,
               label: "Close settings",
               keys: [["Esc"]],
               keywords: "preferences integrations back",
@@ -2553,6 +2657,7 @@ function App() {
         ).map(([name, label]) => ({
           id: `integration-${name}`,
           group: "App",
+          page: "Settings" as const,
           label: `${integrations[name] ? "Disable" : "Enable"} ${label}`,
           keywords: `settings optional integrations ${name} ${name === "typesafe" ? "questions reply suggestions" : ""}`,
           run: () => {
@@ -2566,6 +2671,7 @@ function App() {
       .map(([name, label, what]) => ({
         id: `manage-${name}-key`,
         group: "App",
+        page: "Settings" as const,
         label: `Manage ${label} ${what}…`,
         keywords: `settings ${name} secrets credentials api key token save replace remove`,
         run: () => openSettings(name),
@@ -2573,6 +2679,7 @@ function App() {
     {
       id: "presets",
       group: "App",
+      page: "Settings" as const,
       label: "Edit preset prompts…",
       keywords: "presets templates settings",
       run: openPresetEditor,
@@ -2580,6 +2687,7 @@ function App() {
     {
       id: "profiles",
       group: "App",
+      page: "Settings" as const,
       label: "Edit agent profiles…",
       keywords: "profiles paseo provider model thinking mode new agent settings",
       run: () => openProfileEditor(),
@@ -2587,6 +2695,7 @@ function App() {
     {
       id: "radio",
       group: "App",
+      page: "Settings" as const,
       label: radio.enabled ? "Turn the lofi radio off" : "Turn the lofi radio on",
       keywords: "music stream audio",
       run: () => setMusicSettings({ enabled: !radio.enabled }),
@@ -2594,6 +2703,7 @@ function App() {
     {
       id: "games",
       group: "App",
+      page: "App" as const,
       label: "Open the mini games",
       keys: [["B"]],
       keywords: "play game break",
@@ -2604,6 +2714,7 @@ function App() {
           {
             id: "releases",
             group: "App",
+            page: "App" as const,
             label: "What's new",
             keywords: "release notes version update changelog",
             run: () => runAppCommand("show-releases"),
@@ -2613,6 +2724,7 @@ function App() {
     {
       id: "shortcuts",
       group: "App",
+      page: "App" as const,
       label: "Keyboard shortcuts",
       keys: [["?"]],
       keywords: "keys help",
@@ -2623,6 +2735,8 @@ function App() {
       return {
         id: `agent:${a.id}`,
         group: "Agents",
+        page: "Command" as const,
+        kind: "Agent",
         label: agentName(a, ws?.branch),
         detail: [ws?.project, placeText(ws?.name, "")]
           .filter(Boolean)
@@ -2634,6 +2748,8 @@ function App() {
     ...listedWorkspaces.map((w) => ({
       id: `workspace:${workspaceKey(w)}`,
       group: "Workspaces",
+      page: "Command" as const,
+      kind: "Workspace",
       label: placeText(w.name, "Workspace"),
       detail: [w.project, w.branch !== w.name ? w.branch : ""]
         .filter(Boolean)
@@ -2644,6 +2760,8 @@ function App() {
     ...projects.map((p) => ({
       id: `project:${projectKey(p)}`,
       group: "Projects",
+      page: "Command" as const,
+      kind: "Project",
       label: placeText(p.name, "Project"),
       searchOnly: true,
       run: () => choose({ type: "project", id: projectKey(p) }),
@@ -2652,6 +2770,8 @@ function App() {
       ? hosts.map((h) => ({
           id: `host:${h.serverId}`,
           group: "Hosts",
+          page: "Command" as const,
+          kind: "Host",
           label: h.label || (h.local ? "This computer" : "Host"),
           detail: h.local ? "local" : undefined,
           keywords: "host filter",
@@ -3070,6 +3190,7 @@ function App() {
         <ProfilesEditorHost hosts={hosts} providers={providers} />
         <CommandPalette
           commands={paletteCommands}
+          shown={settingsShown ? "Settings" : MODE_PAGES[appMode]}
           blocked={confirming}
         />
         <TooltipLayer />

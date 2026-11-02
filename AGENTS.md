@@ -45,8 +45,13 @@ The Atlas uses generated painted sprites; it is not yet finished reference-quali
 
 The command palette (⌘K, `web/src/CommandPalette.tsx`) lists what the app can do. Its entries are
 `paletteCommands` in `web/src/main.tsx` (the open agent's own in `agentCommands`), ranked by `web/src/palette.ts`.
+Every entry has a `page`, the part of Paseo Command it belongs to (`PAGES`): Command (the map, agents, workspaces,
+projects, hosts, dispatch), Conquer, Activity, Linear, Slack, GitHub, Settings (its toggles and editors too), Terminal,
+else App (the window, updates, text size, ⌘` stepping, what's new, games). A "Show …" entry for a tab names that tab's page.
+The palette shows it on the row's right before any keys; found things add their `kind` ("Command · Agent"). Among equal
+matches the page on screen (`shown`) ranks first. Write it `page: "Linear" as const` (spreads widen strings).
 Whenever you add, rename, remove or change a user-facing action (a button, a key, a menu item, a native
-View or Conquer menu command), update its palette entry in the same change: label, `keys`, `keywords`, and the
+View or Conquer menu command), update its palette entry in the same change: label, `page`, `keys`, `keywords`, and the
 condition it shows under (only when it would work). Actions owned by a component reach it through
 `runAppCommand`/`onAppCommand` (`web/src/appCommands.ts`); native menu items go through
 `postNative({ type: "menu", action })`, handled in `WorldWindow.swift`'s `"menu"` case. Keep the keyboard

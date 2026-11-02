@@ -14,6 +14,7 @@ import {
   newContext,
   startApp,
 } from "./harness";
+import { PAGES } from "../src/palette";
 
 let app: Awaited<ReturnType<typeof startApp>>;
 let browser: Browser;
@@ -206,5 +207,73 @@ test("in the macOS app, the terminal's menu commands are listed and reach the ap
       (m) => m.type === "menu" && m.action === "terminal-maximize",
     ),
   );
+  await context.close();
+});
+
+test("every entry names its page, then its keys", async () => {
+  const context = await newContext(browser);
+  const page = await context.newPage();
+  // In the macOS app, with an agent open: the most entries the mocks offer.
+  await page.addInitScript(`
+    window.webkit = { messageHandlers: { paseoWorld: { postMessage: () => {} } } };
+  `);
+  await mockApi(page, {
+    agents: () => [agentRow(AGENT, "idle", "Fix the header")],
+    detail: (id) => detailOf(id, "idle", { Name: "Fix the header" }),
+  });
+  await page.goto(`${app.url}?agent=${AGENT}`);
+  await page.locator(".fleet-sidebar").waitFor({ state: "attached" });
+  const palette = page.getByRole("dialog", { name: "Command palette" });
+  const search = palette.getByRole("combobox", { name: "Search commands" });
+  await page.keyboard.press("Meta+k");
+  await palette.waitFor();
+  await palette.getByRole("option", { name: /Keyboard shortcuts/ }).waitFor();
+  // Every row, unsearched and as each letter finds them (the found agents,
+  // workspaces and projects too), shows one of the app's pages.
+  const seen = new Set<string>();
+  for (const query of ["", ..."abcdefghijklmnopqrstuvwxyz"]) {
+    await search.fill(query);
+    const rows = await palette.getByRole("option").evaluateAll((options) =>
+      options.map((o) => ({
+        label: o.querySelector(".palette-label")?.textContent ?? "",
+        page: o.querySelector(".palette-page")?.textContent ?? "",
+      })),
+    );
+    for (const row of rows) {
+      const name = row.page.split(" · ")[0];
+      assert.ok(
+        (PAGES as readonly string[]).includes(name),
+        `“${row.label}” names no page (${JSON.stringify(row.page)})`,
+      );
+      seen.add(name);
+    }
+  }
+  for (const name of ["Command", "Conquer", "Settings", "Terminal", "App"])
+    assert.ok(seen.has(name), name);
+  // The page comes first, then the keys.
+  await search.fill("show or hide the terminal");
+  const terminal = palette.getByRole("option", { name: /Show or hide the terminal/ });
+  assert.deepEqual(
+    await terminal.evaluate((o) =>
+      [...o.querySelectorAll(".palette-meta > *")].map((e) => e.className),
+    ),
+    ["palette-page", "palette-keys"],
+  );
+  assert.equal(await terminal.locator(".palette-page").innerText(), "Terminal");
+  // A found thing keeps its kind after its page.
+  await search.fill("fix the header");
+  assert.equal(
+    await palette
+      .getByRole("option", { name: /Fix the header/ })
+      .first()
+      .locator(".palette-page")
+      .innerText(),
+    "Command · Agent",
+  );
+  if (process.env.SHOT) {
+    await search.fill("th");
+    await page.waitForTimeout(300);
+    await page.screenshot({ path: process.env.SHOT });
+  }
   await context.close();
 });
