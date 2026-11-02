@@ -169,6 +169,7 @@ const GITHUB: Group = {
     { keys: [["S"]], label: "Star or unstar the repository as a favourite" },
     { keys: [["M"]], label: "A workspace's changes: all, committed or uncommitted" },
     { keys: [["⌘", "↩"]], label: "Send the comment or review being written" },
+    { keys: [["⌘", "S"]], label: "Show or hide the sidebar" },
   ],
 };
 /** Conquer's own keys (the macOS app's browser), which it takes ahead of its pages

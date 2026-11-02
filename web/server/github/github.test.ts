@@ -12,8 +12,8 @@ import { SEARCH_BUDGET } from "./client";
 import { FAKE_GITHUB_TOKEN } from "../githubFake";
 import { NO_KEY, OFF, REFUSED, SCOPES } from "../githubApi";
 import { FAKE_DIFF, fakePr, fakeRepo, installFakeGithub, SHA, type FakeGithub } from "./fake";
-import { avatarOf, checkOf, filesFromPatches, reviewersOf, rowOf, SCOPE_QUERY } from "./reads";
-import { filterQuery } from "../../src/github/filters";
+import { avatarOf, checkOf, filesFromPatches, repoSearchQuery, reviewersOf, rowOf, SCOPE_QUERY, searchText } from "./reads";
+import { checkFilters, filterQueries } from "../../src/github/filters";
 import { githubRoute } from "./route";
 import { checkWrite } from "./writes";
 
@@ -314,18 +314,130 @@ test("starring is checked, and never overwrites an unreadable settings file", as
 });
 
 test("a repository's PRs are asked of GitHub's search with its filters", async () => {
-  const q = filterQuery("owen/app", { state: "merged", author: "me", review: "approved", draft: "ready", checks: "failing" });
-  assert.equal(q, "is:pr repo:owen/app is:merged author:@me review:approved draft:false status:failure sort:updated-desc");
-  fake.search[q] = [fakePr({ number: 4, state: "MERGED" }), fakePr({ number: 5, repo: "owen/other" })];
-  const r = await ask("/api/github/q/prs?repo=owen/app&state=merged&author=me&review=approved&draft=ready&checks=failing");
+  const [q] = filterQueries("owen/app", { state: "merged", author: ["@me"], review: "approved", draft: "ready", checks: "failing" });
+  assert.equal(q, "is:pr repo:owen/app is:merged review:approved draft:false status:failure author:@me sort:updated-desc");
+  fake.search[q!] = [fakePr({ number: 4, state: "MERGED" }), fakePr({ number: 5, repo: "owen/other" })];
+  const r = await ask("/api/github/q/prs?repo=owen/app&state=merged&author=@me&review=approved&draft=ready&checks=failing");
   assert.equal(r.status, 200, JSON.stringify(r.body));
   assert.equal(r.body.repo, "owen/app");
   assert.deepEqual(r.body.rows.map((x: { number: number; state: string }) => [x.number, x.state]), [[4, "merged"]]);
   // Open by default.
-  fake.search[filterQuery("owen/app", { state: "open" })] = [fakePr({ number: 6 })];
+  fake.search[filterQueries("owen/app", { state: "open" })[0]!] = [fakePr({ number: 6 })];
   assert.deepEqual((await ask("/api/github/q/prs?repo=owen/app")).body.rows.map((x: { number: number }) => x.number), [6]);
-  for (const bad of ["repo=owen/app&state=all", "repo=owen/app&scope=review", "repo=nope", "repo=owen/app&author=you", "repo=owen/app&checks=1&checks=2"])
+  for (const bad of [
+    "repo=owen/app&state=all",
+    "repo=owen/app&scope=review",
+    "repo=nope",
+    "repo=owen/app&author=@you",
+    "repo=owen/app&author=a b",
+    "repo=owen/app&author=a,b,c,d,e,f,g",
+    "repo=owen/app&author=a,b,c,d&reviewer=x",
+    "repo=owen/app&checks=1&checks=2",
+  ])
     assert.equal((await ask(`/api/github/q/prs?${bad}`)).status, 400, bad);
+});
+
+test("people filters: any of several, a search for each, in one request and merged", async () => {
+  const f = checkFilters({ author: ["ada", "@me"], reviewer: ["bob"], assignee: ["dependabot[bot]"] });
+  const queries = filterQueries("owen/app", f);
+  assert.deepEqual(queries, [
+    "is:pr repo:owen/app is:open author:@me review-requested:bob assignee:app/dependabot sort:updated-desc",
+    "is:pr repo:owen/app is:open author:@me reviewed-by:bob assignee:app/dependabot sort:updated-desc",
+    "is:pr repo:owen/app is:open author:ada review-requested:bob assignee:app/dependabot sort:updated-desc",
+    "is:pr repo:owen/app is:open author:ada reviewed-by:bob assignee:app/dependabot sort:updated-desc",
+  ]);
+  const ada = filterQueries("owen/app", { state: "open", author: ["ada", "bob"] });
+  fake.search[ada[0]!] = [fakePr({ number: 1 }), fakePr({ number: 2, updatedAt: "2026-10-31T00:00:00Z" })];
+  fake.search[ada[1]!] = [fakePr({ number: 2, updatedAt: "2026-10-31T00:00:00Z" }), fakePr({ number: 3 })];
+  const r = await ask("/api/github/q/prs?repo=owen/app&author=bob,ada");
+  assert.equal(r.status, 200, JSON.stringify(r.body));
+  assert.deepEqual(r.body.rows.map((x: { number: number }) => x.number), [2, 3, 1]);
+  assert.equal(r.body.total, 3);
+  // One request, two searches, both taken from the minute's budget.
+  const asked = fake.calls.filter((c) => c.path === "graphql");
+  assert.equal(asked.length, 1);
+  assert.deepEqual((asked[0]!.body as { variables: unknown }).variables, { q0: ada[0], q1: ada[1] });
+  // Found more than it answered: their counts added.
+  fake.counts[ada[0]!] = 120;
+  assert.equal((await ask("/api/github/q/prs?repo=owen/app&author=ada,bob&fresh=1")).body.total, 122);
+});
+
+test("filters kept from before: the old author filter becomes you, unknown and surplus people go", () => {
+  assert.deepEqual(checkFilters({ state: "open", author: "me" }), { state: "open", author: ["@me"] });
+  assert.deepEqual(checkFilters({ author: ["ada", "ADA", "a b", 3], reviewer: [] }), { state: "open", author: ["ada"] });
+  // Past six searches, the last filter with people loses some.
+  assert.deepEqual(checkFilters({ author: ["a", "b", "c"], reviewer: ["x", "y"] }), { state: "open", author: ["a", "b", "c"], reviewer: ["x"] });
+});
+
+test("finding a repository: those known first, then GitHub's search, and the account typed", async () => {
+  fake.viewerRepos = [fakeRepo("owen/app", 2), fakeRepo("owen/apple-tools", 0), fakeRepo("owen/quiet", 0)];
+  fake.search[SCOPE_QUERY.involved] = [fakePr({ number: 3, repo: "far/applet" })];
+  fake.repos.set("far/applet", fakeRepo("far/applet", 1));
+  const sq = repoSearchQuery({ name: "app" });
+  assert.equal(sq.variables.q, "app in:name fork:true");
+  fake.repoSearch[sq.variables.q!] = [fakeRepo("world/app", 9), fakeRepo("owen/app", 2), fakeRepo("old/app", 1, { isArchived: true })];
+  const r = await ask("/api/github/q/repoSearch?q=app");
+  assert.equal(r.status, 200, JSON.stringify(r.body));
+  // Involved first, then yours as pushed, then GitHub's (once each, not archived ones).
+  assert.deepEqual(r.body.repos.map((x: { repo: string }) => x.repo), ["far/applet", "owen/app", "owen/apple-tools", "world/app"]);
+  assert.equal(r.body.owner, undefined);
+  // Kept a minute.
+  const before = fake.calls.length;
+  await ask("/api/github/q/repoSearch?q=APP");
+  assert.equal(fake.calls.length, before);
+
+  // An owner, and owner/name (from a github.com address too): within that owner, the exact one first.
+  fake.owners.set("acme", [fakeRepo("acme/web", 1)]);
+  fake.repos.set("acme/api", fakeRepo("acme/api", 4));
+  const oq = repoSearchQuery({ owner: "acme", name: "api" });
+  assert.deepEqual(oq.variables, { q: "api in:name user:acme fork:true", login: "acme", name: "api" });
+  fake.repoSearch[oq.variables.q!] = [fakeRepo("acme/api-docs", 0), fakeRepo("acme/api", 4)];
+  const o = await ask(`/api/github/q/repoSearch?q=${encodeURIComponent("https://github.com/acme/api")}`);
+  assert.deepEqual(o.body.repos.map((x: { repo: string }) => x.repo), ["acme/api", "acme/api-docs"]);
+  assert.deepEqual(o.body.owner, { login: "acme", starred: false });
+  const byOwner = await ask("/api/github/q/repoSearch?q=acme");
+  assert.deepEqual(byOwner.body.owner, { login: "acme", starred: false });
+
+  // One character asks only those known; nothing GitHub's search can't take is asked.
+  const n = fake.calls.length;
+  assert.deepEqual((await ask("/api/github/q/repoSearch?q=q")).body.repos.map((x: { repo: string }) => x.repo), ["owen/quiet"]);
+  assert.equal(fake.calls.length, n);
+  assert.deepEqual(searchText("@acme/"), { text: "acme", name: "acme" });
+  assert.equal(searchText("a/b/c"), null);
+  for (const bad of ["", "q=", "q=a%3Ab", "q=x&repo=a/b"]) assert.equal((await ask(`/api/github/q/repoSearch?${bad}`)).status, 400, bad);
+});
+
+test("finding a repository while GitHub's search is spent answers those known, saying so", async () => {
+  const was = SEARCH_BUDGET.perMinute;
+  fake.viewerRepos = [fakeRepo("owen/app", 2)];
+  await ask("/api/github/q/repos");
+  SEARCH_BUDGET.perMinute = 1;
+  try {
+    const r = await ask("/api/github/q/repoSearch?q=app");
+    assert.equal(r.status, 200, JSON.stringify(r.body));
+    assert.deepEqual(r.body.repos.map((x: { repo: string }) => x.repo), ["owen/app"]);
+    assert.match(r.body.note, /busy/);
+  } finally {
+    SEARCH_BUDGET.perMinute = was;
+  }
+});
+
+test("a repository's people: you, recent authors, then its assignable users", async () => {
+  fake.people.set("owen/app", {
+    assignable: [{ login: "zed" }, { login: "me" }, { login: "bob", name: "Bob", avatarUrl: "https://avatars.githubusercontent.com/u/2" }, { login: "ada" }],
+    authors: [{ login: "ada", name: "Ada" }, null as unknown as Record<string, unknown>, { login: "carl" }, { login: "ada" }],
+  });
+  const r = await ask("/api/github/q/people?repo=owen/app");
+  assert.equal(r.status, 200, JSON.stringify(r.body));
+  assert.equal(r.body.viewer.login, "me");
+  assert.deepEqual(r.body.people.map((p: { login: string }) => p.login), ["ada", "carl", "bob", "zed"]);
+  assert.equal(r.body.people[2].avatarUrl, "https://avatars.githubusercontent.com/u/2");
+  // Kept five minutes.
+  const before = fake.calls.length;
+  await ask("/api/github/q/people?repo=owen/app");
+  assert.equal(fake.calls.length, before);
+  assert.equal((await ask("/api/github/q/people?repo=no/where")).body.available, false);
+  assert.equal((await ask("/api/github/q/people?repo=nope")).status, 400);
 });
 
 test("searches keep under GitHub's 30 a minute, answering the last answer meanwhile", async () => {

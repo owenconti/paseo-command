@@ -75,7 +75,7 @@ import type { ActivityViewState } from "./activity/ActivityView";
 import type { GithubViewState, GithubWorkspace } from "./github/GitHubView";
 import { openGithubPlace, prPlaceOf } from "./github/place";
 import { MODE_LABEL as CHANGES_MODE_LABEL, SCOPE_TITLE as PR_SCOPE_TITLE, TAB_LABEL as PR_TAB_LABEL } from "./github/names";
-import { FILTERS as PR_FILTERS, FILTER_FIELDS as PR_FILTER_FIELDS, filtersSet as prFiltersSet } from "./github/filters";
+import { FILTERS as PR_FILTERS, fieldLabel as prFieldLabel, filtersSet as prFiltersSet, ME as PR_ME, PEOPLE_FIELDS as PR_PEOPLE_FIELDS, VALUE_FIELDS as PR_VALUE_FIELDS } from "./github/filters";
 import type { SlackViewState } from "./slack/SlackView";
 import type { SlackContext } from "./slack/prompt";
 import { useActivityUnread } from "./activity/store";
@@ -1919,6 +1919,7 @@ function App() {
           });
           return [
             command("github-refresh", "Refresh GitHub", "reload update sync pull requests"),
+            command("github-sidebar", "Show or hide the GitHub sidebar", "sidebar navigation collapse panel repositories", ["⌘", "S"]),
             ...(["review", "mine", "involved"] as const)
               .filter((scope) => !(place.kind === "prs" && place.scope === scope))
               .map((scope) =>
@@ -1932,7 +1933,7 @@ function App() {
               .map((r) =>
                 command("github-go", `Open ${r.repo}’s pull requests`, `repository repo pull requests list ${r.repo}${r.favourite ? " favourite starred" : ""}`, undefined, { kind: "repo", repo: r.repo }, "Navigate"),
               ),
-            command("github-star-add", "Star a repository or organization…", "favourite star add repository repo organization org owner"),
+            command("github-find-repo", "Find a GitHub repository…", "search find repository repo organization org owner open star favourite"),
             ...(v.repo
               ? [
                   command(
@@ -1955,24 +1956,44 @@ function App() {
               ? (() => {
                   const f = v.filters;
                   return [
-                    command("github-filter", "Filter the repository’s pull requests…", "filter state author review draft ci checks", ["F"]),
+                    command("github-filter", "Filter the repository’s pull requests…", "filter state author reviewer assignee review draft ci checks", ["F"]),
                     command("github-open-browser", "Open the repository’s pull requests on GitHub", "browser conquer web open external repository"),
-                    ...PR_FILTER_FIELDS.flatMap((field) =>
+                    ...PR_VALUE_FIELDS.flatMap((field) =>
                       (Object.entries(PR_FILTERS[field].values) as [string, { text: string }][])
                         .filter(([value]) => f[field] !== value)
                         .map(([value, { text }]) =>
                           command(
                             "github-set-filter",
-                            field === "state" ? `Show ${text.toLowerCase()} pull requests` : field === "author" ? "Show only your pull requests" : `Filter by ${PR_FILTERS[field].label === "CI" ? "CI" : PR_FILTERS[field].label.toLowerCase()}: ${text}`,
+                            field === "state" ? `Show ${text.toLowerCase()} pull requests` : `Filter by ${PR_FILTERS[field].label === "CI" ? "CI" : PR_FILTERS[field].label.toLowerCase()}: ${text}`,
                             `filter ${field} ${value} ${text}`,
                             undefined,
                             { field, value },
                           ),
                         ),
                     ),
-                    ...PR_FILTER_FIELDS.filter((field) => field !== "state" && f[field]).map((field) =>
-                      command("github-set-filter", field === "author" ? "Show everyone’s pull requests" : `Remove the ${PR_FILTERS[field].label === "CI" ? "CI" : PR_FILTERS[field].label.toLowerCase()} filter`, `filter clear remove ${field}`, undefined, { field, value: null }),
+                    ...PR_PEOPLE_FIELDS.map((field) =>
+                      command("github-filter", `Filter by ${prFieldLabel(field).toLowerCase()}…`, `filter people person ${field} who contributors collaborators`, undefined, field),
                     ),
+                    ...(
+                      [
+                        ["author", "Show only your pull requests", "mine yours author"],
+                        ["reviewer", "Show pull requests you review", "review reviewer requested reviewed mine"],
+                        ["assignee", "Show pull requests assigned to you", "assigned assignee mine"],
+                      ] as const
+                    )
+                      .filter(([field]) => !(f[field]?.length === 1 && f[field]![0] === PR_ME))
+                      .map(([field, label, keywords]) => command("github-set-filter", label, `filter ${field} me you ${keywords}`, undefined, { field, value: [PR_ME] })),
+                    ...[...PR_VALUE_FIELDS, ...PR_PEOPLE_FIELDS]
+                      .filter((field) => field !== "state" && (Array.isArray(f[field]) ? f[field]!.length : f[field]))
+                      .map((field) =>
+                        command(
+                          "github-set-filter",
+                          field === "author" ? "Show everyone’s pull requests" : `Remove the ${prFieldLabel(field) === "CI" ? "CI" : prFieldLabel(field).toLowerCase()} filter`,
+                          `filter clear remove ${field}`,
+                          undefined,
+                          { field, value: null },
+                        ),
+                      ),
                     ...(prFiltersSet(f) ? [command("github-set-filter", "Clear the pull request filters", "filter clear reset all", undefined, "clear")] : []),
                   ];
                 })()

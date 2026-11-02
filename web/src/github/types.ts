@@ -131,6 +131,21 @@ export type RepoRow = {
  */
 export type RepoList = { repos: RepoRow[]; stars: GithubStars };
 
+/**
+ * `GET /api/github/q/repoSearch?q=…`: repositories matching a name, `owner/name`
+ * or an owner's login: those you know of (involved, yours, favourites) first,
+ * then GitHub's repository search. `owner` is the account typed, when GitHub has it.
+ * `note` says why GitHub's search wasn't asked (its rate limit), when it wasn't.
+ */
+export type RepoSearch = { query: string; repos: RepoRow[]; owner?: { login: string; starred: boolean }; note?: string };
+
+/**
+ * `GET /api/github/q/people?repo=owner/name`: who a repository's people
+ * filters offer: you first, then recent pull requests' authors, then the
+ * others who can be assigned (its collaborators and members).
+ */
+export type RepoPeople = { repo: string; viewer: Person; people: Person[] };
+
 /** A changed file in the PR, as GitHub lists it, with whether you've marked it viewed. */
 export type PrFile = {
   path: string;

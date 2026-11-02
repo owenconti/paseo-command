@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from "react";
-import { AtSign, ExternalLink, Eye, GitBranch, GitPullRequest, GitPullRequestArrow, RefreshCw, Star, UserRound } from "lucide-react";
+import { AtSign, ExternalLink, Eye, GitBranch, GitPullRequest, GitPullRequestArrow, PanelLeftOpen, RefreshCw, Star, UserRound } from "lucide-react";
 import { readStore, removeStore, writeStore } from "../api";
 import { onAppCommand } from "../appCommands";
 import { modalOpen } from "../focus";
@@ -50,6 +50,7 @@ export type GithubViewState = {
   repo?: { name: string; owner: string; starred: boolean; ownerStarred: boolean };
   /** A repository's list shows: its filters. */
   filters?: RepoFilters;
+  sidebarHidden: boolean;
 };
 
 const PANELS = { sidebar: 220, sidebarMin: 170, mainMin: 480 };
@@ -77,6 +78,8 @@ const prOf = (url: string | undefined) => {
  * through a list (and through a diff's files), Enter or O open, Esc goes back,
  * 1–4 a PR's tabs, R review, C comment, V viewed, U unified/split, F the file
  * list (a repository's filters), M which changes, S stars the repository.
+ * As Linear's and Slack's, the sidebar's inner edge resizes it and ⌘S hides
+ * or shows it (both kept), whatever shows beside it.
  */
 export function GitHubView({
   workspace,
@@ -194,6 +197,35 @@ export function GitHubView({
   const [sidebarWidth, setSidebarWidth] = useState(() => readStore<number>("github:sidebarWidth", PANELS.sidebar));
   const sidebarMax = Math.max(PANELS.sidebarMin, (viewWidth || 1600) - PANELS.mainMin);
   const sidebarW = Math.round(Math.min(sidebarMax, Math.max(PANELS.sidebarMin, sidebarWidth)));
+  const [sidebarHidden, setSidebarHidden] = useState(() => readStore<boolean>("github:sidebarHidden", false) === true);
+  const toggleSidebar = useCallback(
+    () =>
+      setSidebarHidden((hidden) => {
+        writeStore("github:sidebarHidden", !hidden);
+        return !hidden;
+      }),
+    [],
+  );
+  // Find a repository: the sidebar shows first (hidden, its field isn't there to take the keys).
+  const findRepo = useCallback(() => {
+    setSidebarHidden((hidden) => {
+      if (hidden) writeStore("github:sidebarHidden", false);
+      return false;
+    });
+    requestAnimationFrame(() => repoNav.current?.find());
+  }, []);
+  // ⌘S, as in Linear and Slack: while GitHub shows, the page has the key, and it goes no further.
+  useEffect(() => {
+    const key = (e: KeyboardEvent) => {
+      if (e.metaKey && !e.ctrlKey && !e.altKey && !e.shiftKey && e.key.toLowerCase() === "s") {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        toggleSidebar();
+      }
+    };
+    window.addEventListener("keydown", key, true);
+    return () => window.removeEventListener("keydown", key, true);
+  }, [toggleSidebar]);
   const resizeSidebar = (w: number | null) => {
     const next = w === null ? PANELS.sidebar : Math.round(Math.min(sidebarMax, Math.max(PANELS.sidebarMin, w)));
     setSidebarWidth(next);
@@ -267,7 +299,8 @@ export function GitHubView({
         const a = arg as { kind?: unknown; name?: unknown; starred?: unknown } | undefined;
         if ((a?.kind === "repo" || a?.kind === "org") && typeof a.name === "string" && typeof a.starred === "boolean") void c().star(a.kind, a.name, a.starred);
       }),
-      onAppCommand("github-star-add", () => repoNav.current?.add()),
+      onAppCommand("github-find-repo", () => findRepo()),
+      onAppCommand("github-sidebar", () => toggleSidebar()),
       onAppCommand("github-filter", (arg) => {
         if (c().place.kind === "repo") filterControl.current?.open(FILTER_FIELDS.includes(arg as FilterField) ? (arg as FilterField) : undefined);
       }),
@@ -276,11 +309,12 @@ export function GitHubView({
         if (place.kind !== "repo" || !filters) return;
         if (arg === "clear") return c().setFilters(place.repo, checkFilters({}));
         const a = arg as { field?: unknown; value?: unknown } | undefined;
-        if (FILTER_FIELDS.includes(a?.field as FilterField)) c().setFilters(place.repo, setFilter(filters, a!.field as FilterField, typeof a!.value === "string" ? a!.value : null));
+        const value = typeof a?.value === "string" || (Array.isArray(a?.value) && a.value.every((v) => typeof v === "string")) ? (a!.value as string | string[]) : null;
+        if (FILTER_FIELDS.includes(a?.field as FilterField)) c().setFilters(place.repo, checkFilters(setFilter(filters, a!.field as FilterField, value)));
       }),
     ];
     return () => offs.forEach((off) => off());
-  }, [go]);
+  }, [go, findRepo, toggleSidebar]);
 
   useEffect(() => {
     const pr = place.kind === "pr" ? openPr.pr : undefined;
@@ -292,6 +326,7 @@ export function GitHubView({
       changesMode,
       canBack: place.kind === "pr",
       repos: repoOrder(repos.data),
+      sidebarHidden,
       ...(repoState ? { repo: repoState } : {}),
       ...(filters ? { filters } : {}),
       ...(pr
@@ -309,7 +344,7 @@ export function GitHubView({
         : {}),
       ...(workspacePr ? { workspacePr } : {}),
     });
-  }, [place, layout, listShown, diffShown, changesMode, openPr, workspacePr?.repo, workspacePr?.number, onViewState, repos.data, repoState?.starred, repoState?.ownerStarred, filters]);
+  }, [place, layout, listShown, diffShown, changesMode, openPr, workspacePr?.repo, workspacePr?.number, onViewState, repos.data, repoState?.starred, repoState?.ownerStarred, filters, sidebarHidden]);
   useEffect(() => () => onViewState?.(undefined), [onViewState]);
 
   const onKey = (e: ReactKeyboardEvent<HTMLElement>) => {
@@ -390,7 +425,7 @@ export function GitHubView({
         title={<span>{repo}</span>}
         tools={
           <>
-            <RepoFilterButton filters={f} onFilters={(next) => setFilters(repo, next)} control={filterControl} />
+            <RepoFilterButton repo={repo} filters={f} onFilters={(next) => setFilters(repo, next)} control={filterControl} />
             <button
               className={`icon-btn gh-star${starred ? " on" : ""}`}
               aria-pressed={starred}
@@ -405,7 +440,7 @@ export function GitHubView({
             </button>
           </>
         }
-        below={<RepoFilterChips filters={f} onFilters={(next) => setFilters(repo, next)} />}
+        below={<RepoFilterChips repo={repo} filters={f} onFilters={(next) => setFilters(repo, next)} />}
         onOpen={(row) => openRow(row.repo, row.number)}
         keys={listKeys}
       />
@@ -436,14 +471,14 @@ export function GitHubView({
   return (
     <DiffWorkers>
       <section
-        className="github-view"
+        className={`github-view${sidebarHidden ? " sidebar-hidden" : ""}`}
         aria-label="GitHub"
         ref={setView}
-        style={{ gridTemplateColumns: `${sidebarW}px minmax(0, 1fr)` }}
+        style={{ gridTemplateColumns: sidebarHidden ? "minmax(0, 1fr)" : `${sidebarW}px minmax(0, 1fr)` }}
         tabIndex={-1}
         onKeyDown={onKey}
       >
-        <nav className="gh-sidebar" id="github-sidebar" aria-label="GitHub places">
+        <nav className="gh-sidebar" id="github-sidebar" aria-label="GitHub places" hidden={sidebarHidden}>
             <div className="gh-sidebar-head">
               <h2>GitHub</h2>
               <button className="icon-btn" aria-label="Refresh GitHub" data-tip="Refresh" onClick={refresh}>
@@ -496,7 +531,8 @@ export function GitHubView({
               <RepoNav
                 list={repos.data}
                 unavailable={repos.unavailable}
-                current={place.kind === "repo" ? place.repo : undefined}
+                current={currentRepo}
+                selected={place.kind === "repo"}
                 onOpen={(repo) => go({ kind: "repo", repo })}
                 onNotice={onNotice}
                 control={repoNav}
@@ -535,6 +571,11 @@ export function GitHubView({
               onReset={() => resizeSidebar(null)}
             />
         </nav>
+        {sidebarHidden && (
+          <button className="icon-btn gh-show-sidebar" aria-label="Show the GitHub sidebar" data-tip="Show the sidebar (⌘S)" onClick={toggleSidebar}>
+            <PanelLeftOpen size={14} aria-hidden="true" />
+          </button>
+        )}
         <div className="gh-main">{main}</div>
       </section>
     </DiffWorkers>

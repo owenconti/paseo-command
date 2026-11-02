@@ -11,7 +11,7 @@ export function setGithubTransport(next: Transport | null): void {
   transport = next ?? real;
 }
 
-export type GithubReadName = "viewer" | "prs" | "repos" | "pr" | "diff";
+export type GithubReadName = "viewer" | "prs" | "repos" | "repoSearch" | "people" | "pr" | "diff";
 
 /** The path of one of the server's named GitHub reads. */
 export const readPath = (name: GithubReadName, params: Record<string, string | number> = {}) => {

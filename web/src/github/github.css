@@ -1245,25 +1245,65 @@
 .gh-star.on {
   color: var(--amber-text);
 }
-.gh-star-add {
-  margin: 0 var(--space-2) var(--space-2);
+/* Find a repository: the field at the section's head, and what it finds */
+.gh-repo-search {
+  margin: 0 var(--space-2) var(--space-1);
 }
-.gh-star-add input {
-  width: 100%;
+.gh-repo-search-field {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
   height: calc(28px * var(--lz));
-  padding: 0 var(--space-2);
+  padding: 0 2px 0 var(--space-2);
   border: 1px solid var(--line);
   border-radius: var(--radius-md);
   background: var(--panel);
+  color: var(--icon-muted);
+}
+.gh-repo-search-field:focus-within {
+  border-color: var(--focus);
+}
+.gh-repo-search-field input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  outline: none;
+  background: transparent;
   font-size: var(--fs-sm);
   color: var(--text);
 }
-.gh-star-add input::placeholder {
-  color: var(--text-4);
+.gh-repo-search-field input::-webkit-search-cancel-button {
+  display: none;
 }
-.gh-star-add input:focus-visible {
-  outline: 2px solid var(--focus);
-  outline-offset: -1px;
+.gh-repo-search-field .icon-btn {
+  width: calc(20px * var(--lz));
+  height: calc(20px * var(--lz));
+}
+.gh-found-owner {
+  margin-top: var(--space-1);
+}
+.gh-found-owner > svg {
+  flex-shrink: 0;
+  color: var(--icon-muted);
+}
+
+/* The sidebar hidden (⌘S): a button to show it, where the heads leave room for it */
+.gh-sidebar[hidden] {
+  display: none;
+}
+.gh-show-sidebar {
+  position: absolute;
+  top: var(--space-3);
+  left: var(--space-3);
+  z-index: 2;
+}
+.github-view.sidebar-hidden .gh-head {
+  padding-left: calc(var(--space-3) + var(--control-sm) + var(--space-2));
+}
+.gh-repo-search-field input::placeholder {
+  color: var(--text-4);
 }
 .gh-repo-none {
   margin: 0 var(--space-2) var(--space-1);

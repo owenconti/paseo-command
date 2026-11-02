@@ -96,13 +96,14 @@ export type AppCommand =
   | "github-changes-mode"
   | "github-open-browser"
   | "github-star"
-  | "github-star-add"
+  | "github-find-repo"
+  | "github-sidebar"
   | "github-filter"
   | "github-set-filter";
 
 const EVENT = "paseo:command";
 
-/** Asks for `name`; `arg` is what it acts on, where it needs one (`linear-go`: the place; `slack-go`/`slack-open`: the conversation; `activity-filter`: the source or "all"; `github-open`/`github-go`: the place; `github-tab`: the PR's tab; `github-review`: the verdict; `github-star`: `{kind, name, starred}`; `github-filter`: the filter to open; `github-set-filter`: `{field, value}` or "clear"). */
+/** Asks for `name`; `arg` is what it acts on, where it needs one (`linear-go`: the place; `slack-go`/`slack-open`: the conversation; `activity-filter`: the source or "all"; `github-open`/`github-go`: the place; `github-tab`: the PR's tab; `github-review`: the verdict; `github-star`: `{kind, name, starred}`; `github-filter`: the filter to open; `github-set-filter`: `{field, value}` (a people filter's value: its logins) or "clear"). */
 export function runAppCommand(name: AppCommand, arg?: unknown) {
   // The detail stays the bare name: the macOS app sends its own that way.
   window.dispatchEvent(Object.assign(new CustomEvent(EVENT, { detail: name }), { arg }));

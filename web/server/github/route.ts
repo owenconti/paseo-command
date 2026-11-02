@@ -1,5 +1,5 @@
 /**
- * `/api/github/…`: the GitHub tab's named reads (`GET q/viewer|prs|repos|pr|diff`,
+ * `/api/github/…`: the GitHub tab's named reads (`GET q/viewer|prs|repos|repoSearch|people|pr|diff`,
  * `fresh=1` past the cache) and whitelisted writes (`POST m/<name>`). No
  * passthrough: an unknown name is a 404. A read GitHub can't answer right now
  * (off, no token, refused, limited) is a `GithubUnavailable` 200; a bad
@@ -10,11 +10,11 @@ import { GITHUB_WRITES, PR_SCOPES, REPO, type GithubWriteName, type PrScope } fr
 import { bodyOf } from "../api/http";
 import { errorText } from "../wire";
 import { apiFailure, assertEnabled, GithubApiError, unavailable, writeStatus } from "./client";
-import { checkFilters, FILTER_FIELDS, FILTERS } from "../../src/github/filters";
-import { prParams, readDiff, readPr, readPrs, readRepoPrs, readRepos, readViewer } from "./reads";
+import { checkFilters, FILTER_FIELDS, FILTERS, isPeople, MAX_PEOPLE, MAX_SEARCHES, PERSON, searchCount } from "../../src/github/filters";
+import { prParams, readDiff, readPeople, readPr, readPrs, readRepoPrs, readRepoSearch, readRepos, readViewer } from "./reads";
 import { githubWrite } from "./writes";
 
-const READS = ["viewer", "prs", "repos", "pr", "diff"] as const;
+const READS = ["viewer", "prs", "repos", "repoSearch", "people", "pr", "diff"] as const;
 type ReadName = (typeof READS)[number];
 /** A review with 100 drafted comments of some length fits; nothing larger is read. */
 export const WRITE_BODY_LIMIT = 2 * 1024 * 1024;
@@ -23,6 +23,11 @@ function fresh(params: URLSearchParams): boolean {
   const f = params.get("fresh");
   if (f !== null && f !== "1") throw new GithubApiError("invalid", "Unexpected parameter fresh");
   return f === "1";
+}
+function repoParam(params: URLSearchParams): string {
+  const repo = params.get("repo") ?? "";
+  if (!REPO.test(repo) || repo.includes("..")) throw new GithubApiError("invalid", "Name the repository: repo=owner/name");
+  return repo;
 }
 function only(params: URLSearchParams, allowed: string[]) {
   for (const k of new Set(params.keys())) if (!allowed.includes(k)) throw new GithubApiError("invalid", `Unexpected parameter ${k}`);
@@ -39,21 +44,42 @@ async function read(name: ReadName, params: URLSearchParams): Promise<unknown> {
       only(params, ["fresh"]);
       assertEnabled();
       return readRepos(fresh(params));
+    case "repoSearch": {
+      only(params, ["q", "fresh"]);
+      const text = params.get("q") ?? "";
+      if (!text.trim() || text.length > 200) throw new GithubApiError("invalid", "Find a repository by its name, owner/name or owner: q=");
+      const f = fresh(params);
+      assertEnabled();
+      return readRepoSearch(text, f);
+    }
+    case "people": {
+      only(params, ["repo", "fresh"]);
+      const repo = repoParam(params);
+      const f = fresh(params);
+      assertEnabled();
+      return readPeople(repo, f);
+    }
     case "prs": {
       if (params.has("repo")) {
         only(params, ["repo", ...FILTER_FIELDS, "fresh"]);
-        const repo = params.get("repo")!;
-        if (!REPO.test(repo) || repo.includes("..")) throw new GithubApiError("invalid", "Name the repository: repo=owner/name");
-        const raw: Record<string, string> = {};
+        const repo = repoParam(params);
+        const raw: Record<string, string | string[]> = {};
         for (const field of FILTER_FIELDS) {
           const v = params.get(field);
           if (v === null) continue;
-          if (!Object.hasOwn(FILTERS[field].values, v)) throw new GithubApiError("invalid", `Unexpected ${field}`);
-          raw[field] = v;
+          if (isPeople(field)) {
+            const people = v.split(",");
+            if (people.length > MAX_PEOPLE || people.some((p) => !PERSON.test(p))) throw new GithubApiError("invalid", `Unexpected ${field}`);
+            raw[field] = people;
+          } else if (!Object.hasOwn(FILTERS[field].values, v)) throw new GithubApiError("invalid", `Unexpected ${field}`);
+          else raw[field] = v;
         }
+        const filters = checkFilters(raw);
+        if (searchCount(filters) > MAX_SEARCHES || FILTER_FIELDS.some((field) => isPeople(field) && raw[field] && filters[field]?.length !== raw[field]!.length))
+          throw new GithubApiError("invalid", `Choose fewer people: these filters would take more than ${MAX_SEARCHES} of GitHub's searches`);
         const f = fresh(params);
         assertEnabled();
-        return readRepoPrs(repo, checkFilters(raw), f);
+        return readRepoPrs(repo, filters, f);
       }
       only(params, ["scope", "fresh"]);
       const scope = params.get("scope") as PrScope | null;
@@ -77,7 +103,7 @@ export async function githubRoute(
   url: URL,
   reply: (status: number, body: unknown) => void,
 ): Promise<void> {
-  const q = /^\/api\/github\/q\/([a-z]+)$/.exec(url.pathname)?.[1];
+  const q = /^\/api\/github\/q\/([a-zA-Z]+)$/.exec(url.pathname)?.[1];
   if (q !== undefined) {
     if (!READS.includes(q as ReadName)) return reply(404, { error: "Unknown endpoint" });
     if (req.method !== "GET") return reply(405, { error: "Method not allowed" });

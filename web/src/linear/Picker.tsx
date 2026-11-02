@@ -26,7 +26,8 @@ export function placeBelow(el: HTMLElement): void {
   if (over > 0) el.style.left = `${-over}px`;
 }
 
-export type PickerOption<T> = { value: T; text: string; icon?: ReactNode; hint?: string };
+/** `keywords` match what's typed too, beside `text`. */
+export type PickerOption<T> = { value: T; text: string; icon?: ReactNode; hint?: string; keywords?: string };
 
 /**
  * A property picker: a popover over its opener (the element it's rendered in),
@@ -40,6 +41,7 @@ export function Picker<T>({
   options,
   value,
   multiple = false,
+  note,
   onPick,
   onClose,
 }: {
@@ -47,6 +49,8 @@ export function Picker<T>({
   options: PickerOption<T>[];
   value: T | T[];
   multiple?: boolean;
+  /** Said beneath the options (loading, a choice refused). */
+  note?: ReactNode;
   onPick: (value: T | T[]) => void;
   onClose: () => void;
 }) {
@@ -63,7 +67,7 @@ export function Picker<T>({
   );
   const shown = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return q ? options.filter((o) => o.text.toLowerCase().includes(q)) : options;
+    return q ? options.filter((o) => o.text.toLowerCase().includes(q) || !!o.keywords?.toLowerCase().includes(q)) : options;
   }, [options, query]);
   const [active, setActive] = useState(() => (multiple ? 0 : Math.max(0, options.findIndex((o) => chosen(o.value)))));
 
@@ -202,6 +206,11 @@ export function Picker<T>({
         })}
         {!shown.length && <p className="linear-picker-empty">No match</p>}
       </div>
+      {note && (
+        <p className="linear-picker-note" role="status">
+          {note}
+        </p>
+      )}
     </div>
   );
 }

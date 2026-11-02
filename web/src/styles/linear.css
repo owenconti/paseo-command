@@ -1362,6 +1362,14 @@
   font-size: var(--fs-sm);
   color: var(--text-4);
 }
+.linear-picker-note {
+  max-width: calc(260px * var(--lz, 1));
+  margin: 0;
+  padding: var(--space-2);
+  border-top: 1px solid var(--line-soft);
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+}
 
 /* A row's context menu, where it was opened. */
 .menu-anchor.linear-row-menu-anchor {

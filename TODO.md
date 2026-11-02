@@ -5,15 +5,6 @@ mark it done with its commit once merged into `main`.
 
 ## Open
 
-- [ ] **GitHub tab: search repositories, ⌘S sidebar, people filters.** Follow-ups to the Repositories section:
-  - The sidebar shouldn't list every repository with open PRs all the time ("Others" grouped by owner). Show only
-    Favourites there, plus a search field (and ⌘K) that finds any repository you can see by name, `owner/name`
-    or org, from GitHub (named, cached, rate-limited read), to open or star it.
-  - ⌘S toggles the GitHub tab's sidebar, as in the Linear and Slack tabs (inner edge resizes it, kept in
-    localStorage), including in a PR list; add its ⌘K entry and shortcuts-dialog row.
-  - A repository's PR list always offers Author, Reviewer and Assignee filters (in place of today's anyone/you
-    author filter), each listing the repository's contributors and collaborators (you first, with avatars,
-    searchable), any of several people. Read them through a named, cached read. Workspace: `github-repo-search-filters`.
 - [ ] **GitHub PR view: manage reviewers and assignees, and list the checks.** In a PR's side panel
   (`PrView.tsx`: Reviewers, Merge, Checks):
   - Reviewers and Assignees are editable: a picker of the repository's collaborators (and teams for reviewers;
@@ -62,6 +53,12 @@ mark it done with its commit once merged into `main`.
 
 ## Done
 
+- [x] **GitHub tab: search repositories, ⌘S sidebar, people filters.** The sidebar's Repositories lists only Favourites (and the
+  repository open now), under a search field (⌘K "Find a GitHub repository…") that finds any repository you can see by name,
+  `owner/name` or owner (`q/repoSearch`: those known first, then GitHub's search, cached and within the search budget), each to open
+  or star. ⌘S hides or shows the sidebar (kept; ⌘K and the shortcuts dialog). A repository's PRs filter by Author, Reviewer and
+  Assignee: any of several people from `q/people` (you first, recent authors, assignable users; avatars, searchable), one search
+  per person merged; the old author filter becomes you.
 - [x] **Mode bar: Activity first of the pages, and ⌘1–7 switch tabs.** The tabs run Command, Conquer, Activity, Linear,
   Slack, GitHub, Settings (those enabled) in the bar, the View menu, ⌘\` stepping, the palette and the shortcuts dialog.
   ⌘1…⌘7 pick the tab in that place among those shown, from anywhere in the window (the window offers them to the View menu

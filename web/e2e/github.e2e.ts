@@ -8,7 +8,7 @@
 import { after, before, test } from "node:test";
 import assert from "node:assert/strict";
 import type { Browser, Page } from "playwright";
-import type { DiffFile, PrDetail, PrDiff, PrList, PrRow, RepoList, WorkspaceChanges } from "../src/github/types";
+import type { DiffFile, PrDetail, PrDiff, PrList, PrRow, RepoList, RepoPeople, RepoSearch, WorkspaceChanges } from "../src/github/types";
 import { small } from "./fleets";
 import { launch, mockApi, newContext, startApp, waitFor } from "./harness";
 
@@ -59,6 +59,19 @@ const REPOS: RepoList = {
   ],
   stars: { repos: ["acme/atlas"], orgs: [] },
 };
+const PEOPLE: RepoPeople = {
+  repo: "sam/tools",
+  viewer: { login: "me", name: "Me" },
+  people: [sam, { login: "ada", name: "Ada Lovelace" }, { login: "bob" }],
+};
+const found = (q: string): RepoSearch => ({
+  query: q,
+  repos: [
+    { repo: "sam/tools", owner: "sam", open: 2, starred: false, ownerStarred: false, private: true },
+    { repo: "sam/toolbox", owner: "sam", open: 0, starred: false, ownerStarred: false, private: false },
+  ].filter((r) => r.repo.includes(q.toLowerCase().replace(/^sam\/?/, ""))),
+  ...(q.toLowerCase() === "sam" ? { owner: { login: "sam", starred: false } } : {}),
+});
 
 const file = (path: string): DiffFile => ({
   path,
@@ -140,10 +153,14 @@ async function setUp(page: Page) {
     const name = u.pathname.replace("/api/github/q/", "");
     if (name === "viewer") return route.fulfill({ json: { viewer: { login: "me" } } });
     if (name === "repos") return route.fulfill({ json: REPOS });
+    if (name === "repoSearch") return route.fulfill({ json: found(u.searchParams.get("q") ?? "") });
+    if (name === "people") return route.fulfill({ json: PEOPLE });
     if (name === "prs" && u.searchParams.get("repo")) {
       const repo = u.searchParams.get("repo")!;
       let rows = repo === "sam/tools" ? TOOLS : REVIEW;
       if (u.searchParams.get("review") === "approved") rows = rows.filter((r) => r.reviewDecision === "approved");
+      const authors = u.searchParams.get("author")?.split(",");
+      if (authors) rows = rows.filter((r) => authors.some((a) => (a === "@me" ? "me" : a) === r.author?.login));
       return route.fulfill({ json: { repo, rows, total: rows.length, viewer: { login: "me" } } satisfies PrList });
     }
     if (name === "prs") {
@@ -182,7 +199,7 @@ test("GitHub lists PRs to review, opens one, drafts a line comment and submits a
     assert.deepEqual(await view.locator(".gh-row-title").allTextContents(), ["Add the GitHub tab", "Fix the shoreline"]);
     await waitFor(
       () => view.locator(".gh-nav-item .gh-count").allTextContents(),
-      (counts) => counts.join() === "2,1,3,3,2",
+      (counts) => counts.join() === "2,1,3,3",
       "the sidebar's counts",
     );
     // Keyboard: J moves, K back, J again, Enter opens #13.
@@ -312,39 +329,79 @@ test("GitHub shows the selected workspace's changes against main, all or committ
   }
 });
 
-test("GitHub lists repositories, favourites first, filters a repository's PRs and stars by name", async () => {
+test("GitHub's sidebar: favourites, finding any repository, ⌘S, and a repository's filters (people too)", async () => {
   const context = await newContext(browser);
   const page = await context.newPage();
   await page.setViewportSize({ width: 1600, height: 1000 });
   const { asked, writes } = await setUp(page);
   try {
+    // A repository's author filter kept from before (anyone or you) comes back as you.
+    await page.addInitScript(() => {
+      if (!localStorage.getItem("paseo:e2e-seeded")) {
+        localStorage.setItem("paseo:e2e-seeded", "1");
+        localStorage.setItem("paseo-command:github:repoFilters", JSON.stringify({ "sam/tools": { state: "open", author: "me" } }));
+      }
+    });
     await page.goto(app.url);
     await page.locator(".fleet-sidebar").waitFor();
     await showGithub(page);
     const view = page.locator(".github-view");
 
-    // Favourites (the starred acme/atlas) first, then the others, grouped by owner.
-    await view.locator(".gh-repo-row").nth(1).waitFor();
-    assert.deepEqual(await view.locator(".gh-nav-sub").allTextContents(), ["Favourites", "Others"]);
-    assert.deepEqual(await view.locator(".gh-org-name").allTextContents(), ["acme", "sam"]);
+    // Only Favourites (the starred acme/atlas): no list of every repository.
+    await view.locator(".gh-repo-row").first().waitFor();
+    assert.deepEqual(await view.locator(".gh-nav-sub").allTextContents(), ["Favourites"]);
+    assert.deepEqual(await view.locator(".gh-repo-row .gh-nav-label").allTextContents(), ["atlas"]);
     assert.equal(await view.getByRole("button", { name: "Unstar acme/atlas" }).getAttribute("aria-pressed"), "true");
 
-    // A repository lists its PRs, open by default, its state a chip under the head.
-    await view.locator(".gh-repo-row", { hasText: "tools" }).locator(".gh-nav-item").click();
+    // Typing finds repositories: GitHub is asked once typing pauses; Enter opens the first.
+    const box = view.getByRole("searchbox", { name: "Find a repository" });
+    await box.fill("tool");
+    await waitFor(() => view.locator(".gh-repo-found .gh-nav-label").allTextContents(), (t) => t.join() === "sam/tools,sam/toolbox", "what's found");
+    assert.ok(asked.some((a) => a.path.endsWith("/q/repoSearch") && a.query.q === "tool"));
+    // ↓ moves into what's found; a star there stars it.
+    await view.getByRole("button", { name: "Star sam/toolbox" }).click();
+    await waitFor(() => Promise.resolve(writes.length), (n) => n === 1, "the star write");
+    assert.deepEqual(writes[0], { path: "/api/github/m/star", query: {}, body: { kind: "repo", name: "sam/toolbox", starred: true } });
+    await box.focus();
+    await box.press("Enter");
     await view.locator(".gh-head h2", { hasText: "sam/tools" }).waitFor();
-    assert.deepEqual(await view.locator(".gh-row-title").allTextContents(), ["Tools: faster build", "Tools: approved one"]);
-    assert.equal(await view.locator(".gh-filters .linear-filter-chip").textContent(), "StateisOpen");
-    assert.ok(asked.some((a) => a.path.endsWith("/q/prs") && a.query.repo === "sam/tools" && a.query.state === "open"));
+    // The field clears; the open repository stays in the sidebar though it isn't a favourite.
+    assert.equal(await box.inputValue(), "");
+    assert.deepEqual(await view.locator(".gh-nav-sub").allTextContents(), ["Favourites", "Open"]);
+    assert.equal(await view.locator(".gh-repo-row .gh-nav-item.selected .gh-nav-label").textContent(), "sam/tools");
 
-    // F: the filter menu; Review → Approved asks GitHub with it, shown as a chip.
+    // The old author filter (you) came back, as a people filter.
+    await view.getByRole("button", { name: "Author: You. Change" }).waitFor();
+    await waitFor(() => view.locator(".gh-row-title").allTextContents(), (t) => t.length === 0, "your (none) pull requests");
+    assert.ok(asked.some((a) => a.query.repo === "sam/tools" && a.query.author === "@me"));
+
+    // Author: the repository's people, you first, with names to search by; several at once.
+    await view.getByRole("button", { name: "Author: You. Change" }).click();
+    const picker = view.getByRole("listbox", { name: "Author" });
+    await waitFor(() => picker.locator(".linear-picker-text").allTextContents(), (t) => t.join() === "You,sam,ada,bob", "the repository's people");
+    assert.ok(asked.some((a) => a.path.endsWith("/q/people") && a.query.repo === "sam/tools"));
+    await view.getByRole("combobox", { name: "Filter author" }).fill("lovelace");
+    assert.deepEqual(await picker.locator(".linear-picker-text").allTextContents(), ["ada"]);
+    await view.getByRole("combobox", { name: "Filter author" }).fill("");
+    await picker.getByRole("option", { name: /sam/ }).click();
+    await waitFor(() => view.locator(".gh-row-title").allTextContents(), (t) => t.join() === "Tools: faster build,Tools: approved one", "sam's pull requests");
+    assert.ok(asked.some((a) => a.query.repo === "sam/tools" && a.query.author === "@me,sam"));
+    await page.keyboard.press("Escape");
+    await view.getByRole("button", { name: "Author: You, sam. Change" }).waitFor();
+    assert.match((await view.locator(".gh-filters .linear-filter-chip").nth(1).textContent()) ?? "", /Authoris any ofYou, sam/);
+
+    // F: the filter menu offers every filter, people ones too; Review → Approved asks GitHub with it.
     await view.locator(".gh-row").first().focus();
     await page.keyboard.press("f");
     const menu = view.getByRole("menu", { name: "Filter by" });
-    await menu.getByRole("menuitem", { name: /Review/ }).click();
+    assert.deepEqual(
+      (await menu.getByRole("menuitem").allTextContents()).map((t) => t.replace(/You.*$/, "")),
+      ["State", "Author", "Reviewer", "Assignee", "Review", "Draft", "CI"],
+    );
+    await menu.getByRole("menuitem", { name: /^Review$/ }).click();
     await view.getByRole("listbox", { name: "Review" }).getByRole("option", { name: "Approved" }).click();
     await waitFor(() => view.locator(".gh-row-title").allTextContents(), (t) => t.join() === "Tools: approved one", "the filtered list");
-    assert.ok(asked.some((a) => a.query.repo === "sam/tools" && a.query.review === "approved"));
-    await view.getByRole("button", { name: "Review: Approved. Change" }).waitFor();
+    assert.ok(asked.some((a) => a.query.repo === "sam/tools" && a.query.review === "approved" && a.query.author === "@me,sam"));
 
     // The place and its filters come back after a reload.
     await page.reload();
@@ -352,30 +409,47 @@ test("GitHub lists repositories, favourites first, filters a repository's PRs an
     await showGithub(page);
     await view.locator(".gh-head h2", { hasText: "sam/tools" }).waitFor();
     await view.getByRole("button", { name: "Review: Approved. Change" }).waitFor();
-    // × removes the filter.
+    await view.getByRole("button", { name: "Author: You, sam. Change" }).waitFor();
+    // × removes a filter.
     await view.getByRole("button", { name: "Remove the review filter" }).click();
+    await view.getByRole("button", { name: "Remove the author filter" }).click();
     await waitFor(() => view.locator(".gh-row").count(), (n) => n === 2, "the unfiltered list");
 
-    // S stars the repository in view.
+    // ⌘S hides the sidebar (kept), and shows it again; a PR's view too.
     await view.locator(".gh-row").first().focus();
-    await page.keyboard.press("s");
-    await waitFor(() => Promise.resolve(writes.length), (n) => n === 1, "the star write");
-    assert.deepEqual(writes[0], { path: "/api/github/m/star", query: {}, body: { kind: "repo", name: "sam/tools", starred: true } });
+    await page.keyboard.press("Meta+s");
+    await view.locator(".gh-sidebar").waitFor({ state: "hidden" });
+    await view.getByRole("button", { name: "Show the GitHub sidebar" }).waitFor();
+    await page.reload();
+    await page.locator(".fleet-sidebar").waitFor();
+    await showGithub(page);
+    await view.getByRole("button", { name: "Show the GitHub sidebar" }).waitFor();
+    assert.equal(await view.locator(".gh-sidebar").isVisible(), false);
+    await view.getByRole("button", { name: "Show the GitHub sidebar" }).click();
+    await view.locator(".gh-sidebar").waitFor();
 
-    // ⌘K stars an organization by name.
+    // ⌘K: Find a GitHub repository… (the sidebar's field; an owner found can be starred).
+    await page.keyboard.press("Meta+s");
+    await view.locator(".gh-sidebar").waitFor({ state: "hidden" });
     await page.keyboard.press("Meta+k");
     const palette = page.getByRole("dialog", { name: "Command palette" });
-    await palette.getByRole("combobox", { name: "Search commands" }).fill("Star a repository or organization");
-    await palette.getByRole("option", { name: /Star a repository or organization/ }).click();
+    await palette.getByRole("combobox", { name: "Search commands" }).fill("Find a GitHub repository");
+    await palette.getByRole("option", { name: /Find a GitHub repository/ }).click();
     await palette.waitFor({ state: "detached" });
-    const box = view.getByRole("textbox", { name: /to star/ });
-    await box.waitFor();
-    await box.fill("https://github.com/octo");
-    await box.press("Enter");
+    await waitFor(() => box.evaluate((el) => el === document.activeElement), (v) => v, "the search field focused, the sidebar shown");
+    await page.keyboard.type("sam");
+    await view.locator(".gh-found-owner", { hasText: "sam" }).waitFor();
+    await view.getByRole("button", { name: "Star sam", exact: true }).click();
     await waitFor(() => Promise.resolve(writes.length), (n) => n === 2, "the organization's star");
-    assert.deepEqual(writes[1]!.body, { kind: "org", name: "octo", starred: true });
+    assert.deepEqual(writes[1]!.body, { kind: "org", name: "sam", starred: true });
+    await box.press("Escape");
+    assert.equal(await box.inputValue(), "");
 
-    // ⌘K opens a repository's pull requests.
+    // ⌘K: the sidebar toggle, and opening a repository's pull requests.
+    await page.keyboard.press("Meta+k");
+    await palette.getByRole("combobox", { name: "Search commands" }).fill("Show or hide the GitHub sidebar");
+    await palette.getByRole("option", { name: /Show or hide the GitHub sidebar/ }).click();
+    await view.locator(".gh-sidebar").waitFor({ state: "hidden" });
     await page.keyboard.press("Meta+k");
     await palette.getByRole("combobox", { name: "Search commands" }).fill("Open acme/atlas");
     await palette.getByRole("option", { name: /Open acme\/atlas’s pull requests/ }).click();

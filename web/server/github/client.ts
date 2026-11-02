@@ -47,12 +47,12 @@ export function writeStatus(e: GithubApiError): number {
 const cache = new Map<string, { at: number; value: Promise<unknown>; settled?: unknown }>();
 
 /**
- * `read()` once per `GITHUB_TAB.ttlMs` for `key`; a failure isn't kept, and
+ * `read()` once per `GITHUB_TAB.ttlMs` (or `ttlMs`) for `key`; a failure isn't kept, and
  * one that's only the rate limit answers the last answer instead, while there is one.
  */
-export function cached<T>(key: string, fresh: boolean, read: () => Promise<T>): Promise<T> {
+export function cached<T>(key: string, fresh: boolean, read: () => Promise<T>, ttlMs = GITHUB_TAB.ttlMs): Promise<T> {
   const hit = cache.get(key);
-  if (!fresh && hit && Date.now() - hit.at < GITHUB_TAB.ttlMs) return hit.value as Promise<T>;
+  if (!fresh && hit && Date.now() - hit.at < ttlMs) return hit.value as Promise<T>;
   const last = hit && "settled" in hit ? (hit.settled as T) : undefined;
   const value = read().catch((e) => {
     if (last !== undefined && e instanceof GithubApiError && e.kind === "limited") return last;
@@ -76,13 +76,18 @@ export function cached<T>(key: string, fresh: boolean, read: () => Promise<T>): 
 export const SEARCH_BUDGET = { perMinute: 25 };
 let searches: number[] = [];
 
-/** Takes one of the minute's searches, or refuses (`limited`) until one frees. */
-export function searchSlot(): void {
+/** Takes `n` of the minute's searches (one by default), or refuses (`limited`) until they free. */
+export function searchSlot(n = 1): void {
   const now = Date.now();
   searches = searches.filter((at) => now - at < 60_000);
-  if (searches.length >= SEARCH_BUDGET.perMinute)
-    throw new GithubApiError("limited", "GitHub's search allows 30 requests a minute; this list is asked again shortly.", undefined, searches[0]! + 60_000);
-  searches.push(now);
+  if (searches.length + n > SEARCH_BUDGET.perMinute)
+    throw new GithubApiError(
+      "limited",
+      "GitHub's search allows 30 requests a minute; this list is asked again shortly.",
+      undefined,
+      searches[Math.min(searches.length - 1, Math.max(0, searches.length + n - SEARCH_BUDGET.perMinute - 1))]! + 60_000,
+    );
+  for (let i = 0; i < n; i++) searches.push(now);
 }
 
 /** Forgets cached reads whose key starts with one of these. */

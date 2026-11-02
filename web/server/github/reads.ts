@@ -4,13 +4,17 @@
  *
  *   viewer             whose the token is, and the scopes it lacks
  *   prs?scope=…        open PRs: review requested from you, yours, or involving you (50, newest first)
- *   prs?repo=…&<filters> a repository's PRs with the filters (`src/github/filters.ts`; 50, newest first)
+ *   prs?repo=…&<filters> a repository's PRs with the filters (`src/github/filters.ts`; 50, newest first;
+ *                      one search for each person chosen, in one request)
  *   repos              favourites (stars, `stars.ts`), then other repositories with open PRs, each counted
+ *   repoSearch?q=…     repositories by name, `owner/name` or owner: those known first, then GitHub's search
+ *   people?repo=…      who its people filters offer: you, recent PRs' authors, its assignable users
  *   pr?repo=&number=   one PR: body, files (viewed or not), conversation, threads, commits, checks, reviewers
  *   diff?repo=&number= its diff, parsed (GitHub's diff media type; its file patches when the diff is too large for it)
  */
 import { parseUnifiedDiff } from "../../src/github/diff";
 import {
+  OWNER,
   REPO,
   type ChecksState,
   type DiffFile,
@@ -25,7 +29,9 @@ import {
   type PrScope,
   type PrState,
   type RepoList,
+  type RepoPeople,
   type RepoRow,
+  type RepoSearch,
   type ReviewDecision,
   type ReviewThread,
   type TimelineEntry,
@@ -33,7 +39,7 @@ import {
   type YourReview,
 } from "../../src/github/types";
 import { GithubApiError, githubGraphql as graphql, githubPaged, githubRest, githubText, missingScopes } from "../githubApi";
-import { filterQuery, type RepoFilters } from "../../src/github/filters";
+import { filterQueries, type RepoFilters } from "../../src/github/filters";
 import { cached, searchSlot } from "./client";
 import { readStars } from "./stars";
 
@@ -180,20 +186,42 @@ function searchRows(data: Raw): { rows: PrRow[]; viewer: PrList["viewer"]; total
   return { rows, viewer, total: typeof count === "number" && Number.isSafeInteger(count) ? count : rows.length };
 }
 
-export const REPO_PRS_QUERY = `query($q: String!) {
-  viewer { login name avatarUrl }
-  search(query: $q, type: ISSUE, first: 50) { issueCount nodes { ... on PullRequest { ${ROW} } } }
-}`;
+/** One request with a search for each query (`s0`, `s1`, …). */
+export function repoPrsQuery(queries: string[]): { query: string; variables: Record<string, string> } {
+  const variables = Object.fromEntries(queries.map((q, i) => [`q${i}`, q]));
+  const params = queries.map((_, i) => `$q${i}: String!`).join(", ");
+  const fields = queries.map((_, i) => `s${i}: search(query: $q${i}, type: ISSUE, first: 50) { issueCount nodes { ... on PullRequest { ${ROW} } } }`);
+  return { query: `query(${params}) {\n  viewer { login name avatarUrl }\n  ${fields.join("\n  ")}\n}`, variables };
+}
 
-/** A repository's pull requests with these filters (one search). */
+/**
+ * A repository's pull requests with these filters: one search, or one for
+ * each person chosen (`filterQueries`), asked together and merged, the 50
+ * most recently updated. Its total is GitHub's count for one search; for
+ * several, what they found together, or (when any found more than it gave)
+ * their counts added (some PRs may be counted twice).
+ */
 export function readRepoPrs(repo: string, filters: RepoFilters, fresh = false): Promise<PrList> {
-  const q = filterQuery(repo, filters);
-  return cached(`prs:repo:${q.toLowerCase()}`, fresh, async () => {
-    searchSlot();
-    const data = await graphql(REPO_PRS_QUERY, { q });
-    // GitHub's search matches the repository whatever its case; keep only its own.
-    const found = searchRows(data);
-    return { repo, ...found, rows: found.rows.filter((r) => r.repo.toLowerCase() === repo.toLowerCase()) };
+  const queries = filterQueries(repo, filters);
+  return cached(`prs:repo:${queries.join("|").toLowerCase()}`, fresh, async () => {
+    searchSlot(queries.length);
+    const { query, variables } = repoPrsQuery(queries);
+    const data = await graphql(query, variables);
+    const viewer = personOf(data.viewer);
+    if (!viewer) throw new GithubApiError("failed", "GitHub didn't say whose the token is.");
+    const byId = new Map<string, PrRow>();
+    let counted = 0;
+    let more = false;
+    queries.forEach((_, i) => {
+      const found = searchRows({ viewer: data.viewer, search: data[`s${i}`] });
+      counted += found.total;
+      if (found.total > found.rows.length) more = true;
+      // GitHub's search matches the repository whatever its case; keep only its own.
+      for (const r of found.rows) if (r.repo.toLowerCase() === repo.toLowerCase()) byId.set(r.id, r);
+    });
+    const rows = [...byId.values()].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+    const total = queries.length === 1 ? counted : more ? Math.max(counted, rows.length) : rows.length;
+    return { repo, rows: rows.slice(0, 50), viewer, total };
   });
 }
 
@@ -225,15 +253,28 @@ export function reposQuery(repos: string[], owners: string[]): { query: string; 
   return { query: `query${params.length ? `(${params.join(", ")})` : ""} {\n  ${fields.join("\n  ")}\n}\n${REPO_FIELDS}`, variables };
 }
 
+/** A repository GitHub answered as a row (archived ones only if starred); null when it isn't one. */
+function repoRowOf(r: Raw, stars: { repos: Set<string>; orgs: Set<string> }): RepoRow | null {
+  const repo = str(r.nameWithOwner);
+  if (!REPO.test(repo)) return null;
+  const owner = str(rec(r.owner).login) || repo.split("/")[0]!;
+  const starred = stars.repos.has(repo.toLowerCase());
+  if (!starred && r.isArchived === true) return null;
+  return { repo, owner, open: num(rec(r.pullRequests).totalCount), starred, ownerStarred: stars.orgs.has(owner.toLowerCase()), private: r.isPrivate === true };
+}
+const starSets = (stars: { repos: string[]; orgs: string[] }) => ({
+  repos: new Set(stars.repos.map((r) => r.toLowerCase())),
+  orgs: new Set(stars.orgs.map((o) => o.toLowerCase())),
+});
+
 /**
- * The sidebar's repositories: favourites first (starred, then of starred
- * owners), then the rest with open PRs, most open first. A starred repository
- * always shows (`missing` when GitHub has none the token sees); others only
- * with open PRs, and archived ones not at all.
+ * Every repository the tab knows of, once each: starred ones (`missing` when
+ * GitHub has none the token sees), those of PRs involving you, yours (most
+ * recently pushed first) and starred owners'. `involved` names the second.
  */
-export function readRepos(fresh = false): Promise<RepoList> {
+function knownRepos(fresh = false): Promise<{ rows: RepoRow[]; involved: Set<string> }> {
   const stars = readStars();
-  return cached(`repos:${JSON.stringify(stars).toLowerCase()}`, fresh, async () => {
+  return cached(`repos:known:${JSON.stringify(stars).toLowerCase()}`, fresh, async () => {
     // The repositories of PRs involving you (from that list, shared with the sidebar's count), as far as it answers.
     const involved = await readPrs("involved").then(
       (l) => l.rows.map((r) => r.repo),
@@ -243,33 +284,190 @@ export function readRepos(fresh = false): Promise<RepoList> {
     for (const r of [...stars.repos, ...involved]) if (!named.some((n) => n.toLowerCase() === r.toLowerCase())) named.push(r);
     const { query, variables } = reposQuery(named.slice(0, MAX_NAMED_REPOS), stars.orgs.slice(0, MAX_NAMED_OWNERS));
     const data = await graphql(query, variables);
-    const raw: Raw[] = [...nodes(rec(data.viewer).repositories)];
+    const raw: Raw[] = [];
+    const owned: Raw[] = [];
     for (const [k, v] of Object.entries(data)) {
       if (/^r\d+$/.test(k) && v) raw.push(rec(v));
-      if (/^o\d+$/.test(k)) raw.push(...nodes(rec(v).repositories));
+      if (/^o\d+$/.test(k)) owned.push(...nodes(rec(v).repositories));
     }
-    const lower = (s: string) => s.toLowerCase();
-    const starredRepo = new Set(stars.repos.map(lower));
-    const starredOwner = new Set(stars.orgs.map(lower));
+    raw.push(...nodes(rec(data.viewer).repositories), ...owned);
+    const sets = starSets(stars);
     const byName = new Map<string, RepoRow>();
     for (const r of raw) {
-      const repo = str(r.nameWithOwner);
-      if (!REPO.test(repo) || byName.has(lower(repo))) continue;
-      const owner = str(rec(r.owner).login) || repo.split("/")[0]!;
-      const starred = starredRepo.has(lower(repo));
-      const open = num(rec(r.pullRequests).totalCount);
-      if (!starred && (r.isArchived === true || open === 0)) continue;
-      byName.set(lower(repo), { repo, owner, open, starred, ownerStarred: starredOwner.has(lower(owner)), private: r.isPrivate === true });
+      const row = repoRowOf(r, sets);
+      if (row && !byName.has(row.repo.toLowerCase())) byName.set(row.repo.toLowerCase(), row);
     }
     for (const repo of stars.repos)
-      if (!byName.has(lower(repo))) {
+      if (!byName.has(repo.toLowerCase())) {
         const owner = repo.split("/")[0]!;
-        byName.set(lower(repo), { repo, owner, open: 0, starred: true, ownerStarred: starredOwner.has(lower(owner)), private: false, missing: true });
+        byName.set(repo.toLowerCase(), { repo, owner, open: 0, starred: true, ownerStarred: sets.orgs.has(owner.toLowerCase()), private: false, missing: true });
       }
+    return { rows: [...byName.values()], involved: new Set(involved.map((r) => r.toLowerCase())) };
+  });
+}
+
+/**
+ * The sidebar's repositories: favourites first (starred, then of starred
+ * owners), then the rest with open PRs, most open first. A starred repository
+ * always shows (`missing` when GitHub has none the token sees); others only
+ * with open PRs, and archived ones not at all.
+ */
+export function readRepos(fresh = false): Promise<RepoList> {
+  const stars = readStars();
+  return knownRepos(fresh).then(({ rows }) => {
     const rank = (r: RepoRow) => (r.starred ? 0 : r.ownerStarred ? 1 : 2);
-    const repos = [...byName.values()].sort((a, b) => rank(a) - rank(b) || b.open - a.open || lower(a.repo).localeCompare(lower(b.repo)));
+    const lower = (s: string) => s.toLowerCase();
+    const repos = rows
+      .filter((r) => r.starred || r.open > 0)
+      .sort((a, b) => rank(a) - rank(b) || b.open - a.open || lower(a.repo).localeCompare(lower(b.repo)));
     return { repos, stars };
   });
+}
+
+// ── repoSearch ───────────────────────────────────────────────────────────────
+/** At most this many repositories found. */
+export const MAX_FOUND = 30;
+/** Searches are kept a minute (GitHub's search allows 30 a minute). */
+export const SEARCH_TTL_MS = 60_000;
+
+/**
+ * What's typed to find a repository, as the search takes it: a github.com
+ * address, `@owner` and `.git` lose their extras; else null (nothing, or
+ * more than `owner/name`'s characters and spaces).
+ */
+export function searchText(raw: string): { text: string; owner?: string; name: string } | null {
+  const t = raw
+    .trim()
+    .replace(/^(https?:\/\/)?(www\.)?github\.com\//i, "")
+    .replace(/^@/, "")
+    .replace(/\.git$/i, "")
+    .replace(/\/+$/, "")
+    .replace(/\s+/g, " ");
+  if (!t || t.length > 200 || !/^[\w.\- ]+(\/[\w.\- ]*)?$/.test(t)) return null;
+  const slash = t.indexOf("/");
+  if (slash < 0) return { text: t, name: t };
+  const owner = t.slice(0, slash).trim();
+  return OWNER.test(owner) ? { text: t, owner, name: t.slice(slash + 1).trim() } : null;
+}
+
+/** Whether a repository matches what's typed: every word in its `owner/name`, or (with an owner) the owner and the name's words. */
+export function repoMatches(repo: string, t: { owner?: string; name: string }): boolean {
+  const lower = repo.toLowerCase();
+  const [owner, name] = lower.split("/") as [string, string];
+  const words = t.name.toLowerCase().split(" ").filter(Boolean);
+  if (t.owner) return owner.startsWith(t.owner.toLowerCase()) && words.every((w) => name.includes(w));
+  return words.every((w) => lower.includes(w));
+}
+
+/** One request: GitHub's repository search for the words (within the owner when one's named), the exact `owner/name`, and the account typed. */
+export function repoSearchQuery(t: { owner?: string; name: string }): { query: string; variables: Record<string, string> } {
+  const fields: string[] = [];
+  const params: string[] = [];
+  const variables: Record<string, string> = {};
+  const words = t.name.trim();
+  const q = [words ? `${words} in:name` : "", t.owner ? `user:${t.owner}` : "", "fork:true", ...(words ? [] : ["sort:updated"])].filter(Boolean).join(" ");
+  params.push("$q: String!");
+  variables.q = q;
+  fields.push("search(query: $q, type: REPOSITORY, first: 20) { nodes { ...R } }");
+  const login = t.owner ?? (OWNER.test(words) ? words : undefined);
+  if (login) {
+    params.push("$login: String!");
+    variables.login = login;
+    fields.push("owner: repositoryOwner(login: $login) { login }");
+  }
+  if (t.owner && words && REPO.test(`${t.owner}/${words}`)) {
+    params.push("$name: String!");
+    variables.name = words;
+    fields.push("exact: repository(owner: $login, name: $name) { ...R }");
+  }
+  return { query: `query(${params.join(", ")}) {\n  ${fields.join("\n  ")}\n}\n${REPO_FIELDS}`, variables };
+}
+
+/**
+ * Repositories matching what's typed (`searchText`): those the tab knows of
+ * (involved first, then yours as most recently pushed, starred and starred
+ * owners'), then what GitHub's repository search finds, `MAX_FOUND` at most.
+ * One character asks only those known; while the search's minute is spent,
+ * those known answer with a note.
+ */
+export function readRepoSearch(raw: string, fresh = false): Promise<RepoSearch> {
+  const t = searchText(raw);
+  if (!t) throw new GithubApiError("invalid", "Find a repository by its name, owner/name or owner.");
+  return cached(
+    `reposearch:${t.text.toLowerCase()}:${JSON.stringify(readStars()).toLowerCase()}`,
+    fresh,
+    async () => {
+      const stars = readStars();
+      const sets = starSets(stars);
+      const known = await knownRepos().catch(() => ({ rows: [] as RepoRow[], involved: new Set<string>() }));
+      const local = known.rows
+        .filter((r) => repoMatches(r.repo, t))
+        .map((r, i) => ({ r, i }))
+        .sort((a, b) => Number(known.involved.has(b.r.repo.toLowerCase())) - Number(known.involved.has(a.r.repo.toLowerCase())) || a.i - b.i)
+        .map(({ r }) => r);
+      const found = new Map(local.map((r) => [r.repo.toLowerCase(), r]));
+      const out: RepoSearch = { query: t.text, repos: [] };
+      if (t.text.length >= 2) {
+        try {
+          searchSlot();
+          const { query, variables } = repoSearchQuery(t);
+          const data = await graphql(query, variables);
+          for (const r of [...(data.exact ? [rec(data.exact)] : []), ...nodes(data.search)]) {
+            const row = repoRowOf(r, sets);
+            if (row && !found.has(row.repo.toLowerCase())) found.set(row.repo.toLowerCase(), row);
+          }
+          const login = str(rec(data.owner).login);
+          if (OWNER.test(login)) out.owner = { login, starred: sets.orgs.has(login.toLowerCase()) };
+        } catch (e) {
+          if (!(e instanceof GithubApiError && e.kind === "limited")) throw e;
+          out.note = "GitHub’s search is busy for a minute; these are the repositories you know of.";
+        }
+      }
+      out.repos = [...found.values()].slice(0, MAX_FOUND);
+      return out;
+    },
+    SEARCH_TTL_MS,
+  );
+}
+
+// ── people ───────────────────────────────────────────────────────────────────
+/** A repository's people change slowly: asked again after five minutes. */
+export const PEOPLE_TTL_MS = 5 * 60_000;
+export const PEOPLE_QUERY = `query($owner: String!, $name: String!) {
+  viewer { login name avatarUrl }
+  repository(owner: $owner, name: $name) {
+    assignableUsers(first: 100) { nodes { login name avatarUrl } }
+    pullRequests(first: 50, orderBy: { field: UPDATED_AT, direction: DESC }) { nodes { ${AUTHOR} } }
+  }
+}`;
+
+/** Who a repository's people filters offer: you, then recent pull requests' authors (newest first), then its other assignable users by login. */
+export function readPeople(repo: string, fresh = false): Promise<RepoPeople> {
+  return cached(
+    `people:${repo.toLowerCase()}`,
+    fresh,
+    async () => {
+      const [owner, name] = repo.split("/") as [string, string];
+      const data = await graphql(PEOPLE_QUERY, { owner, name });
+      const viewer = personOf(data.viewer);
+      if (!viewer) throw new GithubApiError("failed", "GitHub didn't say whose the token is.");
+      const r = rec(data.repository);
+      if (!data.repository) throw new GithubApiError("not-found", `GitHub has no ${repo} the token can see.`);
+      const seen = new Set([viewer.login.toLowerCase()]);
+      const take = (list: Raw[]) =>
+        list
+          .map((n) => personOf(n.author ?? n))
+          .filter((p): p is Person => {
+            if (!p || seen.has(p.login.toLowerCase())) return false;
+            seen.add(p.login.toLowerCase());
+            return true;
+          });
+      const authors = take(nodes(r.pullRequests));
+      const others = take(nodes(r.assignableUsers)).sort((a, b) => a.login.toLowerCase().localeCompare(b.login.toLowerCase()));
+      return { repo, viewer, people: [...authors, ...others] };
+    },
+    PEOPLE_TTL_MS,
+  );
 }
 
 // ── pr ───────────────────────────────────────────────────────────────────────

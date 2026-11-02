@@ -89,8 +89,14 @@ export type FakeGithub = {
   viewer: Raw;
   /** The token's scopes, as `X-OAuth-Scopes` says them. */
   scopes: string;
-  /** Search results by scope's query text. */
+  /** What a PR search counts, by its text, when more than it answers. */
+  counts: Record<string, number>;
+  /** PR search results by the query's text (a scope's, a repository's with its filters). */
   search: Record<string, Raw[]>;
+  /** Repository search results by the query's text (`repoSearchQuery`'s `q`). */
+  repoSearch: Record<string, Raw[]>;
+  /** A repository's assignable users and its recent PRs' authors, by `owner/name` (lowercase), for the people query. */
+  people: Map<string, { assignable: Raw[]; authors: Raw[] }>;
   /** The viewer's repositories, repositories by `owner/name` (lowercase), and owners' (by lowercase login), for the repos query. */
   viewerRepos: Raw[];
   repos: Map<string, Raw>;
@@ -116,6 +122,9 @@ export function installFakeGithub(opts: { enabled?: boolean; token?: string | nu
     viewer: { login: "me", name: "Me", avatar_url: "https://avatars.githubusercontent.com/u/9?v=4" },
     scopes: "repo, notifications, read:org",
     search: {},
+    counts: {},
+    repoSearch: {},
+    people: new Map(),
     viewerRepos: [],
     repos: new Map(),
     owners: new Map(),
@@ -136,9 +145,33 @@ export function installFakeGithub(opts: { enabled?: boolean; token?: string | nu
         return { json: { data: { ok: true } } };
       }
       const viewer = { login: fake.viewer.login, name: fake.viewer.name, avatarUrl: fake.viewer.avatar_url };
+      if (query.includes("type: REPOSITORY")) {
+        const data: Raw = { search: { nodes: fake.repoSearch[String(vars.q)] ?? [] } };
+        if (vars.login !== undefined) {
+          const login = String(vars.login).toLowerCase();
+          const known = fake.owners.has(login) || [...fake.repos.keys(), ...fake.viewerRepos.map((r) => String(r.nameWithOwner).toLowerCase())].some((r) => r.startsWith(`${login}/`));
+          data.owner = known ? { login: vars.login } : null;
+        }
+        if (vars.name !== undefined) data.exact = fake.repos.get(`${vars.login}/${vars.name}`.toLowerCase()) ?? null;
+        return { json: { data } };
+      }
+      if (query.includes("assignableUsers")) {
+        const p = fake.people.get(`${vars.owner}/${vars.name}`.toLowerCase());
+        const repository = p ? { assignableUsers: { nodes: p.assignable }, pullRequests: { nodes: p.authors.map((author) => ({ author })) } } : null;
+        return { json: { data: { viewer, repository } } };
+      }
       if (query.includes("search(")) {
-        const found = fake.search[String(vars.q ?? "")] ?? [];
-        return { json: { data: { viewer, search: { issueCount: found.length, nodes: found } } } };
+        const data: Raw = { viewer };
+        const answer = (q: unknown) => {
+          const found = fake.search[String(q ?? "")] ?? [];
+          return { issueCount: (fake.counts[String(q ?? "")] ?? found.length), nodes: found };
+        };
+        if (vars.q !== undefined) data.search = answer(vars.q);
+        for (const [k, v] of Object.entries(vars)) {
+          const i = /^q(\d+)$/.exec(k)?.[1];
+          if (i !== undefined) data[`s${i}`] = answer(v);
+        }
+        return { json: { data } };
       }
       if (query.includes("fragment R on Repository")) {
         const data: Raw = { viewer: { repositories: { nodes: fake.viewerRepos } } };

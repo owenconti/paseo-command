@@ -367,14 +367,25 @@ and GitHub publication; report the published version and release link.
   `github`, as Linear is. Its sidebar: Workspace (the selected workspace's, or the selected agent's, Changes, and its PR when known) and
   Pull requests (Review requests, Your pull requests, Involving you, each counted), then Repositories (`RepoNav.tsx`, `GET /api/github/q/repos`:
   one GraphQL query for your, your organizations' and collaborations' repositories, those of PRs involving you and of your favourites, each
-  counting its open PRs): Favourites first (starred repositories, and those of starred organizations, whose heads show even with none open),
-  then the others with open PRs, grouped by owner. A star on a repository's row or an owner's head (S, ⌘K) stars it, and + (⌘K "Star a
-  repository or organization…") stars one by name (`owner/name`, a login, or its github.com address); stars are the app's own, kept in the data
+  counting its open PRs): only Favourites (starred repositories, and those of starred organizations, whose heads show even with none open),
+  and the repository open now (its PRs or one of them) under Open while it isn't one. A search field heads the section (⌘K "Find a GitHub
+  repository…", which shows the sidebar first): it finds any repository you can see by name, `owner/name`, an owner's login or a github.com
+  address (`GET /api/github/q/repoSearch?q=`, `readRepoSearch` in `reads.ts`: those the tab knows first, involving you then yours as last pushed,
+  then GitHub's repository search, asked once typing pauses (300 ms), from two characters, one search taken from the minute's budget and kept a
+  minute; over the budget, those known answer with a note), and names the owner typed when GitHub has it; ↓/↑ move through what's found, Enter
+  opens the first, Esc clears it. A star on a repository's row, an owner's head or an owner found (S, ⌘K) stars it; stars are the app's own, kept in the data
   directory's `settings.json` as `githubStars` (`web/server/github/stars.ts`, `POST /api/github/m/star`; the file's other keys kept, an
-  unreadable file never overwritten). A repository's PRs (the `repo` place; `GET /api/github/q/prs?repo=&state=&author=&review=&draft=&checks=`,
-  one GitHub search, 50 newest) show with filters as Linear's do (`RepoFilters.tsx`, `filters.ts`: Filter (F) and chips under the head): state
-  (open by default, closed, merged), author (anyone, you), review (required, approved, changes requested), draft or ready, and CI (passing,
-  failing, pending), kept per repository in localStorage (`readRepoFilters` in `place.ts`); ⌘K opens each repository and sets each filter.
+  unreadable file never overwritten). As Linear's and Slack's, the sidebar's inner edge resizes it and ⌘S hides or shows it (`github:sidebarHidden`
+  in localStorage; ⌘K "Show or hide the GitHub sidebar"; the page takes the key while GitHub shows), whatever shows beside it.
+  A repository's PRs (the `repo` place; `GET /api/github/q/prs?repo=&state=&author=&reviewer=&assignee=&review=&draft=&checks=`,
+  50 newest) show with filters as Linear's do (`RepoFilters.tsx`, `filters.ts`: Filter (F) and chips under the head): state
+  (open by default, closed, merged), author, reviewer and assignee (any of several people, `@me` being you, comma-joined; each offers you first, then
+  the repository's recent PR authors, then its assignable users, with avatars, searchable by login or name: `GET /api/github/q/people?repo=`,
+  `readPeople`, one GraphQL query of `assignableUsers` and recent PRs' authors, kept five minutes), review (required, approved, changes requested),
+  draft or ready, and CI (passing, failing, pending), kept per repository in localStorage (`readRepoFilters` in `place.ts`; the old one-value author
+  filter becomes `["@me"]`); ⌘K opens each repository, sets each filter and opens each people filter's picker. GitHub's search can't OR people, so
+  each person (and a reviewer's two qualifiers, `review-requested:` and `reviewed-by:`) is one more search (`filterQueries`), asked in one GraphQL
+  request and merged, at most 6 together (the picker says so past it; the server refuses more).
   Searches keep under GitHub's 30 a minute (`searchSlot` in `client.ts`, 25 for the tab; over it a cached list answers again). Changes (`ChangesView.tsx`; the workspace view's
   Changes button and ⌘K "Show …'s changes against main" open it): the branch against its base from its host's daemon (`getCheckoutDiff`,
   so remote hosts too; `GET /api/changes?workspace=&host=&mode=all|base|uncommitted`, `web/server/api/changes.ts`, not gated on the
