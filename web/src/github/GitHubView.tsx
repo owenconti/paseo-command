@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from "react";
-import { AtSign, Eye, GitBranch, GitPullRequest, GitPullRequestArrow, RefreshCw, UserRound } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from "react";
+import { AtSign, ExternalLink, Eye, GitBranch, GitPullRequest, GitPullRequestArrow, RefreshCw, Star, UserRound } from "lucide-react";
 import { readStore, removeStore, writeStore } from "../api";
 import { onAppCommand } from "../appCommands";
 import { modalOpen } from "../focus";
@@ -12,11 +12,14 @@ import { Avatar } from "./bits";
 import { ChangesView } from "./ChangesView";
 import { DiffWorkers } from "./diffWorkers";
 import type { DiffLayout, DiffViewHandle } from "./DiffView";
-import { checkPlace, PR_TABS, readPlace, samePlace, writePlace, type GithubPlace, type PrTab } from "./place";
+import { checkPlace, PR_TABS, readPlace, readRepoFilters, samePlace, writePlace, writeRepoFilters, type GithubPlace, type PrTab } from "./place";
+import { checkFilters, FILTER_FIELDS, type FilterField, type RepoFilters } from "./filters";
+import { RepoFilterButton, RepoFilterChips, setFilter, type RepoFilterControl } from "./RepoFilters";
+import { orgStarred, RepoNav, repoOrder, repoStarred, REPOS_PATH, setStar, type RepoNavControl } from "./RepoNav";
 import { SCOPE_TITLE } from "./names";
 import { LIST_POLL_MS, PrList } from "./PrList";
 import { PrView, type PrViewApi } from "./PrView";
-import { CHANGES_MODES, PR_SCOPES, type ChangesMode, type PrDetail, type PrList as PrListData, type PrScope, type ReviewEvent, type Viewer, type WorkspaceChanges } from "./types";
+import { CHANGES_MODES, PR_SCOPES, type ChangesMode, type PrDetail, type PrList as PrListData, type PrScope, type RepoList, type ReviewEvent, type Viewer, type WorkspaceChanges } from "./types";
 import "./github.css";
 
 /** The workspace selected on the map or in the panel (or the open agent's), whose changes the tab shows. */
@@ -41,6 +44,12 @@ export type GithubViewState = {
   workspacePr?: { repo: string; number: number };
   changesMode: ChangesMode;
   canBack: boolean;
+  /** The sidebar's repositories, favourites first. */
+  repos: { repo: string; favourite: boolean }[];
+  /** The repository in view (its list, or the open PR's) and whether it, or its owner, is starred. */
+  repo?: { name: string; owner: string; starred: boolean; ownerStarred: boolean };
+  /** A repository's list shows: its filters. */
+  filters?: RepoFilters;
 };
 
 const PANELS = { sidebar: 220, sidebarMin: 170, mainMin: 480 };
@@ -61,12 +70,13 @@ const prOf = (url: string | undefined) => {
  * The GitHub tab, in the map's place (the macOS app's mode bar), through the
  * user's own classic token (Settings → GitHub): the selected workspace's branch against main (from
  * its host's daemon, so remote workspaces too), and pull requests to review:
- * those waiting on you, yours and those involving you, each opening to its
+ * those waiting on you, yours and those involving you, and each repository's
+ * (favourites, starred, first) with its filters, each opening to its
  * conversation, files (the review), commits and checks.
  * Keys while the keyboard is in the view (not typing): J/K or ↓/↑ move
  * through a list (and through a diff's files), Enter or O open, Esc goes back,
  * 1–4 a PR's tabs, R review, C comment, V viewed, U unified/split, F the file
- * list, M which changes.
+ * list (a repository's filters), M which changes, S stars the repository.
  */
 export function GitHubView({
   workspace,
@@ -132,6 +142,30 @@ export function GitHubView({
     mine: useGithubRead<PrListData>(readPath("prs", { scope: "mine" })).data?.rows.length,
     involved: useGithubRead<PrListData>(readPath("prs", { scope: "involved" })).data?.rows.length,
   };
+  const repos = useGithubRead<RepoList>(REPOS_PATH);
+  // The repository's filters, kept for each (place.ts).
+  const [filtersTick, setFiltersTick] = useState(0);
+  const filters = useMemo(() => (place.kind === "repo" ? readRepoFilters(place.repo) : undefined), [place, filtersTick]);
+  const setFilters = useCallback((repo: string, next: RepoFilters) => {
+    writeRepoFilters(repo, next);
+    setFiltersTick((t) => t + 1);
+  }, []);
+  const filterControl = useRef<RepoFilterControl | null>(null);
+  const repoNav = useRef<RepoNavControl | null>(null);
+  const currentRepo = place.kind === "repo" || place.kind === "pr" ? place.repo : undefined;
+  const repoState = currentRepo
+    ? {
+        name: currentRepo,
+        owner: currentRepo.split("/")[0]!,
+        starred: repoStarred(repos.data?.stars, currentRepo),
+        ownerStarred: orgStarred(repos.data?.stars, currentRepo.split("/")[0]!),
+      }
+    : undefined;
+  const star = useCallback(
+    (kind: "repo" | "org", name: string, starred: boolean) =>
+      setStar(kind, name, starred).catch((e: unknown) => onNotice(`Couldn’t ${starred ? "star" : "unstar"} ${name}: ${e instanceof Error ? e.message : String(e)}`)),
+    [onNotice],
+  );
   const changes = useGithubRead<WorkspaceChanges>(workspace ? changesPath(workspace.id, workspace.host, changesMode) : null);
   const workspacePr = (() => {
     const p = changes.data?.pr;
@@ -199,8 +233,8 @@ export function GitHubView({
   const refresh = () => invalidate("github/q/", "changes?");
 
   // ⌘K's commands.
-  const current = useRef({ place, layout, listShown, diffShown, toggleViewed, cycleMode, setTab, back, refresh, external, openPr, workspacePr });
-  current.current = { place, layout, listShown, diffShown, toggleViewed, cycleMode, setTab, back, refresh, external, openPr, workspacePr };
+  const current = useRef({ place, layout, listShown, diffShown, toggleViewed, cycleMode, setTab, back, refresh, external, openPr, workspacePr, filters, setFilters, star });
+  current.current = { place, layout, listShown, diffShown, toggleViewed, cycleMode, setTab, back, refresh, external, openPr, workspacePr, filters, setFilters, star };
   useEffect(() => {
     const c = () => current.current;
     const offs = [
@@ -227,6 +261,22 @@ export function GitHubView({
       onAppCommand("github-open-browser", () => {
         const { place, openPr } = c();
         if (place.kind === "pr" && openPr.pr) c().external(openPr.pr.url);
+        else if (place.kind === "repo") c().external(`https://github.com/${place.repo}/pulls`);
+      }),
+      onAppCommand("github-star", (arg) => {
+        const a = arg as { kind?: unknown; name?: unknown; starred?: unknown } | undefined;
+        if ((a?.kind === "repo" || a?.kind === "org") && typeof a.name === "string" && typeof a.starred === "boolean") void c().star(a.kind, a.name, a.starred);
+      }),
+      onAppCommand("github-star-add", () => repoNav.current?.add()),
+      onAppCommand("github-filter", (arg) => {
+        if (c().place.kind === "repo") filterControl.current?.open(FILTER_FIELDS.includes(arg as FilterField) ? (arg as FilterField) : undefined);
+      }),
+      onAppCommand("github-set-filter", (arg) => {
+        const { place, filters } = c();
+        if (place.kind !== "repo" || !filters) return;
+        if (arg === "clear") return c().setFilters(place.repo, checkFilters({}));
+        const a = arg as { field?: unknown; value?: unknown } | undefined;
+        if (FILTER_FIELDS.includes(a?.field as FilterField)) c().setFilters(place.repo, setFilter(filters, a!.field as FilterField, typeof a!.value === "string" ? a!.value : null));
       }),
     ];
     return () => offs.forEach((off) => off());
@@ -241,6 +291,9 @@ export function GitHubView({
       diff: diffShown,
       changesMode,
       canBack: place.kind === "pr",
+      repos: repoOrder(repos.data),
+      ...(repoState ? { repo: repoState } : {}),
+      ...(filters ? { filters } : {}),
       ...(pr
         ? {
             pr: {
@@ -256,7 +309,7 @@ export function GitHubView({
         : {}),
       ...(workspacePr ? { workspacePr } : {}),
     });
-  }, [place, layout, listShown, diffShown, changesMode, openPr, workspacePr?.repo, workspacePr?.number, onViewState]);
+  }, [place, layout, listShown, diffShown, changesMode, openPr, workspacePr?.repo, workspacePr?.number, onViewState, repos.data, repoState?.starred, repoState?.ownerStarred, filters]);
   useEffect(() => () => onViewState?.(undefined), [onViewState]);
 
   const onKey = (e: ReactKeyboardEvent<HTMLElement>) => {
@@ -267,7 +320,9 @@ export function GitHubView({
     const lower = key.toLowerCase();
     const onButton = !!target.closest("button,a,[role=button],input,label");
     let handled = true;
-    if (place.kind === "prs" && !(key === "Enter" && onButton) && listKeys.current?.(e)) handled = true;
+    if ((place.kind === "prs" || place.kind === "repo") && !(key === "Enter" && onButton) && listKeys.current?.(e)) handled = true;
+    else if (place.kind === "repo" && lower === "f") filterControl.current?.open();
+    else if (repoState && lower === "s") void star("repo", repoState.name, !repoState.starred);
     else if (diffShown && (lower === "j" || key === "ArrowDown") && !onButton) diffHandle.current?.step(1);
     else if (diffShown && (lower === "k" || key === "ArrowUp") && !onButton) diffHandle.current?.step(-1);
     else if (diffShown && lower === "u") setLayout(layout === "split" ? "unified" : "split");
@@ -303,7 +358,8 @@ export function GitHubView({
   );
 
   const fileCount = changes.data?.files.length;
-  const listTitle = from?.kind === "prs" ? SCOPE_TITLE[from.scope] : from?.kind === "changes" ? "Changes" : SCOPE_TITLE.review;
+  const listTitle =
+    from?.kind === "prs" ? SCOPE_TITLE[from.scope] : from?.kind === "repo" ? from.repo : from?.kind === "changes" ? "Changes" : SCOPE_TITLE.review;
 
   let main: ReactNode;
   if (place.kind === "changes")
@@ -322,6 +378,39 @@ export function GitHubView({
       />
     );
   else if (place.kind === "prs") main = <PrList scope={place.scope} onOpen={(row) => openRow(row.repo, row.number)} keys={listKeys} />;
+  else if (place.kind === "repo") {
+    const repo = place.repo;
+    const f = filters ?? checkFilters({});
+    const starred = repoStarred(repos.data?.stars, repo);
+    main = (
+      <PrList
+        key={repo.toLowerCase()}
+        repo={repo}
+        filters={f}
+        title={<span>{repo}</span>}
+        tools={
+          <>
+            <RepoFilterButton filters={f} onFilters={(next) => setFilters(repo, next)} control={filterControl} />
+            <button
+              className={`icon-btn gh-star${starred ? " on" : ""}`}
+              aria-pressed={starred}
+              aria-label={`${starred ? "Unstar" : "Star"} ${repo}`}
+              data-tip={starred ? "Unstar (S)" : "Star as a favourite (S)"}
+              onClick={() => void star("repo", repo, !starred)}
+            >
+              <Star size={13} aria-hidden="true" fill={starred ? "currentColor" : "none"} />
+            </button>
+            <button className="icon-btn" aria-label={`Open ${repo}'s pull requests on GitHub`} data-tip="Open on GitHub" onClick={() => external(`https://github.com/${repo}/pulls`)}>
+              <ExternalLink size={13} aria-hidden="true" />
+            </button>
+          </>
+        }
+        below={<RepoFilterChips filters={f} onFilters={(next) => setFilters(repo, next)} />}
+        onOpen={(row) => openRow(row.repo, row.number)}
+        keys={listKeys}
+      />
+    );
+  }
   else
     main = (
       <PrView
@@ -404,6 +493,14 @@ export function GitHubView({
                   `${place.repo}#${place.number}`,
                   () => {},
                 )}
+              <RepoNav
+                list={repos.data}
+                unavailable={repos.unavailable}
+                current={place.kind === "repo" ? place.repo : undefined}
+                onOpen={(repo) => go({ kind: "repo", repo })}
+                onNotice={onNotice}
+                control={repoNav}
+              />
             </div>
             {!!viewer.data?.missingScopes?.length && (
               <div className="gh-scopes" role="status">

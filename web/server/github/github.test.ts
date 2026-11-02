@@ -5,11 +5,15 @@ import assert from "node:assert/strict";
 import type { IncomingMessage } from "node:http";
 import { Readable } from "node:stream";
 import { afterEach, beforeEach, test } from "node:test";
-import { writeSettings } from "../settings";
+import { readSettings, settingsFile, writeSettings } from "../settings";
+import { readFileSync, writeFileSync } from "node:fs";
+import { saveStar } from "./stars";
+import { SEARCH_BUDGET } from "./client";
 import { FAKE_GITHUB_TOKEN } from "../githubFake";
 import { NO_KEY, OFF, REFUSED, SCOPES } from "../githubApi";
-import { FAKE_DIFF, fakePr, installFakeGithub, SHA, type FakeGithub } from "./fake";
+import { FAKE_DIFF, fakePr, fakeRepo, installFakeGithub, SHA, type FakeGithub } from "./fake";
 import { avatarOf, checkOf, filesFromPatches, reviewersOf, rowOf, SCOPE_QUERY } from "./reads";
+import { filterQuery } from "../../src/github/filters";
 import { githubRoute } from "./route";
 import { checkWrite } from "./writes";
 
@@ -245,4 +249,100 @@ test("shaping keeps to GitHub's own addresses and known states", () => {
   assert.deepEqual(filesFromPatches([{ filename: "r.ts", previous_filename: "q.ts", status: "renamed", additions: 0, deletions: 0 }, "not a file"]), [
     { path: "r.ts", oldPath: "q.ts", isNew: false, isDeleted: false, additions: 0, deletions: 0, hunks: [], status: "ok" },
   ]);
+});
+
+// ── Repositories ─────────────────────────────────────────────────────────────
+const star = (kind: "repo" | "org", name: string, starred = true) => ask("/api/github/m/star", "POST", { kind, name, starred });
+
+test("repositories: favourites first, then the others with open PRs, each counted", async () => {
+  writeSettings({ keep: "me" });
+  fake.viewerRepos = [fakeRepo("owen/app", 2), fakeRepo("owen/quiet", 0), fakeRepo("owen/old", 3, { isArchived: true }), fakeRepo("acme/web", 1)];
+  fake.repos.set("other/starred", fakeRepo("other/starred", 0));
+  fake.owners.set("acme", [fakeRepo("acme/web", 1), fakeRepo("acme/api", 4), fakeRepo("acme/none", 0)]);
+  fake.search[SCOPE_QUERY.involved] = [fakePr({ number: 3, repo: "far/lib" })];
+  fake.repos.set("far/lib", fakeRepo("far/lib", 5));
+
+  assert.equal((await star("repo", "other/starred")).status, 200);
+  const r = await star("org", "acme");
+  assert.deepEqual(r.body, { ok: true, stars: { repos: ["other/starred"], orgs: ["acme"] } });
+  // Kept in settings.json beside the file's other keys.
+  const saved = readSettings()!;
+  assert.equal(saved.keep, "me");
+  assert.deepEqual(saved.githubStars, { repos: ["other/starred"], orgs: ["acme"] });
+
+  const list = await ask("/api/github/q/repos");
+  assert.equal(list.status, 200, JSON.stringify(list.body));
+  assert.deepEqual(
+    list.body.repos.map((x: { repo: string; open: number; starred: boolean; ownerStarred: boolean }) => [x.repo, x.open, x.starred, x.ownerStarred]),
+    [
+      ["other/starred", 0, true, false],
+      ["acme/api", 4, false, true],
+      ["acme/web", 1, false, true],
+      ["far/lib", 5, false, false],
+      ["owen/app", 2, false, false],
+    ],
+  );
+  // One GraphQL query asks for them by name (variables, not spliced in).
+  const q = fake.calls.filter((c) => c.path === "graphql").map((c) => c.body as { query: string; variables: Record<string, string> }).find((b) => b.query.includes("fragment R"))!;
+  assert.deepEqual(q.variables, { r0o: "other", r0n: "starred", r1o: "far", r1n: "lib", o0: "acme" });
+
+  // Unstarring takes it away; a starred repository GitHub doesn't know stays, marked missing.
+  await star("org", "ACME", false);
+  await star("repo", "gone/away");
+  const again = await ask("/api/github/q/repos");
+  const gone = again.body.repos.find((x: { repo: string }) => x.repo === "gone/away");
+  assert.equal(gone.missing, true);
+  assert.equal(again.body.repos.some((x: { repo: string }) => x.repo === "acme/api"), false);
+  assert.deepEqual(again.body.stars, { repos: ["other/starred", "gone/away"], orgs: [] });
+});
+
+test("starring is checked, and never overwrites an unreadable settings file", async () => {
+  for (const body of [
+    { kind: "repo", name: "noslash", starred: true },
+    { kind: "org", name: "a/b", starred: true },
+    { kind: "team", name: "x", starred: true },
+    { kind: "repo", name: "../etc", starred: true },
+    { kind: "repo", name: "a/b", starred: "yes" },
+    { kind: "repo", name: "a/b", starred: true, extra: 1 },
+  ])
+    assert.equal((await ask("/api/github/m/star", "POST", body)).status, 400, JSON.stringify(body));
+  writeFileSync(settingsFile(), "{ not json");
+  // Unreadable, GitHub reads as off; the stars themselves refuse too, and the file stays as it was.
+  assert.equal((await star("repo", "a/b")).status, 503);
+  assert.throws(() => saveStar("repo", "a/b", true), /can't be read/);
+  assert.equal(readFileSync(settingsFile(), "utf8"), "{ not json");
+});
+
+test("a repository's PRs are asked of GitHub's search with its filters", async () => {
+  const q = filterQuery("owen/app", { state: "merged", author: "me", review: "approved", draft: "ready", checks: "failing" });
+  assert.equal(q, "is:pr repo:owen/app is:merged author:@me review:approved draft:false status:failure sort:updated-desc");
+  fake.search[q] = [fakePr({ number: 4, state: "MERGED" }), fakePr({ number: 5, repo: "owen/other" })];
+  const r = await ask("/api/github/q/prs?repo=owen/app&state=merged&author=me&review=approved&draft=ready&checks=failing");
+  assert.equal(r.status, 200, JSON.stringify(r.body));
+  assert.equal(r.body.repo, "owen/app");
+  assert.deepEqual(r.body.rows.map((x: { number: number; state: string }) => [x.number, x.state]), [[4, "merged"]]);
+  // Open by default.
+  fake.search[filterQuery("owen/app", { state: "open" })] = [fakePr({ number: 6 })];
+  assert.deepEqual((await ask("/api/github/q/prs?repo=owen/app")).body.rows.map((x: { number: number }) => x.number), [6]);
+  for (const bad of ["repo=owen/app&state=all", "repo=owen/app&scope=review", "repo=nope", "repo=owen/app&author=you", "repo=owen/app&checks=1&checks=2"])
+    assert.equal((await ask(`/api/github/q/prs?${bad}`)).status, 400, bad);
+});
+
+test("searches keep under GitHub's 30 a minute, answering the last answer meanwhile", async () => {
+  const was = SEARCH_BUDGET.perMinute;
+  SEARCH_BUDGET.perMinute = 2;
+  try {
+    assert.equal((await ask("/api/github/q/prs?scope=review")).body.rows.length, 2);
+    await ask("/api/github/q/prs?scope=mine");
+    const before = fake.calls.length;
+    // Over the budget: the cached list answers again, and nothing is asked.
+    assert.equal((await ask("/api/github/q/prs?scope=review&fresh=1")).body.rows.length, 2);
+    // With no answer to fall back on, the view says why.
+    const r = await ask("/api/github/q/prs?scope=involved");
+    assert.equal(r.body.available, false);
+    assert.match(r.body.reason, /30 requests a minute/);
+    assert.equal(fake.calls.length, before);
+  } finally {
+    SEARCH_BUDGET.perMinute = was;
+  }
 });

@@ -2,10 +2,11 @@
  * The GitHub tab's whitelisted writes (`POST /api/github/m/<name>`), each the
  * user's own action with their GitHub token. Inputs are checked field by
  * field; anything unexpected is refused before GitHub is asked. Each clears the
- * cached reads it changes.
+ * cached reads it changes. `star` is the app's own: favourites in settings.json (`stars.ts`).
  */
 import {
   GITHUB_WRITES,
+  OWNER,
   REPO,
   type DraftComment,
   type GithubWriteInputs,
@@ -16,6 +17,7 @@ import {
 import { GithubApiError, githubGraphql as graphql, githubRest } from "../githubApi";
 import { assertEnabled, forget } from "./client";
 import { BODY_MAX, diffKey, prKey } from "./reads";
+import { saveStar } from "./stars";
 
 export const MAX_DRAFTS = 100;
 const EVENTS: ReviewEvent[] = ["APPROVE", "REQUEST_CHANGES", "COMMENT"];
@@ -106,6 +108,14 @@ export function checkWrite<N extends GithubWriteName>(name: N, raw: unknown): Gi
       if (typeof o.viewed !== "boolean") throw invalid("Invalid viewed");
       return { prId: nodeId(o.prId, "prId"), path: path(o.path), viewed: o.viewed } as GithubWriteInputs[N];
     }
+    case "star": {
+      const o = fields(raw, ["kind", "name", "starred"]);
+      if (o.kind !== "repo" && o.kind !== "org") throw invalid("Invalid kind");
+      if (typeof o.starred !== "boolean") throw invalid("Invalid starred");
+      const ok = typeof o.name === "string" && (o.kind === "repo" ? REPO.test(o.name) && !o.name.includes("..") : OWNER.test(o.name));
+      if (!ok) throw invalid(o.kind === "repo" ? "Name the repository as owner/name" : "Name the organization by its login");
+      return { kind: o.kind, name: o.name, starred: o.starred } as GithubWriteInputs[N];
+    }
   }
   throw invalid("Unknown write");
 }
@@ -171,6 +181,13 @@ export async function githubWrite(name: GithubWriteName, raw: unknown): Promise<
       }, true);
       forgetPrs();
       return { ok: true };
+    }
+    case "star": {
+      // The app's own favourites, in settings.json: GitHub isn't asked.
+      const w = checkWrite("star", raw);
+      const stars = saveStar(w.kind, w.name, w.starred);
+      forget("repos:");
+      return { ok: true, stars };
     }
   }
 }

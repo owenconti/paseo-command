@@ -44,22 +44,52 @@ export function writeStatus(e: GithubApiError): number {
 }
 
 // ── Cache ────────────────────────────────────────────────────────────────────
-const cache = new Map<string, { at: number; value: Promise<unknown> }>();
+const cache = new Map<string, { at: number; value: Promise<unknown>; settled?: unknown }>();
 
-/** `read()` once per `GITHUB_TAB.ttlMs` for `key`; a failure isn't kept. */
+/**
+ * `read()` once per `GITHUB_TAB.ttlMs` for `key`; a failure isn't kept, and
+ * one that's only the rate limit answers the last answer instead, while there is one.
+ */
 export function cached<T>(key: string, fresh: boolean, read: () => Promise<T>): Promise<T> {
   const hit = cache.get(key);
   if (!fresh && hit && Date.now() - hit.at < GITHUB_TAB.ttlMs) return hit.value as Promise<T>;
-  const value = read();
-  cache.set(key, { at: Date.now(), value });
-  value.catch(() => {
-    if (cache.get(key)?.value === value) cache.delete(key);
+  const last = hit && "settled" in hit ? (hit.settled as T) : undefined;
+  const value = read().catch((e) => {
+    if (last !== undefined && e instanceof GithubApiError && e.kind === "limited") return last;
+    throw e;
   });
+  const entry: { at: number; value: Promise<unknown>; settled?: unknown } = { at: Date.now(), value, ...(last !== undefined ? { settled: last } : {}) };
+  cache.set(key, entry);
+  value.then(
+    (v) => {
+      entry.settled = v;
+    },
+    () => {
+      if (cache.get(key) === entry) cache.delete(key);
+    },
+  );
   return value;
+}
+
+// ── Search ───────────────────────────────────────────────────────────────────
+/** GitHub's search allows 30 requests a minute; the tab keeps a few back for the rest of the app. */
+export const SEARCH_BUDGET = { perMinute: 25 };
+let searches: number[] = [];
+
+/** Takes one of the minute's searches, or refuses (`limited`) until one frees. */
+export function searchSlot(): void {
+  const now = Date.now();
+  searches = searches.filter((at) => now - at < 60_000);
+  if (searches.length >= SEARCH_BUDGET.perMinute)
+    throw new GithubApiError("limited", "GitHub's search allows 30 requests a minute; this list is asked again shortly.", undefined, searches[0]! + 60_000);
+  searches.push(now);
 }
 
 /** Forgets cached reads whose key starts with one of these. */
 export function forget(...prefixes: string[]): void {
   for (const key of [...cache.keys()]) if (prefixes.some((p) => key.startsWith(p))) cache.delete(key);
 }
-export const resetGithubTab = () => cache.clear();
+export const resetGithubTab = () => {
+  cache.clear();
+  searches = [];
+};

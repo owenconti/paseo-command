@@ -67,6 +67,11 @@ export function fakePr(o: Partial<Raw> & { number: number; repo?: string } = { n
   };
 }
 
+/** A repository as the repos query asks for it. */
+export function fakeRepo(repo: string, open = 1, o: Partial<Raw> = {}): Raw {
+  return { nameWithOwner: repo, isArchived: false, isPrivate: false, owner: { login: repo.split("/")[0] }, pullRequests: { totalCount: open }, ...o };
+}
+
 export const FAKE_DIFF = `diff --git a/src/app.ts b/src/app.ts
 index 1..2 100644
 --- a/src/app.ts
@@ -86,6 +91,10 @@ export type FakeGithub = {
   scopes: string;
   /** Search results by scope's query text. */
   search: Record<string, Raw[]>;
+  /** The viewer's repositories, repositories by `owner/name` (lowercase), and owners' (by lowercase login), for the repos query. */
+  viewerRepos: Raw[];
+  repos: Map<string, Raw>;
+  owners: Map<string, Raw[]>;
   /** PRs by `owner/name#n`. */
   prs: Map<string, Raw>;
   /** Diffs by `owner/name#n`, or GitHub's refusal. */
@@ -107,6 +116,9 @@ export function installFakeGithub(opts: { enabled?: boolean; token?: string | nu
     viewer: { login: "me", name: "Me", avatar_url: "https://avatars.githubusercontent.com/u/9?v=4" },
     scopes: "repo, notifications, read:org",
     search: {},
+    viewerRepos: [],
+    repos: new Map(),
+    owners: new Map(),
     prs: new Map(),
     diffs: new Map(),
     calls: [],
@@ -124,7 +136,19 @@ export function installFakeGithub(opts: { enabled?: boolean; token?: string | nu
         return { json: { data: { ok: true } } };
       }
       const viewer = { login: fake.viewer.login, name: fake.viewer.name, avatarUrl: fake.viewer.avatar_url };
-      if (query.includes("search(")) return { json: { data: { viewer, search: { nodes: fake.search[String(vars.q ?? "")] ?? [] } } } };
+      if (query.includes("search(")) {
+        const found = fake.search[String(vars.q ?? "")] ?? [];
+        return { json: { data: { viewer, search: { issueCount: found.length, nodes: found } } } };
+      }
+      if (query.includes("fragment R on Repository")) {
+        const data: Raw = { viewer: { repositories: { nodes: fake.viewerRepos } } };
+        for (const [k, v] of Object.entries(vars)) {
+          const r = /^r(\d+)o$/.exec(k);
+          if (r) data[`r${r[1]}`] = fake.repos.get(`${v}/${vars[`r${r[1]}n`]}`.toLowerCase()) ?? null;
+          if (/^o\d+$/.test(k)) data[k] = fake.owners.has(String(v).toLowerCase()) ? { repositories: { nodes: fake.owners.get(String(v).toLowerCase()) } } : null;
+        }
+        return { json: { data } };
+      }
       if (query.includes("pullRequest(")) {
         const pr = fake.prs.get(`${vars.owner}/${vars.name}#${vars.number}`) ?? null;
         if (pr && vars.after) return { json: { data: { repository: { pullRequest: { files: (pr.morefiles as Raw) ?? { nodes: [] } } } } } };

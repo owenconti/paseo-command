@@ -1,5 +1,6 @@
 import { readStore, writeStore } from "../api";
 import { runAppCommand } from "../appCommands";
+import { checkFilters, DEFAULT_FILTERS, type RepoFilters } from "./filters";
 import { PR_SCOPES, REPO, type PrScope } from "./types";
 
 /** A PR view's tabs. */
@@ -8,11 +9,13 @@ export const PR_TABS: PrTab[] = ["conversation", "files", "commits", "checks"];
 
 /**
  * Where the user is in the GitHub tab: the selected workspace's changes, a
- * list of pull requests, or one pull request (on one of its tabs, perhaps at a file).
+ * list of pull requests, a repository's pull requests (its filters kept for
+ * it, `readRepoFilters`), or one pull request (on one of its tabs, perhaps at a file).
  */
 export type GithubPlace =
   | { kind: "changes" }
   | { kind: "prs"; scope: PrScope }
+  | { kind: "repo"; repo: string }
   | { kind: "pr"; repo: string; number: number; tab: PrTab; path?: string };
 
 const STORE_KEY = "github:place";
@@ -24,6 +27,7 @@ export function checkPlace(raw: unknown): GithubPlace {
   const p = raw as Record<string, unknown>;
   if (p.kind === "changes") return { kind: "changes" };
   if (p.kind === "prs" && PR_SCOPES.includes(p.scope as PrScope)) return { kind: "prs", scope: p.scope as PrScope };
+  if (p.kind === "repo" && typeof p.repo === "string" && REPO.test(p.repo) && !p.repo.includes("..")) return { kind: "repo", repo: p.repo };
   if (
     p.kind === "pr" &&
     typeof p.repo === "string" &&
@@ -45,6 +49,24 @@ export const samePlace = (a: GithubPlace, b: GithubPlace) => JSON.stringify(a) =
 export const readPlace = (): GithubPlace => checkPlace(readStore<unknown>(STORE_KEY, null));
 export function writePlace(p: GithubPlace): void {
   writeStore(STORE_KEY, p);
+}
+
+// ── A repository's filters, kept for each (localStorage) ─────────────────────
+const FILTERS_KEY = "github:repoFilters";
+/** As many repositories' filters as are kept (the most recently set). */
+const MAX_KEPT = 100;
+const keptFilters = (): Record<string, unknown> => {
+  const kept = readStore<unknown>(FILTERS_KEY, {});
+  return kept && typeof kept === "object" && !Array.isArray(kept) ? (kept as Record<string, unknown>) : {};
+};
+export const readRepoFilters = (repo: string): RepoFilters => {
+  const kept = keptFilters()[repo.toLowerCase()];
+  return kept ? checkFilters(kept) : { ...DEFAULT_FILTERS };
+};
+export function writeRepoFilters(repo: string, filters: RepoFilters): void {
+  const { [repo.toLowerCase()]: _, ...rest } = keptFilters();
+  const entries = [...Object.entries(rest), [repo.toLowerCase(), checkFilters(filters)] as const].slice(-MAX_KEPT);
+  writeStore(FILTERS_KEY, Object.fromEntries(entries));
 }
 
 /**
