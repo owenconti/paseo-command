@@ -8,7 +8,7 @@
 import { after, before, test } from "node:test";
 import assert from "node:assert/strict";
 import type { Browser, Page } from "playwright";
-import type { DiffFile, PrDetail, PrDiff, PrList, PrRow, RepoList, RepoPeople, RepoSearch, WorkspaceChanges } from "../src/github/types";
+import type { DiffFile, PrCheck, PrDetail, PrDiff, PrList, PrRow, RepoList, RepoPeople, RepoSearch, RepoTeams, WorkspaceChanges } from "../src/github/types";
 import { small } from "./fleets";
 import { launch, mockApi, newContext, startApp, waitFor } from "./harness";
 
@@ -109,8 +109,17 @@ const detail = (r: PrRow): PrDetail => ({
   threads: [],
   commits: [{ sha: SHA, title: "Add it", author: sam, at: ago(30) }],
   checkRuns: [{ name: "test", state: "passing" }],
-  reviewers: [{ name: "me", state: "requested" }],
+  reviewers: [{ kind: "user", login: "me", requested: true, verdict: null }],
+  assignees: [],
 });
+const TEAMS: RepoTeams = { repo: "acme/atlas", teams: [{ slug: "map-team", name: "Map team" }] };
+/** #12's checks: one failing, one running, seven passing and a skipped one. */
+const CHECKS: PrCheck[] = [
+  ...Array.from({ length: 7 }, (_, i): PrCheck => ({ name: `unit ${i + 1}`, state: "passing", source: "CI", startedAt: ago(20), completedAt: ago(18), url: `https://github.com/acme/atlas/actions/runs/${i + 1}` })),
+  { name: "deploy preview", state: "pending", source: "vercel", startedAt: ago(3) },
+  { name: "lint", state: "failing", source: "CI", startedAt: ago(10), completedAt: ago(9), url: "https://github.com/acme/atlas/actions/runs/99", summary: "2 errors" },
+  { name: "docs", state: "skipped", source: "CI" },
+];
 
 const CHANGES = (mode: string): WorkspaceChanges => ({
   cwd: "/work/atlas/a",
@@ -129,7 +138,7 @@ const showGithub = (page: Page) =>
 
 type Asked = { path: string; query: Record<string, string>; body?: unknown };
 
-async function setUp(page: Page) {
+async function setUp(page: Page, opts: { refuse?: Set<string> } = {}) {
   await mockApi(page, {
     agents: () => small.agents,
     permissions: () => [],
@@ -140,6 +149,7 @@ async function setUp(page: Page) {
   });
   const asked: Asked[] = [];
   const writes: Asked[] = [];
+  const prs = new Map<number, PrDetail>();
   // Registered after mockApi, so these answer first.
   await page.route("**/api/github/**", async (route) => {
     const u = new URL(route.request().url());
@@ -147,6 +157,20 @@ async function setUp(page: Page) {
     if (route.request().method() === "POST") {
       entry.body = route.request().postDataJSON();
       writes.push(entry);
+      if (opts.refuse?.has(entry.path)) return route.fulfill({ status: 422, json: { error: "Reviews may only be requested from collaborators." } });
+      // GitHub keeps what's written: the PR read next says so.
+      const w = entry.body as { number?: number; action?: string; users?: string[]; teams?: string[] };
+      const pr = w.number ? prs.get(w.number) : undefined;
+      if (pr && entry.path.endsWith("/m/assignees"))
+        pr.assignees = w.action === "add" ? [...pr.assignees, ...w.users!.map((login) => ({ login }))] : pr.assignees.filter((a) => !w.users!.includes(a.login));
+      if (pr && entry.path.endsWith("/m/reviewers")) {
+        const items = [...w.users!.map((login) => ({ kind: "user" as const, login })), ...w.teams!.map((login) => ({ kind: "team" as const, login }))];
+        for (const item of items) {
+          const was = pr.reviewers.find((r) => r.kind === item.kind && r.login === item.login);
+          if (w.action === "add") was ? (was.requested = true) : pr.reviewers.push({ ...item, requested: true, verdict: null });
+          else if (was) was.verdict ? (was.requested = false) : pr.reviewers.splice(pr.reviewers.indexOf(was), 1);
+        }
+      }
       return route.fulfill({ json: entry.path.endsWith("/m/star") ? { ok: true, stars: REPOS.stars } : { ok: true } });
     }
     asked.push(entry);
@@ -154,7 +178,8 @@ async function setUp(page: Page) {
     if (name === "viewer") return route.fulfill({ json: { viewer: { login: "me" } } });
     if (name === "repos") return route.fulfill({ json: REPOS });
     if (name === "repoSearch") return route.fulfill({ json: found(u.searchParams.get("q") ?? "") });
-    if (name === "people") return route.fulfill({ json: PEOPLE });
+    if (name === "people") return route.fulfill({ json: { ...PEOPLE, repo: u.searchParams.get("repo")! } });
+    if (name === "teams") return route.fulfill({ json: TEAMS });
     if (name === "prs" && u.searchParams.get("repo")) {
       const repo = u.searchParams.get("repo")!;
       let rows = repo === "sam/tools" ? TOOLS : REVIEW;
@@ -170,7 +195,20 @@ async function setUp(page: Page) {
     }
     if (name === "pr") {
       const r = [...REVIEW, ...MINE].find((x) => x.number === Number(u.searchParams.get("number")))!;
-      return route.fulfill({ json: detail(r) });
+      const kept = prs.get(r.number);
+      if (kept) return route.fulfill({ json: kept });
+      const d = detail(r);
+      prs.set(r.number, d);
+      if (r.number === 12)
+        Object.assign(d, {
+          checkRuns: CHECKS,
+          reviewers: [
+            { kind: "user", login: "me", requested: true, verdict: null },
+            { kind: "user", login: "bob", requested: false, verdict: "approved" },
+          ],
+          assignees: [sam],
+        });
+      return route.fulfill({ json: d });
     }
     if (name === "diff") return route.fulfill({ json: DIFF });
     return route.fulfill({ status: 404, json: { error: "not mocked" } });
@@ -284,6 +322,94 @@ test("GitHub lists PRs to review, opens one, drafts a line comment and submits a
     await page.keyboard.press("Escape");
     await view.locator(".gh-row").first().waitFor();
     assert.equal(await view.locator(".gh-head h2").first().textContent(), "Review requests2");
+  } finally {
+    await context.close();
+  }
+});
+
+test("A PR's reviewers and assignees are edited in place, rolled back if GitHub refuses; its checks are listed", async () => {
+  const context = await newContext(browser);
+  const page = await context.newPage();
+  await page.setViewportSize({ width: 1600, height: 1000 });
+  const refuse = new Set<string>();
+  const { writes } = await setUp(page, { refuse });
+  try {
+    await page.goto(app.url);
+    await page.locator(".fleet-sidebar").waitFor();
+    await showGithub(page);
+    const view = page.locator(".github-view");
+    await view.locator(".gh-row", { hasText: "Add the GitHub tab" }).click();
+    const side = view.getByRole("complementary", { name: "About this pull request" });
+    const reviewers = side.getByRole("list", { name: "Reviewers" });
+    await reviewers.locator("li").nth(1).waitFor();
+    assert.deepEqual(await reviewers.locator(".gh-person-name").allTextContents(), ["me", "bob"]);
+    await reviewers.getByLabel("Awaiting review").waitFor();
+    await reviewers.getByLabel("Approved", { exact: true }).waitFor();
+    assert.deepEqual(await side.getByRole("list", { name: "Assignees" }).locator(".gh-person-name").allTextContents(), ["sam"]);
+
+    // Checks: failing, then running, then passing folded behind a toggle.
+    const checks = side.getByRole("list", { name: "Checks" });
+    assert.deepEqual(await checks.locator(".gh-side-check-name").allTextContents(), ["lint", "deploy preview"]);
+    assert.match((await checks.locator("li").nth(0).locator("small").textContent())!, /^CI · 1m$/);
+    assert.match((await checks.locator("li").nth(1).locator("small").textContent())!, /^vercel · running for 3m$/);
+    await side.getByRole("button", { name: "Show 7 passing, 1 skipped" }).click();
+    await waitFor(() => checks.locator("li").count(), (n) => n === 10, "every check");
+    assert.equal(await checks.locator(".gh-side-check-name").nth(2).textContent(), "unit 1");
+
+    // The gear's picker: you first, the author (sam) left out, a team offered; picking ada asks her.
+    await side.getByRole("button", { name: "Request review…" }).click();
+    const picker = page.getByRole("listbox", { name: "Request a review" });
+    await picker.getByRole("option", { name: /Map team/ }).waitFor();
+    const offered = await picker.getByRole("option").allTextContents();
+    assert.ok(offered[0]!.includes("You"), offered.join());
+    assert.ok(!offered.some((o) => o.includes("sam")), offered.join());
+    await picker.getByRole("option", { name: /^ada/ }).click();
+    await reviewers.locator(".gh-person-name", { hasText: "ada" }).waitFor();
+    await waitFor(() => Promise.resolve(writes.length), (n) => n === 1, "the reviewers write");
+    assert.deepEqual(writes[0], {
+      path: "/api/github/m/reviewers",
+      query: {},
+      body: { repo: "acme/atlas", number: 12, action: "add", users: ["ada"], teams: [] },
+    });
+    await picker.getByRole("option", { name: /Map team/ }).click();
+    await waitFor(() => Promise.resolve(writes.length), (n) => n === 2, "the team's write");
+    assert.deepEqual((writes[1]!.body as { teams: string[] }).teams, ["map-team"]);
+    await page.keyboard.press("Escape");
+    await picker.waitFor({ state: "detached" });
+
+    // Re-request bob's review from his row; remove your own request.
+    await reviewers.locator("li", { hasText: "bob" }).hover();
+    await reviewers.getByRole("button", { name: "Re-request review from bob" }).click();
+    await waitFor(() => Promise.resolve(writes.length), (n) => n === 3, "the re-request");
+    assert.deepEqual(writes[2]!.body, { repo: "acme/atlas", number: 12, action: "add", users: ["bob"], teams: [] });
+    await reviewers.locator("li", { hasText: "me" }).hover();
+    await reviewers.getByRole("button", { name: "Remove the review request for me" }).click();
+    await waitFor(() => Promise.resolve(writes.length), (n) => n === 4, "the removal");
+    assert.equal((writes[3]!.body as { action: string }).action, "remove");
+
+    // A refused write: shown at once, then put back, the notice saying why.
+    refuse.add("/api/github/m/assignees");
+    await page.keyboard.press("Meta+k");
+    const palette = page.getByRole("dialog", { name: "Command palette" });
+    await palette.getByRole("combobox", { name: "Search commands" }).fill("Assign…");
+    await palette.getByRole("option", { name: /^Assign…/ }).click();
+    const assign = page.getByRole("listbox", { name: "Assign" });
+    await assign.getByRole("option", { name: /^ada/ }).click();
+    await page.locator(".toast", { hasText: "Couldn’t assign ada: Reviews may only be requested from collaborators." }).waitFor();
+    await waitFor(
+      () => side.getByRole("list", { name: "Assignees" }).locator(".gh-person-name").allTextContents(),
+      (names) => names.join() === "sam",
+      "the assignee put back",
+    );
+    assert.deepEqual(writes.at(-1)!.body, { repo: "acme/atlas", number: 12, action: "add", users: ["ada"] });
+    await page.keyboard.press("Escape");
+    await assign.waitFor({ state: "detached" });
+
+    // ⌘K's Request review… opens the reviewers' picker.
+    await page.keyboard.press("Meta+k");
+    await palette.getByRole("combobox", { name: "Search commands" }).fill("Request review");
+    await palette.getByRole("option", { name: /^Request review…/ }).click();
+    await page.getByRole("listbox", { name: "Request a review" }).waitFor();
   } finally {
     await context.close();
   }

@@ -9,7 +9,8 @@
  *   repos              favourites (stars, `stars.ts`), then other repositories with open PRs, each counted
  *   repoSearch?q=…     repositories by name, `owner/name` or owner: those known first, then GitHub's search
  *   people?repo=…      who its people filters offer: you, recent PRs' authors, its assignable users
- *   pr?repo=&number=   one PR: body, files (viewed or not), conversation, threads, commits, checks, reviewers
+ *   teams?repo=…       the teams with access to it, for its reviewer picker (REST; none for a personal repository)
+ *   pr?repo=&number=   one PR: body, files (viewed or not), conversation, threads, commits, checks, reviewers, assignees
  *   diff?repo=&number= its diff, parsed (GitHub's diff media type; its file patches when the diff is too large for it)
  */
 import { parseUnifiedDiff } from "../../src/github/diff";
@@ -25,6 +26,7 @@ import {
   type PrDiff,
   type PrFile,
   type PrList,
+  type PrReviewer,
   type PrRow,
   type PrScope,
   type PrState,
@@ -32,7 +34,11 @@ import {
   type RepoPeople,
   type RepoRow,
   type RepoSearch,
+  type RepoTeams,
   type ReviewDecision,
+  type ReviewVerdict,
+  type Team,
+  TEAM_SLUG,
   type ReviewThread,
   type TimelineEntry,
   type Viewer,
@@ -470,6 +476,39 @@ export function readPeople(repo: string, fresh = false): Promise<RepoPeople> {
   );
 }
 
+// ── teams ────────────────────────────────────────────────────────────────────
+export const TEAMS_MAX = 100;
+/**
+ * The teams with access to a repository (REST `repos/:repo/teams`), by name.
+ * A personal repository has none; one the token can't list them for (it needs
+ * `read:org`, or isn't the organization's member) answers none, saying so.
+ */
+export function readTeams(repo: string, fresh = false): Promise<RepoTeams> {
+  return cached(
+    `teams:${repo.toLowerCase()}`,
+    fresh,
+    async () => {
+      let list: unknown[];
+      try {
+        list = await githubPaged<unknown>(`repos/${repo}/teams?per_page=100`, TEAMS_MAX);
+      } catch (e) {
+        if (e instanceof GithubApiError && (e.kind === "forbidden" || e.kind === "not-found"))
+          return { repo, teams: [], note: "The token can't list this repository's teams." };
+        throw e;
+      }
+      const teams = list
+        .map((t): Team | null => {
+          const slug = str(rec(t).slug);
+          return TEAM_SLUG.test(slug) ? { slug, name: clip(str(rec(t).name) || slug, 200) } : null;
+        })
+        .filter((t): t is Team => t !== null)
+        .sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
+      return { repo, teams };
+    },
+    PEOPLE_TTL_MS,
+  );
+}
+
 // ── pr ───────────────────────────────────────────────────────────────────────
 const FILES = "files(first: 100, after: $after) { nodes { path additions deletions changeType viewerViewedState } pageInfo { hasNextPage endCursor } }";
 export const PR_QUERY = `query($owner: String!, $name: String!, $number: Int!, $after: String) {
@@ -486,11 +525,14 @@ export const PR_QUERY = `query($owner: String!, $name: String!, $number: Int!, $
     commits(last: 100) { nodes { commit { oid messageHeadline committedDate author { name user { login avatarUrl } } } } }
     rollup: commits(last: 1) { nodes { commit { statusCheckRollup { state contexts(first: 100) { nodes {
       __typename
-      ... on CheckRun { name status conclusion detailsUrl title }
-      ... on StatusContext { context state targetUrl description }
+      ... on CheckRun { name status conclusion detailsUrl title startedAt completedAt checkSuite { app { name } workflowRun { workflow { name } } } }
+      ... on StatusContext { context state targetUrl description createdAt creator { login } }
     } } } } } }
-    reviewRequests(first: 30) { nodes { requestedReviewer { __typename ... on User { login } ... on Bot { login } ... on Mannequin { login } ... on Team { name } } } }
-    latestReviews(first: 30) { nodes { author { login } state } }
+    reviewRequests(first: 30) { nodes { requestedReviewer {
+      __typename ... on User { login name avatarUrl } ... on Bot { login avatarUrl } ... on Mannequin { login avatarUrl } ... on Team { slug name }
+    } } }
+    latestReviews(first: 30) { nodes { ${AUTHOR} state } }
+    assignees(first: 20) { nodes { login name avatarUrl } }
   } }
 }`;
 export const FILES_QUERY = `query($owner: String!, $name: String!, $number: Int!, $after: String) {
@@ -608,7 +650,16 @@ export function checkOf(n: Raw): PrCheck | null {
     else if (["SKIPPED", "STALE"].includes(conclusion)) state = "skipped";
     else state = "failing";
     const summary = str(n.title);
-    return { name: clip(name, 300), state, ...(url ? { url } : {}), ...(summary ? { summary: clip(summary, 300) } : {}) };
+    const suite = rec(n.checkSuite);
+    const source = str(rec(rec(rec(suite.workflowRun).workflow)).name) || str(rec(suite.app).name);
+    return {
+      name: clip(name, 300),
+      state,
+      ...(url ? { url } : {}),
+      ...(summary ? { summary: clip(summary, 300) } : {}),
+      ...(source ? { source: clip(source, 200) } : {}),
+      ...times(n.startedAt, n.completedAt),
+    };
   }
   if (n.__typename === "StatusContext") {
     const name = str(n.context);
@@ -616,24 +667,56 @@ export function checkOf(n: Raw): PrCheck | null {
     const s = str(n.state);
     const state: PrCheck["state"] = s === "SUCCESS" ? "passing" : s === "PENDING" || s === "EXPECTED" ? "pending" : "failing";
     const summary = str(n.description);
-    return { name: clip(name, 300), state, ...(url ? { url } : {}), ...(summary ? { summary: clip(summary, 300) } : {}) };
+    const source = str(rec(n.creator).login);
+    return {
+      name: clip(name, 300),
+      state,
+      ...(url ? { url } : {}),
+      ...(summary ? { summary: clip(summary, 300) } : {}),
+      ...(source ? { source: clip(source, 200) } : {}),
+      // A status says only when it was last set: when a pending one started, a finished one finished.
+      ...(state === "pending" ? times(n.createdAt, undefined) : times(undefined, n.createdAt)),
+    };
   }
   return null;
 }
 
-/** Who's asked to review and how each last did (not the author). */
-export function reviewersOf(requests: Raw[], latest: Raw[], author?: string): PrDetail["reviewers"] {
-  const out = new Map<string, PrDetail["reviewers"][number]>();
+const ISO = /^\d{4}-\d{2}-\d{2}T[\d:.]+Z$/;
+function times(started: unknown, completed: unknown): { startedAt?: string; completedAt?: string } {
+  const s = str(started);
+  const c = str(completed);
+  return { ...(ISO.test(s) ? { startedAt: s } : {}), ...(ISO.test(c) ? { completedAt: c } : {}) };
+}
+
+const VERDICT: Record<string, ReviewVerdict> = { APPROVED: "approved", CHANGES_REQUESTED: "changes", COMMENTED: "commented", DISMISSED: "dismissed" };
+
+/**
+ * Who's asked to review (people and teams) and who reviewed, with each one's
+ * latest verdict (not a pending review), reviewers first as GitHub lists
+ * them; never the author. A re-request keeps the earlier verdict beside it.
+ */
+export function reviewersOf(requests: Raw[], latest: Raw[], author?: string): PrReviewer[] {
+  const out = new Map<string, PrReviewer>();
+  const key = (kind: PrReviewer["kind"], login: string) => `${kind}:${login.toLowerCase()}`;
   for (const r of latest) {
-    const login = str(rec(r.author).login);
-    const state = reviewStateOf(r.state);
-    if (login && state && login !== author) out.set(login, { name: clip(login, 100), state });
+    const who = personOf(r.author);
+    const verdict = VERDICT[str(r.state)];
+    if (!who || !verdict || who.login === author) continue;
+    out.set(key("user", who.login), { kind: "user", ...who, requested: false, verdict });
   }
   for (const r of requests) {
     const who = rec(r.requestedReviewer);
-    const name = str(who.login) || str(who.name);
-    // A re-request stands over an earlier review.
-    if (name) out.set(name, { name: clip(name, 100), state: "requested" });
+    if (who.__typename === "Team") {
+      const slug = str(who.slug);
+      if (!TEAM_SLUG.test(slug)) continue;
+      const name = clip(str(who.name), 200);
+      out.set(key("team", slug), { kind: "team", login: slug, ...(name && name !== slug ? { name } : {}), requested: true, verdict: null });
+      continue;
+    }
+    const p = personOf(who);
+    if (!p || p.login === author) continue;
+    const was = out.get(key("user", p.login));
+    out.set(key("user", p.login), { kind: "user", ...p, requested: true, verdict: was?.verdict ?? null });
   }
   return [...out.values()];
 }
@@ -662,6 +745,9 @@ export function detailOf(p: Raw, extraFiles: Raw[] = []): PrDetail | null {
       .filter((c): c is PrCommit => c !== null),
     checkRuns: contexts.map(checkOf).filter((c): c is PrCheck => c !== null),
     reviewers: reviewersOf(nodes(p.reviewRequests), nodes(p.latestReviews), row.author?.login),
+    assignees: nodes(p.assignees)
+      .map(personOf)
+      .filter((a): a is Person => a !== null),
   };
 }
 

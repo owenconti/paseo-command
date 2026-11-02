@@ -283,6 +283,12 @@ export function GitHubView({
         prApi.current?.openReview(arg === "APPROVE" || arg === "REQUEST_CHANGES" || arg === "COMMENT" ? (arg as ReviewEvent) : undefined);
       }),
       onAppCommand("github-comment", () => prApi.current?.focusComment()),
+      onAppCommand("github-reviewers", () => {
+        if (c().place.kind === "pr") prApi.current?.editPeople("reviewers");
+      }),
+      onAppCommand("github-assignees", () => {
+        if (c().place.kind === "pr") prApi.current?.editPeople("assignees");
+      }),
       onAppCommand("github-next-file", () => diffHandle.current?.step(1)),
       onAppCommand("github-prev-file", () => diffHandle.current?.step(-1)),
       onAppCommand("github-viewed", () => c().toggleViewed()),

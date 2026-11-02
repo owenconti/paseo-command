@@ -2023,8 +2023,10 @@ function App() {
                     ? [
                         command("github-open-browser", "Open the pull request on GitHub", "browser conquer web open external"),
                         command("github-comment", "Comment on the pull request", "comment conversation reply write", ["C"]),
+                        command("github-assignees", "Assign…", "assign assignee assignees unassign people person owner pull request"),
                         ...(v.pr.open
                           ? [
+                              command("github-reviewers", "Request review…", "request review reviewer reviewers re-request remove people team ask pull request"),
                               command("github-review", v.pr.pending ? `Submit your review (${v.pr.pending} pending)…` : "Submit your review…", "review submit finish comment", ["R"]),
                               ...(!v.pr.viewerIsAuthor
                                 ? [

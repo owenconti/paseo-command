@@ -5,16 +5,6 @@ mark it done with its commit once merged into `main`.
 
 ## Open
 
-- [ ] **GitHub PR view: manage reviewers and assignees, and list the checks.** In a PR's side panel
-  (`PrView.tsx`: Reviewers, Merge, Checks):
-  - Reviewers and Assignees are editable: a picker of the repository's collaborators (and teams for reviewers;
-    searchable, avatars, you first) to request or remove reviewers, re-request a review, and add or remove
-    assignees. Whitelisted writes in `web/server/github/writes.ts` (requested_reviewers, assignees; checked field
-    by field), shown at once and rolled back if GitHub refuses; ⌘K entries. Show who's requested, who reviewed
-    and their verdict, and the assignees.
-  - Checks: beneath the "25 passing" count, list each check run and status (failing, then pending, then passing
-    folded behind a toggle when many), with its name, workflow/app, duration and a link to its details, as
-    GitHub's merge box does. The Checks tab keeps the full view. Workspace: `github-pr-people-and-checks`.
 - [ ] **GitHub PR view: "Open Paseo agent" for the PR's branch.** When a Paseo workspace (on any host) has the
   PR's head branch checked out in the same repository (match the workspace's branch and its project's remote
   against the PR's `owner/name` and head ref, from the world snapshot the app already has), show an "Open Paseo
@@ -61,6 +51,12 @@ mark it done with its commit once merged into `main`.
 
 ## Done
 
+- [x] **GitHub PR view: manage reviewers and assignees, and list the checks.** The PR's side panel (`PrSide.tsx`) shows
+  who's asked to review (people and teams) and who reviewed with their verdict, and the assignees, each with avatars; a gear's
+  picker (you first, the repository's people and, for reviewers, its teams; never the author) requests or removes reviews and
+  assigns or unassigns, a row re-requests or removes (`m/reviewers`, `m/assignees`, `q/teams`), shown at once and rolled back
+  with a notice if GitHub refuses; ⌘K "Request review…", "Assign…". Checks lists each run and status beneath the count: failing,
+  pending, then passing folded past five, with workflow or app, duration and details.
 - [x] **GitHub tab: search repositories, ⌘S sidebar, people filters.** The sidebar's Repositories lists only Favourites (and the
   repository open now), under a search field (⌘K "Find a GitHub repository…") that finds any repository you can see by name,
   `owner/name` or owner (`q/repoSearch`: those known first, then GitHub's search, cached and within the search budget), each to open
