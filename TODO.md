@@ -45,6 +45,15 @@ mark it done with its commit once merged into `main`.
   sure nothing else in the page still takes ⌘1–7 (e.g. the GitHub tab's 1–4 PR tabs and Activity's 1–4 sources are
   bare keys, which is fine). Update the native menus, ⌘K entries' `keys`, the shortcuts dialog (`ShortcutsButton.tsx`)
   and CLAUDE.md. Workspace: `mode-tab-order-and-keys`.
+- [ ] **GitHub tab: search repositories, ⌘S sidebar, people filters.** Follow-ups to the Repositories section:
+  - The sidebar shouldn't list every repository with open PRs all the time ("Others" grouped by owner). Show only
+    Favourites there, plus a search field (and ⌘K) that finds any repository you can see by name, `owner/name`
+    or org, from GitHub (named, cached, rate-limited read), to open or star it.
+  - ⌘S toggles the GitHub tab's sidebar, as in the Linear and Slack tabs (inner edge resizes it, kept in
+    localStorage), including in a PR list; add its ⌘K entry and shortcuts-dialog row.
+  - A repository's PR list always offers Author, Reviewer and Assignee filters (in place of today's anyone/you
+    author filter), each listing the repository's contributors and collaborators (you first, with avatars,
+    searchable), any of several people. Read them through a named, cached read. Workspace: `github-repo-search-filters`.
 
 ## Done
 
