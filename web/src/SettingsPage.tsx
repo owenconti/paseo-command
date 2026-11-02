@@ -396,7 +396,7 @@ function IntegrationSettings() {
     <div className="integration-settings">
       {(
         [
-          ["linear", "Linear", "Your assigned issues and links."],
+          ["linear", "Linear", "Your Linear notifications in Activity, and the issue chip in a session's header."],
           ["github", "GitHub", "Pull requests to review and your workspaces' changes in the GitHub tab, and notifications in Activity, with your own token."],
           ["typesafe", "TypeSafe", "Find questions and suggest replies. Sends reply excerpts to TypeSafe."],
         ] as const

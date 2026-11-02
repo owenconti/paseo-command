@@ -116,7 +116,7 @@ const prOf = (url: string | undefined) => {
  * through a list (and through a diff's files), Enter or O open, Esc goes back,
  * 1–4 a PR's tabs, R review, C comment, V viewed, U unified/split, F the file
  * list (a repository's filters), M which changes, S stars the repository.
- * As Linear's, the sidebar's inner edge resizes it and ⌘S hides
+ * As Conquer's, the sidebar's inner edge resizes it and ⌘S hides
  * or shows it (both kept), whatever shows beside it.
  */
 export function GitHubView({
@@ -262,7 +262,7 @@ export function GitHubView({
     });
     requestAnimationFrame(() => repoNav.current?.find());
   }, []);
-  // ⌘S, as in Linear: while GitHub shows, the page has the key, and it goes no further.
+  // ⌘S: while GitHub shows, the page has the key, and it goes no further.
   useEffect(() => {
     const key = (e: KeyboardEvent) => {
       if (e.metaKey && !e.ctrlKey && !e.altKey && !e.shiftKey && e.key.toLowerCase() === "s") {

@@ -2,7 +2,7 @@ import { useEffect, useSyncExternalStore } from "react";
 import { readStore, writeStore } from "./api";
 import { onAppCommand } from "./appCommands";
 
-/** The pages' text size (Linear, GitHub, Activity and Settings, which the page draws in the
+/** The pages' text size (GitHub, Activity and Settings, which the page draws in the
  * map's place): pixels over the app's own sizes, 2 by default, one size for all of them.
  * ⌘+ and ⌘− step it, ⌘0 puts it back; `--page-text` carries it to their stylesheets
  * (`styles/pages.css`), and `--page-scale` grows their columns, rows and controls with it. */
@@ -39,7 +39,7 @@ export function checkTextStep(step: unknown): number {
 }
 
 const STORE = "pages:textSize";
-// Linear's own size, from before the pages shared one, is where it starts.
+// The old Linear tab's size, from before the pages shared one, is where it starts.
 let step = checkTextStep(readStore<unknown>(STORE, readStore<unknown>("linear:textSize", undefined)));
 const listeners = new Set<() => void>();
 function apply() {

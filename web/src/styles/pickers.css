@@ -1,0 +1,259 @@
+/*
+ * Shared page controls, first made for the Linear tab (since removed) and used by the
+ * GitHub tab: the toolbar buttons (.linear-tool), filter chips (.linear-filters), the
+ * searchable picker (`Picker.tsx`, .linear-picker) and small row menus (.linear-row-menu).
+ */
+
+.linear-tool {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: calc(26px * var(--lz));
+  padding: 0 var(--space-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: transparent;
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-medium);
+  color: var(--text-2);
+}
+
+.linear-tool svg {
+  color: var(--icon-muted);
+}
+
+.linear-tool:hover,
+.linear-tool[aria-expanded="true"] {
+  background: var(--row-hover);
+  color: var(--text);
+}
+
+.linear-tool.on {
+  border-color: var(--accent-line, var(--accent));
+  color: var(--accent-text);
+}
+
+.linear-tool.on svg {
+  color: var(--accent-text);
+}
+
+.linear-tool:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 1px;
+}
+
+.linear-menu-count {
+  margin-left: auto;
+  font-size: var(--fs-2xs);
+  color: var(--accent-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.linear-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin: var(--space-2) var(--space-3) 0 var(--space-4);
+}
+
+.linear-filter-chip {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  height: calc(26px * var(--lz));
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--panel);
+  font-size: var(--fs-xs);
+}
+
+.linear-filter-edit {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+  height: 100%;
+  padding: 0 6px 0 var(--space-2);
+  border-radius: var(--radius-md) 0 0 var(--radius-md);
+  background: transparent;
+  color: var(--text-2);
+}
+
+.linear-filter-edit:hover,
+.linear-filter-edit[aria-expanded="true"] {
+  background: var(--row-hover);
+}
+
+.linear-filter-edit svg {
+  flex-shrink: 0;
+  color: var(--icon-muted);
+}
+
+.linear-filter-field {
+  font-weight: var(--fw-medium);
+  color: var(--text);
+}
+
+.linear-filter-op {
+  color: var(--text-4);
+}
+
+.linear-filter-values {
+  overflow: hidden;
+  max-width: calc(220px * var(--lz));
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text);
+}
+
+.linear-filter-remove.icon-btn {
+  width: calc(22px * var(--lz));
+  height: calc(22px * var(--lz));
+  margin-right: 1px;
+}
+
+.linear-filters-clear {
+  padding: 0 var(--space-1);
+  font-size: var(--fs-xs);
+}
+
+.linear-tool[aria-pressed="true"] {
+  background: var(--row-selected);
+  color: var(--text-strong);
+}
+
+.popover-menu.linear-picker {
+  width: calc(248px * var(--lz));
+  max-height: calc(340px * var(--lz));
+  padding: 0;
+  overscroll-behavior: contain;
+}
+
+.linear-picker-filter {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: var(--control-md);
+  padding: 0 var(--space-3);
+  border-bottom: 1px solid var(--line);
+  background: var(--panel-raised);
+  color: var(--text-4);
+}
+
+.linear-picker-filter input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: none;
+  font-size: var(--fs-sm);
+  color: var(--text);
+}
+
+.linear-picker-filter input::placeholder {
+  color: var(--text-4);
+}
+
+.linear-picker-list {
+  padding: 4px;
+}
+
+.linear-picker-option {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: calc(30px * var(--lz));
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-md);
+  font-size: var(--fs-sm);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.linear-picker-option.active {
+  background: var(--fill-strong);
+}
+
+.linear-picker-icon {
+  display: inline-grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: calc(16px * var(--lz));
+  color: var(--icon-muted);
+}
+
+.linear-picker-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.linear-picker-option small {
+  flex-shrink: 0;
+  font-size: var(--fs-xs);
+  color: var(--text-4);
+}
+
+.linear-picker-check {
+  flex-shrink: 0;
+  color: var(--accent-text);
+}
+
+.linear-picker-box {
+  display: inline-grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: calc(14px * var(--lz));
+  height: calc(14px * var(--lz));
+  border: 1px solid var(--line-hover);
+  border-radius: var(--radius-xs);
+  color: var(--on-accent);
+}
+
+.linear-picker-box.on {
+  border-color: var(--accent);
+  background: var(--accent);
+}
+
+.linear-picker-empty {
+  margin: 0;
+  padding: var(--space-2);
+  font-size: var(--fs-sm);
+  color: var(--text-4);
+}
+
+.linear-picker-note {
+  max-width: calc(260px * var(--lz, 1));
+  margin: 0;
+  padding: var(--space-2);
+  border-top: 1px solid var(--line-soft);
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+}
+
+.popover-menu.linear-row-menu {
+  min-width: calc(180px * var(--lz));
+}
+
+.linear-row-menu > button {
+  padding: 6px 9px;
+}
+
+.linear-row-menu > button > svg {
+  color: var(--icon-muted);
+}
+
+.linear-row-menu > button:focus-visible {
+  background: var(--fill-strong);
+}
+
+.linear-row-menu > button.danger-item,
+.linear-row-menu > button.danger-item > svg {
+  color: var(--red-text);
+}

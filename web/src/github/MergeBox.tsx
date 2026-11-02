@@ -2,8 +2,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { ChevronDown, CircleAlert, CircleCheck, CircleX, Ellipsis, GitMerge, GitPullRequestClosed, ListOrdered, Zap } from "lucide-react";
 import { errorMessage } from "../api";
 import { resetLinkCache } from "../links";
-import { menuKeys } from "../linear/ListControls";
-import { placeBelow } from "../linear/Picker";
+import { menuKeys } from "../menuKeys";
+import { placeBelow } from "../Picker";
 import { githubWrite, invalidate, load, patch } from "./api";
 import { Avatar, CommentBox, Time } from "./bits";
 import {

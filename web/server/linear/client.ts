@@ -6,7 +6,7 @@
  * budget; below `LOW_BUDGET` only `essential` requests (the user's own writes)
  * go out until the budget resets.
  */
-import type { LinearBudget } from "../../src/linear/types";
+import type { LinearBudget } from "./types";
 import { integrationEnabled, integrationKey } from "../integrations";
 import { LINEAR } from "../links";
 

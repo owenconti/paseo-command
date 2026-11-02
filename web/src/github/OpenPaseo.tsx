@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Bot, ChevronDown } from "lucide-react";
-import { menuKeys } from "../linear/ListControls";
-import { placeBelow } from "../linear/Picker";
+import { menuKeys } from "../menuKeys";
+import { placeBelow } from "../Picker";
 import { placeText } from "../names";
 import type { PaseoMatch } from "./paseo";
 

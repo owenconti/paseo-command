@@ -10,7 +10,6 @@ import assert from "node:assert/strict";
 import type { Browser, Page } from "playwright";
 import type { ActivityFeed, ActivityItem } from "../src/activity/types";
 import { headOverlaps, launch, mockApi, newContext, startApp, waitFor, appEvent } from "./harness";
-import { mockLinear } from "./linearFake";
 
 let app: Awaited<ReturnType<typeof startApp>>;
 let browser: Browser;
@@ -63,7 +62,7 @@ const ITEMS: ActivityItem[] = [
     actor: { name: "Owen" },
     at: ago(60),
     unread: false,
-    open: { kind: "linear-issue", key: "ENG-1" },
+    url: "https://linear.app/acme/issue/ENG-1",
   },
 ];
 
@@ -172,7 +171,7 @@ test("Activity gathers GitHub and Linear, filters them, and marks them read and 
   }
 });
 
-test("in the macOS app, a Linear pull request notification opens its issue in the Linear tab, not yet visited", async () => {
+test("in the macOS app, a Linear pull request notification opens its issue's address, which the app takes to Linear", async () => {
   const context = await newContext(browser);
   const page = await context.newPage();
   await page.setViewportSize({ width: 1800, height: 1000 });
@@ -182,8 +181,7 @@ test("in the macOS app, a Linear pull request notification opens its issue in th
     window.webkit = { messageHandlers: { paseoWorld: { postMessage: (m) => window.sentToApp.push(m) } } };
   `);
   await mockApi(page, { agents: () => [], lists: { settings: { integrations: { linear: true } } } });
-  const linear = await mockLinear(page);
-  // As the server gives it: the pull request's branch names DE-1; its address is the pull request's.
+  // As the server gives it: the pull request's branch names DE-1, so its address is the issue's.
   const item: ActivityItem = {
     key: "linear:notification:90000001-0000-4000-8000-000000000001",
     source: "linear",
@@ -194,8 +192,7 @@ test("in the macOS app, a Linear pull request notification opens its issue in th
     subject: "pull",
     at: ago(5),
     unread: true,
-    url: "https://github.com/acme/site/pull/7",
-    open: { kind: "linear-issue", key: "DE-1" },
+    url: "https://linear.app/acme/issue/DE-1",
   };
   await page.route("**/api/activity**", (route) =>
     route.fulfill({ json: route.request().method() === "POST" ? { feed: feedOf([{ ...item, unread: false }]) } : feedOf([item]) }),
@@ -207,16 +204,12 @@ test("in the macOS app, a Linear pull request notification opens its issue in th
     const view = page.locator(".activity-view");
     await view.locator(`.activity-row[data-key="${item.key}"]`).click();
     await view.getByRole("button", { name: "Open in Linear" }).click();
-    // The page asks the app for the Linear tab, not the pull request's address.
+    // The page hands the app the issue's address (the app opens it in Linear's desktop app, else in Conquer).
     const sent = () =>
-      page.evaluate(() => (window as unknown as { sentToApp: { type: string; action?: string; url?: string }[] }).sentToApp);
-    await waitFor(sent, (m) => m.some((x) => x.type === "menu" && x.action === "linear"), "the Linear tab asked for");
-    assert.ok(!(await sent()).some((x) => x.url === item.url), "the pull request's address isn't opened");
-    // The app switches: the Linear tab mounts with DE-1 open.
-    await appEvent(page, "paseo:mode", { mode: "linear" });
-    await page.locator(".linear-view .linear-issue h1", { hasText: "Refresh the docs theme" }).waitFor();
+      page.evaluate(() => (window as unknown as { sentToApp: { type: string; action?: string; url?: string; direct?: boolean }[] }).sentToApp);
+    await waitFor(sent, (m) => m.some((x) => x.type === "openLink" && x.url === item.url && !x.direct), "the issue's address sent");
+    assert.ok(!(await sent()).some((x) => x.type === "menu" && x.action === "linear"), "there is no Linear tab to ask for");
   } finally {
-    linear.restore();
     await context.close();
   }
 });

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
 import { Check, Search } from "lucide-react";
-import { visibleBounds } from "../popover";
-import { plainText } from "../ui";
+import { visibleBounds } from "./popover";
+import { plainText } from "./ui";
 
 const GAP = 4;
 const MARGIN = 6;

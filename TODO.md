@@ -5,18 +5,7 @@ mark it done with its commit once merged into `main`.
 
 ## Open
 
-- [ ] **Remove the Linear tab; keep Activity's Linear source and Settings' Linear key (at the user's request).** The
-  user doesn't need Linear replicated as a page. Remove the Linear tab and everything only it uses: `web/src/linear/`'s
-  page (LinearView, sidebar, lists, board, issue detail, editing, views, Inbox page, search, cycles, projects,
-  initiatives), the mode (`paseo:mode` `linear`, the mode bar tab, View menu item, ⌘1…⌘n renumbered, ⌘\` stepping),
-  its ⌘K entries, shortcuts-dialog group, CSS, the Linear-only server reads and writes, `DispatchTarget.issue`/Launch
-  agent from an issue and presets' `{{issue}}` if nothing else uses them, tests, e2e, fakes no longer needed, and docs.
-  Keep: Activity's Linear source (`web/server/activity/linear.ts`: the notifications read, read/unread/done/archive
-  writes, PR notifications' issue keys) and Settings' Linear switch and `linearApiKey`, and whatever server code they
-  need. Linear issue links (chat, Conquer pages, the header's issue chip, Activity's Linear items) open in the Linear
-  desktop app when it's installed (its `linear://` deep link for the issue, checked with Launch Services; never
-  installs or launches anything else), else in Conquer as other links do. Leave the user's data alone (localStorage
-  places and `settings.json` keys ignored). `npm run check` passes. Workspace: `remove-linear-tab`.- [ ] **GitHub merge box: offer only the merge methods the repository allows.** On a Diagonal-HQ/diagonal PR, which
+- [ ] **GitHub merge box: offer only the merge methods the repository allows.** On a Diagonal-HQ/diagonal PR, which
   only allows squash merging, the header showed "Merge pull request" and the ▾ menu "Merge pull request…" and "Enable
   auto-merge (merge commit)…": no squash. `mergeOf` (`web/server/github/reads.ts`) takes methods from the repository's
   `mergeCommitAllowed`/`squashMergeAllowed`/`rebaseMergeAllowed`; find what the real answer is. Likely causes: the
@@ -38,6 +27,18 @@ mark it done with its commit once merged into `main`.
 
 ## Done
 
+- [x] **Removed the Linear tab, at the user's request; Activity's Linear source and Settings' Linear key stay.** Gone: the
+  page (`web/src/linear/`: lists, board, issue detail and editing, comments, attachments, relations, Create issue, views,
+  the Inbox page, search, cycles, projects, initiatives), its mode (`paseo:mode` `linear`, the mode bar tab, View menu item;
+  ⌘1…⌘5 now), its ⌘K entries, shortcuts group and CSS, the server's Linear-only reads, writes and upload, file and image
+  routes, launching an agent from an issue (`DispatchTarget.issue`) and presets' `{{issue}}`, its tests, e2e, fakes and
+  the write-check script. Kept: Activity's Linear source (the Inbox read; read, unread and done writes; PR notifications'
+  issue keys), the avatar route it uses, Settings' Linear switch, `linearApiKey` and workspace, and the header's issue chip.
+  Linear issue and project links (the chat, Conquer, a PR's body, the chip and L, Activity's items, which now carry the
+  issue's linear.app address) open in Linear's desktop app when Launch Services names an app for `linear://` (Linear's
+  documented deep link: `linear://` and the rest of the address; `LinearLink.swift`, unit-tested), else in Conquer; in a
+  browser, a new tab. The GitHub tab's picker and menu keys moved to `web/src/Picker.tsx`, `menuKeys.ts` and
+  `styles/pickers.css`. The user's old Linear localStorage and any saved `linear` mode are ignored. Commit "Remove the Linear tab".
 - [x] **Linear board: cards show through the column heads when scrolled.** A board column's head had no background of its
   own (the column's showed through) and nothing marked where its cards were cut, so cards scrolled beneath ran flush up
   to the head (in dark, card and column are one colour: only their text, labels and avatars showed). Column heads are

@@ -36,7 +36,8 @@ connections from Paseo's daemon.
   navigation and settings.
 
 Alongside the map and conversations, the app includes a native terminal panel,
-pull request status, a Linear issues view and the experimental **Conquer** browser.
+pull request status, an Activity feed of GitHub and Linear notifications, a GitHub view
+and the experimental **Conquer** browser.
 The map requires the macOS app; conversations and panels also work in a regular browser.
 
 ## Optional integrations
@@ -74,9 +75,10 @@ Keep credentials in `secrets.json` and preferences in `settings.json`. A saved k
 alone does not enable a feature. After editing these files, return to the app or
 choose **Restart app** in ⌘K to load your changes.
 
-- **Linear:** Enable Linear and provide `linearApiKey` to see your assigned issues,
-  issue details and links. The API key and Linear workspace fields are beneath
-  the Linear switch in Settings.
+- **Linear:** Enable Linear and provide `linearApiKey` to see your Linear
+  notifications in Activity and the issue chip's title and state in a session's
+  header. The API key and Linear workspace fields are beneath the Linear switch
+  in Settings. Linear links open in Linear's desktop app when it's installed.
 - **TypeSafe:** Enable TypeSafe and provide `typesafeApiKey` to find questions in
   agent replies and suggest answers. Its key field is beneath the TypeSafe
   switch. This sends reply excerpts to TypeSafe.

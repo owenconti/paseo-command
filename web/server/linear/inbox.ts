@@ -1,3 +1,4 @@
+/** Activity's Linear rows, as Linear's Inbox groups your notifications. */
 import type { LinearNotification } from "./types";
 
 /** One Inbox row: an issue's (or project's) notifications together, as Linear's Inbox shows them. */
@@ -63,39 +64,11 @@ export function inboxGroups(
     .sort((a, b) => b.latest.createdAt.localeCompare(a.latest.createdAt));
 }
 
-/** Whom a row's writes name: its issue's or project's notifications, else the one. */
-export function inboxEntity(group: InboxGroup): Record<string, string> {
-  if (group.issueId) return { issueId: group.issueId };
-  if (group.projectId) return { projectId: group.projectId };
-  return { id: group.latest.id };
-}
-
-/** Unread rows not snoozed: the sidebar's count. */
-export function unreadCount(list: Iterable<LinearNotification>, now: number): number {
-  return inboxGroups(list, now).filter((g) => g.unread).length;
-}
-
-/** Linear's snooze choices from `now`: an hour, tomorrow at 9, next Monday at 9 (local time). */
-export function snoozeTimes(now: Date): { label: string; at: Date }[] {
-  const nine = (d: Date) => {
-    const at = new Date(d);
-    at.setHours(9, 0, 0, 0);
-    return at;
-  };
-  const tomorrow = nine(new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1));
-  const monday = new Date(now.getFullYear(), now.getMonth(), now.getDate() + (((8 - now.getDay()) % 7) || 7));
-  return [
-    { label: "An hour", at: new Date(now.getTime() + 3_600_000) },
-    { label: "Tomorrow", at: tomorrow },
-    { label: "Next week", at: nine(monday) },
-  ];
-}
-
-/** A row's words: the issue's key and title (the issue's own when known), and what happened. */
-export function inboxText(group: InboxGroup, issueTitle?: string): { key?: string; title: string; what: string } {
+/** A row's words: the issue's key and title, and what happened. */
+export function inboxText(group: InboxGroup): { key?: string; title: string; what: string } {
   const n = group.latest;
   const key = group.issueKey;
-  const title = issueTitle ?? (key && n.title.startsWith(`${key} `) ? n.title.slice(key.length + 1) : n.title);
+  const title = key && n.title.startsWith(`${key} `) ? n.title.slice(key.length + 1) : n.title;
   const quote = n.commentBody ? `: “${n.commentBody.replace(/\s+/g, " ").trim()}”` : "";
   return { key, title, what: `${n.subtitle}${quote}` };
 }

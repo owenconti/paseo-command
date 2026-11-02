@@ -63,23 +63,15 @@ test("the sample workspace has the documented shape", () => {
     assert.match(id, UUID);
   }
   assert.equal(ws.viewerId, FAKE_IDS.owen);
-  assert.deepEqual(ws.issues.map((i) => i.identifier), ["ENG-1", "ENG-2", "ENG-3", "ENG-4", "ENG-5", "ENG-6", "DE-1", "DE-2"]);
-  const by = (k: string) => ws.issues.find((i) => i.identifier === k)!;
-  assert.equal(by("ENG-2").parent?.id, FAKE_IDS.issues["ENG-1"]);
-  assert.equal(by("ENG-1").children.nodes[0].id, FAKE_IDS.issues["ENG-2"]);
-  assert.equal(by("ENG-3").relations.nodes[0].type, "blocks");
-  assert.equal(by("ENG-3").relations.nodes[0].relatedIssue.id, FAKE_IDS.issues["ENG-4"]);
-  assert.equal(by("ENG-4").inverseRelations.nodes[0].issue.id, FAKE_IDS.issues["ENG-3"]);
-  const comments = ws.comments.filter((c) => c.issue.id === FAKE_IDS.issues["ENG-1"]);
-  assert.equal(comments.length, 3);
-  assert.ok(comments.some((c) => c.parent));
-  assert.ok(comments.some((c) => c.reactions.length));
-  const day = 86_400_000;
-  const age = (k: string) => (Date.now() - Date.parse(by(k).completedAt!)) / day;
-  assert.ok(age("ENG-5") > 0.5 && age("ENG-5") < 1.5);
-  assert.ok(age("ENG-6") > 19.5 && age("ENG-6") < 20.5);
-  assert.equal(by("ENG-5").project?.id, FAKE_IDS.projects.launch);
-  assert.equal(by("ENG-6").project?.id, FAKE_IDS.projects.launch);
-  assert.equal(ws.initiatives[0].projects.nodes[0].id, FAKE_IDS.projects.launch);
-  assert.equal(ws.states.filter((s) => s.team.id === FAKE_IDS.eng).length, 7);
+  assert.deepEqual(ws.teams.map((t) => t.key), ["ENG", "DE"]);
+  assert.deepEqual(
+    ws.notifications.map((n) => [n.kind, n.issue?.identifier ?? n.project?.id]),
+    [
+      ["issue", "ENG-1"],
+      ["issue", "ENG-1"],
+      ["issue", "ENG-3"],
+      ["project", FAKE_IDS.projects.launch],
+      ["issue", "DE-2"],
+    ],
+  );
 });

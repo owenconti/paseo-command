@@ -1,15 +1,18 @@
 /**
  * Activity's Linear source: your Inbox (its first page, up to 250
  * notifications), one item per issue (or project, or lone notification) as
- * the Inbox shows them, not archived and not snoozed; a pull request's opens
- * the issue its branch or title names. Only while Linear is on
+ * the Inbox shows them, not archived and not snoozed. An issue's (a pull
+ * request's too: the issue its branch or title names) links to the issue on
+ * linear.app, which the app opens in Linear's desktop app when it's installed,
+ * else in Conquer. Only while Linear is on
  * (the reads take the key through `integrationKey("linear")`). Writes are
  * the Inbox's: read, unread and done (archive) on a row's notifications together.
  */
 import type { ActivityItem, ActivityWriteName } from "../../src/activity/types";
-import { inboxGroups, inboxText, type InboxGroup } from "../../src/linear/inboxRows";
-import type { LinearUser } from "../../src/linear/types";
+import { inboxGroups, inboxText, type InboxGroup } from "../linear/inbox";
+import type { LinearUser } from "../linear/types";
 import { readNotifications, readWorkspace } from "../linear/reads";
+import { appSettings } from "../settings";
 import { linearWrite } from "../linear/writes";
 
 export const LINEAR_ACTIVITY = { ttlMs: 20_000 };
@@ -21,9 +24,20 @@ export function resetLinearActivity(): void {
   cache = undefined;
 }
 
+/** Where the row's issue is on linear.app: the notification's own address when it's the issue's, else built from the workspace's. */
+function issueUrl(group: InboxGroup, workspace: string): string | undefined {
+  const key = group.issueKey;
+  if (!key) return undefined;
+  const own = group.notifications.map((n) => n.url).find((url) => issueOf(url) === key);
+  if (own) return own;
+  return workspace ? `https://linear.app/${workspace}/issue/${key}` : undefined;
+}
+const issueOf = (url: string) => /^https:\/\/linear\.app\/[^/?#]+\/issue\/([^/?#]+)/i.exec(url)?.[1]?.toUpperCase();
+
 /** An Inbox row as an Activity item: `linear:issue:<id>`, `linear:project:<id>` or `linear:notification:<id>`. */
-export function linearItem(group: InboxGroup, users: LinearUser[] = []): ActivityItem {
+export function linearItem(group: InboxGroup, users: LinearUser[] = [], workspace = ""): ActivityItem {
   const n = group.latest;
+  const url = issueUrl(group, workspace) ?? n.url;
   const text = inboxText(group);
   const actor = users.find((u) => u.id === n.actorId);
   return {
@@ -44,12 +58,7 @@ export function linearItem(group: InboxGroup, users: LinearUser[] = []): Activit
       : {}),
     at: n.createdAt || n.updatedAt,
     unread: group.unread,
-    ...(n.url ? { url: n.url } : {}),
-    ...(group.issueKey
-      ? { open: { kind: "linear-issue" as const, key: group.issueKey } }
-      : group.projectId
-        ? { open: { kind: "linear-project" as const, id: group.projectId } }
-        : {}),
+    ...(url ? { url } : {}),
   };
 }
 
@@ -58,7 +67,13 @@ async function gather(): Promise<ActivityItem[]> {
   // People's names, and the teams whose issues pull requests name, are nice to have: the workspace is kept five minutes by the reads.
   const ws = await readWorkspace().catch(() => undefined);
   const teams = ws?.teams.map((t) => t.key) ?? [];
-  return inboxGroups(notifications, Date.now(), false, teams).map((g) => linearItem(g, ws?.users));
+  // The workspace's address: Linear's, else the one set for the header's issue chip, else a notification's.
+  const workspace =
+    ws?.urlKey ||
+    appSettings().linearWorkspace ||
+    notifications.map((n) => /^https:\/\/linear\.app\/([a-z0-9][a-z0-9-]{0,63})\//i.exec(n.url)?.[1]).find(Boolean) ||
+    "";
+  return inboxGroups(notifications, Date.now(), false, teams).map((g) => linearItem(g, ws?.users, workspace));
 }
 
 /** Your Linear Inbox as Activity items; throws a LinearError when Linear can't answer. */

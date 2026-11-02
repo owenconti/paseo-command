@@ -3,11 +3,6 @@ import { describe, it } from "node:test";
 import { parseAppLink } from "./appLinks";
 
 describe("app links", () => {
-  it("reads a Linear issue's link", () => {
-    assert.deepEqual(parseAppLink("https://linear.app/acme/issue/de-42/fix-the-thing"), { kind: "linear", issue: "DE-42" });
-    assert.deepEqual(parseAppLink("https://linear.app/acme/issue/DE-7"), { kind: "linear", issue: "DE-7" });
-  });
-
   it("reads a GitHub pull request's link, at its tab", () => {
     assert.deepEqual(parseAppLink("https://github.com/acme/web.app/pull/42"), {
       kind: "github",
@@ -21,6 +16,8 @@ describe("app links", () => {
 
   it("leaves other links alone", () => {
     for (const href of [
+      // Linear issues open in Linear's desktop app (or Conquer): the app's, not the page's.
+      "https://linear.app/acme/issue/de-42/fix-the-thing",
       "https://linear.app/acme/project/thing-abc123",
       "https://linear.app/acme/settings",
       "https://evil.example/acme/issue/DE-1",

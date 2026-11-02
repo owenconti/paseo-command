@@ -6,6 +6,7 @@ import { afterEach, beforeEach, test } from "node:test";
 import { resetLinearClient } from "../linear/client";
 import { FAKE_IDS as I, installFakeLinear, type FakeLinear } from "../linear/fake";
 import { resetLinearReads } from "../linear/reads";
+import { writeSettings } from "../settings";
 import { issueKeysIn } from "../linear/normalize";
 import { linearEntity, readLinearActivity, resetLinearActivity, writeLinearActivity } from "./linear";
 
@@ -30,10 +31,10 @@ test("one item per issue or project, as the Inbox, without the snoozed", async (
   assert.match(eng1!.subtitle!, /^ENG-1 · Sam Rivera commented/);
   assert.equal(eng1!.subject, "issue");
   assert.equal(eng1!.kind, "issueNewComment");
-  assert.deepEqual(eng1!.open, { kind: "linear-issue", key: "ENG-1" });
+  assert.equal(eng1!.url, "https://linear.app/fake/issue/ENG-1#comment");
   assert.equal(eng1!.actor?.name, "Sam Rivera");
   assert.equal(eng3!.unread, false);
-  assert.deepEqual(launch!.open, { kind: "linear-project", id: I.projects.launch });
+  assert.equal(launch!.url, "https://linear.app/fake/project/launch");
   assert.equal(launch!.subject, "project");
 });
 
@@ -102,16 +103,46 @@ test("a pull request notification opens the issue its branch or title names", as
   const items = await readLinearActivity();
   const of = (id: string) => items.find((i) => i.key === `linear:notification:${id}`)!;
   const checks = of("90000001-0000-4000-8000-000000000001");
-  assert.deepEqual(checks.open, { kind: "linear-issue", key: "DE-1" });
+  // Linear's address for the issue, from the workspace's.
+  assert.equal(checks.url, "https://linear.app/fake/issue/DE-1");
   assert.equal(checks.subject, "pull");
   assert.equal(checks.kind, "pullRequestChecksFailed");
   assert.match(checks.subtitle!, /^DE-1 · merge-gate/);
-  assert.deepEqual(of("90000001-0000-4000-8000-000000000002").open, { kind: "linear-issue", key: "ENG-2" });
+  assert.equal(of("90000001-0000-4000-8000-000000000002").url, "https://linear.app/fake/issue/ENG-2");
   // No team of the workspace's: its address, as before.
   const release = of("90000001-0000-4000-8000-000000000003");
-  assert.equal(release.open, undefined);
   assert.equal(release.url, "https://github.com/acme/site/pull/36");
   assert.ok(fake.requests.some((r) => r.operation === "Notifications"));
+});
+
+test("without Linear's address for the workspace, the one set for the header's chip, else a notification's", async () => {
+  fake.ws.urlKey = "";
+  fake.ws.notifications = fake.ws.notifications.filter((n) => n.kind !== "issue");
+  const at = new Date().toISOString();
+  fake.ws.notifications.push({
+    id: "90000001-0000-4000-8000-000000000004",
+    kind: "pullRequest",
+    type: "pullRequestCommented",
+    title: "ENG-2: Tidy the sidebar",
+    subtitle: "Sam commented",
+    url: "https://github.com/acme/site/pull/4",
+    createdAt: at,
+    updatedAt: at,
+    readAt: null,
+    snoozedUntilAt: null,
+    archivedAt: null,
+    actor: null,
+    pullRequest: { id: "00000004-pr00-4000-8000-000000000000", title: "ENG-2: Tidy the sidebar", sourceBranch: "tidy" },
+  });
+  const pull = async () => (await readLinearActivity(true)).find((i) => i.subject === "pull")!.url;
+  // The project's notification names the workspace.
+  assert.equal(await pull(), "https://linear.app/fake/issue/ENG-2");
+  writeSettings({ linearWorkspace: "acme" });
+  assert.equal(await pull(), "https://linear.app/acme/issue/ENG-2");
+  // Nothing names it: the pull request's own address.
+  writeSettings({ linearWorkspace: "" });
+  fake.ws.notifications = fake.ws.notifications.filter((n) => n.kind === "pullRequest");
+  assert.equal(await pull(), "https://github.com/acme/site/pull/4");
 });
 
 test("issue keys in a branch or title", () => {

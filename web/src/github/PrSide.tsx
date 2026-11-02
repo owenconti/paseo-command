@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState, type ReactNode } from "react";
 import { ChevronDown, ChevronRight, CircleCheck, CircleDashed, CircleDot, CircleX, MessageSquare, RefreshCw, Settings2, Users, X } from "lucide-react";
-import { Picker, type PickerOption } from "../linear/Picker";
+import { Picker, type PickerOption } from "../Picker";
 import { readPath, useGithubRead } from "./api";
 import { Avatar, ChecksIcon, CHECKS_LABEL } from "./bits";
 import type { Person, PrCheck, PrDetail, PrReviewer, RepoPeople, RepoTeams, ReviewVerdict, Team } from "./types";

@@ -124,8 +124,7 @@ function PresetsEditor() {
             <h2 id="presets-title">Preset prompts</h2>
             <p id="presets-description">
               Each one is a button in New agent that starts the agent at once.{" "}
-              <code>{"{{pr}}"}</code> becomes the chosen pull request, and{" "}
-              <code>{"{{issue}}"}</code> the Linear issue it was launched from.
+              <code>{"{{pr}}"}</code> becomes the chosen pull request.
             </p>
           </div>
           <button
