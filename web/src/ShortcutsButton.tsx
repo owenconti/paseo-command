@@ -8,6 +8,7 @@ import { isTyping } from "./worldShortcut";
 import { onAppCommand } from "./appCommands";
 import { useIntegrations } from "./integrationSettings";
 import { activityEnabled } from "./integrations";
+import { shownModes, type AppMode } from "./appMode";
 import { onAppBar } from "./worldBridge";
 
 type Shortcut = { keys: string[][]; label: string };
@@ -58,14 +59,24 @@ const GROUPS: Group[] = [
     ],
   },
 ];
+const TAB_NAMES: Record<AppMode, string> = {
+  command: "the map",
+  conquer: "the browser (Conquer)",
+  activity: "Activity",
+  linear: "Linear",
+  slack: "Slack",
+  github: "GitHub",
+  settings: "Settings",
+};
 const NATIVE: Group = {
   title: "macOS app",
   rows: [
     { keys: [["⌃", "`"]], label: "Show or hide the terminal" },
     {
       keys: [["⌘", "`"]],
-      label: "Next in the map's place: the map, the browser (Conquer), Linear, Slack, Activity, Settings",
+      label: "Next in the map's place: the map, the browser (Conquer), Activity, Linear, Slack, GitHub, Settings",
     },
+    { keys: [["⌘", "1…7"]], label: "The mode bar's tab in that place: the map, the browser (Conquer), Settings" },
     { keys: [["⌘", ","]], label: "Settings, or back from it" },
   ],
 };
@@ -177,7 +188,7 @@ const CONQUER: Group = {
       ],
       label: "Next tab",
     },
-    { keys: [["⌘", "1…9"]], label: "Go to a tab (9: the last)" },
+    { keys: [["⌥", "⌘", "1…9"]], label: "Go to a tab (9: the last)" },
     { keys: [["⌘", "D"]], label: "Pin or unpin the tab" },
     { keys: [["⌘", "L"]], label: "Address bar" },
     { keys: [["⌘", "R"]], label: "Reload page" },
@@ -288,16 +299,18 @@ function ShortcutsDialog({ onClose }: { onClose: () => void }) {
     return () => window.removeEventListener("keydown", key, true);
   }, [present, onClose]);
   const { integrations } = useIntegrations();
+  // The mode bar's tabs shown, in its order (⌘` steps through them, ⌘1…⌘7 pick one).
+  const tabNames = shownModes(integrations).map((mode) => TAB_NAMES[mode]);
   const groups = (
     macApp()
       ? [
           ...GROUPS,
           NATIVE,
           PAGES,
+          ...(activityEnabled(integrations) ? [ACTIVITY] : []),
           ...(integrations.linear ? [LINEAR] : []),
           ...(integrations.slack ? [SLACK] : []),
           ...(integrations.github ? [GITHUB] : []),
-          ...(activityEnabled(integrations) ? [ACTIVITY] : []),
           CONQUER,
         ]
       : GROUPS
@@ -311,18 +324,10 @@ function ShortcutsDialog({ onClose }: { onClose: () => void }) {
       )
       .map((row) =>
         row.label.startsWith("Next in the map's place")
-          ? {
-              ...row,
-              label: `Next in the map's place: ${[
-                "the map",
-                "the browser (Conquer)",
-                ...(integrations.linear ? ["Linear"] : []),
-                ...(integrations.slack ? ["Slack"] : []),
-                ...(integrations.github ? ["GitHub"] : []),
-                ...(activityEnabled(integrations) ? ["Activity"] : []),
-              ].join(", ")}`,
-            }
-          : row,
+          ? { ...row, label: `Next in the map's place: ${tabNames.join(", ")}` }
+          : row.label.startsWith("The mode bar's tab")
+            ? { ...row, label: `The mode bar's tab in that place: ${tabNames.join(", ")}` }
+            : row,
       ),
   }));
   return (

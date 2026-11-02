@@ -12,6 +12,14 @@ final class AppWindow: NSWindow {
         guard let url = document(), ["http", "https"].contains(url.scheme ?? "") else { return super.accessibilityDocument() }
         return url.absoluteString
     }
+    /// ⌘1…⌘7 pick the mode bar's tabs (the View menu's) from anywhere in the window, ahead of its
+    /// views: the page, the terminal panel, and Conquer's pages even while it has the keyboard.
+    override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        if event.type == .keyDown, event.modifierFlags.intersection([.command, .shift, .control, .option]) == .command,
+           let key = event.charactersIgnoringModifiers, ("1"..."7").contains(key),
+           NSApp.mainMenu?.performKeyEquivalent(with: event) == true { return true }
+        return super.performKeyEquivalent(with: event)
+    }
 }
 
 /// One window: the SpriteKit Atlas, and over it the React app in a
@@ -28,7 +36,7 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
     let content: NSView
     /// Covers the window until the map has drawn (see `revealWhenDrawn`).
     let splash: SplashView
-    /// The strip across the top that switches between Command, Conquer, Linear, Slack, GitHub and Activity.
+    /// The strip across the top that switches between Command, Conquer, Activity, Linear, Slack, GitHub and Settings.
     let modeBar: ModeBar
     /// Command: the map, the page over it, the split over that and its splash, under the mode bar.
     let command: NSView
@@ -42,8 +50,10 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
     let options: Options
     /// The page's sides that can show: those whose integration is on (the page says, with
     /// `integrations`), and Settings.
-    private(set) var enabledModes: Set<Mode> = [.settings]
-    /// The tabs ⌘` steps through, in the mode bar's order.
+    private(set) var enabledModes: Set<Mode> = [.settings] { didSet { if enabledModes != oldValue { onModesChanged?() } } }
+    /// The tabs shown changed (the View menu renumbers its keys).
+    var onModesChanged: (() -> Void)?
+    /// The tabs shown, in the mode bar's order: ⌘` steps through them, ⌘1…⌘7 pick one.
     var shownModes: [Mode] { Mode.tabs.filter { !$0.drawnByPage || enabledModes.contains($0) } }
     /// The side Settings returns to when it closes.
     private var beforeSettings: Mode = .command

@@ -192,6 +192,12 @@ test("in the macOS app, the terminal's menu commands are listed and reach the ap
     "Bigger terminal text",
   ])
     await palette.getByRole("option", { name: label }).waitFor();
+  // The mode bar's tabs shown, in its order, with ⌘1…⌘7 by their place (no integrations here).
+  await search.fill("next in the map");
+  await palette.getByRole("option", { name: /Next in the map's place: map, browser, Settings/ }).waitFor();
+  await search.fill("show the browser");
+  const browserTab = palette.getByRole("option", { name: /Show the browser \(Conquer\)/ });
+  assert.match(await browserTab.locator(".palette-keys").innerText(), /⌘\s*2/);
   await search.fill("maximize term");
   await page.keyboard.press("Enter");
   await palette.waitFor({ state: "detached" });

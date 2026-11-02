@@ -5,14 +5,6 @@ mark it done with its commit once merged into `main`.
 
 ## Open
 
-- [ ] **Mode bar: Activity first of the pages, and ⌘1–7 switch tabs.** Order the macOS app's mode tabs
-  Command, Conquer, Activity, Linear, Slack, GitHub, Settings (those enabled), in the bar (`ModeBar` in
-  `Conquer.swift`), the View menu, ⌘\` stepping and the palette. ⌘1…⌘7 jump to the tab in that position
-  (counting only the tabs shown), from anywhere in the app, including the page, the terminal and Conquer.
-  Conquer's own tab keys move from ⌘1…⌘8/⌘9 to ⌥⌘1…⌥⌘8 (that tab) and ⌥⌘9 (the last). ⌘\` keeps stepping. Make
-  sure nothing else in the page still takes ⌘1–7 (e.g. the GitHub tab's 1–4 PR tabs and Activity's 1–4 sources are
-  bare keys, which is fine). Update the native menus, ⌘K entries' `keys`, the shortcuts dialog (`ShortcutsButton.tsx`)
-  and CLAUDE.md. Workspace: `mode-tab-order-and-keys`.
 - [ ] **GitHub tab: search repositories, ⌘S sidebar, people filters.** Follow-ups to the Repositories section:
   - The sidebar shouldn't list every repository with open PRs all the time ("Others" grouped by owner). Show only
     Favourites there, plus a search field (and ⌘K) that finds any repository you can see by name, `owner/name`
@@ -70,6 +62,11 @@ mark it done with its commit once merged into `main`.
 
 ## Done
 
+- [x] **Mode bar: Activity first of the pages, and ⌘1–7 switch tabs.** The tabs run Command, Conquer, Activity, Linear,
+  Slack, GitHub, Settings (those enabled) in the bar, the View menu, ⌘\` stepping, the palette and the shortcuts dialog.
+  ⌘1…⌘7 pick the tab in that place among those shown, from anywhere in the window (the window offers them to the View menu
+  ahead of its views: the page, the terminal, Conquer's pages); the View menu and tabs' tooltips show them. Conquer's tab keys
+  are now ⌥⌘1…⌥⌘8 and ⌥⌘9 (the last).
 - [x] **Conquer: filling passwords with 1Password.** Only 1Password's Universal Autofill can work: ⌘\\ is its system hotkey
   (Carbon), which no app or page can take first; Conquer's login fields (iframes' too) are in the accessibility tree, take focus and
   filling, each web area gives its address (`AXURL`), and the window now gives the page's address as `AXDocument` while Conquer shows

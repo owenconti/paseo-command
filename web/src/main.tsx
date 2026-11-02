@@ -70,7 +70,7 @@ import {
   usePullRequest,
 } from "./links";
 import { NewAgent, type DispatchTarget } from "./Dispatch";
-import { appTabs, useAppMode } from "./appMode";
+import { appTabs, modeKey, shownModes, useAppMode, type AppMode } from "./appMode";
 import type { ActivityViewState } from "./activity/ActivityView";
 import type { GithubViewState, GithubWorkspace } from "./github/GitHubView";
 import { openGithubPlace, prPlaceOf } from "./github/place";
@@ -1277,16 +1277,18 @@ function App() {
     ];
   };
   // The mode bar's tabs shown, in order, for ⌘`'s entry.
-  const modeTabs = (
-    [
-      ["command", "map"],
-      ["conquer", "browser"],
-      ["linear", "Linear"],
-      ["slack", "Slack"],
-      ["github", "GitHub"],
-      ["activity", "Activity"],
-    ] as const
-  ).filter(([mode]) => mode === "command" || mode === "conquer" || appTabs(integrations)[mode]);
+  const modeNames: Record<AppMode, string> = {
+    command: "map",
+    conquer: "browser",
+    activity: "Activity",
+    linear: "Linear",
+    slack: "Slack",
+    github: "GitHub",
+    settings: "Settings",
+  };
+  const modeTabs = shownModes(integrations).map((mode) => [mode, modeNames[mode]] as const);
+  // A tab's ⌘1…⌘7, in the macOS app.
+  const tabKeys = (mode: AppMode) => (macApp() ? [modeKey(integrations, mode)] : undefined);
   const paletteCommands: Command[] = [
     {
       id: "new-agent",
@@ -1578,7 +1580,7 @@ function App() {
                 "conquer",
                 "Show the browser (Conquer)",
                 "conquer browser mode web",
-                undefined,
+                modeKey(integrations, "conquer"),
               ],
               ["conquer-tab", "New Conquer tab", "browser web open", undefined],
               [
@@ -1629,6 +1631,7 @@ function App() {
                     id: "linear-show",
                     group: "App",
                     label: "Show your Linear issues",
+                    keys: tabKeys("linear"),
                     keywords: "linear issues tickets assigned tasks mode tab",
                     run: () => postAppMenu("linear"),
                   },
@@ -1657,6 +1660,7 @@ function App() {
                   id: "command-show",
                   group: "App",
                   label: "Show the map",
+                  keys: tabKeys("command"),
                   keywords: "command atlas world mode tab",
                   run: () => postAppMenu("command"),
                 },
@@ -1774,6 +1778,7 @@ function App() {
             id: "slack-show",
             group: "App",
             label: "Show Slack",
+            keys: tabKeys("slack"),
             keywords: "slack messages channels chat dm conversations mode tab",
             run: () => postAppMenu("slack"),
           },
@@ -1865,6 +1870,7 @@ function App() {
             id: "github-show",
             group: "App",
             label: "Show GitHub (pull requests and workspace changes)",
+            keys: tabKeys("github"),
             keywords: "github pull requests prs review diff changes code mode tab",
             run: () => postAppMenu("github"),
           },
@@ -2021,6 +2027,7 @@ function App() {
             id: "activity-show",
             group: "App",
             label: "Show Activity (GitHub, Linear and Slack notifications)",
+            keys: tabKeys("activity"),
             keywords: "activity notifications inbox feed github linear slack mentions reviews mode tab",
             run: () => postAppMenu("activity"),
           },
@@ -2463,7 +2470,7 @@ function App() {
             id: "settings",
             group: "App",
             label: "Settings",
-            keys: macApp() ? [["⌘", ","]] : undefined,
+            keys: macApp() ? [["⌘", ","], modeKey(integrations, "settings")] : undefined,
             keywords:
               "preferences integrations api keys secrets sounds music notifications linear slack github typesafe tab",
             run: () => openSettings(),

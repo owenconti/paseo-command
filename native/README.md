@@ -137,7 +137,7 @@ Conquer → Import Zen Cookies optionally copies Zen Browser's unexpired session
 cookies and tabs to themselves; `notifyutil -p com.paseo.command.native.mode.<run>` switches sides, `….open.<run>`
 opens `<info>.url`'s address in a tab, `….conquer.<run>` runs `<info>.do`'s steps a second apart (a command's name,
 `folder <name>`, `into <n>`, `drag <tab> <folder|-> <index>`, `type <text>`, `find <text>`, `roundtrip`; see
-`ConquerView.check`), `….key.<run>` presses ⌘ and `<info>.key`'s character as a key press would, and the snapshot hook
+`ConquerView.check`), `….key.<run>` presses ⌘ (⌥⌘ when it starts with ⌥) and `<info>.key`'s character as a key press would, and the snapshot hook
 draws Conquer over the map while it shows. `….appopen.<run>` opens `<info>.url` as a link clicked in the chat would.
 
 ## Checks without screen recording

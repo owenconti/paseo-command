@@ -3,10 +3,10 @@ import ImageIO
 import WebKit
 
 /// What stands in the map's place: the map (Command), the Conquer browser,
-/// or what the page draws itself: your Linear issues, Slack, GitHub (pull requests and your
-/// workspaces' changes) and Activity (GitHub, Linear and Slack notifications together).
+/// or what the page draws itself: Activity (GitHub, Linear and Slack notifications together),
+/// your Linear issues, Slack and GitHub (pull requests and your workspaces' changes).
 enum Mode: String, CaseIterable {
-    case command, conquer, linear, slack, github, activity, settings
+    case command, conquer, activity, linear, slack, github, settings
 
     var title: String {
         switch self {
@@ -33,18 +33,24 @@ enum Mode: String, CaseIterable {
     /// The page draws it over the map (the mode bar shows Linear's, Slack's, GitHub's and Activity's
     /// tabs only while their integration is on; Settings' always).
     var drawnByPage: Bool { self == .linear || self == .slack || self == .github || self == .activity || self == .settings }
-    /// The tabs, in the bar's order.
+    /// The tabs, in the bar's order (⌘1…⌘7 count those shown).
     static let tabs = allCases
+    /// What it shows; the bar's tooltip adds its keys (`keys(at:)`).
     var tip: String {
         switch self {
-        case .command: "The map (⌘`)"
-        case .conquer: "The browser, in the map's place (⌘`)"
-        case .linear: "Your Linear issues, in the map's place (⌘`)"
-        case .slack: "Slack, in the map's place (⌘`)"
-        case .github: "Pull requests and your workspaces' changes, in the map's place (⌘`)"
-        case .activity: "GitHub, Linear and Slack notifications together, in the map's place (⌘`)"
-        case .settings: "Settings: sounds, notifications, integrations, New agent, in the map's place (⌘, or ⌘`)"
+        case .command: "The map"
+        case .conquer: "The browser, in the map's place"
+        case .linear: "Your Linear issues, in the map's place"
+        case .slack: "Slack, in the map's place"
+        case .github: "Pull requests and your workspaces' changes, in the map's place"
+        case .activity: "GitHub, Linear and Slack notifications together, in the map's place"
+        case .settings: "Settings: sounds, notifications, integrations, New agent, in the map's place"
         }
+    }
+    /// Its keys, as the `index`th tab shown (from 0): ⌘1…⌘7, and ⌘` steps (Settings' ⌘, too).
+    func keys(at index: Int?) -> String {
+        let number = index.map { "⌘\($0 + 1), " } ?? ""
+        return self == .settings ? "\(number)⌘, or ⌘`" : "\(number)⌘`"
     }
 }
 
@@ -179,7 +185,8 @@ final class UsageMeters: NSButton {
 
 /// The strip across the top of the window: the traffic lights, the product's name, the tabs that
 /// switch the map's place between the map (Command), the browser (Conquer), your Linear issues
-/// (Linear), Slack, GitHub, Activity and Settings (⌘` steps through them), "Update ready" when a newer build
+/// Activity, your Linear issues (Linear), Slack, GitHub and Settings (⌘` steps through them, ⌘1…⌘7
+/// pick the one in that place), "Update ready" when a newer build
 /// is in, and the app's tools at the right: who needs you, usage, What's new, mini games,
 /// keyboard shortcuts and the session panel's side, layout and visibility. All of it is native;
 /// the page says what the tools show (`apply`) and opens what they ask for (`onAction`, with the
@@ -190,7 +197,12 @@ final class ModeBar: NSView {
     /// A tool was used: its action's name and its button.
     var onAction: ((String, NSView) -> Void)?
     /// The page's tabs whose integration is on (Command and Conquer always show).
-    var enabled: Set<Mode> = [] { didSet { for (mode, button) in buttons { button.isHidden = mode.drawnByPage && !enabled.contains(mode) } } }
+    var enabled: Set<Mode> = [] {
+        didSet {
+            for (mode, button) in buttons { button.isHidden = mode.drawnByPage && !enabled.contains(mode) }
+            restyle()
+        }
+    }
     /// Activity's unread notifications, shown on its tab.
     var activityUnread = 0 { didSet { if activityUnread != oldValue { restyle() } } }
     var mode: Mode = .command { didSet { restyle() } }
@@ -396,6 +408,7 @@ final class ModeBar: NSView {
             .foregroundColor: Ink.color(Ink.onAccent, look),
         ])
         for button in [releases, games, shortcuts, panelSide, panelLayout, panelToggle] { button.restyle() }
+        let shown = buttons.filter { !$0.1.isHidden }.map(\.0)
         for (mode, button) in buttons {
             let on = mode == self.mode
             button.layer?.backgroundColor = on ? Ink.color(Ink.pane, look).cgColor
@@ -416,7 +429,8 @@ final class ModeBar: NSView {
                 ]))
             }
             button.attributedTitle = title
-            button.toolTip = mode == .activity && activityUnread > 0 ? "\(activityUnread) unread · \(mode.tip)" : mode.tip
+            let tip = "\(mode.tip) (\(mode.keys(at: shown.firstIndex(of: mode))))"
+            button.toolTip = mode == .activity && activityUnread > 0 ? "\(activityUnread) unread · \(tip)" : tip
         }
     }
 }
@@ -468,7 +482,7 @@ final class ConquerView: NSView, WKNavigationDelegate, WKUIDelegate, NSTextField
         Command(title: "Print…", name: "print", key: "p", mods: .command),
         Command(title: "Downloads", name: "downloads", key: "j", mods: [.command, .shift]),
         Command(title: "Import Zen Cookies", name: "importCookies", key: "", mods: []),
-    ] + (1...9).map { n in Command(title: n == 9 ? "Last Tab" : "Tab \(n)", name: "tab\(n)", key: "\(n)", mods: .command, hidden: true) }
+    ] + (1...9).map { n in Command(title: n == 9 ? "Last Tab" : "Tab \(n)", name: "tab\(n)", key: "\(n)", mods: [.command, .option], hidden: true) }
 
     let configuration = WKWebViewConfiguration()
     private var started = false

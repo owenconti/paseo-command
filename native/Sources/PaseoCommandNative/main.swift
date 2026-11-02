@@ -90,6 +90,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         if !AppFlavor.isRelease { NSApp.dockTile.badgeLabel = "DEV" }
         let world = WorldWindow(options: options)
         main = world
+        world.onModesChanged = { [weak self] in self?.numberModes() }
+        numberModes()
         if !options.urlGiven, options.size == nil, let frame = restored?.frame { world.window.setFrame(frame, display: false) }
         // Never take focus from whatever the user is doing: the window comes
         // up without activating the app.
@@ -103,19 +105,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         listen("com.paseo.command.native.quit") { NSApp.terminate(nil) }
         listen("com.paseo.command.native.reload") { [weak self] in self?.reloadApp(nil) }
         listen("com.paseo.command.native.handover") { [weak self] in self?.main?.acceptHandOver() }
-        // A ⌘-key (`<info>.key`'s character) as the keyboard sends it: the focused view
+        // A ⌘-key (`<info>.key`'s character, after "⌥" for ⌥⌘) as the keyboard sends it: the focused view
         // (a page, say) sees it before the menu, as with a real key press (checks).
         listen("com.paseo.command.native.key") { [weak self] in
             let codes: [String: UInt16] = ["e": 14, "\\": 42, "1": 18, "2": 19, "3": 20, "4": 21, "5": 23, "6": 22, "7": 26, "8": 28, "9": 25]
             guard let self, let info = self.options.info, let window = self.main?.window,
-                  let key = try? String(contentsOfFile: (info as NSString).deletingPathExtension + ".key", encoding: .utf8).trimmingCharacters(in: .whitespacesAndNewlines),
-                  let event = NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: .command, timestamp: ProcessInfo.processInfo.systemUptime,
+                  let typed = try? String(contentsOfFile: (info as NSString).deletingPathExtension + ".key", encoding: .utf8).trimmingCharacters(in: .whitespacesAndNewlines),
+                  case let option = typed.hasPrefix("⌥"), case let key = option ? String(typed.dropFirst()) : typed,
+                  let event = NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: option ? [.command, .option] : .command, timestamp: ProcessInfo.processInfo.systemUptime,
                                                windowNumber: window.windowNumber, context: nil, characters: key, charactersIgnoringModifiers: key,
                                                isARepeat: false, keyCode: codes[key] ?? 0)
             else { return }
             // As AppKit offers a key equivalent: the window's views (a page among them) first, then the menu.
             let viewTook = window.performKeyEquivalent(with: event)
-            Log.line("⌘\(key): views took it \(viewTook)")
+            Log.line("\(option ? "⌥" : "")⌘\(key): views took it \(viewTook)")
             if !viewTook { NSApp.mainMenu?.performKeyEquivalent(with: event) }
         }
         // ⌘` as the keyboard sends it, through the main menu (steps to the next tab).
@@ -313,12 +316,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         let unsplit = view.addItem(withTitle: "Unsplit Terminals", action: #selector(unsplitTerminals), keyEquivalent: "")
         unsplit.target = self
         view.addItem(.separator())
-        for mode in Mode.tabs {
+        modeItems = Mode.tabs.map { mode in
             let item = view.addItem(withTitle: mode.title, action: #selector(showMode(_:)), keyEquivalent: "")
             item.target = self
             item.representedObject = mode.rawValue
+            return item
         }
-        // ⌘` steps Command → Conquer → Linear → Slack → GitHub → Activity → Settings → Command, through those shown
+        // ⌘` steps Command → Conquer → Activity → Linear → Slack → GitHub → Settings → Command, through those shown
         // (ahead of macOS's own window cycling, as the app has one window).
         view.addItem(withTitle: "Next: Command, Conquer", action: #selector(toggleMode), keyEquivalent: "`").target = self
         view.addItem(.separator())
@@ -355,6 +359,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         windowItem.submenu = windowMenu
         NSApp.mainMenu = bar
         NSApp.windowsMenu = windowMenu
+    }
+
+    /// The View menu's tabs, in the bar's order.
+    private var modeItems: [NSMenuItem] = []
+    /// ⌘1…⌘7: the tabs shown, by their place in the bar (`AppWindow` offers these keys ahead of the views).
+    private func numberModes() {
+        let shown = main?.shownModes ?? Mode.tabs.filter { !$0.drawnByPage }
+        for item in modeItems {
+            let index = (item.representedObject as? String).flatMap(Mode.init(rawValue:)).flatMap(shown.firstIndex(of:))
+            item.keyEquivalent = index.map { String($0 + 1) } ?? ""
+            item.keyEquivalentModifierMask = .command
+        }
     }
 
     @objc private func toggleTerminal() { main?.toggleTerminal() }

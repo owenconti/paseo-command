@@ -5,15 +5,25 @@ import { useIntegrations } from "./integrationSettings";
 import { activityEnabled, type Integrations } from "./integrations";
 
 /** What stands in the map's place in the macOS app (its mode bar's tabs):
- * the map, the Conquer browser, or what the page draws itself: Linear, Slack,
- * GitHub (pull requests and the workspace's changes) and Activity (GitHub,
- * Linear and Slack notifications together), and Settings (the bar's gear, not a tab). */
-export type AppMode = "command" | "conquer" | "linear" | "slack" | "github" | "activity" | "settings";
+ * the map, the Conquer browser, or what the page draws itself: Activity (GitHub,
+ * Linear and Slack notifications together), Linear, Slack, GitHub (pull requests
+ * and the workspace's changes), and Settings (the bar's last tab). */
+export type AppMode = "command" | "conquer" | "activity" | "linear" | "slack" | "github" | "settings";
 
-const MODES: AppMode[] = ["command", "conquer", "linear", "slack", "github", "activity", "settings"];
+/** The tabs in the mode bar's order (`Mode` in `native/…/Conquer.swift`). */
+const MODES: AppMode[] = ["command", "conquer", "activity", "linear", "slack", "github", "settings"];
 
 /** The page's tabs whose integration is on. */
 export const appTabs = (i: Integrations) => ({ linear: i.linear, slack: i.slack, github: i.github, activity: activityEnabled(i) });
+
+/** The mode bar's tabs shown, in its order: ⌘` steps through them, ⌘1…⌘7 pick one. */
+export function shownModes(i: Integrations): AppMode[] {
+  const tabs = appTabs(i);
+  return MODES.filter((mode) => mode === "command" || mode === "conquer" || mode === "settings" || tabs[mode]);
+}
+
+/** A tab's ⌘ key, by its place among those shown (macOS app only). */
+export const modeKey = (i: Integrations, mode: AppMode): string[] => ["⌘", String(shownModes(i).indexOf(mode) + 1)];
 
 /** The mode bar's tab, as the app reports it (`paseo:mode`); always the map in a browser. */
 export function useAppMode(): AppMode {

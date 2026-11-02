@@ -16,6 +16,8 @@ do {
     assert(linear.isHidden && slack.isHidden && activity.isHidden)
     bar.enabled = [.linear, .activity]
     assert(!linear.isHidden && slack.isHidden && !activity.isHidden)
+    // ⌘1…⌘7 count the tabs shown: Activity comes third, then Linear.
+    assert(activity.toolTip?.hasSuffix("(⌘3, ⌘`)") == true && linear.toolTip?.hasSuffix("(⌘4, ⌘`)") == true)
     bar.activityUnread = 4
     assert(activity.title.hasSuffix("4"))
     bar.activityUnread = 0
@@ -132,3 +134,33 @@ do {
     assert(page.reloads == 1 && page.originReloads == 1)
 }
 print("Conquer tab closing and reload shortcut checks passed.")
+
+// The mode bar's order, and its tabs' keys by their place among those shown.
+assert(Mode.tabs == [.command, .conquer, .activity, .linear, .slack, .github, .settings])
+assert(Mode.conquer.keys(at: 1) == "⌘2, ⌘`")
+assert(Mode.settings.keys(at: 2) == "⌘3, ⌘, or ⌘`")
+assert(Mode.linear.keys(at: nil) == "⌘`")
+// Conquer's own tab keys are ⌥⌘1…⌥⌘9, leaving ⌘1…⌘7 to the mode bar.
+do {
+    let b = browser()
+    let window = NSWindow(contentRect: b.frame, styleMask: [.titled], backing: .buffered, defer: false)
+    window.contentView = b
+    let first = pin(b, name: "First")
+    let second = pin(b, name: "Second")
+    b.select(second)
+    assert(window.makeFirstResponder(second.web))
+    func key(_ n: String, _ modifiers: NSEvent.ModifierFlags) -> NSEvent {
+        NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: modifiers, timestamp: 0,
+                         windowNumber: window.windowNumber, context: nil, characters: n, charactersIgnoringModifiers: n,
+                         isARepeat: false, keyCode: 18)!
+    }
+    assert(ConquerView.commands.compactMap { $0 }.filter { $0.name.hasPrefix("tab") }.allSatisfy { $0.mods == [.command, .option] })
+    // ⌘1 isn't Conquer's (the page may see it; the window gives it to the mode bar first).
+    _ = b.performKeyEquivalent(with: key("1", .command))
+    assert(b.current === second)
+    assert(b.performKeyEquivalent(with: key("1", [.command, .option])))
+    assert(b.current === first)
+    assert(b.performKeyEquivalent(with: key("9", [.command, .option])))
+    assert(b.current === b.allTabs.last)
+}
+print("Mode bar order and tab key checks passed.")
