@@ -3,6 +3,17 @@ import ImageIO
 import SpriteKit
 import WebKit
 
+/// The app's window. While Conquer shows, it gives accessibility clients the address of
+/// Conquer's page as its document (AXDocument), as a browser's window does; the page's
+/// own web area gives its address (AXURL) too, for autofill and other assistive tools.
+final class AppWindow: NSWindow {
+    var document: () -> URL? = { nil }
+    override func accessibilityDocument() -> String? {
+        guard let url = document(), ["http", "https"].contains(url.scheme ?? "") else { return super.accessibilityDocument() }
+        return url.absoluteString
+    }
+}
+
 /// One window: the SpriteKit Atlas, and over it the React app in a
 /// transparent web view. The page keeps every pointer and key event: its
 /// toolbar, legend, tooltips and panels take theirs as in a browser, and the
@@ -64,7 +75,7 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         server = options.manageServer && local && !refusedPort ? ServerManager() : nil
         let screen = NSScreen.main?.visibleFrame ?? CGRect(x: 0, y: 0, width: 1440, height: 900)
         let size = options.size ?? CGSize(width: min(1440, screen.width - 80), height: min(900, screen.height - 80))
-        window = NSWindow(contentRect: CGRect(x: screen.minX + 40, y: screen.maxY - size.height - 40, width: size.width, height: size.height),
+        window = AppWindow(contentRect: CGRect(x: screen.minX + 40, y: screen.maxY - size.height - 40, width: size.width, height: size.height),
                           styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
                           backing: .buffered, defer: false)
         window.title = AppFlavor.name
@@ -150,6 +161,7 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
             self?.web.evaluateJavaScript("window.dispatchEvent(new CustomEvent('paseo:command', { detail: 'toggle-panel' }))", completionHandler: nil)
         }
         conquer.onLink = { [weak self] url in self?.routeLink(url) ?? false }
+        (window as? AppWindow)?.document = { [weak self] in self?.mode == .conquer ? self?.conquer.current?.url : nil }
         configuration.userContentController.add(self, name: "paseoWorld")
         web.navigationDelegate = self
         web.uiDelegate = self

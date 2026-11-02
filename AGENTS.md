@@ -256,6 +256,16 @@ and GitHub publication; report the published version and release link.
   optionally seeded after confirmation through Conquer → Import Zen Cookies from Zen Browser's profile (`ZenCookies.swift`): a copy of
   `cookies.sqlite`, default space only, unpartitioned and unexpired; Zen is never written to. Its tabs (`conquerState`), sidebar width, zooms,
   history (`conquer-history.json` in the app's data folder, `~/Library/Application Support/Paseo Command/` for the release) and the mode come back on launch; tabs come back unloaded.
+  Passwords: 1Password fills Conquer's pages only through its Universal Autofill (⌘\\ by default, set in 1Password, with 1Password on under
+  Privacy & Security → Accessibility). 1Password registers that key as a system hotkey (Carbon `RegisterEventHotKey`), so it reaches 1Password
+  before the app or page sees it (Conquer's commands don't use it); the page's fields, iframes' too, are in the accessibility tree and take focus
+  and typing as in Safari (both are WebKit), each web area gives its address (`AXURL`), and the window gives the current page's address as
+  its `AXDocument` while Conquer shows (`AppWindow` in `WorldWindow.swift`), as a browser's window does. 1Password matches sites by address only
+  in the browsers it knows by bundle id and signature; here it matches Paseo Command as an app (it offers to link a login to the app), and it
+  fills only apps with a real code signature: the release app (Developer ID), not the ad hoc signed Dev app. macOS AutoFill (the key icon,
+  credential providers such as 1Password's) isn't available for arbitrary sites in a third-party app's WKWebView: Password AutoFill offers
+  credentials only for an app's own associated domains, and the browser entitlement (`com.apple.developer.web-browser.public-key-credential`,
+  granted by Apple) covers passkeys only. So there's no Conquer menu or ⌘K entry for it.
 - Pages: Linear, Slack, GitHub, Activity and Settings, which the page draws in the map's place, share one look (`web/src/styles/pages.css`): one type scale (the
   app's sizes plus `--page-text`, 2 px by default), one width scale (`--lz`, from `--page-scale`, for columns, rows, controls and icons) and, in dark, one
   neutral near-black palette; each is a sidebar headed by its name beside its content, the same rows and heads. One text size serves them all

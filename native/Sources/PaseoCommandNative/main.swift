@@ -106,7 +106,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         // A ⌘-key (`<info>.key`'s character) as the keyboard sends it: the focused view
         // (a page, say) sees it before the menu, as with a real key press (checks).
         listen("com.paseo.command.native.key") { [weak self] in
-            let codes: [String: UInt16] = ["e": 14, "1": 18, "2": 19, "3": 20, "4": 21, "5": 23, "6": 22, "7": 26, "8": 28, "9": 25]
+            let codes: [String: UInt16] = ["e": 14, "\\": 42, "1": 18, "2": 19, "3": 20, "4": 21, "5": 23, "6": 22, "7": 26, "8": 28, "9": 25]
             guard let self, let info = self.options.info, let window = self.main?.window,
                   let key = try? String(contentsOfFile: (info as NSString).deletingPathExtension + ".key", encoding: .utf8).trimmingCharacters(in: .whitespacesAndNewlines),
                   let event = NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: .command, timestamp: ProcessInfo.processInfo.systemUptime,

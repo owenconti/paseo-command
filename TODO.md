@@ -5,15 +5,6 @@ mark it done with its commit once merged into `main`.
 
 ## Open
 
-- [ ] **Conquer: filling passwords with 1Password.** Conquer is a WKWebView (`Conquer.swift`), so the
-  1Password browser extension can't run in it. Make 1Password filling work there, finding out first which
-  ways do: 1Password 8's Universal Autofill (⌘\ in any app, through the accessibility tree; check the page's
-  fields are exposed and filled, including login forms in iframes), and macOS's AutoFill with 1Password as the
-  system's password provider (the key icon on password fields; whether WKWebView in this app offers it, and
-  what entitlements or settings it needs). Fix what stops them (e.g. accessibility exposure, focus, key
-  handling of ⌘\ by Conquer's commands). Document what works in CLAUDE.md, and add a Conquer menu/⌘K entry
-  only if there's a real action to offer. Don't read 1Password's data or store passwords. Check with a
-  throwaway build, never the user's apps. Workspace: `conquer-1password`.
 - [ ] **Mode bar: Activity first of the pages, and ⌘1–7 switch tabs.** Order the macOS app's mode tabs
   Command, Conquer, Activity, Linear, Slack, GitHub, Settings (those enabled), in the bar (`ModeBar` in
   `Conquer.swift`), the View menu, ⌘\` stepping and the palette. ⌘1…⌘7 jump to the tab in that position
@@ -79,6 +70,14 @@ mark it done with its commit once merged into `main`.
 
 ## Done
 
+- [x] **Conquer: filling passwords with 1Password.** Only 1Password's Universal Autofill can work: ⌘\\ is its system hotkey
+  (Carbon), which no app or page can take first; Conquer's login fields (iframes' too) are in the accessibility tree, take focus and
+  filling, each web area gives its address (`AXURL`), and the window now gives the page's address as `AXDocument` while Conquer shows
+  (`AppWindow`), as a browser's does. 1Password matches by site only in browsers on its own list, so in Paseo Command it matches the app
+  (link a login to it), and it fills only apps with a real signature: the release app, not the ad hoc Dev app. macOS AutoFill can't
+  work for other sites in a third-party WKWebView (only an app's associated domains; the browser entitlement is passkeys only).
+  No menu or ⌘K entry. Left for the user to try (an agent can't use the vault): in the release app, once this ships, ⌘\\ on a login
+  page in Conquer, then Always Allow linking the login to Paseo Command. Commit "Conquer: 1Password Universal Autofill notes, page address for accessibility".
 - [x] **macOS app: a deleted app says so instead of "The file node doesn't exist".** Restart app and the server's
   restart first check the running bundle, its Node and `server.mjs` are still there (`BundleHome.swift`); when not, a
   sheet says this copy was deleted or moved (its old path) and can't restart, names another copy (a dev copy: the main
