@@ -431,6 +431,203 @@
 .gh-body .md > :last-child {
   margin-bottom: 0;
 }
+/* GitHub's own rendering of a body (`Body`, `html.ts`): the chat's Markdown look, plus what GitHub's HTML adds. */
+.gh-html p,
+.gh-html details,
+.gh-html .highlight,
+.gh-html .markdown-alert,
+.gh-html dl,
+.gh-html figure {
+  margin: 0 0 var(--space-2);
+}
+.gh-html > :last-child,
+.gh-html details > :last-child,
+.gh-html td > :last-child,
+.gh-html th > :last-child {
+  margin-bottom: 0;
+}
+.gh-html code,
+.gh-html pre {
+  font-size: var(--fs-xs);
+}
+/* A code block, highlighted or not: the chat's code frame without its bar. */
+.gh-html pre {
+  margin: 0 0 var(--space-2);
+  border: 1px solid var(--line-mid);
+  border-radius: var(--radius-md);
+  background: var(--code-bg);
+}
+.gh-html .highlight > pre,
+.gh-html > :last-child > pre:last-child {
+  margin-bottom: 0;
+}
+.gh-html .pl-c {
+  color: var(--text-faint);
+  font-style: italic;
+}
+.gh-html .pl-s,
+.gh-html .pl-pds,
+.gh-html .pl-sr,
+.gh-html .pl-mi1,
+.gh-html .pl-mb {
+  color: var(--green-text);
+}
+.gh-html .pl-c1,
+.gh-html .pl-v,
+.gh-html .pl-smi {
+  color: var(--amber-text);
+}
+.gh-html .pl-k,
+.gh-html .pl-en,
+.gh-html .pl-ent {
+  color: var(--accent-text);
+}
+.gh-html .pl-e,
+.gh-html .pl-smw,
+.gh-html .pl-mh {
+  color: var(--text-3);
+}
+.gh-html .pl-md {
+  color: var(--red-text);
+  background: var(--red-soft);
+}
+.gh-html .pl-mi2 {
+  color: var(--green-text);
+  background: var(--green-soft);
+}
+.gh-html img {
+  max-width: 100%;
+  height: auto;
+  vertical-align: middle;
+  border-radius: var(--radius-xs);
+}
+.gh-html img[align="right"] {
+  float: right;
+  margin: 0 0 var(--space-2) var(--space-3);
+}
+.gh-html img[align="left"] {
+  float: left;
+  margin: 0 var(--space-3) var(--space-2) 0;
+}
+.gh-html::after {
+  content: "";
+  display: block;
+  clear: both;
+}
+.gh-html [align="center"] {
+  text-align: center;
+}
+.gh-html [align="right"]:not(img) {
+  text-align: right;
+}
+.gh-html td[align="center"],
+.gh-html th[align="center"] {
+  text-align: center;
+}
+.gh-html details {
+  padding: 0 var(--space-2);
+  border: 1px solid var(--line-mid);
+  border-radius: var(--radius-md);
+}
+.gh-html details[open] {
+  padding-bottom: var(--space-2);
+}
+.gh-html summary {
+  margin: 0 calc(-1 * var(--space-2));
+  padding: 5px var(--space-2);
+  cursor: pointer;
+  font-weight: var(--fw-medium);
+  color: var(--text-strong);
+}
+.gh-html details[open] > summary {
+  margin-bottom: var(--space-2);
+  border-bottom: 1px solid var(--line-soft);
+}
+.gh-html summary:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+  border-radius: var(--radius-sm);
+}
+.gh-html kbd {
+  display: inline-block;
+  padding: 0 5px;
+  border: 1px solid var(--line-strong);
+  border-bottom-width: 2px;
+  border-radius: var(--radius-xs);
+  background: var(--fill);
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  line-height: 1.6;
+  color: var(--text-strong);
+}
+.gh-html sub,
+.gh-html sup {
+  font-size: 0.75em;
+  line-height: 0;
+}
+.gh-html mark {
+  padding: 0 2px;
+  border-radius: 2px;
+  background: var(--amber-soft);
+  color: var(--text-strong);
+}
+.gh-html .user-mention,
+.gh-html .team-mention {
+  font-weight: var(--fw-semibold);
+  text-decoration: none;
+}
+.gh-html .markdown-alert {
+  --alert: var(--accent-text);
+  padding: 2px 0 2px var(--space-3);
+  border-left: 3px solid var(--alert);
+}
+.gh-html .markdown-alert-tip {
+  --alert: var(--green-text);
+}
+.gh-html .markdown-alert-important {
+  --alert: color-mix(in srgb, var(--accent-text) 50%, var(--red-text));
+}
+.gh-html .markdown-alert-warning {
+  --alert: var(--amber-text);
+}
+.gh-html .markdown-alert-caution {
+  --alert: var(--red-text);
+}
+.gh-html .markdown-alert-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: var(--fw-semibold);
+  color: var(--alert);
+}
+.gh-html .octicon {
+  flex-shrink: 0;
+  width: 1em;
+  height: 1em;
+  fill: currentColor;
+  vertical-align: -2px;
+}
+.gh-html .markdown-alert-title .octicon {
+  margin: 0;
+}
+.gh-html .footnotes {
+  margin-top: var(--space-3);
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--line-soft);
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+}
+.gh-html .sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.gh-html .anchor {
+  display: none;
+}
 .gh-body-empty {
   margin: 0;
   font-size: var(--fs-sm);
@@ -711,7 +908,7 @@
 .gh-entry-head b {
   color: var(--text-strong);
 }
-.gh-entry.review:not(:has(.gh-body)) .gh-entry-head {
+.gh-entry:not(.composer):not(:has(.gh-body, .gh-body-empty)) .gh-entry-head {
   border-bottom: 0;
 }
 .gh-review-mark {

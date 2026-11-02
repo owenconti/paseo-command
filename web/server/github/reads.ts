@@ -46,6 +46,7 @@ import {
 } from "../../src/github/types";
 import { GithubApiError, githubGraphql as graphql, githubPaged, githubRest, githubText, missingScopes } from "../githubApi";
 import { filterQueries, type RepoFilters } from "../../src/github/filters";
+import { HTML_MAX } from "../../src/github/html";
 import { cached, searchSlot } from "./client";
 import { readStars } from "./stars";
 
@@ -514,13 +515,13 @@ const FILES = "files(first: 100, after: $after) { nodes { path additions deletio
 export const PR_QUERY = `query($owner: String!, $name: String!, $number: Int!, $after: String) {
   repository(owner: $owner, name: $name) { pullRequest(number: $number) {
     ${ROW}
-    body headRefOid mergeable viewerDidAuthor headRepository { nameWithOwner }
+    body bodyHTML headRefOid mergeable viewerDidAuthor headRepository { nameWithOwner }
     ${FILES}
-    timelineComments: comments(last: 100) { nodes { id ${AUTHOR} body createdAt url } }
-    reviews(last: 100) { nodes { id ${AUTHOR} state body submittedAt createdAt url comments { totalCount } } }
+    timelineComments: comments(last: 100) { nodes { id ${AUTHOR} body bodyHTML createdAt url } }
+    reviews(last: 100) { nodes { id ${AUTHOR} state body bodyHTML submittedAt createdAt url comments { totalCount } } }
     reviewThreads(first: 100) { nodes {
       id path line startLine diffSide isResolved isOutdated viewerCanResolve viewerCanUnresolve viewerCanReply
-      comments(first: 50) { nodes { id databaseId ${AUTHOR} body createdAt url } }
+      comments(first: 50) { nodes { id databaseId ${AUTHOR} body bodyHTML createdAt url } }
     } }
     commits(last: 100) { nodes { commit { oid messageHeadline committedDate author { name user { login avatarUrl } } } } }
     rollup: commits(last: 1) { nodes { commit { statusCheckRollup { state contexts(first: 100) { nodes {
@@ -556,6 +557,16 @@ function fileOf(f: Raw): PrFile | null {
   };
 }
 
+/**
+ * GitHub's own rendering of a body (`bodyHTML`: its Markdown with the HTML it
+ * allows, images through camo; "" for a body of hidden comments only), which
+ * the page cleans again and draws. Left out when GitHub gave none or it's too
+ * long to send whole; the page draws the Markdown then.
+ */
+function htmlOf(n: Raw): { html?: string } {
+  return typeof n.bodyHTML === "string" && n.bodyHTML.length <= HTML_MAX ? { html: n.bodyHTML } : {};
+}
+
 const TIMELINE_REVIEW: Record<string, Extract<TimelineEntry, { kind: "review" }>["state"]> = {
   APPROVED: "approved",
   CHANGES_REQUESTED: "changes",
@@ -573,6 +584,7 @@ export function timelineOf(comments: Raw[], reviews: Raw[]): TimelineEntry[] {
       id: clip(str(c.id), 200),
       author: personOf(c.author),
       body: clip(str(c.body), BODY_MAX),
+      ...htmlOf(c),
       createdAt: str(c.createdAt),
       url: https(c.url),
     });
@@ -586,6 +598,7 @@ export function timelineOf(comments: Raw[], reviews: Raw[]): TimelineEntry[] {
       author: personOf(r.author),
       state,
       body: clip(str(r.body), BODY_MAX),
+      ...htmlOf(r),
       createdAt: str(r.submittedAt) || str(r.createdAt),
       url: https(r.url),
       comments: num(rec(r.comments).totalCount),
@@ -616,6 +629,7 @@ export function threadOf(t: Raw): ReviewThread | null {
         databaseId: c.databaseId as number,
         author: personOf(c.author),
         body: clip(str(c.body), BODY_MAX),
+        ...htmlOf(c),
         createdAt: str(c.createdAt),
         url: https(c.url),
       })),
@@ -732,6 +746,7 @@ export function detailOf(p: Raw, extraFiles: Raw[] = []): PrDetail | null {
   return {
     ...row,
     body: clip(str(p.body), BODY_MAX),
+    ...htmlOf(p),
     headSha: /^[0-9a-f]{40}$/.test(sha) ? sha : "",
     headRepo: REPO.test(str(rec(p.headRepository).nameWithOwner)) ? str(rec(p.headRepository).nameWithOwner) : null,
     mergeable: MERGEABLE[str(p.mergeable)] ?? "unknown",

@@ -113,6 +113,44 @@ const detail = (r: PrRow): PrDetail => ({
   reviewers: [{ kind: "user", login: "me", requested: true, verdict: null }],
   assignees: [],
 });
+/** #20 as GitHub renders it: a description with a folded block and an alert, a dependency bot's table, a hostile
+ * comment, one of only a hidden marker, and a line comment; each beside its Markdown. */
+const CAMO = "https://camo.githubusercontent.com/5c0ffee/68747470733a2f2f";
+const RENDERED: Partial<PrDetail> = {
+  body: "Adds it.\n\n<details><summary>Why</summary>\n\nThe list was **short**.\n\n</details>",
+  html:
+    '<p dir="auto">Adds it, see <a href="https://github.com/acme/atlas/pull/13">#13</a>.</p>' +
+    '<details><summary>Why</summary><p dir="auto">The list was <strong>short</strong>; press <kbd>⌘K</kbd>.</p></details>' +
+    '<div class="markdown-alert markdown-alert-note" dir="auto"><p class="markdown-alert-title" dir="auto"><svg class="octicon octicon-info mr-2" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M0 8a8 8 0 1 1 16 0Z"></path></svg>Note</p><p dir="auto">Mind the gap.</p></div>' +
+    '<div class="highlight highlight-source-ts notranslate position-relative overflow-auto" dir="auto"><pre><span class="pl-k">const</span> <span class="pl-s1">b</span> <span class="pl-c1">=</span> <span class="pl-c1">3</span><span class="pl-kos">;</span> <span class="pl-c">// was 2</span></pre></div>' +
+    '<ul class="contains-task-list"><li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" checked disabled> Tests</li></ul>',
+  timeline: [
+    {
+      kind: "comment",
+      id: "IC_bot",
+      author: { login: "socket-security" },
+      body: "Review the following changes…\n\n<table>…</table>\n\n<!-- overview-comment -->",
+      html:
+        '<p dir="auto">Review the following changes in direct dependencies. Learn more about <a href="https://socket.dev" rel="nofollow">Socket for GitHub</a>.</p>' +
+        '<markdown-accessiblity-table><table><thead><tr><th>Diff</th><th width="200px">Package</th><th align="center">Supply Chain<br>Security</th></tr></thead>' +
+        `<tbody><tr><td><a href="https://socket.dev/diff/npm/left-pad">Added</a></td><td>left-pad@1.3.0</td><td align="center"><img src="${CAMO}" alt="100" width="50" height="40"></td></tr></tbody></table></markdown-accessiblity-table>` +
+        '<p dir="auto"><a href="https://socket.dev/report" rel="nofollow">View full report</a></p>',
+      createdAt: ago(50),
+      url: "https://github.com/acme/atlas/pull/20#issuecomment-1",
+    },
+    {
+      kind: "comment",
+      id: "IC_hostile",
+      author: { login: "mallory" },
+      body: "hi",
+      html: '<p>Hello<img src="x" onerror="window.__pwned=1"><script>window.__pwned=2</script><a href="javascript:window.__pwned=3">click</a><iframe src="https://evil.example"></iframe></p><style>.github-view{display:none}</style>',
+      createdAt: ago(45),
+      url: "https://github.com/acme/atlas/pull/20#issuecomment-2",
+    },
+    { kind: "comment", id: "IC_marker", author: { login: "bot" }, body: "<!-- marker -->", html: "", createdAt: ago(44), url: "https://github.com/acme/atlas/pull/20#issuecomment-3" },
+    { kind: "comment", id: "IC_md", author: sam, body: "Plain **Markdown**\n\n<!-- still hidden -->", createdAt: ago(40), url: "https://github.com/acme/atlas/pull/20#issuecomment-4" },
+  ],
+};
 const TEAMS: RepoTeams = { repo: "acme/atlas", teams: [{ slug: "map-team", name: "Map team" }] };
 /** #12's checks: one failing, one running, seven passing and a skipped one. */
 const CHECKS: PrCheck[] = [
@@ -200,6 +238,7 @@ async function setUp(page: Page, opts: { refuse?: Set<string>; workspaces?: type
       if (kept) return route.fulfill({ json: kept });
       const d = detail(r);
       prs.set(r.number, d);
+      if (r.number === 20) Object.assign(d, RENDERED);
       if (r.number === 12)
         Object.assign(d, {
           checkRuns: CHECKS,
@@ -323,6 +362,79 @@ test("GitHub lists PRs to review, opens one, drafts a line comment and submits a
     await page.keyboard.press("Escape");
     await view.locator(".gh-row").first().waitFor();
     assert.equal(await view.locator(".gh-head h2").first().textContent(), "Review requests2");
+  } finally {
+    await context.close();
+  }
+});
+
+test("A PR's description and comments render as GitHub shows them: tables, images, details, alerts; nothing hostile; links in the app", async () => {
+  const context = await newContext(browser);
+  const page = await context.newPage();
+  await page.setViewportSize({ width: 1600, height: 1000 });
+  const images: string[] = [];
+  // GitHub's image proxy, answered here: nothing reaches GitHub.
+  await page.route("https://camo.githubusercontent.com/**", (route) => {
+    images.push(route.request().url());
+    return route.fulfill({ contentType: "image/svg+xml", body: '<svg xmlns="http://www.w3.org/2000/svg" width="50" height="40"><rect width="50" height="40" fill="#2a2"/></svg>' });
+  });
+  await page.route("https://evil.example/**", (route) => route.abort());
+  await setUp(page);
+  try {
+    await page.goto(app.url);
+    await page.locator(".fleet-sidebar").waitFor();
+    await showGithub(page);
+    const view = page.locator(".github-view");
+    await view.locator(".gh-nav-item", { hasText: "Your pull requests" }).click();
+    await view.locator(".gh-row", { hasText: "My own change" }).click();
+    const entries = view.locator(".gh-entry");
+    const bot = entries.filter({ hasText: "socket-security" });
+    await bot.locator("table").waitFor();
+    // The table, not its markup as text, and no hidden marker.
+    const botText = await bot.innerText();
+    assert.ok(!botText.includes("<table>") && !botText.includes("<br") && !botText.includes("overview-comment"), botText);
+    assert.deepEqual(await bot.locator("th").allTextContents(), ["Diff", "Package", "Supply ChainSecurity"]);
+    assert.equal(await bot.locator(".md-table").count(), 1, "a wide table scrolls in its frame");
+    const img = bot.locator("img");
+    assert.equal(await img.getAttribute("loading"), "lazy");
+    await waitFor(() => img.evaluate((i: HTMLImageElement) => i.complete && i.naturalWidth), (w) => w === 50, "the camo image loads");
+    assert.deepEqual(images, [CAMO]);
+    await bot.getByRole("link", { name: "View full report" }).waitFor();
+
+    // The description: a folded block that opens, an alert, a task box.
+    const description = entries.first();
+    const details = description.locator("details");
+    assert.equal(await details.evaluate((d: HTMLDetailsElement) => d.open), false);
+    await details.locator("summary").click();
+    await waitFor(() => details.evaluate((d: HTMLDetailsElement) => d.open), (open) => open, "the block opens");
+    await description.locator("kbd", { hasText: "⌘K" }).waitFor();
+    await description.locator(".markdown-alert-note .markdown-alert-title", { hasText: "Note" }).waitFor();
+    assert.equal(await description.locator("input.md-task").isDisabled(), true);
+
+    // The hostile comment: its words only; nothing ran, loaded or hid the view.
+    const hostile = entries.filter({ hasText: "mallory" });
+    await hostile.locator(".gh-html", { hasText: "Hello" }).waitFor();
+    assert.equal(await hostile.locator(".gh-html script, .gh-html iframe, .gh-html style, .gh-html img").count(), 0);
+    assert.equal(await hostile.locator(".gh-html a").getAttribute("href"), null);
+    await hostile.locator(".gh-html a", { hasText: "click" }).click();
+    assert.equal(await page.evaluate(() => (window as { __pwned?: number }).__pwned ?? null), null);
+    assert.ok(await view.isVisible());
+
+    // A body of only a hidden marker shows nothing; Markdown without HTML still hides its comment.
+    assert.equal(await entries.filter({ hasText: "bot" }).filter({ hasNot: page.locator(".gh-html") }).locator(".gh-body").count(), 0);
+    const md = entries.filter({ hasText: "Plain" });
+    await md.locator("strong", { hasText: "Markdown" }).waitFor();
+    assert.ok(!(await md.innerText()).includes("still hidden"));
+
+    if (process.env.GITHUB_SHOT) {
+      for (const scheme of ["dark", "light"] as const) {
+        await page.emulateMedia({ colorScheme: scheme });
+        await page.screenshot({ path: `${process.env.GITHUB_SHOT}/rendered-${scheme}.png` });
+      }
+    }
+
+    // A pull request link opens in the tab.
+    await description.getByRole("link", { name: "#13" }).click();
+    await view.locator(".gh-pr-title", { hasText: "Fix the shoreline" }).waitFor();
   } finally {
     await context.close();
   }

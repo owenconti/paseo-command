@@ -373,6 +373,14 @@ and GitHub publication; report the published version and release link.
   so remote hosts too; `GET /api/changes?workspace=&host=&mode=all|base|uncommitted`, `web/server/api/changes.ts`, not gated on the
   integration), all changes, committed or uncommitted, with ahead/behind, Review #N and Compare on GitHub; asked every 15 s while shown.
   A PR (`PrView.tsx`): Conversation (its body, comments and reviews, a comment box), Files changed (the review), Commits, Checks.
+  Bodies (the description, comments, reviews, line comments and replies) show as GitHub renders them: the `q/pr` read asks each one's
+  `bodyHTML` in the same query (images through camo; the Markdown kept beside it as `body`, for editing and the fallback), and
+  `Body` (`bits.tsx`) draws it after `sanitizeGithubHtml` (`web/src/github/html.ts`) cleans it again: a DOM-free allowlist, so the
+  server's tests run it too (GFM's HTML: tables in a scrolling frame, images only from GitHub's hosts, lazy and fitting the column,
+  `<details>`, `<kbd>`, `<sub>`/`<sup>`, task lists, alerts with their icons, highlighting's `pl-*` classes; never scripts, styles,
+  handlers, frames, forms, non-web URLs or the app's classes; ids only GitHub's `user-content-`; comments dropped). Its links open as
+  others do (a PR in the tab, a Linear issue in Linear's, others in Conquer; footnotes scroll). Without HTML (over 400 KB, a draft,
+  Preview) the Markdown is drawn, hidden comments on lines of their own left out. Styled in `github.css` (`.gh-html`).
   Its header shows Open Paseo agent while a Paseo workspace, on any host, has the PR's branch checked out (`paseo.ts`, `paseoMatches`,
   over the page's fleet: the PR Paseo names for the workspace, else the workspace's branch and remote against the PR's head ref and
   head repository, `headRepo` in `q/pr`, a fork's for a PR from one, never the base's; a workspace Paseo names another PR for doesn't

@@ -172,6 +172,8 @@ export type ReviewComment = {
   databaseId: number;
   author: Person | null;
   body: string;
+  /** GitHub's rendering of the body, to clean and draw (else the Markdown is drawn). */
+  html?: string;
   createdAt: string;
   url: string;
 };
@@ -195,13 +197,14 @@ export type ReviewThread = {
 
 /** The conversation: comments and submitted reviews, oldest first. */
 export type TimelineEntry =
-  | { kind: "comment"; id: string; author: Person | null; body: string; createdAt: string; url: string }
+  | { kind: "comment"; id: string; author: Person | null; body: string; html?: string; createdAt: string; url: string }
   | {
       kind: "review";
       id: string;
       author: Person | null;
       state: "approved" | "changes" | "commented" | "dismissed";
       body: string;
+      html?: string;
       createdAt: string;
       url: string;
       /** How many line comments it left. */
@@ -223,7 +226,9 @@ export type PrCommit = { sha: string; title: string; author: Person | null; at: 
 
 /** `GET /api/github/q/pr?repo=owner/name&number=N`. */
 export type PrDetail = PrRow & {
+  /** The description's Markdown (kept for editing) and GitHub's rendering of it, when it has one. */
   body: string;
+  html?: string;
   headSha: string;
   /** The repository its branch is in (`owner/name`; a fork's for a PR from one); null when GitHub has none (a deleted fork). */
   headRepo: string | null;

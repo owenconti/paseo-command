@@ -11,7 +11,7 @@ import { saveStar } from "./stars";
 import { SEARCH_BUDGET } from "./client";
 import { FAKE_GITHUB_TOKEN } from "../githubFake";
 import { NO_KEY, OFF, REFUSED, SCOPES } from "../githubApi";
-import { FAKE_DIFF, fakePr, fakeRepo, installFakeGithub, SHA, type FakeGithub } from "./fake";
+import { BOT_HTML, BOT_MARKDOWN, DETAILS_HTML, DETAILS_MARKDOWN, FAKE_DIFF, fakePr, fakeRepo, installFakeGithub, SHA, type FakeGithub } from "./fake";
 import { avatarOf, checkOf, filesFromPatches, repoSearchQuery, reviewersOf, rowOf, SCOPE_QUERY, searchText } from "./reads";
 import { checkFilters, filterQueries } from "../../src/github/filters";
 import { githubRoute } from "./route";
@@ -83,6 +83,44 @@ test("a PR's detail: files, conversation, threads, commits, checks and reviewers
   assert.deepEqual(pr.reviewers, [{ kind: "user", login: "me", name: "Me", requested: true, verdict: null }]);
   assert.deepEqual(pr.assignees, [{ login: "ada", name: "Ada", avatarUrl: "https://avatars.githubusercontent.com/u/1?v=4" }]);
   assert.deepEqual((fake.calls[0]!.body as { variables: unknown }).variables, { owner: "owen", name: "app", number: 7 });
+});
+
+test("a PR's bodies come with GitHub's rendering of them, in the same query", async () => {
+  fake.prs.set(
+    "owen/app#11",
+    fakePr({
+      number: 11,
+      body: DETAILS_MARKDOWN,
+      bodyHTML: DETAILS_HTML,
+      timelineComments: {
+        nodes: [
+          { id: "IC_2", author: { login: "socket-security" }, body: BOT_MARKDOWN, bodyHTML: BOT_HTML, createdAt: "2026-10-30T09:30:00Z", url: "https://github.com/owen/app/pull/11#issuecomment-2" },
+          // Only a hidden marker: GitHub renders nothing.
+          { id: "IC_3", author: { login: "bot" }, body: "<!-- marker -->", bodyHTML: "", createdAt: "2026-10-30T09:31:00Z", url: "https://github.com/owen/app/pull/11#issuecomment-3" },
+          // No rendering (too big to send whole): the Markdown alone.
+          { id: "IC_4", author: { login: "bob" }, body: "Long.", bodyHTML: "x".repeat(400_001), createdAt: "2026-10-30T09:32:00Z", url: "https://github.com/owen/app/pull/11#issuecomment-4" },
+        ],
+      },
+      reviews: { nodes: [{ id: "PRR_1", author: { login: "bob" }, state: "APPROVED", body: "Ship **it**", bodyHTML: '<p dir="auto">Ship <strong>it</strong></p>', submittedAt: "2026-10-30T09:35:00Z", url: "https://github.com/owen/app/pull/11#pullrequestreview-1", comments: { totalCount: 0 } }] },
+    }),
+  );
+  const r = await ask("/api/github/q/pr?repo=owen/app&number=11");
+  assert.equal(r.status, 200, JSON.stringify(r.body));
+  const pr = r.body;
+  // The Markdown stays (to edit and as the fallback) beside GitHub's HTML.
+  assert.equal(pr.body, DETAILS_MARKDOWN);
+  assert.equal(pr.html, DETAILS_HTML);
+  const [bot, marker, long, review] = pr.timeline;
+  assert.equal(bot.body, BOT_MARKDOWN);
+  assert.equal(bot.html, BOT_HTML);
+  assert.equal(marker.html, "");
+  assert.equal("html" in long, false);
+  assert.equal(review.html, '<p dir="auto">Ship <strong>it</strong></p>');
+  // fakePr's thread comment has none: its Markdown is drawn.
+  assert.equal("html" in pr.threads[0].comments[0], false);
+  const query = (fake.calls[0]!.body as { query: string }).query;
+  assert.equal(query.match(/\bbodyHTML\b/g)?.length, 4, "the PR's, comments', reviews' and thread comments' bodyHTML");
+  assert.equal(fake.calls.length, 1);
 });
 
 test("a PR's further files are paged in", async () => {

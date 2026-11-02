@@ -212,7 +212,7 @@ function Conversation({
             <span>opened this</span>
             <Time at={pr.createdAt} />
           </div>
-          <Body text={pr.body} empty="No description provided." />
+          <Body text={pr.body} html={pr.html} empty="No description provided." />
         </article>
         {pr.timeline.map((e) =>
           e.kind === "comment" ? (
@@ -223,7 +223,7 @@ function Conversation({
                 <span>commented</span>
                 <Time at={e.createdAt} />
               </div>
-              <Body text={e.body} />
+              <Body text={e.body} html={e.html} />
             </article>
           ) : (
             <article key={e.id} className={`gh-entry review ${e.state}`}>
@@ -237,7 +237,7 @@ function Conversation({
                 {e.comments > 0 && <span className="gh-hint">{e.comments === 1 ? "1 comment" : `${e.comments} comments`}</span>}
                 <Time at={e.createdAt} />
               </div>
-              {e.body.trim() && <Body text={e.body} />}
+              {e.body.trim() && <Body text={e.body} html={e.html} />}
             </article>
           ),
         )}

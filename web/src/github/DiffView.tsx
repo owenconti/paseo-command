@@ -90,7 +90,7 @@ function Thread({ thread, review }: { thread: ReviewThread; review: DiffReview }
                 <b>{c.author?.login ?? "ghost"}</b>
                 <Time at={c.createdAt} />
               </div>
-              <Body text={c.body} />
+              <Body text={c.body} html={c.html} />
             </div>
           ))}
           <div className="gh-thread-actions">

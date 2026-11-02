@@ -5,14 +5,6 @@ mark it done with its commit once merged into `main`.
 
 ## Open
 
-- [ ] **GitHub: comments and PR bodies render as GitHub shows them.** A bot comment (socket-security's
-  dependency table) shows its raw HTML (`<table> <thead> <tr> <th>Diff</th> …`, `<img …>`, `<br/>`) and its
-  `<!-- overview-comment -->` marker as text. PR bodies, comments, review comments and replies must render
-  GitHub-flavoured Markdown with its HTML (tables, images with width/height, `<details>`/`<summary>`, `<br>`,
-  alignment, hidden comments). Prefer GitHub's own rendering (GraphQL `bodyHTML` or REST
-  `application/vnd.github.html+json` `body_html`, images through camo), sanitized again in the page (an allowlist;
-  no scripts, styles, event handlers or forms), links opening as other links do in the app. Keep it light/dark
-  correct and the page's text size. Workspace: `github-render-comments`.
 - [ ] **Flaky e2e tests.** Agents saw these time out and pass on rerun: Linear sub-grouping (in full runs,
   twice) and GitHub "drafts a line comment" (twice, as the first test after a fresh start, at the diff's comment
   button), and the unit test "one labeller loop runs per process, until stopped" (failed 2 of 3 full
@@ -58,6 +50,10 @@ mark it done with its commit once merged into `main`.
 
 ## Done
 
+- [x] **GitHub: comments and PR bodies render as GitHub shows them.** The PR read asks GitHub's `bodyHTML` for the
+  description, comments, reviews and line comments in the same query; the page cleans it again with an allowlist
+  (`web/src/github/html.ts`) and draws it: tables, camo images, `<details>`, `<kbd>`, alerts, task lists, hidden
+  comments gone, links opening as others do, in the pages' look and text size. Markdown is the fallback.
 - [x] **Linear: an issue opened from outside the tab gets an issue-focused view.** A Linear issue link clicked
   outside the tab (the chat, Conquer, the header's chip: `paseo:link`), or an Activity item, opens the issue in
   its own place, `{ screen: "issue", issue, from }` (`focusIssue` in `place.ts`): it alone, full width, the sidebar

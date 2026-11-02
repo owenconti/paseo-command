@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type MouseEvent, type ReactNode } from "react";
 import {
   CircleCheck,
   CircleDashed,
@@ -11,6 +11,9 @@ import {
 } from "lucide-react";
 import { ago } from "../api";
 import { Markdown } from "../Markdown";
+import { openAppLink, parseAppLink } from "../appLinks";
+import { macApp, postAppLink } from "../worldBridge";
+import { sanitizeGithubHtml } from "./html";
 import type { ChecksState, Person, PrState, ReviewDecision, YourReview } from "./types";
 
 /** The small pieces the GitHub screens share: people, times, states, the comment box. */
@@ -125,14 +128,51 @@ export function Churn({ additions, deletions }: { additions: number; deletions: 
   );
 }
 
-/** GitHub-flavoured Markdown from GitHub, drawn as the chat draws it (no raw HTML; images only as Markdown allows). */
-export function Body({ text, empty }: { text: string; empty?: string }) {
-  if (!text.trim()) return empty ? <p className="gh-body-empty">{empty}</p> : null;
+/**
+ * A body as GitHub shows it: GitHub's own rendering (`html`, its Markdown with
+ * tables, images, details and the rest), cleaned again (`html.ts`); else the
+ * Markdown, drawn as the chat draws it (no raw HTML).
+ */
+export function Body({ text, html, empty }: { text: string; html?: string; empty?: string }) {
+  const clean = useMemo(() => (html === undefined ? null : sanitizeGithubHtml(html)), [html]);
+  // Hidden comments on lines of their own (a bot's `<!-- marker -->`) show in neither.
+  const markdown = clean === null ? text.replace(/^[ \t]*<!--[\s\S]*?-->[ \t]*$/gm, "") : "";
+  if (clean === null ? !markdown.trim() : !clean.trim()) return empty ? <p className="gh-body-empty">{empty}</p> : null;
   return (
     <div className="gh-body">
-      <Markdown text={text} />
+      {clean !== null ? (
+        <div className="md gh-html" onClick={followLink} dangerouslySetInnerHTML={{ __html: clean }} />
+      ) : (
+        <Markdown text={markdown} />
+      )}
     </div>
   );
+}
+
+/**
+ * A link in GitHub's HTML opens as other links do: a pull request in this tab
+ * (a Linear issue in Linear's), others in Conquer (a browser tab outside the
+ * app); a footnote's in-page link scrolls to its note.
+ */
+function followLink(e: MouseEvent<HTMLElement>) {
+  if (e.button !== 0) return;
+  const link = (e.target as Element).closest?.("a[href]");
+  if (!(link instanceof HTMLAnchorElement)) return;
+  const href = link.getAttribute("href") ?? "";
+  if (href.startsWith("#")) {
+    e.preventDefault();
+    const note = e.currentTarget.querySelector(`[id="${CSS.escape(href.slice(1))}"]`);
+    note?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    return;
+  }
+  if (!/^(?:https?|mailto):$/.test(link.protocol)) return e.preventDefault();
+  if (parseAppLink(link.href)) {
+    e.preventDefault();
+    openAppLink(link.href);
+  } else if (macApp() && link.protocol !== "mailto:") {
+    e.preventDefault();
+    postAppLink(link.href, true);
+  }
 }
 
 /**

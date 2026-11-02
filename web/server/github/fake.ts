@@ -11,6 +11,25 @@ import { resetGithubTab } from "./client";
 type Raw = Record<string, unknown>;
 export const SHA = "a".repeat(40);
 
+/** A dependency bot's comment (socket-security's) as written, with its table, images and hidden marker. */
+export const BOT_MARKDOWN =
+  "Review the following changes in direct dependencies. Learn more about [Socket for GitHub](https://socket.dev).\n\n" +
+  '<table>\n<thead><tr><th>Diff</th><th width="200px">Package</th><th align="center">Supply Chain<br/>Security</th></tr></thead>\n' +
+  '<tbody><tr><td><a href="https://socket.dev/diff/npm/left-pad/1.3.0">Added</a></td><td>left-pad@1.3.0</td>' +
+  '<td align="center"><img src="https://github-app-statics.socket.dev/score-100.svg" width="50" height="40"></td></tr></tbody>\n</table>\n\n' +
+  "[View full report](https://socket.dev/report)\n\n<!-- overview-comment -->";
+/** GitHub's rendering of it (`bodyHTML`): its image through camo, the marker gone. */
+export const BOT_HTML =
+  '<p dir="auto">Review the following changes in direct dependencies. Learn more about <a href="https://socket.dev" rel="nofollow">Socket for GitHub</a>.</p>\n' +
+  '<markdown-accessiblity-table><table>\n<thead><tr><th>Diff</th><th width="200px">Package</th><th align="center">Supply Chain<br>Security</th></tr></thead>\n' +
+  '<tbody><tr><td><a href="https://socket.dev/diff/npm/left-pad/1.3.0" rel="nofollow">Added</a></td><td>left-pad@1.3.0</td>' +
+  '<td align="center"><a target="_blank" rel="noopener noreferrer nofollow" href="https://camo.githubusercontent.com/5c0ffee/68747470733a2f2f"><img src="https://camo.githubusercontent.com/5c0ffee/68747470733a2f2f" width="50" height="40" data-canonical-src="https://github-app-statics.socket.dev/score-100.svg" style="max-width: 100%;"></a></td></tr></tbody>\n</table></markdown-accessiblity-table>\n' +
+  '<p dir="auto"><a href="https://socket.dev/report" rel="nofollow">View full report</a></p>\n';
+/** A description with a folded block, as written and as GitHub renders it. */
+export const DETAILS_MARKDOWN = "Fixes it.\n\n<details><summary>Why</summary>\n\nThe <kbd>⌘K</kbd> list was **short**.\n\n</details>\n<!-- hidden note -->";
+export const DETAILS_HTML =
+  '<p dir="auto">Fixes it.</p>\n<details>\n<summary>Why</summary>\n<p dir="auto">The <kbd>⌘K</kbd> list was <strong>short</strong>.</p>\n</details>\n';
+
 export function fakePr(o: Partial<Raw> & { number: number; repo?: string } = { number: 1 }): Raw {
   const repo = o.repo ?? "owen/app";
   const { repo: _, number: __, ...rest } = o;
