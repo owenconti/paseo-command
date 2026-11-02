@@ -315,6 +315,13 @@ function permalinkOf(ws: FakeWorkspace, m: FakeMessage) {
   return m.thread_ts && m.thread_ts !== m.ts ? `${base}?thread_ts=${m.thread_ts}&cid=${m.channel}` : base;
 }
 
+/** What Slack attaches to a message the user sends through the Paseo Command app. */
+export const APP_POST = {
+  bot_id: "B0PASEO",
+  app_id: "A0PASEO",
+  bot_profile: { id: "B0PASEO", app_id: "A0PASEO", name: "Paseo Command", icons: { image_48: "https://avatars.slack-edge.com/fake/paseo_48.png" } },
+};
+
 function post(ws: FakeWorkspace, channel: string, fields: Partial<FakeMessage> & { text: string }): FakeMessage {
   conversationFor(ws, channel);
   const m: FakeMessage = { channel, ts: nextTs(), user: ws.selfId, ...fields };
@@ -439,6 +446,8 @@ export const METHODS: Record<string, (ctx: FakeContext) => Raw> = {
     if (text.length > 12000) throw fail("msg_too_long");
     const m = post(ws, str(params.channel), {
       text,
+      // Slack marks a message sent through an app with that app, even with the user's own token.
+      ...APP_POST,
       ...(params.thread_ts ? { thread_ts: str(params.thread_ts) } : {}),
       ...(params.reply_broadcast === true || params.reply_broadcast === "true" ? { subtype: "thread_broadcast" } : {}),
     });

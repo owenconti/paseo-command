@@ -301,14 +301,17 @@ export function messageOf(raw: unknown, conversationId: string): SlackMessage | 
   const replyUserIds = Array.isArray(m.reply_users) ? m.reply_users.map(idOf).filter((u): u is string => !!u) : [];
   const edited = tsOf(recOf(m.edited).ts);
   const subtype = /^[a-z_]{1,60}$/.test(strOf(m.subtype)) ? strOf(m.subtype) : undefined;
+  // Someone posting through an app with their own token: Slack attaches the app's
+  // bot_profile (and bot_id), but the message is theirs, so it shows as them.
+  const person = !!idOf(m.user) && subtype !== "bot_message";
   return {
     ts,
     conversationId,
     ...(tsOf(m.thread_ts) ? { threadTs: tsOf(m.thread_ts) } : {}),
     ...(idOf(m.user) ? { userId: idOf(m.user) } : {}),
     ...(/^B[A-Z0-9]{2,20}$/.test(strOf(m.bot_id)) ? { botId: strOf(m.bot_id) } : {}),
-    ...(opt(strOf(m.username) || strOf(profile.name)) ? { botName: opt(strOf(m.username) || strOf(profile.name)) } : {}),
-    ...(httpsUrl(icons.image_48) ?? httpsUrl(recOf(profile.icons).image_48)
+    ...(!person && opt(strOf(m.username) || strOf(profile.name)) ? { botName: opt(strOf(m.username) || strOf(profile.name)) } : {}),
+    ...(!person && (httpsUrl(icons.image_48) ?? httpsUrl(recOf(profile.icons).image_48))
       ? { botIconUrl: httpsUrl(icons.image_48) ?? httpsUrl(recOf(profile.icons).image_48) }
       : {}),
     text: clip(strOf(m.text), 40_000),

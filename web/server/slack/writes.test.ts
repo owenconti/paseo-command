@@ -1,9 +1,10 @@
 import assert from "node:assert/strict";
 import { afterEach, beforeEach, test } from "node:test";
 import { SlackError } from "./client";
-import { FAKE_IDS as I, installFakeSlack, type FakeSlack } from "./fake";
+import { APP_POST, FAKE_IDS as I, installFakeSlack, type FakeSlack } from "./fake";
+import { messageOf } from "./normalize";
 import { toMrkdwn } from "./mrkdwn";
-import { readWorkspace } from "./reads";
+import { readReplies, readSearch, readWorkspace } from "./reads";
 import { slackUnreads, tickSlackUnreads } from "./unreads";
 import { uploadToSlack } from "./upload";
 import { WRITES, slackWrite } from "./writes";
@@ -63,6 +64,24 @@ test("post: Markdown as markdown_text, in threads and broadcast", async () => {
   assert.deepEqual(last("chat.postMessage"), { channel: I.general, markdown_text: "also", thread_ts: T.parent, reply_broadcast: true });
   fake.fail("chat.postMessage", { error: "not_in_channel" });
   await assert.rejects(() => slackWrite("post", { conversationId: I.general, markdown: "x" }), invalid(/not in that channel/));
+});
+
+test("a message sent through the app shows as the user who sent it, wherever it's read", async () => {
+  const reply = await slackWrite("post", { conversationId: I.general, markdown: "on it", threadTs: T.parent });
+  const ts = reply.message!.ts;
+  assert.equal(last("chat.postMessage").username, undefined);
+  const stored = fake.ws.messages.find((m) => m.ts === ts)!;
+  assert.equal(stored.bot_id, APP_POST.bot_id);
+  const thread = await readReplies(I.general, T.parent);
+  const search = await readSearch("on it");
+  for (const m of [reply.message!, thread.replies.find((x) => x.ts === ts)!, search.messages.find((x) => x.ts === ts)!]) {
+    assert.equal(m.userId, I.owen);
+    assert.equal(m.botName, undefined);
+    assert.equal(m.botIconUrl, undefined);
+  }
+  // A bot's own message keeps its name.
+  assert.equal(messageOf({ ts, user: I.bot, subtype: "bot_message", username: "CI", ...APP_POST }, I.general)!.botName, "CI");
+  assert.equal(messageOf({ ts, ...APP_POST }, I.general)!.botName, "Paseo Command");
 });
 
 test("edit: markdown_text, else mrkdwn text when Slack refuses it", async () => {

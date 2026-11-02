@@ -4,7 +4,7 @@ import type { SlackEvent } from "../../src/slack/types";
 import { writeSettings } from "../settings";
 import { NO_APP_TOKEN } from "./client";
 import { SLACK_EVENTS, noteSlackDemand, onSlackEvent } from "./events";
-import { FAKE_APP_TOKEN, FAKE_IDS as I, installFakeSlack, nextTs, type FakeSlack } from "./fake";
+import { APP_POST, FAKE_APP_TOKEN, FAKE_IDS as I, installFakeSlack, nextTs, type FakeSlack } from "./fake";
 import { slackLive } from "./live";
 import { keptWorkspace, readWorkspace } from "./reads";
 import { SOCKET, ensureSlackSocket, slackSocketOpen } from "./socket";
@@ -55,6 +55,13 @@ test("message events become SlackEvents and update the unread state", async () =
   const message = events.find((e) => e.type === "message");
   assert.deepEqual(message, { type: "message", message: { ts, conversationId: I.dm, userId: I.sam, text: "new one" } });
   assert.equal(slackUnreads().conversations.find((c) => c.id === I.dm)!.unread, 3);
+  // Your own message, sent through the app, comes as you.
+  const own = nextTs();
+  socket.event({ type: "message", channel: I.dm, user: I.owen, text: "mine", ts: own, channel_type: "im", ...APP_POST });
+  await settle();
+  const ownEvent = events.find((e) => e.type === "message" && e.message.ts === own);
+  assert.equal(ownEvent?.type === "message" && ownEvent.message.userId, I.owen);
+  assert.equal(ownEvent?.type === "message" && ownEvent.message.botName, undefined);
 
   socket.event({
     type: "message",
@@ -78,7 +85,7 @@ test("message events become SlackEvents and update the unread state", async () =
   assert.equal(b?.type === "message" && b.message.subtype, "thread_broadcast");
   // A broadcast counts as unread in the channel.
   assert.equal(slackUnreads().conversations.find((c) => c.id === I.general)!.unread, 3);
-  assert.equal(fake.socket()!.acks.length, 5);
+  assert.equal(fake.socket()!.acks.length, 6);
 });
 
 test("reactions, marks, people and channels", async () => {
