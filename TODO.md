@@ -34,6 +34,15 @@ mark it done with its commit once merged into `main`.
   one, e.g. the main checkout's `native/build/Paseo Command Dev.app` for the dev flavour, `/Applications` for the
   release. Don't relaunch into the missing bundle. Check with a throwaway build (`--info`, `--no-server` or own
   port), never the user's apps. Workspace: `fix-deleted-app-restart`.
+- [ ] **Conquer: filling passwords with 1Password.** Conquer is a WKWebView (`Conquer.swift`), so the
+  1Password browser extension can't run in it. Make 1Password filling work there, finding out first which
+  ways do: 1Password 8's Universal Autofill (⌘\ in any app, through the accessibility tree; check the page's
+  fields are exposed and filled, including login forms in iframes), and macOS's AutoFill with 1Password as the
+  system's password provider (the key icon on password fields; whether WKWebView in this app offers it, and
+  what entitlements or settings it needs). Fix what stops them (e.g. accessibility exposure, focus, key
+  handling of ⌘\ by Conquer's commands). Document what works in CLAUDE.md, and add a Conquer menu/⌘K entry
+  only if there's a real action to offer. Don't read 1Password's data or store passwords. Check with a
+  throwaway build, never the user's apps. Workspace: `conquer-1password`.
 
 ## Done
 
