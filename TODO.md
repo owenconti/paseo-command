@@ -64,6 +64,13 @@ mark it done with its commit once merged into `main`.
   - Checks: beneath the "25 passing" count, list each check run and status (failing, then pending, then passing
     folded behind a toggle when many), with its name, workflow/app, duration and a link to its details, as
     GitHub's merge box does. The Checks tab keeps the full view. Workspace: `github-pr-people-and-checks`.
+- [ ] **GitHub PR view: "Open Paseo agent" for the PR's branch.** When a Paseo workspace (on any host) has the
+  PR's head branch checked out in the same repository (match the workspace's branch and its project's remote
+  against the PR's `owner/name` and head ref, from the world snapshot the app already has), show an "Open Paseo
+  agent" button in the PR's header. It selects that workspace's most recent agent in the panel and switches to
+  Command (the workspace itself if it has no agent; a chooser if several workspaces match). Without a match,
+  offer nothing new (Launch agent on the PR stays as it is). Add its ⌘K entry, shown only when a match exists.
+  Workspace: `github-open-paseo-agent`.
 
 ## Done
 
