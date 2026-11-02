@@ -1,5 +1,5 @@
 /**
- * The Activity feed: GitHub, Linear and Slack notifications gathered in
+ * The Activity feed: GitHub and Linear notifications gathered in
  * parallel, newest first. Only sources enabled in settings are asked; each
  * answers for itself, so one failing (its reason in its status) never hides
  * the others. Writes go to each item's own source, then the feed is gathered again.
@@ -15,7 +15,6 @@ import type {
 import { integrationEnabled } from "../integrations";
 import { readGithubActivity, writeGithubActivity } from "./github";
 import { readLinearActivity, writeLinearActivity } from "./linear";
-import { readSlackActivity, writeSlackActivity } from "./slack";
 
 type Failure = { key: string; error: string };
 export type ActivitySourceDef = {
@@ -23,17 +22,16 @@ export type ActivitySourceDef = {
   write(name: ActivityWriteName, items: ActivityItem[]): Promise<Failure[] | void>;
 };
 
-const SOURCE_NAMES: Record<ActivitySource, string> = { github: "GitHub", linear: "Linear", slack: "Slack" };
+const SOURCE_NAMES: Record<ActivitySource, string> = { github: "GitHub", linear: "Linear" };
 
 /** The sources, in the sidebar's order (tests replace them). */
 export const SOURCES: Record<ActivitySource, ActivitySourceDef> = {
   github: { read: readGithubActivity, write: writeGithubActivity },
   linear: { read: readLinearActivity, write: writeLinearActivity },
-  slack: { read: () => readSlackActivity(), write: (name, items) => writeSlackActivity(name, items) },
 };
-const ORDER: ActivitySource[] = ["github", "linear", "slack"];
+const ORDER: ActivitySource[] = ["github", "linear"];
 
-/** A source's failure in words: its own message (a SlackError's, a LinearError's, a GithubApiError's), else a plain one. */
+/** A source's failure in words: its own message (a LinearError's, a GithubApiError's), else a plain one. */
 export function reasonOf(source: ActivitySource, e: unknown): string {
   const message = e && typeof e === "object" && "message" in e ? (e as { message?: unknown }).message : undefined;
   return typeof message === "string" && message.trim() ? message.trim().slice(0, 300) : `${SOURCE_NAMES[source]} didn't answer.`;

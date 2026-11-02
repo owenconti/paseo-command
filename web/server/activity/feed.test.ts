@@ -1,6 +1,6 @@
 /**
  * The Activity feed and its route over fake sources: nothing here reaches
- * GitHub, Linear or Slack.
+ * GitHub or Linear.
  */
 import assert from "node:assert/strict";
 import type { IncomingMessage } from "node:http";
@@ -41,7 +41,7 @@ function fakeSource(source: ActivitySource, items: ActivityItem[] | Error, fail?
   };
 }
 const enable = (on: Partial<Record<ActivitySource, boolean>>) =>
-  writeSettings({ integrations: { github: false, linear: false, slack: false, ...on } });
+  writeSettings({ integrations: { github: false, linear: false, ...on } });
 
 beforeEach(() => {
   had = readSettings();
@@ -50,7 +50,6 @@ beforeEach(() => {
   resetActivityFeed();
   SOURCES.github = fakeSource("github", [item("github", "1", "2026-10-30T10:00:00Z"), item("github", "2", "2026-10-28T10:00:00Z", false)]);
   SOURCES.linear = fakeSource("linear", [item("linear", "issue:abcdef12", "2026-10-29T10:00:00Z")]);
-  SOURCES.slack = fakeSource("slack", Object.assign(new Error("Slack refused the token."), { kind: "refused" }));
 });
 afterEach(() => {
   Object.assign(SOURCES, real);
@@ -64,18 +63,18 @@ test("nothing is asked while every source is off", async () => {
   assert.deepEqual(feed.items, []);
   assert.deepEqual(
     feed.sources.map((s) => [s.source, s.enabled]),
-    [["github", false], ["linear", false], ["slack", false]],
+    [["github", false], ["linear", false]],
   );
 });
 
 test("gathers enabled sources newest first; one failing never hides the others", async () => {
-  enable({ github: true, linear: true, slack: true });
+  enable({ github: true, linear: true });
+  SOURCES.linear = fakeSource("linear", new Error("Linear refused the API key."));
   const feed = await activityFeed();
-  assert.deepEqual(feed.items.map((i) => i.key), ["github:1", "linear:issue:abcdef12", "github:2"]);
+  assert.deepEqual(feed.items.map((i) => i.key), ["github:1", "github:2"]);
   assert.deepEqual(feed.sources, [
     { source: "github", enabled: true, ok: true, unread: 1 },
-    { source: "linear", enabled: true, ok: true, unread: 1 },
-    { source: "slack", enabled: true, ok: false, reason: "Slack refused the token.", unread: 0 },
+    { source: "linear", enabled: true, ok: false, reason: "Linear refused the API key.", unread: 0 },
   ]);
 });
 
@@ -102,10 +101,11 @@ test("writes go to each item's source; failures are listed per key", async () =>
 });
 
 test("keys are checked", () => {
-  assert.deepEqual(checkKeys({ keys: ["github:1", "github:1", "slack:C1:1700000000.0001"] }), [
+  assert.deepEqual(checkKeys({ keys: ["github:1", "github:1", "linear:issue:abcdef12"] }), [
     "github:1",
-    "slack:C1:1700000000.0001",
+    "linear:issue:abcdef12",
   ]);
+  assert.throws(() => checkKeys({ keys: ["slack:C1:1700000000.0001"] }));
   assert.throws(() => checkKeys({ keys: [] }));
   assert.throws(() => checkKeys({ keys: ["gitlab:1"] }));
   assert.throws(() => checkKeys({ keys: ["github:../x"] }));

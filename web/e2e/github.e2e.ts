@@ -146,7 +146,7 @@ async function setUp(page: Page, opts: { refuse?: Set<string>; workspaces?: type
     hosts: () => small.hosts,
     projects: () => small.projects,
     workspaces: () => opts.workspaces ?? small.workspaces,
-    lists: { settings: { integrations: { github: true, linear: false, slack: false, typesafe: false } } },
+    lists: { settings: { integrations: { github: true, linear: false, typesafe: false } } },
   });
   const asked: Asked[] = [];
   const writes: Asked[] = [];

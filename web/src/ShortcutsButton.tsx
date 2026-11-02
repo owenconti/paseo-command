@@ -64,7 +64,6 @@ const TAB_NAMES: Record<AppMode, string> = {
   conquer: "the browser (Conquer)",
   activity: "Activity",
   linear: "Linear",
-  slack: "Slack",
   github: "GitHub",
   settings: "Settings",
 };
@@ -74,9 +73,9 @@ const NATIVE: Group = {
     { keys: [["⌃", "`"]], label: "Show or hide the terminal" },
     {
       keys: [["⌘", "`"]],
-      label: "Next in the map's place: the map, the browser (Conquer), Activity, Linear, Slack, GitHub, Settings",
+      label: "Next in the map's place: the map, the browser (Conquer), Activity, Linear, GitHub, Settings",
     },
-    { keys: [["⌘", "1…7"]], label: "The mode bar's tab in that place: the map, the browser (Conquer), Settings" },
+    { keys: [["⌘", "1…6"]], label: "The mode bar's tab in that place: the map, the browser (Conquer), Settings" },
     { keys: [["⌘", ","]], label: "Settings, or back from it" },
   ],
 };
@@ -110,30 +109,14 @@ const LINEAR: Group = {
     { keys: [["⌘", "Enter"]], label: "Create the issue (New issue)" },
   ],
 };
-/** The Slack tab's keys (`slack/keys.ts`, `slack/Composer.tsx`), as in Slack. */
-const SLACK: Group = {
-  title: "Slack",
-  note: "In the Slack tab",
-  rows: [
-    { keys: [["⌥", "↑"], ["⌥", "↓"]], label: "Previous or next conversation" },
-    { keys: [["⌥", "⇧", "↑"], ["⌥", "⇧", "↓"]], label: "Previous or next unread conversation" },
-    { keys: [["/"]], label: "Search all messages" },
-    { keys: [["C"]], label: "Write a message (in the thread, when one is open)" },
-    { keys: [["Esc"]], label: "Close the thread, then the search" },
-    { keys: [["Enter"]], label: "Send the message" },
-    { keys: [["⇧", "Enter"]], label: "New line in the message" },
-    { keys: [["↑"]], label: "Edit your last message (in an empty message box)" },
-    { keys: [["⌘", "S"]], label: "Show or hide the sidebar" },
-  ],
-};
-/** What every page (Linear, Slack, Activity, Settings) takes, while it shows (`pageText.ts`). */
+/** What every page (Linear, GitHub, Activity, Settings) takes, while it shows (`pageText.ts`). */
 const PAGES: Group = {
   title: "Pages",
-  note: "In Linear, Slack, Activity and Settings",
+  note: "In Linear, GitHub, Activity and Settings",
   rows: [
     { keys: [["⌘", "+"], ["⌘", "−"]], label: "Bigger or smaller text (one size for every page)" },
     { keys: [["⌘", "0"]], label: "Actual text size" },
-    { keys: [["⌘", "F"], ["/"]], label: "Search (Linear's list, Slack's messages)" },
+    { keys: [["⌘", "F"], ["/"]], label: "Search (Linear's list)" },
   ],
 };
 /** The Activity tab's keys (`activity/ActivityView.tsx`), while the keyboard is in it. */
@@ -143,12 +126,12 @@ const ACTIVITY: Group = {
   rows: [
     { keys: [["J"], ["↓"]], label: "Next notification" },
     { keys: [["K"], ["↑"]], label: "Previous notification" },
-    { keys: [["Enter"], ["O"]], label: "Open it (pull requests, Linear and Slack in their tabs, other GitHub in Conquer)" },
+    { keys: [["Enter"], ["O"]], label: "Open it (pull requests and Linear in their tabs, other GitHub in Conquer)" },
     { keys: [["U"]], label: "Mark it read or unread" },
     { keys: [["⇧", "U"]], label: "Mark every shown notification read" },
     { keys: [["E"], ["⌫"]], label: "Done: leave it out of Activity" },
     { keys: [["⇧", "E"]], label: "Mark every shown notification done (asks first)" },
-    { keys: [["1"], ["2"], ["3"], ["4"]], label: "Show all, GitHub, Linear or Slack" },
+    { keys: [["1"], ["2"], ["3"]], label: "Show all, GitHub or Linear" },
   ],
 };
 /** The GitHub tab's keys (`github/GitHubView.tsx`), while the keyboard is in it. */
@@ -300,7 +283,7 @@ function ShortcutsDialog({ onClose }: { onClose: () => void }) {
     return () => window.removeEventListener("keydown", key, true);
   }, [present, onClose]);
   const { integrations } = useIntegrations();
-  // The mode bar's tabs shown, in its order (⌘` steps through them, ⌘1…⌘7 pick one).
+  // The mode bar's tabs shown, in its order (⌘` steps through them, ⌘1…⌘6 pick one).
   const tabNames = shownModes(integrations).map((mode) => TAB_NAMES[mode]);
   const groups = (
     macApp()
@@ -310,7 +293,6 @@ function ShortcutsDialog({ onClose }: { onClose: () => void }) {
           PAGES,
           ...(activityEnabled(integrations) ? [ACTIVITY] : []),
           ...(integrations.linear ? [LINEAR] : []),
-          ...(integrations.slack ? [SLACK] : []),
           ...(integrations.github ? [GITHUB] : []),
           CONQUER,
         ]

@@ -4,7 +4,6 @@ export const PAGES = [
   "Conquer",
   "Activity",
   "Linear",
-  "Slack",
   "GitHub",
   "Settings",
   "Terminal",
@@ -19,7 +18,7 @@ export type Command = {
   /** The section it is listed under ("Actions", "Agents", …). */
   group: string;
   /** Its page: Command for the map and what's on it, Conquer, Activity,
-   * Linear, Slack, GitHub, Settings, Terminal, else App (the window,
+   * Linear, GitHub, Settings, Terminal, else App (the window,
    * updates, text size, what's new, games). */
   page: Page;
   /** What a found thing is ("Agent", "Workspace", …), after its page. */

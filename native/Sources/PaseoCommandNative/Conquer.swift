@@ -3,17 +3,16 @@ import ImageIO
 import WebKit
 
 /// What stands in the map's place: the map (Command), the Conquer browser,
-/// or what the page draws itself: Activity (GitHub, Linear and Slack notifications together),
-/// your Linear issues, Slack and GitHub (pull requests and your workspaces' changes).
+/// or what the page draws itself: Activity (GitHub and Linear notifications together),
+/// your Linear issues and GitHub (pull requests and your workspaces' changes).
 enum Mode: String, CaseIterable {
-    case command, conquer, activity, linear, slack, github, settings
+    case command, conquer, activity, linear, github, settings
 
     var title: String {
         switch self {
         case .command: "Command"
         case .conquer: "Conquer"
         case .linear: "Linear"
-        case .slack: "Slack"
         case .github: "GitHub"
         case .activity: "Activity"
         case .settings: "Settings"
@@ -24,16 +23,15 @@ enum Mode: String, CaseIterable {
         case .command: "map"
         case .conquer: "globe"
         case .linear: "checklist"
-        case .slack: "bubble.left.and.bubble.right"
         case .github: "arrow.triangle.pull"
         case .activity: "bell"
         case .settings: "gearshape"
         }
     }
-    /// The page draws it over the map (the mode bar shows Linear's, Slack's, GitHub's and Activity's
+    /// The page draws it over the map (the mode bar shows Linear's, GitHub's and Activity's
     /// tabs only while their integration is on; Settings' always).
-    var drawnByPage: Bool { self == .linear || self == .slack || self == .github || self == .activity || self == .settings }
-    /// The tabs, in the bar's order (⌘1…⌘7 count those shown).
+    var drawnByPage: Bool { self == .linear || self == .github || self == .activity || self == .settings }
+    /// The tabs, in the bar's order (⌘1…⌘6 count those shown).
     static let tabs = allCases
     /// What it shows; the bar's tooltip adds its keys (`keys(at:)`).
     var tip: String {
@@ -41,13 +39,12 @@ enum Mode: String, CaseIterable {
         case .command: "The map"
         case .conquer: "The browser, in the map's place"
         case .linear: "Your Linear issues, in the map's place"
-        case .slack: "Slack, in the map's place"
         case .github: "Pull requests and your workspaces' changes, in the map's place"
-        case .activity: "GitHub, Linear and Slack notifications together, in the map's place"
+        case .activity: "GitHub and Linear notifications together, in the map's place"
         case .settings: "Settings: sounds, notifications, integrations, New agent, in the map's place"
         }
     }
-    /// Its keys, as the `index`th tab shown (from 0): ⌘1…⌘7, and ⌘` steps (Settings' ⌘, too).
+    /// Its keys, as the `index`th tab shown (from 0): ⌘1…⌘6, and ⌘` steps (Settings' ⌘, too).
     func keys(at index: Int?) -> String {
         let number = index.map { "⌘\($0 + 1), " } ?? ""
         return self == .settings ? "\(number)⌘, or ⌘`" : "\(number)⌘`"
@@ -185,7 +182,7 @@ final class UsageMeters: NSButton {
 
 /// The strip across the top of the window: the traffic lights, the product's name, the tabs that
 /// switch the map's place between the map (Command), the browser (Conquer), your Linear issues
-/// Activity, your Linear issues (Linear), Slack, GitHub and Settings (⌘` steps through them, ⌘1…⌘7
+/// Activity, your Linear issues (Linear), GitHub and Settings (⌘` steps through them, ⌘1…⌘6
 /// pick the one in that place), "Update ready" when a newer build
 /// is in, and the app's tools at the right: who needs you, usage, What's new, mini games,
 /// keyboard shortcuts and the session panel's side, layout and visibility. All of it is native;
@@ -524,7 +521,7 @@ final class ConquerView: NSView, WKNavigationDelegate, WKUIDelegate, NSTextField
     private var placedSidebar = false
     private var sidebarWidth: CGFloat = 240
     var onTogglePanel: (() -> Void)?
-    /// A link clicked in a page: true when the app opens it elsewhere (a Linear issue, Slack message or GitHub pull request in its tab).
+    /// A link clicked in a page: true when the app opens it elsewhere (a Linear issue or GitHub pull request in its tab).
     var onLink: ((URL) -> Bool)?
     private var saving: DispatchWorkItem?
     private var icons: [URL: NSImage] = [:]
@@ -1564,7 +1561,7 @@ final class ConquerView: NSView, WKNavigationDelegate, WKUIDelegate, NSTextField
     func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction,
                  decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
         if navigationAction.shouldPerformDownload { return decisionHandler(.download) }
-        // Linear issues, Slack messages and GitHub pull requests open in their own tabs (⌥-click stays here).
+        // Linear issues and GitHub pull requests open in their own tabs (⌥-click stays here).
         if navigationAction.navigationType == .linkActivated, !navigationAction.modifierFlags.contains(.option),
            let url = navigationAction.request.url, onLink?(url) == true {
             return decisionHandler(.cancel)

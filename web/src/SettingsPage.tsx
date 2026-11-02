@@ -9,7 +9,6 @@ import { setMusicSettings, useMusic } from "./music";
 import { openPresetEditor, usePresets } from "./presetsStore";
 import { openProfileEditor } from "./profilesStore";
 import { api, errorMessage } from "./api";
-import { SlackAppSetup } from "./slack/SlackAppSetup";
 import { ApiKeySetting, type SecretStatus } from "./ApiKeySetting";
 import { GithubTokenSetup } from "./GithubTokenSetup";
 import { closeSettings, useSettingsRequest } from "./settingsStore";
@@ -384,17 +383,9 @@ function IntegrationSettings() {
     return () => window.removeEventListener("focus", refreshSecrets);
   }, [refreshSecrets]);
   const has = (key: keyof SecretStatus["configured"]) => secrets?.configured[key] === true;
-  const badge = (name: "linear" | "slack" | "github" | "typesafe") => {
+  const badge = (name: "linear" | "github" | "typesafe") => {
     if (!secrets) return null;
     if (name === "github") return has("githubToken") ? <Badge tone="ready">Ready</Badge> : <Badge tone="needs">Needs a token</Badge>;
-    if (name === "slack")
-      return !has("slackUserToken") ? (
-        <Badge tone="needs">Needs a user token</Badge>
-      ) : has("slackAppToken") ? (
-        <Badge tone="ready">Live</Badge>
-      ) : (
-        <Badge tone="ready">Ready · checks every 20 s</Badge>
-      );
     return has(name === "linear" ? "linearApiKey" : "typesafeApiKey") ? (
       <Badge tone="ready">Ready</Badge>
     ) : (
@@ -406,7 +397,6 @@ function IntegrationSettings() {
       {(
         [
           ["linear", "Linear", "Your assigned issues and links."],
-          ["slack", "Slack", "Your channels, messages and threads, as you."],
           ["github", "GitHub", "Pull requests to review and your workspaces' changes in the GitHub tab, and notifications in Activity, with your own token."],
           ["typesafe", "TypeSafe", "Find questions and suggest replies. Sends reply excerpts to TypeSafe."],
         ] as const
@@ -422,14 +412,9 @@ function IntegrationSettings() {
           />
           {integrations[name] && (
             <div className="integration-fields">
-              {(name === "slack"
-                ? ([
-                    ["slackUserToken", "User token", "xoxp-…"],
-                    ["slackAppToken", "App token (Socket Mode)", "xapp-…"],
-                  ] as const)
-                : name === "github"
-                  ? ([["githubToken", "Personal access token (classic)", "ghp_…"]] as const)
-                  : ([[name === "linear" ? "linearApiKey" : "typesafeApiKey", "API key", "Enter API key"]] as const)
+              {(name === "github"
+                ? ([["githubToken", "Personal access token (classic)", "ghp_…"]] as const)
+                : ([[name === "linear" ? "linearApiKey" : "typesafeApiKey", "API key", "Enter API key"]] as const)
               ).map(([key, title, placeholder]) => (
                 <ApiKeySetting
                   key={key}
@@ -445,13 +430,6 @@ function IntegrationSettings() {
                 />
               ))}
               {name === "linear" && <LinearWorkspaceSetting />}
-              {name === "slack" && (
-                <small className="integration-note">
-                  From your own Slack app: its user OAuth token, and an app-level token with connections:write for live
-                  messages (without it, Slack is checked every 20 s).
-                </small>
-              )}
-              {name === "slack" && <SlackAppSetup />}
               {name === "github" && <GithubTokenSetup />}
             </div>
           )}

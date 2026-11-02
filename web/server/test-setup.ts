@@ -10,7 +10,6 @@ import { rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { GITHUB_API } from "./githubApi";
-import { SLACK } from "./slack/client";
 
 const root = join(tmpdir(), `paseo-command-test-${randomUUID()}`);
 process.env.PASEO_COMMAND_DATA = join(root, "data");
@@ -19,13 +18,6 @@ process.env.PASEO_COMMAND_SETTINGS = join(root, "data", "settings.json");
 process.on("exit", () => rmSync(root, { recursive: true, force: true }));
 // Tests never reach Linear's API, whatever the shell exports.
 delete process.env.LINEAR_API_KEY;
-// Tests never reach Slack: its Web API and Socket Mode refuse unless a test installs the fake (`slack/fake.ts`).
-SLACK.fetch = (async () => {
-  throw new Error("Tests never reach Slack: install the fake Slack (installFakeSlack).");
-}) as typeof fetch;
-SLACK.connect = () => {
-  throw new Error("Tests never reach Slack: install the fake Slack (installFakeSlack).");
-};
 // Tests never reach GitHub's API unless a test installs the fake (`githubFake.ts`).
 GITHUB_API.fetch = async () => {
   throw new Error("Tests never reach GitHub: install the fake GitHub API (installGithubApi).");

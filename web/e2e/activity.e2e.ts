@@ -1,9 +1,9 @@
 /**
  * The Activity tab (the macOS app's mode bar shows it in the map's place):
- * GitHub, Linear and Slack notifications in one feed, filtered by source and
+ * GitHub and Linear notifications in one feed, filtered by source and
  * unread, marked read and done from the keyboard and ⌘K. `/api/activity` is
- * answered in the browser from a sample feed; nothing reaches GitHub, Linear,
- * Slack or a daemon.
+ * answered in the browser from a sample feed; nothing reaches GitHub, Linear
+ * or a daemon.
  */
 import { after, before, test } from "node:test";
 import assert from "node:assert/strict";
@@ -30,7 +30,7 @@ const ITEMS: ActivityItem[] = [
     source: "github",
     id: "101",
     kind: "review_requested",
-    title: "Add the Slack tab",
+    title: "Add the Activity tab",
     subtitle: "acme/atlas #12",
     subject: "pull",
     at: ago(5),
@@ -39,17 +39,18 @@ const ITEMS: ActivityItem[] = [
     state: "open",
   },
   {
-    key: "slack:D111:1730000000.000100",
-    source: "slack",
-    id: "D111:1730000000.000100",
-    kind: "dm",
-    title: "Sam",
-    subtitle: "Can you look at the deploy?",
-    subject: "message",
+    key: "github:102",
+    source: "github",
+    id: "102",
+    kind: "mention",
+    title: "The deploy fails on main",
+    subtitle: "acme/atlas #13",
+    subject: "issue",
     actor: { name: "Sam" },
     at: ago(15),
     unread: true,
-    open: { kind: "slack", conversationId: "D111", ts: "1730000000.000100" },
+    url: "https://github.com/acme/atlas/issues/13",
+    state: "open",
   },
   {
     key: "linear:issue:11111111-1111-4111-8111-111111111111",
@@ -69,7 +70,7 @@ const ITEMS: ActivityItem[] = [
 function feedOf(items: ActivityItem[]): ActivityFeed {
   return {
     items,
-    sources: (["github", "linear", "slack"] as const).map((source) => ({
+    sources: (["github", "linear"] as const).map((source) => ({
       source,
       enabled: true,
       ok: true,
@@ -84,12 +85,12 @@ const showActivity = (page: Page) =>
 const rowKeys = (page: Page) =>
   page.locator(".activity-view .activity-row").evaluateAll((rows) => rows.map((r) => (r as HTMLElement).dataset.key));
 
-test("Activity gathers GitHub, Linear and Slack, filters them, and marks them read and done", async () => {
+test("Activity gathers GitHub and Linear, filters them, and marks them read and done", async () => {
   const context = await newContext(browser);
   const page = await context.newPage();
   await mockApi(page, {
     agents: () => [],
-    lists: { settings: { integrations: { github: true, linear: true, slack: true } } },
+    lists: { settings: { integrations: { github: true, linear: true } } },
   });
   let items = ITEMS.map((i) => ({ ...i }));
   const writes: { name: string; keys: string[] }[] = [];
@@ -115,16 +116,20 @@ test("Activity gathers GitHub, Linear and Slack, filters them, and marks them re
     assert.deepEqual(await rowKeys(page), ITEMS.map((i) => i.key));
     assert.equal(await view.locator(".activity-row.unread").count(), 2);
     const nav = (await view.locator(".activity-sidebar").textContent()) ?? "";
-    for (const label of ["All", "Unread", "GitHub", "Linear", "Slack"]) assert.ok(nav.includes(label), `the sidebar has ${label}`);
+    for (const label of ["All", "Unread", "GitHub", "Linear"]) assert.ok(nav.includes(label), `the sidebar has ${label}`);
+    assert.ok(!nav.includes("Slack"), "the sidebar has no Slack");
 
-    // Filter by source from the keyboard: 2 is GitHub, 1 all again.
+    // Filter by source from the keyboard: 2 is GitHub, 3 Linear, 1 all again.
     await view.locator(".activity-row").first().focus();
     await page.keyboard.press("2");
-    await waitFor(() => rowKeys(page), (keys) => keys.join() === "github:101", "GitHub only");
+    await waitFor(() => rowKeys(page), (keys) => keys.join() === "github:101,github:102", "GitHub only");
+    await page.keyboard.press("3");
+    await waitFor(() => rowKeys(page), (keys) => keys.join() === ITEMS[2].key, "Linear only");
+    await view.locator(".activity-row").first().focus();
     await page.keyboard.press("1");
     await waitFor(() => rowKeys(page), (keys) => keys.length === 3, "all again");
 
-    // J moves to the Slack DM; U marks it read.
+    // J moves to the GitHub mention; U marks it read.
     await page.keyboard.press("k");
     await view.locator(`.activity-row.selected[data-key="github:101"]`).waitFor();
     await page.keyboard.press("j");
@@ -222,7 +227,7 @@ test("Activity's sidebar and preview resize from their edges, kept across a relo
   await page.setViewportSize({ width: 1800, height: 1000 });
   await mockApi(page, {
     agents: () => [],
-    lists: { settings: { integrations: { github: true, linear: true, slack: true } } },
+    lists: { settings: { integrations: { github: true, linear: true } } },
   });
   await page.route("**/api/activity**", (route) => route.fulfill({ json: feedOf(ITEMS) }));
   try {
@@ -277,7 +282,7 @@ test("Activity's head never overlaps, its tools going to icons and wrapping only
   await page.setViewportSize({ width: 1800, height: 900 });
   await mockApi(page, {
     agents: () => [],
-    lists: { settings: { integrations: { github: true, linear: true, slack: true } } },
+    lists: { settings: { integrations: { github: true, linear: true } } },
   });
   await page.route("**/api/activity**", (route) => route.fulfill({ json: feedOf(ITEMS.map((i) => ({ ...i, unread: true }))) }));
   try {

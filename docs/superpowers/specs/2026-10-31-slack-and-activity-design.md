@@ -1,5 +1,8 @@
 # Slack tab and Activity tab
 
+> Historical. The Slack tab and Activity's Slack source were later removed at the user's request; Activity
+> remains, with GitHub and Linear. See AGENTS.md.
+
 ## Intent
 
 Bring Slack into Paseo Command the way Linear is: a client drawn by the page in the map's

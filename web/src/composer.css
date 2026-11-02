@@ -1428,8 +1428,7 @@
   background: var(--surface, var(--panel-2));
 }
 .settings-page .integration-fields .api-key-setting + .api-key-setting,
-.settings-page .integration-fields .linear-setting,
-.settings-page .integration-fields .slack-app-setup {
+.settings-page .integration-fields .linear-setting {
   margin-top: 0;
 }
 .settings-page .api-key-heading {
@@ -1463,8 +1462,7 @@
 .settings-page .integration-fields button.secondary:hover:not(:disabled) {
   background: var(--row-hover);
 }
-.settings-page .integration-note,
-.settings-page .slack-app-setup {
+.settings-page .integration-note {
   font-size: var(--fs-xs);
   color: var(--text-3);
 }
@@ -1711,45 +1709,6 @@
 .api-key-actions button { font-size: var(--fs-xs); }
 .api-key-setting .integration-error { margin: 8px 0 0; }
 .integration-fields .api-key-setting + .api-key-setting { margin-top: 12px; }
-.slack-app-setup {
-  margin-top: 12px;
-  font-size: var(--fs-xs);
-  color: var(--text-2);
-}
-.slack-app-setup summary {
-  cursor: pointer;
-  font-weight: var(--fw-medium);
-  color: var(--text);
-}
-.slack-app-setup summary:focus-visible {
-  outline: 2px solid var(--focus);
-  outline-offset: 2px;
-}
-.slack-app-setup ol {
-  margin: 8px 0 0;
-  padding-left: 18px;
-  line-height: 1.45;
-}
-.slack-app-setup li + li {
-  margin-top: 6px;
-}
-.slack-app-setup-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 6px;
-}
-.slack-app-setup-actions button {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  font-size: var(--fs-xs);
-}
-.slack-app-setup-error {
-  display: block;
-  margin-top: 4px;
-  color: var(--red-text);
-}
 .github-token-setup {
   margin-top: 12px;
 }

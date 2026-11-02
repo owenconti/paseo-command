@@ -153,7 +153,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
             main.show(main.mode == .command ? .conquer : .command)
         }
         listen("com.paseo.command.native.linear") { [weak self] in self?.main?.show(.linear) }
-        listen("com.paseo.command.native.slack") { [weak self] in self?.main?.show(.slack) }
         listen("com.paseo.command.native.github") { [weak self] in self?.main?.show(.github) }
         listen("com.paseo.command.native.activity") { [weak self] in self?.main?.show(.activity) }
         // Run `<info>.do`'s Conquer steps, one a line, a second apart (checks; see `ConquerView.check`).
@@ -322,7 +321,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
             item.representedObject = mode.rawValue
             return item
         }
-        // ⌘` steps Command → Conquer → Activity → Linear → Slack → GitHub → Settings → Command, through those shown
+        // ⌘` steps Command → Conquer → Activity → Linear → GitHub → Settings → Command, through those shown
         // (ahead of macOS's own window cycling, as the app has one window).
         view.addItem(withTitle: "Next: Command, Conquer", action: #selector(toggleMode), keyEquivalent: "`").target = self
         view.addItem(.separator())
@@ -363,7 +362,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
 
     /// The View menu's tabs, in the bar's order.
     private var modeItems: [NSMenuItem] = []
-    /// ⌘1…⌘7: the tabs shown, by their place in the bar (`AppWindow` offers these keys ahead of the views).
+    /// ⌘1…⌘6: the tabs shown, by their place in the bar (`AppWindow` offers these keys ahead of the views).
     private func numberModes() {
         let shown = main?.shownModes ?? Mode.tabs.filter { !$0.drawnByPage }
         for item in modeItems {
@@ -412,9 +411,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
             item.state = main.drawer.maximized ? .on : .off
             return !main.drawer.isHidden
         // Only while the terminal shows, so the keys stay the page's otherwise; while Linear or
-        // Slack or GitHub shows, only while the terminal has the keyboard (the page sizes their text with them).
+        // GitHub shows, only while the terminal has the keyboard (the page sizes their text with them).
         case #selector(zoomTerminal(_:)):
-            // The pages (Linear, Slack, GitHub, Activity, Settings) size their own text with these keys.
+            // The pages (Linear, GitHub, Activity, Settings) size their own text with these keys.
             return !main.drawer.isHidden && (!main.mode.drawnByPage || main.drawer.hasKeyFocus)
         default: break
         }
