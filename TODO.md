@@ -5,12 +5,6 @@ mark it done with its commit once merged into `main`.
 
 ## Open
 
-- [ ] **GitHub PR conversation: newest first.** The Conversation tab lists the PR's description, comments,
-  reviews and events oldest first, so a long description fills the screen before any recent activity. List the
-  timeline in reverse chronological order (newest at the top), the PR's description, as its oldest entry, at
-  the bottom; a review's own comments and threads' replies keep their order inside it. The comment box goes at
-  the top, above the newest entry. Add a small Newest/Oldest first toggle, remembered (localStorage), with its
-  ⌘K entry. Workspace: `github-conversation-newest-first`.
 - [ ] **Asks: an either/or question gets its options as quick replies.** An agent's reply ended "Should I push
   the branch and open a PR, or do you want the chamber fixtures deleted first?" The composer's "This reply asks"
   strip (`web/src/composer/AskStrip.tsx`) showed the question with only "Drafting answers…", no options. An
@@ -45,6 +39,11 @@ mark it done with its commit once merged into `main`.
 
 ## Done
 
+- [x] **GitHub PR conversation: newest first.** The Conversation tab lists newest first by default: the comment
+  box on top, the newest entry under it, the description last (a review's own comments keep their order). A
+  Newest first / Oldest first toggle at its head (and ⌘K) switches, one setting for every PR, kept in localStorage;
+  Oldest first is as before. A posted comment shows in its place and scrolls into view. Commit "GitHub: a PR's
+  conversation newest first".
 - [x] **Flaky e2e tests.** The causes, each fixed: the command palette reopened within its fade-out revived the
   closing dialog with its old query (an app bug, so Linear sub-grouping's quick ⌘K commands typed onto stale text;
   each opening is now a fresh dialog); e2e servers shared Vite's pre-bundled deps in the main checkout's

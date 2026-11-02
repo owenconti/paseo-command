@@ -12,7 +12,20 @@ import { Avatar } from "./bits";
 import { ChangesView } from "./ChangesView";
 import { DiffWorkers } from "./diffWorkers";
 import type { DiffLayout, DiffViewHandle } from "./DiffView";
-import { checkPlace, PR_TABS, readPlace, readRepoFilters, samePlace, writePlace, writeRepoFilters, type GithubPlace, type PrTab } from "./place";
+import {
+  checkPlace,
+  PR_TABS,
+  readConversationOrder,
+  readPlace,
+  readRepoFilters,
+  samePlace,
+  writeConversationOrder,
+  writePlace,
+  writeRepoFilters,
+  type ConversationOrder,
+  type GithubPlace,
+  type PrTab,
+} from "./place";
 import { checkFilters, FILTER_FIELDS, type FilterField, type RepoFilters } from "./filters";
 import { RepoFilterButton, RepoFilterChips, setFilter, type RepoFilterControl } from "./RepoFilters";
 import { orgStarred, RepoNav, repoOrder, repoStarred, REPOS_PATH, setStar, type RepoNavControl } from "./RepoNav";
@@ -44,6 +57,8 @@ export type GithubViewState = {
   /** The PR the workspace's changes belong to. */
   workspacePr?: { repo: string; number: number };
   changesMode: ChangesMode;
+  /** The Conversation's order. */
+  conversationOrder: ConversationOrder;
   canBack: boolean;
   /** The sidebar's repositories, favourites first. */
   repos: { repo: string; favourite: boolean }[];
@@ -134,6 +149,11 @@ export function GitHubView({
   const setListShown = (shown: boolean) => {
     setListShownState(shown);
     writeStore("github:fileList", shown);
+  };
+  const [conversationOrder, setConversationOrderState] = useState<ConversationOrder>(readConversationOrder);
+  const setConversationOrder = (o: ConversationOrder) => {
+    setConversationOrderState(o);
+    writeConversationOrder(o);
   };
   const [changesMode, setChangesModeState] = useState<ChangesMode>(() => {
     const kept = readStore<string>("github:changesMode", "all") as ChangesMode;
@@ -271,8 +291,8 @@ export function GitHubView({
   const refresh = () => invalidate("github/q/", "changes?");
 
   // ⌘K's commands.
-  const current = useRef({ place, layout, listShown, diffShown, toggleViewed, cycleMode, setTab, back, refresh, external, openPr, workspacePr, filters, setFilters, star });
-  current.current = { place, layout, listShown, diffShown, toggleViewed, cycleMode, setTab, back, refresh, external, openPr, workspacePr, filters, setFilters, star };
+  const current = useRef({ place, layout, listShown, diffShown, toggleViewed, cycleMode, setTab, back, refresh, external, openPr, workspacePr, filters, setFilters, star, conversationOrder });
+  current.current = { place, layout, listShown, diffShown, toggleViewed, cycleMode, setTab, back, refresh, external, openPr, workspacePr, filters, setFilters, star, conversationOrder };
   useEffect(() => {
     const c = () => current.current;
     const offs = [
@@ -288,6 +308,9 @@ export function GitHubView({
         if (c().place.kind !== "pr") return;
         prApi.current?.openReview(arg === "APPROVE" || arg === "REQUEST_CHANGES" || arg === "COMMENT" ? (arg as ReviewEvent) : undefined);
       }),
+      onAppCommand("github-conversation-order", (arg) =>
+        setConversationOrder(arg === "newest" || arg === "oldest" ? arg : c().conversationOrder === "newest" ? "oldest" : "newest"),
+      ),
       onAppCommand("github-comment", () => prApi.current?.focusComment()),
       onAppCommand("github-reviewers", () => {
         if (c().place.kind === "pr") prApi.current?.editPeople("reviewers");
@@ -336,6 +359,7 @@ export function GitHubView({
       listShown,
       diff: diffShown,
       changesMode,
+      conversationOrder,
       canBack: place.kind === "pr",
       repos: repoOrder(repos.data),
       sidebarHidden,
@@ -358,7 +382,7 @@ export function GitHubView({
         : {}),
       ...(workspacePr ? { workspacePr } : {}),
     });
-  }, [place, layout, listShown, diffShown, changesMode, openPr, workspacePr?.repo, workspacePr?.number, onViewState, repos.data, repoState?.starred, repoState?.ownerStarred, filters, sidebarHidden]);
+  }, [place, layout, listShown, diffShown, changesMode, conversationOrder, openPr, workspacePr?.repo, workspacePr?.number, onViewState, repos.data, repoState?.starred, repoState?.ownerStarred, filters, sidebarHidden]);
   useEffect(() => () => onViewState?.(undefined), [onViewState]);
 
   const onKey = (e: ReactKeyboardEvent<HTMLElement>) => {
@@ -479,6 +503,8 @@ export function GitHubView({
         diffHandle={diffHandle}
         api={prApi}
         onLoaded={onPrLoaded}
+        order={conversationOrder}
+        setOrder={setConversationOrder}
         {...(paseoFor && onOpenPaseo ? { paseoFor, onOpenPaseo } : {})}
       />
     );

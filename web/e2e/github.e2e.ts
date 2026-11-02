@@ -198,8 +198,13 @@ async function setUp(page: Page, opts: { refuse?: Set<string>; workspaces?: type
       writes.push(entry);
       if (opts.refuse?.has(entry.path)) return route.fulfill({ status: 422, json: { error: "Reviews may only be requested from collaborators." } });
       // GitHub keeps what's written: the PR read next says so.
-      const w = entry.body as { number?: number; action?: string; users?: string[]; teams?: string[] };
+      const w = entry.body as { number?: number; action?: string; users?: string[]; teams?: string[]; body?: string };
       const pr = w.number ? prs.get(w.number) : undefined;
+      if (pr && entry.path.endsWith("/m/comment"))
+        pr.timeline = [
+          ...pr.timeline,
+          { kind: "comment", id: `IC_new${pr.timeline.length}`, author: { login: "me" }, body: w.body!, createdAt: new Date().toISOString(), url: `${pr.url}#new` },
+        ];
       if (pr && entry.path.endsWith("/m/assignees"))
         pr.assignees = w.action === "add" ? [...pr.assignees, ...w.users!.map((login) => ({ login }))] : pr.assignees.filter((a) => !w.users!.includes(a.login));
       if (pr && entry.path.endsWith("/m/reviewers")) {
@@ -367,6 +372,88 @@ test("GitHub lists PRs to review, opens one, drafts a line comment and submits a
   }
 });
 
+test("A PR's conversation lists newest first, or oldest first as chosen (kept across reloads and ⌘K), and a posted comment shows in its place", async () => {
+  const context = await newContext(browser);
+  const page = await context.newPage();
+  await page.setViewportSize({ width: 1600, height: 700 });
+  await page.route("https://camo.githubusercontent.com/**", (route) => route.fulfill({ contentType: "image/svg+xml", body: '<svg xmlns="http://www.w3.org/2000/svg" width="50" height="40"/>' }));
+  const { writes } = await setUp(page);
+  try {
+    await page.goto(app.url);
+    await page.locator(".fleet-sidebar").waitFor();
+    await showGithub(page);
+    const view = page.locator(".github-view");
+    await view.locator(".gh-nav-item", { hasText: "Your pull requests" }).click();
+    await view.locator(".gh-row", { hasText: "My own change" }).click();
+    await view.locator(".gh-entry.description").waitFor();
+    const order = () =>
+      view.locator(".gh-entry").evaluateAll((els) => els.map((e) => (e as HTMLElement).dataset.entry ?? (e.classList.contains("composer") ? "box" : "description")));
+    const inView = (id: string) =>
+      view.locator(`[data-entry="${id}"]`).evaluate((e) => {
+        const r = e.getBoundingClientRect();
+        return r.top >= 0 && r.top < innerHeight;
+      });
+    const toggle = view.getByRole("radiogroup", { name: "Conversation order" });
+
+    // Newest first by default: the comment box, the newest comment, …, the description last.
+    assert.deepEqual(await order(), ["box", "IC_md", "IC_marker", "IC_hostile", "IC_bot", "description"]);
+    assert.equal(await toggle.getByRole("radio", { name: "Newest first" }).getAttribute("aria-checked"), "true");
+
+    // Oldest first: as GitHub lists it, the box at the foot; kept across a reload.
+    await toggle.getByRole("radio", { name: "Oldest first" }).click();
+    assert.deepEqual(await order(), ["description", "IC_bot", "IC_hostile", "IC_marker", "IC_md", "box"]);
+    await page.reload();
+    await page.locator(".fleet-sidebar").waitFor();
+    await showGithub(page);
+    await view.locator(".gh-entry.description").waitFor();
+    assert.deepEqual(await order(), ["description", "IC_bot", "IC_hostile", "IC_marker", "IC_md", "box"]);
+
+    // Posting oldest first: the comment goes above the box, in view.
+    const box = view.locator("#gh-pr-comment textarea");
+    await box.fill("First from me");
+    await view.locator("#gh-pr-comment").getByRole("button", { name: "Comment" }).click();
+    await view.locator('[data-entry="IC_new4"]', { hasText: "First from me" }).waitFor();
+    assert.deepEqual(await order(), ["description", "IC_bot", "IC_hostile", "IC_marker", "IC_md", "IC_new4", "box"]);
+    await waitFor(() => inView("IC_new4"), (v) => v, "the new comment in view");
+    assert.equal(await box.inputValue(), "");
+    assert.ok(writes.some((w) => w.path.endsWith("/m/comment") && (w.body as { body: string }).body === "First from me"));
+
+    // ⌘K turns it newest first; then a comment goes just under the box, in view.
+    await view.locator(".gh-pr-title").click();
+    await page.keyboard.press("Meta+k");
+    const palette = page.getByRole("dialog", { name: "Command palette" });
+    await palette.getByRole("combobox", { name: "Search commands" }).fill("conversation newest first");
+    await palette.getByRole("option", { name: /Show the conversation newest first.*GitHub/ }).click();
+    await palette.waitFor({ state: "detached" });
+    await waitFor(order, (o) => o.join() === "box,IC_new4,IC_md,IC_marker,IC_hostile,IC_bot,description", "newest first");
+    // The description, oldest, is out of sight below.
+    await view.locator(".gh-conversation").evaluate((e) => e.closest(".gh-main-inner, .gh-main")?.scrollTo(0, 0));
+    await box.fill("Second from me");
+    await view.locator("#gh-pr-comment").getByRole("button", { name: "Comment" }).click();
+    await view.locator('[data-entry="IC_new5"]', { hasText: "Second from me" }).waitFor();
+    assert.deepEqual(await order(), ["box", "IC_new5", "IC_new4", "IC_md", "IC_marker", "IC_hostile", "IC_bot", "description"]);
+    await waitFor(() => inView("IC_new5"), (v) => v, "the new comment in view");
+
+    // ⌘K offers the other order now.
+    await page.keyboard.press("Meta+k");
+    await palette.getByRole("combobox", { name: "Search commands" }).fill("conversation oldest first");
+    await palette.getByRole("option", { name: /Show the conversation oldest first/ }).waitFor();
+    assert.equal(await palette.getByRole("option", { name: /Show the conversation newest first/ }).count(), 0);
+    await page.keyboard.press("Escape");
+
+    if (process.env.GITHUB_SHOT) {
+      await page.setViewportSize({ width: 1600, height: 1000 });
+      await view.locator(".gh-conversation").evaluate((e) => e.closest(".gh-main-inner, .gh-main")?.scrollTo(0, 0));
+      for (const scheme of ["dark", "light"] as const) {
+        await page.emulateMedia({ colorScheme: scheme });
+        await page.screenshot({ path: `${process.env.GITHUB_SHOT}/newest-${scheme}.png` });
+      }
+    }
+  } finally {
+    await context.close();
+  }
+});
+
 test("A PR's description and comments render as GitHub shows them: tables, images, details, alerts; nothing hostile; links in the app", async () => {
   const context = await newContext(browser);
   const page = await context.newPage();
@@ -401,7 +488,7 @@ test("A PR's description and comments render as GitHub shows them: tables, image
     await bot.getByRole("link", { name: "View full report" }).waitFor();
 
     // The description: a folded block that opens, an alert, a task box.
-    const description = entries.first();
+    const description = view.locator(".gh-entry.description");
     const details = description.locator("details");
     assert.equal(await details.evaluate((d: HTMLDetailsElement) => d.open), false);
     await details.locator("summary").click();

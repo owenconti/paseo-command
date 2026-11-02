@@ -76,6 +76,7 @@ export type AppCommand =
   | "github-files"
   | "github-review"
   | "github-comment"
+  | "github-conversation-order"
   | "github-reviewers"
   | "github-assignees"
   | "github-next-file"

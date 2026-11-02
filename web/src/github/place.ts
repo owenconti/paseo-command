@@ -100,3 +100,11 @@ export function prPlaceOf(href: string): Extract<GithubPlace, { kind: "pr" }> | 
   const tab: PrTab = parts[4] === "files" ? "files" : parts[4] === "commits" ? "commits" : parts[4] === "checks" ? "checks" : "conversation";
   return { kind: "pr", repo, number: Number(parts[3]), tab };
 }
+
+// ── The conversation's order, one for every PR (localStorage) ────────────────
+export type ConversationOrder = "newest" | "oldest";
+const ORDER_KEY = "github:conversationOrder";
+export const readConversationOrder = (): ConversationOrder => (readStore<string>(ORDER_KEY, "newest") === "oldest" ? "oldest" : "newest");
+export function writeConversationOrder(order: ConversationOrder): void {
+  writeStore(ORDER_KEY, order);
+}

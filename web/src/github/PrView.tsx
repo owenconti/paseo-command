@@ -18,7 +18,7 @@ import { LayoutControls } from "./ChangesView";
 import { DiffView, type DiffLayout, type DiffReview, type DiffViewHandle } from "./DiffView";
 import { TAB_LABEL } from "./names";
 import { addComment, editComment, removeComment, reviewComments, useReviewDraft } from "./drafts";
-import type { PrTab } from "./place";
+import type { ConversationOrder, PrTab } from "./place";
 import { OpenPaseoButton } from "./OpenPaseo";
 import type { PaseoMatch, PrHead } from "./paseo";
 import { Assignees, ChecksSummary, Reviewers, type PeopleChange, type PickerControl } from "./PrSide";
@@ -185,6 +185,8 @@ function ReviewPanel({
 
 function Conversation({
   pr,
+  order,
+  setOrder,
   onComment,
   onReviewers,
   onAssignees,
@@ -193,6 +195,8 @@ function Conversation({
   assigneesControl,
 }: {
   pr: PrDetail;
+  order: ConversationOrder;
+  setOrder: (order: ConversationOrder) => void;
   onComment: (body: string) => Promise<boolean>;
   onReviewers: (change: PeopleChange) => void;
   onAssignees: (change: PeopleChange) => void;
@@ -202,64 +206,98 @@ function Conversation({
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
+  // After posting: the entries there were, until the read brings the new one, which is then scrolled into view.
+  const posted = useRef<Set<string> | null>(null);
+  const main = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const seen = posted.current;
+    if (!seen) return;
+    const added = pr.timeline.filter((e) => !seen.has(e.id));
+    const mine = added.filter((e) => e.kind === "comment").at(-1) ?? added.at(-1);
+    if (!mine) return;
+    posted.current = null;
+    main.current?.querySelector(`[data-entry="${CSS.escape(mine.id)}"]`)?.scrollIntoView({ block: "nearest" });
+  }, [pr.timeline]);
+  const newest = order === "newest";
+  const description = (
+    <article key="description" className="gh-entry description">
+      <div className="gh-entry-head">
+        <Avatar person={pr.author} size={20} />
+        <b>{pr.author?.login ?? "ghost"}</b>
+        <span>opened this</span>
+        <Time at={pr.createdAt} />
+      </div>
+      <Body text={pr.body} html={pr.html} empty="No description provided." />
+    </article>
+  );
+  // The server's timeline is oldest first; a review's comments and a thread's replies aren't in it, so they keep their order.
+  const entries = (newest ? [...pr.timeline].reverse() : pr.timeline).map((e) =>
+    e.kind === "comment" ? (
+      <article key={e.id} data-entry={e.id} className="gh-entry">
+        <div className="gh-entry-head">
+          <Avatar person={e.author} size={20} />
+          <b>{e.author?.login ?? "ghost"}</b>
+          <span>commented</span>
+          <Time at={e.createdAt} />
+        </div>
+        <Body text={e.body} html={e.html} />
+      </article>
+    ) : (
+      <article key={e.id} data-entry={e.id} className={`gh-entry review ${e.state}`}>
+        <div className="gh-entry-head">
+          <span className={`gh-review-mark ${e.state}`} aria-hidden="true">
+            {e.state === "approved" ? <CircleCheck size={14} /> : e.state === "changes" ? <CircleX size={14} /> : <MessageSquare size={14} />}
+          </span>
+          <Avatar person={e.author} size={20} />
+          <b>{e.author?.login ?? "ghost"}</b>
+          <span>{REVIEW_STATE_LABEL[e.state]}</span>
+          {e.comments > 0 && <span className="gh-hint">{e.comments === 1 ? "1 comment" : `${e.comments} comments`}</span>}
+          <Time at={e.createdAt} />
+        </div>
+        {e.body.trim() && <Body text={e.body} html={e.html} />}
+      </article>
+    ),
+  );
+  const composer = (
+    <div key="composer" className="gh-entry composer" id="gh-pr-comment">
+      <CommentBox
+        submitLabel="Comment"
+        busy={busy}
+        error={error}
+        onSubmit={async (text) => {
+          setBusy(true);
+          setError(undefined);
+          posted.current = new Set(pr.timeline.map((e) => e.id));
+          try {
+            if (await onComment(text)) return true;
+            posted.current = null;
+            return false;
+          } catch (e) {
+            posted.current = null;
+            setError(errorMessage(e));
+            return false;
+          } finally {
+            setBusy(false);
+          }
+        }}
+      />
+    </div>
+  );
   return (
     <div className="gh-conversation">
-      <div className="gh-conversation-main">
-        <article className="gh-entry">
-          <div className="gh-entry-head">
-            <Avatar person={pr.author} size={20} />
-            <b>{pr.author?.login ?? "ghost"}</b>
-            <span>opened this</span>
-            <Time at={pr.createdAt} />
+      <div className="gh-conversation-main" ref={main}>
+        <div className="gh-timeline-head">
+          <span className="gh-hint">{pr.timeline.length === 1 ? "1 comment or review" : `${pr.timeline.length} comments and reviews`}</span>
+          <span className="gh-spacer" />
+          <div className="gh-segmented" role="radiogroup" aria-label="Conversation order">
+            {(["newest", "oldest"] as const).map((o) => (
+              <button key={o} role="radio" aria-checked={order === o} className={order === o ? "selected" : ""} onClick={() => setOrder(o)}>
+                {o === "newest" ? "Newest first" : "Oldest first"}
+              </button>
+            ))}
           </div>
-          <Body text={pr.body} html={pr.html} empty="No description provided." />
-        </article>
-        {pr.timeline.map((e) =>
-          e.kind === "comment" ? (
-            <article key={e.id} className="gh-entry">
-              <div className="gh-entry-head">
-                <Avatar person={e.author} size={20} />
-                <b>{e.author?.login ?? "ghost"}</b>
-                <span>commented</span>
-                <Time at={e.createdAt} />
-              </div>
-              <Body text={e.body} html={e.html} />
-            </article>
-          ) : (
-            <article key={e.id} className={`gh-entry review ${e.state}`}>
-              <div className="gh-entry-head">
-                <span className={`gh-review-mark ${e.state}`} aria-hidden="true">
-                  {e.state === "approved" ? <CircleCheck size={14} /> : e.state === "changes" ? <CircleX size={14} /> : <MessageSquare size={14} />}
-                </span>
-                <Avatar person={e.author} size={20} />
-                <b>{e.author?.login ?? "ghost"}</b>
-                <span>{REVIEW_STATE_LABEL[e.state]}</span>
-                {e.comments > 0 && <span className="gh-hint">{e.comments === 1 ? "1 comment" : `${e.comments} comments`}</span>}
-                <Time at={e.createdAt} />
-              </div>
-              {e.body.trim() && <Body text={e.body} html={e.html} />}
-            </article>
-          ),
-        )}
-        <div className="gh-entry composer" id="gh-pr-comment">
-          <CommentBox
-            submitLabel="Comment"
-            busy={busy}
-            error={error}
-            onSubmit={async (text) => {
-              setBusy(true);
-              setError(undefined);
-              try {
-                return await onComment(text);
-              } catch (e) {
-                setError(errorMessage(e));
-                return false;
-              } finally {
-                setBusy(false);
-              }
-            }}
-          />
         </div>
+        {newest ? [composer, ...entries, description] : [description, ...entries, composer]}
       </div>
       <aside className="gh-conversation-side" aria-label="About this pull request">
         <Reviewers pr={pr} onChange={onReviewers} control={reviewersControl} />
@@ -322,6 +360,8 @@ export function PrView({
   diffHandle,
   api,
   onLoaded,
+  order,
+  setOrder,
   paseoFor,
   onOpenPaseo,
 }: {
@@ -341,6 +381,9 @@ export function PrView({
   api: React.MutableRefObject<PrViewApi | null>;
   /** The PR as read, for ⌘K (undefined while it loads). */
   onLoaded: (pr: PrDetail | undefined, pending: number) => void;
+  /** The Conversation's order (newest or oldest first), one for every PR. */
+  order: ConversationOrder;
+  setOrder: (order: ConversationOrder) => void;
   /** The Paseo workspaces with the PR's branch checked out (`paseo.ts`), and opening one's agent. */
   paseoFor?: (pr: PrHead) => PaseoMatch[];
   onOpenPaseo?: (m: PaseoMatch) => void;
@@ -669,6 +712,8 @@ export function PrView({
           {tab === "conversation" && (
             <Conversation
               pr={pr}
+              order={order}
+              setOrder={setOrder}
               onComment={comment}
               onReviewers={onReviewers}
               onAssignees={onAssignees}

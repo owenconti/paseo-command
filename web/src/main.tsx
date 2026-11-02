@@ -1983,6 +1983,13 @@ function App() {
                     ? [
                         command("github-open-browser", "Open the pull request on GitHub", "browser conquer web open external"),
                         command("github-comment", "Comment on the pull request", "comment conversation reply write", ["C"]),
+                        ...(place.tab === "conversation"
+                          ? [
+                              v.conversationOrder === "newest"
+                                ? command("github-conversation-order", "Show the conversation oldest first", "conversation order sort oldest first chronological timeline comments", undefined, "oldest")
+                                : command("github-conversation-order", "Show the conversation newest first", "conversation order sort newest first recent latest reverse timeline comments", undefined, "newest"),
+                            ]
+                          : []),
                         command("github-assignees", "Assign…", "assign assignee assignees unassign people person owner pull request"),
                         ...(v.pr.open
                           ? [
