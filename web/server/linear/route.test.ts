@@ -39,7 +39,13 @@ test("answers named reads and refuses others", async () => {
   assert.equal((await ask(`/api/linear/q/cycles?team=${I.eng}&x=1`)).status, 400);
   assert.equal((await ask(`/api/linear/q/cycles?team=nope`)).status, 400);
   assert.equal((await ask(`/api/linear/q/issues?scope=cycle:${I.cycles.eng}`)).body.issues.length, 2);
-  assert.equal((await ask("/api/linear/q/views")).body.views.length, 2);
+  assert.equal((await ask("/api/linear/q/views")).body.views.length, 6);
+  assert.deepEqual(
+    (await ask(`/api/linear/q/viewProjects?view=${I.views.projects}`)).body.projects.map((p: { name: string }) => p.name),
+    ["Launch"],
+  );
+  assert.equal((await ask("/api/linear/q/viewProjects?view=nope")).status, 400);
+  assert.equal((await ask(`/api/linear/q/viewProjects?view=${I.views.projects}&x=1`)).status, 400);
   assert.equal((await ask("/api/linear/q/notifications")).body.notifications.length, 5);
   assert.equal((await ask("/api/linear/q/notifications?first=5")).status, 400);
   assert.equal((await ask("/api/linear/q/notifications?after=%0A")).status, 400);

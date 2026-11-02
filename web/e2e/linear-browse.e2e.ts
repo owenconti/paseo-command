@@ -361,7 +361,14 @@ test("saved views: listed in the sidebar, each with its own filter and Linear's 
   try {
     const views = sidebar.locator('section[aria-labelledby="linear-nav-views"]');
     await views.getByRole("button", { name: "Sam's work" }).waitFor();
-    assert.deepEqual(await views.locator(".linear-nav-label").allInnerTexts(), ["Launch in flight", "Sam's work"]);
+    // Issue views and project views; a project's own view (Launch bugs) is under its project.
+    assert.deepEqual(await views.locator(".linear-nav-label").allInnerTexts(), [
+      "Due soon",
+      "Estimated work",
+      "Launch in flight",
+      "Sam's work",
+      "Under way",
+    ]);
 
     // Sam's work: a list without groups, nothing finished (as the view is set in Linear).
     await views.getByRole("button", { name: "Sam's work" }).click();

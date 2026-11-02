@@ -12,7 +12,7 @@ export const ATTACHMENT_FIELDS = `id title subtitle url sourceType createdAt cre
 export const COMMENT_FIELDS = `id body createdAt editedAt updatedAt resolvedAt
   issue { id } parent { id } user { id } reactions { id emoji user { id } }`;
 
-export const PROJECT_FIELDS = `id name icon color status { name } health lead { id } targetDate progress
+export const PROJECT_FIELDS = `id name icon color status { name type } health lead { id } targetDate progress
   teams(first: 5) { nodes { id } } projectMilestones(first: 15) { nodes { id name } } url updatedAt`;
 
 export const INITIATIVE_FIELDS = `id name status health owner { id } targetDate
@@ -49,12 +49,25 @@ export const CYCLES_QUERY = `query Cycles($teamId: ID!, $cut: DateTimeOrDuration
   }
 }`;
 
-/** The issue views you can see (yours and shared), with each one's display as set in Linear. */
+/** A view as the page keeps it: its filters, the project it's in (if any) and its display as set in Linear. */
+export const VIEW_FIELDS = `id name description icon color shared modelName updatedAt team { id } owner { id }
+  filterData projectFilterData facet { sourceProject { id } }
+  viewPreferencesValues { layout issueGrouping issueSubGrouping viewOrdering showCompletedIssues
+    projectGrouping projectViewOrdering showCompletedProjects }`;
+
+/** The views you can see (yours and shared), of issues and of projects, the workspace's and projects' own. */
 export const VIEWS_QUERY = `query CustomViews {
-  customViews(first: 100) {
-    nodes { id name description icon color shared modelName updatedAt team { id } owner { id }
-      viewPreferencesValues { layout issueGrouping issueSubGrouping viewOrdering showCompletedIssues } }
-  }
+  customViews(first: 250) { nodes { ${VIEW_FIELDS} } }
+}`;
+
+/** A project view's projects, by its own filter. */
+export const VIEW_PROJECTS_QUERY = `query ViewProjects($id: String!, $first: Int!) {
+  customView(id: $id) { projects(first: $first) { nodes { ${PROJECT_FIELDS} } } }
+}`;
+
+/** A view's display preferences: the workspace's (its default) and yours, to change. */
+export const VIEW_PREFERENCES_QUERY = `query ViewPreferencesOf($id: String!) {
+  customView(id: $id) { shared organizationViewPreferences { id } userViewPreferences { id } }
 }`;
 
 /** A view's issues, by its own filter, most recently updated first. */

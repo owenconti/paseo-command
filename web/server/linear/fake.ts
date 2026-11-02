@@ -51,7 +51,7 @@ export type FakeProject = {
   name: string;
   icon: string | null;
   color: string;
-  status: { name: string };
+  status: { name: string; type?: string };
   health: "onTrack" | "atRisk" | "offTrack" | null;
   lead: Ref | null;
   targetDate: string | null;
@@ -141,12 +141,22 @@ export type FakeView = {
   owner: Ref;
   /** The view's IssueFilter, which its issues pass. */
   filterData: Record<string, unknown>;
+  /** A project view's ProjectFilter, which its projects pass. */
+  projectFilterData?: Record<string, unknown> | null;
+  /** A project's own view names its project. */
+  facet?: { sourceProject: Ref | null } | null;
+  /** The display set for everyone, and yours (`viewPreferencesValues` is what they come to). */
+  organizationViewPreferences?: { id: string; preferences: Record<string, unknown> } | null;
+  userViewPreferences?: { id: string; preferences: Record<string, unknown> } | null;
   viewPreferencesValues: {
     layout?: string;
     issueGrouping?: string;
     issueSubGrouping?: string;
     viewOrdering?: string;
     showCompletedIssues?: string;
+    projectGrouping?: string;
+    projectViewOrdering?: string;
+    showCompletedProjects?: string;
   } | null;
 };
 export type FakeNotification = {
@@ -215,7 +225,14 @@ export const FAKE_IDS = {
   issues: seq(10, ISSUE_KEYS) as Record<string, string>,
   comments: seq(11, ["first", "reply", "reacted"]) as { first: string; reply: string; reacted: string },
   relations: seq(12, ["eng3blocks4"]) as { eng3blocks4: string },
-  views: seq(14, ["launchStarted", "samsWork", "projects"]) as { launchStarted: string; samsWork: string; projects: string },
+  views: seq(14, ["launchStarted", "samsWork", "projects", "launchBugs", "estimated", "dueSoon"]) as {
+    launchStarted: string;
+    samsWork: string;
+    projects: string;
+    launchBugs: string;
+    estimated: string;
+    dueSoon: string;
+  },
   notifications: seq(15, ["eng1Comment", "eng1Reaction", "eng3Assigned", "launchUpdate", "de2Snoozed"]) as {
     eng1Comment: string;
     eng1Reaction: string;
@@ -330,7 +347,7 @@ export function fakeWorkspace(): FakeWorkspace {
         name: "Launch",
         icon: null,
         color: "#5e6ad2",
-        status: { name: "Started" },
+        status: { name: "Started", type: "started" },
         health: "onTrack",
         lead: ref(I.owen),
         targetDate: day(30),
@@ -345,7 +362,7 @@ export function fakeWorkspace(): FakeWorkspace {
         name: "Docs",
         icon: null,
         color: "#26b5ce",
-        status: { name: "Planned" },
+        status: { name: "Planned", type: "planned" },
         health: null,
         lead: null,
         targetDate: null,
@@ -528,16 +545,62 @@ export function fakeWorkspace(): FakeWorkspace {
       },
       {
         id: I.views.projects,
-        name: "Active projects",
-        description: null,
-        icon: null,
-        color: null,
+        name: "Under way",
+        description: "Projects under way",
+        icon: "Rocket",
+        color: "#4cb782",
         shared: true,
         modelName: "Project",
         updatedAt: ago(3),
         team: null,
         owner: ref(I.owen),
         filterData: {},
+        projectFilterData: { status: { name: { in: ["Started"] } } },
+        viewPreferencesValues: { projectGrouping: "health", projectViewOrdering: "name", showCompletedProjects: "all" },
+      },
+      {
+        id: I.views.launchBugs,
+        name: "Launch bugs",
+        description: null,
+        icon: null,
+        color: "#eb5757",
+        shared: true,
+        modelName: "Issue",
+        updatedAt: ago(4),
+        team: null,
+        owner: ref(I.sam),
+        filterData: { and: [{ project: { id: { eq: I.projects.launch } } }, { labels: { some: { id: { in: [I.labels.bug] } } } }] },
+        facet: { sourceProject: ref(I.projects.launch) },
+        viewPreferencesValues: { layout: "list", issueGrouping: "workflowState", viewOrdering: "priority" },
+      },
+      {
+        // A filter the app can't say (an estimate): it opens, but only its name and the rest change here.
+        id: I.views.estimated,
+        name: "Estimated work",
+        description: null,
+        icon: null,
+        color: null,
+        shared: false,
+        modelName: "Issue",
+        updatedAt: ago(5),
+        team: null,
+        owner: ref(I.owen),
+        filterData: { estimate: { gte: 1 } },
+        viewPreferencesValues: null,
+      },
+      {
+        id: I.views.dueSoon,
+        name: "Due soon",
+        description: null,
+        icon: null,
+        color: null,
+        shared: false,
+        modelName: "Project",
+        updatedAt: ago(5),
+        team: null,
+        owner: ref(I.owen),
+        filterData: {},
+        projectFilterData: { targetDate: { lt: new Date(now + 60 * DAY).toISOString().slice(0, 10) } },
         viewPreferencesValues: null,
       },
     ],
@@ -654,10 +717,28 @@ export class FakeGraphQlError extends Error {
 
 type Filter = Record<string, any>;
 
+/** Whether a reference (`who`, an id or null) passes `{ isMe | id: { eq | in } | null }`. */
+function refPasses(ws: FakeWorkspace, who: string | null | undefined, cond: Filter): boolean {
+  if ("null" in cond) return (who == null) === cond.null;
+  if (cond.isMe) return (who === ws.viewerId) === cond.isMe.eq;
+  if (cond.id?.eq !== undefined) return who === cond.id.eq;
+  if (cond.id?.in) return who != null && cond.id.in.includes(who);
+  throw new FakeGraphQlError(`Unknown reference filter ${JSON.stringify(cond)}`, "InvalidInput");
+}
+/** `{ eq | in | nin }` of a value. */
+function valuePasses(value: unknown, cond: Filter): boolean {
+  if ("eq" in cond) return value === cond.eq;
+  if (cond.in) return cond.in.includes(value);
+  if (cond.nin) return !cond.nin.includes(value);
+  if ("gte" in cond) return typeof value === "number" && value >= cond.gte;
+  if ("lt" in cond) return typeof value === "string" && value < cond.lt;
+  throw new FakeGraphQlError(`Unknown comparator ${JSON.stringify(cond)}`, "InvalidInput");
+}
+
 /** Whether a record passes the part of Linear's IssueFilter the server sends; anything else is a typo and throws. */
 function passes(ws: FakeWorkspace, issue: FakeIssue, filter: Filter): boolean {
   return Object.entries(filter).every(([field, cond]) => {
-    const stateType = ws.states.find((s) => s.id === issue.state.id)?.type;
+    const state = ws.states.find((s) => s.id === issue.state.id);
     const date = (value: string | null) => {
       if ("null" in cond) return (value === null) === cond.null;
       return value !== null && value > cond.gt;
@@ -668,22 +749,26 @@ function passes(ws: FakeWorkspace, issue: FakeIssue, filter: Filter): boolean {
       case "or":
         return (cond as Filter[]).some((f) => passes(ws, issue, f));
       case "assignee":
-      case "creator": {
-        const who = issue[field]?.id;
-        return cond.isMe ? (who === ws.viewerId) === cond.isMe.eq : who === cond.id.eq;
-      }
-      case "id":
-        return cond.in ? cond.in.includes(issue.id) : issue.id === cond.eq;
+      case "creator":
       case "team":
       case "project":
       case "cycle":
-        return issue[field]?.id === cond.id.eq;
+        return refPasses(ws, issue[field]?.id, cond);
+      case "id":
+        return cond.in ? cond.in.includes(issue.id) : issue.id === cond.eq;
       case "subscribers":
         return issue.subscribers.nodes.some((u) => u.id === ws.viewerId) === cond.some.isMe.eq;
-      case "state": {
-        const t = cond.type;
-        return t.eq ? stateType === t.eq : t.in ? t.in.includes(stateType) : !t.nin.includes(stateType);
-      }
+      case "state":
+        if (cond.type) return valuePasses(state?.type, cond.type);
+        if (cond.name) return valuePasses(state?.name, cond.name);
+        return refPasses(ws, state?.id, cond);
+      case "priority":
+        return valuePasses(issue.priority, cond);
+      case "estimate":
+        return valuePasses(issue.estimate, cond);
+      case "labels":
+        if (cond.length) return issue.labels.nodes.length === cond.length.eq;
+        return issue.labels.nodes.some((l) => refPasses(ws, l.id, cond.some));
       case "completedAt":
         return date(issue.completedAt);
       case "canceledAt":
@@ -694,6 +779,35 @@ function passes(ws: FakeWorkspace, issue: FakeIssue, filter: Filter): boolean {
         throw new FakeGraphQlError(`Unknown issue filter ${field}`, "InvalidInput");
     }
   });
+}
+
+/** Whether a project passes the part of Linear's ProjectFilter the server and the sample views use. */
+function projectPasses(ws: FakeWorkspace, project: FakeProject, filter: Filter): boolean {
+  return Object.entries(filter).every(([field, cond]) => {
+    switch (field) {
+      case "and":
+        return (cond as Filter[]).every((f) => projectPasses(ws, project, f));
+      case "or":
+        return (cond as Filter[]).some((f) => projectPasses(ws, project, f));
+      case "status":
+        return valuePasses(project.status.name, cond.name);
+      case "health":
+        return valuePasses(project.health, cond);
+      case "lead":
+        return refPasses(ws, project.lead?.id, cond);
+      case "accessibleTeams":
+        return project.teams.nodes.some((t) => refPasses(ws, t.id, cond.some));
+      case "targetDate":
+        return valuePasses(project.targetDate, cond);
+      default:
+        throw new FakeGraphQlError(`Unknown project filter ${field}`, "InvalidInput");
+    }
+  });
+}
+
+/** A view as Linear answers it (not its preferences' own records). */
+function viewNode({ organizationViewPreferences: _, userViewPreferences: __, ...view }: FakeView) {
+  return { ...view, projectFilterData: view.projectFilterData ?? null, facet: view.facet ?? null };
 }
 
 const newestFirst = <T extends { updatedAt: string }>(items: T[]) =>
@@ -717,7 +831,10 @@ export const READ_OPERATIONS = [
   "Issue",
   "Cycles",
   "CustomViews",
+  "CustomView",
   "ViewIssues",
+  "ViewProjects",
+  "ViewPreferencesOf",
   "SearchIssues",
   "Notifications",
   "Sync",
@@ -776,9 +893,31 @@ export const OPERATIONS: Record<string, FakeOperation> = {
     ).sort((a, b) => Number(inTitle(b)) - Number(inTitle(a)));
     return { searchIssues: { nodes: found.slice(0, Number(variables.first)) } };
   },
-  CustomViews: ({ ws }) => ({
-    customViews: { nodes: ws.views.map(({ filterData: _, ...view }) => view) },
-  }),
+  CustomViews: ({ ws }) => ({ customViews: { nodes: ws.views.map(viewNode) } }),
+  CustomView: ({ ws, variables }) => {
+    const view = ws.views.find((v) => v.id === variables.id);
+    if (!view) throw new FakeGraphQlError("Entity not found: CustomView", "InvalidInput");
+    return { customView: viewNode(view) };
+  },
+  /** A project view's projects: those its project filter lets through. */
+  ViewProjects: ({ ws, variables }) => {
+    const view = ws.views.find((v) => v.id === variables.id);
+    if (!view) throw new FakeGraphQlError("Entity not found: CustomView", "InvalidInput");
+    const filter = (view.projectFilterData ?? {}) as Filter;
+    return { customView: { projects: { nodes: ws.projects.filter((p) => projectPasses(ws, p, filter)).slice(0, Number(variables.first)) } } };
+  },
+  ViewPreferencesOf: ({ ws, variables }) => {
+    const view = ws.views.find((v) => v.id === variables.id);
+    if (!view) throw new FakeGraphQlError("Entity not found: CustomView", "InvalidInput");
+    const ref = (p: FakeView["userViewPreferences"]) => (p ? { id: p.id } : null);
+    return {
+      customView: {
+        shared: view.shared,
+        organizationViewPreferences: ref(view.organizationViewPreferences),
+        userViewPreferences: ref(view.userViewPreferences),
+      },
+    };
+  },
   /** A view's issues: those its filter lets through, paged as `Issues`. */
   ViewIssues: ({ ws, variables }) => {
     const view = ws.views.find((v) => v.id === variables.id);
@@ -832,6 +971,15 @@ function notificationNode({ kind, ...n }: FakeNotification) {
   if (kind === "issue") return rest;
   const other = { ...rest, issue: undefined, comment: undefined, reactionEmoji: undefined };
   return kind === "pullRequest" ? { ...other, project: undefined, pullRequest } : other;
+}
+
+/** A view's display as its preferences come to: the workspace's, then yours over them. */
+function settlePreferences(view: FakeView): void {
+  view.viewPreferencesValues = {
+    ...view.viewPreferencesValues,
+    ...view.organizationViewPreferences?.preferences,
+    ...view.userViewPreferences?.preferences,
+  };
 }
 
 function writes(): Record<string, FakeOperation> {
@@ -1157,6 +1305,79 @@ function writes(): Record<string, FakeOperation> {
       comment.reactions.push({ id: crypto.randomUUID(), emoji: input.emoji, user: viewer(ctx.ws) });
       ctx.touch(comment);
       return { reactionCreate: { success: true } };
+    },
+    CustomViewCreate: (ctx) => {
+      const { ws } = ctx;
+      const input = ctx.variables.input as Record<string, any>;
+      if (input.teamId) find(ws.teams, input.teamId, "Team");
+      if (input.projectId) find(ws.projects, input.projectId, "Project");
+      const project = input.projectFilterData !== undefined;
+      const view: FakeView = {
+        id: crypto.randomUUID(),
+        name: input.name,
+        description: input.description ?? null,
+        icon: input.icon ?? null,
+        color: input.color ?? null,
+        shared: input.shared === true,
+        modelName: project ? "Project" : "Issue",
+        updatedAt: "",
+        team: input.teamId ? { id: input.teamId } : null,
+        owner: viewer(ws),
+        filterData: input.filterData ?? {},
+        projectFilterData: project ? input.projectFilterData : null,
+        facet: input.projectId ? { sourceProject: { id: input.projectId } } : null,
+        viewPreferencesValues: null,
+      };
+      // Linear checks a filter as it saves it: one the fake can't apply is refused.
+      for (const issue of ws.issues) passes(ws, issue, view.filterData as Filter);
+      for (const p of ws.projects) projectPasses(ws, p, (view.projectFilterData ?? {}) as Filter);
+      ctx.touch(view);
+      ws.views.push(view);
+      return { customViewCreate: { success: true, customView: viewNode(view) } };
+    },
+    CustomViewUpdate: (ctx) => {
+      const { ws } = ctx;
+      const view = find(ws.views, ctx.variables.id, "CustomView");
+      const input = ctx.variables.input as Record<string, any>;
+      for (const [field, value] of Object.entries(input)) {
+        if (["name", "description", "icon", "color", "shared"].includes(field)) (view as any)[field] = value;
+        else if (field === "teamId") view.team = refTo(ws.teams, value, "Team");
+        else if (field === "filterData") {
+          for (const issue of ws.issues) passes(ws, issue, value as Filter);
+          view.filterData = value;
+        } else if (field === "projectFilterData") {
+          for (const p of ws.projects) projectPasses(ws, p, value as Filter);
+          view.projectFilterData = value;
+        } else throw bad(`Unknown CustomViewUpdateInput field ${field}`);
+      }
+      ctx.touch(view);
+      return { customViewUpdate: { success: true, customView: viewNode(view) } };
+    },
+    CustomViewDelete: (ctx) => {
+      const view = find(ctx.ws.views, ctx.variables.id, "CustomView");
+      ctx.ws.views = ctx.ws.views.filter((v) => v !== view);
+      return { customViewDelete: { success: true } };
+    },
+    ViewPreferencesCreate: (ctx) => {
+      const input = ctx.variables.input as Record<string, any>;
+      const view = find(ctx.ws.views, input.customViewId, "CustomView");
+      if (input.viewType !== "customView" || !["organization", "user"].includes(input.type))
+        throw bad("Invalid view preferences");
+      const prefs = { id: crypto.randomUUID(), preferences: input.preferences };
+      if (input.type === "organization") view.organizationViewPreferences = prefs;
+      else view.userViewPreferences = prefs;
+      settlePreferences(view);
+      return { viewPreferencesCreate: { success: true } };
+    },
+    ViewPreferencesUpdate: (ctx) => {
+      const view = ctx.ws.views.find(
+        (v) => v.organizationViewPreferences?.id === ctx.variables.id || v.userViewPreferences?.id === ctx.variables.id,
+      );
+      if (!view) throw bad("Could not find referenced ViewPreferences.");
+      const prefs = [view.organizationViewPreferences, view.userViewPreferences].find((p) => p?.id === ctx.variables.id)!;
+      prefs.preferences = (ctx.variables.input as Record<string, any>).preferences;
+      settlePreferences(view);
+      return { viewPreferencesUpdate: { success: true } };
     },
     ReactionDelete: (ctx) => {
       const comment = ctx.ws.comments.find((c) => c.reactions.some((r) => r.id === ctx.variables.id));

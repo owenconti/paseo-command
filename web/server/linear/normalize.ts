@@ -20,6 +20,7 @@ import type {
   LinearUser,
 } from "../../src/linear/types";
 
+import { fromIssueFilter, fromProjectFilter, projectDisplayOf } from "../../src/linear/viewFilter";
 import { allowAvatar } from "./image";
 
 type Raw = Record<string, unknown>;
@@ -166,35 +167,63 @@ const COMPLETED: Record<string, LinearCustomView["display"]["completed"]> = {
   none: "none",
 };
 
-/** An issue view; null for one of projects, initiatives or anything else. */
+/** A filter Linear sent, as plain JSON (no deeper than 12, no more than 20,000 characters); undefined otherwise. */
+function filterJson(v: unknown): unknown {
+  if (!v || typeof v !== "object") return undefined;
+  const depth = (x: unknown, d: number): number =>
+    x && typeof x === "object" ? Math.max(d, ...Object.values(x as Raw).map((y) => depth(y, d + 1))) : d;
+  try {
+    return JSON.stringify(v).length <= 20_000 && depth(v, 0) <= 12 ? v : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/** A view of issues or projects; null for one of anything else (initiatives, updates). */
 export function customViewOf(raw: Raw): LinearCustomView | null {
   const id = str(raw.id);
-  if (!id || (str(raw.modelName) || "issue").toLowerCase() !== "issue") return null;
+  const model = (str(raw.modelName) || "issue").toLowerCase();
+  if (!id || (model !== "issue" && model !== "project")) return null;
   const prefs = rec(raw.viewPreferencesValues);
   const pick = <T>(table: Record<string, T>, v: unknown): T | undefined =>
     Object.hasOwn(table, str(v)) ? table[str(v)] : undefined;
   const display: LinearCustomView["display"] = {};
-  const layout = pick(LAYOUT, prefs.layout);
-  const grouping = pick(GROUPING, prefs.issueGrouping);
-  const subGrouping = pick(GROUPING, prefs.issueSubGrouping);
-  const ordering = pick(ORDERING, prefs.viewOrdering);
-  const completed = pick(COMPLETED, prefs.showCompletedIssues);
-  if (layout) display.layout = layout;
-  if (grouping) display.grouping = grouping;
-  if (subGrouping) display.subGrouping = subGrouping;
-  if (ordering) display.ordering = ordering;
-  if (completed) display.completed = completed;
+  if (model === "issue") {
+    const layout = pick(LAYOUT, prefs.layout);
+    const grouping = pick(GROUPING, prefs.issueGrouping);
+    const subGrouping = pick(GROUPING, prefs.issueSubGrouping);
+    const ordering = pick(ORDERING, prefs.viewOrdering);
+    const completed = pick(COMPLETED, prefs.showCompletedIssues);
+    if (layout) display.layout = layout;
+    if (grouping) display.grouping = grouping;
+    if (subGrouping) display.subGrouping = subGrouping;
+    if (ordering) display.ordering = ordering;
+    if (completed) display.completed = completed;
+  }
+  // Its filter, where the app can say it all; else Linear's alone (the view still opens).
+  // No filter is every issue (or project); one too big to read is one the app can't say.
+  const json = (v: unknown) => (v === null || v === undefined ? {} : filterJson(v));
+  const issueJson = model === "issue" ? json(raw.filterData) : undefined;
+  const projectJson = model === "project" ? json(raw.projectFilterData) : undefined;
+  const filter = issueJson !== undefined ? fromIssueFilter(issueJson) : null;
+  const projectFilter = projectJson !== undefined ? fromProjectFilter(projectJson) : null;
+  const projectDisplay = model === "project" ? projectDisplayOf(prefs) : undefined;
   return {
     id,
     name: clip(str(raw.name), 120),
     description: clip(str(raw.description), 500) || undefined,
     icon: clip(str(raw.icon), 40) || undefined,
     color: color(raw.color),
+    model,
     shared: raw.shared === true,
     teamId: optId(raw.team),
     ownerId: optId(raw.owner),
+    projectId: optId(rec(raw.facet).sourceProject),
     updatedAt: str(raw.updatedAt),
+    ...(filter ? { filter } : {}),
+    ...(projectFilter ? { projectFilter } : {}),
     display,
+    ...(projectDisplay && Object.keys(projectDisplay).length ? { projectDisplay } : {}),
   };
 }
 
@@ -211,6 +240,7 @@ export function projectOf(raw: Raw): LinearProject | null {
     icon: clip(str(raw.icon), 40) || undefined,
     color: color(raw.color),
     status: statusName(raw.status),
+    ...(str(rec(raw.status).type) ? { statusType: clip(str(rec(raw.status).type), 30) } : {}),
     health,
     leadId: optId(raw.lead),
     targetDate: str(raw.targetDate) || undefined,

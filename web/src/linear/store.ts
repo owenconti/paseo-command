@@ -15,6 +15,7 @@ import type {
   LinearSync,
   LinearUnavailable,
   LinearWorkspace,
+  ViewInput,
   WriteName,
 } from "./types";
 
@@ -34,8 +35,10 @@ export type LinearData = {
   cursor?: string;
   /** Each team's cycles with their progress (`q/cycles`), by team id, newest first. */
   cycles: Map<string, LinearCycle[]>;
-  /** The issue views you can see (`q/views`), once loaded. */
+  /** The views you can see (`q/views`), of issues and of projects, once loaded. */
   views?: LinearCustomView[];
+  /** Each project view's projects (`q/viewProjects`), by view id, as Linear's filter lets them through. */
+  viewProjects: Map<string, LinearProject[]>;
   /**
    * The issues of scopes the store can't tell by itself (a view's own filter),
    * by id in Linear's order, as their last load returned them.
@@ -67,6 +70,7 @@ function empty(): LinearData {
     loadedScopes: new Set(),
     cappedScopes: new Set(),
     cycles: new Map(),
+    viewProjects: new Map(),
     members: new Map(),
     notifications: new Map(),
     notificationsLoaded: false,
@@ -579,6 +583,74 @@ async function detach(issueId: string, attachmentId: string): Promise<boolean> {
   }
 }
 
+const byName = (views: LinearCustomView[]) => [...views].sort((a, b) => a.name.localeCompare(b.name));
+const viewList = () => state.views ?? [];
+let pendingViews = 0;
+/** Says Linear kept a view but not the display it was sent with. */
+const displayNotice = (answer: { displaySaved?: boolean } | undefined) => {
+  if (answer?.displaySaved === false) notify("Linear saved the view but not its display.");
+};
+
+/**
+ * Creates a view: `shown` (the view as it will be) is listed at once, under a
+ * pending id, and Linear's answer takes its place; refused, it goes again and
+ * the notice says why. Answers the view as Linear saved it, else null.
+ */
+async function createView(input: ViewInput, shown: Omit<LinearCustomView, "id" | "updatedAt">): Promise<LinearCustomView | null> {
+  const pendingId = `pending-${++pendingViews}`;
+  publish({ views: byName([...viewList(), { ...shown, id: pendingId, updatedAt: new Date().toISOString() }]) });
+  try {
+    const answer = await linearWrite<{ view?: LinearCustomView; displaySaved?: boolean }>("customViewCreate", input);
+    if (!answer?.view) throw new Error("Linear didn't return the view.");
+    publish({ views: byName([...viewList().filter((v) => v.id !== pendingId), answer.view]) });
+    displayNotice(answer);
+    return answer.view;
+  } catch (e) {
+    publish({ views: viewList().filter((v) => v.id !== pendingId) });
+    notify(`Linear didn't save the view: ${errorMessage(e) || "it didn't answer"}`);
+    return null;
+  }
+}
+
+/**
+ * Changes a view (`input`, Linear's write), showing `patch` at once; Linear's
+ * answer takes its place, and a refusal puts it back as it was, with the
+ * notice. A change of its filter asks for its issues (or projects) again.
+ */
+async function updateView(id: string, input: Omit<ViewInput, "id">, patch: Partial<LinearCustomView>): Promise<boolean> {
+  const was = viewList().find((v) => v.id === id);
+  if (!was) return false;
+  const swap = (next: LinearCustomView) => publish({ views: byName(viewList().map((v) => (v.id === id ? next : v))) });
+  swap({ ...was, ...patch });
+  try {
+    const answer = await linearWrite<{ view?: LinearCustomView; displaySaved?: boolean }>("customViewUpdate", { id, ...input });
+    if (answer?.view) swap(answer.view);
+    displayNotice(answer);
+    if (input.filter) await loadScope(`view:${id}`, true).catch(() => {});
+    if (input.projectFilter) await loadViewProjects(id, true).catch(() => {});
+    return true;
+  } catch (e) {
+    if (viewList().some((v) => v.id === id)) swap(was);
+    notify(`Linear didn't save the view: ${errorMessage(e) || "it didn't answer"}`);
+    return false;
+  }
+}
+
+/** Deletes a view: gone at once, back with the notice if Linear refuses. */
+async function deleteView(id: string): Promise<boolean> {
+  const was = viewList().find((v) => v.id === id);
+  if (!was) return false;
+  publish({ views: viewList().filter((v) => v.id !== id) });
+  try {
+    await linearWrite("customViewDelete", { id });
+    return true;
+  } catch (e) {
+    publish({ views: byName([...viewList().filter((v) => v.id !== id), was]) });
+    notify(`Linear didn't delete the view: ${errorMessage(e) || "it didn't answer"}`);
+    return false;
+  }
+}
+
 function applySync(delta: LinearSync, readAt?: number): void {
   mergeIssues(delta.issues, readAt);
   mergeComments(delta.comments);
@@ -608,6 +680,9 @@ export const linearStore = {
   mergeNotifications,
   createIssue,
   removeIssue,
+  createView,
+  updateView,
+  deleteView,
   setWorkspace(workspace: LinearWorkspace): void {
     publish({ workspace: { ...workspace }, unavailable: undefined });
   },
@@ -637,6 +712,7 @@ export const linearStore = {
     openKey = undefined;
     shownScope = undefined;
     viewsLoad = undefined;
+    viewProjectLoads.clear();
     searchedAt.clear();
     notificationsLoad = undefined;
     notePending.clear();
@@ -784,6 +860,23 @@ export function loadViews(fresh = false): Promise<void> {
       viewsLoad = undefined;
     });
   return viewsLoad;
+}
+
+const viewProjectLoads = new Map<string, Promise<void>>();
+
+/** Loads a project view's projects (Linear applies its filter); asked once unless `fresh`. */
+export function loadViewProjects(viewId: string, fresh = false): Promise<void> {
+  if (!fresh && state.viewProjects.has(viewId)) return Promise.resolve();
+  let load = viewProjectLoads.get(viewId);
+  if (!load) {
+    load = linearRead<{ projects: LinearProject[] }>("viewProjects", { view: viewId })
+      .then((answer) => {
+        if (accept(answer)) publish({ viewProjects: new Map(state.viewProjects).set(viewId, answer.projects) });
+      })
+      .finally(() => viewProjectLoads.delete(viewId));
+    viewProjectLoads.set(viewId, load);
+  }
+  return load;
 }
 
 const cycleLoads = new Map<string, Promise<void>>();

@@ -19,6 +19,7 @@ import {
   readSearch,
   readStatus,
   readSync,
+  readViewProjects,
   readViews,
   readWorkspace,
 } from "./reads";
@@ -184,6 +185,8 @@ export async function linearRoute(
     }
     case "q/views":
       return read([], () => readViews());
+    case "q/viewProjects":
+      return read(["view"], () => readViewProjects(param("view")));
     case "q/cycles":
       return read(["team"], () => readCycles(param("team")));
     case "q/byId":

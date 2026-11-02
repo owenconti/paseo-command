@@ -1,4 +1,7 @@
 /** Linear's shapes as the server sends them and the page keeps them (no API key ever reaches the page). */
+import type { Display } from "./display";
+import type { IssueViewFilter, ProjectDisplay, ProjectFilters } from "./viewFilter";
+
 export type LinearUser = { id: string; name: string; displayName: string; avatarUrl?: string; me?: boolean };
 export type LinearState = {
   id: string;
@@ -38,18 +41,25 @@ export type LinearCycle = {
   scope?: number;
   done?: number;
 };
-/** A saved custom view of issues (Linear's Views), with its own display as set in Linear, in the page's words. */
+/** A saved custom view (Linear's Views) of issues or of projects, with its own filter and display, in the page's words. */
 export type LinearCustomView = {
   id: string;
   name: string;
   description?: string;
   icon?: string;
   color: string;
+  /** Of issues, or of projects (a project view, which opens a list of projects). */
+  model: "issue" | "project";
   /** Shared with the workspace (or its team), else yours alone. */
   shared: boolean;
   teamId?: string;
   ownerId?: string;
+  /** A project's own view (one of the views in the project), else a workspace view. */
+  projectId?: string;
   updatedAt: string;
+  /** Its filter in the page's words, when every condition is one the app can show (else Linear's alone, not edited here). */
+  filter?: IssueViewFilter;
+  projectFilter?: ProjectFilters;
   display: {
     layout?: "list" | "board";
     grouping?: "status" | "assignee" | "priority" | "project" | "cycle" | "none";
@@ -57,6 +67,28 @@ export type LinearCustomView = {
     ordering?: "priority" | "updated" | "created" | "manual" | "due" | "title";
     completed?: "all" | "week" | "month" | "none";
   };
+  /** A project view's display, as far as the app knows Linear's words. */
+  projectDisplay?: Partial<ProjectDisplay>;
+};
+/** Who sees a view: you alone, a team, or the workspace. */
+export type ViewSharing = "personal" | "team" | "workspace";
+/** What `customViewCreate` and `customViewUpdate` take (update: `id`, and only what changes; never the model or project). */
+export type ViewInput = {
+  id?: string;
+  name?: string;
+  description?: string;
+  icon?: string | null;
+  color?: string;
+  sharing?: ViewSharing;
+  /** The team a team view is shared with. */
+  teamId?: string;
+  model?: "issue" | "project";
+  /** Create only: one of this project's own views. */
+  projectId?: string;
+  filter?: Pick<IssueViewFilter, "base" | "filters">;
+  projectFilter?: ProjectFilters;
+  display?: Display;
+  projectDisplay?: ProjectDisplay;
 };
 export type LinearProject = {
   id: string;
@@ -64,6 +96,8 @@ export type LinearProject = {
   icon?: string;
   color: string;
   status: string;
+  /** Linear's kind of status: backlog, planned, started, paused, completed or canceled. */
+  statusType?: string;
   health?: "onTrack" | "atRisk" | "offTrack";
   leadId?: string;
   targetDate?: string;
@@ -234,4 +268,7 @@ export type WriteName =
   | "notificationUnarchive"
   | "attachmentLinkURL"
   | "attachmentCreate"
-  | "attachmentDelete";
+  | "attachmentDelete"
+  | "customViewCreate"
+  | "customViewUpdate"
+  | "customViewDelete";

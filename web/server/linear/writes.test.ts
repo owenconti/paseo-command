@@ -44,7 +44,7 @@ const ok = async (name: string, body: unknown) => {
 };
 
 test("lists exactly the whitelisted writes", () => {
-  assert.equal(Object.keys(WRITES).length, 25);
+  assert.equal(Object.keys(WRITES).length, 28);
 });
 
 /** Runs `fn` and asserts it moved every record's `updatedAt` forward. */
@@ -334,4 +334,152 @@ test("an unavailable Linear is an error status, never a success", async () => {
   const off = await post("issueUpdate", { id: issue("ENG-1").id, priority: 2 });
   assert.equal(off.status, 503);
   assert.equal(off.body.error, DISABLED);
+});
+
+test("customViewCreate saves an issue view from a place's filters and display, as Linear's filter and preferences", async () => {
+  const { view, displaySaved } = await ok("customViewCreate", {
+    name: "  ENG urgent ",
+    description: "Urgent work",
+    icon: "Flag",
+    color: "#EB5757",
+    sharing: "team",
+    teamId: I.eng,
+    filter: { base: { teamId: I.eng, stateTypes: ["unstarted", "started"] }, filters: { priority: ["1"], assignee: [I.owen, "none"] } },
+    display: { layout: "board", grouping: "assignee", subGrouping: "none", ordering: "updated", completed: "week" },
+  });
+  const saved = fake.ws.views.find((v) => v.id === view.id)!;
+  assert.equal(saved.name, "ENG urgent");
+  assert.equal(saved.color, "#eb5757");
+  assert.deepEqual([saved.shared, saved.team?.id, saved.modelName], [true, I.eng, "Issue"]);
+  assert.deepEqual(saved.filterData, {
+    and: [
+      { team: { id: { eq: I.eng } } },
+      { state: { type: { in: ["unstarted", "started"] } } },
+      { or: [{ assignee: { id: { in: [I.owen] } } }, { assignee: { null: true } }] },
+      { priority: { in: [1] } },
+    ],
+  });
+  // Shared: the display is everyone's.
+  assert.deepEqual(saved.organizationViewPreferences?.preferences, {
+    layout: "board",
+    issueGrouping: "assignee",
+    issueSubGrouping: "noGrouping",
+    viewOrdering: "updatedAt",
+    showCompletedIssues: "pastWeek",
+  });
+  assert.equal(displaySaved, true);
+  // The answer is the view as the page keeps it: its filter read back, and the display just saved.
+  assert.deepEqual(view.filter, {
+    base: { teamId: I.eng, stateTypes: ["unstarted", "started"] },
+    filters: { assignee: [I.owen, "none"], priority: ["1"] },
+  });
+  assert.deepEqual(view.display, { layout: "board", grouping: "assignee", subGrouping: "none", ordering: "updated", completed: "week" });
+  assert.deepEqual([view.shared, view.teamId, view.icon, view.model], [true, I.eng, "Flag", "issue"]);
+  const issues = await linearGet(`/api/linear/q/issues?scope=view:${view.id}`);
+  assert.deepEqual(issues.body.issues.map((i: { key: string }) => i.key), ["ENG-3"]);
+});
+
+test("customViewCreate makes a project's own view, and a personal one keeps its display as yours", async () => {
+  const { view } = await ok("customViewCreate", {
+    name: "Launch todo",
+    sharing: "personal",
+    projectId: I.projects.launch,
+    filter: { base: {}, filters: { project: [I.projects.launch], status: ["Todo"], labels: ["none"] } },
+    display: { layout: "list", grouping: "none", subGrouping: "none", ordering: "priority", completed: "none" },
+  });
+  const saved = fake.ws.views.find((v) => v.id === view.id)!;
+  assert.deepEqual(saved.facet, { sourceProject: { id: I.projects.launch } });
+  assert.equal(saved.shared, false);
+  assert.equal(saved.team, null);
+  assert.equal(saved.organizationViewPreferences, undefined);
+  assert.equal(saved.userViewPreferences?.preferences.showCompletedIssues, "none");
+  assert.equal(view.projectId, I.projects.launch);
+  assert.deepEqual(view.filter.filters, { status: ["Todo"], labels: ["none"], project: [I.projects.launch] });
+});
+
+test("customViewCreate saves a project view with its project filter and display", async () => {
+  const { view } = await ok("customViewCreate", {
+    name: "Healthy",
+    sharing: "workspace",
+    model: "project",
+    projectFilter: { health: ["onTrack"], lead: [I.owen], team: [I.eng] },
+    projectDisplay: { grouping: "status", ordering: "target", completed: "none" },
+  });
+  const saved = fake.ws.views.find((v) => v.id === view.id)!;
+  assert.equal(saved.modelName, "Project");
+  assert.deepEqual(saved.projectFilterData, {
+    and: [{ health: { in: ["onTrack"] } }, { lead: { id: { in: [I.owen] } } }, { accessibleTeams: { some: { id: { in: [I.eng] } } } }],
+  });
+  assert.deepEqual(view.projectFilter, { health: ["onTrack"], lead: [I.owen], team: [I.eng] });
+  assert.deepEqual(view.projectDisplay, { grouping: "status", ordering: "target", completed: "none" });
+  assert.equal(view.model, "project");
+  const projects = await linearGet(`/api/linear/q/viewProjects?view=${view.id}`);
+  assert.deepEqual(projects.body.projects.map((p: { name: string }) => p.name), ["Launch"]);
+});
+
+test("customViewUpdate renames, reshares, refilters and redisplays a view; customViewDelete removes it", async () => {
+  const launch = fake.ws.views.find((v) => v.id === I.views.launchStarted)!;
+  const { view } = await ok("customViewUpdate", { id: launch.id, name: "Launch now", sharing: "personal" });
+  assert.deepEqual([launch.name, launch.shared, launch.team], ["Launch now", false, null]);
+  assert.equal(view.name, "Launch now");
+  // The filter (unchanged parts kept by the page) and the display: yours, as the view is personal now.
+  const changed = await ok("customViewUpdate", {
+    id: launch.id,
+    filter: { base: {}, filters: { project: [I.projects.launch], assignee: [I.owen] } },
+    display: { layout: "list", grouping: "priority", subGrouping: "none", ordering: "title", completed: "all" },
+  });
+  assert.deepEqual(launch.filterData, { and: [{ assignee: { id: { in: [I.owen] } } }, { project: { id: { in: [I.projects.launch] } } }] });
+  assert.equal(launch.userViewPreferences?.preferences.issueGrouping, "priority");
+  assert.deepEqual(changed.view.display, { layout: "list", grouping: "priority", subGrouping: "none", ordering: "title", completed: "all" });
+  // Only the display: the view is read back after.
+  const again = await ok("customViewUpdate", {
+    id: launch.id,
+    display: { layout: "board", grouping: "status", subGrouping: "none", ordering: "title", completed: "all" },
+  });
+  assert.equal(fake.requests.at(-1)?.operation, "CustomView");
+  assert.equal(again.view.display.layout, "board");
+  assert.equal(launch.userViewPreferences?.preferences.layout, "board");
+  assert.deepEqual(await ok("customViewDelete", { id: launch.id }), { ok: true });
+  assert.ok(!fake.ws.views.some((v) => v.id === launch.id));
+  assert.equal((await post("customViewDelete", { id: launch.id })).status, 400);
+});
+
+test("view writes refuse what they can't express or check", async () => {
+  const refused = async (name: string, body: unknown, message: RegExp) => {
+    const r = await post(name, body);
+    assert.equal(r.status, 400, JSON.stringify(r.body));
+    assert.match(r.body.error, message);
+  };
+  const base = { name: "V", sharing: "workspace" };
+  await refused("customViewCreate", { sharing: "workspace" }, /Missing field name/);
+  await refused("customViewCreate", { ...base, sharing: "team" }, /Name the team/);
+  await refused("customViewCreate", { ...base, teamId: I.eng }, /only for a view shared with a team/);
+  await refused("customViewCreate", { ...base, filter: { base: {}, filters: { estimate: ["1"] } } }, /Unexpected field estimate/);
+  await refused("customViewCreate", { ...base, filter: { base: { label: I.eng }, filters: {} } }, /Unexpected field label/);
+  await refused("customViewCreate", { ...base, filter: { filters: { priority: ["9"] } } }, /priority must be one of/);
+  await refused("customViewCreate", { ...base, filter: { filters: { assignee: ["sam"] } } }, /assignee must be an id/);
+  await refused("customViewCreate", { ...base, model: "project", filter: { filters: {} } }, /project view takes/);
+  await refused("customViewCreate", { ...base, projectFilter: { status: ["Started"] } }, /issue view takes/);
+  await refused("customViewCreate", { ...base, model: "project", projectId: I.projects.launch }, /project's own views/);
+  await refused("customViewCreate", { ...base, color: "red" }, /colour/);
+  await refused("customViewCreate", { ...base, icon: "<img>" }, /icon/);
+  await refused("customViewCreate", { ...base, filterData: {} }, /Unexpected field filterData/);
+  await refused("customViewCreate", { ...base, display: { layout: "timeline", grouping: "none", subGrouping: "none", ordering: "title", completed: "all" } }, /layout must be one of/);
+  await refused("customViewUpdate", { id: I.views.samsWork }, /Nothing to change/);
+  await refused("customViewUpdate", { id: I.views.samsWork, model: "project" }, /Unexpected field model/);
+  await refused("customViewUpdate", { id: I.views.samsWork, projectId: I.projects.launch }, /Unexpected field projectId/);
+  assert.ok(!fake.requests.some((r) => r.operation.startsWith("CustomView")), "nothing reached Linear");
+});
+
+test("a view Linear saved without its display says so", async () => {
+  fake.fail("ViewPreferencesCreate", { message: "Not allowed" });
+  const answer = await ok("customViewCreate", {
+    name: "Mine",
+    sharing: "personal",
+    filter: { base: { me: "assignee" }, filters: {} },
+    display: { layout: "board", grouping: "status", subGrouping: "none", ordering: "priority", completed: "all" },
+  });
+  assert.equal(answer.displaySaved, false);
+  assert.deepEqual(answer.view.display, {});
+  assert.deepEqual(answer.view.filter, { base: { me: "assignee" }, filters: {} });
 });
