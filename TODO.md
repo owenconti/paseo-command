@@ -56,6 +56,13 @@ mark it done with its commit once merged into `main`.
   in `web/server/github/writes.ts` (`m/state`: PATCH `state` open/closed, checked), shown at once and rolled back
   with a notice if GitHub refuses; the PR lists and counts update. Tests over the fake; never real GitHub.
   Workspace: `github-close-pr`.
+- [ ] **Linear board: cards show through the column heads when scrolled.** On a board (e.g. Current Cycle grouped
+  by assignee), scrolling down a column leaves cards visible above and behind the sticky column heads
+  ("Cody 1", "Craig 3", …): card text and avatars peek out in the gap between the search field and the heads, and
+  under the heads' text. The sticky heads (and swimlane heads, if sub-grouped) need an opaque background matching
+  the column, covering the full column width and the gap above them, a z-index above cards, and cards clipped at
+  the scroller's top. Check light and dark, list view's sticky group heads too. Add an e2e check (scroll a column,
+  no card box intersects the head). Workspace: `fix-linear-board-sticky-heads`.
 
 ## Done
 
