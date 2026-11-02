@@ -16,7 +16,16 @@ mark it done with its commit once merged into `main`.
   need. Linear issue links (chat, Conquer pages, the header's issue chip, Activity's Linear items) open in the Linear
   desktop app when it's installed (its `linear://` deep link for the issue, checked with Launch Services; never
   installs or launches anything else), else in Conquer as other links do. Leave the user's data alone (localStorage
-  places and `settings.json` keys ignored). `npm run check` passes. Workspace: `remove-linear-tab`.
+  places and `settings.json` keys ignored). `npm run check` passes. Workspace: `remove-linear-tab`.- [ ] **GitHub merge box: offer only the merge methods the repository allows.** On a Diagonal-HQ/diagonal PR, which
+  only allows squash merging, the header showed "Merge pull request" and the ▾ menu "Merge pull request…" and "Enable
+  auto-merge (merge commit)…": no squash. `mergeOf` (`web/server/github/reads.ts`) takes methods from the repository's
+  `mergeCommitAllowed`/`squashMergeAllowed`/`rebaseMergeAllowed`; find what the real answer is. Likely causes: the
+  restriction comes from a ruleset or branch protection's allowed merge methods (REST `GET /repos/:repo/rules/branches/:base`,
+  the `pull_request` rule's `allowed_merge_methods`), which GitHub's own merge box honours, or the fields read differently
+  with the classic token. Intersect the repository's methods with the base branch's rules, label the button by its
+  method ("Squash and merge"), default to the only/first allowed one, and never offer a method GitHub would refuse.
+  Tests over the fake (a ruleset allowing only squash); never real GitHub. Workspace: `fix-github-merge-methods`.
+
 ## Done
 
 - [x] **Linear board: cards show through the column heads when scrolled.** A board column's head had no background of its
