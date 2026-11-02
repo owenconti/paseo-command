@@ -149,6 +149,11 @@
   font-weight: var(--fw-semibold);
   color: var(--text-strong);
 }
+/* Its question, at the narrowest, wraps its buttons rather than run out of the head. */
+.page-head > .activity-confirm {
+  flex-shrink: 1;
+  min-width: 0;
+}
 .activity-head h2 .activity-count {
   margin-left: 6px;
 }
@@ -175,6 +180,7 @@
 }
 .activity-confirm {
   display: inline-flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: var(--space-2);
   font-size: var(--fs-xs);

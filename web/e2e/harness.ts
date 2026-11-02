@@ -10,6 +10,7 @@ import { deflateSync } from "node:zlib";
 import {
   chromium,
   type Browser,
+  type Locator,
   type BrowserContext,
   type Page,
   type Route,
@@ -685,3 +686,71 @@ export async function escapeFrom(page: Page, selector: string) {
     await sleep(50);
   }
 }
+
+/**
+ * What overlaps in a page's head: its visible text (clipped where an ancestor
+ * clips it) and its controls, each against the others (what runs out of the
+ * head is cut, not overlapping). Text inside a control counts as the control's. Empty when nothing
+ * overlaps.
+ */
+export async function headOverlaps(head: Locator): Promise<string[]> {
+  return head.evaluate((root, source) => (0, eval)(source)(root), OVERLAPS);
+}
+// A string, so that the bundler's helpers (`__name`) stay out of the page.
+const OVERLAPS = `(root) => {
+    const CONTROL = "button, input, select, textarea, a, [role=button]";
+    const clip = (r, el) => {
+      let box = { left: r.left, top: r.top, right: r.right, bottom: r.bottom };
+      for (let a = el; a && box; a = a.parentElement) {
+        const s = getComputedStyle(a);
+        if (s.overflowX !== "visible" || s.overflowY !== "visible" || a === root) {
+          const c = a.getBoundingClientRect();
+          box = {
+            left: Math.max(box.left, c.left),
+            top: Math.max(box.top, c.top),
+            right: Math.min(box.right, c.right),
+            bottom: Math.min(box.bottom, c.bottom),
+          };
+          if (box.right - box.left < 1 || box.bottom - box.top < 1) box = null;
+        }
+        if (a === root) break;
+      }
+      return box;
+    };
+    const shown = (el) => {
+      const s = getComputedStyle(el);
+      return s.visibility !== "hidden" && s.display !== "none" && el.getClientRects().length > 0;
+    };
+    const atoms = [];
+    const nameOf = (el) =>
+      (el.getAttribute("aria-label") || el.textContent || el.className.toString()).trim().slice(0, 40);
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+      const parent = n.parentElement;
+      if (!n.textContent?.trim() || !shown(parent)) continue;
+      // Visually hidden text (an icon-only button's label) isn't drawn.
+      if (parent.getBoundingClientRect().width < 2) continue;
+      const owner = parent.closest(CONTROL) ?? parent;
+      const range = document.createRange();
+      range.selectNodeContents(n);
+      for (const r of range.getClientRects()) {
+        const box = clip(r, parent);
+        if (box) atoms.push({ owner, name: nameOf(owner), box });
+      }
+    }
+    for (const el of root.querySelectorAll(CONTROL)) {
+      if (!shown(el) || el.getBoundingClientRect().width < 2) continue;
+      const box = clip(el.getBoundingClientRect(), el.parentElement);
+      if (box) atoms.push({ owner: el, name: nameOf(el), box });
+    }
+    const out = [];
+    for (let i = 0; i < atoms.length; i++)
+      for (let j = i + 1; j < atoms.length; j++) {
+        const [a, b] = [atoms[i], atoms[j]];
+        if (a.owner === b.owner || a.owner.contains(b.owner) || b.owner.contains(a.owner)) continue;
+        const w = Math.min(a.box.right, b.box.right) - Math.max(a.box.left, b.box.left);
+        const h = Math.min(a.box.bottom, b.box.bottom) - Math.max(a.box.top, b.box.top);
+        if (w > 1 && h > 1) out.push(\`"\${a.name}" overlaps "\${b.name}"\`);
+      }
+    return [...new Set(out)];
+  }`;

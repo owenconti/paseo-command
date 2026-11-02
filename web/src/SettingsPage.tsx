@@ -163,9 +163,11 @@ export function SettingsPage({
         />
       </nav>
       <div className="settings-main">
-        <header className="settings-head">
-          <h2>{shown.label}</h2>
-          <small>Kept for this copy of the app</small>
+        <header className="settings-head page-head">
+          <h2 className="page-head-title">
+            <span className="page-head-name">{shown.label}</span>
+          </h2>
+          <small className="page-head-aside">Kept for this copy of the app</small>
         </header>
         <div className="settings-page-body">
           {shown.id === "sound" && (

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type MutableRefObject } from "react";
 import { Hash, LoaderCircle, RefreshCw, Users } from "lucide-react";
+import { usePageTitleTip } from "../pageHead";
 import { ConversationIcon } from "./bits";
 import { Composer } from "./Composer";
 import { MessageList } from "./MessageList";
@@ -57,6 +58,7 @@ export function Conversation({
   composerFocus: MutableRefObject<(() => void) | null>;
   sidebarHidden: boolean;
 }) {
+  const titleTip = usePageTitleTip<HTMLHeadingElement>();
   const conversation = useSlack((d) => d.conversations.get(conversationId));
   const title = useSlack((d) => conversationTitle(d, d.conversations.get(conversationId)));
   const list = useSlack((d) => d.history.get(conversationId));
@@ -120,15 +122,15 @@ export function Conversation({
 
   return (
     <section className={`slack-conversation${sidebarHidden ? " sidebar-hidden" : ""}`} aria-label={title}>
-      <header className="slack-conv-head">
-        <h2>
+      <header className="slack-conv-head page-head">
+        <h2 className="page-head-title" ref={titleTip}>
           <ConversationIcon conversation={conversation} size={16} />
-          <span className="slack-conv-name">{channel ? conversation?.name ?? "" : title}</span>
+          <span className="slack-conv-name page-head-name">{channel ? conversation?.name ?? "" : title}</span>
           {conversation?.isMuted && <span className="slack-tag">Muted</span>}
           {conversation?.isArchived && <span className="slack-tag">Archived</span>}
         </h2>
         {conversation?.memberCount !== undefined && channel && (
-          <span className="slack-members" data-tip={`${conversation.memberCount} members`}>
+          <span className="slack-members page-head-aside" data-tip={`${conversation.memberCount} members`}>
             <Users size={13} aria-hidden="true" />
             {conversation.memberCount}
           </span>

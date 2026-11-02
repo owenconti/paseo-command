@@ -9,7 +9,7 @@ import { after, before, test } from "node:test";
 import assert from "node:assert/strict";
 import type { Browser, Page } from "playwright";
 import { FAKE_IDS, fakeWorkspace } from "../server/linear/fake";
-import { PNG, launch, mockApi, newContext, startApp, waitFor } from "./harness";
+import { PNG, headOverlaps, launch, mockApi, newContext, startApp, waitFor } from "./harness";
 import { mockLinear } from "./linearFake";
 
 let app: Awaited<ReturnType<typeof startApp>>;
@@ -687,6 +687,84 @@ test("the edge between the list and the open issue resizes it, kept across a rel
     assert.ok(Math.abs((await detail.boundingBox())!.width - (wider - 16)) <= 3);
     await edge.dblclick();
     await waitFor(async () => (await detail.boundingBox())!.width, (w) => Math.abs(w - before) <= 3, "the shared width");
+  } finally {
+    linear.restore();
+    await context.close();
+  }
+});
+
+test("the list's head never overlaps: beside an open issue and at the narrowest, the title gives way and the tools go to icons", async () => {
+  const { context, page, linear, view, sidebar } = await openLinear();
+  try {
+    await sidebar.getByRole("button", { name: /^ENG/ }).click();
+    await sidebar.locator('.linear-team[data-team="ENG"]').getByRole("button", { name: "Active" }).click();
+    const head = view.locator(".linear-list-head");
+    const title = head.locator("h2");
+    await title.getByText("Active").waitFor();
+    const filter = head.getByRole("button", { name: "Filter" });
+    const display = head.getByRole("button", { name: "Display" });
+    const box = async (l: typeof head) => (await l.boundingBox())!;
+    const apart = (a: { x: number; y: number; width: number; height: number }, b: typeof a) =>
+      a.x + a.width <= b.x + 0.5 || b.x + b.width <= a.x + 0.5 || a.y + a.height <= b.y + 0.5 || b.y + b.height <= a.y + 0.5;
+    const noOverlap = async (where: string) => {
+      assert.deepEqual(await headOverlaps(head), [], `nothing in the head overlaps ${where}`);
+      // The breadcrumb's parts as drawn (clipped by the title), the count, the tools.
+      const parts = [
+        ...(await title.locator(".page-crumb, .page-head-name").evaluateAll((els) =>
+          els.map((e) => {
+            const r = e.getBoundingClientRect();
+            const t = e.parentElement!.getBoundingClientRect();
+            const right = Math.min(r.right, t.right);
+            return { x: r.x, y: r.y, width: right - r.x, height: r.height };
+          }),
+        )),
+        await box(filter),
+        await box(display),
+      ];
+      const count = head.locator(".linear-count");
+      if (await count.isVisible()) parts.push(await box(count));
+      for (let i = 0; i < parts.length; i++)
+        for (let j = i + 1; j < parts.length; j++) assert.ok(apart(parts[i], parts[j]), `the title, count and tools apart ${where}`);
+      const own = await box(head);
+      for (const p of parts) assert.ok(p.x >= own.x - 0.5 && p.x + p.width <= own.x + own.width + 0.5, `inside the head ${where}`);
+    };
+    // Wide: the tools have their words, the title is whole with no hint.
+    await noOverlap("when wide");
+    assert.equal(await head.locator(".page-tool-label").first().isVisible(), true);
+    assert.equal(await title.getAttribute("data-tip"), null);
+
+    // Beside an open issue widened as far as it goes, the list keeps its least.
+    await view.locator('.linear-row[data-key="ENG-1"]').click();
+    await view.locator(".linear-detail h1", { hasText: "Ship the Linear tab" }).waitFor();
+    await view.getByRole("separator", { name: "Resize the open issue" }).focus();
+    for (let i = 0; i < 40; i++) await page.keyboard.press("Shift+ArrowLeft");
+    await waitFor(() => box(head), (b) => b.width <= 340, "the list at its least beside the issue");
+    await noOverlap("beside the open issue");
+    // The tools are icons, still named and hinted.
+    assert.equal(await filter.locator(".page-tool-label").evaluate((e) => e.getBoundingClientRect().width), 1);
+    assert.equal(await filter.getAttribute("data-tip"), "Filter (F)");
+    assert.equal(await display.getAttribute("data-tip"), "Display options");
+
+    // The narrowest window, the issue closed: the list is what the sidebar leaves.
+    await view.locator(".linear-close").click();
+    await page.setViewportSize({ width: 760, height: 800 });
+    await waitFor(() => box(head), (b) => b.width < 200, "the narrowest list");
+    // The sidebar's width follows the view's a frame later: the head settles after.
+    let last = "";
+    await waitFor(
+      async () => JSON.stringify([await box(head), await box(title)]),
+      (now) => {
+        const same = now === last;
+        last = now;
+        return same;
+      },
+      "the head to settle",
+    );
+    await noOverlap("at the narrowest");
+    // The breadcrumb is cut short (its earlier part first) and says itself on hover.
+    await waitFor(() => title.getAttribute("data-tip"), (tip) => tip === "Engineering › Active", "the whole title as a hint");
+    const crumb = title.locator(".page-crumb");
+    assert.ok(await crumb.evaluate((e) => e.scrollWidth > e.clientWidth), "the team's name is cut short");
   } finally {
     linear.restore();
     await context.close();

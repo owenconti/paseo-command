@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, type MutableRefObject } from "react";
 import { ArrowLeft, LoaderCircle, RefreshCw, X } from "lucide-react";
+import { usePageTitleTip } from "../pageHead";
 import { Composer } from "./Composer";
 import { MessageList } from "./MessageList";
 import { permalinkOf } from "./prompt";
@@ -30,6 +31,7 @@ export function Thread({
   onSelect: (ts: string) => void;
   composerFocus: MutableRefObject<(() => void) | null>;
 }) {
+  const titleTip = usePageTitleTip<HTMLHeadingElement>();
   const key = threadKey(conversationId, threadTs);
   const thread = useSlack((d) => d.threads.get(key));
   // The parent as the conversation has it, until the thread's read is in.
@@ -56,14 +58,15 @@ export function Thread({
 
   return (
     <aside className="slack-thread" id="slack-thread" aria-label={`Thread in ${title}`}>
-      <header className="slack-conv-head">
+      <header className="slack-conv-head page-head">
         {!beside && (
           <button type="button" className="icon-btn" aria-label="Back to the conversation" data-tip="Back (Esc)" onClick={onClose}>
             <ArrowLeft size={15} aria-hidden="true" />
           </button>
         )}
-        <h2>
-          Thread <span className="slack-thread-where">{title}</span>
+        <h2 className="page-head-title" ref={titleTip}>
+          <span>Thread</span>
+          <span className="slack-thread-where page-head-name">{title}</span>
         </h2>
         {beside && (
           <button type="button" className="icon-btn" aria-label="Close the thread" data-tip="Close (Esc)" onClick={onClose}>

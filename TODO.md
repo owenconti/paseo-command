@@ -5,14 +5,6 @@ mark it done with its commit once merged into `main`.
 
 ## Open
 
-- [ ] **Linear list head overlaps when narrow.** In a narrow issue list (e.g. beside an open issue, with the
-  sidebar shown), the head's title "Engineering › Active" and its count (260) run under the Filter and Display
-  buttons, which overlap the text. The head must never overlap at any width: the breadcrumb truncates with an
-  ellipsis (the last part kept longest, full on hover), the count stays readable or hides, and the buttons
-  shrink to icons before anything overlaps, wrapping under the title as a last resort. Check the same heads in
-  the other pages (Slack, GitHub, Activity, Settings) for the same fault and fix it in the shared page styles
-  (`web/src/styles/pages.css`) where it is shared. Add an e2e check at a narrow width.
-  Workspace: `fix-page-head-overlap`.
 - [ ] **Linear: an issue opened from outside the tab gets an issue-focused view.** Clicking a Linear issue link
   anywhere outside the Linear tab (the chat, Conquer, Activity, Slack, `paseo:link`/`parseAppLink`,
   `openActivityItem`'s `writePlace({ ...readPlace(), issue })`) opens the issue beside whatever list you last
@@ -66,6 +58,13 @@ mark it done with its commit once merged into `main`.
 
 ## Done
 
+- [x] **Page heads never overlap when narrow.** The pages' heads (Linear's lists, Activity, GitHub's lists and Changes,
+  Slack's conversation and thread, Settings) share one rule set, `.page-head` in `web/src/styles/pages.css`: the title takes
+  what the tools leave and clips, a breadcrumb's earlier parts cut short (…) before the name, and the whole title shows on
+  hover while cut (`usePageTitleTip`, `web/src/pageHead.ts`). By the head's own width (container queries, in em) the tools
+  drop their words for icons (still named and hinted), then asides and the count go, and only when the title would have
+  less than 7em do the tools wrap under it. GitHub's PR back link cuts short instead of wrapping. E2e checks (Linear
+  beside an open issue and at the narrowest window, Activity) assert nothing in the head overlaps (`headOverlaps`).
 - [x] **Command palette: each entry names the page it's for.** Every entry has a `page` (`web/src/palette.ts`'s `PAGES`:
   Command, Conquer, Activity, Linear, Slack, GitHub, Settings, Terminal, App), shown on its right before any keys in one
   style; found agents, workspaces, projects and hosts add their kind ("Command · Agent"). Among equally good matches the

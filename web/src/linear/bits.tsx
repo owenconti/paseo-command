@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from "react";
 import { Minus, OctagonAlert, SignalHigh, SignalLow, SignalMedium } from "lucide-react";
+import { usePageTitleTip } from "../pageHead";
 import { initials } from "./group";
 import { PRIORITY_LABEL } from "./names";
 import type { LinearUser } from "./types";
@@ -143,13 +144,15 @@ function localDay(at: string): string {
 /** A cycle's days, "Oct 28 – Nov 11". */
 export const dayRange = (start: string, end: string) => `${localDay(start)} – ${localDay(end)}`;
 
-/** A screen's title bar: its heading, then its actions at the right. */
+/** A screen's title bar: its heading, then its actions at the right (a page head, `styles/pages.css`).
+ *  A plain title is the place's name; a breadcrumb marks its parts `page-crumb` and its last `page-head-name`. */
 export function ScreenHead({ title, count, children }: { title: ReactNode; count?: number; children?: ReactNode }) {
+  const tip = usePageTitleTip<HTMLHeadingElement>();
   return (
-    <header className="linear-list-head">
-      <h2>
-        {title}
-        {count !== undefined && <span className="linear-count">{count}</span>}
+    <header className="linear-list-head page-head">
+      <h2 className="page-head-title" ref={tip}>
+        {typeof title === "string" ? <span className="page-head-name">{title}</span> : title}
+        {count !== undefined && <span className="linear-count page-head-count">{count}</span>}
       </h2>
       {children}
     </header>

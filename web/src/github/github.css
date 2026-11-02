@@ -221,6 +221,18 @@
 .gh-head .ghost-btn {
   margin-left: calc(-1 * var(--space-2));
 }
+/* A PR's way back gives way to its tools: its words cut short, never wrapping under them. */
+.gh-head .gh-back {
+  min-width: 0;
+}
+.gh-head .gh-back svg {
+  flex-shrink: 0;
+}
+.gh-head .gh-back span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .gh-changes-title svg {
   flex-shrink: 0;
   color: var(--icon-muted);

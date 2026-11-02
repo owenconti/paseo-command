@@ -228,7 +228,7 @@ function ProjectDisplayButton({
         }}
       >
         <SlidersHorizontal size={13} aria-hidden="true" />
-        Display
+        <span className="page-tool-label">Display</span>
       </button>
       {open && (
         <div
