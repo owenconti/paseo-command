@@ -24,6 +24,14 @@ mark it done with its commit once merged into `main`.
   API doesn't expose sidebar sections (the client's `users.channelSections.*` is undocumented and wants a
   browser session token), so check first. If no documented, user-token way exists, don't use the internal one:
   report back, and offer sections made in the app instead (kept in `settings.json`). Workspace: `slack-recent-and-sections`.
+- [ ] **Linear: project views, and managing views.** The sidebar's Views (`q/views`) lists only issue views.
+  Show Linear's project views too (custom views of projects, with their project filter), each opening a project
+  list filtered as the view says (`ProjectList.tsx`), and a project's own views where Linear has them. Add view
+  management: create a view from the current place's filters and display (name, icon/colour, description,
+  personal or shared with a team or the workspace), edit it (rename, change its filters and display, sharing),
+  and delete it after confirming. Use the sidebar's context menu, a Save as view button by the filters, and ⌘K.
+  Whitelisted writes in `web/server/linear/writes.ts` (`customViewCreate|Update|Delete`, checked field by field),
+  shown at once and rolled back if Linear refuses; tests over the fake. Workspace: `linear-views`.
 
 ## Done
 
