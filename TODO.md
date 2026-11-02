@@ -33,13 +33,21 @@ mark it done with its commit once merged into `main`.
   (`web/src/asks/sentences.ts`, `mayAsk`), the prompt/schema given to Jev, or the strip's handling of a pick.
   Also check "Drafting answers…" can't hang: it ends in answers, or a quiet fallback, within a bounded time.
   Tests over fakes; never call TypeSafe or a real daemon. Workspace: `asks-either-or-options`.
-- [ ] **GitHub PR view: close and reopen a pull request.** The PR view (`PrView.tsx`) has Review but no way to
-  close a PR. Add Close pull request (optionally with a comment, sent first; asks to confirm) and, on a closed
-  unmerged PR, Reopen, in the header's actions (e.g. a ⋯ menu beside Review) and the Merge section, with ⌘K
-  entries shown only when they apply and only when the token may (`viewerCanUpdate` or similar). Whitelisted write
-  in `web/server/github/writes.ts` (`m/state`: PATCH `state` open/closed, checked), shown at once and rolled back
-  with a notice if GitHub refuses; the PR lists and counts update. Tests over the fake; never real GitHub.
-  Workspace: `github-close-pr`.
+- [ ] **GitHub PR view: manage merge state, close and reopen.** The PR view (`PrView.tsx`) has Review and a
+  read-only Merge section ("No conflicts with the base branch."). Make it act as GitHub's merge box, each action
+  only where it applies and the token may (`viewerCanUpdate`, `viewerCanMergeAsAdmin`, the repo's allowed methods):
+  - Merge: Merge, Squash and merge, or Rebase and merge (a method picker remembering the last per repo, only the
+    repo's allowed ones), with editable commit title and message for merge/squash; confirm; delete the branch
+    afterwards (offered, remembered). Blocked states say why (checks, reviews required, conflicts, behind).
+  - Auto-merge: enable (with method) and disable (GraphQL `enablePullRequestAutoMerge`/`disable…`), shown with who
+    turned it on; the merge queue where the repo uses one (add/remove).
+  - Ready for review / Convert to draft; Update branch (merge or rebase) when behind.
+  - Close pull request (optional comment, sent first; confirm) and, on a closed unmerged PR, Reopen.
+  In the Merge section, with the main ones in the header (e.g. a split Merge button and a ⋯ menu beside Review),
+  and ⌘K entries for each. Whitelisted writes in `web/server/github/writes.ts` (`m/merge`, `m/autoMerge`,
+  `m/ready`, `m/updateBranch`, `m/state`; each field checked), shown at once and rolled back with a notice if GitHub
+  refuses; the PR, its lists and counts, the map's PR medallions/auto-merge seal refresh. Tests over the fake;
+  never real GitHub. Workspace: `github-pr-merge-state`.
 - [ ] **Linear board: cards show through the column heads when scrolled.** On a board (e.g. Current Cycle grouped
   by assignee), scrolling down a column leaves cards visible above and behind the sticky column heads
   ("Cody 1", "Craig 3", …): card text and avatars peek out in the gap between the search field and the heads, and
