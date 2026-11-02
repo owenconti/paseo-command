@@ -54,6 +54,16 @@ mark it done with its commit once merged into `main`.
   - A repository's PR list always offers Author, Reviewer and Assignee filters (in place of today's anyone/you
     author filter), each listing the repository's contributors and collaborators (you first, with avatars,
     searchable), any of several people. Read them through a named, cached read. Workspace: `github-repo-search-filters`.
+- [ ] **GitHub PR view: manage reviewers and assignees, and list the checks.** In a PR's side panel
+  (`PrView.tsx`: Reviewers, Merge, Checks):
+  - Reviewers and Assignees are editable: a picker of the repository's collaborators (and teams for reviewers;
+    searchable, avatars, you first) to request or remove reviewers, re-request a review, and add or remove
+    assignees. Whitelisted writes in `web/server/github/writes.ts` (requested_reviewers, assignees; checked field
+    by field), shown at once and rolled back if GitHub refuses; ⌘K entries. Show who's requested, who reviewed
+    and their verdict, and the assignees.
+  - Checks: beneath the "25 passing" count, list each check run and status (failing, then pending, then passing
+    folded behind a toggle when many), with its name, workflow/app, duration and a link to its details, as
+    GitHub's merge box does. The Checks tab keeps the full view. Workspace: `github-pr-people-and-checks`.
 
 ## Done
 
