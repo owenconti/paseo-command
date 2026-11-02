@@ -5,12 +5,6 @@ mark it done with its commit once merged into `main`.
 
 ## Open
 
-- [ ] **Slack: your own messages show as "Paseo Command" (App).** A message you send from the Slack tab
-  (e.g. a thread reply) is drawn with the app's name, a "PC" avatar and the App tag instead of as you.
-  Find whether Slack really posts it as the app (`web/server/slack/writes.ts`, `chat.postMessage` with the
-  user token) or our client mislabels it (`messageOf` in `web/server/slack/normalize.ts` takes `bot_profile`
-  as `botName`; `web/src/slack/Message.tsx` shows App for `botName`). Messages with a person behind them
-  (`user`) should show that person. Workspace: `fix-slack-own-message-as-app`.
 - [ ] **Activity: Linear items and links open the issue in the Linear tab.** Linear notifications in the
   Activity feed (seen on pull request notifications about an issue, e.g. "Pull request checks failed" and
   "Pull request commented" on DE-7919) and links to Linear issues in it should open the issue in the Linear tab.
@@ -19,3 +13,9 @@ mark it done with its commit once merged into `main`.
   to `url`), and whether Linear links in the preview are routed through `parseAppLink`. Workspace: `fix-activity-linear-links`.
 
 ## Done
+
+- [x] **Slack: your own messages show as "Paseo Command" (App).** Our client mislabelled them: Slack posts
+  them as you (user token, no `username`), but attaches the app's `bot_profile`, which `messageOf` took as
+  `botName`. A message with a person behind it (`user`, not a `bot_message`) now shows that person in every
+  route (post, history, threads, search, socket). Commit "Slack: your own messages sent through the app show
+  as you, not as the app".
