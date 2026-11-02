@@ -4,7 +4,7 @@ _ = NSApplication.shared
 NSApp.setActivationPolicy(.accessory)
 enum Log { static func line(_ message: String) {} }
 let fixture = URL(string: CommandLine.arguments.last!)!
-// The optional Linear, GitHub and Activity tabs (there is no Slack tab) are absent until explicitly enabled;
+// The optional GitHub and Activity tabs (there is no Slack or Linear tab) are absent until explicitly enabled;
 // Activity's tab carries its unread count.
 do {
     let bar = ModeBar(frame: CGRect(x: 0, y: 0, width: 900, height: 32))
@@ -12,19 +12,21 @@ do {
         if let button = view as? NSButton, button.title.trimmingCharacters(in: .whitespaces).hasPrefix(title) { return button }
         return view.subviews.compactMap { find(title, in: $0) }.first
     }
-    let linear = find("Linear", in: bar)!, github = find("GitHub", in: bar)!, activity = find("Activity", in: bar)!
-    assert(find("Slack", in: bar) == nil)
-    assert(linear.isHidden && github.isHidden && activity.isHidden)
-    bar.enabled = [.linear, .activity]
-    assert(!linear.isHidden && github.isHidden && !activity.isHidden)
-    // ⌘1…⌘6 count the tabs shown: Activity comes third, then Linear.
-    assert(activity.toolTip?.hasSuffix("(⌘3, ⌘`)") == true && linear.toolTip?.hasSuffix("(⌘4, ⌘`)") == true)
+    let github = find("GitHub", in: bar)!, activity = find("Activity", in: bar)!
+    assert(find("Slack", in: bar) == nil && find("Linear", in: bar) == nil)
+    assert(github.isHidden && activity.isHidden)
+    bar.enabled = [.github, .activity]
+    assert(!github.isHidden && !activity.isHidden)
+    // ⌘1…⌘5 count the tabs shown: Activity comes third, then GitHub.
+    assert(activity.toolTip?.hasSuffix("(⌘3, ⌘`)") == true && github.toolTip?.hasSuffix("(⌘4, ⌘`)") == true)
     bar.activityUnread = 4
     assert(activity.title.hasSuffix("4"))
     bar.activityUnread = 0
     assert(activity.title.trimmingCharacters(in: .whitespaces) == "Activity")
+    bar.enabled = [.github]
+    assert(github.toolTip?.hasSuffix("(⌘3, ⌘`)") == true)
     bar.enabled = []
-    assert(linear.isHidden && github.isHidden && activity.isHidden)
+    assert(github.isHidden && activity.isHidden)
 }
 func browser() -> ConquerView { ConquerView(frame: CGRect(x: 0, y: 0, width: 900, height: 600), persistent: false) }
 func pin(_ browser: ConquerView, name: String = "Pinned") -> BrowserTab {
@@ -137,11 +139,13 @@ do {
 print("Conquer tab closing and reload shortcut checks passed.")
 
 // The mode bar's order, and its tabs' keys by their place among those shown.
-assert(Mode.tabs == [.command, .conquer, .activity, .linear, .github, .settings])
+assert(Mode.tabs == [.command, .conquer, .activity, .github, .settings])
+// A mode saved before the Linear tab was removed is no mode (the map shows).
+assert(Mode(rawValue: "linear") == nil)
 assert(Mode.conquer.keys(at: 1) == "⌘2, ⌘`")
 assert(Mode.settings.keys(at: 2) == "⌘3, ⌘, or ⌘`")
-assert(Mode.linear.keys(at: nil) == "⌘`")
-// Conquer's own tab keys are ⌥⌘1…⌥⌘9, leaving ⌘1…⌘6 to the mode bar.
+assert(Mode.github.keys(at: nil) == "⌘`")
+// Conquer's own tab keys are ⌥⌘1…⌥⌘9, leaving ⌘1…⌘5 to the mode bar.
 do {
     let b = browser()
     let window = NSWindow(contentRect: b.frame, styleMask: [.titled], backing: .buffered, defer: false)

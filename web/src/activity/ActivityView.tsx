@@ -28,7 +28,6 @@ import {
 } from "lucide-react";
 import { readStore, removeStore, writeStore } from "../api";
 import { onAppCommand } from "../appCommands";
-import { parseAppLink } from "../appLinks";
 import { ResizeEdge } from "../ResizeEdge";
 import { modalOpen } from "../focus";
 import { isTyping } from "../worldShortcut";
@@ -141,7 +140,7 @@ function Actor({ actor }: { actor?: ActivityItem["actor"] }) {
 
 /** Where opening an item takes you, in words. */
 const openLabel = (item: ActivityItem) =>
-  item.open || (item.url && parseAppLink(item.url)?.kind === "linear")
+  item.source === "linear"
     ? "Open in Linear"
     : item.url && prPlaceOf(item.url)
       ? "Review in GitHub"
@@ -156,7 +155,7 @@ let lastSelected: string | undefined;
  * The sidebar filters it (All, Unread, each enabled source with its unread
  * count, or why it couldn't answer); the selected item shows beside the feed
  * from 1,100 px with Open, Mark read/unread and Done. Opening takes an item
- * where it lives (Conquer, the Linear tab, the GitHub tab) and marks it read.
+ * where it lives (Conquer, Linear's desktop app, the GitHub tab) and marks it read.
  * While the keyboard is in the view (not typing): J/K or ↓/↑ move, Enter or O
  * open, U marks read or unread, E or ⌫ marks done, ⇧U marks every shown item
  * read, ⇧E marks every shown item done (after confirming), 1–3 filter All,

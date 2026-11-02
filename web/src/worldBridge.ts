@@ -219,7 +219,7 @@ export const askAppUpdate = () => appChannel()?.postMessage({ type: "update" });
 /** Ask the macOS app which mode bar tab shows; it answers with a `paseo:mode` event. */
 export const askAppMode = () => appChannel()?.postMessage({ type: "mode" });
 /** Apply optional integrations to the native mode bar. */
-export const configureAppIntegrations = (tabs: { linear: boolean; github: boolean; activity: boolean }) =>
+export const configureAppIntegrations = (tabs: { github: boolean; activity: boolean }) =>
   appChannel()?.postMessage({ type: "integrations", ...tabs });
 /** Activity's unread notifications, for its mode bar tab. */
 export const postAppActivity = (unread: number) => appChannel()?.postMessage({ type: "activity", unread });
@@ -266,12 +266,11 @@ export function onAppBar(action: BarAction, handler: (rect: BarRect) => void) {
   return () => window.removeEventListener("paseo:bar", receive);
 }
 /** Open a web link in the macOS app's browser, Conquer, in the map's place (a new tab).
- * A Linear issue's or GitHub pull request's link comes back as `paseo:link` for its tab,
- * unless `direct` (one the page has already looked at). */
+ * A GitHub pull request's link comes back as `paseo:link` for its tab, unless `direct`
+ * (one the page has already looked at); a Linear issue's opens in Linear's desktop app
+ * when it's installed. */
 export const postAppLink = (url: string, direct = false) =>
   appChannel()?.postMessage({ type: "openLink", url, ...(direct ? { direct } : {}) });
-/** Open a web link in the default browser, never in the app's own tabs ("Open in Linear"). */
-export const postAppExternal = (url: string) => appChannel()?.postMessage({ type: "external", url });
 export function postNative(message: { type: string; [key: string]: unknown }) {
   window.webkit?.messageHandlers?.worldBridge?.postMessage({
     ...message,

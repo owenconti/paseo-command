@@ -46,10 +46,10 @@ The Atlas uses generated painted sprites; it is not yet finished reference-quali
 The command palette (⌘K, `web/src/CommandPalette.tsx`) lists what the app can do. Its entries are
 `paletteCommands` in `web/src/main.tsx` (the open agent's own in `agentCommands`), ranked by `web/src/palette.ts`.
 Every entry has a `page`, the part of Paseo Command it belongs to (`PAGES`): Command (the map, agents, workspaces,
-projects, hosts, dispatch), Conquer, Activity, Linear, GitHub, Settings (its toggles and editors too), Terminal,
+projects, hosts, dispatch), Conquer, Activity, GitHub, Settings (its toggles and editors too), Terminal,
 else App (the window, updates, text size, ⌘` stepping, what's new, games). A "Show …" entry for a tab names that tab's page.
 The palette shows it on the row's right before any keys; found things add their `kind` ("Command · Agent"). Among equal
-matches the page on screen (`shown`) ranks first. Write it `page: "Linear" as const` (spreads widen strings).
+matches the page on screen (`shown`) ranks first. Write it `page: "GitHub" as const` (spreads widen strings).
 Whenever you add, rename, remove or change a user-facing action (a button, a key, a menu item, a native
 View or Conquer menu command), update its palette entry in the same change: label, `page`, `keys`, `keywords`, and the
 condition it shows under (only when it would work). Actions owned by a component reach it through
@@ -242,8 +242,8 @@ and GitHub publication; report the published version and release link.
   While it's on, a teal seal with a merge mark sits on the review medallion's upper-right rim, else the CI one's (`placeSeals`,
   `paintSeal`, `AUTO_MERGE` in `rendering/src/prStatus.ts`); the medallion's hover card says how it merges and who turned it on.
 - Top bar: native, all of it, in the macOS app (`ModeBar` in `Conquer.swift`, its height an empty unified-compact toolbar's, which centres the traffic
-  lights): the traffic lights, "PASEO COMMAND" (the bundled Barlow), the mode tabs (Command, Conquer, Activity, Linear, GitHub, Settings, those enabled;
-  ⌘1…⌘6 pick the one in that place among those shown, from anywhere in the window: `AppWindow.performKeyEquivalent` offers them to the View menu,
+  lights): the traffic lights, "PASEO COMMAND" (the bundled Barlow), the mode tabs (Command, Conquer, Activity, GitHub, Settings, those enabled;
+  ⌘1…⌘5 pick the one in that place among those shown, from anywhere in the window: `AppWindow.performKeyEquivalent` offers them to the View menu,
   whose items `numberModes` keys, ahead of the page, the terminal and Conquer's pages), Update ready, and the tools: need you, usage meters,
   What's new, mini games, keyboard shortcuts and the session panel's side, layout and show/hide (`BarButton`, `UsageMeters`). The page lies below the bar
   (`--app-bar` 0) and draws no bar of its own there (`.app-bar-hosted` in `FloatingPanel.tsx` keeps what the tools open). The page says what the tools show
@@ -254,7 +254,7 @@ and GitHub publication; report the published version and release link.
   below the bar, its page side passing events through (`PassThroughView`): a view after the web view in its own parent stays off screen until the web view is
   hidden and shown again. Check such layout with `.windowshot` (the screen's pixels), not `.snapshot`. Bar controls must be `NSButton`s: the title bar's
   toolbar passes clicks through only to controls. The panel has no header of its own and, hidden (⌘B), takes no width.
-- Conquer (experiment): the COMMAND / CONQUER strip across the macOS app's top (⌘` steps Command → Conquer → Activity → Linear → GitHub → Settings, those enabled, and ⌘1…⌘6 pick one; View menu; the tabs light on hover)
+- Conquer (experiment): the COMMAND / CONQUER strip across the macOS app's top (⌘` steps Command → Conquer → Activity → GitHub → Settings, those enabled, and ⌘1…⌘5 pick one; View menu; the tabs light on hover)
   switches the map's place between the map and Conquer, a WebKit browser (`native/Sources/PaseoCommandNative/Conquer.swift`),
   laid exactly over the map (`placeConquer` in `WorldWindow.swift`): the panels and terminal stay, and ⌘B (the page's panel toggle)
   gives it the window's width. The hidden side keeps running. Conquer takes its keys only while it has the keyboard (`hasKeyFocus`),
@@ -278,7 +278,7 @@ and GitHub publication; report the published version and release link.
   credential providers such as 1Password's) isn't available for arbitrary sites in a third-party app's WKWebView: Password AutoFill offers
   credentials only for an app's own associated domains, and the browser entitlement (`com.apple.developer.web-browser.public-key-credential`,
   granted by Apple) covers passkeys only. So there's no Conquer menu or ⌘K entry for it.
-- Pages: Linear, GitHub, Activity and Settings, which the page draws in the map's place, share one look (`web/src/styles/pages.css`): one type scale (the
+- Pages: GitHub, Activity and Settings, which the page draws in the map's place, share one look (`web/src/styles/pages.css`): one type scale (the
   app's sizes plus `--page-text`, 2 px by default), one width scale (`--lz`, from `--page-scale`, for columns, rows, controls and icons) and, in dark, one
   neutral near-black palette; each is a sidebar headed by its name beside its content, the same rows and heads. A content head is a
   `.page-head` (`pages.css`) and never overlaps: its title (`.page-crumb` parts, then `.page-head-name`, then `.page-head-count`)
@@ -286,72 +286,46 @@ and GitHub publication; report the published version and release link.
   width (container queries) tools drop their `.page-tool-label` words for icons, then `.page-head-aside`s and the count go,
   and the tools wrap under the title only when it would have less than 7em. One text size serves them all
   (`web/src/pageText.ts`, kept in localStorage): ⌘+ / ⌘− / ⌘0 anywhere in the page while one shows, ⌘K "Bigger text", "Smaller text", "Actual text size",
-  and the shortcuts dialog's Pages group; the terminal keeps those keys only while it has the keyboard. ⌘F searches where a page has search (Linear's list).
-- Linear (the mode bar's tab after Activity and before GitHub; View menu; palette "Show your Linear issues"; all only while Linear is enabled): a Linear client the page
-  draws (`web/src/linear/LinearView.tsx`) over the map's frame while the app reports `paseo:mode` `linear` (`useAppMode`, `web/src/appMode.ts`;
-  the page asks with a `mode` message). Navigation: its sidebar (`Sidebar.tsx`) is Linear's: Inbox (`Inbox.tsx`, `inboxRows.ts`; its unread rows counted in the sidebar; ⌘K "Go to your Linear inbox"): your notifications from `q/notifications` (250 a page, up to the 500 most recently updated, then a note saying so; asked again once archiving leaves it 50 below), kept current by sync, an issue's (or project's) in one row, newest first; a row opens its issue (beside) or project and is read from then; U marks it read or unread, H snoozes it (an hour, tomorrow at 9, next Monday at 9; Snoozed lists those, each to unsnooze), ⌫ archives it with Undo; Mark all read (and ⌘K) takes every unread row. Its writes act on a row's notifications together (Linear's `notification…All` by issue, project or one id, and `notificationUnarchive` for Undo), shown at once and put back if Linear refuses. Search (its head's search button, ⌘K "Search all Linear issues": every issue in the workspace matching the words, most relevant first, from `q/search`, Linear's `searchIssues`, asked 300 ms after typing pauses, from two characters, and kept as the place; the server keeps under Linear's 30 searches a minute, and a refused search says so on its screen without pausing the rest),  My issues (Assigned, Created, Subscribed),
-  each team (Triage where on, Active, Backlog, All, and Cycles where it runs them: `Cycles.tsx` lists its current, upcoming and last 120 days' cycles with their progress from `q/cycles`, each opening its issues, the `cycle:` scope, under a header counting what's done), Views (your saved views and shared ones, `q/views`, of issues and of projects, a project view marked with a box: an issue view opens its issues, the `view:` scope, which Linear filters by the view's own filter, so the store keeps what Linear returned (`members`) and asks again whenever a sync brings changed issues while it shows; its Display starts as the view is set in Linear, sub-grouping too: `viewPreferencesValues`' `issueSubGrouping`; a project view, the `projectView` place, opens the projects its filter lets through, `q/viewProjects`, displayed as Linear sets it; a project's own views (`facet.sourceProject`) aren't in the sidebar but under the project's summary, each opening under Projects › the project), Projects (`ProjectList.tsx`, each opening its issues; Filter by status, health, lead and team, Display by grouping (status, health, lead), ordering and completed projects, kept per place) and Initiatives
-  (`InitiativeList.tsx`). A place's issues (`IssueList.tsx`) show as its Display options say (`display.ts`, `ListControls.tsx`, kept per place in localStorage): a list or a board (a column per group, the team's empty states too; a card dragged to another column takes its status, assignee, priority, project or cycle, `dropChange` in `group.ts`; on a board an issue opens in the list's place), grouped (status by default, assignee, priority, project, cycle or none), sub-grouped (none by default, else any property but the grouping's: choosing the grouping's swaps the two or clears it, as Linear does; ⇅ beside Grouping swaps them; `regroup`, `swapGroupings` in `display.ts`; a list's groups hold sub-groups under smaller heads, a board's are swimlanes across its columns, `swimlanes` in `group.ts`, each folding at its head, and a card dropped in a cell takes the column's and the lane's values as one write, `dropChanges`; J/K and ↑/↓ go through rows as shown, ←/→ within a lane; ⌘K sets, clears and swaps it) and ordered (`arrangeIssues`), with finished issues all, past month or week, or none, as far as the list keeps them (`completedChoices`: none in lists of open issues, up to the past month in a team's All and a project's list, which ask Linear for what finished in the last 30 days); Filter (F, ⌘K) narrows them by status, assignee, priority, labels, project or cycle (any of a property's values, every property), shown as chips under the head; the open issue (`IssueDetail.tsx`) shows beside
-  the list from 1,100 px, else in its place with Back. The place and open issue are kept in localStorage (`place.ts`). An issue opened from outside the tab (a Linear link from the chat, Conquer or the header's chip through `paseo:link`, an Activity item: `openLinearIssue` in `appLinks.ts`) gets a place of its own, `{ screen: "issue", issue, from }` (`focusIssue`): the issue alone at full width, the sidebar marking nothing, as a new history entry after the place you had (`from`, the list); Back, Esc and the issue's Back return there, and after a reload `from` stands before it in the history (`resume` in `history.ts`). Issues opened inside the tab (a row, the Inbox, a relation, parent or sub-issue, an issue link in a description or comment, which the view takes before the app routes it) open beside the list as before. Back and forward (`history.ts`: the sidebar's arrows, ⌘[ ⌘], a mouse's back and forward buttons, ⌘K) go through the places and issues chosen while the page lives, as a browser's history: moving through a list (↑/↓, J/K), typing a search and corrections change the current entry instead of adding one.
-  Editing: the open issue's properties (`Properties.tsx`: status, priority, assignee, labels, estimate and cycle where the team uses
-  them, project, milestone, parent, due date) open a `Picker.tsx` and save at once, as does a row's context menu (status, priority,
-  assignee, labels). The title and description are edited in place (`IssueText.tsx`; click the title, or Edit description;
-  ⌘K "Rename"/"Edit … description"): Enter saves a title and Esc puts it back, an empty title isn't saved; the description opens
-  in the comment composer (Markdown, Preview, ⌘↩ saves, Cancel), kept as a draft until saved, and saving nothing clears it. Comments (`Comments.tsx`): write, edit, reply in threads, react (by Linear shortcode), resolve and delete. Attachments (`Attachments.tsx`, `files.ts`): an issue's uploaded files and links (pull requests, docs), each opening (an image in the lightbox, another file as a download in the browser, a link in the browser) or removed after confirming; Upload (or files dropped on the section) sends files to Linear and attaches them with their kind and size, Add link attaches an address (`attachmentLinkURL`, Linear naming it when untitled). Files pasted, dropped or attached in a comment or description box upload too and go in as Markdown (images show, other files link). Uploads go through the server (`POST /api/linear/upload?name=&type=`, raw bytes, 25 MB at most, `server/linear/upload.ts`: Linear's `fileUpload`, then the bytes put where it says); any upload downloads through `GET /api/linear/file?url=` (only `uploads.linear.app`, served as an attachment, never as what it says it is), and links to uploads in Linear's Markdown point there.
-  Views are managed here (`ViewDialog.tsx`): Save as view (beside the filter chips once the filters or display differ from the place's own, and ⌘K "Save the Linear list as a view…" on any list a view can say: yours, a team's tabs, a project, a cycle, Projects) makes one of what the list shows, its place's base (a team and its tab's state types, you as assignee, creator or subscriber, a project, a cycle) and filters as Linear's `IssueFilter` (or the project filters as its `ProjectFilter`) and its display as the view's preferences (a shared view's for everyone, a personal one's as yours), with a name, icon and colour, description and who sees it (you, a team, the workspace); from a project, one of the project's own views. Edit view (the view's head, its sidebar row's context menu, ⌘K "Edit the Linear view …") changes those, and can take what its list shows now (Save to view beside the chips: the view's filter ∩ the list's, and the display), after which the list starts again from the view; Delete view (the same places, after confirming) leaves for the project, Projects or the default. `viewFilter.ts` translates both ways, only what the app can say: a view whose filter has anything else opens (Linear filters it, "Filtered as set in Linear") and changes only its name, icon, description and sharing here, the dialog saying why. The writes (`customViewCreate|Update|Delete`, then `viewPreferencesCreate|Update` for the display) show at once (a new view listed as pending) and go back with a notice if Linear refuses; a display Linear refuses after saving the view says so.
-  Create issue (`CreateIssue.tsx`; the sidebar's New issue, C, ⌘K) in the place's team (or project) with its default status, and
-  Add sub-issue; relations (`Relations.tsx`: blocks, blocked by, related, duplicate) are added and removed; Subscribe, Archive (Undo in
-  a bar at the view's foot) and Delete (after confirming) from the detail or ⌘K. Every write is the user's own action (launching an
-  agent changes nothing in Linear): `linearStore.write` (`store.ts`) shows it at once and rolls it back, with a notice, if Linear refuses.
-  Keys (`keys.ts`, only while the keyboard is in the view and not typing or in a picker; the page's own J/K/N/D stand down there):
-  J/K or ↓/↑ move, Enter or O opens, Esc closes the issue, / searches the list, F filters it, C creates, S P A L M ⇧C open status, priority,
-  assignee, labels, project and cycle, I assigns to you, ⌘. and ⌘⇧, copy the branch name and link; each has its ⌘K entry and a
-  row in the shortcuts dialog's Linear group. ⌘K also has, only where they work, the open issue's estimate (teams that estimate),
-  milestone (a project with milestones), parent, due date and Add relation, Undo archiving (while its bar shows), Search the
-  Linear list, and the sidebar's places (`linear-go`, the place as `runAppCommand`'s argument; LinearView reports what's offered
-  through `onIssueOpen` and `onViewState`). Everything shows from the page's store (`store.ts`), synced at most every 20 s only
-  while the view shows and the page isn't hidden (`keepSynced`: ticks skip while `document.hidden`, and one sync runs as it
-  shows again); a scope refused for a while (rate limited) is asked again on the first tick after `retryAt`. A scope loads up
-  to 1,000 issues (the list then says it shows the most recently updated). After a complete load, issues the store lists in the
-  scope that Linear didn't return (they left it unseen: reassigned, closed, archived) are asked for by id (`q/byId`, 50 to a
-  request, 100 at most) and merged where they now belong; those Linear no longer lists, and any past the hundred, leave the
-  store (re-asking keeps other lists truthful, which dropping all wouldn't). Sync's reload (`more`) also asks for the open issue
-  and its comments. Linear doesn't move `updatedAt` on (un)subscribing, so a subscription changed elsewhere doesn't arrive by
-  sync: it shows on the next read of the issue or of Subscribed; a read begun before a write was saved never undoes it. Server (`web/server/linear/`; the page never
-  gets the key): Linear is opt-in, so `client.ts` takes the key only through `integrationKey("linear")` (`integrations.linear` in
-  `settings.json`, then `linearApiKey` in the data directory's `secrets.json`; the environment is never read). Off, every read and
-  write and the image route refuse with "Enable Linear in Settings to see your issues."; on without a key, "Add linearApiKey to
-  secrets.json to use Linear." (`LinearError` kind `no-key`; reads answer it as `LinearUnavailable`, which the view shows, writes
-  as 503). Saving, replacing or removing the key in Settings (`paseo:secrets`) refreshes the open view: named reads only (`reads.ts`, `GET /api/linear/q/workspace|issues|byId|issue|cycles|views|viewProjects|search|notifications|sync|status`) and whitelisted writes
-  (`writes.ts` `linearWrite`, `POST /api/linear/m/<name>`, each input checked field by field; no passthrough GraphQL, no `@linear/sdk`),
-  over `client.ts`, which keeps to the key's hourly budget (2,500 requests, 3,000,000 complexity; reads stand down when it runs low,
-  writes still go). Launch agent opens New agent with the issue (`DispatchTarget.issue`): Worktree on Linear's branch name, the
-  composer's draft naming the issue; presets take `{{issue}}` and the issue's details (`prompt.ts`). As Conquer's sidebar, the Linear
-  sidebar's inner edge resizes it and ⌘S hides or shows it (kept in localStorage). Its text is the pages' (see Pages below), and the terminal keeps those keys only while it has the keyboard. People show their avatar through `GET /api/linear/avatar?user=<id>` (only the address Linear gives for that member: Linear's own uploads with the key, other hosts without it; kept an hour), else their initials; a notification's actor who isn't a member (an app, a bot) shows the avatar Linear names for it (`?url=`, only addresses a notification named), else its initials on its colour. Images uploaded to Linear load through
-  `GET /api/linear/image?url=` (only `uploads.linear.app`, fetched with the key; `linearImages`). Tests never reach Linear
-  (`web/server/test-setup.ts` points the data directory and settings file at a temporary folder): server tests and e2e (`web/e2e/linear.e2e.ts`, the real route) run over the fake
-  Linear (`web/server/linear/fake.ts`, `web/e2e/linearFake.ts`; `installFakeLinear` enables Linear in the test settings file and
-  writes a fake key to the test `secrets.json`, and `restore()` puts both files back; the e2e mocks `settings.integrations.linear`). `web/scripts/linear-write-check.ts`, run by hand
-  (`cd web && PASEO_COMMAND_DATA=<data folder> npx tsx scripts/linear-write-check.ts`, the key read as the app reads it), checks the writes against the real Linear on one issue only: team DE's
-  `Paseo Command write check (safe to delete)` (made if absent), putting its edits back.
+  and the shortcuts dialog's Pages group; the terminal keeps those keys only while it has the keyboard. Their shared controls (toolbar buttons, filter chips, the searchable
+  `web/src/Picker.tsx`, row menus; `menuKeys.ts`) are styled in `web/src/styles/pickers.css` (class names `linear-*`, from the removed Linear tab).
+- Linear tab: removed at the user's request (the page: lists, board, issue detail and editing, comments, attachments,
+  relations, Create issue, views, the Inbox page, search, cycles, projects and initiatives; its mode, mode bar tab, View menu item and
+  ⌘K entries, shortcuts group and CSS; its server reads, writes and upload, file and image routes; launching an agent from an issue
+  and presets' `{{issue}}`). Don't add it back unless asked. What stays of Linear: Activity's Linear source (below), Settings' Linear
+  switch, `linearApiKey` and Linear workspace, the session header's issue chip (`HeaderLinks.tsx`, `GET /api/linear-issue`,
+  `linearIssue` in `web/server/links.ts`), and Linear links opening in Linear's desktop app (see links, below). The user's data stays
+  as it is, ignored: the old tab's localStorage (`linear:*` places, display, history) and any saved `linear` mode (the map shows).
+  Server (`web/server/linear/`; the page never gets the key): Linear is opt-in, so `client.ts` takes the key only through
+  `integrationKey("linear")` (`integrations.linear` in `settings.json`, then `linearApiKey` in the data directory's `secrets.json`; the
+  environment is never read). Off, every read and write refuses with "Enable Linear in Settings to see your issues."; on without a key,
+  "Add linearApiKey to secrets.json to use Linear." (`LinearError` kind `no-key`). `reads.ts`: the workspace's address (`urlKey`), people
+  and teams (kept five minutes) and your Inbox (`readNotifications`); `writes.ts` `linearWrite`: only Activity's
+  `notificationMarkReadAll|MarkUnreadAll|ArchiveAll`, each input checked field by field (no passthrough GraphQL, no `@linear/sdk`);
+  `client.ts` keeps to the key's hourly budget (2,500 requests, 3,000,000 complexity; reads stand down when it runs low, writes still
+  go). `route.ts`: only `GET /api/linear/avatar?user=<id>`, a member's avatar (only the address Linear gives for that member: Linear's
+  own uploads with the key, other hosts without it; kept an hour, `avatar.ts`). Tests never reach Linear (`web/server/test-setup.ts`
+  points the data directory and settings file at a temporary folder): they run over the fake Linear (`web/server/linear/fake.ts`:
+  the workspace, the Inbox and its writes; `installFakeLinear` enables Linear in the test settings file and writes a fake key to the
+  test `secrets.json`, and `restore()` puts both files back).
 - Activity (the mode bar's first page tab, after Command and Conquer, while GitHub or Linear is enabled; its tab shows the unread count, the page's
   `activity` message): GitHub and Linear notifications in one feed the page draws (`web/src/activity/ActivityView.tsx`), newest
   first, grouped by day, filtered by source or unread, with the selected one's preview beside it from 1,100 px; the sidebar's and the preview's edges resize them (`web/src/ResizeEdge.tsx`; arrow keys too, double-click restores the default; kept in localStorage). Opening one
-  (`open.ts`) goes where it lives: pull requests in the GitHub tab ("Review in GitHub", through the app's link routing), other GitHub in Conquer, Linear issues and projects in the Linear tab; it's read from then. Keys: J/K move, Enter/O open, U read/unread, ⇧U all shown read, E/⌫ done, ⇧E all shown done (Mark all done; asks first), 1–3 all and the sources; each with
+  (`open.ts`, by its address) goes where it lives: pull requests in the GitHub tab ("Review in GitHub", through the app's link routing), Linear issues and projects in Linear's desktop app ("Open in Linear"; Conquer without it), other GitHub in Conquer, in a browser a new tab; it's read from then. Keys: J/K move, Enter/O open, U read/unread, ⇧U all shown read, E/⌫ done, ⇧E all shown done (Mark all done; asks first), 1–3 all and the sources; each with
   its ⌘K entry and the shortcuts dialog's Activity group. Server (`web/server/activity/`, `GET /api/activity`, `POST
   /api/activity/m/read|unread|done` with `{keys}`): `github.ts` (opt-in `integrations.github`: `GET /notifications` with the GitHub
   token, unread and the past 14 days, cached a minute; read and done through the API; GitHub can't mark unread, and its list still has threads marked done, as read ones, so those done here are kept in the data directory's `github-activity.json` by when GitHub last changed them and left out across launches until they change again), `linear.ts` (the
-  Inbox's notifications, one per issue or project, through Linear's whitelisted writes; a pull request notification, which Linear
-  gives no issue, opens the issue its branch or title names, of the workspace's teams: `issueKeysIn` in `normalize.ts`,
-  `pullRequestIssueKey` in `inboxRows.ts`, as the Linear tab's Inbox does), `feed.ts` (a source that fails says why without hiding the rest). The page's store
+  Inbox's notifications, one per issue or project, as Linear's Inbox groups them (`web/server/linear/inbox.ts`), not the snoozed, through
+  Linear's whitelisted writes; an issue's links to the issue on linear.app, and a pull request notification, which Linear gives no issue,
+  to the issue its branch or title names, of the workspace's teams (`issueKeysIn` in `normalize.ts`, `pullRequestIssueKey` in
+  `inbox.ts`; the address from the workspace's `urlKey`, else `linearWorkspace`, else another notification's), `feed.ts` (a source that fails says why without hiding the rest). The page's store
   (`store.ts`) polls every 30 s while the view shows, else every minute in the macOS app for the tab's count.
 - Slack: removed at the user's request (the tab, its server, Activity's Slack source, Slack link routing, launching
   agents from Slack, Settings → Slack). Don't add it back unless asked. The user's data stays as it is, ignored: `settings.json`'s
   `integrations.slack` and `slackSections`, `secrets.json`'s `slackUserToken`/`slackAppToken` (saving either file keeps them) and
   `slack-activity.json`.
-- GitHub (the mode bar's tab after Linear; View menu; palette "Show GitHub"; all only while `integrations.github` is on): pull
+- GitHub (the mode bar's tab after Activity; View menu; palette "Show GitHub"; all only while `integrations.github` is on): pull
   requests and workspaces' changes the page draws (`web/src/github/GitHubView.tsx`) over the map's frame while the app reports `paseo:mode`
-  `github`, as Linear is. Its sidebar: Workspace (the selected workspace's, or the selected agent's, Changes, and its PR when known) and
+  `github`, as Activity is. Its sidebar: Workspace (the selected workspace's, or the selected agent's, Changes, and its PR when known) and
   Pull requests (Review requests, Your pull requests, Involving you, each counted), then Repositories (`RepoNav.tsx`, `GET /api/github/q/repos`:
   one GraphQL query for your, your organizations' and collaborations' repositories, those of PRs involving you and of your favourites, each
   counting its open PRs): only Favourites (starred repositories, and those of starred organizations, whose heads show even with none open),
@@ -362,10 +336,10 @@ and GitHub publication; report the published version and release link.
   minute; over the budget, those known answer with a note), and names the owner typed when GitHub has it; ↓/↑ move through what's found, Enter
   opens the first, Esc clears it. A star on a repository's row, an owner's head or an owner found (S, ⌘K) stars it; stars are the app's own, kept in the data
   directory's `settings.json` as `githubStars` (`web/server/github/stars.ts`, `POST /api/github/m/star`; the file's other keys kept, an
-  unreadable file never overwritten). As Linear's, the sidebar's inner edge resizes it and ⌘S hides or shows it (`github:sidebarHidden`
+  unreadable file never overwritten). As Conquer's, the sidebar's inner edge resizes it and ⌘S hides or shows it (`github:sidebarHidden`
   in localStorage; ⌘K "Show or hide the GitHub sidebar"; the page takes the key while GitHub shows), whatever shows beside it.
   A repository's PRs (the `repo` place; `GET /api/github/q/prs?repo=&state=&author=&reviewer=&assignee=&review=&draft=&checks=`,
-  50 newest) show with filters as Linear's do (`RepoFilters.tsx`, `filters.ts`: Filter (F) and chips under the head): state
+  50 newest) show with filters (`RepoFilters.tsx`, `filters.ts`: Filter (F) and chips under the head): state
   (open by default, closed, merged), author, reviewer and assignee (any of several people, `@me` being you, comma-joined; each offers you first, then
   the repository's recent PR authors, then its assignable users, with avatars, searchable by login or name: `GET /api/github/q/people?repo=`,
   `readPeople`, one GraphQL query of `assignableUsers` and recent PRs' authors, kept five minutes), review (required, approved, changes requested),
@@ -386,7 +360,7 @@ and GitHub publication; report the published version and release link.
   server's tests run it too (GFM's HTML: tables in a scrolling frame, images only from GitHub's hosts, lazy and fitting the column,
   `<details>`, `<kbd>`, `<sub>`/`<sup>`, task lists, alerts with their icons, highlighting's `pl-*` classes; never scripts, styles,
   handlers, frames, forms, non-web URLs or the app's classes; ids only GitHub's `user-content-`; comments dropped). Its links open as
-  others do (a PR in the tab, a Linear issue in Linear's, others in Conquer; footnotes scroll). Without HTML (over 400 KB, a draft,
+  others do (a PR in the tab, a Linear issue in Linear's desktop app, others in Conquer; footnotes scroll). Without HTML (over 400 KB, a draft,
   Preview) the Markdown is drawn, hidden comments on lines of their own left out. Styled in `github.css` (`.gh-html`).
   Its header shows Open Paseo agent while a Paseo workspace, on any host, has the PR's branch checked out (`paseo.ts`, `paseoMatches`,
   over the page's fleet: the PR Paseo names for the workspace, else the workspace's branch and remote against the PR's head ref and
@@ -446,11 +420,15 @@ and GitHub publication; report the published version and release link.
   otherwise) and `web/e2e/github.e2e.ts` in the browser.
 - Web links clicked in the chat (`.session`, `openInAppBrowser` in `web/src/Session.tsx`, `postAppLink` → the `openLink` message)
   switch to Conquer and open there as a new tab, once its tabs are restored (`whenStarted`).
-- Links to a GitHub pull request (see GitHub, above) or a Linear issue (`linear.app/<workspace>/issue/<KEY>`) open in the GitHub and Linear tabs while those are on, wherever they're clicked: the chat,
-  a Conquer page (⌥-click stays there), an issue's description, the header's issue chip. The app matches them (`pageMode`, `routeLink`
-  in `WorldWindow.swift`) and sends the page `paseo:link`; `web/src/appLinks.ts` (`parseAppLink`, the same shapes) opens it, or
-  hands it back to Conquer (`openLink` with `direct`) when it isn't the workspace's team. Slack links are ordinary links (Conquer). "Open in Linear" posts
-  `external`, the default browser.
+- Links to a GitHub pull request (see GitHub, above) open in the GitHub tab while it's on, wherever they're clicked: the chat,
+  a Conquer page (⌥-click stays there), a PR's body. The app matches them (`pageMode`, `routeLink` in `WorldWindow.swift`) and sends
+  the page `paseo:link`; `web/src/appLinks.ts` (`parseAppLink`, the same shape) opens it. Links to a Linear issue or project
+  (`linear.app/<workspace>/issue/<KEY>…`, `…/project/<slug>…`; the chat, a Conquer page, a PR's body, the header's issue chip and L,
+  Activity's Linear items) open in Linear's desktop app when it's installed, else as other links do (Conquer; in a browser, a new
+  tab): `LinearLink` (`native/Sources/PaseoCommandNative/LinearLink.swift`, tested by `native/tests/LinearLinkTests.swift`) maps
+  the address to Linear's documented deep link, `linear://` and the rest of it (`linear://<workspace>/issue/<KEY>…`), and opens it
+  only when Launch Services names an app for it (`NSWorkspace.urlForApplication(toOpen:)`); nothing is installed and no other app
+  launched. Slack links are ordinary links (Conquer).
 
 ## Atlas world
 
@@ -479,7 +457,7 @@ and a strict axial hex grid. It is not a screenshot used as a background.
 The sea's glints and cloud shadows drift slowly in 15 Hz steps. The world renders on demand: 30 fps for ambient
 motion, full rate while handled, paused when nothing moves or the window is hidden.
 The inherited React UI is preserved; its panels follow the system's appearance: the Galaxy theme (as in the user's
-reference) when it is dark, the Light theme when it is light (`worldLook` in `web/src/theme.ts`). In dark, the Linear tab uses neutral near-black greys of its own instead of the Galaxy navy (the sidebar darkest, the list and open issue one plane; `linear.css`). The terminal panel and Conquer's chrome and pages follow it too
+reference) when it is dark, the Light theme when it is light (`worldLook` in `web/src/theme.ts`). In dark, the pages (GitHub, Activity, Settings) use neutral near-black greys of their own instead of the Galaxy navy (`pages.css`). The terminal panel and Conquer's chrome and pages follow it too
 (their tones are `Ink` in `native/Sources/PaseoCommandNative/Textures.swift`).
 Five original references may be retained locally in ignored `design/references/atlas-01.webp` through `atlas-05.webp`; they are not redistributed.
 Artwork provenance and generation prompts are in `rendering/ASSETS.md`.

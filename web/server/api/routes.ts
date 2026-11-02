@@ -159,7 +159,7 @@ export async function handleApi(
       return reply(400, { error: errorText(error) });
     }
   }
-  // The Linear tab: named reads from Linear, never the daemon; uploaded images load only with the API key.
+  // Linear members' avatars, for Activity's Linear rows (with the API key for Linear's own uploads).
   if (url.pathname.startsWith("/api/linear/")) return linearRoute(req, url, res, reply);
   // The Activity tab: GitHub and Linear notifications in one feed, never the daemon.
   if (url.pathname === "/api/activity" || url.pathname.startsWith("/api/activity/")) return activityRoute(req, url, reply);

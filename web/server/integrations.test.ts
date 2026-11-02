@@ -12,8 +12,8 @@ import {
 import { integrationEnabled, integrationKey } from "./integrations";
 import { readSecret, saveSecret } from "./secrets";
 import { DISABLED, LinearError, resetLinearClient } from "./linear/client";
-import { linearImage } from "./linear/image";
-import { readIssue, readIssues, readWorkspace, resetLinearReads } from "./linear/reads";
+import { linearAvatar } from "./linear/avatar";
+import { readNotifications, readWorkspace, resetLinearReads } from "./linear/reads";
 import { linearWrite } from "./linear/writes";
 import { LINEAR, linearIssue, resetLinks } from "./links";
 import { createAsksService, type Judge } from "./asks";
@@ -48,15 +48,14 @@ test("integrations stay off with saved keys; every Linear route and TypeSafe avo
   const disabled = (e: unknown) =>
     e instanceof LinearError && e.kind === "no-key" && e.message === DISABLED;
   await assert.rejects(() => readWorkspace(), disabled);
-  await assert.rejects(() => readIssues("assigned"), disabled);
-  await assert.rejects(() => readIssue("ENG-12"), disabled);
+  await assert.rejects(() => readNotifications(), disabled);
   await assert.rejects(
-    () => linearWrite("issueUpdate", { id: "11111111-1111-4111-8111-111111111111", priority: 2 }),
+    () => linearWrite("notificationArchiveAll", { issueId: "11111111-1111-4111-8111-111111111111" }),
     disabled,
   );
   assert.equal((await linearIssue("ENG-12")).available, false);
   assert.equal(
-    (await linearImage("https://uploads.linear.app/test.png")).status,
+    (await linearAvatar("https://uploads.linear.app/test.png")).status,
     404,
   );
   let judges = 0;

@@ -29,12 +29,8 @@ export type ActivityItem = {
   /** When it last changed (ISO). */
   at: string;
   unread: boolean;
-  /** Where it opens: a web address (GitHub, else the source's page). */
+  /** Where it opens: a web address (GitHub's; Linear's, the issue's when it names one). */
   url?: string;
-  /** Where it opens in the app, when it can: a Linear issue (by key) or project. */
-  open?:
-    | { kind: "linear-issue"; key: string }
-    | { kind: "linear-project"; id: string };
   /** GitHub: the PR's or issue's state, when known (open, closed, merged, draft). */
   state?: string;
 };

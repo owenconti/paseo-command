@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { CircleCheck, CircleDot, Eye, FilePen, ListFilter, UserCheck, UserRound, UserRoundPen, X } from "lucide-react";
-import { menuKeys } from "../linear/ListControls";
-import { Picker, placeBelow, type PickerOption } from "../linear/Picker";
+import { menuKeys } from "../menuKeys";
+import { Picker, placeBelow, type PickerOption } from "../Picker";
 import { readPath, useGithubRead } from "./api";
 import { Avatar } from "./bits";
 import {

@@ -1,6 +1,6 @@
 /* ── Activity tab ───────────────────────────────────────────────────────
    In the map's place while the macOS app's mode bar shows Activity, as the
-   Linear tab is: filters in a sidebar, the feed, the selected item beside it.
+   GitHub tab is: filters in a sidebar, the feed, the selected item beside it.
    Opaque, over the map's frame. */
 .activity-view {
   position: absolute;

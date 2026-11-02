@@ -1,5 +1,8 @@
 # Linear client: foundation and issue editing — Implementation Plan
 
+> Historical. The Linear tab was later removed at the user's request; Activity's Linear source, Settings'
+> Linear key and the header's issue chip remain, and Linear links open in Linear's desktop app. See AGENTS.md.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Turn the Linear tab into a Linear client that navigates like Linear (My issues, teams, projects, initiatives) and edits issues fully (properties, comments, creation, sub-issues, relations, subscription, archive).

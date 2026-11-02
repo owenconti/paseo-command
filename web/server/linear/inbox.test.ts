@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { inboxEntity, inboxGroups, inboxText, pullRequestIssueKey, snoozeTimes, unreadCount } from "./inboxRows";
+import { inboxGroups, inboxText, pullRequestIssueKey } from "./inbox";
 import type { LinearNotification } from "./types";
 
 const NOW = Date.parse("2026-10-31T12:00:00Z");
@@ -37,24 +37,11 @@ test("inbox: an issue's notifications in one row, newest first, unread if any is
     "a snooze that has passed is back; archived ones are gone",
   );
   assert.deepEqual(inboxGroups(list, NOW, true).map((g) => g.key), ["issue:i2"]);
-  assert.equal(unreadCount(list, NOW), 3);
-  assert.deepEqual(rows.map(inboxEntity), [{ issueId: "i1" }, { projectId: "p1" }, { issueId: "i3" }, { id: "g" }]);
 });
 
 test("inbox: a row's words", () => {
   const [row] = inboxGroups([n("a", "2026-10-31T10:00:00Z", { issueId: "i1", issueKey: "ENG-1", commentBody: "Can we\nstart?" })], NOW);
   assert.deepEqual(inboxText(row), { key: "ENG-1", title: "Ship the Linear tab", what: "Sam Rivera commented: “Can we start?”" });
-  assert.equal(inboxText(row, "Renamed").title, "Renamed");
-});
-
-test("inbox: snoozing for an hour, until tomorrow at 9, or next Monday at 9", () => {
-  const friday = new Date(2026, 9, 30, 15, 20);
-  const [hour, tomorrow, week] = snoozeTimes(friday);
-  assert.equal(hour.at.getTime() - friday.getTime(), 3_600_000);
-  assert.deepEqual([tomorrow.at.getDate(), tomorrow.at.getHours(), tomorrow.at.getMinutes()], [31, 9, 0]);
-  assert.deepEqual([week.at.getDay(), week.at.getDate(), week.at.getHours()], [1, 2, 9]);
-  // On a Monday, next week is the Monday after.
-  assert.equal(snoozeTimes(new Date(2026, 10, 2, 8))[2].at.getDate(), 9);
 });
 
 test("inbox: a pull request's row opens the issue its branch or title names, of the workspace's teams", () => {

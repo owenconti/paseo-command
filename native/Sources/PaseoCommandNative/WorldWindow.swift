@@ -36,7 +36,7 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
     let content: NSView
     /// Covers the window until the map has drawn (see `revealWhenDrawn`).
     let splash: SplashView
-    /// The strip across the top that switches between Command, Conquer, Activity, Linear, GitHub and Settings.
+    /// The strip across the top that switches between Command, Conquer, Activity, GitHub and Settings.
     let modeBar: ModeBar
     /// Command: the map, the page over it, the split over that and its splash, under the mode bar.
     let command: NSView
@@ -264,7 +264,7 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         let point = CGPoint(x: body["x"] as? Double ?? 0, y: body["y"] as? Double ?? 0)
         switch type {
         case "mode":
-            // The page asks which side shows (it draws Linear, GitHub and Activity itself, over the map).
+            // The page asks which side shows (it draws GitHub, Activity and Settings itself, over the map).
             sendMode()
         case "activity":
             // Activity's unread count, for its tab.
@@ -296,15 +296,12 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
             }
             drawer.show(selected)
         case "openLink":
-            // A link clicked in the chat: a new Conquer tab, in the map's place.
-            // A Linear issue or GitHub pull request goes to the page for its tab, unless the page sent it `direct`.
+            // A link clicked in the chat: a new Conquer tab, in the map's place. A Linear issue opens
+            // in Linear's desktop app when it's installed; a GitHub pull request goes to the page for
+            // its tab, unless the page sent it `direct`.
             if let text = body["url"] as? String, let url = URL(string: text), url.scheme?.hasPrefix("http") == true {
+                if LinearLink.openInApp(url) { break }
                 if body["direct"] as? Bool == true || !routeLink(url) { openInApp(url) }
-            }
-        case "external":
-            // "Open in Linear": the default browser, never the app's own tabs.
-            if let text = body["url"] as? String, let url = URL(string: text), ["http", "https"].contains(url.scheme?.lowercased() ?? "") {
-                NSWorkspace.shared.open(url)
             }
         case "loaded":
             // The page has its first fleet and has handed it to the world.
@@ -323,7 +320,6 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
             case "terminal-actual": drawer.zoom(0)
             case "conquer": show(.conquer)
             case "mode-next": show(nextMode)
-            case "linear": show(.linear)
             case "github": show(.github)
             case "activity": show(.activity)
             case "settings": show(.settings)
@@ -636,12 +632,13 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
     }
 
     /// Links that open a new window (PRs, issues) go to the default browser: web and
-    /// mail links only, never `file:` or another app's URL scheme.
+    /// mail links only, never `file:` or another app's URL scheme. A Linear issue opens in
+    /// Linear's desktop app, else in Conquer.
     func webView(_ webView: WKWebView, createWebViewWith configuration: WKWebViewConfiguration,
                  for navigationAction: WKNavigationAction, windowFeatures: WKWindowFeatures) -> WKWebView? {
         if let url = navigationAction.request.url, ["http", "https", "mailto"].contains(url.scheme?.lowercased() ?? ""),
            !routeLink(url) {
-            NSWorkspace.shared.open(url)
+            openOutside(url)
         }
         return nil
     }
@@ -655,7 +652,7 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         if let url = navigationAction.request.url, !notice, !WebOrigin.matches(url, to: options.url) {
             if navigationAction.navigationType == .linkActivated,
                ["http", "https", "mailto"].contains(url.scheme?.lowercased() ?? ""), !routeLink(url) {
-                NSWorkspace.shared.open(url)
+                openOutside(url)
             }
             return decisionHandler(.cancel)
         }
@@ -779,7 +776,7 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         return c.url ?? options.url
     }
 
-    /// Switch the map's place between the map, the browser and Linear (⌘` steps through them),
+    /// Switch the map's place between the map, the browser and the pages (⌘` steps through them),
     /// which the page draws over its map; the panels and terminal stay, and ⌘B (the page's
     /// panel toggle) gives the browser the width.
     /// The side not shown keeps running: the map's page and Conquer's tabs stay live.
@@ -813,34 +810,41 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
               "width": button.width, "height": button.height], as: "paseo:bar")
     }
 
-    /// Tell the page which side shows, so it draws Linear, GitHub or Activity in the map's place.
+    /// Tell the page which side shows, so it draws GitHub, Activity or Settings in the map's place.
     private func sendMode() { send(["mode": mode.rawValue], as: "paseo:mode") }
 
-    /// Open `url` in a new Conquer tab (a link from the chat), in the map's
-    /// place, once its tabs and cookies are in.
-    /// The page's tab a link opens in: a Linear issue (`linear.app/<workspace>/issue/<KEY>`) or a GitHub
-    /// pull request (`github.com/<owner>/<repo>/pull/<n>…`), as the page's `parseAppLink` reads them.
+    /// The page's tab a link opens in: a GitHub pull request (`github.com/<owner>/<repo>/pull/<n>…`),
+    /// as the page's `parseAppLink` reads it.
     static func pageMode(for url: URL) -> Mode? {
         guard ["http", "https"].contains(url.scheme?.lowercased() ?? ""), let host = url.host?.lowercased() else { return nil }
         let parts = url.path.split(separator: "/").map(String.init)
         func matches(_ text: String, _ pattern: String) -> Bool {
             text.range(of: pattern, options: [.regularExpression, .caseInsensitive]) != nil
         }
-        if host == "linear.app", parts.count >= 3, parts[1] == "issue", matches(parts[2], "^[a-z][a-z0-9]{0,9}-[0-9]{1,6}$") { return .linear }
         if host == "github.com" || host == "www.github.com", parts.count >= 4, parts[2] == "pull",
            matches(parts[0], "^[A-Za-z0-9_.-]{1,100}$"), matches(parts[1], "^[A-Za-z0-9_.-]{1,100}$"),
            matches(parts[3], "^[0-9]{1,9}$") { return .github }
         return nil
     }
 
-    /// Hands a Linear issue's or GitHub pull request's link to the page, which opens it in that tab
-    /// (or back in Conquer when it isn't the workspace's); false when that tab is off or it's another link.
+    /// Opens a link elsewhere: a Linear issue in Linear's desktop app (`LinearLink`), or hands a GitHub
+    /// pull request's link to the page, which opens it in its tab; false when it's another link (or
+    /// the GitHub tab is off).
     func routeLink(_ url: URL) -> Bool {
+        if LinearLink.openInApp(url) { return true }
         guard let mode = Self.pageMode(for: url), enabledModes.contains(mode) else { return false }
         send(["url": url.absoluteString], as: "paseo:link")
         return true
     }
 
+    /// A link the page opens in a new window: the default browser, but a Linear page (with no Linear
+    /// app to take it) in Conquer, as the chat's links are.
+    private func openOutside(_ url: URL) {
+        if LinearLink.appURL(for: url) != nil { openInApp(url) } else { NSWorkspace.shared.open(url) }
+    }
+
+    /// Open `url` in a new Conquer tab (a link from the chat), in the map's
+    /// place, once its tabs and cookies are in.
     func openInApp(_ url: URL) {
         show(.conquer)
         conquer.whenStarted { [weak self] in self?.conquer.open(url) }

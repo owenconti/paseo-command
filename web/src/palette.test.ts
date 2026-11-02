@@ -57,32 +57,32 @@ test("among equal matches the page on screen comes first, never ahead of a bette
   const rows = [
     command("Add project", { page: "Command" }),
     command("Show projects", { page: "Command", group: "Lists" }),
-    command("Change the Linear issue's project", { page: "Linear", keys: [["M"]] }),
-    command("Go to Linear projects", { page: "Linear" }),
-    command("project", { page: "Linear" }),
+    command("Filter the repository's pulls by project", { page: "GitHub", keys: [["M"]] }),
+    command("Go to GitHub projects", { page: "GitHub" }),
+    command("project", { page: "GitHub" }),
   ];
   // Command shown: the order the matches alone give.
   assert.deepEqual(labels(rankCommands(rows, "project", "Command")), [
     "project",
     "Add project",
     "Show projects",
-    "Change the Linear issue's project",
-    "Go to Linear projects",
+    "Filter the repository's pulls by project",
+    "Go to GitHub projects",
   ]);
-  // Linear shown: its own lead among the word-start matches, but the exact
-  // label still leads and Command's word-start matches stay above Linear's
+  // GitHub shown: its own lead among the word-start matches, but the exact
+  // label still leads and Command's word-start matches stay above GitHub's
   // weaker ones.
-  assert.deepEqual(labels(rankCommands(rows, "project", "Linear")), [
+  assert.deepEqual(labels(rankCommands(rows, "project", "GitHub")), [
     "project",
-    "Change the Linear issue's project",
-    "Go to Linear projects",
+    "Filter the repository's pulls by project",
+    "Go to GitHub projects",
     "Add project",
     "Show projects",
   ]);
-  assert.deepEqual(labels(rankCommands(rows, "add", "Linear")), ["Add project"]);
+  assert.deepEqual(labels(rankCommands(rows, "add", "GitHub")), ["Add project"]);
   // No query: the page on screen changes nothing.
   assert.deepEqual(
-    labels(rankCommands(rows, "", "Linear")),
+    labels(rankCommands(rows, "", "GitHub")),
     labels(rankCommands(rows, "")),
   );
 });

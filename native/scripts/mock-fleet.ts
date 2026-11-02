@@ -12,6 +12,8 @@
  * verdict (one of each state), so each shows a Probe medallion; the
  * second's and fourth's PRs have auto-merge on, so their poles wear its seal.
  * `--stats` gives each host a load for its banner (the first one's disk nearly full).
+ * `--integrations github,linear` turns those integrations on in `GET /api/settings`, so the mode
+ * bar shows their tabs (their own reads stay unmocked).
  */
 import { createReadStream, existsSync, statSync } from "node:fs";
 import { createServer } from "node:http";
@@ -82,6 +84,13 @@ const lists: Record<string, unknown> = {
   workspaces: fleet.workspaces,
   hosts: fleet.hosts,
 };
+const integrations = option("integrations", "").split(",").filter(Boolean);
+if (integrations.length)
+  lists.settings = {
+    linearWorkspace: "",
+    integrations: Object.fromEntries(["linear", "github", "typesafe"].map((name) => [name, integrations.includes(name)])),
+    error: null,
+  };
 
 /** What `mockApi` answers for a GET. */
 function answer(path: string): [number, unknown] {

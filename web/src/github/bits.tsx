@@ -151,8 +151,8 @@ export function Body({ text, html, empty }: { text: string; html?: string; empty
 
 /**
  * A link in GitHub's HTML opens as other links do: a pull request in this tab
- * (a Linear issue in Linear's), others in Conquer (a browser tab outside the
- * app); a footnote's in-page link scrolls to its note.
+ * (a Linear issue in Linear's desktop app when it's installed), others in
+ * Conquer (a browser tab outside the app); a footnote's in-page link scrolls to its note.
  */
 function followLink(e: MouseEvent<HTMLElement>) {
   if (e.button !== 0) return;

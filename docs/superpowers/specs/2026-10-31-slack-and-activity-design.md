@@ -1,7 +1,7 @@
 # Slack tab and Activity tab
 
 > Historical. The Slack tab and Activity's Slack source were later removed at the user's request; Activity
-> remains, with GitHub and Linear. See AGENTS.md.
+> remains, with GitHub and Linear (the Linear tab was removed too). See AGENTS.md.
 
 ## Intent
 

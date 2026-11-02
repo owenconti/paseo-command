@@ -152,7 +152,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
             guard let main = self?.main else { return }
             main.show(main.mode == .command ? .conquer : .command)
         }
-        listen("com.paseo.command.native.linear") { [weak self] in self?.main?.show(.linear) }
         listen("com.paseo.command.native.github") { [weak self] in self?.main?.show(.github) }
         listen("com.paseo.command.native.activity") { [weak self] in self?.main?.show(.activity) }
         // Run `<info>.do`'s Conquer steps, one a line, a second apart (checks; see `ConquerView.check`).
@@ -321,7 +320,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
             item.representedObject = mode.rawValue
             return item
         }
-        // ⌘` steps Command → Conquer → Activity → Linear → GitHub → Settings → Command, through those shown
+        // ⌘` steps Command → Conquer → Activity → GitHub → Settings → Command, through those shown
         // (ahead of macOS's own window cycling, as the app has one window).
         view.addItem(withTitle: "Next: Command, Conquer", action: #selector(toggleMode), keyEquivalent: "`").target = self
         view.addItem(.separator())
@@ -410,10 +409,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         case #selector(maximizeTerminal):
             item.state = main.drawer.maximized ? .on : .off
             return !main.drawer.isHidden
-        // Only while the terminal shows, so the keys stay the page's otherwise; while Linear or
-        // GitHub shows, only while the terminal has the keyboard (the page sizes their text with them).
+        // Only while the terminal shows, so the keys stay the page's otherwise; while a page
+        // (GitHub, Activity, Settings) shows, only while the terminal has the keyboard (the page sizes their text with them).
         case #selector(zoomTerminal(_:)):
-            // The pages (Linear, GitHub, Activity, Settings) size their own text with these keys.
+            // The pages (GitHub, Activity, Settings) size their own text with these keys.
             return !main.drawer.isHidden && (!main.mode.drawnByPage || main.drawer.hasKeyFocus)
         default: break
         }

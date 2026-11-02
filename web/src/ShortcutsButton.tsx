@@ -63,7 +63,6 @@ const TAB_NAMES: Record<AppMode, string> = {
   command: "the map",
   conquer: "the browser (Conquer)",
   activity: "Activity",
-  linear: "Linear",
   github: "GitHub",
   settings: "Settings",
 };
@@ -73,50 +72,19 @@ const NATIVE: Group = {
     { keys: [["⌃", "`"]], label: "Show or hide the terminal" },
     {
       keys: [["⌘", "`"]],
-      label: "Next in the map's place: the map, the browser (Conquer), Activity, Linear, GitHub, Settings",
+      label: "Next in the map's place: the map, the browser (Conquer), Activity, GitHub, Settings",
     },
-    { keys: [["⌘", "1…6"]], label: "The mode bar's tab in that place: the map, the browser (Conquer), Settings" },
+    { keys: [["⌘", "1…5"]], label: "The mode bar's tab in that place: the map, the browser (Conquer), Settings" },
     { keys: [["⌘", ","]], label: "Settings, or back from it" },
   ],
 };
-/** The Linear tab's keys (`linear/keys.ts`), as in Linear, while the keyboard is in it. */
-const LINEAR: Group = {
-  title: "Linear",
-  note: "In the Linear tab, outside text fields",
-  rows: [
-    { keys: [["J"], ["↓"]], label: "Next issue" },
-    { keys: [["K"], ["↑"]], label: "Previous issue" },
-    { keys: [["Enter"], ["O"]], label: "Open the issue" },
-    { keys: [["Esc"]], label: "Close the issue" },
-    { keys: [["/"]], label: "Search the list" },
-    { keys: [["F"]], label: "Filter the list" },
-    { keys: [["C"]], label: "Create an issue" },
-    { keys: [["S"]], label: "Change the status" },
-    { keys: [["P"]], label: "Change the priority" },
-    { keys: [["A"]], label: "Assign" },
-    { keys: [["I"]], label: "Assign to you" },
-    { keys: [["L"]], label: "Change the labels" },
-    { keys: [["M"]], label: "Change the project" },
-    { keys: [["⇧", "C"]], label: "Change the cycle" },
-    { keys: [["⌘", "."]], label: "Copy the issue's branch name" },
-    { keys: [["⌘", "⇧", ","]], label: "Copy the issue's link" },
-    { keys: [["U"]], label: "Inbox: mark the notification read or unread" },
-    { keys: [["H"]], label: "Inbox: snooze the notification" },
-    { keys: [["⌫"]], label: "Inbox: archive the notification" },
-    { keys: [["⌘", "S"]], label: "Show or hide the sidebar" },
-    { keys: [["⌘", "["], ["⌘", "]"]], label: "Back or forward" },
-    { keys: [["⌘", "Enter"]], label: "Send a comment, reply or edit" },
-    { keys: [["⌘", "Enter"]], label: "Create the issue (New issue)" },
-  ],
-};
-/** What every page (Linear, GitHub, Activity, Settings) takes, while it shows (`pageText.ts`). */
+/** What every page (GitHub, Activity, Settings) takes, while it shows (`pageText.ts`). */
 const PAGES: Group = {
   title: "Pages",
-  note: "In Linear, GitHub, Activity and Settings",
+  note: "In GitHub, Activity and Settings",
   rows: [
     { keys: [["⌘", "+"], ["⌘", "−"]], label: "Bigger or smaller text (one size for every page)" },
     { keys: [["⌘", "0"]], label: "Actual text size" },
-    { keys: [["⌘", "F"], ["/"]], label: "Search (Linear's list)" },
   ],
 };
 /** The Activity tab's keys (`activity/ActivityView.tsx`), while the keyboard is in it. */
@@ -126,7 +94,7 @@ const ACTIVITY: Group = {
   rows: [
     { keys: [["J"], ["↓"]], label: "Next notification" },
     { keys: [["K"], ["↑"]], label: "Previous notification" },
-    { keys: [["Enter"], ["O"]], label: "Open it (pull requests and Linear in their tabs, other GitHub in Conquer)" },
+    { keys: [["Enter"], ["O"]], label: "Open it (pull requests in the GitHub tab, Linear in its desktop app, else in Conquer)" },
     { keys: [["U"]], label: "Mark it read or unread" },
     { keys: [["⇧", "U"]], label: "Mark every shown notification read" },
     { keys: [["E"], ["⌫"]], label: "Done: leave it out of Activity" },
@@ -283,7 +251,7 @@ function ShortcutsDialog({ onClose }: { onClose: () => void }) {
     return () => window.removeEventListener("keydown", key, true);
   }, [present, onClose]);
   const { integrations } = useIntegrations();
-  // The mode bar's tabs shown, in its order (⌘` steps through them, ⌘1…⌘6 pick one).
+  // The mode bar's tabs shown, in its order (⌘` steps through them, ⌘1…⌘5 pick one).
   const tabNames = shownModes(integrations).map((mode) => TAB_NAMES[mode]);
   const groups = (
     macApp()
@@ -292,7 +260,6 @@ function ShortcutsDialog({ onClose }: { onClose: () => void }) {
           NATIVE,
           PAGES,
           ...(activityEnabled(integrations) ? [ACTIVITY] : []),
-          ...(integrations.linear ? [LINEAR] : []),
           ...(integrations.github ? [GITHUB] : []),
           CONQUER,
         ]
@@ -303,7 +270,7 @@ function ShortcutsDialog({ onClose }: { onClose: () => void }) {
       .filter(
         (row) =>
           integrations.linear ||
-          !/^(Open the Linear issue|Linear:)/.test(row.label),
+          !/^Open the Linear issue/.test(row.label),
       )
       .map((row) =>
         row.label.startsWith("Next in the map's place")

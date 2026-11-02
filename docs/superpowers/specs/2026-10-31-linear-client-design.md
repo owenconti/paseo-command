@@ -1,5 +1,8 @@
 # Linear in Paseo Command: a working client (plan)
 
+> Historical. The Linear tab was later removed at the user's request; Activity's Linear source, Settings'
+> Linear key and the header's issue chip remain, and Linear links open in Linear's desktop app. See AGENTS.md.
+
 ## Intent
 
 The Linear tab should be where daily Linear work happens: triage the inbox, move issues along,

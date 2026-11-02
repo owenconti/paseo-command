@@ -80,10 +80,6 @@ import type { MergeAction } from "./github/merge";
 import { FILTERS as PR_FILTERS, fieldLabel as prFieldLabel, filtersSet as prFiltersSet, ME as PR_ME, PEOPLE_FIELDS as PR_PEOPLE_FIELDS, VALUE_FIELDS as PR_VALUE_FIELDS } from "./github/filters";
 import { useActivityUnread } from "./activity/store";
 import { SOURCE_LABEL } from "./activity/rows";
-import type { IssueContext } from "./linear/prompt";
-import type { LinearOpenIssue, LinearViewState } from "./linear/LinearView";
-import type { LinearPlace } from "./linear/place";
-import { GROUPING_LABEL } from "./linear/display";
 import { createGithubToken } from "./GithubTokenSetup";
 import { useAppUpdate } from "./releases";
 import { AddProject } from "./AddProject";
@@ -157,7 +153,6 @@ const MODE_PAGES: Record<AppMode, Page> = {
   command: "Command",
   conquer: "Conquer",
   activity: "Activity",
-  linear: "Linear",
   github: "GitHub",
   settings: "Settings",
 };
@@ -167,11 +162,7 @@ const unity = true;
 const NativeWorld = React.lazy(() =>
   import("./NativeWorld").then((module) => ({ default: module.NativeWorld })),
 );
-// The Linear tab, drawn over the map while the app's mode bar shows it.
-const LinearView = React.lazy(() =>
-  import("./linear/LinearView").then((module) => ({ default: module.LinearView })),
-);
-// The Activity tab (GitHub and Linear notifications), likewise.
+// The Activity tab (GitHub and Linear notifications), drawn over the map while the app's mode bar shows it.
 const ActivityView = React.lazy(() =>
   import("./activity/ActivityView").then((module) => ({ default: module.ActivityView })),
 );
@@ -887,15 +878,9 @@ function App() {
     ],
   );
 
-  // The mode bar's tab (macOS app): Linear draws its issues in the map's place.
+  // The mode bar's tab (macOS app): Activity, GitHub and Settings draw in the map's place.
   const appMode = useAppMode();
   const settingsShown = useSettingsShown(appMode);
-  // The issue open in the Linear tab, for ⌘K's edits of it.
-  const [linearIssueOpen, setLinearIssueOpen] = useState<LinearOpenIssue | undefined>();
-  // The Linear tab's places, Undo and list, for ⌘K's entries for them.
-  const [linearView, setLinearView] = useState<LinearViewState | undefined>();
-  // Whether the Linear tab's workspace is in, for ⌘K's Create Linear issue.
-  const [linearReady, setLinearReady] = useState(false);
   // The Activity tab's filter and selected item, for ⌘K's entries for them.
   const [activityView, setActivityView] = useState<ActivityViewState | undefined>();
   const showActivity = appTabs(integrations).activity;
@@ -938,19 +923,13 @@ function App() {
     openGithubPlace({ kind: "changes" });
     postAppMenu("github");
   }, []);
-  // Linear, GitHub, Activity and Settings share one text size (⌘+ ⌘− ⌘0, `pageText.ts`).
+  // GitHub, Activity and Settings share one text size (⌘+ ⌘− ⌘0, `pageText.ts`).
   const pageShown =
     settingsShown ||
-    (appMode === "linear" && integrations.linear) ||
     (appMode === "github" && integrations.github) ||
     (appMode === "activity" && showActivity);
   usePageTextKeys(pageShown);
   const appUpdate = useAppUpdate();
-  // From a Linear issue: New agent, where the host and project are chosen.
-  const launchFromIssue = useCallback(
-    (issue: IssueContext) => openDispatch({ issue }),
-    [openDispatch],
-  );
 
   // Cmd+N, and the native app's File > Dispatch Agent… (which takes the key
   // before WebKit), open the Dispatch Agent flow for the current selection
@@ -1318,12 +1297,11 @@ function App() {
     command: "map",
     conquer: "browser",
     activity: "Activity",
-    linear: "Linear",
     github: "GitHub",
     settings: "Settings",
   };
   const modeTabs = shownModes(integrations).map((mode) => [mode, modeNames[mode]] as const);
-  // A tab's ⌘1…⌘6, in the macOS app.
+  // A tab's ⌘1…⌘5, in the macOS app.
   const tabKeys = (mode: AppMode) => (macApp() ? [modeKey(integrations, mode)] : undefined);
   const paletteCommands: Command[] = [
     {
@@ -1689,39 +1667,6 @@ function App() {
                 },
               ]
             : []),
-          ...(integrations.linear
-            ? appMode !== "linear"
-              ? [
-                  {
-                    id: "linear-show",
-                    group: "App",
-                    page: "Linear" as const,
-                    label: "Show your Linear issues",
-                    keys: tabKeys("linear"),
-                    keywords: "linear issues tickets assigned tasks mode tab",
-                    run: () => postAppMenu("linear"),
-                  },
-                ]
-              : [
-                  {
-                    id: "linear-sidebar",
-                    group: "App",
-                    page: "Linear" as const,
-                    label: "Show or hide the Linear sidebar",
-                    keys: [["⌘", "S"]],
-                    keywords: "linear sidebar list navigation collapse panel",
-                    run: () => runAppCommand("linear-sidebar"),
-                  },
-                  {
-                    id: "linear-refresh",
-                    group: "App",
-                    page: "Linear" as const,
-                    label: "Refresh Linear issues",
-                    keywords: "linear issues projects reload update sync",
-                    run: () => runAppCommand("linear-refresh"),
-                  },
-                ]
-            : []),
           ...(appMode !== "command"
             ? [
                 {
@@ -1757,59 +1702,6 @@ function App() {
               ]
             : []),
         ]
-      : []),
-    // The issue open in the Linear tab (shown only there): its pickers.
-    ...(integrations.linear && appMode === "linear" && linearIssueOpen
-      ? (
-          [
-            ["linear-status", "Change the Linear issue's status", "linear issue state workflow progress done todo", ["S"]],
-            ["linear-priority", "Change the Linear issue's priority", "linear issue urgent high medium low", ["P"]],
-            ["linear-assignee", "Assign the Linear issue", "linear issue assignee owner person unassign", ["A"]],
-            ...(linearIssueOpen.mine
-              ? []
-              : ([["linear-assign-me", "Assign the Linear issue to you", "linear issue assignee me myself take", ["I"]]] as const)),
-            ["linear-labels", "Change the Linear issue's labels", "linear issue labels tags bug feature", ["L"]],
-            ["linear-project", "Change the Linear issue's project", "linear issue project move", ["M"]],
-            ...(linearIssueOpen.hasCycles
-              ? ([["linear-cycle", "Change the Linear issue's cycle", "linear issue cycle sprint iteration", ["⇧", "C"]]] as const)
-              : []),
-          ] as const
-        ).map(([command, label, keywords, keys]) => ({
-          id: command,
-          group: "App",
-          page: "Linear" as const,
-          label,
-          keys: [[...keys]],
-          keywords,
-          run: () => runAppCommand(command),
-        }))
-      : []),
-    // The open issue's other properties, and a relation to add.
-    ...(integrations.linear && appMode === "linear" && linearIssueOpen
-      ? (
-          [
-            ...(linearIssueOpen.hasEstimates
-              ? ([["linear-estimate", "Change the Linear issue's estimate", "linear issue estimate points size effort"]] as const)
-              : []),
-            ...(linearIssueOpen.hasMilestones
-              ? ([["linear-milestone", "Change the Linear issue's milestone", "linear issue project milestone phase"]] as const)
-              : []),
-            ["linear-parent", "Change the Linear issue's parent", "linear issue parent sub-issue child under move"],
-            ["linear-due-date", "Set the Linear issue's due date", "linear issue due date deadline calendar day"],
-            [
-              "linear-add-relation",
-              `Add relation to ${linearIssueOpen.key}`,
-              "linear issue relation blocks blocked by related duplicate link depends",
-            ],
-          ] as const
-        ).map(([command, label, keywords]) => ({
-          id: command,
-          group: "App",
-          page: "Linear" as const,
-          label,
-          keywords,
-          run: () => runAppCommand(command),
-        }))
       : []),
     ...(integrations.github
       ? [
@@ -2144,323 +2036,6 @@ function App() {
             : []),
         ]
       : []),
-    ...(integrations.linear && appMode === "linear" && linearView?.inboxUnread
-      ? [
-          {
-            id: "linear-inbox-read-all",
-            group: "App",
-            page: "Linear" as const,
-            label: "Mark all Linear notifications read",
-            keywords: "linear inbox notifications read all clear unread",
-            run: () => runAppCommand("linear-inbox-read-all"),
-          },
-        ]
-      : []),
-    // Back and forward through where the Linear tab has been.
-    ...(integrations.linear && appMode === "linear" && linearView?.canBack
-      ? [
-          {
-            id: "linear-back",
-            group: "App",
-            page: "Linear" as const,
-            label: "Go back (Linear)",
-            keys: [["⌘", "["]],
-            keywords: "linear back previous history return",
-            run: () => runAppCommand("linear-back"),
-          },
-        ]
-      : []),
-    ...(integrations.linear && appMode === "linear" && linearView?.canForward
-      ? [
-          {
-            id: "linear-forward",
-            group: "App",
-            page: "Linear" as const,
-            label: "Go forward (Linear)",
-            keys: [["⌘", "]"]],
-            keywords: "linear forward next history",
-            run: () => runAppCommand("linear-forward"),
-          },
-        ]
-      : []),
-    ...(integrations.linear && appMode === "linear" && linearView?.canSaveView
-      ? [
-          {
-            id: "linear-save-view",
-            group: "App",
-            page: "Linear" as const,
-            label: "Save the Linear list as a view…",
-            keywords: "linear view save custom saved filters display new create bookmark",
-            run: () => runAppCommand("linear-save-view"),
-          },
-        ]
-      : []),
-    ...(integrations.linear && appMode === "linear" && linearView?.shownView
-      ? [
-          {
-            id: "linear-edit-view",
-            group: "App",
-            page: "Linear" as const,
-            label: `Edit the Linear view ${linearView.shownView.name}…`,
-            keywords: "linear view edit rename icon colour color description share sharing team workspace filters display update save",
-            run: () => runAppCommand("linear-edit-view"),
-          },
-          {
-            id: "linear-delete-view",
-            group: "App",
-            page: "Linear" as const,
-            label: `Delete the Linear view ${linearView.shownView.name}…`,
-            keywords: "linear view delete remove trash custom saved",
-            run: () => runAppCommand("linear-delete-view"),
-          },
-        ]
-      : []),
-    ...(integrations.linear && appMode === "linear" && linearView?.undoKey
-      ? [
-          {
-            id: "linear-undo-archive",
-            group: "App",
-            page: "Linear" as const,
-            label: `Undo archiving ${linearView.undoKey}`,
-            keywords: "linear issue unarchive restore archive undo back",
-            run: () => runAppCommand("linear-undo-archive"),
-          },
-        ]
-      : []),
-    ...(integrations.linear && appMode === "linear" && linearView?.canSearch
-      ? [
-          {
-            id: "linear-search",
-            group: "App",
-            page: "Linear" as const,
-            label: "Search the Linear list",
-            keys: [["/"]],
-            keywords: "linear issues filter find search list",
-            run: () => runAppCommand("linear-search"),
-          },
-          {
-            id: "linear-filter",
-            group: "App",
-            page: "Linear" as const,
-            label: "Filter the Linear list",
-            keys: [["F"]],
-            keywords: "linear issues filter status assignee priority labels project cycle narrow",
-            run: () => runAppCommand("linear-filter"),
-          },
-          {
-            id: "linear-display",
-            group: "App",
-            page: "Linear" as const,
-            label: "Linear display options",
-            keywords: "linear issues display view group grouping sub-grouping order ordering sort completed board list",
-            run: () => runAppCommand("linear-display"),
-          },
-          linearView.list?.layout === "board"
-            ? {
-                id: "linear-layout-list",
-                group: "App",
-                page: "Linear" as const,
-                label: "Show the Linear issues as a list",
-                keywords: "linear issues layout list rows display",
-                run: () => runAppCommand("linear-layout", "list"),
-              }
-            : {
-                id: "linear-layout-board",
-                group: "App",
-                page: "Linear" as const,
-                label: "Show the Linear issues as a board",
-                keywords: "linear issues layout board kanban columns display",
-                run: () => runAppCommand("linear-layout", "board"),
-              },
-          // Sub-grouping: by any property but the grouping's (a list that's grouped), cycles where a team runs them.
-          ...(linearView.list && linearView.list.grouping !== "none"
-            ? (["status", "assignee", "priority", "project", "cycle"] as const)
-                .filter(
-                  (g) =>
-                    g !== linearView.list!.grouping &&
-                    g !== linearView.list!.subGrouping &&
-                    (g !== "cycle" || linearView.teams.some((t) => t.cyclesEnabled)),
-                )
-                .map((g) => ({
-                  id: `linear-sub-group-${g}`,
-                  group: "App",
-                  page: "Linear" as const,
-                  label: `Sub-group the Linear list by ${GROUPING_LABEL[g].toLowerCase()}`,
-                  keywords: `linear issues display sub-grouping subgroup sub-group group swimlanes rows ${g}`,
-                  run: () => runAppCommand("linear-sub-group", g),
-                }))
-            : []),
-          ...(linearView.list && linearView.list.subGrouping !== "none"
-            ? [
-                {
-                  id: "linear-sub-group-none",
-                  group: "App",
-                  page: "Linear" as const,
-                  label: "Clear the Linear list's sub-grouping",
-                  keywords: "linear issues display sub-grouping subgroup sub-group remove none swimlanes",
-                  run: () => runAppCommand("linear-sub-group", "none"),
-                },
-                {
-                  id: "linear-swap-groupings",
-                  group: "App",
-                  page: "Linear" as const,
-                  label: "Swap the Linear list's grouping and sub-grouping",
-                  keywords: "linear issues display grouping sub-grouping subgroup swap exchange flip switch",
-                  run: () => runAppCommand("linear-swap-groupings"),
-                },
-              ]
-            : []),
-          ...(linearView.list?.filtered
-            ? [
-                {
-                  id: "linear-clear-filters",
-                  group: "App",
-                  page: "Linear" as const,
-                  label: "Clear the Linear list's filters",
-                  keywords: "linear issues filters remove reset clear all",
-                  run: () => runAppCommand("linear-clear-filters"),
-                },
-              ]
-            : []),
-        ]
-      : []),
-    // The Linear tab's places, as its sidebar has them (each team's views only when searched for).
-    ...(integrations.linear && appMode === "linear" && linearView
-      ? (
-          [
-            [{ screen: "inbox" }, "Go to your Linear inbox", "linear inbox notifications unread mentions comments", false],
-            [{ screen: "my", tab: "assigned" }, "Go to Linear issues assigned to you", "linear my issues assigned mine", false],
-            [{ screen: "my", tab: "created" }, "Go to Linear issues you created", "linear my issues created author", false],
-            [{ screen: "my", tab: "subscribed" }, "Go to Linear issues you're subscribed to", "linear my issues subscribed following", false],
-            ...linearView.teams.flatMap((team) =>
-              (
-                [
-                  ...(team.triageEnabled ? ([["triage", "Triage"]] as const) : []),
-                  ["active", "Active"],
-                  ["backlog", "Backlog"],
-                  ["all", "All issues"],
-                ] as const
-              ).map(
-                ([tab, name]) =>
-                  [
-                    { screen: "team", teamId: team.id, tab },
-                    `Go to ${team.name}'s ${name} (Linear)`,
-                    `linear team ${team.name} ${name} view issues`,
-                    true,
-                  ] as [LinearPlace, string, string, boolean],
-              ),
-            ),
-            // Each team's cycles, and its current one, where the team runs them.
-            ...linearView.teams.flatMap((team) =>
-              team.cyclesEnabled
-                ? [
-                    [
-                      { screen: "cycles", teamId: team.id },
-                      `Go to ${team.name}'s cycles (Linear)`,
-                      `linear team ${team.name} cycles sprints iterations`,
-                      true,
-                    ] as [LinearPlace, string, string, boolean],
-                    ...(team.currentCycleId
-                      ? [
-                          [
-                            { screen: "cycle", teamId: team.id, cycleId: team.currentCycleId },
-                            `Go to ${team.name}'s current cycle (Linear)`,
-                            `linear team ${team.name} current active cycle sprint iteration`,
-                            true,
-                          ] as [LinearPlace, string, string, boolean],
-                        ]
-                      : []),
-                  ]
-                : [],
-            ),
-            // Your saved views: of issues, of projects, and projects' own.
-            ...linearView.views.map(
-              (view) =>
-                [
-                  view.model === "project" ? { screen: "projectView", viewId: view.id } : { screen: "view", viewId: view.id },
-                  view.project
-                    ? `Go to ${view.project}'s view ${view.name} (Linear)`
-                    : `Go to ${view.name} (Linear ${view.model === "project" ? "project view" : "view"})`,
-                  `linear saved custom view ${view.model === "project" ? "projects project view" : "issues"} ${view.name} ${view.project ?? ""}`,
-                  true,
-                ] as [LinearPlace, string, string, boolean],
-            ),
-            [{ screen: "projects" }, "Go to Linear projects", "linear projects roadmap", false],
-            [{ screen: "initiatives" }, "Go to Linear initiatives", "linear initiatives goals", false],
-          ] as [LinearPlace, string, string, boolean][]
-        ).map(([place, label, keywords, searchOnly]) => ({
-          id: `linear-go:${JSON.stringify(place)}`,
-          group: "App",
-          page: "Linear" as const,
-          label,
-          keywords,
-          searchOnly: searchOnly || undefined,
-          run: () => runAppCommand("linear-go", place),
-        }))
-      : []),
-    ...(integrations.linear && appMode === "linear" && linearReady
-      ? [
-          {
-            id: "linear-find",
-            group: "App",
-            page: "Linear" as const,
-            label: "Search all Linear issues",
-            keywords: "linear search find issues workspace everywhere all teams",
-            run: () => runAppCommand("linear-find"),
-          },
-          {
-            id: "linear-create",
-            group: "App",
-            page: "Linear" as const,
-            label: "Create Linear issue",
-            keys: [["C"]],
-            keywords: "linear new issue ticket task bug add write",
-            run: () => runAppCommand("linear-create"),
-          },
-        ]
-      : []),
-    ...(integrations.linear && appMode === "linear" && linearIssueOpen
-      ? (
-          [
-            ["linear-comment", `Comment on ${linearIssueOpen.key}`, "linear issue comment reply write discuss note"],
-            ["linear-edit-title", `Rename ${linearIssueOpen.key}`, "linear issue title rename edit name"],
-            ["linear-edit-description", `Edit ${linearIssueOpen.key}'s description`, "linear issue description body edit write markdown"],
-            ["linear-sub-issue", `Add sub-issue to ${linearIssueOpen.key}`, "linear issue child sub-issue new create"],
-            [
-              "linear-subscribe",
-              linearIssueOpen.subscribed
-                ? `Unsubscribe from ${linearIssueOpen.key}`
-                : `Subscribe to ${linearIssueOpen.key}`,
-              "linear issue notifications follow watch subscribe unsubscribe",
-            ],
-            ...(linearIssueOpen.hasBranch
-              ? ([
-                  [
-                    "linear-copy-branch",
-                    `Copy ${linearIssueOpen.key}'s branch name`,
-                    "linear issue git branch clipboard",
-                    ["⌘", "."],
-                  ],
-                ] as const)
-              : []),
-            ...(linearIssueOpen.hasLink
-              ? ([
-                  ["linear-copy-link", `Copy ${linearIssueOpen.key}'s link`, "linear issue url clipboard share", ["⌘", "⇧", ","]],
-                ] as const)
-              : []),
-            ["linear-archive", `Archive ${linearIssueOpen.key}`, "linear issue archive hide close"],
-            ["linear-delete", `Move ${linearIssueOpen.key} to Linear's trash`, "linear issue delete remove trash"],
-          ] as const
-        ).map(([command, label, keywords, keys]) => ({
-          id: command,
-          group: "App",
-          page: "Linear" as const,
-          label,
-          keys: keys ? [[...keys]] : undefined,
-          keywords,
-          run: () => runAppCommand(command),
-        }))
-      : []),
     {
       id: "sounds",
       group: "App",
@@ -2498,7 +2073,7 @@ function App() {
           page: "App" as const,
           label,
           keys: [[...keys]],
-          keywords: `${words} linear github activity settings page`,
+          keywords: `${words} github activity settings page`,
           run: () => runAppCommand(id),
         }))
       : []),
@@ -2719,17 +2294,6 @@ function App() {
             {showActivity && appMode === "activity" && (
               <React.Suspense fallback={null}>
                 <ActivityView onNotice={setNotice} onViewState={setActivityView} />
-              </React.Suspense>
-            )}
-            {integrations.linear && appMode === "linear" && (
-              <React.Suspense fallback={null}>
-                <LinearView
-                  onLaunch={launchFromIssue}
-                  onNotice={setNotice}
-                  onIssueOpen={setLinearIssueOpen}
-                  onReady={setLinearReady}
-                  onViewState={setLinearView}
-                />
               </React.Suspense>
             )}
             {settingsShown && (
