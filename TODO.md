@@ -5,13 +5,6 @@ mark it done with its commit once merged into `main`.
 
 ## Open
 
-- [ ] **Slack: a Recent section, and your own channel sections.** The sidebar (`web/src/slack/Sidebar.tsx`,
-  `sections.ts`) has Channels and Direct messages. Add Recent at the top: the ~20 most recent conversations,
-  threads and group DMs with activity (yours or others'), newest first, each opening its conversation or
-  thread. Ideally the sidebar also shows the custom sections you've made in the Slack app. Slack's public Web
-  API doesn't expose sidebar sections (the client's `users.channelSections.*` is undocumented and wants a
-  browser session token), so check first. If no documented, user-token way exists, don't use the internal one:
-  report back, and offer sections made in the app instead (kept in `settings.json`). Workspace: `slack-recent-and-sections`.
 - [ ] **Linear: project views, and managing views.** The sidebar's Views (`q/views`) lists only issue views.
   Show Linear's project views too (custom views of projects, with their project filter), each opening a project
   list filtered as the view says (`ProjectList.tsx`), and a project's own views where Linear has them. Add view
@@ -48,6 +41,12 @@ mark it done with its commit once merged into `main`.
 
 ## Done
 
+- [x] **Slack: a Recent section, and your own channel sections.** Recent tops the sidebar: the 20 conversations and
+  threads you're in with the newest messages, newest first, each opening its conversation or thread (threads read as
+  they show). Slack's Web API has no documented method for the sections made in Slack (only the client's undocumented
+  `users.channelSections.*`, with a session token, not used), so sections are made in the app: create, rename, reorder,
+  delete, move conversations in by menu, drag or ⌘K; kept per workspace in `settings.json`. Commit "Slack: Recent, and
+  sidebar sections of your own".
 - [x] **Linear: sub-grouping in lists and boards, as Linear has.** Display offers Sub-grouping (none, or any property
   but Grouping's; picking Grouping's swaps or clears it) and ⇅ beside Grouping to swap them; kept per place, displays
   saved before keep none. A list's groups hold sub-groups under their own heads; a board's sub-groups are swimlanes

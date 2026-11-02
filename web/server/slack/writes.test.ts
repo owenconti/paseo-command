@@ -20,7 +20,7 @@ const invalid = (pattern?: RegExp) => (e: unknown) => e instanceof SlackError &&
 const last = (method: string) => fake.calls.filter((c) => c.method === method).at(-1)!.params;
 
 test("exactly the shared write names", () => {
-  assert.deepEqual(Object.keys(WRITES).sort(), ["delete", "edit", "mark", "openDm", "post", "react", "share", "unreact"]);
+  assert.deepEqual(Object.keys(WRITES).sort(), ["delete", "edit", "mark", "openDm", "post", "react", "readThread", "sections", "share", "unreact"]);
 });
 
 test("every input is checked field by field before anything is sent", async () => {

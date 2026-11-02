@@ -8,6 +8,8 @@
 import { after, before, test } from "node:test";
 import assert from "node:assert/strict";
 import type { Browser, Page } from "playwright";
+import { followSlackThread } from "../server/activity/slack";
+import { readSettings } from "../server/settings";
 import { FAKE_IDS, fakeWorkspace } from "../server/slack/fake";
 import { PNG, launch, mockApi, newContext, startApp, waitFor } from "./harness";
 import { mockSlack } from "./slackFake";
@@ -153,6 +155,64 @@ test("a message sent as Markdown keeps its links; a link Slack couldn't preview 
     assert.equal(await card.getByRole("link").getAttribute("href"), "https://linear.app/acme/initiative/file-based-diagonal");
     // Jo isn't the workspace's: named from her message's own profile.
     await view.locator('.slack-message[data-ts="1730000200.000100"]', { hasText: "Jo" }).waitFor();
+  } finally {
+    slack.restore();
+    await context.close();
+  }
+});
+
+test("Recent lists the threads you're in and opens them; your own sections are made, filled by menu and drag, and deleted", async () => {
+  const context = await newContext(browser);
+  const page = await context.newPage();
+  await mockApi(page, { agents: () => [], lists: { settings: { integrations: { slack: true } } } });
+  const slack = await mockSlack(page);
+  // You replied in #general's thread before (the socket or a post would have noted it).
+  followSlackThread(FAKE_IDS.general, FAKE_IDS.ts.parent, FAKE_IDS.ts.reply2);
+  try {
+    await page.goto(app.url);
+    await page.locator(".fleet-sidebar").waitFor();
+    await showSlack(page);
+    const view = page.locator(".slack-view");
+    const sidebar = view.locator(".slack-sidebar");
+    const recent = sidebar.locator(".slack-nav-recent");
+    const thread = recent.locator(`[data-thread="${FAKE_IDS.general}:${FAKE_IDS.ts.parent}"]`);
+    await thread.waitFor();
+    assert.match(await thread.innerText(), /Thread in #general · Shall we ship \*Friday\*\?/);
+    await thread.click();
+    await view.locator(".slack-thread .slack-message", { hasText: "Agreed" }).waitFor();
+    assert.equal(await thread.getAttribute("aria-current"), "page");
+    // The conversation read for the thread joins Recent by its newest message.
+    await recent.locator(`[data-recent-conversation="${FAKE_IDS.general}"]`).waitFor();
+
+    // A new section, named in place.
+    await sidebar.getByRole("button", { name: "New section" }).click();
+    const name = sidebar.getByRole("textbox", { name: "New section's name" });
+    await name.fill("Team");
+    await name.press("Enter");
+    const team = sidebar.locator("section[data-section]", { hasText: "Team" });
+    await team.locator(".slack-nav-note", { hasText: "Drag conversations here." }).waitFor();
+
+    // #random moves in by its menu, the DM by dragging it there.
+    await sidebar.locator(`[data-conversation="${FAKE_IDS.random}"]`).click({ button: "right" });
+    await page.getByRole("menuitem", { name: "Move to Team" }).click();
+    await team.locator(`[data-conversation="${FAKE_IDS.random}"]`).waitFor();
+    await sidebar.locator(`section:not([data-section]) [data-conversation="${FAKE_IDS.dm}"]`).dragTo(team.locator("h3"));
+    await team.locator(`[data-conversation="${FAKE_IDS.dm}"]`).waitFor();
+    const saved = () => (readSettings()?.slackSections as Record<string, { name: string; conversationIds: string[] }[]> | undefined)?.[FAKE_IDS.team];
+    await waitFor(
+      () => Promise.resolve(saved()),
+      (s) => s?.[0]?.conversationIds.length === 2,
+      "the sections saved",
+    );
+    assert.deepEqual(saved()?.map((s) => [s.name, s.conversationIds]), [["Team", [FAKE_IDS.random, FAKE_IDS.dm]]]);
+    assert.equal(await sidebar.locator(`section:not([data-section]) [data-conversation="${FAKE_IDS.random}"]`).count(), 0);
+
+    // Deleted after confirming: its conversations go back.
+    await team.getByRole("button", { name: "Team section options" }).click();
+    await page.getByRole("menuitem", { name: "Delete section…" }).click();
+    await team.getByRole("button", { name: "Delete" }).click();
+    await waitFor(() => Promise.resolve(saved()), (s) => s?.length === 0, "the section deleted");
+    await sidebar.locator(`[data-conversation="${FAKE_IDS.random}"]`).waitFor();
   } finally {
     slack.restore();
     await context.close();

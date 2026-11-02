@@ -174,6 +174,91 @@
   color: #fff;
   font-variant-numeric: tabular-nums;
 }
+/* Recent's threads, and the app's own sections */
+.slack-nav-words {
+  font-weight: var(--fw-regular);
+  color: var(--text-4);
+}
+.slack-nav-thread.selected .slack-nav-words {
+  color: var(--text-3);
+}
+.slack-nav h3.slack-nav-own {
+  display: flex;
+  align-items: center;
+}
+.slack-nav-own .slack-nav-section {
+  flex: 1;
+  min-width: 0;
+}
+.slack-nav-section-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.slack-nav-more {
+  flex-shrink: 0;
+  width: calc(22px * var(--lz));
+  height: calc(22px * var(--lz));
+  opacity: 0;
+}
+.slack-nav-own:hover .slack-nav-more,
+.slack-nav-more:focus-visible {
+  opacity: 1;
+}
+.slack-nav section.drop-target {
+  border-radius: var(--radius-md);
+  box-shadow: inset 0 0 0 1px var(--accent-text);
+  background: var(--row-hover);
+}
+.slack-nav-name {
+  width: 100%;
+  height: calc(26px * var(--lz));
+  padding: 0 var(--space-2);
+  font-size: var(--fs-sm);
+}
+.slack-nav-new {
+  margin-top: var(--space-3);
+}
+.slack-nav-add {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: var(--space-3);
+  padding: 0 var(--space-2);
+  height: calc(26px * var(--lz));
+  border-radius: var(--radius-md);
+  background: transparent;
+  font-size: var(--fs-xs);
+  color: var(--text-4);
+}
+.slack-nav-add:hover {
+  background: var(--row-hover);
+  color: var(--text-2);
+}
+.slack-nav-confirm {
+  margin: 2px var(--space-2) var(--space-2);
+}
+.menu-anchor.slack-menu-anchor {
+  position: fixed;
+  z-index: 60;
+  width: 0;
+  height: 0;
+}
+.popover-menu.slack-menu {
+  /* In the page's body (a portal), outside the pages' width scale. */
+  min-width: 200px;
+}
+.slack-menu > button {
+  padding: 6px 9px;
+  white-space: nowrap;
+}
+.slack-menu > button:focus-visible {
+  background: var(--fill-strong);
+}
+.slack-menu > button.danger-text {
+  color: var(--red);
+}
+
 .slack-sidebar-foot {
   display: flex;
   flex-direction: column;

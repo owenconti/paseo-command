@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent } from "react";
 import { MessagesSquare, PanelLeftOpen, RefreshCw } from "lucide-react";
 import { errorMessage, readStore, removeStore, writeStore } from "../api";
-import { onAppCommand } from "../appCommands";
+import { onAppCommand, runAppCommand } from "../appCommands";
 import { modalOpen } from "../focus";
 import { useSecretRevision } from "../integrationSettings";
 import { isTyping } from "../worldShortcut";
@@ -12,11 +12,12 @@ import { checkPlace, readPlace, writePlace, type SlackPlace } from "./place";
 import type { SlackContext } from "./prompt";
 import { Search } from "./Search";
 import { Sidebar } from "./Sidebar";
-import { listed, sidebarSections, stepConversation } from "./sections";
+import { listed, moveConversation, recentItems, sectionOf, sidebarSections, stepConversation } from "./sections";
 import {
   compareTs,
   findMessage,
   loadHistory,
+  loadRecent,
   loadThread,
   loadUnreads,
   loadWorkspace,
@@ -49,7 +50,15 @@ export type SlackViewState = {
   canLaunch: boolean;
   /** The search shows (Esc closes it). */
   searching: boolean;
+  /** The app's own sidebar sections, and the one holding the open conversation (⌘K's "Move … to …"). */
+  sections: { id: string; name: string }[];
+  openSectionId?: string;
+  /** Recent has rows (⌘K's "Go to Recent"). */
+  hasRecent: boolean;
 };
+
+/** Runs a command once this one's handlers are done (the sidebar may be showing again first). */
+const runAppCommandLater = (name: "slack-new-section", arg?: unknown) => requestAnimationFrame(() => runAppCommand(name, arg));
 
 /** The sidebar's width: its default, and the least it and the rest of the view keep. */
 const SIDEBAR = { width: 260, min: 180, restMin: 360 };
@@ -65,8 +74,8 @@ const LAYERS = ".popover-menu, .autocomplete, .lightbox, .slack-confirm";
 
 /**
  * The Slack tab, in the map's place (the macOS app's mode bar), laid out as
- * Slack is: the sidebar (Unreads, Starred, Channels, Direct messages, and
- * search), the open conversation, and its open thread beside it (in its
+ * Slack is: the sidebar (Recent, Unreads, your own sections, Starred,
+ * Channels, Direct messages, and search), the open conversation, and its open thread beside it (in its
  * place when narrow). Messages come live from the app server's events (or
  * by polling every 20 s while they can't), and a conversation is marked
  * read as its newest message shows. Any message (or thread) can start an
@@ -155,6 +164,11 @@ export function SlackView({
     watch.observe(view);
     return () => watch.disconnect();
   }, [view]);
+  const showSidebar = () =>
+    setSidebarHidden((hidden) => {
+      if (hidden) writeStore("slack:sidebarHidden", false);
+      return false;
+    });
   const toggleSidebar = () =>
     setSidebarHidden((hidden) => {
       writeStore("slack:sidebarHidden", !hidden);
@@ -175,7 +189,7 @@ export function SlackView({
   );
   useEffect(() => {
     loadWs(false)
-      .then(() => loadUnreads())
+      .then(() => Promise.all([loadUnreads(), loadRecent()]))
       .catch(() => {});
   }, [loadWs]);
   const refresh = () => {
@@ -183,7 +197,7 @@ export function SlackView({
     setRevision((r) => r + 1);
     const { conversationId: c, threadTs: t } = placeRef.current;
     Promise.all([
-      loadWs(true).then(() => loadUnreads()),
+      loadWs(true).then(() => Promise.all([loadUnreads(), loadRecent()])),
       c ? loadHistory(c, true) : undefined,
       c && t ? loadThread(c, t, true) : undefined,
     ])
@@ -202,7 +216,7 @@ export function SlackView({
   // With nothing open, the first conversation that needs you, else the first channel.
   const order = useCallback(() => {
     const d = slackStore.getState();
-    return sidebarSections(d.conversations.values(), (c) => titleWith(d.users, c), keepRef.current).flatMap((s) => s.items);
+    return sidebarSections(d.conversations.values(), (c) => titleWith(d.users, c), keepRef.current, d.sections).flatMap((s) => s.items);
   }, []);
   useEffect(() => {
     if (!ws || placeRef.current.conversationId) return;
@@ -229,6 +243,23 @@ export function SlackView({
     [setPlace],
   );
   const openThread = useCallback((ts: string) => setPlace({ ...placeRef.current, threadTs: ts, ts: undefined }), [setPlace]);
+  const openThreadIn = useCallback(
+    (id: string, ts: string) => {
+      setSearching(false);
+      setPlace({ conversationId: id, threadTs: ts });
+    },
+    [setPlace],
+  );
+  // A thread you're in reads as its newest reply shows (Recent and Activity follow).
+  const newestReply = useSlack((d) => {
+    if (!conversationId || !threadTs) return undefined;
+    const t = d.threads.get(`${conversationId}:${threadTs}`);
+    return t?.loaded ? (t.replies.filter((m) => !m.pending).at(-1)?.ts ?? threadTs) : undefined;
+  });
+  const threadUnread = useSlack((d) => d.recentThreads.some((t) => t.conversationId === conversationId && t.threadTs === threadTs && t.unread));
+  useEffect(() => {
+    if (conversationId && threadTs && newestReply && threadUnread) void slackStore.readThread(conversationId, threadTs, newestReply);
+  }, [conversationId, threadTs, newestReply, threadUnread]);
   const closeThread = useCallback(() => {
     const { threadTs: _, ts: __, ...rest } = placeRef.current;
     setPlace(rest);
@@ -306,6 +337,19 @@ export function SlackView({
         requestAnimationFrame(() => composerFocus.current?.());
       }),
       onAppCommand("slack-launch", () => launchFrom()),
+      // The sidebar opens Recent and goes to it, or names a new section: hidden, it shows first.
+      onAppCommand("slack-recent", showSidebar),
+      onAppCommand("slack-new-section", showSidebar),
+      onAppCommand("slack-move-to-section", (arg) => {
+        const c = placeRef.current.conversationId;
+        if (!c) return;
+        const all = slackStore.getState().sections;
+        if (arg === "new") return void runAppCommandLater("slack-new-section", c);
+        if (typeof arg === "string" && !all.some((x) => x.id === arg)) return;
+        if (arg !== null && typeof arg !== "string") return;
+        if (arg === null && !sectionOf(all, c)) return;
+        void slackStore.saveSections(moveConversation(all, c, arg ?? undefined));
+      }),
     ];
     return () => offs.forEach((off) => off());
   }, [find, openConversation, setPlace, step, closeThread, launchFrom, onNotice]);
@@ -367,10 +411,13 @@ export function SlackView({
   // ⌘K's view state, sent only as it changes.
   const conversations = useSlack((d) => d.conversations);
   const users = useSlack((d) => d.users);
+  const customSections = useSlack((d) => d.sections);
+  const hasRecent = useSlack((d) => recentItems(d.conversations.values(), d.recentThreads, 1).length > 0);
   const hasMessages = useSlack((d) => !!conversationId && !!d.history.get(conversationId)?.messages.some((m) => !m.pending));
   const viewState = (() => {
     const shown = [...conversations.values()].filter(listed);
-    const sections = sidebarSections(shown, (c) => titleWith(users, c), keepRef.current);
+    const sections = sidebarSections(shown, (c) => titleWith(users, c), keepRef.current, customSections);
+    const openSection = conversationId ? sectionOf(customSections, conversationId) : undefined;
     return JSON.stringify({
       conversations: sections.flatMap((s) =>
         s.items.map((c) => ({ id: c.id, name: titleWith(users, c), kind: c.kind, ...(needsYou(c) ? { unread: c.unread ?? c.mentions ?? 0 } : {}) })),
@@ -381,6 +428,9 @@ export function SlackView({
       mentionCount: shown.reduce((n, c) => n + (c.mentions ?? 0), 0),
       canLaunch: hasMessages,
       searching,
+      sections: customSections.map((x) => ({ id: x.id, name: x.name })),
+      ...(openSection ? { openSectionId: openSection.id } : {}),
+      hasRecent,
     } satisfies SlackViewState);
   })();
   useEffect(() => {
@@ -452,7 +502,9 @@ export function SlackView({
           openId={conversationId}
           keep={keepRef.current}
           searching={searching}
+          openThreadTs={threadTs}
           onOpen={(id) => openConversation(id)}
+          onOpenThread={openThreadIn}
           onSearch={find}
           onHide={toggleSidebar}
           onRefresh={refresh}

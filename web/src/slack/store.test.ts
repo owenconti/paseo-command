@@ -9,6 +9,7 @@ import {
   keepSlackCurrent,
   loadHistory,
   loadOlder,
+  loadRecent,
   loadThread,
   loadUnreads,
   loadWorkspace,
@@ -383,6 +384,7 @@ describe("slack store: events", () => {
     assert.equal(slackStore.getState().stream, "down");
     answers.history = () => ({ messages: [msg(101), msg(102)], more: false });
     answers.unreads = () => ({ conversations: [], pending: 0 });
+    answers.recent = () => ({ threads: [] });
     stream.onopen!(new Event("open"));
     await settled();
     await settled();
@@ -390,7 +392,7 @@ describe("slack store: events", () => {
     calls = [];
     send({ type: "resync" });
     await settled();
-    assert.deepEqual(calls.map((c) => c.path.split("?")[0]).sort(), ["slack/q/history", "slack/q/unreads"]);
+    assert.deepEqual(calls.map((c) => c.path.split("?")[0]).sort(), ["slack/q/history", "slack/q/recent", "slack/q/unreads"]);
     stop();
     assert.equal(slackStore.getState().stream, "off");
   });
@@ -400,6 +402,7 @@ describe("slack store: events", () => {
     setSlackStream(() => ({ onopen: null, onmessage: null, onerror: null, close: () => {} }));
     answers.history = () => ({ messages: [msg(100)], more: false });
     answers.unreads = () => ({ conversations: [], pending: 0 });
+    answers.recent = () => ({ threads: [] });
     slackStore.setOpen({ conversationId: "C1" });
     const doc = { hidden: true, addEventListener: () => {}, removeEventListener: () => {} };
     mock.timers.enable({ apis: ["setInterval"] });
@@ -411,7 +414,7 @@ describe("slack store: events", () => {
       doc.hidden = false;
       mock.timers.tick(20_000);
       await settled();
-      assert.deepEqual(calls.map((c) => c.path.split("?")[0]).sort(), ["slack/q/history", "slack/q/unreads"]);
+      assert.deepEqual(calls.map((c) => c.path.split("?")[0]).sort(), ["slack/q/history", "slack/q/recent", "slack/q/unreads"]);
       stop();
     } finally {
       mock.timers.reset();
@@ -446,5 +449,52 @@ describe("slack prompt", () => {
     const thread = slackContext(slackStore.getState(), "C1", "100.000000", "100.000000")!;
     assert.equal(thread.thread, true);
     assert.deepEqual(thread.messages.map((m) => m.text), ["message 100", "reply"]);
+  });
+});
+
+describe("slack store: Recent and sections", () => {
+  it("a reply in a thread you're in is newest and unread (not yours, nor while it shows); reading it is kept", async () => {
+    slackStore.setWorkspace(WS);
+    answers.recent = () => ({
+      threads: [
+        { conversationId: "C1", threadTs: "90.000000", latest: "95.000000", text: "older", unread: false },
+        { conversationId: "C1", threadTs: "100.000000", latest: "110.000000", text: "ship it?", unread: false },
+      ],
+    });
+    await loadRecent();
+    const order = () => slackStore.getState().recentThreads.map((t) => [t.threadTs, t.unread, !!t.mention]);
+    assert.deepEqual(order(), [["100.000000", false, false], ["90.000000", false, false]]);
+    slackStore.applyEvent({ type: "message", message: msg(120, { threadTs: "90.000000", text: `<@${ME}> look` }) });
+    assert.deepEqual(order(), [["90.000000", true, true], ["100.000000", false, false]]);
+    slackStore.applyEvent({ type: "message", message: msg(121, { threadTs: "100.000000", userId: ME }) });
+    assert.deepEqual(order()[0], ["100.000000", false, false]);
+    slackStore.setOpen({ conversationId: "C1", threadTs: "100.000000" });
+    slackStore.applyEvent({ type: "message", message: msg(122, { threadTs: "100.000000" }) });
+    assert.deepEqual(order()[0], ["100.000000", false, false]);
+
+    answers.readThread = () => ({ ok: true });
+    assert.equal(await slackStore.readThread("C1", "90.000000", "120.000000"), true);
+    assert.deepEqual(order()[1], ["90.000000", false, false]);
+    assert.deepEqual(calls.at(-1)!.body, { conversationId: "C1", threadTs: "90.000000", ts: "120.000000" });
+    // The server's answer from before the read doesn't undo it.
+    answers.recent = () => ({ threads: [{ conversationId: "C1", threadTs: "90.000000", latest: "120.000000", unread: true, mention: true }] });
+    await loadRecent();
+    assert.deepEqual(order(), [["90.000000", false, false]]);
+  });
+
+  it("sections save at once, keep through a workspace read meanwhile, and come back if refused", async () => {
+    slackStore.setWorkspace({ ...WS, sections: [{ id: "sa", name: "Team", conversationIds: ["C1"] }] });
+    const reply = held<unknown>();
+    answers.sections = () => reply.promise;
+    const next = [{ id: "sa", name: "Team", conversationIds: ["C1", "D1"] }];
+    const saving = slackStore.saveSections(next);
+    assert.deepEqual(slackStore.getState().sections, next);
+    answers.workspace = () => ({ ...WS, sections: [] });
+    await loadWorkspace();
+    assert.deepEqual(slackStore.getState().sections, next);
+    reply.refuse(new Error("settings.json can't be read"));
+    assert.equal(await saving, false);
+    assert.deepEqual(slackStore.getState().sections, [{ id: "sa", name: "Team", conversationIds: ["C1"] }]);
+    assert.match(notices.at(-1)!, /save your sections: settings\.json can't be read/);
   });
 });

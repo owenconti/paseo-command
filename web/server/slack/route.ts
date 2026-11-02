@@ -14,6 +14,7 @@ import { slackLive } from "./live";
 import { CONVERSATION_ID, TS_PATTERN, readConversation, readHistory, readReplies, readSearch, readWorkspace } from "./reads";
 import { ensureSlackSocket } from "./socket";
 import { slackUnreads } from "./unreads";
+import { readRecentThreads } from "../activity/slack";
 import { SLACK_UPLOAD, uploadToSlack } from "./upload";
 import { WRITES, slackWrite } from "./writes";
 import { slackEnabled, slackUnavailable, slackUserToken } from "./client";
@@ -174,6 +175,8 @@ export async function slackRoute(
         noteSlackDemand();
         return slackUnreads();
       });
+    case "q/recent":
+      return read([], async () => ({ threads: await readRecentThreads() }));
     case "q/search": {
       if (!only("term")) return reply(400, { error: "Unexpected parameters" });
       const term = param("term").trim();
