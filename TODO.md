@@ -32,6 +32,14 @@ mark it done with its commit once merged into `main`.
   and delete it after confirming. Use the sidebar's context menu, a Save as view button by the filters, and ⌘K.
   Whitelisted writes in `web/server/linear/writes.ts` (`customViewCreate|Update|Delete`, checked field by field),
   shown at once and rolled back if Linear refuses; tests over the fake. Workspace: `linear-views`.
+- [ ] **macOS app: a deleted app says so instead of "The file node doesn't exist".** A Dev app launched from
+  a worktree that was later archived keeps running from memory; Restart app (and the server's restart when the
+  page finds it gone, `ServerManager.swift`) then fails with "The app server didn't start / The file "node"
+  doesn't exist". When the running bundle's path no longer exists (or its `Contents/Resources/node/node` or
+  `server/server.mjs` is missing), say that this copy of the app was deleted or moved and name where to open
+  one, e.g. the main checkout's `native/build/Paseo Command Dev.app` for the dev flavour, `/Applications` for the
+  release. Don't relaunch into the missing bundle. Check with a throwaway build (`--info`, `--no-server` or own
+  port), never the user's apps. Workspace: `fix-deleted-app-restart`.
 
 ## Done
 
