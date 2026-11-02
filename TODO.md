@@ -11,6 +11,12 @@ mark it done with its commit once merged into `main`.
   star repositories and organizations; starred ones show first as favourites, kept in the data directory's
   `settings.json` (as presets are). Reads through `web/server/github/reads.ts` (named, cached, the fake in tests);
   add ⌘K entries, keys and the shortcuts dialog's GitHub group as CLAUDE.md asks. Workspace: `github-prs-by-repo`.
+- [ ] **Linear: sub-grouping in lists and boards, as Linear has.** The Display options (`ListControls.tsx`,
+  `display.ts`, kept per place) offer Grouping, Ordering and Completed issues. Add Sub-grouping (the same
+  properties as Grouping, plus none; never the same as Grouping) and Linear's swap button beside Grouping that
+  exchanges the two. In a list, each group holds its sub-groups under their own heads; on a board, sub-groups are
+  swimlane rows across the columns, a card dropped into a cell taking both its column's and its row's value
+  (`dropChange` in `group.ts`). Views start with their sub-grouping as set in Linear. Workspace: `linear-sub-grouping`.
 
 ## Done
 
