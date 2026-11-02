@@ -518,6 +518,16 @@
   font-size: var(--fs-sm);
   color: var(--text-3);
 }
+.gh-open-paseo {
+  margin-left: auto;
+}
+.gh-open-paseo .popover-menu {
+  width: max-content;
+  max-width: 420px;
+}
+.gh-open-paseo [role="menuitem"] {
+  white-space: nowrap;
+}
 .gh-pr-sub b {
   color: var(--text);
 }

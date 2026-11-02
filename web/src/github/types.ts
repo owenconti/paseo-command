@@ -225,6 +225,8 @@ export type PrCommit = { sha: string; title: string; author: Person | null; at: 
 export type PrDetail = PrRow & {
   body: string;
   headSha: string;
+  /** The repository its branch is in (`owner/name`; a fork's for a PR from one); null when GitHub has none (a deleted fork). */
+  headRepo: string | null;
   mergeable: "mergeable" | "conflicting" | "unknown";
   viewerIsAuthor: boolean;
   files: PrFile[];

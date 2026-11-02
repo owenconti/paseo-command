@@ -62,6 +62,7 @@ test("a PR's detail: files, conversation, threads, commits, checks and reviewers
   assert.equal(r.status, 200, JSON.stringify(r.body));
   const pr = r.body;
   assert.equal(pr.headSha, SHA);
+  assert.equal(pr.headRepo, "owen/app");
   assert.equal(pr.mergeable, "mergeable");
   assert.deepEqual(pr.files, [{ path: "src/app.ts", additions: 3, deletions: 1, changeType: "modified", viewed: "unviewed" }]);
   assert.deepEqual(pr.timeline.map((t: { kind: string }) => t.kind), ["comment"]);

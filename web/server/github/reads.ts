@@ -514,7 +514,7 @@ const FILES = "files(first: 100, after: $after) { nodes { path additions deletio
 export const PR_QUERY = `query($owner: String!, $name: String!, $number: Int!, $after: String) {
   repository(owner: $owner, name: $name) { pullRequest(number: $number) {
     ${ROW}
-    body headRefOid mergeable viewerDidAuthor
+    body headRefOid mergeable viewerDidAuthor headRepository { nameWithOwner }
     ${FILES}
     timelineComments: comments(last: 100) { nodes { id ${AUTHOR} body createdAt url } }
     reviews(last: 100) { nodes { id ${AUTHOR} state body submittedAt createdAt url comments { totalCount } } }
@@ -733,6 +733,7 @@ export function detailOf(p: Raw, extraFiles: Raw[] = []): PrDetail | null {
     ...row,
     body: clip(str(p.body), BODY_MAX),
     headSha: /^[0-9a-f]{40}$/.test(sha) ? sha : "",
+    headRepo: REPO.test(str(rec(p.headRepository).nameWithOwner)) ? str(rec(p.headRepository).nameWithOwner) : null,
     mergeable: MERGEABLE[str(p.mergeable)] ?? "unknown",
     viewerIsAuthor: p.viewerDidAuthor === true,
     files: [...nodes(p.files), ...extraFiles].map(fileOf).filter((f): f is PrFile => f !== null),

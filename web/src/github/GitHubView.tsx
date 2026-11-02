@@ -18,6 +18,7 @@ import { RepoFilterButton, RepoFilterChips, setFilter, type RepoFilterControl } 
 import { orgStarred, RepoNav, repoOrder, repoStarred, REPOS_PATH, setStar, type RepoNavControl } from "./RepoNav";
 import { SCOPE_TITLE } from "./names";
 import { LIST_POLL_MS, PrList } from "./PrList";
+import type { PaseoMatch, PrHead } from "./paseo";
 import { PrView, type PrViewApi } from "./PrView";
 import { CHANGES_MODES, PR_SCOPES, type ChangesMode, type PrDetail, type PrList as PrListData, type PrScope, type RepoList, type ReviewEvent, type Viewer, type WorkspaceChanges } from "./types";
 import "./github.css";
@@ -39,7 +40,7 @@ export type GithubViewState = {
   listShown: boolean;
   /** A diff shows (Files changed, or the workspace's changes). */
   diff: boolean;
-  pr?: { repo: string; number: number; url: string; title: string; viewerIsAuthor: boolean; open: boolean; pending: number };
+  pr?: { repo: string; number: number; url: string; title: string; viewerIsAuthor: boolean; open: boolean; pending: number; headRef: string; headRepo: string | null };
   /** The PR the workspace's changes belong to. */
   workspacePr?: { repo: string; number: number };
   changesMode: ChangesMode;
@@ -85,9 +86,14 @@ export function GitHubView({
   workspace,
   onNotice,
   onViewState,
+  paseoFor,
+  onOpenPaseo,
 }: {
   workspace?: GithubWorkspace;
   onNotice: (message: string) => void;
+  /** The Paseo workspaces with a PR's branch checked out, and opening one's agent (the open PR's Open Paseo agent). */
+  paseoFor?: (pr: PrHead) => PaseoMatch[];
+  onOpenPaseo?: (m: PaseoMatch) => void;
   /** The view's state for ⌘K (undefined once it goes). */
   onViewState?: (state: GithubViewState | undefined) => void;
 }) {
@@ -345,6 +351,8 @@ export function GitHubView({
               viewerIsAuthor: pr.viewerIsAuthor,
               open: pr.state === "open" || pr.state === "draft",
               pending: openPr.pending,
+              headRef: pr.headRef,
+              headRepo: pr.headRepo ?? null,
             },
           }
         : {}),
@@ -471,6 +479,7 @@ export function GitHubView({
         diffHandle={diffHandle}
         api={prApi}
         onLoaded={onPrLoaded}
+        {...(paseoFor && onOpenPaseo ? { paseoFor, onOpenPaseo } : {})}
       />
     );
 

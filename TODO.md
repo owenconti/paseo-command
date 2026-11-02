@@ -5,13 +5,6 @@ mark it done with its commit once merged into `main`.
 
 ## Open
 
-- [ ] **GitHub PR view: "Open Paseo agent" for the PR's branch.** When a Paseo workspace (on any host) has the
-  PR's head branch checked out in the same repository (match the workspace's branch and its project's remote
-  against the PR's `owner/name` and head ref, from the world snapshot the app already has), show an "Open Paseo
-  agent" button in the PR's header. It selects that workspace's most recent agent in the panel and switches to
-  Command (the workspace itself if it has no agent; a chooser if several workspaces match). Without a match,
-  offer nothing new (Launch agent on the PR stays as it is). Add its ⌘K entry, shown only when a match exists.
-  Workspace: `github-open-paseo-agent`.
 - [ ] **GitHub diff: resizable file list.** The diff view's file list (`DiffView.tsx`, "16 files · 0 / 16 viewed")
   is a fixed width, cutting off directory and file names. Its inner edge resizes it (`web/src/ResizeEdge.tsx`, as
   Activity's panes: drag, arrow keys, double-click restores the default), kept in localStorage; long names show
@@ -54,6 +47,12 @@ mark it done with its commit once merged into `main`.
   `npm run app:e2e` passes 5 runs in a row. Workspace: `fix-flaky-e2e`.
 
 ## Done
+
+- [x] **GitHub PR view: "Open Paseo agent" for the PR's branch.** A PR's header shows Open Paseo agent while a Paseo
+  workspace (on any host) has its branch checked out (`web/src/github/paseo.ts`): the PR Paseo names for the workspace,
+  else its branch and remote against the PR's head ref and head repository (a fork's for a PR from one). It selects the
+  workspace's most recent agent (one working counts as now; the workspace without one) and switches to Command; with
+  several, a menu chooses (host · project · workspace). ⌘K "Open the Paseo agent for this pull request", only with a match.
 
 - [x] **GitHub PR view: manage reviewers and assignees, and list the checks.** The PR's side panel (`PrSide.tsx`) shows
   who's asked to review (people and teams) and who reviewed with their verdict, and the assignees, each with avatars; a gear's

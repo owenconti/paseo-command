@@ -74,6 +74,7 @@ import { appTabs, modeKey, shownModes, useAppMode, type AppMode } from "./appMod
 import type { ActivityViewState } from "./activity/ActivityView";
 import type { GithubViewState, GithubWorkspace } from "./github/GitHubView";
 import { openGithubPlace, prPlaceOf } from "./github/place";
+import { paseoMatches, type PaseoMatch, type PrHead } from "./github/paseo";
 import { MODE_LABEL as CHANGES_MODE_LABEL, SCOPE_TITLE as PR_SCOPE_TITLE, TAB_LABEL as PR_TAB_LABEL } from "./github/names";
 import { FILTERS as PR_FILTERS, fieldLabel as prFieldLabel, filtersSet as prFiltersSet, ME as PR_ME, PEOPLE_FIELDS as PR_PEOPLE_FIELDS, VALUE_FIELDS as PR_VALUE_FIELDS } from "./github/filters";
 import type { SlackViewState } from "./slack/SlackView";
@@ -903,6 +904,25 @@ function App() {
       pr: ws.pr ? { number: ws.pr.number, url: ws.pr.url, title: ws.pr.title } : ws.pr,
     };
   }, [selection, agents, workspaceOf, workspace, realWorkspaceIds]);
+  // The Paseo workspaces with a PR's branch checked out (the PR view's Open Paseo agent).
+  const paseoFor = useCallback(
+    (pr: PrHead) =>
+      paseoMatches(
+        pr,
+        listedWorkspaces.filter((w) => realWorkspaceIds.has(workspaceKey(w))),
+        (w) => agentsAt(workspaceKey(w)),
+        hosts,
+      ),
+    [listedWorkspaces, realWorkspaceIds, agentsAt, hosts],
+  );
+  // Its most recent agent (else the workspace) in the panel, on the map.
+  const openPaseo = useCallback(
+    (m: PaseoMatch) => {
+      choose(m.agent ? { type: "agent", id: m.agent.id } : { type: "workspace", id: workspaceKey(m.workspace) });
+      postAppMenu("command");
+    },
+    [choose],
+  );
   // The workspace's changes (or its PR) in the GitHub tab.
   const showWorkspaceChanges = useCallback(() => {
     openGithubPlace({ kind: "changes" });
@@ -1905,6 +1925,17 @@ function App() {
           ]
         : [];
     })(),
+    ...(() => {
+      const pr = integrations.github && appMode === "github" ? githubView?.pr : undefined;
+      const matches = pr ? paseoFor(pr) : [];
+      return matches.map((m) => ({
+        id: `github-open-paseo:${m.workspace.host ?? ""}:${m.workspace.workspaceId}`,
+        group: "Actions",
+        label: matches.length > 1 ? `Open the Paseo agent for this pull request in ${m.label}` : "Open the Paseo agent for this pull request",
+        keywords: `github pull request pr paseo agent workspace branch map command open ${m.agent?.name ?? ""} ${m.workspace.name}`,
+        run: () => openPaseo(m),
+      }));
+    })(),
     ...(integrations.github && appMode === "github" && githubView
       ? (() => {
           const v = githubView;
@@ -2684,7 +2715,7 @@ function App() {
             )}
             {integrations.github && appMode === "github" && (
               <React.Suspense fallback={null}>
-                <GitHubView workspace={githubWorkspace} onNotice={setNotice} onViewState={setGithubView} />
+                <GitHubView workspace={githubWorkspace} onNotice={setNotice} onViewState={setGithubView} paseoFor={paseoFor} onOpenPaseo={openPaseo} />
               </React.Suspense>
             )}
             {showActivity && macApp() && <ActivityBadge />}

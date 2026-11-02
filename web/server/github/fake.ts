@@ -37,6 +37,7 @@ export function fakePr(o: Partial<Raw> & { number: number; repo?: string } = { n
     checks: { nodes: [{ commit: { statusCheckRollup: { state: "SUCCESS" } } }] },
     body: "Fixes it.",
     headRefOid: SHA,
+    headRepository: { nameWithOwner: repo },
     mergeable: "MERGEABLE",
     viewerDidAuthor: false,
     files: { nodes: [{ path: "src/app.ts", additions: 3, deletions: 1, changeType: "MODIFIED", viewerViewedState: "UNVIEWED" }], pageInfo: { hasNextPage: false, endCursor: null } },

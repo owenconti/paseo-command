@@ -19,6 +19,8 @@ import { DiffView, type DiffLayout, type DiffReview, type DiffViewHandle } from 
 import { TAB_LABEL } from "./names";
 import { addComment, editComment, removeComment, reviewComments, useReviewDraft } from "./drafts";
 import type { PrTab } from "./place";
+import { OpenPaseoButton } from "./OpenPaseo";
+import type { PaseoMatch, PrHead } from "./paseo";
 import { Assignees, ChecksSummary, Reviewers, type PeopleChange, type PickerControl } from "./PrSide";
 import type { DraftComment, Person, PrDetail, PrDiff, PrReviewer, ReviewEvent, ReviewThread } from "./types";
 
@@ -320,6 +322,8 @@ export function PrView({
   diffHandle,
   api,
   onLoaded,
+  paseoFor,
+  onOpenPaseo,
 }: {
   repo: string;
   number: number;
@@ -337,6 +341,9 @@ export function PrView({
   api: React.MutableRefObject<PrViewApi | null>;
   /** The PR as read, for ⌘K (undefined while it loads). */
   onLoaded: (pr: PrDetail | undefined, pending: number) => void;
+  /** The Paseo workspaces with the PR's branch checked out (`paseo.ts`), and opening one's agent. */
+  paseoFor?: (pr: PrHead) => PaseoMatch[];
+  onOpenPaseo?: (m: PaseoMatch) => void;
 }) {
   const prPath = readPath("pr", { repo, number });
   const detail = useGithubRead<PrDetail>(prPath, PR_POLL_MS);
@@ -538,6 +545,8 @@ export function PrView({
     },
   };
 
+  const paseo = pr && paseoFor && onOpenPaseo ? paseoFor(pr) : [];
+
   const threadsOpen = pr ? pr.threads.filter((t) => !t.isResolved).length : 0;
   const counts: Record<PrTab, number | undefined> = {
     conversation: pr ? pr.timeline.length : undefined,
@@ -589,7 +598,7 @@ export function PrView({
             <h2>
               {pr.title} <span className="gh-pr-number">#{pr.number}</span>
             </h2>
-            <p className="gh-pr-sub">
+            <div className="gh-pr-sub">
               <span className={`gh-state-pill ${pr.state}`}>
                 <PrStateIcon state={pr.state} size={13} />
                 {STATE_LABEL[pr.state]}
@@ -602,7 +611,8 @@ export function PrView({
               <span className="gh-repo">{pr.repo}</span>
               <ChecksIcon state={pr.checkRuns.some((c) => c.state === "failing") ? "failing" : pr.checkRuns.some((c) => c.state === "pending") ? "pending" : pr.checkRuns.length ? "passing" : null} />
               <Decision decision={pr.reviewDecision} />
-            </p>
+              {paseo.length > 0 && <OpenPaseoButton matches={paseo} onOpen={onOpenPaseo!} />}
+            </div>
           </div>
           {detail.error && (
             <p className="gh-banner" role="status">

@@ -391,6 +391,13 @@ and GitHub publication; report the published version and release link.
   so remote hosts too; `GET /api/changes?workspace=&host=&mode=all|base|uncommitted`, `web/server/api/changes.ts`, not gated on the
   integration), all changes, committed or uncommitted, with ahead/behind, Review #N and Compare on GitHub; asked every 15 s while shown.
   A PR (`PrView.tsx`): Conversation (its body, comments and reviews, a comment box), Files changed (the review), Commits, Checks.
+  Its header shows Open Paseo agent while a Paseo workspace, on any host, has the PR's branch checked out (`paseo.ts`, `paseoMatches`,
+  over the page's fleet: the PR Paseo names for the workspace, else the workspace's branch and remote against the PR's head ref and
+  head repository, `headRepo` in `q/pr`, a fork's for a PR from one, never the base's; a workspace Paseo names another PR for doesn't
+  match by branch). It selects the workspace's most recent agent (a working one counts as now; listed subagents and archived ones
+  aside; the workspace itself without one) and switches to Command (`postAppMenu("command")`); with several, a menu chooses
+  (host · project · workspace, `OpenPaseo.tsx`). Without a match nothing shows. ⌘K "Open the Paseo agent for this pull request"
+  (one entry per match, each naming its place when there are several), only while one exists.
   The Conversation's side panel (`PrSide.tsx`): Reviewers (people and teams asked, and who reviewed with their latest verdict, avatars;
   never the author) and Assignees, each with a gear opening a picker (the `q/people` read, you first, searchable; reviewers also the
   repository's teams, `GET /api/github/q/teams?repo=`, `readTeams`, REST `repos/:repo/teams`, none when the token can't list them) to

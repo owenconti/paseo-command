@@ -102,6 +102,7 @@ const detail = (r: PrRow): PrDetail => ({
   ...r,
   body: "This adds **the GitHub tab** to the app.",
   headSha: SHA,
+  headRepo: r.repo,
   mergeable: "mergeable",
   viewerIsAuthor: false,
   files: DIFF.files.map((f) => ({ path: f.path, additions: 2, deletions: 1, changeType: "modified", viewed: "unviewed" })),
@@ -138,13 +139,13 @@ const showGithub = (page: Page) =>
 
 type Asked = { path: string; query: Record<string, string>; body?: unknown };
 
-async function setUp(page: Page, opts: { refuse?: Set<string> } = {}) {
+async function setUp(page: Page, opts: { refuse?: Set<string>; workspaces?: typeof small.workspaces; agents?: typeof small.agents } = {}) {
   await mockApi(page, {
-    agents: () => small.agents,
+    agents: () => opts.agents ?? small.agents,
     permissions: () => [],
     hosts: () => small.hosts,
     projects: () => small.projects,
-    workspaces: () => small.workspaces,
+    workspaces: () => opts.workspaces ?? small.workspaces,
     lists: { settings: { integrations: { github: true, linear: false, slack: false, typesafe: false } } },
   });
   const asked: Asked[] = [];
@@ -410,6 +411,77 @@ test("A PR's reviewers and assignees are edited in place, rolled back if GitHub 
     await palette.getByRole("combobox", { name: "Search commands" }).fill("Request review");
     await palette.getByRole("option", { name: /^Request review…/ }).click();
     await page.getByRole("listbox", { name: "Request a review" }).waitFor();
+  } finally {
+    await context.close();
+  }
+});
+
+test("A PR whose branch a Paseo workspace has checked out opens its most recent agent, a menu choosing among several", async () => {
+  const context = await newContext(browser);
+  const page = await context.newPage();
+  await page.setViewportSize({ width: 1600, height: 1000 });
+  // The app's message channel, recording what the page asks of it.
+  await page.addInitScript(`
+    window.sentToApp = [];
+    window.webkit = { messageHandlers: { paseoWorld: { postMessage: (m) => window.sentToApp.push(m) } } };
+  `);
+  const repo = "https://github.com/acme/atlas";
+  // #12's branch is checked out in Map polish (here) and Deploy (macmini); Paseo names #13 as Labels' PR; #20's branch is nowhere.
+  const workspaces = small.workspaces.map((w) =>
+    w.workspaceId === "wks_a" || w.workspaceId === "wks_d"
+      ? { ...w, branch: "feature-12", repo }
+      : w.workspaceId === "wks_b"
+        ? { ...w, branch: "labels", repo, pr: { number: 13, title: "Fix the shoreline", state: "open", url: "https://github.com/acme/atlas/pull/13" } }
+        : w,
+  );
+  // Runner (running) is Map polish's most recent agent; Finisher Labels'.
+  const agents = small.agents.map((a) =>
+    a.id === "a-idle" ? { ...a, updatedAt: ago(1) } : a.id === "a-running" ? { ...a, updatedAt: ago(30) } : a.id === "a-done" ? { ...a, updatedAt: ago(2) } : a.id === "a-approval" ? { ...a, updatedAt: ago(10) } : a,
+  );
+  await setUp(page, { workspaces, agents });
+  const sent = () => page.evaluate(() => (window as unknown as { sentToApp: { type: string; action?: string }[] }).sentToApp);
+  const commandAsked = async () => (await sent()).filter((m) => m.type === "menu" && m.action === "command").length;
+  try {
+    await page.goto(app.url);
+    await page.locator(".fleet-sidebar").waitFor();
+    await showGithub(page);
+    const view = page.locator(".github-view");
+
+    // #13: Paseo's own link to it; one workspace, so the button opens its agent at once.
+    await view.locator(".gh-row", { hasText: "Fix the shoreline" }).click();
+    await view.locator(".gh-pr-title", { hasText: "Fix the shoreline" }).waitFor();
+    await view.getByRole("button", { name: "Open Paseo agent" }).click();
+    await waitFor(() => page.evaluate(() => location.search), (q) => q.includes("agent=a-done"), "Finisher selected");
+    await waitFor(commandAsked, (n) => n === 1, "the map asked for");
+
+    // #12: two workspaces on its branch; a menu chooses, host · project · workspace.
+    await view.locator(".gh-nav-item", { hasText: "Review requests" }).click();
+    await view.locator(".gh-row", { hasText: "Add the GitHub tab" }).click();
+    await view.locator(".gh-pr-title", { hasText: "Add the GitHub tab" }).waitFor();
+    await view.getByRole("button", { name: "Open Paseo agent" }).click();
+    const menu = page.getByRole("menu", { name: "Open the Paseo agent in" });
+    assert.deepEqual(await menu.getByRole("menuitem").allTextContents(), ["local · atlas · Map polish", "macmini · infra · Deploy"]);
+    await menu.getByRole("menuitem", { name: "local · atlas · Map polish" }).click();
+    await waitFor(() => page.evaluate(() => location.search), (q) => q.includes("agent=a-running"), "Runner selected");
+    await waitFor(commandAsked, (n) => n === 2, "the map asked for again");
+
+    // ⌘K has one entry for each.
+    await page.keyboard.press("Meta+k");
+    const palette = page.getByRole("dialog", { name: "Command palette" });
+    await palette.getByRole("combobox", { name: "Search commands" }).fill("Open the Paseo agent");
+    await palette.getByRole("option", { name: /for this pull request in macmini · infra · Deploy/ }).click();
+    await waitFor(() => page.evaluate(() => location.search), (q) => q.includes("a-offline"), "Far away selected");
+
+    // #20: nobody has its branch, so nothing new shows, nor in ⌘K.
+    await view.locator(".gh-nav-item", { hasText: "Your pull requests" }).click();
+    await view.locator(".gh-row", { hasText: "My own change" }).click();
+    await view.locator(".gh-pr-title", { hasText: "My own change" }).waitFor();
+    assert.equal(await view.getByRole("button", { name: "Open Paseo agent" }).count(), 0);
+    await page.keyboard.press("Meta+k");
+    await palette.getByRole("combobox", { name: "Search commands" }).fill("Open the Paseo agent");
+    await palette.getByRole("option").first().waitFor();
+    assert.equal(await palette.getByRole("option", { name: /for this pull request/ }).count(), 0);
+    await page.keyboard.press("Escape");
   } finally {
     await context.close();
   }
