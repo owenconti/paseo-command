@@ -23,6 +23,18 @@ export function visit(h: PlaceHistory, place: LinearPlace, replace = false): Pla
   return { stack, at: stack.length - 1 };
 }
 
+/**
+ * The history as the view (re)opens on the remembered `place`: in the current
+ * entry's place (it was corrected or moved while the view was away), except an
+ * issue focused from outside, which is a new entry after the place you had,
+ * so Back returns there (after a reload, to the place it came from).
+ */
+export function resume(h: PlaceHistory | undefined, place: LinearPlace): PlaceHistory {
+  if (place.screen !== "issue") return h ? visit(h, place, true) : startHistory(place);
+  if (h) return visit(h, place);
+  return place.from ? visit(startHistory(place.from), place) : startHistory(place);
+}
+
 /** One step back (-1) or forward (1); null when there's nowhere to go. */
 export function step(h: PlaceHistory, by: -1 | 1): PlaceHistory | null {
   const at = h.at + by;

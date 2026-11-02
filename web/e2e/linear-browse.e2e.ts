@@ -845,3 +845,75 @@ test("back and forward through the places and issues opened, not each step throu
     await context.close();
   }
 });
+
+test("an issue opened from outside the tab stands alone, Back returning to the list; one linked inside opens beside it", async () => {
+  const ws = fakeWorkspace();
+  ws.issues.find((i) => i.identifier === "ENG-1")!.description = "Waits on [ENG-3](https://linear.app/fake/issue/ENG-3).";
+  const { context, page, linear, view, sidebar } = await openLinear(ws);
+  try {
+    const title = view.locator(".linear-list-head h2");
+    const openTitle = () => view.locator(".linear-issue h1").innerText().catch(() => "");
+    const back = sidebar.getByRole("button", { name: "Go back", exact: true });
+    const forward = sidebar.getByRole("button", { name: "Go forward", exact: true });
+    const eng = sidebar.locator('.linear-team[data-team="ENG"]');
+    const list = view.locator(".linear-list");
+    // Engineering › Active, with ENG-1 open beside it.
+    await sidebar.getByRole("button", { name: /^ENG/ }).click();
+    await eng.getByRole("button", { name: "Active" }).click();
+    await waitFor(() => rowKeys(page), (keys) => keys.includes("ENG-1"), "ENG's active issues");
+    await view.locator('.linear-row[data-key="ENG-1"]').click();
+    await waitFor(openTitle, (t) => t === "Ship the Linear tab", "ENG-1 beside the list");
+
+    // A link inside the tab (ENG-1's description) opens beside the list, as a row does.
+    await view.locator(".linear-issue a", { hasText: "ENG-3" }).click();
+    await waitFor(openTitle, (t) => t === "Review the sync design", "ENG-3 beside the list");
+    assert.equal(await list.isVisible(), true);
+    assert.equal(await eng.getByRole("button", { name: "Active" }).getAttribute("aria-current"), "page");
+    await back.click();
+    await waitFor(openTitle, (t) => t === "Ship the Linear tab", "back to ENG-1");
+
+    // A link from outside (the app's paseo:link: the chat, Conquer, the header's chip): the issue alone, the sidebar marking nothing.
+    const fromOutside = (url: string) =>
+      page.evaluate((url) => window.dispatchEvent(new CustomEvent("paseo:link", { detail: { url } })), url);
+    await fromOutside("https://linear.app/fake/issue/ENG-2");
+    await waitFor(openTitle, (t) => t === "Draw the issue list", "ENG-2 from outside");
+    assert.equal(await list.count(), 0, "no list beside it");
+    assert.equal(await view.evaluate((v) => v.classList.contains("issue-only")), true);
+    assert.equal(await sidebar.locator('[aria-current="page"]').count(), 0);
+    await page.screenshot({ path: "/tmp/linear-focused.png" });
+
+    // A reload comes back to it, and Back to the list it came from.
+    await page.reload();
+    await page.locator(".fleet-sidebar").waitFor();
+    await page.evaluate(() => window.dispatchEvent(new CustomEvent("paseo:mode", { detail: { mode: "linear" } })));
+    await waitFor(openTitle, (t) => t === "Draw the issue list", "ENG-2 after the reload");
+    assert.equal(await list.count(), 0);
+    await back.click();
+    await title.filter({ hasText: "Active" }).waitFor();
+    await waitFor(openTitle, (t) => t === "Ship the Linear tab", "Active with ENG-1 open, as it was");
+    assert.equal(await eng.getByRole("button", { name: "Active" }).getAttribute("aria-current"), "page");
+
+    // Forward to it again; its keys work, and Esc goes back.
+    await forward.click();
+    await waitFor(openTitle, (t) => t === "Draw the issue list", "forward to ENG-2");
+    await view.focus();
+    await page.keyboard.press("s");
+    await page.getByRole("listbox", { name: "Status" }).waitFor();
+    await page.keyboard.press("Escape");
+    await waitFor(() => page.getByRole("listbox", { name: "Status" }).count(), (n) => n === 0, "the picker to close");
+    assert.equal(await openTitle(), "Draw the issue list", "Esc closes the picker first");
+    await page.keyboard.press("Escape");
+    await waitFor(openTitle, (t) => t === "Ship the Linear tab", "Esc returns to the list");
+    await list.waitFor();
+
+    // A Back button in the focused issue goes back too.
+    await fromOutside("https://linear.app/fake/issue/ENG-3");
+    await waitFor(openTitle, (t) => t === "Review the sync design", "ENG-3 from outside");
+    await view.getByRole("button", { name: "Back", exact: true }).click();
+    await waitFor(openTitle, (t) => t === "Ship the Linear tab", "Back returns to the list");
+    assert.equal(await list.isVisible(), true);
+  } finally {
+    linear.restore();
+    await context.close();
+  }
+});

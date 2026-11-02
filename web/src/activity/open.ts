@@ -18,7 +18,7 @@ export function openActivityItem(item: ActivityItem): void {
   const open = item.open;
   if (open && macApp()) {
     if (open.kind === "linear-issue") {
-      // The Linear tab opens it where you last were, as the Inbox would.
+      // The Linear tab opens it on its own, Back returning to where you were.
       openLinearIssue(open.key);
       return;
     }

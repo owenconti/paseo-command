@@ -19,6 +19,12 @@ export type LinearPlace = (
   | { screen: "projects" }
   | { screen: "project"; projectId: string }
   | { screen: "initiatives" }
+  /**
+   * An issue opened from outside the tab (a link in the chat or Conquer,
+   * Activity): it alone, in the list's place, and `from`, the place you had,
+   * which closing it returns to (also after a reload).
+   */
+  | { screen: "issue"; issue: string; from?: LinearPlace }
 ) & { issue?: string };
 
 export const DEFAULT_PLACE: LinearPlace = { screen: "my", tab: "assigned" };
@@ -51,6 +57,15 @@ export function samePlace(a: LinearPlace, b: LinearPlace): boolean {
   const view = (p: LinearPlace) => ("viewId" in p ? p.viewId : undefined);
   return placeScope(a) === placeScope(b) && a.screen === b.screen && team(a) === team(b) && view(a) === view(b);
 }
+
+/** `key` focused, from `current` (an issue focused already: the place it came from). */
+export function focusIssue(key: string, current: LinearPlace): LinearPlace {
+  const from = current.screen === "issue" ? current.from : current;
+  return { screen: "issue", issue: key, ...(from ? { from } : {}) };
+}
+
+/** Where closing a focused issue goes: the place it came from. */
+export const focusedFrom = (p: LinearPlace): LinearPlace => (p.screen === "issue" && p.from) || DEFAULT_PLACE;
 
 const ID = /^[0-9a-f-]{8,64}$/i;
 
@@ -93,6 +108,11 @@ export function checkPlace(raw: unknown, ws?: LinearWorkspace): LinearPlace {
       if (typeof p.projectId !== "string" || (ws && !ws.projects.some((x) => x.id === p.projectId)))
         return DEFAULT_PLACE;
       return { screen: "project", projectId: p.projectId, ...issue };
+    case "issue": {
+      if (!issue.issue) return DEFAULT_PLACE;
+      const from = p.from && typeof p.from === "object" && (p.from as { screen?: unknown }).screen !== "issue" ? { from: checkPlace(p.from, ws) } : {};
+      return { screen: "issue", issue: issue.issue, ...from };
+    }
     case "projects":
     case "initiatives":
     case "inbox":

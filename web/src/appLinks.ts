@@ -7,7 +7,7 @@
  */
 import { runAppCommand } from "./appCommands";
 import { openGithubPlace, prPlaceOf, type GithubPlace } from "./github/place";
-import { readPlace as readLinearPlace, writePlace as writeLinearPlace } from "./linear/place";
+import { focusIssue, readPlace as readLinearPlace, writePlace as writeLinearPlace } from "./linear/place";
 import { linearStore } from "./linear/store";
 import { postAppLink, postAppMenu } from "./worldBridge";
 
@@ -49,13 +49,20 @@ function ours(link: AppLink): boolean {
   return !ws || ws.teams.some((t) => t.key.toUpperCase() === team);
 }
 
+/** The issue a link names, when it's this workspace's (a link the Linear tab opens itself); else null. */
+export function linearIssueOfLink(href: string): string | null {
+  const link = parseAppLink(href);
+  return link?.kind === "linear" && ours(link) ? link.issue : null;
+}
+
 /**
- * Opens an issue in the Linear tab, where you last were in Linear with the
- * issue open (beside the list, or in its place): read as the view mounts,
- * and asked of the view at once if it shows.
+ * Opens an issue from outside the Linear tab (a link in the chat or Conquer,
+ * Activity, the header's chip) in its own place there: it alone, full width,
+ * a new history entry after the place you had, so Back returns there. Read
+ * as the view mounts, and asked of the view at once if it shows.
  */
 export function openLinearIssue(key: string): void {
-  const place = { ...readLinearPlace(), issue: key };
+  const place = focusIssue(key, readLinearPlace());
   writeLinearPlace(place);
   runAppCommand("linear-go", place);
   postAppMenu("linear");

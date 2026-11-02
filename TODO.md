@@ -5,14 +5,6 @@ mark it done with its commit once merged into `main`.
 
 ## Open
 
-- [ ] **Linear: an issue opened from outside the tab gets an issue-focused view.** Clicking a Linear issue link
-  anywhere outside the Linear tab (the chat, Conquer, Activity, `paseo:link`/`parseAppLink`,
-  `openActivityItem`'s `writePlace({ ...readPlace(), issue })`) opens the issue beside whatever list you last
-  had (e.g. Engineering › Active). Instead it should open in an issue-focused place that replaces the list: the
-  issue alone, full width, the sidebar selecting nothing. That's a new history entry, so Back (⌘[, the arrows)
-  returns to the list you had. Issues opened from within the tab (a list row, a relation, a parent, a sub-issue,
-  a link in a description or comment) keep today's behaviour. Kept in `place.ts`, so a reload returns there.
-  Workspace: `linear-issue-focused-view`.
 - [ ] **GitHub: comments and PR bodies render as GitHub shows them.** A bot comment (socket-security's
   dependency table) shows its raw HTML (`<table> <thead> <tr> <th>Diff</th> …`, `<img …>`, `<br/>`) and its
   `<!-- overview-comment -->` marker as text. PR bodies, comments, review comments and replies must render
@@ -58,6 +50,12 @@ mark it done with its commit once merged into `main`.
 
 ## Done
 
+- [x] **Linear: an issue opened from outside the tab gets an issue-focused view.** A Linear issue link clicked
+  outside the tab (the chat, Conquer, the header's chip: `paseo:link`), or an Activity item, opens the issue in
+  its own place, `{ screen: "issue", issue, from }` (`focusIssue` in `place.ts`): it alone, full width, the sidebar
+  marking nothing, as a new history entry after the place you had. Back (⌘[, the arrows, a mouse's back button),
+  Esc and the issue's Back return there; a reload comes back to it, `from` standing before it in the history
+  (`resume` in `history.ts`). Issue links inside the tab (a description, a comment) open beside the list as a row does.
 - [x] **Removed the Slack feature entirely, at the user's request.** Gone: the Slack tab and its mode (`web/src/slack/`,
   the mode bar's tab and View menu item, `paseo:mode` `slack`; ⌘1…⌘6 now number the tabs shown), the server
   (`web/server/slack/`: routes, Socket Mode, events, the unreads queue, uploads, the fake), Activity's Slack source (its

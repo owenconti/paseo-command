@@ -4,6 +4,7 @@ import { AnimatePresence } from "framer-motion";
 import { Archive, Box, ChevronRight, ListTodo, PanelLeftOpen, Pencil, RefreshCcw, RefreshCw, Search, Trash2, X } from "lucide-react";
 import { errorMessage, readStore, removeStore, writeStore } from "../api";
 import { onAppCommand, runAppCommand, type AppCommand } from "../appCommands";
+import { linearIssueOfLink } from "../appLinks";
 import { modalOpen } from "../focus";
 import { useSecretRevision } from "../integrationSettings";
 import { isTyping } from "../worldShortcut";
@@ -16,8 +17,8 @@ import { InitiativeList } from "./InitiativeList";
 import { IssueDetail } from "./IssueDetail";
 import { IssueList, type IssueListNav, type IssueListState, type SaveViewAction } from "./IssueList";
 import { linearKeyAction, type LinearKey } from "./keys";
-import { currentPlace, startHistory, step, visit, type PlaceHistory } from "./history";
-import { checkPlace, DEFAULT_PLACE, placeScope, readPlace, writePlace, type LinearPlace } from "./place";
+import { currentPlace, resume, step, visit, type PlaceHistory } from "./history";
+import { checkPlace, DEFAULT_PLACE, focusedFrom, placeScope, readPlace, writePlace, type LinearPlace } from "./place";
 import { cycleName } from "./bits";
 import { clearProjectView, ProjectFacts, ProjectList, type ProjectListState } from "./ProjectList";
 import type { IssueContext } from "./prompt";
@@ -148,7 +149,7 @@ export function LinearView({
   const cappedScopes = useLinear((d) => d.cappedScopes);
   const [place, setPlaceState] = useState<LinearPlace>(() => {
     const remembered = readPlace();
-    placeHistory = placeHistory ? visit(placeHistory, remembered, true) : startHistory(remembered);
+    placeHistory = resume(placeHistory, remembered);
     return remembered;
   });
   // Back and forward (⌘[ ⌘], the sidebar's arrows): redrawn as the history moves.
@@ -179,6 +180,11 @@ export function LinearView({
     writePlace(next);
     setHistoryMoved((n) => n + 1);
   }, []);
+  /** Closes a focused issue: Back, as a browser's, else (nothing before it) to the place it came from. */
+  const leaveFocused = useCallback(() => {
+    if (placeHistory!.at > 0) goHistory(-1);
+    else setPlace(focusedFrom(currentPlace(placeHistory!)), true);
+  }, [goHistory, setPlace]);
   const canBack = placeHistory!.at > 0;
   const canForward = placeHistory!.at < placeHistory!.stack.length - 1;
   const placeTeamId = "teamId" in place ? place.teamId : undefined;
@@ -452,6 +458,7 @@ export function LinearView({
   const closeIssue = (key: string) =>
     correctPlace((was) => {
       if (was.issue !== key) return was;
+      if (was.screen === "issue") return focusedFrom(was);
       const { issue: _, ...rest } = was;
       return rest as LinearPlace;
     });
@@ -544,6 +551,10 @@ export function LinearView({
       case "back": {
         // With no issue open, Esc stops here: the page's own would clear the map's (hidden) selection.
         if (!issueOpenNow) return true;
+        if (placeRef.current.screen === "issue") {
+          leaveFocused();
+          return true;
+        }
         const key = placeRef.current.issue!;
         // The keyboard stays in the view as the issue goes: on its row, else the view.
         if (target.closest(".linear-detail"))
@@ -768,11 +779,13 @@ export function LinearView({
   // Moving through a list (↑/↓, J/K) changes the open issue in its history entry; choosing one is a new entry.
   const open = (key: string, how?: "step") => setPlace({ ...place, issue: key }, how === "step");
   const close = () => {
+    if (place.screen === "issue") return leaveFocused();
     const { issue: _, ...rest } = place;
     setPlace(rest as LinearPlace);
   };
   const openProject = (projectId: string) => setPlace({ screen: "project", projectId });
-  const showList = !openIssue || beside;
+  // An issue focused from outside the tab stands alone, in the list's place.
+  const showList = !openIssue || (beside && place.screen !== "issue");
   const team = "teamId" in place ? ws?.teams.find((t) => t.id === place.teamId) : undefined;
   const cycleId = place.screen === "cycle" ? place.cycleId : undefined;
   const cycle = cycleId
@@ -1004,6 +1017,16 @@ export function LinearView({
       // A click on the view's background keeps the keyboard in it, for its keys.
       tabIndex={-1}
       onKeyDown={onKey}
+      // A link to an issue inside the tab (a description, a comment) opens it here, as a row does;
+      // the app would otherwise route it as one from outside.
+      onClickCapture={(e) => {
+        if (e.button !== 0 || e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return;
+        const link = (e.target as Element).closest?.("a[href]");
+        const key = link instanceof HTMLAnchorElement ? linearIssueOfLink(link.href) : null;
+        if (!key) return;
+        e.preventDefault();
+        open(key);
+      }}
       // A mouse's back and forward buttons.
       onMouseUp={(e) => {
         if (e.button !== 3 && e.button !== 4) return;

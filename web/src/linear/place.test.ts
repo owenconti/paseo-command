@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { beforeEach, describe, it } from "node:test";
 import { FAKE_IDS } from "../../server/linear/fake";
-import { DEFAULT_PLACE, placeScope, readPlace, writePlace, type LinearPlace } from "./place";
+import { DEFAULT_PLACE, focusedFrom, focusIssue, placeScope, readPlace, samePlace, writePlace, type LinearPlace } from "./place";
 import type { LinearTeam, LinearWorkspace } from "./types";
 
 // The page's localStorage, in memory.
@@ -59,6 +59,28 @@ describe("linear place", () => {
     assert.deepEqual(readPlace(WS), { screen: "my", tab: "assigned" });
     // Before the workspace is in, the team can't be checked: it stays.
     assert.equal(readPlace(undefined).screen, "team");
+  });
+
+  it("focuses an issue opened from outside, remembering the place it came from", () => {
+    const active: LinearPlace = { screen: "team", teamId: FAKE_IDS.eng, tab: "active", issue: "ENG-2" };
+    const focused = focusIssue("ENG-1", active);
+    assert.deepEqual(focused, { screen: "issue", issue: "ENG-1", from: active });
+    // Another from outside while one is focused: still from the list.
+    assert.deepEqual(focusIssue("ENG-3", focused), { screen: "issue", issue: "ENG-3", from: active });
+    assert.deepEqual(focusedFrom(focused), active);
+    assert.deepEqual(focusedFrom({ screen: "issue", issue: "ENG-1" }), DEFAULT_PLACE);
+    // A reload comes back to it; the sidebar marks nothing.
+    writePlace(focused);
+    assert.deepEqual(readPlace(WS), focused);
+    assert.equal(placeScope(focused), null);
+    assert.equal(samePlace(focused, { screen: "inbox" }), false);
+    // Malformed: no issue is the default; a bad `from` is checked as any place, a nested focus dropped.
+    stored.set("paseo-command:linear:place", JSON.stringify({ screen: "issue", issue: "nope" }));
+    assert.deepEqual(readPlace(WS), DEFAULT_PLACE);
+    stored.set("paseo-command:linear:place", JSON.stringify({ screen: "issue", issue: "ENG-1", from: { screen: "nowhere" } }));
+    assert.deepEqual(readPlace(WS), { screen: "issue", issue: "ENG-1", from: DEFAULT_PLACE });
+    stored.set("paseo-command:linear:place", JSON.stringify({ screen: "issue", issue: "ENG-1", from: focused }));
+    assert.deepEqual(readPlace(WS), { screen: "issue", issue: "ENG-1" });
   });
 
   it("leaves Triage for Active on a team without triage", () => {
