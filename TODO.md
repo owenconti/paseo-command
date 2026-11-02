@@ -5,6 +5,18 @@ mark it done with its commit once merged into `main`.
 
 ## Open
 
+- [ ] **Remove the Linear tab; keep Activity's Linear source and Settings' Linear key (at the user's request).** The
+  user doesn't need Linear replicated as a page. Remove the Linear tab and everything only it uses: `web/src/linear/`'s
+  page (LinearView, sidebar, lists, board, issue detail, editing, views, Inbox page, search, cycles, projects,
+  initiatives), the mode (`paseo:mode` `linear`, the mode bar tab, View menu item, ⌘1…⌘n renumbered, ⌘\` stepping),
+  its ⌘K entries, shortcuts-dialog group, CSS, the Linear-only server reads and writes, `DispatchTarget.issue`/Launch
+  agent from an issue and presets' `{{issue}}` if nothing else uses them, tests, e2e, fakes no longer needed, and docs.
+  Keep: Activity's Linear source (`web/server/activity/linear.ts`: the notifications read, read/unread/done/archive
+  writes, PR notifications' issue keys) and Settings' Linear switch and `linearApiKey`, and whatever server code they
+  need. Linear issue links (chat, Conquer pages, the header's issue chip, Activity's Linear items) open in the Linear
+  desktop app when it's installed (its `linear://` deep link for the issue, checked with Launch Services; never
+  installs or launches anything else), else in Conquer as other links do. Leave the user's data alone (localStorage
+  places and `settings.json` keys ignored). `npm run check` passes. Workspace: `remove-linear-tab`.
 ## Done
 
 - [x] **Linear board: cards show through the column heads when scrolled.** A board column's head had no background of its
