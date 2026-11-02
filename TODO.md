@@ -49,6 +49,13 @@ mark it done with its commit once merged into `main`.
   (`web/src/asks/sentences.ts`, `mayAsk`), the prompt/schema given to Jev, or the strip's handling of a pick.
   Also check "Drafting answers…" can't hang: it ends in answers, or a quiet fallback, within a bounded time.
   Tests over fakes; never call TypeSafe or a real daemon. Workspace: `asks-either-or-options`.
+- [ ] **GitHub PR view: close and reopen a pull request.** The PR view (`PrView.tsx`) has Review but no way to
+  close a PR. Add Close pull request (optionally with a comment, sent first; asks to confirm) and, on a closed
+  unmerged PR, Reopen, in the header's actions (e.g. a ⋯ menu beside Review) and the Merge section, with ⌘K
+  entries shown only when they apply and only when the token may (`viewerCanUpdate` or similar). Whitelisted write
+  in `web/server/github/writes.ts` (`m/state`: PATCH `state` open/closed, checked), shown at once and rolled back
+  with a notice if GitHub refuses; the PR lists and counts update. Tests over the fake; never real GitHub.
+  Workspace: `github-close-pr`.
 
 ## Done
 
