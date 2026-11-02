@@ -7,7 +7,7 @@
  */
 import { after, before, test } from "node:test";
 import assert from "node:assert/strict";
-import type { Browser, Page } from "playwright";
+import type { Browser, Locator, Page } from "playwright";
 import { FAKE_IDS, fakeWorkspace } from "../server/linear/fake";
 import { PNG, headOverlaps, launch, mockApi, newContext, startApp, waitFor, appEvent } from "./harness";
 import { mockLinear } from "./linearFake";
@@ -913,6 +913,160 @@ test("an issue opened from outside the tab stands alone, Back returning to the l
     await view.getByRole("button", { name: "Back", exact: true }).click();
     await waitFor(openTitle, (t) => t === "Ship the Linear tab", "Back returns to the list");
     assert.equal(await list.isVisible(), true);
+  } finally {
+    linear.restore();
+    await context.close();
+  }
+});
+
+/**
+ * Where a head fails to cover what scrolls beneath it: the points across it
+ * where something else is topmost, and the `items` (cards, rows) whose visible
+ * box, clipped by every scroller round them, reaches into it (for heads outside
+ * their items' scroller; a sticky head has them beneath it).
+ */
+async function showsThrough(head: Locator, items = ""): Promise<string[]> {
+  return head.evaluate((root, [source, selector]) => (0, eval)(source)(root, selector), [SHOWS_THROUGH, items] as const);
+}
+// A string, so that the bundler's helpers (`__name`) stay out of the page.
+const SHOWS_THROUGH = `(h, selector) => {
+    const clipped = (el) => {
+      let box = el.getBoundingClientRect();
+      for (let a = el.parentElement; a && box; a = a.parentElement) {
+        const s = getComputedStyle(a);
+        if (s.overflowX === "visible" && s.overflowY === "visible") continue;
+        const c = a.getBoundingClientRect();
+        box = {
+          left: Math.max(box.left, c.left),
+          top: Math.max(box.top, c.top),
+          right: Math.min(box.right, c.right),
+          bottom: Math.min(box.bottom, c.bottom),
+        };
+        if (box.right - box.left < 1 || box.bottom - box.top < 1) box = null;
+      }
+      return box;
+    };
+    // The head as far as it shows (scrolled sideways, part of it is out of view).
+    const r = clipped(h);
+    if (!r) return ["the head is out of view"];
+    const through = [];
+    // Inside the rounded corners, which show what's behind the column.
+    for (let x = r.left + 10; x < r.right - 9; x += 12)
+      for (let y = r.top + 1; y < r.bottom; y += 4) {
+        const top = document.elementFromPoint(x, y);
+        if (top && !h.contains(top)) through.push(\`\${Math.round(x)},\${Math.round(y)}: \${top.className || top.tagName}\`);
+      }
+    for (const el of selector ? document.querySelectorAll(selector) : []) {
+      const b = clipped(el);
+      if (b && b.left < r.right - 1 && b.right > r.left + 1 && b.top < r.bottom - 1 && b.bottom > r.top + 1)
+        through.push(\`\${el.dataset.key} reaches into the head\`);
+    }
+    return through;
+  }`;
+/** A colour's alpha (computed colours are rgb() or rgba()). */
+const alpha = (color: string) => {
+  const m = /rgba?\(([^)]+)\)/.exec(color);
+  const parts = m ? m[1].split(/[,\s/]+/).filter(Boolean) : [];
+  return parts.length === 4 ? Number(parts[3]) : parts.length === 3 ? 1 : 0;
+};
+
+test("a board's heads cover the cards scrolled beneath them, opaque, in light and dark; so do a list's group heads", async () => {
+  const ws = fakeWorkspace();
+  const template = ws.issues.find((i) => i.identifier === "ENG-1")!;
+  const states = ["In Progress", "Todo", "In Review"] as const;
+  for (let n = 0; n < 45; n++) {
+    ws.issues.push({
+      ...template,
+      id: `00000000-0000-4000-8000-${String(n).padStart(12, "0")}`,
+      identifier: `ENG-${100 + n}`,
+      title: `A card title long enough to wrap onto a second line, number ${n}`,
+      sortOrder: 100 + n,
+      subscribers: { nodes: [] },
+      children: { nodes: [] },
+      state: { id: FAKE_IDS.states.eng[states[n % 3]] },
+      assignee: { id: n % 2 ? FAKE_IDS.sam : FAKE_IDS.owen },
+    });
+  }
+  const { context, page, linear, view, sidebar } = await openLinear(ws);
+  try {
+    await page.setViewportSize({ width: 1500, height: 800 });
+    await sidebar.getByRole("button", { name: /^ENG/ }).click();
+    await sidebar.locator('.linear-team[data-team="ENG"]').getByRole("button", { name: "All" }).click();
+    await waitFor(() => rowKeys(page), (keys) => keys.length > 40, "ENG's issues");
+    const palette = async (label: string) => {
+      await page.keyboard.press("Meta+k");
+      await page.keyboard.type(label);
+      await page.getByRole("option", { name: label }).first().waitFor();
+      await page.keyboard.press("Enter");
+    };
+    const opaque = async (head: Locator, what: string) =>
+      assert.equal(alpha(await head.evaluate((el) => getComputedStyle(el).backgroundColor)), 1, `${what} is opaque`);
+    const scrolled = (scroller: Locator, by: number) =>
+      scroller.evaluate((el, y) => {
+        el.scrollTop = y;
+        return el.scrollTop;
+      }, by);
+
+    // A list: its group heads aren't sticky; scrolled, a head in view has nothing over it.
+    const groups = view.locator(".linear-groups");
+    for (const scheme of ["dark", "light"] as const) {
+      await page.emulateMedia({ colorScheme: scheme });
+      assert.ok((await scrolled(groups, 400)) > 0);
+      const heads = view.locator(".linear-group h3");
+      const box = await groups.boundingBox();
+      let checked = 0;
+      for (const head of await heads.all()) {
+        const b = await head.boundingBox();
+        if (!b || b.y < box!.y || b.y + b.height > box!.y + box!.height) continue;
+        assert.deepEqual(await showsThrough(head, ".linear-row"), [], `a list's group head (${scheme})`);
+        checked++;
+      }
+      assert.ok(checked > 0, "a group head in view");
+    }
+
+    // A board grouped by assignee: each column scrolls beneath its head.
+    await palette("Show the Linear issues as a board");
+    await view.locator(".linear-board").waitFor();
+    await view.getByRole("button", { name: "Display" }).click();
+    const menu = view.getByRole("dialog", { name: "Display options" });
+    await menu.getByLabel("Grouping", { exact: true }).selectOption("assignee");
+    await page.keyboard.press("Escape");
+    await menu.waitFor({ state: "detached" });
+    await waitFor(() => groupNames(page), (names) => names[0] === "Owen Conti", "columns by assignee");
+    for (const scheme of ["dark", "light"] as const) {
+      await page.emulateMedia({ colorScheme: scheme });
+      for (const column of await view.locator(".linear-board .linear-column").all()) {
+        const cards = column.locator(".linear-column-cards");
+        if ((await cards.evaluate((el) => el.scrollHeight - el.clientHeight)) < 100) continue;
+        assert.ok((await scrolled(cards, 230)) > 0);
+        const head = column.locator("h3");
+        await opaque(head, `a column's head (${scheme})`);
+        assert.deepEqual(await showsThrough(head, ".linear-card"), [], `a column's head (${scheme})`);
+      }
+    }
+
+    // Sub-grouped: swimlanes scroll as a whole beneath the columns' sticky heads.
+    await palette("Sub-group the Linear list by status");
+    await view.locator(".linear-board.has-lanes").waitFor();
+    const scroller = view.locator(".linear-board-scroll");
+    const heads = view.locator(".linear-board-heads");
+    for (const scheme of ["dark", "light"] as const) {
+      await page.emulateMedia({ colorScheme: scheme });
+      for (const y of [170, 330, 610]) {
+        assert.ok((await scrolled(scroller, y)) > 0);
+        await opaque(heads, `the heads' row (${scheme})`);
+        await opaque(heads.locator(".linear-column-head").first(), `a column's head (${scheme})`);
+        // Stuck at the scroller's top: no gap above it for a card to show in.
+        const [s, h] = [await scroller.boundingBox(), await heads.boundingBox()];
+        assert.ok(Math.abs(s!.y - h!.y) < 1, `the heads at the scroller's top (${scheme})`);
+        assert.deepEqual(await showsThrough(heads), [], `scrolled ${y} (${scheme})`);
+      }
+      // Scrolled sideways, the heads still cover the whole row.
+      await scroller.evaluate((el) => (el.scrollLeft = 200));
+      assert.ok((await scroller.evaluate((el) => el.scrollLeft)) > 0, "scrolls sideways");
+      assert.deepEqual(await showsThrough(heads), [], `scrolled sideways (${scheme})`);
+      await scroller.evaluate((el) => (el.scrollLeft = 0));
+    }
   } finally {
     linear.restore();
     await context.close();

@@ -564,6 +564,8 @@
   flex: 0 0 calc(280px * var(--lz));
   flex-direction: column;
   min-height: 0;
+  /* Nothing of a card ever shows outside its column (above its head, over the gap). */
+  overflow: clip;
   border-radius: var(--radius-lg);
   background: var(--fill);
   transition: background-color var(--dur-1) var(--ease-out), box-shadow var(--dur-1) var(--ease-out);
@@ -572,9 +574,15 @@
   background: var(--accent-soft);
   box-shadow: inset 0 0 0 1px var(--accent);
 }
+/* A column's head: opaque, over its cards, which scroll beneath it and end at its hairline. */
 .linear-board .linear-group h3 {
-  margin: 0;
+  position: relative;
+  z-index: 1;
+  flex-shrink: 0;
+  margin: 0 0 6px;
   padding: var(--space-2) var(--space-3);
+  background: var(--fill);
+  box-shadow: 0 1px 0 var(--line);
 }
 .linear-column-cards {
   display: flex;
@@ -601,16 +609,22 @@
   display: flex;
   gap: var(--space-2);
 }
+/* The columns' heads stick at the scroller's top, opaque across its whole width (its side
+   padding and the gaps between heads too) and above every card, lane and lane head;
+   the cards scroll beneath and end at the row's foot. */
 .linear-board-heads {
   position: sticky;
   top: 0;
-  z-index: 1;
-  padding-top: var(--space-2);
+  z-index: 3;
+  isolation: isolate;
+  margin: 0 calc(-1 * var(--space-3));
+  padding: var(--space-2) var(--space-3);
   background: var(--surface);
+  box-shadow: 0 1px 0 var(--line);
 }
 .linear-column-head {
   flex: 0 0 calc(280px * var(--lz));
-  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  border-radius: var(--radius-lg);
   background: var(--fill);
 }
 .linear-column-head h3 {
@@ -630,6 +644,8 @@
 .linear-lane-head {
   position: sticky;
   left: 0;
+  /* Above the cards, beneath the columns' heads. */
+  z-index: 2;
   width: max-content;
   margin: var(--space-2) 0 var(--space-1);
 }

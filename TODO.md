@@ -5,16 +5,15 @@ mark it done with its commit once merged into `main`.
 
 ## Open
 
-- [ ] **Linear board: cards show through the column heads when scrolled.** On a board (e.g. Current Cycle grouped
-  by assignee), scrolling down a column leaves cards visible above and behind the sticky column heads
-  ("Cody 1", "Craig 3", …): card text and avatars peek out in the gap between the search field and the heads, and
-  under the heads' text. The sticky heads (and swimlane heads, if sub-grouped) need an opaque background matching
-  the column, covering the full column width and the gap above them, a z-index above cards, and cards clipped at
-  the scroller's top. Check light and dark, list view's sticky group heads too. Add an e2e check (scroll a column,
-  no card box intersects the head). Workspace: `fix-linear-board-sticky-heads`.
-
 ## Done
 
+- [x] **Linear board: cards show through the column heads when scrolled.** A board column's head had no background of its
+  own (the column's showed through) and nothing marked where its cards were cut, so cards scrolled beneath ran flush up
+  to the head (in dark, card and column are one colour: only their text, labels and avatars showed). Column heads are
+  opaque over their cards, end in a hairline, and a column clips everything to itself; with swimlanes, the sticky heads'
+  row is opaque across the scroller's whole width (side padding and gaps), above cards and lane heads, and ends in a
+  hairline. A list's group heads aren't sticky and had no fault. E2e: scrolled columns, lanes (and sideways) and a list,
+  light and dark, nothing shows through a head and heads are opaque. Commit "Linear board: heads cover the cards scrolled beneath them".
 - [x] **GitHub PR view: manage merge state, close and reopen.** The PR view's Merge section is GitHub's merge box: what blocks a
   merge and why, auto-merge (who turned it on) and the merge queue, and each action that applies and the token may: Merge, Squash and
   merge or Rebase and merge (the repository's methods, the last per repository; commit title and message; confirmed; delete the branch
