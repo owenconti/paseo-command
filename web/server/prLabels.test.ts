@@ -196,26 +196,46 @@ test("labels land on the fake daemon through the SDK's call", async () => {
 });
 
 test("one labeller loop runs per process, until stopped", async () => {
+  // Each pass waits in `rows` until released, so what's in flight shows how many
+  // loops run: one loop has one pass at a time, two would have two. No counting
+  // passes in a window of time, which a loaded machine stretches.
   const saved = { ...PR_LABELS_TUNING };
-  Object.assign(PR_LABELS_TUNING, { firstMs: 5, everyMs: 20 });
+  Object.assign(PR_LABELS_TUNING, { firstMs: 1, everyMs: 1 });
+  const waiting: Array<() => void> = [];
   let reads = 0;
   const { d } = deps([], {
-    rows: async () => {
+    rows: () => {
       reads++;
-      return [];
+      return new Promise<LabelRow[]>((r) => waiting.push(() => r([])));
     },
   });
+  // Until a pass waits, then until every timer due has fired (check runs after timers).
+  const nextPass = async () => {
+    const deadline = Date.now() + 5000;
+    while (!waiting.length) {
+      assert.ok(Date.now() < deadline, "the labeller never ran");
+      await new Promise((r) => setTimeout(r, 1));
+    }
+    await new Promise((r) => setImmediate(r));
+  };
   try {
     startPrLabels(d);
     startPrLabels(d);
-    await new Promise((r) => setTimeout(r, 110));
-    assert.ok(reads >= 3 && reads <= 7, `one loop, not two (${reads} passes)`);
+    for (let pass = 1; pass <= 3; pass++) {
+      await nextPass();
+      assert.equal(waiting.length, 1, `one loop, not two (pass ${pass})`);
+      waiting.shift()!();
+    }
+    await nextPass();
     stopPrLabels();
+    waiting.shift()!();
     const after = reads;
-    await new Promise((r) => setTimeout(r, 60));
-    assert.equal(reads, after);
+    await new Promise((r) => setTimeout(r, 30));
+    assert.equal(reads, after, "no pass after stopping");
+    assert.equal(waiting.length, 0);
   } finally {
     stopPrLabels();
+    for (const release of waiting) release();
     Object.assign(PR_LABELS_TUNING, saved);
   }
 });

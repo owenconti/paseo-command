@@ -9,7 +9,7 @@ import { after, before, test } from "node:test";
 import assert from "node:assert/strict";
 import type { Browser, Locator, Page } from "playwright";
 import { FAKE_IDS, READ_OPERATIONS, fakeWorkspace } from "../server/linear/fake";
-import { PNG, launch, mockApi, newContext, startApp, waitFor } from "./harness";
+import { PNG, launch, mockApi, newContext, startApp, waitFor, appEvent } from "./harness";
 import { mockLinear } from "./linearFake";
 
 let app: Awaited<ReturnType<typeof startApp>>;
@@ -25,7 +25,7 @@ after(async () => {
 
 /** The app's mode bar switches to Linear. */
 const showLinear = (page: Page) =>
-  page.evaluate(() => window.dispatchEvent(new CustomEvent("paseo:mode", { detail: { mode: "linear" } })));
+  appEvent(page, "paseo:mode", { mode: "linear" });
 
 const rowKeys = (page: Page) =>
   page.locator(".linear-list .linear-row").evaluateAll((rows) => rows.map((r) => (r as HTMLElement).dataset.key));
@@ -190,7 +190,7 @@ test("Linear navigates my issues, teams, projects and initiatives, shows an issu
     assert.equal(await issue.count(), 0);
 
     // Back to the map: the view goes.
-    await page.evaluate(() => window.dispatchEvent(new CustomEvent("paseo:mode", { detail: { mode: "command" } })));
+    await appEvent(page, "paseo:mode", { mode: "command" });
     await waitFor(() => view.count(), (n) => n === 0, "the Linear view to close");
     // Only reads reached the fake Linear.
     assert.ok(linear.requests.length > 0);
@@ -407,7 +407,7 @@ test("moves an issue out of Assigned when assigned to someone else", async () =>
 
     // ⌘K edits the open issue too: its status picker opens with the keyboard in it.
     await page.keyboard.press("Meta+k");
-    await page.getByLabel("Search commands").fill("issue's status");
+    await page.getByRole("combobox", { name: "Search commands" }).fill("issue's status");
     await page.keyboard.press("Enter");
     await page.getByRole("listbox", { name: "Status" }).waitFor();
     await page.keyboard.type("todo");
@@ -536,7 +536,7 @@ test("keeps a comment draft across remounts", async () => {
     await composer.fill("Half a thought");
 
     // Back to the map and to Linear again: still there.
-    await page.evaluate(() => window.dispatchEvent(new CustomEvent("paseo:mode", { detail: { mode: "command" } })));
+    await appEvent(page, "paseo:mode", { mode: "command" });
     await waitFor(() => view.count(), (n) => n === 0, "the Linear view to close");
     await showLinear(page);
     await waitFor(() => composer.inputValue(), (v) => v === "Half a thought", "the draft after a remount");
@@ -564,7 +564,7 @@ test("keeps a comment draft across remounts", async () => {
     // ⌘K's "Comment on ENG-1" puts the keyboard in the composer.
     await page.locator("body").click({ position: { x: 5, y: 5 } }).catch(() => {});
     await page.keyboard.press("Meta+k");
-    await page.getByLabel("Search commands").fill("Comment on ENG-1");
+    await page.getByRole("combobox", { name: "Search commands" }).fill("Comment on ENG-1");
     await page.keyboard.press("Enter");
     await waitFor(() => focusedName(page), (name) => name === "Write a comment", "the composer focused");
   } finally {
@@ -675,7 +675,7 @@ const createDialog = (page: Page) => page.getByRole("dialog", { name: "New issue
 /** A ⌘K command, by its label. */
 async function paletteRun(page: Page, label: string) {
   await page.keyboard.press("Meta+k");
-  await page.getByLabel("Search commands").fill(label);
+  await page.getByRole("combobox", { name: "Search commands" }).fill(label);
   await page.getByRole("option", { name: new RegExp(`^${label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`) }).first().waitFor();
   await page.keyboard.press("Enter");
 }
@@ -1005,7 +1005,7 @@ test("drives an issue from the keyboard", async () => {
 /** Whether ⌘K lists `label` (exactly) for that search; the palette closes again. */
 async function paletteHas(page: Page, label: string) {
   await page.keyboard.press("Meta+k");
-  await page.getByLabel("Search commands").fill(label);
+  await page.getByRole("combobox", { name: "Search commands" }).fill(label);
   await page.waitForTimeout(100);
   const n = await page.getByRole("option", { name: new RegExp(`^${label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`) }).count();
   await page.keyboard.press("Escape");

@@ -22,6 +22,9 @@ export function CommandPalette({
   blocked?: boolean;
 }) {
   const [open, setOpen] = useState(false);
+  // Each opening is a dialog of its own: reopened while the last one fades
+  // out, it starts empty instead of reviving that one with its old query.
+  const [opening, setOpening] = useState(0);
   const latest = useRef({ open, blocked });
   latest.current = { open, blocked };
   useEffect(() => {
@@ -32,7 +35,9 @@ export function CommandPalette({
       if (!open && (blocked || modalOpen())) return;
       event.preventDefault();
       event.stopImmediatePropagation();
-      if (!event.repeat) setOpen(!open);
+      if (event.repeat) return;
+      if (!open) setOpening((n) => n + 1);
+      setOpen(!open);
     };
     window.addEventListener("keydown", key, true);
     return () => window.removeEventListener("keydown", key, true);
@@ -55,6 +60,7 @@ export function CommandPalette({
     <AnimatePresence>
       {open && (
         <PaletteDialog
+          key={opening}
           commands={commands}
           shown={shown}
           onClose={() => setOpen(false)}

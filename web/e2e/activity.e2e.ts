@@ -9,7 +9,7 @@ import { after, before, test } from "node:test";
 import assert from "node:assert/strict";
 import type { Browser, Page } from "playwright";
 import type { ActivityFeed, ActivityItem } from "../src/activity/types";
-import { headOverlaps, launch, mockApi, newContext, startApp, waitFor } from "./harness";
+import { headOverlaps, launch, mockApi, newContext, startApp, waitFor, appEvent } from "./harness";
 import { mockLinear } from "./linearFake";
 
 let app: Awaited<ReturnType<typeof startApp>>;
@@ -81,7 +81,7 @@ function feedOf(items: ActivityItem[]): ActivityFeed {
 }
 
 const showActivity = (page: Page) =>
-  page.evaluate(() => window.dispatchEvent(new CustomEvent("paseo:mode", { detail: { mode: "activity" } })));
+  appEvent(page, "paseo:mode", { mode: "activity" });
 const rowKeys = (page: Page) =>
   page.locator(".activity-view .activity-row").evaluateAll((rows) => rows.map((r) => (r as HTMLElement).dataset.key));
 
@@ -213,7 +213,7 @@ test("in the macOS app, a Linear pull request notification opens its issue in th
     await waitFor(sent, (m) => m.some((x) => x.type === "menu" && x.action === "linear"), "the Linear tab asked for");
     assert.ok(!(await sent()).some((x) => x.url === item.url), "the pull request's address isn't opened");
     // The app switches: the Linear tab mounts with DE-1 open.
-    await page.evaluate(() => window.dispatchEvent(new CustomEvent("paseo:mode", { detail: { mode: "linear" } })));
+    await appEvent(page, "paseo:mode", { mode: "linear" });
     await page.locator(".linear-view .linear-issue h1", { hasText: "Refresh the docs theme" }).waitFor();
   } finally {
     linear.restore();

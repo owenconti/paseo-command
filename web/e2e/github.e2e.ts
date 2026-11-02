@@ -10,7 +10,7 @@ import assert from "node:assert/strict";
 import type { Browser, Page } from "playwright";
 import type { DiffFile, PrCheck, PrDetail, PrDiff, PrList, PrRow, RepoList, RepoPeople, RepoSearch, RepoTeams, WorkspaceChanges } from "../src/github/types";
 import { small } from "./fleets";
-import { launch, mockApi, newContext, startApp, waitFor } from "./harness";
+import { launch, mockApi, newContext, startApp, waitFor, appEvent } from "./harness";
 
 let app: Awaited<ReturnType<typeof startApp>>;
 let browser: Browser;
@@ -173,7 +173,7 @@ const CHANGES = (mode: string): WorkspaceChanges => ({
 });
 
 const showGithub = (page: Page) =>
-  page.evaluate(() => window.dispatchEvent(new CustomEvent("paseo:mode", { detail: { mode: "github" } })));
+  appEvent(page, "paseo:mode", { mode: "github" });
 
 type Asked = { path: string; query: Record<string, string>; body?: unknown };
 

@@ -9,7 +9,7 @@ import { after, before, test } from "node:test";
 import assert from "node:assert/strict";
 import type { Browser, Page } from "playwright";
 import { FAKE_IDS, fakeWorkspace } from "../server/linear/fake";
-import { PNG, headOverlaps, launch, mockApi, newContext, startApp, waitFor } from "./harness";
+import { PNG, headOverlaps, launch, mockApi, newContext, startApp, waitFor, appEvent } from "./harness";
 import { mockLinear } from "./linearFake";
 
 let app: Awaited<ReturnType<typeof startApp>>;
@@ -35,7 +35,7 @@ async function openLinear(ws = fakeWorkspace()) {
   const linear = await mockLinear(page, ws);
   await page.goto(app.url);
   await page.locator(".fleet-sidebar").waitFor();
-  await page.evaluate(() => window.dispatchEvent(new CustomEvent("paseo:mode", { detail: { mode: "linear" } })));
+  await appEvent(page, "paseo:mode", { mode: "linear" });
   const view = page.locator(".linear-view");
   const sidebar = view.locator(".linear-sidebar");
   await sidebar.getByRole("button", { name: /^ENG/ }).waitFor();
@@ -138,7 +138,7 @@ test("a list's display: grouping, ordering and finished issues, kept for the pla
     // Kept for the place across a reload; another place has its own.
     await page.reload();
     await page.locator(".fleet-sidebar").waitFor();
-    await page.evaluate(() => window.dispatchEvent(new CustomEvent("paseo:mode", { detail: { mode: "linear" } })));
+    await appEvent(page, "paseo:mode", { mode: "linear" });
     await waitFor(() => groupNames(page), (names) => names.join() === "Owen Conti,Sam Rivera,No assignee", "the display again");
     await sidebar.getByRole("button", { name: "Assigned" }).click();
     await waitFor(() => groupNames(page), (names) => names.join() === "In Progress,In Review", "Assigned's own display");
@@ -283,7 +283,7 @@ test("sub-grouping: groups hold sub-groups in a list, swimlanes on a board; swap
     // Kept for the place across a reload.
     await page.reload();
     await page.locator(".fleet-sidebar").waitFor();
-    await page.evaluate(() => window.dispatchEvent(new CustomEvent("paseo:mode", { detail: { mode: "linear" } })));
+    await appEvent(page, "paseo:mode", { mode: "linear" });
     await waitFor(() => subNames(page), (names) => names[0] === "Owen Conti · In Progress", "the sub-groups again");
 
     // ⌘K swaps and clears.
@@ -441,7 +441,7 @@ test("search: every issue in the workspace, most relevant first, as typing pause
     await waitFor(() => rowKeys(page), (keys) => keys.join() === "ENG-2", "ENG-2 found");
     await page.reload();
     await page.locator(".fleet-sidebar").waitFor();
-    await page.evaluate(() => window.dispatchEvent(new CustomEvent("paseo:mode", { detail: { mode: "linear" } })));
+    await appEvent(page, "paseo:mode", { mode: "linear" });
     assert.equal(await field.inputValue(), "draw");
     await waitFor(() => rowKeys(page), (keys) => keys.join() === "ENG-2", "ENG-2 again");
 
@@ -462,7 +462,8 @@ test("the inbox: your notifications by issue, read as they open, U, H and ⌫, s
   const { context, page, linear, view, sidebar } = await openLinear();
   try {
     const inboxItem = sidebar.getByRole("button", { name: /^Inbox/ });
-    const badge = () => inboxItem.locator(".linear-nav-badge").innerText().catch(() => "");
+    // Read now, never waiting for a badge that isn't there (none: nothing unread).
+    const badge = () => inboxItem.locator(".linear-nav-badge").allInnerTexts().then((t) => t.join(""));
     await waitFor(badge, (n) => n === "2", "two unread rows");
     await inboxItem.click();
     const inbox = view.locator(".linear-inbox");
@@ -576,7 +577,7 @@ test("a saved view shows as Linear has it even when the views come in after its 
     });
     await page.reload();
     await page.locator(".fleet-sidebar").waitFor();
-    await page.evaluate(() => window.dispatchEvent(new CustomEvent("paseo:mode", { detail: { mode: "linear" } })));
+    await appEvent(page, "paseo:mode", { mode: "linear" });
     await view.locator(".linear-list .linear-row").first().waitFor();
     release();
     await view.locator(".linear-board").waitFor();
@@ -677,7 +678,7 @@ test("the edge between the list and the open issue resizes it, kept across a rel
     // Kept.
     await page.reload();
     await page.locator(".fleet-sidebar").waitFor();
-    await page.evaluate(() => window.dispatchEvent(new CustomEvent("paseo:mode", { detail: { mode: "linear" } })));
+    await appEvent(page, "paseo:mode", { mode: "linear" });
     await detail.locator("h1", { hasText: "Ship the Linear tab" }).waitFor();
     assert.ok(Math.abs((await detail.boundingBox())!.width - wider) <= 3);
 
@@ -793,7 +794,7 @@ test("back and forward through the places and issues opened, not each step throu
   const { context, page, linear, view, sidebar } = await openLinear();
   try {
     const title = view.locator(".linear-list-head h2");
-    const openTitle = () => view.locator(".linear-issue h1").innerText().catch(() => "");
+    const openTitle = () => view.locator(".linear-issue h1").allInnerTexts().then((t) => t.join(""));
     const back = sidebar.getByRole("button", { name: "Go back", exact: true });
     const forward = sidebar.getByRole("button", { name: "Go forward", exact: true });
     assert.equal(await back.isDisabled(), true);
@@ -852,7 +853,7 @@ test("an issue opened from outside the tab stands alone, Back returning to the l
   const { context, page, linear, view, sidebar } = await openLinear(ws);
   try {
     const title = view.locator(".linear-list-head h2");
-    const openTitle = () => view.locator(".linear-issue h1").innerText().catch(() => "");
+    const openTitle = () => view.locator(".linear-issue h1").allInnerTexts().then((t) => t.join(""));
     const back = sidebar.getByRole("button", { name: "Go back", exact: true });
     const forward = sidebar.getByRole("button", { name: "Go forward", exact: true });
     const eng = sidebar.locator('.linear-team[data-team="ENG"]');
@@ -874,7 +875,7 @@ test("an issue opened from outside the tab stands alone, Back returning to the l
 
     // A link from outside (the app's paseo:link: the chat, Conquer, the header's chip): the issue alone, the sidebar marking nothing.
     const fromOutside = (url: string) =>
-      page.evaluate((url) => window.dispatchEvent(new CustomEvent("paseo:link", { detail: { url } })), url);
+      appEvent(page, "paseo:link", { url });
     await fromOutside("https://linear.app/fake/issue/ENG-2");
     await waitFor(openTitle, (t) => t === "Draw the issue list", "ENG-2 from outside");
     assert.equal(await list.count(), 0, "no list beside it");
@@ -885,7 +886,7 @@ test("an issue opened from outside the tab stands alone, Back returning to the l
     // A reload comes back to it, and Back to the list it came from.
     await page.reload();
     await page.locator(".fleet-sidebar").waitFor();
-    await page.evaluate(() => window.dispatchEvent(new CustomEvent("paseo:mode", { detail: { mode: "linear" } })));
+    await appEvent(page, "paseo:mode", { mode: "linear" });
     await waitFor(openTitle, (t) => t === "Draw the issue list", "ENG-2 after the reload");
     assert.equal(await list.count(), 0);
     await back.click();

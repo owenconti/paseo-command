@@ -5,11 +5,6 @@ mark it done with its commit once merged into `main`.
 
 ## Open
 
-- [ ] **Flaky e2e tests.** Agents saw these time out and pass on rerun: Linear sub-grouping (in full runs,
-  twice) and GitHub "drafts a line comment" (twice, as the first test after a fresh start, at the diff's comment
-  button), and the unit test "one labeller loop runs per process, until stopped" (failed 2 of 3 full
-  `app:test` runs). Find each cause (waits on timing, not state; worker/highlighting warm-up) and fix it so the full
-  `npm run app:e2e` and `npm run app:test` each pass 5 runs in a row. Workspace: `fix-flaky-e2e`.
 - [ ] **GitHub PR conversation: newest first.** The Conversation tab lists the PR's description, comments,
   reviews and events oldest first, so a long description fills the screen before any recent activity. List the
   timeline in reverse chronological order (newest at the top), the PR's description, as its oldest entry, at
@@ -50,6 +45,14 @@ mark it done with its commit once merged into `main`.
 
 ## Done
 
+- [x] **Flaky e2e tests.** The causes, each fixed: the command palette reopened within its fade-out revived the
+  closing dialog with its old query (an app bug, so Linear sub-grouping's quick ⌘K commands typed onto stale text;
+  each opening is now a fresh dialog); e2e servers shared Vite's pre-bundled deps in the main checkout's
+  `node_modules/.vite` with every worktree and dev server, whose re-bundling deleted chunks loaded on demand (the
+  GitHub diff's highlighter languages; each server now has its own cache); the labeller test counted passes in a
+  fixed window (now it holds each pass and checks one runs at a time); the forks "narrow panel" test scrolled by
+  script, which leaves the view pinned, and measured before it settled; the Linear inbox test waited 30 s each run
+  for a badge that was gone; and tests now send `paseo:mode` and other app events only once the app listens.
 - [x] **GitHub: comments and PR bodies render as GitHub shows them.** The PR read asks GitHub's `bodyHTML` for the
   description, comments, reviews and line comments in the same query; the page cleans it again with an allowlist
   (`web/src/github/html.ts`) and draws it: tables, camo images, `<details>`, `<kbd>`, alerts, task lists, hidden

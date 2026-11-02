@@ -3,8 +3,11 @@
  * fixture image server, and drives Chrome with every /api request answered by
  * the test: nothing reaches the Paseo daemon, and any non-GET is refused.
  */
+import { mkdtemp, rm } from "node:fs/promises";
 import { createServer as createHttp, type Server } from "node:http";
 import { createServer as createNet } from "node:net";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { deflateSync } from "node:zlib";
 import {
@@ -42,9 +45,15 @@ export async function startApp(): Promise<{
   process.env.PASEO_COMMAND_CLI = "/usr/bin/false";
   // Nor does it keep PR labels: the labeller would write to a daemon.
   process.env.PASEO_COMMAND_PR_LABELS = "off";
+  // Pre-bundled dependencies of its own. Vite's default, node_modules/.vite, is
+  // shared by every checkout whose node_modules links to the same folder (Paseo
+  // worktrees), and another checkout's run (or dev server) re-bundling it under
+  // this one deletes the chunks loaded on demand (the diff highlighter's languages).
+  const cacheDir = await mkdtemp(join(tmpdir(), "paseo-command-e2e-vite-"));
   const server: ViteDevServer = await createServer({
     root: ROOT,
     configFile: `${ROOT}vite.config.ts`,
+    cacheDir,
     logLevel: "silent",
     server: {
       host: "127.0.0.1",
@@ -93,7 +102,10 @@ export async function startApp(): Promise<{
   }
   return {
     url: server.resolvedUrls!.local[0],
-    stop: () => server.close(),
+    stop: async () => {
+      await server.close();
+      await rm(cacheDir, { recursive: true, force: true });
+    },
     apiHits,
   };
 }
@@ -638,7 +650,36 @@ export async function newContext(browser: Browser): Promise<BrowserContext> {
   // Likewise the live connection: unless a test answers it, it is closed.
   await context.routeWebSocket("**/api/ws", (ws) => ws.close());
   await context.addInitScript(STUB_NOTIFICATIONS);
+  await context.addInitScript(RECORD_LISTENERS);
   return context;
+}
+
+/**
+ * Counts the page's listeners for the app's own events (`paseo:…`), so a test
+ * sends one only once the app listens: the app adds its listeners in effects,
+ * after it first paints, and an event sent before then is lost.
+ */
+const RECORD_LISTENERS = `(() => {
+  const listening = (window.__paseoListening = new Map());
+  const add = window.addEventListener;
+  const remove = window.removeEventListener;
+  window.addEventListener = function (type, ...rest) {
+    if ((this == null || this === window) && String(type).startsWith("paseo:")) listening.set(type, (listening.get(type) || 0) + 1);
+    return add.call(this, type, ...rest);
+  };
+  window.removeEventListener = function (type, ...rest) {
+    if ((this == null || this === window) && listening.get(type)) listening.set(type, listening.get(type) - 1);
+    return remove.call(this, type, ...rest);
+  };
+})()`;
+
+/** Sends the page an app event (as the macOS app does) once the app listens for it. */
+export async function appEvent(page: Page, type: string, detail: unknown): Promise<void> {
+  await page.waitForFunction(
+    (t) => ((window as unknown as { __paseoListening?: Map<string, number> }).__paseoListening?.get(t) ?? 0) > 0,
+    type,
+  );
+  await page.evaluate(([t, d]) => window.dispatchEvent(new CustomEvent(t as string, { detail: d })), [type, detail] as const);
 }
 
 /**

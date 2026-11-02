@@ -10,7 +10,7 @@ import { after, before, test } from "node:test";
 import assert from "node:assert/strict";
 import type { Browser, Page } from "playwright";
 import { FAKE_IDS as I, fakeWorkspace } from "../server/linear/fake";
-import { launch, mockApi, newContext, startApp, waitFor } from "./harness";
+import { launch, mockApi, newContext, startApp, waitFor, appEvent } from "./harness";
 import { mockLinear } from "./linearFake";
 
 let app: Awaited<ReturnType<typeof startApp>>;
@@ -42,7 +42,7 @@ async function openLinear(ws = fakeWorkspace()) {
   const linear = await mockLinear(page, ws);
   await page.goto(app.url);
   await page.locator(".fleet-sidebar").waitFor();
-  await page.evaluate(() => window.dispatchEvent(new CustomEvent("paseo:mode", { detail: { mode: "linear" } })));
+  await appEvent(page, "paseo:mode", { mode: "linear" });
   const view = page.locator(".linear-view");
   const sidebar = view.locator(".linear-sidebar");
   await sidebar.getByRole("button", { name: /^ENG/ }).waitFor();
@@ -54,14 +54,14 @@ async function openLinear(ws = fakeWorkspace()) {
 /** A ⌘K command, by its label. */
 async function paletteRun(page: Page, label: string) {
   await page.keyboard.press("Meta+k");
-  await page.getByLabel("Search commands").fill(label);
+  await page.getByRole("combobox", { name: "Search commands" }).fill(label);
   await page.getByRole("option", { name: new RegExp(`^${label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`) }).first().waitFor();
   await page.keyboard.press("Enter");
 }
 /** Whether ⌘K lists `label` for that search; the palette closes again. */
 async function paletteHas(page: Page, label: string) {
   await page.keyboard.press("Meta+k");
-  await page.getByLabel("Search commands").fill(label);
+  await page.getByRole("combobox", { name: "Search commands" }).fill(label);
   await page.waitForTimeout(100);
   const n = await page.getByRole("option", { name: new RegExp(`^${label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`) }).count();
   await page.keyboard.press("Escape");

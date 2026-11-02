@@ -265,10 +265,28 @@ test("narrow panel: the fork takes over; Back to main returns to the same place"
       const view = el.closest(".timeline")!;
       return Math.round(el.getBoundingClientRect().top - view.getBoundingClientRect().top);
     });
-  await sleep(500);
-  await reply.evaluate((el) => el.scrollIntoView({ block: "center" }));
-  await sleep(300);
-  const before = await place();
+  // Scrolled up to the reply as a reader does (the wheel), which unpins the view
+  // from the latest; a script's scrollIntoView isn't the reader, and a pinned view
+  // keeps the bottom as the composer grows.
+  const timeline = page.locator(".session > .timeline");
+  await reply.waitFor();
+  await timeline.hover();
+  const middle = (await timeline.evaluate((el) => el.clientHeight)) / 2;
+  await page.mouse.wheel(0, (await place()) - middle);
+  await page.locator(".jump-latest").waitFor();
+  // Where it rests once nothing moves it (layout settling, a smooth scroll).
+  const settled = async () => {
+    const end = Date.now() + 10000;
+    for (let last = await place(); ; ) {
+      assert.ok(Date.now() < end, "the conversation never came to rest");
+      await sleep(150);
+      const now = await place();
+      if (now === last) return now;
+      last = now;
+    }
+  };
+  const before = await settled();
+  assert.ok(Math.abs(before - middle) < middle, `the reply in view (${before})`);
   await select(page, "Earlier answer 12.");
   await pill(page).getByRole("button", { name: "Ask", exact: true }).click();
   const p = pane(page);
@@ -276,7 +294,10 @@ test("narrow panel: the fork takes over; Back to main returns to the same place"
   assert.equal(await p.getAttribute("data-layout"), "over");
   await p.getByRole("button", { name: "Back to main" }).click();
   await p.waitFor({ state: "hidden" });
-  assert.ok(Math.abs((await place()) - before) <= 2, `${await place()} vs ${before}`);
+  // Back with the question's piece kept above the composer, which shrinks the view.
+  await page.locator(".fork-pieces").waitFor();
+  const after = await settled();
+  assert.ok(Math.abs(after - before) <= 2, `${after} vs ${before}`);
   await close();
 });
 

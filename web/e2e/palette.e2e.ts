@@ -13,6 +13,7 @@ import {
   mockApi,
   newContext,
   startApp,
+  appEvent,
 } from "./harness";
 import { PAGES } from "../src/palette";
 
@@ -166,7 +167,7 @@ test("in the macOS app, the terminal's menu commands are listed and reach the ap
   );
   // Its buttons open what they name beneath themselves (their rectangle is above the page).
   const bar = (action: string) =>
-    page.evaluate((action) => window.dispatchEvent(new CustomEvent("paseo:bar", { detail: { action, x: 1100, y: -34, width: 28, height: 26 } })), action);
+    appEvent(page, "paseo:bar", { action, x: 1100, y: -34, width: 28, height: 26 });
   await bar("releases");
   const notes = page.getByRole("dialog", { name: "What's new" });
   await notes.waitFor();

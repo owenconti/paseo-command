@@ -14,6 +14,7 @@ import {
   newContext,
   startApp,
   waitFor,
+  appEvent,
 } from "./harness";
 
 let app: Awaited<ReturnType<typeof startApp>>;
@@ -290,7 +291,7 @@ test("integrations opt in explicitly, persist, and stop their controls after opt
   });
   await page.goto(app.url);
   // The app's native gear switches to Settings.
-  await page.evaluate(() => window.dispatchEvent(new CustomEvent("paseo:mode", { detail: { mode: "settings" } })));
+  await appEvent(page, "paseo:mode", { mode: "settings" });
   await page.locator('.settings-nav-item[data-section="integrations"]').click();
   const dialog = page.getByRole("region", { name: "Settings", exact: true });
   const linear = dialog.getByRole("switch", { name: /^Linear / });
@@ -328,7 +329,7 @@ test("integrations opt in explicitly, persist, and stop their controls after opt
   ]);
   await page.reload();
   // The app's native gear switches to Settings.
-  await page.evaluate(() => window.dispatchEvent(new CustomEvent("paseo:mode", { detail: { mode: "settings" } })));
+  await appEvent(page, "paseo:mode", { mode: "settings" });
   await page.locator('.settings-nav-item[data-section="integrations"]').click();
   await waitFor(
     () => linear.isChecked(),
