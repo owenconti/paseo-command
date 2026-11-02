@@ -9,7 +9,7 @@ import type { IncomingMessage } from "node:http";
 import { Readable } from "node:stream";
 import { afterEach, beforeEach, test } from "node:test";
 import { fakePr, installFakeGithub, SHA, type FakeGithub } from "./fake";
-import { mergeOf } from "./reads";
+import { mergeOf, ruleMethodsOf } from "./reads";
 import { githubRoute } from "./route";
 import { checkWrite } from "./writes";
 import { githubPullRequest, GITHUB_LOOKUP } from "../links";
@@ -88,6 +88,61 @@ test("merge box shaping: only allowed methods, known states, auto-merge with who
   assert.equal(mergeOf({ isInMergeQueue: true }).queue?.state, "queued");
 });
 
+/** A ruleset's `pull_request` rule, as REST `rules/branches` gives it (Diagonal-HQ/diagonal's `main`: squash only). */
+const prRule = (allowed: string[]) => ({
+  type: "pull_request",
+  parameters: { required_approving_review_count: 1, allowed_merge_methods: allowed },
+  ruleset_source_type: "Repository",
+  ruleset_source: "owen/app",
+  ruleset_id: 1,
+});
+
+test("the methods are the repository's that the base branch's rules allow too, in one request with the PR's read", async () => {
+  fake.rules.set("owen/app:main", [{ type: "deletion" }, prRule(["squash"]), { type: "non_fast_forward" }]);
+  const pr = await read();
+  assert.deepEqual(pr.merge.methods, ["squash"]);
+  assert.equal(pr.merge.methodsNote, undefined);
+  const asked = fake.calls.filter((c) => c.path.startsWith("repos/owen/app/rules/branches/"));
+  assert.deepEqual(asked.map((c) => c.path), ["repos/owen/app/rules/branches/main"]);
+  await read();
+  assert.equal(fake.calls.filter((c) => c.path.includes("/rules/")).length, 1, "cached with the PR");
+});
+
+test("a repository allowing only squash offers only squash; rules intersect; linear history rules out merge commits", async () => {
+  fake.prs.set("owen/app#7", fakePr({ number: 7, baseRepo: { ...fakePr({ number: 7 }).baseRepo as object, mergeCommitAllowed: false, rebaseMergeAllowed: false } }));
+  assert.deepEqual((await read()).merge.methods, ["squash"]);
+  assert.deepEqual(ruleMethodsOf([prRule(["merge", "squash"]), prRule(["squash", "rebase"])]), ["squash"]);
+  assert.deepEqual(ruleMethodsOf([{ type: "required_linear_history" }]), ["squash", "rebase"]);
+  assert.equal(ruleMethodsOf([{ type: "pull_request", parameters: {} }, { type: "deletion" }]), null);
+  assert.equal(ruleMethodsOf("nonsense"), null);
+});
+
+test("no method allowed, or rules GitHub won't give, say so rather than defaulting to a merge", async () => {
+  fake.rules.set("owen/app:main", [prRule([])]);
+  let m = (await read()).merge;
+  assert.deepEqual(m.methods, []);
+  assert.match(m.methodsNote, /rules allow none/);
+  fake.rules.set("owen/app:main", { status: 403, json: { message: "Resource not accessible" } });
+  m = (await ask("/api/github/q/pr?repo=owen/app&number=7&fresh=1")).body.merge;
+  assert.deepEqual(m.methods, ["merge", "squash", "rebase"]);
+  assert.match(m.methodsNote, /didn’t say/);
+  assert.match(mergeOf({ baseRepo: {} }).methodsNote!, /allows no merge method/);
+});
+
+test("a merge or auto-merge by a method the rules don't allow is refused before GitHub is asked", async () => {
+  fake.rules.set("owen/app:main", [prRule(["squash"])]);
+  for (const [name, body] of [
+    ["merge", { ...pr7, method: "merge", headSha: SHA }],
+    ["autoMerge", { ...pr7, enable: true, method: "rebase", headSha: SHA }],
+  ] as const) {
+    const r = await write(name, body);
+    assert.equal(r.status, 400, JSON.stringify(r.body));
+    assert.match(r.body.error ?? JSON.stringify(r.body), /merges only by squash/);
+  }
+  assert.equal(fake.writes.length, 0);
+  assert.equal((await write("merge", { ...pr7, method: "squash", headSha: SHA })).status, 200);
+});
+
 test("merging sends the method, the head it was read at and the commit text; GitHub's answer says it merged", async () => {
   const r = await write("merge", { ...pr7, method: "squash", headSha: SHA, title: "Squash it (#7)", message: "Body" });
   assert.equal(r.status, 200, JSON.stringify(r.body));
@@ -118,7 +173,7 @@ test("a write clears the PR's cached read, its lists and the map's lookup of it"
   await ask("/api/github/q/prs?scope=mine");
   await githubPullRequest("owen/app", "feature-7");
   const asked = fake.calls.slice(calls).map((c) => String((c.body as { query?: string })?.query));
-  assert.equal(asked.length, 3, "the PR, its list and the branch lookup are each asked again");
+  assert.equal(asked.length, 4, "the PR (and its base branch's rules), its list and the branch lookup are each asked again");
   assert.ok(asked.some(branchQuery));
 });
 

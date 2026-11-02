@@ -5,15 +5,6 @@ mark it done with its commit once merged into `main`.
 
 ## Open
 
-- [ ] **GitHub merge box: offer only the merge methods the repository allows.** On a Diagonal-HQ/diagonal PR, which
-  only allows squash merging, the header showed "Merge pull request" and the ▾ menu "Merge pull request…" and "Enable
-  auto-merge (merge commit)…": no squash. `mergeOf` (`web/server/github/reads.ts`) takes methods from the repository's
-  `mergeCommitAllowed`/`squashMergeAllowed`/`rebaseMergeAllowed`; find what the real answer is. Likely causes: the
-  restriction comes from a ruleset or branch protection's allowed merge methods (REST `GET /repos/:repo/rules/branches/:base`,
-  the `pull_request` rule's `allowed_merge_methods`), which GitHub's own merge box honours, or the fields read differently
-  with the classic token. Intersect the repository's methods with the base branch's rules, label the button by its
-  method ("Squash and merge"), default to the only/first allowed one, and never offer a method GitHub would refuse.
-  Tests over the fake (a ruleset allowing only squash); never real GitHub. Workspace: `fix-github-merge-methods`.
 - [ ] **GitHub PR view: deslop the buttons and merge box.** The PR header's and side panel's controls are oversized and
   heavy: Review (a big filled gold block), the split "Merge pull request" button, "Open Paseo agent" on its own row,
   the conversation's Newest/Oldest toggle, Comment, and the Merge section's full-width stacked blocks ("Merge pull
@@ -27,6 +18,11 @@ mark it done with its commit once merged into `main`.
 
 ## Done
 
+- [x] **GitHub merge box: offers only the merge methods the repository and its base branch's rules allow.** Diagonal-HQ/diagonal
+  allows merge commits and squash, but its `main` ruleset's `pull_request` rule allows only squash (`allowed_merge_methods`), which
+  the PR read didn't ask; the header named the first, a merge commit. The PR read now asks the base branch's rules (REST
+  `rules/branches/:base`, in its cache) and intersects; the button is named by its method, auto-merge and ⌘K offer only those, no
+  method or unreadable rules say so, and `m/merge`/`m/autoMerge` refuse others. Commit "GitHub merge box: offer only the methods the base branch's rules allow".
 - [x] **Removed the Linear tab, at the user's request; Activity's Linear source and Settings' Linear key stay.** Gone: the
   page (`web/src/linear/`: lists, board, issue detail and editing, comments, attachments, relations, Create issue, views,
   the Inbox page, search, cycles, projects, initiatives), its mode (`paseo:mode` `linear`, the mode bar tab, View menu item;

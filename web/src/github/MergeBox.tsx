@@ -47,8 +47,10 @@ function defaultMessage(pr: PrDetail, method: "merge" | "squash") {
 export function useMergeBox({ pr, prPath, onNotice }: { pr: PrDetail | undefined; prPath: string; onNotice: (message: string) => void }) {
   const repo = pr?.repo ?? "";
   const methods = pr?.merge.methods ?? [];
-  const [method, setMethodState] = useState<MergeMethod>(() => mergeMethodFor(repo, methods));
+  const [chosen, setMethodState] = useState<MergeMethod | null>(() => mergeMethodFor(repo, methods));
   useEffect(() => setMethodState(mergeMethodFor(repo, methods)), [repo, methods.join()]);
+  // Only ever one the PR allows, even before the effect catches up with a new read.
+  const method = chosen && methods.includes(chosen) ? chosen : mergeMethodFor(repo, methods);
   const setMethod = useCallback(
     (m: MergeMethod) => {
       setMethodState(m);
@@ -261,9 +263,11 @@ export function MergeHeader({ pr, box }: { pr: PrDetail; box: MergeBox }) {
   const block = blockers(pr).find((b) => b.level === "block");
   const busy = !!box.busy;
 
-  const split = (label: string, kind: "merge" | "auto", tip: string) => (
+  // The method the main button merges by: the one chosen, always one the PR allows.
+  const method = actions.find((a): a is Extract<MergeAction, { kind: "merge" | "auto" }> => a.kind === "merge" || a.kind === "auto")?.method;
+  const split = (label: string, kind: "merge" | "auto", tip: string, method: MergeMethod) => (
     <span className="menu-anchor gh-split" ref={methodMenu.anchor}>
-      <button className="gh-merge-btn" onClick={() => box.run({ kind, method: box.method })} disabled={busy} data-tip={tip}>
+      <button className="gh-merge-btn" onClick={() => box.run({ kind, method })} disabled={busy} data-tip={tip}>
         {kind === "merge" ? <GitMerge size={13} aria-hidden="true" /> : <Zap size={13} aria-hidden="true" />}
         {label}
       </button>
@@ -287,14 +291,14 @@ export function MergeHeader({ pr, box }: { pr: PrDetail; box: MergeBox }) {
             <button
               key={m}
               role="menuitemradio"
-              aria-checked={m === box.method}
+              aria-checked={m === method}
               tabIndex={-1}
               onClick={() => {
                 methodMenu.setOpen(false);
                 box.run({ kind, method: m });
               }}
             >
-              <span className="gh-method-check">{m === box.method && <CircleCheck size={13} aria-hidden="true" />}</span>
+              <span className="gh-method-check">{m === method && <CircleCheck size={13} aria-hidden="true" />}</span>
               <span>
                 <b>{kind === "merge" ? METHOD_BUTTON[m] : `Auto-merge: ${METHOD_WORDS[m]}`}</b>
                 <small>{METHOD_HINT[m]}</small>
@@ -307,7 +311,8 @@ export function MergeHeader({ pr, box }: { pr: PrDetail; box: MergeBox }) {
   );
 
   let main: React.ReactNode = null;
-  if (has("merge")) main = split(METHOD_BUTTON[box.method], "merge", adminMerge(pr) && !mergeableNow(pr) ? "Merge as an administrator, past unmet requirements" : "Merge it");
+  if (has("merge") && method)
+    main = split(METHOD_BUTTON[method], "merge", adminMerge(pr) && !mergeableNow(pr) ? "Merge as an administrator, past unmet requirements" : "Merge it", method);
   else if (has("queue"))
     main = (
       <button className="gh-merge-btn" onClick={() => box.run({ kind: "queue" })} disabled={busy} data-tip="Add it to the base branch’s merge queue">
@@ -315,7 +320,7 @@ export function MergeHeader({ pr, box }: { pr: PrDetail; box: MergeBox }) {
         Merge when ready
       </button>
     );
-  else if (has("auto")) main = split("Enable auto-merge", "auto", "GitHub merges it once its requirements pass");
+  else if (has("auto") && method) main = split("Enable auto-merge", "auto", `GitHub merges it (${METHOD_WORDS[method]}) once its requirements pass`, method);
   else if (has("dequeue"))
     main = (
       <button className="secondary" onClick={() => box.run({ kind: "dequeue" })} disabled={busy}>
@@ -334,11 +339,11 @@ export function MergeHeader({ pr, box }: { pr: PrDetail; box: MergeBox }) {
         Ready for review
       </button>
     );
-  else if (pr.state === "open" && pr.merge.canMerge && pr.merge.methods.length && block)
+  else if (pr.state === "open" && pr.merge.canMerge && !pr.merge.queueRequired && block)
     main = (
       <button className="gh-merge-btn" disabled aria-description={block.text} data-tip={block.text}>
         <GitMerge size={13} aria-hidden="true" />
-        Merge
+        {box.method ? METHOD_BUTTON[box.method] : "Merge"}
       </button>
     );
   else if (has("reopen"))
@@ -392,7 +397,7 @@ export function MergeHeader({ pr, box }: { pr: PrDetail; box: MergeBox }) {
         </span>
       )}
       {box.panel?.mode === "close" && <ClosePanel pr={pr} box={box} />}
-      {box.panel && box.panel.mode !== "close" && <MergePanel key={box.panel.mode} pr={pr} box={box} mode={box.panel.mode} />}
+      {box.panel && box.panel.mode !== "close" && <MergePanel key={box.panel.mode} pr={pr} box={box} mode={box.panel.mode} method={box.method ?? box.panel.method} />}
     </div>
   );
 }
@@ -412,8 +417,7 @@ const escapeCloses = (onClose: () => void) => (e: React.KeyboardEvent) => {
  * (offered where the token may, remembered), and, for an administrator past
  * unmet requirements, what they are and a box to tick. ⌘↩ confirms; Esc closes.
  */
-function MergePanel({ pr, box, mode }: { pr: PrDetail; box: MergeBox; mode: "merge" | "auto" }) {
-  const method = box.method;
+function MergePanel({ pr, box, mode, method }: { pr: PrDetail; box: MergeBox; mode: "merge" | "auto"; method: MergeMethod }) {
   const [text, setText] = useState(() => (method === "rebase" ? { title: "", body: "" } : defaultMessage(pr, method)));
   useEffect(() => setText(method === "rebase" ? { title: "", body: "" } : defaultMessage(pr, method)), [method]);
   const [del, setDel] = useState(deleteAfterMerge);

@@ -120,7 +120,8 @@ test("a PR's bodies come with GitHub's rendering of them, in the same query", as
   assert.equal("html" in pr.threads[0].comments[0], false);
   const query = (fake.calls[0]!.body as { query: string }).query;
   assert.equal(query.match(/\bbodyHTML\b/g)?.length, 4, "the PR's, comments', reviews' and thread comments' bodyHTML");
-  assert.equal(fake.calls.length, 1);
+  // The query, and its base branch's rules (for the merge methods).
+  assert.deepEqual(fake.calls.map((c) => c.path), ["graphql", "repos/owen/app/rules/branches/main"]);
 });
 
 test("a PR's further files are paged in", async () => {
@@ -234,7 +235,7 @@ test("writes send exactly what was asked, and clear the PR's cached read", async
   // The PR is read again after a write.
   const before = fake.calls.length;
   await ask("/api/github/q/pr?repo=owen/app&number=7");
-  assert.equal(fake.calls.length, before + 1);
+  assert.equal(fake.calls.length, before + 2, "the PR and its base branch's rules");
 });
 
 test("write inputs are checked field by field", async () => {

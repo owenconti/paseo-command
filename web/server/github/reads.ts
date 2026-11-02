@@ -762,13 +762,47 @@ const methodOf = (v: unknown): MergeMethod | undefined => {
 };
 const when = (v: unknown) => (Number.isFinite(Date.parse(str(v))) ? str(v) : undefined);
 
-/** The PR's merge box (`PrMerge`), from `MERGE_FIELDS`. */
-export function mergeOf(p: Raw): PrMerge {
+/**
+ * What the base branch's rules (REST `rules/branches/:branch`, every active
+ * ruleset's) allow: each `pull_request` rule's `allowed_merge_methods`,
+ * intersected, and no merge commit under `required_linear_history`; null
+ * when they don't restrict the methods.
+ */
+export function ruleMethodsOf(rules: unknown): MergeMethod[] | null {
+  let allowed: MergeMethod[] | null = null;
+  const only = (ms: MergeMethod[]) => (allowed = (allowed ?? MERGE_METHODS).filter((m) => ms.includes(m)));
+  for (const r of Array.isArray(rules) ? rules.map(rec) : []) {
+    const listed = rec(r.parameters).allowed_merge_methods;
+    if (r.type === "pull_request" && Array.isArray(listed)) only(MERGE_METHODS.filter((m) => listed.includes(m)));
+    if (r.type === "required_linear_history") only(["squash", "rebase"]);
+  }
+  return allowed;
+}
+
+/** The base branch's rules' methods (`ruleMethodsOf`), or "unread" when GitHub wouldn't say. */
+export type BranchRules = { methods: MergeMethod[] | null } | "unread";
+
+/**
+ * The PR's merge box (`PrMerge`), from `MERGE_FIELDS` and its base branch's
+ * rules: the methods are the repository's that the rules allow too, as
+ * GitHub's own merge box offers them.
+ */
+export function mergeOf(p: Raw, rules: BranchRules = { methods: null }): PrMerge {
   const repo = rec(p.baseRepo);
   const status = str(p.mergeStateStatus).toLowerCase() as MergeStatus;
-  const methods = MERGE_METHODS.filter(
+  const repoMethods = MERGE_METHODS.filter(
     (m) => repo[m === "merge" ? "mergeCommitAllowed" : m === "squash" ? "squashMergeAllowed" : "rebaseMergeAllowed"] === true,
   );
+  const ruled = rules === "unread" ? null : rules.methods;
+  const methods = ruled ? repoMethods.filter((m) => ruled.includes(m)) : repoMethods;
+  const methodsNote =
+    rules === "unread"
+      ? "GitHub didn’t say which merge methods the base branch’s rules allow; it may refuse some of these."
+      : !repoMethods.length
+        ? "The repository allows no merge method."
+        : !methods.length
+          ? "The base branch’s rules allow none of the repository’s merge methods."
+          : undefined;
   const auto = p.autoMergeRequest ? rec(p.autoMergeRequest) : null;
   const autoMethod = auto ? methodOf(auto.mergeMethod) : undefined;
   const autoBy = auto ? personOf(auto.enabledBy) : null;
@@ -787,6 +821,7 @@ export function mergeOf(p: Raw): PrMerge {
   return {
     status: MERGE_STATUS.includes(status) ? status : "unknown",
     methods,
+    ...(methodsNote ? { methodsNote } : {}),
     canMerge: ["ADMIN", "MAINTAIN", "WRITE"].includes(str(repo.viewerPermission)) || p.viewerCanMergeAsAdmin === true,
     canMergeAsAdmin: p.viewerCanMergeAsAdmin === true,
     canUpdate: p.viewerCanUpdate === true,
@@ -815,7 +850,7 @@ export function mergeOf(p: Raw): PrMerge {
 }
 
 /** GitHub's pullRequest object (and its further file pages) as a PrDetail; null when it isn't one. */
-export function detailOf(p: Raw, extraFiles: Raw[] = []): PrDetail | null {
+export function detailOf(p: Raw, extraFiles: Raw[] = [], rules?: BranchRules): PrDetail | null {
   const row = rowOf(p);
   if (!row) return null;
   const sha = str(p.headRefOid);
@@ -841,12 +876,23 @@ export function detailOf(p: Raw, extraFiles: Raw[] = []): PrDetail | null {
     assignees: nodes(p.assignees)
       .map(personOf)
       .filter((a): a is Person => a !== null),
-    merge: mergeOf(p),
+    merge: mergeOf(p, rules),
   };
 }
 
 export const prKey = (repo: string, number: number) => `pr:${repo}#${number}`;
 export const diffKey = (repo: string, number: number) => `diff:${repo}#${number}`;
+
+/** The base branch's rules' merge methods, one request with the PR's read (and in its cache). */
+async function readBranchRules(repo: string, branch: string): Promise<BranchRules> {
+  try {
+    const path = `repos/${repo}/rules/branches/${branch.split("/").map(encodeURIComponent).join("/")}?per_page=100`;
+    return { methods: ruleMethodsOf((await githubRest<unknown>("GET", path)).data) };
+  } catch (e) {
+    if (e instanceof GithubApiError) return "unread";
+    throw e;
+  }
+}
 
 export function readPr(repo: string, number: number, fresh = false): Promise<PrDetail> {
   return cached(prKey(repo, number), fresh, async () => {
@@ -864,7 +910,7 @@ export function readPr(repo: string, number: number, fresh = false): Promise<PrD
       count += got.length;
       page = rec(rec(more.files).pageInfo);
     }
-    const detail = detailOf(p, extra);
+    const detail = detailOf(p, extra, p.baseRefName ? await readBranchRules(repo, str(p.baseRefName)) : undefined);
     if (!detail) throw new GithubApiError("not-found", `GitHub has no pull request #${number} in ${repo}, or the token can't see it.`);
     return detail;
   });

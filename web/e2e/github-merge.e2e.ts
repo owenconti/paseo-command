@@ -97,6 +97,10 @@ const SAMPLES = () =>
     [44, pr(44, "Through the queue", {}, { queueRequired: true })],
     [45, pr(45, "Close me")],
     [46, pr(46, "Conflicted", { mergeable: "conflicting" }, { status: "dirty", autoMergeAllowed: false })],
+    // The base branch's rules allow only squash (Diagonal-HQ/diagonal's), or no method the repository allows.
+    [47, pr(47, "Squash only", {}, { methods: ["squash"] })],
+    [48, pr(48, "Squash only, waiting", { reviewDecision: "review" }, { methods: ["squash"], status: "blocked" })],
+    [49, pr(49, "No method", {}, { methods: [], methodsNote: "The base branch’s rules allow none of the repository’s merge methods." })],
   ]);
 
 type Write = { name: string; body: Record<string, unknown> };
@@ -248,6 +252,52 @@ test("Merge: the method chosen (remembered for the repository), its commit text,
   }
 });
 
+test("Only the methods the base branch's rules allow: the button says its method, auto-merge and ⌘K offer no other, none says why", async () => {
+  const context = await newContext(browser);
+  const page = await context.newPage();
+  await page.setViewportSize({ width: 1600, height: 1000 });
+  const prs = SAMPLES();
+  const writes = await setUp(page, prs, new Set());
+  try {
+    await page.goto(app.url);
+    // A merge commit last used here isn't one these allow.
+    await page.evaluate(() => localStorage.setItem("paseo-command:github:mergeMethod", JSON.stringify({ "acme/atlas": "merge" })));
+    await openPr(page, 47);
+    const view = page.locator(".github-view");
+    const anchor = view.locator(".gh-merge-anchor");
+    await anchor.getByRole("button", { name: "Squash and merge" }).waitFor();
+    assert.equal(await view.getByRole("button", { name: "Choose how it merges" }).count(), 0, "one method: no ▾");
+    const offered = await paletteLabels(page, "merge");
+    assert.ok(offered.includes("Squash and merge…"), offered.join());
+    assert.ok(!offered.some((l) => /Merge pull request…|Rebase and merge…/.test(l)), offered.join());
+    await anchor.getByRole("button", { name: "More actions for this pull request" }).click();
+    const menu = await page.getByRole("menu").allInnerTexts();
+    assert.ok(!/Merge pull request…|Rebase and merge/.test(menu.join()), menu.join());
+    await page.keyboard.press("Escape");
+    await anchor.getByRole("button", { name: "Squash and merge" }).click();
+    const panel = page.getByRole("dialog", { name: "Squash and merge" });
+    assert.equal(await panel.getByRole("radio").count(), 0);
+    await panel.getByRole("button", { name: "Confirm squash and merge" }).click();
+    await page.locator(".toast", { hasText: /Merged #47/ }).waitFor();
+    assert.equal(writes.find((w) => w.name === "merge")!.body.method, "squash");
+
+    // Blocked: auto-merge only by squash.
+    await openPr(page, 48);
+    await anchor.getByRole("button", { name: "Enable auto-merge" }).waitFor();
+    const autoOffered = await paletteLabels(page, "auto-merge");
+    assert.deepEqual(autoOffered.filter((l) => /^Enable auto-merge/.test(l)), ["Enable auto-merge (squash and merge)…"]);
+
+    // None allowed: it says so, and nothing offers a merge.
+    await openPr(page, 49);
+    await view.locator(".gh-merge-section").getByText("The base branch’s rules allow none of the repository’s merge methods.").waitFor();
+    const merge = anchor.locator(".gh-merge-btn").first();
+    assert.equal(await merge.isDisabled(), true);
+    assert.ok(!(await paletteLabels(page, "merge")).some((l) => /and merge…|Merge pull request…|Enable auto-merge/.test(l)));
+  } finally {
+    await context.close();
+  }
+});
+
 test("Blocked: it says why; auto-merge turns on with a method and, refused off, is put back with a notice", async () => {
   const context = await newContext(browser);
   const page = await context.newPage();
@@ -262,7 +312,7 @@ test("Blocked: it says why; auto-merge turns on with a method and, refused off, 
     const view = page.locator(".github-view");
     const section = view.locator(".gh-merge-section");
     await section.getByText("This branch has conflicts that must be resolved.").waitFor();
-    const merge = view.locator(".gh-merge-anchor").getByRole("button", { name: "Merge", exact: true });
+    const merge = view.locator(".gh-merge-anchor").getByRole("button", { name: "Merge pull request", exact: true });
     assert.equal(await merge.isDisabled(), true);
     assert.equal(await merge.getAttribute("data-tip"), "This branch has conflicts that must be resolved.");
     assert.ok(!(await paletteLabels(page, "merge")).some((l) => /…$/.test(l) && /merge/i.test(l) && !/Close/.test(l)));

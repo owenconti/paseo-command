@@ -61,6 +61,8 @@ export function blockers(pr: PrDetail): Blocker[] {
   else if (checks === "pending") out.push({ key: "checks-pending", text: "Some checks haven’t completed yet.", level: blocked ? "block" : "warn" });
   if (blocked && !out.some((b) => b.level === "block"))
     out.push({ key: "rules", text: "Merging is blocked: the base branch’s rules aren’t met yet.", level: "block" });
+  if (m.methodsNote && !m.queueRequired && m.canMerge)
+    out.push({ key: "methods", text: m.methodsNote, level: m.methods.length ? "warn" : "block" });
   if (m.status === "unknown" && pr.state === "open" && !out.some((b) => b.level === "block"))
     out.push({ key: "unknown", text: "Checking whether it can merge…", level: "warn" });
   return out;
@@ -111,14 +113,19 @@ export function canAutoMerge(pr: PrDetail): boolean {
   );
 }
 
-/** Every action that applies to it now, in the order the ⋯ menu lists them. `method` is the merge method chosen. */
-export function mergeActions(pr: PrDetail, method: MergeMethod): MergeAction[] {
+/**
+ * Every action that applies to it now, in the order the ⋯ menu lists them.
+ * `method` is the merge method chosen; a merge or auto-merge only by one
+ * the PR allows (none when it allows none).
+ */
+export function mergeActions(pr: PrDetail, chosen: MergeMethod | null): MergeAction[] {
   const m = pr.merge;
   const out: MergeAction[] = [];
-  if (canMergeNow(pr)) out.push({ kind: "merge", method });
+  const method = chosen && m.methods.includes(chosen) ? chosen : m.methods[0];
+  if (canMergeNow(pr) && method) out.push({ kind: "merge", method });
   if (m.queueRequired && pr.state === "open" && m.canMerge && !m.queue && pr.mergeable !== "conflicting") out.push({ kind: "queue" });
   if (m.queue && m.canMerge && live(pr)) out.push({ kind: "dequeue" });
-  if (canAutoMerge(pr)) out.push({ kind: "auto", method });
+  if (canAutoMerge(pr) && method) out.push({ kind: "auto", method });
   if (m.autoMerge && m.canDisableAutoMerge && live(pr)) out.push({ kind: "auto-off" });
   if (pr.state === "draft" && m.canUpdate) out.push({ kind: "ready" });
   if (live(pr) && m.status === "behind" && m.canUpdateBranch) out.push({ kind: "update", method: "merge" }, { kind: "update", method: "rebase" });
@@ -161,10 +168,10 @@ export function actionLabel(a: MergeAction, pr: Pick<PrDetail, "headRef">): stri
 export const actionKey = (a: MergeAction) => ("method" in a ? `${a.kind}:${a.method}` : a.kind);
 
 // ── Remembered choices ───────────────────────────────────────────────────────
-/** The merge method last used in `repo`, while the repository still allows it; else its first allowed. */
-export function mergeMethodFor(repo: string, methods: MergeMethod[]): MergeMethod {
+/** The merge method last used in `repo`, while it's still allowed; else the first allowed; null when none is. */
+export function mergeMethodFor(repo: string, methods: MergeMethod[]): MergeMethod | null {
   const kept = readStore<Record<string, string>>("github:mergeMethod", {})[repo.toLowerCase()];
-  return methods.includes(kept as MergeMethod) ? (kept as MergeMethod) : (methods[0] ?? "merge");
+  return methods.includes(kept as MergeMethod) ? (kept as MergeMethod) : (methods[0] ?? null);
 }
 export function rememberMergeMethod(repo: string, method: MergeMethod): void {
   const kept = readStore<Record<string, string>>("github:mergeMethod", {});

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { actionKey, actionLabel, blockers, mergeActions } from "./merge";
+import { actionKey, actionLabel, blockers, mergeActions, mergeMethodFor, rememberMergeMethod } from "./merge";
 import type { PrDetail, PrMerge } from "./types";
 
 const merge = (m: Partial<PrMerge> = {}): PrMerge => ({
@@ -78,4 +78,40 @@ test("merged or closed: reopen a closed one, delete the branch where the token m
   assert.deepEqual(kinds(pr({ state: "closed" }, { canDeleteBranch: false, canReopen: false })), []);
   assert.deepEqual(kinds(pr({}, { canMerge: false, canUpdate: false, canClose: false, canEnableAutoMerge: false })), []);
   assert.equal(actionLabel({ kind: "delete-branch" }, pr()), "Delete branch feat");
+});
+
+test("the method: the last used while still allowed, else the first allowed, never one the PR doesn't allow", () => {
+  const store = new Map<string, string>();
+  const was = (globalThis as { localStorage?: unknown }).localStorage;
+  (globalThis as { localStorage?: unknown }).localStorage = {
+    getItem: (k: string) => store.get(k) ?? null,
+    setItem: (k: string, v: string) => void store.set(k, v),
+    removeItem: (k: string) => void store.delete(k),
+  };
+  try {
+    // A repository allowing merge commits and squash, whose base branch's rules allow only squash (Diagonal-HQ/diagonal).
+    assert.equal(mergeMethodFor("Diagonal-HQ/diagonal", ["squash"]), "squash");
+    rememberMergeMethod("Diagonal-HQ/diagonal", "merge");
+    assert.equal(mergeMethodFor("diagonal-hq/diagonal", ["squash"]), "squash");
+    assert.equal(mergeMethodFor("diagonal-hq/diagonal", ["merge", "squash"]), "merge");
+    assert.equal(mergeMethodFor("o/r", []), null);
+  } finally {
+    (globalThis as { localStorage?: unknown }).localStorage = was;
+  }
+  // A method chosen that it doesn't allow falls back to one it does; merges and auto-merge use only those.
+  const squashOnly = pr({}, { methods: ["squash"] });
+  assert.deepEqual(mergeActions(squashOnly, "merge").map(actionKey), ["merge:squash", "draft", "close"]);
+  assert.equal(actionLabel(mergeActions(squashOnly, null)[0]!, squashOnly), "Squash and merge…");
+  const blocked = pr({}, { methods: ["squash"], status: "blocked" });
+  assert.deepEqual(mergeActions(blocked, "merge").map(actionKey), ["auto:squash", "draft", "close"]);
+});
+
+test("no method allowed: no merge or auto-merge, and it says why; rules unread only warn", () => {
+  const none = pr({}, { methods: [], methodsNote: "The base branch’s rules allow none of the repository’s merge methods." });
+  assert.deepEqual(mergeActions(none, null).map(actionKey), ["draft", "close"]);
+  assert.deepEqual(blockers(none).map((b) => [b.key, b.level]), [["methods", "block"]]);
+  assert.deepEqual(mergeActions(pr({}, { methods: [], status: "blocked" }), "merge").map(actionKey), ["draft", "close"]);
+  const unread = pr({}, { methodsNote: "GitHub didn’t say…" });
+  assert.deepEqual(blockers(unread).map((b) => [b.key, b.level]), [["methods", "warn"]]);
+  assert.equal(kinds(unread)[0], "merge:squash");
 });

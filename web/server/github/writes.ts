@@ -237,6 +237,12 @@ const forgetMerged = (repo: string, number: number) => {
   forgetPullRequest(repo, number);
 };
 const METHOD = { merge: "MERGE", squash: "SQUASH", rebase: "REBASE" } as const;
+
+/** A merge or auto-merge only by a method the repository and the base branch's rules allow (as the PR's read says). */
+async function allowedMethod(repo: string, number: number, m: MergeMethod) {
+  const { methods } = (await readPr(repo, number)).merge;
+  if (!methods.includes(m)) throw invalid(methods.length ? `This pull request merges only by ${methods.join(", ")}` : "No merge method is allowed here");
+}
 /** A ref's path under `git/refs/heads/`, each segment encoded (a branch may have slashes, never `..`). */
 function branchPath(branch: string): string {
   const parts = branch.split("/");
@@ -322,6 +328,7 @@ export async function githubWrite(name: GithubWriteName, raw: unknown): Promise<
     }
     case "merge": {
       const w = checkWrite("merge", raw);
+      await allowedMethod(w.repo, w.number, w.method);
       const data = await graphql(
         `mutation($id: ID!, $method: PullRequestMergeMethod!, $sha: GitObjectID!, $title: String, $body: String) {
           mergePullRequest(input: { pullRequestId: $id, mergeMethod: $method, expectedHeadOid: $sha, commitHeadline: $title, commitBody: $body }) { pullRequest { state merged } }
@@ -335,6 +342,7 @@ export async function githubWrite(name: GithubWriteName, raw: unknown): Promise<
     }
     case "autoMerge": {
       const w = checkWrite("autoMerge", raw);
+      if (w.enable) await allowedMethod(w.repo, w.number, w.method!);
       if (w.enable)
         await graphql(
           `mutation($id: ID!, $method: PullRequestMergeMethod!, $sha: GitObjectID, $title: String, $body: String) {

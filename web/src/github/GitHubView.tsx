@@ -93,7 +93,7 @@ const SCOPE_HINT: Record<PrScope, string> = {
 /** The merge box's actions for ⌘K: a merge and auto-merge once for each allowed method, the one last used first. */
 function prActions(pr: PrDetail): { key: string; label: string; action: MergeAction }[] {
   const first = mergeMethodFor(pr.repo, pr.merge.methods);
-  const methods = [first, ...pr.merge.methods.filter((m) => m !== first)];
+  const methods = pr.merge.methods.filter((m) => m === first).concat(pr.merge.methods.filter((m) => m !== first));
   return mergeActions(pr, first)
     .flatMap((a): MergeAction[] => (a.kind === "merge" || a.kind === "auto" ? methods.map((method) => ({ kind: a.kind, method })) : [a]))
     .map((action) => ({ key: actionKey(action), label: actionLabel(action, pr), action }));

@@ -379,11 +379,16 @@ and GitHub publication; report the published version and release link.
   thing blocking it (draft, conflicts, behind, changes requested, review required, checks failing or pending, else the base branch's rules;
   failing checks that aren't required only warn), auto-merge (its method, who turned it on, when) and the merge queue (position, state), then
   a button for each action that applies (`mergeActions`): only where it applies and the token may, from the `q/pr` read's `merge`
-  (`PrMerge`, `mergeOf` in `reads.ts`: `mergeStateStatus`, the repository's allowed methods, `viewerCan…`, `autoMergeRequest`, the queue,
-  `deleteBranchOnMerge`, GitHub's default commit text per method). The header has the main one beside Review (a split Merge button whose
-  ▾ picks the method, else Merge when ready, Enable auto-merge, Remove from queue, Disable auto-merge, Ready for review, a disabled Merge
-  saying why, Reopen, Delete branch) and ⋯ listing them all. Merge and auto-merge confirm in a panel beneath: the repository's methods
-  (the last used per repository, `github:mergeMethod` in localStorage), the commit title and message for merge and squash (GitHub's,
+  (`PrMerge`, `mergeOf` in `reads.ts`: `mergeStateStatus`, the allowed methods, `viewerCan…`, `autoMergeRequest`, the queue,
+  `deleteBranchOnMerge`, GitHub's default commit text per method). The allowed methods are the repository's (`mergeCommitAllowed`…) that
+  the base branch's rules allow too (`readBranchRules`, REST `rules/branches/:base`, one request in the PR read and its cache;
+  `ruleMethodsOf`: each `pull_request` rule's `allowed_merge_methods`, intersected, and no merge commit under `required_linear_history`),
+  as GitHub's own merge box offers them; when none is allowed, or the rules can't be read, `methodsNote` says so (a blocker, or a warning
+  beside the repository's methods), never a default merge. `m/merge` and `m/autoMerge` refuse any other method. The header has the main one
+  beside Review (a split button named by its method, "Squash and merge", whose ▾ picks among several, else Merge when ready, Enable
+  auto-merge, Remove from queue, Disable auto-merge, Ready for review, a disabled one saying why, Reopen, Delete branch) and ⋯ listing them
+  all. Merge and auto-merge confirm in a panel beneath: the allowed methods (the last used per repository while still allowed, else the
+  first; `github:mergeMethod` in localStorage), the commit title and message for merge and squash (GitHub's,
   editable), delete the branch after merging (offered where the token may and the repository doesn't already; remembered,
   `github:deleteBranchAfterMerge`), and for an administrator past unmet requirements the reasons and a bypass box; ⌘↩ confirms. Close
   confirms in a panel with an optional comment, posted first. Update branch merges or rebases when behind. Writes (`POST /api/github/m/merge|autoMerge|queue|ready|updateBranch|state|deleteBranch`,

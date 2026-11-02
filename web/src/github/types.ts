@@ -257,12 +257,15 @@ export type QueueEntryState = "queued" | "awaiting_checks" | "mergeable" | "unme
 
 /**
  * A PR's merge box: GitHub's merge state, what the repository allows and
- * what the token may do. `methods` are the repository's allowed ones, in
- * GitHub's order; `messages` GitHub's default commit title and message per method.
+ * what the token may do. `methods` are the ones both the repository and its
+ * base branch's rules allow, in GitHub's order; `messages` GitHub's default
+ * commit title and message per method.
  */
 export type PrMerge = {
   status: MergeStatus;
   methods: MergeMethod[];
+  /** Why no method is offered, or that the base branch's rules couldn't be read. */
+  methodsNote?: string;
   /** The token can push to the base (merge), or merge past unmet requirements as an administrator. */
   canMerge: boolean;
   canMergeAsAdmin: boolean;

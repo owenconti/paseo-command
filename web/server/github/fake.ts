@@ -175,6 +175,8 @@ export type FakeGithub = {
   owners: Map<string, Raw[]>;
   /** PRs by `owner/name#n`. */
   prs: Map<string, Raw>;
+  /** A branch's rules (REST `rules/branches`), by `owner/name:branch`, or GitHub's refusal; none by default. */
+  rules: Map<string, Raw[] | FakeAnswer>;
   /** Diffs by `owner/name#n`, or GitHub's refusal. */
   diffs: Map<string, string | FakeAnswer>;
   /** Every request made. */
@@ -205,6 +207,7 @@ export function installFakeGithub(opts: { enabled?: boolean; token?: string | nu
     owners: new Map(),
     prs: new Map(),
     diffs: new Map(),
+    rules: new Map(),
     calls: [],
     writes: [],
     refuse: {},
@@ -311,6 +314,11 @@ export function installFakeGithub(opts: { enabled?: boolean; token?: string | nu
     if (req.method === "GET" && teams) {
       const t = fake.teams.get(teams[1]!);
       return t === undefined ? { json: [] } : Array.isArray(t) ? { json: t } : t;
+    }
+    const rules = /^repos\/([\w.-]+\/[\w.-]+)\/rules\/branches\/(.+)$/.exec(req.path);
+    if (req.method === "GET" && rules) {
+      const r = fake.rules.get(`${rules[1]}:${rules[2]!.split("/").map(decodeURIComponent).join("/")}`);
+      return r === undefined ? { json: [] } : Array.isArray(r) ? { json: r } : r;
     }
     const pull = /^repos\/([\w.-]+\/[\w.-]+)\/pulls\/(\d+)(\/files)?$/.exec(req.path);
     if (req.method === "GET" && pull) {
