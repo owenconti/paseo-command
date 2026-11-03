@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { KEPT_WORKSPACES, readKept, writeKept } from "./kept";
-import { closeOtherTabs, closeTab, MAX_CLOSED, moveTab, NO_TABS, openTab, pinTab, readTabs, reopenTab, scrollTab, stepTab, tabLabels, type TabsState } from "./tabs";
+import { KEPT_WORKSPACES, editorExitedIn, readKept, writeKept } from "./kept";
+import { closeOtherTabs, closeTab, MAX_CLOSED, moveTab, NO_TABS, openTab, pinTab, readTabs, reopenTab, scrollTab, setTabEditor, setTabViewer, stepTab, tabEditorExited, tabEditors, tabLabels, type TabsState } from "./tabs";
 
 const paths = (s: TabsState) => s.tabs.map((t) => `${t.path}${t.preview ? "*" : ""}`);
 
@@ -137,4 +137,41 @@ test("kept per workspace (host and workspace), read back safely, the old one-fil
   assert.equal(keys.length, KEPT_WORKSPACES);
   assert.equal(keys.at(-1), "|w0");
   assert.ok(!keys.includes("|w3") && keys.includes("|w4"));
+});
+
+test("a tab opened in the editor: its terminal, kept, then quit or viewed", () => {
+  let s = openTab(NO_TABS, "a.ts");
+  s = openTab(s, "b.ts", true);
+  assert.equal(s.tabs[0]!.preview, true);
+  s = setTabEditor(s, "a.ts", "term-1");
+  // Opening in the editor keeps a preview tab.
+  assert.deepEqual(s.tabs[0], { path: "a.ts", editor: "term-1" });
+  assert.equal(setTabEditor(s, "nope.ts", "term-9"), s);
+  assert.deepEqual(tabEditors(s), ["term-1"]);
+  // The View / Editor toggle.
+  s = setTabViewer(s, "a.ts", true);
+  assert.deepEqual(s.tabs[0], { path: "a.ts", editor: "term-1", viewer: true });
+  assert.equal(setTabViewer(s, "a.ts", true), s);
+  s = setTabViewer(s, "a.ts", false);
+  assert.deepEqual(s.tabs[0], { path: "a.ts", editor: "term-1" });
+  // The editor quits: the viewer, offering to reopen; reopened, a new terminal.
+  s = tabEditorExited(s, "term-1");
+  assert.deepEqual(s.tabs[0], { path: "a.ts", exited: true });
+  assert.deepEqual(tabEditors(s), []);
+  assert.equal(tabEditorExited(s, "term-1"), s);
+  s = setTabEditor(s, "a.ts", "term-2");
+  assert.deepEqual(s.tabs[0], { path: "a.ts", editor: "term-2" });
+  // Kept across reloads; odd values dropped.
+  const back = readTabs(JSON.parse(JSON.stringify({ ...s, tabs: [...s.tabs, { path: "c.ts", editor: 5, exited: true, viewer: true }, { path: "d.ts", preview: true, editor: "term-4", viewer: true }] })));
+  assert.deepEqual(back.tabs, [{ path: "a.ts", editor: "term-2" }, { path: "b.ts" }, { path: "c.ts", exited: true }, { path: "d.ts", editor: "term-4", viewer: true }]);
+});
+
+test("an editor that quits while its workspace isn't shown: its tab is marked where it's kept", () => {
+  const one = { id: "wks_a" }, two = { id: "wks_b", host: "srv" };
+  let all: unknown = writeKept({}, one, { open: [], recent: [], tabs: setTabEditor(openTab(NO_TABS, "a.ts", true), "a.ts", "term-1") });
+  all = writeKept(all, two, { open: [], recent: [], tabs: setTabEditor(openTab(NO_TABS, "b.ts", true), "b.ts", "term-2") });
+  const after = editorExitedIn(all, "term-2");
+  assert.deepEqual(readKept(after, two).tabs.tabs, [{ path: "b.ts", exited: true }]);
+  assert.deepEqual(readKept(after, one).tabs.tabs, [{ path: "a.ts", editor: "term-1" }]);
+  assert.equal(editorExitedIn(all, "term-9"), all, "unchanged when no tab has it");
 });

@@ -20,6 +20,10 @@ final class TerminalSession: NSObject, TerminalViewDelegate, URLSessionWebSocket
     private lazy var session = URLSession(configuration: .default, delegate: self, delegateQueue: .main)
     private var size: (cols: Int, rows: Int)?
     private(set) var ended = false
+    /// Why it ended: "The terminal ended" when its program did, else the socket's reason.
+    private(set) var endReason: String?
+    /// Told once, as it ends, why.
+    var onEnd: ((String) -> Void)?
     /// The last few kilobytes received, as text (for checks).
     private(set) var recent = ""
 
@@ -79,7 +83,9 @@ final class TerminalSession: NSObject, TerminalViewDelegate, URLSessionWebSocket
     private func finish(_ why: String) {
         guard !ended else { return }
         ended = true
+        endReason = why
         view.feed(text: "\r\n\u{1b}[2m[\(why)]\u{1b}[0m\r\n")
+        onEnd?(why)
     }
 
     private func send(_ message: [String: Any]) {
@@ -701,7 +707,9 @@ final class TerminalDrawer: NSView {
             DispatchQueue.main.async {
                 guard let self, self.workspace == ws else { return }
                 if let terminals = json?["terminals"] as? [[String: Any]] {
-                    self.listed = terminals.compactMap { t in (t["id"] as? String).map { ($0, (t["title"] as? String) ?? (t["name"] as? String) ?? "Terminal") } }
+                    // The Files page's editors (`editor`) are its tabs', not the panel's.
+                    self.listed = terminals.filter { $0["editor"] as? Bool != true }
+                        .compactMap { t in (t["id"] as? String).map { ($0, (t["title"] as? String) ?? (t["name"] as? String) ?? "Terminal") } }
                     self.empty.stringValue = ""
                 } else {
                     self.listed = []

@@ -140,6 +140,14 @@ const FILES: Group = {
     { keys: [["⌘", "F"]], label: "Find in the file, or in the Changes' diff (Enter next, ⇧Enter previous, Esc closes)" },
     { keys: [["⌘", "S"]], label: "Show or hide the sidebar" },
     {
+      keys: [["⌘", "K"]],
+      label: "Open in editor, or Open in viewer: the file in your editor command (Settings → Files) in a terminal, in the macOS app",
+    },
+    {
+      keys: [["⌘", "W"], ["⌘", "K"], ["⌘", "1…6"]],
+      label: "In the editor: close the tab (asking while it runs), the palette, the mode bar's tabs; ⌘`, ⇧⌘G and ⇧⌘E too. Every other key, Esc and ⌃ keys included, is the editor's",
+    },
+    {
       keys: [["⇧", "⌘", "G"]],
       label: "From anywhere: the selected workspace's (or agent's) Changes, its branch against main (Conquer keeps it for find previous while it has the keyboard)",
     },

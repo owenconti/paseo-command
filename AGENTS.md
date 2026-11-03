@@ -182,7 +182,7 @@ and GitHub publication; report the published version and release link.
   the mode bar's last tab (`Mode.settings`; ⌘` steps to it, the app menu's Settings… ⌘, opens it and goes back to the side before, the palette's Settings
   asks with `menu` `settings`), in a browser the page's own state (its bar's gear; Esc or its × closes it). Laid out as the other pages (a resizable sidebar of its
   sections, the chosen one beside it under its heading, kept in localStorage; ↑/↓ step through them; Manage … key opens Integrations): sound and music (a
-  volume only while its sound is on), notifications, integrations, New agent (presets, profiles). Rows put what a setting is on the left and
+  volume only while its sound is on), notifications, integrations, New agent (presets, profiles), Files (open files in the viewer or an editor command). Rows put what a setting is on the left and
   its switch or button on the right; a switched-on integration shows its state (Ready, needs a key, Live) and its keys and settings in a well beneath it.
   `GET /api/secrets` returns presence flags only; `POST /api/secrets` saves/replaces/removes a named key,
   preserving other credentials in an atomic owner-only file. Saved values never return to the page.
@@ -482,6 +482,32 @@ and GitHub publication; report the published version and release link.
   each kept a few seconds (`fresh=1` past it). Paths are relative: absolute, `~`, `..`, `.`, empty segments, backslashes and NULs are refused before
   the daemon is asked (`checkPath`), and the daemon refuses what resolves outside the workspace (symlinks out). It never writes. Tests: `files.test.ts`
   (over the fake daemon's `trees`), `src/files/tree.test.ts`, `e2e/files.e2e.ts`; `native/scripts/fake-server.ts` has a tree and a branch diff for `wks_main`.
+  Files in the user's editor (Settings → Files, "Open files in": Built-in viewer, the default, or Editor command, `nvim {file}` by default; `{line}`
+  too; kept as `files: {openIn, editorCommand}` in the data directory's `settings.json`, the file's other keys kept, an unreadable file never
+  overwritten; `web/src/files/filesSettings.ts`): `web/src/files/editorCommand.ts` (pure, shared) checks the command (`editorCommandProblem`: one line,
+  `{file}` needed, only `{file}`/`{line}`, never inside quotes) and builds what runs (`editorLaunch`: `/bin/sh -c 'exec "${SHELL:-/bin/sh}" -l -i -c "$1"'`
+  with the command as that argument, so the host's login shell, its PATH, rc files and LSP setup, runs it; the path single-quoted (`shellQuote`), a
+  leading `-` made `./-…`, the line a number), so no file name becomes shell syntax. `POST /api/terminals/editor {workspace, host?, path, line?}`
+  (`createEditorTerminal` in `web/server/api/terminals.ts`) creates a daemon terminal with that `command`/`args` in the workspace's folder (the
+  command from the settings file only, the path checked by `checkPath`); it ends when the editor quits; listed with `editor: true` while the server
+  runs, which the terminal panel leaves out of its tabs. With the command set, in the macOS app, opening a file (tree, ⌘P, a tab, Changes' Open in
+  Files) opens it in the editor, which pins the tab; each tab keeps its own terminal (`editor` in the tab, `web/src/files/tabs.ts`, kept in
+  `files:workspaces`), alive while the tab exists, the Files page shown or not. The page draws a box in the viewer's place (`EditorSlot` in
+  `FilesView.tsx`) and tells the app (`web/src/files/editorBridge.ts`: `editor` with the terminal and the box's frame, sent as it changes, polled
+  every 250 ms for moves, `covered` while a dialog is open, `MODAL_EVENT` in `focus.ts`; `editorFocus`; `editorClose`; `editorForget`); the app
+  (`EditorOverlay.swift`, SwiftTerm through `TerminalSession`, the panel's text size and `Ink` tones; `EditorEmbed.swift`: `EditorPlacement`,
+  `EditorStage`, its frame through the web view into the split's page side, as Conquer's, shown only while Files shows; `EditorKeys`;
+  `EditorCloseRequest`) lays the terminal over it and gives it the keyboard as it shows or is clicked. Keys there: the app keeps the window's
+  (⌘1…⌘6, ⇧⌘G, ⇧⌘E, ⌘W: Close File Tab) and the menu's (⌘`, ⌃`, ⌘C/⌘V as the terminal does, the terminal text size); ⌘K opens the page's
+  palette (`AppWindow.performKeyEquivalent`, the panel's terminal too) and the keyboard comes back as it closes; everything else is the
+  editor's. Closing tabs whose editors run (×, ⌘W, Close other tabs) asks once (an NSAlert sheet; Cancel keeps them), then ends them on the
+  daemon. An editor that quits (`exited`) leaves its tab in the viewer with Reopen in editor; a relay that went (`lost`) is checked against
+  `GET /api/terminals`. The head's View / Editor toggle (the macOS app's) shows the viewer over a running editor, or opens the editor at the line
+  in view; ⌘K "Open in editor" / "Open in viewer" (page Files, `files-open-editor|viewer`) only when they apply. In a browser the viewer stays,
+  with a note. Tests: `src/files/editorCommand.test.ts` (quoting through a real `sh`), `server/api/terminals.test.ts`, `src/files/tabs.test.ts`,
+  `e2e/files-editor.e2e.ts`, `native/tests/EditorEmbedTests.swift` (frame following, key routing through `AppWindow`, the close question);
+  checks: `editor` in the `--info` state, hooks `editortype`, `editorclose`, `editorcancel`, `editorfocus`, `key` (`CheckKeys`); the fake daemon
+  runs a `command` terminal as a fake editor that quits on `:q`.
   Changes (`web/src/files/ChangesView.tsx`, no GitHub needed): the workspace's branch against its base from its host's daemon (`getCheckoutDiff`,
   so remote hosts too; `GET /api/changes?workspace=&host=&mode=all|base|uncommitted`, `web/server/api/changes.ts`, not gated on any
   integration), all changes, committed or uncommitted (`github:changesMode`), with ahead/behind, the diff (`DiffView`: Filter files, ⌘F find,

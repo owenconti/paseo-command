@@ -353,3 +353,51 @@
 .fv-head .page-head-title > svg {
   margin-right: var(--space-2);
 }
+
+/* The file in the user's editor (Settings → Files): the macOS app lays its terminal exactly over this box. */
+.fv-editor {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  place-items: center;
+  margin-top: var(--space-2);
+  border-top: 1px solid var(--line);
+  background: var(--panel-raised, var(--panel));
+}
+/* View | Editor, joined. */
+.fv-mode {
+  display: inline-flex;
+  flex-shrink: 0;
+}
+.fv-mode .page-btn:first-child {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+.fv-mode .page-btn + .page-btn {
+  margin-left: -1px;
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+}
+.fv-mode .page-btn.on {
+  border-color: var(--line-hover);
+  background: var(--row-selected, var(--fill-strong));
+  color: var(--text-strong);
+}
+.fv-mode .page-btn.on svg {
+  color: var(--text-2);
+}
+/* The editor quit (Reopen in editor), or a browser shows the viewer. */
+.fv-editor-note {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin: var(--space-2) 0 0;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--fill, transparent);
+  font-size: var(--fs-xs);
+  color: var(--text-2);
+}
+

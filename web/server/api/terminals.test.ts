@@ -90,6 +90,58 @@ test("the relay replays the screen, then carries output, keys and resizes", asyn
   assert.equal(local.terminals.get(terminalId), undefined);
 });
 
+test("an editor terminal: Settings → Files' command on the file, in the workspace, quoted", async () => {
+  const saved = await post("settings", { files: { openIn: "editor", editorCommand: "nvim +{line} {file}" } });
+  assert.equal(saved.status, 200, JSON.stringify(saved.data));
+  assert.deepEqual(saved.data.files, { openIn: "editor", editorCommand: "nvim +{line} {file}" });
+  assert.deepEqual((await get("settings")).data.files, { openIn: "editor", editorCommand: "nvim +{line} {file}" });
+  local.calls.length = 0;
+  const made = await post("terminals/editor", { workspace: "wks_app", path: "src/it's $(x).ts", line: 12, rows: 30, cols: 90 });
+  assert.equal(made.status, 200, JSON.stringify(made.data));
+  const created = local.calls.find((c) => c.method === "createTerminal")!;
+  assert.deepEqual(created.args, [
+    "/home/review/code",
+    {
+      workspaceId: "wks_app",
+      command: "/bin/sh",
+      args: ["-c", 'exec "${SHELL:-/bin/sh}" -l -i -c "$1"', "paseo-editor", "nvim +12 'src/it'\\''s $(x).ts'"],
+      size: { rows: 30, cols: 90 },
+    },
+  ]);
+  assert.equal(made.data.terminal.name, "nvim · it's $(x).ts");
+  // Listed with the workspace's terminals; it ends when the editor quits (":q" in the fake).
+  const id = made.data.terminal.id;
+  // Listed as an editor's, which the terminal panel leaves out of its tabs.
+  assert.ok((await get("terminals?workspace=wks_app")).data.terminals.some((t: { id: string; editor?: boolean }) => t.id === id && t.editor === true));
+  const t = await attach(id);
+  await until(() => t.text().includes("nvim +12"), 3000, "the editor's screen");
+  t.ws.send(JSON.stringify({ type: "input", data: ":q\r" }));
+  await until(() => t.closed() !== null, 3000, "the socket to close as the editor quits");
+  assert.equal(t.closed(), "The terminal ended");
+  assert.equal(local.terminals.get(id), undefined);
+});
+
+test("an editor terminal: never a path out of the workspace, nor a command from the request", async () => {
+  for (const path of ["/etc/passwd", "../up", "a/../../b", "~/x", "a\\b", "", "a\u0000b"]) {
+    const r = await post("terminals/editor", { workspace: "wks_app", path });
+    assert.equal(r.status, 400, `${path}: ${JSON.stringify(r.data)}`);
+  }
+  assert.equal((await post("terminals/editor", { workspace: "wks_app", path: "a", line: "1; rm" })).status, 400);
+  assert.equal((await post("terminals/editor", { workspace: "wks_none", path: "a" })).status, 400);
+  // The request's own command is ignored: only the settings file's runs.
+  local.calls.length = 0;
+  const r = await post("terminals/editor", { workspace: "wks_app", path: "a.ts", command: "rm -rf ~", editorCommand: "rm {file}" });
+  assert.equal(r.status, 200, JSON.stringify(r.data));
+  assert.equal(local.calls.find((c) => c.method === "createTerminal")!.args[1].args[3], "nvim +1 'a.ts'");
+  // A bad command is never saved.
+  for (const editorCommand of ["nvim", 'nvim "{file}"', "nvim {file}\nrm x", 5]) {
+    assert.equal((await post("settings", { files: { editorCommand } })).status, 400, String(editorCommand));
+  }
+  assert.equal((await post("settings", { files: { openIn: "emacs" } })).status, 400);
+  // Saving one key keeps the other.
+  assert.equal((await post("settings", { files: { openIn: "viewer" } })).data.files.editorCommand, "nvim +{line} {file}");
+});
+
 test("the relay refuses another origin", async () => {
   const ws = new WebSocket(`${server.url.replace("http", "ws")}/api/terminal?id=term-1`, {
     headers: { origin: "http://evil.example" },

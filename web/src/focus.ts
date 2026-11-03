@@ -22,6 +22,9 @@ const stack: Trap[] = [];
 
 /** Whether a modal dialog holds focus (global shortcuts behind it stand down). */
 export const modalOpen = () => stack.length > 0;
+/** Told when a modal dialog opens or closes (the macOS app's editor terminal steps aside for them). */
+export const MODAL_EVENT = "paseo:modal";
+const modalChanged = () => window.dispatchEvent(new Event(MODAL_EVENT));
 
 export function focusables(root: HTMLElement) {
   return [...root.querySelectorAll<HTMLElement>(FOCUSABLE)].filter(
@@ -79,6 +82,7 @@ export function useFocusTrap(
     // it animates out): fall back to where that one was opened from.
     const token: Trap = { previous, parent: stack[stack.length - 1] };
     stack.push(token);
+    modalChanged();
     const top = () => enabled.current && stack[stack.length - 1] === token;
     if (!root.contains(document.activeElement))
       (initial?.current || focusables(root)[0] || root).focus({
@@ -119,6 +123,7 @@ export function useFocusTrap(
       document.removeEventListener("keydown", onKey, true);
       document.removeEventListener("focusin", onFocusIn);
       stack.splice(stack.indexOf(token), 1);
+      modalChanged();
       pending.current = window.setTimeout(() => {
         // Don't take focus back from whatever has it now (a dialog opened next).
         const active = document.activeElement;

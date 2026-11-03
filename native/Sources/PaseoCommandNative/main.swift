@@ -156,7 +156,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         }
         listen("com.paseo.command.native.unsplit") { [weak self] in self?.main?.drawer.unsplit() }
         listen("com.paseo.command.native.newterminal") { [weak self] in self?.main?.drawer.newTerminal() }
-        listen("com.paseo.command.native.zoom") { [weak self] in self?.main?.drawer.zoom(1) }
+        listen("com.paseo.command.native.zoom") { [weak self] in self?.main?.zoomTerminals(1) }
+        // The Files page's editor: type `<info>.type`'s text into it, answer its close question, give it the keyboard (checks).
+        listen("com.paseo.command.native.editortype") { [weak self] in
+            guard let self, let info = self.options.info,
+                  let text = try? String(contentsOfFile: (info as NSString).deletingPathExtension + ".type", encoding: .utf8) else { return }
+            self.main?.editors.type(text)
+        }
+        listen("com.paseo.command.native.editorclose") { [weak self] in self?.main?.editors.answerClose(true) }
+        listen("com.paseo.command.native.editorcancel") { [weak self] in self?.main?.editors.answerClose(false) }
+        listen("com.paseo.command.native.editorfocus") { [weak self] in self?.main?.editors.focus() }
+        // A key as the keyboard sends it, through the window (`<info>.key`: "cmd+w", "cmd+k", "esc"…; checks).
+        listen("com.paseo.command.native.key") { [weak self] in
+            guard let self, let info = self.options.info, let window = self.main?.window,
+                  let text = try? String(contentsOfFile: (info as NSString).deletingPathExtension + ".key", encoding: .utf8),
+                  let event = CheckKeys.event(text.trimmingCharacters(in: .whitespacesAndNewlines), window: window) else { return }
+            Log.line("key \(text): \(CheckKeys.deliver(event, to: window))")
+        }
         // Open `<info>.url`'s address as a link from the chat would (checks).
         listen("com.paseo.command.native.appopen") { [weak self] in
             guard let self, let info = self.options.info,
@@ -279,6 +295,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
             "visible": main.window.occlusionState.contains(.visible), "framesDrawn": main.scene.framesDrawn,
             "paused": main.atlasView.isPaused, "fps": main.atlasView.preferredFramesPerSecond,
             "terminal": main.drawer.state(),
+            "editor": main.editors.state(),
             "splash": main.splash.showing,
         ]
         if let data = try? JSONSerialization.data(withJSONObject: info, options: [.prettyPrinted]) {
@@ -391,7 +408,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     @objc private func moveTerminal() { main?.moveTerminal() }
     @objc private func maximizeTerminal() { main?.maximizeTerminal() }
     @objc private func unsplitTerminals() { main?.drawer.unsplit() }
-    @objc private func zoomTerminal(_ sender: NSMenuItem) { main?.drawer.zoom(CGFloat(sender.tag)) }
+    @objc private func zoomTerminal(_ sender: NSMenuItem) { main?.zoomTerminals(CGFloat(sender.tag)) }
     @objc private func toggleMode() {
         guard let main else { return }
         main.show(main.nextMode)
@@ -434,7 +451,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         // (GitHub, Activity, Files, Settings) shows, only while the terminal has the keyboard (the page sizes their text with them).
         case #selector(zoomTerminal(_:)):
             // The pages (GitHub, Activity, Files, Settings) size their own text with these keys.
-            return !main.drawer.isHidden && (!main.mode.drawnByPage || main.drawer.hasKeyFocus)
+            // A file's editor (the Files page) keeps them while it has the keyboard too.
+            return main.editors.hasKeyFocus || !main.drawer.isHidden && (!main.mode.drawnByPage || main.drawer.hasKeyFocus)
         default: break
         }
         return true

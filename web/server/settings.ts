@@ -2,7 +2,8 @@
  * This app's settings file, `settings.json` in its data directory beside
  * `secrets.json` (`PASEO_COMMAND_SETTINGS` overrides), so the macOS app's Dev and
  * release copies each keep their own: preset prompts (presets.ts), optional
- * integration opt-ins and the Linear workspace issue links open in (`GET /api/settings`,
+ * integration opt-ins, the Linear workspace issue links open in and where the
+ * Files page opens files (`files`: the viewer or an editor command; `GET /api/settings`,
  * `POST /api/settings`). Each save keeps the file's other keys; an
  * unreadable file is never overwritten.
  */
@@ -20,6 +21,7 @@ import {
   integrationSettings,
   type Integration,
 } from "../src/integrations";
+import { editorCommandProblem, filesSettings } from "../src/files/editorCommand";
 
 export const settingsFile = () =>
   process.env.PASEO_COMMAND_SETTINGS || join(dataDir(), "settings.json");
@@ -66,6 +68,7 @@ export function appSettings() {
   return {
     linearWorkspace: slug ?? "",
     integrations: integrationSettings(raw?.integrations),
+    files: filesSettings(raw?.files),
     error: raw ? null : UNREADABLE,
   };
 }
@@ -98,6 +101,30 @@ export function saveAppSettings(body: Record<string, unknown>) {
     const slug = value.trim() ? linearSlug(value) : "";
     if (slug === null) throw new Error("Invalid Linear workspace");
     change.linearWorkspace = slug;
+  }
+  if ("files" in body) {
+    // Settings → Files: where files open, and the editor command (checked, never run here).
+    const input = body.files;
+    if (!input || typeof input !== "object" || Array.isArray(input))
+      throw new Error("Invalid Files settings");
+    const { openIn, editorCommand } = input as Record<string, unknown>;
+    if (openIn !== undefined && openIn !== "viewer" && openIn !== "editor")
+      throw new Error("Invalid Files settings");
+    if (editorCommand !== undefined) {
+      if (typeof editorCommand !== "string") throw new Error("Invalid editor command");
+      const problem = editorCommandProblem(editorCommand);
+      if (problem) throw new Error(problem);
+    }
+    const existing = readSettings()?.files;
+    const kept =
+      existing && typeof existing === "object" && !Array.isArray(existing)
+        ? (existing as Record<string, unknown>)
+        : {};
+    change.files = {
+      ...kept,
+      ...(openIn !== undefined ? { openIn } : {}),
+      ...(typeof editorCommand === "string" ? { editorCommand: editorCommand.trim() } : {}),
+    };
   }
   if (!Object.keys(change).length) throw new Error("Nothing to save");
   writeSettings(change);
