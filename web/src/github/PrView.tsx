@@ -293,18 +293,21 @@ function Conversation({
   return (
     <div className="gh-conversation">
       <div className="gh-conversation-main" ref={main}>
-        <div className="gh-timeline-head">
-          <span className="gh-hint">{pr.timeline.length === 1 ? "1 comment or review" : `${pr.timeline.length} comments and reviews`}</span>
-          <span className="gh-spacer" />
-          <div className="gh-segmented" role="radiogroup" aria-label="Conversation order">
+        {description}
+        <div className="gh-comments-head page-head">
+          <h3 className="page-head-title">
+            <span className="page-head-name">Comments</span>
+            <span className="page-head-count">· {pr.timeline.length}</span>
+          </h3>
+          <div className="gh-order" role="radiogroup" aria-label="Conversation order">
             {(["newest", "oldest"] as const).map((o) => (
-              <button key={o} role="radio" aria-checked={order === o} className={order === o ? "selected" : ""} onClick={() => setOrder(o)}>
+              <button key={o} role="radio" aria-checked={order === o} className="page-btn" onClick={() => setOrder(o)}>
                 {o === "newest" ? "Newest first" : "Oldest first"}
               </button>
             ))}
           </div>
         </div>
-        {newest ? [composer, ...entries, description] : [description, ...entries, composer]}
+        {newest ? [composer, ...entries] : [...entries, composer]}
       </div>
       <aside className="gh-conversation-side" aria-label="About this pull request">
         <Reviewers pr={pr} onChange={onReviewers} control={reviewersControl} />

@@ -392,7 +392,7 @@ test("GitHub lists PRs to review, opens one, drafts a line comment and submits a
   }
 });
 
-test("A PR's conversation lists newest first, or oldest first as chosen (kept across reloads and ⌘K), and a posted comment shows in its place", async () => {
+test("A PR's conversation: the description first, then Comments newest first, or oldest first as chosen (kept across reloads and ⌘K), and a posted comment shows in its place", async () => {
   const context = await newContext(browser);
   const page = await context.newPage();
   await page.setViewportSize({ width: 1600, height: 700 });
@@ -413,13 +413,20 @@ test("A PR's conversation lists newest first, or oldest first as chosen (kept ac
         const r = e.getBoundingClientRect();
         return r.top >= 0 && r.top < innerHeight;
       });
-    const toggle = view.getByRole("radiogroup", { name: "Conversation order" });
+    const head = view.locator(".gh-comments-head");
+    const toggle = head.getByRole("radiogroup", { name: "Conversation order" });
+    // The description, then the Comments head (with its count and the toggle), then the comments.
+    const layout = () =>
+      view.locator(".gh-conversation-main > *").evaluateAll((els) =>
+        els.map((e) => (e.classList.contains("gh-comments-head") ? "head" : ((e as HTMLElement).dataset.entry ?? (e.classList.contains("composer") ? "box" : "description")))),
+      );
+    assert.equal((await head.locator("h3").innerText()).replace(/\s+/g, " "), "Comments · 4");
 
-    // Newest first by default: the comment box, the newest comment, …, the description last.
-    assert.deepEqual(await order(), ["box", "IC_md", "IC_marker", "IC_hostile", "IC_bot", "description"]);
+    // Newest first by default: the description, the head, the comment box, then the newest comment first.
+    assert.deepEqual(await layout(), ["description", "head", "box", "IC_md", "IC_marker", "IC_hostile", "IC_bot"]);
     assert.equal(await toggle.getByRole("radio", { name: "Newest first" }).getAttribute("aria-checked"), "true");
 
-    // Oldest first: as GitHub lists it, the box at the foot; kept across a reload.
+    // Oldest first: as GitHub lists it, the description still first, the box at the foot; kept across a reload.
     await toggle.getByRole("radio", { name: "Oldest first" }).click();
     assert.deepEqual(await order(), ["description", "IC_bot", "IC_hostile", "IC_marker", "IC_md", "box"]);
     await page.reload();
@@ -433,7 +440,8 @@ test("A PR's conversation lists newest first, or oldest first as chosen (kept ac
     await box.fill("First from me");
     await view.locator("#gh-pr-comment").getByRole("button", { name: "Comment" }).click();
     await view.locator('[data-entry="IC_new4"]', { hasText: "First from me" }).waitFor();
-    assert.deepEqual(await order(), ["description", "IC_bot", "IC_hostile", "IC_marker", "IC_md", "IC_new4", "box"]);
+    assert.deepEqual(await layout(), ["description", "head", "IC_bot", "IC_hostile", "IC_marker", "IC_md", "IC_new4", "box"]);
+    await waitFor(() => head.locator("h3").innerText(), (t) => t.replace(/\s+/g, " ") === "Comments · 5", "the count");
     await waitFor(() => inView("IC_new4"), (v) => v, "the new comment in view");
     assert.equal(await box.inputValue(), "");
     assert.ok(writes.some((w) => w.path.endsWith("/m/comment") && (w.body as { body: string }).body === "First from me"));
@@ -445,13 +453,13 @@ test("A PR's conversation lists newest first, or oldest first as chosen (kept ac
     await palette.getByRole("combobox", { name: "Search commands" }).fill("conversation newest first");
     await palette.getByRole("option", { name: /Show the conversation newest first.*GitHub/ }).click();
     await palette.waitFor({ state: "detached" });
-    await waitFor(order, (o) => o.join() === "box,IC_new4,IC_md,IC_marker,IC_hostile,IC_bot,description", "newest first");
-    // The description, oldest, is out of sight below.
-    await view.locator(".gh-conversation").evaluate((e) => e.closest(".gh-main-inner, .gh-main")?.scrollTo(0, 0));
+    await waitFor(order, (o) => o.join() === "description,box,IC_new4,IC_md,IC_marker,IC_hostile,IC_bot", "newest first");
+    // Scrolled to the foot, the box and the newest comments out of sight above.
+    await view.locator(".gh-conversation").evaluate((e) => e.scrollTo(0, e.scrollHeight));
     await box.fill("Second from me");
     await view.locator("#gh-pr-comment").getByRole("button", { name: "Comment" }).click();
     await view.locator('[data-entry="IC_new5"]', { hasText: "Second from me" }).waitFor();
-    assert.deepEqual(await order(), ["box", "IC_new5", "IC_new4", "IC_md", "IC_marker", "IC_hostile", "IC_bot", "description"]);
+    assert.deepEqual(await layout(), ["description", "head", "box", "IC_new5", "IC_new4", "IC_md", "IC_marker", "IC_hostile", "IC_bot"]);
     await waitFor(() => inView("IC_new5"), (v) => v, "the new comment in view");
 
     // ⌘K offers the other order now.

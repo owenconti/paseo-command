@@ -877,10 +877,42 @@
   min-width: 0;
   max-width: 900px;
 }
-.gh-timeline-head {
+/* "Comments · 6" and the order toggle, between the description and the comments. */
+.gh-comments-head {
   display: flex;
   align-items: center;
   gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+.gh-comments-head h3 {
+  margin: 0;
+  font-size: var(--fs-md);
+  font-weight: var(--fw-semibold);
+  color: var(--text-strong);
+}
+.gh-comments-head .page-head-count {
+  margin-left: 0.35em;
+  font-weight: var(--fw-regular);
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+}
+.gh-order {
+  display: inline-flex;
+}
+.gh-order > .page-btn:first-child {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+.gh-order > .page-btn + .page-btn {
+  margin-left: -1px;
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+}
+.gh-order > .page-btn[aria-checked="true"] {
+  position: relative;
+  border-color: var(--line-hover);
+  background: var(--fill-soft);
+  color: var(--text-strong);
 }
 .gh-entry {
   border: 1px solid var(--line);

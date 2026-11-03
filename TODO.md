@@ -5,15 +5,14 @@ mark it done with its commit once merged into `main`.
 
 ## Open
 
-- [ ] **GitHub PR conversation: the description first, then a Comments section newest first.** Today's newest-first
+## Done
+
+- [x] **GitHub PR conversation: the description first, then a Comments section newest first.** Today's newest-first
   order put the PR's description at the bottom. Instead: the description always at the top; then a "Comments" header
   (with the count, e.g. "Comments · 6", and the Newest/Oldest first toggle moved into it); then the comment box; then
   comments and reviews newest first (the toggle still switches them to oldest first, with the box then at the foot).
   A review's own comments and threads' replies keep their order. Posting a comment shows it in place and scrolls to it.
-  Update the e2e and CLAUDE.md's description. Workspace: `github-description-first`.
-
-## Done
-
+  The head uses the pages' `.page-head` and `.page-btn` set. Commit "GitHub: a PR's description first, then Comments".
 - [x] **Chat panel: text 1 pt larger.** The chat panel (`.session`: header, conversation, Markdown, code, tool rows, the
   ask/suggest strips, pending diff comments and the composer) adds `--chat-text` (1 pt) to the app's type tokens, so every
   size keeps its place on the scale: body 13 → 14.33 px in light, 14 → 15.33 px in dark (the themes' `--fs-md-base`),

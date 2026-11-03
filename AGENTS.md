@@ -354,9 +354,10 @@ and GitHub publication; report the published version and release link.
   `github-branch-changes`; in a browser the page takes the key itself; with nothing selected or GitHub off, it only shows a notice): the branch against its base from its host's daemon (`getCheckoutDiff`,
   so remote hosts too; `GET /api/changes?workspace=&host=&mode=all|base|uncommitted`, `web/server/api/changes.ts`, not gated on the
   integration), all changes, committed or uncommitted, with ahead/behind, Review #N and Compare on GitHub; asked every 15 s while shown.
-  A PR (`PrView.tsx`): Conversation (its body, comments and reviews, a comment box; newest first by default, the box on top and the
-  description last, or oldest first as GitHub lists them, the box at the foot: the toggle at its head and ⌘K, one setting for every PR,
-  `github:conversationOrder` in localStorage; a posted comment scrolls into view), Files changed (the review), Commits, Checks.
+  A PR (`PrView.tsx`): Conversation (its description always first, then a "Comments · N" head holding the Newest first / Oldest
+  first toggle, then the comment box and the comments and reviews newest first, or oldest first as GitHub lists them with the box at
+  the foot: the toggle and ⌘K, one setting for every PR, `github:conversationOrder` in localStorage; only the comments move, a review's
+  own comments keeping their order; a posted comment shows in its place and scrolls into view), Files changed (the review), Commits, Checks.
   Bodies (the description, comments, reviews, line comments and replies) show as GitHub renders them: the `q/pr` read asks each one's
   `bodyHTML` in the same query (images through camo; the Markdown kept beside it as `body`, for editing and the fallback), and
   `Body` (`bits.tsx`) draws it after `sanitizeGithubHtml` (`web/src/github/html.ts`) cleans it again: a DOM-free allowlist, so the
