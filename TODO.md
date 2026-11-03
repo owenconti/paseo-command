@@ -5,11 +5,6 @@ mark it done with its commit once merged into `main`.
 
 ## Open
 
-- [ ] **Chat panel: text 1 pt larger.** Increase the React chat panel's font size by 1 pt (the conversation's
-  messages, Markdown, code and tool rows, and the composer, keeping their relative sizes), in light and dark, in the
-  macOS app and a browser. Find where the panel's sizes come from (`.session` styles, theme tokens) and change it at
-  that one place; check line heights, wrapping, the ask/suggest strips and the narrow panel still look right, and that
-  the pages' own text size (`pageText.ts`) is unaffected. Workspace: `chat-text-larger`.
 - [ ] **GitHub PR conversation: the description first, then a Comments section newest first.** Today's newest-first
   order put the PR's description at the bottom. Instead: the description always at the top; then a "Comments" header
   (with the count, e.g. "Comments · 6", and the Newest/Oldest first toggle moved into it); then the comment box; then
@@ -18,6 +13,12 @@ mark it done with its commit once merged into `main`.
   Update the e2e and CLAUDE.md's description. Workspace: `github-description-first`.
 
 ## Done
+
+- [x] **Chat panel: text 1 pt larger.** The chat panel (`.session`: header, conversation, Markdown, code, tool rows, the
+  ask/suggest strips, pending diff comments and the composer) adds `--chat-text` (1 pt) to the app's type tokens, so every
+  size keeps its place on the scale: body 13 → 14.33 px in light, 14 → 15.33 px in dark (the themes' `--fs-md-base`),
+  small 12 → 13.33 px, code 11.5 → 12.83 px; the px sizes written in its styles add it too. The pages, map, top bar and
+  terminal are unchanged. Workspace: `chat-text-larger`.
 
 - [x] **Chat: Linear issue keys and PR numbers link themselves.** In an agent's conversation, its replies (Markdown, a
   remark step over text nodes) and your messages, `web/src/autolink.ts` links Linear keys only of the Linear workspace's teams

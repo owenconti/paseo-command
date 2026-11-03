@@ -1,5 +1,15 @@
 /* ── Session ───────────────────────────────────────────────────────── */
+/* The chat panel's text is the app's sizes plus --chat-text (1 pt), from its
+   header to the composer; sizes written in px here add it too. */
 .session {
+  --chat-text: 1pt;
+  --fs-2xs: calc(10px + var(--chat-text));
+  --fs-xs: calc(11px + var(--chat-text));
+  --fs-sm: calc(12px + var(--chat-text));
+  --fs-md: calc(var(--fs-md-base) + var(--chat-text));
+  --fs-lg: calc(15px + var(--chat-text));
+  --fs-xl: calc(18px + var(--chat-text));
+  --fs-2xl: calc(22px + var(--chat-text));
   position: relative;
   display: flex;
   flex-direction: column;
@@ -567,7 +577,7 @@ button.agent-report-name:hover {
   padding: 1px var(--space-1);
   border-radius: var(--radius-xs);
   background: var(--code-bg);
-  font-size: 11.5px;
+  font-size: calc(11.5px + var(--chat-text, 0px));
   line-height: 1.4;
   color: var(--code-text);
   overflow-wrap: anywhere;
@@ -617,7 +627,7 @@ button.agent-report-name:hover {
   margin: 0;
   padding: 9px var(--space-3);
   overflow-x: auto;
-  font-size: 11.5px;
+  font-size: calc(11.5px + var(--chat-text, 0px));
   line-height: 1.55;
   white-space: pre;
   color: var(--code-text);

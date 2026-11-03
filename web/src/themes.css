@@ -99,7 +99,7 @@
   --control-sm: 30px;
   --control-md: 36px;
   --control-lg: 42px;
-  --fs-md: 14px;
+  --fs-md-base: 14px;
   --fw-regular: 400;
   --fw-medium: 500;
   --fw-semibold: 600;
@@ -204,7 +204,7 @@
   --select-arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%2392a3b0' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
   caret-color: var(--accent-bright);
   scrollbar-color: var(--scrollbar) var(--panel-2);
-  --fs-md: 14px;
+  --fs-md-base: 14px;
   --fw-regular: 400;
   --fw-medium: 500;
   --fw-semibold: 600;
@@ -220,7 +220,7 @@
   font-weight: 600;
 }
 :root[data-theme="lake-country"] .session-title h2 {
-  font-size: 23px;
+  font-size: calc(23px + var(--chat-text, 0px));
   font-weight: 600;
 }
 :root[data-theme="lake-country"]
@@ -337,7 +337,7 @@
   text-transform: uppercase;
 }
 :root[data-theme="galaxy"] .session-title h2 {
-  font-size: 24px;
+  font-size: calc(24px + var(--chat-text, 0px));
   font-weight: 500;
 }
 :root:is([data-theme="lake-country"], [data-theme="galaxy"]) {

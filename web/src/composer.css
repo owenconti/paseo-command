@@ -429,7 +429,7 @@
   align-items: center;
 }
 .autocomplete > button code {
-  font: 10.5px var(--font-mono);
+  font: calc(10.5px + var(--chat-text, 0px)) var(--font-mono);
   color: var(--text-3);
   white-space: nowrap;
   overflow: hidden;
@@ -902,7 +902,7 @@
   margin: 2px 0 6px 22px;
   max-height: 320px;
   overflow: auto;
-  font: 11px/1.5 var(--font-mono);
+  font: calc(11px + var(--chat-text, 0px))/1.5 var(--font-mono);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   color: var(--text-2);
@@ -963,7 +963,7 @@
   color: var(--text);
 }
 .permission pre {
-  font: 11px/1.5 var(--font-mono);
+  font: calc(11px + var(--chat-text, 0px))/1.5 var(--font-mono);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }

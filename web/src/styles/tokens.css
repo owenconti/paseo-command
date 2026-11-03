@@ -14,7 +14,8 @@
   --fs-2xs: 10px;
   --fs-xs: 11px;
   --fs-sm: 12px;
-  --fs-md: 13px;
+  --fs-md-base: 13px; /* the themes set their own */
+  --fs-md: var(--fs-md-base);
   --fs-lg: 15px;
   --fs-xl: 18px;
   --fs-2xl: 22px;
