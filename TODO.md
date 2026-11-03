@@ -5,6 +5,17 @@ mark it done with its commit once merged into `main`.
 
 ## Open
 
+- [ ] **Files: a quick, read-only file explorer for a workspace.** A new Files page (a mode bar tab after GitHub, View menu,
+  ⌘1…⌘n, ⌘K "Show files", a key such as ⇧⌘E app-wide if free) for the selected workspace (or agent's), on any host:
+  - a file tree reusing the diff view's tree (directories, fuzzy "Filter files…", ↑/↓/Enter, resizable, `.gitignore`d
+    and `.git` hidden by default with a toggle), loaded lazily per directory, plus a quick-open (⌘P) over all paths;
+  - opening a file shows it with syntax highlighting by reusing @pierre/diffs (its single-file renderer if it has one,
+    else a no-change diff), its worker pool and themes, virtualized for big files, with line numbers, ⌘F find (as the
+    diff's find), copy path, open in the GitHub tab's Changes if changed, and binary/large files refused politely;
+  - reads through the workspace's host daemon (as Changes uses `getCheckoutDiff`), so remote hosts work; named, cached
+    server routes (`GET /api/files/tree|read`), paths confined to the workspace, size limits; never writes.
+  Fast: tree and file open under ~100 ms locally. Tests over fakes; e2e on a mocked workspace.
+  Workspace: `files-explorer`.
 ## Done
 
 - [x] **GitHub PR conversation: the description first, then a Comments section newest first.** Today's newest-first
