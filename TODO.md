@@ -10,6 +10,12 @@ mark it done with its commit once merged into `main`.
   macOS app and a browser. Find where the panel's sizes come from (`.session` styles, theme tokens) and change it at
   that one place; check line heights, wrapping, the ask/suggest strips and the narrow panel still look right, and that
   the pages' own text size (`pageText.ts`) is unaffected. Workspace: `chat-text-larger`.
+- [ ] **GitHub PR conversation: the description first, then a Comments section newest first.** Today's newest-first
+  order put the PR's description at the bottom. Instead: the description always at the top; then a "Comments" header
+  (with the count, e.g. "Comments · 6", and the Newest/Oldest first toggle moved into it); then the comment box; then
+  comments and reviews newest first (the toggle still switches them to oldest first, with the box then at the foot).
+  A review's own comments and threads' replies keep their order. Posting a comment shows it in place and scrolls to it.
+  Update the e2e and CLAUDE.md's description. Workspace: `github-description-first`.
 
 ## Done
 
