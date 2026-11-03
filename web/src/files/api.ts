@@ -82,5 +82,8 @@ const subscribe = (l: () => void) => {
   listeners.add(l);
   return () => listeners.delete(l);
 };
+/** One read's answer, re-rendering only when it changes. */
+export const useFilesData = (path: string | undefined) =>
+  useSyncExternalStore(subscribe, () => (path ? cache.get(path)?.data : undefined), () => undefined);
 /** Re-renders whenever any read lands (read them with `peek`). */
 export const useFilesVersion = () => useSyncExternalStore(subscribe, () => version, () => version);

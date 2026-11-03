@@ -728,6 +728,10 @@ button.agent-report-name:hover {
 .user-text a:hover {
   text-decoration-color: currentColor;
 }
+/* A file's path in inline code that links to it (src/autolink.ts) keeps its code look, in the link's colour. */
+.md a.file-link > code {
+  color: inherit;
+}
 .md b,
 .md strong {
   font-weight: var(--fw-semibold);
