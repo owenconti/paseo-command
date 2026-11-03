@@ -5,6 +5,13 @@ mark it done with its commit once merged into `main`.
 
 ## Open
 
+- [ ] **⇧⌘G opens the current branch's diff in the GitHub tab.** A new shortcut, ⇧⌘G, from anywhere in the app,
+  opens the GitHub tab's Changes view (`ChangesView.tsx`) for the selected workspace's branch (or the selected agent's
+  workspace), as ⌘K "Show …'s changes against main" does. Conquer keeps ⇧⌘G as its find previous while it has the
+  keyboard (the user's choice); everywhere else (the map, the page, other pages, the terminal panel) it opens the diff.
+  With nothing selected, or GitHub off, it does nothing visible beyond a short notice. Add it to the native View menu if
+  that's how app-wide keys are taken (`AppWindow.performKeyEquivalent`), to the ⌘K entry's `keys`, and to the shortcuts
+  dialog. Workspace: `shortcut-branch-diff`.
 ## Done
 
 - [x] **GitHub PR view: deslopped the buttons and merge box.** One shared compact set, `.page-btn` in `pages.css` (26 px × `--lz`,
