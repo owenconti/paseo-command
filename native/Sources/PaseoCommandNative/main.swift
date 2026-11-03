@@ -105,6 +105,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         listen("com.paseo.command.native.quit") { NSApp.terminate(nil) }
         listen("com.paseo.command.native.reload") { [weak self] in self?.reloadApp(nil) }
         listen("com.paseo.command.native.handover") { [weak self] in self?.main?.acceptHandOver() }
+        listen("com.paseo.command.native.gear") { [weak self] in self?.main?.modeBar.clickSettings() }
         // A key (`<info>.key`'s character, or "tab", "→", "←", after any of "⌃", "⌥", "⇧"; ⌘ unless it starts with "⌃")
         // as the keyboard sends it: the focused view (a page, say) sees a key equivalent before the menu, and a key
         // neither takes goes to the focused view as a key press, as with a real key press (checks).
@@ -289,7 +290,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         guard let path = options.info, let main else { return }
         let info: [String: Any] = [
             "window": main.window.windowNumber, "pids": main.processes(),
-            "mode": main.mode.rawValue, "conquer": main.conquer.state(),
+            "mode": main.mode.rawValue, "bar": main.modeBar.state(), "conquer": main.conquer.state(),
             "conquerFrame": NSStringFromRect(main.conquer.frame), "conquerFocus": main.conquer.hasKeyFocus,
             "commandShown": !main.command.isHiddenOrHasHiddenAncestor,
             "visible": main.window.occlusionState.contains(.visible), "framesDrawn": main.scene.framesDrawn,
@@ -361,7 +362,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         AppKeys.addShowFiles(to: view, target: self, action: #selector(showFiles))
         // ⌘W while Files shows: its shown file tab, ahead of Conquer's Close Tab and the window's Close.
         AppKeys.addCloseFileTab(to: view, target: self, action: #selector(closeFileTab))
-        // ⌘` steps Command → Conquer → Activity → GitHub → Files → Settings → Command, through those shown
+        // ⌘` steps Command → Files → GitHub → Conquer → Activity → Command, through those shown
         // (ahead of macOS's own window cycling, as the app has one window).
         view.addItem(withTitle: "Next: Command, Conquer", action: #selector(toggleMode), keyEquivalent: "`").target = self
         view.addItem(.separator())
@@ -394,7 +395,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
 
     /// The View menu's tabs, in the bar's order.
     private var modeItems: [NSMenuItem] = []
-    /// ⌘1…⌘6: the tabs shown, by their place in the bar (`AppWindow` offers these keys ahead of the views).
+    /// ⌘1…⌘5: the tabs shown, by their place in the bar (`AppWindow` offers these keys ahead of the views).
     private func numberModes() {
         let shown = main?.shownModes ?? Mode.tabs.filter { !$0.drawnByPage }
         for item in modeItems {

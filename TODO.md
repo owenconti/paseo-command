@@ -5,12 +5,6 @@ mark it done with its commit once merged into `main`.
 
 ## Open
 
-- [ ] **Mode bar: Command, Files, GitHub, Conquer, Activity; Settings becomes a gear.** Reorder the macOS app's mode tabs to
-  Command, Files, GitHub, Conquer, Activity (those enabled), in the bar, View menu, ⌘1…⌘5 numbering, ⌘` stepping, the palette and
-  the shortcuts dialog. Settings leaves the tabs: a gear `BarButton` in the bar's tools beside the usage meters opens it (as
-  ⌘, and ⌘K Settings do), showing it in the map's place as now, with the gear lit while it shows; Esc or the gear again goes
-  back to the side before. Keep `Mode.settings` working for old saved modes. Update CLAUDE.md, native tests and e2e. Check
-  with a throwaway build's `.windowshot`. Workspace: `mode-bar-order-settings-gear`.
 - [ ] **Files: Markdown renders as Markdown, and lines wrap.** The viewer shows `.md` files as code with long lines running
   off the edge. Markdown files open rendered (headings, lists, tables, code blocks highlighted, links: in-repo paths open in
   Files, others as links do; images from the workspace through the Files read route, others blocked unless https), with a
@@ -21,6 +15,14 @@ mark it done with its commit once merged into `main`.
   find), units for link resolution. Workspace: `files-markdown-wrap`.
 
 ## Done
+
+- [x] **Mode bar: Command, Files, GitHub, Conquer, Activity; Settings becomes a gear.** Reorder the macOS app's mode tabs to
+  Command, Files, GitHub, Conquer, Activity (those enabled), in the bar, View menu, ⌘1…⌘5 numbering, ⌘` stepping, the palette and
+  the shortcuts dialog. Settings leaves the tabs: a gear `BarButton` in the bar's tools beside the usage meters opens it (as
+  ⌘, and ⌘K Settings do), showing it in the map's place as now, with the gear lit while it shows; Esc or the gear again goes
+  back to the side before. Keep `Mode.settings` working for old saved modes. Update CLAUDE.md, native tests and e2e. Check
+  with a throwaway build's `.windowshot`. Workspace: `mode-bar-order-settings-gear`.
+  Esc in the macOS app's Settings goes back too; ⌘6 is no longer the mode bar's.
 
 - [x] **Chat: file paths link to the Files tab.** In an agent's conversation (its replies and your messages, not tool
   output), paths to its workspace's files link themselves ("The report is at `docs/reports/resource-reference-approaches.md`.",

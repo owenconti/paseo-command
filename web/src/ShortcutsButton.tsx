@@ -73,11 +73,11 @@ const NATIVE: Group = {
     { keys: [["⌃", "`"]], label: "Show or hide the terminal" },
     {
       keys: [["⌘", "`"]],
-      label: "Next in the map's place: the map, the browser (Conquer), Activity, GitHub, Files, Settings",
+      label: "Next in the map's place: the map, Files, GitHub, the browser (Conquer), Activity",
     },
-    { keys: [["⌘", "1…6"]], label: "The mode bar's tab in that place: the map, the browser (Conquer), Files, Settings" },
+    { keys: [["⌘", "1…5"]], label: "The mode bar's tab in that place: the map, Files, GitHub, the browser (Conquer), Activity" },
     { keys: [["⇧", "⌘", "E"]], label: "From anywhere: the selected workspace's (or agent's) files" },
-    { keys: [["⌘", ","]], label: "Settings, or back from it" },
+    { keys: [["⌘", ","]], label: "Settings (the bar's gear), or back from it; Esc goes back too" },
   ],
 };
 /** What every page (GitHub, Activity, Files, Settings) takes, while it shows (`pageText.ts`). */
@@ -303,7 +303,7 @@ function ShortcutsDialog({ onClose }: { onClose: () => void }) {
     return () => window.removeEventListener("keydown", key, true);
   }, [present, onClose]);
   const { integrations } = useIntegrations();
-  // The mode bar's tabs shown, in its order (⌘` steps through them, ⌘1…⌘6 pick one).
+  // The mode bar's tabs shown, in its order (⌘` steps through them, ⌘1…⌘5 pick one).
   const tabNames = shownModes(integrations).map((mode) => TAB_NAMES[mode]);
   const groups = (
     macApp()
@@ -329,7 +329,11 @@ function ShortcutsDialog({ onClose }: { onClose: () => void }) {
         row.label.startsWith("Next in the map's place")
           ? { ...row, label: `Next in the map's place: ${tabNames.join(", ")}` }
           : row.label.startsWith("The mode bar's tab")
-            ? { ...row, label: `The mode bar's tab in that place: ${tabNames.join(", ")}` }
+            ? {
+                ...row,
+                keys: [["⌘", `1…${tabNames.length}`]],
+                label: `The mode bar's tab in that place: ${tabNames.join(", ")}`,
+              }
             : row,
       ),
   }));

@@ -17,14 +17,15 @@ do {
     assert(github.isHidden && activity.isHidden)
     bar.enabled = [.github, .activity]
     assert(!github.isHidden && !activity.isHidden)
-    // ⌘1…⌘5 count the tabs shown: Activity comes third, then GitHub.
-    assert(activity.toolTip?.hasSuffix("(⌘3, ⌘`)") == true && github.toolTip?.hasSuffix("(⌘4, ⌘`)") == true)
+    // ⌘1…⌘5 count the tabs shown (Files left out here): GitHub comes second, Activity last, after Conquer.
+    assert(github.toolTip?.hasSuffix("(⌘2, ⌘`)") == true && activity.toolTip?.hasSuffix("(⌘4, ⌘`)") == true)
     bar.activityUnread = 4
     assert(activity.title.hasSuffix("4"))
     bar.activityUnread = 0
     assert(activity.title.trimmingCharacters(in: .whitespaces) == "Activity")
-    bar.enabled = [.github]
+    bar.enabled = [.files, .github]
     assert(github.toolTip?.hasSuffix("(⌘3, ⌘`)") == true)
+    assert(find("Settings", in: bar) == nil, "Settings is the gear, not a tab")
     bar.enabled = []
     assert(github.isHidden && activity.isHidden)
 }
@@ -139,11 +140,11 @@ do {
 print("Conquer tab closing and reload shortcut checks passed.")
 
 // The mode bar's order, and its tabs' keys by their place among those shown.
-assert(Mode.tabs == [.command, .conquer, .activity, .github, .files, .settings])
+assert(Mode.tabs == [.command, .files, .github, .conquer, .activity])
 // A mode saved before the Linear tab was removed is no mode (the map shows).
 assert(Mode(rawValue: "linear") == nil)
-assert(Mode.conquer.keys(at: 1) == "⌘2, ⌘`")
-assert(Mode.settings.keys(at: 2) == "⌘3, ⌘, or ⌘`")
+assert(Mode.conquer.keys(at: 2) == "⌘3, ⌘`")
+assert(Mode.settings.keys(at: nil) == "⌘,")
 assert(Mode.github.keys(at: nil) == "⌘`")
 // Conquer's own tab keys are ⌥⌘1…⌥⌘9, leaving ⌘1…⌘5 to the mode bar.
 do {

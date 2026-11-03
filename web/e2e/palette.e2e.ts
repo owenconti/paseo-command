@@ -194,12 +194,21 @@ test("in the macOS app, the terminal's menu commands are listed and reach the ap
     "Bigger terminal text",
   ])
     await palette.getByRole("option", { name: label }).waitFor();
-  // The mode bar's tabs shown, in its order, with ⌘1…⌘6 by their place (no integrations here).
+  // The mode bar's tabs shown, in its order, with ⌘1…⌘5 by their place (no integrations here):
+  // Command, Files, Conquer; Settings is the bar's gear, ⌘, alone.
   await search.fill("next in the map");
-  await palette.getByRole("option", { name: /Next in the map's place: map, browser, Files, Settings/ }).waitFor();
+  await palette.getByRole("option", { name: /Next in the map's place: map, Files, browser(?!,)/ }).waitFor();
   await search.fill("show the browser");
   const browserTab = palette.getByRole("option", { name: /Show the browser \(Conquer\)/ });
-  assert.match(await browserTab.locator(".palette-keys").innerText(), /⌘\s*2/);
+  assert.match(await browserTab.locator(".palette-keys").innerText(), /⌘\s*3/);
+  await search.fill("settings");
+  const settingsEntry = palette.getByRole("option", { name: /^Settings/ }).first();
+  assert.equal((await settingsEntry.locator(".palette-keys").innerText()).replace(/\s/g, ""), "⌘,");
+  // With nothing typed, the tabs' Show entries run in the bar's order.
+  await search.fill("");
+  const labels = await palette.getByRole("option").allInnerTexts();
+  const at = (re: RegExp) => labels.findIndex((l) => re.test(l));
+  assert.ok(at(/^Show files/) >= 0 && at(/^Show the browser/) > at(/^Show files/), labels.join(" | "));
   await search.fill("maximize term");
   await page.keyboard.press("Enter");
   await palette.waitFor({ state: "detached" });

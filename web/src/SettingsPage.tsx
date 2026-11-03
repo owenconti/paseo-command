@@ -54,7 +54,8 @@ export function SettingsPage({
   const page = useRef<HTMLElement>(null);
   const first = useRef<HTMLButtonElement>(null);
   const request = useSettingsRequest();
-  // In the macOS app Settings is a tab; in a browser the page closes back to the map.
+  // In the macOS app Settings is the bar's gear (Esc, ⌘, or the gear goes back); in a browser the page
+  // has its own ×, closing back to the map.
   const closable = !macApp();
   const sections = SECTIONS.filter((s) => s.id !== "notifications" || notifications !== "unsupported");
   const [section, setSectionState] = useState<Section>(() => {
@@ -75,7 +76,7 @@ export function SettingsPage({
     if (w === null) writeStore("settings:sidebarWidth", null);
     else writeStore("settings:sidebarWidth", next);
   };
-  // Opening (the tab, ⌘,, the palette, Manage … key) puts the keyboard in the
+  // Opening (the gear, ⌘,, the palette, Manage … key) puts the keyboard in the
   // page: on its section in the sidebar, or on the asked integration's key editor.
   useEffect(() => {
     if (request.target) setSectionState("integrations");
@@ -95,6 +96,17 @@ export function SettingsPage({
     attempt();
     return () => clearTimeout(timer);
   }, [request]);
+  // Esc with the keyboard nowhere in particular (Settings opened by the gear) goes back too.
+  useEffect(() => {
+    const key = (e: KeyboardEvent) => {
+      if (e.key !== "Escape" || e.defaultPrevented) return;
+      if (document.activeElement && document.activeElement !== document.body) return;
+      e.preventDefault();
+      closeSettings();
+    };
+    window.addEventListener("keydown", key);
+    return () => window.removeEventListener("keydown", key);
+  }, []);
   const shown = sections.find((s) => s.id === section) ?? sections[0]!;
   const percent = Math.round(settings.volume * 100);
   const musicStatus = !music.enabled
@@ -110,10 +122,10 @@ export function SettingsPage({
       className="settings-page settings-menu"
       aria-label="Settings"
       style={{ gridTemplateColumns: `${sidebarW}px minmax(0, 1fr)` }}
-      // Keys pressed here are the page's (not J/K/N/D shortcuts); in a browser Escape
-      // closes it unless a field took it first.
+      // Keys pressed here are the page's (not J/K/N/D shortcuts); Escape closes it
+      // (in the macOS app, back to the side before) unless a field took it first.
       onKeyDown={(e) => {
-        if (closable && e.key === "Escape" && !e.defaultPrevented) {
+        if (e.key === "Escape" && !e.defaultPrevented) {
           e.preventDefault();
           closeSettings();
         }

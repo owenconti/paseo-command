@@ -36,13 +36,14 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
     private(set) var enabledModes: Set<Mode> = Mode.alwaysShown { didSet { if enabledModes != oldValue { onModesChanged?() } } }
     /// The tabs shown changed (the View menu renumbers its keys).
     var onModesChanged: (() -> Void)?
-    /// The tabs shown, in the mode bar's order: ⌘` steps through them, ⌘1…⌘6 pick one.
+    /// The tabs shown, in the mode bar's order: ⌘` steps through them, ⌘1…⌘5 pick one (Settings is the gear).
     var shownModes: [Mode] { Mode.tabs.filter { !$0.drawnByPage || enabledModes.contains($0) } }
     /// The side Settings returns to when it closes.
     private var beforeSettings: Mode = .command
     var nextMode: Mode {
         let modes = shownModes
-        return modes[((modes.firstIndex(of: mode) ?? 0) + 1) % modes.count]
+        // From Settings, on from the side it opened over.
+        return modes[((modes.firstIndex(of: mode == .settings ? beforeSettings : mode) ?? 0) + 1) % modes.count]
     }
     /// Bridge messages decode their images here, in order, then apply on main.
     private let decoding = DispatchQueue(label: "paseo.world.decode", qos: .userInitiated)
@@ -177,7 +178,9 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         drawer.onMaximize = { [weak self] in self?.maximizeTerminal() }
         modeBar.onSelect = { [weak self] mode in self?.show(mode) }
         modeBar.enabled = enabledModes
-        modeBar.onAction = { [weak self] action, view in self?.barAction(action, view) }
+        modeBar.onAction = { [weak self] action, view in
+            if action == "settings" { self?.toggleSettings() } else { self?.barAction(action, view) }
+        }
         placeModeBar()
         // Where the user left it, across launches and app restarts.
         if options.info == nil, let saved = UserDefaults.standard.string(forKey: "mode").flatMap(Mode.init(rawValue:)), saved != .command {
@@ -803,7 +806,7 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         if options.info == nil { UserDefaults.standard.set(next.rawValue, forKey: "mode") }
     }
 
-    /// Settings, from the app menu (⌘,): opens it, or closes it again.
+    /// Settings, from the app menu (⌘,) or the bar's gear: opens it, or closes it again.
     @objc func toggleSettings() { show(mode == .settings ? beforeSettings : .settings) }
 
     /// A top bar tool was used: the page opens what it asks for beneath its button

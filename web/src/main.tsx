@@ -1393,7 +1393,7 @@ function App() {
     settings: "Settings",
   };
   const modeTabs = shownModes(integrations).map((mode) => [mode, modeNames[mode]] as const);
-  // A tab's ⌘1…⌘6, in the macOS app.
+  // A tab's ⌘1…⌘5, in the macOS app.
   const tabKeys = (mode: AppMode) => (macApp() ? [modeKey(integrations, mode)] : undefined);
   const paletteCommands: Command[] = [
     {
@@ -2236,7 +2236,7 @@ function App() {
           run: () => runAppCommand(id),
         }))
       : []),
-    // In the macOS app Settings is a tab (⌘,); in a browser a page that closes again.
+    // In the macOS app Settings is the bar's gear (⌘,); in a browser a page that closes again.
     ...(!settingsShown
       ? [
           {
@@ -2244,9 +2244,9 @@ function App() {
             group: "App",
             page: "Settings" as const,
             label: "Settings",
-            keys: macApp() ? [["⌘", ","], modeKey(integrations, "settings")] : undefined,
+            keys: macApp() ? [["⌘", ","]] : undefined,
             keywords:
-              "preferences integrations api keys secrets sounds music notifications linear github typesafe tab",
+              "preferences integrations api keys secrets sounds music notifications linear github typesafe gear",
             run: () => openSettings(),
           },
         ]
@@ -2407,6 +2407,14 @@ function App() {
         }))
       : []),
   ];
+  // The tabs' Show entries in the mode bar's order (Command, Files, GitHub, Conquer, Activity),
+  // in the places they take among the rest.
+  const tabEntries = ["command-show", "files-show", "github-show", "conquer", "activity-show"];
+  const tabSlots = paletteCommands.flatMap((c, i) => (tabEntries.includes(c.id) ? [i] : []));
+  tabSlots
+    .map((i) => paletteCommands[i])
+    .sort((a, b) => tabEntries.indexOf(a.id) - tabEntries.indexOf(b.id))
+    .forEach((c, n) => (paletteCommands[tabSlots[n]] = c));
   const position = {
     index: agent ? order.findIndex((a) => a.id === agent.id) : -1,
     total: order.length,

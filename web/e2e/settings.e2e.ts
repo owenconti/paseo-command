@@ -290,10 +290,15 @@ test("integrations opt in explicitly, persist, and stop their controls after opt
     },
   });
   await page.goto(app.url);
-  // The app's native gear switches to Settings.
+  // The app's native gear switches to Settings; Esc, the keyboard nowhere in particular, goes back.
+  await appEvent(page, "paseo:mode", { mode: "settings" });
+  const dialog = page.getByRole("region", { name: "Settings", exact: true });
+  await dialog.waitFor();
+  await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+  await page.keyboard.press("Escape");
+  await dialog.waitFor({ state: "detached" });
   await appEvent(page, "paseo:mode", { mode: "settings" });
   await page.locator('.settings-nav-item[data-section="integrations"]').click();
-  const dialog = page.getByRole("region", { name: "Settings", exact: true });
   const linear = dialog.getByRole("switch", { name: /^Linear / });
   const typesafe = dialog.getByRole("switch", { name: /^TypeSafe / });
   await waitFor(
@@ -350,6 +355,8 @@ test("integrations opt in explicitly, persist, and stop their controls after opt
     typesafe: false,
   });
   await page.keyboard.press("Escape");
+  // From inside the page too: back to the side before.
+  await dialog.waitFor({ state: "detached" });
   await page.keyboard.press("Meta+k");
   const palette = page.getByRole("dialog", { name: "Command palette" });
   await palette.waitFor();

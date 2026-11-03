@@ -1,7 +1,7 @@
 import AppKit
 
 /// The app-wide keys the window offers the main menu ahead of its views (`AppWindow.performKeyEquivalent`):
-/// ⌘1…⌘6, the mode bar's tabs; ⇧⌘E, View → Show Files (the selected workspace's files in the Files tab),
+/// ⌘1…⌘5, the mode bar's tabs; ⇧⌘E, View → Show Files (the selected workspace's files in the Files tab),
 /// which nothing else in the app uses; and ⇧⌘G, View → Show Branch Changes (the selected workspace's branch
 /// against main, the Files tab's Changes), except while Conquer has the keyboard: then ⇧⌘G goes on to Conquer, its Find Previous
 /// (Show Branch Changes is disabled then, and a disabled item would still take the key in the menu).
@@ -11,7 +11,7 @@ enum AppKeys {
     static func offeredToMenu(_ event: NSEvent, conquerHasKeys: Bool, filesShows: Bool = false) -> Bool {
         guard event.type == .keyDown, let key = event.charactersIgnoringModifiers?.lowercased() else { return false }
         let flags = event.modifierFlags.intersection([.command, .shift, .control, .option])
-        if flags == .command { return ("1"..."6").contains(key) || filesShows && key == "w" }
+        if flags == .command { return ("1"..."5").contains(key) || filesShows && key == "w" }
         guard flags == [.command, .shift] else { return false }
         return key == "e" || !conquerHasKeys && key == "g"
     }
@@ -73,7 +73,7 @@ final class AppWindow: NSWindow {
         guard let url = document(), ["http", "https"].contains(url.scheme ?? "") else { return super.accessibilityDocument() }
         return url.absoluteString
     }
-    /// ⌘1…⌘6 pick the mode bar's tabs (the View menu's) from anywhere in the window, ahead of its
+    /// ⌘1…⌘5 pick the mode bar's tabs (the View menu's) from anywhere in the window, ahead of its
     /// views: the page, the terminal panel, and Conquer's pages even while it has the keyboard.
     /// ⇧⌘G (View → Show Branch Changes) likewise, but while Conquer has the keyboard (`conquerHasKeys`)
     /// it stays Conquer's Find Previous (`AppKeys`).

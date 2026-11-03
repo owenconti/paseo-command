@@ -3,12 +3,11 @@ import ImageIO
 import WebKit
 
 /// What stands in the map's place: the map (Command), the Conquer browser,
-/// or what the page draws itself: Activity (GitHub and Linear notifications together),
-/// GitHub (pull requests and your workspaces' changes), Files (a workspace's files, read only)
-/// and Settings. (The Linear tab was
+/// or what the page draws itself: Files (a workspace's files, read only), GitHub (pull requests),
+/// Activity (GitHub and Linear notifications together) and Settings (the bar's gear, not a tab). (The Linear tab was
 /// removed at the user's request: a saved `linear` mode is no mode, so the map shows.)
 enum Mode: String, CaseIterable {
-    case command, conquer, activity, github, files, settings
+    case command, files, github, conquer, activity, settings
 
     var title: String {
         switch self {
@@ -35,8 +34,8 @@ enum Mode: String, CaseIterable {
     var drawnByPage: Bool { self == .github || self == .activity || self == .files || self == .settings }
     /// The page's tabs that always show (no integration of their own).
     static let alwaysShown: Set<Mode> = [.files, .settings]
-    /// The tabs, in the bar's order (⌘1…⌘6 count those shown).
-    static let tabs = allCases
+    /// The tabs, in the bar's order (⌘1…⌘5 count those shown); Settings is the tools' gear instead.
+    static let tabs = allCases.filter { $0 != .settings }
     /// What it shows; the bar's tooltip adds its keys (`keys(at:)`).
     var tip: String {
         switch self {
@@ -48,11 +47,11 @@ enum Mode: String, CaseIterable {
         case .settings: "Settings: sounds, notifications, integrations, New agent, in the map's place"
         }
     }
-    /// Its keys, as the `index`th tab shown (from 0): ⌘1…⌘6, and ⌘` steps (Settings' ⌘, too, Files' ⇧⌘E).
+    /// Its keys, as the `index`th tab shown (from 0): ⌘1…⌘5, and ⌘` steps (Files' ⇧⌘E too; Settings' gear only ⌘,).
     func keys(at index: Int?) -> String {
         let number = index.map { "⌘\($0 + 1), " } ?? ""
         switch self {
-        case .settings: return "\(number)⌘, or ⌘`"
+        case .settings: return "⌘,"
         case .files: return "\(number)⇧⌘E or ⌘`"
         default: return "\(number)⌘`"
         }
@@ -130,7 +129,8 @@ final class BarButton: NSButton {
 
     func restyle() {
         let look = effectiveAppearance
-        layer?.backgroundColor = on ? Ink.color(Ink.pane, look).cgColor
+        // Lit as the tabs' track is, which shows on the bar where a tab's raised pane wouldn't.
+        layer?.backgroundColor = on ? Ink.color(Ink.tabShown, look).cgColor
             : hovered && isEnabled ? Ink.color(Ink.tabFocused, look, 0.6).cgColor : nil
         contentTintColor = Ink.color(!isEnabled ? Ink.off : on || hovered ? Ink.strong : Ink.mid, look)
         dotLayer.backgroundColor = Ink.color(Ink.accent, look).cgColor
@@ -189,10 +189,10 @@ final class UsageMeters: NSButton {
 }
 
 /// The strip across the top of the window: the traffic lights, the product's name, the tabs that
-/// switch the map's place between the map (Command), the browser (Conquer),
-/// Activity, GitHub, Files and Settings (⌘` steps through them, ⌘1…⌘6
+/// switch the map's place between the map (Command), Files, GitHub, the browser (Conquer)
+/// and Activity (⌘` steps through them, ⌘1…⌘5
 /// pick the one in that place), "Update ready" when a newer build
-/// is in, and the app's tools at the right: who needs you, usage, What's new, mini games,
+/// is in, and the app's tools at the right: who needs you, usage, the Settings gear, What's new, mini games,
 /// keyboard shortcuts and the session panel's side, layout and visibility. All of it is native;
 /// the page says what the tools show (`apply`) and opens what they ask for (`onAction`, with the
 /// button, so its popovers open beneath it). It stands in for the hidden title bar: it drags the
@@ -210,7 +210,7 @@ final class ModeBar: NSView {
     }
     /// Activity's unread notifications, shown on its tab.
     var activityUnread = 0 { didSet { if activityUnread != oldValue { restyle() } } }
-    var mode: Mode = .command { didSet { restyle() } }
+    var mode: Mode = .command { didSet { settings.on = mode == .settings; restyle() } }
     /// Where the bar's content starts: past the traffic lights.
     var leading: CGFloat = 0 { didSet { titleLeading?.constant = leading } }
     var updateReady = false { didSet { if updateReady != oldValue { update.isHidden = !updateReady } } }
@@ -223,6 +223,8 @@ final class ModeBar: NSView {
     private let tools = NSStackView()
     private let attention = NSButton()
     private let usage = UsageMeters()
+    /// Settings, in the map's place: lit while it shows; again goes back to the side before.
+    private let settings = BarButton(symbol: "gearshape", label: "Settings", tip: "\(Mode.settings.tip) (⌘,)")
     private let releases = BarButton(symbol: "sparkles", label: "What's new", tip: "What's new")
     private let games = BarButton(symbol: "gamecontroller", label: "Mini games", tip: "Mini games (B)")
     private let shortcuts = BarButton(symbol: "keyboard", label: "Keyboard shortcuts", tip: "Keyboard shortcuts (?)")
@@ -299,7 +301,7 @@ final class ModeBar: NSView {
             guard let self else { return }
             self.onAction?(inside ? "usage-enter" : "usage-leave", self.usage)
         }
-        for (button, name) in [(releases, "releases"), (games, "games"), (shortcuts, "shortcuts"),
+        for (button, name) in [(settings, "settings"), (releases, "releases"), (games, "games"), (shortcuts, "shortcuts"),
                                (panelSide, "panel-side"), (panelLayout, "panel-layout"), (panelToggle, "panel-toggle")] {
             button.target = self
             button.action = #selector(tool(_:))
@@ -308,7 +310,7 @@ final class ModeBar: NSView {
         tools.orientation = .horizontal
         tools.spacing = 2
         tools.translatesAutoresizingMaskIntoConstraints = false
-        for view in [update, attention, usage, releases, games, shortcuts, panelSide, panelLayout, panelToggle] as [NSView] {
+        for view in [update, attention, usage, settings, releases, games, shortcuts, panelSide, panelLayout, panelToggle] as [NSView] {
             tools.addArrangedSubview(view)
         }
         tools.setCustomSpacing(10, after: update)
@@ -330,6 +332,13 @@ final class ModeBar: NSView {
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 
     @objc private func pick(_ sender: NSButton) { onSelect?(buttons[sender.tag].0) }
+
+    /// The tabs shown, in order, and whether the Settings gear is lit (checks).
+    func state() -> [String: Any] {
+        ["tabs": buttons.filter { !$0.1.isHidden }.map(\.0.rawValue), "settingsOn": settings.on]
+    }
+    /// The gear, as a click on it (checks).
+    func clickSettings() { settings.performClick(nil) }
     @objc private func tool(_ sender: NSView) {
         if let name = sender.identifier?.rawValue { onAction?(name, sender) }
     }
@@ -362,9 +371,9 @@ final class ModeBar: NSView {
         restyle()
     }
 
-    /// The Settings tab pulses while the lofi radio connects, as the page's gear did.
+    /// The Settings gear pulses while the lofi radio connects, as the page's gear does.
     private func setMusicConnecting(_ on: Bool) {
-        guard let layer = buttons.first(where: { $0.0 == .settings })?.1.layer else { return }
+        guard let layer = settings.layer else { return }
         if on, layer.animation(forKey: "connecting") == nil {
             let pulse = CABasicAnimation(keyPath: "opacity")
             pulse.fromValue = 1
@@ -412,7 +421,7 @@ final class ModeBar: NSView {
             .font: NSFont.systemFont(ofSize: 12, weight: .semibold),
             .foregroundColor: Ink.color(Ink.onAccent, look),
         ])
-        for button in [releases, games, shortcuts, panelSide, panelLayout, panelToggle] { button.restyle() }
+        for button in [settings, releases, games, shortcuts, panelSide, panelLayout, panelToggle] { button.restyle() }
         let shown = buttons.filter { !$0.1.isHidden }.map(\.0)
         for (mode, button) in buttons {
             let on = mode == self.mode

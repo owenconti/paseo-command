@@ -6,7 +6,7 @@
 import { after, before, test } from "node:test";
 import assert from "node:assert/strict";
 import type { Browser } from "playwright";
-import { launch, mockApi, newContext, startApp } from "./harness";
+import { appEvent, launch, mockApi, newContext, startApp } from "./harness";
 
 let app: Awaited<ReturnType<typeof startApp>>;
 let browser: Browser;
@@ -67,5 +67,27 @@ test("? opens the shortcuts from the page, but types in a text field", async () 
   await page.keyboard.press("?");
   assert.equal(await composer.inputValue(), "?");
   assert.equal(await dialog.count(), 0);
+  await context.close();
+});
+
+test("in the macOS app, the mode bar's keys list its tabs in order, Settings being the gear", async () => {
+  const context = await newContext(browser);
+  const page = await context.newPage();
+  await page.addInitScript(`
+    window.webkit = { messageHandlers: { paseoWorld: { postMessage: () => {} } } };
+  `);
+  await mockApi(page, { agents: () => [], projects: () => [] });
+  await page.goto(app.url);
+  await page.locator(".fleet-sidebar").waitFor({ state: "attached" });
+  await appEvent(page, "paseo:command", "show-shortcuts");
+  const dialog = page.getByRole("dialog", { name: "Keyboard shortcuts" });
+  await dialog.waitFor();
+  // No integrations here: the map, Files and the browser.
+  await dialog.getByText("Next in the map's place: the map, Files, the browser (Conquer)", { exact: true }).waitFor();
+  const tabs = dialog.locator("li, tr, div").filter({
+    has: page.getByText("The mode bar's tab in that place: the map, Files, the browser (Conquer)", { exact: true }),
+  }).last();
+  assert.match(await tabs.innerText(), /1…3/);
+  await dialog.getByText("Settings (the bar's gear), or back from it; Esc goes back too", { exact: true }).waitFor();
   await context.close();
 });
