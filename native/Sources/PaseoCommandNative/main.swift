@@ -105,20 +105,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         listen("com.paseo.command.native.quit") { NSApp.terminate(nil) }
         listen("com.paseo.command.native.reload") { [weak self] in self?.reloadApp(nil) }
         listen("com.paseo.command.native.handover") { [weak self] in self?.main?.acceptHandOver() }
-        // A ⌘-key (`<info>.key`'s character, after "⌥" for ⌥⌘) as the keyboard sends it: the focused view
+        // A ⌘-key (`<info>.key`'s character, after "⌥" for ⌥⌘ or "⇧" for ⇧⌘) as the keyboard sends it: the focused view
         // (a page, say) sees it before the menu, as with a real key press (checks).
         listen("com.paseo.command.native.key") { [weak self] in
-            let codes: [String: UInt16] = ["e": 14, "\\": 42, "1": 18, "2": 19, "3": 20, "4": 21, "5": 23, "6": 22, "7": 26, "8": 28, "9": 25]
+            let codes: [String: UInt16] = ["g": 5, "e": 14, "\\": 42, "1": 18, "2": 19, "3": 20, "4": 21, "5": 23, "6": 22, "7": 26, "8": 28, "9": 25]
             guard let self, let info = self.options.info, let window = self.main?.window,
                   let typed = try? String(contentsOfFile: (info as NSString).deletingPathExtension + ".key", encoding: .utf8).trimmingCharacters(in: .whitespacesAndNewlines),
-                  case let option = typed.hasPrefix("⌥"), case let key = option ? String(typed.dropFirst()) : typed,
-                  let event = NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: option ? [.command, .option] : .command, timestamp: ProcessInfo.processInfo.systemUptime,
-                                               windowNumber: window.windowNumber, context: nil, characters: key, charactersIgnoringModifiers: key,
+                  case let option = typed.hasPrefix("⌥"), case let shift = typed.hasPrefix("⇧"),
+                  case let key = option || shift ? String(typed.dropFirst()) : typed,
+                  let event = NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: option ? [.command, .option] : shift ? [.command, .shift] : .command,
+                                               timestamp: ProcessInfo.processInfo.systemUptime,
+                                               windowNumber: window.windowNumber, context: nil, characters: shift ? key.uppercased() : key, charactersIgnoringModifiers: key,
                                                isARepeat: false, keyCode: codes[key] ?? 0)
             else { return }
             // As AppKit offers a key equivalent: the window's views (a page among them) first, then the menu.
             let viewTook = window.performKeyEquivalent(with: event)
-            Log.line("\(option ? "⌥" : "")⌘\(key): views took it \(viewTook)")
+            Log.line("\(option ? "⌥" : shift ? "⇧" : "")⌘\(key): views took it \(viewTook)")
             if !viewTook { NSApp.mainMenu?.performKeyEquivalent(with: event) }
         }
         // ⌘` as the keyboard sends it, through the main menu (steps to the next tab).
@@ -320,6 +322,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
             item.representedObject = mode.rawValue
             return item
         }
+        // ⇧⌘G: the selected workspace's branch changes in the GitHub tab (the page's GitHub
+        // place), from anywhere but Conquer while it has the keyboard (its Find Previous).
+        AppKeys.addBranchChanges(to: view, target: self, action: #selector(showBranchChanges))
         // ⌘` steps Command → Conquer → Activity → GitHub → Settings → Command, through those shown
         // (ahead of macOS's own window cycling, as the app has one window).
         view.addItem(withTitle: "Next: Command, Conquer", action: #selector(toggleMode), keyEquivalent: "`").target = self
@@ -339,15 +344,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         bar.addItem(conquerItem)
         let conquer = NSMenu(title: "Conquer")
         // Conquer takes these keys itself, ahead of the page (`ConquerView.performKeyEquivalent`).
-        for command in ConquerView.commands {
-            guard let command else { conquer.addItem(.separator()); continue }
-            let item = conquer.addItem(withTitle: command.title, action: #selector(conquerCommand(_:)), keyEquivalent: command.key)
-            item.keyEquivalentModifierMask = command.mods
-            item.representedObject = command.name
-            item.target = self
-            item.isHidden = command.hidden
-            item.allowsKeyEquivalentWhenHidden = true
-        }
+        AppKeys.addConquerCommands(to: conquer, target: self, action: #selector(conquerCommand(_:)))
         conquerItem.submenu = conquer
         let windowItem = NSMenuItem()
         bar.addItem(windowItem)
@@ -381,6 +378,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         main.show(main.nextMode)
     }
     @objc private func showSettings() { main?.toggleSettings() }
+    @objc private func showBranchChanges() { main?.pageCommand("github-branch-changes") }
     @objc private func showMode(_ sender: NSMenuItem) {
         if let mode = (sender.representedObject as? String).flatMap(Mode.init(rawValue:)) { main?.show(mode) }
     }
@@ -404,6 +402,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         case #selector(conquerCommand(_:)):
             if item.representedObject as? String == "togglePin" { item.title = main.conquer.current?.isPinned == true ? "Unpin Tab" : "Pin Tab" }
             return browser
+        case #selector(showBranchChanges): return !browser
         case #selector(moveTerminal): item.state = main.drawer.dock == .bottom ? .on : .off
         case #selector(unsplitTerminals): return !main.drawer.isHidden && main.drawer.isSplit
         case #selector(maximizeTerminal):

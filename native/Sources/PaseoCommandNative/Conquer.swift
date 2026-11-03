@@ -771,14 +771,20 @@ final class ConquerView: NSView, WKNavigationDelegate, WKUIDelegate, NSTextField
         guard !isHiddenOrHasHiddenAncestor, hasKeyFocus, event.type == .keyDown, let key = event.charactersIgnoringModifiers else {
             return super.performKeyEquivalent(with: event)
         }
-        let flags = event.modifierFlags.intersection([.command, .shift, .control, .option])
-        for case let c? in Self.commands where !c.key.isEmpty {
+        if let name = Self.command(for: key, event.modifierFlags) { perform(name); return true }
+        return super.performKeyEquivalent(with: event)
+    }
+
+    /// The command a key takes, while Conquer has the keyboard.
+    static func command(for key: String, _ modifiers: NSEvent.ModifierFlags) -> String? {
+        let flags = modifiers.intersection([.command, .shift, .control, .option])
+        for case let c? in commands where !c.key.isEmpty {
             let hit = c.key == "+" || c.key == "="
                 ? (key == "+" || key == "=") && flags.subtracting(.shift) == .command
                 : key.lowercased() == c.key && flags == c.mods
-            if hit { perform(c.name); return true }
+            if hit { return c.name }
         }
-        return super.performKeyEquivalent(with: event)
+        return nil
     }
 
     // MARK: Tabs

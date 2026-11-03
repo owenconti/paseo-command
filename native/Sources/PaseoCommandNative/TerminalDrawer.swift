@@ -1020,6 +1020,7 @@ final class TerminalDrawer: NSView {
             "panes": layout?.text ?? "",
             "text": text,
             "open": !isHidden,
+            "keyFocus": hasKeyFocus,
             "dock": dock.rawValue,
             "maximized": maximized,
             "frame": [frame.minX, frame.minY, frame.width, frame.height],

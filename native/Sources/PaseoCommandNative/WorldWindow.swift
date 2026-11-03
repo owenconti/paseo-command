@@ -14,10 +14,11 @@ final class AppWindow: NSWindow {
     }
     /// ⌘1…⌘6 pick the mode bar's tabs (the View menu's) from anywhere in the window, ahead of its
     /// views: the page, the terminal panel, and Conquer's pages even while it has the keyboard.
+    /// ⇧⌘G (View → Show Branch Changes) likewise, but while Conquer has the keyboard (`conquerHasKeys`)
+    /// it stays Conquer's Find Previous (`AppKeys`).
+    var conquerHasKeys: () -> Bool = { false }
     override func performKeyEquivalent(with event: NSEvent) -> Bool {
-        if event.type == .keyDown, event.modifierFlags.intersection([.command, .shift, .control, .option]) == .command,
-           let key = event.charactersIgnoringModifiers, ("1"..."6").contains(key),
-           NSApp.mainMenu?.performKeyEquivalent(with: event) == true { return true }
+        if AppKeys.offeredToMenu(event, conquerHasKeys: conquerHasKeys()), NSApp.mainMenu?.performKeyEquivalent(with: event) == true { return true }
         return super.performKeyEquivalent(with: event)
     }
 }
@@ -167,11 +168,10 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         for v in [command, split, splash, modeBar] { root.addSubview(v) }
         super.init()
         split.onResize = { [weak self] in self?.layoutWorkspace() }
-        conquer.onTogglePanel = { [weak self] in
-            self?.web.evaluateJavaScript("window.dispatchEvent(new CustomEvent('paseo:command', { detail: 'toggle-panel' }))", completionHandler: nil)
-        }
+        conquer.onTogglePanel = { [weak self] in self?.pageCommand("toggle-panel") }
         conquer.onLink = { [weak self] url in self?.routeLink(url) ?? false }
         (window as? AppWindow)?.document = { [weak self] in self?.mode == .conquer ? self?.conquer.current?.url : nil }
+        (window as? AppWindow)?.conquerHasKeys = { [weak self] in self?.mode == .conquer && self?.conquer.hasKeyFocus == true }
         configuration.userContentController.add(self, name: "paseoWorld")
         web.navigationDelegate = self
         web.uiDelegate = self
@@ -811,6 +811,10 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
     }
 
     /// Tell the page which side shows, so it draws GitHub, Activity or Settings in the map's place.
+    /// Asks the page for one of its commands (`web/src/appCommands.ts`), as its palette does.
+    func pageCommand(_ name: String) {
+        web.evaluateJavaScript("window.dispatchEvent(new CustomEvent('paseo:command', { detail: '\(name)' }))", completionHandler: nil)
+    }
     private func sendMode() { send(["mode": mode.rawValue], as: "paseo:mode") }
 
     /// The page's tab a link opens in: a GitHub pull request (`github.com/<owner>/<repo>/pull/<n>…`),

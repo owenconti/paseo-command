@@ -49,7 +49,8 @@ export type AppCommand =
   | "github-find-repo"
   | "github-sidebar"
   | "github-filter"
-  | "github-set-filter";
+  | "github-set-filter"
+  | "github-branch-changes";
 
 const EVENT = "paseo:command";
 
@@ -66,6 +67,11 @@ export function onAppCommand(name: AppCommand, run: (arg?: unknown) => void) {
   window.addEventListener(EVENT, listener);
   return () => window.removeEventListener(EVENT, listener);
 }
+
+/** ⇧⌘G: the selected workspace's branch changes in the GitHub tab. The macOS app takes it through its
+ * View menu (Show Branch Changes) and sends `github-branch-changes`; a browser's page takes it itself. */
+export const isBranchChangesShortcut = (event: ShortcutKey) =>
+  event.metaKey && event.shiftKey && !event.ctrlKey && !event.altKey && event.key.toLowerCase() === "g";
 
 /** Cmd+K opens the command palette from anywhere, typing included, as Cmd+N
  * opens a new agent (Ctrl+K, which deletes to the line's end in macOS text
