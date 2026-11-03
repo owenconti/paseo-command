@@ -385,9 +385,12 @@ and GitHub publication; report the published version and release link.
   `ruleMethodsOf`: each `pull_request` rule's `allowed_merge_methods`, intersected, and no merge commit under `required_linear_history`),
   as GitHub's own merge box offers them; when none is allowed, or the rules can't be read, `methodsNote` says so (a blocker, or a warning
   beside the repository's methods), never a default merge. `m/merge` and `m/autoMerge` refuse any other method. The header has the main one
-  beside Review (a split button named by its method, "Squash and merge", whose ▾ picks among several, else Merge when ready, Enable
-  auto-merge, Remove from queue, Disable auto-merge, Ready for review, a disabled one saying why, Reopen, Delete branch) and ⋯ listing them
-  all. Merge and auto-merge confirm in a panel beneath: the allowed methods (the last used per repository while still allowed, else the
+  beside Review (a split button named by its method, "Squash and merge", whose ▾ picks among several, else Merge when ready, Auto-merge,
+  Remove from queue, Disable auto-merge, Ready for review, a disabled one saying why, Reopen, Delete branch) and ⋯ listing them
+  all, on the tabs' row with Open Paseo agent and the diff stat. Its controls are the pages' `.page-btn` set (`pages.css`: one compact
+  height, quiet outlines, `.solid` for the one primary): Merge is filled only once it can merge (`mergeLeads` in `merge.ts`), else Review
+  is, and an administrator's merge past unmet requirements says "(bypass)". The Merge section lists the actions as small quiet buttons
+  with short labels (`shortActionLabel`; ⋯ and ⌘K keep `actionLabel`'s). Merge and auto-merge confirm in a panel beneath: the allowed methods (the last used per repository while still allowed, else the
   first; `github:mergeMethod` in localStorage), the commit title and message for merge and squash (GitHub's,
   editable), delete the branch after merging (offered where the token may and the repository doesn't already; remembered,
   `github:deleteBranchAfterMerge`), and for an administrator past unmet requirements the reasons and a bypass box; ⌘↩ confirms. Close

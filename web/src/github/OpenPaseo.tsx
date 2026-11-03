@@ -38,7 +38,7 @@ export function OpenPaseoButton({ matches, onOpen }: { matches: PaseoMatch[]; on
     <span className="menu-anchor gh-open-paseo" ref={anchor}>
       <button
         ref={button}
-        className="secondary"
+        className="page-btn"
         {...(only ? { "data-tip": tipOf(only) } : { "aria-haspopup": "menu" as const, "aria-expanded": open, "data-tip": `${matches.length} Paseo workspaces have this branch` })}
         onClick={() => (only ? onOpen(only) : setOpen(!open))}
       >

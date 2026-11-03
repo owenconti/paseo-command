@@ -141,3 +141,113 @@
     display: none;
   }
 }
+
+/* ── Page buttons ───────────────────────────────────────────────────────
+   One compact set for the pages' actions, at their head tools' height
+   (26 px at the default scale, × --lz), so a head's buttons line up as one
+   row. Quiet by default: a hairline outline, muted text. `.solid` is the
+   one primary action in view (modest: the accent, no shadow); `.danger`
+   only colours its words. `.page-btn-group` joins a button and its ▾. */
+.page-btn {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: calc(26px * var(--lz));
+  padding: 0 calc(9px * var(--lz));
+  border: 1px solid var(--line-mid);
+  border-radius: var(--radius-md);
+  background: transparent;
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-medium);
+  line-height: 1;
+  color: var(--text-2);
+  white-space: nowrap;
+}
+.page-btn svg {
+  flex-shrink: 0;
+  color: var(--icon-muted);
+}
+.page-btn:hover:not(:disabled),
+.page-btn[aria-expanded="true"] {
+  border-color: var(--line-hover);
+  background: var(--row-hover);
+  color: var(--text);
+}
+.page-btn:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 1px;
+}
+.page-btn:active:not(:disabled) {
+  transform: scale(0.97);
+}
+.page-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.page-btn.solid {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--on-accent);
+}
+.page-btn.solid svg {
+  color: inherit;
+}
+.page-btn.solid:hover:not(:disabled) {
+  border-color: var(--accent-hover);
+  background: var(--accent-hover);
+  color: var(--on-accent);
+}
+.page-btn.danger {
+  color: var(--red-text);
+}
+.page-btn.danger:hover:not(:disabled) {
+  border-color: var(--red-line);
+  color: var(--red-text);
+}
+/* An icon-only one, square. */
+.page-btn.icon {
+  width: calc(26px * var(--lz));
+  padding: 0;
+  border-color: transparent;
+}
+.page-btn-group {
+  display: inline-flex;
+  flex-shrink: 0;
+}
+.page-btn-group > .page-btn:not(:last-child) {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+.page-btn-group > .page-btn + .page-btn {
+  margin-left: -1px;
+  padding: 0 calc(5px * var(--lz));
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+}
+.page-btn-group > .page-btn.solid + .page-btn.solid {
+  margin-left: 0;
+  border-left-color: color-mix(in srgb, #000 22%, var(--accent));
+}
+.page-btn-group > .page-btn:hover,
+.page-btn-group > .page-btn:focus-visible {
+  position: relative;
+}
+/* A count inside one (pending review comments). */
+.page-btn-count {
+  display: inline-grid;
+  place-items: center;
+  min-width: calc(16px * var(--lz));
+  height: calc(16px * var(--lz));
+  padding: 0 4px;
+  border-radius: var(--radius-pill);
+  background: var(--fill-strong);
+  font-size: var(--fs-2xs);
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+.page-btn.solid .page-btn-count {
+  background: color-mix(in srgb, #fff 25%, transparent);
+  color: inherit;
+}

@@ -192,6 +192,7 @@ export function CommentBox({
   extra,
   onChange,
   allowEmpty,
+  quiet,
 }: {
   initial?: string;
   placeholder?: string;
@@ -207,6 +208,8 @@ export function CommentBox({
   onChange?: (text: string) => void;
   /** Submit with nothing written (an approval without a summary). */
   allowEmpty?: boolean;
+  /** Submit as a quiet button, where another action is the view's primary. */
+  quiet?: boolean;
 }) {
   const [text, setText] = useState(initial);
   const [preview, setPreview] = useState(false);
@@ -274,12 +277,12 @@ export function CommentBox({
       <div className="gh-comment-box-actions">
         <span className="gh-hint">Markdown · ⌘↩</span>
         {onCancel && (
-          <button className="secondary" onClick={onCancel} disabled={busy}>
+          <button className="page-btn" onClick={onCancel} disabled={busy}>
             Cancel
           </button>
         )}
         {extra?.(text)}
-        <button className="primary" onClick={() => void submit()} disabled={busy || (!allowEmpty && !text.trim())}>
+        <button className={quiet ? "page-btn" : "page-btn solid"} onClick={() => void submit()} disabled={busy || (!allowEmpty && !text.trim())}>
           {submitLabel}
         </button>
       </div>

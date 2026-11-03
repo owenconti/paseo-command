@@ -5,19 +5,15 @@ mark it done with its commit once merged into `main`.
 
 ## Open
 
-- [ ] **GitHub PR view: deslop the buttons and merge box.** The PR header's and side panel's controls are oversized and
-  heavy: Review (a big filled gold block), the split "Merge pull request" button, "Open Paseo agent" on its own row,
-  the conversation's Newest/Oldest toggle, Comment, and the Merge section's full-width stacked blocks ("Merge pull
-  request…", "Enable auto-merge (merge commit)…" wrapping onto two lines). Bring them to the pages' control scale
-  (`--lz`, `pages.css`; compare Linear's and Activity's head tools): one compact height for header buttons, one primary
-  action at most (filled, modest), others quiet (outline or ghost), short labels ("Squash and merge", "Auto-merge"), no
-  wrapping, header actions on one row with Open Paseo agent, and the Merge section as a short list of small buttons or
-  links under its status lines rather than full-width slabs. Also check: while "Review required" or checks are pending,
-  Merge shouldn't look like the ready primary action unless it's an admin bypass (then say so). Light and dark,
-  screenshots before and after; keep e2e passing. Workspace: `github-pr-deslop-buttons`.
-
 ## Done
 
+- [x] **GitHub PR view: deslopped the buttons and merge box.** One shared compact set, `.page-btn` in `pages.css` (26 px × `--lz`,
+  quiet outline; `.solid` the one primary; `.page-btn-group` for a split). The header's actions sit on one row with the tabs: Open
+  Paseo agent, the diff stat, Review, the split Merge (▾) and ⋯, one height, none wrapping. Merge is filled only once it can merge
+  (`mergeLeads`); while a review is required or checks are pending Review is, and an administrator's merge says "(bypass)". The
+  Merge section's actions are small quiet buttons with short labels ("Auto-merge…", "Close…"; ⌘K keeps the long ones), the
+  Newest/Oldest toggle and Comment are at the same scale, and Files changed, threads and Changes use the set too. An e2e checks one
+  height, one row and nothing wrapping at the normal width.
 - [x] **GitHub merge box: offers only the merge methods the repository and its base branch's rules allow.** Diagonal-HQ/diagonal
   allows merge commits and squash, but its `main` ruleset's `pull_request` rule allows only squash (`allowed_merge_methods`), which
   the PR read didn't ask; the header named the first, a merge commit. The PR read now asks the base branch's rules (REST

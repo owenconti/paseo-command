@@ -118,7 +118,7 @@ export function PrList({
             <CircleAlert size={26} strokeWidth={1.5} aria-hidden="true" />
             <h3>GitHub didn’t answer</h3>
             <p>{list.error}</p>
-            <button className="secondary" onClick={list.reload}>
+            <button className="page-btn" onClick={list.reload}>
               Try again
             </button>
           </div>

@@ -340,7 +340,7 @@ test("GitHub lists PRs to review, opens one, drafts a line comment and submits a
     await box.fill("Name this constant?");
     await box.press("Meta+Enter");
     await view.locator(".gh-draft .gh-pending").waitFor();
-    assert.equal(await view.locator(".gh-pending-count").textContent(), "1");
+    assert.equal(await view.locator(".page-btn-count").textContent(), "1");
 
     // ⌘K offers submitting the review while a PR shows.
     await page.keyboard.press("Meta+k");
@@ -370,7 +370,7 @@ test("GitHub lists PRs to review, opens one, drafts a line comment and submits a
     });
     await panel.waitFor({ state: "detached" });
     await view.locator(".gh-draft").waitFor({ state: "detached" });
-    assert.equal(await view.locator(".gh-pending-count").count(), 0);
+    assert.equal(await view.locator(".page-btn-count").count(), 0);
 
     // Viewed: written, and the file folds.
     await view.locator('.gd-file[data-path="src/b.ts"] .gd-viewed input').check();

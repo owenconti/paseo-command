@@ -21,7 +21,7 @@ import { addComment, editComment, removeComment, reviewComments, useReviewDraft 
 import type { ConversationOrder, PrTab } from "./place";
 import { OpenPaseoButton } from "./OpenPaseo";
 import type { PaseoMatch, PrHead } from "./paseo";
-import type { MergeAction } from "./merge";
+import { mergeLeads, type MergeAction } from "./merge";
 import { MergeHeader, MergeSection, useMergeBox, type MergeBox } from "./MergeBox";
 import { Assignees, ChecksSummary, Reviewers, type PeopleChange, type PickerControl } from "./PrSide";
 import type { DraftComment, Person, PrDetail, PrDiff, PrReviewer, ReviewEvent, ReviewThread } from "./types";
@@ -157,7 +157,7 @@ function ReviewPanel({
         onSubmit={onSubmit}
         extra={() =>
           pending > 0 && (
-            <button className="secondary" onClick={onDiscard} disabled={busy} data-tip="Delete your pending comments and summary">
+            <button className="page-btn danger" onClick={onDiscard} disabled={busy} data-tip="Delete your pending comments and summary">
               <Trash2 size={12} aria-hidden="true" />
               Discard
             </button>
@@ -268,6 +268,7 @@ function Conversation({
     <div key="composer" className="gh-entry composer" id="gh-pr-comment">
       <CommentBox
         submitLabel="Comment"
+        quiet
         busy={busy}
         error={error}
         onSubmit={async (text) => {
@@ -629,7 +630,7 @@ export function PrView({
             <CircleAlert size={26} strokeWidth={1.5} aria-hidden="true" />
             <h3>GitHub didn’t answer</h3>
             <p>{detail.error}</p>
-            <button className="secondary" onClick={refresh}>
+            <button className="page-btn" onClick={refresh}>
               Try again
             </button>
           </div>
@@ -657,7 +658,6 @@ export function PrView({
               <span className="gh-repo">{pr.repo}</span>
               <ChecksIcon state={pr.checkRuns.some((c) => c.state === "failing") ? "failing" : pr.checkRuns.some((c) => c.state === "pending") ? "pending" : pr.checkRuns.length ? "passing" : null} />
               <Decision decision={pr.reviewDecision} />
-              {paseo.length > 0 && <OpenPaseoButton matches={paseo} onOpen={onOpenPaseo!} />}
             </div>
           </div>
           {detail.error && (
@@ -680,10 +680,11 @@ export function PrView({
               </button>
             ))}
             <span className="gh-spacer" />
+            {paseo.length > 0 && <OpenPaseoButton matches={paseo} onOpen={onOpenPaseo!} />}
             <Churn additions={pr.additions} deletions={pr.deletions} />
             <div className="gh-review-anchor">
               <button
-                className="primary"
+                className={mergeLeads(pr, mergeBox.method) ? "page-btn" : "page-btn solid"}
                 onClick={() => {
                   setReviewOpen(!reviewOpen);
                   mergeBox.setPanel(null);
@@ -693,7 +694,7 @@ export function PrView({
                 disabled={pr.state === "merged" || pr.state === "closed"}
               >
                 Review
-                {draft.comments.length > 0 && <span className="gh-pending-count">{draft.comments.length}</span>}
+                {draft.comments.length > 0 && <span className="page-btn-count">{draft.comments.length}</span>}
               </button>
               {reviewOpen && (
                 <ReviewPanel

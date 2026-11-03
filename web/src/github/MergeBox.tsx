@@ -15,6 +15,8 @@ import {
   canMergeNow,
   deleteAfterMerge,
   mergeActions,
+  mergeButton,
+  mergeLeads,
   mergeMethodFor,
   METHOD_BUTTON,
   METHOD_HINT,
@@ -23,6 +25,7 @@ import {
   offersDelete,
   rememberDeleteAfterMerge,
   rememberMergeMethod,
+  shortActionLabel,
   type MergeAction,
 } from "./merge";
 import type { MergeMethod, PrDetail, PrMerge } from "./types";
@@ -262,19 +265,21 @@ export function MergeHeader({ pr, box }: { pr: PrDetail; box: MergeBox }) {
   const has = (kind: MergeAction["kind"]) => actions.some((a) => a.kind === kind);
   const block = blockers(pr).find((b) => b.level === "block");
   const busy = !!box.busy;
+  // Filled only while merging is the next step; else Review leads and these stay quiet.
+  const lead = mergeLeads(pr, box.method) ? "page-btn solid" : "page-btn";
 
   // The method the main button merges by: the one chosen, always one the PR allows.
   const method = actions.find((a): a is Extract<MergeAction, { kind: "merge" | "auto" }> => a.kind === "merge" || a.kind === "auto")?.method;
   const split = (label: string, kind: "merge" | "auto", tip: string, method: MergeMethod) => (
-    <span className="menu-anchor gh-split" ref={methodMenu.anchor}>
-      <button className="gh-merge-btn" onClick={() => box.run({ kind, method })} disabled={busy} data-tip={tip}>
+    <span className="menu-anchor page-btn-group" ref={methodMenu.anchor}>
+      <button className={kind === "merge" ? lead : "page-btn"} onClick={() => box.run({ kind, method })} disabled={busy} data-tip={tip}>
         {kind === "merge" ? <GitMerge size={13} aria-hidden="true" /> : <Zap size={13} aria-hidden="true" />}
         {label}
       </button>
       {pr.merge.methods.length > 1 && (
         <button
           ref={methodMenu.button}
-          className="gh-merge-btn gh-split-more"
+          className={kind === "merge" ? lead : "page-btn"}
           aria-label="Choose how it merges"
           aria-haspopup="menu"
           aria-expanded={methodMenu.open}
@@ -312,49 +317,49 @@ export function MergeHeader({ pr, box }: { pr: PrDetail; box: MergeBox }) {
 
   let main: React.ReactNode = null;
   if (has("merge") && method)
-    main = split(METHOD_BUTTON[method], "merge", adminMerge(pr) && !mergeableNow(pr) ? "Merge as an administrator, past unmet requirements" : "Merge it", method);
+    main = split(mergeButton(pr, method), "merge", adminMerge(pr) && !mergeableNow(pr) ? "Merge as an administrator, past unmet requirements" : "Merge it", method);
   else if (has("queue"))
     main = (
-      <button className="gh-merge-btn" onClick={() => box.run({ kind: "queue" })} disabled={busy} data-tip="Add it to the base branch’s merge queue">
+      <button className={lead} onClick={() => box.run({ kind: "queue" })} disabled={busy} data-tip="Add it to the base branch’s merge queue">
         <ListOrdered size={13} aria-hidden="true" />
         Merge when ready
       </button>
     );
-  else if (has("auto") && method) main = split("Enable auto-merge", "auto", `GitHub merges it (${METHOD_WORDS[method]}) once its requirements pass`, method);
+  else if (has("auto") && method) main = split("Auto-merge", "auto", `GitHub merges it (${METHOD_WORDS[method]}) once its requirements pass`, method);
   else if (has("dequeue"))
     main = (
-      <button className="secondary" onClick={() => box.run({ kind: "dequeue" })} disabled={busy}>
+      <button className="page-btn" onClick={() => box.run({ kind: "dequeue" })} disabled={busy}>
         Remove from queue
       </button>
     );
   else if (has("auto-off"))
     main = (
-      <button className="secondary" onClick={() => box.run({ kind: "auto-off" })} disabled={busy}>
+      <button className="page-btn" onClick={() => box.run({ kind: "auto-off" })} disabled={busy}>
         Disable auto-merge
       </button>
     );
   else if (has("ready"))
     main = (
-      <button className="secondary" onClick={() => box.run({ kind: "ready" })} disabled={busy}>
+      <button className="page-btn" onClick={() => box.run({ kind: "ready" })} disabled={busy}>
         Ready for review
       </button>
     );
   else if (pr.state === "open" && pr.merge.canMerge && !pr.merge.queueRequired && block)
     main = (
-      <button className="gh-merge-btn" disabled aria-description={block.text} data-tip={block.text}>
+      <button className="page-btn" disabled aria-description={block.text} data-tip={block.text}>
         <GitMerge size={13} aria-hidden="true" />
         {box.method ? METHOD_BUTTON[box.method] : "Merge"}
       </button>
     );
   else if (has("reopen"))
     main = (
-      <button className="secondary" onClick={() => box.run({ kind: "reopen" })} disabled={busy}>
+      <button className="page-btn" onClick={() => box.run({ kind: "reopen" })} disabled={busy}>
         Reopen
       </button>
     );
   else if (has("delete-branch"))
     main = (
-      <button className="secondary" onClick={() => box.run({ kind: "delete-branch" })} disabled={busy} data-tip={`Delete ${pr.headRef}`}>
+      <button className="page-btn" onClick={() => box.run({ kind: "delete-branch" })} disabled={busy} data-tip={`Delete ${pr.headRef}`}>
         Delete branch
       </button>
     );
@@ -366,14 +371,14 @@ export function MergeHeader({ pr, box }: { pr: PrDetail; box: MergeBox }) {
         <span className="menu-anchor" ref={more.anchor}>
           <button
             ref={more.button}
-            className="icon-btn gh-more"
+            className="page-btn icon gh-more"
             aria-label="More actions for this pull request"
             aria-haspopup="menu"
             aria-expanded={more.open}
             data-tip="More actions"
             onClick={() => more.setOpen(!more.open)}
           >
-            <Ellipsis size={15} aria-hidden="true" />
+            <Ellipsis size={14} aria-hidden="true" />
           </button>
           {more.open && (
             <div ref={more.place} role="menu" aria-label="Pull request actions" className="popover-menu linear-row-menu gh-more-menu" onKeyDown={more.keys}>
@@ -511,10 +516,10 @@ function MergePanel({ pr, box, mode, method }: { pr: PrDetail; box: MergeBox; mo
         </p>
       )}
       <div className="gh-merge-panel-foot">
-        <button className="secondary" onClick={() => box.setPanel(null)} disabled={busy}>
+        <button className="page-btn" onClick={() => box.setPanel(null)} disabled={busy}>
           Cancel
         </button>
-        <button className="gh-merge-btn" onClick={submit} disabled={!ready} {...(method !== "rebase" ? { "data-tip": "⌘↩" } : {})}>
+        <button className="page-btn solid" onClick={submit} disabled={!ready} {...(method !== "rebase" ? { "data-tip": "⌘↩" } : {})}>
           {label}
         </button>
       </div>
@@ -537,7 +542,7 @@ function ClosePanel({ pr, box }: { pr: PrDetail; box: MergeBox }) {
         allowEmpty
         onSubmit={box.close}
         extra={() => (
-          <button className="secondary" onClick={() => box.setPanel(null)} disabled={busy}>
+          <button className="page-btn" onClick={() => box.setPanel(null)} disabled={busy}>
             Cancel
           </button>
         )}
@@ -549,7 +554,8 @@ function ClosePanel({ pr, box }: { pr: PrDetail; box: MergeBox }) {
 /**
  * The Conversation's Merge section, GitHub's merge box: its state (merged by
  * whom, closed, or each thing blocking it), auto-merge and the merge queue,
- * and every action that applies as a button.
+ * and every action that applies as a small quiet button (the header's
+ * holds the primary one).
  */
 export function MergeSection({ pr, box }: { pr: PrDetail; box: MergeBox }) {
   const m = pr.merge;
@@ -625,16 +631,21 @@ export function MergeSection({ pr, box }: { pr: PrDetail; box: MergeBox }) {
       </ul>
       {actions.length > 0 && (
         <div className="gh-merge-actions">
-          {actions.map((a, i) => (
-            <button
-              key={actionKey(a)}
-              className={i === 0 && (a.kind === "merge" || a.kind === "queue" || a.kind === "auto") ? "gh-merge-btn" : a.kind === "close" || a.kind === "delete-branch" ? "secondary gh-danger" : "secondary"}
-              disabled={busy}
-              onClick={() => box.run(a)}
-            >
-              {actionLabel(a, pr)}
-            </button>
-          ))}
+          {actions.map((a) => {
+            const short = shortActionLabel(a, pr);
+            const long = actionLabel(a, pr);
+            return (
+              <button
+                key={actionKey(a)}
+                className={a.kind === "close" || a.kind === "delete-branch" ? "page-btn danger" : "page-btn"}
+                disabled={busy}
+                {...(long !== short ? { "data-tip": long.replace(/…$/, "") } : {})}
+                onClick={() => box.run(a)}
+              >
+                {short}
+              </button>
+            );
+          })}
         </div>
       )}
       {!actions.length && pr.state === "open" && !m.canMerge && !canMergeNow(pr) && !canAutoMerge(pr) && (

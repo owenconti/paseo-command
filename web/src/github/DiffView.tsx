@@ -117,7 +117,7 @@ function Thread({ thread, review }: { thread: ReviewThread; review: DiffReview }
                   </button>
                 )}
                 {thread.canResolve && (
-                  <button className="secondary" onClick={() => review.onResolve(thread, !thread.isResolved)}>
+                  <button className="page-btn" onClick={() => review.onResolve(thread, !thread.isResolved)}>
                     {thread.isResolved ? <Undo2 size={12} aria-hidden="true" /> : <CircleCheck size={12} aria-hidden="true" />}
                     {thread.isResolved ? "Unresolve" : "Resolve conversation"}
                   </button>
@@ -222,7 +222,7 @@ function Notes({
             extra={(text) =>
               review.onSingle && (
                 <button
-                  className="secondary"
+                  className="page-btn"
                   disabled={!text.trim()}
                   onClick={async () => {
                     if (await review.onSingle!(comment(text))) setComposing(null);

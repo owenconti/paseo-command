@@ -110,7 +110,7 @@ export function ChangesView({
         )}
         <span className="gh-spacer" />
         {pr && prRepo && (
-          <button className="secondary" onClick={() => onOpenPr(prRepo, pr.number)} data-tip={pr.title}>
+          <button className="page-btn" onClick={() => onOpenPr(prRepo, pr.number)} data-tip={pr.title}>
             <GitPullRequest size={13} aria-hidden="true" />
             <span className="page-tool-label">Review #{pr.number}</span>
           </button>
@@ -158,7 +158,7 @@ export function ChangesView({
             <CircleAlert size={26} strokeWidth={1.5} aria-hidden="true" />
             <h3>The workspace’s host didn’t answer</h3>
             <p>{changes.error}</p>
-            <button className="secondary" onClick={changes.reload}>
+            <button className="page-btn" onClick={changes.reload}>
               Try again
             </button>
           </div>

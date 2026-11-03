@@ -9,7 +9,7 @@
 import { after, before, test } from "node:test";
 import assert from "node:assert/strict";
 import type { Browser, Page } from "playwright";
-import type { PrDetail, PrMerge, PrRow } from "../src/github/types";
+import type { PrDetail, PrDiff, PrMerge, PrRow } from "../src/github/types";
 import { small } from "./fleets";
 import { appEvent, launch, mockApi, newContext, startApp, waitFor } from "./harness";
 
@@ -103,16 +103,44 @@ const SAMPLES = () =>
     [49, pr(49, "No method", {}, { methods: [], methodsNote: "The base branch’s rules allow none of the repository’s merge methods." })],
   ]);
 
+const DIFF: PrDiff = {
+  tooLarge: false,
+  files: [
+    {
+      path: "src/merge.ts",
+      isNew: false,
+      isDeleted: false,
+      additions: 2,
+      deletions: 1,
+      hunks: [
+        {
+          oldStart: 1,
+          oldCount: 2,
+          newStart: 1,
+          newCount: 3,
+          lines: [
+            { type: "header", content: "@@ -1,2 +1,3 @@" },
+            { type: "context", content: "const a = 1;" },
+            { type: "remove", content: "const b = 2;" },
+            { type: "add", content: "const b = 3;" },
+            { type: "add", content: "const c = 4;" },
+          ],
+        },
+      ],
+    },
+  ],
+};
+
 type Write = { name: string; body: Record<string, unknown> };
 
 /** The app over a fleet, GitHub on, with `prs` answered and each write kept as GitHub would (unless refused). */
-async function setUp(page: Page, prs: Map<number, PrDetail>, refuse: Set<string>) {
+async function setUp(page: Page, prs: Map<number, PrDetail>, refuse: Set<string>, workspaces = small.workspaces) {
   await mockApi(page, {
     agents: () => small.agents,
     permissions: () => [],
     hosts: () => small.hosts,
     projects: () => small.projects,
-    workspaces: () => small.workspaces,
+    workspaces: () => workspaces,
     lists: { settings: { integrations: { github: true, linear: false, typesafe: false } } },
   });
   const writes: Write[] = [];
@@ -159,6 +187,7 @@ async function setUp(page: Page, prs: Map<number, PrDetail>, refuse: Set<string>
     if (name === "repos") return route.fulfill({ json: { repos: [], stars: { repos: [], orgs: [] } } });
     if (name === "prs") return route.fulfill({ json: { scope: u.searchParams.get("scope"), rows: [], viewer: { login: "me" } } });
     if (name === "pr") return route.fulfill({ json: prs.get(Number(u.searchParams.get("number"))) });
+    if (name === "diff") return route.fulfill({ json: DIFF });
     return route.fulfill({ status: 404, json: { error: "not mocked" } });
   });
   return writes;
@@ -283,14 +312,14 @@ test("Only the methods the base branch's rules allow: the button says its method
 
     // Blocked: auto-merge only by squash.
     await openPr(page, 48);
-    await anchor.getByRole("button", { name: "Enable auto-merge" }).waitFor();
+    await anchor.getByRole("button", { name: "Auto-merge", exact: true }).waitFor();
     const autoOffered = await paletteLabels(page, "auto-merge");
     assert.deepEqual(autoOffered.filter((l) => /^Enable auto-merge/.test(l)), ["Enable auto-merge (squash and merge)…"]);
 
     // None allowed: it says so, and nothing offers a merge.
     await openPr(page, 49);
     await view.locator(".gh-merge-section").getByText("The base branch’s rules allow none of the repository’s merge methods.").waitFor();
-    const merge = anchor.locator(".gh-merge-btn").first();
+    const merge = anchor.getByRole("button", { name: "Merge", exact: true });
     assert.equal(await merge.isDisabled(), true);
     assert.ok(!(await paletteLabels(page, "merge")).some((l) => /and merge…|Merge pull request…|Enable auto-merge/.test(l)));
   } finally {
@@ -406,6 +435,116 @@ test("Ready for review, update branch, the merge queue, close with a comment and
     await view.locator(".gh-merge-anchor").getByRole("button", { name: "Reopen" }).click();
     await view.locator(".gh-state-pill.open").waitFor();
     assert.deepEqual(writes.at(-1), { name: "state", body: { repo: "acme/atlas", number: 45, prId: "PR_45", state: "open" } });
+  } finally {
+    await context.close();
+  }
+});
+
+test("The PR view's controls: one height, one row, nothing wrapping, and Merge isn't the primary action while a review is required", async () => {
+  const context = await newContext(browser);
+  const page = await context.newPage();
+  await page.setViewportSize({ width: 1600, height: 1000 });
+  const prs = SAMPLES();
+  // #42 as the user's: waiting on a review and checks, its branch checked out in a Paseo workspace.
+  Object.assign(prs.get(42)!, {
+    additions: 354,
+    deletions: 3,
+    changedFiles: 1,
+    files: [{ path: "src/merge.ts", additions: 2, deletions: 1, changeType: "modified", viewed: "unviewed" }],
+    commits: [{ sha: SHA, title: "Ship the merge box", author: { login: "sam" }, at: ago(30) }],
+    timeline: [{ kind: "comment", id: "c1", author: { login: "ada" }, body: "Looks close.", createdAt: ago(20), url: "https://github.com/acme/atlas/pull/42#c1" }],
+    checkRuns: [
+      { name: "test", state: "pending", source: "CI" },
+      { name: "lint", state: "passing", source: "CI", url: "https://github.com/acme/atlas/actions/runs/1" },
+      { name: "deploy preview", state: "skipped", source: "Vercel" },
+    ],
+  });
+  const workspaces = small.workspaces.map((w) => (w.workspaceId === "wks_a" ? { ...w, branch: "branch-42", repo: "https://github.com/acme/atlas" } : w));
+  await setUp(page, prs, new Set(), workspaces);
+  const shoot = async (name: string) => {
+    if (!process.env.GITHUB_SHOT) return;
+    for (const scheme of ["dark", "light"] as const) {
+      await page.emulateMedia({ colorScheme: scheme });
+      await page.waitForTimeout(500);
+      await page.screenshot({ path: `${process.env.GITHUB_SHOT}/${name}-${scheme}.png` });
+    }
+    await page.emulateMedia({ colorScheme: "dark" });
+  };
+  try {
+    await page.goto(app.url);
+    await openPr(page, 42);
+    const view = page.locator(".github-view");
+    await view.getByRole("button", { name: "Open Paseo agent" }).waitFor();
+    await shoot("pr-blocked");
+
+    // The header's actions: one row, one height, none wrapping.
+    const head = view.locator(".gh-tabs");
+    const boxes = await head.evaluate((el) =>
+      [...el.querySelectorAll<HTMLElement>("button:not([role=tab])")]
+        .filter((b) => b.offsetParent)
+        .map((b) => ({ name: b.getAttribute("aria-label") ?? b.textContent!.trim(), top: Math.round(b.getBoundingClientRect().top), height: Math.round(b.getBoundingClientRect().height), wraps: b.scrollWidth > b.clientWidth + 1 || getComputedStyle(b).whiteSpace !== "nowrap" })),
+    );
+    const names = boxes.map((b) => b.name);
+    for (const n of ["Open Paseo agent", "Review", "Auto-merge", "Choose how it merges", "More actions for this pull request"]) assert.ok(names.includes(n), `${n} in ${names}`);
+    assert.equal(new Set(boxes.map((b) => b.height)).size, 1, JSON.stringify(boxes));
+    assert.equal(new Set(boxes.map((b) => b.top)).size, 1, JSON.stringify(boxes));
+    assert.deepEqual(boxes.filter((b) => b.wraps), []);
+    assert.ok(boxes[0]!.height <= 28, `header buttons ${boxes[0]!.height}px tall`);
+    // The stat sits in that row too.
+    await head.locator(".gh-churn").waitFor();
+
+    // Review required: Review is the one primary action; Merge stays quiet.
+    const primaries = await view.locator(".page-btn.solid").evaluateAll((els) => els.filter((e) => (e as HTMLElement).offsetParent).map((e) => e.textContent!.trim()).filter(Boolean));
+    assert.deepEqual(primaries, ["Review"]);
+
+    // The Merge section: small buttons on a line each, at the header's height, none wrapping.
+    const section = view.locator(".gh-merge-section");
+    await section.getByText("Review required.").waitFor();
+    const actions = await section.locator(".gh-merge-actions button").evaluateAll((els) =>
+      els.map((b) => ({ text: b.textContent!.trim(), height: Math.round(b.getBoundingClientRect().height), wraps: b.scrollWidth > b.clientWidth + 1 || getComputedStyle(b).whiteSpace !== "nowrap" })),
+    );
+    assert.ok(actions.some((a) => a.text === "Auto-merge…"), JSON.stringify(actions));
+    assert.deepEqual(actions.filter((a) => a.wraps || a.height !== boxes[0]!.height), []);
+
+    // The conversation's order toggle and Comment keep the same scale.
+    const toggle = await view.getByRole("radio", { name: "Newest first" }).evaluate((b) => Math.round(b.getBoundingClientRect().height));
+    assert.ok(toggle <= boxes[0]!.height, `order toggle ${toggle}px`);
+    const comment = await view.locator("#gh-pr-comment").getByRole("button", { name: "Comment" }).evaluate((b) => Math.round(b.getBoundingClientRect().height));
+    assert.equal(comment, boxes[0]!.height);
+
+    // An administrator past the requirements: Merge says it bypasses them.
+    prs.get(42)!.merge = { ...prs.get(42)!.merge, canMergeAsAdmin: true };
+    await openPr(page, 42);
+    await view.locator(".gh-merge-anchor").getByRole("button", { name: "Merge pull request (bypass)" }).waitFor();
+    assert.deepEqual(
+      await view.locator(".page-btn.solid").evaluateAll((els) => els.filter((e) => (e as HTMLElement).offsetParent).map((e) => e.textContent!.trim()).filter(Boolean)),
+      ["Review"],
+    );
+    await view.locator(".gh-merge-section").getByRole("button", { name: "Merge pull request (bypass)…" }).waitFor();
+    await shoot("pr-admin");
+
+    // A clean PR: Merge is the primary, Review quiet.
+    await openPr(page, 41);
+    await view.locator(".gh-merge-section").getByText("Ready to merge.").waitFor();
+    assert.deepEqual(
+      await view.locator(".page-btn.solid").evaluateAll((els) => els.filter((e) => (e as HTMLElement).offsetParent).map((e) => e.textContent!.trim()).filter(Boolean)),
+      ["Merge pull request"],
+    );
+    await shoot("pr-clean");
+
+    // Files changed and Checks.
+    await openPr(page, 42);
+    await view.getByRole("tab", { name: /Files changed/ }).click();
+    await view.locator(".gh-toolbar").waitFor();
+    await page.waitForTimeout(800);
+    await shoot("pr-files");
+    await view.locator(".gh-tabs").getByRole("button", { name: "Review", exact: true }).click();
+    await page.getByRole("dialog", { name: "Submit your review" }).waitFor();
+    await shoot("pr-review-panel");
+    await page.keyboard.press("Escape");
+    await view.getByRole("tab", { name: /Checks/ }).click();
+    await view.locator(".gh-check-list").waitFor();
+    await shoot("pr-checks");
   } finally {
     await context.close();
   }

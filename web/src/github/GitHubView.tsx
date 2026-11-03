@@ -615,7 +615,7 @@ export function GitHubView({
                 <p>
                   The GitHub token lacks {viewer.data.missingScopes.join(", ")}, so some of this tab won’t work.
                 </p>
-                <button className="secondary" onClick={createGithubToken}>
+                <button className="page-btn" onClick={createGithubToken}>
                   Create a new token
                 </button>
               </div>

@@ -164,6 +164,46 @@ export function actionLabel(a: MergeAction, pr: Pick<PrDetail, "headRef">): stri
   }
 }
 
+/**
+ * An action's short words, for the Merge section's buttons (⌘K and ⋯ keep
+ * `actionLabel`'s). A merge past unmet requirements says it bypasses them.
+ */
+export function shortActionLabel(a: MergeAction, pr: PrDetail): string {
+  switch (a.kind) {
+    case "merge":
+      return `${mergeButton(pr, a.method)}…`;
+    case "auto":
+      return "Auto-merge…";
+    case "queue":
+      return "Merge when ready";
+    case "dequeue":
+      return "Remove from queue";
+    case "update":
+      return a.method === "merge" ? "Update branch" : "Rebase branch";
+    case "close":
+      return "Close…";
+    case "reopen":
+      return "Reopen";
+    case "delete-branch":
+      return "Delete branch";
+    default:
+      return actionLabel(a, pr);
+  }
+}
+
+/** The merge button's words: its method's, and "(bypass)" for an administrator's merge past unmet requirements. */
+export const mergeButton = (pr: PrDetail, method: MergeMethod) => (adminMerge(pr) && !mergeableNow(pr) ? `${METHOD_BUTTON[method]} (bypass)` : METHOD_BUTTON[method]);
+
+/**
+ * Merging is the PR's next step: it can merge (or join its queue) now, its
+ * requirements met. Then Merge is the view's primary action; otherwise (a
+ * review required, checks pending, an administrator's bypass) Review is.
+ */
+export function mergeLeads(pr: PrDetail, chosen: MergeMethod | null): boolean {
+  if (!mergeableNow(pr)) return false;
+  return mergeActions(pr, chosen).some((a) => a.kind === "merge" || a.kind === "queue");
+}
+
 /** An action as a stable key (⌘K's id, a menu item's). */
 export const actionKey = (a: MergeAction) => ("method" in a ? `${a.kind}:${a.method}` : a.kind);
 

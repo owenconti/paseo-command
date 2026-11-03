@@ -280,7 +280,7 @@
   background: var(--fill-soft);
 }
 .gh-segmented button {
-  height: calc(var(--control-sm) - 6px);
+  height: calc(26px * var(--lz) - 6px);
   padding: 0 var(--space-2);
   border-radius: calc(var(--radius-md) - 2px);
   background: transparent;
@@ -727,9 +727,6 @@
   font-size: var(--fs-sm);
   color: var(--text-3);
 }
-.gh-open-paseo {
-  margin-left: auto;
-}
 .gh-open-paseo .popover-menu {
   width: max-content;
   max-width: 420px;
@@ -793,21 +790,15 @@
   color: var(--text-strong);
 }
 .gh-tabs .gh-churn {
-  margin-right: var(--space-2);
+  margin: 0 var(--space-1);
+  white-space: nowrap;
+}
+/* Its actions (Open Paseo agent, Review, Merge, ⋯), one row at the pages' control height. */
+.gh-tabs > :not([role="tab"], .gh-spacer) {
+  flex-shrink: 0;
 }
 .gh-review-anchor {
   position: relative;
-}
-.gh-pending-count {
-  display: inline-grid;
-  place-items: center;
-  min-width: 18px;
-  height: 18px;
-  margin-left: 6px;
-  padding: 0 5px;
-  border-radius: var(--radius-pill);
-  background: color-mix(in srgb, #fff 25%, transparent);
-  font-size: var(--fs-2xs);
 }
 .gh-review-panel {
   position: absolute;
@@ -1657,44 +1648,6 @@ button.gh-side-check-name:hover {
   align-items: center;
   gap: var(--space-1);
 }
-.gh-merge-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  height: var(--control-md);
-  padding: 0 var(--space-3);
-  border-radius: var(--radius-md);
-  background: var(--green-strong);
-  color: #fff;
-  font-size: var(--fs-sm);
-  font-weight: var(--fw-semibold);
-  white-space: nowrap;
-  box-shadow: inset 0 1px 0 #ffffff24;
-}
-.gh-merge-btn:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--green-strong) 88%, #000);
-}
-.gh-merge-btn:disabled {
-  opacity: 0.5;
-  cursor: default;
-}
-.gh-split {
-  display: inline-flex;
-}
-.gh-split > .gh-merge-btn:first-child:not(:last-child) {
-  border-top-right-radius: 0;
-  border-bottom-right-radius: 0;
-}
-.gh-split > .gh-split-more {
-  padding: 0 7px;
-  border-left: 1px solid color-mix(in srgb, #000 22%, transparent);
-  border-top-left-radius: 0;
-  border-bottom-left-radius: 0;
-}
-.gh-more {
-  color: var(--icon-muted);
-}
 .popover-menu.gh-method-menu {
   width: min(340px, 70vw);
   padding: 4px;
@@ -1872,20 +1825,9 @@ button.gh-side-check-name:hover {
 .gh-merge-section .gh-hint {
   margin: 0;
 }
+/* Small quiet buttons under the status lines, wrapping between (never within) them. */
 .gh-merge-actions {
   display: flex;
-  flex-direction: column;
+  flex-wrap: wrap;
   gap: 6px;
-}
-.gh-merge-actions > button {
-  justify-content: flex-start;
-  width: 100%;
-  height: auto;
-  min-height: var(--control-md);
-  padding-block: 5px;
-  white-space: normal;
-  text-align: left;
-}
-.secondary.gh-danger {
-  color: var(--red-text);
 }
