@@ -21,6 +21,17 @@ mark it done with its commit once merged into `main`.
   comments · Apply" control sends them to the agent as one message (each as `path:line`, the quoted lines and the
   comment, asking it to address them), then marks them applied (kept as history, hidden from the diff), with ⌘K entries
   ("Apply pending comments", "Show pending comments"). Workspace: `local-diff-comments`.
+- [ ] **Chat: Linear issue keys and PR numbers link themselves.** In an agent's conversation (`web/src/Session.tsx`'s
+  Markdown), plain mentions like "DE-7338", "DE-7413 has no comment", "PR #7054" stay plain text. Link them:
+  - Linear keys whose team prefix is one of the workspace's teams (from the Linear read Activity keeps, else the saved
+    Linear workspace's known teams; never a bare `[A-Z]+-\d+` guess like UTF-8 or ISO-8601) to
+    `https://linear.app/<workspace>/issue/<KEY>`, opening as Linear links now do (the Linear app, else Conquer).
+  - `#123`, "PR #123" and "pull request 123" to the agent's workspace's repository (its project's GitHub remote, as
+    Open Paseo agent matches) `github.com/<owner>/<repo>/pull/123`, opening in the GitHub tab; `owner/repo#123` too.
+    Without a known repository, leave it plain.
+  Never inside code spans, code blocks or existing links; keep the transcript's text selectable and copyable as
+  written. Unit tests for the matcher (teams, false positives, code), e2e on a mocked transcript.
+  Workspace: `chat-autolink-issues-prs`.
 
 ## Done
 
