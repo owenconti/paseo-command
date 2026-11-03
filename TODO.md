@@ -11,7 +11,29 @@ mark it done with its commit once merged into `main`.
   keyboard (the user's choice); everywhere else (the map, the page, other pages, the terminal panel) it opens the diff.
   With nothing selected, or GitHub off, it does nothing visible beyond a short notice. Add it to the native View menu if
   that's how app-wide keys are taken (`AppWindow.performKeyEquivalent`), to the ⌘K entry's `keys`, and to the shortcuts
-  dialog. Workspace: `shortcut-branch-diff`.
+  dialog. Workspace: `shortcut-branch-diff`.- [ ] **Diff viewer: search file names and file contents.** In the diff view (`DiffView.tsx`, used by a PR's Files
+  changed and a workspace's Changes): a filter field over the file list (fuzzy on paths, narrowing the tree, ↑/↓ and
+  Enter to jump) and a search across the diff's content (⌘F while the diff shows: matches in added, removed and context
+  lines, highlighted, a count, Enter / ⇧Enter or ⌘G / ⇧⌘G… careful: ⇧⌘G is the app's branch-diff key, so use Enter and
+  ⇧Enter and the field's arrows; folded and not-yet-drawn files searched too, unfolding and scrolling to a match with the
+  virtualizer). ⌘K entries and the shortcuts dialog's GitHub group. Workspace: `diff-search`.
+- [ ] **Diff viewer: the scroll position jumps after a while.** Sometimes, after some time on a diff (local Changes or a
+  PR's Files changed), the content shifts its scroll position; no pattern found yet. Find the cause: likely candidates are
+  the Changes view's 15 s refresh (re-rendering files, changing heights), worker highlighting finishing and changing line
+  heights, the `Virtualizer` re-measuring files above the viewport without anchoring, images or threads loading, or the
+  file list's state. Reproduce it (a long diff, scroll to the middle, wait through refreshes and highlighting), fix it so
+  the content under the viewport stays put (scroll anchoring on the first visible line), and add an e2e that waits
+  through refreshes and checks the first visible line doesn't move. Workspace: `fix-diff-scroll-jump`.
+- [ ] **Diff viewer: comments on a local diff become a workspace's pending comments, applied from the chat.** PR diffs
+  already take review comments (pending review or single). On a workspace's Changes diff, the gutter's + (and a line
+  range) should take a comment too, kept as that workspace's pending comments (path, side, line or range, the lines'
+  text, the comment; in the app's data directory keyed by host and workspace, not written into the worktree's files, so
+  git stays clean), shown under their lines, editable and deletable, surviving reloads, and re-anchored or marked
+  outdated when the diff changes. In the React chat view for that workspace's agent (the composer), a "N pending
+  comments · Apply" control sends them to the agent as one message (each as `path:line`, the quoted lines and the
+  comment, asking it to address them), then marks them applied (kept as history, hidden from the diff), with ⌘K entries
+  ("Apply pending comments", "Show pending comments"). Workspace: `local-diff-comments`.
+
 ## Done
 
 - [x] **GitHub PR view: deslopped the buttons and merge box.** One shared compact set, `.page-btn` in `pages.css` (26 px × `--lz`,
