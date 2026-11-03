@@ -3,7 +3,9 @@
  * selected workspace's tree, read as folders open, ignored files hidden until
  * asked; the filter and ⌘P quick-open; a file opened highlighted, found in
  * with ⌘F; big, binary and image files refused politely; Show changes for a
- * changed file. `/api/files/…` is answered in the browser; nothing reaches a daemon.
+ * changed file; the open files' tabs (preview and kept, closing, reopening,
+ * stepping, reordering, each one's scroll, per workspace). `/api/files/…` is
+ * answered in the browser; nothing reaches a daemon.
  */
 import { after, before, test } from "node:test";
 import assert from "node:assert/strict";
@@ -31,7 +33,7 @@ const LONG = Array.from({ length: 3000 }, (_, i) => (i === 2700 ? "const needle 
 const TREE: Record<string, FileEntry[]> = {
   "": [d(".git", true), d("node_modules", true), d("src"), f("README.md"), f("big.log", 5 * 1024 * 1024), f("data.bin"), f("logo.png")],
   src: [d("src/util"), f("src/app.ts"), f("src/long.ts")],
-  "src/util": [f("src/util/strings.ts")],
+  "src/util": [f("src/util/app.ts"), f("src/util/strings.ts")],
   ".git": [f(".git/HEAD")],
 };
 const READS: Record<string, FileRead> = {
@@ -39,11 +41,12 @@ const READS: Record<string, FileRead> = {
   "src/app.ts": { path: "src/app.ts", size: APP_TS.length, text: APP_TS },
   "src/long.ts": { path: "src/long.ts", size: LONG.length, text: LONG },
   "src/util/strings.ts": { path: "src/util/strings.ts", size: 30, text: "export const s = 'strings';\n" },
+  "src/util/app.ts": { path: "src/util/app.ts", size: 24, text: "export const util = 1;\n" },
   "big.log": { path: "big.log", size: 5 * 1024 * 1024, refused: "large" },
   "data.bin": { path: "data.bin", size: 4, refused: "binary" },
   "logo.png": { path: "logo.png", size: 2048, refused: "image", mime: "image/png" },
 };
-const ALL = ["README.md", "big.log", "data.bin", "logo.png", "src/app.ts", "src/long.ts", "src/util/strings.ts"];
+const ALL = ["README.md", "big.log", "data.bin", "logo.png", "src/app.ts", "src/long.ts", "src/util/app.ts", "src/util/strings.ts"];
 
 type Asked = { path: string; query: Record<string, string> };
 
@@ -175,7 +178,7 @@ test("Files: the tree, ignored files on request, a file highlighted, find, filte
     await filter.click();
     await filter.fill("strs");
     await waitFor(() => rows(page), (r) => r.join("|") === "src|  util|    strings.ts", "the filter's tree");
-    await view.locator(".fv-count", { hasText: "1 of 7" }).waitFor();
+    await view.locator(".fv-count", { hasText: "1 of 8" }).waitFor();
     await page.keyboard.press("Enter");
     await head.locator(".page-head-name", { hasText: "strings.ts" }).waitFor();
     await filter.focus();
@@ -251,6 +254,144 @@ test("Files: Show changes opens the GitHub tab's Changes at the file; no workspa
     await view.getByRole("button", { name: "Show changes" }).click();
     assert.deepEqual(JSON.parse((await page.evaluate(() => localStorage.getItem("paseo-command:github:place")))!), { kind: "changes", path: "src/app.ts" });
     assert.equal(await page.evaluate(() => localStorage.getItem("paseo-command:github:changesMode")), '"all"');
+  } finally {
+    await context.close();
+  }
+});
+
+const tabs = (page: Page) =>
+  page.locator(".fv-tabs [role=tab]").evaluateAll((els) =>
+    els.map((e) => {
+      const dir = e.querySelector(".fv-tab-dir")?.textContent;
+      return `${e.getAttribute("aria-selected") === "true" ? ">" : ""}${e.querySelector(".fv-tab-name")!.textContent}${dir ? ` (${dir})` : ""}${e.classList.contains("preview") ? "*" : ""}`;
+    }),
+  );
+const kept = (page: Page) => page.evaluate(() => JSON.parse(localStorage.getItem("paseo-command:files:workspaces") ?? "{}")["|wks_a"]);
+
+test("Files: tabs (a preview, kept ones), ⌘W / ⌃W, ⇧⌘T, ⌃Tab and ⌥⌘→, middle-click, drag, each tab's scroll, per workspace", async () => {
+  const context = await newContext(browser);
+  const page = await context.newPage();
+  await page.setViewportSize({ width: 1500, height: 900 });
+  await setUp(page);
+  try {
+    await page.goto(`${app.url}?workspace=wks_a`);
+    await page.locator(".place").waitFor();
+    await appEvent(page, "paseo:mode", { mode: "files" });
+    const view = page.locator(".files-view");
+    const head = view.locator(".fv-head");
+    const item = (name: RegExp) => view.getByRole("treeitem", { name });
+    const tab = (name: string) => view.locator(".fv-tabs [role=tab]", { has: page.locator(".fv-tab-name", { hasText: new RegExp(`^${name.replace(".", "\\.")}$`) }) });
+    await view.getByText("Choose a file in the tree, or press ⌘P to open one by name.").waitFor();
+    assert.equal(await view.locator(".fv-tabs").count(), 0, "no tabs yet");
+
+    // A click opens a preview (italic), the next click's file takes its place.
+    await item(/^src/).click();
+    await item(/app\.ts/).first().click();
+    await waitFor(() => tabs(page), (t) => t.join("|") === ">app.ts*", "a preview tab");
+    assert.equal(await tab("app.ts").locator(".fv-tab-name").evaluate((e) => getComputedStyle(e).fontStyle), "italic");
+    await tab("app.ts").locator(".fv-changed.modified").waitFor();
+    await item(/long\.ts/).click();
+    await waitFor(() => tabs(page), (t) => t.join("|") === ">long.ts*", "the preview replaced");
+    // Double-clicking its tab keeps it; the next file opens beside it.
+    await tab("long.ts").dblclick();
+    await waitFor(() => tabs(page), (t) => t.join("|") === ">long.ts", "kept");
+    await item(/README\.md/).click();
+    await waitFor(() => tabs(page), (t) => t.join("|") === "long.ts|>README.md*", "a preview beside it");
+    // Double-click in the tree keeps it too; same-named files show their folders.
+    await item(/^util/).click();
+    await view.locator(".fv-row", { hasText: "strings.ts" }).waitFor();
+    await view.locator(".fv-row[aria-level='2']", { hasText: "app.ts" }).dblclick();
+    await waitFor(() => tabs(page), (t) => t.join("|") === "long.ts|>app.ts", "the preview replaced, then kept");
+    await view.locator(".fv-row[aria-level='3']", { hasText: "app.ts" }).dblclick();
+    await waitFor(() => tabs(page), (t) => t.join("|") === "long.ts|app.ts (src)|>app.ts (util)", "folders tell them apart");
+    await head.locator(".page-crumb", { hasText: "src/util/" }).waitFor();
+
+    // Using a preview keeps it: a wheel over the file.
+    await item(/strings\.ts/).click();
+    await waitFor(() => tabs(page), (t) => t.at(-1) === ">strings.ts*", "a preview");
+    await view.locator("diffs-container").waitFor();
+    await view.locator(".fv-scroll").hover();
+    await page.mouse.wheel(0, 40);
+    await waitFor(() => tabs(page), (t) => t.at(-1) === ">strings.ts", "kept once scrolled");
+
+    // Each tab's scroll: kept, and put back when it shows again.
+    await tab("long.ts").click();
+    await head.locator(".fv-meta", { hasText: "3,000 lines" }).waitFor();
+    await view.locator("diffs-container").waitFor();
+    await view.locator(".fv-scroll").evaluate((el) => (el.scrollTop = 20000));
+    await waitFor(() => kept(page), (k) => Math.abs(k?.tabs?.find((t: { path: string }) => t.path === "src/long.ts")?.scroll - 20000) <= 40, "the scroll kept");
+    await tab("strings.ts").click();
+    await head.locator(".page-head-name", { hasText: "strings.ts" }).waitFor();
+    await tab("long.ts").click();
+    await waitFor(() => view.locator(".fv-scroll").evaluate((el) => Math.round(el.scrollTop)), (t) => Math.abs(t - 20000) <= 40, "the scroll put back");
+
+    // ⌃Tab / ⌃⇧Tab and ⌥⌘→ / ⌥⌘← step, wrapping.
+    await view.locator(".fv-head h2").click();
+    await page.keyboard.press("Control+Tab");
+    await waitFor(() => tabs(page), (t) => t[1] === ">app.ts (src)", "the next tab");
+    await page.keyboard.press("Control+Shift+Tab");
+    await page.keyboard.press("Control+Shift+Tab");
+    await waitFor(() => tabs(page), (t) => t[3] === ">strings.ts", "wrapped to the last");
+    await page.keyboard.press("Meta+Alt+ArrowRight");
+    await waitFor(() => tabs(page), (t) => t[0] === ">long.ts", "wrapped to the first");
+    await page.keyboard.press("Meta+Alt+ArrowLeft");
+    await waitFor(() => tabs(page), (t) => t[3] === ">strings.ts", "back");
+
+    // ⌘W closes the shown tab (the one to its left shows); ⌃W too; ⇧⌘T brings them back, last closed first.
+    await page.keyboard.press("Meta+w");
+    await waitFor(() => tabs(page), (t) => t.join("|") === "long.ts|app.ts (src)|>app.ts (util)", "closed");
+    await page.keyboard.press("Control+w");
+    await waitFor(() => tabs(page), (t) => t.join("|") === "long.ts|>app.ts", "closed again; no clash left");
+    await page.keyboard.press("Meta+Shift+t");
+    await waitFor(() => tabs(page), (t) => t.join("|") === "long.ts|app.ts (src)|>app.ts (util)", "reopened");
+    // A middle-click closes; the × too.
+    await tab("long.ts").click({ button: "middle" });
+    await waitFor(() => tabs(page), (t) => t.join("|") === "app.ts (src)|>app.ts (util)", "middle-click closed it");
+    await view.getByRole("button", { name: "Close app.ts" }).first().click();
+    await waitFor(() => tabs(page), (t) => t.join("|") === ">app.ts", "× closed it");
+    await page.keyboard.press("Meta+Shift+t");
+    await page.keyboard.press("Meta+Shift+t");
+    await waitFor(() => tabs(page), (t) => t.length === 3 && t.includes(">long.ts"), "both back");
+
+    // Dragging reorders: the first onto the last's far half goes to the end.
+    const before = await tabs(page);
+    const strip = view.locator(".fv-tabs [role=tab]");
+    const lastBox = (await strip.nth(2).boundingBox())!;
+    await strip.nth(0).dragTo(strip.nth(2), { targetPosition: { x: lastBox.width - 6, y: lastBox.height / 2 } });
+    await waitFor(() => tabs(page), (t) => t.join("|") === [before[1], before[2], before[0]].join("|"), "moved to the end");
+
+    // ⌘K has the tabs' commands.
+    await page.keyboard.press("Meta+k");
+    const palette = page.getByRole("dialog", { name: "Command palette" });
+    const search = palette.getByRole("combobox", { name: "Search commands" });
+    await search.fill("tab");
+    for (const name of [/Close the file’s tab/, /Reopen the closed tab/, /Next tab/, /Previous tab/, /Close other tabs/]) await palette.getByRole("option", { name }).waitFor();
+    await search.fill("close other tabs");
+    await palette.getByRole("option", { name: /Close other tabs/ }).click();
+    await waitFor(() => tabs(page), (t) => t.join("|") === ">long.ts", "only the shown tab left");
+
+    // Per workspace, across a reload: the tabs, the shown one and its scroll.
+    await item(/README\.md/).dblclick();
+    await tab("long.ts").click();
+    await view.locator("diffs-container").waitFor();
+    await view.locator(".fv-scroll").evaluate((el) => (el.scrollTop = 12000));
+    await waitFor(() => kept(page), (k) => Math.abs(k?.tabs?.find((t: { path: string }) => t.path === "src/long.ts")?.scroll - 12000) <= 40, "kept");
+    await page.reload();
+    await page.locator(".place").waitFor();
+    await appEvent(page, "paseo:mode", { mode: "files" });
+    await waitFor(() => tabs(page), (t) => t.join("|") === ">long.ts|README.md", "the tabs back");
+    await waitFor(() => view.locator(".fv-scroll").evaluate((el) => Math.round(el.scrollTop)), (t) => Math.abs(t - 12000) <= 40, "its scroll back");
+    // Kept under the host and workspace (another workspace's own are the unit tests').
+    assert.deepEqual(Object.keys(await page.evaluate(() => JSON.parse(localStorage.getItem("paseo-command:files:workspaces")!))), ["|wks_a"]);
+
+    // ⌘W until none is left; then it does nothing (the page stays).
+    await view.locator(".fv-head h2").click();
+    await page.keyboard.press("Meta+w");
+    await waitFor(() => tabs(page), (t) => t.join("|") === ">README.md", "one closed");
+    await page.keyboard.press("Meta+w");
+    await waitFor(() => view.locator(".fv-tabs").count(), (n) => n === 0, "all closed");
+    await page.keyboard.press("Meta+w");
+    await view.getByText("Choose a file in the tree, or press ⌘P to open one by name.").waitFor();
   } finally {
     await context.close();
   }

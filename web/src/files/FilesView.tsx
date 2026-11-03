@@ -27,6 +27,7 @@ import { ResizeEdge } from "../ResizeEdge";
 import { useTheme } from "../theme";
 import { plainText } from "../ui";
 import { isTyping } from "../worldShortcut";
+import { macApp } from "../worldBridge";
 import { clearFindMarks, FIND_CSS, FindBar, revealMatch, useFindPaint } from "../github/DiffFind";
 import { findInText, sameMatch, type FindMatch, type FindOptions } from "../github/diffSearch";
 import { Marked } from "../github/DiffView";
@@ -34,6 +35,8 @@ import { DIFF_THEMES, DiffWorkers } from "../github/diffWorkers";
 import { hashText } from "../github/rows";
 import { allPath, changedPath, ensure, load, peek, prefetch, readPath, reload, treePath, useFilesVersion, type FilesWorkspace } from "./api";
 import { filterRows, parentsOf, rankPaths, sizeLabel, treeRows, type Listing, type TreeRow } from "./tree";
+import { keptKey as keyOf, readKept, RECENT, writeKept, type Kept } from "./kept";
+import { closeOtherTabs, closeTab, moveTab, NO_TABS, openTab, pinTab, reopenTab, scrollTab, stepTab, tabLabels, type FileTab, type TabsState } from "./tabs";
 import { FILE_LIMITS, type FileChange, type FileChanges, type FileList, type FileRead, type FileTree } from "./types";
 import "../github/github.css";
 import "./files.css";
@@ -51,31 +54,20 @@ export type FilesViewState = {
   text: boolean;
   showIgnored: boolean;
   sidebarHidden: boolean;
+  /** Open tabs, and whether a closed one can come back (⇧⌘T). */
+  tabs: number;
+  reopenable: boolean;
 };
 
 const PANELS = { sidebar: 280, sidebarMin: 180, mainMin: 420 };
 /** Asked again while shown: the tree and the open file every so often (agents keep writing). */
 const POLL_MS = 15_000;
-/** Kept per workspace: its open folders and file (at most this many workspaces). */
-const KEPT_WORKSPACES = 40;
-const RECENT = 12;
+/** Where a tab's scroll is saved, once it settles. */
+const SCROLL_SAVE_MS = 300;
 
-type Kept = { open: string[]; file?: string; recent?: string[] };
-const keyOf = (ws: FilesWorkspace) => `${ws.host ?? ""}|${ws.id}`;
-const readKept = (ws: FilesWorkspace): Kept => {
-  const all = readStore<Record<string, Kept>>("files:workspaces", {});
-  const k = all && typeof all === "object" ? all[keyOf(ws)] : undefined;
-  return {
-    open: Array.isArray(k?.open) ? k.open.filter((p): p is string => typeof p === "string") : [],
-    ...(typeof k?.file === "string" ? { file: k.file } : {}),
-    recent: Array.isArray(k?.recent) ? k.recent.filter((p): p is string => typeof p === "string").slice(0, RECENT) : [],
-  };
-};
-const writeKept = (ws: FilesWorkspace, kept: Kept) => {
-  const all = readStore<Record<string, Kept>>("files:workspaces", {});
-  const { [keyOf(ws)]: _, ...rest } = all && typeof all === "object" ? all : {};
-  writeStore("files:workspaces", Object.fromEntries([...Object.entries(rest), [keyOf(ws), kept] as const].slice(-KEPT_WORKSPACES)));
-};
+const readKeptOf = (ws: FilesWorkspace): Kept => readKept(readStore<unknown>("files:workspaces", {}), ws);
+const writeKeptOf = (ws: FilesWorkspace, kept: Kept) => writeStore("files:workspaces", writeKept(readStore<unknown>("files:workspaces", {}), ws, kept));
+const NO_KEPT: Kept = { open: [], recent: [], tabs: NO_TABS };
 
 const CHANGE_LABEL: Record<FileChange, string> = { added: "Added", deleted: "Deleted", modified: "Modified", renamed: "Renamed" };
 
@@ -104,24 +96,24 @@ export function FilesView({
 }) {
   useFilesVersion();
   const wsKey = workspace ? keyOf(workspace) : "";
-  const [kept, setKeptState] = useState<Kept>(() => (workspace ? readKept(workspace) : { open: [] }));
+  const [kept, setKeptState] = useState<Kept>(() => (workspace ? readKeptOf(workspace) : NO_KEPT));
   // Another workspace: its own folders and file.
   const shownKey = useRef(wsKey);
   if (shownKey.current !== wsKey) {
     shownKey.current = wsKey;
-    setKeptState(workspace ? readKept(workspace) : { open: [] });
+    setKeptState(workspace ? readKeptOf(workspace) : NO_KEPT);
   }
   const setKept = useCallback(
     (change: (k: Kept) => Kept) =>
       setKeptState((k) => {
         const next = change(k);
-        if (workspace) writeKept(workspace, next);
+        if (workspace && next !== k) writeKeptOf(workspace, next);
         return next;
       }),
     [wsKey],
   );
   const open = useMemo(() => new Set(kept.open), [kept.open]);
-  const file = kept.file;
+  const file = kept.tabs.active;
   const [showIgnored, setShowIgnoredState] = useState(() => readStore<boolean>("files:showIgnored", false) === true);
   const setShowIgnored = (on: boolean) => {
     setShowIgnoredState(on);
@@ -200,17 +192,49 @@ export function FilesView({
       if (want === isOpen) return k;
       return { ...k, open: want ? [...k.open, dir] : k.open.filter((p) => p !== dir && !p.startsWith(`${dir}/`)) };
     });
+  /** Opens a file in a tab: a preview (a single click), or kept (`pin`: a double-click). */
   const openFile = useCallback(
-    (path: string) => {
+    (path: string, pin = false) => {
       setKept((k) => {
         const parents = parentsOf(path).filter((p) => !k.open.includes(p));
-        return { ...k, file: path, open: [...k.open, ...parents], recent: [path, ...(k.recent ?? []).filter((p) => p !== path)].slice(0, RECENT) };
+        return {
+          ...k,
+          tabs: openTab(k.tabs, path, pin),
+          open: [...k.open, ...parents],
+          recent: [path, ...k.recent.filter((p) => p !== path)].slice(0, RECENT),
+        };
       });
       setCursor(path);
       reveal(path);
     },
     [setKept],
   );
+  // ── Tabs ──
+  const setTabs = useCallback((change: (t: TabsState) => TabsState) => setKept((k) => {
+    const tabs = change(k.tabs);
+    return tabs === k.tabs ? k : { ...k, tabs };
+  }), [setKept]);
+  const showTab = useCallback((path: string) => {
+    setTabs((t) => (t.tabs.some((x) => x.path === path) ? { ...t, active: path } : t));
+    setCursor(path);
+    reveal(path);
+  }, [setTabs]);
+  const closeActive = useCallback(() => setTabs((t) => (t.active ? closeTab(t, t.active) : t)), [setTabs]);
+  const reopen = useCallback(() => setTabs(reopenTab), [setTabs]);
+  const step = useCallback((by: 1 | -1) => setTabs((t) => stepTab(t, by)), [setTabs]);
+  const closeOthers = useCallback(() => setTabs((t) => (t.active ? closeOtherTabs(t, t.active) : t)), [setTabs]);
+  // The shown tab's folders open and its row in view, as it changes.
+  const shownTab = useRef(file);
+  useEffect(() => {
+    if (!file || shownTab.current === file) return;
+    shownTab.current = file;
+    setCursor(file);
+    setKept((k) => {
+      const parents = parentsOf(file).filter((p) => !k.open.includes(p));
+      return parents.length ? { ...k, open: [...k.open, ...parents] } : k;
+    });
+    reveal(file);
+  }, [file]);
 
   const onTreeKey = (e: ReactKeyboardEvent<HTMLElement>) => {
     if (e.metaKey || e.ctrlKey || e.altKey) return;
@@ -302,13 +326,24 @@ export function FilesView({
   // ── Quick-open (⌘P) ──
   const [quick, setQuick] = useState(false);
   const viewer = useRef<{ find: () => void } | null>(null);
-  // ⌘S, ⌘P, and (in the viewer) ⌘F: while Files shows, the page has them, and they go no further.
+  // ⌘S, ⌘P, and (in the viewer) ⌘F: while Files shows, the page has them, and they go no further. The tabs':
+  // ⌘W closes the shown one (in the macOS app its menu takes ⌘W ahead of the window's Close and sends
+  // `files-close-tab`; a browser keeps ⌘W, so ⌃W too), ⇧⌘T reopens, ⌃Tab / ⌃⇧Tab and ⌥⌘→ / ⌥⌘← step.
+  const tabKeys = useRef({ closeActive, reopen, step });
+  tabKeys.current = { closeActive, reopen, step };
   useEffect(() => {
     const key = (e: KeyboardEvent) => {
-      if (!e.metaKey || e.ctrlKey || e.altKey || e.shiftKey || modalOpen()) return;
+      if (modalOpen()) return;
       const k = e.key.toLowerCase();
-      if (k === "s") toggleSidebar();
-      else if (k === "p") setQuick(true);
+      const t = tabKeys.current;
+      const cmd = e.metaKey && !e.ctrlKey;
+      if (cmd && !e.altKey && !e.shiftKey && k === "s") toggleSidebar();
+      else if (cmd && !e.altKey && !e.shiftKey && k === "p") setQuick(true);
+      else if (cmd && !e.altKey && !e.shiftKey && k === "w" && !macApp()) t.closeActive();
+      else if (e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey && k === "w" && !isTyping(e.target as HTMLElement)) t.closeActive();
+      else if (cmd && !e.altKey && e.shiftKey && k === "t") t.reopen();
+      else if (e.ctrlKey && !e.metaKey && !e.altKey && e.key === "Tab") t.step(e.shiftKey ? -1 : 1);
+      else if (cmd && e.altKey && !e.shiftKey && (e.key === "ArrowRight" || e.key === "ArrowLeft")) t.step(e.key === "ArrowRight" ? 1 : -1);
       else return;
       e.preventDefault();
       e.stopImmediatePropagation();
@@ -328,8 +363,8 @@ export function FilesView({
     );
 
   // ⌘K's commands.
-  const current = useRef({ file, openFile, focusFilter, toggleSidebar, setShowIgnored, showIgnored, refresh, copyPath, onShowChanges });
-  current.current = { file, openFile, focusFilter, toggleSidebar, setShowIgnored, showIgnored, refresh, copyPath, onShowChanges };
+  const current = useRef({ file, openFile, focusFilter, toggleSidebar, setShowIgnored, showIgnored, refresh, copyPath, onShowChanges, closeActive, reopen, step, closeOthers });
+  current.current = { file, openFile, focusFilter, toggleSidebar, setShowIgnored, showIgnored, refresh, copyPath, onShowChanges, closeActive, reopen, step, closeOthers };
   useEffect(() => {
     const c = () => current.current;
     const offs = [
@@ -348,8 +383,13 @@ export function FilesView({
         if (f) c().onShowChanges?.(f);
       }),
       onAppCommand("files-open", (arg) => {
-        if (typeof arg === "string" && arg) c().openFile(arg);
+        if (typeof arg === "string" && arg) c().openFile(arg, true);
       }),
+      onAppCommand("files-close-tab", () => c().closeActive()),
+      onAppCommand("files-reopen-tab", () => c().reopen()),
+      onAppCommand("files-next-tab", () => c().step(1)),
+      onAppCommand("files-previous-tab", () => c().step(-1)),
+      onAppCommand("files-close-other-tabs", () => c().closeOthers()),
     ];
     return () => offs.forEach((off) => off());
   }, []);
@@ -357,6 +397,8 @@ export function FilesView({
   const read = workspace && file ? peek(readPath(workspace, file)) : undefined;
   const text = !!read?.data && "text" in (read.data as FileRead);
   const change = file ? changes.get(file) : undefined;
+  const tabCount = kept.tabs.tabs.length;
+  const reopenable = kept.tabs.closed.some((p) => !kept.tabs.tabs.some((t) => t.path === p));
   useEffect(() => {
     onViewState?.({
       ...(workspace ? { workspace: workspace.name } : {}),
@@ -365,8 +407,14 @@ export function FilesView({
       text,
       showIgnored,
       sidebarHidden,
+      tabs: tabCount,
+      reopenable,
     });
-  }, [workspace?.name, file, change, text, showIgnored, sidebarHidden, onViewState]);
+  }, [workspace?.name, file, change, text, showIgnored, sidebarHidden, tabCount, reopenable, onViewState]);
+  const activeTab = kept.tabs.tabs.find((t) => t.path === file);
+  // A tab's scroll, kept once it settles; using the file (scrolling, clicking, keys, find) keeps a preview tab.
+  const onScrolled = useCallback((path: string, top: number) => setTabs((t) => scrollTab(t, path, top)), [setTabs]);
+  const onUse = useCallback((path: string) => setTabs((t) => pinTab(t, path)), [setTabs]);
   useEffect(() => () => onViewState?.(undefined), [onViewState]);
 
   // Keys in the view (not typing): T filters, Esc stands here (the page's own would clear the hidden map's selection).
@@ -475,6 +523,7 @@ export function FilesView({
                     if (r.kind === "file") openFile(r.path);
                     else if (!filter.trim()) toggle(r.path);
                   }}
+                  onDoubleClick={() => r.kind === "file" && openFile(r.path, true)}
                   onHover={() => r.kind === "file" && workspace && prefetch(readPath(workspace, r.path))}
                 />
               ))
@@ -501,7 +550,20 @@ export function FilesView({
             <Empty icon={<FolderTree size={26} strokeWidth={1.5} aria-hidden="true" />} title="No workspace selected">
               Select a workspace (or one of its agents) on the map or in the panel to see its files.
             </Empty>
-          ) : !file ? (
+          ) : (
+            <>
+          {kept.tabs.tabs.length > 0 && (
+            <FileTabs
+              tabs={kept.tabs.tabs}
+              active={file}
+              changes={changes}
+              onShow={showTab}
+              onClose={(path) => setTabs((t) => closeTab(t, path))}
+              onPin={(path) => setTabs((t) => pinTab(t, path))}
+              onMove={(path, to) => setTabs((t) => moveTab(t, path, to))}
+            />
+          )}
+          {!file ? (
             <div className="gh-main-inner">
               <Empty icon={<FileCode2 size={26} strokeWidth={1.5} aria-hidden="true" />} title={workspace.name}>
                 Choose a file in the tree, or press ⌘P to open one by name.
@@ -516,7 +578,12 @@ export function FilesView({
               onShowChanges={onShowChanges}
               onCopyPath={copyPath}
               handle={viewer}
+              scroll={activeTab?.scroll}
+              onScrolled={onScrolled}
+              onUse={activeTab?.preview ? onUse : undefined}
             />
+          )}
+            </>
           )}
         </div>
         {quick && workspace && (
@@ -549,6 +616,139 @@ function Empty({ icon, title, children }: { icon: ReactNode; title: string; chil
   );
 }
 
+/**
+ * The open files' tabs above the viewer, as an editor's: the shown one marked, a
+ * preview's name in italics, the name with as much of its folder as tells clashing
+ * names apart, a changed dot and ×. A click shows one, a double-click keeps a
+ * preview, a middle-click closes; they reorder by drag; the row scrolls sideways
+ * (a mouse wheel too) and keeps the shown tab in view.
+ */
+function FileTabs({
+  tabs,
+  active,
+  changes,
+  onShow,
+  onClose,
+  onPin,
+  onMove,
+}: {
+  tabs: FileTab[];
+  active?: string;
+  changes: Map<string, FileChange>;
+  onShow: (path: string) => void;
+  onClose: (path: string) => void;
+  onPin: (path: string) => void;
+  onMove: (path: string, to: number) => void;
+}) {
+  const strip = useRef<HTMLDivElement>(null);
+  const labels = useMemo(() => tabLabels(tabs.map((t) => t.path)), [tabs]);
+  const [dragging, setDragging] = useState<string | undefined>();
+  /** Where a dragged tab would go: before the tab at this index (the length: at the end). */
+  const [dropAt, setDropAt] = useState<number | undefined>();
+  useLayoutEffect(() => {
+    strip.current?.querySelector<HTMLElement>(".fv-tab.active")?.scrollIntoView({ block: "nearest", inline: "nearest" });
+  }, [active, tabs.length]);
+  const endDrag = () => {
+    setDragging(undefined);
+    setDropAt(undefined);
+  };
+  const drop = () => {
+    const from = tabs.findIndex((t) => t.path === dragging);
+    if (dragging && from >= 0 && dropAt !== undefined) onMove(dragging, dropAt > from ? dropAt - 1 : dropAt);
+    endDrag();
+  };
+  return (
+    <div
+      ref={strip}
+      className="fv-tabs"
+      role="tablist"
+      aria-label="Open files"
+      onWheel={(e) => {
+        if (!e.deltaX && e.deltaY && strip.current) strip.current.scrollLeft += e.deltaY;
+      }}
+      onDragOver={(e) => {
+        if (!dragging) return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = "move";
+        // Past the last tab: the end.
+        if (e.target === strip.current) setDropAt(tabs.length);
+      }}
+      onDrop={(e) => {
+        if (!dragging) return;
+        e.preventDefault();
+        drop();
+      }}
+    >
+      {tabs.map((t, i) => {
+        const label = labels.get(t.path) ?? { name: t.path };
+        const changed = changes.get(t.path);
+        const shown = t.path === active;
+        return (
+          <div
+            key={t.path}
+            role="tab"
+            aria-selected={shown}
+            tabIndex={shown ? 0 : -1}
+            title={t.preview ? `${t.path} (preview: double-click to keep it open)` : t.path}
+            className={`fv-tab${shown ? " active" : ""}${t.preview ? " preview" : ""}${t.path === dragging ? " dragging" : ""}${dropAt === i ? " drop-before" : ""}${dropAt === tabs.length && i === tabs.length - 1 ? " drop-after" : ""}`}
+            data-path={t.path}
+            draggable
+            onDragStart={(e) => {
+              e.dataTransfer.effectAllowed = "move";
+              e.dataTransfer.setData("text/x-paseo-file-tab", t.path);
+              setDragging(t.path);
+            }}
+            onDragOver={(e) => {
+              if (!dragging) return;
+              e.preventDefault();
+              e.stopPropagation();
+              e.dataTransfer.dropEffect = "move";
+              const r = e.currentTarget.getBoundingClientRect();
+              setDropAt(e.clientX < r.left + r.width / 2 ? i : i + 1);
+            }}
+            onDragEnd={endDrag}
+            onMouseDown={(e) => {
+              // No autoscroll on a middle-click.
+              if (e.button === 1) e.preventDefault();
+            }}
+            onAuxClick={(e) => {
+              if (e.button !== 1) return;
+              e.preventDefault();
+              onClose(t.path);
+            }}
+            onClick={() => onShow(t.path)}
+            onDoubleClick={() => onPin(t.path)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                onShow(t.path);
+              }
+            }}
+          >
+            <FileText size={12} aria-hidden="true" className="fv-tab-icon" />
+            <span className="fv-tab-name">{label.name}</span>
+            {label.dir && <span className="fv-tab-dir">{label.dir}</span>}
+            {changed && <span className={`fv-changed ${changed}`} aria-label={CHANGE_LABEL[changed]} />}
+            <button
+              className="fv-tab-close"
+              tabIndex={-1}
+              aria-label={`Close ${label.name}`}
+              data-tip={shown ? (macApp() ? "Close (⌘W)" : "Close (⌃W)") : "Close"}
+              onMouseDown={(e) => e.stopPropagation()}
+              onClick={(e) => {
+                e.stopPropagation();
+                onClose(t.path);
+              }}
+            >
+              <X size={11} aria-hidden="true" />
+            </button>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 function TreeItem({
   row,
   current,
@@ -556,6 +756,7 @@ function TreeItem({
   picked,
   changed,
   onClick,
+  onDoubleClick,
   onHover,
 }: {
   row: TreeRow;
@@ -564,6 +765,7 @@ function TreeItem({
   picked: boolean;
   changed?: FileChange;
   onClick: () => void;
+  onDoubleClick: () => void;
   onHover: () => void;
 }) {
   const marks = useMemo(() => new Set(row.marks ?? []), [row.marks]);
@@ -583,6 +785,7 @@ function TreeItem({
         (e.currentTarget.closest("[role=tree]") as HTMLElement | null)?.focus({ preventScroll: true });
         onClick();
       }}
+      onDoubleClick={onDoubleClick}
       onMouseEnter={onHover}
     >
       {row.kind === "directory" ? (
@@ -618,6 +821,9 @@ function FileViewer({
   onShowChanges,
   onCopyPath,
   handle,
+  scroll,
+  onScrolled,
+  onUse,
 }: {
   workspace: FilesWorkspace;
   path: string;
@@ -625,6 +831,11 @@ function FileViewer({
   onShowChanges?: (path: string) => void;
   onCopyPath: (path: string) => void;
   handle: React.RefObject<{ find: () => void } | null>;
+  /** Where the tab was scrolled to, restored once its lines are drawn. */
+  scroll?: number;
+  onScrolled: (path: string, top: number) => void;
+  /** A preview tab: using the file keeps it. */
+  onUse?: (path: string) => void;
 }) {
   const titleTip = usePageTitleTip<HTMLHeadingElement>();
   const { resolved } = useTheme();
@@ -722,13 +933,17 @@ function FileViewer({
     const n = found?.matches.length ?? 0;
     if (n) goTo(atMatch < 0 ? (by > 0 ? 0 : n - 1) : (atMatch + by + n) % n);
   };
+  const used = useRef(onUse);
+  used.current = onUse;
+  const use = useCallback(() => used.current?.(path), [path]);
   const openFind = useCallback(() => {
+    use();
     setFinding(true);
     requestAnimationFrame(() => {
       findInput.current?.focus();
       findInput.current?.select();
     });
-  }, []);
+  }, [use]);
   const closeFind = () => {
     revealing.current++;
     setFinding(false);
@@ -753,6 +968,48 @@ function FileViewer({
     return () => window.removeEventListener("keydown", key, true);
   }, [hasText, openFind]);
 
+  // The tab's scroll: put back once its lines can reach it (the virtualizer sizes them first), then kept as it settles.
+  const restoring = useRef(scroll && scroll > 0 ? scroll : 0);
+  const hasContents = !!contents;
+  useEffect(() => {
+    if (!hasContents || !restoring.current) return;
+    let frames = 0;
+    let raf = 0;
+    const put = () => {
+      const scroller = scrollerOf();
+      const want = restoring.current;
+      if (!scroller || !want) return;
+      scroller.scrollTop = want;
+      if (Math.abs(scroller.scrollTop - want) <= 1 || ++frames > 60) restoring.current = 0;
+      else raf = requestAnimationFrame(put);
+    };
+    raf = requestAnimationFrame(put);
+    return () => cancelAnimationFrame(raf);
+  }, [hasContents]);
+  const saving = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const scrolled = useRef(onScrolled);
+  scrolled.current = onScrolled;
+  const onScroll = (e: React.UIEvent<HTMLElement>) => {
+    const scroller = e.target as HTMLElement;
+    if (restoring.current || !scroller.classList?.contains("gd-scroll")) return;
+    pending.current = scroller.scrollTop;
+    clearTimeout(saving.current);
+    saving.current = setTimeout(flush, SCROLL_SAVE_MS);
+  };
+  const pending = useRef<number | undefined>(undefined);
+  const flush = () => {
+    if (pending.current !== undefined) scrolled.current(path, pending.current);
+    pending.current = undefined;
+  };
+  // Leaving the tab (another shows): kept at once.
+  useEffect(
+    () => () => {
+      clearTimeout(saving.current);
+      flush();
+    },
+    [],
+  );
+
   let body: ReactNode;
   if (data && "refused" in data) {
     const size = sizeLabel(data.size);
@@ -767,7 +1024,14 @@ function FileViewer({
     );
   } else if (contents) {
     body = (
-      <div className="gd-scroll-wrap fv-scroll-wrap" ref={wrap}>
+      <div
+        className="gd-scroll-wrap fv-scroll-wrap"
+        ref={wrap}
+        onScrollCapture={onScroll}
+        onWheel={use}
+        onPointerDown={use}
+        onKeyDown={use}
+      >
         {finding && (
           <FindBar
             input={findInput}

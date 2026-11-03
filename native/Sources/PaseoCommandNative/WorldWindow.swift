@@ -17,8 +17,10 @@ final class AppWindow: NSWindow {
     /// ⇧⌘G (View → Show Branch Changes) likewise, but while Conquer has the keyboard (`conquerHasKeys`)
     /// it stays Conquer's Find Previous (`AppKeys`).
     var conquerHasKeys: () -> Bool = { false }
+    /// ⌘W too while the Files tab shows: Window → Close closes its file tab, ahead of the page.
+    var filesShows: () -> Bool = { false }
     override func performKeyEquivalent(with event: NSEvent) -> Bool {
-        if AppKeys.offeredToMenu(event, conquerHasKeys: conquerHasKeys()), NSApp.mainMenu?.performKeyEquivalent(with: event) == true { return true }
+        if AppKeys.offeredToMenu(event, conquerHasKeys: conquerHasKeys(), filesShows: filesShows()), NSApp.mainMenu?.performKeyEquivalent(with: event) == true { return true }
         return super.performKeyEquivalent(with: event)
     }
 }
@@ -172,6 +174,7 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         conquer.onLink = { [weak self] url in self?.routeLink(url) ?? false }
         (window as? AppWindow)?.document = { [weak self] in self?.mode == .conquer ? self?.conquer.current?.url : nil }
         (window as? AppWindow)?.conquerHasKeys = { [weak self] in self?.mode == .conquer && self?.conquer.hasKeyFocus == true }
+        (window as? AppWindow)?.filesShows = { [weak self] in self?.mode == .files }
         configuration.userContentController.add(self, name: "paseoWorld")
         web.navigationDelegate = self
         web.uiDelegate = self

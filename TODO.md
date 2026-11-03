@@ -5,13 +5,7 @@ mark it done with its commit once merged into `main`.
 
 ## Open
 
-- [ ] **Files: tabs, and ⌘W closes one.** Opening files in the Files page opens them as tabs above the viewer, as an editor
-  does: a single click opens a preview tab (italic, replaced by the next preview) and double-click, an edit-free "keep" or
-  scrolling into it pins it; tabs reorder by drag, show the file name (with a parent folder to tell same-named files apart),
-  a changed dot and ×; middle-click closes. ⌘W closes the active tab while the Files page shows (in the macOS app, taken
-  ahead of the window's Close, which must not close the window there; with no tabs ⌘W does nothing), ⇧⌘T reopens the last
-  closed, ⌃Tab / ⌃⇧Tab and ⌘⌥←/→ step tabs. Tabs are per workspace, kept in localStorage with each tab's scroll position.
-  Conquer keeps its own ⌘W. ⌘K entries, the shortcuts dialog, CLAUDE.md. Workspace: `files-tabs`.- [ ] **Move a workspace's Changes from the GitHub tab into the Files page.** The user wants the worktree/agent side tied
+- [ ] **Move a workspace's Changes from the GitHub tab into the Files page.** The user wants the worktree/agent side tied
   to the file system: a workspace's Changes (today the GitHub tab's sidebar Workspace section, `ChangesView.tsx`: all /
   committed / uncommitted, ahead/behind, the diff with filter, find, local pending comments, Review #N) becomes part of
   the Files page, reached by a "Changes" button (with the changed-file count) in the Files head, beside the open file
@@ -24,6 +18,13 @@ mark it done with its commit once merged into `main`.
 
 ## Done
 
+- [x] **Files: tabs, and ⌘W closes one.** Opened files are tabs above the viewer: a click (tree, filter, ⌘P) opens a preview
+  tab (italic, replaced by the next), a double-click or using the file keeps it; drag to reorder, the name with as much of its
+  folder as tells clashing names apart, a changed dot and ×, middle-click closes, the row scrolls sideways keeping the shown tab
+  in view. ⌘W closes the shown tab while Files shows (the macOS app's View → Close File Tab, offered the menu ahead of the page;
+  the window never closes there; none open: nothing; ⌃W too, for a browser), ⇧⌘T reopens, ⌃Tab / ⌃⇧Tab and ⌥⌘→/← step.
+  Per workspace in localStorage with each tab's scroll. Conquer keeps its ⌘W, ⇧⌘T and ⌃Tab. ⌘K entries, the shortcuts dialog.
+  Tests: the tab model and its storage, e2e, native key routing. Workspace: `files-tabs`.
 - [x] **Files: a quick, read-only file explorer for a workspace.** A Files tab (the mode bar's after GitHub, View menu, ⌘1…⌘6,
   ⌘K "Show files", ⇧⌘E app-wide through View → Show Files) for the selected workspace (or agent's), on any host: through its daemon's
   file explorer (`listDirectory`, `readFile`), named, cached routes `GET /api/files/tree|read|all|changed`, paths confined to the

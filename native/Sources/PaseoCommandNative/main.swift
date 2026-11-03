@@ -105,23 +105,37 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         listen("com.paseo.command.native.quit") { NSApp.terminate(nil) }
         listen("com.paseo.command.native.reload") { [weak self] in self?.reloadApp(nil) }
         listen("com.paseo.command.native.handover") { [weak self] in self?.main?.acceptHandOver() }
-        // A ⌘-key (`<info>.key`'s character, after "⌥" for ⌥⌘ or "⇧" for ⇧⌘) as the keyboard sends it: the focused view
-        // (a page, say) sees it before the menu, as with a real key press (checks).
+        // A key (`<info>.key`'s character, or "tab", "→", "←", after any of "⌃", "⌥", "⇧"; ⌘ unless it starts with "⌃")
+        // as the keyboard sends it: the focused view (a page, say) sees a key equivalent before the menu, and a key
+        // neither takes goes to the focused view as a key press, as with a real key press (checks).
         listen("com.paseo.command.native.key") { [weak self] in
-            let codes: [String: UInt16] = ["g": 5, "e": 14, "\\": 42, "1": 18, "2": 19, "3": 20, "4": 21, "5": 23, "6": 22, "7": 26, "8": 28, "9": 25]
+            let codes: [String: UInt16] = ["g": 5, "e": 14, "w": 13, "t": 17, "\\": 42, "1": 18, "2": 19, "3": 20, "4": 21, "5": 23, "6": 22, "7": 26, "8": 28, "9": 25,
+                                           "tab": 48, "→": 124, "←": 123]
+            let named: [String: String] = ["tab": "\t", "→": String(UnicodeScalar(NSRightArrowFunctionKey)!), "←": String(UnicodeScalar(NSLeftArrowFunctionKey)!)]
             guard let self, let info = self.options.info, let window = self.main?.window,
-                  let typed = try? String(contentsOfFile: (info as NSString).deletingPathExtension + ".key", encoding: .utf8).trimmingCharacters(in: .whitespacesAndNewlines),
-                  case let option = typed.hasPrefix("⌥"), case let shift = typed.hasPrefix("⇧"),
-                  case let key = option || shift ? String(typed.dropFirst()) : typed,
-                  let event = NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: option ? [.command, .option] : shift ? [.command, .shift] : .command,
+                  let typed = try? String(contentsOfFile: (info as NSString).deletingPathExtension + ".key", encoding: .utf8).trimmingCharacters(in: .whitespacesAndNewlines)
+            else { return }
+            var key = Substring(typed)
+            var mods: NSEvent.ModifierFlags = []
+            while let first = key.first, let mod = ["⌃": NSEvent.ModifierFlags.control, "⌥": .option, "⇧": .shift][String(first)] {
+                mods.insert(mod)
+                key = key.dropFirst()
+            }
+            if !mods.contains(.control) { mods.insert(.command) }
+            let name = String(key)
+            if name == "→" || name == "←" { mods.formUnion([.function, .numericPad]) }
+            let chars = named[name] ?? name
+            guard let event = NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: mods,
                                                timestamp: ProcessInfo.processInfo.systemUptime,
-                                               windowNumber: window.windowNumber, context: nil, characters: shift ? key.uppercased() : key, charactersIgnoringModifiers: key,
-                                               isARepeat: false, keyCode: codes[key] ?? 0)
+                                               windowNumber: window.windowNumber, context: nil,
+                                               characters: mods.contains(.shift) ? chars.uppercased() : chars, charactersIgnoringModifiers: chars,
+                                               isARepeat: false, keyCode: codes[name] ?? 0)
             else { return }
             // As AppKit offers a key equivalent: the window's views (a page among them) first, then the menu.
             let viewTook = window.performKeyEquivalent(with: event)
-            Log.line("\(option ? "⌥" : shift ? "⇧" : "")⌘\(key): views took it \(viewTook)")
-            if !viewTook { NSApp.mainMenu?.performKeyEquivalent(with: event) }
+            let menuTook = !viewTook && NSApp.mainMenu?.performKeyEquivalent(with: event) == true
+            Log.line("key \(typed): views took it \(viewTook), the menu \(menuTook)")
+            if !viewTook && !menuTook { window.sendEvent(event) }
         }
         // ⌘` as the keyboard sends it, through the main menu (steps to the next tab).
         listen("com.paseo.command.native.keymode") {
@@ -328,6 +342,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         AppKeys.addBranchChanges(to: view, target: self, action: #selector(showBranchChanges))
         // ⇧⌘E: the Files tab (the selected workspace's files), from anywhere.
         AppKeys.addShowFiles(to: view, target: self, action: #selector(showFiles))
+        // ⌘W while Files shows: its shown file tab, ahead of Conquer's Close Tab and the window's Close.
+        AppKeys.addCloseFileTab(to: view, target: self, action: #selector(closeFileTab))
         // ⌘` steps Command → Conquer → Activity → GitHub → Files → Settings → Command, through those shown
         // (ahead of macOS's own window cycling, as the app has one window).
         view.addItem(withTitle: "Next: Command, Conquer", action: #selector(toggleMode), keyEquivalent: "`").target = self
@@ -383,6 +399,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     @objc private func showSettings() { main?.toggleSettings() }
     @objc private func showBranchChanges() { main?.pageCommand("github-branch-changes") }
     @objc private func showFiles() { main?.show(.files) }
+    @objc private func closeFileTab() { main?.pageCommand("files-close-tab") }
     @objc private func showMode(_ sender: NSMenuItem) {
         if let mode = (sender.representedObject as? String).flatMap(Mode.init(rawValue:)) { main?.show(mode) }
     }
@@ -407,6 +424,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
             if item.representedObject as? String == "togglePin" { item.title = main.conquer.current?.isPinned == true ? "Unpin Tab" : "Pin Tab" }
             return browser
         case #selector(showBranchChanges): return !browser
+        case #selector(closeFileTab): return main.mode == .files && (NSApp.keyWindow.map { $0 === main.window } ?? true)
         case #selector(moveTerminal): item.state = main.drawer.dock == .bottom ? .on : .off
         case #selector(unsplitTerminals): return !main.drawer.isHidden && main.drawer.isSplit
         case #selector(maximizeTerminal):
