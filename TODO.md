@@ -17,7 +17,15 @@ mark it done with its commit once merged into `main`.
   the shortcuts dialog. Settings leaves the tabs: a gear `BarButton` in the bar's tools beside the usage meters opens it (as
   ⌘, and ⌘K Settings do), showing it in the map's place as now, with the gear lit while it shows; Esc or the gear again goes
   back to the side before. Keep `Mode.settings` working for old saved modes. Update CLAUDE.md, native tests and e2e. Check
-  with a throwaway build's `.windowshot`. Workspace: `mode-bar-order-settings-gear`.
+  with a throwaway build's `.windowshot`. Workspace: `mode-bar-order-settings-gear`.- [ ] **Files: Markdown renders as Markdown, and lines wrap.** The viewer shows `.md` files as code with long lines running
+  off the edge. Markdown files open rendered (headings, lists, tables, code blocks highlighted, links: in-repo paths open in
+  Files, others as links do; images from the workspace through the Files read route, others blocked unless https), with a
+  Preview / Source toggle in the head (kept per file type) and ⌘K entries; ⌘F finds in the rendered text. Source view and
+  every other file wrap long lines by default (a Wrap toggle in the head, kept, ⌘K "Wrap lines"), keeping line numbers on
+  the first row of each wrapped line and the virtualizer measuring wrapped heights without jumping (as the diff's anchor
+  does). Reuse the app's Markdown renderer and the pages' styles. Tests: e2e (rendered headings, toggle, wrap on/off,
+  find), units for link resolution. Workspace: `files-markdown-wrap`.
+
 ## Done
 
 - [x] **Activity: notifications marked done come back after a few seconds.** The cause: GitHub's list (`all=true`) keeps
