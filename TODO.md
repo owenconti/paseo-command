@@ -5,6 +5,19 @@ mark it done with its commit once merged into `main`.
 
 ## Open
 
+- [ ] **Chat: file paths link to the Files tab.** In an agent's conversation, paths to files in its workspace
+  ("The report is at `docs/reports/resource-reference-approaches.md`.", also in plain text, with `:line` or `#L12`) link
+  themselves and open the file in the Files tab (a kept tab, at the line), as `autolink.ts` links issue keys and PRs. Only
+  paths that exist in the workspace (checked against the Files server's `files/all` list, cached; relative to the workspace,
+  or absolute paths inside it made relative) link; others stay plain. Inline code that is exactly a path links too (keeping
+  its code look); never inside code blocks, URLs or links. ⌘-click / plain click as links do; the link's hover says "Open in
+  Files". Tests: matcher units, e2e on a mocked transcript. Workspace: `chat-autolink-files`.
+- [ ] **Mode bar: Command, Files, GitHub, Conquer, Activity; Settings becomes a gear.** Reorder the macOS app's mode tabs to
+  Command, Files, GitHub, Conquer, Activity (those enabled), in the bar, View menu, ⌘1…⌘5 numbering, ⌘` stepping, the palette and
+  the shortcuts dialog. Settings leaves the tabs: a gear `BarButton` in the bar's tools beside the usage meters opens it (as
+  ⌘, and ⌘K Settings do), showing it in the map's place as now, with the gear lit while it shows; Esc or the gear again goes
+  back to the side before. Keep `Mode.settings` working for old saved modes. Update CLAUDE.md, native tests and e2e. Check
+  with a throwaway build's `.windowshot`. Workspace: `mode-bar-order-settings-gear`.
 ## Done
 
 - [x] **Activity: notifications marked done come back after a few seconds.** The cause: GitHub's list (`all=true`) keeps
