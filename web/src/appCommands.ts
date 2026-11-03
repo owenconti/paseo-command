@@ -72,6 +72,7 @@ export type AppCommand =
   | "files-diff-next"
   | "files-diff-prev"
   | "files-open"
+  | "files-open-at"
   | "files-close-tab"
   | "files-reopen-tab"
   | "files-next-tab"
@@ -82,7 +83,7 @@ export type AppCommand =
 
 const EVENT = "paseo:command";
 
-/** Asks for `name`; `arg` is what it acts on, where it needs one (`activity-filter`: the source or "all"; `github-open`/`github-go`: the place; `github-tab`: the PR's tab; `github-review`: the verdict; `github-merge`: the merge box's action (`merge.ts` `MergeAction`); `github-star`: `{kind, name, starred}`; `github-filter`: the filter to open; `github-set-filter`: `{field, value}` (a people filter's value: its logins) or "clear"; `files-changes`: `{path?}`, a file to show; `files-changes-mode`: the mode, else the next). */
+/** Asks for `name`; `arg` is what it acts on, where it needs one (`activity-filter`: the source or "all"; `github-open`/`github-go`: the place; `github-tab`: the PR's tab; `github-review`: the verdict; `github-merge`: the merge box's action (`merge.ts` `MergeAction`); `github-star`: `{kind, name, starred}`; `github-filter`: the filter to open; `github-set-filter`: `{field, value}` (a people filter's value: its logins) or "clear"; `files-changes`: `{path?}`, a file to show; `files-open-at`: `files/open.ts`'s `FileAsk`; `files-changes-mode`: the mode, else the next). */
 export function runAppCommand(name: AppCommand, arg?: unknown) {
   // The detail stays the bare name: the macOS app sends its own that way.
   window.dispatchEvent(Object.assign(new CustomEvent(EVENT, { detail: name }), { arg }));

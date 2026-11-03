@@ -2,7 +2,8 @@ import type { WorkSummary } from "./useWorkingOn";
 import { soundEvent } from "./soundCues";
 import { daemonAgentId } from "./agentIdentity";
 import { onAppCommand } from "./appCommands";
-import { macApp, postAppLink } from "./worldBridge";
+import { macApp, postAppLink, postAppMenu } from "./worldBridge";
+import { openFilesFile } from "./files/open";
 import { usePeers } from "./peers";
 import { robotColour, useRobotPortrait } from "./robotPortrait";
 import {
@@ -61,7 +62,7 @@ import type { HistoryPage } from "./history";
 import { MarkdownImage } from "./Images";
 import { extractImages } from "./imageSource";
 import { urlRuns } from "./urlRuns";
-import { autolinkRuns, canAutolink, type AutolinkContext } from "./autolink";
+import { autolinkRuns, canAutolink, type AutolinkContext, type AutolinkRun } from "./autolink";
 import { Autolinks, useAutolinkContext, useAutolinks } from "./autolinkStore";
 import { enqueue, newMessageId, onQueueSent, toOutgoing } from "./queue";
 import {
@@ -103,6 +104,32 @@ import type { ForkRow } from "./forks/api";
 import type { Asks } from "./asks/types";
 
 type Confirm = "archive" | "fresh" | null;
+
+/** A file link clicked in the chat (src/autolink.ts): the file in the Files tab, as a kept tab at its line.
+ * The tab is the macOS app's; a browser says so. */
+function openFileLink(e: React.MouseEvent, workspace: Workspace | undefined, onNotice: (message: string) => void): boolean {
+  const link = (e.target as Element).closest?.("a[data-file-path]");
+  if (!(link instanceof HTMLAnchorElement)) return false;
+  e.preventDefault();
+  if (e.button !== 0) return true;
+  if (!macApp()) {
+    onNotice("The Files tab, where files open, is in the macOS app.");
+    return true;
+  }
+  const path = link.dataset.filePath;
+  if (!workspace || !path) return true;
+  const line = Number(link.dataset.fileLine) || undefined;
+  const endLine = Number(link.dataset.fileEnd) || undefined;
+  openFilesFile({
+    workspace: workspace.workspaceId,
+    ...(workspace.host ? { host: workspace.host } : {}),
+    path,
+    ...(line ? { line } : {}),
+    ...(endLine ? { endLine } : {}),
+  });
+  postAppMenu("files");
+  return true;
+}
 
 /** In the macOS app, web links clicked in the chat open as a Conquer tab, in the
  * map's place, rather than in the default browser. */
@@ -216,7 +243,7 @@ export function Session({
 
   // Reply forks: their pane sits beside the conversation when there's room.
   const root = useRef<HTMLDivElement>(null);
-  // Linear keys and PR numbers in the conversation link themselves.
+  // Linear keys, PR numbers and the workspace's file paths in the conversation link themselves.
   const autolinks = useAutolinks(workspace);
   const [wide, setWide] = useState(false);
   useLayoutEffect(() => {
@@ -296,7 +323,9 @@ export function Session({
     <div
       ref={root}
       className={`session${forks.shown ? ` fork-${forkLayout}` : ""}`}
-      onClickCapture={openInAppBrowser}
+      onClickCapture={(e) => {
+        if (!openFileLink(e, workspace, onNotice)) openInAppBrowser(e);
+      }}
       onDragEnter={(e) => {
         if (!hasFiles(e) || archived) return;
         dragDepth.current++;
@@ -967,7 +996,7 @@ function UserText({
   const links = useAutolinkContext();
   const runs = useMemo(
     () =>
-      urlRuns(clean).flatMap((run) =>
+      urlRuns(clean).flatMap((run): AutolinkRun[] =>
         run.href || !canAutolink(links) ? [run] : autolinkRuns(run.text, links),
       ),
     [clean, links],
@@ -991,7 +1020,19 @@ function UserText({
       {clean && (
         <div className={`user-text ${long && !open ? "clamped" : ""}`}>
           {runs.map((run, i) =>
-            run.href ? (
+            run.file ? (
+              <a
+                key={i}
+                href={run.href}
+                className="file-link"
+                title="Open in Files"
+                data-file-path={run.file.path}
+                {...(run.file.line ? { "data-file-line": String(run.file.line) } : {})}
+                {...(run.file.endLine ? { "data-file-end": String(run.file.endLine) } : {})}
+              >
+                {run.text}
+              </a>
+            ) : run.href ? (
               <a
                 key={i}
                 href={run.href}

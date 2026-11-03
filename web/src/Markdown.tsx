@@ -20,8 +20,10 @@ import { useAutolinkContext } from "./autolinkStore";
  * autolinks). Raw HTML is never rendered: react-markdown shows it as text.
  * Links go only to http(s) and mailto (anything else stays plain text), and
  * images only through MarkdownImage, which decides what may load. In an
- * agent's conversation, Linear keys and PR numbers link themselves
- * (src/autolink.ts, from the Autolinks context).
+ * agent's conversation, Linear keys, PR numbers and paths to the workspace's
+ * files link themselves (src/autolink.ts, from the Autolinks context); a file
+ * link is a fragment of the page's own (`#files:…`), which the conversation's
+ * click opens in the Files tab.
  */
 
 const SAFE_LINK = /^(?:https?:|mailto:)/i;
@@ -124,14 +126,31 @@ function components(imageHost?: string): Components {
     h5: heading(5),
     h6: heading(6),
     pre: CodeBlock,
-    a: ({ href, children }) =>
-      href && SAFE_LINK.test(href) ? (
+    a: ({ href, children, node }) => {
+      const file = node?.properties?.dataFilePath;
+      if (typeof file === "string" && href?.startsWith("#files:")) {
+        const { dataFileLine: line, dataFileEnd: end } = node!.properties;
+        return (
+          <a
+            href={href}
+            className="file-link"
+            title="Open in Files"
+            data-file-path={file}
+            {...(line ? { "data-file-line": String(line) } : {})}
+            {...(end ? { "data-file-end": String(end) } : {})}
+          >
+            {children}
+          </a>
+        );
+      }
+      return href && SAFE_LINK.test(href) ? (
         <a href={href} target="_blank" rel="noopener noreferrer">
           {children}
         </a>
       ) : (
         <span className="md-link-text">{children}</span>
-      ),
+      );
+    },
     img: ({ src, alt }) => (
       <MarkdownImage
         src={typeof src === "string" ? src : ""}

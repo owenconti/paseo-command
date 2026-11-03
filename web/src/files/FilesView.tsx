@@ -34,7 +34,7 @@ import { invalidate } from "../github/api";
 import type { DiffLayout, DiffViewHandle } from "../github/DiffView";
 import { CHANGES_MODES, type ChangesMode } from "../github/types";
 import { ChangesView } from "./ChangesView";
-import { checkChangesAsk, takeChangesAsk } from "./open";
+import { checkChangesAsk, checkFileAsk, takeChangesAsk, takeFileAsk, type FileAsk } from "./open";
 import { clearFindMarks, FIND_CSS, FindBar, revealMatch, useFindPaint } from "../github/DiffFind";
 import { findInText, sameMatch, type FindMatch, type FindOptions } from "../github/diffSearch";
 import { Marked } from "../github/DiffView";
@@ -400,6 +400,22 @@ export function FilesView({
     const ask = takeChangesAsk();
     if (ask) showChanges(ask.path);
   }, []);
+  // A file asked for from elsewhere (the chat's file links): a kept tab, at its line; only the shown workspace's.
+  const [lineAsk, setLineAsk] = useState<{ path: string; line: number; endLine?: number; token: number } | undefined>();
+  const openAsked = useCallback(
+    (ask: FileAsk) => {
+      if (!workspace || ask.workspace !== workspace.id || (ask.host ?? "") !== (workspace.host ?? "")) return;
+      setChangesShown(false);
+      openFile(ask.path, true);
+      setLineAsk(ask.line ? { path: ask.path, line: ask.line, ...(ask.endLine ? { endLine: ask.endLine } : {}), token: Date.now() } : undefined);
+      if (editorOn) void openInEditor(ask.path, ask.line);
+    },
+    [wsKey, openFile, setChangesShown, editorOn, openInEditor],
+  );
+  useEffect(() => {
+    const ask = takeFileAsk();
+    if (ask) openAsked(ask);
+  }, []);
   const filterDiffFiles = () => {
     if (diffHandle.current?.filterFiles()) return;
     setListShown(true);
@@ -569,8 +585,8 @@ export function FilesView({
   const showViewer = useCallback((path: string) => setTabs((t) => setTabViewer(t, path, true)), [setTabs]);
 
   // ⌘K's commands.
-  const current = useRef({ file, openFile, focusFilter, toggleSidebar, setShowIgnored, showIgnored, refresh, copyPath, showChanges, closeActive, reopen, step, closeOthers, showingChanges, layout, listShown, filterDiffFiles, cycleMode, showEditor, showViewer });
-  current.current = { file, openFile, focusFilter, toggleSidebar, setShowIgnored, showIgnored, refresh, copyPath, showChanges, closeActive, reopen, step, closeOthers, showingChanges, layout, listShown, filterDiffFiles, cycleMode, showEditor, showViewer };
+  const current = useRef({ openAsked, file, openFile, focusFilter, toggleSidebar, setShowIgnored, showIgnored, refresh, copyPath, showChanges, closeActive, reopen, step, closeOthers, showingChanges, layout, listShown, filterDiffFiles, cycleMode, showEditor, showViewer });
+  current.current = { openAsked, file, openFile, focusFilter, toggleSidebar, setShowIgnored, showIgnored, refresh, copyPath, showChanges, closeActive, reopen, step, closeOthers, showingChanges, layout, listShown, filterDiffFiles, cycleMode, showEditor, showViewer };
   useEffect(() => {
     const c = () => current.current;
     const offs = [
@@ -610,6 +626,12 @@ export function FilesView({
       onAppCommand("files-diff-prev", () => diffHandle.current?.step(-1)),
       onAppCommand("files-open", (arg) => {
         if (typeof arg === "string" && arg) c().openFile(arg, true);
+      }),
+      onAppCommand("files-open-at", (arg) => {
+        const ask = checkFileAsk(arg);
+        // Asked of the page as it shows: taken here, not again as it mounts.
+        takeFileAsk();
+        if (ask) c().openAsked(ask);
       }),
       onAppCommand("files-close-tab", () => c().closeActive()),
       onAppCommand("files-reopen-tab", () => c().reopen()),
@@ -931,6 +953,7 @@ export function FilesView({
               onCopyPath={copyPath}
               handle={viewer}
               scroll={activeTab?.scroll}
+              {...(lineAsk?.path === file ? { reveal: lineAsk } : {})}
               onScrolled={onScrolled}
               onUse={activeTab?.preview ? onUse : undefined}
               editor={{
@@ -1261,6 +1284,7 @@ function FileViewer({
   onCopyPath,
   handle,
   scroll,
+  reveal,
   onScrolled,
   onUse,
   editor,
@@ -1274,6 +1298,8 @@ function FileViewer({
   handle: React.RefObject<ViewerHandle | null>;
   /** Where the tab was scrolled to, restored once its lines are drawn. */
   scroll?: number;
+  /** A line (or lines) to show and mark, asked from elsewhere (the chat's file links); `token` tells asks apart. */
+  reveal?: { line: number; endLine?: number; token: number };
   onScrolled: (path: string, top: number) => void;
   /** A preview tab: using the file keeps it. */
   onUse?: (path: string) => void;
@@ -1334,7 +1360,20 @@ function FileViewer({
   }, [found, path]);
   const [atMatch, setAtMatch] = useState(-1);
   const current = found && atMatch >= 0 ? found.matches[atMatch] : undefined;
-  useFindPaint(scrollerOf, byPath, current);
+  // A line asked for (the chat's file links): marked, as a find's match is, until a find takes its place.
+  const [marked, setMarked] = useState<{ line: number; endLine?: number } | undefined>();
+  const lineMarks = useMemo(() => {
+    if (!marked || text === undefined) return null;
+    const all = text.split("\n");
+    const byKey = new Map<string, FindMatch[]>();
+    const last = Math.min(marked.endLine ?? marked.line, all.length);
+    for (let n = marked.line; n <= last; n++) {
+      const end = all[n - 1]!.length;
+      if (end) byKey.set(`R${n}`, [{ file: 0, path, key: `R${n}`, line: n - 1, start: 0, end }]);
+    }
+    return byKey.size ? new Map([[path, byKey]]) : null;
+  }, [marked, text, path]);
+  useFindPaint(scrollerOf, byPath ?? (finding ? null : lineMarks), current);
   const order = useMemo(() => {
     const m = new Map<string, number>();
     for (let i = 0; i < lines + 1; i++) m.set(`R${i + 1}`, i);
@@ -1420,8 +1459,21 @@ function FileViewer({
   }, [hasText, openFind]);
 
   // The tab's scroll: put back once its lines can reach it (the virtualizer sizes them first), then kept as it settles.
-  const restoring = useRef(scroll && scroll > 0 ? scroll : 0);
+  const restoring = useRef(scroll && scroll > 0 && !reveal ? scroll : 0);
   const hasContents = !!contents;
+  // A line asked for: scrolled to the middle once drawn (the virtualizer draws only what's near), and marked.
+  useEffect(() => {
+    if (!hasContents || !reveal) return;
+    restoring.current = 0;
+    setMarked({ line: reveal.line, ...(reveal.endLine ? { endLine: reveal.endLine } : {}) });
+    const token = ++revealing.current;
+    const target: FindMatch = { file: 0, path, key: `R${reveal.line}`, line: reveal.line - 1, start: 0, end: 0 };
+    const raf = requestAnimationFrame(() => {
+      const scroller = scrollerOf();
+      if (scroller) void revealMatch(scroller, target, order, () => revealing.current === token);
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [hasContents, reveal?.token]);
   useEffect(() => {
     if (!hasContents || !restoring.current) return;
     let frames = 0;

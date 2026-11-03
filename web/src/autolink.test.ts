@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { renderToStaticMarkup } from "react-dom/server";
 import { createElement } from "react";
-import { autolinkRuns, autolinks, type AutolinkContext } from "./autolink";
+import { autolinkRuns, autolinks, codeFile, workspaceFiles, type AutolinkContext } from "./autolink";
 import { Autolinks } from "./autolinkStore";
 import { Markdown } from "./Markdown";
 
@@ -102,4 +102,102 @@ test("Markdown links mentions in prose only: not code, code blocks, links or URL
   assert.match(html, /<code>DE-1 #1<\/code>/);
   const plain = renderToStaticMarkup(createElement(Markdown, { text: "PR #7054 for DE-7338" }));
   assert.doesNotMatch(plain, /<a /, "outside a conversation nothing links itself");
+});
+
+const ROOT = "/Users/me/ws/atlas";
+const FILES: AutolinkContext = {
+  ...CTX,
+  files: workspaceFiles(
+    [
+      "docs/reports/resource-reference-approaches.md",
+      "web/src/index.ts",
+      "src/index.ts",
+      "src/autolink.ts",
+      "package.json",
+      "Makefile",
+      ".github/workflows/ci.yml",
+      "docs/DE-7338.md",
+    ],
+    `${ROOT}/`,
+  ),
+};
+const files = (text: string, ctx = FILES) => autolinks(text, ctx).map((l) => [text.slice(l.start, l.end), l.file ?? l.href]);
+
+test("paths to the workspace's files link, with their lines; others stay plain", () => {
+  assert.deepEqual(files("The report is at docs/reports/resource-reference-approaches.md."), [
+    ["docs/reports/resource-reference-approaches.md", { path: "docs/reports/resource-reference-approaches.md" }],
+  ]);
+  assert.deepEqual(files("See src/autolink.ts:12, ./src/index.ts:3:7 and src/autolink.ts#L4-L9 (web/src/index.ts:20-25)."), [
+    ["src/autolink.ts:12", { path: "src/autolink.ts", line: 12 }],
+    ["./src/index.ts:3:7", { path: "src/index.ts", line: 3 }],
+    ["src/autolink.ts#L4-L9", { path: "src/autolink.ts", line: 4, endLine: 9 }],
+    ["web/src/index.ts:20-25", { path: "web/src/index.ts", line: 20, endLine: 25 }],
+  ]);
+  // Absolute inside the workspace's folder: made relative; outside it, plain.
+  assert.deepEqual(files(`Edited ${ROOT}/src/autolink.ts:8 and /etc/src/autolink.ts.`), [
+    [`${ROOT}/src/autolink.ts:8`, { path: "src/autolink.ts", line: 8 }],
+  ]);
+  // A path inside the workspace's files takes its Linear key; hidden folders link too.
+  assert.deepEqual(files("Wrote docs/DE-7338.md and .github/workflows/ci.yml"), [
+    ["docs/DE-7338.md", { path: "docs/DE-7338.md" }],
+    [".github/workflows/ci.yml", { path: ".github/workflows/ci.yml" }],
+  ]);
+  for (const text of [
+    "src/missing.ts and docs/reports/ stay plain",
+    "index.ts is in two folders",
+    "a Makefile, and src/autolink.tsx or src/autolink.ts.bak",
+    "../src/autolink.ts or src/../src/autolink.ts",
+    "https://example.com/src/autolink.ts",
+    "~/src/autolink.ts",
+  ])
+    assert.deepEqual(files(text), [], text);
+  // A bare name links only when one file has it, and in prose only with an extension.
+  assert.deepEqual(files("Bumped package.json; autolink.ts too."), [
+    ["package.json", { path: "package.json" }],
+    ["autolink.ts", { path: "src/autolink.ts" }],
+  ]);
+  // Without the workspace's files nothing links as a file.
+  assert.deepEqual(files("src/autolink.ts", CTX), []);
+});
+
+test("inline code that is exactly a file's path links", () => {
+  assert.deepEqual(codeFile("docs/reports/resource-reference-approaches.md", FILES), { path: "docs/reports/resource-reference-approaches.md" });
+  assert.deepEqual(codeFile(" src/autolink.ts:40 ", FILES), { path: "src/autolink.ts", line: 40 });
+  assert.deepEqual(codeFile("Makefile", FILES), { path: "Makefile" });
+  for (const code of ["src/autolink.ts foo", "npm run src/autolink.ts", "index.ts", "src/nope.ts", "const a = 1"])
+    assert.equal(codeFile(code, FILES), undefined, code);
+  const text = "Open `src/autolink.ts:3` and `cat src/autolink.ts`, then src/index.ts.";
+  const runs = autolinkRuns(text, FILES);
+  assert.equal(runs.map((r) => r.text).join(""), text);
+  assert.deepEqual(
+    runs.filter((r) => r.file).map((r) => [r.text, r.file]),
+    [
+      ["src/autolink.ts:3", { path: "src/autolink.ts", line: 3 }],
+      ["src/index.ts", { path: "src/index.ts" }],
+    ],
+  );
+});
+
+test("Markdown links file paths in prose and exact inline code, never in code blocks or links", () => {
+  const md = [
+    "The report is at `docs/reports/resource-reference-approaches.md`. See src/autolink.ts#L12 too.",
+    "",
+    "`npm test src/index.ts` and [src/index.ts](https://example.com/a) stay.",
+    "",
+    "```",
+    "src/autolink.ts",
+    "```",
+  ].join("\n");
+  const html = renderToStaticMarkup(createElement(Autolinks.Provider, { value: FILES }, createElement(Markdown, { text: md })));
+  const links = [...html.matchAll(/<a ([^>]*)>(.*?)<\/a>/g)].map((m) => [m[2], m[1]]);
+  assert.deepEqual(links, [
+    [
+      "<code>docs/reports/resource-reference-approaches.md</code>",
+      'href="#files:docs/reports/resource-reference-approaches.md" class="file-link" title="Open in Files" data-file-path="docs/reports/resource-reference-approaches.md"',
+    ],
+    ["src/autolink.ts#L12", 'href="#files:src/autolink.ts:12" class="file-link" title="Open in Files" data-file-path="src/autolink.ts" data-file-line="12"'],
+    ["src/index.ts", 'href="https://example.com/a" target="_blank" rel="noopener noreferrer"'],
+  ]);
+  assert.match(html, /<code>npm test src\/index.ts<\/code>/);
+  assert.match(html, /<pre><code>src\/autolink.ts<\/code><\/pre>/);
 });

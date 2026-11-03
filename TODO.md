@@ -5,13 +5,6 @@ mark it done with its commit once merged into `main`.
 
 ## Open
 
-- [ ] **Chat: file paths link to the Files tab.** In an agent's conversation, paths to files in its workspace
-  ("The report is at `docs/reports/resource-reference-approaches.md`.", also in plain text, with `:line` or `#L12`) link
-  themselves and open the file in the Files tab (a kept tab, at the line), as `autolink.ts` links issue keys and PRs. Only
-  paths that exist in the workspace (checked against the Files server's `files/all` list, cached; relative to the workspace,
-  or absolute paths inside it made relative) link; others stay plain. Inline code that is exactly a path links too (keeping
-  its code look); never inside code blocks, URLs or links. ⌘-click / plain click as links do; the link's hover says "Open in
-  Files". Tests: matcher units, e2e on a mocked transcript. Workspace: `chat-autolink-files`.
 - [ ] **Mode bar: Command, Files, GitHub, Conquer, Activity; Settings becomes a gear.** Reorder the macOS app's mode tabs to
   Command, Files, GitHub, Conquer, Activity (those enabled), in the bar, View menu, ⌘1…⌘5 numbering, ⌘` stepping, the palette and
   the shortcuts dialog. Settings leaves the tabs: a gear `BarButton` in the bar's tools beside the usage meters opens it (as
@@ -27,6 +20,15 @@ mark it done with its commit once merged into `main`.
   find), units for link resolution. Workspace: `files-markdown-wrap`.
 
 ## Done
+
+- [x] **Chat: file paths link to the Files tab.** In an agent's conversation (its replies and your messages, not tool
+  output), paths to its workspace's files link themselves ("The report is at `docs/reports/resource-reference-approaches.md`.",
+  `src/a.ts:12`, `:12:3`, `#L12`, `#L12-L20`, absolute paths inside the workspace's folder made relative; inline code that is
+  exactly a path keeps its code look). Only paths in the workspace's `files/all` list link (one list per workspace, shared
+  with the Files page's reads, a Set for lookups); a bare name (`index.ts`) only when one file has it, in prose only with an
+  extension; never in code blocks, links or URLs. A click (title "Open in Files") shows the Files tab with the file as a kept
+  tab, scrolled to the line and marked (`openFilesFile`, `files-open-at`); in a browser it says the tab is the macOS app's.
+  Matcher units and `e2e/autolink-files.e2e.ts`.
 
 - [x] **Activity: notifications marked done come back after a few seconds.** The cause: GitHub's list (`all=true`) keeps
   threads marked done, as read ones, and moves their `updated_at` for activity that doesn't notify you (pushes, checks on a
