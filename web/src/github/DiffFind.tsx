@@ -194,6 +194,7 @@ export function FindBar({
   onOptions,
   onStep,
   onClose,
+  label = "Find in the diff",
 }: {
   input: RefObject<HTMLInputElement | null>;
   query: string;
@@ -207,10 +208,12 @@ export function FindBar({
   onOptions: (o: FindOptions) => void;
   onStep: (by: 1 | -1) => void;
   onClose: () => void;
+  /** Its name and placeholder: what it finds in. */
+  label?: string;
 }) {
   const status = error ?? (!query ? "" : count ? `${at + 1} of ${count}${capped ? "+" : ""}` : "No results");
   return (
-    <div className="gd-find" role="search" aria-label="Find in the diff">
+    <div className="gd-find" role="search" aria-label={label}>
       <label className="gd-find-field">
         <Search size={13} aria-hidden="true" />
         <input
@@ -219,9 +222,9 @@ export function FindBar({
           type="search"
           value={query}
           spellCheck={false}
-          aria-label="Find in the diff"
+          aria-label={label}
           aria-invalid={!!error}
-          placeholder="Find in the diff…"
+          placeholder={`${label}…`}
           onChange={(e) => onQuery(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === "Enter") {

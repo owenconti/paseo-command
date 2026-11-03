@@ -37,7 +37,7 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
     let content: NSView
     /// Covers the window until the map has drawn (see `revealWhenDrawn`).
     let splash: SplashView
-    /// The strip across the top that switches between Command, Conquer, Activity, GitHub and Settings.
+    /// The strip across the top that switches between Command, Conquer, Activity, GitHub, Files and Settings.
     let modeBar: ModeBar
     /// Command: the map, the page over it, the split over that and its splash, under the mode bar.
     let command: NSView
@@ -50,8 +50,8 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
     let scene: AtlasScene
     let options: Options
     /// The page's sides that can show: those whose integration is on (the page says, with
-    /// `integrations`), and Settings.
-    private(set) var enabledModes: Set<Mode> = [.settings] { didSet { if enabledModes != oldValue { onModesChanged?() } } }
+    /// `integrations`), and Files and Settings.
+    private(set) var enabledModes: Set<Mode> = Mode.alwaysShown { didSet { if enabledModes != oldValue { onModesChanged?() } } }
     /// The tabs shown changed (the View menu renumbers its keys).
     var onModesChanged: (() -> Void)?
     /// The tabs shown, in the mode bar's order: ⌘` steps through them, ⌘1…⌘6 pick one.
@@ -222,7 +222,7 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         guard let body = message.body as? [String: Any], let type = body["type"] as? String else { return }
         switch type {
         case "integrations":
-            enabledModes = Set(Mode.tabs.filter { $0.drawnByPage && body[$0.rawValue] as? Bool == true }).union([.settings])
+            enabledModes = Set(Mode.tabs.filter { $0.drawnByPage && body[$0.rawValue] as? Bool == true }).union(Mode.alwaysShown)
             modeBar.enabled = enabledModes
             if mode.drawnByPage && !enabledModes.contains(mode) { show(.command) }
             else if mode != .settings, let saved = UserDefaults.standard.string(forKey: "mode").flatMap(Mode.init(rawValue:)),
@@ -264,7 +264,7 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         let point = CGPoint(x: body["x"] as? Double ?? 0, y: body["y"] as? Double ?? 0)
         switch type {
         case "mode":
-            // The page asks which side shows (it draws GitHub, Activity and Settings itself, over the map).
+            // The page asks which side shows (it draws GitHub, Activity, Files and Settings itself, over the map).
             sendMode()
         case "activity":
             // Activity's unread count, for its tab.
@@ -322,6 +322,7 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
             case "mode-next": show(nextMode)
             case "github": show(.github)
             case "activity": show(.activity)
+            case "files": show(.files)
             case "settings": show(.settings)
             case "settings-close": if mode == .settings { show(beforeSettings) }
             case "command": show(.command)
@@ -810,7 +811,7 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
               "width": button.width, "height": button.height], as: "paseo:bar")
     }
 
-    /// Tell the page which side shows, so it draws GitHub, Activity or Settings in the map's place.
+    /// Tell the page which side shows, so it draws GitHub, Activity, Files or Settings in the map's place.
     /// Asks the page for one of its commands (`web/src/appCommands.ts`), as its palette does.
     func pageCommand(_ name: String) {
         web.evaluateJavaScript("window.dispatchEvent(new CustomEvent('paseo:command', { detail: '\(name)' }))", completionHandler: nil)

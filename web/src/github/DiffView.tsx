@@ -29,7 +29,7 @@ import { clearFindMarks, FIND_CSS, FindBar, revealMatch, useFindPaint } from "./
 import { filterFiles, findInDiff, sameMatch, shownLines, type FindMatch, type FindOptions } from "./diffSearch";
 import { DIFF_THEMES } from "./diffWorkers";
 import type { ReviewDraft } from "./drafts";
-import { anchorKey, byDirectory, lineCount, patchOf, placeThreads, splitPath, type Anchor, type Side } from "./rows";
+import { anchorKey, byDirectory, hashText, lineCount, patchOf, placeThreads, splitPath, type Anchor, type Side } from "./rows";
 import type { DiffFile, DraftComment, ReviewThread } from "./types";
 
 export type DiffLayout = "unified" | "split";
@@ -365,20 +365,6 @@ function FileBody({
   );
 }
 
-/** A short hash of a text (53-bit cyrb53), for cache keys. */
-function hashText(text: string): string {
-  let h1 = 0xdeadbeef;
-  let h2 = 0x41c6ce57;
-  for (let i = 0; i < text.length; i++) {
-    const c = text.charCodeAt(i);
-    h1 = Math.imul(h1 ^ c, 2654435761);
-    h2 = Math.imul(h2 ^ c, 1597334677);
-  }
-  h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
-  h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
-  return (4294967296 * (2097151 & h2) + (h1 >>> 0)).toString(36);
-}
-
 /**
  * The files as last shown while a refresh (the Changes view's every 15 s, a PR's after a write) brings
  * them unchanged: the same objects, and the same list when none changed, so nothing is drawn again.
@@ -402,7 +388,7 @@ function useStableFiles(files: DiffFile[]): DiffFile[] {
 }
 
 /** `text` with the characters at `marks` (counted from `from`) marked: what the file filter matched. */
-function Marked({ text, marks, from = 0 }: { text: string; marks: ReadonlySet<number>; from?: number }) {
+export function Marked({ text, marks, from = 0 }: { text: string; marks: ReadonlySet<number>; from?: number }) {
   if (!marks.size) return <>{text}</>;
   const parts: ReactNode[] = [];
   let run = "";

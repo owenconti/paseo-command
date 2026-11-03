@@ -196,7 +196,7 @@ test("in the macOS app, the terminal's menu commands are listed and reach the ap
     await palette.getByRole("option", { name: label }).waitFor();
   // The mode bar's tabs shown, in its order, with ⌘1…⌘6 by their place (no integrations here).
   await search.fill("next in the map");
-  await palette.getByRole("option", { name: /Next in the map's place: map, browser, Settings/ }).waitFor();
+  await palette.getByRole("option", { name: /Next in the map's place: map, browser, Files, Settings/ }).waitFor();
   await search.fill("show the browser");
   const browserTab = palette.getByRole("option", { name: /Show the browser \(Conquer\)/ });
   assert.match(await browserTab.locator(".palette-keys").innerText(), /⌘\s*2/);

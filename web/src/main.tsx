@@ -59,7 +59,7 @@ import { CommandPalette } from "./CommandPalette";
 import { PresetsEditorHost } from "./PresetsEditor";
 import { ProfilesEditorHost } from "./ProfilesEditor";
 import { openProfileEditor } from "./profilesStore";
-import { isBranchChangesShortcut, onAppCommand, runAppCommand, type AppCommand } from "./appCommands";
+import { isBranchChangesShortcut, isFilesShortcut, onAppCommand, runAppCommand, type AppCommand } from "./appCommands";
 import type { Command, Page } from "./palette";
 import {
   linearKey,
@@ -73,6 +73,7 @@ import { NewAgent, type DispatchTarget } from "./Dispatch";
 import { appTabs, modeKey, shownModes, useAppMode, type AppMode } from "./appMode";
 import type { ActivityViewState } from "./activity/ActivityView";
 import type { GithubViewState, GithubWorkspace } from "./github/GitHubView";
+import type { FilesViewState } from "./files/FilesView";
 import { pendingLabel } from "./github/localComments";
 import { useLocalComments } from "./github/localCommentsStore";
 import { openGithubPlace, prPlaceOf } from "./github/place";
@@ -108,6 +109,7 @@ import {
   api,
   errorMessage,
   readStore,
+  writeStore,
   retainRows,
   retainSnapshot,
 } from "./api";
@@ -156,6 +158,7 @@ const MODE_PAGES: Record<AppMode, Page> = {
   conquer: "Conquer",
   activity: "Activity",
   github: "GitHub",
+  files: "Files",
   settings: "Settings",
 };
 // The map surface (drawn by the macOS app) beside the inherited docked session layout.
@@ -171,6 +174,10 @@ const ActivityView = React.lazy(() =>
 // The GitHub tab (pull requests to review, the selected workspace's changes), likewise.
 const GitHubView = React.lazy(() =>
   import("./github/GitHubView").then((module) => ({ default: module.GitHubView })),
+);
+// The Files tab (the selected workspace's files, read only), likewise.
+const FilesView = React.lazy(() =>
+  import("./files/FilesView").then((module) => ({ default: module.FilesView })),
 );
 
 /** Keeps the mode bar's Activity tab showing the feed's unread count (macOS app only). */
@@ -950,9 +957,28 @@ function App() {
       offCommand();
     };
   }, []);
-  // GitHub, Activity and Settings share one text size (⌘+ ⌘− ⌘0, `pageText.ts`).
+  // The Files tab's state, for ⌘K's entries for it; it shows the same workspace as the GitHub tab's changes.
+  const [filesView, setFilesView] = useState<FilesViewState | undefined>();
+  // A changed file's changes in the GitHub tab's Changes (all of them, so it's there).
+  const showFileChanges = useCallback((path: string) => {
+    writeStore("github:changesMode", "all");
+    openGithubPlace({ kind: "changes", path });
+    postAppMenu("github");
+  }, []);
+  // ⇧⌘E: the macOS app's View → Show Files shows the tab; in a browser, the page says it's the app's.
+  useEffect(() => {
+    const key = (e: KeyboardEvent) => {
+      if (macApp() || !isFilesShortcut(e) || e.defaultPrevented) return;
+      e.preventDefault();
+      setNotice("The Files tab is in the macOS app.");
+    };
+    window.addEventListener("keydown", key);
+    return () => window.removeEventListener("keydown", key);
+  }, []);
+  // GitHub, Activity, Files and Settings share one text size (⌘+ ⌘− ⌘0, `pageText.ts`).
   const pageShown =
     settingsShown ||
+    appMode === "files" ||
     (appMode === "github" && integrations.github) ||
     (appMode === "activity" && showActivity);
   usePageTextKeys(pageShown);
@@ -1349,10 +1375,11 @@ function App() {
     conquer: "browser",
     activity: "Activity",
     github: "GitHub",
+    files: "Files",
     settings: "Settings",
   };
   const modeTabs = shownModes(integrations).map((mode) => [mode, modeNames[mode]] as const);
-  // A tab's ⌘1…⌘5, in the macOS app.
+  // A tab's ⌘1…⌘6, in the macOS app.
   const tabKeys = (mode: AppMode) => (macApp() ? [modeKey(integrations, mode)] : undefined);
   const paletteCommands: Command[] = [
     {
@@ -1973,6 +2000,47 @@ function App() {
           ];
         })()
       : []),
+    ...(appMode !== "files"
+      ? [
+          {
+            id: "files-show",
+            group: "App",
+            page: "Files" as const,
+            label: githubWorkspace ? `Show files (${githubWorkspace.name})` : "Show files",
+            keys: [["⇧", "⌘", "E"], ...(tabKeys("files") ?? [])],
+            keywords: "files explorer tree browse source code open read workspace folder mode tab",
+            run: () => postAppMenu("files"),
+          },
+        ]
+      : []),
+    ...(appMode === "files" && filesView
+      ? (() => {
+          const v = filesView;
+          const command = (id: AppCommand, label: string, keywords: string, keys?: string[], group = "App") => ({
+            id,
+            group,
+            page: "Files" as const,
+            label,
+            ...(keys ? { keys: [keys] } : {}),
+            keywords: `files ${keywords}`,
+            run: () => runAppCommand(id),
+          });
+          return v.workspace
+            ? [
+                command("files-quick-open", "Go to file…", "open quick find name path fuzzy go to file", ["⌘", "P"], "Navigate"),
+                command("files-filter", "Filter the files", "tree filter search find path name", ["T"]),
+                command("files-ignored", v.showIgnored ? "Hide ignored files" : "Show ignored files", "gitignore ignored hidden .git node_modules build toggle"),
+                command("files-sidebar", "Show or hide the Files sidebar", "sidebar tree collapse panel", ["⌘", "S"]),
+                command("files-refresh", "Refresh the files", "reload update sync tree"),
+                ...(v.file ? [command("files-copy-path", "Copy the file’s path", "copy path clipboard name")] : []),
+                ...(v.text ? [command("files-find", "Find in the file", "search find text content lines match", ["⌘", "F"])] : []),
+                ...(v.file && v.change && v.change !== "deleted" && integrations.github
+                  ? [command("files-show-changes", "Show the file’s changes", "diff changes branch github compare modified")]
+                  : []),
+              ]
+            : [];
+        })()
+      : []),
     ...(showActivity && appMode !== "activity"
       ? [
           {
@@ -2342,6 +2410,11 @@ function App() {
             {integrations.github && appMode === "github" && (
               <React.Suspense fallback={null}>
                 <GitHubView workspace={githubWorkspace} onNotice={setNotice} onViewState={setGithubView} paseoFor={paseoFor} onOpenPaseo={openPaseo} />
+              </React.Suspense>
+            )}
+            {appMode === "files" && (
+              <React.Suspense fallback={null}>
+                <FilesView workspace={githubWorkspace} onNotice={setNotice} onViewState={setFilesView} {...(integrations.github ? { onShowChanges: showFileChanges } : {})} />
               </React.Suspense>
             )}
             {showActivity && macApp() && <ActivityBadge />}

@@ -1,16 +1,21 @@
 // ⇧⌘G: View → Show Branch Changes from anywhere, but Conquer's Find Previous while it has the keyboard.
+// ⇧⌘E: View → Show Files from anywhere. The Files tab after GitHub, always shown.
 _ = NSApplication.shared
 enum Log { static func line(_ message: String) {} }
 // The app's menus while Conquer hasn't the keyboard (its own commands are disabled then).
 final class Menus: NSObject, NSMenuItemValidation {
     var ran: [String] = []
     @objc func branchChanges() { ran.append("branchChanges") }
+    @objc func showFiles() { ran.append("showFiles") }
     @objc func conquerCommand(_ sender: NSMenuItem) { ran.append(sender.representedObject as! String) }
-    func validateMenuItem(_ item: NSMenuItem) -> Bool { item.action == #selector(branchChanges) }
+    func validateMenuItem(_ item: NSMenuItem) -> Bool { item.action == #selector(branchChanges) || item.action == #selector(showFiles) }
 }
 let menus = Menus()
 let bar = NSMenu()
-for (title, fill) in [("View", { (m: NSMenu) in AppKeys.addBranchChanges(to: m, target: menus, action: #selector(Menus.branchChanges)) }),
+for (title, fill) in [("View", { (m: NSMenu) in
+                          AppKeys.addBranchChanges(to: m, target: menus, action: #selector(Menus.branchChanges))
+                          AppKeys.addShowFiles(to: m, target: menus, action: #selector(Menus.showFiles))
+                      }),
                       ("Conquer", { (m: NSMenu) in AppKeys.addConquerCommands(to: m, target: menus, action: #selector(Menus.conquerCommand(_:))) })] {
     let item = NSMenuItem(title: title, action: nil, keyEquivalent: "")
     let menu = NSMenu(title: title)
@@ -47,4 +52,22 @@ assert(AppKeys.offeredToMenu(key("3", .command), conquerHasKeys: true))
 assert(ConquerView.command(for: shiftG.charactersIgnoringModifiers!, shiftG.modifierFlags) == "findPrevious")
 assert(ConquerView.command(for: "G", [.command, .shift]) == "findPrevious")
 assert(ConquerView.command(for: "g", .command) == "findNext")
+
+// ⇧⌘E: Show Files, offered to the menu ahead of the views, Conquer with the keyboard or not (Conquer has no ⇧⌘E).
+let files = view.item(withTitle: "Show Files")!
+assert(files.keyEquivalent == "e" && files.keyEquivalentModifierMask == [.command, .shift])
+assert(!ConquerView.commands.compactMap { $0 }.contains { $0.key.lowercased() == "e" && $0.mods == [.command, .shift] })
+let shiftE = key("E", [.command, .shift])
+assert(AppKeys.offeredToMenu(shiftE, conquerHasKeys: false))
+assert(AppKeys.offeredToMenu(shiftE, conquerHasKeys: true))
+assert(!AppKeys.offeredToMenu(key("e", .command), conquerHasKeys: false), "⌘E stays Conquer's next tab")
+assert(!AppKeys.offeredToMenu(key("E", [.command, .shift, .control]), conquerHasKeys: false))
+menus.ran = []
+assert(bar.performKeyEquivalent(with: shiftE))
+assert(menus.ran == ["showFiles"], "\(menus.ran)")
+// The Files tab: after GitHub, before Settings; drawn by the page; shown whatever the integrations (⌘6 with them all).
+assert(Mode.tabs == [.command, .conquer, .activity, .github, .files, .settings])
+assert(Mode.files.drawnByPage && Mode.alwaysShown == [.files, .settings])
+assert(Mode.files.title == "Files" && Mode.files.keys(at: 4) == "⌘5, ⇧⌘E or ⌘`")
+assert(AppKeys.offeredToMenu(key("6", .command), conquerHasKeys: true))
 print("App key checks passed.")

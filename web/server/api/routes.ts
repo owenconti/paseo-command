@@ -21,6 +21,7 @@ import { linearRoute } from "../linear/route";
 import { activityRoute } from "../activity/route";
 import { githubRoute } from "../github/route";
 import { changesFor } from "./changes";
+import { filesAll, filesChanged, filesRead, filesTree } from "./files";
 import {
   concludeFork,
   createFork,
@@ -309,6 +310,10 @@ export async function handleApi(
         (parts[1] === "commands" || parts[1] === "files" || parts[1] === "prs")
       ) {
         result = await draftGet(parts[1], url);
+      } else if (parts[0] === "files" && parts.length === 2 && ["tree", "read", "all", "changed"].includes(parts[1])) {
+        // The Files page: a workspace's folders and files, read through its host's daemon.
+        const read = { tree: filesTree, read: filesRead, all: filesAll, changed: filesChanged }[parts[1] as "tree" | "read" | "all" | "changed"];
+        result = await read(url.searchParams);
       } else if (parts[0] === "attachments" && parts[1] === "image") {
         // Prompt attachments and images observed in local agent transcripts.
         // Validated and read through one descriptor (server/attachment.ts).

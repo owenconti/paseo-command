@@ -11,9 +11,10 @@ export const PR_TABS: PrTab[] = ["conversation", "files", "commits", "checks"];
  * Where the user is in the GitHub tab: the selected workspace's changes, a
  * list of pull requests, a repository's pull requests (its filters kept for
  * it, `readRepoFilters`), or one pull request (on one of its tabs, perhaps at a file).
+ * The changes' `path` is a file to scroll to once they show (the Files page's Show changes).
  */
 export type GithubPlace =
-  | { kind: "changes" }
+  | { kind: "changes"; path?: string }
   | { kind: "prs"; scope: PrScope }
   | { kind: "repo"; repo: string }
   | { kind: "pr"; repo: string; number: number; tab: PrTab; path?: string };
@@ -25,7 +26,7 @@ export const DEFAULT_PLACE: GithubPlace = { kind: "prs", scope: "review" };
 export function checkPlace(raw: unknown): GithubPlace {
   if (!raw || typeof raw !== "object") return DEFAULT_PLACE;
   const p = raw as Record<string, unknown>;
-  if (p.kind === "changes") return { kind: "changes" };
+  if (p.kind === "changes") return typeof p.path === "string" && p.path && p.path.length <= 1000 ? { kind: "changes", path: p.path } : { kind: "changes" };
   if (p.kind === "prs" && PR_SCOPES.includes(p.scope as PrScope)) return { kind: "prs", scope: p.scope as PrScope };
   if (p.kind === "repo" && typeof p.repo === "string" && REPO.test(p.repo) && !p.repo.includes("..")) return { kind: "repo", repo: p.repo };
   if (

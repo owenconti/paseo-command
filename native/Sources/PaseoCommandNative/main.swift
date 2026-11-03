@@ -156,6 +156,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         }
         listen("com.paseo.command.native.github") { [weak self] in self?.main?.show(.github) }
         listen("com.paseo.command.native.activity") { [weak self] in self?.main?.show(.activity) }
+        listen("com.paseo.command.native.files") { [weak self] in self?.main?.show(.files) }
         // Run `<info>.do`'s Conquer steps, one a line, a second apart (checks; see `ConquerView.check`).
         listen("com.paseo.command.native.conquer") { [weak self] in
             guard let self, let info = self.options.info,
@@ -325,7 +326,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         // ⇧⌘G: the selected workspace's branch changes in the GitHub tab (the page's GitHub
         // place), from anywhere but Conquer while it has the keyboard (its Find Previous).
         AppKeys.addBranchChanges(to: view, target: self, action: #selector(showBranchChanges))
-        // ⌘` steps Command → Conquer → Activity → GitHub → Settings → Command, through those shown
+        // ⇧⌘E: the Files tab (the selected workspace's files), from anywhere.
+        AppKeys.addShowFiles(to: view, target: self, action: #selector(showFiles))
+        // ⌘` steps Command → Conquer → Activity → GitHub → Files → Settings → Command, through those shown
         // (ahead of macOS's own window cycling, as the app has one window).
         view.addItem(withTitle: "Next: Command, Conquer", action: #selector(toggleMode), keyEquivalent: "`").target = self
         view.addItem(.separator())
@@ -379,6 +382,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     }
     @objc private func showSettings() { main?.toggleSettings() }
     @objc private func showBranchChanges() { main?.pageCommand("github-branch-changes") }
+    @objc private func showFiles() { main?.show(.files) }
     @objc private func showMode(_ sender: NSMenuItem) {
         if let mode = (sender.representedObject as? String).flatMap(Mode.init(rawValue:)) { main?.show(mode) }
     }
@@ -409,9 +413,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
             item.state = main.drawer.maximized ? .on : .off
             return !main.drawer.isHidden
         // Only while the terminal shows, so the keys stay the page's otherwise; while a page
-        // (GitHub, Activity, Settings) shows, only while the terminal has the keyboard (the page sizes their text with them).
+        // (GitHub, Activity, Files, Settings) shows, only while the terminal has the keyboard (the page sizes their text with them).
         case #selector(zoomTerminal(_:)):
-            // The pages (GitHub, Activity, Settings) size their own text with these keys.
+            // The pages (GitHub, Activity, Files, Settings) size their own text with these keys.
             return !main.drawer.isHidden && (!main.mode.drawnByPage || main.drawer.hasKeyFocus)
         default: break
         }

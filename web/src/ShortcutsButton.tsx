@@ -64,6 +64,7 @@ const TAB_NAMES: Record<AppMode, string> = {
   conquer: "the browser (Conquer)",
   activity: "Activity",
   github: "GitHub",
+  files: "Files",
   settings: "Settings",
 };
 const NATIVE: Group = {
@@ -72,16 +73,17 @@ const NATIVE: Group = {
     { keys: [["⌃", "`"]], label: "Show or hide the terminal" },
     {
       keys: [["⌘", "`"]],
-      label: "Next in the map's place: the map, the browser (Conquer), Activity, GitHub, Settings",
+      label: "Next in the map's place: the map, the browser (Conquer), Activity, GitHub, Files, Settings",
     },
-    { keys: [["⌘", "1…5"]], label: "The mode bar's tab in that place: the map, the browser (Conquer), Settings" },
+    { keys: [["⌘", "1…6"]], label: "The mode bar's tab in that place: the map, the browser (Conquer), Files, Settings" },
+    { keys: [["⇧", "⌘", "E"]], label: "From anywhere: the selected workspace's (or agent's) files" },
     { keys: [["⌘", ","]], label: "Settings, or back from it" },
   ],
 };
-/** What every page (GitHub, Activity, Settings) takes, while it shows (`pageText.ts`). */
+/** What every page (GitHub, Activity, Files, Settings) takes, while it shows (`pageText.ts`). */
 const PAGES: Group = {
   title: "Pages",
-  note: "In GitHub, Activity and Settings",
+  note: "In GitHub, Activity, Files and Settings",
   rows: [
     { keys: [["⌘", "+"], ["⌘", "−"]], label: "Bigger or smaller text (one size for every page)" },
     { keys: [["⌘", "0"]], label: "Actual text size" },
@@ -127,6 +129,20 @@ const GITHUB: Group = {
       keys: [["⇧", "⌘", "G"]],
       label: "From anywhere: the selected workspace's (or agent's) branch changes (Conquer keeps it for find previous while it has the keyboard)",
     },
+  ],
+};
+/** The Files page's keys (`files/FilesView.tsx`), while it shows. */
+const FILES: Group = {
+  title: "Files",
+  note: "In the Files tab",
+  rows: [
+    { keys: [["⌘", "P"]], label: "Open a file by name (fuzzy over every path; ↑/↓ pick, Enter opens)" },
+    { keys: [["T"]], label: "Filter the tree by path (↑/↓ pick, Enter opens, Esc clears)" },
+    { keys: [["↓"], ["↑"]], label: "In the tree: the next or previous file or folder" },
+    { keys: [["→"], ["←"]], label: "In the tree: open or close a folder (or go into it, or up to its parent)" },
+    { keys: [["Enter"]], label: "In the tree: open the file, or open or close the folder" },
+    { keys: [["⌘", "F"]], label: "Find in the file (Enter next, ⇧Enter previous, Esc closes)" },
+    { keys: [["⌘", "S"]], label: "Show or hide the sidebar" },
   ],
 };
 /** Conquer's own keys (the macOS app's browser), which it takes ahead of its pages
@@ -257,7 +273,7 @@ function ShortcutsDialog({ onClose }: { onClose: () => void }) {
     return () => window.removeEventListener("keydown", key, true);
   }, [present, onClose]);
   const { integrations } = useIntegrations();
-  // The mode bar's tabs shown, in its order (⌘` steps through them, ⌘1…⌘5 pick one).
+  // The mode bar's tabs shown, in its order (⌘` steps through them, ⌘1…⌘6 pick one).
   const tabNames = shownModes(integrations).map((mode) => TAB_NAMES[mode]);
   const groups = (
     macApp()
@@ -267,6 +283,7 @@ function ShortcutsDialog({ onClose }: { onClose: () => void }) {
           PAGES,
           ...(activityEnabled(integrations) ? [ACTIVITY] : []),
           ...(integrations.github ? [GITHUB] : []),
+          FILES,
           CONQUER,
         ]
       : GROUPS

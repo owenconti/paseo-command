@@ -85,6 +85,40 @@ class FakeSubscription {
   }
 }
 
+/** A relative path as the daemon's explorer resolves it: refused when it leaves the workspace. */
+function fakeScoped(path: string): string {
+  const parts: string[] = [];
+  for (const part of path.split("/")) {
+    if (!part || part === ".") continue;
+    if (part === "..") {
+      if (!parts.length) throw new Error("Access outside of workspace is not allowed");
+      parts.pop();
+    } else parts.push(part);
+  }
+  return parts.join("/");
+}
+
+/** A directory of a fake workspace tree, as `listDirectory` answers (unsorted, as the daemon's is by time). */
+function fakeTreeList(tree: Map<string, string | Uint8Array | "dir" | "outside">, path: string) {
+  const dir = fakeScoped(path);
+  const prefix = dir ? `${dir}/` : "";
+  if (dir && tree.get(dir) !== "dir" && ![...tree.keys()].some((k) => k.startsWith(prefix))) {
+    throw new Error(tree.has(dir) ? "Requested path is not a directory" : `ENOENT: no such file or directory, stat '${dir}'`);
+  }
+  const entries = new Map<string, { name: string; path: string; kind: string; size: number; modifiedAt: string }>();
+  for (const [key, value] of tree) {
+    if (!key.startsWith(prefix) || key === dir) continue;
+    const rest = key.slice(prefix.length);
+    const name = rest.split("/")[0]!;
+    // A symlink out of the workspace is left out, as the daemon leaves it.
+    if (value === "outside" && !rest.includes("/")) continue;
+    const isDir = rest.includes("/") || value === "dir";
+    const size = isDir ? 0 : typeof value === "string" ? new TextEncoder().encode(value).byteLength : (value as Uint8Array).byteLength;
+    entries.set(name, { name, path: `${prefix}${name}`, kind: isDir ? "directory" : "file", size, modifiedAt: iso() });
+  }
+  return { path: dir || ".", entries: [...entries.values()].reverse() };
+}
+
 export class FakeDaemon {
   agents = new Map<string, Agent>();
   workspaces = new Map<string, Workspace>();
@@ -99,6 +133,12 @@ export class FakeDaemon {
    * `diffs` by compare mode; a checkout not set here isn't a git repository.
    */
   checkouts = new Map<string, { diffs: Partial<Record<string, any[]>>; status: Record<string, unknown>; tooLarge?: boolean }>();
+  /**
+   * Workspaces' files for the daemon's file explorer (`listDirectory`, `readFile` with a relative
+   * path), by cwd: each path from the root (`a/b.ts`) and its text or bytes (directories implied, or
+   * `"dir"` for an empty one; `"outside"` a symlink that resolves out of the workspace).
+   */
+  trees = new Map<string, Map<string, string | Uint8Array | "dir" | "outside">>();
   /** Terminals: what each has printed, the input it was sent, and who watches. */
   terminals = new Map<
     string,
@@ -1403,9 +1443,11 @@ export class FakeClient {
     }
     return { entries: [{ path: "src/a.ts", kind: "file" }] };
   }
-  /** As the daemon's file explorer: `path` (absolute here) under `cwd`. */
+  /** As the daemon's file explorer: `path` (absolute here) under `cwd`, or relative in a workspace's tree. */
   async listDirectory(cwd: string, path: string) {
     await this.gate("listDirectory", cwd, path);
+    const tree = this.daemon.trees.get(cwd);
+    if (tree && !path.startsWith("/")) return fakeTreeList(tree, path);
     const dir = path.startsWith("/") ? path : `${cwd}/${path}`;
     if (!this.daemon.folders.has(dir))
       throw new Error(`ENOENT: no such file or directory, stat '${dir}'`);
@@ -1428,6 +1470,20 @@ export class FakeClient {
           { name: "notes.txt", path: `${prefix.slice(1)}notes.txt`, kind: "file", size: 1, modifiedAt: iso() },
         ]),
     };
+  }
+  /** As the daemon's file explorer reads a file (the SDK's `FileReadResult`). */
+  async readFile(cwd: string, path: string, _requestId?: string, maxBytes?: number) {
+    await this.gate("readFile", cwd, path, maxBytes);
+    const tree = this.daemon.trees.get(cwd);
+    const rel = fakeScoped(path);
+    const value = tree?.get(rel);
+    if (value === "outside") throw new Error("Access outside of workspace is not allowed");
+    if (value === undefined || value === "dir") throw new Error(`ENOENT: no such file or directory, open '${cwd}/${rel}'`);
+    const bytes = typeof value === "string" ? new TextEncoder().encode(value) : value;
+    if (maxBytes && bytes.byteLength > maxBytes) throw new Error("File is too large to display");
+    const image = /\.(png|jpe?g|gif|webp|svg)$/i.test(rel);
+    const binary = !image && (typeof value !== "string" || bytes.includes(0));
+    return { bytes, mime: image ? "image/png" : binary ? "application/octet-stream" : "text/plain", size: bytes.byteLength, path: rel, kind: image ? "image" : binary ? "binary" : "text", modifiedAt: iso() };
   }
   async searchGitHub(o: any) {
     await this.gate("searchGitHub", o);

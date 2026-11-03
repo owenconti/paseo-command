@@ -4,10 +4,11 @@ import WebKit
 
 /// What stands in the map's place: the map (Command), the Conquer browser,
 /// or what the page draws itself: Activity (GitHub and Linear notifications together),
-/// GitHub (pull requests and your workspaces' changes) and Settings. (The Linear tab was
+/// GitHub (pull requests and your workspaces' changes), Files (a workspace's files, read only)
+/// and Settings. (The Linear tab was
 /// removed at the user's request: a saved `linear` mode is no mode, so the map shows.)
 enum Mode: String, CaseIterable {
-    case command, conquer, activity, github, settings
+    case command, conquer, activity, github, files, settings
 
     var title: String {
         switch self {
@@ -15,6 +16,7 @@ enum Mode: String, CaseIterable {
         case .conquer: "Conquer"
         case .github: "GitHub"
         case .activity: "Activity"
+        case .files: "Files"
         case .settings: "Settings"
         }
     }
@@ -24,13 +26,16 @@ enum Mode: String, CaseIterable {
         case .conquer: "globe"
         case .github: "arrow.triangle.pull"
         case .activity: "bell"
+        case .files: "folder"
         case .settings: "gearshape"
         }
     }
     /// The page draws it over the map (the mode bar shows GitHub's and Activity's
-    /// tabs only while their integration is on; Settings' always).
-    var drawnByPage: Bool { self == .github || self == .activity || self == .settings }
-    /// The tabs, in the bar's order (⌘1…⌘5 count those shown).
+    /// tabs only while their integration is on; Files' and Settings' always).
+    var drawnByPage: Bool { self == .github || self == .activity || self == .files || self == .settings }
+    /// The page's tabs that always show (no integration of their own).
+    static let alwaysShown: Set<Mode> = [.files, .settings]
+    /// The tabs, in the bar's order (⌘1…⌘6 count those shown).
     static let tabs = allCases
     /// What it shows; the bar's tooltip adds its keys (`keys(at:)`).
     var tip: String {
@@ -39,13 +44,18 @@ enum Mode: String, CaseIterable {
         case .conquer: "The browser, in the map's place"
         case .github: "Pull requests and your workspaces' changes, in the map's place"
         case .activity: "GitHub and Linear notifications together, in the map's place"
+        case .files: "The selected workspace's files, in the map's place"
         case .settings: "Settings: sounds, notifications, integrations, New agent, in the map's place"
         }
     }
-    /// Its keys, as the `index`th tab shown (from 0): ⌘1…⌘5, and ⌘` steps (Settings' ⌘, too).
+    /// Its keys, as the `index`th tab shown (from 0): ⌘1…⌘6, and ⌘` steps (Settings' ⌘, too, Files' ⇧⌘E).
     func keys(at index: Int?) -> String {
         let number = index.map { "⌘\($0 + 1), " } ?? ""
-        return self == .settings ? "\(number)⌘, or ⌘`" : "\(number)⌘`"
+        switch self {
+        case .settings: return "\(number)⌘, or ⌘`"
+        case .files: return "\(number)⇧⌘E or ⌘`"
+        default: return "\(number)⌘`"
+        }
     }
 }
 
@@ -180,7 +190,7 @@ final class UsageMeters: NSButton {
 
 /// The strip across the top of the window: the traffic lights, the product's name, the tabs that
 /// switch the map's place between the map (Command), the browser (Conquer),
-/// Activity, GitHub and Settings (⌘` steps through them, ⌘1…⌘5
+/// Activity, GitHub, Files and Settings (⌘` steps through them, ⌘1…⌘6
 /// pick the one in that place), "Update ready" when a newer build
 /// is in, and the app's tools at the right: who needs you, usage, What's new, mini games,
 /// keyboard shortcuts and the session panel's side, layout and visibility. All of it is native;

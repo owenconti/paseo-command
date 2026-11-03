@@ -46,7 +46,7 @@ The Atlas uses generated painted sprites; it is not yet finished reference-quali
 The command palette (⌘K, `web/src/CommandPalette.tsx`) lists what the app can do. Its entries are
 `paletteCommands` in `web/src/main.tsx` (the open agent's own in `agentCommands`), ranked by `web/src/palette.ts`.
 Every entry has a `page`, the part of Paseo Command it belongs to (`PAGES`): Command (the map, agents, workspaces,
-projects, hosts, dispatch), Conquer, Activity, GitHub, Settings (its toggles and editors too), Terminal,
+projects, hosts, dispatch), Conquer, Activity, GitHub, Files, Settings (its toggles and editors too), Terminal,
 else App (the window, updates, text size, ⌘` stepping, what's new, games). A "Show …" entry for a tab names that tab's page.
 The palette shows it on the row's right before any keys; found things add their `kind` ("Command · Agent"). Among equal
 matches the page on screen (`shown`) ranks first. Write it `page: "GitHub" as const` (spreads widen strings).
@@ -242,9 +242,9 @@ and GitHub publication; report the published version and release link.
   While it's on, a teal seal with a merge mark sits on the review medallion's upper-right rim, else the CI one's (`placeSeals`,
   `paintSeal`, `AUTO_MERGE` in `rendering/src/prStatus.ts`); the medallion's hover card says how it merges and who turned it on.
 - Top bar: native, all of it, in the macOS app (`ModeBar` in `Conquer.swift`, its height an empty unified-compact toolbar's, which centres the traffic
-  lights): the traffic lights, "PASEO COMMAND" (the bundled Barlow), the mode tabs (Command, Conquer, Activity, GitHub, Settings, those enabled;
-  ⌘1…⌘5 pick the one in that place among those shown, from anywhere in the window: `AppWindow.performKeyEquivalent` offers them to the View menu,
-  whose items `numberModes` keys, ahead of the page, the terminal and Conquer's pages, as ⇧⌘G Show Branch Changes is, `AppKeys.swift`), Update ready, and the tools: need you, usage meters,
+  lights): the traffic lights, "PASEO COMMAND" (the bundled Barlow), the mode tabs (Command, Conquer, Activity, GitHub, Files, Settings, those enabled;
+  ⌘1…⌘6 pick the one in that place among those shown, from anywhere in the window: `AppWindow.performKeyEquivalent` offers them to the View menu,
+  whose items `numberModes` keys, ahead of the page, the terminal and Conquer's pages, as ⇧⌘G Show Branch Changes and ⇧⌘E Show Files are, `AppKeys.swift`), Update ready, and the tools: need you, usage meters,
   What's new, mini games, keyboard shortcuts and the session panel's side, layout and show/hide (`BarButton`, `UsageMeters`). The page lies below the bar
   (`--app-bar` 0) and draws no bar of its own there (`.app-bar-hosted` in `FloatingPanel.tsx` keeps what the tools open). The page says what the tools show
   (`postAppBarState` → `barState`: attention, usage meters, What's new unseen, the radio connecting, panel side, layout and visibility), and a tool's click
@@ -254,7 +254,7 @@ and GitHub publication; report the published version and release link.
   below the bar, its page side passing events through (`PassThroughView`): a view after the web view in its own parent stays off screen until the web view is
   hidden and shown again. Check such layout with `.windowshot` (the screen's pixels), not `.snapshot`. Bar controls must be `NSButton`s: the title bar's
   toolbar passes clicks through only to controls. The panel has no header of its own and, hidden (⌘B), takes no width.
-- Conquer (experiment): the COMMAND / CONQUER strip across the macOS app's top (⌘` steps Command → Conquer → Activity → GitHub → Settings, those enabled, and ⌘1…⌘5 pick one; View menu; the tabs light on hover)
+- Conquer (experiment): the COMMAND / CONQUER strip across the macOS app's top (⌘` steps Command → Conquer → Activity → GitHub → Files → Settings, those enabled, and ⌘1…⌘6 pick one; View menu; the tabs light on hover)
   switches the map's place between the map and Conquer, a WebKit browser (`native/Sources/PaseoCommandNative/Conquer.swift`),
   laid exactly over the map (`placeConquer` in `WorldWindow.swift`): the panels and terminal stay, and ⌘B (the page's panel toggle)
   gives it the window's width. The hidden side keeps running. Conquer takes its keys only while it has the keyboard (`hasKeyFocus`),
@@ -278,7 +278,7 @@ and GitHub publication; report the published version and release link.
   credential providers such as 1Password's) isn't available for arbitrary sites in a third-party app's WKWebView: Password AutoFill offers
   credentials only for an app's own associated domains, and the browser entitlement (`com.apple.developer.web-browser.public-key-credential`,
   granted by Apple) covers passkeys only. So there's no Conquer menu or ⌘K entry for it.
-- Pages: GitHub, Activity and Settings, which the page draws in the map's place, share one look (`web/src/styles/pages.css`): one type scale (the
+- Pages: GitHub, Activity, Files and Settings, which the page draws in the map's place, share one look (`web/src/styles/pages.css`): one type scale (the
   app's sizes plus `--page-text`, 2 px by default), one width scale (`--lz`, from `--page-scale`, for columns, rows, controls and icons) and, in dark, one
   neutral near-black palette; each is a sidebar headed by its name beside its content, the same rows and heads. A content head is a
   `.page-head` (`pages.css`) and never overlaps: its title (`.page-crumb` parts, then `.page-head-name`, then `.page-head-count`)
@@ -453,6 +453,30 @@ and GitHub publication; report the published version and release link.
   /api/github/q/viewer|prs|repos|repoSearch|people|teams|pr|diff`, cached 15 s, `fresh=1` past it; `GithubUnavailable` when off, without a token, refused or rate limited) and
   whitelisted writes (`writes.ts`, `POST /api/github/m/comment|review|reply|resolve|viewed|reviewers|assignees|merge|autoMerge|queue|ready|updateBranch|state|deleteBranch|star`, each field checked), over `client.ts`. Tests never reach GitHub: `fake.ts` under server tests (`test-setup.ts` makes `GITHUB_API.fetch` refuse
   otherwise) and `web/e2e/github.e2e.ts` in the browser.
+- Files (the mode bar's tab after GitHub, always shown; View menu, its item and View → Show Files ⇧⌘E offered the menu from anywhere by
+  `AppKeys.offeredToMenu`, Conquer having no ⇧⌘E; ⌘K "Show files"; in a browser ⇧⌘E only says the tab is the macOS app's): the selected workspace's
+  (or the selected agent's) files, read only, drawn by the page (`web/src/files/FilesView.tsx`, `files.css`, borrowing `github.css`'s sidebar, heads,
+  empty states and the diff's find strip and scroller) while the app reports `paseo:mode` `files`. The sidebar is the tree (`tree.ts`, pure: `treeRows`
+  over each open folder's listing, read as it opens; `filterRows`; `rankPaths`): directories first, by name; `.gitignore`d entries and `.git` hidden
+  until its eye button (or ⌘K) shows them dimmed (`files:showIgnored`); changed files dotted (and their folders). "Filter files…" (T, ⌘K) is fuzzy
+  (`fuzzyPath`, as the diff's file filter) over every path, the tree narrowed to what fits with its folders, names marked, "N of M"; ↑/↓ pick, Enter
+  opens, Esc clears. In the tree ↑/↓ (J/K), →/← open, close or go in or up, Enter opens; hovering (or the keyboard reaching) a file reads it ahead.
+  ⌘P (the page takes it while Files shows; ⌘K "Go to file…") quick-opens any file by name, the recently opened first while nothing's typed. Its inner
+  edge resizes the sidebar (`files:sidebarWidth`) and ⌘S hides it (`files:sidebarHidden`). Each workspace keeps its open folders, file and recent
+  files (`files:workspaces`, 40 workspaces). The file shows in @pierre/diffs's `File` (its single-file renderer) under its `Virtualizer` (only the
+  lines in view drawn), highlighted in the diffs' worker pool (`DiffWorkers`) in their themes, with line numbers; ⌘F (`files-find`) finds in it with
+  the diff's `FindBar`, marks and `revealMatch` (`findInText` in `diffSearch.ts`: a file's lines are keyed `R<n>` as `File` draws them). Its head
+  (`.page-head`, `.page-btn`): the path, size and lines, Changed's badge, Show changes (a changed file, while GitHub is on: the GitHub tab's Changes,
+  all changes, scrolled to the file; `{ kind: "changes", path }` in `place.ts`), Copy path, Find, Reload. Binary files, images and files over 1 MB
+  (`FILE_LIMITS`) are refused politely; Markdown shows as code. Asked again every 15 s while shown. The page's reads (`web/src/files/api.ts`, a store
+  by path) come from `web/server/api/files.ts`, through the workspace's host's daemon (its file explorer: `listDirectory`, `readFile`, so remote
+  hosts work; `getCheckoutDiff` for the changed files): `GET /api/files/tree?workspace=&host=&dir=` (entries marked `ignored` by the `.gitignore`s on
+  the way down and `.git/info/exclude`, read through the daemon and matched by `web/server/files/gitignore.ts`; global excludes aren't read),
+  `GET /api/files/read?…&path=` (text, or `refused`: binary, image, large; a size known from the folder's listing refuses unread),
+  `GET /api/files/all` (every file not ignored, walked breadth first, at most 25,000 files and 4,000 folders, `capped`), `GET /api/files/changed`;
+  each kept a few seconds (`fresh=1` past it). Paths are relative: absolute, `~`, `..`, `.`, empty segments, backslashes and NULs are refused before
+  the daemon is asked (`checkPath`), and the daemon refuses what resolves outside the workspace (symlinks out). It never writes. Tests: `files.test.ts`
+  (over the fake daemon's `trees`), `src/files/tree.test.ts`, `e2e/files.e2e.ts`; `native/scripts/fake-server.ts` has a tree for `wks_main`.
 - Mentions in the chat link themselves (`web/src/autolink.ts`): in an agent's conversation (`Timeline` provides `Autolinks` from
   `useAutolinks` in `web/src/autolinkStore.ts`), its replies (`Markdown.tsx` adds `remarkAutolink`, a remark step over text nodes) and
   your messages (`autolinkRuns`), but not tool output. Linear keys only of the Linear workspace's teams (`GET /api/linear/teams`, asked
@@ -499,7 +523,7 @@ and a strict axial hex grid. It is not a screenshot used as a background.
 The sea's glints and cloud shadows drift slowly in 15 Hz steps. The world renders on demand: 30 fps for ambient
 motion, full rate while handled, paused when nothing moves or the window is hidden.
 The inherited React UI is preserved; its panels follow the system's appearance: the Galaxy theme (as in the user's
-reference) when it is dark, the Light theme when it is light (`worldLook` in `web/src/theme.ts`). In dark, the pages (GitHub, Activity, Settings) use neutral near-black greys of their own instead of the Galaxy navy (`pages.css`). The terminal panel and Conquer's chrome and pages follow it too
+reference) when it is dark, the Light theme when it is light (`worldLook` in `web/src/theme.ts`). In dark, the pages (GitHub, Activity, Files, Settings) use neutral near-black greys of their own instead of the Galaxy navy (`pages.css`). The terminal panel and Conquer's chrome and pages follow it too
 (their tones are `Ink` in `native/Sources/PaseoCommandNative/Textures.swift`).
 Five original references may be retained locally in ignored `design/references/atlas-01.webp` through `atlas-05.webp`; they are not redistributed.
 Artwork provenance and generation prompts are in `rendering/ASSETS.md`.

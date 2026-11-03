@@ -159,5 +159,34 @@ export function findInDiff(files: DiffFile[], query: string, opts: FindOptions):
   return { matches, capped: false };
 }
 
+/**
+ * Every match of the query in a whole file's lines (the Files page's viewer),
+ * as `findInDiff` finds them in a diff: each line keyed as @pierre/diffs draws
+ * a file's, `R<n>`.
+ */
+export function findInText(path: string, text: string, query: string, opts: FindOptions): { matches: FindMatch[]; capped: boolean; error?: string } {
+  if (!query) return { matches: [], capped: false };
+  let re: RegExp;
+  try {
+    re = new RegExp(opts.regex ? query : escape(query), opts.caseSensitive ? "g" : "gi");
+  } catch {
+    return { matches: [], capped: false, error: "Invalid pattern" };
+  }
+  const matches: FindMatch[] = [];
+  const lines = text.split("\n");
+  for (const [line, content] of lines.entries()) {
+    re.lastIndex = 0;
+    for (let hit = re.exec(content); hit; hit = re.exec(content)) {
+      if (!hit[0].length) {
+        re.lastIndex++;
+        continue;
+      }
+      if (matches.length >= FIND_LIMIT) return { matches, capped: true };
+      matches.push({ file: 0, path, key: `R${line + 1}`, line, start: hit.index, end: hit.index + hit[0].length });
+    }
+  }
+  return { matches, capped: false };
+}
+
 /** The same match (after the diff is read again): same file, line and characters. */
 export const sameMatch = (a: FindMatch, b: FindMatch) => a.path === b.path && a.key === b.key && a.start === b.start && a.end === b.end;

@@ -5,19 +5,17 @@ mark it done with its commit once merged into `main`.
 
 ## Open
 
-- [ ] **Files: a quick, read-only file explorer for a workspace.** A new Files page (a mode bar tab after GitHub, View menu,
-  ⌘1…⌘n, ⌘K "Show files", a key such as ⇧⌘E app-wide if free) for the selected workspace (or agent's), on any host:
-  - a file tree reusing the diff view's tree (directories, fuzzy "Filter files…", ↑/↓/Enter, resizable, `.gitignore`d
-    and `.git` hidden by default with a toggle), loaded lazily per directory, plus a quick-open (⌘P) over all paths;
-  - opening a file shows it with syntax highlighting by reusing @pierre/diffs (its single-file renderer if it has one,
-    else a no-change diff), its worker pool and themes, virtualized for big files, with line numbers, ⌘F find (as the
-    diff's find), copy path, open in the GitHub tab's Changes if changed, and binary/large files refused politely;
-  - reads through the workspace's host daemon (as Changes uses `getCheckoutDiff`), so remote hosts work; named, cached
-    server routes (`GET /api/files/tree|read`), paths confined to the workspace, size limits; never writes.
-  Fast: tree and file open under ~100 ms locally. Tests over fakes; e2e on a mocked workspace.
-  Workspace: `files-explorer`.
 ## Done
 
+- [x] **Files: a quick, read-only file explorer for a workspace.** A Files tab (the mode bar's after GitHub, View menu, ⌘1…⌘6,
+  ⌘K "Show files", ⇧⌘E app-wide through View → Show Files) for the selected workspace (or agent's), on any host: through its daemon's
+  file explorer (`listDirectory`, `readFile`), named, cached routes `GET /api/files/tree|read|all|changed`, paths confined to the
+  workspace (refused before the daemon; the daemon refuses symlinks out), 1 MB limit, never writes. A lazy tree with `.gitignore`d
+  files and `.git` hidden until asked, changed files dotted, "Filter files…" (fuzzy, as the diff's), ↑/↓/→/←/Enter, a resizable
+  sidebar (⌘S), ⌘P quick-open; the file in @pierre/diffs's `File` (its single-file renderer) under its virtualizer, highlighted in
+  the diffs' workers, line numbers, ⌘F (the diff's find), Copy path, Show changes (the GitHub tab's Changes at the file); binary,
+  image and big files refused politely. Daemon reads take 2–14 ms locally. Tests: server (fake daemon, confinement, gitignore),
+  tree units, e2e, native keys. Workspace: `files-explorer`.
 - [x] **GitHub PR conversation: the description first, then a Comments section newest first.** Today's newest-first
   order put the PR's description at the bottom. Instead: the description always at the top; then a "Comments" header
   (with the count, e.g. "Comments · 6", and the Newest/Oldest first toggle moved into it); then the comment box; then

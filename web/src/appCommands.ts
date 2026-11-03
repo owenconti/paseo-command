@@ -54,7 +54,17 @@ export type AppCommand =
   | "github-sidebar"
   | "github-filter"
   | "github-set-filter"
-  | "github-branch-changes";
+  | "github-branch-changes"
+  | "files-show"
+  | "files-quick-open"
+  | "files-filter"
+  | "files-sidebar"
+  | "files-ignored"
+  | "files-refresh"
+  | "files-find"
+  | "files-copy-path"
+  | "files-show-changes"
+  | "files-open";
 
 const EVENT = "paseo:command";
 
@@ -76,6 +86,11 @@ export function onAppCommand(name: AppCommand, run: (arg?: unknown) => void) {
  * View menu (Show Branch Changes) and sends `github-branch-changes`; a browser's page takes it itself. */
 export const isBranchChangesShortcut = (event: ShortcutKey) =>
   event.metaKey && event.shiftKey && !event.ctrlKey && !event.altKey && event.key.toLowerCase() === "g";
+
+/** ⇧⌘E: the selected workspace's files in the Files tab. The macOS app takes it through its View menu
+ * (Show Files) and shows the tab itself; a browser's page takes it itself (and says the tab is the app's). */
+export const isFilesShortcut = (event: ShortcutKey) =>
+  event.metaKey && event.shiftKey && !event.ctrlKey && !event.altKey && event.key.toLowerCase() === "e";
 
 /** Cmd+K opens the command palette from anywhere, typing included, as Cmd+N
  * opens a new agent (Ctrl+K, which deletes to the line's end in macOS text

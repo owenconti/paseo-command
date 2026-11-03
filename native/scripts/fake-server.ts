@@ -24,6 +24,23 @@ local.addWorkspace({ id: "wks_main", projectId: "prj_atlas", cwd: "/home/review/
 local.addWorkspace({ id: "wks_map", projectId: "prj_atlas", cwd: "/home/review/atlas-map", name: "map-polish" });
 local.addAgent({ id: "a-1", cwd: "/home/review/atlas", workspaceId: "wks_main", provider: "claude", model: "claude-opus-5-5", status: "running" } as never);
 local.addAgent({ id: "a-2", cwd: "/home/review/atlas-map", workspaceId: "wks_map", provider: "codex", status: "idle" } as never);
+// The first workspace's files, for the Files tab (a .gitignore, an ignored folder, a long file, a binary one).
+local.trees.set(
+  "/home/review/atlas",
+  new Map<string, string | Uint8Array | "dir" | "outside">([
+    [".gitignore", "node_modules/\ndist/\n*.log\n"],
+    [".git/HEAD", "ref: refs/heads/main\n"],
+    ["README.md", "# Atlas\n\nThe fleet, drawn as islands.\n"],
+    ["package.json", '{\n  "name": "atlas",\n  "type": "module",\n  "scripts": { "test": "node --test" }\n}\n'],
+    ["src/index.ts", 'import { layout } from "./layout";\n\nexport function main(): void {\n  const world = layout({ hosts: 3 });\n  console.log(`${world.islands.length} islands`);\n}\n'],
+    ["src/layout.ts", Array.from({ length: 4000 }, (_, i) => `export const cell${i} = { q: ${i % 40}, r: ${Math.floor(i / 40)} };`).join("\n") + "\n"],
+    ["src/styles/world.css", ".world {\n  background: #2b6cb0;\n}\n"],
+    ["debug.log", "noise\n"],
+    ["node_modules/left-pad/index.js", "module.exports = (s) => s;\n"],
+    ["art/logo.png", new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0, 1])],
+    ["art/tiles.bin", new Uint8Array([1, 0, 2, 0])],
+  ]),
+);
 // A terminal already open in the first workspace, with something on screen.
 local.terminals.set("term-pre", {
   id: "term-pre",

@@ -36,7 +36,12 @@ export function ChangesView({
   onExternal,
   handle,
   onNotice,
+  showPath,
+  onShown,
 }: {
+  /** A file to scroll to once the changes show (then `onShown`). */
+  showPath?: string;
+  onShown?: () => void;
   workspace?: GithubWorkspace;
   mode: ChangesMode;
   setMode: (m: ChangesMode) => void;
@@ -112,6 +117,19 @@ export function ChangesView({
       } : undefined,
     [hasWorkspace, placed, onAdd, change],
   );
+  // Asked for one file (the Files page's Show changes): scrolled to once it's drawn.
+  const hasShowPath = !!showPath && !!data?.files.some((f) => f.path === showPath);
+  useEffect(() => {
+    if (!hasShowPath || !showPath) return;
+    let tries = 0;
+    let frame = requestAnimationFrame(function look() {
+      const shown = handle.current?.current() === showPath;
+      if (!shown) handle.current?.show(showPath);
+      if (handle.current?.current() === showPath || ++tries > 30) onShown?.();
+      else frame = requestAnimationFrame(look);
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [hasShowPath, showPath]);
   const pr = data?.pr ?? null;
   const prRepo = pr?.repo ?? data?.repo;
   const compare =

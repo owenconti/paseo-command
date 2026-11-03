@@ -1,0 +1,187 @@
+/* ── Files page ─────────────────────────────────────────────────────────
+   In the map's place while the macOS app's mode bar shows Files, as the GitHub
+   tab is: the workspace's tree in a sidebar (the GitHub tab's), the open file
+   beside it. It borrows the GitHub tab's sidebar, heads, empty states and the
+   diff's find strip and scroller (github.css), and the pages' type, widths and
+   dark palette (pages.css). Opaque, over the map's frame. */
+.files-view {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  display: grid;
+  grid-template-columns: 280px minmax(0, 1fr);
+  min-height: 0;
+  background: var(--surface);
+  color: var(--text);
+  font-size: var(--fs-md);
+}
+.files-view:focus {
+  outline: none;
+}
+.files-view.sidebar-hidden .gh-head {
+  padding-left: calc(var(--space-3) + var(--control-sm) + var(--space-2));
+}
+
+/* The sidebar: the workspace, the filter, then the tree */
+.fv-workspace {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  padding: 0 var(--space-4) var(--space-2);
+  overflow: hidden;
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+  white-space: nowrap;
+}
+.fv-workspace svg {
+  flex-shrink: 0;
+  color: var(--icon-muted);
+}
+.fv-workspace span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.fv-filter {
+  margin: 0 var(--space-2) var(--space-1);
+}
+.fv-count {
+  padding: var(--space-1) var(--space-4) 0;
+}
+.fv-tree {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: var(--space-1) var(--space-2) var(--space-6);
+}
+.fv-tree:focus {
+  outline: none;
+}
+.fv-tree mark {
+  background: none;
+  color: var(--amber-text);
+  font-weight: var(--fw-semibold);
+}
+.fv-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: max-content;
+  height: calc(24px * var(--lz));
+  padding-right: var(--space-2);
+  border-radius: var(--radius-sm);
+  font-size: var(--fs-xs);
+  color: var(--text-2);
+  cursor: default;
+  user-select: none;
+}
+.fv-row:hover {
+  background: var(--row-hover);
+}
+.fv-row.current {
+  background: var(--row-selected);
+  color: var(--text-strong);
+}
+.fv-row.ignored {
+  color: var(--text-4);
+}
+.fv-row.ignored .fv-icon {
+  opacity: 0.6;
+}
+/* The keyboard's place, while the tree has it; the filter's pick, while it's typed in. */
+.fv-tree:focus-visible .fv-row.cursor,
+.fv-row.picked {
+  box-shadow: inset 0 0 0 1px var(--focus);
+}
+.fv-chevron {
+  flex-shrink: 0;
+  width: 12px;
+  color: var(--text-4);
+}
+.fv-icon {
+  flex-shrink: 0;
+  color: var(--icon-muted);
+}
+.fv-icon.directory {
+  color: var(--accent-text);
+}
+.fv-name {
+  white-space: nowrap;
+}
+.fv-note {
+  color: var(--text-4);
+}
+.fv-error {
+  flex-shrink: 0;
+  color: var(--red-text);
+}
+/* A changed file's dot (its folders' too). */
+.fv-changed {
+  flex-shrink: 0;
+  width: 6px;
+  height: 6px;
+  margin-left: auto;
+  border-radius: 50%;
+  background: var(--amber-text);
+}
+.fv-changed.added {
+  background: var(--green-text);
+}
+
+/* The open file */
+.fv-meta {
+  gap: var(--space-2);
+}
+.fv-change-badge {
+  padding: 1px 6px;
+  border-radius: var(--radius-pill);
+  background: var(--amber-soft);
+  font-size: var(--fs-2xs);
+  font-weight: var(--fw-semibold);
+  color: var(--amber-text);
+}
+.fv-change-badge.added {
+  background: var(--green-soft, var(--amber-soft));
+  color: var(--green-text);
+}
+.fv-scroll-wrap {
+  flex: 1;
+  margin-top: var(--space-2);
+  border-top: 1px solid var(--line);
+}
+.fv-scroll {
+  padding: 0;
+}
+.fv-file {
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+.fv-file diffs-container {
+  font-size: var(--fs-sm);
+}
+
+/* ⌘P: the command palette's frame */
+.fv-quick .palette-label small {
+  margin-left: var(--space-2);
+}
+.fv-quick .palette-label mark {
+  background: none;
+  color: var(--amber-text);
+  font-weight: var(--fw-semibold);
+}
+.fv-quick-note {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border-top: 1px solid var(--line-soft);
+  font-size: var(--fs-xs);
+  color: var(--text-4);
+}
+/* The path reads as one: its folder and name together, the icon apart. */
+.fv-head .page-head-title {
+  gap: 0;
+}
+.fv-head .page-head-title > svg {
+  margin-right: var(--space-2);
+}
