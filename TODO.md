@@ -5,6 +5,11 @@ mark it done with its commit once merged into `main`.
 
 ## Open
 
+- [ ] **Files: the show-sidebar button sits out of line with the tab row.** With the Files sidebar hidden (⌘S), its
+  "show sidebar" button floats below and left of the tab row (the Changes button and tabs), in its own strip and not
+  centred on the row. Put it in the tab row itself, first, vertically centred and the same height as the row's controls,
+  with the row's padding (no gap above or extra strip), as the GitHub tab's hidden-sidebar button should look; check the
+  GitHub tab's equivalent for the same fault. Light and dark; e2e asserts it's centred in the row. Workspace: `files-sidebar-button`.
 ## Done
 
 - [x] **Move a workspace's Changes from the GitHub tab into the Files page.** Changes (all / committed / uncommitted,
