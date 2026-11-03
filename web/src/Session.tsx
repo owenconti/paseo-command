@@ -39,6 +39,7 @@ import {
   Wrench,
 } from "lucide-react";
 import { Composer } from "./Composer";
+import { PendingComments } from "./composer/PendingComments";
 import {
   useAgentSession,
   type Earlier,
@@ -60,7 +61,7 @@ import type { HistoryPage } from "./history";
 import { MarkdownImage } from "./Images";
 import { extractImages } from "./imageSource";
 import { urlRuns } from "./urlRuns";
-import { newMessageId, onQueueSent } from "./queue";
+import { enqueue, newMessageId, onQueueSent, toOutgoing } from "./queue";
 import {
   eventBody,
   fromTimeline,
@@ -581,6 +582,25 @@ export function Session({
                       Ask about these
                     </button>
                   }
+                />
+              )}
+              {agent.workspaceId && (
+                <PendingComments
+                  host={agent.host}
+                  workspace={agent.workspaceId}
+                  agentId={agent.id}
+                  disabled={!online || archived}
+                  onSend={async (text) => {
+                    if (!running) return send(toOutgoing(text, []));
+                    try {
+                      await enqueue(agent.id, text, []);
+                      return true;
+                    } catch (e) {
+                      onNotice(errorMessage(e) || "Couldn't queue the comments.");
+                      return false;
+                    }
+                  }}
+                  onNotice={onNotice}
                 />
               )}
               {running && online && !waiting && !archived && agent.workspaceId && (

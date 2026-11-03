@@ -5,15 +5,6 @@ mark it done with its commit once merged into `main`.
 
 ## Open
 
-- [ ] **Diff viewer: comments on a local diff become a workspace's pending comments, applied from the chat.** PR diffs
-  already take review comments (pending review or single). On a workspace's Changes diff, the gutter's + (and a line
-  range) should take a comment too, kept as that workspace's pending comments (path, side, line or range, the lines'
-  text, the comment; in the app's data directory keyed by host and workspace, not written into the worktree's files, so
-  git stays clean), shown under their lines, editable and deletable, surviving reloads, and re-anchored or marked
-  outdated when the diff changes. In the React chat view for that workspace's agent (the composer), a "N pending
-  comments · Apply" control sends them to the agent as one message (each as `path:line`, the quoted lines and the
-  comment, asking it to address them), then marks them applied (kept as history, hidden from the diff), with ⌘K entries
-  ("Apply pending comments", "Show pending comments"). Workspace: `local-diff-comments`.
 - [ ] **Chat: Linear issue keys and PR numbers link themselves.** In an agent's conversation (`web/src/Session.tsx`'s
   Markdown), plain mentions like "DE-7338", "DE-7413 has no comment", "PR #7054" stay plain text. Link them:
   - Linear keys whose team prefix is one of the workspace's teams (from the Linear read Activity keeps, else the saved
@@ -28,6 +19,14 @@ mark it done with its commit once merged into `main`.
 
 ## Done
 
+- [x] **Diff viewer: comments on a local diff become a workspace's pending comments, applied from the chat.** On a workspace's
+  Changes diff the gutter's + (or a dragged range) keeps a comment as that workspace's pending comment, in the data directory's
+  `diff-comments.json` keyed by host and workspace (never the worktree; never GitHub), shown under its line, editable and
+  deletable, re-anchored by its lines' text as the diff changes or else listed as outdated, and counted in the Changes head. The chat
+  of an agent in that workspace shows "N pending comments · Apply": its list reviews them (remove, Discard all); Apply sends them as
+  one message (`path:line`, the quoted lines, the comment) and marks them applied, kept as history. ⌘K: "Apply pending diff
+  comments", "Show pending diff comments". PR diffs' review comments are unchanged. Server, unit and e2e tests.
+  Workspace: `local-diff-comments`.
 - [x] **Diff viewer: the scroll position jumps after a while.** The cause: every refresh (the Changes view's every 15 s) gave
   @pierre/diffs new, unkeyed diff objects, so each file reset its measured line heights (wrapped lines) to estimates outside the
   virtualizer's anchored pass; measured on a long wrapped diff, each refresh moved the view by whole files. Now the files keep their

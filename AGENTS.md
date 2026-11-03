@@ -424,7 +424,20 @@ and GitHub publication; report the published version and release link.
   viewed files folded; in a review its gutter utility's + takes a comment (drag across lines for a range):
   into your pending review (`drafts.ts`, localStorage per PR until sent or discarded) or at once (Add single comment); threads sit under
   their lines (its line annotations, slotted, so our components and CSS draw them) with Reply and Resolve; Viewed per file. Review opens Finish your review: a summary and Comment, Approve or Request changes
-  (only Comment on your own PR), sent with the drafted comments at the head read. Places (`place.ts`, kept in localStorage; `openGithubPlace`
+  (only Comment on your own PR), sent with the drafted comments at the head read.
+  On a workspace's Changes diff (`DiffReview.local`: no Viewed, never GitHub) the same + takes a comment as that workspace's pending
+  comment (`web/src/github/localComments.ts`: path, side, line or range, the lines' text, the comment, when), kept by the server in the
+  data directory's `diff-comments.json` keyed `<host>|<workspace>` (local host ""; `web/server/diffComments.ts`, `GET
+  /api/diff-comments?workspace=&host=`, `POST /api/diff-comments` with `action` add|edit|remove|move|apply|discard, written atomically,
+  keeping unknown keys and fields; a damaged file is never overwritten), never in the worktree, so git stays clean. They hang under
+  their lines, editable and deletable; each refresh re-anchors them (`placeComments`: in place while their lines read the same, else the
+  nearest place on their side where they do, the move saved; else outdated, listed above the diff); the head counts them ("3 pending
+  comments"). The page shares them through `localCommentsStore.ts`. The chat of an agent in that workspace shows "N pending comments ·
+  Apply" above its composer (`web/src/composer/PendingComments.tsx`): its list reviews them (each removable, Discard all, Show the
+  changes); Apply sends one message through the chat's send (queued while the agent works; `applyMessage`: an instruction, then each
+  as `path:line` or `path:a-b`, its lines quoted, the comment), then marks them applied (`appliedAt`, kept as history, hidden from the
+  diff and counts). ⌘K (the open agent's, page Command): "Apply pending diff comments (N)", "Show pending diff comments", only while
+  there are some (`diff-comments-apply|show`). Places (`place.ts`, kept in localStorage; `openGithubPlace`
   opens one from elsewhere) and PR links: `github.com/<owner>/<name>/pull/<n>` opens in the tab wherever clicked (`prPlaceOf`;
   `WorldWindow.pageMode` matches it). Keys (`GitHubView.tsx`): J/K move (a diff's files), Enter/O open, Esc back, 1–4 PR tabs, R review,
   C comment, V viewed, U unified/split, F file list (a repository's filters), T filter the diff's files, ⌘F find in the diff, M which changes, S star the repository; each with its ⌘K entry and the shortcuts dialog's GitHub group.

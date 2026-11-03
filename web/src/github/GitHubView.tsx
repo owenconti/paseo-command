@@ -493,6 +493,7 @@ export function GitHubView({
         onOpenPr={(repo, number) => openRow(repo, number, "files")}
         onExternal={external}
         handle={diffHandle}
+        onNotice={onNotice}
       />
     );
   else if (place.kind === "prs") main = <PrList scope={place.scope} onOpen={(row) => openRow(row.repo, row.number)} keys={listKeys} />;

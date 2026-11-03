@@ -73,6 +73,8 @@ import { NewAgent, type DispatchTarget } from "./Dispatch";
 import { appTabs, modeKey, shownModes, useAppMode, type AppMode } from "./appMode";
 import type { ActivityViewState } from "./activity/ActivityView";
 import type { GithubViewState, GithubWorkspace } from "./github/GitHubView";
+import { pendingLabel } from "./github/localComments";
+import { useLocalComments } from "./github/localCommentsStore";
 import { openGithubPlace, prPlaceOf } from "./github/place";
 import { paseoMatches, type PaseoMatch, type PrHead } from "./github/paseo";
 import { MODE_LABEL as CHANGES_MODE_LABEL, SCOPE_TITLE as PR_SCOPE_TITLE, TAB_LABEL as PR_TAB_LABEL } from "./github/names";
@@ -778,6 +780,8 @@ function App() {
     selection?.type === "agent"
       ? agents.find((a) => a.id === selection.id)
       : undefined;
+  // Its workspace's pending diff comments, for ⌘K's Apply and Show.
+  const agentComments = useLocalComments(agent?.host, agent?.workspaceId);
   // An open subagent conversation; gone (archived) falls back to the agent's.
   const subagent = selection?.subagent
     ? agent?.subagents?.find((s) => s.id === selection.subagent)
@@ -1291,6 +1295,30 @@ function App() {
                   },
                 ]
               : []),
+          ]
+        : []),
+      ...(a.workspaceId && agentComments.pending.length && !selection?.subagent
+        ? [
+            ...(live
+              ? [
+                  {
+                    id: "apply-diff-comments",
+                    group: "Actions",
+                    page: "Command" as const,
+                    label: `Apply pending diff comments (${agentComments.pending.length})`,
+                    keywords: "apply pending diff comments review send address changes local",
+                    run: () => runAppCommand("diff-comments-apply"),
+                  },
+                ]
+              : []),
+            {
+              id: "show-diff-comments",
+              group: "Actions",
+              page: "Command" as const,
+              label: "Show pending diff comments",
+              keywords: "pending diff comments review list discard local",
+              run: () => runAppCommand("diff-comments-show"),
+            },
           ]
         : []),
       {

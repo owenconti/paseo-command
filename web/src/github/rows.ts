@@ -107,3 +107,14 @@ export function patchOf(file: DiffFile): string {
   }
   return `${out.join("\n")}\n`;
 }
+
+/** The text of each line a file's diff shows on a side, by its number there (a split's unchanged lines on both). */
+export function sideLines(file: DiffFile, side: Side): Map<number, string> {
+  const lines = new Map<number, string>();
+  for (const { cell } of cells(file)) {
+    if (!cell) continue;
+    if (side === "RIGHT" && cell.new !== null) lines.set(cell.new, cell.line.content);
+    if (side === "LEFT" && cell.old !== null) lines.set(cell.old, cell.line.content);
+  }
+  return lines;
+}

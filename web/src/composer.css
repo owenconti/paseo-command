@@ -1743,3 +1743,106 @@
   color: var(--red);
   font-size: var(--fs-sm);
 }
+
+/* The workspace's pending diff comments, above the composer (PendingComments.tsx). */
+.pending-comments {
+  margin-bottom: 8px;
+  border: 1px solid var(--amber-line);
+  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--amber-text) 6%, var(--panel-raised));
+  color: var(--text-2);
+  font-size: var(--fs-xs);
+}
+.pending-comments-bar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 6px;
+}
+.pending-comments-toggle,
+.pending-comments-apply {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 24px;
+  padding: 0 8px 0 6px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-2);
+  font: inherit;
+  font-weight: var(--fw-medium);
+  cursor: pointer;
+}
+.pending-comments-toggle:hover,
+.pending-comments-apply:hover:not(:disabled) {
+  background: var(--fill);
+  color: var(--text);
+}
+.pending-comments-apply {
+  color: var(--amber-text);
+  font-weight: var(--fw-semibold);
+}
+.pending-comments-apply:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.pending-comments-list {
+  border-top: 1px solid var(--amber-line);
+}
+.pending-comments-list ul {
+  max-height: 260px;
+  margin: 0;
+  padding: 4px 8px;
+  overflow-y: auto;
+  list-style: none;
+}
+.pending-comment {
+  padding: 6px 0;
+}
+.pending-comment + .pending-comment {
+  border-top: 1px solid var(--line-soft);
+}
+.pending-comment-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+.pending-comment-head code {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text);
+  font-size: var(--fs-xs);
+}
+.pending-comment-quote {
+  margin: 4px 0;
+  padding: 3px 8px;
+  border-left: 2px solid var(--line-strong);
+  overflow-x: auto;
+  color: var(--text-3);
+  font-size: var(--fs-2xs);
+  white-space: pre;
+}
+.pending-comment-body {
+  margin: 2px 0 0;
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.pending-comments-foot {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 6px;
+  border-top: 1px solid var(--line-soft);
+}
+.pending-comments-spacer {
+  flex: 1;
+}
+.pending-comments-foot .ghost-btn.danger {
+  color: var(--red-text);
+}

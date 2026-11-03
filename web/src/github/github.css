@@ -1927,3 +1927,39 @@ button.gh-side-check-name:hover {
   flex-wrap: wrap;
   gap: 6px;
 }
+
+/* A workspace's own diff: its pending comments' count in the head, and those whose lines are gone. */
+.gh-local-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 7px;
+  border: 1px solid var(--amber-line);
+  border-radius: var(--radius-pill);
+  color: var(--amber-text);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-medium);
+  white-space: nowrap;
+}
+.gh-local-outdated {
+  margin-bottom: var(--space-2);
+  border-bottom: 1px solid var(--line-soft);
+}
+.gh-local-outdated-item + .gh-local-outdated-item {
+  margin-top: var(--space-2);
+}
+.gh-local-place {
+  margin: 0;
+}
+.gh-local-place .gh-thread-outdated {
+  margin: 0 0 0 var(--space-1);
+}
+.gh-local-quote {
+  max-width: 820px;
+  margin: var(--space-1) 0 0;
+  padding: 3px 8px;
+  border-left: 2px solid var(--line-strong);
+  overflow-x: auto;
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+}

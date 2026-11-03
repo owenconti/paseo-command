@@ -1,9 +1,11 @@
-import { useMemo } from "react";
-import { ArrowDown, ArrowUp, CircleAlert, ExternalLink, GitBranch, GitPullRequest, PanelLeft, RefreshCw } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
+import { ArrowDown, ArrowUp, CircleAlert, ExternalLink, GitBranch, GitPullRequest, MessageSquare, PanelLeft, RefreshCw } from "lucide-react";
 import { changesPath, useGithubRead } from "./api";
 import { Churn } from "./bits";
 import { usePageTitleTip } from "../pageHead";
-import { DiffView, type DiffLayout, type DiffViewHandle } from "./DiffView";
+import { DiffView, Draft, type DiffLayout, type DiffReview, type DiffViewHandle } from "./DiffView";
+import { pendingLabel, placeComments, placeLabel, textOf, type LocalComment } from "./localComments";
+import { useLocalComments } from "./localCommentsStore";
 import { MODE_LABEL } from "./names";
 import type { ChangesMode, WorkspaceChanges } from "./types";
 import type { GithubWorkspace } from "./GitHubView";
@@ -33,6 +35,7 @@ export function ChangesView({
   onOpenPr,
   onExternal,
   handle,
+  onNotice,
 }: {
   workspace?: GithubWorkspace;
   mode: ChangesMode;
@@ -44,6 +47,7 @@ export function ChangesView({
   onOpenPr: (repo: string, number: number) => void;
   onExternal: (url: string) => void;
   handle: React.RefObject<DiffViewHandle | null>;
+  onNotice: (message: string) => void;
 }) {
   const titleTip = usePageTitleTip<HTMLHeadingElement>();
   const changes = useGithubRead<WorkspaceChanges>(
@@ -58,6 +62,55 @@ export function ChangesView({
         deletions: 0,
       }),
     [data],
+  );
+  const comments = useLocalComments(workspace?.host, workspace?.id, onNotice);
+  const { change } = comments;
+  // Each pending comment where its lines are now; those whose lines moved are kept there, those gone are outdated.
+  const placing = useMemo(() => (data ? placeComments(comments.pending, data.files) : null), [data, comments.pending]);
+  const moves = placing?.moves;
+  // Each set of moves asked once (one the server refused isn't asked again and again).
+  const moved = useRef("");
+  useEffect(() => {
+    const ask = JSON.stringify(moves ?? []);
+    if (!moves?.length || ask === moved.current) return;
+    moved.current = ask;
+    void change({ action: "move", moves });
+  }, [moves, change]);
+  const onAdd = useCallback(
+    (c: { path: string; side: "LEFT" | "RIGHT"; line: number; startLine?: number; body: string }) => {
+      const file = data?.files.find((f) => f.path === c.path);
+      const from = c.startLine ?? c.line;
+      void change({
+        action: "add",
+        comment: {
+          path: c.path,
+          side: c.side,
+          line: c.line,
+          ...(c.startLine !== undefined && c.startLine !== c.line ? { startLine: c.startLine } : {}),
+          text: file ? textOf(file, c.side, from, c.line) : [],
+          body: c.body,
+        },
+      });
+    },
+    [data, change],
+  );
+  const placed = placing?.placed;
+  const hasWorkspace = !!workspace;
+  const review = useMemo<DiffReview | undefined>(
+    () =>
+      hasWorkspace ? {
+        local: true,
+        threads: [],
+        drafts: (placed ?? []).map((c) => ({ id: c.id, path: c.path, side: c.side, line: c.line, ...(c.startLine !== undefined ? { startLine: c.startLine, startSide: c.side } : {}), body: c.body })),
+        onAdd,
+        onEdit: (id, body) => void change({ action: "edit", id, body }),
+        onRemove: (id) => void change({ action: "remove", id }),
+        onReply: async () => false,
+        onResolve: () => {},
+        viewed: NONE_VIEWED,
+        onViewed: () => {},
+      } : undefined,
+    [hasWorkspace, placed, onAdd, change],
   );
   const pr = data?.pr ?? null;
   const prRepo = pr?.repo ?? data?.repo;
@@ -109,6 +162,15 @@ export function ChangesView({
           </span>
         )}
         <span className="gh-spacer" />
+        {comments.pending.length > 0 && (
+          <span
+            className="gh-local-count page-head-aside"
+            data-tip="Comments on this diff, kept for the workspace: apply them from an agent’s chat"
+          >
+            <MessageSquare size={12} aria-hidden="true" />
+            {pendingLabel(comments.pending.length)}
+          </span>
+        )}
         {pr && prRepo && (
           <button className="page-btn" onClick={() => onOpenPr(prRepo, pr.number)} data-tip={pr.title}>
             <GitPullRequest size={13} aria-hidden="true" />
@@ -171,6 +233,8 @@ export function ChangesView({
           layout={layout}
           listShown={listShown}
           handle={handle}
+          review={review}
+          head={review && placing && placing.outdated.length > 0 && <OutdatedComments comments={placing.outdated} review={review} />}
           empty={
             <p>
               {mode === "uncommitted"
@@ -181,6 +245,29 @@ export function ChangesView({
         />
       )}
     </div>
+  );
+}
+
+const NONE_VIEWED: ReadonlyMap<string, boolean> = new Map();
+
+/** Pending comments whose lines this diff no longer shows (changed, or their file's gone): still listed, editable. */
+function OutdatedComments({ comments, review }: { comments: LocalComment[]; review: DiffReview }) {
+  return (
+    <section className="gh-notes apart gh-local-outdated" aria-label="Outdated comments">
+      <p className="gh-hint">
+        <MessageSquare size={12} aria-hidden="true" /> {comments.length === 1 ? "A pending comment" : `${comments.length} pending comments`} on
+        lines this diff no longer shows
+      </p>
+      {comments.map((c) => (
+        <div key={c.id} className="gh-local-outdated-item">
+          <p className="gh-local-place">
+            <code>{placeLabel(c)}</code> <span className="gh-thread-outdated">Outdated</span>
+          </p>
+          {c.text.length > 0 && <pre className="gh-local-quote">{c.text.join("\n")}</pre>}
+          <Draft draft={{ id: c.id, path: c.path, side: c.side, line: c.line, body: c.body }} review={review} />
+        </div>
+      ))}
+    </section>
   );
 }
 

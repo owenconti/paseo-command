@@ -39,6 +39,8 @@ const LIST = { min: 160, diffMin: 420, key: "github:diffListWidth" };
 
 /** What a PR's review adds to its diff: threads, your drafted comments, and viewed files. */
 export type DiffReview = {
+  /** A workspace's own diff: its comments are its pending comments (never GitHub's), and files aren't marked viewed. */
+  local?: boolean;
   threads: ReviewThread[];
   drafts: ReviewDraft["comments"];
   onAdd: (c: DraftComment) => void;
@@ -142,7 +144,7 @@ function Thread({ thread, review }: { thread: ReviewThread; review: DiffReview }
   );
 }
 
-function Draft({ draft, review }: { draft: ReviewDraft["comments"][number]; review: DiffReview }) {
+export function Draft({ draft, review }: { draft: ReviewDraft["comments"][number]; review: DiffReview }) {
   const [editing, setEditing] = useState(!draft.body);
   if (editing)
     return (
@@ -228,7 +230,7 @@ function Notes({
           )}
           <CommentBox
             autoFocus
-            submitLabel="Add review comment"
+            submitLabel={review.local ? "Add comment" : "Add review comment"}
             onCancel={() => setComposing(null)}
             extra={(text) =>
               review.onSingle && (
@@ -489,7 +491,7 @@ const FileSection = memo(function FileSection({
           <span className="del">−{file.deletions}</span>
         </span>
         <ChurnBar file={file} />
-        {review && (
+        {review && !review.local && (
           <label className={`gd-viewed${viewed ? " on" : ""}`} data-tip="Mark viewed (V)">
             <input type="checkbox" checked={viewed} onChange={(e) => review.onViewed(file.path, e.target.checked)} />
             Viewed
@@ -815,7 +817,7 @@ export function DiffView({
             </label>
             <p className="gd-list-head">
               {filtered ? `${filtered.files.length} of ${files.length}` : files.length === 1 ? "1 file" : `${files.length} files`}
-              {review && (
+              {review && !review.local && (
                 <span className="gh-hint">
                   {viewedCount} / {files.length} viewed
                 </span>
