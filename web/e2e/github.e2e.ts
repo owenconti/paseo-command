@@ -1177,3 +1177,108 @@ test("GitHub's sidebar: favourites, finding any repository, ⌘S, and a reposito
     await context.close();
   }
 });
+
+// A long workspace diff whose lines wrap: many files, each with lines far wider than the column.
+const WRAPPED: DiffFile[] = Array.from({ length: 30 }, (_, f) =>
+  lines(
+    `src/long/file${String(f).padStart(2, "0")}.ts`,
+    Array.from({ length: 40 }, (_, i) => {
+      const words = Array.from({ length: (i % 5) * 12 + 4 }, (_, w) => `word${f}_${i}_${w}`).join(" + ");
+      return [i % 3 === 0 ? "context" : i % 3 === 1 ? "add" : "remove", `const v${i} = ${words};`] as ["add", string];
+    }),
+  ),
+);
+/** The same diff with its first three files grown by `more` lines each: changes above the middle. */
+const grown = (more: number): DiffFile[] =>
+  WRAPPED.map((f, i) => (i < 3 ? { ...f, hunks: [{ ...f.hunks[0]!, lines: [...f.hunks[0]!.lines, ...f.hunks[0]!.lines.slice(1, 1 + more)] }] } : f));
+
+/** The first line drawn at or below the diff's top edge: its file, its index and its distance from that edge. */
+const firstVisible = (page: Page) =>
+  page.evaluate(() => {
+    const scroller = document.querySelector<HTMLElement>(".gd-scroll")!;
+    const top = scroller.getBoundingClientRect().top;
+    for (const file of scroller.querySelectorAll<HTMLElement>(".gd-file")) {
+      if (file.getBoundingClientRect().bottom <= top) continue;
+      for (const line of file.querySelector("diffs-container")?.shadowRoot?.querySelectorAll<HTMLElement>("[data-line][data-line-index]") ?? []) {
+        const at = line.getBoundingClientRect().top - top;
+        if (at >= 0) return `${file.dataset.path} line ${line.dataset.lineIndex} at ${Math.round(at)}px`;
+      }
+    }
+    return "none";
+  });
+/** Waits until the diff stops changing height (drawn, highlighted, measured). */
+const settled = (page: Page) =>
+  waitFor(
+    async () => {
+      const h = () => page.evaluate(() => document.querySelector<HTMLElement>(".gd-scroll")!.scrollHeight);
+      const before = await h();
+      await page.waitForTimeout(400);
+      return before === (await h());
+    },
+    Boolean,
+    "the diff settled",
+  );
+
+for (const layout of ["unified", "split"] as const)
+  test(`A long ${layout} diff keeps its place through refreshes, highlighting and changes above the view`, async () => {
+    const context = await newContext(browser);
+    const page = await context.newPage();
+    await page.setViewportSize({ width: 1400, height: 900 });
+    await setUp(page);
+    let files = WRAPPED;
+    let served = 0;
+    await page.route("**/api/changes?**", (route) => {
+      served++;
+      return route.fulfill({ json: { ...CHANGES("all"), files } });
+    });
+    try {
+      await page.goto(`${app.url}?workspace=wks_a`);
+      await page.locator(".place").waitFor();
+      await showGithub(page);
+      const view = page.locator(".github-view");
+      await view.getByRole("button", { name: /Map polish/ }).click();
+      await view.locator(".gd-file").nth(5).waitFor();
+      if (layout === "split") await view.getByRole("radio", { name: "Split" }).click();
+      await settled(page);
+      // The middle of the diff, its lines drawn and highlighted (in the workers) there.
+      await page.evaluate(() => {
+        const s = document.querySelector<HTMLElement>(".gd-scroll")!;
+        s.scrollTop = s.scrollHeight / 2;
+      });
+      await settled(page);
+      const shown = await firstVisible(page);
+      assert.notEqual(shown, "none");
+      assert.doesNotMatch(shown, /file0[0-2]\.ts/, "the view is below the files that will change");
+      const refresh = async () => {
+        const was = served;
+        await view.getByRole("button", { name: "Refresh", exact: true }).click();
+        await waitFor(() => Promise.resolve(served), (n) => n > was, "the changes asked again");
+        await settled(page);
+      };
+      // The same changes read again (as every 15 s): nothing moves.
+      await refresh();
+      assert.equal(await firstVisible(page), shown, "an unchanged refresh");
+      await refresh();
+      assert.equal(await firstVisible(page), shown, "another unchanged refresh");
+      // Files above the view grow, then grow again: the view keeps its line.
+      files = grown(6);
+      await refresh();
+      assert.equal(await firstVisible(page), shown, "files above grew");
+      files = grown(2);
+      await refresh();
+      assert.equal(await firstVisible(page), shown, "files above shrank");
+      // Any other height change above the view (a thread opening, say) doesn't move it either.
+      await page.evaluate(() => {
+        document.querySelector<HTMLElement>('.gd-file[data-path="src/long/file01.ts"] .gd-file-head')!.style.paddingBottom = "300px";
+      });
+      await settled(page);
+      assert.equal(await firstVisible(page), shown, "a header above grew");
+      // Jumping to a file still goes there.
+      await view.locator(".gd-list-file", { hasText: "file02.ts" }).click();
+      await view.locator(".gd-list-file.current", { hasText: "file02.ts" }).waitFor();
+      await settled(page);
+      assert.match(await firstVisible(page), /file02\.ts/);
+    } finally {
+      await context.close();
+    }
+  });

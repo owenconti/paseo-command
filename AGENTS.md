@@ -418,7 +418,9 @@ and GitHub publication; report the published version and release link.
   `gd-find-current`, styled through FileDiff's `unsafeCSS`), in a split on their side (an unchanged line on both); Esc closes it and clears them.
   Each file drawn by @pierre/diffs (`FileDiff`, from the parsed file as patch text,
   `patchOf` in `rows.ts`; Shiki highlighting, word-level changes, unified or split, its pierre-dark/-light theme by the app's; highlighted in a pool of web workers, `diffWorkers.tsx`, with `worker: { format: "es" }`
-  in `vite.config.ts`, and drawn only where in view, its `Virtualizer` being the diff's scroller), big and
+  in `vite.config.ts`, and drawn only where in view, its `Virtualizer` being the diff's scroller; a refresh keeps unchanged files'
+  objects (`useStableFiles`) and each diff's `cacheKey` is its text, so nothing is drawn or measured again, and `useDiffAnchor`
+  (`diffAnchor.ts`, `overflow-anchor: none`) keeps the first line in view in place while what's above it changes height), big and
   viewed files folded; in a review its gutter utility's + takes a comment (drag across lines for a range):
   into your pending review (`drafts.ts`, localStorage per PR until sent or discarded) or at once (Add single comment); threads sit under
   their lines (its line annotations, slotted, so our components and CSS draw them) with Reply and Resolve; Viewed per file. Review opens Finish your review: a summary and Comment, Approve or Request changes
