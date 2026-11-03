@@ -5,13 +5,15 @@ mark it done with its commit once merged into `main`.
 
 ## Open
 
-- [ ] **Files: the show-sidebar button sits out of line with the tab row.** With the Files sidebar hidden (⌘S), its
-  "show sidebar" button floats below and left of the tab row (the Changes button and tabs), in its own strip and not
-  centred on the row. Put it in the tab row itself, first, vertically centred and the same height as the row's controls,
-  with the row's padding (no gap above or extra strip), as the GitHub tab's hidden-sidebar button should look; check the
-  GitHub tab's equivalent for the same fault. Light and dark; e2e asserts it's centred in the row. Workspace: `files-sidebar-button`.
 ## Done
 
+- [x] **Files: the show-sidebar button sits out of line with the tab row.** With the sidebar hidden (⌘S), its show button
+  was laid absolutely over the page's corner, 12 px from the top, while the tab row (Changes, then the tabs) was only
+  padded to leave room for it, so it sat apart from the row. It is now the row's first control, centred on it at the pages'
+  control height (26 px × `--lz`), before Changes; the row keeps its height when the sidebar comes back. Without a
+  workspace (no row) it stays in the corner. The GitHub tab's was checked (list and PR heads): already centred on its head's
+  title row, unchanged. Tests: `e2e/files.e2e.ts` (centred within 1 px, left of Changes, the row's height kept).
+  Workspace: `files-sidebar-button`.
 - [x] **Move a workspace's Changes from the GitHub tab into the Files page.** Changes (all / committed / uncommitted,
   ahead/behind, the diff with filter, find, pending comments) show in the Files tabs' place, reached by a Changes button
   (with the changed-file count) first in the tabs' row: a view toggle outside the tab model, so ⌘W, ⇧⌘T, ⌃Tab and previews
