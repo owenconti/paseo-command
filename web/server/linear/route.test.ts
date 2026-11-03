@@ -67,3 +67,12 @@ test("Linear's own uploads load with the key; other hosts without it", async () 
   assert.equal(fetched.length, 2);
   assert.equal((await linearAvatar(undefined)).status, 404);
 });
+
+test("gives the workspace's address and team keys, only while Linear answers", async () => {
+  assert.deepEqual((await ask("/api/linear/teams")).body, { urlKey: "fake", teams: ["DE", "ENG"] });
+  assert.equal((await ask("/api/linear/teams?x=1")).status, 400);
+  assert.equal((await ask("/api/linear/teams", "POST")).status, 404);
+  saveSecret({ name: "linearApiKey", value: null });
+  resetLinearReads();
+  assert.deepEqual((await ask("/api/linear/teams")).body, { urlKey: "", teams: [] }, "without a key, none");
+});

@@ -5,17 +5,6 @@ mark it done with its commit once merged into `main`.
 
 ## Open
 
-- [ ] **Chat: Linear issue keys and PR numbers link themselves.** In an agent's conversation (`web/src/Session.tsx`'s
-  Markdown), plain mentions like "DE-7338", "DE-7413 has no comment", "PR #7054" stay plain text. Link them:
-  - Linear keys whose team prefix is one of the workspace's teams (from the Linear read Activity keeps, else the saved
-    Linear workspace's known teams; never a bare `[A-Z]+-\d+` guess like UTF-8 or ISO-8601) to
-    `https://linear.app/<workspace>/issue/<KEY>`, opening as Linear links now do (the Linear app, else Conquer).
-  - `#123`, "PR #123" and "pull request 123" to the agent's workspace's repository (its project's GitHub remote, as
-    Open Paseo agent matches) `github.com/<owner>/<repo>/pull/123`, opening in the GitHub tab; `owner/repo#123` too.
-    Without a known repository, leave it plain.
-  Never inside code spans, code blocks or existing links; keep the transcript's text selectable and copyable as
-  written. Unit tests for the matcher (teams, false positives, code), e2e on a mocked transcript.
-  Workspace: `chat-autolink-issues-prs`.
 - [ ] **Chat panel: text 1 pt larger.** Increase the React chat panel's font size by 1 pt (the conversation's
   messages, Markdown, code and tool rows, and the composer, keeping their relative sizes), in light and dark, in the
   macOS app and a browser. Find where the panel's sizes come from (`.session` styles, theme tokens) and change it at
@@ -23,6 +12,15 @@ mark it done with its commit once merged into `main`.
   the pages' own text size (`pageText.ts`) is unaffected. Workspace: `chat-text-larger`.
 
 ## Done
+
+- [x] **Chat: Linear issue keys and PR numbers link themselves.** In an agent's conversation, its replies (Markdown, a
+  remark step over text nodes) and your messages, `web/src/autolink.ts` links Linear keys only of the Linear workspace's teams
+  (`GET /api/linear/teams`: its `urlKey` and team keys, from the five-minute workspace read, only while Linear is on with a key;
+  UTF-8, ISO-8601, SHA-256 stay plain) to `linear.app/<workspace>/issue/<KEY>`, and `#123`, "PR #123", "pull request (#)123" to
+  the workspace's repository (`repoOf` its remote, else its PR's), `owner/repo#123` to that one; never in code, links, URLs,
+  paths, "step #3", hex colours or without a repository. Only text is wrapped, so it copies as written; clicks take the app's
+  link path (Linear's app, else Conquer; PRs in the GitHub tab). Tests: `autolink.test.ts`, `route.test.ts`, `e2e/autolink.e2e.ts`.
+  Workspace: `chat-autolink-issues-prs`.
 
 - [x] **Diff viewer: comments on a local diff become a workspace's pending comments, applied from the chat.** On a workspace's
   Changes diff the gutter's + (or a dragged range) keeps a comment as that workspace's pending comment, in the data directory's

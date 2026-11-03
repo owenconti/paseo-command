@@ -61,6 +61,8 @@ import type { HistoryPage } from "./history";
 import { MarkdownImage } from "./Images";
 import { extractImages } from "./imageSource";
 import { urlRuns } from "./urlRuns";
+import { autolinkRuns, canAutolink, type AutolinkContext } from "./autolink";
+import { Autolinks, useAutolinkContext, useAutolinks } from "./autolinkStore";
 import { enqueue, newMessageId, onQueueSent, toOutgoing } from "./queue";
 import {
   eventBody,
@@ -214,6 +216,8 @@ export function Session({
 
   // Reply forks: their pane sits beside the conversation when there's room.
   const root = useRef<HTMLDivElement>(null);
+  // Linear keys and PR numbers in the conversation link themselves.
+  const autolinks = useAutolinks(workspace);
   const [wide, setWide] = useState(false);
   useLayoutEffect(() => {
     const el = root.current;
@@ -527,6 +531,7 @@ export function Session({
         earlier={earlier}
         onEarlier={loadOlder}
         replyExtra={forkMarkers}
+        links={autolinks}
       />
       <ForkPill
         root={root}
@@ -683,6 +688,7 @@ export const Timeline = memo(function Timeline({
   earlier,
   onEarlier,
   replyExtra,
+  links,
 }: {
   entries: Entry[];
   loading: boolean;
@@ -695,6 +701,8 @@ export const Timeline = memo(function Timeline({
   onEarlier: () => Promise<void> | void;
   /** Shown under a reply (its forks' markers). */
   replyExtra?: (block: Block) => ReactNode;
+  /** What its Linear keys and PR numbers link to (src/autolink.ts). */
+  links?: AutolinkContext;
 }) {
   const scroller = useRef<HTMLDivElement>(null);
   const body = useRef<HTMLDivElement>(null);
@@ -840,34 +848,36 @@ export const Timeline = memo(function Timeline({
             <p className="timeline-note">No activity reported yet.</p>
           )
         )}
-        {blocks.map((block, i) => (
-          <TimelineBlock
-            key={block.key}
-            block={block}
-            imageHost={imageHost}
-            live={running && i === blocks.length - 1}
-            extra={replyExtra?.(block)}
-          />
-        ))}
-        {pending.map((p) => (
-          <div className="msg user pending" key={p.at}>
-            {p.images.length > 0 && (
-              <div className="msg-images">
-                {p.images.map((src, i) => (
-                  <button
-                    key={i}
-                    data-tip="Open the attached image in a new tab"
-                    onClick={() => window.open(src, "_blank")}
-                  >
-                    <img src={src} alt="Attached" />
-                  </button>
-                ))}
-              </div>
-            )}
-            <UserText text={p.text} />
-            <small>Sending…</small>
-          </div>
-        ))}
+<Autolinks.Provider value={links}>
+          {blocks.map((block, i) => (
+            <TimelineBlock
+              key={block.key}
+              block={block}
+              imageHost={imageHost}
+              live={running && i === blocks.length - 1}
+              extra={replyExtra?.(block)}
+            />
+          ))}
+          {pending.map((p) => (
+            <div className="msg user pending" key={p.at}>
+              {p.images.length > 0 && (
+                <div className="msg-images">
+                  {p.images.map((src, i) => (
+                    <button
+                      key={i}
+                      data-tip="Open the attached image in a new tab"
+                      onClick={() => window.open(src, "_blank")}
+                    >
+                      <img src={src} alt="Attached" />
+                    </button>
+                  ))}
+                </div>
+              )}
+              <UserText text={p.text} />
+              <small>Sending…</small>
+            </div>
+          ))}
+        </Autolinks.Provider>
         {running && (
           <div className="working-row">
             <span className="activity-bars">
@@ -954,6 +964,14 @@ function UserText({
   // Images the daemon stored for this prompt appear as Markdown links to local files.
   const { images, text: rest } = useMemo(() => extractImages(text), [text]);
   const clean = rest.replace(/\n{3,}/g, "\n\n").trim();
+  const links = useAutolinkContext();
+  const runs = useMemo(
+    () =>
+      urlRuns(clean).flatMap((run) =>
+        run.href || !canAutolink(links) ? [run] : autolinkRuns(run.text, links),
+      ),
+    [clean, links],
+  );
   const long = clean.length > 700 || clean.split("\n").length > 12;
   return (
     <>
@@ -972,7 +990,7 @@ function UserText({
       )}
       {clean && (
         <div className={`user-text ${long && !open ? "clamped" : ""}`}>
-          {urlRuns(clean).map((run, i) =>
+          {runs.map((run, i) =>
             run.href ? (
               <a
                 key={i}

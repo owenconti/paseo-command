@@ -302,7 +302,7 @@ and GitHub publication; report the published version and release link.
   and teams (kept five minutes) and your Inbox (`readNotifications`); `writes.ts` `linearWrite`: only Activity's
   `notificationMarkReadAll|MarkUnreadAll|ArchiveAll`, each input checked field by field (no passthrough GraphQL, no `@linear/sdk`);
   `client.ts` keeps to the key's hourly budget (2,500 requests, 3,000,000 complexity; reads stand down when it runs low, writes still
-  go). `route.ts`: only `GET /api/linear/avatar?user=<id>`, a member's avatar (only the address Linear gives for that member: Linear's
+  go). `route.ts`: only `GET /api/linear/teams` (the workspace's `urlKey` and team keys, for the chat's autolinks; empty while Linear is off, keyless or not answering) and `GET /api/linear/avatar?user=<id>`, a member's avatar (only the address Linear gives for that member: Linear's
   own uploads with the key, other hosts without it; kept an hour, `avatar.ts`). Tests never reach Linear (`web/server/test-setup.ts`
   points the data directory and settings file at a temporary folder): they run over the fake Linear (`web/server/linear/fake.ts`:
   the workspace, the Inbox and its writes; `installFakeLinear` enables Linear in the test settings file and writes a fake key to the
@@ -452,6 +452,13 @@ and GitHub publication; report the published version and release link.
   /api/github/q/viewer|prs|repos|repoSearch|people|teams|pr|diff`, cached 15 s, `fresh=1` past it; `GithubUnavailable` when off, without a token, refused or rate limited) and
   whitelisted writes (`writes.ts`, `POST /api/github/m/comment|review|reply|resolve|viewed|reviewers|assignees|merge|autoMerge|queue|ready|updateBranch|state|deleteBranch|star`, each field checked), over `client.ts`. Tests never reach GitHub: `fake.ts` under server tests (`test-setup.ts` makes `GITHUB_API.fetch` refuse
   otherwise) and `web/e2e/github.e2e.ts` in the browser.
+- Mentions in the chat link themselves (`web/src/autolink.ts`): in an agent's conversation (`Timeline` provides `Autolinks` from
+  `useAutolinks` in `web/src/autolinkStore.ts`), its replies (`Markdown.tsx` adds `remarkAutolink`, a remark step over text nodes) and
+  your messages (`autolinkRuns`), but not tool output. Linear keys only of the Linear workspace's teams (`GET /api/linear/teams`, asked
+  once per five minutes while Linear is on; never a bare `[A-Z]+-\d+` guess) link to `https://linear.app/<urlKey>/issue/<KEY>`;
+  `#123`, "PR #123", "pull request (#)123" to the workspace's repository (`repoOf` its remote, else its PR's), `owner/repo#123` to that
+  one, as `https://github.com/<owner>/<repo>/pull/<n>`; without a repository they stay plain. Never in code, links, URLs or paths,
+  nor "step #3", hex colours or leading zeros (`NOT_PR`). Only text is wrapped (it copies as written); clicks take the link path below.
 - Web links clicked in the chat (`.session`, `openInAppBrowser` in `web/src/Session.tsx`, `postAppLink` → the `openLink` message)
   switch to Conquer and open there as a new tab, once its tabs are restored (`whenStarted`).
 - Links to a GitHub pull request (see GitHub, above) open in the GitHub tab while it's on, wherever they're clicked: the chat,

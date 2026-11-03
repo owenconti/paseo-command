@@ -1,20 +1,27 @@
 import { copyText } from "./nativePlatform";
-import { memo, useEffect, useState, type ReactNode } from "react";
+import { memo, useEffect, useMemo, useState, type ReactNode } from "react";
 import ReactMarkdown, {
   defaultUrlTransform,
   type Components,
   type ExtraProps,
+  type Options,
 } from "react-markdown";
+
+type PluggableList = NonNullable<Options["remarkPlugins"]>;
 import remarkGfm from "remark-gfm";
 import { Check, Copy } from "lucide-react";
 import { MarkdownImage } from "./Images";
 import { highlight, languageOf, type Token } from "./highlight";
+import { canAutolink, remarkAutolink } from "./autolink";
+import { useAutolinkContext } from "./autolinkStore";
 
 /*
  * Agent prose as CommonMark + GFM (tables, task lists, strikethrough,
  * autolinks). Raw HTML is never rendered: react-markdown shows it as text.
  * Links go only to http(s) and mailto (anything else stays plain text), and
- * images only through MarkdownImage, which decides what may load.
+ * images only through MarkdownImage, which decides what may load. In an
+ * agent's conversation, Linear keys and PR numbers link themselves
+ * (src/autolink.ts, from the Autolinks context).
  */
 
 const SAFE_LINK = /^(?:https?:|mailto:)/i;
@@ -158,7 +165,7 @@ const componentsFor = (host?: string) => {
   return c;
 };
 
-const PLUGINS = [remarkGfm];
+const PLUGINS: PluggableList = [remarkGfm];
 // Images keep their raw source: resolveImage refuses data:, javascript: and
 // the rest, and shows a labelled placeholder instead. Links are filtered by
 // the `a` component above as well.
@@ -208,10 +215,15 @@ export const Markdown = memo(function Markdown({
   /** The reply is still arriving; hide trailing syntax that isn't complete yet. */
   streaming?: boolean;
 }) {
+  const links = useAutolinkContext();
+  const plugins = useMemo<PluggableList>(
+    () => (canAutolink(links) ? [remarkGfm, [remarkAutolink, links]] : PLUGINS),
+    [links],
+  );
   return (
     <div className="md">
       <ReactMarkdown
-        remarkPlugins={PLUGINS}
+        remarkPlugins={plugins}
         components={componentsFor(imageHost)}
         urlTransform={urlTransform}
       >
