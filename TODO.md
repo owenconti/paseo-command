@@ -5,17 +5,17 @@ mark it done with its commit once merged into `main`.
 
 ## Open
 
-- [ ] **Activity: notifications marked done come back after a few seconds.** Marking GitHub notifications done (E/⌫,
-  Mark all done) removes them, then some reappear seconds later (seen: "DE-8004 … You were mentioned" and "DE-8000 … Assigned
-  to you", both Diagonal-HQ/diagonal, both "now"). Find the cause in `web/server/activity/github.ts` / `feed.ts` and the
-  page's `store.ts`: likely a poll or the minute's cache answering with the list from before the write (GitHub's
-  `/notifications` is eventually consistent after DELETE/PATCH), the page's optimistic removal being overwritten by a
-  read begun before the write, `github-activity.json`'s done-by-`updated_at` rule letting a thread back when GitHub bumps
-  `updated_at` for the same event, or the write failing quietly. Done items must stay gone until a genuinely newer event
-  on the thread (later than when you marked it); show a notice if GitHub refuses. Same check for Linear items. Tests over
-  the fakes with a lagging GitHub. Workspace: `fix-activity-done-returns`.
-
 ## Done
+
+- [x] **Activity: notifications marked done come back after a few seconds.** The cause: GitHub's list (`all=true`) keeps
+  threads marked done, as read ones, and moves their `updated_at` for activity that doesn't notify you (pushes, checks on a
+  pull request you're assigned; DE-8000's had moved eight hours past its mark, still read), so the done-by-`updated_at` rule
+  let them back as soon as the minute's cache refreshed. Now a done thread stays out until a genuinely newer event: unread
+  again and changed after both GitHub's time for it and when it was marked (and after GitHub's `last_read_at`), and never in
+  the two minutes GitHub's list takes to settle (`web/server/activity/marks.ts`; `github-activity.json` keeps both times,
+  reading the old file). Marks are set before the write is sent (a read answering meanwhile can't put it back) and undone,
+  with the notice, if GitHub refuses; a write forgets the cached list. Linear's rows likewise. Tests over a lagging fake
+  GitHub and Linear, and the e2e across polls.
 
 - [x] **Files: open files in an editor of the user's choosing (e.g. nvim) in a terminal.** Settings → Files → "Open files in":
   Built-in viewer (default) or Editor command (`nvim {file}`, `{line}` too; checked: one line, `{file}` needed and unquoted), kept in

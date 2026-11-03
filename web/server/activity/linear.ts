@@ -7,6 +7,8 @@
  * else in Conquer. Only while Linear is on
  * (the reads take the key through `integrationKey("linear")`). Writes are
  * the Inbox's: read, unread and done (archive) on a row's notifications together.
+ * A write forgets the cached list, and its marks (`marks.ts`) keep the Inbox's
+ * lag from putting a row back, or its old read state, until something newer.
  */
 import type { ActivityItem, ActivityWriteName } from "../../src/activity/types";
 import { inboxGroups, inboxText, type InboxGroup } from "../linear/inbox";
@@ -14,14 +16,19 @@ import type { LinearUser } from "../linear/types";
 import { readNotifications, readWorkspace } from "../linear/reads";
 import { appSettings } from "../settings";
 import { linearWrite } from "../linear/writes";
+import { ACTIVITY_MARKS, applyMarks, newMarks } from "./marks";
 
 export const LINEAR_ACTIVITY = { ttlMs: 20_000 };
 
 let cache: { at: number; items: Promise<ActivityItem[]> } | undefined;
+/** Rows marked here, for this launch: Linear keeps what's archived out of the Inbox once it has settled. */
+const marks = newMarks();
 
 /** Forgets what was kept (tests). */
 export function resetLinearActivity(): void {
   cache = undefined;
+  marks.done.clear();
+  marks.read.clear();
 }
 
 /** Where the row's issue is on linear.app: the notification's own address when it's the issue's, else built from the workspace's. */
@@ -86,7 +93,11 @@ export async function readLinearActivity(fresh = false): Promise<ActivityItem[]>
       if (cache?.items === items) cache = undefined;
     });
   }
-  return (await cache.items).map((i) => ({ ...i }));
+  const items = await cache.items;
+  // Done ones past the Inbox's reach (a fortnight) won't show again anyway.
+  const cut = ACTIVITY_MARKS.now() - 15 * 86_400_000;
+  for (const [id, mark] of marks.done) if (Date.parse(mark.doneAt) < cut) marks.done.delete(id);
+  return applyMarks(marks, items).items;
 }
 
 /** Whom an item's write names: its issue's or project's notifications, or the one; null when the id isn't one of these. */
@@ -108,14 +119,22 @@ export async function writeLinearActivity(
   items: ActivityItem[],
 ): Promise<{ key: string; error: string }[]> {
   const failed: { key: string; error: string }[] = [];
-  const at = new Date().toISOString();
+  const at = new Date(ACTIVITY_MARKS.now()).toISOString();
   await Promise.all(
     items.map(async (item) => {
       const entity = linearEntity(item.id);
       if (!entity) return void failed.push({ key: item.key, error: "Not a Linear notification." });
+      // Marked before Linear is asked, so no read answering meanwhile puts it back; undone if Linear refuses.
+      const before = { done: marks.done.get(item.id), read: marks.read.get(item.id) };
+      if (name === "done") marks.done.set(item.id, { at: item.at, doneAt: at });
+      else marks.read.set(item.id, { unread: name === "unread", at: item.at, markedAt: at });
       try {
         await linearWrite(WRITE[name], name === "read" ? { ...entity, readAt: at } : entity);
       } catch (e) {
+        if (before.done) marks.done.set(item.id, before.done);
+        else marks.done.delete(item.id);
+        if (before.read) marks.read.set(item.id, before.read);
+        else marks.read.delete(item.id);
         failed.push({ key: item.key, error: e instanceof Error && e.message ? e.message : "Linear refused." });
       }
     }),

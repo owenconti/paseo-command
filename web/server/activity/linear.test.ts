@@ -9,6 +9,7 @@ import { resetLinearReads } from "../linear/reads";
 import { writeSettings } from "../settings";
 import { issueKeysIn } from "../linear/normalize";
 import { linearEntity, readLinearActivity, resetLinearActivity, writeLinearActivity } from "./linear";
+import { ACTIVITY_MARKS } from "./marks";
 
 let fake: FakeLinear;
 beforeEach(() => {
@@ -17,7 +18,11 @@ beforeEach(() => {
   resetLinearReads();
   resetLinearActivity();
 });
-afterEach(() => fake.restore());
+const realNow = ACTIVITY_MARKS.now;
+afterEach(() => {
+  ACTIVITY_MARKS.now = realNow;
+  fake.restore();
+});
 
 test("one item per issue or project, as the Inbox, without the snoozed", async () => {
   const items = await readLinearActivity();
@@ -150,4 +155,38 @@ test("issue keys in a branch or title", () => {
   assert.deepEqual(issueKeysIn("[ENG-12] fix, see eng-13"), ["ENG-12", "ENG-13"]);
   assert.deepEqual(issueKeysIn("feature/x2-3 v1.2-3 node-v20"), ["X2-3"]);
   assert.deepEqual(issueKeysIn("main"), []);
+});
+
+test("a done row stays gone while the Inbox lags, until a newer notification", async () => {
+  let clock = Date.now();
+  ACTIVITY_MARKS.now = () => clock;
+  const [eng1] = await readLinearActivity();
+  assert.deepEqual(await writeLinearActivity("done", [eng1!]), []);
+  // The Inbox still lists them, as before the write (and still unread): gone, asked again or not.
+  const archived = fake.ws.notifications.filter((n) => n.archivedAt);
+  assert.ok(archived.length);
+  for (const n of archived) n.archivedAt = null;
+  assert.ok(!(await readLinearActivity()).some((i) => i.key === eng1!.key));
+  clock += ACTIVITY_MARKS.settleMs;
+  assert.ok(!(await readLinearActivity(true)).some((i) => i.key === eng1!.key));
+  // A new notification on the issue: back.
+  const newer = new Date(clock + 1_000).toISOString();
+  archived[0]!.createdAt = newer;
+  archived[0]!.updatedAt = newer;
+  archived[0]!.readAt = null;
+  assert.ok((await readLinearActivity(true)).some((i) => i.key === eng1!.key));
+});
+
+test("a refused read stays unread; read shows as read while the Inbox still has it unread", async () => {
+  const [eng1] = await readLinearActivity();
+  fake.fail("NotificationMarkReadAll", { message: "Later", type: "InvalidInput" });
+  assert.deepEqual(await writeLinearActivity("read", [eng1!]), [{ key: eng1!.key, error: "Later" }]);
+  assert.equal((await readLinearActivity()).find((i) => i.key === eng1!.key)!.unread, true);
+  fake.restore();
+  fake = installFakeLinear();
+  resetLinearClient();
+  resetLinearReads();
+  assert.deepEqual(await writeLinearActivity("read", [eng1!]), []);
+  for (const n of fake.ws.notifications) n.readAt = null;
+  assert.equal((await readLinearActivity()).find((i) => i.key === eng1!.key)!.unread, false);
 });

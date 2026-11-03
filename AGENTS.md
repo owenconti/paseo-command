@@ -313,12 +313,17 @@ and GitHub publication; report the published version and release link.
   (`open.ts`, by its address) goes where it lives: pull requests in the GitHub tab ("Review in GitHub", through the app's link routing), Linear issues and projects in Linear's desktop app ("Open in Linear"; Conquer without it), other GitHub in Conquer, in a browser a new tab; it's read from then. Keys: J/K move, Enter/O open, U read/unread, ⇧U all shown read, E/⌫ done, ⇧E all shown done (Mark all done; asks first), 1–3 all and the sources; each with
   its ⌘K entry and the shortcuts dialog's Activity group. Server (`web/server/activity/`, `GET /api/activity`, `POST
   /api/activity/m/read|unread|done` with `{keys}`): `github.ts` (opt-in `integrations.github`: `GET /notifications` with the GitHub
-  token, unread and the past 14 days, cached a minute; read and done through the API; GitHub can't mark unread, and its list still has threads marked done, as read ones, so those done here are kept in the data directory's `github-activity.json` by when GitHub last changed them and left out across launches until they change again), `linear.ts` (the
+  token, unread and the past 14 days, cached a minute; read and done through the API; GitHub can't mark unread, and its list still has threads marked done, as read ones, moving their `updated_at` for activity that doesn't notify you, so those done here are kept in the data directory's `github-activity.json` with GitHub's time for them and when they were marked, and left out across launches until a genuinely newer event), `linear.ts` (the
   Inbox's notifications, one per issue or project, as Linear's Inbox groups them (`web/server/linear/inbox.ts`), not the snoozed, through
   Linear's whitelisted writes; an issue's links to the issue on linear.app, and a pull request notification, which Linear gives no issue,
   to the issue its branch or title names, of the workspace's teams (`issueKeysIn` in `normalize.ts`, `pullRequestIssueKey` in
-  `inbox.ts`; the address from the workspace's `urlKey`, else `linearWorkspace`, else another notification's), `feed.ts` (a source that fails says why without hiding the rest). The page's store
-  (`store.ts`) polls every 30 s while the view shows, else every minute in the macOS app for the tab's count.
+  `inbox.ts`; the address from the workspace's `urlKey`, else `linearWorkspace`, else another notification's), `feed.ts` (a source that fails says why without hiding the rest),
+  `marks.ts` (what's marked, for both sources, since their lists lag behind writes: a write marks its items before it's sent, undoing that if
+  refused, and forgets the source's cached list; a done item stays out until it's unread again and changed after both the source's time for it
+  and when it was marked (and after GitHub's `last_read_at`), never within `ACTIVITY_MARKS.settleMs` (2 min); read and unread show as marked
+  while the lists settle). The page's store
+  (`store.ts`) polls every 30 s while the view shows, else every minute in the macOS app for the tab's count; writes show at once, an
+  answer to an ask begun before a write settled is dropped, and a refused write puts the item back with a notice.
 - Slack: removed at the user's request (the tab, its server, Activity's Slack source, Slack link routing, launching
   agents from Slack, Settings → Slack). Don't add it back unless asked. The user's data stays as it is, ignored: `settings.json`'s
   `integrations.slack` and `slackSections`, `secrets.json`'s `slackUserToken`/`slackAppToken` (saving either file keeps them) and

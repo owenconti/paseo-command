@@ -171,6 +171,74 @@ test("Activity gathers GitHub and Linear, filters them, and marks them read and 
   }
 });
 
+test("a done item stays gone across polls, even one begun before the write; a refused one comes back with a notice", async () => {
+  const context = await newContext(browser);
+  const page = await context.newPage();
+  await mockApi(page, {
+    agents: () => [],
+    lists: { settings: { integrations: { github: true, linear: true } } },
+  });
+  // The server's list; a held ask answers with the list from when it was asked.
+  let items = ITEMS.map((i) => ({ ...i }));
+  let hold: Promise<void> | undefined;
+  let release = () => {};
+  let asks = 0;
+  let refuse = false;
+  await page.route("**/api/activity**", async (route) => {
+    const url = new URL(route.request().url());
+    const name = url.pathname.match(/\/api\/activity\/m\/(\w+)$/)?.[1];
+    if (name) {
+      const { keys } = route.request().postDataJSON() as { keys: string[] };
+      if (refuse) return route.fulfill({ json: { feed: feedOf(items), failed: keys.map((key) => ({ key, error: "Not Found" })) } });
+      if (name === "done") items = items.filter((i) => !keys.includes(i.key));
+      return route.fulfill({ json: { feed: feedOf(items) } });
+    }
+    asks++;
+    const asked = feedOf(items);
+    if (hold) await hold;
+    return route.fulfill({ json: asked });
+  });
+  // Asks again now, as a poll does (a saved key's event asks past the caches).
+  const poll = async () => {
+    const before = asks;
+    await page.evaluate(() => window.dispatchEvent(new Event("paseo:secrets")));
+    await waitFor(() => Promise.resolve(asks), (n) => n > before, "an ask");
+  };
+  try {
+    await page.goto(app.url);
+    await page.locator(".fleet-sidebar").waitFor();
+    await showActivity(page);
+    const view = page.locator(".activity-view");
+    await waitFor(() => rowKeys(page), (keys) => keys.length === 3, "the feed");
+
+    // An ask goes out and is held; meanwhile the mention is marked done.
+    hold = new Promise<void>((r) => (release = r));
+    await poll();
+    await view.locator(`.activity-row[data-key="${ITEMS[1].key}"]`).hover();
+    await view.getByRole("button", { name: `Mark ${ITEMS[1].title} done` }).click();
+    await waitFor(() => rowKeys(page), (keys) => !keys.includes(ITEMS[1].key), "done leaves the feed");
+    // The held ask answers with the list from before the write: dropped.
+    release();
+    hold = undefined;
+    await page.waitForTimeout(300);
+    for (let i = 0; i < 3; i++) {
+      await poll();
+      await page.waitForTimeout(150);
+      assert.ok(!(await rowKeys(page)).includes(ITEMS[1].key), `still gone after poll ${i + 1}`);
+    }
+    assert.deepEqual(await rowKeys(page), [ITEMS[0].key, ITEMS[2].key]);
+
+    // GitHub refuses: back in the feed, with a notice saying why.
+    refuse = true;
+    await view.locator(`.activity-row[data-key="${ITEMS[0].key}"]`).hover();
+    await view.getByRole("button", { name: `Mark ${ITEMS[0].title} done` }).click();
+    await page.locator(".toast", { hasText: "Couldn’t mark as done “Add the Activity tab”: Not Found" }).waitFor();
+    await waitFor(() => rowKeys(page), (keys) => keys.includes(ITEMS[0].key), "the refused item back");
+  } finally {
+    await context.close();
+  }
+});
+
 test("in the macOS app, a Linear pull request notification opens its issue's address, which the app takes to Linear", async () => {
   const context = await newContext(browser);
   const page = await context.newPage();

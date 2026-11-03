@@ -6,9 +6,12 @@
  * for in one GraphQL query alongside, and left out when GitHub can't answer it.
  * Writes: read (`PATCH /notifications/threads/:id`) and done (`DELETE`).
  * GitHub can't mark a notification unread. GitHub's list (`all=true`) still
- * has threads marked done, as read ones, so those done here are kept in the
- * data directory's `github-activity.json` (by when GitHub last changed them)
- * and left out until they change again, across launches.
+ * has threads marked done, as read ones, and moves their `updated_at` for
+ * activity that doesn't notify you, so those done here are kept in the data
+ * directory's `github-activity.json` (GitHub's time for them and when they were
+ * marked) and left out, across launches, until a genuinely newer event
+ * (`marks.ts`). A write forgets the cached list; its marks keep lagging lists
+ * (and reads begun before it) from putting anything back.
  */
 import { randomUUID } from "node:crypto";
 import { mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
@@ -16,6 +19,7 @@ import { join } from "node:path";
 import type { ActivityItem, ActivityWriteName } from "../../src/activity/types";
 import { githubGraphql, githubRest } from "../githubApi";
 import { dataDir } from "../subagentArchive";
+import { ACTIVITY_MARKS, applyMarks, newMarks, type DoneMark } from "./marks";
 
 export const GITHUB_ACTIVITY = {
   ttlMs: 60_000,
@@ -152,9 +156,11 @@ export function statesFrom(items: { repo: string; number: string }[], answer: un
   return out;
 }
 
-let cache: { at: number; items: Promise<ActivityItem[]> } | undefined;
-/** Threads marked done here, by when GitHub last changed them: left out until they change again. */
-const done = new Map<string, string>();
+type Gathered = { items: ActivityItem[]; lastRead: Map<string, string> };
+let cache: { at: number; list: Promise<Gathered> } | undefined;
+/** Threads marked here: done ones (kept in the file) left out until something newer, read ones while GitHub's list settles. */
+const marks = newMarks();
+const done = marks.done;
 let doneLoaded = false;
 
 export const githubActivityFile = () => join(dataDir(), "github-activity.json");
@@ -166,8 +172,13 @@ function loadDone(): void {
   try {
     const raw = JSON.parse(readFileSync(githubActivityFile(), "utf8")) as { done?: unknown };
     const kept = raw.done && typeof raw.done === "object" && !Array.isArray(raw.done) ? raw.done : {};
-    for (const [id, at] of Object.entries(kept))
-      if (/^\d{1,30}$/.test(id) && typeof at === "string" && Number.isFinite(Date.parse(at))) done.set(id, at);
+    const isTime = (v: unknown): v is string => typeof v === "string" && Number.isFinite(Date.parse(v));
+    for (const [id, mark] of Object.entries(kept)) {
+      if (!/^\d{1,30}$/.test(id)) continue;
+      // Earlier launches kept only GitHub's time.
+      if (isTime(mark)) done.set(id, { at: mark, doneAt: mark });
+      else if (mark && isTime(mark.at) && isTime(mark.doneAt)) done.set(id, { at: mark.at, doneAt: mark.doneAt });
+    }
   } catch {
     // None yet (or unreadable): nothing was marked done.
   }
@@ -176,7 +187,7 @@ function loadDone(): void {
 /** Saves them, without those older than the list reaches (they won't show again anyway), at most 1,000. */
 function saveDone(): void {
   const cut = Date.now() - (GITHUB_ACTIVITY.days + 1) * 86_400_000;
-  for (const [id, at] of done) if (Date.parse(at) < cut) done.delete(id);
+  for (const [id, mark] of done) if (Math.max(Date.parse(mark.at), Date.parse(mark.doneAt)) < cut) done.delete(id);
   while (done.size > 1000) done.delete(done.keys().next().value!);
   mkdirSync(dataDir(), { recursive: true });
   const file = githubActivityFile();
@@ -193,6 +204,7 @@ function saveDone(): void {
 export function resetGithubActivity({ relaunch = false } = {}): void {
   cache = undefined;
   done.clear();
+  marks.read.clear();
   doneLoaded = false;
   if (!relaunch) rmSync(githubActivityFile(), { force: true });
 }
@@ -202,7 +214,7 @@ const repoOf = (item: ActivityItem) => {
   return m && (item.subject === "pull" || item.subject === "issue") ? { repo: m[1]!, number: m[2]! } : null;
 };
 
-async function gather(): Promise<ActivityItem[]> {
+async function gather(): Promise<Gathered> {
   const since = new Date(Date.now() - GITHUB_ACTIVITY.days * 86_400_000).toISOString();
   const page = async (n: number) => {
     const { data } = await githubRest<unknown>(
@@ -216,6 +228,12 @@ async function gather(): Promise<ActivityItem[]> {
     const list = await page(n);
     raw.push(...list);
     if (list.length < GITHUB_ACTIVITY.perPage) break;
+  }
+  // When GitHub says you last read each thread: something newer than that is new to you.
+  const lastRead = new Map<string, string>();
+  for (const n of raw) {
+    const { id, last_read_at } = rec(n);
+    if (typeof id === "string" && typeof last_read_at === "string") lastRead.set(id, last_read_at);
   }
   const items = raw
     .map(githubItem)
@@ -241,23 +259,34 @@ async function gather(): Promise<ActivityItem[]> {
       }
     }
   }
-  return items;
+  return { items, lastRead };
 }
 
 /** Your GitHub notifications as Activity items; throws a GithubApiError (off, no token, refused…) when GitHub can't answer. */
 export async function readGithubActivity(fresh = false): Promise<ActivityItem[]> {
   const now = Date.now();
   if (fresh || !cache || now - cache.at >= GITHUB_ACTIVITY.ttlMs) {
-    const items = gather();
-    cache = { at: now, items };
+    const list = gather();
+    cache = { at: now, list };
     // A failure isn't kept: the next read asks again.
-    items.catch(() => {
-      if (cache?.items === items) cache = undefined;
+    list.catch(() => {
+      if (cache?.list === list) cache = undefined;
     });
   }
-  const items = await cache.items;
+  const { items, lastRead } = await cache.list;
+  // The marks as they are now, whenever this list was asked for.
   loadDone();
-  return items.filter((i) => !(done.has(i.id) && i.at <= done.get(i.id)!)).map((i) => ({ ...i }));
+  const { items: shown, back } = applyMarks(marks, items, (id) => lastRead.get(id));
+  if (back.length) save();
+  return shown;
+}
+
+function save(): void {
+  try {
+    saveDone();
+  } catch {
+    // Not saved: kept until the app closes.
+  }
 }
 
 /** Marks these GitHub items read or done; answers those that failed, with why. */
@@ -268,34 +297,32 @@ export async function writeGithubActivity(
   if (name === "unread")
     return items.map((i) => ({ key: i.key, error: "GitHub can't mark a notification unread." }));
   const failed: { key: string; error: string }[] = [];
-  const kept = cache ? await cache.items.catch(() => undefined) : undefined;
   loadDone();
   let marked = false;
   await Promise.all(
     items.map(async (item) => {
       if (!/^\d{1,30}$/.test(item.id)) return void failed.push({ key: item.key, error: "Not a GitHub notification." });
+      // Marked before GitHub is asked, so no read answering meanwhile puts it back; undone if GitHub refuses.
+      const at = item.at;
+      const markedAt = new Date(ACTIVITY_MARKS.now()).toISOString();
+      const before = { done: done.get(item.id), read: marks.read.get(item.id) };
+      if (name === "done") done.set(item.id, { at, doneAt: markedAt } satisfies DoneMark);
+      else marks.read.set(item.id, { unread: false, at, markedAt });
       try {
         await githubRest(name === "read" ? "PATCH" : "DELETE", `notifications/threads/${item.id}`);
+        if (name === "done") marked = true;
       } catch (e) {
+        if (before.done) done.set(item.id, before.done);
+        else if (name === "done") done.delete(item.id);
+        if (before.read) marks.read.set(item.id, before.read);
+        else if (name === "read") marks.read.delete(item.id);
         failed.push({ key: item.key, error: e instanceof Error ? e.message : "GitHub didn't answer." });
-        return;
-      }
-      // What GitHub now has, without asking it again (its list can lag behind).
-      const mine = kept?.find((i) => i.id === item.id);
-      if (name === "read" && mine) mine.unread = false;
-      if (name === "done") {
-        done.set(item.id, mine?.at ?? item.at);
-        marked = true;
       }
     }),
   );
+  // The list from before the writes is forgotten: the next read asks GitHub, the marks covering its lag.
+  cache = undefined;
   // Kept across launches: GitHub's list still has them.
-  if (marked) {
-    try {
-      saveDone();
-    } catch {
-      // Not saved: they stay left out until the app closes.
-    }
-  }
+  if (marked) save();
   return failed;
 }
