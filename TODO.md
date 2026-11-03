@@ -18,6 +18,15 @@ mark it done with its commit once merged into `main`.
   confirmation); everything else goes to the editor. A per-tab "View" toggle shows the built-in viewer instead. In a browser
   (no SwiftTerm) the built-in viewer stays, with a note. ⌘K entries ("Open in editor", "Open in viewer"), shortcuts dialog,
   CLAUDE.md. Tests: native terminal-embedding checks, e2e with a fake daemon terminal. Workspace: `files-editor-terminal`.
+- [ ] **Activity: notifications marked done come back after a few seconds.** Marking GitHub notifications done (E/⌫,
+  Mark all done) removes them, then some reappear seconds later (seen: "DE-8004 … You were mentioned" and "DE-8000 … Assigned
+  to you", both Diagonal-HQ/diagonal, both "now"). Find the cause in `web/server/activity/github.ts` / `feed.ts` and the
+  page's `store.ts`: likely a poll or the minute's cache answering with the list from before the write (GitHub's
+  `/notifications` is eventually consistent after DELETE/PATCH), the page's optimistic removal being overwritten by a
+  read begun before the write, `github-activity.json`'s done-by-`updated_at` rule letting a thread back when GitHub bumps
+  `updated_at` for the same event, or the write failing quietly. Done items must stay gone until a genuinely newer event
+  on the thread (later than when you marked it); show a notice if GitHub refuses. Same check for Linear items. Tests over
+  the fakes with a lagging GitHub. Workspace: `fix-activity-done-returns`.
 
 ## Done
 
