@@ -401,6 +401,13 @@ export function FilesView({
     writeStore("files:sidebarHidden", hidden);
   };
   const toggleSidebar = useCallback(() => setSidebarHiddenState((h) => (writeStore("files:sidebarHidden", !h), !h)), []);
+  // Hidden, the sidebar leaves a button to show it: first in the tab row, else
+  // (no workspace, so no row) over the page's corner, as the GitHub tab's.
+  const showSidebarButton = (className: string) => (
+    <button className={`icon-btn ${className}`} aria-label="Show the Files sidebar" data-tip="Show the sidebar (⌘S)" onClick={toggleSidebar}>
+      <PanelLeftOpen size={14} aria-hidden="true" />
+    </button>
+  );
   const resizeSidebar = (w: number | null) => {
     const next = w === null ? PANELS.sidebar : Math.round(Math.min(sidebarMax, Math.max(PANELS.sidebarMin, w)));
     setSidebarWidth(next);
@@ -661,11 +668,7 @@ export function FilesView({
             onReset={() => resizeSidebar(null)}
           />
         </nav>
-        {sidebarHidden && (
-          <button className="icon-btn gh-show-sidebar" aria-label="Show the Files sidebar" data-tip="Show the sidebar (⌘S)" onClick={toggleSidebar}>
-            <PanelLeftOpen size={14} aria-hidden="true" />
-          </button>
-        )}
+        {sidebarHidden && !workspace && showSidebarButton("gh-show-sidebar")}
         <div className="gh-main">
           {!workspace ? (
             <Empty icon={<FolderTree size={26} strokeWidth={1.5} aria-hidden="true" />} title="No workspace selected">
@@ -674,6 +677,7 @@ export function FilesView({
           ) : (
             <>
           <div className="fv-tabbar">
+            {sidebarHidden && showSidebarButton("fv-show-sidebar")}
             <button
               className={`fv-changes-btn${showingChanges ? " active" : ""}`}
               aria-pressed={showingChanges}

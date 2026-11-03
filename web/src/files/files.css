@@ -18,9 +18,6 @@
 .files-view:focus {
   outline: none;
 }
-.files-view.sidebar-hidden .gh-head {
-  padding-left: calc(var(--space-3) + var(--control-sm) + var(--space-2));
-}
 
 /* The sidebar: the workspace, the filter, then the tree */
 .fv-workspace {
@@ -158,11 +155,13 @@
 .fv-tabs::-webkit-scrollbar {
   display: none;
 }
-.files-view.sidebar-hidden .fv-tabbar {
-  padding-left: calc(var(--space-3) + var(--control-sm) + var(--space-2));
-}
-.files-view.sidebar-hidden .fv-tabbar + .gh-main-inner .gh-head {
-  padding-left: var(--space-4);
+/* The hidden sidebar's show button, first in the row, centred on it at the controls' height */
+.fv-show-sidebar {
+  flex-shrink: 0;
+  align-self: center;
+  width: calc(26px * var(--lz));
+  height: calc(26px * var(--lz));
+  margin: 0 var(--space-1) 0 var(--space-2);
 }
 .fv-changes-btn {
   position: relative;

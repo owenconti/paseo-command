@@ -216,8 +216,17 @@ test("Files: the tree, ignored files on request, a file highlighted, find, filte
     await view.locator(".fv-head h2").click();
     await page.keyboard.press("Meta+s");
     await view.locator(".fv-sidebar").waitFor({ state: "hidden" });
-    await view.getByRole("button", { name: "Show the Files sidebar" }).click();
+    // Its show button is first in the tab row, centred on it, left of Changes; the row keeps its height.
+    const tabbar = view.locator(".fv-tabbar");
+    const rowHeight = (await tabbar.boundingBox())!.height;
+    const show = tabbar.getByRole("button", { name: "Show the Files sidebar" });
+    const [row, btn, changesBtn] = await Promise.all([tabbar.boundingBox(), show.boundingBox(), tabbar.locator(".fv-changes-btn").boundingBox()]);
+    assert.ok(Math.abs(btn!.y + btn!.height / 2 - (row!.y + row!.height / 2)) <= 1, "the show button centred in the tab row");
+    assert.ok(btn!.x >= row!.x && btn!.x + btn!.width <= changesBtn!.x, "the show button left of Changes");
+    assert.ok(btn!.height < row!.height, "the show button within the row");
+    await show.click();
     await view.locator(".fv-sidebar").waitFor();
+    assert.equal((await tabbar.boundingBox())!.height, rowHeight, "the row's height unchanged");
 
     // ⌘K, in the tab: its own entries.
     await page.keyboard.press("Meta+k");
