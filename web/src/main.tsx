@@ -2032,6 +2032,15 @@ function App() {
                 command("files-ignored", v.showIgnored ? "Hide ignored files" : "Show ignored files", "gitignore ignored hidden .git node_modules build toggle"),
                 command("files-sidebar", "Show or hide the Files sidebar", "sidebar tree collapse panel", ["⌘", "S"]),
                 command("files-refresh", "Refresh the files", "reload update sync tree"),
+                ...(v.tabs > 0 ? [command("files-close-tab", "Close the file’s tab", "close tab file editor", macApp() ? ["⌘", "W"] : ["⌃", "W"], "Navigate")] : []),
+                ...(v.reopenable ? [command("files-reopen-tab", "Reopen the closed tab", "reopen restore undo closed tab file", ["⇧", "⌘", "T"], "Navigate")] : []),
+                ...(v.tabs > 1
+                  ? [
+                      command("files-next-tab", "Next tab", "next tab right step cycle file", ["⌃", "Tab"], "Navigate"),
+                      command("files-previous-tab", "Previous tab", "previous tab left step cycle file", ["⌃", "⇧", "Tab"], "Navigate"),
+                      command("files-close-other-tabs", "Close other tabs", "close others other tabs keep only this file", undefined, "Navigate"),
+                    ]
+                  : []),
                 ...(v.file ? [command("files-copy-path", "Copy the file’s path", "copy path clipboard name")] : []),
                 ...(v.text ? [command("files-find", "Find in the file", "search find text content lines match", ["⌘", "F"])] : []),
                 ...(v.file && v.change && v.change !== "deleted" && integrations.github

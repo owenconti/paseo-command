@@ -64,7 +64,12 @@ export type AppCommand =
   | "files-find"
   | "files-copy-path"
   | "files-show-changes"
-  | "files-open";
+  | "files-open"
+  | "files-close-tab"
+  | "files-reopen-tab"
+  | "files-next-tab"
+  | "files-previous-tab"
+  | "files-close-other-tabs";
 
 const EVENT = "paseo:command";
 

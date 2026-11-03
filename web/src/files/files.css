@@ -128,6 +128,115 @@
   background: var(--green-text);
 }
 
+/* The open files' tabs, above the viewer */
+.fv-tabs {
+  display: flex;
+  flex-shrink: 0;
+  align-items: stretch;
+  height: calc(32px * var(--lz));
+  overflow-x: auto;
+  overflow-y: hidden;
+  border-bottom: 1px solid var(--line);
+  background: var(--fill-soft);
+  scrollbar-width: none;
+}
+.fv-tabs::-webkit-scrollbar {
+  display: none;
+}
+.files-view.sidebar-hidden .fv-tabs {
+  padding-left: calc(var(--space-3) + var(--control-sm) + var(--space-2));
+}
+.files-view.sidebar-hidden .fv-tabs + .gh-main-inner .gh-head {
+  padding-left: var(--space-4);
+}
+.fv-tab {
+  position: relative;
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 5px;
+  max-width: calc(240px * var(--lz));
+  padding: 0 var(--space-1) 0 var(--space-3);
+  border-right: 1px solid var(--line-soft);
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+  white-space: nowrap;
+  cursor: default;
+  user-select: none;
+}
+.fv-tab:hover {
+  background: var(--row-hover);
+  color: var(--text-2);
+}
+.fv-tab.active {
+  background: var(--surface);
+  color: var(--text-strong);
+}
+/* The shown tab's edge, and it opens onto the file beneath. */
+.fv-tab.active::after {
+  content: "";
+  position: absolute;
+  inset: auto 0 -1px;
+  height: 2px;
+  background: var(--accent);
+}
+.fv-tab:focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 1px var(--focus);
+}
+.fv-tab.preview .fv-tab-name {
+  font-style: italic;
+}
+.fv-tab.dragging {
+  opacity: 0.5;
+}
+.fv-tab.drop-before {
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+.fv-tab.drop-after {
+  box-shadow: inset -2px 0 0 var(--accent);
+}
+.fv-tab-icon {
+  flex-shrink: 0;
+  color: var(--icon-muted);
+}
+.fv-tab-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.fv-tab-dir {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: var(--fs-2xs);
+  color: var(--text-4);
+}
+.fv-tab .fv-changed {
+  margin-left: 2px;
+}
+.fv-tab-close {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: calc(18px * var(--lz));
+  height: calc(18px * var(--lz));
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--text-4);
+  opacity: 0;
+  cursor: default;
+}
+.fv-tab:hover .fv-tab-close,
+.fv-tab.active .fv-tab-close,
+.fv-tab-close:focus-visible {
+  opacity: 1;
+}
+.fv-tab-close:hover {
+  background: var(--row-hover);
+  color: var(--text-strong);
+}
+
 /* The open file */
 .fv-meta {
   gap: var(--space-2);

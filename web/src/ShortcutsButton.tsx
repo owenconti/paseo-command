@@ -137,12 +137,29 @@ const FILES: Group = {
   note: "In the Files tab",
   rows: [
     { keys: [["⌘", "P"]], label: "Open a file by name (fuzzy over every path; ↑/↓ pick, Enter opens)" },
+    { keys: [["Click"], ["Double-click"]], label: "A file in the tree: open it in a preview tab (italic, replaced by the next), or keep it open" },
     { keys: [["T"]], label: "Filter the tree by path (↑/↓ pick, Enter opens, Esc clears)" },
     { keys: [["↓"], ["↑"]], label: "In the tree: the next or previous file or folder" },
     { keys: [["→"], ["←"]], label: "In the tree: open or close a folder (or go into it, or up to its parent)" },
     { keys: [["Enter"]], label: "In the tree: open the file, or open or close the folder" },
     { keys: [["⌘", "F"]], label: "Find in the file (Enter next, ⇧Enter previous, Esc closes)" },
     { keys: [["⌘", "S"]], label: "Show or hide the sidebar" },
+    { keys: [["⌘", "W"], ["⌃", "W"]], label: "Close the tab (with none open, nothing; in a browser ⌘W is the browser's: use ⌃W)" },
+    { keys: [["⇧", "⌘", "T"]], label: "Reopen the last closed tab" },
+    {
+      keys: [
+        ["⌃", "Tab"],
+        ["⌃", "⇧", "Tab"],
+      ],
+      label: "The next or previous tab",
+    },
+    {
+      keys: [
+        ["⌥", "⌘", "→"],
+        ["⌥", "⌘", "←"],
+      ],
+      label: "The next or previous tab, too",
+    },
   ],
 };
 /** Conquer's own keys (the macOS app's browser), which it takes ahead of its pages

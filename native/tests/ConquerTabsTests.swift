@@ -139,7 +139,7 @@ do {
 print("Conquer tab closing and reload shortcut checks passed.")
 
 // The mode bar's order, and its tabs' keys by their place among those shown.
-assert(Mode.tabs == [.command, .conquer, .activity, .github, .settings])
+assert(Mode.tabs == [.command, .conquer, .activity, .github, .files, .settings])
 // A mode saved before the Linear tab was removed is no mode (the map shows).
 assert(Mode(rawValue: "linear") == nil)
 assert(Mode.conquer.keys(at: 1) == "⌘2, ⌘`")

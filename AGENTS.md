@@ -462,8 +462,18 @@ and GitHub publication; report the published version and release link.
   (`fuzzyPath`, as the diff's file filter) over every path, the tree narrowed to what fits with its folders, names marked, "N of M"; ↑/↓ pick, Enter
   opens, Esc clears. In the tree ↑/↓ (J/K), →/← open, close or go in or up, Enter opens; hovering (or the keyboard reaching) a file reads it ahead.
   ⌘P (the page takes it while Files shows; ⌘K "Go to file…") quick-opens any file by name, the recently opened first while nothing's typed. Its inner
-  edge resizes the sidebar (`files:sidebarWidth`) and ⌘S hides it (`files:sidebarHidden`). Each workspace keeps its open folders, file and recent
-  files (`files:workspaces`, 40 workspaces). The file shows in @pierre/diffs's `File` (its single-file renderer) under its `Virtualizer` (only the
+  edge resizes the sidebar (`files:sidebarWidth`) and ⌘S hides it (`files:sidebarHidden`). Opened files are tabs above the viewer, as an editor's (`FileTabs` in
+  `FilesView.tsx`; the model is pure, `web/src/files/tabs.ts`): a click in the tree, the filter or ⌘P opens a preview tab (italic; the next preview
+  takes its place), a double-click (in the tree or on the tab) or using the file (a wheel, click or key in it, find) keeps it; tabs drag to reorder,
+  show the name with as much of the folder as tells clashing names apart (`tabLabels`), the changed dot and ×; a middle-click closes; the row scrolls
+  sideways and keeps the shown tab in view. ⌘W closes the shown tab while Files shows (none open: nothing): in the macOS app View → Close File Tab
+  (`AppKeys.addCloseFileTab`, offered the menu ahead of the views by `AppKeys.offeredToMenu` only while Files shows; the View menu comes before
+  Conquer's disabled Close Tab, which elsewhere takes ⌘W and does nothing, as before; the window's Close never has it there) asks the page's
+  `files-close-tab`; in a browser ⌘W is the browser's, so ⌃W too. ⇧⌘T reopens the last closed (pinned), ⌃Tab / ⌃⇧Tab and ⌥⌘→ / ⌥⌘← step, wrapping
+  (the page takes them; Conquer's are disabled while it hasn't the keyboard). ⌘K: Close the file's tab, Reopen the closed tab, Next tab, Previous
+  tab, Close other tabs (`files-close-tab|reopen-tab|next-tab|previous-tab|close-other-tabs`), each only when it applies. Each workspace (host
+  and workspace) keeps its open folders, its tabs with each one's scroll (put back when the tab shows), the shown one (`file`), the closed ones and
+  recent files (`files:workspaces`, 40 workspaces; `web/src/files/kept.ts`). The file shows in @pierre/diffs's `File` (its single-file renderer) under its `Virtualizer` (only the
   lines in view drawn), highlighted in the diffs' worker pool (`DiffWorkers`) in their themes, with line numbers; ⌘F (`files-find`) finds in it with
   the diff's `FindBar`, marks and `revealMatch` (`findInText` in `diffSearch.ts`: a file's lines are keyed `R<n>` as `File` draws them). Its head
   (`.page-head`, `.page-btn`): the path, size and lines, Changed's badge, Show changes (a changed file, while GitHub is on: the GitHub tab's Changes,
