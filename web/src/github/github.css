@@ -1358,6 +1358,8 @@ button.gh-side-check-name:hover {
   min-width: 0;
   min-height: 0;
   overflow-y: auto;
+  /* Anchored by useDiffAnchor (diffAnchor.ts), in WebKit and Chromium alike. */
+  overflow-anchor: none;
   padding: var(--space-3) var(--space-3) var(--space-8);
 }
 .gd-scroll > .gh-empty {

@@ -24,6 +24,7 @@ import { ResizeEdge } from "../ResizeEdge";
 import { useTheme } from "../theme";
 import { plainText } from "../ui";
 import { Avatar, Body, CommentBox, Time } from "./bits";
+import { useDiffAnchor } from "./diffAnchor";
 import { clearFindMarks, FIND_CSS, FindBar, revealMatch, useFindPaint } from "./DiffFind";
 import { filterFiles, findInDiff, sameMatch, shownLines, type FindMatch, type FindOptions } from "./diffSearch";
 import { DIFF_THEMES } from "./diffWorkers";
@@ -277,7 +278,10 @@ function FileBody({
   const fileDiff = useMemo<FileDiffMetadata | null>(() => {
     if (file.status === "binary" || file.status === "too_large" || !file.hunks.length) return null;
     try {
-      return getSingularPatch(patchOf(file));
+      // Keyed by its text: the same changes read again are the same diff to @pierre/diffs, which then keeps
+      // its measured line heights (and highlighting) instead of starting over from estimates.
+      const patch = patchOf(file);
+      return { ...getSingularPatch(patch), cacheKey: `gd:${file.path}:${hashText(patch)}` };
     } catch {
       return null;
     }
@@ -357,6 +361,42 @@ function FileBody({
       />
     </>
   );
+}
+
+/** A short hash of a text (53-bit cyrb53), for cache keys. */
+function hashText(text: string): string {
+  let h1 = 0xdeadbeef;
+  let h2 = 0x41c6ce57;
+  for (let i = 0; i < text.length; i++) {
+    const c = text.charCodeAt(i);
+    h1 = Math.imul(h1 ^ c, 2654435761);
+    h2 = Math.imul(h2 ^ c, 1597334677);
+  }
+  h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+  h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+  return (4294967296 * (2097151 & h2) + (h1 >>> 0)).toString(36);
+}
+
+/**
+ * The files as last shown while a refresh (the Changes view's every 15 s, a PR's after a write) brings
+ * them unchanged: the same objects, and the same list when none changed, so nothing is drawn again.
+ */
+function useStableFiles(files: DiffFile[]): DiffFile[] {
+  const kept = useRef<{ list: DiffFile[]; texts: Map<string, { text: string; file: DiffFile }> }>({ list: [], texts: new Map() });
+  return useMemo(() => {
+    const before = kept.current;
+    const texts = new Map<string, { text: string; file: DiffFile }>();
+    const list = files.map((f) => {
+      const text = JSON.stringify(f);
+      const old = before.texts.get(f.path);
+      const file = old && old.text === text ? old.file : f;
+      texts.set(f.path, { text, file });
+      return file;
+    });
+    const same = list.length === before.list.length && list.every((f, i) => f === before.list[i]);
+    kept.current = { list: same ? before.list : list, texts };
+    return kept.current.list;
+  }, [files]);
 }
 
 /** `text` with the characters at `marks` (counted from `from`) marked: what the file filter matched. */
@@ -475,7 +515,7 @@ const FileSection = memo(function FileSection({
  * Resolve. Viewed and big files show folded.
  */
 export function DiffView({
-  files,
+  files: given,
   layout,
   review,
   listShown = true,
@@ -492,9 +532,12 @@ export function DiffView({
   head?: ReactNode;
   handle?: Ref<DiffViewHandle>;
 }) {
+  const files = useStableFiles(given);
   // The virtualizer's own element scrolls (it draws only the lines in view); this finds it.
   const wrap = useRef<HTMLDivElement>(null);
   const scrollerOf = () => wrap.current?.querySelector<HTMLElement>(":scope > .gd-scroll") ?? null;
+  // What's in view stays put while what's above it changes height (drawing, refreshes).
+  useDiffAnchor(scrollerOf);
   const [composing, setComposing] = useState<Composing | null>(null);
   // Folding: what you chose, else viewed and big files fold.
   const [chosen, setChosen] = useState<Map<string, boolean>>(new Map());

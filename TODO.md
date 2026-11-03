@@ -5,13 +5,6 @@ mark it done with its commit once merged into `main`.
 
 ## Open
 
-- [ ] **Diff viewer: the scroll position jumps after a while.** Sometimes, after some time on a diff (local Changes or a
-  PR's Files changed), the content shifts its scroll position; no pattern found yet. Find the cause: likely candidates are
-  the Changes view's 15 s refresh (re-rendering files, changing heights), worker highlighting finishing and changing line
-  heights, the `Virtualizer` re-measuring files above the viewport without anchoring, images or threads loading, or the
-  file list's state. Reproduce it (a long diff, scroll to the middle, wait through refreshes and highlighting), fix it so
-  the content under the viewport stays put (scroll anchoring on the first visible line), and add an e2e that waits
-  through refreshes and checks the first visible line doesn't move. Workspace: `fix-diff-scroll-jump`.
 - [ ] **Diff viewer: comments on a local diff become a workspace's pending comments, applied from the chat.** PR diffs
   already take review comments (pending review or single). On a workspace's Changes diff, the gutter's + (and a line
   range) should take a comment too, kept as that workspace's pending comments (path, side, line or range, the lines'
@@ -24,6 +17,13 @@ mark it done with its commit once merged into `main`.
 
 ## Done
 
+- [x] **Diff viewer: the scroll position jumps after a while.** The cause: every refresh (the Changes view's every 15 s) gave
+  @pierre/diffs new, unkeyed diff objects, so each file reset its measured line heights (wrapped lines) to estimates outside the
+  virtualizer's anchored pass; measured on a long wrapped diff, each refresh moved the view by whole files. Now the files keep their
+  objects while unchanged (`useStableFiles`) and each diff has a `cacheKey` from its text, so nothing is drawn again; and
+  `useDiffAnchor` (`web/src/github/diffAnchor.ts`, `overflow-anchor: none` on the scroller) keeps the first line in view in place
+  while anything above it changes height (a file that did change, threads), in WebKit and Chromium alike. E2e: unified and split,
+  through unchanged and changed refreshes and a height change above the view, and a file-list jump. Workspace: `fix-diff-scroll-jump`.
 - [x] **Diff viewer: search file names and file contents.** The diff view's file list has "Filter files…" (T, ⌘K): fuzzy on
   paths, narrowing the tree with the matched characters marked and a count, ↑/↓ and Enter to jump, Esc to clear. ⌘F while a diff
   shows opens Find in the diff: added, removed and unchanged lines of every file from the parsed diff (folded and not-yet-drawn
