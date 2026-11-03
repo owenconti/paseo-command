@@ -11,7 +11,17 @@ mark it done with its commit once merged into `main`.
   a changed dot and ×; middle-click closes. ⌘W closes the active tab while the Files page shows (in the macOS app, taken
   ahead of the window's Close, which must not close the window there; with no tabs ⌘W does nothing), ⇧⌘T reopens the last
   closed, ⌃Tab / ⌃⇧Tab and ⌘⌥←/→ step tabs. Tabs are per workspace, kept in localStorage with each tab's scroll position.
-  Conquer keeps its own ⌘W. ⌘K entries, the shortcuts dialog, CLAUDE.md. Workspace: `files-tabs`.
+  Conquer keeps its own ⌘W. ⌘K entries, the shortcuts dialog, CLAUDE.md. Workspace: `files-tabs`.- [ ] **Move a workspace's Changes from the GitHub tab into the Files page.** The user wants the worktree/agent side tied
+  to the file system: a workspace's Changes (today the GitHub tab's sidebar Workspace section, `ChangesView.tsx`: all /
+  committed / uncommitted, ahead/behind, the diff with filter, find, local pending comments, Review #N) becomes part of
+  the Files page, reached by a "Changes" button (with the changed-file count) in the Files head, beside the open file
+  tabs, as its own view or tab. It works without the GitHub integration (it never needed it). Files and Changes link
+  both ways: a changed file in the tree opens in Changes, a diff's file opens in Files. The GitHub tab drops its
+  Workspace section (pull requests stay; "Review #N" in Changes opens the PR there). Retarget everything that opened the
+  old place: ⇧⌘G (Show Branch Changes) and its menu item, ⌘K "Show …'s changes against main", the workspace view's
+  Changes button, pending diff comments' "Show the changes", the chat's links, `openGithubPlace` callers; keep old saved
+  places working by redirecting. Update ⌘K, the shortcuts dialog, tests and CLAUDE.md. Workspace: `files-changes`.
+
 ## Done
 
 - [x] **Files: a quick, read-only file explorer for a workspace.** A Files tab (the mode bar's after GitHub, View menu, ⌘1…⌘6,
