@@ -9,7 +9,20 @@ mark it done with its commit once merged into `main`.
   "show sidebar" button floats below and left of the tab row (the Changes button and tabs), in its own strip and not
   centred on the row. Put it in the tab row itself, first, vertically centred and the same height as the row's controls,
   with the row's padding (no gap above or extra strip), as the GitHub tab's hidden-sidebar button should look; check the
-  GitHub tab's equivalent for the same fault. Light and dark; e2e asserts it's centred in the row. Workspace: `files-sidebar-button`.
+  GitHub tab's equivalent for the same fault. Light and dark; e2e asserts it's centred in the row. Workspace: `files-sidebar-button`.- [ ] **Files: open files in an editor of the user's choosing (e.g. nvim) in a terminal.** Settings → Files gets "Open
+  files in": the built-in viewer (default) or an editor command, e.g. `nvim {file}` (also `{line}`; `{file}` relative to the
+  workspace; validated, quoted safely). With a command set, opening a file in the Files page (tree, ⌘P, a tab, Open in Files
+  from Changes) runs it in a daemon terminal on the workspace's host, in the workspace's folder (`/api/terminals/create`, as
+  the terminal panel does, so remote hosts and the editor's own LSP setup work), and shows that terminal in the file
+  viewer's place: in the macOS app a SwiftTerm view laid over the viewer's frame (as Conquer and the terminal panel are laid,
+  `TerminalDrawer.swift`'s pane), following the page's layout, theme and text size, taking the keyboard while focused.
+  Each file tab keeps its own editor terminal; switching tabs shows its terminal; closing the tab ends the terminal after
+  asking if it's still running (unsaved work is the editor's to warn about). App keys stay the app's while the editor has
+  the keyboard only where the terminal panel already keeps them (⌘1…⌘6, ⇧⌘G, ⇧⌘E, ⌘K; ⌘W closes the tab with that
+  confirmation); everything else goes to the editor. A per-tab "View" toggle shows the built-in viewer instead. In a browser
+  (no SwiftTerm) the built-in viewer stays, with a note. ⌘K entries ("Open in editor", "Open in viewer"), shortcuts dialog,
+  CLAUDE.md. Tests: native terminal-embedding checks, e2e with a fake daemon terminal. Workspace: `files-editor-terminal`.
+
 ## Done
 
 - [x] **Move a workspace's Changes from the GitHub tab into the Files page.** Changes (all / committed / uncommitted,
