@@ -1,4 +1,4 @@
-// ⇧⌘G: View → Show Branch Changes from anywhere, but Conquer's Find Previous while it has the keyboard.
+// ⇧⌘G: View → Show Branch Changes (the Files tab's Changes) from anywhere, but Conquer's Find Previous while it has the keyboard.
 // ⇧⌘E: View → Show Files from anywhere. The Files tab after GitHub, always shown.
 // ⌘W: View → Close File Tab, offered to the menu ahead of the page while Files shows; elsewhere as before.
 _ = NSApplication.shared
@@ -34,6 +34,8 @@ for (title, fill) in [("View", { (m: NSMenu) in
 let view = bar.item(withTitle: "View")!.submenu!
 let branch = view.item(withTitle: "Show Branch Changes")!
 assert(branch.keyEquivalent == "g" && branch.keyEquivalentModifierMask == [.command, .shift])
+// It asks the page for the workspace's Changes in the Files tab (no longer the GitHub tab's).
+assert(AppKeys.branchChangesCommand == "branch-changes")
 // Conquer keeps its binding.
 let previous = ConquerView.commands.compactMap { $0 }.first { $0.name == "findPrevious" }!
 assert(previous.key == "g" && previous.mods == [.command, .shift])

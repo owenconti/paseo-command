@@ -122,13 +122,8 @@ const GITHUB: Group = {
     { keys: [["T"]], label: "Filter the diff's files by path (↑/↓ pick, Enter shows the file, Esc clears)" },
     { keys: [["⌘", "F"]], label: "Find in the diff (Enter next, ⇧Enter previous, Esc closes)" },
     { keys: [["S"]], label: "Star or unstar the repository as a favourite" },
-    { keys: [["M"]], label: "A workspace's changes: all, committed or uncommitted" },
     { keys: [["⌘", "↩"]], label: "Send the comment or review being written" },
     { keys: [["⌘", "S"]], label: "Show or hide the sidebar" },
-    {
-      keys: [["⇧", "⌘", "G"]],
-      label: "From anywhere: the selected workspace's (or agent's) branch changes (Conquer keeps it for find previous while it has the keyboard)",
-    },
   ],
 };
 /** The Files page's keys (`files/FilesView.tsx`), while it shows. */
@@ -142,8 +137,18 @@ const FILES: Group = {
     { keys: [["↓"], ["↑"]], label: "In the tree: the next or previous file or folder" },
     { keys: [["→"], ["←"]], label: "In the tree: open or close a folder (or go into it, or up to its parent)" },
     { keys: [["Enter"]], label: "In the tree: open the file, or open or close the folder" },
-    { keys: [["⌘", "F"]], label: "Find in the file (Enter next, ⇧Enter previous, Esc closes)" },
+    { keys: [["⌘", "F"]], label: "Find in the file, or in the Changes' diff (Enter next, ⇧Enter previous, Esc closes)" },
     { keys: [["⌘", "S"]], label: "Show or hide the sidebar" },
+    {
+      keys: [["⇧", "⌘", "G"]],
+      label: "From anywhere: the selected workspace's (or agent's) Changes, its branch against main (Conquer keeps it for find previous while it has the keyboard)",
+    },
+    { keys: [["Click"]], label: "A changed file's dot in the tree: its changes; a file's Open in Files in the Changes: the file" },
+    { keys: [["J"], ["K"]], label: "In the Changes: the diff's next or previous file" },
+    { keys: [["T"]], label: "In the Changes: filter the diff's files by path" },
+    { keys: [["M"]], label: "In the Changes: all, committed or uncommitted" },
+    { keys: [["U"]], label: "In the Changes: unified or split diff" },
+    { keys: [["F"]], label: "In the Changes: show or hide the diff's file list" },
     { keys: [["⌘", "W"], ["⌃", "W"]], label: "Close the tab (with none open, nothing; in a browser ⌘W is the browser's: use ⌃W)" },
     { keys: [["⇧", "⌘", "T"]], label: "Reopen the last closed tab" },
     {

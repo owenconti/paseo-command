@@ -114,6 +114,12 @@ test("kept per workspace (host and workspace), read back safely, the old one-fil
   assert.deepEqual(back.recent, ["README.md", "src/app.ts"]);
   assert.deepEqual(back.tabs, { tabs: [{ path: "src/app.ts", scroll: 1200 }, { path: "README.md", preview: true }], active: "README.md", closed: ["gone.ts"] });
   assert.deepEqual(paths(readKept(all, remote).tabs), ["other.ts"], "another host's workspace of the same id keeps its own");
+  assert.equal(back.changes, undefined, "the file shows, not Changes");
+  // Changes shown in the tabs' place: kept, the tabs as they were.
+  const changed = readKept(JSON.parse(JSON.stringify(writeKept(all, ws, { ...back, changes: true }))), ws);
+  assert.equal(changed.changes, true);
+  assert.deepEqual(changed.tabs, back.tabs);
+  assert.equal(readKept({ "|wks_a": { changes: "yes" } }, ws).changes, undefined, "only true counts");
   assert.deepEqual(readKept(all, { id: "wks_b" }), { open: [], recent: [], tabs: { tabs: [], closed: [] } });
   // Before tabs: one open file.
   assert.deepEqual(readKept({ "|wks_a": { open: [], file: "a.ts" } }, ws).tabs, { tabs: [{ path: "a.ts" }], active: "a.ts", closed: [] });

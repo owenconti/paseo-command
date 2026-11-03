@@ -6,6 +6,7 @@ import {
   nativeAvailable,
   nativeEvents,
   postAppActivity,
+  postAppLink,
   postAppMenu,
   postNative,
 } from "./worldBridge";
@@ -72,7 +73,8 @@ import {
 import { NewAgent, type DispatchTarget } from "./Dispatch";
 import { appTabs, modeKey, shownModes, useAppMode, type AppMode } from "./appMode";
 import type { ActivityViewState } from "./activity/ActivityView";
-import type { GithubViewState, GithubWorkspace } from "./github/GitHubView";
+import type { GithubViewState } from "./github/GitHubView";
+import { openFilesChanges } from "./files/open";
 import type { FilesViewState } from "./files/FilesView";
 import { pendingLabel } from "./github/localComments";
 import { useLocalComments } from "./github/localCommentsStore";
@@ -233,6 +235,16 @@ function focusComposer() {
   composer?.focus();
   return !!composer;
 }
+
+/** The workspace selected on the map or in the panel (or the open agent's): the Files tab's, and its PR's for ⌘K. */
+type SelectedWorkspace = {
+  id: string;
+  host?: string;
+  name: string;
+  branch?: string;
+  /** Its PR, as the panel knows it. */
+  pr?: { number: number; url: string; title: string } | null;
+};
 
 function App() {
   const [liveAgents, setAgents] = useState<Agent[]>([]),
@@ -897,8 +909,8 @@ function App() {
   const showActivity = appTabs(integrations).activity;
   // The GitHub tab's place and open PR, for ⌘K's entries for them.
   const [githubView, setGithubView] = useState<GithubViewState | undefined>();
-  // The workspace whose changes the GitHub tab shows: the selected one, or the selected agent's.
-  const githubWorkspace = useMemo<GithubWorkspace | undefined>(() => {
+  // The workspace whose files and changes the Files tab shows: the selected one, or the selected agent's.
+  const githubWorkspace = useMemo<SelectedWorkspace | undefined>(() => {
     const a = selection?.type === "agent" ? agents.find((x) => x.id === selection.id) : undefined;
     const ws = a ? workspaceOf(a) : workspace;
     if (!ws || !realWorkspaceIds.has(workspaceKey(ws))) return undefined;
@@ -929,18 +941,17 @@ function App() {
     },
     [choose],
   );
-  // The workspace's changes (or its PR) in the GitHub tab.
+  // The workspace's changes in the Files tab's Changes.
   const showWorkspaceChanges = useCallback(() => {
-    openGithubPlace({ kind: "changes" });
-    postAppMenu("github");
+    openFilesChanges();
+    postAppMenu("files");
   }, []);
   // ⇧⌘G (the macOS app's View → Show Branch Changes, from anywhere but Conquer with the keyboard;
-  // in a browser, the page's own key): the selected workspace's, or agent's, changes in the GitHub tab.
+  // in a browser, the page's own key): the selected workspace's, or agent's, changes in the Files tab.
   const branchChanges = useRef(() => {});
   branchChanges.current = () => {
-    if (!integrations.github) setNotice("Turn on GitHub in Settings to see a branch's changes.");
-    else if (!githubWorkspace) setNotice("Select a workspace or agent to see its branch's changes.");
-    else if (!macApp()) setNotice("The GitHub tab is in the macOS app.");
+    if (!githubWorkspace) setNotice("Select a workspace or agent to see its branch's changes.");
+    else if (!macApp()) setNotice("The Files tab, with its Changes, is in the macOS app.");
     else showWorkspaceChanges();
   };
   useEffect(() => {
@@ -951,19 +962,22 @@ function App() {
       branchChanges.current();
     };
     window.addEventListener("keydown", key);
-    const offCommand = onAppCommand("github-branch-changes", () => branchChanges.current());
+    const offCommand = onAppCommand("branch-changes", () => branchChanges.current());
     return () => {
       window.removeEventListener("keydown", key);
       offCommand();
     };
   }, []);
-  // The Files tab's state, for ⌘K's entries for it; it shows the same workspace as the GitHub tab's changes.
+  // The Files tab's state, for ⌘K's entries for it.
   const [filesView, setFilesView] = useState<FilesViewState | undefined>();
-  // A changed file's changes in the GitHub tab's Changes (all of them, so it's there).
-  const showFileChanges = useCallback((path: string) => {
-    writeStore("github:changesMode", "all");
-    openGithubPlace({ kind: "changes", path });
+  // The Files tab's Changes: Review #N opens the PR in the GitHub tab (while it's on); Compare on GitHub in Conquer.
+  const openChangesPr = useCallback((repo: string, number: number) => {
+    openGithubPlace({ kind: "pr", repo, number, tab: "files" });
     postAppMenu("github");
+  }, []);
+  const openInConquer = useCallback((url: string) => {
+    if (macApp()) postAppLink(url, true);
+    else window.open(url, "_blank", "noopener");
   }, []);
   // ⇧⌘E: the macOS app's View → Show Files shows the tab; in a browser, the page says it's the app's.
   useEffect(() => {
@@ -1799,22 +1813,22 @@ function App() {
             id: "github-show",
             group: "App",
             page: "GitHub" as const,
-            label: "Show GitHub (pull requests and workspace changes)",
+            label: "Show GitHub (pull requests)",
             keys: tabKeys("github"),
-            keywords: "github pull requests prs review diff changes code mode tab",
+            keywords: "github pull requests prs review diff code mode tab",
             run: () => postAppMenu("github"),
           },
         ]
       : []),
-    ...(integrations.github && githubWorkspace && !(appMode === "github" && githubView?.place.kind === "changes")
+    ...(macApp() && githubWorkspace && !(appMode === "files" && filesView?.changes)
       ? [
           {
-            id: "github-workspace-changes",
+            id: "files-workspace-changes",
             group: "Actions",
-            page: "GitHub" as const,
+            page: "Files" as const,
             label: `Show ${githubWorkspace.name}’s changes against main`,
             keys: [["⇧", "⌘", "G"]],
-            keywords: "github diff changes branch main compare git files review workspace",
+            keywords: "files diff changes branch main compare git review workspace uncommitted committed",
             run: showWorkspaceChanges,
           },
         ]
@@ -1871,9 +1885,6 @@ function App() {
               .map((scope) =>
                 command("github-go", `Go to ${PR_SCOPE_TITLE[scope].toLowerCase()} in GitHub`, `pull requests list ${scope}`, undefined, { kind: "prs", scope }, "Navigate"),
               ),
-            ...(place.kind !== "changes"
-              ? [command("github-go", "Go to the workspace’s changes in GitHub", "diff branch changes main", undefined, { kind: "changes" }, "Navigate")]
-              : []),
             ...v.repos
               .filter((r) => !(place.kind === "repo" && place.repo.toLowerCase() === r.repo.toLowerCase()))
               .map((r) =>
@@ -1954,11 +1965,6 @@ function App() {
                   command("github-find", "Find in the diff", "diff search find text content lines match", ["⌘", "F"]),
                 ]
               : []),
-            ...(place.kind === "changes"
-              ? (["all", "base", "uncommitted"] as const)
-                  .filter((m) => m !== v.changesMode)
-                  .map((m) => command("github-changes-mode", `Show ${CHANGES_MODE_LABEL[m].toLowerCase()} changes`, `diff changes mode ${m} committed uncommitted`, ["M"], m))
-              : []),
             ...(place.kind === "pr"
               ? [
                   command("github-back", "Back to the pull request list", "back list close", ["Esc"]),
@@ -2016,14 +2022,14 @@ function App() {
     ...(appMode === "files" && filesView
       ? (() => {
           const v = filesView;
-          const command = (id: AppCommand, label: string, keywords: string, keys?: string[], group = "App") => ({
-            id,
+          const command = (id: AppCommand, label: string, keywords: string, keys?: string[], group = "App", arg?: unknown) => ({
+            id: arg === undefined ? id : `${id}:${String(arg)}`,
             group,
             page: "Files" as const,
             label,
             ...(keys ? { keys: [keys] } : {}),
             keywords: `files ${keywords}`,
-            run: () => runAppCommand(id),
+            run: () => runAppCommand(id, arg),
           });
           return v.workspace
             ? [
@@ -2032,7 +2038,22 @@ function App() {
                 command("files-ignored", v.showIgnored ? "Hide ignored files" : "Show ignored files", "gitignore ignored hidden .git node_modules build toggle"),
                 command("files-sidebar", "Show or hide the Files sidebar", "sidebar tree collapse panel", ["⌘", "S"]),
                 command("files-refresh", "Refresh the files", "reload update sync tree"),
-                ...(v.tabs > 0 ? [command("files-close-tab", "Close the file’s tab", "close tab file editor", macApp() ? ["⌘", "W"] : ["⌃", "W"], "Navigate")] : []),
+                ...(v.changes
+                  ? [
+                      command("files-diff-next", "Next file in the changes", "diff file next down changes", ["J"]),
+                      command("files-diff-prev", "Previous file in the changes", "diff file previous up changes", ["K"]),
+                      command("files-diff-layout", v.layout === "split" ? "Unified diff" : "Split diff", "diff layout side by side split unified changes", ["U"]),
+                      command("files-diff-list", v.listShown ? "Hide the diff’s file list" : "Show the diff’s file list", "diff files list tree changes", ["F"]),
+                      command("files-diff-filter", "Filter the diff’s files", "diff files filter search find path name fuzzy go to file changes", ["T"]),
+                      command("files-diff-find", "Find in the diff", "diff search find text content lines match changes", ["⌘", "F"]),
+                      ...(["all", "base", "uncommitted"] as const)
+                        .filter((m) => m !== v.changesMode)
+                        .map((m) =>
+                          command("files-changes-mode", `Show ${CHANGES_MODE_LABEL[m].toLowerCase()} changes`, `diff changes mode ${m} committed uncommitted branch`, ["M"], "App", m),
+                        ),
+                    ]
+                  : []),
+                ...(v.tabs > 0 && !v.changes ? [command("files-close-tab", "Close the file’s tab", "close tab file editor", macApp() ? ["⌘", "W"] : ["⌃", "W"], "Navigate")] : []),
                 ...(v.reopenable ? [command("files-reopen-tab", "Reopen the closed tab", "reopen restore undo closed tab file", ["⇧", "⌘", "T"], "Navigate")] : []),
                 ...(v.tabs > 1
                   ? [
@@ -2043,8 +2064,8 @@ function App() {
                   : []),
                 ...(v.file ? [command("files-copy-path", "Copy the file’s path", "copy path clipboard name")] : []),
                 ...(v.text ? [command("files-find", "Find in the file", "search find text content lines match", ["⌘", "F"])] : []),
-                ...(v.file && v.change && v.change !== "deleted" && integrations.github
-                  ? [command("files-show-changes", "Show the file’s changes", "diff changes branch github compare modified")]
+                ...(v.file && v.change && v.change !== "deleted" && !v.changes
+                  ? [command("files-show-changes", "Show the file’s changes", "diff changes branch compare modified against main")]
                   : []),
               ]
             : [];
@@ -2418,12 +2439,17 @@ function App() {
             </React.Suspense>
             {integrations.github && appMode === "github" && (
               <React.Suspense fallback={null}>
-                <GitHubView workspace={githubWorkspace} onNotice={setNotice} onViewState={setGithubView} paseoFor={paseoFor} onOpenPaseo={openPaseo} />
+                <GitHubView onNotice={setNotice} onViewState={setGithubView} paseoFor={paseoFor} onOpenPaseo={openPaseo} />
               </React.Suspense>
             )}
             {appMode === "files" && (
               <React.Suspense fallback={null}>
-                <FilesView workspace={githubWorkspace} onNotice={setNotice} onViewState={setFilesView} {...(integrations.github ? { onShowChanges: showFileChanges } : {})} />
+                <FilesView
+                  workspace={githubWorkspace}
+                  onNotice={setNotice}
+                  onViewState={setFilesView}
+                  {...(integrations.github ? { onOpenPr: openChangesPr, onExternal: openInConquer } : {})}
+                />
               </React.Suspense>
             )}
             {showActivity && macApp() && <ActivityBadge />}
@@ -2654,7 +2680,7 @@ function App() {
 
                       permissionAgents={permissionAgents}
                       unread={unread}
-                      onChanges={integrations.github && macApp() ? showWorkspaceChanges : undefined}
+                      onChanges={macApp() ? showWorkspaceChanges : undefined}
                     />
                   ) : project ? (
                     <ProjectView

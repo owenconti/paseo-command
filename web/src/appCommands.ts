@@ -47,14 +47,13 @@ export type AppCommand =
   | "github-next-file"
   | "github-prev-file"
   | "github-viewed"
-  | "github-changes-mode"
   | "github-open-browser"
   | "github-star"
   | "github-find-repo"
   | "github-sidebar"
   | "github-filter"
   | "github-set-filter"
-  | "github-branch-changes"
+  | "branch-changes"
   | "files-show"
   | "files-quick-open"
   | "files-filter"
@@ -64,6 +63,14 @@ export type AppCommand =
   | "files-find"
   | "files-copy-path"
   | "files-show-changes"
+  | "files-changes"
+  | "files-changes-mode"
+  | "files-diff-layout"
+  | "files-diff-list"
+  | "files-diff-filter"
+  | "files-diff-find"
+  | "files-diff-next"
+  | "files-diff-prev"
   | "files-open"
   | "files-close-tab"
   | "files-reopen-tab"
@@ -73,7 +80,7 @@ export type AppCommand =
 
 const EVENT = "paseo:command";
 
-/** Asks for `name`; `arg` is what it acts on, where it needs one (`activity-filter`: the source or "all"; `github-open`/`github-go`: the place; `github-tab`: the PR's tab; `github-review`: the verdict; `github-merge`: the merge box's action (`merge.ts` `MergeAction`); `github-star`: `{kind, name, starred}`; `github-filter`: the filter to open; `github-set-filter`: `{field, value}` (a people filter's value: its logins) or "clear"). */
+/** Asks for `name`; `arg` is what it acts on, where it needs one (`activity-filter`: the source or "all"; `github-open`/`github-go`: the place; `github-tab`: the PR's tab; `github-review`: the verdict; `github-merge`: the merge box's action (`merge.ts` `MergeAction`); `github-star`: `{kind, name, starred}`; `github-filter`: the filter to open; `github-set-filter`: `{field, value}` (a people filter's value: its logins) or "clear"; `files-changes`: `{path?}`, a file to show; `files-changes-mode`: the mode, else the next). */
 export function runAppCommand(name: AppCommand, arg?: unknown) {
   // The detail stays the bare name: the macOS app sends its own that way.
   window.dispatchEvent(Object.assign(new CustomEvent(EVENT, { detail: name }), { arg }));
@@ -87,8 +94,8 @@ export function onAppCommand(name: AppCommand, run: (arg?: unknown) => void) {
   return () => window.removeEventListener(EVENT, listener);
 }
 
-/** ⇧⌘G: the selected workspace's branch changes in the GitHub tab. The macOS app takes it through its
- * View menu (Show Branch Changes) and sends `github-branch-changes`; a browser's page takes it itself. */
+/** ⇧⌘G: the selected workspace's branch changes in the Files tab's Changes. The macOS app takes it through its
+ * View menu (Show Branch Changes) and sends `branch-changes`; a browser's page takes it itself. */
 export const isBranchChangesShortcut = (event: ShortcutKey) =>
   event.metaKey && event.shiftKey && !event.ctrlKey && !event.altKey && event.key.toLowerCase() === "g";
 

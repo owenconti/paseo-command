@@ -1,5 +1,5 @@
 /**
- * Comments on a workspace's own diff (the GitHub tab's Changes): the gutter's
+ * Comments on a workspace's own diff (the Files tab's Changes): the gutter's
  * + keeps one as the workspace's pending comment (`/api/diff-comments`,
  * answered here from a store that outlives a reload), shown under its line;
  * the chat of an agent in that workspace offers "N pending comments · Apply",
@@ -88,6 +88,10 @@ async function setUp(page: Page) {
     };
     return route.fulfill({ json: changes });
   });
+  // The Files tab, whose Changes these are: an empty tree.
+  await page.route("**/api/files/**", (route) =>
+    route.fulfill({ json: route.request().url().includes("/files/tree") ? { dir: "", entries: [] } : { files: [] } }),
+  );
   await page.route("**/api/github/**", (route) => {
     githubHits.push(new URL(route.request().url()).pathname);
     return route.fulfill({ status: 404, json: { error: "not mocked" } });
@@ -118,9 +122,10 @@ async function setUp(page: Page) {
 }
 
 const showChanges = async (page: Page) => {
-  await appEvent(page, "paseo:mode", { mode: "github" });
-  const view = page.locator(".github-view");
-  await view.getByRole("button", { name: /Map polish/ }).click();
+  await appEvent(page, "paseo:mode", { mode: "files" });
+  const view = page.locator(".files-view");
+  const button = view.locator(".fv-changes-btn");
+  if ((await button.getAttribute("aria-pressed")) !== "true") await button.click();
   await view.locator('.gd-file[data-path="src/a.ts"]').waitFor();
   return view;
 };
@@ -184,6 +189,9 @@ test("a comment on a local diff is the workspace's pending comment, applied from
     await control.locator(".pending-comment", { hasText: "src/a.ts:6" }).waitFor();
     await control.locator(".pending-comment-quote", { hasText: "const c = 4;" }).waitFor();
     await page.screenshot({ path: "/tmp/diff-comments-chat.png" });
+    // Show the changes: the Files tab's Changes (in a browser, it says the tab is the app's).
+    await control.getByRole("button", { name: "Show the changes" }).click();
+    await page.locator(".toast[role=status]", { hasText: "The Files tab, with its Changes, is in the macOS app." }).waitFor();
 
     // ⌘K has both entries.
     await page.keyboard.press("Meta+k");

@@ -244,7 +244,7 @@ and GitHub publication; report the published version and release link.
 - Top bar: native, all of it, in the macOS app (`ModeBar` in `Conquer.swift`, its height an empty unified-compact toolbar's, which centres the traffic
   lights): the traffic lights, "PASEO COMMAND" (the bundled Barlow), the mode tabs (Command, Conquer, Activity, GitHub, Files, Settings, those enabled;
   ⌘1…⌘6 pick the one in that place among those shown, from anywhere in the window: `AppWindow.performKeyEquivalent` offers them to the View menu,
-  whose items `numberModes` keys, ahead of the page, the terminal and Conquer's pages, as ⇧⌘G Show Branch Changes and ⇧⌘E Show Files are, `AppKeys.swift`), Update ready, and the tools: need you, usage meters,
+  whose items `numberModes` keys, ahead of the page, the terminal and Conquer's pages, as ⇧⌘G Show Branch Changes (the Files tab's Changes) and ⇧⌘E Show Files are, `AppKeys.swift`), Update ready, and the tools: need you, usage meters,
   What's new, mini games, keyboard shortcuts and the session panel's side, layout and show/hide (`BarButton`, `UsageMeters`). The page lies below the bar
   (`--app-bar` 0) and draws no bar of its own there (`.app-bar-hosted` in `FloatingPanel.tsx` keeps what the tools open). The page says what the tools show
   (`postAppBarState` → `barState`: attention, usage meters, What's new unseen, the radio connecting, panel side, layout and visibility), and a tool's click
@@ -324,8 +324,8 @@ and GitHub publication; report the published version and release link.
   `integrations.slack` and `slackSections`, `secrets.json`'s `slackUserToken`/`slackAppToken` (saving either file keeps them) and
   `slack-activity.json`.
 - GitHub (the mode bar's tab after Activity; View menu; palette "Show GitHub"; all only while `integrations.github` is on): pull
-  requests and workspaces' changes the page draws (`web/src/github/GitHubView.tsx`) over the map's frame while the app reports `paseo:mode`
-  `github`, as Activity is. Its sidebar: Workspace (the selected workspace's, or the selected agent's, Changes, and its PR when known) and
+  requests the page draws (`web/src/github/GitHubView.tsx`) over the map's frame while the app reports `paseo:mode`
+  `github`, as Activity is (a workspace's changes are the Files tab's Changes, below). Its sidebar:
   Pull requests (Review requests, Your pull requests, Involving you, each counted), then Repositories (`RepoNav.tsx`, `GET /api/github/q/repos`:
   one GraphQL query for your, your organizations' and collaborations' repositories, those of PRs involving you and of your favourites, each
   counting its open PRs): only Favourites (starred repositories, and those of starred organizations, whose heads show even with none open),
@@ -347,13 +347,7 @@ and GitHub publication; report the published version and release link.
   filter becomes `["@me"]`); ⌘K opens each repository, sets each filter and opens each people filter's picker. GitHub's search can't OR people, so
   each person (and a reviewer's two qualifiers, `review-requested:` and `reviewed-by:`) is one more search (`filterQueries`), asked in one GraphQL
   request and merged, at most 6 together (the picker says so past it; the server refuses more).
-  Searches keep under GitHub's 30 a minute (`searchSlot` in `client.ts`, 25 for the tab; over it a cached list answers again). Changes (`ChangesView.tsx`; the workspace view's
-  Changes button, ⌘K "Show …'s changes against main" and ⇧⌘G open it; ⇧⌘G works from anywhere: in the macOS app it is View →
-  Show Branch Changes, which `AppWindow.performKeyEquivalent` offers the menu ahead of the page, the terminal and Conquer's pages
-  (`AppKeys.swift`) except while Conquer has the keyboard, where it stays Conquer's Find Previous, and which asks the page's
-  `github-branch-changes`; in a browser the page takes the key itself; with nothing selected or GitHub off, it only shows a notice): the branch against its base from its host's daemon (`getCheckoutDiff`,
-  so remote hosts too; `GET /api/changes?workspace=&host=&mode=all|base|uncommitted`, `web/server/api/changes.ts`, not gated on the
-  integration), all changes, committed or uncommitted, with ahead/behind, Review #N and Compare on GitHub; asked every 15 s while shown.
+  Searches keep under GitHub's 30 a minute (`searchSlot` in `client.ts`, 25 for the tab; over it a cached list answers again).
   A PR (`PrView.tsx`): Conversation (its description always first, then a "Comments · N" head holding the Newest first / Oldest
   first toggle, then the comment box and the comments and reviews newest first, or oldest first as GitHub lists them with the box at
   the foot: the toggle and ⌘K, one setting for every PR, `github:conversationOrder` in localStorage; only the comments move, a review's
@@ -426,7 +420,7 @@ and GitHub publication; report the published version and release link.
   into your pending review (`drafts.ts`, localStorage per PR until sent or discarded) or at once (Add single comment); threads sit under
   their lines (its line annotations, slotted, so our components and CSS draw them) with Reply and Resolve; Viewed per file. Review opens Finish your review: a summary and Comment, Approve or Request changes
   (only Comment on your own PR), sent with the drafted comments at the head read.
-  On a workspace's Changes diff (`DiffReview.local`: no Viewed, never GitHub) the same + takes a comment as that workspace's pending
+  On a workspace's Changes diff (the Files tab's, below; `DiffReview.local`: no Viewed, never GitHub) the same + takes a comment as that workspace's pending
   comment (`web/src/github/localComments.ts`: path, side, line or range, the lines' text, the comment, when), kept by the server in the
   data directory's `diff-comments.json` keyed `<host>|<workspace>` (local host ""; `web/server/diffComments.ts`, `GET
   /api/diff-comments?workspace=&host=`, `POST /api/diff-comments` with `action` add|edit|remove|move|apply|discard, written atomically,
@@ -435,13 +429,14 @@ and GitHub publication; report the published version and release link.
   nearest place on their side where they do, the move saved; else outdated, listed above the diff); the head counts them ("3 pending
   comments"). The page shares them through `localCommentsStore.ts`. The chat of an agent in that workspace shows "N pending comments ·
   Apply" above its composer (`web/src/composer/PendingComments.tsx`): its list reviews them (each removable, Discard all, Show the
-  changes); Apply sends one message through the chat's send (queued while the agent works; `applyMessage`: an instruction, then each
+  changes: the Files tab's Changes, as ⇧⌘G); Apply sends one message through the chat's send (queued while the agent works; `applyMessage`: an instruction, then each
   as `path:line` or `path:a-b`, its lines quoted, the comment), then marks them applied (`appliedAt`, kept as history, hidden from the
   diff and counts). ⌘K (the open agent's, page Command): "Apply pending diff comments (N)", "Show pending diff comments", only while
   there are some (`diff-comments-apply|show`). Places (`place.ts`, kept in localStorage; `openGithubPlace`
-  opens one from elsewhere) and PR links: `github.com/<owner>/<name>/pull/<n>` opens in the tab wherever clicked (`prPlaceOf`;
+  opens one from elsewhere; a remembered or asked-for `{kind: "changes"}` place, the old Changes', goes to the Files tab's Changes instead,
+  `redirectChanges`) and PR links: `github.com/<owner>/<name>/pull/<n>` opens in the tab wherever clicked (`prPlaceOf`;
   `WorldWindow.pageMode` matches it). Keys (`GitHubView.tsx`): J/K move (a diff's files), Enter/O open, Esc back, 1–4 PR tabs, R review,
-  C comment, V viewed, U unified/split, F file list (a repository's filters), T filter the diff's files, ⌘F find in the diff, M which changes, S star the repository; each with its ⌘K entry and the shortcuts dialog's GitHub group.
+  C comment, V viewed, U unified/split, F file list (a repository's filters), T filter the diff's files, ⌘F find in the diff, S star the repository; each with its ⌘K entry and the shortcuts dialog's GitHub group.
   Credential (GitHub's, for the tab, Activity and every PR lookup; the app never runs gh): a classic personal access token,
   `githubToken` in the data directory's `secrets.json` through `integrationKey("github")` (only while GitHub is on; never the
   environment), with the scopes `repo`, `notifications` and `read:org` (`web/src/githubToken.ts`). Settings → GitHub has its editor and
@@ -476,8 +471,8 @@ and GitHub publication; report the published version and release link.
   recent files (`files:workspaces`, 40 workspaces; `web/src/files/kept.ts`). The file shows in @pierre/diffs's `File` (its single-file renderer) under its `Virtualizer` (only the
   lines in view drawn), highlighted in the diffs' worker pool (`DiffWorkers`) in their themes, with line numbers; ⌘F (`files-find`) finds in it with
   the diff's `FindBar`, marks and `revealMatch` (`findInText` in `diffSearch.ts`: a file's lines are keyed `R<n>` as `File` draws them). Its head
-  (`.page-head`, `.page-btn`): the path, size and lines, Changed's badge, Show changes (a changed file, while GitHub is on: the GitHub tab's Changes,
-  all changes, scrolled to the file; `{ kind: "changes", path }` in `place.ts`), Copy path, Find, Reload. Binary files, images and files over 1 MB
+  (`.page-head`, `.page-btn`): the path, size and lines, Changed's badge, Show changes (a changed file: Changes, below, all changes, scrolled
+  to the file), Copy path, Find, Reload. Binary files, images and files over 1 MB
   (`FILE_LIMITS`) are refused politely; Markdown shows as code. Asked again every 15 s while shown. The page's reads (`web/src/files/api.ts`, a store
   by path) come from `web/server/api/files.ts`, through the workspace's host's daemon (its file explorer: `listDirectory`, `readFile`, so remote
   hosts work; `getCheckoutDiff` for the changed files): `GET /api/files/tree?workspace=&host=&dir=` (entries marked `ignored` by the `.gitignore`s on
@@ -486,7 +481,25 @@ and GitHub publication; report the published version and release link.
   `GET /api/files/all` (every file not ignored, walked breadth first, at most 25,000 files and 4,000 folders, `capped`), `GET /api/files/changed`;
   each kept a few seconds (`fresh=1` past it). Paths are relative: absolute, `~`, `..`, `.`, empty segments, backslashes and NULs are refused before
   the daemon is asked (`checkPath`), and the daemon refuses what resolves outside the workspace (symlinks out). It never writes. Tests: `files.test.ts`
-  (over the fake daemon's `trees`), `src/files/tree.test.ts`, `e2e/files.e2e.ts`; `native/scripts/fake-server.ts` has a tree for `wks_main`.
+  (over the fake daemon's `trees`), `src/files/tree.test.ts`, `e2e/files.e2e.ts`; `native/scripts/fake-server.ts` has a tree and a branch diff for `wks_main`.
+  Changes (`web/src/files/ChangesView.tsx`, no GitHub needed): the workspace's branch against its base from its host's daemon (`getCheckoutDiff`,
+  so remote hosts too; `GET /api/changes?workspace=&host=&mode=all|base|uncommitted`, `web/server/api/changes.ts`, not gated on any
+  integration), all changes, committed or uncommitted (`github:changesMode`), with ahead/behind, the diff (`DiffView`: Filter files, ⌘F find,
+  unified/split and the file list, one setting with the GitHub tab's `github:layout`/`github:fileList`) and the workspace's pending comments
+  (above); asked every 15 s while shown. With GitHub on, Review #N opens its PR in the GitHub tab (Files changed) and Compare on GitHub opens in
+  Conquer; off, neither shows. It shows in the tabs' place, reached by the Changes button first in the tabs' row (`.fv-tabbar`, the changed-file
+  count from `files/changed`), a view toggle outside the tab model rather than a tab: never closed (⌘W/⌃W close only file tabs, nothing while
+  Changes show), not reordered or previewed, there with no file open; a file tab's click, ⌃Tab/⌥⌘→ (back to the shown tab) or ⇧⌘T go back to
+  the files; whether it shows is kept per workspace (`changes` in `files:workspaces`). Files and Changes open each other: a changed file's dot in
+  the tree (a button) and the head's Show changes open Changes at it (all changes); each diff file's Open in Files (`DiffView`'s `onOpenFile`)
+  opens it as a kept tab. In Changes (not typing; the tree keeps its own keys): J/K/↓/↑ the diff's files, T its file filter, U, F, M; ⌘K
+  (page Files) has each (`files-diff-next|prev|layout|list|filter|find`, `files-changes-mode`). Opened from elsewhere by `openFilesChanges(path?)`
+  (`web/src/files/open.ts`: kept as `files:openChanges` for the page to take as it mounts, and sent as `files-changes`), the caller showing
+  the tab (`postAppMenu("files")`): the workspace view's Changes button and ⌘K "Show …'s changes against main" (page Files, the macOS app's) and
+  ⇧⌘G from anywhere: in the macOS app View → Show Branch Changes, which `AppWindow.performKeyEquivalent` offers the menu ahead of the page,
+  the terminal and Conquer's pages (`AppKeys.swift`) except while Conquer has the keyboard, where it stays Conquer's Find Previous, and which
+  asks the page's `branch-changes` (`AppKeys.branchChangesCommand`); in a browser the page takes the key itself and, as with nothing selected,
+  only says why. Tests: `e2e/changes.e2e.ts`, `e2e/diff-comments.e2e.ts`.
 - Mentions in the chat link themselves (`web/src/autolink.ts`): in an agent's conversation (`Timeline` provides `Autolinks` from
   `useAutolinks` in `web/src/autolinkStore.ts`), its replies (`Markdown.tsx` adds `remarkAutolink`, a remark step over text nodes) and
   your messages (`autolinkRuns`), but not tool output. Linear keys only of the Linear workspace's teams (`GET /api/linear/teams`, asked

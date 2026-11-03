@@ -1,14 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef } from "react";
-import { ArrowDown, ArrowUp, CircleAlert, ExternalLink, GitBranch, GitPullRequest, MessageSquare, PanelLeft, RefreshCw } from "lucide-react";
-import { changesPath, useGithubRead } from "./api";
-import { Churn } from "./bits";
+import { ArrowDown, ArrowUp, CircleAlert, ExternalLink, GitBranch, GitPullRequest, MessageSquare, RefreshCw } from "lucide-react";
+import { changesPath, useGithubRead } from "../github/api";
+import { Churn } from "../github/bits";
 import { usePageTitleTip } from "../pageHead";
-import { DiffView, Draft, type DiffLayout, type DiffReview, type DiffViewHandle } from "./DiffView";
-import { pendingLabel, placeComments, placeLabel, textOf, type LocalComment } from "./localComments";
-import { useLocalComments } from "./localCommentsStore";
-import { MODE_LABEL } from "./names";
-import type { ChangesMode, WorkspaceChanges } from "./types";
-import type { GithubWorkspace } from "./GitHubView";
+import { DiffView, Draft, LayoutControls, type DiffLayout, type DiffReview, type DiffViewHandle } from "../github/DiffView";
+import { pendingLabel, placeComments, placeLabel, textOf, type LocalComment } from "../github/localComments";
+import { useLocalComments } from "../github/localCommentsStore";
+import { MODE_LABEL } from "../github/names";
+import type { ChangesMode, WorkspaceChanges } from "../github/types";
 
 const MODE_TIP: Record<ChangesMode, string> = {
   all: "Everything on the branch since it left its base, committed or not",
@@ -19,9 +18,11 @@ const MODE_TIP: Record<ChangesMode, string> = {
 const CHANGES_POLL_MS = 15_000;
 
 /**
- * The selected workspace's branch against its base (main), from its host's
- * daemon: all changes (committed or not), committed only, or uncommitted only;
- * how far it's ahead and behind; its pull request, to review here, and the
+ * The Files page's Changes: the selected workspace's branch against its base
+ * (main), from its host's daemon (no GitHub needed): all changes (committed or
+ * not), committed only, or uncommitted only; how far it's ahead and behind;
+ * pending comments on its lines; each file's head opens it in Files. With
+ * GitHub on, its pull request (Review #N, in the GitHub tab) and the
  * comparison on GitHub.
  */
 export function ChangesView({
@@ -34,6 +35,7 @@ export function ChangesView({
   setListShown,
   onOpenPr,
   onExternal,
+  onOpenFile,
   handle,
   onNotice,
   showPath,
@@ -42,15 +44,17 @@ export function ChangesView({
   /** A file to scroll to once the changes show (then `onShown`). */
   showPath?: string;
   onShown?: () => void;
-  workspace?: GithubWorkspace;
+  workspace?: { id: string; host?: string; name: string };
   mode: ChangesMode;
   setMode: (m: ChangesMode) => void;
   layout: DiffLayout;
   setLayout: (l: DiffLayout) => void;
   listShown: boolean;
   setListShown: (shown: boolean) => void;
-  onOpenPr: (repo: string, number: number) => void;
-  onExternal: (url: string) => void;
+  /** Review #N and Compare on GitHub: only while GitHub is on. */
+  onOpenPr?: (repo: string, number: number) => void;
+  onExternal?: (url: string) => void;
+  onOpenFile: (path: string) => void;
   handle: React.RefObject<DiffViewHandle | null>;
   onNotice: (message: string) => void;
 }) {
@@ -189,13 +193,13 @@ export function ChangesView({
             {pendingLabel(comments.pending.length)}
           </span>
         )}
-        {pr && prRepo && (
-          <button className="page-btn" onClick={() => onOpenPr(prRepo, pr.number)} data-tip={pr.title}>
+        {pr && prRepo && onOpenPr && (
+          <button className="page-btn" onClick={() => onOpenPr(prRepo, pr.number)} data-tip={`${pr.title} (in the GitHub tab)`}>
             <GitPullRequest size={13} aria-hidden="true" />
             <span className="page-tool-label">Review #{pr.number}</span>
           </button>
         )}
-        {compare && (
+        {compare && onExternal && (
           <button className="icon-btn" aria-label="Compare on GitHub" data-tip="Compare on GitHub" onClick={() => onExternal(compare)}>
             <ExternalLink size={13} aria-hidden="true" />
           </button>
@@ -248,6 +252,7 @@ export function ChangesView({
       ) : (
         <DiffView
           files={data.files}
+          onOpenFile={onOpenFile}
           layout={layout}
           listShown={listShown}
           handle={handle}
@@ -286,39 +291,5 @@ function OutdatedComments({ comments, review }: { comments: LocalComment[]; revi
         </div>
       ))}
     </section>
-  );
-}
-
-/** Split or unified, and the file list shown or not (both kept). */
-export function LayoutControls({
-  layout,
-  setLayout,
-  listShown,
-  setListShown,
-}: {
-  layout: DiffLayout;
-  setLayout: (l: DiffLayout) => void;
-  listShown: boolean;
-  setListShown: (shown: boolean) => void;
-}) {
-  return (
-    <>
-      <button
-        className={`icon-btn${listShown ? " on" : ""}`}
-        aria-label={listShown ? "Hide the file list" : "Show the file list"}
-        aria-pressed={listShown}
-        data-tip={listShown ? "Hide files (F)" : "Show files (F)"}
-        onClick={() => setListShown(!listShown)}
-      >
-        <PanelLeft size={13} aria-hidden="true" />
-      </button>
-      <div className="gh-segmented" role="radiogroup" aria-label="Diff layout">
-        {(["unified", "split"] as const).map((l) => (
-          <button key={l} role="radio" aria-checked={layout === l} className={layout === l ? "selected" : ""} data-tip="Unified or split (U)" onClick={() => setLayout(l)}>
-            {l === "unified" ? "Unified" : "Split"}
-          </button>
-        ))}
-      </div>
-    </>
   );
 }

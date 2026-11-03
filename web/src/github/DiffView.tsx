@@ -8,7 +8,9 @@ import {
   FilePlus,
   FileText,
   Folder,
+  FolderOpen,
   MessageSquare,
+  PanelLeft,
   Pencil,
   Search,
   Trash2,
@@ -429,6 +431,13 @@ function ChurnBar({ file }: { file: DiffFile }) {
   );
 }
 
+/** The first file whose section reaches below the scroller's top. */
+function topFile(scroller: HTMLElement): string | undefined {
+  const top = scroller.getBoundingClientRect().top + 8;
+  for (const s of scroller.querySelectorAll<HTMLElement>(".gd-file")) if (s.getBoundingClientRect().bottom > top) return s.dataset.path;
+  return undefined;
+}
+
 const FileSection = memo(function FileSection({
   file,
   layout,
@@ -438,6 +447,7 @@ const FileSection = memo(function FileSection({
   composing,
   setComposing,
   notes,
+  onOpenFile,
 }: {
   file: DiffFile;
   layout: DiffLayout;
@@ -447,6 +457,7 @@ const FileSection = memo(function FileSection({
   composing: Composing | null;
   setComposing: (c: Composing | null) => void;
   notes: number;
+  onOpenFile?: (path: string) => void;
 }) {
   const viewed = review?.viewed.get(file.path) ?? false;
   const { dir, name } = splitPath(file.path);
@@ -465,6 +476,11 @@ const FileSection = memo(function FileSection({
         <button className="icon-btn" aria-label="Copy path" data-tip="Copy path" onClick={() => void copyText(file.path).catch(() => {})}>
           <Copy size={12} aria-hidden="true" />
         </button>
+        {onOpenFile && !file.isDeleted && (
+          <button className="icon-btn" aria-label={`Open ${file.path} in Files`} data-tip="Open the file in Files" onClick={() => onOpenFile(file.path)}>
+            <FolderOpen size={12} aria-hidden="true" />
+          </button>
+        )}
         <span className="gh-spacer" />
         {notes > 0 && (
           <span className="gh-comment-count" aria-label={`${notes} comments`}>
@@ -510,6 +526,7 @@ export function DiffView({
   empty,
   head,
   handle,
+  onOpenFile,
 }: {
   files: DiffFile[];
   layout: DiffLayout;
@@ -519,6 +536,8 @@ export function DiffView({
   /** Over the diff, under its own scroll. */
   head?: ReactNode;
   handle?: Ref<DiffViewHandle>;
+  /** Each file's head opens it (a workspace's own diff: in the Files page). */
+  onOpenFile?: (path: string) => void;
 }) {
   const files = useStableFiles(given);
   // The virtualizer's own element scrolls (it draws only the lines in view); this finds it.
@@ -558,17 +577,7 @@ export function DiffView({
         measure();
       });
     };
-    const measure = () => {
-      const top = el.getBoundingClientRect().top + 8;
-      let at: string | undefined;
-      for (const s of el.querySelectorAll<HTMLElement>(".gd-file")) {
-        if (s.getBoundingClientRect().bottom > top) {
-          at = s.dataset.path;
-          break;
-        }
-      }
-      setCurrent(at);
-    };
+    const measure = () => setCurrent(topFile(el));
     measure();
     el.addEventListener("scroll", onScroll, { passive: true });
     return () => {
@@ -679,7 +688,11 @@ export function DiffView({
     const { goTo, current, at, atMatch } = latest.current;
     if (ask !== lastAsk.current) {
       lastAsk.current = ask;
-      const from = Math.max(0, files.findIndex((f) => f.path === current));
+      // The file at the top of the view, not `current`: a file shown from the list that a short diff
+      // can't scroll to the top is current, though the files above it are still in view.
+      const scroller = scrollerOf();
+      const inView = scroller ? topFile(scroller) : current;
+      const from = Math.max(0, files.findIndex((f) => f.path === inView));
       const first = found.matches.findIndex((m) => m.file >= from);
       goTo(first < 0 ? 0 : first);
     } else {
@@ -888,6 +901,7 @@ export function DiffView({
                 composing={composing?.path === f.path ? composing : null}
                 setComposing={setComposing}
                 notes={notesOf.get(f.path) ?? 0}
+                onOpenFile={onOpenFile}
               />
             ))
           ) : (
@@ -896,5 +910,39 @@ export function DiffView({
         </Virtualizer>
       </div>
     </div>
+  );
+}
+
+/** Split or unified, and the file list shown or not (both kept). */
+export function LayoutControls({
+  layout,
+  setLayout,
+  listShown,
+  setListShown,
+}: {
+  layout: DiffLayout;
+  setLayout: (l: DiffLayout) => void;
+  listShown: boolean;
+  setListShown: (shown: boolean) => void;
+}) {
+  return (
+    <>
+      <button
+        className={`icon-btn${listShown ? " on" : ""}`}
+        aria-label={listShown ? "Hide the file list" : "Show the file list"}
+        aria-pressed={listShown}
+        data-tip={listShown ? "Hide files (F)" : "Show files (F)"}
+        onClick={() => setListShown(!listShown)}
+      >
+        <PanelLeft size={13} aria-hidden="true" />
+      </button>
+      <div className="gh-segmented" role="radiogroup" aria-label="Diff layout">
+        {(["unified", "split"] as const).map((l) => (
+          <button key={l} role="radio" aria-checked={layout === l} className={layout === l ? "selected" : ""} data-tip="Unified or split (U)" onClick={() => setLayout(l)}>
+            {l === "unified" ? "Unified" : "Split"}
+          </button>
+        ))}
+      </div>
+    </>
   );
 }

@@ -1,15 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from "react";
-import { AtSign, ExternalLink, Eye, GitBranch, GitPullRequest, GitPullRequestArrow, PanelLeftOpen, RefreshCw, Star, UserRound } from "lucide-react";
+import { AtSign, ExternalLink, Eye, GitPullRequest, PanelLeftOpen, RefreshCw, Star, UserRound } from "lucide-react";
 import { readStore, removeStore, writeStore } from "../api";
 import { onAppCommand } from "../appCommands";
 import { modalOpen } from "../focus";
 import { ResizeEdge } from "../ResizeEdge";
 import { macApp, postAppLink } from "../worldBridge";
 import { isTyping } from "../worldShortcut";
-import { changesPath, invalidate, readPath, useGithubRead } from "./api";
+import { invalidate, readPath, useGithubRead } from "./api";
 import { createGithubToken } from "../GithubTokenSetup";
 import { Avatar } from "./bits";
-import { ChangesView } from "./ChangesView";
 import { DiffWorkers } from "./diffWorkers";
 import type { DiffLayout, DiffViewHandle } from "./DiffView";
 import {
@@ -18,6 +17,7 @@ import {
   readConversationOrder,
   readPlace,
   readRepoFilters,
+  redirectChanges,
   samePlace,
   writeConversationOrder,
   writePlace,
@@ -34,25 +34,15 @@ import { LIST_POLL_MS, PrList } from "./PrList";
 import type { PaseoMatch, PrHead } from "./paseo";
 import { PrView, type PrViewApi } from "./PrView";
 import { actionKey, actionLabel, MERGE_ACTION_KINDS, mergeActions, mergeMethodFor, type MergeAction } from "./merge";
-import { CHANGES_MODES, PR_SCOPES, type ChangesMode, type PrDetail, type PrList as PrListData, type PrScope, type RepoList, type ReviewEvent, type Viewer, type WorkspaceChanges } from "./types";
+import { PR_SCOPES, type PrDetail, type PrList as PrListData, type PrScope, type RepoList, type ReviewEvent, type Viewer } from "./types";
 import "./github.css";
-
-/** The workspace selected on the map or in the panel (or the open agent's), whose changes the tab shows. */
-export type GithubWorkspace = {
-  id: string;
-  host?: string;
-  name: string;
-  branch?: string;
-  /** Its PR, as the panel knows it. */
-  pr?: { number: number; url: string; title: string } | null;
-};
 
 /** What ⌘K needs to know: where the view is, and what the open PR or diff allows. */
 export type GithubViewState = {
   place: GithubPlace;
   layout: DiffLayout;
   listShown: boolean;
-  /** A diff shows (Files changed, or the workspace's changes). */
+  /** A diff shows (Files changed). */
   diff: boolean;
   pr?: {
     repo: string;
@@ -67,9 +57,6 @@ export type GithubViewState = {
     /** The merge box's actions that apply now (a merge and auto-merge once per allowed method, the remembered first), with their words. */
     actions: { key: string; label: string; action: MergeAction }[];
   };
-  /** The PR the workspace's changes belong to. */
-  workspacePr?: { repo: string; number: number };
-  changesMode: ChangesMode;
   /** The Conversation's order. */
   conversationOrder: ConversationOrder;
   canBack: boolean;
@@ -99,35 +86,26 @@ function prActions(pr: PrDetail): { key: string; label: string; action: MergeAct
     .map((action) => ({ key: actionKey(action), label: actionLabel(action, pr), action }));
 }
 
-/** A PR's repository and number from its github.com address. */
-const prOf = (url: string | undefined) => {
-  const m = url && /^https:\/\/github\.com\/([\w.-]+\/[\w.-]+)\/pull\/(\d+)/.exec(url);
-  return m ? { repo: m[1]!, number: Number(m[2]) } : undefined;
-};
-
 /**
  * The GitHub tab, in the map's place (the macOS app's mode bar), through the
- * user's own classic token (Settings → GitHub): the selected workspace's branch against main (from
- * its host's daemon, so remote workspaces too), and pull requests to review:
+ * user's own classic token (Settings → GitHub): pull requests to review:
  * those waiting on you, yours and those involving you, and each repository's
  * (favourites, starred, first) with its filters, each opening to its
  * conversation, files (the review), commits and checks.
  * Keys while the keyboard is in the view (not typing): J/K or ↓/↑ move
  * through a list (and through a diff's files), Enter or O open, Esc goes back,
  * 1–4 a PR's tabs, R review, C comment, V viewed, U unified/split, F the file
- * list (a repository's filters), T filters a diff's files, M which changes,
+ * list (a repository's filters), T filters a diff's files,
  * S stars the repository; ⌘F finds in a diff (`DiffView`).
  * As Conquer's, the sidebar's inner edge resizes it and ⌘S hides
  * or shows it (both kept), whatever shows beside it.
  */
 export function GitHubView({
-  workspace,
   onNotice,
   onViewState,
   paseoFor,
   onOpenPaseo,
 }: {
-  workspace?: GithubWorkspace;
   onNotice: (message: string) => void;
   /** The Paseo workspaces with a PR's branch checked out, and opening one's agent (the open PR's Open Paseo agent). */
   paseoFor?: (pr: PrHead) => PaseoMatch[];
@@ -136,6 +114,10 @@ export function GitHubView({
   onViewState?: (state: GithubViewState | undefined) => void;
 }) {
   const [place, setPlaceState] = useState<GithubPlace>(readPlace);
+  // A workspace's changes, remembered from when they were this tab's: the Files page's Changes now.
+  useEffect(() => {
+    if (redirectChanges(readStore<unknown>("github:place", null))) writePlace(place);
+  }, []);
   // Where Back goes from a PR: the place it was opened from.
   const [from, setFrom] = useState<GithubPlace | null>(() => {
     const kept = readStore<unknown>("github:from", null);
@@ -178,14 +160,6 @@ export function GitHubView({
     setConversationOrderState(o);
     writeConversationOrder(o);
   };
-  const [changesMode, setChangesModeState] = useState<ChangesMode>(() => {
-    const kept = readStore<string>("github:changesMode", "all") as ChangesMode;
-    return CHANGES_MODES.includes(kept) ? kept : "all";
-  });
-  const setChangesMode = (m: ChangesMode) => {
-    setChangesModeState(m);
-    writeStore("github:changesMode", m);
-  };
 
   const viewer = useGithubRead<Viewer>(readPath("viewer"));
   // The sidebar's counts: each list, asked once shown (the open one polls).
@@ -218,18 +192,12 @@ export function GitHubView({
       setStar(kind, name, starred).catch((e: unknown) => onNotice(`Couldn’t ${starred ? "star" : "unstar"} ${name}: ${e instanceof Error ? e.message : String(e)}`)),
     [onNotice],
   );
-  const changes = useGithubRead<WorkspaceChanges>(workspace ? changesPath(workspace.id, workspace.host, changesMode) : null);
-  const workspacePr = (() => {
-    const p = changes.data?.pr;
-    if (p?.repo) return { repo: p.repo, number: p.number };
-    return prOf(p?.url) ?? prOf(workspace?.pr?.url);
-  })();
 
-  // Opened from elsewhere (a PR link, the workspace's Changes, Activity).
+  // Opened from elsewhere (a PR link, a workspace's Changes' Review #N, Activity).
   useEffect(
     () =>
       onAppCommand("github-open", (arg) => {
-        go(checkPlace(arg));
+        if (!redirectChanges(arg)) go(checkPlace(arg));
       }),
     [go],
   );
@@ -299,7 +267,7 @@ export function GitHubView({
   );
   const openRow = useCallback((repo: string, number: number, tab: PrTab = "conversation") => go({ kind: "pr", repo, number, tab }), [go]);
 
-  const diffShown = place.kind === "changes" || (place.kind === "pr" && place.tab === "files");
+  const diffShown = place.kind === "pr" && place.tab === "files";
   const toggleViewed = () => {
     const path = diffHandle.current?.current();
     const pr = openPr.pr;
@@ -316,16 +284,17 @@ export function GitHubView({
     setListShown(true);
     requestAnimationFrame(() => diffHandle.current?.filterFiles());
   };
-  const cycleMode = () => setChangesMode(CHANGES_MODES[(CHANGES_MODES.indexOf(changesMode) + 1) % CHANGES_MODES.length]!);
   const refresh = () => invalidate("github/q/", "changes?");
 
   // ⌘K's commands.
-  const current = useRef({ place, layout, listShown, diffShown, toggleViewed, cycleMode, filterDiffFiles, setTab, back, refresh, external, openPr, workspacePr, filters, setFilters, star, conversationOrder });
-  current.current = { place, layout, listShown, diffShown, toggleViewed, cycleMode, filterDiffFiles, setTab, back, refresh, external, openPr, workspacePr, filters, setFilters, star, conversationOrder };
+  const current = useRef({ place, layout, listShown, diffShown, toggleViewed, filterDiffFiles, setTab, back, refresh, external, openPr, filters, setFilters, star, conversationOrder });
+  current.current = { place, layout, listShown, diffShown, toggleViewed, filterDiffFiles, setTab, back, refresh, external, openPr, filters, setFilters, star, conversationOrder };
   useEffect(() => {
     const c = () => current.current;
     const offs = [
-      onAppCommand("github-go", (arg) => go(checkPlace(arg))),
+      onAppCommand("github-go", (arg) => {
+        if (!redirectChanges(arg)) go(checkPlace(arg));
+      }),
       onAppCommand("github-refresh", () => c().refresh()),
       onAppCommand("github-back", () => c().back()),
       onAppCommand("github-tab", (arg) => {
@@ -364,10 +333,6 @@ export function GitHubView({
       onAppCommand("github-next-file", () => diffHandle.current?.step(1)),
       onAppCommand("github-prev-file", () => diffHandle.current?.step(-1)),
       onAppCommand("github-viewed", () => c().toggleViewed()),
-      onAppCommand("github-changes-mode", (arg) => {
-        if (CHANGES_MODES.includes(arg as ChangesMode)) setChangesMode(arg as ChangesMode);
-        else c().cycleMode();
-      }),
       onAppCommand("github-open-browser", () => {
         const { place, openPr } = c();
         if (place.kind === "pr" && openPr.pr) c().external(openPr.pr.url);
@@ -401,7 +366,6 @@ export function GitHubView({
       layout,
       listShown,
       diff: diffShown,
-      changesMode,
       conversationOrder,
       canBack: place.kind === "pr",
       repos: repoOrder(repos.data),
@@ -424,9 +388,8 @@ export function GitHubView({
             },
           }
         : {}),
-      ...(workspacePr ? { workspacePr } : {}),
     });
-  }, [place, layout, listShown, diffShown, changesMode, conversationOrder, openPr, workspacePr?.repo, workspacePr?.number, onViewState, repos.data, repoState?.starred, repoState?.ownerStarred, filters, sidebarHidden]);
+  }, [place, layout, listShown, diffShown, conversationOrder, openPr, onViewState, repos.data, repoState?.starred, repoState?.ownerStarred, filters, sidebarHidden]);
   useEffect(() => () => onViewState?.(undefined), [onViewState]);
 
   const onKey = (e: ReactKeyboardEvent<HTMLElement>) => {
@@ -446,7 +409,6 @@ export function GitHubView({
     else if (diffShown && lower === "f") setListShown(!listShown);
     else if (diffShown && lower === "t") filterDiffFiles();
     else if (place.kind === "pr" && place.tab === "files" && lower === "v") toggleViewed();
-    else if (place.kind === "changes" && lower === "m") cycleMode();
     else if (place.kind === "pr" && /^[1-4]$/.test(key)) setTab(PR_TABS[Number(key) - 1]!);
     else if (place.kind === "pr" && lower === "r") prApi.current?.openReview();
     else if (place.kind === "pr" && lower === "c") prApi.current?.focusComment();
@@ -475,30 +437,10 @@ export function GitHubView({
     </button>
   );
 
-  const fileCount = changes.data?.files.length;
-  const listTitle =
-    from?.kind === "prs" ? SCOPE_TITLE[from.scope] : from?.kind === "repo" ? from.repo : from?.kind === "changes" ? "Changes" : SCOPE_TITLE.review;
+  const listTitle = from?.kind === "prs" ? SCOPE_TITLE[from.scope] : from?.kind === "repo" ? from.repo : SCOPE_TITLE.review;
 
   let main: ReactNode;
-  if (place.kind === "changes")
-    main = (
-      <ChangesView
-        workspace={workspace}
-        mode={changesMode}
-        setMode={setChangesMode}
-        layout={layout}
-        setLayout={setLayout}
-        listShown={listShown}
-        setListShown={setListShown}
-        onOpenPr={(repo, number) => openRow(repo, number, "files")}
-        onExternal={external}
-        handle={diffHandle}
-        onNotice={onNotice}
-        showPath={place.path}
-        onShown={() => go({ kind: "changes" })}
-      />
-    );
-  else if (place.kind === "prs") main = <PrList scope={place.scope} onOpen={(row) => openRow(row.repo, row.number)} keys={listKeys} />;
+  if (place.kind === "prs") main = <PrList scope={place.scope} onOpen={(row) => openRow(row.repo, row.number)} keys={listKeys} />;
   else if (place.kind === "repo") {
     const repo = place.repo;
     const f = filters ?? checkFilters({});
@@ -575,25 +517,6 @@ export function GitHubView({
               </button>
             </div>
             <div className="gh-nav">
-              <h3>Workspace</h3>
-              {navItem(
-                "changes",
-                place.kind === "changes",
-                <GitBranch size={14} aria-hidden="true" />,
-                workspace ? workspace.name : "Changes",
-                workspace ? `${workspace.name}'s branch against main` : "Select a workspace to see its changes",
-                () => go({ kind: "changes" }),
-                fileCount,
-              )}
-              {workspacePr &&
-                navItem(
-                  "workspace-pr",
-                  place.kind === "pr" && place.repo === workspacePr.repo && place.number === workspacePr.number,
-                  <GitPullRequestArrow size={14} aria-hidden="true" />,
-                  `Its pull request #${workspacePr.number}`,
-                  "Review the workspace's pull request",
-                  () => openRow(workspacePr.repo, workspacePr.number, "files"),
-                )}
               <h3>Pull requests</h3>
               {PR_SCOPES.map((scope) => {
                 const Icon = SCOPE_ICON[scope];
@@ -608,7 +531,6 @@ export function GitHubView({
                 );
               })}
               {place.kind === "pr" &&
-                !(workspacePr && place.repo === workspacePr.repo && place.number === workspacePr.number) &&
                 navItem(
                   "open-pr",
                   true,

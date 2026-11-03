@@ -127,27 +127,87 @@
 .fv-changed.added {
   background: var(--green-text);
 }
+/* A changed file's dot opens its changes: a larger target round the same dot. */
+.fv-changed-btn {
+  padding: 0;
+  border: 0;
+  cursor: pointer;
+}
+.fv-changed-btn:hover {
+  box-shadow: 0 0 0 3px var(--row-hover);
+}
 
-/* The open files' tabs, above the viewer */
-.fv-tabs {
+/* Changes, then the open files' tabs, above the viewer */
+.fv-tabbar {
   display: flex;
   flex-shrink: 0;
   align-items: stretch;
   height: calc(32px * var(--lz));
-  overflow-x: auto;
-  overflow-y: hidden;
   border-bottom: 1px solid var(--line);
   background: var(--fill-soft);
+}
+.fv-tabs {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  align-items: stretch;
+  overflow-x: auto;
+  overflow-y: hidden;
   scrollbar-width: none;
 }
 .fv-tabs::-webkit-scrollbar {
   display: none;
 }
-.files-view.sidebar-hidden .fv-tabs {
+.files-view.sidebar-hidden .fv-tabbar {
   padding-left: calc(var(--space-3) + var(--control-sm) + var(--space-2));
 }
-.files-view.sidebar-hidden .fv-tabs + .gh-main-inner .gh-head {
+.files-view.sidebar-hidden .fv-tabbar + .gh-main-inner .gh-head {
   padding-left: var(--space-4);
+}
+.fv-changes-btn {
+  position: relative;
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 5px;
+  padding: 0 var(--space-3);
+  border: 0;
+  border-right: 1px solid var(--line);
+  background: none;
+  font: inherit;
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-medium);
+  color: var(--text-3);
+  white-space: nowrap;
+  cursor: default;
+}
+.fv-changes-btn:hover {
+  background: var(--row-hover);
+  color: var(--text-2);
+}
+.fv-changes-btn.active {
+  background: var(--surface);
+  color: var(--text-strong);
+}
+.fv-changes-btn.active::after {
+  content: "";
+  position: absolute;
+  inset: auto 0 -1px;
+  height: 2px;
+  background: var(--accent);
+}
+.fv-changes-btn:focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 1px var(--focus);
+}
+.fv-changes-count {
+  padding: 0 5px;
+  border-radius: var(--radius-pill);
+  background: var(--amber-soft);
+  font-size: var(--fs-2xs);
+  font-weight: var(--fw-semibold);
+  font-variant-numeric: tabular-nums;
+  color: var(--amber-text);
 }
 .fv-tab {
   position: relative;

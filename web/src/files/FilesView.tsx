@@ -11,6 +11,7 @@ import {
   Folder,
   FolderOpen,
   FolderTree,
+  GitBranch,
   GitCompare,
   PanelLeftOpen,
   RefreshCw,
@@ -28,6 +29,11 @@ import { useTheme } from "../theme";
 import { plainText } from "../ui";
 import { isTyping } from "../worldShortcut";
 import { macApp } from "../worldBridge";
+import { invalidate } from "../github/api";
+import type { DiffLayout, DiffViewHandle } from "../github/DiffView";
+import { CHANGES_MODES, type ChangesMode } from "../github/types";
+import { ChangesView } from "./ChangesView";
+import { checkChangesAsk, takeChangesAsk } from "./open";
 import { clearFindMarks, FIND_CSS, FindBar, revealMatch, useFindPaint } from "../github/DiffFind";
 import { findInText, sameMatch, type FindMatch, type FindOptions } from "../github/diffSearch";
 import { Marked } from "../github/DiffView";
@@ -57,6 +63,13 @@ export type FilesViewState = {
   /** Open tabs, and whether a closed one can come back (⇧⌘T). */
   tabs: number;
   reopenable: boolean;
+  /** The workspace's Changes show in the tabs' place, and how many files are changed. */
+  changes: boolean;
+  changed: number;
+  changesMode: ChangesMode;
+  /** The Changes' diff: split or unified, its file list shown. */
+  layout: DiffLayout;
+  listShown: boolean;
 };
 
 const PANELS = { sidebar: 280, sidebarMin: 180, mainMin: 420 };
@@ -78,21 +91,25 @@ const CHANGE_LABEL: Record<FileChange, string> = { added: "Added", deleted: "Del
  * files and `.git` hidden unless asked), its "Filter files…" fuzzy over every
  * path; the main column the open file, highlighted by @pierre/diffs (Shiki in
  * its workers, drawn only where in view), with ⌘F to find in it, Copy path
- * and, when it's changed, Show changes (the GitHub tab's Changes). ⌘P opens
- * any file by name. As the other pages', the sidebar's inner edge resizes it
- * and ⌘S hides it.
+ * and, when it's changed, Show changes. Changes, first in the tabs' row, shows
+ * the workspace's branch against main in their place (`ChangesView`, no GitHub
+ * needed), a changed file's dot in the tree opening it there, each of its files
+ * opening back here. ⌘P opens any file by name. As the other pages', the
+ * sidebar's inner edge resizes it and ⌘S hides it.
  */
 export function FilesView({
   workspace,
   onNotice,
   onViewState,
-  onShowChanges,
+  onOpenPr,
+  onExternal,
 }: {
   workspace?: FilesWorkspaceInfo;
   onNotice: (message: string) => void;
   onViewState?: (state: FilesViewState | undefined) => void;
-  /** Opens the GitHub tab's Changes at a file; absent while GitHub is off. */
-  onShowChanges?: (path: string) => void;
+  /** The Changes' Review #N (its PR in the GitHub tab) and Compare on GitHub: absent while GitHub is off. */
+  onOpenPr?: (repo: string, number: number) => void;
+  onExternal?: (url: string) => void;
 }) {
   useFilesVersion();
   const wsKey = workspace ? keyOf(workspace) : "";
@@ -197,8 +214,9 @@ export function FilesView({
     (path: string, pin = false) => {
       setKept((k) => {
         const parents = parentsOf(path).filter((p) => !k.open.includes(p));
+        const { changes: _, ...rest } = k;
         return {
-          ...k,
+          ...rest,
           tabs: openTab(k.tabs, path, pin),
           open: [...k.open, ...parents],
           recent: [path, ...k.recent.filter((p) => p !== path)].slice(0, RECENT),
@@ -214,15 +232,81 @@ export function FilesView({
     const tabs = change(k.tabs);
     return tabs === k.tabs ? k : { ...k, tabs };
   }), [setKept]);
+  // ── Changes, in the tabs' place (kept per workspace) ──
+  const showingChanges = !!kept.changes;
+  const setChangesShown = useCallback(
+    (on: boolean) =>
+      setKept((k) => {
+        if (!!k.changes === on) return k;
+        const { changes: _, ...rest } = k;
+        return on ? { ...rest, changes: true } : rest;
+      }),
+    [setKept],
+  );
   const showTab = useCallback((path: string) => {
+    setChangesShown(false);
     setTabs((t) => (t.tabs.some((x) => x.path === path) ? { ...t, active: path } : t));
     setCursor(path);
     reveal(path);
-  }, [setTabs]);
-  const closeActive = useCallback(() => setTabs((t) => (t.active ? closeTab(t, t.active) : t)), [setTabs]);
-  const reopen = useCallback(() => setTabs(reopenTab), [setTabs]);
-  const step = useCallback((by: 1 | -1) => setTabs((t) => stepTab(t, by)), [setTabs]);
+  }, [setTabs, setChangesShown]);
+  // ⌘W closes the shown file's tab; Changes, never closed, stays.
+  const closeActive = useCallback(() => {
+    if (!showingChanges) setTabs((t) => (t.active ? closeTab(t, t.active) : t));
+  }, [setTabs, showingChanges]);
+  const reopen = useCallback(() => {
+    setChangesShown(false);
+    setTabs(reopenTab);
+  }, [setTabs, setChangesShown]);
+  // From Changes, stepping goes back to the shown tab.
+  const step = useCallback((by: 1 | -1) => {
+    if (showingChanges) setChangesShown(false);
+    else setTabs((t) => stepTab(t, by));
+  }, [setTabs, setChangesShown, showingChanges]);
   const closeOthers = useCallback(() => setTabs((t) => (t.active ? closeOtherTabs(t, t.active) : t)), [setTabs]);
+  const [changesMode, setChangesModeState] = useState<ChangesMode>(() => {
+    const kept = readStore<string>("github:changesMode", "all") as ChangesMode;
+    return CHANGES_MODES.includes(kept) ? kept : "all";
+  });
+  const setChangesMode = useCallback((m: ChangesMode) => {
+    setChangesModeState(m);
+    writeStore("github:changesMode", m);
+  }, []);
+  // The diff's layout and file list, one setting with the GitHub tab's.
+  const [layout, setLayoutState] = useState<DiffLayout>(() => (readStore<string>("github:layout", "unified") === "split" ? "split" : "unified"));
+  const setLayout = useCallback((l: DiffLayout) => {
+    setLayoutState(l);
+    writeStore("github:layout", l);
+  }, []);
+  const [listShown, setListShownState] = useState(() => readStore<boolean>("github:fileList", true) !== false);
+  const setListShown = useCallback((shown: boolean) => {
+    setListShownState(shown);
+    writeStore("github:fileList", shown);
+  }, []);
+  const diffHandle = useRef<DiffViewHandle | null>(null);
+  // A file to scroll the Changes to once they show (a changed file's dot, Show changes, ⌘K).
+  const [changesAt, setChangesAt] = useState<string | undefined>();
+  const showChanges = useCallback(
+    (path?: string) => {
+      setChangesShown(true);
+      if (path) {
+        // All changes, so the file is there.
+        setChangesMode("all");
+        setChangesAt(path);
+      }
+    },
+    [setChangesShown, setChangesMode],
+  );
+  // Asked from elsewhere (⇧⌘G, a workspace's Changes, pending comments, an old GitHub place) before the page showed.
+  useEffect(() => {
+    const ask = takeChangesAsk();
+    if (ask) showChanges(ask.path);
+  }, []);
+  const filterDiffFiles = () => {
+    if (diffHandle.current?.filterFiles()) return;
+    setListShown(true);
+    requestAnimationFrame(() => diffHandle.current?.filterFiles());
+  };
+  const cycleMode = () => setChangesMode(CHANGES_MODES[(CHANGES_MODES.indexOf(changesMode) + 1) % CHANGES_MODES.length]!);
   // The shown tab's folders open and its row in view, as it changes.
   const shownTab = useRef(file);
   useEffect(() => {
@@ -355,6 +439,7 @@ export function FilesView({
   const refresh = () => {
     if (!workspace) return;
     reload(treePath(workspace, ""), readPath(workspace, ""), allPath(workspace), changedPath(workspace));
+    if (showingChanges) invalidate("changes?");
   };
   const copyPath = (path: string) =>
     void copyText(path).then(
@@ -363,8 +448,8 @@ export function FilesView({
     );
 
   // ⌘K's commands.
-  const current = useRef({ file, openFile, focusFilter, toggleSidebar, setShowIgnored, showIgnored, refresh, copyPath, onShowChanges, closeActive, reopen, step, closeOthers });
-  current.current = { file, openFile, focusFilter, toggleSidebar, setShowIgnored, showIgnored, refresh, copyPath, onShowChanges, closeActive, reopen, step, closeOthers };
+  const current = useRef({ file, openFile, focusFilter, toggleSidebar, setShowIgnored, showIgnored, refresh, copyPath, showChanges, closeActive, reopen, step, closeOthers, showingChanges, layout, listShown, filterDiffFiles, cycleMode });
+  current.current = { file, openFile, focusFilter, toggleSidebar, setShowIgnored, showIgnored, refresh, copyPath, showChanges, closeActive, reopen, step, closeOthers, showingChanges, layout, listShown, filterDiffFiles, cycleMode };
   useEffect(() => {
     const c = () => current.current;
     const offs = [
@@ -380,8 +465,28 @@ export function FilesView({
       }),
       onAppCommand("files-show-changes", () => {
         const f = c().file;
-        if (f) c().onShowChanges?.(f);
+        if (f) c().showChanges(f);
       }),
+      onAppCommand("files-changes", (arg) => {
+        const ask = checkChangesAsk(arg) ?? {};
+        // Asked of the page as it shows: taken here, not again as it mounts.
+        takeChangesAsk();
+        c().showChanges(ask.path);
+      }),
+      onAppCommand("files-changes-mode", (arg) => {
+        if (CHANGES_MODES.includes(arg as ChangesMode)) setChangesMode(arg as ChangesMode);
+        else c().cycleMode();
+      }),
+      onAppCommand("files-diff-layout", () => setLayout(c().layout === "split" ? "unified" : "split")),
+      onAppCommand("files-diff-list", () => setListShown(!c().listShown)),
+      onAppCommand("files-diff-filter", () => {
+        if (c().showingChanges) c().filterDiffFiles();
+      }),
+      onAppCommand("files-diff-find", () => {
+        if (c().showingChanges) diffHandle.current?.find();
+      }),
+      onAppCommand("files-diff-next", () => diffHandle.current?.step(1)),
+      onAppCommand("files-diff-prev", () => diffHandle.current?.step(-1)),
       onAppCommand("files-open", (arg) => {
         if (typeof arg === "string" && arg) c().openFile(arg, true);
       }),
@@ -409,22 +514,37 @@ export function FilesView({
       sidebarHidden,
       tabs: tabCount,
       reopenable,
+      changes: showingChanges,
+      changed: changes.size,
+      changesMode,
+      layout,
+      listShown,
     });
-  }, [workspace?.name, file, change, text, showIgnored, sidebarHidden, tabCount, reopenable, onViewState]);
+  }, [workspace?.name, file, change, text, showIgnored, sidebarHidden, tabCount, reopenable, showingChanges, changes.size, changesMode, layout, listShown, onViewState]);
   const activeTab = kept.tabs.tabs.find((t) => t.path === file);
   // A tab's scroll, kept once it settles; using the file (scrolling, clicking, keys, find) keeps a preview tab.
   const onScrolled = useCallback((path: string, top: number) => setTabs((t) => scrollTab(t, path, top)), [setTabs]);
   const onUse = useCallback((path: string) => setTabs((t) => pinTab(t, path)), [setTabs]);
   useEffect(() => () => onViewState?.(undefined), [onViewState]);
 
-  // Keys in the view (not typing): T filters, Esc stands here (the page's own would clear the hidden map's selection).
+  // Keys in the view (not typing): T filters (the Changes' files while they show), Esc stands here (the page's
+  // own would clear the hidden map's selection). In Changes, as the GitHub tab's diff: J/K, U, F and M.
   const onKey = (e: ReactKeyboardEvent<HTMLElement>) => {
     const target = e.target as HTMLElement;
     if (!e.key || modalOpen() || e.defaultPrevented || e.metaKey || e.ctrlKey || e.altKey || isTyping(target)) return;
-    if (e.key.toLowerCase() === "t") {
-      e.preventDefault();
-      focusFilter();
-    } else if (e.key === "Escape") e.preventDefault();
+    const lower = e.key.toLowerCase();
+    const onButton = !!target.closest("button,a,[role=button],input,label");
+    const inTree = !!target.closest(".fv-sidebar");
+    let handled = true;
+    if (showingChanges && !inTree && (lower === "j" || e.key === "ArrowDown") && !onButton) diffHandle.current?.step(1);
+    else if (showingChanges && !inTree && (lower === "k" || e.key === "ArrowUp") && !onButton) diffHandle.current?.step(-1);
+    else if (showingChanges && lower === "u") setLayout(layout === "split" ? "unified" : "split");
+    else if (showingChanges && lower === "f") setListShown(!listShown);
+    else if (showingChanges && lower === "m") cycleMode();
+    else if (showingChanges && lower === "t" && !inTree) filterDiffFiles();
+    else if (lower === "t") focusFilter();
+    else if (e.key !== "Escape") handled = false;
+    if (handled) e.preventDefault();
     if (/^[a-z]$/i.test(e.key) || e.key.startsWith("Arrow") || e.key === "Escape") e.stopPropagation();
   };
 
@@ -518,6 +638,7 @@ export function FilesView({
                   cursor={r.path === cursor}
                   picked={!!filter.trim() && r.path === picked}
                   changed={r.kind === "file" ? changes.get(r.path) : changedDirs.has(r.path) ? "modified" : undefined}
+                  onShowChanges={() => showChanges(r.path)}
                   onClick={() => {
                     setCursor(r.path);
                     if (r.kind === "file") openFile(r.path);
@@ -552,21 +673,55 @@ export function FilesView({
             </Empty>
           ) : (
             <>
-          {kept.tabs.tabs.length > 0 && (
-            <FileTabs
-              tabs={kept.tabs.tabs}
-              active={file}
-              changes={changes}
-              onShow={showTab}
-              onClose={(path) => setTabs((t) => closeTab(t, path))}
-              onPin={(path) => setTabs((t) => pinTab(t, path))}
-              onMove={(path, to) => setTabs((t) => moveTab(t, path, to))}
+          <div className="fv-tabbar">
+            <button
+              className={`fv-changes-btn${showingChanges ? " active" : ""}`}
+              aria-pressed={showingChanges}
+              data-tip={showingChanges ? (file ? "Back to the file" : "The branch against main") : "The branch against main (⇧⌘G)"}
+              onClick={() => (showingChanges ? file && setChangesShown(false) : showChanges())}
+            >
+              <GitBranch size={12} aria-hidden="true" />
+              <span>Changes</span>
+              {changes.size > 0 && (
+                <span className="fv-changes-count" aria-label={`${changes.size} changed ${changes.size === 1 ? "file" : "files"}`}>
+                  {changes.size}
+                </span>
+              )}
+            </button>
+            {kept.tabs.tabs.length > 0 && (
+              <FileTabs
+                tabs={kept.tabs.tabs}
+                active={showingChanges ? undefined : file}
+                changes={changes}
+                onShow={showTab}
+                onClose={(path) => setTabs((t) => closeTab(t, path))}
+                onPin={(path) => setTabs((t) => pinTab(t, path))}
+                onMove={(path, to) => setTabs((t) => moveTab(t, path, to))}
+              />
+            )}
+          </div>
+          {showingChanges ? (
+            <ChangesView
+              key={wsKey}
+              workspace={workspace}
+              mode={changesMode}
+              setMode={setChangesMode}
+              layout={layout}
+              setLayout={setLayout}
+              listShown={listShown}
+              setListShown={setListShown}
+              {...(onOpenPr ? { onOpenPr } : {})}
+              {...(onExternal ? { onExternal } : {})}
+              onOpenFile={(path) => openFile(path, true)}
+              handle={diffHandle}
+              onNotice={onNotice}
+              showPath={changesAt}
+              onShown={() => setChangesAt(undefined)}
             />
-          )}
-          {!file ? (
+          ) : !file ? (
             <div className="gh-main-inner">
               <Empty icon={<FileCode2 size={26} strokeWidth={1.5} aria-hidden="true" />} title={workspace.name}>
-                Choose a file in the tree, or press ⌘P to open one by name.
+                Choose a file in the tree, or press ⌘P to open one by name. Changes shows the branch against main.
               </Empty>
             </div>
           ) : (
@@ -575,7 +730,7 @@ export function FilesView({
               workspace={workspace}
               path={file}
               change={change}
-              onShowChanges={onShowChanges}
+              onShowChanges={showChanges}
               onCopyPath={copyPath}
               handle={viewer}
               scroll={activeTab?.scroll}
@@ -758,6 +913,7 @@ function TreeItem({
   onClick,
   onDoubleClick,
   onHover,
+  onShowChanges,
 }: {
   row: TreeRow;
   current: boolean;
@@ -767,6 +923,8 @@ function TreeItem({
   onClick: () => void;
   onDoubleClick: () => void;
   onHover: () => void;
+  /** A changed file's dot: its changes, in Changes. */
+  onShowChanges: () => void;
 }) {
   const marks = useMemo(() => new Set(row.marks ?? []), [row.marks]);
   const Icon = row.kind === "directory" ? (row.open ? FolderOpen : Folder) : FileText;
@@ -803,7 +961,21 @@ function TreeItem({
       </span>
       {row.loading && <span className="fv-note">…</span>}
       {row.error && <CircleAlert size={12} aria-label={row.error} className="fv-error" />}
-      {changed && <span className={`fv-changed ${changed}`} aria-label={CHANGE_LABEL[changed]} data-tip={row.kind === "file" ? CHANGE_LABEL[changed] : "Has changes"} />}
+      {changed && row.kind === "file" ? (
+        <button
+          className={`fv-changed fv-changed-btn ${changed}`}
+          tabIndex={-1}
+          aria-label={`${CHANGE_LABEL[changed]}: show its changes`}
+          data-tip={`${CHANGE_LABEL[changed]}: show the changes`}
+          onClick={(e) => {
+            e.stopPropagation();
+            onShowChanges();
+          }}
+          onDoubleClick={(e) => e.stopPropagation()}
+        />
+      ) : (
+        changed && <span className={`fv-changed ${changed}`} aria-label="Has changes" data-tip="Has changes" />
+      )}
     </div>
   );
 }
@@ -828,7 +1000,7 @@ function FileViewer({
   workspace: FilesWorkspace;
   path: string;
   change?: FileChange;
-  onShowChanges?: (path: string) => void;
+  onShowChanges: (path: string) => void;
   onCopyPath: (path: string) => void;
   handle: React.RefObject<{ find: () => void } | null>;
   /** Where the tab was scrolled to, restored once its lines are drawn. */
@@ -1079,8 +1251,8 @@ function FileViewer({
           </span>
         )}
         <span className="gh-spacer" />
-        {change && change !== "deleted" && onShowChanges && (
-          <button className="page-btn" data-tip="This file’s changes in the GitHub tab" onClick={() => onShowChanges(path)}>
+        {change && change !== "deleted" && (
+          <button className="page-btn" data-tip="This file’s changes against main, in Changes" onClick={() => onShowChanges(path)}>
             <GitCompare size={13} aria-hidden="true" />
             <span className="page-tool-label">Show changes</span>
           </button>

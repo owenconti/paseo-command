@@ -3,7 +3,7 @@
  * selected workspace's tree, read as folders open, ignored files hidden until
  * asked; the filter and ⌘P quick-open; a file opened highlighted, found in
  * with ⌘F; big, binary and image files refused politely; Show changes for a
- * changed file; the open files' tabs (preview and kept, closing, reopening,
+ * changed file (Changes themselves: `changes.e2e.ts`); the open files' tabs (preview and kept, closing, reopening,
  * stepping, reordering, each one's scroll, per workspace). `/api/files/…` is
  * answered in the browser; nothing reaches a daemon.
  */
@@ -229,7 +229,7 @@ test("Files: the tree, ignored files on request, a file highlighted, find, filte
   }
 });
 
-test("Files: Show changes opens the GitHub tab's Changes at the file; no workspace says so", async () => {
+test("Files: Show changes opens the Changes at the file, all changes; no workspace says so", async () => {
   const context = await newContext(browser);
   const page = await context.newPage();
   await page.setViewportSize({ width: 1500, height: 900 });
@@ -243,17 +243,23 @@ test("Files: Show changes opens the GitHub tab's Changes at the file; no workspa
 
     await page.goto(`${app.url}?workspace=wks_a`);
     await page.locator(".place").waitFor();
-    await page.evaluate(() => localStorage.setItem("paseo-command:files:workspaces", JSON.stringify({ "|wks_a": { open: ["src"], file: "src/app.ts" } })));
+    await page.evaluate(() => {
+      localStorage.setItem("paseo-command:files:workspaces", JSON.stringify({ "|wks_a": { open: ["src"], file: "src/app.ts" } }));
+      localStorage.setItem("paseo-command:github:changesMode", '"uncommitted"');
+    });
     await page.reload();
     await page.locator(".place").waitFor();
     await appEvent(page, "paseo:mode", { mode: "files" });
     // The workspace's folders and file as left.
     await view.locator(".fv-head .page-head-name", { hasText: "app.ts" }).waitFor();
     await view.getByRole("treeitem", { name: /app\.ts/ }).waitFor();
-    // Show changes: the GitHub tab's Changes, at the file, all changes (the macOS app then shows the tab).
+    // Show changes: Changes in the tabs' place, all changes; the file's tab stays.
     await view.getByRole("button", { name: "Show changes" }).click();
-    assert.deepEqual(JSON.parse((await page.evaluate(() => localStorage.getItem("paseo-command:github:place")))!), { kind: "changes", path: "src/app.ts" });
+    await view.locator(".fv-changes-btn[aria-pressed=true]").waitFor();
+    await view.locator(".gh-branches", { hasText: "map-polish" }).waitFor();
     assert.equal(await page.evaluate(() => localStorage.getItem("paseo-command:github:changesMode")), '"all"');
+    assert.equal(await view.getByRole("radio", { name: "All changes" }).getAttribute("aria-checked"), "true");
+    await view.locator(".fv-tab", { hasText: "app.ts" }).waitFor();
   } finally {
     await context.close();
   }

@@ -102,7 +102,7 @@ export function PendingComments({
             ))}
           </ul>
           <div className="pending-comments-foot">
-            <button type="button" className="ghost-btn" onClick={() => runAppCommand("github-branch-changes")}>
+            <button type="button" className="ghost-btn" onClick={() => runAppCommand("branch-changes")}>
               <GitBranch size={12} aria-hidden="true" />
               Show the changes
             </button>

@@ -1,5 +1,7 @@
 import { readStore, writeStore } from "../api";
 import { runAppCommand } from "../appCommands";
+import { openFilesChanges } from "../files/open";
+import { postAppMenu } from "../worldBridge";
 import { checkFilters, DEFAULT_FILTERS, type RepoFilters } from "./filters";
 import { PR_SCOPES, REPO, type PrScope } from "./types";
 
@@ -8,13 +10,13 @@ export type PrTab = "conversation" | "files" | "commits" | "checks";
 export const PR_TABS: PrTab[] = ["conversation", "files", "commits", "checks"];
 
 /**
- * Where the user is in the GitHub tab: the selected workspace's changes, a
- * list of pull requests, a repository's pull requests (its filters kept for
- * it, `readRepoFilters`), or one pull request (on one of its tabs, perhaps at a file).
- * The changes' `path` is a file to scroll to once they show (the Files page's Show changes).
+ * Where the user is in the GitHub tab: a list of pull requests, a repository's
+ * pull requests (its filters kept for it, `readRepoFilters`), or one pull
+ * request (on one of its tabs, perhaps at a file). A workspace's changes, once
+ * a place here (`{kind: "changes", path?}`), are the Files page's Changes now:
+ * `redirectChanges` sends such a place there.
  */
 export type GithubPlace =
-  | { kind: "changes"; path?: string }
   | { kind: "prs"; scope: PrScope }
   | { kind: "repo"; repo: string }
   | { kind: "pr"; repo: string; number: number; tab: PrTab; path?: string };
@@ -26,7 +28,6 @@ export const DEFAULT_PLACE: GithubPlace = { kind: "prs", scope: "review" };
 export function checkPlace(raw: unknown): GithubPlace {
   if (!raw || typeof raw !== "object") return DEFAULT_PLACE;
   const p = raw as Record<string, unknown>;
-  if (p.kind === "changes") return typeof p.path === "string" && p.path && p.path.length <= 1000 ? { kind: "changes", path: p.path } : { kind: "changes" };
   if (p.kind === "prs" && PR_SCOPES.includes(p.scope as PrScope)) return { kind: "prs", scope: p.scope as PrScope };
   if (p.kind === "repo" && typeof p.repo === "string" && REPO.test(p.repo) && !p.repo.includes("..")) return { kind: "repo", repo: p.repo };
   if (
@@ -45,6 +46,18 @@ export function checkPlace(raw: unknown): GithubPlace {
 }
 
 export const samePlace = (a: GithubPlace, b: GithubPlace) => JSON.stringify(a) === JSON.stringify(b);
+
+/**
+ * A workspace's changes (an old remembered place, or one asked for by name) open
+ * in the Files page's Changes instead, the app switching to it: true when `raw` was one.
+ */
+export function redirectChanges(raw: unknown): boolean {
+  if (!raw || typeof raw !== "object" || (raw as { kind?: unknown }).kind !== "changes") return false;
+  const path = (raw as { path?: unknown }).path;
+  openFilesChanges(typeof path === "string" && path && path.length <= 1000 ? path : undefined);
+  postAppMenu("files");
+  return true;
+}
 
 /** The remembered place (localStorage). */
 export const readPlace = (): GithubPlace => checkPlace(readStore<unknown>(STORE_KEY, null));
@@ -73,7 +86,7 @@ export function writeRepoFilters(repo: string, filters: RepoFilters): void {
 /**
  * Opens a place in the GitHub tab: remembered for the view to read as it
  * mounts, and asked of it at once if it shows (`github-open`). Links to a
- * pull request, the workspace view's Changes and Activity call it.
+ * pull request, a workspace's Changes (Review #N) and Activity call it.
  */
 export function openGithubPlace(target: GithubPlace): void {
   const place = checkPlace(target);

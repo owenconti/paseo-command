@@ -14,8 +14,7 @@ import {
 import { errorMessage } from "../api";
 import { githubWrite, invalidate, load, patch, readPath, useGithubRead } from "./api";
 import { Avatar, Body, ChecksIcon, CHECKS_LABEL, Churn, CommentBox, Decision, PrStateIcon, STATE_LABEL, Time } from "./bits";
-import { LayoutControls } from "./ChangesView";
-import { DiffView, type DiffLayout, type DiffReview, type DiffViewHandle } from "./DiffView";
+import { DiffView, LayoutControls, type DiffLayout, type DiffReview, type DiffViewHandle } from "./DiffView";
 import { TAB_LABEL } from "./names";
 import { addComment, editComment, removeComment, reviewComments, useReviewDraft } from "./drafts";
 import type { ConversationOrder, PrTab } from "./place";

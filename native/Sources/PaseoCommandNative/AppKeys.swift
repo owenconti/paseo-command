@@ -3,7 +3,7 @@ import AppKit
 /// The app-wide keys the window offers the main menu ahead of its views (`AppWindow.performKeyEquivalent`):
 /// ⌘1…⌘6, the mode bar's tabs; ⇧⌘E, View → Show Files (the selected workspace's files in the Files tab),
 /// which nothing else in the app uses; and ⇧⌘G, View → Show Branch Changes (the selected workspace's branch
-/// in the GitHub tab), except while Conquer has the keyboard: then ⇧⌘G goes on to Conquer, its Find Previous
+/// against main, the Files tab's Changes), except while Conquer has the keyboard: then ⇧⌘G goes on to Conquer, its Find Previous
 /// (Show Branch Changes is disabled then, and a disabled item would still take the key in the menu).
 /// And ⌘W while the Files tab shows (`filesShows`): View → Close File Tab, which closes the page's shown file
 /// tab, so the window's Close never has it there and the page sees it only as `files-close-tab`.
@@ -36,6 +36,10 @@ enum AppKeys {
         item.target = target
         return item
     }
+
+    /// What View → Show Branch Changes asks of the page: the selected workspace's Changes, in the Files tab,
+    /// which the page then asks the app to show (or says why not).
+    static let branchChangesCommand = "branch-changes"
 
     /// View → Show Branch Changes, ⇧⌘G.
     @discardableResult

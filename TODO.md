@@ -5,19 +5,18 @@ mark it done with its commit once merged into `main`.
 
 ## Open
 
-- [ ] **Move a workspace's Changes from the GitHub tab into the Files page.** The user wants the worktree/agent side tied
-  to the file system: a workspace's Changes (today the GitHub tab's sidebar Workspace section, `ChangesView.tsx`: all /
-  committed / uncommitted, ahead/behind, the diff with filter, find, local pending comments, Review #N) becomes part of
-  the Files page, reached by a "Changes" button (with the changed-file count) in the Files head, beside the open file
-  tabs, as its own view or tab. It works without the GitHub integration (it never needed it). Files and Changes link
-  both ways: a changed file in the tree opens in Changes, a diff's file opens in Files. The GitHub tab drops its
-  Workspace section (pull requests stay; "Review #N" in Changes opens the PR there). Retarget everything that opened the
-  old place: ⇧⌘G (Show Branch Changes) and its menu item, ⌘K "Show …'s changes against main", the workspace view's
-  Changes button, pending diff comments' "Show the changes", the chat's links, `openGithubPlace` callers; keep old saved
-  places working by redirecting. Update ⌘K, the shortcuts dialog, tests and CLAUDE.md. Workspace: `files-changes`.
-
 ## Done
 
+- [x] **Move a workspace's Changes from the GitHub tab into the Files page.** Changes (all / committed / uncommitted,
+  ahead/behind, the diff with filter, find, pending comments) show in the Files tabs' place, reached by a Changes button
+  (with the changed-file count) first in the tabs' row: a view toggle outside the tab model, so ⌘W, ⇧⌘T, ⌃Tab and previews
+  stay as they were and it's never closed; kept per workspace; no GitHub needed (Review #N, in the GitHub tab, and Compare on
+  GitHub only while it's on). A changed file's dot and Show changes open Changes at the file; each diff file's Open in Files
+  opens it. The GitHub tab lost its Workspace section; ⇧⌘G (View → Show Branch Changes, now `branch-changes`), ⌘K, the
+  workspace view's Changes and pending comments' Show the changes open Files → Changes; old saved GitHub Changes places
+  redirect there. The diff's find started at a file shown from the list that a short diff couldn't scroll to the top (the
+  e2e stuck at "2 of 3"): it now starts at the file at the top of the view. Tests: `e2e/changes.e2e.ts` (moved and new),
+  files, diff comments, kept state, native menu target. Workspace: `files-changes`.
 - [x] **Files: tabs, and ⌘W closes one.** Opened files are tabs above the viewer: a click (tree, filter, ⌘P) opens a preview
   tab (italic, replaced by the next), a double-click or using the file keeps it; drag to reorder, the name with as much of its
   folder as tells clashing names apart, a changed dot and ×, middle-click closes, the row scrolls sideways keeping the shown tab

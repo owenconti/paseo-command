@@ -41,6 +41,41 @@ local.trees.set(
     ["art/tiles.bin", new Uint8Array([1, 0, 2, 0])],
   ]),
 );
+// The first workspace's branch against main, for the Files tab's Changes: one file committed, one not yet.
+const hunk = (lines: [string, string][]) => ({
+  oldStart: 1,
+  oldCount: lines.filter(([t]) => t !== "add").length,
+  newStart: 1,
+  newCount: lines.filter(([t]) => t !== "remove").length,
+  lines: [{ type: "header", content: "@@" }, ...lines.map(([type, content]) => ({ type, content, tokens: [{ text: content, style: null }] }))],
+});
+const diffOf = (path: string, lines: [string, string][]) => ({
+  path,
+  isNew: false,
+  isDeleted: false,
+  additions: lines.filter(([t]) => t === "add").length,
+  deletions: lines.filter(([t]) => t === "remove").length,
+  status: "ok",
+  hunks: [hunk(lines)],
+});
+const indexDiff = diffOf("src/index.ts", [
+  ["context", 'import { layout } from "./layout";'],
+  ["context", ""],
+  ["context", "export function main(): void {"],
+  ["remove", "  const world = layout({ hosts: 2 });"],
+  ["add", "  const world = layout({ hosts: 3 });"],
+  ["context", "  console.log(`${world.islands.length} islands`);"],
+]);
+const cssDiff = diffOf("src/styles/world.css", [
+  ["context", ".world {"],
+  ["remove", "  background: #2c5282;"],
+  ["add", "  background: #2b6cb0;"],
+  ["context", "}"],
+]);
+local.checkouts.set("/home/review/atlas", {
+  diffs: { all: [indexDiff, cssDiff], base: [indexDiff], uncommitted: [cssDiff] },
+  status: { currentBranch: "main", baseRef: "origin/main", aheadBehind: { ahead: 1, behind: 0 }, isDirty: true },
+});
 // A terminal already open in the first workspace, with something on screen.
 local.terminals.set("term-pre", {
   id: "term-pre",

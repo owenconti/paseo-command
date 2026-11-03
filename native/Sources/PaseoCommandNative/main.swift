@@ -397,7 +397,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         main.show(main.nextMode)
     }
     @objc private func showSettings() { main?.toggleSettings() }
-    @objc private func showBranchChanges() { main?.pageCommand("github-branch-changes") }
+    @objc private func showBranchChanges() { main?.pageCommand(AppKeys.branchChangesCommand) }
     @objc private func showFiles() { main?.show(.files) }
     @objc private func closeFileTab() { main?.pageCommand("files-close-tab") }
     @objc private func showMode(_ sender: NSMenuItem) {

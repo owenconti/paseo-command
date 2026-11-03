@@ -325,7 +325,7 @@ export function WorkspaceView({
         {real && onChanges && (
           <button
             className="secondary"
-            aria-description="Its branch against main, in the GitHub tab"
+            aria-description="Its branch against main, in the Files tab (⇧⌘G)"
             onClick={onChanges}
           >
             <GitCompare size={14} />
