@@ -16,6 +16,11 @@ mark it done with its commit once merged into `main`.
   Never inside code spans, code blocks or existing links; keep the transcript's text selectable and copyable as
   written. Unit tests for the matcher (teams, false positives, code), e2e on a mocked transcript.
   Workspace: `chat-autolink-issues-prs`.
+- [ ] **Chat panel: text 1 pt larger.** Increase the React chat panel's font size by 1 pt (the conversation's
+  messages, Markdown, code and tool rows, and the composer, keeping their relative sizes), in light and dark, in the
+  macOS app and a browser. Find where the panel's sizes come from (`.session` styles, theme tokens) and change it at
+  that one place; check line heights, wrapping, the ask/suggest strips and the narrow panel still look right, and that
+  the pages' own text size (`pageText.ts`) is unaffected. Workspace: `chat-text-larger`.
 
 ## Done
 
