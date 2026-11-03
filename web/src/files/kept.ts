@@ -1,4 +1,4 @@
-import { readTabs, type TabsState } from "./tabs";
+import { readTabs, tabEditorExited, type TabsState } from "./tabs";
 
 /**
  * What the Files page keeps per workspace (host and workspace) in localStorage's
@@ -33,4 +33,21 @@ export function writeKept(all: unknown, ws: KeptWorkspace, kept: Kept): Record<s
   const { tabs, active, closed } = kept.tabs;
   const stored = { open: kept.open, ...(active ? { file: active } : {}), tabs, closed, recent: kept.recent, ...(kept.changes ? { changes: true } : {}) };
   return Object.fromEntries([...Object.entries(rest), [keptKey(ws), stored] as const].slice(-KEPT_WORKSPACES));
+}
+
+/** The stored object with `terminal`'s tab, in whichever workspace keeps it, marked as its editor having quit. */
+export function editorExitedIn(all: unknown, terminal: string): unknown {
+  if (!all || typeof all !== "object") return all;
+  let changed = false;
+  const out = Object.fromEntries(
+    Object.entries(all as Record<string, unknown>).map(([key, k]) => {
+      if (!k || typeof k !== "object" || !Array.isArray((k as { tabs?: unknown }).tabs)) return [key, k];
+      const tabs = (k as { tabs: unknown[] }).tabs;
+      if (!tabs.some((t) => (t as { editor?: unknown })?.editor === terminal)) return [key, k];
+      changed = true;
+      const state = readTabs(k);
+      return [key, { ...(k as object), tabs: tabEditorExited(state, terminal).tabs }];
+    }),
+  );
+  return changed ? out : all;
 }

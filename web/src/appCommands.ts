@@ -76,7 +76,9 @@ export type AppCommand =
   | "files-reopen-tab"
   | "files-next-tab"
   | "files-previous-tab"
-  | "files-close-other-tabs";
+  | "files-close-other-tabs"
+  | "files-open-editor"
+  | "files-open-viewer";
 
 const EVENT = "paseo:command";
 

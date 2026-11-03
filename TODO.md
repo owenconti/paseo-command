@@ -5,19 +5,6 @@ mark it done with its commit once merged into `main`.
 
 ## Open
 
-- [ ] **Files: open files in an editor of the user's choosing (e.g. nvim) in a terminal.** Settings → Files gets "Open
-  files in": the built-in viewer (default) or an editor command, e.g. `nvim {file}` (also `{line}`; `{file}` relative to the
-  workspace; validated, quoted safely). With a command set, opening a file in the Files page (tree, ⌘P, a tab, Open in Files
-  from Changes) runs it in a daemon terminal on the workspace's host, in the workspace's folder (`/api/terminals/create`, as
-  the terminal panel does, so remote hosts and the editor's own LSP setup work), and shows that terminal in the file
-  viewer's place: in the macOS app a SwiftTerm view laid over the viewer's frame (as Conquer and the terminal panel are laid,
-  `TerminalDrawer.swift`'s pane), following the page's layout, theme and text size, taking the keyboard while focused.
-  Each file tab keeps its own editor terminal; switching tabs shows its terminal; closing the tab ends the terminal after
-  asking if it's still running (unsaved work is the editor's to warn about). App keys stay the app's while the editor has
-  the keyboard only where the terminal panel already keeps them (⌘1…⌘6, ⇧⌘G, ⇧⌘E, ⌘K; ⌘W closes the tab with that
-  confirmation); everything else goes to the editor. A per-tab "View" toggle shows the built-in viewer instead. In a browser
-  (no SwiftTerm) the built-in viewer stays, with a note. ⌘K entries ("Open in editor", "Open in viewer"), shortcuts dialog,
-  CLAUDE.md. Tests: native terminal-embedding checks, e2e with a fake daemon terminal. Workspace: `files-editor-terminal`.
 - [ ] **Activity: notifications marked done come back after a few seconds.** Marking GitHub notifications done (E/⌫,
   Mark all done) removes them, then some reappear seconds later (seen: "DE-8004 … You were mentioned" and "DE-8000 … Assigned
   to you", both Diagonal-HQ/diagonal, both "now"). Find the cause in `web/server/activity/github.ts` / `feed.ts` and the
@@ -30,6 +17,18 @@ mark it done with its commit once merged into `main`.
 
 ## Done
 
+- [x] **Files: open files in an editor of the user's choosing (e.g. nvim) in a terminal.** Settings → Files → "Open files in":
+  Built-in viewer (default) or Editor command (`nvim {file}`, `{line}` too; checked: one line, `{file}` needed and unquoted), kept in
+  settings.json. With it, in the macOS app, opening a file (tree, ⌘P, a tab, Open in Files) runs the command in a daemon terminal on the
+  workspace's host, in its folder, under the login shell (`POST /api/terminals/editor`; the path single-quoted, the line a number; the
+  command never from the request), and SwiftTerm draws it exactly over the viewer, following the page's layout (sidebar, panel, window,
+  tabs, modes), stepping aside for dialogs, in the app's theme and terminal text size. Each tab keeps its own terminal (alive while the tab
+  exists), opening in the editor pins the tab, the View / Editor toggle and ⌘K Open in editor / viewer switch, closing (×, ⌘W, Close other
+  tabs) asks once while editors run, and an editor that quits leaves the viewer with Reopen in editor. While it has the keyboard the app keeps
+  ⌘1…⌘6, ⇧⌘G, ⇧⌘E, ⌘W, ⌘`, ⌃`, ⌘K (the palette, the keyboard coming back after) and the menu's; everything else is the editor's. The terminal
+  panel leaves editor terminals out of its tabs. In a browser the viewer stays, with a note. Tests: command building and quoting (through a
+  real sh), the route, the tab model, e2e (`files-editor.e2e.ts`), native embedding checks (frame, keys, close question); checked in a
+  workspace build against the fake server. Workspace: `files-editor-terminal`.
 - [x] **Files: the show-sidebar button sits out of line with the tab row.** With the sidebar hidden (⌘S), its show button
   was laid absolutely over the page's corner, 12 px from the top, while the tab row (Changes, then the tabs) was only
   padded to leave room for it, so it sat apart from the row. It is now the row's first control, centred on it at the pages'

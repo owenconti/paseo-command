@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
-import { Bell, Bot, Plug, Volume2, X } from "lucide-react";
+import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { Bell, Bot, FileCode2, Plug, Volume2, X } from "lucide-react";
 import { ResizeEdge } from "./ResizeEdge";
 import { readStore, writeStore } from "./api";
 import { previewSound, setSoundSettings, useSoundSettings } from "./sounds";
@@ -13,6 +13,9 @@ import { ApiKeySetting, type SecretStatus } from "./ApiKeySetting";
 import { GithubTokenSetup } from "./GithubTokenSetup";
 import { closeSettings, useSettingsRequest } from "./settingsStore";
 import { macApp } from "./worldBridge";
+import { plainText } from "./ui";
+import { DEFAULT_EDITOR_COMMAND, editorCommandProblem } from "./files/editorCommand";
+import { saveFilesSettings, useFilesSettings } from "./files/filesSettings";
 
 /** The page's sections, in its sidebar's order; one shows at a time, as the other pages' places do. */
 const SECTIONS = [
@@ -20,6 +23,7 @@ const SECTIONS = [
   { id: "notifications", label: "Notifications", icon: <Bell size={14} aria-hidden="true" /> },
   { id: "integrations", label: "Integrations", icon: <Plug size={14} aria-hidden="true" /> },
   { id: "new-agent", label: "New agent", icon: <Bot size={14} aria-hidden="true" /> },
+  { id: "files", label: "Files", icon: <FileCode2 size={14} aria-hidden="true" /> },
 ] as const;
 type Section = (typeof SECTIONS)[number]["id"];
 /** The sidebar's width: as Activity's, it resizes and is kept. */
@@ -29,9 +33,10 @@ const SIDEBAR = { default: 220, min: 180, max: 360 };
  * The app's settings, a page in the map's place (`settingsStore.ts`; in the
  * macOS app its mode bar's Settings tab): interface sounds and the lofi radio,
  * desktop notifications, the optional integrations with their keys, and New
- * agent's preset prompts and agent profiles. Sounds, radio and notifications
+ * agent's preset prompts and agent profiles, and where the Files page opens
+ * files (its viewer, or your editor in a terminal). Sounds, radio and notifications
  * are kept in this browser (or the app); integrations, the Linear workspace and
- * the presets in the data directory's settings.json, keys beside it in
+ * the presets and Files' editor in the data directory's settings.json, keys beside it in
  * secrets.json. Laid out as the other pages are: a sidebar of its sections
  * (Sound and music, Notifications, Integrations, New agent), and the chosen one
  * beside it under its own heading.
@@ -220,6 +225,11 @@ export function SettingsPage({
           {shown.id === "integrations" && (
             <SettingsGroup note="Optional, and off until you turn them on. Keys are saved on this Mac and never shown again.">
               <IntegrationSettings />
+            </SettingsGroup>
+          )}
+          {shown.id === "files" && (
+            <SettingsGroup note="Where the Files page opens a file from the tree, ⌘P, a tab or the Changes.">
+              <FilesSettings />
             </SettingsGroup>
           )}
           {shown.id === "new-agent" && (
@@ -443,6 +453,100 @@ function IntegrationSettings() {
               Retry
             </button>
           )}
+        </p>
+      )}
+    </div>
+  );
+}
+
+/** Settings → Files: open files in the built-in viewer, or in an editor command run in a terminal on the workspace's host. */
+function FilesSettings() {
+  const { settings, loaded, saving, error } = useFilesSettings();
+  const [command, setCommand] = useState(settings.editorCommand);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const id = useId();
+  useEffect(() => setCommand(settings.editorCommand), [settings.editorCommand]);
+  const problem = editorCommandProblem(command);
+  const dirty = command.trim() !== settings.editorCommand;
+  const save = async () => {
+    if (problem || !dirty) return;
+    setSaveError(await saveFilesSettings({ editorCommand: command }));
+  };
+  // The choice shows at once, as it saves.
+  const [choosing, setChoosing] = useState<"viewer" | "editor" | null>(null);
+  const openIn = choosing ?? settings.openIn;
+  const choose = async (next: "viewer" | "editor") => {
+    if (next === openIn) return;
+    setChoosing(next);
+    // A changed, usable command is saved with the choice.
+    setSaveError(await saveFilesSettings({ openIn: next, ...(next === "editor" && dirty && !problem ? { editorCommand: command } : {}) }));
+    setChoosing(null);
+  };
+  return (
+    <div className="files-settings" role="radiogroup" aria-label="Open files in">
+      <label className="settings-row">
+        <span className="settings-row-text">
+          <b>Built-in viewer</b>
+          <small>Highlighted and read only, with find (⌘F)</small>
+        </span>
+        <input type="radio" name={`${id}-open-in`} checked={openIn === "viewer"} disabled={!loaded} onChange={() => void choose("viewer")} />
+      </label>
+      <label className="settings-row">
+        <span className="settings-row-text">
+          <b>Editor command</b>
+          <small>
+            Your editor in a terminal on the workspace’s host, in its folder, with its own config and language servers
+            {macApp() ? "" : " (in the macOS app; a browser shows the viewer)"}
+          </small>
+        </span>
+        <input type="radio" name={`${id}-open-in`} checked={openIn === "editor"} disabled={!loaded} onChange={() => void choose("editor")} />
+      </label>
+      {openIn === "editor" && (
+        <div className="integration-fields">
+          <div className="linear-setting files-command-setting">
+            <label htmlFor={id}>
+              <b>Command</b>
+              <small>
+                <code>{"{file}"}</code> is the file’s path in the workspace (quoted for you), <code>{"{line}"}</code> its line. It runs
+                under your login shell; the tab’s terminal ends when the editor quits.
+              </small>
+            </label>
+            <div className="files-command-field">
+              <input
+                id={id}
+                value={command}
+                placeholder={DEFAULT_EDITOR_COMMAND}
+                spellCheck={false}
+                {...plainText}
+                aria-invalid={!!problem}
+                aria-describedby={problem || saveError ? `${id}-problem` : undefined}
+                onChange={(e) => {
+                  setCommand(e.target.value);
+                  setSaveError(null);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") void save();
+                  if (e.key === "Escape" && dirty) {
+                    e.preventDefault();
+                    setCommand(settings.editorCommand);
+                  }
+                }}
+              />
+              <button className="secondary" disabled={!dirty || !!problem || saving} onClick={() => void save()}>
+                Save
+              </button>
+            </div>
+            {(problem || saveError) && (
+              <small id={`${id}-problem`} className="files-command-problem" role="alert">
+                {problem ?? saveError}
+              </small>
+            )}
+          </div>
+        </div>
+      )}
+      {error && !saveError && (
+        <p className="integration-error" role="alert">
+          {error}
         </p>
       )}
     </div>

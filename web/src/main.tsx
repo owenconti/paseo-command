@@ -2062,6 +2062,13 @@ function App() {
                       command("files-close-other-tabs", "Close other tabs", "close others other tabs keep only this file", undefined, "Navigate"),
                     ]
                   : []),
+                // The user's editor (Settings → Files, the macOS app's): in it, or back in the viewer.
+                ...(v.canEditor && v.editor !== "shown"
+                  ? [command("files-open-editor", "Open in editor", "editor nvim vim terminal edit lsp open external")]
+                  : []),
+                ...(v.canEditor && v.editor === "shown"
+                  ? [command("files-open-viewer", "Open in viewer", "viewer built-in read view highlight")]
+                  : []),
                 ...(v.file ? [command("files-copy-path", "Copy the file’s path", "copy path clipboard name")] : []),
                 ...(v.text ? [command("files-find", "Find in the file", "search find text content lines match", ["⌘", "F"])] : []),
                 ...(v.file && v.change && v.change !== "deleted" && !v.changes

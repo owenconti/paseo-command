@@ -2,9 +2,12 @@
  * The Files page's tabs, as an editor's: pure, so the tests run it. A single
  * click opens a preview tab (one at most; the next preview takes its place),
  * double-clicking or using it pins it. Closing one remembers it for ⇧⌘T.
- * Each tab keeps where it was scrolled to.
+ * Each tab keeps where it was scrolled to, and, opened in the user's editor
+ * (Settings → Files), its editor's daemon terminal: `editor`, until the editor
+ * quits (`exited`, the viewer showing with Reopen in editor) or the tab closes;
+ * `viewer` while its View / Editor toggle shows the built-in viewer instead.
  */
-export type FileTab = { path: string; preview?: true; scroll?: number };
+export type FileTab = { path: string; preview?: true; scroll?: number; editor?: string; exited?: true; viewer?: true };
 export type TabsState = {
   tabs: FileTab[];
   /** The tab shown. */
@@ -89,6 +92,42 @@ export function stepTab(s: TabsState, by: 1 | -1): TabsState {
   return { ...s, active: next.path };
 }
 
+/** The tab opened in the editor: its terminal, the tab kept (no longer a preview), the editor showing. */
+export function setTabEditor(s: TabsState, path: string, terminal: string): TabsState {
+  if (!s.tabs.some((t) => t.path === path)) return s;
+  return {
+    ...s,
+    tabs: s.tabs.map((t) => {
+      if (t.path !== path) return t;
+      const { preview: _, exited: __, viewer: ___, ...rest } = t;
+      return { ...rest, editor: terminal };
+    }),
+  };
+}
+
+/** A terminal's editor quit (or its terminal is gone): its tab shows the viewer, offering to reopen it. */
+export function tabEditorExited(s: TabsState, terminal: string): TabsState {
+  if (!s.tabs.some((t) => t.editor === terminal)) return s;
+  return {
+    ...s,
+    tabs: s.tabs.map((t) => {
+      if (t.editor !== terminal) return t;
+      const { editor: _, viewer: __, ...rest } = t;
+      return { ...rest, exited: true };
+    }),
+  };
+}
+
+/** The View / Editor toggle: the built-in viewer over the running editor, or the editor again. */
+export function setTabViewer(s: TabsState, path: string, viewer: boolean): TabsState {
+  const tab = s.tabs.find((t) => t.path === path);
+  if (!tab || !!tab.viewer === viewer) return s;
+  return { ...s, tabs: s.tabs.map((t) => (t !== tab ? t : viewer ? { ...t, viewer: true } : (({ viewer: _, ...rest }) => rest)(t))) };
+}
+
+/** The tabs' editor terminals still running. */
+export const tabEditors = (s: TabsState) => s.tabs.flatMap((t) => (t.editor ? [t.editor] : []));
+
 /** Where a tab was scrolled to. */
 export function scrollTab(s: TabsState, path: string, top: number): TabsState {
   const scroll = Math.max(0, Math.round(top));
@@ -142,11 +181,14 @@ export function readTabs(raw: unknown, legacyFile?: string): TabsState {
     const path = t && typeof t === "object" ? (t as FileTab).path : undefined;
     if (typeof path !== "string" || !path || seen.has(path)) continue;
     seen.add(path);
-    const scroll = (t as FileTab).scroll;
+    const { scroll, editor, exited, viewer } = t as FileTab;
+    const hasEditor = typeof editor === "string" && !!editor && editor.length <= 200;
     tabs.push({
       path,
-      ...((t as FileTab).preview === true && !tabs.some((o) => o.preview) ? { preview: true as const } : {}),
+      ...((t as FileTab).preview === true && !hasEditor && !tabs.some((o) => o.preview) ? { preview: true as const } : {}),
       ...(typeof scroll === "number" && Number.isFinite(scroll) && scroll > 0 ? { scroll: Math.round(scroll) } : {}),
+      ...(hasEditor ? { editor } : exited === true ? { exited: true as const } : {}),
+      ...(hasEditor && viewer === true ? { viewer: true as const } : {}),
     });
   }
   // Before tabs, a workspace kept one open file.

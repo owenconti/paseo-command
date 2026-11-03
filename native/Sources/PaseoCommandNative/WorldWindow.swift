@@ -3,28 +3,6 @@ import ImageIO
 import SpriteKit
 import WebKit
 
-/// The app's window. While Conquer shows, it gives accessibility clients the address of
-/// Conquer's page as its document (AXDocument), as a browser's window does; the page's
-/// own web area gives its address (AXURL) too, for autofill and other assistive tools.
-final class AppWindow: NSWindow {
-    var document: () -> URL? = { nil }
-    override func accessibilityDocument() -> String? {
-        guard let url = document(), ["http", "https"].contains(url.scheme ?? "") else { return super.accessibilityDocument() }
-        return url.absoluteString
-    }
-    /// ⌘1…⌘6 pick the mode bar's tabs (the View menu's) from anywhere in the window, ahead of its
-    /// views: the page, the terminal panel, and Conquer's pages even while it has the keyboard.
-    /// ⇧⌘G (View → Show Branch Changes) likewise, but while Conquer has the keyboard (`conquerHasKeys`)
-    /// it stays Conquer's Find Previous (`AppKeys`).
-    var conquerHasKeys: () -> Bool = { false }
-    /// ⌘W too while the Files tab shows: Window → Close closes its file tab, ahead of the page.
-    var filesShows: () -> Bool = { false }
-    override func performKeyEquivalent(with event: NSEvent) -> Bool {
-        if AppKeys.offeredToMenu(event, conquerHasKeys: conquerHasKeys(), filesShows: filesShows()), NSApp.mainMenu?.performKeyEquivalent(with: event) == true { return true }
-        return super.performKeyEquivalent(with: event)
-    }
-}
-
 /// One window: the SpriteKit Atlas, and over it the React app in a
 /// transparent web view. The page keeps every pointer and key event: its
 /// toolbar, legend, tooltips and panels take theirs as in a browser, and the
@@ -35,6 +13,8 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
     let web: WKWebView
     let split: PanelSplitView
     let drawer: TerminalDrawer
+    /// The Files page's editor terminals, over its viewer (Settings → Files → Open files in an editor).
+    let editors: EditorOverlay
     /// The map and page: the split's first side, and where the maximized terminal panel goes.
     let content: NSView
     /// Covers the window until the map has drawn (see `revealWhenDrawn`).
@@ -133,6 +113,9 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         content = PassThroughView(frame: split.bounds)
         content.autoresizingMask = [.width, .height]
         drawer = TerminalDrawer(frame: CGRect(x: 0, y: 0, width: 460, height: split.bounds.height))
+        editors = EditorOverlay(fontSize: drawer.fontSize)
+        // Over the page's viewer, under Conquer and the maximized terminal panel.
+        content.addSubview(editors)
         split.addArrangedSubview(content)
         split.setHoldingPriority(.defaultLow, forSubviewAt: 0)
         // The panel joins the split only while it shows (see `attachDrawer`).
@@ -175,12 +158,21 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         (window as? AppWindow)?.document = { [weak self] in self?.mode == .conquer ? self?.conquer.current?.url : nil }
         (window as? AppWindow)?.conquerHasKeys = { [weak self] in self?.mode == .conquer && self?.conquer.hasKeyFocus == true }
         (window as? AppWindow)?.filesShows = { [weak self] in self?.mode == .files }
+        (window as? AppWindow)?.terminalHasKeys = { [weak self] in self?.editors.hasKeyFocus == true || self?.drawer.hasKeyFocus == true }
+        (window as? AppWindow)?.onPalette = { [weak self] in
+            guard let self else { return }
+            if self.editors.hasKeyFocus { self.editors.openPalette(web: self.web) }
+            else { self.window.makeFirstResponder(self.web); self.web.evaluateJavaScript(EditorKeys.paletteScript, completionHandler: nil) }
+        }
         configuration.userContentController.add(self, name: "paseoWorld")
         web.navigationDelegate = self
         web.uiDelegate = self
         window.delegate = self
         scene.emit = { [weak self] message in self?.send(message) }
         drawer.server = { [weak self] in self?.serverURL ?? options.url }
+        editors.server = { [weak self] in self?.serverURL ?? options.url }
+        editors.tell = { [weak self] in self?.send($0, as: "paseo:editor") }
+        editors.runInPage = { [weak self] in self?.web.evaluateJavaScript($0, completionHandler: nil) }
         drawer.onMove = { [weak self] in self?.moveTerminal() }
         drawer.onMaximize = { [weak self] in self?.maximizeTerminal() }
         modeBar.onSelect = { [weak self] mode in self?.show(mode) }
@@ -298,6 +290,12 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
                 (w["id"] as? String).map { TerminalWorkspace(id: $0, host: w["host"] as? String ?? "", name: w["name"] as? String ?? $0) }
             }
             drawer.show(selected)
+        case "editor":
+            // The Files page's shown tab's editor terminal and its viewer's frame (or none).
+            editors.place(EditorPlacement(body), filesShows: mode == .files, web: web)
+        case "editorFocus": if mode == .files { editors.focus() }
+        case "editorClose": if let request = EditorCloseRequest(body) { editors.close(request, window: window) }
+        case "editorForget": editors.forget(body["terminals"] as? [String] ?? [])
         case "openLink":
             // A link clicked in the chat: a new Conquer tab, in the map's place. A Linear issue opens
             // in Linear's desktop app when it's installed; a GitHub pull request goes to the page for
@@ -318,9 +316,9 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
             case "terminal-dock": moveTerminal()
             case "terminal-maximize": maximizeTerminal()
             case "terminal-unsplit": drawer.unsplit()
-            case "terminal-bigger": drawer.zoom(1)
-            case "terminal-smaller": drawer.zoom(-1)
-            case "terminal-actual": drawer.zoom(0)
+            case "terminal-bigger": zoomTerminals(1)
+            case "terminal-smaller": zoomTerminals(-1)
+            case "terminal-actual": zoomTerminals(0)
             case "conquer": show(.conquer)
             case "mode-next": show(nextMode)
             case "github": show(.github)
@@ -346,7 +344,7 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         }
         if type != "detach", atlasView.isHidden, scene.hasArt { atlasView.isHidden = false; atlasView.govern() }
         if AtlasScene.debug { Log.line("\(type) \(body)") }
-        if type != "pointer" && type != "wheel" { reportState() }
+        if type != "pointer" && type != "wheel" && type != "editor" { reportState() }
     }
 
     // MARK: Splash
@@ -414,6 +412,7 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         atlasView.govern()
         if mode == .conquer { conquer.frame = mapInContent }
         placeMaximized()
+        editors.place(nil, filesShows: mode == .files, web: web)
     }
 
     /// The mode bar's tabs start past the traffic lights, or at the edge in
@@ -792,6 +791,8 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         modeBar.mode = next
         atlasView.covered = next != .command
         placeConquer()
+        // A file's editor shows only with Files (the page says where once it draws it again).
+        editors.place(nil, filesShows: next == .files, web: web)
         sendMode()
         if next == .conquer {
             conquer.start()
@@ -867,6 +868,12 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         conquer.autoresizingMask = []
         conquer.frame = mapInContent
         conquer.isHidden = mode != .conquer
+    }
+
+    /// The terminals' text size (⌘+, ⌘−, ⌘0): the panel's and the Files page's editors'.
+    func zoomTerminals(_ step: CGFloat) {
+        drawer.zoom(step)
+        editors.setFont(drawer.fontSize)
     }
 
     /// Show or hide the terminal panel (View → Terminal, ⌃`), at the size it last had;

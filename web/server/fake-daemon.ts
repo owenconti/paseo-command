@@ -150,8 +150,17 @@ export class FakeDaemon {
       printed: string;
       input: any[];
       watchers: Set<(event: any) => void>;
+      /** What it runs, when not a shell (`createTerminal`'s `command` and `args`). */
+      command?: string;
+      args?: string[];
     }
   >();
+  /** A terminal's program ends on its own (an editor's `:q`): watchers see it exit. */
+  exit(terminalId: string) {
+    const t = this.terminals.get(terminalId);
+    this.terminals.delete(terminalId);
+    for (const w of t?.watchers ?? []) w({ terminalId, subscriptionId: "sub", type: "exit" });
+  }
   /** Print to a terminal, as its shell would: watchers see it live. */
   print(terminalId: string, text: string) {
     const t = this.terminals.get(terminalId)!;
@@ -1222,7 +1231,10 @@ export class FakeClient {
   async createTerminal(cwd: string, name?: string, _requestId?: string, options: any = {}) {
     await this.gate("createTerminal", cwd, options);
     const id = `term-${++ids}`;
-    const t = { id, name: name ?? `Terminal ${this.daemon.terminals.size + 1}`, cwd, workspaceId: options.workspaceId, printed: "$ ", input: [], watchers: new Set<(e: any) => void>() };
+    // A command (an editor) shows what it runs instead of a prompt.
+    const command = typeof options.command === "string" ? { command: options.command, args: options.args ?? [] } : {};
+    const printed = command.command ? `[${(command.args as string[]).at(-1) ?? command.command}]\r\n` : "$ ";
+    const t = { id, name: name ?? `Terminal ${this.daemon.terminals.size + 1}`, cwd, workspaceId: options.workspaceId, printed, input: [], watchers: new Set<(e: any) => void>(), ...command };
     this.daemon.terminals.set(id, t);
     return { terminal: { id, name: t.name, cwd, workspaceId: t.workspaceId }, error: null, requestId: "r" };
   }
@@ -1240,6 +1252,8 @@ export class FakeClient {
     if (!t) return;
     t.input.push(message);
     if (message.type === "input") this.daemon.print(terminalId, message.data);
+    // A fake editor quits on ":q", as vi does.
+    if (t.command && message.type === "input" && String(message.data).endsWith(":q\r")) this.daemon.exit(terminalId);
   }
   /** The terminal's screen so far (as a restore), then its output live. */
   observeTerminal(terminalId: string, receive: (event: any) => void, options: any = {}) {

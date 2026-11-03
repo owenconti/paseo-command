@@ -16,12 +16,13 @@ import {
   PanelLeftOpen,
   RefreshCw,
   Search,
+  SquareTerminal,
   X,
 } from "lucide-react";
 import { File, Virtualizer } from "@pierre/diffs/react";
-import { readStore, writeStore } from "../api";
+import { api, errorMessage, readStore, writeStore } from "../api";
 import { onAppCommand } from "../appCommands";
-import { modalOpen, useFocusTrap } from "../focus";
+import { MODAL_EVENT, modalOpen, useFocusTrap } from "../focus";
 import { copyText } from "../nativePlatform";
 import { usePageTitleTip } from "../pageHead";
 import { ResizeEdge } from "../ResizeEdge";
@@ -41,8 +42,27 @@ import { DIFF_THEMES, DiffWorkers } from "../github/diffWorkers";
 import { hashText } from "../github/rows";
 import { allPath, changedPath, ensure, load, peek, prefetch, readPath, reload, treePath, useFilesVersion, type FilesWorkspace } from "./api";
 import { filterRows, parentsOf, rankPaths, sizeLabel, treeRows, type Listing, type TreeRow } from "./tree";
-import { keptKey as keyOf, readKept, RECENT, writeKept, type Kept } from "./kept";
-import { closeOtherTabs, closeTab, moveTab, NO_TABS, openTab, pinTab, reopenTab, scrollTab, stepTab, tabLabels, type FileTab, type TabsState } from "./tabs";
+import { editorExitedIn, keptKey as keyOf, readKept, RECENT, writeKept, type Kept } from "./kept";
+import {
+  closeOtherTabs,
+  closeTab,
+  moveTab,
+  NO_TABS,
+  openTab,
+  pinTab,
+  reopenTab,
+  scrollTab,
+  setTabEditor,
+  setTabViewer,
+  stepTab,
+  tabEditorExited,
+  tabEditors,
+  tabLabels,
+  type FileTab,
+  type TabsState,
+} from "./tabs";
+import { closeEditors, focusEditor, forgetEditors, hideEditor, onEditorEvent, postEditorPlacement } from "./editorBridge";
+import { useFilesSettings } from "./filesSettings";
 import { FILE_LIMITS, type FileChange, type FileChanges, type FileList, type FileRead, type FileTree } from "./types";
 import "../github/github.css";
 import "./files.css";
@@ -70,6 +90,9 @@ export type FilesViewState = {
   /** The Changes' diff: split or unified, its file list shown. */
   layout: DiffLayout;
   listShown: boolean;
+  /** The shown tab in the user's editor (the macOS app): it shows, the viewer shows over it, or none runs; whether it can. */
+  editor: "shown" | "viewer" | "none";
+  canEditor: boolean;
 };
 
 const PANELS = { sidebar: 280, sidebarMin: 180, mainMin: 420 };
@@ -83,6 +106,7 @@ const writeKeptOf = (ws: FilesWorkspace, kept: Kept) => writeStore("files:worksp
 const NO_KEPT: Kept = { open: [], recent: [], tabs: NO_TABS };
 
 const CHANGE_LABEL: Record<FileChange, string> = { added: "Added", deleted: "Deleted", modified: "Modified", renamed: "Renamed" };
+const baseName = (path: string) => path.slice(path.lastIndexOf("/") + 1);
 
 /**
  * The Files page, in the map's place (the macOS app's mode bar): the selected
@@ -232,6 +256,77 @@ export function FilesView({
     const tabs = change(k.tabs);
     return tabs === k.tabs ? k : { ...k, tabs };
   }), [setKept]);
+  const keptNow = useRef(kept);
+  keptNow.current = kept;
+  /** A change to `ws`'s tabs, shown or not (an answer that lands after another workspace shows). */
+  const setTabsOf = useCallback(
+    (ws: FilesWorkspace, change: (t: TabsState) => TabsState) => {
+      if (keyOf(ws) === shownKey.current) return setTabs(change);
+      const k = readKeptOf(ws);
+      writeKeptOf(ws, { ...k, tabs: change(k.tabs) });
+    },
+    [setTabs],
+  );
+
+  // ── The user's editor (Settings → Files → Open files in an editor command; the macOS app draws it) ──
+  const { settings: filesSettings } = useFilesSettings();
+  const inApp = macApp();
+  const editorOn = inApp && filesSettings.openIn === "editor";
+  const editorName = filesSettings.editorCommand.trim().split(/\s+/)[0] || "editor";
+  /** Terminals this page ended or saw end, so their tabs going isn't a reason to end them again. */
+  const ended = useRef(new Set<string>());
+  const [starting, setStarting] = useState<string | undefined>();
+  const startingNow = useRef(new Set<string>());
+  /** Bumped when the app's relay to an editor went: the placement is sent again for it to reattach. */
+  const [resend, setResend] = useState(0);
+  const openInEditor = useCallback(
+    async (path: string, line?: number) => {
+      if (!workspace || !macApp()) return;
+      const ws = workspace;
+      const key = `${keyOf(ws)}|${path}`;
+      if (startingNow.current.has(key)) return;
+      startingNow.current.add(key);
+      setStarting(path);
+      // Opening in the editor keeps the tab, and shows the editor once it runs.
+      setTabsOf(ws, (t) => setTabViewer(pinTab(t, path), path, false));
+      try {
+        const r = await api<{ terminal: { id: string } }>("terminals/editor", {
+          workspace: ws.id,
+          ...(ws.host ? { host: ws.host } : {}),
+          path,
+          ...(line && line > 1 ? { line } : {}),
+        });
+        setTabsOf(ws, (t) => setTabEditor(t, path, r.terminal.id));
+      } catch (error) {
+        onNotice(`Couldn’t open ${baseName(path)} in ${editorName}: ${errorMessage(error) || "the terminal didn’t start"}`);
+        // Shown in the viewer, offering to try again, not retried on its own.
+        setTabsOf(ws, (t) => ({ ...t, tabs: t.tabs.map((x) => (x.path === path && !x.editor ? { ...x, exited: true as const } : x)) }));
+      } finally {
+        startingNow.current.delete(key);
+        setStarting((p) => (p === path ? undefined : p));
+      }
+    },
+    [wsKey, setTabsOf, onNotice, editorName],
+  );
+  /** Close tabs, first ending their editors (the app asks while one still runs); nothing closes if that's cancelled. */
+  const requestClose = useCallback(
+    async (paths: string[], apply: (t: TabsState) => TabsState) => {
+      const ws = workspace;
+      const withEditors = keptNow.current.tabs.tabs.filter((t) => paths.includes(t.path) && t.editor);
+      if (ws && withEditors.length && macApp()) {
+        const items = withEditors.map((t) => ({ terminal: t.editor!, ...(ws.host ? { host: ws.host } : {}), name: baseName(t.path), running: true }));
+        items.forEach((i) => ended.current.add(i.terminal));
+        if (!(await closeEditors(items))) {
+          items.forEach((i) => ended.current.delete(i.terminal));
+          return;
+        }
+        return setTabsOf(ws, apply);
+      }
+      setTabs(apply);
+    },
+    [wsKey, setTabs, setTabsOf],
+  );
+
   // ── Changes, in the tabs' place (kept per workspace) ──
   const showingChanges = !!kept.changes;
   const setChangesShown = useCallback(
@@ -249,10 +344,11 @@ export function FilesView({
     setCursor(path);
     reveal(path);
   }, [setTabs, setChangesShown]);
-  // ⌘W closes the shown file's tab; Changes, never closed, stays.
+  // ⌘W closes the shown file's tab (its editor first, asking while it runs); Changes, never closed, stays.
   const closeActive = useCallback(() => {
-    if (!showingChanges) setTabs((t) => (t.active ? closeTab(t, t.active) : t));
-  }, [setTabs, showingChanges]);
+    const active = keptNow.current.tabs.active;
+    if (!showingChanges && active) void requestClose([active], (t) => closeTab(t, active));
+  }, [requestClose, showingChanges]);
   const reopen = useCallback(() => {
     setChangesShown(false);
     setTabs(reopenTab);
@@ -262,7 +358,10 @@ export function FilesView({
     if (showingChanges) setChangesShown(false);
     else setTabs((t) => stepTab(t, by));
   }, [setTabs, setChangesShown, showingChanges]);
-  const closeOthers = useCallback(() => setTabs((t) => (t.active ? closeOtherTabs(t, t.active) : t)), [setTabs]);
+  const closeOthers = useCallback(() => {
+    const { active, tabs } = keptNow.current.tabs;
+    if (active) void requestClose(tabs.filter((t) => t.path !== active).map((t) => t.path), (t) => closeOtherTabs(t, active));
+  }, [requestClose]);
   const [changesMode, setChangesModeState] = useState<ChangesMode>(() => {
     const kept = readStore<string>("github:changesMode", "all") as ChangesMode;
     return CHANGES_MODES.includes(kept) ? kept : "all";
@@ -416,7 +515,7 @@ export function FilesView({
 
   // ── Quick-open (⌘P) ──
   const [quick, setQuick] = useState(false);
-  const viewer = useRef<{ find: () => void } | null>(null);
+  const viewer = useRef<ViewerHandle | null>(null);
   // ⌘S, ⌘P, and (in the viewer) ⌘F: while Files shows, the page has them, and they go no further. The tabs':
   // ⌘W closes the shown one (in the macOS app its menu takes ⌘W ahead of the window's Close and sends
   // `files-close-tab`; a browser keeps ⌘W, so ⌃W too), ⇧⌘T reopens, ⌃Tab / ⌃⇧Tab and ⌥⌘→ / ⌥⌘← step.
@@ -454,9 +553,24 @@ export function FilesView({
       () => onNotice("Couldn’t copy the path"),
     );
 
+  // The shown tab in the editor: the editor again if one runs, else a new one at the line in view (its View / Editor
+  // toggle, ⌘K, Reopen in editor); or the built-in viewer over it.
+  const showEditor = useCallback(
+    (path: string) => {
+      const tab = keptNow.current.tabs.tabs.find((t) => t.path === path);
+      if (tab?.editor) {
+        setTabs((t) => setTabViewer(t, path, false));
+        return;
+      }
+      void openInEditor(path, viewer.current?.line?.());
+    },
+    [setTabs, openInEditor],
+  );
+  const showViewer = useCallback((path: string) => setTabs((t) => setTabViewer(t, path, true)), [setTabs]);
+
   // ⌘K's commands.
-  const current = useRef({ file, openFile, focusFilter, toggleSidebar, setShowIgnored, showIgnored, refresh, copyPath, showChanges, closeActive, reopen, step, closeOthers, showingChanges, layout, listShown, filterDiffFiles, cycleMode });
-  current.current = { file, openFile, focusFilter, toggleSidebar, setShowIgnored, showIgnored, refresh, copyPath, showChanges, closeActive, reopen, step, closeOthers, showingChanges, layout, listShown, filterDiffFiles, cycleMode };
+  const current = useRef({ file, openFile, focusFilter, toggleSidebar, setShowIgnored, showIgnored, refresh, copyPath, showChanges, closeActive, reopen, step, closeOthers, showingChanges, layout, listShown, filterDiffFiles, cycleMode, showEditor, showViewer });
+  current.current = { file, openFile, focusFilter, toggleSidebar, setShowIgnored, showIgnored, refresh, copyPath, showChanges, closeActive, reopen, step, closeOthers, showingChanges, layout, listShown, filterDiffFiles, cycleMode, showEditor, showViewer };
   useEffect(() => {
     const c = () => current.current;
     const offs = [
@@ -502,6 +616,14 @@ export function FilesView({
       onAppCommand("files-next-tab", () => c().step(1)),
       onAppCommand("files-previous-tab", () => c().step(-1)),
       onAppCommand("files-close-other-tabs", () => c().closeOthers()),
+      onAppCommand("files-open-editor", () => {
+        const f = c().file;
+        if (f && !c().showingChanges) c().showEditor(f);
+      }),
+      onAppCommand("files-open-viewer", () => {
+        const f = c().file;
+        if (f && !c().showingChanges) c().showViewer(f);
+      }),
     ];
     return () => offs.forEach((off) => off());
   }, []);
@@ -511,6 +633,21 @@ export function FilesView({
   const change = file ? changes.get(file) : undefined;
   const tabCount = kept.tabs.tabs.length;
   const reopenable = kept.tabs.closed.some((p) => !kept.tabs.tabs.some((t) => t.path === p));
+  const activeTab = kept.tabs.tabs.find((t) => t.path === file);
+  // What shows in the viewer's place: the tab's editor (the macOS app draws it there), or the built-in viewer.
+  const editorState: EditorState = !inApp || !activeTab || showingChanges
+    ? "off"
+    : starting === activeTab.path && !activeTab.editor
+      ? "starting"
+      : activeTab.editor
+        ? activeTab.viewer
+          ? "viewer"
+          : "shown"
+        : activeTab.exited
+          ? "exited"
+          : editorOn
+            ? "starting"
+            : "off";
   useEffect(() => {
     onViewState?.({
       ...(workspace ? { workspace: workspace.name } : {}),
@@ -526,9 +663,65 @@ export function FilesView({
       changesMode,
       layout,
       listShown,
+      editor: editorState === "shown" ? "shown" : activeTab?.editor ? "viewer" : "none",
+      canEditor: inApp && !!file && !showingChanges,
     });
-  }, [workspace?.name, file, change, text, showIgnored, sidebarHidden, tabCount, reopenable, showingChanges, changes.size, changesMode, layout, listShown, onViewState]);
-  const activeTab = kept.tabs.tabs.find((t) => t.path === file);
+  }, [workspace?.name, file, change, text, showIgnored, sidebarHidden, tabCount, reopenable, showingChanges, changes.size, changesMode, layout, listShown, editorState, activeTab?.editor, inApp, onViewState]);
+
+  // Shown with the editor setting on, a tab opens in the editor (once: one whose editor quit shows the viewer, offering it again).
+  useEffect(() => {
+    if (!editorOn || showingChanges || !activeTab || activeTab.editor || activeTab.viewer || activeTab.exited) return;
+    void openInEditor(activeTab.path);
+  }, [editorOn, showingChanges, activeTab?.path, activeTab?.editor, activeTab?.viewer, activeTab?.exited, openInEditor]);
+  // The app's word on the editors: one quit (its tab shows the viewer, wherever it's kept), or its relay went.
+  const checkEditors = useCallback(
+    (ids: string[]) => {
+      const ws = workspace;
+      if (!ws || !ids.length) return;
+      const q = new URLSearchParams({ workspace: ws.id, ...(ws.host ? { host: ws.host } : {}) });
+      void api<{ terminals: { id: string }[] }>(`terminals?${q}`).then(
+        (r) => {
+          const live = new Set(r.terminals.map((t) => t.id));
+          for (const id of ids) {
+            if (live.has(id)) continue;
+            ended.current.add(id);
+            setTabsOf(ws, (t) => tabEditorExited(t, id));
+          }
+          setResend((n) => n + 1);
+        },
+        () => {},
+      );
+    },
+    [wsKey, setTabsOf],
+  );
+  useEffect(
+    () =>
+      onEditorEvent((e) => {
+        if (e.type === "exited") {
+          ended.current.add(e.terminal);
+          writeStore("files:workspaces", editorExitedIn(readStore<unknown>("files:workspaces", {}), e.terminal));
+          setTabs((t) => tabEditorExited(t, e.terminal));
+        } else if (e.type === "lost") checkEditors([e.terminal]);
+      }),
+    [setTabs, checkEditors],
+  );
+  // Back to a workspace (or the page): its tabs' editors that ended meanwhile show the viewer.
+  useEffect(() => {
+    if (inApp) checkEditors(tabEditors(keptNow.current.tabs));
+  }, [wsKey]);
+  // A tab that went with its editor running some other way (past the tab limit): its terminal ends too.
+  const hadEditors = useRef({ key: wsKey, ids: new Set<string>() });
+  useEffect(() => {
+    const ids = new Set(tabEditors(kept.tabs));
+    const before = hadEditors.current;
+    hadEditors.current = { key: wsKey, ids };
+    if (before.key !== wsKey || !workspace) return;
+    const gone = [...before.ids].filter((id) => !ids.has(id) && !ended.current.has(id));
+    if (!gone.length) return;
+    gone.forEach((id) => ended.current.add(id));
+    forgetEditors(gone);
+    for (const id of gone) void api("terminals/kill", { id, ...(workspace.host ? { host: workspace.host } : {}) }).catch(() => {});
+  }, [kept.tabs, wsKey]);
   // A tab's scroll, kept once it settles; using the file (scrolling, clicking, keys, find) keeps a preview tab.
   const onScrolled = useCallback((path: string, top: number) => setTabs((t) => scrollTab(t, path, top)), [setTabs]);
   const onUse = useCallback((path: string) => setTabs((t) => pinTab(t, path)), [setTabs]);
@@ -698,7 +891,7 @@ export function FilesView({
                 active={showingChanges ? undefined : file}
                 changes={changes}
                 onShow={showTab}
-                onClose={(path) => setTabs((t) => closeTab(t, path))}
+                onClose={(path) => void requestClose([path], (t) => closeTab(t, path))}
                 onPin={(path) => setTabs((t) => pinTab(t, path))}
                 onMove={(path, to) => setTabs((t) => moveTab(t, path, to))}
               />
@@ -740,6 +933,17 @@ export function FilesView({
               scroll={activeTab?.scroll}
               onScrolled={onScrolled}
               onUse={activeTab?.preview ? onUse : undefined}
+              editor={{
+                state: editorState,
+                available: inApp,
+                ...(activeTab?.editor ? { terminal: activeTab.editor } : {}),
+                ...(workspace.host ? { host: workspace.host } : {}),
+                name: editorName,
+                resend,
+                onEditor: () => showEditor(file),
+                onViewer: () => showViewer(file),
+              }}
+              browserNote={!inApp && filesSettings.openIn === "editor" ? editorName : undefined}
             />
           )}
             </>
@@ -984,11 +1188,70 @@ function TreeItem({
   );
 }
 
+/** The viewer's handle: ⌘F, and the line at the top of the view (where the editor opens). */
+type ViewerHandle = { find: () => void; line?: () => number };
+/** What the tab's place shows in the macOS app: its editor (drawn by the app), the editor starting, the viewer over a
+ * running editor, the viewer after the editor quit, or the viewer alone (the editor setting off). */
+type EditorState = "shown" | "starting" | "viewer" | "exited" | "off";
+type EditorProps = {
+  state: EditorState;
+  /** The macOS app, which can draw the editor: the View / Editor toggle shows. */
+  available: boolean;
+  terminal?: string;
+  host?: string;
+  /** The command's program ("nvim"), for its labels. */
+  name: string;
+  resend: number;
+  onEditor: () => void;
+  onViewer: () => void;
+};
+
+/**
+ * Where the tab's editor terminal shows: the page keeps this box and tells the macOS app its frame
+ * (`postEditorPlacement`), which lays the terminal exactly over it and follows it as the page lays out
+ * (sidebar, terminal panel, window), stepping aside while a dialog (⌘K, ⌘P) is open over it.
+ */
+function EditorSlot({ terminal, host, name, resend }: { terminal: string; host?: string; name: string; resend: number }) {
+  const box = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = box.current;
+    if (!el) return;
+    const send = (force = false) => {
+      const r = el.getBoundingClientRect();
+      postEditorPlacement({ terminal, ...(host ? { host } : {}), x: r.left, y: r.top, width: r.width, height: r.height, covered: modalOpen() }, force);
+    };
+    send(true);
+    // Shown (its tab, the toggle, the page coming back): the editor takes the keyboard.
+    focusEditor();
+    const sizes = new ResizeObserver(() => send());
+    sizes.observe(el);
+    // Moves that change no size (another panel opening beside it) are caught by looking now and then.
+    const timer = setInterval(() => send(), 250);
+    const changed = () => send();
+    window.addEventListener(MODAL_EVENT, changed);
+    window.addEventListener("resize", changed);
+    return () => {
+      sizes.disconnect();
+      clearInterval(timer);
+      window.removeEventListener(MODAL_EVENT, changed);
+      window.removeEventListener("resize", changed);
+      hideEditor();
+    };
+  }, [terminal, host, resend]);
+  return (
+    <div ref={box} className="fv-editor" role="region" aria-label={`${name}: the file in your editor`} data-terminal={terminal} onMouseDown={() => focusEditor()}>
+      <p className="gh-note">Opening {name}…</p>
+    </div>
+  );
+}
+
 /**
  * The open file: its head (its path, size and lines, Copy path, Show changes
  * when changed, Find, Refresh), then its lines drawn by @pierre/diffs's
  * `File` under its `Virtualizer`, so only the lines in view are drawn. Not
- * text, an image or past the limit: said so, politely.
+ * text, an image or past the limit: said so, politely. In the macOS app with
+ * an editor command set (Settings → Files), the tab's editor in their place,
+ * a View / Editor toggle in the head.
  */
 function FileViewer({
   workspace,
@@ -1000,19 +1263,25 @@ function FileViewer({
   scroll,
   onScrolled,
   onUse,
+  editor,
+  browserNote,
 }: {
   workspace: FilesWorkspace;
   path: string;
   change?: FileChange;
   onShowChanges: (path: string) => void;
   onCopyPath: (path: string) => void;
-  handle: React.RefObject<{ find: () => void } | null>;
+  handle: React.RefObject<ViewerHandle | null>;
   /** Where the tab was scrolled to, restored once its lines are drawn. */
   scroll?: number;
   onScrolled: (path: string, top: number) => void;
   /** A preview tab: using the file keeps it. */
   onUse?: (path: string) => void;
+  editor: EditorProps;
+  /** In a browser with the editor setting on: the program, for a note that the macOS app opens it. */
+  browserNote?: string;
 }) {
+  const editorShows = editor.state === "shown" || editor.state === "starting";
   const titleTip = usePageTitleTip<HTMLHeadingElement>();
   const { resolved } = useTheme();
   const at = readPath(workspace, path);
@@ -1126,12 +1395,18 @@ function FileViewer({
     clearFindMarks();
   };
   useLayoutEffect(() => {
-    handle.current = { find: () => (text !== undefined ? openFind() : undefined) };
+    handle.current = {
+      find: () => (text !== undefined && !editorShows ? openFind() : undefined),
+      line: () => {
+        const scroller = scrollerOf();
+        return scroller ? firstLineInView(scroller) + 1 : 1;
+      },
+    };
     return () => {
       handle.current = null;
     };
-  }, [handle, openFind, text]);
-  const hasText = text !== undefined;
+  }, [handle, openFind, text, editorShows]);
+  const hasText = text !== undefined && !editorShows;
   useEffect(() => {
     if (!hasText) return;
     const key = (e: KeyboardEvent) => {
@@ -1187,7 +1462,11 @@ function FileViewer({
   );
 
   let body: ReactNode;
-  if (data && "refused" in data) {
+  if (editor.state === "shown" && editor.terminal) {
+    body = <EditorSlot terminal={editor.terminal} host={editor.host} name={editor.name} resend={editor.resend} />;
+  } else if (editor.state === "starting" || editor.state === "shown") {
+    body = <p className="gh-note">Starting {editor.name}…</p>;
+  } else if (data && "refused" in data) {
     const size = sizeLabel(data.size);
     body = (
       <Empty icon={<FileText size={26} strokeWidth={1.5} aria-hidden="true" />} title={name}>
@@ -1273,7 +1552,44 @@ function FileViewer({
         <button className="icon-btn" aria-label="Reload the file" data-tip="Reload" onClick={() => void load(at, true)}>
           <RefreshCw size={13} aria-hidden="true" className={entry?.loading ? "spinning" : undefined} />
         </button>
+        {editor.available && (
+          <span className="fv-mode" role="group" aria-label="Show the file in">
+            <button
+              className={`page-btn${!editorShows ? " on" : ""}`}
+              aria-pressed={!editorShows}
+              data-tip="The built-in viewer (⌘K: Open in viewer)"
+              onClick={() => editorShows && editor.onViewer()}
+              disabled={editor.state === "starting"}
+            >
+              <FileText size={13} aria-hidden="true" />
+              <span className="page-tool-label">View</span>
+            </button>
+            <button
+              className={`page-btn${editorShows ? " on" : ""}`}
+              aria-pressed={editorShows}
+              data-tip={`${editor.name}, in a terminal on the workspace’s host (⌘K: Open in editor)`}
+              onClick={() => !editorShows && editor.onEditor()}
+            >
+              <SquareTerminal size={13} aria-hidden="true" />
+              <span className="page-tool-label">Editor</span>
+            </button>
+          </span>
+        )}
       </header>
+      {editor.state === "exited" && (
+        <p className="fv-editor-note" role="status">
+          <span>{editor.name} quit. The file shows in the viewer.</span>
+          <button className="page-btn solid" onClick={editor.onEditor}>
+            <SquareTerminal size={13} aria-hidden="true" />
+            <span>Reopen in editor</span>
+          </button>
+        </p>
+      )}
+      {browserNote && (
+        <p className="fv-editor-note" role="note">
+          <span>Files open in {browserNote} in the macOS app. A browser shows them in the viewer.</span>
+        </p>
+      )}
       {body}
     </div>
   );

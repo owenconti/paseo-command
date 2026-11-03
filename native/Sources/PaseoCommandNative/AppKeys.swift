@@ -63,3 +63,29 @@ enum AppKeys {
         }
     }
 }
+
+/// The app's window. While Conquer shows, it gives accessibility clients the address of
+/// Conquer's page as its document (AXDocument), as a browser's window does; the page's
+/// own web area gives its address (AXURL) too, for autofill and other assistive tools.
+final class AppWindow: NSWindow {
+    var document: () -> URL? = { nil }
+    override func accessibilityDocument() -> String? {
+        guard let url = document(), ["http", "https"].contains(url.scheme ?? "") else { return super.accessibilityDocument() }
+        return url.absoluteString
+    }
+    /// ⌘1…⌘6 pick the mode bar's tabs (the View menu's) from anywhere in the window, ahead of its
+    /// views: the page, the terminal panel, and Conquer's pages even while it has the keyboard.
+    /// ⇧⌘G (View → Show Branch Changes) likewise, but while Conquer has the keyboard (`conquerHasKeys`)
+    /// it stays Conquer's Find Previous (`AppKeys`).
+    var conquerHasKeys: () -> Bool = { false }
+    /// ⌘W too while the Files tab shows: Window → Close closes its file tab, ahead of the page.
+    var filesShows: () -> Bool = { false }
+    /// ⌘K while a terminal (the panel's or a file's editor) has the keyboard: the page's palette (`EditorKeys`).
+    var terminalHasKeys: () -> Bool = { false }
+    var onPalette: () -> Void = {}
+    override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        if EditorKeys.opensPalette(event), terminalHasKeys() { onPalette(); return true }
+        if AppKeys.offeredToMenu(event, conquerHasKeys: conquerHasKeys(), filesShows: filesShows()), NSApp.mainMenu?.performKeyEquivalent(with: event) == true { return true }
+        return super.performKeyEquivalent(with: event)
+    }
+}
