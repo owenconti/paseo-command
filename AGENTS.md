@@ -408,7 +408,15 @@ and GitHub publication; report the published version and release link.
   and its details opening as links do (Conquer). The diff
   (`DiffView.tsx`): files by directory beside it (its inner edge resizes the list, `ResizeEdge`: drag, ←/→, double-click for the default;
   `github:diffListWidth` in localStorage, one width for every diff; the diff keeps 420 px, the list hiding when there's no room for both;
-  full paths on hover), each file drawn by @pierre/diffs (`FileDiff`, from the parsed file as patch text,
+  full paths on hover; "Filter files…" at its head, T or ⌘K, fuzzy on paths (`fuzzyPath`, `filterFiles` in `diffSearch.ts`), narrows the
+  tree to what fits, its directories kept, the matched characters marked and "12 of 49"; ↑/↓ pick (the best fit first), Enter shows it, Esc clears),
+  Find in the diff (⌘F while a diff shows, the page taking the key ahead of the browser's; ⌘K "Find in the diff"; `DiffFind.tsx`): a strip over the
+  diff searching every file's added, removed and unchanged lines from the parsed diff (`findInDiff`, `shownLines`: folded and not-yet-drawn files
+  too; case-insensitive unless Aa, a regular expression with .*; at most 5,000), "3 of 27", Enter / ⇧Enter and its arrows step (wrapping; a new
+  search starts at the file in view, a refresh keeps the match), stepping unfolds the file and scrolls the virtualizer until the line is drawn
+  (`revealMatch`); the drawn matches are marked in each file's shadow root with the CSS Custom Highlight API (`gd-find`, the current one
+  `gd-find-current`, styled through FileDiff's `unsafeCSS`), in a split on their side (an unchanged line on both); Esc closes it and clears them.
+  Each file drawn by @pierre/diffs (`FileDiff`, from the parsed file as patch text,
   `patchOf` in `rows.ts`; Shiki highlighting, word-level changes, unified or split, its pierre-dark/-light theme by the app's; highlighted in a pool of web workers, `diffWorkers.tsx`, with `worker: { format: "es" }`
   in `vite.config.ts`, and drawn only where in view, its `Virtualizer` being the diff's scroller), big and
   viewed files folded; in a review its gutter utility's + takes a comment (drag across lines for a range):
@@ -417,7 +425,7 @@ and GitHub publication; report the published version and release link.
   (only Comment on your own PR), sent with the drafted comments at the head read. Places (`place.ts`, kept in localStorage; `openGithubPlace`
   opens one from elsewhere) and PR links: `github.com/<owner>/<name>/pull/<n>` opens in the tab wherever clicked (`prPlaceOf`;
   `WorldWindow.pageMode` matches it). Keys (`GitHubView.tsx`): J/K move (a diff's files), Enter/O open, Esc back, 1–4 PR tabs, R review,
-  C comment, V viewed, U unified/split, F file list (a repository's filters), M which changes, S star the repository; each with its ⌘K entry and the shortcuts dialog's GitHub group.
+  C comment, V viewed, U unified/split, F file list (a repository's filters), T filter the diff's files, ⌘F find in the diff, M which changes, S star the repository; each with its ⌘K entry and the shortcuts dialog's GitHub group.
   Credential (GitHub's, for the tab, Activity and every PR lookup; the app never runs gh): a classic personal access token,
   `githubToken` in the data directory's `secrets.json` through `integrationKey("github")` (only while GitHub is on; never the
   environment), with the scopes `repo`, `notifications` and `read:org` (`web/src/githubToken.ts`). Settings → GitHub has its editor and

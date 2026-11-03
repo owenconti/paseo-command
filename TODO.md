@@ -5,12 +5,6 @@ mark it done with its commit once merged into `main`.
 
 ## Open
 
-- [ ] **Diff viewer: search file names and file contents.** In the diff view (`DiffView.tsx`, used by a PR's Files
-  changed and a workspace's Changes): a filter field over the file list (fuzzy on paths, narrowing the tree, ↑/↓ and
-  Enter to jump) and a search across the diff's content (⌘F while the diff shows: matches in added, removed and context
-  lines, highlighted, with a count; Enter and ⇧Enter (and the field's arrows) step through them, not ⇧⌘G, which is the
-  app's branch-diff key; folded and not-yet-drawn files are searched too, unfolding and scrolling to a match through the
-  virtualizer). ⌘K entries and the shortcuts dialog's GitHub group. Workspace: `diff-search`.
 - [ ] **Diff viewer: the scroll position jumps after a while.** Sometimes, after some time on a diff (local Changes or a
   PR's Files changed), the content shifts its scroll position; no pattern found yet. Find the cause: likely candidates are
   the Changes view's 15 s refresh (re-rendering files, changing heights), worker highlighting finishing and changing line
@@ -30,6 +24,12 @@ mark it done with its commit once merged into `main`.
 
 ## Done
 
+- [x] **Diff viewer: search file names and file contents.** The diff view's file list has "Filter files…" (T, ⌘K): fuzzy on
+  paths, narrowing the tree with the matched characters marked and a count, ↑/↓ and Enter to jump, Esc to clear. ⌘F while a diff
+  shows opens Find in the diff: added, removed and unchanged lines of every file from the parsed diff (folded and not-yet-drawn
+  ones too), case-insensitive unless asked, optionally a regular expression, marked with the current one apart and counted;
+  Enter, ⇧Enter and the strip's arrows step, unfolding the file and scrolling the virtualizer to the line; Esc closes it. ⌘K
+  entries and the shortcuts dialog's GitHub group. Workspace: `diff-search`.
 - [x] **⇧⌘G opens the current branch's diff in the GitHub tab.** From anywhere in the app (the map, the page, other pages, the
   terminal panel even with the keyboard) it opens the GitHub tab's Changes view for the selected workspace (or the selected agent's):
   View → Show Branch Changes, offered the menu ahead of the views by `AppWindow.performKeyEquivalent` (`AppKeys.swift`), asking the

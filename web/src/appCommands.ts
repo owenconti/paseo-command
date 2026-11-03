@@ -34,6 +34,8 @@ export type AppCommand =
   | "github-tab"
   | "github-layout"
   | "github-files"
+  | "github-filter-files"
+  | "github-find"
   | "github-review"
   | "github-comment"
   | "github-merge"

@@ -1895,6 +1895,8 @@ function App() {
                   command("github-prev-file", "Previous file in the diff", "diff file previous up", ["K"]),
                   command("github-layout", v.layout === "split" ? "Unified diff" : "Split diff", "diff layout side by side split unified", ["U"]),
                   command("github-files", v.listShown ? "Hide the diff’s file list" : "Show the diff’s file list", "diff files list tree sidebar", ["F"]),
+                  command("github-filter-files", "Filter the diff’s files", "diff files filter search find path name fuzzy go to file", ["T"]),
+                  command("github-find", "Find in the diff", "diff search find text content lines match", ["⌘", "F"]),
                 ]
               : []),
             ...(place.kind === "changes"

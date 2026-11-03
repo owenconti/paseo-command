@@ -1185,6 +1185,28 @@ button.gh-side-check-name:hover {
   padding: var(--space-2) var(--space-2) var(--space-6);
   border-right: 1px solid var(--line);
 }
+/* The file filter (T): the repository search's field, at the list's head */
+.gd-filter {
+  margin: 0 0 var(--space-1);
+}
+.gd-list mark {
+  background: none;
+  color: var(--amber-text);
+  font-weight: var(--fw-semibold);
+}
+.gd-list-file.picked {
+  box-shadow: inset 0 0 0 1px var(--focus);
+}
+.gd-list-dir-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.gd-list-none {
+  margin: 0;
+  padding: var(--space-1) var(--space-2);
+  font-size: var(--fs-xs);
+  color: var(--text-4);
+}
 .gd-list-head {
   display: flex;
   justify-content: space-between;
@@ -1255,8 +1277,80 @@ button.gh-side-check-name:hover {
 }
 .gd-scroll-wrap {
   display: flex;
+  flex-direction: column;
   min-width: 0;
   min-height: 0;
+}
+/* Find in the diff (⌘F): a strip over the diff, so the files' sticky heads stay in view */
+.gd-find {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 2px;
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--line);
+}
+.gd-find-field {
+  display: flex;
+  flex: 0 1 calc(420px * var(--lz));
+  align-items: center;
+  gap: var(--space-1);
+  min-width: 0;
+  height: calc(28px * var(--lz));
+  margin-right: var(--space-1);
+  padding: 0 3px 0 var(--space-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--panel);
+  color: var(--icon-muted);
+}
+.gd-find-field:focus-within {
+  border-color: var(--focus);
+}
+.gd-find input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  outline: none;
+  background: transparent;
+  font-size: var(--fs-sm);
+  color: var(--text);
+}
+.gd-find input::placeholder {
+  color: var(--text-4);
+}
+.gd-find input::-webkit-search-cancel-button {
+  display: none;
+}
+.gd-find-count {
+  min-width: 6.5em;
+  padding: 0 var(--space-1);
+  text-align: right;
+  white-space: nowrap;
+  font-size: var(--fs-xs);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-3);
+}
+.gd-find-count.error {
+  color: var(--red-text);
+}
+.gd-find .icon-btn {
+  width: calc(24px * var(--lz));
+  height: calc(24px * var(--lz));
+}
+.gd-find .gd-find-close {
+  margin-left: auto;
+}
+.gd-find-toggle {
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  font-weight: var(--fw-semibold);
+}
+.gd-find-toggle.on {
+  background: var(--accent-soft);
+  color: var(--accent-text);
 }
 .gd-scroll {
   flex: 1;

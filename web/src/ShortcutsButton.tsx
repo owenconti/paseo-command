@@ -117,6 +117,8 @@ const GITHUB: Group = {
     { keys: [["V"]], label: "Mark the file in view viewed" },
     { keys: [["U"]], label: "Unified or split diff" },
     { keys: [["F"]], label: "Show or hide the diff's file list, or filter a repository's pull requests" },
+    { keys: [["T"]], label: "Filter the diff's files by path (↑/↓ pick, Enter shows the file, Esc clears)" },
+    { keys: [["⌘", "F"]], label: "Find in the diff (Enter next, ⇧Enter previous, Esc closes)" },
     { keys: [["S"]], label: "Star or unstar the repository as a favourite" },
     { keys: [["M"]], label: "A workspace's changes: all, committed or uncommitted" },
     { keys: [["⌘", "↩"]], label: "Send the comment or review being written" },

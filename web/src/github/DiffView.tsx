@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState, type ReactNode, type Ref } from "react";
+import { memo, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode, type Ref } from "react";
 import {
   ChevronDown,
   ChevronRight,
@@ -10,16 +10,22 @@ import {
   Folder,
   MessageSquare,
   Pencil,
+  Search,
   Trash2,
   Undo2,
+  X,
 } from "lucide-react";
 import { getSingularPatch, type DiffLineAnnotation, type FileDiffMetadata, type SelectedLineRange } from "@pierre/diffs";
 import { FileDiff, Virtualizer } from "@pierre/diffs/react";
 import { readStore, removeStore, writeStore } from "../api";
+import { modalOpen } from "../focus";
 import { copyText } from "../nativePlatform";
 import { ResizeEdge } from "../ResizeEdge";
 import { useTheme } from "../theme";
+import { plainText } from "../ui";
 import { Avatar, Body, CommentBox, Time } from "./bits";
+import { clearFindMarks, FIND_CSS, FindBar, revealMatch, useFindPaint } from "./DiffFind";
+import { filterFiles, findInDiff, sameMatch, shownLines, type FindMatch, type FindOptions } from "./diffSearch";
 import { DIFF_THEMES } from "./diffWorkers";
 import type { ReviewDraft } from "./drafts";
 import { anchorKey, byDirectory, lineCount, patchOf, placeThreads, splitPath, type Anchor, type Side } from "./rows";
@@ -53,6 +59,10 @@ export type DiffViewHandle = {
   show: (path: string) => void;
   /** The file in view. */
   current: () => string | undefined;
+  /** Focuses the file list's filter; answers false when the list isn't shown. */
+  filterFiles: () => boolean;
+  /** Opens Find in the diff (⌘F). */
+  find: () => void;
 };
 
 /** Files with more lines than this show folded until asked. */
@@ -291,6 +301,7 @@ function FileBody({
       disableFileHeader: true,
       themeType: resolved === "light" ? ("light" as const) : ("dark" as const),
       theme: DIFF_THEMES,
+      unsafeCSS: FIND_CSS,
       enableGutterUtility: !!review,
       onGutterUtilityClick: (range: SelectedLineRange) => {
         const side = fromSide(range.endSide ?? range.side);
@@ -346,6 +357,28 @@ function FileBody({
       />
     </>
   );
+}
+
+/** `text` with the characters at `marks` (counted from `from`) marked: what the file filter matched. */
+function Marked({ text, marks, from = 0 }: { text: string; marks: ReadonlySet<number>; from?: number }) {
+  if (!marks.size) return <>{text}</>;
+  const parts: ReactNode[] = [];
+  let run = "";
+  let on = false;
+  const flush = () => {
+    if (run) parts.push(on ? <mark key={parts.length}>{run}</mark> : run);
+    run = "";
+  };
+  for (let i = 0; i < text.length; i++) {
+    const hit = marks.has(from + i);
+    if (hit !== on) {
+      flush();
+      on = hit;
+    }
+    run += text[i];
+  }
+  flush();
+  return <>{parts}</>;
 }
 
 function FileIcon({ file }: { file: DiffFile }) {
@@ -521,6 +554,138 @@ export function DiffView({
       setCurrent(path);
     }
   }, []);
+
+  // The file list's filter: fuzzy on paths, narrowing the tree (directories kept for their files), the
+  // matched characters marked; ↑/↓ pick a file (the best fit first), Enter shows it, Esc clears.
+  const filterInput = useRef<HTMLInputElement>(null);
+  const [filter, setFilter] = useState("");
+  const filtered = useMemo(() => (filter.trim() ? filterFiles(files, filter) : null), [files, filter]);
+  const groups = useMemo(() => byDirectory(filtered ? filtered.files : files.map((f) => ({ ...f, marks: [] as number[] }))), [files, filtered]);
+  const listed = useMemo(() => groups.flatMap((g) => g.files), [groups]);
+  const [picked, setPicked] = useState<string | undefined>();
+  useEffect(() => setPicked(filtered?.best), [filtered]);
+  const onFilterKey = (e: ReactKeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      e.preventDefault();
+      e.stopPropagation();
+      if (!filtered || !listed.length) return;
+      const at = listed.findIndex((f) => f.path === picked);
+      const next = at < 0 ? 0 : (at + (e.key === "ArrowDown" ? 1 : -1) + listed.length) % listed.length;
+      setPicked(listed[next]!.path);
+      document.getElementById(`gd-list-${listed[next]!.path}`)?.scrollIntoView({ block: "nearest" });
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      const path = filtered ? (picked ?? listed[0]?.path) : undefined;
+      if (path) show(path);
+    } else if (e.key === "Escape") {
+      e.preventDefault();
+      e.stopPropagation();
+      if (filter) setFilter("");
+      else filterInput.current?.blur();
+    }
+  };
+
+  // Find in the diff (⌘F): every file's lines, from the parsed diff (folded and not-yet-drawn files too).
+  const findInput = useRef<HTMLInputElement>(null);
+  const [finding, setFinding] = useState(false);
+  const [findText, setFindText] = useState("");
+  const [findOpts, setFindOpts] = useState<FindOptions>({ caseSensitive: false, regex: false });
+  // Asked once typing pauses, so a big diff isn't searched on every key.
+  const [asked, setAsked] = useState("");
+  useEffect(() => {
+    if (!findText) return setAsked("");
+    const t = setTimeout(() => setAsked(findText), 120);
+    return () => clearTimeout(t);
+  }, [findText]);
+  const found = useMemo(() => (finding && asked ? findInDiff(files, asked, findOpts) : null), [finding, asked, findOpts, files]);
+  const byPath = useMemo(() => {
+    if (!found?.matches.length) return null;
+    const out = new Map<string, Map<string, FindMatch[]>>();
+    for (const m of found.matches) {
+      let lines = out.get(m.path);
+      if (!lines) out.set(m.path, (lines = new Map()));
+      for (const key of m.alt ? [m.key, m.alt] : [m.key]) lines.set(key, [...(lines.get(key) ?? []), m]);
+    }
+    return out;
+  }, [found]);
+  const [at, setAt] = useState(-1);
+  const atMatch = found && at >= 0 ? found.matches[at] : undefined;
+  useFindPaint(scrollerOf, byPath, atMatch);
+
+  // Showing a match: its file unfolds, and the virtualizer is scrolled until its line is drawn.
+  const revealing = useRef(0);
+  const reveal = (m: FindMatch) => {
+    const file = files[m.file];
+    if (!file) return;
+    if (isFolded(file)) onFold(file.path, false);
+    const order = new Map<string, number>();
+    shownLines(file).forEach((l, i) => {
+      order.set(l.key, i);
+      if (l.alt) order.set(l.alt, i);
+    });
+    const token = ++revealing.current;
+    requestAnimationFrame(() => {
+      const scroller = scrollerOf();
+      if (scroller) void revealMatch(scroller, m, order, () => revealing.current === token);
+    });
+  };
+  const goTo = (i: number) => {
+    const m = found?.matches[i];
+    setAt(m ? i : -1);
+    if (m) reveal(m);
+  };
+  const latest = useRef({ goTo, current, at, atMatch });
+  latest.current = { goTo, current, at, atMatch };
+  // A new search starts at the file in view; the same one read again (a refresh) keeps its match.
+  const lastAsk = useRef("");
+  useEffect(() => {
+    if (!found?.matches.length) {
+      setAt(-1);
+      if (!found) lastAsk.current = "";
+      return;
+    }
+    const ask = `${asked}\0${findOpts.caseSensitive}\0${findOpts.regex}`;
+    const { goTo, current, at, atMatch } = latest.current;
+    if (ask !== lastAsk.current) {
+      lastAsk.current = ask;
+      const from = Math.max(0, files.findIndex((f) => f.path === current));
+      const first = found.matches.findIndex((m) => m.file >= from);
+      goTo(first < 0 ? 0 : first);
+    } else {
+      const same = atMatch ? found.matches.findIndex((m) => sameMatch(m, atMatch)) : -1;
+      setAt(same >= 0 ? same : Math.min(Math.max(at, 0), found.matches.length - 1));
+    }
+  }, [found]);
+  const stepFind = (by: 1 | -1) => {
+    const n = found?.matches.length ?? 0;
+    if (n) goTo(at < 0 ? (by > 0 ? 0 : n - 1) : (at + by + n) % n);
+  };
+  const openFind = useCallback(() => {
+    setFinding(true);
+    requestAnimationFrame(() => {
+      findInput.current?.focus();
+      findInput.current?.select();
+    });
+  }, []);
+  const closeFind = () => {
+    revealing.current++;
+    setFinding(false);
+    clearFindMarks();
+  };
+  // ⌘F, while a diff shows: the page's own find gives way to this one.
+  const hasFiles = files.length > 0;
+  useEffect(() => {
+    if (!hasFiles) return;
+    const key = (e: KeyboardEvent) => {
+      if (!e.metaKey || e.ctrlKey || e.altKey || e.shiftKey || e.key.toLowerCase() !== "f" || modalOpen()) return;
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      openFind();
+    };
+    window.addEventListener("keydown", key, true);
+    return () => window.removeEventListener("keydown", key, true);
+  }, [hasFiles, openFind]);
+
   useImperativeHandle(
     handle,
     () => ({
@@ -533,8 +698,16 @@ export function DiffView({
       },
       show,
       current: () => current,
+      filterFiles: () => {
+        const el = filterInput.current;
+        if (!el) return false;
+        el.focus();
+        el.select();
+        return true;
+      },
+      find: openFind,
     }),
-    [files, current, show],
+    [files, current, show, openFind],
   );
 
   const notesOf = useMemo(() => {
@@ -578,40 +751,69 @@ export function DiffView({
       {withList && (
         <div className="gd-list-pane">
           <nav className="gd-list" id="gd-list" aria-label="Changed files">
+            <label className="gh-repo-search-field gd-filter">
+              <Search size={13} aria-hidden="true" />
+              <input
+                {...plainText}
+                ref={filterInput}
+                type="search"
+                value={filter}
+                spellCheck={false}
+                aria-label="Filter files"
+                placeholder="Filter files…"
+                onChange={(e) => setFilter(e.target.value)}
+                onKeyDown={onFilterKey}
+              />
+              {filter && (
+                <button className="icon-btn" aria-label="Clear the filter" data-tip="Clear (Esc)" onClick={() => (setFilter(""), filterInput.current?.focus())}>
+                  <X size={12} aria-hidden="true" />
+                </button>
+              )}
+            </label>
             <p className="gd-list-head">
-              {files.length === 1 ? "1 file" : `${files.length} files`}
+              {filtered ? `${filtered.files.length} of ${files.length}` : files.length === 1 ? "1 file" : `${files.length} files`}
               {review && (
                 <span className="gh-hint">
                   {viewedCount} / {files.length} viewed
                 </span>
               )}
             </p>
-            {byDirectory(files).map((g) => (
-              <div key={g.dir} className="gd-list-group">
-                {g.dir && (
-                  <p className="gd-list-dir" title={g.dir}>
-                    <Folder size={12} aria-hidden="true" />
-                    {g.dir}
-                  </p>
-                )}
-                {g.files.map((f) => (
-                  <button
-                    key={f.path}
-                    className={`gd-list-file${current === f.path ? " current" : ""}${review?.viewed.get(f.path) ? " viewed" : ""}`}
-                    onClick={() => show(f.path)}
-                    title={f.path}
-                  >
-                    <FileIcon file={f} />
-                    <span className="gd-list-name">{splitPath(f.path).name}</span>
-                    {(notesOf.get(f.path) ?? 0) > 0 && <MessageSquare size={11} aria-hidden="true" className="gd-list-notes" />}
-                    <span className="gh-churn small">
-                      {f.additions > 0 && <span className="add">+{f.additions}</span>}
-                      {f.deletions > 0 && <span className="del">−{f.deletions}</span>}
-                    </span>
-                  </button>
-                ))}
-              </div>
-            ))}
+            {filtered && !filtered.files.length && <p className="gd-list-none">No file matches “{filter.trim()}”.</p>}
+            {groups.map((g) => {
+              // The directory's characters any of its files matched.
+              const dirMarks = new Set(g.files.flatMap((f) => f.marks.filter((i) => i < g.dir.length)));
+              return (
+                <div key={g.dir} className="gd-list-group">
+                  {g.dir && (
+                    <p className="gd-list-dir" title={g.dir}>
+                      <Folder size={12} aria-hidden="true" />
+                      <span className="gd-list-dir-name">
+                        <Marked text={g.dir} marks={dirMarks} />
+                      </span>
+                    </p>
+                  )}
+                  {g.files.map((f) => (
+                    <button
+                      key={f.path}
+                      id={`gd-list-${f.path}`}
+                      className={`gd-list-file${current === f.path ? " current" : ""}${filtered && picked === f.path ? " picked" : ""}${review?.viewed.get(f.path) ? " viewed" : ""}`}
+                      onClick={() => show(f.path)}
+                      title={f.path}
+                    >
+                      <FileIcon file={f} />
+                      <span className="gd-list-name">
+                        <Marked text={splitPath(f.path).name} marks={new Set(f.marks)} from={g.dir ? g.dir.length + 1 : 0} />
+                      </span>
+                      {(notesOf.get(f.path) ?? 0) > 0 && <MessageSquare size={11} aria-hidden="true" className="gd-list-notes" />}
+                      <span className="gh-churn small">
+                        {f.additions > 0 && <span className="add">+{f.additions}</span>}
+                        {f.deletions > 0 && <span className="del">−{f.deletions}</span>}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              );
+            })}
           </nav>
           <ResizeEdge
             label="Resize the file list"
@@ -626,6 +828,21 @@ export function DiffView({
         </div>
       )}
       <div className="gd-scroll-wrap" ref={wrap}>
+        {finding && (
+          <FindBar
+            input={findInput}
+            query={findText}
+            options={findOpts}
+            count={found?.matches.length ?? 0}
+            at={at}
+            capped={!!found?.capped}
+            error={found?.error}
+            onQuery={setFindText}
+            onOptions={setFindOpts}
+            onStep={stepFind}
+            onClose={closeFind}
+          />
+        )}
         <Virtualizer className="gd-scroll">
           {head}
           {files.length ? (

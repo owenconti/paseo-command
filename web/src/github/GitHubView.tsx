@@ -115,7 +115,8 @@ const prOf = (url: string | undefined) => {
  * Keys while the keyboard is in the view (not typing): J/K or ↓/↑ move
  * through a list (and through a diff's files), Enter or O open, Esc goes back,
  * 1–4 a PR's tabs, R review, C comment, V viewed, U unified/split, F the file
- * list (a repository's filters), M which changes, S stars the repository.
+ * list (a repository's filters), T filters a diff's files, M which changes,
+ * S stars the repository; ⌘F finds in a diff (`DiffView`).
  * As Conquer's, the sidebar's inner edge resizes it and ⌘S hides
  * or shows it (both kept), whatever shows beside it.
  */
@@ -309,12 +310,18 @@ export function GitHubView({
     if (box) box.click();
     else if (on) diffHandle.current?.step(1);
   };
+  // The diff's file filter: the list shows first (hidden, its field isn't there).
+  const filterDiffFiles = () => {
+    if (diffHandle.current?.filterFiles()) return;
+    setListShown(true);
+    requestAnimationFrame(() => diffHandle.current?.filterFiles());
+  };
   const cycleMode = () => setChangesMode(CHANGES_MODES[(CHANGES_MODES.indexOf(changesMode) + 1) % CHANGES_MODES.length]!);
   const refresh = () => invalidate("github/q/", "changes?");
 
   // ⌘K's commands.
-  const current = useRef({ place, layout, listShown, diffShown, toggleViewed, cycleMode, setTab, back, refresh, external, openPr, workspacePr, filters, setFilters, star, conversationOrder });
-  current.current = { place, layout, listShown, diffShown, toggleViewed, cycleMode, setTab, back, refresh, external, openPr, workspacePr, filters, setFilters, star, conversationOrder };
+  const current = useRef({ place, layout, listShown, diffShown, toggleViewed, cycleMode, filterDiffFiles, setTab, back, refresh, external, openPr, workspacePr, filters, setFilters, star, conversationOrder });
+  current.current = { place, layout, listShown, diffShown, toggleViewed, cycleMode, filterDiffFiles, setTab, back, refresh, external, openPr, workspacePr, filters, setFilters, star, conversationOrder };
   useEffect(() => {
     const c = () => current.current;
     const offs = [
@@ -326,6 +333,12 @@ export function GitHubView({
       }),
       onAppCommand("github-layout", () => setLayout(c().layout === "split" ? "unified" : "split")),
       onAppCommand("github-files", () => setListShown(!c().listShown)),
+      onAppCommand("github-filter-files", () => {
+        if (c().diffShown) c().filterDiffFiles();
+      }),
+      onAppCommand("github-find", () => {
+        if (c().diffShown) diffHandle.current?.find();
+      }),
       onAppCommand("github-review", (arg) => {
         if (c().place.kind !== "pr") return;
         prApi.current?.openReview(arg === "APPROVE" || arg === "REQUEST_CHANGES" || arg === "COMMENT" ? (arg as ReviewEvent) : undefined);
@@ -431,6 +444,7 @@ export function GitHubView({
     else if (diffShown && (lower === "k" || key === "ArrowUp") && !onButton) diffHandle.current?.step(-1);
     else if (diffShown && lower === "u") setLayout(layout === "split" ? "unified" : "split");
     else if (diffShown && lower === "f") setListShown(!listShown);
+    else if (diffShown && lower === "t") filterDiffFiles();
     else if (place.kind === "pr" && place.tab === "files" && lower === "v") toggleViewed();
     else if (place.kind === "changes" && lower === "m") cycleMode();
     else if (place.kind === "pr" && /^[1-4]$/.test(key)) setTab(PR_TABS[Number(key) - 1]!);

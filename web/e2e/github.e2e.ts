@@ -908,6 +908,146 @@ test("The diff's file list resizes by its edge (drag, keys, double-click), kept 
   }
 });
 
+// A workspace's changes to search: small files, and one big enough to show folded with a match deep in it.
+const lines = (path: string, contents: [DiffFile["hunks"][number]["lines"][number]["type"], string][]): DiffFile => ({
+  path,
+  isNew: false,
+  isDeleted: false,
+  additions: contents.filter(([t]) => t === "add").length,
+  deletions: contents.filter(([t]) => t === "remove").length,
+  hunks: [
+    {
+      oldStart: 1,
+      oldCount: contents.filter(([t]) => t !== "add").length,
+      newStart: 1,
+      newCount: contents.filter(([t]) => t !== "remove").length,
+      lines: [{ type: "header", content: "@@" }, ...contents.map(([type, content]) => ({ type, content }))],
+    },
+  ],
+});
+const SEARCHED: DiffFile[] = [
+  lines("src/a.ts", [["context", "const needle = 1;"], ["add", "const hay = 2;"]]),
+  lines("src/b.ts", [["remove", "export const Needle = 3;"], ["add", "export const pin = 3;"]]),
+  lines("src/util/strings.ts", [["add", "export const trim = (s: string) => s.trim();"]]),
+  lines("docs/readme.md", [["add", "# Read me"]]),
+  lines(
+    "web/big.json",
+    Array.from({ length: 2000 }, (_, i) => ["add", i === 1700 ? '  "needle": true,' : `  "line${i}": ${i},`] as ["add", string]),
+  ),
+];
+
+test("The diff's file filter narrows the list and jumps; ⌘F finds in every file's lines, a folded one too", async () => {
+  const context = await newContext(browser);
+  const page = await context.newPage();
+  await page.setViewportSize({ width: 1600, height: 1000 });
+  await setUp(page);
+  await page.route("**/api/changes?**", (route) => route.fulfill({ json: { ...CHANGES("all"), files: SEARCHED } }));
+  try {
+    await page.goto(`${app.url}?workspace=wks_a`);
+    await page.locator(".place").waitFor();
+    await showGithub(page);
+    const view = page.locator(".github-view");
+    await view.getByRole("button", { name: /Map polish/ }).click();
+    await view.locator(".gd-file").nth(4).waitFor();
+    assert.ok(await view.locator('.gd-file[data-path="web/big.json"]').evaluate((e) => e.classList.contains("folded")), "the big file shows folded");
+
+    // T: the filter, fuzzy on paths; the tree narrows to what fits, its characters marked.
+    await view.locator(".gd-file-head").first().click();
+    await page.keyboard.press("t");
+    const filter = view.getByRole("searchbox", { name: "Filter files" });
+    await waitFor(() => filter.evaluate((e) => e === document.activeElement), Boolean, "the filter focused");
+    await filter.fill("utilstr");
+    await waitFor(() => view.locator(".gd-list-file").count(), (n) => n === 1, "one file fits");
+    assert.equal(await view.locator(".gd-list-head").first().innerText(), "1 of 5");
+    assert.equal(await view.locator(".gd-list-dir").innerText(), "src/util");
+    assert.deepEqual(await view.locator(".gd-list mark").allTextContents(), ["util", "str"]);
+    // Enter shows it in the diff.
+    await page.keyboard.press("Enter");
+    await view.locator(".gd-list-file.current", { hasText: "strings.ts" }).waitFor();
+    // ↓/↑ pick among several; Esc clears.
+    await filter.fill("ts");
+    await waitFor(() => view.locator(".gd-list-file").count(), (n) => n === 3, "the .ts files");
+    await page.keyboard.press("ArrowDown");
+    await page.keyboard.press("Enter");
+    await view.locator(".gd-list-file.picked.current").waitFor();
+    await page.keyboard.press("Escape");
+    await waitFor(() => view.locator(".gd-list-file").count(), (n) => n === 5, "every file again");
+    assert.equal(await filter.inputValue(), "");
+
+    // ⌘F: Find in the diff, over added, removed and unchanged lines, case-insensitive.
+    await view.locator(".gd-file-head").first().click();
+    await page.keyboard.press("Meta+f");
+    const find = view.getByRole("searchbox", { name: "Find in the diff" });
+    await waitFor(() => find.evaluate((e) => e === document.activeElement), Boolean, "the find field focused");
+    await find.fill("needle");
+    const count = view.locator(".gd-find-count");
+    await waitFor(() => count.innerText(), (t) => t === "1 of 3", "three matches");
+    const marks = () =>
+      page.evaluate(() => {
+        const reg = (CSS as unknown as { highlights: Map<string, { size: number }> }).highlights;
+        return [reg.get("gd-find")?.size ?? 0, reg.get("gd-find-current")?.size ?? 0];
+      });
+    // The two drawn (the third is folded): one current.
+    await waitFor(marks, ([all, now]) => all === 1 && now === 1, "the marks");
+    await page.keyboard.press("Enter");
+    await waitFor(() => count.innerText(), (t) => t === "2 of 3", "the next");
+    // The third is in the folded file: it unfolds, and the line is drawn in view.
+    await page.keyboard.press("Enter");
+    await waitFor(() => count.innerText(), (t) => t === "3 of 3", "the folded file's match");
+    const big = view.locator('.gd-file[data-path="web/big.json"]');
+    await waitFor(() => big.evaluate((e) => e.classList.contains("folded")), (f) => !f, "the big file unfolded");
+    await waitFor(
+      () =>
+        big.evaluate((s) => {
+          const root = s.querySelector("diffs-container")?.shadowRoot;
+          const line = root?.querySelector<HTMLElement>('[data-line="1701"][data-line-type="change-addition"]');
+          const box = line?.getBoundingClientRect();
+          const scroller = document.querySelector(".gd-scroll")!.getBoundingClientRect();
+          return !!box && box.top >= scroller.top && box.bottom <= scroller.bottom;
+        }),
+      Boolean,
+      "the match's line drawn in view",
+    );
+    await waitFor(marks, ([, now]) => now === 1, "the folded file's match marked");
+    // ⇧Enter and the bar's arrows step back; Enter wraps round.
+    await page.keyboard.press("Shift+Enter");
+    await waitFor(() => count.innerText(), (t) => t === "2 of 3", "back one");
+    await view.getByRole("button", { name: "Next match" }).click();
+    await page.keyboard.press("Enter");
+    await waitFor(() => count.innerText(), (t) => t === "1 of 3", "round to the first");
+    // Match case: only "needle" as typed.
+    await view.getByRole("button", { name: "Match case" }).click();
+    await waitFor(() => count.innerText(), (t) => t === "1 of 2", "two as typed");
+    await find.fill("Needle");
+    await waitFor(() => count.innerText(), (t) => t === "1 of 1", "one as typed");
+    // A regular expression, when asked.
+    await view.getByRole("button", { name: "Regular expression" }).click();
+    await find.fill("[Nn]eedle|pin");
+    await waitFor(() => count.innerText(), (t) => t.endsWith("of 4"), "the pattern's matches");
+    await find.fill("(");
+    await waitFor(() => count.innerText(), (t) => t === "Invalid pattern", "an invalid pattern");
+    // Esc closes the bar and clears the marks.
+    await find.fill("needle");
+    await waitFor(() => count.innerText(), (t) => t.endsWith("of 2"), "matches again");
+    await find.press("Escape");
+    await view.locator(".gd-find").waitFor({ state: "detached" });
+    assert.deepEqual(await marks(), [0, 0]);
+
+    // ⌘K has both, while a diff shows.
+    const palette = page.getByRole("dialog", { name: "Command palette" });
+    for (const [label, field] of [["Find in the diff", find], ["Filter the diff’s files", filter]] as const) {
+      await view.locator(".gd-file-head .gd-file-path").first().click();
+      await page.keyboard.press("Meta+k");
+      await palette.getByRole("combobox", { name: "Search commands" }).fill(label);
+      await palette.getByRole("option", { name: new RegExp(`${label}.*GitHub`) }).click();
+      await palette.waitFor({ state: "detached" });
+      await waitFor(() => field.evaluate((e) => e === document.activeElement), Boolean, `${label} from ⌘K`);
+    }
+  } finally {
+    await context.close();
+  }
+});
+
 test("GitHub's sidebar: favourites, finding any repository, ⌘S, and a repository's filters (people too)", async () => {
   const context = await newContext(browser);
   const page = await context.newPage();
