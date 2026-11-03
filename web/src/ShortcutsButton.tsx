@@ -121,6 +121,10 @@ const GITHUB: Group = {
     { keys: [["M"]], label: "A workspace's changes: all, committed or uncommitted" },
     { keys: [["⌘", "↩"]], label: "Send the comment or review being written" },
     { keys: [["⌘", "S"]], label: "Show or hide the sidebar" },
+    {
+      keys: [["⇧", "⌘", "G"]],
+      label: "From anywhere: the selected workspace's (or agent's) branch changes (Conquer keeps it for find previous while it has the keyboard)",
+    },
   ],
 };
 /** Conquer's own keys (the macOS app's browser), which it takes ahead of its pages

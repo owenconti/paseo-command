@@ -5,15 +5,14 @@ mark it done with its commit once merged into `main`.
 
 ## Open
 
-- [ ] **⇧⌘G opens the current branch's diff in the GitHub tab.** A new shortcut, ⇧⌘G, from anywhere in the app,
-  opens the GitHub tab's Changes view (`ChangesView.tsx`) for the selected workspace's branch (or the selected agent's
-  workspace), as ⌘K "Show …'s changes against main" does. Conquer keeps ⇧⌘G as its find previous while it has the
-  keyboard (the user's choice); everywhere else (the map, the page, other pages, the terminal panel) it opens the diff.
-  With nothing selected, or GitHub off, it does nothing visible beyond a short notice. Add it to the native View menu if
-  that's how app-wide keys are taken (`AppWindow.performKeyEquivalent`), to the ⌘K entry's `keys`, and to the shortcuts
-  dialog. Workspace: `shortcut-branch-diff`.
 ## Done
 
+- [x] **⇧⌘G opens the current branch's diff in the GitHub tab.** From anywhere in the app (the map, the page, other pages, the
+  terminal panel even with the keyboard) it opens the GitHub tab's Changes view for the selected workspace (or the selected agent's):
+  View → Show Branch Changes, offered the menu ahead of the views by `AppWindow.performKeyEquivalent` (`AppKeys.swift`), asking the
+  page's `github-branch-changes`. While Conquer has the keyboard it stays Conquer's Find Previous. With nothing selected or GitHub off
+  it shows a notice; a browser's page takes the key itself (and says the GitHub tab is the macOS app's). In ⌘K's entry's keys and the
+  shortcuts dialog's GitHub group. Tests: `native/tests/AppKeysTests.swift`, `web/e2e/github.e2e.ts`.
 - [x] **GitHub PR view: deslopped the buttons and merge box.** One shared compact set, `.page-btn` in `pages.css` (26 px × `--lz`,
   quiet outline; `.solid` the one primary; `.page-btn-group` for a split). The header's actions sit on one row with the tabs: Open
   Paseo agent, the diff stat, Review, the split Merge (▾) and ⋯, one height, none wrapping. Merge is filled only once it can merge

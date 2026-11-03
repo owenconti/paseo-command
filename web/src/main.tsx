@@ -59,7 +59,7 @@ import { CommandPalette } from "./CommandPalette";
 import { PresetsEditorHost } from "./PresetsEditor";
 import { ProfilesEditorHost } from "./ProfilesEditor";
 import { openProfileEditor } from "./profilesStore";
-import { runAppCommand, type AppCommand } from "./appCommands";
+import { isBranchChangesShortcut, onAppCommand, runAppCommand, type AppCommand } from "./appCommands";
 import type { Command, Page } from "./palette";
 import {
   linearKey,
@@ -923,6 +923,29 @@ function App() {
     openGithubPlace({ kind: "changes" });
     postAppMenu("github");
   }, []);
+  // ⇧⌘G (the macOS app's View → Show Branch Changes, from anywhere but Conquer with the keyboard;
+  // in a browser, the page's own key): the selected workspace's, or agent's, changes in the GitHub tab.
+  const branchChanges = useRef(() => {});
+  branchChanges.current = () => {
+    if (!integrations.github) setNotice("Turn on GitHub in Settings to see a branch's changes.");
+    else if (!githubWorkspace) setNotice("Select a workspace or agent to see its branch's changes.");
+    else if (!macApp()) setNotice("The GitHub tab is in the macOS app.");
+    else showWorkspaceChanges();
+  };
+  useEffect(() => {
+    const key = (e: KeyboardEvent) => {
+      // In the macOS app the View menu takes the key first (Conquer's find previous while it has the keyboard).
+      if (macApp() || !isBranchChangesShortcut(e) || e.defaultPrevented) return;
+      e.preventDefault();
+      branchChanges.current();
+    };
+    window.addEventListener("keydown", key);
+    const offCommand = onAppCommand("github-branch-changes", () => branchChanges.current());
+    return () => {
+      window.removeEventListener("keydown", key);
+      offCommand();
+    };
+  }, []);
   // GitHub, Activity and Settings share one text size (⌘+ ⌘− ⌘0, `pageText.ts`).
   const pageShown =
     settingsShown ||
@@ -1735,6 +1758,7 @@ function App() {
             group: "Actions",
             page: "GitHub" as const,
             label: `Show ${githubWorkspace.name}’s changes against main`,
+            keys: [["⇧", "⌘", "G"]],
             keywords: "github diff changes branch main compare git files review workspace",
             run: showWorkspaceChanges,
           },

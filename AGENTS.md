@@ -244,7 +244,7 @@ and GitHub publication; report the published version and release link.
 - Top bar: native, all of it, in the macOS app (`ModeBar` in `Conquer.swift`, its height an empty unified-compact toolbar's, which centres the traffic
   lights): the traffic lights, "PASEO COMMAND" (the bundled Barlow), the mode tabs (Command, Conquer, Activity, GitHub, Settings, those enabled;
   ⌘1…⌘5 pick the one in that place among those shown, from anywhere in the window: `AppWindow.performKeyEquivalent` offers them to the View menu,
-  whose items `numberModes` keys, ahead of the page, the terminal and Conquer's pages), Update ready, and the tools: need you, usage meters,
+  whose items `numberModes` keys, ahead of the page, the terminal and Conquer's pages, as ⇧⌘G Show Branch Changes is, `AppKeys.swift`), Update ready, and the tools: need you, usage meters,
   What's new, mini games, keyboard shortcuts and the session panel's side, layout and show/hide (`BarButton`, `UsageMeters`). The page lies below the bar
   (`--app-bar` 0) and draws no bar of its own there (`.app-bar-hosted` in `FloatingPanel.tsx` keeps what the tools open). The page says what the tools show
   (`postAppBarState` → `barState`: attention, usage meters, What's new unseen, the radio connecting, panel side, layout and visibility), and a tool's click
@@ -348,7 +348,10 @@ and GitHub publication; report the published version and release link.
   each person (and a reviewer's two qualifiers, `review-requested:` and `reviewed-by:`) is one more search (`filterQueries`), asked in one GraphQL
   request and merged, at most 6 together (the picker says so past it; the server refuses more).
   Searches keep under GitHub's 30 a minute (`searchSlot` in `client.ts`, 25 for the tab; over it a cached list answers again). Changes (`ChangesView.tsx`; the workspace view's
-  Changes button and ⌘K "Show …'s changes against main" open it): the branch against its base from its host's daemon (`getCheckoutDiff`,
+  Changes button, ⌘K "Show …'s changes against main" and ⇧⌘G open it; ⇧⌘G works from anywhere: in the macOS app it is View →
+  Show Branch Changes, which `AppWindow.performKeyEquivalent` offers the menu ahead of the page, the terminal and Conquer's pages
+  (`AppKeys.swift`) except while Conquer has the keyboard, where it stays Conquer's Find Previous, and which asks the page's
+  `github-branch-changes`; in a browser the page takes the key itself; with nothing selected or GitHub off, it only shows a notice): the branch against its base from its host's daemon (`getCheckoutDiff`,
   so remote hosts too; `GET /api/changes?workspace=&host=&mode=all|base|uncommitted`, `web/server/api/changes.ts`, not gated on the
   integration), all changes, committed or uncommitted, with ahead/behind, Review #N and Compare on GitHub; asked every 15 s while shown.
   A PR (`PrView.tsx`): Conversation (its body, comments and reviews, a comment box; newest first by default, the box on top and the

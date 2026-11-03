@@ -197,14 +197,14 @@ const showGithub = (page: Page) =>
 
 type Asked = { path: string; query: Record<string, string>; body?: unknown };
 
-async function setUp(page: Page, opts: { refuse?: Set<string>; workspaces?: typeof small.workspaces; agents?: typeof small.agents } = {}) {
+async function setUp(page: Page, opts: { refuse?: Set<string>; workspaces?: typeof small.workspaces; agents?: typeof small.agents; github?: boolean } = {}) {
   await mockApi(page, {
     agents: () => opts.agents ?? small.agents,
     permissions: () => [],
     hosts: () => small.hosts,
     projects: () => small.projects,
     workspaces: () => opts.workspaces ?? small.workspaces,
-    lists: { settings: { integrations: { github: true, linear: false, typesafe: false } } },
+    lists: { settings: { integrations: { github: opts.github ?? true, linear: false, typesafe: false } } },
   });
   const asked: Asked[] = [];
   const writes: Asked[] = [];
@@ -741,6 +741,80 @@ test("GitHub shows the selected workspace's changes against main, all or committ
     await waitFor(() => view.locator(".gd-file").count(), (n) => n === 1, "only what's committed");
     assert.equal(last().query.mode, "base");
     assert.equal(await view.getByRole("radio", { name: "Committed", exact: true }).getAttribute("aria-checked"), "true");
+  } finally {
+    await context.close();
+  }
+});
+
+test("⇧⌘G shows the selected workspace's (or agent's) branch changes, else says why", async () => {
+  const context = await newContext(browser);
+  const page = await context.newPage();
+  await page.setViewportSize({ width: 1600, height: 1000 });
+  // The macOS app's channel: its View → Show Branch Changes (⇧⌘G) sends the page `github-branch-changes`.
+  await page.addInitScript(`
+    window.sentToApp = [];
+    window.webkit = { messageHandlers: { paseoWorld: { postMessage: (m) => window.sentToApp.push(m) } } };
+  `);
+  const { asked } = await setUp(page);
+  const sent = () => page.evaluate(() => (window as unknown as { sentToApp: { type: string; action?: string }[] }).sentToApp);
+  const githubAsked = async () => (await sent()).filter((m) => m.type === "menu" && m.action === "github").length;
+  const toast = page.locator(".toast[role=status]");
+  try {
+    // Nothing selected: a notice, and the tab isn't asked for.
+    await page.goto(app.url);
+    await page.locator(".fleet-sidebar").waitFor();
+    await appEvent(page, "paseo:command", "github-branch-changes");
+    await toast.filter({ hasText: "Select a workspace or agent to see its branch's changes." }).waitFor();
+    assert.equal(await githubAsked(), 0);
+
+    // An agent selected: its workspace's changes, the GitHub tab asked for.
+    await page.goto(`${app.url}?agent=a-running`);
+    await page.locator(".session").waitFor();
+    // In the app the menu takes the key, so the page leaves ⇧⌘G alone.
+    await page.keyboard.press("Meta+Shift+g");
+    assert.equal(await githubAsked(), 0);
+    await appEvent(page, "paseo:command", "github-branch-changes");
+    await waitFor(githubAsked, (n) => n === 1, "the GitHub tab asked for");
+    await showGithub(page);
+    const view = page.locator(".github-view");
+    await view.locator(".gh-branches", { hasText: "map-polish" }).waitFor();
+    assert.equal(asked.filter((a) => a.path === "/api/changes").at(-1)?.query.workspace, "wks_a");
+
+    // ⌘K's entry names the key.
+    await page.goto(`${app.url}?workspace=wks_a`);
+    await page.locator(".place").waitFor();
+    await page.keyboard.press("Meta+k");
+    const palette = page.getByRole("dialog", { name: "Command palette" });
+    await palette.getByRole("combobox", { name: "Search commands" }).fill("changes against main");
+    const entry = palette.getByRole("option", { name: /Show Map polish’s changes against main/ });
+    assert.match(await entry.locator(".palette-keys").innerText(), /⇧\s*⌘\s*G/);
+    await page.keyboard.press("Escape");
+  } finally {
+    await context.close();
+  }
+});
+
+test("In a browser the page takes ⇧⌘G itself: GitHub off, nothing selected or no GitHub tab each say so", async () => {
+  const context = await newContext(browser);
+  const page = await context.newPage();
+  const toast = page.locator(".toast[role=status]");
+  try {
+    await setUp(page, { github: false });
+    await page.goto(`${app.url}?workspace=wks_a`);
+    await page.locator(".place").waitFor();
+    await page.keyboard.press("Meta+Shift+g");
+    await toast.filter({ hasText: "Turn on GitHub in Settings to see a branch's changes." }).waitFor();
+
+    const on = await context.newPage();
+    await setUp(on);
+    await on.goto(app.url);
+    await on.locator(".fleet-sidebar").waitFor();
+    await on.keyboard.press("Meta+Shift+g");
+    await on.locator(".toast[role=status]", { hasText: "Select a workspace or agent to see its branch's changes." }).waitFor();
+    await on.goto(`${app.url}?workspace=wks_a`);
+    await on.locator(".place").waitFor();
+    await on.keyboard.press("Meta+Shift+g");
+    await on.locator(".toast[role=status]", { hasText: "The GitHub tab is in the macOS app." }).waitFor();
   } finally {
     await context.close();
   }
