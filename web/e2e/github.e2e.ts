@@ -8,7 +8,7 @@
 import { after, before, test } from "node:test";
 import assert from "node:assert/strict";
 import type { Browser, Page } from "playwright";
-import type { DiffFile, PrCheck, PrDetail, PrDiff, PrList, PrRow, RepoList, RepoPeople, RepoSearch, RepoTeams } from "../src/github/types";
+import type { DiffFile, PrCheck, PrDetail, PrDiff, PrList, PrRow, RepoList, RepoPeople, RepoSearch, RepoTeams, ReviewThread } from "../src/github/types";
 import { small } from "./fleets";
 import { launch, mockApi, newContext, startApp, waitFor, appEvent } from "./harness";
 
@@ -185,7 +185,10 @@ const showGithub = (page: Page) =>
 
 type Asked = { path: string; query: Record<string, string>; body?: unknown };
 
-async function setUp(page: Page, opts: { refuse?: Set<string>; workspaces?: typeof small.workspaces; agents?: typeof small.agents; github?: boolean } = {}) {
+async function setUp(
+  page: Page,
+  opts: { refuse?: Set<string>; workspaces?: typeof small.workspaces; agents?: typeof small.agents; github?: boolean; detail?: (d: PrDetail) => void } = {},
+) {
   await mockApi(page, {
     agents: () => opts.agents ?? small.agents,
     permissions: () => [],
@@ -213,6 +216,13 @@ async function setUp(page: Page, opts: { refuse?: Set<string>; workspaces?: type
           ...pr.timeline,
           { kind: "comment", id: `IC_new${pr.timeline.length}`, author: { login: "me" }, body: w.body!, createdAt: new Date().toISOString(), url: `${pr.url}#new` },
         ];
+      const reply = entry.body as { commentId?: number; threadId?: string; resolved?: boolean };
+      if (pr && entry.path.endsWith("/m/reply")) {
+        const t = pr.threads.find((x) => x.comments[0]?.databaseId === reply.commentId);
+        t?.comments.push({ id: `RC_new${t.comments.length}`, databaseId: 900 + t.comments.length, author: { login: "me" }, body: w.body!, createdAt: new Date().toISOString(), url: `${pr.url}#r` });
+      }
+      if (entry.path.endsWith("/m/resolve"))
+        for (const p of prs.values()) for (const t of p.threads) if (t.id === reply.threadId) t.isResolved = !!reply.resolved;
       if (pr && entry.path.endsWith("/m/assignees"))
         pr.assignees = w.action === "add" ? [...pr.assignees, ...w.users!.map((login) => ({ login }))] : pr.assignees.filter((a) => !w.users!.includes(a.login));
       if (pr && entry.path.endsWith("/m/reviewers")) {
@@ -251,6 +261,7 @@ async function setUp(page: Page, opts: { refuse?: Set<string>; workspaces?: type
       if (kept) return route.fulfill({ json: kept });
       const d = detail(r);
       prs.set(r.number, d);
+      opts.detail?.(d);
       if (r.number === 20) Object.assign(d, RENDERED);
       if (r.number === 12)
         Object.assign(d, {
@@ -463,6 +474,188 @@ test("A PR's conversation: the description first, then Comments newest first, or
         await page.screenshot({ path: `${process.env.GITHUB_SHOT}/newest-${scheme}.png` });
       }
     }
+  } finally {
+    await context.close();
+  }
+});
+
+/** #13's line comments: bob's review with two threads (one replied to by ada in a reply-only review), an outdated and
+ * resolved thread in it, a single comment of its own, and a thread whose review isn't in the list. */
+const threaded = (d: PrDetail) => {
+  const c = (id: string, db: number, who: string, review: string, minutes: number, body: string) => ({
+    id,
+    databaseId: db,
+    author: { login: who },
+    body,
+    createdAt: ago(minutes),
+    url: `https://github.com/acme/atlas/pull/13#discussion_r${db}`,
+    reviewId: review,
+  });
+  const t = (id: string, path: string, line: number | null, o: Partial<ReviewThread>, comments: ReviewThread["comments"]): ReviewThread => ({
+    id,
+    path,
+    line,
+    startLine: null,
+    side: "RIGHT",
+    isResolved: false,
+    isOutdated: false,
+    canResolve: true,
+    canReply: true,
+    comments,
+    ...o,
+  });
+  d.timeline = [
+    { kind: "comment", id: "IC_1", author: sam, body: "Opening note", createdAt: ago(60), url: `${d.url}#c1` },
+    { kind: "review", id: "PRR_bob", author: { login: "bob" }, state: "changes", body: "A few things inline.", createdAt: ago(40), url: `${d.url}#r1`, comments: 3 },
+    { kind: "review", id: "PRR_reply", author: { login: "ada" }, state: "commented", body: "", createdAt: ago(30), url: `${d.url}#r2`, comments: 1 },
+    { kind: "review", id: "PRR_single", author: { login: "ada" }, state: "commented", body: "", createdAt: ago(20), url: `${d.url}#r3`, comments: 1 },
+  ];
+  d.threads = [
+    t("RT_c", "src/a.ts", 3, { diffHunk: "@@ -1,2 +1,3 @@\n const a = 1;\n-const b = 2;\n+const b = 3;\n+const c = 4;" }, [
+      c("RC_1", 1, "bob", "PRR_bob", 40, "Name this constant?"),
+      c("RC_2", 2, "ada", "PRR_reply", 30, "It's the count."),
+    ]),
+    t("RT_old", "src/b.ts", null, { originalLine: 2, isOutdated: true, isResolved: true, diffHunk: "@@ -1,2 +1,2 @@\n const a = 1;\n-const b = 2;\n+const b = 3;" }, [
+      c("RC_3", 3, "bob", "PRR_bob", 40, "Was this meant to change?"),
+    ]),
+    t("RT_single", "src/b.ts", 4, { diffHunk: "@@ -3,1 +3,2 @@\n+const c = 4;\n export { a };" }, [c("RC_4", 4, "ada", "PRR_single", 20, "Export c too?")]),
+    t("RT_loose", "src/a.ts", 2, { startLine: 1, diffHunk: "@@ -1,2 +1,2 @@\n const a = 1;\n-const b = 2;\n+const b = 3;" }, [c("RC_5", 5, "sam", "PRR_elsewhere", 10, "Range note")]),
+  ];
+};
+
+test("A PR's line comments show in its Conversation: under their review, single ones on their own, with hunks, Reply, Resolve and a jump to Files changed", async () => {
+  const context = await newContext(browser);
+  const page = await context.newPage();
+  await page.setViewportSize({ width: 1600, height: 1000 });
+  const { writes } = await setUp(page, { detail: (d) => d.number === 13 && threaded(d), refuse: new Set() });
+  try {
+    await page.goto(app.url);
+    await page.locator(".fleet-sidebar").waitFor();
+    await showGithub(page);
+    const view = page.locator(".github-view");
+    await view.locator(".gh-row", { hasText: "Fix the shoreline" }).click();
+    const main = view.locator(".gh-conversation-main");
+    await main.locator(".gh-thread").first().waitFor();
+    const order = () => main.locator(":scope > .gh-entry").evaluateAll((els) => els.map((e) => (e as HTMLElement).dataset.entry ?? (e.classList.contains("composer") ? "box" : "description")));
+    // Newest first: the loose thread, the single comment, bob's review (the reply-only review isn't an entry), the comment.
+    assert.deepEqual(await order(), ["description", "box", "RT_loose", "RT_single", "PRR_bob", "IC_1"]);
+    assert.equal((await view.locator(".gh-comments-head h3").innerText()).replace(/\s+/g, " "), "Comments · 4");
+
+    // Bob's review holds its threads in order, each with its path, line(s), hunk and comments; ada's reply in its thread.
+    const bob = main.locator('[data-entry="PRR_bob"]');
+    const threads = bob.locator(".gh-thread");
+    assert.deepEqual(await threads.evaluateAll((els) => els.map((e) => (e as HTMLElement).dataset.thread)), ["RT_c", "RT_old"]);
+    const c = bob.locator('[data-thread="RT_c"]');
+    assert.equal(await c.locator(".gh-thread-path").innerText(), "src/a.ts");
+    assert.equal(await c.locator(".gh-thread-head .gh-hint").innerText(), "line 3");
+    assert.deepEqual(await c.locator(".gh-thread-comment b").allTextContents(), ["bob", "ada"]);
+    // The hunk is drawn by the diff's renderer, ending on the commented line.
+    await waitFor(() => c.locator(".gh-thread-hunk [data-line]").allTextContents(), (lines) => lines.at(-1)?.includes("const c = 4;") === true, "the hunk's lines");
+    // The outdated thread is resolved: folded, saying so, with Show resolved.
+    const old = bob.locator('[data-thread="RT_old"]');
+    await old.locator(".gh-thread-badge.outdated", { hasText: "Outdated" }).waitFor();
+    assert.equal(await old.locator(".gh-thread-head .gh-hint").innerText(), "line 2");
+    assert.equal(await old.locator(".gh-thread-comment").count(), 0);
+    await old.getByRole("button", { name: /Show resolved/ }).click();
+    await old.locator(".gh-thread-comment", { hasText: "Was this meant to change?" }).waitFor();
+    await old.getByRole("button", { name: "Fold the resolved conversation" }).click();
+    await old.locator(".gh-thread-comment").waitFor({ state: "detached" });
+    // The loose thread names its range.
+    assert.equal(await main.locator('[data-thread="RT_loose"] .gh-thread-head .gh-hint').innerText(), "lines 1–2");
+
+    // Reply: shown at once, written to the thread's first comment, kept after the read.
+    await c.getByRole("button", { name: "Reply…" }).click();
+    await c.locator("textarea").fill("Renamed it.");
+    await c.locator("textarea").press("Meta+Enter");
+    await c.locator(".gh-thread-comment", { hasText: "Renamed it." }).waitFor();
+    await waitFor(() => Promise.resolve(writes.filter((w) => w.path.endsWith("/m/reply")).length), (n) => n === 1, "the reply");
+    assert.deepEqual(writes.find((w) => w.path.endsWith("/m/reply"))!.body, { repo: "acme/atlas", number: 13, commentId: 1, body: "Renamed it." });
+    // Resolve folds it; Show resolved (⌘K) shows every resolved one; Unresolve puts it back.
+    await c.getByRole("button", { name: "Resolve conversation" }).click();
+    await c.locator(".gh-thread-badge.resolved").waitFor();
+    await waitFor(() => c.locator(".gh-thread-comment").count(), (n) => n === 0, "the resolved thread folded");
+    assert.deepEqual(writes.at(-1)!.body, { threadId: "RT_c", resolved: true });
+    await view.locator(".gh-pr-title").click();
+    await page.keyboard.press("Meta+k");
+    const palette = page.getByRole("dialog", { name: "Command palette" });
+    await palette.getByRole("combobox", { name: "Search commands" }).fill("resolved conversations");
+    await palette.getByRole("option", { name: /Show resolved conversations.*GitHub/ }).click();
+    await palette.waitFor({ state: "detached" });
+    await c.locator(".gh-thread-comment").first().waitFor();
+    await old.locator(".gh-thread-comment").first().waitFor();
+    await c.getByRole("button", { name: "Unresolve" }).click();
+    await waitFor(() => Promise.resolve((writes.at(-1)!.body as { resolved: boolean }).resolved), (r) => r === false, "the unresolve");
+    await c.locator(".gh-thread-badge.resolved").waitFor({ state: "detached" });
+
+    // The review's fold toggle hides its threads; ⌘K folds and shows every review's.
+    await bob.getByRole("button", { name: "Fold", exact: true }).click();
+    assert.equal(await bob.locator(".gh-thread").count(), 0);
+    await bob.getByRole("button", { name: "Show 2 conversations" }).click();
+    await bob.locator(".gh-thread").first().waitFor();
+    await page.keyboard.press("Meta+k");
+    await palette.getByRole("combobox", { name: "Search commands" }).fill("fold every review");
+    await palette.getByRole("option", { name: /Fold every review’s line comments/ }).click();
+    await bob.locator(".gh-thread").first().waitFor({ state: "detached" });
+    await bob.getByRole("button", { name: "Show 2 conversations" }).click();
+
+    // Oldest first: the entries turn, each thread's comments keep their order.
+    await view.locator(".gh-order").getByRole("radio", { name: "Oldest first" }).click();
+    assert.deepEqual(await order(), ["description", "IC_1", "PRR_bob", "RT_single", "RT_loose", "box"]);
+    assert.deepEqual(await c.locator(".gh-thread-comment b").allTextContents(), ["bob", "ada", "me"]);
+
+    if (process.env.GITHUB_SHOT) {
+      await view.locator(".gh-order").getByRole("radio", { name: "Newest first" }).click();
+      await bob.scrollIntoViewIfNeeded();
+      for (const scheme of ["dark", "light"] as const) {
+        await page.emulateMedia({ colorScheme: scheme });
+        await page.waitForTimeout(300);
+        await page.screenshot({ path: `${process.env.GITHUB_SHOT}/threads-${scheme}.png` });
+      }
+      await page.emulateMedia({ colorScheme: "dark" });
+    }
+
+    // The path opens Files changed at the thread: its file shown, the thread in view and marked.
+    await main.locator('[data-thread="RT_single"] .gh-thread-path').click();
+    const diffThread = view.locator('.gd-file[data-path="src/b.ts"] [data-thread="RT_single"]');
+    await diffThread.waitFor();
+    await waitFor(
+      () => diffThread.evaluate((e) => {
+        const r = e.getBoundingClientRect();
+        const box = e.closest(".gd-scroll")!.getBoundingClientRect();
+        return r.top >= box.top && r.top < box.bottom && e.classList.contains("focused");
+      }),
+      (v) => v,
+      "the thread in view in Files changed",
+    );
+    // View in Files changed on the folded, outdated one: it opens there, unfolded.
+    await view.getByRole("tab", { name: /Conversation/ }).click();
+    await main.locator('[data-thread="RT_old"]').getByRole("button", { name: "View in Files changed" }).click();
+    const oldThere = view.locator('.gd-file[data-path="src/b.ts"] [data-thread="RT_old"]');
+    await oldThere.locator(".gh-thread-comment", { hasText: "Was this meant to change?" }).waitFor();
+  } finally {
+    await context.close();
+  }
+});
+
+test("A refused reply goes again from the Conversation, with a notice", async () => {
+  const context = await newContext(browser);
+  const page = await context.newPage();
+  await page.setViewportSize({ width: 1600, height: 1000 });
+  await setUp(page, { detail: (d) => d.number === 13 && threaded(d), refuse: new Set(["/api/github/m/reply"]) });
+  try {
+    await page.goto(app.url);
+    await page.locator(".fleet-sidebar").waitFor();
+    await showGithub(page);
+    const view = page.locator(".github-view");
+    await view.locator(".gh-row", { hasText: "Fix the shoreline" }).click();
+    const c = view.locator('.gh-conversation-main [data-thread="RT_c"]');
+    await c.getByRole("button", { name: "Reply…" }).click();
+    await c.locator("textarea").fill("Will it go?");
+    await c.locator("textarea").press("Meta+Enter");
+    await page.getByText(/Couldn’t reply/).waitFor();
+    await waitFor(() => c.locator(".gh-thread-comment", { hasText: "Will it go?" }).count(), (n) => n === 0, "the reply taken back");
+    // The box keeps the text to try again.
+    assert.equal(await c.locator("textarea").inputValue(), "Will it go?");
   } finally {
     await context.close();
   }

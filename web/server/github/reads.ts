@@ -52,6 +52,7 @@ import {
 import { GithubApiError, githubGraphql as graphql, githubPaged, githubRest, githubText, missingScopes } from "../githubApi";
 import { filterQueries, type RepoFilters } from "../../src/github/filters";
 import { HTML_MAX } from "../../src/github/html";
+import { HUNK_KEEP, tailHunk } from "../../src/github/hunk";
 import { cached, searchSlot } from "./client";
 import { readStars } from "./stars";
 
@@ -527,18 +528,24 @@ const MERGE_FIELDS = `
     mergeTitle: viewerMergeHeadlineText(mergeType: MERGE) mergeBody: viewerMergeBodyText(mergeType: MERGE)
     squashTitle: viewerMergeHeadlineText(mergeType: SQUASH) squashBody: viewerMergeBodyText(mergeType: SQUASH)
     baseRepo: repository { viewerPermission mergeCommitAllowed squashMergeAllowed rebaseMergeAllowed autoMergeAllowed deleteBranchOnMerge }`;
+/**
+ * A PR's review threads, 100 a page: where each is, its state, the diff around it
+ * (its first comment's hunk) and its comments (50 at most), each with the review it was left in.
+ */
+const THREADS = `reviewThreads(first: 100, after: $threadsAfter) { totalCount pageInfo { hasNextPage endCursor } nodes {
+      id path line startLine originalLine originalStartLine diffSide subjectType isResolved isOutdated viewerCanResolve viewerCanUnresolve viewerCanReply
+      hunk: comments(first: 1) { nodes { diffHunk } }
+      comments(first: 50) { totalCount nodes { id databaseId ${AUTHOR} body bodyHTML createdAt url pullRequestReview { id } } }
+    } }`;
 const FILES = "files(first: 100, after: $after) { nodes { path additions deletions changeType viewerViewedState } pageInfo { hasNextPage endCursor } }";
-export const PR_QUERY = `query($owner: String!, $name: String!, $number: Int!, $after: String) {
+export const PR_QUERY = `query($owner: String!, $name: String!, $number: Int!, $after: String, $threadsAfter: String) {
   repository(owner: $owner, name: $name) { pullRequest(number: $number) {
     ${ROW}
     body bodyHTML headRefOid mergeable viewerDidAuthor headRepository { nameWithOwner }
     ${FILES}
     timelineComments: comments(last: 100) { nodes { id ${AUTHOR} body bodyHTML createdAt url } }
     reviews(last: 100) { nodes { id ${AUTHOR} state body bodyHTML submittedAt createdAt url comments { totalCount } } }
-    reviewThreads(first: 100) { nodes {
-      id path line startLine diffSide isResolved isOutdated viewerCanResolve viewerCanUnresolve viewerCanReply
-      comments(first: 50) { nodes { id databaseId ${AUTHOR} body bodyHTML createdAt url } }
-    } }
+    ${THREADS}
     commits(last: 100) { nodes { commit { oid messageHeadline committedDate author { name user { login avatarUrl } } } } }
     rollup: commits(last: 1) { nodes { commit { statusCheckRollup { state contexts(first: 100) { nodes {
       __typename
@@ -556,6 +563,11 @@ export const PR_QUERY = `query($owner: String!, $name: String!, $number: Int!, $
 export const FILES_QUERY = `query($owner: String!, $name: String!, $number: Int!, $after: String) {
   repository(owner: $owner, name: $name) { pullRequest(number: $number) { ${FILES} } }
 }`;
+export const THREADS_QUERY = `query($owner: String!, $name: String!, $number: Int!, $threadsAfter: String) {
+  repository(owner: $owner, name: $name) { pullRequest(number: $number) { ${THREADS} } }
+}`;
+/** At most this many review threads (GitHub pages them by 100); the Conversation says when there are more. */
+export const MAX_THREADS = 300;
 /** At most this many files' viewed state (GitHub pages them by 100). */
 export const MAX_FILES = 300;
 
@@ -624,17 +636,27 @@ export function timelineOf(comments: Raw[], reviews: Raw[]): TimelineEntry[] {
   return entries.sort((a, b) => a.createdAt.localeCompare(b.createdAt));
 }
 
+const lineNo = (v: unknown) => (typeof v === "number" && Number.isSafeInteger(v) && v > 0 ? v : null);
+
 export function threadOf(t: Raw): ReviewThread | null {
   const path = str(t.path);
   if (!str(t.id) || !path) return null;
-  const line = typeof t.line === "number" ? t.line : null;
-  const startLine = typeof t.startLine === "number" ? t.startLine : null;
+  const line = lineNo(t.line);
+  const startLine = lineNo(t.startLine);
+  const hunk = tailHunk(str(nodes(t.hunk)[0]?.diffHunk), HUNK_KEEP);
+  const total = num(rec(t.comments).totalCount);
+  const listed = nodes(t.comments).length;
   return {
     id: clip(str(t.id), 200),
     path: clip(path, 1000),
     line,
     startLine,
+    originalLine: lineNo(t.originalLine),
+    originalStartLine: lineNo(t.originalStartLine),
+    ...(t.subjectType === "FILE" ? { onFile: true } : {}),
     side: t.diffSide === "LEFT" ? "LEFT" : "RIGHT",
+    ...(hunk ? { diffHunk: hunk } : {}),
+    ...(total > listed ? { totalComments: total } : {}),
     isResolved: t.isResolved === true,
     isOutdated: t.isOutdated === true,
     canResolve: t.isResolved === true ? t.viewerCanUnresolve === true : t.viewerCanResolve === true,
@@ -649,6 +671,7 @@ export function threadOf(t: Raw): ReviewThread | null {
         ...htmlOf(c),
         createdAt: str(c.createdAt),
         url: https(c.url),
+        ...(str(rec(c.pullRequestReview).id) ? { reviewId: clip(str(rec(c.pullRequestReview).id), 200) } : {}),
       })),
   };
 }
@@ -850,7 +873,7 @@ export function mergeOf(p: Raw, rules: BranchRules = { methods: null }): PrMerge
 }
 
 /** GitHub's pullRequest object (and its further file pages) as a PrDetail; null when it isn't one. */
-export function detailOf(p: Raw, extraFiles: Raw[] = [], rules?: BranchRules): PrDetail | null {
+export function detailOf(p: Raw, extraFiles: Raw[] = [], rules?: BranchRules, extraThreads: Raw[] = []): PrDetail | null {
   const row = rowOf(p);
   if (!row) return null;
   const sha = str(p.headRefOid);
@@ -865,9 +888,10 @@ export function detailOf(p: Raw, extraFiles: Raw[] = [], rules?: BranchRules): P
     viewerIsAuthor: p.viewerDidAuthor === true,
     files: [...nodes(p.files), ...extraFiles].map(fileOf).filter((f): f is PrFile => f !== null),
     timeline: timelineOf(nodes(p.timelineComments), nodes(p.reviews)),
-    threads: nodes(p.reviewThreads)
+    threads: [...nodes(p.reviewThreads), ...extraThreads]
       .map(threadOf)
       .filter((t): t is ReviewThread => t !== null),
+    ...threadsTotal(p, extraThreads.length),
     commits: nodes(p.commits)
       .map(commitOf)
       .filter((c): c is PrCommit => c !== null),
@@ -878,6 +902,12 @@ export function detailOf(p: Raw, extraFiles: Raw[] = [], rules?: BranchRules): P
       .filter((a): a is Person => a !== null),
     merge: mergeOf(p, rules),
   };
+}
+
+/** How many threads there are, when more than were read. */
+function threadsTotal(p: Raw, extra: number): { threadsTotal?: number } {
+  const total = num(rec(p.reviewThreads).totalCount);
+  return total > nodes(p.reviewThreads).length + extra ? { threadsTotal: total } : {};
 }
 
 export const prKey = (repo: string, number: number) => `pr:${repo}#${number}`;
@@ -910,7 +940,18 @@ export function readPr(repo: string, number: number, fresh = false): Promise<PrD
       count += got.length;
       page = rec(rec(more.files).pageInfo);
     }
-    const detail = detailOf(p, extra, p.baseRefName ? await readBranchRules(repo, str(p.baseRefName)) : undefined);
+    const threads: Raw[] = [];
+    let threadPage = rec(rec(p.reviewThreads).pageInfo);
+    let threadCount = nodes(p.reviewThreads).length;
+    while (threadPage.hasNextPage === true && str(threadPage.endCursor) && threadCount < MAX_THREADS) {
+      const more = rec(rec(rec(await graphql(THREADS_QUERY, { owner, name, number, threadsAfter: str(threadPage.endCursor) })).repository).pullRequest);
+      const got = nodes(more.reviewThreads).slice(0, MAX_THREADS - threadCount);
+      if (!got.length) break;
+      threads.push(...got);
+      threadCount += got.length;
+      threadPage = rec(rec(more.reviewThreads).pageInfo);
+    }
+    const detail = detailOf(p, extra, p.baseRefName ? await readBranchRules(repo, str(p.baseRefName)) : undefined, threads);
     if (!detail) throw new GithubApiError("not-found", `GitHub has no pull request #${number} in ${repo}, or the token can't see it.`);
     return detail;
   });

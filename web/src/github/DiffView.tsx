@@ -14,7 +14,6 @@ import {
   Pencil,
   Search,
   Trash2,
-  Undo2,
   X,
 } from "lucide-react";
 import { getSingularPatch, type DiffLineAnnotation, type FileDiffMetadata, type SelectedLineRange } from "@pierre/diffs";
@@ -25,7 +24,8 @@ import { copyText } from "../nativePlatform";
 import { ResizeEdge } from "../ResizeEdge";
 import { useTheme } from "../theme";
 import { plainText } from "../ui";
-import { Avatar, Body, CommentBox, Time } from "./bits";
+import { Body, CommentBox } from "./bits";
+import { ThreadBody } from "./ThreadView";
 import { useDiffAnchor } from "./diffAnchor";
 import { clearFindMarks, FIND_CSS, FindBar, revealMatch, useFindPaint } from "./DiffFind";
 import { filterFiles, findInDiff, sameMatch, shownLines, type FindMatch, type FindOptions } from "./diffSearch";
@@ -55,6 +55,8 @@ export type DiffReview = {
   onSingle?: (c: DraftComment) => Promise<boolean>;
   viewed: ReadonlyMap<string, boolean>;
   onViewed: (path: string, viewed: boolean) => void;
+  /** The thread last shown from elsewhere (`showThread`): it opens, and is marked a moment. */
+  focused?: string;
 };
 
 export type DiffViewHandle = {
@@ -68,6 +70,8 @@ export type DiffViewHandle = {
   filterFiles: () => boolean;
   /** Opens Find in the diff (⌘F). */
   find: () => void;
+  /** Scrolls to a review thread (its file unfolded, the thread opened); false when its file isn't in the diff. */
+  showThread: (thread: ReviewThread) => boolean;
 };
 
 /** Files with more lines than this show folded until asked. */
@@ -82,12 +86,15 @@ const fromSide = (s: string | undefined): Side => (s === "deletions" ? "LEFT" : 
 
 function Thread({ thread, review }: { thread: ReviewThread; review: DiffReview }) {
   const [open, setOpen] = useState(!thread.isResolved);
-  const [replying, setReplying] = useState(false);
-  const [busy, setBusy] = useState(false);
   useEffect(() => setOpen(!thread.isResolved), [thread.isResolved]);
+  // Opened from the Conversation: shown even when resolved.
+  const focused = review.focused === thread.id;
+  useEffect(() => {
+    if (focused) setOpen(true);
+  }, [focused]);
   const first = thread.comments[0];
   return (
-    <div className={`gh-thread${thread.isResolved ? " resolved" : ""}`}>
+    <div className={`gh-thread${thread.isResolved ? " resolved" : ""}${focused ? " focused" : ""}`} data-thread={thread.id}>
       {thread.isResolved && (
         <button className="gh-thread-fold" onClick={() => setOpen(!open)} aria-expanded={open}>
           {open ? <ChevronDown size={12} aria-hidden="true" /> : <ChevronRight size={12} aria-hidden="true" />}
@@ -98,48 +105,7 @@ function Thread({ thread, review }: { thread: ReviewThread; review: DiffReview }
       {open && (
         <>
           {thread.isOutdated && <p className="gh-thread-outdated">Outdated</p>}
-          {thread.comments.map((c) => (
-            <div key={c.id} className="gh-thread-comment">
-              <div className="gh-thread-meta">
-                <Avatar person={c.author} size={18} />
-                <b>{c.author?.login ?? "ghost"}</b>
-                <Time at={c.createdAt} />
-              </div>
-              <Body text={c.body} html={c.html} />
-            </div>
-          ))}
-          <div className="gh-thread-actions">
-            {replying ? (
-              <CommentBox
-                autoFocus
-                placeholder="Reply"
-                submitLabel="Reply"
-                busy={busy}
-                onCancel={() => setReplying(false)}
-                onSubmit={async (text) => {
-                  setBusy(true);
-                  const ok = await review.onReply(thread, text);
-                  setBusy(false);
-                  if (ok) setReplying(false);
-                  return ok;
-                }}
-              />
-            ) : (
-              <>
-                {thread.canReply && (
-                  <button className="gh-reply-open" onClick={() => setReplying(true)}>
-                    Reply…
-                  </button>
-                )}
-                {thread.canResolve && (
-                  <button className="page-btn" onClick={() => review.onResolve(thread, !thread.isResolved)}>
-                    {thread.isResolved ? <Undo2 size={12} aria-hidden="true" /> : <CircleCheck size={12} aria-hidden="true" />}
-                    {thread.isResolved ? "Unresolve" : "Resolve conversation"}
-                  </button>
-                )}
-              </>
-            )}
-          </div>
+          <ThreadBody thread={thread} onReply={review.onReply} onResolve={review.onResolve} />
         </>
       )}
     </div>
@@ -552,16 +518,18 @@ export function DiffView({
   const onFold = useCallback((path: string, folded: boolean) => setChosen((m) => new Map(m).set(path, folded)), []);
   // Marking a file viewed folds it, as GitHub does; unmarking shows it.
   const onViewed = review?.onViewed;
+  const [focused, setFocused] = useState<string>();
   const reviewed = useMemo<DiffReview | undefined>(
     () =>
       review && {
         ...review,
+        ...(focused ? { focused } : {}),
         onViewed: (path, viewed) => {
           setChosen((m) => new Map(m).set(path, viewed));
           onViewed!(path, viewed);
         },
       },
-    [review, onViewed],
+    [review, onViewed, focused],
   );
 
   const [current, setCurrent] = useState<string | undefined>(files[0]?.path);
@@ -669,6 +637,43 @@ export function DiffView({
       if (scroller) void revealMatch(scroller, m, order, () => revealing.current === token);
     });
   };
+  // Showing a thread (from the Conversation): its file unfolds, its line is brought into view, then the thread itself.
+  const showThread = (t: ReviewThread) => {
+    const index = files.findIndex((f) => f.path === t.path);
+    const file = files[index];
+    if (!file) return false;
+    if (isFolded(file)) onFold(file.path, false);
+    setFocused(t.id);
+    const anchor = [...placeThreads(file, [t]).placed.keys()][0];
+    const token = ++revealing.current;
+    const live = () => revealing.current === token;
+    requestAnimationFrame(async () => {
+      const scroller = scrollerOf();
+      if (!scroller) return;
+      if (anchor) {
+        const [side, line] = anchor.split(":");
+        const key = `${side === "LEFT" ? "L" : "R"}${line}`;
+        const order = new Map<string, number>();
+        shownLines(file).forEach((l, i) => {
+          order.set(l.key, i);
+          if (l.alt) order.set(l.alt, i);
+        });
+        await revealMatch(scroller, { file: index, path: file.path, key, line: order.get(key) ?? 0, start: 0, end: 0 }, order, live);
+      } else show(file.path);
+      for (let tries = 0; tries < 30 && live(); tries++) {
+        const el = scroller.querySelector<HTMLElement>(`[data-thread="${CSS.escape(t.id)}"]`);
+        if (el) {
+          const box = scroller.getBoundingClientRect();
+          scroller.scrollTop += el.getBoundingClientRect().top - box.top - Math.max(40, (box.height - el.getBoundingClientRect().height) / 3);
+          return;
+        }
+        await new Promise((done) => requestAnimationFrame(done));
+      }
+    });
+    return true;
+  };
+  const showThreadRef = useRef(showThread);
+  showThreadRef.current = showThread;
   const goTo = (i: number) => {
     const m = found?.matches[i];
     setAt(m ? i : -1);
@@ -750,6 +755,7 @@ export function DiffView({
         return true;
       },
       find: openFind,
+      showThread: (t) => showThreadRef.current(t),
     }),
     [files, current, show, openFind],
   );

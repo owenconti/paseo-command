@@ -5,6 +5,8 @@ import {
   CircleCheck,
   CircleDashed,
   CircleX,
+  ChevronDown,
+  ChevronRight,
   ExternalLink,
   GitCommitHorizontal,
   MessageSquare,
@@ -23,7 +25,9 @@ import type { PaseoMatch, PrHead } from "./paseo";
 import { mergeLeads, type MergeAction } from "./merge";
 import { MergeHeader, MergeSection, useMergeBox, type MergeBox } from "./MergeBox";
 import { Assignees, ChecksSummary, Reviewers, type PeopleChange, type PickerControl } from "./PrSide";
-import type { DraftComment, Person, PrDetail, PrDiff, PrReviewer, ReviewEvent, ReviewThread } from "./types";
+import { conversationOf } from "./conversation";
+import { ConversationThread } from "./ThreadView";
+import type { DraftComment, Person, PrDetail, PrDiff, PrReviewer, ReviewEvent, ReviewThread, Viewer } from "./types";
 
 const VERDICT_LABEL: Record<ReviewEvent, string> = {
   COMMENT: "Comment",
@@ -48,7 +52,13 @@ export type PrViewApi = {
   editPeople: (which: "reviewers" | "assignees") => void;
   /** One of the merge box's actions (`merge.ts`): a merge, auto-merge or close opens its confirmation. */
   mergeAction: (action: MergeAction) => void;
+  /** The Conversation's line comments: resolved ones shown or folded, every review's threads folded or unfolded. */
+  threads: (what: ThreadsCommand) => void;
 };
+
+export type ThreadsCommand = "show-resolved" | "hide-resolved" | "fold" | "unfold";
+/** What ⌘K says of the Conversation's line comments. */
+export type ConversationThreads = { resolved: number; showResolved: boolean; reviews: number; folded: number };
 
 const personOf = (p: Person): Person => ({ login: p.login, ...(p.name ? { name: p.name } : {}), ...(p.avatarUrl ? { avatarUrl: p.avatarUrl } : {}) });
 const same = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
@@ -197,9 +207,22 @@ function Conversation({
   reviewersControl,
   assigneesControl,
   mergeBox,
+  showResolved,
+  folded,
+  onFold,
+  onReply,
+  onResolve,
+  onJump,
 }: {
   pr: PrDetail;
   mergeBox: MergeBox;
+  showResolved: boolean;
+  /** The reviews whose threads are folded. */
+  folded: ReadonlySet<string>;
+  onFold: (review: string, fold: boolean) => void;
+  onReply: (thread: ReviewThread, body: string) => Promise<boolean>;
+  onResolve: (thread: ReviewThread, resolved: boolean) => void;
+  onJump: (thread: ReviewThread) => void;
   order: ConversationOrder;
   setOrder: (order: ConversationOrder) => void;
   onComment: (body: string) => Promise<boolean>;
@@ -235,19 +258,46 @@ function Conversation({
       <Body text={pr.body} html={pr.html} empty="No description provided." />
     </article>
   );
-  // The server's timeline is oldest first; a review's comments and a thread's replies aren't in it, so they keep their order.
-  const entries = (newest ? [...pr.timeline].reverse() : pr.timeline).map((e) =>
-    e.kind === "comment" ? (
-      <article key={e.id} data-entry={e.id} className="gh-entry">
-        <div className="gh-entry-head">
-          <Avatar person={e.author} size={20} />
-          <b>{e.author?.login ?? "ghost"}</b>
-          <span>commented</span>
-          <Time at={e.createdAt} />
-        </div>
-        <Body text={e.body} html={e.html} />
-      </article>
-    ) : (
+  // Oldest first, as the server's timeline; reviews carry the threads they started, other threads stand
+  // at their own place. Newest first reverses the entries; a review's threads and a thread's replies keep their order.
+  const items = useMemo(() => conversationOf(pr.timeline, pr.threads), [pr.timeline, pr.threads]);
+  const thread = (t: ReviewThread) => (
+    <ConversationThread key={t.id} thread={t} showResolved={showResolved} onReply={onReply} onResolve={onResolve} onJump={onJump} onExternal={onExternal} />
+  );
+  const entries = (newest ? [...items].reverse() : items).map((item) => {
+    if (item.kind === "comment") {
+      const e = item.entry;
+      return (
+        <article key={e.id} data-entry={e.id} className="gh-entry">
+          <div className="gh-entry-head">
+            <Avatar person={e.author} size={20} />
+            <b>{e.author?.login ?? "ghost"}</b>
+            <span>commented</span>
+            <Time at={e.createdAt} />
+          </div>
+          <Body text={e.body} html={e.html} />
+        </article>
+      );
+    }
+    if (item.kind === "thread") {
+      const first = item.thread.comments[0]!;
+      return (
+        <article key={item.id} data-entry={item.id} className="gh-entry thread-entry">
+          <div className="gh-entry-head">
+            <MessageSquare size={14} aria-hidden="true" className="gh-review-mark" />
+            <Avatar person={first.author} size={20} />
+            <b>{first.author?.login ?? "ghost"}</b>
+            <span>commented on a line</span>
+            <Time at={first.createdAt} />
+          </div>
+          <div className="gh-review-threads">{thread(item.thread)}</div>
+        </article>
+      );
+    }
+    const e = item.entry;
+    const isFolded = folded.has(e.id);
+    const count = item.threads.length;
+    return (
       <article key={e.id} data-entry={e.id} className={`gh-entry review ${e.state}`}>
         <div className="gh-entry-head">
           <span className={`gh-review-mark ${e.state}`} aria-hidden="true">
@@ -258,11 +308,26 @@ function Conversation({
           <span>{REVIEW_STATE_LABEL[e.state]}</span>
           {e.comments > 0 && <span className="gh-hint">{e.comments === 1 ? "1 comment" : `${e.comments} comments`}</span>}
           <Time at={e.createdAt} />
+          {count > 0 && (
+            <>
+              <span className="gh-spacer" />
+              <button
+                className="page-btn gh-review-fold"
+                aria-expanded={!isFolded}
+                onClick={() => onFold(e.id, !isFolded)}
+                data-tip={isFolded ? "Show its line comments" : "Fold its line comments"}
+              >
+                {isFolded ? <ChevronRight size={12} aria-hidden="true" /> : <ChevronDown size={12} aria-hidden="true" />}
+                {isFolded ? `Show ${count === 1 ? "1 conversation" : `${count} conversations`}` : "Fold"}
+              </button>
+            </>
+          )}
         </div>
         {e.body.trim() && <Body text={e.body} html={e.html} />}
+        {count > 0 && !isFolded && <div className="gh-review-threads">{item.threads.map(thread)}</div>}
       </article>
-    ),
-  );
+    );
+  });
   const composer = (
     <div key="composer" className="gh-entry composer" id="gh-pr-comment">
       <CommentBox
@@ -296,7 +361,7 @@ function Conversation({
         <div className="gh-comments-head page-head">
           <h3 className="page-head-title">
             <span className="page-head-name">Comments</span>
-            <span className="page-head-count">· {pr.timeline.length}</span>
+            <span className="page-head-count">· {items.length}</span>
           </h3>
           <div className="gh-order" role="radiogroup" aria-label="Conversation order">
             {(["newest", "oldest"] as const).map((o) => (
@@ -306,6 +371,14 @@ function Conversation({
             ))}
           </div>
         </div>
+        {pr.threadsTotal !== undefined && (
+          <p className="gh-banner" role="status">
+            Showing {pr.threads.length} of {pr.threadsTotal} line comment conversations.{" "}
+            <button className="gh-link" onClick={() => onExternal(`${pr.url}/files`)}>
+              See the rest on GitHub
+            </button>
+          </p>
+        )}
         {newest ? [composer, ...entries] : [...entries, composer]}
       </div>
       <aside className="gh-conversation-side" aria-label="About this pull request">
@@ -378,8 +451,8 @@ export function PrView({
   onNotice: (message: string) => void;
   diffHandle: React.RefObject<DiffViewHandle | null>;
   api: React.MutableRefObject<PrViewApi | null>;
-  /** The PR as read, for ⌘K (undefined while it loads). */
-  onLoaded: (pr: PrDetail | undefined, pending: number) => void;
+  /** The PR as read, for ⌘K (undefined while it loads), with its pending comments and its Conversation's line comments. */
+  onLoaded: (pr: PrDetail | undefined, pending: number, threads?: ConversationThreads) => void;
   /** The Conversation's order (newest or oldest first), one for every PR. */
   order: ConversationOrder;
   setOrder: (order: ConversationOrder) => void;
@@ -420,7 +493,32 @@ export function PrView({
     if (pr?.viewerIsAuthor && verdict !== "COMMENT") setVerdict("COMMENT");
   }, [pr?.viewerIsAuthor, verdict]);
 
-  useEffect(() => onLoaded(pr, draft.comments.length), [pr, draft.comments.length, onLoaded]);
+  // The Conversation's line comments: resolved ones folded unless shown, each review's threads unfolded unless folded.
+  const [showResolved, setShowResolved] = useState(false);
+  const [folded, setFolded] = useState<ReadonlySet<string>>(new Set());
+  const onFold = useCallback((id: string, fold: boolean) => {
+    setFolded((was) => {
+      const next = new Set(was);
+      if (fold) next.add(id);
+      else next.delete(id);
+      return next;
+    });
+  }, []);
+  const withThreads = useMemo(
+    () => (pr ? conversationOf(pr.timeline, pr.threads).flatMap((i) => (i.kind === "review" && i.threads.length ? [i.id] : [])) : []),
+    [pr],
+  );
+  const threadsState = useMemo<ConversationThreads | undefined>(
+    () =>
+      pr && {
+        resolved: pr.threads.filter((t) => t.isResolved).length,
+        showResolved,
+        reviews: withThreads.length,
+        folded: withThreads.filter((id) => folded.has(id)).length,
+      },
+    [pr, showResolved, withThreads, folded],
+  );
+  useEffect(() => onLoaded(pr, draft.comments.length, threadsState), [pr, draft.comments.length, threadsState, onLoaded]);
   useEffect(() => () => onLoaded(undefined, 0), [onLoaded]);
 
   const refresh = useCallback(() => {
@@ -462,20 +560,42 @@ export function PrView({
     },
     [prPath, onNotice],
   );
+  const viewer = useGithubRead<Viewer>(readPath("viewer")).data?.viewer;
+  // A reply shows at once, under the thread's comments, and goes again if GitHub refuses it.
+  const replies = useRef(0);
   const reply = useCallback(
     async (thread: ReviewThread, body: string) => {
       const first = thread.comments[0];
       if (!first) return false;
+      const id = `pending-reply-${++replies.current}`;
+      const shown = { id, databaseId: 0, author: viewer ?? null, body, createdAt: new Date().toISOString(), url: "" };
+      const change = (add: boolean) => (p: PrDetail) => ({
+        ...p,
+        threads: p.threads.map((t) =>
+          t.id !== thread.id ? t : { ...t, comments: add ? [...t.comments, shown] : t.comments.filter((c) => c.id !== id) },
+        ),
+      });
+      patch<PrDetail>(prPath, change(true));
       try {
         await githubWrite("reply", { repo, number, commentId: first.databaseId, body });
         afterWrite();
         return true;
       } catch (e) {
+        patch<PrDetail>(prPath, change(false));
         onNotice(`Couldn’t reply: ${errorMessage(e)}`);
         return false;
       }
     },
-    [repo, number, afterWrite, onNotice],
+    [repo, number, prPath, viewer, afterWrite, onNotice],
+  );
+  // Opening a thread in Files changed: the diff shows it once it's there.
+  const [jump, setJump] = useState<ReviewThread | null>(null);
+  const onJump = useCallback(
+    (t: ReviewThread) => {
+      setJump(t);
+      setTab("files");
+    },
+    [setTab],
   );
   const single = useCallback(
     async (c: DraftComment) => {
@@ -542,6 +662,14 @@ export function PrView({
   useEffect(() => {
     if (mergeBox.panel) setReviewOpen(false);
   }, [mergeBox.panel]);
+  const diffFiles = diff.data?.files;
+  useEffect(() => {
+    if (!jump || tab !== "files" || !diffFiles) return;
+    setJump(null);
+    requestAnimationFrame(() => {
+      if (!diffHandle.current?.showThread(jump)) onNotice(`${jump.path} isn’t in this pull request’s diff any more.`);
+    });
+  }, [jump, tab, diffFiles, diffHandle, onNotice]);
 
   const submit = async (text: string) => {
     if (!pr) return false;
@@ -584,6 +712,11 @@ export function PrView({
       setTimeout(() => (which === "reviewers" ? reviewersControl : assigneesControl).current?.open(), 0);
     },
     mergeAction: (a) => mergeBox.run(a),
+    threads: (what) => {
+      setTab("conversation");
+      if (what === "show-resolved" || what === "hide-resolved") setShowResolved(what === "show-resolved");
+      else setFolded(what === "fold" ? new Set(withThreads) : new Set());
+    },
     focusComment: () => {
       setTab("conversation");
       setTimeout(() => {
@@ -598,7 +731,7 @@ export function PrView({
 
   const threadsOpen = pr ? pr.threads.filter((t) => !t.isResolved).length : 0;
   const counts: Record<PrTab, number | undefined> = {
-    conversation: pr ? pr.timeline.length : undefined,
+    conversation: pr ? conversationOf(pr.timeline, pr.threads).length : undefined,
     files: pr?.changedFiles,
     commits: pr?.commits.length,
     checks: pr?.checkRuns.length,
@@ -731,6 +864,12 @@ export function PrView({
               reviewersControl={reviewersControl}
               assigneesControl={assigneesControl}
               mergeBox={mergeBox}
+              showResolved={showResolved}
+              folded={folded}
+              onFold={onFold}
+              onReply={reply}
+              onResolve={resolve}
+              onJump={onJump}
             />
           )}
           {tab === "files" && (

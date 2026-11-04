@@ -1995,3 +1995,112 @@ button.gh-side-check-name:hover {
   color: var(--text-3);
   font-size: var(--fs-xs);
 }
+/* Line comments in the Conversation: under the review that started them, or on their own */
+.gh-review-fold {
+  margin: -2px 0;
+}
+.gh-review-threads {
+  display: grid;
+  gap: var(--space-2);
+  padding: 0 var(--space-3) var(--space-3);
+}
+.gh-entry.review > .gh-body + .gh-review-threads {
+  padding-top: 0;
+}
+.gh-entry-head + .gh-review-threads {
+  padding-top: var(--space-3);
+}
+.gh-thread.in-conversation {
+  max-width: none;
+  margin: 0;
+  overflow: hidden;
+  background: var(--panel);
+}
+.gh-thread-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  padding: 6px var(--space-3);
+  border-bottom: 1px solid var(--line-soft);
+  background: var(--surface);
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+}
+.gh-thread.in-conversation:not(:has(.gh-thread-comment)) .gh-thread-head {
+  border-bottom: 0;
+}
+.gh-thread-head .gh-thread-toggle {
+  margin-left: -6px;
+}
+.gh-thread-file-icon {
+  flex-shrink: 0;
+}
+.gh-thread-path {
+  min-width: 0;
+  overflow: hidden;
+  padding: 0;
+  background: transparent;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  color: var(--text-strong);
+}
+.gh-thread-path:hover {
+  color: var(--accent-text);
+  text-decoration: underline;
+}
+.gh-thread-head > .gh-hint {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+.gh-thread-badge {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 3px;
+  padding: 0 6px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-pill);
+  font-size: var(--fs-2xs);
+  white-space: nowrap;
+}
+.gh-thread-badge.outdated {
+  border-color: var(--amber-line);
+  color: var(--amber-text);
+}
+.gh-thread-badge.resolved {
+  color: var(--green-text);
+}
+.gh-thread-jump {
+  flex-shrink: 0;
+  white-space: nowrap;
+  font-size: var(--fs-xs);
+}
+.gh-thread.in-conversation > .gh-thread-fold {
+  color: var(--text-4);
+}
+.gh-thread-hunk {
+  border-radius: 0;
+  border-bottom: 1px solid var(--line-soft);
+}
+.gh-thread-more {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--line-soft);
+}
+/* A thread shown from the Conversation, in Files changed: marked a moment. */
+.gh-thread.focused {
+  animation: gh-thread-focus 1.6s ease-out;
+}
+@keyframes gh-thread-focus {
+  0%,
+  40% {
+    border-color: var(--accent-line);
+    box-shadow: 0 0 0 3px var(--accent-soft, rgba(80, 140, 255, 0.25));
+  }
+}

@@ -1983,6 +1983,23 @@ function App() {
                                 : command("github-conversation-order", "Show the conversation newest first", "conversation order sort newest first recent latest reverse timeline comments", undefined, "newest"),
                             ]
                           : []),
+                        ...(v.pr.threads && v.pr.threads.resolved > 0
+                          ? [
+                              v.pr.threads.showResolved
+                                ? command("github-threads", "Fold resolved conversations", "resolved threads line comments review conversation fold hide collapse", undefined, "hide-resolved")
+                                : command("github-threads", "Show resolved conversations", "resolved threads line comments review conversation show expand unfold", undefined, "show-resolved"),
+                            ]
+                          : []),
+                        ...(v.pr.threads && v.pr.threads.reviews > 0
+                          ? [
+                              ...(v.pr.threads.folded < v.pr.threads.reviews
+                                ? [command("github-threads", "Fold every review’s line comments", "fold collapse hide reviews line comments threads conversation", undefined, "fold")]
+                                : []),
+                              ...(v.pr.threads.folded > 0
+                                ? [command("github-threads", "Show every review’s line comments", "unfold expand show reviews line comments threads conversation", undefined, "unfold")]
+                                : []),
+                            ]
+                          : []),
                         command("github-assignees", "Assign…", "assign assignee assignees unassign people person owner pull request"),
                         ...v.pr.actions.map((a) => command("github-merge", a.label, `pull request ${PR_ACTION_WORDS[a.action.kind]}`, undefined, a.action)),
                         ...(v.pr.open

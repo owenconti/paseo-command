@@ -40,6 +40,7 @@ export type AppCommand =
   | "github-find"
   | "github-review"
   | "github-comment"
+  | "github-threads"
   | "github-merge"
   | "github-conversation-order"
   | "github-reviewers"

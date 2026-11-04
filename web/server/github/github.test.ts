@@ -11,8 +11,8 @@ import { saveStar } from "./stars";
 import { SEARCH_BUDGET } from "./client";
 import { FAKE_GITHUB_TOKEN } from "../githubFake";
 import { NO_KEY, OFF, REFUSED, SCOPES } from "../githubApi";
-import { BOT_HTML, BOT_MARKDOWN, DETAILS_HTML, DETAILS_MARKDOWN, FAKE_DIFF, fakePr, fakeRepo, installFakeGithub, SHA, type FakeGithub } from "./fake";
-import { avatarOf, checkOf, filesFromPatches, repoSearchQuery, reviewersOf, rowOf, SCOPE_QUERY, searchText } from "./reads";
+import { BOT_HTML, BOT_MARKDOWN, DETAILS_HTML, DETAILS_MARKDOWN, FAKE_DIFF, FAKE_HUNK, fakePr, fakeThread, fakeRepo, installFakeGithub, SHA, type FakeGithub } from "./fake";
+import { avatarOf, checkOf, MAX_THREADS, THREADS_QUERY, filesFromPatches, repoSearchQuery, reviewersOf, rowOf, SCOPE_QUERY, searchText } from "./reads";
 import { checkFilters, filterQueries } from "../../src/github/filters";
 import { githubRoute } from "./route";
 import { checkWrite } from "./writes";
@@ -83,6 +83,92 @@ test("a PR's detail: files, conversation, threads, commits, checks and reviewers
   assert.deepEqual(pr.reviewers, [{ kind: "user", login: "me", name: "Me", requested: true, verdict: null }]);
   assert.deepEqual(pr.assignees, [{ login: "ada", name: "Ada", avatarUrl: "https://avatars.githubusercontent.com/u/1?v=4" }]);
   assert.deepEqual((fake.calls[0]!.body as { variables: unknown }).variables, { owner: "owen", name: "app", number: 7 });
+});
+
+test("a PR's review threads: where each is, its hunk, its state, its comments' reviews, in the same query", async () => {
+  const comment = (id: string, db: number, review: string, at: string, o: Record<string, unknown> = {}) => ({
+    id,
+    databaseId: db,
+    author: { login: "bob" },
+    body: `Comment ${id}`,
+    bodyHTML: `<p>Comment ${id}</p>`,
+    createdAt: at,
+    url: `https://github.com/owen/app/pull/12#discussion_r${db}`,
+    pullRequestReview: { id: review },
+    ...o,
+  });
+  const long = "@@ -10,60 +10,62 @@ function main() {\n" + Array.from({ length: 60 }, (_, i) => ` line ${i + 10}`).join("\n") + "\n+added";
+  fake.prs.set(
+    "owen/app#12",
+    fakePr({
+      number: 12,
+      reviews: { nodes: [{ id: "PRR_a", author: { login: "bob" }, state: "CHANGES_REQUESTED", body: "See inline", submittedAt: "2026-10-30T09:40:00Z", url: "https://github.com/owen/app/pull/12#pullrequestreview-1", comments: { totalCount: 2 } }] },
+      reviewThreads: {
+        totalCount: 3,
+        pageInfo: { hasNextPage: false, endCursor: null },
+        nodes: [
+          fakeThread("RT_a", { startLine: 1, line: 2, originalStartLine: 1, originalLine: 2 }, [comment("RC_a", 201, "PRR_a", "2026-10-30T09:40:00Z"), comment("RC_b", 202, "PRR_reply", "2026-10-30T10:00:00Z", { author: { login: "ada" } })]),
+          fakeThread("RT_out", { line: null, originalLine: 70, isOutdated: true, isResolved: true, hunk: { nodes: [{ diffHunk: long }] } }, [comment("RC_c", 203, "PRR_a", "2026-10-30T09:40:00Z")]),
+          fakeThread("RT_file", { line: null, originalLine: null, subjectType: "FILE", hunk: { nodes: [] }, comments: { totalCount: 80, nodes: [comment("RC_d", 204, "PRR_x", "2026-10-30T09:50:00Z")] } }),
+        ],
+      },
+    }),
+  );
+  const r = await ask("/api/github/q/pr?repo=owen/app&number=12");
+  assert.equal(r.status, 200, JSON.stringify(r.body));
+  const [a, out, file] = r.body.threads;
+  assert.deepEqual(
+    { ...a, comments: a.comments.map((c: { id: string; reviewId: string; html: string }) => [c.id, c.reviewId, c.html]) },
+    {
+      id: "RT_a",
+      path: "src/app.ts",
+      line: 2,
+      startLine: 1,
+      originalLine: 2,
+      originalStartLine: 1,
+      side: "RIGHT",
+      // GitHub's header counts the whole hunk; the lines it gives are counted again.
+      diffHunk: FAKE_HUNK.replace("+1,4", "+1,2"),
+      isResolved: false,
+      isOutdated: false,
+      canResolve: true,
+      canReply: true,
+      comments: [
+        ["RC_a", "PRR_a", "<p>Comment RC_a</p>"],
+        ["RC_b", "PRR_reply", "<p>Comment RC_b</p>"],
+      ],
+    },
+  );
+  // Outdated and resolved: where it was left, and only the hunk's last lines under a header counted again.
+  assert.equal(out.line, null);
+  assert.equal(out.originalLine, 70);
+  assert.equal(out.isOutdated && out.isResolved, true);
+  const lines = out.diffHunk.split("\n");
+  assert.equal(lines.length, 41);
+  assert.equal(lines[0], "@@ -31,39 +31,40 @@");
+  assert.equal(lines.at(-1), "+added");
+  // On the file: no line, no hunk; more comments than were read.
+  assert.equal(file.onFile, true);
+  assert.equal("diffHunk" in file, false);
+  assert.equal(file.totalComments, 80);
+  assert.equal("threadsTotal" in r.body, false);
+  const query = (fake.calls[0]!.body as { query: string }).query;
+  for (const field of ["originalLine", "originalStartLine", "subjectType", "diffHunk", "pullRequestReview { id }", "totalCount pageInfo"]) assert.ok(query.includes(field), field);
+});
+
+test("a PR's review threads are paged, to MAX_THREADS, and say how many there are past it", async () => {
+  const page = (from: number, n: number) => Array.from({ length: n }, (_, i) => fakeThread(`RT_${from + i}`, {}, [{ id: `RC_${from + i}`, databaseId: from + i, author: { login: "bob" }, body: "x", createdAt: "2026-10-30T09:40:00Z", url: "https://github.com/x" }]));
+  const pr = fakePr({ number: 13, reviewThreads: { totalCount: 450, pageInfo: { hasNextPage: true, endCursor: "c1" }, nodes: page(0, 100) } });
+  // Every further page answers the next 100 (the fake has one answer for them all).
+  pr.morethreads = { pageInfo: { hasNextPage: true, endCursor: "c2" }, nodes: page(100, 100) };
+  fake.prs.set("owen/app#13", pr);
+  const r = await ask("/api/github/q/pr?repo=owen/app&number=13");
+  assert.equal(r.status, 200, JSON.stringify(r.body));
+  assert.equal(r.body.threads.length, MAX_THREADS);
+  assert.equal(r.body.threadsTotal, 450);
+  const pages = fake.calls.filter((c) => (c.body as { query?: string } | undefined)?.query === THREADS_QUERY);
+  assert.equal(pages.length, 2);
+  assert.deepEqual((pages[0]!.body as { variables: unknown }).variables, { owner: "owen", name: "app", number: 13, threadsAfter: "c1" });
 });
 
 test("a PR's bodies come with GitHub's rendering of them, in the same query", async () => {

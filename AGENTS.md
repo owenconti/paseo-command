@@ -390,6 +390,19 @@ and GitHub publication; report the published version and release link.
   first toggle, then the comment box and the comments and reviews newest first, or oldest first as GitHub lists them with the box at
   the foot: the toggle and ⌘K, one setting for every PR, `github:conversationOrder` in localStorage; only the comments move, a review's
   own comments keeping their order; a posted comment shows in its place and scrolls into view), Files changed (the review), Commits, Checks.
+  Line comments show in the Conversation as GitHub's do (`conversation.ts`, `conversationOf`; `ThreadView.tsx`): each review holds the threads
+  it started (its threads' first comments' `reviewId`), with a Fold / Show N conversations toggle on its head (unfolded by default); a review of
+  single comments only (no summary) gives way to its threads, each at its own place ("commented on a line"), as do threads whose review isn't
+  among those read; a review of replies only isn't an entry (its replies are in their threads); "Comments · N" counts the entries. A thread:
+  its path (a click, or View in Files changed, opens Files changed scrolled to it, its file unfolded and the thread opened and marked:
+  `DiffViewHandle.showThread`), its line(s) (`threadLines`: an outdated one's where it was left), Outdated and Resolved badges, a few lines of
+  its comment's `diffHunk` drawn by @pierre/diffs unified (`threadHunk`: its range's, else the last 4; `hunk.ts` `tailHunk` counts the header
+  again), its comments, Reply (shown at once, taken back with a notice if GitHub refuses) and Resolve / Unresolve (`ThreadBody`, shared with
+  the diff's threads). Resolved threads fold ("Show resolved"); ⌘K "Show resolved conversations" / "Fold resolved conversations" and "Fold every
+  review's line comments" / "Show every review's line comments" (`github-threads`), only while they apply. The `q/pr` read asks each thread's
+  `originalLine`, `originalStartLine`, `subjectType` (on the file), its first comment's `diffHunk` (the server keeps its last 40 lines,
+  `HUNK_KEEP`) and each comment's `pullRequestReview { id }`, in the same query; threads are paged by 100 (`THREADS_QUERY`) to `MAX_THREADS`
+  (300), `threadsTotal` and a banner saying when there are more, and a thread's 50 comments say how many more GitHub has (`totalComments`).
   Bodies (the description, comments, reviews, line comments and replies) show as GitHub renders them: the `q/pr` read asks each one's
   `bodyHTML` in the same query (images through camo; the Markdown kept beside it as `body`, for editing and the fallback), and
   `Body` (`bits.tsx`) draws it after `sanitizeGithubHtml` (`web/src/github/html.ts`) cleans it again: a DOM-free allowlist, so the

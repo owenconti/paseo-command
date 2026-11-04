@@ -5,7 +5,9 @@ mark it done with its commit once merged into `main`.
 
 ## Open
 
-- [ ] **GitHub PR conversation: show line-level review comments inline.** A review in the Conversation shows only its
+## Done
+
+- [x] **GitHub PR conversation: show line-level review comments inline.** A review in the Conversation shows only its
   summary and "5 comments"; its line comments are visible only in Files changed. Show them as GitHub does: under each
   review, each thread with its file path and line(s), the diff hunk around the line (a few lines, highlighted, from the
   comment's `diffHunk`), the comments and replies (bodies rendered as the others), resolved/outdated state (resolved
@@ -13,7 +15,14 @@ mark it done with its commit once merged into `main`.
   Clicking the path or "View in Files changed" opens the Files changed tab scrolled to that thread. Read what the PR read
   doesn't have yet (review threads with `path`, `line`, `originalLine`, `diffHunk`, `isResolved`, `isOutdated`) in the same
   query. Tests over the fake; e2e. Workspace: `github-inline-review-comments`.
-## Done
+  Done: each review in the Conversation holds the threads it started (path and line(s), Outdated/Resolved, the last lines of its hunk drawn by
+  the diff's renderer, the comments and replies, Reply and Resolve/Unresolve), with a Fold toggle on its head; single comments and threads
+  whose review isn't listed stand at their own place; reply-only reviews go (their replies are in their threads). Resolved threads fold
+  ("Show resolved"; ⌘K shows or folds them all, and folds or shows every review's). The path and View in Files changed open Files changed
+  at the thread (file unfolded, thread opened and marked). The PR read adds `originalLine`/`originalStartLine`, `subjectType`, the first
+  comment's `diffHunk` (last 40 lines) and each comment's review id in the same query; threads are paged to 300 with a banner past that.
+  Tests: `github.test.ts` (fields, hunk cutting, paging), `conversation.test.ts`, `github.e2e.ts` (grouping, order, reply, refused reply,
+  resolve folding, ⌘K, the jump).
 
 - [x] **Terminal: only the Terminal tab; remove the side/bottom terminal panel.** The user wants no separate terminal panel:
   terminals live only in the Terminal tab (added in d00b211). Remove the panel: its show/hide (View → Terminal, ⌃`), dock

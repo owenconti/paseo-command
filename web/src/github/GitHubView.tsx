@@ -32,10 +32,12 @@ import { orgStarred, RepoNav, repoOrder, repoStarred, REPOS_PATH, setStar, type 
 import { SCOPE_TITLE } from "./names";
 import { LIST_POLL_MS, PrList } from "./PrList";
 import type { PaseoMatch, PrHead } from "./paseo";
-import { PrView, type PrViewApi } from "./PrView";
+import { PrView, type ConversationThreads, type PrViewApi, type ThreadsCommand } from "./PrView";
 import { actionKey, actionLabel, MERGE_ACTION_KINDS, mergeActions, mergeMethodFor, type MergeAction } from "./merge";
 import { PR_SCOPES, type PrDetail, type PrList as PrListData, type PrScope, type RepoList, type ReviewEvent, type Viewer } from "./types";
 import "./github.css";
+
+const THREADS_COMMANDS: ThreadsCommand[] = ["show-resolved", "hide-resolved", "fold", "unfold"];
 
 /** What ⌘K needs to know: where the view is, and what the open PR or diff allows. */
 export type GithubViewState = {
@@ -56,6 +58,8 @@ export type GithubViewState = {
     headRepo: string | null;
     /** The merge box's actions that apply now (a merge and auto-merge once per allowed method, the remembered first), with their words. */
     actions: { key: string; label: string; action: MergeAction }[];
+    /** The Conversation's line comments: resolved ones (shown or not) and the reviews with threads (how many folded). */
+    threads?: ConversationThreads;
   };
   /** The Conversation's order. */
   conversationOrder: ConversationOrder;
@@ -258,8 +262,11 @@ export function GitHubView({
   const diffHandle = useRef<DiffViewHandle | null>(null);
   const prApi = useRef<PrViewApi | null>(null);
   const listKeys = useRef<((e: KeyboardEvent | React.KeyboardEvent) => boolean) | null>(null);
-  const [openPr, setOpenPr] = useState<{ pr?: PrDetail; pending: number }>({ pending: 0 });
-  const onPrLoaded = useCallback((pr: PrDetail | undefined, pending: number) => setOpenPr({ pr, pending }), []);
+  const [openPr, setOpenPr] = useState<{ pr?: PrDetail; pending: number; threads?: ConversationThreads }>({ pending: 0 });
+  const onPrLoaded = useCallback(
+    (pr: PrDetail | undefined, pending: number, threads?: ConversationThreads) => setOpenPr({ pr, pending, ...(threads ? { threads } : {}) }),
+    [],
+  );
 
   const setTab = useCallback(
     (tab: PrTab) => setPlaceState((was) => (was.kind === "pr" && was.tab !== tab ? (writePlace({ ...was, tab }), { ...was, tab }) : was)),
@@ -316,6 +323,9 @@ export function GitHubView({
         setConversationOrder(arg === "newest" || arg === "oldest" ? arg : c().conversationOrder === "newest" ? "oldest" : "newest"),
       ),
       onAppCommand("github-comment", () => prApi.current?.focusComment()),
+      onAppCommand("github-threads", (arg) => {
+        if (c().place.kind === "pr" && THREADS_COMMANDS.includes(arg as ThreadsCommand)) prApi.current?.threads(arg as ThreadsCommand);
+      }),
       onAppCommand("github-merge", (arg) => {
         const a = arg as MergeAction | undefined;
         const pr = c().openPr.pr;
@@ -385,6 +395,7 @@ export function GitHubView({
               headRef: pr.headRef,
               headRepo: pr.headRepo ?? null,
               actions: prActions(pr),
+              ...(openPr.threads ? { threads: openPr.threads } : {}),
             },
           }
         : {}),

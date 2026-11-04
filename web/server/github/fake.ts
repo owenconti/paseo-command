@@ -31,6 +31,31 @@ export const DETAILS_MARKDOWN = "Fixes it.\n\n<details><summary>Why</summary>\n\
 export const DETAILS_HTML =
   '<p dir="auto">Fixes it.</p>\n<details>\n<summary>Why</summary>\n<p dir="auto">The <kbd>⌘K</kbd> list was <strong>short</strong>.</p>\n</details>\n';
 
+/** The hunk GitHub gives RT_1's comment: `src/app.ts` up to its new line 2. */
+export const FAKE_HUNK = "@@ -1,2 +1,4 @@\n const a = 1;\n-const b = 2;\n+const b = 3;";
+
+/** A review thread as the PR query asks for it (`morethreads` holds further pages' nodes). */
+export function fakeThread(id: string, o: Partial<Raw> = {}, comments: Raw[] = []): Raw {
+  return {
+    id,
+    path: "src/app.ts",
+    line: 2,
+    startLine: null,
+    originalLine: 2,
+    originalStartLine: null,
+    diffSide: "RIGHT",
+    subjectType: "LINE",
+    isResolved: false,
+    isOutdated: false,
+    viewerCanResolve: true,
+    viewerCanUnresolve: true,
+    viewerCanReply: true,
+    hunk: { nodes: [{ diffHunk: FAKE_HUNK }] },
+    comments: { totalCount: comments.length, nodes: comments },
+    ...o,
+  };
+}
+
 export function fakePr(o: Partial<Raw> & { number: number; repo?: string } = { number: 1 }): Raw {
   const repo = o.repo ?? "owen/app";
   const { repo: _, number: __, ...rest } = o;
@@ -64,19 +89,28 @@ export function fakePr(o: Partial<Raw> & { number: number; repo?: string } = { n
     timelineComments: { nodes: [{ id: "IC_1", author: { login: "bob" }, body: "Looks close.", createdAt: "2026-10-30T09:30:00Z", url: `https://github.com/${repo}/pull/${o.number}#issuecomment-1` }] },
     reviews: { nodes: [] },
     reviewThreads: {
+      totalCount: 1,
+      pageInfo: { hasNextPage: false, endCursor: null },
       nodes: [
         {
           id: "RT_1",
           path: "src/app.ts",
           line: 2,
           startLine: null,
+          originalLine: 2,
+          originalStartLine: null,
           diffSide: "RIGHT",
+          subjectType: "LINE",
           isResolved: false,
           isOutdated: false,
           viewerCanResolve: true,
           viewerCanUnresolve: false,
           viewerCanReply: true,
-          comments: { nodes: [{ id: "RC_1", databaseId: 101, author: { login: "bob" }, body: "Why 3?", createdAt: "2026-10-30T09:40:00Z", url: `https://github.com/${repo}/pull/${o.number}#discussion_r101` }] },
+          hunk: { nodes: [{ diffHunk: FAKE_HUNK }] },
+          comments: {
+            totalCount: 1,
+            nodes: [{ id: "RC_1", databaseId: 101, author: { login: "bob" }, body: "Why 3?", createdAt: "2026-10-30T09:40:00Z", url: `https://github.com/${repo}/pull/${o.number}#discussion_r101`, pullRequestReview: { id: "PRR_single" } }],
+          },
         },
       ],
     },
@@ -304,6 +338,7 @@ export function installFakeGithub(opts: { enabled?: boolean; token?: string | nu
       }
       if (query.includes("pullRequest(")) {
         const pr = fake.prs.get(`${vars.owner}/${vars.name}#${vars.number}`) ?? null;
+        if (pr && vars.threadsAfter) return { json: { data: { repository: { pullRequest: { reviewThreads: (pr.morethreads as Raw) ?? { nodes: [] } } } } } };
         if (pr && vars.after) return { json: { data: { repository: { pullRequest: { files: (pr.morefiles as Raw) ?? { nodes: [] } } } } } };
         return { json: { data: { repository: { pullRequest: pr } } } };
       }

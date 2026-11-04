@@ -176,6 +176,8 @@ export type ReviewComment = {
   html?: string;
   createdAt: string;
   url: string;
+  /** The review it was left in (GitHub's node id): a thread's first comment's is the review that started it. */
+  reviewId?: string;
 };
 
 /** A review comment thread on a line (or lines) of a file. */
@@ -186,8 +188,17 @@ export type ReviewThread = {
   line: number | null;
   /** Where a multi-line comment starts. */
   startLine: number | null;
+  /** The line (and start) it was left on, in the diff of its commit: what an outdated thread shows. */
+  originalLine?: number | null;
+  originalStartLine?: number | null;
+  /** On the whole file, not a line. */
+  onFile?: boolean;
   /** RIGHT is the new file, LEFT the old. */
   side: "LEFT" | "RIGHT";
+  /** The diff around its line when it was left (its first comment's `diffHunk`, its last lines only), a hunk header first. */
+  diffHunk?: string;
+  /** How many comments it has, when more than `comments` holds (GitHub's are paged). */
+  totalComments?: number;
   isResolved: boolean;
   isOutdated: boolean;
   canResolve: boolean;
@@ -237,6 +248,8 @@ export type PrDetail = PrRow & {
   files: PrFile[];
   timeline: TimelineEntry[];
   threads: ReviewThread[];
+  /** How many threads the PR has, when more than `threads` holds (at most `MAX_THREADS` are read). */
+  threadsTotal?: number;
   commits: PrCommit[];
   /** Its head's check runs and statuses (`checks` is their rollup). */
   checkRuns: PrCheck[];
