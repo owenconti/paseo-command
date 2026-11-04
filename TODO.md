@@ -5,6 +5,11 @@ mark it done with its commit once merged into `main`.
 
 ## Open
 
+- [ ] **Settings → Terminal: line height is a number field.** Line height is a 1.0–1.6 control; make it a number input
+  taking any value the user types (decimals, step 0.05 for the arrows), applied live as now. Only refuse what can't work
+  (empty, not a number, zero or negative; and whatever SwiftTerm's `lineSpacing` can't take, said plainly beside the field),
+  without clamping to 1.0–1.6 in the page or the app (`TerminalFont.swift`'s clamp widened accordingly). Keep Restore
+  defaults. Update tests. Workspace: `terminal-line-height-input`.
 ## Done
 
 - [x] **Terminal: font settings, and icon (Nerd Font) glyphs that render.** The terminal panel and the Files editor (both
