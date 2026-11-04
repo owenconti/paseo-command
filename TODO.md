@@ -5,6 +5,17 @@ mark it done with its commit once merged into `main`.
 
 ## Open
 
+- [ ] **Map: it freezes, still answering input but no longer updating or animating.** Now and then, with no pattern the
+  user can see, the Atlas map stops changing: agents' states and new workspaces don't update, and the water and state borders
+  stop moving, while panning, hover and clicks still work. Suspects: the on-demand renderer's scheduler (30 fps ambient, full
+  rate while handled, paused when nothing moves or hidden) getting stuck paused, e.g. a missed un-pause after occlusion, sleep,
+  a mode switch, a display change or a thrown error in the frame loop; the page's world snapshot stream (fleet socket/events)
+  dropping without reconnecting, so `NativeWorld.tsx` stops posting to Swift; or the bridge (`rendering/src/native/bridge.ts`)
+  throwing and stopping its posts. Read the user's logs read-only (the Dev and release apps' `logs/server.log`, the unified log
+  for the app's process), add the diagnostics that would show which (last frame time, last snapshot time, last post, scheduler
+  state in `--info` and the log), reproduce in a throwaway build against `fake-server.ts` (sleep/wake, occlusion, long idle,
+  mode switches, dropped sockets), and fix the cause so updates and ambient motion always resume; add a watchdog that restarts
+  the loop or reconnects if they stall. Native and e2e tests. Workspace: `fix-map-freeze`.
 ## Done
 
 - [x] **Settings → Terminal: line height is a number field.** Line height is a 1.0–1.6 control; make it a number input
