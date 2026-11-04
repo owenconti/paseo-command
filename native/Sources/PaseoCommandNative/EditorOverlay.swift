@@ -203,6 +203,7 @@ final class EditorOverlay: EditorStage {
             "sessions": sessions.mapValues { ["ended": $0.ended, "reason": $0.endReason as Any? ?? NSNull()] },
             "asking": closeAlert.map { [$0.messageText, $0.informativeText] } as Any? ?? NSNull(),
             "text": text,
+            "queries": shown.flatMap { sessions[$0]?.answers.json } as Any? ?? NSNull(),
             "screen": shown.flatMap { sessions[$0] }.map { String(decoding: $0.view.getBufferAsData(), as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines) } ?? "",
             "fontSize": Double(font.size),
             "font": font.json,

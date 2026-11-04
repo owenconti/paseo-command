@@ -112,6 +112,11 @@ web/node_modules/.bin/tsx --import ./web/server/test-setup.ts native/scripts/fak
 npm run native:run -- --url 'http://127.0.0.1:4332/?agent=a-1' --no-server
 ```
 
+Its terminal replays queries, `queries` asks them live and `nvim`, then `:q`, asks DA1 and XTVERSION as it quits; the fake
+echoes ESC as `^[`, so an answer typed into the shell shows. `PASEO_TERMINAL_TRACE=/tmp/trace.jsonl` before the server logs
+each frame both ways, timed (replay frames marked, dropped answers too); `--info`'s terminal `queries` counts what the app
+took out, answered and dropped (`TerminalQueries.swift`).
+
 ## Conquer
 
 The strip across the top switches the map's place between the map, Conquer, Activity, GitHub, Files and Settings (Activity and GitHub only while enabled; View → Show Files, ⇧⌘E, shows Files from anywhere; a GitHub pull request's link opens in the GitHub tab, and a Linear issue's in Linear's desktop app when it's installed (`LinearLink.swift`), else in Conquer; ⌘` steps through them in turn; Activity's tab shows its unread count); Conquer is a tabbed browser with its own persistent

@@ -26,6 +26,9 @@ final class TerminalSession: NSObject, TerminalViewDelegate, URLSessionWebSocket
     var onEnd: ((String) -> Void)?
     /// The last few kilobytes received, as text (for checks).
     private(set) var recent = ""
+    /// The terminal's queries and SwiftTerm's answers: none to a replay's, none
+    /// the daemon gives itself, none for a program that has finished (`TerminalQueries.swift`).
+    private(set) var answers = TerminalAnswers()
 
     init(id: String, name: String, server: URL, host: String, font: TerminalFontSettings) {
         self.id = id
@@ -66,8 +69,17 @@ final class TerminalSession: NSObject, TerminalViewDelegate, URLSessionWebSocket
             guard let self else { return }
             switch result {
             case .success(.data(let data)):
-                self.view.feed(byteArray: ArraySlice([UInt8](data)))
-                self.recent = String((self.recent + String(decoding: data, as: UTF8.self)).suffix(4096))
+                let bytes = self.answers.received([UInt8](data))
+                self.view.feed(byteArray: bytes[...])
+                self.recent = String((self.recent + String(decoding: bytes, as: UTF8.self)).suffix(4096))
+                self.receive()
+            case .success(.string(let text)):
+                // The relay marks its replay of the screen: `replay` before it, `live` after.
+                switch (try? JSONSerialization.jsonObject(with: Data(text.utf8)) as? [String: Any])?["type"] as? String {
+                case "replay": self.answers.beginReplay()
+                case "live": self.answers.replaying = false
+                default: break
+                }
                 self.receive()
             case .success:
                 self.receive()
@@ -107,7 +119,12 @@ final class TerminalSession: NSObject, TerminalViewDelegate, URLSessionWebSocket
     // MARK: TerminalViewDelegate
 
     func send(source: TerminalView, data: ArraySlice<UInt8>) {
-        send(["type": "input", "data": String(decoding: data, as: UTF8.self)])
+        let text = String(decoding: data, as: UTF8.self)
+        switch answers.sent(data) {
+        case .key: send(["type": "input", "data": text])
+        case .reply(let frame): send(["type": "input", "data": text, "reply": frame])
+        case .drop: break
+        }
     }
     func sizeChanged(source: TerminalView, newCols: Int, newRows: Int) {
         size = (newCols, newRows)
@@ -1036,6 +1053,7 @@ final class TerminalDrawer: NSView {
             "current": current as Any? ?? NSNull(),
             "panes": layout?.text ?? "",
             "text": text,
+            "queries": current.flatMap { sessions[$0]?.answers.json } as Any? ?? NSNull(),
             "open": !isHidden,
             "keyFocus": hasKeyFocus,
             "dock": dock.rawValue,

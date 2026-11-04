@@ -32,13 +32,19 @@ async function attach(terminalId: string, host = "") {
   });
   let received = "";
   let closed: string | null = null;
-  ws.on("message", (data, binary) => binary && (received += Buffer.from(data as Buffer).toString("utf8")));
+  // Every frame in order: binary ones as their text, text ones (the relay's marks) as `{type}`.
+  const frames: string[] = [];
+  ws.on("message", (data, binary) => {
+    const text = Buffer.from(data as Buffer).toString("utf8");
+    frames.push(binary ? text : `{${JSON.parse(text).type}}`);
+    if (binary) received += text;
+  });
   ws.on("close", (_code, reason) => (closed = String(reason)));
   await new Promise((resolve, reject) => {
     ws.once("open", resolve);
     ws.once("error", reject);
   });
-  return { ws, text: () => received, closed: () => closed };
+  return { ws, text: () => received, closed: () => closed, frames };
 }
 
 test("a workspace's terminals: listed, created in its folder, ended", async () => {
@@ -88,6 +94,34 @@ test("the relay replays the screen, then carries output, keys and resizes", asyn
   await post("terminals/kill", { id: terminalId });
   await until(() => t.closed() !== null, 3000, "the socket to close");
   assert.equal(local.terminals.get(terminalId), undefined);
+});
+
+test("the relay marks its replay, and drops an answer to a query from a program that has since finished", async () => {
+  const { data } = await post("terminals/create", { workspace: "wks_app" });
+  const terminalId = data.terminal.id;
+  local.print(terminalId, "old\x1b[c\r\n$ ");
+  const t = await attach(terminalId);
+  await until(() => t.frames.includes("{live}"), 3000, "the replay");
+  // The replay alone sits between the marks: frame 0.
+  assert.deepEqual(t.frames.slice(0, 3), ["{replay}", "$ old\x1b[c\r\n$ ", "{live}"]);
+  const input = () => local.terminals.get(terminalId)!.input.filter((m) => m.type === "input").map((m) => m.data);
+  // nvim asks and quits (frame 1), the shell's prompt marks follow (frame 2): an answer naming frame 1 is dropped.
+  t.ws.send(JSON.stringify({ type: "input", data: "nvim\r" }));
+  await until(() => t.text().includes("[nvim]"), 3000, "the fake nvim");
+  t.ws.send(JSON.stringify({ type: "input", data: ":q\r" }));
+  await until(() => t.text().includes("\x1b]633;A\x07$ "), 3000, "the prompt after it");
+  const asked = t.frames.filter((f) => !f.startsWith("{")).findIndex((f) => f.includes("\x1b[>q"));
+  t.ws.send(JSON.stringify({ type: "input", data: "\x1b[>0;276;0c", reply: asked }));
+  // An answer to a query after the prompt goes, as keys do.
+  t.ws.send(JSON.stringify({ type: "input", data: "queries\r" }));
+  await until(() => input().includes("queries\r"), 3000, "the keys");
+  const later = t.frames.filter((f) => !f.startsWith("{")).length - 1;
+  t.ws.send(JSON.stringify({ type: "input", data: "\x1bP>|SwiftTerm\x1b\\", reply: later }));
+  await until(() => input().some((d) => d.startsWith("\x1bP>|")), 3000, "the live answer");
+  assert.deepEqual(input(), ["nvim\r", ":q\r", "queries\r", "\x1bP>|SwiftTerm\x1b\\"]);
+  // Echoed with ESC as "^[", as a tty does.
+  await until(() => t.text().includes("^[P>|SwiftTerm"), 3000, "the echo");
+  await post("terminals/kill", { id: terminalId });
 });
 
 test("an editor terminal: Settings → Files' command on the file, in the workspace, quoted", async () => {

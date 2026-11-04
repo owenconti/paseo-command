@@ -13,13 +13,20 @@
  *   Files page's reads check theirs, and quoted.
  * - `POST /api/terminals/kill` `{ id, host? }`: end one.
  * - `GET /api/terminal?id=<terminalId>[&host=…]` (upgrade): one terminal's
- *   bytes as binary frames, its recent screen first; text frames back are
- *   `{ type: "input", data }` or `{ type: "resize", rows, cols }`.
+ *   bytes as binary frames, its recent screen first, between text frames
+ *   `{ type: "replay" }` and `{ type: "live" }` (the app answers no query in it);
+ *   text frames back are `{ type: "input", data, reply? }` or `{ type: "resize", rows, cols }`.
+ *   `reply` marks the app's answer to a query, naming the binary frame (from 0) the
+ *   query came in: it is dropped if a shell-integration prompt mark (`OSC 633;A|D`,
+ *   `OSC 133;A|D`) has gone out in a later frame, as the program that asked has
+ *   finished and the shell would take the answer for typing.
+ *   `PASEO_TERMINAL_TRACE=<file>` appends each frame either way, timed, as JSON lines (checks).
  *
  * Only a workspace the fleet lists is opened; the folder comes from its row,
  * never from the request.
  */
 import type { IncomingMessage } from "node:http";
+import { appendFileSync } from "node:fs";
 import type { Duplex } from "node:stream";
 import { WebSocketServer, type WebSocket } from "ws";
 import { editorLaunch, filesSettings } from "../../src/files/editorCommand";
@@ -113,6 +120,22 @@ export async function killTerminal(body: Body) {
 // ── The relay ───────────────────────────────────────────────────────────────
 const sockets = new WebSocketServer({ noServer: true, maxPayload: 256 * 1024 });
 
+/** A shell-integration mark that the command before it has finished (Paseo's zsh integration writes `633`). */
+const PROMPT_MARK = /\x1b\](?:633|133);[AD]/;
+
+/** With `PASEO_TERMINAL_TRACE` set, a terminal's frames each way, appended to that file as timed JSON lines. */
+function traceTo(terminalId: string) {
+  const file = process.env.PASEO_TERMINAL_TRACE;
+  if (!file) return undefined;
+  return (entry: Record<string, unknown>) => {
+    try {
+      appendFileSync(file, JSON.stringify({ t: Date.now(), terminal: terminalId, ...entry }) + "\n");
+    } catch {
+      /* A trace that can't be written changes nothing. */
+    }
+  };
+}
+
 type Cell = {
   char: string;
   fg?: number;
@@ -196,11 +219,28 @@ async function relay(ws: WebSocket, url: URL) {
   } catch (error) {
     return close(1011, error instanceof Error ? error.message : "Unavailable");
   }
-  const send = (bytes: Uint8Array) => ws.readyState === ws.OPEN && ws.send(bytes, { binary: true });
+  // Binary frames sent, and the last one carrying a prompt mark.
+  let frames = 0;
+  let prompted = -1;
+  const trace = traceTo(terminalId);
+  const send = (bytes: Uint8Array, replay = false) => {
+    if (ws.readyState !== ws.OPEN) return;
+    if (PROMPT_MARK.test(Buffer.from(bytes).toString("latin1"))) prompted = frames;
+    trace?.({ dir: "out", frame: frames, replay, data: Buffer.from(bytes).toString("utf8") });
+    frames += 1;
+    ws.send(bytes, { binary: true });
+  };
+  const replay = (bytes: Uint8Array) => {
+    if (ws.readyState !== ws.OPEN) return;
+    ws.send(JSON.stringify({ type: "replay" }));
+    send(bytes, true);
+    ws.send(JSON.stringify({ type: "live" }));
+  };
   const observation = client.observeTerminal(
     terminalId,
     (event) => {
-      if (event.type === "snapshot") send(snapshotBytes(event.state as Snapshot));
+      if (event.type === "snapshot") replay(snapshotBytes(event.state as Snapshot));
+      else if (event.type === "restore") replay(event.data);
       else send(event.data);
     },
     { restore: { mode: "full-snapshot", scrollbackLines: 5000 } },
@@ -217,14 +257,17 @@ async function relay(ws: WebSocket, url: URL) {
   });
   ws.on("message", (raw, binary) => {
     if (binary) return;
-    let message: { type?: unknown; data?: unknown; rows?: unknown; cols?: unknown };
+    let message: { type?: unknown; data?: unknown; rows?: unknown; cols?: unknown; reply?: unknown };
     try {
       message = JSON.parse(String(raw));
     } catch {
       return;
     }
-    if (message.type === "input" && typeof message.data === "string" && message.data.length <= 64 * 1024)
-      client.sendTerminalInput(terminalId, { type: "input", data: message.data });
+    if (message.type === "input" && typeof message.data === "string" && message.data.length <= 64 * 1024) {
+      const stale = typeof message.reply === "number" && prompted > message.reply;
+      trace?.({ dir: "in", data: message.data, ...(typeof message.reply === "number" ? { reply: message.reply } : {}), ...(stale ? { dropped: true } : {}) });
+      if (!stale) client.sendTerminalInput(terminalId, { type: "input", data: message.data });
+    }
     else if (message.type === "resize") {
       const s = size(message as Body);
       if (s) client.sendTerminalInput(terminalId, { type: "resize", ...s });

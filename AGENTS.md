@@ -213,8 +213,17 @@ and GitHub publication; report the published version and release link.
   Settings → Terminal sets them through `terminalFont` (`set`), and the app answers it, and ⌘+/⌘−/⌘0, with `paseo:terminal-font`
   (the values, defaults, ranges and, when asked, the installed monospaced families; `web/src/terminalFont.ts`); every open terminal follows at once.
   It talks to `web/server/api/terminals.ts`: `GET /api/terminals`, `POST /api/terminals/create|kill`, and the
-  `/api/terminal` socket relaying a terminal's bytes (screen replay first) and its keys and size.
-  `native/scripts/fake-server.ts` runs the real server against a fake daemon (with terminals) for checks.
+  `/api/terminal` socket relaying a terminal's bytes (screen replay first, between `{type:"replay"}` and `{type:"live"}` text frames) and its keys and size.
+  Terminal queries (`TerminalQueries.swift`, the panel's and the Files editor's `TerminalSession`): the daemon's own headless terminal
+  already answers DA1, `CSI 5n`/`6n`/`?6n`, `OSC 10/11/12;?` and kitty's `CSI ?u` at the pty, so `TerminalQueryFilter` takes those out
+  of the bytes before SwiftTerm sees them (its second answer arrived a round trip late: nvim asks DA1 as it quits and leaves on the
+  daemon's, and SwiftTerm's `?65;…c` was typed at the shell's prompt); in a replay it takes out every query (DA2/DA3, DSRs, DECRQM,
+  XTVERSION, window reports, OSC 4/10–19/52, XTGETTCAP, DECRQSS too). SwiftTerm answers the rest live, each answer sent as
+  `{type:"input", data, reply: <frame>}` (`TerminalAnswers`, matched to the oldest query waiting); it, or the relay, drops one whose
+  query came before a shell-integration prompt mark (`OSC 633;A|D`, `133;A|D`: the program finished). `PASEO_TERMINAL_TRACE=<file>`
+  makes the relay log each frame both ways, timed, as JSON lines. Tests: `native/tests/TerminalQueriesTests.swift`, `terminals.test.ts`.
+  `native/scripts/fake-server.ts` runs the real server against a fake daemon (with terminals) for checks: its terminal replays queries,
+  `queries` asks them live, and `nvim` then `:q` asks DA1 and XTVERSION as it quits (the fake echoes ESC as `^[`, so a leaked answer shows).
 - `web/src/AddProject.tsx`: the Projects tab's Add project panel. On a chosen host, browse its folders
   (`GET /api/folders`, folder names only) and register the open folder, make a new folder in it, or clone a
   pasted GitHub repo into it (`web/server/api/projects.ts`); New agent then opens on the new project.

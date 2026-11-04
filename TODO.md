@@ -5,7 +5,9 @@ mark it done with its commit once merged into `main`.
 
 ## Open
 
-- [ ] **Terminal: device-attribute replies leak into the shell after quitting nvim.** After `:q` in nvim in the terminal
+## Done
+
+- [x] **Terminal: device-attribute replies leak into the shell after quitting nvim.** After `:q` in nvim in the terminal
   panel, `/65;4;1;2;6;21;22;17;28c` appears at the prompt as if typed: SwiftTerm's answer to a Primary Device Attributes
   query (`ESC[c` → `ESC[?65;4;1;2;6;21;22;17;28c`) reaching the shell instead of nvim (its `ESC[?` eaten). Likely causes:
   the answer arriving after nvim has exited because of the relay's round trip (daemon terminal → `/api/terminal` socket →
@@ -16,7 +18,14 @@ mark it done with its commit once merged into `main`.
   DSR/cursor position, OSC 10/11 colour queries, XTVERSION, DECRQM). Applies to the terminal panel and the Files editor.
   Tests: native checks feeding a replay containing `ESC[c`/`ESC[6n` and asserting nothing is sent back; a check run with
   the fake daemon. Workspace: `fix-terminal-query-replies`.
-## Done
+  Done: not the replay (the daemon's is an xterm SerializeAddon screen, with no queries), but a second, late answer: the
+  daemon's own headless terminal answers DA1, `CSI 5n/6n/?6n`, `OSC 10/11/12;?` and kitty's `CSI ?u` at the pty, and SwiftTerm
+  answered them again a round trip later. nvim 0.12 asks DA1 as it quits and waits up to a second for it (measured in a pty:
+  12 ms with an answer, 1 s without); it leaves on the daemon's, and SwiftTerm's reached zsh. `TerminalQueries.swift` takes
+  the daemon's queries out of what SwiftTerm is fed, and every query out of a replay (now marked by the relay); SwiftTerm's
+  other answers name their query's frame and are dropped, by the app or the relay, once a shell-integration prompt mark
+  followed it. A check run against the fake daemon (with `PASEO_TERMINAL_TRACE`): the replay's 5 queries unanswered, nvim's
+  DA1 gone and its XTVERSION answer dropped 7 ms after the prompt, live DA2/XTVERSION answered in about 9 ms.
 
 - [x] **Map: it freezes, still answering input but no longer updating or animating.** Now and then, with no pattern the
   user can see, the Atlas map stops changing: agents' states and new workspaces don't update, and the water and state borders

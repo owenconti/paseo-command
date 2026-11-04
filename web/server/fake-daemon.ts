@@ -153,6 +153,8 @@ export class FakeDaemon {
       /** What it runs, when not a shell (`createTerminal`'s `command` and `args`). */
       command?: string;
       args?: string[];
+      /** A shell running `nvim` (the fake's), until its `:q`. */
+      editing?: boolean;
     }
   >();
   /** A terminal's program ends on its own (an editor's `:q`): watchers see it exit. */
@@ -1251,9 +1253,30 @@ export class FakeClient {
     const t = this.daemon.terminals.get(terminalId);
     if (!t) return;
     t.input.push(message);
-    if (message.type === "input") this.daemon.print(terminalId, message.data);
-    // A fake editor quits on ":q", as vi does.
-    if (t.command && message.type === "input" && String(message.data).endsWith(":q\r")) this.daemon.exit(terminalId);
+    if (message.type !== "input") return;
+    const data = String(message.data);
+    // Echoed with ESC as "^[", as a tty's echoctl does: an answer typed into the shell shows on its line.
+    this.daemon.print(terminalId, data.replace(/\x1b/g, "^["));
+    // A fake editor quits on ":q", as vi does, asking DA1 as nvim does then (the real daemon answers that itself).
+    if (t.command && data.endsWith(":q\r")) {
+      this.daemon.print(terminalId, "\x1b[c");
+      this.daemon.exit(terminalId);
+      return;
+    }
+    if (t.command) return;
+    // The shell's fake nvim: as it quits it asks DA1 and XTVERSION, then the shell's prompt follows with
+    // Paseo's zsh integration marks (command finished, prompt).
+    if (data.endsWith("nvim\r")) {
+      t.editing = true;
+      this.daemon.print(terminalId, "\x1b[?1049h[nvim]");
+    } else if (t.editing && data.endsWith(":q\r")) {
+      t.editing = false;
+      this.daemon.print(terminalId, "\x1b[c\x1b[>q\x1b[?1049l");
+      this.daemon.print(terminalId, "\x1b]633;D;0\x07\x1b]633;A\x07$ ");
+    } else if (data.endsWith("queries\r")) {
+      // Live queries: DA1, cursor position and the background colour (the daemon's to answer), DA2 and XTVERSION (the app's).
+      this.daemon.print(terminalId, "\x1b[c\x1b[6n\x1b]11;?\x07\x1b[>c\x1b[>q\r\n$ ");
+    }
   }
   /** The terminal's screen so far (as a restore), then its output live. */
   observeTerminal(terminalId: string, receive: (event: any) => void, options: any = {}) {

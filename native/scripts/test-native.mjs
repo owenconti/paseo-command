@@ -21,8 +21,9 @@ const native = fileURLToPath(new URL('..', import.meta.url));
 const built = join(native, '.build/release');
 if (!existsSync(join(built, 'SwiftTerm.o'))) execFileSync('swift', ['build', '-c', 'release'], { cwd: native, stdio: 'inherit' });
 const compiled = {
-  TerminalFont: { sources: ['Log', 'AppFlavor', 'Geometry', 'Textures', 'NativeTheme', 'ChromeControls', 'TerminalFont', 'TerminalDrawer', 'EditorEmbed', 'EditorOverlay'],
+  TerminalFont: { sources: ['Log', 'AppFlavor', 'Geometry', 'Textures', 'NativeTheme', 'ChromeControls', 'TerminalFont', 'TerminalQueries', 'TerminalDrawer', 'EditorEmbed', 'EditorOverlay'],
     args: [join(native, 'fonts/SymbolsNerdFontMono-Regular.ttf')] },
+  TerminalQueries: { sources: ['TerminalQueries'], args: [] },
 };
 for (const [name, { sources, args }] of Object.entries(compiled)) {
   const dir = mkdtempSync(join(tmpdir(), `paseo-native-${name}-`));

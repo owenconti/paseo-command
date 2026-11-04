@@ -83,7 +83,9 @@ local.terminals.set("term-pre", {
   name: "Terminal 1",
   cwd: "/home/review/atlas",
   workspaceId: "wks_main",
-  printed: "\x1b[1;32mreview@atlas\x1b[0m:\x1b[34m~/atlas\x1b[0m$ npm test\r\n\x1b[32m✔\x1b[0m 41 passing\r\n\uf115 src  \ue7a8 main.rs  \ue718 app.js  \u{f0219} notes  \ue0a0 main  漢 😀\r\n\x1b[1;32mreview@atlas\x1b[0m:\x1b[34m~/atlas\x1b[0m$ ",
+  // Queries in what it replays (DA1, cursor position, background colour, DA2, XTVERSION), answered long ago:
+  // the app answers none of them again. Typing `queries` asks them live; `nvim`, then `:q`, asks as it quits.
+  printed: "\x1b[1;32mreview@atlas\x1b[0m:\x1b[34m~/atlas\x1b[0m$ npm test\r\n\x1b[32m✔\x1b[0m 41 passing\r\n\uf115 src  \ue7a8 main.rs  \ue718 app.js  \u{f0219} notes  \ue0a0 main  漢 😀\r\n\x1b[c\x1b[6n\x1b]11;?\x07\x1b[>c\x1b[>q\x1b[1;32mreview@atlas\x1b[0m:\x1b[34m~/atlas\x1b[0m$ ",
   input: [],
   watchers: new Set(),
 });
