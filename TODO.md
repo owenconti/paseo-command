@@ -5,6 +5,14 @@ mark it done with its commit once merged into `main`.
 
 ## Open
 
+- [ ] **Diff view: a Comments list beside the files.** In the diff view (`DiffView.tsx`: a PR's Files changed and a
+  workspace's Changes), the sidebar gets a Files / Comments switch. Comments lists every review thread (on a PR: GitHub's
+  threads and your pending review drafts; on Changes: the workspace's pending comments), grouped by file in the diff's
+  order, each with its line(s), author and avatar, the first lines of the first comment, the reply count and its state
+  (resolved and outdated dimmed, a "Show resolved" toggle; drafts marked). Clicking one scrolls the diff to it (unfolding
+  the file, opening the thread) and highlights it; the list follows the thread in view. The file list shows each file's
+  comment count. Keys to step through comments (e.g. ] / [ or N / ⇧N if free), a key to switch Files/Comments, ⌘K entries
+  and the shortcuts dialog. Kept per diff kind. Tests: e2e on a mocked PR and Changes. Workspace: `diff-comments-list`.
 ## Done
 
 - [x] **Flaky native test: "a stopped display link draws nothing".** `npm run native:test` failed once during the v0.15.0
