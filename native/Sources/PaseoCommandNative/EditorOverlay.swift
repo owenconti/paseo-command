@@ -3,7 +3,7 @@ import SwiftTerm
 
 /// The Files page's editor terminals (Settings → Files → Open files in an editor command): each file tab
 /// that opened in the editor has a daemon terminal running the user's editor on it (`POST
-/// /api/terminals/editor`), and the shown tab's is drawn here, by SwiftTerm as the terminal panel's are
+/// /api/terminals/editor`), and the shown tab's is drawn here, by SwiftTerm as the Terminal tab's are
 /// (`TerminalSession`), laid exactly over the page's viewer (`EditorStage`). The page owns the tabs: it says
 /// which terminal shows where (`editor`), asks for the keyboard (`editorFocus`) and asks to close tabs
 /// (`editorClose`, confirmed here while their editors run). Each terminal keeps its session while its tab
@@ -44,13 +44,13 @@ final class EditorOverlay: EditorStage {
         }
     }
 
-    /// Dark or light with the app (the terminal panel's tones).
+    /// Dark or light with the app (the Terminal tab's tones).
     func restyle(_ appearance: NSAppearance) {
         layer?.backgroundColor = Ink.color(Ink.pane, appearance).cgColor
         for s in sessions.values { s.restyle(appearance) }
     }
 
-    /// The terminal panel's font (Settings → Terminal; ⌘+ / ⌘− / ⌘0 its size), the same for both.
+    /// The Terminal tab's font (Settings → Terminal; ⌘+ / ⌘− / ⌘0 its size), the same for both.
     func setFont(_ next: TerminalFontSettings) {
         font = next
         for s in sessions.values { s.apply(next) }

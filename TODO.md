@@ -5,7 +5,9 @@ mark it done with its commit once merged into `main`.
 
 ## Open
 
-- [ ] **Terminal: only the Terminal tab; remove the side/bottom terminal panel.** The user wants no separate terminal panel:
+## Done
+
+- [x] **Terminal: only the Terminal tab; remove the side/bottom terminal panel.** The user wants no separate terminal panel:
   terminals live only in the Terminal tab (added in d00b211). Remove the panel: its show/hide (View → Terminal, ⌃`), dock
   side and Terminal at Bottom, Maximize Terminal (⇧⌘↩), its resize edge and the panel-moving code between panel and tab; the
   tab owns the sessions, tabs, splits, + / × and font outright. ⌃` now opens the Terminal tab (and from it goes back to
@@ -14,7 +16,14 @@ mark it done with its commit once merged into `main`.
   opens the Terminal tab instead. The Files editor's terminals are unchanged. Old saved panel state (`terminalOpen`, dock,
   size, maximized) is ignored. Update ⌘K, the shortcuts dialog, View menu, CLAUDE.md, native/README and native tests.
   Workspace: `terminal-tab-only`.
-## Done
+  Done: the panel is gone (its dock, Terminal at Bottom, Maximize Terminal ⇧⌘↩, resize edge, the window's split and the
+  panel↔tab moving; `content` now spans the window below the bar). `TerminalDrawer` is the tab's view, shown only in it.
+  ⌃` (View → Show Terminal, "Back from Terminal" in the tab) opens the tab from anywhere and goes back from it; ⌃⇧` went
+  (one key is enough now that ⌃` is free). ⌘K: "Show terminal" (⌃`, ⌘3) or, in the tab, "Leave the terminal tab";
+  "Unsplit terminals" only in the tab; the dock and maximize entries removed. There was no workspace-view terminal button
+  or bar tool. Hidden, the tab polls nothing; switching back to a workspace now keeps its splits (the empty list before
+  its refresh had pruned them). Old `terminalOpen`/`terminalDock`/size preferences are ignored. Tests:
+  `TerminalTabTests.swift`, `AppKeysTests.swift`, palette and shortcuts e2e; a check run against the fake daemon.
 
 - [x] **A Terminal tab in the mode bar.** Add Terminal as a mode tab (Command, Files, Terminal, GitHub, Conquer, Activity),
   showing the selected workspace's (or agent's) daemon terminals full size in the map's place: the terminal panel's tabs,

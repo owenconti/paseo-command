@@ -35,7 +35,7 @@ connections from Paseo's daemon.
 - Press **⌘K** to find actions in the command palette, including terminal controls,
   navigation and settings.
 
-Alongside the map and conversations, the app includes a native terminal panel,
+Alongside the map and conversations, the app includes a native Terminal tab,
 pull request status, an Activity feed of GitHub and Linear notifications, a GitHub view
 and the experimental **Conquer** browser.
 The map requires the macOS app; conversations and panels also work in a regular browser.

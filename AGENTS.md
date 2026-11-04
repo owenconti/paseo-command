@@ -196,20 +196,19 @@ and GitHub publication; report the published version and release link.
 - `rendering/src/native/bridge.ts`: inside the native app, the Atlas world `mountAtlas` returns: it lays out and paints
   with the shared modules (`placement.ts`, `art.ts`, `terrain.ts`) and posts the result to Swift (`native/Sources/`),
   which draws, animates and owns camera, hover and picking under a transparent page.
-- `native/Sources/PaseoCommandNative/TerminalDrawer.swift`: the macOS app's terminal panel on the right or docked at the bottom (View → Terminal, ⌃`; Terminal at Bottom or
-  the panel's dock button moves it; its inner edge resizes it; ⌘+ / ⌘− / ⌘0 size its text; Maximize Terminal, ⇧⌘↩ or its button, lays it over the
-  map only, the page's panels staying in view): tabs for the selected workspace's (or agent's) daemon terminals, drawn by SwiftTerm. Opening the panel
-  starts a terminal if the workspace has none; + opens another; a tab's × ends it. Tabs drag onto a pane's edge to split it (`PaneLayout`), or its middle to replace it;
-  the unsplit button (View → Unsplit Terminals) or dropping a pane's tab on the tab bar undoes splits.
-  The Terminal tab (the mode bar's, after Files; `Mode.terminal`; View → Terminal Tab, ⌘3 by its place, ⌃⇧` from anywhere, `AppKeys.showsTerminalTab`,
-  taken by the window ahead of its views; ⌘K "Show terminal", page Terminal, `terminal-tab`) shows the same terminals full size in the map's place, laid as
-  Conquer is (`placeTerminalTab`, over `mapInContent`; ⌘B gives it the window's width: the window hands ⌘B to the page while the panel's terminal has
-  the keyboard, `AppKeys.togglesPanel`). One set of sessions (a SwiftTerm view shows in one place): `enterTerminalTab` moves the drawer view itself out of
-  the split (or off the map, maximized) into the map's place, `inTab` hiding its dock and maximize buttons, and records `TerminalPanelState`;
-  `leaveTerminalTab` puts it back as it was (closed, docked at its side and size, or maximized), its tabs, splits and current tab unchanged. Opening
-  the tab starts a terminal if the workspace has none. In the tab Maximize and Terminal at Bottom are disabled (and out of ⌘K), and ⌃` goes back to
-  the side before it; a launch's saved open panel is kept for when it leaves. Editor terminals stay out of it. `--info`'s `terminalPlace` says where the
-  view is; hook `terminaltab`. Tests: `native/tests/TerminalTabTests.swift`, `AppKeysTests.swift`.
+- `native/Sources/PaseoCommandNative/TerminalDrawer.swift`: the Terminal tab, the macOS app's only terminals (the Files editor's aside; there is no side or
+  bottom terminal panel: the user removed it). The mode bar's tab after Files (`Mode.terminal`; ⌘3 by its place, ⌘` steps through it; View → Terminal
+  and View → Show Terminal, ⌃`, from anywhere, which in the tab goes back to the side before it (`toggleTerminal`, its title then Back from Terminal);
+  ⌘K "Show terminal" (`terminal-tab`) or, in the tab, "Leave the terminal tab" (`terminal`), page Terminal; ⌃⇧` is no longer a key) shows the selected
+  workspace's (or agent's) daemon terminals full size in the map's place, laid as Conquer is (`placeTerminalTab`, over `mapInContent`; ⌘B gives it the
+  window's width: the window hands ⌘B to the page while its terminal has the keyboard, `AppKeys.togglesPanel`, `tabTerminalHasKeys`). It owns the
+  sessions, tabs, splits, + / × and font: drawn by SwiftTerm; opening the tab starts a terminal if the workspace has none (`enterTerminalTab`); + opens
+  another; a tab's × ends it. Tabs drag onto a pane's edge to split it (`PaneLayout`), or its middle to replace it; the unsplit button (View → Unsplit
+  Terminals, ⌘K "Unsplit terminals", only in the tab) or dropping a pane's tab on the tab bar undoes splits. Hidden (another tab shows,
+  `leaveTerminalTab`) it keeps its tabs, splits and current tab, asks the daemon nothing and starts nothing; each workspace keeps its panes. The old
+  panel's saved state (`terminalOpen`, `terminalDock`, `terminalWidth|Height`) is ignored. Editor terminals stay out of it. `--info`'s `terminal` is its
+  state and `terminalPlace` where its view is (`map` or `hidden`); hooks `terminal` (⌃`), `terminaltab`, `split`, `unsplit`, `newterminal`, `zoom`, `type`.
+  Tests: `native/tests/TerminalTabTests.swift`, `AppKeysTests.swift`.
   Its font, and the Files editor's (`TerminalFont.swift`): `TerminalFontSettings` (family, "" the system monospace; size, the ⌘+/⌘− value;
   line height above 0 up to 100, SwiftTerm's `lineSpacing`, which takes any positive value but keeps a cell within 1…8,192 pt (100× at 32 pt
   stays under it); the app refuses others, and an unusable kept one reads as 1; letter spacing −1…4 pt, a fixed advance on the font, as SwiftTerm sizes cells by "W"),
@@ -223,7 +222,7 @@ and GitHub publication; report the published version and release link.
   (the values, defaults, ranges and, when asked, the installed monospaced families; `web/src/terminalFont.ts`); every open terminal follows at once.
   It talks to `web/server/api/terminals.ts`: `GET /api/terminals`, `POST /api/terminals/create|kill`, and the
   `/api/terminal` socket relaying a terminal's bytes (screen replay first, between `{type:"replay"}` and `{type:"live"}` text frames) and its keys and size.
-  Terminal queries (`TerminalQueries.swift`, the panel's and the Files editor's `TerminalSession`): the daemon's own headless terminal
+  Terminal queries (`TerminalQueries.swift`, the Terminal tab's and the Files editor's `TerminalSession`): the daemon's own headless terminal
   already answers DA1, `CSI 5n`/`6n`/`?6n`, `OSC 10/11/12;?` and kitty's `CSI ?u` at the pty, so `TerminalQueryFilter` takes those out
   of the bytes before SwiftTerm sees them (its second answer arrived a round trip late: nvim asks DA1 as it quits and leaves on the
   daemon's, and SwiftTerm's `?65;…c` was typed at the shell's prompt); in a replay it takes out every query (DA2/DA3, DSRs, DECRQM,
@@ -283,14 +282,14 @@ and GitHub publication; report the published version and release link.
   (`--app-bar` 0) and draws no bar of its own there (`.app-bar-hosted` in `FloatingPanel.tsx` keeps what the tools open). The page says what the tools show
   (`postAppBarState` → `barState`: attention, usage meters, What's new unseen, the radio connecting, panel side, layout and visibility), and a tool's click
   comes to the page as `paseo:bar` (`onAppBar`) with the button's rectangle in page coordinates, so usage, What's new, games and shortcuts open beneath it.
-  In a browser the page keeps its own `.app-bar` (name, tools, gear). The page's other content keeps to the split's page side (`--workspace-width`/
-  `--workspace-height`, `layoutWorkspace`). The map and page are `command`'s; the split (terminal panel, Conquer) is the window root's, over `command` and
-  below the bar, its page side passing events through (`PassThroughView`): a view after the web view in its own parent stays off screen until the web view is
+  In a browser the page keeps its own `.app-bar` (name, tools, gear). The page's other content keeps to `content`, the window below the bar (`--workspace-width`/
+  `--workspace-height`, `layoutWorkspace`). The map and page are `command`'s; `content` (Conquer, the Terminal tab, the Files editors) is the window root's, over `command` and
+  below the bar, passing other events through (`PassThroughView`): a view after the web view in its own parent stays off screen until the web view is
   hidden and shown again. Check such layout with `.windowshot` (the screen's pixels), not `.snapshot`. Bar controls must be `NSButton`s: the title bar's
   toolbar passes clicks through only to controls. The panel has no header of its own and, hidden (⌘B), takes no width.
 - Conquer (experiment): the COMMAND / CONQUER strip across the macOS app's top (⌘` steps Command → Files → Terminal → GitHub → Conquer → Activity, those enabled, and ⌘1…⌘6 pick one; View menu; the tabs light on hover)
   switches the map's place between the map and Conquer, a WebKit browser (`native/Sources/PaseoCommandNative/Conquer.swift`),
-  laid exactly over the map (`placeConquer` in `WorldWindow.swift`): the panels and terminal stay, and ⌘B (the page's panel toggle)
+  laid exactly over the map (`placeConquer` in `WorldWindow.swift`): the panels stay, and ⌘B (the page's panel toggle)
   gives it the window's width. The hidden side keeps running. Conquer takes its keys only while it has the keyboard (`hasKeyFocus`),
   so the chat panel keeps ⌘L and the rest.
   Back/forward/reload and the address bar (suggestions from its history, `ConquerExtras.swift`) run along the top of the page
@@ -548,16 +547,16 @@ and GitHub publication; report the published version and release link.
   leading `-` made `./-…`, the line a number), so no file name becomes shell syntax. `POST /api/terminals/editor {workspace, host?, path, line?}`
   (`createEditorTerminal` in `web/server/api/terminals.ts`) creates a daemon terminal with that `command`/`args` in the workspace's folder (the
   command from the settings file only, the path checked by `checkPath`); it ends when the editor quits; listed with `editor: true` while the server
-  runs, which the terminal panel leaves out of its tabs. With the command set, in the macOS app, opening a file (tree, ⌘P, a tab, Changes' Open in
+  runs, which the Terminal tab leaves out of its tabs. With the command set, in the macOS app, opening a file (tree, ⌘P, a tab, Changes' Open in
   Files) opens it in the editor, which pins the tab; each tab keeps its own terminal (`editor` in the tab, `web/src/files/tabs.ts`, kept in
   `files:workspaces`), alive while the tab exists, the Files page shown or not. The page draws a box in the viewer's place (`EditorSlot` in
   `FilesView.tsx`) and tells the app (`web/src/files/editorBridge.ts`: `editor` with the terminal and the box's frame, sent as it changes, polled
   every 250 ms for moves, `covered` while a dialog is open, `MODAL_EVENT` in `focus.ts`; `editorFocus`; `editorClose`; `editorForget`); the app
-  (`EditorOverlay.swift`, SwiftTerm through `TerminalSession`, the panel's text size and `Ink` tones; `EditorEmbed.swift`: `EditorPlacement`,
-  `EditorStage`, its frame through the web view into the split's page side, as Conquer's, shown only while Files shows; `EditorKeys`;
+  (`EditorOverlay.swift`, SwiftTerm through `TerminalSession`, the Terminal tab's text size and `Ink` tones; `EditorEmbed.swift`: `EditorPlacement`,
+  `EditorStage`, its frame through the web view into `content`, as Conquer's, shown only while Files shows; `EditorKeys`;
   `EditorCloseRequest`) lays the terminal over it and gives it the keyboard as it shows or is clicked. Keys there: the app keeps the window's
-  (⌘1…⌘6, ⌃⇧`, ⇧⌘G, ⇧⌘E, ⌘W: Close File Tab) and the menu's (⌘`, ⌃`, ⌘C/⌘V as the terminal does, the terminal text size); ⌘K opens the page's
-  palette (`AppWindow.performKeyEquivalent`, the panel's terminal too) and the keyboard comes back as it closes; everything else is the
+  (⌘1…⌘6, ⇧⌘G, ⇧⌘E, ⌘W: Close File Tab) and the menu's (⌘`, ⌃`, ⌘C/⌘V as the terminal does, the terminal text size); ⌘K opens the page's
+  palette (`AppWindow.performKeyEquivalent`, the Terminal tab's terminal too) and the keyboard comes back as it closes; everything else is the
   editor's. Closing tabs whose editors run (×, ⌘W, Close other tabs) asks once (an NSAlert sheet; Cancel keeps them), then ends them on the
   daemon. An editor that quits (`exited`) leaves its tab in the viewer with Reopen in editor; a relay that went (`lost`) is checked against
   `GET /api/terminals`. The head's View / Editor toggle (the macOS app's) shows the viewer over a running editor, or opens the editor at the line
@@ -652,7 +651,7 @@ and post, the live connection), shown in `--info`'s `page` beside the view's `ma
 `verify`) reads the fleet after 2 minutes without a message and, if the read is newer than its pushes, connects again.
 Check hooks `stallview`, `stallscene`, `stallvisible`, `stallcv`, `stalllink` (native/README.md); `native/tests/AtlasViewTests.swift`.
 The inherited React UI is preserved; its panels follow the system's appearance: the Galaxy theme (as in the user's
-reference) when it is dark, the Light theme when it is light (`worldLook` in `web/src/theme.ts`). In dark, the pages (GitHub, Activity, Files, Settings) use neutral near-black greys of their own instead of the Galaxy navy (`pages.css`). The terminal panel and Conquer's chrome and pages follow it too
+reference) when it is dark, the Light theme when it is light (`worldLook` in `web/src/theme.ts`). In dark, the pages (GitHub, Activity, Files, Settings) use neutral near-black greys of their own instead of the Galaxy navy (`pages.css`). The Terminal tab and Conquer's chrome and pages follow it too
 (their tones are `Ink` in `native/Sources/PaseoCommandNative/Textures.swift`).
 Five original references may be retained locally in ignored `design/references/atlas-01.webp` through `atlas-05.webp`; they are not redistributed.
 Artwork provenance and generation prompts are in `rendering/ASSETS.md`.

@@ -25,7 +25,7 @@ do {
     assert(activity.title.trimmingCharacters(in: .whitespaces) == "Activity")
     bar.enabled = [.files, .github]
     assert(github.toolTip?.hasSuffix("(⌘4, ⌘`)") == true)
-    assert(find("Terminal", in: bar)?.toolTip?.hasSuffix("(⌘3, ⌃⇧` or ⌘`)") == true, "Terminal is always shown, after Files")
+    assert(find("Terminal", in: bar)?.toolTip?.hasSuffix("(⌘3, ⌃` or ⌘`)") == true, "Terminal is always shown, after Files")
     assert(find("Settings", in: bar) == nil, "Settings is the gear, not a tab")
     bar.enabled = []
     assert(github.isHidden && activity.isHidden)

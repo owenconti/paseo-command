@@ -16,18 +16,8 @@ enum AppKeys {
         return key == "e" || !conquerHasKeys && key == "g"
     }
 
-    /// ⌃⇧`: the Terminal tab, from anywhere (⌃` stays the terminal panel's, and leaves the tab while it shows).
-    /// The window takes it itself, ahead of its views (a terminal with the keyboard among them): with ⇧ the
-    /// key's characters are the layout's shifted ones ("~" on most), which a menu's key equivalent wouldn't match.
-    static func showsTerminalTab(_ event: NSEvent) -> Bool {
-        guard event.type == .keyDown else { return false }
-        let flags = event.modifierFlags.intersection([.command, .shift, .control, .option])
-        guard flags == [.control, .shift] else { return false }
-        return event.keyCode == 50 || ["`", "~"].contains(event.charactersIgnoringModifiers ?? "")
-    }
-
-    /// ⌘B, the page's session panel, which the window hands the page while the terminal panel's (or the
-    /// Terminal tab's) terminal has the keyboard, as Conquer does for its pages: a terminal never types ⌘ keys.
+    /// ⌘B, the page's session panel, which the window hands the page while the Terminal tab's terminal has
+    /// the keyboard, as Conquer does for its pages: a terminal never types ⌘ keys.
     static func togglesPanel(_ event: NSEvent) -> Bool {
         guard event.type == .keyDown, let key = event.charactersIgnoringModifiers?.lowercased() else { return false }
         return event.modifierFlags.intersection([.command, .shift, .control, .option]) == .command && key == "b"
@@ -91,24 +81,21 @@ final class AppWindow: NSWindow {
         return url.absoluteString
     }
     /// ⌘1…⌘6 pick the mode bar's tabs (the View menu's) from anywhere in the window, ahead of its
-    /// views: the page, the terminal panel, and Conquer's pages even while it has the keyboard.
+    /// views: the page, the Terminal tab, and Conquer's pages even while it has the keyboard.
     /// ⇧⌘G (View → Show Branch Changes) likewise, but while Conquer has the keyboard (`conquerHasKeys`)
     /// it stays Conquer's Find Previous (`AppKeys`).
     var conquerHasKeys: () -> Bool = { false }
     /// ⌘W too while the Files tab shows: Window → Close closes its file tab, ahead of the page.
     var filesShows: () -> Bool = { false }
-    /// ⌘K while a terminal (the panel's or a file's editor) has the keyboard: the page's palette (`EditorKeys`).
+    /// ⌘K while a terminal (the Terminal tab's or a file's editor) has the keyboard: the page's palette (`EditorKeys`).
     var terminalHasKeys: () -> Bool = { false }
     var onPalette: () -> Void = {}
-    /// ⌃⇧`: the Terminal tab (`AppKeys.showsTerminalTab`).
-    var onTerminalTab: () -> Void = {}
-    /// ⌘B while the terminal panel's terminal has the keyboard: the page's session panel (`AppKeys.togglesPanel`).
-    var panelTerminalHasKeys: () -> Bool = { false }
+    /// ⌘B while the Terminal tab's terminal has the keyboard: the page's session panel (`AppKeys.togglesPanel`).
+    var tabTerminalHasKeys: () -> Bool = { false }
     var onTogglePanel: () -> Void = {}
     override func performKeyEquivalent(with event: NSEvent) -> Bool {
         if EditorKeys.opensPalette(event), terminalHasKeys() { onPalette(); return true }
-        if AppKeys.showsTerminalTab(event) { onTerminalTab(); return true }
-        if AppKeys.togglesPanel(event), panelTerminalHasKeys() { onTogglePanel(); return true }
+        if AppKeys.togglesPanel(event), tabTerminalHasKeys() { onTogglePanel(); return true }
         if AppKeys.offeredToMenu(event, conquerHasKeys: conquerHasKeys(), filesShows: filesShows()), NSApp.mainMenu?.performKeyEquivalent(with: event) == true { return true }
         return super.performKeyEquivalent(with: event)
     }

@@ -91,21 +91,19 @@ base path for the `notifyutil` hooks below).
 - **No web renderer.** The Phaser Atlas and Galaxy were removed; in a plain browser the panels work
   and the map area says the map is drawn by this app.
 
-## Terminal panel
+## Terminal tab
 
-View → Terminal (⌃`) opens a panel on the right, beside the map and panels, with the daemon's terminals for the
-selected workspace (or the selected agent's), and starts a terminal there as it opens if the workspace has none. One tab per terminal: + opens
-another, a tab's × ends it (after asking, unless told not to ask again). A tab dragged onto a pane's edge splits that pane
-and shows there; dropped in a pane's middle it takes that pane's place; a click on a tab not showing puts it in the current
-pane. The unsplit button (shown while split; View → Unsplit Terminals) returns to one pane, the current terminal's, the
-others staying as tabs; a pane's tab dropped back on the tab bar leaves the panes too. Each workspace keeps its panes while the app runs. Its inner edge drags to resize it. The dock button (or View → Terminal at
-Bottom) moves it under the map and panels and back; each side keeps its own size. The maximize button (View → Maximize
-Terminal, ⇧⌘↩) lays the panel over the whole map, leaving the page's panels in view, and back. The Terminal tab (the mode
-bar's, after Files: View → Terminal Tab, ⌘3 by its place, ⌃⇧` from anywhere, ⌘K "Show terminal") shows the same terminals,
-tabs and splits full size in the map's place, as Conquer lies, the chat panel beside it (⌘B hides it, the terminal keeping the
-keyboard): the panel's view moves there and the panel hides, and leaving puts it back as it was (open or closed, its side, size,
-splits, or maximized). It has no dock or maximize; ⌃` there goes back to the side before. Opening it with no terminal starts one. ⌘+ / ⌘− / ⌘0 (View) change
-the terminals' text size while the panel shows (in GitHub, Activity, Files and Settings, only while it has the keyboard: the page sizes their text with them), kept across launches. Closing the panel or switching workspace leaves terminals
+The terminals live only in the Terminal tab (there is no side or bottom panel): the mode bar's tab after Files, ⌘3 by its
+place, ⌘` through the tabs, View → Show Terminal (⌃`) from anywhere, ⌘K "Show terminal". It shows the daemon's terminals for
+the selected workspace (or the selected agent's) full size in the map's place, as Conquer lies, the chat panel beside it (⌘B
+hides it, the terminal keeping the keyboard), and starts a terminal as it opens if the workspace has none. In the tab ⌃` (View →
+Back from Terminal) goes back to the side before it. One tab per terminal: + opens another, a tab's × ends it (after asking,
+unless told not to ask again). A tab dragged onto a pane's edge splits that pane and shows there; dropped in a pane's middle it
+takes that pane's place; a click on a tab not showing puts it in the current pane. The unsplit button (shown while split; View →
+Unsplit Terminals) returns to one pane, the current terminal's, the others staying as tabs; a pane's tab dropped back on the tab
+bar leaves the panes too. Each workspace keeps its panes while the app runs, and the tab keeps them while another shows. ⌘+ / ⌘−
+/ ⌘0 (View) change the terminals' text size while the tab shows (or a Files editor has the keyboard), kept across launches. The
+old panel's saved preferences (`terminalOpen`, `terminalDock`, its sizes) are ignored. Leaving the tab or switching workspace leaves terminals
 running on the daemon. SwiftTerm draws them; the app server relays each over `/api/terminal`
 (`web/server/api/terminals.ts`), replaying its recent screen first. To check it without a real
 daemon:
@@ -156,9 +154,9 @@ draws Conquer over the map while it shows. `….appopen.<run>` opens `<info>.url
 launched with `--info` listens, under names ending in its info file's name, so the user's own copy
 ignores them; such a copy keeps its page storage in memory, apart from the user's copy):
 `com.paseo.command.native.eval` runs `/tmp/x.js` in the page and writes `/tmp/x.out`;
-`.snapshot` writes `/tmp/x.png` (SpriteKit's frame under the page's snapshot; it draws the terminal panel's text blank, and shows views that aren't on screen); `.windowshot` writes `/tmp/x-window.png`, the window as the screen shows it (with `--ignore-occlusion`, or the map pauses while covered); `.info` rewrites
-`/tmp/x.json` (with the terminal panel's state); `.pan` drags the map for 10 s; `.resize` alternates
-the window size; `.reload` runs the palette’s Restart app command; `.terminal` toggles the panel; `.terminaltab` shows the Terminal tab (`--info`'s `terminalPlace`: where the view is and what the tab puts back); `.dock` moves it between right and bottom; `.maximize` lays it over the map and back; `.divider` drags the panel's divider 150 points towards the map; `.split` splits the current pane with another tab; `.unsplit` returns to one pane; `.newterminal` opens a terminal; `.zoom` enlarges its text; `.type` types
+`.snapshot` writes `/tmp/x.png` (SpriteKit's frame under the page's snapshot; it draws the Terminal tab's text blank, and shows views that aren't on screen); `.windowshot` writes `/tmp/x-window.png`, the window as the screen shows it (with `--ignore-occlusion`, or the map pauses while covered); `.info` rewrites
+`/tmp/x.json` (with the Terminal tab's state); `.pan` drags the map for 10 s; `.resize` alternates
+the window size; `.reload` runs the palette’s Restart app command; `.terminal` is ⌃` (the Terminal tab, or back from it); `.terminaltab` shows the Terminal tab (`--info`'s `terminalPlace`: `map` while it shows, else `hidden`); `.split` splits the current pane with another tab; `.unsplit` returns to one pane; `.newterminal` opens a terminal; `.zoom` enlarges its text; `.type` types
 `/tmp/x.type` into its terminal; `.files` shows the Files tab and `.command` the map; `.quit`.
 The map's watchdog (`--info`'s `map`: pause, rates, frames, revisions applied, recoveries; `page`: the page's side):
 `.stallview` and `.stallscene` pause the view or its scene behind the scheduler's back, `.stallvisible` takes the

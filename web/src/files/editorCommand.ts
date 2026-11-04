@@ -9,7 +9,7 @@
  * all read the same way for the paths the Files page allows: relative, no
  * backslashes or NULs) and the line a plain number, so a file's name can never
  * become shell syntax. It runs under the host's login shell, interactive, as
- * the terminal panel's shells do, so the editor's own PATH, config and LSP apply.
+ * the Terminal tab's shells do, so the editor's own PATH, config and LSP apply.
  */
 export type OpenIn = "viewer" | "editor";
 export type FilesSettings = { openIn: OpenIn; editorCommand: string };

@@ -1653,49 +1653,31 @@ function App() {
     },
     ...(macApp()
       ? [
-          ...(appMode !== "terminal"
-            ? [
-                {
-                  id: "terminal-tab",
-                  group: "App",
-                  page: "Terminal" as const,
-                  label: "Show terminal",
-                  keys: [["⌃", "⇧", "`"], ...(tabKeys("terminal") ?? [])],
-                  keywords: "terminal tab shell console mode full size map place",
-                  run: () => postAppMenu("terminal-tab"),
-                },
-              ]
-            : []),
-          {
-            id: "terminal",
-            group: "App",
-            page: "Terminal" as const,
-            // In the Terminal tab, ⌃` goes back to the side before it (the panel as it was).
-            label: appMode === "terminal" ? "Leave the terminal tab" : "Show or hide the terminal",
-            keys: [["⌃", "`"]],
-            keywords: "shell console",
-            run: () => postAppMenu("terminal"),
-          },
+          // ⌃` shows the Terminal tab from anywhere and, in it, goes back to the side before it.
+          appMode !== "terminal"
+            ? {
+                id: "terminal-tab",
+                group: "App",
+                page: "Terminal" as const,
+                label: "Show terminal",
+                keys: [["⌃", "`"], ...(tabKeys("terminal") ?? [])],
+                keywords: "terminal tab shell console open toggle mode full size map place",
+                run: () => postAppMenu("terminal-tab"),
+              }
+            : {
+                id: "terminal",
+                group: "App",
+                page: "Terminal" as const,
+                label: "Leave the terminal tab",
+                keys: [["⌃", "`"]],
+                keywords: "terminal back shell console toggle hide",
+                run: () => postAppMenu("terminal"),
+              },
           ...(
             [
-              [
-                "terminal-dock",
-                "Move the terminal (right or bottom)",
-                "dock side bottom right",
-                undefined,
-              ],
-              [
-                "terminal-maximize",
-                "Maximize the terminal",
-                "full expand restore",
-                ["⇧", "⌘", "↩"],
-              ],
-              [
-                "terminal-unsplit",
-                "Unsplit terminals",
-                "panes merge split",
-                undefined,
-              ],
+              ...(appMode === "terminal"
+                ? ([["terminal-unsplit", "Unsplit terminals", "panes merge split", undefined]] as const)
+                : []),
               [
                 "terminal-bigger",
                 "Bigger terminal text",
@@ -1741,8 +1723,6 @@ function App() {
               ],
             ] as const
           )
-            // The Terminal tab fills the map's place: no dock side, nothing to maximize.
-            .filter(([action]) => appMode !== "terminal" || (action !== "terminal-dock" && action !== "terminal-maximize"))
             .map(([action, label, keywords, keys]) => ({
             id: action,
             group: "App",

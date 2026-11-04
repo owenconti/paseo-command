@@ -37,10 +37,10 @@ struct EditorPlacement: Equatable {
     }
 }
 
-/// The view the editor terminals stand in, laid over the page's viewer in the window's page side
-/// (the split's, where Conquer and the maximized terminal panel go, as views after the web view in its
-/// own parent don't draw). It takes the page's frame as the page moves it: the sidebar resizing or hiding,
-/// the terminal panel opening, the window resizing, another tab, another mode.
+/// The view the editor terminals stand in, laid over the page's viewer in the window's `content`
+/// (where Conquer and the Terminal tab go, as views after the web view in its own parent don't draw).
+/// It takes the page's frame as the page moves it: the sidebar resizing or hiding, the window resizing,
+/// another tab, another mode.
 class EditorStage: NSView {
     private(set) var placement = EditorPlacement.nothing
     private(set) var filesShows = false
@@ -73,7 +73,7 @@ class EditorStage: NSView {
     }
 }
 
-/// Keys while an editor (or the terminal panel's terminal) has the keyboard. As the terminal panel's, the
+/// Keys while an editor (or the Terminal tab's terminal) has the keyboard. As the Terminal tab's, the
 /// app keeps only the window's own keys there (`AppKeys.offeredToMenu`: ⌘1…⌘6, ⇧⌘E, ⇧⌘G, and ⌘W, which closes
 /// the file's tab with its confirmation) and the menu's (⌘`, ⌃`, ⌘, ⌘Q, ⌘C/⌘V as the terminal does them, the
 /// terminal text size); ⌘K, which no menu item has, opens the page's command palette. Everything else, Esc, ⌃

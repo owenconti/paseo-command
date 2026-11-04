@@ -11,17 +11,18 @@ import WebKit
 final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKNavigationDelegate, WKUIDelegate {
     let window: NSWindow
     let web: WKWebView
-    let split: PanelSplitView
+    /// The Terminal tab's terminals (its tabs, panes and sessions), in the map's place while it shows.
     let drawer: TerminalDrawer
     /// The Files page's editor terminals, over its viewer (Settings → Files → Open files in an editor).
     let editors: EditorOverlay
-    /// The map and page: the split's first side, and where the maximized terminal panel goes.
+    /// Over the map and page, the window's (not the page's sibling): where Conquer, the Terminal tab and
+    /// the Files page's editors go. It lets everything else through to the page.
     let content: NSView
     /// Covers the window until the map has drawn (see `revealWhenDrawn`).
     let splash: SplashView
     /// The strip across the top that switches between Command, Conquer, Activity, GitHub, Files and Settings.
     let modeBar: ModeBar
-    /// Command: the map, the page over it, the split over that and its splash, under the mode bar.
+    /// Command: the map and the page over it, under `content`, the splash and the mode bar.
     let command: NSView
     /// The mode bar's height: the page's own top bar, whose tools show at its right end.
     let barHeight: CGFloat
@@ -45,8 +46,6 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
     private var beforeSettings: Mode = .command
     /// The side ⌃` returns to from the Terminal tab.
     private var beforeTerminal: Mode = .command
-    /// While the Terminal tab shows: the panel as it was, to put back as the tab leaves.
-    private var panelBeforeTab: TerminalPanelState?
     var nextMode: Mode {
         let modes = shownModes
         // From Settings, on from the side it opened over.
@@ -95,41 +94,30 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         window.minSize = NSSize(width: 760, height: 520)
         window.isReleasedWhenClosed = false
         window.backgroundColor = Textures.color(0x1d6884)
-        // The map and page on the left (or above); the terminal panel on the right (or below),
-        // collapsed until asked for.
-        split = PanelSplitView(frame: window.contentView!.bounds)
-        let dock = TerminalDock(rawValue: UserDefaults.standard.string(forKey: "terminalDock") ?? "") ?? .right
-        split.isVertical = dock == .right
-        split.dividerStyle = .thin
-        split.autoresizingMask = [.width, .height]
-        let root = NSView(frame: split.frame)
+        let root = NSView(frame: window.contentView!.bounds)
         // The title bar's height, so the traffic lights sit centred in the mode bar.
         let titlebar = window.frame.height - window.contentLayoutRect.height
         barHeight = titlebar > 0 ? titlebar : 30
         modeBar = ModeBar(frame: CGRect(x: 0, y: root.bounds.height - barHeight, width: root.bounds.width, height: barHeight))
         modeBar.autoresizingMask = [.width, .minYMargin]
-        // The bar is native, all of it; the page and the split (the page's place beside the
-        // terminal panel) lie below it, the split over the page so the panel is never under it.
+        // The bar is native, all of it; the page and `content` over it lie below it.
         command = NSView(frame: CGRect(x: 0, y: 0, width: root.bounds.width, height: root.bounds.height - barHeight))
         command.autoresizingMask = [.width, .height]
-        split.frame = command.frame
         splash = SplashView(frame: command.frame)
         splash.autoresizingMask = [.width, .height]
         conquer = ConquerView(frame: command.frame, persistent: options.info == nil)
         conquer.isHidden = true
         window.contentView = root
-        content = PassThroughView(frame: split.bounds)
+        content = PassThroughView(frame: command.frame)
         content.autoresizingMask = [.width, .height]
-        drawer = TerminalDrawer(frame: CGRect(x: 0, y: 0, width: 460, height: split.bounds.height))
+        drawer = TerminalDrawer(frame: content.bounds)
         editors = EditorOverlay(font: drawer.font)
-        // Over the page's viewer, under Conquer and the maximized terminal panel.
+        // Over the page's viewer, under Conquer and the Terminal tab.
         content.addSubview(editors)
-        split.addArrangedSubview(content)
-        split.setHoldingPriority(.defaultLow, forSubviewAt: 0)
-        // The panel joins the split only while it shows (see `attachDrawer`).
+        // Shown only with the Terminal tab (see `enterTerminalTab`).
         drawer.isHidden = true
-        drawer.dock = dock
-        drawer.barInset = 0
+        drawer.autoresizingMask = []
+        content.addSubview(drawer)
 
         scene = AtlasScene(size: content.bounds.size)
         atlasView = AtlasView(frame: content.bounds, scene: scene)
@@ -153,22 +141,19 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         // Measurements and checks draw while covered: WebKit stops throttling too.
         let occlusion = NSSelectorFromString("_setWindowOcclusionDetectionEnabled:")
         if AtlasView.ignoreOcclusion, web.responds(to: occlusion) { web.perform(occlusion, with: false) }
-        // Map and page, then over them the split: its page side lets everything through
-        // to the page but Conquer and the maximized panel; the panel beside it is its own.
-        // The split is the window's, not the page's sibling: views after a web view in its
-        // own parent stay off screen until the web view is hidden and shown again.
+        // Map and page, then over them `content`: it lets everything through to the page but
+        // Conquer, the Terminal tab and the editors. It is the window's, not the page's sibling:
+        // views after a web view in its own parent stay off screen until the web view is hidden and shown again.
         command.addSubview(web)
-        for v in [command, split, splash, modeBar] { root.addSubview(v) }
+        for v in [command, content, splash, modeBar] { root.addSubview(v) }
         super.init()
-        split.onResize = { [weak self] in self?.layoutWorkspace() }
         conquer.onTogglePanel = { [weak self] in self?.pageCommand("toggle-panel") }
         conquer.onLink = { [weak self] url in self?.routeLink(url) ?? false }
         (window as? AppWindow)?.document = { [weak self] in self?.mode == .conquer ? self?.conquer.current?.url : nil }
         (window as? AppWindow)?.conquerHasKeys = { [weak self] in self?.mode == .conquer && self?.conquer.hasKeyFocus == true }
         (window as? AppWindow)?.filesShows = { [weak self] in self?.mode == .files }
         (window as? AppWindow)?.terminalHasKeys = { [weak self] in self?.editors.hasKeyFocus == true || self?.drawer.hasKeyFocus == true }
-        (window as? AppWindow)?.onTerminalTab = { [weak self] in self?.show(.terminal) }
-        (window as? AppWindow)?.panelTerminalHasKeys = { [weak self] in self?.drawer.hasKeyFocus == true }
+        (window as? AppWindow)?.tabTerminalHasKeys = { [weak self] in self?.drawer.hasKeyFocus == true }
         (window as? AppWindow)?.onTogglePanel = { [weak self] in self?.pageCommand("toggle-panel") }
         (window as? AppWindow)?.onPalette = { [weak self] in
             guard let self else { return }
@@ -190,8 +175,6 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         editors.server = { [weak self] in self?.serverURL ?? options.url }
         editors.tell = { [weak self] in self?.send($0, as: "paseo:editor") }
         editors.runInPage = { [weak self] in self?.web.evaluateJavaScript($0, completionHandler: nil) }
-        drawer.onMove = { [weak self] in self?.moveTerminal() }
-        drawer.onMaximize = { [weak self] in self?.maximizeTerminal() }
         modeBar.onSelect = { [weak self] mode in self?.show(mode) }
         modeBar.enabled = enabledModes
         modeBar.onAction = { [weak self] action, view in
@@ -202,7 +185,7 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         if options.info == nil, let saved = UserDefaults.standard.string(forKey: "mode").flatMap(Mode.init(rawValue:)), saved != .command {
             DispatchQueue.main.async { self.show(saved) }
         }
-        if UserDefaults.standard.bool(forKey: "terminalOpen") { DispatchQueue.main.async { self.setTerminal(open: true, newTab: false) } }
+        // The old terminal panel's saved state (`terminalOpen`, `terminalDock`, its sizes) is left alone, unread.
         if let server {
             server.confirmHandOver = { [weak self] old, answer in
                 guard let self else { return answer(false) }
@@ -337,9 +320,7 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
             // The page's command palette, choosing a View menu item.
             switch body["action"] as? String {
             case "terminal": toggleTerminal()
-            case "terminal-dock": moveTerminal()
-            case "terminal-maximize": maximizeTerminal()
-            case "terminal-unsplit": drawer.unsplit()
+            case "terminal-unsplit": if mode == .terminal { drawer.unsplit() }
             case "terminal-bigger": zoomTerminals(1)
             case "terminal-smaller": zoomTerminals(-1)
             case "terminal-actual": zoomTerminals(0)
@@ -408,7 +389,7 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         DispatchQueue.main.asyncAfter(deadline: .now() + seconds, execute: work)
     }
 
-    /// The page's top bar spans the window; the rest of the page keeps to the split's page side.
+    /// The page's top bar spans the window; the rest of the page keeps to `content`, the window's width below the bar.
     private func layoutWorkspace() {
         let height = content.bounds.height
         web.evaluateJavaScript("""
@@ -424,7 +405,7 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
             """, completionHandler: nil)
     }
 
-    /// The map's rectangle in the split's page side, where Conquer and the maximized panel go.
+    /// The map's rectangle in `content`, where Conquer and the Terminal tab go.
     private var mapInContent: CGRect {
         viewport == nil ? content.bounds : content.convert(atlasView.frame, from: command)
     }
@@ -456,7 +437,6 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         }
         atlasView.govern()
         if mode == .conquer { conquer.frame = mapInContent }
-        placeMaximized()
         placeTerminalTab()
         editors.place(nil, filesShows: mode == .files, web: web)
     }
@@ -477,6 +457,7 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
     func windowDidExitFullScreen(_ notification: Notification) { placeModeBar() }
 
     func windowDidResize(_ notification: Notification) {
+        layoutWorkspace()
         // The page reports its map's new rectangle; until it does, keep the old one.
         layoutAtlas()
     }
@@ -750,7 +731,7 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         let bounds = web.bounds
         let whole = window.contentView!.bounds
         let scale = window.backingScaleFactor
-        // The terminal panel is layer-backed: its layer tree draws it.
+        // The Terminal tab's view is layer-backed: its layer tree draws it.
         var terminal: CGImage?
         if !drawer.isHidden, let layer = drawer.layer,
            let ctx = Textures.context(Int(drawer.bounds.width * scale), Int(drawer.bounds.height * scale)) {
@@ -787,7 +768,7 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
             ctx.scaleBy(x: scale, y: scale)
             ctx.setFillColor(Textures.color(0x1d6884).cgColor)
             ctx.fill(whole)
-            // The page's area, from the split's bottom-left origin (it is flipped).
+            // The page's area, from the window's bottom-left origin.
             let left = self.window.contentView!.convert(bounds, from: self.web)
             if let world { ctx.draw(world, in: self.window.contentView!.convert(self.atlasView.bounds, from: self.atlasView)) }
             if let page, let image = page.cgImage(forProposedRect: nil, context: nil, hints: nil) { ctx.draw(image, in: left) }
@@ -799,7 +780,7 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
                 }
             }
             if let terminal {
-                // Beside the page in the split, or over its map when maximized.
+                // Over the map, in its place.
                 let r = self.window.contentView!.convert(self.drawer.bounds, from: self.drawer)
                 ctx.draw(terminal, in: r)
             }
@@ -826,7 +807,7 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
     }
 
     /// Switch the map's place between the map, the browser and the pages (⌘` steps through them),
-    /// which the page draws over its map; the panels and terminal stay, and ⌘B (the page's
+    /// which the page draws over its map; the panels stay, and ⌘B (the page's
     /// panel toggle) gives the browser the width.
     /// The side not shown keeps running: the map's page and Conquer's tabs stay live.
     func show(_ next: Mode) {
@@ -920,14 +901,14 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         conquer.isHidden = mode != .conquer
     }
 
-    /// The terminals' text size (⌘+, ⌘−, ⌘0): the panel's and the Files page's editors'.
+    /// The terminals' text size (⌘+, ⌘−, ⌘0): the Terminal tab's and the Files page's editors'.
     func zoomTerminals(_ step: CGFloat) {
         drawer.zoom(step)
         editors.setFont(drawer.font)
         sendTerminalFont()
     }
 
-    /// The terminals' font (Settings → Terminal), for the panel's and the Files page's editors'.
+    /// The terminals' font (Settings → Terminal), for the Terminal tab's and the Files page's editors'.
     func setTerminalFont(_ font: TerminalFontSettings) {
         drawer.apply(font)
         editors.setFont(font)
@@ -945,171 +926,35 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         send(message, as: "paseo:terminal-font")
     }
 
-    /// Show or hide the terminal panel (View → Terminal, ⌃`), at the size it last had;
-    /// opened so, it starts a terminal in the selected workspace if it has none.
-    /// In the Terminal tab, ⌃` goes back to the side before it (the panel as it was).
+    /// ⌃` (View → Show Terminal): the Terminal tab, from anywhere; in it, back to the side before it.
     @objc func toggleTerminal() {
-        if mode == .terminal { return show(beforeTerminal == .terminal ? .command : beforeTerminal) }
-        setTerminal(open: drawer.isHidden, newTab: true)
+        show(mode == .terminal ? (beforeTerminal == .terminal ? .command : beforeTerminal) : .terminal)
     }
 
-    func setTerminal(open: Bool, newTab: Bool) {
-        // In the Terminal tab the panel is the tab's: this is what comes back as it leaves (the launch's saved panel, say).
-        if mode == .terminal {
-            panelBeforeTab?.open = open
-            if !open { panelBeforeTab?.maximized = false }
-            UserDefaults.standard.set(open, forKey: "terminalOpen")
-            return
-        }
-        guard open == drawer.isHidden else { return }
-        if open {
-            drawer.isHidden = false
-            attachDrawer()
-            placeTerminal()
-            drawer.setActive(true)
-            if newTab { drawer.opened() } else { drawer.focusTerminal() }
-        } else {
-            setMaximized(false)
-            saveTerminalSize()
-            drawer.setActive(false)
-            drawer.isHidden = true
-            detachDrawer()
-            window.makeFirstResponder(web)
-        }
-        UserDefaults.standard.set(open, forKey: "terminalOpen")
-    }
-
-    /// Cover the map with the terminal panel, or return it beside the map
-    /// (View → Maximize Terminal, ⇧⌘↩). The page's panels stay in view.
-    @objc func maximizeTerminal() {
-        // The tab already fills the map's place.
-        guard mode != .terminal else { return }
-        if drawer.isHidden { setTerminal(open: true, newTab: false) }
-        setMaximized(!drawer.maximized)
-    }
-
-    private func setMaximized(_ on: Bool) {
-        guard on != drawer.maximized else { return }
-        if on {
-            saveTerminalSize()
-            detachDrawer()
-            drawer.maximized = true
-            content.addSubview(drawer)
-            placeMaximized()
-        } else {
-            drawer.maximized = false
-            attachDrawer()
-            placeTerminal()
-        }
-        drawer.focusTerminal()
-        window.invalidateCursorRects(for: split)
-    }
-
-    /// Put the panel in the split, beside or under the page. Out of it (closed or
-    /// maximized) the split has no divider: hidden in it, the panel left the
-    /// divider's layer drawn over the map where its edge had been.
-    private func attachDrawer() {
-        guard drawer.superview !== split else { return }
-        drawer.removeFromSuperview()
-        split.addArrangedSubview(drawer)
-        split.setHoldingPriority(.defaultHigh, forSubviewAt: 1)
-        layoutWorkspace()
-    }
-
-    private func detachDrawer() {
-        guard let parent = drawer.superview else { return }
-        if parent === split { split.removeArrangedSubview(drawer) }
-        drawer.removeFromSuperview()
-        split.adjustSubviews()
-        // The page's side may not have changed size in the split's eyes: say so anyway.
-        layoutWorkspace()
-    }
-
-    /// The maximized panel lies exactly over the page's map (it follows the map as the page lays out).
-    private func placeMaximized() {
-        guard drawer.maximized else { return }
-        drawer.frame = mapInContent
-    }
-
-    /// The Terminal tab: the panel's sessions, tabs and splits (one set: a terminal's view shows in one place)
-    /// move into the map's place, as the maximized panel lies, and the panel hides. Opening it with no terminal
-    /// starts one, as opening the panel does.
+    /// The Terminal tab: its terminals, tabs and splits in the map's place, as Conquer lies. Opening it
+    /// with no terminal in the workspace starts one; hidden, it stops asking the daemon.
     private func enterTerminalTab() {
-        panelBeforeTab = TerminalPanelState(open: !drawer.isHidden, maximized: drawer.maximized)
-        if !drawer.isHidden { saveTerminalSize() }
-        detachDrawer()
-        drawer.maximized = false
-        drawer.inTab = true
         drawer.isHidden = false
-        content.addSubview(drawer)
         placeTerminalTab()
         drawer.setActive(true)
         drawer.opened()
-        window.invalidateCursorRects(for: split)
     }
 
-    /// Leaving the Terminal tab puts the panel back as it was: closed, or open beside or under the page (its
-    /// side and size from the preferences) or over the map, with its tabs and splits.
     private func leaveTerminalTab() {
-        let before = panelBeforeTab ?? TerminalPanelState(open: false, maximized: false)
-        panelBeforeTab = nil
-        detachDrawer()
-        drawer.inTab = false
-        if !before.open {
-            drawer.setActive(false)
-            drawer.isHidden = true
-        } else if before.maximized {
-            drawer.maximized = true
-            content.addSubview(drawer)
-            placeMaximized()
-        } else {
-            attachDrawer()
-            placeTerminal()
-        }
-        window.invalidateCursorRects(for: split)
+        drawer.setActive(false)
+        drawer.isHidden = true
     }
 
-    /// Where the panel's view is and what the tab puts back (checks): in the split, over the map (maximized or the tab), or nowhere.
+    /// Where the Terminal tab's view is (checks): over the map while the tab shows, else hidden.
     func terminalPlace() -> [String: Any] {
-        let parent = drawer.superview === split ? "split" : drawer.superview === content ? "map" : "none"
-        return ["in": parent, "mapRect": NSStringFromRect(mapInContent), "before": panelBeforeTab.map { ["open": $0.open, "maximized": $0.maximized] } as Any? ?? NSNull()]
+        ["in": drawer.superview === content && !drawer.isHidden ? "map" : "hidden",
+         "frame": NSStringFromRect(drawer.frame), "mapRect": NSStringFromRect(mapInContent)]
     }
 
     /// The Terminal tab lies exactly over the page's map, as Conquer does (⌘B gives it the window's width).
     private func placeTerminalTab() {
-        guard drawer.inTab else { return }
+        guard !drawer.isHidden else { return }
         drawer.frame = mapInContent
-    }
-
-    /// The panel's key for its saved size along the split: width on the right, height at the bottom.
-    private var terminalSizeKey: String { drawer.dock == .right ? "terminalWidth" : "terminalHeight" }
-
-    private func saveTerminalSize() {
-        guard !drawer.maximized, !drawer.inTab else { return }
-        UserDefaults.standard.set(drawer.dock == .right ? drawer.frame.width : drawer.frame.height, forKey: terminalSizeKey)
-    }
-
-    /// Set the open panel at its saved size for its dock.
-    private func placeTerminal() {
-        let right = drawer.dock == .right
-        let length = right ? split.bounds.width : split.bounds.height
-        let saved = UserDefaults.standard.double(forKey: terminalSizeKey).nonZero ?? (right ? 460 : 280)
-        let size = max(split.minPanel, min(saved, length - split.minPage))
-        split.adjustSubviews()
-        split.setPosition(length - size - split.dividerThickness, ofDividerAt: 0)
-    }
-
-    /// Move the terminal panel between the right side and the bottom (View → Terminal at Bottom).
-    @objc func moveTerminal() {
-        // The tab has no dock; the panel keeps its side for when it comes back.
-        guard mode != .terminal else { return }
-        setMaximized(false)
-        if !drawer.isHidden { saveTerminalSize() }
-        drawer.dock = drawer.dock == .right ? .bottom : .right
-        UserDefaults.standard.set(drawer.dock.rawValue, forKey: "terminalDock")
-        split.isVertical = drawer.dock == .right
-        if drawer.isHidden { setTerminal(open: true, newTab: false) } else { placeTerminal(); drawer.focusTerminal() }
-        window.invalidateCursorRects(for: split)
     }
 
     /// The app page the window is on (its query keeps the panel's place), or
@@ -1142,64 +987,6 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
             if web.responds(to: NSSelectorFromString(key)), let pid = web.value(forKey: key) as? Int, pid > 0 { result[name] = pid }
         }
         return result
-    }
-}
-
-private extension Double {
-    var nonZero: Double? { self == 0 ? nil : self }
-}
-
-/// The window's split: the page beside the terminal panel. Its thin divider is
-/// grabbed a few points either side, ahead of the web view under it, and
-/// keeps both sides usable.
-final class PanelSplitView: NSSplitView, NSSplitViewDelegate {
-    /// The smallest panel and page along the split: widths beside each other, heights stacked.
-    var minPanel: CGFloat { isVertical ? 280 : 140 }
-    var minPage: CGFloat { isVertical ? 480 : 240 }
-    var onResize: (() -> Void)?
-    private static let grab: CGFloat = 4
-
-    override init(frame: NSRect) {
-        super.init(frame: frame)
-        delegate = self
-    }
-    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
-
-    private var handle: CGRect? {
-        guard subviews.count > 1, !subviews[1].isHidden else { return nil }
-        if !isVertical {
-            let y = subviews[0].frame.maxY
-            return CGRect(x: 0, y: y - Self.grab, width: bounds.width, height: dividerThickness + Self.grab * 2)
-        }
-        let x = subviews[0].frame.maxX
-        return CGRect(x: x - Self.grab, y: 0, width: dividerThickness + Self.grab * 2, height: bounds.height)
-    }
-
-    override func hitTest(_ point: NSPoint) -> NSView? {
-        if let handle, handle.contains(convert(point, from: superview)) { return self }
-        // Elsewhere only its sides' own views: the page under it takes the rest.
-        let hit = super.hitTest(point)
-        return hit === self ? nil : hit
-    }
-
-    override func resetCursorRects() {
-        super.resetCursorRects()
-        if let handle { addCursorRect(handle, cursor: isVertical ? .resizeLeftRight : .resizeUpDown) }
-    }
-
-    func splitView(_ splitView: NSSplitView, effectiveRect proposedEffectiveRect: NSRect, forDrawnRect drawnRect: NSRect,
-                   ofDividerAt dividerIndex: Int) -> NSRect {
-        handle ?? proposedEffectiveRect
-    }
-    func splitView(_ splitView: NSSplitView, constrainMinCoordinate proposedMinimumPosition: CGFloat, ofSubviewAt dividerIndex: Int) -> CGFloat {
-        max(proposedMinimumPosition, minPage)
-    }
-    func splitView(_ splitView: NSSplitView, constrainMaxCoordinate proposedMaximumPosition: CGFloat, ofSubviewAt dividerIndex: Int) -> CGFloat {
-        min(proposedMaximumPosition, (isVertical ? bounds.width : bounds.height) - minPanel - dividerThickness)
-    }
-    func splitViewDidResizeSubviews(_ notification: Notification) {
-        onResize?()
-        window?.invalidateCursorRects(for: self)
     }
 }
 

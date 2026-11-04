@@ -82,7 +82,7 @@ assert(menus.ran == ["showFiles"], "\(menus.ran)")
 // side the page draws (old saved modes show it).
 assert(Mode.tabs == [.command, .files, .terminal, .github, .conquer, .activity])
 assert(Mode.terminal.title == "Terminal" && !Mode.terminal.drawnByPage)
-assert(Mode.terminal.keys(at: 2) == "⌘3, ⌃⇧` or ⌘`")
+assert(Mode.terminal.keys(at: 2) == "⌘3, ⌃` or ⌘`")
 // Remembered across launches as the others are (`mode` in the preferences): not the page's, so shown at once.
 assert(Mode(rawValue: Mode.terminal.rawValue) == .terminal && Mode.terminal.rawValue == "terminal")
 // ⌘` steps through it: the next after Files, before GitHub (or Conquer, GitHub off).
@@ -91,38 +91,40 @@ assert(shownTabs == [.command, .files, .terminal, .conquer], "\(shownTabs)")
 assert(shownTabs[(shownTabs.firstIndex(of: .files)! + 1) % shownTabs.count] == .terminal)
 assert(shownTabs[(shownTabs.firstIndex(of: .terminal)! + 1) % shownTabs.count] == .conquer)
 
-// ⌃⇧`: the Terminal tab, from anywhere (the window takes it ahead of its views, a terminal's among them),
-// whatever characters the layout gives the shifted key; ⌃` stays the panel's (the View menu's), ⌘` the next tab.
+// ⌃`: View → Show Terminal, the Terminal tab from anywhere (and back from it): a menu key, which the window
+// leaves to the menu even while a terminal has the keyboard. ⌃⇧` is no longer a key of the app's.
 func grave(_ chars: String, _ mods: NSEvent.ModifierFlags, code: UInt16 = 50) -> NSEvent {
     NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: mods, timestamp: 0, windowNumber: 0, context: nil,
                      characters: chars, charactersIgnoringModifiers: chars, isARepeat: false, keyCode: code)!
 }
-assert(AppKeys.showsTerminalTab(grave("~", [.control, .shift])))
-assert(AppKeys.showsTerminalTab(grave("`", [.control, .shift])))
-assert(AppKeys.showsTerminalTab(grave("£", [.control, .shift])), "by its key, whatever the layout's character")
-assert(!AppKeys.showsTerminalTab(grave("`", .control)), "⌃` is the panel's")
-assert(!AppKeys.showsTerminalTab(grave("`", .command)), "⌘` steps the tabs")
-assert(!AppKeys.showsTerminalTab(grave("~", [.control, .shift, .command])))
-assert(!AppKeys.showsTerminalTab(grave("~", [.control, .shift, .option])))
-assert(!AppKeys.showsTerminalTab(grave("A", [.control, .shift], code: 0)))
+assert(!AppKeys.offeredToMenu(grave("`", .control), conquerHasKeys: false), "⌃` is the menu's own key equivalent")
+do {
+    final class Toggle: NSObject { var ran = 0; @objc func toggle() { ran += 1 } }
+    let toggle = Toggle()
+    let view = NSMenu(title: "View")
+    let item = view.addItem(withTitle: "Show Terminal", action: #selector(Toggle.toggle), keyEquivalent: "`")
+    item.keyEquivalentModifierMask = [.control]
+    item.target = toggle
+    assert(view.performKeyEquivalent(with: grave("`", .control)) && toggle.ran == 1)
+    assert(!view.performKeyEquivalent(with: grave("~", [.control, .shift])) && toggle.ran == 1, "⌃⇧` does nothing")
+    assert(!view.performKeyEquivalent(with: grave("`", .command)) && toggle.ran == 1, "⌘` steps the tabs")
+}
 do {
     let window = AppWindow(contentRect: CGRect(x: 0, y: 0, width: 400, height: 300), styleMask: [.titled], backing: .buffered, defer: true)
-    var shown = 0
-    window.onTerminalTab = { shown += 1 }
-    // Even while a terminal has the keyboard (`terminalHasKeys`), as the panel keeps ⌃`.
+    // Even while a terminal has the keyboard (`terminalHasKeys`), ⌃` goes on to the menu.
     window.terminalHasKeys = { true }
-    assert(window.performKeyEquivalent(with: grave("~", [.control, .shift])) && shown == 1)
-    assert(!window.performKeyEquivalent(with: grave("`", .control)) && shown == 1, "⌃` goes on to the menu")
-    // ⌘B: the page's session panel while the panel's (or the tab's) terminal has the keyboard, as in Conquer.
+    assert(!window.performKeyEquivalent(with: grave("`", .control)), "⌃` goes on to the menu")
+    assert(!window.performKeyEquivalent(with: grave("~", [.control, .shift])), "⌃⇧` isn't the window's")
+    // ⌘B: the page's session panel while the Terminal tab's terminal has the keyboard, as in Conquer.
     var toggled = 0
     window.onTogglePanel = { toggled += 1 }
     let cmdB = NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: .command, timestamp: 0, windowNumber: 0, context: nil,
                                 characters: "b", charactersIgnoringModifiers: "b", isARepeat: false, keyCode: 11)!
     assert(AppKeys.togglesPanel(cmdB) && !AppKeys.togglesPanel(grave("b", [.command, .shift], code: 11)))
-    window.panelTerminalHasKeys = { false }
+    window.tabTerminalHasKeys = { false }
     _ = window.performKeyEquivalent(with: cmdB)
     assert(toggled == 0, "elsewhere ⌘B is the page's own")
-    window.panelTerminalHasKeys = { true }
+    window.tabTerminalHasKeys = { true }
     assert(window.performKeyEquivalent(with: cmdB) && toggled == 1)
 }
 assert(Mode(rawValue: "settings") == .settings && Mode.settings.drawnByPage)

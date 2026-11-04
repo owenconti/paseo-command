@@ -89,6 +89,8 @@ test("in the macOS app, the mode bar's keys list its tabs in order, Settings bei
   }).last();
   assert.match(await tabs.innerText(), /1…4/);
   await dialog.getByText(/^From anywhere: the Terminal tab/).waitFor();
+  // No terminal panel any more: ⌃` is the Terminal tab's.
+  assert.equal(await dialog.getByText(/terminal panel/).count(), 0);
   await dialog.getByText("Settings (the bar's gear), or back from it; Esc goes back too", { exact: true }).waitFor();
   await context.close();
 });

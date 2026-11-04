@@ -1,6 +1,6 @@
 /**
  * The macOS app's terminal font (Settings → Terminal): its family, size, line height and letter spacing, for
- * the terminal panel and the Files page's editors alike. The app keeps them in its preferences; the page asks
+ * the Terminal tab and the Files page's editors alike. The app keeps them in its preferences; the page asks
  * for them (`terminalFont`) and the installed monospaced families, and sets them (`terminalFont` with `set`);
  * the app answers each, and ⌘+ / ⌘− / ⌘0 in a terminal, with `paseo:terminal-font`. In a browser there is none.
  */

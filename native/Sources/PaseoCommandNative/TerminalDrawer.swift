@@ -52,7 +52,7 @@ final class TerminalSession: NSObject, TerminalViewDelegate, URLSessionWebSocket
         receive()
     }
 
-    /// Dark or light with the panel.
+    /// Dark or light with the app.
     func restyle(_ appearance: NSAppearance) {
         view.nativeBackgroundColor = Ink.color(Ink.pane, appearance)
         view.nativeForegroundColor = Ink.color(Ink.text, appearance)
@@ -147,19 +147,7 @@ final class TerminalSession: NSObject, TerminalViewDelegate, URLSessionWebSocket
 }
 
 
-/// Where the terminal panel sits: beside the map and panels, or under them.
-enum TerminalDock: String {
-    case right, bottom
-}
-
-/// The terminal panel as the Terminal tab found it, put back as the tab leaves: open or closed, maximized
-/// over the map or not. Its side and size are kept in the preferences, its tabs and splits in the drawer.
-struct TerminalPanelState: Equatable {
-    var open: Bool
-    var maximized: Bool
-}
-
-/// How the panel's body shares out its terminals: one pane, or a split of two
+/// How the Terminal tab's body shares out its terminals: one pane, or a split of two
 /// (side by side when `vertical`, as NSSplitView names its divider; else
 /// stacked), each of which may split again. A tab dropped on a pane's edge splits it.
 indirect enum PaneLayout: Equatable {
@@ -210,7 +198,7 @@ enum PaneDrop: String {
     case center, left, right, top, bottom
 }
 
-/// Two panes and the divider between them, which keeps its proportion as the panel resizes.
+/// Two panes and the divider between them, which keeps its proportion as the tab resizes.
 final class PaneSplit: NSSplitView, NSSplitViewDelegate {
     private(set) var ratio: CGFloat
     var onRatio: ((CGFloat) -> Void)?
@@ -260,7 +248,7 @@ final class PaneSplit: NSSplitView, NSSplitViewDelegate {
     }
 }
 
-/// A tab in the panel's bar: its terminal's name and a × that closes it. A
+/// A tab in the Terminal tab's bar: its terminal's name and a × that closes it. A
 /// click shows it; a drag carries a picture of it to a pane (`PaneDropCatcher`),
 /// while the tab itself waits faded in the bar.
 final class TerminalTab: NSView, NSDraggingSource {
@@ -433,10 +421,10 @@ final class PaneDropCatcher: NSView {
     }
 }
 
-/// The terminal panel: tabs for the selected workspace's daemon terminals, a
-/// + for a new one there, and the native terminals (SwiftTerm) in panes: a tab
-/// dragged to a pane's edge splits it, to its middle takes its place. A tab's ×
-/// ends its terminal; terminals keep running on the daemon when the panel closes.
+/// The Terminal tab's view, in the map's place while the tab shows (the app's only terminals but the
+/// Files page's editors): tabs for the selected workspace's daemon terminals, a + for a new one there,
+/// and the native terminals (SwiftTerm) in panes: a tab dragged to a pane's edge splits it, to its middle
+/// takes its place. A tab's × ends its terminal; terminals keep running on the daemon when the tab hides.
 final class TerminalDrawer: NSView {
     /// The app server the page comes from; the relay and routes are on it.
     var server: () -> URL = { URL(string: "http://127.0.0.1:4310/")! }
@@ -444,6 +432,8 @@ final class TerminalDrawer: NSView {
     private var sessions: [String: TerminalSession] = [:]
     /// The listed terminals, in the daemon's order.
     private var listed: [(id: String, name: String)] = []
+    /// Whether `listed` is the workspace's list yet: until it is, its kept panes aren't pruned against it.
+    private var listedNow = false
     /// The panes and the one with the keyboard (its tab is the current one).
     private var layout: PaneLayout?
     private var current: String?
@@ -461,40 +451,10 @@ final class TerminalDrawer: NSView {
     private let tabBar = NSStackView()
     private var tabViews: [String: TerminalTab] = [:]
     private let add = NSButton(title: "+", target: nil, action: nil)
-    private let move = NSButton(title: "", target: nil, action: nil)
-    private let grow = NSButton(title: "", target: nil, action: nil)
     private let join = NSButton(title: "", target: nil, action: nil)
     /// Over the tab bar while a tab is carried: dropped there, a pane's tab goes back to being only a tab.
     private let barCatcher = PaneDropCatcher()
     private let barText = NSTextField(labelWithString: "Back to tabs")
-    /// Asked to move the panel to the other side (the window owns the split).
-    var onMove: (() -> Void)?
-    /// Asked to cover the map, or return beside it.
-    var onMaximize: (() -> Void)?
-    /// The separator along the edge that faces the map: left when docked right, top when at the bottom.
-    private let line = NSBox()
-    private var lineConstraints: [NSLayoutConstraint] = []
-    var dock: TerminalDock = .right { didSet { placeLine(); placeTop() } }
-    /// Over the map (the page's panels stay beside it) rather than in the split.
-    var maximized = false { didSet { placeGrow(); placeTop() } }
-    /// In the Terminal tab, in the map's place: the same sessions, without the panel's dock and maximize buttons.
-    var inTab = false { didSet { placeGrow(); placeTop() } }
-    /// The window's top bar's height: docked right, the panel reaches the window's top,
-    /// under the bar, so its tab bar starts below it.
-    var barInset: CGFloat = 0 { didSet { placeTop() } }
-    private var barTop: NSLayoutConstraint?
-
-    private func placeTop() { barTop?.constant = 1 + (dock == .right && !maximized && !inTab ? barInset : 0) }
-
-    private func placeGrow() {
-        line.isHidden = maximized || inTab
-        grow.isHidden = inTab
-        move.isHidden = inTab
-        grow.image = NSImage(systemSymbolName: maximized ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right",
-                             accessibilityDescription: maximized ? "Restore terminal" : "Maximize terminal")
-        grow.toolTip = maximized ? "Restore the terminal beside the map (⇧⌘↩)" : "Maximize the terminal over the map (⇧⌘↩)"
-    }
-
     /// The terminals' font, kept across launches (Settings → Terminal; ⌘+, ⌘−, ⌘0 its size).
     private(set) var font = TerminalFontSettings()
     var fontSize: CGFloat { font.size }
@@ -520,8 +480,6 @@ final class TerminalDrawer: NSView {
         tabBar.spacing = 2
         tabBar.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         for (button, help, action) in [(add, "New terminal in this workspace", #selector(newTerminal)),
-                                       (move, "", #selector(moveDock)),
-                                       (grow, "", #selector(maximize)),
                                        (join, "Unsplit: one terminal at a time, the others as tabs", #selector(unsplit))] {
             button.bezelStyle = .accessoryBarAction
             button.controlSize = .small
@@ -532,7 +490,7 @@ final class TerminalDrawer: NSView {
         let spacer = NSView()
         spacer.setContentHuggingPriority(.init(1), for: .horizontal)
         join.image = NSImage(systemSymbolName: "rectangle.split.2x1.slash", accessibilityDescription: "Unsplit terminals")
-        for v in [title, tabBar, add, spacer, join, move, grow] { bar.addArrangedSubview(v) }
+        for v in [title, tabBar, add, spacer, join] { bar.addArrangedSubview(v) }
         empty.font = .systemFont(ofSize: 12)
         empty.alignment = .center
         marker.wantsLayer = true
@@ -573,16 +531,8 @@ final class TerminalDrawer: NSView {
             v.translatesAutoresizingMaskIntoConstraints = false
             addSubview(v)
         }
-        line.boxType = .separator
-        line.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(line)
-        placeLine()
-        placeGrow()
-        let barTop = bar.topAnchor.constraint(equalTo: topAnchor, constant: 1)
-        self.barTop = barTop
-        placeTop()
         NSLayoutConstraint.activate([
-            barTop,
+            bar.topAnchor.constraint(equalTo: topAnchor, constant: 1),
             bar.leadingAnchor.constraint(equalTo: leadingAnchor),
             bar.trailingAnchor.constraint(equalTo: trailingAnchor),
             bar.heightAnchor.constraint(equalToConstant: 30),
@@ -620,7 +570,7 @@ final class TerminalDrawer: NSView {
         render()
     }
 
-    /// The panel's colours for the system's appearance: dark like the page's
+    /// The tab's colours for the system's appearance: dark like the page's
     /// Galaxy panels, light like its Light theme.
     private func restyle() {
         let a = effectiveAppearance
@@ -636,32 +586,7 @@ final class TerminalDrawer: NSView {
         for pane in panes.values { pane.layer?.backgroundColor = Ink.color(Ink.pane, a).cgColor }
     }
 
-    private func placeLine() {
-        NSLayoutConstraint.deactivate(lineConstraints)
-        lineConstraints = dock == .right ? [
-            line.topAnchor.constraint(equalTo: topAnchor),
-            line.bottomAnchor.constraint(equalTo: bottomAnchor),
-            line.leadingAnchor.constraint(equalTo: leadingAnchor),
-            // A separator draws across its longer side: pinned thin, or a frame left
-            // wide from the other dock draws a line across the middle of the panel.
-            line.widthAnchor.constraint(equalToConstant: 1),
-        ] : [
-            line.topAnchor.constraint(equalTo: topAnchor),
-            line.leadingAnchor.constraint(equalTo: leadingAnchor),
-            line.trailingAnchor.constraint(equalTo: trailingAnchor),
-            line.heightAnchor.constraint(equalToConstant: 1),
-        ]
-        NSLayoutConstraint.activate(lineConstraints)
-        let other = dock == .right ? "bottom" : "right"
-        move.image = NSImage(systemSymbolName: dock == .right ? "rectangle.bottomhalf.inset.filled" : "rectangle.righthalf.inset.filled",
-                             accessibilityDescription: "Move terminal to the \(other)")
-        move.toolTip = "Move the terminal to the \(other)"
-    }
-
-    @objc private func moveDock() { onMove?() }
-    @objc private func maximize() { onMaximize?() }
-
-    /// Whether the keyboard is in the panel (a terminal, its tabs).
+    /// Whether the keyboard is in the tab's view (a terminal, its tabs).
     var hasKeyFocus: Bool {
         guard let responder = window?.firstResponder as? NSView else { return false }
         return responder === self || responder.isDescendant(of: self)
@@ -698,12 +623,14 @@ final class TerminalDrawer: NSView {
         if let ws = workspace { away[ws.id] = (layout, current) }
         workspace = next
         listed = []
+        listedNow = false
         let kept = next.flatMap { away[$0.id] }
         layout = kept?.layout
         current = kept?.current
         empty.stringValue = ""
         render()
-        refresh()
+        // Hidden, it asks nothing of the daemon: showing lists them again (`setActive`).
+        if poll != nil { refresh() }
     }
 
     /// Shown: keep the tabs in step with the daemon; hidden: stop asking.
@@ -727,7 +654,7 @@ final class TerminalDrawer: NSView {
         return c.url!
     }
 
-    /// The panel opened: show the workspace's terminals, starting one if it has none.
+    /// The tab opened: show the workspace's terminals, starting one if it has none.
     func opened() {
         guard workspace != nil else { return }
         refresh { [weak self] listedOK in
@@ -744,9 +671,10 @@ final class TerminalDrawer: NSView {
             DispatchQueue.main.async {
                 guard let self, self.workspace == ws else { return }
                 if let terminals = json?["terminals"] as? [[String: Any]] {
-                    // The Files page's editors (`editor`) are its tabs', not the panel's.
+                    // The Files page's editors (`editor`) are its tabs', not the Terminal tab's.
                     self.listed = terminals.filter { $0["editor"] as? Bool != true }
                         .compactMap { t in (t["id"] as? String).map { ($0, (t["title"] as? String) ?? (t["name"] as? String) ?? "Terminal") } }
+                    self.listedNow = true
                     self.empty.stringValue = ""
                 } else {
                     self.listed = []
@@ -767,6 +695,7 @@ final class TerminalDrawer: NSView {
     /// Keep the panes to listed terminals, with one showing whenever any is
     /// listed, and the current tab one of those shown.
     private func settle() {
+        guard listedNow else { return }
         let ids = Set(listed.map(\.id))
         for id in layout?.terminals ?? [] where !ids.contains(id) { layout = layout?.removing(id) }
         if layout == nil, let first = listed.first { layout = .pane(first.id) }
@@ -784,7 +713,7 @@ final class TerminalDrawer: NSView {
         } else if layout == nil && empty.stringValue.isEmpty {
             empty.stringValue = "No terminals in \(ws!.name). Press + to open one."
         }
-        empty.isHidden = ws != nil && layout != nil
+        empty.isHidden = ws != nil && layout != nil && listedNow
         join.isHidden = !isSplit
         buildPanes()
         // With more than one pane, the current one is rimmed.
@@ -822,7 +751,7 @@ final class TerminalDrawer: NSView {
     /// Lay the panes out again when the layout changed (not on every poll:
     /// moving a terminal's view between parents is not free).
     private func buildPanes() {
-        let next = workspace == nil ? nil : layout
+        let next = workspace == nil || !listedNow ? nil : layout
         guard next != built else { return }
         built = next
         for v in body.subviews where v !== marker && v !== catcher { v.removeFromSuperview() }
@@ -1067,9 +996,6 @@ final class TerminalDrawer: NSView {
             "queries": current.flatMap { sessions[$0]?.answers.json } as Any? ?? NSNull(),
             "open": !isHidden,
             "keyFocus": hasKeyFocus,
-            "dock": dock.rawValue,
-            "maximized": maximized,
-            "inTab": inTab,
             "frame": [frame.minX, frame.minY, frame.width, frame.height],
             "fontSize": fontSize,
             "font": font.json,
@@ -1085,6 +1011,7 @@ final class TerminalDrawer: NSView {
     /// Take `terminals` as the daemon's list, as a refresh does (tests).
     func list(_ terminals: [(id: String, name: String)]) {
         listed = terminals
+        listedNow = true
         render()
     }
 

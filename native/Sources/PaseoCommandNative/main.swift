@@ -148,16 +148,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
                                                isARepeat: false, keyCode: 50) else { return }
             Log.line("⌘` through the menu: \(NSApp.mainMenu?.performKeyEquivalent(with: event) ?? false)")
         }
+        // ⌃`: the Terminal tab, or back from it.
         listen("com.paseo.command.native.terminal") { [weak self] in self?.main?.toggleTerminal() }
-        listen("com.paseo.command.native.dock") { [weak self] in self?.main?.moveTerminal() }
-        listen("com.paseo.command.native.maximize") { [weak self] in self?.main?.maximizeTerminal() }
         listen("com.paseo.command.native.split") { [weak self] in self?.main?.drawer.splitForCheck() }
-        // Drag the terminal panel's divider 150 points towards the map (checks).
-        listen("com.paseo.command.native.divider") { [weak self] in
-            guard let split = self?.main?.split, split.subviews.count > 1 else { return }
-            let first = split.subviews[0].frame
-            split.setPosition((split.isVertical ? first.width : first.height) - 150, ofDividerAt: 0)
-        }
         listen("com.paseo.command.native.unsplit") { [weak self] in self?.main?.drawer.unsplit() }
         listen("com.paseo.command.native.newterminal") { [weak self] in self?.main?.drawer.newTerminal() }
         listen("com.paseo.command.native.zoom") { [weak self] in self?.main?.zoomTerminals(1) }
@@ -224,7 +217,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
             self.main?.show(.conquer)
             self.main?.conquer.whenStarted { self.main?.conquer.open(url) }
         }
-        // Type `<info>.type`'s text into the drawer's terminal, as keys would.
+        // Type `<info>.type`'s text into the Terminal tab's current terminal, as keys would.
         listen("com.paseo.command.native.type") { [weak self] in
             guard let self, let info = self.options.info,
                   let text = try? String(contentsOfFile: (info as NSString).deletingPathExtension + ".type", encoding: .utf8) else { return }
@@ -358,20 +351,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         let viewItem = NSMenuItem()
         bar.addItem(viewItem)
         let view = NSMenu(title: "View")
-        let terminal = view.addItem(withTitle: "Terminal", action: #selector(toggleTerminal), keyEquivalent: "`")
+        // ⌃`: the Terminal tab from anywhere, and back to the side before it from there.
+        let terminal = view.addItem(withTitle: "Show Terminal", action: #selector(toggleTerminal), keyEquivalent: "`")
         terminal.target = self
         terminal.keyEquivalentModifierMask = [.control]
-        let bottom = view.addItem(withTitle: "Terminal at Bottom", action: #selector(moveTerminal), keyEquivalent: "")
-        bottom.target = self
-        let maximize = view.addItem(withTitle: "Maximize Terminal", action: #selector(maximizeTerminal), keyEquivalent: "\r")
-        maximize.target = self
-        maximize.keyEquivalentModifierMask = [.command, .shift]
         let unsplit = view.addItem(withTitle: "Unsplit Terminals", action: #selector(unsplitTerminals), keyEquivalent: "")
         unsplit.target = self
         view.addItem(.separator())
         modeItems = Mode.tabs.map { mode in
-            // "Terminal" alone is the panel's (⌃`).
-            let item = view.addItem(withTitle: mode == .terminal ? "Terminal Tab" : mode.title, action: #selector(showMode(_:)), keyEquivalent: "")
+            let item = view.addItem(withTitle: mode.title, action: #selector(showMode(_:)), keyEquivalent: "")
             item.target = self
             item.representedObject = mode.rawValue
             return item
@@ -427,8 +415,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     }
 
     @objc private func toggleTerminal() { main?.toggleTerminal() }
-    @objc private func moveTerminal() { main?.moveTerminal() }
-    @objc private func maximizeTerminal() { main?.maximizeTerminal() }
     @objc private func unsplitTerminals() { main?.drawer.unsplit() }
     @objc private func zoomTerminal(_ sender: NSMenuItem) { main?.zoomTerminals(CGFloat(sender.tag)) }
     @objc private func toggleMode() {
@@ -464,20 +450,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
             return browser
         case #selector(showBranchChanges): return !browser
         case #selector(closeFileTab): return main.mode == .files && (NSApp.keyWindow.map { $0 === main.window } ?? true)
-        case #selector(moveTerminal):
-            item.state = main.drawer.dock == .bottom ? .on : .off
-            // The Terminal tab has no dock or maximize: it fills the map's place.
-            return main.mode != .terminal
-        case #selector(unsplitTerminals): return !main.drawer.isHidden && main.drawer.isSplit
-        case #selector(maximizeTerminal):
-            item.state = main.drawer.maximized ? .on : .off
-            return !main.drawer.isHidden && main.mode != .terminal
-        // Only while the terminal shows, so the keys stay the page's otherwise; while a page
-        // (GitHub, Activity, Files, Settings) shows, only while the terminal has the keyboard (the page sizes their text with them).
+        case #selector(toggleTerminal): item.title = main.mode == .terminal ? "Back from Terminal" : "Show Terminal"
+        case #selector(unsplitTerminals): return main.mode == .terminal && main.drawer.isSplit
+        // Only while the Terminal tab shows, so the keys stay the page's otherwise (the pages, GitHub, Activity,
+        // Files and Settings, size their own text with them); a file's editor keeps them while it has the keyboard.
         case #selector(zoomTerminal(_:)):
-            // The pages (GitHub, Activity, Files, Settings) size their own text with these keys.
-            // A file's editor (the Files page) keeps them while it has the keyboard too.
-            return main.editors.hasKeyFocus || !main.drawer.isHidden && (!main.mode.drawnByPage || main.drawer.hasKeyFocus)
+            return main.editors.hasKeyFocus || main.mode == .terminal
         default: break
         }
         return true

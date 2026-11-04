@@ -1323,7 +1323,7 @@ type EditorProps = {
 /**
  * Where the tab's editor terminal shows: the page keeps this box and tells the macOS app its frame
  * (`postEditorPlacement`), which lays the terminal exactly over it and follows it as the page lays out
- * (sidebar, terminal panel, window), stepping aside while a dialog (⌘K, ⌘P) is open over it.
+ * (sidebar, window), stepping aside while a dialog (⌘K, ⌘P) is open over it.
  */
 function EditorSlot({ terminal, host, name, resend }: { terminal: string; host?: string; name: string; resend: number }) {
   const box = useRef<HTMLDivElement>(null);

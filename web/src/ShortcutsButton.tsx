@@ -71,10 +71,10 @@ const TAB_NAMES: Record<AppMode, string> = {
 const NATIVE: Group = {
   title: "macOS app",
   rows: [
-    { keys: [["⌃", "`"]], label: "Show or hide the terminal panel (in the Terminal tab: back to the side before it)" },
     {
-      keys: [["⌃", "⇧", "`"]],
-      label: "From anywhere: the Terminal tab, the selected workspace's (or agent's) terminals in the map's place",
+      keys: [["⌃", "`"]],
+      label:
+        "From anywhere: the Terminal tab, the selected workspace's (or agent's) terminals in the map's place (in it: back to the side before it)",
     },
     {
       keys: [["⌘", "+"], ["⌘", "−"], ["⌘", "0"]],
@@ -157,7 +157,7 @@ const FILES: Group = {
     },
     {
       keys: [["⌘", "W"], ["⌘", "K"], ["⌘", "1…6"]],
-      label: "In the editor: close the tab (asking while it runs), the palette, the mode bar's tabs; ⌘`, ⌃⇧`, ⇧⌘G and ⇧⌘E too. Every other key, Esc and ⌃ keys included, is the editor's",
+      label: "In the editor: close the tab (asking while it runs), the palette, the mode bar's tabs; ⌘`, ⌃`, ⇧⌘G and ⇧⌘E too. Every other key, Esc and ⌃ keys included, is the editor's",
     },
     {
       keys: [["⇧", "⌘", "G"]],

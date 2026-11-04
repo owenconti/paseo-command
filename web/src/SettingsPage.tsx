@@ -255,8 +255,8 @@ export function SettingsPage({
             <SettingsGroup
               note={
                 macApp()
-                  ? "For the terminal panel and the Files page’s editor, applied as you change them. Nerd Font icons draw whatever the font."
-                  : "The terminal panel and the Files page’s editor are the macOS app’s: their font, size, line height and letter spacing are set there, in Settings → Terminal."
+                  ? "For the Terminal tab and the Files page’s editor, applied as you change them. Nerd Font icons draw whatever the font."
+                  : "The Terminal tab and the Files page’s editor are the macOS app’s: their font, size, line height and letter spacing are set there, in Settings → Terminal."
               }
             >
               {macApp() ? <TerminalSettings /> : null}

@@ -187,13 +187,11 @@ test("in the macOS app, the terminal's menu commands are listed and reach the ap
   const search = palette.getByRole("combobox", { name: "Search commands" });
   await page.keyboard.press("Meta+k");
   await search.fill("term");
-  for (const label of [
-    "Show or hide the terminal",
-    "Maximize the terminal",
-    "Unsplit terminals",
-    "Bigger terminal text",
-  ])
-    await palette.getByRole("option", { name: label }).waitFor();
+  await palette.getByRole("option", { name: /^Show terminal/ }).waitFor();
+  await palette.getByRole("option", { name: "Bigger terminal text" }).waitFor();
+  // No terminal panel: nothing shows, hides, docks or maximizes one; unsplit only in the Terminal tab.
+  for (const gone of [/Show or hide the terminal/, /Maximize the terminal/, /Move the terminal/, /^Unsplit terminals/])
+    assert.equal(await palette.getByRole("option", { name: gone }).count(), 0, String(gone));
   // The mode bar's tabs shown, in its order, with ⌘1…⌘6 by their place (no integrations here):
   // Command, Files, Terminal, Conquer; Settings is the bar's gear, ⌘, alone.
   await search.fill("next in the map");
@@ -201,11 +199,11 @@ test("in the macOS app, the terminal's menu commands are listed and reach the ap
   await search.fill("show the browser");
   const browserTab = palette.getByRole("option", { name: /Show the browser \(Conquer\)/ });
   assert.match(await browserTab.locator(".palette-keys").innerText(), /⌘\s*4/);
-  // The Terminal tab: ⌃⇧` from anywhere (shown), or ⌘3 by its place.
+  // The Terminal tab: ⌃` from anywhere (shown), or ⌘3 by its place.
   await search.fill("show terminal");
   const terminalTab = palette.getByRole("option", { name: /^Show terminal/ });
   assert.equal(await terminalTab.locator(".palette-page").innerText(), "Terminal");
-  assert.equal((await terminalTab.locator(".palette-keys").innerText()).replace(/\s/g, ""), "⌃⇧`");
+  assert.equal((await terminalTab.locator(".palette-keys").innerText()).replace(/\s/g, ""), "⌃`");
   await search.fill("settings");
   const settingsEntry = palette.getByRole("option", { name: /^Settings/ }).first();
   assert.equal((await settingsEntry.locator(".palette-keys").innerText()).replace(/\s/g, ""), "⌘,");
@@ -215,7 +213,6 @@ test("in the macOS app, the terminal's menu commands are listed and reach the ap
   const at = (re: RegExp) => labels.findIndex((l) => re.test(l));
   assert.ok(at(/^Show files/) >= 0 && at(/^Show the browser/) > at(/^Show files/), labels.join(" | "));
   await search.fill("show terminal");
-  // Ahead of "Show or hide the terminal", which matches as well.
   await page.keyboard.press("Enter");
   await palette.waitFor({ state: "detached" });
   await page.waitForFunction(() =>
@@ -223,26 +220,27 @@ test("in the macOS app, the terminal's menu commands are listed and reach the ap
       (m) => m.type === "menu" && m.action === "terminal-tab",
     ),
   );
-  // While the Terminal tab shows: no Show terminal, no dock side or maximize; ⌃` leaves the tab.
+  // While the Terminal tab shows: no Show terminal; ⌃` leaves the tab, and Unsplit shows.
   await appEvent(page, "paseo:mode", { mode: "terminal" });
   await page.keyboard.press("Meta+k");
   await search.fill("term");
-  await palette.getByRole("option", { name: "Leave the terminal tab" }).waitFor();
+  const leave = palette.getByRole("option", { name: /^Leave the terminal tab/ });
+  assert.equal((await leave.locator(".palette-keys").innerText()).replace(/\s/g, ""), "⌃`");
   await palette.getByRole("option", { name: "Unsplit terminals" }).waitFor();
   for (const gone of [/^Show terminal/, /^Maximize the terminal/, /^Move the terminal/])
     assert.equal(await palette.getByRole("option", { name: gone }).count(), 0, String(gone));
   await page.keyboard.press("Escape");
   await palette.waitFor({ state: "detached" });
-  await appEvent(page, "paseo:mode", { mode: "command" });
   await page.keyboard.press("Meta+k");
-  await search.fill("maximize term");
+  await search.fill("leave the terminal");
   await page.keyboard.press("Enter");
   await palette.waitFor({ state: "detached" });
   await page.waitForFunction(() =>
     (window as unknown as { sentToApp: { type: string; action?: string }[] }).sentToApp.some(
-      (m) => m.type === "menu" && m.action === "terminal-maximize",
+      (m) => m.type === "menu" && m.action === "terminal",
     ),
   );
+  await appEvent(page, "paseo:mode", { mode: "command" });
   await context.close();
 });
 
@@ -287,8 +285,8 @@ test("every entry names its page, then its keys", async () => {
   for (const name of ["Command", "Conquer", "Settings", "Terminal", "App"])
     assert.ok(seen.has(name), name);
   // The page comes first, then the keys.
-  await search.fill("show or hide the terminal");
-  const terminal = palette.getByRole("option", { name: /Show or hide the terminal/ });
+  await search.fill("show terminal");
+  const terminal = palette.getByRole("option", { name: /^Show terminal/ });
   assert.deepEqual(
     await terminal.evaluate((o) =>
       [...o.querySelectorAll(".palette-meta > *")].map((e) => e.className),

@@ -50,13 +50,13 @@ enum Mode: String, CaseIterable {
         case .settings: "Settings: sounds, notifications, integrations, New agent, in the map's place"
         }
     }
-    /// Its keys, as the `index`th tab shown (from 0): ⌘1…⌘6, and ⌘` steps (Files' ⇧⌘E and Terminal's ⌃⇧` too; Settings' gear only ⌘,).
+    /// Its keys, as the `index`th tab shown (from 0): ⌘1…⌘6, and ⌘` steps (Files' ⇧⌘E and Terminal's ⌃` too; Settings' gear only ⌘,).
     func keys(at index: Int?) -> String {
         let number = index.map { "⌘\($0 + 1), " } ?? ""
         switch self {
         case .settings: return "⌘,"
         case .files: return "\(number)⇧⌘E or ⌘`"
-        case .terminal: return "\(number)⌃⇧` or ⌘`"
+        case .terminal: return "\(number)⌃` or ⌘`"
         default: return "\(number)⌘`"
         }
     }

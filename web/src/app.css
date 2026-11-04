@@ -511,7 +511,7 @@
   overflow-wrap: anywhere;
 }
 
-/* In the macOS app the page keeps beside (or above) the terminal panel; only its top bar spans the window. */
+/* In the macOS app the page keeps to the size the app gives it (`--workspace-width`/`-height`, the window below its bar). */
 :root[data-native-workspace] .command-app.unity-command {
   position: relative;
   width: var(--workspace-width);
