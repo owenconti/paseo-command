@@ -5,6 +5,17 @@ mark it done with its commit once merged into `main`.
 
 ## Open
 
+- [ ] **Terminal: device-attribute replies leak into the shell after quitting nvim.** After `:q` in nvim in the terminal
+  panel, `/65;4;1;2;6;21;22;17;28c` appears at the prompt as if typed: SwiftTerm's answer to a Primary Device Attributes
+  query (`ESC[c` → `ESC[?65;4;1;2;6;21;22;17;28c`) reaching the shell instead of nvim (its `ESC[?` eaten). Likely causes:
+  the answer arriving after nvim has exited because of the relay's round trip (daemon terminal → `/api/terminal` socket →
+  SwiftTerm → keys back), or SwiftTerm answering queries again while the screen replay (sent first on connect/reconnect,
+  e.g. switching tabs or workspaces) is fed to it, so old queries get fresh answers typed into whatever runs now. Find
+  which (log the bytes in a check run), then: never answer queries found in replayed bytes (mark the replay, feed it with
+  responses suppressed, or strip queries from it), and drop late answers where possible. Same for other replies (DA2,
+  DSR/cursor position, OSC 10/11 colour queries, XTVERSION, DECRQM). Applies to the terminal panel and the Files editor.
+  Tests: native checks feeding a replay containing `ESC[c`/`ESC[6n` and asserting nothing is sent back; a check run with
+  the fake daemon. Workspace: `fix-terminal-query-replies`.
 ## Done
 
 - [x] **Map: it freezes, still answering input but no longer updating or animating.** Now and then, with no pattern the
