@@ -250,16 +250,29 @@ final class AtlasView: SKView {
     /// Checks: wedge SpriteKit's display link as a display change or a lost frame can, through its
     /// private state (`link`: the callback left "in progress", so every frame is skipped; `cv`: its
     /// CVDisplayLink stopped). Only the check hooks call this.
+    /// The link's thread queues each frame on the main queue, marking the callback in progress until it
+    /// runs; a frame queued before the wedge (the main thread busy, as under load) would still land after
+    /// it, so this returns only once none is waiting.
     func wedgeDisplayLink(_ how: String) {
         guard let ivar = class_getInstanceVariable(SKView.self, "_displayLink"), let link = object_getIvar(self, ivar) as AnyObject?,
-              let flag = class_getInstanceVariable(type(of: link), how == "cv" ? "_cvDisplayLink" : "_callbackAlreadyInProgress") else {
+              let cvIvar = class_getInstanceVariable(type(of: link), "_cvDisplayLink"),
+              let flagIvar = class_getInstanceVariable(type(of: link), "_callbackAlreadyInProgress") else {
             return Log.line("checks: no display link to wedge")
         }
-        let field = Unmanaged.passUnretained(link).toOpaque().advanced(by: ivar_getOffset(flag))
+        let base = Unmanaged.passUnretained(link).toOpaque()
+        let flag = base.advanced(by: ivar_getOffset(flagIvar))
+        let drain = { RunLoop.main.run(mode: .default, before: Date() + 0.005) }
+        let deadline = Date() + 1
         if how == "cv" {
-            if let cv = field.load(as: CVDisplayLink?.self) { CVDisplayLinkStop(cv) }
+            if let cv = base.advanced(by: ivar_getOffset(cvIvar)).load(as: CVDisplayLink?.self) { CVDisplayLinkStop(cv) }
+            // Stopped: the frame in flight, if any, lands and clears the mark.
+            while flag.load(as: UInt8.self) != 0 && Date() < deadline { drain() }
         } else {
-            field.storeBytes(of: UInt8(1), as: UInt8.self)
+            // A frame in flight clears the mark as it runs: mark it again until it stays.
+            repeat {
+                flag.storeBytes(of: UInt8(1), as: UInt8.self)
+                drain()
+            } while flag.load(as: UInt8.self) == 0 && Date() < deadline
         }
     }
 

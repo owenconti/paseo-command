@@ -33,6 +33,8 @@ func frames(over seconds: Double = 0.8) -> Int {
     return scene.framesDrawn - before
 }
 let later = { CACurrentMediaTime() + 60 }
+/// The main thread busy a few frames, as under load: the display link's next frame waits in the main queue.
+func busy() { usleep(60_000) }
 
 // It draws while the sea drifts, rests while covered (Conquer, a page in its place) or hidden, and resumes after.
 assert(frames() > 5, "draws at its ambient rate")
@@ -73,7 +75,8 @@ assert(view.recoveries == 3 && !scene.isPaused && frames() > 5)
 var asked: [String] = []
 view.onRecover = { asked.append($0) }
 
-// SpriteKit's CVDisplayLink stopped: no frames; restarting the loop brings them back.
+// SpriteKit's CVDisplayLink stopped: no frames (not even one queued before the stop); restarting the loop brings them back.
+busy()
 view.wedgeDisplayLink("cv")
 assert(frames() == 0, "a stopped display link draws nothing")
 assert(view.stall(now: later())?.hasPrefix("no frame for") == true)
@@ -82,6 +85,7 @@ assert(view.recoveries == 4 && asked.count == 1, "restarted, and the page asked 
 assert(frames() > 5, "restarting the loop mends a stopped display link")
 
 // A display change restarts the link of its own accord.
+busy()
 view.wedgeDisplayLink("cv")
 assert(frames() == 0)
 NotificationCenter.default.post(name: NSApplication.didChangeScreenParametersNotification, object: app)
@@ -96,6 +100,7 @@ view.onRebuild = { old in
     next.govern()
     rebuilt = next
 }
+busy()
 view.wedgeDisplayLink("link")
 assert(frames() == 0, "a wedged display link draws nothing")
 view.watch(now: later()); view.watch(now: later())

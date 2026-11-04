@@ -5,12 +5,18 @@ mark it done with its commit once merged into `main`.
 
 ## Open
 
-- [ ] **Flaky native test: "a stopped display link draws nothing".** `npm run native:test` failed once during the v0.15.0
+## Done
+
+- [x] **Flaky native test: "a stopped display link draws nothing".** `npm run native:test` failed once during the v0.15.0
   release (`AtlasViewTests`, from the map-freeze watchdog commit 834eeb0: `main/<stdin>:1984: Assertion failed: a stopped display
   link draws nothing`) and passed on the next two runs. Find why it's timing-sensitive (a frame from before the stop landing
   after it, a wait on wall-clock time, the machine's load) and make it wait on state, so `native:test` passes 10 runs in a row,
   including under load. Workspace: `fix-flaky-atlas-test`.
-## Done
+  Done: the display link's thread queues each frame on the main queue (its callback marked in progress until it runs); with the
+  main thread busy as the link was wedged (as under load), a frame queued before the stop still landed after it. The check hook
+  `wedgeDisplayLink` now returns only once no frame waits (`cv`: stopped, it drains the main queue until the mark clears; `link`:
+  it marks the callback again until the mark stays). The test holds the main thread 60 ms before each wedge, which made the old
+  code fail 10 of 10; `native:test` then passed 10 runs in a row, 3 of them under a CPU burner on every core.
 
 - [x] **GitHub PR conversation: show line-level review comments inline.** A review in the Conversation shows only its
   summary and "5 comments"; its line comments are visible only in Files changed. Show them as GitHub does: under each
