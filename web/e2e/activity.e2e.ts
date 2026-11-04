@@ -400,3 +400,39 @@ test("Activity's head never overlaps, its tools going to icons and wrapping only
     await context.close();
   }
 });
+
+test("⌘R refreshes Activity past the server's cache, spinning its button, without reloading the page or losing the filter", async () => {
+  const context = await newContext(browser);
+  const page = await context.newPage();
+  await mockApi(page, { agents: () => [], lists: { settings: { integrations: { github: true, linear: true } } } });
+  const fresh: string[] = [];
+  await page.route("**/api/activity**", async (route) => {
+    const url = new URL(route.request().url());
+    if (url.searchParams.get("fresh")) {
+      fresh.push(url.search);
+      await new Promise((r) => setTimeout(r, 400));
+    }
+    return route.fulfill({ json: feedOf(ITEMS) });
+  });
+  try {
+    await page.goto(app.url);
+    await page.locator(".fleet-sidebar").waitFor();
+    await showActivity(page);
+    const view = page.locator(".activity-view");
+    await waitFor(() => rowKeys(page), (keys) => keys.length === 3, "the feed");
+    await view.locator(".activity-row").first().focus();
+    await page.keyboard.press("2");
+    await waitFor(() => rowKeys(page), (keys) => keys.length === 2, "GitHub only");
+    await page.evaluate(() => ((window as unknown as { kept: number }).kept = 1));
+    const before = fresh.length;
+    await page.keyboard.press("Meta+r");
+    await view.getByRole("button", { name: "Refresh activity" }).locator(".spinning").waitFor();
+    await page.keyboard.press("Meta+r");
+    await view.getByRole("button", { name: "Refresh activity" }).locator(".spinning").waitFor({ state: "detached" });
+    assert.equal(fresh.length - before, 1, "one fresh read, the second ⌘R ignored while it ran");
+    assert.equal(await page.evaluate(() => (window as unknown as { kept?: number }).kept), 1, "the page never reloaded");
+    assert.deepEqual(await rowKeys(page), ["github:101", "github:102"], "the filter stays");
+  } finally {
+    await context.close();
+  }
+});

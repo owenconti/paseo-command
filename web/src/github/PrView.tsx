@@ -14,6 +14,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { errorMessage } from "../api";
+import { usePageRefresh } from "../pageRefresh";
 import { githubWrite, invalidate, load, patch, readPath, useGithubRead } from "./api";
 import { Avatar, Body, ChecksIcon, CHECKS_LABEL, Churn, CommentBox, Decision, PrStateIcon, STATE_LABEL, Time } from "./bits";
 import type { DiffSidebar } from "./commentList";
@@ -529,10 +530,12 @@ export function PrView({
   useEffect(() => onLoaded(pr, draft.comments.length, threadsState), [pr, draft.comments.length, threadsState, onLoaded]);
   useEffect(() => () => onLoaded(undefined, 0), [onLoaded]);
 
-  const refresh = useCallback(() => {
-    void load(prPath, true);
-    if (diffWanted) void load(diffPath, true);
-  }, [prPath, diffPath, diffWanted]);
+  // The head's button and ⌘R: the PR's read past the server's cache (checks, merge box, threads, comments), and the diff while it's wanted.
+  const refresh = useCallback(
+    () => Promise.all([load(prPath, true), ...(diffWanted ? [load(diffPath, true)] : [])]),
+    [prPath, diffPath, diffWanted],
+  );
+  usePageRefresh(refresh);
   const afterWrite = useCallback(() => {
     void load(prPath, true);
     invalidate("github/q/prs");

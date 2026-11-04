@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { CircleAlert, RefreshCw } from "lucide-react";
 import { usePageTitleTip } from "../pageHead";
+import { usePageRefresh } from "../pageRefresh";
 import { readPath, useGithubRead } from "./api";
 import { Avatar, ChecksIcon, Churn, CommentCount, Decision, PrStateIcon, Time, YOUR_REVIEW_LABEL } from "./bits";
 import { SCOPE_TITLE } from "./names";
@@ -54,6 +55,8 @@ export function PrList({
   const which = repo ? `repo:${repo.toLowerCase()}` : (scope ?? "review");
   const name = repo ?? SCOPE_TITLE[scope ?? "review"];
   const list = useGithubRead<PrListData>(path, LIST_POLL_MS);
+  // ⌘R: the list, as its head's button.
+  usePageRefresh(list.reload);
   const titleTip = usePageTitleTip<HTMLHeadingElement>();
   const rows = list.data?.rows ?? [];
   const [selectedId, setSelectedId] = useState<string | undefined>(lastSelected.get(which));

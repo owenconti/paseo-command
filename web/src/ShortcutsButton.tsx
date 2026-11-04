@@ -99,6 +99,7 @@ const PAGES: Group = {
   rows: [
     { keys: [["⌘", "+"], ["⌘", "−"]], label: "Bigger or smaller text (one size for every page)" },
     { keys: [["⌘", "0"]], label: "Actual text size" },
+    { keys: [["⌘", "R"]], label: "Refresh what's shown (a pull request or list, the files, the changes, Activity; Settings has none)" },
   ],
 };
 /** The Activity tab's keys (`activity/ActivityView.tsx`), while the keyboard is in it. */

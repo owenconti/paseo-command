@@ -37,6 +37,7 @@ import { filterItems, groupByDay, isFilter, shortAgo, SOURCE_LABEL, whatHappened
 import { canUnread, loadActivity, setActivityNotice, useActivity, useActivityPoll, writeItems } from "./store";
 import type { ActivityItem, ActivitySource } from "./types";
 import { usePageTitleTip } from "../pageHead";
+import { usePageRefresh } from "../pageRefresh";
 import "./activity.css";
 
 /** From this width the selected item's preview shows beside the feed. */
@@ -287,6 +288,9 @@ export function ActivityView({
     if (canOpen(item)) openActivityItem(item);
     else if (item.unread) void writeItems("read", [item.key]);
   };
+
+  // ⌘R: the feed past the server's cache, as the head's button.
+  usePageRefresh(enabled ? () => loadActivity(true) : undefined);
 
   // ⌘K's commands, on the selected item or the shown ones.
   const current = useRef({ selected, readAll, askAllDone, toggleRead, done, open, filter: shownFilter });

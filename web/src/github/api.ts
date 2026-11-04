@@ -86,7 +86,7 @@ export type Resource<T> = {
   unavailable: string | undefined;
   error: string | undefined;
   loading: boolean;
-  reload: () => void;
+  reload: () => Promise<void>;
 };
 
 /**
@@ -120,9 +120,7 @@ export function useGithubRead<T>(path: string | null, pollMs = 0): Resource<T> {
       document.removeEventListener("visibilitychange", back);
     };
   }, [path, pollMs]);
-  const reload = useCallback(() => {
-    if (pathRef.current) void load(pathRef.current, true);
-  }, []);
+  const reload = useCallback(() => (pathRef.current ? load(pathRef.current, true) : Promise.resolve()), []);
   const data = entry?.data;
   return {
     data: data !== undefined && !isUnavailable(data) ? (data as T) : undefined,

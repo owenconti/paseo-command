@@ -1147,3 +1147,78 @@ test("GitHub's sidebar: favourites, finding any repository, ⌘S, and a reposito
     await context.close();
   }
 });
+
+/** ⌘R as the keyboard sends it, through the page's own listeners (a synthetic event: never the browser's reload). */
+const pressRefresh = (page: Page) =>
+  page.evaluate(() => {
+    const e = new KeyboardEvent("keydown", { key: "r", metaKey: true, bubbles: true, cancelable: true });
+    (document.activeElement ?? document.body).dispatchEvent(e);
+    return e.defaultPrevented;
+  });
+
+test("⌘R refreshes what the GitHub tab shows (a list, a PR and its open tab) without reloading the page or losing a draft; the map leaves it to the browser", async () => {
+  const context = await newContext(browser);
+  const page = await context.newPage();
+  await page.setViewportSize({ width: 1600, height: 1000 });
+  const { asked } = await setUp(page);
+  // Fresh PR reads answer slowly, so a second ⌘R lands while one is in flight.
+  await page.route("**/api/github/q/pr?**", async (route) => {
+    if (new URL(route.request().url()).searchParams.get("fresh")) await new Promise((r) => setTimeout(r, 400));
+    return route.fallback();
+  });
+  const fresh = (name: string, extra: (q: Record<string, string>) => boolean = () => true) =>
+    asked.filter((a) => a.path === `/api/github/q/${name}` && a.query.fresh === "1" && extra(a.query)).length;
+  try {
+    await page.goto(app.url);
+    await page.locator(".fleet-sidebar").waitFor();
+    await page.evaluate(() => ((window as unknown as { kept: number }).kept = 1));
+    // The map: the page has no refresh of its own there, so the browser's ⌘R (a reload) goes on.
+    assert.equal(await pressRefresh(page), false, "the map leaves ⌘R to the browser");
+
+    await showGithub(page);
+    const view = page.locator(".github-view");
+    await view.locator(".gh-row").first().waitFor();
+    // A list: the list, past the server's cache, and nothing else.
+    assert.equal(await pressRefresh(page), true);
+    await waitFor(() => fresh("prs", (q) => q.scope === "review"), (n) => n === 1, "the list asked fresh");
+    assert.equal(fresh("repos") + fresh("viewer") + fresh("prs", (q) => q.scope !== "review"), 0, "only the list shown");
+
+    // A PR's Conversation, a comment drafted: ⌘R (even typing) asks its read fresh once, however often pressed while in flight.
+    await view.locator(".gh-row", { hasText: "Add the GitHub tab" }).click();
+    await view.locator(".gh-entry.description").waitFor();
+    const box = view.locator("#gh-pr-comment textarea");
+    await box.fill("Half a thought");
+    await box.focus();
+    await page.keyboard.press("Meta+r");
+    await view.locator(".gh-head .icon-btn[aria-label=Refresh] .spinning").waitFor();
+    await page.keyboard.press("Meta+r");
+    await view.locator(".gh-head .icon-btn[aria-label=Refresh] .spinning").waitFor({ state: "detached" });
+    assert.equal(fresh("pr", (q) => q.number === "12"), 1, "one fresh read while in flight");
+    assert.equal(fresh("diff"), 0, "the diff isn't shown");
+    assert.equal(await box.inputValue(), "Half a thought", "the draft stays");
+
+    // Files changed: the PR and its diff.
+    await view.getByRole("tab", { name: /Files changed/ }).click();
+    await view.locator(".gd-file").first().waitFor();
+    await page.keyboard.press("Meta+r");
+    await waitFor(() => fresh("diff"), (n) => n === 1, "the diff asked fresh");
+    await waitFor(() => fresh("pr", (q) => q.number === "12"), (n) => n === 2, "the PR asked fresh");
+    assert.ok(await view.getByRole("tab", { name: /Files changed/, selected: true }).isVisible(), "the open tab stays");
+
+    // The macOS app's View → Refresh Page sends `page-refresh`.
+    await page.waitForTimeout(450);
+    await appEvent(page, "paseo:command", "page-refresh");
+    await waitFor(() => fresh("pr", (q) => q.number === "12"), (n) => n === 3, "the app's Refresh Page");
+
+    // ⌘K says the key.
+    await page.keyboard.press("Meta+k");
+    const palette = page.getByRole("dialog", { name: "Command palette" });
+    await palette.getByRole("combobox", { name: "Search commands" }).fill("Refresh the pull request");
+    await palette.getByRole("option", { name: /Refresh the pull request.*⌘\s*R/ }).waitFor();
+    await page.keyboard.press("Escape");
+
+    assert.equal(await page.evaluate(() => (window as unknown as { kept?: number }).kept), 1, "the page never reloaded");
+  } finally {
+    await context.close();
+  }
+});

@@ -20,6 +20,7 @@ export type AppCommand =
   | "page-text-bigger"
   | "page-text-smaller"
   | "page-text-actual"
+  | "page-refresh"
   | "activity-refresh"
   | "activity-filter"
   | "activity-unread-only"

@@ -395,3 +395,22 @@ test("a failed opt-in stays off and reports why it could not be saved", async ()
   assert.equal(await linear.isChecked(), false);
   await context.close();
 });
+
+test("Settings has no refresh: ⌘R stays the browser's there", async () => {
+  const context = await newContext(browser);
+  const page = await context.newPage();
+  await mockApi(page, { agents: () => [], projects: () => [] });
+  try {
+    await page.goto(app.url);
+    await page.locator(".app-bar-tools").getByRole("button", { name: "Settings", exact: true }).click();
+    await page.getByRole("region", { name: "Settings", exact: true }).waitFor();
+    const taken = await page.evaluate(() => {
+      const e = new KeyboardEvent("keydown", { key: "r", metaKey: true, bubbles: true, cancelable: true });
+      window.dispatchEvent(e);
+      return e.defaultPrevented;
+    });
+    assert.equal(taken, false);
+  } finally {
+    await context.close();
+  }
+});

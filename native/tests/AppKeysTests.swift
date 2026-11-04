@@ -1,6 +1,7 @@
 // ⇧⌘G: View → Show Branch Changes (the Files tab's Changes) from anywhere, but Conquer's Find Previous while it has the keyboard.
 // ⇧⌘E: View → Show Files from anywhere. The Files tab after GitHub, always shown.
 // ⌘W: View → Close File Tab, offered to the menu ahead of the page while Files shows; elsewhere as before.
+// ⌘R: View → Refresh Page, offered ahead of the page while GitHub, Files or Activity shows; terminals and Conquer keep it.
 _ = NSApplication.shared
 enum Log { static func line(_ message: String) {} }
 // The app's menus while Conquer hasn't the keyboard (its own commands are disabled then).
@@ -9,11 +10,13 @@ final class Menus: NSObject, NSMenuItemValidation {
     @objc func branchChanges() { ran.append("branchChanges") }
     @objc func showFiles() { ran.append("showFiles") }
     @objc func closeFileTab() { ran.append("closeFileTab") }
+    @objc func refreshPage() { ran.append("refreshPage") }
     @objc func close() { ran.append("close") }
     var files = false
+    var refreshes = false
     @objc func conquerCommand(_ sender: NSMenuItem) { ran.append(sender.representedObject as! String) }
     func validateMenuItem(_ item: NSMenuItem) -> Bool {
-        item.action == #selector(closeFileTab) ? files : [#selector(branchChanges), #selector(showFiles), #selector(close)].contains(item.action)
+        item.action == #selector(closeFileTab) ? files : item.action == #selector(refreshPage) ? refreshes : [#selector(branchChanges), #selector(showFiles), #selector(close)].contains(item.action)
     }
 }
 let menus = Menus()
@@ -22,6 +25,7 @@ for (title, fill) in [("View", { (m: NSMenu) in
                           AppKeys.addBranchChanges(to: m, target: menus, action: #selector(Menus.branchChanges))
                           AppKeys.addShowFiles(to: m, target: menus, action: #selector(Menus.showFiles))
                           AppKeys.addCloseFileTab(to: m, target: menus, action: #selector(Menus.closeFileTab))
+                          AppKeys.addRefreshPage(to: m, target: menus, action: #selector(Menus.refreshPage))
                       }),
                       ("Conquer", { (m: NSMenu) in AppKeys.addConquerCommands(to: m, target: menus, action: #selector(Menus.conquerCommand(_:))) }),
                       ("Window", { (m: NSMenu) in m.addItem(withTitle: "Close", action: #selector(Menus.close), keyEquivalent: "w").target = menus })] {
@@ -174,6 +178,44 @@ assert(!AppKeys.offeredToMenu(cmdW, conquerHasKeys: true, filesShows: false))
 assert(ConquerView.command(for: "w", .command) == "closeTab")
 _ = bar.performKeyEquivalent(with: cmdW)
 assert(menus.ran == [], "\(menus.ran)")
+// ⌘R: View → Refresh Page while GitHub, Files or Activity shows and no terminal has the keyboard, offered ahead of the
+// views (the page; it asks the page's shown view to refresh, never a reload of the web view). Settings has no refresh,
+// the map's fleet is live, the Terminal tab's terminal and a file's editor keep it, Conquer keeps Reload Page.
+let cmdR = key("r", .command)
+assert(AppKeys.refreshPageCommand == "page-refresh")
+for mode in [Mode.github, .files, .activity] { assert(AppKeys.pageRefreshes(mode, terminalHasKeys: false), "\(mode)") }
+for mode in [Mode.command, .conquer, .terminal, .settings] { assert(!AppKeys.pageRefreshes(mode, terminalHasKeys: false), "\(mode)") }
+assert(!AppKeys.pageRefreshes(.files, terminalHasKeys: true), "a file's editor keeps ⌘R")
+assert(AppKeys.offeredToMenu(cmdR, conquerHasKeys: false, pageRefreshes: true))
+assert(!AppKeys.offeredToMenu(cmdR, conquerHasKeys: false, pageRefreshes: false))
+assert(!AppKeys.offeredToMenu(key("r", [.command, .shift]), conquerHasKeys: false, pageRefreshes: true), "⇧⌘R isn't taken")
+assert(!AppKeys.offeredToMenu(key("r", [.command, .option]), conquerHasKeys: false, pageRefreshes: true))
+let refresh = view.item(withTitle: "Refresh Page")!
+assert(refresh.keyEquivalent == "r" && refresh.keyEquivalentModifierMask == .command)
+menus.refreshes = true
+menus.ran = []
+assert(bar.performKeyEquivalent(with: cmdR))
+assert(menus.ran == ["refreshPage"], "\(menus.ran)")
+// Elsewhere it's disabled: Conquer with the keyboard takes ⌘R first as Reload Page (⇧⌘R without cache); else the menu's
+// first ⌘R, disabled, takes it and nothing reloads, the web view included.
+menus.refreshes = false
+menus.ran = []
+assert(ConquerView.command(for: "r", .command) == "reload" && ConquerView.command(for: "r", [.command, .shift]) == "reloadWithoutCache")
+_ = bar.performKeyEquivalent(with: cmdR)
+assert(menus.ran == [], "\(menus.ran)")
+do {
+    let window = AppWindow(contentRect: CGRect(x: 0, y: 0, width: 400, height: 300), styleMask: [.titled], backing: .buffered, defer: true)
+    NSApp.mainMenu = bar
+    menus.refreshes = true
+    window.pageRefreshes = { true }
+    assert(window.performKeyEquivalent(with: cmdR) && menus.ran == ["refreshPage"], "\(menus.ran)")
+    window.pageRefreshes = { false }
+    menus.ran = []
+    _ = window.performKeyEquivalent(with: cmdR)
+    assert(menus.ran == [], "not offered ahead of the views")
+    NSApp.mainMenu = nil
+    menus.refreshes = false
+}
 // ⇧⌘T, ⌃Tab and ⌥⌘←/→ aren't offered ahead: the page takes them in Files (Conquer's are disabled then).
 for k in [key("t", [.command, .shift]), key("\t", .control), key("\t", [.control, .shift])] {
     assert(!AppKeys.offeredToMenu(k, conquerHasKeys: false, filesShows: true))

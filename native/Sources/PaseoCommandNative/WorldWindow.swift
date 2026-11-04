@@ -152,6 +152,7 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         (window as? AppWindow)?.document = { [weak self] in self?.mode == .conquer ? self?.conquer.current?.url : nil }
         (window as? AppWindow)?.conquerHasKeys = { [weak self] in self?.mode == .conquer && self?.conquer.hasKeyFocus == true }
         (window as? AppWindow)?.filesShows = { [weak self] in self?.mode == .files }
+        (window as? AppWindow)?.pageRefreshes = { [weak self] in self?.pageRefreshes == true }
         (window as? AppWindow)?.terminalHasKeys = { [weak self] in self?.editors.hasKeyFocus == true || self?.drawer.hasKeyFocus == true }
         (window as? AppWindow)?.tabTerminalHasKeys = { [weak self] in self?.drawer.hasKeyFocus == true }
         (window as? AppWindow)?.onTogglePanel = { [weak self] in self?.pageCommand("toggle-panel") }
@@ -848,6 +849,9 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
 
     /// Tell the page which side shows, so it draws GitHub, Activity, Files or Settings in the map's place.
     /// Asks the page for one of its commands (`web/src/appCommands.ts`), as its palette does.
+    /// ⌘R is the page's refresh (View → Refresh Page): GitHub, Files or Activity shows and no terminal has the keyboard.
+    var pageRefreshes: Bool { AppKeys.pageRefreshes(mode, terminalHasKeys: editors.hasKeyFocus || drawer.hasKeyFocus) }
+
     func pageCommand(_ name: String) {
         web.evaluateJavaScript("window.dispatchEvent(new CustomEvent('paseo:command', { detail: '\(name)' }))", completionHandler: nil)
     }

@@ -652,3 +652,24 @@ for (const layout of ["unified", "split"] as const)
     }
   });
 
+
+test("⌘R in Changes refreshes them (not the files), without reloading the page or losing the mode", async () => {
+  const context = await newContext(browser);
+  const page = await context.newPage();
+  await page.setViewportSize({ width: 1500, height: 900 });
+  const { asked } = await setUp(page);
+  try {
+    await page.goto(`${app.url}?workspace=wks_a`);
+    await page.locator(".place").waitFor();
+    const view = await showChanges(page);
+    await view.locator(".gd-file").first().waitFor();
+    await page.evaluate(() => ((window as unknown as { kept: number }).kept = 1));
+    const fresh = () => asked.filter((a) => a.query.fresh === "1").map((a) => a.query.mode);
+    await page.keyboard.press("Meta+r");
+    await waitFor(fresh, (m) => m.join() === "all", "the changes asked fresh");
+    assert.equal(await page.evaluate(() => (window as unknown as { kept?: number }).kept), 1, "the page never reloaded");
+    assert.equal(await view.locator(".fv-changes-btn").getAttribute("aria-pressed"), "true", "the Changes still show");
+  } finally {
+    await context.close();
+  }
+});

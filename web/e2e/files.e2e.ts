@@ -671,3 +671,38 @@ test("Files: Markdown renders (links, images, HTML kept safe), Preview / Source 
     await context.close();
   }
 });
+
+test("Files: ⌘R refreshes the tree and the open file (not every file read), without reloading the page", async () => {
+  const context = await newContext(browser);
+  const page = await context.newPage();
+  await page.setViewportSize({ width: 1500, height: 900 });
+  const { asked } = await setUp(page);
+  const fresh = (name: string, extra: (q: Record<string, string>) => boolean = () => true) =>
+    asked.filter((a) => a.path === `/api/files/${name}` && a.query.fresh === "1" && extra(a.query)).length;
+  try {
+    await page.goto(`${app.url}?workspace=wks_a`);
+    await page.locator(".place").waitFor();
+    await appEvent(page, "paseo:mode", { mode: "files" });
+    const view = page.locator(".files-view");
+    await view.getByRole("treeitem", { name: /^src/ }).click();
+    await view.getByRole("treeitem", { name: /README\.md/ }).click();
+    await view.locator(".fv-head .page-head-name", { hasText: "README.md" }).waitFor();
+    await view.getByRole("treeitem", { name: /app\.ts/ }).dblclick();
+    await view.locator(".fv-head .page-head-name", { hasText: "app.ts" }).waitFor();
+    await page.evaluate(() => ((window as unknown as { kept: number }).kept = 1));
+
+    await page.keyboard.press("Meta+r");
+    await waitFor(() => fresh("tree"), (n) => n === 2, "the root and src asked fresh");
+    await waitFor(() => fresh("read", (q) => q.path === "src/app.ts"), (n) => n === 1, "the open file asked fresh");
+    await waitFor(() => fresh("changed") + fresh("all"), (n) => n === 2, "the changed files and the list");
+    assert.equal(fresh("read", (q) => q.path === "README.md"), 0, "a file not shown isn't asked again");
+    // The macOS app's View → Refresh Page.
+    await page.waitForTimeout(100);
+    await appEvent(page, "paseo:command", "page-refresh");
+    await waitFor(() => fresh("read", (q) => q.path === "src/app.ts"), (n) => n === 2, "the app's Refresh Page");
+    assert.equal(await page.evaluate(() => (window as unknown as { kept?: number }).kept), 1, "the page never reloaded");
+    assert.deepEqual(await rows(page), ["src", "  util", "  app.ts", "  long.ts", "README.md", "big.log", "data.bin", "logo.png"], "the tree stays open");
+  } finally {
+    await context.close();
+  }
+});

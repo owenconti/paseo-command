@@ -297,7 +297,7 @@ and GitHub publication; report the published version and release link.
   right-click for Pin, Back to Pinned Page, Replace Pinned URL with Current URL, Move to Folder, Rename, Delete), New Tab, then the other tabs (`ConquerTabs.swift`), each with
   its favicon or a spinner. A closed pinned tab only unloads. Its commands (`ConquerView.commands`, the Conquer menu) take their keys ahead of
   the page: ⌘T, ⇧⌘T reopen, ⌘W, ⌘L, ⌘E or ⌃Tab next tab, ⌥⌘1…⌥⌘8 that tab, ⌥⌘9 the last (⌘1…⌘6 stay the mode bar's), ⌘D pin, ⌘[ ⌘], ⌘F ⌘G ⇧⌘G find,
-  ⌘+ ⌘− ⌘0 zoom (per site), ⌘P print, ⇧⌘J downloads. App restart is only in the React command palette, without a shortcut. It has its own persistent cookie store,
+  ⌘R reload (⇧⌘R without cache), ⌘+ ⌘− ⌘0 zoom (per site), ⌘P print, ⇧⌘J downloads. App restart is only in the React command palette, without a shortcut. It has its own persistent cookie store,
   optionally seeded after confirmation through Conquer → Import Zen Cookies from Zen Browser's profile (`ZenCookies.swift`): a copy of
   `cookies.sqlite`, default space only, unpartitioned and unexpired; Zen is never written to. Its tabs (`conquerState`), sidebar width, zooms,
   history (`conquer-history.json` in the app's data folder, `~/Library/Application Support/Paseo Command/` for the release) and the mode come back on launch; tabs come back unloaded.
@@ -319,7 +319,17 @@ and GitHub publication; report the published version and release link.
   width (container queries) tools drop their `.page-tool-label` words for icons, then `.page-head-aside`s and the count go,
   and the tools wrap under the title only when it would have less than 7em. One text size serves them all
   (`web/src/pageText.ts`, kept in localStorage): ⌘+ / ⌘− / ⌘0 anywhere in the page while one shows, ⌘K "Bigger text", "Smaller text", "Actual text size",
-  and the shortcuts dialog's Pages group; the terminal keeps those keys only while it has the keyboard. Their shared controls (toolbar buttons, filter chips, the searchable
+  and the shortcuts dialog's Pages group; the terminal keeps those keys only while it has the keyboard.
+  ⌘R refreshes what the shown page shows, as its head's refresh button does, never reloading the web page (`web/src/pageRefresh.ts`:
+  the view on screen registers its refresh with `usePageRefresh`; one runs at a time, ⌘R in flight ignored; the button spins): a GitHub PR
+  (its read with `fresh=1`, and the diff while Files changed shows) or list (that list only), Files (the tree's folders, the open file, the
+  file list and changed files), Files → Changes (the changes), Activity (the feed). Settings has none, nor the map (its fleet is live: ⌘R
+  does nothing there). In the macOS app it's View → Refresh Page (`AppKeys.addRefreshPage`), offered the menu ahead of the views while
+  GitHub, Files or Activity shows and no terminal has the keyboard (`AppKeys.pageRefreshes`), asking the page's `page-refresh`; a file's
+  editor and the Terminal tab keep ⌘R (no ⌘ key reaches a terminal program, as in Terminal.app, so it does nothing there) and Conquer
+  keeps Reload Page while it has the keyboard. In a browser the page takes ⌘R only while a refresh is registered, else the browser
+  reloads. ⌘K: "Refresh the pull request(s)", "Refresh the files", "Refresh the changes", "Refresh activity" (`page-refresh`, ⌘R); "Refresh
+  GitHub" still asks again for everything the tab has read. Their shared controls (toolbar buttons, filter chips, the searchable
   `web/src/Picker.tsx`, row menus; `menuKeys.ts`) are styled in `web/src/styles/pickers.css` (class names `linear-*`, from the removed Linear tab).
 - Linear tab: removed at the user's request (the page: lists, board, issue detail and editing, comments, attachments,
   relations, Create issue, views, the Inbox page, search, cycles, projects and initiatives; its mode, mode bar tab, View menu item and
@@ -578,7 +588,7 @@ and GitHub publication; report the published version and release link.
   (`EditorOverlay.swift`, SwiftTerm through `TerminalSession`, the Terminal tab's text size and `Ink` tones; `EditorEmbed.swift`: `EditorPlacement`,
   `EditorStage`, its frame through the web view into `content`, as Conquer's, shown only while Files shows; `EditorKeys`;
   `EditorCloseRequest`) lays the terminal over it and gives it the keyboard as it shows or is clicked. Keys there: the app keeps the window's
-  (⌘1…⌘6, ⇧⌘G, ⇧⌘E, ⌘W: Close File Tab) and the menu's (⌘`, ⌃`, ⌘C/⌘V as the terminal does, the terminal text size); ⌘K opens the page's
+  (⌘1…⌘6, ⇧⌘G, ⇧⌘E, ⌘W: Close File Tab; not ⌘R, which refreshes nothing there) and the menu's (⌘`, ⌃`, ⌘C/⌘V as the terminal does, the terminal text size); ⌘K opens the page's
   palette (`AppWindow.performKeyEquivalent`, the Terminal tab's terminal too) and the keyboard comes back as it closes; everything else is the
   editor's. Closing tabs whose editors run (×, ⌘W, Close other tabs) asks once (an NSAlert sheet; Cancel keeps them), then ends them on the
   daemon. An editor that quits (`exited`) leaves its tab in the viewer with Reopen in editor; a relay that went (`lost`) is checked against

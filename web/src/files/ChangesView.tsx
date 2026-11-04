@@ -3,6 +3,8 @@ import { ArrowDown, ArrowUp, CircleAlert, ExternalLink, GitBranch, GitPullReques
 import { changesPath, useGithubRead } from "../github/api";
 import { Churn } from "../github/bits";
 import { usePageTitleTip } from "../pageHead";
+import { usePageRefresh } from "../pageRefresh";
+import { changedPath, load as loadFiles } from "./api";
 import { DiffView, Draft, LayoutControls, type DiffLayout, type DiffReview, type DiffViewHandle } from "../github/DiffView";
 import { pendingLabel, placeComments, placeLabel, textOf, type LocalComment } from "../github/localComments";
 import { useLocalComments } from "../github/localCommentsStore";
@@ -70,6 +72,10 @@ export function ChangesView({
   const changes = useGithubRead<WorkspaceChanges>(
     workspace ? changesPath(workspace.id, workspace.host, mode) : null,
     CHANGES_POLL_MS,
+  );
+  // ⌘R: the changes, as the head's button, and the tab bar's count of changed files.
+  usePageRefresh(
+    workspace ? () => Promise.all([changes.reload(), loadFiles(changedPath(workspace), true)]) : undefined,
   );
   const data = changes.data;
   const totals = useMemo(

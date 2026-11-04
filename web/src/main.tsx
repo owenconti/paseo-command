@@ -71,6 +71,7 @@ import {
   usePullRequest,
 } from "./links";
 import { NewAgent, type DispatchTarget } from "./Dispatch";
+import { installPageRefresh } from "./pageRefresh";
 import { appTabs, modeKey, shownModes, useAppMode, type AppMode } from "./appMode";
 import type { ActivityViewState } from "./activity/ActivityView";
 import type { GithubViewState } from "./github/GitHubView";
@@ -997,6 +998,8 @@ function App() {
     (appMode === "github" && integrations.github) ||
     (appMode === "activity" && showActivity);
   usePageTextKeys(pageShown);
+  // ⌘R: the shown page's own refresh (`pageRefresh.ts`), never a reload of the web page.
+  useEffect(() => installPageRefresh(), []);
   const appUpdate = useAppUpdate();
 
   // Cmd+N, and the native app's File > Dispatch Agent… (which takes the key
@@ -1877,7 +1880,9 @@ function App() {
             run: () => runAppCommand(id, arg),
           });
           return [
-            command("github-refresh", "Refresh GitHub", "reload update sync pull requests"),
+            // ⌘R: what's shown (`pageRefresh.ts`); Refresh GitHub asks again for everything the tab has read.
+            command("page-refresh", place.kind === "pr" ? "Refresh the pull request" : "Refresh the pull requests", "reload update sync checks comments list", ["⌘", "R"]),
+            command("github-refresh", "Refresh GitHub", "reload update sync pull requests everything all counts repositories"),
             command("github-sidebar", "Show or hide the GitHub sidebar", "sidebar navigation collapse panel repositories", ["⌘", "S"]),
             ...(["review", "mine", "involved"] as const)
               .filter((scope) => !(place.kind === "prs" && place.scope === scope))
@@ -2065,7 +2070,9 @@ function App() {
                 command("files-filter", "Filter the files", "tree filter search find path name", ["T"]),
                 command("files-ignored", v.showIgnored ? "Hide ignored files" : "Show ignored files", "gitignore ignored hidden .git node_modules build toggle"),
                 command("files-sidebar", "Show or hide the Files sidebar", "sidebar tree collapse panel", ["⌘", "S"]),
-                command("files-refresh", "Refresh the files", "reload update sync tree"),
+                v.changes
+                  ? command("page-refresh", "Refresh the changes", "reload update sync diff changes", ["⌘", "R"])
+                  : command("page-refresh", "Refresh the files", "reload update sync tree file", ["⌘", "R"]),
                 ...(v.changes
                   ? [
                       command("files-diff-next", "Next file in the changes", "diff file next down changes", ["J"]),
@@ -2145,8 +2152,9 @@ function App() {
             group: "App",
             page: "Activity" as const,
             label: "Refresh activity",
+            keys: [["⌘", "R"]],
             keywords: "activity notifications reload update sync",
-            run: () => runAppCommand("activity-refresh"),
+            run: () => runAppCommand("page-refresh"),
           },
           ...(["all", ...(["github", "linear"] as const).filter((source) => integrations[source])] as const)
             .filter((filter) => filter !== activityView.filter)

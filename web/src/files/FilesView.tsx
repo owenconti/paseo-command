@@ -26,6 +26,7 @@ import { onAppCommand } from "../appCommands";
 import { MODAL_EVENT, modalOpen, useFocusTrap } from "../focus";
 import { copyText } from "../nativePlatform";
 import { usePageTitleTip } from "../pageHead";
+import { usePageRefresh } from "../pageRefresh";
 import { ResizeEdge } from "../ResizeEdge";
 import { useTheme } from "../theme";
 import { plainText } from "../ui";
@@ -644,11 +645,17 @@ export function FilesView({
     return () => window.removeEventListener("keydown", key, true);
   }, [toggleSidebar]);
 
+  // The sidebar's button and ⌘R (`usePageRefresh`, while no Changes show: they refresh themselves): the tree's
+  // folders, the open file, the list quick-open and the filter search, and the changed files' dots.
   const refresh = () => {
-    if (!workspace) return;
-    reload(treePath(workspace, ""), readPath(workspace, ""), allPath(workspace), changedPath(workspace));
-    if (showingChanges) invalidate("changes?");
+    if (!workspace) return Promise.resolve();
+    return Promise.all([
+      reload(treePath(workspace, ""), allPath(workspace), changedPath(workspace)),
+      ...(file ? [load(readPath(workspace, file), true)] : []),
+      ...(showingChanges ? [invalidate("changes?")] : []),
+    ]);
   };
+  usePageRefresh(workspace && !showingChanges ? refresh : undefined);
   const copyPath = (path: string) =>
     void copyText(path).then(
       () => onNotice(`Copied ${path}`),

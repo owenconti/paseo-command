@@ -5,7 +5,9 @@ mark it done with its commit once merged into `main`.
 
 ## Open
 
-- [ ] **⌘R refreshes the page you're on.** In the GitHub tab, ⌘R refreshes what's shown (a PR: its read with `fresh=1`,
+## Done
+
+- [x] **⌘R refreshes the page you're on.** In the GitHub tab, ⌘R refreshes what's shown (a PR: its read with `fresh=1`,
   checks, merge box, threads, as the head's refresh button does; a list: the list), without reloading the web page. Do the
   same for the other pages' own refresh (Files: the tree and open file; Files → Changes; Activity; Settings has none). Find
   what ⌘R does today in the macOS app (a WebKit reload of the whole page would lose state) and make the app hand ⌘R to the
@@ -13,8 +15,14 @@ mark it done with its commit once merged into `main`.
   keys (pass ⌘R through, or not, as a terminal app would; say which). In a browser the page takes ⌘R only while a page shows
   and the browser would otherwise reload. Show the refresh happening (the button's spin). ⌘K entries' `keys`, the shortcuts
   dialog. Workspace: `cmd-r-refresh`.
-
-## Done
+  Done: before, ⌘R did nothing outside Conquer (the web view passed it on and Conquer's disabled Reload Page took it); it never
+  reloaded the page. Now View → Refresh Page (⌘R) is offered the menu ahead of the views while GitHub, Files or Activity shows and
+  no terminal has the keyboard, and asks the page's shown view to refresh (`web/src/pageRefresh.ts`): a PR's read with `fresh=1`
+  (and its diff on Files changed), a list, Files' tree and open file, Files → Changes, Activity; one at a time, the head's button
+  spinning; scroll, drafts and the open tab kept. Settings and the map have none (the map's fleet is live): ⌘R does nothing there in
+  the app, and a browser reloads. Conquer keeps Reload Page while it has the keyboard; terminals (the Terminal tab, a file's editor)
+  keep ⌘R, which does nothing there, as in Terminal.app (SwiftTerm sends no ⌘ keys to programs). ⌘K entries with ⌘R, the
+  shortcuts dialog's Pages row. Tests: e2e per page, `AppKeysTests`, `EditorEmbedTests`.
 
 - [x] **Diff view: a Comments list beside the files.** In the diff view (`DiffView.tsx`: a PR's Files changed and a
   workspace's Changes), the sidebar gets a Files / Comments switch. Comments lists every review thread (on a PR: GitHub's

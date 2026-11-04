@@ -76,8 +76,8 @@ export const prefetch = (path: string) => ensure(path, 5_000);
 export const peek = (path: string): Entry | undefined => cache.get(path);
 
 /** Asks again for every kept read whose path starts with one of these. */
-export function reload(...prefixes: string[]): void {
-  for (const key of [...cache.keys()]) if (prefixes.some((p) => key.startsWith(p))) void load(key, true);
+export function reload(...prefixes: string[]): Promise<void[]> {
+  return Promise.all([...cache.keys()].filter((key) => prefixes.some((p) => key.startsWith(p))).map((key) => load(key, true)));
 }
 
 const subscribe = (l: () => void) => {
