@@ -74,7 +74,7 @@ class EditorStage: NSView {
 }
 
 /// Keys while an editor (or the terminal panel's terminal) has the keyboard. As the terminal panel's, the
-/// app keeps only the window's own keys there (`AppKeys.offeredToMenu`: ⌘1…⌘5, ⇧⌘E, ⇧⌘G, and ⌘W, which closes
+/// app keeps only the window's own keys there (`AppKeys.offeredToMenu`: ⌘1…⌘6, ⇧⌘E, ⇧⌘G, and ⌘W, which closes
 /// the file's tab with its confirmation) and the menu's (⌘`, ⌃`, ⌘, ⌘Q, ⌘C/⌘V as the terminal does them, the
 /// terminal text size); ⌘K, which no menu item has, opens the page's command palette. Everything else, Esc, ⌃
 /// keys, arrows and ⌘ keys no menu item has, goes to the editor.

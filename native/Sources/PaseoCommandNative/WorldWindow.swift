@@ -39,10 +39,14 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
     private(set) var enabledModes: Set<Mode> = Mode.alwaysShown { didSet { if enabledModes != oldValue { onModesChanged?() } } }
     /// The tabs shown changed (the View menu renumbers its keys).
     var onModesChanged: (() -> Void)?
-    /// The tabs shown, in the mode bar's order: ⌘` steps through them, ⌘1…⌘5 pick one (Settings is the gear).
+    /// The tabs shown, in the mode bar's order: ⌘` steps through them, ⌘1…⌘6 pick one (Settings is the gear).
     var shownModes: [Mode] { Mode.tabs.filter { !$0.drawnByPage || enabledModes.contains($0) } }
     /// The side Settings returns to when it closes.
     private var beforeSettings: Mode = .command
+    /// The side ⌃` returns to from the Terminal tab.
+    private var beforeTerminal: Mode = .command
+    /// While the Terminal tab shows: the panel as it was, to put back as the tab leaves.
+    private var panelBeforeTab: TerminalPanelState?
     var nextMode: Mode {
         let modes = shownModes
         // From Settings, on from the side it opened over.
@@ -163,6 +167,9 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         (window as? AppWindow)?.conquerHasKeys = { [weak self] in self?.mode == .conquer && self?.conquer.hasKeyFocus == true }
         (window as? AppWindow)?.filesShows = { [weak self] in self?.mode == .files }
         (window as? AppWindow)?.terminalHasKeys = { [weak self] in self?.editors.hasKeyFocus == true || self?.drawer.hasKeyFocus == true }
+        (window as? AppWindow)?.onTerminalTab = { [weak self] in self?.show(.terminal) }
+        (window as? AppWindow)?.panelTerminalHasKeys = { [weak self] in self?.drawer.hasKeyFocus == true }
+        (window as? AppWindow)?.onTogglePanel = { [weak self] in self?.pageCommand("toggle-panel") }
         (window as? AppWindow)?.onPalette = { [weak self] in
             guard let self else { return }
             if self.editors.hasKeyFocus { self.editors.openPalette(web: self.web) }
@@ -341,6 +348,7 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
             case "github": show(.github)
             case "activity": show(.activity)
             case "files": show(.files)
+            case "terminal-tab": show(.terminal)
             case "settings": show(.settings)
             case "settings-close": if mode == .settings { show(beforeSettings) }
             case "command": show(.command)
@@ -449,6 +457,7 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         atlasView.govern()
         if mode == .conquer { conquer.frame = mapInContent }
         placeMaximized()
+        placeTerminalTab()
         editors.place(nil, filesShows: mode == .files, web: web)
     }
 
@@ -824,17 +833,21 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         guard !next.drawnByPage || enabledModes.contains(next) else { return }
         guard next != mode else { return }
         if next == .settings { beforeSettings = mode }
+        if next == .terminal { beforeTerminal = mode }
+        let leftTerminal = mode == .terminal
         mode = next
         modeBar.mode = next
         atlasView.covered = next != .command
         placeConquer()
+        if leftTerminal { leaveTerminalTab() }
+        if next == .terminal { enterTerminalTab() }
         // A file's editor shows only with Files (the page says where once it draws it again).
         editors.place(nil, filesShows: next == .files, web: web)
         sendMode()
         if next == .conquer {
             conquer.start()
             conquer.focusPage()
-        } else {
+        } else if next != .terminal {
             window.makeFirstResponder(web)
         }
         if options.info == nil { UserDefaults.standard.set(next.rawValue, forKey: "mode") }
@@ -934,9 +947,20 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
 
     /// Show or hide the terminal panel (View → Terminal, ⌃`), at the size it last had;
     /// opened so, it starts a terminal in the selected workspace if it has none.
-    @objc func toggleTerminal() { setTerminal(open: drawer.isHidden, newTab: true) }
+    /// In the Terminal tab, ⌃` goes back to the side before it (the panel as it was).
+    @objc func toggleTerminal() {
+        if mode == .terminal { return show(beforeTerminal == .terminal ? .command : beforeTerminal) }
+        setTerminal(open: drawer.isHidden, newTab: true)
+    }
 
     func setTerminal(open: Bool, newTab: Bool) {
+        // In the Terminal tab the panel is the tab's: this is what comes back as it leaves (the launch's saved panel, say).
+        if mode == .terminal {
+            panelBeforeTab?.open = open
+            if !open { panelBeforeTab?.maximized = false }
+            UserDefaults.standard.set(open, forKey: "terminalOpen")
+            return
+        }
         guard open == drawer.isHidden else { return }
         if open {
             drawer.isHidden = false
@@ -958,6 +982,8 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
     /// Cover the map with the terminal panel, or return it beside the map
     /// (View → Maximize Terminal, ⇧⌘↩). The page's panels stay in view.
     @objc func maximizeTerminal() {
+        // The tab already fills the map's place.
+        guard mode != .terminal else { return }
         if drawer.isHidden { setTerminal(open: true, newTab: false) }
         setMaximized(!drawer.maximized)
     }
@@ -1005,11 +1031,61 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         drawer.frame = mapInContent
     }
 
+    /// The Terminal tab: the panel's sessions, tabs and splits (one set: a terminal's view shows in one place)
+    /// move into the map's place, as the maximized panel lies, and the panel hides. Opening it with no terminal
+    /// starts one, as opening the panel does.
+    private func enterTerminalTab() {
+        panelBeforeTab = TerminalPanelState(open: !drawer.isHidden, maximized: drawer.maximized)
+        if !drawer.isHidden { saveTerminalSize() }
+        detachDrawer()
+        drawer.maximized = false
+        drawer.inTab = true
+        drawer.isHidden = false
+        content.addSubview(drawer)
+        placeTerminalTab()
+        drawer.setActive(true)
+        drawer.opened()
+        window.invalidateCursorRects(for: split)
+    }
+
+    /// Leaving the Terminal tab puts the panel back as it was: closed, or open beside or under the page (its
+    /// side and size from the preferences) or over the map, with its tabs and splits.
+    private func leaveTerminalTab() {
+        let before = panelBeforeTab ?? TerminalPanelState(open: false, maximized: false)
+        panelBeforeTab = nil
+        detachDrawer()
+        drawer.inTab = false
+        if !before.open {
+            drawer.setActive(false)
+            drawer.isHidden = true
+        } else if before.maximized {
+            drawer.maximized = true
+            content.addSubview(drawer)
+            placeMaximized()
+        } else {
+            attachDrawer()
+            placeTerminal()
+        }
+        window.invalidateCursorRects(for: split)
+    }
+
+    /// Where the panel's view is and what the tab puts back (checks): in the split, over the map (maximized or the tab), or nowhere.
+    func terminalPlace() -> [String: Any] {
+        let parent = drawer.superview === split ? "split" : drawer.superview === content ? "map" : "none"
+        return ["in": parent, "mapRect": NSStringFromRect(mapInContent), "before": panelBeforeTab.map { ["open": $0.open, "maximized": $0.maximized] } as Any? ?? NSNull()]
+    }
+
+    /// The Terminal tab lies exactly over the page's map, as Conquer does (⌘B gives it the window's width).
+    private func placeTerminalTab() {
+        guard drawer.inTab else { return }
+        drawer.frame = mapInContent
+    }
+
     /// The panel's key for its saved size along the split: width on the right, height at the bottom.
     private var terminalSizeKey: String { drawer.dock == .right ? "terminalWidth" : "terminalHeight" }
 
     private func saveTerminalSize() {
-        guard !drawer.maximized else { return }
+        guard !drawer.maximized, !drawer.inTab else { return }
         UserDefaults.standard.set(drawer.dock == .right ? drawer.frame.width : drawer.frame.height, forKey: terminalSizeKey)
     }
 
@@ -1025,6 +1101,8 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
 
     /// Move the terminal panel between the right side and the bottom (View → Terminal at Bottom).
     @objc func moveTerminal() {
+        // The tab has no dock; the panel keeps its side for when it comes back.
+        guard mode != .terminal else { return }
         setMaximized(false)
         if !drawer.isHidden { saveTerminalSize() }
         drawer.dock = drawer.dock == .right ? .bottom : .right

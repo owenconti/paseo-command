@@ -24,6 +24,7 @@ const compiled = {
   TerminalFont: { sources: ['Log', 'AppFlavor', 'Geometry', 'Textures', 'NativeTheme', 'ChromeControls', 'TerminalFont', 'TerminalQueries', 'TerminalDrawer', 'EditorEmbed', 'EditorOverlay'],
     args: [join(native, 'fonts/SymbolsNerdFontMono-Regular.ttf')] },
   TerminalQueries: { sources: ['TerminalQueries'], args: [] },
+  TerminalTab: { sources: ['Log', 'AppFlavor', 'Geometry', 'Textures', 'NativeTheme', 'ChromeControls', 'TerminalFont', 'TerminalQueries', 'TerminalDrawer'], args: [] },
 };
 for (const [name, { sources, args }] of Object.entries(compiled)) {
   const dir = mkdtempSync(join(tmpdir(), `paseo-native-${name}-`));

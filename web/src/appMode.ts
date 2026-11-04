@@ -5,24 +5,24 @@ import { useIntegrations } from "./integrationSettings";
 import { activityEnabled, type Integrations } from "./integrations";
 
 /** What stands in the map's place in the macOS app (its mode bar's tabs):
- * the map, the Conquer browser, or what the page draws itself: Files (the
+ * the map, the Conquer browser, the selected workspace's terminals (Terminal, the app's own), or what the page draws itself: Files (the
  * workspace's files, read only), GitHub (pull requests), Activity (GitHub and
  * Linear notifications together) and Settings (the bar's gear, not a tab). (The Linear tab was
  * removed: an old `linear` mode shows the map.) */
-export type AppMode = "command" | "conquer" | "activity" | "github" | "files" | "settings";
+export type AppMode = "command" | "conquer" | "activity" | "github" | "files" | "terminal" | "settings";
 
 /** The tabs in the mode bar's order (`Mode.tabs` in `native/…/Conquer.swift`). */
-const TABS = ["command", "files", "github", "conquer", "activity"] as const;
+const TABS = ["command", "files", "terminal", "github", "conquer", "activity"] as const;
 /** Every side the app reports, Settings (the gear's) among them. */
 const MODES: AppMode[] = [...TABS, "settings"];
 
 /** The page's tabs whose integration is on. */
 export const appTabs = (i: Integrations) => ({ github: i.github, activity: activityEnabled(i) });
 
-/** The mode bar's tabs shown, in its order: ⌘` steps through them, ⌘1…⌘5 pick one. */
+/** The mode bar's tabs shown, in its order: ⌘` steps through them, ⌘1…⌘6 pick one. */
 export function shownModes(i: Integrations): AppMode[] {
   const tabs = appTabs(i);
-  return TABS.filter((mode) => mode === "command" || mode === "conquer" || mode === "files" || tabs[mode]);
+  return TABS.filter((mode) => mode === "command" || mode === "conquer" || mode === "files" || mode === "terminal" || tabs[mode]);
 }
 
 /** A tab's ⌘ key, by its place among those shown (macOS app only). */

@@ -5,7 +5,9 @@ mark it done with its commit once merged into `main`.
 
 ## Open
 
-- [ ] **A Terminal tab in the mode bar.** Add Terminal as a mode tab (Command, Files, Terminal, GitHub, Conquer, Activity),
+## Done
+
+- [x] **A Terminal tab in the mode bar.** Add Terminal as a mode tab (Command, Files, Terminal, GitHub, Conquer, Activity),
   showing the selected workspace's (or agent's) daemon terminals full size in the map's place: the terminal panel's tabs,
   splits (`PaneLayout`), + / × and font, as one set of sessions (a SwiftTerm view lives in one place: while the Terminal tab
   shows, the side/bottom panel's terminals move into it and the panel hides; leaving puts them back as they were). The
@@ -14,7 +16,12 @@ mark it done with its commit once merged into `main`.
   Keys go to the terminal while it has the keyboard, with the app keeping the ones the panel keeps. Remember the mode across
   launches as the others are. Tests: native checks (tab order, numbering, sessions moving between panel and tab, keys) and
   a throwaway build's `.windowshot`. Workspace: `terminal-tab`.
-## Done
+  Done: `Mode.terminal`, after Files (⌘3 by its place, ⌘` steps through it). The panel's view itself moves into the map's place
+  (`enterTerminalTab`, laid as Conquer is) and back (`leaveTerminalTab`, as it was: closed, docked at its side and size, or maximized),
+  so its sessions, tabs and splits are one set. ⌃` stays the panel's (in the tab it goes back to the side before): the panel keeps the
+  map in view, so it isn't the tab's; ⌃⇧` (free) jumps to the tab from anywhere. ⌘B reaches the page while the terminal has the
+  keyboard. Tests: `TerminalTabTests.swift`, `AppKeysTests.swift`, `ConquerTabsTests.swift`, palette and shortcuts e2e; a check run
+  against the fake daemon (`.windowshot`): in and out with a split kept, ⌃⇧`, ⌘B, ⌃`, a new terminal in an empty workspace.
 
 - [x] **Terminal: device-attribute replies leak into the shell after quitting nvim.** After `:q` in nvim in the terminal
   panel, `/65;4;1;2;6;21;22;17;28c` appears at the prompt as if typed: SwiftTerm's answer to a Primary Device Attributes

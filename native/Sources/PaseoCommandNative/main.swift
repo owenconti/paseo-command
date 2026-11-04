@@ -206,6 +206,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         listen("com.paseo.command.native.github") { [weak self] in self?.main?.show(.github) }
         listen("com.paseo.command.native.activity") { [weak self] in self?.main?.show(.activity) }
         listen("com.paseo.command.native.files") { [weak self] in self?.main?.show(.files) }
+        listen("com.paseo.command.native.terminaltab") { [weak self] in self?.main?.show(.terminal) }
         // Run `<info>.do`'s Conquer steps, one a line, a second apart (checks; see `ConquerView.check`).
         listen("com.paseo.command.native.conquer") { [weak self] in
             guard let self, let info = self.options.info,
@@ -314,7 +315,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
             "visible": main.window.occlusionState.contains(.visible), "framesDrawn": main.scene.framesDrawn,
             "paused": main.atlasView.isPaused, "fps": main.atlasView.preferredFramesPerSecond,
             "map": main.atlasView.diagnostics, "page": main.pageWorld,
-            "terminal": main.drawer.state(),
+            "terminal": main.drawer.state(), "terminalPlace": main.terminalPlace(),
             "editor": main.editors.state(),
             "splash": main.splash.showing,
         ]
@@ -369,7 +370,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         unsplit.target = self
         view.addItem(.separator())
         modeItems = Mode.tabs.map { mode in
-            let item = view.addItem(withTitle: mode.title, action: #selector(showMode(_:)), keyEquivalent: "")
+            // "Terminal" alone is the panel's (⌃`).
+            let item = view.addItem(withTitle: mode == .terminal ? "Terminal Tab" : mode.title, action: #selector(showMode(_:)), keyEquivalent: "")
             item.target = self
             item.representedObject = mode.rawValue
             return item
@@ -381,7 +383,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         AppKeys.addShowFiles(to: view, target: self, action: #selector(showFiles))
         // ⌘W while Files shows: its shown file tab, ahead of Conquer's Close Tab and the window's Close.
         AppKeys.addCloseFileTab(to: view, target: self, action: #selector(closeFileTab))
-        // ⌘` steps Command → Files → GitHub → Conquer → Activity → Command, through those shown
+        // ⌘` steps Command → Files → Terminal → GitHub → Conquer → Activity → Command, through those shown
         // (ahead of macOS's own window cycling, as the app has one window).
         view.addItem(withTitle: "Next: Command, Conquer", action: #selector(toggleMode), keyEquivalent: "`").target = self
         view.addItem(.separator())
@@ -414,7 +416,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
 
     /// The View menu's tabs, in the bar's order.
     private var modeItems: [NSMenuItem] = []
-    /// ⌘1…⌘5: the tabs shown, by their place in the bar (`AppWindow` offers these keys ahead of the views).
+    /// ⌘1…⌘6: the tabs shown, by their place in the bar (`AppWindow` offers these keys ahead of the views).
     private func numberModes() {
         let shown = main?.shownModes ?? Mode.tabs.filter { !$0.drawnByPage }
         for item in modeItems {
@@ -462,11 +464,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
             return browser
         case #selector(showBranchChanges): return !browser
         case #selector(closeFileTab): return main.mode == .files && (NSApp.keyWindow.map { $0 === main.window } ?? true)
-        case #selector(moveTerminal): item.state = main.drawer.dock == .bottom ? .on : .off
+        case #selector(moveTerminal):
+            item.state = main.drawer.dock == .bottom ? .on : .off
+            // The Terminal tab has no dock or maximize: it fills the map's place.
+            return main.mode != .terminal
         case #selector(unsplitTerminals): return !main.drawer.isHidden && main.drawer.isSplit
         case #selector(maximizeTerminal):
             item.state = main.drawer.maximized ? .on : .off
-            return !main.drawer.isHidden
+            return !main.drawer.isHidden && main.mode != .terminal
         // Only while the terminal shows, so the keys stay the page's otherwise; while a page
         // (GitHub, Activity, Files, Settings) shows, only while the terminal has the keyboard (the page sizes their text with them).
         case #selector(zoomTerminal(_:)):

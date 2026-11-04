@@ -201,6 +201,15 @@ and GitHub publication; report the published version and release link.
   map only, the page's panels staying in view): tabs for the selected workspace's (or agent's) daemon terminals, drawn by SwiftTerm. Opening the panel
   starts a terminal if the workspace has none; + opens another; a tab's × ends it. Tabs drag onto a pane's edge to split it (`PaneLayout`), or its middle to replace it;
   the unsplit button (View → Unsplit Terminals) or dropping a pane's tab on the tab bar undoes splits.
+  The Terminal tab (the mode bar's, after Files; `Mode.terminal`; View → Terminal Tab, ⌘3 by its place, ⌃⇧` from anywhere, `AppKeys.showsTerminalTab`,
+  taken by the window ahead of its views; ⌘K "Show terminal", page Terminal, `terminal-tab`) shows the same terminals full size in the map's place, laid as
+  Conquer is (`placeTerminalTab`, over `mapInContent`; ⌘B gives it the window's width: the window hands ⌘B to the page while the panel's terminal has
+  the keyboard, `AppKeys.togglesPanel`). One set of sessions (a SwiftTerm view shows in one place): `enterTerminalTab` moves the drawer view itself out of
+  the split (or off the map, maximized) into the map's place, `inTab` hiding its dock and maximize buttons, and records `TerminalPanelState`;
+  `leaveTerminalTab` puts it back as it was (closed, docked at its side and size, or maximized), its tabs, splits and current tab unchanged. Opening
+  the tab starts a terminal if the workspace has none. In the tab Maximize and Terminal at Bottom are disabled (and out of ⌘K), and ⌃` goes back to
+  the side before it; a launch's saved open panel is kept for when it leaves. Editor terminals stay out of it. `--info`'s `terminalPlace` says where the
+  view is; hook `terminaltab`. Tests: `native/tests/TerminalTabTests.swift`, `AppKeysTests.swift`.
   Its font, and the Files editor's (`TerminalFont.swift`): `TerminalFontSettings` (family, "" the system monospace; size, the ⌘+/⌘− value;
   line height above 0 up to 100, SwiftTerm's `lineSpacing`, which takes any positive value but keeps a cell within 1…8,192 pt (100× at 32 pt
   stays under it); the app refuses others, and an unusable kept one reads as 1; letter spacing −1…4 pt, a fixed advance on the font, as SwiftTerm sizes cells by "W"),
@@ -267,8 +276,8 @@ and GitHub publication; report the published version and release link.
   While it's on, a teal seal with a merge mark sits on the review medallion's upper-right rim, else the CI one's (`placeSeals`,
   `paintSeal`, `AUTO_MERGE` in `rendering/src/prStatus.ts`); the medallion's hover card says how it merges and who turned it on.
 - Top bar: native, all of it, in the macOS app (`ModeBar` in `Conquer.swift`, its height an empty unified-compact toolbar's, which centres the traffic
-  lights): the traffic lights, "PASEO COMMAND" (the bundled Barlow), the mode tabs (Command, Files, GitHub, Conquer, Activity, those enabled;
-  ⌘1…⌘5 pick the one in that place among those shown, from anywhere in the window: `AppWindow.performKeyEquivalent` offers them to the View menu,
+  lights): the traffic lights, "PASEO COMMAND" (the bundled Barlow), the mode tabs (Command, Files, Terminal, GitHub, Conquer, Activity, those enabled;
+  ⌘1…⌘6 pick the one in that place among those shown, from anywhere in the window: `AppWindow.performKeyEquivalent` offers them to the View menu,
   whose items `numberModes` keys, ahead of the page, the terminal and Conquer's pages, as ⇧⌘G Show Branch Changes (the Files tab's Changes) and ⇧⌘E Show Files are, `AppKeys.swift`), Update ready, and the tools: need you, usage meters, the Settings gear,
   What's new, mini games, keyboard shortcuts and the session panel's side, layout and show/hide (`BarButton`, `UsageMeters`). The page lies below the bar
   (`--app-bar` 0) and draws no bar of its own there (`.app-bar-hosted` in `FloatingPanel.tsx` keeps what the tools open). The page says what the tools show
@@ -279,7 +288,7 @@ and GitHub publication; report the published version and release link.
   below the bar, its page side passing events through (`PassThroughView`): a view after the web view in its own parent stays off screen until the web view is
   hidden and shown again. Check such layout with `.windowshot` (the screen's pixels), not `.snapshot`. Bar controls must be `NSButton`s: the title bar's
   toolbar passes clicks through only to controls. The panel has no header of its own and, hidden (⌘B), takes no width.
-- Conquer (experiment): the COMMAND / CONQUER strip across the macOS app's top (⌘` steps Command → Files → GitHub → Conquer → Activity, those enabled, and ⌘1…⌘5 pick one; View menu; the tabs light on hover)
+- Conquer (experiment): the COMMAND / CONQUER strip across the macOS app's top (⌘` steps Command → Files → Terminal → GitHub → Conquer → Activity, those enabled, and ⌘1…⌘6 pick one; View menu; the tabs light on hover)
   switches the map's place between the map and Conquer, a WebKit browser (`native/Sources/PaseoCommandNative/Conquer.swift`),
   laid exactly over the map (`placeConquer` in `WorldWindow.swift`): the panels and terminal stay, and ⌘B (the page's panel toggle)
   gives it the window's width. The hidden side keeps running. Conquer takes its keys only while it has the keyboard (`hasKeyFocus`),
@@ -288,7 +297,7 @@ and GitHub publication; report the published version and release link.
   (`PageBar.swift`). Its sidebar, as in Zen and Arc: pinned tabs and their folders (one level; drag to reorder, pin above New Tab, unpin below it, into and out of folders;
   right-click for Pin, Back to Pinned Page, Replace Pinned URL with Current URL, Move to Folder, Rename, Delete), New Tab, then the other tabs (`ConquerTabs.swift`), each with
   its favicon or a spinner. A closed pinned tab only unloads. Its commands (`ConquerView.commands`, the Conquer menu) take their keys ahead of
-  the page: ⌘T, ⇧⌘T reopen, ⌘W, ⌘L, ⌘E or ⌃Tab next tab, ⌥⌘1…⌥⌘8 that tab, ⌥⌘9 the last (⌘1…⌘5 stay the mode bar's), ⌘D pin, ⌘[ ⌘], ⌘F ⌘G ⇧⌘G find,
+  the page: ⌘T, ⇧⌘T reopen, ⌘W, ⌘L, ⌘E or ⌃Tab next tab, ⌥⌘1…⌥⌘8 that tab, ⌥⌘9 the last (⌘1…⌘6 stay the mode bar's), ⌘D pin, ⌘[ ⌘], ⌘F ⌘G ⇧⌘G find,
   ⌘+ ⌘− ⌘0 zoom (per site), ⌘P print, ⇧⌘J downloads. App restart is only in the React command palette, without a shortcut. It has its own persistent cookie store,
   optionally seeded after confirmation through Conquer → Import Zen Cookies from Zen Browser's profile (`ZenCookies.swift`): a copy of
   `cookies.sqlite`, default space only, unpartitioned and unexpired; Zen is never written to. Its tabs (`conquerState`), sidebar width, zooms,
@@ -547,7 +556,7 @@ and GitHub publication; report the published version and release link.
   (`EditorOverlay.swift`, SwiftTerm through `TerminalSession`, the panel's text size and `Ink` tones; `EditorEmbed.swift`: `EditorPlacement`,
   `EditorStage`, its frame through the web view into the split's page side, as Conquer's, shown only while Files shows; `EditorKeys`;
   `EditorCloseRequest`) lays the terminal over it and gives it the keyboard as it shows or is clicked. Keys there: the app keeps the window's
-  (⌘1…⌘5, ⇧⌘G, ⇧⌘E, ⌘W: Close File Tab) and the menu's (⌘`, ⌃`, ⌘C/⌘V as the terminal does, the terminal text size); ⌘K opens the page's
+  (⌘1…⌘6, ⌃⇧`, ⇧⌘G, ⇧⌘E, ⌘W: Close File Tab) and the menu's (⌘`, ⌃`, ⌘C/⌘V as the terminal does, the terminal text size); ⌘K opens the page's
   palette (`AppWindow.performKeyEquivalent`, the panel's terminal too) and the keyboard comes back as it closes; everything else is the
   editor's. Closing tabs whose editors run (×, ⌘W, Close other tabs) asks once (an NSAlert sheet; Cancel keeps them), then ends them on the
   daemon. An editor that quits (`exited`) leaves its tab in the viewer with Reopen in editor; a relay that went (`lost`) is checked against

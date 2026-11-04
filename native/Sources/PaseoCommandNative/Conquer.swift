@@ -7,7 +7,7 @@ import WebKit
 /// Activity (GitHub and Linear notifications together) and Settings (the bar's gear, not a tab). (The Linear tab was
 /// removed at the user's request: a saved `linear` mode is no mode, so the map shows.)
 enum Mode: String, CaseIterable {
-    case command, files, github, conquer, activity, settings
+    case command, files, terminal, github, conquer, activity, settings
 
     var title: String {
         switch self {
@@ -16,6 +16,7 @@ enum Mode: String, CaseIterable {
         case .github: "GitHub"
         case .activity: "Activity"
         case .files: "Files"
+        case .terminal: "Terminal"
         case .settings: "Settings"
         }
     }
@@ -26,6 +27,7 @@ enum Mode: String, CaseIterable {
         case .github: "arrow.triangle.pull"
         case .activity: "bell"
         case .files: "folder"
+        case .terminal: "terminal"
         case .settings: "gearshape"
         }
     }
@@ -34,7 +36,7 @@ enum Mode: String, CaseIterable {
     var drawnByPage: Bool { self == .github || self == .activity || self == .files || self == .settings }
     /// The page's tabs that always show (no integration of their own).
     static let alwaysShown: Set<Mode> = [.files, .settings]
-    /// The tabs, in the bar's order (⌘1…⌘5 count those shown); Settings is the tools' gear instead.
+    /// The tabs, in the bar's order (⌘1…⌘6 count those shown); Settings is the tools' gear instead.
     static let tabs = allCases.filter { $0 != .settings }
     /// What it shows; the bar's tooltip adds its keys (`keys(at:)`).
     var tip: String {
@@ -44,15 +46,17 @@ enum Mode: String, CaseIterable {
         case .github: "Pull requests and your workspaces' changes, in the map's place"
         case .activity: "GitHub and Linear notifications together, in the map's place"
         case .files: "The selected workspace's files, in the map's place"
+        case .terminal: "The selected workspace's terminals, in the map's place"
         case .settings: "Settings: sounds, notifications, integrations, New agent, in the map's place"
         }
     }
-    /// Its keys, as the `index`th tab shown (from 0): ⌘1…⌘5, and ⌘` steps (Files' ⇧⌘E too; Settings' gear only ⌘,).
+    /// Its keys, as the `index`th tab shown (from 0): ⌘1…⌘6, and ⌘` steps (Files' ⇧⌘E and Terminal's ⌃⇧` too; Settings' gear only ⌘,).
     func keys(at index: Int?) -> String {
         let number = index.map { "⌘\($0 + 1), " } ?? ""
         switch self {
         case .settings: return "⌘,"
         case .files: return "\(number)⇧⌘E or ⌘`"
+        case .terminal: return "\(number)⌃⇧` or ⌘`"
         default: return "\(number)⌘`"
         }
     }
@@ -189,8 +193,8 @@ final class UsageMeters: NSButton {
 }
 
 /// The strip across the top of the window: the traffic lights, the product's name, the tabs that
-/// switch the map's place between the map (Command), Files, GitHub, the browser (Conquer)
-/// and Activity (⌘` steps through them, ⌘1…⌘5
+/// switch the map's place between the map (Command), Files, the terminals, GitHub, the browser (Conquer)
+/// and Activity (⌘` steps through them, ⌘1…⌘6
 /// pick the one in that place), "Update ready" when a newer build
 /// is in, and the app's tools at the right: who needs you, usage, the Settings gear, What's new, mini games,
 /// keyboard shortcuts and the session panel's side, layout and visibility. All of it is native;

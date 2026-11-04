@@ -82,12 +82,13 @@ test("in the macOS app, the mode bar's keys list its tabs in order, Settings bei
   await appEvent(page, "paseo:command", "show-shortcuts");
   const dialog = page.getByRole("dialog", { name: "Keyboard shortcuts" });
   await dialog.waitFor();
-  // No integrations here: the map, Files and the browser.
-  await dialog.getByText("Next in the map's place: the map, Files, the browser (Conquer)", { exact: true }).waitFor();
+  // No integrations here: the map, Files, the terminals and the browser.
+  await dialog.getByText("Next in the map's place: the map, Files, the terminals, the browser (Conquer)", { exact: true }).waitFor();
   const tabs = dialog.locator("li, tr, div").filter({
-    has: page.getByText("The mode bar's tab in that place: the map, Files, the browser (Conquer)", { exact: true }),
+    has: page.getByText("The mode bar's tab in that place: the map, Files, the terminals, the browser (Conquer)", { exact: true }),
   }).last();
-  assert.match(await tabs.innerText(), /1…3/);
+  assert.match(await tabs.innerText(), /1…4/);
+  await dialog.getByText(/^From anywhere: the Terminal tab/).waitFor();
   await dialog.getByText("Settings (the bar's gear), or back from it; Esc goes back too", { exact: true }).waitFor();
   await context.close();
 });

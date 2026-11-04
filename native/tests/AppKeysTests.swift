@@ -45,13 +45,15 @@ func key(_ chars: String, _ mods: NSEvent.ModifierFlags) -> NSEvent {
     NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: mods, timestamp: 0, windowNumber: 0, context: nil,
                      characters: chars, charactersIgnoringModifiers: chars.lowercased(), isARepeat: false, keyCode: 5)!
 }
-// The window offers ⇧⌘G (and ⌘1…⌘5) to the menu ahead of its views; not ⌘G, ⌥⇧⌘G or ⌘6.
+// The window offers ⇧⌘G (and ⌘1…⌘6) to the menu ahead of its views; not ⌘G, ⌥⇧⌘G or ⌘7.
 let shiftG = key("G", [.command, .shift])
 assert(AppKeys.offeredToMenu(shiftG, conquerHasKeys: false))
 assert(AppKeys.offeredToMenu(key("3", .command), conquerHasKeys: false))
 assert(!AppKeys.offeredToMenu(key("g", .command), conquerHasKeys: false))
 assert(!AppKeys.offeredToMenu(key("G", [.command, .shift, .option]), conquerHasKeys: false))
-assert(!AppKeys.offeredToMenu(key("6", .command), conquerHasKeys: false), "five tabs: ⌘6 is no tab")
+assert(AppKeys.offeredToMenu(key("6", .command), conquerHasKeys: true), "six tabs: ⌘6 is Activity's, even from Conquer")
+assert(!AppKeys.offeredToMenu(key("7", .command), conquerHasKeys: false), "six tabs: ⌘7 is no tab")
+assert(!ConquerView.commands.compactMap { $0 }.contains { $0.key == "6" && $0.mods == .command }, "Conquer has no ⌘6")
 // Anywhere else (the map, the page, the terminal): Show Branch Changes.
 assert(bar.performKeyEquivalent(with: shiftG))
 assert(menus.ran == ["branchChanges"], "\(menus.ran)")
@@ -75,9 +77,54 @@ assert(!AppKeys.offeredToMenu(key("E", [.command, .shift, .control]), conquerHas
 menus.ran = []
 assert(bar.performKeyEquivalent(with: shiftE))
 assert(menus.ran == ["showFiles"], "\(menus.ran)")
-// The tabs: Command, Files, GitHub, Conquer, Activity. Files is drawn by the page and shown whatever the
-// integrations (⌘2); Settings is no tab but the tools' gear, still a side the page draws (old saved modes show it).
-assert(Mode.tabs == [.command, .files, .github, .conquer, .activity])
+// The tabs: Command, Files, Terminal, GitHub, Conquer, Activity. Files is drawn by the page and shown whatever the
+// integrations (⌘2); Terminal is the app's own, always shown (⌘3); Settings is no tab but the tools' gear, still a
+// side the page draws (old saved modes show it).
+assert(Mode.tabs == [.command, .files, .terminal, .github, .conquer, .activity])
+assert(Mode.terminal.title == "Terminal" && !Mode.terminal.drawnByPage)
+assert(Mode.terminal.keys(at: 2) == "⌘3, ⌃⇧` or ⌘`")
+// Remembered across launches as the others are (`mode` in the preferences): not the page's, so shown at once.
+assert(Mode(rawValue: Mode.terminal.rawValue) == .terminal && Mode.terminal.rawValue == "terminal")
+// ⌘` steps through it: the next after Files, before GitHub (or Conquer, GitHub off).
+let shownTabs = Mode.tabs.filter { !$0.drawnByPage || Mode.alwaysShown.contains($0) }
+assert(shownTabs == [.command, .files, .terminal, .conquer], "\(shownTabs)")
+assert(shownTabs[(shownTabs.firstIndex(of: .files)! + 1) % shownTabs.count] == .terminal)
+assert(shownTabs[(shownTabs.firstIndex(of: .terminal)! + 1) % shownTabs.count] == .conquer)
+
+// ⌃⇧`: the Terminal tab, from anywhere (the window takes it ahead of its views, a terminal's among them),
+// whatever characters the layout gives the shifted key; ⌃` stays the panel's (the View menu's), ⌘` the next tab.
+func grave(_ chars: String, _ mods: NSEvent.ModifierFlags, code: UInt16 = 50) -> NSEvent {
+    NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: mods, timestamp: 0, windowNumber: 0, context: nil,
+                     characters: chars, charactersIgnoringModifiers: chars, isARepeat: false, keyCode: code)!
+}
+assert(AppKeys.showsTerminalTab(grave("~", [.control, .shift])))
+assert(AppKeys.showsTerminalTab(grave("`", [.control, .shift])))
+assert(AppKeys.showsTerminalTab(grave("£", [.control, .shift])), "by its key, whatever the layout's character")
+assert(!AppKeys.showsTerminalTab(grave("`", .control)), "⌃` is the panel's")
+assert(!AppKeys.showsTerminalTab(grave("`", .command)), "⌘` steps the tabs")
+assert(!AppKeys.showsTerminalTab(grave("~", [.control, .shift, .command])))
+assert(!AppKeys.showsTerminalTab(grave("~", [.control, .shift, .option])))
+assert(!AppKeys.showsTerminalTab(grave("A", [.control, .shift], code: 0)))
+do {
+    let window = AppWindow(contentRect: CGRect(x: 0, y: 0, width: 400, height: 300), styleMask: [.titled], backing: .buffered, defer: true)
+    var shown = 0
+    window.onTerminalTab = { shown += 1 }
+    // Even while a terminal has the keyboard (`terminalHasKeys`), as the panel keeps ⌃`.
+    window.terminalHasKeys = { true }
+    assert(window.performKeyEquivalent(with: grave("~", [.control, .shift])) && shown == 1)
+    assert(!window.performKeyEquivalent(with: grave("`", .control)) && shown == 1, "⌃` goes on to the menu")
+    // ⌘B: the page's session panel while the panel's (or the tab's) terminal has the keyboard, as in Conquer.
+    var toggled = 0
+    window.onTogglePanel = { toggled += 1 }
+    let cmdB = NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: .command, timestamp: 0, windowNumber: 0, context: nil,
+                                characters: "b", charactersIgnoringModifiers: "b", isARepeat: false, keyCode: 11)!
+    assert(AppKeys.togglesPanel(cmdB) && !AppKeys.togglesPanel(grave("b", [.command, .shift], code: 11)))
+    window.panelTerminalHasKeys = { false }
+    _ = window.performKeyEquivalent(with: cmdB)
+    assert(toggled == 0, "elsewhere ⌘B is the page's own")
+    window.panelTerminalHasKeys = { true }
+    assert(window.performKeyEquivalent(with: cmdB) && toggled == 1)
+}
 assert(Mode(rawValue: "settings") == .settings && Mode.settings.drawnByPage)
 assert(Mode.files.drawnByPage && Mode.alwaysShown == [.files, .settings])
 assert(Mode.files.title == "Files" && Mode.files.keys(at: 1) == "⌘2, ⇧⌘E or ⌘`")
@@ -88,9 +135,9 @@ assert(AppKeys.offeredToMenu(key("5", .command), conquerHasKeys: true))
 do {
     let modeBar = ModeBar(frame: CGRect(x: 0, y: 0, width: 1200, height: 38))
     modeBar.enabled = [.files, .settings]
-    assert(modeBar.state()["tabs"] as? [String] == ["command", "files", "conquer"], "\(modeBar.state())")
+    assert(modeBar.state()["tabs"] as? [String] == ["command", "files", "terminal", "conquer"], "\(modeBar.state())")
     modeBar.enabled = [.files, .settings, .github, .activity]
-    assert(modeBar.state()["tabs"] as? [String] == ["command", "files", "github", "conquer", "activity"])
+    assert(modeBar.state()["tabs"] as? [String] == ["command", "files", "terminal", "github", "conquer", "activity"])
     assert(modeBar.state()["settingsOn"] as? Bool == false)
     var used: [String] = []
     modeBar.onAction = { name, _ in used.append(name) }

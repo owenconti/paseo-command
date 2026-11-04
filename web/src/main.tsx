@@ -161,6 +161,7 @@ const MODE_PAGES: Record<AppMode, Page> = {
   activity: "Activity",
   github: "GitHub",
   files: "Files",
+  terminal: "Terminal",
   settings: "Settings",
 };
 // The map surface (drawn by the macOS app) beside the inherited docked session layout.
@@ -1390,10 +1391,11 @@ function App() {
     activity: "Activity",
     github: "GitHub",
     files: "Files",
+    terminal: "terminal",
     settings: "Settings",
   };
   const modeTabs = shownModes(integrations).map((mode) => [mode, modeNames[mode]] as const);
-  // A tab's ⌘1…⌘5, in the macOS app.
+  // A tab's ⌘1…⌘6, in the macOS app.
   const tabKeys = (mode: AppMode) => (macApp() ? [modeKey(integrations, mode)] : undefined);
   const paletteCommands: Command[] = [
     {
@@ -1651,11 +1653,25 @@ function App() {
     },
     ...(macApp()
       ? [
+          ...(appMode !== "terminal"
+            ? [
+                {
+                  id: "terminal-tab",
+                  group: "App",
+                  page: "Terminal" as const,
+                  label: "Show terminal",
+                  keys: [["⌃", "⇧", "`"], ...(tabKeys("terminal") ?? [])],
+                  keywords: "terminal tab shell console mode full size map place",
+                  run: () => postAppMenu("terminal-tab"),
+                },
+              ]
+            : []),
           {
             id: "terminal",
             group: "App",
             page: "Terminal" as const,
-            label: "Show or hide the terminal",
+            // In the Terminal tab, ⌃` goes back to the side before it (the panel as it was).
+            label: appMode === "terminal" ? "Leave the terminal tab" : "Show or hide the terminal",
             keys: [["⌃", "`"]],
             keywords: "shell console",
             run: () => postAppMenu("terminal"),
@@ -1724,7 +1740,10 @@ function App() {
                 undefined,
               ],
             ] as const
-          ).map(([action, label, keywords, keys]) => ({
+          )
+            // The Terminal tab fills the map's place: no dock side, nothing to maximize.
+            .filter(([action]) => appMode !== "terminal" || (action !== "terminal-dock" && action !== "terminal-maximize"))
+            .map(([action, label, keywords, keys]) => ({
             id: action,
             group: "App",
             page: action.startsWith("terminal")

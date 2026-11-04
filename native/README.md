@@ -100,7 +100,11 @@ and shows there; dropped in a pane's middle it takes that pane's place; a click 
 pane. The unsplit button (shown while split; View → Unsplit Terminals) returns to one pane, the current terminal's, the
 others staying as tabs; a pane's tab dropped back on the tab bar leaves the panes too. Each workspace keeps its panes while the app runs. Its inner edge drags to resize it. The dock button (or View → Terminal at
 Bottom) moves it under the map and panels and back; each side keeps its own size. The maximize button (View → Maximize
-Terminal, ⇧⌘↩) lays the panel over the whole map, leaving the page's panels in view, and back. ⌘+ / ⌘− / ⌘0 (View) change
+Terminal, ⇧⌘↩) lays the panel over the whole map, leaving the page's panels in view, and back. The Terminal tab (the mode
+bar's, after Files: View → Terminal Tab, ⌘3 by its place, ⌃⇧` from anywhere, ⌘K "Show terminal") shows the same terminals,
+tabs and splits full size in the map's place, as Conquer lies, the chat panel beside it (⌘B hides it, the terminal keeping the
+keyboard): the panel's view moves there and the panel hides, and leaving puts it back as it was (open or closed, its side, size,
+splits, or maximized). It has no dock or maximize; ⌃` there goes back to the side before. Opening it with no terminal starts one. ⌘+ / ⌘− / ⌘0 (View) change
 the terminals' text size while the panel shows (in GitHub, Activity, Files and Settings, only while it has the keyboard: the page sizes their text with them), kept across launches. Closing the panel or switching workspace leaves terminals
 running on the daemon. SwiftTerm draws them; the app server relays each over `/api/terminal`
 (`web/server/api/terminals.ts`), replaying its recent screen first. To check it without a real
@@ -119,7 +123,7 @@ took out, answered and dropped (`TerminalQueries.swift`).
 
 ## Conquer
 
-The strip across the top switches the map's place between the map, Conquer, Activity, GitHub, Files and Settings (Activity and GitHub only while enabled; View → Show Files, ⇧⌘E, shows Files from anywhere; a GitHub pull request's link opens in the GitHub tab, and a Linear issue's in Linear's desktop app when it's installed (`LinearLink.swift`), else in Conquer; ⌘` steps through them in turn; Activity's tab shows its unread count); Conquer is a tabbed browser with its own persistent
+The strip across the top switches the map's place between the map, Files, the Terminal tab, GitHub, Conquer, Activity and Settings (Activity and GitHub only while enabled; View → Show Files, ⇧⌘E, shows Files from anywhere; a GitHub pull request's link opens in the GitHub tab, and a Linear issue's in Linear's desktop app when it's installed (`LinearLink.swift`), else in Conquer; ⌘` steps through them in turn; Activity's tab shows its unread count); Conquer is a tabbed browser with its own persistent
 cookie store. ⌘B toggles the React app panel even while a browser page has focus; ⌘S toggles Conquer's tab sidebar, restoring its width.
 With the keyboard in Conquer, ⌘R reloads the current page and ⇧⌘R reloads it without cache; both are also in the Conquer menu and command palette.
 Its native toolbar, tab list, find bar, suggestions and downloads use shared flat control primitives matching the React panel.
@@ -154,7 +158,7 @@ ignores them; such a copy keeps its page storage in memory, apart from the user'
 `com.paseo.command.native.eval` runs `/tmp/x.js` in the page and writes `/tmp/x.out`;
 `.snapshot` writes `/tmp/x.png` (SpriteKit's frame under the page's snapshot; it draws the terminal panel's text blank, and shows views that aren't on screen); `.windowshot` writes `/tmp/x-window.png`, the window as the screen shows it (with `--ignore-occlusion`, or the map pauses while covered); `.info` rewrites
 `/tmp/x.json` (with the terminal panel's state); `.pan` drags the map for 10 s; `.resize` alternates
-the window size; `.reload` runs the palette’s Restart app command; `.terminal` toggles the panel; `.dock` moves it between right and bottom; `.maximize` lays it over the map and back; `.divider` drags the panel's divider 150 points towards the map; `.split` splits the current pane with another tab; `.unsplit` returns to one pane; `.newterminal` opens a terminal; `.zoom` enlarges its text; `.type` types
+the window size; `.reload` runs the palette’s Restart app command; `.terminal` toggles the panel; `.terminaltab` shows the Terminal tab (`--info`'s `terminalPlace`: where the view is and what the tab puts back); `.dock` moves it between right and bottom; `.maximize` lays it over the map and back; `.divider` drags the panel's divider 150 points towards the map; `.split` splits the current pane with another tab; `.unsplit` returns to one pane; `.newterminal` opens a terminal; `.zoom` enlarges its text; `.type` types
 `/tmp/x.type` into its terminal; `.files` shows the Files tab and `.command` the map; `.quit`.
 The map's watchdog (`--info`'s `map`: pause, rates, frames, revisions applied, recoveries; `page`: the page's side):
 `.stallview` and `.stallscene` pause the view or its scene behind the scheduler's back, `.stallvisible` takes the

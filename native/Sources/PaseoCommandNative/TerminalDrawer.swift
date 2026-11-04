@@ -152,6 +152,13 @@ enum TerminalDock: String {
     case right, bottom
 }
 
+/// The terminal panel as the Terminal tab found it, put back as the tab leaves: open or closed, maximized
+/// over the map or not. Its side and size are kept in the preferences, its tabs and splits in the drawer.
+struct TerminalPanelState: Equatable {
+    var open: Bool
+    var maximized: Bool
+}
+
 /// How the panel's body shares out its terminals: one pane, or a split of two
 /// (side by side when `vertical`, as NSSplitView names its divider; else
 /// stacked), each of which may split again. A tab dropped on a pane's edge splits it.
@@ -470,15 +477,19 @@ final class TerminalDrawer: NSView {
     var dock: TerminalDock = .right { didSet { placeLine(); placeTop() } }
     /// Over the map (the page's panels stay beside it) rather than in the split.
     var maximized = false { didSet { placeGrow(); placeTop() } }
+    /// In the Terminal tab, in the map's place: the same sessions, without the panel's dock and maximize buttons.
+    var inTab = false { didSet { placeGrow(); placeTop() } }
     /// The window's top bar's height: docked right, the panel reaches the window's top,
     /// under the bar, so its tab bar starts below it.
     var barInset: CGFloat = 0 { didSet { placeTop() } }
     private var barTop: NSLayoutConstraint?
 
-    private func placeTop() { barTop?.constant = 1 + (dock == .right && !maximized ? barInset : 0) }
+    private func placeTop() { barTop?.constant = 1 + (dock == .right && !maximized && !inTab ? barInset : 0) }
 
     private func placeGrow() {
-        line.isHidden = maximized
+        line.isHidden = maximized || inTab
+        grow.isHidden = inTab
+        move.isHidden = inTab
         grow.image = NSImage(systemSymbolName: maximized ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right",
                              accessibilityDescription: maximized ? "Restore terminal" : "Maximize terminal")
         grow.toolTip = maximized ? "Restore the terminal beside the map (⇧⌘↩)" : "Maximize the terminal over the map (⇧⌘↩)"
@@ -1058,6 +1069,7 @@ final class TerminalDrawer: NSView {
             "keyFocus": hasKeyFocus,
             "dock": dock.rawValue,
             "maximized": maximized,
+            "inTab": inTab,
             "frame": [frame.minX, frame.minY, frame.width, frame.height],
             "fontSize": fontSize,
             "font": font.json,
@@ -1068,6 +1080,12 @@ final class TerminalDrawer: NSView {
     /// Type into the current terminal as keys would (checks).
     func type(_ text: String) {
         if let id = current, let s = sessions[id] { s.view.send(txt: text) }
+    }
+
+    /// Take `terminals` as the daemon's list, as a refresh does (tests).
+    func list(_ terminals: [(id: String, name: String)]) {
+        listed = terminals
+        render()
     }
 
     /// Split the current pane with the last tab not showing, on its right (checks).

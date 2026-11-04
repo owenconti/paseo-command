@@ -65,21 +65,29 @@ const TAB_NAMES: Record<AppMode, string> = {
   activity: "Activity",
   github: "GitHub",
   files: "Files",
+  terminal: "the terminals",
   settings: "Settings",
 };
 const NATIVE: Group = {
   title: "macOS app",
   rows: [
-    { keys: [["⌃", "`"]], label: "Show or hide the terminal" },
+    { keys: [["⌃", "`"]], label: "Show or hide the terminal panel (in the Terminal tab: back to the side before it)" },
+    {
+      keys: [["⌃", "⇧", "`"]],
+      label: "From anywhere: the Terminal tab, the selected workspace's (or agent's) terminals in the map's place",
+    },
     {
       keys: [["⌘", "+"], ["⌘", "−"], ["⌘", "0"]],
       label: "In the terminal: bigger, smaller or actual text size (its font, line height and spacing: Settings → Terminal)",
     },
     {
       keys: [["⌘", "`"]],
-      label: "Next in the map's place: the map, Files, GitHub, the browser (Conquer), Activity",
+      label: "Next in the map's place: the map, Files, the terminals, GitHub, the browser (Conquer), Activity",
     },
-    { keys: [["⌘", "1…5"]], label: "The mode bar's tab in that place: the map, Files, GitHub, the browser (Conquer), Activity" },
+    {
+      keys: [["⌘", "1…6"]],
+      label: "The mode bar's tab in that place: the map, Files, the terminals, GitHub, the browser (Conquer), Activity",
+    },
     { keys: [["⇧", "⌘", "E"]], label: "From anywhere: the selected workspace's (or agent's) files" },
     { keys: [["⌘", ","]], label: "Settings (the bar's gear), or back from it; Esc goes back too" },
   ],
@@ -149,7 +157,7 @@ const FILES: Group = {
     },
     {
       keys: [["⌘", "W"], ["⌘", "K"], ["⌘", "1…6"]],
-      label: "In the editor: close the tab (asking while it runs), the palette, the mode bar's tabs; ⌘`, ⇧⌘G and ⇧⌘E too. Every other key, Esc and ⌃ keys included, is the editor's",
+      label: "In the editor: close the tab (asking while it runs), the palette, the mode bar's tabs; ⌘`, ⌃⇧`, ⇧⌘G and ⇧⌘E too. Every other key, Esc and ⌃ keys included, is the editor's",
     },
     {
       keys: [["⇧", "⌘", "G"]],
@@ -307,7 +315,7 @@ function ShortcutsDialog({ onClose }: { onClose: () => void }) {
     return () => window.removeEventListener("keydown", key, true);
   }, [present, onClose]);
   const { integrations } = useIntegrations();
-  // The mode bar's tabs shown, in its order (⌘` steps through them, ⌘1…⌘5 pick one).
+  // The mode bar's tabs shown, in its order (⌘` steps through them, ⌘1…⌘6 pick one).
   const tabNames = shownModes(integrations).map((mode) => TAB_NAMES[mode]);
   const groups = (
     macApp()
