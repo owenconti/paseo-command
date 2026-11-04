@@ -5,7 +5,9 @@ mark it done with its commit once merged into `main`.
 
 ## Open
 
-- [ ] **Diff view: a Comments list beside the files.** In the diff view (`DiffView.tsx`: a PR's Files changed and a
+## Done
+
+- [x] **Diff view: a Comments list beside the files.** In the diff view (`DiffView.tsx`: a PR's Files changed and a
   workspace's Changes), the sidebar gets a Files / Comments switch. Comments lists every review thread (on a PR: GitHub's
   threads and your pending review drafts; on Changes: the workspace's pending comments), grouped by file in the diff's
   order, each with its line(s), author and avatar, the first lines of the first comment, the reply count and its state
@@ -13,7 +15,12 @@ mark it done with its commit once merged into `main`.
   the file, opening the thread) and highlights it; the list follows the thread in view. The file list shows each file's
   comment count. Keys to step through comments (e.g. ] / [ or N / ⇧N if free), a key to switch Files/Comments, ⌘K entries
   and the shortcuts dialog. Kept per diff kind. Tests: e2e on a mocked PR and Changes. Workspace: `diff-comments-list`.
-## Done
+  Done: a Files / Comments switch heads the diff's sidebar (⇧C, ⌘K; kept per diff kind). Comments lists a PR's threads and your drafts
+  (marked Draft), or a workspace's pending comments (outdated ones too), by file in the diff's order: line(s), avatar and name, the first
+  comment's opening as plain text, replies, state; resolved and outdated ones dimmed behind Show resolved. A click (or N / ⇧N, wrapping, ⌘K)
+  shows it in the diff through the jump the Conversation uses (unfolding, opening, marked a moment); the list marks and follows the one in
+  view; the file list counts each file's comments; "No comments yet" hints at the gutter's +. Tests: `commentList.test.ts`, e2e on a mocked
+  PR (`github.e2e.ts`) and on Changes (`diff-comments.e2e.ts`).
 
 - [x] **Flaky native test: "a stopped display link draws nothing".** `npm run native:test` failed once during the v0.15.0
   release (`AtlasViewTests`, from the map-freeze watchdog commit 834eeb0: `main/<stdin>:1984: Assertion failed: a stopped display

@@ -10,6 +10,8 @@ import { invalidate, readPath, useGithubRead } from "./api";
 import { createGithubToken } from "../GithubTokenSetup";
 import { Avatar } from "./bits";
 import { DiffWorkers } from "./diffWorkers";
+import { useDiffSidebar } from "./DiffComments";
+import type { DiffSidebar } from "./commentList";
 import type { DiffLayout, DiffViewHandle } from "./DiffView";
 import {
   checkPlace,
@@ -46,6 +48,9 @@ export type GithubViewState = {
   listShown: boolean;
   /** A diff shows (Files changed). */
   diff: boolean;
+  /** The diff sidebar's Files or Comments, and how many comments its list shows. */
+  sidebar: DiffSidebar;
+  comments: number;
   pr?: {
     repo: string;
     number: number;
@@ -158,6 +163,15 @@ export function GitHubView({
   const setListShown = (shown: boolean) => {
     setListShownState(shown);
     writeStore("github:fileList", shown);
+  };
+  const [sidebar, setSidebar] = useDiffSidebar("pr");
+  const [noteCount, setNoteCount] = useState(0);
+  // ⇧C: the diff's sidebar shows its comments, or its files again (shown first if hidden).
+  const toggleDiffSidebar = (to?: DiffSidebar) => {
+    if (!listShown) {
+      setListShown(true);
+      setSidebar(to ?? "comments");
+    } else setSidebar(to ?? (sidebar === "comments" ? "files" : "comments"));
   };
   const [conversationOrder, setConversationOrderState] = useState<ConversationOrder>(readConversationOrder);
   const setConversationOrder = (o: ConversationOrder) => {
@@ -294,8 +308,8 @@ export function GitHubView({
   const refresh = () => invalidate("github/q/", "changes?");
 
   // ⌘K's commands.
-  const current = useRef({ place, layout, listShown, diffShown, toggleViewed, filterDiffFiles, setTab, back, refresh, external, openPr, filters, setFilters, star, conversationOrder });
-  current.current = { place, layout, listShown, diffShown, toggleViewed, filterDiffFiles, setTab, back, refresh, external, openPr, filters, setFilters, star, conversationOrder };
+  const current = useRef({ place, layout, listShown, diffShown, toggleViewed, filterDiffFiles, toggleDiffSidebar, setTab, back, refresh, external, openPr, filters, setFilters, star, conversationOrder });
+  current.current = { place, layout, listShown, diffShown, toggleViewed, filterDiffFiles, toggleDiffSidebar, setTab, back, refresh, external, openPr, filters, setFilters, star, conversationOrder };
   useEffect(() => {
     const c = () => current.current;
     const offs = [
@@ -340,6 +354,11 @@ export function GitHubView({
       onAppCommand("github-assignees", () => {
         if (c().place.kind === "pr") prApi.current?.editPeople("assignees");
       }),
+      onAppCommand("github-diff-sidebar", (arg) => {
+        if (c().diffShown) c().toggleDiffSidebar(arg === "files" || arg === "comments" ? arg : undefined);
+      }),
+      onAppCommand("github-next-comment", () => diffHandle.current?.stepComment(1)),
+      onAppCommand("github-prev-comment", () => diffHandle.current?.stepComment(-1)),
       onAppCommand("github-next-file", () => diffHandle.current?.step(1)),
       onAppCommand("github-prev-file", () => diffHandle.current?.step(-1)),
       onAppCommand("github-viewed", () => c().toggleViewed()),
@@ -376,6 +395,8 @@ export function GitHubView({
       layout,
       listShown,
       diff: diffShown,
+      sidebar,
+      comments: diffShown ? noteCount : 0,
       conversationOrder,
       canBack: place.kind === "pr",
       repos: repoOrder(repos.data),
@@ -400,7 +421,7 @@ export function GitHubView({
           }
         : {}),
     });
-  }, [place, layout, listShown, diffShown, conversationOrder, openPr, onViewState, repos.data, repoState?.starred, repoState?.ownerStarred, filters, sidebarHidden]);
+  }, [place, layout, listShown, diffShown, sidebar, noteCount, conversationOrder, openPr, onViewState, repos.data, repoState?.starred, repoState?.ownerStarred, filters, sidebarHidden]);
   useEffect(() => () => onViewState?.(undefined), [onViewState]);
 
   const onKey = (e: ReactKeyboardEvent<HTMLElement>) => {
@@ -419,6 +440,8 @@ export function GitHubView({
     else if (diffShown && lower === "u") setLayout(layout === "split" ? "unified" : "split");
     else if (diffShown && lower === "f") setListShown(!listShown);
     else if (diffShown && lower === "t") filterDiffFiles();
+    else if (diffShown && key === "C") toggleDiffSidebar();
+    else if (diffShown && lower === "n") diffHandle.current?.stepComment(e.shiftKey ? -1 : 1);
     else if (place.kind === "pr" && place.tab === "files" && lower === "v") toggleViewed();
     else if (place.kind === "pr" && /^[1-4]$/.test(key)) setTab(PR_TABS[Number(key) - 1]!);
     else if (place.kind === "pr" && lower === "r") prApi.current?.openReview();
@@ -497,6 +520,9 @@ export function GitHubView({
         setLayout={setLayout}
         listShown={listShown}
         setListShown={setListShown}
+        sidebar={sidebar}
+        setSidebar={setSidebar}
+        onNoteCount={setNoteCount}
         onBack={back}
         backLabel={listTitle}
         onExternal={external}

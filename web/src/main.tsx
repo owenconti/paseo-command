@@ -1962,6 +1962,18 @@ function App() {
                   command("github-files", v.listShown ? "Hide the diff’s file list" : "Show the diff’s file list", "diff files list tree sidebar", ["F"]),
                   command("github-filter-files", "Filter the diff’s files", "diff files filter search find path name fuzzy go to file", ["T"]),
                   command("github-find", "Find in the diff", "diff search find text content lines match", ["⌘", "F"]),
+                  command(
+                    "github-diff-sidebar",
+                    v.listShown && v.sidebar === "comments" ? "Show the diff’s files" : "Show the diff’s comments",
+                    "diff comments list threads review inline sidebar files switch",
+                    ["⇧", "C"],
+                  ),
+                  ...(v.comments > 0
+                    ? [
+                        command("github-next-comment", "Next comment in the diff", "diff comment thread next review inline", ["N"]),
+                        command("github-prev-comment", "Previous comment in the diff", "diff comment thread previous review inline", ["⇧", "N"]),
+                      ]
+                    : []),
                 ]
               : []),
             ...(place.kind === "pr"
@@ -2062,6 +2074,18 @@ function App() {
                       command("files-diff-list", v.listShown ? "Hide the diff’s file list" : "Show the diff’s file list", "diff files list tree changes", ["F"]),
                       command("files-diff-filter", "Filter the diff’s files", "diff files filter search find path name fuzzy go to file changes", ["T"]),
                       command("files-diff-find", "Find in the diff", "diff search find text content lines match changes", ["⌘", "F"]),
+                      command(
+                        "files-diff-sidebar",
+                        v.listShown && v.sidebar === "comments" ? "Show the diff’s files" : "Show the diff’s pending comments",
+                        "diff comments pending list sidebar files switch changes",
+                        ["⇧", "C"],
+                      ),
+                      ...(v.comments > 0
+                        ? [
+                            command("files-diff-next-comment", "Next pending comment in the changes", "diff comment pending next changes", ["N"]),
+                            command("files-diff-prev-comment", "Previous pending comment in the changes", "diff comment pending previous changes", ["⇧", "N"]),
+                          ]
+                        : []),
                       ...(["all", "base", "uncommitted"] as const)
                         .filter((m) => m !== v.changesMode)
                         .map((m) =>

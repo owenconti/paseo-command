@@ -257,3 +257,68 @@ test("pending comments whose lines are gone are outdated, still listed; removed 
     await context.close();
   }
 });
+
+test("the Changes' Comments list: pending comments by file, outdated ones behind Show resolved, a click and N / ⇧N show them, kept", async () => {
+  const context = await newContext(browser);
+  const page = await context.newPage();
+  await page.setViewportSize({ width: 1600, height: 1000 });
+  const errors: string[] = [];
+  page.on("pageerror", (e) => errors.push(String(e)));
+  const { store } = await setUp(page);
+  const at = new Date().toISOString();
+  store.push(
+    { id: "dc_old", path: "src/gone.ts", side: "RIGHT", line: 4, text: ["removed()"], body: "This went away.", createdAt: at },
+    { id: "dc_b", path: "src/b.ts", side: "RIGHT", line: 3, text: ["const c = 4;"], body: "And **here**.", createdAt: at },
+    { id: "dc_c", path: "src/b.ts", side: "LEFT", line: 2, text: ["const b = 2;"], body: "Keep this?", createdAt: at },
+    { id: "dc_a", path: "src/a.ts", side: "RIGHT", line: 2, startLine: 1, text: ["const a = 1;", "const b = 3;"], body: "Both lines.", createdAt: at },
+  );
+  try {
+    await page.goto(`${app.url}?agent=a-idle`);
+    await page.locator(".msg.assistant").waitFor();
+    const view = await showChanges(page);
+    await view.locator(".gh-local-count", { hasText: "4 pending comments" }).waitFor();
+    assert.equal(await view.locator('.gd-list-file[title="src/b.ts"] .gd-list-notes').innerText(), "2");
+
+    await page.locator(".files-view").focus();
+    await page.keyboard.press("Shift+C");
+    const list = view.getByRole("navigation", { name: "Comments" });
+    const ids = () => list.locator(".gd-note").evaluateAll((els) => els.map((e) => (e as HTMLElement).dataset.entry));
+    await waitFor(ids, (v) => v.length === 3, "the pending comments listed");
+    assert.deepEqual(await ids(), ["dc_a", "dc_c", "dc_b"]);
+    assert.equal(await list.locator('[data-entry="dc_a"] .gd-note-where').innerText(), "L1–2");
+    assert.equal(await list.locator('[data-entry="dc_b"] .gd-note-who').innerText(), "You");
+    assert.equal(await list.locator('[data-entry="dc_b"] .gd-note-text').innerText(), "And here.");
+    await list.getByRole("button", { name: "Show resolved (1)" }).click();
+    const old = list.locator('[data-entry="dc_old"]');
+    await old.locator(".gd-note-badge", { hasText: "Outdated" }).waitFor();
+    await page.screenshot({ path: "/tmp/diff-comments-list-changes.png" });
+
+    // A click on the outdated one shows it above the diff; on dc_c, under its line.
+    await old.click();
+    await waitFor(() => old.getAttribute("aria-current"), (v) => v === "true", "the outdated one marked");
+    await list.locator('[data-entry="dc_c"]').click();
+    const inView = (id: string) =>
+      view.locator(`[data-draft="${id}"]`).evaluate((e) => {
+        const r = e.getBoundingClientRect();
+        const box = e.closest(".gd-scroll")!.getBoundingClientRect();
+        return r.top >= box.top && r.bottom <= box.bottom;
+      });
+    await waitFor(() => inView("dc_c"), Boolean, "dc_c in view");
+    await page.keyboard.press("n");
+    await waitFor(() => list.locator('[data-entry="dc_b"]').getAttribute("aria-current"), (v) => v === "true", "N: dc_b");
+    await waitFor(() => inView("dc_b"), Boolean, "dc_b in view");
+    await page.keyboard.press("Shift+N");
+    await waitFor(() => list.locator('[data-entry="dc_c"]').getAttribute("aria-current"), (v) => v === "true", "⇧N: dc_c");
+
+    // Kept for Changes, apart from the PRs' choice.
+    assert.equal(await page.evaluate(() => localStorage.getItem("paseo-command:github:diffSidebar:changes")), '"comments"');
+    assert.equal(await page.evaluate(() => localStorage.getItem("paseo-command:github:diffSidebar:pr")), null);
+    await page.reload();
+    await page.locator(".msg.assistant").waitFor();
+    await showChanges(page);
+    await list.locator(".gd-note").first().waitFor();
+    assert.deepEqual(errors, []);
+  } finally {
+    await context.close();
+  }
+});

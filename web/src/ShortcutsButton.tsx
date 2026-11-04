@@ -133,6 +133,8 @@ const GITHUB: Group = {
     { keys: [["F"]], label: "Show or hide the diff's file list, or filter a repository's pull requests" },
     { keys: [["T"]], label: "Filter the diff's files by path (↑/↓ pick, Enter shows the file, Esc clears)" },
     { keys: [["⌘", "F"]], label: "Find in the diff (Enter next, ⇧Enter previous, Esc closes)" },
+    { keys: [["⇧", "C"]], label: "The diff's sidebar: its files or its comments (review threads and your drafts)" },
+    { keys: [["N"], ["⇧", "N"]], label: "The diff's next or previous comment (the Comments list's, resolved ones only while shown)" },
     { keys: [["S"]], label: "Star or unstar the repository as a favourite" },
     { keys: [["⌘", "↩"]], label: "Send the comment or review being written" },
     { keys: [["⌘", "S"]], label: "Show or hide the sidebar" },
@@ -169,6 +171,8 @@ const FILES: Group = {
     { keys: [["M"]], label: "In the Changes: all, committed or uncommitted" },
     { keys: [["U"]], label: "In the Changes: unified or split diff" },
     { keys: [["F"]], label: "In the Changes: show or hide the diff's file list" },
+    { keys: [["⇧", "C"]], label: "In the Changes: the diff's sidebar, its files or its pending comments" },
+    { keys: [["N"], ["⇧", "N"]], label: "In the Changes: the next or previous pending comment" },
     { keys: [["⌘", "W"], ["⌃", "W"]], label: "Close the tab (with none open, nothing; in a browser ⌘W is the browser's: use ⌃W)" },
     { keys: [["⇧", "⌘", "T"]], label: "Reopen the last closed tab" },
     {
