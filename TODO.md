@@ -5,6 +5,15 @@ mark it done with its commit once merged into `main`.
 
 ## Open
 
+- [ ] **Terminal: only the Terminal tab; remove the side/bottom terminal panel.** The user wants no separate terminal panel:
+  terminals live only in the Terminal tab (added in d00b211). Remove the panel: its show/hide (View → Terminal, ⌃`), dock
+  side and Terminal at Bottom, Maximize Terminal (⇧⌘↩), its resize edge and the panel-moving code between panel and tab; the
+  tab owns the sessions, tabs, splits, + / × and font outright. ⌃` now opens the Terminal tab (and from it goes back to
+  where you were); ⌃⇧` goes or stays as an alias (say which). Everything that opened or toggled the panel (the workspace
+  view's terminal button, ⌘K entries such as "Open terminal"/"Toggle terminal", the bar's tools if any, check hooks)
+  opens the Terminal tab instead. The Files editor's terminals are unchanged. Old saved panel state (`terminalOpen`, dock,
+  size, maximized) is ignored. Update ⌘K, the shortcuts dialog, View menu, CLAUDE.md, native/README and native tests.
+  Workspace: `terminal-tab-only`.
 ## Done
 
 - [x] **A Terminal tab in the mode bar.** Add Terminal as a mode tab (Command, Files, Terminal, GitHub, Conquer, Activity),
