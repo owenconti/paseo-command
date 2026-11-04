@@ -5,6 +5,14 @@ mark it done with its commit once merged into `main`.
 
 ## Open
 
+- [ ] **GitHub PR conversation: show line-level review comments inline.** A review in the Conversation shows only its
+  summary and "5 comments"; its line comments are visible only in Files changed. Show them as GitHub does: under each
+  review, each thread with its file path and line(s), the diff hunk around the line (a few lines, highlighted, from the
+  comment's `diffHunk`), the comments and replies (bodies rendered as the others), resolved/outdated state (resolved
+  threads folded, "Show resolved"), and Reply / Resolve there; standalone line comments not in a review show the same way.
+  Clicking the path or "View in Files changed" opens the Files changed tab scrolled to that thread. Read what the PR read
+  doesn't have yet (review threads with `path`, `line`, `originalLine`, `diffHunk`, `isResolved`, `isOutdated`) in the same
+  query. Tests over the fake; e2e. Workspace: `github-inline-review-comments`.
 ## Done
 
 - [x] **Terminal: only the Terminal tab; remove the side/bottom terminal panel.** The user wants no separate terminal panel:
