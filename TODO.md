@@ -5,6 +5,22 @@ mark it done with its commit once merged into `main`.
 
 ## Open
 
+- [ ] **Terminal: font settings, and icon (Nerd Font) glyphs that render.** The terminal panel and the Files editor (both
+  `TerminalSession` in `TerminalDrawer.swift`, SwiftTerm) use the system monospace font at a size set only by ⌘+/⌘−/⌘0,
+  with no line height. Icon glyphs (Nerd Font private-use symbols: file-type icons in nvim's tree and dashboard) show as
+  boxed question marks, while Ghostty shows them (Ghostty bundles a Nerd Font symbols fallback; the user's Ghostty config
+  sets no font, and Meslo LG Nerd Fonts are installed in ~/Library/Fonts). Add:
+  - Settings → Terminal: font family (installed monospaced fonts, searchable; default the current system monospace), size
+    (the ⌘+/⌘− value), line height (e.g. 1.0–1.6) and, if SwiftTerm allows, letter spacing; applied live to every
+    terminal, the panel's and the Files editor's, kept in the app's preferences (not shared with worktree builds' check
+    runs beyond what's unavoidable), with ⌘K "Terminal settings…".
+  - Glyph fallback so icons render whatever the main font: a font cascade on the terminal's font (Core Text
+    `kCTFontCascadeListAttribute`) ending in a Nerd Font symbols font. Bundle "Symbols Nerd Font Mono" (MIT, as Ghostty
+    does; licence in `licenses/` and THIRD_PARTY_NOTICES) registered for the app only (`CTFontManagerRegisterFontsForURL`
+    with process scope), plus the system's emoji/symbol fallbacks; check SwiftTerm draws cascaded glyphs (and wide
+    icons at one or two cells as Ghostty does). Verify with a test page of Nerd Font code points.
+  Tests: native checks for the cascade and settings applying; a throwaway build's `.windowshot` of a terminal printing
+  Nerd Font icons. Workspace: `terminal-fonts`.
 ## Done
 
 - [x] **Files: Markdown renders as Markdown, and lines wrap.** The viewer shows `.md` files as code with long lines running
