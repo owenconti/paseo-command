@@ -5,6 +5,11 @@ mark it done with its commit once merged into `main`.
 
 ## Open
 
+- [ ] **Flaky native test: "a stopped display link draws nothing".** `npm run native:test` failed once during the v0.15.0
+  release (`AtlasViewTests`, from the map-freeze watchdog commit 834eeb0: `main/<stdin>:1984: Assertion failed: a stopped display
+  link draws nothing`) and passed on the next two runs. Find why it's timing-sensitive (a frame from before the stop landing
+  after it, a wait on wall-clock time, the machine's load) and make it wait on state, so `native:test` passes 10 runs in a row,
+  including under load. Workspace: `fix-flaky-atlas-test`.
 ## Done
 
 - [x] **GitHub PR conversation: show line-level review comments inline.** A review in the Conversation shows only its
