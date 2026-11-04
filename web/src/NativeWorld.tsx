@@ -28,6 +28,7 @@ import type { MapFlag } from "../../rendering/src/prStatus";
 import type { ProbeVerdict } from "../../rendering/src/probe";
 import { useProbe } from "./useProbe";
 import { useHostStats } from "./useHostStats";
+import { liveConnection } from "./live";
 import type { HostStats } from "../../rendering/src/world";
 import "./atlas-world.css";
 type Props = {
@@ -211,6 +212,8 @@ export function NativeWorld(props: Props) {
           setFailure("");
         },
         error: setFailure,
+        // The live connection's state, for the app's map diagnostics.
+        status: () => ({ live: liveConnection().diagnostics() }),
         pick: (entity) => {
           const p = latest.current;
           if (p.blocked) return;

@@ -152,7 +152,7 @@ and GitHub publication; report the published version and release link.
 - `web/server/releases.ts`: `GET /api/releases`, the GitHub releases and their notes; `web/src/ReleasesButton.tsx` (top bar,
   "What's new" in ⌘K) shows them in place of the old commit list.
 - `native/Sources/PaseoCommandNative/ServerManager.swift`: starts the bundled Node server with the user's shell environment
-  (`ShellEnvironment.swift`), keeps its log in `<data>/logs/server.log`, restarts it if the page finds it gone and stops only a
+  (`ShellEnvironment.swift`), keeps its log in `<data>/logs/server.log` (the app's own notes in `logs/native.log`), restarts it if the page finds it gone and stops only a
   recognised old Paseo Command checkout server on the port, after the user confirms. `OldInstall.swift` (release flavour, only when ServerManager finds an old checkout server on the port): offers to stop it
   (and its `com.paseo-command.serve` launch agent) and, if none exists yet in the data folder, copies `secrets.json`, `games.json`, `forks.json`, `archived-subagents.json` once from the checkout's
   `.paseo-command/`. `LegacyState.swift` migrates the old app's (`local.paseo.command.native`) preferences, WebKit data and HTTPStorages once,
@@ -621,6 +621,18 @@ The world is assembled from generated transparent sprite atlases, a terrain text
 and a strict axial hex grid. It is not a screenshot used as a background.
 The sea's glints and cloud shadows drift slowly in 15 Hz steps. The world renders on demand: 30 fps for ambient
 motion, full rate while handled, paused when nothing moves or the window is hidden.
+It never stays frozen (the map once stopped updating and animating while hover and clicks still worked): a watchdog
+(`AtlasView.watch`, every 2 s) finds, on two looks in a row, a visibility kept out of step with the window's, the view or
+its scene paused while the map should draw, or no frame for 3 s, and restarts the loop (pausing and unpausing restarts
+SpriteKit's CVDisplayLink); a second stall with no frame between gives the scene a fresh `AtlasView`
+(`WorldWindow.rebuildAtlasView`), the only mend for a display link whose frame callback stays "in progress". A display
+change restarts the link at once. Each recovery is logged to `<data>/logs/native.log` (`Log.file`; display changes too)
+and asks the page to post its world again (`stalled`). The page's side (`rendering/src/native/watch.ts`): every scene and
+agents post carries a revision, Swift reports what it applied (`sceneRevision`, `agentsRevision` in its state), and a
+bridge behind for 10 s posts the world again; every 5 s it tells Swift how it stands (`pageStatus`: since its last data
+and post, the live connection), shown in `--info`'s `page` beside the view's `map`. The live connection (`web/src/live.ts`
+`verify`) reads the fleet after 2 minutes without a message and, if the read is newer than its pushes, connects again.
+Check hooks `stallview`, `stallscene`, `stallvisible`, `stallcv`, `stalllink` (native/README.md); `native/tests/AtlasViewTests.swift`.
 The inherited React UI is preserved; its panels follow the system's appearance: the Galaxy theme (as in the user's
 reference) when it is dark, the Light theme when it is light (`worldLook` in `web/src/theme.ts`). In dark, the pages (GitHub, Activity, Files, Settings) use neutral near-black greys of their own instead of the Galaxy navy (`pages.css`). The terminal panel and Conquer's chrome and pages follow it too
 (their tones are `Ink` in `native/Sources/PaseoCommandNative/Textures.swift`).

@@ -28,7 +28,10 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
     /// Conquer: the browser, in the map's place while it shows.
     let conquer: ConquerView
     private(set) var mode: Mode = .command
-    let atlasView: AtlasView
+    /// The SpriteKit view; replaced by a fresh one if its loop wedges (`rebuildAtlasView`).
+    private(set) var atlasView: AtlasView
+    /// The page's last account of its world (`pageStatus`), for `--info`.
+    var pageWorld: [String: Any] = [:]
     let scene: AtlasScene
     let options: Options
     /// The page's sides that can show: those whose integration is on (the page says, with
@@ -170,6 +173,12 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         web.uiDelegate = self
         window.delegate = self
         scene.emit = { [weak self] message in self?.send(message) }
+        // The map's loop stalled and was restarted: the page posts the world again, in case it was missed.
+        atlasView.onRecover = { [weak self] why in
+            self?.send(["type": "stalled", "why": why])
+            self?.reportState()
+        }
+        atlasView.onRebuild = { [weak self] old in self?.rebuildAtlasView(old) }
         drawer.server = { [weak self] in self?.serverURL ?? options.url }
         editors.server = { [weak self] in self?.serverURL ?? options.url }
         editors.tell = { [weak self] in self?.send($0, as: "paseo:editor") }
@@ -344,6 +353,14 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
             case "check-updates": Updater.shared?.checkNow()
             default: break
             }
+        case "pageStatus":
+            // The page's side of the map's watchdog: when it last had data and posted it, its live connection.
+            pageWorld = body.filter { $0.key != "type" }
+            return
+        case "log":
+            // The page's watchdog says what it did (posting the world again).
+            Log.line("page: \(body["text"] as? String ?? "")")
+            return
         case "detach":
             // The page unmounted its world (it is reloading or navigating).
             atlasView.isHidden = true
@@ -402,6 +419,18 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
     /// The map's rectangle in the split's page side, where Conquer and the maximized panel go.
     private var mapInContent: CGRect {
         viewport == nil ? content.bounds : content.convert(atlasView.frame, from: command)
+    }
+
+    /// A wedged SpriteKit view gives its place to a fresh one showing the same scene.
+    private func rebuildAtlasView(_ old: AtlasView) {
+        guard old === atlasView, old.superview === command else { return }
+        // The old view lets the scene go first: a scene shows in one view at a time.
+        old.retire()
+        let next = old.successor()
+        command.replaceSubview(old, with: next)
+        atlasView = next
+        next.govern()
+        Log.line("map: a fresh view took its place")
     }
 
     /// Lay the SpriteKit view exactly under the page's map surface.

@@ -85,6 +85,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         // Before any web view or preference read: the released app's new bundle id
         // starts with none of the old app's Conquer tabs or page storage.
         if AppFlavor.isRelease, LegacyState.pending(), oldAppClosed() { LegacyState.migrate() }
+        // The map's account of itself (stalls and recoveries) and other notes, beside the server's log.
+        Log.file = AppFlavor.dataFolder.appendingPathComponent("logs/native.log")
+        Log.line("\(AppFlavor.name) \(AppFlavor.version) launched")
         buildMenu()
         // The dev copy is told apart from the released app at a glance in the Dock.
         if !AppFlavor.isRelease { NSApp.dockTile.badgeLabel = "DEV" }
@@ -185,6 +188,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
             guard let main = self?.main else { return }
             main.show(main.mode == .command ? .conquer : .command)
         }
+        // Freeze checks: pause the map's view or its scene behind the scheduler's back, or take the window
+        // for hidden without a notification, as a stalled loop or a missed one would (the watchdog recovers).
+        listen("com.paseo.command.native.stallview") { [weak self] in self?.main?.atlasView.isPaused = true }
+        listen("com.paseo.command.native.stallscene") { [weak self] in self?.main?.scene.isPaused = true }
+        listen("com.paseo.command.native.stallvisible") { [weak self] in self?.main?.atlasView.missOcclusion() }
+        listen("com.paseo.command.native.stalllink") { [weak self] in self?.main?.atlasView.wedgeDisplayLink("link") }
+        listen("com.paseo.command.native.stallcv") { [weak self] in self?.main?.atlasView.wedgeDisplayLink("cv") }
+        // Sleep and wake, as NSWorkspace says them.
+        listen("com.paseo.command.native.sleep") {
+            NSWorkspace.shared.notificationCenter.post(name: NSWorkspace.willSleepNotification, object: NSWorkspace.shared)
+        }
+        listen("com.paseo.command.native.wake") {
+            NSWorkspace.shared.notificationCenter.post(name: NSWorkspace.didWakeNotification, object: NSWorkspace.shared)
+        }
+        listen("com.paseo.command.native.command") { [weak self] in self?.main?.show(.command) }
         listen("com.paseo.command.native.github") { [weak self] in self?.main?.show(.github) }
         listen("com.paseo.command.native.activity") { [weak self] in self?.main?.show(.activity) }
         listen("com.paseo.command.native.files") { [weak self] in self?.main?.show(.files) }
@@ -295,6 +313,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
             "commandShown": !main.command.isHiddenOrHasHiddenAncestor,
             "visible": main.window.occlusionState.contains(.visible), "framesDrawn": main.scene.framesDrawn,
             "paused": main.atlasView.isPaused, "fps": main.atlasView.preferredFramesPerSecond,
+            "map": main.atlasView.diagnostics, "page": main.pageWorld,
             "terminal": main.drawer.state(),
             "editor": main.editors.state(),
             "splash": main.splash.showing,

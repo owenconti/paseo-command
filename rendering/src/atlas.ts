@@ -17,6 +17,8 @@ export type AtlasHandlers = {
   zoom?: (zoom: number) => void;
   ready?: () => void;
   error?: (message: string) => void;
+  /** The page's own account for the app's diagnostics (the live connection's state). */
+  status?: () => Record<string, unknown>;
 };
 export type AtlasWorld = {
   kind: "atlas";

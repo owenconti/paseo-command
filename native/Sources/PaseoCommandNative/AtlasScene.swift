@@ -42,6 +42,11 @@ final class AtlasScene: SKScene {
     private var owners: [Axial: String] = [:]
     var hasArt: Bool { !frames.isEmpty }
     private(set) var builds = 0
+    /// The page's revision of the last scene and agents applied (`rev` in their messages),
+    /// which the page compares with what it posted (its watchdog), and when each was applied.
+    private(set) var sceneRevision = 0
+    private(set) var agentsRevision = 0
+    private(set) var appliedAt: CFTimeInterval = 0
 
     // MARK: Nodes
 
@@ -183,6 +188,8 @@ final class AtlasScene: SKScene {
     /// props, flags, banners, and what each entity covers.
     func setScene(_ m: [String: Any], images: [String: CGImage]) {
         builds += 1
+        if let rev = m["rev"] as? Int { sceneRevision = rev }
+        appliedAt = CACurrentMediaTime()
         for (key, image) in images {
             if key.hasPrefix("banner:") { banners[key] = Textures.texture(image) }
             else if key.hasPrefix("streamer:") { streamers[key] = Textures.texture(image) }
@@ -294,6 +301,8 @@ final class AtlasScene: SKScene {
 
     /// The agents' layer: state tiles, lit signals, robots and drones.
     func setAgents(_ m: [String: Any]) {
+        if let rev = m["rev"] as? Int { agentsRevision = rev }
+        appliedAt = CACurrentMediaTime()
         agentLayer.removeAllChildren()
         pulses = []
         runners = []
@@ -781,11 +790,13 @@ final class AtlasScene: SKScene {
     private var frameSecond: TimeInterval = 0
     static let debug = ProcessInfo.processInfo.environment["PASEO_NATIVE_DEBUG"] != nil
 
-    /// Frames drawn so far (for measurements).
+    /// Frames drawn so far (for measurements), and when the last one was (the view's watchdog).
     private(set) var framesDrawn = 0
+    private(set) var lastFrame: CFTimeInterval = 0
 
     override func update(_ currentTime: TimeInterval) {
         framesDrawn += 1
+        lastFrame = CACurrentMediaTime()
         if AtlasScene.debug {
             frameCount += 1
             if currentTime - frameSecond >= 1 {
@@ -794,7 +805,8 @@ final class AtlasScene: SKScene {
                 frameSecond = currentTime
             }
         }
-        let delta = lastTime.map { min((currentTime - $0) * 1000, 250) } ?? 0
+        // Never backwards: a clock that steps back would hold the sea's drift for as long.
+        let delta = lastTime.map { min(max(0, (currentTime - $0) * 1000), 250) } ?? 0
         lastTime = currentTime
         if !keys.isEmpty {
             // Arrow keys pan at the web Atlas's 0.65 world px per ms.
@@ -960,6 +972,9 @@ final class AtlasScene: SKScene {
             "robots": robots.count,
             "motion": !reduced,
             "frames": frames.count,
+            "sceneRevision": sceneRevision,
+            "agentsRevision": agentsRevision,
+            "framesDrawn": framesDrawn,
         ]
     }
     private func countNodes(_ node: SKNode) -> Int { node.children.reduce(1) { $0 + countNodes($1) } }

@@ -23,7 +23,10 @@ import type { Agent, PendingPermission } from "./types";
  * undo a newer push, nor a push a newer read. When the connection drops,
  * every row is marked stale at once, reads poll slowly as a fallback (their
  * own stale marks are the server's), and it reconnects with backoff; the
- * reset replaces everything, and sessions are asked for again.
+ * reset replaces everything, and sessions are asked for again. A connection
+ * that stays open but goes quiet is checked: after `quietMs` without a
+ * message, the fleet is read, and if the read has anything newer than the
+ * pushes did, the pushes have stopped arriving, so it connects again.
  */
 export type Resource =
   "agents" | "projects" | "workspaces" | "permissions" | "hosts";
@@ -256,6 +259,9 @@ export const LIVE_CLIENT = {
   pollHiddenMs: 30000,
   /** How long a connection must stay up before its backoff is forgotten. */
   stableMs: 5000,
+  /** How often a quiet connection is looked at, and how quiet it must be to be checked by a read. */
+  checkMs: 30000,
+  quietMs: 120000,
 };
 
 type Reader = (
@@ -305,6 +311,14 @@ export type SessionHandlers = {
   down: (down: boolean) => void;
 };
 
+/** Every (resource, host) group's revision, and the status's, by `resource|host`. */
+function revisions(state: FleetState) {
+  const revs = new Map<string, number>([["status", state.statusRev]]);
+  for (const resource of RESOURCES)
+    for (const [host, g] of state.groups[resource]) revs.set(`${resource}|${host}`, g.rev);
+  return revs;
+}
+
 /** The tab's live connection. */
 export class LiveConnection {
   readonly state = emptyFleet();
@@ -322,6 +336,10 @@ export class LiveConnection {
   private refreshing?: Promise<void>;
   private closed = false;
   private sids = 0;
+  /** When a message last arrived, and how many times a quiet connection was found behind. */
+  private lastMessageAt = 0;
+  private reconnects = 0;
+  private checker?: ReturnType<typeof setInterval>;
   constructor(
     private readonly options: {
       socket?: () => SocketLike;
@@ -354,6 +372,7 @@ export class LiveConnection {
     };
     socket.onmessage = (e) => {
       if (!mine()) return;
+      this.lastMessageAt = Date.now();
       let msg: { event?: string; data?: unknown } | null;
       try {
         msg = JSON.parse(String(e.data));
@@ -424,6 +443,48 @@ export class LiveConnection {
   /** Whether the connection is up (pushes arrive). */
   get connected() {
     return this.state.live;
+  }
+
+  /** The connection's account, for the app's diagnostics. */
+  diagnostics(now = Date.now()) {
+    return {
+      live: this.state.live,
+      sinceMessage: this.lastMessageAt ? now - this.lastMessageAt : -1,
+      reconnects: this.reconnects,
+      failures: this.failures,
+    };
+  }
+
+  /**
+   * A live connection quiet for `quietMs` is checked against a read: anything
+   * newer there means pushes stopped arriving on an open socket, so it is
+   * dropped and opened afresh (its reset replaces everything). Returns whether
+   * it reconnected.
+   */
+  async verify(now = Date.now()) {
+    const hidden = this.options.hidden ?? (() => document.hidden);
+    if (this.closed || !this.state.live || !this.socket || !this.fleet.size) return false;
+    if (now - this.lastMessageAt < LIVE_CLIENT.quietMs || hidden()) return false;
+    // One read per quiet stretch.
+    this.lastMessageAt = now;
+    const socket = this.socket;
+    const before = revisions(this.state);
+    await this.refresh();
+    // A push that came meanwhile shows the connection works (and may be what's newer).
+    if (this.closed || this.socket !== socket || !this.state.live || this.lastMessageAt !== now) return false;
+    const after = revisions(this.state);
+    const newer = [...after].filter(([key, rev]) => rev > (before.get(key) ?? -1)).map(([key]) => key);
+    if (!newer.length) return false;
+    this.reconnects++;
+    console.warn(`live: a read had newer ${newer.join(", ")} than the connection's pushes; connecting again`);
+    this.socket = undefined;
+    try {
+      socket.close();
+    } catch {
+      // Already closed.
+    }
+    this.open();
+    return true;
   }
 
   /** The connection dropped: stale rows, fallback reads, reconnect with backoff. */
@@ -505,6 +566,7 @@ export class LiveConnection {
       h.changed(this.state, [...RESOURCES, "status"], "reset");
     else void this.refresh();
     this.open();
+    this.checker ??= setInterval(() => void this.verify(), LIVE_CLIENT.checkMs);
     return () => {
       this.fleet.delete(h);
       this.maybeClose();
@@ -575,7 +637,8 @@ export class LiveConnection {
     if (this.retry) clearTimeout(this.retry);
     if (this.poll) clearTimeout(this.poll);
     if (this.stable) clearTimeout(this.stable);
-    this.retry = this.poll = this.stable = undefined;
+    if (this.checker) clearInterval(this.checker);
+    this.retry = this.poll = this.stable = this.checker = undefined;
     const socket = this.socket;
     this.socket = undefined;
     try {

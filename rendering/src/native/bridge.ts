@@ -69,6 +69,7 @@ import dirtUrl from "../assets/dirt.png";
 import propsUrl from "../assets/props.png";
 import flagsUrl from "../assets/medallions.png";
 import type { AtlasHandlers, AtlasWorld } from "../atlas";
+import { WORLD_WATCH, applied, behind, newWatch, post as postRevision } from "./watch";
 
 type Channel = { postMessage(message: unknown): void };
 const channel = (): Channel | undefined =>
@@ -423,6 +424,7 @@ type NativeEvent =
   | { type: "hover"; id: string | null; x?: number; y?: number; flag?: MapFlag }
   | { type: "zoom"; zoom: number }
   | { type: "state"; state: Record<string, unknown> }
+  | { type: "stalled"; why: string }
   | { type: "error"; message: string };
 
 /** Mount the native Atlas for `parent`, the React map surface. */
@@ -445,6 +447,11 @@ export function mountNativeAtlas(parent: HTMLElement, handlers: AtlasHandlers = 
   /** What Swift last reported of itself, for `inspect`. */
   let nativeState: Record<string, unknown> = {};
   let builds = 0;
+  /** The watchdog's account: what was posted, and when the page last had data and posted it. */
+  const watch = newWatch();
+  let updatedAt = 0;
+  let postedAt = 0;
+  let reposts = 0;
   /** Banner images Swift already holds, by content key. */
   const sent = new Set<string>();
   /** Terrain pieces Swift holds, by their `terrainParts` key. */
@@ -631,8 +638,10 @@ export function mountNativeAtlas(parent: HTMLElement, handlers: AtlasHandlers = 
     const structural = layout?.signature !== next.signature;
     layout = next;
     try {
-      if (structural) post(sceneOf(next));
-      post(agentsOf(next));
+      const now = Date.now();
+      if (structural) post({ ...sceneOf(next), rev: postRevision(watch, "scene", now) });
+      post({ ...agentsOf(next), rev: postRevision(watch, "agents", now) });
+      postedAt = now;
     } catch (error) {
       console.error(error);
       handlers.error?.("The native world could not be drawn. Reload to retry.");
@@ -669,9 +678,40 @@ export function mountNativeAtlas(parent: HTMLElement, handlers: AtlasHandlers = 
       handlers.zoom?.(zoom);
     } else if (message.type === "state") {
       nativeState = message.state;
+      applied(watch, nativeState);
+    } else if (message.type === "stalled") {
+      repost(`Swift's map loop stalled (${message.why})`);
     } else if (message.type === "error") handlers.error?.(message.message);
   };
   window.addEventListener("paseo:world", receive);
+
+  /** Post the whole world again (the scene too), saying why in the app's log. */
+  const repost = (why: string) => {
+    if (destroyed || !ready || !data || !art) return;
+    reposts++;
+    post({ type: "log", text: `map: ${why}; posting the world again` });
+    watch.waitingSince = null;
+    layout = null;
+    relayout();
+  };
+  // Swift should apply each post within moments; while it stays behind, post again. Every look
+  // also tells Swift how the page's side stands, for `--info` and the log.
+  const watchdog = setInterval(() => {
+    if (destroyed || !ready) return;
+    const now = Date.now();
+    if (behind(watch, now))
+      repost(`Swift is behind the page (posted ${watch.scene}/${watch.agents}, applied ${String(nativeState.sceneRevision)}/${String(nativeState.agentsRevision)})`);
+    post({
+      type: "pageStatus",
+      sinceUpdate: updatedAt ? now - updatedAt : -1,
+      sincePost: postedAt ? now - postedAt : -1,
+      posted: { scene: watch.scene, agents: watch.agents },
+      waiting: watch.waitingSince === null ? 0 : now - watch.waitingSince,
+      reposts,
+      hidden: document.hidden,
+      ...handlers.status?.(),
+    });
+  }, WORLD_WATCH.everyMs);
 
   // The map's rectangle in the page, so Swift can lay its view under it.
   let lastViewport = "";
@@ -819,6 +859,7 @@ export function mountNativeAtlas(parent: HTMLElement, handlers: AtlasHandlers = 
     native: true,
     update: (next) => {
       data = next;
+      updatedAt = Date.now();
       relayout();
     },
     select: (id) => {
@@ -850,6 +891,7 @@ export function mountNativeAtlas(parent: HTMLElement, handlers: AtlasHandlers = 
             zoom,
             builds,
             native: nativeState,
+            watch: { ...watch, reposts },
             islands: layout.islands.map((i) => ({ key: i.key, host: i.host, name: i.name, online: i.online, cells: i.cells.length })),
             agents: layout.agents.map((a) => ({ id: a.id, name: a.name, state: a.state, model: a.model, workspace: a.workspace, at: point(a.position) })),
             tiles: Object.fromEntries(tiles(layout).map((t) => [t.id, t.state])),
@@ -880,6 +922,7 @@ export function mountNativeAtlas(parent: HTMLElement, handlers: AtlasHandlers = 
     destroy: () => {
       destroyed = true;
       ready = false;
+      clearInterval(watchdog);
       resize.disconnect();
       moved.disconnect();
       window.removeEventListener("resize", resized);

@@ -5,7 +5,9 @@ mark it done with its commit once merged into `main`.
 
 ## Open
 
-- [ ] **Map: it freezes, still answering input but no longer updating or animating.** Now and then, with no pattern the
+## Done
+
+- [x] **Map: it freezes, still answering input but no longer updating or animating.** Now and then, with no pattern the
   user can see, the Atlas map stops changing: agents' states and new workspaces don't update, and the water and state borders
   stop moving, while panning, hover and clicks still work. Suspects: the on-demand renderer's scheduler (30 fps ambient, full
   rate while handled, paused when nothing moves or hidden) getting stuck paused, e.g. a missed un-pause after occlusion, sleep,
@@ -16,7 +18,16 @@ mark it done with its commit once merged into `main`.
   state in `--info` and the log), reproduce in a throwaway build against `fake-server.ts` (sleep/wake, occlusion, long idle,
   mode switches, dropped sockets), and fix the cause so updates and ambient motion always resume; add a watchdog that restarts
   the loop or reconnects if they stall. Native and e2e tests. Workspace: `fix-map-freeze`.
-## Done
+  Done: the logs held nothing (the app's own notes went only to standard error), the machine never slept (caffeinate), and
+  the page's world mounts once. Both symptoms with input still working mean Swift's frame loop stopped while
+  its input logic ran. SpriteKit's loop is a CVDisplayLink made for the displays there were (the user plugs a display in and
+  out several times a day) whose frame callback runs one at a time; a stopped link draws nothing until the view is paused and
+  unpaused, and a callback left "in progress" skips every frame for good, mended only by a new SKView. The scheduler also
+  trusted a cached visibility. A natural stall wasn't reproduced, so every way is now mended and logged: a watchdog in
+  `AtlasView` (a missed visibility change, a paused view or scene, no frame for 3 s: restart the loop, then a fresh view),
+  the link restarted on display changes, `logs/native.log`, revisions the page checks against what Swift applied (re-posting),
+  a quiet-connection check that reconnects the live socket, and `map`/`page` in `--info`. Tests: `AtlasViewTests.swift`,
+  `watch.test.mjs`, `live.test.ts` (unit, not e2e: the bridge runs only in the app).
 
 - [x] **Settings → Terminal: line height is a number field.** Line height is a 1.0–1.6 control; make it a number input
   taking any value the user types (decimals, step 0.05 for the arrows), applied live as now. Only refuse what can't work

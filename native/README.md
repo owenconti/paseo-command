@@ -30,7 +30,8 @@ Restart app" when a newer release is downloaded, and Restart app installs it and
 runs the server it carries, wherever it is installed: `Contents/Resources/node/node
 Contents/Resources/server/server.mjs` (`ServerManager.swift`), with the environment of your shell
 as an interactive login shell, read once at launch, so your `gh` and keys are found
-(`ShellEnvironment.swift`). Its data and `logs/server.log` are in
+(`ShellEnvironment.swift`). Its data, `logs/server.log` and the app's own `logs/native.log` (what it
+notes, such as the map's stalls and recoveries and display changes, also on standard error) are in
 `~/Library/Application Support/<app name>/`. The server is tied to the app: it is started
 again if the page later finds it gone, and stops when the app quits (and exits by itself if the
 app dies). `scripts/app-server.mjs` is for browser-only work from a checkout and is not used by the
@@ -149,7 +150,11 @@ ignores them; such a copy keeps its page storage in memory, apart from the user'
 `.snapshot` writes `/tmp/x.png` (SpriteKit's frame under the page's snapshot; it draws the terminal panel's text blank, and shows views that aren't on screen); `.windowshot` writes `/tmp/x-window.png`, the window as the screen shows it (with `--ignore-occlusion`, or the map pauses while covered); `.info` rewrites
 `/tmp/x.json` (with the terminal panel's state); `.pan` drags the map for 10 s; `.resize` alternates
 the window size; `.reload` runs the palette’s Restart app command; `.terminal` toggles the panel; `.dock` moves it between right and bottom; `.maximize` lays it over the map and back; `.divider` drags the panel's divider 150 points towards the map; `.split` splits the current pane with another tab; `.unsplit` returns to one pane; `.newterminal` opens a terminal; `.zoom` enlarges its text; `.type` types
-`/tmp/x.type` into its terminal; `.files` shows the Files tab; `.quit`.
+`/tmp/x.type` into its terminal; `.files` shows the Files tab and `.command` the map; `.quit`.
+The map's watchdog (`--info`'s `map`: pause, rates, frames, revisions applied, recoveries; `page`: the page's side):
+`.stallview` and `.stallscene` pause the view or its scene behind the scheduler's back, `.stallvisible` takes the
+window for hidden as a missed notification would, `.stallcv` stops SpriteKit's CVDisplayLink and `.stalllink` leaves
+its frame callback "in progress" (only a fresh view mends that); `.sleep` and `.wake` post NSWorkspace's notifications.
 
 Measurements against the web Atlas are in [MEASUREMENTS.md](MEASUREMENTS.md)
 (`node native/scripts/measure.mjs`).
