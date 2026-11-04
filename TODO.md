@@ -12,7 +12,15 @@ mark it done with its commit once merged into `main`.
   (resolved and outdated dimmed, a "Show resolved" toggle; drafts marked). Clicking one scrolls the diff to it (unfolding
   the file, opening the thread) and highlights it; the list follows the thread in view. The file list shows each file's
   comment count. Keys to step through comments (e.g. ] / [ or N / ⇧N if free), a key to switch Files/Comments, ⌘K entries
-  and the shortcuts dialog. Kept per diff kind. Tests: e2e on a mocked PR and Changes. Workspace: `diff-comments-list`.
+  and the shortcuts dialog. Kept per diff kind. Tests: e2e on a mocked PR and Changes. Workspace: `diff-comments-list`.- [ ] **⌘R refreshes the page you're on.** In the GitHub tab, ⌘R refreshes what's shown (a PR: its read with `fresh=1`,
+  checks, merge box, threads, as the head's refresh button does; a list: the list), without reloading the web page. Do the
+  same for the other pages' own refresh (Files: the tree and open file; Files → Changes; Activity; Settings has none). Find
+  what ⌘R does today in the macOS app (a WebKit reload of the whole page would lose state) and make the app hand ⌘R to the
+  page while a page shows, keeping Conquer's ⌘R (reload the site) while Conquer has the keyboard and the Terminal tab's
+  keys (pass ⌘R through, or not, as a terminal app would; say which). In a browser the page takes ⌘R only while a page shows
+  and the browser would otherwise reload. Show the refresh happening (the button's spin). ⌘K entries' `keys`, the shortcuts
+  dialog. Workspace: `cmd-r-refresh`.
+
 ## Done
 
 - [x] **Flaky native test: "a stopped display link draws nothing".** `npm run native:test` failed once during the v0.15.0
