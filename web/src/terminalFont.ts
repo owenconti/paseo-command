@@ -45,13 +45,27 @@ export function useTerminalFont(): TerminalFont | null {
   return useSyncExternalStore(subscribe, () => font);
 }
 
-/** Change some of the values; the app clamps them, applies them to every terminal and answers. */
+/** Change some of the values; the app clamps them (refusing a line height that can't work), applies them to every terminal and answers. */
 export function setTerminalFont(change: Partial<TerminalFontValues>) {
   if (font) {
     font = { ...font, ...change };
     emit();
   }
   postAppTerminalFont(change);
+}
+
+/**
+ * A typed line height, or why it can't be one: any positive number up to the app's largest (`ranges.lineHeight[1]`,
+ * where SwiftTerm's cells stop growing), else the app keeps the last good one.
+ */
+export function parseLineHeight(text: string, max: number): { value: number } | { problem: string } {
+  const typed = text.trim();
+  if (!typed) return { problem: "Type a line height, such as 1.2." };
+  const value = Number(typed);
+  if (!Number.isFinite(value)) return { problem: `“${typed}” isn’t a number.` };
+  if (value <= 0) return { problem: "A line height must be more than 0." };
+  if (value > max) return { problem: `At most ${max}: the terminal’s lines can’t be any taller.` };
+  return { value };
 }
 
 /** A family's name as shown: the system's monospace is "" in the app. */

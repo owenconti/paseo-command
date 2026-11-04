@@ -47,7 +47,19 @@ let chosen = TerminalFontSettings.standard.applying(["family": "Menlo", "size": 
 assert(chosen == TerminalFontSettings(family: "Menlo", size: 32, lineHeight: 1.25, letterSpacing: -1), "\(chosen)")
 chosen.save(defaults)
 assert(TerminalFontSettings(defaults) == chosen)
-assert(chosen.applying(["lineHeight": 3], families: families) == TerminalFontSettings(family: "Menlo", size: 32, lineHeight: 1.6, letterSpacing: -1))
+// Any line height that works, unclamped; one that can't changes nothing.
+assert(chosen.applying(["lineHeight": 2.25], families: families).lineHeight == 2.25)
+assert(chosen.applying(["lineHeight": 0.8], families: families).lineHeight == 0.8)
+assert(chosen.applying(["lineHeight": 100], families: families).lineHeight == 100)
+for refused: Any in [0, -1, 100.5, Double.infinity, "abc"] {
+    assert(chosen.applying(["lineHeight": refused], families: families).lineHeight == 1.25, "\(refused) refused")
+}
+defaults.set(1.6, forKey: "terminalLineHeight")
+assert(TerminalFontSettings(defaults).lineHeight == 1.6, "an older build's line height still reads")
+defaults.set(3.5, forKey: "terminalLineHeight")
+assert(TerminalFontSettings(defaults).lineHeight == 3.5)
+defaults.set(0.0, forKey: "terminalLineHeight")
+assert(TerminalFontSettings(defaults).lineHeight == 1, "an unusable kept line height is the default")
 assert(chosen.applying(["family": "Not Installed"], families: families).family == "", "an unknown family is the system's")
 assert(chosen.applying(["size": "big", "lineHeight": Double.nan], families: families) == chosen, "unusable values change nothing")
 TerminalFontSettings.standard.save(defaults)
@@ -89,6 +101,17 @@ MainActor.assumeIsolated {
     session.apply(menlo)
     assert(session.view.font.familyName == "Menlo" && abs(session.view.lineSpacing - 1.4) < 0.001)
     assert(abs(TerminalFonts.advance(of: session.view.font) - TerminalFonts.advance(of: TerminalFonts.base("Menlo", size: 16)) - 0.5) < 0.01)
+    // Past the old 1.6, up to the largest allowed, SwiftTerm takes it: at 100× the terminal keeps one row, a
+    // hundred lines tall (its cells stop at 8,192 pt, which the largest size's 100× stays under).
+    for tall: CGFloat in [2.25, TerminalFontSettings.maxLineHeight] {
+        session.apply(TerminalFontSettings(family: "Menlo", size: 32, lineHeight: tall, letterSpacing: 0))
+        assert(session.view.lineSpacing == tall, "\(tall)")
+    }
+    let line = TerminalFonts.base("Menlo", size: 32)
+    let natural = line.ascender - line.descender + line.leading
+    let tallest = session.view.getOptimalFrameSize().height
+    assert(tallest >= natural * TerminalFontSettings.maxLineHeight - 1 && tallest <= 8192, "\(tallest)")
+    session.apply(menlo)
     // A terminal opened afterwards starts with it.
     overlay.place(EditorPlacement(["terminal": "term-3", "x": 0, "y": 0, "width": 800, "height": 500]), filesShows: true, web: web)
     assert(cells().count == 3 && cells().allSatisfy { $0["pointSize"] as? Double == 16 })

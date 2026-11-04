@@ -5,12 +5,16 @@ mark it done with its commit once merged into `main`.
 
 ## Open
 
-- [ ] **Settings → Terminal: line height is a number field.** Line height is a 1.0–1.6 control; make it a number input
+## Done
+
+- [x] **Settings → Terminal: line height is a number field.** Line height is a 1.0–1.6 control; make it a number input
   taking any value the user types (decimals, step 0.05 for the arrows), applied live as now. Only refuse what can't work
   (empty, not a number, zero or negative; and whatever SwiftTerm's `lineSpacing` can't take, said plainly beside the field),
   without clamping to 1.0–1.6 in the page or the app (`TerminalFont.swift`'s clamp widened accordingly). Keep Restore
   defaults. Update tests. Workspace: `terminal-line-height-input`.
-## Done
+  Done: a typed field (spinbutton; ↑/↓ step 0.05) taking any number above 0 up to 100× (SwiftTerm keeps a cell
+  within 8,192 pt; 100× at 32 pt stays under it); empty, not a number, 0 or less and over 100 are refused beside it,
+  the last good value kept. The app refuses the same, and older builds' kept values still read.
 
 - [x] **Terminal: font settings, and icon (Nerd Font) glyphs that render.** The terminal panel and the Files editor (both
   `TerminalSession` in `TerminalDrawer.swift`, SwiftTerm) use the system monospace font at a size set only by ⌘+/⌘−/⌘0,

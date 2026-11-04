@@ -17,7 +17,7 @@ import { plainText } from "./ui";
 import { DEFAULT_EDITOR_COMMAND, editorCommandProblem } from "./files/editorCommand";
 import { saveFilesSettings, useFilesSettings } from "./files/filesSettings";
 import { Picker } from "./Picker";
-import { familyCss, familyLabel, setTerminalFont, useTerminalFont, type TerminalFontValues } from "./terminalFont";
+import { familyCss, familyLabel, parseLineHeight, setTerminalFont, useTerminalFont, type TerminalFontValues } from "./terminalFont";
 
 /** The page's sections, in its sidebar's order; one shows at a time, as the other pages' places do. */
 const SECTIONS = [
@@ -624,6 +624,72 @@ function RangeRow({
   );
 }
 
+/**
+ * The line height, typed: any number that works, applied as soon as it parses (the arrows step 0.05). While it's
+ * typed the field keeps the text as written; what can't work is said beside it, the last good value staying applied.
+ */
+function LineHeightRow({ value, max }: { value: number; max: number }) {
+  const id = useId();
+  const [draft, setDraft] = useState<string | null>(null);
+  const text = draft ?? String(value);
+  const parsed = parseLineHeight(text, max);
+  const problem = "problem" in parsed ? parsed.problem : null;
+  const change = (next: string) => {
+    setDraft(next);
+    const typed = parseLineHeight(next, max);
+    if ("value" in typed && typed.value !== value) setTerminalFont({ lineHeight: typed.value });
+  };
+  return (
+    <div className="settings-row settings-number">
+      <label className="settings-row-text" htmlFor={id}>
+        <b>Line height</b>
+        <small>Each line’s height, as a multiple of the font’s</small>
+      </label>
+      <span className="settings-number-control">
+        <span className="settings-number-field">
+          <input
+            id={id}
+            role="spinbutton"
+            inputMode="decimal"
+            spellCheck={false}
+            {...plainText}
+            value={text}
+            aria-valuenow={value}
+            aria-valuemin={0}
+            aria-valuemax={max}
+            aria-valuetext={`${trim(value, 4)}×`}
+            aria-invalid={!!problem}
+            aria-describedby={problem ? `${id}-problem` : undefined}
+            onChange={(e) => change(e.target.value)}
+            onBlur={() => setDraft(null)}
+            onKeyDown={(e) => {
+              if (e.key === "ArrowUp" || e.key === "ArrowDown") {
+                e.preventDefault();
+                change(trim(stepLineHeight("value" in parsed ? parsed.value : value, e.key === "ArrowUp" ? 1 : -1, max), 4));
+              } else if (e.key === "Escape" && draft !== null) {
+                e.preventDefault();
+                setDraft(null);
+              }
+            }}
+          />
+          <span aria-hidden="true">×</span>
+        </span>
+        {problem && (
+          <small id={`${id}-problem`} className="settings-number-problem" role="alert">
+            {problem} Still {trim(value, 4)}×.
+          </small>
+        )}
+      </span>
+    </div>
+  );
+}
+
+/** The next 0.05 up or down from `v` (onto the grid first), kept within (0, max]. */
+const stepLineHeight = (v: number, by: 1 | -1, max: number) => {
+  const steps = by > 0 ? Math.floor(v / 0.05 + 1e-6) + 1 : Math.ceil(v / 0.05 - 1e-6) - 1;
+  return Math.min(max, Math.max(0.05, steps * 0.05));
+};
+
 const trim = (n: number, digits: number) => String(Number(n.toFixed(digits)));
 
 /** Settings → Terminal (the macOS app's): the terminals' font family, size, line height and letter spacing. */
@@ -681,15 +747,7 @@ function TerminalSettings() {
         format={(v) => `${trim(v, 1)} pt`}
         onChange={(size) => setTerminalFont({ size })}
       />
-      <RangeRow
-        title="Line height"
-        description="Each line’s height, as a multiple of the font’s"
-        value={font.lineHeight}
-        range={font.ranges.lineHeight}
-        step={0.05}
-        format={(v) => `${trim(v, 2)}×`}
-        onChange={(lineHeight) => setTerminalFont({ lineHeight })}
-      />
+      <LineHeightRow value={font.lineHeight} max={font.ranges.lineHeight[1]} />
       <RangeRow
         title="Letter spacing"
         description="Points added to each character’s cell"

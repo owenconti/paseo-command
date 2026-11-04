@@ -185,7 +185,8 @@ and GitHub publication; report the published version and release link.
   `settings` mode still shows it), in a browser the page's own state (its bar's gear; Esc or its × closes it). Laid out as the other pages (a resizable sidebar of its
   sections, the chosen one beside it under its heading, kept in localStorage; ↑/↓ step through them; Manage … key opens Integrations): sound and music (a
   volume only while its sound is on), notifications, integrations, New agent (presets, profiles), Files (open files in the viewer or an editor command),
-  Terminal (the macOS app's terminal font: family from a searchable `Picker`, size, line height, letter spacing, a preview and Restore defaults; ⌘K
+  Terminal (the macOS app's terminal font: family from a searchable `Picker`, size, line height (a typed number: any value above 0 up to 100,
+  applied as it parses, ↑/↓ stepping 0.05; what can't work is said beside it and the last good value stays), letter spacing, a preview and Restore defaults; ⌘K
   "Terminal settings…", `openSettings("terminal")`; in a browser it says it's the app's). Rows put what a setting is on the left and
   its switch or button on the right; a switched-on integration shows its state (Ready, needs a key, Live) and its keys and settings in a well beneath it.
   `GET /api/secrets` returns presence flags only; `POST /api/secrets` saves/replaces/removes a named key,
@@ -201,7 +202,8 @@ and GitHub publication; report the published version and release link.
   starts a terminal if the workspace has none; + opens another; a tab's × ends it. Tabs drag onto a pane's edge to split it (`PaneLayout`), or its middle to replace it;
   the unsplit button (View → Unsplit Terminals) or dropping a pane's tab on the tab bar undoes splits.
   Its font, and the Files editor's (`TerminalFont.swift`): `TerminalFontSettings` (family, "" the system monospace; size, the ⌘+/⌘− value;
-  line height 1.0–1.6, SwiftTerm's `lineSpacing`; letter spacing −1…4 pt, a fixed advance on the font, as SwiftTerm sizes cells by "W"),
+  line height above 0 up to 100, SwiftTerm's `lineSpacing`, which takes any positive value but keeps a cell within 1…8,192 pt (100× at 32 pt
+  stays under it); the app refuses others, and an unusable kept one reads as 1; letter spacing −1…4 pt, a fixed advance on the font, as SwiftTerm sizes cells by "W"),
   kept in the app's preferences (`terminalFontFamily|Size|LineHeight|LetterSpacing`; workspace builds share the Dev app's, so checks restore
   them). `TerminalFonts.font` gives the family a Core Text cascade (`kCTFontCascadeListAttribute`): the bundled Symbols Nerd Font Mono
   (`native/fonts`, Nerd Fonts v3.5.1, MIT, `licenses/nerd-fonts-symbols.txt`; copied to Resources/fonts and registered for the process only),

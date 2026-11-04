@@ -897,7 +897,7 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         var message = drawer.font.json
         message["defaults"] = TerminalFontSettings.standard.json
         message["ranges"] = ["size": [TerminalFontSettings.sizes.lowerBound, TerminalFontSettings.sizes.upperBound],
-                             "lineHeight": [TerminalFontSettings.lineHeights.lowerBound, TerminalFontSettings.lineHeights.upperBound],
+                             "lineHeight": [0, TerminalFontSettings.maxLineHeight],
                              "letterSpacing": [TerminalFontSettings.letterSpacings.lowerBound, TerminalFontSettings.letterSpacings.upperBound]]
         if families { message["families"] = TerminalFonts.families() }
         send(message, as: "paseo:terminal-font")

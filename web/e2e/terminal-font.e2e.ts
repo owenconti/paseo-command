@@ -21,12 +21,13 @@ after(async () => {
 });
 
 type Sent = { type: string; set?: Record<string, unknown>; action?: string };
-/** The app's channel: it records what the page sends and answers `terminalFont` as the app does (clamped, families when asked). */
+/** The app's channel: it records what the page sends and answers `terminalFont` as the app does (clamped, a line height
+ * that can't work refused, families when asked). */
 const asMacApp = (page: Page) =>
   page.addInitScript(`
     window.sentToApp = [];
     const defaults = { family: "", size: 12.5, lineHeight: 1, letterSpacing: 0 };
-    const ranges = { size: [8, 32], lineHeight: [1, 1.6], letterSpacing: [-1, 4] };
+    const ranges = { size: [8, 32], lineHeight: [0, 100], letterSpacing: [-1, 4] };
     const families = ["Courier New", "Menlo", "MesloLGS Nerd Font Mono", "Monaco"];
     let font = { ...defaults, size: 14 };
     const clamp = (v, [lo, hi]) => Math.min(hi, Math.max(lo, v));
@@ -37,7 +38,8 @@ const asMacApp = (page: Page) =>
       if (m.set) {
         const s = m.set;
         if (typeof s.family === "string") font.family = families.includes(s.family) ? s.family : "";
-        for (const k of ["size", "lineHeight", "letterSpacing"]) if (typeof s[k] === "number") font[k] = clamp(s[k], ranges[k]);
+        for (const k of ["size", "letterSpacing"]) if (typeof s[k] === "number") font[k] = clamp(s[k], ranges[k]);
+        if (typeof s.lineHeight === "number" && s.lineHeight > 0 && s.lineHeight <= 100) font.lineHeight = s.lineHeight;
       }
       const detail = { ...font, defaults, ranges, ...(m.set ? {} : { families }) };
       setTimeout(() => window.dispatchEvent(new CustomEvent("paseo:terminal-font", { detail })), 0);
@@ -81,14 +83,40 @@ test("in the macOS app, Settings → Terminal shows the app's font and sets it",
   // Size, line height and letter spacing, each as it changes; the app's answer is what shows.
   await size.fill("16");
   await settings.getByText("16 pt", { exact: true }).waitFor();
-  const lineHeight = settings.getByRole("slider", { name: "Line height" });
+  // Line height is typed: any number that works applies as it parses, unclamped; the arrows step 0.05.
+  const lineHeight = settings.getByRole("spinbutton", { name: "Line height" });
+  assert.equal(await lineHeight.inputValue(), "1");
+  await lineHeight.fill("2.25");
+  await waitFor(() => sent(page, "terminalFont"), (m) => m.at(-1)?.set?.lineHeight === 2.25, "2.25 applied");
+  await waitFor(() => lineHeight.getAttribute("aria-valuenow"), (v) => v === "2.25", "the app's answer shows");
+  // What can't work is refused beside the field, the last good value kept and nothing sent.
+  const note = settings.getByRole("alert");
+  const sentBefore = (await sent(page, "terminalFont")).length;
+  for (const [typed, says] of [["0", /more than 0/], ["abc", /“abc” isn’t a number/], ["", /Type a line height/], ["-1", /more than 0/], ["101", /At most 100/]] as const) {
+    await lineHeight.fill(typed);
+    assert.match(await note.innerText(), says);
+    assert.match(await note.innerText(), /Still 2\.25×/);
+    assert.equal(await lineHeight.getAttribute("aria-invalid"), "true");
+    assert.equal(await lineHeight.inputValue(), typed, "the typing stays as written");
+  }
+  assert.equal((await sent(page, "terminalFont")).length, sentBefore);
+  // Leaving the field shows the value applied; the arrows step from it.
+  await lineHeight.blur();
+  assert.equal(await lineHeight.inputValue(), "2.25");
+  assert.equal(await note.count(), 0);
+  await lineHeight.focus();
+  await page.keyboard.press("ArrowUp");
+  assert.equal(await lineHeight.inputValue(), "2.3");
+  await page.keyboard.press("ArrowDown");
+  await page.keyboard.press("ArrowDown");
+  assert.equal(await lineHeight.inputValue(), "2.2");
   await lineHeight.fill("1.3");
-  await settings.getByText("1.3×", { exact: true }).waitFor();
+  await waitFor(() => lineHeight.getAttribute("aria-valuenow"), (v) => v === "1.3", "1.3 applied");
   const spacing = settings.getByRole("slider", { name: "Letter spacing" });
   await spacing.fill("0.5");
   await settings.getByText("+0.5 pt", { exact: true }).waitFor();
   const sets = (await sent(page, "terminalFont")).filter((m) => m.set).map((m) => m.set);
-  assert.deepEqual(sets.slice(-3), [{ size: 16 }, { lineHeight: 1.3 }, { letterSpacing: 0.5 }]);
+  assert.deepEqual(sets.slice(-5), [{ lineHeight: 2.3 }, { lineHeight: 2.25 }, { lineHeight: 2.2 }, { lineHeight: 1.3 }, { letterSpacing: 0.5 }]);
   if (process.env.SHOT) await page.screenshot({ path: process.env.SHOT });
   // The preview draws in the chosen font, at its size and spacing.
   const preview = settings.getByLabel("Preview");
@@ -104,6 +132,7 @@ test("in the macOS app, Settings → Terminal shows the app's font and sets it",
   assert.deepEqual((await sent(page, "terminalFont")).at(-1)?.set, { family: "", size: 12.5, lineHeight: 1, letterSpacing: 0 });
   await settings.getByRole("button", { name: "Terminal font: System monospace" }).waitFor();
   await settings.getByText("12.5 pt", { exact: true }).waitFor();
+  assert.equal(await lineHeight.inputValue(), "1");
   assert.equal(await settings.getByRole("button", { name: "Restore defaults" }).isDisabled(), true);
   await context.close();
 });

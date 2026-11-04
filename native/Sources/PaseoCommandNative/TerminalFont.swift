@@ -14,7 +14,9 @@ struct TerminalFontSettings: Equatable {
 
     static let defaultSize: CGFloat = 12.5
     static let sizes: ClosedRange<CGFloat> = 8...32
-    static let lineHeights: ClosedRange<CGFloat> = 1.0...1.6
+    /// Any positive line height up to this. SwiftTerm takes any positive `lineSpacing` but keeps a cell
+    /// within 1…8,192 pt, so past that the lines stop growing; 100× stays inside it at every size (8…32 pt).
+    static let maxLineHeight: CGFloat = 100
     static let letterSpacings: ClosedRange<CGFloat> = -1...4
     static let standard = TerminalFontSettings(family: "", size: defaultSize, lineHeight: 1, letterSpacing: 0)
     static let keys = (family: "terminalFontFamily", size: "terminalFontSize", lineHeight: "terminalLineHeight", letterSpacing: "terminalLetterSpacing")
@@ -22,7 +24,7 @@ struct TerminalFontSettings: Equatable {
     init(family: String, size: CGFloat, lineHeight: CGFloat, letterSpacing: CGFloat) {
         self.family = family
         self.size = Self.clamp(size, Self.sizes)
-        self.lineHeight = Self.clamp(lineHeight, Self.lineHeights)
+        self.lineHeight = Self.usableLineHeight(lineHeight) ? lineHeight : 1
         self.letterSpacing = Self.clamp(letterSpacing, Self.letterSpacings)
     }
 
@@ -45,14 +47,14 @@ struct TerminalFontSettings: Equatable {
         defaults.set(Double(letterSpacing), forKey: k.letterSpacing)
     }
 
-    /// The page's change (`terminalFont`'s `set`): only the values it names, each clamped; a family that
-    /// isn't installed is the system's monospace.
+    /// The page's change (`terminalFont`'s `set`): only the values it names, each clamped (a line height that
+    /// can't work changes nothing); a family that isn't installed is the system's monospace.
     func applying(_ change: [String: Any], families: [String]) -> TerminalFontSettings {
         var next = self
         if let family = change["family"] as? String { next.family = families.contains(family) ? family : "" }
         let number = { (key: String) in (change[key] as? NSNumber).map { CGFloat($0.doubleValue) }.flatMap { $0.isFinite ? $0 : nil } }
         if let v = number("size") { next.size = Self.clamp(v, Self.sizes) }
-        if let v = number("lineHeight") { next.lineHeight = Self.clamp(v, Self.lineHeights) }
+        if let v = number("lineHeight"), Self.usableLineHeight(v) { next.lineHeight = v }
         if let v = number("letterSpacing") { next.letterSpacing = Self.clamp(v, Self.letterSpacings) }
         return next
     }
@@ -61,6 +63,9 @@ struct TerminalFontSettings: Equatable {
     var json: [String: Any] {
         ["family": family, "size": Double(size), "lineHeight": Double(lineHeight), "letterSpacing": Double(letterSpacing)]
     }
+
+    /// Above zero, finite and at most `maxLineHeight`.
+    static func usableLineHeight(_ v: CGFloat) -> Bool { v.isFinite && v > 0 && v <= maxLineHeight }
 
     private static func clamp(_ v: CGFloat, _ range: ClosedRange<CGFloat>) -> CGFloat {
         v.isFinite ? min(range.upperBound, max(range.lowerBound, v)) : range.lowerBound
