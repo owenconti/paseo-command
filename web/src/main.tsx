@@ -2070,7 +2070,14 @@ function App() {
                   ? [command("files-open-viewer", "Open in viewer", "viewer built-in read view highlight")]
                   : []),
                 ...(v.file ? [command("files-copy-path", "Copy the file’s path", "copy path clipboard name")] : []),
-                ...(v.text ? [command("files-find", "Find in the file", "search find text content lines match", ["⌘", "F"])] : []),
+                ...(v.text ? [command("files-find", v.markdown === "preview" ? "Find in the preview" : "Find in the file", "search find text content lines match", ["⌘", "F"])] : []),
+                ...(v.text && v.editor !== "shown" && !v.changes ? [command("files-wrap", v.wrap ? "Don’t wrap lines" : "Wrap lines", "wrap long lines soft word wrap overflow scroll sideways")] : []),
+                ...(v.markdown === "preview" && v.editor !== "shown" && !v.changes
+                  ? [command("files-markdown-source", "Show the Markdown source", "markdown md source raw text code preview toggle")]
+                  : []),
+                ...(v.markdown === "source" && v.editor !== "shown" && !v.changes
+                  ? [command("files-markdown-preview", "Show the preview", "markdown md preview rendered render formatted readme toggle")]
+                  : []),
                 ...(v.file && v.change && v.change !== "deleted" && !v.changes
                   ? [command("files-show-changes", "Show the file’s changes", "diff changes branch compare modified against main")]
                   : []),

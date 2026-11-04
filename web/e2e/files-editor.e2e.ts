@@ -195,7 +195,8 @@ test("Files in the editor (the macOS app): a terminal per tab, laid over the vie
     terminals.delete("term-2");
     await appEvent(page, "paseo:editor", { type: "exited", terminal: "term-2" });
     await view.getByText("nvim quit. The file shows in the viewer.").waitFor();
-    await view.locator(".fv-file").waitFor();
+    // README.md: the viewer shows its preview.
+    await view.locator("article.fv-md h1", { hasText: "Atlas" }).waitFor();
     assert.equal(created.length, 2, "not restarted on its own");
     // Reopen in editor: a new terminal.
     await view.getByRole("button", { name: "Reopen in editor" }).click();
@@ -266,10 +267,10 @@ test("Files in a browser: the viewer stays, with a note; Settings → Files edit
     await appEvent(page, "paseo:mode", { mode: "files" });
     const view = page.locator(".files-view");
     await view.getByRole("treeitem", { name: /README\.md/ }).click();
-    await view.locator(".fv-file").waitFor();
+    await view.locator("article.fv-md").waitFor();
     await view.getByText("Files open in nvim in the macOS app. A browser shows them in the viewer.").waitFor();
     assert.equal(created.length, 0);
-    assert.equal(await view.locator(".fv-mode").count(), 0, "no toggle without the app");
+    assert.equal(await view.getByRole("group", { name: "Show the file in" }).count(), 0, "no View / Editor toggle without the app");
 
     // Settings → Files.
     await page.getByRole("button", { name: "Settings", exact: true }).click();

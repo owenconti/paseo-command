@@ -12,6 +12,9 @@
  *   quick-open and the filter), walked directory by directory, up to a cap.
  * - `GET /api/files/changed?workspace=&host=`: the changed files (all changes,
  *   as the GitHub tab's Changes shows them).
+ * - `GET /api/files/image?workspace=&host=&path=`: a raster image's bytes (PNG,
+ *   JPEG, GIF, WebP: by its name and its first bytes; never SVG), at most
+ *   `FILES.maxImageBytes`, for a Markdown file's relative images.
  *
  * Paths are the workspace's (relative, `/`-separated): an absolute path,
  * `..`, `.` or an empty segment is refused before the daemon is asked, and the
@@ -39,6 +42,17 @@ export const FILES = {
   maxIgnoreBytes: 256 * 1024,
   /** At most this many answers are kept. */
   maxCached: 2_000,
+  /** A larger image isn't sent. */
+  maxImageBytes: 10 * 1024 * 1024,
+};
+
+/** The images `image` sends, by extension; each checked against its first bytes too. */
+const IMAGE_TYPES: Record<string, { mime: string; magic: (b: Uint8Array) => boolean }> = {
+  png: { mime: "image/png", magic: (b) => b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4e && b[3] === 0x47 },
+  jpg: { mime: "image/jpeg", magic: (b) => b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff },
+  jpeg: { mime: "image/jpeg", magic: (b) => b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff },
+  gif: { mime: "image/gif", magic: (b) => b[0] === 0x47 && b[1] === 0x49 && b[2] === 0x46 && b[3] === 0x38 },
+  webp: { mime: "image/webp", magic: (b) => String.fromCharCode(...b.slice(0, 4)) === "RIFF" && String.fromCharCode(...b.slice(8, 12)) === "WEBP" },
 };
 
 const OUTSIDE = "Access outside of workspace is not allowed";
@@ -257,4 +271,26 @@ export async function filesChanged(params: URLSearchParams): Promise<FileChanges
     }
     return { files };
   });
+}
+
+/**
+ * A workspace's image, for a Markdown file's `![…](relative.png)`: only PNG,
+ * JPEG, GIF and WebP (named so and starting so), at most `FILES.maxImageBytes`,
+ * read through the daemon (which keeps it inside the workspace). Not kept.
+ */
+export async function filesImage(params: URLSearchParams): Promise<{ bytes: Uint8Array; mime: string }> {
+  const ws = await workspaceOf(params, ["path"]);
+  const path = checkPath(params.get("path"));
+  const type = IMAGE_TYPES[path.slice(path.lastIndexOf(".") + 1).toLowerCase()];
+  if (!path || !type) throw new Error("Not an image");
+  let r;
+  try {
+    r = await timed(ws.client.readFile(ws.cwd, path, undefined, FILES.maxImageBytes), undefined, ws.client);
+  } catch (e) {
+    if (/too large/i.test(e instanceof Error ? e.message : "")) throw new Error("That image is too large");
+    throw daemonError(e);
+  }
+  if (r.bytes.byteLength > FILES.maxImageBytes) throw new Error("That image is too large");
+  if (!type.magic(r.bytes)) throw new Error("Not an image");
+  return { bytes: r.bytes, mime: type.mime };
 }

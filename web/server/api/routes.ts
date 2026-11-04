@@ -21,7 +21,7 @@ import { linearRoute } from "../linear/route";
 import { activityRoute } from "../activity/route";
 import { githubRoute } from "../github/route";
 import { changesFor } from "./changes";
-import { filesAll, filesChanged, filesRead, filesTree } from "./files";
+import { filesAll, filesChanged, filesImage, filesRead, filesTree } from "./files";
 import {
   concludeFork,
   createFork,
@@ -314,6 +314,14 @@ export async function handleApi(
         // The Files page: a workspace's folders and files, read through its host's daemon.
         const read = { tree: filesTree, read: filesRead, all: filesAll, changed: filesChanged }[parts[1] as "tree" | "read" | "all" | "changed"];
         result = await read(url.searchParams);
+      } else if (parts[0] === "files" && parts.length === 2 && parts[1] === "image") {
+        // A Markdown file's relative image: raster only, size-limited, inside the workspace.
+        const { bytes, mime } = await filesImage(url.searchParams);
+        res.statusCode = 200;
+        res.setHeader("Content-Type", mime);
+        res.setHeader("X-Content-Type-Options", "nosniff");
+        res.setHeader("Cache-Control", "private, max-age=60");
+        return res.end(bytes);
       } else if (parts[0] === "attachments" && parts[1] === "image") {
         // Prompt attachments and images observed in local agent transcripts.
         // Validated and read through one descriptor (server/attachment.ts).

@@ -401,3 +401,196 @@
   color: var(--text-2);
 }
 
+
+/* ── A Markdown file, rendered (Preview) ─────────────────────────────────
+   The chat's Markdown look (session.css's `.md`) at the pages' sizes, in a
+   column of a comfortable reading width; wide tables and, unwrapped, code
+   blocks scroll sideways in their own frames, never the page. */
+.fv-md-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  overflow-anchor: none;
+}
+.fv-md-scroll:focus {
+  outline: none;
+}
+.fv-md {
+  max-width: calc(820px * var(--lz, 1));
+  margin: 0 auto;
+  padding: var(--space-5) var(--space-6) calc(var(--space-6) * 3);
+  font-size: var(--fs-md);
+  line-height: 1.62;
+  color: var(--text);
+  overflow-wrap: break-word;
+}
+.fv-md p,
+.fv-md ul,
+.fv-md ol,
+.fv-md blockquote,
+.fv-md .md-code,
+.fv-md .md-table,
+.fv-md details,
+.fv-md dl {
+  margin: 0 0 var(--space-4);
+}
+.fv-md ul,
+.fv-md ol {
+  padding-left: calc(var(--space-6) + 2px);
+}
+.fv-md li {
+  margin: var(--space-1) 0;
+}
+.fv-md li > p {
+  margin-bottom: var(--space-1);
+}
+.fv-md h1,
+.fv-md h2,
+.fv-md h3,
+.fv-md h4,
+.fv-md h5,
+.fv-md h6 {
+  margin: calc(var(--space-6) + 2px) 0 var(--space-3);
+  line-height: 1.3;
+  font-weight: var(--fw-bold);
+  color: var(--text-strong);
+  scroll-margin-top: var(--space-3);
+}
+.fv-md > :first-child,
+.fv-md > :first-child > :first-child {
+  margin-top: 0;
+}
+.fv-md h1 {
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--line);
+  font-size: calc(var(--fs-2xl) + 4px);
+}
+.fv-md h2 {
+  padding-bottom: var(--space-1);
+  border-bottom: 1px solid var(--line-soft, var(--line));
+  font-size: var(--fs-2xl);
+}
+.fv-md h3 {
+  font-size: var(--fs-xl);
+}
+.fv-md h4 {
+  font-size: var(--fs-lg);
+}
+.fv-md h5,
+.fv-md h6 {
+  font-size: var(--fs-md);
+  color: var(--text-2);
+}
+.fv-md blockquote {
+  padding: 0 0 0 var(--space-4);
+  border-left: 3px solid var(--line-strong);
+}
+.fv-md hr {
+  margin: var(--space-6) 0;
+}
+.fv-md code,
+.fv-md pre {
+  font-size: calc(var(--fs-sm) - 0.5px);
+}
+.fv-md pre {
+  padding: var(--space-3) var(--space-4);
+}
+/* Wrap: a code block's long lines wrap too, as the source's do. */
+.fv-md.wrap pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.fv-md .md-code-bar {
+  font-size: var(--fs-2xs);
+}
+.fv-md table {
+  font-size: var(--fs-sm);
+}
+.fv-md td {
+  max-width: 48ch;
+}
+.fv-md details {
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+}
+.fv-md summary {
+  cursor: pointer;
+  font-weight: var(--fw-semibold);
+  color: var(--text-strong);
+}
+.fv-md details[open] > summary {
+  margin-bottom: var(--space-2);
+}
+.fv-md kbd {
+  padding: 1px 5px;
+  border: 1px solid var(--line-strong);
+  border-bottom-width: 2px;
+  border-radius: var(--radius-xs);
+  background: var(--fill);
+  font-family: var(--font-mono);
+  font-size: 0.85em;
+}
+.fv-md mark {
+  padding: 0 2px;
+  border-radius: 2px;
+  background: var(--amber-soft);
+  color: inherit;
+}
+.fv-md dt {
+  font-weight: var(--fw-semibold);
+}
+.fv-md dd {
+  margin: 0 0 var(--space-2) var(--space-5);
+}
+/* `align` from a README's HTML (`<p align="center">`). */
+.fv-md [align="center"] {
+  text-align: center;
+}
+.fv-md [align="right"] {
+  text-align: right;
+}
+.fv-md .fv-md-image {
+  max-width: 100%;
+  height: auto;
+  vertical-align: middle;
+  border-radius: var(--radius-sm);
+}
+.fv-md > .md-image,
+.fv-md > .fv-md-image {
+  margin-bottom: var(--space-4);
+}
+.fv-md .fv-md-image-wait {
+  display: inline-grid;
+  place-items: center;
+  width: 48px;
+  height: 32px;
+  border-radius: var(--radius-sm);
+  background: var(--fill);
+  color: var(--text-4);
+  vertical-align: middle;
+}
+.fv-md .md-image.notice {
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  border: 1px dashed var(--line-strong);
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+}
+.fv-md .md-image-text {
+  display: inline-flex;
+  flex-direction: column;
+  line-height: 1.3;
+}
+.fv-md .md-image-text small {
+  color: var(--text-4);
+}
+/* Find in the preview (⌘F): its marks are in the page, not a shadow root (DiffFind.tsx's FIND_CSS there). */
+::highlight(gd-find) {
+  background-color: rgba(255, 196, 0, 0.38);
+}
+::highlight(gd-find-current) {
+  background-color: rgb(255, 150, 20);
+  color: #1b1300;
+}

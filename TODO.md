@@ -5,7 +5,9 @@ mark it done with its commit once merged into `main`.
 
 ## Open
 
-- [ ] **Files: Markdown renders as Markdown, and lines wrap.** The viewer shows `.md` files as code with long lines running
+## Done
+
+- [x] **Files: Markdown renders as Markdown, and lines wrap.** The viewer shows `.md` files as code with long lines running
   off the edge. Markdown files open rendered (headings, lists, tables, code blocks highlighted, links: in-repo paths open in
   Files, others as links do; images from the workspace through the Files read route, others blocked unless https), with a
   Preview / Source toggle in the head (kept per file type) and ⌘K entries; ⌘F finds in the rendered text. Source view and
@@ -13,8 +15,8 @@ mark it done with its commit once merged into `main`.
   the first row of each wrapped line and the virtualizer measuring wrapped heights without jumping (as the diff's anchor
   does). Reuse the app's Markdown renderer and the pages' styles. Tests: e2e (rendered headings, toggle, wrap on/off,
   find), units for link resolution. Workspace: `files-markdown-wrap`.
-
-## Done
+  Done: rendered by default (GFM, highlighted code, HTML from an allowlist), in-repo links and folders open in Files, images
+  through a raster-only `files/image` route or https; Preview / Source per type; wrap on by default with the head's toggle.
 
 - [x] **Mode bar: Command, Files, GitHub, Conquer, Activity; Settings becomes a gear.** Reorder the macOS app's mode tabs to
   Command, Files, GitHub, Conquer, Activity (those enabled), in the bar, View menu, ⌘1…⌘5 numbering, ⌘` stepping, the palette and

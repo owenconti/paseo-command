@@ -84,7 +84,7 @@ function safeHighlight(text: string, lang: string): Token[] {
   }
 }
 
-function CodeBlock({ node }: ExtraProps) {
+export function CodeBlock({ node }: ExtraProps) {
   const code = (node?.children[0] ?? { type: "root" }) as Hast;
   const classes = code.properties?.className;
   const lang = languageOf(

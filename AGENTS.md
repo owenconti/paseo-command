@@ -479,15 +479,34 @@ and GitHub publication; report the published version and release link.
   the diff's `FindBar`, marks and `revealMatch` (`findInText` in `diffSearch.ts`: a file's lines are keyed `R<n>` as `File` draws them). Its head
   (`.page-head`, `.page-btn`): the path, size and lines, Changed's badge, Show changes (a changed file: Changes, below, all changes, scrolled
   to the file), Copy path, Find, Reload. Binary files, images and files over 1 MB
-  (`FILE_LIMITS`) are refused politely; Markdown shows as code. Asked again every 15 s while shown. The page's reads (`web/src/files/api.ts`, a store
+  (`FILE_LIMITS`) are refused politely. Asked again every 15 s while shown. Long lines wrap by default (`File`'s `overflow: "wrap"`,
+  each line's number on its first row; the virtualizer measures wrapped lines and `useDiffAnchor` keeps the first line in view in place as
+  they're drawn): the head's Wrap toggle and ⌘K "Wrap lines" / "Don’t wrap lines" (`files-wrap`, `files:wrap`). Markdown (`.md`, `.markdown`,
+  `.mdx` as plain Markdown) opens rendered (`web/src/files/MarkdownPreview.tsx`): react-markdown with GFM, code blocks highlighted as the
+  chat's (`CodeBlock` from `Markdown.tsx`), the chat's `.md` look at the pages' sizes in a reading column (`.fv-md` in `files.css`; its code
+  blocks wrap with the toggle); HTML in it rebuilt from an allowlist by a rehype step (`markdownHtml.ts`: `<details>`, `<kbd>`, `<br>`,
+  aligned `<p>`, `<img>`…, checked attributes only; never scripts, styles, frames, forms, handlers, ids, classes), which also gives headings
+  GitHub's anchors (`data-anchor`) and elements their source line (`data-line`, the line in view for the editor). Links and images resolve
+  in `web/src/files/markdown.ts` (pure, `markdown.test.ts`): a relative or `/`-rooted path against the file's folder, never out of the
+  workspace, opens in Files (a file as a kept tab, at `#L12`/`#L12-L20` in its source or a `#heading` in its preview; a folder in the tree),
+  `#heading` scrolls, http(s) and mailto open as links do (a PR in the GitHub tab, a Linear issue in Linear, others in Conquer; a browser
+  tab outside the app), any other scheme stays text. Images: the workspace's PNG, JPEG, GIF and WebP through `GET /api/files/image?workspace=&host=&path=`
+  (`filesImage` in `web/server/api/files.ts`: by name and first bytes, never SVG, at most `FILES.maxImageBytes` 10 MB, `checkPath`ed, the
+  daemon keeping it in the workspace, `nosniff`), https ones through the chat's bounded loader (`loadImage`), each once near the view;
+  others a labelled placeholder. The head's Preview / Source toggle is kept per Markdown type (`files:markdownView`, only the types set to
+  source), with ⌘K "Show the Markdown source" / "Show the preview" (`files-markdown-source|preview`); a Markdown file opened at a line
+  (a chat link, `#L12`) shows its source there until the toggle's used. ⌘F in the preview finds in the rendered text (`findInPieces`:
+  across a block's text nodes, never between blocks; a match in a closed `<details>` opens it), marked with the CSS Custom Highlight API
+  under the diff's names (their colours in `files.css`, as the page's own). In editor mode the tab's View shows the preview. The page's reads (`web/src/files/api.ts`, a store
   by path) come from `web/server/api/files.ts`, through the workspace's host's daemon (its file explorer: `listDirectory`, `readFile`, so remote
   hosts work; `getCheckoutDiff` for the changed files): `GET /api/files/tree?workspace=&host=&dir=` (entries marked `ignored` by the `.gitignore`s on
   the way down and `.git/info/exclude`, read through the daemon and matched by `web/server/files/gitignore.ts`; global excludes aren't read),
   `GET /api/files/read?…&path=` (text, or `refused`: binary, image, large; a size known from the folder's listing refuses unread),
-  `GET /api/files/all` (every file not ignored, walked breadth first, at most 25,000 files and 4,000 folders, `capped`), `GET /api/files/changed`;
+  `GET /api/files/all` (every file not ignored, walked breadth first, at most 25,000 files and 4,000 folders, `capped`), `GET /api/files/changed`,
+  `GET /api/files/image` (above);
   each kept a few seconds (`fresh=1` past it). Paths are relative: absolute, `~`, `..`, `.`, empty segments, backslashes and NULs are refused before
   the daemon is asked (`checkPath`), and the daemon refuses what resolves outside the workspace (symlinks out). It never writes. Tests: `files.test.ts`
-  (over the fake daemon's `trees`), `src/files/tree.test.ts`, `e2e/files.e2e.ts`; `native/scripts/fake-server.ts` has a tree and a branch diff for `wks_main`.
+  (over the fake daemon's `trees`), `src/files/tree.test.ts`, `src/files/markdown.test.ts`, `src/files/markdownHtml.test.ts`, `e2e/files.e2e.ts`; `native/scripts/fake-server.ts` has a tree and a branch diff for `wks_main`.
   Files in the user's editor (Settings → Files, "Open files in": Built-in viewer, the default, or Editor command, `nvim {file}` by default; `{line}`
   too; kept as `files: {openIn, editorCommand}` in the data directory's `settings.json`, the file's other keys kept, an unreadable file never
   overwritten; `web/src/files/filesSettings.ts`): `web/src/files/editorCommand.ts` (pure, shared) checks the command (`editorCommandProblem`: one line,

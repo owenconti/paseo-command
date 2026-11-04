@@ -17,6 +17,7 @@ import {
   RefreshCw,
   Search,
   SquareTerminal,
+  WrapText,
   X,
 } from "lucide-react";
 import { File, Virtualizer } from "@pierre/diffs/react";
@@ -38,6 +39,7 @@ import { checkChangesAsk, checkFileAsk, takeChangesAsk, takeFileAsk, type FileAs
 import { clearFindMarks, FIND_CSS, FindBar, revealMatch, useFindPaint } from "../github/DiffFind";
 import { findInText, sameMatch, type FindMatch, type FindOptions } from "../github/diffSearch";
 import { Marked } from "../github/DiffView";
+import { useDiffAnchor } from "../github/diffAnchor";
 import { DIFF_THEMES, DiffWorkers } from "../github/diffWorkers";
 import { hashText } from "../github/rows";
 import { allPath, changedPath, ensure, load, peek, prefetch, readPath, reload, treePath, useFilesVersion, type FilesWorkspace } from "./api";
@@ -63,6 +65,8 @@ import {
 } from "./tabs";
 import { closeEditors, focusEditor, forgetEditors, hideEditor, onEditorEvent, postEditorPlacement } from "./editorBridge";
 import { useFilesSettings } from "./filesSettings";
+import { markdownType, MARKDOWN_TYPES, type MarkdownType } from "./markdown";
+import { MarkdownPreview, type PreviewHandle, type WorkspaceLink } from "./MarkdownPreview";
 import { FILE_LIMITS, type FileChange, type FileChanges, type FileList, type FileRead, type FileTree } from "./types";
 import "../github/github.css";
 import "./files.css";
@@ -78,6 +82,10 @@ export type FilesViewState = {
   change?: FileChange;
   /** A text file shows (⌘F). */
   text: boolean;
+  /** A Markdown file shows, rendered or as its source. */
+  markdown?: MarkdownView;
+  /** Long lines wrap (the source and every other file; a preview's code blocks). */
+  wrap: boolean;
   showIgnored: boolean;
   sidebarHidden: boolean;
   /** Open tabs, and whether a closed one can come back (⇧⌘T). */
@@ -96,6 +104,15 @@ export type FilesViewState = {
 };
 
 const PANELS = { sidebar: 280, sidebarMin: 180, mainMin: 420 };
+/** How a Markdown file shows: rendered (the default) or as its source. */
+export type MarkdownView = "preview" | "source";
+/** The view chosen per Markdown type (`md`, `markdown`, `mdx`), only where it isn't the preview. */
+const readMarkdownViews = (): Partial<Record<MarkdownType, MarkdownView>> => {
+  const kept = readStore<unknown>("files:markdownView", {});
+  const out: Partial<Record<MarkdownType, MarkdownView>> = {};
+  if (kept && typeof kept === "object") for (const t of MARKDOWN_TYPES) if ((kept as Record<string, unknown>)[t] === "source") out[t] = "source";
+  return out;
+};
 /** Asked again while shown: the tree and the open file every so often (agents keep writing). */
 const POLL_MS = 15_000;
 /** Where a tab's scroll is saved, once it settles. */
@@ -114,7 +131,8 @@ const baseName = (path: string) => path.slice(path.lastIndexOf("/") + 1);
  * too). The sidebar is the tree (directories read as they open; `.gitignore`d
  * files and `.git` hidden unless asked), its "Filter files…" fuzzy over every
  * path; the main column the open file, highlighted by @pierre/diffs (Shiki in
- * its workers, drawn only where in view), with ⌘F to find in it, Copy path
+ * its workers, drawn only where in view; long lines wrapped unless asked not
+ * to; a Markdown file rendered, `MarkdownPreview`), with ⌘F to find in it, Copy path
  * and, when it's changed, Show changes. Changes, first in the tabs' row, shows
  * the workspace's branch against main in their place (`ChangesView`, no GitHub
  * needed), a changed file's dot in the tree opening it there, each of its files
@@ -160,6 +178,26 @@ export function FilesView({
     setShowIgnoredState(on);
     writeStore("files:showIgnored", on);
   };
+  // Long lines wrap unless asked not to; Markdown shows rendered unless its type is kept as source.
+  const [wrap, setWrapState] = useState(() => readStore<boolean>("files:wrap", true) !== false);
+  const setWrap = useCallback((on: boolean) => {
+    setWrapState(on);
+    writeStore("files:wrap", on);
+  }, []);
+  const [markdownViews, setMarkdownViews] = useState(readMarkdownViews);
+  /** A Markdown file opened at a line (a chat link, `#L12`): its source shows, there, until the toggle's used. */
+  const [sourceFor, setSourceFor] = useState<string | undefined>();
+  const setMarkdownView = useCallback((path: string, view: MarkdownView) => {
+    const type = markdownType(path);
+    if (!type) return;
+    setSourceFor(undefined);
+    setMarkdownViews((v) => {
+      const { [type]: _, ...rest } = v;
+      const next = view === "source" ? { ...rest, [type]: "source" as const } : rest;
+      writeStore("files:markdownView", next);
+      return next;
+    });
+  }, []);
 
   // ── Reads ──
   const listingOf = (dir: string): Listing => {
@@ -401,16 +439,50 @@ export function FilesView({
     if (ask) showChanges(ask.path);
   }, []);
   // A file asked for from elsewhere (the chat's file links): a kept tab, at its line; only the shown workspace's.
-  const [lineAsk, setLineAsk] = useState<{ path: string; line: number; endLine?: number; token: number } | undefined>();
+  const [lineAsk, setLineAsk] = useState<LineAsk | undefined>();
+  /** A file at a line (shown in its source, a Markdown file's too) or a heading (in its preview). */
+  const showAt = useCallback(
+    (path: string, at: { line?: number; endLine?: number; anchor?: string }) => {
+      openFile(path, true);
+      if (at.line) setSourceFor(markdownType(path) ? path : undefined);
+      setLineAsk(
+        at.line
+          ? { path, line: at.line, ...(at.endLine ? { endLine: at.endLine } : {}), token: Date.now() }
+          : at.anchor
+            ? { path, anchor: at.anchor, token: Date.now() }
+            : undefined,
+      );
+    },
+    [openFile],
+  );
   const openAsked = useCallback(
     (ask: FileAsk) => {
       if (!workspace || ask.workspace !== workspace.id || (ask.host ?? "") !== (workspace.host ?? "")) return;
       setChangesShown(false);
-      openFile(ask.path, true);
-      setLineAsk(ask.line ? { path: ask.path, line: ask.line, ...(ask.endLine ? { endLine: ask.endLine } : {}), token: Date.now() } : undefined);
+      showAt(ask.path, ask);
       if (editorOn) void openInEditor(ask.path, ask.line);
     },
-    [wsKey, openFile, setChangesShown, editorOn, openInEditor],
+    [wsKey, showAt, setChangesShown, editorOn, openInEditor],
+  );
+  /** A Markdown file's link to another of the workspace's files (a kept tab, at its line or heading) or folders (opened in the tree). */
+  const openLink = useCallback(
+    (link: WorkspaceLink) => {
+      if (link.kind === "file") {
+        showAt(link.path, link);
+        if (editorOn) void openInEditor(link.path, link.line);
+        return;
+      }
+      setSidebarHidden(false);
+      if (!link.path) return treeRef.current?.focus();
+      setKept((k) => {
+        const want = [...parentsOf(link.path), link.path].filter((p) => !k.open.includes(p));
+        return want.length ? { ...k, open: [...k.open, ...want] } : k;
+      });
+      setCursor(link.path);
+      reveal(link.path);
+      requestAnimationFrame(() => treeRef.current?.focus({ preventScroll: true }));
+    },
+    [showAt, editorOn, openInEditor, setKept],
   );
   useEffect(() => {
     const ask = takeFileAsk();
@@ -585,8 +657,8 @@ export function FilesView({
   const showViewer = useCallback((path: string) => setTabs((t) => setTabViewer(t, path, true)), [setTabs]);
 
   // ⌘K's commands.
-  const current = useRef({ openAsked, file, openFile, focusFilter, toggleSidebar, setShowIgnored, showIgnored, refresh, copyPath, showChanges, closeActive, reopen, step, closeOthers, showingChanges, layout, listShown, filterDiffFiles, cycleMode, showEditor, showViewer });
-  current.current = { openAsked, file, openFile, focusFilter, toggleSidebar, setShowIgnored, showIgnored, refresh, copyPath, showChanges, closeActive, reopen, step, closeOthers, showingChanges, layout, listShown, filterDiffFiles, cycleMode, showEditor, showViewer };
+  const current = useRef({ openAsked, file, openFile, focusFilter, toggleSidebar, setShowIgnored, showIgnored, refresh, copyPath, showChanges, closeActive, reopen, step, closeOthers, showingChanges, layout, listShown, filterDiffFiles, cycleMode, showEditor, showViewer, wrap, setWrap, setMarkdownView });
+  current.current = { openAsked, file, openFile, focusFilter, toggleSidebar, setShowIgnored, showIgnored, refresh, copyPath, showChanges, closeActive, reopen, step, closeOthers, showingChanges, layout, listShown, filterDiffFiles, cycleMode, showEditor, showViewer, wrap, setWrap, setMarkdownView };
   useEffect(() => {
     const c = () => current.current;
     const offs = [
@@ -596,6 +668,15 @@ export function FilesView({
       onAppCommand("files-ignored", () => c().setShowIgnored(!c().showIgnored)),
       onAppCommand("files-refresh", () => c().refresh()),
       onAppCommand("files-find", () => viewer.current?.find()),
+      onAppCommand("files-wrap", () => c().setWrap(!c().wrap)),
+      onAppCommand("files-markdown-source", () => {
+        const f = c().file;
+        if (f && !c().showingChanges) c().setMarkdownView(f, "source");
+      }),
+      onAppCommand("files-markdown-preview", () => {
+        const f = c().file;
+        if (f && !c().showingChanges) c().setMarkdownView(f, "preview");
+      }),
       onAppCommand("files-copy-path", () => {
         const f = c().file;
         if (f) c().copyPath(f);
@@ -656,6 +737,8 @@ export function FilesView({
   const tabCount = kept.tabs.tabs.length;
   const reopenable = kept.tabs.closed.some((p) => !kept.tabs.tabs.some((t) => t.path === p));
   const activeTab = kept.tabs.tabs.find((t) => t.path === file);
+  const mdType = file ? markdownType(file) : undefined;
+  const markdown: MarkdownView | undefined = !mdType ? undefined : sourceFor === file || markdownViews[mdType] === "source" ? "source" : "preview";
   // What shows in the viewer's place: the tab's editor (the macOS app draws it there), or the built-in viewer.
   const editorState: EditorState = !inApp || !activeTab || showingChanges
     ? "off"
@@ -676,6 +759,8 @@ export function FilesView({
       ...(file ? { file } : {}),
       ...(change ? { change } : {}),
       text,
+      ...(markdown && text ? { markdown } : {}),
+      wrap,
       showIgnored,
       sidebarHidden,
       tabs: tabCount,
@@ -688,7 +773,7 @@ export function FilesView({
       editor: editorState === "shown" ? "shown" : activeTab?.editor ? "viewer" : "none",
       canEditor: inApp && !!file && !showingChanges,
     });
-  }, [workspace?.name, file, change, text, showIgnored, sidebarHidden, tabCount, reopenable, showingChanges, changes.size, changesMode, layout, listShown, editorState, activeTab?.editor, inApp, onViewState]);
+  }, [workspace?.name, file, change, text, markdown, wrap, showIgnored, sidebarHidden, tabCount, reopenable, showingChanges, changes.size, changesMode, layout, listShown, editorState, activeTab?.editor, inApp, onViewState]);
 
   // Shown with the editor setting on, a tab opens in the editor (once: one whose editor quit shows the viewer, offering it again).
   useEffect(() => {
@@ -956,6 +1041,10 @@ export function FilesView({
               {...(lineAsk?.path === file ? { reveal: lineAsk } : {})}
               onScrolled={onScrolled}
               onUse={activeTab?.preview ? onUse : undefined}
+              wrap={wrap}
+              onWrap={setWrap}
+              {...(markdown ? { markdown, onMarkdown: (view: MarkdownView) => setMarkdownView(file, view) } : {})}
+              onOpenLink={openLink}
               editor={{
                 state: editorState,
                 available: inApp,
@@ -991,6 +1080,8 @@ export function FilesView({
 }
 
 const rowId = (path: string) => `fv-row-${path}`;
+/** A file asked to show at a line (marked) or a heading (a Markdown file's preview); `token` tells asks apart. */
+type LineAsk = { path: string; line?: number; endLine?: number; anchor?: string; token: number };
 
 function Empty({ icon, title, children }: { icon: ReactNode; title: string; children: ReactNode }) {
   return (
@@ -1287,6 +1378,11 @@ function FileViewer({
   reveal,
   onScrolled,
   onUse,
+  wrap,
+  onWrap,
+  markdown,
+  onMarkdown,
+  onOpenLink,
   editor,
   browserNote,
 }: {
@@ -1298,11 +1394,19 @@ function FileViewer({
   handle: React.RefObject<ViewerHandle | null>;
   /** Where the tab was scrolled to, restored once its lines are drawn. */
   scroll?: number;
-  /** A line (or lines) to show and mark, asked from elsewhere (the chat's file links); `token` tells asks apart. */
-  reveal?: { line: number; endLine?: number; token: number };
+  /** A line (or lines) to show and mark, asked from elsewhere (the chat's file links), or a heading in a Markdown file's preview. */
+  reveal?: LineAsk;
   onScrolled: (path: string, top: number) => void;
   /** A preview tab: using the file keeps it. */
   onUse?: (path: string) => void;
+  /** Long lines wrap (and its toggle). */
+  wrap: boolean;
+  onWrap: (on: boolean) => void;
+  /** A Markdown file: rendered or its source (and its toggle). */
+  markdown?: MarkdownView;
+  onMarkdown?: (view: MarkdownView) => void;
+  /** A Markdown file's link to another of the workspace's files or folders. */
+  onOpenLink: (link: WorkspaceLink) => void;
   editor: EditorProps;
   /** In a browser with the editor setting on: the program, for a note that the macOS app opens it. */
   browserNote?: string;
@@ -1326,21 +1430,23 @@ function FileViewer({
   const name = path.slice(slash + 1);
   const lines = useMemo(() => (text === undefined ? 0 : text.split("\n").length - (text.endsWith("\n") ? 1 : 0)), [text]);
   const contents = useMemo(() => (text === undefined ? undefined : { name: path, contents: text, cacheKey: `fv:${path}:${hashText(text)}` }), [path, text]);
+  const preview = markdown === "preview" && text !== undefined;
   const options = useMemo(
     () => ({
-      overflow: "scroll" as const,
+      overflow: wrap ? ("wrap" as const) : ("scroll" as const),
       disableFileHeader: true,
       themeType: resolved === "light" ? ("light" as const) : ("dark" as const),
       theme: DIFF_THEMES,
       unsafeCSS: FIND_CSS,
       tokenizeMaxLength: 400_000,
     }),
-    [resolved],
+    [resolved, wrap],
   );
 
   // Find in the file (⌘F), as the diff's.
-  const wrap = useRef<HTMLDivElement>(null);
-  const scrollerOf = () => wrap.current?.querySelector<HTMLElement>(":scope > .gd-scroll") ?? null;
+  const frame = useRef<HTMLDivElement>(null);
+  const scrollerOf = () => frame.current?.querySelector<HTMLElement>(":scope > .gd-scroll, :scope > .fv-md-scroll") ?? null;
+  const previewHandle = useRef<PreviewHandle | null>(null);
   const findInput = useRef<HTMLInputElement>(null);
   const [finding, setFinding] = useState(false);
   const [findText, setFindText] = useState("");
@@ -1351,7 +1457,7 @@ function FileViewer({
     const t = setTimeout(() => setAsked(findText), 100);
     return () => clearTimeout(t);
   }, [findText]);
-  const found = useMemo(() => (finding && asked && text !== undefined ? findInText(path, text, asked, findOpts) : null), [finding, asked, findOpts, text, path]);
+  const found = useMemo(() => (finding && !preview && asked && text !== undefined ? findInText(path, text, asked, findOpts) : null), [finding, preview, asked, findOpts, text, path]);
   const byPath = useMemo(() => {
     if (!found?.matches.length) return null;
     const lines = new Map<string, FindMatch[]>();
@@ -1421,6 +1527,7 @@ function FileViewer({
   used.current = onUse;
   const use = useCallback(() => used.current?.(path), [path]);
   const openFind = useCallback(() => {
+    if (previewHandle.current) return previewHandle.current.find();
     use();
     setFinding(true);
     requestAnimationFrame(() => {
@@ -1437,6 +1544,7 @@ function FileViewer({
     handle.current = {
       find: () => (text !== undefined && !editorShows ? openFind() : undefined),
       line: () => {
+        if (previewHandle.current) return previewHandle.current.line();
         const scroller = scrollerOf();
         return scroller ? firstLineInView(scroller) + 1 : 1;
       },
@@ -1460,14 +1568,25 @@ function FileViewer({
 
   // The tab's scroll: put back once its lines can reach it (the virtualizer sizes them first), then kept as it settles.
   const restoring = useRef(scroll && scroll > 0 && !reveal ? scroll : 0);
+  // Source and preview trade places: the find closes (each has its own), the view starts at the top.
+  const shownAs = useRef(preview);
+  if (shownAs.current !== preview) {
+    shownAs.current = preview;
+    restoring.current = 0;
+    if (finding) {
+      setFinding(false);
+      clearFindMarks();
+    }
+  }
   const hasContents = !!contents;
   // A line asked for: scrolled to the middle once drawn (the virtualizer draws only what's near), and marked.
   useEffect(() => {
-    if (!hasContents || !reveal) return;
+    if (!hasContents || !reveal?.line) return;
     restoring.current = 0;
     setMarked({ line: reveal.line, ...(reveal.endLine ? { endLine: reveal.endLine } : {}) });
     const token = ++revealing.current;
-    const target: FindMatch = { file: 0, path, key: `R${reveal.line}`, line: reveal.line - 1, start: 0, end: 0 };
+    const line = reveal.line;
+    const target: FindMatch = { file: 0, path, key: `R${line}`, line: line - 1, start: 0, end: 0 };
     const raf = requestAnimationFrame(() => {
       const scroller = scrollerOf();
       if (scroller) void revealMatch(scroller, target, order, () => revealing.current === token);
@@ -1494,7 +1613,7 @@ function FileViewer({
   scrolled.current = onScrolled;
   const onScroll = (e: React.UIEvent<HTMLElement>) => {
     const scroller = e.target as HTMLElement;
-    if (restoring.current || !scroller.classList?.contains("gd-scroll")) return;
+    if (restoring.current || !(scroller.classList?.contains("gd-scroll") || scroller.classList?.contains("fv-md-scroll"))) return;
     pending.current = scroller.scrollTop;
     clearTimeout(saving.current);
     saving.current = setTimeout(flush, SCROLL_SAVE_MS);
@@ -1529,11 +1648,26 @@ function FileViewer({
             : `A binary file (${size}). Only text files are shown.`}
       </Empty>
     );
+  } else if (contents && preview) {
+    body = (
+      <div className="gd-scroll-wrap fv-scroll-wrap" ref={frame} onScrollCapture={onScroll} onWheel={use} onPointerDown={use} onKeyDown={use}>
+        <MarkdownPreview
+          workspace={workspace}
+          path={path}
+          text={text!}
+          wrap={wrap}
+          handle={previewHandle}
+          onOpen={onOpenLink}
+          onUse={use}
+          {...(reveal?.anchor ? { reveal: { anchor: reveal.anchor, token: reveal.token } } : {})}
+        />
+      </div>
+    );
   } else if (contents) {
     body = (
       <div
         className="gd-scroll-wrap fv-scroll-wrap"
-        ref={wrap}
+        ref={frame}
         onScrollCapture={onScroll}
         onWheel={use}
         onPointerDown={use}
@@ -1555,11 +1689,12 @@ function FileViewer({
             label="Find in the file"
           />
         )}
-        <Virtualizer className="gd-scroll fv-scroll">
+        <Virtualizer className={`gd-scroll fv-scroll${wrap ? " wrap" : ""}`}>
           <section className="gd-file fv-file" data-path={path} aria-label={path}>
             <File className="gd-diff" file={contents} options={options} />
           </section>
         </Virtualizer>
+        <KeepInPlace scrollerOf={scrollerOf} />
       </div>
     );
   } else if (entry?.error) {
@@ -1596,8 +1731,41 @@ function FileViewer({
           <Copy size={13} aria-hidden="true" />
           <span className="page-tool-label">Copy path</span>
         </button>
+        {markdown && onMarkdown && text !== undefined && !editorShows && (
+          <span className="fv-mode" role="group" aria-label="Show the Markdown">
+            <button
+              className={`page-btn${markdown === "preview" ? " on" : ""}`}
+              aria-pressed={markdown === "preview"}
+              data-tip="Rendered (⌘K: Show the preview)"
+              onClick={() => onMarkdown("preview")}
+            >
+              <Eye size={13} aria-hidden="true" />
+              <span className="page-tool-label">Preview</span>
+            </button>
+            <button
+              className={`page-btn${markdown === "source" ? " on" : ""}`}
+              aria-pressed={markdown === "source"}
+              data-tip="The Markdown as written (⌘K: Show the Markdown source)"
+              onClick={() => onMarkdown("source")}
+            >
+              <FileCode2 size={13} aria-hidden="true" />
+              <span className="page-tool-label">Source</span>
+            </button>
+          </span>
+        )}
+        {text !== undefined && !editorShows && (
+          <button
+            className={`icon-btn${wrap ? " on" : ""}`}
+            aria-pressed={wrap}
+            aria-label="Wrap lines"
+            data-tip={wrap ? "Long lines wrap (⌘K: Don’t wrap lines)" : "Long lines scroll sideways (⌘K: Wrap lines)"}
+            onClick={() => onWrap(!wrap)}
+          >
+            <WrapText size={13} aria-hidden="true" />
+          </button>
+        )}
         {text !== undefined && (
-          <button className="icon-btn" aria-label="Find in the file" data-tip="Find (⌘F)" onClick={openFind}>
+          <button className="icon-btn" aria-label={preview ? "Find in the preview" : "Find in the file"} data-tip="Find (⌘F)" onClick={openFind}>
             <Search size={13} aria-hidden="true" />
           </button>
         )}
@@ -1645,6 +1813,12 @@ function FileViewer({
       {body}
     </div>
   );
+}
+
+/** Keeps the first line in view in place as lines above it change height (wrapped lines measured as they're drawn), as the diff's. */
+function KeepInPlace({ scrollerOf }: { scrollerOf: () => HTMLElement | null }) {
+  useDiffAnchor(scrollerOf);
+  return null;
 }
 
 /** The first line drawn in view (0-based), for where a new find starts. */

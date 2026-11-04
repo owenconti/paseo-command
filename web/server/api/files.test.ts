@@ -40,6 +40,18 @@ before(async () => {
       ["escape", "outside"],
     ]),
   );
+  local.addWorkspace({ id: "wks_img", projectId: "prj_app", cwd: "/home/review/code/img" });
+  local.trees.set(
+    "/home/review/code/img",
+    new Map<string, string | Uint8Array | "dir" | "outside">([
+      ["logo.png", new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0, 1, 2])],
+      ["docs/shot.jpg", new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 1, 2])],
+      ["docs/fake.png", "not a png\n"],
+      ["docs/icon.svg", "<svg xmlns='http://www.w3.org/2000/svg'/>"],
+      ["README.md", "# Images\n"],
+      ["escape.png", "outside"],
+    ]),
+  );
   local.checkouts.set("/home/review/code/wt", {
     diffs: { all: [{ path: "src/index.ts", isNew: false, isDeleted: false, additions: 1, deletions: 0, hunks: [] }, { path: "src/new.ts", isNew: true, isDeleted: false, additions: 1, deletions: 0, hunks: [] }] },
     status: {},
@@ -108,6 +120,36 @@ test("reads: a text file, and binary, image, non-UTF-8 and big files refused pol
   assert.equal(local.calls.filter((c) => c.method === "readFile" && c.args[1] === "big.txt").length, reads);
   // The daemon is asked for no more than the limit.
   assert.equal(local.calls.find((c) => c.method === "readFile" && c.args[1] === "src/index.ts")!.args[2], 1024 * 1024);
+});
+
+test("images: raster files only, by name and first bytes, size-limited, inside the workspace", async () => {
+  const png = await get("files/image?workspace=wks_img&path=logo.png");
+  assert.equal(png.status, 200);
+  assert.equal(png.headers["content-type"], "image/png");
+  assert.equal(png.headers["x-content-type-options"], "nosniff");
+  assert.deepEqual([...(png.data as Uint8Array)], [0x89, 0x50, 0x4e, 0x47, 0, 1, 2]);
+  assert.equal((await get("files/image?workspace=wks_img&path=docs/shot.jpg")).headers["content-type"], "image/jpeg");
+  // Named an image but isn't one; SVG and text never; outside the workspace; too big.
+  for (const [path, error] of [
+    ["docs/fake.png", "Not an image"],
+    ["docs/icon.svg", "Not an image"],
+    ["README.md", "Not an image"],
+    ["escape.png", "That path is outside the workspace."],
+    ["../logo.png", "Invalid path"],
+    ["gone.png", "That file or folder isn't there any more."],
+  ]) {
+    const r = await get(`files/image?workspace=wks_img&path=${encodeURIComponent(path!)}`);
+    assert.equal(r.status, 400, path);
+    assert.equal(r.data.error, error, path);
+  }
+  assert.equal(local.calls.find((c) => c.method === "readFile" && c.args[0] === "/home/review/code/img" && c.args[1] === "logo.png")!.args[2], FILES.maxImageBytes);
+  const max = FILES.maxImageBytes;
+  FILES.maxImageBytes = 4;
+  try {
+    assert.equal((await get("files/image?workspace=wks_img&path=logo.png")).data.error, "That image is too large");
+  } finally {
+    FILES.maxImageBytes = max;
+  }
 });
 
 test("paths stay in the workspace: .., absolute, odd segments and symlinks out are refused", async () => {

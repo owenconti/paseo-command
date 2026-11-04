@@ -17,6 +17,8 @@ export const treePath = (ws: FilesWorkspace, dir: string) => `files/tree?${query
 export const readPath = (ws: FilesWorkspace, path: string) => `files/read?${query(ws, { path })}`;
 export const allPath = (ws: FilesWorkspace) => `files/all?${query(ws)}`;
 export const changedPath = (ws: FilesWorkspace) => `files/changed?${query(ws)}`;
+/** A workspace image's address, for a Markdown file's `<img>` (loaded by `loadImage`, not this store). */
+export const imageUrl = (ws: FilesWorkspace, path: string) => `/api/files/image?${query(ws, { path })}`;
 
 export type Entry = { data?: unknown; error?: string; loading: boolean; at: number };
 
