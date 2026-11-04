@@ -72,6 +72,10 @@ const NATIVE: Group = {
   rows: [
     { keys: [["⌃", "`"]], label: "Show or hide the terminal" },
     {
+      keys: [["⌘", "+"], ["⌘", "−"], ["⌘", "0"]],
+      label: "In the terminal: bigger, smaller or actual text size (its font, line height and spacing: Settings → Terminal)",
+    },
+    {
       keys: [["⌘", "`"]],
       label: "Next in the map's place: the map, Files, GitHub, the browser (Conquer), Activity",
     },

@@ -216,6 +216,11 @@ export const postAppMenu = (action: string) =>
   appChannel()?.postMessage({ type: "menu", action });
 /** Ask the macOS app for its version and updates; it answers with a `paseo:update` event. */
 export const askAppUpdate = () => appChannel()?.postMessage({ type: "update" });
+/** Ask the macOS app for its terminals' font and the installed monospaced families; it answers with a `paseo:terminal-font` event. */
+export const askAppTerminalFont = () => appChannel()?.postMessage({ type: "terminalFont" });
+/** Set some of the terminals' font values (Settings → Terminal); it answers with a `paseo:terminal-font` event. */
+export const postAppTerminalFont = (set: Record<string, string | number>) =>
+  appChannel()?.postMessage({ type: "terminalFont", set });
 /** Ask the macOS app which mode bar tab shows; it answers with a `paseo:mode` event. */
 export const askAppMode = () => appChannel()?.postMessage({ type: "mode" });
 /** Apply optional integrations to the native mode bar. */

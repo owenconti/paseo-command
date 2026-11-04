@@ -27,14 +27,15 @@ final class TerminalSession: NSObject, TerminalViewDelegate, URLSessionWebSocket
     /// The last few kilobytes received, as text (for checks).
     private(set) var recent = ""
 
-    init(id: String, name: String, server: URL, host: String, fontSize: CGFloat) {
+    init(id: String, name: String, server: URL, host: String, font: TerminalFontSettings) {
         self.id = id
         self.name = name
         view = TerminalView(frame: CGRect(x: 0, y: 0, width: 800, height: 240))
         super.init()
         view.terminalDelegate = self
         restyle(NSApp.effectiveAppearance)
-        view.font = Self.font(fontSize)
+        view.glyphFallbackProvider = NerdSymbols.shared
+        apply(font)
         view.optionAsMetaKey = true
         var components = URLComponents(url: server, resolvingAgainstBaseURL: false)!
         components.scheme = server.scheme == "https" ? "wss" : "ws"
@@ -54,7 +55,11 @@ final class TerminalSession: NSObject, TerminalViewDelegate, URLSessionWebSocket
         view.nativeForegroundColor = Ink.color(Ink.text, appearance)
     }
 
-    static func font(_ size: CGFloat) -> NSFont { NSFont.monospacedSystemFont(ofSize: size, weight: .regular) }
+    /// The terminals' font, line height and letter spacing (Settings → Terminal, ⌘+ / ⌘− / ⌘0).
+    func apply(_ font: TerminalFontSettings) {
+        view.lineSpacing = font.lineHeight
+        view.font = TerminalFonts.font(font)
+    }
 
     private func receive() {
         socket?.receive { [weak self] result in
@@ -462,12 +467,9 @@ final class TerminalDrawer: NSView {
         grow.toolTip = maximized ? "Restore the terminal beside the map (⇧⌘↩)" : "Maximize the terminal over the map (⇧⌘↩)"
     }
 
-    /// The terminals' text size, kept across launches (⌘+, ⌘−, ⌘0).
-    static let defaultFontSize: CGFloat = 12.5
-    private(set) var fontSize: CGFloat = {
-        let saved = UserDefaults.standard.double(forKey: "terminalFontSize")
-        return saved > 0 ? saved : TerminalDrawer.defaultFontSize
-    }()
+    /// The terminals' font, kept across launches (Settings → Terminal; ⌘+, ⌘−, ⌘0 its size).
+    private(set) var font = TerminalFontSettings()
+    var fontSize: CGFloat { font.size }
     private let body = NSView()
     /// Where a dragged tab would land.
     private let marker = NSView()
@@ -650,9 +652,16 @@ final class TerminalDrawer: NSView {
 
     /// Change the terminals' text size by `step` points (0 restores the default).
     func zoom(_ step: CGFloat) {
-        fontSize = step == 0 ? Self.defaultFontSize : max(8, min(32, fontSize + step))
-        UserDefaults.standard.set(fontSize, forKey: "terminalFontSize")
-        for s in sessions.values { s.view.font = TerminalSession.font(fontSize) }
+        var next = font
+        next.size = step == 0 ? TerminalFontSettings.defaultSize : min(TerminalFontSettings.sizes.upperBound, max(TerminalFontSettings.sizes.lowerBound, font.size + step))
+        apply(next)
+    }
+
+    /// Set the terminals' font (Settings → Terminal), kept and applied to every open terminal.
+    func apply(_ next: TerminalFontSettings) {
+        font = next
+        next.save()
+        for s in sessions.values { s.apply(next) }
     }
 
     /// The page selected another workspace (or none). Each keeps its panes for when it comes back.
@@ -825,7 +834,7 @@ final class TerminalDrawer: NSView {
     private func session(_ id: String, _ ws: TerminalWorkspace) -> TerminalSession {
         if let s = sessions[id] { return s }
         let name = listed.first { $0.id == id }?.name ?? "Terminal"
-        let s = TerminalSession(id: id, name: name, server: server(), host: ws.host, fontSize: fontSize)
+        let s = TerminalSession(id: id, name: name, server: server(), host: ws.host, font: font)
         sessions[id] = s
         return s
     }
@@ -1033,6 +1042,8 @@ final class TerminalDrawer: NSView {
             "maximized": maximized,
             "frame": [frame.minX, frame.minY, frame.width, frame.height],
             "fontSize": fontSize,
+            "font": font.json,
+            "cells": sessions.values.map { ["id": $0.id, "pointSize": Double($0.view.font.pointSize), "family": $0.view.font.familyName ?? "", "lineSpacing": Double($0.view.lineSpacing)] },
         ]
     }
 

@@ -5,7 +5,9 @@ mark it done with its commit once merged into `main`.
 
 ## Open
 
-- [ ] **Terminal: font settings, and icon (Nerd Font) glyphs that render.** The terminal panel and the Files editor (both
+## Done
+
+- [x] **Terminal: font settings, and icon (Nerd Font) glyphs that render.** The terminal panel and the Files editor (both
   `TerminalSession` in `TerminalDrawer.swift`, SwiftTerm) use the system monospace font at a size set only by ⌘+/⌘−/⌘0,
   with no line height. Icon glyphs (Nerd Font private-use symbols: file-type icons in nvim's tree and dashboard) show as
   boxed question marks, while Ghostty shows them (Ghostty bundles a Nerd Font symbols fallback; the user's Ghostty config
@@ -21,7 +23,10 @@ mark it done with its commit once merged into `main`.
     icons at one or two cells as Ghostty does). Verify with a test page of Nerd Font code points.
   Tests: native checks for the cascade and settings applying; a throwaway build's `.windowshot` of a terminal printing
   Nerd Font icons. Workspace: `terminal-fonts`.
-## Done
+  Done: the font cascade (bundled Symbols Nerd Font Mono, then Apple Symbols and Apple Color Emoji) and SwiftTerm's glyph
+  fallback provider for the symbols font's private-use icons, no SwiftTerm patch; Settings → Terminal (family, size, line height,
+  letter spacing as a fixed advance) through `terminalFont` / `paseo:terminal-font`. A one-cell icon stays in its cell (SwiftTerm
+  can't spill it into a following space as Ghostty does); wide cells take two.
 
 - [x] **Files: Markdown renders as Markdown, and lines wrap.** The viewer shows `.md` files as code with long lines running
   off the edge. Markdown files open rendered (headings, lists, tables, code blocks highlighted, links: in-repo paths open in

@@ -40,6 +40,8 @@ for (const pin of json('native/Package.resolved').pins) {
 }
 for (const file of readdirSync('web/src/themes/fonts').filter(file => file.endsWith('-OFL.txt')))
   entries.push({ name: basename(file, '-OFL.txt'), license: 'OFL-1.1', texts: [{ file, text: read(join('web/src/themes/fonts', file)) }] });
+// The terminal's icon fallback, Nerd Fonts' symbols-only font (native/fonts, release v3.5.1).
+entries.push({ name: 'Symbols Nerd Font Mono 3.5.1', license: 'MIT', texts: [{ file: 'LICENSE (ryanoasis/nerd-fonts)', text: read('licenses/nerd-fonts-symbols.txt') }] });
 // The Node runtime bundled in the app (native/node-version.json).
 entries.push({ name: `node ${json('native/node-version.json').version}`, license: 'MIT', texts: [{ file: 'LICENSE', text: read('licenses/node.txt') }] });
 

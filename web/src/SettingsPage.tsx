@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from "react";
-import { Bell, Bot, FileCode2, Plug, Volume2, X } from "lucide-react";
+import { Bell, Bot, ChevronDown, FileCode2, Plug, SquareTerminal, Volume2, X } from "lucide-react";
 import { ResizeEdge } from "./ResizeEdge";
 import { readStore, writeStore } from "./api";
 import { previewSound, setSoundSettings, useSoundSettings } from "./sounds";
@@ -16,6 +16,8 @@ import { macApp } from "./worldBridge";
 import { plainText } from "./ui";
 import { DEFAULT_EDITOR_COMMAND, editorCommandProblem } from "./files/editorCommand";
 import { saveFilesSettings, useFilesSettings } from "./files/filesSettings";
+import { Picker } from "./Picker";
+import { familyCss, familyLabel, setTerminalFont, useTerminalFont, type TerminalFontValues } from "./terminalFont";
 
 /** The page's sections, in its sidebar's order; one shows at a time, as the other pages' places do. */
 const SECTIONS = [
@@ -24,6 +26,7 @@ const SECTIONS = [
   { id: "integrations", label: "Integrations", icon: <Plug size={14} aria-hidden="true" /> },
   { id: "new-agent", label: "New agent", icon: <Bot size={14} aria-hidden="true" /> },
   { id: "files", label: "Files", icon: <FileCode2 size={14} aria-hidden="true" /> },
+  { id: "terminal", label: "Terminal", icon: <SquareTerminal size={14} aria-hidden="true" /> },
 ] as const;
 type Section = (typeof SECTIONS)[number]["id"];
 /** The sidebar's width: as Activity's, it resizes and is kept. */
@@ -33,12 +36,12 @@ const SIDEBAR = { default: 220, min: 180, max: 360 };
  * The app's settings, a page in the map's place (`settingsStore.ts`; in the
  * macOS app its mode bar's Settings tab): interface sounds and the lofi radio,
  * desktop notifications, the optional integrations with their keys, and New
- * agent's preset prompts and agent profiles, and where the Files page opens
- * files (its viewer, or your editor in a terminal). Sounds, radio and notifications
+ * agent's preset prompts and agent profiles, where the Files page opens
+ * files (its viewer, or your editor in a terminal), and the macOS app's terminal font. Sounds, radio and notifications
  * are kept in this browser (or the app); integrations, the Linear workspace and
  * the presets and Files' editor in the data directory's settings.json, keys beside it in
- * secrets.json. Laid out as the other pages are: a sidebar of its sections
- * (Sound and music, Notifications, Integrations, New agent), and the chosen one
+ * secrets.json; the terminal font in the app's preferences. Laid out as the other pages are: a sidebar of its sections
+ * (Sound and music, Notifications, Integrations, New agent, Files, Terminal), and the chosen one
  * beside it under its own heading.
  */
 export function SettingsPage({
@@ -79,12 +82,16 @@ export function SettingsPage({
   // Opening (the gear, ⌘,, the palette, Manage … key) puts the keyboard in the
   // page: on its section in the sidebar, or on the asked integration's key editor.
   useEffect(() => {
-    if (request.target) setSectionState("integrations");
+    const terminal = request.target === "terminal";
+    if (terminal) setSection("terminal");
+    else if (request.target) setSectionState("integrations");
     let tries = 0;
     let timer: ReturnType<typeof setTimeout>;
     // The page may still be appearing. (Timers, not animation frames: a hidden native window draws none.)
     const attempt = () => {
-      const target = request.target
+      const target = terminal
+        ? page.current?.querySelector<HTMLElement>('[data-section="terminal"]')
+        : request.target
         ? page.current?.querySelector<HTMLElement>(
             `[data-integration="${request.target}"] input[type=password], [data-integration="${request.target}"] .api-key-actions button`,
           )
@@ -242,6 +249,17 @@ export function SettingsPage({
           {shown.id === "files" && (
             <SettingsGroup note="Where the Files page opens a file from the tree, ⌘P, a tab or the Changes.">
               <FilesSettings />
+            </SettingsGroup>
+          )}
+          {shown.id === "terminal" && (
+            <SettingsGroup
+              note={
+                macApp()
+                  ? "For the terminal panel and the Files page’s editor, applied as you change them. Nerd Font icons draw whatever the font."
+                  : "The terminal panel and the Files page’s editor are the macOS app’s: their font, size, line height and letter spacing are set there, in Settings → Terminal."
+              }
+            >
+              {macApp() ? <TerminalSettings /> : null}
             </SettingsGroup>
           )}
           {shown.id === "new-agent" && (
@@ -561,6 +579,143 @@ function FilesSettings() {
           {error}
         </p>
       )}
+    </div>
+  );
+}
+
+/** A value set with a slider: what it is on the left, the slider and its value on the right. */
+function RangeRow({
+  title,
+  description,
+  value,
+  range,
+  step,
+  format,
+  onChange,
+}: {
+  title: string;
+  description: string;
+  value: number;
+  range: [number, number];
+  step: number;
+  format: (value: number) => string;
+  onChange: (value: number) => void;
+}) {
+  return (
+    <label className="settings-row settings-range">
+      <span className="settings-row-text">
+        <b>{title}</b>
+        <small>{description}</small>
+      </span>
+      <span className="settings-range-control">
+        <input
+          type="range"
+          min={range[0]}
+          max={range[1]}
+          step={step}
+          value={value}
+          aria-label={title}
+          aria-valuetext={format(value)}
+          onChange={(e) => onChange(Number(e.target.value))}
+        />
+        <output>{format(value)}</output>
+      </span>
+    </label>
+  );
+}
+
+const trim = (n: number, digits: number) => String(Number(n.toFixed(digits)));
+
+/** Settings → Terminal (the macOS app's): the terminals' font family, size, line height and letter spacing. */
+function TerminalSettings() {
+  const font = useTerminalFont();
+  const [picking, setPicking] = useState(false);
+  if (!font) return <p className="settings-row terminal-font-loading">Asking the app for its terminal font…</p>;
+  const options = [
+    { value: "", text: familyLabel(""), hint: "Default" },
+    ...font.families.map((family) => ({ value: family, text: family, keywords: family.replace(/\s+/g, "") })),
+  ];
+  const changed = (Object.keys(font.defaults) as (keyof TerminalFontValues)[]).some((k) => font[k] !== font.defaults[k]);
+  return (
+    <div className="terminal-settings">
+      <div className="settings-row">
+        <span className="settings-row-text">
+          <b>Font</b>
+          <small>
+            {font.families.length
+              ? `The installed monospaced fonts (${font.families.length}), or the system’s`
+              : "The system’s monospace, or another installed monospaced font"}
+          </small>
+        </span>
+        <div className="terminal-font-pick">
+          <button
+            className="secondary terminal-font-button"
+            aria-haspopup="listbox"
+            aria-expanded={picking}
+            aria-label={`Terminal font: ${familyLabel(font.family)}`}
+            onClick={() => setPicking((p) => !p)}
+          >
+            <span style={{ fontFamily: familyCss(font.family) }}>{familyLabel(font.family)}</span>
+            <ChevronDown size={13} aria-hidden="true" />
+          </button>
+          {picking && (
+            <Picker
+              label="Terminal font"
+              options={options}
+              value={font.family}
+              onPick={(value) => {
+                setTerminalFont({ family: value as string });
+                setPicking(false);
+              }}
+              onClose={() => setPicking(false)}
+            />
+          )}
+        </div>
+      </div>
+      <RangeRow
+        title="Size"
+        description="Also ⌘+, ⌘− and ⌘0 in a terminal"
+        value={font.size}
+        range={font.ranges.size}
+        step={0.5}
+        format={(v) => `${trim(v, 1)} pt`}
+        onChange={(size) => setTerminalFont({ size })}
+      />
+      <RangeRow
+        title="Line height"
+        description="Each line’s height, as a multiple of the font’s"
+        value={font.lineHeight}
+        range={font.ranges.lineHeight}
+        step={0.05}
+        format={(v) => `${trim(v, 2)}×`}
+        onChange={(lineHeight) => setTerminalFont({ lineHeight })}
+      />
+      <RangeRow
+        title="Letter spacing"
+        description="Points added to each character’s cell"
+        value={font.letterSpacing}
+        range={font.ranges.letterSpacing}
+        step={0.25}
+        format={(v) => `${v > 0 ? "+" : ""}${trim(v, 2)} pt`}
+        onChange={(letterSpacing) => setTerminalFont({ letterSpacing })}
+      />
+      <div className="settings-row terminal-font-preview-row">
+        <pre
+          className="terminal-font-preview"
+          aria-label="Preview"
+          style={{
+            fontFamily: familyCss(font.family),
+            fontSize: `${font.size}px`,
+            lineHeight: font.lineHeight * 1.2,
+            letterSpacing: `${font.letterSpacing}px`,
+          }}
+        >
+          {"~/project main ❯ ls -la src\nconst answer = { ok: true, n: 42 }; // 0O 1lI"}
+        </pre>
+        <button className="secondary" disabled={!changed} onClick={() => setTerminalFont(font.defaults)}>
+          Restore defaults
+        </button>
+      </div>
     </div>
   );
 }

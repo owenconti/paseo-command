@@ -17,7 +17,7 @@ final class EditorOverlay: EditorStage {
     var runInPage: ((String) -> Void)?
     private var sessions: [String: TerminalSession] = [:]
     private(set) var shown: String?
-    private var fontSize: CGFloat
+    private var font: TerminalFontSettings
     /// ⌘K came from the editor: once the page's dialog closes, the editor has the keyboard again.
     private var refocus = false
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
@@ -25,8 +25,8 @@ final class EditorOverlay: EditorStage {
     private(set) var closeAlert: NSAlert?
     private var clicks: Any?
 
-    init(fontSize: CGFloat) {
-        self.fontSize = fontSize
+    init(font: TerminalFontSettings) {
+        self.font = font
         super.init(frame: .zero)
         wantsLayer = true
         isHidden = true
@@ -50,10 +50,10 @@ final class EditorOverlay: EditorStage {
         for s in sessions.values { s.restyle(appearance) }
     }
 
-    /// The terminal panel's text size, which ⌘+ / ⌘− / ⌘0 set for both.
-    func setFont(_ size: CGFloat) {
-        fontSize = size
-        for s in sessions.values { s.view.font = TerminalSession.font(size) }
+    /// The terminal panel's font (Settings → Terminal; ⌘+ / ⌘− / ⌘0 its size), the same for both.
+    func setFont(_ next: TerminalFontSettings) {
+        font = next
+        for s in sessions.values { s.apply(next) }
     }
 
     var hasKeyFocus: Bool {
@@ -108,7 +108,7 @@ final class EditorOverlay: EditorStage {
     private func session(_ id: String, host: String) -> TerminalSession {
         if let s = sessions[id], !s.ended { return s }
         sessions[id]?.close()
-        let s = TerminalSession(id: id, name: "Editor", server: server(), host: host, fontSize: fontSize)
+        let s = TerminalSession(id: id, name: "Editor", server: server(), host: host, font: font)
         s.restyle(effectiveAppearance)
         s.onEnd = { [weak self, weak s] why in
             guard let self, let s, self.sessions[id] === s else { return }
@@ -204,7 +204,9 @@ final class EditorOverlay: EditorStage {
             "asking": closeAlert.map { [$0.messageText, $0.informativeText] } as Any? ?? NSNull(),
             "text": text,
             "screen": shown.flatMap { sessions[$0] }.map { String(decoding: $0.view.getBufferAsData(), as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines) } ?? "",
-            "fontSize": fontSize,
+            "fontSize": Double(font.size),
+            "font": font.json,
+            "cells": sessions.values.map { ["id": $0.id, "pointSize": Double($0.view.font.pointSize), "family": $0.view.font.familyName ?? "", "lineSpacing": Double($0.view.lineSpacing)] },
         ]
     }
 

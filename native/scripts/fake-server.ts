@@ -76,13 +76,14 @@ local.checkouts.set("/home/review/atlas", {
   diffs: { all: [indexDiff, cssDiff], base: [indexDiff], uncommitted: [cssDiff] },
   status: { currentBranch: "main", baseRef: "origin/main", aheadBehind: { ahead: 1, behind: 0 }, isDirty: true },
 });
-// A terminal already open in the first workspace, with something on screen.
+// A terminal already open in the first workspace, with something on screen: a test's result, then Nerd Font
+// icons (private use: a folder, Rust, JavaScript, a Material note, a git branch) beside a wide character and an emoji.
 local.terminals.set("term-pre", {
   id: "term-pre",
   name: "Terminal 1",
   cwd: "/home/review/atlas",
   workspaceId: "wks_main",
-  printed: "\x1b[1;32mreview@atlas\x1b[0m:\x1b[34m~/atlas\x1b[0m$ npm test\r\n\x1b[32m✔\x1b[0m 41 passing\r\n\x1b[1;32mreview@atlas\x1b[0m:\x1b[34m~/atlas\x1b[0m$ ",
+  printed: "\x1b[1;32mreview@atlas\x1b[0m:\x1b[34m~/atlas\x1b[0m$ npm test\r\n\x1b[32m✔\x1b[0m 41 passing\r\n\uf115 src  \ue7a8 main.rs  \ue718 app.js  \u{f0219} notes  \ue0a0 main  漢 😀\r\n\x1b[1;32mreview@atlas\x1b[0m:\x1b[34m~/atlas\x1b[0m$ ",
   input: [],
   watchers: new Set(),
 });

@@ -84,6 +84,9 @@ cp "$here/../LICENSE" "$here/../THIRD_PARTY_NOTICES.md" "$app/Contents/Resources
 cp "$here/../web/src/themes/fonts/paseo-barlow-600.woff2" "$here/../web/src/themes/fonts/paseo-source-sans-400.woff2" "$app/Contents/Resources/"
 # Conquer uses the React panel's body fonts in native controls too.
 cp "$here/../web/node_modules/@fontsource-variable/inter/files/inter-latin-wght-normal.woff2" "$app/Contents/Resources/"
+# The terminals' icon fallback (Nerd Fonts' symbols), registered for the app's process only (TerminalFont.swift).
+mkdir -p "$app/Contents/Resources/fonts"
+cp "$here/fonts/SymbolsNerdFontMono-Regular.ttf" "$app/Contents/Resources/fonts/"
 # The server finds its page at ../ui. Node is replaced like the executable below, as a running
 # copy's server is that file.
 cp "$node_bin" "$app/Contents/Resources/node/.node.new"

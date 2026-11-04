@@ -2316,6 +2316,14 @@ function App() {
       run: () => openProfileEditor(),
     },
     {
+      id: "terminal-settings",
+      group: "App",
+      page: "Settings" as const,
+      label: "Terminal settings…",
+      keywords: "terminal font family size line height spacing letter nerd font icons glyphs editor settings",
+      run: () => openSettings("terminal"),
+    },
+    {
       id: "radio",
       group: "App",
       page: "Settings" as const,

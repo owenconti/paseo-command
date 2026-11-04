@@ -1524,6 +1524,66 @@
   color: var(--red-text);
 }
 
+/* Settings → Terminal (the macOS app's terminal font): sliders with their values, the family's picker, a preview. */
+.settings-range-control {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex: 0 1 260px;
+  min-width: 160px;
+}
+.settings-range-control input {
+  flex: 1;
+  min-width: 0;
+  accent-color: var(--accent);
+}
+.settings-range-control output {
+  min-width: 6ch;
+  text-align: right;
+  color: var(--text-3);
+  font-size: var(--fs-sm);
+  font-variant-numeric: tabular-nums;
+}
+.terminal-font-pick {
+  position: relative;
+  flex-shrink: 0;
+}
+.settings-page .terminal-font-button {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  max-width: 260px;
+}
+.terminal-font-button span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.terminal-font-pick .popover-menu.linear-picker {
+  right: 0;
+  left: auto;
+  width: 280px;
+}
+.settings-page .terminal-font-preview-row {
+  align-items: flex-end;
+}
+.terminal-font-preview {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  padding: var(--space-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--panel-2);
+  color: var(--text-strong);
+  overflow-x: auto;
+  white-space: pre;
+}
+.settings-page .terminal-font-loading {
+  color: var(--text-3);
+  font-size: var(--fs-sm);
+}
+
 /* Lofi radio (music.ts): the settings gear pulses while it connects. */
 .settings-anchor [data-music="connecting"] svg {
   animation: music-connecting 1.2s ease-in-out infinite;

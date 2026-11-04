@@ -114,7 +114,7 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         content = PassThroughView(frame: split.bounds)
         content.autoresizingMask = [.width, .height]
         drawer = TerminalDrawer(frame: CGRect(x: 0, y: 0, width: 460, height: split.bounds.height))
-        editors = EditorOverlay(fontSize: drawer.fontSize)
+        editors = EditorOverlay(font: drawer.font)
         // Over the page's viewer, under Conquer and the maximized terminal panel.
         content.addSubview(editors)
         split.addArrangedSubview(content)
@@ -299,6 +299,11 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         case "editorFocus": if mode == .files { editors.focus() }
         case "editorClose": if let request = EditorCloseRequest(body) { editors.close(request, window: window) }
         case "editorForget": editors.forget(body["terminals"] as? [String] ?? [])
+        case "terminalFont":
+            // Settings → Terminal: it asks for the font, the line height and spacing and the installed
+            // monospaced families, and sets them (`set`), for every terminal at once.
+            if let change = body["set"] as? [String: Any] { setTerminalFont(drawer.font.applying(change, families: TerminalFonts.families())) }
+            else { sendTerminalFont(families: true) }
         case "openLink":
             // A link clicked in the chat: a new Conquer tab, in the map's place. A Linear issue opens
             // in Linear's desktop app when it's installed; a GitHub pull request goes to the page for
@@ -876,7 +881,26 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
     /// The terminals' text size (⌘+, ⌘−, ⌘0): the panel's and the Files page's editors'.
     func zoomTerminals(_ step: CGFloat) {
         drawer.zoom(step)
-        editors.setFont(drawer.fontSize)
+        editors.setFont(drawer.font)
+        sendTerminalFont()
+    }
+
+    /// The terminals' font (Settings → Terminal), for the panel's and the Files page's editors'.
+    func setTerminalFont(_ font: TerminalFontSettings) {
+        drawer.apply(font)
+        editors.setFont(font)
+        sendTerminalFont()
+    }
+
+    /// Tell the page the terminals' font (`paseo:terminal-font`), with the installed monospaced families when asked.
+    func sendTerminalFont(families: Bool = false) {
+        var message = drawer.font.json
+        message["defaults"] = TerminalFontSettings.standard.json
+        message["ranges"] = ["size": [TerminalFontSettings.sizes.lowerBound, TerminalFontSettings.sizes.upperBound],
+                             "lineHeight": [TerminalFontSettings.lineHeights.lowerBound, TerminalFontSettings.lineHeights.upperBound],
+                             "letterSpacing": [TerminalFontSettings.letterSpacings.lowerBound, TerminalFontSettings.letterSpacings.upperBound]]
+        if families { message["families"] = TerminalFonts.families() }
+        send(message, as: "paseo:terminal-font")
     }
 
     /// Show or hide the terminal panel (View → Terminal, ⌃`), at the size it last had;
