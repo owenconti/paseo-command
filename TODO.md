@@ -5,6 +5,15 @@ mark it done with its commit once merged into `main`.
 
 ## Open
 
+- [ ] **A Terminal tab in the mode bar.** Add Terminal as a mode tab (Command, Files, Terminal, GitHub, Conquer, Activity),
+  showing the selected workspace's (or agent's) daemon terminals full size in the map's place: the terminal panel's tabs,
+  splits (`PaneLayout`), + / × and font, as one set of sessions (a SwiftTerm view lives in one place: while the Terminal tab
+  shows, the side/bottom panel's terminals move into it and the panel hides; leaving puts them back as they were). The
+  page's chat panel stays beside it as on other tabs (⌘B hides it). ⌘1…⌘6 renumber, ⌘` steps through it, View menu item and
+  ⌘K "Show terminal" (page Terminal), and a key to jump to it if a natural one is free (check ⌃` stays "toggle the panel").
+  Keys go to the terminal while it has the keyboard, with the app keeping the ones the panel keeps. Remember the mode across
+  launches as the others are. Tests: native checks (tab order, numbering, sessions moving between panel and tab, keys) and
+  a throwaway build's `.windowshot`. Workspace: `terminal-tab`.
 ## Done
 
 - [x] **Terminal: device-attribute replies leak into the shell after quitting nvim.** After `:q` in nvim in the terminal
