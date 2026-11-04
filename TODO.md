@@ -5,16 +5,6 @@ mark it done with its commit once merged into `main`.
 
 ## Open
 
-- [ ] **Terminal: typing lags once the terminal holds a lot of output.** After a long run (a backup import's thousands of
-  log lines), each keystroke in the terminal panel echoes slowly. Profile it (Instruments' Time Profiler / `sample` on a
-  throwaway build against `fake-server.ts` with a terminal that prints, say, 100k long coloured lines, then types): suspects
-  are SwiftTerm redrawing or re-laying out the whole buffer or scrollback per update, the new font cascade and
-  `glyphFallbackProvider` (`TerminalFont.swift`, added in v0.14.0) costing per glyph and per draw, `TerminalQueryFilter` or
-  `TerminalAnswers` scanning or copying the stream, the relay or socket path adding per-frame work (JSON frames, base64,
-  logging), or scrollback growing unbounded. Fix the cause(s) so a keystroke's echo draws within a frame or two regardless
-  of scrollback (cache fallback lookups, draw only dirty lines, bound scrollback with a setting if needed), and compare with
-  Ghostty for a big buffer. Applies to the panel and the Files editor. Measurements before and after in the report; a native
-  performance check that fails if a keystroke's redraw exceeds a budget with a large buffer. Workspace: `fix-terminal-lag`.
 ## Done
 
 - [x] **Terminal: device-attribute replies leak into the shell after quitting nvim.** After `:q` in nvim in the terminal
