@@ -16,6 +16,7 @@ import {
 import { errorMessage } from "../api";
 import { githubWrite, invalidate, load, patch, readPath, useGithubRead } from "./api";
 import { Avatar, Body, ChecksIcon, CHECKS_LABEL, Churn, CommentBox, Decision, PrStateIcon, STATE_LABEL, Time } from "./bits";
+import type { DiffSidebar } from "./commentList";
 import { DiffView, LayoutControls, type DiffLayout, type DiffReview, type DiffViewHandle } from "./DiffView";
 import { TAB_LABEL } from "./names";
 import { addComment, editComment, removeComment, reviewComments, useReviewDraft } from "./drafts";
@@ -425,6 +426,9 @@ export function PrView({
   setLayout,
   listShown,
   setListShown,
+  sidebar,
+  setSidebar,
+  onNoteCount,
   onBack,
   backLabel,
   onExternal,
@@ -445,6 +449,10 @@ export function PrView({
   setLayout: (l: DiffLayout) => void;
   listShown: boolean;
   setListShown: (shown: boolean) => void;
+  /** The diff sidebar's Files or Comments. */
+  sidebar: DiffSidebar;
+  setSidebar: (s: DiffSidebar) => void;
+  onNoteCount?: (n: number) => void;
   onBack: () => void;
   backLabel: string;
   onExternal: (url: string) => void;
@@ -624,8 +632,9 @@ export function PrView({
         onSingle: single,
         viewed,
         onViewed: setViewed,
+        ...(viewer ? { me: viewer } : {}),
       },
-    [pr, draft.comments, setDraft, reply, resolve, single, viewed, setViewed],
+    [pr, draft.comments, setDraft, reply, resolve, single, viewed, setViewed, viewer],
   );
 
   const reviewersControl = useRef<PickerControl | null>(null);
@@ -898,7 +907,17 @@ export function PrView({
               ) : !diff.data ? (
                 <p className="gh-note">Loading the diff…</p>
               ) : (
-                <DiffView files={diff.data.files} layout={layout} listShown={listShown} review={review} handle={diffHandle} empty={<p>No changes.</p>} />
+                <DiffView
+                  files={diff.data.files}
+                  layout={layout}
+                  listShown={listShown}
+                  review={review}
+                  handle={diffHandle}
+                  sidebar={sidebar}
+                  onSidebar={setSidebar}
+                  onNoteCount={onNoteCount}
+                  empty={<p>No changes.</p>}
+                />
               )}
             </>
           )}

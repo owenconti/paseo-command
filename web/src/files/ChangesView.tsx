@@ -7,6 +7,7 @@ import { DiffView, Draft, LayoutControls, type DiffLayout, type DiffReview, type
 import { pendingLabel, placeComments, placeLabel, textOf, type LocalComment } from "../github/localComments";
 import { useLocalComments } from "../github/localCommentsStore";
 import { MODE_LABEL } from "../github/names";
+import type { DiffSidebar } from "../github/commentList";
 import type { ChangesMode, WorkspaceChanges } from "../github/types";
 
 const MODE_TIP: Record<ChangesMode, string> = {
@@ -33,6 +34,9 @@ export function ChangesView({
   setLayout,
   listShown,
   setListShown,
+  sidebar,
+  setSidebar,
+  onNoteCount,
   onOpenPr,
   onExternal,
   onOpenFile,
@@ -51,6 +55,10 @@ export function ChangesView({
   setLayout: (l: DiffLayout) => void;
   listShown: boolean;
   setListShown: (shown: boolean) => void;
+  /** The diff sidebar's Files or Comments. */
+  sidebar: DiffSidebar;
+  setSidebar: (s: DiffSidebar) => void;
+  onNoteCount?: (n: number) => void;
   /** Review #N and Compare on GitHub: only while GitHub is on. */
   onOpenPr?: (repo: string, number: number) => void;
   onExternal?: (url: string) => void;
@@ -104,6 +112,7 @@ export function ChangesView({
     [data, change],
   );
   const placed = placing?.placed;
+  const outdated = placing?.outdated;
   const hasWorkspace = !!workspace;
   const review = useMemo<DiffReview | undefined>(
     () =>
@@ -111,6 +120,7 @@ export function ChangesView({
         local: true,
         threads: [],
         drafts: (placed ?? []).map((c) => ({ id: c.id, path: c.path, side: c.side, line: c.line, ...(c.startLine !== undefined ? { startLine: c.startLine, startSide: c.side } : {}), body: c.body })),
+        outdatedDrafts: (outdated ?? []).map((c) => ({ id: c.id, path: c.path, side: c.side, line: c.line, ...(c.startLine !== undefined ? { startLine: c.startLine } : {}), body: c.body })),
         onAdd,
         onEdit: (id, body) => void change({ action: "edit", id, body }),
         onRemove: (id) => void change({ action: "remove", id }),
@@ -119,7 +129,7 @@ export function ChangesView({
         viewed: NONE_VIEWED,
         onViewed: () => {},
       } : undefined,
-    [hasWorkspace, placed, onAdd, change],
+    [hasWorkspace, placed, outdated, onAdd, change],
   );
   // Asked for one file (the Files page's Show changes): scrolled to once it's drawn.
   const hasShowPath = !!showPath && !!data?.files.some((f) => f.path === showPath);
@@ -257,6 +267,9 @@ export function ChangesView({
           listShown={listShown}
           handle={handle}
           review={review}
+          sidebar={sidebar}
+          onSidebar={setSidebar}
+          onNoteCount={onNoteCount}
           head={review && placing && placing.outdated.length > 0 && <OutdatedComments comments={placing.outdated} review={review} />}
           empty={
             <p>

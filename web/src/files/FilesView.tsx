@@ -33,6 +33,8 @@ import { isTyping } from "../worldShortcut";
 import { macApp } from "../worldBridge";
 import { invalidate } from "../github/api";
 import type { DiffLayout, DiffViewHandle } from "../github/DiffView";
+import { useDiffSidebar } from "../github/DiffComments";
+import type { DiffSidebar } from "../github/commentList";
 import { CHANGES_MODES, type ChangesMode } from "../github/types";
 import { ChangesView } from "./ChangesView";
 import { checkChangesAsk, checkFileAsk, takeChangesAsk, takeFileAsk, type FileAsk } from "./open";
@@ -98,6 +100,9 @@ export type FilesViewState = {
   /** The Changes' diff: split or unified, its file list shown. */
   layout: DiffLayout;
   listShown: boolean;
+  /** The Changes' sidebar: Files or Comments, and how many comments its list shows. */
+  sidebar: DiffSidebar;
+  comments: number;
   /** The shown tab in the user's editor (the macOS app): it shows, the viewer shows over it, or none runs; whether it can. */
   editor: "shown" | "viewer" | "none";
   canEditor: boolean;
@@ -420,6 +425,15 @@ export function FilesView({
     writeStore("github:fileList", shown);
   }, []);
   const diffHandle = useRef<DiffViewHandle | null>(null);
+  const [diffSidebar, setDiffSidebar] = useDiffSidebar("changes");
+  const [noteCount, setNoteCount] = useState(0);
+  // ⇧C: the Changes' sidebar shows its comments, or its files again (shown first if hidden).
+  const toggleDiffSidebar = (to?: DiffSidebar) => {
+    if (!listShown) {
+      setListShown(true);
+      setDiffSidebar(to ?? "comments");
+    } else setDiffSidebar(to ?? (diffSidebar === "comments" ? "files" : "comments"));
+  };
   // A file to scroll the Changes to once they show (a changed file's dot, Show changes, ⌘K).
   const [changesAt, setChangesAt] = useState<string | undefined>();
   const showChanges = useCallback(
@@ -657,8 +671,8 @@ export function FilesView({
   const showViewer = useCallback((path: string) => setTabs((t) => setTabViewer(t, path, true)), [setTabs]);
 
   // ⌘K's commands.
-  const current = useRef({ openAsked, file, openFile, focusFilter, toggleSidebar, setShowIgnored, showIgnored, refresh, copyPath, showChanges, closeActive, reopen, step, closeOthers, showingChanges, layout, listShown, filterDiffFiles, cycleMode, showEditor, showViewer, wrap, setWrap, setMarkdownView });
-  current.current = { openAsked, file, openFile, focusFilter, toggleSidebar, setShowIgnored, showIgnored, refresh, copyPath, showChanges, closeActive, reopen, step, closeOthers, showingChanges, layout, listShown, filterDiffFiles, cycleMode, showEditor, showViewer, wrap, setWrap, setMarkdownView };
+  const current = useRef({ openAsked, file, openFile, focusFilter, toggleSidebar, setShowIgnored, showIgnored, refresh, copyPath, showChanges, closeActive, reopen, step, closeOthers, showingChanges, layout, listShown, filterDiffFiles, toggleDiffSidebar, cycleMode, showEditor, showViewer, wrap, setWrap, setMarkdownView });
+  current.current = { openAsked, file, openFile, focusFilter, toggleSidebar, setShowIgnored, showIgnored, refresh, copyPath, showChanges, closeActive, reopen, step, closeOthers, showingChanges, layout, listShown, filterDiffFiles, toggleDiffSidebar, cycleMode, showEditor, showViewer, wrap, setWrap, setMarkdownView };
   useEffect(() => {
     const c = () => current.current;
     const offs = [
@@ -703,6 +717,11 @@ export function FilesView({
       onAppCommand("files-diff-find", () => {
         if (c().showingChanges) diffHandle.current?.find();
       }),
+      onAppCommand("files-diff-sidebar", (arg) => {
+        if (c().showingChanges) c().toggleDiffSidebar(arg === "files" || arg === "comments" ? arg : undefined);
+      }),
+      onAppCommand("files-diff-next-comment", () => diffHandle.current?.stepComment(1)),
+      onAppCommand("files-diff-prev-comment", () => diffHandle.current?.stepComment(-1)),
       onAppCommand("files-diff-next", () => diffHandle.current?.step(1)),
       onAppCommand("files-diff-prev", () => diffHandle.current?.step(-1)),
       onAppCommand("files-open", (arg) => {
@@ -770,10 +789,12 @@ export function FilesView({
       changesMode,
       layout,
       listShown,
+      sidebar: diffSidebar,
+      comments: showingChanges ? noteCount : 0,
       editor: editorState === "shown" ? "shown" : activeTab?.editor ? "viewer" : "none",
       canEditor: inApp && !!file && !showingChanges,
     });
-  }, [workspace?.name, file, change, text, markdown, wrap, showIgnored, sidebarHidden, tabCount, reopenable, showingChanges, changes.size, changesMode, layout, listShown, editorState, activeTab?.editor, inApp, onViewState]);
+  }, [workspace?.name, file, change, text, markdown, wrap, showIgnored, sidebarHidden, tabCount, reopenable, showingChanges, changes.size, changesMode, layout, listShown, diffSidebar, noteCount, editorState, activeTab?.editor, inApp, onViewState]);
 
   // Shown with the editor setting on, a tab opens in the editor (once: one whose editor quit shows the viewer, offering it again).
   useEffect(() => {
@@ -849,6 +870,8 @@ export function FilesView({
     else if (showingChanges && lower === "f") setListShown(!listShown);
     else if (showingChanges && lower === "m") cycleMode();
     else if (showingChanges && lower === "t" && !inTree) filterDiffFiles();
+    else if (showingChanges && e.key === "C") toggleDiffSidebar();
+    else if (showingChanges && lower === "n" && !inTree) diffHandle.current?.stepComment(e.shiftKey ? -1 : 1);
     else if (lower === "t") focusFilter();
     else if (e.key !== "Escape") handled = false;
     if (handled) e.preventDefault();
@@ -1014,6 +1037,9 @@ export function FilesView({
               setLayout={setLayout}
               listShown={listShown}
               setListShown={setListShown}
+              sidebar={diffSidebar}
+              setSidebar={setDiffSidebar}
+              onNoteCount={setNoteCount}
               {...(onOpenPr ? { onOpenPr } : {})}
               {...(onExternal ? { onExternal } : {})}
               onOpenFile={(path) => openFile(path, true)}

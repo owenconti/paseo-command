@@ -1294,8 +1294,182 @@ button.gh-side-check-name:hover {
   white-space: nowrap;
 }
 .gd-list-notes {
+  display: inline-flex;
   flex-shrink: 0;
+  align-items: center;
+  gap: 2px;
+  font-size: var(--fs-2xs);
+  font-variant-numeric: tabular-nums;
   color: var(--text-4);
+}
+
+/* The diff sidebar's Files / Comments switch, and its Comments list. */
+.gd-sidebar-switch {
+  display: flex;
+  margin: var(--space-2) var(--space-2) 0;
+}
+.gd-list-pane:has(> .gd-sidebar-switch) {
+  border-right: 1px solid var(--line);
+}
+.gd-list-pane:has(> .gd-sidebar-switch) > .gd-list {
+  border-right: 0;
+}
+.gd-sidebar-switch button {
+  display: inline-flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+}
+.gd-switch-count {
+  min-width: 16px;
+  padding: 0 4px;
+  border-radius: var(--radius-pill);
+  background: var(--fill-mid, var(--fill-soft));
+  font-size: var(--fs-2xs);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-3);
+}
+.gd-notes-toggle {
+  padding: 0;
+  background: none;
+  font-size: var(--fs-2xs);
+  font-weight: var(--fw-medium);
+  color: var(--accent-text);
+}
+.gd-notes-toggle:hover {
+  text-decoration: underline;
+}
+.gd-notes-group + .gd-notes-group {
+  margin-top: var(--space-2);
+}
+.gd-notes-file {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: var(--space-1) 0 2px;
+  padding: 0 var(--space-2);
+  font-size: var(--fs-2xs);
+  color: var(--text-4);
+}
+.gd-notes-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.gd-notes-name b {
+  font-weight: var(--fw-semibold);
+  color: var(--text-2);
+}
+.gd-notes-count {
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+}
+.gd-note {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  padding: 5px var(--space-2) 6px;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  text-align: left;
+  font-size: var(--fs-xs);
+  color: var(--text-2);
+}
+.gd-note:hover {
+  background: var(--row-hover);
+}
+.gd-note.current {
+  background: var(--row-selected);
+  box-shadow: inset 2px 0 0 var(--accent-line);
+  color: var(--text-strong);
+}
+.gd-note.dim {
+  opacity: 0.6;
+}
+.gd-note-top {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+}
+.gd-note-who {
+  flex-shrink: 0;
+  max-width: 55%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: var(--fw-semibold);
+  color: var(--text-strong);
+}
+.gd-note-where {
+  flex-shrink: 0;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: var(--fs-2xs);
+  color: var(--text-4);
+}
+.gd-note-badge {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  padding: 0 5px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-pill);
+  font-size: var(--fs-2xs);
+  color: var(--text-3);
+}
+.gd-note-badge.resolved {
+  padding: 1px 3px;
+  border-color: transparent;
+  color: var(--green-text, var(--text-3));
+}
+.gd-note-replies {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 2px;
+  font-size: var(--fs-2xs);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-4);
+}
+.gd-note-text {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+  color: var(--text-3);
+}
+.gd-note.current .gd-note-text {
+  color: var(--text-2);
+}
+.gd-notes-empty {
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  margin-top: var(--space-6);
+  padding: 0 var(--space-3);
+  text-align: center;
+  font-size: var(--fs-xs);
+  color: var(--text-4);
+}
+.gd-notes-empty p {
+  margin: 0;
+}
+.gd-notes-empty b {
+  color: var(--text-2);
+}
+.gd-notes-plus {
+  vertical-align: -1px;
+}
+/* A thread or draft shown from the Comments list (or by N / ⇧N): marked a moment. */
+.gh-thread.gd-flash,
+.gh-draft.gd-flash {
+  animation: gh-thread-focus 1.6s ease-out;
 }
 .gd-file-icon {
   flex-shrink: 0;

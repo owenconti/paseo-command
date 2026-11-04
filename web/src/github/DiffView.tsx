@@ -30,9 +30,11 @@ import { useDiffAnchor } from "./diffAnchor";
 import { clearFindMarks, FIND_CSS, FindBar, revealMatch, useFindPaint } from "./DiffFind";
 import { filterFiles, findInDiff, sameMatch, shownLines, type FindMatch, type FindOptions } from "./diffSearch";
 import { DIFF_THEMES } from "./diffWorkers";
+import { DiffComments } from "./DiffComments";
+import { isDim, noteGroups, shownGroups, stepNote, type DiffSidebar, type NoteDraft, type NoteEntry } from "./commentList";
 import type { ReviewDraft } from "./drafts";
 import { anchorKey, byDirectory, hashText, lineCount, patchOf, placeThreads, splitPath, type Anchor, type Side } from "./rows";
-import type { DiffFile, DraftComment, ReviewThread } from "./types";
+import type { DiffFile, DraftComment, Person, ReviewThread } from "./types";
 
 export type DiffLayout = "unified" | "split";
 
@@ -57,6 +59,10 @@ export type DiffReview = {
   onViewed: (path: string, viewed: boolean) => void;
   /** The thread last shown from elsewhere (`showThread`): it opens, and is marked a moment. */
   focused?: string;
+  /** Drafts whose lines the diff no longer shows (a workspace's outdated pending comments, drawn in `head`): listed too. */
+  outdatedDrafts?: NoteDraft[];
+  /** You, for your drafts' avatar in the Comments list. */
+  me?: Person;
 };
 
 export type DiffViewHandle = {
@@ -72,6 +78,8 @@ export type DiffViewHandle = {
   find: () => void;
   /** Scrolls to a review thread (its file unfolded, the thread opened); false when its file isn't in the diff. */
   showThread: (thread: ReviewThread) => boolean;
+  /** Scrolls to the next (1) or previous (−1) comment shown in the Comments list (wrapping); false when there's none. */
+  stepComment: (by: 1 | -1) => boolean;
 };
 
 /** Files with more lines than this show folded until asked. */
@@ -116,7 +124,7 @@ export function Draft({ draft, review }: { draft: ReviewDraft["comments"][number
   const [editing, setEditing] = useState(!draft.body);
   if (editing)
     return (
-      <div className="gh-draft editing">
+      <div className="gh-draft editing" data-draft={draft.id}>
         <CommentBox
           autoFocus
           initial={draft.body}
@@ -131,7 +139,7 @@ export function Draft({ draft, review }: { draft: ReviewDraft["comments"][number
       </div>
     );
   return (
-    <div className="gh-draft">
+    <div className="gh-draft" data-draft={draft.id}>
       <div className="gh-thread-meta">
         <span className="gh-pending">Pending</span>
         {draft.startLine !== undefined && draft.startLine !== draft.line && (
@@ -404,6 +412,31 @@ function topFile(scroller: HTMLElement): string | undefined {
   return undefined;
 }
 
+/** Where a note shown in the diff is brought to: a third of the way down the view (at least 40 px). */
+const noteTop = (box: DOMRect, height: number) => box.top + Math.max(40, (box.height - height) / 3);
+
+/** The thread or draft in view nearest where one shown is brought to (the virtualizer draws only what's near the view). */
+function noteInViewOf(scroller: HTMLElement): string | undefined {
+  const box = scroller.getBoundingClientRect();
+  let best: { id: string; off: number } | undefined;
+  for (const n of scroller.querySelectorAll<HTMLElement>("[data-thread],[data-draft]")) {
+    const r = n.getBoundingClientRect();
+    if (!r.height || r.bottom <= box.top + 8 || r.top >= box.bottom - 8) continue;
+    const off = Math.abs(r.top - noteTop(box, r.height));
+    const id = n.dataset.thread ?? n.dataset.draft;
+    if (id && (!best || off < best.off)) best = { id, off };
+  }
+  return best?.id;
+}
+
+/** Marks a thread or draft a moment (again, if it's marked already). */
+function flash(el: HTMLElement) {
+  el.classList.remove("gd-flash");
+  void el.offsetWidth;
+  el.classList.add("gd-flash");
+  el.addEventListener("animationend", () => el.classList.remove("gd-flash"), { once: true });
+}
+
 const FileSection = memo(function FileSection({
   file,
   layout,
@@ -493,11 +526,19 @@ export function DiffView({
   head,
   handle,
   onOpenFile,
+  sidebar = "files",
+  onSidebar,
+  onNoteCount,
 }: {
   files: DiffFile[];
   layout: DiffLayout;
   review?: DiffReview;
   listShown?: boolean;
+  /** The sidebar's Files or Comments (kept by the caller, per diff kind); without `onSidebar` only Files. */
+  sidebar?: DiffSidebar;
+  onSidebar?: (s: DiffSidebar) => void;
+  /** How many comments the Comments list shows (what N / ⇧N step through), as it changes. */
+  onNoteCount?: (n: number) => void;
   empty: ReactNode;
   /** Over the diff, under its own scroll. */
   head?: ReactNode;
@@ -533,6 +574,31 @@ export function DiffView({
   );
 
   const [current, setCurrent] = useState<string | undefined>(files[0]?.path);
+  // The Comments list: every thread and draft by file, the one in view marked.
+  const [noteInView, setNoteInView] = useState<string>();
+  const pinnedNote = useRef<{ id: string; top: number } | null>(null);
+  const [showResolved, setShowResolved] = useState(false);
+  const allNotes = useMemo(
+    () => noteGroups(files, review?.threads ?? [], review?.drafts ?? [], review?.outdatedDrafts),
+    [files, review?.threads, review?.drafts, review?.outdatedDrafts],
+  );
+  const notes = useMemo(() => shownGroups(allNotes, showResolved), [allNotes, showResolved]);
+  const noteTotals = useMemo(() => {
+    let total = 0;
+    let dimmed = 0;
+    for (const g of allNotes)
+      for (const e of g.entries) {
+        total++;
+        if (isDim(e)) dimmed++;
+      }
+    return { total, dimmed };
+  }, [allNotes]);
+  const fileOrder = useMemo(() => new Map(files.map((f, i) => [f.path, i])), [files]);
+  const shownNotes = useMemo(() => notes.flatMap((g) => g.entries), [notes]);
+  useEffect(() => onNoteCount?.(shownNotes.length), [shownNotes.length, onNoteCount]);
+  useEffect(() => () => onNoteCount?.(0), [onNoteCount]);
+  const notesNow = useRef({ entries: shownNotes, inView: noteInView, current });
+  notesNow.current = { entries: shownNotes, inView: noteInView, current };
   useEffect(() => {
     const el = scrollerOf();
     if (!el) return;
@@ -545,7 +611,14 @@ export function DiffView({
         measure();
       });
     };
-    const measure = () => setCurrent(topFile(el));
+    const measure = () => {
+      setCurrent(topFile(el));
+      // The note last shown stays the one in view until the diff is scrolled away from it.
+      const pin = pinnedNote.current;
+      if (pin && Math.abs(el.scrollTop - pin.top) < 24) return;
+      pinnedNote.current = null;
+      setNoteInView(noteInViewOf(el));
+    };
     measure();
     el.addEventListener("scroll", onScroll, { passive: true });
     return () => {
@@ -637,34 +710,42 @@ export function DiffView({
       if (scroller) void revealMatch(scroller, m, order, () => revealing.current === token);
     });
   };
-  // Showing a thread (from the Conversation): its file unfolds, its line is brought into view, then the thread itself.
-  const showThread = (t: ReviewThread) => {
-    const index = files.findIndex((f) => f.path === t.path);
+  // Showing a thread (from the Conversation or the Comments list) or a draft: its file unfolds, its line is
+  // brought into view (through the virtualizer), then the note itself, marked a moment.
+  const showNote = (n: { id: string; attr: "thread" | "draft"; path: string; anchor?: string }) => {
+    const index = files.findIndex((f) => f.path === n.path);
     const file = files[index];
-    if (!file) return false;
-    if (isFolded(file)) onFold(file.path, false);
-    setFocused(t.id);
-    const anchor = [...placeThreads(file, [t]).placed.keys()][0];
+    const selector = `[data-${n.attr}="${CSS.escape(n.id)}"]`;
+    // A note the diff draws over its files (a workspace's outdated pending comments) needs no file.
+    const drawn = scrollerOf()?.querySelector<HTMLElement>(selector);
+    if (!file && !drawn) return false;
+    if (file && isFolded(file)) onFold(file.path, false);
+    setNoteInView(n.id);
     const token = ++revealing.current;
     const live = () => revealing.current === token;
     requestAnimationFrame(async () => {
       const scroller = scrollerOf();
       if (!scroller) return;
-      if (anchor) {
-        const [side, line] = anchor.split(":");
+      if (file && n.anchor && !scroller.querySelector(selector)) {
+        const [side, line] = n.anchor.split(":");
         const key = `${side === "LEFT" ? "L" : "R"}${line}`;
         const order = new Map<string, number>();
         shownLines(file).forEach((l, i) => {
           order.set(l.key, i);
           if (l.alt) order.set(l.alt, i);
         });
-        await revealMatch(scroller, { file: index, path: file.path, key, line: order.get(key) ?? 0, start: 0, end: 0 }, order, live);
-      } else show(file.path);
+        if (order.has(key)) await revealMatch(scroller, { file: index, path: file.path, key, line: order.get(key)!, start: 0, end: 0 }, order, live);
+        else show(file.path);
+      } else if (file && !scroller.querySelector(selector)) show(file.path);
       for (let tries = 0; tries < 30 && live(); tries++) {
-        const el = scroller.querySelector<HTMLElement>(`[data-thread="${CSS.escape(t.id)}"]`);
+        const el = scroller.querySelector<HTMLElement>(selector);
         if (el) {
           const box = scroller.getBoundingClientRect();
-          scroller.scrollTop += el.getBoundingClientRect().top - box.top - Math.max(40, (box.height - el.getBoundingClientRect().height) / 3);
+          const r = el.getBoundingClientRect();
+          scroller.scrollTop += r.top - noteTop(box, r.height);
+          flash(el);
+          pinnedNote.current = { id: n.id, top: scroller.scrollTop };
+          setNoteInView(n.id);
           return;
         }
         await new Promise((done) => requestAnimationFrame(done));
@@ -672,8 +753,21 @@ export function DiffView({
     });
     return true;
   };
+  const showThread = (t: ReviewThread) => {
+    const file = files.find((f) => f.path === t.path);
+    if (!file) return false;
+    setFocused(t.id);
+    return showNote({ id: t.id, attr: "thread", path: t.path, anchor: [...placeThreads(file, [t]).placed.keys()][0] });
+  };
+  const showEntry = (e: NoteEntry) =>
+    e.thread
+      ? showThread(e.thread)
+      : showNote({ id: e.id, attr: "draft", path: e.path, ...(e.line !== null ? { anchor: anchorKey({ side: e.side, line: e.line }) } : {}) });
   const showThreadRef = useRef(showThread);
   showThreadRef.current = showThread;
+  const showEntryRef = useRef(showEntry);
+  showEntryRef.current = showEntry;
+  const onShowEntry = useCallback((e: NoteEntry) => void showEntryRef.current(e), []);
   const goTo = (i: number) => {
     const m = found?.matches[i];
     setAt(m ? i : -1);
@@ -748,6 +842,12 @@ export function DiffView({
       show,
       current: () => current,
       filterFiles: () => {
+        // The Comments list shows: Files take its place first.
+        if (!filterInput.current && listShown && sidebar === "comments" && onSidebar && review) {
+          onSidebar("files");
+          requestAnimationFrame(() => (filterInput.current?.focus(), filterInput.current?.select()));
+          return true;
+        }
         const el = filterInput.current;
         if (!el) return false;
         el.focus();
@@ -756,8 +856,13 @@ export function DiffView({
       },
       find: openFind,
       showThread: (t) => showThreadRef.current(t),
+      stepComment: (by) => {
+        const { entries, inView, current } = notesNow.current;
+        const next = stepNote(entries, inView, by, fileOrder, current);
+        return next ? showEntryRef.current(next) : false;
+      },
     }),
-    [files, current, show, openFind],
+    [files, current, show, openFind, fileOrder, listShown, sidebar, onSidebar, review],
   );
 
   const notesOf = useMemo(() => {
@@ -791,6 +896,7 @@ export function DiffView({
   };
   // Too narrow for both, the list gives way so the diff keeps its least width.
   const withList = listShown && files.length > 0 && (viewWidth === 0 || viewWidth >= LIST.min + LIST.diffMin);
+  const shownSidebar: DiffSidebar = onSidebar && review ? sidebar : "files";
 
   return (
     <div
@@ -800,6 +906,38 @@ export function DiffView({
     >
       {withList && (
         <div className="gd-list-pane">
+          {onSidebar && review && (
+            <div className="gh-segmented gd-sidebar-switch" role="radiogroup" aria-label="Show in the sidebar">
+              {(["files", "comments"] as const).map((v) => (
+                <button
+                  key={v}
+                  role="radio"
+                  aria-checked={shownSidebar === v}
+                  className={shownSidebar === v ? "selected" : ""}
+                  data-tip="Files or comments (⇧C)"
+                  onClick={() => onSidebar(v)}
+                >
+                  {v === "files" ? "Files" : "Comments"}
+                  {v === "comments" && noteTotals.total - noteTotals.dimmed > 0 && <span className="gd-switch-count">{noteTotals.total - noteTotals.dimmed}</span>}
+                </button>
+              ))}
+            </div>
+          )}
+          {shownSidebar === "comments" ? (
+            <nav className="gd-list" id="gd-list" aria-label="Comments">
+              <DiffComments
+                groups={notes}
+                total={noteTotals.total}
+                dimmed={noteTotals.dimmed}
+                showResolved={showResolved}
+                setShowResolved={setShowResolved}
+                inView={noteInView}
+                local={!!review?.local}
+                me={review?.me}
+                onShow={onShowEntry}
+              />
+            </nav>
+          ) : (
           <nav className="gd-list" id="gd-list" aria-label="Changed files">
             <label className="gh-repo-search-field gd-filter">
               <Search size={13} aria-hidden="true" />
@@ -854,7 +992,12 @@ export function DiffView({
                       <span className="gd-list-name">
                         <Marked text={splitPath(f.path).name} marks={new Set(f.marks)} from={g.dir ? g.dir.length + 1 : 0} />
                       </span>
-                      {(notesOf.get(f.path) ?? 0) > 0 && <MessageSquare size={11} aria-hidden="true" className="gd-list-notes" />}
+                      {(notesOf.get(f.path) ?? 0) > 0 && (
+                        <span className="gd-list-notes" aria-label={`${notesOf.get(f.path)} comments`}>
+                          <MessageSquare size={11} aria-hidden="true" />
+                          {notesOf.get(f.path)}
+                        </span>
+                      )}
                       <span className="gh-churn small">
                         {f.additions > 0 && <span className="add">+{f.additions}</span>}
                         {f.deletions > 0 && <span className="del">−{f.deletions}</span>}
@@ -865,6 +1008,7 @@ export function DiffView({
               );
             })}
           </nav>
+          )}
           <ResizeEdge
             label="Resize the file list"
             controls="gd-list"

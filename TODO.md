@@ -5,14 +5,7 @@ mark it done with its commit once merged into `main`.
 
 ## Open
 
-- [ ] **Diff view: a Comments list beside the files.** In the diff view (`DiffView.tsx`: a PR's Files changed and a
-  workspace's Changes), the sidebar gets a Files / Comments switch. Comments lists every review thread (on a PR: GitHub's
-  threads and your pending review drafts; on Changes: the workspace's pending comments), grouped by file in the diff's
-  order, each with its line(s), author and avatar, the first lines of the first comment, the reply count and its state
-  (resolved and outdated dimmed, a "Show resolved" toggle; drafts marked). Clicking one scrolls the diff to it (unfolding
-  the file, opening the thread) and highlights it; the list follows the thread in view. The file list shows each file's
-  comment count. Keys to step through comments (e.g. ] / [ or N / ⇧N if free), a key to switch Files/Comments, ⌘K entries
-  and the shortcuts dialog. Kept per diff kind. Tests: e2e on a mocked PR and Changes. Workspace: `diff-comments-list`.- [ ] **⌘R refreshes the page you're on.** In the GitHub tab, ⌘R refreshes what's shown (a PR: its read with `fresh=1`,
+- [ ] **⌘R refreshes the page you're on.** In the GitHub tab, ⌘R refreshes what's shown (a PR: its read with `fresh=1`,
   checks, merge box, threads, as the head's refresh button does; a list: the list), without reloading the web page. Do the
   same for the other pages' own refresh (Files: the tree and open file; Files → Changes; Activity; Settings has none). Find
   what ⌘R does today in the macOS app (a WebKit reload of the whole page would lose state) and make the app hand ⌘R to the
@@ -22,6 +15,21 @@ mark it done with its commit once merged into `main`.
   dialog. Workspace: `cmd-r-refresh`.
 
 ## Done
+
+- [x] **Diff view: a Comments list beside the files.** In the diff view (`DiffView.tsx`: a PR's Files changed and a
+  workspace's Changes), the sidebar gets a Files / Comments switch. Comments lists every review thread (on a PR: GitHub's
+  threads and your pending review drafts; on Changes: the workspace's pending comments), grouped by file in the diff's
+  order, each with its line(s), author and avatar, the first lines of the first comment, the reply count and its state
+  (resolved and outdated dimmed, a "Show resolved" toggle; drafts marked). Clicking one scrolls the diff to it (unfolding
+  the file, opening the thread) and highlights it; the list follows the thread in view. The file list shows each file's
+  comment count. Keys to step through comments (e.g. ] / [ or N / ⇧N if free), a key to switch Files/Comments, ⌘K entries
+  and the shortcuts dialog. Kept per diff kind. Tests: e2e on a mocked PR and Changes. Workspace: `diff-comments-list`.
+  Done: a Files / Comments switch heads the diff's sidebar (⇧C, ⌘K; kept per diff kind). Comments lists a PR's threads and your drafts
+  (marked Draft), or a workspace's pending comments (outdated ones too), by file in the diff's order: line(s), avatar and name, the first
+  comment's opening as plain text, replies, state; resolved and outdated ones dimmed behind Show resolved. A click (or N / ⇧N, wrapping, ⌘K)
+  shows it in the diff through the jump the Conversation uses (unfolding, opening, marked a moment); the list marks and follows the one in
+  view; the file list counts each file's comments; "No comments yet" hints at the gutter's +. Tests: `commentList.test.ts`, e2e on a mocked
+  PR (`github.e2e.ts`) and on Changes (`diff-comments.e2e.ts`).
 
 - [x] **Flaky native test: "a stopped display link draws nothing".** `npm run native:test` failed once during the v0.15.0
   release (`AtlasViewTests`, from the map-freeze watchdog commit 834eeb0: `main/<stdin>:1984: Assertion failed: a stopped display

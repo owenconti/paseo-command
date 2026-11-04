@@ -456,6 +456,16 @@ and GitHub publication; report the published version and release link.
   `github:diffListWidth` in localStorage, one width for every diff; the diff keeps 420 px, the list hiding when there's no room for both;
   full paths on hover; "Filter files…" at its head, T or ⌘K, fuzzy on paths (`fuzzyPath`, `filterFiles` in `diffSearch.ts`), narrows the
   tree to what fits, its directories kept, the matched characters marked and "12 of 49"; ↑/↓ pick (the best fit first), Enter shows it, Esc clears),
+  each row counting its file's comments; above it a Files / Comments switch (⇧C, ⌘K "Show the diff’s comments" / "…files", `github-diff-sidebar`,
+  `files-diff-sidebar`; kept per diff kind, `github:diffSidebar:pr|changes`, `useDiffSidebar` in `DiffComments.tsx`): Comments (`DiffComments.tsx`,
+  pure model `commentList.ts`: `noteGroups`, `shownGroups`, `stepNote`, `plainSnippet`) lists every thread by file in the diff's order, by line (on a PR
+  GitHub's threads and your review's drafts, marked Draft; on Changes the pending comments, outdated ones included), each with its line(s), avatar and
+  name, the first comment's opening as plain text (two lines), its reply count and state; resolved and outdated ones dimmed behind "Show resolved (N)",
+  outdated labelled; with none, "No comments yet" and the gutter's + as the hint. A click shows it in the diff (`showNote`, as the Conversation's
+  View in Files changed: the file unfolded, the line drawn through the virtualizer, a resolved thread opened, marked a moment, `gd-flash`); the list
+  marks the one in view (`noteInViewOf`: nearest a third down the view; the one just shown kept until the diff is scrolled away) and follows it.
+  N / ⇧N step through the shown ones, wrapping (`DiffViewHandle.stepComment`; ⌘K "Next/Previous comment in the diff", `github-next|prev-comment`,
+  `files-diff-next|prev-comment`, only while there are some: the views' `comments` count),
   Find in the diff (⌘F while a diff shows, the page taking the key ahead of the browser's; ⌘K "Find in the diff"; `DiffFind.tsx`): a strip over the
   diff searching every file's added, removed and unchanged lines from the parsed diff (`findInDiff`, `shownLines`: folded and not-yet-drawn files
   too; case-insensitive unless Aa, a regular expression with .*; at most 5,000), "3 of 27", Enter / ⇧Enter and its arrows step (wrapping; a new
@@ -487,7 +497,7 @@ and GitHub publication; report the published version and release link.
   opens one from elsewhere; a remembered or asked-for `{kind: "changes"}` place, the old Changes', goes to the Files tab's Changes instead,
   `redirectChanges`) and PR links: `github.com/<owner>/<name>/pull/<n>` opens in the tab wherever clicked (`prPlaceOf`;
   `WorldWindow.pageMode` matches it). Keys (`GitHubView.tsx`): J/K move (a diff's files), Enter/O open, Esc back, 1–4 PR tabs, R review,
-  C comment, V viewed, U unified/split, F file list (a repository's filters), T filter the diff's files, ⌘F find in the diff, S star the repository; each with its ⌘K entry and the shortcuts dialog's GitHub group.
+  C comment, V viewed, U unified/split, F file list (a repository's filters), T filter the diff's files, ⌘F find in the diff, ⇧C the diff's Files / Comments, N / ⇧N its next / previous comment, S star the repository; each with its ⌘K entry and the shortcuts dialog's GitHub group.
   Credential (GitHub's, for the tab, Activity and every PR lookup; the app never runs gh): a classic personal access token,
   `githubToken` in the data directory's `secrets.json` through `integrationKey("github")` (only while GitHub is on; never the
   environment), with the scopes `repo`, `notifications` and `read:org` (`web/src/githubToken.ts`). Settings → GitHub has its editor and
@@ -588,7 +598,7 @@ and GitHub publication; report the published version and release link.
   Changes show), not reordered or previewed, there with no file open; a file tab's click, ⌃Tab/⌥⌘→ (back to the shown tab) or ⇧⌘T go back to
   the files; whether it shows is kept per workspace (`changes` in `files:workspaces`). Files and Changes open each other: a changed file's dot in
   the tree (a button) and the head's Show changes open Changes at it (all changes); each diff file's Open in Files (`DiffView`'s `onOpenFile`)
-  opens it as a kept tab. In Changes (not typing; the tree keeps its own keys): J/K/↓/↑ the diff's files, T its file filter, U, F, M; ⌘K
+  opens it as a kept tab. In Changes (not typing; the tree keeps its own keys): J/K/↓/↑ the diff's files, T its file filter, U, F, M, ⇧C Files / Comments, N / ⇧N the next / previous comment; ⌘K
   (page Files) has each (`files-diff-next|prev|layout|list|filter|find`, `files-changes-mode`). Opened from elsewhere by `openFilesChanges(path?)`
   (`web/src/files/open.ts`: kept as `files:openChanges` for the page to take as it mounts, and sent as `files-changes`), the caller showing
   the tab (`postAppMenu("files")`): the workspace view's Changes button and ⌘K "Show …'s changes against main" (page Files, the macOS app's) and

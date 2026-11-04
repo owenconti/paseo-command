@@ -637,6 +637,131 @@ test("A PR's line comments show in its Conversation: under their review, single 
   }
 });
 
+test("Files changed's Comments list: threads and drafts by file, Show resolved, a click shows the thread, N / ⇧N step, ⇧C switches, kept", async () => {
+  const context = await newContext(browser);
+  const page = await context.newPage();
+  await page.setViewportSize({ width: 1600, height: 1000 });
+  const errors: string[] = [];
+  page.on("pageerror", (e) => errors.push(String(e)));
+  await setUp(page, { detail: (d) => d.number === 13 && threaded(d), refuse: new Set() });
+  // A drafted comment of your pending review, on src/b.ts's line 3.
+  await page.addInitScript(() => {
+    if (!localStorage.getItem("paseo-command:github:review:acme/atlas#13"))
+      localStorage.setItem(
+        "paseo-command:github:review:acme/atlas#13",
+        JSON.stringify({ comments: [{ id: "D_1", path: "src/b.ts", line: 3, side: "RIGHT", body: "Draft: *rename* this" }], body: "" }),
+      );
+  });
+  try {
+    await page.goto(app.url);
+    await page.locator(".fleet-sidebar").waitFor();
+    await showGithub(page);
+    const view = page.locator(".github-view");
+    await view.locator(".gh-row", { hasText: "Fix the shoreline" }).click();
+    await view.getByRole("tab", { name: /Files changed/ }).click();
+    await view.locator('.gd-file[data-path="src/b.ts"]').waitFor();
+
+    // Each file's row counts its comments (replies and drafts too).
+    const row = (path: string) => view.locator(`.gd-list-file[title="${path}"] .gd-list-notes`);
+    assert.equal(await row("src/a.ts").innerText(), "3");
+    assert.equal(await row("src/b.ts").innerText(), "3");
+
+    // Comments: the open ones, by file in the diff's order, by line; the resolved and outdated one behind Show resolved.
+    const sw = view.getByRole("radiogroup", { name: "Show in the sidebar" });
+    await sw.getByRole("radio", { name: /Comments/ }).click();
+    const list = view.getByRole("navigation", { name: "Comments" });
+    const ids = () => list.locator(".gd-note").evaluateAll((els) => els.map((e) => (e as HTMLElement).dataset.entry));
+    await waitFor(ids, (v) => v.length === 4, "the open comments listed");
+    assert.deepEqual(await ids(), ["RT_loose", "RT_c", "D_1", "RT_single"]);
+    assert.equal(await list.locator(".gd-list-head span").first().innerText(), "4 open");
+    const c = list.locator('[data-entry="RT_c"]');
+    assert.equal(await c.locator(".gd-note-where").innerText(), "L3");
+    assert.equal(await c.locator(".gd-note-who").innerText(), "bob");
+    assert.equal(await c.locator(".gd-note-text").innerText(), "Name this constant?");
+    assert.equal(await c.locator(".gd-note-replies").getAttribute("aria-label"), "1 reply");
+    assert.equal(await list.locator('[data-entry="RT_loose"] .gd-note-where').innerText(), "L1–2");
+    const draft = list.locator('[data-entry="D_1"]');
+    assert.equal(await draft.locator(".gh-pending").innerText(), "Draft");
+    assert.equal(await draft.locator(".gd-note-who").innerText(), "You");
+    assert.equal(await draft.locator(".gd-note-text").innerText(), "Draft: rename this");
+    await list.getByRole("button", { name: "Show resolved (1)" }).click();
+    const old = list.locator('[data-entry="RT_old"]');
+    await old.waitFor();
+    assert.match((await old.getAttribute("class")) ?? "", /\bdim\b/);
+    assert.equal(await old.locator(".gd-note-badge", { hasText: "Outdated" }).count(), 1);
+    assert.equal(await old.locator(".gd-note-where").innerText(), "L2");
+
+    if (process.env.GITHUB_SHOT)
+      for (const scheme of ["dark", "light"] as const) {
+        await page.emulateMedia({ colorScheme: scheme });
+        await page.waitForTimeout(300);
+        await page.screenshot({ path: `${process.env.GITHUB_SHOT}/comments-${scheme}.png` });
+      }
+
+    // A click on the resolved, outdated one: shown in the diff, opened, marked, and marked in the list.
+    await old.click();
+    const there = view.locator('.gd-file[data-path="src/b.ts"] [data-thread="RT_old"]');
+    await there.locator(".gh-thread-comment", { hasText: "Was this meant to change?" }).waitFor();
+    await waitFor(() => there.evaluate((e) => e.classList.contains("gd-flash") || e.classList.contains("focused")), Boolean, "the thread marked");
+    await waitFor(() => old.getAttribute("aria-current"), (v) => v === "true", "the entry in view marked");
+    // Hide resolved again; a click on the draft shows it under its line.
+    await list.getByRole("button", { name: "Hide resolved" }).click();
+    await old.waitFor({ state: "detached" });
+    await draft.click();
+    const draftThere = view.locator('.gd-file[data-path="src/b.ts"] [data-draft="D_1"]');
+    await waitFor(
+      () =>
+        draftThere.evaluate((e) => {
+          const r = e.getBoundingClientRect();
+          const box = e.closest(".gd-scroll")!.getBoundingClientRect();
+          return r.top >= box.top && r.bottom <= box.bottom;
+        }),
+      Boolean,
+      "the draft in view",
+    );
+    await waitFor(() => draft.getAttribute("aria-current"), (v) => v === "true", "the draft marked in the list");
+
+    // N and ⇧N step through the list (wrapping) from the one in view.
+    await page.keyboard.press("n");
+    await waitFor(() => list.locator('[data-entry="RT_single"]').getAttribute("aria-current"), (v) => v === "true", "N: the next comment");
+    await page.keyboard.press("n");
+    await waitFor(() => list.locator('[data-entry="RT_loose"]').getAttribute("aria-current"), (v) => v === "true", "N wraps to the first");
+    await page.keyboard.press("Shift+N");
+    await waitFor(() => list.locator('[data-entry="RT_single"]').getAttribute("aria-current"), (v) => v === "true", "⇧N: the previous");
+    await view.locator('.gd-file[data-path="src/b.ts"] [data-thread="RT_single"]').waitFor();
+
+    // Kept for PRs: a reload shows the comments again; ⇧C goes back to the files, ⌘K too.
+    await page.reload();
+    await page.locator(".fleet-sidebar").waitFor();
+    await showGithub(page);
+    await list.locator(".gd-note").first().waitFor();
+    await view.locator(".gh-pr-title").click();
+    await page.keyboard.press("Shift+C");
+    await view.getByRole("navigation", { name: "Changed files" }).waitFor();
+    assert.equal(await sw.getByRole("radio", { name: "Files" }).getAttribute("aria-checked"), "true");
+    await page.keyboard.press("Meta+k");
+    const palette = page.getByRole("dialog", { name: "Command palette" });
+    await palette.getByRole("combobox", { name: "Search commands" }).fill("comment in the diff");
+    await palette.getByRole("option", { name: /Next comment in the diff/ }).waitFor();
+    await palette.getByRole("option", { name: /Previous comment in the diff/ }).waitFor();
+    await palette.getByRole("combobox", { name: "Search commands" }).fill("diff’s comments");
+    await palette.getByRole("option", { name: /Show the diff’s comments.*GitHub/ }).click();
+    await palette.waitFor({ state: "detached" });
+    await list.locator(".gd-note").first().waitFor();
+
+    // A PR without comments: the list says how to leave one.
+    await view.locator(".gh-pr-title").click();
+    await page.keyboard.press("Escape");
+    await view.locator(".gh-row", { hasText: "Add the GitHub tab" }).click();
+    await view.getByRole("tab", { name: /Files changed/ }).click();
+    await list.locator(".gd-notes-empty", { hasText: "No comments yet" }).waitFor();
+    assert.match(await list.locator(".gd-notes-empty").innerText(), /in its gutter to comment/);
+    assert.deepEqual(errors, []);
+  } finally {
+    await context.close();
+  }
+});
+
 test("A refused reply goes again from the Conversation, with a notice", async () => {
   const context = await newContext(browser);
   const page = await context.newPage();
