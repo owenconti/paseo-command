@@ -2,6 +2,7 @@
 // ⇧⌘E: View → Show Files from anywhere. The Files tab after GitHub, always shown.
 // ⌘W: View → Close File Tab, offered to the menu ahead of the page while Files shows; elsewhere as before.
 // ⌘R: View → Refresh Page, offered ahead of the page while GitHub, Files or Activity shows; terminals and Conquer keep it.
+// ⇧⌘C: no app key or menu item of its own (the GitHub tab's page copies the PR's link).
 _ = NSApplication.shared
 enum Log { static func line(_ message: String) {} }
 // The app's menus while Conquer hasn't the keyboard (its own commands are disabled then).
@@ -221,4 +222,11 @@ for k in [key("t", [.command, .shift]), key("\t", .control), key("\t", [.control
     assert(!AppKeys.offeredToMenu(k, conquerHasKeys: false, filesShows: true))
 }
 assert(!ConquerView.commands.compactMap { $0 }.contains { $0.mods == [.command, .option] && ["\u{F702}", "\u{F703}"].contains($0.key) })
+// ⇧⌘C: the GitHub tab's (the page copies the PR's link, `GitHubView.tsx`). No app key, menu item or Conquer command uses
+// it, so the web view, ahead of the menu, hands it to the page, as ⌘S and ⌘F. (Matching it against the menu here proves
+// nothing: a made-up event matches items by character alone, ⌘C an item of ⇧⌘C's too.)
+let shiftC = key("C", [.command, .shift])
+for conquer in [false, true] { assert(!AppKeys.offeredToMenu(shiftC, conquerHasKeys: conquer, filesShows: true, pageRefreshes: true)) }
+assert(!ConquerView.commands.compactMap { $0 }.contains { $0.key == "c" }, "Conquer has no ⌘C of its own")
+assert(!bar.items.flatMap { $0.submenu?.items ?? [] }.contains { $0.keyEquivalent.lowercased() == "c" }, "no View, Conquer or Window item of ⌘C or ⇧⌘C (Edit → Copy is ⌘C only)")
 print("App key checks passed.")

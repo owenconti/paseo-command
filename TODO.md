@@ -5,12 +5,19 @@ mark it done with its commit once merged into `main`.
 
 ## Open
 
-- [ ] **⇧⌘C copies the PR's GitHub link.** On a PR in the GitHub tab, ⇧⌘C copies its github.com address to the clipboard
+
+## Done
+
+- [x] **⇧⌘C copies the PR's GitHub link.** On a PR in the GitHub tab, ⇧⌘C copies its github.com address to the clipboard
   with a brief "Link copied" notice (also when the diff or another PR tab shows; not while typing in a field). Check ⇧⌘C is
   free in the app (native menus, Conquer, the Terminal tab) and the page; in the macOS app route it as other page keys are
   if WebKit or a menu would take it. ⌘K "Copy the pull request's link" (page GitHub, ⇧⌘C) and the shortcuts dialog. If it
   fits, the same key on a repository's PR list copies the repository's pulls address. Workspace: `copy-pr-link`.
-## Done
+  Done: ⇧⌘C on a PR (any tab) copies `https://github.com/<owner>/<repo>/pull/<n>`, on a repository's list its `…/pulls`, with
+  the "Link copied" notice; a field keeps the key (nothing copied), and the scope lists (Review requests…) have no one address.
+  ⇧⌘C was free: no native menu item (Edit → Copy is ⌘C only), Conquer command or page handler used it, and WebKit has none, so
+  no routing was needed; the page takes it as it does ⌘S. ⌘K entries (page GitHub, ⇧⌘C), the shortcuts dialog's GitHub row.
+  Tests: `github.e2e.ts`, `AppKeysTests`.
 
 - [x] **⌘R refreshes the page you're on.** In the GitHub tab, ⌘R refreshes what's shown (a PR: its read with `fresh=1`,
   checks, merge box, threads, as the head's refresh button does; a list: the list), without reloading the web page. Do the

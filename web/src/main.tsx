@@ -1919,6 +1919,7 @@ function App() {
                   return [
                     command("github-filter", "Filter the repository’s pull requests…", "filter state author reviewer assignee review draft ci checks", ["F"]),
                     command("github-open-browser", "Open the repository’s pull requests on GitHub", "browser conquer web open external repository"),
+                    command("github-copy-link", "Copy the repository’s pull requests link", "copy link url address clipboard share github.com pulls repository", ["⇧", "⌘", "C"]),
                     ...PR_VALUE_FIELDS.flatMap((field) =>
                       (Object.entries(PR_FILTERS[field].values) as [string, { text: string }][])
                         .filter(([value]) => f[field] !== value)
@@ -1984,6 +1985,7 @@ function App() {
             ...(place.kind === "pr"
               ? [
                   command("github-back", "Back to the pull request list", "back list close", ["Esc"]),
+                  command("github-copy-link", "Copy the pull request’s link", "copy link url address clipboard share github.com pr", ["⇧", "⌘", "C"]),
                   ...(["conversation", "files", "commits", "checks"] as const)
                     .filter((t) => t !== place.tab)
                     .map((t) =>

@@ -45,6 +45,14 @@ export function checkPlace(raw: unknown): GithubPlace {
   return DEFAULT_PLACE;
 }
 
+/** A place's address on github.com, for ⇧⌘C: a PR's, or a repository's pull requests; none for the scope lists. */
+export const placeLink = (place: GithubPlace): string | undefined =>
+  place.kind === "pr"
+    ? `https://github.com/${place.repo}/pull/${place.number}`
+    : place.kind === "repo"
+      ? `https://github.com/${place.repo}/pulls`
+      : undefined;
+
 export const samePlace = (a: GithubPlace, b: GithubPlace) => JSON.stringify(a) === JSON.stringify(b);
 
 /**

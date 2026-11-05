@@ -1222,3 +1222,88 @@ test("⌘R refreshes what the GitHub tab shows (a list, a PR and its open tab) w
     await context.close();
   }
 });
+
+/** ⇧⌘C as the keyboard sends it, to what has focus; whether the page took it. */
+const pressCopy = (page: Page) =>
+  page.evaluate(() => {
+    const e = new KeyboardEvent("keydown", { key: "C", metaKey: true, shiftKey: true, bubbles: true, cancelable: true });
+    (document.activeElement ?? document.body).dispatchEvent(e);
+    return e.defaultPrevented;
+  });
+
+test("⇧⌘C copies the PR's github.com link (any of its tabs) with a notice, a repository's list its pulls link; never while typing", async () => {
+  const context = await newContext(browser);
+  const page = await context.newPage();
+  await page.setViewportSize({ width: 1600, height: 1000 });
+  await setUp(page);
+  // The clipboard, recorded (a browser's page writes through navigator.clipboard).
+  await page.addInitScript(() => {
+    const w = window as unknown as { copied: string[] };
+    w.copied = [];
+    Clipboard.prototype.writeText = async (text: string) => void w.copied.push(text);
+  });
+  const copied = () => page.evaluate(() => (window as unknown as { copied: string[] }).copied);
+  const notice = page.locator(".toast[role=status]", { hasText: "Link copied" });
+  const dismiss = async () => {
+    await page.getByRole("button", { name: "Dismiss notification" }).click();
+    await notice.waitFor({ state: "detached" });
+  };
+  try {
+    await page.goto(app.url);
+    await page.locator(".fleet-sidebar").waitFor();
+    // The map: not the GitHub tab's key.
+    assert.equal(await pressCopy(page), false);
+
+    await showGithub(page);
+    const view = page.locator(".github-view");
+    await view.locator(".gh-row").first().waitFor();
+    // A scope list (Review requests) has no one address: the key isn't taken.
+    assert.equal(await pressCopy(page), false);
+    assert.deepEqual(await copied(), []);
+
+    // A PR's Conversation.
+    await view.locator(".gh-row", { hasText: "Add the GitHub tab" }).click();
+    await view.locator(".gh-entry.description").waitFor();
+    await page.keyboard.press("Meta+Shift+c");
+    await notice.waitFor();
+    assert.deepEqual(await copied(), ["https://github.com/acme/atlas/pull/12"]);
+    await dismiss();
+
+    // Typing in the comment box: the field keeps the key and nothing is copied.
+    const box = view.locator("#gh-pr-comment textarea");
+    await box.fill("Half a thought");
+    await box.focus();
+    assert.equal(await pressCopy(page), false);
+    await page.keyboard.press("Meta+Shift+c");
+    await page.waitForTimeout(150);
+    assert.equal((await copied()).length, 1, "not while typing");
+    assert.equal(await notice.count(), 0);
+    await box.blur();
+
+    // Files changed: still the PR's link.
+    await view.getByRole("tab", { name: /Files changed/ }).click();
+    await view.locator(".gd-file").first().waitFor();
+    assert.equal(await pressCopy(page), true);
+    await notice.waitFor();
+    assert.deepEqual(await copied(), ["https://github.com/acme/atlas/pull/12", "https://github.com/acme/atlas/pull/12"]);
+    await dismiss();
+
+    // ⌘K says the key and copies it too.
+    await page.keyboard.press("Meta+k");
+    const palette = page.getByRole("dialog", { name: "Command palette" });
+    await palette.getByRole("combobox", { name: "Search commands" }).fill("Copy the pull request");
+    await palette.getByRole("option", { name: /Copy the pull request’s link.*GitHub.*⇧\s*⌘\s*C/ }).click();
+    await notice.waitFor();
+    assert.equal((await copied()).length, 3);
+    await dismiss();
+
+    // A repository's list: its pulls address.
+    await view.locator(".gh-repo-row .gh-nav-label", { hasText: "atlas" }).click();
+    await view.locator(".gh-head h2", { hasText: "acme/atlas" }).waitFor();
+    assert.equal(await pressCopy(page), true);
+    await notice.waitFor();
+    assert.equal((await copied()).at(-1), "https://github.com/acme/atlas/pulls");
+  } finally {
+    await context.close();
+  }
+});

@@ -508,6 +508,11 @@ and GitHub publication; report the published version and release link.
   `redirectChanges`) and PR links: `github.com/<owner>/<name>/pull/<n>` opens in the tab wherever clicked (`prPlaceOf`;
   `WorldWindow.pageMode` matches it). Keys (`GitHubView.tsx`): J/K move (a diff's files), Enter/O open, Esc back, 1–4 PR tabs, R review,
   C comment, V viewed, U unified/split, F file list (a repository's filters), T filter the diff's files, ⌘F find in the diff, ⇧C the diff's Files / Comments, N / ⇧N its next / previous comment, S star the repository; each with its ⌘K entry and the shortcuts dialog's GitHub group.
+  ⇧⌘C (`GitHubView.tsx`, a window listener, as ⌘S) copies the shown place's github.com address (`placeLink` in `place.ts`: a PR's
+  `…/pull/<n>` on any of its tabs, a repository's list its `…/pulls`; the scope lists have none and leave the key) with the
+  "Link copied" notice, through `copyText` (the app's clipboard in the macOS app); not while typing in a field or under a dialog.
+  ⌘K "Copy the pull request’s link" / "Copy the repository’s pull requests link" (`github-copy-link`). No app key, menu item or
+  Conquer command has ⇧⌘C (Edit → Copy is ⌘C only), so the web view hands it to the page; `AppKeysTests` checks it stays free.
   Credential (GitHub's, for the tab, Activity and every PR lookup; the app never runs gh): a classic personal access token,
   `githubToken` in the data directory's `secrets.json` through `integrationKey("github")` (only while GitHub is on; never the
   environment), with the scopes `repo`, `notifications` and `read:org` (`web/src/githubToken.ts`). Settings → GitHub has its editor and

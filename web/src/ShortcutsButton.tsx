@@ -137,6 +137,7 @@ const GITHUB: Group = {
     { keys: [["⇧", "C"]], label: "The diff's sidebar: its files or its comments (review threads and your drafts)" },
     { keys: [["N"], ["⇧", "N"]], label: "The diff's next or previous comment (the Comments list's, resolved ones only while shown)" },
     { keys: [["S"]], label: "Star or unstar the repository as a favourite" },
+    { keys: [["⇧", "⌘", "C"]], label: "Copy the pull request's link (on a repository's list, its pull requests' link)" },
     { keys: [["⌘", "↩"]], label: "Send the comment or review being written" },
     { keys: [["⌘", "S"]], label: "Show or hide the sidebar" },
   ],

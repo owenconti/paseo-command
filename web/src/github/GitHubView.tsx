@@ -6,6 +6,7 @@ import { modalOpen } from "../focus";
 import { ResizeEdge } from "../ResizeEdge";
 import { macApp, postAppLink } from "../worldBridge";
 import { isTyping } from "../worldShortcut";
+import { copyText } from "../nativePlatform";
 import { invalidate, readPath, useGithubRead } from "./api";
 import { createGithubToken } from "../GithubTokenSetup";
 import { Avatar } from "./bits";
@@ -15,6 +16,7 @@ import type { DiffSidebar } from "./commentList";
 import type { DiffLayout, DiffViewHandle } from "./DiffView";
 import {
   checkPlace,
+  placeLink,
   PR_TABS,
   readConversationOrder,
   readPlace,
@@ -105,7 +107,8 @@ function prActions(pr: PrDetail): { key: string; label: string; action: MergeAct
  * through a list (and through a diff's files), Enter or O open, Esc goes back,
  * 1–4 a PR's tabs, R review, C comment, V viewed, U unified/split, F the file
  * list (a repository's filters), T filters a diff's files,
- * S stars the repository; ⌘F finds in a diff (`DiffView`).
+ * S stars the repository; ⌘F finds in a diff (`DiffView`); ⇧⌘C copies the PR's
+ * (or the repository's pull requests') github.com address.
  * As Conquer's, the sidebar's inner edge resizes it and ⌘S hides
  * or shows it (both kept), whatever shows beside it.
  */
@@ -261,6 +264,29 @@ export function GitHubView({
     window.addEventListener("keydown", key, true);
     return () => window.removeEventListener("keydown", key, true);
   }, [toggleSidebar]);
+  // ⇧⌘C: the shown PR's address (or the repository's pull requests'), wherever in the view, but not while typing
+  // (a field keeps the key) or under a dialog. The macOS app's menus and Conquer have no ⇧⌘C, so it reaches the page.
+  const copyLink = useCallback(
+    (url: string) =>
+      void copyText(url).then(
+        () => onNotice("Link copied"),
+        (e: unknown) => onNotice(`Couldn’t copy the link: ${e instanceof Error ? e.message : String(e)}`),
+      ),
+    [onNotice],
+  );
+  const shownLink = placeLink(place);
+  useEffect(() => {
+    if (!shownLink) return;
+    const key = (e: KeyboardEvent) => {
+      if (!(e.metaKey && e.shiftKey && !e.ctrlKey && !e.altKey && e.key.toLowerCase() === "c")) return;
+      if (isTyping(e.target as HTMLElement | null) || modalOpen()) return;
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      copyLink(shownLink);
+    };
+    window.addEventListener("keydown", key, true);
+    return () => window.removeEventListener("keydown", key, true);
+  }, [shownLink, copyLink]);
   const resizeSidebar = (w: number | null) => {
     const next = w === null ? PANELS.sidebar : Math.round(Math.min(sidebarMax, Math.max(PANELS.sidebarMin, w)));
     setSidebarWidth(next);
@@ -371,6 +397,10 @@ export function GitHubView({
         const a = arg as { kind?: unknown; name?: unknown; starred?: unknown } | undefined;
         if ((a?.kind === "repo" || a?.kind === "org") && typeof a.name === "string" && typeof a.starred === "boolean") void c().star(a.kind, a.name, a.starred);
       }),
+      onAppCommand("github-copy-link", () => {
+        const url = placeLink(c().place);
+        if (url) copyLink(url);
+      }),
       onAppCommand("github-find-repo", () => findRepo()),
       onAppCommand("github-sidebar", () => toggleSidebar()),
       onAppCommand("github-filter", (arg) => {
@@ -386,7 +416,7 @@ export function GitHubView({
       }),
     ];
     return () => offs.forEach((off) => off());
-  }, [go, findRepo, toggleSidebar]);
+  }, [go, findRepo, toggleSidebar, copyLink]);
 
   useEffect(() => {
     const pr = place.kind === "pr" ? openPr.pr : undefined;

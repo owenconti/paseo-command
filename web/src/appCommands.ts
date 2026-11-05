@@ -53,6 +53,7 @@ export type AppCommand =
   | "github-prev-file"
   | "github-viewed"
   | "github-open-browser"
+  | "github-copy-link"
   | "github-star"
   | "github-find-repo"
   | "github-sidebar"
