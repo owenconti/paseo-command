@@ -5,6 +5,11 @@ mark it done with its commit once merged into `main`.
 
 ## Open
 
+- [ ] **⇧⌘C copies the PR's GitHub link.** On a PR in the GitHub tab, ⇧⌘C copies its github.com address to the clipboard
+  with a brief "Link copied" notice (also when the diff or another PR tab shows; not while typing in a field). Check ⇧⌘C is
+  free in the app (native menus, Conquer, the Terminal tab) and the page; in the macOS app route it as other page keys are
+  if WebKit or a menu would take it. ⌘K "Copy the pull request's link" (page GitHub, ⇧⌘C) and the shortcuts dialog. If it
+  fits, the same key on a repository's PR list copies the repository's pulls address. Workspace: `copy-pr-link`.
 ## Done
 
 - [x] **⌘R refreshes the page you're on.** In the GitHub tab, ⌘R refreshes what's shown (a PR: its read with `fresh=1`,
