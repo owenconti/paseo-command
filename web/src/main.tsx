@@ -1341,6 +1341,18 @@ function App() {
               : []),
           ]
         : []),
+      ...(asking && !selection?.subagent
+        ? [
+            {
+              id: "toggle-question",
+              group: "Actions",
+              page: "Command" as const,
+              label: "Collapse or expand the agent’s question",
+              keywords: "fold unfold hide show question ask card minimise",
+              run: () => runAppCommand("agent-question-toggle"),
+            },
+          ]
+        : []),
       ...(a.workspaceId && agentComments.pending.length && !selection?.subagent
         ? [
             ...(live

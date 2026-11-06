@@ -15,6 +15,7 @@ export type AppCommand =
   | "agent-interrupt"
   | "agent-open-paseo"
   | "agent-archive"
+  | "agent-question-toggle"
   | "diff-comments-apply"
   | "diff-comments-show"
   | "page-text-bigger"

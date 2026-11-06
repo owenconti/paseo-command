@@ -969,10 +969,50 @@
 }
 
 /* Question permissions (AskUserQuestion) */
-.question-card > b {
+.question-card-head {
   display: flex;
   align-items: center;
   gap: 6px;
+  width: 100%;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.question-card-head > svg {
+  flex-shrink: 0;
+}
+.question-card-head > b {
+  flex-shrink: 0;
+  font-weight: var(--fw-semibold);
+}
+.question-card-summary {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--text-2);
+}
+.question-card-chevron {
+  margin-left: auto;
+  opacity: 0.7;
+}
+.question-card-head:hover .question-card-chevron {
+  opacity: 1;
+}
+.question-card-head:focus-visible {
+  outline: none;
+  border-radius: var(--radius-sm);
+  box-shadow: var(--focus-ring);
+}
+.question-card.collapsed {
+  padding-block: var(--space-2);
 }
 .question {
   border: 0;

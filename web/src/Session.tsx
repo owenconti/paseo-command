@@ -595,6 +595,7 @@ export function Session({
             key={p.id || i}
             permission={p}
             busy={!!busy}
+            paletteToggle={i === 0}
             onRespond={(decision) => void respond(p, decision)}
           />
         ))}

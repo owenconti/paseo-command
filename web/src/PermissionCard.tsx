@@ -1,6 +1,8 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Check,
+  ChevronDown,
+  ChevronRight,
   ClipboardList,
   LoaderCircle,
   MessageCircleQuestion,
@@ -10,6 +12,11 @@ import {
 import { Markdown } from "./Markdown";
 import type { Permission } from "./types";
 import { plainText } from "./ui";
+import { onAppCommand } from "./appCommands";
+
+/** Question cards folded away, by permission id, so a fold outlasts
+ * switching agents while the question waits. */
+const folded = new Set<string>();
 
 export type PermissionDecision = {
   behavior: "allow" | "deny";
@@ -23,9 +30,12 @@ export function PermissionCard({
   busy,
   onRespond,
   imageHost,
+  paletteToggle,
 }: {
   permission: Permission;
   busy: boolean;
+  /** Answer ⌘K's "Collapse/Expand the agent's question" (the open agent's card only). */
+  paletteToggle?: boolean;
   /** The agent's host, when remote: its local image files aren't readable here. */
   imageHost?: string;
   onRespond: (decision: PermissionDecision) => void;
@@ -35,6 +45,26 @@ export function PermissionCard({
     questions.map(() => new Set()),
   );
   const [other, setOther] = useState<string[]>(() => questions.map(() => ""));
+  const [collapsed, setCollapsedState] = useState(() => !!p.id && folded.has(p.id));
+  const setCollapsed = (next: boolean) => {
+    if (p.id) {
+      if (next) folded.add(p.id);
+      else folded.delete(p.id);
+    }
+    setCollapsedState(next);
+  };
+  useEffect(() => {
+    if (!paletteToggle || !questions.length) return;
+    return onAppCommand("agent-question-toggle", () =>
+      setCollapsedState((was) => {
+        if (p.id) {
+          if (was) folded.delete(p.id);
+          else folded.add(p.id);
+        }
+        return !was;
+      }),
+    );
+  }, [paletteToggle, questions.length, p.id]);
   const answered = (i: number) =>
     picked[i]?.size > 0 ||
     (questions[i].allowOther && other[i].trim().length > 0) ||
@@ -67,14 +97,30 @@ export function PermissionCard({
 
   if (questions.length)
     return (
-      <div className="permission question-card">
-        <b>
+      <div className={`permission question-card${collapsed ? " collapsed" : ""}`}>
+        <button
+          type="button"
+          className="question-card-head"
+          aria-expanded={!collapsed}
+          aria-description={collapsed ? "Show the question" : "Fold the question away"}
+          onClick={() => setCollapsed(!collapsed)}
+        >
           <MessageCircleQuestion size={14} />
-          {questions.length === 1
-            ? "The agent has a question"
-            : `The agent has ${questions.length} questions`}
-        </b>
-        {questions.map((q, qi) => (
+          <b>
+            {questions.length === 1
+              ? "The agent has a question"
+              : `The agent has ${questions.length} questions`}
+          </b>
+          {collapsed && (
+            <span className="question-card-summary">{questions[0].question}</span>
+          )}
+          {collapsed ? (
+            <ChevronRight size={14} className="question-card-chevron" />
+          ) : (
+            <ChevronDown size={14} className="question-card-chevron" />
+          )}
+        </button>
+        {!collapsed && questions.map((q, qi) => (
           <fieldset key={qi} className="question">
             <legend>
               <span className="question-header">{q.header}</span>
@@ -144,7 +190,7 @@ export function PermissionCard({
             )}
           </fieldset>
         ))}
-        <div>
+        {!collapsed && <div>
           <button
             aria-description={
               complete
@@ -170,7 +216,7 @@ export function PermissionCard({
             <X size={13} />
             Dismiss
           </button>
-        </div>
+        </div>}
       </div>
     );
 
