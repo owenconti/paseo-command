@@ -1989,7 +1989,7 @@
   },
   "v5_generations": {
     "v5-workshop": {
-      "prompt": "Use case: stylized-concept. Production transparent GAME SPRITE atlas, EXACT 2 columns by 1 row. Two modular workspace INTERIORS, matching the private dungeon reference's cutaway art. They will each be displayed as a narrow 40 concept px wide x 82 high slot. NO enclosing stone pillars, NO outer lintel, NO label. Camera in front and ABOVE, show desktop and floor top planes. Dark purple-grey small brick recess, smooth painted shaded stone with a little pixel-like chipped texture, dark outline. Warm torch/candle bounce lights its lower wall and stone step: warm cream-gold highlights, purple mortar stays dark. Not flat vector, not strict 8-bit, not a 3D render. LEFT interior: one wooden DESK and an angled glowing CYAN monitor on its RIGHT side; make the monitor clear and readable, occupying about the RIGHT 55 percent of the slot width, not a tiny box. The desk, keyboard, and side of monitor should show perspective/top faces. Screen has only a few simple cyan abstract rectangles, NO text. Keep left half dark/open for a large robot standing in front. RIGHT interior: a shallow right-side wooden BOOK/SCROLL SHELF with 3–4 broad colorful books and one rolled scroll, a low small wood surface beneath it, sparse and readable, left half open. Both interiors have a shallow warm grey stone floor/step at bottom with a pool of golden candlelight. NO candles, torches, robots, potions, furniture filling the whole wall, words, numbers, external ground or scene. Every part contained in its own equal cell with transparent gutters, but interior brick/floor itself opaque. Dark background behind the sparse props, brighter warm material highlights rather than a neon aura.",
+      "prompt": "Use case: stylized-concept. Production transparent GAME SPRITE atlas, EXACT 2 columns by 1 row. Two modular workspace INTERIORS, matching the private dungeon reference's cutaway art. They will each be displayed as a narrow 40 concept px wide x 82 high slot. NO enclosing stone pillars, NO outer lintel, NO label. Camera in front and ABOVE, show desktop and floor top planes. Dark purple-grey small brick recess, smooth painted shaded stone with a little pixel-like chipped texture, dark outline. Warm torch/candle bounce lights its lower wall and stone step: warm cream-gold highlights, purple mortar stays dark. Not flat vector, not strict 8-bit, not a 3D render. LEFT interior: one wooden DESK and an angled glowing CYAN monitor on its RIGHT side; make the monitor clear and readable, occupying about the RIGHT 55 percent of the slot width, not a tiny box. The desk, keyboard, and side of monitor should show perspective/top faces. Screen has only a few simple cyan abstract rectangles, NO text. Keep left half dark/open for a large robot standing in front. RIGHT interior: a shallow right-side wooden BOOK/SCROLL SHELF with 3\u20134 broad colorful books and one rolled scroll, a low small wood surface beneath it, sparse and readable, left half open. Both interiors have a shallow warm grey stone floor/step at bottom with a pool of golden candlelight. NO candles, torches, robots, potions, furniture filling the whole wall, words, numbers, external ground or scene. Every part contained in its own equal cell with transparent gutters, but interior brick/floor itself opaque. Dark background behind the sparse props, brighter warm material highlights rather than a neon aura.",
       "source_filename": "exec-103f5391-1891-4347-b87e-30a920fef585.png",
       "review_source": "v5/workshop-raw.png",
       "grid": {
@@ -2185,7 +2185,7 @@
   "v7_notes": "Five hanging canvases intentionally become taller without changing their pixel mounting anchors or frame names; other old frames keep their dimensions, pixels and anchors. Two new dark stepped corbels support irregular underside placement. Review refers to compare-13, before integration.",
   "v8_generations": {
     "v8-materials": {
-      "prompt": "Use case: stylized-concept. Production transparent game art for Dungeon Board. Private image is STYLE REFERENCE ONLY. Match its HD PIXEL-TEXTURED PAINTED dungeon masonry: large irregular lavender-grey stone, angular chipped edges, uneven block widths/heights, short cracks and irregular broken bevel highlights. Hand-painted shading with visible small pixel-like facets and clusters at stone joints, NOT strict-grid 8-bit art, NOT smooth toy/plastic blocks, NOT flat vector or 3D render. Chips concentrate at edges and a few face fractures; large face planes stay quiet. NO uniform speckle/glitter/sand grain/polka-dot texture. Deep violet mortar #241d38, mid stone #6f64a3, restrained pale lavender tops #a49bd6..#b8aee6, warm amber reflected bevels and warm grey floors, no cold-blue wash. Camera in front and above with visible top/front/side planes where appropriate. Consistent upper-left illumination. Every subject isolated with real transparent gutters, no text, numbers, icons, people, furniture or extra scenery. Full silhouettes contained in their cells. EXACT FOUR columns x TWO rows, eight material patches; high-resolution atlas, ideally 2048x1024. Each patch rectangular and material-only, no raised frame or outer rim. Row1: (1) repeating back-wall BRICK tile: irregular ashlar courses, 5–6 rows of varied short/long stones, dark mortar, chipped edges and cracks; (2) a genuinely different arrangement of the same wall bricks at the SAME scale, different block sizes/fractures; (3) a third arrangement same scale with alternate staggered joints; (4) clearly MUCH DARKER irregular dungeon recess stone, almost-black violet stone of varied sizes and broken courses, quiet contrast. Row2: (1) warm candle-lit grey FLOOR FLAGSTONES viewed from above at slight foreshortening, irregular rectangular and polygonal slabs, visible painted chips, warm amber edge scuffs, dark seams; (2) different flagstone arrangement same scale/light/palette; (3) third arrangement same scale; (4) close material-only patch of one rough lavender-grey stone face with subtle connected fractures and a few broken light facets, NO mortar grid. The three wall variants share similar boundary course heights, so they can be blended at their edges, but interiors differ. No lighting vignette or bright border. Whole rectangular patch filled; transparent exterior only. Original painted texture, not a photo.",
+      "prompt": "Use case: stylized-concept. Production transparent game art for Dungeon Board. Private image is STYLE REFERENCE ONLY. Match its HD PIXEL-TEXTURED PAINTED dungeon masonry: large irregular lavender-grey stone, angular chipped edges, uneven block widths/heights, short cracks and irregular broken bevel highlights. Hand-painted shading with visible small pixel-like facets and clusters at stone joints, NOT strict-grid 8-bit art, NOT smooth toy/plastic blocks, NOT flat vector or 3D render. Chips concentrate at edges and a few face fractures; large face planes stay quiet. NO uniform speckle/glitter/sand grain/polka-dot texture. Deep violet mortar #241d38, mid stone #6f64a3, restrained pale lavender tops #a49bd6..#b8aee6, warm amber reflected bevels and warm grey floors, no cold-blue wash. Camera in front and above with visible top/front/side planes where appropriate. Consistent upper-left illumination. Every subject isolated with real transparent gutters, no text, numbers, icons, people, furniture or extra scenery. Full silhouettes contained in their cells. EXACT FOUR columns x TWO rows, eight material patches; high-resolution atlas, ideally 2048x1024. Each patch rectangular and material-only, no raised frame or outer rim. Row1: (1) repeating back-wall BRICK tile: irregular ashlar courses, 5\u20136 rows of varied short/long stones, dark mortar, chipped edges and cracks; (2) a genuinely different arrangement of the same wall bricks at the SAME scale, different block sizes/fractures; (3) a third arrangement same scale with alternate staggered joints; (4) clearly MUCH DARKER irregular dungeon recess stone, almost-black violet stone of varied sizes and broken courses, quiet contrast. Row2: (1) warm candle-lit grey FLOOR FLAGSTONES viewed from above at slight foreshortening, irregular rectangular and polygonal slabs, visible painted chips, warm amber edge scuffs, dark seams; (2) different flagstone arrangement same scale/light/palette; (3) third arrangement same scale; (4) close material-only patch of one rough lavender-grey stone face with subtle connected fractures and a few broken light facets, NO mortar grid. The three wall variants share similar boundary course heights, so they can be blended at their edges, but interiors differ. No lighting vignette or bright border. Whole rectangular patch filled; transparent exterior only. Original painted texture, not a photo.",
       "source_filename": "exec-0d38908f-2128-4f77-8c9d-d4eb5fbb05b3.png",
       "review_source": "v8/materials-raw.png",
       "grid": {
@@ -2384,5 +2384,413 @@
       },
       "notes": "Warm-pigment chroma matting removes neutral generated backing; gold saturation and low maximum alpha are enforced."
     }
+  },
+  "v8_structural_repair": {
+    "tool": "built-in image_gen",
+    "prompt": "Use case: stylized-concept. Production transparent GAME MASONRY COMPONENT atlas, EXACT FOUR columns x FIVE rows, 20 equal cells, one SINGLE isolated stone per cell with wide true transparent gutters. Reference image is STYLE ONLY: keep the already approved chipped lavender-purple painted/pixel-textured stone, warm upper-left bevel highlights, small connected cracks, quiet large face planes, dark violet outline, no plastic smooth 3D or strict 8-bit grid. These stones will be assembled into continuous masonry courses by code: DO NOT draw whole walls, grouped bricks, mortar panels, frames or tile backgrounds. Every subject is ONE complete stone, no shadows outside its silhouette. ROW1: four flat FRONT FACES of single rectangular wall bricks, 2:1 to 3:1 wide/height, chipped corners, restrained mid-face detail, dark painted outline. First two especially quiet near centre, no giant central crack. ROW2: four more single flat wall-brick front faces, different short/long rectangular shapes and subtle fractures, SAME light/palette/scale, face mostly flat, NO extruded side/top face apart from narrow bevel. ROW3: four separate flat FLOOR FLAGSTONES viewed from above with slight foreshortening, roughly rectangular with chipped/irregular edges, warm grey-lavender surface, dark outline, short cracks, no thick visible front extrusion. ROW4: first two cells two additional single FLOOR FLAGSTONES same scale; last two cells single LOW RAMPART BLOCKS, each chunky near-square with a broad lit top face and a darker FRONT face below, screen horizontal edges, narrow side face, not a diamond isometric tile. ROW5: first cell third single LOW RAMPART BLOCK same geometry; last three cells individual VERTICAL-RUN LOW WALL BLOCKS seen mostly from above, rectangular top plane with a narrow dark right side and shallow front end face, each one stone, no stack. All front bricks same mid lavender-grey #6f64a3, mortar outline #241d38, pale restrained bevels #a49bd6, warm gold reflected flecks, floor warm grey, no blue wash. NO blank backing rectangles, no text, numbers, symbols, labels, props, ground, noise speckle or extra stones. Keep every whole stone fully inside its cell. This is an original painted stone library, not scenery.",
+    "source": "units-raw.png",
+    "grid": [
+      4,
+      5
+    ],
+    "method": "Individual painted stones assembled in periodic course layouts. Shared complete boundary stones; no edge crossfade. Source exposure normalized per stone and course. Common periodic low-frequency luminance correction retains cracks and local bevels.",
+    "seed": 24232,
+    "crops": [
+      [
+        31,
+        88,
+        354,
+        210
+      ],
+      [
+        386,
+        92,
+        685,
+        210
+      ],
+      [
+        718,
+        89,
+        1041,
+        210
+      ],
+      [
+        1079,
+        89,
+        1341,
+        210
+      ],
+      [
+        38,
+        288,
+        293,
+        410
+      ],
+      [
+        325,
+        290,
+        707,
+        407
+      ],
+      [
+        739,
+        287,
+        1052,
+        410
+      ],
+      [
+        1090,
+        287,
+        1341,
+        409
+      ],
+      [
+        28,
+        474,
+        326,
+        641
+      ],
+      [
+        363,
+        475,
+        666,
+        644
+      ],
+      [
+        711,
+        475,
+        1007,
+        646
+      ],
+      [
+        1048,
+        472,
+        1347,
+        647
+      ],
+      [
+        30,
+        699,
+        327,
+        866
+      ],
+      [
+        365,
+        701,
+        660,
+        866
+      ],
+      [
+        702,
+        692,
+        1007,
+        867
+      ],
+      [
+        1046,
+        690,
+        1352,
+        867
+      ],
+      [
+        25,
+        916,
+        328,
+        1104
+      ],
+      [
+        365,
+        929,
+        657,
+        1103
+      ],
+      [
+        699,
+        929,
+        1004,
+        1103
+      ],
+      [
+        1048,
+        929,
+        1345,
+        1103
+      ]
+    ],
+    "source_filename": "exec-f8f4fe9d-0980-403b-8e62-57562437070c.png",
+    "low_frequency_passes": 8,
+    "proof_blur_radius": "repeat length / 4 for one-dimensional runs; min(width,height) / 4 for surfaces",
+    "validation": {
+      "random_grid": [
+        8,
+        6
+      ],
+      "seed": 24232,
+      "max_folded_blur_range_grey": 2,
+      "all_frame_metadata_unchanged": true,
+      "visual_review": [
+        "native 100 percent",
+        "50 percent",
+        "large blur"
+      ]
+    }
+  },
+  "v8_floor_repair": {
+    "tool": "built-in image_gen",
+    "prompt": "Use case: stylized-concept.\nAsset type: source sprite atlas of 12 individual broad dungeon paving flagstones, for assembling seamless game floors.\nInput image 1 is a STYLE REFERENCE showing the accepted earlier floor: emulate its softly painted irregular slabs and restrained surface grain. Input image 2 is a private scene STYLE REFERENCE only; do not copy any scene, text, character or props.\nPrimary request: twelve different large, broad, horizontally laid irregular lavender-grey flagstones, each a separate complete stone on genuine transparent background. A clean 4-column by 3-row contact sheet, generous transparent gaps between all stones. No backing ground, no border, no labels, no text.\nEvery slab should be a flat top face seen from slightly above, like the floor in reference 1: irregular mostly quadrilateral 5-to-7-sided outlines, slanted or gently crooked edges, softened chipped corners, a few restrained fine cracks. Broad quiet uninterrupted stone interiors, smooth painted shading with fine pixel-flavoured grain, not angular faceted polygon shading. Thin dark indigo outline and narrow warm amber reflected highlight flecks along selected edges. At least four stones should have especially quiet centres with no distinctive crack.\nProportions: stones about 1.4\u20132.0 times wider than tall; low-profile flat paving, NOT chunky upright bricks and NOT cubes. Fill each of the twelve atlas cells with a single broad stone.\nPalette: cool muted lavender-grey, faces near #777592\u2013#9691b0, shadow #363147. No pink, rose, tan, peach or brown tint on the main faces. Small gold/amber edge highlights only. Keep the highlights subordinate to the neutral cool grey-violet body. Uniform ambient exposure on all stones in the sheet; no global spotlight or left-to-right gradient.\nStyle: the same HD pixel-art-flavoured painted illustration as the references, chunky readable hand-painted shapes, organic uneven edges. Not a crisp strict pixel grid, not flat vector, not photorealism. No basket-weave, no tiny cobblestones. Original art only.",
+    "source_filename": "exec-f0d0c51b-3715-4cd2-b52b-97551bd8f5a2.png",
+    "raw": "v8/floor-fix/units-raw.png",
+    "grid": [
+      4,
+      3
+    ],
+    "crops": [
+      [
+        14,
+        116,
+        366,
+        339
+      ],
+      [
+        360,
+        117,
+        723,
+        338
+      ],
+      [
+        725,
+        118,
+        1085,
+        341
+      ],
+      [
+        1084,
+        110,
+        1434,
+        343
+      ],
+      [
+        12,
+        426,
+        364,
+        652
+      ],
+      [
+        361,
+        427,
+        723,
+        651
+      ],
+      [
+        727,
+        424,
+        1082,
+        654
+      ],
+      [
+        1075,
+        424,
+        1438,
+        652
+      ],
+      [
+        9,
+        723,
+        360,
+        946
+      ],
+      [
+        362,
+        723,
+        717,
+        946
+      ],
+      [
+        726,
+        723,
+        1082,
+        946
+      ],
+      [
+        1080,
+        713,
+        1439,
+        948
+      ]
+    ],
+    "method": "Generated broad paving slabs mapped onto periodic irregular laying polygons. Quiet shared sites on tile cuts, varied Poisson interior sites in each variant. No basket-weave. No edge crossfade. Common low-frequency luminance field removed; grain and edge highlights are preserved.",
+    "body_target_Lab": [
+      62.745098039215684,
+      4,
+      -3
+    ],
+    "nominal_stones_across": 3,
+    "validation": {
+      "floor-flag": {
+        "mean_Lab": [
+          57.799,
+          4.729,
+          -4.012
+        ],
+        "v5_mean_a": 15.247
+      },
+      "floor-flag-2": {
+        "mean_Lab": [
+          57.653,
+          4.71,
+          -3.969
+        ],
+        "v5_mean_a": 15.247
+      },
+      "floor-flag-3": {
+        "mean_Lab": [
+          57.491,
+          4.704,
+          -4.173
+        ],
+        "v5_mean_a": 15.247
+      },
+      "terrace-floor": {
+        "mean_Lab": [
+          57.757,
+          4.725,
+          -4.039
+        ],
+        "v5_mean_a": 13.456
+      },
+      "terrace-floor-2": {
+        "mean_Lab": [
+          57.707,
+          4.727,
+          -4.025
+        ],
+        "v5_mean_a": 13.456
+      },
+      "terrace-floor-3": {
+        "mean_Lab": [
+          57.557,
+          4.719,
+          -4.086
+        ],
+        "v5_mean_a": 13.456
+      }
+    }
+  },
+  "v8_rock_repair": {
+    "tool": "built-in image_gen",
+    "prompt": "Use case: stylized-concept. Asset type: source sprite atlas for dark excavated dungeon bedrock.\nInput image 1: private style reference for the original HD painted pixel-flavoured dungeon. Use only its texture, palette and brushwork; do not copy the scene.\nGenerate twelve different roughly polygonal patches of dark excavated rock, isolated on actual transparent background, arranged in a 4-column by 3-row atlas with generous clear gaps. Each patch is one broad continuous craggy rock mass, not a masonry block, not a boulder pile, and not a framed tile. Irregular 5\u20138-sided shapes, low-relief chipped slate surfaces with branching fissures, hairline cracks and a few tiny rubble fragments integrated into the mass. No straight courses, no rectilinear brick outlines, no mortar rows, no crystal shapes. Keep the material mostly quiet, varied fine grain with occasional larger rough facets. Most patches should have quiet centres; avoid any memorable central symbol or hole.\nPalette dark desaturated indigo/lavender-grey (#252136, #302b45, #3a3450), subtle warm mineral flecks and a few restrained muted purple mid-face highlights. Deep cracks near #181522. Uniform flat ambient exposure across the entire sheet. No bright rim, no gold outline, no luminous glow or spotlight. Top-left ambient direction only, low contrast. Same softly painted HD chunky pixel-flavoured illustration as the reference, never strict grid 8-bit or flat vector. No text, symbols, numbers, plants, props, characters, walls or labels.",
+    "source_filename": "exec-3b85347d-521b-42a8-9607-944d814294ae.png",
+    "raw": "v8/floor-fix/rock-raw.png",
+    "grid": [
+      4,
+      3
+    ],
+    "crops": [
+      [
+        11,
+        60,
+        361,
+        355
+      ],
+      [
+        382,
+        68,
+        707,
+        355
+      ],
+      [
+        728,
+        72,
+        1064,
+        352
+      ],
+      [
+        1089,
+        72,
+        1430,
+        355
+      ],
+      [
+        12,
+        411,
+        360,
+        677
+      ],
+      [
+        383,
+        401,
+        706,
+        684
+      ],
+      [
+        728,
+        409,
+        1085,
+        683
+      ],
+      [
+        1095,
+        387,
+        1427,
+        686
+      ],
+      [
+        21,
+        730,
+        354,
+        1027
+      ],
+      [
+        370,
+        740,
+        720,
+        1023
+      ],
+      [
+        735,
+        730,
+        1062,
+        1021
+      ],
+      [
+        1081,
+        747,
+        1431,
+        1012
+      ]
+    ],
+    "quiet_face_crop_fractions": [
+      0.28,
+      0.28,
+      0.76,
+      0.75
+    ],
+    "new_frames": [
+      "wall-brick-dark-2",
+      "wall-brick-dark-3"
+    ],
+    "method": "Quiet generated rock face crops on periodic irregular masses, with affine texture mapping to preserve natural fissures, freely varied interior layouts and flat low-frequency shading; no brick courses or edge crossfade.",
+    "alpha_handling": "Source transparency is composited onto its median opaque rock colour before texture cropping; no zero-RGB alpha holes become black patches."
+  },
+  "v8_wall_refinement": {
+    "sources": "v8_structural_repair units 0..7",
+    "course_heights": [
+      75,
+      77,
+      76
+    ],
+    "nominal_block_width": 150,
+    "interior_spanning_blocks": {
+      "variant_0": [
+        1,
+        2
+      ],
+      "variant_1": [
+        0,
+        1
+      ],
+      "variant_2": null
+    },
+    "method": "Whole painted stones across boundaries; larger varied blocks with two-course interior stones. Shared courses at both x edges, complete narrow mortar line at y edges. Flat common low-frequency shading."
   }
 }

@@ -5,10 +5,10 @@ The PNG/JSON atlases, prompts, this build/check script and ASSETS.md are deliver
 """
 from PIL import Image, ImageDraw, ImageChops, ImageFilter, ImageFont, ImageCms
 from pathlib import Path
-import json, math, re, argparse, os, shutil, statistics, colorsys
+import json, math, re, argparse, os, shutil, statistics, colorsys, random
 
 LIVE = Path('rendering/src/assets/dungeon')
-OUT = Path('rendering/artifacts/dungeon/v8/staging')
+OUT = Path('rendering/artifacts/dungeon/v8/floor-fix/staging')
 ART = Path('rendering/artifacts/dungeon')
 RESAMPLE = Image.Resampling.LANCZOS
 SHEETS = {}
@@ -640,7 +640,7 @@ def validate():
     expected += ['room-arch','room-cave','room-magic','room-forge','pillar-capital','window-arch','chain-pair']
     expected += ['corbel-left','corbel-right']
     expected += [f'{b}-{i}' for b in ['wall-brick','rampart-x','floor-flag','terrace-floor'] for i in [2,3]]
-    expected += [f'light-spill-wall-{i}' for i in range(3)]+[f'light-spill-floor-{i}' for i in range(2)]
+    expected += [f'light-spill-wall-{i}' for i in range(3)]+[f'light-spill-floor-{i}' for i in range(2)]+['wall-brick-dark-2','wall-brick-dark-3']
     expected += [f'{b}-{i}' for b in ['candelabra','wall-candles'] for i in range(4)]+['candelabra-out','wall-candles-out']
     missing=sorted(set(expected)-set(frames));extra=sorted(set(frames)-set(expected))
     if missing:errors.append('Missing '+str(missing))
@@ -1236,6 +1236,7 @@ def rough_masonry_v8():
             v=compatible_v8(v,SPRITES[base],axes);n=f'{base}-{i}';add('stone',n,v,'tl',tile=axes);variants.append(n)
     for i,v in enumerate(sources_v8('spills')):
         wall=i<3;size=(320,300) if wall else (360,200);v=fit(v,(size[0]-20,size[1]-20));can=Image.new('RGBA',size);can.alpha_composite(v,((size[0]-v.width)//2,(size[1]-v.height)//2));n=f'light-spill-wall-{i}' if wall else f'light-spill-floor-{i-3}';add('stone',n,can,'centre')
+    repair_course_tiles()
 
 def load_baseline_v8():
     load_live_art();base=ART/'v8/before'
@@ -1303,9 +1304,420 @@ def rough_only_v8(publish_live=False):
     if publish_live:publish()
 
 
+def seam_units():
+    p=ART/'v8/seam-fix/source-crops.json';boxes=json.loads(p.read_text())['units'] if p.exists() else json.loads((LIVE/'prompts.json').read_text())['v8_structural_repair']['crops']
+    im=Image.open(ART/'v8/seam-fix/units-raw.png').convert('RGBA');out=[]
+    for b in boxes:
+        v=prune_micro(clean(im.crop(b),24));v=v.crop(v.getchannel('A').getbbox());out.append(v)
+    return out
+
+def rgb_mean(im,bg=None):
+    if bg is not None:
+        b=Image.new('RGBA',im.size,(*bg,255));b.alpha_composite(im);im=b
+    data=list(im.convert('RGB').getdata());return tuple(sum(p[k] for p in data)/len(data) for k in range(3))
+
+def grey(p):return .299*p[0]+.587*p[1]+.114*p[2]
+
+class CourseArt:
+    def __init__(self,reference,samples):
+        self.ref=reference;self.samples=samples;pts=[p for p in reference.getdata() if p[3]>220];ordered=sorted(pts,key=grey)
+        low=ordered[:max(1,len(ordered)//14)];self.bg=tuple(round(statistics.median(p[k] for p in low)) for k in range(3))
+        self.target=rgb_mean(reference,self.bg);faces=ordered[len(ordered)//5:]
+        # A small deterministic target swatch avoids reprocessing a large tile
+        # for every brick while retaining its face-colour distribution.
+        sw=Image.new('RGBA',(64,64));sw.putdata([faces[i*len(faces)//4096] for i in range(4096)]);self.face_ref=sw;self.cache={}
+    def block(self,idx,w,h,transparent=False):
+        key=(idx,w,h,transparent)
+        if key in self.cache:return self.cache[key].copy()
+        v=palette_v8(fit(self.samples[idx%len(self.samples)],(w,h),True),self.face_ref);v=prune_micro(clean(v))
+        v=self.retone(v,self.target,transparent=True);self.cache[key]=v;return v.copy()
+    def retone(self,im,target,transparent=False,mask=None):
+        # Constant exposure/colour adjustment on the stone only. This removes
+        # atlas-position bias while preserving every local crack and bevel.
+        im=im.copy();data=list(im.getdata());ids=[i for i,p in enumerate(data) if p[3]>220 and grey(p)>grey(self.bg)+5 and (mask is None or mask[i]>180)]
+        if not ids:return im
+        for repeat in range(3):
+            im.putdata(data);m=rgb_mean(im,self.bg);coverage=len(ids)/len(data);delta=[max(-24,min(24,round((target[k]-m[k])/coverage))) for k in range(3)]
+            if max(abs(d) for d in delta)<1:break
+            for i in ids:
+                r,g,b,a=data[i];data[i]=tuple(max(0,min(255,p+d)) for p,d in zip((r,g,b),delta))+(a,)
+        im.putdata(data);return clean(im)
+    def cell(self,idx,w,h,gap):
+        v=self.block(idx,w-gap,h-gap,True);out=Image.new('RGBA',(w,h),(*self.bg,255));out.alpha_composite(v,(gap//2,gap//2))
+        mask=Image.new('L',(w,h));mask.paste(v.getchannel('A'),(gap//2,gap//2));return self.retone(out,self.target,mask=list(mask.getdata()))
+
+def duplicate_period(im,size):
+    # A repeated cut column/row (never a blend strip) also satisfies the legacy
+    # equal-edge-texel test. Structure and texture wrap through whole stones.
+    w,h=size;out=Image.new('RGBA',size);out.alpha_composite(im,(0,0))
+    if im.width<w:out.paste(im.crop((0,0,1,im.height)),(w-1,0))
+    if im.height<h:out.paste(out.crop((0,0,w,1)),(0,h-1))
+    return clean(out)
+
+def quiet_cut(im,axis,target,lo=.25,hi=.75):
+    bg=Image.new('RGBA',im.size,(0,0,0,255));bg.alpha_composite(im);g=bg.convert('L');n=im.width if axis=='x' else im.height
+    means=[]
+    for i in range(n):
+        v=g.crop((i,0,i+1,g.height)) if axis=='x' else g.crop((0,i,g.width,i+1));means.append(sum(v.getdata())/(v.width*v.height))
+    candidates=range(max(2,round(n*lo)),min(n-2,round(n*hi)))
+    return min(candidates,key=lambda i:abs(means[i]-target)+.5*abs(means[i+1]-means[i-1]))
+
+def course_walls(reference,samples,variants=3,dark=False):
+    art=CourseArt(reference,samples);W,H=reference.size;P=W-1;heights=[37,39,36,40,37,39] if not dark else [43,51,39,47,48];assert sum(heights)==H
+    shared=[]
+    for row,ch in enumerate(heights):
+        bw=(76,89,69,93,81,73)[row%6] if not dark else (108,131,99,121,111)[row%5]
+        block=art.cell(row%2,bw,ch,4);cut=quiet_cut(block,'x',grey(art.target));shared.append((block,cut))
+    outputs=[];layout=[]
+    for variant in range(variants):
+        rng=random.Random(190731+variant);tile=Image.new('RGBA',(P,H),(*art.bg,255));yy=0;record=[]
+        for row,ch in enumerate(heights):
+            edge,cut=shared[row];bw=edge.width;course=Image.new('RGBA',(P,ch),(*art.bg,255));course.alpha_composite(edge,(-cut,0));course.alpha_composite(edge,(P-cut,0))
+            x0=bw-cut;x1=P-cut;span=x1-x0;n=(5,6,5,7,6,5)[(row+variant)%6] if not dark else (3,4,3,4,3)[row%5]
+            weights=[rng.uniform(.75,1.25) for _ in range(n)];widths=[round(span*v/sum(weights)) for v in weights];widths[-1]+=span-sum(widths);xx=x0;mask=Image.new('L',(P,ch))
+            for k,cw in enumerate(widths):
+                cell=art.cell(rng.randrange(len(samples)),cw,ch,4);course.alpha_composite(cell,(xx,0));ImageDraw.Draw(mask).rectangle((xx+3,3,xx+cw-4,ch-4),fill=255);xx+=cw
+            course=art.retone(course,art.target,mask=list(mask.getdata()));tile.alpha_composite(course,(0,yy));record.append({'y':yy,'height':ch,'boundary_width':bw,'cut':cut,'interior_widths':widths});yy+=ch
+        outputs.append(tile);layout.append(record)
+    return outputs,art,layout
+
+def floor_family(reference,samples):
+    art=CourseArt(reference,samples);W,H=reference.size;P=W-1;Q=H-1
+    xs=[round(P*v) for v in [0,.196,.410,.591,.795,1]];ys=[round(Q*v) for v in [0,.246,.503,.743,1]]
+    # Shared boundary stones cross the future tile cuts. Some span two cells,
+    # so no square perimeter or continuous border course is introduced.
+    fixed=[(0,0,2,1),(2,0,1,2),(3,3,1,2),(4,0,1,1),(0,1,1,1),(4,2,2,1),(0,3,1,1)]
+    reserved=set()
+    for c,r,nc,nr in fixed:
+        for dy in range(nr):
+            for dx in range(nc):reserved.add(((c+dx)%5,(r+dy)%4))
+    outputs=[];records=[]
+    for variant in range(3):
+        rng=random.Random(716901+variant);groups=list(fixed);available={(c,r) for c in range(5) for r in range(4)}-reserved
+        while available:
+            c,r=rng.choice(sorted(available));choices=[(1,1)]
+            if (c+1,r) in available:choices.append((2,1))
+            if (c,r+1) in available:choices.append((1,2))
+            nc,nr=rng.choice(choices);groups.append((c,r,nc,nr))
+            for dy in range(nr):
+                for dx in range(nc):available.remove((c+dx,r+dy))
+        tile=Image.new('RGBA',(P,Q),(*art.bg,255));record=[]
+        for k,(c,r,nc,nr) in enumerate(groups):
+            w=sum(xs[(c+dx)%5+1]-xs[(c+dx)%5] for dx in range(nc));h=sum(ys[(r+dy)%4+1]-ys[(r+dy)%4] for dy in range(nr))
+            idx=(k*3+1)%len(samples) if k<len(fixed) else rng.randrange(len(samples));cell=art.cell(idx,w,h,3)
+            for dx in [-P,0,P]:
+                for dy in [-Q,0,Q]:tile.alpha_composite(cell,(xs[c]+dx,ys[r]+dy))
+            record.append({'cell':[c,r,nc,nr],'sample':idx})
+        outputs.append(tile);records.append(record)
+    # Cuts stay inside the common boundary row/column. They are relocations,
+    # not blended edges; all variants retain identical boundary stones.
+    mean=Image.blend(Image.blend(outputs[0],outputs[1],.5),outputs[2],1/3)
+    cx=quiet_cut(mean.crop((0,0,xs[1],Q)),'x',grey(art.target),.18,.82);cy=quiet_cut(mean.crop((0,0,P,ys[1])),'y',grey(art.target),.18,.82)
+    outputs=[ImageChops.offset(x,-cx,-cy) for x in outputs]
+    return outputs,art,{'phase':[cx,cy],'variants':records,'shared_groups':fixed}
+
+def ring_family(reference,samples,variants=3,axis='x'):
+    art=CourseArt(reference,samples);W,H=reference.size;P=(W if axis=='x' else H)-1;cross=H if axis=='x' else W;bw=round(P*.36)
+    edge=art.block(0,bw,cross,True) if axis=='x' else art.block(0,cross,bw,True)
+    backdrop=Image.new('RGBA',edge.size,(*art.bg,255));backdrop.alpha_composite(edge);cut=quiet_cut(backdrop,axis,grey(art.target))
+    outputs=[]
+    for variant in range(variants):
+        rng=random.Random(44017+variant);size=(P,H) if axis=='x' else (W,P);tile=Image.new('RGBA',size)
+        tile.alpha_composite(edge,(-cut,0) if axis=='x' else (0,-cut));tile.alpha_composite(edge,(P-cut,0) if axis=='x' else (0,P-cut))
+        start=bw-cut;end=P-cut;span=end-start;w1=round(span*(.43+.07*variant));widths=[w1,span-w1];pos=start
+        for k,cw in enumerate(widths):
+            block=art.block(1+(variant+k)%max(1,len(samples)-1),cw,cross,True) if axis=='x' else art.block(1+(variant+k)%max(1,len(samples)-1),cross,cw,True)
+            tile.alpha_composite(block,(pos,0) if axis=='x' else (0,pos));pos+=cw
+        # Narrow structural mortar joints, not a blurred colour strip.
+        d=ImageDraw.Draw(tile)
+        for p in [start,start+w1,end]:
+            if axis=='x':d.rectangle((p-1,round(H*.24),p+1,H-2),fill=(*art.bg,255))
+            else:d.rectangle((2,p-1,W-3,p+1),fill=(*art.bg,255))
+        outputs.append(tile)
+    return outputs,art
+
+def flatten_common_field(images,bg,axes):
+    # Only a low-frequency luminance field is subtracted. Stone pixels are
+    # never crossfaded/blurred, and one common periodic correction preserves
+    # all shared edge stones across the variant family.
+    result=[x.copy() for x in images];w,h=result[0].size
+    if axes!='xy':bg=(36,30,54)
+    for repeat in range(8):
+        composite=[]
+        for im in result:
+            b=Image.new('RGBA',im.size,(*bg,255));b.alpha_composite(im);composite.append(b.convert('RGB'))
+        mean=composite[0]
+        for i,im in enumerate(composite[1:],2):mean=Image.blend(mean,im,1/i)
+        g=mean.convert('L')
+        if axes=='xy':
+            pad=Image.new('L',(w*3,h*3))
+            for y in range(3):
+                for x in range(3):pad.paste(g,(x*w,y*h))
+            field=pad.filter(ImageFilter.GaussianBlur(min(w,h)/8)).crop((w,h,2*w,2*h))
+        else:
+            vals=[];length=w if axes=='x' else h
+            for i in range(length):
+                c=g.crop((i,0,i+1,h)) if axes=='x' else g.crop((0,i,w,i+1));vals.append(round(sum(c.getdata())/(c.width*c.height)))
+            line=Image.new('L',(length*3,1));line.putdata(vals*3);line=line.filter(ImageFilter.GaussianBlur(max(12,length/6)));vals=list(line.getdata())[length:2*length]
+            field=Image.new('L',(w,h));field.putdata([vals[x if axes=='x' else y] for y in range(h) for x in range(w)])
+        mu=sum(field.getdata())/(w*h);delta=[max(-12,min(12,round(mu-v))) for v in field.getdata()]
+        for n,im in enumerate(result):
+            im.putdata([tuple(max(0,min(255,v+delta[i])) for v in (r,g,b))+(a,) if a else (0,0,0,0) for i,(r,g,b,a) in enumerate(im.getdata())]);result[n]=clean(im)
+    return result
+
+def repair_course_tiles():
+    units=seam_units();base=ART/'v8/seam-fix/before';old={}
+    for sheet in ['stone','alcoves']:
+        j=json.loads((base/(sheet+'.json')).read_text());a=Image.open(base/(sheet+'.png')).convert('RGBA')
+        for n,f in j['frames'].items():old[n]=a.crop((f['x'],f['y'],f['x']+f['w'],f['y']+f['h']))
+    new={};manifest={}
+    for name,dark in [('wall-brick',False),('wall-brick-dark',True)]:
+        ims,art,layout=course_walls(old[name],units[:8],1 if dark else 3,dark);ims=flatten_common_field(ims,art.bg,'xy');manifest[name]={'courses':layout,'mortar':art.bg,'target_rgb':art.target}
+        for i,im in enumerate(ims):
+            out=duplicate_period(im,old[name].size);out.paste(out.crop((0,0,out.width,1)),(0,out.height-1));new[name if i==0 else name+'-'+str(i+1)]=out
+    for name in ['floor-flag','terrace-floor']:
+        ims,art,layout=floor_family(old[name],units[8:14]);ims=flatten_common_field(ims,art.bg,'xy');manifest[name]=layout
+        for i,im in enumerate(ims):new[name if i==0 else name+'-'+str(i+1)]=duplicate_period(im,old[name].size)
+    for name,axis,samples,count in [('rampart-x','x',units[14:17],3),('rampart-y','y',units[17:20],1),('border','x',units[14:17],1),('alcove-top','x',units[14:17],1),('alcove-ledge','x',units[14:17],1)]:
+        ims,art=ring_family(old[name],samples,count,axis);ims=flatten_common_field(ims,art.bg,axis)
+        for i,im in enumerate(ims):new[name if i==0 else name+'-'+str(i+1)]=duplicate_period(im,old[name].size)
+    # Simple front-face/shaft repeaters get the same clean brick construction.
+    for name in ['ledge-face','pillar']:
+        if name=='pillar':ims,art=ring_family(old[name],units[:8],1,'y');ims=flatten_common_field(ims,art.bg,'y');new[name]=duplicate_period(ims[0],old[name].size)
+        else:
+            ims,art=ring_family(old[name],units[:8],1,'x');ims=flatten_common_field(ims,art.bg,'x');im=duplicate_period(ims[0],old[name].size);im.putalpha(255);new[name]=im
+    for sheet,fs in SHEETS.items():SHEETS[sheet]=[(n,new.get(n,im),info) for n,im,info in fs]
+    SPRITES.update(new);(ART/'v8/seam-fix/layout.json').write_text(json.dumps(manifest,indent=2)+'\n')
+    repair_irregular_materials_v8()
+
+def load_seam_baseline():
+    load_live_art();base=ART/'v8/seam-fix/before'
+    for sheet in ['stone','alcoves']:
+        j=json.loads((base/(sheet+'.json')).read_text());a=Image.open(base/(sheet+'.png')).convert('RGBA');SHEETS[sheet]=[]
+        for n,f in j['frames'].items():
+            im=a.crop((f['x'],f['y'],f['x']+f['w'],f['y']+f['h']));info={k:v for k,v in f.items() if k not in ['x','y','w','h']};SPRITES[n]=im;META[n]=info;SHEETS[sheet].append((n,im,info))
+
+def course_proofs():
+    report={};families=['wall-brick','wall-brick-dark','rampart-x','floor-flag','terrace-floor','rampart-y','pillar','ledge-face','border','alcove-top','alcove-ledge']
+    for family in families:
+        names=[family]+([family+'-2',family+'-3'] if family in ['wall-brick','wall-brick-dark','rampart-x','floor-flag','terrace-floor'] else [])
+        fs=[SPRITES[n] for n in names];w,h=fs[0].size;rng=random.Random(0x5EA8);grid=[[rng.randrange(len(fs)) for x in range(8)] for y in range(6)];can=Image.new('RGBA',(w*8,h*6),'#241e36')
+        for y,row in enumerate(grid):
+            for x,k in enumerate(row):can.alpha_composite(fs[k],(x*w,y*h))
+        path=ART/'v8'/('mixed-'+family+'-8x6.png');can.convert('RGB').save(path,optimize=True);can.resize((w*4,h*3),RESAMPLE).convert('RGB').save(path.with_name(path.stem+'-50.png'))
+        axes=META[family].get('tile','xy');radius=max(18,(w if axes=='x' else h if axes=='y' else min(w,h))/4);blur=can.convert('RGB').filter(ImageFilter.GaussianBlur(radius));blur.save(path.with_name(path.stem+'-blur.png'))
+        blur.resize((w*4,h*3),RESAMPLE).save(path.with_name(path.stem+'-blur-50.png'))
+        # Native-pixel crops make 100% inspection possible for the wide walls.
+        if w*8>2048:
+            for y in range(2):
+                for x in range(2):can.crop((x*w*4,y*h*3,(x+1)*w*4,(y+1)*h*3)).convert('RGB').save(path.with_name(path.stem+f'-100-{x}{y}.png'))
+        phases={}
+        for axis,size in [('x',w),('y',h)]:
+            vals=[]
+            for phase in range(size):
+                pts=[]
+                for k in range(1,7 if axis=='x' else 5):
+                    pos=k*size+phase;v=blur.crop((pos,h,pos+1,5*h)) if axis=='x' else blur.crop((w,pos,7*w,pos+1));pts.extend(v.convert('L').getdata())
+                vals.append(sum(pts)/len(pts))
+            phases[axis]={'folded_blur_range':max(vals)-min(vals)}
+        report[family]={'seed':0x5EA8,'grid':grid,'blur_radius':radius,'repeat_axes':axes,'phases':phases}
+        for axis in axes:
+            if phases[axis]['folded_blur_range']>2:raise ValueError(f'{family}: low-frequency {axis} band exceeds two grey levels')
+    (ART/'v8/seam-fix/proof-metrics.json').write_text(json.dumps(report,indent=2)+'\n')
+
+def seam_fix_only(publish_live=False):
+    global OUT
+    OUT=ART/'v8/seam-fix/staging';OUT.mkdir(parents=True,exist_ok=True);sync_provenance_v5(OUT)
+    for p in LIVE.iterdir():
+        if p.suffix in ['.png','.json'] and not (p.name=='prompts.json' and (OUT/p.name).exists()):shutil.copy2(p,OUT/p.name)
+    load_seam_baseline();repair_course_tiles();pack();validate();validate_rough_v8();contact();course_proofs()
+    for p in LIVE.glob('*.json'):
+        if p.stem!='prompts' and json.loads(p.read_text())!=json.loads((OUT/p.name).read_text()):raise ValueError(p.name+' metadata changed')
+    if publish_live:publish()
+
+
+def floor_units_v8():
+    root=ART/'v8/floor-fix';raw=Image.open(root/'units-raw.png').convert('RGBA');boxes=json.loads((root/'source-crops.json').read_text())['units'];units=[]
+    for box in boxes:
+        im=trim(raw.crop(box));lab=ImageCms.applyTransform(im.convert('RGB'),_TO_LAB);ld=list(lab.getdata());px=list(im.getdata())
+        body=[q for p,q in zip(px,ld) if p[3]>220 and q[0]>95 and q[2]<125]
+        means=[statistics.mean(q[k] for q in body) for k in range(3)];target=[160,132,125]
+        out=[]
+        for p,(l,a,b) in zip(px,ld):
+            warm=max(0,min(1,(b-123)/12));face=max(0,min(1,(l-65)/30));weight=(1-warm)*face
+            out.append((max(0,min(255,round(l+(target[0]-means[0])*face))),max(0,min(255,round(a+(target[1]-means[1])*weight))),max(0,min(255,round(b+(target[2]-means[2])*weight)))))
+        lab.putdata(out);rgb=ImageCms.applyTransform(lab,_TO_RGB);rgb.putalpha(im.getchannel('A'));units.append(prune_micro(clean(rgb)))
+    return units
+
+def floor_only_v8(publish_live=False):
+    global OUT
+    OUT=ART/'v8/floor-fix/staging';OUT.mkdir(parents=True,exist_ok=True)
+    for p in LIVE.iterdir():
+        if p.suffix in ['.png','.json'] and not (p.name=='prompts.json' and (OUT/p.name).exists()):shutil.copy2(p,OUT/p.name)
+    load_live_art();base=ART/'v8/floor-fix/before';j=json.loads((base/'stone.json').read_text());a=Image.open(base/'stone.png').convert('RGBA');SHEETS['stone']=[]
+    for n,f in j['frames'].items():
+        im=a.crop((f['x'],f['y'],f['x']+f['w'],f['y']+f['h']));meta={k:v for k,v in f.items() if k not in ['x','y','w','h']};SPRITES[n]=im;META[n]=meta;SHEETS['stone'].append((n,im,meta))
+    repair_irregular_materials_v8();pack();validate();validate_rough_v8();course_proofs();contact()
+    for path in LIVE.glob('*.json'):
+        if path.name!='prompts.json':
+            old=json.loads(path.read_text());new=json.loads((OUT/path.name).read_text())
+            if any(new['frames'].get(n)!=f for n,f in old['frames'].items()):raise ValueError(path.name+' existing metadata changed')
+    if publish_live:publish()
+
+
+def clip_material_poly(poly,a,b,c):
+    result=[]
+    for p,q in zip(poly,poly[1:]+poly[:1]):
+        dp=a*p[0]+b*p[1]-c;dq=a*q[0]+b*q[1]-c
+        if dp<=0:result.append(p)
+        if (dp<0)!=(dq<0):
+            t=dp/(dp-dq);result.append((p[0]+t*(q[0]-p[0]),p[1]+t*(q[1]-p[1])))
+    return result
+
+def material_radial_table(im):
+    ap=im.getchannel('A').load();w,h=im.size;cx=(w-1)/2;cy=(h-1)/2;table=[]
+    for k in range(720):
+        angle=k*math.tau/720;dx=math.cos(angle)*cx;dy=math.sin(angle)*cy;lo=0.;hi=1.6
+        for repeat in range(14):
+            r=(lo+hi)/2;x=round(cx+dx*r);y=round(cy+dy*r)
+            if 0<=x<w and 0<=y<h and ap[x,y]>12:lo=r
+            else:hi=r
+        table.append(lo)
+    return table
+
+def warp_material_polygon(im,radii,seed,poly,nominal,gap=1):
+    sx,sy=seed;ww,hh=nominal;left=math.floor(sx-ww);top=math.floor(sy-hh);W=math.ceil(2*ww)+2;H=math.ceil(2*hh)+2
+    # Map the generated stone's actual silhouette onto each laying polygon.
+    # All bevels, cracks and surface pixels are generated raster artwork.
+    planes=[]
+    for (x,y),(xx,yy) in zip(poly,poly[1:]+poly[:1]):
+        a=yy-y;b=x-xx;c=a*x+b*y
+        if a*sx+b*sy>c:a,b,c=-a,-b,-c
+        c-=gap*math.hypot(a,b);planes.append((a,b,c))
+    def uv(x,y):
+        dx=x-sx;dy=y-sy
+        if abs(dx)+abs(dy)<1e-8:return ((im.width-1)/2,(im.height-1)/2)
+        hit=min((c-a*sx-b*sy)/(a*dx+b*dy) for a,b,c in planes if a*dx+b*dy>1e-8)
+        theta=math.atan2(dy/hh,dx/ww);index=(theta%math.tau)*720/math.tau;k=math.floor(index);radius=radii[k%720]*(1-(index-k))+radii[(k+1)%720]*(index-k)
+        f=1/max(.01,hit);return ((im.width-1)/2*(1+math.cos(theta)*radius*f),(im.height-1)/2*(1+math.sin(theta)*radius*f))
+    mesh=[];step=4
+    for y in range(0,H,step):
+        for x in range(0,W,step):
+            xx=min(W,x+step);yy=min(H,y+step);coords=[]
+            for px,py in [(x,y),(x,yy),(xx,yy),(xx,y)]:coords.extend(uv(px+left,py+top))
+            mesh.append(((x,y,xx,yy),tuple(coords)))
+    out=im.transform((W,H),Image.Transform.MESH,mesh,Image.Resampling.BICUBIC)
+    clipped=list(poly)
+    for a,b,c in planes:clipped=clip_material_poly(clipped,a,b,c)
+    mask=Image.new('L',(W,H));ImageDraw.Draw(mask).polygon([(x-left,y-top) for x,y in clipped],fill=255);out.putalpha(ImageChops.multiply(out.getchannel('A'),mask))
+    return clean(out),(left,top)
+
+def irregular_material_family(name,reference,samples,kind):
+    W,H=reference.size;P=W-1;Q=H-1
+    nx,ny=(3,3 if name=='floor-flag' else 4) if kind=='floor' else (3,3) if kind=='wall' else (4,3)
+    ww=P/nx;hh=Q/ny;bg=(46,43,62) if kind=='floor' else (25,21,36) if kind=='wall' else (20,17,29)
+    fixed=random.Random(0xA837+nx*9+ny);base=[]
+    for row in range(ny):
+        for col in range(nx):base.append((col*ww,row*hh,row,col))
+    radii=[material_radial_table(im) for im in samples];outputs=[];layouts=[]
+    for variant in range(3):
+        rng=random.Random(0x7589+variant*17+nx);sites=[]
+        for x,y,row,col in base:
+            outer=col==0 or row==0
+            if outer:sites.append((x,y,row,col,True))
+        # Free interior sites use different irregular arrangements, rather
+        # than repeating a fixed basket-weave or interior grid in all variants.
+        wanted=(nx-1)*(ny-1)+variant;inside=[]
+        for attempt in range(4000):
+            if len(inside)==wanted:break
+            x=rng.uniform(hh/2+8,P-hh/2-8);y=rng.uniform(ww/2+8,Q-ww/2-8)
+            if all(((x-xx)/ww)**2+((y-yy)/hh)**2>.57**2 for xx,yy in inside):inside.append((x,y))
+        if len(inside)!=wanted:raise ValueError('Could not fit interior paving sites')
+        sites.extend((x,y,1,k+1,False) for k,(x,y) in enumerate(inside))
+        tile=Image.new('RGBA',(P,Q),(*bg,255));layout=[]
+        for sx,sy,row,col,outer in sites:
+            poly=[(sx-P,sy-Q),(sx+P,sy-Q),(sx+P,sy+Q),(sx-P,sy+Q)]
+            for dx in [-P,0,P]:
+                for dy in [-Q,0,Q]:
+                    for x,y,rr,cc,oo in sites:
+                        qx=x+dx;qy=y+dy
+                        if abs(qx-sx)+abs(qy-sy)<.01:continue
+                        poly=clip_material_poly(poly,2*(qx-sx),2*(qy-sy),qx*qx+qy*qy-sx*sx-sy*sy)
+            idx=([0,2,8,11][((row*3+col) if outer else rng.randrange(4))%4]%len(samples)) if kind=='floor' else (row*5+col*3)%len(samples) if outer else rng.randrange(len(samples))
+            if kind=='rock':
+                # Stationary painted rock textures avoid radial distortion of
+                # cracks into pinwheels. Only their irregular mass outline is
+                # clipped; the fissures and grain remain affine raster pixels.
+                pos=(math.floor(sx-ww),math.floor(sy-hh));size=(math.ceil(2*ww)+2,math.ceil(2*hh)+2);stone=fit(samples[idx],size,True);mask=Image.new('L',size)
+                ImageDraw.Draw(mask).polygon([(x-pos[0],y-pos[1]) for x,y in poly],fill=255);stone.putalpha(mask)
+            else:stone,pos=warp_material_polygon(samples[idx],radii[idx],(sx,sy),poly,(ww,hh),.65 if kind=='floor' else 1.3)
+            for dx in [-P,0,P]:
+                for dy in [-Q,0,Q]:tile.alpha_composite(stone,(pos[0]+dx,pos[1]+dy))
+            layout.append({'seed':[sx,sy],'polygon':poly,'sample':idx,'boundary_site':outer})
+        outputs.append(tile);layouts.append(layout)
+    outputs=flatten_common_field(outputs,bg,'xy')
+    # Numerical mesh/ray interpolation may differ by a texel at a cut.
+    # Shared structural boundary sites determine the same joints; duplicate
+    # only the cut texel, never an art blend or softened boundary strip.
+    for im in outputs[1:]:
+        im.paste(outputs[0].crop((0,0,1,Q)),(0,0));im.paste(outputs[0].crop((0,0,P,1)),(0,0))
+    return [duplicate_period(im,(W,H)) for im in outputs],{'kind':kind,'layout':layouts,'nominal_stones_across':nx,'nominal_courses':ny,'mortar_rgb':bg}
+
+def chunky_course_family(reference,samples):
+    art=CourseArt(reference,samples);W,H=reference.size;P=W-1;heights=[75,77,76];shared=[]
+    for row,ch in enumerate(heights):
+        bw=[149,162,137][row];edge=art.cell(row%2,bw,ch,3);cut=[64,97,47][row];shared.append((edge,cut))
+    images=[];layouts=[]
+    for variant in range(3):
+        rng=random.Random(17735+variant);tile=Image.new('RGBA',(P,H),(*art.bg,255));yy=0;records=[]
+        # One broad interior block crosses a course in variants 0 and 1.
+        merge=(1,2) if variant==0 else (0,1) if variant==1 else None;mx=184+variant*22;mw=143-variant*9
+        for row,ch in enumerate(heights):
+            edge,cut=shared[row];start=edge.width-cut;end=P-cut;tile.alpha_composite(edge,(-cut,yy));tile.alpha_composite(edge,(P-cut,yy))
+            if merge and row in merge:spans=[(start,mx-start),(mx+mw,end-mx-mw)]
+            else:
+                split=round((start+end)/2)+rng.randrange(-37,38);spans=[(start,split-start),(split,end-split)]
+            for xx,cw in spans:tile.alpha_composite(art.cell(rng.randrange(len(samples)),cw,ch,3),(xx,yy))
+            records.append({'y':yy,'height':ch,'edge_cut':cut,'spans':spans});yy+=ch
+        if merge:
+            y=sum(heights[:merge[0]]);h=sum(heights[merge[0]:merge[1]+1]);tile.alpha_composite(art.cell((variant*3+4)%len(samples),mw,h,3),(mx,y))
+        images.append(tile);layouts.append({'courses':records,'spanning_block':None if not merge else {'courses':merge,'x':mx,'width':mw}})
+    images=flatten_common_field(images,art.bg,'xy');out=[]
+    for im in images:
+        v=duplicate_period(im,(W,H));v.paste(out[0].crop((0,0,W,1)) if out else v.crop((0,0,W,1)),(0,H-1));out.append(v)
+    # Top/bottom are complete narrow mortar lines, all variants identical.
+    for im in out[1:]:im.paste(out[0].crop((0,0,W,1)),(0,0));im.paste(out[0].crop((0,0,W,1)),(0,H-1))
+    return out,{'kind':'chunky_courses','nominal_stones_across':3,'course_heights':heights,'variants':layouts}
+
+def repair_irregular_materials_v8():
+    root=ART/'v8/floor-fix';floor=floor_units_v8();report={};new={}
+    for n in ['floor-flag','terrace-floor']:
+        images,layout=irregular_material_family(n,SPRITES[n],floor,'floor');report[n]=layout
+        for k,im in enumerate(images):new[n if not k else n+'-'+str(k+1)]=im
+    wall=seam_units()[:8]
+    images,layout=chunky_course_family(SPRITES['wall-brick'],wall);report['wall-brick']=layout
+    for k,im in enumerate(images):new['wall-brick' if not k else 'wall-brick-'+str(k+1)]=im
+    raw=Image.open(root/'rock-raw.png').convert('RGBA');boxes=json.loads((root/'rock-crops.json').read_text())['rock'];rock=[]
+    for box in boxes:
+        im=trim(raw.crop(box));im=im.crop((round(im.width*.28),round(im.height*.28),round(im.width*.76),round(im.height*.75)));solid=[p for p in im.getdata() if p[3]>220];back=Image.new('RGBA',im.size,tuple(round(statistics.median(p[k] for p in solid)) for k in range(3))+(255,));back.alpha_composite(im);im=palette_v8(back,SPRITES['wall-brick-dark'])
+        # Quiet background rock retains its fine fissures and facets without
+        # making each source mass's large silhouette a repeated emblem.
+        mean=rgb_mean(im);im.putdata([tuple(round(mean[k]+(p[k]-mean[k])*.62) for k in range(3))+(255,) for p in im.getdata()]);rock.append(im)
+    images,layout=irregular_material_family('wall-brick-dark',SPRITES['wall-brick-dark'],rock,'rock');report['wall-brick-dark']=layout
+    for k,im in enumerate(images):new['wall-brick-dark' if not k else 'wall-brick-dark-'+str(k+1)]=im
+    present={n for n,im,meta in SHEETS['stone']}
+    for n in ['wall-brick-dark-2','wall-brick-dark-3']:
+        if n not in present:
+            meta=META['wall-brick-dark'].copy();META[n]=meta;SHEETS['stone'].append((n,new[n],meta))
+    for sheet,frames in SHEETS.items():SHEETS[sheet]=[(n,new.get(n,im),meta) for n,im,meta in frames]
+    SPRITES.update(new);(root/'layout.json').write_text(json.dumps(report,indent=2)+'\n')
+
+
 if __name__=='__main__':
-    parser=argparse.ArgumentParser();parser.add_argument('--validate-only',action='store_true');parser.add_argument('--publish',action='store_true');parser.add_argument('--publish-staged',action='store_true');parser.add_argument('--robots-only',action='store_true');parser.add_argument('--art-only',action='store_true');parser.add_argument('--props-only',action='store_true');parser.add_argument('--hanging-only',action='store_true');parser.add_argument('--rough-only',action='store_true');args=parser.parse_args()
-    if args.rough_only:rough_only_v8(args.publish)
+    parser=argparse.ArgumentParser();parser.add_argument('--validate-only',action='store_true');parser.add_argument('--publish',action='store_true');parser.add_argument('--publish-staged',action='store_true');parser.add_argument('--robots-only',action='store_true');parser.add_argument('--art-only',action='store_true');parser.add_argument('--props-only',action='store_true');parser.add_argument('--hanging-only',action='store_true');parser.add_argument('--rough-only',action='store_true');parser.add_argument('--seam-fix',action='store_true');parser.add_argument('--floors-only','--materials-only',action='store_true');args=parser.parse_args()
+    if args.floors_only:floor_only_v8(args.publish)
+    elif args.seam_fix:seam_fix_only(args.publish)
+    elif args.rough_only:rough_only_v8(args.publish)
     elif args.hanging_only:hanging_only_v7(args.publish)
     elif args.props_only:props_only_v6(args.publish)
     elif args.art_only:art_only_v5(args.publish)

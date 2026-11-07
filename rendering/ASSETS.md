@@ -1245,17 +1245,59 @@ interiors and candle frames retain their pixels. Existing dimensions, exact
 anchors, tile axes, names and animation metadata are preserved. Generated
 material values/chroma are matched back to the accepted pre-v8 material palette;
 contrast is allowed slightly more variation so cracks and chips survive.
-The standard brick patch combines two distinct half-patches to retain small
-back-wall brick scale rather than enlarging them into structural blocks.
+The repeating materials were subsequently rebuilt from a sixth built-in
+generation of 20 isolated painted stones. Its exact prompt and whole-stone
+crop rectangles are recorded under `v8_structural_repair` in `prompts.json`;
+the private source is `artifacts/dungeon/v8/seam-fix/units-raw.png`.
 
 New static tile arrangements, in `stone`, are `wall-brick-2`, `wall-brick-3`,
 `rampart-x-2`, `rampart-x-3`, `floor-flag-2`, `floor-flag-3`,
 `terrace-floor-2`, `terrace-floor-3`. Every member has its base's dimensions,
-anchor and tile axes. Narrow boundary bands share the base profile, including
-alpha, so variants can meet each other. Opposite RGBA edges are checked both
-for self-repeat and between family members. Mixed 6×4 repeats are saved as
-`artifacts/dungeon/v8/mixed-<family>-6x4.png`. Choose arrangements with stable
-spatial seeds; do not animate or flip them (illumination stays upper-left).
+anchor and tile axes. The initial edge-crossfade approach passed pixel checks
+but failed visual review: it introduced soft strips and broken courses. The
+current files supersede those earlier 6×4 proofs. Wall variants now share three
+course heights (75, 77, 76 sheet pixels), approximately doubling the former
+block size. Two variants include an interior stone spanning two courses.
+Complete painted bricks straddle horizontal tile boundaries, and full mortar
+lines meet at top/bottom. Runs
+wrap through complete blocks. There are no blended edge strips or internal
+half-patch joins; one cut texel is duplicated for the equal-edge test.
+
+The final floor/rock revision replaces the rejected small basket-weave floor.
+Two further built-in generations supply twelve broad paving slabs and twelve
+excavated rock masses. Exact prompts and crop maps are `v8_floor_repair` and
+`v8_rock_repair` in `prompts.json`; private raw sources and the prior live kit
+are under `artifacts/dungeon/v8/floor-fix/`. Floors keep a nominal three broad
+stones across the tile width, with irregular interior arrangements that differ
+between the three variants. Generated slab silhouettes, grain and edge
+highlights are mapped onto the laying polygons; faces and bevels remain painted
+raster art. Boundary sites lie on the periodic cuts; interior sites vary freely,
+so the shared joints do not impose the same internal motif on every variant.
+The stone bodies are retuned toward lavender-grey, retaining warm edge flecks.
+Exported floor Lab measurements (including mortar and warm edges) are recorded
+in `floor-fix/validation.json`, with b* between −5 and 0 and a* below v5's.
+
+`wall-brick-dark` is now dark, low-contrast excavated rock with fine fissures
+and rough facets, rather than masonry. New `wall-brick-dark-2` and
+`wall-brick-dark-3` have the same 480×228 size, top-left anchor and `tile: xy`.
+Use stable spatial mixing for these too. Quiet centre crops from the generated
+rock avoid repeating a conspicuous whole-mass silhouette or large diagonal
+gash; the fine painted cracks and rubble texture remain. Existing frame names,
+sizes, anchors and metadata are retained.
+
+Individual stone exposure and course means are normalized to the accepted
+material palette. A common periodic low-frequency luminance field is
+subtracted across each variant family; only colour values change, preserving
+painted cracks, chips and local bevels. The texture itself is never blurred.
+One-dimensional runs retain their lit top/front-face contrast. Geometry and
+lighting are checked separately: shared courses/edge stones, all cross-variant
+RGBA joins, random 8×6 mixes (seed `0x5EA8`), native-pixel crops, 50% views and
+large-blur views. Proofs are `artifacts/dungeon/v8/mixed-<family>-8x6.png`,
+with `-50`, `-blur` and `-blur-50` companions. Layout and measurements are in
+`v8/seam-fix/layout.json` and `v8/seam-fix/proof-metrics.json`; the latest wall,
+floor and rock layouts and measurements are also in `v8/floor-fix/`. Choose variants
+with stable spatial seeds; do not animate or flip them (illumination stays
+upper-left).
 
 The five static gold overlays, also in `stone`, are
 `light-spill-wall-0`, `light-spill-wall-1`, `light-spill-wall-2`,
@@ -1278,9 +1320,14 @@ pieces at one frame size. `v8/texture-validation.json` records old-interface,
 mixed-edge and spill-alpha checks.
 
 The builder's `--rough-only` mode starts from `v8/before/`, stages the complete
-replacement, checks it and refreshes the contact sheet. `--rough-only --publish`
-installs checked files with atomic renames; the full raw-source rebuild also
-includes v8. There are 260 frames after this pass. Robots and status PNGs are
+replacement, checks it and refreshes the contact sheet. The `--seam-fix` mode
+rebuilds the repeating materials against `v8/seam-fix/before/` and stages in
+`v8/seam-fix/staging/`; it also refreshes all random 8×6 proofs. Adding
+`--publish` installs checked files with atomic renames. `--materials-only`
+(also `--floors-only`) stages the final wall, floor and rock revision in
+`v8/floor-fix/staging/`; the full rebuild includes it too. There are 262 frames
+after this pass, including the two new rock alternatives.
+Robots and status PNGs are
 byte-preserved, as are the gate, props and UI sheets. The asset folder remains
 below 12 MB. Renderer registration/variant selection and light-overlay placement
 are deliberately left to code; no app code or commits are changed by this pass.
