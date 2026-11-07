@@ -1,7 +1,7 @@
 # Village art — final kit
 
-All 151 required frame names are final and present. There are **200 frames** in
-nine PNG/JSON pairs, all at nominal **scale 3**, with true alpha and explicit anchors.
+All 151 original required frame names are present. There are **220 frames** in
+eleven PNG/JSON pairs, all at nominal **scale 3**, with true alpha and explicit anchors.
 The complete first pass was delivered before this refinement pass.
 
 | Sheet | Frames | Final artwork |
@@ -15,6 +15,8 @@ The complete first pass was delivered before this refinement pass.
 | scenery | 50 | Six tree silhouettes, three blossom trees, bushes/flowers, crates, tent, lamps/banners, walls/ruins, modular cliff waterfall, rocky riverbanks, bridge, pond and moat |
 | hud | 8 | Wood/gold panel, status pill, divider, four ivory pictograms, dot |
 | ground-warm | 13 | Muted rounded cobbles, eight grass transitions, paving blob, shallow one-step robot ledge in three pieces |
+| cottages | 11 | Six workspace cottages with registered pane/doorstep rectangles, five matching stained-glass panes |
+| district | 9 | Straight/diagonal paths, low horizontal/vertical fences, three hedges, stone entrance gate |
 
 The refined robots have bright cyan eyes and antenna tips, glossy vivid enamel,
 and a roughly 58px painted height. Work frames are registered by the boots,
@@ -186,6 +188,56 @@ generated source and `tiles-v6/validation.json` retain the recipe/proof. No
 concept pixels are used in the sprites. This repaint used one built-in
 imagegen call.
 
+## Cottage hierarchy — first complete pass live
+
+The new host-district hierarchy kit is ready for integration. It adds twenty
+frames in **`cottages.png/json`** (334,501-byte PNG) and **`district.png/json`**
+(151,959-byte PNG). The whole eleven-sheet set is **8,986,559 bytes (8.99 MB)**.
+All prior sheet pairs, including the project and dashboard halls, are unchanged.
+
+- `cottage-0`: slate-blue gabled house.
+- `cottage-1`: purple round tower house.
+- `cottage-2`: teal workshop shed with lean-to.
+- `cottage-3`: rust-roof market stall house and side awning.
+- `cottage-4`: green-roof bakery with oven chimney.
+- `cottage-5`: thatched small chapel and bell cupola.
+
+Each cottage fits within a 360x360 painted source-pixel envelope (approximately
+120x120 at nominal scale 3), plus three-pixel transparent safety padding. Forms
+keep their natural proportions. Each has one front dark arched status-window
+opening, and a doorstep off to one side where its robot can stand. No text,
+name/sign plaque or robot is baked in. Perspective, chipped limestone, worn
+timber, roof detail and upper-left warm light follow the existing halls.
+
+**`pane: {x,y,w,h}` is in frame-local source pixels**, including the frame's
+safety padding, never atlas coordinates or fractions. It bounds the actual dark
+window aperture inside the surrounding arch. Draw the matching cottage pane
+into this rectangle. **`doorstep: {x,y,w,h}`** uses the same units and locates
+the little side step; use its lower edge/nearby ground for the agent's feet.
+Bottom-centre anchors exclude the three-pixel bottom safety padding.
+
+`cottage-pane-merged`, `cottage-pane-review`, `cottage-pane-draft`,
+`cottage-pane-failing` and `cottage-pane-none` reuse the current stained-glass
+art, trimmed from its hall-facing canvas and masked to the cottages' deeper
+rounded arch. All five have 90x100 source-pixel frames and centre anchors.
+They can scale directly to each cottage's `pane` rectangle; code need not
+handle the old tile canvas's transparent margins. Windows remain blank until
+code overlays one, so state stays truthful.
+
+District prop names: `path-stone-straight`, `path-stone-diagonal`,
+`path-stone-diagonal-reverse` (the extra reverse slope), `fence-h`, `fence-v`,
+`hedge-0`, `hedge-1`, `hedge-2`, `district-gate`. Path frames have organic
+grass edges; fences are low worn oak. The gateway's passage has real alpha so
+the district terrain shows through it. No district or host name is baked in.
+
+The two atlases are 256-colour indexed PNGs with dithering off. Bounds, clean
+alpha, nonempty frames and every pane/doorstep rectangle were checked on the
+compressed outputs. `rendering/artifacts/village/cottages-v7/first-pass.png`
+shows all six panes in their apertures, robots beside their doorsteps and the
+district props. The private recipe is `build-cottages.py`; exact source prompts
+are in `prompts-v7.json` and `rendering/ASSETS.md`. This first complete pass
+uses two new built-in imagegen calls. Existing hall and robot art is preserved.
+
 Integration geometry:
 
 - Standing pieces anchor at ground contact, excluding transparent frame padding.
@@ -207,7 +259,7 @@ Integration geometry:
   project icons and dynamic status. The five fixed tile glyphs are painted in.
 
 Provenance, every exact prompt, source filenames and assembly notes are in
-`rendering/ASSETS.md`. Seventeen built-in `image_gen` calls supplied the art. No
+`rendering/ASSETS.md`. Nineteen built-in `image_gen` calls supplied the art. No
 concept pixels were copied, and the ignored concept is never a runtime asset.
 
 Private files in ignored `rendering/artifacts/village/`:

@@ -1236,7 +1236,7 @@ connector lines, which belong to the renderer.
 ## Village — modular painterly village kit (2026-11-06)
 
 The Village kit is original generated artwork made with the built-in `image_gen`
-tool in seventeen calls. The user's private `design/references/village-concept.png`
+tool in nineteen calls. The user's private `design/references/village-concept.png`
 was inspected as a visual reference for the warm painterly pixel-art village,
 three-quarter overhead perspective, golden upper-left light, roofs, crystal,
 round robots and materials. No pixels from that image were copied into any
@@ -1247,7 +1247,7 @@ Finals are `src/assets/village/<sheet>.png` and matching `.json`, with `scale: 3
 `buildings` (11 frames), `banner` (13), `tiles` (6), `robots` (73), `fountain` (7),
 `ground` (18), `scenery` (50) and `hud` (8): 186 original frames. The supplemental
 `ground-warm` sheet below adds thirteen; the stained-glass revision adds a
-separate sill, for 200 total. All 151 originally
+separate sill; `cottages` and `district` add twenty, for 220 total. All 151 originally
 requested names remain present. The thirty-four additional frames beyond the
 first complete 152-frame pass are documented in `src/assets/village/STATUS.md`.
 
@@ -1598,3 +1598,72 @@ Original output: `exec-150e0d20-af68-4c4c-b031-d3645a2a8957.png`.
 Exact prompt:
 
 > Use case: stylized-concept. Production transparent GAME ARCHITECTURE SPRITE SHEET, exact 3 columns x 2 rows with wide empty transparent gutters. Five small STAINED-GLASS STATUS WINDOWS and one matching EMPTY ARCH SURROUND, part of a hand-painted fantasy village stone hall. Camera near-front facade seen from 3/4 top-down, tiny visible upper surfaces and a shallow raised sill, golden afternoon light upper left. Painterly PIXEL-ART miniature material detail, warm grey/tan chipped limestone, dark worn oak, restrained aged bronze lead came. The windows are physical matte translucent stained glass lit softly from within, with uneven panes and painted emblems; NEVER glossy app buttons, shiny enamel, flat vector icons, gold icon frames or HUD panels. Each coloured glass face has a nearly square silhouette with a shallow rounded/arched upper edge, about132x132 at sprite sampling, a VERY THIN dark oak lip only. Large central emblem fills about55% of face and reads at 40px. Lead joints form only a few broad asymmetrical surrounding panes, no busy radial starburst behind emblem. Emblems are warm ivory/cream painted into glass, uneven painted edges with thin dark shadow/lead seam, never flat white cutout glyphs. TOP LEFT: deep moss/emerald GREEN stained glass, large clear painted CHECK emblem. TOP MIDDLE: cobalt/azure BLUE stained glass, large painted BRANCHING PATH emblem with 3 round junctions (pull request shape), simple and readable. TOP RIGHT: honey/AMBER stained glass, painted small rolled PARCHMENT SCROLL with a broad diagonal QUILL, simple bold silhouette. BOTTOM LEFT: deep warm ruby RED stained glass, large triangular warning emblem and exclamation, cream in dark outline. BOTTOM MIDDLE: cool desaturated SLATE BLUE smoked glass, three stacked old wooden STORAGE CRATE/rack compartments as painted emblem, with simple pale horizontal slats and tiny pale cyan inset rivets, fantasy storage/server state, no modern white server icon. BOTTOM RIGHT: matching EMPTY surrounding stone ARCH AND INTEGRATED SILL only, same family as the windows, footprint150 wide x164 high. Dark rough empty opening fills upper square area (a window face will overlay it), shallow rounded arch above, rough warm limestone blocks and a worn dark-oak inner lip. Below the opening, immediately attached, one broad carved STONE SILL with two little timber corbels, shallow worn carved edge and a few subtle moss flecks; no empty name/count plaque, no dark label slot, no riveted plate. The surround must look built into a village facade, understated rather than ornate. All six objects fully visible in own cell with same scale/camera/light. No text, letters, counts, labels, robots, buildings beyond these fixtures, backgrounds, checkerboard or ground patches. Genuinely transparent exterior. Output1536x1024.
+
+
+### Village workspace cottages and district hierarchy — first complete pass
+
+At the user's request, the map's visual hierarchy now has one district/fountain
+per host, existing halls per project, small cottages per workspace and agents
+beside the cottage doorsteps. Two new built-in generations paint the supporting
+art; the existing halls, dashboard buildings, robots and all prior sheets remain
+unchanged. The Islands screenshot was read as hierarchy context, not as artwork
+to copy. The new architecture retains the Village's painterly pixel-art texture,
+three-quarter facade perspective, warm upper-left light, grey/tan limestone,
+worn timber and detailed roofs.
+
+`cottages.png`/`.json` adds eleven frames: `cottage-0..5` and
+`cottage-pane-merged|review|draft|failing|none`. The six forms are a slate-blue
+gabled house, purple round tower house, teal workshop shed, rust-roof market
+stall house with side awning, green-roof bakery with oven chimney, and thatched
+small chapel with bell cupola. Each fits a 360x360 painted pixel envelope plus
+three pixels of transparent padding, preserving its proportions. Each has one
+blank front status-window aperture and a small step off to one side. No text,
+name sign, banner, status colour or robot is baked into the cottage.
+
+Each cottage's JSON includes `pane: {x,y,w,h}` bounding the actual dark window
+aperture, and `doorstep: {x,y,w,h}` locating its small step. These are frame-local
+source pixels, including the safety padding, not atlas positions or normalised
+fractions. Crop/resize transforms are applied consistently to both rectangles.
+Bottom-centre anchors exclude the bottom padding. The five cottage panes reuse
+the current painted stained glass, cropped from the old 132px tile canvases,
+resampled to 90x100 and masked to the cottages' deeper semicircular arch. Code
+can draw one directly into the pane rectangle without handling tile margins.
+
+`district.png`/`.json` adds nine frames: `path-stone-straight`,
+`path-stone-diagonal`, `path-stone-diagonal-reverse`, `fence-h`, `fence-v`,
+`hedge-0..2`, `district-gate`. The extra diagonal is a mirror of the generated
+slope. Paths have varied rounded cobbles and grassy organic edges. Worn oak
+fences and low hedges mark district edges without becoming high walls. The
+stone entrance gate has ivy, a carved keystone and a real transparent passage;
+no host text or sign is painted in.
+
+The first complete pass is live. Both atlases are indexed PNGs with libimagequant
+256-colour palettes, dithering off and Pillow optimisation: cottages 334,501
+bytes; district 151,959 bytes. All eleven sheets total 8,986,559 bytes (8.99 MB),
+with 220 frames. Previous PNG/JSON pairs are untouched. Validation checks the
+new frame names, alpha, bounds, nonempty silhouettes, frame overlap, and that
+every pane/doorstep rectangle remains inside its frame after cropping/resizing.
+
+The private recipe is `artifacts/village/build-cottages.py`; raw outputs and
+`prompts-v7.json` retain sources. `artifacts/village/cottages-v7/first-pass.png`
+shows all six cottages with real panes in their apertures and provider robots
+beside their doorsteps, plus the new district pieces. The state panes and robots
+in that review are separately composited sprites. Their pixels are never baked
+into production cottages. The first complete pass uses two new imagegen calls,
+bringing the Village source generation count to nineteen.
+
+### Village source: cottages_v7
+
+Original output: `exec-a7504c0a-84e9-4b85-88a4-40c74a0ed6e9.png`.
+
+Exact prompt:
+
+> Use case: stylized-concept. Transparent GAME BUILDING SPRITE SHEET, EXACT 3 columns x 2 rows, SIX DIFFERENT SMALL WORKSPACE COTTAGES, each fully visible with generous transparent gutters. Same style as a richly detailed cosy painterly pixel-art fantasy village: 3/4 top-down looking south at front facades, warm golden afternoon from upper left, crisp fine dark brown contours, chipped grey-tan limestone, worn oak beams, individual little roof shingles, a few tiny ivy/flower accents. Each cottage modest and small, about120x120 game concept pixels, around one-third a village guild hall's width. Roof silhouettes distinct, front facade facing camera, not diamond/isometric rotation. EVERY cottage has EXACTLY ONE LARGE FRONT ARCH WINDOW with plain DARK EMPTY opening, thin oak lip and warm stone arch. That blank arched window is centered on a flat part of the front facade, about one-quarter cottage width and nearly square, reserved for a separately overlaid stained-glass state pane. Window has NO glass, no mullions, no shutter, no interior objects, no light or glow. A small rectangular closed timber door may be on the side only. A low shallow limestone DOORSTEP at the foot extends slightly to one side, enough for a round robot to stand BESIDE the cottage, but paint NO robot. TOP LEFT: little gabled stone-and-oak house with SLATE BLUE shingle roof and tiny chimney. TOP MIDDLE: short ROUND STONE TOWER HOUSE with PURPLE conical tiled roof, one flat front arch window. TOP RIGHT: low WORKSHOP SHED with TEAL tile roof, small lean-to at one side, one front arch window. BOTTOM LEFT: MARKET STALL HOUSE, warm RUST orange tiled roof and small cream/burgundy fabric awning off one side, one front arch window. BOTTOM MIDDLE: BAKERY cottage, GREEN shingle gable roof and stout little stone oven chimney, one front arch window; no painted bread/signs. BOTTOM RIGHT: tiny CHAPEL cottage with warm natural THATCH roof and a small bell cupola, one front arch window. Little warm highlights, textured painted materials, same scale/camera/light across all six. NO signs, text, labels, banners, symbols, counts, robots, terrain platforms or broad grass bases. Actual transparent alpha outside each full silhouette, no matte, no checkerboard, no cropped roof tips. Output1536x1024.
+
+### Village source: district_props_v7
+
+Original output: `exec-88dec70c-6339-4041-adcc-37e87c707190.png`.
+
+Exact prompt:
+
+> Use case: stylized-concept. Transparent fantasy village GAME ENVIRONMENT PROP KIT, EXACT 4 columns x 2 rows with eight fully separate props and wide transparent gutters. Richly detailed painterly pixel-art, crisp thin dark brown contours, 3/4 top-down looking south, warm golden afternoon upper-left light, grey/tan limestone and worn dark oak, deep olive greens, restrained moss. TOP LEFT: short STRAIGHT horizontal cottage-to-hall COBBLE PATH segment, around90x28 game concept pixels, varied rounded muted warm grey-brown/tan stones with dark mortar, organic edges with subtle grass at sides, no flat yellow rectangle. TOP SECOND: same short cobble path on a DIAGONAL from upper left to lower right, same stone scale/width, organic grassy side edges. TOP THIRD: LOW HORIZONTAL WOODEN DISTRICT FENCE segment, dark weathered oak posts and two narrow cross-rails, small brass pegs, low enough not to hide robots, straight open join-friendly ends. TOP RIGHT: same LOW FENCE running VERTICALLY away in ground plane, two rails and posts in same perspective, no rotation mismatch. BOTTOM LEFT: small LOW HEDGE clump with dense dark-green rounded leaves, around60px wide, no soil base. BOTTOM SECOND: same low hedge family but a longer gently irregular yellow-olive leaf clump, around75px wide. BOTTOM THIRD: third low hedge variant, rounded rich green foliage with a few tiny pale flowers, around65px wide. BOTTOM RIGHT: small DISTRICT STONE ARCH GATEWAY, about90px wide and100px high, warm grey/tan limestone posts and arch with a simple carved keystone, small ivy trails and a shallow threshold, completely empty dark open passage with actual transparent view through it, no iron door, no banner or sign. Props only, no buildings, no robots, no words, letters, numbers, icons or labels, no square terrain bases. Each whole prop isolated on genuine transparent alpha, no checkerboard or background. Output1536x1024.
