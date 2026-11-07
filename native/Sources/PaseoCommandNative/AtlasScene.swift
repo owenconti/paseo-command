@@ -28,7 +28,13 @@ final class AtlasScene: SKScene {
         /// Where it is focused and where its hover card points: a box
         /// centred on its x, y (`locations` in placement.ts).
         let at: WorldBox
+        /// The Overworld style's areas (world, top-left origin, y down) in place of cells.
+        var rects: [CGRect] = []
     }
+    /// The map style the scene draws: "islands" (hexes) or "overworld" (rectangles).
+    private var style = "islands"
+    /// The art's closest zoom; a scene may ask for less (the Overworld's painting is finite).
+    private var artMaxZoom: CGFloat = 2.4
     private var entities: [String: Entity] = [:]
     /// A workspace's PR flag (or Probe's medallion), for its hover card: the flag's art as a box
     /// centred on its x, y (as `Entity.at`).
@@ -169,7 +175,7 @@ final class AtlasScene: SKScene {
         if let v = constants["robotSize"] as? Double { robotSize = CGFloat(v) }
         if let v = constants["droneSize"] as? Double { droneSize = CGFloat(v) }
         if let v = constants["droneOrbit"] as? Double { droneOrbit = v }
-        if let v = constants["maxZoom"] as? Double { rules.maxZoom = CGFloat(v) }
+        if let v = constants["maxZoom"] as? Double { rules.maxZoom = CGFloat(v); artMaxZoom = CGFloat(v) }
         if let v = constants["overlayTop"] as? Double { rules.overlayTop = CGFloat(v) }
         if let v = constants["overlayBottom"] as? Double { rules.overlayBottom = CGFloat(v) }
         if let w = constants["wander"] as? [String: Double] {
@@ -201,6 +207,11 @@ final class AtlasScene: SKScene {
         let showingAll = fitted && animation == nil && viewSize.width > 0
             && zoom <= rules.minimumZoom(land, view: viewSize) * 1.001
         if let b = m["bounds"] as? [String: Double] { land = box(b) }
+        style = m["style"] as? String ?? "islands"
+        rules.maxZoom = (m["maxZoom"] as? Double).map { CGFloat($0) } ?? artMaxZoom
+        // The Overworld paints its own sea into its pieces; the Islands sea stays out of sight.
+        for layer in [sea, glints, clouds] { layer.isHidden = style == "overworld" }
+        backgroundColor = Textures.color(style == "overworld" ? 0x0b3a8c : 0x1d6884)
         var keep = Set<String>()
         for piece in m["pieces"] as? [[String: Any]] ?? [] {
             guard let key = piece["key"] as? String, let texture = pieces[key] else { continue }
@@ -257,7 +268,10 @@ final class AtlasScene: SKScene {
             structures.addChild(node)
             if s["pulse"] as? Bool == true { reviewing.append(node) }
             // Probe's medallion has a hover card of its own, as a PR flag does.
-            if s["probe"] as? Bool == true, let workspace = s["workspace"] as? String {
+            if let flag = s["flag"] as? String, let workspace = s["workspace"] as? String {
+                plantedFlags.append(PlantedFlag(flag: flag, workspace: workspace,
+                                                at: WorldBox(x: num(s["cx"]), y: num(s["cy"]), width: num(s["size"]), height: num(s["size"]))))
+            } else if s["probe"] as? Bool == true, let workspace = s["workspace"] as? String {
                 plantedFlags.append(PlantedFlag(flag: "probe", workspace: workspace,
                                                 at: WorldBox(x: num(s["cx"]), y: num(s["cy"]), width: num(s["size"]), height: num(s["size"]))))
             }
@@ -282,7 +296,8 @@ final class AtlasScene: SKScene {
             guard let id = e["id"] as? String, let kind = e["kind"] as? String else { continue }
             let cells = (e["cells"] as? [[Int]] ?? []).map { Axial(q: $0[0], r: $0[1]) }
             let at = (e["at"] as? [String: Double]).map(box) ?? WorldBox(x: 0, y: 0, width: 0, height: 0)
-            entities[id] = Entity(id: id, kind: kind, cells: cells, at: at)
+            let rects = (e["rects"] as? [[Double]] ?? []).compactMap { r in r.count == 4 ? CGRect(x: r[0], y: r[1], width: r[2], height: r[3]) : nil }
+            entities[id] = Entity(id: id, kind: kind, cells: cells, at: at, rects: rects)
             if kind != "host" { for c in cells where owners[c] == nil { owners[c] = id } }
         }
         coverSea()
@@ -513,6 +528,27 @@ final class AtlasScene: SKScene {
 
     // MARK: Selection and hover
 
+    /// A rounded rectangle path round each of an Overworld entity's areas.
+    private func rectPath(_ rects: [CGRect], grow: CGFloat = 0) -> CGMutablePath {
+        let path = CGMutablePath()
+        for r in rects {
+            let g = r.insetBy(dx: -grow, dy: -grow)
+            let flipped = CGRect(x: g.minX, y: -g.maxY, width: g.width, height: g.height)
+            let radius = min(18, g.width / 4, g.height / 4)
+            path.addRoundedRect(in: flipped, cornerWidth: radius, cornerHeight: radius)
+        }
+        return path
+    }
+
+    private func outline(_ e: Entity, width: CGFloat, color: NSColor) -> SKShapeNode {
+        if e.rects.isEmpty { return strokes(e.cells, width: width, color: color) }
+        let node = SKShapeNode(path: rectPath(e.rects))
+        node.strokeColor = color
+        node.lineWidth = width
+        node.isAntialiased = true
+        return node
+    }
+
     private func strokes(_ cells: [Axial], width: CGFloat, color: NSColor, inset: Bool = true) -> SKShapeNode {
         let outline = Hex.perimeter(cells, width: width, inset: inset)
         let path = CGMutablePath()
@@ -533,7 +569,12 @@ final class AtlasScene: SKScene {
     private func drawSelection() {
         for node in [selectionNode, selectionWash, selectionHalo] { node.removeAllChildren() }
         guard let id = selected, let e = entities[id] else { return }
-        if e.kind != "host" {
+        if e.kind != "host" && !e.rects.isEmpty {
+            let wash = SKShapeNode(path: rectPath(e.rects))
+            wash.fillColor = Textures.color(0xffe27a)
+            wash.strokeColor = .clear
+            selectionWash.addChild(wash)
+        } else if e.kind != "host" {
             // Cells don't overlap, so one path keeps the wash even across them.
             let path = CGMutablePath()
             for c in e.cells {
@@ -551,10 +592,10 @@ final class AtlasScene: SKScene {
         }
         // The halo: the rim's glow, as widening soft strokes.
         for k in 1...5 {
-            let halo = strokes(e.cells, width: 6 + CGFloat(k) * 4, color: Textures.color(0xffc72e, 0.2))
+            let halo = outline(e, width: 6 + CGFloat(k) * 4, color: Textures.color(0xffc72e, 0.2))
             selectionHalo.addChild(halo)
         }
-        selectionNode.addChild(strokes(e.cells, width: 6, color: Textures.color(0xffc72e)))
+        selectionNode.addChild(outline(e, width: 6, color: Textures.color(0xffc72e)))
         breathe()
     }
 
@@ -567,7 +608,7 @@ final class AtlasScene: SKScene {
     private func drawHover() {
         hoverNode.removeAllChildren()
         guard let id = hovered, let e = entities[id] else { return }
-        hoverNode.addChild(strokes(e.cells, width: 4, color: Textures.color(hoverColors[e.kind] ?? 0xffffff, 0.95)))
+        hoverNode.addChild(outline(e, width: 4, color: Textures.color(hoverColors[e.kind] ?? 0xffffff, 0.95)))
     }
 
     private func setHover(_ id: String?, flag: PlantedFlag? = nil) {
@@ -729,6 +770,17 @@ final class AtlasScene: SKScene {
     private func entityAt(_ point: CGPoint) -> String? {
         let v = worldView
         let x = v.x + point.x / zoom, y = v.y + point.y / zoom
+        if style == "overworld" {
+            // The smallest area under the point: an agent before its workspace, a workspace before its project.
+            var best: (id: String, area: CGFloat)?
+            for e in entities.values where e.kind != "host" {
+                for r in e.rects where r.contains(CGPoint(x: x, y: y)) {
+                    let area = r.width * r.height
+                    if best == nil || area < best!.area || (area == best!.area && e.id < best!.id) { best = (e.id, area) }
+                }
+            }
+            return best?.id
+        }
         return owners[Hex.cellAt(x, y)]
     }
 

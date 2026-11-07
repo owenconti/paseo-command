@@ -60,6 +60,7 @@ import { MAX_ZOOM, OVERLAY_BOTTOM, OVERLAY_TOP } from "../camera";
 import { WALK_SPEED, TURN_SPEED, WANDER_X, WANDER_Y } from "../wander";
 import { HEX_RADIUS, ROBOT_SIZE } from "../world";
 import PROPS from "../assets/props.json";
+import { OverworldMap, overworldSheets } from "../overworld/native";
 import buildingsUrl from "../assets/buildings.png";
 import structuresUrl from "../assets/structures.png";
 import robotsUrl from "../assets/robots.png";
@@ -428,8 +429,14 @@ type NativeEvent =
   | { type: "error"; message: string };
 
 /** Mount the native Atlas for `parent`, the React map surface. */
-export function mountNativeAtlas(parent: HTMLElement, handlers: AtlasHandlers = {}): AtlasWorld {
+export type MapStyle = "islands" | "overworld";
+
+export function mountNativeAtlas(parent: HTMLElement, handlers: AtlasHandlers = {}, initialStyle: MapStyle = "islands"): AtlasWorld {
   const post = (message: Message) => channel()?.postMessage(message);
+  /** Which map style is drawn: the hex islands or the Overworld. */
+  let style: MapStyle = initialStyle;
+  let overworld: OverworldMap | null = null;
+  let overworldLoading = false;
   let destroyed = false;
   let ready = false;
   let art: Art | null = null;
@@ -637,6 +644,34 @@ export function mountNativeAtlas(parent: HTMLElement, handlers: AtlasHandlers = 
     const next = layoutAtlas(data, aspect());
     const structural = layout?.signature !== next.signature;
     layout = next;
+    if (style === "overworld") {
+      // The Islands layout still names the entities (for picks and hover cards); the Overworld draws.
+      if (!overworld) {
+        if (!overworldLoading) {
+          overworldLoading = true;
+          overworldSheets()
+            .then((sheets) => {
+              overworld = new OverworldMap(sheets, png, () => relayout());
+              relayout();
+            })
+            .catch((error) => handlers.error?.(error instanceof Error ? error.message : "Could not load the Overworld map."));
+        }
+        return;
+      }
+      try {
+        const now = Date.now();
+        post({ ...(overworld.message(data, ++builds, aspect()) as Message), rev: postRevision(watch, "scene", now) } as Message);
+        post({ type: "agents", tiles: [], lights: [], robots: [], rev: postRevision(watch, "agents", now) } as Message);
+        postedAt = now;
+      } catch (error) {
+        console.error(error);
+        handlers.error?.("The Overworld map could not be drawn. Reload to retry.");
+        return;
+      }
+      if (selection && !entity(selection)) selection = null;
+      if (hovered) setHover(entity(hovered) ? hovered : null, hoverAt, hoverFlag);
+      return;
+    }
     try {
       const now = Date.now();
       if (structural) post({ ...sceneOf(next), rev: postRevision(watch, "scene", now) });
@@ -868,6 +903,16 @@ export function mountNativeAtlas(parent: HTMLElement, handlers: AtlasHandlers = 
       handlers.selection?.(entity(selection));
     },
     focus: (id, closer) => ready && post({ type: "focus", id, zoom: !!closer }),
+    style: (next) => {
+      if (next === style) return;
+      style = next;
+      // Swift drops what the other style drew, so everything is sent afresh.
+      painted.clear();
+      sent.clear();
+      overworld?.reset();
+      layout = null;
+      relayout();
+    },
     command: (name) => ready && post({ type: "command", name }),
     workspace: (info) => post({ type: "workspace", workspace: info }),
     input: (on) => {

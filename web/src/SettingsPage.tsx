@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from "react";
-import { Bell, Bot, ChevronDown, FileCode2, Plug, SquareTerminal, Volume2, X } from "lucide-react";
+import { Bell, Bot, ChevronDown, FileCode2, Map as MapIcon, Plug, SquareTerminal, Volume2, X } from "lucide-react";
+import { MAP_STYLES, setMapStyle, useMapStyle } from "./mapStyle";
 import { ResizeEdge } from "./ResizeEdge";
 import { readStore, writeStore } from "./api";
 import { previewSound, setSoundSettings, useSoundSettings } from "./sounds";
@@ -22,6 +23,7 @@ import { familyCss, familyLabel, parseLineHeight, setTerminalFont, useTerminalFo
 /** The page's sections, in its sidebar's order; one shows at a time, as the other pages' places do. */
 const SECTIONS = [
   { id: "sound", label: "Sound and music", icon: <Volume2 size={14} aria-hidden="true" /> },
+  { id: "map", label: "Map", icon: <MapIcon size={14} aria-hidden="true" /> },
   { id: "notifications", label: "Notifications", icon: <Bell size={14} aria-hidden="true" /> },
   { id: "integrations", label: "Integrations", icon: <Plug size={14} aria-hidden="true" /> },
   { id: "new-agent", label: "New agent", icon: <Bot size={14} aria-hidden="true" /> },
@@ -249,6 +251,11 @@ export function SettingsPage({
           {shown.id === "files" && (
             <SettingsGroup note="Where the Files page opens a file from the tree, ⌘P, a tab or the Changes.">
               <FilesSettings />
+            </SettingsGroup>
+          )}
+          {shown.id === "map" && (
+            <SettingsGroup note={macApp() ? undefined : "The map is drawn by the macOS app; its style applies there."}>
+              <MapStyleSetting />
             </SettingsGroup>
           )}
           {shown.id === "terminal" && (
@@ -490,6 +497,25 @@ function IntegrationSettings() {
 }
 
 /** Settings → Files: open files in the built-in viewer, or in an editor command run in a terminal on the workspace's host. */
+/** The map's style: the hex Islands or the Overworld. */
+function MapStyleSetting() {
+  const style = useMapStyle();
+  const id = useId();
+  return (
+    <div role="radiogroup" aria-label="Map style">
+      {MAP_STYLES.map((m) => (
+        <label key={m.id} className="settings-row">
+          <span className="settings-row-text">
+            <b>{m.name}</b>
+            <small>{m.detail}</small>
+          </span>
+          <input type="radio" name={`${id}-map-style`} checked={style === m.id} onChange={() => setMapStyle(m.id)} />
+        </label>
+      ))}
+    </div>
+  );
+}
+
 function FilesSettings() {
   const { settings, loaded, saving, error } = useFilesSettings();
   const [command, setCommand] = useState(settings.editorCommand);

@@ -37,3 +37,6 @@ credentials.json
 web/dist-server/
 native/.cache/
 native/release/
+
+# The Overworld preview page's bundle (rendering/overworld-preview/build.sh)
+rendering/overworld-preview/main.js

@@ -1,6 +1,7 @@
 /** The embedding API for the Atlas world. The macOS app (`native/`) draws it
  * with SpriteKit under the page; this hands the page's map surface to it. */
-import { mountNativeAtlas, nativeWorldAvailable } from "./native/bridge";
+import { mountNativeAtlas, nativeWorldAvailable, type MapStyle } from "./native/bridge";
+export type { MapStyle };
 import type { AtlasData, Entity } from "./world";
 import type { MapFlag } from "./prStatus";
 export type { AtlasData, Entity };
@@ -28,6 +29,8 @@ export type AtlasWorld = {
   select(id: string | null): void;
   /** Pans to an entity if it is out of view; `zoom` frames it closer too. */
   focus(id: string, zoom?: boolean): void;
+  /** Draw the hex islands or the Overworld. */
+  style(style: MapStyle): void;
   command(name: "home" | "in" | "out"): void;
   /** The workspace whose daemon terminals the app's terminal drawer shows
    * (the selected one, or the selected agent's), or null. */
@@ -41,6 +44,6 @@ export type AtlasWorld = {
 /** Mount the Atlas into the map surface, or null outside the native app
  * (a plain browser has no world to draw it). Data, selection and camera stay
  * with the caller. */
-export function mountAtlas(parent: HTMLElement, handlers: AtlasHandlers = {}): AtlasWorld | null {
-  return nativeWorldAvailable() ? mountNativeAtlas(parent, handlers) : null;
+export function mountAtlas(parent: HTMLElement, handlers: AtlasHandlers = {}, style: MapStyle = "islands"): AtlasWorld | null {
+  return nativeWorldAvailable() ? mountNativeAtlas(parent, handlers, style) : null;
 }

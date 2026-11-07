@@ -1,3 +1,4 @@
+import { setMapStyle, useMapStyle } from "./mapStyle";
 import { useAsks } from "./useAsks";
 import { useWorkingOn } from "./useWorkingOn";
 import {
@@ -1244,6 +1245,7 @@ function App() {
     [select],
   );
   const sounds = useSoundSettings();
+  const mapStyleNow = useMapStyle();
   const radio = useMusic();
   const addProject = () => {
     setAddingProject(true);
@@ -2262,6 +2264,18 @@ function App() {
                 },
               ]
             : []),
+        ]
+      : []),
+    ...(macApp()
+      ? [
+          {
+            id: "map-style",
+            group: "App",
+            page: "Settings" as const,
+            label: mapStyleNow === "overworld" ? "Use the Islands map" : "Use the Overworld map",
+            keywords: "map style overworld islands hex castle theme world look",
+            run: () => setMapStyle(mapStyleNow === "overworld" ? "islands" : "overworld"),
+          },
         ]
       : []),
     {

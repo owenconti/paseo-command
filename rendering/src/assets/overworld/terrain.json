@@ -1,0 +1,1528 @@
+{
+  "image": "terrain.png",
+  "width": 4096,
+  "height": 2432,
+  "style": "HD painted fantasy; generated material detail, smooth antialiasing; no pixel snapping",
+  "sampling": "linear",
+  "anchorUnits": "pixels relative to frame top-left; y points down",
+  "footprintUnits": "4x concept pixels (divide by four at concept display scale)",
+  "gutter": 32,
+  "frames": {
+    "grass-0": {
+      "x": 32,
+      "y": 32,
+      "w": 256,
+      "h": 256,
+      "anchor": {
+        "x": 0,
+        "y": 0
+      },
+      "footprint": {
+        "w": 256,
+        "h": 256,
+        "units": "4x concept pixels"
+      },
+      "tile": true,
+      "tileAxes": "xy"
+    },
+    "grass-1": {
+      "x": 320,
+      "y": 32,
+      "w": 256,
+      "h": 256,
+      "anchor": {
+        "x": 0,
+        "y": 0
+      },
+      "footprint": {
+        "w": 256,
+        "h": 256,
+        "units": "4x concept pixels"
+      },
+      "tile": true,
+      "tileAxes": "xy"
+    },
+    "dirt-cobble": {
+      "x": 608,
+      "y": 32,
+      "w": 256,
+      "h": 256,
+      "anchor": {
+        "x": 0,
+        "y": 0
+      },
+      "footprint": {
+        "w": 256,
+        "h": 256,
+        "units": "4x concept pixels"
+      },
+      "tile": true,
+      "tileAxes": "xy"
+    },
+    "dirt": {
+      "x": 896,
+      "y": 32,
+      "w": 256,
+      "h": 256,
+      "anchor": {
+        "x": 0,
+        "y": 0
+      },
+      "footprint": {
+        "w": 256,
+        "h": 256,
+        "units": "4x concept pixels"
+      },
+      "tile": true,
+      "tileAxes": "xy"
+    },
+    "cliff-face": {
+      "x": 1184,
+      "y": 32,
+      "w": 768,
+      "h": 232,
+      "anchor": {
+        "x": 0,
+        "y": 0
+      },
+      "footprint": {
+        "w": 768,
+        "h": 0,
+        "drop": 232,
+        "units": "4x concept pixels"
+      },
+      "tile": true,
+      "tileAxes": "x"
+    },
+    "cliff-step": {
+      "x": 1984,
+      "y": 32,
+      "w": 768,
+      "h": 96,
+      "anchor": {
+        "x": 0,
+        "y": 0
+      },
+      "footprint": {
+        "w": 768,
+        "h": 0,
+        "drop": 96,
+        "units": "4x concept pixels"
+      },
+      "tile": true,
+      "tileAxes": "x"
+    },
+    "stairs": {
+      "x": 2784,
+      "y": 32,
+      "w": 320,
+      "h": 195,
+      "anchor": {
+        "x": 0,
+        "y": 0
+      },
+      "footprint": {
+        "w": 320,
+        "h": 195,
+        "units": "4x concept pixels"
+      },
+      "tile": false,
+      "stackable": true,
+      "stackStride": 160
+    },
+    "stairs-tread": {
+      "x": 3136,
+      "y": 32,
+      "w": 256,
+      "h": 40,
+      "anchor": {
+        "x": 0,
+        "y": 0
+      },
+      "footprint": {
+        "w": 256,
+        "h": 40,
+        "units": "4x concept pixels"
+      },
+      "tile": true,
+      "tileAxes": "y",
+      "stackStride": 40
+    },
+    "bridge": {
+      "x": 3424,
+      "y": 32,
+      "w": 560,
+      "h": 244,
+      "anchor": {
+        "x": 280,
+        "y": 220
+      },
+      "footprint": {
+        "w": 560,
+        "h": 176,
+        "units": "4x concept pixels"
+      },
+      "tile": false
+    },
+    "flowers": {
+      "x": 32,
+      "y": 320,
+      "w": 112,
+      "h": 73,
+      "anchor": {
+        "x": 56,
+        "y": 76
+      },
+      "footprint": {
+        "w": 112,
+        "h": 73,
+        "units": "4x concept pixels"
+      },
+      "tile": false
+    },
+    "grass-tuft": {
+      "x": 176,
+      "y": 320,
+      "w": 112,
+      "h": 61,
+      "anchor": {
+        "x": 56,
+        "y": 76
+      },
+      "footprint": {
+        "w": 112,
+        "h": 61,
+        "units": "4x concept pixels"
+      },
+      "tile": false
+    },
+    "plateau-1-cliff": {
+      "x": 320,
+      "y": 320,
+      "w": 256,
+      "h": 416,
+      "anchor": {
+        "x": 0,
+        "y": 0
+      },
+      "footprint": {
+        "w": 256,
+        "h": 256,
+        "units": "4x concept pixels"
+      },
+      "tile": false,
+      "layer": "cliff",
+      "topology": 1,
+      "origin": {
+        "x": 0,
+        "y": 0
+      }
+    },
+    "plateau-1-top": {
+      "x": 608,
+      "y": 320,
+      "w": 256,
+      "h": 256,
+      "anchor": {
+        "x": 0,
+        "y": 0
+      },
+      "footprint": {
+        "w": 256,
+        "h": 256,
+        "units": "4x concept pixels"
+      },
+      "tile": false,
+      "layer": "top",
+      "topology": 1,
+      "origin": {
+        "x": 0,
+        "y": 0
+      }
+    },
+    "plateau-2-cliff": {
+      "x": 896,
+      "y": 320,
+      "w": 256,
+      "h": 416,
+      "anchor": {
+        "x": 0,
+        "y": 0
+      },
+      "footprint": {
+        "w": 256,
+        "h": 256,
+        "units": "4x concept pixels"
+      },
+      "tile": false,
+      "layer": "cliff",
+      "topology": 2,
+      "origin": {
+        "x": 0,
+        "y": 0
+      }
+    },
+    "plateau-2-top": {
+      "x": 1184,
+      "y": 320,
+      "w": 256,
+      "h": 256,
+      "anchor": {
+        "x": 0,
+        "y": 0
+      },
+      "footprint": {
+        "w": 256,
+        "h": 256,
+        "units": "4x concept pixels"
+      },
+      "tile": false,
+      "layer": "top",
+      "topology": 2,
+      "origin": {
+        "x": 0,
+        "y": 0
+      }
+    },
+    "plateau-3-cliff": {
+      "x": 1472,
+      "y": 320,
+      "w": 256,
+      "h": 416,
+      "anchor": {
+        "x": 0,
+        "y": 0
+      },
+      "footprint": {
+        "w": 256,
+        "h": 256,
+        "units": "4x concept pixels"
+      },
+      "tile": false,
+      "layer": "cliff",
+      "topology": 3,
+      "origin": {
+        "x": 0,
+        "y": 0
+      }
+    },
+    "plateau-3-top": {
+      "x": 1760,
+      "y": 320,
+      "w": 256,
+      "h": 256,
+      "anchor": {
+        "x": 0,
+        "y": 0
+      },
+      "footprint": {
+        "w": 256,
+        "h": 256,
+        "units": "4x concept pixels"
+      },
+      "tile": false,
+      "layer": "top",
+      "topology": 3,
+      "origin": {
+        "x": 0,
+        "y": 0
+      }
+    },
+    "plateau-4-cliff": {
+      "x": 2048,
+      "y": 320,
+      "w": 256,
+      "h": 416,
+      "anchor": {
+        "x": 0,
+        "y": 0
+      },
+      "footprint": {
+        "w": 256,
+        "h": 256,
+        "units": "4x concept pixels"
+      },
+      "tile": false,
+      "layer": "cliff",
+      "topology": 4,
+      "origin": {
+        "x": 0,
+        "y": 0
+      }
+    },
+    "plateau-4-top": {
+      "x": 2336,
+      "y": 320,
+      "w": 256,
+      "h": 256,
+      "anchor": {
+        "x": 0,
+        "y": 0
+      },
+      "footprint": {
+        "w": 256,
+        "h": 256,
+        "units": "4x concept pixels"
+      },
+      "tile": false,
+      "layer": "top",
+      "topology": 4,
+      "origin": {
+        "x": 0,
+        "y": 0
+      }
+    },
+    "plateau-5-cliff": {
+      "x": 2624,
+      "y": 320,
+      "w": 256,
+      "h": 416,
+      "anchor": {
+        "x": 0,
+        "y": 0
+      },
+      "footprint": {
+        "w": 256,
+        "h": 256,
+        "units": "4x concept pixels"
+      },
+      "tile": false,
+      "layer": "cliff",
+      "topology": 5,
+      "origin": {
+        "x": 0,
+        "y": 0
+      }
+    },
+    "plateau-5-top": {
+      "x": 2912,
+      "y": 320,
+      "w": 256,
+      "h": 256,
+      "anchor": {
+        "x": 0,
+        "y": 0
+      },
+      "footprint": {
+        "w": 256,
+        "h": 256,
+        "units": "4x concept pixels"
+      },
+      "tile": false,
+      "layer": "top",
+      "topology": 5,
+      "origin": {
+        "x": 0,
+        "y": 0
+      }
+    },
+    "plateau-6-cliff": {
+      "x": 3200,
+      "y": 320,
+      "w": 256,
+      "h": 416,
+      "anchor": {
+        "x": 0,
+        "y": 0
+      },
+      "footprint": {
+        "w": 256,
+        "h": 256,
+        "units": "4x concept pixels"
+      },
+      "tile": false,
+      "layer": "cliff",
+      "topology": 6,
+      "origin": {
+        "x": 0,
+        "y": 0
+      }
+    },
+    "plateau-6-top": {
+      "x": 3488,
+      "y": 320,
+      "w": 256,
+      "h": 256,
+      "anchor": {
+        "x": 0,
+        "y": 0
+      },
+      "footprint": {
+        "w": 256,
+        "h": 256,
+        "units": "4x concept pixels"
+      },
+      "tile": false,
+      "layer": "top",
+      "topology": 6,
+      "origin": {
+        "x": 0,
+        "y": 0
+      }
+    },
+    "plateau-7-cliff": {
+      "x": 3776,
+      "y": 320,
+      "w": 256,
+      "h": 416,
+      "anchor": {
+        "x": 0,
+        "y": 0
+      },
+      "footprint": {
+        "w": 256,
+        "h": 256,
+        "units": "4x concept pixels"
+      },
+      "tile": false,
+      "layer": "cliff",
+      "topology": 7,
+      "origin": {
+        "x": 0,
+        "y": 0
+      }
+    },
+    "plateau-7-top": {
+      "x": 32,
+      "y": 768,
+      "w": 256,
+      "h": 256,
+      "anchor": {
+        "x": 0,
+        "y": 0
+      },
+      "footprint": {
+        "w": 256,
+        "h": 256,
+        "units": "4x concept pixels"
+      },
+      "tile": false,
+      "layer": "top",
+      "topology": 7,
+      "origin": {
+        "x": 0,
+        "y": 0
+      }
+    },
+    "plateau-8-cliff": {
+      "x": 320,
+      "y": 768,
+      "w": 256,
+      "h": 416,
+      "anchor": {
+        "x": 0,
+        "y": 0
+      },
+      "footprint": {
+        "w": 256,
+        "h": 256,
+        "units": "4x concept pixels"
+      },
+      "tile": false,
+      "layer": "cliff",
+      "topology": 8,
+      "origin": {
+        "x": 0,
+        "y": 0
+      }
+    },
+    "plateau-8-top": {
+      "x": 608,
+      "y": 768,
+      "w": 256,
+      "h": 256,
+      "anchor": {
+        "x": 0,
+        "y": 0
+      },
+      "footprint": {
+        "w": 256,
+        "h": 256,
+        "units": "4x concept pixels"
+      },
+      "tile": false,
+      "layer": "top",
+      "topology": 8,
+      "origin": {
+        "x": 0,
+        "y": 0
+      }
+    },
+    "plateau-9-cliff": {
+      "x": 896,
+      "y": 768,
+      "w": 256,
+      "h": 416,
+      "anchor": {
+        "x": 0,
+        "y": 0
+      },
+      "footprint": {
+        "w": 256,
+        "h": 256,
+        "units": "4x concept pixels"
+      },
+      "tile": false,
+      "layer": "cliff",
+      "topology": 9,
+      "origin": {
+        "x": 0,
+        "y": 0
+      }
+    },
+    "plateau-9-top": {
+      "x": 1184,
+      "y": 768,
+      "w": 256,
+      "h": 256,
+      "anchor": {
+        "x": 0,
+        "y": 0
+      },
+      "footprint": {
+        "w": 256,
+        "h": 256,
+        "units": "4x concept pixels"
+      },
+      "tile": false,
+      "layer": "top",
+      "topology": 9,
+      "origin": {
+        "x": 0,
+        "y": 0
+      }
+    },
+    "plateau-a-cliff": {
+      "x": 1472,
+      "y": 768,
+      "w": 256,
+      "h": 416,
+      "anchor": {
+        "x": 0,
+        "y": 0
+      },
+      "footprint": {
+        "w": 256,
+        "h": 256,
+        "units": "4x concept pixels"
+      },
+      "tile": false,
+      "layer": "cliff",
+      "topology": 10,
+      "origin": {
+        "x": 0,
+        "y": 0
+      }
+    },
+    "plateau-a-top": {
+      "x": 1760,
+      "y": 768,
+      "w": 256,
+      "h": 256,
+      "anchor": {
+        "x": 0,
+        "y": 0
+      },
+      "footprint": {
+        "w": 256,
+        "h": 256,
+        "units": "4x concept pixels"
+      },
+      "tile": false,
+      "layer": "top",
+      "topology": 10,
+      "origin": {
+        "x": 0,
+        "y": 0
+      }
+    },
+    "plateau-b-cliff": {
+      "x": 2048,
+      "y": 768,
+      "w": 256,
+      "h": 416,
+      "anchor": {
+        "x": 0,
+        "y": 0
+      },
+      "footprint": {
+        "w": 256,
+        "h": 256,
+        "units": "4x concept pixels"
+      },
+      "tile": false,
+      "layer": "cliff",
+      "topology": 11,
+      "origin": {
+        "x": 0,
+        "y": 0
+      }
+    },
+    "plateau-b-top": {
+      "x": 2336,
+      "y": 768,
+      "w": 256,
+      "h": 256,
+      "anchor": {
+        "x": 0,
+        "y": 0
+      },
+      "footprint": {
+        "w": 256,
+        "h": 256,
+        "units": "4x concept pixels"
+      },
+      "tile": false,
+      "layer": "top",
+      "topology": 11,
+      "origin": {
+        "x": 0,
+        "y": 0
+      }
+    },
+    "plateau-c-cliff": {
+      "x": 2624,
+      "y": 768,
+      "w": 256,
+      "h": 416,
+      "anchor": {
+        "x": 0,
+        "y": 0
+      },
+      "footprint": {
+        "w": 256,
+        "h": 256,
+        "units": "4x concept pixels"
+      },
+      "tile": false,
+      "layer": "cliff",
+      "topology": 12,
+      "origin": {
+        "x": 0,
+        "y": 0
+      }
+    },
+    "plateau-c-top": {
+      "x": 2912,
+      "y": 768,
+      "w": 256,
+      "h": 256,
+      "anchor": {
+        "x": 0,
+        "y": 0
+      },
+      "footprint": {
+        "w": 256,
+        "h": 256,
+        "units": "4x concept pixels"
+      },
+      "tile": false,
+      "layer": "top",
+      "topology": 12,
+      "origin": {
+        "x": 0,
+        "y": 0
+      }
+    },
+    "plateau-d-cliff": {
+      "x": 3200,
+      "y": 768,
+      "w": 256,
+      "h": 416,
+      "anchor": {
+        "x": 0,
+        "y": 0
+      },
+      "footprint": {
+        "w": 256,
+        "h": 256,
+        "units": "4x concept pixels"
+      },
+      "tile": false,
+      "layer": "cliff",
+      "topology": 13,
+      "origin": {
+        "x": 0,
+        "y": 0
+      }
+    },
+    "plateau-d-top": {
+      "x": 3488,
+      "y": 768,
+      "w": 256,
+      "h": 256,
+      "anchor": {
+        "x": 0,
+        "y": 0
+      },
+      "footprint": {
+        "w": 256,
+        "h": 256,
+        "units": "4x concept pixels"
+      },
+      "tile": false,
+      "layer": "top",
+      "topology": 13,
+      "origin": {
+        "x": 0,
+        "y": 0
+      }
+    },
+    "plateau-e-cliff": {
+      "x": 3776,
+      "y": 768,
+      "w": 256,
+      "h": 416,
+      "anchor": {
+        "x": 0,
+        "y": 0
+      },
+      "footprint": {
+        "w": 256,
+        "h": 256,
+        "units": "4x concept pixels"
+      },
+      "tile": false,
+      "layer": "cliff",
+      "topology": 14,
+      "origin": {
+        "x": 0,
+        "y": 0
+      }
+    },
+    "plateau-e-top": {
+      "x": 32,
+      "y": 1216,
+      "w": 256,
+      "h": 256,
+      "anchor": {
+        "x": 0,
+        "y": 0
+      },
+      "footprint": {
+        "w": 256,
+        "h": 256,
+        "units": "4x concept pixels"
+      },
+      "tile": false,
+      "layer": "top",
+      "topology": 14,
+      "origin": {
+        "x": 0,
+        "y": 0
+      }
+    },
+    "plateau-f-cliff": {
+      "x": 320,
+      "y": 1216,
+      "w": 256,
+      "h": 416,
+      "anchor": {
+        "x": 0,
+        "y": 0
+      },
+      "footprint": {
+        "w": 256,
+        "h": 256,
+        "units": "4x concept pixels"
+      },
+      "tile": false,
+      "layer": "cliff",
+      "topology": 15,
+      "origin": {
+        "x": 0,
+        "y": 0
+      }
+    },
+    "plateau-f-top": {
+      "x": 608,
+      "y": 1216,
+      "w": 256,
+      "h": 256,
+      "anchor": {
+        "x": 0,
+        "y": 0
+      },
+      "footprint": {
+        "w": 256,
+        "h": 256,
+        "units": "4x concept pixels"
+      },
+      "tile": false,
+      "layer": "top",
+      "topology": 15,
+      "origin": {
+        "x": 0,
+        "y": 0
+      }
+    },
+    "cliff-front": {
+      "x": 896,
+      "y": 1216,
+      "w": 256,
+      "h": 416,
+      "anchor": {
+        "x": 0,
+        "y": 0
+      },
+      "footprint": {
+        "w": 256,
+        "h": 256,
+        "units": "4x concept pixels"
+      },
+      "tile": true,
+      "tileAxes": "x",
+      "topology": 3,
+      "assembly": "For shared multi-row plateaus use the separate plateau cliff/top layers; these combined named modules are previews/single-edge conveniences."
+    },
+    "cliff-back": {
+      "x": 1184,
+      "y": 1216,
+      "w": 256,
+      "h": 416,
+      "anchor": {
+        "x": 0,
+        "y": 0
+      },
+      "footprint": {
+        "w": 256,
+        "h": 256,
+        "units": "4x concept pixels"
+      },
+      "tile": true,
+      "tileAxes": "x",
+      "topology": 12,
+      "assembly": "For shared multi-row plateaus use the separate plateau cliff/top layers; these combined named modules are previews/single-edge conveniences."
+    },
+    "cliff-left": {
+      "x": 1472,
+      "y": 1216,
+      "w": 256,
+      "h": 256,
+      "anchor": {
+        "x": 0,
+        "y": 0
+      },
+      "footprint": {
+        "w": 256,
+        "h": 256,
+        "units": "4x concept pixels"
+      },
+      "tile": true,
+      "tileAxes": "y",
+      "topology": 10,
+      "assembly": "For shared multi-row plateaus use the separate plateau cliff/top layers; these combined named modules are previews/single-edge conveniences."
+    },
+    "cliff-right": {
+      "x": 1760,
+      "y": 1216,
+      "w": 256,
+      "h": 256,
+      "anchor": {
+        "x": 0,
+        "y": 0
+      },
+      "footprint": {
+        "w": 256,
+        "h": 256,
+        "units": "4x concept pixels"
+      },
+      "tile": true,
+      "tileAxes": "y",
+      "topology": 5,
+      "assembly": "For shared multi-row plateaus use the separate plateau cliff/top layers; these combined named modules are previews/single-edge conveniences."
+    },
+    "cliff-outer-nw": {
+      "x": 2048,
+      "y": 1216,
+      "w": 256,
+      "h": 416,
+      "anchor": {
+        "x": 0,
+        "y": 0
+      },
+      "footprint": {
+        "w": 256,
+        "h": 256,
+        "units": "4x concept pixels"
+      },
+      "tile": false,
+      "topology": 8,
+      "assembly": "For shared multi-row plateaus use the separate plateau cliff/top layers; these combined named modules are previews/single-edge conveniences."
+    },
+    "cliff-outer-ne": {
+      "x": 2336,
+      "y": 1216,
+      "w": 256,
+      "h": 416,
+      "anchor": {
+        "x": 0,
+        "y": 0
+      },
+      "footprint": {
+        "w": 256,
+        "h": 256,
+        "units": "4x concept pixels"
+      },
+      "tile": false,
+      "topology": 4,
+      "assembly": "For shared multi-row plateaus use the separate plateau cliff/top layers; these combined named modules are previews/single-edge conveniences."
+    },
+    "cliff-outer-sw": {
+      "x": 2624,
+      "y": 1216,
+      "w": 256,
+      "h": 416,
+      "anchor": {
+        "x": 0,
+        "y": 0
+      },
+      "footprint": {
+        "w": 256,
+        "h": 256,
+        "units": "4x concept pixels"
+      },
+      "tile": false,
+      "topology": 2,
+      "assembly": "For shared multi-row plateaus use the separate plateau cliff/top layers; these combined named modules are previews/single-edge conveniences."
+    },
+    "cliff-outer-se": {
+      "x": 2912,
+      "y": 1216,
+      "w": 256,
+      "h": 416,
+      "anchor": {
+        "x": 0,
+        "y": 0
+      },
+      "footprint": {
+        "w": 256,
+        "h": 256,
+        "units": "4x concept pixels"
+      },
+      "tile": false,
+      "topology": 1,
+      "assembly": "For shared multi-row plateaus use the separate plateau cliff/top layers; these combined named modules are previews/single-edge conveniences."
+    },
+    "cliff-inner-nw": {
+      "x": 3200,
+      "y": 1216,
+      "w": 256,
+      "h": 416,
+      "anchor": {
+        "x": 0,
+        "y": 0
+      },
+      "footprint": {
+        "w": 256,
+        "h": 256,
+        "units": "4x concept pixels"
+      },
+      "tile": false,
+      "topology": 7,
+      "assembly": "For shared multi-row plateaus use the separate plateau cliff/top layers; these combined named modules are previews/single-edge conveniences."
+    },
+    "cliff-inner-ne": {
+      "x": 3488,
+      "y": 1216,
+      "w": 256,
+      "h": 416,
+      "anchor": {
+        "x": 0,
+        "y": 0
+      },
+      "footprint": {
+        "w": 256,
+        "h": 256,
+        "units": "4x concept pixels"
+      },
+      "tile": false,
+      "topology": 11,
+      "assembly": "For shared multi-row plateaus use the separate plateau cliff/top layers; these combined named modules are previews/single-edge conveniences."
+    },
+    "cliff-inner-sw": {
+      "x": 3776,
+      "y": 1216,
+      "w": 256,
+      "h": 416,
+      "anchor": {
+        "x": 0,
+        "y": 0
+      },
+      "footprint": {
+        "w": 256,
+        "h": 256,
+        "units": "4x concept pixels"
+      },
+      "tile": false,
+      "topology": 13,
+      "assembly": "For shared multi-row plateaus use the separate plateau cliff/top layers; these combined named modules are previews/single-edge conveniences."
+    },
+    "cliff-inner-se": {
+      "x": 32,
+      "y": 1664,
+      "w": 256,
+      "h": 416,
+      "anchor": {
+        "x": 0,
+        "y": 0
+      },
+      "footprint": {
+        "w": 256,
+        "h": 256,
+        "units": "4x concept pixels"
+      },
+      "tile": false,
+      "topology": 14,
+      "assembly": "For shared multi-row plateaus use the separate plateau cliff/top layers; these combined named modules are previews/single-edge conveniences."
+    },
+    "step-front": {
+      "x": 320,
+      "y": 1664,
+      "w": 256,
+      "h": 296,
+      "anchor": {
+        "x": 0,
+        "y": 0
+      },
+      "footprint": {
+        "w": 256,
+        "h": 256,
+        "units": "4x concept pixels"
+      },
+      "tile": true,
+      "tileAxes": "x",
+      "layer": "cliff",
+      "topology": 3,
+      "drop": 40
+    },
+    "step-back": {
+      "x": 608,
+      "y": 1664,
+      "w": 256,
+      "h": 296,
+      "anchor": {
+        "x": 0,
+        "y": 0
+      },
+      "footprint": {
+        "w": 256,
+        "h": 256,
+        "units": "4x concept pixels"
+      },
+      "tile": true,
+      "tileAxes": "x",
+      "layer": "cliff",
+      "topology": 12,
+      "drop": 40
+    },
+    "step-left": {
+      "x": 896,
+      "y": 1664,
+      "w": 256,
+      "h": 256,
+      "anchor": {
+        "x": 0,
+        "y": 0
+      },
+      "footprint": {
+        "w": 256,
+        "h": 256,
+        "units": "4x concept pixels"
+      },
+      "tile": true,
+      "tileAxes": "y",
+      "layer": "cliff",
+      "topology": 10,
+      "drop": 40
+    },
+    "step-right": {
+      "x": 1184,
+      "y": 1664,
+      "w": 256,
+      "h": 256,
+      "anchor": {
+        "x": 0,
+        "y": 0
+      },
+      "footprint": {
+        "w": 256,
+        "h": 256,
+        "units": "4x concept pixels"
+      },
+      "tile": true,
+      "tileAxes": "y",
+      "layer": "cliff",
+      "topology": 5,
+      "drop": 40
+    },
+    "step-outer-nw": {
+      "x": 1472,
+      "y": 1664,
+      "w": 256,
+      "h": 296,
+      "anchor": {
+        "x": 0,
+        "y": 0
+      },
+      "footprint": {
+        "w": 256,
+        "h": 256,
+        "units": "4x concept pixels"
+      },
+      "tile": false,
+      "layer": "cliff",
+      "topology": 8,
+      "drop": 40
+    },
+    "step-outer-ne": {
+      "x": 1760,
+      "y": 1664,
+      "w": 256,
+      "h": 296,
+      "anchor": {
+        "x": 0,
+        "y": 0
+      },
+      "footprint": {
+        "w": 256,
+        "h": 256,
+        "units": "4x concept pixels"
+      },
+      "tile": false,
+      "layer": "cliff",
+      "topology": 4,
+      "drop": 40
+    },
+    "step-outer-sw": {
+      "x": 2048,
+      "y": 1664,
+      "w": 256,
+      "h": 296,
+      "anchor": {
+        "x": 0,
+        "y": 0
+      },
+      "footprint": {
+        "w": 256,
+        "h": 256,
+        "units": "4x concept pixels"
+      },
+      "tile": false,
+      "layer": "cliff",
+      "topology": 2,
+      "drop": 40
+    },
+    "step-outer-se": {
+      "x": 2336,
+      "y": 1664,
+      "w": 256,
+      "h": 296,
+      "anchor": {
+        "x": 0,
+        "y": 0
+      },
+      "footprint": {
+        "w": 256,
+        "h": 256,
+        "units": "4x concept pixels"
+      },
+      "tile": false,
+      "layer": "cliff",
+      "topology": 1,
+      "drop": 40
+    },
+    "step-inner-nw": {
+      "x": 2624,
+      "y": 1664,
+      "w": 256,
+      "h": 296,
+      "anchor": {
+        "x": 0,
+        "y": 0
+      },
+      "footprint": {
+        "w": 256,
+        "h": 256,
+        "units": "4x concept pixels"
+      },
+      "tile": false,
+      "layer": "cliff",
+      "topology": 7,
+      "drop": 40
+    },
+    "step-inner-ne": {
+      "x": 2912,
+      "y": 1664,
+      "w": 256,
+      "h": 296,
+      "anchor": {
+        "x": 0,
+        "y": 0
+      },
+      "footprint": {
+        "w": 256,
+        "h": 256,
+        "units": "4x concept pixels"
+      },
+      "tile": false,
+      "layer": "cliff",
+      "topology": 11,
+      "drop": 40
+    },
+    "step-inner-sw": {
+      "x": 3200,
+      "y": 1664,
+      "w": 256,
+      "h": 296,
+      "anchor": {
+        "x": 0,
+        "y": 0
+      },
+      "footprint": {
+        "w": 256,
+        "h": 256,
+        "units": "4x concept pixels"
+      },
+      "tile": false,
+      "layer": "cliff",
+      "topology": 13,
+      "drop": 40
+    },
+    "step-inner-se": {
+      "x": 3488,
+      "y": 1664,
+      "w": 256,
+      "h": 296,
+      "anchor": {
+        "x": 0,
+        "y": 0
+      },
+      "footprint": {
+        "w": 256,
+        "h": 256,
+        "units": "4x concept pixels"
+      },
+      "tile": false,
+      "layer": "cliff",
+      "topology": 14,
+      "drop": 40
+    },
+    "sea-rock-0": {
+      "x": 3776,
+      "y": 1664,
+      "w": 96,
+      "h": 62,
+      "anchor": {
+        "x": 48,
+        "y": 53
+      },
+      "footprint": {
+        "w": 96,
+        "h": 26,
+        "units": "4x concept pixels"
+      },
+      "tile": false
+    },
+    "sea-rock-1": {
+      "x": 32,
+      "y": 2112,
+      "w": 192,
+      "h": 124,
+      "anchor": {
+        "x": 96,
+        "y": 106
+      },
+      "footprint": {
+        "w": 192,
+        "h": 52,
+        "units": "4x concept pixels"
+      },
+      "tile": false
+    },
+    "sea-rock-2": {
+      "x": 256,
+      "y": 2112,
+      "w": 288,
+      "h": 197,
+      "anchor": {
+        "x": 144,
+        "y": 169
+      },
+      "footprint": {
+        "w": 288,
+        "h": 83,
+        "units": "4x concept pixels"
+      },
+      "tile": false
+    },
+    "sea-rock-3": {
+      "x": 576,
+      "y": 2112,
+      "w": 400,
+      "h": 266,
+      "anchor": {
+        "x": 200,
+        "y": 228
+      },
+      "footprint": {
+        "w": 400,
+        "h": 112,
+        "units": "4x concept pixels"
+      },
+      "tile": false
+    },
+    "cloud-0": {
+      "x": 1008,
+      "y": 2112,
+      "w": 198,
+      "h": 143,
+      "anchor": {
+        "x": 99,
+        "y": 122
+      },
+      "footprint": {
+        "w": 198,
+        "h": 60,
+        "units": "4x concept pixels"
+      },
+      "tile": false
+    },
+    "cloud-1": {
+      "x": 1238,
+      "y": 2112,
+      "w": 396,
+      "h": 207,
+      "anchor": {
+        "x": 198,
+        "y": 178
+      },
+      "footprint": {
+        "w": 396,
+        "h": 87,
+        "units": "4x concept pixels"
+      },
+      "tile": false
+    },
+    "cloud-2": {
+      "x": 1666,
+      "y": 2112,
+      "w": 552,
+      "h": 164,
+      "anchor": {
+        "x": 276,
+        "y": 141
+      },
+      "footprint": {
+        "w": 552,
+        "h": 69,
+        "units": "4x concept pixels"
+      },
+      "tile": false
+    }
+  },
+  "animations": {},
+  "sources": "prompts.json",
+  "processing": "Raw generated sources unchanged. Lanczos crops, narrow periodic edge blending, texture projection through antialiased modular masks, cyclic material displacement. No palette quantization or thresholded source alpha.",
+  "plateauAssembly": {
+    "grid": {
+      "w": 256,
+      "h": 256
+    },
+    "cliffDrop": 160,
+    "terraceDrop": 40,
+    "cornerBits": {
+      "northwest": 1,
+      "northeast": 2,
+      "southwest": 4,
+      "southeast": 8
+    },
+    "lookup": {
+      "1": {
+        "bits": 1,
+        "cliff": "plateau-1-cliff",
+        "top": "plateau-1-top"
+      },
+      "2": {
+        "bits": 2,
+        "cliff": "plateau-2-cliff",
+        "top": "plateau-2-top"
+      },
+      "3": {
+        "bits": 3,
+        "cliff": "plateau-3-cliff",
+        "top": "plateau-3-top"
+      },
+      "4": {
+        "bits": 4,
+        "cliff": "plateau-4-cliff",
+        "top": "plateau-4-top"
+      },
+      "5": {
+        "bits": 5,
+        "cliff": "plateau-5-cliff",
+        "top": "plateau-5-top"
+      },
+      "6": {
+        "bits": 6,
+        "cliff": "plateau-6-cliff",
+        "top": "plateau-6-top"
+      },
+      "7": {
+        "bits": 7,
+        "cliff": "plateau-7-cliff",
+        "top": "plateau-7-top"
+      },
+      "8": {
+        "bits": 8,
+        "cliff": "plateau-8-cliff",
+        "top": "plateau-8-top"
+      },
+      "9": {
+        "bits": 9,
+        "cliff": "plateau-9-cliff",
+        "top": "plateau-9-top"
+      },
+      "a": {
+        "bits": 10,
+        "cliff": "plateau-a-cliff",
+        "top": "plateau-a-top"
+      },
+      "b": {
+        "bits": 11,
+        "cliff": "plateau-b-cliff",
+        "top": "plateau-b-top"
+      },
+      "c": {
+        "bits": 12,
+        "cliff": "plateau-c-cliff",
+        "top": "plateau-c-top"
+      },
+      "d": {
+        "bits": 13,
+        "cliff": "plateau-d-cliff",
+        "top": "plateau-d-top"
+      },
+      "e": {
+        "bits": 14,
+        "cliff": "plateau-e-cliff",
+        "top": "plateau-e-top"
+      },
+      "f": {
+        "bits": 15,
+        "cliff": "plateau-f-cliff",
+        "top": "plateau-f-top"
+      }
+    },
+    "empty": "mask 0 draws nothing",
+    "instructions": [
+      "Sample four adjacent land cells at each lattice vertex. OR their bits, then draw the matching plateau hex-key cliff/top pair at that vertex times 256.",
+      "Draw all water foam behind terrain, all cliff layers, then all top layers. Frames share anchor (0,0). Keep frame extents separate from the 256x256 logical footprint.",
+      "Solid mask f supplies the quiet grass interior; alternate its interior with grass-1 without changing shared material phase.",
+      "For terrace level boundaries, use corresponding step-* cliff layer and the matching plateau-*-top. Render low terraces before high terraces.",
+      "Diagonal masks 6 and 9 keep the two land quadrants disconnected. Four convex and four reentrant corner configurations cover arbitrary rectangular/stepped land shapes.",
+      "Use named combined cliff-* pieces for a single edge or reference; layer pairs are preferred for multi-row assembled islands."
+    ]
+  },
+  "conceptScale": 4
+}

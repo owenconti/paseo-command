@@ -1,0 +1,258 @@
+{
+  "image": "textures.png",
+  "width": 2176,
+  "height": 3008,
+  "artPixelScale": 4,
+  "sampling": "linear",
+  "anchorUnits": "pixels from frame top-left; y down",
+  "gutter": 32,
+  "style": "Crisp painted pixel-art-flavoured concept materials, antialiased, full color; not quantized or pixel snapped",
+  "frames": {
+    "sea-0": {
+      "x": 32,
+      "y": 32,
+      "w": 1024,
+      "h": 1024,
+      "anchor": {
+        "x": 0,
+        "y": 0
+      },
+      "footprint": {
+        "w": 1024,
+        "h": 1024,
+        "units": "4x concept pixels"
+      },
+      "conceptFootprint": {
+        "w": 256.0,
+        "h": 256.0
+      },
+      "tile": true,
+      "tileAxes": "xy",
+      "source": "raw/terrain/textures-sea-05-final-color.png",
+      "animation": "sea",
+      "order": 0,
+      "durationMs": 200,
+      "driftPx": {
+        "x": 0,
+        "y": 0
+      }
+    },
+    "sea-1": {
+      "x": 1088,
+      "y": 32,
+      "w": 1024,
+      "h": 1024,
+      "anchor": {
+        "x": 0,
+        "y": 0
+      },
+      "footprint": {
+        "w": 1024,
+        "h": 1024,
+        "units": "4x concept pixels"
+      },
+      "conceptFootprint": {
+        "w": 256.0,
+        "h": 256.0
+      },
+      "tile": true,
+      "tileAxes": "xy",
+      "source": "raw/terrain/textures-sea-05-final-color.png",
+      "animation": "sea",
+      "order": 1,
+      "durationMs": 200,
+      "driftPx": {
+        "x": 2,
+        "y": 1
+      }
+    },
+    "sea-2": {
+      "x": 32,
+      "y": 1088,
+      "w": 1024,
+      "h": 1024,
+      "anchor": {
+        "x": 0,
+        "y": 0
+      },
+      "footprint": {
+        "w": 1024,
+        "h": 1024,
+        "units": "4x concept pixels"
+      },
+      "conceptFootprint": {
+        "w": 256.0,
+        "h": 256.0
+      },
+      "tile": true,
+      "tileAxes": "xy",
+      "source": "raw/terrain/textures-sea-05-final-color.png",
+      "animation": "sea",
+      "order": 2,
+      "durationMs": 200,
+      "driftPx": {
+        "x": 3,
+        "y": 0
+      }
+    },
+    "sea-3": {
+      "x": 1088,
+      "y": 1088,
+      "w": 1024,
+      "h": 1024,
+      "anchor": {
+        "x": 0,
+        "y": 0
+      },
+      "footprint": {
+        "w": 1024,
+        "h": 1024,
+        "units": "4x concept pixels"
+      },
+      "conceptFootprint": {
+        "w": 256.0,
+        "h": 256.0
+      },
+      "tile": true,
+      "tileAxes": "xy",
+      "source": "raw/terrain/textures-sea-05-final-color.png",
+      "animation": "sea",
+      "order": 3,
+      "durationMs": 200,
+      "driftPx": {
+        "x": 1,
+        "y": -1
+      }
+    },
+    "grass": {
+      "x": 32,
+      "y": 2144,
+      "w": 512,
+      "h": 512,
+      "anchor": {
+        "x": 0,
+        "y": 0
+      },
+      "footprint": {
+        "w": 512,
+        "h": 512,
+        "units": "4x concept pixels"
+      },
+      "conceptFootprint": {
+        "w": 128.0,
+        "h": 128.0
+      },
+      "tile": true,
+      "tileAxes": "xy",
+      "source": "raw/terrain/textures-grass-03-color.png"
+    },
+    "grass-shade": {
+      "x": 576,
+      "y": 2144,
+      "w": 512,
+      "h": 512,
+      "anchor": {
+        "x": 0,
+        "y": 0
+      },
+      "footprint": {
+        "w": 512,
+        "h": 512,
+        "units": "4x concept pixels"
+      },
+      "conceptFootprint": {
+        "w": 128.0,
+        "h": 128.0
+      },
+      "tile": true,
+      "tileAxes": "xy",
+      "source": "raw/terrain/textures-grass-03-color.png"
+    },
+    "rock": {
+      "x": 1120,
+      "y": 2144,
+      "w": 1024,
+      "h": 256,
+      "anchor": {
+        "x": 0,
+        "y": 0
+      },
+      "footprint": {
+        "w": 1024,
+        "h": 256,
+        "units": "4x concept pixels"
+      },
+      "conceptFootprint": {
+        "w": 256.0,
+        "h": 64.0
+      },
+      "tile": true,
+      "tileAxes": "x",
+      "source": "raw/terrain/textures-rock-01.png",
+      "topEdge": "grass-lip junction at y=0; grass lip supplied separately",
+      "materialVariantOf": null
+    },
+    "rock-volcanic": {
+      "x": 32,
+      "y": 2688,
+      "w": 1024,
+      "h": 256,
+      "anchor": {
+        "x": 0,
+        "y": 0
+      },
+      "footprint": {
+        "w": 1024,
+        "h": 256,
+        "units": "4x concept pixels"
+      },
+      "conceptFootprint": {
+        "w": 256.0,
+        "h": 64.0
+      },
+      "tile": true,
+      "tileAxes": "x",
+      "source": "raw/terrain/textures-rock-01.png",
+      "topEdge": "grass-lip junction at y=0; grass lip supplied separately",
+      "materialVariantOf": "rock"
+    }
+  },
+  "materials": {
+    "sea": {
+      "frame": "sea-0",
+      "animation": "sea",
+      "repeatAxes": "xy"
+    },
+    "grass": {
+      "frame": "grass",
+      "repeatAxes": "xy"
+    },
+    "grass-shade": {
+      "frame": "grass-shade",
+      "repeatAxes": "xy"
+    },
+    "rock": {
+      "frame": "rock",
+      "repeatAxes": "x"
+    },
+    "rock-volcanic": {
+      "frame": "rock-volcanic",
+      "repeatAxes": "x"
+    }
+  },
+  "animations": {
+    "sea": {
+      "frames": [
+        "sea-0",
+        "sea-1",
+        "sea-2",
+        "sea-3"
+      ],
+      "durationMs": 200,
+      "loop": true,
+      "registration": "same 1024x1024 frame, origin and footprint; small cyclic crest drift only"
+    }
+  },
+  "provenance": "prompts.json: textures",
+  "processing": "Lanczos resize; 16px seam blend for sea/grass, 20px for rock; 8px periodic boundary pass after sea drift. No color grading outside image_gen, no palette quantization, no reference pixels in atlas. Opaque material interiors, transparent atlas gutters."
+}

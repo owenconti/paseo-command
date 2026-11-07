@@ -1,0 +1,35 @@
+import { useSyncExternalStore } from "react";
+import { readStore, writeStore } from "./api";
+
+/** The map's style in the macOS app: the hex Islands (the default) or the Overworld, a
+ * terraced fantasy map of castles, project halls and workspace booths. Kept in localStorage. */
+export type MapStyle = "islands" | "overworld";
+
+export const MAP_STYLES: { id: MapStyle; name: string; detail: string }[] = [
+  { id: "islands", name: "Islands", detail: "Hex islands on a painted sea" },
+  { id: "overworld", name: "Overworld", detail: "Castles, halls and market booths on terraced islands" },
+];
+
+const STORE = "atlas:style";
+const check = (value: unknown): MapStyle => (value === "overworld" ? "overworld" : "islands");
+let style = check(readStore<unknown>(STORE, "islands"));
+const listeners = new Set<() => void>();
+
+export const mapStyle = () => style;
+
+export function setMapStyle(next: MapStyle) {
+  if (next === style) return;
+  style = next;
+  writeStore(STORE, style);
+  listeners.forEach((listener) => listener());
+}
+
+export function useMapStyle(): MapStyle {
+  return useSyncExternalStore(
+    (listener) => {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    },
+    () => style,
+  );
+}

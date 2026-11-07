@@ -1,0 +1,591 @@
+{
+  "image": "stalls.png",
+  "width": 1536,
+  "height": 1984,
+  "revision": "v3",
+  "style": "Concept-matched open wooden booths; separate corner canopies; soft painted RGBA",
+  "scale": 4,
+  "sampling": "linear",
+  "anchorUnits": "pixels relative to frame top-left; y points down",
+  "footprintUnits": "world pixels at 4x concept scale; frame padding is transparent",
+  "minimumGutter": 32,
+  "frames": {
+    "booth-left": {
+      "x": 32,
+      "y": 32,
+      "w": 80,
+      "h": 448,
+      "anchor": {
+        "x": 0,
+        "y": 448
+      },
+      "footprint": {
+        "w": 80,
+        "h": 256
+      },
+      "join": "right",
+      "assemblyTop": 0
+    },
+    "booth-middle": {
+      "x": 192,
+      "y": 32,
+      "w": 216,
+      "h": 448,
+      "anchor": {
+        "x": 0,
+        "y": 448
+      },
+      "footprint": {
+        "w": 216,
+        "h": 256
+      },
+      "join": "both",
+      "assemblyTop": 0,
+      "tile": true,
+      "tileAxes": "x",
+      "repeatWidth": 216,
+      "robotSlot": {
+        "x": 108,
+        "y": 372,
+        "frameScale": 0.72,
+        "standingHeight": 144
+      }
+    },
+    "booth-right": {
+      "x": 480,
+      "y": 32,
+      "w": 80,
+      "h": 448,
+      "anchor": {
+        "x": 0,
+        "y": 448
+      },
+      "footprint": {
+        "w": 80,
+        "h": 256
+      },
+      "join": "left",
+      "assemblyTop": 0
+    },
+    "awning-corner-blue-left": {
+      "x": 32,
+      "y": 544,
+      "w": 320,
+      "h": 208,
+      "anchor": {
+        "x": 260,
+        "y": 78
+      },
+      "footprint": {
+        "w": 300,
+        "h": 146
+      },
+      "attachment": {
+        "boothCorner": "left",
+        "x": 80,
+        "y": 32
+      },
+      "layer": "behind booth"
+    },
+    "awning-corner-blue-right": {
+      "x": 32,
+      "y": 800,
+      "w": 320,
+      "h": 208,
+      "anchor": {
+        "x": 60,
+        "y": 78
+      },
+      "footprint": {
+        "w": 300,
+        "h": 146
+      },
+      "attachment": {
+        "boothCorner": "right",
+        "x": "boothWidth-80",
+        "y": 32
+      },
+      "layer": "behind booth",
+      "mirrorOf": "awning-corner-blue-left"
+    },
+    "awning-corner-red-left": {
+      "x": 408,
+      "y": 544,
+      "w": 320,
+      "h": 208,
+      "anchor": {
+        "x": 260,
+        "y": 78
+      },
+      "footprint": {
+        "w": 300,
+        "h": 146
+      },
+      "attachment": {
+        "boothCorner": "left",
+        "x": 80,
+        "y": 32
+      },
+      "layer": "behind booth"
+    },
+    "awning-corner-red-right": {
+      "x": 408,
+      "y": 800,
+      "w": 320,
+      "h": 208,
+      "anchor": {
+        "x": 60,
+        "y": 78
+      },
+      "footprint": {
+        "w": 300,
+        "h": 146
+      },
+      "attachment": {
+        "boothCorner": "right",
+        "x": "boothWidth-80",
+        "y": 32
+      },
+      "layer": "behind booth",
+      "mirrorOf": "awning-corner-red-left"
+    },
+    "awning-corner-purple-left": {
+      "x": 784,
+      "y": 544,
+      "w": 320,
+      "h": 208,
+      "anchor": {
+        "x": 260,
+        "y": 78
+      },
+      "footprint": {
+        "w": 300,
+        "h": 146
+      },
+      "attachment": {
+        "boothCorner": "left",
+        "x": 80,
+        "y": 32
+      },
+      "layer": "behind booth"
+    },
+    "awning-corner-purple-right": {
+      "x": 784,
+      "y": 800,
+      "w": 320,
+      "h": 208,
+      "anchor": {
+        "x": 60,
+        "y": 78
+      },
+      "footprint": {
+        "w": 300,
+        "h": 146
+      },
+      "attachment": {
+        "boothCorner": "right",
+        "x": "boothWidth-80",
+        "y": 32
+      },
+      "layer": "behind booth",
+      "mirrorOf": "awning-corner-purple-left"
+    },
+    "awning-corner-yellow-left": {
+      "x": 1160,
+      "y": 544,
+      "w": 320,
+      "h": 208,
+      "anchor": {
+        "x": 260,
+        "y": 78
+      },
+      "footprint": {
+        "w": 300,
+        "h": 146
+      },
+      "attachment": {
+        "boothCorner": "left",
+        "x": 80,
+        "y": 32
+      },
+      "layer": "behind booth"
+    },
+    "awning-corner-yellow-right": {
+      "x": 1160,
+      "y": 800,
+      "w": 320,
+      "h": 208,
+      "anchor": {
+        "x": 60,
+        "y": 78
+      },
+      "footprint": {
+        "w": 300,
+        "h": 146
+      },
+      "attachment": {
+        "boothCorner": "right",
+        "x": "boothWidth-80",
+        "y": 32
+      },
+      "layer": "behind booth",
+      "mirrorOf": "awning-corner-yellow-left"
+    },
+    "booth-side-props-left-1": {
+      "x": 32,
+      "y": 1056,
+      "w": 240,
+      "h": 304,
+      "anchor": {
+        "x": 136,
+        "y": 280
+      },
+      "footprint": {
+        "w": 190,
+        "h": 230
+      },
+      "attachment": {
+        "x": -20,
+        "y": 448
+      },
+      "layer": "after booth, outside posts"
+    },
+    "booth-side-props-left-2": {
+      "x": 408,
+      "y": 1056,
+      "w": 240,
+      "h": 304,
+      "anchor": {
+        "x": 136,
+        "y": 280
+      },
+      "footprint": {
+        "w": 190,
+        "h": 230
+      },
+      "attachment": {
+        "x": -20,
+        "y": 448
+      },
+      "layer": "after booth, outside posts"
+    },
+    "booth-side-props-right-1": {
+      "x": 784,
+      "y": 1056,
+      "w": 240,
+      "h": 304,
+      "anchor": {
+        "x": 104,
+        "y": 280
+      },
+      "footprint": {
+        "w": 190,
+        "h": 230
+      },
+      "attachment": {
+        "x": "boothWidth+20",
+        "y": 448
+      },
+      "layer": "after booth, outside posts"
+    },
+    "booth-side-props-right-2": {
+      "x": 1160,
+      "y": 1056,
+      "w": 240,
+      "h": 304,
+      "anchor": {
+        "x": 104,
+        "y": 280
+      },
+      "footprint": {
+        "w": 190,
+        "h": 230
+      },
+      "attachment": {
+        "x": "boothWidth+20",
+        "y": 448
+      },
+      "layer": "after booth, outside posts"
+    },
+    "camp": {
+      "x": 32,
+      "y": 1432,
+      "w": 1000,
+      "h": 520,
+      "anchor": {
+        "x": 290,
+        "y": 450
+      },
+      "footprint": {
+        "w": 1000,
+        "h": 390
+      },
+      "robotSlots": [
+        {
+          "x": 690,
+          "y": 450,
+          "standingHeight": 200
+        },
+        {
+          "x": 900,
+          "y": 450,
+          "standingHeight": 200
+        }
+      ],
+      "structureBounds": {
+        "x": 16,
+        "y": 30,
+        "w": 550,
+        "h": 431
+      },
+      "preservedFrom": "stalls-v2: exact frame RGBA unchanged"
+    },
+    "signboard-blank": {
+      "x": 1120,
+      "y": 1512,
+      "w": 336,
+      "h": 300,
+      "anchor": {
+        "x": 168,
+        "y": 70
+      },
+      "footprint": {
+        "w": 312,
+        "h": 175
+      },
+      "labelRect": {
+        "x": 51,
+        "y": 125,
+        "w": 238,
+        "h": 78
+      },
+      "preservedFrom": "stalls-v2: exact frame RGBA unchanged"
+    }
+  },
+  "animations": {},
+  "assembly": {
+    "coordinateSystem": "All three booth parts share top-left y=0, no overlap. N is robot count, N>=1.",
+    "widthFormula": "160 + 216 * robotCount",
+    "height": 448,
+    "left": {
+      "frame": "booth-left",
+      "x": 0,
+      "y": 0
+    },
+    "middle": {
+      "frame": "booth-middle",
+      "x": "80 + 216*i",
+      "y": 0,
+      "repeat": "i = 0 ... N-1"
+    },
+    "right": {
+      "frame": "booth-right",
+      "x": "80 + 216*N",
+      "y": 0
+    },
+    "interior": {
+      "x": 80,
+      "y": 192,
+      "w": "216*N",
+      "h": 200
+    },
+    "floorY": 372,
+    "robots": {
+      "sheet": "robots.png",
+      "frameScale": 0.72,
+      "sourceFrameSize": 256,
+      "drawFrameSize": 184.32,
+      "physicalStandingHeight": 144,
+      "sourceAnchor": {
+        "x": 128,
+        "y": 224
+      },
+      "slot": {
+        "x": "80 + 216*i + 108",
+        "y": 372
+      },
+      "frameTopLeft": {
+        "x": "80 + 216*i + 108 - 128*0.72",
+        "y": "372 - 224*0.72"
+      }
+    },
+    "label": {
+      "sheet": "ui-world.png",
+      "parts": [
+        "label-left",
+        "label-middle",
+        "label-right"
+      ],
+      "rect": {
+        "x": 40,
+        "y": 32,
+        "w": "boothWidth-80",
+        "h": 160
+      },
+      "method": "Use both 96px end caps at native height; stretch/repeat middle to requested width. Label is not baked into booth sprites."
+    },
+    "awning": {
+      "count": 1,
+      "layer": "behind booth",
+      "left": {
+        "frame": "awning-corner-COLOR-left",
+        "anchorAt": {
+          "x": 80,
+          "y": 32
+        }
+      },
+      "right": {
+        "frame": "awning-corner-COLOR-right",
+        "anchorAt": {
+          "x": "boothWidth-80",
+          "y": 32
+        }
+      },
+      "colors": [
+        "blue",
+        "red",
+        "purple",
+        "yellow"
+      ]
+    },
+    "sideProps": {
+      "left": {
+        "anchorAt": {
+          "x": -20,
+          "y": 448
+        },
+        "frames": [
+          "booth-side-props-left-1",
+          "booth-side-props-left-2"
+        ]
+      },
+      "right": {
+        "anchorAt": {
+          "x": "boothWidth+20",
+          "y": 448
+        },
+        "frames": [
+          "booth-side-props-right-1",
+          "booth-side-props-right-2"
+        ]
+      }
+    },
+    "drawOrder": [
+      "one corner awning",
+      "booth-left + booth-middle*N + booth-right",
+      "ui-world blank label",
+      "robots",
+      "outside side-prop clusters"
+    ],
+    "joinFeatherPixels": 16,
+    "reviewRobotCounts": [
+      1,
+      2,
+      3,
+      4
+    ]
+  },
+  "source": {
+    "tool": "built-in image_gen",
+    "prompts": "prompts.json: stalls entries revision stalls-v3",
+    "raw": [
+      "rendering/artifacts/overworld/raw/buildings-v3/booth-01.png",
+      "rendering/artifacts/overworld/raw/buildings-v3/awning-corner-01.png",
+      "rendering/artifacts/overworld/raw/buildings-v3/side-props-01.png"
+    ],
+    "boothCrops": {
+      "left": [
+        130,
+        62,
+        360,
+        886
+      ],
+      "middle": [
+        640,
+        62,
+        1040,
+        886
+      ],
+      "right": [
+        1330,
+        62,
+        1560,
+        886
+      ]
+    },
+    "canopyCrop": [
+      220,
+      180,
+      1425,
+      765
+    ],
+    "canopyResize": [
+      300,
+      146
+    ],
+    "propsCrops": {
+      "booth-side-props-left-1": {
+        "cell": [
+          0,
+          0,
+          543,
+          724
+        ],
+        "crop": [
+          101,
+          197,
+          457,
+          582
+        ]
+      },
+      "booth-side-props-left-2": {
+        "cell": [
+          543,
+          0,
+          1086,
+          724
+        ],
+        "crop": [
+          69,
+          159,
+          446,
+          579
+        ]
+      },
+      "booth-side-props-right-1": {
+        "cell": [
+          1086,
+          0,
+          1629,
+          724
+        ],
+        "crop": [
+          64,
+          168,
+          435,
+          595
+        ]
+      },
+      "booth-side-props-right-2": {
+        "cell": [
+          1629,
+          0,
+          2172,
+          724
+        ],
+        "crop": [
+          47,
+          187,
+          440,
+          589
+        ]
+      }
+    },
+    "processing": "Lanczos resampling, seamless common RGBA join profile, continuous canopy hue recolours, right canopies mirrored. No reference pixels in final art, no palette reduction or binary output alpha.",
+    "preservedFrames": [
+      "camp",
+      "signboard-blank"
+    ],
+    "archive": "rendering/artifacts/overworld/stalls-v2/stalls.png and stalls.json"
+  }
+}

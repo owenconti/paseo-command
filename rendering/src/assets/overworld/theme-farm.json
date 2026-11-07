@@ -1,0 +1,943 @@
+{
+  "image": "theme-farm.png",
+  "width": 4096,
+  "height": 1696,
+  "style": "HD painted fantasy strategy; smooth shaded contours, warm top-left light",
+  "conceptScale": 4,
+  "sampling": "linear",
+  "paletteLimited": false,
+  "alpha": "smooth RGBA; never binarized",
+  "anchorUnits": "pixels relative to frame top-left; y points down",
+  "packing": {
+    "method": "shelf",
+    "minimumTransparentGutter": 64,
+    "outerPadding": 32
+  },
+  "frames": {
+    "windmill-body": {
+      "x": 32,
+      "y": 32,
+      "w": 640,
+      "h": 600,
+      "anchor": {
+        "x": 320,
+        "y": 556
+      },
+      "footprint": {
+        "width": 280,
+        "height": 160,
+        "units": "pixels at 4x concept scale"
+      },
+      "registration": "windmill",
+      "attachmentPoints": {
+        "rotor": {
+          "x": 320,
+          "y": 329
+        }
+      }
+    },
+    "windmill-sails-0": {
+      "x": 736,
+      "y": 32,
+      "w": 560,
+      "h": 560,
+      "anchor": {
+        "x": 280,
+        "y": 280
+      },
+      "footprint": {
+        "width": 440,
+        "height": 440,
+        "units": "pixels at 4x concept scale"
+      },
+      "animation": "windmill-sails",
+      "order": 0,
+      "durationMs": 180,
+      "registration": "rotor-center"
+    },
+    "windmill-0": {
+      "x": 1360,
+      "y": 32,
+      "w": 640,
+      "h": 600,
+      "anchor": {
+        "x": 320,
+        "y": 556
+      },
+      "footprint": {
+        "width": 280,
+        "height": 160,
+        "units": "pixels at 4x concept scale"
+      },
+      "animation": "windmill",
+      "order": 0,
+      "durationMs": 180,
+      "registration": "windmill"
+    },
+    "windmill-sails-1": {
+      "x": 2064,
+      "y": 32,
+      "w": 560,
+      "h": 560,
+      "anchor": {
+        "x": 280,
+        "y": 280
+      },
+      "footprint": {
+        "width": 440,
+        "height": 440,
+        "units": "pixels at 4x concept scale"
+      },
+      "animation": "windmill-sails",
+      "order": 1,
+      "durationMs": 180,
+      "registration": "rotor-center"
+    },
+    "windmill-1": {
+      "x": 2688,
+      "y": 32,
+      "w": 640,
+      "h": 600,
+      "anchor": {
+        "x": 320,
+        "y": 556
+      },
+      "footprint": {
+        "width": 280,
+        "height": 160,
+        "units": "pixels at 4x concept scale"
+      },
+      "animation": "windmill",
+      "order": 1,
+      "durationMs": 180,
+      "registration": "windmill"
+    },
+    "windmill-sails-2": {
+      "x": 3392,
+      "y": 32,
+      "w": 560,
+      "h": 560,
+      "anchor": {
+        "x": 280,
+        "y": 280
+      },
+      "footprint": {
+        "width": 440,
+        "height": 440,
+        "units": "pixels at 4x concept scale"
+      },
+      "animation": "windmill-sails",
+      "order": 2,
+      "durationMs": 180,
+      "registration": "rotor-center"
+    },
+    "windmill-2": {
+      "x": 32,
+      "y": 696,
+      "w": 640,
+      "h": 600,
+      "anchor": {
+        "x": 320,
+        "y": 556
+      },
+      "footprint": {
+        "width": 280,
+        "height": 160,
+        "units": "pixels at 4x concept scale"
+      },
+      "animation": "windmill",
+      "order": 2,
+      "durationMs": 180,
+      "registration": "windmill"
+    },
+    "windmill-sails-3": {
+      "x": 736,
+      "y": 696,
+      "w": 560,
+      "h": 560,
+      "anchor": {
+        "x": 280,
+        "y": 280
+      },
+      "footprint": {
+        "width": 440,
+        "height": 440,
+        "units": "pixels at 4x concept scale"
+      },
+      "animation": "windmill-sails",
+      "order": 3,
+      "durationMs": 180,
+      "registration": "rotor-center"
+    },
+    "windmill-3": {
+      "x": 1360,
+      "y": 696,
+      "w": 640,
+      "h": 600,
+      "anchor": {
+        "x": 320,
+        "y": 556
+      },
+      "footprint": {
+        "width": 280,
+        "height": 160,
+        "units": "pixels at 4x concept scale"
+      },
+      "animation": "windmill",
+      "order": 3,
+      "durationMs": 180,
+      "registration": "windmill"
+    },
+    "wheat": {
+      "x": 2064,
+      "y": 696,
+      "w": 192,
+      "h": 160,
+      "anchor": {
+        "x": 0,
+        "y": 0
+      },
+      "footprint": {
+        "width": 192,
+        "height": 160,
+        "units": "pixels at 4x concept scale"
+      },
+      "tile": true,
+      "tileAxes": "xy"
+    },
+    "fence": {
+      "x": 2320,
+      "y": 696,
+      "w": 192,
+      "h": 76,
+      "anchor": {
+        "x": 0,
+        "y": 0
+      },
+      "footprint": {
+        "width": 192,
+        "height": 76,
+        "units": "pixels at 4x concept scale"
+      },
+      "tile": true,
+      "tileAxes": "x",
+      "joins": {
+        "left": [
+          0,
+          76
+        ],
+        "right": [
+          192,
+          76
+        ]
+      }
+    },
+    "fence-post": {
+      "x": 2576,
+      "y": 696,
+      "w": 84,
+      "h": 150,
+      "anchor": {
+        "x": 42,
+        "y": 146
+      },
+      "footprint": {
+        "width": 48,
+        "height": 36,
+        "units": "pixels at 4x concept scale"
+      }
+    },
+    "fence-corner": {
+      "x": 2724,
+      "y": 696,
+      "w": 288,
+      "h": 288,
+      "anchor": {
+        "x": 0,
+        "y": 0
+      },
+      "footprint": {
+        "width": 288,
+        "height": 288,
+        "units": "pixels at 4x concept scale"
+      },
+      "joins": {
+        "left": {
+          "edge": "left",
+          "offset": 212,
+          "length": 76
+        },
+        "top": {
+          "edge": "top",
+          "offset": 212,
+          "length": 76,
+          "railRotationDegrees": 90
+        }
+      }
+    },
+    "autumn-tree-0": {
+      "x": 3076,
+      "y": 696,
+      "w": 299,
+      "h": 310,
+      "anchor": {
+        "x": 149,
+        "y": 306
+      },
+      "footprint": {
+        "width": 209,
+        "height": 62,
+        "units": "pixels at 4x concept scale"
+      }
+    },
+    "autumn-tree-1": {
+      "x": 3439,
+      "y": 696,
+      "w": 300,
+      "h": 310,
+      "anchor": {
+        "x": 150,
+        "y": 306
+      },
+      "footprint": {
+        "width": 210,
+        "height": 62,
+        "units": "pixels at 4x concept scale"
+      }
+    },
+    "autumn-tree-2": {
+      "x": 32,
+      "y": 1360,
+      "w": 278,
+      "h": 300,
+      "anchor": {
+        "x": 139,
+        "y": 296
+      },
+      "footprint": {
+        "width": 195,
+        "height": 60,
+        "units": "pixels at 4x concept scale"
+      }
+    },
+    "autumn-tree-3": {
+      "x": 374,
+      "y": 1360,
+      "w": 270,
+      "h": 290,
+      "anchor": {
+        "x": 135,
+        "y": 286
+      },
+      "footprint": {
+        "width": 189,
+        "height": 58,
+        "units": "pixels at 4x concept scale"
+      }
+    },
+    "hay-round": {
+      "x": 708,
+      "y": 1360,
+      "w": 136,
+      "h": 130,
+      "anchor": {
+        "x": 68,
+        "y": 126
+      },
+      "footprint": {
+        "width": 95,
+        "height": 26,
+        "units": "pixels at 4x concept scale"
+      }
+    },
+    "hay-square": {
+      "x": 908,
+      "y": 1360,
+      "w": 131,
+      "h": 100,
+      "anchor": {
+        "x": 65,
+        "y": 96
+      },
+      "footprint": {
+        "width": 92,
+        "height": 24,
+        "units": "pixels at 4x concept scale"
+      }
+    },
+    "scarecrow": {
+      "x": 1103,
+      "y": 1360,
+      "w": 205,
+      "h": 250,
+      "anchor": {
+        "x": 102,
+        "y": 246
+      },
+      "footprint": {
+        "width": 144,
+        "height": 50,
+        "units": "pixels at 4x concept scale"
+      }
+    },
+    "farm-cart": {
+      "x": 1372,
+      "y": 1360,
+      "w": 250,
+      "h": 195,
+      "anchor": {
+        "x": 125,
+        "y": 191
+      },
+      "footprint": {
+        "width": 175,
+        "height": 39,
+        "units": "pixels at 4x concept scale"
+      }
+    },
+    "lavender-rows": {
+      "x": 1686,
+      "y": 1360,
+      "w": 200,
+      "h": 151,
+      "anchor": {
+        "x": 100,
+        "y": 147
+      },
+      "footprint": {
+        "width": 200,
+        "height": 100,
+        "units": "pixels at 4x concept scale"
+      }
+    },
+    "flower-rows": {
+      "x": 1950,
+      "y": 1360,
+      "w": 200,
+      "h": 158,
+      "anchor": {
+        "x": 100,
+        "y": 154
+      },
+      "footprint": {
+        "width": 200,
+        "height": 100,
+        "units": "pixels at 4x concept scale"
+      }
+    }
+  },
+  "animations": {
+    "windmill-sails": {
+      "frames": [
+        "windmill-sails-0",
+        "windmill-sails-1",
+        "windmill-sails-2",
+        "windmill-sails-3"
+      ],
+      "durationMs": 180,
+      "loop": true
+    },
+    "windmill": {
+      "frames": [
+        "windmill-0",
+        "windmill-1",
+        "windmill-2",
+        "windmill-3"
+      ],
+      "durationMs": 180,
+      "loop": true
+    }
+  },
+  "source": {
+    "tool": "built-in image_gen",
+    "date": "2026-11-06",
+    "prompts": "prompts.json",
+    "frames": {
+      "windmill-body": {
+        "raw": "raw/themes/farm-01.png",
+        "sourceCell": [
+          0,
+          0,
+          314,
+          314
+        ],
+        "subjectCrop": [
+          42,
+          11,
+          305,
+          305
+        ],
+        "resizeFilter": "Lanczos"
+      },
+      "windmill-sails-0": {
+        "raw": "raw/themes/farm-01.png",
+        "sourceCell": [
+          314,
+          0,
+          627,
+          314
+        ],
+        "subjectCrop": [
+          31,
+          29,
+          291,
+          292
+        ],
+        "resizeFilter": "Lanczos",
+        "rotationDegrees": 0.0,
+        "rotationFilter": "bicubic"
+      },
+      "windmill-0": {
+        "body": {
+          "raw": "raw/themes/farm-01.png",
+          "sourceCell": [
+            0,
+            0,
+            314,
+            314
+          ],
+          "subjectCrop": [
+            42,
+            11,
+            305,
+            305
+          ],
+          "resizeFilter": "Lanczos"
+        },
+        "sails": {
+          "raw": "raw/themes/farm-01.png",
+          "sourceCell": [
+            314,
+            0,
+            627,
+            314
+          ],
+          "subjectCrop": [
+            31,
+            29,
+            291,
+            292
+          ],
+          "resizeFilter": "Lanczos"
+        },
+        "rotationDegrees": 0.0
+      },
+      "windmill-sails-1": {
+        "raw": "raw/themes/farm-01.png",
+        "sourceCell": [
+          314,
+          0,
+          627,
+          314
+        ],
+        "subjectCrop": [
+          31,
+          29,
+          291,
+          292
+        ],
+        "resizeFilter": "Lanczos",
+        "rotationDegrees": 22.5,
+        "rotationFilter": "bicubic"
+      },
+      "windmill-1": {
+        "body": {
+          "raw": "raw/themes/farm-01.png",
+          "sourceCell": [
+            0,
+            0,
+            314,
+            314
+          ],
+          "subjectCrop": [
+            42,
+            11,
+            305,
+            305
+          ],
+          "resizeFilter": "Lanczos"
+        },
+        "sails": {
+          "raw": "raw/themes/farm-01.png",
+          "sourceCell": [
+            314,
+            0,
+            627,
+            314
+          ],
+          "subjectCrop": [
+            31,
+            29,
+            291,
+            292
+          ],
+          "resizeFilter": "Lanczos"
+        },
+        "rotationDegrees": 22.5
+      },
+      "windmill-sails-2": {
+        "raw": "raw/themes/farm-01.png",
+        "sourceCell": [
+          314,
+          0,
+          627,
+          314
+        ],
+        "subjectCrop": [
+          31,
+          29,
+          291,
+          292
+        ],
+        "resizeFilter": "Lanczos",
+        "rotationDegrees": 45.0,
+        "rotationFilter": "bicubic"
+      },
+      "windmill-2": {
+        "body": {
+          "raw": "raw/themes/farm-01.png",
+          "sourceCell": [
+            0,
+            0,
+            314,
+            314
+          ],
+          "subjectCrop": [
+            42,
+            11,
+            305,
+            305
+          ],
+          "resizeFilter": "Lanczos"
+        },
+        "sails": {
+          "raw": "raw/themes/farm-01.png",
+          "sourceCell": [
+            314,
+            0,
+            627,
+            314
+          ],
+          "subjectCrop": [
+            31,
+            29,
+            291,
+            292
+          ],
+          "resizeFilter": "Lanczos"
+        },
+        "rotationDegrees": 45.0
+      },
+      "windmill-sails-3": {
+        "raw": "raw/themes/farm-01.png",
+        "sourceCell": [
+          314,
+          0,
+          627,
+          314
+        ],
+        "subjectCrop": [
+          31,
+          29,
+          291,
+          292
+        ],
+        "resizeFilter": "Lanczos",
+        "rotationDegrees": 67.5,
+        "rotationFilter": "bicubic"
+      },
+      "windmill-3": {
+        "body": {
+          "raw": "raw/themes/farm-01.png",
+          "sourceCell": [
+            0,
+            0,
+            314,
+            314
+          ],
+          "subjectCrop": [
+            42,
+            11,
+            305,
+            305
+          ],
+          "resizeFilter": "Lanczos"
+        },
+        "sails": {
+          "raw": "raw/themes/farm-01.png",
+          "sourceCell": [
+            314,
+            0,
+            627,
+            314
+          ],
+          "subjectCrop": [
+            31,
+            29,
+            291,
+            292
+          ],
+          "resizeFilter": "Lanczos"
+        },
+        "rotationDegrees": 67.5
+      },
+      "wheat": {
+        "raw": "raw/themes/farm-01.png",
+        "sourceCell": [
+          627,
+          0,
+          940,
+          314
+        ],
+        "subjectCrop": [
+          21,
+          38,
+          285,
+          291
+        ],
+        "resizeFilter": "Lanczos",
+        "interiorInsetFractionXY": [
+          0.15,
+          0.18
+        ],
+        "seamProcessing": "cosine-windowed half-period texture blend in x/y; exact boundary pixel equality"
+      },
+      "fence": {
+        "raw": "raw/themes/farm-01.png",
+        "sourceCell": [
+          940,
+          0,
+          1254,
+          314
+        ],
+        "subjectCrop": [
+          21,
+          127,
+          284,
+          215
+        ],
+        "resizeFilter": "Lanczos",
+        "interiorInsetFractionXY": [
+          0.19,
+          0.04
+        ],
+        "seamProcessing": "16px continuous opposing-edge crossfade; exact RGBA endpoints"
+      },
+      "fence-post": {
+        "raw": "raw/themes/farm-01.png",
+        "sourceCell": [
+          0,
+          314,
+          314,
+          627
+        ],
+        "subjectCrop": [
+          106,
+          63,
+          225,
+          276
+        ],
+        "resizeFilter": "Lanczos"
+      },
+      "fence-corner": {
+        "source": {
+          "raw": "raw/themes/farm-01.png",
+          "sourceCell": [
+            940,
+            0,
+            1254,
+            314
+          ],
+          "subjectCrop": [
+            21,
+            127,
+            284,
+            215
+          ],
+          "resizeFilter": "Lanczos",
+          "interiorInsetFractionXY": [
+            0.19,
+            0.04
+          ]
+        },
+        "post": {
+          "raw": "raw/themes/farm-01.png",
+          "sourceCell": [
+            0,
+            314,
+            314,
+            627
+          ],
+          "subjectCrop": [
+            106,
+            63,
+            225,
+            276
+          ],
+          "resizeFilter": "Lanczos"
+        },
+        "assembly": "same canonical horizontal rail plus 90-degree rotated rail; post at elbow"
+      },
+      "autumn-tree-0": {
+        "raw": "raw/themes/farm-01.png",
+        "sourceCell": [
+          627,
+          314,
+          940,
+          627
+        ],
+        "subjectCrop": [
+          15,
+          12,
+          285,
+          292
+        ],
+        "resizeFilter": "Lanczos"
+      },
+      "autumn-tree-1": {
+        "raw": "raw/themes/farm-01.png",
+        "sourceCell": [
+          940,
+          314,
+          1254,
+          627
+        ],
+        "subjectCrop": [
+          11,
+          13,
+          282,
+          293
+        ],
+        "resizeFilter": "Lanczos"
+      },
+      "autumn-tree-2": {
+        "raw": "raw/themes/farm-01.png",
+        "sourceCell": [
+          0,
+          627,
+          314,
+          940
+        ],
+        "subjectCrop": [
+          37,
+          11,
+          295,
+          289
+        ],
+        "resizeFilter": "Lanczos"
+      },
+      "autumn-tree-3": {
+        "raw": "raw/themes/farm-01.png",
+        "sourceCell": [
+          314,
+          627,
+          627,
+          940
+        ],
+        "subjectCrop": [
+          28,
+          8,
+          290,
+          289
+        ],
+        "resizeFilter": "Lanczos"
+      },
+      "hay-round": {
+        "raw": "raw/themes/farm-01.png",
+        "sourceCell": [
+          627,
+          627,
+          940,
+          940
+        ],
+        "subjectCrop": [
+          30,
+          45,
+          262,
+          267
+        ],
+        "resizeFilter": "Lanczos"
+      },
+      "hay-square": {
+        "raw": "raw/themes/farm-01.png",
+        "sourceCell": [
+          940,
+          627,
+          1254,
+          940
+        ],
+        "subjectCrop": [
+          11,
+          52,
+          284,
+          260
+        ],
+        "resizeFilter": "Lanczos"
+      },
+      "scarecrow": {
+        "raw": "raw/themes/farm-01.png",
+        "sourceCell": [
+          0,
+          940,
+          314,
+          1254
+        ],
+        "subjectCrop": [
+          50,
+          6,
+          293,
+          302
+        ],
+        "resizeFilter": "Lanczos"
+      },
+      "farm-cart": {
+        "raw": "raw/themes/farm-01.png",
+        "sourceCell": [
+          314,
+          940,
+          627,
+          1254
+        ],
+        "subjectCrop": [
+          3,
+          44,
+          295,
+          272
+        ],
+        "resizeFilter": "Lanczos"
+      },
+      "lavender-rows": {
+        "raw": "raw/themes/farm-01.png",
+        "sourceCell": [
+          627,
+          940,
+          940,
+          1254
+        ],
+        "subjectCrop": [
+          9,
+          49,
+          293,
+          264
+        ],
+        "resizeFilter": "Lanczos"
+      },
+      "flower-rows": {
+        "raw": "raw/themes/farm-01.png",
+        "sourceCell": [
+          940,
+          940,
+          1254,
+          1254
+        ],
+        "subjectCrop": [
+          12,
+          48,
+          290,
+          267
+        ],
+        "resizeFilter": "Lanczos"
+      }
+    }
+  }
+}

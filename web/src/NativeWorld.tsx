@@ -1,3 +1,4 @@
+import { mapStyle, useMapStyle } from "./mapStyle";
 import type { WorkSummaries } from "./useWorkingOn";
 /** Atlas world adapter. The inherited React work surface owns all daemon actions;
  * the world only draws the host-qualified snapshot and reports what was picked. */
@@ -173,6 +174,7 @@ export function NativeWorld(props: Props) {
   const current = useRef(snapshot);
   current.current = snapshot;
   const probe = useProbe();
+  const style = useMapStyle();
   const stats = useHostStats();
   const data = useMemo(
     () => atlasData(snapshot, props.questions, props.asking, probe, stats),
@@ -237,7 +239,7 @@ export function NativeWorld(props: Props) {
               : undefined;
           p.hover(row ? (row.clientId ?? row.id) : null);
         },
-      });
+      }, mapStyle());
     } catch (error) {
       setFailure(error instanceof Error ? error.message : "Could not start the Atlas.");
       return;
@@ -258,6 +260,9 @@ export function NativeWorld(props: Props) {
       setUnityWorldTheme(null);
     };
   }, []);
+  useEffect(() => {
+    world.current?.style(style);
+  }, [style]);
   useEffect(() => {
     // The world re-reports a hover that survives the update.
     safely(() => world.current?.update(data));

@@ -1,0 +1,953 @@
+{
+  "host": [
+    {
+      "prompt": "Use case: stylized-concept. Production sprite atlas for an ORIGINAL fantasy strategy OVERWORLD. The attached concept is a PRIVATE STYLE AND SUBJECT REFERENCE ONLY: do not reproduce its text, layout or characters, do not trace or crop it. NEW crisp low-resolution PIXEL ART, not painted, not vector, not 3D. Same 3/4 top-down camera throughout: front-facing facades and roofs visible, horizon absent, verticals upright, no diamond/isometric rotation. Dark navy-brown single ART-PIXEL outlines, chunky clearly square pixels, stepped diagonals, top-left lighting, 3-tone soft pixel shading. Palette across every sheet: outline #202638, stone #667085 #9ba4ae #d5d6ca, wood #62452f #a16b3b #d9a458, parchment #c49355 #e6c889 #fff0ba, gold #a86b22 #e9b83f #fff09a, foliage #204c3e #3b7950 #70a34c #bdd56a, blue #234577 #3477ad #72bed4, red #873c48 #c95750 #e58960, purple #5c3e80 #8e60ad #bb92d0, teal #25685d #459c86 #88c8a0. Genuine transparent alpha outside each subject, no checkerboard, no background, no floor slab or ground unless specifically terrain. NO TEXT, letters, digits, logos, signatures, watermarks or UI. All plaques, signboards, discs and banners BLANK except specifically requested pictographic icons. No status marks on characters. No connected scene. EXACT regular grid with one complete isolated subject per cell and wide transparent gutters. Draw with a consistent coarse pixel grid, ideally each art-pixel represented by a uniform 4x4 output block; no antialiasing, gradients or blur. Objects centered in their cells. Scale family: robot 16 art-pixels tall, stall 48 wide, hall 64 wide, castle128 wide; scenery scaled to this same family.\nSHEET host. Landscape 1536x1024 image EXACT 3 columns x 2 rows; each cell 512x512. Every object fits within middle 85% of its cell. Row1 col1: complete stone castle keep, two side towers with blue conical roofs, crenellated wall, central dark arched gate, one large BLANK round dark enamel emblem disc with gold rim above gate. Castle 128 art-pixels wide, keep simple readable masonry. Row1 col2: EXACT SAME castle registered same silhouette/size/position, ruined offline version: dim grey roofs, broken crenellations, dark windows, subtly cracked stone; no rubble beyond footprint. Row1 col3: purple vertical swallowtail host banner on a slim wooden pole and gold crossbar with an EMPTY round central emblem area, wave frame A. Row2 col1: same identical registered banner, wave frame B changing ONLY purple cloth fold. Row2 col2: same banner, wave frame C changing ONLY cloth fold, fixed pole/crossbar. Row2 col3: isolated BLANK round navy enamel emblem disc with gold rim, no glyph. Banner is 36 art-pixels tall; emblem disc 20 art-pixels diameter. Keep them proportionally smaller in their cells than the castles.",
+      "reference": "design/references/overworld-concept.png",
+      "raw": "rendering/artifacts/overworld/raw/host-01.png",
+      "era": "pixel-v1",
+      "archived": true,
+      "selected": false,
+      "originalRawPath": "host-01.png"
+    },
+    {
+      "id": "castle-online-01",
+      "prompt": "Use case: stylized-concept\nAsset type: transparent HD fantasy strategy overworld castle sprite.\nInput images: Image 1 private concept is a style and subject reference only; Image 2 approved robots is a material/edge rendering style anchor, not subjects to include.\nPrimary request: ONE host castle keep matching the central castle in the original concept: broad compact grey stone crenellated keep, two corner cylindrical towers with royal blue conical tile roofs and small purple pennants, warm golden lit narrow windows, a central arched wooden gate and short stone stair. A large perfectly BLANK round dark navy emblem disc with a thick warm gold rim sits in the front upper crenellated wall, like the concept; its empty face must be large enough for code to draw a host icon. Omit the concept's parchment text plaque entirely: wall remains behind where the plaque would go, the plaque is a separate sprite. No detached large banners; those are separate.\nStyle: HD pixel-art-flavoured fantasy strategy world with chunky readable shapes, strong dark contours, smooth painted gradients, glossy warm highlights, rich blue tile roofs, softly antialiased edges. Match the concept closely and the robots' clean painted enamel quality. NOT strict pixel art; no pixel snapping or jagged stair stepping. Camera 3/4 top-down, looking slightly down so roof planes, wall thicknesses, and front facade are visible; broad nearly frontal facade as in concept. Top-left sunlight.\nComposition: isolated centered castle filling about 85% of a square 1536x1536 image, all roof tips and stair completely inside with transparent margins. Large high resolution sprite, apparent footprint about 1040 wide x 900 high at the shared 4x concept scale.\nBackground: genuinely transparent alpha. No scenery, island, grass, ground slab, sky, water, backdrop, border or text. Only a subtle small soft contact shadow under the stair and castle feet. No letters, numbers, logos, emblems inside the BLANK disc or watermark. Original fantasy architecture in the concept's spirit.",
+      "raw": "rendering/artifacts/overworld/raw/host/castle-online-01.png",
+      "references": [
+        "design/references/overworld-concept.png",
+        "rendering/src/assets/overworld/robots.png"
+      ],
+      "originalGeneratorFilename": "exec-5c223512-9bbd-432c-9f83-c2648b5d11ec.png",
+      "era": "hd-concept",
+      "group": "host",
+      "tool": "built-in image_gen",
+      "date": "2026-11-06",
+      "originalRawPath": "raw/host/castle-online-01.png",
+      "generatorOutput": "exec-5c223512-9bbd-432c-9f83-c2648b5d11ec.png"
+    },
+    {
+      "id": "ui-world-01",
+      "prompt": "Use case: stylized-concept\nAsset type: HD fantasy strategy overworld transparent modular UI sprite source sheet.\nReference 1: original concept's parchment project/workspace nameplates and larger host plaques and their luminous golden connector nodes. Reference 2: approved robots rendering quality only.\nCreate FOUR separate assets, placed in a strict 2 by 2 layout with wide transparent gutters in a 1536x1024 landscape image, no drawn grid.\nTOP LEFT: one small horizontal BLANK cream parchment nameplate, 600px wide and 120px tall. Concept style: dark brown carved wooden/gold rim, restrained gold corner screws, clipped/bevelled corners, warm cream parchment face. Flat horizontal top and bottom edges across the long center 70 percent so code can cut left cap, horizontally stretchable middle and right cap with seamless joins. Absolutely no center decoration, writing, glyphs or dividing lines. Generous face for ONE line of code-written label.\nTOP RIGHT: one larger BLANK host name plaque, 620px wide and 180px tall, same cream parchment, rich dark wood frame with slender gold inset, clipped corners, gold corner studs. Face tall enough for a name line and a stats line, no internal divider or decoration. Flat parallel borders across its long middle for seamless three-piece slicing.\nBOTTOM LEFT: one bright golden orb node, circular white-yellow center, thick luminous gold ring and soft warm amber glow fading into transparent alpha, approximately 110px wide including glow.\nBOTTOM RIGHT: one absolutely straight horizontal glowing golden connector line, 600px long and approximately 35px thick including transparent glow, a narrow white-yellow core, warm gold edge, soft amber glow, uniform intensity through central 80 percent for horizontal repetition. No sparkles, knobs, flares or endcaps in center. Isolated.\nRendering: concept-matching HD pixel-art-flavoured fantasy world; chunky shapes and crisp dark contour on the plaques, smooth painted gradients and glossy warm highlights, soft antialiased edges. NOT pixel art, no jaggies, no posterization. Front-facing interface pieces, top-left lighting, no perspective skew so sliced parts join.\nKeep every asset completely isolated inside its cell. Genuinely transparent background; no checkerboard, backdrop, shadow panel, scenery, text, letters, numbers, logos or watermark. No robots or castle. These are original modular sprite parts in the concept's spirit.",
+      "raw": "rendering/artifacts/overworld/raw/host/ui-world-01.png",
+      "references": [
+        "design/references/overworld-concept.png",
+        "rendering/src/assets/overworld/robots.png"
+      ],
+      "originalGeneratorFilename": "exec-f2e11043-314e-411f-bb39-685b917388d7.png",
+      "era": "hd-concept",
+      "group": "host",
+      "tool": "built-in image_gen",
+      "date": "2026-11-06",
+      "originalRawPath": "raw/host/ui-world-01.png",
+      "generatorOutput": "exec-f2e11043-314e-411f-bb39-685b917388d7.png"
+    },
+    {
+      "id": "banner-disc-elbow-01",
+      "prompt": "Use case: stylized-concept\nAsset type: HD transparent fantasy strategy sprite source sheet for banners, a blank emblem and glowing path elbow.\nInput images: reference 1 private original concept supplies banner shape/material and gold connector appearance; reference 2 generated castle supplies matching material/rendering.\nCreate isolated sprites in a 1536x1024 landscape sheet. Three columns by two rows, generous transparent gutters, no drawn grid.\nTop row: THREE animation frames of the SAME purple host banner on the SAME slim gold-tipped vertical pole. Banner hangs from a horizontal gold crossbar attached near the pole top. Tall royal violet cloth with narrow gold trim and swallowtail lower edge, gently waving in 3 slightly different folds. A centered BLANK dark navy round emblem face with a thin gold rim in the upper half of the cloth, absolutely no glyph. Frames must have IDENTICAL pole/crossbar/base coordinates and scale; only cloth folds change. About 180px wide and 390px tall per source cell, tall and narrow like the concept, NOT a broad flag or battle standard. No base pedestal, no ground.\nBottom left: ONE standalone perfect round BLANK dark navy emblem disc with broad warm polished gold rim, about 300px diameter, exactly matching the large empty emblem on reference 2's castle. Front-facing flat circular form, dark clean face, no symbols, no embellishment outside rim.\nBottom middle: ONE glowing gold right-angle path elbow for the concept's connector network. A narrow white-yellow central line with rich gold inner glow and broad soft warm amber glow, traveling from the LEFT edge of a 280x280 local square halfway down, turning smoothly through a small radius at center, then exiting at the BOTTOM edge halfway across. A clean L pointing left/down. Uniform 6px bright core with approximately 35px glow width along entire line. Both arms straight at their ends. It is a small modular joining piece, NOT a diagram or an orb, no arrows, no end caps.\nBottom right EMPTY.\nRendering: match concept and castle's HD pixel-art-flavoured painted fantasy, strong dark contours on material objects, smooth rich painted gradients, glossy highlights, top-left light, softly antialiased alpha. NOT strict pixel art. Actual transparent background everywhere between sprites, no brown backdrop, vignette, panel, ground, scenery, text, letters, numbers, logos or watermark.",
+      "raw": "rendering/artifacts/overworld/raw/host/banner-disc-elbow-01.png",
+      "references": [
+        "design/references/overworld-concept.png",
+        "rendering/artifacts/overworld/raw/host/castle-online-01.png"
+      ],
+      "originalGeneratorFilename": "exec-0737e540-e503-4413-ab1f-1ce8ed860b82.png",
+      "era": "hd-concept",
+      "group": "host",
+      "tool": "built-in image_gen",
+      "date": "2026-11-06",
+      "originalRawPath": "raw/host/banner-disc-elbow-01.png",
+      "generatorOutput": "exec-0737e540-e503-4413-ab1f-1ce8ed860b82.png"
+    },
+    {
+      "id": "banner-disc-elbow-02-clean",
+      "prompt": "Use case: precise-object-edit\nAsset type: isolated transparent sprite sheet cleanup.\nEdit target: attached generated banner/disc/elbow source sheet.\nMake ONLY this correction: REMOVE ALL amber haze, lighting mist, atmospheric glow and tinted backdrop surrounding the three banners and the standalone emblem disc. Those material objects are NOT luminous. Preserve their geometry, positions, dimensions, paint detail, dark outlines, colors, blank faces and smooth antialiased edges exactly. Clear all background pixels around those objects to truly transparent alpha, including gaps below/around cloth and between pole and cloth. Keep the soft warm luminous glow ONLY immediately around the gold path elbow, bottom middle. Everywhere else beyond object contours must be transparent, not black or brown.\nKeep same 1536x1024 layout and asset coordinates. Do not add anything. No text, glyphs, numbers or logos. No checkerboard.",
+      "raw": "rendering/artifacts/overworld/raw/host/banner-disc-elbow-02-clean.png",
+      "references": [
+        "rendering/artifacts/overworld/raw/host/banner-disc-elbow-01.png"
+      ],
+      "originalGeneratorFilename": "exec-c539e87c-0082-42c8-96cb-540c41c32866.png",
+      "era": "hd-concept",
+      "group": "host",
+      "tool": "built-in image_gen",
+      "date": "2026-11-06",
+      "originalRawPath": "raw/host/banner-disc-elbow-02-clean.png",
+      "generatorOutput": "exec-c539e87c-0082-42c8-96cb-540c41c32866.png"
+    },
+    {
+      "id": "castle-offline-01",
+      "prompt": "Use case: lighting-weather\nAsset type: EXACTLY REGISTERED transparent offline-state castle sprite.\nEdit target: attached online host castle sprite. Change ONLY its lighting/color state into OFFLINE: the SAME castle, identical silhouette, scale, position, architecture, brick shapes, two blue conical roofs, purple pennants, gold-rimmed blank navy disc, arched gate, stone stair, every contour and window coordinate. Switch off ALL glowing windows and lantern glass: interiors should be dark cool slate/navy, no yellow/orange light anywhere inside them. Desaturate and cool the grey stone and blue roofs, dim gold trim to aged muted brass, subtly colder and a little worn, but NOT ruined, damaged or geometrically altered. No new cracks or objects. Keep the exact same soft edge alpha and transparent backdrop. The offline sprite MUST overlay the online sprite without any movement whatsoever. Absolutely no text, symbols, logos, no additional subjects or background. Preserve complete original canvas and transparent margins.",
+      "raw": "rendering/artifacts/overworld/raw/host/castle-offline-01.png",
+      "references": [
+        "rendering/artifacts/overworld/raw/host/castle-online-01.png"
+      ],
+      "originalGeneratorFilename": "exec-3f178248-de3e-4627-bf2a-8e252ff57502.png",
+      "era": "hd-concept",
+      "group": "host",
+      "tool": "built-in image_gen",
+      "date": "2026-11-06",
+      "originalRawPath": "raw/host/castle-offline-01.png",
+      "generatorOutput": "exec-3f178248-de3e-4627-bf2a-8e252ff57502.png"
+    },
+    {
+      "id": "banner-wide-01",
+      "prompt": "Use case: stylized-concept\nAsset type: three registered HD fantasy overworld host-banner animation frames on a transparent sprite sheet.\nReference 1 is the original private concept: study the WIDE purple banners immediately beside each central castle. Reference 2 generated castle is only the matching smooth painted material rendering, blue/gold/purple palette and dark contours.\nPrimary request: three gently waving frames of ONE WIDE purple hanging banner, in a single horizontal row, centered in three equal 512px-wide cells on a 1536x1024 canvas. EACH cloth must be BROAD, approximately 360px WIDE and 540px HIGH, a WIDTH:HEIGHT ratio of TWO TO THREE (2:3), measured from hanging top edge to its lowest pointed tips. This proportion is essential. It must look substantially broader and less elongated than a narrow standard. Short gold crossbar spans the full broad cloth width, mounted to a slim vertical gold pole on its LEFT. Gold ball finials. Gold trim around violet cloth edges and a two-point swallowtail bottom. The large BLANK DARK NAVY ROUND EMBLEM DISC with gold rim occupies most of the cloth width, about 285px diameter in a 360px-wide cloth, prominently centered in its upper half. No icon inside disc.\nRegistration: draw the exact SAME fixed pole and crossbar at identical local coordinates in ALL THREE CELLS. Exactly identical banner dimensions and emblem position. Only the lower cloth ripples/folds change gently: calm, slight billow left, slight billow right. Don't move or duplicate the disc, pole, or crossbar. No doubled rings. Rich royal purple, warm gold rim and trim, clean dark navy blank circular face, softly painted folds. Top-left warm light, dark readable outlines, glossy painted highlights, smooth gradients and antialiased edges like original concept and approved castle. Not strict pixel art, no jaggies, no pixel snapping.\nComposition: one banner per cell, wide transparent gutters, the whole pole including bottom end and all cloth tips fully inside each cell, at a common size. No other sprites. No background, haze, shadows, glow, ground, pedestal or scenery. Genuinely transparent alpha. No text, letters, numbers, logos, glyphs, watermarks, checkerboard or labels. Original fantasy design matching the concept, with blank emblems for code-drawn icons.",
+      "raw": "rendering/artifacts/overworld/raw/host/banner-wide-01.png",
+      "references": [
+        "design/references/overworld-concept.png",
+        "rendering/artifacts/overworld/raw/host/castle-online-01.png"
+      ],
+      "originalGeneratorFilename": "exec-9ec6a76f-62df-4ac0-b164-4f1f88703baa.png",
+      "era": "hd-concept",
+      "group": "host",
+      "tool": "built-in image_gen",
+      "date": "2026-11-06",
+      "originalRawPath": "raw/host/banner-wide-01.png",
+      "generatorOutput": "exec-9ec6a76f-62df-4ac0-b164-4f1f88703baa.png"
+    }
+  ],
+  "halls": [
+    {
+      "prompt": "Use case: stylized-concept. Production sprite atlas for an ORIGINAL fantasy strategy OVERWORLD. The attached concept is a PRIVATE STYLE AND SUBJECT REFERENCE ONLY: do not reproduce its text, layout or characters, do not trace or crop it. NEW crisp low-resolution PIXEL ART, not painted, not vector, not 3D. Same 3/4 top-down camera throughout: front-facing facades and roofs visible, horizon absent, verticals upright, no diamond/isometric rotation. Dark navy-brown single ART-PIXEL outlines, chunky clearly square pixels, stepped diagonals, top-left lighting, 3-tone soft pixel shading. Palette across every sheet: outline #202638, stone #667085 #9ba4ae #d5d6ca, wood #62452f #a16b3b #d9a458, parchment #c49355 #e6c889 #fff0ba, gold #a86b22 #e9b83f #fff09a, foliage #204c3e #3b7950 #70a34c #bdd56a, blue #234577 #3477ad #72bed4, red #873c48 #c95750 #e58960, purple #5c3e80 #8e60ad #bb92d0, teal #25685d #459c86 #88c8a0. Genuine transparent alpha outside each subject, no checkerboard, no background, no floor slab or ground unless specifically terrain. NO TEXT, letters, digits, logos, signatures, watermarks or UI. All plaques, signboards, discs and banners BLANK except specifically requested pictographic icons. No status marks on characters. No connected scene. EXACT regular grid with one complete isolated subject per cell and wide transparent gutters. Draw with a consistent coarse pixel grid, ideally each art-pixel represented by a uniform 4x4 output block; no antialiasing, gradients or blur. Objects centered in their cells. Scale family: robot 16 art-pixels tall, stall 48 wide, hall 64 wide, castle128 wide; scenery scaled to this same family.\nReference image 2 is the newly generated host atlas: MATCH its crisp square pixel shapes, lighting and material palette. SHEET halls. EXACT 4 columns x 4 rows square sprite atlas, 1536x1536. Six identical timber-and-stone project halls, one shape, 64 art-pixels wide, front facade with central doorway, roof showing slope and ridge, a BLANK round navy badge disc with gold rim centered on roof ridge, no text. Row1 col1 RED roof hall; col2 PURPLE roof identical hall; col3 BLUE roof identical hall; col4 GREEN roof identical hall. Row2 col1 AMBER roof identical hall; col2 TEAL roof identical hall. Geometry, stone, timber, doors, scale and badge stay identical; ONLY roof colors change. Remaining ten cells hold one 16 art-pixel diameter round navy/gold project badge icon each, ivory PIXEL PICTOGRAMS no typography: row2 col3 inward-facing angle brackets (code); col4 wireframe cube. Row3 col1 ascending bar chart with three bars; col2 laboratory flask; col3 single person bust; col4 stack of three layers. Row4 col1 cog gear; col2 globe meridians; col3 open book; col4 little rocket. Wide transparent gutters; no ground.",
+      "reference": [
+        "design/references/overworld-concept.png",
+        "raw/host-01.png"
+      ],
+      "raw": "rendering/artifacts/overworld/raw/halls-01.png",
+      "era": "pixel-v1",
+      "archived": true,
+      "selected": false,
+      "originalRawPath": "halls-01.png"
+    },
+    {
+      "raw": "rendering/artifacts/overworld/raw/buildings/halls-hd-01.png",
+      "generatorOutput": "exec-bd856d1d-4281-4394-88b9-bea0079e58f4.png",
+      "prompt": "Use case: stylized-concept. Asset type: production game sprite on genuine transparent RGBA. Input image 1 is a PRIVATE STYLE/SUBJECT REFERENCE ONLY: use the small project halls under the round badges (core-platform, developer-tools, growth), not the whole landscape. Input image 2 is the approved robot art style reference. Create ONE standalone project guild hall, red roof, at 3/4 top-down frontal camera: both broad terracotta tiled roof and front facade visible, almost symmetric front, a little right-side depth. Wide low roof with thick dark outlines, glossy warm highlights, carved timber framing, cream plaster, sturdy grey stone base, glowing gold windows, cosy rich fantasy strategy illustration. Large BLANK circular midnight-navy badge disc with a metallic gold rim centered on roof front, no glyph inside. Front facade includes a wide BLANK ivory parchment plaque under roof, no text. No robots. No vines obscuring silhouette. No scenic ground, no grass, no landscape, no slab beyond building's own stone base. Hall fills about 85% of a wide 3:2 canvas with generous transparent margins and soft subtle contact shadow. Match concept's HD pixel-art-flavoured PAINTED aesthetic: chunky readable shapes with smooth gradients, anti-aliased edges and hand-painted detail, NEVER strict pixel art, no square pixel blocks. Warm top-left light. No text, letters, numbers, logos, UI, labels or watermark. Design for final ~860px wide hall beside 200px tall robots. One subject only, completely isolated.",
+      "transparent_background": true,
+      "referenceRoles": [
+        "Private concept: style and subject reference only",
+        "Approved robots.png: material, shading and scale anchor"
+      ],
+      "referenced_image_paths": [
+        "design/references/overworld-concept.png",
+        "rendering/src/assets/overworld/robots.png"
+      ],
+      "era": "hd-concept",
+      "group": "buildings",
+      "tool": "built-in image_gen",
+      "date": "2026-11-06",
+      "originalRawPath": "rendering/artifacts/overworld/raw/buildings/halls-hd-01.png"
+    },
+    {
+      "raw": "rendering/artifacts/overworld/raw/buildings/badges-hd-01.png",
+      "generatorOutput": "exec-6a141b67-02a7-43de-b5e2-b6612a0ce88f.png",
+      "prompt": "Use case: stylized-concept. Production fantasy strategy game badge sprite sheet, genuinely transparent background. Reference 1 is the concept's DARK ROUND PROJECT BADGES only. Reference 2 is the newly generated blank badge on a hall. Generate TEN separate round badge icons on a regular 5 column by 2 row grid, with broad transparent gutters; exactly one disc per cell. Each badge has the SAME perfectly circular midnight navy enamel disc and thick metallic warm GOLD rim with top-left glossy highlights and small geometric gold clasps at cardinal points, matching the hall roof badge. Centered WHITE ivory pictogram on each dark disc, chunky simple highly readable strokes, no words. Row 1 left to right: code angle brackets with slash; isometric wireframe cube; three ascending vertical bar-chart bars; laboratory flask; person bust with circular head and shoulders. Row 2 left to right: three stacked diamond layers; cog gear; globe with latitude and longitude; open book; little rocket. Same camera, diameter, material, shading and disc silhouette in every cell. Face-on circles, not elliptical, no perspective tilt. No other items. Smooth painterly gradients and anti-aliased edges, thick dark outlines, HD pixel-art-flavoured but NOT strict pixel art. No text, letters, numbers, logos, labels or watermark. All ten icons distinct and recognizable; generous transparent margins.",
+      "transparent_background": true,
+      "referenceRoles": [
+        "Private concept: style and round badge subject only",
+        "Generated hall: blank disc registration and material style"
+      ],
+      "referenced_image_paths": [
+        "design/references/overworld-concept.png",
+        "rendering/artifacts/overworld/raw/buildings/halls-hd-01.png"
+      ],
+      "era": "hd-concept",
+      "group": "buildings",
+      "tool": "built-in image_gen",
+      "date": "2026-11-06",
+      "originalRawPath": "rendering/artifacts/overworld/raw/buildings/badges-hd-01.png"
+    }
+  ],
+  "stalls": [
+    {
+      "prompt": "Use case: stylized-concept. Production sprite atlas for an ORIGINAL fantasy strategy OVERWORLD. The attached concept is a PRIVATE STYLE AND SUBJECT REFERENCE ONLY: do not reproduce its text, layout or characters, do not trace or crop it. NEW crisp low-resolution PIXEL ART, not painted, not vector, not 3D. Same 3/4 top-down camera throughout: front-facing facades and roofs visible, horizon absent, verticals upright, no diamond/isometric rotation. Dark navy-brown single ART-PIXEL outlines, chunky clearly square pixels, stepped diagonals, top-left lighting, 3-tone soft pixel shading. Palette across every sheet: outline #202638, stone #667085 #9ba4ae #d5d6ca, wood #62452f #a16b3b #d9a458, parchment #c49355 #e6c889 #fff0ba, gold #a86b22 #e9b83f #fff09a, foliage #204c3e #3b7950 #70a34c #bdd56a, blue #234577 #3477ad #72bed4, red #873c48 #c95750 #e58960, purple #5c3e80 #8e60ad #bb92d0, teal #25685d #459c86 #88c8a0. Genuine transparent alpha outside each subject, no checkerboard, no background, no floor slab or ground unless specifically terrain. NO TEXT, letters, digits, logos, signatures, watermarks or UI. All plaques, signboards, discs and banners BLANK except specifically requested pictographic icons. No status marks on characters. No connected scene. EXACT regular grid with one complete isolated subject per cell and wide transparent gutters. Draw with a consistent coarse pixel grid, ideally each art-pixel represented by a uniform 4x4 output block; no antialiasing, gradients or blur. Objects centered in their cells. Scale family: robot 16 art-pixels tall, stall 48 wide, hall 64 wide, castle128 wide; scenery scaled to this same family.\nReference image 2 is the host material style reference. SHEET stalls: landscape image EXACT 4 columns x 2 rows, eight equal cells. Row1 col1 a complete BLUE-and-ivory striped awning market stall. Col2 exact same stall RED-and-ivory. Col3 exact same stall PURPLE-and-ivory. Col4 exact same stall GREEN-and-ivory. Row2 col1 exact same stall YELLOW-and-ivory. Each stall 48 art-pixels wide: simple shallow timber structure, roof awning, open empty central area above low counter where little robots will stand, no goods, NO ROBOTS. Two vertical posts only at extreme left and right ends. CRITICAL design every stall to be cut vertically into three equal 16-art-pixel widths: LEFT END has left support post, MIDDLE has no posts and is horizontally repeatable, RIGHT END has right support post. Roof, counter and deck must meet at identical height across all three slices, with no diagonal side receding across the repeatable center. Wide horizontal striped roof gives some roof-top visible above front scallop. The middle third has uniform top/bottom edges, stripe width divides its width. Floor/deck is integral to the structure, no extra ground slab. No blank board obstructing the empty robot area. Row2 col2: small beige triangular CAMP tent, rolled flap and an EMPTY small fire ring beside entrance, single camp grouping 48 art-pixels wide. Row2 col3: single separate completely BLANK hanging timber signboard with two short hangers, parchment insert and dark wood frame, 24 art-pixels wide. Row2 col4 completely empty transparent. Keep architecture camera/palette matched to host and hall. Genuinely empty transparent background.",
+      "reference": [
+        "design/references/overworld-concept.png",
+        "raw/host-01.png"
+      ],
+      "raw": "rendering/artifacts/overworld/raw/stalls-01.png",
+      "era": "pixel-v1",
+      "archived": true,
+      "selected": false,
+      "originalRawPath": "stalls-01.png"
+    },
+    {
+      "raw": "rendering/artifacts/overworld/raw/buildings/stalls-hd-01.png",
+      "generatorOutput": "exec-1dfcaa60-860a-43ca-82ea-ca1990ab9e81.png",
+      "prompt": "Use case: stylized-concept. Production game sprites, genuine transparent background. Reference 1: private fantasy overworld concept, reference ONLY the market stalls labelled api, web and analytics; reference 2: approved painted robot sprites for matching illustration style. Create one empty WORKSPACE MARKET STALL, wide enough for three 200px tall robots standing side by side in front of its plain wooden back wall. NO ROBOTS in this image. Front facing with slightly elevated 3/4 camera: see broad roof surface and front wooden counter. Canvas awning alternating rich cobalt BLUE and ivory cream stripes, scalloped front valance. Awning and back wall form a precisely HORIZONTAL rectangular repeatable span: perfectly level top ridge, level bottom of awning, level counter ledge. Crucial modular-ready design: central 60% of stall has a uniform horizontal roof profile with repeating same-width stripes and repeating identical scallops, no center peak, no middle posts, no middle special ornament or diagonal beams, so vertical slices of the middle may repeat indefinitely without seam. Wooden supports ONLY at left and right ends. Plain warm wood back wall and a low counter/platform lip, an empty clear central area where robots stand. Crates and barrel outside left end, barrel and crate outside right end. No objects in the central robot space. Do NOT include a signboard; sign is a separate asset. Glossy gold small lantern on each end post. No ground slab, no grass, no surrounding scenery. Broad low proportion, whole object isolated with generous transparent gutters. Soft top-left lighting, warm glows, rich painted shading, dark outlines, chunky readable fantasy strategy shapes, smooth anti-aliased edges. HD painted pixel-art-flavoured style, NOT strict pixel art. No text, letters, numerals, glyphs, labels, logos or watermark. The opening under the awning must have at least 200px headroom when assembled with 240px width per robot, final approximately 960px total width and 460px high. Keep any shadow very tight to the object, no broad ambient aura.",
+      "transparent_background": true,
+      "referenceRoles": [
+        "Private concept: style and subject reference only",
+        "Approved robots.png: material, shading and scale anchor"
+      ],
+      "referenced_image_paths": [
+        "design/references/overworld-concept.png",
+        "rendering/src/assets/overworld/robots.png"
+      ],
+      "era": "hd-concept",
+      "group": "buildings",
+      "tool": "built-in image_gen",
+      "date": "2026-11-06",
+      "originalRawPath": "rendering/artifacts/overworld/raw/buildings/stalls-hd-01.png",
+      "archived": true,
+      "selected": false,
+      "supersededBy": "stalls-v3",
+      "revision": "stalls-v2"
+    },
+    {
+      "raw": "rendering/artifacts/overworld/raw/buildings/camp-sign-hd-01.png",
+      "generatorOutput": "exec-766aaa6b-14d7-4647-bc61-40e29ce00d13.png",
+      "prompt": "Use case: stylized-concept. Production game sprite sheet containing exactly TWO independent subjects on transparent RGBA, in two widely separated cells in a 2 column by 1 row landscape canvas. Reference 1 is PRIVATE style reference, match ONLY its canvas tent and campfire area at upper right. Reference 2 is the approved painted enamel robots style anchor. Left cell: a small cosy fantasy CAMP for robots without workspace. Ivory golden canvas A-frame tent with an open dark triangular entrance, short wood poles, ropes and pegs, warm amber light glowing from inside; a small stone-ring campfire with crisp warm orange flames in front-right of the tent and two little logs to sit on. No characters. A few camping supplies by tent, no grass slab or island or environment. Tent about 350px high relative to final 200px tall robot: leave transparent negative space beside it for robots. Right cell: a BLANK horizontal wooden HANGING SIGNBOARD, broad honey-brown carved wood, gold edge bolts, blank recessed rectangular warm cream/parchment face, hanging from two short loops/ropes at the upper corners; straight frontal, no text or glyphs. Width about 1.8 times height including loops. Sprite style: chunky dark outlines, smooth glossy painted gradients, warm top-left light, soft anti-aliased edges, rich detail like the concept. NOT strict pixel art. Two independent subjects only, NO ROBOTS, NO TEXT, letters, numbers, logos, labels or watermark; absolutely transparent background, wide transparent gutters all around and between subjects. Camp's contact shadow tight, no broad halo.",
+      "transparent_background": true,
+      "referenceRoles": [
+        "Private concept: style and subject reference only",
+        "Approved robots.png: material, shading and scale anchor"
+      ],
+      "referenced_image_paths": [
+        "design/references/overworld-concept.png",
+        "rendering/src/assets/overworld/robots.png"
+      ],
+      "era": "hd-concept",
+      "group": "buildings",
+      "tool": "built-in image_gen",
+      "date": "2026-11-06",
+      "originalRawPath": "rendering/artifacts/overworld/raw/buildings/camp-sign-hd-01.png",
+      "selected": true,
+      "retainedFrames": [
+        "camp",
+        "signboard-blank"
+      ]
+    },
+    {
+      "id": "booth-v3-01",
+      "prompt": "Use case: stylized-concept. Asset type: one transparent HD fantasy strategy game WORKSPACE BOOTH sprite. The attached 4x crops are private STYLE AND SUBJECT REFERENCES ONLY; study the WOODEN BOOTHS containing robots. Reproduce their architecture and proportions closely, isolated and EMPTY, without the robots, parchment sign, corner fabric canopy or side props. This is a shallow open-front timber booth, almost frontal with slightly elevated 3/4 camera, not a house and not a roofed market stall. A warm mid-brown upright timber post at each front corner; flat horizontal dark-brown plank back wall; a pale peach-tan plank floor at the front; a thin low grey stone block foundation with tiny vivid moss accents. Across the top is a straight broad plain wooden sign-support beam/header. At its two outside corners ONLY, short sloping wooden gable end caps angle outward and downward, exactly as the references' little wooden eaves beside the parchment labels. NO peaked centre; NO roof across the top; NO cloth awning at all. The centre of the upper header stays plain dark wood, because a separate wide parchment nameplate will be drawn over it. The open robot area beneath the header is dark warm brown in shadow, so shiny characters pop against it. Chunky corner posts, modest woodgrain, restrained pale top-left highlights; dark brown outlines similar to the references. Small mossy stone footings at the corner posts. Broad low silhouette: final booth approximately 800px wide by 440px tall; top header/nameplate zone 150px high, interior wall opening about 200px high, narrow light plank floor and low stone base about 65px high. Do not make tall walls or a deep stage. Keep the entire booth isolated with generous genuinely transparent RGBA gutters; no landscape or grass slab, no sky, no ground plane, no shadow backdrop. Match the reference's soft painted HD pixel-art-flavoured rendering: rich warm wood, dark shaded back wall, slightly irregular stone, fine dark contours, smooth gradients and anti-aliased edges, not geometric vector art or strict pixel art. No glowing gold trim, no brass ornament, no lanterns, no crates, no barrel, no characters, no parchment, no text, letters, numbers, logos, watermark or UI. One complete empty booth only.",
+      "raw": "rendering/artifacts/overworld/raw/buildings-v3/booth-01.png",
+      "generatorOutput": "exec-dfe66844-92a8-4134-84eb-de2665f37124.png",
+      "references": [
+        "rendering/artifacts/overworld/ref-stall-api-web.png",
+        "rendering/artifacts/overworld/ref-stall-events.png",
+        "rendering/artifacts/overworld/ref-stall-prod.png"
+      ],
+      "referenceRoles": "Private 4x concept crops, style and subject only; no reference pixels in production sprites.",
+      "era": "hd-concept",
+      "revision": "stalls-v3",
+      "tool": "built-in image_gen",
+      "date": "2026-11-06",
+      "selected": true,
+      "transparent_background": true
+    },
+    {
+      "id": "awning-corner-v3-01",
+      "prompt": "Use case: stylized-concept. Asset type: one small corner CANOPY sprite for a fantasy strategy booth, genuinely transparent background. Private crop references show the desired subject: the LITTLE BLUE AND WHITE STRIPED CANOPY behind the top-left corner of the api wooden booth, and the small purple canopy behind events. Render ONLY that little canopy, detached and isolated. It is a small asymmetric rectangular lean-to fabric stand-top facing LEFT: its high back ridge is at upper right, fabric slopes downward to the lower left/front edge, so a broad blue-white striped trapezoid cloth plane is visible from slightly above, front edge gently scalloped. Four or five broad alternating cobalt-blue and warm ivory white stripes, rich colour but soft painted texture. Thin warm brown wooden back ridge rail, two small wooden corner tips, very short underside timber braces, no long legs. Broad shallow silhouette about 280px wide by 170px high at the 4x concept scale. It will sit BEHIND an unrelated booth's top-left corner, only the canopy peeking out. It must NOT be a full-width awning over a booth, no booth or house, no robot, no signboard, no counter, no vertical poles extending to ground, no other props. Match the references closely: soft HD fantasy map illustration, chunky dark brown contours, restrained glossy top-left highlights, painterly gradients, antialiased edges, NOT vector, NOT strict pixel art. Genuine transparent RGBA all around with wide empty gutters, no environment, no ground, no slab, no text, letters, numbers, logos, symbols or watermark. Exactly one small blue-white corner canopy, left-facing as in the api crop.",
+      "raw": "rendering/artifacts/overworld/raw/buildings-v3/awning-corner-01.png",
+      "generatorOutput": "exec-684fe512-b447-49a4-8045-ccd6a55254ca.png",
+      "references": [
+        "rendering/artifacts/overworld/ref-stall-api-web.png",
+        "rendering/artifacts/overworld/ref-stall-events.png"
+      ],
+      "referenceRoles": "Private 4x concept crops, style and subject only; no reference pixels in production sprites.",
+      "era": "hd-concept",
+      "revision": "stalls-v3",
+      "tool": "built-in image_gen",
+      "date": "2026-11-06",
+      "selected": true,
+      "transparent_background": true
+    },
+    {
+      "id": "booth-side-props-v3-01",
+      "prompt": "Use case: stylized-concept. Asset type: four separate transparent fantasy-overworld side-prop cluster sprites, a strict regular 4 columns by 1 row landscape sheet, generous transparent gutters between complete subjects, one compact cluster per cell. The private 4x reference crops show the exact subject and painted style to match: the small wooden crates, barrels and lit torches/braziers beside the wooden robot booths. No booth, sign, robot or canopy in this sheet. Cell 1 LEFT composition A: a wooden crate at back-left, and at front-right a stout chopped wooden stump supporting a simple open iron brazier with small warm orange-yellow flame, like the api booth's outside left cluster. Cell 2 LEFT composition B: a small square open wooden crate with a little red/orange produce or tools, a short wooden barrel beside it, and a small warm lit lantern placed high on a short stump behind them; cluster biased left. Cell 3 RIGHT composition A: an upright wooden shipping crate in front-right, wooden stump at back-left with a small bright gold lantern on it, like web and ab-tests booth side props. Cell 4 RIGHT composition B: a squat wooden barrel at right foreground, a small crate at back-right, and an open iron fire basket on a stump at left. These are small tabletop-to-robot-height items, not giant towers: intended footprint each about 150-190px wide, height about 200-240px at 4x map scale, beside 144px-tall robots. Warm medium-brown rough wood, dark contours, restrained brass corners and iron rings; only small warm flame glows fading into transparent alpha. A couple moss specks at feet are fine, no ground slab, no grass patch, no landscape. Match the reference's HD pixel-art-flavoured soft painted fantasy map rendering, not strict pixel art, not vector or plastic toys. Top-left light throughout. Keep shapes compact and readable with no loose pieces. No text, letters, numbers, logos, pictograms or watermark. Genuine transparent RGBA background, no checkerboard.",
+      "raw": "rendering/artifacts/overworld/raw/buildings-v3/side-props-01.png",
+      "generatorOutput": "exec-067e1fa3-6df8-45c6-bc0b-4563e5b69484.png",
+      "references": [
+        "rendering/artifacts/overworld/ref-stall-api-web.png",
+        "rendering/artifacts/overworld/ref-stall-marketing.png",
+        "rendering/artifacts/overworld/ref-stall-events.png"
+      ],
+      "referenceRoles": "Private 4x concept crops, style and subject only; no reference pixels in production sprites.",
+      "era": "hd-concept",
+      "revision": "stalls-v3",
+      "tool": "built-in image_gen",
+      "date": "2026-11-06",
+      "selected": true,
+      "transparent_background": true
+    }
+  ],
+  "robots": [
+    {
+      "prompt": "Use case: stylized-concept. Production sprite atlas for an ORIGINAL fantasy strategy OVERWORLD. The attached concept is a PRIVATE STYLE AND SUBJECT REFERENCE ONLY: do not reproduce its text, layout or characters, do not trace or crop it. NEW crisp low-resolution PIXEL ART, not painted, not vector, not 3D. Same 3/4 top-down camera throughout: front-facing facades and roofs visible, horizon absent, verticals upright, no diamond/isometric rotation. Dark navy-brown single ART-PIXEL outlines, chunky clearly square pixels, stepped diagonals, top-left lighting, 3-tone soft pixel shading. Palette across every sheet: outline #202638, stone #667085 #9ba4ae #d5d6ca, wood #62452f #a16b3b #d9a458, parchment #c49355 #e6c889 #fff0ba, gold #a86b22 #e9b83f #fff09a, foliage #204c3e #3b7950 #70a34c #bdd56a, blue #234577 #3477ad #72bed4, red #873c48 #c95750 #e58960, purple #5c3e80 #8e60ad #bb92d0, teal #25685d #459c86 #88c8a0. Genuine transparent alpha outside each subject, no checkerboard, no background, no floor slab or ground unless specifically terrain. NO TEXT, letters, digits, logos, signatures, watermarks or UI. All plaques, signboards, discs and banners BLANK except specifically requested pictographic icons. No status marks on characters. No connected scene. EXACT regular grid with one complete isolated subject per cell and wide transparent gutters. Draw with a consistent coarse pixel grid, ideally each art-pixel represented by a uniform 4x4 output block; no antialiasing, gradients or blur. Objects centered in their cells. Scale family: robot 16 art-pixels tall, stall 48 wide, hall 64 wide, castle128 wide; scenery scaled to this same family.\nSHEET robots. EXACT 8 columns x 3 rows wide landscape atlas, 2048x768. All characters front-facing, very low resolution, only 16 ART-PIXELS tall, drawn enlarged with very chunky square pixels; do not add details that disappear at 16px. Friendly ORIGINAL square-headed robot: large rounded-square enamel head (7x6 art pixels), navy rectangular face visor with two ivory dot eyes, small compact rectangular torso (5x4), short simple arms and boots, little central antenna, simple dark outline. NO existing franchise character, no brands or provider marks. Row1 all WARM ORANGE enamel. Row2 all WHITE/PEARL enamel. Row3 all NEUTRAL LIGHT GREY enamel suitable for multiply tinting, all surfaces truly greyscale except navy visor. IDENTICAL underlying character in every row, color only changes, consistent 16 art-pixel height in every full robot cell, drone 8 art-pixel height. For each row: col1 idle A; col2 idle B slight one-pixel head bob, boots fixed; col3 working A hands forward typing; col4 working B left hand down; col5 working C both hands forward; col6 working D right hand down; col7 tiny hovering drone A, same square head miniature body and two short side propellers, no legs; col8 identical drone B only propellers change. Animation registration: head and boots at identical coordinates except the explicit idle bob; only hands change for working; drones only propellers. Keep EXACT same silhouette design and palette across frames. Large transparent gutters. Transparent exterior, NO ground or shadow, no tools, no keyboard, no status marks, no sparkles.",
+      "reference": [
+        "design/references/overworld-concept.png",
+        "raw/host-01.png"
+      ],
+      "raw": "rendering/artifacts/overworld/raw/robots-01.png",
+      "selected": false,
+      "reason": "Archived pixel-v1; replaced by the HD painted enamel robot revision.",
+      "era": "pixel-v1",
+      "archived": true,
+      "originalRawPath": "robots-01.png"
+    },
+    {
+      "prompt": "Use case: stylized-concept. Create an ORIGINAL HD game character sprite atlas matching the rendering of the robots in the attached private fantasy overworld concept. Image 1 is the full concept; images 2 and 3 are PRIVATE closeups of the concept's robots in market stalls, supplied ONLY to study proportions, lighting, materials and finish. Do not copy reference pixels, text, logos, existing characters or stalls.\nIMPORTANT STYLE: the concept is NOT strict pixel art. Match its HD painted, pixel-art-flavoured illustration: chunky rounded-square shapes, bold dark navy/brown contour, smooth soft painted shading and rich tonal gradients, glossy enamel with strong white specular highlights on upper-left forehead and shoulders, warm reflected amber light underneath, softly anti-aliased silhouettes, subtle soft contact shadow. It should look like a tiny jewel-like robot living in that warm fantasy market. No posterization, no limited palette, no visible square pixel blocks, no vector-flat icon style, no photorealistic studio 3D render.\nSUBJECT: one original friendly front-facing neutral LIGHT GREY robot, same design in all cells. Big wide rounded-square boxy head, large inset almost-black curved rectangular visor with TWO luminous creamy-white oval eyes (no mouth), small ear bolts left and right, very short single central antenna. Head occupies about 60% of total height and is nearly as wide as the whole body. Short stubby torso about 30% of height, small rounded mitten hands, short boots, tiny unmarked inset chest panel with soft reflection. Broad helmet has slightly clipped corners and a distinct little raised forehead ridge, not a perfectly round sphere. Human-friendly chunky proportions matched to reference. Do not add status symbols, tools, symbols on chest or an oversized long antenna.\nATLAS: EXACT 4 columns x 2 rows of eight equal SQUARE cells, wide transparent gutters. Ideally 1536x768 pixels: each cell384x384, standing robot about280px tall centered in same coordinates; this will be downsampled with Lanczos to a 200px tall robot in a256x256 final frame. All physical silhouettes, eyes, glow and shadows must fit within central78% of each cell and never touch neighbors. Genuine transparent alpha around every sprite; no checkerboard, ground slab or backdrop. Each complete robot includes a small tight soft oval contact shadow at its feet.\nRow1 col1: IDLE A, both hands relaxed beside short torso, eyes open.\nRow1 col2: IDLE B, exact registered duplicate, only eyelids lower slightly for a gentle blink; head may bob by2source pixels, boots fixed.\nRow1 col3: WORKING A, same robot and fixed head/torso/boots, both tiny hands in front at chest/waist, poised to type or tinker, no separate keyboard or tool.\nRow1 col4: WORKING B, exact registered duplicate, only left hand lowered a little, right hand raised.\nRow2 col1: WORKING C, exact registered duplicate, both hands close together at front waist.\nRow2 col2: WORKING D, exact registered duplicate, right hand lowered a little, left hand raised.\nRow2 col3: tiny hovering DRONE A version of this same robot: same rounded-square head and dark glowing-eye visor at70% the standing robot head size, small compact suspended belly, two short side hovering pods, NO legs, hovering over a small soft oval shadow.\nRow2 col4: identical registered DRONE B, only hover pod highlights/tilt change slightly, head and belly unchanged.\nRegistration is crucial: every full robot has exactly the same head size, head location, foot position, body size, outline weight, highlights and design. Only arms or eyelids change in the named frames. NEUTRAL GREY enamel must be pale grey, suitable for multiply tinting. No colored clothing. No text, letters, numbers, logos, watermark, status marks or labels anywhere. Focus on matching the reference robots' sumptuous painted gloss, friendly proportions and crisp readability at45\u201360px map height.",
+      "reference": [
+        "design/references/overworld-concept.png",
+        "rendering/artifacts/overworld/reference-api.png",
+        "rendering/artifacts/overworld/reference-data.png"
+      ],
+      "raw": "rendering/artifacts/overworld/raw/robots-hd-01.png",
+      "generatorOutput": "exec-1b97b863-d458-4cce-9422-5d9593be216c.png",
+      "tool": "image_gen",
+      "date": "2026-11-06",
+      "transparent_background": true,
+      "style": "HD robot revision draft",
+      "selected": false,
+      "reason": "Superseded: too metallic/chrome compared with the painted enamel reference.",
+      "era": "hd-concept",
+      "originalRawPath": "robots-hd-01.png"
+    },
+    {
+      "prompt": "Use case: stylized-concept. Original robot sprite atlas for the fantasy overworld shown in the attached private reference. Image1 is the complete concept and images2/3 are enlarged robot-in-stall crops, STYLE AND PROPORTION references only. Do not trace/copy pixels, characters, text, logos or scenery.\nMatch the concept's actual HD painted game illustration rendering very closely: CHUNKY rounded-square silhouettes, strong dark inky outline, rich saturated enamel, smooth softly painted color shading, bold white glossy forehead highlight, reflected warm golden lantern light underneath, subtle tiny blue ambient rim, soft anti-aliased alpha edges and a tight soft grounding shadow. NOT strict pixel art: no pixel grid, hard square blocks, palette limits or posterization. NOT a silver/chrome figurine or polished studio3D render: the face surround is colored ENAMEL with a dark contour, not a shiny silver metallic bevel. Keep a little graphic/painterly character to the shading instead of perfectly airbrushed toy photography. At50px tall the dark outline should be1.5\u20132px, and eyes, helmet and squat body should read as clearly as the concept's robots.\nCharacter: friendly original warm ORANGE enamel robot for Claude (no brand marks), front-facing with only a little top surface visible. Very broad rounded-square boxy helmet with slightly flattened forehead and gently clipped corners, head about60% of full height, width roughly80% of full height; small integrated ear bolts, tiny central antenna/forehead nub, large black/navy rectangular face screen containing two glowing white/cool-ivory oval eyes, no mouth. Helmet is enamel orange, highlights nearly white with pale peach edges, shadows warm burnt orange with dark blue/brown reflected shadows. The short squat torso is about25% of full height, narrower than helmet, with a simple BLANK inset chest panel reflecting light. Stubby little arms and short boots. Hands are small, not oversize round fists. Do not add eyebrows, cheeks, clothing, backpack or tools. All parts share the same lovingly illustrated dark outline. No symbols or status marks.\nEXACT4 columns x2 rows landscape atlas, eight equal square cells, transparent exterior. Final intended frame256x256, robot200px tall. Give source sprites plenty of detail and wide transparent gutters. Center every FULL robot precisely at the SAME head and foot coordinates, all parts fit in central75% of each cell. Keep antenna short so it does not force the rest of the robot smaller.\nRow1 col1 idle A both hands beside torso eyes open.\nRow1 col2 idle B IDENTICAL registered duplicate of A, only eyes half-blink, fixed head and boots.\nRow1 col3 working A IDENTICAL head/torso/feet at identical coordinates, only hands brought forward slightly at waist for typing/tinkering.\nRow1 col4 working B same fixed structure, left hand slightly down/right slightly up.\nRow2 col1 working C same fixed structure, small hands both slightly inward and down at waist.\nRow2 col2 working D same fixed structure, left hand slightly up/right slightly down.\nRow2 col3 hovering DRONE A, same rounded-square head and eyes at smaller60% standing size, short suspended belly and tiny side hovering pods, no legs, small soft oval shadow beneath.\nRow2 col4 DRONE B exact registered duplicate, only hovering pods tilt/brighten slightly; head/belly fixed.\nNo text/letters/numbers/logos/labels/watermarks. No background wash, checkerboard, ground platform, scene or stall. Genuinely transparent alpha around individual objects; retain smooth anti-aliased outlines, painted shading and soft shadows. The reference is used only to guide rendering, proportions and lighting.",
+      "reference": [
+        "design/references/overworld-concept.png",
+        "rendering/artifacts/overworld/reference-api.png",
+        "rendering/artifacts/overworld/reference-data.png"
+      ],
+      "raw": "rendering/artifacts/overworld/raw/robots-hd-02.png",
+      "generatorOutput": "exec-3c63651a-9117-4afe-b642-cd201f2d7401.png",
+      "tool": "image_gen",
+      "date": "2026-11-06",
+      "transparent_background": true,
+      "style": "HD painted enamel",
+      "selected": true,
+      "processing": "Lanczos resize; canonical body/head/boots/shadow; feathered eye, arm and drone-pod composites; continuous color transforms for pearl/neutral; smooth alpha preserved.",
+      "era": "hd-concept",
+      "originalRawPath": "robots-hd-02.png"
+    }
+  ],
+  "ui-world": [
+    {
+      "prompt": "Use case: stylized-concept. Production sprite atlas for an ORIGINAL fantasy strategy OVERWORLD. The attached concept is a PRIVATE STYLE AND SUBJECT REFERENCE ONLY: do not reproduce its text, layout or characters, do not trace or crop it. NEW crisp low-resolution PIXEL ART, not painted, not vector, not 3D. Same 3/4 top-down camera throughout: front-facing facades and roofs visible, horizon absent, verticals upright, no diamond/isometric rotation. Dark navy-brown single ART-PIXEL outlines, chunky clearly square pixels, stepped diagonals, top-left lighting, 3-tone soft pixel shading. Palette across every sheet: outline #202638, stone #667085 #9ba4ae #d5d6ca, wood #62452f #a16b3b #d9a458, parchment #c49355 #e6c889 #fff0ba, gold #a86b22 #e9b83f #fff09a, foliage #204c3e #3b7950 #70a34c #bdd56a, blue #234577 #3477ad #72bed4, red #873c48 #c95750 #e58960, purple #5c3e80 #8e60ad #bb92d0, teal #25685d #459c86 #88c8a0. Genuine transparent alpha outside each subject, no checkerboard, no background, no floor slab or ground unless specifically terrain. NO TEXT, letters, digits, logos, signatures, watermarks or UI. All plaques, signboards, discs and banners BLANK except specifically requested pictographic icons. No status marks on characters. No connected scene. EXACT regular grid with one complete isolated subject per cell and wide transparent gutters. Draw with a consistent coarse pixel grid, ideally each art-pixel represented by a uniform 4x4 output block; no antialiasing, gradients or blur. Objects centered in their cells. Scale family: robot 16 art-pixels tall, stall 48 wide, hall 64 wide, castle128 wide; scenery scaled to this same family.\nSHEET ui-world. EXACT 2 columns x 2 rows square atlas, 1024x1024. Four subjects centered with huge transparent gutters. Row1 col1: a SMALL completely blank parchment nameplate, 48 art-pixels wide x 12 high, gold/brown decorative left and right caps, slightly curled ends, straight horizontal top/bottom center edges and broad flat empty cream interior. Construct to be cut into left cap (8px), seamless stretchable center (32px), right cap (8px); center must have perfectly straight parallel top/bottom borders and uniform flat fill, no dominant speckles. Row1 col2: LARGE blank HOST plaque same style, 96 art-pixels wide x24 high, left/right 12px caps and 72px middle; no symbols or lettering at all, broad clear space for code to write two lines. Row2 col1: single GOLD PATH NODE, tiny round warm-white core and gold ring of stepped pixel light, 7 art-pixels diameter, no transparency gradient or circular backdrop beyond the tiny light dot. Row2 col2: GOLD PATH SEGMENT texture, perfectly horizontal 32 art-pixels long x3px high, white-yellow center, amber edging, completely constant at left and right edges for seamless tiling. Paths are reusable texture sprites, not connected map routes. All four are crisp enlarged pixel art with hard alpha edges. NO text, NO labels, NO grid.",
+      "reference": [
+        "design/references/overworld-concept.png",
+        "raw/host-01.png"
+      ],
+      "raw": "rendering/artifacts/overworld/raw/ui-world-01.png",
+      "era": "pixel-v1",
+      "archived": true,
+      "selected": false,
+      "originalRawPath": "ui-world-01.png"
+    },
+    {
+      "id": "castle-online-01",
+      "prompt": "Use case: stylized-concept\nAsset type: transparent HD fantasy strategy overworld castle sprite.\nInput images: Image 1 private concept is a style and subject reference only; Image 2 approved robots is a material/edge rendering style anchor, not subjects to include.\nPrimary request: ONE host castle keep matching the central castle in the original concept: broad compact grey stone crenellated keep, two corner cylindrical towers with royal blue conical tile roofs and small purple pennants, warm golden lit narrow windows, a central arched wooden gate and short stone stair. A large perfectly BLANK round dark navy emblem disc with a thick warm gold rim sits in the front upper crenellated wall, like the concept; its empty face must be large enough for code to draw a host icon. Omit the concept's parchment text plaque entirely: wall remains behind where the plaque would go, the plaque is a separate sprite. No detached large banners; those are separate.\nStyle: HD pixel-art-flavoured fantasy strategy world with chunky readable shapes, strong dark contours, smooth painted gradients, glossy warm highlights, rich blue tile roofs, softly antialiased edges. Match the concept closely and the robots' clean painted enamel quality. NOT strict pixel art; no pixel snapping or jagged stair stepping. Camera 3/4 top-down, looking slightly down so roof planes, wall thicknesses, and front facade are visible; broad nearly frontal facade as in concept. Top-left sunlight.\nComposition: isolated centered castle filling about 85% of a square 1536x1536 image, all roof tips and stair completely inside with transparent margins. Large high resolution sprite, apparent footprint about 1040 wide x 900 high at the shared 4x concept scale.\nBackground: genuinely transparent alpha. No scenery, island, grass, ground slab, sky, water, backdrop, border or text. Only a subtle small soft contact shadow under the stair and castle feet. No letters, numbers, logos, emblems inside the BLANK disc or watermark. Original fantasy architecture in the concept's spirit.",
+      "raw": "rendering/artifacts/overworld/raw/host/castle-online-01.png",
+      "references": [
+        "design/references/overworld-concept.png",
+        "rendering/src/assets/overworld/robots.png"
+      ],
+      "originalGeneratorFilename": "exec-5c223512-9bbd-432c-9f83-c2648b5d11ec.png",
+      "era": "hd-concept",
+      "group": "host",
+      "tool": "built-in image_gen",
+      "date": "2026-11-06",
+      "originalRawPath": "raw/host/castle-online-01.png",
+      "generatorOutput": "exec-5c223512-9bbd-432c-9f83-c2648b5d11ec.png"
+    },
+    {
+      "id": "ui-world-01",
+      "prompt": "Use case: stylized-concept\nAsset type: HD fantasy strategy overworld transparent modular UI sprite source sheet.\nReference 1: original concept's parchment project/workspace nameplates and larger host plaques and their luminous golden connector nodes. Reference 2: approved robots rendering quality only.\nCreate FOUR separate assets, placed in a strict 2 by 2 layout with wide transparent gutters in a 1536x1024 landscape image, no drawn grid.\nTOP LEFT: one small horizontal BLANK cream parchment nameplate, 600px wide and 120px tall. Concept style: dark brown carved wooden/gold rim, restrained gold corner screws, clipped/bevelled corners, warm cream parchment face. Flat horizontal top and bottom edges across the long center 70 percent so code can cut left cap, horizontally stretchable middle and right cap with seamless joins. Absolutely no center decoration, writing, glyphs or dividing lines. Generous face for ONE line of code-written label.\nTOP RIGHT: one larger BLANK host name plaque, 620px wide and 180px tall, same cream parchment, rich dark wood frame with slender gold inset, clipped corners, gold corner studs. Face tall enough for a name line and a stats line, no internal divider or decoration. Flat parallel borders across its long middle for seamless three-piece slicing.\nBOTTOM LEFT: one bright golden orb node, circular white-yellow center, thick luminous gold ring and soft warm amber glow fading into transparent alpha, approximately 110px wide including glow.\nBOTTOM RIGHT: one absolutely straight horizontal glowing golden connector line, 600px long and approximately 35px thick including transparent glow, a narrow white-yellow core, warm gold edge, soft amber glow, uniform intensity through central 80 percent for horizontal repetition. No sparkles, knobs, flares or endcaps in center. Isolated.\nRendering: concept-matching HD pixel-art-flavoured fantasy world; chunky shapes and crisp dark contour on the plaques, smooth painted gradients and glossy warm highlights, soft antialiased edges. NOT pixel art, no jaggies, no posterization. Front-facing interface pieces, top-left lighting, no perspective skew so sliced parts join.\nKeep every asset completely isolated inside its cell. Genuinely transparent background; no checkerboard, backdrop, shadow panel, scenery, text, letters, numbers, logos or watermark. No robots or castle. These are original modular sprite parts in the concept's spirit.",
+      "raw": "rendering/artifacts/overworld/raw/host/ui-world-01.png",
+      "references": [
+        "design/references/overworld-concept.png",
+        "rendering/src/assets/overworld/robots.png"
+      ],
+      "originalGeneratorFilename": "exec-f2e11043-314e-411f-bb39-685b917388d7.png",
+      "era": "hd-concept",
+      "group": "host",
+      "tool": "built-in image_gen",
+      "date": "2026-11-06",
+      "originalRawPath": "raw/host/ui-world-01.png",
+      "generatorOutput": "exec-f2e11043-314e-411f-bb39-685b917388d7.png"
+    },
+    {
+      "id": "banner-disc-elbow-01",
+      "prompt": "Use case: stylized-concept\nAsset type: HD transparent fantasy strategy sprite source sheet for banners, a blank emblem and glowing path elbow.\nInput images: reference 1 private original concept supplies banner shape/material and gold connector appearance; reference 2 generated castle supplies matching material/rendering.\nCreate isolated sprites in a 1536x1024 landscape sheet. Three columns by two rows, generous transparent gutters, no drawn grid.\nTop row: THREE animation frames of the SAME purple host banner on the SAME slim gold-tipped vertical pole. Banner hangs from a horizontal gold crossbar attached near the pole top. Tall royal violet cloth with narrow gold trim and swallowtail lower edge, gently waving in 3 slightly different folds. A centered BLANK dark navy round emblem face with a thin gold rim in the upper half of the cloth, absolutely no glyph. Frames must have IDENTICAL pole/crossbar/base coordinates and scale; only cloth folds change. About 180px wide and 390px tall per source cell, tall and narrow like the concept, NOT a broad flag or battle standard. No base pedestal, no ground.\nBottom left: ONE standalone perfect round BLANK dark navy emblem disc with broad warm polished gold rim, about 300px diameter, exactly matching the large empty emblem on reference 2's castle. Front-facing flat circular form, dark clean face, no symbols, no embellishment outside rim.\nBottom middle: ONE glowing gold right-angle path elbow for the concept's connector network. A narrow white-yellow central line with rich gold inner glow and broad soft warm amber glow, traveling from the LEFT edge of a 280x280 local square halfway down, turning smoothly through a small radius at center, then exiting at the BOTTOM edge halfway across. A clean L pointing left/down. Uniform 6px bright core with approximately 35px glow width along entire line. Both arms straight at their ends. It is a small modular joining piece, NOT a diagram or an orb, no arrows, no end caps.\nBottom right EMPTY.\nRendering: match concept and castle's HD pixel-art-flavoured painted fantasy, strong dark contours on material objects, smooth rich painted gradients, glossy highlights, top-left light, softly antialiased alpha. NOT strict pixel art. Actual transparent background everywhere between sprites, no brown backdrop, vignette, panel, ground, scenery, text, letters, numbers, logos or watermark.",
+      "raw": "rendering/artifacts/overworld/raw/host/banner-disc-elbow-01.png",
+      "references": [
+        "design/references/overworld-concept.png",
+        "rendering/artifacts/overworld/raw/host/castle-online-01.png"
+      ],
+      "originalGeneratorFilename": "exec-0737e540-e503-4413-ab1f-1ce8ed860b82.png",
+      "era": "hd-concept",
+      "group": "host",
+      "tool": "built-in image_gen",
+      "date": "2026-11-06",
+      "originalRawPath": "raw/host/banner-disc-elbow-01.png",
+      "generatorOutput": "exec-0737e540-e503-4413-ab1f-1ce8ed860b82.png"
+    },
+    {
+      "id": "banner-disc-elbow-02-clean",
+      "prompt": "Use case: precise-object-edit\nAsset type: isolated transparent sprite sheet cleanup.\nEdit target: attached generated banner/disc/elbow source sheet.\nMake ONLY this correction: REMOVE ALL amber haze, lighting mist, atmospheric glow and tinted backdrop surrounding the three banners and the standalone emblem disc. Those material objects are NOT luminous. Preserve their geometry, positions, dimensions, paint detail, dark outlines, colors, blank faces and smooth antialiased edges exactly. Clear all background pixels around those objects to truly transparent alpha, including gaps below/around cloth and between pole and cloth. Keep the soft warm luminous glow ONLY immediately around the gold path elbow, bottom middle. Everywhere else beyond object contours must be transparent, not black or brown.\nKeep same 1536x1024 layout and asset coordinates. Do not add anything. No text, glyphs, numbers or logos. No checkerboard.",
+      "raw": "rendering/artifacts/overworld/raw/host/banner-disc-elbow-02-clean.png",
+      "references": [
+        "rendering/artifacts/overworld/raw/host/banner-disc-elbow-01.png"
+      ],
+      "originalGeneratorFilename": "exec-c539e87c-0082-42c8-96cb-540c41c32866.png",
+      "era": "hd-concept",
+      "group": "host",
+      "tool": "built-in image_gen",
+      "date": "2026-11-06",
+      "originalRawPath": "raw/host/banner-disc-elbow-02-clean.png",
+      "generatorOutput": "exec-c539e87c-0082-42c8-96cb-540c41c32866.png"
+    },
+    {
+      "id": "castle-offline-01",
+      "prompt": "Use case: lighting-weather\nAsset type: EXACTLY REGISTERED transparent offline-state castle sprite.\nEdit target: attached online host castle sprite. Change ONLY its lighting/color state into OFFLINE: the SAME castle, identical silhouette, scale, position, architecture, brick shapes, two blue conical roofs, purple pennants, gold-rimmed blank navy disc, arched gate, stone stair, every contour and window coordinate. Switch off ALL glowing windows and lantern glass: interiors should be dark cool slate/navy, no yellow/orange light anywhere inside them. Desaturate and cool the grey stone and blue roofs, dim gold trim to aged muted brass, subtly colder and a little worn, but NOT ruined, damaged or geometrically altered. No new cracks or objects. Keep the exact same soft edge alpha and transparent backdrop. The offline sprite MUST overlay the online sprite without any movement whatsoever. Absolutely no text, symbols, logos, no additional subjects or background. Preserve complete original canvas and transparent margins.",
+      "raw": "rendering/artifacts/overworld/raw/host/castle-offline-01.png",
+      "references": [
+        "rendering/artifacts/overworld/raw/host/castle-online-01.png"
+      ],
+      "originalGeneratorFilename": "exec-3f178248-de3e-4627-bf2a-8e252ff57502.png",
+      "era": "hd-concept",
+      "group": "host",
+      "tool": "built-in image_gen",
+      "date": "2026-11-06",
+      "originalRawPath": "raw/host/castle-offline-01.png",
+      "generatorOutput": "exec-3f178248-de3e-4627-bf2a-8e252ff57502.png"
+    },
+    {
+      "id": "banner-wide-01",
+      "prompt": "Use case: stylized-concept\nAsset type: three registered HD fantasy overworld host-banner animation frames on a transparent sprite sheet.\nReference 1 is the original private concept: study the WIDE purple banners immediately beside each central castle. Reference 2 generated castle is only the matching smooth painted material rendering, blue/gold/purple palette and dark contours.\nPrimary request: three gently waving frames of ONE WIDE purple hanging banner, in a single horizontal row, centered in three equal 512px-wide cells on a 1536x1024 canvas. EACH cloth must be BROAD, approximately 360px WIDE and 540px HIGH, a WIDTH:HEIGHT ratio of TWO TO THREE (2:3), measured from hanging top edge to its lowest pointed tips. This proportion is essential. It must look substantially broader and less elongated than a narrow standard. Short gold crossbar spans the full broad cloth width, mounted to a slim vertical gold pole on its LEFT. Gold ball finials. Gold trim around violet cloth edges and a two-point swallowtail bottom. The large BLANK DARK NAVY ROUND EMBLEM DISC with gold rim occupies most of the cloth width, about 285px diameter in a 360px-wide cloth, prominently centered in its upper half. No icon inside disc.\nRegistration: draw the exact SAME fixed pole and crossbar at identical local coordinates in ALL THREE CELLS. Exactly identical banner dimensions and emblem position. Only the lower cloth ripples/folds change gently: calm, slight billow left, slight billow right. Don't move or duplicate the disc, pole, or crossbar. No doubled rings. Rich royal purple, warm gold rim and trim, clean dark navy blank circular face, softly painted folds. Top-left warm light, dark readable outlines, glossy painted highlights, smooth gradients and antialiased edges like original concept and approved castle. Not strict pixel art, no jaggies, no pixel snapping.\nComposition: one banner per cell, wide transparent gutters, the whole pole including bottom end and all cloth tips fully inside each cell, at a common size. No other sprites. No background, haze, shadows, glow, ground, pedestal or scenery. Genuinely transparent alpha. No text, letters, numbers, logos, glyphs, watermarks, checkerboard or labels. Original fantasy design matching the concept, with blank emblems for code-drawn icons.",
+      "raw": "rendering/artifacts/overworld/raw/host/banner-wide-01.png",
+      "references": [
+        "design/references/overworld-concept.png",
+        "rendering/artifacts/overworld/raw/host/castle-online-01.png"
+      ],
+      "originalGeneratorFilename": "exec-9ec6a76f-62df-4ac0-b164-4f1f88703baa.png",
+      "era": "hd-concept",
+      "group": "host",
+      "tool": "built-in image_gen",
+      "date": "2026-11-06",
+      "originalRawPath": "raw/host/banner-wide-01.png",
+      "generatorOutput": "exec-9ec6a76f-62df-4ac0-b164-4f1f88703baa.png"
+    }
+  ],
+  "terrain": [
+    {
+      "prompt": "Use case: stylized-concept. Production sprite atlas for an ORIGINAL fantasy strategy OVERWORLD. The attached concept is a PRIVATE STYLE AND SUBJECT REFERENCE ONLY: do not reproduce its text, layout or characters, do not trace or crop it. NEW crisp low-resolution PIXEL ART, not painted, not vector, not 3D. Same 3/4 top-down camera throughout: front-facing facades and roofs visible, horizon absent, verticals upright, no diamond/isometric rotation. Dark navy-brown single ART-PIXEL outlines, chunky clearly square pixels, stepped diagonals, top-left lighting, 3-tone soft pixel shading. Palette across every sheet: outline #202638, stone #667085 #9ba4ae #d5d6ca, wood #62452f #a16b3b #d9a458, parchment #c49355 #e6c889 #fff0ba, gold #a86b22 #e9b83f #fff09a, foliage #204c3e #3b7950 #70a34c #bdd56a, blue #234577 #3477ad #72bed4, red #873c48 #c95750 #e58960, purple #5c3e80 #8e60ad #bb92d0, teal #25685d #459c86 #88c8a0. Genuine transparent alpha outside each subject, no checkerboard, no background, no floor slab or ground unless specifically terrain. NO TEXT, letters, digits, logos, signatures, watermarks or UI. All plaques, signboards, discs and banners BLANK except specifically requested pictographic icons. No status marks on characters. No connected scene. EXACT regular grid with one complete isolated subject per cell and wide transparent gutters. Draw with a consistent coarse pixel grid, ideally each art-pixel represented by a uniform 4x4 output block; no antialiasing, gradients or blur. Objects centered in their cells. Scale family: robot 16 art-pixels tall, stall 48 wide, hall 64 wide, castle128 wide; scenery scaled to this same family.\nSHEET terrain. EXACT 5 columns x5 rows, square atlas 2000x2000, equal cells and wide transparent gutters. Each tile/strip is an isolated rectangular piece surrounded by transparency, material itself opaque. Same camera and palette as reference host. No buildings or characters. TERRAIN is allowed rock/grass slabs, no other subject has ground.\nRow1: (1) flat square seamless GRASS TOP texture A, green short tufts, 32 art-pixels square, NO border or bevel or slab. (2) same grass B with tiny variations. (3) horizontal tileable CLIFF FACE STRIP 64 art-pixels wide x24 high, vertical slate rock columns and narrow grassy lip, exposed front face, straight top/bottom. (4) cliff OUTER LEFT corner matching strip, 24x24. (5) cliff OUTER RIGHT corner.\nRow2: (1) cliff INNER LEFT corner. (2) cliff INNER RIGHT corner. (3) square seamless tan DIRT/COBBLE PATH material tile 32x32, tiny irregular paving. (4) grey STONE STAIRS facing toward viewer from terrace above, 16wide24high, no rail. (5) single horizontal arched STONE BRIDGE, 48wide24high, grey blockwork and cobble top.\nRow3: (1-4) four IDENTICAL REGISTERED frames of vertical tileable WATERFALL STRIP, 16wide32high, white/cyan/blue water, only white water streaks move downwards, silhouette and width fixed. (5) horizontal tileable SHORELINE FOAM strip 32wide6high, pale cyan/ivory curls, transparent bottom edge, no land.\nRow4: (1-4) four seamless OCEAN SEA WATER tiles, 32x32 art pixels, rich #123e64 and #1c6388 blue with small turquoise glints; same fixed body texture, only a few cyan/ivory pixel glints change, no black border, no horizon. (5) sea rock A, 14x12 exposed grey jagged rock with tiny foam base.\nRow5: (1) sea rock B 20x14. (2) sea rock C 10x8. (3) soft pixel cloud A 36x16, stepped ivory/pale blue silhouette with hard opaque pixel edges, no blur. (4) cloud B 48x20. (5) cloud C 28x12.\nKeep every sprite neatly centered in exact cells with no cell borders. All four animation frames same registered size; tile edges match seamlessly. Extremely crisp low-res square pixels, not painted.",
+      "reference": [
+        "design/references/overworld-concept.png",
+        "raw/host-01.png"
+      ],
+      "raw": "rendering/artifacts/overworld/raw/terrain-01.png",
+      "era": "pixel-v1",
+      "archived": true,
+      "selected": false,
+      "originalRawPath": "terrain-01.png"
+    },
+    {
+      "id": "materials",
+      "prompt": "Use case: stylized-concept. Production MATERIAL SOURCE SHEET for a fantasy strategy overworld. Reference images are style guidance only: retain the ORIGINAL concept's HD pixel-art-flavoured chunky hand-painted shapes, smooth shaded gradients and antialiasing, dark readable contours, rich bright colors, top-left light. Match approved glossy little robots' world. This is not strict pixel art. No pixel snapping.\nCreate EXACTLY four square material panels in a strict 2 by 2 layout, no gutter or frame, each panel extending right to its quadrant borders; final square image ideally 2048x2048. Top-left: seamless tileable lush meadow grass, calm emerald and yellow-green tiny soft painterly tufts, subtle varied texture, no flowers, no stones. Top-right: second compatible grass material variant slightly different arrangement, exactly same green palette and calm scale. Bottom-left: close overhead cobblestone path material with warm cream grey irregular rounded paving stones embedded in tan dirt, as the concept's paths; only small stones, no grass, no border. Bottom-right: soft warm golden packed dirt path material, very sparse grit. Flat surfaces only, no slab depth, no island or outline around each tile. All four panels have even lighting, no vignette; each panel's opposite edges must be seamless. No text, labels, numbers, symbols, UI, people, objects, flowers. We will crop quadrants and assemble game tiles. Preserve painterly detail, not photorealistic.",
+      "tool": "image_gen (built-in)",
+      "date": "2026-11-06",
+      "generatorOutput": "exec-f0309d81-c400-4652-a36f-e6835d4baf36.png",
+      "raw": "rendering/artifacts/overworld/raw/terrain/materials-01.png",
+      "referenceRoles": {
+        "design/references/overworld-concept.png": "private style/subject reference; never copied into sheets",
+        "rendering/src/assets/overworld/robots.png": "approved style reference"
+      },
+      "era": "hd-concept",
+      "group": "terrain",
+      "originalRawPath": "rendering/artifacts/overworld/raw/terrain/materials-01.png"
+    },
+    {
+      "id": "cliffs-bridge-stairs",
+      "prompt": "Use case: stylized-concept. Production modular terrain SOURCE SHEET on genuine transparent alpha. Reference concept is style only. HD hand-painted fantasy strategy art, chunky faceted cool violet-grey rock pillars with warm stone highlights, rich emerald/lime grassy lip, dark contours, smooth gradients and antialiasing. 3/4 top-down camera showing a narrow grass top and a broad front cliff face, light top-left. NOT strict pixel art, NOT photograph, NOT realistic 3D.\nMake an EXACT 2 columns by 3 rows sprite source sheet, wide empty transparent gutters, ONE isolated horizontal subject per cell. Same stone and grass scale across all cells.\nRow1 left: LONG STRAIGHT horizontal rocky cliff front strip, absolutely level grass top at constant height, vertical stone face below with 8 chunky irregular stone columns, flat bottom at constant height. A small irregular grass lip overhangs the rock. Ends are cut perfectly vertically with no corner treatment: meant to repeat seamlessly horizontally.\nRow1 right: SHORT TERRACE STEP, same long horizontal rock+grass strip but rock face only one-third as tall, horizontally tileable.\nRow2 left: standalone stackable broad grey stone stairs with 6 treads and short stone sides, going up toward back, no grass base or island. Row2 right: standalone single ARCH STONE BRIDGE oriented horizontally, cobbled arched deck seen from 3/4 above, one open arch below, low parapets, warm cream stone, fully isolated, NO river or land.\nRow3 left: a small clump of 5 little pale pink and white meadow flowers on tiny leaves, NO terrain base. Row3 right: a small clump of bright grass tufts, NO terrain base.\nNever add text letters numbers logos borders grid or background. All silhouettes fully inside their cells, no clipped objects. Fine painted detail matching the concept cliffs and the approved robot world.",
+      "tool": "image_gen (built-in)",
+      "date": "2026-11-06",
+      "generatorOutput": "exec-61ad2e8e-614c-43f7-a9ca-11e16d731f1e.png",
+      "raw": "rendering/artifacts/overworld/raw/terrain/cliffs-01.png",
+      "referenceRoles": {
+        "design/references/overworld-concept.png": "private style/subject reference; never copied into sheets",
+        "rendering/src/assets/overworld/robots.png": "approved style reference"
+      },
+      "era": "hd-concept",
+      "group": "terrain",
+      "originalRawPath": "rendering/artifacts/overworld/raw/terrain/cliffs-01.png"
+    },
+    {
+      "id": "rocks-clouds",
+      "prompt": "Use case: stylized-concept. Transparent production GAME SPRITE SHEET, EXACT 4 columns x 2 rows, wide completely transparent gutters, each subject isolated and fully within its cell. Style is reference concept's HD pixel-art-flavoured fantasy overworld: chunky readable shapes, cool violet-grey faceted rock, smooth painterly shading and soft gradients, dark contours, antialiased edges. Three-quarter top-down camera, top-left light, not pixel snapped, not realistic. Row1 has FOUR SEA ROCKS of different sizes: first tiny single jagged stone, second small paired stones, third medium crag cluster, fourth broad large rocky outcrop. Each rock has a thin lively cyan and bright white FOAM ring around its base with transparent exterior and gaps, no rectangular water patch. Sizes increase left to right; no grass or other plants, no ground slab. Rock material exactly matches the concept's cool violet coastal cliffs, pale sunlit facets. Row2: first small soft white and pale blue cumulus CLOUD; second medium cloud bank; third longer wispy cloud bank, like those at the top-left and edges of the concept, blue-lavender shadow underneath, clean airy silhouette, transparent exterior. Fourth bottom cell is entirely EMPTY transparent. No text, words, labels, letters, numbers, UI, frames, grids, logos. Each rock/cloud has detailed smooth shaded painterly body, never harsh binary edges.",
+      "tool": "image_gen (built-in)",
+      "date": "2026-11-06",
+      "generatorOutput": "exec-d68ef427-9239-455d-8ec8-4c05265669f1.png",
+      "raw": "rendering/artifacts/overworld/raw/terrain/rocks-clouds-01.png",
+      "referenceRoles": {
+        "design/references/overworld-concept.png": "private style/subject reference; never copied into sheets"
+      },
+      "era": "hd-concept",
+      "group": "terrain",
+      "originalRawPath": "rendering/artifacts/overworld/raw/terrain/rocks-clouds-01.png"
+    }
+  ],
+  "theme-forest": [
+    {
+      "prompt": "Use case: stylized-concept. Production sprite atlas for an ORIGINAL fantasy strategy OVERWORLD. The attached concept is a PRIVATE STYLE AND SUBJECT REFERENCE ONLY: do not reproduce its text, layout or characters, do not trace or crop it. NEW crisp low-resolution PIXEL ART, not painted, not vector, not 3D. Same 3/4 top-down camera throughout: front-facing facades and roofs visible, horizon absent, verticals upright, no diamond/isometric rotation. Dark navy-brown single ART-PIXEL outlines, chunky clearly square pixels, stepped diagonals, top-left lighting, 3-tone soft pixel shading. Palette across every sheet: outline #202638, stone #667085 #9ba4ae #d5d6ca, wood #62452f #a16b3b #d9a458, parchment #c49355 #e6c889 #fff0ba, gold #a86b22 #e9b83f #fff09a, foliage #204c3e #3b7950 #70a34c #bdd56a, blue #234577 #3477ad #72bed4, red #873c48 #c95750 #e58960, purple #5c3e80 #8e60ad #bb92d0, teal #25685d #459c86 #88c8a0. Genuine transparent alpha outside each subject, no checkerboard, no background, no floor slab or ground unless specifically terrain. NO TEXT, letters, digits, logos, signatures, watermarks or UI. All plaques, signboards, discs and banners BLANK except specifically requested pictographic icons. No status marks on characters. No connected scene. EXACT regular grid with one complete isolated subject per cell and wide transparent gutters. Draw with a consistent coarse pixel grid, ideally each art-pixel represented by a uniform 4x4 output block; no antialiasing, gradients or blur. Objects centered in their cells. Scale family: robot 16 art-pixels tall, stall 48 wide, hall 64 wide, castle128 wide; scenery scaled to this same family.\nReference image 2 is the host atlas; match its materials and pixel style.\nSHEET theme-forest, EXACT 4 columns x4 rows square atlas 1536x1536. Row1 col1 narrow pine 24art-pixels tall; col2 broad pine 28tall; col3 small pine20tall; col4 round deciduous oak 24tall. Row2 col1 round deciduous tree B 28tall; col2 round tree C20tall; col3 large snowy mountain peak A 96art-pixels tall; col4 mountain B80tall. Row3 col1 mountain C64tall; col2 grey boulder A12wide; col3 boulder B16wide; col4 boulder C10wide. Row4 col1 leafy bush A10wide; col2 bush B14wide; col3 tiny white/yellow flower clump10wide; col4 pink/red flower clump10wide. Three distinct original trees and mountains, no duplicate pasted grove; every cell one subject. Mountains large BACK SCENERY in slate blue rock with snow caps, same low-resolution style as castle, no horizon and no shared ground. Trees have visible short trunks below dense pixel foliage, top-left highlights. Each subject has genuine transparency around its complete silhouette; no terrain bases.",
+      "reference": [
+        "design/references/overworld-concept.png",
+        "raw/host-01.png"
+      ],
+      "raw": "rendering/artifacts/overworld/raw/theme-forest-01.png",
+      "era": "pixel-v1",
+      "archived": true,
+      "selected": false,
+      "originalRawPath": "theme-forest-01.png"
+    },
+    {
+      "prompt": "Use case: stylized-concept. Production sprite atlas for an ORIGINAL fantasy strategy OVERWORLD. The attached concept is a PRIVATE STYLE AND SUBJECT REFERENCE ONLY: do not reproduce its text, layout or characters, do not trace or crop it. NEW crisp low-resolution PIXEL ART, not painted, not vector, not 3D. Same 3/4 top-down camera throughout: front-facing facades and roofs visible, horizon absent, verticals upright, no diamond/isometric rotation. Dark navy-brown single ART-PIXEL outlines, chunky clearly square pixels, stepped diagonals, top-left lighting, 3-tone soft pixel shading. Palette across every sheet: outline #202638, stone #667085 #9ba4ae #d5d6ca, wood #62452f #a16b3b #d9a458, parchment #c49355 #e6c889 #fff0ba, gold #a86b22 #e9b83f #fff09a, foliage #204c3e #3b7950 #70a34c #bdd56a, blue #234577 #3477ad #72bed4, red #873c48 #c95750 #e58960, purple #5c3e80 #8e60ad #bb92d0, teal #25685d #459c86 #88c8a0. Genuine transparent alpha outside each subject, no checkerboard, no background, no floor slab or ground unless specifically terrain. NO TEXT, letters, digits, logos, signatures, watermarks or UI. All plaques, signboards, discs and banners BLANK except specifically requested pictographic icons. No status marks on characters. No connected scene. EXACT regular grid with one complete isolated subject per cell and wide transparent gutters. Draw with a consistent coarse pixel grid, ideally each art-pixel represented by a uniform 4x4 output block; no antialiasing, gradients or blur. Objects centered in their cells. Scale family: robot 16 art-pixels tall, stall 48 wide, hall 64 wide, castle128 wide; scenery scaled to this same family.\nReference image 2 is the host atlas; match its materials and pixel style.\nSHEET theme-forest, EXACT 4 columns x4 rows square atlas 1536x1536. Row1 col1 narrow pine 24art-pixels tall; col2 broad pine 28tall; col3 small pine20tall; col4 round deciduous oak 24tall. Row2 col1 round deciduous tree B 28tall; col2 round tree C20tall; col3 large snowy mountain peak A 96art-pixels tall; col4 mountain B80tall. Row3 col1 mountain C64tall; col2 grey boulder A12wide; col3 boulder B16wide; col4 boulder C10wide. Row4 col1 leafy bush A10wide; col2 bush B14wide; col3 tiny white/yellow flower clump10wide; col4 pink/red flower clump10wide. Three distinct original trees and mountains, no duplicate pasted grove; every cell one subject. Mountains large BACK SCENERY in slate blue rock with snow caps, same low-resolution style as castle, no horizon and no shared ground. Trees have visible short trunks below dense pixel foliage, top-left highlights. Each subject has genuine transparency around its complete silhouette; no terrain bases.\nCRITICAL REVISION: The first generation crowded and clipped mountain silhouettes. In this retry EVERY single source object, including mountains, must be constrained to the CENTRAL 55% WIDTH AND 65% HEIGHT of its equal grid cell. Every cell must have at least 20% fully transparent margin on all four sides. The three mountain peaks are visually single peaks, no wide mountain ranges. All16 cells exactly spaced 4x4, no sprite crosses any cell boundary or image boundary. Source objects can use equal source sizes; target art-pixel sizes are applied during atlas processing. Do not make mountains larger on the source sheet than trees. Keep previous palette/style and exact cell order.",
+      "reference": [
+        "design/references/overworld-concept.png",
+        "raw/host-01.png"
+      ],
+      "raw": "rendering/artifacts/overworld/raw/theme-forest-02.png",
+      "reason": "Regenerated to prevent mountain clipping and crowded source gutters.",
+      "era": "pixel-v1",
+      "archived": true,
+      "selected": false,
+      "originalRawPath": "theme-forest-02.png"
+    },
+    {
+      "prompt": "Use case: stylized-concept. Production sprite atlas for an ORIGINAL fantasy strategy OVERWORLD. The attached concept is a PRIVATE STYLE AND SUBJECT REFERENCE ONLY: do not reproduce its text, layout or characters, do not trace or crop it. NEW crisp low-resolution PIXEL ART, not painted, not vector, not 3D. Same 3/4 top-down camera throughout: front-facing facades and roofs visible, horizon absent, verticals upright, no diamond/isometric rotation. Dark navy-brown single ART-PIXEL outlines, chunky clearly square pixels, stepped diagonals, top-left lighting, 3-tone soft pixel shading. Palette across every sheet: outline #202638, stone #667085 #9ba4ae #d5d6ca, wood #62452f #a16b3b #d9a458, parchment #c49355 #e6c889 #fff0ba, gold #a86b22 #e9b83f #fff09a, foliage #204c3e #3b7950 #70a34c #bdd56a, blue #234577 #3477ad #72bed4, red #873c48 #c95750 #e58960, purple #5c3e80 #8e60ad #bb92d0, teal #25685d #459c86 #88c8a0. Genuine transparent alpha outside each subject, no checkerboard, no background, no floor slab or ground unless specifically terrain. NO TEXT, letters, digits, logos, signatures, watermarks or UI. All plaques, signboards, discs and banners BLANK except specifically requested pictographic icons. No status marks on characters. No connected scene. EXACT regular grid with one complete isolated subject per cell and wide transparent gutters. Draw with a consistent coarse pixel grid, ideally each art-pixel represented by a uniform 4x4 output block; no antialiasing, gradients or blur. Objects centered in their cells. Scale family: robot 16 art-pixels tall, stall 48 wide, hall 64 wide, castle128 wide; scenery scaled to this same family.\nAdditional LARGE BACK-SCENERY source for theme-forest and theme-volcanic. EXACT 2 columns x2 rows square atlas, request2048x2048, four equal cells and generous clear margins. Reference image2 is our host sheet. MATCH the castle's actual fine art-pixel size and amount of detail: these mountains are about as tall as the castle, so use LOTS of small crisp pixel steps at the SAME pixel density, not oversized coarse pixels. Each mountain fills the middle80% of its source cell width and height while retaining at least10% completely transparent margin on EVERY cell side; entire silhouette complete. All subjects are SINGLE original fantasy peaks, not ranges, on alpha with no ground slab. Row1 col1: snowy mountain peak A, tall jagged grey-blue rock faces, bright ivory snow cap, directional top-left snow ridges; 96art-pixels target height. Row1 col2: snowy peak B, a broad asymmetrical summit, different rock silhouette and snow ridges;80art-pixels target. Row2 col1: snowy peak C, steeper narrow double spur, 64art-pixels target. Row2 col2: large volcanic peak,96art-pixels target: charcoal/slate rock cone with bright orange/yellow crater and two thin lava rivulets; no smoke or sparks outside silhouette. Dark single-art-pixel outline, limited3-tone shading per material, no blur/antialiasing, identical crisp pixel resolution and camera to host castle. No lettering,symbols,flags or other subjects. The earlier small-cell mountain sources lacked detail when enlarged; this sheet must give full-resolution LARGE sprites, not blown-up small icons.",
+      "reference": [
+        "design/references/overworld-concept.png",
+        "raw/host-01.png"
+      ],
+      "raw": "rendering/artifacts/overworld/raw/large-scenery-03.png",
+      "reason": "Larger source cells preserve a consistent art-pixel density for castle-height back scenery.",
+      "era": "pixel-v1",
+      "archived": true,
+      "selected": false,
+      "originalRawPath": "large-scenery-03.png"
+    },
+    {
+      "raw": "rendering/artifacts/overworld/raw/themes/forest-01.png",
+      "original": "exec-0e197b0f-a950-4638-893d-28ad1ccf0fc2.png",
+      "prompt": "Use case: stylized-concept. Asset: transparent production sprite source sheet for Paseo Command Overworld's FOREST host. Create original scenery matching the supplied concept's tiny richly painted forest and the smooth glossy dark-outlined robots. The concept is style reference only; do not reproduce its composition, UI, text or labels. The robot sheet establishes rendering finish only.\nStyle: HD pixel-art-flavoured fantasy strategy game, chunky readable silhouettes, dark indigo/brown outlines, detailed clustered foliage, smooth gradients and painterly shading, warm yellow-green top-left sunlit leaf edges, deep emerald occlusion, soft anti-aliasing. NOT strict pixel art; no pixel grid, voxel, low-poly, posterization or dither. Camera 3/4 top-down; trunks and leafy crowns both visible.\nLayout: exactly FOUR equal columns and SIX equal rows, each subject centered in its own cell, at least 15% empty transparent gutter all around; no touching cells. Large portrait canvas with maximum available detail. One standalone subject per occupied cell. No ground slabs, only modest contact shadows/root moss if needed. Entire canvas background genuinely transparent, no checkerboard.\nRow 1: four DIFFERENT lush round deciduous trees, sturdy branching brown trunks; apple-green oak, lime round elm, dark emerald broad oak, golden-green linden.\nRow 2: four DIFFERENT pines/firs, layered pointed boughs, green highlights and dark blue-green recesses, from tall narrow spruce to broad fir.\nRow 3: pink blossom tree with rounded branching crown; pale pink blossom tree with spreading crown; round leafy bush; spreading leafy bush.\nRow 4: berry-green bush; tiny white/lavender/pink flower patch; blue-white flower patch; sunny yellow flower patch.\nRow 5: mossy boulder; paired mossy boulders; squat mossy boulder; ruined low grey stone wall with vines.\nRow 6: one weathered standing stone arch, chunky broken grey blocks and moss; remaining three cells EMPTY transparent.\nAll trees should fill roughly 70% of their cell's height; bushes/boulders/flowers are physically smaller, about 25\u201340% of a tree. Ruined wall and arch around a tree's size. Trees have compact fantasy miniature proportions, no landscape. No text, letters, numbers, logos, UI or frames anywhere. Keep all generated alpha smooth.",
+      "references": [
+        "design/references/overworld-concept.png (private style reference)",
+        "rendering/src/assets/overworld/robots.png (finish reference)"
+      ],
+      "tool": "built-in image_gen",
+      "date": "2026-11-06",
+      "era": "hd-concept",
+      "group": "themes",
+      "originalRawPath": "rendering/artifacts/overworld/raw/themes/forest-01.png",
+      "generatorOutput": "exec-0e197b0f-a950-4638-893d-28ad1ccf0fc2.png"
+    },
+    {
+      "raw": "rendering/artifacts/overworld/raw/themes/forest-alpha-02.png",
+      "original": "exec-5fe91013-4358-4658-8eb5-3eb584300dfb.png",
+      "prompt": "Use case: background-extraction. Edit this forest sprite sheet to REMOVE THE ENTIRE GREEN/BROWN BLURRED BACKGROUND AND ALL BEHIND-SUBJECT COLOR HALOS. Return the same 21 sprites, at EXACTLY the same positions, sizes and poses on genuine transparent RGBA background. Everything between subjects and every unused cell must have alpha 0. Preserve all foliage, dark outlines, trunks, roots, moss, flowers, boulders, stone wall and arch. Keep every tiny detailed silhouette and smooth anti-aliased edge. No green rectangular backdrop, no blur field, no vignette, no haze, no checkerboard, no colored or white background. Do not redesign, rearrange or repaint any sprite. Only cut away the backdrop.",
+      "references": [
+        "raw/themes/forest-01.png (background-extraction edit target)"
+      ],
+      "tool": "built-in image_gen",
+      "date": "2026-11-06",
+      "era": "hd-concept",
+      "group": "themes",
+      "originalRawPath": "rendering/artifacts/overworld/raw/themes/forest-alpha-02.png",
+      "generatorOutput": "exec-5fe91013-4358-4658-8eb5-3eb584300dfb.png"
+    },
+    {
+      "raw": "rendering/artifacts/overworld/raw/themes/mountains-01.png",
+      "original": "exec-b3f265ef-ad45-42b9-ab4e-cb6df77b7e0e.png",
+      "prompt": "Use case: stylized-concept. Transparent production sprite source sheet, original large back-edge mountain scenery for the Overworld fantasy strategy map. Reference 1 is the concept: match ONLY its rich smooth hand-painted HD game rendering, chunky faceted silhouettes with dark outlines, 3/4 top-down camera and top-left light, not its composition or text. Reference 2 is approved robots, for the same smooth finish, highlights and contours. No literal pixel art or pixel grid.\nExactly FOUR columns by TWO rows of EIGHT large landscape cells; one separate self-contained subject per cell, 12% transparent margins within EVERY cell, no overlap between cells. Wide high-resolution canvas, as detailed as possible. Transparent background with soft anti-aliased edges, no checkerboard. No ground slabs, rectangular platforms, sky, water, buildings, banners or text.\nRow 1 cell 1: very large triangular snowy mountain peak, crisp brilliant white snow cap over indigo-blue rock, dark triangular ridges and modest foothills; camera like the upper host's back edge. Row 1 cell 2: broad lower double-ridged snowy mountain, same geology and snow, complementary silhouette for overlapping behind the first. Row 1 cell 3: narrow taller snowy peak with an offset shoulder, same style. Row 1 cell 4: large purple-grey volcanic mountain with branching vivid orange-gold lava stream down front, rugged lavender-grey ridges.\nRow 2 cell 1: broad volcanic mountain with two lava rivulets, dark purple angular rock, orange-yellow glows. Row 2 cell 2: tall sharp volcanic mountain with off-centre lava cascade, dark indigo shadows. Row 2 cell 3: erupting conical volcano with glowing orange-yellow crater, flowing lava, fiery glow on violet rock. IMPORTANT no smoke cloud on this volcano: separate smoke will be composited above it. Row 2 cell 4: one isolated rounded grey-purple smoke plume lit orange from underneath, transparent soft edges, suitable to sit over the volcano crater, no mountain under it.\nMountains should each fill ~75% of their landscape cell width and 75% height, all feet align low. The smoke fills a similar region. Continuous gradients, smooth painted highlights and luminous lava; retain dark outlines. No text, numbers, letters, logos, labels or grid lines. Original assets, do not copy an existing game's art.",
+      "references": [
+        "design/references/overworld-concept.png (private style reference)",
+        "rendering/src/assets/overworld/robots.png (finish reference)"
+      ],
+      "tool": "built-in image_gen",
+      "date": "2026-11-06",
+      "era": "hd-concept",
+      "group": "themes",
+      "originalRawPath": "rendering/artifacts/overworld/raw/themes/mountains-01.png",
+      "generatorOutput": "exec-b3f265ef-ad45-42b9-ab4e-cb6df77b7e0e.png"
+    }
+  ],
+  "theme-farm": [
+    {
+      "prompt": "Use case: stylized-concept. Production sprite atlas for an ORIGINAL fantasy strategy OVERWORLD. The attached concept is a PRIVATE STYLE AND SUBJECT REFERENCE ONLY: do not reproduce its text, layout or characters, do not trace or crop it. NEW crisp low-resolution PIXEL ART, not painted, not vector, not 3D. Same 3/4 top-down camera throughout: front-facing facades and roofs visible, horizon absent, verticals upright, no diamond/isometric rotation. Dark navy-brown single ART-PIXEL outlines, chunky clearly square pixels, stepped diagonals, top-left lighting, 3-tone soft pixel shading. Palette across every sheet: outline #202638, stone #667085 #9ba4ae #d5d6ca, wood #62452f #a16b3b #d9a458, parchment #c49355 #e6c889 #fff0ba, gold #a86b22 #e9b83f #fff09a, foliage #204c3e #3b7950 #70a34c #bdd56a, blue #234577 #3477ad #72bed4, red #873c48 #c95750 #e58960, purple #5c3e80 #8e60ad #bb92d0, teal #25685d #459c86 #88c8a0. Genuine transparent alpha outside each subject, no checkerboard, no background, no floor slab or ground unless specifically terrain. NO TEXT, letters, digits, logos, signatures, watermarks or UI. All plaques, signboards, discs and banners BLANK except specifically requested pictographic icons. No status marks on characters. No connected scene. EXACT regular grid with one complete isolated subject per cell and wide transparent gutters. Draw with a consistent coarse pixel grid, ideally each art-pixel represented by a uniform 4x4 output block; no antialiasing, gradients or blur. Objects centered in their cells. Scale family: robot 16 art-pixels tall, stall 48 wide, hall 64 wide, castle128 wide; scenery scaled to this same family.\nReference image 2 is the host atlas; match its materials and pixel style.\nSHEET theme-farm, EXACT 4 columns x4 rows square atlas 1536x1536. Row1 four REGISTERED frames of the SAME 48art-pixel tall stone/timber windmill with tan conical roof and four wooden cloth sails: frame1 sails plus shape, frame2 clockwise diagonal, frame3 slightly further turned, frame4 next diagonal phase. The windmill BODY MUST be pixel-identical in same coordinates; ONLY sails rotate around identical hub. No ground below windmill. Row2 col1 square seamless wheat FIELD PATCH tile24x24 art-pixels, rows of golden grain, material to each square edge, no border/slab; col2 horizontal repeatable wooden FENCE segment24wide12high, exactly two horizontal rails, left and right edges match; col3 separate fence POST4wide14high; col4 orange autumn TREE A24tall. Row3 col1 rust-red autumn tree B28tall; col2 gold autumn tree C20tall; col3 round HAY BALE12wide; col4 rectangular hay bale12wide. Row4 col1 wooden SCARECROW with straw hat and tattered blank blue tunic20tall; remaining three cells COMPLETELY EMPTY transparent. No written labels, no crops of reference image, one isolated subject per occupied cell.",
+      "reference": [
+        "design/references/overworld-concept.png",
+        "raw/host-01.png"
+      ],
+      "raw": "rendering/artifacts/overworld/raw/theme-farm-01.png",
+      "era": "pixel-v1",
+      "archived": true,
+      "selected": false,
+      "originalRawPath": "theme-farm-01.png"
+    },
+    {
+      "prompt": "Use case: stylized-concept. Production sprite atlas for an ORIGINAL fantasy strategy OVERWORLD. The attached concept is a PRIVATE STYLE AND SUBJECT REFERENCE ONLY: do not reproduce its text, layout or characters, do not trace or crop it. NEW crisp low-resolution PIXEL ART, not painted, not vector, not 3D. Same 3/4 top-down camera throughout: front-facing facades and roofs visible, horizon absent, verticals upright, no diamond/isometric rotation. Dark navy-brown single ART-PIXEL outlines, chunky clearly square pixels, stepped diagonals, top-left lighting, 3-tone soft pixel shading. Palette across every sheet: outline #202638, stone #667085 #9ba4ae #d5d6ca, wood #62452f #a16b3b #d9a458, parchment #c49355 #e6c889 #fff0ba, gold #a86b22 #e9b83f #fff09a, foliage #204c3e #3b7950 #70a34c #bdd56a, blue #234577 #3477ad #72bed4, red #873c48 #c95750 #e58960, purple #5c3e80 #8e60ad #bb92d0, teal #25685d #459c86 #88c8a0. Genuine transparent alpha outside each subject, no checkerboard, no background, no floor slab or ground unless specifically terrain. NO TEXT, letters, digits, logos, signatures, watermarks or UI. All plaques, signboards, discs and banners BLANK except specifically requested pictographic icons. No status marks on characters. No connected scene. EXACT regular grid with one complete isolated subject per cell and wide transparent gutters. Draw with a consistent coarse pixel grid, ideally each art-pixel represented by a uniform 4x4 output block; no antialiasing, gradients or blur. Objects centered in their cells. Scale family: robot 16 art-pixels tall, stall 48 wide, hall 64 wide, castle128 wide; scenery scaled to this same family.\nSHEET theme-farm additional windmill animation components. Reference image 2 is our farm source atlas: match THAT windmill's architecture and crisp pixel style exactly. Create EXACT 2 columns x2 rows,1024x1024 transparent atlas, wide transparent gutters. Row1 col1: ONLY the complete windmill building BODY: original grey-stone/timber mill cottage with tan conical roof, door and warm windows, small circular timber axle hub on upper roof front, but ABSOLUTELY NO SAILS, no blades, no arms, nothing sticking out from the axle. Unobstructed roof and facade, all fully visible. This stationary body will be repeated pixel-identically across all four animation frames. Row1 col2: ONLY ONE isolated windmill sail blade, a long narrow rectangular ivory cloth panel in a brown timber frame with cross slats; vertical upright, attachment at its lower end and cloth panel above. This blade will be rotated four times around the axle by the image processor. Row2 col1: ONLY one small round gold/wooden axle hub cap, no blades or arms. Row2 col2: completely empty transparent. ONE subject per occupied cell, centered and occupying no more than60% of its cell. Same dark1px ART-PIXEL outline, limited palette, square pixels and top-left light as original farm/castle. No ground or cast shadow. No text,letters,numbers or logos.",
+      "reference": [
+        "design/references/overworld-concept.png",
+        "raw/theme-farm-01.png"
+      ],
+      "raw": "rendering/artifacts/overworld/raw/theme-farm-components-02.png",
+      "reason": "Separate unobstructed body and sail for pixel-identical registered windmill animation.",
+      "era": "pixel-v1",
+      "archived": true,
+      "selected": false,
+      "originalRawPath": "theme-farm-components-02.png"
+    },
+    {
+      "raw": "rendering/artifacts/overworld/raw/themes/farm-01.png",
+      "original": "exec-03339874-983b-449d-b860-955f336824f4.png",
+      "prompt": "Use case: stylized-concept. Original transparent sprite sheet for the FARM host in Paseo Command's fantasy Overworld. Use the concept as style reference ONLY: HD pixel-art-flavoured fantasy strategy scenery with smooth painted shading, chunky readable shapes, strong dark indigo/brown contours, glossy honey-coloured highlights, warm lantern light. Approved robots establish smooth rendering finish. NO strict pixel grid, no dithering, no posterization, no low-poly. Camera 3/4 top-down, sun from upper left.\nExact 4-column by 4-row grid, one subject per cell, all isolated with wide transparent gutters, no adjacent touching. Entire background true transparent RGBA, no landscape, no floor slab, no checkerboard, no blurred backdrop. Everything stays strictly inside its cell. Large square high-detail canvas.\nRow 1: (1) charming round timber and stone fantasy windmill BODY ONLY, brown conical roof and warm golden windows, wooden door, a front spindle at upper-middle ready for attaching sails, NO SAILS OR ARMS anywhere on this body; (2) standalone FOUR-ARM WINDMILL ROTOR ONLY, cross shaped, golden wooden lattice sail blades and a round central hub, viewed almost front-on, no building or post under it, all four arms visible separated by transparent space; (3) square tileable golden wheat patch, dense neat rows, nearly top-down, wheat fills the square edge-to-edge, no raised platform or frame; (4) horizontal wooden farm fence RAIL SECTION ONLY: two horizontal timber rails, no posts at the ends, level straight-on so another copy joins perfectly.\nRow 2: (1) isolated upright square wooden fence post with a pale cap; (2) wooden farm fence 90-degree CORNER, two rails bending around a central post, 3/4 top-down; (3) orange autumn tree, round lush crown, trunk visible; (4) fiery red autumn tree, round crown.\nRow 3: (1) golden-yellow autumn tree; (2) copper-russet autumn tree; (3) round rolled hay bale tied with twine; (4) rectangular golden hay bale tied with twine.\nRow 4: (1) scarecrow on wooden cross, floppy straw hat, patched russet shirt, no face text; (2) rustic wooden FARM CART with two wheels and shafts, carrying hay; (3) small rectangle of lavender flower rows, no platform or border; (4) small neat rows of pink and white farm flowers, no border or platform.\nNo text, letters, numbers, logos, UI, frame lines. The windmill and trees fill 70-80% cell height; tiny props are smaller at coherent physical scale. Body and rotor are separate so the rotor can be rotated without moving the building. Smooth transparent silhouettes, retain crisp dark contours. Original designs belonging in the supplied concept world.",
+      "references": [
+        "design/references/overworld-concept.png (private style reference)",
+        "rendering/src/assets/overworld/robots.png (finish reference)"
+      ],
+      "tool": "built-in image_gen",
+      "date": "2026-11-06",
+      "era": "hd-concept",
+      "group": "themes",
+      "originalRawPath": "rendering/artifacts/overworld/raw/themes/farm-01.png",
+      "generatorOutput": "exec-03339874-983b-449d-b860-955f336824f4.png"
+    }
+  ],
+  "theme-volcanic": [
+    {
+      "prompt": "Use case: stylized-concept. Production sprite atlas for an ORIGINAL fantasy strategy OVERWORLD. The attached concept is a PRIVATE STYLE AND SUBJECT REFERENCE ONLY: do not reproduce its text, layout or characters, do not trace or crop it. NEW crisp low-resolution PIXEL ART, not painted, not vector, not 3D. Same 3/4 top-down camera throughout: front-facing facades and roofs visible, horizon absent, verticals upright, no diamond/isometric rotation. Dark navy-brown single ART-PIXEL outlines, chunky clearly square pixels, stepped diagonals, top-left lighting, 3-tone soft pixel shading. Palette across every sheet: outline #202638, stone #667085 #9ba4ae #d5d6ca, wood #62452f #a16b3b #d9a458, parchment #c49355 #e6c889 #fff0ba, gold #a86b22 #e9b83f #fff09a, foliage #204c3e #3b7950 #70a34c #bdd56a, blue #234577 #3477ad #72bed4, red #873c48 #c95750 #e58960, purple #5c3e80 #8e60ad #bb92d0, teal #25685d #459c86 #88c8a0. Genuine transparent alpha outside each subject, no checkerboard, no background, no floor slab or ground unless specifically terrain. NO TEXT, letters, digits, logos, signatures, watermarks or UI. All plaques, signboards, discs and banners BLANK except specifically requested pictographic icons. No status marks on characters. No connected scene. EXACT regular grid with one complete isolated subject per cell and wide transparent gutters. Draw with a consistent coarse pixel grid, ideally each art-pixel represented by a uniform 4x4 output block; no antialiasing, gradients or blur. Objects centered in their cells. Scale family: robot 16 art-pixels tall, stall 48 wide, hall 64 wide, castle128 wide; scenery scaled to this same family.\nReference image 2 is the host atlas; match its materials and pixel style.\nSHEET theme-volcanic: EXACT 5 columns x4 rows square atlas, 1600x1280. One isolated subject per cell, ALL subjects occupy ONLY central 65% of their cells; generously empty margins even around the large mountain. Final physical sizes supplied for later packing, NOT an excuse to crowd source cells. Row1 col1 large original VOLCANO PEAK, dark slate rock and bright lava crater, no smoke beyond its cell, 96art-pixels tall; col2-4 three registered frames of one compact irregular LAVA POOL, charcoal rocky outer rim FIXED and orange/yellow liquid interior changes, 32art-pixels wide; col5 first vertical tileable LAVA RIVER STRIP32tall12wide, fixed charcoal edge and moving orange/yellow interior. Row2 col1-2 lava river frames2-3, identical registered edges; col3 purple crystal cluster A16wide; col4 crystal B12wide; col5 crystal C20wide. Row3 col1 timber mine entrance HEAD-FRAME around black tunnel opening, 32wide; col2 horizontal tileable rail TRACK strip24wide12high, two metal rails on sleepers; col3 single empty wooden/iron MINE CART18wide; col4 wooden WATCHTOWER with blank tiny flag and timber lookout platform40tall; col5 DARK ROCK A12wide. Row4 col1 dark rock B16wide; col2 dark rock C10wide; col3-5 completely empty transparent. Crisp squared pixels and the SAME dark-outline pixel style as reference castle. No terrain slabs under crystals/buildings/props. No text/logos.",
+      "reference": [
+        "design/references/overworld-concept.png",
+        "raw/host-01.png"
+      ],
+      "raw": "rendering/artifacts/overworld/raw/theme-volcanic-01.png",
+      "era": "pixel-v1",
+      "archived": true,
+      "selected": false,
+      "originalRawPath": "theme-volcanic-01.png"
+    },
+    {
+      "prompt": "Use case: stylized-concept. Production sprite atlas for an ORIGINAL fantasy strategy OVERWORLD. The attached concept is a PRIVATE STYLE AND SUBJECT REFERENCE ONLY: do not reproduce its text, layout or characters, do not trace or crop it. NEW crisp low-resolution PIXEL ART, not painted, not vector, not 3D. Same 3/4 top-down camera throughout: front-facing facades and roofs visible, horizon absent, verticals upright, no diamond/isometric rotation. Dark navy-brown single ART-PIXEL outlines, chunky clearly square pixels, stepped diagonals, top-left lighting, 3-tone soft pixel shading. Palette across every sheet: outline #202638, stone #667085 #9ba4ae #d5d6ca, wood #62452f #a16b3b #d9a458, parchment #c49355 #e6c889 #fff0ba, gold #a86b22 #e9b83f #fff09a, foliage #204c3e #3b7950 #70a34c #bdd56a, blue #234577 #3477ad #72bed4, red #873c48 #c95750 #e58960, purple #5c3e80 #8e60ad #bb92d0, teal #25685d #459c86 #88c8a0. Genuine transparent alpha outside each subject, no checkerboard, no background, no floor slab or ground unless specifically terrain. NO TEXT, letters, digits, logos, signatures, watermarks or UI. All plaques, signboards, discs and banners BLANK except specifically requested pictographic icons. No status marks on characters. No connected scene. EXACT regular grid with one complete isolated subject per cell and wide transparent gutters. Draw with a consistent coarse pixel grid, ideally each art-pixel represented by a uniform 4x4 output block; no antialiasing, gradients or blur. Objects centered in their cells. Scale family: robot 16 art-pixels tall, stall 48 wide, hall 64 wide, castle128 wide; scenery scaled to this same family.\nAdditional LARGE BACK-SCENERY source for theme-forest and theme-volcanic. EXACT 2 columns x2 rows square atlas, request2048x2048, four equal cells and generous clear margins. Reference image2 is our host sheet. MATCH the castle's actual fine art-pixel size and amount of detail: these mountains are about as tall as the castle, so use LOTS of small crisp pixel steps at the SAME pixel density, not oversized coarse pixels. Each mountain fills the middle80% of its source cell width and height while retaining at least10% completely transparent margin on EVERY cell side; entire silhouette complete. All subjects are SINGLE original fantasy peaks, not ranges, on alpha with no ground slab. Row1 col1: snowy mountain peak A, tall jagged grey-blue rock faces, bright ivory snow cap, directional top-left snow ridges; 96art-pixels target height. Row1 col2: snowy peak B, a broad asymmetrical summit, different rock silhouette and snow ridges;80art-pixels target. Row2 col1: snowy peak C, steeper narrow double spur, 64art-pixels target. Row2 col2: large volcanic peak,96art-pixels target: charcoal/slate rock cone with bright orange/yellow crater and two thin lava rivulets; no smoke or sparks outside silhouette. Dark single-art-pixel outline, limited3-tone shading per material, no blur/antialiasing, identical crisp pixel resolution and camera to host castle. No lettering,symbols,flags or other subjects. The earlier small-cell mountain sources lacked detail when enlarged; this sheet must give full-resolution LARGE sprites, not blown-up small icons.",
+      "reference": [
+        "design/references/overworld-concept.png",
+        "raw/host-01.png"
+      ],
+      "raw": "rendering/artifacts/overworld/raw/large-scenery-03.png",
+      "reason": "Larger source cells preserve a consistent art-pixel density for castle-height back scenery.",
+      "era": "pixel-v1",
+      "archived": true,
+      "selected": false,
+      "originalRawPath": "large-scenery-03.png"
+    },
+    {
+      "raw": "rendering/artifacts/overworld/raw/themes/mountains-01.png",
+      "original": "exec-b3f265ef-ad45-42b9-ab4e-cb6df77b7e0e.png",
+      "prompt": "Use case: stylized-concept. Transparent production sprite source sheet, original large back-edge mountain scenery for the Overworld fantasy strategy map. Reference 1 is the concept: match ONLY its rich smooth hand-painted HD game rendering, chunky faceted silhouettes with dark outlines, 3/4 top-down camera and top-left light, not its composition or text. Reference 2 is approved robots, for the same smooth finish, highlights and contours. No literal pixel art or pixel grid.\nExactly FOUR columns by TWO rows of EIGHT large landscape cells; one separate self-contained subject per cell, 12% transparent margins within EVERY cell, no overlap between cells. Wide high-resolution canvas, as detailed as possible. Transparent background with soft anti-aliased edges, no checkerboard. No ground slabs, rectangular platforms, sky, water, buildings, banners or text.\nRow 1 cell 1: very large triangular snowy mountain peak, crisp brilliant white snow cap over indigo-blue rock, dark triangular ridges and modest foothills; camera like the upper host's back edge. Row 1 cell 2: broad lower double-ridged snowy mountain, same geology and snow, complementary silhouette for overlapping behind the first. Row 1 cell 3: narrow taller snowy peak with an offset shoulder, same style. Row 1 cell 4: large purple-grey volcanic mountain with branching vivid orange-gold lava stream down front, rugged lavender-grey ridges.\nRow 2 cell 1: broad volcanic mountain with two lava rivulets, dark purple angular rock, orange-yellow glows. Row 2 cell 2: tall sharp volcanic mountain with off-centre lava cascade, dark indigo shadows. Row 2 cell 3: erupting conical volcano with glowing orange-yellow crater, flowing lava, fiery glow on violet rock. IMPORTANT no smoke cloud on this volcano: separate smoke will be composited above it. Row 2 cell 4: one isolated rounded grey-purple smoke plume lit orange from underneath, transparent soft edges, suitable to sit over the volcano crater, no mountain under it.\nMountains should each fill ~75% of their landscape cell width and 75% height, all feet align low. The smoke fills a similar region. Continuous gradients, smooth painted highlights and luminous lava; retain dark outlines. No text, numbers, letters, logos, labels or grid lines. Original assets, do not copy an existing game's art.",
+      "references": [
+        "design/references/overworld-concept.png (private style reference)",
+        "rendering/src/assets/overworld/robots.png (finish reference)"
+      ],
+      "tool": "built-in image_gen",
+      "date": "2026-11-06",
+      "era": "hd-concept",
+      "group": "themes",
+      "originalRawPath": "rendering/artifacts/overworld/raw/themes/mountains-01.png",
+      "generatorOutput": "exec-b3f265ef-ad45-42b9-ab4e-cb6df77b7e0e.png"
+    },
+    {
+      "raw": "rendering/artifacts/overworld/raw/themes/volcanic-01.png",
+      "original": "exec-ce2fcb7c-74ef-4623-a5b6-13f4724d984e.png",
+      "prompt": "Use case: stylized-concept. Transparent original game sprite sheet of VOLCANIC and MINING scenery for the bottom host of Paseo Command's Overworld fantasy map. Supplied concept is style, material and subject reference ONLY. Match its rich purple-grey jagged volcanic stone, neon violet crystals, honey-gold mine tracks, warm hanging lanterns and vivid orange-yellow lava. Approved robot sheet establishes smooth dark-outlined HD rendering finish. Chunky readable shapes, 3/4 top-down camera, top-left lighting, smooth gradient painted shading, soft anti-aliased alpha edges, warm glow. Not pixel art, no pixel snapping, dither or posterization.\nExactly FOUR equal columns by FOUR equal rows, one fully isolated subject per cell, wide empty transparent gutters. High resolution square canvas. Background genuinely transparent, no checkerboard or blurred color backdrop. Keep whole subjects within their cells, no overlapping neighbors, no text, numbers, letters, logos, signs or UI.\nRow 1: four distinctly shaped original PURPLE GLOWING CRYSTAL CLUSTERS: 1 tall central amethyst with small side crystals, 2 wide low cluster, 3 three varied violet towers, 4 diagonal crystal fan. All violet purple with lavender glossy facets, deep indigo outlines and bright purple emissive cores, on only tiny natural stone feet.\nRow 2: 1 mine entrance with chunky grey-purple rock rim and heavy timber head-frame, dark opening and a warm glowing lantern hanging on the right, NO signboard, no large ground base; 2 horizontal repeating mine RAIL TRACK section, two straight golden-brown steel rails on wooden sleepers seen from above at a 3/4 angle, rails join horizontally, no ground slab; 3 matching CURVED mine rail, smooth 90-degree turn; 4 wooden/iron mine CART holding colourful ore rocks.\nRow 3: 1 tall timber WATCHTOWER with four legs, ladder, small wooden roof, warm hanging lantern, no surrounding terrain slab; 2 small dark jagged volcanic boulder; 3 paired sharp purple-grey volcanic rocks; 4 low dark angular volcanic rock cluster.\nRow 4: 1 dead/charred bare crooked tree; 2 forked broken dead/charred tree; 3 small oval LAVA POOL with dark rocky rim, luminous yellow center, orange-red crust and soft warm glow, seen 3/4 top-down; 4 vertical tileable LAVA RIVER SEGMENT, narrow fiery orange-yellow molten channel between two dark purple rocky banks; perfectly straight parallel left/right banks, molten flow continues seamlessly off its top/bottom, no caps or endpoints.\nCrystals around 60% of cell height, mine and tower 75-80%, rocks and pool smaller, all coherent miniature proportions. All details smooth and painted like the reference. No rectangular ground platforms. Every item is original and cut out on transparent background.",
+      "references": [
+        "design/references/overworld-concept.png (private style reference)",
+        "rendering/src/assets/overworld/robots.png (finish reference)"
+      ],
+      "tool": "built-in image_gen",
+      "date": "2026-11-06",
+      "era": "hd-concept",
+      "group": "themes",
+      "originalRawPath": "rendering/artifacts/overworld/raw/themes/volcanic-01.png",
+      "generatorOutput": "exec-ce2fcb7c-74ef-4623-a5b6-13f4724d984e.png"
+    }
+  ],
+  "props": [
+    {
+      "prompt": "Use case: stylized-concept. Production sprite atlas for an ORIGINAL fantasy strategy OVERWORLD. The attached concept is a PRIVATE STYLE AND SUBJECT REFERENCE ONLY: do not reproduce its text, layout or characters, do not trace or crop it. NEW crisp low-resolution PIXEL ART, not painted, not vector, not 3D. Same 3/4 top-down camera throughout: front-facing facades and roofs visible, horizon absent, verticals upright, no diamond/isometric rotation. Dark navy-brown single ART-PIXEL outlines, chunky clearly square pixels, stepped diagonals, top-left lighting, 3-tone soft pixel shading. Palette across every sheet: outline #202638, stone #667085 #9ba4ae #d5d6ca, wood #62452f #a16b3b #d9a458, parchment #c49355 #e6c889 #fff0ba, gold #a86b22 #e9b83f #fff09a, foliage #204c3e #3b7950 #70a34c #bdd56a, blue #234577 #3477ad #72bed4, red #873c48 #c95750 #e58960, purple #5c3e80 #8e60ad #bb92d0, teal #25685d #459c86 #88c8a0. Genuine transparent alpha outside each subject, no checkerboard, no background, no floor slab or ground unless specifically terrain. NO TEXT, letters, digits, logos, signatures, watermarks or UI. All plaques, signboards, discs and banners BLANK except specifically requested pictographic icons. No status marks on characters. No connected scene. EXACT regular grid with one complete isolated subject per cell and wide transparent gutters. Draw with a consistent coarse pixel grid, ideally each art-pixel represented by a uniform 4x4 output block; no antialiasing, gradients or blur. Objects centered in their cells. Scale family: robot 16 art-pixels tall, stall 48 wide, hall 64 wide, castle128 wide; scenery scaled to this same family.\nReference image 2 is the host atlas; match its materials and pixel style.\nSHEET props. EXACT 5 columns x5 rows square atlas 1600x1600; one isolated subject per cell, entirely within middle65% of the cell. ALL props same 3/4 overworld camera as reference castle. Row1: barrel A10art-pixels wide; barrel B8wide; wooden crate A10wide; wooden crate B8wide; tied sack A8wide. Row2: sack B10wide; UNLIT lantern post22tall (dark glass); identical LIT lantern post (ONLY glass becomes gold); UNLIT signal brazier on stone pedestal18tall (cold coals); LIT same brazier flame frame1. Row3: same LIT brazier flame frame2; same LIT brazier flame frame3; archery target on wooden stand20tall; broken stone wall ruins24wide; broken standing stone arch32tall. Row4: stone WELL with timber roof24wide; flower patch A12wide; flower patch B16wide; campfire frame1 orange/yellow flame above two crossed logs12wide; identical campfire frame2 only flames change. Row5 col1 same campfire frame3; col2-5 COMPLETELY EMPTY transparent. Lit/unlit lamp post, brazier and campfire bodies are IDENTICAL REGISTERED DUPLICATES: same silhouette, dimensions, colors, center and position, ONLY glass/flame region changes. Flame light contained in sprite, no large blurred halo, no ground slab. No extra goods, scenery, text or status symbols.",
+      "reference": [
+        "design/references/overworld-concept.png",
+        "raw/host-01.png"
+      ],
+      "raw": "rendering/artifacts/overworld/raw/props-01.png",
+      "era": "pixel-v1",
+      "archived": true,
+      "selected": false,
+      "originalRawPath": "props-01.png"
+    },
+    {
+      "id": "props-static-hd-01",
+      "prompt": "Use case: stylized-concept. Production game sprite atlas, genuine transparent RGBA background. Create an HD painted fantasy overworld PROP sheet, replacing the pixel-art approach with the smooth illustrated finish of the supplied concept and robot style anchor. Input image 1 is only a style/proportion reference (private overworld concept); input image 2 is only a style anchor (approved robots), do not reproduce their pixels or their words. Chunky readable original objects, dark ink-like outlines, smooth rich painted gradients and glossy small highlights, soft anti-aliased edges, top-left warm light, 3/4 top-down camera showing top and front. NOT strict pixel art, no grid squares, no background or ground slabs, no text/letters/numbers/logos. Exact 4 columns by 4 rows, 16 isolated objects, each centered in its own generous transparent cell with wide gutters, no items crossing cells. Render at high resolution with fine smooth shading. Maintain consistent object scale relative to a robot of 200px height; sizes below describe approximate apparent size if normalized after packing. Row 1 left to right: upright large oak barrel with iron bands (100px tall); smaller oak barrel variation (80px tall); large closed wooden shipping crate with diagonal bracing (100px tall); smaller open wooden produce crate (80px tall). Row 2: tied tan canvas grain sack (90px tall); open canvas sack filled with grain (90px tall); rustic wooden market goods table carrying colorful vegetables, fruit and a loaf, no awning (210px wide); simple wooden bench (180px wide). Row 3: lush leafy green plant in terracotta pot (120px tall); red and white concentric circular archery target on wooden tripod (180px tall); round pale stone well with dark blue water, modest timber uprights, spindle and rope, NO large roof (170px wide); small ivory canvas A-frame tent with open dark entry and warm reflected light, ropes and pegs (220px wide). Row 4: wooden signpost with two completely BLANK boards facing opposite directions (150px tall); short wooden fence section with two squared posts and two rails, straight horizontal segment, NO ground (180px wide); terracotta flower pot with pink blossoms (90px tall); squat terracotta flower pot with yellow and white blossoms (80px tall). One subject per cell; table goods and pot flowers are part of those subjects. Do not include lamps, braziers, badges, robots, landscape, labels, shadows extending outside cells, checkerboards, pixel snapping, posterization or white background. Match the concept's rich warm wood, jade leaves, ochre canvas and cool blue-grey stone.",
+      "references": [
+        {
+          "path": "design/references/overworld-concept.png",
+          "role": "private style and proportion reference only"
+        },
+        {
+          "path": "rendering/src/assets/overworld/robots.png",
+          "role": "approved HD finish anchor only"
+        }
+      ],
+      "raw": "rendering/artifacts/overworld/raw/props/props-static-hd-01.png",
+      "originalGeneratorFile": "exec-c40f327a-c2ad-4fb1-bdf9-2ad2f8f1b6d6.png",
+      "era": "hd-concept",
+      "group": "props",
+      "tool": "built-in image_gen",
+      "date": "2026-11-06",
+      "originalRawPath": "rendering/artifacts/overworld/raw/props/props-static-hd-01.png",
+      "generatorOutput": "exec-c40f327a-c2ad-4fb1-bdf9-2ad2f8f1b6d6.png"
+    },
+    {
+      "id": "props-lights-hd-01",
+      "prompt": "Use case: stylized-concept. Production transparent RGBA sprite sheet of LIGHTS AND FIRE for the same HD fantasy overworld. Image 1 private concept is only a style and subject reference, especially the golden lanterns atop tall grey stone posts flanking its bottom central bridge. Image 2 approved robots gives the chunky smooth painted/enamel finish. Match rich smooth gradients, dark readable contours, glossy warm highlights, anti-aliased edges, 3/4 top-down view, top-left light; NO strict pixel art, posterization, checkerboards, ground slabs, letters, digits, logos or words. EXACTLY 4 COLUMNS x 3 ROWS with wide genuinely transparent gutters. Center each subject within its own same-sized cell. Animation and lighting pairs must be IDENTICAL registered duplicates: precisely the same silhouette, base, fixture, perspective and pixel placement; only the flame and localized warm glow change. Row 1: (1) slender dark wrought IRON LANTERN POST, square glass housing and brass cap, fully UNLIT glass dark blue-grey, no yellow, no flame; (2) exactly the same iron post LIT, warm bright yellow-orange flame, localized soft golden halo and reflected warm glass; (3) tall chunky pale blue-grey STONE LAMP POST with square masonry pedestal, tall squared shaft and ornate golden lantern as by the concept's bridge, UNLIT dark cool glass; (4) identical stone post LIT warm golden lantern and restrained localized glow. Posts are standing isolated objects with flat bottom ground contact, not bridge or terrain. Row 2: (1) UNLIT SIGNAL BRAZIER: black iron fire bowl on stout tapered stone pedestal with three iron supports, dark charcoals, no flame; (2) the EXACT SAME pedestal bowl lit with tall bright orange-yellow attention flame pose A and warm halo; (3) identical lit brazier flame pose B; (4) identical lit brazier flame pose C. Keep the bowl and pedestal completely fixed across all four. Row 3: (1) small campfire with crossed logs inside a ring of loose grey stones, one short seat log on each side, orange-yellow flame pose A; (2) IDENTICAL campfire, stones, logs and two seat logs registered, only flame pose B changes; (3) identical assembly only flame pose C; (4) completely empty transparent cell. No dirt or grass circle under the campfire. These are high resolution source sprites; match a 200px robot with iron post approx260px height, stone post approx340px, brazier including flame approx220px, campfire with seats approx230px width at final intended scale. Flames have smooth rich orange edges, golden core, pale yellow highlights, soft warm glow on genuinely transparent alpha. Do not draw a rectangular background, floor, labels, ornamental extra props, badge or robots. Keep large margins above and beside flames so glow never clips.",
+      "references": [
+        {
+          "path": "design/references/overworld-concept.png",
+          "role": "private style and proportion reference only"
+        },
+        {
+          "path": "rendering/src/assets/overworld/robots.png",
+          "role": "approved HD finish anchor only"
+        }
+      ],
+      "raw": "rendering/artifacts/overworld/raw/props/props-lights-hd-01.png",
+      "originalGeneratorFile": "exec-ac01faae-8296-478e-912f-8d4df231e3f8.png",
+      "era": "hd-concept",
+      "group": "props",
+      "tool": "built-in image_gen",
+      "date": "2026-11-06",
+      "originalRawPath": "rendering/artifacts/overworld/raw/props/props-lights-hd-01.png",
+      "generatorOutput": "exec-ac01faae-8296-478e-912f-8d4df231e3f8.png"
+    }
+  ],
+  "status": [
+    {
+      "prompt": "Use case: stylized-concept. Production sprite atlas for an ORIGINAL fantasy strategy OVERWORLD. The attached concept is a PRIVATE STYLE AND SUBJECT REFERENCE ONLY: do not reproduce its text, layout or characters, do not trace or crop it. NEW crisp low-resolution PIXEL ART, not painted, not vector, not 3D. Same 3/4 top-down camera throughout: front-facing facades and roofs visible, horizon absent, verticals upright, no diamond/isometric rotation. Dark navy-brown single ART-PIXEL outlines, chunky clearly square pixels, stepped diagonals, top-left lighting, 3-tone soft pixel shading. Palette across every sheet: outline #202638, stone #667085 #9ba4ae #d5d6ca, wood #62452f #a16b3b #d9a458, parchment #c49355 #e6c889 #fff0ba, gold #a86b22 #e9b83f #fff09a, foliage #204c3e #3b7950 #70a34c #bdd56a, blue #234577 #3477ad #72bed4, red #873c48 #c95750 #e58960, purple #5c3e80 #8e60ad #bb92d0, teal #25685d #459c86 #88c8a0. Genuine transparent alpha outside each subject, no checkerboard, no background, no floor slab or ground unless specifically terrain. NO TEXT, letters, digits, logos, signatures, watermarks or UI. All plaques, signboards, discs and banners BLANK except specifically requested pictographic icons. No status marks on characters. No connected scene. EXACT regular grid with one complete isolated subject per cell and wide transparent gutters. Draw with a consistent coarse pixel grid, ideally each art-pixel represented by a uniform 4x4 output block; no antialiasing, gradients or blur. Objects centered in their cells. Scale family: robot 16 art-pixels tall, stall 48 wide, hall 64 wide, castle128 wide; scenery scaled to this same family.\nReference image 2 is the host atlas; match its materials and pixel style.\nSHEET status. EXACT 4 columns x4 rows square atlas1536x1536. Every occupied cell a small round ENAMEL MEDALLION with identical antique gold rim and dark pixel outline, face parallel to image plane, 24art-pixel diameter, bold ivory PIXEL GLYPH readable small. One-per-cell with very wide transparency gutters. These are badge UI pieces in the overworld pixel style, not shields. Row1 col1 AMBER hourglass (CI running); col2 EMERALD check (CI passed); col3 RED cross (CI failing); col4 SKY BLUE eye (awaiting review). Row2 col1 VIOLET laurel around check (approved); col2 ORANGE diagonal feather quill (changes requested); col3 PINK crossed swords (merge conflicts); col4 BLUE #2c8fd0 Probe REVIEWING badge carrying an ORIGINAL ivory magnifying glass (round lens with diagonal handle, NOT any brand) with three tiny ivory dots beside it. Row3 col1 GREEN #2a9d57 Probe APPROVED, same magnifying glass plus little check; col2 ORANGE #e07412 Probe FINDINGS, same magnifying glass with small BLANK inset count area lower right (code adds count, NO digits or punctuation); col3 GREY #7d8690 Probe STALE, same magnifying glass with tiny circular refresh arrow; col4 RED #c62f32 Probe FAILED, same magnifying glass with tiny cross. Row4 col1 SMALLER 12art-pixel diameter TEAL #14837b AUTO-MERGE SEAL with ivory original branching-then-merging path glyph (two bent paths join a single upward arrow), same gold rim. Row4 remaining3 cells COMPLETELY EMPTY transparent. No words, letters, digits, logos, copied avatars or watermarks. Shapes must be clear crisp square pixels, no gradients, no glow or shadow outside badge. All identical circles, registered exactly.",
+      "reference": [
+        "design/references/overworld-concept.png",
+        "raw/host-01.png"
+      ],
+      "raw": "rendering/artifacts/overworld/raw/status-01.png",
+      "era": "pixel-v1",
+      "archived": true,
+      "selected": false,
+      "originalRawPath": "status-01.png"
+    },
+    {
+      "id": "status-hd-01",
+      "prompt": "Use case: stylized-concept. Create one high-resolution production transparent RGBA game STATUS BADGE sprite atlas for a fantasy overworld. Input 1 is private style reference only: match its round dark badges with gold rims; input 2 is approved robot style anchor only: smooth painted-enamel gradients, dark contour, glossy warm highlights, anti-aliased edges. Do not copy any reference pixels or lettering. EXACT 4 columns by 4 rows, 13 separate original round badges; last three cells empty transparent. Every badge centered with broad transparent gutters. Front-facing perfect circular faces, no perspective tilt. Broad burnished golden brass rim around rich saturated dark enamel, restrained glossy top-left reflection, bold simple WHITE pictogram. No words, letters, digits, logo, external brand marks or scenery. Readable at 40px map diameter; minimize ornament and make glyph large. The first 12 discs must share IDENTICAL circle silhouette and 240px approximate diameter in each 320px cell if rendered at 1280px sheet width. Row 1: amber/gold enamel HOURGLASS; emerald-green enamel bold CHECK; red enamel bold X CROSS; sky-blue enamel bold EYE (white almond outline and clear dark pupil). Row 2: violet enamel white LAUREL WREATH surrounding a bold white CHECK (broad sparse leaves); orange enamel diagonal white QUILL; rose-magenta enamel two white CROSSED SWORDS with visible short grips and crossguards, distinct from X; blue enamel #2c8fd0 Probe REVIEWING badge carrying original white magnifying glass on left and exactly THREE WHITE DOTS on right. Row 3: green #2a9d57 Probe APPROVED, same magnifier on left plus bold check on right; orange #e07412 Probe FINDINGS, same magnifier on left and a small clean dark-orange count inset on lower right kept COMPLETELY BLANK for code to write count, no exclamation or number; grey #7d8690 Probe STALE, same magnifier plus clockwise circular refresh arrow on right; red #c62f32 Probe FAILED, same magnifier plus X cross on right. Keep the magnifier simple, thick white ring and diagonal lower-right handle, never copy a company avatar. Row 4 column1 ONLY: smaller teal #14837b AUTO-MERGE SEAL at HALF the diameter of the other badges, same gold rim and white simple merging branch glyph (two paths join into one stem with three circular endpoints), designed to perch on another badge's upper-right rim. Row 4 remaining three cells completely transparent. Probe icons are two pictograms clearly arranged inside each disc, not layered illegibly on one another. Strong readable shapes, clean broad enamel, dark outlines, smooth rich shading, gold bevel subtle. NO pixel art, pixel snapping, posterization, checkerboard, rectangular backgrounds, drop-shadow rectangles, ribbons, badge numbers, text labels, screws outside circle or extra badges.",
+      "references": [
+        {
+          "path": "design/references/overworld-concept.png",
+          "role": "private style and proportion reference only"
+        },
+        {
+          "path": "rendering/src/assets/overworld/robots.png",
+          "role": "approved HD finish anchor only"
+        }
+      ],
+      "raw": "rendering/artifacts/overworld/raw/props/status-hd-01.png",
+      "originalGeneratorFile": "exec-8f8c4119-2490-4e8d-bc6b-802d3269b7ba.png",
+      "era": "hd-concept",
+      "group": "props",
+      "tool": "built-in image_gen",
+      "date": "2026-11-06",
+      "originalRawPath": "rendering/artifacts/overworld/raw/props/status-hd-01.png",
+      "generatorOutput": "exec-8f8c4119-2490-4e8d-bc6b-802d3269b7ba.png"
+    },
+    {
+      "id": "status-touchup-hd-02",
+      "prompt": "Use case: precise-object-edit. Edit the supplied two status badge sprites for clarity at tiny map scale. Input is an edit target showing two isolated existing glossy enamel badges with gold rims on a transparent canvas. Output ONLY the two revised individual badges, side by side, each centred in one of TWO equally sized generous transparent cells. Make each disc the SAME LARGE DIAMETER in this source sheet so the glyphs have good resolution; code will pack the left to160px and the right to72px (45% relative size) later. Match the original gold rim, circular silhouette, dark contour, rich glossy painted enamel shading, top-left highlight, smooth anti-aliased edges. LEFT: orange Probe FINDINGS badge. Remove the confusing empty rounded box. Replace its interior with one simple bold white MAGNIFYING GLASS on the LEFT plus one LARGE clearly separate white EXCLAMATION MARK on the RIGHT, broad vertical stroke with clear round dot. Make both shapes thick and widely separated, readable when the badge is only40px diameter. No digits, no count box, no letters. RIGHT: AUTO-MERGE seal. Strong saturated medium-dark TEAL enamel, broad gold rim, very BOLD pure white MERGE ARROWS glyph. Two thick paths enter from lower-left and lower-right, sweep inward and JOIN into a SINGLE CENTRAL UPWARD ARROW with one large triangular arrowhead. Make it fill most of the inner field, much bolder than the existing thin Y branch. No endpoint circles, no three-dot branching node, no extra arrows, no text or logos. The seal will be only18px diameter on a40px badge, so an extremely simple high contrast white silhouette is essential. Keep both circles upright front-facing with no tilt, no external cast shadow, no glow, no background, no checkerboard, no labels. Genuine fully transparent alpha outside both physical circles. Preserve the original style and do not include or redraw any other badges.",
+      "references": [
+        {
+          "path": "rendering/artifacts/overworld/raw/props/status-touchup-reference.png",
+          "role": "edit target; cropped existing probe-findings and auto-merge frames only"
+        }
+      ],
+      "raw": "rendering/artifacts/overworld/raw/props/status-touchup-hd-02.png",
+      "originalGeneratorFile": "exec-69441bca-9f40-473a-99bb-09b010fd634a.png",
+      "era": "hd-concept",
+      "group": "props",
+      "tool": "built-in image_gen",
+      "date": "2026-11-06",
+      "originalRawPath": "rendering/artifacts/overworld/raw/props/status-touchup-hd-02.png",
+      "generatorOutput": "exec-69441bca-9f40-473a-99bb-09b010fd634a.png"
+    }
+  ],
+  "water": [
+    {
+      "id": "sea",
+      "prompt": "Use case: stylized-concept. Production seamless OCEAN WATER TILE, single square opaque material image ideally 1536x1536, no border. Deep rich sapphire and Prussian blue sea matching reference concept precisely: stylized irregular rounded wave cells with strong blue dark troughs, cyan glossy wavetop highlights and small very sparse white foam threads. Soft smoothly painted shading, chunky readable HD fantasy strategy game shapes with subtle dark outlines, smooth antialiased edges, not strict pixel art, not realistic or photograph. Top-down water surface evenly distributed across entire square, no perspective, horizon, sun reflection band, gradient or vignette. Scale: individual ripples about 30-70px wide at 1536 image size; many varied ripples, no large isolated focal feature. Opposite edges MUST wrap seamlessly horizontally and vertically. No islands land shoreline rocks boats fish plants cloud reflections people symbols logos text or UI. Image is water only.",
+      "tool": "image_gen (built-in)",
+      "date": "2026-11-06",
+      "generatorOutput": "exec-91c257f6-b168-4703-8570-bf08f483edfa.png",
+      "raw": "rendering/artifacts/overworld/raw/terrain/sea-01.png",
+      "referenceRoles": {
+        "design/references/overworld-concept.png": "private style/subject reference; never copied into sheets"
+      },
+      "era": "hd-concept",
+      "group": "terrain",
+      "originalRawPath": "rendering/artifacts/overworld/raw/terrain/sea-01.png"
+    },
+    {
+      "id": "water-modules",
+      "prompt": "Use case: stylized-concept. Production transparent WATER MODULE SOURCE SHEET. Match reference concept's HD painted fantasy strategy overworld: rich sapphire/cyan waters, clean luminous white foam with cyan shadows, soft gradients and antialiasing, chunky readable shapes, 3/4 top-down, not strict pixel art or photorealistic. EXACT 2 columns by 2 rows with WIDE empty transparent gutters, no labels, one subject per cell.\nTop-left: horizontal straight RIVER strip, long rectangle of bright cobalt and cyan flowing water, irregular very narrow white foam banks along its top and bottom. Absolutely NO land or grass, only water and fine foam. Left/right ends straight cut, horizontally seamless, constant 160px channel width for 500px length.\nTop-right: vertical WATERFALL MIDDLE strip, a rectangle of cascading cyan water, bright silky white vertical streams, no cliff or lip or splash, just straight falling water, open straight top and bottom so the middle repeats vertically.\nBottom-left: WATERFALL SPLASH BASE, a wide oval of turbulent white foam and cyan spray surrounding a dark blue center under the falling water, transparent exterior, no rock or terrain.\nBottom-right: SHORELINE FOAM straight horizontal strip, long narrow winding band of broken bright white and cyan foam, a little blue translucency, transparent on BOTH long sides, left and right cut straight for seamless horizontal repeat. No water rectangle beneath it.\nAll water strips have transparent exterior. Entire sprites contained well away from cell borders with clear gaps. No text letters numbers rocks islands plants UI grids borders checkerboard.",
+      "tool": "image_gen (built-in)",
+      "date": "2026-11-06",
+      "generatorOutput": "exec-321f1fac-d8dd-4602-b018-9190f1423ae3.png",
+      "raw": "rendering/artifacts/overworld/raw/terrain/water-modules-01.png",
+      "referenceRoles": {
+        "design/references/overworld-concept.png": "private style/subject reference; never copied into sheets"
+      },
+      "era": "hd-concept",
+      "group": "terrain",
+      "originalRawPath": "rendering/artifacts/overworld/raw/terrain/water-modules-01.png"
+    }
+  ],
+  "textures": [
+    {
+      "id": "sea-01",
+      "prompt": "Use case: stylized-concept.\nAsset type: one seamless square OPEN SEA TEXTURE for the attached fantasy strategy concept, rendered at FOUR TIMES that concept's display size.\nReference images 1 and 2 are private STYLE/MATERIAL references only; study only their water between the rocks. Generate new water, never include or copy rocks, land or shoreline.\nCreate a 1024x1024 square filled edge to edge with deep royal-blue open sea, exactly the water material seen in these references. The important feature is MANY SEPARATE SHORT PAINTED CRESCENT wave crests, each 20\u201350 pixels long at 1024x1024 and 2\u20135 pixels thick, irregular little horizontal arcs and broken tapered dashes, some tilted; bright cyan rgb(90,205,255), occasional white tips, medium-blue sides and dark blue troughs. Roughly 250 small separated crests distributed irregularly over the image. Most pixels stay rich blue: darker base around rgb(15,60,150), mid-blue facets and reflected light bring average toward rgb(40,100,155). Fine crisp painterly strokes with chunky pixel-art-flavoured brush shapes, gently antialiased edges, no literal square pixel grid. Small darker blue trough marks between the crests.\nCrucial: compact short wave crests separated by visible blue water, NOT continuous white curlicue networks, NOT large rolling waves, NOT smooth marbling or silky gradients, NOT blurred texture. All wave marks stay at the same small scale across the entire tile. No perspective or horizon, no directional lighting gradient, vignette or spotlight. Same distribution and color at all four edges; seamlessly wrap both axes.\nNo rocks, foam rings, shorelines, land, islands, objects, plants, bubbles, fish, text, numbers, logos, UI or frames. The whole output is opaque water material only.",
+      "tool": "built-in image_gen",
+      "date": "2026-11-06",
+      "group": "textures",
+      "era": "hd-concept",
+      "raw": "rendering/artifacts/overworld/raw/terrain/textures-sea-01.png",
+      "references": [
+        "rendering/artifacts/overworld/ref-tex-sea.png",
+        "rendering/artifacts/overworld/ref-tex-sea2.png"
+      ],
+      "generatorOutput": "exec-0dfa8457-a510-4118-a99a-77d8e5569d2d.png",
+      "selected": false
+    },
+    {
+      "id": "grass-01",
+      "prompt": "Use case: stylized-concept.\nAsset type: 512x512 seamless grass terrain material at FOUR TIMES the attached concept's display scale.\nInput images are private style/material references. Study ONLY the ground's yellow-green meadow and tiny blade/tuft marks. Do not reproduce any buildings, props, paths, trees, cliffs or water from them.\nGenerate one square filled edge-to-edge with the exact SUNLIT YELLOW-GREEN MEADOW material from these crops. Main palette golden chartreuse / fresh olive yellow-green averaging approximately rgb(140,175,60), tiny bright lime blade flecks, olive and moss-green shadow flecks. Fine painted grass-blade detail and tiny low tufts, with a few softly irregular darker-green patches. The grass marks are very small, mostly 2\u20136px long at this 512px image size, so they become a textured, sunlit green surface at 1/4 scale, not individually giant leafy plants. A few scattered very tiny white/pale yellow/pink flower specks, around 1\u20133px, extremely sparse, no flower clumps or large blossoms.\nMatch the original reference's crisp hand-painted pixel-art-flavoured miniature strategy game rendering. Smooth antialiasing, original tiny paint strokes, subtle natural material detail, warm top-left sunlight expressed evenly across the material. Calm readable grassy ground for sprites standing on it. NOT grass photography, NOT large repeating tufts, NOT broad curled leaves, NOT shaggy fur, NOT smooth blurry noise.\nEven color and mark density across square, seamless all four edges, no vignette, dark corners, directional gradient or spotlight. No text, symbols, logos, borders, paths, paving, rocks, shrubs, ground slab, grass island, terrain edge, water, shadow cast by any external object. Entire square is opaque flat grass surface only.",
+      "tool": "built-in image_gen",
+      "date": "2026-11-06",
+      "group": "textures",
+      "era": "hd-concept",
+      "raw": "rendering/artifacts/overworld/raw/terrain/textures-grass-01.png",
+      "references": [
+        "rendering/artifacts/overworld/ref-tex-grass.png",
+        "rendering/artifacts/overworld/ref-tex-grass2.png"
+      ],
+      "generatorOutput": "exec-55dcc2ec-f54e-494c-b0a4-32dafad5b84e.png",
+      "selected": false
+    },
+    {
+      "id": "rock-01",
+      "prompt": "Use case: stylized-concept.\nAsset type: seamless horizontal CLIFF FACE material, 1024 pixels wide by 256 pixels tall at four times concept scale. Output a wide landscape sheet with two identical-height edge-to-edge material bands, one above the other, no gutter or separator. Each band has a 4:1 width/height ratio. Final output ideally 1536x768, two 1536x384 bands.\nReference images are private cliff MATERIAL STYLE REFERENCES. Study only the flat front rock faces below the grass lips. No copied scenery or cropped reference pixels.\nTOP BAND: exactly the concept's grey/blue-grey cliff stone, with chunky mostly VERTICAL facets, irregular short upright rock columns, blocks and some narrow wedge crevices. About 16\u201322 individual vertical column faces across the 1024px final width, variable widths around 35\u201380px, mostly 120\u2013256px tall, a few split into 2 offset blocks. Top-left warm dusty pale-grey/tan highlights on narrow planes, slate blue-grey frontal planes, deeper desaturated navy crevices. Rock is grey stone with some cool reflected blue, not brown, not purple. A little tiny olive moss dangling at the top edge and in 3\u20134 crevices. Top edge is a LEVEL CUT immediately beneath the separate grassy lip; no grassy top plane and no green turf strip. Bottom edge is a LEVEL CUT too, since this is a material to map onto a cliff silhouette.\nBOTTOM BAND: exactly the SAME rock column geometry, same boundaries, same facet shapes and crevices, but the concept's volcanic-region PURPLE-GREY stone variant, muted violet/slate main faces, a little warm dusty mauve on the sun-facing edges. NOT saturated amethyst, no crystals or lava.\nBoth bands must be seamlessly horizontally tileable: matching column heights, colors and rock planes at left/right edges. Each is an opaque rectangular continuous rock face filling its entire band. Cliff stone only, no foreground boulders, no pile of rocks, no grass shelf, no water, foam, sky, ground, architecture, plants besides tiny moss, horizon, floor perspective, border, labels, text or symbols. Crisp painted pixel-art-flavoured fantasy strategy game shading; subtle gradients within chunky planes, smooth antialiased edges, not literal blocky pixel art, not photorealistic, not blurred.",
+      "tool": "built-in image_gen",
+      "date": "2026-11-06",
+      "group": "textures",
+      "era": "hd-concept",
+      "raw": "rendering/artifacts/overworld/raw/terrain/textures-rock-01.png",
+      "references": [
+        "rendering/artifacts/overworld/ref-tex-cliff.png",
+        "rendering/artifacts/overworld/ref-tex-cliff2.png"
+      ],
+      "generatorOutput": "exec-37299f6e-a91a-4ebf-886d-f3c59f46d418.png",
+      "selected": true
+    },
+    {
+      "id": "sea-02-color",
+      "prompt": "Use case: lighting-weather.\nEdit target: generated square sea material, image 1. Images 2 and 3 are the private concept's sea color references only.\nCorrect ONLY the COLOR AND MIDTONE BRIGHTNESS of this generated sea texture. Preserve the exact short separated crescent/dash pattern, stroke sizes, brush detail, positions and overall composition. Keep all marks crisp, no blur, no marbling, no new shore/rocks.\nThe current generated sea averages only rgb(3,66,133); it is too dark and saturated navy. The requested target average INCLUDING its cyan/white crests is approximately rgb(52,111,156). Lift the numerous flat dark-blue water facets into a lighter smoky royal/cerulean blue, with more blue-grey reflected light throughout them. Retain some much darker troughs around rgb(15,60,120). Target most non-crest midtone water planes around rgb(45,105,155) to rgb(65,130,175), rather than almost-zero-red navy. Crests remain bright cyan around rgb(90,205,255), with occasional white tips. The overall texture must still read as deep-blue water, not turquoise or milky pale blue.\nNo global light-to-dark gradient: uniform mean brightness everywhere. Smooth antialiased brush edges, no palette quantization. Keep one square opaque seamless water tile, no border, text, objects or additions.",
+      "tool": "built-in image_gen",
+      "date": "2026-11-06",
+      "group": "textures",
+      "era": "hd-concept",
+      "raw": "rendering/artifacts/overworld/raw/terrain/textures-sea-02-color.png",
+      "references": [
+        "rendering/artifacts/overworld/raw/terrain/textures-sea-01.png",
+        "rendering/artifacts/overworld/ref-tex-sea.png",
+        "rendering/artifacts/overworld/ref-tex-sea2.png"
+      ],
+      "generatorOutput": "exec-a4b63665-012e-4b49-8442-7d735659c1c7.png",
+      "selected": false
+    },
+    {
+      "id": "grass-02-shade",
+      "prompt": "Use case: lighting-weather.\nEdit target: generated square grass material (image 1). Images 2 and 3 are private concept meadow color/material references only.\nCreate a 2-column by 1-row material sheet: two touching equal SQUARE panels, no gutter, divider, border or text. Output landscape 2:1, ideally 1536x768. Both squares show the EXACT SAME grass blade pattern, same tiny flower specks, same material geometry and alignment, so code can blend their lighting without anything moving.\nLEFT SQUARE: sunlit meadow. Preserve the generated fine blade texture and sparse flower specks. Correct ONLY its COLOR: current source averages rgb(146,179,3), which is too fluorescent yellow/sulfur. The target average is rgb(140,175,60). Retain yellow-green sunlight but add blue into those green midtones to make a natural soft chartreuse meadow, less glaring yellow, with olive green and fresh yellow-green blade flecks. Average should be close to rgb(140,175,60), no neon saturation. Keep tiny blade details crisp.\nRIGHT SQUARE: exact registered DUPLICATE of left square, but under-tree shade lighting: darker moss/forest olive-green, cooler blue-green shadows, average around rgb(75,112,45). Same individual blade positions and flowers, no added tree silhouette or cast shadow; this is the consistently shaded material to use under foliage.\nBoth panels must remain seamless on all four edges independently. Uniform spatial lighting, no vignette, gradient or spotlight. Absolutely no shrubs, trees, paths, stones, buildings, turf edge, island, ground slab, water, text or symbols. Opaque material fills each square edge-to-edge. Smooth antialiased painted pixel-art-flavoured tiny brush marks, never palette-limited or pixel-snapped.",
+      "tool": "built-in image_gen",
+      "date": "2026-11-06",
+      "group": "textures",
+      "era": "hd-concept",
+      "raw": "rendering/artifacts/overworld/raw/terrain/textures-grass-02-shade.png",
+      "references": [
+        "rendering/artifacts/overworld/raw/terrain/textures-grass-01.png",
+        "rendering/artifacts/overworld/ref-tex-grass.png",
+        "rendering/artifacts/overworld/ref-tex-grass2.png"
+      ],
+      "generatorOutput": "exec-7ea50627-fd4d-4949-8fc1-3dd77f31b8c3.png",
+      "selected": false
+    },
+    {
+      "id": "sea-03-color",
+      "prompt": "Use case: lighting-weather. Edit target: attached generated sea tile. Keep the identical wave marks, positions, shapes, scale and crisp brush texture. Apply ONLY a small uniform color correction: current image average RGB is (29,102,155), target average RGB is approximately (52,111,156). Raise the red channel by about 23 and green by about 9 through the non-white midtones, leaving blue about the same. That makes slightly warmer, lighter smoky royal-blue water as requested. Do not redraw waves, do not blur, do not add texture or objects. Preserve cyan/white crests, darker royal-blue troughs, even lighting and seamless both-axis square repeat. Opaque texture only, no labels or border.",
+      "selected": false,
+      "tool": "built-in image_gen",
+      "date": "2026-11-06",
+      "group": "textures",
+      "era": "hd-concept",
+      "raw": "rendering/artifacts/overworld/raw/terrain/textures-sea-03-color.png",
+      "references": [
+        "rendering/artifacts/overworld/raw/terrain/textures-sea-02-color.png"
+      ],
+      "generatorOutput": "exec-f25ba601-62dc-4427-a166-42cdf2649a7f.png"
+    },
+    {
+      "id": "grass-03-color",
+      "prompt": "Use case: lighting-weather. Edit target: attached generated two-panel grass material sheet. Preserve the EXACT current 2:1 sheet layout and keep all grass blade marks, flowers and positions fixed in both panels. Correct ONLY the brightness/color a little. LEFT sunny grass currently averages RGB (127,164,43); target RGB approximately (140,175,60): lift red by about 13, green by 11 and blue by 17 in the midtones. Keep natural yellow-green chartreuse, fine crisp painted blade texture and sparse flower specks. RIGHT under-tree shade currently averages RGB (62,105,36); target around (75,112,45): slightly lift red about 13, green 7 and blue 9, retaining noticeably darker cool mossy green. No geometry or pattern changes, no blur, no gradients, no vignette, no objects, no text or border. Each square panel remains an opaque flat material seamless on all four edges.",
+      "tool": "built-in image_gen",
+      "date": "2026-11-06",
+      "group": "textures",
+      "era": "hd-concept",
+      "raw": "rendering/artifacts/overworld/raw/terrain/textures-grass-03-color.png",
+      "references": [
+        "rendering/artifacts/overworld/raw/terrain/textures-grass-02-shade.png"
+      ],
+      "generatorOutput": "exec-17405307-de5f-4705-a805-9e7a4a9706c7.png",
+      "selected": true
+    },
+    {
+      "id": "sea-04-density",
+      "prompt": "Use case: precise-object-edit.\nEdit target: generated sea tile (image 1). Images 2 and 3 are the concept's private water references at the same 4x source scale.\nThe quarter-scale comparison shows this material is TOO BUSY: there are too many tiny bright blue flecks and short sparkling dashes, making the sea look like dense glitter. Make ONE targeted correction: REDUCE THE MARK DENSITY, keep the crisp short crescent-wave style and the current blue palette.\nKeep about 160\u2013220 clearly separated main crescent crests across the whole square. Each main crest should be 20\u201350px long at the final 1024x1024 tile, with a few white tips and bright cyan rgb(90,205,255) edges. Preserve a selection of the existing stronger crests and remove the weaker intermediate ones. Between these isolated crests leave broad quiet deep royal-blue water with some dark trough facets. Replace the MANY tiny cyan/confetti background flecks with quiet blue planes. The base water should consist of larger restrained brush planes around 20\u201340px across, not a field of tiny 2px noisy flecks. Most non-crest pixels should remain below green=145 and blue=190, so the main crests are clearly separated from the background.\nKeep overall mean color close to rgb(45,105,155), darker troughs royal blue and a little blue-grey reflected light, no turquoise cast. NO continuous white webbing, no large rolling waves, no silky marbling, no blur or soft-focus. Crisp hand-painted pixel-art-flavoured brush shapes with smooth antialiasing. Preserve uniform even lighting and seamless opposite edges. No rock, land, shoreline, objects, text or border. Opaque square water texture only.",
+      "tool": "built-in image_gen",
+      "date": "2026-11-06",
+      "group": "textures",
+      "era": "hd-concept",
+      "raw": "rendering/artifacts/overworld/raw/terrain/textures-sea-04-density.png",
+      "references": [
+        "rendering/artifacts/overworld/raw/terrain/textures-sea-03-color.png",
+        "rendering/artifacts/overworld/ref-tex-sea.png",
+        "rendering/artifacts/overworld/ref-tex-sea2.png"
+      ],
+      "generatorOutput": "exec-016c8df6-ad72-47c8-bacd-7a4babeb1b8f.png",
+      "selected": false
+    },
+    {
+      "id": "sea-05-final-color",
+      "prompt": "Use case: lighting-weather.\nEdit target: image 1, the quieter sea material. Image 2 is a COLOR reference only, not a pattern reference.\nPreserve image 1's exact quieter composition: keep its selected 160\u2013220 sparse short crescent crests, broad calm blue planes, every crest position and length. Do not add back tiny glitter flecks or other detail. Correct ONLY COLOR so its blue-plane palette matches image 2.\nImage 1 currently averages RGB (18,79,128). Target average approximately RGB (52,111,156), similar in brightness/color to image 2 but a little warmer blue-grey. This is about +34 red, +32 green, +28 blue through the dark/midtone water, with smaller changes toward white. Keep recognizable blue water, dark royal-blue troughs, cyan crest edges and occasional white tips. Color should be uniform across the material, without any lighting gradient. Preserve all exact crisp brush edges, no blur or smooth marbling, no new wave details, objects, land, foam rings, labels, border or text. One opaque seamless square tile.",
+      "tool": "built-in image_gen",
+      "date": "2026-11-06",
+      "group": "textures",
+      "era": "hd-concept",
+      "raw": "rendering/artifacts/overworld/raw/terrain/textures-sea-05-final-color.png",
+      "references": [
+        "rendering/artifacts/overworld/raw/terrain/textures-sea-04-density.png",
+        "rendering/artifacts/overworld/raw/terrain/textures-sea-03-color.png"
+      ],
+      "generatorOutput": "exec-86290146-6eca-4635-b7a5-bb745416209e.png",
+      "selected": true
+    }
+  ]
+}

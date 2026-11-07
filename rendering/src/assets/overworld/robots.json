@@ -1,0 +1,650 @@
+{
+  "image": "robots.png",
+  "width": 2048,
+  "height": 768,
+  "style": "HD painted enamel; smooth shading, glossy highlights and anti-aliased alpha",
+  "anchorUnits": "pixels relative to frame top-left; y points down",
+  "grid": {
+    "columns": 8,
+    "rows": 3,
+    "cellWidth": 256,
+    "cellHeight": 256
+  },
+  "frames": {
+    "orange-idle-0": {
+      "x": 0,
+      "y": 0,
+      "w": 256,
+      "h": 256,
+      "anchor": {
+        "x": 128,
+        "y": 224
+      },
+      "animation": "orange-idle",
+      "order": 0,
+      "durationMs": 700,
+      "contentBounds": [
+        8,
+        17,
+        247,
+        246
+      ],
+      "standingHeight": 200
+    },
+    "orange-idle-1": {
+      "x": 256,
+      "y": 0,
+      "w": 256,
+      "h": 256,
+      "anchor": {
+        "x": 128,
+        "y": 224
+      },
+      "animation": "orange-idle",
+      "order": 1,
+      "durationMs": 700,
+      "contentBounds": [
+        8,
+        17,
+        247,
+        246
+      ],
+      "standingHeight": 200
+    },
+    "orange-working-0": {
+      "x": 512,
+      "y": 0,
+      "w": 256,
+      "h": 256,
+      "anchor": {
+        "x": 128,
+        "y": 224
+      },
+      "animation": "orange-working",
+      "order": 0,
+      "durationMs": 140,
+      "contentBounds": [
+        8,
+        17,
+        247,
+        246
+      ],
+      "standingHeight": 200
+    },
+    "orange-working-1": {
+      "x": 768,
+      "y": 0,
+      "w": 256,
+      "h": 256,
+      "anchor": {
+        "x": 128,
+        "y": 224
+      },
+      "animation": "orange-working",
+      "order": 1,
+      "durationMs": 140,
+      "contentBounds": [
+        8,
+        17,
+        247,
+        246
+      ],
+      "standingHeight": 200
+    },
+    "orange-working-2": {
+      "x": 1024,
+      "y": 0,
+      "w": 256,
+      "h": 256,
+      "anchor": {
+        "x": 128,
+        "y": 224
+      },
+      "animation": "orange-working",
+      "order": 2,
+      "durationMs": 140,
+      "contentBounds": [
+        8,
+        17,
+        247,
+        246
+      ],
+      "standingHeight": 200
+    },
+    "orange-working-3": {
+      "x": 1280,
+      "y": 0,
+      "w": 256,
+      "h": 256,
+      "anchor": {
+        "x": 128,
+        "y": 224
+      },
+      "animation": "orange-working",
+      "order": 3,
+      "durationMs": 140,
+      "contentBounds": [
+        8,
+        17,
+        247,
+        246
+      ],
+      "standingHeight": 200
+    },
+    "orange-drone-0": {
+      "x": 1536,
+      "y": 0,
+      "w": 256,
+      "h": 256,
+      "anchor": {
+        "x": 128,
+        "y": 224
+      },
+      "animation": "orange-drone",
+      "order": 0,
+      "durationMs": 180,
+      "contentBounds": [
+        41,
+        67,
+        220,
+        249
+      ],
+      "standingHeight": null
+    },
+    "orange-drone-1": {
+      "x": 1792,
+      "y": 0,
+      "w": 256,
+      "h": 256,
+      "anchor": {
+        "x": 128,
+        "y": 224
+      },
+      "animation": "orange-drone",
+      "order": 1,
+      "durationMs": 180,
+      "contentBounds": [
+        41,
+        67,
+        220,
+        249
+      ],
+      "standingHeight": null
+    },
+    "pearl-idle-0": {
+      "x": 0,
+      "y": 256,
+      "w": 256,
+      "h": 256,
+      "anchor": {
+        "x": 128,
+        "y": 224
+      },
+      "animation": "pearl-idle",
+      "order": 0,
+      "durationMs": 700,
+      "contentBounds": [
+        8,
+        17,
+        247,
+        246
+      ],
+      "standingHeight": 200
+    },
+    "pearl-idle-1": {
+      "x": 256,
+      "y": 256,
+      "w": 256,
+      "h": 256,
+      "anchor": {
+        "x": 128,
+        "y": 224
+      },
+      "animation": "pearl-idle",
+      "order": 1,
+      "durationMs": 700,
+      "contentBounds": [
+        8,
+        17,
+        247,
+        246
+      ],
+      "standingHeight": 200
+    },
+    "pearl-working-0": {
+      "x": 512,
+      "y": 256,
+      "w": 256,
+      "h": 256,
+      "anchor": {
+        "x": 128,
+        "y": 224
+      },
+      "animation": "pearl-working",
+      "order": 0,
+      "durationMs": 140,
+      "contentBounds": [
+        8,
+        17,
+        247,
+        246
+      ],
+      "standingHeight": 200
+    },
+    "pearl-working-1": {
+      "x": 768,
+      "y": 256,
+      "w": 256,
+      "h": 256,
+      "anchor": {
+        "x": 128,
+        "y": 224
+      },
+      "animation": "pearl-working",
+      "order": 1,
+      "durationMs": 140,
+      "contentBounds": [
+        8,
+        17,
+        247,
+        246
+      ],
+      "standingHeight": 200
+    },
+    "pearl-working-2": {
+      "x": 1024,
+      "y": 256,
+      "w": 256,
+      "h": 256,
+      "anchor": {
+        "x": 128,
+        "y": 224
+      },
+      "animation": "pearl-working",
+      "order": 2,
+      "durationMs": 140,
+      "contentBounds": [
+        8,
+        17,
+        247,
+        246
+      ],
+      "standingHeight": 200
+    },
+    "pearl-working-3": {
+      "x": 1280,
+      "y": 256,
+      "w": 256,
+      "h": 256,
+      "anchor": {
+        "x": 128,
+        "y": 224
+      },
+      "animation": "pearl-working",
+      "order": 3,
+      "durationMs": 140,
+      "contentBounds": [
+        8,
+        17,
+        247,
+        246
+      ],
+      "standingHeight": 200
+    },
+    "pearl-drone-0": {
+      "x": 1536,
+      "y": 256,
+      "w": 256,
+      "h": 256,
+      "anchor": {
+        "x": 128,
+        "y": 224
+      },
+      "animation": "pearl-drone",
+      "order": 0,
+      "durationMs": 180,
+      "contentBounds": [
+        41,
+        67,
+        220,
+        249
+      ],
+      "standingHeight": null
+    },
+    "pearl-drone-1": {
+      "x": 1792,
+      "y": 256,
+      "w": 256,
+      "h": 256,
+      "anchor": {
+        "x": 128,
+        "y": 224
+      },
+      "animation": "pearl-drone",
+      "order": 1,
+      "durationMs": 180,
+      "contentBounds": [
+        41,
+        67,
+        220,
+        249
+      ],
+      "standingHeight": null
+    },
+    "neutral-idle-0": {
+      "x": 0,
+      "y": 512,
+      "w": 256,
+      "h": 256,
+      "anchor": {
+        "x": 128,
+        "y": 224
+      },
+      "animation": "neutral-idle",
+      "order": 0,
+      "durationMs": 700,
+      "contentBounds": [
+        8,
+        17,
+        247,
+        246
+      ],
+      "standingHeight": 200
+    },
+    "neutral-idle-1": {
+      "x": 256,
+      "y": 512,
+      "w": 256,
+      "h": 256,
+      "anchor": {
+        "x": 128,
+        "y": 224
+      },
+      "animation": "neutral-idle",
+      "order": 1,
+      "durationMs": 700,
+      "contentBounds": [
+        8,
+        17,
+        247,
+        246
+      ],
+      "standingHeight": 200
+    },
+    "neutral-working-0": {
+      "x": 512,
+      "y": 512,
+      "w": 256,
+      "h": 256,
+      "anchor": {
+        "x": 128,
+        "y": 224
+      },
+      "animation": "neutral-working",
+      "order": 0,
+      "durationMs": 140,
+      "contentBounds": [
+        8,
+        17,
+        247,
+        246
+      ],
+      "standingHeight": 200
+    },
+    "neutral-working-1": {
+      "x": 768,
+      "y": 512,
+      "w": 256,
+      "h": 256,
+      "anchor": {
+        "x": 128,
+        "y": 224
+      },
+      "animation": "neutral-working",
+      "order": 1,
+      "durationMs": 140,
+      "contentBounds": [
+        8,
+        17,
+        247,
+        246
+      ],
+      "standingHeight": 200
+    },
+    "neutral-working-2": {
+      "x": 1024,
+      "y": 512,
+      "w": 256,
+      "h": 256,
+      "anchor": {
+        "x": 128,
+        "y": 224
+      },
+      "animation": "neutral-working",
+      "order": 2,
+      "durationMs": 140,
+      "contentBounds": [
+        8,
+        17,
+        247,
+        246
+      ],
+      "standingHeight": 200
+    },
+    "neutral-working-3": {
+      "x": 1280,
+      "y": 512,
+      "w": 256,
+      "h": 256,
+      "anchor": {
+        "x": 128,
+        "y": 224
+      },
+      "animation": "neutral-working",
+      "order": 3,
+      "durationMs": 140,
+      "contentBounds": [
+        8,
+        17,
+        247,
+        246
+      ],
+      "standingHeight": 200
+    },
+    "neutral-drone-0": {
+      "x": 1536,
+      "y": 512,
+      "w": 256,
+      "h": 256,
+      "anchor": {
+        "x": 128,
+        "y": 224
+      },
+      "animation": "neutral-drone",
+      "order": 0,
+      "durationMs": 180,
+      "contentBounds": [
+        41,
+        67,
+        220,
+        249
+      ],
+      "standingHeight": null
+    },
+    "neutral-drone-1": {
+      "x": 1792,
+      "y": 512,
+      "w": 256,
+      "h": 256,
+      "anchor": {
+        "x": 128,
+        "y": 224
+      },
+      "animation": "neutral-drone",
+      "order": 1,
+      "durationMs": 180,
+      "contentBounds": [
+        41,
+        67,
+        220,
+        249
+      ],
+      "standingHeight": null
+    }
+  },
+  "animations": {
+    "orange-idle": {
+      "frames": [
+        "orange-idle-0",
+        "orange-idle-1"
+      ],
+      "durationMs": 700,
+      "loop": true
+    },
+    "orange-working": {
+      "frames": [
+        "orange-working-0",
+        "orange-working-1",
+        "orange-working-2",
+        "orange-working-3"
+      ],
+      "durationMs": 140,
+      "loop": true
+    },
+    "orange-drone": {
+      "frames": [
+        "orange-drone-0",
+        "orange-drone-1"
+      ],
+      "durationMs": 180,
+      "loop": true
+    },
+    "pearl-idle": {
+      "frames": [
+        "pearl-idle-0",
+        "pearl-idle-1"
+      ],
+      "durationMs": 700,
+      "loop": true
+    },
+    "pearl-working": {
+      "frames": [
+        "pearl-working-0",
+        "pearl-working-1",
+        "pearl-working-2",
+        "pearl-working-3"
+      ],
+      "durationMs": 140,
+      "loop": true
+    },
+    "pearl-drone": {
+      "frames": [
+        "pearl-drone-0",
+        "pearl-drone-1"
+      ],
+      "durationMs": 180,
+      "loop": true
+    },
+    "neutral-idle": {
+      "frames": [
+        "neutral-idle-0",
+        "neutral-idle-1"
+      ],
+      "durationMs": 700,
+      "loop": true
+    },
+    "neutral-working": {
+      "frames": [
+        "neutral-working-0",
+        "neutral-working-1",
+        "neutral-working-2",
+        "neutral-working-3"
+      ],
+      "durationMs": 140,
+      "loop": true
+    },
+    "neutral-drone": {
+      "frames": [
+        "neutral-drone-0",
+        "neutral-drone-1"
+      ],
+      "durationMs": 180,
+      "loop": true
+    }
+  },
+  "sampling": "linear",
+  "paletteLimited": false,
+  "alpha": "smooth RGBA, including soft shadows",
+  "source": {
+    "raw": "robots-hd-02.png",
+    "generatorOutput": "exec-3c63651a-9117-4afe-b642-cd201f2d7401.png",
+    "sourceSize": [
+      1774,
+      887
+    ],
+    "sourceGrid": {
+      "columns": 4,
+      "rows": 2
+    },
+    "cells": [
+      [
+        0,
+        0,
+        444,
+        444
+      ],
+      [
+        444,
+        0,
+        887,
+        444
+      ],
+      [
+        887,
+        0,
+        1330,
+        444
+      ],
+      [
+        1330,
+        0,
+        1774,
+        444
+      ],
+      [
+        0,
+        444,
+        444,
+        887
+      ],
+      [
+        444,
+        444,
+        887,
+        887
+      ],
+      [
+        887,
+        444,
+        1330,
+        887
+      ],
+      [
+        1330,
+        444,
+        1774,
+        887
+      ]
+    ],
+    "resizeFilter": "Lanczos",
+    "physicalBodyBounds": [
+      72,
+      32,
+      372,
+      403
+    ],
+    "resizeScale": 0.5390835579514824,
+    "registration": "One canonical body/head/feet/shadow; feathered eye, arm and drone-pod regions vary.",
+    "colors": "Orange source; continuous luminance/chroma transforms for pearl and greyscale neutral. Alpha unchanged."
+  }
+}

@@ -1,0 +1,1624 @@
+{
+  "image": "water.png",
+  "width": 4096,
+  "height": 3200,
+  "style": "HD painted fantasy; generated material detail, smooth antialiasing; no pixel snapping",
+  "sampling": "linear",
+  "anchorUnits": "pixels relative to frame top-left; y points down",
+  "footprintUnits": "4x concept pixels (divide by four at concept display scale)",
+  "gutter": 32,
+  "frames": {
+    "sea-0": {
+      "x": 32,
+      "y": 32,
+      "w": 768,
+      "h": 768,
+      "anchor": {
+        "x": 0,
+        "y": 0
+      },
+      "footprint": {
+        "w": 768,
+        "h": 768,
+        "units": "4x concept pixels"
+      },
+      "tile": true,
+      "tileAxes": "xy",
+      "animation": "sea",
+      "order": 0,
+      "durationMs": 180
+    },
+    "sea-1": {
+      "x": 832,
+      "y": 32,
+      "w": 768,
+      "h": 768,
+      "anchor": {
+        "x": 0,
+        "y": 0
+      },
+      "footprint": {
+        "w": 768,
+        "h": 768,
+        "units": "4x concept pixels"
+      },
+      "tile": true,
+      "tileAxes": "xy",
+      "animation": "sea",
+      "order": 1,
+      "durationMs": 180
+    },
+    "sea-2": {
+      "x": 1632,
+      "y": 32,
+      "w": 768,
+      "h": 768,
+      "anchor": {
+        "x": 0,
+        "y": 0
+      },
+      "footprint": {
+        "w": 768,
+        "h": 768,
+        "units": "4x concept pixels"
+      },
+      "tile": true,
+      "tileAxes": "xy",
+      "animation": "sea",
+      "order": 2,
+      "durationMs": 180
+    },
+    "sea-3": {
+      "x": 2432,
+      "y": 32,
+      "w": 768,
+      "h": 768,
+      "anchor": {
+        "x": 0,
+        "y": 0
+      },
+      "footprint": {
+        "w": 768,
+        "h": 768,
+        "units": "4x concept pixels"
+      },
+      "tile": true,
+      "tileAxes": "xy",
+      "animation": "sea",
+      "order": 3,
+      "durationMs": 180
+    },
+    "river-h-0": {
+      "x": 3232,
+      "y": 32,
+      "w": 512,
+      "h": 144,
+      "anchor": {
+        "x": 0,
+        "y": 0
+      },
+      "footprint": {
+        "w": 512,
+        "h": 144,
+        "units": "4x concept pixels"
+      },
+      "tile": true,
+      "tileAxes": "x",
+      "animation": "river-h",
+      "order": 0,
+      "durationMs": 180
+    },
+    "river-h-1": {
+      "x": 32,
+      "y": 832,
+      "w": 512,
+      "h": 144,
+      "anchor": {
+        "x": 0,
+        "y": 0
+      },
+      "footprint": {
+        "w": 512,
+        "h": 144,
+        "units": "4x concept pixels"
+      },
+      "tile": true,
+      "tileAxes": "x",
+      "animation": "river-h",
+      "order": 1,
+      "durationMs": 180
+    },
+    "river-h-2": {
+      "x": 576,
+      "y": 832,
+      "w": 512,
+      "h": 144,
+      "anchor": {
+        "x": 0,
+        "y": 0
+      },
+      "footprint": {
+        "w": 512,
+        "h": 144,
+        "units": "4x concept pixels"
+      },
+      "tile": true,
+      "tileAxes": "x",
+      "animation": "river-h",
+      "order": 2,
+      "durationMs": 180
+    },
+    "river-h-3": {
+      "x": 1120,
+      "y": 832,
+      "w": 512,
+      "h": 144,
+      "anchor": {
+        "x": 0,
+        "y": 0
+      },
+      "footprint": {
+        "w": 512,
+        "h": 144,
+        "units": "4x concept pixels"
+      },
+      "tile": true,
+      "tileAxes": "x",
+      "animation": "river-h",
+      "order": 3,
+      "durationMs": 180
+    },
+    "river-v-0": {
+      "x": 1664,
+      "y": 832,
+      "w": 144,
+      "h": 512,
+      "anchor": {
+        "x": 0,
+        "y": 0
+      },
+      "footprint": {
+        "w": 144,
+        "h": 512,
+        "units": "4x concept pixels"
+      },
+      "tile": true,
+      "tileAxes": "y",
+      "animation": "river-v",
+      "order": 0,
+      "durationMs": 180
+    },
+    "river-v-1": {
+      "x": 1840,
+      "y": 832,
+      "w": 144,
+      "h": 512,
+      "anchor": {
+        "x": 0,
+        "y": 0
+      },
+      "footprint": {
+        "w": 144,
+        "h": 512,
+        "units": "4x concept pixels"
+      },
+      "tile": true,
+      "tileAxes": "y",
+      "animation": "river-v",
+      "order": 1,
+      "durationMs": 180
+    },
+    "river-v-2": {
+      "x": 2016,
+      "y": 832,
+      "w": 144,
+      "h": 512,
+      "anchor": {
+        "x": 0,
+        "y": 0
+      },
+      "footprint": {
+        "w": 144,
+        "h": 512,
+        "units": "4x concept pixels"
+      },
+      "tile": true,
+      "tileAxes": "y",
+      "animation": "river-v",
+      "order": 2,
+      "durationMs": 180
+    },
+    "river-v-3": {
+      "x": 2192,
+      "y": 832,
+      "w": 144,
+      "h": 512,
+      "anchor": {
+        "x": 0,
+        "y": 0
+      },
+      "footprint": {
+        "w": 144,
+        "h": 512,
+        "units": "4x concept pixels"
+      },
+      "tile": true,
+      "tileAxes": "y",
+      "animation": "river-v",
+      "order": 3,
+      "durationMs": 180
+    },
+    "waterfall-0": {
+      "x": 2368,
+      "y": 832,
+      "w": 160,
+      "h": 256,
+      "anchor": {
+        "x": 0,
+        "y": 0
+      },
+      "footprint": {
+        "w": 160,
+        "h": 256,
+        "units": "4x concept pixels"
+      },
+      "tile": true,
+      "tileAxes": "y",
+      "animation": "waterfall",
+      "order": 0,
+      "durationMs": 180
+    },
+    "waterfall-1": {
+      "x": 2560,
+      "y": 832,
+      "w": 160,
+      "h": 256,
+      "anchor": {
+        "x": 0,
+        "y": 0
+      },
+      "footprint": {
+        "w": 160,
+        "h": 256,
+        "units": "4x concept pixels"
+      },
+      "tile": true,
+      "tileAxes": "y",
+      "animation": "waterfall",
+      "order": 1,
+      "durationMs": 180
+    },
+    "waterfall-2": {
+      "x": 2752,
+      "y": 832,
+      "w": 160,
+      "h": 256,
+      "anchor": {
+        "x": 0,
+        "y": 0
+      },
+      "footprint": {
+        "w": 160,
+        "h": 256,
+        "units": "4x concept pixels"
+      },
+      "tile": true,
+      "tileAxes": "y",
+      "animation": "waterfall",
+      "order": 2,
+      "durationMs": 180
+    },
+    "waterfall-3": {
+      "x": 2944,
+      "y": 832,
+      "w": 160,
+      "h": 256,
+      "anchor": {
+        "x": 0,
+        "y": 0
+      },
+      "footprint": {
+        "w": 160,
+        "h": 256,
+        "units": "4x concept pixels"
+      },
+      "tile": true,
+      "tileAxes": "y",
+      "animation": "waterfall",
+      "order": 3,
+      "durationMs": 180
+    },
+    "waterfall-base-0": {
+      "x": 3136,
+      "y": 832,
+      "w": 320,
+      "h": 121,
+      "anchor": {
+        "x": 160,
+        "y": 60
+      },
+      "footprint": {
+        "w": 320,
+        "h": 121,
+        "units": "4x concept pixels"
+      },
+      "tile": false,
+      "animation": "waterfall-base",
+      "order": 0,
+      "durationMs": 180
+    },
+    "waterfall-base-1": {
+      "x": 3488,
+      "y": 832,
+      "w": 320,
+      "h": 121,
+      "anchor": {
+        "x": 160,
+        "y": 60
+      },
+      "footprint": {
+        "w": 320,
+        "h": 121,
+        "units": "4x concept pixels"
+      },
+      "tile": false,
+      "animation": "waterfall-base",
+      "order": 1,
+      "durationMs": 180
+    },
+    "waterfall-base-2": {
+      "x": 32,
+      "y": 1376,
+      "w": 320,
+      "h": 121,
+      "anchor": {
+        "x": 160,
+        "y": 60
+      },
+      "footprint": {
+        "w": 320,
+        "h": 121,
+        "units": "4x concept pixels"
+      },
+      "tile": false,
+      "animation": "waterfall-base",
+      "order": 2,
+      "durationMs": 180
+    },
+    "waterfall-base-3": {
+      "x": 384,
+      "y": 1376,
+      "w": 320,
+      "h": 121,
+      "anchor": {
+        "x": 160,
+        "y": 60
+      },
+      "footprint": {
+        "w": 320,
+        "h": 121,
+        "units": "4x concept pixels"
+      },
+      "tile": false,
+      "animation": "waterfall-base",
+      "order": 3,
+      "durationMs": 180
+    },
+    "shore-foam-front-0": {
+      "x": 736,
+      "y": 1376,
+      "w": 256,
+      "h": 416,
+      "anchor": {
+        "x": 0,
+        "y": 0
+      },
+      "footprint": {
+        "w": 256,
+        "h": 256,
+        "units": "4x concept pixels"
+      },
+      "tile": true,
+      "tileAxes": "x",
+      "animation": "shore-foam-front",
+      "order": 0,
+      "durationMs": 180,
+      "topology": 3,
+      "layer": "behind-cliff"
+    },
+    "shore-foam-front-1": {
+      "x": 1024,
+      "y": 1376,
+      "w": 256,
+      "h": 416,
+      "anchor": {
+        "x": 0,
+        "y": 0
+      },
+      "footprint": {
+        "w": 256,
+        "h": 256,
+        "units": "4x concept pixels"
+      },
+      "tile": true,
+      "tileAxes": "x",
+      "animation": "shore-foam-front",
+      "order": 1,
+      "durationMs": 180,
+      "topology": 3,
+      "layer": "behind-cliff"
+    },
+    "shore-foam-front-2": {
+      "x": 1312,
+      "y": 1376,
+      "w": 256,
+      "h": 416,
+      "anchor": {
+        "x": 0,
+        "y": 0
+      },
+      "footprint": {
+        "w": 256,
+        "h": 256,
+        "units": "4x concept pixels"
+      },
+      "tile": true,
+      "tileAxes": "x",
+      "animation": "shore-foam-front",
+      "order": 2,
+      "durationMs": 180,
+      "topology": 3,
+      "layer": "behind-cliff"
+    },
+    "shore-foam-front-3": {
+      "x": 1600,
+      "y": 1376,
+      "w": 256,
+      "h": 416,
+      "anchor": {
+        "x": 0,
+        "y": 0
+      },
+      "footprint": {
+        "w": 256,
+        "h": 256,
+        "units": "4x concept pixels"
+      },
+      "tile": true,
+      "tileAxes": "x",
+      "animation": "shore-foam-front",
+      "order": 3,
+      "durationMs": 180,
+      "topology": 3,
+      "layer": "behind-cliff"
+    },
+    "shore-foam-back-0": {
+      "x": 1888,
+      "y": 1376,
+      "w": 256,
+      "h": 416,
+      "anchor": {
+        "x": 0,
+        "y": 0
+      },
+      "footprint": {
+        "w": 256,
+        "h": 256,
+        "units": "4x concept pixels"
+      },
+      "tile": true,
+      "tileAxes": "x",
+      "animation": "shore-foam-back",
+      "order": 0,
+      "durationMs": 180,
+      "topology": 12,
+      "layer": "behind-cliff"
+    },
+    "shore-foam-back-1": {
+      "x": 2176,
+      "y": 1376,
+      "w": 256,
+      "h": 416,
+      "anchor": {
+        "x": 0,
+        "y": 0
+      },
+      "footprint": {
+        "w": 256,
+        "h": 256,
+        "units": "4x concept pixels"
+      },
+      "tile": true,
+      "tileAxes": "x",
+      "animation": "shore-foam-back",
+      "order": 1,
+      "durationMs": 180,
+      "topology": 12,
+      "layer": "behind-cliff"
+    },
+    "shore-foam-back-2": {
+      "x": 2464,
+      "y": 1376,
+      "w": 256,
+      "h": 416,
+      "anchor": {
+        "x": 0,
+        "y": 0
+      },
+      "footprint": {
+        "w": 256,
+        "h": 256,
+        "units": "4x concept pixels"
+      },
+      "tile": true,
+      "tileAxes": "x",
+      "animation": "shore-foam-back",
+      "order": 2,
+      "durationMs": 180,
+      "topology": 12,
+      "layer": "behind-cliff"
+    },
+    "shore-foam-back-3": {
+      "x": 2752,
+      "y": 1376,
+      "w": 256,
+      "h": 416,
+      "anchor": {
+        "x": 0,
+        "y": 0
+      },
+      "footprint": {
+        "w": 256,
+        "h": 256,
+        "units": "4x concept pixels"
+      },
+      "tile": true,
+      "tileAxes": "x",
+      "animation": "shore-foam-back",
+      "order": 3,
+      "durationMs": 180,
+      "topology": 12,
+      "layer": "behind-cliff"
+    },
+    "shore-foam-left-0": {
+      "x": 3040,
+      "y": 1376,
+      "w": 256,
+      "h": 256,
+      "anchor": {
+        "x": 0,
+        "y": 0
+      },
+      "footprint": {
+        "w": 256,
+        "h": 256,
+        "units": "4x concept pixels"
+      },
+      "tile": true,
+      "tileAxes": "y",
+      "animation": "shore-foam-left",
+      "order": 0,
+      "durationMs": 180,
+      "topology": 10,
+      "layer": "behind-cliff"
+    },
+    "shore-foam-left-1": {
+      "x": 3328,
+      "y": 1376,
+      "w": 256,
+      "h": 256,
+      "anchor": {
+        "x": 0,
+        "y": 0
+      },
+      "footprint": {
+        "w": 256,
+        "h": 256,
+        "units": "4x concept pixels"
+      },
+      "tile": true,
+      "tileAxes": "y",
+      "animation": "shore-foam-left",
+      "order": 1,
+      "durationMs": 180,
+      "topology": 10,
+      "layer": "behind-cliff"
+    },
+    "shore-foam-left-2": {
+      "x": 3616,
+      "y": 1376,
+      "w": 256,
+      "h": 256,
+      "anchor": {
+        "x": 0,
+        "y": 0
+      },
+      "footprint": {
+        "w": 256,
+        "h": 256,
+        "units": "4x concept pixels"
+      },
+      "tile": true,
+      "tileAxes": "y",
+      "animation": "shore-foam-left",
+      "order": 2,
+      "durationMs": 180,
+      "topology": 10,
+      "layer": "behind-cliff"
+    },
+    "shore-foam-left-3": {
+      "x": 32,
+      "y": 1824,
+      "w": 256,
+      "h": 256,
+      "anchor": {
+        "x": 0,
+        "y": 0
+      },
+      "footprint": {
+        "w": 256,
+        "h": 256,
+        "units": "4x concept pixels"
+      },
+      "tile": true,
+      "tileAxes": "y",
+      "animation": "shore-foam-left",
+      "order": 3,
+      "durationMs": 180,
+      "topology": 10,
+      "layer": "behind-cliff"
+    },
+    "shore-foam-right-0": {
+      "x": 320,
+      "y": 1824,
+      "w": 256,
+      "h": 256,
+      "anchor": {
+        "x": 0,
+        "y": 0
+      },
+      "footprint": {
+        "w": 256,
+        "h": 256,
+        "units": "4x concept pixels"
+      },
+      "tile": true,
+      "tileAxes": "y",
+      "animation": "shore-foam-right",
+      "order": 0,
+      "durationMs": 180,
+      "topology": 5,
+      "layer": "behind-cliff"
+    },
+    "shore-foam-right-1": {
+      "x": 608,
+      "y": 1824,
+      "w": 256,
+      "h": 256,
+      "anchor": {
+        "x": 0,
+        "y": 0
+      },
+      "footprint": {
+        "w": 256,
+        "h": 256,
+        "units": "4x concept pixels"
+      },
+      "tile": true,
+      "tileAxes": "y",
+      "animation": "shore-foam-right",
+      "order": 1,
+      "durationMs": 180,
+      "topology": 5,
+      "layer": "behind-cliff"
+    },
+    "shore-foam-right-2": {
+      "x": 896,
+      "y": 1824,
+      "w": 256,
+      "h": 256,
+      "anchor": {
+        "x": 0,
+        "y": 0
+      },
+      "footprint": {
+        "w": 256,
+        "h": 256,
+        "units": "4x concept pixels"
+      },
+      "tile": true,
+      "tileAxes": "y",
+      "animation": "shore-foam-right",
+      "order": 2,
+      "durationMs": 180,
+      "topology": 5,
+      "layer": "behind-cliff"
+    },
+    "shore-foam-right-3": {
+      "x": 1184,
+      "y": 1824,
+      "w": 256,
+      "h": 256,
+      "anchor": {
+        "x": 0,
+        "y": 0
+      },
+      "footprint": {
+        "w": 256,
+        "h": 256,
+        "units": "4x concept pixels"
+      },
+      "tile": true,
+      "tileAxes": "y",
+      "animation": "shore-foam-right",
+      "order": 3,
+      "durationMs": 180,
+      "topology": 5,
+      "layer": "behind-cliff"
+    },
+    "shore-foam-outer-nw-0": {
+      "x": 1472,
+      "y": 1824,
+      "w": 256,
+      "h": 416,
+      "anchor": {
+        "x": 0,
+        "y": 0
+      },
+      "footprint": {
+        "w": 256,
+        "h": 256,
+        "units": "4x concept pixels"
+      },
+      "tile": false,
+      "animation": "shore-foam-outer-nw",
+      "order": 0,
+      "durationMs": 180,
+      "topology": 8,
+      "layer": "behind-cliff"
+    },
+    "shore-foam-outer-nw-1": {
+      "x": 1760,
+      "y": 1824,
+      "w": 256,
+      "h": 416,
+      "anchor": {
+        "x": 0,
+        "y": 0
+      },
+      "footprint": {
+        "w": 256,
+        "h": 256,
+        "units": "4x concept pixels"
+      },
+      "tile": false,
+      "animation": "shore-foam-outer-nw",
+      "order": 1,
+      "durationMs": 180,
+      "topology": 8,
+      "layer": "behind-cliff"
+    },
+    "shore-foam-outer-nw-2": {
+      "x": 2048,
+      "y": 1824,
+      "w": 256,
+      "h": 416,
+      "anchor": {
+        "x": 0,
+        "y": 0
+      },
+      "footprint": {
+        "w": 256,
+        "h": 256,
+        "units": "4x concept pixels"
+      },
+      "tile": false,
+      "animation": "shore-foam-outer-nw",
+      "order": 2,
+      "durationMs": 180,
+      "topology": 8,
+      "layer": "behind-cliff"
+    },
+    "shore-foam-outer-nw-3": {
+      "x": 2336,
+      "y": 1824,
+      "w": 256,
+      "h": 416,
+      "anchor": {
+        "x": 0,
+        "y": 0
+      },
+      "footprint": {
+        "w": 256,
+        "h": 256,
+        "units": "4x concept pixels"
+      },
+      "tile": false,
+      "animation": "shore-foam-outer-nw",
+      "order": 3,
+      "durationMs": 180,
+      "topology": 8,
+      "layer": "behind-cliff"
+    },
+    "shore-foam-outer-ne-0": {
+      "x": 2624,
+      "y": 1824,
+      "w": 256,
+      "h": 416,
+      "anchor": {
+        "x": 0,
+        "y": 0
+      },
+      "footprint": {
+        "w": 256,
+        "h": 256,
+        "units": "4x concept pixels"
+      },
+      "tile": false,
+      "animation": "shore-foam-outer-ne",
+      "order": 0,
+      "durationMs": 180,
+      "topology": 4,
+      "layer": "behind-cliff"
+    },
+    "shore-foam-outer-ne-1": {
+      "x": 2912,
+      "y": 1824,
+      "w": 256,
+      "h": 416,
+      "anchor": {
+        "x": 0,
+        "y": 0
+      },
+      "footprint": {
+        "w": 256,
+        "h": 256,
+        "units": "4x concept pixels"
+      },
+      "tile": false,
+      "animation": "shore-foam-outer-ne",
+      "order": 1,
+      "durationMs": 180,
+      "topology": 4,
+      "layer": "behind-cliff"
+    },
+    "shore-foam-outer-ne-2": {
+      "x": 3200,
+      "y": 1824,
+      "w": 256,
+      "h": 416,
+      "anchor": {
+        "x": 0,
+        "y": 0
+      },
+      "footprint": {
+        "w": 256,
+        "h": 256,
+        "units": "4x concept pixels"
+      },
+      "tile": false,
+      "animation": "shore-foam-outer-ne",
+      "order": 2,
+      "durationMs": 180,
+      "topology": 4,
+      "layer": "behind-cliff"
+    },
+    "shore-foam-outer-ne-3": {
+      "x": 3488,
+      "y": 1824,
+      "w": 256,
+      "h": 416,
+      "anchor": {
+        "x": 0,
+        "y": 0
+      },
+      "footprint": {
+        "w": 256,
+        "h": 256,
+        "units": "4x concept pixels"
+      },
+      "tile": false,
+      "animation": "shore-foam-outer-ne",
+      "order": 3,
+      "durationMs": 180,
+      "topology": 4,
+      "layer": "behind-cliff"
+    },
+    "shore-foam-outer-sw-0": {
+      "x": 3776,
+      "y": 1824,
+      "w": 256,
+      "h": 416,
+      "anchor": {
+        "x": 0,
+        "y": 0
+      },
+      "footprint": {
+        "w": 256,
+        "h": 256,
+        "units": "4x concept pixels"
+      },
+      "tile": false,
+      "animation": "shore-foam-outer-sw",
+      "order": 0,
+      "durationMs": 180,
+      "topology": 2,
+      "layer": "behind-cliff"
+    },
+    "shore-foam-outer-sw-1": {
+      "x": 32,
+      "y": 2272,
+      "w": 256,
+      "h": 416,
+      "anchor": {
+        "x": 0,
+        "y": 0
+      },
+      "footprint": {
+        "w": 256,
+        "h": 256,
+        "units": "4x concept pixels"
+      },
+      "tile": false,
+      "animation": "shore-foam-outer-sw",
+      "order": 1,
+      "durationMs": 180,
+      "topology": 2,
+      "layer": "behind-cliff"
+    },
+    "shore-foam-outer-sw-2": {
+      "x": 320,
+      "y": 2272,
+      "w": 256,
+      "h": 416,
+      "anchor": {
+        "x": 0,
+        "y": 0
+      },
+      "footprint": {
+        "w": 256,
+        "h": 256,
+        "units": "4x concept pixels"
+      },
+      "tile": false,
+      "animation": "shore-foam-outer-sw",
+      "order": 2,
+      "durationMs": 180,
+      "topology": 2,
+      "layer": "behind-cliff"
+    },
+    "shore-foam-outer-sw-3": {
+      "x": 608,
+      "y": 2272,
+      "w": 256,
+      "h": 416,
+      "anchor": {
+        "x": 0,
+        "y": 0
+      },
+      "footprint": {
+        "w": 256,
+        "h": 256,
+        "units": "4x concept pixels"
+      },
+      "tile": false,
+      "animation": "shore-foam-outer-sw",
+      "order": 3,
+      "durationMs": 180,
+      "topology": 2,
+      "layer": "behind-cliff"
+    },
+    "shore-foam-outer-se-0": {
+      "x": 896,
+      "y": 2272,
+      "w": 256,
+      "h": 416,
+      "anchor": {
+        "x": 0,
+        "y": 0
+      },
+      "footprint": {
+        "w": 256,
+        "h": 256,
+        "units": "4x concept pixels"
+      },
+      "tile": false,
+      "animation": "shore-foam-outer-se",
+      "order": 0,
+      "durationMs": 180,
+      "topology": 1,
+      "layer": "behind-cliff"
+    },
+    "shore-foam-outer-se-1": {
+      "x": 1184,
+      "y": 2272,
+      "w": 256,
+      "h": 416,
+      "anchor": {
+        "x": 0,
+        "y": 0
+      },
+      "footprint": {
+        "w": 256,
+        "h": 256,
+        "units": "4x concept pixels"
+      },
+      "tile": false,
+      "animation": "shore-foam-outer-se",
+      "order": 1,
+      "durationMs": 180,
+      "topology": 1,
+      "layer": "behind-cliff"
+    },
+    "shore-foam-outer-se-2": {
+      "x": 1472,
+      "y": 2272,
+      "w": 256,
+      "h": 416,
+      "anchor": {
+        "x": 0,
+        "y": 0
+      },
+      "footprint": {
+        "w": 256,
+        "h": 256,
+        "units": "4x concept pixels"
+      },
+      "tile": false,
+      "animation": "shore-foam-outer-se",
+      "order": 2,
+      "durationMs": 180,
+      "topology": 1,
+      "layer": "behind-cliff"
+    },
+    "shore-foam-outer-se-3": {
+      "x": 1760,
+      "y": 2272,
+      "w": 256,
+      "h": 416,
+      "anchor": {
+        "x": 0,
+        "y": 0
+      },
+      "footprint": {
+        "w": 256,
+        "h": 256,
+        "units": "4x concept pixels"
+      },
+      "tile": false,
+      "animation": "shore-foam-outer-se",
+      "order": 3,
+      "durationMs": 180,
+      "topology": 1,
+      "layer": "behind-cliff"
+    },
+    "shore-foam-inner-nw-0": {
+      "x": 2048,
+      "y": 2272,
+      "w": 256,
+      "h": 416,
+      "anchor": {
+        "x": 0,
+        "y": 0
+      },
+      "footprint": {
+        "w": 256,
+        "h": 256,
+        "units": "4x concept pixels"
+      },
+      "tile": false,
+      "animation": "shore-foam-inner-nw",
+      "order": 0,
+      "durationMs": 180,
+      "topology": 7,
+      "layer": "behind-cliff"
+    },
+    "shore-foam-inner-nw-1": {
+      "x": 2336,
+      "y": 2272,
+      "w": 256,
+      "h": 416,
+      "anchor": {
+        "x": 0,
+        "y": 0
+      },
+      "footprint": {
+        "w": 256,
+        "h": 256,
+        "units": "4x concept pixels"
+      },
+      "tile": false,
+      "animation": "shore-foam-inner-nw",
+      "order": 1,
+      "durationMs": 180,
+      "topology": 7,
+      "layer": "behind-cliff"
+    },
+    "shore-foam-inner-nw-2": {
+      "x": 2624,
+      "y": 2272,
+      "w": 256,
+      "h": 416,
+      "anchor": {
+        "x": 0,
+        "y": 0
+      },
+      "footprint": {
+        "w": 256,
+        "h": 256,
+        "units": "4x concept pixels"
+      },
+      "tile": false,
+      "animation": "shore-foam-inner-nw",
+      "order": 2,
+      "durationMs": 180,
+      "topology": 7,
+      "layer": "behind-cliff"
+    },
+    "shore-foam-inner-nw-3": {
+      "x": 2912,
+      "y": 2272,
+      "w": 256,
+      "h": 416,
+      "anchor": {
+        "x": 0,
+        "y": 0
+      },
+      "footprint": {
+        "w": 256,
+        "h": 256,
+        "units": "4x concept pixels"
+      },
+      "tile": false,
+      "animation": "shore-foam-inner-nw",
+      "order": 3,
+      "durationMs": 180,
+      "topology": 7,
+      "layer": "behind-cliff"
+    },
+    "shore-foam-inner-ne-0": {
+      "x": 3200,
+      "y": 2272,
+      "w": 256,
+      "h": 416,
+      "anchor": {
+        "x": 0,
+        "y": 0
+      },
+      "footprint": {
+        "w": 256,
+        "h": 256,
+        "units": "4x concept pixels"
+      },
+      "tile": false,
+      "animation": "shore-foam-inner-ne",
+      "order": 0,
+      "durationMs": 180,
+      "topology": 11,
+      "layer": "behind-cliff"
+    },
+    "shore-foam-inner-ne-1": {
+      "x": 3488,
+      "y": 2272,
+      "w": 256,
+      "h": 416,
+      "anchor": {
+        "x": 0,
+        "y": 0
+      },
+      "footprint": {
+        "w": 256,
+        "h": 256,
+        "units": "4x concept pixels"
+      },
+      "tile": false,
+      "animation": "shore-foam-inner-ne",
+      "order": 1,
+      "durationMs": 180,
+      "topology": 11,
+      "layer": "behind-cliff"
+    },
+    "shore-foam-inner-ne-2": {
+      "x": 3776,
+      "y": 2272,
+      "w": 256,
+      "h": 416,
+      "anchor": {
+        "x": 0,
+        "y": 0
+      },
+      "footprint": {
+        "w": 256,
+        "h": 256,
+        "units": "4x concept pixels"
+      },
+      "tile": false,
+      "animation": "shore-foam-inner-ne",
+      "order": 2,
+      "durationMs": 180,
+      "topology": 11,
+      "layer": "behind-cliff"
+    },
+    "shore-foam-inner-ne-3": {
+      "x": 32,
+      "y": 2720,
+      "w": 256,
+      "h": 416,
+      "anchor": {
+        "x": 0,
+        "y": 0
+      },
+      "footprint": {
+        "w": 256,
+        "h": 256,
+        "units": "4x concept pixels"
+      },
+      "tile": false,
+      "animation": "shore-foam-inner-ne",
+      "order": 3,
+      "durationMs": 180,
+      "topology": 11,
+      "layer": "behind-cliff"
+    },
+    "shore-foam-inner-sw-0": {
+      "x": 320,
+      "y": 2720,
+      "w": 256,
+      "h": 416,
+      "anchor": {
+        "x": 0,
+        "y": 0
+      },
+      "footprint": {
+        "w": 256,
+        "h": 256,
+        "units": "4x concept pixels"
+      },
+      "tile": false,
+      "animation": "shore-foam-inner-sw",
+      "order": 0,
+      "durationMs": 180,
+      "topology": 13,
+      "layer": "behind-cliff"
+    },
+    "shore-foam-inner-sw-1": {
+      "x": 608,
+      "y": 2720,
+      "w": 256,
+      "h": 416,
+      "anchor": {
+        "x": 0,
+        "y": 0
+      },
+      "footprint": {
+        "w": 256,
+        "h": 256,
+        "units": "4x concept pixels"
+      },
+      "tile": false,
+      "animation": "shore-foam-inner-sw",
+      "order": 1,
+      "durationMs": 180,
+      "topology": 13,
+      "layer": "behind-cliff"
+    },
+    "shore-foam-inner-sw-2": {
+      "x": 896,
+      "y": 2720,
+      "w": 256,
+      "h": 416,
+      "anchor": {
+        "x": 0,
+        "y": 0
+      },
+      "footprint": {
+        "w": 256,
+        "h": 256,
+        "units": "4x concept pixels"
+      },
+      "tile": false,
+      "animation": "shore-foam-inner-sw",
+      "order": 2,
+      "durationMs": 180,
+      "topology": 13,
+      "layer": "behind-cliff"
+    },
+    "shore-foam-inner-sw-3": {
+      "x": 1184,
+      "y": 2720,
+      "w": 256,
+      "h": 416,
+      "anchor": {
+        "x": 0,
+        "y": 0
+      },
+      "footprint": {
+        "w": 256,
+        "h": 256,
+        "units": "4x concept pixels"
+      },
+      "tile": false,
+      "animation": "shore-foam-inner-sw",
+      "order": 3,
+      "durationMs": 180,
+      "topology": 13,
+      "layer": "behind-cliff"
+    },
+    "shore-foam-inner-se-0": {
+      "x": 1472,
+      "y": 2720,
+      "w": 256,
+      "h": 416,
+      "anchor": {
+        "x": 0,
+        "y": 0
+      },
+      "footprint": {
+        "w": 256,
+        "h": 256,
+        "units": "4x concept pixels"
+      },
+      "tile": false,
+      "animation": "shore-foam-inner-se",
+      "order": 0,
+      "durationMs": 180,
+      "topology": 14,
+      "layer": "behind-cliff"
+    },
+    "shore-foam-inner-se-1": {
+      "x": 1760,
+      "y": 2720,
+      "w": 256,
+      "h": 416,
+      "anchor": {
+        "x": 0,
+        "y": 0
+      },
+      "footprint": {
+        "w": 256,
+        "h": 256,
+        "units": "4x concept pixels"
+      },
+      "tile": false,
+      "animation": "shore-foam-inner-se",
+      "order": 1,
+      "durationMs": 180,
+      "topology": 14,
+      "layer": "behind-cliff"
+    },
+    "shore-foam-inner-se-2": {
+      "x": 2048,
+      "y": 2720,
+      "w": 256,
+      "h": 416,
+      "anchor": {
+        "x": 0,
+        "y": 0
+      },
+      "footprint": {
+        "w": 256,
+        "h": 256,
+        "units": "4x concept pixels"
+      },
+      "tile": false,
+      "animation": "shore-foam-inner-se",
+      "order": 2,
+      "durationMs": 180,
+      "topology": 14,
+      "layer": "behind-cliff"
+    },
+    "shore-foam-inner-se-3": {
+      "x": 2336,
+      "y": 2720,
+      "w": 256,
+      "h": 416,
+      "anchor": {
+        "x": 0,
+        "y": 0
+      },
+      "footprint": {
+        "w": 256,
+        "h": 256,
+        "units": "4x concept pixels"
+      },
+      "tile": false,
+      "animation": "shore-foam-inner-se",
+      "order": 3,
+      "durationMs": 180,
+      "topology": 14,
+      "layer": "behind-cliff"
+    }
+  },
+  "animations": {
+    "sea": {
+      "frames": [
+        "sea-0",
+        "sea-1",
+        "sea-2",
+        "sea-3"
+      ],
+      "durationMs": 180,
+      "loop": true,
+      "registration": "fixed frame and anchor, cyclic material-only motion"
+    },
+    "river-h": {
+      "frames": [
+        "river-h-0",
+        "river-h-1",
+        "river-h-2",
+        "river-h-3"
+      ],
+      "durationMs": 180,
+      "loop": true,
+      "registration": "fixed frame and anchor, cyclic material-only motion"
+    },
+    "river-v": {
+      "frames": [
+        "river-v-0",
+        "river-v-1",
+        "river-v-2",
+        "river-v-3"
+      ],
+      "durationMs": 180,
+      "loop": true,
+      "registration": "fixed frame and anchor, cyclic material-only motion"
+    },
+    "waterfall": {
+      "frames": [
+        "waterfall-0",
+        "waterfall-1",
+        "waterfall-2",
+        "waterfall-3"
+      ],
+      "durationMs": 180,
+      "loop": true,
+      "registration": "fixed frame and anchor, cyclic material-only motion"
+    },
+    "waterfall-base": {
+      "frames": [
+        "waterfall-base-0",
+        "waterfall-base-1",
+        "waterfall-base-2",
+        "waterfall-base-3"
+      ],
+      "durationMs": 180,
+      "loop": true,
+      "registration": "fixed frame and anchor, cyclic material-only motion"
+    },
+    "shore-foam-front": {
+      "frames": [
+        "shore-foam-front-0",
+        "shore-foam-front-1",
+        "shore-foam-front-2",
+        "shore-foam-front-3"
+      ],
+      "durationMs": 180,
+      "loop": true,
+      "registration": "fixed frame and anchor, cyclic material-only motion"
+    },
+    "shore-foam-back": {
+      "frames": [
+        "shore-foam-back-0",
+        "shore-foam-back-1",
+        "shore-foam-back-2",
+        "shore-foam-back-3"
+      ],
+      "durationMs": 180,
+      "loop": true,
+      "registration": "fixed frame and anchor, cyclic material-only motion"
+    },
+    "shore-foam-left": {
+      "frames": [
+        "shore-foam-left-0",
+        "shore-foam-left-1",
+        "shore-foam-left-2",
+        "shore-foam-left-3"
+      ],
+      "durationMs": 180,
+      "loop": true,
+      "registration": "fixed frame and anchor, cyclic material-only motion"
+    },
+    "shore-foam-right": {
+      "frames": [
+        "shore-foam-right-0",
+        "shore-foam-right-1",
+        "shore-foam-right-2",
+        "shore-foam-right-3"
+      ],
+      "durationMs": 180,
+      "loop": true,
+      "registration": "fixed frame and anchor, cyclic material-only motion"
+    },
+    "shore-foam-outer-nw": {
+      "frames": [
+        "shore-foam-outer-nw-0",
+        "shore-foam-outer-nw-1",
+        "shore-foam-outer-nw-2",
+        "shore-foam-outer-nw-3"
+      ],
+      "durationMs": 180,
+      "loop": true,
+      "registration": "fixed frame and anchor, cyclic material-only motion"
+    },
+    "shore-foam-outer-ne": {
+      "frames": [
+        "shore-foam-outer-ne-0",
+        "shore-foam-outer-ne-1",
+        "shore-foam-outer-ne-2",
+        "shore-foam-outer-ne-3"
+      ],
+      "durationMs": 180,
+      "loop": true,
+      "registration": "fixed frame and anchor, cyclic material-only motion"
+    },
+    "shore-foam-outer-sw": {
+      "frames": [
+        "shore-foam-outer-sw-0",
+        "shore-foam-outer-sw-1",
+        "shore-foam-outer-sw-2",
+        "shore-foam-outer-sw-3"
+      ],
+      "durationMs": 180,
+      "loop": true,
+      "registration": "fixed frame and anchor, cyclic material-only motion"
+    },
+    "shore-foam-outer-se": {
+      "frames": [
+        "shore-foam-outer-se-0",
+        "shore-foam-outer-se-1",
+        "shore-foam-outer-se-2",
+        "shore-foam-outer-se-3"
+      ],
+      "durationMs": 180,
+      "loop": true,
+      "registration": "fixed frame and anchor, cyclic material-only motion"
+    },
+    "shore-foam-inner-nw": {
+      "frames": [
+        "shore-foam-inner-nw-0",
+        "shore-foam-inner-nw-1",
+        "shore-foam-inner-nw-2",
+        "shore-foam-inner-nw-3"
+      ],
+      "durationMs": 180,
+      "loop": true,
+      "registration": "fixed frame and anchor, cyclic material-only motion"
+    },
+    "shore-foam-inner-ne": {
+      "frames": [
+        "shore-foam-inner-ne-0",
+        "shore-foam-inner-ne-1",
+        "shore-foam-inner-ne-2",
+        "shore-foam-inner-ne-3"
+      ],
+      "durationMs": 180,
+      "loop": true,
+      "registration": "fixed frame and anchor, cyclic material-only motion"
+    },
+    "shore-foam-inner-sw": {
+      "frames": [
+        "shore-foam-inner-sw-0",
+        "shore-foam-inner-sw-1",
+        "shore-foam-inner-sw-2",
+        "shore-foam-inner-sw-3"
+      ],
+      "durationMs": 180,
+      "loop": true,
+      "registration": "fixed frame and anchor, cyclic material-only motion"
+    },
+    "shore-foam-inner-se": {
+      "frames": [
+        "shore-foam-inner-se-0",
+        "shore-foam-inner-se-1",
+        "shore-foam-inner-se-2",
+        "shore-foam-inner-se-3"
+      ],
+      "durationMs": 180,
+      "loop": true,
+      "registration": "fixed frame and anchor, cyclic material-only motion"
+    }
+  },
+  "sources": "prompts.json",
+  "processing": "Raw generated sources unchanged. Lanczos crops, narrow periodic edge blending, texture projection through antialiased modular masks, cyclic material displacement. No palette quantization or thresholded source alpha.",
+  "conceptScale": 4
+}

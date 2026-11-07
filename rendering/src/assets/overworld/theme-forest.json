@@ -1,0 +1,776 @@
+{
+  "image": "theme-forest.png",
+  "width": 4096,
+  "height": 1440,
+  "style": "HD painted fantasy strategy; smooth shaded contours, warm top-left light",
+  "conceptScale": 4,
+  "sampling": "linear",
+  "paletteLimited": false,
+  "alpha": "smooth RGBA; never binarized",
+  "anchorUnits": "pixels relative to frame top-left; y points down",
+  "packing": {
+    "method": "shelf",
+    "minimumTransparentGutter": 64,
+    "outerPadding": 32
+  },
+  "frames": {
+    "deciduous-0": {
+      "x": 32,
+      "y": 32,
+      "w": 330,
+      "h": 320,
+      "anchor": {
+        "x": 165,
+        "y": 316
+      },
+      "footprint": {
+        "width": 231,
+        "height": 64,
+        "units": "pixels at 4x concept scale"
+      }
+    },
+    "deciduous-1": {
+      "x": 426,
+      "y": 32,
+      "w": 301,
+      "h": 300,
+      "anchor": {
+        "x": 150,
+        "y": 296
+      },
+      "footprint": {
+        "width": 211,
+        "height": 60,
+        "units": "pixels at 4x concept scale"
+      }
+    },
+    "deciduous-2": {
+      "x": 791,
+      "y": 32,
+      "w": 310,
+      "h": 310,
+      "anchor": {
+        "x": 155,
+        "y": 306
+      },
+      "footprint": {
+        "width": 217,
+        "height": 62,
+        "units": "pixels at 4x concept scale"
+      }
+    },
+    "deciduous-3": {
+      "x": 1165,
+      "y": 32,
+      "w": 295,
+      "h": 300,
+      "anchor": {
+        "x": 147,
+        "y": 296
+      },
+      "footprint": {
+        "width": 206,
+        "height": 60,
+        "units": "pixels at 4x concept scale"
+      }
+    },
+    "pine-0": {
+      "x": 1524,
+      "y": 32,
+      "w": 218,
+      "h": 340,
+      "anchor": {
+        "x": 109,
+        "y": 336
+      },
+      "footprint": {
+        "width": 153,
+        "height": 68,
+        "units": "pixels at 4x concept scale"
+      }
+    },
+    "pine-1": {
+      "x": 1806,
+      "y": 32,
+      "w": 275,
+      "h": 320,
+      "anchor": {
+        "x": 137,
+        "y": 316
+      },
+      "footprint": {
+        "width": 192,
+        "height": 64,
+        "units": "pixels at 4x concept scale"
+      }
+    },
+    "pine-2": {
+      "x": 2145,
+      "y": 32,
+      "w": 268,
+      "h": 310,
+      "anchor": {
+        "x": 134,
+        "y": 306
+      },
+      "footprint": {
+        "width": 188,
+        "height": 62,
+        "units": "pixels at 4x concept scale"
+      }
+    },
+    "pine-3": {
+      "x": 2477,
+      "y": 32,
+      "w": 305,
+      "h": 320,
+      "anchor": {
+        "x": 152,
+        "y": 316
+      },
+      "footprint": {
+        "width": 214,
+        "height": 64,
+        "units": "pixels at 4x concept scale"
+      }
+    },
+    "blossom-0": {
+      "x": 2846,
+      "y": 32,
+      "w": 297,
+      "h": 280,
+      "anchor": {
+        "x": 148,
+        "y": 276
+      },
+      "footprint": {
+        "width": 208,
+        "height": 56,
+        "units": "pixels at 4x concept scale"
+      }
+    },
+    "blossom-1": {
+      "x": 3207,
+      "y": 32,
+      "w": 326,
+      "h": 260,
+      "anchor": {
+        "x": 163,
+        "y": 256
+      },
+      "footprint": {
+        "width": 228,
+        "height": 52,
+        "units": "pixels at 4x concept scale"
+      }
+    },
+    "bush-0": {
+      "x": 3597,
+      "y": 32,
+      "w": 182,
+      "h": 130,
+      "anchor": {
+        "x": 91,
+        "y": 126
+      },
+      "footprint": {
+        "width": 127,
+        "height": 26,
+        "units": "pixels at 4x concept scale"
+      }
+    },
+    "bush-1": {
+      "x": 3843,
+      "y": 32,
+      "w": 168,
+      "h": 110,
+      "anchor": {
+        "x": 84,
+        "y": 106
+      },
+      "footprint": {
+        "width": 118,
+        "height": 24,
+        "units": "pixels at 4x concept scale"
+      }
+    },
+    "bush-2": {
+      "x": 32,
+      "y": 436,
+      "w": 163,
+      "h": 125,
+      "anchor": {
+        "x": 81,
+        "y": 121
+      },
+      "footprint": {
+        "width": 114,
+        "height": 25,
+        "units": "pixels at 4x concept scale"
+      }
+    },
+    "flowers-0": {
+      "x": 259,
+      "y": 436,
+      "w": 131,
+      "h": 90,
+      "anchor": {
+        "x": 65,
+        "y": 86
+      },
+      "footprint": {
+        "width": 92,
+        "height": 24,
+        "units": "pixels at 4x concept scale"
+      }
+    },
+    "flowers-1": {
+      "x": 454,
+      "y": 436,
+      "w": 126,
+      "h": 80,
+      "anchor": {
+        "x": 63,
+        "y": 76
+      },
+      "footprint": {
+        "width": 88,
+        "height": 24,
+        "units": "pixels at 4x concept scale"
+      }
+    },
+    "flowers-2": {
+      "x": 644,
+      "y": 436,
+      "w": 134,
+      "h": 85,
+      "anchor": {
+        "x": 67,
+        "y": 81
+      },
+      "footprint": {
+        "width": 94,
+        "height": 24,
+        "units": "pixels at 4x concept scale"
+      }
+    },
+    "boulder-0": {
+      "x": 842,
+      "y": 436,
+      "w": 186,
+      "h": 135,
+      "anchor": {
+        "x": 93,
+        "y": 131
+      },
+      "footprint": {
+        "width": 130,
+        "height": 27,
+        "units": "pixels at 4x concept scale"
+      }
+    },
+    "boulder-1": {
+      "x": 1092,
+      "y": 436,
+      "w": 175,
+      "h": 110,
+      "anchor": {
+        "x": 87,
+        "y": 106
+      },
+      "footprint": {
+        "width": 122,
+        "height": 24,
+        "units": "pixels at 4x concept scale"
+      }
+    },
+    "boulder-2": {
+      "x": 1331,
+      "y": 436,
+      "w": 210,
+      "h": 100,
+      "anchor": {
+        "x": 105,
+        "y": 96
+      },
+      "footprint": {
+        "width": 147,
+        "height": 24,
+        "units": "pixels at 4x concept scale"
+      }
+    },
+    "ruins-wall": {
+      "x": 1605,
+      "y": 436,
+      "w": 296,
+      "h": 220,
+      "anchor": {
+        "x": 148,
+        "y": 216
+      },
+      "footprint": {
+        "width": 207,
+        "height": 44,
+        "units": "pixels at 4x concept scale"
+      }
+    },
+    "standing-arch": {
+      "x": 1965,
+      "y": 436,
+      "w": 343,
+      "h": 320,
+      "anchor": {
+        "x": 171,
+        "y": 316
+      },
+      "footprint": {
+        "width": 240,
+        "height": 64,
+        "units": "pixels at 4x concept scale"
+      }
+    },
+    "mountain-0": {
+      "x": 2372,
+      "y": 436,
+      "w": 800,
+      "h": 459,
+      "anchor": {
+        "x": 400,
+        "y": 455
+      },
+      "footprint": {
+        "width": 680,
+        "height": 160,
+        "units": "pixels at 4x concept scale"
+      },
+      "layer": "back-scenery",
+      "overlapFriendly": true
+    },
+    "mountain-1": {
+      "x": 3236,
+      "y": 436,
+      "w": 820,
+      "h": 374,
+      "anchor": {
+        "x": 410,
+        "y": 370
+      },
+      "footprint": {
+        "width": 680,
+        "height": 160,
+        "units": "pixels at 4x concept scale"
+      },
+      "layer": "back-scenery",
+      "overlapFriendly": true
+    },
+    "mountain-2": {
+      "x": 32,
+      "y": 959,
+      "w": 760,
+      "h": 447,
+      "anchor": {
+        "x": 380,
+        "y": 443
+      },
+      "footprint": {
+        "width": 680,
+        "height": 160,
+        "units": "pixels at 4x concept scale"
+      },
+      "layer": "back-scenery",
+      "overlapFriendly": true
+    }
+  },
+  "animations": {},
+  "source": {
+    "tool": "built-in image_gen",
+    "date": "2026-11-06",
+    "prompts": "prompts.json",
+    "frames": {
+      "deciduous-0": {
+        "raw": "raw/themes/forest-alpha-02.png",
+        "sourceCell": [
+          0,
+          0,
+          256,
+          294
+        ],
+        "subjectCrop": [
+          22,
+          51,
+          256,
+          278
+        ],
+        "resizeFilter": "Lanczos"
+      },
+      "deciduous-1": {
+        "raw": "raw/themes/forest-alpha-02.png",
+        "sourceCell": [
+          256,
+          0,
+          512,
+          294
+        ],
+        "subjectCrop": [
+          20,
+          55,
+          245,
+          279
+        ],
+        "resizeFilter": "Lanczos"
+      },
+      "deciduous-2": {
+        "raw": "raw/themes/forest-alpha-02.png",
+        "sourceCell": [
+          512,
+          0,
+          768,
+          294
+        ],
+        "subjectCrop": [
+          8,
+          48,
+          239,
+          279
+        ],
+        "resizeFilter": "Lanczos"
+      },
+      "deciduous-3": {
+        "raw": "raw/themes/forest-alpha-02.png",
+        "sourceCell": [
+          768,
+          0,
+          1024,
+          294
+        ],
+        "subjectCrop": [
+          5,
+          52,
+          227,
+          278
+        ],
+        "resizeFilter": "Lanczos"
+      },
+      "pine-0": {
+        "raw": "raw/themes/forest-alpha-02.png",
+        "sourceCell": [
+          0,
+          294,
+          256,
+          563
+        ],
+        "subjectCrop": [
+          60,
+          12,
+          212,
+          249
+        ],
+        "resizeFilter": "Lanczos"
+      },
+      "pine-1": {
+        "raw": "raw/themes/forest-alpha-02.png",
+        "sourceCell": [
+          256,
+          294,
+          512,
+          563
+        ],
+        "subjectCrop": [
+          31,
+          19,
+          228,
+          248
+        ],
+        "resizeFilter": "Lanczos"
+      },
+      "pine-2": {
+        "raw": "raw/themes/forest-alpha-02.png",
+        "sourceCell": [
+          512,
+          294,
+          768,
+          563
+        ],
+        "subjectCrop": [
+          19,
+          16,
+          223,
+          252
+        ],
+        "resizeFilter": "Lanczos"
+      },
+      "pine-3": {
+        "raw": "raw/themes/forest-alpha-02.png",
+        "sourceCell": [
+          768,
+          294,
+          1024,
+          563
+        ],
+        "subjectCrop": [
+          4,
+          16,
+          229,
+          252
+        ],
+        "resizeFilter": "Lanczos"
+      },
+      "blossom-0": {
+        "raw": "raw/themes/forest-alpha-02.png",
+        "sourceCell": [
+          0,
+          563,
+          256,
+          818
+        ],
+        "subjectCrop": [
+          19,
+          16,
+          247,
+          231
+        ],
+        "resizeFilter": "Lanczos"
+      },
+      "blossom-1": {
+        "raw": "raw/themes/forest-alpha-02.png",
+        "sourceCell": [
+          256,
+          563,
+          512,
+          818
+        ],
+        "subjectCrop": [
+          9,
+          30,
+          256,
+          227
+        ],
+        "resizeFilter": "Lanczos"
+      },
+      "bush-0": {
+        "raw": "raw/themes/forest-alpha-02.png",
+        "sourceCell": [
+          512,
+          563,
+          768,
+          818
+        ],
+        "subjectCrop": [
+          28,
+          59,
+          256,
+          222
+        ],
+        "resizeFilter": "Lanczos"
+      },
+      "bush-1": {
+        "raw": "raw/themes/forest-alpha-02.png",
+        "sourceCell": [
+          768,
+          563,
+          1024,
+          818
+        ],
+        "subjectCrop": [
+          0,
+          71,
+          235,
+          225
+        ],
+        "resizeFilter": "Lanczos"
+      },
+      "bush-2": {
+        "raw": "raw/themes/forest-alpha-02.png",
+        "sourceCell": [
+          0,
+          818,
+          256,
+          1021
+        ],
+        "subjectCrop": [
+          34,
+          24,
+          230,
+          174
+        ],
+        "resizeFilter": "Lanczos"
+      },
+      "flowers-0": {
+        "raw": "raw/themes/forest-alpha-02.png",
+        "sourceCell": [
+          256,
+          818,
+          512,
+          1021
+        ],
+        "subjectCrop": [
+          36,
+          42,
+          221,
+          169
+        ],
+        "resizeFilter": "Lanczos"
+      },
+      "flowers-1": {
+        "raw": "raw/themes/forest-alpha-02.png",
+        "sourceCell": [
+          512,
+          818,
+          768,
+          1021
+        ],
+        "subjectCrop": [
+          30,
+          50,
+          212,
+          166
+        ],
+        "resizeFilter": "Lanczos"
+      },
+      "flowers-2": {
+        "raw": "raw/themes/forest-alpha-02.png",
+        "sourceCell": [
+          768,
+          818,
+          1024,
+          1021
+        ],
+        "subjectCrop": [
+          16,
+          47,
+          209,
+          169
+        ],
+        "resizeFilter": "Lanczos"
+      },
+      "boulder-0": {
+        "raw": "raw/themes/forest-alpha-02.png",
+        "sourceCell": [
+          0,
+          1021,
+          256,
+          1250
+        ],
+        "subjectCrop": [
+          37,
+          58,
+          229,
+          197
+        ],
+        "resizeFilter": "Lanczos"
+      },
+      "boulder-1": {
+        "raw": "raw/themes/forest-alpha-02.png",
+        "sourceCell": [
+          256,
+          1021,
+          512,
+          1250
+        ],
+        "subjectCrop": [
+          22,
+          64,
+          232,
+          196
+        ],
+        "resizeFilter": "Lanczos"
+      },
+      "boulder-2": {
+        "raw": "raw/themes/forest-alpha-02.png",
+        "sourceCell": [
+          512,
+          1021,
+          768,
+          1250
+        ],
+        "subjectCrop": [
+          12,
+          79,
+          256,
+          195
+        ],
+        "resizeFilter": "Lanczos"
+      },
+      "ruins-wall": {
+        "raw": "raw/themes/forest-alpha-02.png",
+        "sourceCell": [
+          768,
+          1021,
+          1024,
+          1250
+        ],
+        "subjectCrop": [
+          0,
+          29,
+          234,
+          203
+        ],
+        "resizeFilter": "Lanczos"
+      },
+      "standing-arch": {
+        "raw": "raw/themes/forest-alpha-02.png",
+        "sourceCell": [
+          0,
+          1250,
+          256,
+          1536
+        ],
+        "subjectCrop": [
+          21,
+          26,
+          246,
+          236
+        ],
+        "resizeFilter": "Lanczos"
+      },
+      "mountain-0": {
+        "raw": "raw/themes/mountains-01.png",
+        "sourceCell": [
+          0,
+          0,
+          543,
+          362
+        ],
+        "subjectCrop": [
+          10,
+          19,
+          543,
+          325
+        ],
+        "resizeFilter": "Lanczos"
+      },
+      "mountain-1": {
+        "raw": "raw/themes/mountains-01.png",
+        "sourceCell": [
+          543,
+          0,
+          1086,
+          362
+        ],
+        "subjectCrop": [
+          9,
+          84,
+          539,
+          326
+        ],
+        "resizeFilter": "Lanczos"
+      },
+      "mountain-2": {
+        "raw": "raw/themes/mountains-01.png",
+        "sourceCell": [
+          1086,
+          0,
+          1629,
+          362
+        ],
+        "subjectCrop": [
+          9,
+          20,
+          531,
+          327
+        ],
+        "resizeFilter": "Lanczos"
+      }
+    }
+  }
+}
