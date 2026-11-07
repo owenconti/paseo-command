@@ -524,8 +524,9 @@ export function layoutVillage(data: AtlasData, aspect = 1.6, measure: Measure = 
     ];
     // The river just right of the right-hand halls, in the default view.
     // The river's gorge just right of the right-hand halls; the crop's right edge stays where it was (the fit ignores the river).
-    const riverX = cx + m.right + 2;
-    const cropRight = cx + m.right + 24 + V.riverW;
+    // (Its near bank meets the plaza's edge, in the default view at the right.)
+    const riverX = cx + m.right - 34;
+    const cropRight = riverX + V.riverW * 0.6;
     // The cliff at the river's head: its top at the square's edge, a middle, then its foot into the river.
     const cliffW = V.riverW + 16, ck = cliffW / FRAMES["cliff-top"]!.w;
     const cliffTop = { x: riverX + V.riverW / 2 - cliffW / 2, y: Math.max(oy - 6, topBase - maxAbove(a) - 20), w: cliffW, h: FRAMES["cliff-top"]!.h * ck };
@@ -568,8 +569,7 @@ export function layoutVillage(data: AtlasData, aspect = 1.6, measure: Measure = 
       // From the plaza's left edge to the river's middle beside the halls (the tent and the far bank as the view's width allows).
       // The concept's crop: a sliver above the top halls' banners, the front wall cut through with its bridge,
       // a strip of forest and the tent at the left, the river's gorge at the right.
-      // (and half the river's gorge, which the concept shows at its right edge)
-      keep: { x: px0 - 10, y: topBase - maxAbove(a) - 10, w: riverX + V.riverW * 0.55 - (px0 - 10), h: bridge.y + bridge.h * 0.5 - (topBase - maxAbove(a) - 10) },
+      keep: { x: px0 - 10, y: topBase - maxAbove(a) - 10, w: px1 - px0 + 20, h: bridge.y + bridge.h * 0.5 - (topBase - maxAbove(a) - 10) },
       heart: { x: px0 - 150, y: topBase - maxAbove(a) - 24, w: cropRight - (px0 - 150), h: wallY + V.wallH * 0.6 - (topBase - maxAbove(a) - 24) },
       bridge,
       walls: [
@@ -823,9 +823,11 @@ function sceneryOf(squares: VSquare[], projects: VProject[], workspaces: VWorksp
     fixed("cliff-top", sq.cliff.top, "ground");
     fixed("cliff-foot", sq.cliff.foot, "ground");
     // A ruined wall and tower beside the falls.
-    place({ frame: rng() < 0.5 ? "ruin-0" : "ruin-1", x: sq.cliff.top.x - 70, y: sq.cliff.top.y + sq.cliff.top.h + 60, w: 190, layer: "stand" }, false);
+    const ruin = rng() < 0.5 ? "ruin-0" : "ruin-1";
+    for (const x of [sq.cliff.top.x - 70, sq.cliff.top.x + sq.cliff.top.w + 70])
+      if (place({ frame: ruin, x, y: sq.cliff.top.y + sq.cliff.top.h + 60, w: 190, layer: "stand" })) break;
     for (let y = sq.river.y + 120; y < sq.river.y + sq.river.h - 80; y += 110 + rng() * 90)
-      if (rng() < 0.5) place({ frame: `rocks-${Math.floor(rng() * 3)}`, x: sq.river.x - 6 + rng() * 12, y, w: 40 + rng() * 16, layer: "stand" }, false);
+      if (rng() < 0.5) place({ frame: `rocks-${Math.floor(rng() * 3)}`, x: sq.river.x - 6 + rng() * 12, y, w: 40 + rng() * 16, layer: "stand" });
     // The foot: the moat with its lilies either side of the bridge, the wall across the whole width, its towers.
     for (const m of sq.moat) {
       const piece = FRAMES["moat-pond"]!, pw = (piece.w * m.h) / piece.h;

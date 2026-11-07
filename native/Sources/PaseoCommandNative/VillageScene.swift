@@ -730,13 +730,15 @@ final class VillageScene: SKScene, MapScene {
             let k = keep ?? c
             // The panel may lie over the plaza's outer strip (its left 40%), as the concept's lies over its woods.
             // (Several hosts: the whole village is the crop, and the panel keeps clear of it.)
-            let left = hudLeft
+            // The panel may lie over the plaza's outer strip and the top-left hall's left eave, as the concept's does:
+            // it never drives the zoom far. (Several hosts: the whole village is the crop, and the panel keeps clear of it.)
+            let left = keep == core ? hudLeft : hudLeft * 0.6
             let hold = min((v.width - left) / (k.width + margin * 2), v.height / (k.height + margin * 2))
             zoom = min(max(min(cover, hold), minimumZoom), maxZoom)
             // Centred on what must show, nudged toward the crop's middle as far as the view allows.
             let w = v.width / zoom, h = v.height / zoom
-            // (Its left edge clear of the panel.)
-            let x = min(max(c.midX, k.maxX - w / 2), k.minX - left / zoom + w / 2)
+            // (Its left edge under the panel by a little more, so the river's gorge shows at the right.)
+            let x = min(max(c.midX, k.maxX - w / 2), k.minX - left * (keep == core ? 1 : 0.25) / zoom + w / 2)
             let y = min(max(c.midY, k.maxY - h / 2), k.minY + h / 2)
             center = CGPoint(x: x, y: y)
         } else {
