@@ -48,7 +48,7 @@ export const D = {
   /** Side content starts this far from the gates' centre line; the first tier's link drops at `drop`,
    * lower tiers' run down at `trunk`, beside the stairs. */
   inner: 80,
-  drop: 134,
+  drop: 150,
   trunk: 70,
   /** Each end of a floor is a side room this wide. */
   sideRoom: 160,
@@ -56,7 +56,7 @@ export const D = {
   minSide: 250,
   /** Floor: its upper band (gate medallion, plaque, node) above its first tier. */
   band: 116,
-  tierH: 254,
+  tierH: 264,
   tierGap: 0,
   /** The stone ledge's face under a tier's floor. */
   ledge: 28,
@@ -68,16 +68,16 @@ export const D = {
   medallionY: 29,
   medallionR: 29,
   labelY: 53,
-  labelH: 38,
-  busY: 95,
-  alcoveY: 96,
+  labelH: 44,
+  busY: 103,
+  alcoveY: 106,
   alcoveH: 128,
-  wsLabelY: 106,
-  wsLabelH: 35,
-  feetY: 211,
-  floorY: 224,
+  wsLabelY: 116,
+  wsLabelH: 40,
+  feetY: 221,
+  floorY: 234,
   /** The thick front wall closing each tier (its top). */
-  frontY: 240,
+  frontY: 250,
   /** The wall above the first floor, which the HUD's title lies over. */
   topBand: 80,
   /** Within a floor (from its top). */
@@ -88,8 +88,8 @@ export const D = {
   surroundW: 333,
   surroundH: 229,
   plaqueY: 77,
-  plaqueH: 65,
-  plaqueMin: 275,
+  plaqueH: 74,
+  plaqueMin: 316,
   nodeY: 158,
   portcullisY: 176,
   portcullisW: 85,
@@ -100,11 +100,11 @@ export const D = {
   stairsY: 235,
   stairsW: 120,
   /** Type (board px): workspace and project labels, the plaque's name and stats line. */
-  font: { workspace: 19, project: 20, host: 28, stats: 16 },
-  labelPad: 14,
-  wsLabelMin: 120,
-  projectLabelMin: 195,
-  labelMax: 280,
+  font: { workspace: 22, project: 23, host: 32, stats: 18 },
+  labelPad: 16,
+  wsLabelMin: 138,
+  projectLabelMin: 224,
+  labelMax: 320,
   /** A PR medallion on an alcove's lintel, and room it keeps beside the label. */
   flag: 18,
   flagInset: 16,
@@ -387,7 +387,7 @@ const VIGNETTES: { name: string; room: string; glow?: { color: number; reach: nu
   { name: "crystal", room: "room-cave", glow: { color: 0xb06bff, reach: 120, dy: 140 }, props: [{ frame: "crystal", h: 104, dx: 4, light: { color: 0xc080ff, reach: 90 } }, { frame: "barrel", h: 40, dx: -50 }] },
   { name: "magic", room: "room-magic", glow: { color: 0x3fb8ff, reach: 120, dy: 100 }, props: [{ frame: "magic-circle", h: 100, dx: -10, up: 22 }, { frame: "armor", h: 94, dx: 42 }] },
   { name: "forge", room: "room-forge", glow: { color: 0xff7a2a, reach: 110, dy: 150 }, props: [
-    { frame: "forge", h: 124, dx: 10, light: { color: 0xff9a3a, reach: 90 } }, { frame: "anvil", h: 44, dx: -40 },
+    { frame: "forge", h: 124, dx: 10, light: { color: 0xff9a3a, reach: 50 } }, { frame: "anvil", h: 44, dx: -40 },
     { frame: "shelf-potions", h: 58, dx: -48, up: 64 }, { frame: "table", h: 30, dx: 56 }, { frame: "candelabra", h: 30, dx: 56, up: 24, light: { color: 0xffb040, reach: 40 } } ] },
   { name: "alchemy", room: "room-arch", glow: { color: 0xc06bff, reach: 100, dy: 140 }, props: [{ frame: "alchemy-tank", h: 122, dx: 2 }, { frame: "crate", h: 38, dx: -52 }] },
   { name: "storage", room: "room-arch", props: [{ frame: "barrels", h: 62, dx: -22 }, { frame: "crates", h: 70, dx: 28 }, { frame: "candelabra", h: 30, dx: 28, up: 70, light: { color: 0xffb040, reach: 40 } }] },
@@ -786,7 +786,7 @@ export function layoutDungeon(data: AtlasData, _aspect = 1.6, measure: Measure =
       const lip = fl.tierTops[fl.tiers - 1]! + D.frontY + 40;
       place({ frame: "banner-crown", x: 0, y: lip + 8, w: 56, floor: f, layer: "front" }, false);
       for (const s of [-1, 1] as const) {
-        place({ frame: "brazier", x: s * 112, y, w: 66, floor: f, layer: "front", ...lit({ color: 0xff9a3a, reach: 46 }) }, false);
+        place({ frame: "brazier", x: s * 112, y, w: 66, floor: f, layer: "front", ...lit({ color: 0xff9a3a, reach: 30 }) }, false);
         const rug = FRAMES["rug-red"]!, rugW = 162, rugH = (rug.h * rugW) / rug.w;
         place({ frame: "rug-red", x: s * 300, y: lip + 6 + anchorShare(rug.anchor).y * rugH, w: rugW, floor: f, layer: "back" }, false);
         // The scribe's desk on the rug's outer end, a candelabra on it.

@@ -41,7 +41,7 @@ const TEXT_SCALE = 4;
 /** How dark the far wall is drawn (a share of black over its tile), for the light pools to warm. */
 const WALL_SHADE = 0;
 /** The alcoves' interiors, a little darker than their sheet, so the robots read against them. */
-const INTERIOR_SHADE = 0.28;
+const INTERIOR_SHADE = 0.42;
 /** How strongly the warm torchlight wash lights the stone. */
 /** Gold light: its colour (multiplied, doubled, over the stone) and each kind of pool's strength. */
 const GOLD = 0xc87c00;
@@ -52,7 +52,7 @@ const GOLD_DIM = 0x5e3a00;
 const TREAD = 12;
 /** Warm bounce on the alcoves' inner jambs (off: next to the robots it competed with them). */
 const JAMBS = false;
-const GOLD_K = { alcove: 0.55, stairs: 0.9, walk: 0.9, rim: 0.9, front: 0.35, torch: 0.95, candle: 0.85 };
+const GOLD_K = { alcove: 0.35, stairs: 0.9, walk: 0.9, rim: 0.9, front: 0.35, torch: 0.95, candle: 0.85 };
 /** The concept's chunky, wide, rounded heavy type: SF Pro Rounded where WebKit has it. */
 const FONT = 'ui-rounded, "SF Pro Rounded", "Arial Rounded MT Bold", "Paseo Barlow", sans-serif';
 /** Its weights: labels and plaques heavy, the HUD's lighter lines bold. */
@@ -591,7 +591,7 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
       for (const cx of [p.label.x - 22, p.label.x + p.label.w + 22]) {
         sprites.push(sprite(lit ? "wall-candles" : "wall-candles-out", at("wall-candles", cx, p.label.y - 16, 30), 3.2, dim));
         if (lit) {
-          lights.push({ x: cx, y: p.label.y - 6, c: 0xffb840, r: 22, period: 1900, flicker: true, ph: random(seedOf(p.key + cx))(), k: 0.9 });
+          lights.push({ x: cx, y: p.label.y - 6, c: 0xffb840, r: 16, period: 1900, flicker: true, ph: random(seedOf(p.key + cx))(), k: 0.6 });
           lights.push({ x: cx, y: p.label.y + 10, rx: 30, ry: 26, c: GOLD_DEEP, blend: "gold", tight: 1, k: 0.9, z: -29, period: 5200, flicker: false });
         }
       }
@@ -652,7 +652,7 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
       // Side rooms' recesses a shade down, so their coloured light never outshines the robots.
       // Side rooms' recesses and the foot's red rugs a shade down, so neither outshines the robots.
       const glowing = /^(magic-circle|crystal|alchemy-tank|forge|brazier)$/.test(d.frame);
-      const quiet = (d.recess || glowing || d.frame === "rug-red") && l.floors[d.floor]?.online ? { shade: d.recess ? 0.45 : glowing ? 0.32 : 0.38 } : {};
+      const quiet = (d.recess || glowing || d.frame === "rug-red") && l.floors[d.floor]?.online ? { shade: d.recess ? 0.45 : d.frame === "brazier" || d.frame === "forge" ? 0.42 : glowing ? 0.32 : 0.38 } : {};
       sprites.push(sprite(d.frame, d.rect, z, { ...dimOf(d.floor), ...(d.flip ? { flip: 1 } : {}), ...quiet }));
       if (d.light && l.floors[d.floor]!.online)
         lights.push({
@@ -718,7 +718,7 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
     // The forecourt's floor lit by its braziers.
     for (const d of l.decor)
       if (d.frame === "brazier" && l.floors[d.floor]?.online)
-        lights.push({ x: d.rect.x + d.rect.w / 2, y: d.rect.y + d.rect.h - 6, rx: 64, ry: 22, c: GOLD, blend: "gold", tight: 1, k: 0.95, z: -39, period: 5200, flicker: false });
+        lights.push({ x: d.rect.x + d.rect.w / 2, y: d.rect.y + d.rect.h - 6, rx: 52, ry: 18, c: GOLD_DEEP, blend: "gold", tight: 1, k: 0.8, z: -39, period: 5200, flicker: false });
     // One pool per torch, or per pair of torches close together (stacked pools would outshine the robots).
     const pooled: { x: number; y: number }[] = [];
     for (const d of l.decor) {
