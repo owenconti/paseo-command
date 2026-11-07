@@ -432,8 +432,8 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
     } else {
       const g = ctx.createRadialGradient(128, 128, 70, 128, 128, 182);
       g.addColorStop(0, shadow(0));
-      g.addColorStop(0.7, shadow(0.22));
-      g.addColorStop(1, shadow(0.6));
+      g.addColorStop(0.7, shadow(0.16));
+      g.addColorStop(1, shadow(0.48));
       ctx.fillStyle = g;
     }
     ctx.fillRect(0, 0, 256, 256);
@@ -511,15 +511,15 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
       if (fl.last) put("stairs-bottom", fl.stairs.x, fl.stairs.y + fl.stairs.h - 29, fl.stairs.w, 29, -25.8, steps);
       sprites.push(
         fl.online
-          ? sprite("gate-portcullis-lit", fl.portcullis, -25, { pulse: 2600, a: 0.74 })
+          ? sprite("gate-portcullis-lit", fl.portcullis, -25, { pulse: 2600, a: 0.62, shade: 0.3 })
           : sprite("gate-portcullis-dark", fl.portcullis, -25, dim),
       );
       put("gate-arch", fl.arch.x, fl.arch.y, fl.arch.w, fl.arch.h, -24, dim);
       if (fl.online) {
         // The gate's light, turned down so the robots draw the eye first.
-        lights.push({ x: 0, y: fl.portcullis.y + fl.portcullis.h / 2, c: 0xffb640, r: 130, period: 2600, flicker: false, k: 0.5 });
+        lights.push({ x: 0, y: fl.portcullis.y + fl.portcullis.h / 2, c: 0xffb640, r: 72, period: 2600, flicker: false, k: 0.28 });
         // The stairs catch the gate's light.
-        lights.push({ x: 0, y: fl.stairs.y + 40, c: 0xff9a3a, r: 90, period: 3400, flicker: false, ph: 0.4, k: 0.55 });
+        lights.push({ x: 0, y: fl.stairs.y + 40, c: 0xff9a3a, r: 50, period: 3400, flicker: false, ph: 0.4, k: 0.3 });
       }
       images.push({
         ...image(`plaque:${fl.title}:${JSON.stringify(fl.stats)}:${fl.online}:${fl.plaque.w}`, () => paintPlaque(fl.plaque, fl.title, fl.stats, fl.online)),
@@ -577,14 +577,15 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
       if (d.project) continue;
       // Rugs lie on the terrace floor; recesses stand on it; other back things hang on the far wall.
       const z = d.frame === "rug-red" ? -39.5 : d.recess ? -38 : d.layer === "back" ? -48 : -4;
-      sprites.push(sprite(d.frame, d.rect, z, { ...dimOf(d.floor), ...(d.flip ? { flip: 1 } : {}) }));
+      // Side rooms' recesses a shade down, so their coloured light never outshines the robots.
+      sprites.push(sprite(d.frame, d.rect, z, { ...dimOf(d.floor), ...(d.flip ? { flip: 1 } : {}), ...(d.recess && l.floors[d.floor]?.online ? { shade: 0.22 } : {}) }));
       if (d.light && l.floors[d.floor]!.online)
         lights.push({
           x: d.rect.x + d.rect.w / 2,
           y: d.light.dy !== undefined ? d.rect.y + d.light.dy : d.frame === "torch" ? d.rect.y + 8 : d.rect.y + d.rect.h * 0.45,
           c: d.light.color, r: d.light.reach, period: 2400, flicker: d.frame === "torch" || d.frame === "brazier", ph: random(seedOf(`${d.frame}${d.x},${d.y}`))(),
           // Side rooms' glows stay below the robots'.
-          ...(d.recess || d.group ? { k: 0.55 } : {}),
+          ...(d.recess || d.group ? { k: 0.28 } : {}),
         });
     }
     // The links' joints: bigger gold nodes, each with a soft halo.
@@ -656,7 +657,8 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
         },
         // Over its head's upper right, clear of the workspace's label above.
         // Over its head's upper right, about 60% of the head's width, pulsing.
-        ...(mark ? { mark: { f: mark, ...at(mark, a.feet.x + D.robot * 0.32, a.feet.y - D.robotH + 4, D.robot * 0.6), pulse: PULSE_MS[state] ?? 1800 } } : {}),
+        // Pulsing by scale (1.0 to 1.12), never fading, over the drones.
+        ...(mark ? { mark: { f: mark, ...at(mark, a.feet.x + D.robot * 0.32, a.feet.y - D.robotH + 4, D.robot * 0.6), pulse: PULSE_MS[state] ?? 1800, scale: 0.12 } } : {}),
         // Its halo (in its colour, behind it) and its visor's glow, which move with it.
         ...(FRAMES[`halo-${color}`] && !offline
           ? { halo: { f: `halo-${color}`, w: width * (1 + 2 * HALO.pad), h: D.robotH * (1 + 2 * HALO.pad) } }
@@ -665,7 +667,8 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
         drones: offline ? [] : a.drones.slice(0, Math.min(4, e.subagents ?? 0)).map((c) => framesOf(`drone-${c}`)),
         droneDefault: framesOf(`drone-${color}`),
         // Drones read at about 55% of a robot's visible height.
-        droneSize: Math.round(D.robotH * 0.55),
+        // Drones are small helpers: a third of a robot's height, orbiting above its head.
+        droneSize: Math.round(D.robotH * 0.33),
         subagents: offline ? 0 : Math.min(4, e.subagents ?? 0),
       };
     });
@@ -673,7 +676,7 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
     const lights: Sprite[] = [];
     // A warm white spotlight on the ledge under each robot, brighter than its surroundings.
     for (const a of l.agents)
-      if (a.entity.state !== "offline") lights.push({ x: a.feet.x, y: a.feet.y - 18, c: 0xfff1d6, r: 36, flicker: false, period: 4000, z: 8.8, k: 0.8 });
+      if (a.entity.state !== "offline") lights.push({ x: a.feet.x, y: a.feet.y - 18, c: 0xfff1d6, r: 42, flicker: false, period: 4000, z: 8.8, k: 1 });
     for (const p of l.projects) {
       const online = l.floors[p.floor]!.online;
       const id = p.entity?.id ?? p.key;
@@ -874,7 +877,8 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
             counts: layout.counts,
             subtitle: hudSubtitle(layout),
             realFrames: realFrames.size,
-            floors: layout.floors.map((f) => ({ host: f.host.id, title: f.title, online: f.online, tiers: f.tiers, stats: f.stats.map((s) => s.text) })),
+            floors: layout.floors.map((f) => ({ host: f.host.id, title: f.title, online: f.online, tiers: f.tiers, stats: f.stats.map((s) => s.text), portcullis: f.portcullis, stairs: f.stairs })),
+            rooms: layout.decor.filter((d) => d.recess).map((d) => d.rect),
             projects: layout.projects.map((p) => ({ id: p.entity?.id ?? p.key, name: p.name, icon: p.icon, side: p.side, tier: p.tier, rect: p.rect })),
             workspaces: layout.workspaces.map((w) => ({
               id: w.entity.id, name: w.entity.name, camp: !!w.entity.camp, rect: w.rect,

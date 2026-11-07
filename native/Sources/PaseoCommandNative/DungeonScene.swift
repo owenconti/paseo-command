@@ -72,6 +72,8 @@ final class DungeonScene: SKScene, MapScene {
     private var agentGlows: [Glow] = []
     private var runners: [Runner] = []
     private var robots: [Robot] = []
+    /// Markers that pulse by scale: node, period, phase, how much they grow.
+    private var markPulses: [(node: SKSpriteNode, period: Double, phase: Double, amount: CGFloat)] = []
     private var droneOrbit: Double = 6000
     /// The state glows drawn under robots (for checks).
     private var stateGlows = 0
@@ -212,6 +214,7 @@ final class DungeonScene: SKScene, MapScene {
         agentGlows = []
         runners = []
         robots = []
+        markPulses = []
         for s in m["sprites"] as? [[String: Any]] ?? [] {
             if let node = node(s, anims: &agentAnims, pulses: &agentPulses) { agentLayer.addChild(node) }
         }
@@ -267,11 +270,16 @@ final class DungeonScene: SKScene, MapScene {
             }
             var mark: SKSpriteNode?
             var markHome = CGPoint.zero
-            if let mk = r["mark"] as? [String: Any], let marker = node(mk, anims: &agentAnims, pulses: &agentPulses) as? SKSpriteNode {
+            // Its marker, over its head and its drones: solid, pulsing by scale about its centre (never fading).
+            if let mk = r["mark"] as? [String: Any], let f = mk["f"] as? String, let tex = frames[f] {
+                let marker = SKSpriteNode(texture: tex, size: CGSize(width: num(mk["w"]), height: num(mk["h"])))
                 marker.zPosition = 12
                 agentLayer.addChild(marker)
                 mark = marker
-                markHome = CGPoint(x: num(mk["x"]), y: num(mk["y"]))
+                markHome = CGPoint(x: num(mk["x"]) + num(mk["w"]) / 2, y: num(mk["y"]) + num(mk["h"]) / 2)
+                if let period = mk["pulse"] as? Double {
+                    markPulses.append((marker, period, Double(num(r["ph"])), num(mk["scale"], 0.12)))
+                }
             }
             var robot = Robot(id: id, node: body, home: box.origin, size: box.size, idle: idle, work: work.isEmpty ? idle : work,
                               busy: r["busy"] as? Bool ?? false, still: dim, phase: Double(num(r["ph"])), mark: mark, markHome: markHome, drones: [])
@@ -286,6 +294,14 @@ final class DungeonScene: SKScene, MapScene {
                 let s = frameSizes[(i < arts.count ? arts[i].first : nil) ?? ""] ?? CGSize(width: 14, height: 12)
                 let tall = num(r["droneSize"], s.height)
                 drone.size = CGSize(width: tall * s.width / max(s.height, 1), height: tall)
+                // A faint glow, so it reads as a small flying helper.
+                let aura = SKSpriteNode(texture: DungeonScene.warmGlow, size: CGSize(width: tall * 2.2, height: tall * 1.6))
+                aura.color = Textures.color(0xd8f4ff)
+                aura.colorBlendFactor = 1
+                aura.blendMode = .add
+                aura.alpha = 0.45
+                aura.zPosition = -0.1
+                drone.addChild(aura)
                 agentLayer.addChild(drone)
                 robot.drones.append((drone, set.isEmpty ? fallback : set, robot.phase + Double(i) / Double(max(count, 1))))
             }
@@ -887,6 +903,10 @@ final class DungeonScene: SKScene, MapScene {
             g.node.alpha = g.k * CGFloat((g.flicker ? 0.7 + 0.25 * breath : 0.6 + 0.4 * breath) + flicker)
         }
         if selected != nil { breathe() }
+        for m in markPulses {
+            let k = reduced ? 0 : 0.5 + 0.5 * cos((clock / m.period + m.phase) * .pi * 2)
+            m.node.setScale(1 + m.amount * CGFloat(k))
+        }
         for r in robots {
             var dy: CGFloat = 0
             if !r.still && !reduced {
@@ -906,12 +926,15 @@ final class DungeonScene: SKScene, MapScene {
                 mark.position = p(r.markHome.x, r.markHome.y + bob)
             }
             let mid = CGPoint(x: r.home.x + r.size.width / 2, y: r.home.y + r.size.height * 0.45)
+            // Drones circle on a small flat ellipse above the head: never in front of its face, nor its neighbours'.
+            let above = CGPoint(x: r.home.x + r.size.width / 2, y: r.home.y - 7)
+            _ = mid
             for d in r.drones {
                 let turn = ((reduced ? 0 : clock / droneOrbit) + d.phase) * .pi * 2
-                let dx = CGFloat(cos(turn)) * 30, ddy = CGFloat(sin(turn)) * 8
-                let lift: CGFloat = 22 + (reduced ? 0 : CGFloat(sin(turn * 3)) * 1.5)
-                d.node.position = p(mid.x + dx, mid.y + ddy - lift)
-                d.node.zPosition = ddy < 0 ? 9.5 : 10.5
+                let dx = CGFloat(cos(turn)) * r.size.width * 0.3, ddy = CGFloat(sin(turn)) * 3.5
+                let lift: CGFloat = reduced ? 0 : CGFloat(sin(turn * 3)) * 1.2
+                d.node.position = p(above.x + dx, above.y + ddy - lift)
+                d.node.zPosition = 11
                 if d.frames.count > 1 && !reduced {
                     let i = Int(clock / 60) % d.frames.count
                     if d.node.texture !== d.frames[i] { d.node.texture = d.frames[i] }
