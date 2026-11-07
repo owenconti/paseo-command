@@ -46,7 +46,9 @@ const INTERIOR_SHADE = 0.28;
 /** Gold light: its colour (multiplied, doubled, over the stone) and each kind of pool's strength. */
 const GOLD = 0xc87c00;
 const GOLD_DEEP = 0x7a4c00;
-const GOLD_K = { alcove: 0.5, walk: 0.62, rim: 0.9, front: 0.35, torch: 0.95, candle: 0.4 };
+/** Gold that darkens as it warms: for surfaces already lit (the stairs' treads), gold without brightening. */
+const GOLD_DIM = 0x5e3a00;
+const GOLD_K = { alcove: 0.65, stairs: 0.9, walk: 0.9, rim: 0.9, front: 0.35, torch: 0.95, candle: 0.4 };
 /** The concept's chunky, wide, rounded heavy type: SF Pro Rounded where WebKit has it. */
 const FONT = 'ui-rounded, "SF Pro Rounded", "Arial Rounded MT Bold", "Paseo Barlow", sans-serif';
 /** Its weights: labels and plaques heavy, the HUD's lighter lines bold. */
@@ -547,6 +549,10 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
       // The stairs, a shade down from the sheet's, so their lit steps don't outshine the robots.
       const steps = { ...dim, shade: dim.dim ? 0.55 : 0.28 };
       fill("stairs-mid", { x: fl.stairs.x, y: fl.stairs.y + 36, w: fl.stairs.w, h: Math.max(0, fl.stairs.h - 36) }, -26, steps);
+      // The treads lit gold from the gate, at mid luminance: gold, never a beacon.
+      if (fl.online)
+        for (let ty = fl.stairs.y + 20; ty < fl.stairs.y + fl.stairs.h - 10; ty += 36)
+          lights.push({ x: 0, y: ty, rx: fl.stairs.w * 0.55, ry: 24, c: GOLD_DIM, blend: "gold", k: GOLD_K.stairs, z: -25.5, period: 5200, flicker: false });
       put("stairs-top", fl.stairs.x, fl.stairs.y, fl.stairs.w, 36, -25.9, steps);
       if (fl.last) put("stairs-bottom", fl.stairs.x, fl.stairs.y + fl.stairs.h - 29, fl.stairs.w, 29, -25.8, steps);
       sprites.push(
@@ -575,6 +581,14 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
       if (p.side === -1) put("rampart-return-left", p.span.x, y0 + 23, 50, 75, -29.9, dim);
       else put("rampart-return-right", p.span.x + p.span.w - 50, y0 + 23, 50, 75, -29.9, dim);
       sprites.push(sprite("medallion", at("medallion", p.medallion.x, p.medallion.y, D.medallionR * 2), 2, dim));
+      // A pair of candles at the label's foot, as the concept lights its plaques.
+      for (const cx of [p.label.x + 8, p.label.x + p.label.w - 8]) {
+        sprites.push(sprite("candle", at("candle", cx, p.label.y + p.label.h + 10, 9), 3.2, dim));
+        if (l.floors[p.floor]!.online) {
+          lights.push({ x: cx, y: p.label.y + p.label.h - 14, c: 0xffb040, r: 18, period: 1900, flicker: true, ph: random(seedOf(p.key + cx))(), k: 0.9 });
+          lights.push({ x: cx, y: p.label.y + p.label.h + 4, rx: 20, ry: 12, c: GOLD, blend: "gold", tight: 1, k: 0.9, z: 1.2, period: 5200, flicker: false });
+        }
+      }
       sprites.push(sprite(`icon-${p.icon}`, at(`icon-${p.icon}`, p.medallion.x, p.medallion.y, 30), 2.1, dim));
       images.push({
         ...image(`label:p:${p.name}:${p.label.w}`, () => paintLabel(p.label, p.name, "project")),
@@ -653,20 +667,21 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
     // Gold light, where the concept has it: pools that multiply the purple stone toward saturated gold (never a
     // wash over everything, which greys it), in the alcoves, along the walkways, on the front walls' lit tops and
     // round the torches. Offline floors stay unlit; the gate's column keeps its own, quieter light.
-    const gold = (x: number, y: number, rx: number, ry: number, k: number, z: number) =>
-      lights.push({ x, y, rx, ry, c: GOLD, blend: "gold", k, z, period: 5200, flicker: false, ph: random(seedOf(`g${x},${y}`))() });
+    const gold = (x: number, y: number, rx: number, ry: number, k: number, z: number, c = GOLD) =>
+      lights.push({ x, y, rx, ry, c, blend: "gold", k, z, period: 5200, flicker: false, ph: random(seedOf(`g${x},${y}`))() });
     for (const w of l.workspaces) {
       if (!l.floors[w.floor]!.online) continue;
       const r = w.rect;
-      // (Since art v5 the alcoves' interiors carry their own gold light; a pool over them outshone the robots.)
-      void r;
+      // A richer gold behind the robots, in the deep gold (saturated, at mid luminance) so their colours still win.
+      gold(r.x + r.w / 2, r.y + r.h * 0.52, r.w * 0.68, r.h * 0.66, GOLD_K.alcove, -11.5, GOLD_DEEP);
     }
     for (const fl of l.floors) {
       if (!fl.online) continue;
       for (const y0 of fl.tierTops) {
         for (const sd of [-1, 1])
           for (let x = D.stairsW / 2 + 70; x < fl.rect.w / 2 - 40; x += 120) {
-            // (The walkways' terrace floor carries its own warm light since art v5.)
+            // The walkways warm-lit, in the darkening gold (art v5 already warms the terrace; this adds hue, not glare).
+            for (const dx of [0, 60]) lights.push({ x: sd * (x + dx), y: y0 + D.floorY - 20, rx: 74, ry: 30, c: GOLD_DIM, blend: "gold", k: GOLD_K.walk, z: -39, period: 5200, flicker: false });
             // A faint rim light on the front walls' lit tops (art v5 already warms them; more read as wooden beams).
             lights.push({ x: sd * x, y: y0 + D.frontY + 6, rx: 64, ry: 9, c: GOLD_DEEP, blend: "gold", k: GOLD_K.front, z: -8.5, period: 5200, flicker: false });
           }
@@ -684,6 +699,14 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
         for (let x = D.surroundW / 2 + 30; x < fl.rect.w / 2 - 50; x += 52)
           lights.push({ x: sd * x, y: fl.top + 33, rx: 46, ry: 14, c: GOLD_DEEP, blend: "gold", k: GOLD_K.rim, z: -43.5, period: 5200, flicker: false });
     }
+    // Candlelit side rooms (not the magic or crystal rooms, which keep their own light).
+    for (const d of l.decor)
+      if (d.recess && (d.frame === "room-arch" || d.frame === "room-forge") && l.floors[d.floor]?.online)
+        lights.push({ x: d.rect.x + d.rect.w / 2, y: d.rect.y + d.rect.h * 0.62, rx: d.rect.w * 0.46, ry: d.rect.h * 0.42, c: GOLD_DEEP, blend: "gold", k: 0.85, z: -37.5, period: 5200, flicker: false });
+    // The forecourt's floor lit by its braziers.
+    for (const d of l.decor)
+      if (d.frame === "brazier" && l.floors[d.floor]?.online)
+        lights.push({ x: d.rect.x + d.rect.w / 2, y: d.rect.y + d.rect.h - 8, rx: 120, ry: 44, c: GOLD_DIM, blend: "gold", k: 0.9, z: -39, period: 5200, flicker: false });
     // The project terraces' recess walls, lit warm from the alcoves below.
     for (const p of l.projects) {
       if (!l.floors[p.floor]!.online) continue;
@@ -698,9 +721,9 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
       if (pooled.some((q) => Math.hypot(q.x - x, q.y - y) < 90)) continue;
       pooled.push({ x, y });
       // Tight: a small bright heart and a quick falloff, torchlight on stone rather than a smudge.
-      lights.push({ x, y, rx: 42, ry: 40, c: GOLD, blend: "gold", tight: 1, k: GOLD_K.torch, z: -43, period: 5200, flicker: false });
+      lights.push({ x, y, rx: 50, ry: 46, c: GOLD, blend: "gold", tight: 1, k: GOLD_K.torch, z: -43, period: 5200, flicker: false });
       // Its light falling on the wall below: wide and deep (warm, not bright).
-      lights.push({ x, y: y + 30, rx: 60, ry: 40, c: GOLD_DEEP, blend: "gold", tight: 1, k: 0.95, z: -43.2, period: 5200, flicker: false });
+      lights.push({ x, y: y + 34, rx: 72, ry: 48, c: GOLD_DEEP, blend: "gold", tight: 1, k: 0.95, z: -43.2, period: 5200, flicker: false });
     }
     return {
       type: "scene",

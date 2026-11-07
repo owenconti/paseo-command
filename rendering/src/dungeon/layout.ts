@@ -744,14 +744,14 @@ export function layoutDungeon(data: AtlasData, _aspect = 1.6, measure: Measure =
       if (place({ frame: "banner-purple-layers", x: s * hostX, y: fl.top + 26, w: 62, floor: f, layer: "back" }))
         place({ frame: "torch", x: s * (hostX + 50), y: fl.top + 56, w: 24, floor: f, layer: "front", ...lit(TORCH_LIGHT) });
       place({ frame: THEMED[(seedOf(fl.host.id) + (s === 1 ? 1 : 0)) % THEMED.length]!, x: s * (half - D.sideRoom / 2), y: fl.top + 40, w: 60, floor: f, layer: "back" });
-      for (let x = hostX + 100 + rng() * 30; x < half - D.sideRoom - 30; x += 70 + rng() * 70) {
+      for (let x = hostX + 100 + rng() * 30; x < half - D.sideRoom - 30; x += 52 + rng() * 50) {
         const roll = rng();
         const arch = FRAMES["window-arch"]?.real ? "window-arch" : "niche-arch";
         const chains = FRAMES["chain-pair"]?.real ? "chain-pair" : "chain";
-        if (roll < 0.38) {
+        if (roll < 0.62) {
           // A cluster: one torch, or two close together.
           place({ frame: "torch", x: s * x, y: fl.top + 58 + rng() * 12, w: 22, floor: f, layer: "front", ...lit(TORCH_LIGHT) });
-          if (rng() < 0.5) place({ frame: "torch", x: s * (x + 26), y: fl.top + 58 + rng() * 12, w: 22, floor: f, layer: "front", ...lit(TORCH_LIGHT) });
+          if (rng() < 0.65) place({ frame: "torch", x: s * (x + 26), y: fl.top + 58 + rng() * 12, w: 22, floor: f, layer: "front", ...lit(TORCH_LIGHT) });
         } else if (roll < 0.52) place({ frame: "window-barred", x: s * x, y: fl.top + 82, w: 42, floor: f, layer: "back" });
         else if (roll < 0.62) place({ frame: arch, x: s * x, y: fl.top + 112, w: 42, floor: f, layer: "back" });
         else if (roll < 0.72) place({ frame: chains, x: s * x, y: fl.top + 4, w: chains === "chain-pair" ? 34 : 9, floor: f, layer: "back" });

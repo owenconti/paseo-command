@@ -470,7 +470,7 @@ final class DungeonScene: SKScene, MapScene {
         }
         let group = SKNode()
         group.zPosition = 1
-        for (width, color, alpha, add) in [(10.0, 0xffa020, 0.12, true), (3.6, 0xe8a830, 1.0, false), (1.2, 0xfff4d0, 0.75, false)] as [(CGFloat, Int, CGFloat, Bool)] {
+        for (width, color, alpha, add) in [(12.0, 0xffa020, 0.14, true), (4.4, 0xe8a228, 1.0, false), (1.2, 0xfff4d0, 0.7, false)] as [(CGFloat, Int, CGFloat, Bool)] {
             let line = SKShapeNode(path: path)
             line.strokeColor = Textures.color(dim ? 0x6a6050 : color, dim ? alpha * 0.5 : alpha)
             line.lineWidth = width
@@ -552,7 +552,7 @@ final class DungeonScene: SKScene, MapScene {
         let mix = { (k: CGFloat) in CGColor(colorSpace: space, components: c.map { 0.5 + ($0 - 0.5) * k } + [1])! }
         ctx.setFillColor(mix(0))
         ctx.fill(CGRect(x: 0, y: 0, width: px, height: px))
-        let gradient = CGGradient(colorsSpace: space, colors: [mix(strength), mix(strength * (tight ? 0.45 : 0.85)), mix(0)] as CFArray, locations: [0, tight ? 0.3 : 0.55, 1])!
+        let gradient = CGGradient(colorsSpace: space, colors: [mix(strength), mix(strength * (tight ? 0.45 : 0.95)), mix(0)] as CFArray, locations: [0, tight ? 0.3 : 0.7, 1])!
         let mid = CGPoint(x: px / 2, y: px / 2)
         ctx.drawRadialGradient(gradient, startCenter: mid, startRadius: 0, endCenter: mid, endRadius: CGFloat(px) / 2, options: [])
         let t = SKTexture(cgImage: ctx.makeImage()!)
