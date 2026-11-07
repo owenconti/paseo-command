@@ -303,8 +303,8 @@ function layoutHost(scene: Scene, host: OwHost, y0: number, index: number, last:
   // Land: a castle island in the middle, a project island each side. Measured from the concept.
   const left: Island = {
     boxes: [
-      { x0: 40, y0: y0 + 190, x1: 545, y1: y0 + 412, r: 44 },
-      { x0: 100, y0: y0 + 150, x1: 465, y1: y0 + 300, r: 60 },
+      { x0: 52, y0: y0 + 195, x1: 538, y1: y0 + 398, r: 62 },
+      { x0: 110, y0: y0 + 158, x1: 460, y1: y0 + 300, r: 70 },
     ],
     cliff: 36,
     seed: seed ^ 1,
@@ -313,8 +313,8 @@ function layoutHost(scene: Scene, host: OwHost, y0: number, index: number, last:
   };
   const right: Island = {
     boxes: [
-      { x0: 665, y0: y0 + 185, x1: 1165, y1: y0 + 408, r: 44 },
-      { x0: 710, y0: y0 + 148, x1: 1125, y1: y0 + 300, r: 60 },
+      { x0: 672, y0: y0 + 190, x1: 1152, y1: y0 + 394, r: 62 },
+      { x0: 718, y0: y0 + 155, x1: 1115, y1: y0 + 300, r: 70 },
     ],
     cliff: 36,
     seed: seed ^ 2,
@@ -352,7 +352,7 @@ function layoutHost(scene: Scene, host: OwHost, y0: number, index: number, last:
       const x = m.x0 + 30 + rr() * (m.x1 - m.x0 - 60);
       const w = 40 + rr() * 80;
       if (last && Math.abs(x - CX) < w / 2 + 90) continue;
-      if (rr() < 0.55) island.boxes.push({ x0: x - w / 2, y0: m.y1 - 40, x1: x + w / 2, y1: m.y1 + 14 + rr() * 26, r: 20 });
+      if (rr() < 0.55) island.boxes.push({ x0: x - w / 2, y0: m.y1 - 40, x1: x + w / 2, y1: m.y1 + 6 + rr() * 14, r: 20 });
       else island.bites.push({ x0: x - w / 2, y0: m.y1 - 2 - rr() * 10, x1: x + w / 2, y1: m.y1 + 40, r: 18 });
     }
     for (let k = 0; k < 3; k++) {
@@ -372,8 +372,8 @@ function layoutHost(scene: Scene, host: OwHost, y0: number, index: number, last:
     const ledges: Box[] = [];
     for (const b of island.boxes) {
       if (b.y1 - b.y0 < 60) continue;
-      for (let k = 0; k < 4; k++) {
-        const w = 70 + rs() * 140;
+      for (let k = 0; k < 2; k++) {
+        const w = 60 + rs() * 90;
         const x = b.x0 + rs() * (b.x1 - b.x0 - w);
         if (last && Math.abs(x + w / 2 - CX) < w / 2 + 80) continue;
         ledges.push({ x0: x, y0: b.y1 - 30, x1: x + w, y1: b.y1 + 8 + rs() * 8, r: 14 });
@@ -499,8 +499,9 @@ function layoutProject(
       scene.nodes.push({ x: cx, y: signTop, r: 6.5 });
       x += w + BOOTH_GAP;
     });
-    // Cobbled path along the booths' fronts.
+    // Cobbled paths along the booths' fronts and from the hall's door down between them.
     scene.paths.push({ pts: [[hx - total / 2 - 10, floor + 14], [hx + total / 2 + 10, floor + 14]], width: 14 });
+    if (k === 0 && hall && row.length > 1) scene.paths.push({ pts: [[hx, y0 + 298], [hx, floor + 14]], width: 11 });
   });
 }
 

@@ -134,6 +134,8 @@ export interface PaintOptions {
 /** Land is painted at this density (px per concept px) and drawn scaled: per-pixel work dominates. */
 const LAND_K = 2;
 
+const GRASS_GRADE: Grade = { hue: -13, saturate: 0.92, brightness: 1.04, contrast: 1.12 };
+
 const FINAL_GRADE: Grade = { contrast: 1.12, saturate: 1.18 };
 
 export function paintScene(ctx: Ctx, scene: Scene, sheets: Sheets, opts: PaintOptions): void {
@@ -237,7 +239,7 @@ function paintSea(ctx: Ctx, scene: Scene, sheets: Sheets, opts: PaintOptions): v
       // Lifted toward the concept's brighter royal blue.
       ctx.save();
       ctx.globalCompositeOperation = "screen";
-      ctx.fillStyle = "rgb(10, 52, 70)";
+      ctx.fillStyle = "rgb(4, 34, 52)";
       ctx.fillRect(-m, 0, scene.w + 2 * m, scene.h);
       ctx.restore();
     }
@@ -346,7 +348,11 @@ function lerp(a: number, b: number, t: number): number {
 
 function paintIsland(island: Island, sheets: Sheets, K: number): Land {
   newTextures = hasFrame(sheets, "textures", "grass") && hasFrame(sheets, "textures", "rock");
-  grassTex ??= newTextures ? pixels(frameOf(sheets, "textures", "grass")) : pixels(frameOf(sheets, "terrain", "grass-0"));
+  if (!grassTex) {
+    grassTex = newTextures ? pixels(frameOf(sheets, "textures", "grass")) : pixels(frameOf(sheets, "terrain", "grass-0"));
+    // The concept's meadow is a yellower, softer green (measured: hue ~71°, saturation ~0.86).
+    gradePixels(grassTex.data, GRASS_GRADE);
+  }
   const rockName = island.rock === "volcanic" && hasFrame(sheets, "textures", "rock-volcanic") ? "rock-volcanic" : "rock";
   let rockTex = rockTexes.get(rockName);
   if (!rockTex) {
@@ -1036,6 +1042,18 @@ export function scatter(scene: Scene, sheets: Sheets): SpriteItem[] {
           const [sheet, frame, , scale] = pick(list, roll2);
           out.push({ kind: "sprite", sheet, frame, x: px, y: py, scale: scale * (0.8 + r() * 0.35), flip: r() < 0.5, shadow: 0.55, grade: pine ? TREE_GRADE : LEAF_GRADE });
         } else if (!reservedAt(scene, px, py, -3) && !onStrip(scene, px, py, 2) && roll < (front ? 0.35 : 0.9)) {
+          // Near the coast's front: fence runs and crates, as along the concept's ledges.
+          if (front && r() < 0.18) {
+            const prop = area.theme === "volcanic" ? ["props", "crate-0"] : r() < 0.7 ? ["props", "fence"] : ["props", "barrel-0"];
+            out.push({ kind: "sprite", sheet: prop[0]!, frame: prop[1]!, x: px, y: py, scale: prop[1] === "fence" ? 0.26 : 0.2, flip: r() < 0.5, shadow: 0.25 });
+            continue;
+          }
+          const beds = [...framesWithPrefix(sheets, "foliage", "flower-bed-"), ...framesWithPrefix(sheets, "foliage", "bush-row-")];
+          if (beds.length && r() < 0.35) {
+            const name = beds[Math.floor(r() * beds.length)]!;
+            out.push({ kind: "sprite", sheet: "foliage", frame: name, x: px, y: py, scale: name.startsWith("bush") ? 0.16 : 0.2, flip: r() < 0.5, shadow: 0.2 });
+            continue;
+          }
           const [sheet, frame, , scale] = pick(SMALL[area.theme], roll2);
           out.push({ kind: "sprite", sheet, frame, x: px, y: py, scale: scale * (0.8 + r() * 0.35), flip: r() < 0.5, shadow: 0.15 });
         }
@@ -1055,8 +1073,8 @@ export function scatter(scene: Scene, sheets: Sheets): SpriteItem[] {
         const roll = r();
         if (fieldAt(island, px, py) > -3 || insideOther(scene, area.island, px, py)) continue;
         if (reservedAt(scene, px, py, -6) || onStrip(scene, px, py, 1)) continue;
-        if (roll < 0.28) out.push({ kind: "sprite", sheet: "terrain", frame: "grass-tuft", x: px, y: py, scale: 0.09 + r() * 0.05, flip: r() < 0.5, z: py - 400 });
-        else if (roll < 0.33) out.push({ kind: "sprite", sheet: "terrain", frame: "flowers", x: px, y: py, scale: 0.08 + r() * 0.04, flip: r() < 0.5, z: py - 400 });
+        if (roll < 0.45) out.push({ kind: "sprite", sheet: "terrain", frame: "grass-tuft", x: px, y: py, scale: 0.09 + r() * 0.05, flip: r() < 0.5, z: py - 400 });
+        else if (roll < 0.53) out.push({ kind: "sprite", sheet: "terrain", frame: "flowers", x: px, y: py, scale: 0.08 + r() * 0.04, flip: r() < 0.5, z: py - 400 });
       }
     }
   }
