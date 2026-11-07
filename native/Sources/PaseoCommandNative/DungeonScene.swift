@@ -72,6 +72,8 @@ final class DungeonScene: SKScene, MapScene {
     private var agentGlows: [Glow] = []
     private var runners: [Runner] = []
     private var robots: [Robot] = []
+    /// Running robots' rim lights: the light, the ellipse's centre and radii, its phase.
+    private var rimRunners: [(node: SKSpriteNode, center: CGPoint, rx: CGFloat, ry: CGFloat, phase: Double)] = []
     /// Markers that pulse by scale: node, period, phase, how much they grow.
     private var markPulses: [(node: SKSpriteNode, period: Double, phase: Double, amount: CGFloat)] = []
     private var droneOrbit: Double = 6000
@@ -214,6 +216,7 @@ final class DungeonScene: SKScene, MapScene {
         agentGlows = []
         runners = []
         robots = []
+        rimRunners = []
         markPulses = []
         for s in m["sprites"] as? [[String: Any]] ?? [] {
             if let node = node(s, anims: &agentAnims, pulses: &agentPulses) { agentLayer.addChild(node) }
@@ -256,14 +259,31 @@ final class DungeonScene: SKScene, MapScene {
             // Its state's glow, an ellipse in the state's colour on the ledge round its feet (not added,
             // which the ledge's light would wash out), over its halo, under its body.
             if let g = r["glow"] as? [String: Any] {
-                let glow = SKSpriteNode(texture: DungeonScene.stateGlow, size: CGSize(width: num(g["w"], 60), height: num(g["h"], 22)))
-                glow.color = Textures.color(Int(num(g["c"], 0xffffff)))
-                glow.colorBlendFactor = 1
-                glow.alpha = num(g["a"], 0.9)
+                // A clear floor ellipse in the state's colour with a crisp brighter rim, over the alcove's light.
+                let w = num(g["w"], 60), h = num(g["h"], 22)
+                let color = Int(num(g["c"], 0xffffff))
+                let rect = CGRect(x: -w / 2, y: -h / 2, width: w, height: h)
+                let glow = SKShapeNode(ellipseIn: rect)
+                glow.fillColor = Textures.color(color, num(g["fill"], 0.7))
+                glow.strokeColor = Textures.color(Int(num(g["rim"], Double(color))))
+                glow.lineWidth = num(g["rimWidth"], 2.4)
+                glow.glowWidth = num(g["bloom"], 0)
+                glow.isAntialiased = true
+                glow.alpha = num(g["a"], 1)
                 glow.position = p(num(g["x"]), num(g["y"]))
                 glow.zPosition = 9.7
                 agentLayer.addChild(glow)
                 stateGlows += 1
+                // Running: a light travelling slowly round the rim, as the Atlas's running border has.
+                if num(g["runner"]) > 0 {
+                    let dot = SKSpriteNode(texture: DungeonScene.warmGlow, size: CGSize(width: 14, height: 9))
+                    dot.color = Textures.color(0xeafff2)
+                    dot.colorBlendFactor = 1
+                    dot.blendMode = .add
+                    dot.zPosition = 9.75
+                    agentLayer.addChild(dot)
+                    rimRunners.append((dot, glow.position, w / 2, h / 2, Double(num(r["ph"]))))
+                }
                 if let period = g["pulse"] as? Double {
                     agentPulses.append(Pulse(node: glow, base: glow.alpha, period: period, phase: Double(num(r["ph"])), low: 0.45))
                 }
@@ -951,6 +971,11 @@ final class DungeonScene: SKScene, MapScene {
             g.node.alpha = g.k * CGFloat((g.flicker ? 0.7 + 0.25 * breath : 0.6 + 0.4 * breath) + flicker)
         }
         if selected != nil { breathe() }
+        for rr in rimRunners {
+            let t = ((reduced ? 0 : clock / 2600) + rr.phase) * .pi * 2
+            rr.node.position = CGPoint(x: rr.center.x + CGFloat(cos(t)) * rr.rx, y: rr.center.y + CGFloat(sin(t)) * rr.ry)
+            rr.node.alpha = reduced ? 0 : 1
+        }
         for m in markPulses {
             let k = reduced ? 0 : 0.5 + 0.5 * cos((clock / m.period + m.phase) * .pi * 2)
             m.node.setScale(1 + m.amount * CGFloat(k))

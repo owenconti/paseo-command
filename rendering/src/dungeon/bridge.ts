@@ -41,6 +41,10 @@ const SHEET_PNG = import.meta.glob("../assets/dungeon/*.png", { eager: true, que
 const TEXT_SCALE = 4;
 /** How dark the far wall is drawn (a share of black over its tile), for the light pools to warm. */
 const WALL_SHADE = 0;
+/** The state glows' rims: a lighter tone of each state's colour. */
+const RIM: Partial<Record<string, number>> = {
+  running: 0x8affc4, failed: 0xff8a70, approval: 0xffd060, question: 0x8cc4ff, asking: 0xd4b0ff, done: 0xfff0a0, offline: 0xb0aca0,
+};
 /** The alcoves' interiors, a little darker than their sheet, so the robots read against them. */
 const INTERIOR_SHADE = 0.42;
 /** How strongly the warm torchlight wash lights the stone. */
@@ -697,7 +701,8 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
       // A richer gold behind the robots, in the deep gold (saturated, at mid luminance) so their colours still win.
       // The back wall glowing warm and bright right behind the robots, as the concept's alcoves glow (added light,
       // under the alcove's sides and the robots).
-      gold(r.x + r.w / 2, r.y + r.h * 0.5, r.w * 0.56, r.h * 0.56, GOLD_K.alcove, -11.4, GOLD);
+      // Capped: the deep gold, so it stays saturated gold behind the robots, never blown to white.
+      gold(r.x + r.w / 2, r.y + r.h * 0.5, r.w * 0.56, r.h * 0.56, GOLD_K.alcove + 0.25, -11.4, GOLD_DEEP);
     }
     for (const fl of l.floors) {
       if (!fl.online) continue;
@@ -795,10 +800,17 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
         ph: rng(),
         // The state's glow on the ledge beneath it, wide enough to show either side of its feet.
         // In the Atlas's state colours (idle a quiet grey-lavender), an ellipse on the ledge round its feet.
+        // A clear ellipse in its state's colour with a crisp rim: running bright with a light travelling round it,
+        // idle a dim quiet grey-lavender and still, the states that need you pulsing.
         glow: {
-          c: STATE_TILE[state] ?? 0x9aa0c8,
-          a: state === "idle" ? 0.5 : 0.9,
-          x: a.feet.x, y: a.feet.y + 1, w: D.robot * 1.6, h: D.robot * 0.46,
+          c: STATE_TILE[state] ?? 0x8c88b0,
+          rim: RIM[state] ?? 0xb8b4d8,
+          fill: state === "idle" ? 0.4 : state === "offline" ? 0.35 : 0.72,
+          rimWidth: state === "idle" ? 1.6 : 2.6,
+          bloom: state === "running" ? 3 : 0,
+          a: 1,
+          x: a.feet.x, y: a.feet.y + 2, w: D.robot * 1.5, h: D.robot * 0.42,
+          ...(state === "running" ? { runner: 1 } : {}),
           ...(PULSE_MS[state] ? { pulse: PULSE_MS[state] } : {}),
         },
         // Over its head's upper right, clear of the workspace's label above.
@@ -823,9 +835,9 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
     // A warm white spotlight on the ledge under each robot, brighter than its surroundings.
     for (const a of l.agents)
       if (a.entity.state !== "offline") {
-        lights.push({ x: a.feet.x, y: a.feet.y - 18, c: 0xfff4e2, r: 50, flicker: false, period: 4000, z: 8.8, k: 1 });
+        lights.push({ x: a.feet.x, y: a.feet.y - 18, c: 0xffe2b0, r: 50, flicker: false, period: 4000, z: 8.8, k: 0.8 });
         // A brighter heart to the spotlight, so the robots stay brighter than the warmer stone.
-        lights.push({ x: a.feet.x, y: a.feet.y - 24, c: 0xfffaf0, r: 34, flicker: false, period: 4000, z: 8.85, k: 1 });
+        lights.push({ x: a.feet.x, y: a.feet.y - 24, c: 0xffecc8, r: 30, flicker: false, period: 4000, z: 8.85, k: 0.55 });
       }
     for (const p of l.projects) {
       const online = l.floors[p.floor]!.online;
