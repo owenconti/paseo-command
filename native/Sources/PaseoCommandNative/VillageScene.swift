@@ -1,5 +1,6 @@
 import AppKit
 import SpriteKit
+import CoreImage
 
 /// The Village, drawn natively, as the Dungeon Board is. The page (`rendering/src/village/bridge.ts`)
 /// lays the village out and paints its text; this scene places the sprites it names, animates the
@@ -164,6 +165,7 @@ final class VillageScene: SKScene, MapScene {
             bounds = WorldBox(x: CGFloat(b["x"] ?? 0), y: CGFloat(b["y"] ?? 0), width: CGFloat(b["w"] ?? 0), height: CGFloat(b["h"] ?? 0))
         }
         board.removeAllChildren()
+        owners = [:]
         sceneAnims = []
         scenePulses = []
         sceneGlows = []
@@ -208,6 +210,7 @@ final class VillageScene: SKScene, MapScene {
         appliedAt = CACurrentMediaTime()
         for (key, image) in newImages { images[key] = Textures.texture(image) }
         agentLayer.removeAllChildren()
+        robotOwners = [:]
         stateGlows = 0
         agentAnims = []
         agentPulses = []
@@ -306,6 +309,7 @@ final class VillageScene: SKScene, MapScene {
                 robot.drones.append((drone, set.isEmpty ? fallback : set, robot.phase + Double(i) / Double(max(count, 1))))
             }
             robots.append(robot)
+            if let f = (r["idle"] as? [String])?.first { robotOwners[id] = [(body, f)] }
         }
         for r in m["runners"] as? [[String: Any]] ?? [] {
             let flat = (r["pts"] as? [Double] ?? []).map { CGFloat($0) }
@@ -334,6 +338,8 @@ final class VillageScene: SKScene, MapScene {
                                   period: r["period"] as? Double ?? 2200, phase: Double(num(r["ph"]))))
         }
         if let h = m["hud"] as? [String: [String: Any]] { placeHud(h) }
+        drawSelection()
+        drawHover()
         animate()
         wake()
     }
@@ -384,6 +390,7 @@ final class VillageScene: SKScene, MapScene {
         }
         guard let texture else { return nil }
         let node = SKSpriteNode(texture: texture)
+        if let e = s["e"] as? String, let f = s["f"] as? String { owners[e, default: []].append((node, f)) }
         node.anchorPoint = CGPoint(x: 0, y: 1)
         node.size = box.size
         node.position = p(box.minX, box.minY)
@@ -620,43 +627,104 @@ final class VillageScene: SKScene, MapScene {
     }
 
     /// A golden rim with a breathing halo and a warm wash, so the selection reads on stone, roofs and grass.
+    // MARK: Glow
+
+    /// Each entity's sprites (halls, tiles, the fountain: tagged `e` by the page; robots by their id), which glow when
+    /// hovered or selected: the object itself lights up, never a box round it.
+    private var owners: [String: [(node: SKSpriteNode, frame: String)]] = [:]
+    private var robotOwners: [String: [(node: SKSpriteNode, frame: String)]] = [:]
+    private func spritesOf(_ id: String) -> [(node: SKSpriteNode, frame: String)] { (robotOwners[id] ?? []) + (owners[id] ?? []) }
+    private var selectionGlows: [SKNode] = []
+    /// Each frame's halo: its silhouette in white, blurred, with room round it (`pad`, a share of the frame's size).
+    private var halos: [String: (texture: SKTexture, padX: CGFloat, padY: CGFloat)] = [:]
+    private static let ciContext = CIContext(options: nil)
+
+    private func halo(_ frame: String) -> (texture: SKTexture, padX: CGFloat, padY: CGFloat)? {
+        if let h = halos[frame] { return h }
+        guard let image = frameImages[frame] else { return nil }
+        let source = CIImage(cgImage: image)
+        let white = source.applyingFilter("CIColorMatrix", parameters: [
+            "inputRVector": CIVector(x: 0, y: 0, z: 0, w: 0), "inputGVector": CIVector(x: 0, y: 0, z: 0, w: 0),
+            "inputBVector": CIVector(x: 0, y: 0, z: 0, w: 0), "inputAVector": CIVector(x: 0, y: 0, z: 0, w: 3),
+            // Faint alpha (the sheet's soft padding) drops to nothing, so only the silhouette glows.
+            "inputBiasVector": CIVector(x: 1, y: 1, z: 1, w: -0.6),
+        ]).applyingFilter("CIColorClamp")
+        let radius = max(3, CGFloat(max(image.width, image.height)) * 0.05)
+        let pad = radius * 2.5
+        let box = source.extent.insetBy(dx: -pad, dy: -pad)
+        // Spread a little before blurring, so the halo reads beyond the outline.
+        let spread = white.applyingFilter("CIMorphologyMaximum", parameters: ["inputRadius": radius * 0.7])
+        let base = CIImage(color: .clear).cropped(to: box)
+        let out = spread.composited(over: base).applyingFilter("CIGaussianBlur", parameters: ["inputRadius": radius]).cropped(to: box)
+        guard let cg = VillageScene.ciContext.createCGImage(out, from: box) else { return nil }
+        let t = SKTexture(cgImage: cg)
+        t.filteringMode = .linear
+        let h = (t, pad / CGFloat(image.width), pad / CGFloat(image.height))
+        halos[frame] = h
+        return h
+    }
+
+    /// A soft halo following the sprite's own silhouette (behind it) and a brightening of the sprite itself (its white
+    /// silhouette added over it), as the sprite's children so they move and sort with it.
+    private func glow(_ owner: (node: SKSpriteNode, frame: String), color: Int, strength: CGFloat, name: String) -> [SKNode] {
+        let sprite = owner.node
+        guard let h = halo(owner.frame) else { return [] }
+        let size = sprite.size
+        let mid = CGPoint(x: size.width * (0.5 - sprite.anchorPoint.x), y: size.height * (0.5 - sprite.anchorPoint.y))
+        let ring = SKSpriteNode(texture: h.texture, size: CGSize(width: size.width * (1 + 2 * h.padX), height: size.height * (1 + 2 * h.padY)))
+        ring.name = name
+        ring.position = mid
+        ring.color = Textures.color(color)
+        ring.colorBlendFactor = 1
+        ring.blendMode = .add
+        ring.alpha = strength
+        ring.zPosition = -0.02
+        let lift = SKSpriteNode(texture: h.texture, size: ring.size)
+        lift.name = name
+        lift.position = mid
+        lift.color = Textures.color(color)
+        lift.colorBlendFactor = 1
+        lift.blendMode = .add
+        lift.alpha = 0.14 * strength
+        lift.zPosition = 0.02
+        sprite.addChild(ring)
+        sprite.addChild(lift)
+        if strength >= 1 {
+            // Selection: a second, wider pass of the halo, so the gold reads on any ground.
+            let wide = ring.copy() as! SKSpriteNode
+            wide.size = CGSize(width: ring.size.width * 1.08, height: ring.size.height * 1.08)
+            sprite.addChild(wide)
+            return [ring, lift, wide]
+        }
+        return [ring, lift]
+    }
+    private func clearGlow(_ name: String) {
+        for owner in owners.values.flatMap({ $0 }) + robotOwners.values.flatMap({ $0 }) {
+            for child in owner.node.children where child.name == name { child.removeFromParent() }
+        }
+    }
+
+    /// The selected entity glows golden, a little stronger than hover, breathing gently.
     private func drawSelection() {
         for node in [selectionNode, selectionWash, selectionHalo] { node.removeAllChildren() }
-        guard let id = selected, let e = entities[id] else { return }
-        let r = e.rect.insetBy(dx: -4, dy: -4)
-        let wash = SKShapeNode(path: rounded(r, inset: 0))
-        wash.fillColor = Textures.color(0xffe27a)
-        wash.strokeColor = .clear
-        selectionWash.addChild(wash)
-        for k in 1...5 {
-            let halo = SKShapeNode(path: rounded(r, inset: 0))
-            halo.strokeColor = Textures.color(0xffc72e, 0.2)
-            halo.lineWidth = 3 + CGFloat(k) * 3
-            halo.fillColor = .clear
-            selectionHalo.addChild(halo)
-        }
-        let rim = SKShapeNode(path: rounded(r, inset: 0))
-        rim.strokeColor = Textures.color(0xffc72e)
-        rim.lineWidth = 3
-        rim.fillColor = .clear
-        selectionNode.addChild(rim)
+        clearGlow("select-glow")
+        selectionGlows = []
+        guard let id = selected else { return }
+        selectionGlows = spritesOf(id).flatMap { glow($0, color: 0xffc72e, strength: 1, name: "select-glow") }
         breathe()
     }
 
     private func breathe() {
         let t = reduced ? 0.5 : 0.5 + 0.5 * sin(clock / 1600 * .pi * 2)
-        selectionWash.alpha = CGFloat(0.08 + 0.12 * t)
-        selectionHalo.alpha = CGFloat(0.5 + 0.5 * t)
+        for (i, g) in selectionGlows.enumerated() { g.alpha = (i % 3 == 1 ? 0.14 : 1) * CGFloat(0.7 + 0.3 * t) }
     }
 
+    /// The hovered entity glows warm white (unless it's the selected one, which keeps its gold).
     private func drawHover() {
         hoverNode.removeAllChildren()
-        guard let id = hovered, let e = entities[id] else { return }
-        let rim = SKShapeNode(path: rounded(e.rect.insetBy(dx: -2, dy: -2), inset: 0))
-        rim.strokeColor = Textures.color(hoverColors[e.kind] ?? 0xffffff, 0.95)
-        rim.lineWidth = 2.5
-        rim.fillColor = .clear
-        hoverNode.addChild(rim)
+        clearGlow("hover-glow")
+        guard let id = hovered, id != selected else { return }
+        _ = spritesOf(id).flatMap { glow($0, color: 0xfff1d0, strength: 0.85, name: "hover-glow") }
     }
 
     private func setHover(_ id: String?, flag: Flag? = nil) {
@@ -689,6 +757,7 @@ final class VillageScene: SKScene, MapScene {
     func select(_ id: String?) {
         selected = id.flatMap { entities[$0] != nil ? $0 : nil }
         drawSelection()
+        drawHover()
         wake()
     }
 

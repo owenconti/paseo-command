@@ -490,7 +490,9 @@ export function mountNativeVillage(parent: HTMLElement, handlers: AtlasHandlers 
   /** A cobbled road with organic edges: cobbles inside, ragged edge pieces round its border (grass bleeding over). */
   // The edge pieces are drawn at their own scale (their stones the cobbles' size), cut to strips of a road's
   // border: `e` deep along each side, `e` square at the corners.
-  const paving = (r: Rect, z: number, extra: Sprite): Sprite[] => {
+  // `others` are the other paved areas: no edge is drawn where the paving runs on into them, and `open` sides (a road's end
+  // into the forest or onto the bridge) get none either, so grass shows only on the paving's true outer boundary.
+  const paving = (r: Rect, z: number, extra: Sprite, others: Rect[] = [], open: string[] = []): Sprite[] => {
     // The warm paving where the sheets have it, else the first.
     const stone = realFrames.has("cobble-warm") && realFrames.has("cobble-warm-edge-n") ? "cobble-warm" : "cobble";
     const P = FRAMES[`${stone}-edge-n`]!.w;
@@ -500,8 +502,15 @@ export function mountNativeVillage(parent: HTMLElement, handlers: AtlasHandlers 
     // The warm paving, nudged toward the concept's tan-brown (a light warm tint, never darker).
     const tone = stone === "cobble" ? { shade: PAVE_SHADE, ...extra } : extra;
     const out: Sprite[] = [tile(stone, { x: r.x + e * 0.5, y: r.y + e * 0.5, w: r.w - e, h: r.h - e }, z, tone)];
-    const cut = (name: string, x: number, y: number, w: number, h: number, uv: number[]) =>
+    const paved = (px: number, py: number) => others.some((o) => px >= o.x && px <= o.x + o.w && py >= o.y && py <= o.y + o.h);
+    // Each piece's outside: just beyond its ragged side(s); a piece whose outside is paved (or an open side) isn't drawn.
+    const cut = (name: string, x: number, y: number, w: number, h: number, uv: number[]) => {
+      if ([...name].some((d) => open.includes(d))) return;
+      const ox = name.includes("w") ? x - 4 : name.includes("e") ? x + w + 4 : x + w / 2;
+      const oy = name.includes("n") ? y - 4 : name.includes("s") ? y + h + 4 : y + h / 2;
+      if (paved(ox, oy) || (name.length === 2 && (paved(ox, y + h / 2) || paved(x + w / 2, oy)))) return;
       out.push({ f: `${stone}-edge-${name}`, x, y, w, h, uv, z: z + 0.01, ...tone });
+    };
     // Along the top and bottom, in runs of the piece's width (its middle, clear of its own corners).
     for (let x = r.x + e; x < r.x + r.w - e - 0.5; x += P * 0.6) {
       const w = Math.min(P * 0.6, r.x + r.w - e - x), u = 0.2, du = w / P;
@@ -536,17 +545,6 @@ export function mountNativeVillage(parent: HTMLElement, handlers: AtlasHandlers 
     return canvas;
   };
 
-  /** An empty dark plate strip under a tile, as the concept's arcade has (no text on it: names and counts are in cards). */
-  const plateStrip = (r: Rect, extra: Sprite = {}): Sprite[] => {
-    if (!["plate-left", "plate-mid", "plate-right"].every((n) => realFrames.has(n))) return [];
-    const lw = (FRAMES["plate-left"]!.w * r.h) / FRAMES["plate-left"]!.h, rw = (FRAMES["plate-right"]!.w * r.h) / FRAMES["plate-right"]!.h;
-    return [
-      sprite("plate-left", { x: r.x, y: r.y, w: lw, h: r.h }, 2.3, extra),
-      tile("plate-mid", { x: r.x + lw, y: r.y, w: Math.max(0, r.w - lw - rw), h: r.h }, 2.29, extra),
-      sprite("plate-right", { x: r.x + r.w - rw, y: r.y, w: rw, h: r.h }, 2.3, extra),
-    ];
-  };
-
   /** Standing things sort by their feet: further down the village is nearer the viewer. */
   const standZ = (l: VillageLayout, feetY: number) => -30 + (20 * (feetY - l.bounds.y)) / Math.max(1, l.bounds.h);
 
@@ -562,14 +560,15 @@ export function mountNativeVillage(parent: HTMLElement, handlers: AtlasHandlers 
       const grid = FRAMES.grass!.w * 6;
       const phase = (v: number) => ((v % grid) + grid) % grid;
       if (!sq.online) sprites.push(tile("grass", sq.rect, -60, { ...dim, ox: phase(sq.rect.x), oy: phase(sq.rect.y) }));
-      for (const r of sq.roads) sprites.push(...paving(r, -57, dim));
+      // The plaza, then the north road (open into the forest at its top) and the south road (open onto the bridge).
+      sq.roads.forEach((r, i) => sprites.push(...paving(r, -57, dim, sq.roads.filter((_, j) => j !== i), i === 1 ? ["n"] : i === 2 ? ["s"] : [])));
       const warm = realFrames.has("cobble-warm-blob");
       sprites.push(sprite(warm ? "cobble-warm-blob" : "cobble-blob", sq.plaza, -56.9, { ...(warm ? {} : { shade: PAVE_SHADE }), ...dim }));
       // A larger, lighter ring of radial stones round the fountain, under its own ring.
       const big = { x: sq.ring.x - sq.ring.w * 0.25, y: sq.ring.y - sq.ring.h * 0.25, w: sq.ring.w * 1.5, h: sq.ring.h * 1.5 };
       sprites.push(sprite("plaza-ring", big, -56.5, { c: 0xfff0d0, cf: 0.3, a: 0.9, ...dim }));
       sprites.push(sprite("plaza-ring", sq.ring, -56, dim));
-      sprites.push(sprite(sq.online ? "fountain-on" : "fountain-off", sq.fountain, standZ(l, sq.fountain.y + sq.fountain.h), dim));
+      sprites.push(sprite(sq.online ? "fountain-on" : "fountain-off", sq.fountain, standZ(l, sq.fountain.y + sq.fountain.h), { ...dim, e: "vfountain" }));
       if (sq.online) {
         const basin = at("water-ripple", sq.center.x, sq.fountain.y + sq.fountain.h * 0.74, sq.fountain.w * 0.7);
         sprites.push(sprite("water-ripple", basin, standZ(l, sq.fountain.y + sq.fountain.h) + 0.01, { a: 0.8 }));
@@ -582,17 +581,14 @@ export function mountNativeVillage(parent: HTMLElement, handlers: AtlasHandlers 
     for (const p of l.projects) {
       const dim = { ...dimOf(p.square), ...(p.stale ? { a: 0.75 } : {}) };
       const z = standZ(l, p.base);
-      sprites.push(sprite(p.building, p.body, z, dim));
+      // `e`: the entity whose hover or selection makes this sprite glow (Swift).
+      sprites.push(sprite(p.building, p.body, z, { ...dim, e: `v${p.key}` }));
       // Its contact shadow on the paving, and its lit windows (while its host is online).
       images.push({ ...image("shadow:contact", paintContact), x: p.body.x - p.body.w * 0.02, y: p.base - 46, w: p.body.w * 1.04, h: 92, z: z - 0.01, a: 0.75 });
       if (l.squares[p.square]!.online)
         for (let k = 0; k < 4; k++)
           lights.push({ x: p.body.x + p.body.w * (0.21 + 0.19 * k), y: p.body.y + p.body.h * 0.52, c: 0xffa63a, r: 52, period: 3800, flicker: false, ph: k / 4, z: z + 0.004, k: 0.8 });
-      sprites.push(sprite("banner", p.banner, z + 0.002, dim));
-      // Its emblem, large and white on the banner: the GitHub and Linear marks (the app's own), the layers, a robot.
-      const icon = { x: p.banner.x + p.banner.w * 0.22, y: p.banner.y + p.banner.h * 0.2, w: p.banner.w * 0.56, h: p.banner.w * 0.56 };
-      if (p.emblem.startsWith("mark-")) images.push({ ...image(p.emblem, () => paintMark(p.emblem)), ...icon, z: z + 0.003, ...dim });
-      else sprites.push(sprite(p.emblem, icon, z + 0.003, dim));
+      // No banner: a hall says what it is in its hover card.
       // The porch, before the arcade: its ends and a tiled middle.
       if (p.ledge) {
         // A shallow stone ledge as wide as the hall, the robots' heads at its base.
@@ -620,13 +616,12 @@ export function mountNativeVillage(parent: HTMLElement, handlers: AtlasHandlers 
         sprites.push(sprite("tent", at("tent", w.tileAt.x, w.frame.y + w.frame.h, Math.min(w.rect.w + 20, 130)), z, dim));
       } else {
         // Over every standing thing (no tree's crown hides what a tile says).
-        sprites.push(sprite("tile-frame", w.frame, 2, dim));
-        sprites.push(sprite(`tile-${w.tile}`, at(`tile-${w.tile}`, w.tileAt.x, w.tileAt.y, w.tileSize), 2.1, dim));
+        sprites.push(sprite("tile-frame", w.frame, 2, { ...dim, e: w.entity.id }));
+        sprites.push(sprite(`tile-${w.tile}`, at(`tile-${w.tile}`, w.tileAt.x, w.tileAt.y, w.tileSize), 2.1, { ...dim, e: w.entity.id }));
       }
-      // An empty plate strip (its name is in its hover card), and its agents' state as a small lit dot on it.
-      sprites.push(...plateStrip(w.plate, dim));
+      // Its agents' state as a small lit dot on the frame's carved sill (its name is in its hover card).
       const dot = parseInt(STATUS_DOT[w.status]!.slice(1), 16);
-      const dotAt = { x: w.tileAt.x, y: w.plate.y + w.plate.h / 2 };
+      const dotAt = { x: w.tileAt.x, y: w.frame.y + w.frame.h * 0.86 };
       sprites.push({ ...sprite("dot", at("dot", dotAt.x, dotAt.y, 14), 2.4, dim), c: dot, cf: 1 });
       if (w.status !== "idle" && w.status !== "offline") lights.push({ ...dotAt, c: dot, r: 16, period: 2400, flicker: false, ph: 0, z: 2.35, k: 0.8 });
       // The arch's lamp-lit interior behind the tile.
@@ -636,10 +631,9 @@ export function mountNativeVillage(parent: HTMLElement, handlers: AtlasHandlers 
     for (const t of l.tiles) {
       const d = t.hall === "prs" ? l.counts.prs : l.counts.issues;
       const shade = d.known ? {} : { a: 0.55 };
-      sprites.push(sprite(`tile-${t.tile}`, at(`tile-${t.tile}`, t.tileAt.x, t.tileAt.y, t.tileSize), 2.1, shade));
-      sprites.push(sprite("tile-frame", t.frame, 2, shade));
-      // Its count is in its hover card (and the At a Glance panel), not on the map: an empty plate strip under it.
-      sprites.push(...plateStrip(t.plate, shade));
+      sprites.push(sprite(`tile-${t.tile}`, at(`tile-${t.tile}`, t.tileAt.x, t.tileAt.y, t.tileSize), 2.1, { ...shade, e: t.id }));
+      sprites.push(sprite("tile-frame", t.frame, 2, { ...shade, e: t.id }));
+      // Its count is in its hover card (and the At a Glance panel), not on the map; the frame's sill closes it.
       lights.push({ x: t.tileAt.x, y: t.frame.y + 6, c: 0xffb860, r: 44, period: 3200, flicker: false, ph: random(seedOf(t.id))(), z: -0.5, k: d.known ? 0.3 : 0.1 });
     }
     const flags = l.workspaces.flatMap((w) => [
@@ -663,8 +657,8 @@ export function mountNativeVillage(parent: HTMLElement, handlers: AtlasHandlers 
       hudClear: V.marginLeft - 40,
       core: l.core,
       keep: l.keep,
-      // What the HUD's panel must never cover: every hall's banner and every tile.
-      clear: [...l.projects.map((p) => p.banner), ...l.tiles.map((t) => t.frame), ...l.workspaces.map((w) => w.frame)].map((r) => [r.x, r.y, r.w, r.h]),
+      // What the HUD's panel must never cover: every tile.
+      clear: [...l.tiles.map((t) => t.frame), ...l.workspaces.map((w) => w.frame)].map((r) => [r.x, r.y, r.w, r.h]),
       sprites,
       images,
       lights,
@@ -676,6 +670,8 @@ export function mountNativeVillage(parent: HTMLElement, handlers: AtlasHandlers 
         ...l.tiles.map((t) => ({ id: t.id, kind: "tile", ...t.rect })),
         // The halls themselves, for their hover cards (picked after their tiles: "vhall" sorts after "tile").
         ...l.projects.map((p) => ({ id: `v${p.key}`, kind: "tile", ...p.rect })),
+        // The fountain: the fleet, its card listing the hosts.
+        ...l.squares.map((s) => ({ id: "vfountain", kind: "tile", ...s.fountain })),
       ],
     };
   };
@@ -733,24 +729,14 @@ export function mountNativeVillage(parent: HTMLElement, handlers: AtlasHandlers 
       }
       // Lanterns on the bridge's posts, over the bridge.
       const bridgeZ = standZ(l, sq.bridge.y + sq.bridge.h) + 0.01;
-      for (const b of sq.wallBanners) {
-        const wz = standZ(l, sq.walls[0]!.y + sq.walls[0]!.h) + 0.01;
-        const box = { x: b.x - 55, y: b.y, w: 110, h: (FRAMES.banner!.h * 110) / FRAMES.banner!.w };
-        sprites.push(sprite("banner", box, wz, sq.online ? {} : { dim: 1 }));
-        sprites.push(sprite("icon-castle", at("icon-castle", b.x, box.y + box.h * 0.48, 58), wz + 0.001, sq.online ? {} : { dim: 1 }));
-      }
       for (const lamp of sq.bridgeLamps) {
         sprites.push(sprite(lit ? "lamp-on" : "lamp-off", at("lamp-on", lamp.x, lamp.y, 52), bridgeZ, sq.online ? {} : { dim: 1 }));
         if (lit) lights.push({ x: lamp.x, y: lamp.y - 50, c: 0xffb050, r: 80, period: 2600, flicker: true, ph: random(seedOf(`${sq.host.id}b${lamp.x}`))(), k: 0.9 });
       }
-      // The navy banners on lamp posts either side of the fountain, as tall as its crystal, blank, as the sheet paints them.
+      // Lamps either side of the fountain (no banners).
       for (const p of sq.pennants) {
-        const post = at("lamp-post-banner", p.x, p.y, 150);
-        sprites.push(sprite("lamp-post-banner", post, standZ(l, p.y), sq.online ? {} : { dim: 1 }));
-        // The host's emblem on the banner's cloth (its rect in the frame: x 50–86%, y 25–64%).
-        const icon = at("icon-castle", post.x + post.w * 0.68, post.y + post.h * 0.43, post.w * 0.3);
-        sprites.push(sprite("icon-castle", icon, standZ(l, p.y) + 0.001, sq.online ? {} : { dim: 1 }));
-        if (lit) lights.push({ x: post.x + post.w * 0.25, y: post.y + post.h * 0.12, c: 0xffc46a, r: 50, period: 2600, flicker: true, ph: random(seedOf(`${sq.host.id}${p.x}`))(), k: 0.8 });
+        sprites.push(sprite(lit ? "lamp-on" : "lamp-off", at("lamp-on", p.x, p.y, 34), standZ(l, p.y), sq.online ? {} : { dim: 1 }));
+        if (lit) lights.push({ x: p.x, y: p.y - FRAMES["lamp-on"]!.h * (34 / FRAMES["lamp-on"]!.w) + 14, c: 0xffc46a, r: 60, period: 2600, flicker: true, ph: random(seedOf(`${sq.host.id}${p.x}`))(), k: 0.9 });
       }
     }
     // Each robot's floor light, in its state's colour, on the porch slab before it.
@@ -771,7 +757,7 @@ export function mountNativeVillage(parent: HTMLElement, handlers: AtlasHandlers 
         if (lit) lights.push({ x: lamp.x, y: lamp.y - (FRAMES["lamp-on"]!.h - 10), c: 0xffc46a, r: 70, period: 2400, flicker: true, ph: random(seedOf(id + lamp.x))() });
       }
       const alarm = online ? projectAlarm(l, id) : undefined;
-      if (alarm) lights.push({ x: p.banner.x + p.banner.w / 2, y: p.banner.y + p.banner.h * 0.45, c: STATE_TILE[alarm]!, r: 70, period: alarm === "failed" ? 1200 : 1800, flicker: false, z: -0.5, ph: 0 });
+      if (alarm) lights.push({ x: p.body.x + p.body.w / 2, y: p.body.y + p.body.h * 0.2, c: STATE_TILE[alarm]!, r: 70, period: alarm === "failed" ? 1200 : 1800, flicker: false, z: -0.5, ph: 0 });
     }
     // The crystal: calm blue, flaring in the most urgent state's colour when something in its square needs you.
     for (const [i, sq] of l.squares.entries()) {
@@ -876,7 +862,7 @@ export function mountNativeVillage(parent: HTMLElement, handlers: AtlasHandlers 
       handlers.ready?.();
     } else if (message.type === "pick") {
       if (!enabled) return;
-      if (message.id?.startsWith("vhall:")) return;
+      if (message.id?.startsWith("vhall:") || message.id === "vfountain") return;
       if (message.id?.startsWith("tile:")) {
         // A dashboard tile opens its first PR or issue, as the app opens such links.
         const t = tileOf(message.id);
@@ -887,10 +873,12 @@ export function mountNativeVillage(parent: HTMLElement, handlers: AtlasHandlers 
       handlers.pick?.(entity(message.id));
     } else if (message.type === "hover") {
       parent.style.cursor = message.id ? "pointer" : "";
-      if (message.id?.startsWith("vhall:")) {
+      if (message.id?.startsWith("vhall:") || message.id === "vfountain") {
         if (hovered) setHover(null);
         const p = layout?.projects.find((x) => `v${x.key}` === message.id);
-        handlers.card?.(p ? hallCard(p.hall) : null, message.x === undefined ? null : { x: message.x, y: message.y! });
+        const sq = layout?.squares[0];
+        const card = p ? hallCard(p.hall) : sq ? { title: "The fleet", detail: `${sq.hosts.length} host${sq.hosts.length === 1 ? "" : "s"}`, lines: sq.hosts.map((h) => `${h.title}${h.stats.length ? ` · ${h.stats.map((x) => x.text).join(" · ")}` : ""}`) } : null;
+        handlers.card?.(card, message.x === undefined ? null : { x: message.x, y: message.y! });
         return;
       }
       if (message.id?.startsWith("tile:")) {

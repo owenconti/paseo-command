@@ -770,21 +770,25 @@ fleet, sparse or crowded. A world of its own, built as the Dungeon Board is: `re
 One village for the whole fleet (never a square per host). Its crystal fountain is the fleet, dead centre of four halls (`HALLS`), on
 its ring with navy lamp-post banners either side; its plaque stacks the hosts, narrow (each one's name over its status dot and `CPU · MEM · DISK`,
 ≥ 90% red; offline says so, and that host's workspaces and agents are dimmed). The halls stand close round the fountain's ring, the gaps between them just the roads; the bottom halls' porches come down to the ponds
-beside the bridge and the front wall. The halls: top left "GitHub PRs" (blue,
-the app's GitHub mark on its banner), four tiles counting your pull requests (`GET /api/github/q/prCounts`, `readPrCounts` in
+beside the bridge and the front wall. The halls (no banners: each says what it is in its hover card): top left "GitHub PRs" (blue), four tiles counting your pull requests (`GET /api/github/q/prCounts`, `readPrCounts` in
 `web/server/github/reads.ts`: merged in the last 14 days, in review, draft, conflicts or failing checks); top right "Linear Issues"
-(purple, Linear's mark), four tiles counting issues assigned to you (`GET /api/linear/issue-counts`, `readIssueCounts` in
+(purple), four tiles counting issues assigned to you (`GET /api/linear/issue-counts`, `readIssueCounts` in
 `web/server/linear/reads.ts` through the whitelisted client and budget: done in the last 14 days, in progress, todo, blocked by a
 "Blocked" state or label or an open blocking issue; paged through, up to 2,000 issues, past which the counts are
 lower bounds, `atLeast`, shown "N+"; the open PRs' groups use GitHub's exact totals for open and drafts past the 100 read, conflicts
 then a lower bound); both asked by `useVillageCounts` (`web/src/villageCounts.ts`) every minute while
 the Village shows, passed as `AtlasData.dashboard`. Off or without a key, their tiles dim and their cards say why. Bottom left
-"Workspaces" (the teal dome): a bay per workspace of the fleet (by host, project, oldest first), a slate tile and a small lit dot for
+"Workspaces" (the teal dome): a bay per workspace of the fleet (by host, project, oldest first), a stained-glass tile in a limestone arch frame whose carved sill holds a small lit dot for
 its agents' state (green at work, amber needs you, red failed, grey idle), its four arches always drawn (unused ones empty), an empty dark plate strip under each tile (as under the dashboard tiles), past six wrapping into
 rows of bays beneath (seven: four and three); PR, Probe and auto-merge medallions on its frame. Bottom right "Agents" (the gear
 workshop): wider than the others, every agent as a robot, always at full size, on a raised stone platform as wide as the building, extending past its sides
 (up to 1.3 times its width, overhanging the plaza and toward the river) before wrapping into more rows; halls never widen with the fleet; provider colours (`robotColor`),
 idle and work frames, a floor light in the Atlas's state colour (pulsing for states that need you), markers over heads, drones.
+Hover and selection light the object itself, never a box: a soft halo along its own silhouette (baked once per frame with Core
+Image: alpha thresholded, spread, blurred) and a brightening of the sprite, warm white on hover and gold, stronger and breathing,
+for the selection (`glow` in `VillageScene.swift`; sprites the page tags `e` with their entity: halls, tiles, workspaces, the
+fountain; robots by their id). Paving edges are drawn only on the paving's true outer boundary with grass (never where it runs
+on into another paved area, nor at a road's open end); greenery and rocks never stand on paving.
 No text on the map but the host plaque, as on the Islands map: halls, tiles, workspaces and robots say what they are in hover cards
 (the page's `.atlas-world-card` from the bridge's `card` handler: a tile its count and up to 12 PRs or issues, a hall its name and
 counts; a click on a PR or issue tile opens its first through `openAppLink`). Picking: a medallion, a robot, a workspace's bay, a

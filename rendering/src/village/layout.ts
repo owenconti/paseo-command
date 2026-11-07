@@ -430,7 +430,7 @@ function blockOf(spec: (typeof HALLS)[number], bays: Bay[], robots: number, meas
     rows,
     plaqueW,
     width: Math.max(w, span + 40) + 12,
-    above: h + V.bannerLift + 8,
+    above: h + 8,
     below: V.porchY + V.porchH + extra + (spec.hall === "agents" ? 22 : 0),
   };
 }
@@ -724,7 +724,7 @@ export function layoutVillage(data: AtlasData, _aspect = 1.6, measure: Measure =
           { x: porches[0]!.x - 14, y: porches[0]!.y + V.porchH - 4 },
           { x: porches[0]!.x + porches[0]!.w + 14, y: porches[0]!.y + V.porchH - 4 },
         ],
-        rect: union([banner, body]),
+        rect: body,
         stale: false,
       });
       for (const { bay, slot: k, row } of b.bays) {
@@ -812,7 +812,7 @@ export function layoutVillage(data: AtlasData, _aspect = 1.6, measure: Measure =
   for (const [i, sq] of squares.entries()) {
     const top = projects.filter((p) => p.square === i && p.base < sq.ring.y);
     if (!top.length) continue;
-    const said = top.flatMap((p) => [p.plaque, p.banner, ...workspaces.filter((w) => w.project === p.key && w.square === i).map((w) => w.frame), ...tiles.filter((t) => `hall:${t.hall}` === p.key).map((t) => t.frame)]);
+    const said = top.flatMap((p) => [p.plaque, ...workspaces.filter((w) => w.project === p.key && w.square === i).map((w) => w.frame), ...tiles.filter((t) => `hall:${t.hall}` === p.key).map((t) => t.frame)]);
     const x = Math.min(...said.map((r) => r.x)) - 12;
     if (x > sq.keep.x) sq.keep = { ...sq.keep, x, w: sq.keep.x + sq.keep.w - x };
     // Every workspace's bay and every robot stay inside the view too.
@@ -876,7 +876,7 @@ function sceneryOf(squares: VSquare[], projects: VProject[], workspaces: VWorksp
     const reserved: Rect[] = [
       sq.fountain, sq.plaque, sq.ring, sq.bridge,
       ...sq.lamps.map((l) => boxOf("lamp-on", l.x, l.y)),
-      ...sq.pennants.map((l) => boxOf("lamp-post-banner", l.x, l.y, 150)),
+      ...sq.pennants.map((l) => boxOf("lamp-on", l.x, l.y, 34)),
       ...mine.flatMap((p) => [p.rect, p.plaque, p.porch, ...p.lamps.map((l) => boxOf("lamp-on", l.x, l.y))]),
       ...workspaces.filter((w) => w.square === si).flatMap((w) => [w.rect, w.plate]),
       ...tiles.flatMap((t) => [t.rect, t.plate]),
@@ -899,6 +899,8 @@ function sceneryOf(squares: VSquare[], projects: VProject[], workspaces: VWorksp
       if (keepClear) {
         if (reserved.some((r) => overlaps(r, foot, 2))) return false;
         if (big(d.frame, d.w) && ground.some((r) => overlaps(r, foot, 6))) return false;
+        // Greenery and rocks never stand on the paving (planters, crates and barrels may).
+        if (/^(bush|flowers|grass-tufts|rocks)/.test(d.frame) && [...sq.roads, sq.plaza].some((r) => overlaps(r, foot, 4))) return false;
         // No crown hides the wall, its towers or the bridge, but at the square's corners.
         if (big(d.frame, d.w) && foot.x > R.x + 120 && foot.x + foot.w < sq.river.x - 40 && [...sq.walls, sq.bridge, ...sq.moat].some((w) => overlaps(w, rect, -4))) return false;
         if (placed.some((r) => overlaps(r, foot, big(d.frame, d.w) ? -34 : -4))) return false;
@@ -964,7 +966,7 @@ function sceneryOf(squares: VSquare[], projects: VProject[], workspaces: VWorksp
     for (let k = 0; k < 90; k++) {
       const x = pave.x + 40 + rng() * (pave.w - 80), y = pave.y + 200 + rng() * (pave.h - 200);
       const roll = rng();
-      const frame = roll < 0.35 ? "flowerbed" : roll < 0.6 ? `crates-${Math.floor(rng() * 3)}` : roll < 0.8 ? "barrel" : `flowers-${Math.floor(rng() * 4)}`;
+      const frame = roll < 0.4 ? "flowerbed" : roll < 0.75 ? `crates-${Math.floor(rng() * 3)}` : "barrel";
       place({ frame, x, y, w: frame.startsWith("tree") ? 96 : undefined, layer: "stand" });
     }
     // Flower beds round the fountain's ring.
@@ -985,11 +987,6 @@ function sceneryOf(squares: VSquare[], projects: VProject[], workspaces: VWorksp
         const bx = s === -1 ? p.body.x - 6 : p.body.x + p.body.w + 6;
         place({ frame: `bush-${Math.floor(rng() * 4)}`, x: bx, y: p.base - 6, layer: "stand" });
       }
-    // Flower beds and grass tufts along the roads' edges, so the grass bleeds over them.
-    for (const r of sq.roads)
-      for (const [x0, x1, y] of [[r.x, r.x + r.w, r.y + 6], [r.x, r.x + r.w, r.y + r.h + 6]] as const)
-        for (let x = x0 + 30 + rng() * 60; x < x1 - 20; x += 90 + rng() * 120)
-          place({ frame: rng() < 0.35 ? "flowerbed" : rng() < 0.6 ? `flowers-${Math.floor(rng() * 4)}` : "grass-tufts", x, y, w: undefined, layer: "ground" });
     // Rocks by the ponds; bushes and flowers along the wall's foot.
     for (const m of sq.moat)
       for (const fx of [0.06, 0.94]) place({ frame: `rocks-${Math.floor(rng() * 3)}`, x: m.x + m.w * fx, y: m.y + m.h * (0.6 + rng() * 0.3), w: 60 + rng() * 20, layer: "stand" }, false);
@@ -1008,6 +1005,8 @@ function sceneryOf(squares: VSquare[], projects: VProject[], workspaces: VWorksp
         // (Standing behind the halls, which are drawn over them; clear of the lamps and the falls, and off the plaza.)
         if ([sq.waterfall, ...sq.lamps.map((l) => boxOf("lamp-on", l.x, l.y))].some((r) => overlaps(r, rect, 0))) continue;
         if (foot.y + foot.h > pave.y - 10 || mine.some((p) => overlaps(p.rect, foot, 0) && foot.y + foot.h > p.base - 20)) continue;
+        // (Never across the north road: it runs on, clear, into the forest.)
+        if (overlaps(sq.roads[1]!, { x: rect.x + rect.w * 0.15, y: rect.y, w: rect.w * 0.7, h: rect.h }, 0)) continue;
         if ([...mine.flatMap((p) => [p.plaque, p.porch]), ...workspaces.filter((w) => w.square === si).flatMap((w) => [w.rect, w.frame, w.plate]), ...tiles.flatMap((t) => [t.rect, t.plate])].some((r) => overlaps(r, foot, 0))) continue;
         decor.push({ frame: rng() < 0.15 ? `blossom-${Math.floor(rng() * 3)}` : `tree-${Math.floor(rng() * 6)}`, x, y, rect: boxOf("tree-0", x, y, w), square: si, layer: "stand" });
       }
