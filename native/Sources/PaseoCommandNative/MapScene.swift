@@ -1,10 +1,10 @@
 import SpriteKit
 
-/// A map style's scene, drawn in `AtlasView` under the page: the Atlas (`AtlasScene`) or the
-/// Dungeon Board (`DungeonScene`). The page lays the map out and paints its art; the scene draws,
+/// A map style's scene, drawn in `AtlasView` under the page: the Atlas (`AtlasScene`), the
+/// Dungeon Board (`DungeonScene`) or the Village (`VillageScene`). The page lays the map out and paints its art; the scene draws,
 /// animates, owns the camera, hover and picking, and reports through `emit`.
 protocol MapScene: SKScene {
-    /// Which world it draws: "atlas" (the Islands and Overworld styles) or "dungeon" (`scene` in the page's `art` message).
+    /// Which world it draws: "atlas" (the Islands and Overworld styles), "dungeon" or "village" (`scene` in the page's `art` message).
     var kind: String { get }
     /// Events for the page: pick, hover, zoom, ready, state.
     var emit: ([String: Any]) -> Void { get set }
@@ -42,10 +42,14 @@ protocol MapScene: SKScene {
 
 /// The scene for a style's name.
 func makeMapScene(kind: String, size: CGSize) -> MapScene {
-    kind == "dungeon" ? DungeonScene(size: size) : AtlasScene(size: size)
+    switch kind {
+    case "dungeon": return DungeonScene(size: size)
+    case "village": return VillageScene(size: size)
+    default: return AtlasScene(size: size)
+    }
 }
 
 /// The map's styles, as the page lists them (`MAP_STYLES` in `web/src/mapStyle.ts`), for View → Map Style.
 enum MapStyles {
-    static let all: [(id: String, name: String)] = [("islands", "Islands"), ("overworld", "Overworld"), ("dungeon", "Dungeon Board")]
+    static let all: [(id: String, name: String)] = [("islands", "Islands"), ("overworld", "Overworld"), ("dungeon", "Dungeon Board"), ("village", "Village")]
 }

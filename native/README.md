@@ -56,6 +56,11 @@ npm run native:mock -- --fleet large --port 4331   # web/dist plus a mocked API;
 npm run native:run -- --url http://127.0.0.1:4331/
 ```
 
+`native:mock -- --dungeon` and `-- --village` serve the Dungeon Board's and the Village's concept fleets and
+print an address that opens the map in that style (`?map=dungeon`, `?map=village`). The map's styles each have a
+scene (`MapScene.swift`: `AtlasScene` for the Islands and the Overworld, `DungeonScene`, `VillageScene`); the page's
+`art` message names it and the window swaps it in (`WorldWindow.adopt`).
+
 The icon (`native/AppIcon.icns`) is drawn from the Atlas's own robot art by
 `swift native/scripts/icon.swift`.
 

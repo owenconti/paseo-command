@@ -5,12 +5,14 @@
  * `mockApi` answers it, and every mutation is refused. The live socket
  * pushes the whole fleet once, as `mockApi`'s does.
  *
- *   npm run native:mock -- [--fleet small|large|dungeon] [--dungeon] [--map islands|overworld|dungeon] [--port 4331] [--pr-flags]
+ *   npm run native:mock -- [--fleet small|large|dungeon|village] [--dungeon] [--village] [--map islands|overworld|dungeon|village] [--port 4331] [--pr-flags]
  *
  * `--pr-flags` labels the first three workspaces with PR status labels, so
  * their flags show. `--probe` labels the first five, and gives each a Probe
  * verdict (one of each state), so each shows a Probe medallion; the
  * second's and fourth's PRs have auto-merge on, so their poles wear its seal.
+ * `--village` (or `--fleet village`) serves the Village's concept fleet (one host, four projects,
+ * every PR tile, six robots) and opens the map as the Village (`?map=village`).
  * `--dungeon` (or `--fleet dungeon`) serves the Dungeon Board's concept fleet (three hosts with
  * their loads), and the address it prints opens the map as the Dungeon Board (`?map=dungeon`);
  * `--map <style>` prints one that opens another style.
@@ -26,7 +28,7 @@ import { createServer } from "node:http";
 import { extname, join, normalize } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createRequire } from "node:module";
-import { DUNGEON_STATS, dungeon, large, small } from "../../web/e2e/fleets.ts";
+import { DUNGEON_STATS, VILLAGE_STATS, dungeon, large, small, village } from "../../web/e2e/fleets.ts";
 // `ws` lives in web/node_modules, beside the app it serves.
 const { WebSocketServer } = createRequire(new URL("../../web/package.json", import.meta.url))("ws") as typeof import("ws");
 
@@ -35,8 +37,8 @@ const option = (name: string, fallback: string) => {
   const i = args.indexOf(`--${name}`);
   return i >= 0 && args[i + 1] ? args[i + 1]! : fallback;
 };
-const fleetName = args.includes("--dungeon") ? "dungeon" : option("fleet", "large");
-const fleet = fleetName === "small" ? small : fleetName === "dungeon" ? dungeon : large;
+const fleetName = args.includes("--dungeon") ? "dungeon" : args.includes("--village") ? "village" : option("fleet", "large");
+const fleet = fleetName === "small" ? small : fleetName === "dungeon" ? dungeon : fleetName === "village" ? village : large;
 const port = Number(option("port", "4331"));
 const asking = new Set(option("asking", "").split(",").filter(Boolean));
 const offline = option("offline", "");
@@ -71,7 +73,7 @@ if (args.includes("--probe")) {
   });
 }
 /** `GET /api/hoststats`'s answer, keyed "local" or a host's server id. */
-const hostStats: Record<string, unknown> = fleet === dungeon ? { ...DUNGEON_STATS } : {};
+const hostStats: Record<string, unknown> = fleet === dungeon ? { ...DUNGEON_STATS } : fleet === village ? { ...VILLAGE_STATS } : {};
 if (args.includes("--stats")) {
   const keys = ["local", ...(fleet.hosts as { serverId?: string }[]).flatMap((h) => (h.serverId ? [h.serverId] : []))];
   keys.forEach((key, i) => (hostStats[key] = { cpu: 12 + i * 23, memory: 58 + i * 7, disk: i ? 41 : 93 }));
@@ -105,7 +107,7 @@ if (integrations.length)
     error: null,
   };
 /** The map's style the printed address opens (the page keeps it). */
-const mapStyle = option("map", fleet === dungeon ? "dungeon" : "");
+const mapStyle = option("map", fleet === dungeon ? "dungeon" : fleet === village ? "village" : "");
 
 /** What `mockApi` answers for a GET. */
 function answer(path: string): [number, unknown] {

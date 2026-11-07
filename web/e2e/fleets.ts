@@ -330,3 +330,65 @@ export const DUNGEON_STATS: Record<string, { cpu: number; memory: number; disk: 
   srv_staging: { cpu: 37, memory: 64, disk: 55 },
   srv_prod: { cpu: 51, memory: 72, disk: 81 },
 };
+
+// ---------------------------------------------------------------------------
+// village: the Village's concept fleet. One host, four projects, twelve
+// workspaces across every PR tile (ready, in review, changes asked, failing,
+// none) and six robots of several providers in varied states.
+// ---------------------------------------------------------------------------
+
+const VILLAGE: [project: string, workspace: string, agents: [provider: string, plan: string, subagents?: string[]][], labels?: string[]][] = [
+  ["api-gateway", "auth", [["claude/claude-opus-5-5", "running", ["claude/claude-haiku-5-5", "codex/gpt-6.1-sol"]]], ["CI green", "Approved"]],
+  ["api-gateway", "routing", [], ["CI running", "Awaiting review"]],
+  ["api-gateway", "billing", [["deepseek/deepseek-v4", "question"]], ["CI green", "Changes requested"]],
+  ["api-gateway", "search", [], ["CI failing"]],
+  ["web-app", "dashboard", [["codex/gpt-6.1-sol", "running"]], ["CI running"]],
+  ["web-app", "onboarding", [], ["Approved"]],
+  ["web-app", "settings", []],
+  ["workspaces", "core", [["opencode/kimi-k3", "idle"]]],
+  ["workspaces", "data", []],
+  ["workspaces", "export", [], ["Merge conflicts"]],
+  ["workspaces", "infra", []],
+  ["agents-lab", "experiments", [["claude/claude-sonnet-5", "approval"], ["codex/gpt-6.1-sol", "done"]], ["Awaiting review"]],
+];
+function buildVillage(): Fleet {
+  const hosts: HostRow[] = [{ serverId: "srv_local", label: "Diagonal Ops", status: "online", local: true, state: "online" }];
+  const projects: ProjectRow[] = [];
+  const workspaces: WorkspaceRow[] = [];
+  const agents: AgentRow[] = [];
+  const permissions: PermissionRow[] = [];
+  VILLAGE.forEach(([project, name, rows, labels], w) => {
+    const projectId = `prj_${project}`;
+    if (!projects.some((p) => p.projectId === projectId)) projects.push({ projectId, name: project, kind: "git", path: `/work/${project}` });
+    const workspaceId = `wks_${name}`;
+    const cwd = `/work/${project}/${name}`;
+    workspaces.push({
+      workspaceId, projectId, project, name, isolation: "worktree", cwd, branch: name,
+      createdAt: `2026-11-0${1 + Math.floor(w / 6)}T${String(w).padStart(2, "0")}:00:00Z`,
+      ...(labels ? { labels } : {}),
+    });
+    rows.forEach(([provider, plan, subs], i) => {
+      const id = `a-${name}-${i}`;
+      const status = plan === "failed" ? "error" : plan === "running" ? "running" : "idle";
+      agents.push({
+        ...agentRow(id, status, `${name} agent ${i + 1}`),
+        provider,
+        workspaceId,
+        cwd,
+        createdAt: `2026-11-06T${String(w).padStart(2, "0")}:${String(i).padStart(2, "0")}:00Z`,
+        ...(plan === "done" ? { unread: true } : {}),
+        ...(subs
+          ? { subagents: subs.map((model, k) => ({ id: `${id}-sub-${k}`, name: `Subtask ${k + 1}`, kind: "general-purpose", status: "running", source: "provider", model })) }
+          : {}),
+      });
+      if (plan === "approval") permissions.push({ id: `perm-${id}`, agentId: id, name: "Bash", description: "npm publish" });
+      if (plan === "question") permissions.push({ id: `perm-${id}`, agentId: id, name: "AskUserQuestion", description: "-", kind: "question" });
+    });
+  });
+  return { hosts, projects, workspaces, agents, permissions };
+}
+export const village: Fleet = buildVillage();
+/** The village fleet's host load, for `GET /api/hoststats` (its disk past 90%, in red). */
+export const VILLAGE_STATS: Record<string, { cpu: number; memory: number; disk: number }> = {
+  local: { cpu: 34, memory: 61, disk: 92 },
+};

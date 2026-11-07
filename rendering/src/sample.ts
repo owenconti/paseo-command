@@ -119,3 +119,47 @@ export const DUNGEON_SAMPLE: AtlasData = {
     })),
   ),
 };
+
+/** The Village's concept fleet: one host, four projects, workspaces in every PR
+ * state and six robots of several providers in varied states. Illustrative. */
+const VILLAGE_ROWS: [project: string, workspace: string, agents: [model: string, state: State, subagents?: string[]][], labels?: string[]][] = [
+  ["api-gateway", "auth", [["claude/claude-opus-5-5", "running", ["claude/claude-haiku-5-5", "codex/gpt-6.1-sol"]]], ["CI green", "Approved"]],
+  ["api-gateway", "routing", [], ["CI running", "Awaiting review"]],
+  ["api-gateway", "billing", [["deepseek/deepseek-v4", "question"]], ["CI green", "Changes requested"]],
+  ["api-gateway", "search", [], ["CI failing"]],
+  ["web-app", "dashboard", [["codex/gpt-6.1-sol", "running"]], ["CI running"]],
+  ["web-app", "onboarding", [], ["Approved"]],
+  ["web-app", "settings", []],
+  ["workspaces", "core", [["opencode/kimi-k3", "idle"]]],
+  ["workspaces", "data", []],
+  ["workspaces", "export", [], ["Merge conflicts"]],
+  ["workspaces", "infra", []],
+  ["agents-lab", "experiments", [["claude/claude-sonnet-5", "approval"], ["codex/gpt-6.1-sol", "done"]], ["Awaiting review"]],
+];
+export const VILLAGE_SAMPLE: AtlasData = {
+  hosts: [{ key: "local", name: "Diagonal Ops", online: true, local: true, stats: { cpu: 34, memory: 61, disk: 92 } }],
+  projects: [...new Set(VILLAGE_ROWS.map(([p]) => p))].map((p) => ({ key: `local/${p}`, host: "local", name: p })),
+  workspaces: VILLAGE_ROWS.map(([project, name, , labels], i) => ({
+    key: `local/${project}/${name}`,
+    host: "local",
+    project: `local/${project}`,
+    name,
+    created: `2026-11-0${1 + Math.floor(i / 6)}T${String(i).padStart(2, "0")}:00:00Z`,
+    ...(labels ? { labels } : {}),
+    ...(name === "auth" ? { probe: { state: "approved" as const }, autoMerge: true } : {}),
+    ...(name === "billing" ? { probe: { state: "findings" as const, findings: 2 } } : {}),
+  })),
+  agents: VILLAGE_ROWS.flatMap(([project, name, agents], w) =>
+    agents.map(([model, state, subs], i) => ({
+      key: `local/${project}/${name}/${i}`,
+      host: "local",
+      project: `local/${project}`,
+      workspace: `local/${project}/${name}`,
+      name: `${name} agent ${i + 1}`,
+      model,
+      state,
+      created: `2026-11-06T${String(w).padStart(2, "0")}:${String(i).padStart(2, "0")}:00Z`,
+      ...(subs ? { subagents: subs.length, subagentModels: subs } : {}),
+    })),
+  ),
+};

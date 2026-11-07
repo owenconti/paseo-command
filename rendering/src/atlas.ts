@@ -2,9 +2,10 @@
  * with SpriteKit under the page; this hands the page's map surface to it. */
 import { mountNativeAtlas, nativeWorldAvailable, type MapStyle as AtlasStyle } from "./native/bridge";
 import { mountNativeDungeon } from "./dungeon/bridge";
+import { mountNativeVillage } from "./village/bridge";
 /** The map's styles: the Atlas's hex Islands and its Overworld (one world, switched in place),
- * and the Dungeon Board (a world of its own, mounted in their place). */
-export type MapStyle = AtlasStyle | "dungeon";
+ * and the Dungeon Board and the Village (worlds of their own, each mounted in their place). */
+export type MapStyle = AtlasStyle | "dungeon" | "village";
 import type { AtlasData, Entity } from "./world";
 import type { MapFlag } from "./prStatus";
 export type { AtlasData, Entity };
@@ -25,8 +26,8 @@ export type AtlasHandlers = {
   status?: () => Record<string, unknown>;
 };
 export type AtlasWorld = {
-  /** Which world it is: the Atlas (Islands and Overworld) or the Dungeon Board. */
-  kind: "atlas" | "dungeon";
+  /** Which world it is: the Atlas (Islands and Overworld), the Dungeon Board or the Village. */
+  kind: "atlas" | "dungeon" | "village";
   /** Drawn by the native macOS app (SpriteKit), behind a transparent page. */
   native: true;
   update(data: AtlasData): void;
@@ -50,5 +51,7 @@ export type AtlasWorld = {
  * with the caller. */
 export function mountAtlas(parent: HTMLElement, handlers: AtlasHandlers = {}, style: MapStyle = "islands"): AtlasWorld | null {
   if (!nativeWorldAvailable()) return null;
-  return style === "dungeon" ? mountNativeDungeon(parent, handlers) : mountNativeAtlas(parent, handlers, style);
+  if (style === "dungeon") return mountNativeDungeon(parent, handlers);
+  if (style === "village") return mountNativeVillage(parent, handlers);
+  return mountNativeAtlas(parent, handlers, style);
 }

@@ -237,7 +237,7 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
                 for (name, png) in body["tiles"] as? [String: String] ?? [:] { tiles[name] = Textures.image(dataURL: png) }
                 DispatchQueue.main.async {
                     guard let self else { return }
-                    // The page mounted the other world (the Dungeon Board, or the Atlas): its scene takes the view's place.
+                    // The page mounted another world (the Dungeon Board, the Village or the Atlas): its scene takes the view's place.
                     self.adopt(kind: body["scene"] as? String ?? "atlas")
                     self.scene.setArt(frames: frames, tiles: tiles, constants: body["constants"] as? [String: Any] ?? [:],
                                       reduced: body["reduced"] as? Bool ?? false)
@@ -256,7 +256,7 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
             }
         case "agents":
             decoding.async { [weak self] in
-                // The Dungeon Board's HUD comes with its agents.
+                // The Dungeon Board's and the Village's HUD come with their agents.
                 var images: [String: CGImage] = [:]
                 for item in (body["hud"] as? [String: [String: Any]] ?? [:]).values {
                     if let key = item["key"] as? String, let png = item["png"] as? String, let image = Textures.image(dataURL: png) { images[key] = image }

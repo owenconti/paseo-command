@@ -200,9 +200,10 @@ export function NativeWorld(props: Props) {
     }
     return "Host";
   };
-  // The Islands and Overworld are one world, switched in place; the Dungeon Board is a world of
-  // its own, mounted in their place (and back) when the style crosses that line.
-  const dungeon = style === "dungeon";
+  // The Islands and Overworld are one world, switched in place; the Dungeon Board and the Village are
+  // worlds of their own, each mounted in their place (and back) when the style crosses that line.
+  const worldKind = style === "dungeon" || style === "village" ? style : "atlas";
+  const worldName = style === "dungeon" ? "Dungeon Board" : style === "village" ? "Village" : "";
   // Mount once per world: handlers read current props through refs.
   useEffect(() => {
     const node = surface.current!;
@@ -264,9 +265,9 @@ export function NativeWorld(props: Props) {
       delete document.documentElement.dataset.renderer;
       setUnityWorldTheme(null);
     };
-  }, [dungeon]);
+  }, [worldKind]);
   useEffect(() => {
-    if (style !== "dungeon" && world.current?.kind === "atlas") world.current.style(style);
+    if ((style === "islands" || style === "overworld") && world.current?.kind === "atlas") world.current.style(style);
     // The app's View → Map Style marks the style shown.
     (window as unknown as { webkit?: { messageHandlers?: { paseoWorld?: { postMessage(m: unknown): void } } } }).webkit?.messageHandlers?.paseoWorld?.postMessage({
       type: "mapStyle",
@@ -386,7 +387,7 @@ export function NativeWorld(props: Props) {
         tabIndex={0}
         role="application"
         aria-roledescription="map"
-        aria-label={`${dungeon ? "Dungeon Board" : "Atlas world"}. Drag to pan, scroll to zoom, arrow keys pan, F fits every host. Select a robot to open its conversation.`}
+        aria-label={`${worldName || "Atlas world"}. Drag to pan, scroll to zoom, arrow keys pan, F fits every host. Select a robot to open its conversation.`}
         onPointerLeave={() => setTip(null)}
       />
       {props.blocked && <div className="atlas-input-cover" />}
@@ -423,7 +424,7 @@ export function NativeWorld(props: Props) {
         !ready &&
         !failure && (
           <div className="atlas-world-notice" role="status">
-            {dungeon ? "Preparing the Dungeon Board…" : "Preparing the atlas…"}
+            {worldName ? `Preparing the ${worldName}…` : "Preparing the atlas…"}
           </div>
         )
       )}
@@ -437,8 +438,8 @@ export function NativeWorld(props: Props) {
           {failure} <button onClick={() => location.reload()}>Reload</button>
         </div>
       )}
-      {/* The Dungeon Board says what it shows in its own HUD and hover cards. */}
-      {ready && !dungeon && <WorldLegend data={data} />}
+      {/* The Dungeon Board and the Village say what they show in their own HUD and hover cards. */}
+      {ready && !worldName && <WorldLegend data={data} />}
     </>
   );
 }
