@@ -91,6 +91,8 @@ final class AtlasScene: SKScene {
     private var swaying: [SKSpriteNode] = []
     /// Probe medallions whose review is still running: they pulse.
     private var reviewing: [SKSpriteNode] = []
+    /// Streamers that cycle frames (the Overworld's robots): their textures, each frame's length and a phase.
+    private var cycling: [(node: SKSpriteNode, frames: [SKTexture], ms: Double, phase: Double)] = []
     /// How the page pads a frame's shadow, and how far it falls (shares of the frame's width).
     private var shadowShape: (pad: CGFloat, spread: CGFloat) = (0.1, 3)
     private var flagSway = (degrees: CGFloat(3), period: Double(1400))
@@ -255,6 +257,7 @@ final class AtlasScene: SKScene {
             if f["sway"] as? Bool == true { swaying.append(node) }
         }
         reviewing = []
+        cycling = []
         var keepStreamers = Set<String>()
         for s in m["streamers"] as? [[String: Any]] ?? [] {
             guard let key = s["key"] as? String, let texture = streamers[key] else { continue }
@@ -267,6 +270,13 @@ final class AtlasScene: SKScene {
             node.alpha = num(s["alpha"], 1)
             structures.addChild(node)
             if s["pulse"] as? Bool == true { reviewing.append(node) }
+            if let keys = s["frames"] as? [String], keys.count > 1 {
+                let textures = keys.compactMap { streamers[$0] }
+                if textures.count == keys.count {
+                    keys.forEach { keepStreamers.insert($0) }
+                    cycling.append((node, textures, Double(num(s["frameMs"], 300)), Double(num(s["phase"]))))
+                }
+            }
             // Probe's medallion has a hover card of its own, as a PR flag does.
             if let flag = s["flag"] as? String, let workspace = s["workspace"] as? String {
                 plantedFlags.append(PlantedFlag(flag: flag, workspace: workspace,
@@ -829,7 +839,7 @@ final class AtlasScene: SKScene {
 
     /// Whether anything moves at the ambient rate (tiles, robots, signals, the selection).
     var animating: Bool {
-        !reduced && (!pulses.isEmpty || !runners.isEmpty || !flames.isEmpty || !swaying.isEmpty || !reviewing.isEmpty || robots.contains { $0.busy || !$0.drones.isEmpty } || selected != nil)
+        !reduced && (!pulses.isEmpty || !cycling.isEmpty || !runners.isEmpty || !flames.isEmpty || !swaying.isEmpty || !reviewing.isEmpty || robots.contains { $0.busy || !$0.drones.isEmpty } || selected != nil)
     }
     /// The sea's glints and cloud shadows drift (slowly, in 15 Hz steps).
     var drifting: Bool { !reduced && !tiles.isEmpty }
@@ -937,6 +947,11 @@ final class AtlasScene: SKScene {
         }
         // A Probe medallion whose review is running breathes; steady, with reduced motion.
         for node in reviewing { node.alpha = reduced ? 1 : CGFloat(0.72 + 0.28 * (0.5 + 0.5 * cos(clock / 1800 * .pi * 2))) }
+        // Overworld robots step through their pose's frames; the first, with reduced motion.
+        for c in cycling {
+            let i = reduced ? 0 : Int((clock / c.ms + c.phase).rounded(.down)) % c.frames.count
+            if c.node.texture !== c.frames[i] { c.node.texture = c.frames[i] }
+        }
         walk(step)
     }
 

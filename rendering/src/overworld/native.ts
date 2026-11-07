@@ -56,7 +56,20 @@ type Streamer = {
   cx?: number;
   cy?: number;
   size?: number;
+  frames?: string[];
+  frameMs?: number;
+  phase?: number;
 };
+
+/** A robot's frame `i` of its pose, as its own canvas. */
+function robotCanvas(sheets: Sheets, colour: string, working: boolean, i: number, frameMs: number): HTMLCanvasElement {
+  const f = robotFrame(sheets, colour, working, i * frameMs, 0);
+  const c = document.createElement("canvas");
+  c.width = f.w;
+  c.height = f.h;
+  c.getContext("2d")!.drawImage(f.img, f.x, f.y, f.w, f.h, 0, 0, f.w, f.h);
+  return c;
+}
 
 const w = (v: number) => v * WORLD;
 
@@ -196,6 +209,8 @@ export class OverworldMap {
     };
     const states = new Map(data.agents.map((a) => [a.key, a.state]));
     const streamers: Streamer[] = [];
+    /** Robots' other frames, which Swift keeps for cycling. */
+    const extra: Array<{ key: string; png: string }> = [];
     // Robots and the plates that say their states.
     for (const spot of scene.robots) {
       const state = states.get(spot.id) ?? "idle";
@@ -215,19 +230,19 @@ export class OverworldMap {
           pulse: NEEDS_YOU.includes(state),
         });
       }
-      const pose = spot.working ? "working-0" : "idle-0";
-      const key = `streamer:ow-robot:${spot.colour}:${pose}`;
-      const f = robotFrame(this.sheets, spot.colour, spot.working, 0, 0);
+      // Every frame of its pose (idle bobs, working works), cycled by Swift at the sheet's pace.
+      const count = spot.working ? 4 : 2;
+      const frameMs = spot.working ? 140 : 700;
+      const keys = Array.from({ length: count }, (_, i) => `streamer:ow-robot:${spot.colour}:${spot.working ? "working" : "idle"}-${i}`);
+      keys.forEach((key, i) => {
+        if (i === 0 || state === "offline") return;
+        const png = image(key, () => robotCanvas(this.sheets, spot.colour, spot.working, i, frameMs));
+        if (png) extra.push({ key, png });
+      });
       const size = 256 * ROBOT_SCALE;
       streamers.push({
-        key,
-        png: image(key, () => {
-          const c = document.createElement("canvas");
-          c.width = f.w;
-          c.height = f.h;
-          c.getContext("2d")!.drawImage(f.img, f.x, f.y, f.w, f.h, 0, 0, f.w, f.h);
-          return c;
-        }),
+        key: keys[0]!,
+        png: image(keys[0]!, () => robotCanvas(this.sheets, spot.colour, spot.working, 0, frameMs)),
         x: w(spot.x - 128 * ROBOT_SCALE),
         y: w(spot.y - 224 * ROBOT_SCALE),
         width: w(size),
@@ -235,6 +250,10 @@ export class OverworldMap {
         depth: 7 + spot.y / 1e5,
         alpha: state === "offline" ? 0.55 : 1,
         pulse: false,
+        // Offline robots stand still.
+        frames: state === "offline" ? undefined : keys,
+        frameMs,
+        phase: (hash(spot.id) % 1000) / 1000 * count,
       });
     }
     // Each workspace's PR badges (CI, review), Probe's verdict and the auto-merge seal, by its sign.
@@ -288,6 +307,12 @@ export class OverworldMap {
         }
       });
     }
+    // Swift drops what a scene leaves out, so anything not in this one is sent again when it returns.
+    const used = new Set<string>([
+      ...pieces.map((p) => String(p.key)),
+      ...streamers.flatMap((st) => [st.key, ...(st.frames ?? [])]),
+    ]);
+    for (const key of [...this.sent]) if (!used.has(key)) this.sent.delete(key);
     return {
       type: "scene",
       style: "overworld",
@@ -300,6 +325,7 @@ export class OverworldMap {
       prFlags: [],
       banners: [],
       streamers,
+      images: extra,
       entities: scene.entities.map((e) => ({
         id: e.id,
         kind: e.kind,

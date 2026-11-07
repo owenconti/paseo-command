@@ -1,0 +1,3658 @@
+{
+  "image": "coast.png",
+  "width": 3072,
+  "height": 2560,
+  "artPixelScale": 4,
+  "sampling": "linear",
+  "anchorUnits": "pixels from frame top-left; y down",
+  "style": "HD painted pixel-art-flavoured, smooth antialiased RGBA, upper-left sun",
+  "provenance": "../../../artifacts/overworld/prompts-coast.json",
+  "assembly": {
+    "anchor": "All sprites use the waterline anchor [192,240]. Divide all sizes and offsets by four at concept display scale.",
+    "cliffs": "Stamp fronts left to right along front-facing outline. 48px overlap is a starting point; vary foot y by up to 12px. Top lip masks into procedural island top.",
+    "corners": "Put left/right headlands at outline turns, overlap their open continuation side with a front.",
+    "surf": "Draw bands at cliff foot after cliff/outcrop sprites, with rings centered on outcrop waterline. Frame index shared per surf group.",
+    "tileTrueMeaning": "Fronts are repeatable overlap decals along x, NOT seamless rectangular texture tiles. Do not repeat vertically.",
+    "limits": "Large outline slopes need local placement/rotation; do not rotate far enough to rotate the vertical cliff facets away from screen vertical."
+  },
+  "frames": {
+    "cliff-front-0": {
+      "x": 0,
+      "y": 0,
+      "w": 384,
+      "h": 320,
+      "anchor": {
+        "x": 192,
+        "y": 240
+      },
+      "footprint": {
+        "w": 360,
+        "h": 48,
+        "units": "4x concept pixels"
+      },
+      "conceptFootprint": {
+        "w": 90.0,
+        "h": 12
+      },
+      "artSize": {
+        "w": 360,
+        "h": 180
+      },
+      "tile": true,
+      "tileMode": "overlap-x",
+      "kind": "front",
+      "source": "raw/coast/front-02-clean.png",
+      "sourceCell": [
+        0,
+        0,
+        771,
+        255
+      ],
+      "sourceCropInCell": [
+        210,
+        51,
+        568,
+        230
+      ],
+      "sourceResize": [
+        360,
+        180
+      ],
+      "waterline": {
+        "x": 192,
+        "y": 240
+      },
+      "theme": "temperate",
+      "join": {
+        "method": "feathered overlap",
+        "fadePixels": 24,
+        "recommendedOverlap": 48,
+        "recommendedStep": 312,
+        "left": true,
+        "right": true
+      },
+      "lipAttachment": {
+        "x": 192,
+        "y": 84
+      }
+    },
+    "cliff-front-1": {
+      "x": 384,
+      "y": 0,
+      "w": 384,
+      "h": 320,
+      "anchor": {
+        "x": 192,
+        "y": 240
+      },
+      "footprint": {
+        "w": 360,
+        "h": 48,
+        "units": "4x concept pixels"
+      },
+      "conceptFootprint": {
+        "w": 90.0,
+        "h": 12
+      },
+      "artSize": {
+        "w": 360,
+        "h": 180
+      },
+      "tile": true,
+      "tileMode": "overlap-x",
+      "kind": "front",
+      "source": "raw/coast/front-02-clean.png",
+      "sourceCell": [
+        771,
+        0,
+        1542,
+        255
+      ],
+      "sourceCropInCell": [
+        192,
+        50,
+        550,
+        229
+      ],
+      "sourceResize": [
+        360,
+        180
+      ],
+      "waterline": {
+        "x": 192,
+        "y": 240
+      },
+      "theme": "temperate",
+      "join": {
+        "method": "feathered overlap",
+        "fadePixels": 24,
+        "recommendedOverlap": 48,
+        "recommendedStep": 312,
+        "left": true,
+        "right": true
+      },
+      "lipAttachment": {
+        "x": 192,
+        "y": 84
+      }
+    },
+    "cliff-front-2": {
+      "x": 768,
+      "y": 0,
+      "w": 384,
+      "h": 320,
+      "anchor": {
+        "x": 192,
+        "y": 240
+      },
+      "footprint": {
+        "w": 360,
+        "h": 48,
+        "units": "4x concept pixels"
+      },
+      "conceptFootprint": {
+        "w": 90.0,
+        "h": 12
+      },
+      "artSize": {
+        "w": 360,
+        "h": 180
+      },
+      "tile": true,
+      "tileMode": "overlap-x",
+      "kind": "front",
+      "source": "raw/coast/front-02-clean.png",
+      "sourceCell": [
+        0,
+        255,
+        771,
+        510
+      ],
+      "sourceCropInCell": [
+        180,
+        29,
+        594,
+        236
+      ],
+      "sourceResize": [
+        360,
+        180
+      ],
+      "waterline": {
+        "x": 192,
+        "y": 240
+      },
+      "theme": "temperate",
+      "join": {
+        "method": "feathered overlap",
+        "fadePixels": 24,
+        "recommendedOverlap": 48,
+        "recommendedStep": 312,
+        "left": true,
+        "right": true
+      },
+      "lipAttachment": {
+        "x": 192,
+        "y": 84
+      }
+    },
+    "cliff-front-3": {
+      "x": 1152,
+      "y": 0,
+      "w": 384,
+      "h": 320,
+      "anchor": {
+        "x": 192,
+        "y": 240
+      },
+      "footprint": {
+        "w": 360,
+        "h": 48,
+        "units": "4x concept pixels"
+      },
+      "conceptFootprint": {
+        "w": 90.0,
+        "h": 12
+      },
+      "artSize": {
+        "w": 360,
+        "h": 180
+      },
+      "tile": true,
+      "tileMode": "overlap-x",
+      "kind": "front",
+      "source": "raw/coast/front-02-clean.png",
+      "sourceCell": [
+        771,
+        255,
+        1542,
+        510
+      ],
+      "sourceCropInCell": [
+        158,
+        22,
+        588,
+        237
+      ],
+      "sourceResize": [
+        360,
+        180
+      ],
+      "waterline": {
+        "x": 192,
+        "y": 240
+      },
+      "theme": "temperate",
+      "join": {
+        "method": "feathered overlap",
+        "fadePixels": 24,
+        "recommendedOverlap": 48,
+        "recommendedStep": 312,
+        "left": true,
+        "right": true
+      },
+      "lipAttachment": {
+        "x": 192,
+        "y": 84
+      }
+    },
+    "cliff-front-4": {
+      "x": 1536,
+      "y": 0,
+      "w": 384,
+      "h": 320,
+      "anchor": {
+        "x": 192,
+        "y": 240
+      },
+      "footprint": {
+        "w": 360,
+        "h": 48,
+        "units": "4x concept pixels"
+      },
+      "conceptFootprint": {
+        "w": 90.0,
+        "h": 12
+      },
+      "artSize": {
+        "w": 360,
+        "h": 180
+      },
+      "tile": true,
+      "tileMode": "overlap-x",
+      "kind": "front",
+      "source": "raw/coast/front-02-clean.png",
+      "sourceCell": [
+        0,
+        510,
+        771,
+        765
+      ],
+      "sourceCropInCell": [
+        206,
+        32,
+        562,
+        210
+      ],
+      "sourceResize": [
+        360,
+        180
+      ],
+      "waterline": {
+        "x": 192,
+        "y": 240
+      },
+      "theme": "temperate",
+      "join": {
+        "method": "feathered overlap",
+        "fadePixels": 24,
+        "recommendedOverlap": 48,
+        "recommendedStep": 312,
+        "left": true,
+        "right": true
+      },
+      "lipAttachment": {
+        "x": 192,
+        "y": 84
+      }
+    },
+    "cliff-front-5": {
+      "x": 1920,
+      "y": 0,
+      "w": 384,
+      "h": 320,
+      "anchor": {
+        "x": 192,
+        "y": 240
+      },
+      "footprint": {
+        "w": 360,
+        "h": 48,
+        "units": "4x concept pixels"
+      },
+      "conceptFootprint": {
+        "w": 90.0,
+        "h": 12
+      },
+      "artSize": {
+        "w": 360,
+        "h": 180
+      },
+      "tile": true,
+      "tileMode": "overlap-x",
+      "kind": "front",
+      "source": "raw/coast/front-02-clean.png",
+      "sourceCell": [
+        771,
+        510,
+        1542,
+        765
+      ],
+      "sourceCropInCell": [
+        189,
+        25,
+        563,
+        212
+      ],
+      "sourceResize": [
+        360,
+        180
+      ],
+      "waterline": {
+        "x": 192,
+        "y": 240
+      },
+      "theme": "temperate",
+      "join": {
+        "method": "feathered overlap",
+        "fadePixels": 24,
+        "recommendedOverlap": 48,
+        "recommendedStep": 312,
+        "left": true,
+        "right": true
+      },
+      "lipAttachment": {
+        "x": 192,
+        "y": 84
+      }
+    },
+    "cliff-front-6": {
+      "x": 2304,
+      "y": 0,
+      "w": 384,
+      "h": 320,
+      "anchor": {
+        "x": 192,
+        "y": 240
+      },
+      "footprint": {
+        "w": 360,
+        "h": 48,
+        "units": "4x concept pixels"
+      },
+      "conceptFootprint": {
+        "w": 90.0,
+        "h": 12
+      },
+      "artSize": {
+        "w": 360,
+        "h": 180
+      },
+      "tile": true,
+      "tileMode": "overlap-x",
+      "kind": "front",
+      "source": "raw/coast/front-02-clean.png",
+      "sourceCell": [
+        0,
+        765,
+        771,
+        1020
+      ],
+      "sourceCropInCell": [
+        208,
+        23,
+        566,
+        202
+      ],
+      "sourceResize": [
+        360,
+        180
+      ],
+      "waterline": {
+        "x": 192,
+        "y": 240
+      },
+      "theme": "temperate",
+      "join": {
+        "method": "feathered overlap",
+        "fadePixels": 24,
+        "recommendedOverlap": 48,
+        "recommendedStep": 312,
+        "left": true,
+        "right": true
+      },
+      "lipAttachment": {
+        "x": 192,
+        "y": 84
+      }
+    },
+    "cliff-front-7": {
+      "x": 2688,
+      "y": 0,
+      "w": 384,
+      "h": 320,
+      "anchor": {
+        "x": 192,
+        "y": 240
+      },
+      "footprint": {
+        "w": 360,
+        "h": 48,
+        "units": "4x concept pixels"
+      },
+      "conceptFootprint": {
+        "w": 90.0,
+        "h": 12
+      },
+      "artSize": {
+        "w": 360,
+        "h": 180
+      },
+      "tile": true,
+      "tileMode": "overlap-x",
+      "kind": "front",
+      "source": "raw/coast/front-02-clean.png",
+      "sourceCell": [
+        771,
+        765,
+        1542,
+        1020
+      ],
+      "sourceCropInCell": [
+        152,
+        4,
+        584,
+        220
+      ],
+      "sourceResize": [
+        360,
+        180
+      ],
+      "waterline": {
+        "x": 192,
+        "y": 240
+      },
+      "theme": "temperate",
+      "join": {
+        "method": "feathered overlap",
+        "fadePixels": 24,
+        "recommendedOverlap": 48,
+        "recommendedStep": 312,
+        "left": true,
+        "right": true
+      },
+      "lipAttachment": {
+        "x": 192,
+        "y": 84
+      }
+    },
+    "cliff-corner-left-0": {
+      "x": 0,
+      "y": 320,
+      "w": 384,
+      "h": 320,
+      "anchor": {
+        "x": 192,
+        "y": 240
+      },
+      "footprint": {
+        "w": 280,
+        "h": 48,
+        "units": "4x concept pixels"
+      },
+      "conceptFootprint": {
+        "w": 70.0,
+        "h": 12
+      },
+      "artSize": {
+        "w": 280,
+        "h": 180
+      },
+      "tile": false,
+      "tileMode": null,
+      "kind": "corner",
+      "source": "raw/coast/corners-03-shallow.png",
+      "sourceCell": [
+        0,
+        0,
+        768,
+        341
+      ],
+      "sourceCropInCell": [
+        56,
+        63,
+        716,
+        311
+      ],
+      "sourceResize": [
+        280,
+        180
+      ],
+      "waterline": {
+        "x": 192,
+        "y": 240
+      },
+      "theme": "temperate",
+      "join": {
+        "method": "feathered overlap",
+        "fadePixels": 24,
+        "recommendedOverlap": 48,
+        "recommendedStep": 232,
+        "left": false,
+        "right": true
+      },
+      "lipAttachment": {
+        "x": 192,
+        "y": 84
+      },
+      "turn": "left"
+    },
+    "cliff-corner-left-1": {
+      "x": 384,
+      "y": 320,
+      "w": 384,
+      "h": 320,
+      "anchor": {
+        "x": 192,
+        "y": 240
+      },
+      "footprint": {
+        "w": 280,
+        "h": 48,
+        "units": "4x concept pixels"
+      },
+      "conceptFootprint": {
+        "w": 70.0,
+        "h": 12
+      },
+      "artSize": {
+        "w": 280,
+        "h": 180
+      },
+      "tile": false,
+      "tileMode": null,
+      "kind": "corner",
+      "source": "raw/coast/corners-03-shallow.png",
+      "sourceCell": [
+        0,
+        341,
+        768,
+        683
+      ],
+      "sourceCropInCell": [
+        53,
+        38,
+        717,
+        300
+      ],
+      "sourceResize": [
+        280,
+        180
+      ],
+      "waterline": {
+        "x": 192,
+        "y": 240
+      },
+      "theme": "temperate",
+      "join": {
+        "method": "feathered overlap",
+        "fadePixels": 24,
+        "recommendedOverlap": 48,
+        "recommendedStep": 232,
+        "left": false,
+        "right": true
+      },
+      "lipAttachment": {
+        "x": 192,
+        "y": 84
+      },
+      "turn": "left"
+    },
+    "cliff-corner-left-2": {
+      "x": 768,
+      "y": 320,
+      "w": 384,
+      "h": 320,
+      "anchor": {
+        "x": 192,
+        "y": 240
+      },
+      "footprint": {
+        "w": 280,
+        "h": 48,
+        "units": "4x concept pixels"
+      },
+      "conceptFootprint": {
+        "w": 70.0,
+        "h": 12
+      },
+      "artSize": {
+        "w": 280,
+        "h": 180
+      },
+      "tile": false,
+      "tileMode": null,
+      "kind": "corner",
+      "source": "raw/coast/corners-03-shallow.png",
+      "sourceCell": [
+        0,
+        683,
+        768,
+        1024
+      ],
+      "sourceCropInCell": [
+        53,
+        37,
+        717,
+        289
+      ],
+      "sourceResize": [
+        280,
+        180
+      ],
+      "waterline": {
+        "x": 192,
+        "y": 240
+      },
+      "theme": "temperate",
+      "join": {
+        "method": "feathered overlap",
+        "fadePixels": 24,
+        "recommendedOverlap": 48,
+        "recommendedStep": 232,
+        "left": false,
+        "right": true
+      },
+      "lipAttachment": {
+        "x": 192,
+        "y": 84
+      },
+      "turn": "left"
+    },
+    "cliff-corner-right-0": {
+      "x": 1152,
+      "y": 320,
+      "w": 384,
+      "h": 320,
+      "anchor": {
+        "x": 192,
+        "y": 240
+      },
+      "footprint": {
+        "w": 280,
+        "h": 48,
+        "units": "4x concept pixels"
+      },
+      "conceptFootprint": {
+        "w": 70.0,
+        "h": 12
+      },
+      "artSize": {
+        "w": 280,
+        "h": 180
+      },
+      "tile": false,
+      "tileMode": null,
+      "kind": "corner",
+      "source": "raw/coast/corners-03-shallow.png",
+      "sourceCell": [
+        768,
+        0,
+        1536,
+        341
+      ],
+      "sourceCropInCell": [
+        53,
+        61,
+        708,
+        307
+      ],
+      "sourceResize": [
+        280,
+        180
+      ],
+      "waterline": {
+        "x": 192,
+        "y": 240
+      },
+      "theme": "temperate",
+      "join": {
+        "method": "feathered overlap",
+        "fadePixels": 24,
+        "recommendedOverlap": 48,
+        "recommendedStep": 232,
+        "left": true,
+        "right": false
+      },
+      "lipAttachment": {
+        "x": 192,
+        "y": 84
+      },
+      "turn": "right"
+    },
+    "cliff-corner-right-1": {
+      "x": 1536,
+      "y": 320,
+      "w": 384,
+      "h": 320,
+      "anchor": {
+        "x": 192,
+        "y": 240
+      },
+      "footprint": {
+        "w": 280,
+        "h": 48,
+        "units": "4x concept pixels"
+      },
+      "conceptFootprint": {
+        "w": 70.0,
+        "h": 12
+      },
+      "artSize": {
+        "w": 280,
+        "h": 180
+      },
+      "tile": false,
+      "tileMode": null,
+      "kind": "corner",
+      "source": "raw/coast/corners-03-shallow.png",
+      "sourceCell": [
+        768,
+        341,
+        1536,
+        683
+      ],
+      "sourceCropInCell": [
+        53,
+        36,
+        715,
+        304
+      ],
+      "sourceResize": [
+        280,
+        180
+      ],
+      "waterline": {
+        "x": 192,
+        "y": 240
+      },
+      "theme": "temperate",
+      "join": {
+        "method": "feathered overlap",
+        "fadePixels": 24,
+        "recommendedOverlap": 48,
+        "recommendedStep": 232,
+        "left": true,
+        "right": false
+      },
+      "lipAttachment": {
+        "x": 192,
+        "y": 84
+      },
+      "turn": "right"
+    },
+    "cliff-corner-right-2": {
+      "x": 1920,
+      "y": 320,
+      "w": 384,
+      "h": 320,
+      "anchor": {
+        "x": 192,
+        "y": 240
+      },
+      "footprint": {
+        "w": 280,
+        "h": 48,
+        "units": "4x concept pixels"
+      },
+      "conceptFootprint": {
+        "w": 70.0,
+        "h": 12
+      },
+      "artSize": {
+        "w": 280,
+        "h": 180
+      },
+      "tile": false,
+      "tileMode": null,
+      "kind": "corner",
+      "source": "raw/coast/corners-03-shallow.png",
+      "sourceCell": [
+        768,
+        683,
+        1536,
+        1024
+      ],
+      "sourceCropInCell": [
+        53,
+        22,
+        714,
+        298
+      ],
+      "sourceResize": [
+        280,
+        180
+      ],
+      "waterline": {
+        "x": 192,
+        "y": 240
+      },
+      "theme": "temperate",
+      "join": {
+        "method": "feathered overlap",
+        "fadePixels": 24,
+        "recommendedOverlap": 48,
+        "recommendedStep": 232,
+        "left": true,
+        "right": false
+      },
+      "lipAttachment": {
+        "x": 192,
+        "y": 84
+      },
+      "turn": "right"
+    },
+    "outcrop-0": {
+      "x": 2304,
+      "y": 320,
+      "w": 384,
+      "h": 320,
+      "anchor": {
+        "x": 192,
+        "y": 240
+      },
+      "footprint": {
+        "w": 220,
+        "h": 79,
+        "units": "4x concept pixels"
+      },
+      "conceptFootprint": {
+        "w": 55.0,
+        "h": 19.75
+      },
+      "artSize": {
+        "w": 220,
+        "h": 140
+      },
+      "tile": false,
+      "tileMode": null,
+      "kind": "outcrop",
+      "source": "raw/coast/corners-outcrops-02-clean.png",
+      "sourceCell": [
+        0,
+        512,
+        512,
+        768
+      ],
+      "sourceCropInCell": [
+        70,
+        20,
+        463,
+        243
+      ],
+      "sourceResize": [
+        220,
+        140
+      ],
+      "waterline": {
+        "x": 192,
+        "y": 240
+      },
+      "theme": "temperate"
+    },
+    "outcrop-1": {
+      "x": 2688,
+      "y": 320,
+      "w": 384,
+      "h": 320,
+      "anchor": {
+        "x": 192,
+        "y": 240
+      },
+      "footprint": {
+        "w": 160,
+        "h": 58,
+        "units": "4x concept pixels"
+      },
+      "conceptFootprint": {
+        "w": 40.0,
+        "h": 14.5
+      },
+      "artSize": {
+        "w": 160,
+        "h": 150
+      },
+      "tile": false,
+      "tileMode": null,
+      "kind": "outcrop",
+      "source": "raw/coast/corners-outcrops-02-clean.png",
+      "sourceCell": [
+        512,
+        512,
+        1024,
+        768
+      ],
+      "sourceCropInCell": [
+        122,
+        44,
+        393,
+        222
+      ],
+      "sourceResize": [
+        160,
+        150
+      ],
+      "waterline": {
+        "x": 192,
+        "y": 240
+      },
+      "theme": "temperate"
+    },
+    "outcrop-2": {
+      "x": 0,
+      "y": 640,
+      "w": 384,
+      "h": 320,
+      "anchor": {
+        "x": 192,
+        "y": 240
+      },
+      "footprint": {
+        "w": 120,
+        "h": 43,
+        "units": "4x concept pixels"
+      },
+      "conceptFootprint": {
+        "w": 30.0,
+        "h": 10.75
+      },
+      "artSize": {
+        "w": 120,
+        "h": 90
+      },
+      "tile": false,
+      "tileMode": null,
+      "kind": "outcrop",
+      "source": "raw/coast/corners-outcrops-02-clean.png",
+      "sourceCell": [
+        1024,
+        512,
+        1536,
+        768
+      ],
+      "sourceCropInCell": [
+        130,
+        81,
+        352,
+        230
+      ],
+      "sourceResize": [
+        120,
+        90
+      ],
+      "waterline": {
+        "x": 192,
+        "y": 240
+      },
+      "theme": "temperate"
+    },
+    "outcrop-3": {
+      "x": 384,
+      "y": 640,
+      "w": 384,
+      "h": 320,
+      "anchor": {
+        "x": 192,
+        "y": 240
+      },
+      "footprint": {
+        "w": 190,
+        "h": 68,
+        "units": "4x concept pixels"
+      },
+      "conceptFootprint": {
+        "w": 47.5,
+        "h": 17.0
+      },
+      "artSize": {
+        "w": 190,
+        "h": 100
+      },
+      "tile": false,
+      "tileMode": null,
+      "kind": "outcrop",
+      "source": "raw/coast/corners-outcrops-02-clean.png",
+      "sourceCell": [
+        0,
+        768,
+        512,
+        1024
+      ],
+      "sourceCropInCell": [
+        82,
+        65,
+        448,
+        228
+      ],
+      "sourceResize": [
+        190,
+        100
+      ],
+      "waterline": {
+        "x": 192,
+        "y": 240
+      },
+      "theme": "temperate"
+    },
+    "outcrop-4": {
+      "x": 768,
+      "y": 640,
+      "w": 384,
+      "h": 320,
+      "anchor": {
+        "x": 192,
+        "y": 240
+      },
+      "footprint": {
+        "w": 130,
+        "h": 47,
+        "units": "4x concept pixels"
+      },
+      "conceptFootprint": {
+        "w": 32.5,
+        "h": 11.75
+      },
+      "artSize": {
+        "w": 130,
+        "h": 160
+      },
+      "tile": false,
+      "tileMode": null,
+      "kind": "outcrop",
+      "source": "raw/coast/corners-outcrops-02-clean.png",
+      "sourceCell": [
+        512,
+        768,
+        1024,
+        1024
+      ],
+      "sourceCropInCell": [
+        133,
+        17,
+        379,
+        233
+      ],
+      "sourceResize": [
+        130,
+        160
+      ],
+      "waterline": {
+        "x": 192,
+        "y": 240
+      },
+      "theme": "temperate"
+    },
+    "outcrop-5": {
+      "x": 1152,
+      "y": 640,
+      "w": 384,
+      "h": 320,
+      "anchor": {
+        "x": 192,
+        "y": 240
+      },
+      "footprint": {
+        "w": 110,
+        "h": 40,
+        "units": "4x concept pixels"
+      },
+      "conceptFootprint": {
+        "w": 27.5,
+        "h": 10.0
+      },
+      "artSize": {
+        "w": 110,
+        "h": 90
+      },
+      "tile": false,
+      "tileMode": null,
+      "kind": "outcrop",
+      "source": "raw/coast/corners-outcrops-02-clean.png",
+      "sourceCell": [
+        1024,
+        768,
+        1536,
+        1024
+      ],
+      "sourceCropInCell": [
+        136,
+        86,
+        351,
+        224
+      ],
+      "sourceResize": [
+        110,
+        90
+      ],
+      "waterline": {
+        "x": 192,
+        "y": 240
+      },
+      "theme": "temperate"
+    },
+    "cliff-front-0-volcanic": {
+      "x": 1536,
+      "y": 640,
+      "w": 384,
+      "h": 320,
+      "anchor": {
+        "x": 192,
+        "y": 240
+      },
+      "footprint": {
+        "w": 360,
+        "h": 48,
+        "units": "4x concept pixels"
+      },
+      "conceptFootprint": {
+        "w": 90.0,
+        "h": 12
+      },
+      "artSize": {
+        "w": 360,
+        "h": 180
+      },
+      "tile": true,
+      "tileMode": "overlap-x",
+      "kind": "front",
+      "source": "raw/coast/front-volcanic-01.png",
+      "sourceCell": [
+        0,
+        0,
+        770,
+        255
+      ],
+      "sourceCropInCell": [
+        208,
+        50,
+        570,
+        231
+      ],
+      "sourceResize": [
+        360,
+        180
+      ],
+      "waterline": {
+        "x": 192,
+        "y": 240
+      },
+      "theme": "volcanic",
+      "join": {
+        "method": "feathered overlap",
+        "fadePixels": 24,
+        "recommendedOverlap": 48,
+        "recommendedStep": 312,
+        "left": true,
+        "right": true
+      },
+      "lipAttachment": {
+        "x": 192,
+        "y": 84
+      }
+    },
+    "cliff-front-1-volcanic": {
+      "x": 1920,
+      "y": 640,
+      "w": 384,
+      "h": 320,
+      "anchor": {
+        "x": 192,
+        "y": 240
+      },
+      "footprint": {
+        "w": 360,
+        "h": 48,
+        "units": "4x concept pixels"
+      },
+      "conceptFootprint": {
+        "w": 90.0,
+        "h": 12
+      },
+      "artSize": {
+        "w": 360,
+        "h": 180
+      },
+      "tile": true,
+      "tileMode": "overlap-x",
+      "kind": "front",
+      "source": "raw/coast/front-volcanic-01.png",
+      "sourceCell": [
+        770,
+        0,
+        1541,
+        255
+      ],
+      "sourceCropInCell": [
+        192,
+        50,
+        554,
+        231
+      ],
+      "sourceResize": [
+        360,
+        180
+      ],
+      "waterline": {
+        "x": 192,
+        "y": 240
+      },
+      "theme": "volcanic",
+      "join": {
+        "method": "feathered overlap",
+        "fadePixels": 24,
+        "recommendedOverlap": 48,
+        "recommendedStep": 312,
+        "left": true,
+        "right": true
+      },
+      "lipAttachment": {
+        "x": 192,
+        "y": 84
+      }
+    },
+    "cliff-front-2-volcanic": {
+      "x": 2304,
+      "y": 640,
+      "w": 384,
+      "h": 320,
+      "anchor": {
+        "x": 192,
+        "y": 240
+      },
+      "footprint": {
+        "w": 360,
+        "h": 48,
+        "units": "4x concept pixels"
+      },
+      "conceptFootprint": {
+        "w": 90.0,
+        "h": 12
+      },
+      "artSize": {
+        "w": 360,
+        "h": 180
+      },
+      "tile": true,
+      "tileMode": "overlap-x",
+      "kind": "front",
+      "source": "raw/coast/front-volcanic-01.png",
+      "sourceCell": [
+        0,
+        255,
+        770,
+        510
+      ],
+      "sourceCropInCell": [
+        176,
+        26,
+        600,
+        238
+      ],
+      "sourceResize": [
+        360,
+        180
+      ],
+      "waterline": {
+        "x": 192,
+        "y": 240
+      },
+      "theme": "volcanic",
+      "join": {
+        "method": "feathered overlap",
+        "fadePixels": 24,
+        "recommendedOverlap": 48,
+        "recommendedStep": 312,
+        "left": true,
+        "right": true
+      },
+      "lipAttachment": {
+        "x": 192,
+        "y": 84
+      }
+    },
+    "cliff-front-3-volcanic": {
+      "x": 2688,
+      "y": 640,
+      "w": 384,
+      "h": 320,
+      "anchor": {
+        "x": 192,
+        "y": 240
+      },
+      "footprint": {
+        "w": 360,
+        "h": 48,
+        "units": "4x concept pixels"
+      },
+      "conceptFootprint": {
+        "w": 90.0,
+        "h": 12
+      },
+      "artSize": {
+        "w": 360,
+        "h": 180
+      },
+      "tile": true,
+      "tileMode": "overlap-x",
+      "kind": "front",
+      "source": "raw/coast/front-volcanic-01.png",
+      "sourceCell": [
+        770,
+        255,
+        1541,
+        510
+      ],
+      "sourceCropInCell": [
+        160,
+        24,
+        592,
+        240
+      ],
+      "sourceResize": [
+        360,
+        180
+      ],
+      "waterline": {
+        "x": 192,
+        "y": 240
+      },
+      "theme": "volcanic",
+      "join": {
+        "method": "feathered overlap",
+        "fadePixels": 24,
+        "recommendedOverlap": 48,
+        "recommendedStep": 312,
+        "left": true,
+        "right": true
+      },
+      "lipAttachment": {
+        "x": 192,
+        "y": 84
+      }
+    },
+    "cliff-front-4-volcanic": {
+      "x": 0,
+      "y": 960,
+      "w": 384,
+      "h": 320,
+      "anchor": {
+        "x": 192,
+        "y": 240
+      },
+      "footprint": {
+        "w": 360,
+        "h": 48,
+        "units": "4x concept pixels"
+      },
+      "conceptFootprint": {
+        "w": 90.0,
+        "h": 12
+      },
+      "artSize": {
+        "w": 360,
+        "h": 180
+      },
+      "tile": true,
+      "tileMode": "overlap-x",
+      "kind": "front",
+      "source": "raw/coast/front-volcanic-01.png",
+      "sourceCell": [
+        0,
+        510,
+        770,
+        765
+      ],
+      "sourceCropInCell": [
+        204,
+        31,
+        566,
+        212
+      ],
+      "sourceResize": [
+        360,
+        180
+      ],
+      "waterline": {
+        "x": 192,
+        "y": 240
+      },
+      "theme": "volcanic",
+      "join": {
+        "method": "feathered overlap",
+        "fadePixels": 24,
+        "recommendedOverlap": 48,
+        "recommendedStep": 312,
+        "left": true,
+        "right": true
+      },
+      "lipAttachment": {
+        "x": 192,
+        "y": 84
+      }
+    },
+    "cliff-front-5-volcanic": {
+      "x": 384,
+      "y": 960,
+      "w": 384,
+      "h": 320,
+      "anchor": {
+        "x": 192,
+        "y": 240
+      },
+      "footprint": {
+        "w": 360,
+        "h": 48,
+        "units": "4x concept pixels"
+      },
+      "conceptFootprint": {
+        "w": 90.0,
+        "h": 12
+      },
+      "artSize": {
+        "w": 360,
+        "h": 180
+      },
+      "tile": true,
+      "tileMode": "overlap-x",
+      "kind": "front",
+      "source": "raw/coast/front-volcanic-01.png",
+      "sourceCell": [
+        770,
+        510,
+        1541,
+        765
+      ],
+      "sourceCropInCell": [
+        190,
+        26,
+        566,
+        214
+      ],
+      "sourceResize": [
+        360,
+        180
+      ],
+      "waterline": {
+        "x": 192,
+        "y": 240
+      },
+      "theme": "volcanic",
+      "join": {
+        "method": "feathered overlap",
+        "fadePixels": 24,
+        "recommendedOverlap": 48,
+        "recommendedStep": 312,
+        "left": true,
+        "right": true
+      },
+      "lipAttachment": {
+        "x": 192,
+        "y": 84
+      }
+    },
+    "cliff-front-6-volcanic": {
+      "x": 768,
+      "y": 960,
+      "w": 384,
+      "h": 320,
+      "anchor": {
+        "x": 192,
+        "y": 240
+      },
+      "footprint": {
+        "w": 360,
+        "h": 48,
+        "units": "4x concept pixels"
+      },
+      "conceptFootprint": {
+        "w": 90.0,
+        "h": 12
+      },
+      "artSize": {
+        "w": 360,
+        "h": 180
+      },
+      "tile": true,
+      "tileMode": "overlap-x",
+      "kind": "front",
+      "source": "raw/coast/front-volcanic-01.png",
+      "sourceCell": [
+        0,
+        765,
+        770,
+        1020
+      ],
+      "sourceCropInCell": [
+        209,
+        24,
+        569,
+        204
+      ],
+      "sourceResize": [
+        360,
+        180
+      ],
+      "waterline": {
+        "x": 192,
+        "y": 240
+      },
+      "theme": "volcanic",
+      "join": {
+        "method": "feathered overlap",
+        "fadePixels": 24,
+        "recommendedOverlap": 48,
+        "recommendedStep": 312,
+        "left": true,
+        "right": true
+      },
+      "lipAttachment": {
+        "x": 192,
+        "y": 84
+      }
+    },
+    "cliff-front-7-volcanic": {
+      "x": 1152,
+      "y": 960,
+      "w": 384,
+      "h": 320,
+      "anchor": {
+        "x": 192,
+        "y": 240
+      },
+      "footprint": {
+        "w": 360,
+        "h": 48,
+        "units": "4x concept pixels"
+      },
+      "conceptFootprint": {
+        "w": 90.0,
+        "h": 12
+      },
+      "artSize": {
+        "w": 360,
+        "h": 180
+      },
+      "tile": true,
+      "tileMode": "overlap-x",
+      "kind": "front",
+      "source": "raw/coast/front-volcanic-01.png",
+      "sourceCell": [
+        770,
+        765,
+        1541,
+        1020
+      ],
+      "sourceCropInCell": [
+        155,
+        4,
+        591,
+        222
+      ],
+      "sourceResize": [
+        360,
+        180
+      ],
+      "waterline": {
+        "x": 192,
+        "y": 240
+      },
+      "theme": "volcanic",
+      "join": {
+        "method": "feathered overlap",
+        "fadePixels": 24,
+        "recommendedOverlap": 48,
+        "recommendedStep": 312,
+        "left": true,
+        "right": true
+      },
+      "lipAttachment": {
+        "x": 192,
+        "y": 84
+      }
+    },
+    "cliff-corner-left-0-volcanic": {
+      "x": 1536,
+      "y": 960,
+      "w": 384,
+      "h": 320,
+      "anchor": {
+        "x": 192,
+        "y": 240
+      },
+      "footprint": {
+        "w": 280,
+        "h": 48,
+        "units": "4x concept pixels"
+      },
+      "conceptFootprint": {
+        "w": 70.0,
+        "h": 12
+      },
+      "artSize": {
+        "w": 280,
+        "h": 180
+      },
+      "tile": false,
+      "tileMode": null,
+      "kind": "corner",
+      "source": "raw/coast/corners-04-shallow-volcanic.png",
+      "sourceCell": [
+        0,
+        0,
+        768,
+        341
+      ],
+      "sourceCropInCell": [
+        54,
+        62,
+        718,
+        311
+      ],
+      "sourceResize": [
+        280,
+        180
+      ],
+      "waterline": {
+        "x": 192,
+        "y": 240
+      },
+      "theme": "volcanic",
+      "join": {
+        "method": "feathered overlap",
+        "fadePixels": 24,
+        "recommendedOverlap": 48,
+        "recommendedStep": 232,
+        "left": false,
+        "right": true
+      },
+      "lipAttachment": {
+        "x": 192,
+        "y": 84
+      },
+      "turn": "left"
+    },
+    "cliff-corner-left-1-volcanic": {
+      "x": 1920,
+      "y": 960,
+      "w": 384,
+      "h": 320,
+      "anchor": {
+        "x": 192,
+        "y": 240
+      },
+      "footprint": {
+        "w": 280,
+        "h": 48,
+        "units": "4x concept pixels"
+      },
+      "conceptFootprint": {
+        "w": 70.0,
+        "h": 12
+      },
+      "artSize": {
+        "w": 280,
+        "h": 180
+      },
+      "tile": false,
+      "tileMode": null,
+      "kind": "corner",
+      "source": "raw/coast/corners-04-shallow-volcanic.png",
+      "sourceCell": [
+        0,
+        341,
+        768,
+        683
+      ],
+      "sourceCropInCell": [
+        51,
+        38,
+        718,
+        300
+      ],
+      "sourceResize": [
+        280,
+        180
+      ],
+      "waterline": {
+        "x": 192,
+        "y": 240
+      },
+      "theme": "volcanic",
+      "join": {
+        "method": "feathered overlap",
+        "fadePixels": 24,
+        "recommendedOverlap": 48,
+        "recommendedStep": 232,
+        "left": false,
+        "right": true
+      },
+      "lipAttachment": {
+        "x": 192,
+        "y": 84
+      },
+      "turn": "left"
+    },
+    "cliff-corner-left-2-volcanic": {
+      "x": 2304,
+      "y": 960,
+      "w": 384,
+      "h": 320,
+      "anchor": {
+        "x": 192,
+        "y": 240
+      },
+      "footprint": {
+        "w": 280,
+        "h": 48,
+        "units": "4x concept pixels"
+      },
+      "conceptFootprint": {
+        "w": 70.0,
+        "h": 12
+      },
+      "artSize": {
+        "w": 280,
+        "h": 180
+      },
+      "tile": false,
+      "tileMode": null,
+      "kind": "corner",
+      "source": "raw/coast/corners-04-shallow-volcanic.png",
+      "sourceCell": [
+        0,
+        683,
+        768,
+        1024
+      ],
+      "sourceCropInCell": [
+        51,
+        36,
+        718,
+        290
+      ],
+      "sourceResize": [
+        280,
+        180
+      ],
+      "waterline": {
+        "x": 192,
+        "y": 240
+      },
+      "theme": "volcanic",
+      "join": {
+        "method": "feathered overlap",
+        "fadePixels": 24,
+        "recommendedOverlap": 48,
+        "recommendedStep": 232,
+        "left": false,
+        "right": true
+      },
+      "lipAttachment": {
+        "x": 192,
+        "y": 84
+      },
+      "turn": "left"
+    },
+    "cliff-corner-right-0-volcanic": {
+      "x": 2688,
+      "y": 960,
+      "w": 384,
+      "h": 320,
+      "anchor": {
+        "x": 192,
+        "y": 240
+      },
+      "footprint": {
+        "w": 280,
+        "h": 48,
+        "units": "4x concept pixels"
+      },
+      "conceptFootprint": {
+        "w": 70.0,
+        "h": 12
+      },
+      "artSize": {
+        "w": 280,
+        "h": 180
+      },
+      "tile": false,
+      "tileMode": null,
+      "kind": "corner",
+      "source": "raw/coast/corners-04-shallow-volcanic.png",
+      "sourceCell": [
+        768,
+        0,
+        1536,
+        341
+      ],
+      "sourceCropInCell": [
+        50,
+        60,
+        709,
+        308
+      ],
+      "sourceResize": [
+        280,
+        180
+      ],
+      "waterline": {
+        "x": 192,
+        "y": 240
+      },
+      "theme": "volcanic",
+      "join": {
+        "method": "feathered overlap",
+        "fadePixels": 24,
+        "recommendedOverlap": 48,
+        "recommendedStep": 232,
+        "left": true,
+        "right": false
+      },
+      "lipAttachment": {
+        "x": 192,
+        "y": 84
+      },
+      "turn": "right"
+    },
+    "cliff-corner-right-1-volcanic": {
+      "x": 0,
+      "y": 1280,
+      "w": 384,
+      "h": 320,
+      "anchor": {
+        "x": 192,
+        "y": 240
+      },
+      "footprint": {
+        "w": 280,
+        "h": 48,
+        "units": "4x concept pixels"
+      },
+      "conceptFootprint": {
+        "w": 70.0,
+        "h": 12
+      },
+      "artSize": {
+        "w": 280,
+        "h": 180
+      },
+      "tile": false,
+      "tileMode": null,
+      "kind": "corner",
+      "source": "raw/coast/corners-04-shallow-volcanic.png",
+      "sourceCell": [
+        768,
+        341,
+        1536,
+        683
+      ],
+      "sourceCropInCell": [
+        50,
+        35,
+        717,
+        306
+      ],
+      "sourceResize": [
+        280,
+        180
+      ],
+      "waterline": {
+        "x": 192,
+        "y": 240
+      },
+      "theme": "volcanic",
+      "join": {
+        "method": "feathered overlap",
+        "fadePixels": 24,
+        "recommendedOverlap": 48,
+        "recommendedStep": 232,
+        "left": true,
+        "right": false
+      },
+      "lipAttachment": {
+        "x": 192,
+        "y": 84
+      },
+      "turn": "right"
+    },
+    "cliff-corner-right-2-volcanic": {
+      "x": 384,
+      "y": 1280,
+      "w": 384,
+      "h": 320,
+      "anchor": {
+        "x": 192,
+        "y": 240
+      },
+      "footprint": {
+        "w": 280,
+        "h": 48,
+        "units": "4x concept pixels"
+      },
+      "conceptFootprint": {
+        "w": 70.0,
+        "h": 12
+      },
+      "artSize": {
+        "w": 280,
+        "h": 180
+      },
+      "tile": false,
+      "tileMode": null,
+      "kind": "corner",
+      "source": "raw/coast/corners-04-shallow-volcanic.png",
+      "sourceCell": [
+        768,
+        683,
+        1536,
+        1024
+      ],
+      "sourceCropInCell": [
+        50,
+        23,
+        715,
+        299
+      ],
+      "sourceResize": [
+        280,
+        180
+      ],
+      "waterline": {
+        "x": 192,
+        "y": 240
+      },
+      "theme": "volcanic",
+      "join": {
+        "method": "feathered overlap",
+        "fadePixels": 24,
+        "recommendedOverlap": 48,
+        "recommendedStep": 232,
+        "left": true,
+        "right": false
+      },
+      "lipAttachment": {
+        "x": 192,
+        "y": 84
+      },
+      "turn": "right"
+    },
+    "outcrop-0-volcanic": {
+      "x": 768,
+      "y": 1280,
+      "w": 384,
+      "h": 320,
+      "anchor": {
+        "x": 192,
+        "y": 240
+      },
+      "footprint": {
+        "w": 220,
+        "h": 79,
+        "units": "4x concept pixels"
+      },
+      "conceptFootprint": {
+        "w": 55.0,
+        "h": 19.75
+      },
+      "artSize": {
+        "w": 220,
+        "h": 140
+      },
+      "tile": false,
+      "tileMode": null,
+      "kind": "outcrop",
+      "source": "raw/coast/corners-outcrops-volcanic-01.png",
+      "sourceCell": [
+        0,
+        512,
+        512,
+        768
+      ],
+      "sourceCropInCell": [
+        68,
+        20,
+        463,
+        245
+      ],
+      "sourceResize": [
+        220,
+        140
+      ],
+      "waterline": {
+        "x": 192,
+        "y": 240
+      },
+      "theme": "volcanic"
+    },
+    "outcrop-1-volcanic": {
+      "x": 1152,
+      "y": 1280,
+      "w": 384,
+      "h": 320,
+      "anchor": {
+        "x": 192,
+        "y": 240
+      },
+      "footprint": {
+        "w": 160,
+        "h": 58,
+        "units": "4x concept pixels"
+      },
+      "conceptFootprint": {
+        "w": 40.0,
+        "h": 14.5
+      },
+      "artSize": {
+        "w": 160,
+        "h": 150
+      },
+      "tile": false,
+      "tileMode": null,
+      "kind": "outcrop",
+      "source": "raw/coast/corners-outcrops-volcanic-01.png",
+      "sourceCell": [
+        512,
+        512,
+        1024,
+        768
+      ],
+      "sourceCropInCell": [
+        121,
+        44,
+        395,
+        224
+      ],
+      "sourceResize": [
+        160,
+        150
+      ],
+      "waterline": {
+        "x": 192,
+        "y": 240
+      },
+      "theme": "volcanic"
+    },
+    "outcrop-2-volcanic": {
+      "x": 1536,
+      "y": 1280,
+      "w": 384,
+      "h": 320,
+      "anchor": {
+        "x": 192,
+        "y": 240
+      },
+      "footprint": {
+        "w": 120,
+        "h": 43,
+        "units": "4x concept pixels"
+      },
+      "conceptFootprint": {
+        "w": 30.0,
+        "h": 10.75
+      },
+      "artSize": {
+        "w": 120,
+        "h": 90
+      },
+      "tile": false,
+      "tileMode": null,
+      "kind": "outcrop",
+      "source": "raw/coast/corners-outcrops-volcanic-01.png",
+      "sourceCell": [
+        1024,
+        512,
+        1536,
+        768
+      ],
+      "sourceCropInCell": [
+        128,
+        80,
+        355,
+        232
+      ],
+      "sourceResize": [
+        120,
+        90
+      ],
+      "waterline": {
+        "x": 192,
+        "y": 240
+      },
+      "theme": "volcanic"
+    },
+    "outcrop-3-volcanic": {
+      "x": 1920,
+      "y": 1280,
+      "w": 384,
+      "h": 320,
+      "anchor": {
+        "x": 192,
+        "y": 240
+      },
+      "footprint": {
+        "w": 190,
+        "h": 68,
+        "units": "4x concept pixels"
+      },
+      "conceptFootprint": {
+        "w": 47.5,
+        "h": 17.0
+      },
+      "artSize": {
+        "w": 190,
+        "h": 100
+      },
+      "tile": false,
+      "tileMode": null,
+      "kind": "outcrop",
+      "source": "raw/coast/corners-outcrops-volcanic-01.png",
+      "sourceCell": [
+        0,
+        768,
+        512,
+        1024
+      ],
+      "sourceCropInCell": [
+        82,
+        65,
+        449,
+        230
+      ],
+      "sourceResize": [
+        190,
+        100
+      ],
+      "waterline": {
+        "x": 192,
+        "y": 240
+      },
+      "theme": "volcanic"
+    },
+    "outcrop-4-volcanic": {
+      "x": 2304,
+      "y": 1280,
+      "w": 384,
+      "h": 320,
+      "anchor": {
+        "x": 192,
+        "y": 240
+      },
+      "footprint": {
+        "w": 130,
+        "h": 47,
+        "units": "4x concept pixels"
+      },
+      "conceptFootprint": {
+        "w": 32.5,
+        "h": 11.75
+      },
+      "artSize": {
+        "w": 130,
+        "h": 160
+      },
+      "tile": false,
+      "tileMode": null,
+      "kind": "outcrop",
+      "source": "raw/coast/corners-outcrops-volcanic-01.png",
+      "sourceCell": [
+        512,
+        768,
+        1024,
+        1024
+      ],
+      "sourceCropInCell": [
+        130,
+        17,
+        382,
+        235
+      ],
+      "sourceResize": [
+        130,
+        160
+      ],
+      "waterline": {
+        "x": 192,
+        "y": 240
+      },
+      "theme": "volcanic"
+    },
+    "outcrop-5-volcanic": {
+      "x": 2688,
+      "y": 1280,
+      "w": 384,
+      "h": 320,
+      "anchor": {
+        "x": 192,
+        "y": 240
+      },
+      "footprint": {
+        "w": 110,
+        "h": 40,
+        "units": "4x concept pixels"
+      },
+      "conceptFootprint": {
+        "w": 27.5,
+        "h": 10.0
+      },
+      "artSize": {
+        "w": 110,
+        "h": 90
+      },
+      "tile": false,
+      "tileMode": null,
+      "kind": "outcrop",
+      "source": "raw/coast/corners-outcrops-volcanic-01.png",
+      "sourceCell": [
+        1024,
+        768,
+        1536,
+        1024
+      ],
+      "sourceCropInCell": [
+        134,
+        86,
+        353,
+        226
+      ],
+      "sourceResize": [
+        110,
+        90
+      ],
+      "waterline": {
+        "x": 192,
+        "y": 240
+      },
+      "theme": "volcanic"
+    },
+    "surf-0-0": {
+      "x": 0,
+      "y": 1600,
+      "w": 384,
+      "h": 320,
+      "anchor": {
+        "x": 192,
+        "y": 240
+      },
+      "footprint": {
+        "w": 300,
+        "h": 57,
+        "units": "4x concept pixels"
+      },
+      "conceptFootprint": {
+        "w": 75.0,
+        "h": 14.25
+      },
+      "artSize": {
+        "w": 300,
+        "h": 57
+      },
+      "tile": false,
+      "kind": "surf-band",
+      "source": "raw/coast/surf-02-clean.png",
+      "sourceCell": [
+        0,
+        0,
+        384,
+        171
+      ],
+      "sourceCropInCell": [
+        20,
+        61,
+        365,
+        127
+      ],
+      "sourceResize": [
+        300,
+        57
+      ],
+      "animation": "surf-0",
+      "order": 0,
+      "durationMs": 180,
+      "registration": {
+        "sourceCropSharedAcrossPhases": true,
+        "waterline": {
+          "x": 192,
+          "y": 240
+        }
+      },
+      "description": "gentle cliff foot"
+    },
+    "surf-0-1": {
+      "x": 384,
+      "y": 1600,
+      "w": 384,
+      "h": 320,
+      "anchor": {
+        "x": 192,
+        "y": 240
+      },
+      "footprint": {
+        "w": 300,
+        "h": 57,
+        "units": "4x concept pixels"
+      },
+      "conceptFootprint": {
+        "w": 75.0,
+        "h": 14.25
+      },
+      "artSize": {
+        "w": 300,
+        "h": 57
+      },
+      "tile": false,
+      "kind": "surf-band",
+      "source": "raw/coast/surf-02-clean.png",
+      "sourceCell": [
+        384,
+        0,
+        768,
+        171
+      ],
+      "sourceCropInCell": [
+        20,
+        61,
+        365,
+        127
+      ],
+      "sourceResize": [
+        300,
+        57
+      ],
+      "animation": "surf-0",
+      "order": 1,
+      "durationMs": 180,
+      "registration": {
+        "sourceCropSharedAcrossPhases": true,
+        "waterline": {
+          "x": 192,
+          "y": 240
+        }
+      },
+      "description": "gentle cliff foot"
+    },
+    "surf-0-2": {
+      "x": 768,
+      "y": 1600,
+      "w": 384,
+      "h": 320,
+      "anchor": {
+        "x": 192,
+        "y": 240
+      },
+      "footprint": {
+        "w": 300,
+        "h": 57,
+        "units": "4x concept pixels"
+      },
+      "conceptFootprint": {
+        "w": 75.0,
+        "h": 14.25
+      },
+      "artSize": {
+        "w": 300,
+        "h": 57
+      },
+      "tile": false,
+      "kind": "surf-band",
+      "source": "raw/coast/surf-02-clean.png",
+      "sourceCell": [
+        768,
+        0,
+        1152,
+        171
+      ],
+      "sourceCropInCell": [
+        20,
+        61,
+        365,
+        127
+      ],
+      "sourceResize": [
+        300,
+        57
+      ],
+      "animation": "surf-0",
+      "order": 2,
+      "durationMs": 180,
+      "registration": {
+        "sourceCropSharedAcrossPhases": true,
+        "waterline": {
+          "x": 192,
+          "y": 240
+        }
+      },
+      "description": "gentle cliff foot"
+    },
+    "surf-0-3": {
+      "x": 1152,
+      "y": 1600,
+      "w": 384,
+      "h": 320,
+      "anchor": {
+        "x": 192,
+        "y": 240
+      },
+      "footprint": {
+        "w": 300,
+        "h": 57,
+        "units": "4x concept pixels"
+      },
+      "conceptFootprint": {
+        "w": 75.0,
+        "h": 14.25
+      },
+      "artSize": {
+        "w": 300,
+        "h": 57
+      },
+      "tile": false,
+      "kind": "surf-band",
+      "source": "raw/coast/surf-02-clean.png",
+      "sourceCell": [
+        1152,
+        0,
+        1536,
+        171
+      ],
+      "sourceCropInCell": [
+        20,
+        61,
+        365,
+        127
+      ],
+      "sourceResize": [
+        300,
+        57
+      ],
+      "animation": "surf-0",
+      "order": 3,
+      "durationMs": 180,
+      "registration": {
+        "sourceCropSharedAcrossPhases": true,
+        "waterline": {
+          "x": 192,
+          "y": 240
+        }
+      },
+      "description": "gentle cliff foot"
+    },
+    "surf-1-0": {
+      "x": 1536,
+      "y": 1600,
+      "w": 384,
+      "h": 320,
+      "anchor": {
+        "x": 192,
+        "y": 240
+      },
+      "footprint": {
+        "w": 300,
+        "h": 70,
+        "units": "4x concept pixels"
+      },
+      "conceptFootprint": {
+        "w": 75.0,
+        "h": 17.5
+      },
+      "artSize": {
+        "w": 300,
+        "h": 70
+      },
+      "tile": false,
+      "kind": "surf-band",
+      "source": "raw/coast/surf-02-clean.png",
+      "sourceCell": [
+        0,
+        171,
+        384,
+        341
+      ],
+      "sourceCropInCell": [
+        24,
+        43,
+        365,
+        123
+      ],
+      "sourceResize": [
+        300,
+        70
+      ],
+      "animation": "surf-1",
+      "order": 0,
+      "durationMs": 180,
+      "registration": {
+        "sourceCropSharedAcrossPhases": true,
+        "waterline": {
+          "x": 192,
+          "y": 240
+        }
+      },
+      "description": "scalloped cliff foot"
+    },
+    "surf-1-1": {
+      "x": 1920,
+      "y": 1600,
+      "w": 384,
+      "h": 320,
+      "anchor": {
+        "x": 192,
+        "y": 240
+      },
+      "footprint": {
+        "w": 300,
+        "h": 70,
+        "units": "4x concept pixels"
+      },
+      "conceptFootprint": {
+        "w": 75.0,
+        "h": 17.5
+      },
+      "artSize": {
+        "w": 300,
+        "h": 70
+      },
+      "tile": false,
+      "kind": "surf-band",
+      "source": "raw/coast/surf-02-clean.png",
+      "sourceCell": [
+        384,
+        171,
+        768,
+        341
+      ],
+      "sourceCropInCell": [
+        24,
+        43,
+        365,
+        123
+      ],
+      "sourceResize": [
+        300,
+        70
+      ],
+      "animation": "surf-1",
+      "order": 1,
+      "durationMs": 180,
+      "registration": {
+        "sourceCropSharedAcrossPhases": true,
+        "waterline": {
+          "x": 192,
+          "y": 240
+        }
+      },
+      "description": "scalloped cliff foot"
+    },
+    "surf-1-2": {
+      "x": 2304,
+      "y": 1600,
+      "w": 384,
+      "h": 320,
+      "anchor": {
+        "x": 192,
+        "y": 240
+      },
+      "footprint": {
+        "w": 300,
+        "h": 70,
+        "units": "4x concept pixels"
+      },
+      "conceptFootprint": {
+        "w": 75.0,
+        "h": 17.5
+      },
+      "artSize": {
+        "w": 300,
+        "h": 70
+      },
+      "tile": false,
+      "kind": "surf-band",
+      "source": "raw/coast/surf-02-clean.png",
+      "sourceCell": [
+        768,
+        171,
+        1152,
+        341
+      ],
+      "sourceCropInCell": [
+        24,
+        43,
+        365,
+        123
+      ],
+      "sourceResize": [
+        300,
+        70
+      ],
+      "animation": "surf-1",
+      "order": 2,
+      "durationMs": 180,
+      "registration": {
+        "sourceCropSharedAcrossPhases": true,
+        "waterline": {
+          "x": 192,
+          "y": 240
+        }
+      },
+      "description": "scalloped cliff foot"
+    },
+    "surf-1-3": {
+      "x": 2688,
+      "y": 1600,
+      "w": 384,
+      "h": 320,
+      "anchor": {
+        "x": 192,
+        "y": 240
+      },
+      "footprint": {
+        "w": 300,
+        "h": 70,
+        "units": "4x concept pixels"
+      },
+      "conceptFootprint": {
+        "w": 75.0,
+        "h": 17.5
+      },
+      "artSize": {
+        "w": 300,
+        "h": 70
+      },
+      "tile": false,
+      "kind": "surf-band",
+      "source": "raw/coast/surf-02-clean.png",
+      "sourceCell": [
+        1152,
+        171,
+        1536,
+        341
+      ],
+      "sourceCropInCell": [
+        24,
+        43,
+        365,
+        123
+      ],
+      "sourceResize": [
+        300,
+        70
+      ],
+      "animation": "surf-1",
+      "order": 3,
+      "durationMs": 180,
+      "registration": {
+        "sourceCropSharedAcrossPhases": true,
+        "waterline": {
+          "x": 192,
+          "y": 240
+        }
+      },
+      "description": "scalloped cliff foot"
+    },
+    "surf-2-0": {
+      "x": 0,
+      "y": 1920,
+      "w": 384,
+      "h": 320,
+      "anchor": {
+        "x": 192,
+        "y": 240
+      },
+      "footprint": {
+        "w": 300,
+        "h": 80,
+        "units": "4x concept pixels"
+      },
+      "conceptFootprint": {
+        "w": 75.0,
+        "h": 20.0
+      },
+      "artSize": {
+        "w": 300,
+        "h": 80
+      },
+      "tile": false,
+      "kind": "surf-band",
+      "source": "raw/coast/surf-02-clean.png",
+      "sourceCell": [
+        0,
+        341,
+        384,
+        512
+      ],
+      "sourceCropInCell": [
+        25,
+        24,
+        362,
+        114
+      ],
+      "sourceResize": [
+        300,
+        80
+      ],
+      "animation": "surf-2",
+      "order": 0,
+      "durationMs": 180,
+      "registration": {
+        "sourceCropSharedAcrossPhases": true,
+        "waterline": {
+          "x": 192,
+          "y": 240
+        }
+      },
+      "description": "inlet"
+    },
+    "surf-2-1": {
+      "x": 384,
+      "y": 1920,
+      "w": 384,
+      "h": 320,
+      "anchor": {
+        "x": 192,
+        "y": 240
+      },
+      "footprint": {
+        "w": 300,
+        "h": 80,
+        "units": "4x concept pixels"
+      },
+      "conceptFootprint": {
+        "w": 75.0,
+        "h": 20.0
+      },
+      "artSize": {
+        "w": 300,
+        "h": 80
+      },
+      "tile": false,
+      "kind": "surf-band",
+      "source": "raw/coast/surf-02-clean.png",
+      "sourceCell": [
+        384,
+        341,
+        768,
+        512
+      ],
+      "sourceCropInCell": [
+        25,
+        24,
+        362,
+        114
+      ],
+      "sourceResize": [
+        300,
+        80
+      ],
+      "animation": "surf-2",
+      "order": 1,
+      "durationMs": 180,
+      "registration": {
+        "sourceCropSharedAcrossPhases": true,
+        "waterline": {
+          "x": 192,
+          "y": 240
+        }
+      },
+      "description": "inlet"
+    },
+    "surf-2-2": {
+      "x": 768,
+      "y": 1920,
+      "w": 384,
+      "h": 320,
+      "anchor": {
+        "x": 192,
+        "y": 240
+      },
+      "footprint": {
+        "w": 300,
+        "h": 80,
+        "units": "4x concept pixels"
+      },
+      "conceptFootprint": {
+        "w": 75.0,
+        "h": 20.0
+      },
+      "artSize": {
+        "w": 300,
+        "h": 80
+      },
+      "tile": false,
+      "kind": "surf-band",
+      "source": "raw/coast/surf-02-clean.png",
+      "sourceCell": [
+        768,
+        341,
+        1152,
+        512
+      ],
+      "sourceCropInCell": [
+        25,
+        24,
+        362,
+        114
+      ],
+      "sourceResize": [
+        300,
+        80
+      ],
+      "animation": "surf-2",
+      "order": 2,
+      "durationMs": 180,
+      "registration": {
+        "sourceCropSharedAcrossPhases": true,
+        "waterline": {
+          "x": 192,
+          "y": 240
+        }
+      },
+      "description": "inlet"
+    },
+    "surf-2-3": {
+      "x": 1152,
+      "y": 1920,
+      "w": 384,
+      "h": 320,
+      "anchor": {
+        "x": 192,
+        "y": 240
+      },
+      "footprint": {
+        "w": 300,
+        "h": 80,
+        "units": "4x concept pixels"
+      },
+      "conceptFootprint": {
+        "w": 75.0,
+        "h": 20.0
+      },
+      "artSize": {
+        "w": 300,
+        "h": 80
+      },
+      "tile": false,
+      "kind": "surf-band",
+      "source": "raw/coast/surf-02-clean.png",
+      "sourceCell": [
+        1152,
+        341,
+        1536,
+        512
+      ],
+      "sourceCropInCell": [
+        25,
+        24,
+        362,
+        114
+      ],
+      "sourceResize": [
+        300,
+        80
+      ],
+      "animation": "surf-2",
+      "order": 3,
+      "durationMs": 180,
+      "registration": {
+        "sourceCropSharedAcrossPhases": true,
+        "waterline": {
+          "x": 192,
+          "y": 240
+        }
+      },
+      "description": "inlet"
+    },
+    "surf-3-0": {
+      "x": 1536,
+      "y": 1920,
+      "w": 384,
+      "h": 320,
+      "anchor": {
+        "x": 192,
+        "y": 240
+      },
+      "footprint": {
+        "w": 300,
+        "h": 108,
+        "units": "4x concept pixels"
+      },
+      "conceptFootprint": {
+        "w": 75.0,
+        "h": 27.0
+      },
+      "artSize": {
+        "w": 300,
+        "h": 108
+      },
+      "tile": false,
+      "kind": "surf-band",
+      "source": "raw/coast/surf-02-clean.png",
+      "sourceCell": [
+        0,
+        512,
+        384,
+        660
+      ],
+      "sourceCropInCell": [
+        24,
+        2,
+        360,
+        123
+      ],
+      "sourceResize": [
+        300,
+        108
+      ],
+      "animation": "surf-3",
+      "order": 0,
+      "durationMs": 180,
+      "registration": {
+        "sourceCropSharedAcrossPhases": true,
+        "waterline": {
+          "x": 192,
+          "y": 240
+        }
+      },
+      "description": "left headland, mirror for right"
+    },
+    "surf-3-1": {
+      "x": 1920,
+      "y": 1920,
+      "w": 384,
+      "h": 320,
+      "anchor": {
+        "x": 192,
+        "y": 240
+      },
+      "footprint": {
+        "w": 300,
+        "h": 108,
+        "units": "4x concept pixels"
+      },
+      "conceptFootprint": {
+        "w": 75.0,
+        "h": 27.0
+      },
+      "artSize": {
+        "w": 300,
+        "h": 108
+      },
+      "tile": false,
+      "kind": "surf-band",
+      "source": "raw/coast/surf-02-clean.png",
+      "sourceCell": [
+        384,
+        512,
+        768,
+        660
+      ],
+      "sourceCropInCell": [
+        24,
+        2,
+        360,
+        123
+      ],
+      "sourceResize": [
+        300,
+        108
+      ],
+      "animation": "surf-3",
+      "order": 1,
+      "durationMs": 180,
+      "registration": {
+        "sourceCropSharedAcrossPhases": true,
+        "waterline": {
+          "x": 192,
+          "y": 240
+        }
+      },
+      "description": "left headland, mirror for right"
+    },
+    "surf-3-2": {
+      "x": 2304,
+      "y": 1920,
+      "w": 384,
+      "h": 320,
+      "anchor": {
+        "x": 192,
+        "y": 240
+      },
+      "footprint": {
+        "w": 300,
+        "h": 108,
+        "units": "4x concept pixels"
+      },
+      "conceptFootprint": {
+        "w": 75.0,
+        "h": 27.0
+      },
+      "artSize": {
+        "w": 300,
+        "h": 108
+      },
+      "tile": false,
+      "kind": "surf-band",
+      "source": "raw/coast/surf-02-clean.png",
+      "sourceCell": [
+        768,
+        512,
+        1152,
+        660
+      ],
+      "sourceCropInCell": [
+        24,
+        2,
+        360,
+        123
+      ],
+      "sourceResize": [
+        300,
+        108
+      ],
+      "animation": "surf-3",
+      "order": 2,
+      "durationMs": 180,
+      "registration": {
+        "sourceCropSharedAcrossPhases": true,
+        "waterline": {
+          "x": 192,
+          "y": 240
+        }
+      },
+      "description": "left headland, mirror for right"
+    },
+    "surf-3-3": {
+      "x": 2688,
+      "y": 1920,
+      "w": 384,
+      "h": 320,
+      "anchor": {
+        "x": 192,
+        "y": 240
+      },
+      "footprint": {
+        "w": 300,
+        "h": 108,
+        "units": "4x concept pixels"
+      },
+      "conceptFootprint": {
+        "w": 75.0,
+        "h": 27.0
+      },
+      "artSize": {
+        "w": 300,
+        "h": 108
+      },
+      "tile": false,
+      "kind": "surf-band",
+      "source": "raw/coast/surf-02-clean.png",
+      "sourceCell": [
+        1152,
+        512,
+        1536,
+        660
+      ],
+      "sourceCropInCell": [
+        24,
+        2,
+        360,
+        123
+      ],
+      "sourceResize": [
+        300,
+        108
+      ],
+      "animation": "surf-3",
+      "order": 3,
+      "durationMs": 180,
+      "registration": {
+        "sourceCropSharedAcrossPhases": true,
+        "waterline": {
+          "x": 192,
+          "y": 240
+        }
+      },
+      "description": "left headland, mirror for right"
+    },
+    "surf-4-0": {
+      "x": 0,
+      "y": 2240,
+      "w": 384,
+      "h": 320,
+      "anchor": {
+        "x": 192,
+        "y": 240
+      },
+      "footprint": {
+        "w": 240,
+        "h": 98,
+        "units": "4x concept pixels"
+      },
+      "conceptFootprint": {
+        "w": 60.0,
+        "h": 24.5
+      },
+      "artSize": {
+        "w": 240,
+        "h": 98
+      },
+      "tile": false,
+      "kind": "surf-ring",
+      "source": "raw/coast/surf-02-clean.png",
+      "sourceCell": [
+        0,
+        660,
+        384,
+        853
+      ],
+      "sourceCropInCell": [
+        20,
+        16,
+        364,
+        157
+      ],
+      "sourceResize": [
+        240,
+        98
+      ],
+      "animation": "surf-4",
+      "order": 0,
+      "durationMs": 180,
+      "registration": {
+        "sourceCropSharedAcrossPhases": true,
+        "waterline": {
+          "x": 192,
+          "y": 240
+        }
+      },
+      "description": "large rock ring"
+    },
+    "surf-4-1": {
+      "x": 384,
+      "y": 2240,
+      "w": 384,
+      "h": 320,
+      "anchor": {
+        "x": 192,
+        "y": 240
+      },
+      "footprint": {
+        "w": 240,
+        "h": 98,
+        "units": "4x concept pixels"
+      },
+      "conceptFootprint": {
+        "w": 60.0,
+        "h": 24.5
+      },
+      "artSize": {
+        "w": 240,
+        "h": 98
+      },
+      "tile": false,
+      "kind": "surf-ring",
+      "source": "raw/coast/surf-02-clean.png",
+      "sourceCell": [
+        384,
+        660,
+        768,
+        853
+      ],
+      "sourceCropInCell": [
+        20,
+        16,
+        364,
+        157
+      ],
+      "sourceResize": [
+        240,
+        98
+      ],
+      "animation": "surf-4",
+      "order": 1,
+      "durationMs": 180,
+      "registration": {
+        "sourceCropSharedAcrossPhases": true,
+        "waterline": {
+          "x": 192,
+          "y": 240
+        }
+      },
+      "description": "large rock ring"
+    },
+    "surf-4-2": {
+      "x": 768,
+      "y": 2240,
+      "w": 384,
+      "h": 320,
+      "anchor": {
+        "x": 192,
+        "y": 240
+      },
+      "footprint": {
+        "w": 240,
+        "h": 98,
+        "units": "4x concept pixels"
+      },
+      "conceptFootprint": {
+        "w": 60.0,
+        "h": 24.5
+      },
+      "artSize": {
+        "w": 240,
+        "h": 98
+      },
+      "tile": false,
+      "kind": "surf-ring",
+      "source": "raw/coast/surf-02-clean.png",
+      "sourceCell": [
+        768,
+        660,
+        1152,
+        853
+      ],
+      "sourceCropInCell": [
+        20,
+        16,
+        364,
+        157
+      ],
+      "sourceResize": [
+        240,
+        98
+      ],
+      "animation": "surf-4",
+      "order": 2,
+      "durationMs": 180,
+      "registration": {
+        "sourceCropSharedAcrossPhases": true,
+        "waterline": {
+          "x": 192,
+          "y": 240
+        }
+      },
+      "description": "large rock ring"
+    },
+    "surf-4-3": {
+      "x": 1152,
+      "y": 2240,
+      "w": 384,
+      "h": 320,
+      "anchor": {
+        "x": 192,
+        "y": 240
+      },
+      "footprint": {
+        "w": 240,
+        "h": 98,
+        "units": "4x concept pixels"
+      },
+      "conceptFootprint": {
+        "w": 60.0,
+        "h": 24.5
+      },
+      "artSize": {
+        "w": 240,
+        "h": 98
+      },
+      "tile": false,
+      "kind": "surf-ring",
+      "source": "raw/coast/surf-02-clean.png",
+      "sourceCell": [
+        1152,
+        660,
+        1536,
+        853
+      ],
+      "sourceCropInCell": [
+        20,
+        16,
+        364,
+        157
+      ],
+      "sourceResize": [
+        240,
+        98
+      ],
+      "animation": "surf-4",
+      "order": 3,
+      "durationMs": 180,
+      "registration": {
+        "sourceCropSharedAcrossPhases": true,
+        "waterline": {
+          "x": 192,
+          "y": 240
+        }
+      },
+      "description": "large rock ring"
+    },
+    "surf-5-0": {
+      "x": 1536,
+      "y": 2240,
+      "w": 384,
+      "h": 320,
+      "anchor": {
+        "x": 192,
+        "y": 240
+      },
+      "footprint": {
+        "w": 150,
+        "h": 61,
+        "units": "4x concept pixels"
+      },
+      "conceptFootprint": {
+        "w": 37.5,
+        "h": 15.25
+      },
+      "artSize": {
+        "w": 150,
+        "h": 61
+      },
+      "tile": false,
+      "kind": "surf-ring",
+      "source": "raw/coast/surf-02-clean.png",
+      "sourceCell": [
+        0,
+        853,
+        384,
+        1024
+      ],
+      "sourceCropInCell": [
+        87,
+        24,
+        297,
+        109
+      ],
+      "sourceResize": [
+        150,
+        61
+      ],
+      "animation": "surf-5",
+      "order": 0,
+      "durationMs": 180,
+      "registration": {
+        "sourceCropSharedAcrossPhases": true,
+        "waterline": {
+          "x": 192,
+          "y": 240
+        }
+      },
+      "description": "small rock ring"
+    },
+    "surf-5-1": {
+      "x": 1920,
+      "y": 2240,
+      "w": 384,
+      "h": 320,
+      "anchor": {
+        "x": 192,
+        "y": 240
+      },
+      "footprint": {
+        "w": 150,
+        "h": 61,
+        "units": "4x concept pixels"
+      },
+      "conceptFootprint": {
+        "w": 37.5,
+        "h": 15.25
+      },
+      "artSize": {
+        "w": 150,
+        "h": 61
+      },
+      "tile": false,
+      "kind": "surf-ring",
+      "source": "raw/coast/surf-02-clean.png",
+      "sourceCell": [
+        384,
+        853,
+        768,
+        1024
+      ],
+      "sourceCropInCell": [
+        87,
+        24,
+        297,
+        109
+      ],
+      "sourceResize": [
+        150,
+        61
+      ],
+      "animation": "surf-5",
+      "order": 1,
+      "durationMs": 180,
+      "registration": {
+        "sourceCropSharedAcrossPhases": true,
+        "waterline": {
+          "x": 192,
+          "y": 240
+        }
+      },
+      "description": "small rock ring"
+    },
+    "surf-5-2": {
+      "x": 2304,
+      "y": 2240,
+      "w": 384,
+      "h": 320,
+      "anchor": {
+        "x": 192,
+        "y": 240
+      },
+      "footprint": {
+        "w": 150,
+        "h": 61,
+        "units": "4x concept pixels"
+      },
+      "conceptFootprint": {
+        "w": 37.5,
+        "h": 15.25
+      },
+      "artSize": {
+        "w": 150,
+        "h": 61
+      },
+      "tile": false,
+      "kind": "surf-ring",
+      "source": "raw/coast/surf-02-clean.png",
+      "sourceCell": [
+        768,
+        853,
+        1152,
+        1024
+      ],
+      "sourceCropInCell": [
+        87,
+        24,
+        297,
+        109
+      ],
+      "sourceResize": [
+        150,
+        61
+      ],
+      "animation": "surf-5",
+      "order": 2,
+      "durationMs": 180,
+      "registration": {
+        "sourceCropSharedAcrossPhases": true,
+        "waterline": {
+          "x": 192,
+          "y": 240
+        }
+      },
+      "description": "small rock ring"
+    },
+    "surf-5-3": {
+      "x": 2688,
+      "y": 2240,
+      "w": 384,
+      "h": 320,
+      "anchor": {
+        "x": 192,
+        "y": 240
+      },
+      "footprint": {
+        "w": 150,
+        "h": 61,
+        "units": "4x concept pixels"
+      },
+      "conceptFootprint": {
+        "w": 37.5,
+        "h": 15.25
+      },
+      "artSize": {
+        "w": 150,
+        "h": 61
+      },
+      "tile": false,
+      "kind": "surf-ring",
+      "source": "raw/coast/surf-02-clean.png",
+      "sourceCell": [
+        1152,
+        853,
+        1536,
+        1024
+      ],
+      "sourceCropInCell": [
+        87,
+        24,
+        297,
+        109
+      ],
+      "sourceResize": [
+        150,
+        61
+      ],
+      "animation": "surf-5",
+      "order": 3,
+      "durationMs": 180,
+      "registration": {
+        "sourceCropSharedAcrossPhases": true,
+        "waterline": {
+          "x": 192,
+          "y": 240
+        }
+      },
+      "description": "small rock ring"
+    }
+  },
+  "animations": {
+    "surf-0": {
+      "frames": [
+        "surf-0-0",
+        "surf-0-1",
+        "surf-0-2",
+        "surf-0-3"
+      ],
+      "durationMs": 180,
+      "loop": true,
+      "registrationAnchor": {
+        "x": 192,
+        "y": 240
+      },
+      "playback": "0-1-2-3",
+      "distinctGeneratedPhases": true
+    },
+    "surf-1": {
+      "frames": [
+        "surf-1-0",
+        "surf-1-1",
+        "surf-1-2",
+        "surf-1-3"
+      ],
+      "durationMs": 180,
+      "loop": true,
+      "registrationAnchor": {
+        "x": 192,
+        "y": 240
+      },
+      "playback": "0-1-2-3",
+      "distinctGeneratedPhases": true
+    },
+    "surf-2": {
+      "frames": [
+        "surf-2-0",
+        "surf-2-1",
+        "surf-2-2",
+        "surf-2-3"
+      ],
+      "durationMs": 180,
+      "loop": true,
+      "registrationAnchor": {
+        "x": 192,
+        "y": 240
+      },
+      "playback": "0-1-2-3",
+      "distinctGeneratedPhases": true
+    },
+    "surf-3": {
+      "frames": [
+        "surf-3-0",
+        "surf-3-1",
+        "surf-3-2",
+        "surf-3-3"
+      ],
+      "durationMs": 180,
+      "loop": true,
+      "registrationAnchor": {
+        "x": 192,
+        "y": 240
+      },
+      "playback": "0-1-2-3",
+      "distinctGeneratedPhases": true
+    },
+    "surf-4": {
+      "frames": [
+        "surf-4-0",
+        "surf-4-1",
+        "surf-4-2",
+        "surf-4-3"
+      ],
+      "durationMs": 180,
+      "loop": true,
+      "registrationAnchor": {
+        "x": 192,
+        "y": 240
+      },
+      "playback": "0-1-2-3",
+      "distinctGeneratedPhases": true
+    },
+    "surf-5": {
+      "frames": [
+        "surf-5-0",
+        "surf-5-1",
+        "surf-5-2",
+        "surf-5-3"
+      ],
+      "durationMs": 180,
+      "loop": true,
+      "registrationAnchor": {
+        "x": 192,
+        "y": 240
+      },
+      "playback": "0-1-2-3",
+      "distinctGeneratedPhases": true
+    }
+  }
+}

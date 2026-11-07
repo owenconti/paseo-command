@@ -1,0 +1,1130 @@
+{
+  "image": "foliage.png",
+  "width": 3072,
+  "height": 1952,
+  "conceptScale": 4,
+  "sampling": "linear",
+  "alpha": "original smooth generated RGBA; never binarized",
+  "anchorUnits": "frame-local pixels; y down; ground contact at bottom centre",
+  "packing": {
+    "method": "shelf",
+    "minimumTransparentGutter": 64,
+    "outerPadding": 32
+  },
+  "style": "HD painted fantasy strategy; layered dense canopy masses; top-left light",
+  "frames": {
+    "forest-mass-0": {
+      "x": 32,
+      "y": 32,
+      "w": 660,
+      "h": 225,
+      "anchor": {
+        "x": 330,
+        "y": 221
+      },
+      "footprint": {
+        "width": 607,
+        "height": 56,
+        "units": "pixels at 4x concept scale"
+      },
+      "conceptFootprint": {
+        "width": 151.8,
+        "height": 14.0
+      },
+      "layer": "scenery",
+      "overlapFriendly": true,
+      "source": {
+        "raw": "raw/foliage/forest-01.png",
+        "sourceCell": [
+          0,
+          0,
+          768,
+          256
+        ],
+        "subjectCrop": [
+          56,
+          10,
+          717,
+          235
+        ],
+        "resizeFilter": "Lanczos"
+      }
+    },
+    "forest-mass-1": {
+      "x": 756,
+      "y": 32,
+      "w": 500,
+      "h": 211,
+      "anchor": {
+        "x": 250,
+        "y": 207
+      },
+      "footprint": {
+        "width": 460,
+        "height": 53,
+        "units": "pixels at 4x concept scale"
+      },
+      "conceptFootprint": {
+        "width": 115.0,
+        "height": 13.25
+      },
+      "layer": "scenery",
+      "overlapFriendly": true,
+      "source": {
+        "raw": "raw/foliage/forest-01.png",
+        "sourceCell": [
+          768,
+          0,
+          1536,
+          256
+        ],
+        "subjectCrop": [
+          129,
+          20,
+          636,
+          234
+        ],
+        "resizeFilter": "Lanczos"
+      }
+    },
+    "forest-mass-2": {
+      "x": 1320,
+      "y": 32,
+      "w": 700,
+      "h": 205,
+      "anchor": {
+        "x": 350,
+        "y": 201
+      },
+      "footprint": {
+        "width": 644,
+        "height": 51,
+        "units": "pixels at 4x concept scale"
+      },
+      "conceptFootprint": {
+        "width": 161.0,
+        "height": 12.75
+      },
+      "layer": "scenery",
+      "overlapFriendly": true,
+      "source": {
+        "raw": "raw/foliage/forest-01.png",
+        "sourceCell": [
+          0,
+          256,
+          768,
+          512
+        ],
+        "subjectCrop": [
+          14,
+          15,
+          749,
+          230
+        ],
+        "resizeFilter": "Lanczos"
+      }
+    },
+    "forest-mass-3": {
+      "x": 2084,
+      "y": 32,
+      "w": 577,
+      "h": 216,
+      "anchor": {
+        "x": 288,
+        "y": 212
+      },
+      "footprint": {
+        "width": 531,
+        "height": 54,
+        "units": "pixels at 4x concept scale"
+      },
+      "conceptFootprint": {
+        "width": 132.71,
+        "height": 13.5
+      },
+      "layer": "scenery",
+      "overlapFriendly": true,
+      "source": {
+        "raw": "raw/foliage/forest-01.png",
+        "sourceCell": [
+          768,
+          256,
+          1536,
+          512
+        ],
+        "subjectCrop": [
+          110,
+          15,
+          687,
+          231
+        ],
+        "resizeFilter": "Lanczos"
+      }
+    },
+    "forest-mass-4": {
+      "x": 32,
+      "y": 321,
+      "w": 460,
+      "h": 172,
+      "anchor": {
+        "x": 230,
+        "y": 168
+      },
+      "footprint": {
+        "width": 423,
+        "height": 43,
+        "units": "pixels at 4x concept scale"
+      },
+      "conceptFootprint": {
+        "width": 105.8,
+        "height": 10.75
+      },
+      "layer": "scenery",
+      "overlapFriendly": true,
+      "source": {
+        "raw": "raw/foliage/forest-01.png",
+        "sourceCell": [
+          0,
+          512,
+          768,
+          768
+        ],
+        "subjectCrop": [
+          108,
+          24,
+          658,
+          230
+        ],
+        "resizeFilter": "Lanczos"
+      }
+    },
+    "forest-mass-5": {
+      "x": 556,
+      "y": 321,
+      "w": 640,
+      "h": 183,
+      "anchor": {
+        "x": 320,
+        "y": 179
+      },
+      "footprint": {
+        "width": 589,
+        "height": 46,
+        "units": "pixels at 4x concept scale"
+      },
+      "conceptFootprint": {
+        "width": 147.2,
+        "height": 11.5
+      },
+      "layer": "scenery",
+      "overlapFriendly": true,
+      "source": {
+        "raw": "raw/foliage/forest-01.png",
+        "sourceCell": [
+          768,
+          512,
+          1536,
+          768
+        ],
+        "subjectCrop": [
+          20,
+          19,
+          739,
+          225
+        ],
+        "resizeFilter": "Lanczos"
+      }
+    },
+    "forest-mass-6": {
+      "x": 1260,
+      "y": 321,
+      "w": 420,
+      "h": 153,
+      "anchor": {
+        "x": 210,
+        "y": 149
+      },
+      "footprint": {
+        "width": 386,
+        "height": 38,
+        "units": "pixels at 4x concept scale"
+      },
+      "conceptFootprint": {
+        "width": 96.6,
+        "height": 9.5
+      },
+      "layer": "scenery",
+      "overlapFriendly": true,
+      "source": {
+        "raw": "raw/foliage/forest-01.png",
+        "sourceCell": [
+          0,
+          768,
+          768,
+          1024
+        ],
+        "subjectCrop": [
+          125,
+          41,
+          638,
+          228
+        ],
+        "resizeFilter": "Lanczos"
+      }
+    },
+    "forest-mass-7": {
+      "x": 1744,
+      "y": 321,
+      "w": 680,
+      "h": 206,
+      "anchor": {
+        "x": 340,
+        "y": 202
+      },
+      "footprint": {
+        "width": 626,
+        "height": 52,
+        "units": "pixels at 4x concept scale"
+      },
+      "conceptFootprint": {
+        "width": 156.4,
+        "height": 13.0
+      },
+      "layer": "scenery",
+      "overlapFriendly": true,
+      "source": {
+        "raw": "raw/foliage/forest-01.png",
+        "sourceCell": [
+          768,
+          768,
+          1536,
+          1024
+        ],
+        "subjectCrop": [
+          22,
+          9,
+          743,
+          227
+        ],
+        "resizeFilter": "Lanczos"
+      }
+    },
+    "forest-fir-0": {
+      "x": 32,
+      "y": 591,
+      "w": 650,
+      "h": 237,
+      "anchor": {
+        "x": 325,
+        "y": 233
+      },
+      "footprint": {
+        "width": 598,
+        "height": 59,
+        "units": "pixels at 4x concept scale"
+      },
+      "conceptFootprint": {
+        "width": 149.5,
+        "height": 14.75
+      },
+      "layer": "back-scenery",
+      "overlapFriendly": true,
+      "source": {
+        "raw": "raw/foliage/fir-autumn-01.png",
+        "sourceCell": [
+          0,
+          0,
+          768,
+          256
+        ],
+        "subjectCrop": [
+          48,
+          6,
+          708,
+          247
+        ],
+        "resizeFilter": "Lanczos"
+      }
+    },
+    "forest-fir-1": {
+      "x": 746,
+      "y": 591,
+      "w": 620,
+      "h": 214,
+      "anchor": {
+        "x": 310,
+        "y": 210
+      },
+      "footprint": {
+        "width": 570,
+        "height": 54,
+        "units": "pixels at 4x concept scale"
+      },
+      "conceptFootprint": {
+        "width": 142.6,
+        "height": 13.5
+      },
+      "layer": "back-scenery",
+      "overlapFriendly": true,
+      "source": {
+        "raw": "raw/foliage/fir-autumn-01.png",
+        "sourceCell": [
+          768,
+          0,
+          1536,
+          256
+        ],
+        "subjectCrop": [
+          46,
+          11,
+          725,
+          245
+        ],
+        "resizeFilter": "Lanczos"
+      }
+    },
+    "forest-fir-2": {
+      "x": 1430,
+      "y": 591,
+      "w": 500,
+      "h": 219,
+      "anchor": {
+        "x": 250,
+        "y": 215
+      },
+      "footprint": {
+        "width": 460,
+        "height": 55,
+        "units": "pixels at 4x concept scale"
+      },
+      "conceptFootprint": {
+        "width": 115.0,
+        "height": 13.75
+      },
+      "layer": "back-scenery",
+      "overlapFriendly": true,
+      "source": {
+        "raw": "raw/foliage/fir-autumn-01.png",
+        "sourceCell": [
+          0,
+          256,
+          768,
+          512
+        ],
+        "subjectCrop": [
+          111,
+          11,
+          636,
+          241
+        ],
+        "resizeFilter": "Lanczos"
+      }
+    },
+    "forest-fir-3": {
+      "x": 1994,
+      "y": 591,
+      "w": 600,
+      "h": 226,
+      "anchor": {
+        "x": 300,
+        "y": 222
+      },
+      "footprint": {
+        "width": 552,
+        "height": 56,
+        "units": "pixels at 4x concept scale"
+      },
+      "conceptFootprint": {
+        "width": 138.0,
+        "height": 14.0
+      },
+      "layer": "back-scenery",
+      "overlapFriendly": true,
+      "source": {
+        "raw": "raw/foliage/fir-autumn-01.png",
+        "sourceCell": [
+          768,
+          256,
+          1536,
+          512
+        ],
+        "subjectCrop": [
+          66,
+          1,
+          700,
+          240
+        ],
+        "resizeFilter": "Lanczos"
+      }
+    },
+    "autumn-mass-0": {
+      "x": 32,
+      "y": 892,
+      "w": 650,
+      "h": 200,
+      "anchor": {
+        "x": 325,
+        "y": 196
+      },
+      "footprint": {
+        "width": 598,
+        "height": 50,
+        "units": "pixels at 4x concept scale"
+      },
+      "conceptFootprint": {
+        "width": 149.5,
+        "height": 12.5
+      },
+      "layer": "scenery",
+      "overlapFriendly": true,
+      "source": {
+        "raw": "raw/foliage/fir-autumn-01.png",
+        "sourceCell": [
+          0,
+          512,
+          768,
+          768
+        ],
+        "subjectCrop": [
+          30,
+          18,
+          730,
+          233
+        ],
+        "resizeFilter": "Lanczos"
+      }
+    },
+    "autumn-mass-1": {
+      "x": 746,
+      "y": 892,
+      "w": 620,
+      "h": 220,
+      "anchor": {
+        "x": 310,
+        "y": 216
+      },
+      "footprint": {
+        "width": 570,
+        "height": 55,
+        "units": "pixels at 4x concept scale"
+      },
+      "conceptFootprint": {
+        "width": 142.6,
+        "height": 13.75
+      },
+      "layer": "scenery",
+      "overlapFriendly": true,
+      "source": {
+        "raw": "raw/foliage/fir-autumn-01.png",
+        "sourceCell": [
+          768,
+          512,
+          1536,
+          768
+        ],
+        "subjectCrop": [
+          48,
+          5,
+          713,
+          241
+        ],
+        "resizeFilter": "Lanczos"
+      }
+    },
+    "autumn-mass-2": {
+      "x": 1430,
+      "y": 892,
+      "w": 560,
+      "h": 193,
+      "anchor": {
+        "x": 280,
+        "y": 189
+      },
+      "footprint": {
+        "width": 515,
+        "height": 48,
+        "units": "pixels at 4x concept scale"
+      },
+      "conceptFootprint": {
+        "width": 128.8,
+        "height": 12.0
+      },
+      "layer": "scenery",
+      "overlapFriendly": true,
+      "source": {
+        "raw": "raw/foliage/fir-autumn-01.png",
+        "sourceCell": [
+          0,
+          768,
+          768,
+          1024
+        ],
+        "subjectCrop": [
+          47,
+          8,
+          707,
+          236
+        ],
+        "resizeFilter": "Lanczos"
+      }
+    },
+    "autumn-mass-3": {
+      "x": 2054,
+      "y": 892,
+      "w": 600,
+      "h": 213,
+      "anchor": {
+        "x": 300,
+        "y": 209
+      },
+      "footprint": {
+        "width": 552,
+        "height": 53,
+        "units": "pixels at 4x concept scale"
+      },
+      "conceptFootprint": {
+        "width": 138.0,
+        "height": 13.25
+      },
+      "layer": "scenery",
+      "overlapFriendly": true,
+      "source": {
+        "raw": "raw/foliage/fir-autumn-01.png",
+        "sourceCell": [
+          768,
+          768,
+          1536,
+          1024
+        ],
+        "subjectCrop": [
+          58,
+          10,
+          708,
+          241
+        ],
+        "resizeFilter": "Lanczos"
+      }
+    },
+    "blossom-mass-0": {
+      "x": 32,
+      "y": 1176,
+      "w": 540,
+      "h": 242,
+      "anchor": {
+        "x": 270,
+        "y": 238
+      },
+      "footprint": {
+        "width": 497,
+        "height": 60,
+        "units": "pixels at 4x concept scale"
+      },
+      "conceptFootprint": {
+        "width": 124.2,
+        "height": 15.0
+      },
+      "layer": "scenery",
+      "overlapFriendly": true,
+      "source": {
+        "raw": "raw/foliage/blossom-volcanic-01.png",
+        "sourceCell": [
+          0,
+          0,
+          768,
+          341
+        ],
+        "subjectCrop": [
+          95,
+          43,
+          692,
+          311
+        ],
+        "resizeFilter": "Lanczos"
+      }
+    },
+    "blossom-mass-1": {
+      "x": 636,
+      "y": 1176,
+      "w": 540,
+      "h": 235,
+      "anchor": {
+        "x": 270,
+        "y": 231
+      },
+      "footprint": {
+        "width": 497,
+        "height": 59,
+        "units": "pixels at 4x concept scale"
+      },
+      "conceptFootprint": {
+        "width": 124.2,
+        "height": 14.75
+      },
+      "layer": "scenery",
+      "overlapFriendly": true,
+      "source": {
+        "raw": "raw/foliage/blossom-volcanic-01.png",
+        "sourceCell": [
+          768,
+          0,
+          1536,
+          341
+        ],
+        "subjectCrop": [
+          57,
+          36,
+          698,
+          315
+        ],
+        "resizeFilter": "Lanczos"
+      }
+    },
+    "blossom-mass-2": {
+      "x": 1240,
+      "y": 1176,
+      "w": 580,
+      "h": 248,
+      "anchor": {
+        "x": 290,
+        "y": 244
+      },
+      "footprint": {
+        "width": 534,
+        "height": 62,
+        "units": "pixels at 4x concept scale"
+      },
+      "conceptFootprint": {
+        "width": 133.4,
+        "height": 15.5
+      },
+      "layer": "scenery",
+      "overlapFriendly": true,
+      "source": {
+        "raw": "raw/foliage/blossom-volcanic-01.png",
+        "sourceCell": [
+          0,
+          341,
+          768,
+          682
+        ],
+        "subjectCrop": [
+          56,
+          20,
+          714,
+          301
+        ],
+        "resizeFilter": "Lanczos"
+      }
+    },
+    "volcanic-mass-0": {
+      "x": 1884,
+      "y": 1176,
+      "w": 600,
+      "h": 246,
+      "anchor": {
+        "x": 300,
+        "y": 242
+      },
+      "footprint": {
+        "width": 552,
+        "height": 62,
+        "units": "pixels at 4x concept scale"
+      },
+      "conceptFootprint": {
+        "width": 138.0,
+        "height": 15.5
+      },
+      "layer": "scenery",
+      "overlapFriendly": true,
+      "source": {
+        "raw": "raw/foliage/blossom-volcanic-01.png",
+        "sourceCell": [
+          768,
+          341,
+          1536,
+          682
+        ],
+        "subjectCrop": [
+          68,
+          32,
+          710,
+          295
+        ],
+        "resizeFilter": "Lanczos"
+      }
+    },
+    "volcanic-mass-1": {
+      "x": 32,
+      "y": 1488,
+      "w": 620,
+      "h": 260,
+      "anchor": {
+        "x": 310,
+        "y": 256
+      },
+      "footprint": {
+        "width": 570,
+        "height": 65,
+        "units": "pixels at 4x concept scale"
+      },
+      "conceptFootprint": {
+        "width": 142.6,
+        "height": 16.25
+      },
+      "layer": "scenery",
+      "overlapFriendly": true,
+      "source": {
+        "raw": "raw/foliage/blossom-volcanic-01.png",
+        "sourceCell": [
+          0,
+          682,
+          768,
+          1024
+        ],
+        "subjectCrop": [
+          43,
+          10,
+          704,
+          287
+        ],
+        "resizeFilter": "Lanczos"
+      }
+    },
+    "volcanic-mass-2": {
+      "x": 716,
+      "y": 1488,
+      "w": 650,
+      "h": 233,
+      "anchor": {
+        "x": 325,
+        "y": 229
+      },
+      "footprint": {
+        "width": 598,
+        "height": 58,
+        "units": "pixels at 4x concept scale"
+      },
+      "conceptFootprint": {
+        "width": 149.5,
+        "height": 14.5
+      },
+      "layer": "scenery",
+      "overlapFriendly": true,
+      "source": {
+        "raw": "raw/foliage/blossom-volcanic-01.png",
+        "sourceCell": [
+          768,
+          682,
+          1536,
+          1024
+        ],
+        "subjectCrop": [
+          58,
+          43,
+          719,
+          280
+        ],
+        "resizeFilter": "Lanczos"
+      }
+    },
+    "bush-row-0": {
+      "x": 1430,
+      "y": 1488,
+      "w": 360,
+      "h": 94,
+      "anchor": {
+        "x": 180,
+        "y": 90
+      },
+      "footprint": {
+        "width": 331,
+        "height": 45,
+        "units": "pixels at 4x concept scale"
+      },
+      "conceptFootprint": {
+        "width": 82.8,
+        "height": 11.25
+      },
+      "layer": "scenery",
+      "overlapFriendly": true,
+      "source": {
+        "raw": "raw/foliage/bush-flower-01.png",
+        "sourceCell": [
+          0,
+          0,
+          768,
+          256
+        ],
+        "subjectCrop": [
+          42,
+          56,
+          726,
+          234
+        ],
+        "resizeFilter": "Lanczos"
+      }
+    },
+    "bush-row-1": {
+      "x": 1854,
+      "y": 1488,
+      "w": 340,
+      "h": 90,
+      "anchor": {
+        "x": 170,
+        "y": 86
+      },
+      "footprint": {
+        "width": 313,
+        "height": 43,
+        "units": "pixels at 4x concept scale"
+      },
+      "conceptFootprint": {
+        "width": 78.2,
+        "height": 10.75
+      },
+      "layer": "scenery",
+      "overlapFriendly": true,
+      "source": {
+        "raw": "raw/foliage/bush-flower-01.png",
+        "sourceCell": [
+          768,
+          0,
+          1536,
+          256
+        ],
+        "subjectCrop": [
+          46,
+          57,
+          722,
+          235
+        ],
+        "resizeFilter": "Lanczos"
+      }
+    },
+    "bush-row-2": {
+      "x": 2258,
+      "y": 1488,
+      "w": 380,
+      "h": 92,
+      "anchor": {
+        "x": 190,
+        "y": 88
+      },
+      "footprint": {
+        "width": 350,
+        "height": 44,
+        "units": "pixels at 4x concept scale"
+      },
+      "conceptFootprint": {
+        "width": 87.4,
+        "height": 11.0
+      },
+      "layer": "scenery",
+      "overlapFriendly": true,
+      "source": {
+        "raw": "raw/foliage/bush-flower-01.png",
+        "sourceCell": [
+          0,
+          256,
+          768,
+          512
+        ],
+        "subjectCrop": [
+          35,
+          46,
+          730,
+          215
+        ],
+        "resizeFilter": "Lanczos"
+      }
+    },
+    "bush-row-3": {
+      "x": 32,
+      "y": 1812,
+      "w": 360,
+      "h": 97,
+      "anchor": {
+        "x": 180,
+        "y": 93
+      },
+      "footprint": {
+        "width": 331,
+        "height": 47,
+        "units": "pixels at 4x concept scale"
+      },
+      "conceptFootprint": {
+        "width": 82.8,
+        "height": 11.75
+      },
+      "layer": "scenery",
+      "overlapFriendly": true,
+      "source": {
+        "raw": "raw/foliage/bush-flower-01.png",
+        "sourceCell": [
+          768,
+          256,
+          1536,
+          512
+        ],
+        "subjectCrop": [
+          36,
+          28,
+          732,
+          215
+        ],
+        "resizeFilter": "Lanczos"
+      }
+    },
+    "flower-bed-0": {
+      "x": 456,
+      "y": 1812,
+      "w": 140,
+      "h": 60,
+      "anchor": {
+        "x": 70,
+        "y": 56
+      },
+      "footprint": {
+        "width": 129,
+        "height": 29,
+        "units": "pixels at 4x concept scale"
+      },
+      "conceptFootprint": {
+        "width": 32.2,
+        "height": 7.25
+      },
+      "layer": "scenery",
+      "overlapFriendly": true,
+      "source": {
+        "raw": "raw/foliage/bush-flower-01.png",
+        "sourceCell": [
+          0,
+          512,
+          768,
+          768
+        ],
+        "subjectCrop": [
+          196,
+          52,
+          571,
+          214
+        ],
+        "resizeFilter": "Lanczos"
+      }
+    },
+    "flower-bed-1": {
+      "x": 660,
+      "y": 1812,
+      "w": 140,
+      "h": 61,
+      "anchor": {
+        "x": 70,
+        "y": 57
+      },
+      "footprint": {
+        "width": 129,
+        "height": 29,
+        "units": "pixels at 4x concept scale"
+      },
+      "conceptFootprint": {
+        "width": 32.2,
+        "height": 7.25
+      },
+      "layer": "scenery",
+      "overlapFriendly": true,
+      "source": {
+        "raw": "raw/foliage/bush-flower-01.png",
+        "sourceCell": [
+          768,
+          512,
+          1536,
+          768
+        ],
+        "subjectCrop": [
+          201,
+          53,
+          567,
+          212
+        ],
+        "resizeFilter": "Lanczos"
+      }
+    },
+    "flower-bed-2": {
+      "x": 864,
+      "y": 1812,
+      "w": 145,
+      "h": 58,
+      "anchor": {
+        "x": 72,
+        "y": 54
+      },
+      "footprint": {
+        "width": 133,
+        "height": 28,
+        "units": "pixels at 4x concept scale"
+      },
+      "conceptFootprint": {
+        "width": 33.35,
+        "height": 7.0
+      },
+      "layer": "scenery",
+      "overlapFriendly": true,
+      "source": {
+        "raw": "raw/foliage/bush-flower-01.png",
+        "sourceCell": [
+          0,
+          768,
+          768,
+          1024
+        ],
+        "subjectCrop": [
+          206,
+          61,
+          563,
+          204
+        ],
+        "resizeFilter": "Lanczos"
+      }
+    },
+    "flower-bed-3": {
+      "x": 1073,
+      "y": 1812,
+      "w": 140,
+      "h": 56,
+      "anchor": {
+        "x": 70,
+        "y": 52
+      },
+      "footprint": {
+        "width": 129,
+        "height": 27,
+        "units": "pixels at 4x concept scale"
+      },
+      "conceptFootprint": {
+        "width": 32.2,
+        "height": 6.75
+      },
+      "layer": "scenery",
+      "overlapFriendly": true,
+      "source": {
+        "raw": "raw/foliage/bush-flower-01.png",
+        "sourceCell": [
+          768,
+          768,
+          1536,
+          1024
+        ],
+        "subjectCrop": [
+          201,
+          61,
+          561,
+          204
+        ],
+        "resizeFilter": "Lanczos"
+      }
+    }
+  },
+  "animations": {},
+  "provenance": "../../../artifacts/overworld/prompts-foliage.json",
+  "processing": "Alpha-bounds crops and Lanczos downsampling only; no reference pixels."
+}

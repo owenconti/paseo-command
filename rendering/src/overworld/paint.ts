@@ -1,6 +1,6 @@
 // Paints an Overworld scene to a 2D canvas: sea, islands with cliffs and shore foam, rivers and
 // falls, paths, scenery and buildings, gold links, labels. Units are concept pixels, drawn at K.
-import { frameOf, hasFrame, type Frame, type Sheets } from "./atlas.ts";
+import { frameOf, framesWithPrefix, hasFrame, type Frame, type Sheets } from "./atlas.ts";
 import { fbm, fieldAt, fieldGrid, islandBounds, noise } from "./terrain.ts";
 import {
   BOOTH,
@@ -154,10 +154,13 @@ export function paintScene(ctx: Ctx, scene: Scene, sheets: Sheets, opts: PaintOp
     ctx.restore();
   }
   const ordered = [...lands].sort((a, b) => a.island.z - b.island.z || a.land.y1 - b.land.y1);
-  for (const { land } of ordered) ctx.drawImage(land.c, land.x0, land.y0, land.w, land.h);
+  for (const { island, land } of ordered) {
+    ctx.drawImage(land.c, land.x0, land.y0, land.w, land.h);
+    paintCoast(ctx, island, sheets, (x, y) => scene.islands.some((o) => o !== island && o.boxes.length > 0 && fieldAt(o, x, y) < 2));
+  }
 
   paintStrips(ctx, scene, sheets, opts);
-  const items = [...scene.items, ...scatter(scene)];
+  const items = [...scene.items, ...scatter(scene, sheets)];
   items.sort((a, b) => (a.z ?? a.y) - (b.z ?? b.y));
   for (const item of items) {
     if (item.kind === "booth") paintBooth(ctx, item, sheets, opts);
@@ -213,10 +216,16 @@ function coastDistance(scene: Scene, x: number, y: number): number {
 
 function paintSea(ctx: Ctx, scene: Scene, sheets: Sheets, opts: PaintOptions): void {
   const frame = Math.floor(opts.t / 300) % 4;
-  const textured = hasFrame(sheets, "textures", `sea-${frame}`) || hasFrame(sheets, "textures", "sea");
+  const calm = framesWithPrefix(sheets, "sea2", "sea-calm-");
+  const textured = calm.length > 0 || hasFrame(sheets, "textures", `sea-${frame}`) || hasFrame(sheets, "textures", "sea");
   if (textured) {
-    const f = hasFrame(sheets, "textures", `sea-${frame}`) ? frameOf(sheets, "textures", `sea-${frame}`) : frameOf(sheets, "textures", "sea");
-    const pattern = ctx.createPattern(seaTile(f), "repeat")!;
+    const f = calm.length
+      ? frameOf(sheets, "sea2", calm[frame % calm.length]!)
+      : hasFrame(sheets, "textures", `sea-${frame}`)
+        ? frameOf(sheets, "textures", `sea-${frame}`)
+        : frameOf(sheets, "textures", "sea");
+    // The calm sea is made to the concept's tones; the older texture is darkened toward them.
+    const pattern = ctx.createPattern(calm.length ? frameCanvas(f) : seaTile(f), "repeat")!;
     const period = f.w * SEA_TEXTURE_SCALE;
     const ox = ((opts.origin?.x ?? 0) % period + period) % period;
     const oy = ((opts.origin?.y ?? 0) % period + period) % period;
@@ -224,6 +233,14 @@ function paintSea(ctx: Ctx, scene: Scene, sheets: Sheets, opts: PaintOptions): v
     ctx.fillStyle = pattern;
     const m = opts.margin ?? 0;
     ctx.fillRect(-m, 0, scene.w + 2 * m, scene.h);
+    if (calm.length) {
+      // Lifted toward the concept's brighter royal blue.
+      ctx.save();
+      ctx.globalCompositeOperation = "screen";
+      ctx.fillStyle = "rgb(10, 52, 70)";
+      ctx.fillRect(-m, 0, scene.w + 2 * m, scene.h);
+      ctx.restore();
+    }
   }
   const cw = Math.ceil(scene.w);
   const ch = Math.ceil(scene.h);
@@ -552,6 +569,74 @@ function paintIsland(island: Island, sheets: Sheets, K: number): Land {
   return { c, x0: b.x0, y0: b.y0, w: W / K, h: H / K, y1: b.y1 };
 }
 
+// ---- Coast decals ---------------------------------------------------------------------------
+
+/** Concept px per coast-sheet pixel; the sheet's anchor is the waterline, its lip 156 px above. */
+const COAST_SCALE = 0.25;
+const COAST_LIP = (240 - 84) * COAST_SCALE;
+
+/** The front lip under x: the lowest point of the island's top (concept px), or null off the island. */
+function frontLip(island: Island, x: number, y0: number, y1: number): number | null {
+  for (let y = y1; y > y0; y -= 1) if (fieldAt(island, x, y) < 0) return y;
+  return null;
+}
+
+/** The concept's coast stamped along an island's front: cliff faces with mossy lips, headlands at the
+ * ends, rocks and surf at the foot. Painted over the procedural cliff, under everything on the land. */
+function paintCoast(ctx: Ctx, island: Island, sheets: Sheets, onLand: (x: number, y: number) => boolean): void {
+  const suffix = island.rock === "volcanic" ? "-volcanic" : "";
+  const fronts = framesWithPrefix(sheets, "coast", "cliff-front-").filter((n) => n.endsWith("-volcanic") === !!suffix);
+  if (!fronts.length) return;
+  const pick = (prefix: string, r: () => number) => {
+    const list = framesWithPrefix(sheets, "coast", prefix).filter((n) => n.endsWith("-volcanic") === !!suffix);
+    return list.length ? list[Math.floor(r() * list.length)]! : null;
+  };
+  const b = islandBounds(island);
+  const r = rng(island.seed ^ 0xc0a5);
+  const scale = (island.cliff / 39) * COAST_SCALE;
+  const step = 78 * (scale / COAST_SCALE) * 0.92;
+  // Sample the lip along the island's width; stamp where the front runs roughly level.
+  const xs: number[] = [];
+  for (let x = b.x0 + 4; x < b.x1 - 4; x += 2) xs.push(x);
+  const lips = xs.map((x) => frontLip(island, x, b.y0, b.y1));
+  const lipAt = (x: number) => lips[Math.max(0, Math.min(xs.length - 1, Math.round((x - b.x0 - 4) / 2)))] ?? null;
+  const land = xs.filter((_, i) => lips[i] !== null);
+  if (!land.length) return;
+  const left = land[0]!;
+  const right = land[land.length - 1]!;
+  const lip = (island.cliff / 39) * COAST_LIP;
+  const surfs: Array<() => void> = [];
+  for (let x = left + step * 0.35; x < right - step * 0.2; x += step * (0.9 + r() * 0.15)) {
+    const y = lipAt(x);
+    const yl = lipAt(x - step * 0.4);
+    const yr = lipAt(x + step * 0.4);
+    if (y === null || yl === null || yr === null) continue;
+    // Only where the front is level enough for a face; steep bits keep the procedural cliff.
+    if (Math.abs(yl - yr) > lip * 0.9) continue;
+    const name = fronts[Math.floor(r() * fronts.length)]!;
+    const f = frameOf(sheets, "coast", name);
+    const ly = Math.max(y, yl, yr) - 1;
+    drawFrame(ctx, f, x, ly + lip, scale, r() < 0.5);
+    const foot = ly + lip;
+    // Rocks and surf only where the cliff's foot is in the sea (not on a ledge below).
+    if (onLand(x, foot + 4)) continue;
+    if (r() < 0.35) {
+      const o = pick("outcrop-", r);
+      if (o) surfs.push(() => drawFrame(ctx, frameOf(sheets, "coast", o), x + (r() - 0.5) * step * 0.6, foot + 4 + r() * 6, scale * (0.55 + r() * 0.3), r() < 0.5));
+    }
+    const surf = framesWithPrefix(sheets, "coast", `surf-${Math.floor(r() * 4)}-0`)[0];
+    if (surf) surfs.push(() => drawFrame(ctx, frameOf(sheets, "coast", surf), x, foot + 1, scale, r() < 0.5));
+  }
+  // Headlands at the ends.
+  for (const [side, x] of [["left", left + 8], ["right", right - 8]] as const) {
+    const y = lipAt(x);
+    const name = pick(`cliff-corner-${side}-`, r);
+    if (y === null || !name) continue;
+    drawFrame(ctx, frameOf(sheets, "coast", name), x, y + lip, scale);
+  }
+  for (const s of surfs) s();
+}
+
 // ---- Rivers, falls, paths, fields ----------------------------------------------------------
 
 function strokePath(ctx: Ctx, pts: Array<[number, number]>): void {
@@ -866,9 +951,64 @@ function insideOther(scene: Scene, index: number, x: number, y: number): boolean
 let scattered: SpriteItem[] | undefined;
 let scatteredFor: Scene | undefined;
 
-export function scatter(scene: Scene): SpriteItem[] {
+/** Canopy masses (many trees as one sprite, as the concept's forests) for a theme, if the sheet has them. */
+function massesFor(sheets: Sheets, theme: Theme, back: boolean): string[] {
+  const own =
+    theme === "farm"
+      ? [...framesWithPrefix(sheets, "foliage", "autumn-mass-"), ...framesWithPrefix(sheets, "foliage", "forest-mass-")]
+      : theme === "volcanic"
+        ? [...framesWithPrefix(sheets, "foliage", "volcanic-mass-"), ...framesWithPrefix(sheets, "foliage", "forest-mass-")]
+        : [...framesWithPrefix(sheets, "foliage", "forest-mass-"), ...framesWithPrefix(sheets, "foliage", "blossom-mass-")];
+  return back && theme !== "farm" ? [...framesWithPrefix(sheets, "foliage", "forest-fir-"), ...own] : own;
+}
+
+/** Concept px per foliage-sheet pixel (the sheet is drawn at 4×). */
+const MASS_SCALE = 0.25;
+
+export function scatter(scene: Scene, sheets: Sheets): SpriteItem[] {
   if (scatteredFor === scene && scattered) return scattered;
   const out: SpriteItem[] = [];
+  /** Ground the masses cover (ellipses), so single trees don't crowd them. */
+  const covered: Array<{ x: number; y: number; rx: number; ry: number }> = [];
+  const isCovered = (x: number, y: number) => covered.some((c) => ((x - c.x) / c.rx) ** 2 + ((y - c.y) / c.ry) ** 2 < 1);
+  for (const area of scene.scatter) {
+    const island = scene.islands[area.island];
+    if (!island || island.boxes.length === 0) continue;
+    const b = islandBounds(island);
+    const r = rng(island.seed ^ 0x3a55);
+    const step = 34;
+    for (let y = Math.max(b.y0, area.area.y0); y < Math.min(b.y1, area.area.y1); y += step * 0.6) {
+      for (let x = Math.max(b.x0, area.area.x0); x < Math.min(b.x1, area.area.x1); x += step) {
+        const px = x + (r() - 0.5) * step;
+        const py = y + (r() - 0.5) * step * 0.5;
+        const back = py < area.area.y0 + 150;
+        const list = massesFor(sheets, area.theme, back);
+        const roll = r();
+        if (!list.length || roll > 0.8) continue;
+        const name = list[Math.floor(r() * list.length)]!;
+        const f = frameOf(sheets, "foliage", name);
+        const s = MASS_SCALE * (0.85 + r() * 0.25);
+        const half = (f.w * s) / 2;
+        const deep = f.h * s * 0.28;
+        // Its whole ground on land, clear of buildings, paths and the coast's front.
+        const ok = [-half, 0, half].every((dx) => {
+          const gx = px + dx * 0.85;
+          return (
+            fieldAt(island, gx, py) < -6 &&
+            fieldAt(island, gx, py + 26) < -1 &&
+            fieldAt(island, gx, py - deep) < -2 &&
+            !reservedAt(scene, gx, py, 6) &&
+            !reservedAt(scene, gx, py - deep, 4) &&
+            !onStrip(scene, gx, py, 10) &&
+            !insideOther(scene, area.island, gx, py)
+          );
+        });
+        if (!ok || isCovered(px, py)) continue;
+        covered.push({ x: px, y: py - deep / 2, rx: half * 0.9, ry: deep * 0.9 + 6 });
+        out.push({ kind: "sprite", sheet: "foliage", frame: name, x: px, y: py, scale: s, flip: r() < 0.5, shadow: 0.45 });
+      }
+    }
+  }
   for (const area of scene.scatter) {
     const island = scene.islands[area.island];
     if (!island || island.boxes.length === 0) continue;
@@ -883,7 +1023,7 @@ export function scatter(scene: Scene): SpriteItem[] {
         const roll = r();
         const roll2 = r();
         if (d > -5) continue;
-        if (insideOther(scene, area.island, px, py)) continue;
+        if (insideOther(scene, area.island, px, py) || isCovered(px, py)) continue;
         const density = fbm(px / 70, py / 70, island.seed + 77, 2);
         const front = fieldAt(island, px, py + 28) > -2;
         const backZone = py < area.area.y0 + 150;

@@ -28,6 +28,9 @@ export const SHEETS = [
   "props",
   "status",
   "textures",
+  "coast",
+  "foliage",
+  "sea2",
 ] as const;
 
 function loadImage(src: string): Promise<HTMLImageElement> {
@@ -91,4 +94,11 @@ export function frameOf(sheets: Sheets, sheet: string, name: string): Frame {
 
 export function hasFrame(sheets: Sheets, sheet: string, name: string): boolean {
   return Boolean(sheets[sheet]?.frames.get(name));
+}
+
+/** A sheet's frame names starting with `prefix`, in name order (empty when the sheet is absent). */
+export function framesWithPrefix(sheets: Sheets, sheet: string, prefix: string): string[] {
+  const frames = sheets[sheet]?.frames;
+  if (!frames) return [];
+  return [...frames.keys()].filter((k) => k.startsWith(prefix)).sort();
 }

@@ -949,5 +949,226 @@
       "generatorOutput": "exec-86290146-6eca-4635-b7a5-bb745416209e.png",
       "selected": true
     }
-  ]
+  ],
+  "foliage": {
+    "group": "foliage",
+    "date": "2026-11-06",
+    "referencePolicy": "Private reference pixels never included in assets; reference images only for style/subject guidance.",
+    "calls": [
+      {
+        "id": "forest-01",
+        "prompt": "Use case: stylized-concept. Original HD painted fantasy strategy map foliage sprite art. Reference images are STYLE/SUBJECT REFERENCES ONLY, never reproduce reference text, buildings, water or terrain. Match the concept crop's chunky miniature painterly foliage: dark navy-green contour, softly shaded forms, top-left sunlit yellow-green foliage planes and deep teal shaded lower crowns. Smooth antialiased genuine transparent alpha, full color, NOT strict pixel art, NOT photographic, NOT shiny plastic, no pixel snapping. 3/4 top-down strategy-map camera. Dense overlapping canopy masses with attached dark shaded understory that visually sits on grass, no floating individual trees, no grass island or dirt platform, no rectangular base, no labels, no text, no borders, no ground plane outside the tiny irregular shaded foot. Keep all artwork within each cell with at least 45px clear transparent margin, no cut-off crowns. Produce ONE 3072x2048 transparent source sheet, exactly EIGHT independent forest-mass sprites in a strict 2-column by 4-row grid (each cell 1536x512), read left-to-right then top-to-bottom. Each is a wide low irregular forest patch, 6\u201315 small overlapping trees in two or three depth rows, all as one continuous silhouette, only short partially hidden trunks. NOT eight single trees. Dark tall firs along back, mixed bright round deciduous crowns along front, a few pink/white blossoming bushes embedded at edges. Cell 1 broad lush patch 13 trees with 4 rear firs. Cell 2 compact patch 8 trees, left taller. Cell 3 long grove 15 trees, dark tall back row. Cell 4 rounded patch 10 trees, blossom front right. Cell 5 asymmetric patch 7 trees, dark right edge. Cell 6 sweeping broad patch 12 trees, two small pink crowns. Cell 7 short low patch 6 trees mostly deciduous, one rear fir. Cell 8 full 15-tree grove, mixed heights, high dark center and low bright wings. Each canopy mass occupies about 1100\u20131350 pixels wide and 360\u2013410 pixels tall inside its source cell. The wide shallow silhouette matches the reference forest behind the host; preserve depth and layered crown hierarchy rather than make a wall of equally round blobs. Deliver only the sheet.",
+        "references": [
+          "rendering/artifacts/overworld/ref2-forest.png",
+          "design/references/overworld-concept.png"
+        ],
+        "raw": "forest-01.png",
+        "generatorFilename": "exec-fe7bb4d2-103b-421d-b1c6-ce44d71a5268.png",
+        "generatorOriginalPath": "/Users/example/.codex/generated_images/01a1b417-10a5-7583-bd2d-01f39b364e7b/exec-fe7bb4d2-103b-421d-b1c6-ce44d71a5268.png"
+      },
+      {
+        "id": "fir-autumn-01",
+        "prompt": "Use case: stylized-concept. Original HD painted fantasy strategy map foliage sprite art. Reference images are STYLE/SUBJECT REFERENCES ONLY, never reproduce reference text, buildings, water or terrain. Match the concept crop's chunky miniature painterly foliage: dark navy-green contour, softly shaded forms, top-left sunlit yellow-green foliage planes and deep teal shaded lower crowns. Smooth antialiased genuine transparent alpha, full color, NOT strict pixel art, NOT photographic, NOT shiny plastic, no pixel snapping. 3/4 top-down strategy-map camera. Dense overlapping canopy masses with attached dark shaded understory that visually sits on grass, no floating individual trees, no grass island or dirt platform, no rectangular base, no labels, no text, no borders, no ground plane outside the tiny irregular shaded foot. Keep all artwork within each cell with at least 45px clear transparent margin, no cut-off crowns. Produce ONE transparent foliage source sheet, landscape 1536x1024, exactly EIGHT independent wide tree-grove sprites in a strict 2-column by 4-row grid. Each cell 768x256 and one connected forest silhouette with transparent margins. TOP TWO ROWS: four different dense dark FIR GROVES, 8\u201315 overlapping conifers each, highest at back, shorter spreading fir tiers in front, navy/teal shadowed lower branches, restrained yellow green highlights ONLY on upper left foliage. Groves 1 and 2 are broad, grove 3 compact and sloping left, grove 4 tall central firs with low irregular wings. Conifers must be pointed tree forms with visible broad bough layers, not narrow spiky Christmas-tree icons. BOTTOM TWO ROWS: four different dense AUTUMN CANOPY MASSES of 7\u201312 overlapping trees, in the concept farm's amber, golden yellow, pumpkin orange and muted russet with deep green understory, a few dark green firs behind. Autumn grove 1 a long gold-orange row, grove 2 a rounded asymmetric warm grove, grove 3 more russet and dark green, grove 4 a golden central crown with orange wings. No red neon, no fruit, no flowers that look like stars. Each grove about 620\u2013700 pixels wide and 200px high, no ground tile. Keep entire groves within each cell. Deliver only the clean separable transparent source sheet.",
+        "references": [
+          "rendering/artifacts/overworld/ref2-forest.png",
+          "rendering/artifacts/overworld/ref2-foliage-farm.png"
+        ],
+        "raw": "fir-autumn-01.png",
+        "generatorFilename": "exec-496dd9f9-2cd0-4bfd-8ec0-37775ec9c657.png",
+        "generatorOriginalPath": "/Users/example/.codex/generated_images/01a1b417-10a5-7583-bd2d-01f39b364e7b/exec-496dd9f9-2cd0-4bfd-8ec0-37775ec9c657.png"
+      },
+      {
+        "id": "blossom-volcanic-01",
+        "prompt": "Use case: stylized-concept. Original HD painted fantasy strategy map foliage sprite art. Reference images are STYLE/SUBJECT REFERENCES ONLY, never reproduce reference text, buildings, water or terrain. Match the concept crop's chunky miniature painterly foliage: dark navy-green contour, softly shaded forms, top-left sunlit yellow-green foliage planes and deep teal shaded lower crowns. Smooth antialiased genuine transparent alpha, full color, NOT strict pixel art, NOT photographic, NOT shiny plastic, no pixel snapping. 3/4 top-down strategy-map camera. Dense overlapping canopy masses with attached dark shaded understory that visually sits on grass, no floating individual trees, no grass island or dirt platform, no rectangular base, no labels, no text, no borders, no ground plane outside the tiny irregular shaded foot. Keep all artwork within each cell with at least 45px clear transparent margin, no cut-off crowns. Produce ONE transparent source sheet, 1536x1024 landscape, exactly SIX independent wide grove sprites in a strict 2-column by 3-row grid. Cell size 768x341; all sprites completely contained with clear transparent gutters. Reading left-to-right: cells 1,2,3 are BLOSSOM MASSES: each is one dense patch of 6\u20139 overlapping small trees and shrubs, pink and white blossoming rounded crowns mixed with yellow-green deciduous crowns, one or two dark firs behind. Blossoms have clustered small irregular petals, they are not large daisies. Mass 1 pale pink and green, mass 2 warm rose pink and white with a higher left side, mass 3 broad white/pink grove with green edges. Cells 4,5,6 are VOLCANIC-FOOTHILL MASSES: each is 6\u201310 dark rich green deciduous crowns and small firs interwoven with charcoal, blue-grey and muted purple angular boulders at their feet. NO lava, NO crystals, NO mountain peak, NO smoke. Mass 4 bright round trees over low dark rocks, mass 5 tall dark firs plus green crowns and a broken purple-grey rock outcrop to right, mass 6 broad low mixed woodland with small charcoal rocks along the front. Each mass 620\u2013700 pixels wide and 240\u2013275 pixels high. Match the concept's dense small-scale crown shapes and painterly miniature detail. Deliver only the source sheet on real transparency.",
+        "references": [
+          "design/references/overworld-concept.png",
+          "rendering/artifacts/overworld/ref2-forest.png"
+        ],
+        "raw": "blossom-volcanic-01.png",
+        "generatorFilename": "exec-51ac1584-fbb0-48d3-ab17-1b6b87056c00.png",
+        "generatorOriginalPath": "/Users/example/.codex/generated_images/01a1b417-10a5-7583-bd2d-01f39b364e7b/exec-51ac1584-fbb0-48d3-ab17-1b6b87056c00.png"
+      },
+      {
+        "id": "bush-flower-01",
+        "prompt": "Use case: stylized-concept. Original HD painted fantasy strategy map foliage sprite art. Reference images are STYLE/SUBJECT REFERENCES ONLY, never reproduce reference text, buildings, water or terrain. Match the concept crop's chunky miniature painterly foliage: dark navy-green contour, softly shaded forms, top-left sunlit yellow-green foliage planes and deep teal shaded lower crowns. Smooth antialiased genuine transparent alpha, full color, NOT strict pixel art, NOT photographic, NOT shiny plastic, no pixel snapping. 3/4 top-down strategy-map camera. Dense overlapping canopy masses with attached dark shaded understory that visually sits on grass, no floating individual trees, no grass island or dirt platform, no rectangular base, no labels, no text, no borders, no ground plane outside the tiny irregular shaded foot. Keep all artwork within each cell with at least 45px clear transparent margin, no cut-off crowns. Produce ONE transparent source sheet 1536x1024 landscape, exactly EIGHT separate garden sprites in a strict 2-column by 4-row grid, each cell 768x256, generous transparent margin and NO background glow. TOP TWO ROWS are four LOW FLOWERING BUSH ROWS, 5\u20139 interlocking rounded shrubs as one irregular low continuous hedge, about 620 pixels wide and 150 pixels tall, dark green underside and sunlit yellow-green tops. Bush row 1: red and pink tiny flowers. Bush row 2: pink and white flowers. Bush row 3: mostly white flowers with a few red/pink accents. Bush row 4: mixed pink/red/white flowers, lower center and slightly taller ends. Make flowers small accents among the green leaves as along the reference concept's market booths and paths; NOT huge decorative daisies covering all the plants, no planters or stone/wood edging. BOTTOM TWO ROWS: four SMALL FLOWER BEDS, low dense irregular clumps of green leaves with a few readable small blooms, each centered, about 340 pixels wide and 130 high: bed 1 pink and white, bed 2 blue and white, bed 3 red and pink, bed 4 white and pale yellow. These four are much smaller than hedge rows and should read as small path-edge details, NOT trees. Match reference miniature painterly forms, dark outlined foliage, shaded underside, smooth alpha silhouette. Only the separable transparent source sheet.",
+        "references": [
+          "design/references/overworld-concept.png",
+          "rendering/artifacts/overworld/ref2-foliage-farm.png"
+        ],
+        "raw": "bush-flower-01.png",
+        "generatorFilename": "exec-f2589cda-c337-424e-93e5-f72fbb396781.png",
+        "generatorOriginalPath": "/Users/example/.codex/generated_images/01a1b417-10a5-7583-bd2d-01f39b364e7b/exec-f2589cda-c337-424e-93e5-f72fbb396781.png"
+      },
+      {
+        "id": "sea-calm-01",
+        "prompt": "Use case: stylized-concept. Asset type: one seamless 1024x1024 repeating OPEN SEA MATERIAL TILE for a 3/4 top-down painted fantasy strategy map, original art only. The supplied concept and coast crop are STYLE AND COLOR REFERENCES ONLY; generate only new water, never reproduce land, bridge, rocks, structures, text, border or UI. Match the reference's deep rich royal sapphire / Prussian blue open water (#03457d dark body, #075389 midtones), with small sparse short cyan crests in loose gently offset horizontal rows and darker blue troughs. Calmer, deeper and much less busy than a storm sea: about 55\u201380 small crests in the whole tile, separated by broad quiet blue areas; most crests only 12\u201335 pixels wide at this 4x art scale and 2\u20135px thick, no large waves, very few near-white tips. Dark blue subtle painted curved facets under the water, quieter than the crests. NO dense white foam mesh, NO photorealism, NO generic noisy ripple texture, NO glitter/sparkle field, NO obvious diagonal repeating zigzags. Gentle cyan accents in scattered submerged flow patches (as water nearer a coast) but no coastline or baked global gradient. Keep the entire tile balanced and uniform across all four edges so it repeats invisibly in both axes; waves and troughs that cross an edge continue at the opposite edge. Painted pixel-art-flavoured HD detail, full color, smooth antialiasing, NOT strict pixel art. Output a single square full-bleed OPAQUE WATER texture, no transparency within material, no margins, no labels. This is animation frame zero; a registered four-frame gentle drift loop will be assembled from this fixed wave layout.",
+        "references": [
+          "rendering/artifacts/overworld/ref2-coast-bottom.png",
+          "design/references/overworld-concept.png"
+        ],
+        "raw": "sea-calm-01.png",
+        "generatorFilename": "exec-066b6ed1-14e7-439a-a825-59f621f471c2.png",
+        "generatorOriginalPath": "/Users/example/.codex/generated_images/01a1b417-10a5-7583-bd2d-01f39b364e7b/exec-066b6ed1-14e7-439a-a825-59f621f471c2.png"
+      },
+      {
+        "id": "sea-calm-02-small-crests",
+        "prompt": "Use case: precise-object-edit. Edit target image 1 is the newly generated water material. Reference image 2 is a private concept coast crop used ONLY for water color and mark scale. Keep the edit target's deep sapphire blue body, small loose horizontal rows and full bleed square texture. CHANGE ONLY THE WAVE MARK SCALE AND TEXTURE BUSYNESS: shorten the cyan/white crests to roughly ONE THIRD their current width, using 70\u201385 small broken shallow crescent dashes across the whole 1024px square, most only 12\u201328px long and 2\u20134px thick, with just 8\u201312 tiny white tips. Allow ample empty deep-blue water between the small marks. Soften the broad angular water facets into subtle dark cobalt troughs; no sparkling noise. The reference's deep open water feels quiet between shore foams; this texture is only that calm open water, no shore foam and no coast objects. Bright cyan hints may sit under a few crests but remain subdued. Seamless tile in both axes: left matches right and top matches bottom, no overall lighting gradient, no borders. Match miniature painted fantasy game art with smooth antialiasing. A single opaque 1024x1024 tile, NOT a sheet, no labels, no text.",
+        "references": [
+          "rendering/artifacts/overworld/raw/foliage/sea-calm-01.png",
+          "rendering/artifacts/overworld/ref2-coast-bottom.png"
+        ],
+        "raw": "sea-calm-02-small-crests.png",
+        "edit": true,
+        "selected": false,
+        "generatorFilename": "exec-cbc4629b-1a95-4edb-9c2d-bcd61ff5c755.png",
+        "generatorOriginalPath": "/Users/example/.codex/generated_images/01a1b417-10a5-7583-bd2d-01f39b364e7b/exec-cbc4629b-1a95-4edb-9c2d-bcd61ff5c755.png"
+      },
+      {
+        "id": "sea-calm-03-royal-blue",
+        "prompt": "Use case: lighting-weather. Edit this generated seamless sea texture. Keep its exact registered layout, tiny sparse short crest positions, calm wave shapes and opaque square canvas. CHANGE ONLY THE BODY WATER COLORS: the current result is too close to black navy. Raise the body water to rich DEEP ROYAL BLUE / Prussian blue, averaging approximately RGB (3,65,118) or hex #034176. Mid-lit water should be #07558a, darker troughs #033363. This is a bright colorful painted fantasy map seen in daylight, not a night ocean. Keep the small cyan crest dashes, muted short cyan under-crest patches and a very few small white tips; do not enlarge crests or add extra crests or noise. Reference open sea is dark blue but clearly saturated blue, not nearly black. Add a few faint localized cyan-blue water planes (#066596), not a global gradient; cyan shores will be separate art. No shore foam, no land, no objects, no text. Keep tiling uniform and seamless in both axes, no global lighting gradient, same clean miniature painterly style. Single full-bleed opaque square 1024x1024 tile.",
+        "references": [
+          "rendering/artifacts/overworld/raw/foliage/sea-calm-02-small-crests.png"
+        ],
+        "raw": "sea-calm-03-royal-blue.png",
+        "edit": true,
+        "selected": true,
+        "tool": "built-in image_gen",
+        "generatorFilename": "exec-fe13d69b-3ac4-4ab0-9019-626a2fc8426c.png",
+        "generatorOriginalPath": "/Users/example/.codex/generated_images/01a1b417-10a5-7583-bd2d-01f39b364e7b/exec-fe13d69b-3ac4-4ab0-9019-626a2fc8426c.png"
+      }
+    ]
+  },
+  "coast": {
+    "group": "coast",
+    "tool": "built-in image_gen",
+    "date": "2026-11-06",
+    "privateReferences": "Private concept crops are style references only; never packed into assets.",
+    "generations": [
+      {
+        "prompt": "Use case: stylized-concept\nAsset type: transparent game coast decal sprite sheet, original art for Overworld.\nInput images: first and second images are private coast material/style references ONLY. Match their cliffs; never include their buildings, text or pixels. Third image is approved painted finish reference.\nPrimary request: generate EXACTLY EIGHT different front-facing continuous cliff-wall sections, arranged in a precise 2-column by 4-row regular grid. Each cell contains ONE wide horizontal coast wall, width:height about 1.65:1. Leave at least 50 pixels transparent padding around every section, absolutely no touching between cells. Each wall is a single continuous rocky mass, NOT a pile of loose boulders or a floating island. Perspective is the reference's three-quarter top-down view: only a SHALLOW thin top grassy lip, below it a tall front cliff face, no deep plateau. The grass strip is about 12 percent of height, rocky face 80 percent, dark wet foot 8 percent. Each face has 5\u20139 chunky mostly vertical irregular rock facets with some tapered projecting buttresses, small cracks and crevices. Varied slightly scalloped top and irregular bottom outline. Grey/lavender/slate shadowed rock, a few warm sunlit beige planes, deep blue-purple crevices. Lush lime mossy/grass overhang with tiny hanging tufts, with upper-left sunlit edge. Dark wet rock at the bottom. Outer left and right rock ends should naturally taper/soften to partial alpha so sections can overlap as an uninterrupted wall. Eight useful silhouette variations: broad flat scallop, shallow inlet, bowed front, deep vertical buttress, low uneven shelf, stepped face, narrow recess, rounded protrusion. All share consistent face height and lip height.\nStyle: HD painted pixel-art-flavoured miniature fantasy art matching the references, bold readable facets, dark crevice contours, smooth restrained brush shading, soft antialiased alpha, top-left light; keep the reference's loose hand-painted texture, not polished plastic. Render large enough to downsample cleanly to 200\u2013360 px wide and 150\u2013220 px tall PER SECTION at 4x concept scale.\nConstraints: genuinely transparent RGBA background, no sea or water anywhere, no foam (separate sheet), no ground plane, no cast shadow outside the cliff, no labels, no text, no grid lines, no checkerboard. Eight fully isolated sprites only.",
+        "raw": "raw/coast/front-01.png",
+        "originalGeneratorFilename": "exec-6deeb32c-da93-441b-8acf-6b37a25f4afd.png",
+        "selected": false,
+        "resultHint": "Generated images are saved to /Users/example/.codex/generated_images/01a1b416-f4df-7960-8a71-173354a66458 as /Users/example/.codex/generated_images/01a1b416-f4df-7960-8a71-173354a66458/exec-6deeb32c-da93-441b-8acf-6b37a25f4afd.png by default.\nIf you need to use a generated image at another path, copy it and leave the original in place unless the user explicitly asks you to delete it.\nThe generated image is already displayed to the user. There is no need to render it in the final response as a Markdown image or file link.",
+        "referencedImagePaths": [
+          "rendering/artifacts/overworld/ref2-coast-left.png",
+          "rendering/artifacts/overworld/ref2-coast-bottom.png",
+          "rendering/src/assets/overworld/theme-forest.png"
+        ],
+        "transparentBackground": true,
+        "selection": "Superseded by targeted transparency cleanup."
+      },
+      {
+        "prompt": "Use case: stylized-concept\nAsset type: transparent Overworld coast construction sprites.\nInput images: both supplied private concept coast crops are style/material references ONLY, never copy their pixels or buildings.\nPrimary request: EXACTLY TWELVE isolated coast sprites in a strict regular THREE COLUMNS by FOUR ROWS grid, one sprite centered in each cell, wide transparent separation, no labels. Row 1: three LEFT END coast headland corners, a grass-capped cliff wall rounds away toward the upper-left, open continuation face at right for overlapping a horizontal wall. Row 2: three RIGHT END coast headland corners, wall rounds away toward the upper-right, open continuation face at left. Each rounded headland has a shallow grassy top with yellow-green moss overhang, tall grey/lavender vertical faceted rock face below, irregular dark wet bottom, no thin horizontal strata. Make the three variants differently rounded with 4\u20137 broad vertical planes. The corners are about 1.2 times wider than tall. Row 3: three separate rocky OUTCROPS with no grass, one large asymmetrical blue-grey slab heap, one medium twin spire heap, one single angular boulder. Row 4: three further OUTCROPS: broad low boulder heap, tall tapered angular rock, small three-rock heap. Rock heaps stand at sea level, flat dark wet base, 3/4 top-down view. Reference style large chunky readable angular planes and bold dark crevices, grey/lavender/blue-purple shadow planes with a few warm sunlit beige faces, upper-left white-grey highlight. Bottom edges irregular, not rectangular. No moss on outcrops.\nStyle: match the concept's miniature hand-painted HD pixel-art-flavoured style, soft brush shading, dark contour accents, smooth antialiased edges, rich material color variation, no fixed pixel grid, upper-left lighting. Same palette and camera for every sprite.\nConstraints: transparent RGBA background. NO SEA/WATER, NO FOAM, no blue puddle, no floating island, no ground shadow, no buildings or plants other than the grass/moss on headlands. No text, no grid lines, no checkerboard. All twelve fully separate and uncropped with 40px or more clear margins.",
+        "raw": "raw/coast/corners-outcrops-01.png",
+        "originalGeneratorFilename": "exec-fcda214a-5a8f-455c-b1fa-9ee389e1f079.png",
+        "selected": false,
+        "resultHint": "Generated images are saved to /Users/example/.codex/generated_images/01a1b416-f4df-7960-8a71-173354a66458 as /Users/example/.codex/generated_images/01a1b416-f4df-7960-8a71-173354a66458/exec-fcda214a-5a8f-455c-b1fa-9ee389e1f079.png by default.\nIf you need to use a generated image at another path, copy it and leave the original in place unless the user explicitly asks you to delete it.\nThe generated image is already displayed to the user. There is no need to render it in the final response as a Markdown image or file link.",
+        "referencedImagePaths": [
+          "rendering/artifacts/overworld/ref2-coast-left.png",
+          "rendering/artifacts/overworld/ref2-coast-bottom.png"
+        ],
+        "transparentBackground": true,
+        "selection": "Superseded by targeted transparency cleanup."
+      },
+      {
+        "prompt": "Use case: background-extraction\nEdit target: supplied eight-cliff-wall sprite sheet.\nChange ONLY transparency/background: remove all the white/grey fog and white backdrop around and between the eight cliff pieces. Make every empty area exactly zero alpha. Make rock and grass interiors fully opaque alpha=255. Preserve soft antialiased object contours and the desired feathered left/right joining ends. No diffuse halo above grass or below rock. Preserve all eight shapes, painted rocky facet details, grass colors, layout and positions. This is an asset transparency cleanup, not a redesign. Do not add any water, shadow, scenery, text or checkerboard. Return true transparent RGBA.",
+        "raw": "raw/coast/front-02-clean.png",
+        "originalGeneratorFilename": "exec-f5492884-f90c-4ebe-aeb6-9065b20e4b35.png",
+        "selected": true,
+        "resultHint": "Generated images are saved to /Users/example/.codex/generated_images/01a1b416-f4df-7960-8a71-173354a66458 as /Users/example/.codex/generated_images/01a1b416-f4df-7960-8a71-173354a66458/exec-f5492884-f90c-4ebe-aeb6-9065b20e4b35.png by default.\nIf you need to use a generated image at another path, copy it and leave the original in place unless the user explicitly asks you to delete it.\nThe generated image is already displayed to the user. There is no need to render it in the final response as a Markdown image or file link.",
+        "referencedImagePaths": [
+          "rendering/artifacts/overworld/raw/coast/front-01.png"
+        ],
+        "transparentBackground": true,
+        "selection": "Selected into final sheet."
+      },
+      {
+        "prompt": "Use case: background-extraction\nEdit target: supplied twelve-sprite sheet of six grassy cliff corners and six rock heaps.\nChange ONLY transparency/background: remove all colored grey/green/blue fog around and between the twelve objects. Every empty area must be exactly zero alpha. Make rock and grass interiors fully opaque alpha=255. Preserve smooth antialiased contours, painted details and colors and all twelve shapes/positions/layouts. No diffuse halo above grass or below rocks. No water, shadow, glow, scenery, text or checkerboard. True transparent RGBA game assets.",
+        "raw": "raw/coast/corners-outcrops-02-clean.png",
+        "originalGeneratorFilename": "exec-8b9310ed-4f50-44cb-a678-8509e4075e49.png",
+        "selected": true,
+        "resultHint": "Generated images are saved to /Users/example/.codex/generated_images/01a1b416-f4df-7960-8a71-173354a66458 as /Users/example/.codex/generated_images/01a1b416-f4df-7960-8a71-173354a66458/exec-8b9310ed-4f50-44cb-a678-8509e4075e49.png by default.\nIf you need to use a generated image at another path, copy it and leave the original in place unless the user explicitly asks you to delete it.\nThe generated image is already displayed to the user. There is no need to render it in the final response as a Markdown image or file link.",
+        "referencedImagePaths": [
+          "rendering/artifacts/overworld/raw/coast/corners-outcrops-01.png"
+        ],
+        "transparentBackground": true,
+        "selection": "Only six outcrops from lower two rows; upper corners superseded by shallow headlands."
+      },
+      {
+        "prompt": "Use case: style-transfer\nEdit target: supplied transparent eight-cliff sprite sheet. Make the VOLCANIC coast material variant only. Preserve EXACTLY the eight sprite silhouettes, cell positions, rock facet structure, top grassy-lip geometry, irregular foot, camera and top-left lighting. Change rock planes to the concept's muted purple-grey volcanic basalt: smoky lavender-grey upper-left lit planes, deep indigo-violet fissures, charcoal-blue wet base. Reduce warm beige rock highlights substantially. Keep grass green with a slightly cooler moss hue, no lava and no red glow. Preserve full transparency around and between sprites; empty pixels alpha=0 and rock/grass solid interiors alpha=255. No backdrop, haze, water, foam, labels or new objects. Return original layout as true transparent RGBA.",
+        "raw": "raw/coast/front-volcanic-01.png",
+        "originalGeneratorFilename": "exec-4cd0f8c0-5152-4f84-9f21-da77a2bd49df.png",
+        "selected": true,
+        "resultHint": "Generated images are saved to /Users/example/.codex/generated_images/01a1b416-f4df-7960-8a71-173354a66458 as /Users/example/.codex/generated_images/01a1b416-f4df-7960-8a71-173354a66458/exec-4cd0f8c0-5152-4f84-9f21-da77a2bd49df.png by default.\nIf you need to use a generated image at another path, copy it and leave the original in place unless the user explicitly asks you to delete it.\nThe generated image is already displayed to the user. There is no need to render it in the final response as a Markdown image or file link.",
+        "referencedImagePaths": [
+          "rendering/artifacts/overworld/raw/coast/front-02-clean.png"
+        ],
+        "transparentBackground": true,
+        "selection": "Selected into final sheet."
+      },
+      {
+        "prompt": "Use case: style-transfer\nEdit target: supplied transparent twelve-sprite coast sheet (six grassy corners above six rock outcrops). Make a VOLCANIC material variant only, preserve all twelve exact silhouettes, positions, scale, camera, contours, faceted rock geometry and upper-left light. Rock becomes muted purple-grey basalt, smoky lavender-grey lit planes, deep indigo-violet fissures, charcoal-blue wet foot. Much less warm beige highlights, no lava, no red glow. Keep corners' grassy overhanging lips green with cooler moss hue. Preserve true alpha=0 empty background and fully opaque solid interiors. There must be no fog, halo, backdrop, sea, foam, ground shadow, text, grid or checkerboard. True transparent RGBA assets.",
+        "raw": "raw/coast/corners-outcrops-volcanic-01.png",
+        "originalGeneratorFilename": "exec-f1986f4f-9e8e-46a8-abb0-ba259c7607c7.png",
+        "selected": true,
+        "resultHint": "Generated images are saved to /Users/example/.codex/generated_images/01a1b416-f4df-7960-8a71-173354a66458 as /Users/example/.codex/generated_images/01a1b416-f4df-7960-8a71-173354a66458/exec-f1986f4f-9e8e-46a8-abb0-ba259c7607c7.png by default.\nIf you need to use a generated image at another path, copy it and leave the original in place unless the user explicitly asks you to delete it.\nThe generated image is already displayed to the user. There is no need to render it in the final response as a Markdown image or file link.",
+        "referencedImagePaths": [
+          "rendering/artifacts/overworld/raw/coast/corners-outcrops-02-clean.png"
+        ],
+        "transparentBackground": true,
+        "selection": "Only six outcrops from lower two rows; upper corners superseded by shallow headlands."
+      },
+      {
+        "prompt": "Use case: stylized-concept\nAsset type: transparent animated foam decal sprite sheet for a 3/4 top-down fantasy island coast.\nInput image roles: two private coast crops are foam/brushwork references ONLY. Copy no reference pixels, no coast buildings or rocks.\nPrimary request: EXACTLY TWENTY-FOUR isolated white/cyan FOAM ONLY sprites in a precise regular grid FOUR COLUMNS by SIX ROWS, no grid marks. Every row is one four-frame looping animation, left to right phases 0,1,2,3. Fixed common center and scale within each row, no camera movement. Foam changes locally in broken crests, growing/collapsing bubbles and small wave advances. Wide transparent gutters around every cell, no overlapping cells. Row1: wide gently undulating breaking surf ribbon hugging horizontal cliff foot, about 300px wide to 55px tall at final scale. Row2: more scalloped convex cliff-foot surf ribbon. Row3: concave inlet surf ribbon curving upward at both ends. Row4: diagonal headland/rounded-corner surf crescent. Row5: broad flattened elliptical foam ring around a LARGE single rock, center EMPTY transparent, width about 180px. Row6: small flattened elliptical foam ring around a small rock, center EMPTY transparent, width about 110px. Rings must be hollow, no rock inside. All foam designed to overlay blue sea. Broken white outline crests with fine icy cyan undersides, small disconnected foam curls and bold chalk-white breakers; crisp and legible at miniature map scale, airy and irregular, no massive cotton-cloud mounds. Same stroke weight across sheet. Small four-phase cycle, endpoints nearly return to initial foam rhythm. Cliff-foot rows oriented generally horizontal with irregular line to attach to rock foot, no deep ocean perspective.\nStyle: HD hand-painted pixel-art-flavoured miniatures matching reference's loose smooth brush marks, soft antialiasing, no fixed pixel grid. Upper-left light.\nConstraints: genuine transparent RGBA. Only white and light cyan foam strokes with soft partial-alpha blue-white splash details. NO ocean/background color filling gaps, no blue rectangular water patches, no rocks, cliffs, grass, text, numbers, labels, checkerboard or gridlines. Every gap between strokes and every sprite cell margin is fully transparent. 24 frames, 4 columns 6 rows.",
+        "raw": "raw/coast/surf-01.png",
+        "originalGeneratorFilename": "exec-a67f4cf5-e4d6-4260-a20f-2c230c21837e.png",
+        "selected": false,
+        "resultHint": "Generated images are saved to /Users/example/.codex/generated_images/01a1b416-f4df-7960-8a71-173354a66458 as /Users/example/.codex/generated_images/01a1b416-f4df-7960-8a71-173354a66458/exec-a67f4cf5-e4d6-4260-a20f-2c230c21837e.png by default.\nIf you need to use a generated image at another path, copy it and leave the original in place unless the user explicitly asks you to delete it.\nThe generated image is already displayed to the user. There is no need to render it in the final response as a Markdown image or file link.",
+        "referencedImagePaths": [
+          "rendering/artifacts/overworld/ref2-coast-left.png",
+          "rendering/artifacts/overworld/ref2-coast-bottom.png"
+        ],
+        "transparentBackground": true,
+        "selection": "Superseded by targeted transparency cleanup."
+      },
+      {
+        "prompt": "Use case: background-extraction\nEdit target: supplied 4-column by 6-row sheet of 24 animated foam sprites.\nChange ONLY the diffuse haze/transparency. Remove the cloudy pale-blue background and all diffuse white glow around the foam; make all empty areas EXACTLY alpha=0, including centers of rings and spaces between foam strokes. Keep the existing 24 foam shapes, painted stroke details, same positions/scale/order and layout. Foam should have crisp chalk-white narrow crests with small cyan undersides and smoothly antialiased alpha edges, not blurry luminous electricity. Make the solid white foam strokes opaque; keep only soft antialiasing at their boundaries. Do not delete tiny original splash strokes. NO black or blue background, no checkerboard. Return true transparent RGBA, ONLY white/cyan paint strokes on clear alpha.",
+        "raw": "raw/coast/surf-02-clean.png",
+        "originalGeneratorFilename": "exec-fbe632c6-5e0e-4e63-9d48-4383679e6d9d.png",
+        "selected": true,
+        "resultHint": "Generated images are saved to /Users/example/.codex/generated_images/01a1b416-f4df-7960-8a71-173354a66458 as /Users/example/.codex/generated_images/01a1b416-f4df-7960-8a71-173354a66458/exec-fbe632c6-5e0e-4e63-9d48-4383679e6d9d.png by default.\nIf you need to use a generated image at another path, copy it and leave the original in place unless the user explicitly asks you to delete it.\nThe generated image is already displayed to the user. There is no need to render it in the final response as a Markdown image or file link.",
+        "referencedImagePaths": [
+          "rendering/artifacts/overworld/raw/coast/surf-01.png"
+        ],
+        "transparentBackground": true,
+        "selection": "Selected into final sheet."
+      },
+      {
+        "prompt": "Use case: stylized-concept\nAsset type: SIX transparent cliff-headland corner decal game sprites, HD painted fantasy.\nInput roles: first image is original concept coast reference ONLY; second image is our generated continuous cliff fronts to match their face height/material.\nPrimary request: exactly SIX isolated corner pieces, strict regular TWO COLUMNS by THREE ROWS. Each left-column sprite is a left headland: wide front wall rounds around LEFT end, open straight continuation at RIGHT. Each right-column sprite is a right headland: wide front wall rounds around RIGHT end, open straight continuation at LEFT. Three different rounded profiles per side. Each one width:height around 1.6:1. CRITICAL: the grassy lip must be just a THIN SHALLOW STRIP AT THE VERY TOP across the WHOLE sprite. Do not draw a deep top grass surface or a grass strip half way down the wall. Rocky front wall occupies at least 80% of full sprite height, INCLUDING the straight open joining side, so these attach to the tall cliff-front pieces without a height step. Returning side slopes back only slightly, no more than 20% height. Grass at top remains an irregular overhanging lime-green edge with a few moss drips; wall below has 4\u20136 very chunky vertical grey/lavender slate facets, dark purple/blue fissures, warm upper-left lit planes, dark wet bottom. Rounded headland base follows the turn and has an irregular edge. Single continuous solid cliff wall, not loose boulders. Left/right joining edge can have a little soft alpha taper.\nStyle: match reference coast's painted miniature faceted grey/lavender cliffs and bright yellow-green moss, 3/4 top-down, dark crevices, smooth brush shading, no narrow fence-like vertical columns. Small hand-painted irregularities.\nConstraints: SIX sprites only, completely separate cells, 50px transparent margins. TRUE transparent alpha=0 background, rock and grass solid opaque interiors, antialiased contour. No fog, no backdrop, water, foam, rocks outside wall, plateau slab, cast shadow, buildings, text or gridlines.",
+        "raw": "raw/coast/corners-03-shallow.png",
+        "originalGeneratorFilename": "exec-6d71777e-30f5-4c4b-8aa4-d14d71523f59.png",
+        "selected": true,
+        "resultHint": "Generated images are saved to /Users/example/.codex/generated_images/01a1b416-f4df-7960-8a71-173354a66458 as /Users/example/.codex/generated_images/01a1b416-f4df-7960-8a71-173354a66458/exec-6d71777e-30f5-4c4b-8aa4-d14d71523f59.png by default.\nIf you need to use a generated image at another path, copy it and leave the original in place unless the user explicitly asks you to delete it.\nThe generated image is already displayed to the user. There is no need to render it in the final response as a Markdown image or file link.",
+        "referencedImagePaths": [
+          "rendering/artifacts/overworld/ref2-coast-bottom.png",
+          "rendering/artifacts/overworld/raw/coast/front-02-clean.png"
+        ],
+        "transparentBackground": true,
+        "selection": "Selected into final sheet."
+      },
+      {
+        "prompt": "Use case: style-transfer\nEdit target: supplied six shallow grassy cliff headland sprites, arranged 2 columns 3 rows.\nMake only a VOLCANIC material variant. Preserve the six exact silhouettes, positions, camera, irregular grass lips, shallow top surface, broad vertical rock facets, and upper-left lighting. Change warm grey rock to muted purple-grey basalt: smoky lavender-grey sunlit planes, indigo-violet fissures, charcoal-blue wet foot. Reduce beige highlights; keep cooler green moss lip. No lava, no red glow. Clean background alpha: outside all six objects exactly alpha=0, rock interiors fully opaque, smooth contour antialiasing, no diffuse haze, backdrop or cast shadow. No water, foam, text or additional objects. Transparent RGBA.",
+        "raw": "raw/coast/corners-04-shallow-volcanic.png",
+        "originalGeneratorFilename": "exec-746bf20c-64b6-4399-94b1-d9406c6ca031.png",
+        "selected": true,
+        "resultHint": "Generated images are saved to /Users/example/.codex/generated_images/01a1b416-f4df-7960-8a71-173354a66458 as /Users/example/.codex/generated_images/01a1b416-f4df-7960-8a71-173354a66458/exec-746bf20c-64b6-4399-94b1-d9406c6ca031.png by default.\nIf you need to use a generated image at another path, copy it and leave the original in place unless the user explicitly asks you to delete it.\nThe generated image is already displayed to the user. There is no need to render it in the final response as a Markdown image or file link.",
+        "referencedImagePaths": [
+          "rendering/artifacts/overworld/raw/coast/corners-03-shallow.png"
+        ],
+        "transparentBackground": true,
+        "selection": "Selected into final sheet."
+      }
+    ]
+  }
 }

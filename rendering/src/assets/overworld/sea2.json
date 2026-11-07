@@ -1,0 +1,143 @@
+{
+  "image": "sea2.png",
+  "width": 2176,
+  "height": 2176,
+  "conceptScale": 4,
+  "sampling": "linear",
+  "gutter": 32,
+  "anchorUnits": "frame-local pixels; y down",
+  "frames": {
+    "sea-calm-0": {
+      "x": 32,
+      "y": 32,
+      "w": 1024,
+      "h": 1024,
+      "anchor": {
+        "x": 0,
+        "y": 0
+      },
+      "footprint": {
+        "width": 1024,
+        "height": 1024,
+        "units": "pixels at 4x concept scale"
+      },
+      "conceptFootprint": {
+        "width": 256,
+        "height": 256
+      },
+      "tile": true,
+      "tileAxes": "xy",
+      "animation": "sea-calm",
+      "order": 0,
+      "durationMs": 240,
+      "driftPx": {
+        "x": 0,
+        "y": 0
+      },
+      "source": "raw/foliage/sea-calm-03-royal-blue.png"
+    },
+    "sea-calm-1": {
+      "x": 1088,
+      "y": 32,
+      "w": 1024,
+      "h": 1024,
+      "anchor": {
+        "x": 0,
+        "y": 0
+      },
+      "footprint": {
+        "width": 1024,
+        "height": 1024,
+        "units": "pixels at 4x concept scale"
+      },
+      "conceptFootprint": {
+        "width": 256,
+        "height": 256
+      },
+      "tile": true,
+      "tileAxes": "xy",
+      "animation": "sea-calm",
+      "order": 1,
+      "durationMs": 240,
+      "driftPx": {
+        "x": 1,
+        "y": 0
+      },
+      "source": "raw/foliage/sea-calm-03-royal-blue.png"
+    },
+    "sea-calm-2": {
+      "x": 32,
+      "y": 1088,
+      "w": 1024,
+      "h": 1024,
+      "anchor": {
+        "x": 0,
+        "y": 0
+      },
+      "footprint": {
+        "width": 1024,
+        "height": 1024,
+        "units": "pixels at 4x concept scale"
+      },
+      "conceptFootprint": {
+        "width": 256,
+        "height": 256
+      },
+      "tile": true,
+      "tileAxes": "xy",
+      "animation": "sea-calm",
+      "order": 2,
+      "durationMs": 240,
+      "driftPx": {
+        "x": 2,
+        "y": 1
+      },
+      "source": "raw/foliage/sea-calm-03-royal-blue.png"
+    },
+    "sea-calm-3": {
+      "x": 1088,
+      "y": 1088,
+      "w": 1024,
+      "h": 1024,
+      "anchor": {
+        "x": 0,
+        "y": 0
+      },
+      "footprint": {
+        "width": 1024,
+        "height": 1024,
+        "units": "pixels at 4x concept scale"
+      },
+      "conceptFootprint": {
+        "width": 256,
+        "height": 256
+      },
+      "tile": true,
+      "tileAxes": "xy",
+      "animation": "sea-calm",
+      "order": 3,
+      "durationMs": 240,
+      "driftPx": {
+        "x": 1,
+        "y": 1
+      },
+      "source": "raw/foliage/sea-calm-03-royal-blue.png"
+    }
+  },
+  "animations": {
+    "sea-calm": {
+      "frames": [
+        "sea-calm-0",
+        "sea-calm-1",
+        "sea-calm-2",
+        "sea-calm-3"
+      ],
+      "durationMs": 240,
+      "loop": true,
+      "registration": "fixed origin, 1024x1024 canvas and wave layout; 0\u20132px cyclic drift"
+    }
+  },
+  "provenance": "../../../artifacts/overworld/prompts-foliage.json",
+  "processing": "Lanczos to 1024px; 32px opposing-edge smoothstep blend; integer wrap drift; 8px edge pass. Opaque material, transparent gutters.",
+  "assembly": "Deep open sea material. Cyan shallow-water/shore transitions are separate coast art, not a baked global gradient in a repeated tile."
+}

@@ -703,7 +703,9 @@ A second map style (Settings → Map, ⌘K "Use the Overworld map" / "Use the Is
 terraced island region with its castle (plaque with name and CPU · MEM · DISK, two banners) on top, project halls (roof colour and icon
 badge seeded from the project) left and right of it, two a row, and each project's workspaces as market booths beneath it (rows of up to
 three; a camp for agents without a workspace), joined by glowing gold links. Scenery is a theme seeded per host: forest and snowy peaks,
-farmland, or volcanic. Robots keep provider colours (Claude orange, ChatGPT/Codex pearl, others the neutral robot tinted). Its sprites are
+farmland, or volcanic; forests are canopy masses (`foliage.png`), islands' fronts carry cliff faces, headlands, rocks and surf
+(`coast.png`, `paintCoast`), and the sea is `sea2.png`'s calm tile. Robots keep provider colours (Claude orange, ChatGPT/Codex pearl, others the neutral robot tinted) and step through their
+pose's frames (idle or working; Swift cycles a streamer's `frames`, the first only with reduced motion). Its sprites are
 HD painted sheets in `rendering/src/assets/overworld/` (frame maps beside them; provenance in `rendering/ASSETS.md`). `rendering/src/overworld/`:
 `fleet.ts` maps the fleet, `layout.ts` lays a host out in concept pixels (deterministic; `rendering/tests/overworld.test.mjs`), `paint.ts`
 paints it (sea, islands with perspective cliffs and surf, rivers, scenery, buildings, links, labels), `native.ts` (`OverworldMap`) paints

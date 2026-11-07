@@ -718,3 +718,211 @@ are included in that count. These are original repeatable materials, and their
 distribution remains more regular than the concept's locally composed water and
 meadow around rocks, buildings and foliage. The native-scale review exposes that
 remaining difference rather than implying a pixel-identical reconstruction.
+
+
+# Overworld round 2 — foliage and calm sea
+
+Generated with the built-in **image_gen** tool on **2026-11-06**. Seven exact
+generation/edit prompts, reference roles, selection flags and original generator
+filenames are recorded in `prompts-foliage.json` beside this note. The original
+concept and the three `ref2-forest`, `ref2-foliage-farm` and `ref2-coast-bottom`
+crops were inspected and supplied as private style/subject references. Reference
+pixels appear only in the ignored review, never in either distributed sheet.
+
+## Deliverables
+
+| Sheet | Canvas | Frames |
+| --- | --- | --- |
+| `rendering/src/assets/overworld/foliage.png` | 3072 × 1952 RGBA | 30 |
+| `rendering/src/assets/overworld/sea2.png` | 2176 × 2176 RGBA | 4 |
+
+Each has a matching JSON frame map with exact rectangles, frame-local pixel
+anchors, footprints at 4× concept scale, concept-display footprints and provenance.
+Foliage uses a bottom-centre ground anchor and supports overlapping scenery.
+The atlas has 32px outer padding and at least 64px between frame rectangles.
+
+Foliage inventory (all indices begin at zero):
+
+- `forest-mass-0…7`: eight layered mixed fir/deciduous forest patches, **420–700px**
+  wide, with continuous dark understory and occasional embedded blossom bushes.
+- `forest-fir-0…3`: four dark fir groves, **500–650px** wide, for back edges.
+- `autumn-mass-0…3`: four gold/orange/russet mixed groves, **560–650px** wide.
+- `blossom-mass-0…2`: three green/pink/white mixed groves, **540–580px** wide.
+- `bush-row-0…3`: four low flowering borders, **340–380px** wide.
+- `flower-bed-0…3`: four small pink, blue, red and white/yellow clumps,
+  **140–145px** wide.
+- `volcanic-mass-0…2`: three green woodland/charcoal-purple boulder mixtures,
+  **600–650px** wide, with no baked lava or mountain peak.
+
+`sea-calm-0…3` are **1024 × 1024** opaque water materials within transparent
+32px atlas gutters. They repeat on both axes (`tile: true`, `tileAxes: "xy"`).
+The explicit animation order is 0, 1, 2, 3, looping at **240ms per frame**.
+All four share their origin, canvas, footprint and generated wave layout; tiny
+wraparound displacements `(0,0)`, `(1,0)`, `(2,1)`, `(1,1)` source pixels provide
+a restrained ambient loop. These are registered derivatives of one selected
+generated tile, rather than independently generated waves that would flicker.
+
+## Raw provenance
+
+Untouched tool PNGs are preserved byte-for-byte in `raw/foliage/`:
+
+| Raw output | Use |
+| --- | --- |
+| `forest-01.png` | Selected: eight mixed forest masses |
+| `fir-autumn-01.png` | Selected: four fir and four autumn groves |
+| `blossom-volcanic-01.png` | Selected: three blossom and three rocky woodland masses |
+| `bush-flower-01.png` | Selected: four flowering borders and four small beds |
+| `sea-calm-01.png` | Superseded: wave marks too long |
+| `sea-calm-02-small-crests.png` | Superseded: short crests accepted, body too dark |
+| `sea-calm-03-royal-blue.png` | Selected: deep royal-blue body and sparse short crests |
+
+Foliage source sheets are 1536 × 1024 with genuine smooth alpha. Sea source
+outputs are 1254 × 1254 opaque RGB. The tools' original filenames and paths are
+in the prompt record. `raw/foliage/validation.json` records SHA-256 hashes and
+byte comparisons with those original tool outputs.
+
+## Processing and verification
+
+`raw/foliage/pack.py` preserves the processing recipe. Foliage processing is
+limited to separating source cells, locating subject bounds, cropping and
+**Lanczos downsampling**; no frame is enlarged. An alpha threshold finds crop
+bounds only; saved alpha is never thresholded or binarized. Leaf colors, shading,
+flower shapes and silhouettes come from image_gen. No palette quantization,
+nearest-neighbour filtering, traced reference parts or procedural replacement
+art is used.
+
+The selected sea is Lanczos-downsampled to 1024px and receives a narrow **32px
+smoothstep opposing-edge blend**. The registered drift frames receive an **8px**
+boundary pass. Final declared repeat edges match **exactly in all RGBA channels**
+for every sea frame on both axes. All four frames have distinct hashes. Every
+foliage frame retains more than 100 different alpha levels, and all rectangles
+and anchors pass bounds checks. All seven raw outputs match their original
+generator files byte-for-byte.
+
+`rendering/artifacts/overworld/foliage-review.png` (**1800 × 5757**) shows every
+frame on mid-grey and concept sea blue. Foliage contact images are shown at half
+source scale; separate reference comparison panels use **identical concept
+display scale**: the supplied 3× crops are divided by three and 4× source art by
+four. Each sea frame is also repeated literally **3 × 3** without margins or
+inter-tile crossfades, then displayed at quarter source scale. The final review
+and its comparison and repeat sections were visually inspected. The review
+contains private concept crops and must stay ignored.
+
+## Remaining visual differences and assembly
+
+The new foliage has connected overlapping canopy masses and dark lower rows,
+rather than the previous isolated tree sprites. Crown/leaf and flower shapes
+remain more regular and neatly outlined than the concept's locally composed,
+loosely painted miniature foliage. Their silhouettes are generally shallow,
+wide patches; stagger and overlap back firs with front masses to build taller
+forests without placing individual trees. Some grove variants have fewer
+separately countable crowns because the layers merge into a single canopy.
+
+The water is intentionally calm, deep blue and sparse in short cyan crest marks;
+it does not reproduce the concept's energetic surf beside rocks and waterfalls.
+Localized lighter cyan coastal water must come from separately placed shore
+water/surf art. A repeated open-sea tile cannot know where a coastline is, so it
+does not bake in a global cyan-to-blue coastal gradient. The four frames provide
+subtle drift rather than a full hydrodynamic wave simulation.
+
+No application code or existing sheet was changed for this group. No builds,
+commits, pushes, uploads, app launches or Phaser tools were involved.
+
+
+# Overworld coast decals — coast.png
+
+Generated with the built-in **image_gen** tool on **2026-11-06**. Ten exact generation/edit
+prompts and original generator filenames are preserved in `prompts-coast.json`. Untouched
+raw PNG outputs live in ignored `raw/coast/`. The private concept's `ref2-coast-left.png`
+and `ref2-coast-bottom.png` were visual/material references only. The approved
+`theme-forest.png` supplied an additional painted-finish reference for the initial fronts.
+No reference pixels are packed into the distributed atlas; concept crops appear only in
+the ignored review. No app code, commit, push, upload or Phaser tooling was used.
+
+## Deliverables
+
+`rendering/src/assets/overworld/coast.png` is **3072 × 2560 RGBA**, eight columns by
+eight rows of **384 × 320** cells. `coast.json` records every rectangle, frame-local
+anchor, 4× footprint, concept footprint, original source crop, overlap contract and
+ordered animation. All 64 frames use the waterline anchor **[192, 240]**.
+
+- `cliff-front-0…7`: eight continuous rocky walls, **360 × 180** art pixels, shallow
+  yellow-green mossy overhanging lip, broad vertical grey/lavender facets, dark wet foot.
+  Each has irregular top and bottom edges and a **24 px continuous alpha fade** at
+  both ends. Start with **48 px overlap / 312 px placement step**.
+- `cliff-corner-left-0…2`, `cliff-corner-right-0…2`: three rounded headlands per side,
+  **280 × 180** art pixels. The open continuation side has the same 24 px joining fade;
+  the rounded outside contour retains its generated alpha. A second generation uses
+  a shallow grassy top, so the front face joins without the original deep grass return.
+- `outcrop-0…5`: six original rock heaps/single boulders, respectively **220 × 140**,
+  **160 × 150**, **120 × 90**, **190 × 100**, **130 × 160**, **110 × 90** art pixels.
+- Every preceding rock frame has a **`-volcanic`** counterpart, for **40 rock frames**
+  total. Volcanic material uses muted purple-grey basalt, indigo crevices, cool grass
+  and darker wet feet. No lava is baked into these coast pieces.
+- `surf-0-0…3` through `surf-5-0…3`: **24 frames**, six four-phase looping groups.
+  Groups 0–3 are 300 px wide cliff-foot ribbons: gentle, scalloped, inlet and left
+  headland (mirror for right). Groups 4–5 are **240 / 150 px** wide hollow foam rings.
+  Explicit order **0 → 1 → 2 → 3**, **180 ms per frame**, one fixed anchor and one
+  common source crop/resize transform across all four phases in each group.
+
+Divide positions and sizes by **four** at concept map display scale. Footprints describe
+the ground/water contact, not transparent canvas padding. Cliffs are decals stamped
+along the front-facing outline; the existing island painter supplies the plateau behind
+the thin generated lip. The sheet intentionally contains no painted sea patch.
+
+The front frames declare **`tile: true` / `tileMode: "overlap-x"`**. This means repeatable
+overlap stamps, **not** rectangular seamless texture tiles; there is no vertical repeat.
+Corners, outcrops and surf do not declare rectangular tiling. Fronts can be alternated
+with small waterline offsets; curved outlines need local positioning without rotating
+the rock facets away from screen vertical. Waterline anchors also align the separate
+foam rings with the outcrop feet.
+
+## Generation and processing
+
+The first front pass had unwanted white haze; a targeted image_gen transparency edit
+removed it. The initial corner/outcrop sheet received an analogous cleanup. Volcanic
+versions are generated material edits, not procedural recoloring. Surf likewise received
+a targeted edit to remove diffuse background haze while preserving the foam strokes.
+Initial corners exposed too much plateau and did not meet the front lip at the same
+height; the final six shallow corners were generated separately, followed by a volcanic
+material edit. The original corner/outcrop sheets now supply only the six outcrops per
+theme. All rejected/partially selected raw outputs remain unchanged for provenance.
+
+Reproducible group-only packing and review: `raw/coast/pack.py`. Processing is cropping,
+**Lanczos** resampling, atlas placement and the narrow continuous joining alpha fades.
+Front source crops preserve broad facet proportions rather than squeezing each entire
+extra-wide generated wall into a narrower decal. Alpha thresholds locate subject bounds
+only; output alpha is never thresholded or binarized. Surf rows 3/4 split in the actual
+empty gutter at source y=660, preserving the large ring's upper crest and preventing it
+from entering the headland animation. No reference tracing, procedural rock/foam painting,
+palette reduction, nearest-neighbour sampling or pixel snapping is used.
+
+## Review and checks
+
+**`rendering/artifacts/overworld/coast-review.png`** shows all **64 frames**, each over
+grey **#777777** and concept sea blue **#024587**, at full asset resolution. Its upper
+section puts a coast assembled **only from this sheet's pieces** next to both requested
+private coast crops at a common **3× concept display scale**: the supplied crops are
+already 3×, while the new 4× art is resized by 0.75. A second row shows the volcanic
+assembly. Smaller previews show both assemblies at native concept display scale.
+
+Private assembly-only images: `raw/coast/mock-coast.png` and
+`raw/coast/mock-coast-volcanic.png`. `raw/coast/mock-coast-surf.gif` previews the four
+foam phases over a fixed assembled coast. These mocks contain a solid sea-color backing
+only; no other atlas, procedural landscape or reference artwork supplies their coast.
+
+`raw/coast/validation-coast.json` records successful checks: **64 nonempty/in-bounds
+frames**, transparent margins, partial-alpha contours, six groups of **four distinct
+registered generated phases**, original raw PNG SHA-256 preservation and unchanged
+existing sheets. The pack script verifies source bytes before/after processing and
+asserts every pre-existing PNG/JSON sheet remains byte-identical during packing.
+
+## Remaining differences
+
+The concept composes its headlands, inlets and foam individually. These reusable decals
+still have a more regular facet rhythm and denser, more decorative grass lips. Foam is
+brighter and more luminous than the concept's broken chalk-white brush marks. The mock
+is a coast construction test with a shallow top lip, not a complete island; application
+integration and plateau masking are outside this artwork assignment. The generated
+corners also have less dramatic depth than the concept's largest projecting headlands.
+These are useful original coast parts, not a pixel-identical reconstruction of the concept.
