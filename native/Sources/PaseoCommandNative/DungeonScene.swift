@@ -593,7 +593,7 @@ final class DungeonScene: SKScene, MapScene {
 
     /// Dark dungeon stone wherever the camera can show beyond the board.
     private func coverBackdrop() {
-        guard let b = bounds, viewSize.width > 0 else { return }
+        guard bounds != nil, viewSize.width > 0 else { return }
         let e = extent
         let z = minimumZoom
         let w = max(e.width, viewSize.width / z) + 400, h = max(e.height, viewSize.height / z) + 400
@@ -604,25 +604,7 @@ final class DungeonScene: SKScene, MapScene {
         let snapped = CGRect(x: floor(cover.minX / 192) * 192, y: floor(cover.minY / 192) * 192, width: cover.width + 192, height: cover.height + 192)
         // The rock round the board: dark and nearly neutral, so the board's own purple and gold carry the colour.
         if let stone = tiled("wall-brick-dark", snapped, mode: "xy", shade: 0.55, shadeColor: Textures.color(0x15131a)) { backdrop.addChild(stone) }
-        // The board's frame: a border along its top and foot, and its sides.
-        let frame = SKShapeNode(rect: CGRect(x: b.x - 6, y: -(b.y + b.height + 6), width: b.width + 12, height: b.height + 12))
-        frame.strokeColor = Textures.color(0x120c1c)
-        frame.lineWidth = 12
-        frame.fillColor = .clear
-        frame.zPosition = 0.5
-        backdrop.addChild(frame)
-        for y in [b.y - 20, b.y + b.height] {
-            if let edge = tiled("border", CGRect(x: b.x - 20, y: y, width: b.width + 40, height: 20), mode: "x", shade: 0) {
-                edge.zPosition = 1
-                backdrop.addChild(edge)
-            }
-        }
-        for x in [b.x - 20, b.x + b.width] {
-            if let edge = tiled("pillar", CGRect(x: x, y: b.y - 20, width: 20, height: b.height + 40), mode: "y", shade: 0.2) {
-                edge.zPosition = 0.9
-                backdrop.addChild(edge)
-            }
-        }
+        // No frame: the board ends in the rock, its floors' stepped edges its silhouette, as the concept's does.
     }
 
     // MARK: HUD
