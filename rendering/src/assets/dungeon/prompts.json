@@ -2792,5 +2792,134 @@
       "variant_2": null
     },
     "method": "Whole painted stones across boundaries; larger varied blocks with two-course interior stones. Shared courses at both x edges, complete narrow mortar line at y edges. Flat common low-frequency shading."
+  },
+  "v9_light_refinement": {
+    "tool": "built-in image_gen",
+    "prompt": "Use case: stylized-concept.\nAsset type: transparent sprite atlas of five painted warm light reflections for a lavender-stone dungeon, arranged in 3 columns by 2 rows, last cell empty.\nReference image: the supplied private dungeon concept is for style and reflected torchlight only. Do not copy any characters, masonry, text, props or architecture.\nMake ONLY five faint irregular light-spill cutouts on real transparent background. Top row: three different upright wall reflections, small concentrated warm-gold hearts feathering into asymmetric wisps. Bottom row: two different flattened floor reflections, irregular low pools tapering sideways. They are light falling on chipped stone, not clouds, paint stains or dirt.\nPalette MUST be luminous saturated gold: bright amber/yellow pigments (#ffd24c, #ffbc28, #ffe06a), never brown, ochre mud, beige, grey or white. No dark RGB pigment anywhere. Use low opacity, smooth very soft transparent perimeter, sparse broken short highlights suggesting a few lit chipped edges. Most of each cell stays transparent. Reflections should be noticeably translucent, with no solid opaque centre, no white core, no hard circle, no rectangular edge, no large glitter particles, no smoky brown streak. Keep the painted texture restrained and subordinate to the underlying stone. The body of each reflection is smooth and luminous, NOT heavily granular like a sponge stain.\nStyle: HD hand-painted pixel-art-flavoured illustration, original art, soft golden torch bounce on cool dungeon masonry. No text, numbers, icons or objects. Leave broad clear gutters between all five light shapes.",
+    "source_filename": "exec-58df53b5-188e-40e2-a4ea-1ff32a6be2f0.png",
+    "raw": "v9/glazes-raw.png",
+    "grid": [
+      3,
+      2
+    ],
+    "frames": [
+      "light-spill-wall-0",
+      "light-spill-wall-1",
+      "light-spill-wall-2",
+      "light-spill-floor-0",
+      "light-spill-floor-1"
+    ],
+    "glaze_alpha_cap": {
+      "wall": 88,
+      "floor": 80
+    },
+    "glaze_RGB": "R=255; G=176..220; B=32..68; no dark/neutral pigment",
+    "midtone_lift_Lab_L_cap": 2.7450980392156863,
+    "preserved": "all frame maps; floors, rock, robot/status/props/UI pixels; all flame and portcullis frames",
+    "crops": [
+      [
+        0,
+        0,
+        512,
+        512
+      ],
+      [
+        512,
+        0,
+        1024,
+        512
+      ],
+      [
+        1024,
+        0,
+        1536,
+        512
+      ],
+      [
+        0,
+        512,
+        512,
+        1024
+      ],
+      [
+        512,
+        512,
+        1024,
+        1024
+      ]
+    ],
+    "edge_alpha_fade_source_pixels": 42,
+    "exported_metrics": {
+      "light-spill-wall-0": {
+        "max_alpha": 87,
+        "mean_alpha": 53.50966447848286,
+        "rgb_min": [
+          255,
+          176,
+          32
+        ],
+        "rgb_max": [
+          255,
+          220,
+          68
+        ]
+      },
+      "light-spill-wall-1": {
+        "max_alpha": 87,
+        "mean_alpha": 55.486741663318604,
+        "rgb_min": [
+          255,
+          176,
+          32
+        ],
+        "rgb_max": [
+          255,
+          220,
+          68
+        ]
+      },
+      "light-spill-wall-2": {
+        "max_alpha": 87,
+        "mean_alpha": 55.13497476613806,
+        "rgb_min": [
+          255,
+          181,
+          36
+        ],
+        "rgb_max": [
+          255,
+          220,
+          68
+        ]
+      },
+      "light-spill-floor-0": {
+        "max_alpha": 79,
+        "mean_alpha": 53.61869565217391,
+        "rgb_min": [
+          255,
+          178,
+          34
+        ],
+        "rgb_max": [
+          255,
+          220,
+          68
+        ]
+      },
+      "light-spill-floor-1": {
+        "max_alpha": 79,
+        "mean_alpha": 51.74725333050263,
+        "rgb_min": [
+          255,
+          179,
+          34
+        ],
+        "rgb_max": [
+          255,
+          220,
+          68
+        ]
+      }
+    }
   }
 }

@@ -959,8 +959,8 @@ attempts' judgements are kept privately in ignored `artifacts/overworld/repaint-
 
 ## Dungeon Board
 
-The geometry kit is v3, robots are v4, and material/furnishing refinements are v5–v8. Artwork was generated with the built-in
-`image_gen` tool on 2026-11-06.
+The geometry kit is v3, robots are v4, and material/furnishing refinements are v5–v9. Artwork was generated with the built-in
+`image_gen` tool on 2026-11-06 and 2026-11-07.
 The private `design/references/dungeon-concept.png` was inspected at 3×,
 particularly its LOCAL floor, left terrace, workspace recess and central gate.
 It is a style/composition reference only: no reference pixels enter the sheets.
@@ -980,14 +980,15 @@ Only animation frame zero supplies `fps`.
 | `robots` | 80 | Smooth glossy shell, ten body colours, idle/work poses and flying drones |
 | `alcoves` | 11 | Four sparse interiors, chunky piers, lintel, new ledge and three redrawn candle flames |
 | `gate` | 12 | New upper host surround, lower arch, lit/dark portcullis, stairs with side walls, host disc and crown banner |
-| `stone` | 48 | Existing architecture plus the full raised rampart kit, terrace floor and two diagonal returns |
+| `stone` | 50 | Architecture, raised ramparts, broad flagstones, three excavated-rock variants and gold reflection glazes |
 | `ui` | 28 | Simple clipped parchment, thin bronze borders, dark discs in pale octagonal mounts, pictograms/counts/dots |
 | `props` | 54 | Furnishings, animated fires/magic, candelabra and wall-candle families, unlit variants |
 | `status` | 27 | Existing markers, glows and PR/Probe states, plus violet `mark-asking` / `glow-asking` |
 
-There are 260 frames: the 235 earlier frames, ten candle-fixture frames from v6,
+There are 262 frames: the 235 earlier frames, ten candle-fixture frames from v6,
 two underside corbels from v7, eight tile variants and five reflection glazes
-from v8. The original required names and optional
+from v8, plus two excavated-rock alternatives. V9 replaces artwork in place.
+The original required names and optional
 `rampart-return-left` / `rampart-return-right` are retained. The two optional
 diagonal wall runs let a terrace or alcove show the angled returns in the
 reference. None of the required names was removed or renamed. PR/Probe names
@@ -1338,11 +1339,12 @@ source contained neutral backing: warm-pigment chroma matting removes its white
 and grey, then gold saturation and low alpha are enforced. No neutral/white
 pixels survive with positive alpha. Peak alpha is below 0.46, with softly
 transparent irregular edges and small painted gold facets. They are warm
-reflection glazes, not hard circular or white bloom sprites.
+reflection glazes, not hard circular or white bloom sprites. This original V8
+extraction is superseded by the V9 replacement glazes described below.
 
 Place one chosen glaze on nearby stone behind fixtures/props/agents, clipping
-it to the intended masonry/plane where appropriate. Use restrained opacity or
-soft light/screen treatment, and keep it off agent/status/label faces. Preserve
+it to the intended masonry/plane where appropriate. Use restrained opacity with
+additive light blending, and keep it off agent/status/label faces. Preserve
 the cool mortar and existing agent-first hierarchy; do not stack all variants
 at one fixture. `v8/spills-on-stone.png` demonstrates the actual exported alpha
 on the rough wall and floor. `v8/masonry-review.png` compares original/revised
@@ -1361,6 +1363,48 @@ Robots and status PNGs are
 byte-preserved, as are the gate, props and UI sheets. The asset folder remains
 below 12 MB. Renderer registration/variant selection and light-overlay placement
 are deliberately left to code; no app code or commits are changed by this pass.
+
+V9 is a restrained illumination pass following `compare-18`. Its critique and
+paired crops are private in `artifacts/dungeon/gaps-4.md` and `gaps-4.png`.
+The capture's score is 7.5/10 before the new art or code changes are integrated;
+an atlas review is not an after-fix app capture.
+
+One built-in generation supplies replacement shapes for all five named light
+glazes. Its exact prompt, source filename and cell crops are recorded under
+`v9_light_refinement` in `prompts.json`; the original transparent output is
+`artifacts/dungeon/v9/glazes-raw.png`. The generated alpha supplies the smooth
+irregular silhouette and short painted chipped highlights. Saturated bright
+gold RGB is enforced after resampling (R=255, G=176–220, B=32–68), with no
+neutral backing or dark ochre pigment. Alpha is capped at 88/255 on walls and
+80/255 on floors; external gutters and low-alpha noise are cleaned as usual.
+Canvas sizes, centre anchors and names stay identical. `v9/glazes-review.png`
+compares old/new over real stone under normal blending and under the renderer's
+actual additive opacity. `v9/glaze-metrics.json` records exported colour/alpha.
+
+Cool masonry mid faces receive a pointwise Lab lift capped at 7 encoded L
+steps (2.75 conventional Lab L). It affects the structural stone, four alcove
+frame/lintel/ledge pieces and gate/stair masonry. The darkest mortar/outlines,
+gold pigment and room interiors remain protected; the broad floor tiles,
+excavated rock, portcullis/fire animations, UI, props, robots and status keep
+their pixels. A pointwise treatment keeps tile wraps and cross-variant edges
+identical. `v9/stone-review.png` compares accepted/revised pieces at the same
+dimensions; `v9/changed-frames.json` lists changed frames and affected pixels.
+
+The code's deep-gold multiply pools are a separate concern: `#7a4c00` under
+`multiplyX2` darkens every channel. Brighter art cannot make that treatment
+illuminate unlit stone. The critique assigns that compositor correction, the
+foreground terrace silhouette, room staging and upper-wall rhythm to code.
+Do not compensate by whitening floors, brightening the gate or multiplying a
+larger brown wash over the board.
+
+`--lighting-only` stages from `v9/before/`, validates the complete sheets,
+refreshes the contact sheet and random tile proofs, and writes the art reviews.
+`--lighting-only --publish` installs checked files atomically. The full rebuild
+also includes V9; historical version-only modes still reconstruct their own
+passes. All 262 frame maps, dimensions and anchors are preserved. Only the
+stone, alcoves and gate PNGs change; robots/status/props/UI PNGs are byte-identical.
+`v9/validation.json` records the preservation checks. No app code or commits
+are part of this art pass.
 
 Remaining differences: the concept's masonry has more bespoke pixel-like chips,
 uneven joints and integrated painted shadows. V3 is smoother, its joins and

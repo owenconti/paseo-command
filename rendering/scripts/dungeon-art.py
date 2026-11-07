@@ -8,7 +8,7 @@ from pathlib import Path
 import json, math, re, argparse, os, shutil, statistics, colorsys, random
 
 LIVE = Path('rendering/src/assets/dungeon')
-OUT = Path('rendering/artifacts/dungeon/v8/floor-fix/staging')
+OUT = Path('rendering/artifacts/dungeon/v9/staging')
 ART = Path('rendering/artifacts/dungeon')
 RESAMPLE = Image.Resampling.LANCZOS
 SHEETS = {}
@@ -442,6 +442,7 @@ def build():
     build_gold_props_v6()
     hanging_v7()
     rough_masonry_v8()
+    finish_light_v9()
 
 def pack():
     OUT.mkdir(parents=True,exist_ok=True)
@@ -1713,9 +1714,107 @@ def repair_irregular_materials_v8():
     SPRITES.update(new);(root/'layout.json').write_text(json.dumps(report,indent=2)+'\n')
 
 
+def glazes_v9():
+    raw=Image.open(ART/'v9/glazes-raw.png').convert('RGBA');out={}
+    for i,n in enumerate([f'light-spill-wall-{k}' for k in range(3)]+[f'light-spill-floor-{k}' for k in range(2)]):
+        x=i%3;y=i//3;v=raw.crop((x*512,y*512,(x+1)*512,(y+1)*512));data=[]
+        for k,(r,g,b,a) in enumerate(v.getdata()):
+            px=k%v.width;py=k//v.width;edge=min(px,py,v.width-1-px,v.height-1-py);fade=min(1,edge/42);fade=fade*fade*(3-2*fade)
+            alpha=round((a/255)**1.3*(88 if i<3 else 80)*fade)
+            if alpha<12:data.append((0,0,0,0));continue
+            hue,sat,val=colorsys.rgb_to_hsv(r/255,g/255,b/255);t=max(0,min(1,(hue*360-28)/20))
+            # Emissive bright-gold pigment; never the old dark ochre body or
+            # neutral backing. Alpha carries density and the soft perimeter.
+            data.append((255,round(176+44*t),round(32+36*t),alpha))
+        v.putdata(data);v=trim(v);w,h=SPRITES[n].size;v=fit(v,(w-24,h-24));can=Image.new('RGBA',(w,h));can.alpha_composite(v,((w-v.width)//2,(h-v.height)//2));can.putdata([(255,max(176,min(220,g)),max(32,min(68,b)),a) if a else (0,0,0,0) for r,g,b,a in can.getdata()]);out[n]=prune_micro(clean(can))
+    return out
+
+def stone_mids_v9(im,name):
+    lab=ImageCms.applyTransform(im.convert('RGB'),_TO_LAB);old=list(lab.getdata());px=list(im.getdata());target=[];weights=[]
+    def smooth(v):v=max(0,min(1,v));return v*v*(3-2*v)
+    for k,(p,(l,a,b)) in enumerate(zip(px,old)):
+        chroma=1-smooth((b-135)/10);lift=smooth((l-43)/45)*(1-smooth((l-220)/28))*chroma if p[3] else 0
+        if name.startswith('room-'):
+            x=(k%im.width)/im.width;y=(k//im.width)/im.height
+            if .23<x<.77 and .24<y<.90:lift=0
+        dl=round(7*lift);weights.append(dl>0);target.append((min(255,l+dl),a,b))
+    lab.putdata(target);rgb=ImageCms.applyTransform(lab,_TO_RGB);out=im.copy();out.putdata([(*q,p[3]) if on else p for p,q,on in zip(px,rgb.getdata(),weights)]);return clean(out),sum(weights)
+
+def finish_light_v9():
+    glazes=glazes_v9();counts={};new={}
+    for sheet,frames in SHEETS.items():
+        for n,im,meta in frames:
+            selected=(sheet=='stone' and not n.startswith(('wall-brick-dark','floor-flag','terrace-floor','light-spill-')) or sheet=='alcoves' and n in ['alcove-left','alcove-right','alcove-top','alcove-ledge'] or sheet=='gate' and n in ['gate-arch','gate-surround','gate-medallion','stairs-top','stairs-mid','stairs-bottom'])
+            if n in glazes:new[n]=glazes[n]
+            elif selected:
+                v,count=stone_mids_v9(im,n)
+                if count:new[n]=v;counts[n]=count
+    for sheet,frames in SHEETS.items():SHEETS[sheet]=[(n,new.get(n,im),meta) for n,im,meta in frames]
+    SPRITES.update(new);(ART/'v9/changed-frames.json').write_text(json.dumps({'lift_encoded_L_max':7,'lift_Lab_L_max':7*100/255,'stone_changed_pixels':counts,'glazes':list(glazes)},indent=2)+'\n')
+
+def light_reviews_v9():
+    base=ART/'v9/before';old={}
+    for sheet in ['stone','alcoves','gate']:
+        j=json.loads((base/(sheet+'.json')).read_text());a=Image.open(base/(sheet+'.png')).convert('RGBA')
+        for n,f in j['frames'].items():old[n]=a.crop((f['x'],f['y'],f['x']+f['w'],f['y']+f['h']))
+    names=['wall-brick','rampart-x','alcove-left','stairs-mid','room-arch'];can=Image.new('RGB',(1500,1150),'#241e36');d=ImageDraw.Draw(can)
+    for k,n in enumerate(names):
+        y=k*230;d.text((10,y+5),n+' / before',fill='white');d.text((760,y+5),'v9 / same dimensions',fill='white')
+        for x,im in [(5,old[n]),(755,SPRITES[n])]:
+            im=fit(im,(730,200));can.paste(im,(x,y+25),im)
+    can.save(ART/'v9/stone-review.png',optimize=True)
+    names=[f'light-spill-wall-{k}' for k in range(3)]+[f'light-spill-floor-{k}' for k in range(2)];proof=Image.new('RGB',(2000,5*330),'#241e36');d=ImageDraw.Draw(proof)
+    def light_on(base,glaze,opacity,add):
+        b=base.copy().convert('RGBA');v=glaze.copy();v.putalpha(v.getchannel('A').point(lambda a:round(a*opacity)))
+        if not add:b.alpha_composite(v);return b.convert('RGB')
+        source=list(v.getdata());out=[]
+        for p,q in zip(b.getdata(),source):out.append(tuple(min(255,round(p[k]+q[k]*q[3]/255)) for k in range(3)))
+        b=b.convert('RGB');b.putdata(out);return b
+    report={}
+    for k,n in enumerate(names):
+        im=SPRITES['wall-brick' if k<3 else 'terrace-floor'];sz=SPRITES[n].size;b=Image.new('RGBA',sz)
+        for yy in range(0,sz[1],im.height):
+            for xx in range(0,sz[0],im.width):b.alpha_composite(im,(xx,yy))
+        for col,(label,g,opacity,add) in enumerate([('old / normal',old[n],1,False),('v9 / normal',SPRITES[n],1,False),('old / actual additive alpha',old[n],.4 if k<3 else .35,True),('v9 / actual additive alpha',SPRITES[n],.4 if k<3 else .35,True)]):
+            x=col*500;y=k*330;d.text((x+8,y+6),n+' '+label,fill='white');p=light_on(b,g,opacity,add);proof.paste(p,(x+8,y+25))
+        data=[p for p in SPRITES[n].getdata() if p[3]];report[n]={'max_alpha':max(p[3] for p in data),'mean_alpha':statistics.mean(p[3] for p in data),'rgb_min':[min(p[j] for p in data) for j in range(3)],'rgb_max':[max(p[j] for p in data) for j in range(3)]}
+    proof.save(ART/'v9/glazes-review.png',optimize=True)
+    (ART/'v9/glaze-metrics.json').write_text(json.dumps(report,indent=2)+'\n')
+
+def validate_light_v9():
+    base=ART/'v9/before';errors=[];preserved=0;report={}
+    changed=json.loads((ART/'v9/changed-frames.json').read_text());allowed=set(changed['stone_changed_pixels'])|set(changed['glazes'])
+    for path in base.glob('*.json'):
+        if path.name=='prompts.json':continue
+        old=json.loads(path.read_text());new=json.loads((OUT/path.name).read_text());a=Image.open(base/old['image']).convert('RGBA');b=Image.open(OUT/new['image']).convert('RGBA')
+        if new!=old:errors.append(path.name+' frame map changed')
+        for n,f in old['frames'].items():
+            preserved+=1;box=(f['x'],f['y'],f['x']+f['w'],f['y']+f['h']);before=a.crop(box);after=b.crop(box)
+            if n not in allowed and before.tobytes()!=after.tobytes():errors.append(n+' protected pixels changed')
+        if path.stem in ['robots','status','props','ui'] and (base/old['image']).read_bytes()!=(OUT/new['image']).read_bytes():errors.append(path.stem+' PNG changed')
+    for n,m in json.loads((ART/'v9/glaze-metrics.json').read_text()).items():
+        if m['max_alpha']>90 or m['rgb_min'][0]<240 or m['rgb_min'][1]<165:errors.append(n+' dark/dense pigment')
+    report={'frame_maps_preserved':preserved,'changed_frames':sorted(allowed),'protected_PNGs':['robots','status','props','ui'],'errors':errors};(ART/'v9/validation.json').write_text(json.dumps(report,indent=2)+'\n')
+    if errors:raise ValueError(errors)
+
+def lighting_only_v9(publish_live=False):
+    global OUT
+    OUT=ART/'v9/staging';OUT.mkdir(parents=True,exist_ok=True)
+    for p in LIVE.iterdir():
+        if p.suffix in ['.png','.json'] and not (p.name=='prompts.json' and (OUT/p.name).exists()):shutil.copy2(p,OUT/p.name)
+    load_live_art();base=ART/'v9/before'
+    for sheet in ['stone','alcoves','gate']:
+        j=json.loads((base/(sheet+'.json')).read_text());a=Image.open(base/(sheet+'.png')).convert('RGBA');SHEETS[sheet]=[]
+        for n,f in j['frames'].items():
+            im=a.crop((f['x'],f['y'],f['x']+f['w'],f['y']+f['h']));meta={k:v for k,v in f.items() if k not in ['x','y','w','h']};SPRITES[n]=im;META[n]=meta;SHEETS[sheet].append((n,im,meta))
+    finish_light_v9();pack();validate();validate_rough_v8();course_proofs();contact();light_reviews_v9();validate_light_v9()
+    if publish_live:publish()
+
+
 if __name__=='__main__':
-    parser=argparse.ArgumentParser();parser.add_argument('--validate-only',action='store_true');parser.add_argument('--publish',action='store_true');parser.add_argument('--publish-staged',action='store_true');parser.add_argument('--robots-only',action='store_true');parser.add_argument('--art-only',action='store_true');parser.add_argument('--props-only',action='store_true');parser.add_argument('--hanging-only',action='store_true');parser.add_argument('--rough-only',action='store_true');parser.add_argument('--seam-fix',action='store_true');parser.add_argument('--floors-only','--materials-only',action='store_true');args=parser.parse_args()
-    if args.floors_only:floor_only_v8(args.publish)
+    parser=argparse.ArgumentParser();parser.add_argument('--validate-only',action='store_true');parser.add_argument('--publish',action='store_true');parser.add_argument('--publish-staged',action='store_true');parser.add_argument('--robots-only',action='store_true');parser.add_argument('--art-only',action='store_true');parser.add_argument('--props-only',action='store_true');parser.add_argument('--hanging-only',action='store_true');parser.add_argument('--rough-only',action='store_true');parser.add_argument('--seam-fix',action='store_true');parser.add_argument('--floors-only','--materials-only',action='store_true');parser.add_argument('--lighting-only',action='store_true');args=parser.parse_args()
+    if args.lighting_only:lighting_only_v9(args.publish)
+    elif args.floors_only:floor_only_v8(args.publish)
     elif args.seam_fix:seam_fix_only(args.publish)
     elif args.rough_only:rough_only_v8(args.publish)
     elif args.hanging_only:hanging_only_v7(args.publish)
