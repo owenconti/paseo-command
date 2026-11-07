@@ -175,5 +175,16 @@ test("picking a robot on the board opens its conversation; hovering one shows it
     (t) => !!t && /CI running/.test(t),
     "the medallion's card",
   );
+  // With no name labels on the board (only the hosts' plaques, as on the Islands), each hover card names its thing.
+  const tipFor = async (id: string) => {
+    await swift(page, { type: "hover", id: null });
+    await swift(page, { type: "hover", id, x: 220, y: 160 });
+    return waitFor(() => page.locator(".atlas-world-tip").textContent({ timeout: 500 }).catch(() => ""), (t) => !!t, `a card for ${id}`);
+  };
+  assert.match((await tipFor(key("wks_api")))!, /^api.*Workspace/);
+  assert.match((await tipFor(key("prj_core-platform")))!, /^core-platform.*Project/);
+  assert.match((await tipFor(key("a-api-0")))!, /^api agent 1/);
+  const board = await inspect(page);
+  assert.ok(board.workspaces.every((w: any) => w.label === undefined), "no workspace labels");
   await page.context().close();
 });

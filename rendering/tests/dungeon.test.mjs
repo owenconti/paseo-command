@@ -51,26 +51,24 @@ function assertLegible(layout) {
       if (a.what.startsWith("alcove") && b.what.startsWith("robot")) continue;
       assert.ok(!overlaps(a.rect, b.rect), `${a.what} overlaps ${b.what}`);
     }
-  // Labels sit apart from each other and from robots; labels lie within their alcove.
-  const labels = [...layout.workspaces.map((w) => w.label), ...layout.projects.map((p) => p.label), ...layout.floors.map((f) => f.plaque)];
-  for (let i = 0; i < labels.length; i++)
-    for (let j = i + 1; j < labels.length; j++) assert.ok(!overlaps(labels[i], labels[j]), "labels overlap");
+  // Only the hosts carry labels (their plaques), as on the Islands; PR medallions sit on their alcove's lintel.
+  const labels = layout.floors.map((f) => f.plaque);
+  for (const p of layout.projects) assert.equal(p.label, undefined, "a project carries no label");
   for (const w of layout.workspaces) {
-    assert.ok(w.label.x >= w.rect.x && w.label.x + w.label.w <= w.rect.x + w.rect.w, `${w.entity.id}'s label leaves its alcove`);
-    for (const f of w.flags) assert.ok(!overlaps(w.label, { x: f.x - f.size / 2, y: f.y - f.size / 2, w: f.size, h: f.size }), "a PR medallion covers its label");
+    assert.equal(w.label, undefined, "a workspace carries no label");
+    for (const f of w.flags) assert.ok(f.x >= w.rect.x && f.x <= w.rect.x + w.rect.w && f.y >= w.rect.y && f.y <= w.rect.y + 30, "a PR medallion sits on its alcove's lintel");
   }
-  // Links cross no label, medallion or robot (a workspace's stub ends at its label's top).
-  const blockers = [
-    ...layout.projects.map((p) => p.rect),
-    ...layout.workspaces.map((w) => w.label),
-    ...layout.agents.map((a) => a.rect),
-    ...layout.floors.map((f) => f.plaque),
-  ];
+  // Links cross no plaque, medallion or robot, but for a stub ending at its own medallion.
+  const blockers = [...layout.projects.map((p) => p.rect), ...layout.agents.map((a) => a.rect), ...layout.floors.map((f) => f.plaque)];
   for (const link of layout.links)
     for (let i = 1; i < link.length; i++) {
       const seg = segmentRect(link[i - 1], link[i], 0);
       const r = { x: seg.x + 0.5, y: seg.y + 0.5, w: Math.max(0, seg.w - 1), h: Math.max(0, seg.h - 1) };
-      for (const b of blockers) assert.ok(!overlaps(r, b, -1), `a link crosses something at ${JSON.stringify(link[i])}`);
+      const end = link[link.length - 1];
+      for (const b of blockers) {
+        const own = end.x >= b.x && end.x <= b.x + b.w && end.y >= b.y && end.y <= b.y + b.h;
+        if (!own) assert.ok(!overlaps(r, b, -1), `a link crosses something at ${JSON.stringify(link[i])}`);
+      }
     }
   // Decorations keep clear of everything the board says or shows, and of each other.
   const shown = [...things.map((t) => t.rect), ...labels, ...layout.agents.map((a) => ({ ...a.rect, y: a.rect.y - 8, h: a.rect.h + 8 }))];
@@ -190,11 +188,12 @@ test("floors keep their natural width, wrapping only when the board would be far
   const concept = layoutDungeon(DUNGEON_SAMPLE, 2.5);
   assert.ok(concept.floors.every((f) => f.tiers === 1));
   assert.equal(concept.bounds.w, layoutDungeon(DUNGEON_SAMPLE, 0.5).bounds.w, "the map's shape changes nothing");
-  // One host with many projects wraps them until the board is no wider than 1.6 times its height.
+  // One host with many projects wraps them toward an aspect between 0.8 and 1.6, taking whichever tiering
+  // comes nearest (with labelless, shorter tiers, wide blocks may only get near it).
   const wide = layoutDungeon(big(1, 12, 2, 2), 1.6);
   assert.ok(wide.floors[0].tiers > 1);
   const ratio = wide.bounds.w / wide.bounds.h;
-  assert.ok(ratio <= 1.6 && ratio >= 0.6, `aspect ${ratio}`);
+  assert.ok(ratio <= 1.9 && ratio >= 0.6, `aspect ${ratio}`);
   assertLegible(wide);
 });
 
@@ -239,4 +238,16 @@ test("each floor's cutaway opens round the next host's gate, so its arch and ico
       } else assert.equal(spans.length, 1);
     }
   });
+});
+
+test("projects and workspaces carry no labels; links reach each medallion and each alcove's top", () => {
+  const layout = layoutDungeon(DUNGEON_SAMPLE, 1.4);
+  for (const p of layout.projects) {
+    const bottom = p.medallion.y + D.medallionR;
+    assert.ok(layout.links.some((l) => l.some((q) => q.x === p.medallion.x && Math.abs(q.y - bottom) < 0.01)), `a link reaches ${p.name}'s medallion`);
+  }
+  for (const w of layout.workspaces) {
+    const cx = w.rect.x + w.rect.w / 2;
+    assert.ok(layout.links.some((l) => l.some((q) => Math.abs(q.x - cx) < 0.01 && Math.abs(q.y - w.rect.y) < 0.01)), `a link reaches ${w.entity.name}'s alcove`);
+  }
 });

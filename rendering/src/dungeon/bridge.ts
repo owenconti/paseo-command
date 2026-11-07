@@ -305,18 +305,6 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
     while (measure(shown, kind) > max && shown.length > 1) shown = shown.slice(0, -2) + "…";
     return shown;
   };
-  /** A parchment label with its text centred, bold dark brown. */
-  const paintLabel = (r: Rect, text: string, kind: "workspace" | "project") => {
-    const { canvas, ctx } = canvasFor(r.w, r.h);
-    // The sheet's own cream, undimmed.
-    nineSlice(ctx, frame("label"), "label", 0, 0, r.w, r.h);
-    ctx.font = fontOf(kind);
-    ctx.fillStyle = INK;
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillText(fitText(text, kind, r.w - 20), r.w / 2, r.h / 2 + 1);
-    return canvas;
-  };
   /** The host's plaque: its name, then a status dot and its machine's load. */
   const paintPlaque = (r: Rect, title: string, stats: { text: string; alert: boolean }[], online: boolean) => {
     const { canvas, ctx } = canvasFor(r.w, r.h);
@@ -594,28 +582,24 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
     for (const p of l.projects) {
       const dim = dimOf(p.floor);
       const y0 = p.span.y;
-      // The project's terrace: a recess of darker stone behind its medallion and label, under a rampart that returns at its outer end.
-      fill("wall-brick-dark", { x: p.span.x + 30, y: y0 + 34, w: Math.max(0, p.span.w - 60), h: 83 }, -50, { ...dim, shade: 0.3 });
+      // The project's terrace: a recess of darker stone behind its medallion, under a rampart that returns at its outer end.
+      fill("wall-brick-dark", { x: p.span.x + 30, y: y0 + 34, w: Math.max(0, p.span.w - 60), h: D.alcoveY - 34 }, -50, { ...dim, shade: 0.3 });
       fill("rampart-x", { x: p.span.x + (p.side === -1 ? 36 : 0), y: y0 + 23, w: p.span.w - 36, h: 25 }, -30, dim);
       // Occlusion where the terrace's wall meets the recess behind it: a dark pocket under its lip.
       images.push({ ...image("shade:under", () => paintShade("under")), x: p.span.x + 30, y: y0 + 46, w: Math.max(0, p.span.w - 60), h: 18, z: -29.8 });
       if (p.side === -1) put("rampart-return-left", p.span.x, y0 + 23, 50, 75, -29.9, dim);
       else put("rampart-return-right", p.span.x + p.span.w - 50, y0 + 23, 50, 75, -29.9, dim);
       sprites.push(sprite("medallion", at("medallion", p.medallion.x, p.medallion.y, D.medallionR * 2), 2, dim));
-      // Wall candles beside the label, as the concept lights its plaques, with their warm spill on the wall.
+      // Wall candles flanking the medallion, with their warm spill on the wall.
       const lit = l.floors[p.floor]!.online;
-      for (const cx of [p.label.x - 22, p.label.x + p.label.w + 22]) {
-        sprites.push(sprite(lit ? "wall-candles" : "wall-candles-out", at("wall-candles", cx, p.label.y - 16, 30), 3.2, dim));
+      for (const t of p.torches) {
+        sprites.push(sprite(lit ? "wall-candles" : "wall-candles-out", at("wall-candles", t.x, t.y, 30), 3.2, dim));
         if (lit) {
-          lights.push({ x: cx, y: p.label.y - 6, c: 0xffb840, r: 16, period: 1900, flicker: true, ph: random(seedOf(p.key + cx))(), k: 0.6 });
-          lights.push({ x: cx, y: p.label.y + 10, rx: 30, ry: 26, c: GOLD_DEEP, blend: "gold", tight: 1, k: 0.9, z: -29, period: 5200, flicker: false });
+          lights.push({ x: t.x, y: t.y + 10, c: 0xffb840, r: 16, period: 1900, flicker: true, ph: random(seedOf(p.key + t.x))(), k: 0.6 });
+          lights.push({ x: t.x, y: t.y + 26, rx: 30, ry: 26, c: GOLD_DEEP, blend: "gold", tight: 1, k: 0.9, z: -29, period: 5200, flicker: false });
         }
       }
       sprites.push(sprite(`icon-${p.icon}`, at(`icon-${p.icon}`, p.medallion.x, p.medallion.y, 30), 2.1, dim));
-      images.push({
-        ...image(`label:p:${p.name}:${p.label.w}`, () => paintLabel(p.label, p.name, "project")),
-        x: p.label.x, y: p.label.y, w: p.label.w, h: p.label.h, z: 3, ...dim,
-      });
     }
     for (const w of l.workspaces) {
       const dim = { ...dimOf(w.floor), ...(w.entity.stale ? { a: 0.7 } : {}) };
@@ -653,10 +637,7 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
       }
       // The ledge glows warm where the robots stand.
       // (The ledge is lit only where robots stand: their spotlights, with the agents.)
-      images.push({
-        ...image(`label:w:${w.entity.name}:${w.label.w}`, () => paintLabel(w.label, w.entity.name, "workspace")),
-        x: w.label.x, y: w.label.y, w: w.label.w, h: w.label.h, z: 3, ...dim,
-      });
+      // (No name label: the alcove's plain lintel; its name is on its hover card, as on the Islands.)
     }
     const flags = l.workspaces.flatMap((w) => [
       ...w.flags.map((f) => ({ ws: w.entity.id, flag: f.flag, ...sprite(f.frame, at(f.frame, f.x, f.y, f.size), 5, { ...dimOf(w.floor), ...(f.flag === "probe" && w.entity.probe?.state === "reviewing" ? { pulse: 1800 } : f.flag === "ci-running" ? { pulse: 1400 } : {}) }), cx: f.x, cy: f.y, s: f.size })),

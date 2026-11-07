@@ -3,7 +3,7 @@
  * floor per host (stacked in the Atlas's host order), its gate in the middle
  * (medallion, plaque, gold node, portcullis, stairs down to the next floor),
  * its projects alternating left and right of the gate, outward from it, each
- * a medallion over a parchment label with its workspaces' candle-lit alcoves
+ * an icon medallion (its name on the hover card, as on the Islands) with its workspaces' candle-lit alcoves
  * in a row beneath, and the agents' robots on each alcove's front ledge.
  * Gold links run from the host's node to each project and workspace. A side
  * with more projects than fit wraps onto further tiers within its floor; the
@@ -56,7 +56,7 @@ export const D = {
   minSide: 210,
   /** Floor: its upper band (gate medallion, plaque, node) above its first tier. */
   band: 116,
-  tierH: 264,
+  tierH: 244,
   tierGap: 0,
   /** The stone ledge's face under a tier's floor. */
   ledge: 28,
@@ -65,19 +65,18 @@ export const D = {
   /** Below the foot's furnishings, room the HUD's count bar lies over (nothing the board says is under it). */
   footPad: 90,
   /** Within a tier (from its top). */
-  medallionY: 29,
+  /** A project's mark: its icon medallion (no name label: names are on the hover cards, as on the Islands). */
+  medallionY: 32,
   medallionR: 29,
-  labelY: 53,
-  labelH: 44,
-  busY: 103,
-  alcoveY: 106,
+  busY: 76,
+  alcoveY: 86,
   alcoveH: 128,
-  wsLabelY: 116,
-  wsLabelH: 40,
-  feetY: 221,
-  floorY: 234,
+  /** Where the PR medallions sit on the alcove's lintel (below its top). */
+  lintelY: 13,
+  feetY: 201,
+  floorY: 214,
   /** The thick front wall closing each tier (its top). */
-  frontY: 250,
+  frontY: 230,
   /** The wall above the first floor, which the HUD's title lies over. */
   topBand: 64,
   /** Within a floor (from its top). */
@@ -99,13 +98,9 @@ export const D = {
   archH: 121,
   stairsY: 235,
   stairsW: 120,
-  /** Type (board px): workspace and project labels, the plaque's name and stats line. */
-  font: { workspace: 22, project: 23, host: 32, stats: 18 },
-  labelPad: 16,
-  wsLabelMin: 138,
-  projectLabelMin: 224,
-  labelMax: 320,
-  /** A PR medallion on an alcove's lintel, and room it keeps beside the label. */
+  /** Type (board px): the host plaque's name and stats line (projects and workspaces carry no labels). */
+  font: { host: 32, stats: 18 },
+  /** A PR medallion on an alcove's lintel. */
   flag: 18,
   flagInset: 16,
 };
@@ -152,11 +147,10 @@ export type DProject = {
   /** Its whole span on its tier. */
   span: Rect;
   medallion: Pt;
-  label: Rect;
   node: Pt;
   /** Its two torches, lit while any of its agents runs (top centre). */
   torches: Pt[];
-  /** Medallion and label, for picking and the selection rim. */
+  /** Its medallion, for picking and the selection rim. */
   rect: Rect;
   stale: boolean;
 };
@@ -166,7 +160,6 @@ export type DWorkspace = {
   project: string;
   floor: number;
   rect: Rect;
-  label: Rect;
   node: Pt;
   slots: number;
   /** Interior variant per slot (alcove-slot-<n>). */
@@ -290,7 +283,7 @@ export const ROBOT_OF: Record<string, string> = {
   blue: "blue",
 };
 
-type Alcove = { cottage: Cottage; width: number; labelW: number; slots: number };
+type Alcove = { cottage: Cottage; width: number; slots: number };
 type Block = {
   key: string;
   project?: AtlasData["projects"][number];
@@ -303,16 +296,12 @@ type Block = {
   starts: number[];
 };
 
-const clampLabel = (w: number, min: number) => Math.min(D.labelMax, Math.max(min, Math.ceil(w)));
 
 function block(group: ReturnType<typeof hostGroups>[number], side: -1 | 1, measure: Measure): Block {
   const alcoves = group.cottages.map((cottage): Alcove => {
-    const labelW = clampLabel(measure(cottage.name, "workspace") + D.labelPad * 2, D.wsLabelMin);
     const slots = Math.max(D.minSlots, cottage.agents.length);
-    const flagged = !!(cottage.flags || cottage.probe);
-    const room = flagged ? 2 * (D.flagInset + D.flag / 2 + 6) : 20;
-    const width = Math.max(2 * D.alcoveEnd + slots * D.slot, labelW + room);
-    return { cottage, width, labelW, slots };
+    const width = 2 * D.alcoveEnd + slots * D.slot;
+    return { cottage, width, slots };
   });
   // Reading left to right, oldest first: on the left side the outward order is reversed.
   const outward = side === 1 ? alcoves : [...alcoves].reverse();
@@ -323,10 +312,11 @@ function block(group: ReturnType<typeof hostGroups>[number], side: -1 | 1, measu
     at += a.width + D.alcoveGap;
   }
   const end = at - D.alcoveGap;
-  const name = group.project?.name ?? "No project";
-  const labelW = clampLabel(measure(name, "project") + D.labelPad * 2, D.projectLabelMin);
-  // The label keeps clear of the first tier's link, which drops at `drop` from the gates' line (and room for a torch between).
-  const torchRoom = 22;
+  // The mark (the medallion, with a wall candle either side) keeps clear of the first tier's link, which drops at
+  // `drop` from the gates' line.
+  void measure;
+  const labelW = D.medallionR * 2 + 64;
+  const torchRoom = 8;
   const labelC = Math.max(end / 2, D.drop - D.inner + 34 + labelW / 2, labelW / 2 + torchRoom);
   const width = Math.max(end, labelC + labelW / 2 + torchRoom);
   return { key: group.key, project: group.project, alcoves: outward, width, labelW, labelC, starts };
@@ -405,7 +395,7 @@ const ROOM = { w: 130, h: 200 };
 /**
  * Lay the fleet out as the Dungeon Board. Its width follows its content, not
  * the map's shape (`_aspect` is kept for the map styles' common call); `measure`
- * gives label text widths (the bridge's real font).
+ * gives text widths (the bridge's real font; only the host plaques carry text).
  */
 export function layoutDungeon(data: AtlasData, _aspect = 1.6, measure: Measure = approxMeasure): DungeonLayout {
   const planned = sortedHosts(data).map((host) => ({ host, groups: hostGroups(host, data) }));
@@ -529,7 +519,6 @@ export function layoutDungeon(data: AtlasData, _aspect = 1.6, measure: Measure =
         for (const b of row) {
           const X = (u: number) => s * (cursor + u);
           const labelC = X(b.labelC);
-          const labelRect = { x: labelC - b.labelW / 2, y: y0 + D.labelY, w: b.labelW, h: D.labelH };
           const medallion = { x: labelC, y: y0 + D.medallionY };
           const projNode = { x: labelC, y: busY };
           const entity: Entity | undefined = b.project
@@ -543,8 +532,6 @@ export function layoutDungeon(data: AtlasData, _aspect = 1.6, measure: Measure =
               }
             : undefined;
           const medBox = { x: labelC - D.medallionR, y: medallion.y - D.medallionR, w: D.medallionR * 2, h: D.medallionR * 2 };
-          const xs = [labelRect.x, labelRect.x + labelRect.w, medBox.x, medBox.x + medBox.w];
-          const ys = [medBox.y, labelRect.y + labelRect.h];
           projects.push({
             key: b.key,
             host: host.key,
@@ -556,22 +543,24 @@ export function layoutDungeon(data: AtlasData, _aspect = 1.6, measure: Measure =
             floor: f,
             span: { x: Math.min(X(0), X(b.width)), y: y0, w: b.width, h: D.tierH },
             medallion,
-            label: labelRect,
             node: projNode,
+            // Its wall candles flank the medallion.
             torches: [
-              { x: labelRect.x - 14, y: y0 + D.labelY - 6 },
-              { x: labelRect.x + labelRect.w + 14, y: y0 + D.labelY - 6 },
+              { x: labelC - D.medallionR - 22, y: y0 + D.medallionY - 22 },
+              { x: labelC + D.medallionR + 22, y: y0 + D.medallionY - 22 },
             ],
-            rect: { x: Math.min(...xs), y: Math.min(...ys), w: Math.max(...xs) - Math.min(...xs), h: Math.max(...ys) - Math.min(...ys) },
+            // Its pick box: the medallion, a little generous.
+            rect: { x: medBox.x - 4, y: medBox.y - 4, w: medBox.w + 8, h: medBox.h + 8 },
             stale: !!b.project?.stale,
           });
           busNodes.push(projNode.x);
           nodes.push(projNode);
+          // Up from the bus to the medallion.
+          links.push([projNode, { x: projNode.x, y: medallion.y + D.medallionR }]);
           b.alcoves.forEach((a, k) => {
             const x0 = s === 1 ? X(b.starts[k]!) : X(b.starts[k]! + a.width);
             const rect = { x: x0, y: y0 + D.alcoveY, w: a.width, h: D.alcoveH };
             const cx = x0 + a.width / 2;
-            const label = { x: cx - a.labelW / 2, y: y0 + D.wsLabelY, w: a.labelW, h: D.wsLabelH };
             const wsNode = { x: cx, y: busY };
             const c = a.cottage;
             const wsEntity: Entity = {
@@ -587,7 +576,7 @@ export function layoutDungeon(data: AtlasData, _aspect = 1.6, measure: Measure =
               ...(c.probe ? { probe: c.probe } : {}),
               ...(c.autoMerge ? { autoMerge: true } : {}),
             };
-            const flagY = y0 + D.wsLabelY + D.wsLabelH / 2;
+            const flagY = y0 + D.alcoveY + D.lintelY;
             const left = { x: x0 + D.flagInset, y: flagY },
               right = { x: x0 + a.width - D.flagInset, y: flagY };
             const flags: DFlag[] = [];
@@ -598,8 +587,9 @@ export function layoutDungeon(data: AtlasData, _aspect = 1.6, measure: Measure =
                 workspace: c.key,
                 flag: "probe",
                 frame: `probe-${c.probe.state}`,
-                x: c.flags?.review ? right.x : right.x,
-                y: c.flags?.review ? flagY + D.flag + 4 : flagY,
+                // Beside the review medallion on the lintel, inward.
+                x: c.flags?.review ? right.x - D.flag - 4 : right.x,
+                y: flagY,
                 size: D.flag,
               });
             const sealOn = c.autoMerge ? (flags.find((fl) => fl.flag === c.flags?.review) ?? flags.find((fl) => fl.flag === c.flags?.ci)) : undefined;
@@ -609,7 +599,6 @@ export function layoutDungeon(data: AtlasData, _aspect = 1.6, measure: Measure =
               project: b.key,
               floor: f,
               rect,
-              label,
               node: wsNode,
               slots: a.slots,
               interiors: Array.from({ length: a.slots }, () => Math.floor(rng() * 4)),
@@ -623,7 +612,8 @@ export function layoutDungeon(data: AtlasData, _aspect = 1.6, measure: Measure =
             });
             busNodes.push(wsNode.x);
             nodes.push(wsNode);
-            links.push([wsNode, { x: cx, y: label.y }]);
+            // From the bus down to the alcove's top centre.
+            links.push([wsNode, { x: cx, y: rect.y }]);
             tierRuns.push({ ws: c.key, x: cx });
             const n = c.agents.length;
             c.agents.forEach((key, i) => {
@@ -652,7 +642,7 @@ export function layoutDungeon(data: AtlasData, _aspect = 1.6, measure: Measure =
         const foot = { x: dropX, y: busY };
         links.push([node, corner, foot, { x: outer, y: busY }]);
         if (tier > 0) nodes.push(foot);
-        for (const r of tierRuns) runs[r.ws] = [node, corner, foot, { x: r.x, y: busY }, { x: r.x, y: busY + (D.wsLabelY - D.busY) }];
+        for (const r of tierRuns) runs[r.ws] = [node, corner, foot, { x: r.x, y: busY }, { x: r.x, y: y0 + D.alcoveY }];
       });
     }
     top = nextTop;
@@ -675,7 +665,7 @@ export function layoutDungeon(data: AtlasData, _aspect = 1.6, measure: Measure =
     // Each project's terrace wall behind its medallion.
     ...projects.map((p) => ({ x: p.span.x, y: p.span.y + 20, w: p.span.w, h: 30 })),
     ...projects.flatMap((p) => [p.rect, ...p.torches.map((t) => rectOf("torch", t.x, t.y).rect)]),
-    ...workspaces.flatMap((w) => [w.rect, w.label]),
+    ...workspaces.map((w) => w.rect),
     ...agents.map((a) => ({ ...a.rect, x: a.rect.x - 4, y: a.rect.y - 8, w: a.rect.w + 14, h: a.rect.h + 8 })),
     ...links.flatMap((l) => l.slice(1).map((b, i) => segmentRect(l[i]!, b))),
   ];
