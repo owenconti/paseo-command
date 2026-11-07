@@ -57,6 +57,48 @@ const load = (url: string) =>
   });
 const png = (canvas: HTMLCanvasElement) => canvas.toDataURL("image/png");
 
+/** The sheets graded at load (the robots, labels and status marks keep their own colours). */
+const GRADED = new Set(["stone", "gate", "alcoves", "props"]);
+/** The concept's grade: a fifth more saturation, shadows and mids pushed toward its purples
+ * (#2a1f4a, #4a3a7a) by how dark they are, warm highlights (torch light, gold) left warm. */
+export const GRADE = { saturation: 1.4, shadow: [0x2a, 0x1f, 0x4a], mid: [0x4a, 0x3a, 0x7a], strength: 0.42 };
+function grade(image: HTMLImageElement): HTMLCanvasElement {
+  const canvas = document.createElement("canvas");
+  canvas.width = image.naturalWidth;
+  canvas.height = image.naturalHeight;
+  const ctx = canvas.getContext("2d", { willReadFrequently: true })!;
+  ctx.drawImage(image, 0, 0);
+  const img = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const d = img.data;
+  const norm = (c: number[]) => {
+    const m = Math.max(...c);
+    return c.map((v) => v / m);
+  };
+  const shadow = norm(GRADE.shadow), mid = norm(GRADE.mid);
+  for (let i = 0; i < d.length; i += 4) {
+    if (d[i + 3] === 0) continue;
+    let r = d[i]!, g = d[i + 1]!, b = d[i + 2]!;
+    const l = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+    r = l * 255 + (r - l * 255) * GRADE.saturation;
+    g = l * 255 + (g - l * 255) * GRADE.saturation;
+    b = l * 255 + (b - l * 255) * GRADE.saturation;
+    // Warm highlights (flames, gold, lamp light) stay as they are.
+    const warm = r > b + 25 && r > 120;
+    if (!warm) {
+      const t = GRADE.strength * Math.pow(1 - l, 1.3);
+      const tint = l < 0.35 ? shadow : mid;
+      r *= 1 - t + t * tint[0]!;
+      g *= 1 - t + t * tint[1]!;
+      b *= 1 - t + t * tint[2]!;
+    }
+    d[i] = Math.max(0, Math.min(255, r));
+    d[i + 1] = Math.max(0, Math.min(255, g));
+    d[i + 2] = Math.max(0, Math.min(255, b));
+  }
+  ctx.putImageData(img, 0, 0);
+  return canvas;
+}
+
 /** Every frame of the contract: the sheets' where they have it, a placeholder where not. */
 async function buildFrames(): Promise<{ canvases: Map<string, HTMLCanvasElement>; real: Set<string> }> {
   const canvases = new Map<string, HTMLCanvasElement>();
@@ -75,12 +117,14 @@ async function buildFrames(): Promise<{ canvases: Map<string, HTMLCanvasElement>
     }
     // The board lays out with the sheet's own sizes and anchors.
     applySheet(sheet);
+    // The stone, gate, alcoves and props are graded once toward the concept's deeper purple.
+    const source = GRADED.has(path.replace(/^.*\//, "").replace(/\.json$/, "")) ? grade(image) : image;
     for (const [name, f] of Object.entries(sheet.frames)) {
       if (!FRAMES[name]) continue;
       const canvas = document.createElement("canvas");
       canvas.width = f.w;
       canvas.height = f.h;
-      canvas.getContext("2d")!.drawImage(image, f.x, f.y, f.w, f.h, 0, 0, f.w, f.h);
+      canvas.getContext("2d")!.drawImage(source, f.x, f.y, f.w, f.h, 0, 0, f.w, f.h);
       canvases.set(name, canvas);
       real.add(name);
     }
@@ -327,11 +371,12 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
     const canvas = document.createElement("canvas");
     canvas.width = canvas.height = 256;
     const ctx = canvas.getContext("2d")!;
-    const shadow = (a: number) => `rgba(26, 8, 48, ${a})`;
+    // A muted deep purple: it darkens without over-saturating (the grade already deepens the hue).
+    const shadow = (a: number) => `rgba(30, 22, 44, ${a})`;
     if (kind === "upper") {
       const g = ctx.createLinearGradient(0, 0, 0, 256);
-      g.addColorStop(0, shadow(0.55));
-      g.addColorStop(0.55, shadow(0.25));
+      g.addColorStop(0, shadow(0.6));
+      g.addColorStop(0.55, shadow(0.3));
       g.addColorStop(1, shadow(0));
       ctx.fillStyle = g;
     } else {
@@ -353,6 +398,17 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
     const dimOf = (floor: number) => (l.floors[floor]?.online ? {} : { dim: 1 });
     const fill = (name: string, r: Rect, z: number, extra: Sprite = {}) => sprites.push(tile(name, r, z, extra));
     const put = (name: string, x: number, y: number, w: number, h: number, z: number, extra: Sprite = {}) => sprites.push(sprite(name, { x, y, w, h }, z, extra));
+    // The wall above the first floor, with its pillars; the HUD's title lies over it.
+    {
+      const r = l.topBand.rect, H = r.w / 2;
+      fill("wall-brick-dark", r, -60, { shade: WALL_SHADE });
+      fill("wall-brick", { x: -H + 22, y: r.y + 4, w: 2 * H - 49, h: r.h - 4 }, -55, { shade: WALL_SHADE, ox: 37, oy: 11 });
+      for (const p of l.topBand.piers) {
+        fill("pillar", p, -45);
+        if (FRAMES["pillar-capital"]?.real) put("pillar-capital", p.x - 8, p.y - 4, p.w + 16, 24, -44.8);
+      }
+      images.push({ ...image("shade:upper", () => paintShade("upper")), x: r.x, y: r.y, w: r.w, h: r.h, z: -43.5 });
+    }
     l.floors.forEach((fl, f) => {
       const dim = dimOf(f);
       const T = fl.top, H = fl.rect.w / 2;
@@ -363,23 +419,29 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
       const floorEnd = fl.tierTops[fl.tiers - 1]! + D.frontY;
       fill("wall-brick", { x: -H + 22, y: T + 5, w: 2 * H - 49, h: floorEnd + 2 - (T + 5) }, -55, { ...dim, shade: WALL_SHADE, ox: Math.floor(rng() * brick.w), oy: Math.floor(rng() * brick.h) });
       // The upper back wall: a thick rampart either side of the gate's surround, returning at the floor's ends.
-      for (const sd of [-1, 1]) {
-        const x0 = sd === -1 ? -H + 55 : D.surroundW / 2 - 2, x1 = sd === -1 ? -D.surroundW / 2 + 2 : H - 52;
-        fill("rampart-x", { x: x0, y: T + 25, w: x1 - x0, h: 24 }, -44, dim);
+      // (Below the first floor, the floor above's front wall closes the top instead.)
+      if (f === 0) {
+        for (const sd of [-1, 1]) {
+          const x0 = sd === -1 ? -H + 55 : D.surroundW / 2 - 2, x1 = sd === -1 ? -D.surroundW / 2 + 2 : H - 52;
+          fill("rampart-x", { x: x0, y: T + 25, w: x1 - x0, h: 24 }, -44, dim);
+        }
+        put("rampart-return-left", -H, T + 25, 72, 70, -43.9, dim);
+        put("rampart-return-right", H - 69, T + 25, 69, 70, -43.9, dim);
       }
-      put("rampart-return-left", -H, T + 25, 72, 70, -43.9, dim);
-      put("rampart-return-right", H - 69, T + 25, 69, 70, -43.9, dim);
       // Block pillars with caps and bases.
       for (const r of fl.piers) {
         fill("pillar", r, -45, dim);
-        put("pillar-cap", r.x - 4, T + 23, r.w + 8, 27, -44.8, dim);
+        if (FRAMES["pillar-capital"]?.real) put("pillar-capital", r.x - 8, T + 21, r.w + 16, 26, -44.8, dim);
+        else put("pillar-cap", r.x - 4, T + 23, r.w + 8, 27, -44.8, dim);
         put("pillar-base", r.x - 4, r.y + r.h - 15, r.w + 8, 29, -44.8, dim);
       }
       // Each tier: the terrace floor under its walkway, and the thick front wall that closes it (lit top, returns, ends).
       for (const y0 of fl.tierTops) {
         fill("terrace-floor", { x: -H + 20, y: y0 + 162, w: 2 * H - 40, h: 74 }, -40, { ...dim, shade: 0.05 });
+        // The last tier's front wall opens round the next floor's gate; any other's round the stairs.
+        const open = !fl.last && y0 === fl.tierTops[fl.tiers - 1] ? D.surroundW / 2 - 4 : D.stairsW / 2 + 2;
         for (const sd of [-1, 1]) {
-          const x0 = sd === -1 ? -H + 113 : D.stairsW / 2 + 2, x1 = sd === -1 ? -D.stairsW / 2 - 2 : H - 111;
+          const x0 = sd === -1 ? -H + 113 : open, x1 = sd === -1 ? -open : H - 111;
           fill("rampart-x", { x: x0, y: y0 + D.frontY, w: x1 - x0, h: 28 }, -9, dim);
         }
         put("rampart-return-right", -H + 30, y0 + D.frontY - 16, 92, 43, -8.9, dim);
@@ -477,7 +539,8 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
     }
     // Contrast: the upper walls fall into purple shadow toward the top; the board darkens toward its edges.
     for (const fl of l.floors)
-      images.push({ ...image("shade:upper", () => paintShade("upper")), x: fl.rect.x, y: fl.top, w: fl.rect.w, h: D.band + 20, z: -53 });
+      // Over the back wall's ramparts, pillars and banners; under the gate's surround and the torches.
+      images.push({ ...image("shade:upper", () => paintShade("upper")), x: fl.rect.x, y: fl.top, w: fl.rect.w, h: D.band + 20, z: -43.5 });
     images.push({ ...image("shade:edges", () => paintShade("edges")), x: l.bounds.x, y: l.bounds.y, w: l.bounds.w, h: l.bounds.h, z: 0.9 });
     return {
       type: "scene",
@@ -530,6 +593,8 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
         ...(mark ? { mark: { f: mark, ...at(mark, a.feet.x + D.robot / 2 - 2, a.feet.y - D.robotH + 6, 20), pulse: PULSE_MS[state] ?? 1800 } } : {}),
         drones: offline ? [] : a.drones.slice(0, Math.min(4, e.subagents ?? 0)).map((c) => framesOf(`drone-${c}`)),
         droneDefault: framesOf(`drone-${color}`),
+        // Drones read at about 55% of a robot's visible height.
+        droneSize: Math.round(D.robotH * 0.55),
         subagents: offline ? 0 : Math.min(4, e.subagents ?? 0),
       };
     });

@@ -101,7 +101,7 @@ test("the concept's fleet: three floors, two projects each, one tier, gates cent
   // About the concept's proportions: a board some 1,200 wide and as tall.
   assert.ok(layout.bounds.w > 1100 && layout.bounds.w < 1450, `width ${layout.bounds.w}`);
   assert.ok(layout.bounds.h > 1050 && layout.bounds.h < 1350, `height ${layout.bounds.h}`);
-  for (const f of layout.floors) assert.equal(f.rect.h, f.last ? 365 + D.foot + D.footPad : 365);
+  for (const f of layout.floors) assert.equal(f.rect.h, f.last ? D.band + D.tierH + D.foot + D.footPad : D.band + D.tierH);
   // The first project stands left of the gate, the second right.
   const local = layout.projects.filter((p) => p.floor === 0);
   assert.ok(local[0].node.x < 0 && local[1].node.x > 0);

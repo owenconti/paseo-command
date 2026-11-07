@@ -56,7 +56,7 @@ export const D = {
   minSide: 330,
   /** Floor: its upper band (gate medallion, plaque, node) above its first tier. */
   band: 116,
-  tierH: 249,
+  tierH: 240,
   tierGap: 0,
   /** The stone ledge's face under a tier's floor. */
   ledge: 28,
@@ -77,7 +77,9 @@ export const D = {
   feetY: 197,
   floorY: 210,
   /** The thick front wall closing each tier (its top). */
-  frontY: 218,
+  frontY: 226,
+  /** The wall above the first floor, which the HUD's title lies over. */
+  topBand: 80,
   /** Within a floor (from its top). */
   gateMedallionY: 48,
   gateMedallionR: 24,
@@ -219,6 +221,8 @@ export type DungeonLayout = {
   /** From each workspace's host node along the links to it: light runs this way to working agents. */
   runs: Record<string, Pt[]>;
   decor: DDecor[];
+  /** The wall above the first floor. */
+  topBand: { rect: Rect; piers: Rect[] };
   entities: Entity[];
   counts: { hosts: number; projects: number; workspaces: number; agents: number };
   /** Changes whenever anything's place changes. */
@@ -385,6 +389,8 @@ const VIGNETTES: { name: string; room: string; glow?: { color: number; reach: nu
 ];
 const BANNERS = ["banner-purple-layers", "banner-purple", "banner-navy-hammers", "banner-blue-anvil"];
 const FLOOR_PROPS = ["barrel", "barrels", "crate", "crates", "shelf-potions", "table"];
+/** Small things on the walkways and beside the side rooms, as the concept strews them. */
+const CLUTTER = ["barrel", "crate", "candle", "barrel", "crate", "candle", "shelf-potions", "table"];
 const TORCH_LIGHT = { color: 0xffa03a, reach: 100 };
 /** A side room's recess, in board units. */
 const ROOM = { w: 130, h: 200 };
@@ -435,7 +441,7 @@ export function layoutDungeon(data: AtlasData, _aspect = 1.6, measure: Measure =
   const runs: Record<string, Pt[]> = {};
   const hostEntities: Entity[] = [];
   const agentRows = new Map(data.agents.map((a) => [a.key, a]));
-  let top = 0;
+  let top = D.topBand;
   shown.forEach(({ host }, f) => {
     const t = tiered[f]!;
     const last = f === shown.length - 1;
@@ -641,6 +647,8 @@ export function layoutDungeon(data: AtlasData, _aspect = 1.6, measure: Measure =
   });
   const boardH = top;
   const bounds = { x: -half, y: 0, w: half * 2, h: boardH };
+  /** The upper wall above the first floor, with a pillar either side of the gate's column. */
+  const topBand = { rect: { x: -half, y: 0, w: half * 2, h: D.topBand }, piers: [-1, 1].map((s) => ({ x: s * (D.surroundW / 2 + 60) - 14, y: 8, w: 28, h: D.topBand - 8 })) };
 
   // Everything the board says or shows, which decorations keep clear of.
   const reserved: Rect[] = [
@@ -656,7 +664,7 @@ export function layoutDungeon(data: AtlasData, _aspect = 1.6, measure: Measure =
   ];
   const decor: DDecor[] = [];
   const piers = floors.flatMap((fl) => fl.piers.map((r) => pad(r, 4)));
-  reserved.push(...piers);
+  reserved.push(...piers, ...topBand.piers.map((r) => pad(r, 4)));
   /** Place a decoration where it covers nothing the board shows (`overPiers`: it may stand in front of a pillar). */
   const place = (item: Omit<DDecor, "w" | "h" | "rect"> & { w?: number }, keepClear = true, overPiers = false, group?: string) => {
     const { w, h, rect } = rectOf(item.frame, item.x, item.y, item.w);
@@ -668,6 +676,17 @@ export function layoutDungeon(data: AtlasData, _aspect = 1.6, measure: Measure =
     decor.push({ ...item, w, h, rect });
     return true;
   };
+  // The wall above the first floor: torches either side of the gate's column and by the ends, and windows.
+  {
+    const rng = random(seedOf(floors.map((x) => x.host.id).join("|") + "top"));
+    const lit0 = (light: { color: number; reach: number }) => (floors[0]?.online ? { light } : {});
+    for (const s of [-1, 1] as const) {
+      place({ frame: "torch", x: s * (D.surroundW / 2 + 30), y: 18, w: 24, floor: 0, layer: "front", ...lit0(TORCH_LIGHT) });
+      place({ frame: "torch", x: s * (half - 200 - rng() * 60), y: 16, w: 24, floor: 0, layer: "front", ...lit0(TORCH_LIGHT) });
+      place({ frame: "window-barred", x: s * (D.surroundW / 2 + 130 + rng() * 40), y: 42, w: 40, floor: 0, layer: "back" });
+      if (FRAMES["window-arch"]?.real) place({ frame: "window-arch", x: s * (half - 110), y: 74, w: 40, floor: 0, layer: "back" });
+    }
+  }
   floors.forEach((fl, f) => {
     const rng = random(seedOf(fl.host.id + "decor"));
     const pick = <T,>(list: T[]) => list[Math.floor(rng() * list.length)]!;
@@ -741,6 +760,17 @@ export function layoutDungeon(data: AtlasData, _aspect = 1.6, measure: Measure =
           place({ frame: rng() < 0.5 ? "window-barred" : "niche-arch", x: s * x, y: rng() < 0.5 ? y0 + 60 : y0 + 150, floor: f, layer: "back" });
       });
     }
+    // Clutter on free floor: in the gaps beside alcoves, on the walkways and beside the side rooms.
+    for (const s of [-1, 1] as const)
+      fl.tierTops.forEach((y0) => {
+        for (let x = D.inner + 6; x < half - 20; x += 22 + rng() * 14) {
+          if (rng() < 0.45) continue;
+          const frame = pick(CLUTTER);
+          const spec = FRAMES[frame] ?? FRAMES[`${frame}-0`]!;
+          const w = frame === "candle" ? 9 : Math.min(spec.w, frame === "shelf-potions" || frame === "table" ? 46 : 28);
+          place({ frame, x: s * x, y: y0 + D.frontY - 2, w, floor: f, layer: "front", ...(frame === "candle" ? lit({ color: 0xffb050, reach: 34 }) : {}) });
+        }
+      });
     // The foot of the last stairs: braziers, rugs, the crown banner and the scribes' desks.
     if (fl.last) {
       const y = fl.top + fl.height - D.footPad - 6;
@@ -780,6 +810,7 @@ export function layoutDungeon(data: AtlasData, _aspect = 1.6, measure: Measure =
     nodes,
     runs,
     decor,
+    topBand,
     entities,
     counts: {
       hosts: floors.length,

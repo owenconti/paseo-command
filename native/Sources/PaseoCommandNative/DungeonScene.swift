@@ -249,8 +249,10 @@ final class DungeonScene: SKScene, MapScene {
                 let set = i < arts.count ? arts[i].compactMap { frames[$0] } : fallback
                 guard let tex = set.first ?? fallback.first else { continue }
                 let drone = SKSpriteNode(texture: tex)
+                // Its height the page's (about 55% of a robot's), its width keeping the frame's shape.
                 let s = frameSizes[(i < arts.count ? arts[i].first : nil) ?? ""] ?? CGSize(width: 14, height: 12)
-                drone.size = s
+                let tall = num(r["droneSize"], s.height)
+                drone.size = CGSize(width: tall * s.width / max(s.height, 1), height: tall)
                 agentLayer.addChild(drone)
                 robot.drones.append((drone, set.isEmpty ? fallback : set, robot.phase + Double(i) / Double(max(count, 1))))
             }
@@ -854,8 +856,8 @@ final class DungeonScene: SKScene, MapScene {
             let mid = CGPoint(x: r.home.x + r.size.width / 2, y: r.home.y + r.size.height * 0.45)
             for d in r.drones {
                 let turn = ((reduced ? 0 : clock / droneOrbit) + d.phase) * .pi * 2
-                let dx = CGFloat(cos(turn)) * 24, ddy = CGFloat(sin(turn)) * 7
-                let lift: CGFloat = 16 + (reduced ? 0 : CGFloat(sin(turn * 3)) * 1.5)
+                let dx = CGFloat(cos(turn)) * 30, ddy = CGFloat(sin(turn)) * 8
+                let lift: CGFloat = 22 + (reduced ? 0 : CGFloat(sin(turn * 3)) * 1.5)
                 d.node.position = p(mid.x + dx, mid.y + ddy - lift)
                 d.node.zPosition = ddy < 0 ? 9.5 : 10.5
                 if d.frames.count > 1 && !reduced {
