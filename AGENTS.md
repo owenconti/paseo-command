@@ -785,13 +785,14 @@ state's colour; the crystal glows blue and flares likewise. The halls stand tigh
 outer edge organic: `cobble-edge-*` cut to its border at their own scale, `uv` sprites), the round paving and ring under the
 fountain, a wide road north to the square's edge and south to the bridge; the plaza is strewn with planted trees, flower beds,
 crates and barrels, a tent at its lower left. Tiles stand up in their arches; robots stand on a shallow ledge (`porch-ledge-*`) in front of
-their own tiles, heads at the hall's base; a hall without agents has only its foundation steps. The fountain stands dead centre
+their own tiles, heads at the hall's base; every hall has its ledge (empty without agents), so the four read alike. The fountain stands dead centre
 of the four halls on its ring, the host's plaque small on its front step, lamp-post banners either side; the river runs just
 right of the right-hand halls. The paving is `ground-warm`'s (`cobble-warm`, its edges and blob) when present. With one host the
 fit covers the concept's crop (`core`: a sliver above the top banners, the front wall cut through with its bridge, forest and the
 tent at the left, the river's gorge at the right) without cutting what must show (`keep`: halls, plaza and bridge); the "At a
 Glance" panel may lie over the plaza's left edge and the top-left hall's left eave, as the concept's does, and the river's near
-bank meets the plaza's right edge so its gorge and falls show at the view's right; with several, every square shows clear of the panel. The warm paving's
+bank meets the plaza's right edge and the fit keeps half its gorge, so the gorge and the falls from the ruined wall
+show across the view's right; with several, every square shows clear of the panel. The warm paving's
 contrast and saturation are baked page-side (`gradePaving`); the host's emblem sits on the lamp-post banners' cloth. A faint warm light is added over the world
 (not the HUD); lamp pools are orange, about one and a half lamp heights across; the warm paving is tinted toward tan-brown.
 Lanterns stand on the bridge's posts; navy lamp-post banners flank the fountain.

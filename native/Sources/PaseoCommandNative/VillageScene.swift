@@ -739,7 +739,8 @@ final class VillageScene: SKScene, MapScene {
             let w = v.width / zoom, h = v.height / zoom
             // (Its left edge under the panel by a little more, so the river's gorge shows at the right.)
             let x = min(max(c.midX, k.maxX - w / 2), k.minX - left * (keep == core ? 1 : 0.25) / zoom + w / 2)
-            let y = min(max(c.midY, k.maxY - h / 2), k.minY + h / 2)
+            // The bottom edge on the crop's (through the wall); any spare height shows trees above the top banners.
+            let y = keep == core ? min(max(c.midY, k.maxY - h / 2), k.minY + h / 2) : min(max(c.maxY - h / 2, k.maxY - h / 2), k.minY + h / 2)
             center = CGPoint(x: x, y: y)
         } else {
             zoom = minimumZoom
