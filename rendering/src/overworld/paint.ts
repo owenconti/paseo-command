@@ -126,6 +126,8 @@ export interface PaintOptions {
   origin?: { x: number; y: number };
   /** Sea painted this far beyond the scene's left and right (concept px). */
   margin?: number;
+  /** Leave out contact shadows (a silhouette for the hover glow is the object alone). */
+  shadows?: boolean;
 }
 
 /** Land is painted at this density (px per concept px) and drawn scaled: per-pixel work dominates. */
@@ -947,6 +949,18 @@ function paintSprite(ctx: Ctx, item: SpriteItem, sheets: Sheets): void {
   drawFrame(ctx, f, item.x, item.y, item.scale, item.flip, item.alpha ?? 1);
 }
 
+/** An item alone (a hall's sprite, a booth), without its shadow, on a transparent canvas covering `box` (concept px)
+ * at `K` px per concept px: the silhouette the app's hover glow follows. */
+export function paintSilhouette(item: BoothItem | SpriteItem, sheets: Sheets, box: { x0: number; y0: number; x1: number; y1: number }, K: number): HTMLCanvasElement {
+  const c = canvas(Math.max(1, Math.ceil((box.x1 - box.x0) * K)), Math.max(1, Math.ceil((box.y1 - box.y0) * K)));
+  const ctx = c.getContext("2d")!;
+  ctx.scale(K, K);
+  ctx.translate(-box.x0, -box.y0);
+  if (item.kind === "booth") paintBooth(ctx, item, sheets, { K, t: 0, robots: false, shadows: false });
+  else paintSprite(ctx, { ...item, shadow: 0 }, sheets);
+  return c;
+}
+
 export const ROBOT_SCALE = 0.21;
 
 export function robotFrame(sheets: Sheets, colour: string, working: boolean, t: number, phase: number): Frame {
@@ -958,7 +972,7 @@ export function robotFrame(sheets: Sheets, colour: string, working: boolean, t: 
 
 function paintCamp(ctx: Ctx, booth: BoothItem, sheets: Sheets, opts: PaintOptions): void {
   const x0 = booth.x - booth.w / 2;
-  paintShadow(ctx, booth.x, booth.y + 6, booth.w, 0.3);
+  if (opts.shadows !== false) paintShadow(ctx, booth.x, booth.y + 6, booth.w, 0.3);
   drawFrame(ctx, frameOf(sheets, "stalls", "camp"), x0 + 62, booth.y + 2, 0.19);
 
 }
@@ -975,7 +989,7 @@ function paintBooth(ctx: Ctx, booth: BoothItem, sheets: Sheets, opts: PaintOptio
   const x0 = booth.x - (widthPx * s) / 2;
   const y0 = booth.y - BOOTH.floor * s;
   const seed = Math.floor(booth.x * 7 + booth.y * 13);
-  paintShadow(ctx, booth.x, booth.y + 12, widthPx * s * 1.15, 0.4);
+  if (opts.shadows !== false) paintShadow(ctx, booth.x, booth.y + 12, widthPx * s * 1.15, 0.4);
   // One corner canopy behind the booth, in weathered, undyed-looking canvas (never a state's colour).
   if (hasFrame(sheets, "stalls", `awning-corner-${booth.awning}-${booth.awningSide}`)) {
     const name = `awning-corner-${booth.awning}-${booth.awningSide}`;

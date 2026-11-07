@@ -7,12 +7,14 @@ import { STATE_TILE, type AtlasData, type State } from "../world.ts";
 import { loadSheetsFrom, type Sheets } from "./atlas.ts";
 import { overworldFleet } from "./fleet.ts";
 import { layout, hash, type OwHost, type Scene } from "./layout.ts";
-import { litRobot, overworldSeaTile, paintScene, recolourSheets, robotFrame, ROBOT_SCALE, seaPeriod } from "./paint.ts";
+import { litRobot, overworldSeaTile, paintScene, paintSilhouette, recolourSheets, robotFrame, ROBOT_SCALE, seaPeriod } from "./paint.ts";
 
 /** World units (the native map's) per concept pixel: a robot about as large as the Islands'. */
 export const WORLD = 2.5;
 /** Painting density, pixels per concept pixel. */
 const K = 3;
+/** The hover glow's silhouettes: px per concept px. */
+const SILHOUETTE_K = 1.5;
 /** Tiles the painting is cut into, in pixels. */
 const TILE = 1024;
 /** Each host's painting reaches this far past its scene (concept px), so scenery at its edges isn't
@@ -191,6 +193,19 @@ export class OverworldMap {
       this.sent.add(key);
       return this.png(make());
     };
+    // Each hall's and booth's own silhouette (the item alone, no shadow), which the hover glow follows; robots use
+    // their first frame. Painted once per look, at a modest density.
+    const glows = new Map<string, { key: string; x: number; y: number; width: number; height: number }>();
+    const silhouettes: Array<{ key: string; png: string }> = [];
+    for (const b of this.blocks)
+      for (const e of b.scene.entities) {
+        if (!e.item) continue;
+        const box = { x0: e.x0 - 40, y0: e.y0 - 70, x1: e.x1 + 40, y1: e.y1 + 24 };
+        const key = `ow-sil:${hash(JSON.stringify({ ...e.item, agents: undefined, x: 0, y: 0 }))}:${box.x1 - box.x0}x${box.y1 - box.y0}:${e.item.x - box.x0},${e.item.y - box.y0}`;
+        const png = image(key, () => paintSilhouette(e.item!, this.sheets, box, SILHOUETTE_K));
+        if (png) silhouettes.push({ key, png });
+        glows.set(e.id, { key, x: w(box.x0 + b.ox), y: w(box.y0 + b.oy), width: w(box.x1 - box.x0), height: w(box.y1 - box.y0) });
+      }
     const states = new Map(data.agents.map((a) => [a.key, a.state]));
     const streamers: Streamer[] = [];
     /** Robots' other frames, which Swift keeps for cycling. */
@@ -236,6 +251,7 @@ export class OverworldMap {
         if (png) extra.push({ key, png });
       });
       const size = 256 * ROBOT_SCALE;
+      glows.set(spot.id, { key: keys[0]!, x: w(spot.x - 128 * ROBOT_SCALE), y: w(spot.y - 224 * ROBOT_SCALE), width: w(size), height: w(size) });
       streamers.push({
         key: keys[0]!,
         png: image(keys[0]!, () => robotCanvas(this.sheets, spot.colour, spot.working, 0, frameMs)),
@@ -266,7 +282,9 @@ export class OverworldMap {
       SEA_KEY,
       ...pieces.map((p) => String(p.key)),
       ...streamers.flatMap((st) => [st.key, ...(st.frames ?? [])]),
+      ...[...glows.values()].map((g) => g.key),
     ]);
+    extra.push(...silhouettes);
     for (const key of [...this.sent]) if (!used.has(key)) this.sent.delete(key);
     return {
       type: "scene",
@@ -288,6 +306,7 @@ export class OverworldMap {
         cells: [],
         at: { x: w((e.x0 + e.x1) / 2), y: w((e.y0 + e.y1) / 2), width: w(e.x1 - e.x0), height: w(e.y1 - e.y0) },
         rects: [[w(e.x0), w(e.y0), w(e.x1 - e.x0), w(e.y1 - e.y0)]],
+        ...(glows.has(e.id) ? { glow: glows.get(e.id) } : {}),
       })),
     };
   }

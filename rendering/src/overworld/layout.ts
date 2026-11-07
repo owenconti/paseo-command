@@ -114,6 +114,8 @@ export interface OwEntity {
   y0: number;
   x1: number;
   y1: number;
+  /** What draws it (a hall's sprite, a booth), whose silhouette the app's hover glow follows. */
+  item?: SpriteItem | BoothItem;
 }
 /** Where a robot stands (its feet), in concept px. */
 export interface RobotSpot {
@@ -407,14 +409,15 @@ function layoutProject(
   const hall = project.hall !== false;
   if (hall) {
     // Hall: its roof's colour seeded from the project, its body down to y0+292, lanterns at its door.
-    scene.items.push({ kind: "sprite", sheet: "halls", frame: `hall-${project.roof}`, x: hx, y: y0 + 296, scale: 0.248, shadow: 0.35 });
+    const hallItem: SpriteItem = { kind: "sprite", sheet: "halls", frame: `hall-${project.roof}`, x: hx, y: y0 + 296, scale: 0.248, shadow: 0.35 };
+    scene.items.push(hallItem);
     reserve(scene, hx - 112, y0 + 160, hx + 112, y0 + 300);
     for (const side of [-1, 1]) {
       scene.items.push({ kind: "sprite", sheet: "props", frame: "lantern-lit", x: hx + side * 46, y: y0 + 304, scale: 0.2, shadow: 0.2, z: y0 + 305 });
     }
     // Its forecourt: open ground before its front, so no tree stands in its doorway.
     reserve(scene, hx - 104, y0 + 296, hx + 104, y0 + 334);
-    scene.entities.push({ id: project.id, kind: "project", x0: hx - 108, y0: y0 + 172, x1: hx + 108, y1: y0 + 298 });
+    scene.entities.push({ id: project.id, kind: "project", x0: hx - 108, y0: y0 + 172, x1: hx + 108, y1: y0 + 298, item: hallItem });
   }
 
   // Workspaces: rows of booths under the hall.
@@ -429,11 +432,12 @@ function layoutProject(
       const cx = x + w / 2;
       const awning = ws.awning ?? AWNINGS[(order * 2 + i + k) % AWNINGS.length];
       const awningSide = row.length === 1 ? (dir < 0 ? "left" : "right") : i === 0 ? "left" : "right";
-      scene.items.push({ kind: "booth", x: cx, y: floor, w, awning, awningSide, agents: ws.agents, camp: ws.camp, z: floor });
+      const boothItem: BoothItem = { kind: "booth", x: cx, y: floor, w, awning, awningSide, agents: ws.agents, camp: ws.camp, z: floor };
+      scene.items.push(boothItem);
       const top = floor - BOOTH.floor * BOOTH.scale;
       // The booth and the ground before it: no tree or bush stands in front of its robots.
       reserve(scene, x - 26, top - 4, x + w + 26, floor + 44);
-      scene.entities.push({ id: ws.id, kind: "workspace", x0: x - 4, y0: top + 4, x1: x + w + 4, y1: floor + 8 });
+      scene.entities.push({ id: ws.id, kind: "workspace", x0: x - 4, y0: top + 4, x1: x + w + 4, y1: floor + 8, item: boothItem });
       for (const spot of robotSpots(ws, cx, floor, w)) {
         scene.robots.push(spot);
         scene.entities.push({ id: spot.id, kind: "agent", x0: spot.x - 15, y0: spot.y - 40, x1: spot.x + 15, y1: spot.y + 3 });

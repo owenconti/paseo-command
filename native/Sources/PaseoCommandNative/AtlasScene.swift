@@ -31,7 +31,11 @@ final class AtlasScene: SKScene, MapScene {
         let at: WorldBox
         /// The Overworld style's areas (world, top-left origin, y down) in place of cells.
         var rects: [CGRect] = []
+        /// The Overworld's silhouette of what draws it (a hall, a booth, a robot's frame) and where: its hover glow follows it.
+        var glow: (key: String, rect: CGRect)? = nil
     }
+    /// The Overworld's silhouettes for the hover glow, by key (halls' and booths' `ow-sil:`, robots' first frames).
+    private var glowImages: [String: CGImage] = [:]
     /// The map style the scene draws: "islands" (hexes) or "overworld" (rectangles).
     private var style = "islands"
     /// The art's closest zoom; a scene may ask for less (the Overworld's painting is finite).
@@ -205,7 +209,8 @@ final class AtlasScene: SKScene, MapScene {
         for (key, image) in images {
             if key == "ow-sea" { overworldSea = Textures.texture(image) }
             else if key.hasPrefix("banner:") { banners[key] = Textures.texture(image) }
-            else if key.hasPrefix("streamer:") { streamers[key] = Textures.texture(image) }
+            else if key.hasPrefix("ow-sil:") { glowImages[key] = image }
+            else if key.hasPrefix("streamer:") { streamers[key] = Textures.texture(image); glowImages[key] = image }
             else { pieces[key] = Textures.texture(image) }
         }
         structures.removeAllChildren()
@@ -317,7 +322,11 @@ final class AtlasScene: SKScene, MapScene {
             let cells = (e["cells"] as? [[Int]] ?? []).map { Axial(q: $0[0], r: $0[1]) }
             let at = (e["at"] as? [String: Double]).map(box) ?? WorldBox(x: 0, y: 0, width: 0, height: 0)
             let rects = (e["rects"] as? [[Double]] ?? []).compactMap { r in r.count == 4 ? CGRect(x: r[0], y: r[1], width: r[2], height: r[3]) : nil }
-            entities[id] = Entity(id: id, kind: kind, cells: cells, at: at, rects: rects)
+            var entity = Entity(id: id, kind: kind, cells: cells, at: at, rects: rects)
+            if let g = e["glow"] as? [String: Any], let key = g["key"] as? String {
+                entity.glow = (key, CGRect(x: g["x"] as? Double ?? 0, y: g["y"] as? Double ?? 0, width: g["width"] as? Double ?? 0, height: g["height"] as? Double ?? 0))
+            }
+            entities[id] = entity
             if kind != "host" { for c in cells where owners[c] == nil { owners[c] = id } }
         }
         coverSea()
@@ -633,6 +642,15 @@ final class AtlasScene: SKScene, MapScene {
     private func drawHover() {
         hoverNode.removeAllChildren()
         guard let id = hovered, let e = entities[id] else { return }
+        // The Overworld's hovered hall, booth or robot glows as the Village's do: a soft warm halo outside its own
+        // silhouette and a faint brightening over it, never a box. (Islands keeps its hex outline.)
+        if style == "overworld" {
+            guard let g = e.glow, let image = glowImages[g.key] else { return }
+            for n in SpriteGlow.overlay(for: image, size: g.rect.size, mid: p(g.rect.midX, g.rect.midY), color: SpriteGlow.hoverColor, name: "hover-glow") {
+                hoverNode.addChild(n)
+            }
+            return
+        }
         hoverNode.addChild(outline(e, width: 4, color: Textures.color(hoverColors[e.kind] ?? 0xffffff, 0.95)))
     }
 
