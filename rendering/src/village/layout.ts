@@ -51,6 +51,8 @@ export const V = {
   /** A cluster's stepping-stone lane's width, the yard between its hall's feet and its first row's roofs, the gap
    * between rows (their walkway), and a cell's room either side. */
   lane: 120,
+  /** The street beside lawns below a fountain. */
+  street: 90,
   rowGap: 84,
   /** The first row's feet in front of its hall's, and how far its cottages tuck in under the hall's eaves. */
   flank: 26,
@@ -174,6 +176,8 @@ export type VWorkspace = {
   flags: VFlag[];
   seal?: { x: number; y: number; size: number };
   agents: string[];
+  /** Its doorstep, where its robots stand: on its cluster's walkway. */
+  door: Pt;
 };
 export type VAgent = { entity: Entity; feet: Pt; rect: Rect; square: number; robot: string; drones: string[] };
 /** A cluster's lawn (a project's hall and its cottages, or a camp) and its stepping-stone lane and walkways. */
@@ -420,7 +424,7 @@ type District = {
   /** Its shape: clusters in two columns either side of the fountain, in one column beside it, or below it. */
   mode: DistrictMode;
   /** Each cluster: its lawn's left edge and its hall's feet, from the district's top-left. */
-  blocks: { block: Block; lx: number; y: number }[];
+  blocks: { block: Block; lx: number; y: number; exit: "l" | "r" }[];
   width: number;
   height: number;
   /** The fountain's centre line and its top, from the district's top-left. */
@@ -443,7 +447,8 @@ function districtOf(host: AtlasData["hosts"][number], blocks: Block[], line: VSq
   const colW = [Math.max(0, ...cols[0].map(span)), Math.max(0, ...cols[1].map(span))];
   const colH = cols.map((c) => Math.max(0, sum(c) - V.blockGap));
   const top = mode === "top" ? fountainH + 20 : 0;
-  const width = mode === "top" ? P * 2 + Math.max(colW[0]!, gap) : P * 2 + colW[0]! + gap + colW[1]!;
+  // (Below the fountain, the lawns keep a street beside them for their walkways to leave by.)
+  const width = mode === "top" ? P * 2 + Math.max(colW[0]! + V.street * 2, gap) : P * 2 + colW[0]! + gap + colW[1]!;
   const height = P * 2 + (mode === "top" ? top + colH[0]! : Math.max(fountainH, colH[0]!, colH[1]!));
   const placed: District["blocks"] = [];
   for (const c of [0, 1] as const) {
@@ -451,7 +456,8 @@ function districtOf(host: AtlasData["hosts"][number], blocks: Block[], line: VSq
     for (const b of cols[c]) {
       // Lawns lie against the fountain's column (or centred under it).
       const lx = mode === "top" ? (width - span(b)) / 2 : c === 0 ? P + colW[0]! - span(b) : P + colW[0]! + gap;
-      placed.push({ block: b, lx, y: P + y + V.lawnPad + b.above });
+      // Its walkway leaves its lawn toward the fountain's plaza.
+      placed.push({ block: b, lx, y: P + y + V.lawnPad + b.above, exit: mode === "two" && c === 1 ? "l" : "r" });
       y += tall(b);
     }
   }
@@ -596,19 +602,25 @@ export function layoutVillage(data: AtlasData, aspect = 1.6, measure: Measure = 
         roads: [{ x: x + 30, y: y + 30, w: dw - 60, h: rowH - 60 }], plaza,
         lamps: [], pennants: [{ x: fcx - V.ringW / 2 - 6, y: ring.y + ring.h * 0.6 }, { x: fcx + V.ringW / 2 + 6, y: ring.y + ring.h * 0.6 }],
       });
-      for (const { block: b, lx: blx, y: by } of d.blocks) {
+      for (const { block: b, lx: blx, y: by, exit } of d.blocks) {
         const lw = b.width + V.lawnPad * 2;
         const lx = x + shift + blx;
         const mid = lx + V.lawnPad + b.left;
         const base = y + by;
         const online = d.host.online;
         const lawn = { x: lx, y: base - b.above - V.lawnPad, w: lw, h: b.above + b.below + V.lawnPad * 2 };
-        // The lane from the hall's door (or the camp's top) down past the last row, and a walkway along each row's feet.
+        // The lane from the hall's door (or the camp's top) down through every row and out through the fence's gap onto the
+        // plaza, and a walkway along each row's feet past every doorstep: every door is on the district's paths.
         const paths: Rect[] = [];
         if (b.rows) {
-          const laneEnd = base + b.rowFeet[b.rows - 1]! + 34;
-          paths.push({ x: mid - V.lane / 2, y: base - (b.building ? 14 : 0), w: V.lane, h: Math.max(60, laneEnd - base + (b.building ? 14 : 0)) });
-          b.walks.forEach((w, r) => paths.push({ x: mid + w.x0, y: base + b.rowFeet[r]! - 30, w: w.x1 - w.x0, h: 64 }));
+          const laneEnd = base + b.rowFeet[b.rows - 1]! + 36;
+          paths.push({ x: mid - V.lane / 2, y: base, w: V.lane, h: laneEnd - base });
+          b.walks.forEach((w, r) => {
+            // The front row's walkway runs on out of the lawn's side onto the plaza.
+            const x0 = r === 0 && exit === "l" ? lawn.x - 24 : Math.min(mid + w.x0, mid - V.lane / 2);
+            const x1 = r === 0 && exit === "r" ? lawn.x + lawn.w + 24 : Math.max(mid + w.x1, mid + V.lane / 2);
+            paths.push({ x: x0, y: base + b.rowFeet[r]! - 16, w: x1 - x0, h: 52 });
+          });
         }
         let body: Rect;
         if (b.building) {
@@ -651,6 +663,7 @@ export function layoutVillage(data: AtlasData, aspect = 1.6, measure: Measure = 
             tileAt: { x: paneRect.x + paneRect.w / 2, y: paneRect.y + paneRect.h / 2 }, tileSize: Math.min(paneRect.w, paneRect.h), plate: paneRect,
             label: plateLabel(c.name), status: workspaceStatus(states, online), flags,
             ...(sealOn ? { seal: { x: sealOn.x + 7, y: sealOn.y - 7, size: 10 } } : {}), agents: c.agents,
+            door: { x: frame.x + frame.w * (doorOf(cottage).x + doorOf(cottage).w / 2), y: feet + V.doorstep },
           });
           // Its agents on its doorstep, oldest first, more fanning out to its right.
           const door = doorOf(cottage);
@@ -693,6 +706,14 @@ export function layoutVillage(data: AtlasData, aspect = 1.6, measure: Measure = 
     { x: V.marginLeft - 20, y: dashBase - 30, w: innerW + 40, h: V.walk },
     { x: cx - V.road / 2, y: footY - 40, w: V.road, h: wallY - footY + 60 },
   ];
+  // Each district's gate opens onto a cobbled way up to the paving above it (the walk, or the district above), so every
+  // plaza joins the town's roads.
+  for (const sq of squares) {
+    const r = sq.roads[0]!, gx = sq.center.x;
+    const above = [roads[1]!, ...squares.map((o) => o.roads[0]!)].filter((p) => p !== r && p.y + p.h <= r.y + 1 && p.x <= gx - V.road / 2 && p.x + p.w >= gx + V.road / 2);
+    const bottom = Math.max(...above.map((p) => p.y + p.h));
+    if (Number.isFinite(bottom)) roads.push({ x: gx - V.road / 2, y: bottom - 20, w: V.road, h: r.y - bottom + 40 });
+  }
   const town: VTown = {
     rect, roads,
     river: { x: riverX, y: cliff.foot.y + cliff.foot.h - 30, w: V.riverW, h: rect.h - (cliff.foot.y + cliff.foot.h - 30) },
@@ -780,7 +801,7 @@ function sceneryOf(town: VTown, squares: VSquare[], lawns: VLawn[], projects: VP
     const rect = boxOf(d.frame, d.x, d.y, d.w);
     const foot = footOf(d, rect);
     if (keepClear) {
-      if ([...says, ...water].some((r) => overlaps(r, foot, 2))) return false;
+      if ([...says, ...water, ...lawns.flatMap((l) => l.paths)].some((r) => overlaps(r, foot, 2))) return false;
       if ((big(d.frame, d.w) || /^(bush|flowers|grass-tufts|rocks)/.test(d.frame)) && paved.some((r) => overlaps(r, foot, 4))) return false;
       if (placed.some((r) => overlaps(r, foot, big(d.frame, d.w) ? -34 : -4))) return false;
       if (foot.x < R.x - 30 || foot.x + foot.w > R.x + R.w + 30 || foot.y > R.y + R.h - 10) return false;
@@ -831,6 +852,7 @@ function sceneryOf(town: VTown, squares: VSquare[], lawns: VLawn[], projects: VP
   hedge(town.roads[0]!, "ns", 0);
   hedge(town.roads[1]!, "", 0);
   hedge(town.roads[2]!, "ns", 0);
+  for (const link of town.roads.slice(3)) hedge(link, "ns", 0);
   squares.forEach((s, i) => hedge(s.roads[0]!, "", i));
   // Each cluster's lawn: its stepping-stone lane and walkways, a low fence along its front (open where the lane leaves),
   // and greenery along its other edges so no straight edge of grass shows.
@@ -847,11 +869,10 @@ function sceneryOf(town: VTown, squares: VSquare[], lawns: VLawn[], projects: VP
       for (let k = 0; k <= n; k++) stone(w.x + pw * 0.3 + ((w.w - pw * 0.6) * k) / Math.max(1, n), w.y + w.h + (rng() - 0.5) * 6, pw);
     }
     const r = lawn.rect;
-    const gate = lane ? { x0: lane.x - 20, x1: lane.x + lane.w + 20 } : { x0: Infinity, x1: -Infinity };
-    // The front: fence rails either side of the lane's gap.
+    // The front: a fence's rails along it (the cluster's walkway leaves by its side, toward the fountain).
     const fy = r.y + r.h + 6;
     const fw = 118;
-    for (const [x0, x1] of [[r.x + 6, gate.x0], [gate.x1, r.x + r.w - 6]] as const) {
+    for (const [x0, x1] of [[r.x + 6, r.x + r.w - 6]] as const) {
       if (x1 - x0 < fw * 0.5) continue;
       const n = Math.max(1, Math.round((x1 - x0) / (fw * 0.92)));
       const step = (x1 - x0) / n;
@@ -860,6 +881,8 @@ function sceneryOf(town: VTown, squares: VSquare[], lawns: VLawn[], projects: VP
         decor.push({ frame: "fence-h", x: x0 + step * (k + 0.5), y: fy, rect, square: lawn.square, layer: "stand", hedge: true });
       }
     }
+    // Where a walkway leaves the lawn, its hedge opens.
+    const exits = walks.filter((w) => w.x < r.x || w.x + w.w > r.x + r.w);
     const edge = (x0: number, y0: number, x1: number, y1: number) => {
       const len = Math.hypot(x1 - x0, y1 - y0), n = Math.max(1, Math.round(len / 34));
       for (let i = 0; i <= n; i++) {
@@ -868,7 +891,7 @@ function sceneryOf(town: VTown, squares: VSquare[], lawns: VLawn[], projects: VP
         const roll = rng();
         const frame = roll < 0.6 ? `hedge-${Math.floor(rng() * 3)}` : roll < 0.8 ? `flowers-${Math.floor(rng() * 4)}` : `bush-${Math.floor(rng() * 4)}`;
         const rect = boxOf(frame, pt.x, pt.y, (frame.startsWith("hedge") ? 80 : frame.startsWith("bush") ? 62 : 50) + rng() * 18);
-        if ([...says, ...water].some((o) => overlaps(o, rect, 2))) continue;
+        if ([...says, ...water].some((o) => overlaps(o, rect, 2)) || exits.some((o) => overlaps(o, rect, 6))) continue;
         decor.push({ frame, x: pt.x, y: pt.y, rect, square: lawn.square, layer: "stand", hedge: true });
       }
     };
@@ -915,6 +938,7 @@ function sceneryOf(town: VTown, squares: VSquare[], lawns: VLawn[], projects: VP
     const r = sq.roads[0]!;
     const keepOff = [
       ...lawns.filter((l) => l.square === i).map((l) => ({ x: l.rect.x - 16, y: l.rect.y - 10, w: l.rect.w + 32, h: l.rect.h + 30 })),
+      ...lawns.filter((l) => l.square === i).flatMap((l) => l.paths.map((p) => ({ x: p.x - 30, y: p.y - 70, w: p.w + 60, h: p.h + 90 }))),
       { x: sq.plaza.x - 20, y: sq.plaza.y - 20, w: sq.plaza.w + 40, h: sq.plaza.h + 40 },
       { x: sq.center.x - 130, y: r.y - 20, w: 260, h: 230 },
     ];

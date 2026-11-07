@@ -811,7 +811,12 @@ flowers, a low fence along its front, a back garden of small trees and shrubs be
 or purple roofs, neighbours differing), its workspaces' cottages (`cottage-0..5`, all at one scale, the widest about 55% of a
 hall's frame) oldest first beside it, two a side (as the Islands map's touch their landmark), then in rows of four in front
 either side of a stepping-stone lane from the hall's door; every row on a walkway of the artist's `path-stone-straight`
-pieces, the lane joining them. Each cottage's window holds a stained-glass pane for its PR's state
+pieces, the lane joining them, the front row's walkway running out through the lawn's side (its hedge open there) onto the
+fountain's plaza. Every structure is on a path (the user's call: robots need a way to their house): each district's gate opens
+onto a cobbled way up to the paving above (the walk under the dashboard halls, which stand on it, or the district above), and
+from the plaza the walkways and lanes reach every hall's door and every cottage's doorstep, where its robots stand; market stalls
+stand on the plaza (`assertConnected` in `village.test.mjs`: reachability from the walk, a lawn blocking all but the paths that
+leave it). Each cottage's window holds a stained-glass pane for its PR's state
 (`cottage-pane-<tile>`, in the sheet's `pane` rect: merged green, review blue, draft amber, failing red, none slate), the PR,
 Probe and auto-merge medallions sit on its roof; each agent is a robot on its cottage's doorstep (the sheet's `doorstep`), more fanning
 out to its right, in provider colours (`robotColor`), with a floor light in the Atlas's state colour (pulsing for states that need

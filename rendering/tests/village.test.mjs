@@ -80,6 +80,60 @@ function assertLegible(layout) {
   for (const t of things) assert.ok(t.rect.x >= b.x && t.rect.x + t.rect.w <= b.x + b.w + 0.01 && t.rect.y >= b.y && t.rect.y + t.rect.h <= b.y + b.h + 0.01, `${t.what} is outside the village`);
 }
 
+/** Every door is on the town's paths: from the walk under the dashboard halls, the district gates' ways, each district's
+ * plaza, and (through a lawn's fence only where a lane leaves it) each cluster's lane and walkways, reach every hall's door,
+ * every cottage's doorstep and every robot's feet. A lawn blocks: its paths join the plaza only where they leave it. */
+function assertConnected(layout) {
+  const inside = (pt, r) => pt.x >= r.x - 0.5 && pt.x <= r.x + r.w + 0.5 && pt.y >= r.y - 0.5 && pt.y <= r.y + r.h + 0.5;
+  const open = [...layout.town.roads, ...layout.squares.map((s) => s.roads[0])].map((rect) => ({ rect, lawn: null }));
+  const onLawn = layout.lawns.flatMap((l) => l.paths.map((rect) => ({ rect, lawn: l.rect })));
+  const nodes = [...open, ...onLawn];
+  // The part of a lawn's path outside its lawn (where it can meet the plaza).
+  const outside = (n) => {
+    if (!n.lawn) return [n.rect];
+    const r = n.rect, l = n.lawn, parts = [];
+    if (r.y + r.h > l.y + l.h) parts.push({ x: r.x, y: l.y + l.h, w: r.w, h: r.y + r.h - (l.y + l.h) });
+    if (r.y < l.y) parts.push({ x: r.x, y: r.y, w: r.w, h: l.y - r.y });
+    if (r.x < l.x) parts.push({ x: r.x, y: r.y, w: l.x - r.x, h: r.h });
+    if (r.x + r.w > l.x + l.w) parts.push({ x: l.x + l.w, y: r.y, w: r.x + r.w - (l.x + l.w), h: r.h });
+    return parts;
+  };
+  const joined = (a, b) => {
+    if (a.lawn && b.lawn) return a.lawn === b.lawn && overlaps(a.rect, b.rect, 0.5);
+    if (!a.lawn && !b.lawn) return overlaps(a.rect, b.rect, 0.5);
+    const [l, o] = a.lawn ? [a, b] : [b, a];
+    return outside(l).some((part) => overlaps(part, o.rect, 0.5));
+  };
+  const seen = new Set([open[1]]);
+  const queue = [open[1]];
+  while (queue.length) {
+    const n = queue.shift();
+    for (const m of nodes) if (!seen.has(m) && joined(n, m)) (seen.add(m), queue.push(m));
+  }
+  // A point on a lawn is on a path only on one of that lawn's own (reached) paths; elsewhere, on reached paving.
+  const onPath = (pt) => {
+    const lawn = layout.lawns.find((l) => inside(pt, l.rect));
+    return [...seen].some((n) => (lawn ? n.lawn === lawn.rect : !n.lawn) && inside(pt, n.rect));
+  };
+  for (const s of layout.squares) assert.ok(seen.has(open.find((n) => n.rect === s.roads[0])), `district ${s.host.id}'s plaza joins the town's roads`);
+  for (const p of layout.projects) {
+    const door = { x: p.body.x + p.body.w / 2, y: p.base + 1 };
+    assert.ok(onPath(door), `${p.key}'s door is on a path`);
+  }
+  for (const w of layout.workspaces) assert.ok(onPath(w.door), `${w.entity.id}'s doorstep is on a path`);
+  for (const a of layout.agents) assert.ok(onPath(a.feet), `robot ${a.entity.id} stands on a path`);
+}
+
+test("every structure's door is on the town's paths", () => {
+  assertConnected(layoutVillage(VILLAGE_SAMPLE, 1.7));
+  assertConnected(layoutVillage(SPARSE, 1.3));
+  assertConnected(layoutVillage(SPARSE, 2.4));
+  for (const [h, p, w, a] of [[3, 4, 6, 2], [1, 9, 2, 1], [4, 1, 1, 4], [8, 5, 3, 3], [2, 3, 3, 1]]) assertConnected(layoutVillage(big(h, p, w, a), 1.6));
+  const camp = structuredClone(SPARSE);
+  camp.agents.push({ key: "a4", host: "local", name: "loose", model: "claude/x", state: "idle" });
+  assertConnected(layoutVillage(camp, 1.3));
+});
+
 test("the hierarchy: the dashboard halls, then a district per host, a hall per project, a cottage per workspace, robots at its door", () => {
   const layout = layoutVillage(VILLAGE_SAMPLE, 1.7);
   assert.deepEqual(layout.projects.slice(0, 2).map((p) => [p.hall, p.name, p.building]), HALLS.map((h) => [h.hall, h.name, h.building]));
