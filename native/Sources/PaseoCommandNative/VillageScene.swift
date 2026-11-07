@@ -749,7 +749,8 @@ final class VillageScene: SKScene, MapScene {
             // (Several hosts: the whole village is the crop, and the panel keeps clear of it.)
             // The panel may lie over the plaza's outer strip and the top-left hall's left eave, as the concept's does:
             // it never drives the zoom far. (Several hosts: the whole village is the crop, and the panel keeps clear of it.)
-            let left = hudLeft
+            // The panel's room isn't reserved when the page says what it must not cover (banners, tiles): that's kept clear below.
+            let left = clear.isEmpty ? hudLeft : 0
             let hold = min((v.width - left) / (k.width + margin * 2), v.height / (k.height + margin * 2))
             zoom = min(max(min(cover, hold), minimumZoom), maxZoom)
             // Centred on what must show, nudged toward the crop's middle as far as the view allows.

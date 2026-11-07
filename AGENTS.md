@@ -780,9 +780,10 @@ lower bounds, `atLeast`, shown "N+"; the open PRs' groups use GitHub's exact tot
 then a lower bound); both asked by `useVillageCounts` (`web/src/villageCounts.ts`) every minute while
 the Village shows, passed as `AtlasData.dashboard`. Off or without a key, their tiles dim and their cards say why. Bottom left
 "Workspaces" (the teal dome): a bay per workspace of the fleet (by host, project, oldest first), a slate tile and a small lit dot for
-its agents' state (green at work, amber needs you, red failed, grey idle), its four arches always drawn (unused ones empty), an empty dark plate strip under each tile (as under the dashboard tiles), more
-spilling out and wrapping into rows of bays beneath; PR, Probe and auto-merge medallions on its frame. Bottom right "Agents" (the gear
-workshop): wider than the others, every agent as a robot on a raised stone platform as wide as the building, shoulder to shoulder, wrapping into more rows; provider colours (`robotColor`),
+its agents' state (green at work, amber needs you, red failed, grey idle), its four arches always drawn (unused ones empty), an empty dark plate strip under each tile (as under the dashboard tiles), past six wrapping into
+rows of bays beneath (seven: four and three); PR, Probe and auto-merge medallions on its frame. Bottom right "Agents" (the gear
+workshop): wider than the others, every agent as a robot, always at full size, on a raised stone platform as wide as the building, extending past its sides
+(up to 1.3 times its width, overhanging the plaza and toward the river) before wrapping into more rows; halls never widen with the fleet; provider colours (`robotColor`),
 idle and work frames, a floor light in the Atlas's state colour (pulsing for states that need you), markers over heads, drones.
 No text on the map but the host plaque, as on the Islands map: halls, tiles, workspaces and robots say what they are in hover cards
 (the page's `.atlas-world-card` from the bridge's `card` handler: a tile its count and up to 12 PRs or issues, a hall its name and

@@ -382,16 +382,9 @@ const bayStep = (pitch: number) => {
 };
 
 /** The width a hall asks for: room for its robots shoulder to shoulder, or its plates' names. */
-function hallWidth(spec: (typeof HALLS)[number], bays: Bay[], robots: number, measure: Measure): number {
-  if (spec.hall === "agents") {
-    const perRow = Math.max(4, Math.min(robots, Math.max(8, Math.ceil(Math.sqrt(robots * 1.5)))));
-    return clamp((Math.min(robots, perRow) * V.pitch) / 0.98, V.building, V.buildingMax);
-  }
-  if (spec.hall === "workspaces") {
-    // Names past what fits step their type down on the plate (to 14 px) before they're cut short.
-    const widest = Math.max(0, ...bays.map((b) => (b.kind === "workspace" ? measure(plateLabel(b.c.name), "workspace") : 0)));
-    return clamp((widest + 34) / V.archPitch, V.building, 700);
-  }
+function hallWidth(_spec: (typeof HALLS)[number], _bays: Bay[], _robots: number, _measure: Measure): number {
+  // Every hall keeps its natural size, so the village (and its robots) never shrinks as the fleet grows: the workshop's
+  // platform extends past its sides for more robots, and bays spill out under arches of their own.
   return V.building;
 }
 
@@ -402,7 +395,8 @@ function blockOf(spec: (typeof HALLS)[number], bays: Bay[], robots: number, meas
   if (spec.hall === "agents") w = Math.min(V.buildingMax * 1.1, w * 1.08);
   if (spec.hall === "agents") {
     // Robots shoulder to shoulder on its platform; past a hall's width, more rows.
-    perRow = Math.max(4, Math.min(robots, Math.max(8, Math.ceil(Math.sqrt(robots * 1.5)))));
+    // As many as fit, at full size, on a platform up to 1.3 times the workshop's width; then another row.
+    perRow = Math.max(4, Math.floor((w * 1.3) / V.pitch));
     rows = Math.max(1, Math.ceil(robots / perRow));
   }
   const pitch = w * V.archPitch;
@@ -410,12 +404,14 @@ function blockOf(spec: (typeof HALLS)[number], bays: Bay[], robots: number, meas
   // Oldest first, left to right: the building's own four arches; more spill out either side under arches of their own,
   // then wrap into further rows beneath.
   const n = bays.length;
-  rows = spec.hall === "workspaces" ? Math.max(1, Math.ceil(n / 8)) : rows;
+  // Past six, workspaces wrap into rows under the dome (seven: four and three), rather than spilling far past its sides.
+  rows = spec.hall === "workspaces" ? Math.max(1, Math.ceil(n / 6)) : rows;
   const perBayRow = spec.hall === "workspaces" ? Math.max(4, Math.ceil(n / rows)) : 4;
   const start = -Math.floor((perBayRow - 4) / 2);
   const placed = bays.map((bay, i) => ({ bay, slot: start + (i % perBayRow), row: Math.floor(i / perBayRow) }));
   const lo = Math.min(0, start), hi = Math.max(3, start + perBayRow - 1);
-  const span = Math.max((hi - lo + 1) * pitch, spec.hall === "agents" ? Math.min(robots, perRow) * V.pitch + 40 : 0);
+  // (The workshop's platform overhangs its block into the plaza and toward the river rather than widening the village.)
+  const span = (hi - lo + 1) * pitch;
   const plaqueW = clamp(Math.ceil(measure(spec.name, "project") + V.labelPad * 2), V.plaqueMin, Math.min(V.plaqueMax, w * 0.8));
   const extra = spec.hall === "agents" ? (rows - 1) * V.robotRow : spec.hall === "workspaces" ? (rows - 1) * bayStep(pitch) : 0;
   return {
@@ -816,6 +812,10 @@ export function layoutVillage(data: AtlasData, _aspect = 1.6, measure: Measure =
     const said = top.flatMap((p) => [p.plaque, p.banner, ...workspaces.filter((w) => w.project === p.key && w.square === i).map((w) => w.frame), ...tiles.filter((t) => `hall:${t.hall}` === p.key).map((t) => t.frame)]);
     const x = Math.min(...said.map((r) => r.x)) - 12;
     if (x > sq.keep.x) sq.keep = { ...sq.keep, x, w: sq.keep.x + sq.keep.w - x };
+    // Every workspace's bay and every robot stay inside the view too.
+    const inside = [...workspaces.map((w) => w.frame), ...agents.map((a) => a.rect)];
+    const x0 = Math.min(sq.keep.x, ...inside.map((r) => r.x - 8)), x1 = Math.max(sq.keep.x + sq.keep.w, ...inside.map((r) => r.x + r.w + 8));
+    sq.keep = { ...sq.keep, x: x0, w: x1 - x0 };
   }
   const decor = sceneryOf(squares, projects, workspaces, agents, tiles);
 
