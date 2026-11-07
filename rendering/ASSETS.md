@@ -929,7 +929,7 @@ These are useful original coast parts, not a pixel-identical reconstruction of t
 
 ## Dungeon Board
 
-The geometry kit is v3, robots are v4, and material/furnishing refinements are v5–v7. Artwork was generated with the built-in
+The geometry kit is v3, robots are v4, and material/furnishing refinements are v5–v8. Artwork was generated with the built-in
 `image_gen` tool on 2026-11-06.
 The private `design/references/dungeon-concept.png` was inspected at 3×,
 particularly its LOCAL floor, left terrace, workspace recess and central gate.
@@ -950,13 +950,14 @@ Only animation frame zero supplies `fps`.
 | `robots` | 80 | Smooth glossy shell, ten body colours, idle/work poses and flying drones |
 | `alcoves` | 11 | Four sparse interiors, chunky piers, lintel, new ledge and three redrawn candle flames |
 | `gate` | 12 | New upper host surround, lower arch, lit/dark portcullis, stairs with side walls, host disc and crown banner |
-| `stone` | 35 | Existing architecture plus the full raised rampart kit, terrace floor and two diagonal returns |
+| `stone` | 48 | Existing architecture plus the full raised rampart kit, terrace floor and two diagonal returns |
 | `ui` | 28 | Simple clipped parchment, thin bronze borders, dark discs in pale octagonal mounts, pictograms/counts/dots |
 | `props` | 54 | Furnishings, animated fires/magic, candelabra and wall-candle families, unlit variants |
 | `status` | 27 | Existing markers, glows and PR/Probe states, plus violet `mark-asking` / `glow-asking` |
 
-There are 247 frames: the 235 earlier frames, ten candle-fixture frames from v6,
-and two underside corbels from v7. The original required names and optional
+There are 260 frames: the 235 earlier frames, ten candle-fixture frames from v6,
+two underside corbels from v7, eight tile variants and five reflection glazes
+from v8. The original required names and optional
 `rampart-return-left` / `rampart-return-right` are retained. The two optional
 diagonal wall runs let a terrace or alcove show the angled returns in the
 reference. None of the required names was removed or renamed. PR/Probe names
@@ -1040,7 +1041,7 @@ asset set; `--publish-staged` checks an already complete stage before replacemen
 Private review images:
 
 - `artifacts/dungeon/calibration.png`: matching LOCAL-left crops at 3×.
-- `artifacts/dungeon/contact-sheet.png`: all 247 labelled frames.
+- `artifacts/dungeon/contact-sheet.png`: all 260 labelled frames.
 - `artifacts/dungeon/mock.png`: the LOCAL floor reconstructed only from sprites, beside the matching 1199×365 concept crop at 3×.
 - `artifacts/dungeon/v3/local-floor.png`: the generated half of that comparison.
 - `artifacts/dungeon/tile-wall-brick-6x4.png` and `tile-wall-brick-dark-6x4.png`: wall-repeat proofs.
@@ -1224,6 +1225,65 @@ raw-source rebuild includes v7. `v7/art-review.png` compares old/new banners at
 one width and shows the two corbels. `v7/join-crops.png` records the code-side
 arch obstruction in compare-13. Review captures describe that baseline, not a
 new app render after these assets have been integrated.
+
+
+V8 is the illustration-finish polish: five new built-in generations supply
+rough masonry materials, rampart pieces, pillar/return pieces, four empty room
+recesses and five painted reflection glazes. Exact prompts, original source
+filenames and whole-object crop rectangles are in `v8_generations` in
+`prompts.json`. Raw sources remain private in `artifacts/dungeon/v8/`.
+No strict-grid 8-bit conversion, synthetic random speckle or vector texture
+stand-in is used: the chips, cracks, facets, varied block joints and spill
+shapes come from generated raster artwork.
+
+Thirty existing `stone` frames are rebuilt with uneven blocks and rougher
+painted edges: wall/dark wall, rampart runs/corners/ends/T/returns, pillar/cap/
+base/capital, ledge face/ends, floors, board borders and the four room recesses.
+The already rough decorative windows/niche and v7 corbels retain their art.
+`alcoves` receives matching rough piers, lintel and front ledge; its furnished
+interiors and candle frames retain their pixels. Existing dimensions, exact
+anchors, tile axes, names and animation metadata are preserved. Generated
+material values/chroma are matched back to the accepted pre-v8 material palette;
+contrast is allowed slightly more variation so cracks and chips survive.
+The standard brick patch combines two distinct half-patches to retain small
+back-wall brick scale rather than enlarging them into structural blocks.
+
+New static tile arrangements, in `stone`, are `wall-brick-2`, `wall-brick-3`,
+`rampart-x-2`, `rampart-x-3`, `floor-flag-2`, `floor-flag-3`,
+`terrace-floor-2`, `terrace-floor-3`. Every member has its base's dimensions,
+anchor and tile axes. Narrow boundary bands share the base profile, including
+alpha, so variants can meet each other. Opposite RGBA edges are checked both
+for self-repeat and between family members. Mixed 6×4 repeats are saved as
+`artifacts/dungeon/v8/mixed-<family>-6x4.png`. Choose arrangements with stable
+spatial seeds; do not animate or flip them (illumination stays upper-left).
+
+The five static gold overlays, also in `stone`, are
+`light-spill-wall-0`, `light-spill-wall-1`, `light-spill-wall-2`,
+`light-spill-floor-0`, `light-spill-floor-1`. Wall variants share a 324×304
+canvas/centre anchor; floor variants share 364×204. They have no FPS because
+these are static painted alternatives, not animation frames. The generated
+source contained neutral backing: warm-pigment chroma matting removes its white
+and grey, then gold saturation and low alpha are enforced. No neutral/white
+pixels survive with positive alpha. Peak alpha is below 0.46, with softly
+transparent irregular edges and small painted gold facets. They are warm
+reflection glazes, not hard circular or white bloom sprites.
+
+Place one chosen glaze on nearby stone behind fixtures/props/agents, clipping
+it to the intended masonry/plane where appropriate. Use restrained opacity or
+soft light/screen treatment, and keep it off agent/status/label faces. Preserve
+the cool mortar and existing agent-first hierarchy; do not stack all variants
+at one fixture. `v8/spills-on-stone.png` demonstrates the actual exported alpha
+on the rough wall and floor. `v8/masonry-review.png` compares original/revised
+pieces at one frame size. `v8/texture-validation.json` records old-interface,
+mixed-edge and spill-alpha checks.
+
+The builder's `--rough-only` mode starts from `v8/before/`, stages the complete
+replacement, checks it and refreshes the contact sheet. `--rough-only --publish`
+installs checked files with atomic renames; the full raw-source rebuild also
+includes v8. There are 260 frames after this pass. Robots and status PNGs are
+byte-preserved, as are the gate, props and UI sheets. The asset folder remains
+below 12 MB. Renderer registration/variant selection and light-overlay placement
+are deliberately left to code; no app code or commits are changed by this pass.
 
 Remaining differences: the concept's masonry has more bespoke pixel-like chips,
 uneven joints and integrated painted shadows. V3 is smoother, its joins and

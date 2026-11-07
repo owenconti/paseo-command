@@ -5,10 +5,10 @@ The PNG/JSON atlases, prompts, this build/check script and ASSETS.md are deliver
 """
 from PIL import Image, ImageDraw, ImageChops, ImageFilter, ImageFont, ImageCms
 from pathlib import Path
-import json, math, re, argparse, os, shutil, statistics
+import json, math, re, argparse, os, shutil, statistics, colorsys
 
 LIVE = Path('rendering/src/assets/dungeon')
-OUT = Path('rendering/artifacts/dungeon/v7/staging')
+OUT = Path('rendering/artifacts/dungeon/v8/staging')
 ART = Path('rendering/artifacts/dungeon')
 RESAMPLE = Image.Resampling.LANCZOS
 SHEETS = {}
@@ -441,6 +441,7 @@ def build():
     fix_art_v5()
     build_gold_props_v6()
     hanging_v7()
+    rough_masonry_v8()
 
 def pack():
     OUT.mkdir(parents=True,exist_ok=True)
@@ -638,6 +639,8 @@ def validate():
     expected += ['rampart-x','rampart-y','rampart-corner-tl','rampart-corner-tr','rampart-corner-bl','rampart-corner-br','rampart-end-left','rampart-end-right','rampart-end-top','rampart-end-bottom','rampart-t-down','terrace-floor','alcove-ledge','gate-surround','torch-out','mark-asking','glow-asking']
     expected += ['room-arch','room-cave','room-magic','room-forge','pillar-capital','window-arch','chain-pair']
     expected += ['corbel-left','corbel-right']
+    expected += [f'{b}-{i}' for b in ['wall-brick','rampart-x','floor-flag','terrace-floor'] for i in [2,3]]
+    expected += [f'light-spill-wall-{i}' for i in range(3)]+[f'light-spill-floor-{i}' for i in range(2)]
     expected += [f'{b}-{i}' for b in ['candelabra','wall-candles'] for i in range(4)]+['candelabra-out','wall-candles-out']
     missing=sorted(set(expected)-set(frames));extra=sorted(set(frames)-set(expected))
     if missing:errors.append('Missing '+str(missing))
@@ -1141,9 +1144,169 @@ def hanging_only_v7(publish_live=False):
     if publish_live:publish()
 
 
+def sources_v8(key):
+    im=Image.open(ART/'v8'/(key+'-raw.png')).convert('RGBA')
+    if key=='materials':
+        return [region(im.crop((round(x*im.width/4),round(y*im.height/2),round((x+1)*im.width/4),round((y+1)*im.height/2))),(.06,.06,.94,.94)) for y in range(2) for x in range(4)]
+    if key=='spills':
+        out=[]
+        for i in range(5):
+            x=i%3;y=i//3;v=im.crop((round(x*im.width/3),round(y*im.height/2),round((x+1)*im.width/3),round((y+1)*im.height/2)))
+            # The generated glazes have neutral backing. Chroma-matting
+            # extracts only warm pigment; white/grey is not reflection art.
+            hsv=v.convert('RGB').convert('HSV');data=[]
+            for (r,g,b,a),(h,s,z) in zip(v.getdata(),hsv.getdata()):
+                hue=h*360/255;chroma=max(0,min(1,(s/255-.035)/.55))
+                aa=round(a*chroma*.44) if 18<=hue<=65 else 0
+                if aa<12:data.append((0,0,0,0));continue
+                # Saturated gold only; the alpha, not a white matte, carries
+                # the feathery transition and painted wash density.
+                hh=max(28,min(48,hue))/360;ss=max(166,s)/255;vv=max(165,min(250,z))/255;rgb=tuple(round(q*255) for q in colorsys.hsv_to_rgb(hh,ss,vv));data.append((*rgb,aa))
+            v.putdata(data);v=prune_micro(clean(v));box=v.getchannel('A').getbbox()
+            if not box:raise ValueError('empty spill '+str(i))
+            out.append(v.crop(box))
+        return out
+    path=ART/'v8/source-crops.json';boxes=json.loads(path.read_text())['v8-'+key] if path.exists() else json.loads((LIVE/'prompts.json').read_text())['v8_generations']['v8-'+key]['crops']
+    return [trim(im.crop(b)) for b in boxes]
+
+def palette_v8(im,reference):
+    """Keep accepted material value/temperature while retaining new texture."""
+    src=ImageCms.applyTransform(im.convert('RGB'),_TO_LAB);dst=ImageCms.applyTransform(reference.convert('RGB'),_TO_LAB)
+    a=[q for p,q in zip(im.getdata(),src.getdata()) if p[3]>220];b=[q for p,q in zip(reference.getdata(),dst.getdata()) if p[3]>220]
+    if not a or not b:return im
+    sa=[statistics.mean(q[k] for q in a) for k in range(3)];ta=[statistics.mean(q[k] for q in b) for k in range(3)]
+    sd=math.sqrt(statistics.mean((q[0]-sa[0])**2 for q in a));td=math.sqrt(statistics.mean((q[0]-ta[0])**2 for q in b));gain=max(.45,min(1.5,td*1.1/max(1,sd)))
+    shift=[0,max(-12,min(12,ta[1]-sa[1])),max(-22,min(22,ta[2]-sa[2]))]
+    src.putdata([(max(0,min(255,round((l-sa[0])*gain+ta[0]))),max(0,min(255,round(aa+shift[1]))),max(0,min(255,round(bb+shift[2])))) for l,aa,bb in src.getdata()]);rgb=ImageCms.applyTransform(src,_TO_RGB);out=im.copy();out.putdata([(*q,p[3]) if p[3] else (0,0,0,0) for p,q in zip(im.getdata(),rgb.getdata())]);return clean(out)
+
+def tile_v8(src,old,axes,opaque=False):
+    im=fit(src,old.size,True)
+    if opaque:im.putalpha(255)
+    im=palette_v8(im,old);return clean(periodic(im,axes,band=4))
+
+def compatible_v8(im,base,axes):
+    """All family members share an edge band, including alpha."""
+    im=im.copy();p=im.load();q=base.load();w,h=im.size;band=6
+    for axis in axes:
+        for side in [0,1]:
+            for k in range(band):
+                weight=(1-k/band)**2
+                for j in range(h if axis=='x' else w):
+                    x,y=(k if not side else w-1-k,j) if axis=='x' else (j,k if not side else h-1-k)
+                    p[x,y]=tuple(round(a*(1-weight)+b*weight) for a,b in zip(p[x,y],q[x,y]))
+    return clean(im)
+
+def wall_pair_v8(first,second,old):
+    """Two distinct half-patches retain the reference's smaller brick scale."""
+    w=old.width//2;h=old.height;parts=[]
+    for src in [first,second]:
+        v=fit(src,(w,h),True);v.putalpha(255);parts.append(palette_v8(v,old))
+    left,right=parts;p=left.load();q=right.load();band=6
+    for y in range(h):
+        shared=tuple(round((a+b)/2) for a,b in zip(p[w-1,y],q[0,y]))
+        for k in range(band):
+            weight=(1-k/band)**2
+            p[w-1-k,y]=tuple(round(a*(1-weight)+b*weight) for a,b in zip(p[w-1-k,y],shared))
+            q[k,y]=tuple(round(a*(1-weight)+b*weight) for a,b in zip(q[k,y],shared))
+    out=Image.new('RGBA',old.size);out.alpha_composite(left,(0,0));out.alpha_composite(right,(w,0));return clean(periodic(out,'xy',band=4))
+
+def rough_masonry_v8():
+    mats=sources_v8('materials');r=sources_v8('ramparts');a=sources_v8('architecture');rooms=sources_v8('rooms');old=dict(SPRITES);new={};variants=[]
+    for n,src,axes in [('wall-brick',mats[0],'xy'),('wall-brick-dark',mats[3],'xy'),('terrace-floor',mats[4],'xy'),('floor-flag',mats[4],'x')]:new[n]=tile_v8(src,old[n],axes,True)
+    new['wall-brick']=wall_pair_v8(mats[0],mats[1],old['wall-brick'])
+    new['rampart-x']=tile_v8(r[0],old['rampart-x'],'x')
+    new['rampart-y']=tile_v8(r[1],old['rampart-y'],'y')
+    for n,src,axes in [('ledge-face',r[11],'x'),('pillar',region(a[2],(.12,.28,.88,.84)),'y'),('border',r[0],'x')]:new[n]=tile_v8(src,old[n],axes)
+    for idx,n in [(2,'rampart-corner-tl'),(3,'rampart-corner-tr'),(4,'rampart-corner-bl'),(5,'rampart-corner-br'),(6,'rampart-end-left'),(7,'rampart-end-right'),(8,'rampart-end-top'),(9,'rampart-end-bottom'),(10,'rampart-t-down')]:new[n]=palette_v8(framed_v5(r[idx],old[n].size),old[n])
+    for idx,n in [(6,'rampart-return-left'),(7,'rampart-return-right'),(3,'pillar-cap'),(4,'pillar-base'),(5,'pillar-capital')]:new[n]=palette_v8(framed_v5(a[idx],old[n].size),old[n])
+    for n,src in [('ledge-end-left',region(r[2],(0,0,1,.38))),('ledge-end-right',region(r[3],(0,0,1,.38))),('border-corner',r[2])]:new[n]=palette_v8(framed_v5(src,old[n].size),old[n])
+    for n,src in zip(['room-arch','room-cave','room-magic','room-forge'],rooms):new[n]=palette_v8(framed_v5(src,old[n].size),old[n])
+    # Roughen the structural masonry around the already-painted interiors,
+    # preserving all furniture/monitor/wood pixels in the interior frames.
+    for n in ['alcove-left','alcove-right']:new[n]=palette_v8(framed_v5(a[2],old[n].size),old[n])
+    for n,src in [('alcove-top',r[0]),('alcove-ledge',region(r[0],(.02,.05,.98,.82)))]:new[n]=tile_v8(src,old[n],'x')
+    for sheet,fs in SHEETS.items():
+        SHEETS[sheet]=[(n,prune_micro(new.get(n,im)) if not info.get('tile') else new.get(n,im),info) for n,im,info in fs]
+    for n,im in new.items():SPRITES[n]=im
+    # Two extra arrangements for each heavily repeated family. All use exactly
+    # the base dimensions and a shared compatible boundary profile.
+    for base,sources,axes,opaque in [('wall-brick',[mats[1],mats[2]],'xy',True),('rampart-x',[a[0],a[1]],'x',False),('floor-flag',[mats[5],mats[6]],'x',True),('terrace-floor',[mats[5],mats[6]],'xy',True)]:
+        for i,src in enumerate(sources,2):
+            v=wall_pair_v8(mats[1] if i==2 else mats[2],mats[2] if i==2 else mats[0],old[base]) if base=='wall-brick' else tile_v8(src,old[base],axes,opaque)
+            v=compatible_v8(v,SPRITES[base],axes);n=f'{base}-{i}';add('stone',n,v,'tl',tile=axes);variants.append(n)
+    for i,v in enumerate(sources_v8('spills')):
+        wall=i<3;size=(320,300) if wall else (360,200);v=fit(v,(size[0]-20,size[1]-20));can=Image.new('RGBA',size);can.alpha_composite(v,((size[0]-v.width)//2,(size[1]-v.height)//2));n=f'light-spill-wall-{i}' if wall else f'light-spill-floor-{i-3}';add('stone',n,can,'centre')
+
+def load_baseline_v8():
+    load_live_art();base=ART/'v8/before'
+    for sheet in ['stone','alcoves']:
+        j=json.loads((base/(sheet+'.json')).read_text());im=Image.open(base/(sheet+'.png')).convert('RGBA');SHEETS[sheet]=[]
+        for n,f in j['frames'].items():
+            v=im.crop((f['x'],f['y'],f['x']+f['w'],f['y']+f['h']));info={k:z for k,z in f.items() if k not in ['x','y','w','h']};SPRITES[n]=v;META[n]=info;SHEETS[sheet].append((n,v,info))
+
+def rough_reviews_v8():
+    base=ART/'v8/before';pairs=[('stone','wall-brick'),('stone','rampart-x'),('stone','pillar'),('stone','terrace-floor'),('stone','room-arch'),('alcoves','alcove-left')]
+    out=Image.new('RGBA',(1600,1900),'#231d31');d=ImageDraw.Draw(out);d.text((20,15),'ROUGH MASONRY / before left / revised right / same frame size',fill='white')
+    for i,(sheet,n) in enumerate(pairs):
+        y=65+i*300;j=json.loads((base/(sheet+'.json')).read_text());f=j['frames'][n];old=Image.open(base/(sheet+'.png')).crop((f['x'],f['y'],f['x']+f['w'],f['y']+f['h']))
+        for x,im in [(20,old),(820,SPRITES[n])]:
+            v=fit(im,(740,260));out.alpha_composite(v,(x,y))
+        d.text((20,y-20),n,fill='white')
+    out.convert('RGB').save(ART/'v8/masonry-review.png',optimize=True)
+    # Mixed variants, no flips: upper-left light stays consistent.
+    for n in ['wall-brick','rampart-x','floor-flag','terrace-floor']:
+        fs=[SPRITES[n],SPRITES[n+'-2'],SPRITES[n+'-3']];w,h=fs[0].size;can=Image.new('RGBA',(w*6,h*4),'#211b2f')
+        for y in range(4):
+            for x in range(6):can.alpha_composite(fs[(x+2*y)%3],(x*w,y*h))
+        can.save(ART/'v8'/('mixed-'+n+'-6x4.png'))
+    can=Image.new('RGBA',(1800,1100),'#211b2e');d=ImageDraw.Draw(can)
+    for i,n in enumerate(['light-spill-wall-0','light-spill-wall-1','light-spill-wall-2','light-spill-floor-0','light-spill-floor-1']):
+        x=i%3*590;y=i//3*520;tile='wall-brick' if i<3 else 'terrace-floor';repeat(can,tile,(x+10,y+45,560,430));paste(can,n,x+105,y+105);d.text((x+12,y+15),n,fill='white')
+    can.convert('RGB').save(ART/'v8/spills-on-stone.png',optimize=True)
+
+def validate_rough_v8():
+    base=ART/'v8/before';errors=[];count=0
+    for path in base.glob('*.json'):
+        if path.stem=='prompts':continue
+        old=json.loads(path.read_text());new=json.loads((OUT/path.name).read_text())
+        for n,f in old['frames'].items():
+            count+=1;g=new['frames'].get(n)
+            if not g or any(g[k]!=f[k] for k in ['w','h','anchor']):errors.append(n+' interface changed')
+    j=json.loads((OUT/'stone.json').read_text());atlas=Image.open(OUT/'stone.png').convert('RGBA')
+    def crop(n):
+        f=j['frames'][n];return atlas.crop((f['x'],f['y'],f['x']+f['w'],f['y']+f['h']))
+    for n,axes in [('wall-brick','xy'),('rampart-x','x'),('floor-flag','x'),('terrace-floor','xy')]:
+        b=crop(n)
+        for k in [2,3]:
+            v=crop(n+'-'+str(k))
+            for axis in axes:
+                boxes=[(0,0,1,b.height),(b.width-1,0,b.width,b.height)] if axis=='x' else [(0,0,b.width,1),(0,b.height-1,b.width,b.height)]
+                for box in boxes:
+                    if any(hi for lo,hi in ImageChops.difference(b.crop(box),v.crop(box)).getextrema()):errors.append(n+' mixed edge mismatch')
+    spills={}
+    for n in [f'light-spill-wall-{i}' for i in range(3)]+[f'light-spill-floor-{i}' for i in range(2)]:
+        im=crop(n);data=[p for p in im.getdata() if p[3]];amax=max(p[3] for p in data)
+        if amax>145:errors.append(n+' too opaque')
+        if any(min(p[:3])>150 or p[0]<p[1] or p[1]<p[2] for p in data):errors.append(n+' white/neutral pixel')
+        spills[n]={'max_alpha':amax,'visible_pixels':len(data)}
+    for n in ['robots','status']:
+        if (OUT/(n+'.png')).read_bytes()!=(LIVE/(n+'.png')).read_bytes():errors.append(n+' changed')
+    report={'old_interfaces_preserved':count,'mixed_edge_families_checked':4,'spill_alpha':spills,'errors':errors};(ART/'v8/texture-validation.json').write_text(json.dumps(report,indent=2)+'\n');print(json.dumps(report,indent=2))
+    if errors:raise SystemExit(1)
+
+def rough_only_v8(publish_live=False):
+    global OUT
+    OUT=ART/'v8/staging';OUT.mkdir(parents=True,exist_ok=True);sync_provenance_v5(OUT)
+    for p in LIVE.iterdir():
+        if p.suffix in ['.png','.json'] and not (p.name=='prompts.json' and (OUT/p.name).exists()):shutil.copy2(p,OUT/p.name)
+    load_baseline_v8();rough_masonry_v8();pack();validate();validate_rough_v8();contact();rough_reviews_v8()
+    if publish_live:publish()
+
+
 if __name__=='__main__':
-    parser=argparse.ArgumentParser();parser.add_argument('--validate-only',action='store_true');parser.add_argument('--publish',action='store_true');parser.add_argument('--publish-staged',action='store_true');parser.add_argument('--robots-only',action='store_true');parser.add_argument('--art-only',action='store_true');parser.add_argument('--props-only',action='store_true');parser.add_argument('--hanging-only',action='store_true');args=parser.parse_args()
-    if args.hanging_only:hanging_only_v7(args.publish)
+    parser=argparse.ArgumentParser();parser.add_argument('--validate-only',action='store_true');parser.add_argument('--publish',action='store_true');parser.add_argument('--publish-staged',action='store_true');parser.add_argument('--robots-only',action='store_true');parser.add_argument('--art-only',action='store_true');parser.add_argument('--props-only',action='store_true');parser.add_argument('--hanging-only',action='store_true');parser.add_argument('--rough-only',action='store_true');args=parser.parse_args()
+    if args.rough_only:rough_only_v8(args.publish)
+    elif args.hanging_only:hanging_only_v7(args.publish)
     elif args.props_only:props_only_v6(args.publish)
     elif args.art_only:art_only_v5(args.publish)
     elif args.robots_only:robots_only(args.publish)

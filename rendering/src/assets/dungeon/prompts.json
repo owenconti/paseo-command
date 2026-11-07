@@ -49,7 +49,7 @@
       "review_source": "status-raw.png"
     }
   },
-  "version": 7,
+  "version": 8,
   "v2_generations": {
     "v2-ramparts": {
       "prompt": "Use case: stylized-concept. Production game sprite atlas, original Dungeon Board artwork. Input is a PRIVATE STYLE REFERENCE crop only; do not reproduce the scene or its letters. Match it closely: HD pixel-art-flavoured hand-painted fantasy game illustration, smooth detailed shading with a little pixel texture, chunky readable dark outlined forms, NOT strict-grid pixel art, NOT vector or a 3D render. Camera in front and ABOVE at about 30 degrees elevation, like the crop: lit TOP faces plus darker FRONT faces and short visible SIDE faces; not a flat front elevation. Large lavender/periwinkle GREY stone blocks: light top faces #9a90c8 to #b4a9de, mid front faces #6a5f9a, dark mortar/outlines #2a2340. Strong top-left bevel highlight. Few small chips, smooth stone, NO purple glitter, NO busy speckles. Darker small purple-grey back-wall bricks. Warm yellow candle bounce on lower edges, gentle top-left ambient. Exterior truly transparent alpha, no matte, no checkerboard, no background. No words or numbers, no labels attached to architecture. All objects fully inside their own cell with wide empty gutters. EXACT 4 columns x 3 rows of equal cells, twelve modular LOW WALL pieces at the same scale, not full-height walls. Thick large blocks showing broad lit top planes and a darker front face, low wall height about 22 concept pixels, one block thick. NO gold trim. Row 1: horizontal STRAIGHT low wall run, three large blocks across, parallel horizontal edges, 3:1 wide/height; vertical STRAIGHT low wall run, column of three top faces with a narrow darker RIGHT side face visible, 1:3 wide/height; L wall corner top-left with runs extending right and down; L wall corner top-right with runs extending left and down. Row2: L wall corner bottom-left runs right and up; L wall corner bottom-right runs left and up; horizontal wall's LEFT exposed end block; horizontal wall's RIGHT exposed end block. Row3: vertical wall's TOP exposed end block; vertical wall's BOTTOM exposed end block; T junction horizontal wall with vertical wall departing down from middle; rectangular patch of warm candlelit flagstone FLOOR viewed from above at the same camera angle, laid as chunky irregular grey/periwinkle slabs with pale golden edge highlights, repeatable surface, no border. Make every corner fit the same block thickness and scale as the straight runs. Avoid isometric diamonds; horizontal runs follow the screen horizontal, vertical ones follow the screen vertical. This is a reusable masonry kit, not a room or diorama.",
@@ -2182,5 +2182,207 @@
       ]
     }
   },
-  "v7_notes": "Five hanging canvases intentionally become taller without changing their pixel mounting anchors or frame names; other old frames keep their dimensions, pixels and anchors. Two new dark stepped corbels support irregular underside placement. Review refers to compare-13, before integration."
+  "v7_notes": "Five hanging canvases intentionally become taller without changing their pixel mounting anchors or frame names; other old frames keep their dimensions, pixels and anchors. Two new dark stepped corbels support irregular underside placement. Review refers to compare-13, before integration.",
+  "v8_generations": {
+    "v8-materials": {
+      "prompt": "Use case: stylized-concept. Production transparent game art for Dungeon Board. Private image is STYLE REFERENCE ONLY. Match its HD PIXEL-TEXTURED PAINTED dungeon masonry: large irregular lavender-grey stone, angular chipped edges, uneven block widths/heights, short cracks and irregular broken bevel highlights. Hand-painted shading with visible small pixel-like facets and clusters at stone joints, NOT strict-grid 8-bit art, NOT smooth toy/plastic blocks, NOT flat vector or 3D render. Chips concentrate at edges and a few face fractures; large face planes stay quiet. NO uniform speckle/glitter/sand grain/polka-dot texture. Deep violet mortar #241d38, mid stone #6f64a3, restrained pale lavender tops #a49bd6..#b8aee6, warm amber reflected bevels and warm grey floors, no cold-blue wash. Camera in front and above with visible top/front/side planes where appropriate. Consistent upper-left illumination. Every subject isolated with real transparent gutters, no text, numbers, icons, people, furniture or extra scenery. Full silhouettes contained in their cells. EXACT FOUR columns x TWO rows, eight material patches; high-resolution atlas, ideally 2048x1024. Each patch rectangular and material-only, no raised frame or outer rim. Row1: (1) repeating back-wall BRICK tile: irregular ashlar courses, 5–6 rows of varied short/long stones, dark mortar, chipped edges and cracks; (2) a genuinely different arrangement of the same wall bricks at the SAME scale, different block sizes/fractures; (3) a third arrangement same scale with alternate staggered joints; (4) clearly MUCH DARKER irregular dungeon recess stone, almost-black violet stone of varied sizes and broken courses, quiet contrast. Row2: (1) warm candle-lit grey FLOOR FLAGSTONES viewed from above at slight foreshortening, irregular rectangular and polygonal slabs, visible painted chips, warm amber edge scuffs, dark seams; (2) different flagstone arrangement same scale/light/palette; (3) third arrangement same scale; (4) close material-only patch of one rough lavender-grey stone face with subtle connected fractures and a few broken light facets, NO mortar grid. The three wall variants share similar boundary course heights, so they can be blended at their edges, but interiors differ. No lighting vignette or bright border. Whole rectangular patch filled; transparent exterior only. Original painted texture, not a photo.",
+      "source_filename": "exec-0d38908f-2128-4f77-8c9d-d4eb5fbb05b3.png",
+      "review_source": "v8/materials-raw.png",
+      "grid": {
+        "columns": 4,
+        "rows": 2
+      },
+      "notes": "New generated rough/chipped material is fitted to old frame dimensions and palette. Variant families share boundary profiles."
+    },
+    "v8-ramparts": {
+      "prompt": "Use case: stylized-concept. Production transparent game art for Dungeon Board. Private image is STYLE REFERENCE ONLY. Match its HD PIXEL-TEXTURED PAINTED dungeon masonry: large irregular lavender-grey stone, angular chipped edges, uneven block widths/heights, short cracks and irregular broken bevel highlights. Hand-painted shading with visible small pixel-like facets and clusters at stone joints, NOT strict-grid 8-bit art, NOT smooth toy/plastic blocks, NOT flat vector or 3D render. Chips concentrate at edges and a few face fractures; large face planes stay quiet. NO uniform speckle/glitter/sand grain/polka-dot texture. Deep violet mortar #241d38, mid stone #6f64a3, restrained pale lavender tops #a49bd6..#b8aee6, warm amber reflected bevels and warm grey floors, no cold-blue wash. Camera in front and above with visible top/front/side planes where appropriate. Consistent upper-left illumination. Every subject isolated with real transparent gutters, no text, numbers, icons, people, furniture or extra scenery. Full silhouettes contained in their cells. EXACT 4 columns x 3 rows, twelve isolated modular LOW WALL pieces, complete silhouettes and generous genuine alpha gutters. ALL same block thickness: low rampart with broad lit top faces and darker front faces. NO gold decoration. Row1: horizontal straight rampart run of THREE uneven chipped blocks, 3:1 wide/height; vertical straight run of three top faces with narrow side face, 1:3 wide/height; L corner top-left with runs extending right and down; L corner top-right extending left and down. Row2: L corner bottom-left extending right and up; L corner bottom-right extending left and up; a SINGLE exposed left end block; a SINGLE exposed right end block. Row3: SINGLE top exposed end block of vertical run; SINGLE bottom exposed end block; T junction horizontal three-block wall with a short vertical stem down at centre; long shallow FRONT LEDGE FACE strip, rough staggered rectangular stones, dark shaded lower edge, no top floor beyond a narrow upper bevel, straight repeating horizontal ends. Corners use three blocks per arm, same thickness as straight runs. Keep geometry modular and coherent with the reference, but roughen every face, outline and joint: uneven block widths, chips, small cracks and broken painterly/pixel-like highlights. No perfectly smooth rounded toy bevels, no uniform dots. Horizontal and vertical runs follow screen axes, not isometric diamonds. No floor, props or extra pieces attached.",
+      "source_filename": "exec-4c0a3e69-bba1-4779-bbb3-14397eac69ff.png",
+      "review_source": "v8/ramparts-raw.png",
+      "grid": {
+        "columns": 4,
+        "rows": 3
+      },
+      "crops": [
+        [
+          20,
+          126,
+          418,
+          275
+        ],
+        [
+          491,
+          24,
+          624,
+          363
+        ],
+        [
+          719,
+          59,
+          1042,
+          356
+        ],
+        [
+          1094,
+          59,
+          1419,
+          354
+        ],
+        [
+          20,
+          386,
+          335,
+          679
+        ],
+        [
+          375,
+          386,
+          685,
+          676
+        ],
+        [
+          766,
+          446,
+          1028,
+          634
+        ],
+        [
+          1116,
+          445,
+          1381,
+          635
+        ],
+        [
+          34,
+          750,
+          209,
+          1024
+        ],
+        [
+          301,
+          752,
+          464,
+          1021
+        ],
+        [
+          517,
+          758,
+          930,
+          1024
+        ],
+        [
+          965,
+          815,
+          1439,
+          950
+        ]
+      ],
+      "notes": "New generated rough/chipped material is fitted to old frame dimensions and palette. Variant families share boundary profiles."
+    },
+    "v8-architecture": {
+      "prompt": "Use case: stylized-concept. Production transparent game art for Dungeon Board. Private image is STYLE REFERENCE ONLY. Match its HD PIXEL-TEXTURED PAINTED dungeon masonry: large irregular lavender-grey stone, angular chipped edges, uneven block widths/heights, short cracks and irregular broken bevel highlights. Hand-painted shading with visible small pixel-like facets and clusters at stone joints, NOT strict-grid 8-bit art, NOT smooth toy/plastic blocks, NOT flat vector or 3D render. Chips concentrate at edges and a few face fractures; large face planes stay quiet. NO uniform speckle/glitter/sand grain/polka-dot texture. Deep violet mortar #241d38, mid stone #6f64a3, restrained pale lavender tops #a49bd6..#b8aee6, warm amber reflected bevels and warm grey floors, no cold-blue wash. Camera in front and above with visible top/front/side planes where appropriate. Consistent upper-left illumination. Every subject isolated with real transparent gutters, no text, numbers, icons, people, furniture or extra scenery. Full silhouettes contained in their cells. EXACT FOUR columns x TWO rows, eight isolated architecture pieces, generous alpha gutters. Row1: (1) horizontal low rampart run of THREE uneven chipped blocks, same top/front thickness as reference, a different block pattern with a short half-block and larger middle stone; (2) another same-scale horizontal rampart run with different joints and fractures, including a narrow block beside a long one; (3) tall square PILLAR, stack of four unequal-height lavender blocks with a simple broad top cap and square foot, obvious lit top plane and dark side, roughly 1 wide to 4 tall; (4) square PILLAR CAP with broad chipped top slab and short front fascia, no column. Row2: (1) chunky PILLAR BASE/foot, stepped square blocks with rough bevels, no column; (2) decorative PILLAR CAPITAL with stepped cornice and restrained geometric stone support, no symbol or gold trim; (3) diagonal low wall RETURN running from lower-left to upper-right at about 35 degrees, three rough blocks with broad top planes and front faces; (4) matching diagonal RETURN running upper-left to lower-right, same block scale and upper-left illumination, no mirrored light. Stone texture must be visibly rough painted/pixel-faceted at the joints, with connected cracks and chipped outlines; face centres quiet, not noisy. Every piece complete and alone, no attached torches, banners, labels, props, floor or background.",
+      "source_filename": "exec-e98520d8-120b-4bf4-8614-b3850a92611d.png",
+      "review_source": "v8/architecture-raw.png",
+      "grid": {
+        "columns": 4,
+        "rows": 2
+      },
+      "crops": [
+        [
+          24,
+          211,
+          424,
+          372
+        ],
+        [
+          463,
+          211,
+          873,
+          372
+        ],
+        [
+          992,
+          20,
+          1214,
+          447
+        ],
+        [
+          1341,
+          147,
+          1686,
+          373
+        ],
+        [
+          29,
+          560,
+          394,
+          848
+        ],
+        [
+          435,
+          552,
+          839,
+          848
+        ],
+        [
+          865,
+          493,
+          1279,
+          852
+        ],
+        [
+          1320,
+          494,
+          1743,
+          851
+        ]
+      ],
+      "notes": "New generated rough/chipped material is fitted to old frame dimensions and palette. Variant families share boundary profiles."
+    },
+    "v8-rooms": {
+      "prompt": "Use case: stylized-concept. Production transparent game art for Dungeon Board. Private image is STYLE REFERENCE ONLY. Match its HD PIXEL-TEXTURED PAINTED dungeon masonry: large irregular lavender-grey stone, angular chipped edges, uneven block widths/heights, short cracks and irregular broken bevel highlights. Hand-painted shading with visible small pixel-like facets and clusters at stone joints, NOT strict-grid 8-bit art, NOT smooth toy/plastic blocks, NOT flat vector or 3D render. Chips concentrate at edges and a few face fractures; large face planes stay quiet. NO uniform speckle/glitter/sand grain/polka-dot texture. Deep violet mortar #241d38, mid stone #6f64a3, restrained pale lavender tops #a49bd6..#b8aee6, warm amber reflected bevels and warm grey floors, no cold-blue wash. Camera in front and above with visible top/front/side planes where appropriate. Consistent upper-left illumination. Every subject isolated with real transparent gutters, no text, numbers, icons, people, furniture or extra scenery. Full silhouettes contained in their cells. EXACT TWO columns x TWO rows, FOUR tall EMPTY room recesses, complete bases and tops with wide transparent gutters. Each intended 130 wide x 200 tall concept pixels, consistent size. Redraw their masonry with noticeably unequal block sizes, broken/chipped edges, short deep cracks and irregular pixel-textured highlights as the reference; avoid smooth repeated extruded bricks. Dark quiet interiors, sparse warm bounce on lower stone. Row1 left: ROOM-ARCH, tall round arch with thick rough lavender-grey block surround, deep empty dark brick recess and shallow floor; no bookcase or props. Row1 right: ROOM-CAVE, rough jagged rock mouth of irregular lavender-purple rocks, deep dark hollow, very faint violet ambient, empty floor, no crystal. Row2 left: ROOM-MAGIC, rough round stone arch, dark empty brick room, faint blue ambient on inner stone/floor, no circle, runes or armour. Row2 right: ROOM-FORGE, chipped thick block lintel and uneven brick jambs around a deep empty soot-dark hearth, warm amber reflection on inner edges, no flames or forge props. These are backdrops for separately placed props. True transparent outside, interior opaque. No text, symbols, numbers, furniture, candles, torches, robots, banners or exterior scenery.",
+      "source_filename": "exec-c4408136-ef75-4056-a8d4-6ad4db372f1b.png",
+      "review_source": "v8/rooms-raw.png",
+      "grid": {
+        "columns": 2,
+        "rows": 2
+      },
+      "crops": [
+        [
+          10,
+          23,
+          504,
+          673
+        ],
+        [
+          518,
+          32,
+          1012,
+          676
+        ],
+        [
+          6,
+          783,
+          506,
+          1444
+        ],
+        [
+          514,
+          788,
+          1018,
+          1443
+        ]
+      ],
+      "notes": "New generated rough/chipped material is fitted to old frame dimensions and palette. Variant families share boundary profiles."
+    },
+    "v8-spills": {
+      "prompt": "Use case: stylized-concept. Production TRANSPARENT lighting-overlay sprite sheet, EXACT THREE columns x TWO rows, five occupied equal cells and bottom-right empty. These are irregular PAINTED WARM REFLECTION GLAZES for a purple-stone illustrated dungeon, not objects or scenery. Saturated antique GOLD / amber pigment #eeaa25 / #d88616 / #f6bd42, no white or cream. The code will lay them on stone behind fixtures/agents. Genuine soft transparent edges, thin semi-transparent wash with maximum roughly 50% opacity, no opaque background. Painterly uneven feathery perimeter, small chipped/faceted gold highlight flecks WITHIN the glaze, light irregular texture like warm light on worn stone. No hard circles, no perfect ellipses, no geometric radial-gradient discs, no giant bloom halo, no flame shapes, no stars or detached sparks, no bricks painted into the overlay. TOP ROW wall reflections: left an asymmetric tall patch rising up and slightly left from a fixture; middle a broader broken wash across a wall/jamb, with several irregular warm highlight facets; right a diagonal narrow wall/column spill with a few chipped flecks on its upper-left edge. BOTTOM ROW: left a wide low warm FLOOR reflection, an irregular fan/puddle cast across flagstones, long broken edge and small warm flecks; middle a different oblique corner-shaped floor spill, wider to one side with a ragged feathered edge; bottom right entirely TRANSPARENT. Every glaze fully inside its own cell with wide truly empty alpha gutters. Smooth low-opacity transitions blended with visible painted flecks, high-resolution raster illustration, not strict 8-bit, not vector. No text, icons, labels, borders, background wash, props, floor or wall surfaces, shadows or white highlights. The only nontransparent pixels are the golden reflection shapes.",
+      "source_filename": "exec-44c142da-3c94-44ba-ac52-c0e3bcc2d470.png",
+      "review_source": "v8/spills-raw.png",
+      "grid": {
+        "columns": 3,
+        "rows": 2
+      },
+      "notes": "Warm-pigment chroma matting removes neutral generated backing; gold saturation and low maximum alpha are enforced."
+    }
+  }
 }
