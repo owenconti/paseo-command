@@ -363,11 +363,11 @@ const pad = (r: Rect, p: number): Rect => ({ x: r.x - p, y: r.y - p, w: r.w + 2 
  * height (the main one about two thirds of the recess's), its centre's offset from the recess's middle (mirrored
  * on the right) and how far above the floor its feet stand; companions within an object's width of it. */
 const VIGNETTES: { name: string; room: string; glow?: { color: number; reach: number; dy: number }; props: { frame: string; h: number; dx: number; up?: number; light?: { color: number; reach: number } }[] }[] = [
-  { name: "library", room: "room-arch", props: [{ frame: "bookcase-ladder", h: 150, dx: 8 }, { frame: "table", h: 32, dx: -46 }, { frame: "candelabra", h: 34, dx: -46, up: 26, light: { color: 0xffb040, reach: 46 } }] },
+  { name: "library", room: "room-arch", props: [{ frame: "bookcase-ladder", h: 150, dx: 8 }, { frame: "table", h: 32, dx: -38 }, { frame: "candelabra", h: 34, dx: -38, up: 26, light: { color: 0xffb040, reach: 46 } }] },
   { name: "crystal", room: "room-cave", glow: { color: 0xb06bff, reach: 120, dy: 140 }, props: [{ frame: "crystal", h: 132, dx: 4, light: { color: 0xc080ff, reach: 90 } }, { frame: "barrel", h: 40, dx: -50 }] },
-  { name: "magic", room: "room-magic", glow: { color: 0x3fb8ff, reach: 120, dy: 100 }, props: [{ frame: "magic-circle", h: 118, dx: -14, up: 26 }, { frame: "armor", h: 108, dx: 38 }] },
+  { name: "magic", room: "room-magic", glow: { color: 0x3fb8ff, reach: 120, dy: 100 }, props: [{ frame: "magic-circle", h: 118, dx: -20, up: 26 }, { frame: "armor", h: 108, dx: 22 }] },
   { name: "forge", room: "room-forge", glow: { color: 0xff7a2a, reach: 110, dy: 150 }, props: [
-    { frame: "forge", h: 148, dx: 8, light: { color: 0xff9a3a, reach: 50 } }, { frame: "anvil", h: 48, dx: -36 },
+    { frame: "forge", h: 148, dx: 8, light: { color: 0xff9a3a, reach: 50 } }, { frame: "anvil", h: 48, dx: -26 },
     { frame: "shelf-potions", h: 58, dx: -48, up: 64 }, { frame: "table", h: 30, dx: 56 }, { frame: "candelabra", h: 30, dx: 56, up: 24, light: { color: 0xffb040, reach: 40 } } ] },
   { name: "alchemy", room: "room-arch", glow: { color: 0xc06bff, reach: 100, dy: 140 }, props: [{ frame: "alchemy-tank", h: 146, dx: 4 }, { frame: "crate", h: 40, dx: -48 }, { frame: "barrel", h: 36, dx: 50 }] },
   // A storeroom: armour standing at the back, barrels and crates before it, a shelf up the wall, so the arch never reads empty.

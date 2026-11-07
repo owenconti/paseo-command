@@ -46,7 +46,7 @@ const RIM: Partial<Record<string, number>> = {
   running: 0x8affc4, failed: 0xff8a70, approval: 0xffd060, question: 0x8cc4ff, asking: 0xd4b0ff, done: 0xfff0a0, offline: 0xb0aca0,
 };
 /** The alcoves' interiors, a little darker than their sheet, so the robots read against them. */
-const INTERIOR_SHADE = 0.42;
+const INTERIOR_SHADE = 0.2;
 /** How strongly the warm torchlight wash lights the stone. */
 /** Gold light: its colour (multiplied, doubled, over the stone) and each kind of pool's strength. */
 const GOLD = 0xc87c00;
@@ -86,9 +86,9 @@ const png = (canvas: HTMLCanvasElement) => canvas.toDataURL("image/png");
 const GRADED = new Set(["stone", "gate", "alcoves", "props"]);
 /** The concept's grade: a fifth more saturation, shadows and mids pushed toward its purples
  * (#2a1f4a, #4a3a7a) by how dark they are, warm highlights (torch light, gold) left warm. */
-/** `shadow`/`mid`: red-violet tints (the concept's stone, not a blue violet). `stoneStrength`: the stone's tint, stronger; `stoneWarmth`: its colour balance, a little warmer.
+/** `shadow`/`mid`: red-violet tints (the concept's stone, not a blue violet). `stoneStrength`: the stone's tint, stronger; `stoneWarmth`: its colour balance, a little warmer; `stoneSaturation`: its colour held against the neutral lift.
  * `stoneLift`: the walls' and floors' ambient, a notch above the props' and alcoves' so the lavender stone reads as bright as the concept's. */
-export const GRADE = { lift: 1.19, stoneLift: 1.45, warmth: [1, 1, 1], saturation: 1.05, shadow: [0x34, 0x1f, 0x42], mid: [0x5a, 0x3c, 0x6c], strength: 0.1, stoneStrength: 0.2, stoneWarmth: [1.05, 1, 0.9] };
+export const GRADE = { lift: 1.19, stoneLift: 1.38, stoneSaturation: 1.3, warmth: [1, 1, 1], saturation: 1.05, shadow: [0x34, 0x1f, 0x42], mid: [0x5a, 0x3c, 0x6c], strength: 0.1, stoneStrength: 0.2, stoneWarmth: [1.04, 1, 0.94] };
 function grade(image: HTMLImageElement, opts: { saturation?: number; strength?: number; lift?: number; warmth?: number[] } = {}): HTMLCanvasElement {
   const saturation = opts.saturation ?? GRADE.saturation, strength = opts.strength ?? GRADE.strength, lift = opts.lift ?? GRADE.lift, warmth = opts.warmth ?? GRADE.warmth;
   const canvas = document.createElement("canvas");
@@ -110,15 +110,22 @@ function grade(image: HTMLImageElement, opts: { saturation?: number; strength?: 
     r = l * 255 + (r - l * 255) * saturation;
     g = l * 255 + (g - l * 255) * saturation;
     b = l * 255 + (b - l * 255) * saturation;
-    // Warm highlights (flames, gold, lamp light) stay as they are.
+    // Coloured occlusion only: the purple tint, by how dark a pixel is, never on warm highlights (flames, gold, lamp
+    // light), so deep purple stays in real recesses and undersides.
     const warm = r > b + 25 && r > 120;
     if (!warm && strength > 0) {
       const t = strength * Math.pow(1 - l, 1.3);
       const tint = l < 0.35 ? shadow : mid;
-      r *= (1 - t + t * tint[0]!) * warmth[0]! * lift;
-      g *= (1 - t + t * tint[1]!) * warmth[1]! * lift;
-      b *= (1 - t + t * tint[2]!) * warmth[2]! * lift;
+      r *= 1 - t + t * tint[0]!;
+      g *= 1 - t + t * tint[1]!;
+      b *= 1 - t + t * tint[2]!;
     }
+    // Exposure, separately and for every pixel: the same amount added to each channel, so the art's a*/b* (its warm
+    // fronts, its lavender floors) survive the lift, rather than RGB scaling that pushes chroma and cools the stone.
+    const add = (lift - 1) * l * 255;
+    r = (r + add) * warmth[0]!;
+    g = (g + add) * warmth[1]!;
+    b = (b + add) * warmth[2]!;
     d[i] = Math.max(0, Math.min(255, r));
     d[i + 1] = Math.max(0, Math.min(255, g));
     d[i + 2] = Math.max(0, Math.min(255, b));
@@ -148,7 +155,7 @@ async function buildFrames(): Promise<{ canvases: Map<string, HTMLCanvasElement>
     // The stone, gate, alcoves and props are graded once toward the concept's deeper purple.
     const stem = path.replace(/^.*\//, "").replace(/\.json$/, "");
     // The robots keep their colours vivid: only a saturation lift, never the purple grade.
-    const source = GRADED.has(stem) ? grade(image, stem === "stone" ? { lift: GRADE.stoneLift, strength: GRADE.stoneStrength, warmth: GRADE.stoneWarmth } : {}) : stem === "robots" ? grade(image, { saturation: 1.15, strength: 0 }) : image;
+    const source = GRADED.has(stem) ? grade(image, stem === "stone" ? { lift: GRADE.stoneLift, strength: GRADE.stoneStrength, warmth: GRADE.stoneWarmth, saturation: GRADE.stoneSaturation } : {}) : stem === "robots" ? grade(image, { saturation: 1.15, strength: 0, lift: 1 }) : image;
     for (const [name, f] of Object.entries(sheet.frames)) {
       if (!FRAMES[name]) continue;
       const canvas = document.createElement("canvas");
@@ -563,7 +570,7 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
         // The cutaway's thickness under the rampart's lip: the ledge's face, a few substantial corbels and a cool
         // shadow beneath. All of it opens round the next floor's gate, as the rampart does, so the arch reads whole.
         for (const [x0, x1] of cutawaySpans(fl, y0)) {
-          fill("ledge-face", { x: x0, y: y0 + D.frontY + 26, w: x1 - x0, h: 14 }, -9.2, { ...dim, shade: 0.5, neutral: 1 });
+          fill("ledge-face", { x: x0, y: y0 + D.frontY + 26, w: x1 - x0, h: 14 }, -9.2, { ...dim, shade: 0.28 });
           images.push({ ...image("shade:under", () => paintShade("under")), x: x0, y: y0 + D.frontY + 38, w: x1 - x0, h: 22, z: -9.3 });
         }
         // Corbels in irregular pairs at the bays' boundaries, in the underside's shade.
@@ -641,7 +648,7 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
       // Its terrace, tagged with the project so it glows when hovered.
       const terrace = p.entity ? { ...dim, e: p.entity.id } : dim;
       fill("rampart-x", { x: p.span.x + (p.side === -1 ? 36 : 0), y: y0 + 21, w: p.span.w - 36, h: 30 }, -30, terrace);
-      fill("ledge-face", { x: p.span.x + (p.side === -1 ? 40 : 4), y: y0 + 49, w: p.span.w - 44, h: 9 }, -30.05, { ...terrace, shade: 0.45, neutral: 1 });
+      fill("ledge-face", { x: p.span.x + (p.side === -1 ? 40 : 4), y: y0 + 49, w: p.span.w - 44, h: 9 }, -30.05, { ...terrace, shade: 0.22 });
       // Occlusion where the terrace's wall meets the recess behind it: a dark pocket under its lip.
       images.push({ ...image("shade:under", () => paintShade("under")), x: p.span.x + 30, y: y0 + 46, w: Math.max(0, p.span.w - 60), h: 18, z: -29.8 });
       if (p.side === -1) put("rampart-return-left", p.span.x, y0 + 23, 50, 75, -29.9, terrace);
@@ -680,6 +687,8 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
       }
       // Its frame, tagged with the workspace so it glows when hovered.
       const frameOf = { ...dim, e: w.entity.id };
+      // The upper interior falls into shadow; the baked candlelit floor and desks below keep their warmth.
+      images.push({ ...image("shade:upper", () => paintShade("upper")), x: x + 20, y: y + 12, w: inner, h: (D.alcoveH - 22) * 0.55, z: -11.95, ...dim });
       put("alcove-left", x, y + 7, 24, D.alcoveH - 9, -11, frameOf);
       put("alcove-right", x + width - 24, y + 7, 24, D.alcoveH - 9, -11, frameOf);
       fill("alcove-top", { x: x + 20, y, w: inner, h: 22 }, -10.9, frameOf);
@@ -710,6 +719,8 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
       const glowing = /^(magic-circle|crystal|alchemy-tank|forge|brazier)$/.test(d.frame);
       const quiet = (d.recess || glowing || d.frame === "rug-red") && l.floors[d.floor]?.online ? { shade: d.recess ? 0.45 : d.frame === "brazier" || d.frame === "forge" ? 0.42 : glowing ? 0.32 : 0.38 } : {};
       sprites.push(sprite(d.frame, d.rect, z, { ...dimOf(d.floor), ...(d.flip ? { flip: 1 } : {}), ...quiet }));
+      // A brazier stands on a masonry pad of its own.
+      if (d.frame === "brazier") put("pillar-base", d.rect.x + 4, d.rect.y + d.rect.h - 11, d.rect.w - 8, 15, z - 0.05, dimOf(d.floor));
       if (d.light && l.floors[d.floor]!.online)
         lights.push({
           x: d.rect.x + d.rect.w / 2,
