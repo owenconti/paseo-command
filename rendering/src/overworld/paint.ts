@@ -136,24 +136,30 @@ const LAND_K = 2;
 
 const GRASS_GRADE: Grade = { hue: -13, saturate: 0.92, brightness: 1.04, contrast: 1.12 };
 
-/** Each sheet's own colours, set when it loads: a watercolour palette (lighter, softer, less saturated)
- * for the world; robots, status badges and name plaques keep theirs so they stand out. `lift` raises the
- * darkest tones toward it (0–255), so shadows read as thin paint rather than black. */
-export const SHEET_COLOURS: Record<string, Grade & { lift?: number }> = {
-  host: { saturate: 0.72, contrast: 0.9, brightness: 1.04, lift: 40 },
-  halls: { saturate: 0.75, contrast: 0.9, brightness: 1.04, lift: 36 },
-  stalls: { saturate: 0.72, contrast: 0.9, brightness: 1.05, lift: 40 },
-  terrain: { saturate: 0.7, contrast: 0.88, brightness: 1.05, lift: 44 },
-  textures: { saturate: 0.7, contrast: 0.88, brightness: 1.06, lift: 46 },
-  coast: { saturate: 0.68, contrast: 0.88, brightness: 1.05, lift: 46 },
-  water: { saturate: 0.75, contrast: 0.9, brightness: 1.04, lift: 30 },
-  sea2: { saturate: 0.78, contrast: 0.9, brightness: 1.06, lift: 34 },
-  foliage: { saturate: 0.68, contrast: 0.88, brightness: 1.06, lift: 44 },
-  "theme-forest": { saturate: 0.68, contrast: 0.88, brightness: 1.06, lift: 44 },
-  "theme-farm": { saturate: 0.7, contrast: 0.88, brightness: 1.05, lift: 42 },
-  "theme-volcanic": { saturate: 0.72, contrast: 0.9, brightness: 1.04, lift: 38 },
-  props: { saturate: 0.72, contrast: 0.9, brightness: 1.04, lift: 38 },
+/** Each world sheet's colours, set when it loads, so the whole world shares one palette (as a lit scene
+ * does): colour thinned, then split-toned, cool in the shadows and warm in the light, with values kept in a
+ * middle range. Robots, status badges and name plaques keep their own full colours, so they are what stands
+ * out. `lift` raises the darkest tones (0-255); `split` is how strongly shadows and lights take the tones. */
+type SheetColour = Grade & { lift?: number; split?: number };
+const WORLD: SheetColour = { saturate: 0.62, contrast: 0.9, brightness: 0.98, lift: 26, split: 0.22 };
+export const SHEET_COLOURS: Record<string, SheetColour> = {
+  host: WORLD,
+  halls: WORLD,
+  stalls: { ...WORLD, brightness: 0.94 },
+  terrain: WORLD,
+  textures: WORLD,
+  coast: WORLD,
+  water: { ...WORLD, saturate: 0.7, split: 0.16 },
+  sea2: { ...WORLD, saturate: 0.72, split: 0.16 },
+  foliage: WORLD,
+  "theme-forest": WORLD,
+  "theme-farm": WORLD,
+  "theme-volcanic": WORLD,
+  props: WORLD,
 };
+/** The shared light: shadows toward a cool slate blue, lights toward warm lamp gold. */
+const SHADOW_TONE = [52, 62, 96];
+const LIGHT_TONE = [255, 226, 168];
 
 /** The sheets with each one's colours set (`SHEET_COLOURS`), once per page. */
 export function recolourSheets(sheets: Sheets): Sheets {
@@ -168,14 +174,24 @@ export function recolourSheets(sheets: Sheets): Sheets {
     const d = g.getImageData(0, 0, c.width, c.height);
     gradePixels(d.data, colour);
     const lift = colour.lift ?? 0;
-    if (lift) {
-      const k = (255 - lift) / 255;
-      for (let i = 0; i < d.data.length; i += 4) {
-        if (d.data[i + 3] === 0) continue;
-        d.data[i] = lift + d.data[i]! * k;
-        d.data[i + 1] = lift + d.data[i + 1]! * k;
-        d.data[i + 2] = lift + d.data[i + 2]! * k;
+    const k = (255 - lift) / 255;
+    const split = colour.split ?? 0;
+    for (let i = 0; i < d.data.length; i += 4) {
+      if (d.data[i + 3] === 0) continue;
+      let r = lift + d.data[i]! * k;
+      let g2 = lift + d.data[i + 1]! * k;
+      let b = lift + d.data[i + 2]! * k;
+      if (split) {
+        const l = (0.3 * r + 0.59 * g2 + 0.11 * b) / 255;
+        const ws = split * (1 - l) * (1 - l);
+        const wl = split * l * l;
+        r = r * (1 - ws - wl) + SHADOW_TONE[0]! * ws + LIGHT_TONE[0]! * wl;
+        g2 = g2 * (1 - ws - wl) + SHADOW_TONE[1]! * ws + LIGHT_TONE[1]! * wl;
+        b = b * (1 - ws - wl) + SHADOW_TONE[2]! * ws + LIGHT_TONE[2]! * wl;
       }
+      d.data[i] = r;
+      d.data[i + 1] = g2;
+      d.data[i + 2] = b;
     }
     g.putImageData(d, 0, 0);
     for (const f of sheet.frames.values()) f.img = c;
@@ -227,7 +243,11 @@ export function paintScene(ctx: Ctx, scene: Scene, sheets: Sheets, opts: PaintOp
   if (opts.robots !== false) {
     ctx.save();
     ctx.scale(K, K);
-    scene.robots.forEach((spot, i) => drawFrame(ctx, robotFrame(sheets, spot.colour, spot.working, opts.t, i * 0.37), spot.x, spot.y, ROBOT_SCALE));
+    scene.robots.forEach((spot, i) => {
+      const f = robotFrame(sheets, spot.colour, spot.working, opts.t, i * 0.37);
+      const lit = litRobot(f);
+      drawFrame(ctx, { ...f, img: lit, x: 0, y: 0 }, spot.x, spot.y, ROBOT_SCALE);
+    });
     ctx.restore();
   }
 }
@@ -867,6 +887,23 @@ function paintBooth(ctx: Ctx, booth: BoothItem, sheets: Sheets, opts: PaintOptio
     ctx.drawImage(mid.img, mid.x, mid.y, mid.w, mid.h, x0 + (BOOTH.end + i * BOOTH.slot) * s - 0.15, y0, mid.w * s + 0.3, mid.h * s);
   }
   ctx.drawImage(right.img, right.x, right.y, right.w, right.h, x0 + (BOOTH.end + slots * BOOTH.slot) * s - 0.15, y0, right.w * s, right.h * s);
+  // A warm lamp-light inside the booth, behind and under its robots, as a lit alcove.
+  {
+    const ix0 = x0 + BOOTH.end * s;
+    const iw = BOOTH.slot * slots * s;
+    const cy = booth.y - 14;
+    ctx.save();
+    ctx.globalCompositeOperation = "screen";
+    const glow = ctx.createRadialGradient(booth.x, cy, 2, booth.x, cy, iw * 0.75);
+    glow.addColorStop(0, "rgba(255, 200, 120, 0.95)");
+    glow.addColorStop(0.5, "rgba(255, 170, 80, 0.5)");
+    glow.addColorStop(1, "rgba(255, 150, 60, 0)");
+    ctx.fillStyle = glow;
+    ctx.beginPath();
+    ctx.rect(ix0, y0 + 190 * s, iw, (BOOTH.floor - 190) * s + 6);
+    ctx.fill();
+    ctx.restore();
+  }
   // Goods in empty slots, as the concept's single-robot booths.
   const first = (slots - n) / 2;
   if (slots > n) {
@@ -1233,4 +1270,39 @@ export function overworldSeaTile(sheets: Sheets, k: number): HTMLCanvasElement |
 export function seaPeriod(sheets: Sheets): number {
   const calm = framesWithPrefix(sheets, "sea2", "sea-calm-");
   return calm.length ? frameOf(sheets, "sea2", calm[0]!).w * SEA_TEXTURE_SCALE : 0;
+}
+
+const litCache = new WeakMap<object, Map<string, HTMLCanvasElement>>();
+/** A robot frame lit as the world is: a contact shadow at its feet and a soft rim of light round it,
+ * so it sits in its booth and still stands out. Same size and anchor as the frame. */
+export function litRobot(f: Frame): HTMLCanvasElement {
+  let byImg = litCache.get(f.img as object);
+  if (!byImg) litCache.set(f.img as object, (byImg = new Map()));
+  const key = `${f.x},${f.y}`;
+  const hit = byImg.get(key);
+  if (hit) return hit;
+  const c = canvas(f.w, f.h);
+  const g = c.getContext("2d")!;
+  // Contact shadow.
+  g.save();
+  g.translate(f.ax, f.ay - 4);
+  g.scale(1, 0.28);
+  const sh = g.createRadialGradient(0, 0, 0, 0, 0, 70);
+  sh.addColorStop(0, "rgba(20, 14, 30, 0.55)");
+  sh.addColorStop(1, "rgba(20, 14, 30, 0)");
+  g.fillStyle = sh;
+  g.beginPath();
+  g.arc(0, 0, 70, 0, Math.PI * 2);
+  g.fill();
+  g.restore();
+  // Rim light: the robot's silhouette glowing warm behind it.
+  g.save();
+  g.shadowColor = "rgba(255, 236, 190, 1)";
+  g.shadowBlur = 22;
+  g.drawImage(f.img, f.x, f.y, f.w, f.h, 0, 0, f.w, f.h);
+  g.drawImage(f.img, f.x, f.y, f.w, f.h, 0, 0, f.w, f.h);
+  g.restore();
+  g.drawImage(f.img, f.x, f.y, f.w, f.h, 0, 0, f.w, f.h);
+  byImg.set(key, c);
+  return c;
 }

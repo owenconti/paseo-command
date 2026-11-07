@@ -7,7 +7,7 @@ import { prFlags } from "../prStatus.ts";
 import { loadSheetsFrom, frameOf, type Sheets } from "./atlas.ts";
 import { overworldFleet } from "./fleet.ts";
 import { layout, hash, type OwHost, type Scene } from "./layout.ts";
-import { overworldSeaTile, paintScene, recolourSheets, robotFrame, ROBOT_SCALE, seaPeriod } from "./paint.ts";
+import { litRobot, overworldSeaTile, paintScene, recolourSheets, robotFrame, ROBOT_SCALE, seaPeriod } from "./paint.ts";
 
 /** World units (the native map's) per concept pixel: a robot about as large as the Islands'. */
 export const WORLD = 2.5;
@@ -63,12 +63,7 @@ type Streamer = {
 
 /** A robot's frame `i` of its pose, as its own canvas. */
 function robotCanvas(sheets: Sheets, colour: string, working: boolean, i: number, frameMs: number): HTMLCanvasElement {
-  const f = robotFrame(sheets, colour, working, i * frameMs, 0);
-  const c = document.createElement("canvas");
-  c.width = f.w;
-  c.height = f.h;
-  c.getContext("2d")!.drawImage(f.img, f.x, f.y, f.w, f.h, 0, 0, f.w, f.h);
-  return c;
+  return litRobot(robotFrame(sheets, colour, working, i * frameMs, 0));
 }
 
 const w = (v: number) => v * WORLD;
@@ -233,7 +228,7 @@ export class OverworldMap {
       // Every frame of its pose (idle bobs, working works), cycled by Swift at the sheet's pace.
       const count = spot.working ? 4 : 2;
       const frameMs = spot.working ? 140 : 700;
-      const keys = Array.from({ length: count }, (_, i) => `streamer:ow-robot:${spot.colour}:${spot.working ? "working" : "idle"}-${i}`);
+      const keys = Array.from({ length: count }, (_, i) => `streamer:ow-robot2:${spot.colour}:${spot.working ? "working" : "idle"}-${i}`);
       keys.forEach((key, i) => {
         if (i === 0 || state === "offline") return;
         const png = image(key, () => robotCanvas(this.sheets, spot.colour, spot.working, i, frameMs));
