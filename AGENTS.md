@@ -812,8 +812,11 @@ todo, blocked by a "Blocked" state or label or an open blocking issue; paged up 
 Atlas's host order, `hostGroups`), each one bounded unit (the user's call: structures group by containment, as on the Islands
 map): its own cobbled plaza (a tone of its own, districts alternating) ringed by its own low stone wall with posts at the corners and
 along it, open at its gate (`paintDistrictWall` in `bridge.ts`), only as big as its contents, a band of forest at least a cluster's
-width (`districtGap`) from the next, its fountain
-plaza (and the host's plaque: name, status dot, `CPU · MEM · DISK`, ≥ 90% red; the map's only text) a slot in its first row with
+width (`districtGap`) from the next, its host's slot in its first row (the host's keep, `keep-0..2` from `keeps.png`, seeded per
+host, `keep-offline-*` while offline, beside its fountain plaza, whose gate opens above it; the keep's name board, the sheet's `sign`
+rect, carries the host's name painted in the world's serif and its `CPU · MEM · DISK` beneath (≥ 90% red) where the board has room,
+`paintSign` in `bridge.ts`, the map's only text; the pennant at its `flag` point flies the host's status, its `cloth` dyed green online
+and grey offline, `paintPennant`) with
 its project clusters round it in rows (`perRow`; districts packed in shelves, each district's row count and the shelves chosen so
 the fit shows the town largest and most built, `built`); offline hosts' districts dimmed. Nothing loose stands in a district (no
 market filler): every built thing is a cluster's or its host's. Each project with workspaces is one cluster on its own yard
@@ -827,22 +830,26 @@ joining them (painted page-side per lawn, `paintLawnPaths` in `bridge.ts`: the p
 the lawn's grass creeping over the whole edge, none where a path runs on into another or out onto the plaza; so they read at a glance). Every structure is on a path (the user's call: robots need a way to their house): each district's gate opens
 onto a cobbled way up to the paving above (the walk under the dashboard halls, the town hall area outside every district, or the district above), and
 from the plaza the lanes and walkways reach every hall's door and every cottage's doorstep, where its robots stand (`assertConnected` in `village.test.mjs`: reachability from the walk, a lawn blocking all but the paths that
-leave it; `assertGrouped`: each cottage and robot inside its own cluster's yard and no other, in front of its hall, each yard inside its host's district, districts apart). Each cottage's window holds a stained-glass pane for its PR's state
+leave it, each keep's door on its plaza; `assertGrouped`: each cottage and robot inside its own cluster's yard and no other, in front of its hall, each yard and keep inside its host's district, the name on its keep, districts apart). Each cottage's window holds a stained-glass pane for its PR's state
 (`cottage-pane-<tile>`, in the sheet's `pane` rect: merged green, review blue, draft amber, failing red, none slate), the PR,
 Probe and auto-merge medallions sit on its roof; each agent is a robot on its cottage's doorstep (the sheet's `doorstep`), more fanning
 out to its right, in provider colours (`robotColor`), with a floor light in the Atlas's state colour (pulsing for states that need
 you), markers and drones; agents without a workspace wait at a camp's tent in their host's district. A hall's two lamps light while
 any of its agents runs and its roof flares for what needs you; each fountain glows and flares likewise. Picking: a robot, a cottage,
-a project's hall (as the Atlas's selections), the dashboard tiles and halls and each fountain only show cards; never a host.
+a project's hall (as the Atlas's selections), and a host's keep (the user's call, the Village only: other styles keep hosts
+uninteractive): it is posted as a `host` entity, so a click goes through `chooseHost` as the Hosts tab's choice does (the lists narrow
+to that host, "Only <host>"), and while that host filter is set with nothing else selected the keep glows as the selection; hovering
+it glows it and shows its card (name, online or offline, load, its projects, workspaces and agents, "Click to show only this host").
+The dashboard tiles and halls and each fountain only show cards.
 Hover and selection light the object itself, never a box: a soft halo along its own silhouette (baked once per frame with Core
 Image: alpha thresholded, spread, blurred) and a brightening of the sprite, warm white on hover and gold, stronger and breathing,
 for the selection (`glow` in `VillageScene.swift`; sprites the page tags `e` with their entity: halls, tiles, workspaces, the
 fountain; robots by their id). The paving has no edge strips (their moss line read as a seam): every boundary with the forest is hidden under
 jittered hedges of bushes, flowers and tufts (`hedge` decor); other greenery and rocks never stand on paving.
-No text on the map but the host plaque, as on the Islands map: halls, tiles, workspaces and robots say what they are in hover cards
+No text on the map but each keep's name board, as on the Islands map: halls, tiles, workspaces and robots say what they are in hover cards
 (the page's `.atlas-world-card` from the bridge's `card` handler: a tile its count and up to 12 PRs or issues, a hall its name and
 counts; a click on a PR or issue tile opens its first through `openAppLink`). Picking: a medallion, a robot, a workspace's bay, a
-tile (cards only); never a host. The world: one paved plaza with organic edges, a road north into the forest and south over a bridge
+keep (its host), a tile (cards only). The world: one paved plaza with organic edges, a road north into the forest and south over a bridge
 between lily ponds through the front wall, the river's gorge falling from a ruined wall at the right, lamps (lit while agents run),
 lighting (lamp pools, lit windows, contact shadows, the crystal's glow, a vignette) and a forest canopy tile (`paintCanopy`) that
 Swift repeats to every edge, so no bare ground ever shows. The fit frames the concept's crop (`core`) without cutting the halls,

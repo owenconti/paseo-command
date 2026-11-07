@@ -1,7 +1,7 @@
 # Village art — final kit
 
-All 151 original required frame names are present. There are **220 frames** in
-eleven PNG/JSON pairs, all at nominal **scale 3**, with true alpha and explicit anchors.
+All 151 original required frame names are present. There are **227 frames** in
+twelve PNG/JSON pairs, all at nominal **scale 3**, with true alpha and explicit anchors.
 The complete first pass was delivered before this refinement pass.
 
 | Sheet | Frames | Final artwork |
@@ -17,6 +17,7 @@ The complete first pass was delivered before this refinement pass.
 | ground-warm | 13 | Muted rounded cobbles, eight grass transitions, paving blob, shallow one-step robot ledge in three pieces |
 | cottages | 11 | Six workspace cottages with registered pane/doorstep rectangles, five matching stained-glass panes |
 | district | 9 | Straight/diagonal paths, low horizontal/vertical fences, three hedges, stone entrance gate |
+| keeps | 7 | Three host keeps, matching unlit variants, tintable pennant; registered mounted sign boards |
 
 The refined robots have bright cyan eyes and antenna tips, glossy vivid enamel,
 and a roughly 58px painted height. Work frames are registered by the boots,
@@ -238,6 +239,47 @@ district props. The private recipe is `build-cottages.py`; exact source prompts
 are in `prompts-v7.json` and `rendering/ASSETS.md`. This first complete pass
 uses two new built-in imagegen calls. Existing hall and robot art is preserved.
 
+## Host keep — first complete pass live
+
+**`keeps.png` / `keeps.json`** adds seven frames, compressed to **718,161 bytes**.
+The whole twelve-sheet set is **9,704,720 bytes (9.70 MB)**, still below 10 MB.
+All previous sheet pairs are unchanged.
+
+- `keep-0`: single square stone keep with crenellated crown.
+- `keep-1`: narrower twin-towered gatehouse and central closed gate.
+- `keep-2`: stepped keep with a round corner turret and small slate roof.
+- `keep-offline-0`, `keep-offline-1`, `keep-offline-2`: the same geometry,
+  alpha, signs, anchors and exterior pixels, with dark unlit window glass.
+- `keep-flag`: blank neutral pennant on an iron pole. Its feet anchor is the
+  **pole's foot**, offset left of the cloth's centre, for exact roof mounting.
+
+The three keeps have 680px painted height plus safety padding (686px frames),
+about 1.2x the existing halls' painted source height, and narrower footprints.
+They share the Village's warm upper-left light, three-quarter facade camera,
+chipped limestone, worn oak, amber windows and restrained ivy. Offline variants
+remove all bright window highlights, without repainting or dimming the stone.
+
+Each online/offline keep frame has **`sign: {x,y,w,h}` in frame-local source
+pixels**, bounding the usable blank centre of its physically mounted timber
+name board. These are not atlas positions or fractions. Fit dark serif text
+there; no host name is baked into the sprite. The sign is part of the building,
+with carved wood edges and brackets, rather than a floating UI plaque.
+
+**`flag: {x,y}`** gives a matching frame-local source-pixel roof attachment
+point; place the pennant's feet anchor there. `keep-flag` also provides a
+**`cloth` rectangle** in frame-local source pixels for selective tinting if
+desired. The cloth's neutral shading takes green or grey cleanly; status tint
+and host clicking are renderer-owned.
+
+The first pass uses two new built-in generations. The keep sheet is a
+256-colour indexed PNG with dithering off. Compressed-output checks confirm
+identical online/offline alpha, exterior pixels and sign rectangles, plus
+nonempty bounds and valid sign/cloth positions. `keeps-v8/first-pass.png` in the
+ignored art artifacts shows every variant with green/grey flags and sample
+serif host names; text and tints occur only in that private mock. The private
+recipe is `build-keeps.py`, prompts are `prompts-v8.json`, and the public exact
+prompts/provenance are in `rendering/ASSETS.md`.
+
 Integration geometry:
 
 - Standing pieces anchor at ground contact, excluding transparent frame padding.
@@ -259,7 +301,7 @@ Integration geometry:
   project icons and dynamic status. The five fixed tile glyphs are painted in.
 
 Provenance, every exact prompt, source filenames and assembly notes are in
-`rendering/ASSETS.md`. Nineteen built-in `image_gen` calls supplied the art. No
+`rendering/ASSETS.md`. Twenty-one built-in `image_gen` calls supplied the art. No
 concept pixels were copied, and the ignored concept is never a runtime asset.
 
 Private files in ignored `rendering/artifacts/village/`:
@@ -277,3 +319,10 @@ Private files in ignored `rendering/artifacts/village/`:
 All checks pass. The kit approximates the concept with modular pieces; the
 single painted image has more bespoke shadows, foliage joins and masonry.
 No commits were made by the artist; integration and commit belong to the lead.
+
+## Keeps
+
+`keeps.png/json`: a keep per host district (`keep-0` square tower, `keep-1` twin gatehouse, `keep-2` stepped keep with a
+corner turret), each with an unlit `keep-offline-*` twin of the same geometry, and `keep-flag`, a blank pennant whose `cloth`
+rect the page dyes with the host's status. Each keep's `sign` rect (frame-local sheet pixels) is its blank name board, where
+the page paints the host's name; `flag` is where the pennant's pole stands. Painted about 1.2× a hall's height.

@@ -58,7 +58,7 @@ function assertLegible(layout) {
   const robots = layout.agents.map((a) => ({ what: `robot ${a.entity.id}`, rect: a.rect, ws: a.entity.workspace }));
   const halls = layout.projects.map((p) => ({ what: `hall ${p.key}`, rect: { ...p.body, y: p.body.y + p.body.h * 0.25, h: p.body.h * 0.75 } }));
   const basin = (s) => ({ ...s.fountain, y: s.fountain.y + s.fountain.h * 0.55, h: s.fountain.h * 0.45 });
-  const plaques = layout.squares.flatMap((s) => [{ what: `plaque ${s.host.id}`, rect: s.plaque }, { what: `fountain ${s.host.id}`, rect: basin(s) }]);
+  const plaques = layout.squares.flatMap((s) => [{ what: `plaque ${s.host.id}`, rect: s.plaque }, { what: `fountain ${s.host.id}`, rect: basin(s) }, { what: `keep ${s.host.id}`, rect: { ...s.keep.rect, y: s.keep.rect.y + s.keep.rect.h * 0.3, h: s.keep.rect.h * 0.7 } }]);
   const things = [...cottages, ...tiles, ...robots, ...halls, ...plaques];
   for (let i = 0; i < things.length; i++)
     for (let j = i + 1; j < things.length; j++) {
@@ -66,7 +66,7 @@ function assertLegible(layout) {
       // A robot stands at its own cottage's doorstep (in front of it); a tile in its hall's arch; a plaque at its fountain.
       if (a.ws && a.ws === b.ws) continue;
       if (/^(tile|hall)/.test(a.what) && /^(tile|hall)/.test(b.what)) continue;
-      if (/^(plaque|fountain)/.test(a.what) && /^(plaque|fountain)/.test(b.what) && a.what.split(" ")[1] === b.what.split(" ")[1]) continue;
+      if (/^(plaque|fountain|keep)/.test(a.what) && /^(plaque|fountain|keep)/.test(b.what) && a.what.split(" ")[1] === b.what.split(" ")[1]) continue;
       assert.ok(!overlaps(a.rect, b.rect, -1), `${a.what} overlaps ${b.what}`);
     }
   for (const d of layout.decor) {
@@ -121,6 +121,7 @@ function assertConnected(layout) {
     assert.ok(onPath(door), `${p.key}'s door is on a path`);
   }
   for (const w of layout.workspaces) assert.ok(onPath(w.door), `${w.entity.id}'s doorstep is on a path`);
+  for (const s of layout.squares) assert.ok(onPath({ x: s.keep.rect.x + s.keep.rect.w / 2, y: s.keep.rect.y + s.keep.rect.h + 1 }), `${s.host.id}'s keep's door is on its plaza`);
   for (const a of layout.agents) assert.ok(onPath(a.feet), `robot ${a.entity.id} stands on a path`);
 }
 
@@ -148,6 +149,11 @@ function assertGrouped(layout) {
     const sq = layout.squares[l.square];
     assert.ok(within(l.rect, sq.rect), `${l.project}'s yard lies inside ${sq.host.id}'s district`);
     for (const o of layout.lawns) if (o !== l) assert.ok(!overlaps(l.rect, o.rect, 20), `${l.project}'s yard stands apart from ${o.project}'s`);
+  }
+  for (const s of layout.squares) {
+    assert.ok(within(s.keep.rect, s.rect), `${s.host.id}'s keep stands inside its district`);
+    assert.ok(within(s.plaque, s.keep.rect), `${s.host.id}'s name is on its keep`);
+    for (const l of layout.lawns) assert.ok(!overlaps(s.keep.rect, l.rect), `${s.host.id}'s keep stands clear of ${l.project}'s yard`);
   }
   for (let i = 0; i < layout.squares.length; i++)
     for (let j = i + 1; j < layout.squares.length; j++)

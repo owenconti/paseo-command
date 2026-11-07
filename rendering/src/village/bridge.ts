@@ -253,12 +253,6 @@ function threePieces(ctx: CanvasRenderingContext2D, frame: (n: string) => HTMLCa
     ctx.drawImage(src, 0, 0, (src.width * part) / mw, src.height, at, y, part + 0.3, h);
   }
 }
-/** A parchment plaque: the wide one's three pieces when the sheet has them, else the old scroll's, else the 9-sliced plaque. */
-function threeSlice(ctx: CanvasRenderingContext2D, frame: (n: string) => HTMLCanvasElement, real: Set<string>, x: number, y: number, w: number, h: number) {
-  if (["plaque-wide-left", "plaque-wide-mid", "plaque-wide-right"].every((n) => real.has(n))) return threePieces(ctx, frame, "plaque-wide", x, y, w, h);
-  if (["plaque-left", "plaque-mid", "plaque-right"].every((n) => real.has(n))) return threePieces(ctx, frame, "plaque", x, y, w, h);
-  return nineSlice(ctx, frame("plaque"), "plaque", x, y, w, h);
-}
 
 export function mountNativeVillage(parent: HTMLElement, handlers: AtlasHandlers = {}): AtlasWorld {
   const post = (message: Record<string, unknown> & { type: string }) => channel()?.postMessage(message);
@@ -520,43 +514,69 @@ export function mountNativeVillage(parent: HTMLElement, handlers: AtlasHandlers 
     }
     return canvas;
   };
-  /** The fountain's plaque: a line per host (its name, a status dot, its machine's load; offline says so). */
-  const paintHostPlaque = (r: Rect, hosts: VSquare["hosts"]) => {
+  /** A keep's pennant, its cloth dyed its host's status (green online, grey offline); the pole as painted. */
+  const paintPennant = (online: boolean) => {
+    const src = frame("keep-flag");
+    const c = document.createElement("canvas");
+    c.width = src.width;
+    c.height = src.height;
+    const ctx = c.getContext("2d")!;
+    ctx.drawImage(src, 0, 0);
+    const cl = FRAMES["keep-flag"]!.cloth ?? { x: 0.2, y: 0, w: 0.8, h: 0.4 };
+    const r = { x: cl.x * c.width - 2, y: cl.y * c.height - 2, w: cl.w * c.width + 4, h: cl.h * c.height + 4 };
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(r.x, r.y, r.w, r.h);
+    ctx.clip();
+    ctx.globalCompositeOperation = "source-atop";
+    ctx.fillStyle = online ? "#36b04a" : "#8a8478";
+    ctx.globalAlpha = 0.7;
+    ctx.fillRect(r.x, r.y, r.w, r.h);
+    ctx.restore();
+    return c;
+  };
+  /** A keep's name board: the host's name painted in capitals in the world's serif (cream, with a worn dark inset, as
+   * paint on wood), its load in small lettering beneath (≥ 90% red) when it fits; offline says so. Transparent round it. */
+  const paintSign = (r: Rect, h: VSquare["hosts"][number]) => {
     const { canvas, ctx } = canvasFor(r.w, r.h);
-    threeSlice(ctx, frame, realFrames, 0, 0, r.w, r.h);
-    // Each host a block: its name, then a status dot and its load (offline says so); stacked.
-    const n = Math.max(1, hosts.length);
-    // Clear of the scroll's rolled top and bottom edges.
-    const pad = n > 1 ? r.h * 0.13 : 0;
-    const blockH = (r.h - 2 * pad) / n;
-    hosts.forEach((h, i) => {
-      const top = pad + i * blockH;
-      ctx.textBaseline = "middle";
-      ctx.textAlign = "center";
-      ctx.font = fontOf("host");
-      ctx.fillStyle = INK;
-      ctx.fillText(fitText(h.title, fontOf("host"), r.w - 60), r.w / 2, top + blockH * 0.38);
-      const parts = h.stats.length ? h.stats.flatMap((s, k) => (k ? [{ text: " · ", alert: false }, s] : [s])) : [{ text: h.online ? "No load reading" : "Offline", alert: false }];
-      ctx.font = fontOf("stats");
+    const SIGN = '"Iowan Old Style", Palatino, "Palatino Linotype", "Book Antiqua", Georgia, serif';
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    // The load beneath the name only where the board has room for both to read; else the name alone, large.
+    const room = r.h >= 40;
+    const lines = !room ? [] : h.stats.length ? h.stats : h.online ? [] : [{ text: "OFFLINE", alert: false }];
+    const nameSize = Math.min(r.h * (lines.length ? 0.46 : 0.66), 30);
+    let font = `${BOLD} ${nameSize}px ${SIGN}`;
+    ctx.font = font;
+    const title = h.title.replace(/ · OFFLINE$/, "");
+    const shrink = Math.min(1, (r.w - 14) / Math.max(1, ctx.measureText(title).width));
+    font = `${BOLD} ${Math.max(9, nameSize * shrink)}px ${SIGN}`;
+    const nameY = lines.length ? r.h * 0.38 : r.h * 0.52;
+    const paint = (text: string, x: number, y: number, f: string, color: string) => {
+      ctx.font = f;
+      ctx.fillStyle = "rgba(20, 10, 2, 0.75)";
+      ctx.fillText(text, x + 0.8, y + 1.2);
+      ctx.fillStyle = color;
+      ctx.fillText(text, x, y);
+    };
+    paint(fitText(title, font, r.w - 10), r.w / 2, nameY, font, h.online ? CREAM : "#b8ab92");
+    if (lines.length) {
+      const small = `${BOLD} ${Math.max(7, Math.min(r.h * 0.24, 13))}px ${SIGN}`;
+      ctx.font = small;
+      const parts = lines.flatMap((p, k) => (k ? [{ text: " · ", alert: false }, p] : [p]));
       const widths = parts.map((p) => ctx.measureText(p.text).width);
-      const dot = 9;
-      let x = r.w / 2 - (widths.reduce((s, w) => s + w, 0) + dot + 6) / 2;
-      const y = top + blockH * 0.72;
-      ctx.fillStyle = h.online ? "#3fb44a" : "#8a8478";
-      ctx.beginPath();
-      ctx.arc(x + dot / 2, y, dot / 2, 0, Math.PI * 2);
-      ctx.fill();
-      x += dot + 6;
-      ctx.textAlign = "left";
-      parts.forEach((p, k) => {
-        ctx.fillStyle = p.alert ? ALERT : INK;
-        ctx.fillText(p.text, x, y + 0.5);
-        x += widths[k]!;
-      });
-    });
+      const total = widths.reduce((a, b) => a + b, 0);
+      if (total <= r.w - 8) {
+        let x = r.w / 2 - total / 2;
+        ctx.textAlign = "left";
+        parts.forEach((p, k) => {
+          paint(p.text, x, r.h * 0.76, small, p.alert ? "#ff6a4c" : "#e8d6ae");
+          x += widths[k]!;
+        });
+      }
+    }
     return canvas;
   };
-
   /** The HUD's "At a Glance" panel: dark wood, gold corners, in screen points. */
   const paintGlance = (l: VillageLayout) => {
     const c = l.counts;
@@ -750,9 +770,16 @@ export function mountNativeVillage(parent: HTMLElement, handlers: AtlasHandlers 
         const basin = at("water-ripple", sq.center.x, sq.fountain.y + sq.fountain.h * 0.74, sq.fountain.w * 0.7);
         sprites.push(sprite("water-ripple", basin, standZ(l, sq.fountain.y + sq.fountain.h) + 0.01, { a: 0.8 }));
       }
+      // Its host's keep (picked as the host; it glows on hover and while its host is the one targeted), the pennant on
+      // its tower flying the host's status (green online, grey offline), and its name board.
+      const kz = standZ(l, sq.keep.rect.y + sq.keep.rect.h);
+      sprites.push(sprite(sq.keep.frame, sq.keep.rect, kz, { ...dim, e: sq.host.id }));
+      images.push({ ...image("shadow:contact", paintContact), x: sq.keep.rect.x, y: sq.keep.rect.y + sq.keep.rect.h - sq.keep.rect.w * 0.1, w: sq.keep.rect.w, h: sq.keep.rect.w * 0.2, z: kz - 0.01, a: 0.7 });
+      const fb = at("keep-flag", sq.keep.flag.x, sq.keep.flag.y, 44);
+      images.push({ ...image(`keepflag:${sq.online ? "on" : "off"}`, () => paintPennant(sq.online)), ...fb, z: kz + 0.002, ...dim });
       images.push({
-        ...image(`hostplaque:${JSON.stringify(sq.hosts)}:${sq.plaque.w}:${sq.plaque.h}`, () => paintHostPlaque(sq.plaque, sq.hosts)),
-        x: sq.plaque.x, y: sq.plaque.y, w: sq.plaque.w, h: sq.plaque.h, z: 3, ...dim,
+        ...image(`keepsign:${JSON.stringify(sq.hosts[0])}:${sq.plaque.w}:${sq.plaque.h}`, () => paintSign(sq.plaque, sq.hosts[0]!)),
+        x: sq.plaque.x, y: sq.plaque.y, w: sq.plaque.w, h: sq.plaque.h, z: kz + 0.003, ...dim,
       });
     });
     // Each cluster's lawn, over the plaza's cobbles (its edges under the greenery and fence the layout sets round it).
@@ -824,7 +851,7 @@ export function mountNativeVillage(parent: HTMLElement, handlers: AtlasHandlers 
       core: l.core,
       keep: l.keep,
       // What the HUD's panel must never cover: tiles, halls, cottages and robots.
-      clear: [...l.tiles.map((t) => t.frame), ...l.projects.map((p) => p.body), ...l.workspaces.map((w) => w.frame), ...l.agents.map((a) => a.rect)].map((r) => [r.x, r.y, r.w, r.h]),
+      clear: [...l.tiles.map((t) => t.frame), ...l.projects.map((p) => p.body), ...l.squares.map((s) => s.keep.rect), ...l.workspaces.map((w) => w.frame), ...l.agents.map((a) => a.rect)].map((r) => [r.x, r.y, r.w, r.h]),
       sprites,
       images,
       lights,
@@ -837,8 +864,9 @@ export function mountNativeVillage(parent: HTMLElement, handlers: AtlasHandlers 
         // The halls themselves, for their hover cards (picked after their tiles: "vhall" sorts after "tile").
         // Projects' halls (picked and selected), the dashboard halls (cards only).
         ...l.projects.map((p) => (p.entity ? { id: p.entity.id, kind: "project", ...p.rect } : { id: `v${p.key}`, kind: "tile", ...p.rect })),
-        // Each district's fountain: its host's card.
+        // Each district's fountain: its host's card; its keep: the host itself, picked as the Hosts tab picks it.
         ...l.squares.map((s) => ({ id: `vfountain:${s.host.id}`, kind: "tile", ...s.fountain })),
+        ...l.squares.map((s) => ({ id: s.host.id, kind: "host", ...s.keep.rect })),
       ],
     };
   };
@@ -1005,6 +1033,24 @@ export function mountNativeVillage(parent: HTMLElement, handlers: AtlasHandlers 
       lines: [`Running: ${c.running}`, `Idle: ${c.idle + c.unread}`, ...(c.needYou ? [`Need you: ${c.needYou}`] : []), ...(c.failed ? [`Failed: ${c.failed}`] : []), ...(c.offline ? [`Offline: ${c.offline}`] : [])],
     };
   };
+  /** A host's card: its name, status and load, what it holds, and that a click targets it. */
+  const hostCard = (sq: VSquare) => {
+    const l = layout!, id = sq.host.id;
+    const projects = l.projects.filter((p) => p.hall === "project" && p.host === id).length;
+    const workspaces = l.workspaces.filter((w) => w.entity.host === id && !w.entity.camp).length;
+    const agents = l.agents.filter((a) => a.entity.host === id).length;
+    const h = sq.hosts[0]!;
+    const plural = (n: number, w: string) => `${n} ${w}${n === 1 ? "" : "s"}`;
+    return {
+      title: h.title.replace(/ · OFFLINE$/, ""),
+      detail: `Host · ${sq.online ? "Online" : "Offline"}`,
+      lines: [
+        h.stats.length ? h.stats.map((x) => x.text).join(" · ") : sq.online ? "No load reading" : "Offline",
+        `${plural(projects, "project")} · ${plural(workspaces, "workspace")} · ${plural(agents, "agent")}`,
+        "Click to show only this host",
+      ],
+    };
+  };
   const setHover = (id: string | null, at?: { x: number; y: number }, flag?: MapFlag) => {
     hovered = id;
     hoverAt = id ? at : undefined;
@@ -1045,9 +1091,15 @@ export function mountNativeVillage(parent: HTMLElement, handlers: AtlasHandlers 
         if (hovered) setHover(null);
         const p = layout?.projects.find((x) => `v${x.key}` === message.id);
         const sq = layout?.squares.find((s) => `vfountain:${s.host.id}` === message.id);
-        const n = sq ? layout!.agents.filter((a) => a.entity.host === sq.host.id).length : 0;
-        const card = p && p.hall !== "project" ? hallCard(p.hall) : sq ? { title: sq.hosts[0]!.title, detail: `Host · ${n} agent${n === 1 ? "" : "s"}`, lines: sq.hosts[0]!.stats.length ? [sq.hosts[0]!.stats.map((x) => x.text).join(" · ")] : [sq.online ? "No load reading" : "Offline"] } : null;
+        const card = p && p.hall !== "project" ? hallCard(p.hall) : sq ? hostCard(sq) : null;
         handlers.card?.(card, message.x === undefined ? null : { x: message.x, y: message.y! });
+        return;
+      }
+      const keep = layout?.squares.find((s) => s.host.id === message.id);
+      if (keep) {
+        // A keep: its host's card (the keep glows in Swift); a click targets the host.
+        if (hovered) setHover(null);
+        handlers.card?.(hostCard(keep), message.x === undefined ? null : { x: message.x, y: message.y! });
         return;
       }
       if (message.id?.startsWith("tile:")) {
@@ -1171,7 +1223,7 @@ export function mountNativeVillage(parent: HTMLElement, handlers: AtlasHandlers 
             counts: layout.counts,
             status: statusLine(layout).text,
             realFrames: realFrames.size,
-            squares: layout.squares.map((s) => ({ hosts: s.hosts.map((h) => ({ id: h.id, title: h.title, online: h.online, stats: h.stats.map((x) => x.text) })), rect: s.rect, fountain: s.fountain, river: layout!.town.river })),
+            squares: layout.squares.map((s) => ({ host: { id: s.host.id }, hosts: s.hosts.map((h) => ({ id: h.id, title: h.title, online: h.online, stats: h.stats.map((x) => x.text) })), rect: s.rect, fountain: s.fountain, keep: s.keep, plaque: s.plaque, river: layout!.town.river })),
             tiles: layout.tiles.map((t) => ({ id: t.id, rect: t.rect })),
             projects: layout.projects.map((p) => ({ id: p.entity?.id ?? p.key, name: p.name, icon: p.icon, building: p.building, rect: p.rect, lamps: p.lamps })),
             workspaces: layout.workspaces.map((w) => ({

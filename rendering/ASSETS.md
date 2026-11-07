@@ -1553,7 +1553,7 @@ connector lines, which belong to the renderer.
 ## Village — modular painterly village kit (2026-11-06)
 
 The Village kit is original generated artwork made with the built-in `image_gen`
-tool in nineteen calls. The user's private `design/references/village-concept.png`
+tool in twenty-one calls. The user's private `design/references/village-concept.png`
 was inspected as a visual reference for the warm painterly pixel-art village,
 three-quarter overhead perspective, golden upper-left light, roofs, crystal,
 round robots and materials. No pixels from that image were copied into any
@@ -1564,7 +1564,8 @@ Finals are `src/assets/village/<sheet>.png` and matching `.json`, with `scale: 3
 `buildings` (11 frames), `banner` (13), `tiles` (6), `robots` (73), `fountain` (7),
 `ground` (18), `scenery` (50) and `hud` (8): 186 original frames. The supplemental
 `ground-warm` sheet below adds thirteen; the stained-glass revision adds a
-separate sill; `cottages` and `district` add twenty, for 220 total. All 151 originally
+separate sill; `cottages` and `district` add twenty; `keeps` adds seven, for
+227 total. All 151 originally
 requested names remain present. The thirty-four additional frames beyond the
 first complete 152-frame pass are documented in `src/assets/village/STATUS.md`.
 
@@ -1984,3 +1985,70 @@ Original output: `exec-88dec70c-6339-4041-adcc-37e87c707190.png`.
 Exact prompt:
 
 > Use case: stylized-concept. Transparent fantasy village GAME ENVIRONMENT PROP KIT, EXACT 4 columns x 2 rows with eight fully separate props and wide transparent gutters. Richly detailed painterly pixel-art, crisp thin dark brown contours, 3/4 top-down looking south, warm golden afternoon upper-left light, grey/tan limestone and worn dark oak, deep olive greens, restrained moss. TOP LEFT: short STRAIGHT horizontal cottage-to-hall COBBLE PATH segment, around90x28 game concept pixels, varied rounded muted warm grey-brown/tan stones with dark mortar, organic edges with subtle grass at sides, no flat yellow rectangle. TOP SECOND: same short cobble path on a DIAGONAL from upper left to lower right, same stone scale/width, organic grassy side edges. TOP THIRD: LOW HORIZONTAL WOODEN DISTRICT FENCE segment, dark weathered oak posts and two narrow cross-rails, small brass pegs, low enough not to hide robots, straight open join-friendly ends. TOP RIGHT: same LOW FENCE running VERTICALLY away in ground plane, two rails and posts in same perspective, no rotation mismatch. BOTTOM LEFT: small LOW HEDGE clump with dense dark-green rounded leaves, around60px wide, no soil base. BOTTOM SECOND: same low hedge family but a longer gently irregular yellow-olive leaf clump, around75px wide. BOTTOM THIRD: third low hedge variant, rounded rich green foliage with a few tiny pale flowers, around65px wide. BOTTOM RIGHT: small DISTRICT STONE ARCH GATEWAY, about90px wide and100px high, warm grey/tan limestone posts and arch with a simple carved keystone, small ivy trails and a shallow threshold, completely empty dark open passage with actual transparent view through it, no iron door, no banner or sign. Props only, no buildings, no robots, no words, letters, numbers, icons or labels, no square terrain bases. Each whole prop isolated on genuine transparent alpha, no checkerboard or background. Output1536x1024.
+
+
+### Village host keeps and mounted host signs — first complete pass
+
+Two new built-in generations paint three small host castles and a neutral
+pennant. The user's walled-district app screenshot was inspected as placement
+context, never as sprite source pixels. The keeps follow the Village's warm
+upper-left light, three-quarter facade perspective, chipped grey/tan limestone,
+worn oak, slate roof accents and restrained ivy. Each has crenellations, a
+closed arched oak door, warm amber windows and one physically mounted blank
+timber name board with carved edging, brackets and iron pegs. No label, host
+text or flag is baked into a keep.
+
+`keeps.png`/`.json` contains seven frames: `keep-0` (single square tower),
+`keep-1` (twin-towered gatehouse), `keep-2` (stepped keep with a round corner
+turret and small slate roof), `keep-offline-0..2`, and `keep-flag`. The keep
+frames fit a 680px-high source envelope plus padding, approximately 1.2x the
+existing halls' source height and narrower in width. Their bottom feet anchors
+register to the actual painted alpha baseline rather than the safety margin.
+The twin-tower image is narrowed slightly to keep its footprint below a hall's.
+
+Each keep has `sign: {x,y,w,h}` in frame-local source pixels, describing the
+usable blank wood centre inside its mounted board. Source coordinates are
+transformed consistently through cropping/resizing and checked visually to
+avoid carving/brackets. A `flag: {x,y}` frame-local point locates a roof pole
+attachment. The pennant has a feet anchor at the pole foot, offset from the
+cloth's centre, plus a frame-local `cloth` rectangle for selective tinting. Its
+blank neutral cloth takes green or grey cleanly. Host lettering and clicking
+remain code-owned.
+
+Offline variants reuse identical stone, name boards, silhouette, anchors and
+alpha. Only registered arched window-glass pixels change to cool dark unlit
+values, including formerly bright glints, preserving the painted lead pattern.
+The compressed outputs are checked for identical online/offline exterior RGBA,
+alpha and sign rectangles. The shared palette and dithering-off remapping keep
+unchanged exterior pixels identical between pairs.
+
+The first complete pass is live in one 3406x698 indexed PNG, libimagequant
+256 colours, dithering off, Pillow optimisation: 718,161 bytes. All twelve
+Village sheets total 9,704,720 bytes (9.70 MB), with 227 frames, preserving the
+previous under-10-MB goal. All prior PNG/JSON pairs are untouched. Validation
+covers names, bounds, overlap, real alpha, painted foot anchors, sign/cloth
+rectangles, roof mounting points and state-pair registration.
+
+Private source prompts are `artifacts/village/prompts-v8.json`; source outputs
+are in `raw/`, with the recipe `build-keeps.py` and checks in `keeps-v8/`.
+`keeps-v8/first-pass.png` shows all three keeps online/offline with green/grey
+flags and sample Palatino host names painted onto copies of their boards. All
+text and state tints appear only in that review image; production signs stay
+blank. The art was generated with two new calls, bringing the recorded Village
+source total to twenty-one built-in imagegen calls.
+
+### Village source: keeps_v8
+
+Original output: `exec-8b598045-d6bc-41d3-8835-f8391cd4deec.png`.
+
+Exact prompt:
+
+> Use case: stylized-concept. Production transparent GAME CASTLE SPRITE SHEET, EXACT THREE COLUMNS by ONE ROW, three separate SMALL CASTLE KEEPS/GATEHOUSES, generous transparent gutters. Warm richly detailed painterly pixel-art fantasy village, same camera as village guild halls: 3/4 top-down looking south at straight front facades, warm golden afternoon light from upper left, fine dark-brown contours, chipped warm grey/tan limestone blocks, dark aged oak, restrained bronze, a little subtle ivy/moss. Each castle is a compact upright host landmark, around1.2times a village hall's height but NARROWER in width, not a huge palace or full walled courtyard. Show full battlement tops, roof, entrance and shallow stone footing, nothing cropped. Each has crenellations, one CLOSED arched oak front door, and 2–4 small WARM AMBER LIT arched windows. EACH KEEP HAS ONE WIDE BLANK WOODEN NAME BOARD PHYSICALLY MOUNTED ON ITS FRONT, above the door and below the upper windows, on little metal brackets: broad pale honey-worn wood centre, subtle grain, simple carved dark oak edge and iron pegs. Board is straight front-facing, roughly60% of keep's width and14% of its height, enough for a host name in serif lettering added later. No text or pictograms baked into boards. These must look like actual carved/painted tavern/shop signs, NOT floating parchment UI labels, not glossy buttons. LEFT: stout single square stone tower keep with deep crenellated crown, two amber windows above the broad mounted name board and arched oak door below. MIDDLE: twin-towered stone GATEHOUSE, two narrow crenellated flanking towers connected by a central bridge facade over the closed arched timber gate, broad blank wood name board on this central bridge; amber windows on both towers. RIGHT: compact stepped castle keep with one short round corner turret and a small slate-blue hipped roof tucked inside the rear crenellations, broad name board on front, amber windows above it and arched oak door below. Match the detailed warm stone and shingled roofs of a painted fantasy village, cozy rather than grim fortress, hand painted texture rather than 3D render or vector. No flags, poles, robots, trees, signs outside the mounted blank board, ground islands, terrain rectangles, text, letters, numbers, labels or water. Actual transparent exterior, never checkerboard or matte. Output1536x1024.
+
+### Village source: keep_flag_v8
+
+Original output: `exec-e9cccfd5-88ab-4022-9538-599818b77ccf.png`.
+
+Exact prompt:
+
+> Use case: stylized-concept. ONE isolated SMALL TOWER PENNANT ON A POLE game sprite, genuinely transparent exterior. Same warm painterly pixel-art fantasy village style, 3/4 top-down facade camera and warm upper-left daylight, thin dark sepia contours and subtle material detail. A slender aged dark-grey iron pole with a tiny rounded finial at top and a small swallowtail triangular cloth pennant fluttering to the RIGHT. Cloth is BLANK NEUTRAL IVORY/PEARL GREY with soft darker folds and no symbol, designed for game code to tint it GREEN for online hosts or GREY for offline. Keep shading neutral so tinting is clean. Pole and cloth together are a very small slender silhouette around28x50 game concept pixels, flag cloth only about25x15px, pole foot at bottom. Full pole, finial and all cloth tips visible with wide transparent margin on every side. Subtle painterly woven fabric and worn iron, not a flat vector icon, no glossy highlights, no bright white glow. No ground base, no stone pedestal, no letters, counts, crest, icons or labels. No background, matte, checkerboard, cast shadow on a ground plane or other objects. Output1024x1024.

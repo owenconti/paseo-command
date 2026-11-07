@@ -29,7 +29,7 @@ import {
 import { BEACON_STATES } from "../placement.ts";
 import { probeGlyph } from "../probe.ts";
 import { projectIcon } from "../dungeon/layout.ts";
-import { COTTAGES, FRAMES, anchorShare, type Icon, type TileKind } from "./frames.ts";
+import { COTTAGES, FRAMES, KEEPS, anchorShare, type Icon, type TileKind } from "./frames.ts";
 
 export { projectIcon };
 export type Pt = { x: number; y: number };
@@ -70,6 +70,9 @@ export const V = {
   districtPad: 56,
   districtGap: 300,
   fountainW: 230,
+  /** A host's keep: its width, and the room between it and the fountain. */
+  keep: 340,
+  keepGap: 30,
   ringW: 300,
   hostPlaqueH: 64,
   hostPlaqueMin: 220,
@@ -102,8 +105,11 @@ export type VSquare = {
   center: Pt;
   fountain: Rect;
   ring: Rect;
+  /** The keep's name board, where the host's name is painted (the district's only text). */
   plaque: Rect;
-  /** The plaque's lines (one host per district). */
+  /** Its host's keep at the district's head: its variant, its body (picked as the host) and its pennant's foot. */
+  keep: { frame: string; rect: Rect; flag: Pt; offline: boolean };
+  /** The sign's lines (one host per district). */
   hosts: { id: string; title: string; stats: { text: string; alert: boolean }[]; online: boolean; plaqueW: number; lineW: number }[];
   roads: Rect[];
   /** The round paving under the fountain's ring. */
@@ -430,6 +436,9 @@ type District = {
   /** The fountain's centre line and its top, from the district's top-left. */
   fountainX: number;
   fountainY: number;
+  /** The keep's feet, from the district's top-left. */
+  keepX: number;
+  keepY: number;
   line: VSquare["hosts"][number];
   /** The area its clusters' yards and its fountain plaza cover. */
   built: number;
@@ -438,36 +447,41 @@ function districtOf(host: AtlasData["hosts"][number], blocks: Block[], line: VSq
   const P = V.districtPad;
   const span = (b: Block) => b.width + V.lawnPad * 2;
   const tall = (b: Block) => b.above + b.below + V.lawnPad * 2;
-  const fountainH = (FRAMES["fountain-on"]!.h * V.fountainW) / FRAMES["fountain-on"]!.w + V.hostPlaqueH + 60;
-  const gap = Math.max(V.fountainGap, line.plaqueW + 30);
+  // The host's slot: its keep, then its fountain beside it (the gate opens above the fountain).
+  const fountainH = (FRAMES["fountain-on"]!.h * V.fountainW) / FRAMES["fountain-on"]!.w + 60;
+  const keepH = (FRAMES["keep-0"]!.h * V.keep) / FRAMES["keep-0"]!.w;
+  const gap = V.keep + V.keepGap + V.fountainGap;
+  const slotH = Math.max(fountainH, keepH + 30);
   // The fountain's plaza is a slot among its clusters (in the first row's middle), so the rows fill and the clusters stand
   // round it.
   type Item = Block | "fountain";
   const items: Item[] = [...blocks];
   items.splice(Math.min(Math.floor(perRow / 2), blocks.length), 0, "fountain");
   const w = (it: Item) => (it === "fountain" ? gap : span(it));
-  const h = (it: Item) => (it === "fountain" ? fountainH : tall(it));
+  const h = (it: Item) => (it === "fountain" ? slotH : tall(it));
   const rows: Item[][] = [];
   items.forEach((it, i) => (i % perRow === 0 ? rows.push([it]) : rows[rows.length - 1]!.push(it)));
   const rowW = rows.map((r) => r.reduce((n, it) => n + w(it), 0) + V.blockGap * (r.length - 1));
   const width = P * 2 + Math.max(...rowW);
   const placed: District["blocks"] = [];
-  let y = P, fountainX = width / 2, fountainY = P;
+  let y = P, fountainX = width / 2, fountainY = P, keepX = 0, keepY = 0;
   rows.forEach((r, i) => {
     let x = (width - rowW[i]!) / 2;
     const rh = Math.max(...r.map(h));
     for (const it of r) {
       if (it === "fountain") {
-        fountainX = x + gap / 2;
+        fountainX = x + V.keep + V.keepGap + V.fountainGap / 2;
         fountainY = y + (rh - fountainH) / 2;
+        keepX = x + V.keep / 2;
+        keepY = y + (rh + keepH) / 2;
       } else placed.push({ block: it, lx: x, y: y + V.lawnPad + it.above });
       x += w(it) + V.blockGap;
     }
     y += rh + V.blockGap;
   });
   const height = y - V.blockGap + P;
-  const built = blocks.reduce((n, b) => n + span(b) * tall(b), 0) + gap * fountainH;
-  return { host, perRow, blocks: placed, width, height, fountainX, fountainY, line, built };
+  const built = blocks.reduce((n, b) => n + span(b) * tall(b), 0) + gap * slotH;
+  return { host, perRow, blocks: placed, width, height, fountainX, fountainY, keepX, keepY, line, built };
 }
 
 /**
@@ -594,14 +608,22 @@ export function layoutVillage(data: AtlasData, aspect = 1.6, measure: Measure = 
       const fountain = boxOf("fountain-on", fcx, y + d.fountainY + (FRAMES["fountain-on"]!.h * V.fountainW) / FRAMES["fountain-on"]!.w, V.fountainW);
       const ringH = (FRAMES["plaza-ring"]!.h * V.ringW) / FRAMES["plaza-ring"]!.w;
       const ring = { x: fcx - V.ringW / 2, y: fountain.y + fountain.h - ringH * 0.7, w: V.ringW, h: ringH };
-      const plaque = { x: fcx - d.line.plaqueW / 2, y: ring.y + ring.h - 10, w: d.line.plaqueW, h: V.hostPlaqueH };
+      // Its host's keep, a variant seeded per host; its name board takes the host's name.
+      const keepFrame = KEEPS[seedOf(d.host.key + "keep") % KEEPS.length]!;
+      const keepRect = boxOf(keepFrame, x + d.keepX, y + d.keepY, V.keep);
+      const ks = FRAMES[keepFrame]!, sign = ks.sign ?? { x: 0.08, y: 0.56, w: 0.84, h: 0.2 }, kf = ks.flag ?? { x: 0.5, y: 0.04 };
+      const plaque = { x: keepRect.x + keepRect.w * sign.x, y: keepRect.y + keepRect.h * sign.y, w: keepRect.w * sign.w, h: keepRect.h * sign.h };
+      const keep = {
+        frame: d.host.online ? keepFrame : keepFrame.replace("keep-", "keep-offline-"), rect: keepRect, offline: !d.host.online,
+        flag: { x: keepRect.x + keepRect.w * kf.x, y: keepRect.y + keepRect.h * kf.y },
+      };
       const plaza = { x: fcx - V.ringW * 0.72, y: ring.y + ring.h / 2 - V.ringW * 0.44, w: V.ringW * 1.44, h: V.ringW * 0.88 };
       const host: Entity = {
         id: d.host.key, kind: "host", name: d.host.name, host: d.host.key, position: { q: 0, r: 0 }, stale: !d.host.online,
         ...(d.host.stats ? { stats: d.host.stats } : {}),
       };
       squares.push({
-        host, online: d.host.online, rect, center: { x: fcx, y: fountain.y + fountain.h / 2 }, fountain, ring, plaque, hosts: [d.line],
+        host, online: d.host.online, rect, center: { x: fcx, y: fountain.y + fountain.h / 2 }, fountain, ring, plaque, keep, hosts: [d.line],
         roads: [{ x: x + 30, y: y + 30, w: dw - 60, h: d.height - 60 }], plaza,
         lamps: [], pennants: [{ x: fcx - V.ringW / 2 - 6, y: ring.y + ring.h * 0.6 }, { x: fcx + V.ringW / 2 + 6, y: ring.y + ring.h * 0.6 }],
       });
@@ -735,7 +757,7 @@ export function layoutVillage(data: AtlasData, aspect = 1.6, measure: Measure = 
   const decor = sceneryOf(town, squares, lawns, projects, workspaces, agents, tiles);
 
   // The crop: the dashboard halls' tops to the wall, the woods at the left, the river's near half at the right.
-  const said = [...projects.map((p) => p.body), ...workspaces.map((w) => w.frame), ...agents.map((a) => a.rect), ...squares.map((s) => s.plaque)];
+  const said = [...projects.map((p) => p.body), ...workspaces.map((w) => w.frame), ...agents.map((a) => a.rect), ...squares.map((s) => s.plaque), ...squares.map((s) => s.keep.rect)];
   const top = Math.min(...said.map((r) => r.y)) - 70;
   const keepX0 = Math.min(...said.map((r) => r.x)) - 20, keepX1 = Math.max(...said.map((r) => r.x + r.w)) + 20;
   const keep = { x: keepX0, y: top, w: keepX1 - keepX0, h: wallY + V.wallH * 0.3 - top };
@@ -789,7 +811,7 @@ function sceneryOf(town: VTown, squares: VSquare[], lawns: VLawn[], projects: VP
   const R = town.rect;
   const says: Rect[] = [
     ...projects.map((p) => p.body), ...tiles.flatMap((t) => [t.rect]), ...workspaces.map((w) => w.frame),
-    ...agents.map((a) => ({ ...a.rect, y: a.rect.y - 16, h: a.rect.h + 30 })), ...squares.flatMap((s) => [s.fountain, s.plaque, s.ring]),
+    ...agents.map((a) => ({ ...a.rect, y: a.rect.y - 16, h: a.rect.h + 30 })), ...squares.flatMap((s) => [s.fountain, s.plaque, s.ring, s.keep.rect]),
     ...squares.flatMap((s) => s.pennants.map((l) => boxOf("lamp-on", l.x, l.y, 34))), ...town.lamps.map((l) => boxOf("lamp-on", l.x, l.y)),
     ...projects.flatMap((p) => p.lamps.map((l) => boxOf("lamp-on", l.x, l.y))),
   ];

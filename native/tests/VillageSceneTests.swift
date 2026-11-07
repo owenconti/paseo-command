@@ -51,6 +51,7 @@ scene.setScene([
     "sprites": [
         ["f": "grass", "x": -500.0, "y": 0.0, "w": 1000.0, "h": 800.0, "z": -60.0, "tile": "xy", "ox": 7.0, "oy": 3.0],
         ["f": "hall-blue", "x": 80.0, "y": 120.0, "w": 260.0, "h": 200.0, "z": -20.0],
+        ["f": "hall-blue", "x": -420.0, "y": 100.0, "w": 180.0, "h": 220.0, "z": -20.0, "e": "local"],
         ["f": "water-ripple-0", "anim": ["water-ripple-0", "water-ripple-1"], "fps": 5.0, "x": 10.0, "y": 10.0, "w": 60.0, "h": 24.0, "z": -4.0],
         ["f": "dot", "c": 0x3fb44a, "x": 400.0, "y": 400.0, "w": 10.0, "h": 10.0, "z": 3.0],
     ],
@@ -61,6 +62,7 @@ scene.setScene([
         ["id": "p1", "kind": "project", "x": 100.0, "y": 140.0, "w": 200.0, "h": 90.0],
         ["id": "w1", "kind": "workspace", "x": 80.0, "y": 280.0, "w": 260.0, "h": 110.0],
         ["id": "a1", "kind": "agent", "x": 180.0, "y": 330.0, "w": 40.0, "h": 46.0],
+        ["id": "local", "kind": "host", "x": -420.0, "y": 100.0, "w": 180.0, "h": 220.0],
     ],
 ], images: [:])
 scene.setAgents([
@@ -94,6 +96,7 @@ assert(click(300, 360) == "w1", "the bay around it")
 assert(click(250, 180) == "p1", "the building")
 assert(click(109, 309) == "w1", "a PR medallion picks its workspace")
 assert(click(-400, 700) == nil, "bare grass picks nothing")
+assert(click(-330, 210) == "local", "a host's keep picks the host")
 
 // Hover: the medallion's card points at the medallion's top; the robot's at the robot's.
 events = []
@@ -109,6 +112,8 @@ scene.pointer(phase: "leave", at: .zero)
 assert(scene.state()["hovered"] is NSNull)
 
 // Selection draws for a known entity and clears for a gone one.
+scene.select("local")
+assert(scene.state()["selected"] as? String == "local", "the targeted host's keep is the selection")
 scene.select("w1")
 assert(scene.state()["selected"] as? String == "w1")
 scene.select("gone")
