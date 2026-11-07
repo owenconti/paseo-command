@@ -564,6 +564,16 @@ export function mountNativeVillage(parent: HTMLElement, handlers: AtlasHandlers 
       const grid = FRAMES.grass!.w * 6;
       const phase = (v: number) => ((v % grid) + grid) % grid;
       for (const lawn of l.lawns) sprites.push(tile("grass", lawn.rect, -56.8, { ...dimOf(lawn.square), ox: phase(lawn.rect.x), oy: phase(lawn.rect.y) }));
+      // Its lane and walkways: the plaza's warm cobble on a darker kerb a little wider, so the way from the plaza to every
+      // door reads at a glance against the grass.
+      const stone = realFrames.has("cobble-warm") ? "cobble-warm" : "cobble";
+      for (const lawn of l.lawns)
+        for (const p of lawn.paths) {
+          const kerb = { x: p.x - 7, y: p.y - 7, w: p.w + 14, h: p.h + 14 };
+          sprites.push(tile(stone, kerb, -56.75, { ...dimOf(lawn.square), shade: 0.5 }));
+        }
+      for (const lawn of l.lawns)
+        for (const p of lawn.paths) sprites.push(tile(stone, p, -56.7, { ...dimOf(lawn.square), ox: phase(p.x), oy: phase(p.y) }));
     }
     for (const p of l.projects) {
       const dim = { ...(p.square >= 0 ? dimOf(p.square) : {}), ...(p.stale ? { a: 0.75 } : {}) };

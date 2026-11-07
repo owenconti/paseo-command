@@ -810,8 +810,8 @@ workspaces is one cluster on its own lawn (`lawns`, grass over the plaza just ro
 flowers, a low fence along its front, a back garden of small trees and shrubs behind the cottages beside the hall): its hall at the back (`PROJECT_HALLS`, seeded per project, never the dashboards' blue
 or purple roofs, neighbours differing), its workspaces' cottages (`cottage-0..5`, all at one scale, the widest about 55% of a
 hall's frame) oldest first beside it, two a side (as the Islands map's touch their landmark), then in rows of four in front
-either side of a stepping-stone lane from the hall's door; every row on a walkway of the artist's `path-stone-straight`
-pieces, the lane joining them, the front row's walkway running out through the lawn's side (its hedge open there) onto the
+either side of a stepping-stone lane from the hall's door; every row on a walkway about a robot's width, the lane
+joining them (both the plaza's warm cobble on a darker kerb, grass tufts over their edges, so they read at a glance), the front row's walkway running out through the lawn's side (its hedge open there) onto the
 fountain's plaza. Every structure is on a path (the user's call: robots need a way to their house): each district's gate opens
 onto a cobbled way up to the paving above (the walk under the dashboard halls, which stand on it, or the district above), and
 from the plaza the walkways and lanes reach every hall's door and every cottage's doorstep, where its robots stand; market stalls

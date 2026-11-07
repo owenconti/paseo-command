@@ -619,7 +619,7 @@ export function layoutVillage(data: AtlasData, aspect = 1.6, measure: Measure = 
             // The front row's walkway runs on out of the lawn's side onto the plaza.
             const x0 = r === 0 && exit === "l" ? lawn.x - 24 : Math.min(mid + w.x0, mid - V.lane / 2);
             const x1 = r === 0 && exit === "r" ? lawn.x + lawn.w + 24 : Math.max(mid + w.x1, mid + V.lane / 2);
-            paths.push({ x: x0, y: base + b.rowFeet[r]! - 16, w: x1 - x0, h: 52 });
+            paths.push({ x: x0, y: base + b.rowFeet[r]! - 24, w: x1 - x0, h: 82 });
           });
         }
         let body: Rect;
@@ -858,15 +858,23 @@ function sceneryOf(town: VTown, squares: VSquare[], lawns: VLawn[], projects: VP
   // and greenery along its other edges so no straight edge of grass shows.
   for (const lawn of lawns) {
     const [lane, ...walks] = lawn.paths;
-    const stone = (x: number, y: number, w: number) => decor.push({ frame: "path-stone-straight", x, y, rect: boxOf("path-stone-straight", x, y, w), square: lawn.square, layer: "ground" });
-    if (lane) {
-      const h = (FRAMES["path-stone-straight"]!.h * (lane.w + 8)) / FRAMES["path-stone-straight"]!.w;
-      for (let y = lane.y + h * 0.9; y < lane.y + lane.h + h * 0.5; y += h * 0.62) stone(lane.x + lane.w / 2 + (rng() - 0.5) * 8, y, lane.w + 8);
-    }
-    for (const w of walks) {
-      const pw = (w.h * FRAMES["path-stone-straight"]!.w) / FRAMES["path-stone-straight"]!.h;
-      const n = Math.max(1, Math.ceil((w.w - pw * 0.4) / (pw * 0.7)));
-      for (let k = 0; k <= n; k++) stone(w.x + pw * 0.3 + ((w.w - pw * 0.6) * k) / Math.max(1, n), w.y + w.h + (rng() - 0.5) * 6, pw);
+    // The lane and walkways are cobbled (the bridge paves them, on a darker kerb); grass tufts creep over their edges,
+    // never onto a building, a robot or another path.
+    const tuft = (x: number, y: number) => {
+      const rect = boxOf("grass-tufts", x, y, 30 + rng() * 12);
+      if ([...says, ...water].some((o) => overlaps(o, rect, 2))) return;
+      if (lawn.paths.some((p) => overlaps(rect, { x: p.x + 10, y: p.y + 10, w: p.w - 20, h: p.h - 20 }))) return;
+      decor.push({ frame: "grass-tufts", x, y, rect, square: lawn.square, layer: "stand", hedge: true });
+    };
+    for (const p of lawn.paths) {
+      const long = p.w > p.h;
+      const len = long ? p.w : p.h;
+      for (let t = 20 + rng() * 20; t < len - 10; t += 46 + rng() * 30)
+        for (const side of [0, 1])
+          if (rng() < 0.7)
+            long
+              ? tuft(p.x + t, side ? p.y + p.h + 8 : p.y + 10)
+              : tuft(side ? p.x + p.w + 2 : p.x - 2, p.y + t);
     }
     const r = lawn.rect;
     // The front: a fence's rails along it (the cluster's walkway leaves by its side, toward the fountain).
