@@ -7,7 +7,7 @@ import { prFlags } from "../prStatus.ts";
 import { loadSheetsFrom, frameOf, type Sheets } from "./atlas.ts";
 import { overworldFleet } from "./fleet.ts";
 import { layout, hash, type OwHost, type Scene } from "./layout.ts";
-import { paintScene, robotFrame, ROBOT_SCALE } from "./paint.ts";
+import { overworldSeaTile, paintScene, robotFrame, ROBOT_SCALE, seaPeriod } from "./paint.ts";
 
 /** World units (the native map's) per concept pixel: a robot about as large as the Islands'. */
 export const WORLD = 2.5;
@@ -308,7 +308,17 @@ export class OverworldMap {
       });
     }
     // Swift drops what a scene leaves out, so anything not in this one is sent again when it returns.
+    // The open sea beyond the painted hosts: the same tile, which Swift repeats over the whole view.
+    const SEA_KEY = "ow-sea";
+    if (!this.sent.has(SEA_KEY)) {
+      const tile = overworldSeaTile(this.sheets, K);
+      if (tile) {
+        extra.push({ key: SEA_KEY, png: this.png(tile) });
+        this.sent.add(SEA_KEY);
+      }
+    }
     const used = new Set<string>([
+      SEA_KEY,
       ...pieces.map((p) => String(p.key)),
       ...streamers.flatMap((st) => [st.key, ...(st.frames ?? [])]),
     ]);
@@ -318,6 +328,7 @@ export class OverworldMap {
       style: "overworld",
       build,
       maxZoom: OVERWORLD_MAX_ZOOM,
+      seaTile: { key: "ow-sea", width: w(seaPeriod(this.sheets)) },
       bounds: { x: 0, y: 0, width: w(scene.w), height: w(scene.h) },
       pieces,
       sprites: [],

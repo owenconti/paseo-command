@@ -63,6 +63,9 @@ final class AtlasScene: SKScene {
     private let glints = SKNode()
     private let clouds = SKNode()
     private var seaCover = CGRect.zero
+    /// The Overworld's open sea (the page's painted sea tile) and its width in world units.
+    private var overworldSea: SKTexture?
+    private var overworldSeaWidth: CGFloat = 0
     private let structures = SKNode()
     private let agentLayer = SKNode()
     private let hoverNode = SKNode()
@@ -199,7 +202,8 @@ final class AtlasScene: SKScene {
         if let rev = m["rev"] as? Int { sceneRevision = rev }
         appliedAt = CACurrentMediaTime()
         for (key, image) in images {
-            if key.hasPrefix("banner:") { banners[key] = Textures.texture(image) }
+            if key == "ow-sea" { overworldSea = Textures.texture(image) }
+            else if key.hasPrefix("banner:") { banners[key] = Textures.texture(image) }
             else if key.hasPrefix("streamer:") { streamers[key] = Textures.texture(image) }
             else { pieces[key] = Textures.texture(image) }
         }
@@ -212,7 +216,12 @@ final class AtlasScene: SKScene {
         style = m["style"] as? String ?? "islands"
         rules.maxZoom = (m["maxZoom"] as? Double).map { CGFloat($0) } ?? artMaxZoom
         // The Overworld paints its own sea into its pieces; the Islands sea stays out of sight.
-        for layer in [sea, glints, clouds] { layer.isHidden = style == "overworld" }
+        let overworld = style == "overworld"
+        if let t = m["seaTile"] as? [String: Any] { overworldSeaWidth = num(t["width"]) }
+        // The Overworld's sea fills the view with the page's tile; the Islands' glints and clouds stay out of it.
+        sea.isHidden = overworld && overworldSea == nil
+        for layer in [glints, clouds] { layer.isHidden = overworld }
+        seaCover = .zero
         backgroundColor = Textures.color(style == "overworld" ? 0x0b3a8c : 0x1d6884)
         var keep = Set<String>()
         for piece in m["pieces"] as? [[String: Any]] ?? [] {
@@ -517,7 +526,10 @@ final class AtlasScene: SKScene {
         let cover = CGRect(x: e.midX - w / 2, y: e.midY - h / 2, width: w, height: h)
         if cover == seaCover { return }
         seaCover = cover
-        for (layer, texture, scale) in [(sea, water, CGFloat(1)), (glints, glint, 1.6), (clouds, cloud, 6)] as [(SKNode, SKTexture, CGFloat)] {
+        let overworld = style == "overworld" && overworldSea != nil && overworldSeaWidth > 0
+        let seaTexture = overworld ? overworldSea! : water
+        let seaScale = overworld ? overworldSeaWidth / seaTexture.size().width : 1
+        for (layer, texture, scale) in [(sea, seaTexture, seaScale), (glints, glint, 1.6), (clouds, cloud, 6)] as [(SKNode, SKTexture, CGFloat)] {
             layer.removeAllChildren()
             let tile = texture.size().width * scale
             let x0 = (floor(cover.minX / tile) - 1) * tile, y0 = (floor(cover.minY / tile) - 1) * tile

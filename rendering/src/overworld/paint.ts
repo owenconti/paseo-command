@@ -1183,3 +1183,35 @@ function paintPlaque(ctx: Ctx, plaque: PlaqueItem, sheets: Sheets): void {
   }
   ctx.restore();
 }
+
+/** One period of the open sea exactly as a painting shows it (frame 0, lifted and graded the same),
+ * `k` pixels per concept pixel, so the app can tile it past the painted hosts without a seam.
+ * Its period in concept px is `seaPeriod(sheets)`; tiles line up with world (0, 0). */
+export function overworldSeaTile(sheets: Sheets, k: number): HTMLCanvasElement | null {
+  const calm = framesWithPrefix(sheets, "sea2", "sea-calm-");
+  if (!calm.length) return null;
+  const f = frameOf(sheets, "sea2", calm[0]!);
+  const period = f.w * SEA_TEXTURE_SCALE;
+  const c = canvas(period * k, period * k);
+  const g = c.getContext("2d")!;
+  g.imageSmoothingQuality = "high";
+  g.drawImage(f.img, f.x, f.y, f.w, f.h, 0, 0, c.width, c.height);
+  g.globalCompositeOperation = "screen";
+  g.fillStyle = "rgb(4, 34, 52)";
+  g.fillRect(0, 0, c.width, c.height);
+  g.globalCompositeOperation = "source-over";
+  const d = g.getImageData(0, 0, c.width, c.height);
+  gradePixels(d.data, FINAL_GRADE);
+  for (let i = 0; i < d.data.length; i += 4) {
+    d.data[i] = TONE[d.data[i]!]!;
+    d.data[i + 1] = TONE[d.data[i + 1]!]!;
+    d.data[i + 2] = TONE[d.data[i + 2]!]!;
+  }
+  g.putImageData(d, 0, 0);
+  return c;
+}
+
+export function seaPeriod(sheets: Sheets): number {
+  const calm = framesWithPrefix(sheets, "sea2", "sea-calm-");
+  return calm.length ? frameOf(sheets, "sea2", calm[0]!).w * SEA_TEXTURE_SCALE : 0;
+}

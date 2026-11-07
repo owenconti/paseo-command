@@ -712,7 +712,7 @@ HD painted sheets in `rendering/src/assets/overworld/` (frame maps beside them; 
 paints it (sea, islands with perspective cliffs and surf, rivers, scenery, buildings, labels), `native.ts` (`OverworldMap`) paints
 each host once per layout change into tiles, a few at a time, arranges hosts in columns to suit the map's shape, and posts the robots,
 state rings (pulsing while they need you) and PR / Probe badges and the auto-merge seal as overlays, with each entity's rectangle.
-Swift (`AtlasScene`, scene `style: "overworld"`) hides the Islands sea, picks the smallest rectangle under the pointer and outlines
+Swift (`AtlasScene`, scene `style: "overworld"`) tiles the page's graded sea tile (`overworldSeaTile`, scene `seaTile`, image `ow-sea`) over the whole view in place of the Islands sea, glints and clouds, picks the smallest rectangle under the pointer and outlines
 rectangles for hover and selection. `rendering/overworld-preview/` renders the concept's fleet beside the concept for comparison
 (`build.sh`, then `node shoot.mjs <out.png> [k]` against a static server on the rendering folder; `?fleet=crowded|sample`).
 
