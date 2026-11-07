@@ -379,7 +379,22 @@ function layoutHost(scene: Scene, host: OwHost, y0: number, index: number, last:
         ledges.push({ x0: x, y0: b.y1 - 30, x1: x + w, y1: b.y1 + 8 + rs() * 8, r: 14 });
       }
     }
-    if (ledges.length) scene.islands.push({ boxes: ledges, cliff: island.cliff * 0.55, seed: island.seed ^ 0x1ed9e, rock, z: island.z - 0.5 });
+    // A lower tier round the island's outer side and front, so its cliff steps down twice to the sea.
+    const m = island.boxes[0]!;
+    const outer = island === left ? -1 : 1;
+    if (!last) {
+      ledges.push({
+        x0: outer < 0 ? m.x0 - 30 : m.x0 + 40,
+        y0: m.y0 + 30,
+        x1: outer > 0 ? m.x1 + 30 : m.x1 - 40,
+        y1: m.y1 + 16,
+        r: m.r + 12,
+      });
+    } else {
+      ledges.push({ x0: m.x0 - 22, y0: m.y0 + 30, x1: CX - 90, y1: m.y1 + 14, r: m.r + 10 });
+      ledges.push({ x0: CX + 90, y0: m.y0 + 30, x1: m.x1 + 22, y1: m.y1 + 14, r: m.r + 10 });
+    }
+    if (ledges.length) scene.islands.push({ boxes: ledges, cliff: island.cliff * 0.62, seed: island.seed ^ 0x1ed9e, rock, z: island.z - 0.5 });
   }
 
   // Castle, plaque, banners and the castle's link node.
