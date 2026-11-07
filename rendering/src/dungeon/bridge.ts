@@ -683,7 +683,7 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
         const v = w.entity.camp ? (left || right ? 3 : 0) : left ? ends[0] : right ? ends[1] : 0;
         put(`alcove-slot-${v}`, x + 20 + (i * inner) / count, y + 12, inner / count + 0.5, D.alcoveH - 22, -12,
           // The left desk turned in (or, seeded, facing out), so bays don't repeat evenly.
-          { ...dim, shade: dim.dim ? 0.55 : INTERIOR_SHADE, ...(left && v === 1 && (seedOf(w.entity.id + "turn") & 3) !== 0 ? { flip: 1 } : {}) });
+          { ...dim, e: w.entity.id, shade: dim.dim ? 0.55 : INTERIOR_SHADE, ...(left && v === 1 && (seedOf(w.entity.id + "turn") & 3) !== 0 ? { flip: 1 } : {}) });
       }
       // Its frame, tagged with the workspace so it glows when hovered.
       const frameOf = { ...dim, e: w.entity.id };

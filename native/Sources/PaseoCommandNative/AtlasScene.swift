@@ -608,7 +608,7 @@ final class AtlasScene: SKScene, MapScene {
         // (no rim or wash). Islands keeps its rim.
         if style == "overworld" {
             if let g = e.glow, let image = glowImages[g.key] {
-                overworldSelection = SpriteGlow.overlay(for: image, size: g.rect.size, mid: p(g.rect.midX, g.rect.midY), color: SpriteGlow.selectColor, name: "select-glow", wide: true)
+                overworldSelection = SpriteGlow.overlay(for: image, size: g.rect.size, mid: p(g.rect.midX, g.rect.midY), color: SpriteGlow.selectColor, name: "select-glow", wide: true, spread: e.kind == "agent" ? nil : SpriteGlow.structureSpread)
                 for n in overworldSelection { selectionNode.addChild(n) }
             }
             breathe()
@@ -662,7 +662,7 @@ final class AtlasScene: SKScene, MapScene {
         if style == "overworld" {
             // The selected one keeps its gold.
             guard id != selected, let g = e.glow, let image = glowImages[g.key] else { return }
-            for n in SpriteGlow.overlay(for: image, size: g.rect.size, mid: p(g.rect.midX, g.rect.midY), color: SpriteGlow.hoverColor, name: "hover-glow") {
+            for n in SpriteGlow.overlay(for: image, size: g.rect.size, mid: p(g.rect.midX, g.rect.midY), color: SpriteGlow.hoverColor, name: "hover-glow", spread: e.kind == "agent" ? nil : SpriteGlow.structureSpread) {
                 hoverNode.addChild(n)
             }
             return

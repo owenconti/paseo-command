@@ -14,7 +14,7 @@ export const WORLD = 2.5;
 /** Painting density, pixels per concept pixel. */
 const K = 3;
 /** The hover glow's silhouettes: px per concept px. */
-const SILHOUETTE_K = 1.5;
+const SILHOUETTE_K = 3;
 /** Tiles the painting is cut into, in pixels. */
 const TILE = 1024;
 /** Each host's painting reaches this far past its scene (concept px), so scenery at its edges isn't
@@ -139,6 +139,8 @@ export class OverworldMap {
   private busy = false;
   /** Images Swift already holds, by key. */
   private sent = new Set<string>();
+  /** Hall and booth silhouettes, cut to their pixels (canvas, offset and size in concept px), by key. */
+  private silhouettes = new Map<string, { c: HTMLCanvasElement; ox: number; oy: number; w: number; h: number }>();
   blocks: Block[] = [];
 
   /** `changed` is called when a host finishes painting, to post the world again. */
@@ -202,9 +204,16 @@ export class OverworldMap {
         if (!e.item) continue;
         const box = { x0: e.x0 - 40, y0: e.y0 - 70, x1: e.x1 + 40, y1: e.y1 + 24 };
         const key = `ow-sil:${hash(JSON.stringify({ ...e.item, agents: undefined, x: 0, y: 0 }))}:${box.x1 - box.x0}x${box.y1 - box.y0}:${e.item.x - box.x0},${e.item.y - box.y0}`;
-        const png = image(key, () => paintSilhouette(e.item!, this.sheets, box, SILHOUETTE_K));
+        // Cut to the object's own pixels: the glow is placed and sized by them.
+        let cut = this.silhouettes.get(key);
+        if (!cut) {
+          const c = paintSilhouette(e.item!, this.sheets, box, SILHOUETTE_K);
+          cut = { c, ox: (c.ox ?? 0) / SILHOUETTE_K, oy: (c.oy ?? 0) / SILHOUETTE_K, w: c.width / SILHOUETTE_K, h: c.height / SILHOUETTE_K };
+          this.silhouettes.set(key, cut);
+        }
+        const png = image(key, () => cut!.c);
         if (png) silhouettes.push({ key, png });
-        glows.set(e.id, { key, x: w(box.x0 + b.ox), y: w(box.y0 + b.oy), width: w(box.x1 - box.x0), height: w(box.y1 - box.y0) });
+        glows.set(e.id, { key, x: w(box.x0 + cut.ox + b.ox), y: w(box.y0 + cut.oy + b.oy), width: w(cut.w), height: w(cut.h) });
       }
     const states = new Map(data.agents.map((a) => [a.key, a.state]));
     const streamers: Streamer[] = [];

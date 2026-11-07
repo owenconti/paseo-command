@@ -173,6 +173,7 @@ final class DungeonScene: SKScene, MapScene {
         sceneGlows = []
         owners = [:]
         flagNodes = [:]
+        composites = [:]
         for s in m["sprites"] as? [[String: Any]] ?? [] {
             if let node = node(s, anims: &sceneAnims, pulses: &scenePulses) {
                 board.addChild(node)
@@ -606,13 +607,32 @@ final class DungeonScene: SKScene, MapScene {
         return owners[id] ?? []
     }
 
+    /// An alcove's or terrace's pieces drawn as one silhouette (its frame and bay, its rampart, face and return), kept
+    /// until the scene changes.
+    private var composites: [String: (image: CGImage, rect: CGRect)] = [:]
+
+    /// The glow for `id` in `color`: a robot or a PR medallion along its own sprite (the Village's 5% spread); an
+    /// alcove or terrace along its pieces' one outline, spread as the Village's halls are.
+    private func glowNodes(_ id: String, flag: Flag? = nil, color: NSColor, name: String, wide: Bool, into layer: SKNode) -> [SKNode] {
+        let sprites = glowSprites(id, flag: flag)
+        let kind = entities[id]?.kind
+        if flag != nil || kind == "agent" { return sprites.flatMap { SpriteGlow.glow($0, color: color, name: name, wide: wide) } }
+        guard let view, !sprites.isEmpty else { return [] }
+        if composites[id] == nil { composites[id] = SpriteGlow.composite(sprites, in: layer.parent ?? world, view: view) }
+        guard let c = composites[id] else { return [] }
+        let spread = SpriteGlow.structureSpread
+        let made = SpriteGlow.overlay(for: c.image, size: c.rect.size, mid: CGPoint(x: c.rect.midX, y: c.rect.midY), color: color, name: name, wide: wide, spread: spread)
+        for n in made { layer.addChild(n) }
+        return made
+    }
+
     /// The selection glows gold along the same silhouette, breathing, as the Village's does (no rim or wash).
     private func drawSelection() {
         for node in [selectionNode, selectionWash, selectionHalo] { node.removeAllChildren() }
         for g in selectionGlows { g.removeFromParent() }
         selectionGlows = []
         guard let id = selected, entities[id] != nil else { return }
-        selectionGlows = glowSprites(id).flatMap { SpriteGlow.glow($0, color: SpriteGlow.selectColor, name: "select-glow", wide: true) }
+        selectionGlows = glowNodes(id, color: SpriteGlow.selectColor, name: "select-glow", wide: true, into: selectionNode)
         breathe()
     }
 
@@ -620,15 +640,15 @@ final class DungeonScene: SKScene, MapScene {
         SpriteGlow.breathe(selectionGlows, clock: clock, reduced: reduced)
     }
 
-    /// The hovered thing glows as the Village's do: a soft warm halo along its own silhouette (a robot's body, an
-    /// alcove's frame, a terrace's rampart, a PR medallion) and a faint brightening, never a box round it.
+    /// The hovered thing glows as the Village's do: a warm halo just outside its own silhouette (a robot's body, an
+    /// alcove's frame and bay, a terrace's rampart, face and return, a PR medallion) and a faint brightening, no box.
     private func drawHover() {
         hoverNode.removeAllChildren()
         for g in hoverGlows { g.removeFromParent() }
         hoverGlows = []
         // The selected one keeps its gold (unless a PR medallion on it is hovered).
         guard let id = hovered, entities[id] != nil, id != selected || hoveredFlag != nil else { return }
-        hoverGlows = glowSprites(id, flag: hoveredFlag).flatMap { SpriteGlow.glow($0, color: SpriteGlow.hoverColor, name: "hover-glow") }
+        hoverGlows = glowNodes(id, flag: hoveredFlag, color: SpriteGlow.hoverColor, name: "hover-glow", wide: false, into: hoverNode)
     }
 
     private func setHover(_ id: String?, flag: Flag? = nil) {

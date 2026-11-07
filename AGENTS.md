@@ -739,8 +739,10 @@ tiles, a few at a time, arranges hosts in columns to suit the map's shape, and p
 each entity's rectangle. Swift (`AtlasScene`, scene `style: "overworld"`) tiles the page's graded sea tile (`overworldSeaTile`, scene
 `seaTile`, image `ow-sea`) over the whole view in place of the Islands sea, glints and clouds, picks the smallest rectangle under the
 pointer. Hover and selection glow as the Village's do (the user's call: no borders): the page paints each hall's and booth's own
-silhouette (`paintSilhouette`, `ow-sil:` images, the entity's `glow`) and robots use their first frame; `SpriteGlow.overlay` adds the
-Village's warm white halo outside that silhouette and a faint lift over it on hover, its breathing gold (with a wider pass) when selected. `rendering/overworld-preview/` renders the concept's fleet beside the concept for
+silhouette, cut to its own pixels (`paintSilhouette`, `ow-sil:` images, the entity's `glow`), and robots use their first frame;
+`SpriteGlow.overlay` adds the Village's warm white halo just outside that silhouette and a faint lift over it on hover, its breathing
+gold (with a wider pass) when selected. Halls and booths spread as the Village's halls do (`SpriteGlow.structureSpread`, 17 units),
+robots by the Village's 5% of their frame. `rendering/overworld-preview/` renders the concept's fleet beside the concept for
 comparison (`build.sh`, then `node shoot.mjs <out.png> [k] [dy] [query]` against a static server on the rendering folder, port 4391;
 `?fleet=crowded|sample`), and `?app=user|dungeon|sample` (`app.ts`) composites exactly what the macOS app is sent (the hosts' tiles over
 the sea tile, robots and state light) for a fleet shaped like the user's, the Dungeon Board's or the sample.
@@ -783,8 +785,10 @@ from the v2 kit as the art's reconstruction (`rendering/artifacts/dungeon/mock.p
 terrace floors, alcove sides, lintels and ledges. The page paints the host signs (`paintSign` in `bridge.ts`; the HUD keeps `ui-rounded`), purple shading on the upper walls and toward the board's edges, and posts top-left sprite
 boxes; `DungeonScene.swift` draws, animates (≈30 fps ambient, still with reduced motion), owns the camera (fit, bounded pan,
 wheel, pinch, arrows, F/Home), hover and selection as the Village's (`SpriteGlow.swift`, its colours,
-strength and spread: a warm white halo along the hovered thing's own sprites, a breathing gold one, with a wider pass, along the selected
-thing's; a robot's body, an alcove's frame, a terrace's rampart, a PR medallion; the page tags them `e`; no rims), and picks (a PR medallion, then a robot, its
+strength and spread: a warm white halo just outside the hovered thing's silhouette, a breathing gold one, with a wider pass, outside
+the selected thing's; a robot's body and a PR medallion by their own sprites at the Village's 5%; an alcove (frame and bay) and a
+terrace (rampart, face and return) by their pieces drawn as one silhouette (`SpriteGlow.composite`; the page tags them `e`), spread as
+the Village's halls, `structureSpread`; no rims), and picks (a PR medallion, then a robot, its
 alcove, its project by its terrace wall, the hover card naming it; never a host). Sprites: `rendering/src/assets/dungeon/<sheet>.png|json` (the frame contract is `frames.ts`,
 3× scale; a missing frame is painted as a placeholder; robots are trimmed to their opaque pixels). `npm run native:mock --
 --dungeon` serves the concept's fleet (`dungeon` in `web/e2e/fleets.ts`) and prints its address with `?map=dungeon`. Tests:

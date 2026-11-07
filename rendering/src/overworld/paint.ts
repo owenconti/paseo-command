@@ -951,14 +951,36 @@ function paintSprite(ctx: Ctx, item: SpriteItem, sheets: Sheets): void {
 
 /** An item alone (a hall's sprite, a booth), without its shadow, on a transparent canvas covering `box` (concept px)
  * at `K` px per concept px: the silhouette the app's hover glow follows. */
-export function paintSilhouette(item: BoothItem | SpriteItem, sheets: Sheets, box: { x0: number; y0: number; x1: number; y1: number }, K: number): HTMLCanvasElement {
+export function paintSilhouette(item: BoothItem | SpriteItem, sheets: Sheets, box: { x0: number; y0: number; x1: number; y1: number }, K: number): HTMLCanvasElement & { ox?: number; oy?: number } {
   const c = canvas(Math.max(1, Math.ceil((box.x1 - box.x0) * K)), Math.max(1, Math.ceil((box.y1 - box.y0) * K)));
   const ctx = c.getContext("2d")!;
   ctx.scale(K, K);
   ctx.translate(-box.x0, -box.y0);
   if (item.kind === "booth") paintBooth(ctx, item, sheets, { K, t: 0, robots: false, shadows: false });
   else paintSprite(ctx, { ...item, shadow: 0 }, sheets);
-  return c;
+  return trim(c);
+}
+
+/** A canvas cut to its own visible pixels (alpha over 10%), with where that sits in the original (canvas px), so a
+ * glow sized by the silhouette follows the object, not its padding. */
+function trim(c: HTMLCanvasElement): HTMLCanvasElement & { ox?: number; oy?: number } {
+  const ctx = c.getContext("2d")!;
+  const { data, width, height } = ctx.getImageData(0, 0, c.width, c.height);
+  let x0 = width, y0 = height, x1 = -1, y1 = -1;
+  for (let y = 0; y < height; y++)
+    for (let x = 0; x < width; x++)
+      if (data[(y * width + x) * 4 + 3]! > 25) {
+        if (x < x0) x0 = x;
+        if (x > x1) x1 = x;
+        if (y < y0) y0 = y;
+        if (y > y1) y1 = y;
+      }
+  if (x1 < 0) return c;
+  const out = canvas(x1 - x0 + 1, y1 - y0 + 1) as HTMLCanvasElement & { ox?: number; oy?: number };
+  out.getContext("2d")!.drawImage(c, -x0, -y0);
+  out.ox = x0;
+  out.oy = y0;
+  return out;
 }
 
 export const ROBOT_SCALE = 0.21;
