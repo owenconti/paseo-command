@@ -391,7 +391,7 @@ const BANNERS = ["banner-purple-layers", "banner-purple", "banner-navy-hammers",
 const FLOOR_PROPS = ["barrel", "barrels", "crate", "crates", "shelf-potions", "table"];
 /** Small things on the walkways and beside the side rooms, as the concept strews them. */
 const CLUTTER = ["barrel", "crate", "candle", "barrel", "crate", "candle", "shelf-potions", "table"];
-const TORCH_LIGHT = { color: 0xffa03a, reach: 70 };
+const TORCH_LIGHT = { color: 0xffa03a, reach: 90 };
 /** A side room's recess, in board units. */
 const ROOM = { w: 130, h: 200 };
 

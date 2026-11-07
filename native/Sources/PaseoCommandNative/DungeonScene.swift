@@ -474,7 +474,19 @@ final class DungeonScene: SKScene, MapScene {
     /// A light's glow: additive, in its colour, flickering as a flame or breathing.
     private func light(_ l: [String: Any], into glows: inout [Glow]) -> SKNode {
         let reach = num(l["r"], 40)
-        let glow = SKSpriteNode(texture: DungeonScene.warmGlow, size: CGSize(width: reach * 2 + 2, height: reach * 2 + 2))
+        // An ellipse when it gives its radii; a "gold" light multiplies the stone toward its colour (doubled), so
+        // it lights it gold rather than greying it as added light would.
+        let size = l["rx"] != nil ? CGSize(width: num(l["rx"]) * 2, height: num(l["ry"]) * 2) : CGSize(width: reach * 2 + 2, height: reach * 2 + 2)
+        let golden = l["blend"] as? String == "gold"
+        if golden {
+            // Opaque, fading to neutral grey (which ×2 leaves as it is): a transparent edge would darken the stone.
+            let pool = SKSpriteNode(texture: goldPool(color: Int(num(l["c"], 0xffd426)), strength: num(l["k"], 0.6)), size: size)
+            pool.blendMode = .multiplyX2
+            pool.position = p(num(l["x"]), num(l["y"]))
+            pool.zPosition = num(l["z"], 6)
+            return pool
+        }
+        let glow = SKSpriteNode(texture: DungeonScene.warmGlow, size: size)
         glow.color = Textures.color(Int(num(l["c"], 0xffffff)))
         glow.colorBlendFactor = 1
         glow.blendMode = .add
@@ -514,6 +526,28 @@ final class DungeonScene: SKScene, MapScene {
         t.filteringMode = .linear
         return t
     }()
+
+    /// Gold pools by colour and strength: the colour (at `strength` of the way from neutral grey) at the heart,
+    /// easing to neutral grey at the edge, opaque throughout.
+    private var goldPools: [String: SKTexture] = [:]
+    private func goldPool(color: Int, strength: CGFloat) -> SKTexture {
+        let key = "\(color)/\(Int(strength * 100))"
+        if let t = goldPools[key] { return t }
+        let px = 96
+        let ctx = Textures.context(px, px)!
+        let space = CGColorSpace(name: CGColorSpace.sRGB)!
+        let c = [CGFloat((color >> 16) & 255), CGFloat((color >> 8) & 255), CGFloat(color & 255)].map { $0 / 255 }
+        let mix = { (k: CGFloat) in CGColor(colorSpace: space, components: c.map { 0.5 + ($0 - 0.5) * k } + [1])! }
+        ctx.setFillColor(mix(0))
+        ctx.fill(CGRect(x: 0, y: 0, width: px, height: px))
+        let gradient = CGGradient(colorsSpace: space, colors: [mix(strength), mix(strength * 0.85), mix(0)] as CFArray, locations: [0, 0.55, 1])!
+        let mid = CGPoint(x: px / 2, y: px / 2)
+        ctx.drawRadialGradient(gradient, startCenter: mid, startRadius: 0, endCenter: mid, endRadius: CGFloat(px) / 2, options: [])
+        let t = SKTexture(cgImage: ctx.makeImage()!)
+        t.filteringMode = .linear
+        goldPools[key] = t
+        return t
+    }
 
     /// Dark dungeon stone wherever the camera can show beyond the board.
     private func coverBackdrop() {
