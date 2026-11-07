@@ -1,7 +1,8 @@
-// Paints an Overworld scene to a 2D canvas: sea, islands with cliffs and shore foam, rivers and
-// falls, paths, scenery and buildings, gold links, labels. Units are concept pixels, drawn at K.
+// Paints an Overworld scene to a 2D canvas: sea with its shallows, islands with cliffs and shore foam,
+// rivers and falls, paths, scenery and buildings. No text, emblems or signs: the world is only the world.
+// Units are concept pixels, drawn at K.
 import { frameOf, framesWithPrefix, hasFrame, type Frame, type Sheets } from "./atlas.ts";
-import { fbm, fieldAt, fieldGrid, islandBounds, noise } from "./terrain.ts";
+import { fbm, fieldAt, fieldGrid, islandBounds, noise, seaFieldAt } from "./terrain.ts";
 import {
   BOOTH,
   boothSlots,
@@ -9,16 +10,12 @@ import {
   robotSpots,
   type BoothItem,
   type Island,
-  type LabelItem,
-  type PlaqueItem,
   type Scene,
   type SpriteItem,
   type Theme,
 } from "./layout.ts";
 
 type Ctx = CanvasRenderingContext2D;
-
-const FONT = `ui-rounded, "SF Pro Rounded", "Arial Rounded MT Bold", system-ui, sans-serif`;
 
 function canvas(w: number, h: number): HTMLCanvasElement {
   const c = document.createElement("canvas");
@@ -134,32 +131,134 @@ export interface PaintOptions {
 /** Land is painted at this density (px per concept px) and drawn scaled: per-pixel work dominates. */
 const LAND_K = 2;
 
-const GRASS_GRADE: Grade = { hue: -13, saturate: 0.92, brightness: 1.04, contrast: 1.12 };
+/** The meadow: a soft sage green, a little cooler and quieter than the texture's own. */
+const GRASS_GRADE: Grade = { hue: 4, saturate: 0.72, brightness: 0.9, contrast: 1.04 };
 
-/** Each world sheet's colours, set when it loads, so the whole world shares one palette (as a lit scene
- * does): colour thinned, then split-toned, cool in the shadows and warm in the light, with values kept in a
- * middle range. Robots, status badges and name plaques keep their own full colours, so they are what stands
- * out. `lift` raises the darkest tones (0-255); `split` is how strongly shadows and lights take the tones. */
-type SheetColour = Grade & { lift?: number; split?: number };
-const WORLD: SheetColour = { saturate: 0.81, contrast: 0.95, brightness: 0.99, lift: 13, split: 0.11 };
+/** Each world sheet's colours, set when it loads, so the whole world shares one natural palette (as a lit
+ * scene does): colour thinned, then split-toned, cool in the shadows and warm in the light, with values kept
+ * in a middle range. Robots and the light their states cast keep their own full colours, so they are what
+ * stands out. `lift` raises the darkest tones (0-255); `split` is how strongly shadows and lights take the
+ * tones; `greens` pulls acid yellow-greens toward a real leaf green (0-1), and each of `bands` quiets one family
+ * of hues that would read as plastic (candy roofs, turquoise surf, violet peaks): its from and to hue in degrees,
+ * what saturation keeps and, optionally, what value keeps where the colour is strong (glowing gold, lava). */
+type Band = [from: number, to: number, keep: number, value?: number];
+type SheetColour = Grade & { lift?: number; split?: number; greens?: number; bands?: Band[] };
+const WORLD: SheetColour = { saturate: 0.78, contrast: 1.01, brightness: 0.97, lift: 6, split: 0.09 };
+const LEAVES: SheetColour = { ...WORLD, greens: 0.55 };
+/** Violets and strong blues: painted flags, cone roofs and peaks' shadows. */
+const VIOLETS: Band = [222, 300, 0.45];
+/** Glowing golds (trims, finials, lanterns, lit windows) toned to brass and lamplight: the saturated warm
+ * colours are the robots' and their states' (Claude orange, approval amber, done yellow). */
+const GOLDS: Band = [35, 62, 0.72, 0.9];
 export const SHEET_COLOURS: Record<string, SheetColour> = {
-  host: WORLD,
-  halls: WORLD,
-  stalls: { ...WORLD, brightness: 0.97 },
-  terrain: WORLD,
+  host: { ...WORLD, bands: [[195, 300, 0.32], GOLDS] },
+  // Roofs: slate, verdigris and moss rather than enamel blue, teal and green (red and amber already read as clay and straw).
+  halls: { ...WORLD, bands: [[85, 300, 0.48], GOLDS] },
+  // A neutral stage, so the light a robot's state casts is the brightest colour in its booth.
+  stalls: { ...WORLD, saturate: 0.5, brightness: 0.86, bands: [[195, 300, 0.7]] },
+  terrain: { ...WORLD, greens: 0.4, bands: [VIOLETS] },
   textures: WORLD,
-  coast: WORLD,
-  water: { ...WORLD, saturate: 0.85, split: 0.08 },
-  sea2: { ...WORLD, saturate: 0.86, split: 0.08 },
-  foliage: WORLD,
-  "theme-forest": WORLD,
-  "theme-farm": WORLD,
-  "theme-volcanic": WORLD,
-  props: WORLD,
+  // Grey rock with lichen and moss, not lavender rock under lime; surf grey-white, not turquoise.
+  coast: { ...WORLD, greens: 0.85, bands: [[150, 215, 0.38], [70, 130, 0.72], VIOLETS] },
+  water: { ...WORLD, saturate: 0.62, hue: -8, split: 0.06 },
+  sea2: { saturate: 0.62, hue: -9, brightness: 0.78, contrast: 1.02, lift: 4, split: 0.04 },
+  foliage: LEAVES,
+  "theme-forest": { ...LEAVES, bands: [VIOLETS] },
+  "theme-farm": LEAVES,
+  // Basalt rather than amethyst, and lava that smoulders rather than shines.
+  "theme-volcanic": { ...WORLD, saturate: 0.62, bands: [[222, 350, 0.25], [8, 55, 0.85, 0.62]] },
+  props: { ...WORLD, bands: [GOLDS] },
 };
-/** The shared light: shadows toward a cool slate blue, lights toward warm lamp gold. */
-const SHADOW_TONE = [52, 62, 96];
-const LIGHT_TONE = [255, 226, 168];
+/** The shared light: shadows toward a cool grey-blue, lights toward warm daylight. */
+const SHADOW_TONE = [54, 62, 80];
+const LIGHT_TONE = [255, 236, 200];
+
+/** How much of a hue range a hue is in: 1 inside [a, b], easing to 0 over `soft` degrees either side. */
+function within(h: number, a: number, b: number, soft: number): number {
+  if (h >= a && h <= b) return 1;
+  // Round the hue circle, so a band near 0° eases in from just under 360°.
+  const d = Math.min((a - h + 360) % 360, (h - b + 360) % 360);
+  return d >= soft ? 0 : 1 - d / soft;
+}
+
+/** Leaf greens and hue bands (see `SheetColour`), in HSV, over every coloured opaque pixel; greys are left alone. */
+function shiftHues(data: Uint8ClampedArray, greens: number, list: Band[]): void {
+  const nb = list.length;
+  const bands = new Float64Array(list.flatMap(([from, to, keep, value]) => [from, to, keep, value ?? 1]));
+  for (let i = 0; i < data.length; i += 4) {
+    if (data[i + 3] === 0) continue;
+    let r = data[i]!;
+    let g = data[i + 1]!;
+    let b = data[i + 2]!;
+    const max = r > g ? (r > b ? r : b) : g > b ? g : b;
+    const min = r < g ? (r < b ? r : b) : g < b ? g : b;
+    const chroma = max - min;
+    if (chroma < 6) continue;
+    let h = max === r ? ((g - b) / chroma) % 6 : max === g ? (b - r) / chroma + 2 : (r - g) / chroma + 4;
+    h *= 60;
+    if (h < 0) h += 360;
+    let sat = chroma / max;
+    let v = max;
+    const h0 = h;
+    const s0 = sat;
+    // Acid yellow-greens (leaves, sunlit grass, moss) toward a leaf green, a little quieter and, where
+    // they glow like lime, a little darker.
+    if (greens > 0 && sat > 0.2) {
+      // From yellow-green up: golds (wheat, hay, autumn leaves) keep their hue.
+      const wg = greens * within(h, 60, 98, 8);
+      if (wg > 0) {
+        h += (100 - h) * wg;
+        sat *= 1 - 0.38 * wg;
+        if (sat > 0.45 && v > 150) v *= 1 - 0.16 * wg * ((v - 150) / 105);
+      }
+    }
+    for (let q = 0; q < nb; q++) {
+      const on = within(h, bands[q * 4]!, bands[q * 4 + 1]!, 18);
+      if (on === 0) continue;
+      sat *= 1 - (1 - bands[q * 4 + 2]!) * on * Math.min(1, sat * 2.5);
+      if (s0 > 0.4) v *= 1 - (1 - bands[q * 4 + 3]!) * on * Math.min(1, (s0 - 0.4) * 4);
+    }
+    if (h === h0 && sat === s0 && v === max) continue;
+    const c = v * sat;
+    const hp = h / 60;
+    const x = c * (1 - Math.abs((hp % 2) - 1));
+    const m = v - c;
+    if (hp < 1) (r = c), (g = x), (b = 0);
+    else if (hp < 2) (r = x), (g = c), (b = 0);
+    else if (hp < 3) (r = 0), (g = c), (b = x);
+    else if (hp < 4) (r = 0), (g = x), (b = c);
+    else if (hp < 5) (r = x), (g = 0), (b = c);
+    else (r = c), (g = 0), (b = x);
+    data[i] = r + m;
+    data[i + 1] = g + m;
+    data[i + 2] = b + m;
+  }
+}
+
+/** Darkest tones raised by `lift` (0-255), then shadows and lights split-toned by `split`. */
+function liftAndSplit(data: Uint8ClampedArray, lift: number, split: number): void {
+  const k = (255 - lift) / 255;
+  const [sr, sg, sb] = SHADOW_TONE as [number, number, number];
+  const [lr, lg, lb] = LIGHT_TONE as [number, number, number];
+  for (let i = 0; i < data.length; i += 4) {
+    if (data[i + 3] === 0) continue;
+    let r = lift + data[i]! * k;
+    let g = lift + data[i + 1]! * k;
+    let b = lift + data[i + 2]! * k;
+    if (split > 0) {
+      const l = (0.3 * r + 0.59 * g + 0.11 * b) / 255;
+      const ws = split * (1 - l) * (1 - l);
+      const wl = split * l * l;
+      const keep = 1 - ws - wl;
+      r = r * keep + sr * ws + lr * wl;
+      g = g * keep + sg * ws + lg * wl;
+      b = b * keep + sb * ws + lb * wl;
+    }
+    data[i] = r;
+    data[i + 1] = g;
+    data[i + 2] = b;
+  }
+}
 
 /** The sheets with each one's colours set (`SHEET_COLOURS`), once per page. */
 export function recolourSheets(sheets: Sheets): Sheets {
@@ -173,26 +272,8 @@ export function recolourSheets(sheets: Sheets): Sheets {
     g.drawImage(img, 0, 0);
     const d = g.getImageData(0, 0, c.width, c.height);
     gradePixels(d.data, colour);
-    const lift = colour.lift ?? 0;
-    const k = (255 - lift) / 255;
-    const split = colour.split ?? 0;
-    for (let i = 0; i < d.data.length; i += 4) {
-      if (d.data[i + 3] === 0) continue;
-      let r = lift + d.data[i]! * k;
-      let g2 = lift + d.data[i + 1]! * k;
-      let b = lift + d.data[i + 2]! * k;
-      if (split) {
-        const l = (0.3 * r + 0.59 * g2 + 0.11 * b) / 255;
-        const ws = split * (1 - l) * (1 - l);
-        const wl = split * l * l;
-        r = r * (1 - ws - wl) + SHADOW_TONE[0]! * ws + LIGHT_TONE[0]! * wl;
-        g2 = g2 * (1 - ws - wl) + SHADOW_TONE[1]! * ws + LIGHT_TONE[1]! * wl;
-        b = b * (1 - ws - wl) + SHADOW_TONE[2]! * ws + LIGHT_TONE[2]! * wl;
-      }
-      d.data[i] = r;
-      d.data[i + 1] = g2;
-      d.data[i + 2] = b;
-    }
+    if (colour.greens || colour.bands?.length) shiftHues(d.data, colour.greens ?? 0, colour.bands ?? []);
+    liftAndSplit(d.data, colour.lift ?? 0, colour.split ?? 0);
     g.putImageData(d, 0, 0);
     for (const f of sheet.frames.values()) f.img = c;
   }
@@ -207,14 +288,10 @@ export function paintScene(ctx: Ctx, scene: Scene, sheets: Sheets, opts: PaintOp
   ctx.imageSmoothingQuality = "high";
   paintSea(ctx, scene, sheets, opts);
   const lands = scene.islands.filter((i) => i.boxes.length > 0).map((island) => ({ island, land: paintIsland(island, sheets, Math.min(K, LAND_K)) }));
-  // Shore: foam and shallows round every island, then the islands in order.
+  // Rocks off the shore, each in a little broken water, then the islands in order.
   for (const rock of seaRocks(scene)) {
-    ctx.save();
-    ctx.shadowColor = "rgba(240, 252, 255, 1)";
-    ctx.shadowBlur = 5 * K;
+    paintWash(ctx, rock.x, rock.y - 1, rock.scale * 70);
     paintSprite(ctx, rock, sheets);
-    paintSprite(ctx, rock, sheets);
-    ctx.restore();
   }
   const ordered = [...lands].sort((a, b) => a.island.z - b.island.z || a.land.y1 - b.land.y1);
   for (const { island, land } of ordered) {
@@ -228,15 +305,6 @@ export function paintScene(ctx: Ctx, scene: Scene, sheets: Sheets, opts: PaintOp
   for (const item of items) {
     if (item.kind === "booth") paintBooth(ctx, item, sheets, opts);
     else paintSprite(ctx, item, sheets);
-  }
-  for (const cloud of clouds(scene)) paintSprite(ctx, cloud, sheets);
-  ctx.restore();
-  // Names are drawn last, over everything on the land.
-  ctx.save();
-  ctx.scale(K, K);
-  for (const label of scene.labels) {
-    if (label.kind === "label") paintLabel(ctx, label, sheets);
-    else paintPlaque(ctx, label, sheets);
   }
   ctx.restore();
   // Robots (the app draws them natively; the preview here).
@@ -255,6 +323,12 @@ export function paintScene(ctx: Ctx, scene: Scene, sheets: Sheets, opts: PaintOp
 // ---- Sea -----------------------------------------------------------------------------------
 
 const SEA_TEXTURE_SCALE = 0.25;
+/** Screened over the graded sea texture: lifts it to a deep, slightly green sea blue. */
+const SEA_LIFT = "rgb(22, 36, 44)";
+/** The shallows round every coast: how far out they reach (concept px) and their colour. */
+const SHALLOWS = 40;
+const SHALLOW = [74, 138, 136];
+const FOAM = [196, 211, 208];
 
 const seaTiles = new Map<Frame, HTMLCanvasElement>();
 /** The sea texture darkened in its mid-tones (the concept's deep blue) with its crests kept bright. */
@@ -280,7 +354,7 @@ function coastDistance(scene: Scene, x: number, y: number): number {
   for (const isl of scene.islands) {
     if (isl.boxes.length === 0) continue;
     // The visible shore is the cliff's foot: the coast shifted down by the cliff.
-    d = Math.min(d, fieldAt(isl, x, y - isl.cliff * 0.85));
+    d = Math.min(d, seaFieldAt(isl, x, y - isl.cliff * 0.85));
   }
   return d;
 }
@@ -305,24 +379,24 @@ function paintSea(ctx: Ctx, scene: Scene, sheets: Sheets, opts: PaintOptions): v
     const m = opts.margin ?? 0;
     ctx.fillRect(-m, 0, scene.w + 2 * m, scene.h);
     if (calm.length) {
-      // Lifted toward the concept's brighter royal blue.
       ctx.save();
       ctx.globalCompositeOperation = "screen";
-      ctx.fillStyle = "rgb(4, 34, 52)";
+      ctx.fillStyle = SEA_LIFT;
       ctx.fillRect(-m, 0, scene.w + 2 * m, scene.h);
       ctx.restore();
     }
   }
-  const cw = Math.ceil(scene.w);
+  // Shallows and surf, a concept pixel at a time, over the margins too (neighbours' coasts are their own).
+  const x0 = -(opts.margin ?? 0);
+  const cw = Math.ceil(scene.w - 2 * x0);
   const ch = Math.ceil(scene.h);
   const c = canvas(cw, ch);
   const g = c.getContext("2d")!;
   const img = g.createImageData(cw, ch);
-  const phase = opts.t / 2600;
   for (let j = 0; j < ch; j++) {
     const y = j + 0.5;
     for (let i = 0; i < cw; i++) {
-      const x = i + 0.5;
+      const x = x0 + i + 0.5;
       const o = (j * cw + i) * 4;
       let r = 0;
       let gg = 0;
@@ -335,24 +409,35 @@ function paintSea(ctx: Ctx, scene: Scene, sheets: Sheets, opts: PaintOptions): v
         b = 150 + band * 30;
         a = 255;
       }
-      // Surf at the cliffs' foot: a broken white band, then flecks of foam fading offshore.
       const d = coastDistance(scene, x, y);
-      if (d > -1 && d < 16) {
+      if (d > -1 && d < SHALLOWS && textured) {
+        // Shallows: lighter, greener water over the shelf round each coast, ragged at its outer edge.
+        const t = Math.max(0, 1 - (d + noise(x / 16, y / 16, 506) * 7) / SHALLOWS);
+        r = SHALLOW[0]!;
+        gg = SHALLOW[1]!;
+        b = SHALLOW[2]!;
+        a = 0.55 * Math.pow(t, 1.2) * 255;
+      }
+      // Surf at the cliffs' foot: a broken white band, then a few flecks of foam close in.
+      if (d > -1 && d < 12) {
         const n = noise(x / 3.2, y / 3.2, 504) * 0.5 + noise(x / 9, y / 9, 505) * 0.5;
         let k = 0;
-        if (d < 2.2 + n * 1.5) k = 0.95;
-        else if (d < 5 + n * 3) k = Math.max(0, n) * 0.85;
-        else k = Math.max(0, n - 0.35) * 1.4 * (1 - d / 16);
+        if (d < 1.8 + n * 1.4) k = 0.72;
+        else if (d < 4.5 + n * 2.5) k = Math.max(0, n) * 0.5;
+        else k = Math.max(0, n - 0.4) * (1 - d / 12);
+        k = Math.min(1, k);
         if (k > 0) {
           if (textured) {
-            r = 225;
-            gg = 248;
-            b = 255;
-            a = Math.max(a, Math.min(1, k) * 255);
+            const under = a / 255;
+            const out = k + under * (1 - k);
+            r = (FOAM[0]! * k + r * under * (1 - k)) / out;
+            gg = (FOAM[1]! * k + gg * under * (1 - k)) / out;
+            b = (FOAM[2]! * k + b * under * (1 - k)) / out;
+            a = out * 255;
           } else {
-            r = lerp(r, 225, k);
-            gg = lerp(gg, 248, k);
-            b = lerp(b, 255, k);
+            r = lerp(r, FOAM[0]!, k);
+            gg = lerp(gg, FOAM[1]!, k);
+            b = lerp(b, FOAM[2]!, k);
           }
         }
       }
@@ -363,7 +448,7 @@ function paintSea(ctx: Ctx, scene: Scene, sheets: Sheets, opts: PaintOptions): v
     }
   }
   g.putImageData(img, 0, 0);
-  ctx.drawImage(c, 0, 0, scene.w, scene.h);
+  ctx.drawImage(c, x0, 0, cw, ch);
   if (textured) return;
   // Crests: short bright crescents in loose rows, as the concept's chop.
   const rr = rng(7);
@@ -563,9 +648,9 @@ function paintIsland(island: Island, sheets: Sheets, K: number): Land {
           const drip = 1.5 + 7 * Math.max(0, fbm(u / 4, v / 9, island.seed + 11, 2) + 0.2);
           if (depth < drip) {
             const m = 0.55 + 0.45 * noise(u / 1.5, v / 1.5, island.seed + 13);
-            rr = 130 * m + 60;
-            rg = 150 * m + 70;
-            rb = 50 * m + 40;
+            rr = 78 * m + 52;
+            rg = 100 * m + 62;
+            rb = 46 * m + 36;
             shade = 1 - 0.35 * (depth / drip);
           }
           if (t > 0.93) shade *= 0.65;
@@ -598,28 +683,23 @@ function paintIsland(island: Island, sheets: Sheets, K: number): Land {
         const po = pj0 * PW + pi0;
         const n = (patch[po] * (1 - pfx) + patch[po + 1] * pfx) * (1 - pfy) + (patch[po + PW] * (1 - pfx) + patch[po + PW + 1] * pfx) * pfy;
         if (n > 0) {
-          const s = Math.min(1, n * 1.6) * 0.38;
-          gr = lerp(gr, 214, s);
-          gG = lerp(gG, 228, s);
-          gb = lerp(gb, 80, s);
+          const s = Math.min(1, n * 1.6) * 0.3;
+          gr = lerp(gr, 168, s);
+          gG = lerp(gG, 176, s);
+          gb = lerp(gb, 104, s);
         } else {
-          const s = Math.min(1, -n * 1.7) * 0.5;
+          const s = Math.min(1, -n * 1.7) * 0.45;
           gr = lerp(gr, 52, s);
-          gG = lerp(gG, 112, s);
-          gb = lerp(gb, 34, s);
+          gG = lerp(gG, 80, s);
+          gb = lerp(gb, 44, s);
         }
-        // Lip: a bright rim inside the coast, then a dark edge line.
+        // The turf's edge: a little worn and earthy where it meets the cliff, no drawn outline.
         const inside = -dist[k];
-        if (inside < 2.4) {
-          const s = 1 - inside / 2.4;
-          gr = lerp(gr, 205, s * 0.55);
-          gG = lerp(gG, 236, s * 0.55);
-          gb = lerp(gb, 88, s * 0.55);
-        }
-        if (inside < 0.55) {
-          gr *= 0.5;
-          gG *= 0.6;
-          gb *= 0.4;
+        if (inside < 1.6) {
+          const s = (1 - inside / 1.6) * 0.45;
+          gr = lerp(gr, 92, s);
+          gG = lerp(gG, 86, s);
+          gb = lerp(gb, 60, s);
         }
         if (alpha > 0) {
           r = lerp(r, gr, a);
@@ -645,6 +725,11 @@ function paintIsland(island: Island, sheets: Sheets, K: number): Land {
 }
 
 // ---- Coast decals ---------------------------------------------------------------------------
+
+/** Awnings: weathered canvas, its stripes only a shade apart. */
+const CANVAS_GRADE: Grade = { saturate: 0.28, brightness: 0.94 };
+/** Ripe wheat, not gold leaf. */
+const WHEAT_GRADE: Grade = { saturate: 0.66, brightness: 0.9, hue: 5 };
 
 /** Concept px per coast-sheet pixel; the sheet's anchor is the waterline, its lip 156 px above. */
 const COAST_SCALE = 0.25;
@@ -699,8 +784,7 @@ function paintCoast(ctx: Ctx, island: Island, sheets: Sheets, onLand: (x: number
       const o = pick("outcrop-", r);
       if (o) surfs.push(() => drawFrame(ctx, frameOf(sheets, "coast", o), x + (r() - 0.5) * step * 0.6, foot + 4 + r() * 6, scale * (0.55 + r() * 0.3), r() < 0.5));
     }
-    const surf = framesWithPrefix(sheets, "coast", `surf-${Math.floor(r() * 4)}-0`)[0];
-    if (surf) surfs.push(() => drawFrame(ctx, frameOf(sheets, "coast", surf), x, foot + 1, scale, r() < 0.5));
+    // (The sheet's painted surf ribbons are left out: they lay across the cliff faces. The sea paints its own foam.)
   }
   // Headlands at the ends.
   for (const [side, x] of [["left", left + 8], ["right", right - 8]] as const) {
@@ -735,7 +819,7 @@ function paintStrips(ctx: Ctx, scene: Scene, sheets: Sheets, opts: PaintOptions)
     ctx.lineWidth = p.width;
     ctx.stroke();
   }
-  const wheat = ctx.createPattern(frameCanvas(frameOf(sheets, "theme-farm", "wheat")), "repeat")!;
+  const wheat = ctx.createPattern(frameCanvas(graded(frameOf(sheets, "theme-farm", "wheat"), WHEAT_GRADE, "theme-farm/wheat/field")), "repeat")!;
   wheat.setTransform(new DOMMatrix().scale(0.22, 0.22));
   for (const f of scene.fields) {
     const [a, b] = f.pts;
@@ -750,13 +834,13 @@ function paintStrips(ctx: Ctx, scene: Scene, sheets: Sheets, opts: PaintOptions)
   water.setTransform(new DOMMatrix().scale(0.16, 0.16));
   for (const r of scene.rivers) {
     strokePath(ctx, r.pts);
-    ctx.strokeStyle = "rgba(40, 70, 40, 0.55)";
+    ctx.strokeStyle = "rgba(52, 60, 42, 0.5)";
     ctx.lineWidth = r.width + 5;
     ctx.stroke();
-    ctx.strokeStyle = "#d9f7ff";
+    ctx.strokeStyle = "#a9bfb6";
     ctx.lineWidth = r.width + 1.5;
     ctx.stroke();
-    ctx.strokeStyle = "#2f9fe6";
+    ctx.strokeStyle = "#3d7f8c";
     ctx.lineWidth = r.width - 3;
     ctx.stroke();
     ctx.save();
@@ -775,7 +859,7 @@ function paintStrips(ctx: Ctx, scene: Scene, sheets: Sheets, opts: PaintOptions)
         const off = (rr() - 0.5) * (r.width - 8);
         const x = ax + (bx - ax) * t + off;
         const y = ay + (by - ay) * t;
-        ctx.strokeStyle = rr() < 0.4 ? "rgba(255,255,255,0.85)" : "rgba(150,230,255,0.8)";
+        ctx.strokeStyle = rr() < 0.4 ? "rgba(230, 240, 236, 0.55)" : "rgba(140, 196, 200, 0.5)";
         ctx.lineWidth = 0.9;
         ctx.beginPath();
         ctx.moveTo(x - 2.5, y);
@@ -818,6 +902,22 @@ function paintShadow(ctx: Ctx, x: number, y: number, w: number, alpha: number): 
   ctx.translate(-x, -y);
   ctx.beginPath();
   ctx.arc(x, y, w / 2, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+}
+
+/** Broken white water round something standing in the sea (a rock's foot). */
+function paintWash(ctx: Ctx, x: number, y: number, w: number): void {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(1, 0.4);
+  const g = ctx.createRadialGradient(0, 0, w * 0.25, 0, 0, w * 0.62);
+  g.addColorStop(0, "rgba(226, 240, 238, 0.5)");
+  g.addColorStop(0.55, "rgba(226, 240, 238, 0.22)");
+  g.addColorStop(1, "rgba(226, 240, 238, 0)");
+  ctx.fillStyle = g;
+  ctx.beginPath();
+  ctx.arc(0, 0, w * 0.62, 0, Math.PI * 2);
   ctx.fill();
   ctx.restore();
 }
@@ -876,9 +976,10 @@ function paintBooth(ctx: Ctx, booth: BoothItem, sheets: Sheets, opts: PaintOptio
   const y0 = booth.y - BOOTH.floor * s;
   const seed = Math.floor(booth.x * 7 + booth.y * 13);
   paintShadow(ctx, booth.x, booth.y + 12, widthPx * s * 1.15, 0.4);
-  // One corner canopy behind the booth.
+  // One corner canopy behind the booth, in weathered, undyed-looking canvas (never a state's colour).
   if (hasFrame(sheets, "stalls", `awning-corner-${booth.awning}-${booth.awningSide}`)) {
-    const aw = frameOf(sheets, "stalls", `awning-corner-${booth.awning}-${booth.awningSide}`);
+    const name = `awning-corner-${booth.awning}-${booth.awningSide}`;
+    const aw = graded(frameOf(sheets, "stalls", name), CANVAS_GRADE, `stalls/${name}/canvas`);
     const ax = booth.awningSide === "left" ? x0 + BOOTH.end * s : x0 + (widthPx - BOOTH.end) * s;
     drawFrame(ctx, aw, ax, y0 + 32 * s, s);
   }
@@ -887,27 +988,11 @@ function paintBooth(ctx: Ctx, booth: BoothItem, sheets: Sheets, opts: PaintOptio
     ctx.drawImage(mid.img, mid.x, mid.y, mid.w, mid.h, x0 + (BOOTH.end + i * BOOTH.slot) * s - 0.15, y0, mid.w * s + 0.3, mid.h * s);
   }
   ctx.drawImage(right.img, right.x, right.y, right.w, right.h, x0 + (BOOTH.end + slots * BOOTH.slot) * s - 0.15, y0, right.w * s, right.h * s);
-  // A warm lamp-light inside the booth, behind and under its robots, as a lit alcove.
-  {
-    const ix0 = x0 + BOOTH.end * s;
-    const iw = BOOTH.slot * slots * s;
-    const cy = booth.y - 14;
-    ctx.save();
-    ctx.globalCompositeOperation = "screen";
-    const glow = ctx.createRadialGradient(booth.x, cy, 2, booth.x, cy, iw * 0.75);
-    glow.addColorStop(0, "rgba(255, 200, 120, 0.95)");
-    glow.addColorStop(0.5, "rgba(255, 170, 80, 0.5)");
-    glow.addColorStop(1, "rgba(255, 150, 60, 0)");
-    ctx.fillStyle = glow;
-    ctx.beginPath();
-    ctx.rect(ix0, y0 + 190 * s, iw, (BOOTH.floor - 190) * s + 6);
-    ctx.fill();
-    ctx.restore();
-  }
-  // Goods in empty slots, as the concept's single-robot booths.
+  // Goods in empty slots, as the concept's single-robot booths: plain sacks, barrels and crates, nothing
+  // robot-sized or colourful that could be read as an agent or a state.
   const first = (slots - n) / 2;
   if (slots > n) {
-    const goods = ["market-goods-table", "potted-plant", "sack-0", "barrel-1"];
+    const goods = ["sack-0", "barrel-1", "crate-1", "sack-1"];
     for (let i = 0; i < slots; i++) {
       if (i >= first && i < first + n) continue;
       const gx = x0 + (BOOTH.end + i * BOOTH.slot + BOOTH.slot / 2) * s;
@@ -935,15 +1020,12 @@ const TREES: Record<Theme, Array<[string, string, number, number]>> = {
     ["theme-forest", "pine-0", 2, 0.17],
     ["theme-forest", "pine-1", 2, 0.17],
     ["theme-forest", "pine-3", 1, 0.17],
-    ["theme-forest", "blossom-0", 1, 0.17],
   ],
   farm: [
     ["theme-forest", "deciduous-0", 3, 0.145],
     ["theme-forest", "deciduous-1", 3, 0.145],
     ["theme-forest", "deciduous-3", 2, 0.145],
-    ["theme-farm", "autumn-tree-0", 2, 0.16],
-    ["theme-farm", "autumn-tree-1", 1, 0.16],
-    ["theme-forest", "blossom-1", 1, 0.17],
+    ["theme-farm", "autumn-tree-0", 1, 0.16],
     ["theme-forest", "pine-1", 1, 0.17],
   ],
   volcanic: [
@@ -961,32 +1043,25 @@ const PINES: Array<[string, string, number, number]> = [
   ["theme-forest", "pine-2", 1, 0.15],
   ["theme-forest", "pine-3", 2, 0.155],
 ];
-const TREE_GRADE: Grade = { brightness: 0.7, saturate: 1.2, contrast: 1.12, hue: 16 };
-const LEAF_GRADE: Grade = { brightness: 0.97, saturate: 1.35, contrast: 1.16, hue: -4 };
+const TREE_GRADE: Grade = { brightness: 0.78, saturate: 0.9, contrast: 1.06, hue: 6 };
+const LEAF_GRADE: Grade = { brightness: 0.92, saturate: 0.88, contrast: 1.06 };
 
 const SMALL: Record<Theme, Array<[string, string, number, number]>> = {
   forest: [
     ["theme-forest", "bush-0", 3, 0.17],
     ["theme-forest", "bush-1", 2, 0.17],
     ["theme-forest", "bush-2", 2, 0.17],
-    ["theme-forest", "flowers-0", 2, 0.17],
-    ["theme-forest", "flowers-1", 2, 0.17],
-    ["theme-forest", "flowers-2", 1, 0.17],
     ["theme-forest", "boulder-1", 1, 0.14],
   ],
   farm: [
     ["theme-forest", "bush-0", 3, 0.17],
     ["theme-forest", "bush-2", 2, 0.17],
-    ["theme-forest", "flowers-0", 2, 0.17],
-    ["theme-forest", "flowers-2", 2, 0.17],
     ["theme-forest", "boulder-1", 1, 0.14],
   ],
   volcanic: [
     ["theme-forest", "bush-0", 2, 0.17],
-    ["theme-forest", "flowers-0", 2, 0.17],
-    ["theme-forest", "flowers-1", 2, 0.17],
+    ["theme-forest", "bush-2", 1, 0.17],
     ["theme-volcanic", "dark-rock-0", 1, 0.15],
-    ["theme-volcanic", "crystal-1", 1, 0.12],
   ],
 };
 
@@ -1035,15 +1110,14 @@ function insideOther(scene: Scene, index: number, x: number, y: number): boolean
 let scattered: SpriteItem[] | undefined;
 let scatteredFor: Scene | undefined;
 
-/** Canopy masses (many trees as one sprite, as the concept's forests) for a theme, if the sheet has them. */
+/** Canopy masses (many trees as one sprite, as the concept's forests) for a theme, if the sheet has them.
+ * Green woods throughout; autumn and blossom canopies only as the odd accent, as a real wood has them. */
 function massesFor(sheets: Sheets, theme: Theme, back: boolean): string[] {
-  const own =
-    theme === "farm"
-      ? [...framesWithPrefix(sheets, "foliage", "autumn-mass-"), ...framesWithPrefix(sheets, "foliage", "forest-mass-")]
-      : theme === "volcanic"
-        ? [...framesWithPrefix(sheets, "foliage", "volcanic-mass-"), ...framesWithPrefix(sheets, "foliage", "forest-mass-")]
-        : [...framesWithPrefix(sheets, "foliage", "forest-mass-"), ...framesWithPrefix(sheets, "foliage", "blossom-mass-")];
-  return back && theme !== "farm" ? [...framesWithPrefix(sheets, "foliage", "forest-fir-"), ...own] : own;
+  const of = (prefix: string) => framesWithPrefix(sheets, "foliage", prefix);
+  const green = of("forest-mass-");
+  const accent = theme === "farm" ? of("autumn-mass-").slice(0, 2) : theme === "volcanic" ? of("volcanic-mass-") : of("blossom-mass-").slice(0, 1);
+  const own = [...green, ...green, ...accent];
+  return back && theme !== "farm" ? [...of("forest-fir-"), ...own] : own;
 }
 
 /** Concept px per foliage-sheet pixel (the sheet is drawn at 4×). */
@@ -1119,17 +1193,12 @@ export function scatter(scene: Scene, sheets: Sheets): SpriteItem[] {
           const list = pine ? PINES : TREES[area.theme];
           const [sheet, frame, , scale] = pick(list, roll2);
           out.push({ kind: "sprite", sheet, frame, x: px, y: py, scale: scale * (0.8 + r() * 0.35), flip: r() < 0.5, shadow: 0.55, grade: pine ? TREE_GRADE : LEAF_GRADE });
-        } else if (!reservedAt(scene, px, py, -3) && !onStrip(scene, px, py, 2) && roll < (front ? 0.35 : 0.9)) {
-          // Near the coast's front: fence runs and crates, as along the concept's ledges.
-          if (front && r() < 0.18) {
-            const prop = area.theme === "volcanic" ? ["props", "crate-0"] : r() < 0.7 ? ["props", "fence"] : ["props", "barrel-0"];
-            out.push({ kind: "sprite", sheet: prop[0]!, frame: prop[1]!, x: px, y: py, scale: prop[1] === "fence" ? 0.26 : 0.2, flip: r() < 0.5, shadow: 0.25 });
-            continue;
-          }
-          const beds = [...framesWithPrefix(sheets, "foliage", "flower-bed-"), ...framesWithPrefix(sheets, "foliage", "bush-row-")];
-          if (beds.length && r() < 0.35) {
-            const name = beds[Math.floor(r() * beds.length)]!;
-            out.push({ kind: "sprite", sheet: "foliage", frame: name, x: px, y: py, scale: name.startsWith("bush") ? 0.16 : 0.2, flip: r() < 0.5, shadow: 0.2 });
+        } else if (!reservedAt(scene, px, py, -3) && !onStrip(scene, px, py, 2) && roll < (front ? 0.2 : 0.45)) {
+          // Undergrowth: hedges and bushes, now and then a boulder; open meadow between.
+          const rows = framesWithPrefix(sheets, "foliage", "bush-row-");
+          if (rows.length && r() < 0.3) {
+            const name = rows[Math.floor(r() * rows.length)]!;
+            out.push({ kind: "sprite", sheet: "foliage", frame: name, x: px, y: py, scale: 0.16, flip: r() < 0.5, shadow: 0.2 });
             continue;
           }
           const [sheet, frame, , scale] = pick(SMALL[area.theme], roll2);
@@ -1138,7 +1207,7 @@ export function scatter(scene: Scene, sheets: Sheets): SpriteItem[] {
       }
     }
   }
-  // Grass tufts and flower specks over open ground, under everything else.
+  // Grass tufts over open ground, under everything else.
   for (const area of scene.scatter) {
     const island = scene.islands[area.island];
     if (!island || island.boxes.length === 0) continue;
@@ -1151,8 +1220,7 @@ export function scatter(scene: Scene, sheets: Sheets): SpriteItem[] {
         const roll = r();
         if (fieldAt(island, px, py) > -3 || insideOther(scene, area.island, px, py)) continue;
         if (reservedAt(scene, px, py, -6) || onStrip(scene, px, py, 1)) continue;
-        if (roll < 0.45) out.push({ kind: "sprite", sheet: "terrain", frame: "grass-tuft", x: px, y: py, scale: 0.09 + r() * 0.05, flip: r() < 0.5, z: py - 400 });
-        else if (roll < 0.53) out.push({ kind: "sprite", sheet: "terrain", frame: "flowers", x: px, y: py, scale: 0.08 + r() * 0.04, flip: r() < 0.5, z: py - 400 });
+        if (roll < 0.22) out.push({ kind: "sprite", sheet: "terrain", frame: "grass-tuft", x: px, y: py, scale: 0.09 + r() * 0.05, flip: r() < 0.5, z: py - 400 });
       }
     }
   }
@@ -1178,74 +1246,7 @@ export function seaRocks(scene: Scene): SpriteItem[] {
   return out;
 }
 
-function clouds(scene: Scene): SpriteItem[] {
-  const out: SpriteItem[] = [];
-  const r = rng(99);
-  for (let y = 120; y < scene.h - 300; y += 170) {
-    out.push({ kind: "sprite", sheet: "terrain", frame: `cloud-${Math.floor(r() * 3)}`, x: 20 + r() * 30, y: y + r() * 40, scale: 0.2, alpha: 0.95 });
-    out.push({ kind: "sprite", sheet: "terrain", frame: `cloud-${Math.floor(r() * 3)}`, x: scene.w - 20 - r() * 30, y: y + 60 + r() * 40, scale: 0.2, alpha: 0.95 });
-  }
-  return out;
-}
-
-// ---- Links, labels -------------------------------------------------------------------------
-
-function nineSlice(ctx: Ctx, sheets: Sheets, prefix: string, cx: number, cy: number, w: number, h: number, inset: number): void {
-  const l = frameOf(sheets, "ui-world", `${prefix}-left`);
-  const m = frameOf(sheets, "ui-world", `${prefix}-middle`);
-  const r = frameOf(sheets, "ui-world", `${prefix}-right`);
-  const s = h / (l.h - inset * 2);
-  const top = cy - h / 2 - inset * s;
-  const fh = l.h * s;
-  const x0 = cx - w / 2;
-  const lw = l.w * s;
-  const rw = r.w * s;
-  ctx.save();
-  ctx.shadowColor = "rgba(20, 10, 0, 0.45)";
-  ctx.shadowBlur = 3 * 4;
-  ctx.shadowOffsetY = 1.5 * 4;
-  ctx.drawImage(l.img, l.x, l.y, l.w, l.h, x0, top, lw, fh);
-  ctx.drawImage(m.img, m.x, m.y, m.w, m.h, x0 + lw - 0.4, top, w - lw - rw + 0.8, fh);
-  ctx.drawImage(r.img, r.x, r.y, r.w, r.h, x0 + w - rw, top, rw, fh);
-  ctx.restore();
-}
-
-function paintLabel(ctx: Ctx, label: LabelItem, sheets: Sheets): void {
-  nineSlice(ctx, sheets, "label", label.x, label.y, label.w, label.h, 20);
-  ctx.save();
-  ctx.font = `800 ${label.size}px ${FONT}`;
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  ctx.fillStyle = "#2a1d12";
-  ctx.fillText(label.text, label.x, label.y + 0.5, label.w - 18);
-  ctx.restore();
-}
-
-function paintPlaque(ctx: Ctx, plaque: PlaqueItem, sheets: Sheets): void {
-  nineSlice(ctx, sheets, "host-plaque", plaque.x, plaque.y, plaque.w, plaque.h, 28);
-  ctx.save();
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  ctx.fillStyle = "#2a1d12";
-  ctx.font = `800 23px ${FONT}`;
-  ctx.fillText(plaque.text, plaque.x, plaque.y - (plaque.stats ? 8 : 0), plaque.w - 24);
-  if (plaque.stats) {
-    ctx.font = `700 11.5px ${FONT}`;
-    const tw = ctx.measureText(plaque.stats).width;
-    const sx = plaque.x - tw / 2 + 7;
-    ctx.fillText(plaque.stats, sx + tw / 2, plaque.y + 13);
-    ctx.fillStyle = plaque.online ? "#3fd23a" : "#9a9a9a";
-    ctx.strokeStyle = "#1d5a12";
-    ctx.lineWidth = 0.8;
-    ctx.beginPath();
-    ctx.arc(sx - 9, plaque.y + 13, 4.6, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.stroke();
-  }
-  ctx.restore();
-}
-
-/** One period of the open sea exactly as a painting shows it (frame 0, lifted and graded the same),
+/** One period of the open sea exactly as a painting shows it (frame 0, graded the same),
  * `k` pixels per concept pixel, so the app can tile it past the painted hosts without a seam.
  * Its period in concept px is `seaPeriod(sheets)`; tiles line up with world (0, 0). */
 export function overworldSeaTile(sheets: Sheets, k: number): HTMLCanvasElement | null {
@@ -1258,11 +1259,8 @@ export function overworldSeaTile(sheets: Sheets, k: number): HTMLCanvasElement |
   g.imageSmoothingQuality = "high";
   g.drawImage(f.img, f.x, f.y, f.w, f.h, 0, 0, c.width, c.height);
   g.globalCompositeOperation = "screen";
-  g.fillStyle = "rgb(4, 34, 52)";
+  g.fillStyle = SEA_LIFT;
   g.fillRect(0, 0, c.width, c.height);
-  g.globalCompositeOperation = "source-over";
-  const d = g.getImageData(0, 0, c.width, c.height);
-  g.putImageData(d, 0, 0);
   return c;
 }
 
@@ -1273,8 +1271,8 @@ export function seaPeriod(sheets: Sheets): number {
 }
 
 const litCache = new WeakMap<object, Map<string, HTMLCanvasElement>>();
-/** A robot frame lit as the world is: a contact shadow at its feet and a soft rim of light round it,
- * so it sits in its booth and still stands out. Same size and anchor as the frame. */
+/** A robot frame standing in the world: a soft contact shadow at its feet, no glow or outline, so it
+ * reads as a figure in the booth rather than a sticker on it. Same size and anchor as the frame. */
 export function litRobot(f: Frame): HTMLCanvasElement {
   let byImg = litCache.get(f.img as object);
   if (!byImg) litCache.set(f.img as object, (byImg = new Map()));
@@ -1294,13 +1292,6 @@ export function litRobot(f: Frame): HTMLCanvasElement {
   g.beginPath();
   g.arc(0, 0, 70, 0, Math.PI * 2);
   g.fill();
-  g.restore();
-  // Rim light: the robot's silhouette glowing warm behind it.
-  g.save();
-  g.shadowColor = "rgba(255, 236, 190, 1)";
-  g.shadowBlur = 22;
-  g.drawImage(f.img, f.x, f.y, f.w, f.h, 0, 0, f.w, f.h);
-  g.drawImage(f.img, f.x, f.y, f.w, f.h, 0, 0, f.w, f.h);
   g.restore();
   g.drawImage(f.img, f.x, f.y, f.w, f.h, 0, 0, f.w, f.h);
   byImg.set(key, c);

@@ -4,7 +4,6 @@ import { hash, type OwAgent, type OwHost, type OwProject, type OwWorkspace, type
 
 const THEMES: Theme[] = ["forest", "farm", "volcanic"];
 const ROOFS: Roof[] = ["red", "purple", "blue", "green", "amber", "teal"];
-const ICONS = ["code", "cube", "chart", "flask", "person", "layers", "gear", "globe", "book", "rocket"];
 
 /** A robot's sheet colour (Claude orange, ChatGPT/Codex pearl) or the tint for the neutral robot. */
 export function robotColour(model: string): string {
@@ -39,25 +38,36 @@ export function overworldFleet(data: AtlasData): OwHost[] {
       agentsOf((a) => a.host === host.key && !(a.workspace && known.has(a.workspace)) && (a.project && shown.has(a.project) ? a.project : "") === project);
     const camp = (project: string, agents: OwAgent[]): OwWorkspace => ({ id: campKey(host.key, project), name: "No workspace", agents, camp: true });
     const projects: OwProject[] = [];
+    // With no names on the map, a hall's roof is its project's mark: seeded from its name, so the same
+    // project has the same roof on every host, and the next free one where two halls on a host would match.
+    const roofs = new Set<Roof>();
     for (const p of data.projects.filter((p) => shown.has(p.key))) {
-      const h = hash(p.key);
+      const h = hash(p.name || p.key);
+      let roof = ROOFS[h % ROOFS.length]!;
+      for (let k = 1; roofs.has(roof) && k < ROOFS.length; k++) roof = ROOFS[(h + k) % ROOFS.length]!;
+      roofs.add(roof);
       const own = workspaces.filter((w) => w.project === p.key).map(ws);
       const waiting = homeless(p.key);
       if (waiting.length) own.push(camp(p.key, waiting));
-      projects.push({ id: p.key, name: p.name, roof: ROOFS[h % ROOFS.length]!, icon: ICONS[(h >>> 8) % ICONS.length]!, workspaces: own });
+      projects.push({ id: p.key, name: p.name, roof, workspaces: own });
     }
     const loose = workspaces.filter((w) => !w.project || !shown.has(w.project));
     const waiting = homeless("");
     if (loose.length || waiting.length) {
       const extra: OwWorkspace[] = loose.map(ws);
       if (waiting.length) extra.push(camp("", waiting));
-      projects.push({ id: `${host.key}:loose`, name: "", roof: "red", icon: "layers", hall: false, workspaces: extra });
+      projects.push({ id: `${host.key}:loose`, name: "", roof: "red", hall: false, workspaces: extra });
     }
     if (!projects.length) continue;
+    // Each host's scenery is seeded from it; a host never shares its neighbour's (the one drawn before it),
+    // taking the first other one instead (forest before farm before volcanic, the busiest).
+    const before = hosts[hosts.length - 1]?.theme;
+    let theme = THEMES[hash(host.key) % THEMES.length]!;
+    if (theme === before) theme = THEMES.find((t) => t !== before)!;
     hosts.push({
       id: host.key,
       name: host.name,
-      theme: THEMES[hash(host.key) % THEMES.length]!,
+      theme,
       offline: !host.online,
       stats:
         host.stats && host.stats.cpu !== undefined && host.stats.memory !== undefined && host.stats.disk !== undefined

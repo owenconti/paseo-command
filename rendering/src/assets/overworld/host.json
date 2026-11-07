@@ -1,7 +1,7 @@
 {
   "image": "host.png",
   "width": 2368,
-  "height": 1664,
+  "height": 1152,
   "sampling": "smooth",
   "scale": "4x apparent concept scale",
   "anchorUnits": "pixels relative to frame top-left; y points down",
@@ -39,125 +39,14 @@
       },
       "state": "offline",
       "registeredWith": "castle-online"
-    },
-    "banner-0": {
-      "x": 0,
-      "y": 1184,
-      "w": 288,
-      "h": 448,
-      "anchor": {
-        "x": 61,
-        "y": 381
-      },
-      "footprint": {
-        "width": 234,
-        "height": 360,
-        "units": "4x concept pixels"
-      },
-      "animation": "banner",
-      "order": 0,
-      "durationMs": 220,
-      "registeredWith": "banner-0",
-      "emblemCenter": {
-        "x": 172,
-        "y": 171
-      },
-      "emblemDiameter": 168,
-      "clothFootprint": {
-        "width": 186,
-        "height": 294,
-        "aspect": "approximately 2:3"
-      }
-    },
-    "banner-1": {
-      "x": 320,
-      "y": 1184,
-      "w": 288,
-      "h": 448,
-      "anchor": {
-        "x": 61,
-        "y": 381
-      },
-      "footprint": {
-        "width": 234,
-        "height": 360,
-        "units": "4x concept pixels"
-      },
-      "animation": "banner",
-      "order": 1,
-      "durationMs": 220,
-      "registeredWith": "banner-0",
-      "emblemCenter": {
-        "x": 172,
-        "y": 171
-      },
-      "emblemDiameter": 168,
-      "clothFootprint": {
-        "width": 186,
-        "height": 294,
-        "aspect": "approximately 2:3"
-      }
-    },
-    "banner-2": {
-      "x": 640,
-      "y": 1184,
-      "w": 288,
-      "h": 448,
-      "anchor": {
-        "x": 61,
-        "y": 381
-      },
-      "footprint": {
-        "width": 234,
-        "height": 360,
-        "units": "4x concept pixels"
-      },
-      "animation": "banner",
-      "order": 2,
-      "durationMs": 220,
-      "registeredWith": "banner-0",
-      "emblemCenter": {
-        "x": 172,
-        "y": 171
-      },
-      "emblemDiameter": 168,
-      "clothFootprint": {
-        "width": 186,
-        "height": 294,
-        "aspect": "approximately 2:3"
-      }
-    },
-    "emblem-blank": {
-      "x": 1024,
-      "y": 1216,
-      "w": 384,
-      "h": 384,
-      "anchor": {
-        "x": 192,
-        "y": 192
-      },
-      "footprint": {
-        "width": 304,
-        "height": 304,
-        "units": "4x concept pixels"
-      }
     }
   },
-  "animations": {
-    "banner": {
-      "frames": [
-        "banner-0",
-        "banner-1",
-        "banner-2"
-      ],
-      "durationMs": 220,
-      "loop": true
-    }
-  },
+  "animations": {},
   "source": {
     "tool": "built-in image_gen",
     "prompts": "prompts.json",
     "rawDirectory": "rendering/artifacts/overworld/raw/host",
-    "processing": "Lanczos sizing; identical shared castle alpha/crop; canonical banner pole, crossbar and emblem; no palette reduction or binary alpha"
+    "processing": "Lanczos sizing; identical shared castle alpha/crop; no palette reduction or binary alpha",
+    "repaint": "2026-11-07: the painted emblem disc and its stone ring repainted out of both castles (the central tower continues into the keep, the battlements run across); banner and emblem frames dropped. Local image processing only; see rendering/ASSETS.md."
   }
 }

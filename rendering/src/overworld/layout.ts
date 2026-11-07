@@ -1,6 +1,9 @@
 // Overworld layout: hosts, projects, workspaces and agents laid out as the user's concept
 // rendering lays them out. Units are concept pixels (the concept is ~1200 px wide); the
-// painter draws at SCALE world pixels per unit (the sprites are drawn at 4×).
+// painter draws at SCALE world pixels per unit (the sprites are drawn at 4×). The world carries no
+// text, emblems or signs: names and states are said by hover cards and light, not drawn on the land.
+
+import { islandBounds } from "./terrain.ts";
 
 export type Theme = "forest" | "farm" | "volcanic";
 export type Roof = "red" | "purple" | "blue" | "green" | "amber" | "teal";
@@ -23,7 +26,6 @@ export interface OwWorkspace {
 export interface OwProject {
   id: string;
   name: string;
-  icon: string;
   roof: Roof;
   workspaces: OwWorkspace[];
   /** Workspaces without a project: booths linked from the castle, no hall. */
@@ -69,8 +71,6 @@ export interface SpriteItem {
   grade?: { brightness?: number; contrast?: number; saturate?: number; hue?: number };
   /** Sort key override (defaults to y). */
   z?: number;
-  /** Draw above labels and links (badges on halls, emblems). */
-  layer?: "ground" | "world" | "top";
   alpha?: number;
 }
 export interface BoothItem {
@@ -84,33 +84,6 @@ export interface BoothItem {
   agents: OwAgent[];
   camp?: boolean;
   z?: number;
-}
-export interface LabelItem {
-  kind: "label";
-  x: number;
-  y: number;
-  w: number;
-  h: number;
-  text: string;
-  size: number;
-}
-export interface PlaqueItem {
-  kind: "plaque";
-  x: number;
-  y: number;
-  w: number;
-  h: number;
-  text: string;
-  stats?: string;
-  online: boolean;
-}
-export interface Link {
-  pts: Array<[number, number]>;
-}
-export interface Node {
-  x: number;
-  y: number;
-  r: number;
 }
 export interface River {
   pts: Array<[number, number]>;
@@ -158,16 +131,12 @@ export interface Scene {
   robots: RobotSpot[];
   islands: Island[];
   items: Array<SpriteItem | BoothItem>;
-  labels: Array<LabelItem | PlaqueItem>;
-  links: Link[];
-  nodes: Node[];
   rivers: River[];
   falls: Fall[];
   paths: Strip[];
   fields: Strip[];
   reserved: Rect[];
   scatter: Array<{ island: number; theme: Theme; area: Rect }>;
-  clouds: SpriteItem[];
 }
 
 export const SCALE = 4;
@@ -224,16 +193,12 @@ export function layout(hosts: OwHost[], opts: LayoutOptions = {}): Scene {
     robots: [],
     islands: [],
     items: [],
-    labels: [],
-    links: [],
-    nodes: [],
     rivers: [],
     falls: [],
     paths: [],
     fields: [],
     reserved: [],
     scatter: [],
-    clouds: [],
   };
   let y0 = 0;
   hosts.forEach((host, index) => {
@@ -242,7 +207,8 @@ export function layout(hosts: OwHost[], opts: LayoutOptions = {}): Scene {
     // Measured from the concept: hosts 360 then 335 apart; taller hosts push the next down.
     y0 += BAND + extra + (index === 0 ? 20 : -5);
   });
-  scene.h = y0 + 140;
+  // Open sea below the last coast, enough for its shallows and surf (one landmass reaches lower).
+  scene.h = Math.max(y0 + 140, ...scene.islands.filter((i) => i.boxes.length).map((i) => islandBounds(i).y1 + 48));
   return scene;
 }
 
@@ -397,43 +363,10 @@ function layoutHost(scene: Scene, host: OwHost, y0: number, index: number, last:
     if (ledges.length) scene.islands.push({ boxes: ledges, cliff: island.cliff * 0.62, seed: island.seed ^ 0x1ed9e, rock, z: island.z - 0.5 });
   }
 
-  // Stone stairs from each plateau down to its ledge, and a set piece (well, ruin, signpost) on open ground.
-  const sp = rng(seed ^ 0x5e7);
-  for (const island of [left, right]) {
-    if (island.boxes.length === 0) continue;
-    const m = island.boxes[0]!;
-    const sx = island === left ? m.x0 + 40 + sp() * 40 : m.x1 - 40 - sp() * 40;
-    for (let k = 0; k < 5; k++) {
-      scene.items.push({ kind: "sprite", sheet: "terrain", frame: "stairs-tread", x: sx - 128 * 0.12, y: m.y1 - 8 + k * 6, scale: 0.12, shadow: 0, z: m.y1 + 40 + k });
-    }
-    reserve(scene, sx - 20, m.y1 - 30, sx + 20, m.y1 + 30);
-  }
-  const pieces: Array<[string, string, number]> =
-    host.theme === "volcanic" ? [["theme-volcanic", "mine-entrance", 0.2], ["props", "signpost", 0.2]]
-    : host.theme === "farm" ? [["props", "well", 0.2], ["theme-farm", "farm-cart", 0.2], ["theme-farm", "scarecrow", 0.16]]
-    : [["props", "well", 0.2], ["theme-forest", "ruins-wall", 0.22], ["props", "signpost", 0.2]];
-  const spots: Array<[number, number]> = [[CX - 120, y0 + 330], [CX + 130, y0 + 330]];
-  spots.forEach(([x, y], i) => {
-    const [sheet, frame, scale] = pieces[(Math.floor(sp() * pieces.length) + i) % pieces.length]!;
-    scene.items.push({ kind: "sprite", sheet, frame, x, y, scale, shadow: 0.3 });
-    reserve(scene, x - 22, y - 30, x + 22, y + 6);
-  });
-
-  // Castle, plaque, banners and the castle's link node.
+  // The castle: lit while its host is online, dark and grey while it's offline.
   const castleFrame = host.offline ? "castle-offline" : "castle-online";
   scene.items.push({ kind: "sprite", sheet: "host", frame: castleFrame, x: CX, y: y0 + 292, scale: 0.29, shadow: 0.3 });
-  scene.items.push({ kind: "sprite", sheet: "halls", frame: "badge-layers", x: CX - 0.3, y: y0 + 292 - 633 * 0.29, scale: 0.38, z: y0 + 292.5 });
   reserve(scene, CX - 145, y0 + 30, CX + 145, y0 + 296);
-  for (const side of [-1, 1]) {
-    const bx = CX + side * 192;
-    scene.items.push({ kind: "sprite", sheet: "host", frame: "banner-0", x: bx, y: y0 + 222, scale: 0.23, flip: side > 0, z: y0 + 300 });
-    scene.items.push({ kind: "sprite", sheet: "halls", frame: "badge-layers", x: bx + (side > 0 ? -25.1 : 25.1), y: y0 + 222 - 48.3, scale: 0.113, z: y0 + 300.5 });
-    reserve(scene, bx - 30, y0 + 120, bx + 30, y0 + 225);
-  }
-  const stats = host.stats ? `CPU ${host.stats.cpu}%  •  MEM ${host.stats.mem}%  •  DISK ${host.stats.disk}%` : undefined;
-  scene.labels.push({ kind: "plaque", x: CX + 2, y: y0 + 168, w: 246, h: 56, text: host.name, stats, online: !host.offline });
-  const castleNode = { x: CX + 2, y: y0 + 210, r: 7.5 };
-  scene.nodes.push(castleNode);
 
   // River from the castle gate down through the channel and over the cliff.
   if (!last) {
@@ -449,7 +382,7 @@ function layoutHost(scene: Scene, host: OwHost, y0: number, index: number, last:
   ];
   host.projects.forEach((project, i) => {
     const side = sides[i % 2];
-    layoutProject(scene, project, side.x, y0 + rowY[Math.floor(i / 2)], side.dir, castleNode, i);
+    layoutProject(scene, project, side.x, y0 + rowY[Math.floor(i / 2)], side.dir, i);
   });
 
   // Theme scenery anchors and scatter areas.
@@ -469,60 +402,28 @@ function layoutProject(
   hx: number,
   y0: number,
   dir: -1 | 1,
-  castleNode: Node,
   order: number,
 ): void {
   const hall = project.hall !== false;
-  const labelW = Math.max(118, project.name.length * 10.6 + 42);
-  const hallNode = { x: hx, y: y0 + 279, r: 7.5 };
   if (hall) {
-    // Hall: roof badge at y0+200, label centred at y0+247, body down to y0+292.
+    // Hall: its roof's colour seeded from the project, its body down to y0+292, lanterns at its door.
     scene.items.push({ kind: "sprite", sheet: "halls", frame: `hall-${project.roof}`, x: hx, y: y0 + 296, scale: 0.248, shadow: 0.35 });
-    scene.items.push({ kind: "sprite", sheet: "halls", frame: `badge-${project.icon}`, x: hx - 1.7, y: y0 + 296 - 101, scale: 0.248, z: y0 + 296.5 });
     reserve(scene, hx - 112, y0 + 160, hx + 112, y0 + 300);
-    // A hall's yard: lanterns at its door, barrels and crates at its corners.
-    const yard = rng(hash(project.id) ^ 0x7a2d);
     for (const side of [-1, 1]) {
       scene.items.push({ kind: "sprite", sheet: "props", frame: "lantern-lit", x: hx + side * 46, y: y0 + 304, scale: 0.2, shadow: 0.2, z: y0 + 305 });
-      const goods = ["barrel-0", "crate-0", "sack-0", "crate-1", "barrel-1"];
-      scene.items.push({ kind: "sprite", sheet: "props", frame: goods[Math.floor(yard() * goods.length)]!, x: hx + side * (98 + yard() * 8), y: y0 + 296, scale: 0.17, flip: side > 0, shadow: 0.25 });
-      if (yard() < 0.6) scene.items.push({ kind: "sprite", sheet: "props", frame: goods[Math.floor(yard() * goods.length)]!, x: hx + side * (112 + yard() * 6), y: y0 + 302, scale: 0.15, shadow: 0.25 });
-      // Keep the yard clear of trees so its goods show.
-      reserve(scene, hx + side * 92 - 22, y0 + 270, hx + side * 92 + 30, y0 + 310);
     }
-    scene.labels.push({ kind: "label", x: hx, y: y0 + 247, w: labelW, h: 34, text: project.name, size: 21 });
+    // Its forecourt: open ground before its front, so no tree stands in its doorway.
+    reserve(scene, hx - 104, y0 + 296, hx + 104, y0 + 334);
     scene.entities.push({ id: project.id, kind: "project", x0: hx - 108, y0: y0 + 172, x1: hx + 108, y1: y0 + 298 });
-    // Gold link from the castle node: out to a node by the hall, into the hall label's side.
-    const nx = dir < 0 ? hx + 135 : hx - 152;
-    const ny = y0 + 232;
-    scene.links.push({
-      pts: [
-        [castleNode.x, castleNode.y],
-        [castleNode.x + dir * 12, ny],
-        [nx, ny],
-        [hx - dir * (labelW / 2 - 6), y0 + 250],
-      ],
-    });
-    scene.nodes.push({ x: nx, y: ny, r: 6.5 });
-    scene.nodes.push(hallNode);
-  } else {
-    // No hall: the castle links straight to the booths' row.
-    scene.links.push({ pts: [[castleNode.x, castleNode.y], [castleNode.x + dir * 12, hallNode.y], [hx, hallNode.y]] });
-    scene.nodes.push(hallNode);
   }
 
-  // Workspaces: rows of booths under the hall. Later rows' links run down the block's outer edge.
+  // Workspaces: rows of booths under the hall.
   const rows = boothRows(project);
-  const rowTotal = (row: OwWorkspace[]) =>
-    row.reduce((a, w) => a + (w.camp ? CAMP_W : boothWidth(w.agents.length)), 0) + BOOTH_GAP * (row.length - 1);
-  const blockHalf = Math.max(...rows.map(rowTotal)) / 2;
-  const edgeX = dir < 0 ? hx - blockHalf - 16 : hx + blockHalf + 16;
   rows.forEach((row, k) => {
     const widths = row.map((w) => (w.camp ? CAMP_W : boothWidth(w.agents.length)));
     const total = widths.reduce((a, b) => a + b, 0) + BOOTH_GAP * (row.length - 1);
     let x = hx - total / 2;
     const floor = y0 + 384 + k * BOOTH_ROW_H;
-    const signTop = floor - (BOOTH.floor - 32 - 20) * BOOTH.scale;
     row.forEach((ws, i) => {
       const w = widths[i];
       const cx = x + w / 2;
@@ -530,20 +431,13 @@ function layoutProject(
       const awningSide = row.length === 1 ? (dir < 0 ? "left" : "right") : i === 0 ? "left" : "right";
       scene.items.push({ kind: "booth", x: cx, y: floor, w, awning, awningSide, agents: ws.agents, camp: ws.camp, z: floor });
       const top = floor - BOOTH.floor * BOOTH.scale;
-      scene.labels.push({ kind: "label", x: cx, y: top + 19, w: Math.min(w - 8, Math.max(96, ws.name.length * 10.5 + 40)), h: 25, text: ws.name, size: 20 });
-      reserve(scene, x - 26, top - 4, x + w + 26, floor + 14);
+      // The booth and the ground before it: no tree or bush stands in front of its robots.
+      reserve(scene, x - 26, top - 4, x + w + 26, floor + 44);
       scene.entities.push({ id: ws.id, kind: "workspace", x0: x - 4, y0: top + 4, x1: x + w + 4, y1: floor + 8 });
       for (const spot of robotSpots(ws, cx, floor, w)) {
         scene.robots.push(spot);
         scene.entities.push({ id: spot.id, kind: "agent", x0: spot.x - 15, y0: spot.y - 40, x1: spot.x + 15, y1: spot.y + 3 });
       }
-      // Links: from the hall's node, along above the row, down to the sign.
-      const via = k === 0 ? hallNode.y : signTop - 12;
-      const from: [number, number] = k === 0 ? [hx, hallNode.y] : [edgeX, hallNode.y];
-      if (k === 0 && row.length === 1) scene.links.push({ pts: [from, [cx, signTop]] });
-      else if (k === 0) scene.links.push({ pts: [from, [cx, via], [cx, signTop]] });
-      else scene.links.push({ pts: [[hx, hallNode.y], from, [from[0], via], [cx, via], [cx, signTop]] });
-      scene.nodes.push({ x: cx, y: signTop, r: 6.5 });
       x += w + BOOTH_GAP;
     });
     // Cobbled paths along the booths' fronts and from the hall's door down between them.
@@ -578,13 +472,12 @@ function sprite(sheet: string, frame: string, x: number, y: number, scale: numbe
 }
 
 function layoutTheme(scene: Scene, theme: Theme, y0: number, seed: number, last: boolean, index: number, extra = 0): void {
-  const r = rng(seed);
   const add = (item: SpriteItem, pad = 0) => {
     scene.items.push(item);
     if (pad > 0) reserve(scene, item.x - pad, item.y - pad * 1.2, item.x + pad, item.y + pad * 0.4);
   };
   if (theme === "forest") {
-    // Snowy peaks behind the island's back right; a waterfall off the left plateau; camp and target right.
+    // Snowy peaks behind the island's back right; a waterfall off the left plateau.
     add(sprite("theme-forest", "mountain-2", 700, y0 + 150, 0.34, { shadow: 0, z: y0 - 230 }));
     add(sprite("theme-forest", "mountain-0", 930, y0 + 145, 0.46, { shadow: 0, z: y0 - 225 }));
     add(sprite("theme-forest", "mountain-2", 820, y0 + 175, 0.4, { shadow: 0, z: y0 - 215 }));
@@ -594,52 +487,25 @@ function layoutTheme(scene: Scene, theme: Theme, y0: number, seed: number, last:
     scene.islands.push({ boxes: [{ x0: -6, y0: y0 + 200, x1: 82, y1: y0 + 262, r: 24 }], cliff: 62, seed: seed ^ 9, rock: "grey", z: 3 });
     scene.rivers.push({ pts: [[70, y0 + 222], [55, y0 + 242], [50, y0 + 258]], width: 18 });
     scene.falls.push({ x: 50, top: y0 + 262, bottom: y0 + 322, width: 34 });
-    add(sprite("props", "tent-small", 1050, y0 + 352, 0.62), 40);
-    add(sprite("props", "campfire-0", 1050, y0 + 380, 0.33), 14);
-    add(sprite("props", "archery-target", 800, y0 + 365, 0.3), 14);
-    add(sprite("theme-forest", "ruins-wall", 1090, y0 + 300, 0.26), 30);
-    add(sprite("props", "bench", 1102, y0 + 380, 0.25));
-    add(sprite("props", "fence", 95, y0 + 372, 0.3));
-    add(sprite("props", "fence", 130, y0 + 398, 0.3));
-    add(sprite("props", "fence", 165, y0 + 412, 0.3));
   } else if (theme === "farm") {
     add(sprite("theme-farm", "windmill-0", 80, y0 + 260, 0.25), 55);
     scene.fields.push({ pts: [[40, y0 + 288], [150, y0 + 288]], width: 52 });
     scene.fields.push({ pts: [[92, y0 + 340], [222, y0 + 340]], width: 50 });
     reserve(scene, 40, y0 + 250, 225, y0 + 352);
-    for (let i = 0; i < 4; i++) add(sprite("theme-farm", "fence", 52 + i * 34, y0 + 316, 0.2, { shadow: 0 }));
-    for (let i = 0; i < 4; i++) add(sprite("theme-farm", "fence", 104 + i * 34, y0 + 368, 0.2, { shadow: 0 }));
-    add(sprite("theme-farm", "fence-post", 230, y0 + 350, 0.24));
-    for (let i = 0; i < 5; i++) {
-      const t = `autumn-tree-${i % 4}`;
-      add(sprite("theme-farm", t, 115 + i * 38 + r() * 10, y0 + 210 + (i % 2) * 14, 0.2 + r() * 0.04), 18);
-    }
-    add(sprite("theme-forest", "standing-arch", 1095, y0 + 210, 0.3), 40);
-    add(sprite("theme-forest", "ruins-wall", 1060, y0 + 285, 0.24), 30);
-    add(sprite("terrain", "stairs", 1090, y0 + 265, 0.2, { shadow: 0 }), 20);
     add(sprite("theme-forest", "boulder-0", 1130, y0 + 300, 0.2));
     add(sprite("theme-farm", "hay-round", 245, y0 + 300, 0.22));
   } else {
-    // Volcanic: purple peaks behind both sides, lava down the right, crystals and the mine left.
+    // Volcanic: dark peaks behind both sides and a smoking volcano on the right.
     const back = { shadow: 0, z: y0 - 300 };
     add(sprite("theme-volcanic", "volcanic-mountain-2", 300, y0 + 225, 0.42, back));
     add(sprite("theme-volcanic", "volcanic-mountain-0", 170, y0 + 300, 0.52, back));
-    add(sprite("theme-volcanic", "volcanic-mountain-1", 105, y0 + 350, 0.44, back));
+    add(sprite("theme-volcanic", "volcanic-mountain-1", 160, y0 + 345, 0.38, back));
     add(sprite("theme-volcanic", "volcanic-mountain-2", 870, y0 + 230, 0.42, back));
     add(sprite("theme-volcanic", "volcano-0", 1045, y0 + 315, 0.5, back));
     add(sprite("theme-volcanic", "volcanic-mountain-0", 1095, y0 + 350, 0.42, back));
     reserve(scene, 0, y0 + 120, 280, y0 + 330);
     reserve(scene, 880, y0 + 120, 1200, y0 + 335);
-    add(sprite("theme-volcanic", "crystal-0", 70, y0 + 200, 0.3), 20);
-    add(sprite("theme-volcanic", "crystal-2", 110, y0 + 215, 0.24), 20);
-    add(sprite("theme-volcanic", "watchtower", 175, y0 + 250, 0.3), 30);
-    add(sprite("theme-volcanic", "rail-curve", 40, y0 + 318, 0.3, { shadow: 0, z: y0 + 318 }), 0);
     for (const [x, y, f] of [[60, 405, 1], [1150, 400, 0], [1110, 418, 2], [95, 420, 0]] as const) add(sprite("theme-volcanic", `dark-rock-${f}`, x, y0 + y, 0.2), 12);
-    for (const [x, y, f] of [[230, 300, 1], [1000, 330, 3], [520, 380, 0], [700, 395, 2]] as const) add(sprite("theme-volcanic", `crystal-${f}`, x, y0 + y, 0.17), 10);
-    add(sprite("theme-volcanic", "mine-cart", 120, y0 + 370, 0.26), 20);
-    add(sprite("theme-volcanic", "watchtower", 1070, y0 + 330, 0.3), 30);
-    add(sprite("theme-volcanic", "crystal-3", 1150, y0 + 260, 0.24), 18);
-    add(sprite("theme-volcanic", "mine-cart", 1125, y0 + 355, 0.24), 18);
     if (last) {
       // The gate's grand approach: a wide stair to a bridge over a fall at the coast, lamps on pillars.
       const coast = y0 + 425 + extra;
@@ -647,7 +513,7 @@ function layoutTheme(scene: Scene, theme: Theme, y0: number, seed: number, last:
       scene.falls.push({ x: CX + 1, top: coast - 6, bottom: coast + 50, width: 44 });
       add(sprite("terrain", "bridge", CX + 1, coast + 2, 0.27, { shadow: 0, z: coast + 4 }));
       for (const side of [-1, 1]) {
-        add(sprite("props", "stone-lamp-lit", CX + side * 66, coast + 18, 0.36, { z: coast + 20 }));
+        add(sprite("props", "stone-lamp-lit", CX + side * 62, coast + 18, 0.26, { z: coast + 20 }));
         add(sprite("theme-forest", "flowers-0", CX + side * 42, y0 + 345, 0.2, { z: y0 + 345 }));
         add(sprite("theme-forest", "flowers-2", CX + side * 48, y0 + 375, 0.2, { z: y0 + 375 }));
         add(sprite("theme-forest", "flowers-1", CX + side * 40, y0 + 398, 0.2, { z: y0 + 398 }));

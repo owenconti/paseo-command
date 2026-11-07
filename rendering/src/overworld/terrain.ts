@@ -58,7 +58,8 @@ export function islandField(island: Island, x: number, y: number): number {
   for (const b of island.bites ?? []) d = Math.max(d, -boxSdf(x, y, b));
   if (d > 50) return d;
   const n = fbm(x / 110, y / 110, island.seed + 31, 2) * 26 + fbm(x / 30, y / 30, island.seed, 3) * 14 + noise(x / 8, y / 8, island.seed + 7) * 3;
-  return d + n;
+  // The noise fades out toward 50 px rather than stopping there, so the field offshore has no step.
+  return d + (d > 35 ? n * (1 - smooth((d - 35) / 15)) : n);
 }
 
 export function islandBounds(island: Island): { x0: number; y0: number; x1: number; y1: number } {
@@ -106,9 +107,43 @@ export function fieldGrid(island: Island): FieldGrid {
   return g;
 }
 
+/** How far past an island's bounds the sea's own field reaches (concept px), and its coarser step. */
+export const SEA_PAD = 56;
+const SEA_STEP = 2;
+const seaGrids = new WeakMap<Island, FieldGrid>();
+
+/** The coast field over the sea round an island, wide enough for its shallows and surf. */
+function seaGrid(island: Island): FieldGrid {
+  let g = seaGrids.get(island);
+  if (g) return g;
+  if (island.boxes.length === 0) {
+    g = { x0: 0, y0: 0, step: 1, w: 0, h: 0, data: new Float32Array(0) };
+    seaGrids.set(island, g);
+    return g;
+  }
+  const b = islandBounds(island);
+  const x0 = b.x0 - SEA_PAD;
+  const y0 = b.y0 - SEA_PAD;
+  const w = Math.ceil((b.x1 - b.x0 + 2 * SEA_PAD) / SEA_STEP) + 2;
+  const h = Math.ceil((b.y1 - b.y0 + 2 * SEA_PAD) / SEA_STEP) + 2;
+  const data = new Float32Array(w * h);
+  for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) data[j * w + i] = islandField(island, x0 + i * SEA_STEP, y0 + j * SEA_STEP);
+  g = { x0, y0, step: SEA_STEP, w, h, data };
+  seaGrids.set(island, g);
+  return g;
+}
+
+/** `islandField` for the sea (shallows, surf): from the wider grid; far outside it, a large distance. */
+export function seaFieldAt(island: Island, x: number, y: number): number {
+  return sample(seaGrid(island), x, y);
+}
+
 /** `islandField` from the cached grid (bilinear); far outside the grid, a large distance. */
 export function fieldAt(island: Island, x: number, y: number): number {
-  const g = fieldGrid(island);
+  return sample(fieldGrid(island), x, y);
+}
+
+function sample(g: FieldGrid, x: number, y: number): number {
   const gx = (x - g.x0) / g.step;
   const gy = (y - g.y0) / g.step;
   if (gx < 0 || gy < 0 || gx >= g.w - 1 || gy >= g.h - 1) return 1e3;

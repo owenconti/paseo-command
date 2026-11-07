@@ -41,15 +41,15 @@ export function WorldLegend({ data }: { data: AtlasData }) {
     const colour = modelColor(a.model);
     colours.set(MODEL_FAMILY[colour] ?? modelName(a.model), MODEL_COLORS[colour]);
   }
-  // The PR flags, once any workspace flies one.
-  const flags = data.workspaces.some((w) => {
+  // The PR flags, once any workspace flies one (the Overworld draws none: its hover cards say them).
+  const flags = !overworld && data.workspaces.some((w) => {
     const f = prFlags(w.labels);
     return !!(f.ci || f.review);
   });
   // Probe's medallions, once any workspace has one.
-  const probe = data.workspaces.some((w) => w.probe);
+  const probe = !overworld && data.workspaces.some((w) => w.probe);
   // The auto-merge seal, once any flag's pole wears one.
-  const autoMerge = data.workspaces.some((w) => {
+  const autoMerge = !overworld && data.workspaces.some((w) => {
     const f = prFlags(w.labels);
     return w.autoMerge && !!(f.ci || f.review);
   });
@@ -60,7 +60,7 @@ export function WorldLegend({ data }: { data: AtlasData }) {
       </button>
       {open && (
         <div className="legend-body">
-          <h3>{overworld ? "Glow under a robot · agent state" : "Agent tile · agent state"}</h3>
+          <h3>{overworld ? "Light under a robot · agent state" : "Agent tile · agent state"}</h3>
           <ul>
             {ORDER.map((state) => {
               const color = STATE_TILE[state];
@@ -92,7 +92,7 @@ export function WorldLegend({ data }: { data: AtlasData }) {
           )}
           {flags && (
             <>
-              <h3>{overworld ? "Booth badge · PR" : "Workspace medallion · PR"}</h3>
+              <h3>Workspace medallion · PR</h3>
               <ul>
                 {PR_LABELS.map((l) => (
                   <li key={l.flag}>
@@ -105,7 +105,7 @@ export function WorldLegend({ data }: { data: AtlasData }) {
           )}
           {probe && (
             <>
-              <h3>{overworld ? "Booth badge · Probe" : "Workspace medallion · Probe"}</h3>
+              <h3>Workspace medallion · Probe</h3>
               <ul>
                 {PROBE_STATES.map((p) => (
                   <li key={p.state}>
@@ -120,7 +120,7 @@ export function WorldLegend({ data }: { data: AtlasData }) {
           )}
           {autoMerge && (
             <>
-              <h3>{overworld ? "Badge seal" : "Flag pole seal"}</h3>
+              <h3>Flag pole seal</h3>
               <ul>
                 <li title={AUTO_MERGE.description}>
                   <span className="legend-swatch legend-seal" style={{ background: css(AUTO_MERGE.color) }} />
@@ -129,7 +129,11 @@ export function WorldLegend({ data }: { data: AtlasData }) {
               </ul>
             </>
           )}
-          <p>{overworld ? "Castles are hosts · halls projects · booths workspaces · robots agents" : "Islands are projects · cottages workspaces · robots agents"}</p>
+          <p>
+            {overworld
+              ? "Castles are hosts · halls projects · booths workspaces · robots agents. Hover a hall, booth or robot for its name; a booth's card gives its pull request."
+              : "Islands are projects · cottages workspaces · robots agents"}
+          </p>
         </div>
       )}
     </section>

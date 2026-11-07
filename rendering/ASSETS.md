@@ -240,17 +240,17 @@ historical prompts do not reintroduce historical frames.
 
 | Sheet | Size | HD frames |
 | --- | --- | ---: |
-| `halls.png` | 2784 × 1856 | 16 |
-| `host.png` | 2368 × 1664 | 6 |
+| `halls.png` | 2784 × 1280 | 6 (repainted 2026-11-07, below) |
+| `host.png` | 2368 × 1152 | 2 (repainted 2026-11-07, below) |
 | `props.png` | 3072 × 2560 | 27 |
 | `robots.png` | 2048 × 768 | 24 |
 | `stalls.png` | 1536 × 1984 | 17 |
-| `status.png` | 896 × 896 | 13 |
+| `status.png` | removed 2026-11-07 (the Overworld draws no medallions) | — |
 | `terrain.png` | 4096 × 2432 | 72 |
 | `theme-farm.png` | 4096 × 1696 | 23 |
 | `theme-forest.png` | 4096 × 1440 | 24 |
 | `theme-volcanic.png` | 4096 × 2464 | 30 |
-| `ui-world.png` | 2048 × 768 | 9 |
+| `ui-world.png` | removed 2026-11-07 (the Overworld draws no labels or plaques) | — |
 | `water.png` | 4096 × 3200 | 68 |
 
 
@@ -316,6 +316,9 @@ orange/pearl/neutral colors also differ from its illustrated blue/purple/green r
 
 
 ### Host and world UI — HD painted revision
+
+**Superseded 2026-11-07** (see "Overworld without overlays" below): the castles' emblem disc was repainted out, the banner and
+emblem frames dropped and `ui-world.png` removed. The record below is kept for provenance.
 
 Generated with the built-in **image_gen** tool on **2026-11-06**. Exact prompts, input reference roles, raw paths and original generator filenames for all six calls are in `rendering/src/assets/overworld/prompts.json`. No API/CLI generation, app code, commits, pushes or publication were used.
 
@@ -393,7 +396,7 @@ Review: `rendering/artifacts/overworld/buildings-review.png` (ignored/private). 
 
 The current `stalls.png` is **1536 × 1984**, with **17 frames**: `booth-left`, `booth-middle`, `booth-right`; blue/red/purple/yellow `awning-corner-{colour}-left` and mirrored `-right`; `booth-side-props-left-1/2` and `booth-side-props-right-1/2`; the unchanged `camp` and `signboard-blank` frames. The previous v2 full-width striped awning was rejected and is archived with its JSON under ignored `artifacts/overworld/stalls-v2/`.
 
-The booth is an open wooden frame with short sloping timber end caps, a plain sign-support header, dark warm-brown plank interior, pale front floor and a low mossy stone base. It has no full-width cloth roof. A separate small striped canopy attaches behind **one** outer corner; side clusters supply wooden crates, barrels and a warm lit lantern or brazier on a stump. The name sign is assembled separately from `ui-world.png`'s blank label parts. Robots and nameplates are not baked into booth sprites.
+The booth is an open wooden frame with short sloping timber end caps, a plain sign-support header, dark warm-brown plank interior, pale front floor and a low mossy stone base. It has no full-width cloth roof. A separate small striped canopy attaches behind **one** outer corner; side clusters supply wooden crates, barrels and a warm lit lantern or brazier on a stump. Booths carry no name sign: since 2026-11-07 names are only in the map's hover cards. Robots and nameplates are not baked into booth sprites.
 
 Generated with the built-in `image_gen` tool. All three exact prompts, input reference paths and generator filenames are recorded in the authoritative [`src/assets/overworld/prompts.json`](src/assets/overworld/prompts.json), under `stalls`, `revision: "stalls-v3"`. The private 4× concept crops `ref-stall-api-web.png`, `ref-stall-cli.png`, `ref-stall-marketing.png`, `ref-stall-events.png` and `ref-stall-prod.png` were visually studied; the subject/style crops listed per generation were attached as references. No reference pixels enter the production atlas. Raw outputs remain byte-for-byte unchanged:
 
@@ -502,6 +505,9 @@ Remaining visual distinctions: standalone trees have more regular, clearly outli
 
 
 ### Overworld props and status — HD painted revision
+
+**`status.png` removed 2026-11-07** (see "Overworld without overlays" below): the Overworld draws no PR, Probe or auto-merge
+medallions. Its record below is kept for provenance.
 
 Generated with the built-in `image_gen` tool on **2026-11-06**. The first three generations used
 the private `design/references/overworld-concept.png` as style/subject reference and
@@ -926,6 +932,30 @@ is a coast construction test with a shallow top lip, not a complete island; appl
 integration and plateau masking are outside this artwork assignment. The generated
 corners also have less dramatic depth than the concept's largest projecting headlands.
 These are useful original coast parts, not a pixel-identical reconstruction of the concept.
+
+### Overworld without overlays — repaint, 2026-11-07
+
+At the user's request the Overworld lost everything laid over its painting: names, plaques, emblems, icon badges, banners,
+medallions. The castles' and halls' blank emblem discs and parchment signs were painted into their art, so they were repainted out
+of the existing sprites by **local image processing only** (Python with Pillow, numpy and scipy; no generation, no external
+service), by subagents in two competing attempts per sprite (structured period-aligned synthesis vs exemplar inpainting), judged,
+then polished:
+
+- `halls.png`: each of the six halls now has an unbroken tiled hip roof: the ridge's capping tiles run straight across between
+  its end caps (the disc's place above it transparent, with the outline along the ridge), and the front plane's staggered courses
+  and eave lip continue through where the disc and plaque were, rebuilt from the hall's own tiles (re-registered per tile, mirrored
+  and varied in tone so they don't read as stamps); the door posts rise into a shaded soffit under the eave. Roof colour bleed on
+  the timber under the eaves was repainted from the red hall's wood, and the gold ridge and hip caps are the red hall's gold in
+  every hall. The ten `badge-*` frames were cleared and dropped and the sheet cropped to 2784 × 1280; the frame rectangles and
+  anchors of the halls are unchanged, and `badgeSlot` / `plaqueRect` were removed from their metadata.
+- `host.png`: in `castle-online` and `castle-offline` (still registered) the disc, its gold rim and its stone ring are gone: the
+  central tower's shaft continues down into the keep course by course, and the back wall's and the front battlement's merlons run
+  across at their own spacing, each castle from its own pixels (the offline one stays unlit). `banner-0..2` and `emblem-blank`
+  were cleared and dropped and the sheet cropped to 2368 × 1152.
+
+Every pixel outside each edit mask is unchanged (checked). Natural roof, flag and cone colours are not baked in: the page grades
+each sheet as it loads (`SHEET_COLOURS` in `src/overworld/paint.ts`). The scripts, edit and colour-class masks, reviews and the
+attempts' judgements are kept privately in ignored `artifacts/overworld/repaint-2026-11-07/`.
 
 ## Dungeon Board
 

@@ -223,7 +223,7 @@ final class AtlasScene: SKScene, MapScene {
         sea.isHidden = overworld && overworldSea == nil
         for layer in [glints, clouds] { layer.isHidden = overworld }
         seaCover = .zero
-        backgroundColor = Textures.color(style == "overworld" ? 0x0b3a8c : 0x1d6884)
+        backgroundColor = Textures.color(style == "overworld" ? 0x224c64 : 0x1d6884)
         var keep = Set<String>()
         for piece in m["pieces"] as? [[String: Any]] ?? [] {
             guard let key = piece["key"] as? String, let texture = pieces[key] else { continue }

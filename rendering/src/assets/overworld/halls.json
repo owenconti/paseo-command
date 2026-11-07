@@ -1,7 +1,7 @@
 {
   "image": "halls.png",
   "width": 2784,
-  "height": 1856,
+  "height": 1280,
   "style": "HD painted fantasy strategy; smooth gradients, warm top-left light, dark outlines, anti-aliased RGBA",
   "scale": 4,
   "anchorUnits": "pixels relative to frame top-left; y points down",
@@ -22,20 +22,7 @@
         "w": 860,
         "h": 420
       },
-      "variantOf": "hall-red",
-      "badgeSlot": {
-        "x": 455.084,
-        "y": 162.203,
-        "w": 235,
-        "h": 239,
-        "anchor": "centre"
-      },
-      "plaqueRect": {
-        "x": 190,
-        "y": 264,
-        "w": 484,
-        "h": 86
-      }
+      "variantOf": "hall-red"
     },
     "hall-purple": {
       "x": 928,
@@ -50,20 +37,7 @@
         "w": 860,
         "h": 420
       },
-      "variantOf": "hall-red",
-      "badgeSlot": {
-        "x": 455.084,
-        "y": 162.203,
-        "w": 235,
-        "h": 239,
-        "anchor": "centre"
-      },
-      "plaqueRect": {
-        "x": 190,
-        "y": 264,
-        "w": 484,
-        "h": 86
-      }
+      "variantOf": "hall-red"
     },
     "hall-blue": {
       "x": 1856,
@@ -78,20 +52,7 @@
         "w": 860,
         "h": 420
       },
-      "variantOf": "hall-red",
-      "badgeSlot": {
-        "x": 455.084,
-        "y": 162.203,
-        "w": 235,
-        "h": 239,
-        "anchor": "centre"
-      },
-      "plaqueRect": {
-        "x": 190,
-        "y": 264,
-        "w": 484,
-        "h": 86
-      }
+      "variantOf": "hall-red"
     },
     "hall-green": {
       "x": 0,
@@ -106,20 +67,7 @@
         "w": 860,
         "h": 420
       },
-      "variantOf": "hall-red",
-      "badgeSlot": {
-        "x": 455.084,
-        "y": 162.203,
-        "w": 235,
-        "h": 239,
-        "anchor": "centre"
-      },
-      "plaqueRect": {
-        "x": 190,
-        "y": 264,
-        "w": 484,
-        "h": 86
-      }
+      "variantOf": "hall-red"
     },
     "hall-amber": {
       "x": 928,
@@ -134,20 +82,7 @@
         "w": 860,
         "h": 420
       },
-      "variantOf": "hall-red",
-      "badgeSlot": {
-        "x": 455.084,
-        "y": 162.203,
-        "w": 235,
-        "h": 239,
-        "anchor": "centre"
-      },
-      "plaqueRect": {
-        "x": 190,
-        "y": 264,
-        "w": 484,
-        "h": 86
-      }
+      "variantOf": "hall-red"
     },
     "hall-teal": {
       "x": 1856,
@@ -162,177 +97,13 @@
         "w": 860,
         "h": 420
       },
-      "variantOf": "hall-red",
-      "badgeSlot": {
-        "x": 455.084,
-        "y": 162.203,
-        "w": 235,
-        "h": 239,
-        "anchor": "centre"
-      },
-      "plaqueRect": {
-        "x": 190,
-        "y": 264,
-        "w": 484,
-        "h": 86
-      }
-    },
-    "badge-code": {
-      "x": 32,
-      "y": 1296,
-      "w": 272,
-      "h": 272,
-      "anchor": {
-        "x": 135.5,
-        "y": 135.5
-      },
-      "footprint": {
-        "w": 235,
-        "h": 239
-      },
-      "registration": "Overlay anchor at hall frame badgeSlot centre; identical hall-source rim and disc for all ten glyphs."
-    },
-    "badge-cube": {
-      "x": 304,
-      "y": 1296,
-      "w": 272,
-      "h": 272,
-      "anchor": {
-        "x": 135.5,
-        "y": 135.5
-      },
-      "footprint": {
-        "w": 235,
-        "h": 239
-      },
-      "registration": "Overlay anchor at hall frame badgeSlot centre; identical hall-source rim and disc for all ten glyphs."
-    },
-    "badge-chart": {
-      "x": 576,
-      "y": 1296,
-      "w": 272,
-      "h": 272,
-      "anchor": {
-        "x": 135.5,
-        "y": 135.5
-      },
-      "footprint": {
-        "w": 235,
-        "h": 239
-      },
-      "registration": "Overlay anchor at hall frame badgeSlot centre; identical hall-source rim and disc for all ten glyphs."
-    },
-    "badge-flask": {
-      "x": 848,
-      "y": 1296,
-      "w": 272,
-      "h": 272,
-      "anchor": {
-        "x": 135.5,
-        "y": 135.5
-      },
-      "footprint": {
-        "w": 235,
-        "h": 239
-      },
-      "registration": "Overlay anchor at hall frame badgeSlot centre; identical hall-source rim and disc for all ten glyphs."
-    },
-    "badge-person": {
-      "x": 1120,
-      "y": 1296,
-      "w": 272,
-      "h": 272,
-      "anchor": {
-        "x": 135.5,
-        "y": 135.5
-      },
-      "footprint": {
-        "w": 235,
-        "h": 239
-      },
-      "registration": "Overlay anchor at hall frame badgeSlot centre; identical hall-source rim and disc for all ten glyphs."
-    },
-    "badge-layers": {
-      "x": 32,
-      "y": 1584,
-      "w": 272,
-      "h": 272,
-      "anchor": {
-        "x": 135.5,
-        "y": 135.5
-      },
-      "footprint": {
-        "w": 235,
-        "h": 239
-      },
-      "registration": "Overlay anchor at hall frame badgeSlot centre; identical hall-source rim and disc for all ten glyphs."
-    },
-    "badge-gear": {
-      "x": 304,
-      "y": 1584,
-      "w": 272,
-      "h": 272,
-      "anchor": {
-        "x": 135.5,
-        "y": 135.5
-      },
-      "footprint": {
-        "w": 235,
-        "h": 239
-      },
-      "registration": "Overlay anchor at hall frame badgeSlot centre; identical hall-source rim and disc for all ten glyphs."
-    },
-    "badge-globe": {
-      "x": 576,
-      "y": 1584,
-      "w": 272,
-      "h": 272,
-      "anchor": {
-        "x": 135.5,
-        "y": 135.5
-      },
-      "footprint": {
-        "w": 235,
-        "h": 239
-      },
-      "registration": "Overlay anchor at hall frame badgeSlot centre; identical hall-source rim and disc for all ten glyphs."
-    },
-    "badge-book": {
-      "x": 848,
-      "y": 1584,
-      "w": 272,
-      "h": 272,
-      "anchor": {
-        "x": 135.5,
-        "y": 135.5
-      },
-      "footprint": {
-        "w": 235,
-        "h": 239
-      },
-      "registration": "Overlay anchor at hall frame badgeSlot centre; identical hall-source rim and disc for all ten glyphs."
-    },
-    "badge-rocket": {
-      "x": 1120,
-      "y": 1584,
-      "w": 272,
-      "h": 272,
-      "anchor": {
-        "x": 135.5,
-        "y": 135.5
-      },
-      "footprint": {
-        "w": 235,
-        "h": 239
-      },
-      "registration": "Overlay anchor at hall frame badgeSlot centre; identical hall-source rim and disc for all ten glyphs."
+      "variantOf": "hall-red"
     }
   },
   "animations": {},
   "source": {
     "raw": [
-      "halls-hd-01.png",
-      "badges-hd-01.png"
+      "halls-hd-01.png"
     ],
     "hallCrop": [
       55,
@@ -345,154 +116,7 @@
       573
     ],
     "resizeFilter": "Lanczos",
-    "badgeDiscCrop": [
-      563,
-      50,
-      954,
-      447
-    ],
-    "glyphCrops": {
-      "code": {
-        "cell": [
-          0,
-          0,
-          397,
-          396
-        ],
-        "glyphBounds": [
-          120,
-          118,
-          311,
-          263
-        ]
-      },
-      "cube": {
-        "cell": [
-          397,
-          0,
-          793,
-          396
-        ],
-        "glyphBounds": [
-          123,
-          85,
-          299,
-          284
-        ]
-      },
-      "chart": {
-        "cell": [
-          793,
-          0,
-          1190,
-          396
-        ],
-        "glyphBounds": [
-          106,
-          85,
-          277,
-          261
-        ]
-      },
-      "flask": {
-        "cell": [
-          1190,
-          0,
-          1586,
-          396
-        ],
-        "glyphBounds": [
-          92,
-          86,
-          271,
-          263
-        ]
-      },
-      "person": {
-        "cell": [
-          1586,
-          0,
-          1983,
-          396
-        ],
-        "glyphBounds": [
-          87,
-          86,
-          259,
-          273
-        ]
-      },
-      "layers": {
-        "cell": [
-          0,
-          396,
-          397,
-          793
-        ],
-        "glyphBounds": [
-          125,
-          105,
-          303,
-          285
-        ]
-      },
-      "gear": {
-        "cell": [
-          397,
-          396,
-          793,
-          793
-        ],
-        "glyphBounds": [
-          124,
-          84,
-          305,
-          281
-        ]
-      },
-      "globe": {
-        "cell": [
-          793,
-          396,
-          1190,
-          793
-        ],
-        "glyphBounds": [
-          105,
-          99,
-          294,
-          292
-        ]
-      },
-      "book": {
-        "cell": [
-          1190,
-          396,
-          1586,
-          793
-        ],
-        "glyphBounds": [
-          90,
-          121,
-          284,
-          271
-        ]
-      },
-      "rocket": {
-        "cell": [
-          1586,
-          396,
-          1983,
-          793
-        ],
-        "glyphBounds": [
-          91,
-          84,
-          264,
-          281
-        ]
-      }
-    },
-    "variants": "Roof-only continuous hue transform; source alpha unchanged; one canonical geometry."
+    "variants": "Roof-only continuous hue transform; source alpha unchanged; one canonical geometry.",
+    "repaint": "2026-11-07: the painted emblem disc and parchment plaque repainted out of every hall (an unbroken tiled roof); badge frames dropped. Local image processing only; see rendering/ASSETS.md."
   }
 }

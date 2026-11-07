@@ -24,7 +24,7 @@ import { soundEvent } from "./soundCues";
 import { setUnityWorldTheme } from "./theme";
 import type { Agent, Host, Project, Selection, Workspace } from "./types";
 import { WorldLegend } from "./WorldLegend";
-import { flagTip } from "./flagTip";
+import { flagTip, workspacePrLines } from "./flagTip";
 import type { MapFlag } from "../../rendering/src/prStatus";
 import type { ProbeVerdict } from "../../rendering/src/probe";
 import { useProbe } from "./useProbe";
@@ -389,6 +389,14 @@ export function NativeWorld(props: Props) {
     const row = w && props.workspaces.find((x) => x.workspaceId === w.id && (x.host || "local") === w.hostId);
     return flagTip(tip.flag, row?.pr, tip.flag === "probe" ? tip.entity.probe : undefined);
   })();
+  // The Overworld draws no medallions: a workspace's card says its pull request instead.
+  const prLines = (() => {
+    if (style !== "overworld" || tip?.flag || tip?.entity.kind !== "workspace") return [];
+    const w = snapshot.workspaces.find((x) => x.key === tip.entity.id);
+    const row = w && props.workspaces.find((x) => x.workspaceId === w.id && (x.host || "local") === w.hostId);
+    const ws = data.workspaces.find((x) => x.key === tip.entity.id);
+    return workspacePrLines(ws?.labels, row?.pr, ws?.probe, ws?.autoMerge);
+  })();
   return (
     <>
       <div
@@ -429,6 +437,9 @@ export function NativeWorld(props: Props) {
             <>
               <b>{tip.entity.name}</b>
               <span>{tip.detail}</span>
+              {prLines.map((line, i) => (
+                <span key={i} className="atlas-card-line">{line}</span>
+              ))}
             </>
           )}
           {hoveredSummary?.sentence && (

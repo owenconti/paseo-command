@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { flagTip } from "./flagTip";
+import { flagTip, workspacePrLines } from "./flagTip";
 import type { PullRequest } from "./types";
 
 const pr: PullRequest = {
@@ -52,4 +52,23 @@ test("a flag's card says when auto-merge is on", () => {
   );
   assert.equal(flagTip("ci-green", { ...pr, autoMerge: {} }).autoMerge, "Auto-merge on: merges once its checks and reviews pass.");
   assert.equal(flagTip("ci-green", { ...pr, state: "merged", autoMerge: {} }).autoMerge, "");
+});
+
+test("a workspace's card on the Overworld says its PR, flags, Probe and auto-merge in place of medallions", () => {
+  assert.deepEqual(workspacePrLines(["CI failing", "Approved", "bug"], pr, { state: "approved" }), [
+    "#7 · Split the tests",
+    "CI failing · Approved · Probe approved",
+  ]);
+  assert.deepEqual(workspacePrLines(["Changes requested"], undefined, { state: "findings", findings: 3 }), [
+    "Changes requested · Probe: 3 findings open",
+  ]);
+  assert.deepEqual(workspacePrLines(["CI green"], undefined, undefined, true), ["CI green", "Auto-merge on."]);
+  // Probe's verdict is on the review, so it's said only beside a review flag, as its medallion is shown.
+  assert.deepEqual(workspacePrLines(["CI running"], undefined, { state: "reviewing" }), ["CI running"]);
+  assert.deepEqual(workspacePrLines(["Approved"], undefined, { state: "findings" }), ["Approved · Probe: findings open"]);
+  assert.deepEqual(workspacePrLines(undefined, undefined), []);
+  // A PR that isn't open says so.
+  assert.deepEqual(workspacePrLines([], { ...pr, state: "merged" }), ["#7 · Split the tests · Merged"]);
+  assert.deepEqual(workspacePrLines([], { ...pr, state: "closed" }), ["#7 · Split the tests · Closed"]);
+  assert.deepEqual(workspacePrLines(["CI running"], { ...pr, state: "draft" }), ["#7 · Split the tests · Draft", "CI running"]);
 });

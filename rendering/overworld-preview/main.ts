@@ -4,7 +4,8 @@ import { layout, type OwAgent, type OwHost } from "../src/overworld/layout.ts";
 import { paintScene, recolourSheets } from "../src/overworld/paint.ts";
 import { overworldFleet } from "../src/overworld/fleet.ts";
 import { crowded } from "../tests/fixtures.mjs";
-import { SAMPLE } from "../src/sample.ts";
+import { DUNGEON_SAMPLE, SAMPLE } from "../src/sample.ts";
+import { paintApp, USER_LIKE } from "./app.ts";
 
 const C = { blue: "#4d9bff", purple: "#b06bff", green: "#7fdc3c", yellow: "#ffd83a", red: "#ff5048" };
 let n = 0;
@@ -14,20 +15,20 @@ export const CONCEPT: OwHost[] = [
   {
     id: "local", name: "LOCAL (Host 1)", theme: "forest", stats: { cpu: 42, mem: 58, disk: 70 },
     projects: [
-      { id: "p1", name: "core-platform", icon: "code", roof: "red", workspaces: [
+      { id: "p1", name: "core-platform", roof: "red", workspaces: [
         { id: "w1", name: "api", agents: bots("blue", "purple", "green"), awning: "blue" },
         { id: "w2", name: "web", agents: bots("blue", "yellow"), awning: "red" } ] },
-      { id: "p2", name: "developer-tools", icon: "cube", roof: "purple", workspaces: [
+      { id: "p2", name: "developer-tools", roof: "purple", workspaces: [
         { id: "w3", name: "cli", agents: bots("blue"), awning: "purple" } ] },
     ],
   },
   {
     id: "staging", name: "STAGING (Host 2)", theme: "farm", stats: { cpu: 37, mem: 64, disk: 55 },
     projects: [
-      { id: "p3", name: "growth", icon: "chart", roof: "red", workspaces: [
+      { id: "p3", name: "growth", roof: "red", workspaces: [
         { id: "w4", name: "marketing", agents: bots("blue", "purple"), awning: "red" },
         { id: "w5", name: "analytics", agents: bots("blue", "yellow", "blue"), awning: "red" } ] },
-      { id: "p4", name: "experiments", icon: "flask", roof: "purple", workspaces: [
+      { id: "p4", name: "experiments", roof: "purple", workspaces: [
         { id: "w6", name: "events", agents: bots("red"), awning: "purple" },
         { id: "w7", name: "ab-tests", agents: bots("blue", "green", "purple"), awning: "red" } ] },
     ],
@@ -35,10 +36,10 @@ export const CONCEPT: OwHost[] = [
   {
     id: "prod", name: "PROD (Host 3)", theme: "volcanic", stats: { cpu: 51, mem: 72, disk: 81 },
     projects: [
-      { id: "p5", name: "customer", icon: "person", roof: "red", workspaces: [
+      { id: "p5", name: "customer", roof: "red", workspaces: [
         { id: "w8", name: "app", agents: bots("blue", "green", "green") },
         { id: "w9", name: "support", agents: bots("purple", "yellow") } ] },
-      { id: "p6", name: "platform", icon: "layers", roof: "purple", workspaces: [
+      { id: "p6", name: "platform", roof: "purple", workspaces: [
         { id: "w10", name: "infra", agents: bots("blue", "yellow") },
         { id: "w11", name: "data", agents: bots("blue", "green", "yellow", "purple") } ] },
     ],
@@ -49,8 +50,20 @@ async function main(): Promise<void> {
   const params = new URLSearchParams(location.search);
   const K = Number(params.get("k") ?? 4);
   const tex = params.get("tex");
-  const sheets = recolourSheets(await loadSheets("../src/assets/overworld", tex ? { textures: tex } : {}));
+  const loaded = await loadSheets("../src/assets/overworld", tex ? { textures: tex } : {});
+  const t1 = performance.now();
+  const sheets = recolourSheets(loaded);
+  console.log(`recolour ${Math.round(performance.now() - t1)} ms`);
   await document.fonts.ready;
+  // ?app=user|dungeon|sample: the fleet as the macOS app draws it (per-host paintings, robots and state lights).
+  const app = params.get("app");
+  if (app) {
+    const data = app === "dungeon" ? DUNGEON_SAMPLE : app === "sample" ? SAMPLE : USER_LIKE;
+    const out = await paintApp(sheets, data, Number(params.get("aspect") ?? 1.15), K);
+    document.body.appendChild(out);
+    (window as unknown as { done: boolean }).done = true;
+    return;
+  }
   const fleet = params.get("fleet");
   const scene = layout(fleet === "crowded" ? overworldFleet(crowded) : fleet === "sample" ? overworldFleet(SAMPLE) : CONCEPT);
   // Shift the world down by the concept's title band so it lines up with the reference.

@@ -37,3 +37,36 @@ test("robot colours: Claude orange, ChatGPT pearl, others a stable tint", () => 
   assert.match(robotColour("gemini/gemini-3"), /^#[0-9a-f]{6}$/);
   assert.equal(robotColour("gemini/gemini-3"), robotColour("gemini/gemini-3"));
 });
+
+test("overworld: the world carries no names, emblems, banners or signs", () => {
+  const fleet = overworldFleet(crowded);
+  const scene = layout(fleet);
+  // Nothing in the scene is text: no labels or plaques, and no name of a host, project or workspace.
+  assert.equal(scene.labels, undefined);
+  const names = new Set(fleet.flatMap((h) => [h.name, ...h.projects.flatMap((p) => [p.name, ...p.workspaces.map((w) => w.name)])]));
+  const json = JSON.stringify({ ...scene, entities: [] });
+  for (const name of names) if (name.length > 3) assert.ok(!json.includes(JSON.stringify(name)), `${name} is drawn`);
+  // No emblem badges, banners, signboards or link nodes among the sprites.
+  for (const item of scene.items) {
+    if (item.kind !== "sprite") continue;
+    assert.doesNotMatch(item.frame, /^(badge-|banner-|emblem|signboard|label-|host-plaque|path-)/, `${item.sheet}/${item.frame}`);
+  }
+  assert.equal(scene.links, undefined);
+  assert.equal(scene.nodes, undefined);
+});
+
+test("overworld: a project keeps its roof on every host; a host's halls and neighbouring hosts differ", () => {
+  const host = (key) => ({ key, name: key, online: true, local: key === "a" });
+  const data = {
+    hosts: [host("a"), host("b"), host("c")],
+    projects: ["a", "b", "c"].flatMap((h) => ["paseo-command", "diagonal", "web", "api"].map((p) => ({ key: `${h}/${p}`, host: h, name: p }))),
+    workspaces: ["a", "b", "c"].flatMap((h) => ["paseo-command", "diagonal", "web", "api"].map((p) => ({ key: `${h}/${p}/w`, host: h, project: `${h}/${p}`, name: "w" }))),
+    agents: [],
+  };
+  const fleet = overworldFleet(data);
+  const roof = (h, p) => fleet.find((x) => x.id === h).projects.find((x) => x.name === p).roof;
+  // The same project has the same roof wherever it's checked out (its name seeds it, not its host).
+  for (const p of ["paseo-command", "diagonal", "web", "api"]) assert.equal(roof("a", p), roof("b", p), p);
+  for (const h of fleet) assert.equal(new Set(h.projects.map((p) => p.roof)).size, h.projects.length, `${h.id} repeats a roof`);
+  for (let i = 1; i < fleet.length; i++) assert.notEqual(fleet[i].theme, fleet[i - 1].theme, `${fleet[i].id} looks like ${fleet[i - 1].id}`);
+});

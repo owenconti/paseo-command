@@ -700,25 +700,48 @@ and seven workspace cottages, balanced deterministically across neighbours (`STR
 
 A second map style (Settings → Map, ⌘K "Use the Overworld map" / "Use the Islands map"; `web/src/mapStyle.ts`, localStorage
 `atlas:style`, Islands by default), from the user's concept render (ignored `design/references/overworld-concept.png`): each host a
-terraced island region with its castle (plaque with name and CPU · MEM · DISK, two banners) on top, project halls (roof colour and icon
-badge seeded from the project) left and right of it, two a row, and each project's workspaces as market booths beneath it (rows of up to
-three; a camp for agents without a workspace); no connector lines (the user dropped them). The world shares one palette, as a lit scene does (the user's
-example: a dungeon board where the world is one muted family and the agents carry the colour): each world sheet is recoloured as it
-loads (`SHEET_COLOURS`, `recolourSheets` in `paint.ts`: colour thinned, values kept mid-range, split-toned cool slate in the shadows
-and warm lamp gold in the light); there is no overlay or wash on the finished painting (the user rejected one). Booths glow warmly
-inside as lit alcoves, and robots (`litRobot`) carry a warm rim light and a contact shadow, so they sit in the world and still stand
-out; robots, status badges and name plaques keep their own colours. Scenery is a theme seeded per host: forest and snowy peaks,
-farmland, or volcanic; forests are canopy masses (`foliage.png`), islands' fronts carry cliff faces, headlands, rocks and surf
-(`coast.png`, `paintCoast`), and the sea is `sea2.png`'s calm tile. Robots keep provider colours (Claude orange, ChatGPT/Codex pearl, others the neutral robot tinted) and step through their
-pose's frames (idle or working; Swift cycles a streamer's `frames`, the first only with reduced motion). Its sprites are
-HD painted sheets in `rendering/src/assets/overworld/` (frame maps beside them; provenance in `rendering/ASSETS.md`). `rendering/src/overworld/`:
-`fleet.ts` maps the fleet, `layout.ts` lays a host out in concept pixels (deterministic; `rendering/tests/overworld.test.mjs`), `paint.ts`
-paints it (sea, islands with perspective cliffs and surf, rivers, scenery, buildings, labels), `native.ts` (`OverworldMap`) paints
-each host once per layout change into tiles, a few at a time, arranges hosts in columns to suit the map's shape, and posts the robots,
-state rings (pulsing while they need you) and PR / Probe badges and the auto-merge seal as overlays, with each entity's rectangle.
-Swift (`AtlasScene`, scene `style: "overworld"`) tiles the page's graded sea tile (`overworldSeaTile`, scene `seaTile`, image `ow-sea`) over the whole view in place of the Islands sea, glints and clouds, picks the smallest rectangle under the pointer and outlines
-rectangles for hover and selection. `rendering/overworld-preview/` renders the concept's fleet beside the concept for comparison
-(`build.sh`, then `node shoot.mjs <out.png> [k]` against a static server on the rendering folder; `?fleet=crowded|sample`).
+terraced island region with its castle on top (lit while online, dark and grey while offline), project halls left and right of it, two
+a row, and each project's workspaces as market booths beneath it (rows of up to three; a camp for agents without a workspace). With no
+names drawn, a hall's roof is its project's mark: seeded from the project's name (the same project has the same roof on every host; two
+halls on a host never share one), and a host's scenery theme is seeded from it but never its neighbour's (the host before it takes the
+first other theme, forest before farm before volcanic). It is a painted world with nothing laid over it (the user asked for it to feel real, without fake overlay
+layers): no names, plaques, emblems, icon badges, banners, signboards, connector lines, PR / Probe medallions, clouds or glows. The
+castle's and halls' painted emblem discs and parchment signs were repainted out of `host.png` and `halls.png` (their badge, banner and
+emblem frames dropped, the `ui-world` and `status` sheets removed). Names and pull requests are in the hover cards: a project, workspace
+or agent says its name, and a workspace its PR, CI and review flags, Probe's verdict and auto-merge (`workspacePrLines` in
+`web/src/flagTip.ts`, only on the Overworld; its legend lists no medallions). Hosts stay uninteractive, so the Overworld shows no host
+name or CPU · MEM · DISK (the other map styles do). An agent's state is the light it casts in its booth
+(`stateLight` in `native.ts`, in its `STATE_TILE` colour, no ring or outline: a pool on the floor at its feet, a booth slot wide so
+neighbours never blend, and a wash on the back wall behind it, which the robot doesn't hide; both pulse while it needs you; idle casts
+none), its work frames while running, and a faded robot offline. Booths are a neutral stage for it (the stalls sheet darker and
+greyer, no warm glow; awnings undyed canvas, never a state's colour; only sacks, barrels and crates in empty slots), with no tree or
+bush before them; halls keep a forecourt clear before their doors.
+One natural palette, as a lit scene has (the user's example: a dungeon board where the world is one muted family and the agents carry
+the colour): each world sheet is recoloured as it loads (`SHEET_COLOURS`, `recolourSheets` in `paint.ts`: colour thinned, values kept
+mid-range, split-toned cool grey in the shadows and warm daylight in the light; `greens` pulls acid yellow-greens to a leaf green and
+`bands` quiet hue families that read as plastic, optionally darkening where they're strong: enamel roofs to slate, verdigris and moss,
+turquoise surf, violet peaks and rocks, glowing golds to brass (`GOLDS`: the warm saturated colours are the robots' and states'), lava
+to smouldering rust seams),
+in two allocation-free passes (`shiftHues`, `liftAndSplit`); there is no overlay or wash on the finished painting (the user rejected one).
+The sea is a deep, slightly green blue (`sea2.png`'s calm tile, `SEA_LIFT`) with lighter shallows round every coast and quiet
+grey-white surf (`paintSea`, over each island's own wider sea field, `seaFieldAt`; the coast sheet's surf ribbons are left out; a host
+has open sea below its last coast); meadows sage, woods mostly green (autumn and blossom canopies only as accents), rivers teal. Robots and their state light
+are the only saturated colour: they keep provider colours (Claude orange, ChatGPT/Codex pearl, others the neutral robot tinted), stand
+in a contact shadow with no rim glow (`litRobot`), and step through their pose's frames (idle or working; Swift cycles a streamer's
+`frames`, the first only with reduced motion). Scenery is a theme seeded per host, kept to a few landmarks: forest (snowy peaks, a fall
+off the plateau), farmland (windmill, fields, hay) or volcanic (dark peaks, a smoking volcano); forests are canopy masses (`foliage.png`),
+with bushes and the odd boulder between open meadow, and islands' fronts carry cliff faces, headlands and rocks (`coast.png`,
+`paintCoast`). Its sprites are HD painted sheets in `rendering/src/assets/overworld/` (frame maps beside them; provenance in
+`rendering/ASSETS.md`). `rendering/src/overworld/`: `fleet.ts` maps the fleet, `layout.ts` lays a host out in concept pixels
+(deterministic, and never text, emblems or banners; `rendering/tests/overworld.test.mjs`), `paint.ts` paints it (sea and shallows, islands
+with perspective cliffs and surf, rivers, scenery, buildings), `native.ts` (`OverworldMap`) paints each host once per layout change into
+tiles, a few at a time, arranges hosts in columns to suit the map's shape, and posts the robots and their state light as overlays, with
+each entity's rectangle. Swift (`AtlasScene`, scene `style: "overworld"`) tiles the page's graded sea tile (`overworldSeaTile`, scene
+`seaTile`, image `ow-sea`) over the whole view in place of the Islands sea, glints and clouds, picks the smallest rectangle under the
+pointer and outlines rectangles for hover and selection. `rendering/overworld-preview/` renders the concept's fleet beside the concept for
+comparison (`build.sh`, then `node shoot.mjs <out.png> [k] [dy] [query]` against a static server on the rendering folder, port 4391;
+`?fleet=crowded|sample`), and `?app=user|dungeon|sample` (`app.ts`) composites exactly what the macOS app is sent (the hosts' tiles over
+the sea tile, robots and state light) for a fleet shaped like the user's, the Dungeon Board's or the sample.
 
 ### Map styles and the Dungeon Board
 

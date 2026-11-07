@@ -1,10 +1,10 @@
 // The Overworld map style in the macOS app: the page paints the still world (land, sea, buildings,
-// booths, labels, links) into tiles once per layout, and posts robots, state plates and PR badges,
-// which Swift draws over it, with the areas it picks, hovers and selects. Agents' states only
-// re-post the overlay; the painting is redone only when the layout itself changes.
+// booths) into tiles once per layout, and posts the robots and the light their states cast on the
+// booth floor, which Swift draws over it, with the areas it picks, hovers and selects. Nothing else is
+// drawn over the world: names, PRs and verdicts are in the hover cards. Agents' states only re-post the
+// robots and their light; the painting is redone only when the layout itself changes.
 import { STATE_TILE, type AtlasData, type State } from "../world.ts";
-import { prFlags } from "../prStatus.ts";
-import { loadSheetsFrom, frameOf, type Sheets } from "./atlas.ts";
+import { loadSheetsFrom, type Sheets } from "./atlas.ts";
 import { overworldFleet } from "./fleet.ts";
 import { layout, hash, type OwHost, type Scene } from "./layout.ts";
 import { litRobot, overworldSeaTile, paintScene, recolourSheets, robotFrame, ROBOT_SCALE, seaPeriod } from "./paint.ts";
@@ -22,7 +22,7 @@ const TOP = 120;
 /** The painting is finite: zooming further only blurs it. */
 export const OVERWORLD_MAX_ZOOM = 0.9;
 
-/** States that need you: their plates pulse. */
+/** States that need you: their light pulses. */
 const NEEDS_YOU: State[] = ["approval", "question", "asking", "failed", "done"];
 
 const sheetUrls = import.meta.glob("../assets/overworld/*.png", { eager: true, query: "?url", import: "default" }) as Record<string, string>;
@@ -51,11 +51,6 @@ type Streamer = {
   depth: number;
   alpha: number;
   pulse: boolean;
-  workspace?: string;
-  flag?: string;
-  cx?: number;
-  cy?: number;
-  size?: number;
   frames?: string[];
   frameMs?: number;
   phase?: number;
@@ -78,45 +73,39 @@ function signatureOf(scene: Scene): string {
   });
 }
 
-function crop(sheets: Sheets, sheet: string, name: string): HTMLCanvasElement {
-  const f = frameOf(sheets, sheet, name);
-  const c = document.createElement("canvas");
-  c.width = f.w;
-  c.height = f.h;
-  c.getContext("2d")!.drawImage(f.img, f.x, f.y, f.w, f.h, 0, 0, f.w, f.h);
-  return c;
-}
-
-/** A glowing ring in a state's colour round a robot's feet, with a soft fill, so it reads on the booth's floor. */
-function plate(color: number): HTMLCanvasElement {
+/** The light a state casts round a robot, as a lamp's falls: a pool on the booth's floor at its feet
+ * (`wall` false) or a soft wash on the booth's back wall behind it (`wall`), in the state's colour,
+ * brightest at the middle and falling off steeply, with no ring or outline. */
+export function stateLight(color: number, wall = false): HTMLCanvasElement {
   const c = document.createElement("canvas");
   c.width = 200;
-  c.height = 80;
+  c.height = wall ? 260 : 90;
   const g = c.getContext("2d")!;
-  const hex = `#${color.toString(16).padStart(6, "0")}`;
-  g.translate(100, 40);
-  g.scale(1, 0.4);
-  const glow = g.createRadialGradient(0, 0, 40, 0, 0, 98);
-  glow.addColorStop(0, `${hex}aa`);
-  glow.addColorStop(1, `${hex}00`);
-  g.fillStyle = glow;
+  const [r, gg, b] = [(color >> 16) & 255, (color >> 8) & 255, color & 255];
+  const rgba = (a: number) => `rgba(${r}, ${gg}, ${b}, ${a})`;
+  g.translate(100, c.height / 2);
+  g.scale(1, c.height / 200);
+  const light = g.createRadialGradient(0, 0, 0, 0, 0, 98);
+  if (wall) {
+    light.addColorStop(0, rgba(0.62));
+    light.addColorStop(0.5, rgba(0.34));
+    light.addColorStop(1, rgba(0));
+  } else {
+    light.addColorStop(0, rgba(1));
+    light.addColorStop(0.5, rgba(0.9));
+    light.addColorStop(0.8, rgba(0.35));
+    light.addColorStop(1, rgba(0));
+  }
+  g.fillStyle = light;
   g.beginPath();
   g.arc(0, 0, 98, 0, Math.PI * 2);
   g.fill();
-  g.fillStyle = `${hex}66`;
-  g.beginPath();
-  g.arc(0, 0, 70, 0, Math.PI * 2);
-  g.fill();
-  g.lineWidth = 14;
-  g.strokeStyle = hex;
-  g.stroke();
-  g.lineWidth = 4;
-  g.strokeStyle = "#ffffffcc";
-  g.beginPath();
-  g.arc(0, 0, 70, Math.PI * 1.05, Math.PI * 1.75);
-  g.stroke();
   return c;
 }
+
+/** A state light's size in concept px: the floor pool a booth slot wide (41 px), the wall wash behind a robot. */
+const POOL = { w: 44, h: 20 };
+const WASH = { w: 46, h: 58, above: 26 };
 
 /** A host's own scene, painted on its own, and where it stands in the world (concept px). */
 type Block = { id: string; scene: Scene; signature: string; ox: number; oy: number };
@@ -206,23 +195,35 @@ export class OverworldMap {
     const streamers: Streamer[] = [];
     /** Robots' other frames, which Swift keeps for cycling. */
     const extra: Array<{ key: string; png: string }> = [];
-    // Robots and the plates that say their states.
+    // Robots and the light their states cast on the floor.
     for (const spot of scene.robots) {
       const state = states.get(spot.id) ?? "idle";
       const color = STATE_TILE[state];
       if (color !== undefined) {
-        const key = `streamer:ow-plate2:${color}`;
-        const pw = 52;
+        const pulse = NEEDS_YOU.includes(state);
+        const wash = `streamer:ow-wash:${color}`;
         streamers.push({
-          key,
-          png: image(key, () => plate(color)),
-          x: w(spot.x - pw / 2),
-          y: w(spot.y - (pw * 0.4) / 2),
-          width: w(pw),
-          height: w(pw * 0.4),
+          key: wash,
+          png: image(wash, () => stateLight(color, true)),
+          x: w(spot.x - WASH.w / 2),
+          y: w(spot.y - WASH.above - WASH.h / 2),
+          width: w(WASH.w),
+          height: w(WASH.h),
+          depth: 5.9,
+          alpha: 1,
+          pulse,
+        });
+        const pool = `streamer:ow-light:${color}`;
+        streamers.push({
+          key: pool,
+          png: image(pool, () => stateLight(color)),
+          x: w(spot.x - POOL.w / 2),
+          y: w(spot.y - 1.5 - POOL.h / 2),
+          width: w(POOL.w),
+          height: w(POOL.h),
           depth: 6,
           alpha: 1,
-          pulse: NEEDS_YOU.includes(state),
+          pulse,
         });
       }
       // Every frame of its pose (idle bobs, working works), cycled by Swift at the sheet's pace.
@@ -249,57 +250,6 @@ export class OverworldMap {
         frames: state === "offline" ? undefined : keys,
         frameMs,
         phase: (hash(spot.id) % 1000) / 1000 * count,
-      });
-    }
-    // Each workspace's PR badges (CI, review), Probe's verdict and the auto-merge seal, by its sign.
-    for (const ws of data.workspaces) {
-      const area = scene.entities.find((e) => e.id === ws.key && e.kind === "workspace");
-      if (!area) continue;
-      const flags = prFlags(ws.labels);
-      const badges: Array<{ frame: string; flag: string }> = [];
-      if (flags.ci) badges.push({ frame: flags.ci, flag: flags.ci });
-      if (flags.review) badges.push({ frame: flags.review, flag: flags.review });
-      if (ws.probe && flags.review) badges.push({ frame: `probe-${ws.probe.state}`, flag: "probe" });
-      const d = 24;
-      badges.forEach((b, i) => {
-        const cx = area.x1 - 8 - i * (d + 3);
-        const cy = area.y0 + 2;
-        const key = `streamer:ow-badge:${b.frame}`;
-        const f = frameOf(this.sheets, "status", b.frame);
-        const scale = d / Number((f.meta as { diameter?: number }).diameter ?? f.w);
-        streamers.push({
-          key,
-          png: image(key, () => crop(this.sheets, "status", b.frame)),
-          x: w(cx - f.ax * scale),
-          y: w(cy - f.ay * scale),
-          width: w(f.w * scale),
-          height: w(f.h * scale),
-          depth: 12,
-          alpha: 1,
-          pulse: b.frame === "probe-reviewing",
-          workspace: ws.key,
-          flag: b.flag,
-          cx: w(cx),
-          cy: w(cy),
-          size: w(d),
-        });
-        if (i === 0 && ws.autoMerge) {
-          const seal = frameOf(this.sheets, "status", "auto-merge");
-          const sd = d * 0.5;
-          const ss = sd / Number((seal.meta as { diameter?: number }).diameter ?? seal.w);
-          streamers.push({
-            key: "streamer:ow-badge:auto-merge",
-            png: image("streamer:ow-badge:auto-merge", () => crop(this.sheets, "status", "auto-merge")),
-            x: w(cx + d * 0.32 - seal.ax * ss),
-            y: w(cy - d * 0.32 - seal.ay * ss),
-            width: w(seal.w * ss),
-            height: w(seal.h * ss),
-            depth: 12.5,
-            alpha: 1,
-            pulse: false,
-            workspace: ws.key,
-          });
-        }
       });
     }
     // Swift drops what a scene leaves out, so anything not in this one is sent again when it returns.
