@@ -470,7 +470,7 @@ final class DungeonScene: SKScene, MapScene {
         }
         let group = SKNode()
         group.zPosition = 1
-        for (width, color, alpha, add) in [(12.0, 0xffa020, 0.14, true), (4.4, 0xe8a228, 1.0, false), (1.2, 0xfff4d0, 0.7, false)] as [(CGFloat, Int, CGFloat, Bool)] {
+        for (width, color, alpha, add) in [(12.0, 0xffa020, 0.14, true), (5.0, 0xf4b434, 1.0, false), (1.6, 0xfff4d0, 0.75, false)] as [(CGFloat, Int, CGFloat, Bool)] {
             let line = SKShapeNode(path: path)
             line.strokeColor = Textures.color(dim ? 0x6a6050 : color, dim ? alpha * 0.5 : alpha)
             line.lineWidth = width
