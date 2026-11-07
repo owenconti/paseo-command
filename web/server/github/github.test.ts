@@ -676,7 +676,8 @@ test("your PR counts: merged in 14 days, and open ones by conflicts, draft or re
   assert.equal(graphql.length, 1);
   const vars = (graphql[0]!.body as { variables: Record<string, string> }).variables;
   const since = new Date(Date.now() - 14 * 86_400_000).toISOString().slice(0, 10);
-  assert.deepEqual(vars, { merged: `is:pr author:@me is:merged merged:>=${since}`, open: "is:pr author:@me is:open" });
+  assert.deepEqual(vars, { merged: `is:pr author:@me is:merged merged:>=${since}`, open: "is:pr author:@me is:open", draft: "is:pr author:@me is:open draft:true" });
+  assert.equal(r.body.atLeast, undefined, "every open PR was read: exact");
   assert.deepEqual(prCountsSearches(Date.parse("2026-11-07T12:00:00Z")).merged, "is:pr author:@me is:merged merged:>=2026-10-24");
   // Kept a minute: asked again only with fresh=1.
   await ask("/api/github/q/prCounts");
@@ -704,6 +705,19 @@ test("PR counts: failing checks are conflicts; at most 12 listed, the counts who
   assert.equal(r.body.items.review.length, 12);
   assert.equal(r.body.items.review[0].title.length, 120);
   assert.equal(openGroupOf({ mergeable: "UNKNOWN", isDraft: false }), "review");
+});
+
+test("PR counts past the 100 open read: GitHub's exact totals for open and drafts, conflicts at least", async () => {
+  // 130 open: 10 drafts, 3 conflicting (one a draft) among the first 100 read.
+  const open = Array.from({ length: 130 }, (_, i) =>
+    fakeCountPr(1 + i, i < 3 ? { mergeable: "CONFLICTING", isDraft: i === 0 } : i < 12 || i >= 125 ? { isDraft: true } : {}),
+  );
+  fake.prCounts = { merged: [], open };
+  const r = await ask("/api/github/q/prCounts");
+  const drafts = open.filter((n) => n.isDraft === true).length;
+  assert.equal(drafts, 15);
+  assert.deepEqual(r.body.counts, { merged: 0, draft: 14, conflicts: 3, review: 130 - 14 - 3 }, "the conflicting draft counted once");
+  assert.deepEqual(r.body.atLeast, ["conflicts"]);
 });
 
 test("PR counts say why there are none: off, no token, refused or limited, always 200", async () => {

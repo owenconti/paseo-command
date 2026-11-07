@@ -17,6 +17,7 @@ import { paintPlaceholder } from "./placeholder";
 import {
   DASH_TILES,
   HALLS,
+  dashText,
   NEEDS_YOU,
   STATE_MARK,
   V,
@@ -376,10 +377,10 @@ export function mountNativeVillage(parent: HTMLElement, handlers: AtlasHandlers 
     const c = l.counts;
     type Row = { dot: string; name: string; n: number | string };
     const dashRows = (d: DashCount, hall: "prs" | "issues"): Row[] =>
-      DASH_TILES[hall].map((t) => ({ dot: TILE_DOT[t.tile]!, name: t.name, n: d.known ? (d.by[t.key] ?? 0) : "—" }));
+      DASH_TILES[hall].map((t) => ({ dot: TILE_DOT[t.tile]!, name: t.name, n: dashText(d, t.key) }));
     const sections: { icon: string; title: string; n: number | string; rows: Row[] }[] = [
-      { icon: "icon-pr", title: "PRs", n: c.prs.known ? c.prs.total : "—", rows: dashRows(c.prs, "prs") },
-      { icon: "icon-issue", title: "Issues", n: c.issues.known ? c.issues.total : "—", rows: dashRows(c.issues, "issues") },
+      { icon: "icon-pr", title: "PRs", n: dashText(c.prs), rows: dashRows(c.prs, "prs") },
+      { icon: "icon-issue", title: "Issues", n: dashText(c.issues), rows: dashRows(c.issues, "issues") },
       { icon: "icon-workspaces", title: "Workspaces", n: c.workspaces, rows: [{ dot: "#4cc35a", name: "Active", n: c.active }] },
       {
         icon: "icon-agents", title: "Agents", n: c.agents,
@@ -829,20 +830,21 @@ export function mountNativeVillage(parent: HTMLElement, handlers: AtlasHandlers 
     const what = t.hall === "prs" ? "Your pull requests" : "Your Linear issues";
     if (d?.state !== "ok") return { title: spec.name, detail: what, lines: [d?.message ?? (t.hall === "prs" ? "Turn on GitHub in Settings to count your pull requests." : "Turn on Linear in Settings to count your issues.")] };
     const n = d.counts?.[t.key] ?? 0;
+    const plus = d.atLeast?.includes(t.key) ? "+" : "";
     const items = d.items?.[t.key] ?? [];
     const lines = items.map((i) => (t.hall === "prs" ? `${i.title} · ${i.repo}#${i.number}` : `${i.id} ${i.title}`));
-    if (n > items.length) lines.push(`and ${n - items.length} more`);
+    if (n > items.length) lines.push(`and ${n - items.length}${plus} more`);
     const span = t.hall === "prs" && t.key === "merged" ? " (last 14 days)" : t.hall === "issues" && t.key === "done" ? " (last 14 days)" : "";
-    return { title: `${spec.name} · ${n}`, detail: `${what}${span}`, lines: lines.length ? lines : ["None"] };
+    return { title: `${spec.name} · ${n}${plus}`, detail: `${what}${span}`, lines: lines.length ? lines : ["None"] };
   };
   /** A hall's card: its name and what it holds, as the At a Glance panel counts it. */
   const hallCard = (hall: string) => {
     const c = layout!.counts;
     const spec = HALLS.find((h) => h.hall === hall)!;
     const dash = (d: DashCount, which: "prs" | "issues") =>
-      d.known ? DASH_TILES[which].map((t) => `${t.name}: ${d.by[t.key] ?? 0}`) : [d.why || "Not counted"];
-    if (hall === "prs") return { title: spec.name, detail: c.prs.known ? `Your pull requests · ${c.prs.total}` : "Your pull requests", lines: dash(c.prs, "prs") };
-    if (hall === "issues") return { title: spec.name, detail: c.issues.known ? `Your Linear issues · ${c.issues.total}` : "Your Linear issues", lines: dash(c.issues, "issues") };
+      d.known ? DASH_TILES[which].map((t) => `${t.name}: ${dashText(d, t.key)}`) : [d.why || "Not counted"];
+    if (hall === "prs") return { title: spec.name, detail: c.prs.known ? `Your pull requests · ${dashText(c.prs)}` : "Your pull requests", lines: dash(c.prs, "prs") };
+    if (hall === "issues") return { title: spec.name, detail: c.issues.known ? `Your Linear issues · ${dashText(c.issues)}` : "Your Linear issues", lines: dash(c.issues, "issues") };
     if (hall === "workspaces") return { title: spec.name, detail: `${c.workspaces} workspace${c.workspaces === 1 ? "" : "s"} · ${c.active} active`, lines: layout!.workspaces.map((w) => w.entity.name) };
     return {
       title: spec.name,

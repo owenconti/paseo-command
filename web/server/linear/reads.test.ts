@@ -91,6 +91,32 @@ test("counts your assigned issues: done in 14 days, in progress, todo, blocked",
   assert.ok(Math.abs(Date.parse(String(asked.variables.since)) - (Date.now() - 14 * 86_400_000)) < 5_000);
 });
 
+test("pages through every assigned issue; past 2,000 the counts are at least", async () => {
+  const now = Date.now();
+  const make = (n: number) =>
+    Array.from({ length: n }, (_, i) => ({
+      identifier: `ENG-${i + 1}`,
+      title: `Issue ${i + 1}`,
+      url: `https://linear.app/fake/issue/ENG-${i + 1}`,
+      updatedAt: new Date(now - i * 1000).toISOString(),
+      completedAt: null,
+      state: { type: (i % 2 ? "started" : "unstarted") as "started" | "unstarted", name: "x" },
+      labels: { nodes: [] },
+      inverseRelations: { nodes: [] },
+    }));
+  fake.ws.assignedIssues = make(600);
+  let answer = await readIssueCounts(true);
+  assert.ok(answer.state === "ok");
+  assert.deepEqual([answer.counts.inProgress, answer.counts.todo], [300, 300], "three pages, every issue");
+  assert.equal(answer.atLeast, undefined);
+  assert.deepEqual(fake.requests.filter((r) => r.operation === "AssignedIssues").map((r) => r.variables.after ?? null), [null, "250", "500"]);
+  fake.ws.assignedIssues = make(2300);
+  answer = await readIssueCounts(true);
+  assert.ok(answer.state === "ok");
+  assert.equal(answer.counts.inProgress + answer.counts.todo, 2000, "stops at the cap");
+  assert.deepEqual(answer.atLeast, ["done", "inProgress", "todo", "blocked"]);
+});
+
 test("lists at most 12 of a group, titles clipped to 120; counts stay whole", async () => {
   const now = Date.now();
   fake.ws.assignedIssues = Array.from({ length: 30 }, (_, n) => ({

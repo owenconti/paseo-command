@@ -28,10 +28,11 @@ export const NOTIFICATIONS_QUERY = `query Notifications($first: Int!, $after: St
  * (`inverseRelations`: this issue is the relation's `relatedIssue`, so a `blocks` one's
  * `issue` blocks it). Connections are kept short to stay under Linear's complexity limit.
  */
-export const ASSIGNED_ISSUES_QUERY = `query AssignedIssues($first: Int!, $since: DateTimeOrDuration!) {
+export const ASSIGNED_ISSUES_QUERY = `query AssignedIssues($first: Int!, $after: String, $since: DateTimeOrDuration!) {
   viewer {
     assignedIssues(
       first: $first
+      after: $after
       orderBy: updatedAt
       filter: { or: [
         { state: { type: { in: ["started", "unstarted"] } } }
@@ -44,6 +45,7 @@ export const ASSIGNED_ISSUES_QUERY = `query AssignedIssues($first: Int!, $since:
         labels(first: 10) { nodes { name } }
         inverseRelations(first: 5) { nodes { type issue { state { type } } } }
       }
+      pageInfo { hasNextPage endCursor }
     }
   }
 }`;

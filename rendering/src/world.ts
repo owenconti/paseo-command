@@ -27,6 +27,8 @@ export type DashboardCounts = {
   message?: string;
   counts?: Record<string, number>;
   items?: Record<string, DashboardItem[]>;
+  /** Groups whose counts are lower bounds (the read stopped at its cap): shown as "N+". */
+  atLeast?: string[];
 };
 export type AtlasData = {
   /** The Village's dashboard halls: your pull requests and your Linear issues, when the page has read them. */

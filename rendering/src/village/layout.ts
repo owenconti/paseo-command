@@ -241,7 +241,10 @@ export type VillageLayout = {
   signature: string;
 };
 /** A dashboard hall's counts: whether known, the total, each group's, and why not when not. */
-export type DashCount = { known: boolean; total: number; by: Record<string, number>; why: string };
+export type DashCount = { known: boolean; total: number; by: Record<string, number>; atLeast: string[]; why: string };
+/** A dashboard count as shown: "—" while unknown, "N+" when a lower bound. */
+export const dashText = (d: DashCount, key?: string) =>
+  !d.known ? "—" : key === undefined ? `${d.total}${d.atLeast.length ? "+" : ""}` : `${d.by[key] ?? 0}${d.atLeast.includes(key) ? "+" : ""}`;
 export type VillageCounts = {
   hosts: number;
   hostsOffline: number;
@@ -820,7 +823,8 @@ export function layoutVillage(data: AtlasData, _aspect = 1.6, measure: Measure =
   const dash = (d: DashboardCounts | null | undefined, keys: string[]) => {
     const ok = d?.state === "ok" && d.counts;
     const by = Object.fromEntries(keys.map((k) => [k, ok ? (d!.counts![k] ?? 0) : 0]));
-    return { known: !!ok, total: keys.reduce((n, k) => n + (by[k] ?? 0), 0), by, why: ok ? "" : (d?.message ?? (d === undefined || d === null ? "" : "Not available")) };
+    const atLeast = ok ? (d!.atLeast ?? []).filter((k) => keys.includes(k)) : [];
+    return { known: !!ok, total: keys.reduce((n, k) => n + (by[k] ?? 0), 0), by, atLeast, why: ok ? "" : (d?.message ?? (d === undefined || d === null ? "" : "Not available")) };
   };
   const counts: VillageCounts = {
     hosts: shownHosts.length,

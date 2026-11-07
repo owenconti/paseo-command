@@ -12,6 +12,7 @@ export const VILLAGE_COUNTS_POLL_MS = 60_000;
 /** At most this many items per group. */
 export const VILLAGE_ITEMS_MAX = 12;
 
+/** Groups listed in an answer's `atLeast` are lower bounds (the read stopped at its cap): shown as "N+". */
 /** Why an answer has no counts. */
 export type CountsUnavailable<S extends string> = { state: S; message: string };
 
@@ -19,14 +20,14 @@ export type PrCountItem = { title: string; repo: string; number: number; url: st
 export type PrGroup = "merged" | "review" | "draft" | "conflicts";
 /** Your PRs: merged in the last 14 days; open ones with conflicts or failing checks, drafts, and the rest (in review). */
 export type PrCountsAnswer =
-  | { state: "ok"; counts: Record<PrGroup, number>; items: Record<PrGroup, PrCountItem[]> }
+  | { state: "ok"; counts: Record<PrGroup, number>; items: Record<PrGroup, PrCountItem[]>; atLeast?: PrGroup[] }
   | CountsUnavailable<"off" | "no-token" | "error">;
 
 export type IssueCountItem = { id: string; title: string; url: string };
 export type IssueGroup = "done" | "inProgress" | "todo" | "blocked";
 /** Linear issues assigned to you: completed in the last 14 days, started, unstarted, and open ones blocked. */
 export type IssueCountsAnswer =
-  | { state: "ok"; counts: Record<IssueGroup, number>; items: Record<IssueGroup, IssueCountItem[]> }
+  | { state: "ok"; counts: Record<IssueGroup, number>; items: Record<IssueGroup, IssueCountItem[]>; atLeast?: IssueGroup[] }
   | CountsUnavailable<"off" | "no-key" | "error">;
 
 export type VillageCounts = { prs: PrCountsAnswer | null; issues: IssueCountsAnswer | null };

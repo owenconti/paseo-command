@@ -308,12 +308,14 @@ export const OPERATIONS: Record<string, FakeOperation> = {
         ? true
         : i.state.type === "completed" && !!i.completedAt && Date.parse(i.completedAt) >= since,
     );
+    const start = variables.after ? Number(variables.after) : 0;
+    const end = start + Number(variables.first);
+    const all = newestFirst(wanted);
     return {
       viewer: {
         assignedIssues: {
-          nodes: newestFirst(wanted)
-            .slice(0, Number(variables.first))
-            .map(({ updatedAt: _, ...rest }) => rest),
+          nodes: all.slice(start, end).map(({ updatedAt: _, ...rest }) => rest),
+          pageInfo: { hasNextPage: end < all.length, endCursor: end < all.length ? String(end) : null },
         },
       },
     };

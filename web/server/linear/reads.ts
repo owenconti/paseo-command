@@ -15,6 +15,8 @@ export const LINEAR_READS = {
   inboxSize: 250,
   /** Your assigned issues: one page of this many, kept this long, done counted over this many days, this many of each group listed. */
   issuesPage: 250,
+  /** At most this many assigned issues are read (pages of `issuesPage`); past it the counts are lower bounds. */
+  issuesMax: 2000,
   issueCountsTtlMs: 60_000,
   doneDays: 14,
   itemsMax: 12,
@@ -138,11 +140,24 @@ export function countIssues(issues: Record<string, unknown>[], since: number): E
 async function askIssueCounts(): Promise<IssueCountsAnswer> {
   const since = Date.now() - LINEAR_READS.doneDays * 86_400_000;
   try {
-    const data = await linearRequest<Data>("AssignedIssues", ASSIGNED_ISSUES_QUERY, {
-      first: LINEAR_READS.issuesPage,
-      since: new Date(since).toISOString(),
-    });
-    return countIssues(nodesOf(recOf(data.viewer).assignedIssues), since);
+    // Page through them, up to `issuesMax`; past that the counts are "at least".
+    const issues: Record<string, unknown>[] = [];
+    let after: string | undefined;
+    let more = true;
+    while (more && issues.length < LINEAR_READS.issuesMax) {
+      const data = await linearRequest<Data>("AssignedIssues", ASSIGNED_ISSUES_QUERY, {
+        first: Math.min(LINEAR_READS.issuesPage, LINEAR_READS.issuesMax - issues.length),
+        ...(after ? { after } : {}),
+        since: new Date(since).toISOString(),
+      });
+      const page = recOf(recOf(data.viewer).assignedIssues);
+      issues.push(...nodesOf(page));
+      const info = recOf(page.pageInfo);
+      after = strOf(info.endCursor) || undefined;
+      more = info.hasNextPage === true && !!after;
+    }
+    const counted = countIssues(issues, since);
+    return more ? { ...counted, atLeast: ["done", "inProgress", "todo", "blocked"] } : counted;
   } catch (e) {
     if (!(e instanceof LinearError)) return { state: "error", message: "Linear failed." };
     if (e.kind === "no-key") return integrationEnabled("linear") ? { state: "no-key", message: NO_KEY } : { state: "off", message: DISABLED };

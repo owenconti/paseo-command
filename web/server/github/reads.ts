@@ -205,7 +205,8 @@ function searchRows(data: Raw): { rows: PrRow[]; viewer: PrList["viewer"]; total
 export const PR_COUNTS = { mergedDays: 14, itemsMax: 12, openMax: 100, titleMax: 120, ttlMs: 60_000 };
 const COUNT_ROW = "number title url repository { nameWithOwner }";
 /** Both searches in one request: your PRs merged since a day, with the first few, and your open ones. */
-export const PR_COUNTS_QUERY = `query PrCounts($merged: String!, $open: String!) {
+export const PR_COUNTS_QUERY = `query PrCounts($merged: String!, $open: String!, $draft: String!) {
+  draft: search(query: $draft, type: ISSUE, first: 0) { issueCount }
   merged: search(query: $merged, type: ISSUE, first: ${PR_COUNTS.itemsMax}) { issueCount nodes { ... on PullRequest { ${COUNT_ROW} } } }
   open: search(query: $open, type: ISSUE, first: ${PR_COUNTS.openMax}) { issueCount nodes { ... on PullRequest {
     ${COUNT_ROW} isDraft mergeable
@@ -213,9 +214,9 @@ export const PR_COUNTS_QUERY = `query PrCounts($merged: String!, $open: String!)
   } } }
 }`;
 /** The two searches' texts, the merged one from the day `mergedDays` ago (UTC). */
-export function prCountsSearches(now = Date.now()): { merged: string; open: string } {
+export function prCountsSearches(now = Date.now()): { merged: string; open: string; draft: string } {
   const since = new Date(now - PR_COUNTS.mergedDays * 86_400_000).toISOString().slice(0, 10);
-  return { merged: `is:pr author:@me is:merged merged:>=${since}`, open: "is:pr author:@me is:open" };
+  return { merged: `is:pr author:@me is:merged merged:>=${since}`, open: "is:pr author:@me is:open", draft: "is:pr author:@me is:open draft:true" };
 }
 function countItem(n: Raw): PrCountItem | null {
   const repo = str(rec(n.repository).nameWithOwner);
@@ -238,7 +239,7 @@ export async function readPrCounts(fresh = false): Promise<PrCountsAnswer> {
       `prCounts:${searches.merged}`,
       fresh,
       async (): Promise<PrCountsAnswer> => {
-        searchSlot(2);
+        searchSlot(3);
         const data = await graphql(PR_COUNTS_QUERY, searches);
         const merged = nodes(data.merged).map(countItem).filter((i): i is PrCountItem => i !== null);
         const total = rec(data.merged).issueCount;
@@ -249,10 +250,24 @@ export async function readPrCounts(fresh = false): Promise<PrCountsAnswer> {
         }
         const keys = Object.keys(items) as PrGroup[];
         const counts = Object.fromEntries(keys.map((k) => [k, items[k].length])) as Record<PrGroup, number>;
-        counts.merged = typeof total === "number" && Number.isSafeInteger(total) && total >= merged.length ? total : merged.length;
+        const exact = (v: unknown, least: number) => (typeof v === "number" && Number.isSafeInteger(v) && v >= least ? v : least);
+        counts.merged = exact(total, merged.length);
+        // Past the open PRs read (`openMax`), GitHub's exact totals: all open and the drafts. Conflicts and failing checks
+        // can't be searched, so they're counted from those read, as a lower bound; the drafts among them aren't counted twice,
+        // and the rest are in review.
+        const openTotal = exact(rec(data.open).issueCount, nodes(data.open).length);
+        const atLeast: PrGroup[] = [];
+        if (openTotal > nodes(data.open).length) {
+          const draftTotal = exact(rec(data.draft).issueCount, counts.draft);
+          const conflictDrafts = nodes(data.open).filter((n) => openGroupOf(n) === "conflicts" && n.isDraft === true).length;
+          counts.draft = Math.max(counts.draft, draftTotal - conflictDrafts);
+          counts.review = Math.max(counts.review, openTotal - counts.draft - counts.conflicts);
+          atLeast.push("conflicts");
+        }
         return {
           state: "ok",
           counts,
+          ...(atLeast.length ? { atLeast } : {}),
           items: Object.fromEntries(keys.map((k) => [k, items[k].slice(0, PR_COUNTS.itemsMax)])) as Record<PrGroup, PrCountItem[]>,
         };
       },

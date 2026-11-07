@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { layoutVillage, overlaps, spread, statusLine, tileOf, robotColor, plateLabel, workspaceStatus, HALLS, V } from "../src/village/layout.ts";
+import { layoutVillage, overlaps, spread, statusLine, tileOf, robotColor, plateLabel, workspaceStatus, dashText, HALLS, V } from "../src/village/layout.ts";
 import { FRAMES, VILLAGE_PX, applySheet, ROBOT_COLORS } from "../src/village/frames.ts";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 
@@ -125,6 +125,17 @@ test("dashboard counts come from the page's answers; their absence says why", ()
   assert.deepEqual([c.issues.known, c.issues.why], [false, "Enable Linear"]);
   const a = layoutVillage(data, 1.6), b = layoutVillage({ ...data, dashboard: { ...data.dashboard, prs: { ...data.dashboard.prs, counts: { ...data.dashboard.prs.counts, merged: 8 } } } }, 1.6);
   assert.notEqual(a.signature, b.signature, "a count's change repaints its plate");
+});
+
+test("capped counts read as at least: N+", () => {
+  const data = { ...VILLAGE_SAMPLE, dashboard: { issues: { state: "ok", counts: { done: 900, inProgress: 600, todo: 500, blocked: 0 }, atLeast: ["done", "inProgress", "todo", "blocked"] }, prs: { state: "ok", counts: { merged: 3, review: 117, draft: 14, conflicts: 3 }, atLeast: ["conflicts"] } } };
+  const c = layoutVillage(data, 1.6).counts;
+  assert.equal(dashText(c.issues), "2000+");
+  assert.equal(dashText(c.issues, "done"), "900+");
+  assert.equal(dashText(c.prs, "merged"), "3");
+  assert.equal(dashText(c.prs, "conflicts"), "3+");
+  assert.equal(dashText(c.prs), "137+");
+  assert.equal(dashText(layoutVillage(VILLAGE_SAMPLE, 1.6).counts.prs), "—");
 });
 
 test("plates cut names past 14 characters; a workspace's dot says its agents' state", () => {

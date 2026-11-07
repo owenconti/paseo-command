@@ -775,7 +775,9 @@ the app's GitHub mark on its banner), four tiles counting your pull requests (`G
 `web/server/github/reads.ts`: merged in the last 14 days, in review, draft, conflicts or failing checks); top right "Linear Issues"
 (purple, Linear's mark), four tiles counting issues assigned to you (`GET /api/linear/issue-counts`, `readIssueCounts` in
 `web/server/linear/reads.ts` through the whitelisted client and budget: done in the last 14 days, in progress, todo, blocked by a
-"Blocked" state or label or an open blocking issue); both asked by `useVillageCounts` (`web/src/villageCounts.ts`) every minute while
+"Blocked" state or label or an open blocking issue; paged through, up to 2,000 issues, past which the counts are
+lower bounds, `atLeast`, shown "N+"; the open PRs' groups use GitHub's exact totals for open and drafts past the 100 read, conflicts
+then a lower bound); both asked by `useVillageCounts` (`web/src/villageCounts.ts`) every minute while
 the Village shows, passed as `AtlasData.dashboard`. Off or without a key, their tiles dim and their cards say why. Bottom left
 "Workspaces" (the teal dome): a bay per workspace of the fleet (by host, project, oldest first), a slate tile and a small lit dot for
 its agents' state (green at work, amber needs you, red failed, grey idle), its four arches always drawn (unused ones empty), an empty dark plate strip under each tile (as under the dashboard tiles), more

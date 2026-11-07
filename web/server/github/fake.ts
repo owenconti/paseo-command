@@ -352,6 +352,7 @@ export function installFakeGithub(opts: { enabled?: boolean; token?: string | nu
             data: {
               merged: { issueCount: mergedCount ?? merged.length, nodes: merged.slice(0, 12) },
               open: { issueCount: open.length, nodes: open.slice(0, 100) },
+              draft: { issueCount: open.filter((n) => n.isDraft === true).length },
             },
           },
         };
