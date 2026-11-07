@@ -704,6 +704,11 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
     for (const d of l.decor)
       if (d.recess && (d.frame === "room-arch" || d.frame === "room-forge") && l.floors[d.floor]?.online)
         lights.push({ x: d.rect.x + d.rect.w / 2, y: d.rect.y + d.rect.h * 0.62, rx: d.rect.w * 0.46, ry: d.rect.h * 0.42, c: GOLD_DEEP, blend: "gold", k: 0.85, z: -37.5, period: 5200, flicker: false });
+    // Painted warm glazes on the floor at the braziers, forge and candelabra.
+    if (FRAMES["light-spill-floor-0"]?.real)
+      for (const d of l.decor)
+        if (/^(brazier|forge|candelabra)$/.test(d.frame) && l.floors[d.floor]?.online)
+          sprites.push(sprite(`light-spill-floor-${seedOf(`${d.x},${d.y}`) % 2}`, at("light-spill-floor-0", d.rect.x + d.rect.w / 2, d.rect.y + d.rect.h - 4, d.frame === "candelabra" ? 70 : 110), -39.2));
     // The forecourt's floor lit by its braziers.
     for (const d of l.decor)
       if (d.frame === "brazier" && l.floors[d.floor]?.online)
@@ -717,6 +722,9 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
       pooled.push({ x, y });
       // Tight: a small bright heart and a quick falloff, torchlight on stone rather than a smudge.
       lights.push({ x, y, rx: 64, ry: 58, c: GOLD, blend: "gold", tight: 1, k: GOLD_K.torch, z: -43, period: 5200, flicker: false });
+      // The art's painted warm glaze on the wall round the flame (one of three, seeded), in place of a round halo.
+      if (FRAMES["light-spill-wall-0"]?.real)
+        sprites.push(sprite(`light-spill-wall-${seedOf(`${x},${y}`) % 3}`, at("light-spill-wall-0", x, y + 28, 92), -43.3));
       // A soft, wide bounce on the surrounding wall and jambs, fading by distance; neighbours' overlap.
       lights.push({ x, y: y + 20, rx: 120, ry: 90, c: GOLD_DEEP, blend: "gold", k: 0.45, z: -43.4, period: 5200, flicker: false });
       // Its light falling on the wall below: wide and deep (warm, not bright).

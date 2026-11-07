@@ -100,6 +100,11 @@ export const FRAMES: Record<string, FrameSpec> = Object.fromEntries([
   ["border", spec("stone", 32, 20, "top-left", { tile: "x" })],
   ["border-corner", spec("stone", 20, 20, "top-left")],
   ["corbel-left", spec("stone", 29, 31, "top-center")],
+  // Rougher masonry variants, mixed per tile, and painted warm reflection glazes for near fixtures.
+  ...["wall-brick", "terrace-floor"].flatMap((n) => [2, 3].map((v) => [`${n}-${v}`, spec("stone", 160, 76, "top-left", { tile: "xy" })] as [string, FrameSpec])),
+  ...["rampart-x", "floor-flag"].flatMap((n) => [2, 3].map((v) => [`${n}-${v}`, spec("stone", 66, 22, "top-left", { tile: "x" })] as [string, FrameSpec])),
+  ...[0, 1, 2].map((i) => [`light-spill-wall-${i}`, spec("stone", 108, 101, "center")] as [string, FrameSpec]),
+  ...[0, 1].map((i) => [`light-spill-floor-${i}`, spec("stone", 121, 68, "center")] as [string, FrameSpec]),
   ["corbel-right", spec("stone", 29, 31, "top-center")],
   // The three-quarter view's thick low walls with lit tops, and the warm terrace floor.
   ["rampart-x", spec("stone", 66, 22, "top-left", { tile: "x" })],

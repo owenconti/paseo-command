@@ -430,7 +430,17 @@ final class DungeonScene: SKScene, MapScene {
         let big = bigTiles[key] ?? {
             let w = image.width * rx, h = image.height * ry
             guard let ctx = Textures.context(w, h) else { return SKTexture(cgImage: image) }
-            for i in 0..<rx { for j in 0..<ry { ctx.draw(image, in: CGRect(x: i * image.width, y: j * image.height, width: image.width, height: image.height)) } }
+            // Its rougher variants (`<name>-2`, `-3`), where the sheet has them, mixed per tile (seeded by the tile's place),
+            // so the masonry doesn't repeat in step.
+            let variants = [image] + ["\(name)-2", "\(name)-3"].compactMap { frameImages[$0] }.filter { $0.width == image.width && $0.height == image.height }
+            for i in 0..<rx { for j in 0..<ry {
+                // Stable across launches (String.hashValue is seeded per process).
+                let named = name.utf8.reduce(UInt32(2166136261)) { ($0 ^ UInt32($1)) &* 16777619 }
+                var hash = UInt32(truncatingIfNeeded: i &* 73856093 ^ j &* 19349663) ^ named
+                hash = hash &* 2654435761
+                let pick = variants.count > 1 ? variants[Int(hash >> 16) % variants.count] : image
+                ctx.draw(pick, in: CGRect(x: i * image.width, y: j * image.height, width: image.width, height: image.height))
+            } }
             // Unpadded, so a partial tile's rect is relative to the repeated image itself.
             let t = SKTexture(cgImage: ctx.makeImage()!)
             t.filteringMode = .linear
