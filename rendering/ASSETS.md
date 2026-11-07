@@ -929,7 +929,7 @@ These are useful original coast parts, not a pixel-identical reconstruction of t
 
 ## Dungeon Board
 
-The architecture is v3 and robots are v4. Artwork was generated with the built-in
+The geometry kit is v3, robots are v4, and material/furnishing refinements are v5. Artwork was generated with the built-in
 `image_gen` tool on 2026-11-06.
 The private `design/references/dungeon-concept.png` was inspected at 3×,
 particularly its LOCAL floor, left terrace, workspace recess and central gate.
@@ -1102,6 +1102,47 @@ the registered work cycle. The contact sheet includes all 235 frames with the
 new robots. Validation checks the original name set, scale, shared animation
 dimensions/anchors, feet positions, visible body resolution, bob amplitude,
 alpha cleanliness and gutters before replacement.
+
+
+V5 addresses the art-owned findings from the compare-6 critique. It preserves
+all 235 names and every frame map byte-for-byte, including feet anchors and
+nine-slice/tile/animation metadata. Robots and status PNGs remain byte-identical.
+Three further built-in generations repaint the sparse monitor/shelf interiors,
+pale parchment and gold/navy panels, and four compact yellow-white flames plus
+four broad forge coal/fire beds. Exact prompts and original filenames are in
+`v5_generations` in `prompts.json`; raw outputs are ignored in `artifacts/dungeon/v5/`.
+
+The stone stays violet in shadow, but its lit bevels receive restrained warmer,
+lighter painted material values. Terrace and paving use a stronger warm-grey
+profile. The terrace's opaque-pixel mean Lab changes from approximately
+(51.1, 12.1, −18.0) to (54.9, 13.5, +0.2); floor-flag from (52.6, 14.2, −13.0)
+to (55.7, 15.2, +1.9). Violet mortar, deep recesses and cyan magic are protected.
+These are albedo changes, not a claim that the app's spatial lighting is fixed.
+The app still needs warm falloff and removal of excessive runtime darkening.
+The label/plaque fields target pale cream around L*=91, a*=4, b*=27; the navy
+panel regains a bright clipped gold rim. The new desk and shallow shelf remain
+off to one side, with open room for the larger robots.
+
+Fire animations have compact ivory/yellow hearts rather than long orange
+ribbons. The forge has a multi-tongue coal/fire bed clipped into its firebox.
+All holder/firebox geometry and animation anchors are registered; the existing
+holder-stability checks still pass. No external glow was added to compete with
+agents, and the lit gate texture was not made brighter.
+
+The builder's `--art-only` mode stages this pass and checks it before
+`--art-only --publish` atomically replaces changed sheets. It starts from the
+preserved pre-v5 albedo in `artifacts/dungeon/v5/before/` so rerunning it does not
+stack warming. Current robot/status art is retained. Newer provenance is kept
+when older cached stages are used. The full raw-source rebuild includes the
+same v5 pass. The folder remains below 12 MB.
+
+`artifacts/dungeon/gaps.md` records ten ranked gaps, native crop coordinates,
+art/code ownership and concrete fixes. `gaps.png` pairs the top five baseline
+crops from the private concept and compare-6 capture. These remain ignored.
+`artifacts/dungeon/v5/art-changes.png` shows before/after sprite evidence, and
+`v5/material-metrics.json` records the numeric colour changes. The comparison
+capture is not presented as an after-fix app screenshot; code-owned layout,
+lighting, tint/compositing and prop placement still require integration.
 
 Remaining differences: the concept's masonry has more bespoke pixel-like chips,
 uneven joints and integrated painted shadows. V3 is smoother, its joins and

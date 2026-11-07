@@ -8,7 +8,7 @@ from pathlib import Path
 import json, math, re, argparse, os, shutil, statistics
 
 LIVE = Path('rendering/src/assets/dungeon')
-OUT = Path('rendering/artifacts/dungeon/v4/staging')
+OUT = Path('rendering/artifacts/dungeon/v5/staging')
 ART = Path('rendering/artifacts/dungeon')
 RESAMPLE = Image.Resampling.LANCZOS
 SHEETS = {}
@@ -428,6 +428,7 @@ def colour_match():
 
 def build():
     OUT.mkdir(parents=True,exist_ok=True)
+    sync_provenance_v5(OUT)
     if not (OUT/'prompts.json').exists():shutil.copy2(LIVE/'prompts.json',OUT/'prompts.json')
     build_v2()
     rooms=source('v3-rooms');dressing=source('v3-dressing')
@@ -437,6 +438,7 @@ def build():
     add('props','chain-pair',fit(dressing[2],(180,300),True),'top')
     colour_match()
     build_robots_v4()
+    fix_art_v5()
 
 def pack():
     OUT.mkdir(parents=True,exist_ok=True)
@@ -810,6 +812,7 @@ def validate_robots_v4():
 def robots_only(publish_live=False):
     global OUT
     OUT=ART/'v4/staging';OUT.mkdir(parents=True,exist_ok=True)
+    sync_provenance_v5(OUT)
     for p in LIVE.iterdir():
         if p.suffix in ['.png','.json'] and not (p.name=='prompts.json' and (OUT/p.name).exists()):shutil.copy2(p,OUT/p.name)
     load_live_art();build_robots_v4();pack();validate();validate_robots_v4();contact();robot_v4_comparison()
@@ -821,9 +824,174 @@ def robots_only(publish_live=False):
             tmp=dest.with_suffix('.py.v4-ready');shutil.copy2(src,tmp);os.replace(tmp,dest)
 
 
+def source_v5(key,cols,rows):
+    im=Image.open(ART/'v5'/(key+'-raw.png')).convert('RGBA');out=[]
+    for y in range(rows):
+        for x in range(cols):out.append(trim(im.crop((round(x*im.width/cols),round(y*im.height/rows),round((x+1)*im.width/cols),round((y+1)*im.height/rows)))))
+    return out
+
+def framed_v5(im,size):
+    im=prune_micro(fit(im,(size[0]-4,size[1]-4),True));out=Image.new('RGBA',size);out.alpha_composite(im,(2,2));return clean(out)
+
+def pale_parchment_v5(im):
+    lab=ImageCms.applyTransform(im.convert('RGB'),_TO_LAB);rgb=list(im.getdata());ld=list(lab.getdata())
+    sample=[];mask=bytearray(len(rgb))
+    for k,(p,q) in enumerate(zip(rgb,ld)):
+        x=k%im.width;y=k//im.width;r,g,b,a=p;l,aa,bb=q
+        if a>220 and 24<x<im.width-24 and 17<y<im.height-17 and l>174 and 132<bb<172 and aa<145 and r>g>b and r-g<45:
+            sample.append(q);mask[k]=1
+    mean=[statistics.median(p[k] for p in sample) for k in range(3)];target=[91*255/100,132,155]
+    lab.putdata([tuple(max(0,min(255,round(v+target[c]-mean[c]))) for c,v in enumerate(q)) if mask[k] else q for k,q in enumerate(ld)])
+    converted=ImageCms.applyTransform(lab,_TO_RGB);data=[(*q,p[3]) if mask[k] else p for k,(p,q) in enumerate(zip(rgb,converted.getdata()))];out=im.copy();out.putdata(data);return clean(out)
+
+def warm_material_v5(im,sheet,name):
+    if sheet in ['robots','status']:return im
+    floor=name in ['floor-flag','terrace-floor','alcove-ledge']
+    if sheet=='stone':
+        if name=='wall-brick-dark':dl,db,da=.65,1.8,0
+        elif name=='wall-brick':dl,db,da=4,6,1
+        elif floor:dl,db,da=5.5,27,1.8
+        else:dl,db,da=3,8.5,1
+    elif sheet=='alcoves' and not name.startswith('candle-'):dl,db,da=(5.5,24,1.5) if floor else (3,9,1)
+    elif sheet=='gate' and (name in ['gate-arch','gate-surround','gate-medallion','stairs-top','stairs-mid','stairs-bottom']):dl,db,da=2.7,9,1
+    elif sheet=='ui' and name=='medallion':dl,db,da=2.5,7,1
+    elif sheet=='props' and (name in ['anvil','armor'] or any(name.startswith(n+'-') for n in ['forge','brazier','crystal','alchemy-tank'])):dl,db,da=2.5,7,1
+    else:return im
+    rgb=list(im.getdata());lab=ImageCms.applyTransform(im.convert('RGB'),_TO_LAB);ld=list(lab.getdata());mask=bytearray(len(rgb))
+    for k,((r,g,b,a),(l,aa,bb)) in enumerate(zip(rgb,ld)):
+        L=l*100/255
+        if not a or L<18 or L>94:continue
+        cool=stone_pixel(r,g,b)
+        gold=r>g>b and r>125 and g>85 and bb>148 and L>46
+        if not cool and not gold:continue
+        t=max(0,min(1,(L-20)/(35 if floor else 45)));t=t*t*(3-2*t)
+        if name=='wall-brick':
+            t=max(0,min(1,(L-12)/26));t=t*t*(3-2*t)
+        if cool:
+            extra=1
+            if sheet=='alcoves' and name.startswith('alcove-slot-') and k//im.width>im.height*.77:extra=1.5
+            ld[k]=(min(248,round(l+dl*2.55*t*extra)),max(0,min(255,round(aa+da*t))),max(0,min(255,round(bb+db*t*extra))))
+        elif gold:
+            # Strengthen existing reflected amber bevels, keeping them painted
+            # into the material rather than adding another external halo.
+            ld[k]=(min(248,round(l+2.6*2.55*t)),aa,min(255,round(bb+1.5*t)))
+        mask[k]=1
+    lab.putdata(ld);graded=ImageCms.applyTransform(lab,_TO_RGB);out=im.copy();out.putdata([(*q,p[3]) if mask[k] else p for k,(p,q) in enumerate(zip(rgb,graded.getdata()))]);return clean(out)
+
+def old_v3_grade_v5(im,sheet):
+    model=json.loads((LIVE/'prompts.json').read_text())['v3_colour_transfer']['sheets'][sheet];ps=model['parameters'];cs=[p['L'] for p in ps]
+    rgb=list(im.getdata());lab=ImageCms.applyTransform(im.convert('RGB'),_TO_LAB);ld=list(lab.getdata());mask=bytearray(len(rgb))
+    for idx,((r,g,b,a),(l,aa,bb)) in enumerate(zip(rgb,ld)):
+        if not a or l<22 or not stone_pixel(r,g,b):continue
+        j=0
+        while j<2 and l>cs[j+1]:j+=1
+        if l<=cs[0]:lo=hi=0;w=0
+        elif l>=cs[3]:lo=hi=3;w=0
+        else:lo=j;hi=j+1;w=(l-cs[j])/max(1,cs[j+1]-cs[j])
+        out=[]
+        for c,v in [(1,aa),(2,bb)]:
+            p=ps[lo];q=ps[hi];u=(v-p['source_mean'][c])*p['gain'][c]+p['source_mean'][c]+p['shift'][c];v2=(v-q['source_mean'][c])*q['gain'][c]+q['source_mean'][c]+q['shift'][c];strength=min(1,(l-18)/22)*min(1,max(0,(b-min(r,g)-1)/10));out.append(max(0,min(255,round(v+(u*(1-w)+v2*w-v)*strength))))
+        ld[idx]=(l,*out);mask[idx]=1
+    lab.putdata(ld);graded=ImageCms.applyTransform(lab,_TO_RGB);out=im.copy();out.putdata([(*q,p[3]) if mask[k] else p for k,(p,q) in enumerate(zip(rgb,graded.getdata()))]);return clean(out)
+
+def fire_repaints_v5():
+    fire=source_v5('fire',4,2);pa=source('v2-propsA');fp=source('v2-flames');replacements={}
+    maxh=max(p.height for p in fire[:4]);flames=[]
+    for p in fire[:4]:
+        h=round(p.height*72/maxh);w=round(p.width*72/maxh);im=fit(p,(w,h),True);can=Image.new('RGBA',(72,78));can.alpha_composite(im,((72-w)//2,76-h));flames.append(can)
+    for prefix,body,size,bpos,fpos,fsize,count in [
+        ('torch',fit(pa[0],(45,99),True),(60,153),(8,50),(0,0),(60,67),4),
+        ('brazier',fit(pa[1],(105,111),True),(117,180),(6,65),(0,0),(117,88),4),
+        ('candle',fit(fp[6],(30,93)),(40,125),(5,30),(3,0),(34,39),3)]:
+        body_canvas=Image.new('RGBA',size);body_canvas.alpha_composite(body,bpos);alpha=Image.new('RGBA',(size[0]+4,size[1]+4));alpha.alpha_composite(body_canvas,(2,2))
+        # Recover the already calibrated holder from the current sprite. Its
+        # physical alpha removes the old flame above it; the bowl stays warm.
+        base=SPRITES[prefix+'-0'].copy();base.putalpha(alpha.getchannel('A'));base=clean(base)
+        for i in range(count):
+            out=base.copy();out.alpha_composite(fit(flames[i],fsize,True),(fpos[0]+2,fpos[1]+2));replacements[f'{prefix}-{i}']=out
+    body=stone_grade(fit(pa[10],(198,228),True));body=old_v3_grade_v5(body,'props')
+    for i,p in enumerate(fire[4:]):
+        # Broad coal bed behind the forge arch, clipped to the actual opening.
+        layer=Image.new('RGBA',body.size);layer.alpha_composite(fit(p,(85,90),True),(59,116))
+        mask=Image.new('L',body.size);d=ImageDraw.Draw(mask);d.polygon([(59,205),(59,149),(69,129),(85,116),(105,116),(124,130),(144,150),(144,205)],fill=255)
+        layer.putalpha(ImageChops.multiply(layer.getchannel('A'),mask));out=body.copy();out.alpha_composite(layer);frame=Image.new('RGBA',(202,232));frame.alpha_composite(out,(2,2));replacements[f'forge-{i}']=frame
+    return replacements
+
+def fix_art_v5():
+    replacements=fire_repaints_v5();work=source_v5('workshop',2,1);ui=source_v5('ui',1,3)
+    for i,n in enumerate(['alcove-slot-1','alcove-slot-2']):
+        im=region(work[i],(.08,.12,.94,.97));im=framed_v5(im,SPRITES[n].size)
+        if i==0:
+            im.putdata([(round(r*.86),round(g*.86),round(b*.86),a) if g>r*1.4 and b>r*1.4 and b>160 else (r,g,b,a) for r,g,b,a in im.getdata()])
+        replacements[n]=im
+    for n,p in zip(['label','plaque','panel'],ui):
+        im=framed_v5(p,SPRITES[n].size);replacements[n]=pale_parchment_v5(im) if n!='panel' else im
+    metrics={}
+    for sheet,frames in SHEETS.items():
+        updated=[]
+        for n,im,info in frames:
+            original=im;im=replacements.get(n,im);im=prune_micro(warm_material_v5(im,sheet,n)) if not info.get('tile') else warm_material_v5(im,sheet,n)
+            if im.size!=original.size:raise ValueError(n+' changed frame size')
+            updated.append((n,im,info));SPRITES[n]=im
+            if n in ['terrace-floor','floor-flag','rampart-x','wall-brick','label','plaque']:
+                def meanlab(x):
+                    l=ImageCms.applyTransform(x.convert('RGB'),_TO_LAB);pts=[q for p,q in zip(x.getdata(),l.getdata()) if p[3]>220]
+                    return [statistics.mean(q[0] for q in pts)*100/255,statistics.mean(q[1] for q in pts)-128,statistics.mean(q[2] for q in pts)-128]
+                metrics[n]={'before_Lab':meanlab(original),'after_Lab':meanlab(im)}
+        SHEETS[sheet]=updated
+    (ART/'v5/material-metrics.json').write_text(json.dumps(metrics,indent=2)+'\n')
+    provenance=json.loads((OUT/'prompts.json').read_text());provenance['v5_material_pass']={'method':'Luminance-weighted warm CIELab highlight transfer; violet mortar/deep recesses and cyan magic protected; stronger warm grey floor profile; cream parchment target L*=91 a*=4 b*=27','metrics':metrics};(OUT/'prompts.json').write_text(json.dumps(provenance,indent=2)+'\n')
+
+def load_live_sheets_v5():
+    load_live_art()
+    for path in sorted(LIVE.glob('*.json')):
+        if path.stem=='prompts':continue
+        j=json.loads(path.read_text())
+        # Rebuild the v5 transfer from its pre-pass albedo, not an already
+        # warmed live image. Keep current robot/status images untouched.
+        if path.stem not in ['robots','status']:
+            base=ART/'v5/before';bj=json.loads((base/path.name).read_text());atlas=Image.open(base/bj['image']).convert('RGBA')
+            if bj!=j:raise ValueError(path.name+' geometry no longer matches v5 baseline')
+            for n,f in bj['frames'].items():SPRITES[n]=atlas.crop((f['x'],f['y'],f['x']+f['w'],f['y']+f['h']))
+        SHEETS[path.stem]=[(n,SPRITES[n],META[n]) for n in j['frames']]
+
+def art_review_v5():
+    old=ART/'v5/before';pairs=[('stone','terrace-floor'),('stone','wall-brick'),('stone','rampart-x'),('alcoves','alcove-slot-1'),('alcoves','alcove-slot-2'),('ui','plaque'),('ui','panel'),('props','torch-0'),('props','forge-0')]
+    can=Image.new('RGBA',(1900,len(pairs)*275+55),'#231d30');d=ImageDraw.Draw(can);d.text((15,10),'ASSET FIXES / V4 baseline left / V5 art right / identical frame size',fill='white')
+    for i,(sheet,n) in enumerate(pairs):
+        y=i*275+65;j=json.loads((old/(sheet+'.json')).read_text());f=j['frames'][n];oldim=Image.open(old/(sheet+'.png')).crop((f['x'],f['y'],f['x']+f['w'],f['y']+f['h']))
+        for x,im in [(20,oldim),(970,SPRITES[n])]:
+            im=fit(im,(900,235));can.alpha_composite(im,(x,y))
+        d.text((20,y-20),n,fill='white')
+    can.convert('RGB').save(ART/'v5/art-changes.png',optimize=True)
+
+def art_only_v5(publish_live=False):
+    global OUT
+    OUT=ART/'v5/staging';OUT.mkdir(parents=True,exist_ok=True)
+    sync_provenance_v5(OUT)
+    for p in LIVE.iterdir():
+        if p.suffix in ['.png','.json'] and not (p.name=='prompts.json' and (OUT/p.name).exists()):shutil.copy2(p,OUT/p.name)
+    load_live_sheets_v5();fix_art_v5();pack()
+    # Byte-preserve metadata: this pass repaints only existing rectangles.
+    for p in LIVE.glob('*.json'):
+        if p.stem=='prompts':continue
+        a=json.loads(p.read_text());b=json.loads((OUT/p.name).read_text())
+        if a!=b:raise ValueError(p.name+' changed metadata')
+        shutil.copy2(p,OUT/p.name)
+    validate();contact();art_review_v5()
+    if (OUT/'robots.png').read_bytes()!=(LIVE/'robots.png').read_bytes():raise ValueError('Robot pixels changed')
+    if publish_live:publish()
+
+def sync_provenance_v5(out):
+    """An older cached stage must not erase a later generation's provenance."""
+    src=LIVE/'prompts.json';dest=out/'prompts.json'
+    if not dest.exists() or json.loads(src.read_text()).get('version',0)>json.loads(dest.read_text()).get('version',0):shutil.copy2(src,dest)
+
+
 if __name__=='__main__':
-    parser=argparse.ArgumentParser();parser.add_argument('--validate-only',action='store_true');parser.add_argument('--publish',action='store_true');parser.add_argument('--publish-staged',action='store_true');parser.add_argument('--robots-only',action='store_true');args=parser.parse_args()
-    if args.robots_only:robots_only(args.publish)
+    parser=argparse.ArgumentParser();parser.add_argument('--validate-only',action='store_true');parser.add_argument('--publish',action='store_true');parser.add_argument('--publish-staged',action='store_true');parser.add_argument('--robots-only',action='store_true');parser.add_argument('--art-only',action='store_true');args=parser.parse_args()
+    if args.art_only:art_only_v5(args.publish)
+    elif args.robots_only:robots_only(args.publish)
     elif args.validate_only:
         OUT=LIVE;validate()
     elif args.publish_staged:validate();publish()

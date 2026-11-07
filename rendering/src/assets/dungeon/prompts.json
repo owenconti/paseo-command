@@ -49,7 +49,7 @@
       "review_source": "status-raw.png"
     }
   },
-  "version": 4,
+  "version": 5,
   "v2_generations": {
     "v2-ramparts": {
       "prompt": "Use case: stylized-concept. Production game sprite atlas, original Dungeon Board artwork. Input is a PRIVATE STYLE REFERENCE crop only; do not reproduce the scene or its letters. Match it closely: HD pixel-art-flavoured hand-painted fantasy game illustration, smooth detailed shading with a little pixel texture, chunky readable dark outlined forms, NOT strict-grid pixel art, NOT vector or a 3D render. Camera in front and ABOVE at about 30 degrees elevation, like the crop: lit TOP faces plus darker FRONT faces and short visible SIDE faces; not a flat front elevation. Large lavender/periwinkle GREY stone blocks: light top faces #9a90c8 to #b4a9de, mid front faces #6a5f9a, dark mortar/outlines #2a2340. Strong top-left bevel highlight. Few small chips, smooth stone, NO purple glitter, NO busy speckles. Darker small purple-grey back-wall bricks. Warm yellow candle bounce on lower edges, gentle top-left ambient. Exterior truly transparent alpha, no matte, no checkerboard, no background. No words or numbers, no labels attached to architecture. All objects fully inside their own cell with wide empty gutters. EXACT 4 columns x 3 rows of equal cells, twelve modular LOW WALL pieces at the same scale, not full-height walls. Thick large blocks showing broad lit top planes and a darker front face, low wall height about 22 concept pixels, one block thick. NO gold trim. Row 1: horizontal STRAIGHT low wall run, three large blocks across, parallel horizontal edges, 3:1 wide/height; vertical STRAIGHT low wall run, column of three top faces with a narrow darker RIGHT side face visible, 1:3 wide/height; L wall corner top-left with runs extending right and down; L wall corner top-right with runs extending left and down. Row2: L wall corner bottom-left runs right and up; L wall corner bottom-right runs left and up; horizontal wall's LEFT exposed end block; horizontal wall's RIGHT exposed end block. Row3: vertical wall's TOP exposed end block; vertical wall's BOTTOM exposed end block; T junction horizontal wall with vertical wall departing down from middle; rectangular patch of warm candlelit flagstone FLOOR viewed from above at the same camera angle, laid as chunky irregular grey/periwinkle slabs with pale golden edge highlights, repeatable surface, no border. Make every corner fit the same block thickness and scale as the straight runs. Avoid isometric diamonds; horizontal runs follow the screen horizontal, vertical ones follow the screen vertical. This is a reusable masonry kit, not a room or diorama.",
@@ -1985,6 +1985,121 @@
         "rows": 2
       },
       "notes": "Same robot design; higher resolution, bright top/left rim light, specular gloss, eye bloom, strong work poses. Ten shell-only palette variants protect visor/eyes/outline. Raw source poses registered at a common foot baseline; calm idle breath 3px, work bob 21px."
+    }
+  },
+  "v5_generations": {
+    "v5-workshop": {
+      "prompt": "Use case: stylized-concept. Production transparent GAME SPRITE atlas, EXACT 2 columns by 1 row. Two modular workspace INTERIORS, matching the private dungeon reference's cutaway art. They will each be displayed as a narrow 40 concept px wide x 82 high slot. NO enclosing stone pillars, NO outer lintel, NO label. Camera in front and ABOVE, show desktop and floor top planes. Dark purple-grey small brick recess, smooth painted shaded stone with a little pixel-like chipped texture, dark outline. Warm torch/candle bounce lights its lower wall and stone step: warm cream-gold highlights, purple mortar stays dark. Not flat vector, not strict 8-bit, not a 3D render. LEFT interior: one wooden DESK and an angled glowing CYAN monitor on its RIGHT side; make the monitor clear and readable, occupying about the RIGHT 55 percent of the slot width, not a tiny box. The desk, keyboard, and side of monitor should show perspective/top faces. Screen has only a few simple cyan abstract rectangles, NO text. Keep left half dark/open for a large robot standing in front. RIGHT interior: a shallow right-side wooden BOOK/SCROLL SHELF with 3\u20134 broad colorful books and one rolled scroll, a low small wood surface beneath it, sparse and readable, left half open. Both interiors have a shallow warm grey stone floor/step at bottom with a pool of golden candlelight. NO candles, torches, robots, potions, furniture filling the whole wall, words, numbers, external ground or scene. Every part contained in its own equal cell with transparent gutters, but interior brick/floor itself opaque. Dark background behind the sparse props, brighter warm material highlights rather than a neon aura.",
+      "source_filename": "exec-103f5391-1891-4347-b87e-30a920fef585.png",
+      "review_source": "v5/workshop-raw.png",
+      "grid": {
+        "columns": 2,
+        "rows": 1
+      },
+      "reference_images": [
+        "v2/reference-alcove.png"
+      ]
+    },
+    "v5-ui": {
+      "prompt": "Use case: stylized-concept. Production transparent game UI sprite sheet, ONE column by THREE equally tall rows, one complete long horizontal blank panel centered in each row with generous transparent margin. Private dungeon illustration is a STYLE reference only, do not reproduce its letters or layout. Match its painted pixel-art-flavoured material: crisp dark outlines, small chipped highlights, smooth shading, not strict 8-bit, not flat vector, not a 3D render. ROW1: blank workspace/project PARCHMENT LABEL, straight long horizontal shape with clipped octagonal corners, very PALE CREAM field near #fce2b1 / #f6e3b8, thin warm bronze-brown edge and a narrow gold/ivory highlight just inside, tiny bevel, no ornaments, broad clear blank centre, about 4:1 width/height. ROW2: larger matching blank HOST PLAQUE, same pale cream parchment and restrained thin bronze/gold clipped-corner border, about 4.3:1 width/height. These two should be creamy and luminous, NOT brown, tan, burnt or thick ornate gilt. ROW3: blank DARK NAVY TITLE / COUNT PANEL near #1e1a2e, clipped corners and a BRIGHT ANTIQUE GOLD rim with ivory-lit top-left bevel, three slim painted gold bands and small angular gold accents at the corners, like the concept's title/footer frame. Gold border stronger than the parchment label border, roughly 7 percent of total panel height; corner decoration small enough to stay in 9-slice end caps. No curling scrollwork. Keep the blank navy centre quiet and almost flat. ALL panels must have straight parallel top/bottom edges for 9-slice stretching, no curved drooping ends. Fully transparent exterior, no outer glow or background. NO text, numbers, letters, icons, emblems or props.",
+      "source_filename": "exec-9a34591d-ce56-447b-8fc6-31299add03b5.png",
+      "review_source": "v5/ui-raw.png",
+      "grid": {
+        "columns": 1,
+        "rows": 3
+      },
+      "reference_images": [
+        "private original dungeon concept"
+      ]
+    },
+    "v5-fire": {
+      "prompt": "Use case: stylized-concept. Production transparent GAME FIRE ANIMATION atlas, EXACT 4 columns by 2 rows, all cells equal with generous transparent gutters. Private dungeon image is STYLE REFERENCE only. Match its PAINTED torch fire: compact white-hot ivory centre, luminous lemon/golden yellow body, amber/orange tips, a few short irregular secondary tongues, subtle thin aura contained close to the physical flame. Fine pixel-flavoured painted edges, NOT a fire emoji, NOT a long S-shaped orange ribbon, NOT flat vector or 3D render. TOP ROW: FOUR distinct animation frames of one compact CANDLE/TORCH FLAME. Same base position and common scale: 0 main teardrop and tiny left wisp; 1 shorter flame with two small uneven tips; 2 taller central tongue leaning slightly right with small side flicker; 3 wider rounded flame with a short left tongue. Real silhouette and inner-tongue changes, white/yellow heart in every frame. No detached sparks. BOTTOM ROW: FOUR matching animation frames of a broad low FORGE FIRE / COAL BED, several small yellow-white flame tongues rising from a connected bed of hot red/orange coals, widest at base. It will fit inside a stone forge's arched firebox. Irregular painted flame tongues and glowing coal facets, not a single oversized flame. Same coal-bed footprint and common base/scale across the four, flames visibly flicker differently. NO torch holder, candle, brazier, stone forge, wall, ground, smoke, props, symbols, numbers, text, checkerboard or backdrop. Truly transparent outside each complete fire sprite, no image-edge clipping.",
+      "source_filename": "exec-8b791e6e-5d23-42d8-b1bb-6f4f1694b9cc.png",
+      "review_source": "v5/fire-raw.png",
+      "grid": {
+        "columns": 4,
+        "rows": 2
+      },
+      "reference_images": [
+        "private original dungeon concept"
+      ]
+    }
+  },
+  "v5_material_pass": {
+    "method": "Luminance-weighted warm CIELab highlight transfer; violet mortar/deep recesses and cyan magic protected; stronger warm grey floor profile; cream parchment target L*=91 a*=4 b*=27",
+    "metrics": {
+      "rampart-x": {
+        "before_Lab": [
+          43.96245832132713,
+          11.920923722883146,
+          -22.364065780265918
+        ],
+        "after_Lab": [
+          45.303379574362985,
+          12.252099370188944,
+          -18.72402029391182
+        ]
+      },
+      "terrace-floor": {
+        "before_Lab": [
+          51.08593560881142,
+          12.148945473251018,
+          -17.985802469135805
+        ],
+        "after_Lab": [
+          54.851942628903416,
+          13.456301440329213,
+          0.16270576131688586
+        ]
+      },
+      "wall-brick": {
+        "before_Lab": [
+          20.17570376103658,
+          8.092023026315786,
+          -17.34766081871345
+        ],
+        "after_Lab": [
+          21.32869653709437,
+          8.298866959064327,
+          -15.632364766081878
+        ]
+      },
+      "floor-flag": {
+        "before_Lab": [
+          52.62770680662838,
+          14.152812850729504,
+          -12.992178731762067
+        ],
+        "after_Lab": [
+          55.70097764133712,
+          15.246738215488222,
+          1.8528689674523093
+        ]
+      },
+      "label": {
+        "before_Lab": [
+          70.1456638629111,
+          11.563146754468477,
+          29.959666039510807
+        ],
+        "after_Lab": [
+          82.29826630472976,
+          7.377996191756267,
+          30.414622535842284
+        ]
+      },
+      "plaque": {
+        "before_Lab": [
+          73.24727575706531,
+          11.426590936851113,
+          30.651588561812076
+        ],
+        "after_Lab": [
+          84.1098101665122,
+          6.3791492083382195,
+          29.150963960788914
+        ]
+      }
     }
   }
 }
