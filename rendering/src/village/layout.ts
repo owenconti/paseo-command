@@ -342,7 +342,7 @@ export function workspaceStatus(states: State[], online: boolean): VWorkspace["s
 
 /** A project's (or camp's) block, one cluster on its own lawn, as the Islands map rings a landmark with its workspaces:
  * its hall at the back, its first workspaces' cottages either side of it (oldest left, then right), more in rows in
- * front either side of a stepping-stone lane from the hall's door (one a side, two a side past six), each row's
+ * front either side of a stepping-stone lane from the hall's door (two a side), each row's
  * cottages on a walkway of stones along their feet, robots at their doorsteps. Positions are from the hall's door
  * (x the lane's middle, y the hall's feet). */
 type Block = {
@@ -377,7 +377,8 @@ const cellWidth = (c: Cottage, frameW: number) => {
 };
 function blockOf(host: string, group: ReturnType<typeof hostGroups>[number], building: string | undefined): Block {
   const hallH = building ? (FRAMES[building]!.h * V.hall) / FRAMES[building]!.w : 0;
-  const perSide = group.cottages.length > 6 ? 2 : 1;
+  // Two a side: beside the hall first (the most compact cluster), then rows in front.
+  const perSide = 2;
   const cells: Block["cells"] = [];
   // The first row flanks the hall (its cottages beside it); the others flank the lane.
   const inner = (row: number) => (row === 0 && building ? V.hall / 2 - V.hallInset : V.lane / 2);
@@ -416,39 +417,46 @@ function blockOf(host: string, group: ReturnType<typeof hostGroups>[number], bui
 /** A host's district: its blocks in two columns either side of the fountain, alternating, oldest project first. */
 type District = {
   host: AtlasData["hosts"][number];
-  blocks: { block: Block; col: 0 | 1; y: number }[];
-  colW: [number, number];
+  /** Its shape: clusters in two columns either side of the fountain, in one column beside it, or below it. */
+  mode: DistrictMode;
+  /** Each cluster: its lawn's left edge and its hall's feet, from the district's top-left. */
+  blocks: { block: Block; lx: number; y: number }[];
   width: number;
   height: number;
-  /** The fountain's column's top, from the district's top. */
+  /** The fountain's centre line and its top, from the district's top-left. */
+  fountainX: number;
   fountainY: number;
   line: VSquare["hosts"][number];
 };
-function districtOf(host: AtlasData["hosts"][number], blocks: Block[], line: VSquare["hosts"][number]): District {
-  // Oldest project first, each to the shorter column (the first left, the second right), so the columns stay even.
-  const cols: [Block[], Block[]] = [[], []];
+type DistrictMode = "two" | "side" | "top";
+function districtOf(host: AtlasData["hosts"][number], blocks: Block[], line: VSquare["hosts"][number], mode: DistrictMode): District {
+  const P = V.districtPad;
   const tall = (b: Block) => b.above + b.below + V.lawnPad * 2 + V.blockGap;
   const sum = (c: Block[]) => c.reduce((n, b) => n + tall(b), 0);
-  blocks.forEach((b, i) => cols[i < 2 ? ((i % 2) as 0 | 1) : sum(cols[1]) < sum(cols[0]) ? 1 : 0].push(b));
   const span = (b: Block) => b.width + V.lawnPad * 2;
-  const colW: [number, number] = [Math.max(0, ...cols[0].map(span)), Math.max(0, ...cols[1].map(span))];
   const fountainH = (FRAMES["fountain-on"]!.h * V.fountainW) / FRAMES["fountain-on"]!.w + V.hostPlaqueH + 60;
-  const inner = Math.max(fountainH, ...cols.map((c) => Math.max(0, sum(c) - V.blockGap)));
+  const gap = Math.max(V.fountainGap, line.plaqueW + 30);
+  // Oldest project first; in two columns each to the shorter one (the first left, the second right), so they stay even.
+  const cols: [Block[], Block[]] = [[], []];
+  if (mode === "two") blocks.forEach((b, i) => cols[i < 2 ? ((i % 2) as 0 | 1) : sum(cols[1]) < sum(cols[0]) ? 1 : 0].push(b));
+  else cols[0].push(...blocks);
+  const colW = [Math.max(0, ...cols[0].map(span)), Math.max(0, ...cols[1].map(span))];
+  const colH = cols.map((c) => Math.max(0, sum(c) - V.blockGap));
+  const top = mode === "top" ? fountainH + 20 : 0;
+  const width = mode === "top" ? P * 2 + Math.max(colW[0]!, gap) : P * 2 + colW[0]! + gap + colW[1]!;
+  const height = P * 2 + (mode === "top" ? top + colH[0]! : Math.max(fountainH, colH[0]!, colH[1]!));
   const placed: District["blocks"] = [];
   for (const c of [0, 1] as const) {
-    // A column's last lawn reaches down to the district's foot (a garden), so no bare paving is left under it.
-    const last = cols[c][cols[c].length - 1];
-    if (last) last.below += inner - (sum(cols[c]) - V.blockGap);
-    let y = 0;
+    let y = top;
     for (const b of cols[c]) {
-      placed.push({ block: b, col: c, y: y + V.lawnPad + b.above });
+      // Lawns lie against the fountain's column (or centred under it).
+      const lx = mode === "top" ? (width - span(b)) / 2 : c === 0 ? P + colW[0]! - span(b) : P + colW[0]! + gap;
+      placed.push({ block: b, lx, y: P + y + V.lawnPad + b.above });
       y += tall(b);
     }
   }
-  const gap = Math.max(V.fountainGap, line.plaqueW + 30);
-  const width = V.districtPad * 2 + colW[0] + gap + colW[1];
-  const height = V.districtPad * 2 + inner;
-  return { host, blocks: placed, colW, width, height, fountainY: V.districtPad, line };
+  const fountainX = mode === "top" ? width / 2 : P + colW[0]! + gap / 2;
+  return { host, mode, blocks: placed, width, height, fountainX, fountainY: P, line };
 }
 
 /**
@@ -473,7 +481,7 @@ export function layoutVillage(data: AtlasData, aspect = 1.6, measure: Measure = 
     const plaqueW = Math.max(V.hostPlaqueMin, Math.ceil(measure(title, "host") + 80), Math.ceil(statsW + 90));
     return { id: host.key, title, stats, online: host.online, plaqueW, lineW: plaqueW };
   };
-  const districts = shown.map(({ host, groups }) => {
+  const choices = shown.map(({ host, groups }) => {
     // Projects' halls dealt so neighbours in a district differ, seeded by the project.
     const used: string[] = [];
     const start = seedOf(host.key + "village") % PROJECT_HALLS.length;
@@ -485,7 +493,9 @@ export function layoutVillage(data: AtlasData, aspect = 1.6, measure: Measure = 
       if (used.length >= PROJECT_HALLS.length) used.length = 0;
       return blockOf(host.key, g, PROJECT_HALLS[v]!);
     });
-    return districtOf(host, blocks, hostLine(host));
+    const line = hostLine(host);
+    const modes: DistrictMode[] = blocks.length >= 2 ? ["two", "side", "top"] : ["side", "top"];
+    return modes.map((m) => districtOf(host, blocks, line, m));
   });
 
   // The dashboard halls' row: either side of the north road.
@@ -495,27 +505,37 @@ export function layoutVillage(data: AtlasData, aspect = 1.6, measure: Measure = 
   const dashBase = dashTop + dashH + 10;
   const districtsTop = dashBase + V.walk + 40;
 
-  // Shelves: districts in rows, as many to a row as best suits the map's shape.
-  const shelvesFor = (perRow: number) => {
+  // Shelves: districts in rows, each in the shape and as many to a row as let the fit show the town largest with the
+  // fewest gaps (woods only at the edges, as the concept's).
+  const shelvesFor = (districts: District[], perRow: number) => {
     const rows: District[][] = [];
     districts.forEach((d, i) => (i % perRow === 0 ? rows.push([d]) : rows[rows.length - 1]!.push(d)));
     const w = Math.max(dashRowW, ...rows.map((r) => r.reduce((s, d) => s + d.width, 0) + V.districtGap * (r.length - 1)));
     const h = rows.reduce((s, r) => s + Math.max(...r.map((d) => d.height)), 0) + V.districtGap * Math.max(0, rows.length - 1);
     return { rows, w, h };
   };
+  // Every combination of shapes while there are few districts, else one shape for all.
+  const combos: District[][] = [];
+  if (choices.length <= 6) {
+    const walk = (i: number, acc: District[]) => (i === choices.length ? combos.push(acc) : choices[i]!.forEach((d) => walk(i + 1, [...acc, d])));
+    walk(0, []);
+  } else for (const m of ["two", "side", "top"] as const) combos.push(choices.map((c) => c.find((d) => d.mode === m) ?? c[0]!));
   let best: ReturnType<typeof shelvesFor> | null = null, bestScore = Infinity;
-  for (let perRow = 1; perRow <= Math.max(1, districts.length); perRow++) {
-    const s = shelvesFor(perRow);
-    const townW = V.marginLeft + s.w + V.marginRight + V.riverW;
-    const townH = districtsTop + s.h + V.marginBottom;
-    // (The HUD's panel takes about a fifth of the view's width at the left: pack for what's left.)
-    // The shelving the fit shows largest: the smaller of its two scales (a unit-high view `aspect` wide, less the panel).
-    const score = -Math.min(clamp(aspect * 0.85, 0.5, 2.6) / townW, 1 / townH);
-    if (score < bestScore - 1e-9) {
-      best = s;
-      bestScore = score;
+  const view = clamp(aspect * 0.85, 0.5, 2.6);
+  for (const districts of combos)
+    for (let perRow = 1; perRow <= Math.max(1, districts.length); perRow++) {
+      const s = shelvesFor(districts, perRow);
+      // What the fit frames: the dashboard halls' tops to the wall, the districts' width.
+      const keepW = s.w + 60, keepH = districtsTop - dashTop + 90 + s.h + V.moatH + V.wallH * 0.3;
+      const scale = Math.min(view / keepW, 1 / keepH);
+      const filled = districts.reduce((n, d) => n + d.width * d.height, 0) / (s.w * Math.max(1, s.h));
+      // (The HUD's panel takes about a fifth of the view's width at the left: pack for what's left.)
+      const score = -scale * (0.7 + 0.3 * filled);
+      if (score < bestScore - 1e-12) {
+        best = s;
+        bestScore = score;
+      }
     }
-  }
   const shelves = best!;
   const innerW = shelves.w;
   const cx = V.marginLeft + innerW / 2;
@@ -551,14 +571,17 @@ export function layoutVillage(data: AtlasData, aspect = 1.6, measure: Measure = 
   let y = districtsTop;
   for (const row of shelves.rows) {
     const rowW = row.reduce((s, d) => s + d.width, 0) + V.districtGap * (row.length - 1);
-    let x = cx - rowW / 2;
+    let x = cx - innerW / 2;
     const rowH = Math.max(...row.map((d) => d.height));
+    // A row narrower than the town widens its districts' paving to fill it (a market, never woods in the town's middle);
+    // their clusters and fountain keep together, the market on their outer side.
+    const extra = (innerW - rowW) / row.length;
     for (const d of row) {
       const index = squares.length;
-      const cw = d.colW;
-      const dw = d.width;
+      const dw = d.width + extra;
+      const shift = d.mode === "two" ? extra / 2 : extra;
       const rect = { x, y, w: dw, h: rowH };
-      const fcx = x + V.districtPad + cw[0] + (dw - 2 * V.districtPad - cw[0] - cw[1]) / 2;
+      const fcx = x + shift + d.fountainX;
       const fountain = boxOf("fountain-on", fcx, y + d.fountainY + (FRAMES["fountain-on"]!.h * V.fountainW) / FRAMES["fountain-on"]!.w, V.fountainW);
       const ringH = (FRAMES["plaza-ring"]!.h * V.ringW) / FRAMES["plaza-ring"]!.w;
       const ring = { x: fcx - V.ringW / 2, y: fountain.y + fountain.h - ringH * 0.7, w: V.ringW, h: ringH };
@@ -570,20 +593,16 @@ export function layoutVillage(data: AtlasData, aspect = 1.6, measure: Measure = 
       };
       squares.push({
         host, online: d.host.online, rect, center: { x: fcx, y: fountain.y + fountain.h / 2 }, fountain, ring, plaque, hosts: [d.line],
-        roads: [{ x: x + 30, y: y + 30, w: d.width - 60, h: rowH - 60 }], plaza,
+        roads: [{ x: x + 30, y: y + 30, w: dw - 60, h: rowH - 60 }], plaza,
         lamps: [], pennants: [{ x: fcx - V.ringW / 2 - 6, y: ring.y + ring.h * 0.6 }, { x: fcx + V.ringW / 2 + 6, y: ring.y + ring.h * 0.6 }],
       });
-      for (const { block: b, col, y: by } of d.blocks) {
-        // The lawn's left edge: the left column's lawns lie against the fountain's column, the right's likewise.
-        // Its lawn against the fountain's column; a column's last lawn reaches the district's foot (a garden).
+      for (const { block: b, lx: blx, y: by } of d.blocks) {
         const lw = b.width + V.lawnPad * 2;
-        const lx = col === 0 ? x + V.districtPad + cw[0] - lw : x + dw - V.districtPad - cw[1];
+        const lx = x + shift + blx;
         const mid = lx + V.lawnPad + b.left;
-        const base = y + V.districtPad + by;
+        const base = y + by;
         const online = d.host.online;
-        const top = base - b.above - V.lawnPad;
-        const last = d.blocks.filter((o) => o.col === col).at(-1)?.block === b;
-        const lawn = { x: lx, y: top, w: lw, h: last ? y + rowH - V.districtPad - top : b.above + b.below + V.lawnPad * 2 };
+        const lawn = { x: lx, y: base - b.above - V.lawnPad, w: lw, h: b.above + b.below + V.lawnPad * 2 };
         // The lane from the hall's door (or the camp's top) down past the last row, and a walkway along each row's feet.
         const paths: Rect[] = [];
         if (b.rows) {
@@ -871,6 +890,39 @@ function sceneryOf(town: VTown, squares: VSquare[], lawns: VLawn[], projects: VP
         placed.push(rect);
       }
   }
+  // The districts' free paving: a market, as the concept's (a stall's tent, crates, barrels, planters), clear of the
+  // clusters' lawns, the fountain's plaza and the gate.
+  squares.forEach((sq, i) => {
+    const r = sq.roads[0]!;
+    const keepOff = [
+      ...lawns.filter((l) => l.square === i).map((l) => ({ x: l.rect.x - 16, y: l.rect.y - 10, w: l.rect.w + 32, h: l.rect.h + 30 })),
+      { x: sq.plaza.x - 20, y: sq.plaza.y - 20, w: sq.plaza.w + 40, h: sq.plaza.h + 40 },
+      { x: sq.center.x - 130, y: r.y - 20, w: 260, h: 230 },
+    ];
+    // Rows of stalls, each with its crates and a barrel beside it, planters between.
+    const put = (frame: string, x: number, y: number, w: number) => {
+      const rect = boxOf(frame, x, y, w);
+      if ([...says, ...water, ...keepOff].some((o) => overlaps(o, rect, 4)) || placed.some((o) => overlaps(o, rect, 4))) return false;
+      if (rect.x < r.x + 10 || rect.x + rect.w > r.x + r.w - 10 || rect.y < r.y + 10 || rect.y + rect.h > r.y + r.h - 10) return false;
+      decor.push({ frame, x, y, rect, square: i, layer: "stand" });
+      placed.push(rect);
+      return true;
+    };
+    for (let gy = r.y + 190, row = 0; gy < r.y + r.h - 10; gy += 170, row++)
+      for (let gx = r.x + 120 + (row % 2) * 130; gx < r.x + r.w - 60; gx += 300) {
+        const y = gy + (rng() - 0.5) * 16;
+        if (rng() < 0.75) {
+          const tw = 170 + rng() * 30;
+          if (put("tent", gx, y, tw)) {
+            put(`crates-${Math.floor(rng() * 3)}`, gx + tw / 2 + 44, y - 4, 72 + rng() * 10);
+            if (rng() < 0.7) put("barrel", gx + tw / 2 + 98, y + 2, 34);
+            continue;
+          }
+        }
+        if (!put("flowerbed", gx, y, 92)) put(`crates-${Math.floor(rng() * 3)}`, gx, y, 76);
+      }
+  });
+
   // Each district's gate at its top, facing the walk.
   squares.forEach((s, i) => {
     const r = s.roads[0]!;

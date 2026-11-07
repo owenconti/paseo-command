@@ -777,17 +777,19 @@ draft, conflicts or failing checks), and "Linear Issues" (purple), four counting
 todo, blocked by a "Blocked" state or label or an open blocking issue; paged up to 2,000, past which counts are lower bounds,
 `atLeast`, shown "N+"); both asked by `useVillageCounts` (`web/src/villageCounts.ts`) every minute while the Village shows, as
 `AtlasData.dashboard`; off or keyless, their tiles dim and their cards say why. Below them a district per host with workspaces (the
-Atlas's host order, `hostGroups`), packed in shelves so the fit shows them largest (less the panel's fifth), close together with a hedge and forest strip
-between: its own hedged cobbled plaza with a gate, its crystal fountain and its host's plaque (name, status dot,
-`CPU · MEM · DISK`, ≥ 90% red; the map's only text); offline hosts' districts dimmed. Each project with workspaces is one cluster
-on its own lawn (`lawns`, grass over the plaza, its edges under hedges and flowers, a low fence along its front), either side of
-the fountain (each to the shorter column; a column's last lawn reaches the district's foot as a garden): its hall at the back
-(`PROJECT_HALLS`, seeded per project, never the dashboards' blue or purple roofs, neighbours differing), its workspaces' cottages
-(`cottage-0..5`, all at one scale, the widest about 55% of a hall's frame) oldest first: the first two beside the hall, as the
-Islands map's touch their landmark, more in rows in front either side of a stepping-stone lane from the hall's door (one a side,
-two past six); every row on a walkway of the artist's `path-stone-straight` pieces, the lane joining them. Each window holding a stained-glass pane for its PR's state
-(`cottage-pane-<tile>`, in the sheet's `pane` rect: merged green, review blue, draft amber, failing red, none slate) with the PR,
-Probe and auto-merge medallions on its roof; each agent is a robot on its cottage's doorstep (the sheet's `doorstep`), more fanning
+Atlas's host order, `hostGroups`), packed in shelves (each district in the shape, two cluster columns either side of its fountain, one beside it or one
+below it, and as many to a row as let the fit show the town largest with the fewest gaps; a narrower row widens its
+districts' paving into a market of stalls, crates, barrels and planters, never woods in the town's middle), close together
+with a hedge and forest strip between: its own hedged cobbled plaza with a gate, its crystal fountain and its host's plaque
+(name, status dot, `CPU · MEM · DISK`, ≥ 90% red; the map's only text); offline hosts' districts dimmed. Each project with
+workspaces is one cluster on its own lawn (`lawns`, grass over the plaza just round the cluster, its edges under hedges and
+flowers, a low fence along its front): its hall at the back (`PROJECT_HALLS`, seeded per project, never the dashboards' blue
+or purple roofs, neighbours differing), its workspaces' cottages (`cottage-0..5`, all at one scale, the widest about 55% of a
+hall's frame) oldest first beside it, two a side (as the Islands map's touch their landmark), then in rows of four in front
+either side of a stepping-stone lane from the hall's door; every row on a walkway of the artist's `path-stone-straight`
+pieces, the lane joining them. Each cottage's window holds a stained-glass pane for its PR's state
+(`cottage-pane-<tile>`, in the sheet's `pane` rect: merged green, review blue, draft amber, failing red, none slate), the PR,
+Probe and auto-merge medallions sit on its roof; each agent is a robot on its cottage's doorstep (the sheet's `doorstep`), more fanning
 out to its right, in provider colours (`robotColor`), with a floor light in the Atlas's state colour (pulsing for states that need
 you), markers and drones; agents without a workspace wait at a camp's tent in their host's district. A hall's two lamps light while
 any of its agents runs and its roof flares for what needs you; each fountain glows and flares likewise. Picking: a robot, a cottage,
