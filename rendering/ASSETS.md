@@ -929,7 +929,8 @@ These are useful original coast parts, not a pixel-identical reconstruction of t
 
 ## Dungeon Board
 
-Version 3 was generated with the built-in `image_gen` tool on 2026-11-06.
+The architecture is v3 and robots are v4. Artwork was generated with the built-in
+`image_gen` tool on 2026-11-06.
 The private `design/references/dungeon-concept.png` was inspected at 3×,
 particularly its LOCAL floor, left terrace, workspace recess and central gate.
 It is a style/composition reference only: no reference pixels enter the sheets.
@@ -967,9 +968,9 @@ pieces, `rampart-t-down`, and `terrace-floor` (tile xy).
 blank opening for the host icon. Existing `gate-arch` and `gate-medallion`
 remain separate usable pieces.
 
-Native concept sizing guides the art: a robot's body is approximately 36×42 px
-(108×126 sheet pixels), tightly registered with only a small transparent margin;
-a workspace label is 120×35, the host plaque 275×65, and the project medallion
+Native concept sizing guides the art: the v3 robot design was approximately
+36×42 px. V4 uses approximately 150×175 visible sheet pixels, with the renderer
+fitting its trimmed alpha to the display size. A workspace label is 120×35, the host plaque 275×65, and the project medallion
 55 px across. The label's nine-slice also produces a 195×38 project label without
 stretching its corners. The lower gate arch is 145 px wide and its portcullis
 85 px wide. Stair sections include their block side walls: about 120 px overall
@@ -1055,8 +1056,8 @@ V3 used two further built-in generations: the four recesses and the three upper
 wall pieces. Exact prompts and source filenames are in `v3_generations` in
 `prompts.json`; originals remain private in `artifacts/dungeon/v3/`.
 The recolouring updates `stone`, `gate`, `alcoves`, the stone medallion in
-`ui`, and stone/steel portions of selected `props`. Robots and status art retain
-v2 pixels. V2 sheets, metadata, builder and review images are preserved in
+`ui`, and stone/steel portions of selected `props`. In v3, robots and status art
+retained v2 pixels; the v4 robots below now replace that robot set. V2 sheets, metadata, builder and review images are preserved in
 `artifacts/dungeon/v2/`, including `v2/assets/`.
 
 Colour calibration sampled the private concept's stone-only regions, filtering
@@ -1068,6 +1069,39 @@ sRGB profile and Pillow/LittleCMS's 8-bit Lab encoding. Comparisons of the gate,
 rampart, pier and wall are in `artifacts/dungeon/v3/tone-comparison.png`.
 The four recesses with separately composited props and the upper-wall dressing
 are shown in `artifacts/dungeon/v3/rooms-mock.png`.
+
+V4 updates only the robot sheet's artwork and frame map, retaining all 80 names
+and `scale: 3`. A new built-in generation uses the v3 robots as the design
+reference: stronger top/left rim light inside the dark outline, a glossy head
+glint, and cyan-white eye bloom contained by the visor. Ten shell palettes are
+more vivid; the white shell stays white and the grey shell medium steel-grey.
+The connected dark visor, white pupils, eye bloom, cyan lamps/thrusters and dark
+outlines are protected while recolouring.
+
+Visible idle bodies are 150×175 pixels (about 1.4× the v3 sampling resolution);
+drones are 63×42 pixels. Calm idle breathing changes height by three pixels,
+with a blink. Four generated work poses have larger arm gestures and a
+21-pixel crouch/rise cycle. Their feet are individually registered to one
+common centre and baseline, within one pixel, so their head/body motion remains
+intentional. All frames in each animation share a canvas and bottom-centre
+ground-contact anchor. Flying drones use the same bottom-centre convention
+at their thruster bases.
+
+The exact v4 prompt and source filename are retained in `v4_generations` in
+`prompts.json`. V3's `robots.png` and `robots.json` are preserved privately
+in `artifacts/dungeon/v3/`. The new raw source is ignored at
+`artifacts/dungeon/v4/robots-raw.png`. The updated builder supports
+`--robots-only` to stage/check only the robot replacement, and
+`--robots-only --publish` to atomically replace its checked PNG/JSON and
+provenance. Other live sheets are not rewritten by that path.
+
+`artifacts/dungeon/robots-v4.png` compares every body colour and two drone
+colours against v3 at exactly the same displayed alpha bounds on the board's
+stone. `artifacts/dungeon/v4/work-poses.png` and `work-animation.gif` show
+the registered work cycle. The contact sheet includes all 235 frames with the
+new robots. Validation checks the original name set, scale, shared animation
+dimensions/anchors, feet positions, visible body resolution, bob amplitude,
+alpha cleanliness and gutters before replacement.
 
 Remaining differences: the concept's masonry has more bespoke pixel-like chips,
 uneven joints and integrated painted shadows. V3 is smoother, its joins and

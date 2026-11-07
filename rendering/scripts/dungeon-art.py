@@ -8,7 +8,7 @@ from pathlib import Path
 import json, math, re, argparse, os, shutil, statistics
 
 LIVE = Path('rendering/src/assets/dungeon')
-OUT = Path('rendering/artifacts/dungeon/v3/staging')
+OUT = Path('rendering/artifacts/dungeon/v4/staging')
 ART = Path('rendering/artifacts/dungeon')
 RESAMPLE = Image.Resampling.LANCZOS
 SHEETS = {}
@@ -427,6 +427,8 @@ def colour_match():
     provenance=json.loads((OUT/'prompts.json').read_text());provenance['v3_colour_transfer']=model;(OUT/'prompts.json').write_text(json.dumps(provenance,indent=2)+'\n')
 
 def build():
+    OUT.mkdir(parents=True,exist_ok=True)
+    if not (OUT/'prompts.json').exists():shutil.copy2(LIVE/'prompts.json',OUT/'prompts.json')
     build_v2()
     rooms=source('v3-rooms');dressing=source('v3-dressing')
     for n,im in zip(['room-arch','room-cave','room-magic','room-forge'],rooms):add('stone',n,fit(im,(390,600),True),'feet')
@@ -434,6 +436,7 @@ def build():
     add('stone','window-arch',fit(dressing[1],(195,270),True),'feet')
     add('props','chain-pair',fit(dressing[2],(180,300),True),'top')
     colour_match()
+    build_robots_v4()
 
 def pack():
     OUT.mkdir(parents=True,exist_ok=True)
@@ -670,9 +673,158 @@ def publish():
         temp=dest.with_suffix('.py.v3-ready');shutil.copy2(script,temp);os.replace(temp,dest)
     (LIVE/'build.py').unlink(missing_ok=True)
 
+def visor_mask(im):
+    """Protect the connected dark visor and its enclosed white eyes/bloom."""
+    w,h=im.size;px=list(im.getdata());mask=bytearray(w*h)
+    for y in range(h):
+        for x in range(w):
+            r,g,b,a=px[y*w+x]
+            if .08*w<x<.92*w and .16*h<y<.75*h and a>100 and max(r,g,b)<95 and g>=r*.90:mask[y*w+x]=1
+    best=[]
+    for root in range(w*h):
+        if mask[root]!=1:continue
+        todo=[root];mask[root]=2;c=[]
+        while todo:
+            k=todo.pop();c.append(k);x=k%w;y=k//w
+            for xx,yy in [(x-1,y),(x+1,y),(x,y-1),(x,y+1)]:
+                if 0<=xx<w and 0<=yy<h:
+                    q=yy*w+xx
+                    if mask[q]==1:mask[q]=2;todo.append(q)
+        if len(c)>len(best):best=c
+    rows={}
+    for k in best:
+        x=k%w;y=k//w
+        if y not in rows:rows[y]=[x,x]
+        else:rows[y]=[min(rows[y][0],x),max(rows[y][1],x)]
+    out=bytearray(w*h)
+    for y,(a,b) in rows.items():
+        for x in range(max(0,a-1),min(w,b+2)):out[y*w+x]=1
+    return out
+
+def tint_v4(im,name):
+    targets={'orange':(255,124,16),'white':(250,252,255),'blue':(0,178,255),'purple':(174,58,255),'green':(56,229,32),'yellow':(255,215,12),'red':(255,55,52),'grey':(120,134,149),'teal':(0,226,197),'pink':(255,86,184)}
+    protected=visor_mask(im);result=[]
+    for idx,(r,g,b,a) in enumerate(im.getdata()):
+        if not a:result.append((0,0,0,0));continue
+        # Leave dark outlines, cyan lamps/thrusters, eye whites/bloom, and warm
+        # bounce intact. Only the neutral ceramic shell is recoloured.
+        shell=not protected[idx] and min(r,g,b)>62 and max(r,g,b)>94 and b>=g*.82 and r>=g*.82
+        if not shell:result.append((r,g,b,a));continue
+        lum=(r*.25+g*.55+b*.20)/255
+        highlight=max(0,min(1,(lum-.88)/.12))**1.3*.92
+        shade=min(1.16,.44+.88*lum)
+        if name=='white':
+            # White remains white, distinct from the medium steel-grey shell.
+            neutral=min(255,round(255*(.15+.85*lum)))
+            result.append((neutral,min(255,neutral+1),min(255,neutral+4),a))
+        else:
+            t=targets[name];result.append(tuple(min(255,round(v*shade*(1-highlight)+255*highlight)) for v in t)+(a,))
+    out=im.copy();out.putdata(result);return out
+
+def build_robots_v4():
+    raw=Image.open(ART/'v4/robots-raw.png').convert('RGBA');parts=[]
+    for y in range(2):
+        for x in range(4):
+            im=trim(raw.crop((round(x*raw.width/4),round(y*raw.height/2),round((x+1)*raw.width/4),round((y+1)*raw.height/2))))
+            # Tight alpha bounds after cleaning; no extra visible-body margins.
+            im=prune_micro(clean(im,24));im=im.crop(im.getchannel('A').getbbox());parts.append(im)
+    SHEETS['robots']=[]
+    for n in list(SPRITES):
+        if n.startswith('robot-') or n.startswith('drone-'):del SPRITES[n];META.pop(n,None)
+    # Consistent scale with visible work bob; all robot feet share one baseline.
+    heights=[175,172,154,175,158,175,42,42]
+    for color in ['orange','white','blue','purple','green','yellow','red','grey','teal','pink']:
+        for idx,src in enumerate(parts):
+            drone=idx>=6
+            body=fit(src,(63 if drone else 150,heights[idx]),True);body=tint_v4(body,color)
+            canvas=Image.new('RGBA',(73,52) if drone else (172,185));baseline=48 if drone else 179
+            dx=(canvas.width-body.width)//2
+            if not drone:
+                b=body.getchannel('A').getbbox();foot=body.getchannel('A').crop((0,b[3]-20,body.width,b[3])).getbbox()
+                dx=round(canvas.width/2-(foot[0]+foot[2])/2)
+                if dx<0 or dx+body.width>canvas.width:raise ValueError('Robot registration would clip '+str(idx))
+            canvas.alpha_composite(body,(dx,baseline-body.height))
+            name=f'robot-{color}-idle-{idx}' if idx<2 else f'robot-{color}-work-{idx-2}' if idx<6 else f'drone-{color}-{idx-6}'
+            # Relative sheet-pixel anchor at ground contact / thruster base.
+            anchor=(canvas.width/2+2,baseline+2)
+            add('robots',name,canvas,anchor,**({'fps':2 if idx==0 else 6 if idx==2 else 4} if idx in [0,2,6] else {}))
+
+def load_live_art():
+    for path in sorted(LIVE.glob('*.json')):
+        if path.stem=='prompts':continue
+        j=json.loads(path.read_text());atlas=Image.open(LIVE/j['image']).convert('RGBA')
+        for n,f in j['frames'].items():
+            SPRITES[n]=atlas.crop((f['x'],f['y'],f['x']+f['w'],f['y']+f['h']));META[n]={k:v for k,v in f.items() if k not in ['x','y','w','h']}
+
+def robot_v4_comparison():
+    oldj=json.loads((ART/'v3/robots.json').read_text());oldpng=Image.open(ART/'v3/robots.png').convert('RGBA')
+    stonej=json.loads((LIVE/'stone.json').read_text());stonepng=Image.open(LIVE/'stone.png').convert('RGBA')
+    f=stonej['frames']['terrace-floor'];tile=stonepng.crop((f['x'],f['y'],f['x']+f['w'],f['y']+f['h']))
+    review=Image.new('RGBA',(2040,1520),'#1c192a');d=ImageDraw.Draw(review)
+    for y in [80,320,560,800,1040,1280]:
+        for x in range(0,2040,tile.width):review.alpha_composite(tile,(x,y))
+    colors=['orange','white','blue','purple','green','yellow','red','grey','teal','pink']
+    def shown(im):
+        im=im.crop(im.getchannel('A').getbbox());return im.resize((108,126),RESAMPLE)
+    for i,c in enumerate(colors):
+        col=i%2;row=i//2;x=col*1020;y=row*240+90
+        n=f'robot-{c}-idle-0';f=oldj['frames'][n];a=oldpng.crop((f['x'],f['y'],f['x']+f['w'],f['y']+f['h']))
+        review.alpha_composite(shown(a),(x+170,y+35));review.alpha_composite(shown(SPRITES[n]),(x+570,y+35))
+        d.text((x+30,y-25),c+' / same displayed body size',fill='white');d.text((x+180,y+170),'V3',fill='white');d.text((x+580,y+170),'V4',fill='white')
+    d.text((20,20),'ROBOTS V4 / V3 and V4 at identical displayed alpha bounds / dungeon stone',fill='white')
+    for x,c in [(0,'blue'),(1020,'purple')]:
+        n=f'drone-{c}-0';f=oldj['frames'][n];a=oldpng.crop((f['x'],f['y'],f['x']+f['w'],f['y']+f['h']));a=a.crop(a.getchannel('A').getbbox()).resize((45,30),RESAMPLE)
+        b=SPRITES[n];b=b.crop(b.getchannel('A').getbbox()).resize((45,30),RESAMPLE)
+        review.alpha_composite(a,(x+200,1360));review.alpha_composite(b,(x+600,1360));d.text((x+30,1295),c+' drone / same displayed body size',fill='white');d.text((x+200,1430),'V3',fill='white');d.text((x+600,1430),'V4',fill='white')
+    review.convert('RGB').save(ART/'robots-v4.png',optimize=True)
+    # Motion proof keeps the fixed feet anchor, rather than fitting each pose.
+    gif=[]
+    for idx in range(4):
+        can=Image.new('RGBA',(540,270),'#211c33')
+        for x in range(0,540,tile.width):can.alpha_composite(tile,(x,75))
+        im=SPRITES[f'robot-blue-work-{idx}'];can.alpha_composite(im,(175,45));gif.append(can.convert('RGB'))
+    gif[0].save(ART/'v4/work-animation.gif',save_all=True,append_images=gif[1:],duration=165,loop=0)
+    poses=Image.new('RGBA',(800,275),'#211c33');d=ImageDraw.Draw(poses)
+    for i in range(4):poses.alpha_composite(SPRITES[f'robot-blue-work-{i}'],(i*195+5,35));d.text((i*195+15,235),f'work-{i}',fill='white')
+    poses.convert('RGB').save(ART/'v4/work-poses.png')
+
+def validate_robots_v4():
+    j=json.loads((OUT/'robots.json').read_text());im=Image.open(OUT/'robots.png').convert('RGBA');frames=j['frames'];old=json.loads((ART/'v3/robots.json').read_text())['frames'];errors=[]
+    if set(frames)!=set(old):errors.append('Frame names changed')
+    if j['scale']!=3:errors.append('Scale changed')
+    boxes={}
+    for n,f in frames.items():
+        box=(f['x'],f['y'],f['x']+f['w'],f['y']+f['h']);v=im.crop(box);b=v.getchannel('A').getbbox();boxes[n]=b
+        if not b:errors.append(n+' empty');continue
+        if abs(f['anchor']['x']-f['w']/2)>.01 or abs(f['anchor']['y']-b[3])>3:errors.append(n+' feet anchor')
+        if n.startswith('robot-'):
+            foot=v.getchannel('A').crop((0,b[3]-20,v.width,b[3])).getbbox()
+            if abs((foot[0]+foot[2])/2-f['anchor']['x'])>1:errors.append(n+' feet centre moved')
+    for c in ['orange','white','blue','purple','green','yellow','red','grey','teal','pink']:
+        heights=[boxes[f'robot-{c}-work-{i}'][3]-boxes[f'robot-{c}-work-{i}'][1] for i in range(4)]
+        if max(heights)-min(heights)<15:errors.append(c+' weak work bob')
+    report={'frames':len(frames),'scale':j['scale'],'same_names_as_v3':set(frames)==set(old),'idle_visible_bounds':{c:[boxes[f'robot-{c}-idle-0'][2]-boxes[f'robot-{c}-idle-0'][0],boxes[f'robot-{c}-idle-0'][3]-boxes[f'robot-{c}-idle-0'][1]] for c in ['white','blue','grey']},'work_bob_pixels':max(heights)-min(heights),'errors':errors}
+    (ART/'v4/robot-validation.json').write_text(json.dumps(report,indent=2)+'\n');print(json.dumps(report,indent=2))
+    if errors:raise SystemExit(1)
+
+def robots_only(publish_live=False):
+    global OUT
+    OUT=ART/'v4/staging';OUT.mkdir(parents=True,exist_ok=True)
+    for p in LIVE.iterdir():
+        if p.suffix in ['.png','.json'] and not (p.name=='prompts.json' and (OUT/p.name).exists()):shutil.copy2(p,OUT/p.name)
+    load_live_art();build_robots_v4();pack();validate();validate_robots_v4();contact();robot_v4_comparison()
+    if publish_live:
+        for n in ['robots.png','robots.json','prompts.json']:
+            tmp=LIVE/(n+'.v4-ready');shutil.copy2(OUT/n,tmp);os.replace(tmp,LIVE/n)
+        src=Path(__file__);dest=Path('rendering/scripts/dungeon-art.py')
+        if src.resolve()!=dest.resolve():
+            tmp=dest.with_suffix('.py.v4-ready');shutil.copy2(src,tmp);os.replace(tmp,dest)
+
+
 if __name__=='__main__':
-    parser=argparse.ArgumentParser();parser.add_argument('--validate-only',action='store_true');parser.add_argument('--publish',action='store_true');parser.add_argument('--publish-staged',action='store_true');args=parser.parse_args()
-    if args.validate_only:
+    parser=argparse.ArgumentParser();parser.add_argument('--validate-only',action='store_true');parser.add_argument('--publish',action='store_true');parser.add_argument('--publish-staged',action='store_true');parser.add_argument('--robots-only',action='store_true');args=parser.parse_args()
+    if args.robots_only:robots_only(args.publish)
+    elif args.validate_only:
         OUT=LIVE;validate()
     elif args.publish_staged:validate();publish()
     else:

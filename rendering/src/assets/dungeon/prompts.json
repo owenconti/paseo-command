@@ -49,7 +49,7 @@
       "review_source": "status-raw.png"
     }
   },
-  "version": 3,
+  "version": 4,
   "v2_generations": {
     "v2-ramparts": {
       "prompt": "Use case: stylized-concept. Production game sprite atlas, original Dungeon Board artwork. Input is a PRIVATE STYLE REFERENCE crop only; do not reproduce the scene or its letters. Match it closely: HD pixel-art-flavoured hand-painted fantasy game illustration, smooth detailed shading with a little pixel texture, chunky readable dark outlined forms, NOT strict-grid pixel art, NOT vector or a 3D render. Camera in front and ABOVE at about 30 degrees elevation, like the crop: lit TOP faces plus darker FRONT faces and short visible SIDE faces; not a flat front elevation. Large lavender/periwinkle GREY stone blocks: light top faces #9a90c8 to #b4a9de, mid front faces #6a5f9a, dark mortar/outlines #2a2340. Strong top-left bevel highlight. Few small chips, smooth stone, NO purple glitter, NO busy speckles. Darker small purple-grey back-wall bricks. Warm yellow candle bounce on lower edges, gentle top-left ambient. Exterior truly transparent alpha, no matte, no checkerboard, no background. No words or numbers, no labels attached to architecture. All objects fully inside their own cell with wide empty gutters. EXACT 4 columns x 3 rows of equal cells, twelve modular LOW WALL pieces at the same scale, not full-height walls. Thick large blocks showing broad lit top planes and a darker front face, low wall height about 22 concept pixels, one block thick. NO gold trim. Row 1: horizontal STRAIGHT low wall run, three large blocks across, parallel horizontal edges, 3:1 wide/height; vertical STRAIGHT low wall run, column of three top faces with a narrow darker RIGHT side face visible, 1:3 wide/height; L wall corner top-left with runs extending right and down; L wall corner top-right with runs extending left and down. Row2: L wall corner bottom-left runs right and up; L wall corner bottom-right runs left and up; horizontal wall's LEFT exposed end block; horizontal wall's RIGHT exposed end block. Row3: vertical wall's TOP exposed end block; vertical wall's BOTTOM exposed end block; T junction horizontal wall with vertical wall departing down from middle; rectangular patch of warm candlelit flagstone FLOOR viewed from above at the same camera angle, laid as chunky irregular grey/periwinkle slabs with pale golden edge highlights, repeatable surface, no border. Make every corner fit the same block thickness and scale as the straight runs. Avoid isometric diamonds; horizontal runs follow the screen horizontal, vertical ones follow the screen vertical. This is a reusable masonry kit, not a room or diorama.",
@@ -773,9 +773,9 @@
           7.265595021708582
         ],
         "median": [
-          37.0,
-          136.0,
-          112.0
+          37,
+          136,
+          112
         ]
       },
       {
@@ -868,9 +868,9 @@
               4.091620306237224
             ],
             "median": [
-              81.0,
-              140.0,
-              116.0
+              81,
+              140,
+              116
             ]
           },
           {
@@ -886,9 +886,9 @@
               3.90321178217967
             ],
             "median": [
-              110.0,
-              143.0,
-              108.0
+              110,
+              143,
+              108
             ]
           },
           {
@@ -924,9 +924,9 @@
               2.8296507616368505
             ],
             "median": [
-              37.0,
-              136.0,
-              113.0
+              37,
+              136,
+              113
             ]
           },
           {
@@ -942,9 +942,9 @@
               5.565106520210187
             ],
             "median": [
-              81.0,
-              141.0,
-              103.0
+              81,
+              141,
+              103
             ]
           },
           {
@@ -960,9 +960,9 @@
               4.267079055920632
             ],
             "median": [
-              110.0,
-              146.0,
-              94.0
+              110,
+              146,
+              94
             ]
           },
           {
@@ -1095,9 +1095,9 @@
               6.1647833811335815
             ],
             "median": [
-              81.0,
-              143.0,
-              107.0
+              81,
+              143,
+              107
             ]
           },
           {
@@ -1113,9 +1113,9 @@
               7.254288650245055
             ],
             "median": [
-              127.0,
-              148.0,
-              102.0
+              127,
+              148,
+              102
             ]
           },
           {
@@ -1131,9 +1131,9 @@
               6.808215147525195
             ],
             "median": [
-              177.0,
-              148.0,
-              103.0
+              177,
+              148,
+              103
             ]
           }
         ],
@@ -1187,9 +1187,9 @@
               7.781070362434796
             ],
             "median": [
-              127.0,
-              146.0,
-              94.0
+              127,
+              146,
+              94
             ]
           },
           {
@@ -1205,9 +1205,9 @@
               7.580208954503451
             ],
             "median": [
-              177.0,
-              141.0,
-              99.0
+              177,
+              141,
+              99
             ]
           }
         ],
@@ -1304,9 +1304,9 @@
               2.780821231371173
             ],
             "median": [
-              26.0,
-              136.0,
-              115.0
+              26,
+              136,
+              115
             ]
           },
           {
@@ -1322,9 +1322,9 @@
               3.071779287024051
             ],
             "median": [
-              73.0,
-              139.0,
-              113.0
+              73,
+              139,
+              113
             ]
           },
           {
@@ -1358,9 +1358,9 @@
               5.770153565111221
             ],
             "median": [
-              182.0,
-              145.0,
-              103.0
+              182,
+              145,
+              103
             ]
           }
         ],
@@ -1378,9 +1378,9 @@
               3.1327183123301943
             ],
             "median": [
-              30.0,
-              136.0,
-              112.0
+              30,
+              136,
+              112
             ]
           },
           {
@@ -1396,9 +1396,9 @@
               4.218424510611569
             ],
             "median": [
-              73.0,
-              140.0,
-              103.0
+              73,
+              140,
+              103
             ]
           },
           {
@@ -1432,9 +1432,9 @@
               7.450029075096905
             ],
             "median": [
-              182.0,
-              142.0,
-              98.0
+              182,
+              142,
+              98
             ]
           }
         ],
@@ -1605,9 +1605,9 @@
               2.2095269001319973
             ],
             "median": [
-              30.0,
-              135.0,
-              114.0
+              30,
+              135,
+              114
             ]
           },
           {
@@ -1641,9 +1641,9 @@
               2.648566334334284
             ],
             "median": [
-              138.0,
-              145.0,
-              97.0
+              138,
+              145,
+              97
             ]
           },
           {
@@ -1758,9 +1758,9 @@
               4.375063227090389
             ],
             "median": [
-              36.0,
-              137.0,
-              115.0
+              36,
+              137,
+              115
             ]
           },
           {
@@ -1776,9 +1776,9 @@
               5.288372681639403
             ],
             "median": [
-              77.0,
-              140.0,
-              111.0
+              77,
+              140,
+              111
             ]
           },
           {
@@ -1794,9 +1794,9 @@
               6.7122508484215855
             ],
             "median": [
-              124.0,
-              145.0,
-              110.0
+              124,
+              145,
+              110
             ]
           },
           {
@@ -1812,9 +1812,9 @@
               8.112318119127275
             ],
             "median": [
-              186.0,
-              147.0,
-              111.0
+              186,
+              147,
+              111
             ]
           }
         ],
@@ -1850,9 +1850,9 @@
               5.5177095226124155
             ],
             "median": [
-              77.0,
-              140.0,
-              102.0
+              77,
+              140,
+              102
             ]
           },
           {
@@ -1886,9 +1886,9 @@
               7.769654717513961
             ],
             "median": [
-              186.0,
-              141.0,
-              101.0
+              186,
+              141,
+              101
             ]
           }
         ],
@@ -1970,6 +1970,21 @@
         "mean_delta_L": 0.028673662591059336,
         "max_delta_L": 0.7843137254901961
       }
+    }
+  },
+  "v4_generations": {
+    "v4-robots": {
+      "prompt": "Use case: stylized-concept. Production transparent game animation sprite atlas EXACT 4 columns by 2 rows, eight equal cells with large transparent gutters. Input image is the EXISTING CHARACTER DESIGN reference: keep exactly this robot identity, helmet shape, proportions, face and stubby body, not a new robot. Draw the same clean WHITE ceramic helper robot six times plus two tiny flying head drones. Rounded-square large head, broad near-black visor, TWO white OVAL eyes, tiny cyan chest lamp, small rectangular torso, rounded stubby arms, two short dark feet. Front slightly three-quarter, camera in front and above, as input. Upgrade visual salience and detail: very clean bright rim light along TOP and LEFT shell edges, strong glossy specular glint on the upper-left of the head, white eyes have emissive cyan-white halos ONLY INSIDE the dark visor. Dark purple-black outer outline stays crisp and contrasts with dungeon stone; do not replace it with a white outer silhouette. Shell WHITE for later consistent recolouring, neutral white/grey shading, a little warm reflected light only below. Smooth rich painted glossy game illustration, no shell flecks, not flat vector, not strict 8-bit or photoreal/3D. Visible robot body in each full frame will be about 150px wide and 175px tall after slicing; draw high-resolution crisp material detail. Row1: (1) IDLE0 calm neutral standing eyes open, arms close to sides; (2) IDLE1 calm small breathing squash and blink, eyes as narrow softly glowing dashes; (3) WORK0 busy crouched DOWN, both hands extended forward and outward actively working, head slightly lowered; (4) WORK1 sprung UP, left hand raised high beside head, right hand forward, head and torso visibly higher. Row2: (1) WORK2 busy down-and-right bob, both hands visibly across torso in the opposite direction; (2) WORK3 sprung UP with right hand high beside head and left hand forward, alternate motion to work1; (3) DRONE0 matching tiny floating helmet and dark two-eyed visor, two small side thrusters, no body or feet; (4) DRONE1 same tiny drone with brighter thrusters and a slight hover bob. Work arm motions must be LARGE and read as busy at a glance, not near-identical resting hands. Keep four work frames on the SAME feet baseline and same scale; motion happens above that baseline, feet remain small and registered. No keyboard or tools, no motion symbols, no text, no floor, no shadows, no aura outside the robot, no extra props, no labels. All eight sprites fully inside their cells.",
+      "source_filename": "exec-f7f26211-b87d-46c5-8238-74b81b911f05.png",
+      "review_source": "v4/robots-raw.png",
+      "reference_images": [
+        "v4/design-reference.png"
+      ],
+      "grid": {
+        "columns": 4,
+        "rows": 2
+      },
+      "notes": "Same robot design; higher resolution, bright top/left rim light, specular gloss, eye bloom, strong work poses. Ten shell-only palette variants protect visor/eyes/outline. Raw source poses registered at a common foot baseline; calm idle breath 3px, work bob 21px."
     }
   }
 }
