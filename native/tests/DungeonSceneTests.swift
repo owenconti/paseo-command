@@ -52,7 +52,7 @@ scene.setScene([
     ],
     "images": [] as [[String: Any]],
     "flags": [["ws": "w1", "flag": "ci-green", "f": "pr-ci-green", "x": 100.0, "y": 300.0, "w": 18.0, "h": 18.0, "z": 5.0, "cx": 109.0, "cy": 309.0, "s": 18.0]],
-    "lights": [["x": 0.0, "y": 100.0, "c": 0xffb640, "r": 60.0, "flicker": true]],
+    "lights": [["x": 0.0, "y": 100.0, "c": 0xffb640, "r": 60.0, "flicker": true, "still": 1.0]],
     "entities": [
         ["id": "p1", "kind": "project", "x": 100.0, "y": 140.0, "w": 200.0, "h": 90.0],
         ["id": "w1", "kind": "workspace", "x": 80.0, "y": 280.0, "w": 260.0, "h": 110.0],
@@ -152,5 +152,15 @@ pump(2)
 let rested = scene.framesDrawn
 pump(0.6)
 assert(scene.framesDrawn - rested <= 1, "nothing moves with reduced motion, so it rests")
+
+// With only the flames' slow flicker and resting robots (steady light, nothing selected), it idles at the drift rate;
+// a robot at work brings back the ambient rate.
+scene.setMotion(reduced: false)
+scene.setAgents(["rev": 3, "robots": [["id": "a1", "x": 182.0, "y": 332.0, "w": 36.0, "h": 42.0, "idle": ["robot-orange-idle-0", "robot-orange-idle-1"],
+    "work": ["robot-orange-work-0"], "busy": false, "ph": 0.3]], "lights": [["x": 0.0, "y": 100.0, "r": 40.0, "still": 1.0]]], images: [:])
+assert(!scene.animating && scene.drifting, "only flames and resting robots: the drift rate")
+scene.setAgents(["rev": 4, "robots": [["id": "a1", "x": 182.0, "y": 332.0, "w": 36.0, "h": 42.0, "idle": ["robot-orange-idle-0"],
+    "work": ["robot-orange-work-0", "robot-orange-work-1"], "busy": true, "ph": 0.3]]], images: [:])
+assert(scene.animating, "a robot at work: the ambient rate")
 
 print("DungeonScene: ok")

@@ -48,7 +48,7 @@ final class DungeonScene: SKScene, MapScene {
 
     private struct Anim { let node: SKSpriteNode; let frames: [SKTexture]; let fps: Double; let phase: Double }
     private struct Pulse { let node: SKNode; let base: CGFloat; let period: Double; let phase: Double; let low: CGFloat }
-    private struct Glow { let node: SKSpriteNode; let period: Double; let phase: Double; let flicker: Bool; var k: CGFloat = 1 }
+    private struct Glow { let node: SKSpriteNode; let period: Double; let phase: Double; let flicker: Bool; var k: CGFloat = 1; var still = false }
     private struct Robot {
         let id: String
         let node: SKSpriteNode
@@ -490,7 +490,7 @@ final class DungeonScene: SKScene, MapScene {
         glow.blendMode = .add
         glow.position = p(num(l["x"]), num(l["y"]))
         glow.zPosition = num(l["z"], 6)
-        glows.append(Glow(node: glow, period: l["period"] as? Double ?? 2400, phase: Double(num(l["ph"])), flicker: l["flicker"] as? Bool ?? true, k: num(l["k"], 1)))
+        glows.append(Glow(node: glow, period: l["period"] as? Double ?? 2400, phase: Double(num(l["ph"])), flicker: l["flicker"] as? Bool ?? true, k: num(l["k"], 1), still: num(l["still"]) > 0))
         return glow
     }
 
@@ -869,10 +869,18 @@ final class DungeonScene: SKScene, MapScene {
 
     // MARK: Frames
 
+    /// Smooth motion needs the ambient rate: breathing or flaring light, pulses, the running rings and markers,
+    /// drones, robots at work (they hop), the selection's breath.
     var animating: Bool {
-        !reduced && (!sceneAnims.isEmpty || !agentAnims.isEmpty || !sceneGlows.isEmpty || !agentGlows.isEmpty || !robots.isEmpty || selected != nil)
+        guard !reduced else { return false }
+        return selected != nil || !scenePulses.isEmpty || !agentPulses.isEmpty || !rimRunners.isEmpty || !markPulses.isEmpty
+            || (sceneGlows + agentGlows).contains { !$0.still }
+            || robots.contains { !$0.still && ($0.busy || !$0.drones.isEmpty) }
     }
-    var drifting: Bool { false }
+    /// Only frame flips (the flames' slow flicker) and resting robots' breath: the slower drift rate is enough.
+    var drifting: Bool {
+        !reduced && (!sceneAnims.isEmpty || !agentAnims.isEmpty || robots.contains { !$0.still })
+    }
     var lively: Bool {
         animation != nil || down != nil || !keys.isEmpty || CACurrentMediaTime() - lastInteraction < 1.5
     }
@@ -919,6 +927,8 @@ final class DungeonScene: SKScene, MapScene {
             pulse.node.alpha = pulse.base * CGFloat(k)
         }
         for g in sceneGlows + agentGlows {
+            // Steady light (the building's pools, torches and spotlights) holds its mean brightness.
+            if g.still { g.node.alpha = 0.82 * g.k; continue }
             if reduced { g.node.alpha = 0.85 * g.k; continue }
             let t = clock / g.period + g.phase
             let breath = 0.5 + 0.5 * cos(t * .pi * 2)

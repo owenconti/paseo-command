@@ -783,7 +783,7 @@ sit on each alcove's lintel with the Atlas's hover cards. The HUD (title with "N
 count bar) lies over the board in screen space, as the concept's does; the board fills the map. Each floor is assembled
 from the v2 kit as the art's reconstruction (`rendering/artifacts/dungeon/mock.png`) is: ramparts, the gate's surround,
 terrace floors, alcove sides, lintels and ledges. The page paints the host signs (`paintSign` in `bridge.ts`; the HUD keeps `ui-rounded`), purple shading on the upper walls and toward the board's edges, and posts top-left sprite
-boxes; `DungeonScene.swift` draws, animates (≈30 fps ambient, still with reduced motion), owns the camera (fit, bounded pan,
+boxes; `DungeonScene.swift` draws, animates (the background holds still so the agents draw the eye, the user's call: the magic circle, alchemy tank, crystal and portcullis show one frame, light pools are steady (`still`), and flames alone flicker slowly between two frames at `FLAME_FLICKER` (1/3; 0 stills them) of their old pace; robots, drones, state glows, markers and the glows' breath move as before; ≈30 fps while something moves smoothly, the 15 fps drift rate when only flames and resting robots do, still with reduced motion), owns the camera (fit, bounded pan,
 wheel, pinch, arrows, F/Home), hover and selection as the Village's (`SpriteGlow.swift`, its colours,
 strength and spread: a warm white halo just outside the hovered thing's silhouette, a breathing gold one, with a wider pass, outside
 the selected thing's; a robot's body and a PR medallion by their own sprites at the Village's 5%; an alcove (frame and bay) and a

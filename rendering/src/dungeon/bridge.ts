@@ -64,6 +64,9 @@ const FONT = 'ui-rounded, "SF Pro Rounded", "Arial Rounded MT Bold", "Paseo Barl
 const HEAVY = 800;
 const BOLD = 700;
 const INK = "#2a1a0e";
+/** How much the flames move, as a share of their old speed (0: still). Their light pools never flicker. */
+export const FLAME_FLICKER = 1 / 3;
+const FLAMES = new Set(["torch", "candle", "brazier", "forge", "candelabra", "wall-candles"]);
 /** Props that stand on a floor (contact shadows at their feet). */
 const STANDING = new Set(["barrel", "barrels", "crate", "crates", "armor", "bookcase-ladder", "alchemy-tank", "crystal", "forge", "anvil", "table", "scroll-desk", "brazier", "candelabra"]);
 /** The host sign's lettering: an old-style serif painted on wood (the HUD keeps its own face). */
@@ -448,10 +451,13 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
   };
   type Sprite = Record<string, unknown>;
   const sprite = (name: string, box: { x: number; y: number; w: number; h: number }, z: number, extra: Sprite = {}): Sprite => {
+    // The background holds still so the agents draw the eye (the user's call): props show one frame; flames alone flicker,
+    // slowly and faintly (`FLAME_FLICKER`), between their two nearest frames.
     const animated = ANIMATIONS[name] !== undefined;
+    const flame = animated && FLAMES.has(name) && FLAME_FLICKER > 0;
     return {
       f: animated ? `${name}-0` : name,
-      ...(animated ? { anim: framesOf(name), fps: name.startsWith("torch") || name.startsWith("candle") || name.startsWith("brazier") ? 8 : 6 } : {}),
+      ...(flame ? { anim: framesOf(name).slice(0, 2), fps: (name.startsWith("torch") || name.startsWith("candle") || name.startsWith("brazier") ? 8 : 6) * FLAME_FLICKER } : {}),
       x: box.x,
       y: box.y,
       w: box.w,
@@ -662,7 +668,7 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
       if (fl.last) put("stairs-bottom", fl.stairs.x, fl.stairs.y + fl.stairs.h - 29, fl.stairs.w, 29, -25.8, steps);
       sprites.push(
         fl.online
-          ? sprite("gate-portcullis-lit", fl.portcullis, -25, { pulse: 2600, a: 0.62, shade: 0.3 })
+          ? sprite("gate-portcullis-lit", fl.portcullis, -25, { a: 0.62, shade: 0.3 })
           : sprite("gate-portcullis-dark", fl.portcullis, -25, dim),
       );
       put("gate-arch", fl.arch.x, fl.arch.y, fl.arch.w, fl.arch.h, -24, dim);
@@ -876,6 +882,8 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
       if (FRAMES["light-spill-wall-0"]?.real)
         sprites.push(sprite(`light-spill-wall-${seedOf(`${x},${y}`) % 3}`, at("light-spill-wall-0", x, fy + 8, 64), -43.3, { add: 1, a: 0.6 }));
     }
+    // The building's light is steady: no breathing or flicker in its pools.
+    for (const l of lights) l.still = 1;
     return {
       type: "scene",
       build: ++builds,
@@ -957,9 +965,9 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
     // A warm white spotlight on the ledge under each robot, brighter than its surroundings.
     for (const a of l.agents)
       if (a.entity.state !== "offline") {
-        lights.push({ x: a.feet.x, y: a.feet.y - 18, c: 0xffe2b0, r: 50, flicker: false, period: 4000, z: 8.8, k: 0.8 });
+        lights.push({ x: a.feet.x, y: a.feet.y - 18, c: 0xffe2b0, r: 50, flicker: false, still: 1, period: 4000, z: 8.8, k: 0.8 });
         // A brighter heart to the spotlight, so the robots stay brighter than the warmer stone.
-        lights.push({ x: a.feet.x, y: a.feet.y - 24, c: 0xffecc8, r: 30, flicker: false, period: 4000, z: 8.85, k: 0.55 });
+        lights.push({ x: a.feet.x, y: a.feet.y - 24, c: 0xffecc8, r: 30, flicker: false, still: 1, period: 4000, z: 8.85, k: 0.55 });
       }
     for (const p of l.projects) {
       const online = l.floors[p.floor]!.online;
@@ -967,7 +975,7 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
       const lit = online && projectWorking(l, id);
       for (const t of p.torches) {
         sprites.push(sprite(lit ? "torch" : "torch-out", at("torch", t.x, t.y), -3.5, online ? {} : { dim: 1 }));
-        if (lit) lights.push({ x: t.x, y: t.y + 8, c: 0xffa03a, r: 56, period: 2400, flicker: true, ph: random(seedOf(id + t.x))(), k: 0.6 });
+        if (lit) lights.push({ x: t.x, y: t.y + 8, c: 0xffa03a, r: 56, period: 2400, flicker: false, still: 1, k: 0.6 });
       }
       const alarm = online ? projectAlarm(l, id) : undefined;
       if (alarm) lights.push({ x: p.mark.x, y: p.mark.y, c: STATE_TILE[alarm]!, r: 54, period: alarm === "failed" ? 1200 : 1800, flicker: false, z: 1.9, ph: 0 });
