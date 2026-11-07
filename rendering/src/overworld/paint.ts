@@ -138,6 +138,19 @@ const GRASS_GRADE: Grade = { hue: -13, saturate: 0.92, brightness: 1.04, contras
 
 const FINAL_GRADE: Grade = { contrast: 1.12, saturate: 1.18 };
 
+/** Measured: our painting's brightness at the 5/25/50/75/95th percentiles against the concept's. */
+const TONE = (() => {
+  const points: Array<[number, number]> = [[0, 0], [25, 27], [59, 47], [87, 82], [152, 155], [227, 237], [255, 255]];
+  const lut = new Uint8ClampedArray(256);
+  for (let v = 0; v < 256; v++) {
+    const k = points.findIndex(([x]) => x >= v);
+    const [x1, y1] = points[Math.max(1, k)]!;
+    const [x0, y0] = points[Math.max(0, k - 1)]!;
+    lut[v] = x1 === x0 ? y1 : y0 + ((v - x0) * (y1 - y0)) / (x1 - x0);
+  }
+  return lut;
+})();
+
 export function paintScene(ctx: Ctx, scene: Scene, sheets: Sheets, opts: PaintOptions): void {
   const { K } = opts;
   ctx.save();
@@ -180,6 +193,12 @@ export function paintScene(ctx: Ctx, scene: Scene, sheets: Sheets, opts: PaintOp
   const cv = ctx.canvas;
   const all = ctx.getImageData(0, 0, cv.width, cv.height);
   gradePixels(all.data, FINAL_GRADE);
+  // Tone curve: the concept's deeper shadows and brighter highlights (its brightness percentiles).
+  for (let i = 0; i < all.data.length; i += 4) {
+    all.data[i] = TONE[all.data[i]!]!;
+    all.data[i + 1] = TONE[all.data[i + 1]!]!;
+    all.data[i + 2] = TONE[all.data[i + 2]!]!;
+  }
   ctx.putImageData(all, 0, 0);
 }
 
