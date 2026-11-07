@@ -48,7 +48,7 @@ final class DungeonScene: SKScene, MapScene {
 
     private struct Anim { let node: SKSpriteNode; let frames: [SKTexture]; let fps: Double; let phase: Double }
     private struct Pulse { let node: SKNode; let base: CGFloat; let period: Double; let phase: Double; let low: CGFloat }
-    private struct Glow { let node: SKSpriteNode; let period: Double; let phase: Double; let flicker: Bool }
+    private struct Glow { let node: SKSpriteNode; let period: Double; let phase: Double; let flicker: Bool; var k: CGFloat = 1 }
     private struct Runner { let points: [CGPoint]; let lengths: [CGFloat]; let total: CGFloat; let head: SKSpriteNode; let trail: [SKSpriteNode]; let period: Double; let phase: Double }
     private struct Robot {
         let id: String
@@ -73,6 +73,8 @@ final class DungeonScene: SKScene, MapScene {
     private var runners: [Runner] = []
     private var robots: [Robot] = []
     private var droneOrbit: Double = 6000
+    /// The state glows drawn under robots (for checks).
+    private var stateGlows = 0
     private var hoverColors: [String: Int] = ["project": 0xffc83d, "workspace": 0xff7f32, "agent": 0x4fe6dc]
     private var clock: Double = 0
     private var lastTime: TimeInterval?
@@ -204,6 +206,7 @@ final class DungeonScene: SKScene, MapScene {
         appliedAt = CACurrentMediaTime()
         for (key, image) in newImages { images[key] = Textures.texture(image) }
         agentLayer.removeAllChildren()
+        stateGlows = 0
         agentAnims = []
         agentPulses = []
         agentGlows = []
@@ -227,10 +230,40 @@ final class DungeonScene: SKScene, MapScene {
             body.zPosition = 10
             if dim { darken(body) }
             agentLayer.addChild(body)
-            if let g = r["glow"] as? [String: Any], let glow = node(g, anims: &agentAnims, pulses: &agentPulses) {
-                glow.zPosition = 9
-                if let sprite = glow as? SKSpriteNode { sprite.blendMode = .add }
+            // Its halo, a soft glow round its silhouette in its colour, and its visor's glowing eyes: they move with it.
+            if let h = r["halo"] as? [String: Any], let f = h["f"] as? String, let tex = frames[f] {
+                let halo = SKSpriteNode(texture: tex, size: CGSize(width: num(h["w"]), height: num(h["h"])))
+                halo.position = CGPoint(x: box.width / 2, y: -box.height / 2)
+                halo.blendMode = .add
+                halo.alpha = 0.5
+                halo.zPosition = -0.5
+                body.addChild(halo)
+            }
+            if let e = r["eyes"] as? [String: Any] {
+                let w = num(e["w"], 30)
+                let eyes = SKSpriteNode(texture: DungeonScene.warmGlow, size: CGSize(width: w, height: w * 0.42))
+                eyes.color = Textures.color(Int(num(e["c"], 0x8ff0ff)))
+                eyes.colorBlendFactor = 1
+                eyes.blendMode = .add
+                eyes.alpha = 0.6
+                eyes.position = CGPoint(x: num(e["x"]), y: -num(e["y"]))
+                eyes.zPosition = 0.2
+                body.addChild(eyes)
+            }
+            // Its state's glow, an ellipse in the state's colour on the ledge round its feet (not added,
+            // which the ledge's light would wash out), over its halo, under its body.
+            if let g = r["glow"] as? [String: Any] {
+                let glow = SKSpriteNode(texture: DungeonScene.stateGlow, size: CGSize(width: num(g["w"], 60), height: num(g["h"], 22)))
+                glow.color = Textures.color(Int(num(g["c"], 0xffffff)))
+                glow.colorBlendFactor = 1
+                glow.alpha = num(g["a"], 0.9)
+                glow.position = p(num(g["x"]), num(g["y"]))
+                glow.zPosition = 9.7
                 agentLayer.addChild(glow)
+                stateGlows += 1
+                if let period = g["pulse"] as? Double {
+                    agentPulses.append(Pulse(node: glow, base: glow.alpha, period: period, phase: Double(num(r["ph"])), low: 0.45))
+                }
             }
             var mark: SKSpriteNode?
             var markHome = CGPoint.zero
@@ -332,7 +365,10 @@ final class DungeonScene: SKScene, MapScene {
             node.xScale = -1
             node.position = p(box.maxX, box.minY)
         }
-        if dim { darken(node) }
+        if dim { darken(node) } else if num(s["shade"]) > 0 {
+            node.color = DungeonScene.shadow
+            node.colorBlendFactor = num(s["shade"])
+        }
         if let names = s["anim"] as? [String] {
             let list = names.compactMap { frames[$0] }
             if list.count > 1 { anims.append(Anim(node: node, frames: list, fps: Double(num(s["fps"], 6)), phase: Double(num(s["ph"], CGFloat(Double(abs(box.minX * 7 + box.minY * 13).truncatingRemainder(dividingBy: 1000)) / 1000))))) }
@@ -405,7 +441,7 @@ final class DungeonScene: SKScene, MapScene {
         }
         let group = SKNode()
         group.zPosition = 1
-        for (width, color, alpha, add) in [(24.0, 0xff9a18, 0.16, true), (13.0, 0xffb02a, 0.34, true), (5.6, 0xffc23c, 1.0, false), (2.2, 0xfff6c8, 1.0, false)] as [(CGFloat, Int, CGFloat, Bool)] {
+        for (width, color, alpha, add) in [(22.0, 0xff9a18, 0.12, true), (12.0, 0xffb02a, 0.26, true), (5.4, 0xf2b63a, 1.0, false), (2.0, 0xfff0c0, 0.95, false)] as [(CGFloat, Int, CGFloat, Bool)] {
             let line = SKShapeNode(path: path)
             line.strokeColor = Textures.color(dim ? 0x6a6050 : color, dim ? alpha * 0.5 : alpha)
             line.lineWidth = width
@@ -422,12 +458,12 @@ final class DungeonScene: SKScene, MapScene {
     private func light(_ l: [String: Any], into glows: inout [Glow]) -> SKNode {
         let reach = num(l["r"], 40)
         let glow = SKSpriteNode(texture: DungeonScene.warmGlow, size: CGSize(width: reach * 2 + 2, height: reach * 2 + 2))
-        glow.color = Textures.color(l["c"] as? Int ?? 0xffffff)
+        glow.color = Textures.color(Int(num(l["c"], 0xffffff)))
         glow.colorBlendFactor = 1
         glow.blendMode = .add
         glow.position = p(num(l["x"]), num(l["y"]))
         glow.zPosition = num(l["z"], 6)
-        glows.append(Glow(node: glow, period: l["period"] as? Double ?? 2400, phase: Double(num(l["ph"])), flicker: l["flicker"] as? Bool ?? true))
+        glows.append(Glow(node: glow, period: l["period"] as? Double ?? 2400, phase: Double(num(l["ph"])), flicker: l["flicker"] as? Bool ?? true, k: num(l["k"], 1)))
         return glow
     }
 
@@ -440,6 +476,21 @@ final class DungeonScene: SKScene, MapScene {
         let colors = [CGColor(colorSpace: space, components: [1, 1, 1, 0.85])!, CGColor(colorSpace: space, components: [1, 1, 1, 0.32])!,
                       CGColor(colorSpace: space, components: [1, 1, 1, 0])!] as CFArray
         let gradient = CGGradient(colorsSpace: space, colors: colors, locations: stops)!
+        let c = CGPoint(x: px / 2, y: px / 2)
+        ctx.drawRadialGradient(gradient, startCenter: c, startRadius: 0, endCenter: c, endRadius: CGFloat(px) / 2, options: [])
+        let t = SKTexture(cgImage: ctx.makeImage()!)
+        t.filteringMode = .linear
+        return t
+    }()
+
+    /// A state's glow under a robot: solid to 60% of its radius, then a soft edge, so its colour reads.
+    static let stateGlow: SKTexture = {
+        let px = 128
+        let ctx = Textures.context(px, px)!
+        let space = CGColorSpace(name: CGColorSpace.sRGB)!
+        let colors = [CGColor(colorSpace: space, components: [1, 1, 1, 0.95])!, CGColor(colorSpace: space, components: [1, 1, 1, 0.8])!,
+                      CGColor(colorSpace: space, components: [1, 1, 1, 0])!] as CFArray
+        let gradient = CGGradient(colorsSpace: space, colors: colors, locations: [0, 0.6, 1])!
         let c = CGPoint(x: px / 2, y: px / 2)
         ctx.drawRadialGradient(gradient, startCenter: c, startRadius: 0, endCenter: c, endRadius: CGFloat(px) / 2, options: [])
         let t = SKTexture(cgImage: ctx.makeImage()!)
@@ -829,11 +880,11 @@ final class DungeonScene: SKScene, MapScene {
             pulse.node.alpha = pulse.base * CGFloat(k)
         }
         for g in sceneGlows + agentGlows {
-            if reduced { g.node.alpha = 0.85; continue }
+            if reduced { g.node.alpha = 0.85 * g.k; continue }
             let t = clock / g.period + g.phase
             let breath = 0.5 + 0.5 * cos(t * .pi * 2)
             let flicker = g.flicker ? 0.14 * sin(clock / 67 + g.phase * 40) * sin(clock / 109 + g.phase * 9) : 0
-            g.node.alpha = CGFloat((g.flicker ? 0.7 + 0.25 * breath : 0.6 + 0.4 * breath) + flicker)
+            g.node.alpha = g.k * CGFloat((g.flicker ? 0.7 + 0.25 * breath : 0.6 + 0.4 * breath) + flicker)
         }
         if selected != nil { breathe() }
         for r in robots {
@@ -844,7 +895,8 @@ final class DungeonScene: SKScene, MapScene {
                 let i = Int(floor(clock / 1000 * fps + r.phase * Double(list.count))) % max(list.count, 1)
                 if !list.isEmpty && r.node.texture !== list[i] { r.node.texture = list[i] }
                 // At rest a robot breathes; at work it hops a little.
-                dy = r.busy ? -abs(CGFloat(sin((clock / 260 + r.phase * 7)))) * 1.2 : CGFloat(sin(clock / 900 + r.phase * 6)) * 0.6
+                // At work it hops visibly as its arms move; at rest it only breathes.
+                dy = r.busy ? -abs(CGFloat(sin((clock / 220 + r.phase * 7)))) * 3.2 : CGFloat(sin(clock / 1100 + r.phase * 6)) * 0.5
             } else if let first = r.idle.first, r.node.texture !== first {
                 r.node.texture = first
             }
@@ -906,6 +958,7 @@ final class DungeonScene: SKScene, MapScene {
             "nodes": countNodes(self),
             "robots": robots.count,
             "runners": runners.count,
+            "stateGlows": stateGlows,
             "motion": !reduced,
             "frames": frames.count,
             "sceneRevision": sceneRevision,

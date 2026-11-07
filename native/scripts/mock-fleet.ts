@@ -14,6 +14,9 @@
  * `--dungeon` (or `--fleet dungeon`) serves the Dungeon Board's concept fleet (three hosts with
  * their loads), and the address it prints opens the map as the Dungeon Board (`?map=dungeon`);
  * `--map <style>` prints one that opens another style.
+ * `--asking <agent ids>` (comma-joined) answers those idle agents' asks as waiting on you (turn TypeSafe on with
+ * `--integrations typesafe` so the page asks), so their robots show "reply waits on you". `--offline <server id>`
+ * takes that host offline (its rows stale), as a daemon gone quiet reports.
  * `--stats` gives each host a load for its banner (the first one's disk nearly full).
  * `--integrations github,linear` turns those integrations on in `GET /api/settings`, so the mode
  * bar shows their tabs (their own reads stay unmocked).
@@ -35,6 +38,12 @@ const option = (name: string, fallback: string) => {
 const fleetName = args.includes("--dungeon") ? "dungeon" : option("fleet", "large");
 const fleet = fleetName === "small" ? small : fleetName === "dungeon" ? dungeon : large;
 const port = Number(option("port", "4331"));
+const asking = new Set(option("asking", "").split(",").filter(Boolean));
+const offline = option("offline", "");
+if (offline) {
+  for (const h of fleet.hosts) if (h.serverId === offline) Object.assign(h, { status: "offline", state: "offline" });
+  for (const a of fleet.agents) if (a.host === offline) a.stale = true;
+}
 if (args.includes("--pr-flags")) {
   const labels = [["CI running", "Awaiting review"], ["CI green", "Approved"], ["CI failing", "Changes requested"]];
   fleet.workspaces.slice(0, 3).forEach((w, i) => Object.assign(w, { labels: labels[i] }));
@@ -136,6 +145,12 @@ const server = createServer((req, res) => {
   const url = new URL(req.url ?? "/", "http://localhost");
   if (url.pathname.startsWith("/api/")) {
     res.setHeader("content-type", "application/json");
+    // An agent's asks (POST, but a read): waiting on you for the agents named by --asking.
+    const asks = /^\/api\/agents\/([^/]+)\/asks$/.exec(url.pathname);
+    if (req.method === "POST" && asks) {
+      const waiting = asking.has(decodeURIComponent(asks[1]!));
+      return res.end(JSON.stringify({ messageId: `m-${asks[1]}`, waiting, questions: waiting ? [{ text: "Shall I open the pull request now?", kind: "yes_no" }] : [], pending: false }));
+    }
     if (req.method !== "GET") {
       // Mutations never go anywhere: there is no daemon behind this server.
       console.log(`refused ${req.method} ${url.pathname}`);

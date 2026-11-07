@@ -741,8 +741,12 @@ to right; camps for agents without one), robots on each alcove's ledge in provid
 first, drones for running subagents. Gold links run from the host node to each project and workspace. Floors keep their
 natural, content-driven width; a side's projects wrap onto more tiers only while the board would be wider than 1.6 × its
 height. Decorations (side rooms: a recess, `room-*`, holding its vignette as the art's `v3/rooms-mock.png` composes them, dealt through the board so neighbours differ; banners, torches, windows, chains; the foot of the last stairs, above a strip the HUD's count bar lies over) are seeded and
-never cover what the board says (`layoutDungeon` in `layout.ts`, pure; `rendering/tests/dungeon.test.mjs`). State: a state
-glow under each robot (pulsing for states that need you), a marker at its head's upper right, working robots' work frames,
+never cover what the board says (`layoutDungeon` in `layout.ts`, pure; `rendering/tests/dungeon.test.mjs`). The robots are what the eye should land on first (the user's call): drawn large (55 concept px tall), each with a
+spotlight on the ledge, a halo of its colour baked from its silhouette (`bakeHalos`) and glowing visor eyes, the robot
+sheet only saturation-lifted; the gate, links, torches and labels are kept a notch below them (`k` on lights, the
+parchment dimmed, the alcoves' interiors darker). The other sheets are graded at load (`grade`, `GRADE`) toward the
+concept's purples. State: a state
+glow under each robot in the Atlas's state colours (`STATE_TILE`, idle a quiet lavender; pulsing for states that need you), a marker at its head's upper right, working robots' work frames,
 light running along the links to workspaces with an agent at work, a project's two torches lit while any of its agents runs,
 its medallion flaring in the most urgent state's colour, offline floors dimmed and dark. PR, Probe and auto-merge medallions
 sit on each alcove's lintel with the Atlas's hover cards. The HUD (title with "N running · N need you" or "All quiet", and the

@@ -35,9 +35,9 @@ export type Rect = { x: number; y: number; w: number; h: number };
 /** Board geometry, in the concept's pixels (measured from its LOCAL floor). */
 export const D = {
   /** Robots: their visible size, and the pitch they stand at. */
-  robot: 36,
-  robotH: 42,
-  slot: 42,
+  robot: 47,
+  robotH: 55,
+  slot: 54,
   /** An alcove's room either side of its robots; at least this many robots' room. */
   alcoveEnd: 40,
   /** Its stone sides (the frame's width). */
@@ -56,7 +56,7 @@ export const D = {
   minSide: 330,
   /** Floor: its upper band (gate medallion, plaque, node) above its first tier. */
   band: 116,
-  tierH: 240,
+  tierH: 250,
   tierGap: 0,
   /** The stone ledge's face under a tier's floor. */
   ledge: 28,
@@ -70,14 +70,14 @@ export const D = {
   labelY: 53,
   labelH: 38,
   busY: 99,
-  alcoveY: 97,
-  alcoveH: 113,
-  wsLabelY: 114,
+  alcoveY: 92,
+  alcoveH: 128,
+  wsLabelY: 102,
   wsLabelH: 35,
-  feetY: 197,
-  floorY: 210,
+  feetY: 207,
+  floorY: 220,
   /** The thick front wall closing each tier (its top). */
-  frontY: 226,
+  frontY: 236,
   /** The wall above the first floor, which the HUD's title lies over. */
   topBand: 80,
   /** Within a floor (from its top). */
@@ -391,7 +391,7 @@ const BANNERS = ["banner-purple-layers", "banner-purple", "banner-navy-hammers",
 const FLOOR_PROPS = ["barrel", "barrels", "crate", "crates", "shelf-potions", "table"];
 /** Small things on the walkways and beside the side rooms, as the concept strews them. */
 const CLUTTER = ["barrel", "crate", "candle", "barrel", "crate", "candle", "shelf-potions", "table"];
-const TORCH_LIGHT = { color: 0xffa03a, reach: 100 };
+const TORCH_LIGHT = { color: 0xffa03a, reach: 70 };
 /** A side room's recess, in board units. */
 const ROOM = { w: 130, h: 200 };
 
@@ -603,8 +603,8 @@ export function layoutDungeon(data: AtlasData, _aspect = 1.6, measure: Measure =
               slots: a.slots,
               interiors: Array.from({ length: a.slots }, () => Math.floor(rng() * 4)),
               candles: [
-                { x: x0 + 30, y: y0 + D.alcoveY + 99 },
-                { x: x0 + a.width - 31, y: y0 + D.alcoveY + 99 },
+                { x: x0 + 30, y: y0 + D.alcoveY + D.alcoveH - 14 },
+                { x: x0 + a.width - 31, y: y0 + D.alcoveY + D.alcoveH - 14 },
               ],
               flags,
               ...(sealOn ? { seal: { x: sealOn.x + 7, y: sealOn.y - 7, size: 10 } } : {}),
@@ -707,7 +707,7 @@ export function layoutDungeon(data: AtlasData, _aspect = 1.6, measure: Measure =
       for (const s of [-1, 1] as const) {
         const v = deck[dealt++ % deck.length]!;
         const mid = s * (half - D.sideRoom / 2);
-        const left = mid - ROOM.w / 2, feet = y0 + 203, top = feet - ROOM.h;
+        const left = mid - ROOM.w / 2, feet = y0 + D.floorY - 7, top = feet - ROOM.h;
         const recess = FRAMES[v.room]?.real ? v.room : "niche-arch";
         const group = `${fl.host.id}:${y0}:${s}`;
         place({ frame: recess, x: mid, y: feet, w: ROOM.w, floor: f, layer: "back", recess: true, group }, false);

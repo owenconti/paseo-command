@@ -99,8 +99,8 @@ test("the concept's fleet: three floors, two projects each, one tier, gates cent
   assert.deepEqual(layout.counts, { hosts: 3, projects: 6, workspaces: 11, agents: 27 });
   assert.equal(layout.floors[0].stats.map((s) => s.text).join(" · "), "CPU 42% · MEM 58% · DISK 70%");
   // About the concept's proportions: a board some 1,200 wide and as tall.
-  assert.ok(layout.bounds.w > 1100 && layout.bounds.w < 1450, `width ${layout.bounds.w}`);
-  assert.ok(layout.bounds.h > 1050 && layout.bounds.h < 1350, `height ${layout.bounds.h}`);
+  assert.ok(layout.bounds.w > 1100 && layout.bounds.w < 1600, `width ${layout.bounds.w}`);
+  assert.ok(layout.bounds.h > 1050 && layout.bounds.h < 1450, `height ${layout.bounds.h}`);
   for (const f of layout.floors) assert.equal(f.rect.h, f.last ? D.band + D.tierH + D.foot + D.footPad : D.band + D.tierH);
   // The first project stands left of the gate, the second right.
   const local = layout.projects.filter((p) => p.floor === 0);

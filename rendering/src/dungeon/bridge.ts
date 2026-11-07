@@ -40,6 +40,8 @@ const SHEET_PNG = import.meta.glob("../assets/dungeon/*.png", { eager: true, que
 const TEXT_SCALE = 4;
 /** How dark the far wall is drawn (a share of black over its tile), for the light pools to warm. */
 const WALL_SHADE = 0;
+/** The alcoves' interiors, a little darker than their sheet, so the robots read against them. */
+const INTERIOR_SHADE = 0.32;
 /** The concept's chunky, wide, rounded heavy type: SF Pro Rounded where WebKit has it. */
 const FONT = 'ui-rounded, "SF Pro Rounded", "Arial Rounded MT Bold", "Paseo Barlow", sans-serif';
 /** Its weights: labels and plaques heavy, the HUD's lighter lines bold. */
@@ -62,7 +64,8 @@ const GRADED = new Set(["stone", "gate", "alcoves", "props"]);
 /** The concept's grade: a fifth more saturation, shadows and mids pushed toward its purples
  * (#2a1f4a, #4a3a7a) by how dark they are, warm highlights (torch light, gold) left warm. */
 export const GRADE = { saturation: 1.4, shadow: [0x2a, 0x1f, 0x4a], mid: [0x4a, 0x3a, 0x7a], strength: 0.42 };
-function grade(image: HTMLImageElement): HTMLCanvasElement {
+function grade(image: HTMLImageElement, opts: { saturation?: number; strength?: number } = {}): HTMLCanvasElement {
+  const saturation = opts.saturation ?? GRADE.saturation, strength = opts.strength ?? GRADE.strength;
   const canvas = document.createElement("canvas");
   canvas.width = image.naturalWidth;
   canvas.height = image.naturalHeight;
@@ -79,13 +82,13 @@ function grade(image: HTMLImageElement): HTMLCanvasElement {
     if (d[i + 3] === 0) continue;
     let r = d[i]!, g = d[i + 1]!, b = d[i + 2]!;
     const l = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-    r = l * 255 + (r - l * 255) * GRADE.saturation;
-    g = l * 255 + (g - l * 255) * GRADE.saturation;
-    b = l * 255 + (b - l * 255) * GRADE.saturation;
+    r = l * 255 + (r - l * 255) * saturation;
+    g = l * 255 + (g - l * 255) * saturation;
+    b = l * 255 + (b - l * 255) * saturation;
     // Warm highlights (flames, gold, lamp light) stay as they are.
     const warm = r > b + 25 && r > 120;
-    if (!warm) {
-      const t = GRADE.strength * Math.pow(1 - l, 1.3);
+    if (!warm && strength > 0) {
+      const t = strength * Math.pow(1 - l, 1.3);
       const tint = l < 0.35 ? shadow : mid;
       r *= 1 - t + t * tint[0]!;
       g *= 1 - t + t * tint[1]!;
@@ -118,7 +121,9 @@ async function buildFrames(): Promise<{ canvases: Map<string, HTMLCanvasElement>
     // The board lays out with the sheet's own sizes and anchors.
     applySheet(sheet);
     // The stone, gate, alcoves and props are graded once toward the concept's deeper purple.
-    const source = GRADED.has(path.replace(/^.*\//, "").replace(/\.json$/, "")) ? grade(image) : image;
+    const stem = path.replace(/^.*\//, "").replace(/\.json$/, "");
+    // The robots keep their colours vivid: only a saturation lift, never the purple grade.
+    const source = GRADED.has(stem) ? grade(image) : stem === "robots" ? grade(image, { saturation: 1.15, strength: 0 }) : image;
     for (const [name, f] of Object.entries(sheet.frames)) {
       if (!FRAMES[name]) continue;
       const canvas = document.createElement("canvas");
@@ -131,6 +136,7 @@ async function buildFrames(): Promise<{ canvases: Map<string, HTMLCanvasElement>
   }
   for (const name of Object.keys(FRAMES)) if (!canvases.has(name)) canvases.set(name, paintPlaceholder(name));
   trimRobots(canvases);
+  bakeHalos(canvases);
   return { canvases, real };
 }
 
@@ -171,6 +177,41 @@ function trimRobots(canvases: Map<string, HTMLCanvasElement>) {
       spec.h = h / scale;
       spec.anchor = name.startsWith("drone") ? "center" : "feet";
     }
+  }
+}
+
+/** Each robot colour's halo: its idle silhouette, in a light tint of its colour, blurred into a soft
+ * outer glow (`halo-<colour>`, drawn behind the robot, added over the scene). Baked once. */
+const HALO = { pad: 0.2, tint: { orange: "#ffb27a", white: "#ffffff" } as Record<string, string> };
+function bakeHalos(canvases: Map<string, HTMLCanvasElement>) {
+  for (const [name, src] of [...canvases]) {
+    const m = /^robot-(\w+)-idle-0$/.exec(name);
+    if (!m) continue;
+    const color = m[1]!;
+    const pad = Math.round(src.width * HALO.pad);
+    const out = document.createElement("canvas");
+    out.width = src.width + 2 * pad;
+    out.height = src.height + 2 * pad;
+    const sil = document.createElement("canvas");
+    sil.width = src.width;
+    sil.height = src.height;
+    const s = sil.getContext("2d")!;
+    s.drawImage(src, 0, 0);
+    s.globalCompositeOperation = "source-in";
+    s.fillStyle = HALO.tint[color] ?? "#fff6e0";
+    s.fillRect(0, 0, sil.width, sil.height);
+    // Blurred by stacking faint copies round a disc (WebKit's canvas has no reliable filter).
+    const ctx = out.getContext("2d")!;
+    ctx.globalAlpha = 0.07;
+    for (let ring = 1; ring <= 3; ring++)
+      for (let k = 0; k < 16; k++) {
+        const a = (k / 16) * Math.PI * 2, d = (pad * ring) / 3.4;
+        ctx.drawImage(sil, pad + Math.cos(a) * d, pad + Math.sin(a) * d);
+      }
+    const spec = FRAMES[name]!;
+    const scale = src.width / spec.w;
+    canvases.set(`halo-${color}`, out);
+    FRAMES[`halo-${color}`] = { sheet: "robots", w: out.width / scale, h: out.height / scale, anchor: "center" };
   }
 }
 
@@ -247,6 +288,11 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
   const paintLabel = (r: Rect, text: string, kind: "workspace" | "project") => {
     const { canvas, ctx } = canvasFor(r.w, r.h);
     nineSlice(ctx, frame("label"), "label", 0, 0, r.w, r.h);
+    // A touch darker than the sheet's parchment: legible, but never brighter than the robots.
+    ctx.globalCompositeOperation = "source-atop";
+    ctx.fillStyle = "rgba(48, 24, 64, 0.24)";
+    ctx.fillRect(0, 0, r.w, r.h);
+    ctx.globalCompositeOperation = "source-over";
     ctx.font = fontOf(kind);
     ctx.fillStyle = INK;
     ctx.textAlign = "center";
@@ -258,6 +304,10 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
   const paintPlaque = (r: Rect, title: string, stats: { text: string; alert: boolean }[], online: boolean) => {
     const { canvas, ctx } = canvasFor(r.w, r.h);
     nineSlice(ctx, frame("plaque"), "plaque", 0, 0, r.w, r.h);
+    ctx.globalCompositeOperation = "source-atop";
+    ctx.fillStyle = "rgba(48, 24, 64, 0.2)";
+    ctx.fillRect(0, 0, r.w, r.h);
+    ctx.globalCompositeOperation = "source-over";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     ctx.font = fontOf("host");
@@ -375,8 +425,8 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
     const shadow = (a: number) => `rgba(30, 22, 44, ${a})`;
     if (kind === "upper") {
       const g = ctx.createLinearGradient(0, 0, 0, 256);
-      g.addColorStop(0, shadow(0.6));
-      g.addColorStop(0.55, shadow(0.3));
+      g.addColorStop(0, shadow(0.5));
+      g.addColorStop(0.55, shadow(0.24));
       g.addColorStop(1, shadow(0));
       ctx.fillStyle = g;
     } else {
@@ -437,7 +487,7 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
       }
       // Each tier: the terrace floor under its walkway, and the thick front wall that closes it (lit top, returns, ends).
       for (const y0 of fl.tierTops) {
-        fill("terrace-floor", { x: -H + 20, y: y0 + 162, w: 2 * H - 40, h: 74 }, -40, { ...dim, shade: 0.05 });
+        fill("terrace-floor", { x: -H + 20, y: y0 + D.floorY - 48, w: 2 * H - 40, h: 74 }, -40, { ...dim, shade: 0.05 });
         // The last tier's front wall opens round the next floor's gate; any other's round the stairs.
         const open = !fl.last && y0 === fl.tierTops[fl.tiers - 1] ? D.surroundW / 2 - 4 : D.stairsW / 2 + 2;
         for (const sd of [-1, 1]) {
@@ -454,19 +504,22 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
       // behind its arch, and the stairs down between block side walls.
       put("gate-surround", fl.surround.x, fl.surround.y, fl.surround.w, fl.surround.h, -36, dim);
       sprites.push(sprite("icon-layers", at("icon-layers", 0, fl.medallion.y, 47), -35.9, dim));
-      fill("stairs-mid", { x: fl.stairs.x, y: fl.stairs.y + 36, w: fl.stairs.w, h: Math.max(0, fl.stairs.h - 36) }, -26, dim);
-      put("stairs-top", fl.stairs.x, fl.stairs.y, fl.stairs.w, 36, -25.9, dim);
-      if (fl.last) put("stairs-bottom", fl.stairs.x, fl.stairs.y + fl.stairs.h - 29, fl.stairs.w, 29, -25.8, dim);
+      // The stairs, a shade down from the sheet's, so their lit steps don't outshine the robots.
+      const steps = { ...dim, shade: dim.dim ? 0.55 : 0.28 };
+      fill("stairs-mid", { x: fl.stairs.x, y: fl.stairs.y + 36, w: fl.stairs.w, h: Math.max(0, fl.stairs.h - 36) }, -26, steps);
+      put("stairs-top", fl.stairs.x, fl.stairs.y, fl.stairs.w, 36, -25.9, steps);
+      if (fl.last) put("stairs-bottom", fl.stairs.x, fl.stairs.y + fl.stairs.h - 29, fl.stairs.w, 29, -25.8, steps);
       sprites.push(
         fl.online
-          ? sprite("gate-portcullis-lit", fl.portcullis, -25, { pulse: 2600 })
+          ? sprite("gate-portcullis-lit", fl.portcullis, -25, { pulse: 2600, a: 0.74 })
           : sprite("gate-portcullis-dark", fl.portcullis, -25, dim),
       );
       put("gate-arch", fl.arch.x, fl.arch.y, fl.arch.w, fl.arch.h, -24, dim);
       if (fl.online) {
-        lights.push({ x: 0, y: fl.portcullis.y + fl.portcullis.h / 2, c: 0xffb640, r: 150, period: 2600, flicker: false });
+        // The gate's light, turned down so the robots draw the eye first.
+        lights.push({ x: 0, y: fl.portcullis.y + fl.portcullis.h / 2, c: 0xffb640, r: 130, period: 2600, flicker: false, k: 0.5 });
         // The stairs catch the gate's light.
-        lights.push({ x: 0, y: fl.stairs.y + 40, c: 0xff9a3a, r: 110, period: 3400, flicker: false, ph: 0.4 });
+        lights.push({ x: 0, y: fl.stairs.y + 40, c: 0xff9a3a, r: 90, period: 3400, flicker: false, ph: 0.4, k: 0.55 });
       }
       images.push({
         ...image(`plaque:${fl.title}:${JSON.stringify(fl.stats)}:${fl.online}:${fl.plaque.w}`, () => paintPlaque(fl.plaque, fl.title, fl.stats, fl.online)),
@@ -497,20 +550,20 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
       const count = Math.max(1, Math.round(inner / FRAMES["alcove-slot-0"]!.w));
       for (let i = 0; i < count; i++) {
         const v = w.interiors[i % w.interiors.length]!;
-        put(`alcove-slot-${w.entity.camp ? 2 : v}`, x + 20 + (i * inner) / count, y + 12, inner / count + 0.5, 91, -12, dim);
+        put(`alcove-slot-${w.entity.camp ? 2 : v}`, x + 20 + (i * inner) / count, y + 12, inner / count + 0.5, D.alcoveH - 22, -12, { ...dim, shade: dim.dim ? 0.55 : INTERIOR_SHADE });
       }
-      put("alcove-left", x, y + 7, 24, 104, -11, dim);
-      put("alcove-right", x + width - 24, y + 7, 24, 104, -11, dim);
+      put("alcove-left", x, y + 7, 24, D.alcoveH - 9, -11, dim);
+      put("alcove-right", x + width - 24, y + 7, 24, D.alcoveH - 9, -11, dim);
       fill("alcove-top", { x: x + 20, y, w: inner, h: 22 }, -10.9, dim);
       put("rampart-return-left", x - 2, y - 5, 45, 43, -10.8, dim);
       put("rampart-return-right", x + width - 43, y - 5, 45, 43, -10.8, dim);
-      fill("alcove-ledge", { x: x + 20, y: y + 98, w: inner, h: 15 }, -10, dim);
+      fill("alcove-ledge", { x: x + 20, y: y + D.alcoveH - 15, w: inner, h: 15 }, -10, dim);
       for (const c of w.candles) {
         sprites.push(sprite("candle", at("candle", c.x, c.y, 10), 4, dim));
         if (online) lights.push({ x: c.x, y: c.y - 30, c: 0xffb050, r: 40, period: 1900, flicker: true, ph: random(seedOf(w.entity.id + c.x))() });
       }
       // The ledge glows warm where the robots stand.
-      if (online) for (let lx = x + 40; lx < x + width - 30; lx += 56) lights.push({ x: lx, y: y + 92, c: 0xffa040, r: 46, period: 3000, flicker: false, ph: random(seedOf(w.entity.id + lx))(), z: 4 });
+      // (The ledge is lit only where robots stand: their spotlights, with the agents.)
       images.push({
         ...image(`label:w:${w.entity.name}:${w.label.w}`, () => paintLabel(w.label, w.entity.name, "workspace")),
         x: w.label.x, y: w.label.y, w: w.label.w, h: w.label.h, z: 3, ...dim,
@@ -530,12 +583,14 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
           x: d.rect.x + d.rect.w / 2,
           y: d.light.dy !== undefined ? d.rect.y + d.light.dy : d.frame === "torch" ? d.rect.y + 8 : d.rect.y + d.rect.h * 0.45,
           c: d.light.color, r: d.light.reach, period: 2400, flicker: d.frame === "torch" || d.frame === "brazier", ph: random(seedOf(`${d.frame}${d.x},${d.y}`))(),
+          // Side rooms' glows stay below the robots'.
+          ...(d.recess || d.group ? { k: 0.55 } : {}),
         });
     }
     // The links' joints: bigger gold nodes, each with a soft halo.
     for (const n of l.nodes) {
       sprites.push(sprite("node", at("node", n.x, n.y, 14), 1.5));
-      lights.push({ x: n.x, y: n.y, c: 0xffc44a, r: 22, period: 2800, flicker: false, ph: random(seedOf(`node${n.x},${n.y}`))(), z: 1.4 });
+      lights.push({ x: n.x, y: n.y, c: 0xffc44a, r: 20, period: 2800, flicker: false, ph: random(seedOf(`node${n.x},${n.y}`))(), z: 1.4, k: 0.7 });
     }
     // Contrast: the upper walls fall into purple shadow toward the top; the board darkens toward its edges.
     for (const fl of l.floors)
@@ -576,7 +631,10 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
       const state = e.state!;
       const offline = state === "offline";
       // The concept's robots: about 1.2 times a workspace label's height.
-      const box = { x: a.feet.x - D.robot / 2, y: a.feet.y - D.robotH, w: D.robot, h: D.robotH };
+      // Its height the board's, its width the frames' own shape (their union, arms and bob included).
+      const spec = FRAMES[`robot-${color}-idle-0`]!;
+      const width = (D.robotH * spec.w) / spec.h;
+      const box = { x: a.feet.x - width / 2, y: a.feet.y - D.robotH, w: width, h: D.robotH };
       const glow = STATE_GLOW[state];
       const mark = STATE_MARK[state];
       const rng = random(seedOf(e.id + "bob"));
@@ -588,9 +646,22 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
         busy: state === "running",
         dim: offline ? 1 : 0,
         ph: rng(),
-        glow: { f: glow, ...at(glow, a.feet.x, a.feet.y - 2, 50), ...(PULSE_MS[state] ? { pulse: PULSE_MS[state] } : {}) },
+        // The state's glow on the ledge beneath it, wide enough to show either side of its feet.
+        // In the Atlas's state colours (idle a quiet grey-lavender), an ellipse on the ledge round its feet.
+        glow: {
+          c: STATE_TILE[state] ?? 0x9aa0c8,
+          a: state === "idle" ? 0.5 : 0.9,
+          x: a.feet.x, y: a.feet.y + 1, w: D.robot * 1.6, h: D.robot * 0.46,
+          ...(PULSE_MS[state] ? { pulse: PULSE_MS[state] } : {}),
+        },
         // Over its head's upper right, clear of the workspace's label above.
-        ...(mark ? { mark: { f: mark, ...at(mark, a.feet.x + D.robot / 2 - 2, a.feet.y - D.robotH + 6, 20), pulse: PULSE_MS[state] ?? 1800 } } : {}),
+        // Over its head's upper right, about 60% of the head's width, pulsing.
+        ...(mark ? { mark: { f: mark, ...at(mark, a.feet.x + D.robot * 0.32, a.feet.y - D.robotH + 4, D.robot * 0.6), pulse: PULSE_MS[state] ?? 1800 } } : {}),
+        // Its halo (in its colour, behind it) and its visor's glow, which move with it.
+        ...(FRAMES[`halo-${color}`] && !offline
+          ? { halo: { f: `halo-${color}`, w: width * (1 + 2 * HALO.pad), h: D.robotH * (1 + 2 * HALO.pad) } }
+          : {}),
+        ...(offline ? {} : { eyes: { x: width / 2, y: D.robotH * 0.4, w: width * 0.7, c: 0x8ff0ff } }),
         drones: offline ? [] : a.drones.slice(0, Math.min(4, e.subagents ?? 0)).map((c) => framesOf(`drone-${c}`)),
         droneDefault: framesOf(`drone-${color}`),
         // Drones read at about 55% of a robot's visible height.
@@ -600,6 +671,9 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
     });
     const sprites: Sprite[] = [];
     const lights: Sprite[] = [];
+    // A warm white spotlight on the ledge under each robot, brighter than its surroundings.
+    for (const a of l.agents)
+      if (a.entity.state !== "offline") lights.push({ x: a.feet.x, y: a.feet.y - 18, c: 0xfff1d6, r: 36, flicker: false, period: 4000, z: 8.8, k: 0.8 });
     for (const p of l.projects) {
       const online = l.floors[p.floor]!.online;
       const id = p.entity?.id ?? p.key;
@@ -801,9 +875,12 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
             subtitle: hudSubtitle(layout),
             realFrames: realFrames.size,
             floors: layout.floors.map((f) => ({ host: f.host.id, title: f.title, online: f.online, tiers: f.tiers, stats: f.stats.map((s) => s.text) })),
-            projects: layout.projects.map((p) => ({ id: p.entity?.id ?? p.key, name: p.name, icon: p.icon, side: p.side, tier: p.tier })),
-            workspaces: layout.workspaces.map((w) => ({ id: w.entity.id, name: w.entity.name, camp: !!w.entity.camp, flags: w.flags.map((f) => f.flag), seal: !!w.seal })),
-            agents: layout.agents.map((a) => ({ id: a.entity.id, name: a.entity.name, state: a.entity.state, model: a.entity.model, robot: a.robot, workspace: a.entity.workspace, at: a.feet })),
+            projects: layout.projects.map((p) => ({ id: p.entity?.id ?? p.key, name: p.name, icon: p.icon, side: p.side, tier: p.tier, rect: p.rect })),
+            workspaces: layout.workspaces.map((w) => ({
+              id: w.entity.id, name: w.entity.name, camp: !!w.entity.camp, rect: w.rect,
+              flags: w.flags.map((f) => f.flag), medallions: w.flags.map((f) => ({ flag: f.flag, x: f.x, y: f.y })), seal: !!w.seal,
+            })),
+            agents: layout.agents.map((a) => ({ id: a.entity.id, name: a.entity.name, state: a.entity.state, model: a.entity.model, robot: a.robot, workspace: a.entity.workspace, at: a.feet, rect: a.rect })),
           }
         : undefined,
     destroy: () => {
