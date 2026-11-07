@@ -397,6 +397,28 @@ function layoutHost(scene: Scene, host: OwHost, y0: number, index: number, last:
     if (ledges.length) scene.islands.push({ boxes: ledges, cliff: island.cliff * 0.62, seed: island.seed ^ 0x1ed9e, rock, z: island.z - 0.5 });
   }
 
+  // Stone stairs from each plateau down to its ledge, and a set piece (well, ruin, signpost) on open ground.
+  const sp = rng(seed ^ 0x5e7);
+  for (const island of [left, right]) {
+    if (island.boxes.length === 0) continue;
+    const m = island.boxes[0]!;
+    const sx = island === left ? m.x0 + 40 + sp() * 40 : m.x1 - 40 - sp() * 40;
+    for (let k = 0; k < 5; k++) {
+      scene.items.push({ kind: "sprite", sheet: "terrain", frame: "stairs-tread", x: sx - 128 * 0.12, y: m.y1 - 8 + k * 6, scale: 0.12, shadow: 0, z: m.y1 + 40 + k });
+    }
+    reserve(scene, sx - 20, m.y1 - 30, sx + 20, m.y1 + 30);
+  }
+  const pieces: Array<[string, string, number]> =
+    host.theme === "volcanic" ? [["theme-volcanic", "mine-entrance", 0.2], ["props", "signpost", 0.2]]
+    : host.theme === "farm" ? [["props", "well", 0.2], ["theme-farm", "farm-cart", 0.2], ["theme-farm", "scarecrow", 0.16]]
+    : [["props", "well", 0.2], ["theme-forest", "ruins-wall", 0.22], ["props", "signpost", 0.2]];
+  const spots: Array<[number, number]> = [[CX - 120, y0 + 330], [CX + 130, y0 + 330]];
+  spots.forEach(([x, y], i) => {
+    const [sheet, frame, scale] = pieces[(Math.floor(sp() * pieces.length) + i) % pieces.length]!;
+    scene.items.push({ kind: "sprite", sheet, frame, x, y, scale, shadow: 0.3 });
+    reserve(scene, x - 22, y - 30, x + 22, y + 6);
+  });
+
   // Castle, plaque, banners and the castle's link node.
   const castleFrame = host.offline ? "castle-offline" : "castle-online";
   scene.items.push({ kind: "sprite", sheet: "host", frame: castleFrame, x: CX, y: y0 + 292, scale: 0.29, shadow: 0.3 });
@@ -458,6 +480,14 @@ function layoutProject(
     scene.items.push({ kind: "sprite", sheet: "halls", frame: `hall-${project.roof}`, x: hx, y: y0 + 296, scale: 0.248, shadow: 0.35 });
     scene.items.push({ kind: "sprite", sheet: "halls", frame: `badge-${project.icon}`, x: hx - 1.7, y: y0 + 296 - 101, scale: 0.248, z: y0 + 296.5 });
     reserve(scene, hx - 112, y0 + 160, hx + 112, y0 + 300);
+    // A hall's yard: lanterns at its door, barrels and crates at its corners.
+    const yard = rng(hash(project.id) ^ 0x7a2d);
+    for (const side of [-1, 1]) {
+      scene.items.push({ kind: "sprite", sheet: "props", frame: "lantern-lit", x: hx + side * 46, y: y0 + 303, scale: 0.17, shadow: 0.2 });
+      const goods = ["barrel-0", "crate-0", "sack-0", "crate-1", "barrel-1"];
+      scene.items.push({ kind: "sprite", sheet: "props", frame: goods[Math.floor(yard() * goods.length)]!, x: hx + side * (98 + yard() * 8), y: y0 + 296, scale: 0.17, flip: side > 0, shadow: 0.25 });
+      if (yard() < 0.6) scene.items.push({ kind: "sprite", sheet: "props", frame: goods[Math.floor(yard() * goods.length)]!, x: hx + side * (112 + yard() * 6), y: y0 + 302, scale: 0.15, shadow: 0.25 });
+    }
     scene.labels.push({ kind: "label", x: hx, y: y0 + 247, w: labelW, h: 34, text: project.name, size: 21 });
     scene.entities.push({ id: project.id, kind: "project", x0: hx - 108, y0: y0 + 172, x1: hx + 108, y1: y0 + 298 });
     // Gold link from the castle node: out to a node by the hall, into the hall label's side.
