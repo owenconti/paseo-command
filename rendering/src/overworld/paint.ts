@@ -136,12 +136,13 @@ const LAND_K = 2;
 
 const GRASS_GRADE: Grade = { hue: -13, saturate: 0.92, brightness: 1.04, contrast: 1.12 };
 
-/** The world is muted (less saturated, a little darker) so the robots, drawn over it at full colour, stand out. */
-const FINAL_GRADE: Grade = { contrast: 1.04, saturate: 0.62, brightness: 0.86 };
+/** The concept's colours, as before the muting. */
+const FINAL_GRADE: Grade = { contrast: 1.12, saturate: 1.18 };
 
 /** Measured: our painting's brightness at the 5/25/50/75/95th percentiles against the concept's. */
 const TONE = (() => {
-  const points: Array<[number, number]> = [[0, 0], [25, 27], [59, 47], [87, 82], [152, 155], [227, 237], [255, 255]];
+  // The concept's brightness, then softened as a watercolour: shadows lifted, highlights eased.
+  const points: Array<[number, number]> = [[0, 34], [25, 52], [59, 80], [87, 108], [152, 168], [227, 228], [255, 248]];
   const lut = new Uint8ClampedArray(256);
   for (let v = 0; v < 256; v++) {
     const k = points.findIndex(([x]) => x >= v);
@@ -199,6 +200,7 @@ export function paintScene(ctx: Ctx, scene: Scene, sheets: Sheets, opts: PaintOp
     all.data[i + 2] = TONE[all.data[i + 2]!]!;
   }
   ctx.putImageData(all, 0, 0);
+  watercolour(ctx.canvas);
   // Robots stay at full colour over the muted world (the app draws them natively; the preview here).
   if (opts.robots !== false) {
     ctx.save();
@@ -1208,7 +1210,31 @@ export function overworldSeaTile(sheets: Sheets, k: number): HTMLCanvasElement |
     d.data[i + 2] = TONE[d.data[i + 2]!]!;
   }
   g.putImageData(d, 0, 0);
+  watercolour(c);
   return c;
+}
+
+/** A watercolour softening: a blurred wash laid over the painting, so edges bleed softly and colours
+ * stay rich without the harsh contrast. (A downscale and smooth upscale stands in for a blur, which
+ * WebKit's canvas filters don't do.) */
+function watercolour(c: HTMLCanvasElement): void {
+  const small = canvas(Math.max(1, c.width / 6), Math.max(1, c.height / 6));
+  const sg = small.getContext("2d")!;
+  sg.imageSmoothingQuality = "high";
+  sg.drawImage(c, 0, 0, small.width, small.height);
+  const g = c.getContext("2d")!;
+  g.save();
+  g.setTransform(1, 0, 0, 1, 0, 0);
+  g.imageSmoothingEnabled = true;
+  g.imageSmoothingQuality = "high";
+  // Colours bleed into each other a little.
+  g.globalAlpha = 0.28;
+  g.drawImage(small, 0, 0, c.width, c.height);
+  // A soft luminous wash, as light through paper.
+  g.globalCompositeOperation = "soft-light";
+  g.globalAlpha = 0.35;
+  g.drawImage(small, 0, 0, c.width, c.height);
+  g.restore();
 }
 
 export function seaPeriod(sheets: Sheets): number {
