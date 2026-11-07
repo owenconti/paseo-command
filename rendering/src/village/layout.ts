@@ -76,15 +76,15 @@ export const V = {
   /** Between the first upper row's porches and the first lower row's banners. */
   plazaGap: 24,
   fountainW: 286,
-  ringW: 344,
+  ringW: 300,
   hostPlaqueH: 64,
   hostLineH: 38,
   hostPlaqueMin: 190,
   /** The central road's width and a walk's depth; blocks start `inner` either side of the middle (the first lower row clear of the fountain). */
-  road: 180,
+  road: 140,
   walk: 86,
   pond: 400,
-  inner: 84,
+  inner: 64,
   /** Margins round a square: woods above and to the left (the HUD lies there), the river to the right; the foot's
    * moat, wall and bridge below the last walk. */
   marginTop: 70,
@@ -399,7 +399,7 @@ function blockOf(spec: (typeof HALLS)[number], bays: Bay[], robots: number, meas
   const sheet = FRAMES[spec.building]!;
   let w = width, perRow = 0, rows = 1;
   // The workshop is wider than the others, as the concept's (its gear wheel at its right).
-  if (spec.hall === "agents") w = Math.min(V.buildingMax * 1.1, w * 1.15);
+  if (spec.hall === "agents") w = Math.min(V.buildingMax * 1.1, w * 1.08);
   if (spec.hall === "agents") {
     // Robots shoulder to shoulder on its platform; past a hall's width, more rows.
     perRow = Math.max(4, Math.min(robots, Math.max(8, Math.ceil(Math.sqrt(robots * 1.5)))));
@@ -608,7 +608,8 @@ export function layoutVillage(data: AtlasData, _aspect = 1.6, measure: Measure =
     // The river just right of the right-hand halls, in the default view.
     // The river's gorge just right of the right-hand halls; the crop's right edge stays where it was (the fit ignores the river).
     // (Its near bank meets the plaza's edge, in the default view at the right.)
-    const riverX = cx + m.right - 120;
+    // (Its near bank tucked under the right-hand halls' eaves.)
+    const riverX = cx + m.right - 170;
     const cropRight = riverX + V.riverW * 0.35;
     // The cliff at the river's head: its top at the square's edge, a middle, then its foot into the river.
     const cliffW = V.riverW + 16, ck = cliffW / FRAMES["cliff-top"]!.w;
@@ -660,7 +661,7 @@ export function layoutVillage(data: AtlasData, _aspect = 1.6, measure: Measure =
       // (from just inside the plaza's left edge, which the panel may cover, to the gorge's near half at the right)
       // (the panel may lie over the top-left hall's left eave, as the concept's does; `keep` is filled in once the halls are)
       // (a strip of canopy above the top banners, the wall cut through below the bridge, the gorge's near half at the right)
-      keep: { x: px0 + 40, y: topBase - maxAbove(a) - 110, w: riverX + V.riverW * 0.5 - (px0 + 40), h: wallY + V.wallH * 0.3 - (topBase - maxAbove(a) - 110) },
+      keep: { x: px0 + 40, y: topBase - maxAbove(a) - 110, w: riverX + V.riverW * 0.75 - (px0 + 40), h: wallY + V.wallH * 0.3 - (topBase - maxAbove(a) - 110) },
       heart: { x: px0 - 150, y: topBase - maxAbove(a) - 24, w: cropRight - (px0 - 150), h: wallY + V.wallH * 0.75 - (topBase - maxAbove(a) - 24) },
       bridge,
       walls: [

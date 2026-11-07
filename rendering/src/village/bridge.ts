@@ -1015,7 +1015,7 @@ export function mountNativeVillage(parent: HTMLElement, handlers: AtlasHandlers 
             counts: layout.counts,
             status: statusLine(layout).text,
             realFrames: realFrames.size,
-            squares: layout.squares.map((s) => ({ hosts: s.hosts.map((h) => ({ id: h.id, title: h.title, online: h.online, stats: h.stats.map((x) => x.text) })), rect: s.rect, fountain: s.fountain })),
+            squares: layout.squares.map((s) => ({ hosts: s.hosts.map((h) => ({ id: h.id, title: h.title, online: h.online, stats: h.stats.map((x) => x.text) })), rect: s.rect, fountain: s.fountain, river: s.river })),
             tiles: layout.tiles.map((t) => ({ id: t.id, rect: t.rect })),
             projects: layout.projects.map((p) => ({ id: p.entity?.id ?? p.key, name: p.name, icon: p.icon, building: p.building, rect: p.rect, lamps: p.lamps })),
             workspaces: layout.workspaces.map((w) => ({
