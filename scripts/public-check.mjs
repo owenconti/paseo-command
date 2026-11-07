@@ -38,7 +38,8 @@ if (history) {
   const objects = git('rev-list', '--objects', revision).toString().split('\n').filter(Boolean);
   const data = execFileSync('git', ['cat-file', '--batch'], {
     input: objects.map(row => row.split(' ')[0]).join('\n') + '\n',
-    maxBuffer: 128 * 1024 * 1024,
+    // All of history in one read: room for its art (the Overworld sheets passed 128 MB).
+    maxBuffer: 1024 * 1024 * 1024,
   });
   let offset = 0;
   for (const row of objects) {
