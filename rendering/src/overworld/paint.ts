@@ -136,13 +136,13 @@ const LAND_K = 2;
 
 const GRASS_GRADE: Grade = { hue: -13, saturate: 0.92, brightness: 1.04, contrast: 1.12 };
 
-/** The concept's colours, as before the muting. */
-const FINAL_GRADE: Grade = { contrast: 1.12, saturate: 1.18 };
+/** Watercolour: the concept's hues, thinned (less saturated, never grey) and lighter. */
+const FINAL_GRADE: Grade = { contrast: 0.92, saturate: 0.78, brightness: 1.04 };
 
 /** Measured: our painting's brightness at the 5/25/50/75/95th percentiles against the concept's. */
 const TONE = (() => {
   // The concept's brightness, then softened as a watercolour: shadows lifted, highlights eased.
-  const points: Array<[number, number]> = [[0, 34], [25, 52], [59, 80], [87, 108], [152, 168], [227, 228], [255, 248]];
+  const points: Array<[number, number]> = [[0, 62], [25, 80], [59, 106], [87, 130], [152, 182], [227, 232], [255, 246]];
   const lut = new Uint8ClampedArray(256);
   for (let v = 0; v < 256; v++) {
     const k = points.findIndex(([x]) => x >= v);
@@ -183,10 +183,6 @@ export function paintScene(ctx: Ctx, scene: Scene, sheets: Sheets, opts: PaintOp
     if (item.kind === "booth") paintBooth(ctx, item, sheets, opts);
     else paintSprite(ctx, item, sheets);
   }
-  for (const label of scene.labels) {
-    if (label.kind === "label") paintLabel(ctx, label, sheets);
-    else paintPlaque(ctx, label, sheets);
-  }
   for (const cloud of clouds(scene)) paintSprite(ctx, cloud, sheets);
   ctx.restore();
   // Final grade: the concept's punchy contrast and saturation.
@@ -201,6 +197,14 @@ export function paintScene(ctx: Ctx, scene: Scene, sheets: Sheets, opts: PaintOp
   }
   ctx.putImageData(all, 0, 0);
   watercolour(ctx.canvas);
+  // Names stay crisp and readable over the softened world.
+  ctx.save();
+  ctx.scale(K, K);
+  for (const label of scene.labels) {
+    if (label.kind === "label") paintLabel(ctx, label, sheets);
+    else paintPlaque(ctx, label, sheets);
+  }
+  ctx.restore();
   // Robots stay at full colour over the muted world (the app draws them natively; the preview here).
   if (opts.robots !== false) {
     ctx.save();
@@ -1218,7 +1222,7 @@ export function overworldSeaTile(sheets: Sheets, k: number): HTMLCanvasElement |
  * stay rich without the harsh contrast. (A downscale and smooth upscale stands in for a blur, which
  * WebKit's canvas filters don't do.) */
 function watercolour(c: HTMLCanvasElement): void {
-  const small = canvas(Math.max(1, c.width / 6), Math.max(1, c.height / 6));
+  const small = canvas(Math.max(1, c.width / 8), Math.max(1, c.height / 8));
   const sg = small.getContext("2d")!;
   sg.imageSmoothingQuality = "high";
   sg.drawImage(c, 0, 0, small.width, small.height);
@@ -1227,14 +1231,22 @@ function watercolour(c: HTMLCanvasElement): void {
   g.setTransform(1, 0, 0, 1, 0, 0);
   g.imageSmoothingEnabled = true;
   g.imageSmoothingQuality = "high";
-  // Colours bleed into each other a little.
-  g.globalAlpha = 0.28;
-  g.drawImage(small, 0, 0, c.width, c.height);
-  // A soft luminous wash, as light through paper.
-  g.globalCompositeOperation = "soft-light";
-  g.globalAlpha = 0.35;
+  // Colours bleed into each other, as wet paint does.
+  g.globalAlpha = 0.4;
   g.drawImage(small, 0, 0, c.width, c.height);
   g.restore();
+  // Paper: a warm white showing through, and its faint grain.
+  const d = g.getImageData(0, 0, c.width, c.height);
+  const px = d.data;
+  for (let i = 0, n = 0; i < px.length; i += 4, n++) {
+    const x = n % c.width;
+    const y = (n / c.width) | 0;
+    const grain = (noise(x / 3, y / 3, 911) * 0.6 + noise(x / 11, y / 11, 912) * 0.4) * 10;
+    px[i] = px[i]! * 0.9 + 247 * 0.1 + grain;
+    px[i + 1] = px[i + 1]! * 0.9 + 241 * 0.1 + grain;
+    px[i + 2] = px[i + 2]! * 0.9 + 226 * 0.1 + grain;
+  }
+  g.putImageData(d, 0, 0);
 }
 
 export function seaPeriod(sheets: Sheets): number {
