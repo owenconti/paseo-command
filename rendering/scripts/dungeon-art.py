@@ -8,7 +8,7 @@ from pathlib import Path
 import json, math, re, argparse, os, shutil, statistics
 
 LIVE = Path('rendering/src/assets/dungeon')
-OUT = Path('rendering/artifacts/dungeon/v5/staging')
+OUT = Path('rendering/artifacts/dungeon/v6/staging')
 ART = Path('rendering/artifacts/dungeon')
 RESAMPLE = Image.Resampling.LANCZOS
 SHEETS = {}
@@ -439,6 +439,7 @@ def build():
     colour_match()
     build_robots_v4()
     fix_art_v5()
+    build_gold_props_v6()
 
 def pack():
     OUT.mkdir(parents=True,exist_ok=True)
@@ -635,6 +636,7 @@ def validate():
     expected += ['pr-'+x for x in ['ci-running','ci-green','ci-failing','review-awaiting','review-approved','review-changes','conflicts']]+['probe-'+x for x in ['reviewing','approved','findings','stale','failed']]+['seal-automerge']
     expected += ['rampart-x','rampart-y','rampart-corner-tl','rampart-corner-tr','rampart-corner-bl','rampart-corner-br','rampart-end-left','rampart-end-right','rampart-end-top','rampart-end-bottom','rampart-t-down','terrace-floor','alcove-ledge','gate-surround','torch-out','mark-asking','glow-asking']
     expected += ['room-arch','room-cave','room-magic','room-forge','pillar-capital','window-arch','chain-pair']
+    expected += [f'{b}-{i}' for b in ['candelabra','wall-candles'] for i in range(4)]+['candelabra-out','wall-candles-out']
     missing=sorted(set(expected)-set(frames));extra=sorted(set(frames)-set(expected))
     if missing:errors.append('Missing '+str(missing))
     groups={}
@@ -988,9 +990,101 @@ def sync_provenance_v5(out):
     if not dest.exists() or json.loads(src.read_text()).get('version',0)>json.loads(dest.read_text()).get('version',0):shutil.copy2(src,dest)
 
 
+def sources_v6():
+    im=Image.open(ART/'v6/props-raw.png').convert('RGBA');parts=[]
+    for y in range(2):
+        for x in range(2):parts.append(trim(im.crop((round(x*im.width/2),round(y*im.height/2),round((x+1)*im.width/2),round((y+1)*im.height/2)))))
+    return parts
+
+def gold_trim_v6(im):
+    rgb=list(im.getdata());hsv=im.convert('RGB').convert('HSV');lab=ImageCms.applyTransform(im.convert('RGB'),_TO_LAB);ld=list(lab.getdata());mask=bytearray(len(rgb))
+    for k,((h,s,v),(l,a,b),p) in enumerate(zip(hsv.getdata(),ld,rgb)):
+        if p[3]>0 and 18<=h*360/255<=65 and s>64 and v>75 and 68<l<239:
+            ld[k]=(min(248,l+8),max(0,a-1),min(255,b+4));mask[k]=1
+    lab.putdata(ld);out=im.copy();converted=ImageCms.applyTransform(lab,_TO_RGB);out.putdata([(*q,p[3]) if mask[k] else p for k,(p,q) in enumerate(zip(rgb,converted.getdata()))]);return clean(out)
+
+def wax_tops_v6(im,n):
+    """Locate the ivory candle caps, so new flames meet their actual wicks."""
+    px=im.load();result=[]
+    for i in range(n):
+        candidates=[]
+        for y in range(round(im.height*.60)):
+            for x in range(round(i*im.width/n),round((i+1)*im.width/n)):
+                r,g,b,a=px[x,y]
+                if a>180 and r>190 and g>165 and b>105:candidates.append((x,y))
+        top=min(y for x,y in candidates);cap=[x for x,y in candidates if y<=top+max(2,round(im.height*.025))]
+        result.append(((min(cap)+max(cap))/2,top+1))
+    return result
+
+def build_gold_props_v6():
+    parts=sources_v6();fires=source_v5('fire',4,2);maxh=max(f.height for f in fires[:4]);flames=[]
+    for f in fires[:4]:
+        w=round(f.width*72/maxh);h=round(f.height*72/maxh);fire=fit(f,(w,h),True);can=Image.new('RGBA',(72,78));can.alpha_composite(fire,((72-w)//2,76-h));flames.append(can)
+    changed={}
+    # Existing brazier: same frame extent and feet anchor, broader bowl and
+    # full fire bed. Its front lip is redrawn over the coals, not under them.
+    body=fit(parts[2],(105,111),True);base=Image.new('RGBA',(117,180));base.alpha_composite(body,(6,65))
+    for i,f in enumerate(fires[4:]):
+        can=base.copy();layer=Image.new('RGBA',base.size);layer.alpha_composite(fit(f,(117,88),True),(0,8));mouth=Image.new('L',base.size);md=ImageDraw.Draw(mouth);md.rectangle((0,0,116,76),fill=255);md.ellipse((12,70,105,108),fill=255);layer.putalpha(ImageChops.multiply(layer.getchannel('A'),mouth));can.alpha_composite(layer);lip=base.crop((0,94,117,122));can.alpha_composite(lip,(0,94));out=Image.new('RGBA',(121,184));out.alpha_composite(can,(2,2));changed[f'brazier-{i}']=clean(out)
+    changed['rug-red']=framed_v5(parts[3],SPRITES['rug-red'].size)
+    updated=[]
+    for n,im,info in SHEETS['props']:
+        out=changed.get(n,im)
+        if n.startswith('banner-'):out=gold_trim_v6(out)
+        out=prune_micro(out);updated.append((n,out,info));SPRITES[n]=out
+    SHEETS['props']=updated
+    # New optional flame-bearing clusters. Every old frame remains in place.
+    for key,part,count,size,bpos,body_size,baseline,anchor in [
+        ('candelabra',parts[0],3,(100,142),(5,26),(90,110),136,(52,138)),
+        ('wall-candles',parts[1],2,(128,148),(10,28),(108,116),144,(66,2))]:
+        body=fit(part,body_size,True);points=wax_tops_v6(body,count);base=Image.new('RGBA',size);base.alpha_composite(body,bpos)
+        for i in range(4):
+            can=base.copy()
+            for j,(x,y) in enumerate(points):
+                fire=fit(flames[(i+j)%4],(24,28),True);bx=round(bpos[0]+x);by=round(bpos[1]+y)
+                can.alpha_composite(fire,(bx-12,by-27))
+            add('props',f'{key}-{i}',can,anchor,**({'fps':7} if i==0 else {}))
+        dark=base.copy();dark.putdata([(round(r*.72),round(g*.72),round(b*.75),a) for r,g,b,a in base.getdata()]);add('props',key+'-out',dark,anchor)
+
+def load_baseline_props_v6():
+    load_live_art();base=ART/'v6/before';j=json.loads((base/'props.json').read_text());im=Image.open(base/'props.png').convert('RGBA')
+    SHEETS['props']=[]
+    for n,f in j['frames'].items():
+        crop=im.crop((f['x'],f['y'],f['x']+f['w'],f['y']+f['h']));info={k:v for k,v in f.items() if k not in ['x','y','w','h']};SPRITES[n]=crop;META[n]=info;SHEETS['props'].append((n,crop,info))
+
+def props_review_v6():
+    old=ART/'v6/before';j=json.loads((old/'props.json').read_text());atlas=Image.open(old/'props.png');pairs=['brazier-0','rug-red','banner-purple-layers','banner-navy-hammers']
+    can=Image.new('RGBA',(1500,1400),'#221c31');d=ImageDraw.Draw(can);d.text((20,15),'V6 PROPS / previous left / revised right / identical displayed extent',fill='white')
+    for i,n in enumerate(pairs):
+        y=60+i*260;f=j['frames'][n];a=atlas.crop((f['x'],f['y'],f['x']+f['w'],f['y']+f['h']));can.alpha_composite(a,(25,y));can.alpha_composite(SPRITES[n],(620,y));d.text((25,y-20),n,fill='white')
+    y=1130
+    for i,n in enumerate(['candelabra-0','candelabra-out','wall-candles-0','wall-candles-out']):can.alpha_composite(SPRITES[n],(30+i*330,y));d.text((30+i*330,y-25),n,fill='white')
+    can.convert('RGB').save(ART/'v6/props-review.png',optimize=True)
+
+def validate_props_v6():
+    j=json.loads((OUT/'props.json').read_text());old=json.loads((ART/'v6/before/props.json').read_text());errors=[]
+    for n,f in old['frames'].items():
+        if j['frames'].get(n)!=f:errors.append(n+' old metadata changed')
+    for base in ['candelabra','wall-candles']:
+        fs=[j['frames'][f'{base}-{i}'] for i in range(4)]+[j['frames'][base+'-out']]
+        if len({(f['w'],f['h'],f['anchor']['x'],f['anchor']['y']) for f in fs})!=1:errors.append(base+' registration')
+    if (OUT/'robots.png').read_bytes()!=(LIVE/'robots.png').read_bytes():errors.append('robots changed')
+    (ART/'v6/props-validation.json').write_text(json.dumps({'old_frames_preserved':len(old['frames']),'new_frames':10,'errors':errors},indent=2)+'\n')
+    if errors:raise SystemExit(str(errors))
+
+def props_only_v6(publish_live=False):
+    global OUT
+    OUT=ART/'v6/staging';OUT.mkdir(parents=True,exist_ok=True);sync_provenance_v5(OUT)
+    for p in LIVE.iterdir():
+        if p.suffix in ['.png','.json'] and not (p.name=='prompts.json' and (OUT/p.name).exists()):shutil.copy2(p,OUT/p.name)
+    load_baseline_props_v6();build_gold_props_v6();pack();validate();validate_props_v6();contact();props_review_v6()
+    if publish_live:publish()
+
+
 if __name__=='__main__':
-    parser=argparse.ArgumentParser();parser.add_argument('--validate-only',action='store_true');parser.add_argument('--publish',action='store_true');parser.add_argument('--publish-staged',action='store_true');parser.add_argument('--robots-only',action='store_true');parser.add_argument('--art-only',action='store_true');args=parser.parse_args()
-    if args.art_only:art_only_v5(args.publish)
+    parser=argparse.ArgumentParser();parser.add_argument('--validate-only',action='store_true');parser.add_argument('--publish',action='store_true');parser.add_argument('--publish-staged',action='store_true');parser.add_argument('--robots-only',action='store_true');parser.add_argument('--art-only',action='store_true');parser.add_argument('--props-only',action='store_true');args=parser.parse_args()
+    if args.props_only:props_only_v6(args.publish)
+    elif args.art_only:art_only_v5(args.publish)
     elif args.robots_only:robots_only(args.publish)
     elif args.validate_only:
         OUT=LIVE;validate()

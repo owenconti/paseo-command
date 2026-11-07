@@ -929,7 +929,7 @@ These are useful original coast parts, not a pixel-identical reconstruction of t
 
 ## Dungeon Board
 
-The geometry kit is v3, robots are v4, and material/furnishing refinements are v5. Artwork was generated with the built-in
+The geometry kit is v3, robots are v4, and material/furnishing refinements are v5–v6. Artwork was generated with the built-in
 `image_gen` tool on 2026-11-06.
 The private `design/references/dungeon-concept.png` was inspected at 3×,
 particularly its LOCAL floor, left terrace, workspace recess and central gate.
@@ -952,11 +952,12 @@ Only animation frame zero supplies `fps`.
 | `gate` | 12 | New upper host surround, lower arch, lit/dark portcullis, stairs with side walls, host disc and crown banner |
 | `stone` | 33 | Existing architecture plus the full raised rampart kit, terrace floor and two diagonal returns |
 | `ui` | 28 | Simple clipped parchment, thin bronze borders, dark discs in pale octagonal mounts, pictograms/counts/dots |
-| `props` | 44 | Restyled furnishings, redrawn torch/brazier/forge flames, animated magic props and new `torch-out` |
+| `props` | 54 | Furnishings, animated fires/magic, candelabra and wall-candle families, unlit variants |
 | `status` | 27 | Existing markers, glows and PR/Probe states, plus violet `mark-asking` / `glow-asking` |
 
-There are 235 frames: every original name and all 233 names requested through
-v3, plus `rampart-return-left` and `rampart-return-right`. These optional
+There are 245 frames: all 235 earlier frames, including the 233 required names
+and the optional `rampart-return-left` / `rampart-return-right`, plus ten new
+optional candle-fixture frames from v6. The two optional
 diagonal wall runs let a terrace or alcove show the angled returns in the
 reference. None of the required names was removed or renamed. PR/Probe names
 continue to follow `prStatus.ts` and `probe.ts`.
@@ -1039,7 +1040,7 @@ asset set; `--publish-staged` checks an already complete stage before replacemen
 Private review images:
 
 - `artifacts/dungeon/calibration.png`: matching LOCAL-left crops at 3×.
-- `artifacts/dungeon/contact-sheet.png`: all 235 labelled frames.
+- `artifacts/dungeon/contact-sheet.png`: all 245 labelled frames.
 - `artifacts/dungeon/mock.png`: the LOCAL floor reconstructed only from sprites, beside the matching 1199×365 concept crop at 3×.
 - `artifacts/dungeon/v3/local-floor.png`: the generated half of that comparison.
 - `artifacts/dungeon/tile-wall-brick-6x4.png` and `tile-wall-brick-dark-6x4.png`: wall-repeat proofs.
@@ -1143,6 +1144,47 @@ crops from the private concept and compare-6 capture. These remain ignored.
 `v5/material-metrics.json` records the numeric colour changes. The comparison
 capture is not presented as an after-fix app screenshot; code-owned layout,
 lighting, tint/compositing and prop placement still require integration.
+
+
+V6 (2026-11-07) follows the compare-10 critique, recorded privately in
+`artifacts/dungeon/gaps-2.md`. Its baseline fidelity score is 7/10; deliberate
+agent emphasis/colours, the quieter gate and real fleet data are excluded.
+The concept's gold was approximately attributed with a documented HSV/manual
+region mask (`v6/gold-attribution.json`): parchment and trim account for about
+47% of that mask, reflected stone/wood and alcoves about 33%, while direct
+flames/candle fixtures/braziers/forge beds account for about 7.5%. These are
+shares of a stricter proxy gold mask, not a reproduction of the user's
+board-level 24%/18% classifier. White-hot cores are under-counted. This supports
+adding believable sources and reflected pools rather than uniformly yellowing
+more wall or brightening the gate.
+
+One additional built-in generation supplies three-candle tabletop brass,
+a paired wall sconce, a substantial unlit brazier bowl/pedestal and richer
+red/gold rug embroidery. Its exact prompt/source are in `v6_generations` in
+`prompts.json`; the raw output is ignored at `artifacts/dungeon/v6/props-raw.png`.
+V5's registered fire art is reused for the lit fixtures and a broader brazier
+fire bed. The brazier coals are contained in its mouth and the front rim is
+painted over them. Existing banner gold is made a little brighter, preserving
+cloth colours and glyphs. All existing frame rectangles and anchors remain
+identical, including the brazier/rug/banner extents. Robots, gate/stair textures
+and all other sheets retain their pixels.
+
+The optional new `props` families are `candelabra-0..3` (three tabletop candles,
+feet anchor) and `wall-candles-0..3` (paired wall sconce, top-centre anchor), plus
+`candelabra-out` and `wall-candles-out`. Each family's four lit frames and
+unlit frame share canvas and anchor; frame zero supplies 7 fps. The renderer
+must register those animation bases, place them in room/desk groups and supply
+local warm spill; the art addition does not itself change the app layout.
+Physical rug/brazier/banners sizes remain the renderer's decision.
+
+The builder's `--props-only` mode stages v6 from its preserved pre-pass props
+in `artifacts/dungeon/v6/before/`, validates all sheets and old metadata, and
+updates the contact sheet and `v6/props-review.png`. `--props-only --publish`
+replaces only changed files with atomic renames. The full raw-source rebuild
+includes the same v6 refinement. Original 235 names and all old anchors are
+preserved; 245 total frames validate and the asset folder stays below 12 MB.
+The critique's paired remaining-gap crops are `artifacts/dungeon/gaps-2.png`;
+`v6/candle-poses.png` shows the registered new fire fixtures.
 
 Remaining differences: the concept's masonry has more bespoke pixel-like chips,
 uneven joints and integrated painted shadows. V3 is smoother, its joins and
