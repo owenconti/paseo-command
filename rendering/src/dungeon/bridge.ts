@@ -559,12 +559,16 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
       // The stepped mass: its wall face down to the tier, the lower run's lit cap and face, a return at its open end,
       // a shadow beneath and a dark pocket where it meets the wall behind.
       if (fl.step) {
-        const st = fl.step, end = st.side === -1 ? st.x + st.w : st.x;
-        fill("wall-brick", { x: st.x, y: st.y + 26, w: st.w, h: fl.tierTops[0]! - (st.y + 26) + 2 }, -47.5, { ...dim, shade: 0.12, ox: 19, oy: 7 });
+        // A projecting wall section standing on the terrace below: its lit face from the cap down to the terrace cap,
+        // a block pillar at its open end, its lit top, a shadow cast on the wall beside its open end and a contact
+        // shadow at its foot.
+        const st = fl.step, end = st.side === -1 ? st.x + st.w : st.x, foot = fl.tierTops[0]! + 33;
+        fill("wall-brick", { x: st.x, y: st.y + st.h - 4, w: st.w, h: foot - (st.y + st.h - 4) }, -44.25, { ...dim, shade: 0, ox: 19, oy: 7 });
         fill("rampart-x", { x: st.x, y: st.y, w: st.w, h: st.h }, -44.2, dim);
-        images.push({ ...image("shade:under", () => paintShade("under")), x: st.x, y: st.y + st.h - 2, w: st.w, h: 16, z: -44.3, ...dim });
-        put(st.side === -1 ? "rampart-return-left" : "rampart-return-right", st.side === -1 ? end - 44 : end - 6, st.y - 4, 50, fl.tierTops[0]! - st.y + 4, -44.1, dim);
-        images.push({ ...image("shade:pocket", () => paintShade("pocket")), x: end - 20, y: T + 20, w: 40, h: st.y - T, z: -47.4, ...dim });
+        images.push({ ...image("shade:under", () => paintShade("under")), x: st.x, y: st.y + st.h - 4, w: st.w, h: 14, z: -44.22, ...dim });
+        fill("pillar", { x: st.side === -1 ? end - 20 : end - 4, y: st.y + 6, w: 24, h: foot - st.y - 6 }, -44.15, dim);
+        images.push({ ...image("shade:pocket", () => paintShade("pocket")), x: st.side === -1 ? end + 2 : end - 34, y: st.y + 4, w: 32, h: foot - st.y - 4, z: -44.3, ...dim });
+        images.push({ ...image("shade:contact", () => paintShade("contact")), x: st.x - 6, y: foot - 7, w: st.w + 12, h: 14, z: -44.1, ...dim });
       }
       // Deep pockets where the masses meet: either side of each pier, down the wall.
       for (const r of fl.piers)
