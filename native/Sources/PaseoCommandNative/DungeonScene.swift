@@ -84,6 +84,7 @@ final class DungeonScene: SKScene, MapScene {
     private var robotBodies: [String: SKSpriteNode] = [:]
     private var flagNodes: [String: SKSpriteNode] = [:]
     private var hoverGlows: [SKNode] = []
+    private var selectionGlows: [SKNode] = []
     private var clock: Double = 0
     private var lastTime: TimeInterval?
     private(set) var reduced = false
@@ -337,7 +338,8 @@ final class DungeonScene: SKScene, MapScene {
             robots.append(robot)
         }
         if let h = m["hud"] as? [String: [String: Any]] { placeHud(h) }
-        // The robots are new nodes: a hovered robot's glow goes onto its new body.
+        // The robots are new nodes: a hovered or selected robot's glow goes onto its new body.
+        if selected != nil { drawSelection() }
         if hovered != nil { drawHover() }
         animate()
         wake()
@@ -597,41 +599,25 @@ final class DungeonScene: SKScene, MapScene {
 
     // MARK: Selection and hover
 
-    private func rounded(_ r: CGRect, inset: CGFloat) -> CGPath {
-        let box = r.insetBy(dx: inset, dy: inset)
-        let flipped = CGRect(x: box.minX, y: -box.maxY, width: box.width, height: box.height)
-        let radius = min(10, box.width / 4, box.height / 4)
-        return CGPath(roundedRect: flipped, cornerWidth: radius, cornerHeight: radius, transform: nil)
+    /// What glows for an entity: a PR medallion (when that's what's hovered), a robot's body, or its tagged sprites.
+    private func glowSprites(_ id: String, flag: Flag? = nil) -> [SKSpriteNode] {
+        if let f = flag, let medallion = flagNodes["\(f.workspace)|\(f.flag)"] { return [medallion] }
+        if entities[id]?.kind == "agent" { return robotBodies[id].map { [$0] } ?? [] }
+        return owners[id] ?? []
     }
 
-    /// A golden rim with a breathing halo and a warm wash, so the selection reads on stone, parchment and light.
+    /// The selection glows gold along the same silhouette, breathing, as the Village's does (no rim or wash).
     private func drawSelection() {
         for node in [selectionNode, selectionWash, selectionHalo] { node.removeAllChildren() }
-        guard let id = selected, let e = entities[id] else { return }
-        let r = e.rect.insetBy(dx: -4, dy: -4)
-        let wash = SKShapeNode(path: rounded(r, inset: 0))
-        wash.fillColor = Textures.color(0xffe27a)
-        wash.strokeColor = .clear
-        selectionWash.addChild(wash)
-        for k in 1...5 {
-            let halo = SKShapeNode(path: rounded(r, inset: 0))
-            halo.strokeColor = Textures.color(0xffc72e, 0.2)
-            halo.lineWidth = 3 + CGFloat(k) * 3
-            halo.fillColor = .clear
-            selectionHalo.addChild(halo)
-        }
-        let rim = SKShapeNode(path: rounded(r, inset: 0))
-        rim.strokeColor = Textures.color(0xffc72e)
-        rim.lineWidth = 3
-        rim.fillColor = .clear
-        selectionNode.addChild(rim)
+        for g in selectionGlows { g.removeFromParent() }
+        selectionGlows = []
+        guard let id = selected, entities[id] != nil else { return }
+        selectionGlows = glowSprites(id).flatMap { SpriteGlow.glow($0, color: SpriteGlow.selectColor, name: "select-glow", wide: true) }
         breathe()
     }
 
     private func breathe() {
-        let t = reduced ? 0.5 : 0.5 + 0.5 * sin(clock / 1600 * .pi * 2)
-        selectionWash.alpha = CGFloat(0.08 + 0.12 * t)
-        selectionHalo.alpha = CGFloat(0.5 + 0.5 * t)
+        SpriteGlow.breathe(selectionGlows, clock: clock, reduced: reduced)
     }
 
     /// The hovered thing glows as the Village's do: a soft warm halo along its own silhouette (a robot's body, an
@@ -640,12 +626,9 @@ final class DungeonScene: SKScene, MapScene {
         hoverNode.removeAllChildren()
         for g in hoverGlows { g.removeFromParent() }
         hoverGlows = []
-        guard let id = hovered, let e = entities[id] else { return }
-        let sprites: [SKSpriteNode]
-        if let f = hoveredFlag, let medallion = flagNodes["\(f.workspace)|\(f.flag)"] { sprites = [medallion] }
-        else if e.kind == "agent" { sprites = robotBodies[id].map { [$0] } ?? [] }
-        else { sprites = owners[id] ?? [] }
-        hoverGlows = sprites.flatMap { SpriteGlow.glow($0, color: SpriteGlow.hoverColor, strength: 1, name: "hover-glow") }
+        // The selected one keeps its gold (unless a PR medallion on it is hovered).
+        guard let id = hovered, entities[id] != nil, id != selected || hoveredFlag != nil else { return }
+        hoverGlows = glowSprites(id, flag: hoveredFlag).flatMap { SpriteGlow.glow($0, color: SpriteGlow.hoverColor, name: "hover-glow") }
     }
 
     private func setHover(_ id: String?, flag: Flag? = nil) {

@@ -112,6 +112,12 @@ assert(glowCount(scene) == 0, "the glow goes with the hover")
 // Selection draws for a known entity and clears for a gone one.
 scene.select("w1")
 assert(scene.state()["selected"] as? String == "w1")
+// A selected robot glows gold along its body (a halo, a lift and a wider halo), with no rim, wash or box.
+scene.select("a1")
+func named(_ n: SKNode, _ name: String) -> Int { (n.name == name ? 1 : 0) + n.children.reduce(0) { $0 + named($1, name) } }
+func shapes(_ n: SKNode) -> Int { (n is SKShapeNode && (n.parent?.zPosition ?? 0) >= 19 ? 1 : 0) + n.children.reduce(0) { $0 + shapes($1) } }
+assert(named(scene, "select-glow") == 3, "a selected robot glows")
+assert(shapes(scene) == 0, "no selection rim")
 scene.select("gone")
 assert(scene.state()["selected"] is NSNull)
 

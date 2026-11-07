@@ -602,7 +602,18 @@ final class AtlasScene: SKScene, MapScene {
     /// reads on grass, timber, flagstones and every tile colour.
     private func drawSelection() {
         for node in [selectionNode, selectionWash, selectionHalo] { node.removeAllChildren() }
+        overworldSelection = []
         guard let id = selected, let e = entities[id] else { return }
+        // The Overworld's selection glows gold along the selected thing's silhouette, breathing, as the Village's does
+        // (no rim or wash). Islands keeps its rim.
+        if style == "overworld" {
+            if let g = e.glow, let image = glowImages[g.key] {
+                overworldSelection = SpriteGlow.overlay(for: image, size: g.rect.size, mid: p(g.rect.midX, g.rect.midY), color: SpriteGlow.selectColor, name: "select-glow", wide: true)
+                for n in overworldSelection { selectionNode.addChild(n) }
+            }
+            breathe()
+            return
+        }
         if e.kind != "host" && !e.rects.isEmpty {
             let wash = SKShapeNode(path: rectPath(e.rects))
             wash.fillColor = Textures.color(0xffe27a)
@@ -633,7 +644,11 @@ final class AtlasScene: SKScene, MapScene {
         breathe()
     }
 
+    /// The Overworld's selection glow (empty on Islands).
+    private var overworldSelection: [SKNode] = []
+
     private func breathe() {
+        if !overworldSelection.isEmpty { SpriteGlow.breathe(overworldSelection, clock: clock, reduced: reduced) }
         let t = reduced ? 0.5 : 0.5 + 0.5 * sin(clock / 1600 * .pi * 2)
         selectionWash.alpha = CGFloat(0.1 + 0.16 * t)
         selectionHalo.alpha = CGFloat(0.5 + 0.5 * t)
@@ -645,7 +660,8 @@ final class AtlasScene: SKScene, MapScene {
         // The Overworld's hovered hall, booth or robot glows as the Village's do: a soft warm halo outside its own
         // silhouette and a faint brightening over it, never a box. (Islands keeps its hex outline.)
         if style == "overworld" {
-            guard let g = e.glow, let image = glowImages[g.key] else { return }
+            // The selected one keeps its gold.
+            guard id != selected, let g = e.glow, let image = glowImages[g.key] else { return }
             for n in SpriteGlow.overlay(for: image, size: g.rect.size, mid: p(g.rect.midX, g.rect.midY), color: SpriteGlow.hoverColor, name: "hover-glow") {
                 hoverNode.addChild(n)
             }
