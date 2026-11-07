@@ -224,7 +224,7 @@ test("robots: Claude orange, ChatGPT white, each other provider a stable colour 
   assert.ok(new Set(layout.agents.map((a) => a.robot)).size >= 7);
 });
 
-test("each floor's cutaway opens round the next host's gate, so its arch and icon read whole", () => {
+test("each floor's cutaway opens round the next host's gate, so its arch reads whole", () => {
   const layout = layoutDungeon(DUNGEON_SAMPLE, 1.4);
   layout.floors.forEach((fl, i) => {
     const next = layout.floors[i + 1];
@@ -240,11 +240,18 @@ test("each floor's cutaway opens round the next host's gate, so its arch and ico
   });
 });
 
-test("projects and workspaces carry no labels; links reach each medallion and each alcove's top", () => {
+test("no labels or icons on projects and workspaces; links run through each project's junction to each alcove's top", () => {
   const layout = layoutDungeon(DUNGEON_SAMPLE, 1.4);
   for (const p of layout.projects) {
-    const bottom = p.medallion.y + D.medallionR;
-    assert.ok(layout.links.some((l) => l.some((q) => q.x === p.medallion.x && Math.abs(q.y - bottom) < 0.01)), `a link reaches ${p.name}'s medallion`);
+    assert.equal(p.icon, undefined, `${p.name} carries no icon`);
+    // Its junction is a node on a link (the tier's bus), and nothing rises from it to a medallion.
+    assert.ok(layout.nodes.some((n) => n.x === p.node.x && n.y === p.node.y), `${p.name}'s junction is a node`);
+    assert.ok(layout.links.some((l) => l.length >= 2 && l.some((q) => q.y === p.node.y)), `a link runs along ${p.name}'s bus`);
+    assert.ok(!layout.links.some((l) => l.some((q) => q.x === p.node.x && q.y < p.node.y - 1)), `no link rises from ${p.name}'s junction`);
+    // Its pick box is its terrace's back wall: above its alcoves, within its span, wide enough to hover.
+    const alcoves = layout.workspaces.filter((w) => w.project === p.key);
+    assert.ok(alcoves.every((w) => p.rect.y + p.rect.h <= w.rect.y + 0.01 && !overlaps(p.rect, w.rect)), `${p.name}'s box stays above its alcoves`);
+    assert.ok(p.rect.x >= p.span.x && p.rect.x + p.rect.w <= p.span.x + p.span.w && p.rect.w > 80, `${p.name}'s box is its terrace`);
   }
   for (const w of layout.workspaces) {
     const cx = w.rect.x + w.rect.w / 2;

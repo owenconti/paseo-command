@@ -88,7 +88,7 @@ func click(_ x: CGFloat, _ y: CGFloat) -> String? {
 }
 assert(click(200, 350) == "a1", "a robot is picked before its alcove")
 assert(click(300, 360) == "w1", "the alcove around it")
-assert(click(250, 180) == "p1", "the project's medallion and label")
+assert(click(250, 180) == "p1", "the project's terrace wall")
 assert(click(109, 309) == "w1", "a PR medallion picks its workspace")
 assert(click(-400, 700) == nil, "bare stone picks nothing")
 

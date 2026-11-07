@@ -1,10 +1,10 @@
 /**
  * The Dungeon Board's deterministic layout: a front cutaway of a dungeon, one
  * floor per host (stacked in the Atlas's host order), its gate in the middle
- * (medallion, plaque, gold node, portcullis, stairs down to the next floor),
+ * (its round surround, plaque, gold node, portcullis, stairs down to the next floor),
  * its projects alternating left and right of the gate, outward from it, each
- * an icon medallion (its name on the hover card, as on the Islands) with its workspaces' candle-lit alcoves
- * in a row beneath, and the agents' robots on each alcove's front ledge.
+ * a terrace with a pair of wall candles (no icon or label: its name is on the hover card, as on the Islands)
+ * over its workspaces' candle-lit alcoves in a row beneath, and the agents' robots on each alcove's front ledge.
  * Gold links run from the host's node to each project and workspace. A side
  * with more projects than fit wraps onto further tiers within its floor; the
  * gate stays central and the tiers are chosen to fit the map's aspect.
@@ -65,9 +65,10 @@ export const D = {
   /** Below the foot's furnishings, room the HUD's count bar lies over (nothing the board says is under it). */
   footPad: 82,
   /** Within a tier (from its top). */
-  /** A project's mark: its icon medallion (no name label: names are on the hover cards, as on the Islands). */
-  medallionY: 32,
-  medallionR: 29,
+  /** A project's mark: no icon or label (names are on the hover cards, as on the Islands): its terrace and the pair
+   * of wall candles flanking this point, `markR` either side, which is also where its alarm glows. */
+  markY: 32,
+  markR: 29,
   busY: 76,
   alcoveY: 86,
   alcoveH: 128,
@@ -140,17 +141,18 @@ export type DProject = {
   host: string;
   entity?: Entity;
   name: string;
-  icon: Icon;
   side: -1 | 1;
   tier: number;
   floor: number;
   /** Its whole span on its tier. */
   span: Rect;
-  medallion: Pt;
+  /** The middle of its terrace's back wall, between its candles: where its alarm glows. */
+  mark: Pt;
+  /** Its junction on the tier's bus, from which links drop to its alcoves. */
   node: Pt;
   /** Its two torches, lit while any of its agents runs (top centre). */
   torches: Pt[];
-  /** Its medallion, for picking and the selection rim. */
+  /** Its terrace's back wall, above its alcoves: its pick box and the hover and selection rims' box. */
   rect: Rect;
   stale: boolean;
 };
@@ -312,10 +314,10 @@ function block(group: ReturnType<typeof hostGroups>[number], side: -1 | 1, measu
     at += a.width + D.alcoveGap;
   }
   const end = at - D.alcoveGap;
-  // The mark (the medallion, with a wall candle either side) keeps clear of the first tier's link, which drops at
-  // `drop` from the gates' line.
+  // The mark (a wall candle either side of it) keeps clear of the first tier's link, which drops at `drop` from the
+  // gates' line.
   void measure;
-  const labelW = D.medallionR * 2 + 64;
+  const labelW = D.markR * 2 + 64;
   const torchRoom = 8;
   const labelC = Math.max(end / 2, D.drop - D.inner + 34 + labelW / 2, labelW / 2 + torchRoom);
   const width = Math.max(end, labelC + labelW / 2 + torchRoom);
@@ -390,6 +392,15 @@ const FLOOR_PROPS = ["barrel", "barrels", "crate", "crates", "shelf-potions", "t
 /** Small things on the walkways and beside the side rooms, as the concept strews them. */
 const CLUTTER = ["barrel", "crate", "candle", "barrel", "crate", "candle", "shelf-potions", "table"];
 const TORCH_LIGHT = { color: 0xffa03a, reach: 56 };
+/** A project's terrace wall (its pick box): its span inside the returns, from above its candles to just over the bus,
+ * kept `clear` of the gate's line (the host's plaque). */
+function terraceBox(span: Rect, y0: number, clear: number): Rect {
+  let x0 = span.x + 24, x1 = span.x + span.w - 24;
+  if (x0 < 0 && x1 > -clear) x1 = Math.min(x1, -clear);
+  if (x1 > 0 && x0 < clear) x0 = Math.max(x0, clear);
+  return { x: x0, y: y0 + 4, w: Math.max(0, x1 - x0), h: D.busY - 10 };
+}
+
 /** A side room's recess, in board units. */
 const ROOM = { w: 130, h: 200 };
 
@@ -520,7 +531,7 @@ export function layoutDungeon(data: AtlasData, _aspect = 1.6, measure: Measure =
         for (const b of row) {
           const X = (u: number) => s * (cursor + u);
           const labelC = X(b.labelC);
-          const medallion = { x: labelC, y: y0 + D.medallionY };
+          const mark = { x: labelC, y: y0 + D.markY };
           const projNode = { x: labelC, y: busY };
           const entity: Entity | undefined = b.project
             ? {
@@ -532,32 +543,30 @@ export function layoutDungeon(data: AtlasData, _aspect = 1.6, measure: Measure =
                 stale: !!b.project.stale,
               }
             : undefined;
-          const medBox = { x: labelC - D.medallionR, y: medallion.y - D.medallionR, w: D.medallionR * 2, h: D.medallionR * 2 };
+          const span = { x: Math.min(X(0), X(b.width)), y: y0, w: b.width, h: D.tierH };
           projects.push({
             key: b.key,
             host: host.key,
             entity,
             name: b.project?.name ?? "No project",
-            icon: b.project ? projectIcon(b.project.name, b.project.key) : "gear",
             side: s,
             tier,
             floor: f,
-            span: { x: Math.min(X(0), X(b.width)), y: y0, w: b.width, h: D.tierH },
-            medallion,
+            span,
+            mark,
             node: projNode,
-            // Its wall candles flank the medallion.
+            // Its wall candles flank its mark.
             torches: [
-              { x: labelC - D.medallionR - 22, y: y0 + D.medallionY - 22 },
-              { x: labelC + D.medallionR + 22, y: y0 + D.medallionY - 22 },
+              { x: labelC - D.markR - 22, y: y0 + D.markY - 22 },
+              { x: labelC + D.markR + 22, y: y0 + D.markY - 22 },
             ],
-            // Its pick box: the medallion, a little generous.
-            rect: { x: medBox.x - 4, y: medBox.y - 4, w: medBox.w + 8, h: medBox.h + 8 },
+            // Its pick box: the terrace's back wall, where its medallion was and along its span, from above its candles
+            // down to the bus (which runs over it), inside its returns; on the top tier clear of the host's plaque.
+            rect: terraceBox(span, y0, tier === 0 ? plaqueW / 2 + 6 : 0),
             stale: !!b.project?.stale,
           });
           busNodes.push(projNode.x);
           nodes.push(projNode);
-          // Up from the bus to the medallion.
-          links.push([projNode, { x: projNode.x, y: medallion.y + D.medallionR }]);
           b.alcoves.forEach((a, k) => {
             const x0 = s === 1 ? X(b.starts[k]!) : X(b.starts[k]! + a.width);
             const rect = { x: x0, y: y0 + D.alcoveY, w: a.width, h: D.alcoveH };
@@ -813,7 +822,7 @@ export function layoutDungeon(data: AtlasData, _aspect = 1.6, measure: Measure =
   const signature = JSON.stringify([
     round(bounds),
     floors.map((fl) => [fl.host.id, fl.title, fl.online, fl.stats.map((s) => s.text), round(fl.rect)]),
-    projects.map((p) => [p.key, p.name, p.icon, round(p.rect)]),
+    projects.map((p) => [p.key, p.name, round(p.rect)]),
     workspaces.map((w) => [
       w.entity.id,
       w.entity.name,

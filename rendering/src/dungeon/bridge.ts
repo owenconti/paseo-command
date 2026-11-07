@@ -556,10 +556,9 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
         images.push({ ...image("shade:patch", () => paintShade("patch")), x, y: T + 18 + rng() * 50, w, h: 50 + rng() * 40, z: -50 });
       }
       if (fl.last) fill("terrace-floor", { x: L + 20, y: floorEnd + 28, w: R - L - 40, h: fl.top + fl.height - floorEnd - 34 }, -40, { ...dim, shade: 0.26 });
-      // The gate column: the big round surround with the host's icon in its dark top, the plaque, the portcullis
-      // behind its arch, and the stairs down between block side walls.
+      // The gate column: the big round surround (its top a plain dark keystone opening: no icon), the plaque, the
+      // portcullis behind its arch, and the stairs down between block side walls.
       put("gate-surround", fl.surround.x, fl.surround.y, fl.surround.w, fl.surround.h, -36, dim);
-      sprites.push(sprite("icon-layers", at("icon-layers", 0, fl.medallion.y, 47), -35.9, dim));
       // The stairs, a shade down from the sheet's, so their lit steps don't outshine the robots.
       // The treads at their own warm exposure (the sheet already lights them); the side walls stay shaded below.
       const steps = { ...dim, shade: dim.dim ? 0.55 : 0.22 };
@@ -590,15 +589,14 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
     for (const p of l.projects) {
       const dim = dimOf(p.floor);
       const y0 = p.span.y;
-      // The project's terrace: a recess of darker stone behind its medallion, under a rampart that returns at its outer end.
+      // The project's terrace (its only mark, with its candles: no medallion or icon): a recess of darker stone, under a rampart that returns at its outer end.
       fill("wall-brick-dark", { x: p.span.x + 30, y: y0 + 34, w: Math.max(0, p.span.w - 60), h: D.alcoveY - 34 }, -50, { ...dim, shade: 0.3 });
       fill("rampart-x", { x: p.span.x + (p.side === -1 ? 36 : 0), y: y0 + 23, w: p.span.w - 36, h: 25 }, -30, dim);
       // Occlusion where the terrace's wall meets the recess behind it: a dark pocket under its lip.
       images.push({ ...image("shade:under", () => paintShade("under")), x: p.span.x + 30, y: y0 + 46, w: Math.max(0, p.span.w - 60), h: 18, z: -29.8 });
       if (p.side === -1) put("rampart-return-left", p.span.x, y0 + 23, 50, 75, -29.9, dim);
       else put("rampart-return-right", p.span.x + p.span.w - 50, y0 + 23, 50, 75, -29.9, dim);
-      sprites.push(sprite("medallion", at("medallion", p.medallion.x, p.medallion.y, D.medallionR * 2), 2, dim));
-      // Wall candles flanking the medallion, with their warm spill on the wall.
+      // Wall candles flanking its mark, with their warm spill on the wall.
       const lit = l.floors[p.floor]!.online;
       for (const t of p.torches) {
         sprites.push(sprite(lit ? "wall-candles" : "wall-candles-out", at("wall-candles", t.x, t.y, 30), 3.2, dim));
@@ -607,7 +605,6 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
           lights.push({ x: t.x, y: t.y + 26, rx: 30, ry: 26, c: GOLD_DEEP, blend: "gold", tight: 1, k: 0.9, z: -29, period: 5200, flicker: false });
         }
       }
-      sprites.push(sprite(`icon-${p.icon}`, at(`icon-${p.icon}`, p.medallion.x, p.medallion.y, 30), 2.1, dim));
     }
     for (const w of l.workspaces) {
       const dim = { ...dimOf(w.floor), ...(w.entity.stale ? { a: 0.7 } : {}) };
@@ -836,7 +833,7 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
         if (lit) lights.push({ x: t.x, y: t.y + 8, c: 0xffa03a, r: 56, period: 2400, flicker: true, ph: random(seedOf(id + t.x))(), k: 0.6 });
       }
       const alarm = online ? projectAlarm(l, id) : undefined;
-      if (alarm) lights.push({ x: p.medallion.x, y: p.medallion.y, c: STATE_TILE[alarm]!, r: 54, period: alarm === "failed" ? 1200 : 1800, flicker: false, z: 1.9, ph: 0 });
+      if (alarm) lights.push({ x: p.mark.x, y: p.mark.y, c: STATE_TILE[alarm]!, r: 54, period: alarm === "failed" ? 1200 : 1800, flicker: false, z: 1.9, ph: 0 });
     }
     // Light runs along the links to each workspace with an agent at work.
     const runners = l.workspaces
@@ -1029,7 +1026,7 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
             realFrames: realFrames.size,
             floors: layout.floors.map((f) => ({ host: f.host.id, title: f.title, online: f.online, tiers: f.tiers, stats: f.stats.map((s) => s.text), portcullis: f.portcullis, stairs: f.stairs })),
             rooms: layout.decor.filter((d) => d.recess).map((d) => d.rect),
-            projects: layout.projects.map((p) => ({ id: p.entity?.id ?? p.key, name: p.name, icon: p.icon, side: p.side, tier: p.tier, rect: p.rect })),
+            projects: layout.projects.map((p) => ({ id: p.entity?.id ?? p.key, name: p.name, side: p.side, tier: p.tier, rect: p.rect })),
             workspaces: layout.workspaces.map((w) => ({
               id: w.entity.id, name: w.entity.name, camp: !!w.entity.camp, rect: w.rect,
               flags: w.flags.map((f) => f.flag), medallions: w.flags.map((f) => ({ flag: f.flag, x: f.x, y: f.y })), seal: !!w.seal,
