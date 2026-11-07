@@ -483,10 +483,12 @@ function layoutProject(
     // A hall's yard: lanterns at its door, barrels and crates at its corners.
     const yard = rng(hash(project.id) ^ 0x7a2d);
     for (const side of [-1, 1]) {
-      scene.items.push({ kind: "sprite", sheet: "props", frame: "lantern-lit", x: hx + side * 46, y: y0 + 303, scale: 0.17, shadow: 0.2 });
+      scene.items.push({ kind: "sprite", sheet: "props", frame: "lantern-lit", x: hx + side * 46, y: y0 + 304, scale: 0.2, shadow: 0.2, z: y0 + 305 });
       const goods = ["barrel-0", "crate-0", "sack-0", "crate-1", "barrel-1"];
       scene.items.push({ kind: "sprite", sheet: "props", frame: goods[Math.floor(yard() * goods.length)]!, x: hx + side * (98 + yard() * 8), y: y0 + 296, scale: 0.17, flip: side > 0, shadow: 0.25 });
       if (yard() < 0.6) scene.items.push({ kind: "sprite", sheet: "props", frame: goods[Math.floor(yard() * goods.length)]!, x: hx + side * (112 + yard() * 6), y: y0 + 302, scale: 0.15, shadow: 0.25 });
+      // Keep the yard clear of trees so its goods show.
+      reserve(scene, hx + side * 92 - 22, y0 + 270, hx + side * 92 + 30, y0 + 310);
     }
     scene.labels.push({ kind: "label", x: hx, y: y0 + 247, w: labelW, h: 34, text: project.name, size: 21 });
     scene.entities.push({ id: project.id, kind: "project", x0: hx - 108, y0: y0 + 172, x1: hx + 108, y1: y0 + 298 });
