@@ -741,7 +741,13 @@ export function layoutDungeon(data: AtlasData, _aspect = 1.6, measure: Measure =
     // chain, and dark breaks (the bridge lays shadow patches there).
     const hostX = D.surroundW / 2 + 40;
     for (const s of [-1, 1] as const) {
-      if (place({ frame: "banner-purple-layers", x: s * hostX, y: fl.top + 22, w: 72, floor: f, layer: "back" }))
+      // Their full hanging length: mounted high, then nudged outward if it would cover something.
+      let hung = false;
+      // (Below the first floor the floor above's front wall takes the wall's top, so it hangs from just under it.)
+      const mount = f === 0 ? fl.top + 8 : fl.top + 28;
+      for (const nudge of [0, 24, 48, 72])
+        if ((hung = place({ frame: "banner-purple-layers", x: s * (hostX + nudge), y: mount, w: f === 0 ? 64 : 56, floor: f, layer: "back" }))) break;
+      if (hung)
         place({ frame: "torch", x: s * (hostX + 50), y: fl.top + 56, w: 24, floor: f, layer: "front", ...lit(TORCH_LIGHT) });
       place({ frame: THEMED[(seedOf(fl.host.id) + (s === 1 ? 1 : 0)) % THEMED.length]!, x: s * (half - D.sideRoom / 2), y: fl.top + 40, w: 60, floor: f, layer: "back" });
       for (let x = hostX + 100 + rng() * 30; x < half - D.sideRoom - 30; x += 52 + rng() * 50) {
@@ -784,7 +790,7 @@ export function layoutDungeon(data: AtlasData, _aspect = 1.6, measure: Measure =
     if (fl.last) {
       const y = fl.top + fl.height - D.footPad - 6;
       const lip = fl.tierTops[fl.tiers - 1]! + D.frontY + 40;
-      place({ frame: "banner-crown", x: 0, y: lip + 8, w: 56, floor: f, layer: "front" }, false);
+      place({ frame: "banner-crown", x: 0, y: lip + 2, w: 70, floor: f, layer: "front" }, false);
       for (const s of [-1, 1] as const) {
         place({ frame: "brazier", x: s * 112, y, w: 66, floor: f, layer: "front", ...lit({ color: 0xff9a3a, reach: 30 }) }, false);
         const rug = FRAMES["rug-red"]!, rugW = 162, rugH = (rug.h * rugW) / rug.w;
@@ -854,4 +860,12 @@ export function hudSubtitle(layout: DungeonLayout): string {
   if (parts.length) return parts.join(" · ");
   if (layout.floors.length && layout.floors.every((f) => !f.online)) return "Every host offline";
   return "All quiet";
+}
+
+/** The spans a tier's cutaway (its ledge face, underside and shadow) runs across, from x to x: the floor's
+ * width less its ends, opened round the next floor's gate surround below a floor's last tier, as its front
+ * rampart is, so the next host's arch and icon read whole. */
+export function cutawaySpans(fl: DFloor, y0: number, half = fl.rect.w / 2): [number, number][] {
+  const opens = !fl.last && y0 === fl.tierTops[fl.tiers - 1];
+  return opens ? [[-half + 26, -D.surroundW / 2 + 2], [D.surroundW / 2 - 2, half - 26]] : [[-half + 26, half - 26]];
 }

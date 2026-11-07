@@ -99,6 +99,8 @@ export const FRAMES: Record<string, FrameSpec> = Object.fromEntries([
   ["window-barred", spec("stone", 48, 58, "center")],
   ["border", spec("stone", 32, 20, "top-left", { tile: "x" })],
   ["border-corner", spec("stone", 20, 20, "top-left")],
+  ["corbel-left", spec("stone", 29, 31, "top-center")],
+  ["corbel-right", spec("stone", 29, 31, "top-center")],
   // The three-quarter view's thick low walls with lit tops, and the warm terrace floor.
   ["rampart-x", spec("stone", 66, 22, "top-left", { tile: "x" })],
   ["rampart-y", spec("stone", 22, 66, "top-left", { tile: "y" })],

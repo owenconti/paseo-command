@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { layoutDungeon, overlaps, segmentRect, hudSubtitle, projectIcon, robotColor, D } from "../src/dungeon/layout.ts";
+import { layoutDungeon, overlaps, segmentRect, hudSubtitle, projectIcon, robotColor, cutawaySpans, D } from "../src/dungeon/layout.ts";
 import { FRAMES, applySheet } from "../src/dungeon/frames.ts";
 import { readdirSync, readFileSync } from "node:fs";
 
@@ -223,4 +223,20 @@ test("robots: Claude orange, ChatGPT white, each other provider a stable colour 
   assert.notEqual(robotColor("opencode/a"), "orange");
   const layout = layoutDungeon(DUNGEON_SAMPLE, 1.4);
   assert.ok(new Set(layout.agents.map((a) => a.robot)).size >= 7);
+});
+
+test("each floor's cutaway opens round the next host's gate, so its arch and icon read whole", () => {
+  const layout = layoutDungeon(DUNGEON_SAMPLE, 1.4);
+  layout.floors.forEach((fl, i) => {
+    const next = layout.floors[i + 1];
+    for (const y0 of fl.tierTops) {
+      const spans = cutawaySpans(fl, y0);
+      const band = { y: y0 + D.frontY + 26, h: 40 };
+      if (next && y0 === fl.tierTops.at(-1)) {
+        // The band reaches into the next floor's surround: no span may cross it.
+        assert.ok(band.y + band.h > next.surround.y, "the cutaway would reach the next arch");
+        for (const [a, b] of spans) assert.ok(b <= next.surround.x + 2 || a >= next.surround.x + next.surround.w - 2, `a span ${a}..${b} crosses the arch`);
+      } else assert.equal(spans.length, 1);
+    }
+  });
 });

@@ -16,6 +16,7 @@ import { FRAMES, ANIMATIONS, anchorShare, applySheet, framesOf, sliceOf, type Sh
 import { paintPlaceholder } from "./placeholder";
 import {
   D,
+  cutawaySpans,
   ROBOT_OF,
   STATE_GLOW,
   STATE_MARK,
@@ -52,7 +53,7 @@ const GOLD_DIM = 0x5e3a00;
 const TREAD = 12;
 /** Warm bounce on the alcoves' inner jambs (off: next to the robots it competed with them). */
 const JAMBS = false;
-const GOLD_K = { alcove: 0.35, stairs: 0.9, walk: 0.9, rim: 0.9, front: 0.35, torch: 0.95, candle: 0.85 };
+const GOLD_K = { alcove: 0.35, stairs: 0.9, walk: 0.9, rim: 0.9, front: 0.35, torch: 0.7, candle: 0.85 };
 /** The concept's chunky, wide, rounded heavy type: SF Pro Rounded where WebKit has it. */
 const FONT = 'ui-rounded, "SF Pro Rounded", "Arial Rounded MT Bold", "Paseo Barlow", sans-serif';
 /** Its weights: labels and plaques heavy, the HUD's lighter lines bold. */
@@ -524,14 +525,22 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
         put("rampart-return-left", H - 118, y0 + D.frontY - 16, 88, 43, -8.9, dim);
         put("rampart-end-left", -H + 12, y0 + D.frontY - 24, 31, 30, -8.8, dim);
         put("rampart-end-right", H - 38, y0 + D.frontY - 24, 31, 30, -8.8, dim);
-        // The cutaway's thickness under the rampart's lip: the ledge's face, corbels carrying it, and a cool
-        // shadow beneath, so the floor reads as a slab with the next floor's wall in its shade.
-        fill("ledge-face", { x: -H + 26, y: y0 + D.frontY + 26, w: 2 * H - 52, h: 14 }, -9.2, { ...dim, shade: 0.5, neutral: 1 });
-        for (let cx = -H + 70; cx < H - 60; cx += 118) {
-          if (Math.abs(cx) < D.surroundW / 2 + 10 && !fl.last && y0 === fl.tierTops[fl.tiers - 1]) continue;
-          put("pillar-base", cx - 12, y0 + D.frontY + 36, 24, 18, -9.25, dim);
+        // The cutaway's thickness under the rampart's lip: the ledge's face, a few substantial corbels and a cool
+        // shadow beneath. All of it opens round the next floor's gate, as the rampart does, so the arch reads whole.
+        for (const [x0, x1] of cutawaySpans(fl, y0, H)) {
+          fill("ledge-face", { x: x0, y: y0 + D.frontY + 26, w: x1 - x0, h: 14 }, -9.2, { ...dim, shade: 0.5, neutral: 1 });
+          images.push({ ...image("shade:under", () => paintShade("under")), x: x0, y: y0 + D.frontY + 38, w: x1 - x0, h: 22, z: -9.3 });
         }
-        images.push({ ...image("shade:under", () => paintShade("under")), x: -H + 20, y: y0 + D.frontY + 38, w: 2 * H - 40, h: 22, z: -9.3 });
+        // Corbels in irregular pairs at the bays' boundaries, in the underside's shade.
+        const crng = random(seedOf(`${fl.host.id}${y0}corbels`));
+        const bounds = l.workspaces.filter((w) => w.floor === l.floors.indexOf(fl) && w.rect.y < y0 + D.tierH && w.rect.y >= y0)
+          .flatMap((w) => [w.rect.x - D.alcoveGap / 2, w.rect.x + w.rect.w + D.alcoveGap / 2]);
+        for (const bx of [...new Set(bounds.map((x) => Math.round(x)))]) {
+          if (crng() < 0.35 || !cutawaySpans(fl, y0, H).some(([a, b]) => bx - 20 > a && bx + 20 < b)) continue;
+          const pair = crng() < 0.5;
+          for (const [dx, frame] of (pair ? [[-15, "corbel-left"], [15, "corbel-right"]] : [[0, crng() < 0.5 ? "corbel-left" : "corbel-right"]]) as [number, string][])
+            put(frame, bx + dx - 14.5, y0 + D.frontY + 38, 29, 31, -9.25, { ...dim, shade: 0.35 });
+        }
       }
       // The enclosure's edges, excavated: irregular masses of dark stone biting in at the floor's ends.
       for (const sd of [-1, 1])
@@ -583,6 +592,8 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
       // The project's terrace: a recess of darker stone behind its medallion and label, under a rampart that returns at its outer end.
       fill("wall-brick-dark", { x: p.span.x + 30, y: y0 + 34, w: Math.max(0, p.span.w - 60), h: 83 }, -50, { ...dim, shade: 0.3 });
       fill("rampart-x", { x: p.span.x + (p.side === -1 ? 36 : 0), y: y0 + 23, w: p.span.w - 36, h: 25 }, -30, dim);
+      // Occlusion where the terrace's wall meets the recess behind it: a dark pocket under its lip.
+      images.push({ ...image("shade:under", () => paintShade("under")), x: p.span.x + 30, y: y0 + 46, w: Math.max(0, p.span.w - 60), h: 18, z: -29.8 });
       if (p.side === -1) put("rampart-return-left", p.span.x, y0 + 23, 50, 75, -29.9, dim);
       else put("rampart-return-right", p.span.x + p.span.w - 50, y0 + 23, 50, 75, -29.9, dim);
       sprites.push(sprite("medallion", at("medallion", p.medallion.x, p.medallion.y, D.medallionR * 2), 2, dim));
@@ -728,6 +739,8 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
       pooled.push({ x, y });
       // Tight: a small bright heart and a quick falloff, torchlight on stone rather than a smudge.
       lights.push({ x, y, rx: 64, ry: 58, c: GOLD, blend: "gold", tight: 1, k: GOLD_K.torch, z: -43, period: 5200, flicker: false });
+      // A soft, wide bounce on the surrounding wall and jambs, fading by distance; neighbours' overlap.
+      lights.push({ x, y: y + 20, rx: 120, ry: 90, c: GOLD_DEEP, blend: "gold", k: 0.45, z: -43.4, period: 5200, flicker: false });
       // Its light falling on the wall below: wide and deep (warm, not bright).
       lights.push({ x, y: y + 34, rx: 72, ry: 48, c: GOLD_DEEP, blend: "gold", tight: 1, k: 0.95, z: -43.2, period: 5200, flicker: false });
     }
