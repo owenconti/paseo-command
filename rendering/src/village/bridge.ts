@@ -48,6 +48,8 @@ const BOLD = 700;
 const INK = "#2e1d0e";
 const ALERT = "#b0301c";
 const CREAM = "#f3e6c4";
+/** A keep's name board: its chains' room above it, and its lettering's least size (legible at the default zoom). */
+const CHAIN = 22, SIGN_MIN = 42;
 /** How far the paving is darkened (toward the scene's warm shadow) from the sheet's bright gold. */
 const PAVE_SHADE = 0.2;
 /** A workspace plate's dot: green while an agent runs, amber when one needs you, red when one failed, grey idle or offline. */
@@ -535,45 +537,63 @@ export function mountNativeVillage(parent: HTMLElement, handlers: AtlasHandlers 
     ctx.restore();
     return c;
   };
-  /** A keep's name board: the host's name painted in capitals in the world's serif (cream, with a worn dark inset, as
-   * paint on wood), its load in small lettering beneath (≥ 90% red) when it fits; offline says so. Transparent round it. */
+  /** A keep's hanging name board, painted as part of the world: oak planks in a dark frame with iron corners, hung on two
+   * chains (`CHAIN` units of the canvas above `r`), the host's name in capitals filling its height in the world's serif (cream
+   * paint with a worn dark inset). A long name tightens its tracking, then shrinks, never below `SIGN_MIN` (legible at the
+   * default zoom). Offline: the board weathered, the paint dull. */
   const paintSign = (r: Rect, h: VSquare["hosts"][number]) => {
-    const { canvas, ctx } = canvasFor(r.w, r.h);
+    const { canvas, ctx } = canvasFor(r.w, r.h + CHAIN);
     const SIGN = '"Iowan Old Style", Palatino, "Palatino Linotype", "Book Antiqua", Georgia, serif';
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    // The load beneath the name only where the board has room for both to read; else the name alone, large.
-    const room = r.h >= 40;
-    const lines = !room ? [] : h.stats.length ? h.stats : h.online ? [] : [{ text: "OFFLINE", alert: false }];
-    const nameSize = Math.min(r.h * (lines.length ? 0.46 : 0.66), 30);
-    let font = `${BOLD} ${nameSize}px ${SIGN}`;
-    ctx.font = font;
-    const title = h.title.replace(/ · OFFLINE$/, "");
-    const shrink = Math.min(1, (r.w - 14) / Math.max(1, ctx.measureText(title).width));
-    font = `${BOLD} ${Math.max(9, nameSize * shrink)}px ${SIGN}`;
-    const nameY = lines.length ? r.h * 0.38 : r.h * 0.52;
-    const paint = (text: string, x: number, y: number, f: string, color: string) => {
-      ctx.font = f;
-      ctx.fillStyle = "rgba(20, 10, 2, 0.75)";
-      ctx.fillText(text, x + 0.8, y + 1.2);
-      ctx.fillStyle = color;
-      ctx.fillText(text, x, y);
-    };
-    paint(fitText(title, font, r.w - 10), r.w / 2, nameY, font, h.online ? CREAM : "#b8ab92");
-    if (lines.length) {
-      const small = `${BOLD} ${Math.max(7, Math.min(r.h * 0.24, 13))}px ${SIGN}`;
-      ctx.font = small;
-      const parts = lines.flatMap((p, k) => (k ? [{ text: " · ", alert: false }, p] : [p]));
-      const widths = parts.map((p) => ctx.measureText(p.text).width);
-      const total = widths.reduce((a, b) => a + b, 0);
-      if (total <= r.w - 8) {
-        let x = r.w / 2 - total / 2;
-        ctx.textAlign = "left";
-        parts.forEach((p, k) => {
-          paint(p.text, x, r.h * 0.76, small, p.alert ? "#ff6a4c" : "#e8d6ae");
-          x += widths[k]!;
-        });
+    const y0 = CHAIN, W = r.w, H = r.h;
+    for (const x of [W * 0.18, W * 0.82]) {
+      ctx.strokeStyle = "#2a2118";
+      ctx.lineWidth = 2.4;
+      for (let k = 0; k < 4; k++) {
+        ctx.beginPath();
+        ctx.ellipse(x, 3 + k * 5.2, 1.8, 3.2, 0, 0, Math.PI * 2);
+        ctx.stroke();
       }
+      ctx.fillStyle = "#3a3026";
+      ctx.beginPath();
+      ctx.arc(x, y0 + 3, 3.4, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.fillStyle = "rgba(20, 12, 4, 0.45)";
+    ctx.fillRect(3, y0 + 5, W - 3, H - 4);
+    ctx.fillStyle = "#2e1d0e";
+    ctx.fillRect(0, y0, W - 2, H - 2);
+    const plank = h.online ? ["#7a5230", "#6f4a2a", "#80573a"] : ["#6b5e50", "#635648", "#706354"];
+    const inset = 4, ph = (H - 2 - inset * 2) / 3;
+    for (let k = 0; k < 3; k++) {
+      ctx.fillStyle = plank[k]!;
+      ctx.fillRect(inset, y0 + inset + k * ph, W - 2 - inset * 2, ph - 1);
+      ctx.fillStyle = "rgba(255, 220, 160, 0.12)";
+      ctx.fillRect(inset, y0 + inset + k * ph, W - 2 - inset * 2, 1.4);
+    }
+    ctx.fillStyle = "#3a3026";
+    for (const [x, y] of [[0, y0], [W - 12, y0], [0, y0 + H - 12], [W - 12, y0 + H - 12]] as const) ctx.fillRect(x, y, 10, 10);
+    const name = h.title.replace(/ · OFFLINE$/, "");
+    const room = W - 2 - 2 * (inset + 12);
+    let size = Math.min(H * 0.68, V.font.sign), track = 0;
+    const widthAt = (sz: number, tr: number) => {
+      ctx.font = `${BOLD} ${sz}px ${SIGN}`;
+      return ctx.measureText(name).width + tr * sz * (name.length - 1);
+    };
+    while (widthAt(size, track) > room && track > -0.06) track -= 0.01;
+    while (widthAt(size, track) > room && size > SIGN_MIN) size -= 1;
+    ctx.font = `${BOLD} ${size}px ${SIGN}`;
+    ctx.textBaseline = "alphabetic";
+    ctx.textAlign = "left";
+    let x = (W - 2) / 2 - widthAt(size, track) / 2;
+    ctx.font = `${BOLD} ${size}px ${SIGN}`;
+    // Capitals centred on the board (their cap height, about 0.69 em).
+    const base = y0 + (H - 2) / 2 + size * 0.345;
+    for (const ch of name) {
+      ctx.fillStyle = "rgba(20, 10, 2, 0.8)";
+      ctx.fillText(ch, x + 1, base + 1.4);
+      ctx.fillStyle = h.online ? CREAM : "#c2b59a";
+      ctx.fillText(ch, x, base);
+      x += ctx.measureText(ch).width + track * size;
     }
     return canvas;
   };
@@ -778,8 +798,8 @@ export function mountNativeVillage(parent: HTMLElement, handlers: AtlasHandlers 
       const fb = at("keep-flag", sq.keep.flag.x, sq.keep.flag.y, 44);
       images.push({ ...image(`keepflag:${sq.online ? "on" : "off"}`, () => paintPennant(sq.online)), ...fb, z: kz + 0.002, ...dim });
       images.push({
-        ...image(`keepsign:${JSON.stringify(sq.hosts[0])}:${sq.plaque.w}:${sq.plaque.h}`, () => paintSign(sq.plaque, sq.hosts[0]!)),
-        x: sq.plaque.x, y: sq.plaque.y, w: sq.plaque.w, h: sq.plaque.h, z: kz + 0.003, ...dim,
+        ...image(`keepsign2:${JSON.stringify(sq.hosts[0])}:${sq.plaque.w}:${sq.plaque.h}`, () => paintSign(sq.plaque, sq.hosts[0]!)),
+        x: sq.plaque.x, y: sq.plaque.y - CHAIN, w: sq.plaque.w, h: sq.plaque.h + CHAIN, z: kz + 0.003, ...dim,
       });
     });
     // Each cluster's lawn, over the plaza's cobbles (its edges under the greenery and fence the layout sets round it).

@@ -73,6 +73,10 @@ export const V = {
   /** A host's keep: its width, and the room between it and the fountain. */
   keep: 340,
   keepGap: 30,
+  /** The keep's hanging name board: its height, its least width, and its ends' room either side of the name. */
+  board: 68,
+  boardMin: 180,
+  boardPad: 26,
   ringW: 300,
   hostPlaqueH: 64,
   hostPlaqueMin: 220,
@@ -87,7 +91,7 @@ export const V = {
   moatH: 110,
   wallH: 165,
   marginBottom: 420,
-  font: { workspace: 19, project: 38, host: 27, stats: 16 },
+  font: { workspace: 19, project: 38, host: 27, stats: 16, sign: 44 },
   /** A PR medallion on a cottage's roof corners. */
   flag: 20,
 };
@@ -95,7 +99,7 @@ export const V = {
 export type TextKind = keyof typeof V.font;
 /** Text width in village px for a kind's type; the bridge measures with the real font. */
 export type Measure = (text: string, kind: TextKind) => number;
-export const approxMeasure: Measure = (text, kind) => text.length * V.font[kind] * (kind === "stats" ? 0.56 : 0.54);
+export const approxMeasure: Measure = (text, kind) => text.length * V.font[kind] * (kind === "stats" ? 0.56 : kind === "sign" ? 0.72 : 0.54);
 
 /** A host's district: its hedged plaza, its fountain and plaque. (`roads` are its paving: the plaza.) */
 export type VSquare = {
@@ -450,7 +454,9 @@ function districtOf(host: AtlasData["hosts"][number], blocks: Block[], line: VSq
   // The host's slot: its keep, then its fountain beside it (the gate opens above the fountain).
   const fountainH = (FRAMES["fountain-on"]!.h * V.fountainW) / FRAMES["fountain-on"]!.w + 60;
   const keepH = (FRAMES["keep-0"]!.h * V.keep) / FRAMES["keep-0"]!.w;
-  const gap = V.keep + V.keepGap + V.fountainGap;
+  // (A long name's board may be wider than the keep: the keep's column takes the wider.)
+  const kw = Math.max(V.keep, line.plaqueW + 16);
+  const gap = kw + V.keepGap + V.fountainGap;
   const slotH = Math.max(fountainH, keepH + 30);
   // The fountain's plaza is a slot among its clusters (in the first row's middle), so the rows fill and the clusters stand
   // round it.
@@ -470,9 +476,9 @@ function districtOf(host: AtlasData["hosts"][number], blocks: Block[], line: VSq
     const rh = Math.max(...r.map(h));
     for (const it of r) {
       if (it === "fountain") {
-        fountainX = x + V.keep + V.keepGap + V.fountainGap / 2;
+        fountainX = x + kw + V.keepGap + V.fountainGap / 2;
         fountainY = y + (rh - fountainH) / 2;
-        keepX = x + V.keep / 2;
+        keepX = x + kw / 2;
         keepY = y + (rh + keepH) / 2;
       } else placed.push({ block: it, lx: x, y: y + V.lawnPad + it.above });
       x += w(it) + V.blockGap;
@@ -503,7 +509,9 @@ export function layoutVillage(data: AtlasData, aspect = 1.6, measure: Measure = 
         )
       : [];
     const statsW = measure(stats.length ? stats.map((s) => s.text).join(" · ") : "No load reading", "stats");
-    const plaqueW = Math.max(V.hostPlaqueMin, Math.ceil(measure(title, "host") + 80), Math.ceil(statsW + 90));
+    void statsW;
+    // The keep's hanging name board: as wide as the name at the sign's lettering (legible at the default zoom), with its ends.
+    const plaqueW = Math.max(V.boardMin, Math.ceil(measure(host.name.toUpperCase(), "sign") * 0.96 + 2 * V.boardPad));
     return { id: host.key, title, stats, online: host.online, plaqueW, lineW: plaqueW };
   };
   const choices = shown.map(({ host, groups }) => {
@@ -612,7 +620,9 @@ export function layoutVillage(data: AtlasData, aspect = 1.6, measure: Measure = 
       const keepFrame = KEEPS[seedOf(d.host.key + "keep") % KEEPS.length]!;
       const keepRect = boxOf(keepFrame, x + d.keepX, y + d.keepY, V.keep);
       const ks = FRAMES[keepFrame]!, sign = ks.sign ?? { x: 0.08, y: 0.56, w: 0.84, h: 0.2 }, kf = ks.flag ?? { x: 0.5, y: 0.04 };
-      const plaque = { x: keepRect.x + keepRect.w * sign.x, y: keepRect.y + keepRect.h * sign.y, w: keepRect.w * sign.w, h: keepRect.h * sign.h };
+      // The name board hangs over the keep's own, centred on it, larger, so its lettering reads at the default zoom.
+      const sc = { x: keepRect.x + keepRect.w * (sign.x + sign.w / 2), y: keepRect.y + keepRect.h * (sign.y + sign.h / 2) };
+      const plaque = { x: sc.x - d.line.plaqueW / 2, y: sc.y - V.board / 2, w: d.line.plaqueW, h: V.board };
       const keep = {
         frame: d.host.online ? keepFrame : keepFrame.replace("keep-", "keep-offline-"), rect: keepRect, offline: !d.host.online,
         flag: { x: keepRect.x + keepRect.w * kf.x, y: keepRect.y + keepRect.h * kf.y },

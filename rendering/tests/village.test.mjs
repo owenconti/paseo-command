@@ -152,7 +152,10 @@ function assertGrouped(layout) {
   }
   for (const s of layout.squares) {
     assert.ok(within(s.keep.rect, s.rect), `${s.host.id}'s keep stands inside its district`);
-    assert.ok(within(s.plaque, s.keep.rect), `${s.host.id}'s name is on its keep`);
+    const mid = s.plaque.x + s.plaque.w / 2;
+    assert.ok(mid > s.keep.rect.x && mid < s.keep.rect.x + s.keep.rect.w && s.plaque.y > s.keep.rect.y && s.plaque.y + s.plaque.h < s.keep.rect.y + s.keep.rect.h, `${s.host.id}'s name board hangs on its keep`);
+    assert.ok(within(s.plaque, s.rect), `${s.host.id}'s name board stays in its district`);
+    assert.ok(s.plaque.h >= 60, "the board is tall enough for lettering legible at the default zoom");
     for (const l of layout.lawns) assert.ok(!overlaps(s.keep.rect, l.rect), `${s.host.id}'s keep stands clear of ${l.project}'s yard`);
   }
   for (let i = 0; i < layout.squares.length; i++)

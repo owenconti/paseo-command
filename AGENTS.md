@@ -814,8 +814,10 @@ map): its own cobbled plaza (a tone of its own, districts alternating) ringed by
 along it, open at its gate (`paintDistrictWall` in `bridge.ts`), only as big as its contents, a band of forest at least a cluster's
 width (`districtGap`) from the next, its host's slot in its first row (the host's keep, `keep-0..2` from `keeps.png`, seeded per
 host, `keep-offline-*` while offline, beside its fountain plaza, whose gate opens above it; the keep's name board, the sheet's `sign`
-rect, carries the host's name painted in the world's serif and its `CPU · MEM · DISK` beneath (≥ 90% red) where the board has room,
-`paintSign` in `bridge.ts`, the map's only text; the pennant at its `flag` point flies the host's status, its `cloth` dyed green online
+rect, is overhung by a larger hanging board the page paints (`paintSign` in `bridge.ts`: oak planks in a dark iron-cornered frame on
+two chains, `V.board` tall, as wide as the name at `V.font.sign` needs, the keep's column widening for a long one), the host's name in
+capitals filling it in the world's serif, legible at the default zoom (about 11 pt capitals on the user's fleet; a long name tightens its
+tracking, then shrinks no further than `SIGN_MIN`); its load is in the keep's card; the map's only text; the pennant at its `flag` point flies the host's status, its `cloth` dyed green online
 and grey offline, `paintPennant`) with
 its project clusters round it in rows (`perRow`; districts packed in shelves, each district's row count and the shelves chosen so
 the fit shows the town largest and most built, `built`); offline hosts' districts dimmed. Nothing loose stands in a district (no
