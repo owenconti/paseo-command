@@ -802,24 +802,22 @@ draft, conflicts or failing checks), and "Linear Issues" (purple), four counting
 todo, blocked by a "Blocked" state or label or an open blocking issue; paged up to 2,000, past which counts are lower bounds,
 `atLeast`, shown "N+"); both asked by `useVillageCounts` (`web/src/villageCounts.ts`) every minute while the Village shows, as
 `AtlasData.dashboard`; off or keyless, their tiles dim and their cards say why. Below them a district per host with workspaces (the
-Atlas's host order, `hostGroups`), packed in shelves (each district in the shape, two cluster columns either side of its fountain, one beside it or one
-below it, and as many to a row as let the fit show the town largest with the fewest gaps; a narrower row widens its
-districts' paving into a market: staggered rows of stalls with their goods, planted trees, flower boxes, planters and lit
-lamps, never woods in the town's middle), close together
-with a hedge and forest strip between: its own hedged cobbled plaza with a gate, its crystal fountain and its host's plaque
-(name, status dot, `CPU · MEM · DISK`, ≥ 90% red; the map's only text); offline hosts' districts dimmed. Each project with
-workspaces is one cluster on its own lawn (`lawns`, grass over the plaza just round the cluster, its edges under hedges and
-flowers, a low fence along its front, a back garden of small trees and shrubs behind the cottages beside the hall): its hall at the back (`PROJECT_HALLS`, seeded per project, never the dashboards' blue
-or purple roofs, neighbours differing), its workspaces' cottages (`cottage-0..5`, all at one scale, the widest about 55% of a
-hall's frame) oldest first beside it, two a side (as the Islands map's touch their landmark), then in rows of four in front
-either side of a stepping-stone lane from the hall's door; every row on a walkway about a robot's width, the lane
+Atlas's host order, `hostGroups`), each one bounded unit (the user's call: structures group by containment, as on the Islands
+map): its own hedged cobbled plaza with a gate, only as big as its contents, separated from the next by forest, its fountain
+plaza (and the host's plaque: name, status dot, `CPU · MEM · DISK`, ≥ 90% red; the map's only text) a slot in its first row with
+its project clusters round it in rows (`perRow`; districts packed in shelves, each district's row count and the shelves chosen so
+the fit shows the town largest and most built, `built`); offline hosts' districts dimmed. Nothing loose stands in a district (no
+market filler): every built thing is a cluster's or its host's. Each project with workspaces is one cluster on its own yard
+(`lawns`, grass over the plaza with a street of paving round it, its edges under hedges and flowers, a low fence along its
+front with a gate where its lane leaves): its hall at the back (`PROJECT_HALLS`, seeded per project, never the dashboards' blue
+or purple roofs, neighbours differing), ALL its workspaces' cottages (`cottage-0..5`, all at one scale, the widest about 55% of a
+hall's frame) in rows in front of it, never beside it, oldest first, two a side of the lane from the hall's door, which runs
+down through the rows and out of the gate onto the district's paving; every row on a walkway about a robot's width, the lane
 joining them (painted page-side per lawn, `paintLawnPaths` in `bridge.ts`: the plaza's warm cobble in a wavy outline on a darker kerb with stones jutting from it,
-the lawn's grass creeping over the whole edge, none where a path runs on into another or out onto the plaza; so they read at a glance), the front row's walkway running out through the lawn's side (its hedge open there) onto the
-fountain's plaza. Every structure is on a path (the user's call: robots need a way to their house): each district's gate opens
-onto a cobbled way up to the paving above (the walk under the dashboard halls, which stand on it, or the district above), and
-from the plaza the walkways and lanes reach every hall's door and every cottage's doorstep, where its robots stand; market stalls
-stand on the plaza (`assertConnected` in `village.test.mjs`: reachability from the walk, a lawn blocking all but the paths that
-leave it). Each cottage's window holds a stained-glass pane for its PR's state
+the lawn's grass creeping over the whole edge, none where a path runs on into another or out onto the plaza; so they read at a glance). Every structure is on a path (the user's call: robots need a way to their house): each district's gate opens
+onto a cobbled way up to the paving above (the walk under the dashboard halls, the town hall area outside every district, or the district above), and
+from the plaza the lanes and walkways reach every hall's door and every cottage's doorstep, where its robots stand (`assertConnected` in `village.test.mjs`: reachability from the walk, a lawn blocking all but the paths that
+leave it; `assertGrouped`: each cottage and robot inside its own cluster's yard and no other, in front of its hall, each yard inside its host's district, districts apart). Each cottage's window holds a stained-glass pane for its PR's state
 (`cottage-pane-<tile>`, in the sheet's `pane` rect: merged green, review blue, draft amber, failing red, none slate), the PR,
 Probe and auto-merge medallions sit on its roof; each agent is a robot on its cottage's doorstep (the sheet's `doorstep`), more fanning
 out to its right, in provider colours (`robotColor`), with a floor light in the Atlas's state colour (pulsing for states that need

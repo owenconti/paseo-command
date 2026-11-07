@@ -124,6 +124,45 @@ function assertConnected(layout) {
   for (const a of layout.agents) assert.ok(onPath(a.feet), `robot ${a.entity.id} stands on a path`);
 }
 
+/** Grouping by containment, as the Islands map's: each cottage (and its robots) inside its own cluster's yard and no
+ * other's, each hall at the back of its own yard with every cottage in front of it, each yard inside its own host's
+ * district, districts apart, and nothing built inside a district that isn't a cluster's or its host's. */
+function assertGrouped(layout) {
+  const within = (a, b) => a.x >= b.x - 0.5 && a.y >= b.y - 0.5 && a.x + a.w <= b.x + b.w + 0.5 && a.y + a.h <= b.y + b.h + 0.5;
+  for (const w of layout.workspaces) {
+    const own = layout.lawns.find((l) => l.project === w.project);
+    assert.ok(own && within(w.frame, own.rect), `${w.entity.id} stands in its cluster's yard`);
+    for (const l of layout.lawns) if (l !== own) assert.ok(!overlaps(w.frame, l.rect), `${w.entity.id} is in no other yard`);
+    const hall = layout.projects.find((p) => p.key === w.project && p.hall === "project");
+    if (hall) assert.ok(w.frame.y >= hall.base - 0.5, `${w.entity.id} stands in front of its hall, not beside it`);
+  }
+  for (const a of layout.agents) {
+    const own = layout.lawns.find((l) => l.project === layout.workspaces.find((w) => w.entity.id === a.entity.workspace)?.project);
+    assert.ok(own && within(a.rect, own.rect), `robot ${a.entity.id} stands in its cluster's yard`);
+  }
+  for (const p of layout.projects.filter((p) => p.hall === "project")) {
+    const own = layout.lawns.find((l) => l.project === p.key);
+    assert.ok(own && within(p.body, own.rect), `${p.key}'s hall is in its yard`);
+  }
+  for (const l of layout.lawns) {
+    const sq = layout.squares[l.square];
+    assert.ok(within(l.rect, sq.rect), `${l.project}'s yard lies inside ${sq.host.id}'s district`);
+    for (const o of layout.lawns) if (o !== l) assert.ok(!overlaps(l.rect, o.rect, 20), `${l.project}'s yard stands apart from ${o.project}'s`);
+  }
+  for (let i = 0; i < layout.squares.length; i++)
+    for (let j = i + 1; j < layout.squares.length; j++)
+      assert.ok(!overlaps(layout.squares[i].rect, layout.squares[j].rect, 40), `districts ${layout.squares[i].host.id} and ${layout.squares[j].host.id} stand apart`);
+  // Nothing built (stalls, crates, barrels, tents) loose in a district.
+  for (const d of layout.decor) if (/^(tent|crates|barrel)/.test(d.frame)) assert.ok(!layout.squares.some((s) => overlaps(d.rect, s.rect)), `no loose ${d.frame} in a district`);
+}
+
+test("structures group by containment: cottages in their cluster's yard, yards in their host's district", () => {
+  assertGrouped(layoutVillage(VILLAGE_SAMPLE, 1.7));
+  assertGrouped(layoutVillage(SPARSE, 1.3));
+  assertGrouped(layoutVillage(SPARSE, 2.4));
+  for (const [h, p, w, a] of [[3, 4, 6, 2], [1, 9, 2, 1], [4, 1, 1, 4], [8, 5, 3, 3], [2, 3, 3, 1], [1, 2, 9, 2]]) assertGrouped(layoutVillage(big(h, p, w, a), 1.6));
+});
+
 test("every structure's door is on the town's paths", () => {
   assertConnected(layoutVillage(VILLAGE_SAMPLE, 1.7));
   assertConnected(layoutVillage(SPARSE, 1.3));
