@@ -929,7 +929,7 @@ These are useful original coast parts, not a pixel-identical reconstruction of t
 
 ## Dungeon Board
 
-Version 2 was generated with the built-in `image_gen` tool on 2026-11-06.
+Version 3 was generated with the built-in `image_gen` tool on 2026-11-06.
 The private `design/references/dungeon-concept.png` was inspected at 3×,
 particularly its LOCAL floor, left terrace, workspace recess and central gate.
 It is a style/composition reference only: no reference pixels enter the sheets.
@@ -944,18 +944,18 @@ feet-centre, hanging pieces top-centre, symbols/glows centre and modular
 architecture top-left. Animation frames retain one canvas and anchor.
 Only animation frame zero supplies `fps`.
 
-| Sheet | Frames | V2 contents |
+| Sheet | Frames | Current contents |
 | --- | ---: | --- |
 | `robots` | 80 | Smooth glossy shell, ten body colours, idle/work poses and flying drones |
 | `alcoves` | 11 | Four sparse interiors, chunky piers, lintel, new ledge and three redrawn candle flames |
 | `gate` | 12 | New upper host surround, lower arch, lit/dark portcullis, stairs with side walls, host disc and crown banner |
-| `stone` | 27 | Existing architecture plus the full raised rampart kit, terrace floor and two diagonal returns |
+| `stone` | 33 | Existing architecture plus the full raised rampart kit, terrace floor and two diagonal returns |
 | `ui` | 28 | Simple clipped parchment, thin bronze borders, dark discs in pale octagonal mounts, pictograms/counts/dots |
-| `props` | 43 | Restyled furnishings, redrawn torch/brazier/forge flames, animated magic props and new `torch-out` |
+| `props` | 44 | Restyled furnishings, redrawn torch/brazier/forge flames, animated magic props and new `torch-out` |
 | `status` | 27 | Existing markers, glows and PR/Probe states, plus violet `mark-asking` / `glow-asking` |
 
-There are 228 frames: every original name and all 226 names requested through the
-v2 addendum, plus `rampart-return-left` and `rampart-return-right`. These optional
+There are 235 frames: every original name and all 233 names requested through
+v3, plus `rampart-return-left` and `rampart-return-right`. These optional
 diagonal wall runs let a terrace or alcove show the angled returns in the
 reference. None of the required names was removed or renamed. PR/Probe names
 continue to follow `prStatus.ts` and `probe.ts`.
@@ -994,12 +994,19 @@ from their original generated sources. Raw outputs are ignored in
 `artifacts/dungeon/v2/`; v1 sheets, prompts, script and review images are preserved
 privately in `artifacts/dungeon/v1/`.
 
-Assembly and checks are in `src/assets/dungeon/build.py` (Python/Pillow).
+Assembly and checks are in `scripts/dungeon-art.py` (Python/Pillow, including
+LittleCMS via Pillow's ImageCms). The builder was moved out of the tracked
+assets folder in v3; its repository-root path is `rendering/scripts/dungeon-art.py`.
 Whole connected silhouettes were detected before slicing, including subjects
 that crossed the generator's requested cell boundaries. Sources were cropped,
 registered and resized; modular rectangular strips use explicit dimensions.
-Stone is gently neutralised, the back-wall material darkened, and the outside
-wall uses its own much darker, irregular stone source. Repeating edges are
+V3 matches cool stone chroma in CIELab, rather than neutralising it. L* is held
+fixed while a*/b* statistics are matched per sheet, interpolated across mortar,
+brick, mid-face and lit-face luminance strata. Numeric sample regions, source
+and target statistics, mapping parameters and round-trip L* errors are recorded
+in `prompts.json` under `v3_colour_transfer`. Gold, flame, wood, cyan magic and
+near-white highlights are protected. The back wall retains its darker values,
+and the outside wall uses a separate much darker irregular stone source. Repeating edges are
 cropped and blended over narrow bands to match opposite RGBA texels exactly.
 The standard wall was checked in a 6×4 render for an atlas-border stripe/grid;
 the dark wall has deliberately irregular courses and lower mean luminance.
@@ -1018,10 +1025,10 @@ zero-alpha RGB cleared, and useful edge alpha retained. At least four transparen
 pixels separate packed frames; non-tile frames also have two pixels of interior
 padding. PNG optimisation is lossless. The asset folder remains below 12 MB.
 
-The builder writes a complete replacement set to ignored `v2/staging/` and
+The builder writes a complete replacement set to ignored `v3/staging/` and
 validates it before replacing live files with atomic renames. It never writes
 an in-progress PNG into the path read by the renderer.
-Run `python3 rendering/src/assets/dungeon/build.py --validate-only` to check
+Run `python3 rendering/scripts/dungeon-art.py --validate-only` to check
 live outputs; rebuilding also requires the ignored raw sources. The checks
 cover names, scale, bounds, alpha, gutters, declared tile edges and animation
 registration. Reports and 3×3 / wall 6×4 repeats are in ignored
@@ -1031,13 +1038,39 @@ asset set; `--publish-staged` checks an already complete stage before replacemen
 Private review images:
 
 - `artifacts/dungeon/calibration.png`: matching LOCAL-left crops at 3×.
-- `artifacts/dungeon/contact-sheet.png`: all 228 labelled frames.
+- `artifacts/dungeon/contact-sheet.png`: all 235 labelled frames.
 - `artifacts/dungeon/mock.png`: the LOCAL floor reconstructed only from sprites, beside the matching 1199×365 concept crop at 3×.
-- `artifacts/dungeon/v2/local-floor.png`: the generated half of that comparison.
+- `artifacts/dungeon/v3/local-floor.png`: the generated half of that comparison.
 - `artifacts/dungeon/tile-wall-brick-6x4.png` and `tile-wall-brick-dark-6x4.png`: wall-repeat proofs.
 
+V3 adds four empty side-room recesses to `stone`: `room-arch`, `room-cave`,
+`room-magic` and `room-forge`. Each has 390×600 pixels of artwork (130×200
+concept pixels at scale 3), plus transparent frame padding, with a bottom-centre
+anchor. Their deep interiors provide space for separately placed props; the cave
+has faint violet ambient and the magic recess faint blue ambient. Upper-wall
+pieces are `pillar-capital` and `window-arch` in `stone`, and `chain-pair`
+in `props`. The paired chains hang from a common top-centre anchor.
+
+V3 used two further built-in generations: the four recesses and the three upper
+wall pieces. Exact prompts and source filenames are in `v3_generations` in
+`prompts.json`; originals remain private in `artifacts/dungeon/v3/`.
+The recolouring updates `stone`, `gate`, `alcoves`, the stone medallion in
+`ui`, and stone/steel portions of selected `props`. Robots and status art retain
+v2 pixels. V2 sheets, metadata, builder and review images are preserved in
+`artifacts/dungeon/v2/`, including `v2/assets/`.
+
+Colour calibration sampled the private concept's stone-only regions, filtering
+out warm reflections and saturated props. The measured cool lit faces average
+about a*=14, b*=−27; brick about a*=13, b*=−26; mid faces about a*=18, b*=−34.
+The transfer preserves alpha, frame geometry and L*. The recorded RGB round-trip
+error remains below one L* unit in the sampled pixels. Lab measurements use the
+sRGB profile and Pillow/LittleCMS's 8-bit Lab encoding. Comparisons of the gate,
+rampart, pier and wall are in `artifacts/dungeon/v3/tone-comparison.png`.
+The four recesses with separately composited props and the upper-wall dressing
+are shown in `artifacts/dungeon/v3/rooms-mock.png`.
+
 Remaining differences: the concept's masonry has more bespoke pixel-like chips,
-uneven joints and integrated painted shadows. V2 is smoother, its joins and
+uneven joints and integrated painted shadows. V3 is smoother, its joins and
 courses more systematic, and some camera angles vary slightly between modular
 parts. Its warm pools are composited sprite glows rather than lighting painted
 continuously across the whole scene. The mock deliberately omits text and

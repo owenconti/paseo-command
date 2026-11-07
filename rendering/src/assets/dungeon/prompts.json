@@ -49,7 +49,7 @@
       "review_source": "status-raw.png"
     }
   },
-  "version": 2,
+  "version": 3,
   "v2_generations": {
     "v2-ramparts": {
       "prompt": "Use case: stylized-concept. Production game sprite atlas, original Dungeon Board artwork. Input is a PRIVATE STYLE REFERENCE crop only; do not reproduce the scene or its letters. Match it closely: HD pixel-art-flavoured hand-painted fantasy game illustration, smooth detailed shading with a little pixel texture, chunky readable dark outlined forms, NOT strict-grid pixel art, NOT vector or a 3D render. Camera in front and ABOVE at about 30 degrees elevation, like the crop: lit TOP faces plus darker FRONT faces and short visible SIDE faces; not a flat front elevation. Large lavender/periwinkle GREY stone blocks: light top faces #9a90c8 to #b4a9de, mid front faces #6a5f9a, dark mortar/outlines #2a2340. Strong top-left bevel highlight. Few small chips, smooth stone, NO purple glitter, NO busy speckles. Darker small purple-grey back-wall bricks. Warm yellow candle bounce on lower edges, gentle top-left ambient. Exterior truly transparent alpha, no matte, no checkerboard, no background. No words or numbers, no labels attached to architecture. All objects fully inside their own cell with wide empty gutters. EXACT 4 columns x 3 rows of equal cells, twelve modular LOW WALL pieces at the same scale, not full-height walls. Thick large blocks showing broad lit top planes and a darker front face, low wall height about 22 concept pixels, one block thick. NO gold trim. Row 1: horizontal STRAIGHT low wall run, three large blocks across, parallel horizontal edges, 3:1 wide/height; vertical STRAIGHT low wall run, column of three top faces with a narrow darker RIGHT side face visible, 1:3 wide/height; L wall corner top-left with runs extending right and down; L wall corner top-right with runs extending left and down. Row2: L wall corner bottom-left runs right and up; L wall corner bottom-right runs left and up; horizontal wall's LEFT exposed end block; horizontal wall's RIGHT exposed end block. Row3: vertical wall's TOP exposed end block; vertical wall's BOTTOM exposed end block; T junction horizontal wall with vertical wall departing down from middle; rectangular patch of warm candlelit flagstone FLOOR viewed from above at the same camera angle, laid as chunky irregular grey/periwinkle slabs with pale golden edge highlights, repeatable surface, no border. Make every corner fit the same block thickness and scale as the straight runs. Avoid isometric diamonds; horizontal runs follow the screen horizontal, vertical ones follow the screen vertical. This is a reusable masonry kit, not a room or diorama.",
@@ -673,5 +673,1303 @@
       ]
     }
   },
-  "v2_notes": "V1 is preserved privately in ignored artifacts/dungeon/v1. V2 replaces architecture, props, blank UI and robot bodies, adds raised-wall kit and asking/offline sprites. Source rectangles are raw image pixels; generated pixels only are used in live sheets."
+  "v2_notes": "V1 is preserved privately in ignored artifacts/dungeon/v1. V2 replaces architecture, props, blank UI and robot bodies, adds raised-wall kit and asking/offline sprites. Source rectangles are raw image pixels; generated pixels only are used in live sheets.",
+  "v3_generations": {
+    "v3-rooms": {
+      "prompt": "Use case: stylized-concept. Production transparent GAME SPRITE ATLAS, EXACT 2 columns by 2 rows, FOUR tall side-room recesses. Input images are private STYLE REFERENCES only, never copy their props or text. Match this illustrated dungeon's chunky lavender-purple masonry: lit upper faces #a49bd6 to #b8aee6, mid faces #6f64a3, dark smaller brick #4a4170 to #3a3260, mortar #241d38. Camera in front and ABOVE, slight three-quarter depth: thick surrounds have obvious lit TOP and SIDE planes plus dark front faces, and a shallow stone floor inside each doorway. HD pixel-art-flavoured PAINTED illustration, visible fine pixel-like stone chips and texture with smooth shaded faces, dark outlines, warm candle bounce from top-left, not strict 8-bit pixel grid, not vector or 3D render. Each tall recess about 130 wide x 200 tall concept pixels, must be fully visible with complete base and 10% transparent gutter, consistent size across four cells. Row1 left ROOM-ARCH: round high arch of large bevelled stone blocks, deep dark brick interior completely EMPTY with a floor where a separate bookcase/ladder sprite can stand. Row1 right ROOM-CAVE: rough jagged rocky cave mouth with chunky uneven lavender-purple grey rocks, deep almost-black hollow and very FAINT violet ambient inside, EMPTY, no crystal. Row2 left ROOM-MAGIC: rounded stone arch same size, deep empty dark brick recess with subtle cyan BLUE ambient on interior stone sides and a little floor, NO magic circle, NO armour, NO glyphs or runes. Row2 right ROOM-FORGE: brick hearth alcove recess with a block lintel and brick jambs, deep dark empty soot-black firebox and shallow stone hearth, restrained warm amber bounce but NO fire or forge props. All rooms entirely EMPTY, props will be placed separately in front. Exterior genuinely transparent, dark interiors opaque. No candles, torches, furniture, banners, chains, people, robots, labels, words, numbers or neighbouring scenery.",
+      "source_filename": "exec-3042d35e-e6cc-44ee-b6a0-0911ead97002.png",
+      "review_source": "v3/rooms-raw.png",
+      "reference_images": [
+        "v3/reference-bookcase.png",
+        "v3/reference-magic.png"
+      ],
+      "grid": {
+        "columns": 2,
+        "rows": 2
+      }
+    },
+    "v3-dressing": {
+      "prompt": "Use case: stylized-concept. Production transparent sprite atlas for Dungeon Board, exactly THREE equal columns in ONE row, one isolated sprite in each with 15 percent truly empty gutters. Private dungeon crop is STYLE REFERENCE ONLY. Match its HD pixel-art-flavoured painted fantasy illustration, chunky lavender-purple grey stone, dark outline, fine visible pixel-like chips but smooth shaded planes, top-left light and warm candle bounce. NOT strict-grid 8-bit, NOT vector, NOT photoreal or 3D render. Camera in front and above so top and side faces are visible. Left: PILLAR-CAPITAL, a decorative heavy stone cap block with stepped cornice, a broad lit top slab and small simple carved geometric bevel beneath, lavender upper faces #a49bd6 to #b8aee6, mid faces #6f64a3 and mortar #241d38. No whole column, no ornate gold or symbols. Middle: WINDOW-ARCH, a tall narrow arched barred dungeon window with chunky lavender stone voussoirs/jambs, dark iron bars, VERY FAINT warm amber glow deep behind the bars, no bright light rays, empty surrounding exterior. Right: CHAIN-PAIR, TWO long dark iron chains hanging vertically parallel, slightly different relaxed curves, simple small metal wall mounts above, no wall or background, no horizontal chain swag, no ornaments or skulls. All complete silhouettes, consistent scale and style. No text, numbers, labels, people, furniture or extra objects.",
+      "source_filename": "exec-b9669218-1656-41ef-b45d-75e516d1c9b4.png",
+      "review_source": "v3/dressing-raw.png",
+      "reference_images": [
+        "v2/reference-local-left.png"
+      ],
+      "grid": {
+        "columns": 3,
+        "rows": 1
+      }
+    }
+  },
+  "v3_colour_transfer": {
+    "method": "Conditional CIELab a/b mean and standard-deviation match per sheet, interpolated over L; L and alpha held fixed",
+    "sample_regions": [
+      [
+        0,
+        126,
+        45,
+        420
+      ],
+      [
+        165,
+        243,
+        270,
+        267
+      ],
+      [
+        377,
+        308,
+        386,
+        419
+      ],
+      [
+        423,
+        125,
+        447,
+        208
+      ],
+      [
+        521,
+        94,
+        675,
+        156
+      ],
+      [
+        0,
+        435,
+        520,
+        483
+      ],
+      [
+        680,
+        434,
+        1199,
+        485
+      ],
+      [
+        270,
+        158,
+        303,
+        215
+      ]
+    ],
+    "strata": [
+      "mortar",
+      "brick",
+      "mid faces",
+      "lit faces"
+    ],
+    "reference": [
+      {
+        "count": 10292,
+        "mean": [
+          33.62844928099495,
+          135.28799067236687,
+          113.34230470268169
+        ],
+        "std": [
+          17.468791755345222,
+          4.20355553015927,
+          7.265595021708582
+        ],
+        "median": [
+          37.0,
+          136.0,
+          112.0
+        ]
+      },
+      {
+        "count": 8319,
+        "mean": [
+          71.67219617742518,
+          140.8838802740714,
+          101.96922707056136
+        ],
+        "std": [
+          10.453700341052057,
+          2.48949779516239,
+          4.53666557628347
+        ],
+        "median": [
+          69,
+          141,
+          103
+        ]
+      },
+      {
+        "count": 2291,
+        "mean": [
+          130.91619380183326,
+          146.40069838498474,
+          93.56525534701004
+        ],
+        "std": [
+          19.0279023819537,
+          4.299267490244989,
+          8.174306723410263
+        ],
+        "median": [
+          131,
+          146,
+          94
+        ]
+      },
+      {
+        "count": 1119,
+        "mean": [
+          185.89276139410188,
+          141.67292225201072,
+          100.5236818588025
+        ],
+        "std": [
+          14.167551295534828,
+          4.966760788424721,
+          7.125902255761095
+        ],
+        "median": [
+          184,
+          142,
+          101
+        ]
+      }
+    ],
+    "encoding": "8-bit Lab: L*=L*100/255; a*=a-128; b*=b-128",
+    "sheets": {
+      "alcoves": {
+        "source": [
+          {
+            "count": 9391,
+            "mean": [
+              35.43584282823981,
+              136.44489404749228,
+              119.04834415930146
+            ],
+            "std": [
+              12.222971504662539,
+              2.009540461530786,
+              2.040899342405404
+            ],
+            "median": [
+              34,
+              136,
+              119
+            ]
+          },
+          {
+            "count": 3902,
+            "mean": [
+              77.72321886212198,
+              140.18093285494618,
+              115.28241927216811
+            ],
+            "std": [
+              13.748743723152065,
+              2.021429365512439,
+              4.091620306237224
+            ],
+            "median": [
+              81.0,
+              140.0,
+              116.0
+            ]
+          },
+          {
+            "count": 1574,
+            "mean": [
+              117.15184243964421,
+              143.09085133418043,
+              107.784625158831
+            ],
+            "std": [
+              18.453428961652985,
+              1.864877718978428,
+              3.90321178217967
+            ],
+            "median": [
+              110.0,
+              143.0,
+              108.0
+            ]
+          },
+          {
+            "count": 753,
+            "mean": [
+              188.35059760956176,
+              144.0996015936255,
+              108.74501992031873
+            ],
+            "std": [
+              16.612505978585734,
+              2.070962168515822,
+              5.337611641996057
+            ],
+            "median": [
+              185,
+              145,
+              108
+            ]
+          }
+        ],
+        "after": [
+          {
+            "count": 8178,
+            "mean": [
+              38.22083639031548,
+              136.16593299095132,
+              113.4158718513084
+            ],
+            "std": [
+              10.59180117242535,
+              1.9782946964497858,
+              2.8296507616368505
+            ],
+            "median": [
+              37.0,
+              136.0,
+              113.0
+            ]
+          },
+          {
+            "count": 3918,
+            "mean": [
+              77.59469116896376,
+              140.9497192445125,
+              103.03547728432873
+            ],
+            "std": [
+              13.78644059397598,
+              2.7003249143340495,
+              5.565106520210187
+            ],
+            "median": [
+              81.0,
+              141.0,
+              103.0
+            ]
+          },
+          {
+            "count": 1574,
+            "mean": [
+              117.13659466327827,
+              145.43837357052095,
+              94.12261753494282
+            ],
+            "std": [
+              18.461602587704842,
+              1.8487129759123142,
+              4.267079055920632
+            ],
+            "median": [
+              110.0,
+              146.0,
+              94.0
+            ]
+          },
+          {
+            "count": 753,
+            "mean": [
+              188.34395750332004,
+              142.2363877822045,
+              100.04780876494024
+            ],
+            "std": [
+              16.600369402065926,
+              2.898440981951053,
+              6.903073865853276
+            ],
+            "median": [
+              185,
+              143,
+              99
+            ]
+          }
+        ],
+        "parameters": [
+          {
+            "L": 35.43584282823981,
+            "source_mean": [
+              35.43584282823981,
+              136.44489404749228,
+              119.04834415930146
+            ],
+            "gain": [
+              1,
+              1.2,
+              1.2
+            ],
+            "shift": [
+              0,
+              -1.1569033751254096,
+              -5.706039456619777
+            ]
+          },
+          {
+            "L": 77.72321886212198,
+            "source_mean": [
+              77.72321886212198,
+              140.18093285494618,
+              115.28241927216811
+            ],
+            "gain": [
+              1,
+              1.2,
+              1.1087699338493906
+            ],
+            "shift": [
+              0,
+              0.7029474191252234,
+              -13.313192201606753
+            ]
+          },
+          {
+            "L": 117.15184243964421,
+            "source_mean": [
+              117.15184243964421,
+              143.09085133418043,
+              107.784625158831
+            ],
+            "gain": [
+              1,
+              1.2,
+              1.2
+            ],
+            "shift": [
+              0,
+              3.309847050804308,
+              -14.219369811820968
+            ]
+          },
+          {
+            "L": 188.35059760956176,
+            "source_mean": [
+              188.35059760956176,
+              144.0996015936255,
+              108.74501992031873
+            ],
+            "gain": [
+              1,
+              1.2,
+              1.2
+            ],
+            "shift": [
+              0,
+              -2.426679341614772,
+              -8.22133806151622
+            ]
+          }
+        ],
+        "pixels_matched": 100858,
+        "mean_delta_L": 0.02939205218244824,
+        "max_delta_L": 0.39215686274509803
+      },
+      "stone": {
+        "source": [
+          {
+            "count": 61341,
+            "mean": [
+              32.717758106323664,
+              136.0821799448982,
+              115.41375262874749
+            ],
+            "std": [
+              13.604211089453411,
+              2.824310927746574,
+              4.3991425599670775
+            ],
+            "median": [
+              33,
+              136,
+              116
+            ]
+          },
+          {
+            "count": 42298,
+            "mean": [
+              80.12069128563998,
+              143.03513168471324,
+              107.0609957917632
+            ],
+            "std": [
+              12.295542285220101,
+              3.9123928937305292,
+              6.1647833811335815
+            ],
+            "median": [
+              81.0,
+              143.0,
+              107.0
+            ]
+          },
+          {
+            "count": 42832,
+            "mean": [
+              127.81567519611505,
+              147.7632144191259,
+              103.38079006350392
+            ],
+            "std": [
+              18.70447639814983,
+              4.4768333462206495,
+              7.254288650245055
+            ],
+            "median": [
+              127.0,
+              148.0,
+              102.0
+            ]
+          },
+          {
+            "count": 7904,
+            "mean": [
+              181.65498481781376,
+              148.342737854251,
+              104.21115890688259
+            ],
+            "std": [
+              15.554430287496723,
+              4.491762072088332,
+              6.808215147525195
+            ],
+            "median": [
+              177.0,
+              148.0,
+              103.0
+            ]
+          }
+        ],
+        "after": [
+          {
+            "count": 46429,
+            "mean": [
+              38.72866096620647,
+              136.441491309311,
+              111.71827952357363
+            ],
+            "std": [
+              10.248695915340342,
+              2.5596685616472765,
+              5.360025110036149
+            ],
+            "median": [
+              38,
+              136,
+              112
+            ]
+          },
+          {
+            "count": 42961,
+            "mean": [
+              80.06187006820139,
+              141.19066129745582,
+              101.67661367286608
+            ],
+            "std": [
+              12.290282169594864,
+              3.4221645214246452,
+              5.823066821518188
+            ],
+            "median": [
+              81,
+              141,
+              102
+            ]
+          },
+          {
+            "count": 42926,
+            "mean": [
+              127.78933513488329,
+              145.32125052415785,
+              95.38016586684061
+            ],
+            "std": [
+              18.701654943588643,
+              4.4065566056667995,
+              7.781070362434796
+            ],
+            "median": [
+              127.0,
+              146.0,
+              94.0
+            ]
+          },
+          {
+            "count": 7918,
+            "mean": [
+              181.6461227582723,
+              142.26862844152564,
+              99.8135892902248
+            ],
+            "std": [
+              15.54794601889592,
+              5.02431103256626,
+              7.580208954503451
+            ],
+            "median": [
+              177.0,
+              141.0,
+              99.0
+            ]
+          }
+        ],
+        "parameters": [
+          {
+            "L": 32.717758106323664,
+            "source_mean": [
+              32.717758106323664,
+              136.0821799448982,
+              115.41375262874749
+            ],
+            "gain": [
+              1,
+              1.2,
+              1.2
+            ],
+            "shift": [
+              0,
+              -0.7941892725313267,
+              -2.071447926065801
+            ]
+          },
+          {
+            "L": 80.12069128563998,
+            "source_mean": [
+              80.12069128563998,
+              143.03513168471324,
+              107.0609957917632
+            ],
+            "gain": [
+              1,
+              0.85,
+              0.85
+            ],
+            "shift": [
+              0,
+              -2.1512514106418337,
+              -5.091768721201845
+            ]
+          },
+          {
+            "L": 127.81567519611505,
+            "source_mean": [
+              127.81567519611505,
+              147.7632144191259,
+              103.38079006350392
+            ],
+            "gain": [
+              1,
+              0.960336728610735,
+              1.1268240233498468
+            ],
+            "shift": [
+              0,
+              -1.3625160341411515,
+              -9.815534716493886
+            ]
+          },
+          {
+            "L": 181.65498481781376,
+            "source_mean": [
+              181.65498481781376,
+              148.342737854251,
+              104.21115890688259
+            ],
+            "gain": [
+              1,
+              1.10574885951507,
+              1.0466623191764701
+            ],
+            "shift": [
+              0,
+              -6.669815602240277,
+              -3.6874770480800834
+            ]
+          }
+        ],
+        "pixels_matched": 981464,
+        "mean_delta_L": 0.025559519984384643,
+        "max_delta_L": 0.39215686274509803
+      },
+      "gate": {
+        "source": [
+          {
+            "count": 22820,
+            "mean": [
+              30.56327782646801,
+              135.99368974583697,
+              115.51713409290096
+            ],
+            "std": [
+              12.56851098218542,
+              1.6913852368488815,
+              2.780821231371173
+            ],
+            "median": [
+              26.0,
+              136.0,
+              115.0
+            ]
+          },
+          {
+            "count": 30434,
+            "mean": [
+              75.32171255832293,
+              139.80636787803115,
+              112.5987053952816
+            ],
+            "std": [
+              11.36560354558844,
+              2.404322996385511,
+              3.071779287024051
+            ],
+            "median": [
+              73.0,
+              139.0,
+              113.0
+            ]
+          },
+          {
+            "count": 17881,
+            "mean": [
+              129.06213299032493,
+              145.86600301996532,
+              106.60332196185895
+            ],
+            "std": [
+              19.823656287278325,
+              2.8020754892528226,
+              5.7955074727113205
+            ],
+            "median": [
+              126,
+              146,
+              108
+            ]
+          },
+          {
+            "count": 6910,
+            "mean": [
+              185.30231548480464,
+              144.72098408104196,
+              103.98379160636759
+            ],
+            "std": [
+              15.896442470119656,
+              2.9522994376173717,
+              5.770153565111221
+            ],
+            "median": [
+              182.0,
+              145.0,
+              103.0
+            ]
+          }
+        ],
+        "after": [
+          {
+            "count": 18658,
+            "mean": [
+              34.25881659341837,
+              136.44099045985635,
+              112.48161646478722
+            ],
+            "std": [
+              11.629271690569485,
+              1.4407498125324343,
+              3.1327183123301943
+            ],
+            "median": [
+              30.0,
+              136.0,
+              112.0
+            ]
+          },
+          {
+            "count": 30574,
+            "mean": [
+              75.32570157650291,
+              140.71331850592006,
+              102.66033230849742
+            ],
+            "std": [
+              11.35660521319544,
+              2.48432145682022,
+              4.218424510611569
+            ],
+            "median": [
+              73.0,
+              140.0,
+              103.0
+            ]
+          },
+          {
+            "count": 17937,
+            "mean": [
+              129.04259352177064,
+              146.02386129230084,
+              95.33132630874728
+            ],
+            "std": [
+              19.814402622672745,
+              3.2399512708428686,
+              6.2148803789730085
+            ],
+            "median": [
+              126,
+              146,
+              96
+            ]
+          },
+          {
+            "count": 6916,
+            "mean": [
+              185.29655870445345,
+              142.04973973395025,
+              99.37695199537305
+            ],
+            "std": [
+              15.88692129042253,
+              3.806954032671157,
+              7.450029075096905
+            ],
+            "median": [
+              182.0,
+              142.0,
+              98.0
+            ]
+          }
+        ],
+        "parameters": [
+          {
+            "L": 30.56327782646801,
+            "source_mean": [
+              30.56327782646801,
+              135.99368974583697,
+              115.51713409290096
+            ],
+            "gain": [
+              1,
+              1.2,
+              1.2
+            ],
+            "shift": [
+              0,
+              -0.7056990734701003,
+              -2.174829390219273
+            ]
+          },
+          {
+            "L": 75.32171255832293,
+            "source_mean": [
+              75.32171255832293,
+              139.80636787803115,
+              112.5987053952816
+            ],
+            "gain": [
+              1,
+              1.035425689021369,
+              1.2
+            ],
+            "shift": [
+              0,
+              1.0775123960402482,
+              -10.629478324720239
+            ]
+          },
+          {
+            "L": 129.06213299032493,
+            "source_mean": [
+              129.06213299032493,
+              145.86600301996532,
+              106.60332196185895
+            ],
+            "gain": [
+              1,
+              1.2,
+              1.2
+            ],
+            "shift": [
+              0,
+              0.5346953650194166,
+              -13.038066614848915
+            ]
+          },
+          {
+            "L": 185.30231548480464,
+            "source_mean": [
+              185.30231548480464,
+              144.72098408104196,
+              103.98379160636759
+            ],
+            "gain": [
+              1,
+              1.2,
+              1.2
+            ],
+            "shift": [
+              0,
+              -3.0480618290312407,
+              -3.4601097475650846
+            ]
+          }
+        ],
+        "pixels_matched": 519473,
+        "mean_delta_L": 0.020088213459103017,
+        "max_delta_L": 0.39215686274509803
+      },
+      "ui": {
+        "source": [
+          {
+            "count": 1525,
+            "mean": [
+              30.921967213114755,
+              135.31672131147542,
+              115.9672131147541
+            ],
+            "std": [
+              5.640236833671847,
+              0.8870742503372504,
+              1.558132689847776
+            ],
+            "median": [
+              30,
+              135,
+              116
+            ]
+          },
+          {
+            "count": 371,
+            "mean": [
+              83.7466307277628,
+              137.54177897574124,
+              114.06199460916442
+            ],
+            "std": [
+              10.167887626384129,
+              1.3439516359102353,
+              2.528316254650294
+            ],
+            "median": [
+              86,
+              137,
+              114
+            ]
+          },
+          {
+            "count": 523,
+            "mean": [
+              134.06500956022944,
+              140.04971319311665,
+              111.75525812619503
+            ],
+            "std": [
+              18.16136453855806,
+              1.943124101876767,
+              2.0012773359621794
+            ],
+            "median": [
+              138,
+              140,
+              111
+            ]
+          },
+          {
+            "count": 311,
+            "mean": [
+              183.44051446945338,
+              142.09003215434083,
+              111.32475884244373
+            ],
+            "std": [
+              14.148346967819823,
+              1.9074056888844089,
+              3.7623107068696906
+            ],
+            "median": [
+              180,
+              142,
+              111
+            ]
+          }
+        ],
+        "after": [
+          {
+            "count": 1510,
+            "mean": [
+              31.333112582781457,
+              135.3298013245033,
+              114.10662251655629
+            ],
+            "std": [
+              5.5979800265858035,
+              1.1133622309099536,
+              2.2095269001319973
+            ],
+            "median": [
+              30.0,
+              135.0,
+              114.0
+            ]
+          },
+          {
+            "count": 389,
+            "mean": [
+              83.37017994858611,
+              140.69408740359899,
+              102.52699228791774
+            ],
+            "std": [
+              10.24063859766211,
+              1.9771161264454309,
+              3.962214391181855
+            ],
+            "median": [
+              85,
+              140,
+              102
+            ]
+          },
+          {
+            "count": 522,
+            "mean": [
+              134.11877394636016,
+              144.8927203065134,
+              97.07854406130268
+            ],
+            "std": [
+              18.114822999132393,
+              2.1980452553939966,
+              2.648566334334284
+            ],
+            "median": [
+              138.0,
+              145.0,
+              97.0
+            ]
+          },
+          {
+            "count": 311,
+            "mean": [
+              183.41157556270096,
+              142.41800643086816,
+              100.13504823151125
+            ],
+            "std": [
+              14.088525618716886,
+              2.6057438187268605,
+              4.866159797140571
+            ],
+            "median": [
+              180,
+              143,
+              100
+            ]
+          }
+        ],
+        "parameters": [
+          {
+            "L": 30.921967213114755,
+            "source_mean": [
+              30.921967213114755,
+              135.31672131147542,
+              115.9672131147541
+            ],
+            "gain": [
+              1,
+              1.2,
+              1.2
+            ],
+            "shift": [
+              0,
+              -0.02873063910854512,
+              -2.624908412072415
+            ]
+          },
+          {
+            "L": 83.7466307277628,
+            "source_mean": [
+              83.7466307277628,
+              137.54177897574124,
+              114.06199460916442
+            ],
+            "gain": [
+              1,
+              1.2,
+              1.2
+            ],
+            "shift": [
+              0,
+              3.3421012983301637,
+              -12.092767538603056
+            ]
+          },
+          {
+            "L": 134.06500956022944,
+            "source_mean": [
+              134.06500956022944,
+              140.04971319311665,
+              111.75525812619503
+            ],
+            "gain": [
+              1,
+              1.2,
+              1.2
+            ],
+            "shift": [
+              0,
+              6.350985191868091,
+              -16
+            ]
+          },
+          {
+            "L": 183.44051446945338,
+            "source_mean": [
+              183.44051446945338,
+              142.09003215434083,
+              111.32475884244373
+            ],
+            "gain": [
+              1,
+              1.2,
+              1.2
+            ],
+            "shift": [
+              0,
+              -0.417109902330111,
+              -10.801076983641224
+            ]
+          }
+        ],
+        "pixels_matched": 19278,
+        "mean_delta_L": 0.019378175867711653,
+        "max_delta_L": 0.39215686274509803
+      },
+      "props": {
+        "source": [
+          {
+            "count": 6728,
+            "mean": [
+              35.404131985731276,
+              136.65710463733652,
+              115.20838287752676
+            ],
+            "std": [
+              13.629777441508464,
+              2.617453207953998,
+              4.375063227090389
+            ],
+            "median": [
+              36.0,
+              137.0,
+              115.0
+            ]
+          },
+          {
+            "count": 7854,
+            "mean": [
+              77.44321364909601,
+              141.10262286732876,
+              110.56137000254647
+            ],
+            "std": [
+              11.262975559220836,
+              3.3072307362000983,
+              5.288372681639403
+            ],
+            "median": [
+              77.0,
+              140.0,
+              111.0
+            ]
+          },
+          {
+            "count": 8256,
+            "mean": [
+              127.20554748062015,
+              145.80826065891472,
+              108.82267441860465
+            ],
+            "std": [
+              17.4200491849278,
+              4.929388472721811,
+              6.7122508484215855
+            ],
+            "median": [
+              124.0,
+              145.0,
+              110.0
+            ]
+          },
+          {
+            "count": 2036,
+            "mean": [
+              188.63752455795677,
+              148.83300589390961,
+              109.39980353634577
+            ],
+            "std": [
+              17.03674656034365,
+              8.257318656611348,
+              8.112318119127275
+            ],
+            "median": [
+              186.0,
+              147.0,
+              111.0
+            ]
+          }
+        ],
+        "after": [
+          {
+            "count": 6069,
+            "mean": [
+              40.11319822046465,
+              136.60850222441917,
+              111.40682155215028
+            ],
+            "std": [
+              10.541127957497508,
+              2.5608366878757938,
+              5.40884950083466
+            ],
+            "median": [
+              41,
+              136,
+              112
+            ]
+          },
+          {
+            "count": 8066,
+            "mean": [
+              77.24237540292586,
+              140.8493677163402,
+              102.14331762955617
+            ],
+            "std": [
+              11.28603360072999,
+              3.072275538876396,
+              5.5177095226124155
+            ],
+            "median": [
+              77.0,
+              140.0,
+              102.0
+            ]
+          },
+          {
+            "count": 8269,
+            "mean": [
+              127.18853549401379,
+              145.2687144757528,
+              95.43705405732253
+            ],
+            "std": [
+              17.422915844165097,
+              3.990872953236697,
+              7.418998522583983
+            ],
+            "median": [
+              124,
+              144,
+              97
+            ]
+          },
+          {
+            "count": 2036,
+            "mean": [
+              188.57563850687623,
+              142.38015717092338,
+              100.08497053045187
+            ],
+            "std": [
+              16.998748244535847,
+              7.244120926034738,
+              7.769654717513961
+            ],
+            "median": [
+              186.0,
+              141.0,
+              101.0
+            ]
+          }
+        ],
+        "parameters": [
+          {
+            "L": 35.404131985731276,
+            "source_mean": [
+              35.404131985731276,
+              136.65710463733652,
+              115.20838287752676
+            ],
+            "gain": [
+              1,
+              1.2,
+              1.2
+            ],
+            "shift": [
+              0,
+              -1.3691139649696424,
+              -1.8660781748450717
+            ]
+          },
+          {
+            "L": 77.44321364909601,
+            "source_mean": [
+              77.44321364909601,
+              141.10262286732876,
+              110.56137000254647
+            ],
+            "gain": [
+              1,
+              0.85,
+              0.8578566317828222
+            ],
+            "shift": [
+              0,
+              -0.21874259325736034,
+              -8.592142931985109
+            ]
+          },
+          {
+            "L": 127.20554748062015,
+            "source_mean": [
+              127.20554748062015,
+              145.80826065891472,
+              108.82267441860465
+            ],
+            "gain": [
+              1,
+              0.8721705570652875,
+              1.2
+            ],
+            "shift": [
+              0,
+              0.5924377260700169,
+              -15.257419071594612
+            ]
+          },
+          {
+            "L": 188.63752455795677,
+            "source_mean": [
+              188.63752455795677,
+              148.83300589390961,
+              109.39980353634577
+            ],
+            "gain": [
+              1,
+              0.85,
+              0.8784051797672477
+            ],
+            "shift": [
+              0,
+              -7.160083641898893,
+              -8.876121677543267
+            ]
+          }
+        ],
+        "pixels_matched": 171013,
+        "mean_delta_L": 0.028673662591059336,
+        "max_delta_L": 0.7843137254901961
+      }
+    }
+  }
 }
