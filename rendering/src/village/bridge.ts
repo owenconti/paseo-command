@@ -290,7 +290,8 @@ export function mountNativeVillage(parent: HTMLElement, handlers: AtlasHandlers 
     return canvas;
   };
   /** A bay's name plate: dark wood, its name in cream. */
-  const paintPlate = (r: Rect, text: string) => {
+  /** A bay's name plate: its workspace's name, and (when it has any) a small badge counting its agents at the right. */
+  const paintPlate = (r: Rect, text: string, agents = 0) => {
     const { canvas, ctx } = canvasFor(r.w, r.h);
     if (["plate-left", "plate-mid", "plate-right"].every((n) => realFrames.has(n))) threePieces(ctx, frame, "plate", 0, 0, r.w, r.h);
     else {
@@ -307,12 +308,30 @@ export function mountNativeVillage(parent: HTMLElement, handlers: AtlasHandlers 
     let size = V.font.workspace;
     const font = (px: number) => `${BOLD} ${px}px ${FONT}`;
     measurer.font = font(size);
-    while (size > 12 && measurer.measureText(text).width > r.w - 14) measurer.font = font(--size);
+    const badge = agents > 0 ? r.h * 0.78 : 0;
+    const room = r.w - 14 - (badge ? badge + 3 : 0);
+    while (size > 12 && measurer.measureText(text).width > room) measurer.font = font(--size);
     ctx.font = font(size);
     ctx.fillStyle = CREAM;
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    ctx.fillText(fitText(text, font(size), r.w - 14), r.w / 2, r.h / 2 + 1);
+    ctx.fillText(fitText(text, font(size), room), (r.w - (badge ? badge + 3 : 0)) / 2, r.h / 2 + 1);
+    if (badge) {
+      // A brass disc with the count, as the concept's numbered plates.
+      const cx = r.w - 5 - badge / 2, cy = r.h / 2;
+      ctx.fillStyle = "#c9a040";
+      ctx.beginPath();
+      ctx.arc(cx, cy, badge / 2, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = "#2a1a0c";
+      ctx.beginPath();
+      ctx.arc(cx, cy, badge / 2 - 1.6, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.font = `${BOLD} ${Math.round(badge * 0.7)}px ${FONT}`;
+      ctx.fillStyle = "#ffe7a6";
+      ctx.textAlign = "center";
+      ctx.fillText(String(agents), cx, cy + 1);
+    }
     return canvas;
   };
   /** The host's plaque under the fountain: its name, then a status dot and its machine's load. */
@@ -529,7 +548,10 @@ export function mountNativeVillage(parent: HTMLElement, handlers: AtlasHandlers 
       for (const r of sq.roads) sprites.push(...paving(r, -57, dim));
       const warm = realFrames.has("cobble-warm-blob");
       sprites.push(sprite(warm ? "cobble-warm-blob" : "cobble-blob", sq.plaza, -56.9, { ...(warm ? {} : { shade: PAVE_SHADE }), ...dim }));
-      sprites.push(sprite("plaza-ring", sq.ring, -56, { shade: PAVE_SHADE * 0.5, ...dim }));
+      // A larger, lighter ring of radial stones round the fountain, under its own ring.
+      const big = { x: sq.ring.x - sq.ring.w * 0.25, y: sq.ring.y - sq.ring.h * 0.25, w: sq.ring.w * 1.5, h: sq.ring.h * 1.5 };
+      sprites.push(sprite("plaza-ring", big, -56.5, { c: 0xfff0d0, cf: 0.3, a: 0.9, ...dim }));
+      sprites.push(sprite("plaza-ring", sq.ring, -56, dim));
       sprites.push(sprite(sq.online ? "fountain-on" : "fountain-off", sq.fountain, standZ(l, sq.fountain.y + sq.fountain.h), dim));
       if (sq.online) {
         const basin = at("water-ripple", sq.center.x, sq.fountain.y + sq.fountain.h * 0.74, sq.fountain.w * 0.7);
@@ -583,7 +605,7 @@ export function mountNativeVillage(parent: HTMLElement, handlers: AtlasHandlers 
         sprites.push(sprite(`tile-${w.tile}`, at(`tile-${w.tile}`, w.tileAt.x, w.tileAt.y, w.tileSize), 2.1, dim));
       }
       images.push({
-        ...image(`plate:${w.entity.name}:${Math.round(w.plate.w)}`, () => paintPlate(w.plate, w.entity.name)),
+        ...image(`plate:${w.entity.name}:${Math.round(w.plate.w)}:${w.agents.length}`, () => paintPlate(w.plate, w.entity.name, w.agents.length)),
         x: w.plate.x, y: w.plate.y, w: w.plate.w, h: w.plate.h, z: 3, ...dim,
       });
       // The arch's lamp-lit interior behind the tile.

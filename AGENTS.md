@@ -775,7 +775,7 @@ roof carries the project's icon (`projectIcon`, the Dungeon Board's icon set in 
 front. Its workspaces stand in its four painted arches, oldest first, centred (more than four spill out either side under arches of
 their own, `bay-arch`), each a tile frame holding its PR's status tile (`tileOf`: failing for CI failing or conflicts, draft (yellow)
 for changes requested, review (blue) for awaiting review or CI running, merged (green) for approved or CI green, none (slate) without
-PR labels) and its name on the frame's plate; PR, Probe and auto-merge medallions on the frame's corners with the Atlas's hover cards.
+PR labels) and its name on the frame's plate (with a brass badge counting its agents, when it has any); PR, Probe and auto-merge medallions on the frame's corners with the Atlas's hover cards.
 Agents are round robots on the hall's lit porch in front of their workspace's tile, oldest first, spread along the porch where
 neighbouring bays' robots would touch (`spread`); a hall widens only when its porch can't hold its robots. Provider colours
 (`robotColor`: Claude orange, ChatGPT white, other providers a stable colour of their own among the sheet's eight), idle and work
@@ -801,7 +801,8 @@ Lighting: lamp pools on the cobbles, lit windows, contact shadows under halls an
 while any of the square's agents runs. The foot, at the concept's near foreground scale: lily ponds with rocks either side of a wide wooden bridge
 (lanterns on its posts) into the plaza, a big wall with towers across the whole width, navy banners with the host's emblem
 hung on it, big trees framing its corners and the market stall at its lower left. The river runs down the right, falling from a cliff (`cliff-top`/`-mid`/`-foot`) with a ruin
-beside it; seeded woods fill the margins (under the HUD too). Never on what the village says. Tiles, frames, plates and plaques draw
+beside it; seeded woods fill the margins (under the HUD too), a dense overlapping canopy along the top behind the halls; a larger,
+lighter ring of radial stones lies round the fountain and planters stand at the halls' corners. Never on what the village says. Tiles, frames, plates and plaques draw
 over every standing thing; the plaques and plates are the sheets' three-piece strips. The fit frames the village's heart (`core`:
 halls, fountain, foot and river), cropping the woods; zooming out shows them. The HUD lies over the village in screen space: "At a Glance" at the top left (dark wood, gold
 corners: PRs by tile, workspaces and those active, agents running, idle, need you, unread, failed, offline) and the status pill at

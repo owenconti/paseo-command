@@ -577,7 +577,8 @@ export function layoutVillage(data: AtlasData, aspect = 1.6, measure: Measure = 
       // The concept's crop: a sliver above the top halls' banners, the front wall cut through with its bridge,
       // a strip of forest and the tent at the left, the river's gorge at the right.
       // (and the river's gorge, which the concept shows across the right of its view)
-      keep: { x: px0 - 10, y: topBase - maxAbove(a) - 40, w: riverX + V.riverW * 0.3 - (px0 - 10), h: wallY + V.wallH * 0.5 - (topBase - maxAbove(a) - 40) },
+      // (from just inside the plaza's left edge, which the panel may cover, to the gorge's near half at the right)
+      keep: { x: px0 + 40, y: topBase - maxAbove(a) - 40, w: riverX + V.riverW * 0.45 - (px0 + 40), h: wallY + V.wallH * 0.5 - (topBase - maxAbove(a) - 40) },
       heart: { x: px0 - 150, y: topBase - maxAbove(a) - 24, w: cropRight - (px0 - 150), h: wallY + V.wallH * 0.75 - (topBase - maxAbove(a) - 24) },
       bridge,
       walls: [
@@ -831,8 +832,12 @@ function sceneryOf(squares: VSquare[], projects: VProject[], workspaces: VWorksp
     fixed("cliff-foot", sq.cliff.foot, "ground");
     // A ruined wall and tower beside the falls.
     const ruin = rng() < 0.5 ? "ruin-0" : "ruin-1";
-    // The ruined wall the waterfall pours from, on the cliff's top; else beside it.
-    place({ frame: ruin, x: sq.cliff.top.x + sq.cliff.top.w / 2, y: sq.cliff.top.y + sq.cliff.top.h * 0.45, w: sq.cliff.top.w * 0.95, layer: "stand" }, false);
+    // A large ruined wall the waterfall pours from, along the gorge's top, and a second stretch running down its near side.
+    place({ frame: ruin, x: sq.cliff.top.x + sq.cliff.top.w / 2, y: sq.cliff.top.y + sq.cliff.top.h * 0.6, w: sq.cliff.top.w * 1.5, layer: "stand" }, false);
+    place({ frame: ruin === "ruin-0" ? "ruin-1" : "ruin-0", x: sq.cliff.top.x - 40, y: sq.cliff.top.y + sq.cliff.top.h + 120, w: 300, layer: "stand" });
+    // The gorge's near bank: rocks and bushes down its left side.
+    for (let y = sq.river.y + 40; y < sq.river.y + sq.river.h - 60; y += 70 + rng() * 40)
+      place({ frame: rng() < 0.55 ? `rocks-${Math.floor(rng() * 3)}` : `bush-${Math.floor(rng() * 4)}`, x: sq.river.x + 18 + rng() * 20, y, w: 70 + rng() * 30, layer: "stand" });
     for (let y = sq.river.y + 120; y < sq.river.y + sq.river.h - 80; y += 110 + rng() * 90)
       if (rng() < 0.5) place({ frame: `rocks-${Math.floor(rng() * 3)}`, x: sq.river.x - 6 + rng() * 12, y, w: 40 + rng() * 16, layer: "stand" });
     // The foot: the moat with its lilies either side of the bridge, the wall across the whole width, its towers.
@@ -879,6 +884,9 @@ function sceneryOf(squares: VSquare[], projects: VProject[], workspaces: VWorksp
       const t = Math.PI * (0.1 + 0.8 * (k / 9)) + (k % 2 ? Math.PI : 0);
       place({ frame: "flowerbed", x: sq.center.x + Math.cos(t) * (sq.ring.w / 2 + 34), y: sq.ring.y + sq.ring.h / 2 + Math.sin(t) * (sq.ring.h / 2 + 22), w: 80, layer: "stand" });
     }
+    // Planters at the halls' front corners.
+    for (const p of mine)
+      for (const fx of [0.05, 0.95]) place({ frame: "flowerbed", x: p.body.x + p.body.w * fx, y: p.porch.y + p.porch.h + 34, w: 74, layer: "stand" });
     // Crates, barrels and flower boxes by the porches' ends, bushes beside the halls.
     for (const p of mine)
       for (const s of [-1, 1]) {
@@ -901,6 +909,20 @@ function sceneryOf(squares: VSquare[], projects: VProject[], workspaces: VWorksp
       for (let x = w.x + 40 + rng() * 40; x < w.x + w.w - 30; x += 70 + rng() * 60)
         if (!sq.towers.some((t) => Math.abs(t.x - x) < 70))
           place({ frame: rng() < 0.5 ? `bush-${Math.floor(rng() * 4)}` : `flowers-${Math.floor(rng() * 4)}`, x, y: w.y + w.h + 18, w: 70 + rng() * 30, layer: "stand" }, false);
+    // A dense canopy along the top, overlapping, the north road disappearing into it (crowns may spread over each other and
+    // the road's far end, never over what the village says or the falls).
+    const canopyEnd = pave.y + 60;
+    for (let y = R.y + 70; y < canopyEnd; y += 46)
+      for (let x = R.x + ((y / 46) % 2) * 40; x < sq.cliff.top.x - 20; x += 82) {
+        const w = 170 + rng() * 60;
+        const rect = boxOf("tree-0", x, y, w);
+        const foot = { x: rect.x + rect.w * 0.2, y: rect.y + rect.h * 0.55, w: rect.w * 0.6, h: rect.h * 0.45 };
+        // (Standing behind the halls, which are drawn over them; clear of the lamps and the falls, and off the plaza.)
+        if ([sq.waterfall, ...sq.lamps.map((l) => boxOf("lamp-on", l.x, l.y))].some((r) => overlaps(r, rect, 0))) continue;
+        if (foot.y + foot.h > pave.y - 10 || mine.some((p) => overlaps(p.rect, foot, 0) && foot.y + foot.h > p.base - 20)) continue;
+        if ([...mine.flatMap((p) => [p.plaque, p.porch]), ...workspaces.filter((w) => w.square === si).flatMap((w) => [w.rect, w.frame, w.plate])].some((r) => overlaps(r, foot, 0))) continue;
+        decor.push({ frame: rng() < 0.15 ? `blossom-${Math.floor(rng() * 3)}` : `tree-${Math.floor(rng() * 6)}`, x, y, rect: boxOf("tree-0", x, y, w), square: si, layer: "stand" });
+      }
     // Woods: rows of trees through the margins and any grass left between the halls.
     const spots: Pt[] = [];
     for (let y = R.y + 40; y < R.y + R.h + 40; y += 64 + rng() * 26)
