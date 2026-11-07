@@ -1,6 +1,6 @@
 # Village art — final kit
 
-All 151 required frame names are final and present. There are **199 frames** in
+All 151 required frame names are final and present. There are **200 frames** in
 nine PNG/JSON pairs, all at nominal **scale 3**, with true alpha and explicit anchors.
 The complete first pass was delivered before this refinement pass.
 
@@ -8,7 +8,7 @@ The complete first pass was delivered before this refinement pass.
 | --- | ---: | --- |
 | buildings | 11 | Six roof variants, four empty front bays each, extension arch, foundation steps, warm lantern, flower box, ivy |
 | banner | 13 | Blank navy/gold banner, parchment plaques and three-slice pieces, low dark workspace name plate |
-| tiles | 6 | Green/blue/yellow/red/slate tiles with fixed glyphs; blank count frame |
+| tiles | 7 | Five painted stained-glass state windows, carved masonry surround/sill, optional separate sill |
 | robots | 73 | Eight vivid palettes, four idle/four work poses each, eight flying drones, neutral floor light |
 | fountain | 7 | Tall blue crystal/low basin, grey offline crystal with still water, glow, four ripples |
 | ground | 18 | Seamless grass/cobble/path, round plaza, porch and cap pieces, organic paving transitions |
@@ -68,7 +68,7 @@ reuses the current painted kit and updates the supplemental pieces.
 
 ## Compression and resolution audit
 
-The original eight PNGs total **8,242,573 bytes (8.24 MB / 7.86 MiB)**, down from
+The original compression pass brought eight PNGs to **8,242,573 bytes (8.24 MB / 7.86 MiB)**, down from
 24,193,470 bytes: **65.9% smaller**, below the 10 MB target. This is perceptual
 palette compression, not mathematically lossless RGB compression.
 
@@ -116,7 +116,7 @@ and reapply this optimisation after rebuilding source sheets.
 ## Warm paving and shallow robot ledge
 
 The supplemental **`ground-warm.png` / `ground-warm.json`** pair adds thirteen
-frames, compressed to **338,204 bytes**. The complete nine-sheet kit now totals
+frames, compressed to **338,204 bytes**. At that pass the nine-sheet kit totalled
 **8,580,777 bytes (8.58 MB / 8.18 MiB)**. The preceding eight sheet pairs were
 not rewritten by this pass.
 
@@ -149,6 +149,43 @@ exact prompts (`prompts-v5.json`), the `build-warm.py` recipe and the private
 `warm/validation.json` remain in the ignored art artifacts. No concept pixels
 were copied into any sprite or texture.
 
+## Stained-glass status fixtures
+
+The five state faces now look like painted, internally lit stained-glass
+windows set into the village's stone architecture. Glossy enamel, flat white
+app glyphs, bright gold icon borders and the artwork's empty count plaque have
+been replaced by mottled glass, warm ivory painted emblems, dark oak/lead seams,
+chipped limestone, and a carved stone sill with timber corbels.
+
+- `tile-merged`: emerald/moss green, painted check.
+- `tile-review`: azure/cobalt blue, three-junction branching path.
+- `tile-draft`: amber, parchment scroll and quill.
+- `tile-failing`: ruby red, triangular warning mark.
+- `tile-none`: cool slate, three stacked timber storage compartments/crates.
+- `tile-frame`: the matching empty architectural arch and integrated carved
+  sill; it has no count/name-plate slot.
+- `tile-sill`: optional separate crop of that sill, **150x40 source px**, with
+  bottom contact anchor **ax 0.5 / ay 0.925**. It is already in `tile-frame` and
+  need not be drawn twice. The crop occupies x168/y294 in `tiles.png`.
+
+All six existing frame rectangles, dimensions, positions and anchors remain
+**identical**: state faces 132x132, surround 150x164, atlas 438x464. Faces inset
+their glass content at source x11/y20, 110x100, aligning with the surround's
+opening under the existing frame/tile placement. The renderer still owns any
+live state dot; its separately drawn empty `plateStrip` must be removed or
+replaced with the carved sill during integration.
+
+The seven-frame `tiles.png` is a **55,523-byte** indexed PNG (256 colours,
+dithering off), down from 136,201 bytes. All nine sheets now total
+**8,500,099 bytes (8.50 MB)**. Other sheet pairs were untouched by this repaint.
+The warm upper-left lighting, paint texture and small-size state distinction
+were reviewed against the hall and private concept in
+`rendering/artifacts/village/tiles-v6/mock.png`; it also shows every state at
+86px and 43px surround widths. `build-tiles-v6.py`, `prompts-v6.json`, the raw
+generated source and `tiles-v6/validation.json` retain the recipe/proof. No
+concept pixels are used in the sprites. This repaint used one built-in
+imagegen call.
+
 Integration geometry:
 
 - Standing pieces anchor at ground contact, excluding transparent frame padding.
@@ -170,7 +207,7 @@ Integration geometry:
   project icons and dynamic status. The five fixed tile glyphs are painted in.
 
 Provenance, every exact prompt, source filenames and assembly notes are in
-`rendering/ASSETS.md`. Sixteen built-in `image_gen` calls supplied the art. No
+`rendering/ASSETS.md`. Seventeen built-in `image_gen` calls supplied the art. No
 concept pixels were copied, and the ignored concept is never a runtime asset.
 
 Private files in ignored `rendering/artifacts/village/`:

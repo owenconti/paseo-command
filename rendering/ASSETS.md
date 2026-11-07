@@ -1236,7 +1236,7 @@ connector lines, which belong to the renderer.
 ## Village — modular painterly village kit (2026-11-06)
 
 The Village kit is original generated artwork made with the built-in `image_gen`
-tool in sixteen calls. The user's private `design/references/village-concept.png`
+tool in seventeen calls. The user's private `design/references/village-concept.png`
 was inspected as a visual reference for the warm painterly pixel-art village,
 three-quarter overhead perspective, golden upper-left light, roofs, crystal,
 round robots and materials. No pixels from that image were copied into any
@@ -1246,7 +1246,8 @@ background. No external game service was used.
 Finals are `src/assets/village/<sheet>.png` and matching `.json`, with `scale: 3`:
 `buildings` (11 frames), `banner` (13), `tiles` (6), `robots` (73), `fountain` (7),
 `ground` (18), `scenery` (50) and `hud` (8): 186 original frames. The supplemental
-`ground-warm` sheet below adds thirteen, for 199 total. All 151 originally
+`ground-warm` sheet below adds thirteen; the stained-glass revision adds a
+separate sill, for 200 total. All 151 originally
 requested names remain present. The thirty-four additional frames beyond the
 first complete 152-frame pass are documented in `src/assets/village/STATUS.md`.
 
@@ -1547,3 +1548,53 @@ Original output: `exec-b37328f5-d123-461a-abd9-c45392222c5f.png`.
 Exact prompt:
 
 > Use case: stylized-concept. Single ISOLATED VERY LONG SHALLOW STONE PORCH LEDGE game sprite on genuinely transparent background. Original warm painterly pixel-art fantasy village asset, 3/4 top-down view facing south, straight horizontal front edge, warm upper-left light, fine dark-brown outlines and muted grey-tan limestone. At game scale the ledge is about 400 pixels WIDE and only 22 pixels DEEP TOTAL including its visible front face: extremely low long strip, NOT a broad patio, NOT stairs. Only ONE shallow raised step. A narrow top walking surface of irregular warm grey/taupe stone slabs (about 14px apparent depth) over a single narrow darker stone block front face (about 8px tall); front and top together total22px, width400px, around18:1 overall ratio. Slender outer cap at left/right with small chamfer, straight join-friendly middle. Four small circular inset floor-light SOCKETS evenly spaced along the narrow top near the front edge, restrained dull brass ring and dark unlit centre, blank so the game can add colored light dynamically. No bright permanent colored lights. Fine little chips at stone corners, a few tiny moss flecks at far ends only, sophisticated grey-brown neutral palette matching muted cobblestone village paving, no bright yellow/orange cast. Show the entire ledge completely inside canvas with wide transparent margins on ALL sides. No building, no roof, no robots, no poles, no dirt/grass ground patch, no multiple steps, no rails, no text, no checkerboard. The long THIN one-step silhouette is essential. Output landscape 1536x1024.
+
+
+### Village stained-glass status fixtures
+
+One further built-in `image_gen` call replaces the five glossy app-style state
+tiles with physical stained-glass windows, painted emblems and carved stone
+surrounds that belong to the village facade. The user supplied app crops were
+inspected as problem evidence. A private mock compares the old/new fixtures on
+the same hall beside the concept's building materials. No pixels from the
+concept or app screenshots were copied into any final sprite.
+
+`tile-merged` is emerald/moss glass with a cream painted check; `tile-review`
+azure/cobalt with a three-junction branching path; `tile-draft` amber with scroll
+and quill; `tile-failing` ruby with a triangular warning; `tile-none` cool slate
+with stacked timber storage compartments. Glass is mottled and softly lit from
+within, without glossy specular blobs. Warm ivory emblems and dark lead/oak
+seams replace flat white vector glyphs. Chipped limestone and timber corbels
+have warm upper-left illumination matching the halls.
+
+The five glass-only faces are inset into their original 132x132 canvases, at
+11/20 with 110x100 content. Their shallow arch mask fits the repainted
+`tile-frame`, whose 150x164 canvas contains the masonry surround, carved sill
+and corbels, with no empty name/count slot. All six prior JSON frame records
+remain identical, including anchors and atlas positions; the atlas remains
+438x464. An optional `tile-sill` is 150x40 at x168/y294 with anchor ax0.5/ay0.925,
+cut from the surround's lower section. It is already integrated into the full
+surround. The renderer's separate empty plate-strip decoration is independent
+of the artwork and must be removed/replaced during integration; live status
+colour dots remain code-owned.
+
+The seven-frame sheet is libimagequant-indexed, 256 colours with dithering off,
+and optimised with Pillow: 55,523 bytes versus 136,201 previously. The whole
+nine-sheet kit is now 8,500,099 bytes. Other sheets were untouched. Alpha,
+nonempty bounds and exact preservation of the six existing frame records were
+checked. The art mock checks all states at 86px and 43px surround widths and
+compares their material language against both the hall and concept.
+
+The private recipe is `artifacts/village/build-tiles-v6.py`; source outputs,
+`prompts-v6.json`, the before snapshot and visual/validation artifacts are
+retained in `artifacts/village/raw/` and `artifacts/village/tiles-v6/`. The mock
+is `tiles-v6/mock.png`. The concept occurs only in that private review image,
+never in the final tiles.
+
+### Village source: tiles_v6
+
+Original output: `exec-150e0d20-af68-4c4c-b031-d3645a2a8957.png`.
+
+Exact prompt:
+
+> Use case: stylized-concept. Production transparent GAME ARCHITECTURE SPRITE SHEET, exact 3 columns x 2 rows with wide empty transparent gutters. Five small STAINED-GLASS STATUS WINDOWS and one matching EMPTY ARCH SURROUND, part of a hand-painted fantasy village stone hall. Camera near-front facade seen from 3/4 top-down, tiny visible upper surfaces and a shallow raised sill, golden afternoon light upper left. Painterly PIXEL-ART miniature material detail, warm grey/tan chipped limestone, dark worn oak, restrained aged bronze lead came. The windows are physical matte translucent stained glass lit softly from within, with uneven panes and painted emblems; NEVER glossy app buttons, shiny enamel, flat vector icons, gold icon frames or HUD panels. Each coloured glass face has a nearly square silhouette with a shallow rounded/arched upper edge, about132x132 at sprite sampling, a VERY THIN dark oak lip only. Large central emblem fills about55% of face and reads at 40px. Lead joints form only a few broad asymmetrical surrounding panes, no busy radial starburst behind emblem. Emblems are warm ivory/cream painted into glass, uneven painted edges with thin dark shadow/lead seam, never flat white cutout glyphs. TOP LEFT: deep moss/emerald GREEN stained glass, large clear painted CHECK emblem. TOP MIDDLE: cobalt/azure BLUE stained glass, large painted BRANCHING PATH emblem with 3 round junctions (pull request shape), simple and readable. TOP RIGHT: honey/AMBER stained glass, painted small rolled PARCHMENT SCROLL with a broad diagonal QUILL, simple bold silhouette. BOTTOM LEFT: deep warm ruby RED stained glass, large triangular warning emblem and exclamation, cream in dark outline. BOTTOM MIDDLE: cool desaturated SLATE BLUE smoked glass, three stacked old wooden STORAGE CRATE/rack compartments as painted emblem, with simple pale horizontal slats and tiny pale cyan inset rivets, fantasy storage/server state, no modern white server icon. BOTTOM RIGHT: matching EMPTY surrounding stone ARCH AND INTEGRATED SILL only, same family as the windows, footprint150 wide x164 high. Dark rough empty opening fills upper square area (a window face will overlay it), shallow rounded arch above, rough warm limestone blocks and a worn dark-oak inner lip. Below the opening, immediately attached, one broad carved STONE SILL with two little timber corbels, shallow worn carved edge and a few subtle moss flecks; no empty name/count plaque, no dark label slot, no riveted plate. The surround must look built into a village facade, understated rather than ornate. All six objects fully visible in own cell with same scale/camera/light. No text, letters, counts, labels, robots, buildings beyond these fixtures, backgrounds, checkerboard or ground patches. Genuinely transparent exterior. Output1536x1024.
