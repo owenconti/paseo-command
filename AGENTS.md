@@ -789,8 +789,8 @@ their own tiles, heads at the hall's base; every hall has its ledge (empty witho
 of the four halls on its ring, the host's plaque small on its front step, lamp-post banners either side; the river runs just
 right of the right-hand halls. The paving is `ground-warm`'s (`cobble-warm`, its edges and blob) when present. With one host the
 fit covers the concept's crop (`core`: a sliver above the top banners, the front wall cut through with its bridge, forest and the
-tent at the left, the river's gorge at the right) without cutting what must show (`keep`: halls, plaza and bridge); the "At a
-Glance" panel may lie over the plaza's left edge and the top-left hall's left eave, as the concept's does, and the river's near
+tent at the left, the river's gorge at the right) without cutting what must show (`keep`: from the top-left hall's first tile, plaque or banner to most of the gorge, the bridge at the foot); the "At a
+Glance" panel may lie over the top-left hall's left eave beyond them, as the concept's does, and the river's near
 bank meets the plaza's right edge and the fit keeps half its gorge, so the gorge and the falls from the ruined wall
 show across the view's right; with several, every square shows clear of the panel. The warm paving's
 contrast and saturation are baked page-side (`gradePaving`); the host's emblem sits on the lamp-post banners' cloth. A faint warm light is added over the world

@@ -527,7 +527,7 @@ export function layoutVillage(data: AtlasData, aspect = 1.6, measure: Measure = 
     // The river just right of the right-hand halls, in the default view.
     // The river's gorge just right of the right-hand halls; the crop's right edge stays where it was (the fit ignores the river).
     // (Its near bank meets the plaza's edge, in the default view at the right.)
-    const riverX = cx + m.right - 34;
+    const riverX = cx + m.right - 60;
     const cropRight = riverX + V.riverW * 0.35;
     // The cliff at the river's head: its top at the square's edge, a middle, then its foot into the river.
     const cliffW = V.riverW + 16, ck = cliffW / FRAMES["cliff-top"]!.w;
@@ -578,7 +578,8 @@ export function layoutVillage(data: AtlasData, aspect = 1.6, measure: Measure = 
       // a strip of forest and the tent at the left, the river's gorge at the right.
       // (and the river's gorge, which the concept shows across the right of its view)
       // (from just inside the plaza's left edge, which the panel may cover, to the gorge's near half at the right)
-      keep: { x: px0 + 40, y: topBase - maxAbove(a) - 40, w: riverX + V.riverW * 0.45 - (px0 + 40), h: wallY + V.wallH * 0.5 - (topBase - maxAbove(a) - 40) },
+      // (the panel may lie over the top-left hall's left eave, as the concept's does; `keep` is filled in once the halls are)
+      keep: { x: px0 + 40, y: topBase - maxAbove(a) - 40, w: riverX + V.riverW * 0.7 - (px0 + 40), h: wallY + V.wallH * 0.5 - (topBase - maxAbove(a) - 40) },
       heart: { x: px0 - 150, y: topBase - maxAbove(a) - 24, w: cropRight - (px0 - 150), h: wallY + V.wallH * 0.75 - (topBase - maxAbove(a) - 24) },
       bridge,
       walls: [
@@ -738,6 +739,15 @@ export function layoutVillage(data: AtlasData, aspect = 1.6, measure: Measure = 
     if (s.rect.x + s.rect.w === right && right < bounds.w) s.rect = { ...s.rect, w: s.rect.w + bounds.w - right };
   }
 
+  // A square's `keep` starts at the leftmost thing its top-left hall says (its first tile, plaque or banner); the panel may
+  // lie over the eave beyond it.
+  for (const [i, sq] of squares.entries()) {
+    const top = projects.filter((p) => p.square === i && p.base < sq.ring.y);
+    if (!top.length) continue;
+    const said = top.flatMap((p) => [p.plaque, p.banner, ...workspaces.filter((w) => w.project === p.key && w.square === i).map((w) => w.frame)]);
+    const x = Math.min(...said.map((r) => r.x)) - 12;
+    if (x > sq.keep.x) sq.keep = { ...sq.keep, x, w: sq.keep.x + sq.keep.w - x };
+  }
   const decor = sceneryOf(squares, projects, workspaces, agents);
 
   const shownProjects = projects.filter((p) => p.entity).map((p) => p.entity!);
@@ -833,7 +843,7 @@ function sceneryOf(squares: VSquare[], projects: VProject[], workspaces: VWorksp
     // A ruined wall and tower beside the falls.
     const ruin = rng() < 0.5 ? "ruin-0" : "ruin-1";
     // A large ruined wall the waterfall pours from, along the gorge's top, and a second stretch running down its near side.
-    place({ frame: ruin, x: sq.cliff.top.x + sq.cliff.top.w / 2, y: sq.cliff.top.y + sq.cliff.top.h * 0.6, w: sq.cliff.top.w * 1.5, layer: "stand" }, false);
+    place({ frame: ruin, x: sq.cliff.top.x + sq.cliff.top.w * 0.32, y: sq.cliff.top.y + sq.cliff.top.h * 1.25, w: 330, layer: "stand" }, false);
     place({ frame: ruin === "ruin-0" ? "ruin-1" : "ruin-0", x: sq.cliff.top.x - 40, y: sq.cliff.top.y + sq.cliff.top.h + 120, w: 300, layer: "stand" });
     // The gorge's near bank: rocks and bushes down its left side.
     for (let y = sq.river.y + 40; y < sq.river.y + sq.river.h - 60; y += 70 + rng() * 40)
