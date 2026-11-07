@@ -767,23 +767,25 @@ A fourth map style (`village` in `MAP_STYLES`; Settings → Map, ⌘K "Use the V
 fleet, sparse or crowded. A world of its own, built as the Dungeon Board is: `rendering/src/village/` (`layout.ts` pure, `layoutVillage`;
 `bridge.ts`, `mountNativeVillage`; `frames.ts`, the sprite contract; `placeholder.ts` for frames the sheets lack) and
 `native/Sources/PaseoCommandNative/VillageScene.swift` (`MapScene` kind `village`).
-One village for the whole fleet (never a square per host). Its crystal fountain is the fleet, dead centre of four halls (`HALLS`), on
-its ring with lamps either side (its hover card lists the hosts); its plaque stacks the hosts, narrow (each one's name over its status dot and `CPU · MEM · DISK`,
-≥ 90% red; offline says so, and that host's workspaces and agents are dimmed). The halls stand close round the fountain's ring, the gaps between them just the roads; the bottom halls' porches come down to the ponds
-beside the bridge and the front wall. The halls (no banners: each says what it is in its hover card): top left "GitHub PRs" (blue), four tiles counting your pull requests (`GET /api/github/q/prCounts`, `readPrCounts` in
-`web/server/github/reads.ts`: merged in the last 14 days, in review, draft, conflicts or failing checks); top right "Linear Issues"
-(purple), four tiles counting issues assigned to you (`GET /api/linear/issue-counts`, `readIssueCounts` in
-`web/server/linear/reads.ts` through the whitelisted client and budget: done in the last 14 days, in progress, todo, blocked by a
-"Blocked" state or label or an open blocking issue; paged through, up to 2,000 issues, past which the counts are
-lower bounds, `atLeast`, shown "N+"; the open PRs' groups use GitHub's exact totals for open and drafts past the 100 read, conflicts
-then a lower bound); both asked by `useVillageCounts` (`web/src/villageCounts.ts`) every minute while
-the Village shows, passed as `AtlasData.dashboard`. Off or without a key, their tiles dim and their cards say why. Bottom left
-"Workspaces" (the teal dome): a bay per workspace of the fleet (by host, project, oldest first), a stained-glass tile in a limestone arch frame whose carved sill holds a small lit dot for
-its agents' state (green at work, amber needs you, red failed, grey idle), its four arches always drawn (unused ones empty), an empty dark plate strip under each tile (as under the dashboard tiles), past six wrapping into
-rows of bays beneath (seven: four and three); PR, Probe and auto-merge medallions on its frame. Bottom right "Agents" (the gear
-workshop): wider than the others, every agent as a robot, always at full size, on a raised stone platform as wide as the building, extending past its sides
-(up to 1.3 times its width, overhanging the plaza and toward the river) before wrapping into more rows; halls never widen with the fleet; provider colours (`robotColor`),
-idle and work frames, a floor light in the Atlas's state colour (pulsing for states that need you), markers over heads, drones.
+The Village nests the fleet as the Islands map does: hosts hold projects, projects workspaces, workspaces agents. At the top of
+the town, either side of the north road, the two dashboard halls: "GitHub PRs" (blue roof), four stained-glass tiles counting your
+pull requests (`GET /api/github/q/prCounts`, `readPrCounts` in `web/server/github/reads.ts`: merged in the last 14 days, in review,
+draft, conflicts or failing checks), and "Linear Issues" (purple), four counting issues assigned to you (`GET /api/linear/issue-counts`,
+`readIssueCounts` in `web/server/linear/reads.ts` through the whitelisted client and budget: done in the last 14 days, in progress,
+todo, blocked by a "Blocked" state or label or an open blocking issue; paged up to 2,000, past which counts are lower bounds,
+`atLeast`, shown "N+"); both asked by `useVillageCounts` (`web/src/villageCounts.ts`) every minute while the Village shows, as
+`AtlasData.dashboard`; off or keyless, their tiles dim and their cards say why. Below them a district per host with workspaces (the
+Atlas's host order, `hostGroups`), packed in shelves to suit the map's shape (less the panel's fifth): its own hedged cobbled plaza
+with a gate, its crystal fountain and its host's plaque (name, status dot, `CPU · MEM · DISK`, ≥ 90% red; the map's only text);
+offline hosts' districts dimmed. Each project with workspaces is a hall in the district, alternating either side of the fountain
+(`PROJECT_HALLS`, seeded per project, never the dashboards' blue or purple roofs, neighbours differing); its workspaces are cottages
+(`cottage-0..5`) in rows in front of it, oldest first, each window holding a stained-glass pane for its PR's state
+(`cottage-pane-<tile>`, in the sheet's `pane` rect: merged green, review blue, draft amber, failing red, none slate) with the PR,
+Probe and auto-merge medallions on its roof; each agent is a robot on its cottage's doorstep (the sheet's `doorstep`), more fanning
+out to its right, in provider colours (`robotColor`), with a floor light in the Atlas's state colour (pulsing for states that need
+you), markers and drones; agents without a workspace wait at a camp's tent in their host's district. A hall's two lamps light while
+any of its agents runs and its roof flares for what needs you; each fountain glows and flares likewise. Picking: a robot, a cottage,
+a project's hall (as the Atlas's selections), the dashboard tiles and halls and each fountain only show cards; never a host.
 Hover and selection light the object itself, never a box: a soft halo along its own silhouette (baked once per frame with Core
 Image: alpha thresholded, spread, blurred) and a brightening of the sprite, warm white on hover and gold, stronger and breathing,
 for the selection (`glow` in `VillageScene.swift`; sprites the page tags `e` with their entity: halls, tiles, workspaces, the

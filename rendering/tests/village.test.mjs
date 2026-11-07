@@ -53,68 +53,70 @@ const SPARSE = {
 
 /** Nothing the village says overlaps anything else it says; scenery stands clear of it; all lies within the bounds. */
 function assertLegible(layout) {
-  const plates = [...layout.workspaces.map((w) => ({ what: `plate ${w.entity.id}`, rect: w.plate })), ...layout.tiles.map((t) => ({ what: `plate ${t.id}`, rect: t.plate }))];
-  const tiles = [...layout.workspaces.map((w) => ({ what: `tile ${w.entity.id}`, rect: w.frame })), ...layout.tiles.map((t) => ({ what: `tile ${t.id}`, rect: t.frame }))];
-  const robots = layout.agents.map((a) => ({ what: `robot ${a.entity.id}`, rect: a.rect }));
-  const plaques = [...layout.projects.map((p) => ({ what: `plaque ${p.name}`, rect: p.plaque })), ...layout.squares.map((s) => ({ what: "host plaque", rect: s.plaque }))];
+  const cottages = layout.workspaces.map((w) => ({ what: `cottage ${w.entity.id}`, rect: w.frame, ws: w.entity.id }));
+  const tiles = layout.tiles.map((t) => ({ what: `tile ${t.id}`, rect: t.frame }));
+  const robots = layout.agents.map((a) => ({ what: `robot ${a.entity.id}`, rect: a.rect, ws: a.entity.workspace }));
+  const halls = layout.projects.map((p) => ({ what: `hall ${p.key}`, rect: { ...p.body, y: p.body.y + p.body.h * 0.25, h: p.body.h * 0.75 } }));
   const basin = (s) => ({ ...s.fountain, y: s.fountain.y + s.fountain.h * 0.55, h: s.fountain.h * 0.45 });
-  const things = [...plates, ...tiles, ...robots, ...plaques, ...layout.squares.map((s) => ({ what: "fountain", rect: basin(s) }))];
+  const plaques = layout.squares.flatMap((s) => [{ what: `plaque ${s.host.id}`, rect: s.plaque }, { what: `fountain ${s.host.id}`, rect: basin(s) }]);
+  const things = [...cottages, ...tiles, ...robots, ...halls, ...plaques];
   for (let i = 0; i < things.length; i++)
     for (let j = i + 1; j < things.length; j++) {
       const a = things[i], b = things[j];
-      // A plate lies on its own tile frame; the host's plaque at its fountain's foot.
-      if (a.what.replace(/^\w+ /, "") === b.what.replace(/^\w+ /, "") && /^(plate|tile)/.test(a.what)) continue;
-      if (/fountain|host plaque/.test(a.what) && /fountain|host plaque/.test(b.what)) continue;
+      // A robot stands at its own cottage's doorstep (in front of it); a tile in its hall's arch; a plaque at its fountain.
+      if (a.ws && a.ws === b.ws) continue;
+      if (/^(tile|hall)/.test(a.what) && /^(tile|hall)/.test(b.what)) continue;
+      if (/^(plaque|fountain)/.test(a.what) && /^(plaque|fountain)/.test(b.what) && a.what.split(" ")[1] === b.what.split(" ")[1]) continue;
       assert.ok(!overlaps(a.rect, b.rect, -1), `${a.what} overlaps ${b.what}`);
     }
-  const blocks = layout.projects.map((p) => p.block);
-  for (let i = 0; i < blocks.length; i++) {
-    for (let j = i + 1; j < blocks.length; j++) assert.ok(!overlaps(blocks[i], blocks[j]), `${layout.projects[i].name}'s and ${layout.projects[j].name}'s blocks overlap`);
-    for (const s of layout.squares) assert.ok(!overlaps(blocks[i], basin(s)) && !overlaps(blocks[i], s.plaque), `${layout.projects[i].name} covers the fountain`);
-  }
-  const said = [...things.map((t) => t.rect), ...layout.projects.flatMap((p) => p.porches)];
   for (const d of layout.decor) {
     assert.ok(FRAMES[d.frame] || FRAMES[`${d.frame}-0`], `${d.frame} is in the frame contract`);
-    if (/^(river|waterfall|cliff|wall|pond|bridge|pennant)/.test(d.frame) || d.hedge) continue;
+    if (/^(river|waterfall|cliff|wall|pond|moat|bridge|pennant|district-gate)/.test(d.frame) || d.hedge) continue;
     const foot = d.layer === "stand" && d.rect.h > 60 ? { x: d.rect.x + d.rect.w * 0.2, y: d.rect.y + d.rect.h * 0.55, w: d.rect.w * 0.6, h: d.rect.h * 0.45 } : d.rect;
-    for (const r of said) assert.ok(!overlaps(foot, r), `${d.frame} stands on something the village says`);
+    for (const t of things) assert.ok(!overlaps(foot, t.rect), `${d.frame} stands on ${t.what}`);
   }
   const b = layout.bounds;
-  for (const t of [...things, ...layout.projects.map((p) => ({ what: p.name, rect: p.block }))])
-    assert.ok(t.rect.x >= b.x && t.rect.x + t.rect.w <= b.x + b.w + 0.01 && t.rect.y >= b.y && t.rect.y + t.rect.h <= b.y + b.h + 0.01, `${t.what} is outside the village`);
+  for (const t of things) assert.ok(t.rect.x >= b.x && t.rect.x + t.rect.w <= b.x + b.w + 0.01 && t.rect.y >= b.y && t.rect.y + t.rect.h <= b.y + b.h + 0.01, `${t.what} is outside the village`);
 }
 
-test("the concept's fleet: one village, the four halls round the fountain, the dashboards' tiles", () => {
+test("the hierarchy: the dashboard halls, then a district per host, a hall per project, a cottage per workspace, robots at its door", () => {
   const layout = layoutVillage(VILLAGE_SAMPLE, 1.7);
+  assert.deepEqual(layout.projects.slice(0, 2).map((p) => [p.hall, p.name, p.building]), HALLS.map((h) => [h.hall, h.name, h.building]));
   assert.equal(layout.squares.length, 1);
-  assert.deepEqual(layout.projects.map((p) => [p.hall, p.name, p.building]), HALLS.map((h) => [h.hall, h.name, h.building]));
-  const [sq] = layout.squares;
-  const [prs, issues, ws, ag] = layout.projects;
-  const ringC = sq.ring.y + sq.ring.h / 2;
-  assert.ok(prs.base < ringC && issues.base < ringC && ws.base > ringC && ag.base > ringC, "dashboards above, workspaces and agents below");
-  assert.ok(prs.body.x + prs.body.w < sq.center.x && issues.body.x > sq.center.x && ws.body.x + ws.body.w < sq.center.x && ag.body.x > sq.center.x);
+  const halls = layout.projects.filter((p) => p.hall === "project");
+  assert.deepEqual(halls.map((p) => p.name), ["diagonal"]);
+  assert.ok(!["hall-blue", "hall-purple"].includes(halls[0].building), "projects' halls don't wear the dashboards' roofs");
   assert.equal(layout.tiles.length, 8);
-  assert.deepEqual(layout.workspaces.map((w) => w.label), ["Core", "Data", "Export", "Infra"]);
-  assert.ok(layout.workspaces.every((w) => w.status === "running"), "every workspace has an agent at work");
+  assert.equal(layout.workspaces.length, 4);
+  for (const w of layout.workspaces) {
+    assert.ok(w.frame.y > halls[0].body.y + halls[0].body.h * 0.5, "cottages stand in front of their hall");
+    for (const a of layout.agents.filter((a) => a.entity.workspace === w.entity.id))
+      assert.ok(Math.abs(a.feet.y - (w.frame.y + w.frame.h)) < 40 && a.feet.x > w.frame.x, "its robots at its doorstep");
+  }
   assert.equal(layout.agents.length, 6);
-  for (const a of layout.agents) assert.ok(a.feet.x > ag.porch.x && a.feet.x < ag.porch.x + ag.porch.w, "every robot on the workshop's ledge");
   assert.equal(layout.counts.active, 4);
-  assert.equal(layout.counts.running, 5);
   assertLegible(layout);
 });
 
-test("a sparse fleet still reads as the concept: one village, four halls, the hosts on the plaque", () => {
+test("one host with one workspace and one agent", () => {
+  const data = { hosts: [{ key: "h", name: "H", online: true, local: true }], projects: [{ key: "p", host: "h", name: "p" }], workspaces: [{ key: "w", host: "h", project: "p", name: "w" }], agents: [{ key: "a", host: "h", project: "p", workspace: "w", name: "a", model: "claude/x", state: "running" }] };
+  const layout = layoutVillage(data, 1.6);
+  assert.equal(layout.squares.length, 1);
+  assert.equal(layout.workspaces.length, 1);
+  assert.equal(layout.agents.length, 1);
+  assertLegible(layout);
+});
+
+test("a sparse fleet like the user's: a district per host, the hosts' plaques, cottages and robots needing you", () => {
   const layout = layoutVillage(SPARSE, 1.3);
-  assert.equal(layout.squares.length, 1, "one village for the whole fleet, never a square per host");
-  assert.equal(layout.projects.length, 4);
-  assert.deepEqual(layout.squares[0].hosts.map((h) => h.title), ["LOCAL", "DIAGONAL-LAB-1"]);
+  assert.deepEqual(layout.squares.map((s) => s.hosts[0].title), ["LOCAL", "DIAGONAL-LAB-1"]);
+  assert.equal(layout.projects.filter((p) => p.hall === "project").length, 2);
   assert.equal(layout.workspaces.length, 3);
-  assert.deepEqual(layout.workspaces.map((w) => w.label), ["proud-breeze-…", "jolly-beacon-…", "main"]);
   assert.ok(layout.workspaces.every((w) => w.status === "needs"));
-  assert.equal(layout.counts.needYou, 3);
   assert.equal(statusLine(layout).text, "3 need you");
-  // The dashboards are drawn with no counts when the page hasn't any: dim with "—".
   assert.equal(layout.counts.prs.known, false);
+  // Each agent in its own host's district.
+  for (const a of layout.agents) assert.equal(layout.squares[a.square].host.id, a.entity.host);
   assertLegible(layout);
 });
 
@@ -149,15 +151,19 @@ test("plates cut names past 14 characters; a workspace's dot says its agents' st
   assert.equal(tileOf({ flags: { ci: "ci-failing" } }), "failing");
 });
 
-test("many workspaces wrap into rows of bays under the dome; many agents into ledge rows", () => {
-  const layout = layoutVillage(big(3, 4, 6, 2), 1.6);
-  const rows = new Set(layout.workspaces.map((w) => Math.round(w.frame.y)));
-  assert.ok(rows.size >= 2, "workspaces wrap");
-  const ag = layout.projects.find((p) => p.hall === "agents");
-  assert.ok(ag.porches.length >= 2, "robots take more ledge rows");
-  const xs = layout.agents.map((a) => a.feet);
-  for (let i = 1; i < xs.length; i++) if (xs[i].y === xs[i - 1].y) assert.ok(xs[i].x - xs[i - 1].x >= V.pitch - 0.01, "robots keep apart, in order");
-  assertLegible(layout);
+test("crowded fleets stay legible; agents without a workspace wait at a camp", () => {
+  for (const [h, p, w, a] of [[3, 4, 6, 2], [1, 9, 2, 1], [4, 1, 1, 4], [8, 5, 3, 3]]) {
+    const layout = layoutVillage(big(h, p, w, a), 1.6);
+    assert.equal(layout.squares.length, h);
+    assertLegible(layout);
+  }
+  const wide = layoutVillage(big(6, 2, 2, 1), 3), tall = layoutVillage(big(6, 2, 2, 1), 0.6);
+  assert.ok(wide.bounds.w / wide.bounds.h > tall.bounds.w / tall.bounds.h, "districts pack to suit the map's shape");
+  const camp = structuredClone(SPARSE);
+  camp.agents.push({ key: "a4", host: "local", name: "loose", model: "claude/x", state: "idle" });
+  const l = layoutVillage(camp, 1.3);
+  assert.ok(l.workspaces.some((w) => w.entity.camp && w.cottage === "tent"), "a camp's tent");
+  assertLegible(l);
   assertLegible(layoutVillage(DUNGEON_SAMPLE, 1.6));
   assertLegible(layoutVillage(SAMPLE, 1.6));
   assertLegible(layoutVillage({ hosts: [{ key: "h", name: "H", online: true, local: true }], projects: [], workspaces: [], agents: [] }, 1.6));
@@ -175,7 +181,7 @@ test("it's deterministic, and its signature changes only when places or counts d
 
 test("offline hosts say so; the status pill is true; robots keep provider colours", () => {
   const layout = layoutVillage(big(3, 1, 1, 6), 1.6);
-  const off = layout.squares[0].hosts.find((h) => !h.online);
+  const off = layout.squares.flatMap((s) => s.hosts).find((h) => !h.online);
   assert.match(off.title, /OFFLINE$/);
   assert.ok(layout.workspaces.some((w) => w.status === "offline"));
   const c = layout.counts;

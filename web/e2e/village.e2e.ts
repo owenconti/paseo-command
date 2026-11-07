@@ -120,12 +120,13 @@ test("Settings → Map lists the Village", async () => {
   await page.context().close();
 });
 
-test("the Village draws the concept's dashboard truthfully: PRs, issues, workspaces and agents", async () => {
+test("the Village: the dashboard halls, then host, project, workspace and agent as the Islands map nests them", async () => {
   const { page } = await open("village");
   const v = await waitFor(() => inspect(page), (i) => i?.scene === "village" && i.agents?.length === 6 && i.counts?.prs?.known && i.counts?.issues?.known, "the Village", 30000);
-  assert.equal(v.squares.length, 1, "one village for the fleet");
-  assert.deepEqual(v.projects.map((p: any) => p.name), ["GitHub PRs", "Linear Issues", "Workspaces", "Agents"]);
-  assert.deepEqual(v.projects.map((p: any) => p.building), ["hall-blue", "hall-purple", "dome-teal", "workshop-rust"]);
+  assert.equal(v.squares.length, 1, "a district for its one host");
+  assert.deepEqual(v.projects.map((p: any) => p.name), ["GitHub PRs", "Linear Issues", "diagonal"]);
+  assert.deepEqual(v.projects.slice(0, 2).map((p: any) => p.building), ["hall-blue", "hall-purple"]);
+  assert.ok(!["hall-blue", "hall-purple"].includes(v.projects[2].building), "a project's hall isn't a dashboard's");
   assert.deepEqual(v.counts.prs.by, { merged: 7, review: 3, draft: 1, conflicts: 1 });
   assert.deepEqual(v.counts.issues.by, { done: 11, inProgress: 8, todo: 7, blocked: 2 });
   assert.deepEqual(v.workspaces.map((w: any) => [w.name, w.status]), [["Core", "running"], ["Data", "running"], ["Export", "running"], ["Infra", "running"]]);
@@ -142,19 +143,20 @@ test("the Village draws the concept's dashboard truthfully: PRs, issues, workspa
   const scene = (await native(page)).scenes.at(-1)!;
   assert.equal(scene.entities.filter((e) => e.kind === "agent").length, 6);
   assert.equal(scene.entities.filter((e) => e.kind === "workspace").length, 4);
-  // Eight dashboard tiles and the four halls, each with its hover card (no labels on the map).
+  // Eight dashboard tiles and the two dashboard halls with their cards; the project's hall is picked as the project.
   assert.equal(scene.entities.filter((e) => e.kind === "tile" && e.id.startsWith("tile:")).length, 8);
-  assert.equal(scene.entities.filter((e) => e.id.startsWith("vhall:")).length, 4);
+  assert.equal(scene.entities.filter((e) => e.id.startsWith("vhall:")).length, 2);
+  assert.equal(scene.entities.filter((e) => e.kind === "project").length, 1);
+  assert.equal(scene.entities.filter((e) => e.id.startsWith("vfountain:")).length, 1, "its host's fountain has a card");
   assert.equal(scene.entities.filter((e) => e.kind === "host").length, 0, "hosts are never picked on the map");
   await page.context().close();
 });
 
-test("a sparse fleet is the same village: four halls, every host on the plaque, PRs at 0, Linear off", async () => {
+test("a sparse fleet: a district per host, each with its plaque; PRs at 0, Linear off", async () => {
   const { page } = await open("village", "sparse");
   const v = await waitFor(() => inspect(page), (i) => i?.scene === "village" && i.agents?.length === 3 && i.counts?.prs?.known, "the Village", 30000);
-  assert.equal(v.squares.length, 1);
-  assert.deepEqual(v.squares[0].hosts.map((h: any) => h.title), ["LOCAL", "DIAGONAL-LAB-1"]);
-  assert.equal(v.projects.length, 4);
+  assert.deepEqual(v.squares.map((s: any) => s.hosts[0].title), ["LOCAL", "DIAGONAL-LAB-1"]);
+  assert.equal(v.projects.length, 4, "the two dashboard halls and a hall per project");
   assert.equal(v.counts.prs.total, 0);
   assert.equal(v.counts.issues.known, false, "Linear off: its tiles say —");
   assert.ok(v.workspaces.every((w: any) => w.status === "needs"));

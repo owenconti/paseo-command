@@ -533,6 +533,8 @@ export function mountNativeVillage(parent: HTMLElement, handlers: AtlasHandlers 
     const images: Sprite[] = [];
     const lights: Sprite[] = [];
     const dimOf = (square: number) => (l.squares[square]?.online ? {} : { dim: 1 });
+    // The town's roads: north into the forest, the walk under the dashboard halls, south to the bridge.
+    for (const r of l.town.roads) sprites.push(...paving(r, -57.2, {}));
     l.squares.forEach((sq, i) => {
       const dim = dimOf(i);
       // The grass is Swift's backdrop, on the world's grid; an offline square darkens its own, on the same grid.
@@ -540,14 +542,14 @@ export function mountNativeVillage(parent: HTMLElement, handlers: AtlasHandlers 
       const phase = (v: number) => ((v % grid) + grid) % grid;
       if (!sq.online) sprites.push(tile("grass", sq.rect, -60, { ...dim, ox: phase(sq.rect.x), oy: phase(sq.rect.y) }));
       // The plaza, then the north road (open into the forest at its top) and the south road (open onto the bridge).
-      sq.roads.forEach((r, i) => sprites.push(...paving(r, -57, dim, sq.roads.filter((_, j) => j !== i), i === 1 ? ["n"] : i === 2 ? ["s"] : [])));
+      for (const r of sq.roads) sprites.push(...paving(r, -57, dim));
       const warm = realFrames.has("cobble-warm-blob");
       sprites.push(sprite(warm ? "cobble-warm-blob" : "cobble-blob", sq.plaza, -56.9, { ...(warm ? {} : { shade: PAVE_SHADE }), ...dim }));
       // A larger, lighter ring of radial stones round the fountain, under its own ring.
       const big = { x: sq.ring.x - sq.ring.w * 0.25, y: sq.ring.y - sq.ring.h * 0.25, w: sq.ring.w * 1.5, h: sq.ring.h * 1.5 };
       sprites.push(sprite("plaza-ring", big, -56.5, { c: 0xfff0d0, cf: 0.3, a: 0.9, ...dim }));
       sprites.push(sprite("plaza-ring", sq.ring, -56, dim));
-      sprites.push(sprite(sq.online ? "fountain-on" : "fountain-off", sq.fountain, standZ(l, sq.fountain.y + sq.fountain.h), { ...dim, e: "vfountain" }));
+      sprites.push(sprite(sq.online ? "fountain-on" : "fountain-off", sq.fountain, standZ(l, sq.fountain.y + sq.fountain.h), { ...dim, e: `vfountain:${sq.host.id}` }));
       if (sq.online) {
         const basin = at("water-ripple", sq.center.x, sq.fountain.y + sq.fountain.h * 0.74, sq.fountain.w * 0.7);
         sprites.push(sprite("water-ripple", basin, standZ(l, sq.fountain.y + sq.fountain.h) + 0.01, { a: 0.8 }));
@@ -558,53 +560,27 @@ export function mountNativeVillage(parent: HTMLElement, handlers: AtlasHandlers 
       });
     });
     for (const p of l.projects) {
-      const dim = { ...dimOf(p.square), ...(p.stale ? { a: 0.75 } : {}) };
+      const dim = { ...(p.square >= 0 ? dimOf(p.square) : {}), ...(p.stale ? { a: 0.75 } : {}) };
       const z = standZ(l, p.base);
-      // `e`: the entity whose hover or selection makes this sprite glow (Swift).
-      sprites.push(sprite(p.building, p.body, z, { ...dim, e: `v${p.key}` }));
+      // `e`: the entity whose hover or selection makes this sprite glow (Swift): a project's own id, a dashboard hall's card.
+      sprites.push(sprite(p.building, p.body, z, { ...dim, e: p.entity?.id ?? `v${p.key}` }));
       // Its contact shadow on the paving, and its lit windows (while its host is online).
-      images.push({ ...image("shadow:contact", paintContact), x: p.body.x - p.body.w * 0.02, y: p.base - 46, w: p.body.w * 1.04, h: 92, z: z - 0.01, a: 0.75 });
-      if (l.squares[p.square]!.online)
+      images.push({ ...image("shadow:contact", paintContact), x: p.body.x - p.body.w * 0.02, y: p.base - 46 * (p.body.w / 560), w: p.body.w * 1.04, h: 92 * (p.body.w / 560), z: z - 0.01, a: 0.75 });
+      if (p.square < 0 || l.squares[p.square]!.online)
         for (let k = 0; k < 4; k++)
-          lights.push({ x: p.body.x + p.body.w * (0.21 + 0.19 * k), y: p.body.y + p.body.h * 0.52, c: 0xffa63a, r: 52, period: 3800, flicker: false, ph: k / 4, z: z + 0.004, k: 0.8 });
-      // No banner: a hall says what it is in its hover card.
-      // The porch, before the arcade: its ends and a tiled middle.
-      if (p.ledge) {
-        // A shallow stone ledge as wide as the hall, the robots' heads at its base.
-        // The workshop's raised platform (the deep porch pieces), else the shallow ledge.
-        const piece = p.hall !== "agents" && realFrames.has("porch-ledge-mid") ? "porch-ledge" : "porch";
-        for (const [i, r] of p.porches.entries()) {
-          const pz = i ? standZ(l, r.y + r.h) - 0.01 : z + 0.0005;
-          const ph = r.h, lw = (FRAMES[`${piece}-left`]!.w * ph) / FRAMES[`${piece}-left`]!.h, rw = (FRAMES[`${piece}-right`]!.w * ph) / FRAMES[`${piece}-right`]!.h;
-          sprites.push(sprite(`${piece}-left`, { x: r.x, y: r.y, w: lw, h: ph }, pz, dim));
-          sprites.push(tile(`${piece}-mid`, { x: r.x + lw, y: r.y, w: Math.max(0, r.w - lw - rw), h: ph }, pz - 0.0001, dim));
-          sprites.push(sprite(`${piece}-right`, { x: r.x + r.w - rw, y: r.y, w: rw, h: ph }, pz, dim));
-        }
-      } else {
-        // Its foundation steps down onto the paving.
-        sprites.push(sprite("foundation-steps", at("foundation-steps", p.body.x + p.body.w / 2, p.base + V.steps - 4, p.body.w * 0.9), z + 0.0005, dim));
-      }
-      // No name plaque: as on the Islands map, only hosts are labelled; a hall's name is in its hover card.
+          lights.push({ x: p.body.x + p.body.w * (0.21 + 0.19 * k), y: p.body.y + p.body.h * 0.52, c: 0xffa63a, r: 52 * (p.body.w / 560), period: 3800, flicker: false, ph: k / 4, z: z + 0.004, k: 0.8 });
     }
+    // Workspaces: cottages with a stained-glass pane in their window for their pull request's state (camps: a tent).
     for (const w of l.workspaces) {
       const dim = { ...dimOf(w.square), ...(w.entity.stale ? { a: 0.7 } : {}) };
       const z = standZ(l, w.frame.y + w.frame.h);
-      // A bay beyond its building's four arches stands under an arch of its own.
-      if (w.arch) sprites.push(sprite("bay-arch", w.arch, standZ(l, w.arch.y + w.arch.h) - 0.002, dim));
-      if (w.entity.camp) {
-        sprites.push(sprite("tent", at("tent", w.tileAt.x, w.frame.y + w.frame.h, Math.min(w.rect.w + 20, 130)), z, dim));
-      } else {
-        // Over every standing thing (no tree's crown hides what a tile says).
-        sprites.push(sprite("tile-frame", w.frame, 2, { ...dim, e: w.entity.id }));
-        sprites.push(sprite(`tile-${w.tile}`, at(`tile-${w.tile}`, w.tileAt.x, w.tileAt.y, w.tileSize), 2.1, { ...dim, e: w.entity.id }));
+      sprites.push(sprite(w.cottage, w.frame, z, { ...dim, e: w.entity.id }));
+      images.push({ ...image("shadow:contact", paintContact), x: w.frame.x, y: w.frame.y + w.frame.h - w.frame.w * 0.12, w: w.frame.w, h: w.frame.w * 0.24, z: z - 0.01, a: 0.6 });
+      if (!w.entity.camp) {
+        const pane = realFrames.has(`cottage-pane-${w.tile}`) ? `cottage-pane-${w.tile}` : `tile-${w.tile}`;
+        sprites.push(sprite(pane, w.plate, z + 0.001, { ...dim, e: w.entity.id }));
+        if (l.squares[w.square]!.online) lights.push({ x: w.tileAt.x, y: w.tileAt.y, c: 0xffb860, r: w.plate.w * 0.9, period: 3200, flicker: false, ph: random(seedOf(w.entity.id))(), z: z + 0.002, k: 0.35 });
       }
-      // Its agents' state as a small lit dot on the frame's carved sill (its name is in its hover card).
-      const dot = parseInt(STATUS_DOT[w.status]!.slice(1), 16);
-      const dotAt = { x: w.tileAt.x, y: w.frame.y + w.frame.h * 0.86 };
-      sprites.push({ ...sprite("dot", at("dot", dotAt.x, dotAt.y, 14), 2.4, dim), c: dot, cf: 1 });
-      if (w.status !== "idle" && w.status !== "offline") lights.push({ ...dotAt, c: dot, r: 16, period: 2400, flicker: false, ph: 0, z: 2.35, k: 0.8 });
-      // The arch's lamp-lit interior behind the tile.
-      if (l.squares[w.square]!.online && !w.entity.camp) lights.push({ x: w.tileAt.x, y: w.frame.y + 6, c: 0xffb860, r: 44, period: 3200, flicker: false, ph: random(seedOf(w.entity.id))(), z: -0.5, k: 0.3 });
     }
     // The dashboard halls' tiles: their counts on their plates, dim with "—" while the hall can't count.
     for (const t of l.tiles) {
@@ -636,8 +612,8 @@ export function mountNativeVillage(parent: HTMLElement, handlers: AtlasHandlers 
       hudClear: V.marginLeft - 40,
       core: l.core,
       keep: l.keep,
-      // What the HUD's panel must never cover: every tile.
-      clear: [...l.tiles.map((t) => t.frame), ...l.workspaces.map((w) => w.frame)].map((r) => [r.x, r.y, r.w, r.h]),
+      // What the HUD's panel must never cover: tiles, halls, cottages and robots.
+      clear: [...l.tiles.map((t) => t.frame), ...l.projects.map((p) => p.body), ...l.workspaces.map((w) => w.frame), ...l.agents.map((a) => a.rect)].map((r) => [r.x, r.y, r.w, r.h]),
       sprites,
       images,
       lights,
@@ -648,9 +624,10 @@ export function mountNativeVillage(parent: HTMLElement, handlers: AtlasHandlers 
         // The dashboard tiles: hover cards and clicks the page answers (never a selection).
         ...l.tiles.map((t) => ({ id: t.id, kind: "tile", ...t.rect })),
         // The halls themselves, for their hover cards (picked after their tiles: "vhall" sorts after "tile").
-        ...l.projects.map((p) => ({ id: `v${p.key}`, kind: "tile", ...p.rect })),
-        // The fountain: the fleet, its card listing the hosts.
-        ...l.squares.map((s) => ({ id: "vfountain", kind: "tile", ...s.fountain })),
+        // Projects' halls (picked and selected), the dashboard halls (cards only).
+        ...l.projects.map((p) => (p.entity ? { id: p.entity.id, kind: "project", ...p.rect } : { id: `v${p.key}`, kind: "tile", ...p.rect })),
+        // Each district's fountain: its host's card.
+        ...l.squares.map((s) => ({ id: `vfountain:${s.host.id}`, kind: "tile", ...s.fountain })),
       ],
     };
   };
@@ -694,28 +671,29 @@ export function mountNativeVillage(parent: HTMLElement, handlers: AtlasHandlers 
     });
     const sprites: Sprite[] = [];
     const lights: Sprite[] = [];
-    // The square's lamps along the central road and by the fountain: lit while any of its agents runs.
+    // Each district's lamps by its fountain: lit while any of its agents runs.
     for (const [i, sq] of l.squares.entries()) {
       const lit = sq.online && l.agents.some((a) => a.square === i && a.entity.state === "running");
-      for (const lamp of sq.lamps) {
-        sprites.push(sprite(lit ? "lamp-on" : "lamp-off", at("lamp-on", lamp.x, lamp.y), standZ(l, lamp.y), sq.online ? {} : { dim: 1 }));
+      for (const p of [...sq.lamps, ...sq.pennants]) {
+        sprites.push(sprite(lit ? "lamp-on" : "lamp-off", at("lamp-on", p.x, p.y, 34), standZ(l, p.y), sq.online ? {} : { dim: 1 }));
+        if (lit) lights.push({ x: p.x, y: p.y - FRAMES["lamp-on"]!.h * (34 / FRAMES["lamp-on"]!.w) + 14, c: 0xffc46a, r: 60, period: 2600, flicker: true, ph: random(seedOf(`${sq.host.id}${p.x}`))(), k: 0.9 });
+      }
+    }
+    {
+      // The town's lamps along the north road and by the ponds, and the bridge's lanterns: lit while any agent runs.
+      const lit = l.agents.some((a) => a.entity.state === "running");
+      const dim = l.squares.some((s) => s.online) ? {} : { dim: 1 };
+      for (const lamp of l.town.lamps) {
+        sprites.push(sprite(lit ? "lamp-on" : "lamp-off", at("lamp-on", lamp.x, lamp.y), standZ(l, lamp.y), dim));
         if (lit) {
-          // The lantern's glow, and its warm pool on the cobbles.
-          lights.push({ x: lamp.x, y: lamp.y - (FRAMES["lamp-on"]!.h - 14), c: 0xffc46a, r: 64, period: 2600, flicker: true, ph: random(seedOf(`${sq.host.id}${lamp.x},${lamp.y}`))(), k: 0.95 });
-          // Its pool on the cobbles: orange, about one and a half lamp heights across.
+          lights.push({ x: lamp.x, y: lamp.y - (FRAMES["lamp-on"]!.h - 14), c: 0xffc46a, r: 64, period: 2600, flicker: true, ph: random(seedOf(`t${lamp.x},${lamp.y}`))(), k: 0.95 });
           lights.push({ x: lamp.x, y: lamp.y - 10, c: 0xff8c2a, r: FRAMES["lamp-on"]!.h * 0.8, period: 3400, flicker: false, ph: 0.3, z: -40, k: 0.62 });
         }
       }
-      // Lanterns on the bridge's posts, over the bridge.
-      const bridgeZ = standZ(l, sq.bridge.y + sq.bridge.h) + 0.01;
-      for (const lamp of sq.bridgeLamps) {
-        sprites.push(sprite(lit ? "lamp-on" : "lamp-off", at("lamp-on", lamp.x, lamp.y, 52), bridgeZ, sq.online ? {} : { dim: 1 }));
-        if (lit) lights.push({ x: lamp.x, y: lamp.y - 50, c: 0xffb050, r: 80, period: 2600, flicker: true, ph: random(seedOf(`${sq.host.id}b${lamp.x}`))(), k: 0.9 });
-      }
-      // Lamps either side of the fountain (no banners).
-      for (const p of sq.pennants) {
-        sprites.push(sprite(lit ? "lamp-on" : "lamp-off", at("lamp-on", p.x, p.y, 34), standZ(l, p.y), sq.online ? {} : { dim: 1 }));
-        if (lit) lights.push({ x: p.x, y: p.y - FRAMES["lamp-on"]!.h * (34 / FRAMES["lamp-on"]!.w) + 14, c: 0xffc46a, r: 60, period: 2600, flicker: true, ph: random(seedOf(`${sq.host.id}${p.x}`))(), k: 0.9 });
+      const bridgeZ = standZ(l, l.town.bridge.y + l.town.bridge.h) + 0.01;
+      for (const lamp of l.town.bridgeLamps) {
+        sprites.push(sprite(lit ? "lamp-on" : "lamp-off", at("lamp-on", lamp.x, lamp.y, 52), bridgeZ, dim));
+        if (lit) lights.push({ x: lamp.x, y: lamp.y - 50, c: 0xffb050, r: 80, period: 2600, flicker: true, ph: random(seedOf(`b${lamp.x}`))(), k: 0.9 });
       }
     }
     // Each robot's floor light, in its state's colour, on the porch slab before it.
@@ -728,7 +706,7 @@ export function mountNativeVillage(parent: HTMLElement, handlers: AtlasHandlers 
     // A warm spotlight on the porch under each robot.
     for (const a of l.agents) if (a.entity.state !== "offline") lights.push({ x: a.feet.x, y: a.feet.y - 16, c: 0xfff1d6, r: 40, flicker: false, period: 4000, z: 8.8, k: 0.7 });
     for (const p of l.projects) {
-      const online = l.squares[p.square]!.online;
+      const online = p.square < 0 ? true : l.squares[p.square]!.online;
       const id = p.entity?.id ?? p.key;
       const lit = online && projectWorking(l, id);
       for (const lamp of p.lamps) {
@@ -841,7 +819,7 @@ export function mountNativeVillage(parent: HTMLElement, handlers: AtlasHandlers 
       handlers.ready?.();
     } else if (message.type === "pick") {
       if (!enabled) return;
-      if (message.id?.startsWith("vhall:") || message.id === "vfountain") return;
+      if (message.id?.startsWith("vhall:") || message.id?.startsWith("vfountain:")) return;
       if (message.id?.startsWith("tile:")) {
         // A dashboard tile opens its first PR or issue, as the app opens such links.
         const t = tileOf(message.id);
@@ -852,11 +830,12 @@ export function mountNativeVillage(parent: HTMLElement, handlers: AtlasHandlers 
       handlers.pick?.(entity(message.id));
     } else if (message.type === "hover") {
       parent.style.cursor = message.id ? "pointer" : "";
-      if (message.id?.startsWith("vhall:") || message.id === "vfountain") {
+      if (message.id?.startsWith("vhall:") || message.id?.startsWith("vfountain:")) {
         if (hovered) setHover(null);
         const p = layout?.projects.find((x) => `v${x.key}` === message.id);
-        const sq = layout?.squares[0];
-        const card = p ? hallCard(p.hall) : sq ? { title: "The fleet", detail: `${sq.hosts.length} host${sq.hosts.length === 1 ? "" : "s"}`, lines: sq.hosts.map((h) => `${h.title}${h.stats.length ? ` · ${h.stats.map((x) => x.text).join(" · ")}` : ""}`) } : null;
+        const sq = layout?.squares.find((s) => `vfountain:${s.host.id}` === message.id);
+        const n = sq ? layout!.agents.filter((a) => a.entity.host === sq.host.id).length : 0;
+        const card = p && p.hall !== "project" ? hallCard(p.hall) : sq ? { title: sq.hosts[0]!.title, detail: `Host · ${n} agent${n === 1 ? "" : "s"}`, lines: sq.hosts[0]!.stats.length ? [sq.hosts[0]!.stats.map((x) => x.text).join(" · ")] : [sq.online ? "No load reading" : "Offline"] } : null;
         handlers.card?.(card, message.x === undefined ? null : { x: message.x, y: message.y! });
         return;
       }
@@ -981,7 +960,7 @@ export function mountNativeVillage(parent: HTMLElement, handlers: AtlasHandlers 
             counts: layout.counts,
             status: statusLine(layout).text,
             realFrames: realFrames.size,
-            squares: layout.squares.map((s) => ({ hosts: s.hosts.map((h) => ({ id: h.id, title: h.title, online: h.online, stats: h.stats.map((x) => x.text) })), rect: s.rect, fountain: s.fountain, river: s.river })),
+            squares: layout.squares.map((s) => ({ hosts: s.hosts.map((h) => ({ id: h.id, title: h.title, online: h.online, stats: h.stats.map((x) => x.text) })), rect: s.rect, fountain: s.fountain, river: layout!.town.river })),
             tiles: layout.tiles.map((t) => ({ id: t.id, rect: t.rect })),
             projects: layout.projects.map((p) => ({ id: p.entity?.id ?? p.key, name: p.name, icon: p.icon, building: p.building, rect: p.rect, lamps: p.lamps })),
             workspaces: layout.workspaces.map((w) => ({

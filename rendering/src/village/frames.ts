@@ -31,7 +31,12 @@ export type FrameSpec = {
   slice?: number | Insets;
   /** Drawn from a sheet (rather than a placeholder). */
   real?: boolean;
+  /** A cottage's window (for its pull request's stained-glass pane) and its doorstep, as shares of the frame. */
+  pane?: { x: number; y: number; w: number; h: number };
+  doorstep?: { x: number; y: number; w: number; h: number };
 };
+/** The workspaces' cottages. */
+export const COTTAGES = ["cottage-0", "cottage-1", "cottage-2", "cottage-3", "cottage-4", "cottage-5"] as const;
 
 /** Robot colours the robots sheet paints. */
 export const ROBOT_COLORS = ["orange", "white", "green", "blue", "cyan", "purple", "pink", "yellow"] as const;
@@ -70,6 +75,17 @@ export const FRAMES: Record<string, FrameSpec> = Object.fromEntries([
   // buildings: each a whole hall (roof and walls), standing on its feet; the arcade of bays stands in front of it.
   ...BUILDINGS.map((b) => [b, spec("buildings", 449, 300, "feet")] as [string, FrameSpec]),
   ["bay-arch", spec("buildings", 103, 103, "feet")],
+  // The workspaces' cottages (their window and doorstep from the sheet), and the panes for their windows.
+  ...COTTAGES.map((c) => [c, spec("cottages", 202, 209, "feet", { pane: { x: 0.31, y: 0.58, w: 0.21, h: 0.23 }, doorstep: { x: 0.66, y: 0.91, w: 0.29, h: 0.07 } })] as [string, FrameSpec]),
+  ...TILES.map((t) => [`cottage-pane-${t}`, spec("cottages", 51, 57, "center")] as [string, FrameSpec]),
+  // A district's boundary and gate, and stepping-stone paths.
+  ["path-stone-straight", spec("district", 158, 78, "feet")],
+  ["path-stone-diagonal", spec("district", 158, 130, "feet")],
+  ["path-stone-diagonal-reverse", spec("district", 158, 130, "feet")],
+  ["fence-h", spec("district", 158, 55, "feet")],
+  ["fence-v", spec("district", 55, 141, "feet")],
+  ...["hedge-0", "hedge-1", "hedge-2"].map((h) => [h, spec("district", 115, 64, "feet")] as [string, FrameSpec]),
+  ["district-gate", spec("district", 158, 149, "feet")],
   ["foundation-steps", spec("buildings", 446, 55, "feet")],
   ["wall-lantern", spec("buildings", 30, 45, "feet")],
   ["flower-box", spec("buildings", 70, 49, "feet")],
@@ -190,6 +206,9 @@ type SheetFrame = {
   anchor?: { x: number; y: number };
   /** 9-slice insets in sheet pixels: the same all round, or each side's (`l`/`t`/`r`/`b`, or spelt out). */
   slice?: number | Insets | { l: number; t: number; r: number; b: number };
+  /** Frame-local rects in sheet pixels (cottages). */
+  pane?: { x: number; y: number; w: number; h: number };
+  doorstep?: { x: number; y: number; w: number; h: number };
 };
 /** A sheet's description (`assets/village/<sheet>.json`): frames in sheet pixels, anchors frame-local. */
 export type SheetJson = { image?: string; scale?: number; frames?: Record<string, SheetFrame> };
@@ -209,6 +228,9 @@ export function applySheet(sheet: SheetJson, only: (name: string) => boolean = (
     if (typeof sl === "number") spec.slice = sl / scale;
     else if (sl && "l" in sl) spec.slice = { left: sl.l / scale, right: sl.r / scale, top: sl.t / scale, bottom: sl.b / scale };
     else if (sl) spec.slice = { left: sl.left / scale, right: sl.right / scale, top: sl.top / scale, bottom: sl.bottom / scale };
+    const share = (r?: { x: number; y: number; w: number; h: number }) => (r ? { x: r.x / f.w, y: r.y / f.h, w: r.w / f.w, h: r.h / f.h } : undefined);
+    if (f.pane) spec.pane = share(f.pane);
+    if (f.doorstep) spec.doorstep = share(f.doorstep);
     spec.real = true;
     taken.push(name);
   }
