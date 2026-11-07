@@ -52,7 +52,6 @@ scene.setScene([
     ],
     "images": [] as [[String: Any]],
     "flags": [["ws": "w1", "flag": "ci-green", "f": "pr-ci-green", "x": 100.0, "y": 300.0, "w": 18.0, "h": 18.0, "z": 5.0, "cx": 109.0, "cy": 309.0, "s": 18.0]],
-    "links": [[0.0, 100.0, 150.0, 100.0, 150.0, 200.0]],
     "lights": [["x": 0.0, "y": 100.0, "c": 0xffb640, "r": 60.0, "flicker": true]],
     "entities": [
         ["id": "p1", "kind": "project", "x": 100.0, "y": 140.0, "w": 200.0, "h": 90.0],
@@ -64,7 +63,6 @@ scene.setAgents([
     "rev": 2,
     "robots": [["id": "a1", "x": 182.0, "y": 332.0, "w": 36.0, "h": 42.0, "idle": ["robot-orange-idle-0", "robot-orange-idle-1"],
                 "work": ["robot-orange-work-0", "robot-orange-work-1"], "busy": true, "ph": 0.3, "subagents": 1, "drones": [["drone-orange-0"]]]],
-    "runners": [["pts": [0.0, 100.0, 150.0, 100.0, 150.0, 200.0], "period": 2000.0, "ph": 0.0]],
     "hud": ["title": ["key": "hud:title", "w": 300.0, "h": 60.0], "counts": ["key": "hud:counts", "w": 500.0, "h": 50.0]],
 ], images: ["hud:title": image(30, 6), "hud:counts": image(50, 5)])
 assert(scene.sceneRevision == 1 && scene.agentsRevision == 2, "revisions applied")

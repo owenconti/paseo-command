@@ -49,7 +49,6 @@ final class DungeonScene: SKScene, MapScene {
     private struct Anim { let node: SKSpriteNode; let frames: [SKTexture]; let fps: Double; let phase: Double }
     private struct Pulse { let node: SKNode; let base: CGFloat; let period: Double; let phase: Double; let low: CGFloat }
     private struct Glow { let node: SKSpriteNode; let period: Double; let phase: Double; let flicker: Bool; var k: CGFloat = 1 }
-    private struct Runner { let points: [CGPoint]; let lengths: [CGFloat]; let total: CGFloat; let head: SKSpriteNode; let trail: [SKSpriteNode]; let period: Double; let phase: Double }
     private struct Robot {
         let id: String
         let node: SKSpriteNode
@@ -70,7 +69,6 @@ final class DungeonScene: SKScene, MapScene {
     private var agentPulses: [Pulse] = []
     private var sceneGlows: [Glow] = []
     private var agentGlows: [Glow] = []
-    private var runners: [Runner] = []
     private var robots: [Robot] = []
     /// Running robots' rim lights: the light, the ellipse's centre and radii, its phase.
     private var rimRunners: [(node: SKSpriteNode, center: CGPoint, rx: CGFloat, ry: CGFloat, phase: Double)] = []
@@ -80,6 +78,12 @@ final class DungeonScene: SKScene, MapScene {
     /// The state glows drawn under robots (for checks).
     private var stateGlows = 0
     private var hoverColors: [String: Int] = ["project": 0xffc83d, "workspace": 0xff7f32, "agent": 0x4fe6dc]
+    /// What glows when hovered: each entity's sprites (an alcove's frame, a terrace's rampart and returns: tagged `e` by
+    /// the page), each robot's body, each PR medallion.
+    private var owners: [String: [SKSpriteNode]] = [:]
+    private var robotBodies: [String: SKSpriteNode] = [:]
+    private var flagNodes: [String: SKSpriteNode] = [:]
+    private var hoverGlows: [SKNode] = []
     private var clock: Double = 0
     private var lastTime: TimeInterval?
     private(set) var reduced = false
@@ -166,22 +170,25 @@ final class DungeonScene: SKScene, MapScene {
         sceneAnims = []
         scenePulses = []
         sceneGlows = []
+        owners = [:]
+        flagNodes = [:]
         for s in m["sprites"] as? [[String: Any]] ?? [] {
-            if let node = node(s, anims: &sceneAnims, pulses: &scenePulses) { board.addChild(node) }
+            if let node = node(s, anims: &sceneAnims, pulses: &scenePulses) {
+                board.addChild(node)
+                if let e = s["e"] as? String { owners[e, default: []] += SpriteGlow.sprites(in: node) }
+            }
         }
         for s in m["images"] as? [[String: Any]] ?? [] {
             if let node = node(s, anims: &sceneAnims, pulses: &scenePulses) { board.addChild(node) }
         }
         flags = []
         for f in m["flags"] as? [[String: Any]] ?? [] {
-            if let node = node(f, anims: &sceneAnims, pulses: &scenePulses) { board.addChild(node) }
+            let made = node(f, anims: &sceneAnims, pulses: &scenePulses)
+            if let made { board.addChild(made) }
             if let ws = f["ws"] as? String, let flag = f["flag"] as? String {
+                if let sprite = made as? SKSpriteNode { flagNodes["\(ws)|\(flag)"] = sprite }
                 flags.append(Flag(workspace: ws, flag: flag, center: CGPoint(x: num(f["cx"]), y: num(f["cy"])), radius: num(f["s"]) / 2 + 2))
             }
-        }
-        let dims = m["linkDim"] as? [Int] ?? []
-        for (i, flat) in (m["links"] as? [[Double]] ?? []).enumerated() {
-            board.addChild(link(flat.map { CGFloat($0) }, dim: i < dims.count && dims[i] == 1))
         }
         for l in m["lights"] as? [[String: Any]] ?? [] { board.addChild(light(l, into: &sceneGlows)) }
         entities = [:]
@@ -211,11 +218,11 @@ final class DungeonScene: SKScene, MapScene {
         appliedAt = CACurrentMediaTime()
         for (key, image) in newImages { images[key] = Textures.texture(image) }
         agentLayer.removeAllChildren()
+        robotBodies = [:]
         stateGlows = 0
         agentAnims = []
         agentPulses = []
         agentGlows = []
-        runners = []
         robots = []
         rimRunners = []
         markPulses = []
@@ -237,6 +244,7 @@ final class DungeonScene: SKScene, MapScene {
             body.zPosition = 10
             if dim { darken(body) }
             agentLayer.addChild(body)
+            robotBodies[id] = body
             // Its halo, a soft glow round its silhouette in its colour, and its visor's glowing eyes: they move with it.
             if let h = r["halo"] as? [String: Any], let f = h["f"] as? String, let tex = frames[f] {
                 let halo = SKSpriteNode(texture: tex, size: CGSize(width: num(h["w"]), height: num(h["h"])))
@@ -328,33 +336,9 @@ final class DungeonScene: SKScene, MapScene {
             }
             robots.append(robot)
         }
-        for r in m["runners"] as? [[String: Any]] ?? [] {
-            let flat = (r["pts"] as? [Double] ?? []).map { CGFloat($0) }
-            guard flat.count >= 4 else { continue }
-            let points = stride(from: 0, to: flat.count - 1, by: 2).map { CGPoint(x: flat[$0], y: flat[$0 + 1]) }
-            var lengths: [CGFloat] = []
-            for i in 1..<points.count { lengths.append(hypot(points[i].x - points[i - 1].x, points[i].y - points[i - 1].y)) }
-            let head = SKSpriteNode(texture: Textures.glow(reach: 10), size: CGSize(width: 22, height: 22))
-            head.color = Textures.color(0xfff0b0)
-            head.colorBlendFactor = 1
-            head.blendMode = .add
-            head.zPosition = 1.6
-            agentLayer.addChild(head)
-            var trail: [SKSpriteNode] = []
-            for k in 0..<8 {
-                let s = SKSpriteNode(texture: Textures.white, size: CGSize(width: 4, height: 4))
-                s.color = Textures.color(0xffe08a)
-                s.colorBlendFactor = 1
-                s.blendMode = .add
-                s.alpha = 0.9 * (1 - CGFloat(k) / 8)
-                s.zPosition = 1.55
-                agentLayer.addChild(s)
-                trail.append(s)
-            }
-            runners.append(Runner(points: points, lengths: lengths, total: lengths.reduce(0, +), head: head, trail: trail,
-                                  period: r["period"] as? Double ?? 2200, phase: Double(num(r["ph"]))))
-        }
         if let h = m["hud"] as? [String: [String: Any]] { placeHud(h) }
+        // The robots are new nodes: a hovered robot's glow goes onto its new body.
+        if hovered != nil { drawHover() }
         animate()
         wake()
     }
@@ -480,38 +464,6 @@ final class DungeonScene: SKScene, MapScene {
             y += th
         }
         return container
-    }
-
-    /// A gold link: a slim conduit with a restrained white core and a soft glow, its turns clipped at 45°.
-    private func link(_ flat: [CGFloat], dim: Bool) -> SKNode {
-        var pts: [CGPoint] = []
-        for i in stride(from: 0, to: flat.count - 1, by: 2) { pts.append(CGPoint(x: flat[i], y: flat[i + 1])) }
-        let path = CGMutablePath()
-        let clip: CGFloat = 9
-        for (i, q) in pts.enumerated() {
-            if i == 0 { path.move(to: p(q.x, q.y)); continue }
-            if i == pts.count - 1 { path.addLine(to: p(q.x, q.y)); continue }
-            // Cut the corner: stop short of it, then run diagonally to just past it.
-            let a = pts[i - 1], b = pts[i + 1]
-            let la = hypot(q.x - a.x, q.y - a.y), lb = hypot(b.x - q.x, b.y - q.y)
-            let c = min(clip, la / 2, lb / 2)
-            guard c > 0.5, la > 0, lb > 0 else { path.addLine(to: p(q.x, q.y)); continue }
-            path.addLine(to: p(q.x - (q.x - a.x) / la * c, q.y - (q.y - a.y) / la * c))
-            path.addLine(to: p(q.x + (b.x - q.x) / lb * c, q.y + (b.y - q.y) / lb * c))
-        }
-        let group = SKNode()
-        group.zPosition = 1
-        for (width, color, alpha, add) in [(10.0, 0xffa020, 0.1, true), (5.0, 0xf4b434, 1.0, false), (1.6, 0xfff4d0, 0.6, false)] as [(CGFloat, Int, CGFloat, Bool)] {
-            let line = SKShapeNode(path: path)
-            line.strokeColor = Textures.color(dim ? 0x6a6050 : color, dim ? alpha * 0.5 : alpha)
-            line.lineWidth = width
-            line.lineCap = .round
-            line.lineJoin = .round
-            line.isAntialiased = true
-            if add && !dim { line.blendMode = .add }
-            group.addChild(line)
-        }
-        return group
     }
 
     /// A light's glow: additive, in its colour, flickering as a flame or breathing.
@@ -682,14 +634,18 @@ final class DungeonScene: SKScene, MapScene {
         selectionHalo.alpha = CGFloat(0.5 + 0.5 * t)
     }
 
+    /// The hovered thing glows as the Village's do: a soft warm halo along its own silhouette (a robot's body, an
+    /// alcove's frame, a terrace's rampart, a PR medallion) and a faint brightening, never a box round it.
     private func drawHover() {
         hoverNode.removeAllChildren()
+        for g in hoverGlows { g.removeFromParent() }
+        hoverGlows = []
         guard let id = hovered, let e = entities[id] else { return }
-        let rim = SKShapeNode(path: rounded(e.rect.insetBy(dx: -2, dy: -2), inset: 0))
-        rim.strokeColor = Textures.color(hoverColors[e.kind] ?? 0xffffff, 0.95)
-        rim.lineWidth = 2.5
-        rim.fillColor = .clear
-        hoverNode.addChild(rim)
+        let sprites: [SKSpriteNode]
+        if let f = hoveredFlag, let medallion = flagNodes["\(f.workspace)|\(f.flag)"] { sprites = [medallion] }
+        else if e.kind == "agent" { sprites = robotBodies[id].map { [$0] } ?? [] }
+        else { sprites = owners[id] ?? [] }
+        hoverGlows = sprites.flatMap { SpriteGlow.glow($0, color: SpriteGlow.hoverColor, strength: 1, name: "hover-glow") }
     }
 
     private func setHover(_ id: String?, flag: Flag? = nil) {
@@ -911,7 +867,7 @@ final class DungeonScene: SKScene, MapScene {
     // MARK: Frames
 
     var animating: Bool {
-        !reduced && (!sceneAnims.isEmpty || !agentAnims.isEmpty || !sceneGlows.isEmpty || !agentGlows.isEmpty || !runners.isEmpty || !robots.isEmpty || selected != nil)
+        !reduced && (!sceneAnims.isEmpty || !agentAnims.isEmpty || !sceneGlows.isEmpty || !agentGlows.isEmpty || !robots.isEmpty || selected != nil)
     }
     var drifting: Bool { false }
     var lively: Bool {
@@ -1010,31 +966,6 @@ final class DungeonScene: SKScene, MapScene {
                 }
             }
         }
-        for r in runners {
-            let t = reduced ? 0.999 : ((clock / r.period + r.phase).truncatingRemainder(dividingBy: 1) + 1).truncatingRemainder(dividingBy: 1)
-            func at(_ u: Double) -> CGPoint {
-                var d = CGFloat(max(0, min(1, u))) * r.total
-                for (i, len) in r.lengths.enumerated() {
-                    if d <= len || i == r.lengths.count - 1 {
-                        let k = len > 0 ? min(1, d / len) : 0
-                        let a = r.points[i], b = r.points[i + 1]
-                        return CGPoint(x: a.x + (b.x - a.x) * k, y: a.y + (b.y - a.y) * k)
-                    }
-                    d -= len
-                }
-                return r.points.last!
-            }
-            let head = at(t)
-            r.head.position = p(head.x, head.y)
-            // Fading in from the host's node and out into the workspace.
-            let fade = CGFloat(min(1, min(t, 1 - t) * 8))
-            r.head.alpha = reduced ? 0 : fade
-            for (k, s) in r.trail.enumerated() {
-                let a = at(t - Double(k + 1) * 0.012)
-                s.position = p(a.x, a.y)
-                s.alpha = reduced ? 0 : fade * 0.85 * (1 - CGFloat(k) / CGFloat(r.trail.count))
-            }
-        }
     }
 
     func state() -> [String: Any] {
@@ -1049,7 +980,6 @@ final class DungeonScene: SKScene, MapScene {
             "center": ["x": center.x, "y": center.y],
             "nodes": countNodes(self),
             "robots": robots.count,
-            "runners": runners.count,
             "stateGlows": stateGlows,
             "motion": !reduced,
             "frames": frames.count,

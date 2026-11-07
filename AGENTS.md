@@ -738,7 +738,9 @@ with perspective cliffs and surf, rivers, scenery, buildings), `native.ts` (`Ove
 tiles, a few at a time, arranges hosts in columns to suit the map's shape, and posts the robots and their state light as overlays, with
 each entity's rectangle. Swift (`AtlasScene`, scene `style: "overworld"`) tiles the page's graded sea tile (`overworldSeaTile`, scene
 `seaTile`, image `ow-sea`) over the whole view in place of the Islands sea, glints and clouds, picks the smallest rectangle under the
-pointer and outlines rectangles for hover and selection. `rendering/overworld-preview/` renders the concept's fleet beside the concept for
+pointer and outlines rectangles for selection. Hover glows as the Village's does (the user's call: no borders): the page paints
+each hall's and booth's own silhouette (`paintSilhouette`, `ow-sil:` images, the entity's `glow`) and robots use their first frame;
+`SpriteGlow.overlay` adds a warm halo outside that silhouette and a faint lift over it. `rendering/overworld-preview/` renders the concept's fleet beside the concept for
 comparison (`build.sh`, then `node shoot.mjs <out.png> [k] [dy] [query]` against a static server on the rendering folder, port 4391;
 `?fleet=crowded|sample`), and `?app=user|dungeon|sample` (`app.ts`) composites exactly what the macOS app is sent (the hosts' tiles over
 the sea tile, robots and state light) for a fleet shaped like the user's, the Dungeon Board's or the sample.
@@ -764,8 +766,7 @@ with workspaces alternating left and right outward from the gate (`hostGroups` i
 marked only by its terrace and the pair of wall candles on it (no medallion or icon: the user's call), its workspaces' alcoves in a row beneath (oldest first, left
 to right; camps for agents without one). Only hosts carry labels (their signs), as on the Islands (the user's call): projects,
 workspaces and agents are named on their hover cards; alcoves keep a plain lintel, the PR medallions on it; robots on each alcove's ledge in provider colours (`robotColor`: Claude orange, ChatGPT white, any other provider its own of the sheet's eight), oldest
-first, drones for running subagents. Gold links run from the host node along each tier's bus, through a junction node over each project's terrace, and down to
-each alcove's top centre, nodes at the joints. Each floor reaches only as far as its own content and side rooms on each side of the gate, so the silhouette steps,
+first, drones for running subagents. No links join them (the user removed the gold pipes). Each floor reaches only as far as its own content and side rooms on each side of the gate, so the silhouette steps,
 dark rock round narrower floors; floors keep their natural, content-driven width; a side's projects wrap onto more tiers only while the board would be wider than 1.6 × its
 height. Decorations (side rooms: a recess, `room-*`, holding its vignette as the art's `v3/rooms-mock.png` composes them, dealt through the board so neighbours differ; plain cloth banners (no icons, the user's call), torches, windows, chains; the foot of the last stairs, above a strip the HUD's count bar lies over) are seeded and
 never cover what the board says (`layoutDungeon` in `layout.ts`, pure; `rendering/tests/dungeon.test.mjs`). The robots are what the eye should land on first (the user's call): drawn large (55 concept px tall), each with a
@@ -774,14 +775,16 @@ sheet only saturation-lifted; the gate, links, torches and signs are kept a notc
 alcoves' interiors darker). The other sheets are graded at load (`grade`, `GRADE`) toward the
 concept's purples. State: a state
 glow under each robot in the Atlas's state colours (`STATE_TILE`, idle a quiet lavender; pulsing for states that need you), a marker at its head's upper right, working robots' work frames,
-light running along the links to workspaces with an agent at work, a project's two torches lit while any of its agents runs,
+a project's two torches lit while any of its agents runs,
 its terrace glowing between its candles in the most urgent state's colour, offline floors dimmed and dark. PR, Probe and auto-merge medallions
 sit on each alcove's lintel with the Atlas's hover cards. The HUD (title with "N running · N need you" or "All quiet", and the
 count bar) lies over the board in screen space, as the concept's does; the board fills the map. Each floor is assembled
 from the v2 kit as the art's reconstruction (`rendering/artifacts/dungeon/mock.png`) is: ramparts, the gate's surround,
 terrace floors, alcove sides, lintels and ledges. The page paints the host signs (`paintSign` in `bridge.ts`; the HUD keeps `ui-rounded`), purple shading on the upper walls and toward the board's edges, and posts top-left sprite
 boxes; `DungeonScene.swift` draws, animates (≈30 fps ambient, still with reduced motion), owns the camera (fit, bounded pan,
-wheel, pinch, arrows, F/Home), rounded-rect hover rims and the golden selection rim, and picks (a PR medallion, then a robot, its
+wheel, pinch, arrows, F/Home), the hover glow (as the Village's, `SpriteGlow.swift`: a warm halo
+along the hovered thing's own sprites, a robot's body, an alcove's frame, a terrace's rampart, a PR medallion; the page tags them `e`)
+and the golden selection rim, and picks (a PR medallion, then a robot, its
 alcove, its project by its terrace wall, the hover card naming it; never a host). Sprites: `rendering/src/assets/dungeon/<sheet>.png|json` (the frame contract is `frames.ts`,
 3× scale; a missing frame is painted as a placeholder; robots are trimmed to their opaque pixels). `npm run native:mock --
 --dungeon` serves the concept's fleet (`dungeon` in `web/e2e/fleets.ts`) and prints its address with `?map=dungeon`. Tests:

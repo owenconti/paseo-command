@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { layoutDungeon, overlaps, segmentRect, hudSubtitle, projectIcon, robotColor, cutawaySpans, D } from "../src/dungeon/layout.ts";
+import { layoutDungeon, overlaps, hudSubtitle, projectIcon, robotColor, cutawaySpans, D } from "../src/dungeon/layout.ts";
 import { FRAMES, applySheet } from "../src/dungeon/frames.ts";
 import { readdirSync, readFileSync } from "node:fs";
 
@@ -58,18 +58,6 @@ function assertLegible(layout) {
     assert.equal(w.label, undefined, "a workspace carries no label");
     for (const f of w.flags) assert.ok(f.x >= w.rect.x && f.x <= w.rect.x + w.rect.w && f.y >= w.rect.y && f.y <= w.rect.y + 30, "a PR medallion sits on its alcove's lintel");
   }
-  // Links cross no plaque, medallion or robot, but for a stub ending at its own medallion.
-  const blockers = [...layout.projects.map((p) => p.rect), ...layout.agents.map((a) => a.rect), ...layout.floors.map((f) => f.plaque)];
-  for (const link of layout.links)
-    for (let i = 1; i < link.length; i++) {
-      const seg = segmentRect(link[i - 1], link[i], 0);
-      const r = { x: seg.x + 0.5, y: seg.y + 0.5, w: Math.max(0, seg.w - 1), h: Math.max(0, seg.h - 1) };
-      const end = link[link.length - 1];
-      for (const b of blockers) {
-        const own = end.x >= b.x && end.x <= b.x + b.w && end.y >= b.y && end.y <= b.y + b.h;
-        if (!own) assert.ok(!overlaps(r, b, -1), `a link crosses something at ${JSON.stringify(link[i])}`);
-      }
-    }
   // Decorations keep clear of everything the board says or shows, and of each other.
   const shown = [...things.map((t) => t.rect), ...labels, ...layout.agents.map((a) => ({ ...a.rect, y: a.rect.y - 8, h: a.rect.h + 8 }))];
   layout.decor.forEach((d, i) => {
@@ -91,7 +79,6 @@ test("the concept's fleet: three floors, two projects each, one tier, gates cent
     assert.equal(f.tiers, 1);
     assert.equal(f.medallion.x, 0);
     assert.equal(f.plaque.x + f.plaque.w / 2, 0);
-    assert.equal(f.node.x, 0);
     assert.equal(layout.projects.filter((p) => p.floor === layout.floors.indexOf(f)).length, 2);
   }
   assert.deepEqual(layout.counts, { hosts: 3, projects: 6, workspaces: 11, agents: 27 });
@@ -104,7 +91,7 @@ test("the concept's fleet: three floors, two projects each, one tier, gates cent
   for (const f of layout.floors) assert.equal(f.rect.h, f.last ? D.band + D.tierH + D.foot + D.footPad : D.band + D.tierH);
   // The first project stands left of the gate, the second right.
   const local = layout.projects.filter((p) => p.floor === 0);
-  assert.ok(local[0].node.x < 0 && local[1].node.x > 0);
+  assert.ok(local[0].mark.x < 0 && local[1].mark.x > 0);
   // Workspaces read left to right oldest first: api then web.
   const [api, web] = ["api", "web"].map((n) => layout.workspaces.find((w) => w.entity.name === n));
   assert.ok(api.rect.x < web.rect.x);
@@ -148,7 +135,6 @@ test("one host with one workspace", () => {
   const layout = layoutDungeon(data, 1.6);
   assert.equal(layout.floors.length, 1);
   assert.equal(layout.agents.length, 1);
-  assert.equal(layout.runs.w.length, 5);
   assertLegible(layout);
 });
 
@@ -242,21 +228,18 @@ test("each floor's cutaway opens round the next host's gate, so its arch reads w
   });
 });
 
-test("no labels or icons on projects and workspaces; links run through each project's junction to each alcove's top", () => {
+test("no labels, icons or links: a project is its terrace, picked by its wall above its alcoves", () => {
   const layout = layoutDungeon(DUNGEON_SAMPLE, 1.4);
+  // The user removed the gold pipes: the layout has no links, nodes or runs.
+  assert.equal(layout.links, undefined);
+  assert.equal(layout.nodes, undefined);
+  assert.equal(layout.runs, undefined);
   for (const p of layout.projects) {
     assert.equal(p.icon, undefined, `${p.name} carries no icon`);
-    // Its junction is a node on a link (the tier's bus), and nothing rises from it to a medallion.
-    assert.ok(layout.nodes.some((n) => n.x === p.node.x && n.y === p.node.y), `${p.name}'s junction is a node`);
-    assert.ok(layout.links.some((l) => l.length >= 2 && l.some((q) => q.y === p.node.y)), `a link runs along ${p.name}'s bus`);
-    assert.ok(!layout.links.some((l) => l.some((q) => q.x === p.node.x && q.y < p.node.y - 1)), `no link rises from ${p.name}'s junction`);
+    assert.equal(p.node, undefined, `${p.name} has no junction`);
     // Its pick box is its terrace's back wall: above its alcoves, within its span, wide enough to hover.
     const alcoves = layout.workspaces.filter((w) => w.project === p.key);
     assert.ok(alcoves.every((w) => p.rect.y + p.rect.h <= w.rect.y + 0.01 && !overlaps(p.rect, w.rect)), `${p.name}'s box stays above its alcoves`);
     assert.ok(p.rect.x >= p.span.x && p.rect.x + p.rect.w <= p.span.x + p.span.w && p.rect.w > 80, `${p.name}'s box is its terrace`);
-  }
-  for (const w of layout.workspaces) {
-    const cx = w.rect.x + w.rect.w / 2;
-    assert.ok(layout.links.some((l) => l.some((q) => Math.abs(q.x - cx) < 0.01 && Math.abs(q.y - w.rect.y) < 0.01)), `a link reaches ${w.entity.name}'s alcove`);
   }
 });

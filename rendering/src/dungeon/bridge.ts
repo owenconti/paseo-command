@@ -6,7 +6,7 @@
  * through `paseo:world` events. Nothing here sends daemon actions.
  */
 import { STATE_TILE, seedOf, random, type AtlasData, type Entity } from "../world";
-import { HOVER_COLOR, PULSE_MS, RUNNING_LAP_MS } from "../placement";
+import { HOVER_COLOR, PULSE_MS } from "../placement";
 import type { MapFlag } from "../prStatus";
 import { MAX_ZOOM } from "../camera";
 import type { AtlasHandlers, AtlasWorld } from "../atlas";
@@ -70,7 +70,7 @@ const SIGN_PAINT = "#f1dfb2";
 const SIGN_PAINT_DULL = "#9c9184";
 const SIGN_ALERT = "#ff7a5c";
 /** The sign's caps and rails, at this share of their sheet size. */
-const SIGN_K = 0.8;
+const SIGN_K = 0.64;
 const ALERT = "#b0301c";
 
 const load = (url: string) =>
@@ -340,8 +340,8 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
     const cream = online ? SIGN_PAINT : SIGN_PAINT_DULL;
     // The name, with the gem beside it.
     ctx.font = fontOf("host");
-    const shown = fitText(name, "host", r.w - 116);
-    const nameW = ctx.measureText(shown).width, gem = 19, gap = 9;
+    const shown = fitText(name, "host", r.w - 93);
+    const nameW = ctx.measureText(shown).width, gem = 15, gap = 7;
     let x = r.w / 2 - (nameW + gem + gap) / 2;
     const anyAlert = stats.some((st) => st.alert);
     const gemFrame = !online ? "gem-offline" : anyAlert ? "gem-warning" : "gem-online";
@@ -362,7 +362,7 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
     // Worn: fine speckles taken out of the paint (seeded by the name, so the image stays the same).
     const rng = random(seedOf(name + "wear"));
     ctx.globalCompositeOperation = "destination-out";
-    for (let i = 0; i < r.w * 0.6; i++) {
+    for (let i = 0; i < r.w * 0.5; i++) {
       ctx.fillStyle = `rgba(0,0,0,${0.12 + rng() * 0.2})`;
       ctx.fillRect(28 + rng() * (r.w - 56), faceTop + rng() * (faceBottom - faceTop), 0.6 + rng() * 0.9, 0.6 + rng() * 0.7);
     }
@@ -495,7 +495,7 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
     return canvas;
   };
 
-  /** The board's stone, gates, alcoves, labels, links and decorations: what changes only when places do. */
+  /** The board's stone, gates, alcoves, signs and decorations: what changes only when places do. */
   const sceneOf = (l: DungeonLayout) => {
     const sprites: Sprite[] = [];
     const images: Sprite[] = [];
@@ -626,7 +626,7 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
       if (FRAMES["sign-bracket"]?.real) {
         const board = FRAMES["sign-board"]!, inset = (74 / 829) * board.w * SIGN_K;
         for (const cx of [fl.plaque.x + inset, fl.plaque.x + fl.plaque.w - inset])
-          sprites.push(sprite("sign-bracket", at("sign-bracket", cx, fl.plaque.y + 2, 21), 3.1, dim));
+          sprites.push(sprite("sign-bracket", at("sign-bracket", cx, fl.plaque.y + 2, 17), 3.1, dim));
       }
       // Lit wood: a soft warm wash on the sign from the gate's torches.
       if (fl.online)
@@ -638,12 +638,14 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
       // The project's terrace (its only mark, with its candles: no medallion or icon): a recess of darker stone, under a rampart that returns at its outer end.
       fill("wall-brick-dark", { x: p.span.x + 30, y: y0 + 34, w: Math.max(0, p.span.w - 60), h: D.alcoveY - 34 }, -50, { ...dim, shade: 0.3 });
       // A substantial cap: the rampart's lit top and front face, then its shadowed underside face.
-      fill("rampart-x", { x: p.span.x + (p.side === -1 ? 36 : 0), y: y0 + 21, w: p.span.w - 36, h: 30 }, -30, dim);
-      fill("ledge-face", { x: p.span.x + (p.side === -1 ? 40 : 4), y: y0 + 49, w: p.span.w - 44, h: 9 }, -30.05, { ...dim, shade: 0.45, neutral: 1 });
+      // Its terrace, tagged with the project so it glows when hovered.
+      const terrace = p.entity ? { ...dim, e: p.entity.id } : dim;
+      fill("rampart-x", { x: p.span.x + (p.side === -1 ? 36 : 0), y: y0 + 21, w: p.span.w - 36, h: 30 }, -30, terrace);
+      fill("ledge-face", { x: p.span.x + (p.side === -1 ? 40 : 4), y: y0 + 49, w: p.span.w - 44, h: 9 }, -30.05, { ...terrace, shade: 0.45, neutral: 1 });
       // Occlusion where the terrace's wall meets the recess behind it: a dark pocket under its lip.
       images.push({ ...image("shade:under", () => paintShade("under")), x: p.span.x + 30, y: y0 + 46, w: Math.max(0, p.span.w - 60), h: 18, z: -29.8 });
-      if (p.side === -1) put("rampart-return-left", p.span.x, y0 + 23, 50, 75, -29.9, dim);
-      else put("rampart-return-right", p.span.x + p.span.w - 50, y0 + 23, 50, 75, -29.9, dim);
+      if (p.side === -1) put("rampart-return-left", p.span.x, y0 + 23, 50, 75, -29.9, terrace);
+      else put("rampart-return-right", p.span.x + p.span.w - 50, y0 + 23, 50, 75, -29.9, terrace);
       // Wall candles flanking its mark, with their warm spill on the wall.
       const lit = l.floors[p.floor]!.online;
       for (const t of p.torches) {
@@ -676,12 +678,14 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
           // The left desk turned in (or, seeded, facing out), so bays don't repeat evenly.
           { ...dim, shade: dim.dim ? 0.55 : INTERIOR_SHADE, ...(left && v === 1 && (seedOf(w.entity.id + "turn") & 3) !== 0 ? { flip: 1 } : {}) });
       }
-      put("alcove-left", x, y + 7, 24, D.alcoveH - 9, -11, dim);
-      put("alcove-right", x + width - 24, y + 7, 24, D.alcoveH - 9, -11, dim);
-      fill("alcove-top", { x: x + 20, y, w: inner, h: 22 }, -10.9, dim);
-      put("rampart-return-left", x - 2, y - 5, 45, 43, -10.8, dim);
-      put("rampart-return-right", x + width - 43, y - 5, 45, 43, -10.8, dim);
-      fill("alcove-ledge", { x: x + 20, y: y + D.alcoveH - 15, w: inner, h: 15 }, -10, dim);
+      // Its frame, tagged with the workspace so it glows when hovered.
+      const frameOf = { ...dim, e: w.entity.id };
+      put("alcove-left", x, y + 7, 24, D.alcoveH - 9, -11, frameOf);
+      put("alcove-right", x + width - 24, y + 7, 24, D.alcoveH - 9, -11, frameOf);
+      fill("alcove-top", { x: x + 20, y, w: inner, h: 22 }, -10.9, frameOf);
+      put("rampart-return-left", x - 2, y - 5, 45, 43, -10.8, frameOf);
+      put("rampart-return-right", x + width - 43, y - 5, 45, 43, -10.8, frameOf);
+      fill("alcove-ledge", { x: x + 20, y: y + D.alcoveH - 15, w: inner, h: 15 }, -10, frameOf);
       for (const c of w.candles) {
         sprites.push(sprite("candle", at("candle", c.x, c.y, 10), 4, dim));
         if (online) {
@@ -716,11 +720,6 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
           // Torches' halos bright and warm (the concept's gold is light); side rooms' glows stay below the robots'.
           ...(d.recess || d.group ? { k: 0.28 } : { k: 0.45 }),
         });
-    }
-    // The links' joints: bigger gold nodes, each with a soft halo.
-    for (const n of l.nodes) {
-      sprites.push(sprite("node", at("node", n.x, n.y, 14), 1.5));
-      lights.push({ x: n.x, y: n.y, c: 0xffc44a, r: 20, period: 2800, flicker: false, ph: random(seedOf(`node${n.x},${n.y}`))(), z: 1.4, k: 0.7 });
     }
     // Contrast: the upper walls fall into purple shadow toward the top; the board darkens toward its edges.
     for (const fl of l.floors)
@@ -801,11 +800,6 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
       images,
       lights,
       flags,
-      links: l.links.map((pts) => pts.flatMap((p) => [p.x, p.y])),
-      linkDim: l.links.map((pts) => {
-        const fl = l.floors.find((f) => pts[0]!.y >= f.top && pts[0]!.y < f.top + f.height);
-        return fl && !fl.online ? 1 : 0;
-      }),
       entities: l.entities
         .filter((e) => e.kind !== "host")
         .map((e) => {
@@ -894,11 +888,6 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
       const alarm = online ? projectAlarm(l, id) : undefined;
       if (alarm) lights.push({ x: p.mark.x, y: p.mark.y, c: STATE_TILE[alarm]!, r: 54, period: alarm === "failed" ? 1200 : 1800, flicker: false, z: 1.9, ph: 0 });
     }
-    // Light runs along the links to each workspace with an agent at work.
-    const runners = l.workspaces
-      .filter((w) => l.agents.some((a) => a.entity.workspace === w.entity.id && a.entity.state === "running"))
-      .map((w) => ({ pts: (l.runs[w.entity.id] ?? []).flatMap((p) => [p.x, p.y]), period: RUNNING_LAP_MS, ph: random(seedOf(w.entity.id + "run"))() }))
-      .filter((r) => r.pts.length >= 4);
     const subtitle = hudSubtitle(l);
     const title = paintTitle(subtitle);
     const counts = paintCounts(l.counts);
@@ -909,7 +898,6 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
       robots,
       sprites,
       lights,
-      runners,
       hud: {
         title: { ...(sent.has(titleKey) ? { key: titleKey } : (sent.add(titleKey), { key: titleKey, png: png(title.canvas) })), w: title.w, h: title.h },
         counts: { ...(sent.has(countsKey) ? { key: countsKey } : (sent.add(countsKey), { key: countsKey, png: png(counts.canvas) })), w: counts.w, h: counts.h },
