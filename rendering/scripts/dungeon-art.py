@@ -8,7 +8,7 @@ from pathlib import Path
 import json, math, re, argparse, os, shutil, statistics
 
 LIVE = Path('rendering/src/assets/dungeon')
-OUT = Path('rendering/artifacts/dungeon/v6/staging')
+OUT = Path('rendering/artifacts/dungeon/v7/staging')
 ART = Path('rendering/artifacts/dungeon')
 RESAMPLE = Image.Resampling.LANCZOS
 SHEETS = {}
@@ -440,6 +440,7 @@ def build():
     build_robots_v4()
     fix_art_v5()
     build_gold_props_v6()
+    hanging_v7()
 
 def pack():
     OUT.mkdir(parents=True,exist_ok=True)
@@ -636,6 +637,7 @@ def validate():
     expected += ['pr-'+x for x in ['ci-running','ci-green','ci-failing','review-awaiting','review-approved','review-changes','conflicts']]+['probe-'+x for x in ['reviewing','approved','findings','stale','failed']]+['seal-automerge']
     expected += ['rampart-x','rampart-y','rampart-corner-tl','rampart-corner-tr','rampart-corner-bl','rampart-corner-br','rampart-end-left','rampart-end-right','rampart-end-top','rampart-end-bottom','rampart-t-down','terrace-floor','alcove-ledge','gate-surround','torch-out','mark-asking','glow-asking']
     expected += ['room-arch','room-cave','room-magic','room-forge','pillar-capital','window-arch','chain-pair']
+    expected += ['corbel-left','corbel-right']
     expected += [f'{b}-{i}' for b in ['candelabra','wall-candles'] for i in range(4)]+['candelabra-out','wall-candles-out']
     missing=sorted(set(expected)-set(frames));extra=sorted(set(frames)-set(expected))
     if missing:errors.append('Missing '+str(missing))
@@ -1081,9 +1083,68 @@ def props_only_v6(publish_live=False):
     if publish_live:publish()
 
 
+def sources_v7(key):
+    boxes_path=ART/'v7/source-crops.json'
+    boxes=json.loads(boxes_path.read_text())['v7-'+key] if boxes_path.exists() else json.loads((LIVE/'prompts.json').read_text())['v7_generations']['v7-'+key]['crops']
+    im=Image.open(ART/'v7'/(key+'-raw.png')).convert('RGBA');return [trim(im.crop(b)) for b in boxes]
+
+def dark_cloth_v7(im):
+    rgb=list(im.getdata());hsv=im.convert('RGB').convert('HSV');lab=ImageCms.applyTransform(im.convert('RGB'),_TO_LAB);ld=list(lab.getdata());mask=bytearray(len(rgb))
+    for k,((h,s,v),(l,a,b),p) in enumerate(zip(hsv.getdata(),ld,rgb)):
+        if p[3]>0 and 205<=h*360/255<=330 and s>64 and 45<l<230:ld[k]=(round(l*.94),a,b);mask[k]=1
+    lab.putdata(ld);converted=ImageCms.applyTransform(lab,_TO_RGB);out=im.copy();out.putdata([(*q,p[3]) if mask[k] else p for k,(p,q) in enumerate(zip(rgb,converted.getdata()))]);return clean(out)
+
+def hanging_v7():
+    parts=sources_v7('banners');names=['banner-purple-layers','banner-purple','banner-navy-hammers','banner-blue-anvil','banner-crown'];new={}
+    for n,p in zip(names,parts):
+        size=(136,244) if n=='banner-crown' else (160,246);new[n]=framed_v5(dark_cloth_v7(p),size)
+    for sheet in ['props','gate']:
+        SHEETS[sheet]=[(n,new.get(n,im),info) for n,im,info in SHEETS[sheet]]
+    for n,im in new.items():SPRITES[n]=im
+    for n,p in zip(['corbel-left','corbel-right'],sources_v7('corbels')):add('stone',n,fit(p,(84,90),True),'top')
+
+def load_baseline_v7():
+    load_live_art();base=ART/'v7/before'
+    for sheet in ['props','gate','stone']:
+        j=json.loads((base/(sheet+'.json')).read_text());im=Image.open(base/(sheet+'.png')).convert('RGBA');SHEETS[sheet]=[]
+        for n,f in j['frames'].items():
+            v=im.crop((f['x'],f['y'],f['x']+f['w'],f['y']+f['h']));info={k:z for k,z in f.items() if k not in ['x','y','w','h']};SPRITES[n]=v;META[n]=info;SHEETS[sheet].append((n,v,info))
+
+def hanging_review_v7():
+    old=ART/'v7/before';pairs=[('props','banner-purple-layers'),('props','banner-navy-hammers'),('gate','banner-crown')];im=Image.new('RGBA',(1500,1180),'#211c31');d=ImageDraw.Draw(im);d.text((20,15),'V7 / previous left / revised right / same mounting width and anchor',fill='white')
+    for i,(sheet,n) in enumerate(pairs):
+        y=60+i*310;j=json.loads((old/(sheet+'.json')).read_text());f=j['frames'][n];a=Image.open(old/(sheet+'.png')).crop((f['x'],f['y'],f['x']+f['w'],f['y']+f['h']));im.alpha_composite(a,(30,y));im.alpha_composite(SPRITES[n],(700,y));d.text((30,y-20),n,fill='white')
+    for x,n in [(30,'corbel-left'),(300,'corbel-right')]:im.alpha_composite(SPRITES[n],(x,1030));d.text((x,1000),n,fill='white')
+    im.convert('RGB').save(ART/'v7/art-review.png',optimize=True)
+
+def validate_hanging_v7():
+    old=ART/'v7/before';allowed={'banner-purple-layers','banner-purple','banner-navy-hammers','banner-blue-anvil','banner-crown'};errors=[];count=0
+    for path in old.glob('*.json'):
+        if path.stem=='prompts':continue
+        a=json.loads(path.read_text());b=json.loads((OUT/path.name).read_text());before=Image.open(old/a['image']).convert('RGBA');after=Image.open(OUT/b['image']).convert('RGBA')
+        for n,f in a['frames'].items():
+            count+=1;g=b['frames'].get(n)
+            if not g or g['anchor']!=f['anchor']:errors.append(n+' anchor/name changed');continue
+            if n not in allowed:
+                if (g['w'],g['h'])!=(f['w'],f['h']):errors.append(n+' dimensions changed')
+                v=before.crop((f['x'],f['y'],f['x']+f['w'],f['y']+f['h']));w=after.crop((g['x'],g['y'],g['x']+g['w'],g['y']+g['h']))
+                if v.tobytes()!=w.tobytes():errors.append(n+' pixels changed')
+    report={'old_names_and_anchors_preserved':count,'intentional_taller_canvases':sorted(allowed),'new_frames':['corbel-left','corbel-right'],'errors':errors};(ART/'v7/anchor-validation.json').write_text(json.dumps(report,indent=2)+'\n');print(json.dumps(report,indent=2))
+    if errors:raise SystemExit(1)
+
+def hanging_only_v7(publish_live=False):
+    global OUT
+    OUT=ART/'v7/staging';OUT.mkdir(parents=True,exist_ok=True);sync_provenance_v5(OUT)
+    for p in LIVE.iterdir():
+        if p.suffix in ['.png','.json'] and not (p.name=='prompts.json' and (OUT/p.name).exists()):shutil.copy2(p,OUT/p.name)
+    load_baseline_v7();hanging_v7();pack();validate();validate_hanging_v7();contact();hanging_review_v7()
+    if publish_live:publish()
+
+
 if __name__=='__main__':
-    parser=argparse.ArgumentParser();parser.add_argument('--validate-only',action='store_true');parser.add_argument('--publish',action='store_true');parser.add_argument('--publish-staged',action='store_true');parser.add_argument('--robots-only',action='store_true');parser.add_argument('--art-only',action='store_true');parser.add_argument('--props-only',action='store_true');args=parser.parse_args()
-    if args.props_only:props_only_v6(args.publish)
+    parser=argparse.ArgumentParser();parser.add_argument('--validate-only',action='store_true');parser.add_argument('--publish',action='store_true');parser.add_argument('--publish-staged',action='store_true');parser.add_argument('--robots-only',action='store_true');parser.add_argument('--art-only',action='store_true');parser.add_argument('--props-only',action='store_true');parser.add_argument('--hanging-only',action='store_true');args=parser.parse_args()
+    if args.hanging_only:hanging_only_v7(args.publish)
+    elif args.props_only:props_only_v6(args.publish)
     elif args.art_only:art_only_v5(args.publish)
     elif args.robots_only:robots_only(args.publish)
     elif args.validate_only:

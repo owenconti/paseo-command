@@ -49,7 +49,7 @@
       "review_source": "status-raw.png"
     }
   },
-  "version": 6,
+  "version": 7,
   "v2_generations": {
     "v2-ramparts": {
       "prompt": "Use case: stylized-concept. Production game sprite atlas, original Dungeon Board artwork. Input is a PRIVATE STYLE REFERENCE crop only; do not reproduce the scene or its letters. Match it closely: HD pixel-art-flavoured hand-painted fantasy game illustration, smooth detailed shading with a little pixel texture, chunky readable dark outlined forms, NOT strict-grid pixel art, NOT vector or a 3D render. Camera in front and ABOVE at about 30 degrees elevation, like the crop: lit TOP faces plus darker FRONT faces and short visible SIDE faces; not a flat front elevation. Large lavender/periwinkle GREY stone blocks: light top faces #9a90c8 to #b4a9de, mid front faces #6a5f9a, dark mortar/outlines #2a2340. Strong top-left bevel highlight. Few small chips, smooth stone, NO purple glitter, NO busy speckles. Darker small purple-grey back-wall bricks. Warm yellow candle bounce on lower edges, gentle top-left ambient. Exterior truly transparent alpha, no matte, no checkerboard, no background. No words or numbers, no labels attached to architecture. All objects fully inside their own cell with wide empty gutters. EXACT 4 columns x 3 rows of equal cells, twelve modular LOW WALL pieces at the same scale, not full-height walls. Thick large blocks showing broad lit top planes and a darker front face, low wall height about 22 concept pixels, one block thick. NO gold trim. Row 1: horizontal STRAIGHT low wall run, three large blocks across, parallel horizontal edges, 3:1 wide/height; vertical STRAIGHT low wall run, column of three top faces with a narrow darker RIGHT side face visible, 1:3 wide/height; L wall corner top-left with runs extending right and down; L wall corner top-right with runs extending left and down. Row2: L wall corner bottom-left runs right and up; L wall corner bottom-right runs left and up; horizontal wall's LEFT exposed end block; horizontal wall's RIGHT exposed end block. Row3: vertical wall's TOP exposed end block; vertical wall's BOTTOM exposed end block; T junction horizontal wall with vertical wall departing down from middle; rectangular patch of warm candlelit flagstone FLOOR viewed from above at the same camera angle, laid as chunky irregular grey/periwinkle slabs with pale golden edge highlights, repeatable surface, no border. Make every corner fit the same block thickness and scale as the straight runs. Avoid isometric diamonds; horizontal runs follow the screen horizontal, vertical ones follow the screen vertical. This is a reusable masonry kit, not a room or diorama.",
@@ -2116,5 +2116,71 @@
       ],
       "notes": "Three-candle tabletop holder, paired wall sconce, substantial unlit brazier bowl, richer red/gold rug. Registered v5 fire layers supply four lit variants for new fixtures and the existing brazier. Existing frame anchors/rectangles are preserved; new fixture families include unlit -out variants."
     }
-  }
+  },
+  "v7_generations": {
+    "v7-banners": {
+      "prompt": "Use case: stylized-concept. Production transparent GAME SPRITE ATLAS: EXACT 2 columns x 3 rows equal cells, five occupied cells and bottom-right empty. Input1 is existing banner DESIGN IDENTITY reference; input2 is private dungeon STYLE reference. Keep the same five original identities, generic emblems and palette, but make the cloth LONGER and more substantial, like the concept. Complete whole hanging banners with true transparent gutters. Camera from in front and above, subtle visible rod top plane. HD pixel-art-flavoured painted illustration, dark violet outlines, smooth shading, small chipped highlights on bright antique gold trim, not strict 8-bit pixel art, not flat vector, not 3D render. Banners' TOTAL silhouette should be about 65 wide x 100 tall including the rod: long hanging cloth, broad clear folds, gold edge and a pointed bottom, not squat shield-shaped flags. Dark saturated cloth stays secondary; bright narrow gold hem with a few lit flecks; top-left warm torch illumination. Row1 left: purple banner with the SAME three simple WHITE layered diamond/sheet emblem. Row1 right: same purple banner completely BLANK centre. Row2 left: dark NAVY banner with simple crossed GOLD hammers. Row2 right: blue banner with simple pale ANVIL emblem. Row3 left: longer royal PURPLE CROWN BANNER, simple original gold three-point crown emblem, pointed bottom with a dense hanging GOLD FRINGE/tassels that follow the pointed hem, a few rich embroidered gold accents. No text, letters or numbers. Crown banner about 65 wide x 115 tall, not a little shield. All rods and entire cloth/fringe fully contained inside cells, no cut-off tips, very generous transparent margins. No background, scene, glow outside the cloth, people or other props. Bottom-right cell entirely transparent.",
+      "source_filename": "exec-b4d83411-3b78-45ee-bd12-c4a5c3910c1b.png",
+      "review_source": "v7/banners-raw.png",
+      "reference_images": [
+        "v7/banner-reference.png",
+        "private original dungeon concept"
+      ],
+      "crops": [
+        [
+          121,
+          23,
+          392,
+          473
+        ],
+        [
+          633,
+          23,
+          904,
+          473
+        ],
+        [
+          121,
+          503,
+          392,
+          955
+        ],
+        [
+          633,
+          503,
+          904,
+          955
+        ],
+        [
+          118,
+          979,
+          395,
+          1503
+        ]
+      ]
+    },
+    "v7-corbels": {
+      "prompt": "Use case: stylized-concept. Production transparent game sprite sheet, EXACT TWO columns by ONE row, two isolated UNDER-FLOOR STONE CORBELS for the illustrated dungeon reference. Match the supplied scene's HD pixel-art-flavoured painted stone: chunky purple-grey/lavender blocks, small chips and dark cracks, warm reflected gold only on the small upper bevel, cool violet shadow below, dark ink outline, not vector, not strict-grid 8-bit, not a 3D render. Camera from in front and above. Each is a SHORT LOAD-BEARING BRACKET, about 28 concept px wide by 30 tall: wide flat stone plate at TOP that tucks beneath a floor edge, two or three stepped irregular blocks narrowing inward below it, one angled sloped support face, a chipped darker lower tip. It must read as a dark substantial floor support, NOT a decorative pillar capital, NOT a tiny white tooth, NOT a full column. LEFT corbel's stepped profile leans from its left outer top toward a smaller inset lower end. RIGHT corbel has mirrored GEOMETRY, but the light is still from upper left (do not mirror the illumination). Both identical scale, generous real transparent gutters, whole shape visible. Main faces #6f64a3, shaded lower faces #3a3260, cracks #241d38, restrained pale top lip. No gold trim, carving symbols, ground, wall, chains, text, numbers or other props. The bottom should be organically chipped and shaded, not perfectly clipped flat.",
+      "source_filename": "exec-06a88162-75aa-4c22-83b0-8a9345a9e466.png",
+      "review_source": "v7/corbels-raw.png",
+      "reference_images": [
+        "private original dungeon concept"
+      ],
+      "crops": [
+        [
+          103,
+          147,
+          799,
+          742
+        ],
+        [
+          975,
+          149,
+          1670,
+          742
+        ]
+      ]
+    }
+  },
+  "v7_notes": "Five hanging canvases intentionally become taller without changing their pixel mounting anchors or frame names; other old frames keep their dimensions, pixels and anchors. Two new dark stepped corbels support irregular underside placement. Review refers to compare-13, before integration."
 }

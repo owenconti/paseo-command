@@ -929,7 +929,7 @@ These are useful original coast parts, not a pixel-identical reconstruction of t
 
 ## Dungeon Board
 
-The geometry kit is v3, robots are v4, and material/furnishing refinements are v5–v6. Artwork was generated with the built-in
+The geometry kit is v3, robots are v4, and material/furnishing refinements are v5–v7. Artwork was generated with the built-in
 `image_gen` tool on 2026-11-06.
 The private `design/references/dungeon-concept.png` was inspected at 3×,
 particularly its LOCAL floor, left terrace, workspace recess and central gate.
@@ -950,14 +950,14 @@ Only animation frame zero supplies `fps`.
 | `robots` | 80 | Smooth glossy shell, ten body colours, idle/work poses and flying drones |
 | `alcoves` | 11 | Four sparse interiors, chunky piers, lintel, new ledge and three redrawn candle flames |
 | `gate` | 12 | New upper host surround, lower arch, lit/dark portcullis, stairs with side walls, host disc and crown banner |
-| `stone` | 33 | Existing architecture plus the full raised rampart kit, terrace floor and two diagonal returns |
+| `stone` | 35 | Existing architecture plus the full raised rampart kit, terrace floor and two diagonal returns |
 | `ui` | 28 | Simple clipped parchment, thin bronze borders, dark discs in pale octagonal mounts, pictograms/counts/dots |
 | `props` | 54 | Furnishings, animated fires/magic, candelabra and wall-candle families, unlit variants |
 | `status` | 27 | Existing markers, glows and PR/Probe states, plus violet `mark-asking` / `glow-asking` |
 
-There are 245 frames: all 235 earlier frames, including the 233 required names
-and the optional `rampart-return-left` / `rampart-return-right`, plus ten new
-optional candle-fixture frames from v6. The two optional
+There are 247 frames: the 235 earlier frames, ten candle-fixture frames from v6,
+and two underside corbels from v7. The original required names and optional
+`rampart-return-left` / `rampart-return-right` are retained. The two optional
 diagonal wall runs let a terrace or alcove show the angled returns in the
 reference. None of the required names was removed or renamed. PR/Probe names
 continue to follow `prStatus.ts` and `probe.ts`.
@@ -1040,7 +1040,7 @@ asset set; `--publish-staged` checks an already complete stage before replacemen
 Private review images:
 
 - `artifacts/dungeon/calibration.png`: matching LOCAL-left crops at 3×.
-- `artifacts/dungeon/contact-sheet.png`: all 245 labelled frames.
+- `artifacts/dungeon/contact-sheet.png`: all 247 labelled frames.
 - `artifacts/dungeon/mock.png`: the LOCAL floor reconstructed only from sprites, beside the matching 1199×365 concept crop at 3×.
 - `artifacts/dungeon/v3/local-floor.png`: the generated half of that comparison.
 - `artifacts/dungeon/tile-wall-brick-6x4.png` and `tile-wall-brick-dark-6x4.png`: wall-repeat proofs.
@@ -1185,6 +1185,45 @@ includes the same v6 refinement. Original 235 names and all old anchors are
 preserved; 245 total frames validate and the asset folder stays below 12 MB.
 The critique's paired remaining-gap crops are `artifacts/dungeon/gaps-2.png`;
 `v6/candle-poses.png` shows the registered new fire fixtures.
+
+
+V7 follows the compare-13 review (`artifacts/dungeon/gaps-3.md`), scored 7.5/10
+before new art integration. Improved furnishing/candle clusters are recognised;
+remaining major issues are exposed wall mass, a platform strip crossing the next
+host's arch/icon, and light/geometry continuity. No robot or gate-light changes
+are made. Two built-in generations repaint hanging banners and supply actual
+underside corbels; exact prompts/source rectangles are in `v7_generations`.
+
+The four ordinary banners retain their names, 160-pixel width and exact
+(80,2) mounting anchor, but their canvas becomes 246 pixels tall. This corrects
+the squat whole-banner aspect ratio; it is an intentional natural-proportion
+change, not merely higher sampling resolution. At a displayed width of 72 board
+units, leave roughly 111 units of hanging clearance. Cloth is kept dark enough
+to support agent priority. The crown retains its 136-pixel width and exact
+(68,2) anchor, grows to 244 pixels tall and has a pointed drape with rich gold
+fringe. Its final world footprint/placement still belongs to the renderer.
+
+New `stone` entries `corbel-left` and `corbel-right` are 84×90 pixels of artwork
+plus two pixels of padding on each side, top-centre anchored at (44,2). Their
+wide upper mounting lip and shaded, stepped/chipped lower mass are designed to
+carry a platform edge. The geometry is mirrored as a pair but both retain
+upper-left illumination. Place a few substantial supports at actual wall/room
+boundaries, not one under every block. Renderer registration and placement are
+still required; these frames do not themselves fix the central arch cutout.
+
+Every old frame name and exact pixel anchor is preserved. Apart from the five
+intentionally taller/repainted banners, all old frames retain identical pixels
+and dimensions, verified by decoding their before/after frame rectangles.
+Robots remain byte-identical. All 247 frames pass alpha, gutter, declared tile
+edge and animation-registration checks; the folder remains below 12 MB.
+
+Raw outputs and the pre-pass kit are private in `artifacts/dungeon/v7/` and
+`v7/before/`. The builder's `--hanging-only` mode stages and validates the pass;
+`--hanging-only --publish` replaces its checked sheets atomically. The full
+raw-source rebuild includes v7. `v7/art-review.png` compares old/new banners at
+one width and shows the two corbels. `v7/join-crops.png` records the code-side
+arch obstruction in compare-13. Review captures describe that baseline, not a
+new app render after these assets have been integrated.
 
 Remaining differences: the concept's masonry has more bespoke pixel-like chips,
 uneven joints and integrated painted shadows. V3 is smoother, its joins and
