@@ -798,8 +798,9 @@ contrast and saturation are baked page-side (`gradePaving`); the host's emblem s
 Lanterns stand on the bridge's posts; navy lamp-post banners flank the fountain.
 Lighting: lamp pools on the cobbles, lit windows, contact shadows under halls and props, the crystal's blue glow, and a vignette
 (Swift, screen space). Lamps line the central road and flank the fountain, and lamp posts with banners stand either side of it, lit
-while any of the square's agents runs. The foot: a pond with lilies and rocks either side of a wooden bridge into the plaza, a wall with
-towers, pennants, bushes and flowers across the whole width. The river runs down the right, falling from a cliff (`cliff-top`/`-mid`/`-foot`) with a ruin
+while any of the square's agents runs. The foot, at the concept's near foreground scale: lily ponds with rocks either side of a wide wooden bridge
+(lanterns on its posts) into the plaza, a big wall with towers across the whole width, navy banners with the host's emblem
+hung on it, big trees framing its corners and the market stall at its lower left. The river runs down the right, falling from a cliff (`cliff-top`/`-mid`/`-foot`) with a ruin
 beside it; seeded woods fill the margins (under the HUD too). Never on what the village says. Tiles, frames, plates and plaques draw
 over every standing thing; the plaques and plates are the sheets' three-piece strips. The fit frames the village's heart (`core`:
 halls, fountain, foot and river), cropping the woods; zooming out shows them. The HUD lies over the village in screen space: "At a Glance" at the top left (dark wood, gold

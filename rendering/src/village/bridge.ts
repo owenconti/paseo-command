@@ -681,8 +681,14 @@ export function mountNativeVillage(parent: HTMLElement, handlers: AtlasHandlers 
       }
       // Lanterns on the bridge's posts, over the bridge.
       const bridgeZ = standZ(l, sq.bridge.y + sq.bridge.h) + 0.01;
+      for (const b of sq.wallBanners) {
+        const wz = standZ(l, sq.walls[0]!.y + sq.walls[0]!.h) + 0.01;
+        const box = { x: b.x - 55, y: b.y, w: 110, h: (FRAMES.banner!.h * 110) / FRAMES.banner!.w };
+        sprites.push(sprite("banner", box, wz, sq.online ? {} : { dim: 1 }));
+        sprites.push(sprite("icon-castle", at("icon-castle", b.x, box.y + box.h * 0.48, 58), wz + 0.001, sq.online ? {} : { dim: 1 }));
+      }
       for (const lamp of sq.bridgeLamps) {
-        sprites.push(sprite(lit ? "lamp-on" : "lamp-off", at("lamp-on", lamp.x, lamp.y, 30), bridgeZ, sq.online ? {} : { dim: 1 }));
+        sprites.push(sprite(lit ? "lamp-on" : "lamp-off", at("lamp-on", lamp.x, lamp.y, 52), bridgeZ, sq.online ? {} : { dim: 1 }));
         if (lit) lights.push({ x: lamp.x, y: lamp.y - 50, c: 0xffb050, r: 80, period: 2600, flicker: true, ph: random(seedOf(`${sq.host.id}b${lamp.x}`))(), k: 0.9 });
       }
       // The navy banners on lamp posts either side of the fountain, as tall as its crystal, blank, as the sheet paints them.

@@ -77,16 +77,16 @@ export const V = {
   /** The central road's width and a walk's depth; blocks start `inner` either side of the middle (the first lower row clear of the fountain). */
   road: 180,
   walk: 86,
-  pond: 380,
-  inner: 100,
+  pond: 400,
+  inner: 84,
   /** Margins round a square: woods above and to the left (the HUD lies there), the river to the right; the foot's
    * moat, wall and bridge below the last walk. */
   marginTop: 70,
   marginLeft: 300,
   marginRight: 420,
   riverW: 330,
-  moatH: 124,
-  wallH: 92,
+  moatH: 170,
+  wallH: 165,
   marginBottom: 470,
   /** Type (village px): workspace plates, project plaques, the host plaque's name and stats line. */
   font: { workspace: 19, project: 38, host: 27, stats: 16 },
@@ -121,6 +121,8 @@ export type VSquare = {
   lamps: Pt[];
   /** Lanterns on the bridge's posts (feet), lit as the lamps are. */
   bridgeLamps: Pt[];
+  /** Banners hung on the front wall (their tops). */
+  wallBanners: Pt[];
   /** Lamp posts with banners either side of the fountain (feet): their lamps lit while the square's agents run. */
   pennants: Pt[];
   /** The river down the right margin (banks included), falling from a cliff at its head (top, repeated middle, foot). */
@@ -532,13 +534,14 @@ export function layoutVillage(data: AtlasData, aspect = 1.6, measure: Measure = 
     const cliffTop = { x: riverX + V.riverW / 2 - cliffW / 2, y: Math.max(oy - 6, topBase - maxAbove(a) - 20), w: cliffW, h: FRAMES["cliff-top"]!.h * ck };
     const cliffMid = { ...cliffTop, y: cliffTop.y + cliffTop.h - 1, h: FRAMES["cliff-mid"]!.h * ck * 0.6 };
     const cliff = { top: cliffTop, mid: cliffMid, foot: { ...cliffTop, y: cliffMid.y + cliffMid.h - 1, h: FRAMES["cliff-foot"]!.h * ck } };
-    const moatY = footY + 24;
-    const wallY = footY + V.moatH + 6;
-    const bridgeW = V.road + 40;
+    const moatY = footY + 6;
+    // The foreground: a big near wall, its moat and a wide bridge (the concept's foreground scale).
+    const wallY = footY + V.moatH;
+    const bridgeW = V.road + 120;
     const bridgeSpec = FRAMES.bridge!;
     const bridgeH = (bridgeSpec.h * bridgeW) / bridgeSpec.w;
     const bridge = { x: cx - bridgeW / 2, y: wallY + V.wallH + 6 - bridgeH, w: bridgeW, h: bridgeH };
-    const gap = bridgeW / 2 + 34;
+    const gap = bridgeW / 2 + 60;
     // Lamps line the central road, both sides, and flank the fountain.
     const lamps: Pt[] = [];
     for (let y = oy + 90; y < pave.y + 20; y += 200) lamps.push({ x: cx - half - 18, y }, { x: cx + half + 18, y });
@@ -559,7 +562,9 @@ export function layoutVillage(data: AtlasData, aspect = 1.6, measure: Measure = 
       lamps,
       pennants: [{ x: cx - V.ringW / 2 - 4, y: ringC + 40 }, { x: cx + V.ringW / 2 + 4, y: ringC + 40 }],
       // Lanterns on the bridge's front posts.
-      bridgeLamps: [{ x: cx - bridgeW * 0.4, y: bridge.y + bridge.h * 0.2 }, { x: cx + bridgeW * 0.4, y: bridge.y + bridge.h * 0.2 }],
+      bridgeLamps: [{ x: cx - bridgeW * 0.42, y: bridge.y + bridge.h * 0.3 }, { x: cx + bridgeW * 0.42, y: bridge.y + bridge.h * 0.3 }],
+      // Navy banners hung on the wall either side of the bridge, the host's emblem on them.
+      wallBanners: [{ x: cx - gap - 230, y: wallY + 12 }, { x: cx + gap + 230, y: wallY + 12 }],
       river: { x: riverX, y: cliff.foot.y + cliff.foot.h - 30, w: V.riverW, h: oy + m.h - (cliff.foot.y + cliff.foot.h - 30) },
       waterfall: { x: cliff.top.x, y: cliff.top.y, w: cliff.top.w, h: cliff.foot.y + cliff.foot.h - cliff.top.y },
       cliff,
@@ -572,8 +577,8 @@ export function layoutVillage(data: AtlasData, aspect = 1.6, measure: Measure = 
       // The concept's crop: a sliver above the top halls' banners, the front wall cut through with its bridge,
       // a strip of forest and the tent at the left, the river's gorge at the right.
       // (and the river's gorge, which the concept shows across the right of its view)
-      keep: { x: px0 - 10, y: topBase - maxAbove(a) - 10, w: riverX + V.riverW * 0.5 - (px0 - 10), h: bridge.y + bridge.h * 0.5 - (topBase - maxAbove(a) - 10) },
-      heart: { x: px0 - 150, y: topBase - maxAbove(a) - 24, w: cropRight - (px0 - 150), h: wallY + V.wallH * 0.6 - (topBase - maxAbove(a) - 24) },
+      keep: { x: px0 - 10, y: topBase - maxAbove(a) - 10, w: riverX + V.riverW * 0.5 - (px0 - 10), h: wallY + V.wallH * 0.5 - (topBase - maxAbove(a) - 10) },
+      heart: { x: px0 - 150, y: topBase - maxAbove(a) - 24, w: cropRight - (px0 - 150), h: wallY + V.wallH * 0.75 - (topBase - maxAbove(a) - 24) },
       bridge,
       walls: [
         { x: ox, y: wallY, w: cx - gap - ox, h: V.wallH },
@@ -582,8 +587,6 @@ export function layoutVillage(data: AtlasData, aspect = 1.6, measure: Measure = 
       towers: [
         { x: cx - gap, y: wallY + V.wallH + 8 },
         { x: cx + gap, y: wallY + V.wallH + 8 },
-        { x: ox + 40, y: wallY + V.wallH + 8 },
-        { x: riverX - 10, y: wallY + V.wallH + 8 },
       ],
     });
 
@@ -843,18 +846,26 @@ function sceneryOf(squares: VSquare[], projects: VProject[], workspaces: VWorksp
     }
     for (const w of sq.walls) fixed("wall-h", w, "stand");
     fixed("bridge", sq.bridge, "stand");
-    for (const t of sq.towers) place({ frame: "wall-tower", x: t.x, y: t.y, w: 104, layer: "stand" }, false);
+    for (const t of sq.towers) place({ frame: "wall-tower", x: t.x, y: t.y, w: 190, layer: "stand" }, false);
     // Purple pennants on the wall, and banners on poles either side of the fountain.
     for (const w of sq.walls)
-      for (let x = w.x + 120; x < w.x + w.w - 80; x += 300) place({ frame: "pennant", x, y: w.y + w.h - 8, w: 46, layer: "stand" }, false);
     reserved.push(...decor.filter((d) => d.square === si).map((d) => d.rect));
     // The market tent at the plaza's lower left, fully on it if there's room.
-    for (const [tx, ty] of [[pave.x + 110, pave.y + pave.h - 20], [pave.x + 110, pave.y + pave.h - 110], [pave.x - 40, pave.y + pave.h - 70]] as const)
-      if (place({ frame: "tent", x: tx, y: ty, w: 180, layer: "stand" })) {
+    const wall0 = sq.walls[0]!;
+    // (The first clear spot scanning the plaza's lower-left corner, between the lower-left hall and the ponds.)
+    const stalls: [number, number][] = [];
+    for (let ty = wall0.y + 20; ty > pave.y + pave.h * 0.5; ty -= 30)
+      for (let tx = pave.x + 40; tx < pave.x + 330; tx += 30) stalls.push([tx, ty]);
+    for (const [tx, ty] of stalls)
+      if (place({ frame: "tent", x: tx, y: ty, w: 160, layer: "stand" })) {
         reserved.push(decor[decor.length - 1]!.rect);
         for (const [cx2, f] of [[tx - 110, "crates-1"], [tx + 105, "barrel"]] as const) place({ frame: f, x: cx2, y: ty - 4, layer: "stand" });
         break;
       }
+    // Big lush trees framing the bottom corners: yellow-green at the left, a pink blossom at the right.
+    const pave0 = sq.roads[0]!;
+    place({ frame: "tree-2", x: pave0.x - 90, y: sq.walls[0]!.y + V.wallH + 60, w: 340, layer: "stand" }, false);
+    place({ frame: "blossom-0", x: sq.river.x - 40, y: sq.walls[0]!.y + V.wallH + 70, w: 340, layer: "stand" }, false);
     // Bushes along the road to the bridge, and trees flanking the road north.
     const south = sq.roads[2]!, north = sq.roads[1]!;
     for (let y = south.y + 50; y < south.y + south.h - 10; y += 60)
