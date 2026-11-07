@@ -816,7 +816,7 @@ width (`districtGap`) from the next, its host's slot in its first row (the host'
 host, `keep-offline-*` while offline, beside its fountain plaza, whose gate opens above it; the keep's name board, the sheet's `sign`
 rect, is overhung by a larger hanging board the page paints (`paintSign` in `bridge.ts`: oak planks in a dark iron-cornered frame on
 two chains, `V.board` tall, as wide as the name at `V.font.sign` needs, the keep's column widening for a long one), the host's name in
-capitals filling it in the world's serif, legible at the default zoom (about 11 pt capitals on the user's fleet; a long name tightens its
+capitals filling it in the world's serif, legible at the default zoom (about 11 pt capitals on the user's fleet at its default zoom; a long name tightens its
 tracking, then shrinks no further than `SIGN_MIN`); its load is in the keep's card; the map's only text; the pennant at its `flag` point flies the host's status, its `cloth` dyed green online
 and grey offline, `paintPennant`) with
 its project clusters round it in rows (`perRow`; districts packed in shelves, each district's row count and the shelves chosen so
@@ -855,7 +855,8 @@ keep (its host), a tile (cards only). The world: one paved plaza with organic ed
 between lily ponds through the front wall, the river's gorge falling from a ruined wall at the right, lamps (lit while agents run),
 lighting (lamp pools, lit windows, contact shadows, the crystal's glow, a vignette) and a forest canopy tile (`paintCanopy`) that
 Swift repeats to every edge, so no bare ground ever shows. The fit frames the concept's crop (`core`) without cutting the halls,
-plaza or bridge (`keep`); the "At a Glance" panel may lie over the top-left hall's eave but never a hall's banner or a tile (the page posts them as `clear`; Swift's fit slides, then steps out, until none is under the panel), and spare height goes to canopy above, the bottom edge staying on the wall; the crop's top is a sliver of canopy above the top banners. The HUD lies
+plaza or bridge (`keep`: every hall, cottage and robot and each district's keep, name board and fountain plaza whole; a layout test
+holds it for the user's fleet's shape and the mocks, and `VillageSceneTests` that the fit shows all of it); the "At a Glance" panel may lie over the top-left hall's eave but never a hall's banner or a tile (the page posts them as `clear`; Swift's fit slides, then steps out, until none is under the panel), and spare height goes to canopy above, the bottom edge staying on the wall; the crop's top is a sliver of canopy above the top banners. The HUD lies
 over the village in screen space: "At a Glance" (PRs, Issues, Workspaces with Active, Agents with Running and Idle, Need you, Failed
 and Offline only when any) and the status pill ("All systems operational" green; "N need you" or hosts offline amber; "N agents
 failed" red; "need you" counts approvals and questions, as the app's own count does). Sprites: `rendering/src/assets/village/`

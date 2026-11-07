@@ -298,3 +298,27 @@ test("offline hosts say so; the status pill is true; robots keep provider colour
   assert.equal(robotColor("codex/gpt-6.1-sol"), "white");
   for (const c2 of ROBOT_COLORS) for (const pose of ["idle", "work"]) assert.ok(FRAMES[`robot-${c2}-${pose}-0`]);
 });
+
+/** A fleet shaped like the user's: three hosts, two with workspaces (a long host name), projects of one to three workspaces. */
+const REAL = {
+  hosts: [{ key: "local", name: "LOCAL", online: true, local: true, stats: { cpu: 30, memory: 60, disk: 70 } }, { key: "lab", name: "DIAGONAL-LAB-1", online: true, local: false, stats: { cpu: 3, memory: 22, disk: 25 } }, { key: "idle", name: "SPARE", online: true, local: false }],
+  projects: [{ key: "pc", host: "local", name: "paseo-command" }, { key: "am", host: "local", name: "apple-music-ui" }, { key: "dl", host: "local", name: "diagonal" }, { key: "dg", host: "lab", name: "diagonal-hq/diagonal" }],
+  workspaces: [
+    { key: "w1", host: "local", project: "pc", name: "proud-breeze-21f6" }, { key: "w2", host: "local", project: "pc", name: "jolly-beacon-fede" },
+    { key: "w3", host: "local", project: "am", name: "feat/apple-watch-app" }, { key: "w4", host: "local", project: "dl", name: "de-8239" },
+    { key: "w5", host: "lab", project: "dg", name: "de-8237" }, { key: "w6", host: "lab", project: "dg", name: "steady-beacon-58fb" },
+  ],
+  agents: ["w1", "w2", "w3", "w4", "w5", "w6"].map((w, i) => ({ key: `a${i}`, host: i >= 4 ? "lab" : "local", project: ["pc", "pc", "am", "dl", "dg", "dg"][i], workspace: w, name: `agent ${i}`, model: "claude/x", state: "idle" })),
+};
+
+test("the default framing includes every keep, its sign, fountain, hall, cottage and robot", () => {
+  const within = (a, b) => a.x >= b.x - 0.5 && a.y >= b.y - 0.5 && a.x + a.w <= b.x + b.w + 0.5 && a.y + a.h <= b.y + b.h + 0.5;
+  for (const [data, aspect] of [[REAL, 1.36], [REAL, 1.7], [REAL, 1.0], [VILLAGE_SAMPLE, 1.36], [SPARSE, 1.36], [big(8, 5, 3, 3), 1.36], [big(2, 3, 3, 1), 1.6]]) {
+    const l = layoutVillage(data, aspect);
+    const shown = [
+      ...l.squares.flatMap((s) => [["keep", s.keep.rect], ["sign", s.plaque], ["fountain", s.fountain], ["fountain's plaza", { x: s.ring.x - s.ring.w * 0.25, y: s.ring.y - s.ring.h * 0.25, w: s.ring.w * 1.5, h: s.ring.h * 1.5 }]]),
+      ...l.projects.map((p) => ["hall", p.body]), ...l.workspaces.map((w) => ["cottage", w.frame]), ...l.agents.map((a) => ["robot", a.rect]),
+    ];
+    for (const [what, r] of shown) assert.ok(within(r, l.keep), `the framing (keep) holds every ${what}`);
+  }
+});

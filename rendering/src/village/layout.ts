@@ -74,7 +74,7 @@ export const V = {
   keep: 340,
   keepGap: 30,
   /** The keep's hanging name board: its height, its least width, and its ends' room either side of the name. */
-  board: 68,
+  board: 72,
   boardMin: 180,
   boardPad: 26,
   ringW: 300,
@@ -91,7 +91,7 @@ export const V = {
   moatH: 110,
   wallH: 165,
   marginBottom: 420,
-  font: { workspace: 19, project: 38, host: 27, stats: 16, sign: 44 },
+  font: { workspace: 19, project: 38, host: 27, stats: 16, sign: 47 },
   /** A PR medallion on a cottage's roof corners. */
   flag: 20,
 };
@@ -767,9 +767,16 @@ export function layoutVillage(data: AtlasData, aspect = 1.6, measure: Measure = 
   const decor = sceneryOf(town, squares, lawns, projects, workspaces, agents, tiles);
 
   // The crop: the dashboard halls' tops to the wall, the woods at the left, the river's near half at the right.
-  const said = [...projects.map((p) => p.body), ...workspaces.map((w) => w.frame), ...agents.map((a) => a.rect), ...squares.map((s) => s.plaque), ...squares.map((s) => s.keep.rect)];
+  // What the default framing must show whole: every hall, cottage and robot, and each district's first row (its keep, the keep's
+  // name board with its chains, and its fountain on its ring).
+  const said = [
+    ...projects.map((p) => p.body), ...workspaces.map((w) => w.frame), ...agents.map((a) => a.rect),
+    ...squares.map((s) => ({ ...s.plaque, y: s.plaque.y - 22, h: s.plaque.h + 22 })), ...squares.map((s) => s.keep.rect),
+    // (The fountain's plaza: its ring and the larger, lighter ring the bridge lays under it, 1.5× as wide.)
+    ...squares.flatMap((s) => [s.fountain, { x: s.ring.x - s.ring.w * 0.25, y: s.ring.y - s.ring.h * 0.25, w: s.ring.w * 1.5, h: s.ring.h * 1.5 }]),
+  ];
   const top = Math.min(...said.map((r) => r.y)) - 70;
-  const keepX0 = Math.min(...said.map((r) => r.x)) - 20, keepX1 = Math.max(...said.map((r) => r.x + r.w)) + 20;
+  const keepX0 = Math.min(...said.map((r) => r.x)) - 30, keepX1 = Math.max(...said.map((r) => r.x + r.w)) + 30;
   const keep = { x: keepX0, y: top, w: keepX1 - keepX0, h: wallY + V.wallH * 0.3 - top };
   const core = { x: keepX0 - 150, y: top - 20, w: riverX + V.riverW * 0.4 - (keepX0 - 150), h: wallY + V.wallH * 0.75 - (top - 20) };
 

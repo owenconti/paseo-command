@@ -49,7 +49,7 @@ const INK = "#2e1d0e";
 const ALERT = "#b0301c";
 const CREAM = "#f3e6c4";
 /** A keep's name board: its chains' room above it, and its lettering's least size (legible at the default zoom). */
-const CHAIN = 22, SIGN_MIN = 42;
+const CHAIN = 22, SIGN_MIN = 45;
 /** How far the paving is darkened (toward the scene's warm shadow) from the sheet's bright gold. */
 const PAVE_SHADE = 0.2;
 /** A workspace plate's dot: green while an agent runs, amber when one needs you, red when one failed, grey idle or offline. */

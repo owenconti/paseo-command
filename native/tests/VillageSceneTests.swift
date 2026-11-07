@@ -151,4 +151,25 @@ let rested = scene.framesDrawn
 pump(0.6)
 assert(scene.framesDrawn - rested <= 1, "nothing moves with reduced motion, so it rests")
 
+// The default fit shows the whole of what must show (`keep`: a district's keep, sign and fountain at the crop's right edge),
+// even where the crop (`core`) is wider than the view, with the panel's room at the left.
+scene.setScene([
+    "rev": 9,
+    "bounds": ["x": 0.0, "y": 0.0, "w": 3000.0, "h": 1800.0],
+    "core": ["x": 100.0, "y": 100.0, "w": 2800.0, "h": 1500.0],
+    "keep": ["x": 300.0, "y": 150.0, "w": 2500.0, "h": 1350.0],
+    "hudClear": 200.0,
+    "clear": [[2600.0, 300.0, 200.0, 150.0]],
+    "sprites": [["f": "grass", "x": 0.0, "y": 0.0, "w": 3000.0, "h": 1800.0, "z": -60.0, "tile": "xy"]],
+    "images": [] as [[String: Any]], "flags": [] as [[String: Any]], "lights": [] as [[String: Any]],
+    "entities": [["id": "local", "kind": "host", "x": 2600.0, "y": 300.0, "w": 200.0, "h": 150.0]],
+], images: [:])
+scene.command("home")
+pump(0.6)
+do {
+    let s = scene.state(), z = s["zoom"] as! CGFloat, c = s["center"] as! [String: CGFloat]
+    let seen = CGRect(x: c["x"]! - 200 / z, y: c["y"]! - 150 / z, width: 400 / z, height: 300 / z)
+    assert(seen.insetBy(dx: -0.5, dy: -0.5).contains(CGRect(x: 300, y: 150, width: 2500, height: 1350)), "the fit shows all of keep: every keep, sign and fountain whole (\(seen))")
+}
+
 print("VillageScene: ok")
