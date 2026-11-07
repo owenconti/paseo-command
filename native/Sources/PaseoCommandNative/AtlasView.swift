@@ -14,13 +14,13 @@ final class AtlasView: SKView {
     static let driftRate = 15
     /// Keep drawing when the window is covered (`--ignore-occlusion`, for checks).
     static var ignoreOcclusion = false
-    let atlas: AtlasScene
+    let atlas: MapScene
     private var visible = true
     private var settling: DispatchWorkItem?
     /// Until when the view keeps drawing after a resize (see `resized`).
     private var resizedUntil: CFTimeInterval = 0
 
-    init(frame: NSRect, scene: AtlasScene) {
+    init(frame: NSRect, scene: MapScene) {
         atlas = scene
         super.init(frame: frame)
         ignoresSiblingOrder = true
@@ -232,9 +232,9 @@ final class AtlasView: SKView {
         if rebuild { onRebuild(self) }
     }
 
-    /// A fresh view for the same scene, taking this one's place, size and state.
-    func successor() -> AtlasView {
-        let next = AtlasView(frame: frame, scene: atlas)
+    /// A fresh view for the same scene (or another style's), taking this one's place, size and state.
+    func successor(scene: MapScene? = nil) -> AtlasView {
+        let next = AtlasView(frame: frame, scene: scene ?? atlas)
         next.autoresizingMask = autoresizingMask
         next.isHidden = isHidden
         next.covered = covered

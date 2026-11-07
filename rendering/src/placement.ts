@@ -352,7 +352,7 @@ export const PROP_WIDTH: Record<string, number> = {
 const SCENERY = ["planter", "topiary", "flowerbed", "citrus", "crates", "barrels", "spool", "workbench"];
 const PLAZA_SCENERY = 3;
 /** States that light a plaza's beacon: an agent there needs you. */
-const BEACON_STATES: State[] = ["failed", "approval", "question", "asking"];
+export const BEACON_STATES: State[] = ["failed", "approval", "question", "asking"];
 
 /** A plaza's lamp or beacon, lit by its project's agents (see `lights`). */
 export type Signal = { kind: "lamp" | "beacon"; x: number; y: number; stale: boolean };

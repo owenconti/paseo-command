@@ -71,6 +71,7 @@ import propsUrl from "../assets/props.png";
 import flagsUrl from "../assets/medallions.png";
 import type { AtlasHandlers, AtlasWorld } from "../atlas";
 import { WORLD_WATCH, applied, behind, newWatch, post as postRevision } from "./watch";
+import { nativeSurface } from "./surface";
 
 type Channel = { postMessage(message: unknown): void };
 const channel = (): Channel | undefined =>
@@ -469,8 +470,6 @@ export function mountNativeAtlas(parent: HTMLElement, handlers: AtlasHandlers = 
   let signals = new Map<string, Signal[]>();
   const entity = (id: string | null) => (id && layout?.entities.find((e) => e.id === id)) || null;
 
-  const aspect = () =>
-    parent.clientWidth && parent.clientHeight ? parent.clientWidth / parent.clientHeight : 1.6;
   const sizeOf = (name: string) => {
     const frame = art!.frames.get(frameName(name))!;
     return { width: frame.width, height: frame.height };
@@ -641,7 +640,7 @@ export function mountNativeAtlas(parent: HTMLElement, handlers: AtlasHandlers = 
   });
   const relayout = () => {
     if (!data || !art || destroyed) return;
-    const next = layoutAtlas(data, aspect());
+    const next = layoutAtlas(data, surface.aspect());
     const structural = layout?.signature !== next.signature;
     layout = next;
     if (style === "overworld") {
@@ -660,7 +659,7 @@ export function mountNativeAtlas(parent: HTMLElement, handlers: AtlasHandlers = 
       }
       try {
         const now = Date.now();
-        post({ ...(overworld.message(data, ++builds, aspect()) as Message), rev: postRevision(watch, "scene", now) } as Message);
+        post({ ...(overworld.message(data, ++builds, surface.aspect()) as Message), rev: postRevision(watch, "scene", now) } as Message);
         post({ type: "agents", tiles: [], lights: [], robots: [], rev: postRevision(watch, "agents", now) } as Message);
         postedAt = now;
       } catch (error) {
@@ -748,101 +747,12 @@ export function mountNativeAtlas(parent: HTMLElement, handlers: AtlasHandlers = 
     });
   }, WORLD_WATCH.everyMs);
 
-  // The map's rectangle in the page, so Swift can lay its view under it.
-  let lastViewport = "";
-  const viewport = () => {
-    if (destroyed) return;
-    const r = parent.getBoundingClientRect();
-    lastViewport = `${r.x},${r.y},${r.width},${r.height}`;
-    post({ type: "viewport", x: r.x, y: r.y, width: r.width, height: r.height });
-  };
-  // The map moves without resizing when the session panel changes sides: the root's
-  // attributes say so (`data-panel-side`, `--unity-sidebar`). Only a real move is posted.
-  const moved = new MutationObserver(() => {
-    const r = parent.getBoundingClientRect();
-    if (`${r.x},${r.y},${r.width},${r.height}` !== lastViewport) viewport();
+  const surface = nativeSurface(parent, post, {
+    enabled: () => enabled,
+    reshaped: () => relayout(),
+    escape: () => handlers.pick?.(null),
   });
-  moved.observe(document.documentElement, { attributes: true, attributeFilter: ["style", "data-panel-side"] });
-  let lastAspect = aspect();
-  const resized = () => {
-    viewport();
-    // The layout follows the map's shape: tall maps stack hosts vertically.
-    if (Math.abs(aspect() - lastAspect) > 1e-3) {
-      lastAspect = aspect();
-      relayout();
-    }
-  };
-  const resize = new ResizeObserver(resized);
-  resize.observe(parent);
-  window.addEventListener("resize", resized);
-
-  // Input on the map surface goes to Swift; React's overlays sit above it in
-  // the page and keep their own.
-  const local = (e: { clientX: number; clientY: number }) => {
-    const r = parent.getBoundingClientRect();
-    return { x: e.clientX - r.left, y: e.clientY - r.top };
-  };
-  const pointer = (phase: string) => (e: PointerEvent) => {
-    if (!enabled || e.pointerType === "touch") return;
-    if (phase === "down") {
-      if (e.button !== 0) return;
-      parent.setPointerCapture(e.pointerId);
-    }
-    post({ type: "pointer", phase, ...local(e), buttons: e.buttons });
-  };
-  const listeners: [string, EventListener, AddEventListenerOptions?][] = [
-    ["pointerdown", pointer("down") as EventListener],
-    ["pointermove", pointer("move") as EventListener],
-    ["pointerup", pointer("up") as EventListener],
-    ["pointercancel", pointer("up") as EventListener],
-    ["pointerleave", pointer("leave") as EventListener],
-    ["contextmenu", ((e: Event) => e.preventDefault()) as EventListener],
-    [
-      "wheel",
-      ((e: WheelEvent) => {
-        e.preventDefault();
-        if (!enabled) return;
-        const unit = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? parent.clientHeight : 1;
-        post({ type: "wheel", ...local(e), dy: e.deltaY * unit });
-      }) as EventListener,
-      { passive: false },
-    ],
-    // Safari's trackpad pinch.
-    [
-      "gesturestart",
-      ((e: Event) => {
-        e.preventDefault();
-        pinch = 1;
-      }) as EventListener,
-    ],
-    [
-      "gesturechange",
-      ((e: Event & { scale: number; clientX: number; clientY: number }) => {
-        e.preventDefault();
-        if (!enabled) return;
-        post({ type: "pinch", ...local(e), scale: e.scale / pinch });
-        pinch = e.scale;
-      }) as EventListener,
-    ],
-    [
-      "keydown",
-      ((e: KeyboardEvent) => {
-        if (!enabled || e.metaKey || e.ctrlKey || e.altKey) return;
-        if (e.key.startsWith("Arrow")) {
-          e.preventDefault();
-          post({ type: "key", key: e.key, down: true });
-        } else if (e.key === "Home" || e.key.toLowerCase() === "f") post({ type: "command", name: "home" });
-        else if (e.key === "Escape") handlers.pick?.(null);
-      }) as EventListener,
-    ],
-    [
-      "keyup",
-      ((e: KeyboardEvent) => e.key.startsWith("Arrow") && post({ type: "key", key: e.key, down: false })) as EventListener,
-    ],
-    ["blur", (() => post({ type: "key", key: "all", down: false })) as EventListener],
-  ];
-  let pinch = 1;
-  for (const [type, listener, options] of listeners) parent.addEventListener(type, listener, options);
+  const viewport = surface.viewport;
 
   // The art is painted once per page; Swift keeps it as textures.
   void (async () => {
@@ -864,6 +774,8 @@ export function mountNativeAtlas(parent: HTMLElement, handlers: AtlasHandlers = 
       art = { frames, tiles: { sand: sand!, dirt: dirt! }, masks: new Map() };
       post({
         type: "art",
+        // Which world Swift draws (the Islands and Overworld both).
+        scene: "atlas",
         frames: sent,
         tiles: { water: png(waterTile()), glints: png(glintsTile()), clouds: png(cloudsTile()) },
         constants: {
@@ -968,11 +880,8 @@ export function mountNativeAtlas(parent: HTMLElement, handlers: AtlasHandlers = 
       destroyed = true;
       ready = false;
       clearInterval(watchdog);
-      resize.disconnect();
-      moved.disconnect();
-      window.removeEventListener("resize", resized);
+      surface.destroy();
       window.removeEventListener("paseo:world", receive);
-      for (const [type, listener, options] of listeners) parent.removeEventListener(type, listener, options);
       post({ type: "detach" });
     },
   };

@@ -5,7 +5,8 @@ import SpriteKit
 /// sends the layout and painted artwork; this scene places it, animates the
 /// agents' states, robots and sea, owns the camera, and reports picks, hover
 /// and zoom. It never sends daemon actions; the React app owns those.
-final class AtlasScene: SKScene {
+final class AtlasScene: SKScene, MapScene {
+    let kind = "atlas"
     /// Events for the page: pick, hover, zoom, ready, state.
     var emit: ([String: Any]) -> Void = { _ in }
     /// Asked to render again after the view paused itself.
@@ -332,6 +333,8 @@ final class AtlasScene: SKScene {
         if (!fitted || showingAll) && view != nil && size.width > 0 { fit() } else { constrain() }
         wake()
     }
+
+    func setAgents(_ m: [String: Any], images: [String: CGImage]) { setAgents(m) }
 
     /// The agents' layer: state tiles, lit signals, robots and drones.
     func setAgents(_ m: [String: Any]) {

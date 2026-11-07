@@ -1,0 +1,804 @@
+/**
+ * The Dungeon Board's deterministic layout: a front cutaway of a dungeon, one
+ * floor per host (stacked in the Atlas's host order), its gate in the middle
+ * (medallion, plaque, gold node, portcullis, stairs down to the next floor),
+ * its projects alternating left and right of the gate, outward from it, each
+ * a medallion over a parchment label with its workspaces' candle-lit alcoves
+ * in a row beneath, and the agents' robots on each alcove's front ledge.
+ * Gold links run from the host's node to each project and workspace. A side
+ * with more projects than fit wraps onto further tiers within its floor; the
+ * gate stays central and the tiers are chosen to fit the map's aspect.
+ * Decorations are seeded per host and never cover what the board says.
+ *
+ * Units are the concept's pixels (y down, x = 0 down the gates). Pure: no DOM.
+ */
+import {
+  agentEntity,
+  hostGroups,
+  modelColor,
+  random,
+  seedOf,
+  sortedHosts,
+  tileState,
+  type AtlasData,
+  type Cottage,
+  type Entity,
+  type State,
+} from "../world.ts";
+import { BEACON_STATES } from "../placement.ts";
+import { probeGlyph } from "../probe.ts";
+import { FRAMES, anchorShare, type Icon, ICONS } from "./frames.ts";
+
+export type Pt = { x: number; y: number };
+export type Rect = { x: number; y: number; w: number; h: number };
+
+/** Board geometry, in the concept's pixels (measured from its LOCAL floor). */
+export const D = {
+  /** Robots: their visible size, and the pitch they stand at. */
+  robot: 36,
+  robotH: 42,
+  slot: 42,
+  /** An alcove's room either side of its robots; at least this many robots' room. */
+  alcoveEnd: 40,
+  /** Its stone sides (the frame's width). */
+  alcoveSide: 17,
+  minSlots: 2,
+  alcoveGap: 20,
+  projectGap: 40,
+  /** Side content starts this far from the gates' centre line; the first tier's link drops at `drop`,
+   * lower tiers' run down at `trunk`, beside the stairs. */
+  inner: 80,
+  drop: 150,
+  trunk: 70,
+  /** Each end of a floor is a side room this wide. */
+  sideRoom: 140,
+  /** A side's content is at least this wide, so a small fleet still reads as the concept's hall. */
+  minSide: 330,
+  /** Floor: its upper band (gate medallion, plaque, node) above its first tier. */
+  band: 116,
+  tierH: 249,
+  tierGap: 0,
+  /** The stone ledge's face under a tier's floor. */
+  ledge: 28,
+  /** Below the last floor: the stairs' foot, braziers, rugs and the crown banner. */
+  foot: 100,
+  /** Within a tier (from its top). */
+  medallionY: 29,
+  medallionR: 29,
+  labelY: 53,
+  labelH: 38,
+  busY: 99,
+  alcoveY: 97,
+  alcoveH: 113,
+  wsLabelY: 114,
+  wsLabelH: 35,
+  feetY: 197,
+  floorY: 210,
+  /** The thick front wall closing each tier (its top). */
+  frontY: 218,
+  /** Within a floor (from its top). */
+  gateMedallionY: 48,
+  gateMedallionR: 24,
+  /** The gate's big round surround, from just above the floor's top. */
+  surroundY: -5,
+  surroundW: 333,
+  surroundH: 229,
+  plaqueY: 77,
+  plaqueH: 65,
+  plaqueMin: 275,
+  nodeY: 158,
+  portcullisY: 176,
+  portcullisW: 85,
+  portcullisH: 83,
+  archY: 158,
+  archW: 145,
+  archH: 121,
+  stairsY: 235,
+  stairsW: 120,
+  /** Type (board px): workspace and project labels, the plaque's name and stats line. */
+  font: { workspace: 19, project: 20, host: 28, stats: 16 },
+  labelPad: 14,
+  wsLabelMin: 120,
+  projectLabelMin: 195,
+  labelMax: 280,
+  /** A PR medallion on an alcove's lintel, and room it keeps beside the label. */
+  flag: 18,
+  flagInset: 16,
+};
+
+export type TextKind = keyof typeof D.font;
+/** Text width in board px for a kind's type; the bridge measures with the real font. */
+export type Measure = (text: string, kind: TextKind) => number;
+export const approxMeasure: Measure = (text, kind) => text.length * D.font[kind] * (kind === "stats" ? 0.58 : 0.56);
+
+export type DFloor = {
+  host: Entity;
+  online: boolean;
+  top: number;
+  height: number;
+  tiers: number;
+  /** The whole floor, end to end. */
+  rect: Rect;
+  medallion: Pt;
+  plaque: Rect;
+  /** The plaque's text: the host's name (offline says so) and its load. */
+  title: string;
+  stats: { text: string; alert: boolean }[];
+  node: Pt;
+  portcullis: Rect;
+  /** Stairs from the gate down to the next floor (or the foot). */
+  stairs: Rect;
+  arch: Rect;
+  /** The big round arch round the plaque, the host's icon in its top. */
+  surround: Rect;
+  piers: Rect[];
+  /** Each tier's top. */
+  tierTops: number[];
+  last: boolean;
+};
+export type DProject = {
+  key: string;
+  host: string;
+  entity?: Entity;
+  name: string;
+  icon: Icon;
+  side: -1 | 1;
+  tier: number;
+  floor: number;
+  /** Its whole span on its tier. */
+  span: Rect;
+  medallion: Pt;
+  label: Rect;
+  node: Pt;
+  /** Its two torches, lit while any of its agents runs (top centre). */
+  torches: Pt[];
+  /** Medallion and label, for picking and the selection rim. */
+  rect: Rect;
+  stale: boolean;
+};
+export type DFlag = { workspace: string; flag: string; frame: string; x: number; y: number; size: number };
+export type DWorkspace = {
+  entity: Entity;
+  project: string;
+  floor: number;
+  rect: Rect;
+  label: Rect;
+  node: Pt;
+  slots: number;
+  /** Interior variant per slot (alcove-slot-<n>). */
+  interiors: number[];
+  candles: Pt[];
+  flags: DFlag[];
+  seal?: { x: number; y: number; size: number };
+  /** Agents' keys, oldest first. */
+  agents: string[];
+};
+export type DAgent = {
+  entity: Entity;
+  feet: Pt;
+  rect: Rect;
+  floor: number;
+  /** Its robot's colour on the robots sheet: Claude's orange, ChatGPT's white, any other provider its own. */
+  robot: string;
+  /** Its running subagents' drones' colours, oldest first (its own where a model isn't known). */
+  drones: string[];
+};
+export type DDecor = {
+  /** A frame, or an animation's base name. */
+  frame: string;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  rect: Rect;
+  floor: number;
+  flip?: boolean;
+  /** A light it gives (torches, braziers, candles, the forge, crystal, tank, circle). */
+  light?: { color: number; reach: number };
+  /** Lit with its project's work, rather than always. */
+  project?: string;
+  /** Drawn behind the board's structures (floor props, rugs) or in front. */
+  layer: "back" | "front";
+  /** A side room's recess, which its vignette's props stand in. */
+  recess?: boolean;
+  /** The vignette it belongs to (its props may overlap one another). */
+  group?: string;
+};
+export type DungeonLayout = {
+  /** The board, end to end and top to bottom (without the HUD, which keeps screen size). */
+  bounds: Rect;
+  floors: DFloor[];
+  projects: DProject[];
+  workspaces: DWorkspace[];
+  agents: DAgent[];
+  /** Gold links, as polylines, and the round nodes at their joints. */
+  links: Pt[][];
+  nodes: Pt[];
+  /** From each workspace's host node along the links to it: light runs this way to working agents. */
+  runs: Record<string, Pt[]>;
+  decor: DDecor[];
+  entities: Entity[];
+  counts: { hosts: number; projects: number; workspaces: number; agents: number };
+  /** Changes whenever anything's place changes. */
+  signature: string;
+};
+
+const ICON_WORDS: [RegExp, Icon][] = [
+  [/tool|kit|build|package|module/i, "cube"],
+  [/core|api|code|dev|cli|sdk|lib/i, "code"],
+  [/platform|infra|stack|layer/i, "layers"],
+  [/growth|analytic|metric|stat|chart|insight/i, "chart"],
+  [/experiment|lab|test|research|ab-/i, "flask"],
+  [/customer|user|account|people|team|support/i, "person"],
+  [/web|site|www|globe|cloud/i, "globe"],
+  [/doc|book|wiki|guide|blog/i, "book"],
+  [/term|shell|ops|script/i, "terminal"],
+  [/data|db|sql|store|warehouse/i, "database"],
+  [/launch|deploy|release|ship|rocket/i, "rocket"],
+  [/sec|auth|guard|shield/i, "shield"],
+  [/perf|fast|event|stream|bolt/i, "bolt"],
+  [/green|eco|garden|plant/i, "leaf"],
+  [/game|castle|world|atlas|dungeon/i, "castle"],
+  [/config|setting|gear|engine/i, "gear"],
+];
+/** A project's medallion icon: from its name's words, else a stable pick. */
+export function projectIcon(name: string, key: string): Icon {
+  return ICON_WORDS.find(([re]) => re.test(name))?.[1] ?? ICONS[seedOf(key) % ICONS.length]!;
+}
+
+export const STATE_GLOW: Record<State, string> = {
+  running: "glow-running",
+  idle: "glow-idle",
+  done: "glow-done",
+  approval: "glow-approval",
+  question: "glow-question",
+  asking: "glow-asking",
+  failed: "glow-failure",
+  offline: "glow-offline",
+};
+/** The marker over a robot's head, for the states that need you (and running's gear). */
+export const STATE_MARK: Partial<Record<State, string>> = {
+  approval: "mark-approval",
+  question: "mark-question",
+  asking: "mark-asking",
+  failed: "mark-failure",
+  done: "mark-done",
+};
+/** Other providers' robot colours (the sheet has more than the Atlas's palette). */
+const OTHER_ROBOTS = ["blue", "purple", "green", "yellow", "red", "grey", "teal", "pink"];
+/** A robot's colour for its provider/model: Claude orange, ChatGPT white, and any other
+ * provider a stable colour of its own (by the provider's name, so its models share it). */
+export function robotColor(model: string): string {
+  const atlas = modelColor(model);
+  if (atlas === "orange" || atlas === "white") return atlas;
+  const provider = (model.split("/")[0] || model).toLowerCase();
+  return OTHER_ROBOTS[seedOf(provider) % OTHER_ROBOTS.length]!;
+}
+/** Robot sheet colours for the Atlas's model colours (drones whose model isn't known). */
+export const ROBOT_OF: Record<string, string> = {
+  orange: "orange",
+  white: "white",
+  teal: "teal",
+  violet: "purple",
+  lime: "green",
+  blue: "blue",
+};
+
+type Alcove = { cottage: Cottage; width: number; labelW: number; slots: number };
+type Block = {
+  key: string;
+  project?: AtlasData["projects"][number];
+  alcoves: Alcove[];
+  /** In outward units from its inner edge. */
+  width: number;
+  labelW: number;
+  labelC: number;
+  /** Each alcove's start, outward from the inner edge, in outward order. */
+  starts: number[];
+};
+
+const clampLabel = (w: number, min: number) => Math.min(D.labelMax, Math.max(min, Math.ceil(w)));
+
+function block(group: ReturnType<typeof hostGroups>[number], side: -1 | 1, measure: Measure): Block {
+  const alcoves = group.cottages.map((cottage): Alcove => {
+    const labelW = clampLabel(measure(cottage.name, "workspace") + D.labelPad * 2, D.wsLabelMin);
+    const slots = Math.max(D.minSlots, cottage.agents.length);
+    const flagged = !!(cottage.flags || cottage.probe);
+    const room = flagged ? 2 * (D.flagInset + D.flag / 2 + 6) : 20;
+    const width = Math.max(2 * D.alcoveEnd + slots * D.slot, labelW + room);
+    return { cottage, width, labelW, slots };
+  });
+  // Reading left to right, oldest first: on the left side the outward order is reversed.
+  const outward = side === 1 ? alcoves : [...alcoves].reverse();
+  const starts: number[] = [];
+  let at = 0;
+  for (const a of outward) {
+    starts.push(at);
+    at += a.width + D.alcoveGap;
+  }
+  const end = at - D.alcoveGap;
+  const name = group.project?.name ?? "No project";
+  const labelW = clampLabel(measure(name, "project") + D.labelPad * 2, D.projectLabelMin);
+  // The label keeps clear of the first tier's link, which drops at `drop` from the gates' line (and room for a torch between).
+  const torchRoom = 22;
+  const labelC = Math.max(end / 2, D.drop - D.inner + 34 + labelW / 2, labelW / 2 + torchRoom);
+  const width = Math.max(end, labelC + labelW / 2 + torchRoom);
+  return { key: group.key, project: group.project, alcoves: outward, width, labelW, labelC, starts };
+}
+
+type Tiered = { left: Block[][]; right: Block[][]; tiers: number; side: number };
+function tierUp(blocks: Block[], capacity: number): Tiered {
+  const sides: [Block[], Block[]] = [[], []];
+  blocks.forEach((b, i) => sides[i % 2]!.push(b));
+  const pack = (list: Block[]) => {
+    const rows: Block[][] = [];
+    let width = Infinity;
+    for (const b of list) {
+      if (rows.length && width + D.projectGap + b.width <= capacity) {
+        rows[rows.length - 1]!.push(b);
+        width += D.projectGap + b.width;
+      } else {
+        rows.push([b]);
+        width = b.width;
+      }
+    }
+    return rows;
+  };
+  const left = pack(sides[0]),
+    right = pack(sides[1]);
+  const widthOf = (row: Block[]) => row.reduce((s, b) => s + b.width, 0) + D.projectGap * Math.max(0, row.length - 1);
+  const side = Math.max(D.minSide, ...left.map(widthOf), ...right.map(widthOf));
+  return { left, right, tiers: Math.max(1, left.length, right.length), side };
+}
+
+const floorHeight = (tiers: number, last: boolean) =>
+  D.band + tiers * D.tierH + (tiers - 1) * D.tierGap + (last ? D.foot : 0);
+
+function rectOf(frame: string, x: number, y: number, w?: number): { w: number; h: number; rect: Rect } {
+  const base = FRAMES[frame] ?? FRAMES[`${frame}-0`]!;
+  const width = w ?? base.w;
+  const h = (base.h * width) / base.w;
+  const a = anchorShare(base.anchor);
+  return { w: width, h, rect: { x: x - a.x * width, y: y - a.y * h, w: width, h } };
+}
+
+export const overlaps = (a: Rect, b: Rect, pad = 0) =>
+  a.x < b.x + b.w + pad && b.x < a.x + a.w + pad && a.y < b.y + b.h + pad && b.y < a.y + a.h + pad;
+const pad = (r: Rect, p: number): Rect => ({ x: r.x - p, y: r.y - p, w: r.w + 2 * p, h: r.h + 2 * p });
+/** A link segment's box, with room for its glow. */
+export function segmentRect(a: Pt, b: Pt, glow = 4): Rect {
+  return { x: Math.min(a.x, b.x) - glow, y: Math.min(a.y, b.y) - glow, w: Math.abs(a.x - b.x) + 2 * glow, h: Math.abs(a.y - b.y) + 2 * glow };
+}
+
+/** Side-room vignettes: props standing on a room's floor, by offset from its middle. */
+const VIGNETTES: { name: string; room: string; glow?: { color: number; reach: number }; props: { frame: string; dx: number; dy?: number; flip?: boolean; light?: { color: number; reach: number }; layer?: "back" | "front" }[] }[] = [
+  { name: "forge", room: "room-forge", glow: { color: 0xff7a2a, reach: 90 }, props: [{ frame: "forge", dx: 12, light: { color: 0xff8a2a, reach: 110 } }, { frame: "anvil", dx: -30 }] },
+  { name: "crystal", room: "room-cave", glow: { color: 0xb06bff, reach: 100 }, props: [{ frame: "crystal", dx: 12, light: { color: 0xb06bff, reach: 120 } }, { frame: "barrel", dx: -30 }] },
+  { name: "alchemy", room: "room-arch", glow: { color: 0xc06bff, reach: 80 }, props: [{ frame: "alchemy-tank", dx: 12, light: { color: 0xc06bff, reach: 110 } }, { frame: "crate", dx: -30 }] },
+  { name: "library", room: "room-arch", props: [{ frame: "bookcase-ladder", dx: 12 }, { frame: "table", dx: -30 }] },
+  { name: "magic", room: "room-magic", glow: { color: 0x3fb8ff, reach: 100 }, props: [{ frame: "magic-circle", dx: 12, dy: -18, light: { color: 0x3fb8ff, reach: 120 }, layer: "back" }, { frame: "armor", dx: 12 }] },
+  { name: "storage", room: "room-arch", props: [{ frame: "barrels", dx: 12 }, { frame: "crates", dx: -30 }] },
+  { name: "scribe", room: "room-arch", props: [{ frame: "shelf-potions", dx: 12 }, { frame: "scroll-desk", dx: -30 }] },
+];
+const BANNERS = ["banner-purple-layers", "banner-purple", "banner-navy-hammers", "banner-blue-anvil"];
+const FLOOR_PROPS = ["barrel", "barrels", "crate", "crates", "shelf-potions", "table"];
+const TORCH_LIGHT = { color: 0xffa03a, reach: 80 };
+/** Side-room props are drawn this much over their sheet size, to fill the room as the concept's do. */
+const VIGNETTE_SCALE = 1.05;
+
+/**
+ * Lay the fleet out as the Dungeon Board. Its width follows its content, not
+ * the map's shape (`_aspect` is kept for the map styles' common call); `measure`
+ * gives label text widths (the bridge's real font).
+ */
+export function layoutDungeon(data: AtlasData, _aspect = 1.6, measure: Measure = approxMeasure): DungeonLayout {
+  const planned = sortedHosts(data).map((host) => ({ host, groups: hostGroups(host, data) }));
+  // Hosts without workspaces stay off the board, unless none has any: then each shows as an empty floor.
+  const shown = planned.some((h) => h.groups.length) ? planned.filter((h) => h.groups.length) : planned;
+  const blocksOf = shown.map((h) =>
+    h.groups.map((g, i) => block(g, i % 2 === 0 ? -1 : 1, measure)),
+  );
+  // Each side wraps its projects onto tiers at a capacity; the one whose board best fits the map's shape wins.
+  const widths = [...new Set(blocksOf.flat().map((b) => b.width))];
+  const widest = Math.max(D.minSide, ...widths);
+  const total = Math.max(widest, ...blocksOf.map((bs) => bs.reduce((s, b) => s + b.width + D.projectGap, 0)));
+  const candidates = [...new Set([widest, ...blocksOf.flat().map((_, i, all) => all.slice(0, i + 1).reduce((s, b) => s + b.width + D.projectGap, 0))])]
+    .filter((c) => c >= widest && c <= total)
+    .sort((a, b) => a - b);
+  if (!candidates.includes(total)) candidates.push(total);
+  // Floors keep their natural width; a side wraps onto more tiers only while the board would be
+  // far wider than tall (aiming for an aspect between 0.8 and 1.6), fewest tiers first.
+  let best: { tiered: Tiered[]; score: number } | null = null;
+  for (const capacity of [...candidates].reverse()) {
+    const tiered = blocksOf.map((bs) => tierUp(bs, capacity));
+    const side = Math.max(...tiered.map((t) => t.side));
+    const width = 2 * (D.inner + side + D.sideRoom);
+    const height = tiered.reduce((s, t, i) => s + floorHeight(t.tiers, i === tiered.length - 1), 0);
+    const ratio = width / height;
+    const score = ratio > 1.6 ? Math.log(ratio / 1.6) : ratio < 0.8 ? Math.log(0.8 / ratio) : 0;
+    if (!best || score < best.score - 1e-9) best = { tiered, score };
+    if (score === 0) break;
+  }
+  const tiered = best!.tiered;
+  const side = Math.max(D.minSide, ...tiered.map((t) => t.side));
+  const half = D.inner + side + D.sideRoom;
+
+  const floors: DFloor[] = [];
+  const projects: DProject[] = [];
+  const workspaces: DWorkspace[] = [];
+  const agents: DAgent[] = [];
+  const links: Pt[][] = [];
+  const nodes: Pt[] = [];
+  const runs: Record<string, Pt[]> = {};
+  const hostEntities: Entity[] = [];
+  const agentRows = new Map(data.agents.map((a) => [a.key, a]));
+  let top = 0;
+  shown.forEach(({ host }, f) => {
+    const t = tiered[f]!;
+    const last = f === shown.length - 1;
+    const height = floorHeight(t.tiers, last);
+    // As the Atlas's banners name hosts: in capitals.
+    const plaqueTitle = host.name.toUpperCase() + (host.online ? "" : " · OFFLINE");
+    const stats = host.online && host.stats
+      ? (
+          [
+            ["CPU", host.stats.cpu],
+            ["MEM", host.stats.memory],
+            ["DISK", host.stats.disk],
+          ] as const
+        ).flatMap(([n, v]) => (v === undefined ? [] : [{ text: `${n} ${Math.round(v)}%`, alert: v >= 90 }]))
+      : [];
+    const statsLine = stats.map((s) => s.text).join(" · ");
+    const plaqueW = Math.max(
+      D.plaqueMin,
+      Math.ceil(measure(plaqueTitle, "host") + 60),
+      Math.ceil(measure(statsLine, "stats") + 70),
+    );
+    const node = { x: 0, y: top + D.nodeY };
+    const tierTops = Array.from({ length: t.tiers }, (_, i) => top + D.band + i * (D.tierH + D.tierGap));
+    const floorLine = tierTops[t.tiers - 1]! + D.floorY;
+    const nextTop = top + height;
+    const entity: Entity = {
+      id: host.key,
+      kind: "host",
+      name: host.name,
+      host: host.key,
+      position: { q: 0, r: 0 },
+      stale: !host.online,
+      ...(host.stats ? { stats: host.stats } : {}),
+    };
+    hostEntities.push(entity);
+    floors.push({
+      host: entity,
+      online: host.online,
+      top,
+      height,
+      tiers: t.tiers,
+      rect: { x: -half, y: top, w: half * 2, h: height },
+      medallion: { x: 0, y: top + D.gateMedallionY },
+      plaque: { x: -plaqueW / 2, y: top + D.plaqueY, w: plaqueW, h: D.plaqueH },
+      title: plaqueTitle,
+      stats,
+      node,
+      portcullis: { x: -D.portcullisW / 2, y: top + D.portcullisY, w: D.portcullisW, h: D.portcullisH },
+      stairs: {
+        x: -D.stairsW / 2,
+        y: top + D.stairsY,
+        w: D.stairsW,
+        h: (last ? floorLine + D.foot : nextTop + D.surroundY) - (top + D.stairsY),
+      },
+      arch: { x: -D.archW / 2, y: top + D.archY, w: D.archW, h: D.archH },
+      surround: { x: -D.surroundW / 2, y: top + D.surroundY, w: D.surroundW, h: D.surroundH },
+      // Block pillars at the floor's ends and between its hall and side rooms.
+      piers: ([[half - 22, 44], [half - D.sideRoom, 29]] as const).flatMap(([x, w]) =>
+        [-1, 1].map((s) => ({ x: s * x - w / 2, y: top + 45, w, h: tierTops[t.tiers - 1]! + D.frontY - (top + 45) })),
+      ),
+      tierTops,
+      last,
+    });
+    nodes.push(node);
+    const online = host.online;
+    for (const [rows, s] of [[t.left, -1], [t.right, 1]] as const) {
+      rows.forEach((row, tier) => {
+        const y0 = tierTops[tier]!;
+        const busY = y0 + D.busY;
+        let cursor = D.inner;
+        const busNodes: number[] = [];
+        let dropX: number | null = null;
+        const tierRuns: { ws: string; x: number }[] = [];
+        for (const b of row) {
+          const X = (u: number) => s * (cursor + u);
+          const labelC = X(b.labelC);
+          const labelRect = { x: labelC - b.labelW / 2, y: y0 + D.labelY, w: b.labelW, h: D.labelH };
+          const medallion = { x: labelC, y: y0 + D.medallionY };
+          const projNode = { x: labelC, y: busY };
+          const entity: Entity | undefined = b.project
+            ? {
+                id: b.project.key,
+                kind: "project",
+                name: b.project.name,
+                host: host.key,
+                position: { q: 0, r: 0 },
+                stale: !!b.project.stale,
+              }
+            : undefined;
+          const medBox = { x: labelC - D.medallionR, y: medallion.y - D.medallionR, w: D.medallionR * 2, h: D.medallionR * 2 };
+          const xs = [labelRect.x, labelRect.x + labelRect.w, medBox.x, medBox.x + medBox.w];
+          const ys = [medBox.y, labelRect.y + labelRect.h];
+          projects.push({
+            key: b.key,
+            host: host.key,
+            entity,
+            name: b.project?.name ?? "No project",
+            icon: b.project ? projectIcon(b.project.name, b.project.key) : "gear",
+            side: s,
+            tier,
+            floor: f,
+            span: { x: Math.min(X(0), X(b.width)), y: y0, w: b.width, h: D.tierH },
+            medallion,
+            label: labelRect,
+            node: projNode,
+            torches: [
+              { x: labelRect.x - 14, y: y0 + D.labelY - 6 },
+              { x: labelRect.x + labelRect.w + 14, y: y0 + D.labelY - 6 },
+            ],
+            rect: { x: Math.min(...xs), y: Math.min(...ys), w: Math.max(...xs) - Math.min(...xs), h: Math.max(...ys) - Math.min(...ys) },
+            stale: !!b.project?.stale,
+          });
+          busNodes.push(projNode.x);
+          nodes.push(projNode);
+          b.alcoves.forEach((a, k) => {
+            const x0 = s === 1 ? X(b.starts[k]!) : X(b.starts[k]! + a.width);
+            const rect = { x: x0, y: y0 + D.alcoveY, w: a.width, h: D.alcoveH };
+            const cx = x0 + a.width / 2;
+            const label = { x: cx - a.labelW / 2, y: y0 + D.wsLabelY, w: a.labelW, h: D.wsLabelH };
+            const wsNode = { x: cx, y: busY };
+            const c = a.cottage;
+            const wsEntity: Entity = {
+              id: c.key,
+              kind: "workspace",
+              name: c.name,
+              host: host.key,
+              project: b.project?.key,
+              position: { q: 0, r: 0 },
+              stale: !!c.stale,
+              camp: c.camp,
+              ...(c.flags ? { flags: c.flags } : {}),
+              ...(c.probe ? { probe: c.probe } : {}),
+              ...(c.autoMerge ? { autoMerge: true } : {}),
+            };
+            const flagY = y0 + D.wsLabelY + D.wsLabelH / 2;
+            const left = { x: x0 + D.flagInset, y: flagY },
+              right = { x: x0 + a.width - D.flagInset, y: flagY };
+            const flags: DFlag[] = [];
+            if (c.flags?.ci) flags.push({ workspace: c.key, flag: c.flags.ci, frame: `pr-${c.flags.ci}`, ...left, size: D.flag });
+            if (c.flags?.review) flags.push({ workspace: c.key, flag: c.flags.review, frame: `pr-${c.flags.review}`, ...right, size: D.flag });
+            if (c.probe)
+              flags.push({
+                workspace: c.key,
+                flag: "probe",
+                frame: `probe-${c.probe.state}`,
+                x: c.flags?.review ? right.x : right.x,
+                y: c.flags?.review ? flagY + D.flag + 4 : flagY,
+                size: D.flag,
+              });
+            const sealOn = c.autoMerge ? (flags.find((fl) => fl.flag === c.flags?.review) ?? flags.find((fl) => fl.flag === c.flags?.ci)) : undefined;
+            const rng = random(seedOf(c.key + "alcove"));
+            workspaces.push({
+              entity: wsEntity,
+              project: b.key,
+              floor: f,
+              rect,
+              label,
+              node: wsNode,
+              slots: a.slots,
+              interiors: Array.from({ length: a.slots }, () => Math.floor(rng() * 4)),
+              candles: [
+                { x: x0 + 30, y: y0 + D.alcoveY + 99 },
+                { x: x0 + a.width - 31, y: y0 + D.alcoveY + 99 },
+              ],
+              flags,
+              ...(sealOn ? { seal: { x: sealOn.x + 7, y: sealOn.y - 7, size: 10 } } : {}),
+              agents: c.agents,
+            });
+            busNodes.push(wsNode.x);
+            nodes.push(wsNode);
+            links.push([wsNode, { x: cx, y: label.y }]);
+            tierRuns.push({ ws: c.key, x: cx });
+            const n = c.agents.length;
+            c.agents.forEach((key, i) => {
+              const row = agentRows.get(key);
+              if (!row) return;
+              const feet = { x: cx + (i - (n - 1) / 2) * D.slot, y: y0 + D.feetY };
+              const e = agentEntity(row, { workspace: c.key, project: b.project?.key }, online);
+              agents.push({
+                robot: robotColor(row.model),
+                drones: (row.subagentModels ?? []).map(robotColor),
+                entity: e,
+                feet,
+                rect: { x: feet.x - D.robot / 2 - 2, y: feet.y - D.robotH - 2, w: D.robot + 4, h: D.robotH + 6 },
+                floor: f,
+              });
+            });
+          });
+          cursor += b.width + D.projectGap;
+        }
+        if (!busNodes.length) return;
+        // Tier 0 drops from the host's node line at its innermost node; lower tiers down the trunk beside the gate.
+        const outer = busNodes.reduce((m, x) => (Math.abs(x) > Math.abs(m) ? x : m));
+        dropX = s * (tier === 0 ? D.drop : D.trunk);
+        const corner = { x: dropX, y: node.y };
+        const foot = { x: dropX, y: busY };
+        links.push([node, corner, foot, { x: outer, y: busY }]);
+        if (tier > 0) nodes.push(foot);
+        for (const r of tierRuns) runs[r.ws] = [node, corner, foot, { x: r.x, y: busY }, { x: r.x, y: busY + (D.wsLabelY - D.busY) }];
+      });
+    }
+    top = nextTop;
+  });
+  const boardH = top;
+  const bounds = { x: -half, y: 0, w: half * 2, h: boardH };
+
+  // Everything the board says or shows, which decorations keep clear of.
+  const reserved: Rect[] = [
+    ...floors.flatMap((fl) => [fl.plaque, fl.portcullis, fl.stairs, fl.surround, fl.arch,
+      // The thick front wall closing each tier.
+      ...fl.tierTops.map((y0) => ({ x: fl.rect.x, y: y0 + D.frontY, w: fl.rect.w, h: 28 }))]),
+    // Each project's terrace wall behind its medallion.
+    ...projects.map((p) => ({ x: p.span.x, y: p.span.y + 20, w: p.span.w, h: 30 })),
+    ...projects.flatMap((p) => [p.rect, ...p.torches.map((t) => rectOf("torch", t.x, t.y).rect)]),
+    ...workspaces.flatMap((w) => [w.rect, w.label]),
+    ...agents.map((a) => ({ ...a.rect, x: a.rect.x - 4, y: a.rect.y - 8, w: a.rect.w + 14, h: a.rect.h + 8 })),
+    ...links.flatMap((l) => l.slice(1).map((b, i) => segmentRect(l[i]!, b))),
+  ];
+  const decor: DDecor[] = [];
+  const piers = floors.flatMap((fl) => fl.piers.map((r) => pad(r, 4)));
+  reserved.push(...piers);
+  /** Place a decoration where it covers nothing the board shows (`overPiers`: it may stand in front of a pillar). */
+  const place = (item: Omit<DDecor, "w" | "h" | "rect"> & { w?: number }, keepClear = true, overPiers = false, group?: string) => {
+    const { w, h, rect } = rectOf(item.frame, item.x, item.y, item.w);
+    const blocking = overPiers ? reserved.filter((r) => !piers.includes(r)) : reserved;
+    // A vignette's own props may overlap each other, as a scene's do.
+    const others = decor.filter((d) => !d.recess && (!group || d.group !== group)).map((d) => d.rect);
+    if (keepClear && [...blocking, ...others].some((r) => overlaps(r, rect, 2))) return false;
+    if (rect.x < bounds.x || rect.x + rect.w > bounds.x + bounds.w) return false;
+    decor.push({ ...item, w, h, rect });
+    return true;
+  };
+  floors.forEach((fl, f) => {
+    const rng = random(seedOf(fl.host.id + "decor"));
+    const pick = <T,>(list: T[]) => list[Math.floor(rng() * list.length)]!;
+    const online = fl.online;
+    const lit = (light: { color: number; reach: number }) => (online ? { light } : {});
+    // Projects' own torches: lit while they work (the bridge decides).
+    for (const p of projects.filter((p) => p.floor === f))
+      for (const t of p.torches) {
+        const { w, h, rect } = rectOf("torch", t.x, t.y);
+        decor.push({ frame: "torch", x: t.x, y: t.y, w, h, rect, floor: f, project: p.entity?.id ?? p.key, layer: "front", light: TORCH_LIGHT });
+      }
+    // Side rooms: each tier's floor ends hold a vignette in its own recess, seeded, distinct where it can be.
+    const deck = [...VIGNETTES];
+    for (let i = deck.length - 1; i > 0; i--) {
+      const j = Math.floor(rng() * (i + 1));
+      [deck[i], deck[j]] = [deck[j]!, deck[i]!];
+    }
+    let dealt = (seedOf(fl.host.id) >>> 3) % deck.length;
+    fl.tierTops.forEach((y0) => {
+      for (const s of [-1, 1] as const) {
+        const v = deck[dealt++ % deck.length]!;
+        const mid = s * (half - D.sideRoom / 2 - 6);
+        const recess = FRAMES[v.room]?.real ? v.room : "niche-arch";
+        place({ frame: recess, x: mid, y: y0 + D.floorY + 4, w: 124, floor: f, layer: "back", recess: true, ...(v.glow ? lit(v.glow) : {}) }, false);
+        for (const prop of v.props) {
+          const spec = FRAMES[prop.frame] ?? FRAMES[`${prop.frame}-0`]!;
+          const group = `${fl.host.id}:${y0}:${s}`;
+          place({ frame: prop.frame, x: mid + prop.dx * s, y: y0 + D.floorY + (prop.dy ?? 0), w: spec.w * VIGNETTE_SCALE, floor: f, flip: s === 1 && !!prop.flip, layer: prop.layer ?? "front", group, ...(prop.light ? lit(prop.light) : {}) }, true, true, group);
+        }
+        // A torch by the room's outer wall.
+        place({ frame: "torch", x: s * (half - 16), y: y0 + 120, floor: f, layer: "front", ...lit(TORCH_LIGHT) });
+      }
+    });
+    // Torches on the wall between alcoves.
+    for (const w of workspaces.filter((w) => w.floor === f)) {
+      for (const x of [w.rect.x - D.alcoveGap / 2, w.rect.x + w.rect.w + D.alcoveGap / 2])
+        if (Math.abs(x) > D.inner) place({ frame: "torch", x, y: w.rect.y + 34, floor: f, layer: "front", ...lit(TORCH_LIGHT) });
+    }
+    // The upper wall: a banner over each first-tier project's inner and outer sides with a torch beside it,
+    // then barred and arched windows and chains between the bays, as busy as the concept's.
+    for (const p of projects.filter((p) => p.floor === f && p.tier === 0)) {
+      const inner = p.side === 1 ? p.span.x : p.span.x + p.span.w;
+      const outer = p.side === 1 ? p.span.x + p.span.w : p.span.x;
+      const innerX = p.side * Math.max(Math.abs(inner) + 40, D.surroundW / 2 + 36);
+      for (const [x, k] of [[innerX, 0], [outer - p.side * 40, 1]] as const) {
+        if (place({ frame: k === 0 ? "banner-purple-layers" : pick(BANNERS), x, y: fl.top + 29, w: 60, floor: f, layer: "back" }))
+          place({ frame: "torch", x: x + p.side * (k === 0 ? 62 : -62), y: fl.top + 57, w: 24, floor: f, layer: "front", ...lit(TORCH_LIGHT) });
+      }
+    }
+    for (const s of [-1, 1] as const) {
+      // A banner over each side room.
+      place({ frame: pick(BANNERS), x: s * (half - D.sideRoom / 2 - 6), y: fl.top + 47, w: 60, floor: f, layer: "back" });
+      for (let x = D.surroundW / 2 + 30; x < half - D.sideRoom - 20; x += 46 + rng() * 30) {
+        const roll = rng();
+        if (roll < 0.34) place({ frame: "window-barred", x: s * x, y: fl.top + 82, w: 44, floor: f, layer: "back" });
+        else if (roll < 0.6) place({ frame: "niche-arch", x: s * x, y: fl.top + 108, w: 48, floor: f, layer: "back" });
+        else if (roll < 0.85) place({ frame: "chain", x: s * x, y: fl.top + 4, w: 9, floor: f, layer: "back" });
+        else place({ frame: "torch", x: s * x, y: fl.top + 60, w: 22, floor: f, layer: "front", ...lit(TORCH_LIGHT) });
+      }
+      // Floor props, windows and niches in leftover space between a tier's projects and its room.
+      fl.tierTops.forEach((y0) => {
+        const used = projects.filter((p) => p.floor === f && p.side === s && p.span.y === y0);
+        const edge = used.length ? Math.max(...used.map((p) => (s === 1 ? p.span.x + p.span.w : -p.span.x))) : D.inner;
+        for (let x = edge + 30; x < half - D.sideRoom - 30; x += 60 + rng() * 40) place({ frame: pick(FLOOR_PROPS), x: s * x, y: y0 + D.floorY, w: (FRAMES[FLOOR_PROPS[0]!]!.w) * 1.3, floor: f, layer: "front" });
+        for (let x = edge + 40; x < half - D.sideRoom - 40; x += 110 + rng() * 40)
+          place({ frame: rng() < 0.5 ? "window-barred" : "niche-arch", x: s * x, y: rng() < 0.5 ? y0 + 60 : y0 + 150, floor: f, layer: "back" });
+      });
+    }
+    // The foot of the last stairs: braziers, rugs, the crown banner and the scribes' desks.
+    if (fl.last) {
+      const y = fl.top + fl.height - 14;
+      place({ frame: "banner-crown", x: 0, y: y - D.foot + 18, w: 56, floor: f, layer: "front" }, false);
+      for (const s of [-1, 1] as const) {
+        place({ frame: "brazier", x: s * 100, y, w: 40, floor: f, layer: "front", ...lit({ color: 0xff9a3a, reach: 80 }) });
+        place({ frame: "rug-red", x: s * 290, y: y - 30, w: 150, floor: f, layer: "back" });
+        place({ frame: "scroll-desk", x: s * (half - 80), y, w: 80, floor: f, layer: "front" });
+      }
+    }
+  });
+
+  const shownProjects = projects.filter((p) => p.entity).map((p) => p.entity!);
+  const entities = [...hostEntities, ...shownProjects, ...workspaces.map((w) => w.entity), ...agents.map((a) => a.entity)];
+  const round = (r: Rect) => [r.x, r.y, r.w, r.h].map((v) => Math.round(v * 10) / 10);
+  const signature = JSON.stringify([
+    round(bounds),
+    floors.map((fl) => [fl.host.id, fl.title, fl.online, fl.stats.map((s) => s.text), round(fl.rect)]),
+    projects.map((p) => [p.key, p.name, p.icon, round(p.rect)]),
+    workspaces.map((w) => [
+      w.entity.id,
+      w.entity.name,
+      round(w.rect),
+      w.flags.map((fl) => fl.frame),
+      w.entity.probe ? probeGlyph(w.entity.probe) : 0,
+      w.seal ? 1 : 0,
+    ]),
+    agents.map((a) => [a.entity.id, a.feet.x, a.feet.y]),
+  ]);
+  return {
+    bounds,
+    floors,
+    projects,
+    workspaces,
+    agents,
+    links,
+    nodes,
+    runs,
+    decor,
+    entities,
+    counts: {
+      hosts: floors.length,
+      projects: shownProjects.length,
+      workspaces: workspaces.filter((w) => !w.entity.camp).length,
+      agents: agents.length,
+    },
+    signature,
+  };
+}
+
+/** The most urgent state among a project's agents that the medallion flares for. */
+export function projectAlarm(layout: DungeonLayout, project: string): State | undefined {
+  const states = layout.agents.filter((a) => a.entity.project === project).map((a) => a.entity.state!);
+  return tileState(states.filter((s) => BEACON_STATES.includes(s)));
+}
+/** Whether any of a project's agents is running. */
+export const projectWorking = (layout: DungeonLayout, project: string) =>
+  layout.agents.some((a) => a.entity.project === project && a.entity.state === "running");
+
+/** The HUD's subtitle: short and true. */
+export function hudSubtitle(layout: DungeonLayout): string {
+  const states = layout.agents.map((a) => a.entity.state);
+  const running = states.filter((s) => s === "running").length;
+  const needs = states.filter((s) => s === "approval" || s === "question" || s === "asking" || s === "failed" || s === "done").length;
+  const parts = [running ? `${running} running` : "", needs ? `${needs} need${needs === 1 ? "s" : ""} you` : ""].filter(Boolean);
+  if (parts.length) return parts.join(" · ");
+  if (layout.floors.length && layout.floors.every((f) => !f.online)) return "Every host offline";
+  return "All quiet";
+}

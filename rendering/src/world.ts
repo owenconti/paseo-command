@@ -420,7 +420,7 @@ const SLOT_TURNS = SLOT_ANGLES.map((angle) => {
  * have one of its cells beside another workspace's. */
 const CROWDING = 20;
 
-type Cottage = {
+export type Cottage = {
   key: string;
   name: string;
   stale?: boolean;
@@ -552,9 +552,14 @@ function plan(
   return { key, project, cottages, placed, land, bumps: [], radius };
 }
 
-/** Plans for one host: an island for each project with workspaces, plus one
- * for workspaces without a project. */
-function hostPlans(host: AtlasData["hosts"][number], data: AtlasData): Plan[] {
+/** One host's workspaces grouped as its islands are: each project with
+ * workspaces (in name order), then one group for workspaces without a project.
+ * Workspaces are oldest first and each holds its agents' keys, oldest first;
+ * agents without a workspace wait at a camp. Shared by every map style. */
+export function hostGroups(
+  host: AtlasData["hosts"][number],
+  data: AtlasData,
+): { key: string; project?: AtlasData["projects"][number]; cottages: Cottage[] }[] {
   const projects = data.projects.filter((p) => p.host === host.key).sort(byName);
   const known = new Set(projects.map((p) => p.key));
   // Oldest first, then by key: titles change (Paseo retitles workspaces), so
@@ -600,11 +605,45 @@ function hostPlans(host: AtlasData["hosts"][number], data: AtlasData): Plan[] {
     home.agents.push(a.key);
   }
   // Projects without workspaces stay off the map.
-  const plans = projects
+  const out: { key: string; project?: AtlasData["projects"][number]; cottages: Cottage[] }[] = projects
     .filter((p) => groups.get(p.key)!.length)
-    .map((p) => plan(p.key, p, groups.get(p.key)!));
-  if (unfiled.length) plans.push(plan(`unfiled\u001f${host.key}`, undefined, unfiled));
-  return plans;
+    .map((p) => ({ key: p.key, project: p, cottages: groups.get(p.key)! }));
+  if (unfiled.length) out.push({ key: `unfiled\u001f${host.key}`, cottages: unfiled });
+  return out;
+}
+
+/** Plans for one host: an island for each project with workspaces, plus one
+ * for workspaces without a project. */
+function hostPlans(host: AtlasData["hosts"][number], data: AtlasData): Plan[] {
+  return hostGroups(host, data).map((g) => plan(g.key, g.project, g.cottages));
+}
+
+/** Hosts in map order: the local one first, then by name. */
+export const sortedHosts = (data: AtlasData) =>
+  [...data.hosts].sort((a, b) => Number(b.local) - Number(a.local) || byName(a, b));
+
+/** An agent as every map style draws it: its robot's colour and art, its
+ * state (offline while its host is), its subagents' drones. */
+export function agentEntity(
+  a: AtlasData["agents"][number],
+  home: { workspace: string; project?: string; position?: Axial },
+  hostOnline: boolean,
+): Entity {
+  return {
+    id: a.key,
+    kind: "agent",
+    name: a.name,
+    host: a.host,
+    project: home.project,
+    workspace: home.workspace,
+    position: home.position ?? { q: 0, r: 0 },
+    model: modelColor(a.model),
+    modelName: modelName(a.model),
+    art: `robot-${modelColor(a.model)}`,
+    state: hostOnline ? a.state : "offline",
+    subagents: a.subagents ?? 0,
+    droneArts: (a.subagentModels ?? []).map((m) => `robot-${modelColor(m)}`),
+  };
 }
 
 /**
@@ -711,9 +750,7 @@ function arrange(groups: Group[], capacity: number): Axial[] {
  * vertically and a wide one spreads out.
  */
 export function layoutAtlas(data: AtlasData, aspect = 1.6): AtlasLayout {
-  const sorted = [...data.hosts].sort(
-    (a, b) => Number(b.local) - Number(a.local) || byName(a, b),
-  );
+  const sorted = sortedHosts(data);
   const target = Number.isFinite(aspect) && aspect > 0 ? aspect : 1.6;
   // Hosts without workspaces stay off the map, unless no host has any: then
   // each shows as an open clearing, so the map is never empty.
@@ -879,21 +916,7 @@ export function layoutAtlas(data: AtlasData, aspect = 1.6): AtlasLayout {
   for (const a of [...data.agents].sort(byName)) {
     const home = homes.get(a.key);
     if (!home || !online.has(a.host)) continue;
-    agents.push({
-      id: a.key,
-      kind: "agent",
-      name: a.name,
-      host: a.host,
-      project: home.project,
-      workspace: home.workspace,
-      position: home.cell,
-      model: modelColor(a.model),
-      modelName: modelName(a.model),
-      art: `robot-${modelColor(a.model)}`,
-      state: online.get(a.host) ? a.state : "offline",
-      subagents: a.subagents ?? 0,
-      droneArts: (a.subagentModels ?? []).map((m) => `robot-${modelColor(m)}`),
-    });
+    agents.push(agentEntity(a, { ...home, position: home.cell }, !!online.get(a.host)));
   }
   const signature = JSON.stringify([
     islands.map((i) => [i.key, i.name, i.online, i.cells.length]),

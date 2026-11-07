@@ -92,7 +92,10 @@ export type AppCommand =
   | "files-previous-tab"
   | "files-close-other-tabs"
   | "files-open-editor"
-  | "files-open-viewer";
+  | "files-open-viewer"
+  | "map-style-islands"
+  | "map-style-overworld"
+  | "map-style-dungeon";
 
 const EVENT = "paseo:command";
 

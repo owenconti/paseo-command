@@ -32,6 +32,8 @@ export type WorkspaceRow = {
   host?: string;
   /** A workspace's PR, set by tests at runtime; shape owned by the app. */
   pr?: unknown;
+  labels?: string[];
+  createdAt?: string;
 };
 export type AgentRow = {
   id: string;
@@ -46,9 +48,11 @@ export type AgentRow = {
   stale?: boolean;
   unread?: boolean;
   subagents?: unknown[];
+  createdAt?: string;
 };
 export type PermissionRow = {
   id: string;
+  host?: string;
   agentId: string;
   name: string;
   description: string;
@@ -255,3 +259,74 @@ function buildLarge(): Fleet {
 }
 
 export const large: Fleet = buildLarge();
+
+// ---------------------------------------------------------------------------
+// dungeon: the Dungeon Board's concept fleet. Three hosts (LOCAL, STAGING,
+// PROD), six projects, eleven workspaces and robots of several providers in
+// every state the daemon reports; PR labels on a few workspaces.
+// ---------------------------------------------------------------------------
+
+const DUNGEON: [host: string, project: string, workspace: string, agents: [provider: string, plan: string, subagents?: string[]][], labels?: string[]][] = [
+  ["srv_local", "core-platform", "api", [["claude/claude-opus-5-5", "running", ["claude/claude-haiku-5-5", "codex/gpt-6.1-sol"]], ["opencode/kimi-k3", "idle"], ["aider/qwen-4-coder", "running"]], ["CI running", "Awaiting review"]],
+  ["srv_local", "core-platform", "web", [["codex/gpt-6.1-sol", "running"], ["deepseek/deepseek-v4", "approval"]], ["CI green", "Approved"]],
+  ["srv_local", "developer-tools", "cli", [["opencode/kimi-k3", "done"]]],
+  ["srv_staging", "growth", "marketing", [["amp/amp-smart", "idle"], ["claude/claude-sonnet-5", "running"]]],
+  ["srv_staging", "growth", "analytics", [["claude/claude-opus-5-5", "question"], ["deepseek/deepseek-v4", "running"], ["bedrock/nova-pro", "idle"]], ["CI failing", "Changes requested"]],
+  ["srv_staging", "experiments", "events", [["minimax/minimax-m3", "failed"]]],
+  ["srv_staging", "experiments", "ab-tests", [["codex/gpt-6.1-sol", "running", ["codex/gpt-6.1-sol"]], ["aider/qwen-4-coder", "idle"], ["deepseek/deepseek-v4", "done"], ["amp/amp-smart", "running"]]],
+  ["srv_prod", "customer", "app", [["opencode/kimi-k3", "running"], ["claude/claude-opus-5-5", "done"], ["aider/qwen-4-coder", "idle"]], ["CI running"]],
+  ["srv_prod", "customer", "support", [["minimax/minimax-m3", "idle"], ["bedrock/nova-pro", "running"]]],
+  ["srv_prod", "platform", "infra", [["claude/claude-opus-5-5", "approval"], ["codex/gpt-6.1-sol", "running"]], ["CI green", "Awaiting review"]],
+  ["srv_prod", "platform", "data", [["opencode/kimi-k3", "running", ["opencode/kimi-k3", "claude/claude-haiku-5-5", "aider/qwen-4-coder"]], ["aider/qwen-4-coder", "idle"], ["deepseek/deepseek-v4", "running"], ["amp/amp-smart", "idle"]]],
+];
+function buildDungeon(): Fleet {
+  const hosts: HostRow[] = [
+    { serverId: "srv_local", label: "LOCAL", status: "online", local: true, state: "online" },
+    { serverId: "srv_staging", label: "STAGING", status: "online", local: false, state: "online" },
+    { serverId: "srv_prod", label: "PROD", status: "online", local: false, state: "online" },
+  ];
+  const remote = (host: string) => (host === "srv_local" ? {} : { host });
+  const projects: ProjectRow[] = [];
+  const workspaces: WorkspaceRow[] = [];
+  const agents: AgentRow[] = [];
+  const permissions: PermissionRow[] = [];
+  DUNGEON.forEach(([host, project, name, rows, labels], w) => {
+    const projectId = `prj_${project}`;
+    if (!projects.some((p) => p.projectId === projectId))
+      projects.push({ projectId, name: project, kind: "git", path: `/work/${project}`, ...remote(host) });
+    const workspaceId = `wks_${name}`;
+    const cwd = `/work/${project}/${name}`;
+    workspaces.push({
+      workspaceId, projectId, project, name, isolation: "worktree", cwd, branch: name,
+      createdAt: `2026-11-0${1 + (w % 5)}T0${w % 10}:00:00Z`,
+      ...(labels ? { labels } : {}),
+      ...remote(host),
+    });
+    rows.forEach(([provider, plan, subs], i) => {
+      const id = `a-${name}-${i}`;
+      const status = plan === "failed" ? "error" : plan === "running" ? "running" : "idle";
+      agents.push({
+        ...agentRow(id, status, `${name} agent ${i + 1}`),
+        provider,
+        workspaceId,
+        cwd,
+        createdAt: `2026-11-06T${String(w).padStart(2, "0")}:${String(i).padStart(2, "0")}:00Z`,
+        ...(plan === "done" ? { unread: true } : {}),
+        ...(subs
+          ? { subagents: subs.map((model, k) => ({ id: `${id}-sub-${k}`, name: `Subtask ${k + 1}`, kind: "general-purpose", status: "running", source: "provider", model })) }
+          : {}),
+        ...remote(host),
+      });
+      if (plan === "approval") permissions.push({ id: `perm-${id}`, agentId: id, name: "Bash", description: "npm publish", ...remote(host) });
+      if (plan === "question") permissions.push({ id: `perm-${id}`, agentId: id, name: "AskUserQuestion", description: "-", kind: "question", ...remote(host) });
+    });
+  });
+  return { hosts, projects, workspaces, agents, permissions };
+}
+export const dungeon: Fleet = buildDungeon();
+/** The dungeon fleet's host loads, for `GET /api/hoststats`. */
+export const DUNGEON_STATS: Record<string, { cpu: number; memory: number; disk: number }> = {
+  local: { cpu: 42, memory: 58, disk: 70 },
+  srv_staging: { cpu: 37, memory: 64, disk: 55 },
+  srv_prod: { cpu: 51, memory: 72, disk: 81 },
+};

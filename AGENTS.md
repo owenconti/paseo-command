@@ -720,6 +720,42 @@ Swift (`AtlasScene`, scene `style: "overworld"`) tiles the page's graded sea til
 rectangles for hover and selection. `rendering/overworld-preview/` renders the concept's fleet beside the concept for comparison
 (`build.sh`, then `node shoot.mjs <out.png> [k]` against a static server on the rendering folder; `?fleet=crowded|sample`).
 
+### Map styles and the Dungeon Board
+
+The map's styles are `MAP_STYLES` in `web/src/mapStyle.ts` (localStorage `atlas:style`; a page opened with `?map=<style>` starts in that
+style and keeps it): Islands (the default), Overworld and the Dungeon Board. Settings → Map lists them; ⌘K offers "Use the <name> map"
+for each one not shown (page Settings); the macOS app's View → Map Style lists them with the shown one checked (`MapStyles` in
+`MapScene.swift`; the page reports its style with a `mapStyle` message, and an item asks the page's `map-style-<id>` app command, then
+shows Command). Islands and Overworld are one world (`mountNativeAtlas`, switched in place by `AtlasWorld.style`); the Dungeon Board is a
+world of its own (`mountNativeDungeon`), which `NativeWorld.tsx` mounts in their place, and back, when the style crosses that line.
+`AtlasView` hosts a `MapScene` (`MapScene.swift`, `kind` "atlas" or "dungeon": `AtlasScene` or `DungeonScene`); the page's `art`
+message names its `scene`, and `WorldWindow.adopt` swaps in that scene in a fresh view. Both worlds share the page's input forwarding
+(`rendering/src/native/surface.ts`), revisions and watchdog (`native/watch.ts`, `AtlasView.watch`). The Atlas legend hides on the board.
+The Dungeon Board (`rendering/src/dungeon/`; the user's concept is ignored `design/references/dungeon-concept.png`): a front
+cutaway of a dungeon, one floor per host with workspaces (the Atlas's host order), 365 concept px tall, stacked; its gate
+column central (medallion with the host icon, the parchment plaque with the host's name in capitals, a status dot and the
+host-stats `CPU · MEM · DISK`, ≥ 90% red, a gold node, the portcullis lit while online, stairs to the next floor); projects
+with workspaces alternating left and right outward from the gate (`hostGroups` in `world.ts`, shared with the Atlas), each a
+medallion with an icon from its name (`projectIcon`) over a label, its workspaces' alcoves in a row beneath (oldest first, left
+to right; camps for agents without one), robots on each alcove's ledge in provider colours (`robotColor`: Claude orange, ChatGPT white, any other provider its own of the sheet's eight), oldest
+first, drones for running subagents. Gold links run from the host node to each project and workspace. Floors keep their
+natural, content-driven width; a side's projects wrap onto more tiers only while the board would be wider than 1.6 × its
+height. Decorations (side-room vignettes, banners, torches, windows, the foot of the last stairs) are seeded per host and
+never cover what the board says (`layoutDungeon` in `layout.ts`, pure; `rendering/tests/dungeon.test.mjs`). State: a state
+glow under each robot (pulsing for states that need you), a marker at its head's upper right, working robots' work frames,
+light running along the links to workspaces with an agent at work, a project's two torches lit while any of its agents runs,
+its medallion flaring in the most urgent state's colour, offline floors dimmed and dark. PR, Probe and auto-merge medallions
+sit on each alcove's lintel with the Atlas's hover cards. The HUD (title with "N running · N need you" or "All quiet", and the
+count bar) lies over the board in screen space, as the concept's does; the board fills the map. Each floor is assembled
+from the v2 kit as the art's reconstruction (`rendering/artifacts/dungeon/mock.png`) is: ramparts, the gate's surround,
+terrace floors, alcove sides, lintels and ledges. The page paints the text (`bridge.ts`, Barlow) and posts top-left sprite
+boxes; `DungeonScene.swift` draws, animates (≈30 fps ambient, still with reduced motion), owns the camera (fit, bounded pan,
+wheel, pinch, arrows, F/Home), rounded-rect hover rims and the golden selection rim, and picks (a medallion, then a robot, its
+alcove, its project; never a host). Sprites: `rendering/src/assets/dungeon/<sheet>.png|json` (the frame contract is `frames.ts`,
+3× scale; a missing frame is painted as a placeholder; robots are trimmed to their opaque pixels). `npm run native:mock --
+--dungeon` serves the concept's fleet (`dungeon` in `web/e2e/fleets.ts`) and prints its address with `?map=dungeon`. Tests:
+`rendering/tests/dungeon.test.mjs`, `web/e2e/dungeon.e2e.ts`, `native/tests/DungeonSceneTests.swift`.
+
 ## Confirmed map constraints
 
 Labels stay at fixed world scale. Do not add screen-size compensation.

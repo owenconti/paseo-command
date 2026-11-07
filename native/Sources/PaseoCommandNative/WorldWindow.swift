@@ -33,7 +33,9 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
     private(set) var atlasView: AtlasView
     /// The page's last account of its world (`pageStatus`), for `--info`.
     var pageWorld: [String: Any] = [:]
-    let scene: AtlasScene
+    private(set) var scene: MapScene
+    /// The style the page's map is drawn in now, as the page reports it (View → Map Style marks it).
+    private(set) var mapStyle = "islands"
     let options: Options
     /// The page's sides that can show: those whose integration is on (the page says, with
     /// `integrations`), and Files and Settings.
@@ -119,7 +121,7 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         drawer.autoresizingMask = []
         content.addSubview(drawer)
 
-        scene = AtlasScene(size: content.bounds.size)
+        scene = makeMapScene(kind: "atlas", size: content.bounds.size)
         atlasView = AtlasView(frame: content.bounds, scene: scene)
         atlasView.autoresizingMask = []
         command.addSubview(atlasView)
@@ -235,6 +237,8 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
                 for (name, png) in body["tiles"] as? [String: String] ?? [:] { tiles[name] = Textures.image(dataURL: png) }
                 DispatchQueue.main.async {
                     guard let self else { return }
+                    // The page mounted the other world (the Dungeon Board, or the Atlas): its scene takes the view's place.
+                    self.adopt(kind: body["scene"] as? String ?? "atlas")
                     self.scene.setArt(frames: frames, tiles: tiles, constants: body["constants"] as? [String: Any] ?? [:],
                                       reduced: body["reduced"] as? Bool ?? false)
                     self.layoutAtlas()
@@ -251,7 +255,14 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
                 DispatchQueue.main.async { self?.scene.setScene(body, images: images); self?.reportState(); self?.revealWhenDrawn() }
             }
         case "agents":
-            decoding.async { DispatchQueue.main.async { [weak self] in self?.scene.setAgents(body); self?.reportState() } }
+            decoding.async { [weak self] in
+                // The Dungeon Board's HUD comes with its agents.
+                var images: [String: CGImage] = [:]
+                for item in (body["hud"] as? [String: [String: Any]] ?? [:]).values {
+                    if let key = item["key"] as? String, let png = item["png"] as? String, let image = Textures.image(dataURL: png) { images[key] = image }
+                }
+                DispatchQueue.main.async { self?.scene.setAgents(body, images: images); self?.reportState() }
+            }
         default:
             // Everything else is cheap and keeps its order behind any pending decode.
             decoding.async { DispatchQueue.main.async { [weak self] in self?.handle(type, body) } }
@@ -287,6 +298,9 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         case "command": scene.command(body["name"] as? String ?? "")
         case "input": scene.setInput(body["enabled"] as? Bool ?? true)
         case "motion": scene.setMotion(reduced: body["reduced"] as? Bool ?? false)
+        case "mapStyle":
+            // The page's map style, for View → Map Style.
+            mapStyle = body["style"] as? String ?? mapStyle
         case "workspace":
             let w = body["workspace"] as? [String: Any]
             let selected = w.flatMap { w in
@@ -409,6 +423,22 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
     /// The map's rectangle in `content`, where Conquer and the Terminal tab go.
     private var mapInContent: CGRect {
         viewport == nil ? content.bounds : content.convert(atlasView.frame, from: command)
+    }
+
+    /// The page mounted the world `kind`: unless the scene is already that kind, a fresh scene of
+    /// it takes the old one's place, in a fresh view (a scene shows in one view at a time).
+    private func adopt(kind: String) {
+        guard kind != scene.kind else { return }
+        let old = atlasView
+        let next = makeMapScene(kind: kind, size: scene.size)
+        next.emit = { [weak self] message in self?.send(message) }
+        old.retire()
+        let view = old.successor(scene: next)
+        command.replaceSubview(old, with: view)
+        atlasView = view
+        scene = next
+        Log.line("map: the \(kind) world")
+        view.govern()
     }
 
     /// A wedged SpriteKit view gives its place to a fresh one showing the same scene.

@@ -8,7 +8,8 @@ import { fileURLToPath } from 'node:url';
 const tests = { LegacyState: ['Log', 'LegacyState'], WebOrigin: ['WebOrigin'], ShellEnvironment: ['ShellEnvironment'], ServerManager: ['Log', 'AppFlavor', 'ShellEnvironment', 'OldInstall', 'BundleHome', 'ServerManager'], BundleHome: ['AppFlavor', 'ShellEnvironment', 'OldInstall', 'BundleHome', 'ServerManager'], OldInstall: ['Log', 'AppFlavor', 'OldInstall'], Updater: ['AppFlavor', 'WebOrigin', 'Updater'], LinearLink: ['LinearLink'],
   AppKeys: ['AppFlavor', 'Geometry', 'Textures', 'NativeTheme', 'ChromeControls', 'PageBar', 'ConquerTabs', 'ConquerExtras', 'ZenCookies', 'Conquer', 'EditorEmbed', 'AppKeys'],
   EditorEmbed: ['AppFlavor', 'Geometry', 'Textures', 'NativeTheme', 'ChromeControls', 'PageBar', 'ConquerTabs', 'ConquerExtras', 'ZenCookies', 'Conquer', 'EditorEmbed', 'AppKeys'],
-  AtlasView: ['Log', 'Geometry', 'Textures', 'NativeTheme', 'ChromeControls', 'AtlasScene', 'AtlasView'] };
+  AtlasView: ['Log', 'Geometry', 'Textures', 'NativeTheme', 'ChromeControls', 'MapScene', 'AtlasScene', 'DungeonScene', 'AtlasView'],
+  DungeonScene: ['Log', 'Geometry', 'Textures', 'NativeTheme', 'ChromeControls', 'MapScene', 'AtlasScene', 'DungeonScene', 'AtlasView'] };
 for (const [name, sources] of Object.entries(tests)) {
   const input = [...sources.map(s => `../Sources/PaseoCommandNative/${s}.swift`), `../tests/${name}Tests.swift`]
     .map(path => readFileSync(new URL(path, import.meta.url), 'utf8')).join('\n');

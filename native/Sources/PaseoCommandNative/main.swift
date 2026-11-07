@@ -377,6 +377,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         // (ahead of macOS's own window cycling, as the app has one window).
         view.addItem(withTitle: "Next: Command, Conquer", action: #selector(toggleMode), keyEquivalent: "`").target = self
         view.addItem(.separator())
+        // Map Style: how the Command tab draws the fleet; the page keeps the choice (settings.json's `mapStyle`).
+        let styles = NSMenu(title: "Map Style")
+        for (id, name) in MapStyles.all {
+            let item = styles.addItem(withTitle: name, action: #selector(chooseMapStyle(_:)), keyEquivalent: "")
+            item.target = self
+            item.representedObject = id
+        }
+        view.addItem(withTitle: "Map Style", action: nil, keyEquivalent: "").submenu = styles
+        view.addItem(.separator())
         // The terminals' text size. ⌘= reaches "Bigger" too, as ⌘+ needs ⇧ on most layouts.
         for (title, key, step, hidden) in [("Bigger Terminal Text", "+", 1, false), ("Bigger Terminal Text", "=", 1, true),
                                            ("Smaller Terminal Text", "-", -1, false), ("Actual Terminal Text Size", "0", 0, false)] {
@@ -426,6 +435,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     @objc private func showSettings() { main?.toggleSettings() }
     @objc private func showBranchChanges() { main?.pageCommand(AppKeys.branchChangesCommand) }
     @objc private func showFiles() { main?.show(.files) }
+    @objc private func chooseMapStyle(_ sender: NSMenuItem) {
+        guard let id = sender.representedObject as? String else { return }
+        main?.pageCommand("map-style-\(id)")
+        main?.show(.command)
+    }
     @objc private func closeFileTab() { main?.pageCommand("files-close-tab") }
     @objc private func refreshPage() { main?.pageCommand(AppKeys.refreshPageCommand) }
     @objc private func showMode(_ sender: NSMenuItem) {
@@ -451,6 +465,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         case #selector(conquerCommand(_:)):
             if item.representedObject as? String == "togglePin" { item.title = main.conquer.current?.isPinned == true ? "Unpin Tab" : "Pin Tab" }
             return browser
+        case #selector(chooseMapStyle(_:)):
+            item.state = item.representedObject as? String == main.mapStyle ? .on : .off
         case #selector(showBranchChanges): return !browser
         case #selector(closeFileTab): return main.mode == .files && (NSApp.keyWindow.map { $0 === main.window } ?? true)
         case #selector(refreshPage): return main.pageRefreshes && (NSApp.keyWindow.map { $0 === main.window } ?? true)

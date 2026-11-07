@@ -1,4 +1,4 @@
-import { mapStyle, useMapStyle } from "./mapStyle";
+import { MAP_STYLES, mapStyle, setMapStyle, useMapStyle } from "./mapStyle";
 import type { WorkSummaries } from "./useWorkingOn";
 /** Atlas world adapter. The inherited React work surface owns all daemon actions;
  * the world only draws the host-qualified snapshot and reports what was picked. */
@@ -200,9 +200,14 @@ export function NativeWorld(props: Props) {
     }
     return "Host";
   };
-  // Mount once: handlers read current props through refs.
+  // The Islands and Overworld are one world, switched in place; the Dungeon Board is a world of
+  // its own, mounted in their place (and back) when the style crosses that line.
+  const dungeon = style === "dungeon";
+  // Mount once per world: handlers read current props through refs.
   useEffect(() => {
     const node = surface.current!;
+    setReady(false);
+    setTip(null);
     // The panels keep the Paseo Command look from the native app: Galaxy, or
     // Light while the system is light.
     setUnityWorldTheme("galaxy");
@@ -259,9 +264,14 @@ export function NativeWorld(props: Props) {
       delete document.documentElement.dataset.renderer;
       setUnityWorldTheme(null);
     };
-  }, []);
+  }, [dungeon]);
   useEffect(() => {
-    world.current?.style(style);
+    if (style !== "dungeon" && world.current?.kind === "atlas") world.current.style(style);
+    // The app's View → Map Style marks the style shown.
+    (window as unknown as { webkit?: { messageHandlers?: { paseoWorld?: { postMessage(m: unknown): void } } } }).webkit?.messageHandlers?.paseoWorld?.postMessage({
+      type: "mapStyle",
+      style,
+    });
   }, [style]);
   useEffect(() => {
     // The world re-reports a hover that survives the update.
@@ -347,9 +357,12 @@ export function NativeWorld(props: Props) {
     };
     window.addEventListener("keydown", onKey);
     const offCommand = onAppCommand("fit-world", fitWorld);
+    // View → Map Style in the macOS app asks for a style by name.
+    const offStyles = MAP_STYLES.map((m) => onAppCommand(`map-style-${m.id}`, () => setMapStyle(m.id)));
     return () => {
       window.removeEventListener("keydown", onKey);
       offCommand();
+      offStyles.forEach((off) => off());
     };
   }, []);
   const empty = ready && data.hosts.length === 0;
@@ -369,11 +382,11 @@ export function NativeWorld(props: Props) {
       <div
         ref={surface}
         className="atlas-world-surface native-map-surface"
-        data-world="atlas"
+        data-world={style}
         tabIndex={0}
         role="application"
         aria-roledescription="map"
-        aria-label="Atlas world. Drag to pan, scroll to zoom, arrow keys pan, F fits every host. Select a robot to open its conversation."
+        aria-label={`${dungeon ? "Dungeon Board" : "Atlas world"}. Drag to pan, scroll to zoom, arrow keys pan, F fits every host. Select a robot to open its conversation.`}
         onPointerLeave={() => setTip(null)}
       />
       {props.blocked && <div className="atlas-input-cover" />}
@@ -410,7 +423,7 @@ export function NativeWorld(props: Props) {
         !ready &&
         !failure && (
           <div className="atlas-world-notice" role="status">
-            Preparing the atlas…
+            {dungeon ? "Preparing the Dungeon Board…" : "Preparing the atlas…"}
           </div>
         )
       )}
@@ -424,7 +437,8 @@ export function NativeWorld(props: Props) {
           {failure} <button onClick={() => location.reload()}>Reload</button>
         </div>
       )}
-      {ready && <WorldLegend data={data} />}
+      {/* The Dungeon Board says what it shows in its own HUD and hover cards. */}
+      {ready && !dungeon && <WorldLegend data={data} />}
     </>
   );
 }
