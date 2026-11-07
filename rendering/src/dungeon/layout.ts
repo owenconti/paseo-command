@@ -68,6 +68,12 @@ export const D = {
    * of wall candles flanking this point, `markR` either side, which is also where its alarm glows. */
   markY: 32,
   markR: 29,
+  /** A project's hall round its alcove row (the user's choice, A): its end piers this wide, its lintel's top this far
+   * below the tier's top and this tall, its floor strip in front of the alcoves this tall. */
+  hallPier: 18,
+  hallTop: 46,
+  lintelH: 18,
+  hallFloorH: 14,
   alcoveY: 86,
   alcoveH: 128,
   /** Where the PR medallions sit on the alcove's lintel (below its top). */
@@ -156,6 +162,10 @@ export type DProject = {
   /** Its terrace's back wall, above its alcoves: its pick box and the hover and selection rims' box. */
   rect: Rect;
   stale: boolean;
+  /** Its hall: piers, lintel, back and floor strip round its alcove row (in board units). */
+  hall: Rect;
+  /** Its cloth colour (the valance over its alcoves and the runner before them; the user's choice, B). */
+  cloth: string;
 };
 export type DFlag = { workspace: string; flag: string; frame: string; x: number; y: number; size: number };
 export type DWorkspace = {
@@ -291,6 +301,8 @@ type Block = {
   labelC: number;
   /** Each alcove's start, outward from the inner edge, in outward order. */
   starts: number[];
+  /** The hall's width round the alcoves, from the inner edge (piers included). */
+  hallW: number;
 };
 
 
@@ -303,19 +315,20 @@ function block(group: ReturnType<typeof hostGroups>[number], side: -1 | 1, measu
   // Reading left to right, oldest first: on the left side the outward order is reversed.
   const outward = side === 1 ? alcoves : [...alcoves].reverse();
   const starts: number[] = [];
-  let at = 0;
+  // The hall's pier at each end of the row.
+  let at = D.hallPier;
   for (const a of outward) {
     starts.push(at);
     at += a.width + D.alcoveGap;
   }
-  const end = at - D.alcoveGap;
+  const end = at - D.alcoveGap + D.hallPier;
   // The mark (a wall candle either side of it) keeps `drop` clear of the gates' line.
   void measure;
   const labelW = D.markR * 2 + 64;
   const torchRoom = 8;
   const labelC = Math.max(end / 2, D.drop - D.inner + 34 + labelW / 2, labelW / 2 + torchRoom);
   const width = Math.max(end, labelC + labelW / 2 + torchRoom);
-  return { key: group.key, project: group.project, alcoves: outward, width, labelW, labelC, starts };
+  return { key: group.key, project: group.project, alcoves: outward, width, labelW, labelC, starts, hallW: end };
 }
 
 type Tiered = { left: Block[][]; right: Block[][]; tiers: number; side: number; sideL: number; sideR: number };
@@ -390,6 +403,29 @@ function terraceBox(span: Rect, y0: number, clear: number): Rect {
   if (x0 < 0 && x1 > -clear) x1 = Math.min(x1, -clear);
   if (x1 > 0 && x0 < clear) x0 = Math.max(x0, clear);
   return { x: x0, y: y0 + 4, w: Math.max(0, x1 - x0), h: D.alcoveY - 8 };
+}
+
+/** The projects' cloth colours (valance and runner), muted so the robots stay first. */
+export const CLOTHS = ["teal", "plum", "wine", "moss", "ochre", "slate", "rust", "indigo"] as const;
+
+/** Each project's cloth: from its id's hash, stepped on past the colour of its neighbour on the same tier (the projects in
+ * a row, across the gate too), so neighbours never share one; the same project keeps its colour while its neighbours do. */
+export function assignCloths(projects: DProject[]) {
+  const rows = new Map<string, DProject[]>();
+  for (const p of projects) {
+    const key = `${p.floor}:${p.tier}`;
+    rows.set(key, [...(rows.get(key) ?? []), p]);
+  }
+  for (const row of rows.values()) {
+    row.sort((a, b) => a.hall.x - b.hall.x);
+    let before: string | undefined;
+    for (const p of row) {
+      let i = seedOf((p.entity?.id ?? p.key) + "cloth") % CLOTHS.length;
+      while (CLOTHS[i] === before) i = (i + 1) % CLOTHS.length;
+      p.cloth = CLOTHS[i]!;
+      before = p.cloth;
+    }
+  }
 }
 
 /** A side room's recess, in board units. */
@@ -553,6 +589,8 @@ export function layoutDungeon(data: AtlasData, _aspect = 1.6, measure: Measure =
             // inside its returns; on the top tier clear of the host's sign.
             rect: terraceBox(span, y0, tier === 0 ? plaqueW / 2 + 6 : 0),
             stale: !!b.project?.stale,
+            hall: { x: Math.min(X(0), X(b.hallW)), y: y0 + D.hallTop, w: b.hallW, h: D.floorY + D.hallFloorH - D.hallTop },
+            cloth: CLOTHS[0]!,
           });
           b.alcoves.forEach((a, k) => {
             const x0 = s === 1 ? X(b.starts[k]!) : X(b.starts[k]! + a.width);
@@ -646,7 +684,7 @@ export function layoutDungeon(data: AtlasData, _aspect = 1.6, measure: Measure =
       ...fl.tierTops.map((y0) => ({ x: fl.rect.x, y: y0 + D.frontY, w: fl.rect.w, h: 28 }))]),
     // Each project's terrace wall behind its medallion.
     ...projects.map((p) => ({ x: p.span.x, y: p.span.y + 20, w: p.span.w, h: 30 })),
-    ...projects.flatMap((p) => [p.rect, ...p.torches.map((t) => rectOf("torch", t.x, t.y).rect)]),
+    ...projects.flatMap((p) => [p.rect, p.hall, ...p.torches.map((t) => rectOf("torch", t.x, t.y).rect)]),
     ...workspaces.map((w) => w.rect),
     ...agents.map((a) => ({ ...a.rect, x: a.rect.x - 4, y: a.rect.y - 8, w: a.rect.w + 14, h: a.rect.h + 8 })),
   ];
@@ -808,6 +846,7 @@ export function layoutDungeon(data: AtlasData, _aspect = 1.6, measure: Measure =
     }
   });
 
+  assignCloths(projects);
   const shownProjects = projects.filter((p) => p.entity).map((p) => p.entity!);
   const entities = [...hostEntities, ...shownProjects, ...workspaces.map((w) => w.entity), ...agents.map((a) => a.entity)];
   const round = (r: Rect) => [r.x, r.y, r.w, r.h].map((v) => Math.round(v * 10) / 10);

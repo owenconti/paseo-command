@@ -121,6 +121,23 @@ export const FRAMES: Record<string, FrameSpec> = Object.fromEntries([
   ["pillar-capital", spec("stone", 55, 37, "top-left")],
   ["window-arch", spec("stone", 66, 91, "feet")],
   ["chain-pair", spec("props", 61, 101, "top-center")],
+  // projects: each project's hall (piers, lintel and its ends, back, floor strip) and its cloth (a valance over its alcoves,
+  // a runner before them) in its colour.
+  ["hall-pillar-left", spec("projects", 18, 150, "top-left")],
+  ["hall-pillar-right", spec("projects", 18, 150, "top-left")],
+  ["hall-lintel", spec("projects", 64, 18, "top-left", { tile: "x" })],
+  ["hall-lintel-end-left", spec("projects", 24, 18, "top-left")],
+  ["hall-lintel-end-right", spec("projects", 24, 18, "top-left")],
+  ["hall-floor", spec("projects", 64, 14, "top-left", { tile: "x" })],
+  ["hall-back", spec("projects", 64, 64, "top-left", { tile: "xy" })],
+  ...["teal", "plum", "wine", "moss", "ochre", "slate", "rust", "indigo"].flatMap((c) => [
+    [`valance-${c}`, spec("projects", 64, 16, "top-left", { tile: "x" })],
+    [`valance-${c}-end-left`, spec("projects", 12, 18, "top-left")],
+    [`valance-${c}-end-right`, spec("projects", 12, 18, "top-left")],
+    [`runner-${c}`, spec("projects", 64, 9, "top-left", { tile: "x" })],
+    [`runner-${c}-end-left`, spec("projects", 8, 9, "top-left")],
+    [`runner-${c}-end-right`, spec("projects", 8, 9, "top-left")],
+  ] as [string, FrameSpec][]),
   // ui
   ["label", spec("ui", 64, 36, "top-left", { slice: 12 })],
   ["plaque", spec("ui", 96, 64, "top-left", { slice: 16 })],

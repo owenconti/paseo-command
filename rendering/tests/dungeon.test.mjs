@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { layoutDungeon, overlaps, hudSubtitle, projectIcon, robotColor, cutawaySpans, D } from "../src/dungeon/layout.ts";
+import { layoutDungeon, overlaps, CLOTHS, hudSubtitle, projectIcon, robotColor, cutawaySpans, D } from "../src/dungeon/layout.ts";
 import { FRAMES, applySheet } from "../src/dungeon/frames.ts";
 import { readdirSync, readFileSync } from "node:fs";
 
@@ -86,8 +86,8 @@ test("the concept's fleet: three floors, two projects each, one tier, gates cent
   // About the concept's proportions: a board some 1,200 wide and as tall.
   assert.ok(layout.bounds.w > 1100 && layout.bounds.w < 1600, `width ${layout.bounds.w}`);
   assert.ok(layout.bounds.h > 1050 && layout.bounds.h < 1450, `height ${layout.bounds.h}`);
-  // Compact, as the concept's masses nearly interlock: no wider than 1.1 times (a foot of the concept's proportion) its height.
-  assert.ok(layout.bounds.w / layout.bounds.h <= 1.1, `aspect ${layout.bounds.w / layout.bounds.h}`);
+  // Compact, as the concept's masses nearly interlock: no wider than 1.15 times (a foot of the concept's proportion, each project's hall piers) its height.
+  assert.ok(layout.bounds.w / layout.bounds.h <= 1.15, `aspect ${layout.bounds.w / layout.bounds.h}`);
   for (const f of layout.floors) assert.equal(f.rect.h, f.last ? D.band + D.tierH + D.foot + D.footPad : D.band + D.tierH);
   // The first project stands left of the gate, the second right.
   const local = layout.projects.filter((p) => p.floor === 0);
@@ -242,4 +242,39 @@ test("no labels, icons or links: a project is its terrace, picked by its wall ab
     assert.ok(alcoves.every((w) => p.rect.y + p.rect.h <= w.rect.y + 0.01 && !overlaps(p.rect, w.rect)), `${p.name}'s box stays above its alcoves`);
     assert.ok(p.rect.x >= p.span.x && p.rect.x + p.rect.w <= p.span.x + p.span.w && p.rect.w > 80, `${p.name}'s box is its terrace`);
   }
+});
+
+test("each project's hall encloses its alcove row (1 to 8 alcoves), clear of its neighbours", () => {
+  for (let n = 1; n <= 8; n++) {
+    const layout = layoutDungeon(big(1, 3, n, 2), 1.4);
+    for (const p of layout.projects) {
+      const own = layout.workspaces.filter((w) => w.project === p.key);
+      assert.equal(own.length, n);
+      for (const w of own) {
+        // Inside its hall, between its piers, below its lintel, above its floor strip.
+        assert.ok(w.rect.x >= p.hall.x + D.hallPier - 0.01 && w.rect.x + w.rect.w <= p.hall.x + p.hall.w - D.hallPier + 0.01, `${n}: ${w.entity.name} between ${p.name}'s piers`);
+        assert.ok(w.rect.y >= p.hall.y + D.lintelH && w.rect.y + w.rect.h <= p.hall.y + p.hall.h - D.hallFloorH + 0.01, `${n}: ${w.entity.name} under the lintel, above the floor`);
+      }
+      for (const q of layout.projects) if (q !== p && q.floor === p.floor) assert.ok(!overlaps(p.hall, q.hall), `${n}: ${p.name}'s hall overlaps ${q.name}'s`);
+      // Its robots stand clear of its piers.
+      for (const a of layout.agents.filter((a) => own.some((w) => w.entity.id === a.entity.workspace)))
+        assert.ok(a.rect.x >= p.hall.x + D.hallPier - 4 && a.rect.x + a.rect.w <= p.hall.x + p.hall.w - D.hallPier + 4);
+    }
+    assertLegible(layout);
+  }
+});
+
+test("project cloths: from the project, never shared by neighbours on a tier, the same each time", () => {
+  for (const layout of [layoutDungeon(DUNGEON_SAMPLE, 1.4), layoutDungeon(big(2, 6, 2, 1), 1.4), layoutDungeon(big(1, 8, 1, 1), 2)]) {
+    const rows = new Map();
+    for (const p of layout.projects) rows.set(`${p.floor}:${p.tier}`, [...(rows.get(`${p.floor}:${p.tier}`) ?? []), p]);
+    for (const row of rows.values()) {
+      row.sort((a, b) => a.hall.x - b.hall.x);
+      for (let i = 1; i < row.length; i++) assert.notEqual(row[i].cloth, row[i - 1].cloth, `${row[i].name} and ${row[i - 1].name} share ${row[i].cloth}`);
+    }
+    for (const p of layout.projects) assert.ok(CLOTHS.includes(p.cloth));
+  }
+  // The same fleet, the same colours.
+  const a = layoutDungeon(DUNGEON_SAMPLE, 1.4), b = layoutDungeon(structuredClone(DUNGEON_SAMPLE), 1.4);
+  assert.deepEqual(a.projects.map((p) => p.cloth), b.projects.map((p) => p.cloth));
 });

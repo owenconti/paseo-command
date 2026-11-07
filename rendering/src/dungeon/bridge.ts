@@ -696,18 +696,29 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
     for (const p of l.projects) {
       const dim = dimOf(p.floor);
       const y0 = p.span.y;
-      // The project's terrace (its only mark, with its candles: no medallion or icon): a recess of darker stone, under a rampart that returns at its outer end.
-      fill("wall-brick-dark", { x: p.span.x + 30, y: y0 + 34, w: Math.max(0, p.span.w - 60), h: D.alcoveY - 34 }, -50, { ...dim, shade: 0.3 });
-      // A substantial cap: the rampart's lit top and front face, then its shadowed underside face.
-      // Its terrace, tagged with the project so it glows when hovered.
-      const terrace = p.entity ? { ...dim, e: p.entity.id } : dim;
-      // (Lowered toward its bays, so the dark channel between its cap and their roofs stays a narrow shadow.)
-      fill("rampart-x", { x: p.span.x + (p.side === -1 ? 36 : 0), y: y0 + 31, w: p.span.w - 36, h: 30 }, -30, terrace);
-      fill("ledge-face", { x: p.span.x + (p.side === -1 ? 40 : 4), y: y0 + 59, w: p.span.w - 44, h: 9 }, -30.05, { ...terrace, shade: 0.22 });
-      // Occlusion where the terrace's wall meets the recess behind it: a dark pocket under its lip.
-      images.push({ ...image("shade:under", () => paintShade("under")), x: p.span.x + 30, y: y0 + 66, w: Math.max(0, p.span.w - 60), h: 18, z: -29.8 });
-      if (p.side === -1) put("rampart-return-left", p.span.x, y0 + 31, 50, 67, -29.9, terrace);
-      else put("rampart-return-right", p.span.x + p.span.w - 50, y0 + 31, 50, 67, -29.9, terrace);
+      // The project's hall (its mark, with its candles and its cloth: no medallion or icon; the user's choice, A and B):
+      // a dark back wall behind its alcoves, thick end piers, one lintel across their tops, a floor strip before them;
+      // a valance in its colour under the lintel and a runner along the floor. Its stone is tagged with the project,
+      // so its glow follows the hall's own silhouette.
+      const h = p.hall, stone = p.entity ? { ...dim, e: p.entity.id } : dim;
+      const lintelY = h.y, lintelB = h.y + D.lintelH, floorY = h.y + h.h - D.hallFloorH;
+      fill(FRAMES["hall-back"]?.real ? "hall-back" : "wall-brick-dark", { x: h.x + 4, y: lintelB - 2, w: h.w - 8, h: floorY - lintelB + 4 }, -50, { ...dim, shade: 0.3 });
+      put("hall-pillar-left", h.x, lintelB - 2, D.hallPier, floorY - lintelB + 4, -10.6, stone);
+      put("hall-pillar-right", h.x + h.w - D.hallPier, lintelB - 2, D.hallPier, floorY - lintelB + 4, -10.6, stone);
+      fill("hall-lintel", { x: h.x + 20, y: lintelY, w: h.w - 40, h: D.lintelH }, -10.5, stone);
+      put("hall-lintel-end-left", h.x - 3, lintelY, 24, D.lintelH, -10.45, stone);
+      put("hall-lintel-end-right", h.x + h.w - 21, lintelY, 24, D.lintelH, -10.45, stone);
+      // A shadow under the lintel, over the back wall.
+      images.push({ ...image("shade:under", () => paintShade("under")), x: h.x + D.hallPier, y: lintelB, w: h.w - 2 * D.hallPier, h: 12, z: -49, ...dim });
+      fill("hall-floor", { x: h.x, y: floorY, w: h.w, h: D.hallFloorH }, -9.6, stone);
+      // The project's cloth: muted, under the lintel and along the floor.
+      const cloth = p.cloth, valY = lintelB, valH = 15;
+      fill(`valance-${cloth}`, { x: h.x + D.hallPier + 8, y: valY, w: h.w - 2 * D.hallPier - 16, h: valH }, -10.4, dim);
+      put(`valance-${cloth}-end-left`, h.x + D.hallPier - 2, valY - 1, 12, valH + 3, -10.38, dim);
+      put(`valance-${cloth}-end-right`, h.x + h.w - D.hallPier - 10, valY - 1, 12, valH + 3, -10.38, dim);
+      fill(`runner-${cloth}`, { x: h.x + D.hallPier + 6, y: floorY + 3, w: h.w - 2 * D.hallPier - 12, h: 8 }, -9.55, dim);
+      put(`runner-${cloth}-end-left`, h.x + D.hallPier, floorY + 3, 8, 8, -9.54, dim);
+      put(`runner-${cloth}-end-right`, h.x + h.w - D.hallPier - 8, floorY + 3, 8, 8, -9.54, dim);
       // Wall candles flanking its mark, with their warm spill on the wall.
       const lit = l.floors[p.floor]!.online;
       for (const t of p.torches) {
@@ -715,8 +726,8 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
         if (lit) {
           lights.push({ x: t.x, y: t.y + 10, c: 0xffb840, r: 16, period: 1900, flicker: true, ph: random(seedOf(p.key + t.x))(), k: 0.6 });
           lights.push({ x: t.x, y: t.y + 16, c: 0xffb048, r: 40, period: 5200, flicker: false, k: 0.3, z: -29.1 });
-          // Carried onto the cap's lit top below the candles, flattened to that plane.
-          lights.push({ x: t.x, y: p.span.y + 33, rx: 34, ry: 4, c: 0xffa040, period: 5200, flicker: false, k: 0.4, z: -29.95 });
+          // Carried onto the hall's lintel top below the candles, flattened to that plane.
+          lights.push({ x: t.x, y: p.hall.y + 2, rx: 34, ry: 4, c: 0xffa040, period: 5200, flicker: false, k: 0.4, z: -29.95 });
           lights.push({ x: t.x, y: t.y + 26, rx: 30, ry: 26, c: GOLD_DEEP, blend: "gold", tight: 1, k: 0.9, z: -29, period: 5200, flicker: false });
         }
       }

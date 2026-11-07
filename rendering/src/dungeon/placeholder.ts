@@ -179,6 +179,17 @@ export function paintPlaceholder(name: string): HTMLCanvasElement {
     ctx.stroke();
     return canvas;
   }
+  // A project's hall in plain stone, its cloth in its muted colour (until the projects sheet lands).
+  if (name.startsWith("hall-")) {
+    if (name === "hall-back") bricks(ctx, w, h, "#2a2238", "#17121f");
+    else rr(ctx, 0, 0, w, h, 2, name.includes("floor") ? "#8a809c" : "#a49ab8", "#3a3048", 1);
+    return canvas;
+  }
+  if ((m = /^(valance|runner)-(\w+?)(?:-end-(?:left|right))?$/.exec(name))) {
+    const CLOTH: Record<string, string> = { teal: "#2f5d58", plum: "#5a3552", wine: "#5e2a33", moss: "#4a5532", ochre: "#6e5a2e", slate: "#3e4a5a", rust: "#6a3a26", indigo: "#33355e" };
+    rr(ctx, 0, 0, w, h, 2, CLOTH[m[2]!] ?? "#555", "#c9a040", 0.8);
+    return canvas;
+  }
   if (name === "wall-brick" || name === "wall-brick-dark") {
     bricks(ctx, w, h, name === "wall-brick" ? "#4a3e6e" : "#272035", name === "wall-brick" ? "#2e2546" : "#16121f");
     return canvas;
