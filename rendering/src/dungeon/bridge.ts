@@ -556,6 +556,16 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
         put("rampart-return-left", L, T + 25, 72, 70, -43.9, dim);
         put("rampart-return-right", R - 69, T + 25, 69, 70, -43.9, dim);
       }
+      // The stepped mass: its wall face down to the tier, the lower run's lit cap and face, a return at its open end,
+      // a shadow beneath and a dark pocket where it meets the wall behind.
+      if (fl.step) {
+        const st = fl.step, end = st.side === -1 ? st.x + st.w : st.x;
+        fill("wall-brick", { x: st.x, y: st.y + 26, w: st.w, h: fl.tierTops[0]! - (st.y + 26) + 2 }, -47.5, { ...dim, shade: 0.12, ox: 19, oy: 7 });
+        fill("rampart-x", { x: st.x, y: st.y, w: st.w, h: st.h }, -44.2, dim);
+        images.push({ ...image("shade:under", () => paintShade("under")), x: st.x, y: st.y + st.h - 2, w: st.w, h: 16, z: -44.3, ...dim });
+        put(st.side === -1 ? "rampart-return-left" : "rampart-return-right", st.side === -1 ? end - 44 : end - 6, st.y - 4, 50, fl.tierTops[0]! - st.y + 4, -44.1, dim);
+        images.push({ ...image("shade:pocket", () => paintShade("pocket")), x: end - 20, y: T + 20, w: 40, h: st.y - T, z: -47.4, ...dim });
+      }
       // Deep pockets where the masses meet: either side of each pier, down the wall.
       for (const r of fl.piers)
         for (const side of [-1, 1])
@@ -681,12 +691,13 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
       // A substantial cap: the rampart's lit top and front face, then its shadowed underside face.
       // Its terrace, tagged with the project so it glows when hovered.
       const terrace = p.entity ? { ...dim, e: p.entity.id } : dim;
-      fill("rampart-x", { x: p.span.x + (p.side === -1 ? 36 : 0), y: y0 + 21, w: p.span.w - 36, h: 30 }, -30, terrace);
-      fill("ledge-face", { x: p.span.x + (p.side === -1 ? 40 : 4), y: y0 + 49, w: p.span.w - 44, h: 9 }, -30.05, { ...terrace, shade: 0.22 });
+      // (Lowered toward its bays, so the dark channel between its cap and their roofs stays a narrow shadow.)
+      fill("rampart-x", { x: p.span.x + (p.side === -1 ? 36 : 0), y: y0 + 31, w: p.span.w - 36, h: 30 }, -30, terrace);
+      fill("ledge-face", { x: p.span.x + (p.side === -1 ? 40 : 4), y: y0 + 59, w: p.span.w - 44, h: 9 }, -30.05, { ...terrace, shade: 0.22 });
       // Occlusion where the terrace's wall meets the recess behind it: a dark pocket under its lip.
-      images.push({ ...image("shade:under", () => paintShade("under")), x: p.span.x + 30, y: y0 + 46, w: Math.max(0, p.span.w - 60), h: 18, z: -29.8 });
-      if (p.side === -1) put("rampart-return-left", p.span.x, y0 + 23, 50, 75, -29.9, terrace);
-      else put("rampart-return-right", p.span.x + p.span.w - 50, y0 + 23, 50, 75, -29.9, terrace);
+      images.push({ ...image("shade:under", () => paintShade("under")), x: p.span.x + 30, y: y0 + 66, w: Math.max(0, p.span.w - 60), h: 18, z: -29.8 });
+      if (p.side === -1) put("rampart-return-left", p.span.x, y0 + 31, 50, 67, -29.9, terrace);
+      else put("rampart-return-right", p.span.x + p.span.w - 50, y0 + 31, 50, 67, -29.9, terrace);
       // Wall candles flanking its mark, with their warm spill on the wall.
       const lit = l.floors[p.floor]!.online;
       for (const t of p.torches) {
@@ -694,6 +705,8 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
         if (lit) {
           lights.push({ x: t.x, y: t.y + 10, c: 0xffb840, r: 16, period: 1900, flicker: true, ph: random(seedOf(p.key + t.x))(), k: 0.6 });
           lights.push({ x: t.x, y: t.y + 16, c: 0xffb048, r: 40, period: 5200, flicker: false, k: 0.3, z: -29.1 });
+          // Carried onto the cap's lit top below the candles, flattened to that plane.
+          lights.push({ x: t.x, y: p.span.y + 33, rx: 34, ry: 4, c: 0xffa040, period: 5200, flicker: false, k: 0.4, z: -29.95 });
           lights.push({ x: t.x, y: t.y + 26, rx: 30, ry: 26, c: GOLD_DEEP, blend: "gold", tight: 1, k: 0.9, z: -29, period: 5200, flicker: false });
         }
       }
@@ -712,7 +725,9 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
         const left = i === 0, right = i === count - 1 && count > 1;
         // Dressing chosen per bay (stable by its key): a full two-ended computer setup, books and a screen,
         // a desk and a crate, or a quiet shelf; always at the ends, plain wall behind the robots.
-        const kind = (seedOf(w.entity.id) >>> 5) % 4;
+        // By its place in its project, so neighbouring bays never repeat their ends.
+        const order = l.workspaces.filter((o) => o.project === w.project).indexOf(w);
+        const kind = ((seedOf(w.project) >>> 5) + order) % 4;
         const ends: [number, number] = wide ? [1, 1] : ([[1, 1], [2, 1], [1, 3], [2, 0]] as [number, number][])[kind]!;
         const v = w.entity.camp ? (left || right ? 3 : 0) : left ? ends[0] : right ? ends[1] : 0;
         put(`alcove-slot-${v}`, x + 20 + (i * inner) / count, y + 12, inner / count + 0.5, D.alcoveH - 22, -12,
@@ -729,9 +744,14 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
       put("rampart-return-left", x - 2, y - 5, 45, 43, -10.8, frameOf);
       put("rampart-return-right", x + width - 43, y - 5, 45, 43, -10.8, frameOf);
       fill("alcove-ledge", { x: x + 20, y: y + D.alcoveH - 15, w: inner, h: 15 }, -10, frameOf);
+      // A short continuous occlusion strip right under the lintel.
+      images.push({ ...image("shade:under", () => paintShade("under")), x: x + 20, y: y + 20, w: inner, h: 12, z: -11.9, ...dim });
       for (const c of w.candles) {
         sprites.push(sprite("candle", at("candle", c.x, c.y, 10), 4, dim));
         if (online) {
+          // Its light carried onto the ledge top beside it and up the jamb, flattened to those planes.
+          lights.push({ x: c.x + (c.x < x + width / 2 ? 14 : -14), y: c.y + 2, rx: 30, ry: 4, c: 0xffa040, k: 0.35, z: -9.6, period: 1900, flicker: false });
+          lights.push({ x: c.x < x + width / 2 ? x + 14 : x + width - 14, y: c.y - 30, rx: 6, ry: 26, c: 0xff9a38, k: 0.22, z: -10.7, period: 1900, flicker: false });
           lights.push({ x: c.x, y: c.y - 30, c: 0xffc040, r: 24, period: 1900, flicker: true, ph: random(seedOf(w.entity.id + c.x))(), k: 1 });
           lights.push({ x: c.x, y: c.y - 6, rx: 26, ry: 12, c: GOLD, blend: "gold", k: GOLD_K.candle, z: -9.5, period: 1900, flicker: true, ph: random(seedOf(w.entity.id + c.x + "g"))() });
         }
@@ -828,6 +848,10 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
     for (const d of l.decor)
       if (d.frame === "brazier" && l.floors[d.floor]?.online)
         lights.push({ x: d.rect.x + d.rect.w / 2, y: d.rect.y + d.rect.h - 6, rx: 52, ry: 18, c: GOLD_DEEP, blend: "gold", tight: 1, k: 0.8, z: -39, period: 5200, flicker: false });
+    // The braziers' fire carried onto the parapet's top in front of them (flattened to that plane).
+    for (const d of l.decor)
+      if (d.frame === "brazier" && l.floors[d.floor]?.online)
+        lights.push({ x: d.rect.x + d.rect.w / 2, y: l.floors[d.floor]!.top + l.floors[d.floor]!.height - D.footPad + 4, rx: 54, ry: 5, c: 0xffa040, k: 0.45, z: -3.3, period: 2400, flicker: true });
     // The braziers' fire lights the landing round them (added).
     for (const d of l.decor)
       if (d.frame === "brazier" && l.floors[d.floor]?.online)

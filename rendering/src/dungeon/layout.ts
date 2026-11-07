@@ -136,6 +136,8 @@ export type DFloor = {
   /** Each tier's top. */
   tierTops: number[];
   last: boolean;
+  /** A stepped mass on its upper wall (a lower short wall run against a side room), if there's room for one. */
+  step?: Rect & { side: -1 | 1 };
 };
 export type DProject = {
   key: string;
@@ -503,6 +505,14 @@ export function layoutDungeon(data: AtlasData, _aspect = 1.6, measure: Measure =
       ),
       tierTops,
       last,
+      // A stepped mass on one side's upper wall (seeded): a short, lower wall run against the side room's pier,
+      // standing forward of the wall behind, so the floors' upper profiles aren't one continuous line.
+      step: (() => {
+        const s = seedOf(host.key + "step") % 2 === 0 ? -1 : 1;
+        const outer = sideHalf(s) - D.sideRoom - 16, w = 150 + (seedOf(host.key + "stepw") % 50);
+        const inner = Math.max(D.surroundW / 2 + 70, outer - w);
+        return outer - inner < 90 ? undefined : { x: s === -1 ? -outer : inner, y: top + 70, w: outer - inner, h: 32, side: s };
+      })(),
     });
     const online = host.online;
     for (const [rows, s] of [[t.left, -1], [t.right, 1]] as const) {
@@ -630,6 +640,7 @@ export function layoutDungeon(data: AtlasData, _aspect = 1.6, measure: Measure =
 
   // Everything the board says or shows, which decorations keep clear of.
   const reserved: Rect[] = [
+    ...floors.flatMap((fl) => (fl.step ? [{ ...fl.step, y: fl.step.y - 6, h: fl.step.h + 10 }] : [])),
     ...floors.flatMap((fl) => [fl.plaque, fl.portcullis, fl.stairs, fl.surround, fl.arch,
       // The thick front wall closing each tier.
       ...fl.tierTops.map((y0) => ({ x: fl.rect.x, y: y0 + D.frontY, w: fl.rect.w, h: 28 }))]),
@@ -772,15 +783,27 @@ export function layoutDungeon(data: AtlasData, _aspect = 1.6, measure: Measure =
         // Each side's corner its own: small seeded offsets, so the foreground isn't a mirror.
         const jog = (k: string, r: number) => ((seedOf(fl.host.id + k + s) % 1000) / 1000 - 0.5) * 2 * r;
         place({ frame: "brazier", x: s * (112 + jog("b", 8)), y, w: 66, floor: f, layer: "front", ...lit({ color: 0xff9a3a, reach: 30 }) }, false);
-        const rug = FRAMES["rug-red"]!, rugW = 140, rugH = (rug.h * rugW) / rug.w;
-        place({ frame: "rug-red", x: s * (288 + jog("r", 22)), y: lip - 6 + anchorShare(rug.anchor).y * rugH, w: rugW, floor: f, layer: "back" }, false);
-        // The scribe's desk on the rug's outer end, a candelabra on it.
+        const rug = FRAMES["rug-red"]!;
         const corner = `${fl.host.id}:foot:${s}`;
-        place({ frame: "scroll-desk", x: s * (436 + jog("d", 18)), y, w: 86, floor: f, layer: "front", group: corner }, false);
-        // Each corner its own companion: a barrel by the left desk, a stack of crates beyond the right one.
-        if (s === -1) place({ frame: "barrel", x: s * (436 + jog("d", 18) + 62), y, w: 26, floor: f, layer: "front", group: corner }, false);
-        else place({ frame: "crates", x: s * (436 + jog("d", 18) + 72), y, w: 44, floor: f, layer: "back", group: corner }, false);
-        place({ frame: "candelabra", x: s * (436 + jog("d", 18) + (s === -1 ? 24 : -26)), y: y - 52, w: 26, floor: f, layer: "front", group: corner, ...lit({ color: 0xffb040, reach: 40 }) }, false);
+        if (s === -1) {
+          // The left: a scribe's corner, the desk at the rug's near edge, its candelabra and a barrel beside it.
+          const rugW = 150, rugH = (rug.h * rugW) / rug.w;
+          place({ frame: "rug-red", x: -(262 + jog("r", 8)), y: lip - 8 + anchorShare(rug.anchor).y * rugH, w: rugW, floor: f, layer: "back" }, false);
+          const dx = -(400 + jog("d", 10));
+          place({ frame: "scroll-desk", x: dx, y, w: 86, floor: f, layer: "front", group: corner }, false);
+          place({ frame: "candelabra", x: dx + 24, y: y - 52, w: 26, floor: f, layer: "front", group: corner, ...lit({ color: 0xffb040, reach: 40 }) }, false);
+          place({ frame: "barrel", x: dx - 58, y, w: 26, floor: f, layer: "front", group: corner }, false);
+        } else {
+          // The right: a stores corner, crates and barrels stacked at the far end, a narrower rug left clear as a
+          // working gap, the desk pushed out against the stores.
+          const rugW = 118, rugH = (rug.h * rugW) / rug.w;
+          place({ frame: "rug-red", x: 250 + jog("r", 14), y: lip - 2 + anchorShare(rug.anchor).y * rugH, w: rugW, floor: f, layer: "back" }, false);
+          const dx = 470 + jog("d", 10);
+          place({ frame: "scroll-desk", x: dx, y, w: 80, floor: f, layer: "front", group: corner }, false);
+          place({ frame: "candelabra", x: dx - 24, y: y - 49, w: 24, floor: f, layer: "front", group: corner, ...lit({ color: 0xffb040, reach: 40 }) }, false);
+          place({ frame: "crates", x: dx - 92, y: y - 2, w: 48, floor: f, layer: "front", group: corner }, false);
+          place({ frame: "barrels", x: dx - 132, y, w: 40, floor: f, layer: "front", group: corner }, false);
+        }
       }
     }
   });
