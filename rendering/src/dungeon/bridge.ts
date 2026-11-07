@@ -480,9 +480,9 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
     const put = (name: string, x: number, y: number, w: number, h: number, z: number, extra: Sprite = {}) => sprites.push(sprite(name, { x, y, w, h }, z, extra));
     // The wall above the first floor, with its pillars; the HUD's title lies over it.
     {
-      const r = l.topBand.rect, H = r.w / 2;
+      const r = l.topBand.rect, L = r.x, R = r.x + r.w;
       fill("wall-brick-dark", r, -60, { shade: WALL_SHADE });
-      fill("wall-brick", { x: -H + 22, y: r.y + 4, w: 2 * H - 49, h: r.h - 4 }, -55, { shade: WALL_SHADE, ox: 37, oy: 11 });
+      fill("wall-brick", { x: L + 22, y: r.y + 4, w: R - L - 49, h: r.h - 4 }, -55, { shade: WALL_SHADE, ox: 37, oy: 11 });
       for (const p of l.topBand.piers) {
         fill("pillar", p, -45);
         if (FRAMES["pillar-capital"]?.real) put("pillar-capital", p.x - 8, p.y - 4, p.w + 16, 24, -44.8);
@@ -491,22 +491,23 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
     }
     l.floors.forEach((fl, f) => {
       const dim = dimOf(f);
-      const T = fl.top, H = fl.rect.w / 2;
+      // The floor's two ends: its sides may reach differently from the gate's line.
+      const T = fl.top, L = fl.rect.x, R = fl.rect.x + fl.rect.w;
       const rng = random(seedOf(fl.host.id + "wall"));
       // The far wall: the darker stone round the edge, the hall's brick inset, its tiling offset per floor.
       fill("wall-brick-dark", fl.rect, -60, { ...dim, shade: WALL_SHADE });
       const brick = FRAMES["wall-brick"]!;
       const floorEnd = fl.tierTops[fl.tiers - 1]! + D.frontY;
-      fill("wall-brick", { x: -H + 22, y: T + 5, w: 2 * H - 49, h: floorEnd + 2 - (T + 5) }, -55, { ...dim, shade: WALL_SHADE, ox: Math.floor(rng() * brick.w), oy: Math.floor(rng() * brick.h) });
+      fill("wall-brick", { x: L + 22, y: T + 5, w: R - L - 49, h: floorEnd + 2 - (T + 5) }, -55, { ...dim, shade: WALL_SHADE, ox: Math.floor(rng() * brick.w), oy: Math.floor(rng() * brick.h) });
       // The upper back wall: a thick rampart either side of the gate's surround, returning at the floor's ends.
       // (Below the first floor, the floor above's front wall closes the top instead.)
       if (f === 0) {
         for (const sd of [-1, 1]) {
-          const x0 = sd === -1 ? -H + 55 : D.surroundW / 2 - 2, x1 = sd === -1 ? -D.surroundW / 2 + 2 : H - 52;
+          const x0 = sd === -1 ? L + 55 : D.surroundW / 2 - 2, x1 = sd === -1 ? -D.surroundW / 2 + 2 : R - 52;
           fill("rampart-x", { x: x0, y: T + 25, w: x1 - x0, h: 24 }, -44, dim);
         }
-        put("rampart-return-left", -H, T + 25, 72, 70, -43.9, dim);
-        put("rampart-return-right", H - 69, T + 25, 69, 70, -43.9, dim);
+        put("rampart-return-left", L, T + 25, 72, 70, -43.9, dim);
+        put("rampart-return-right", R - 69, T + 25, 69, 70, -43.9, dim);
       }
       // Block pillars with caps and bases.
       for (const r of fl.piers) {
@@ -517,21 +518,21 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
       }
       // Each tier: the terrace floor under its walkway, and the thick front wall that closes it (lit top, returns, ends).
       for (const y0 of fl.tierTops) {
-        fill("terrace-floor", { x: -H + 20, y: y0 + D.floorY - 48, w: 2 * H - 40, h: 74 }, -40, { ...dim, shade: 0.12 });
+        fill("terrace-floor", { x: L + 20, y: y0 + D.floorY - 48, w: R - L - 40, h: 74 }, -40, { ...dim, shade: 0.12 });
         // The last tier's front wall opens round the next floor's gate; any other's round the stairs.
         const open = !fl.last && y0 === fl.tierTops[fl.tiers - 1] ? D.surroundW / 2 - 4 : D.stairsW / 2 + 2;
         for (const sd of [-1, 1]) {
-          const x0 = sd === -1 ? -H + 113 : open, x1 = sd === -1 ? -open : H - 111;
+          const x0 = sd === -1 ? L + 113 : open, x1 = sd === -1 ? -open : R - 111;
           // A light purple shade, so v5's warmed blocks read as stone with warm highlights.
           fill("rampart-x", { x: x0, y: y0 + D.frontY, w: x1 - x0, h: 28 }, -9, { ...dim, shade: 0 });
         }
-        put("rampart-return-right", -H + 30, y0 + D.frontY - 16, 92, 43, -8.9, dim);
-        put("rampart-return-left", H - 118, y0 + D.frontY - 16, 88, 43, -8.9, dim);
-        put("rampart-end-left", -H + 12, y0 + D.frontY - 24, 31, 30, -8.8, dim);
-        put("rampart-end-right", H - 38, y0 + D.frontY - 24, 31, 30, -8.8, dim);
+        put("rampart-return-right", L + 30, y0 + D.frontY - 16, 92, 43, -8.9, dim);
+        put("rampart-return-left", R - 118, y0 + D.frontY - 16, 88, 43, -8.9, dim);
+        put("rampart-end-left", L + 12, y0 + D.frontY - 24, 31, 30, -8.8, dim);
+        put("rampart-end-right", R - 38, y0 + D.frontY - 24, 31, 30, -8.8, dim);
         // The cutaway's thickness under the rampart's lip: the ledge's face, a few substantial corbels and a cool
         // shadow beneath. All of it opens round the next floor's gate, as the rampart does, so the arch reads whole.
-        for (const [x0, x1] of cutawaySpans(fl, y0, H)) {
+        for (const [x0, x1] of cutawaySpans(fl, y0)) {
           fill("ledge-face", { x: x0, y: y0 + D.frontY + 26, w: x1 - x0, h: 14 }, -9.2, { ...dim, shade: 0.5, neutral: 1 });
           images.push({ ...image("shade:under", () => paintShade("under")), x: x0, y: y0 + D.frontY + 38, w: x1 - x0, h: 22, z: -9.3 });
         }
@@ -540,7 +541,7 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
         const bounds = l.workspaces.filter((w) => w.floor === l.floors.indexOf(fl) && w.rect.y < y0 + D.tierH && w.rect.y >= y0)
           .flatMap((w) => [w.rect.x - D.alcoveGap / 2, w.rect.x + w.rect.w + D.alcoveGap / 2]);
         for (const bx of [...new Set(bounds.map((x) => Math.round(x)))]) {
-          if (crng() < 0.35 || !cutawaySpans(fl, y0, H).some(([a, b]) => bx - 20 > a && bx + 20 < b)) continue;
+          if (crng() < 0.35 || !cutawaySpans(fl, y0).some(([a, b]) => bx - 20 > a && bx + 20 < b)) continue;
           const pair = crng() < 0.5;
           for (const [dx, frame] of (pair ? [[-15, "corbel-left"], [15, "corbel-right"]] : [[0, crng() < 0.5 ? "corbel-left" : "corbel-right"]]) as [number, string][])
             put(frame, bx + dx - 14.5, y0 + D.frontY + 38, 29, 31, -9.25, { ...dim, shade: 0.35 });
@@ -550,15 +551,15 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
       for (const sd of [-1, 1])
         for (let y = T + 10; y < T + fl.height - 30; y += 40 + rng() * 50) {
           const bite = 10 + rng() * 22, h = 30 + rng() * 60;
-          fill("wall-brick-dark", { x: sd === -1 ? -H : H - bite, y, w: bite, h }, -54, { ...dim, shade: 0.35 });
+          fill("wall-brick-dark", { x: sd === -1 ? L : R - bite, y, w: bite, h }, -54, { ...dim, shade: 0.35 });
         }
       // Dark breaks on the upper wall: soft shadow patches, so it never reads as wallpaper.
       for (let i = 0; i < 4; i++) {
-        const w = 70 + rng() * 80, x = -H + D.sideRoom + rng() * (2 * H - 2 * D.sideRoom - w);
+        const w = 70 + rng() * 80, x = L + D.sideRoom + rng() * (R - L - 2 * D.sideRoom - w);
         if (Math.abs(x + w / 2) < D.surroundW / 2 + w / 2) continue;
         images.push({ ...image("shade:patch", () => paintShade("patch")), x, y: T + 18 + rng() * 50, w, h: 50 + rng() * 40, z: -50 });
       }
-      if (fl.last) fill("terrace-floor", { x: -H + 20, y: floorEnd + 28, w: 2 * H - 40, h: fl.top + fl.height - floorEnd - 34 }, -40, { ...dim, shade: 0.1 });
+      if (fl.last) fill("terrace-floor", { x: L + 20, y: floorEnd + 28, w: R - L - 40, h: fl.top + fl.height - floorEnd - 34 }, -40, { ...dim, shade: 0.1 });
       // The gate column: the big round surround with the host's icon in its dark top, the plaque, the portcullis
       // behind its arch, and the stairs down between block side walls.
       put("gate-surround", fl.surround.x, fl.surround.y, fl.surround.w, fl.surround.h, -36, dim);
@@ -634,7 +635,8 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
         const ends: [number, number] = wide ? [1, 1] : ([[1, 1], [2, 1], [1, 3], [2, 0]] as [number, number][])[kind]!;
         const v = w.entity.camp ? (left || right ? 3 : 0) : left ? ends[0] : right ? ends[1] : 0;
         put(`alcove-slot-${v}`, x + 20 + (i * inner) / count, y + 12, inner / count + 0.5, D.alcoveH - 22, -12,
-          { ...dim, shade: dim.dim ? 0.55 : INTERIOR_SHADE, ...(left && v === 1 ? { flip: 1 } : {}) });
+          // The left desk turned in (or, seeded, facing out), so bays don't repeat evenly.
+          { ...dim, shade: dim.dim ? 0.55 : INTERIOR_SHADE, ...(left && v === 1 && (seedOf(w.entity.id + "turn") & 3) !== 0 ? { flip: 1 } : {}) });
       }
       put("alcove-left", x, y + 7, 24, D.alcoveH - 9, -11, dim);
       put("alcove-right", x + width - 24, y + 7, 24, D.alcoveH - 9, -11, dim);
@@ -704,17 +706,7 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
       // Capped: the deep gold, so it stays saturated gold behind the robots, never blown to white.
       gold(r.x + r.w / 2, r.y + r.h * 0.5, r.w * 0.56, r.h * 0.56, GOLD_K.alcove + 0.25, -11.4, GOLD_DEEP);
     }
-    for (const fl of l.floors) {
-      if (!fl.online) continue;
-      for (const y0 of fl.tierTops) {
-        for (const sd of [-1, 1])
-          for (let x = D.stairsW / 2 + 70; x < fl.rect.w / 2 - 40; x += 120) {
-            // (The walkways stay purple-grey flagstones, lit warm only right at the lights.)
-            // A faint rim light on the front walls' lit tops (art v5 already warms them; more read as wooden beams).
-            // (No rim light on the front walls: v5's own warm specks carry it.)
-          }
-      }
-    }
+    // (The walkways stay purple-grey flagstones lit warm only at their lights; v5's own warm specks light the front walls' tops.)
     // Warm bounce in clusters, not rails: lit wall tops only near a fixture (a project's wall-candles, the gate's
     // flanking torches), and the inner jambs either side of each alcove.
     for (const p of l.projects) {

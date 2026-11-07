@@ -53,7 +53,7 @@ export const D = {
   /** Each end of a floor is a side room this wide. */
   sideRoom: 160,
   /** A side's content is at least this wide, so a small fleet still reads as the concept's hall. */
-  minSide: 250,
+  minSide: 210,
   /** Floor: its upper band (gate medallion, plaque, node) above its first tier. */
   band: 116,
   tierH: 264,
@@ -79,7 +79,7 @@ export const D = {
   /** The thick front wall closing each tier (its top). */
   frontY: 250,
   /** The wall above the first floor, which the HUD's title lies over. */
-  topBand: 80,
+  topBand: 64,
   /** Within a floor (from its top). */
   gateMedallionY: 48,
   gateMedallionR: 24,
@@ -332,7 +332,7 @@ function block(group: ReturnType<typeof hostGroups>[number], side: -1 | 1, measu
   return { key: group.key, project: group.project, alcoves: outward, width, labelW, labelC, starts };
 }
 
-type Tiered = { left: Block[][]; right: Block[][]; tiers: number; side: number };
+type Tiered = { left: Block[][]; right: Block[][]; tiers: number; side: number; sideL: number; sideR: number };
 function tierUp(blocks: Block[], capacity: number): Tiered {
   const sides: [Block[], Block[]] = [[], []];
   blocks.forEach((b, i) => sides[i % 2]!.push(b));
@@ -353,8 +353,8 @@ function tierUp(blocks: Block[], capacity: number): Tiered {
   const left = pack(sides[0]),
     right = pack(sides[1]);
   const widthOf = (row: Block[]) => row.reduce((s, b) => s + b.width, 0) + D.projectGap * Math.max(0, row.length - 1);
-  const side = Math.max(D.minSide, ...left.map(widthOf), ...right.map(widthOf));
-  return { left, right, tiers: Math.max(1, left.length, right.length), side };
+  const sideL = Math.max(D.minSide, ...left.map(widthOf)), sideR = Math.max(D.minSide, ...right.map(widthOf));
+  return { left, right, tiers: Math.max(1, left.length, right.length), side: Math.max(sideL, sideR), sideL, sideR };
 }
 
 const floorHeight = (tiers: number, last: boolean) =>
@@ -451,6 +451,10 @@ export function layoutDungeon(data: AtlasData, _aspect = 1.6, measure: Measure =
   let top = D.topBand;
   shown.forEach(({ host }, f) => {
     const t = tiered[f]!;
+    // Each floor is as wide as its own content and side rooms: a narrower floor than the widest steps in, the rock
+    // round it dark, so the board's silhouette is excavated rather than a rectangle.
+    const halfL = D.inner + t.sideL + D.sideRoom, halfR = D.inner + t.sideR + D.sideRoom;
+    const sideHalf = (s: number) => (s === -1 ? halfL : halfR);
     const last = f === shown.length - 1;
     const height = floorHeight(t.tiers, last);
     // As the Atlas's banners name hosts: in capitals.
@@ -490,7 +494,7 @@ export function layoutDungeon(data: AtlasData, _aspect = 1.6, measure: Measure =
       top,
       height,
       tiers: t.tiers,
-      rect: { x: -half, y: top, w: half * 2, h: height },
+      rect: { x: -halfL, y: top, w: halfL + halfR, h: height },
       medallion: { x: 0, y: top + D.gateMedallionY },
       plaque: { x: -plaqueW / 2, y: top + D.plaqueY, w: plaqueW, h: D.plaqueH },
       title: plaqueTitle,
@@ -506,8 +510,8 @@ export function layoutDungeon(data: AtlasData, _aspect = 1.6, measure: Measure =
       arch: { x: -D.archW / 2, y: top + D.archY, w: D.archW, h: D.archH },
       surround: { x: -D.surroundW / 2, y: top + D.surroundY, w: D.surroundW, h: D.surroundH },
       // Block pillars at the floor's ends and between its hall and side rooms.
-      piers: ([[half - 22, 44], [half - D.sideRoom, 29]] as const).flatMap(([x, w]) =>
-        [-1, 1].map((s) => ({ x: s * x - w / 2, y: top + 45, w, h: tierTops[t.tiers - 1]! + D.frontY - (top + 45) })),
+      piers: ([[22, 44], [D.sideRoom, 29]] as const).flatMap(([d, w]) =>
+        [-1, 1].map((s) => ({ x: s * (sideHalf(s) - d) - w / 2, y: top + 45, w, h: tierTops[t.tiers - 1]! + D.frontY - (top + 45) })),
       ),
       tierTops,
       last,
@@ -654,9 +658,14 @@ export function layoutDungeon(data: AtlasData, _aspect = 1.6, measure: Measure =
     top = nextTop;
   });
   const boardH = top;
-  const bounds = { x: -half, y: 0, w: half * 2, h: boardH };
+  // The board's extent: its widest reach either side (floors step in where they're narrower).
+  const left = floors.length ? Math.min(...floors.map((f) => f.rect.x)) : -half;
+  const right = floors.length ? Math.max(...floors.map((f) => f.rect.x + f.rect.w)) : half;
+  const bounds = { x: left, y: 0, w: right - left, h: boardH };
   /** The upper wall above the first floor, with a pillar either side of the gate's column. */
-  const topBand = { rect: { x: -half, y: 0, w: half * 2, h: D.topBand }, piers: [-1, 1].map((s) => ({ x: s * (D.surroundW / 2 + 60) - 14, y: 8, w: 28, h: D.topBand - 8 })) };
+  // The wall above the first floor is as wide as the first floor.
+  const topHalf = (s: number) => (floors[0] ? (s === -1 ? -floors[0].rect.x : floors[0].rect.x + floors[0].rect.w) : half);
+  const topBand = { rect: floors[0] ? { x: floors[0].rect.x, y: 0, w: floors[0].rect.w, h: D.topBand } : { x: -half, y: 0, w: half * 2, h: D.topBand }, piers: [-1, 1].map((s) => ({ x: s * (D.surroundW / 2 + 60) - 14, y: 8, w: 28, h: D.topBand - 8 })) };
 
   // Everything the board says or shows, which decorations keep clear of.
   const reserved: Rect[] = [
@@ -690,12 +699,14 @@ export function layoutDungeon(data: AtlasData, _aspect = 1.6, measure: Measure =
     const lit0 = (light: { color: number; reach: number }) => (floors[0]?.online ? { light } : {});
     for (const s of [-1, 1] as const) {
       place({ frame: "torch", x: s * (D.surroundW / 2 + 30), y: 18, w: 24, floor: 0, layer: "front", ...lit0(TORCH_LIGHT) });
-      place({ frame: "torch", x: s * (half - 200 - rng() * 60), y: 16, w: 24, floor: 0, layer: "front", ...lit0(TORCH_LIGHT) });
+      place({ frame: "torch", x: s * (topHalf(s) - 200 - rng() * 60), y: 16, w: 24, floor: 0, layer: "front", ...lit0(TORCH_LIGHT) });
       place({ frame: "window-barred", x: s * (D.surroundW / 2 + 130 + rng() * 40), y: 42, w: 40, floor: 0, layer: "back" });
-      if (FRAMES["window-arch"]?.real) place({ frame: "window-arch", x: s * (half - 110), y: 74, w: 40, floor: 0, layer: "back" });
+      if (FRAMES["window-arch"]?.real) place({ frame: "window-arch", x: s * (topHalf(s) - 110), y: 74, w: 40, floor: 0, layer: "back" });
     }
   }
   floors.forEach((fl, f) => {
+    // Each side's own reach from the gate's line (a floor's two sides may differ).
+    const sideHalf = (s: number) => (s === -1 ? -fl.rect.x : fl.rect.x + fl.rect.w);
     const rng = random(seedOf(fl.host.id + "decor"));
     const pick = <T,>(list: T[]) => list[Math.floor(rng() * list.length)]!;
     const online = fl.online;
@@ -714,7 +725,7 @@ export function layoutDungeon(data: AtlasData, _aspect = 1.6, measure: Measure =
     fl.tierTops.forEach((y0) => {
       for (const s of [-1, 1] as const) {
         const v = deck[dealt++ % deck.length]!;
-        const mid = s * (half - D.sideRoom / 2);
+        const mid = s * (sideHalf(s) - D.sideRoom / 2);
         const left = mid - ROOM.w / 2, feet = y0 + D.floorY - 7, top = feet - ROOM.h;
         const recess = FRAMES[v.room]?.real ? v.room : "niche-arch";
         const group = `${fl.host.id}:${y0}:${s}`;
@@ -728,7 +739,7 @@ export function layoutDungeon(data: AtlasData, _aspect = 1.6, measure: Measure =
           place({ frame: prop.frame, x: cx - (0.5 - a.x) * w, y: foot - (1 - a.y) * prop.h, w, floor: f, layer: "front", group, ...(prop.light ? lit(prop.light) : {}) }, false);
         }
         // A torch by the room's outer wall.
-        place({ frame: "torch", x: s * (half - 16), y: y0 + 120, floor: f, layer: "front", ...lit(TORCH_LIGHT) });
+        place({ frame: "torch", x: s * (sideHalf(s) - 16), y: y0 + 120, floor: f, layer: "front", ...lit(TORCH_LIGHT) });
       }
     });
     // Torches on the wall between alcoves.
@@ -749,8 +760,8 @@ export function layoutDungeon(data: AtlasData, _aspect = 1.6, measure: Measure =
         if ((hung = place({ frame: "banner-purple-layers", x: s * (hostX + nudge), y: mount, w: f === 0 ? 64 : 56, floor: f, layer: "back" }))) break;
       if (hung)
         place({ frame: "torch", x: s * (hostX + 50), y: fl.top + 56, w: 24, floor: f, layer: "front", ...lit(TORCH_LIGHT) });
-      place({ frame: THEMED[(seedOf(fl.host.id) + (s === 1 ? 1 : 0)) % THEMED.length]!, x: s * (half - D.sideRoom / 2), y: fl.top + 40, w: 60, floor: f, layer: "back" });
-      for (let x = hostX + 100 + rng() * 30; x < half - D.sideRoom - 30; x += 52 + rng() * 50) {
+      place({ frame: THEMED[(seedOf(fl.host.id) + (s === 1 ? 1 : 0)) % THEMED.length]!, x: s * (sideHalf(s) - D.sideRoom / 2), y: fl.top + 40, w: 60, floor: f, layer: "back" });
+      for (let x = hostX + 100 + rng() * 30; x < sideHalf(s) - D.sideRoom - 30; x += 52 + rng() * 50) {
         const roll = rng();
         const arch = FRAMES["window-arch"]?.real ? "window-arch" : "niche-arch";
         const chains = FRAMES["chain-pair"]?.real ? "chain-pair" : "chain";
@@ -770,15 +781,15 @@ export function layoutDungeon(data: AtlasData, _aspect = 1.6, measure: Measure =
       fl.tierTops.forEach((y0) => {
         const used = projects.filter((p) => p.floor === f && p.side === s && p.span.y === y0);
         const edge = used.length ? Math.max(...used.map((p) => (s === 1 ? p.span.x + p.span.w : -p.span.x))) : D.inner;
-        for (let x = edge + 30; x < half - D.sideRoom - 30; x += 60 + rng() * 40) place({ frame: pick(FLOOR_PROPS), x: s * x, y: y0 + D.floorY, w: (FRAMES[FLOOR_PROPS[0]!]!.w) * 1.3, floor: f, layer: "front" });
-        for (let x = edge + 40; x < half - D.sideRoom - 40; x += 110 + rng() * 40)
+        for (let x = edge + 30; x < sideHalf(s) - D.sideRoom - 30; x += 60 + rng() * 40) place({ frame: pick(FLOOR_PROPS), x: s * x, y: y0 + D.floorY, w: (FRAMES[FLOOR_PROPS[0]!]!.w) * 1.3, floor: f, layer: "front" });
+        for (let x = edge + 40; x < sideHalf(s) - D.sideRoom - 40; x += 110 + rng() * 40)
           place({ frame: rng() < 0.5 ? "window-barred" : "niche-arch", x: s * x, y: rng() < 0.5 ? y0 + 60 : y0 + 150, floor: f, layer: "back" });
       });
     }
     // Clutter on free floor: in the gaps beside alcoves, on the walkways and beside the side rooms.
     for (const s of [-1, 1] as const)
       fl.tierTops.forEach((y0) => {
-        for (let x = D.inner + 6; x < half - 20; x += 22 + rng() * 14) {
+        for (let x = D.inner + 6; x < sideHalf(s) - 20; x += 22 + rng() * 14) {
           if (rng() < 0.45) continue;
           const frame = pick(CLUTTER);
           const spec = FRAMES[frame] ?? FRAMES[`${frame}-0`]!;
@@ -792,13 +803,15 @@ export function layoutDungeon(data: AtlasData, _aspect = 1.6, measure: Measure =
       const lip = fl.tierTops[fl.tiers - 1]! + D.frontY + 40;
       place({ frame: "banner-crown", x: 0, y: lip + 2, w: 70, floor: f, layer: "front" }, false);
       for (const s of [-1, 1] as const) {
-        place({ frame: "brazier", x: s * 112, y, w: 66, floor: f, layer: "front", ...lit({ color: 0xff9a3a, reach: 30 }) }, false);
+        // Each side's corner its own: small seeded offsets, so the foreground isn't a mirror.
+        const jog = (k: string, r: number) => ((seedOf(fl.host.id + k + s) % 1000) / 1000 - 0.5) * 2 * r;
+        place({ frame: "brazier", x: s * (112 + jog("b", 8)), y, w: 66, floor: f, layer: "front", ...lit({ color: 0xff9a3a, reach: 30 }) }, false);
         const rug = FRAMES["rug-red"]!, rugW = 162, rugH = (rug.h * rugW) / rug.w;
-        place({ frame: "rug-red", x: s * 300, y: lip + 6 + anchorShare(rug.anchor).y * rugH, w: rugW, floor: f, layer: "back" }, false);
+        place({ frame: "rug-red", x: s * (292 + jog("r", 10)), y: lip + 6 + anchorShare(rug.anchor).y * rugH, w: rugW, floor: f, layer: "back" }, false);
         // The scribe's desk on the rug's outer end, a candelabra on it.
         const corner = `${fl.host.id}:foot:${s}`;
-        place({ frame: "scroll-desk", x: s * 430, y, w: 86, floor: f, layer: "front", group: corner }, false);
-        place({ frame: "candelabra", x: s * 404, y: y - 52, w: 26, floor: f, layer: "front", group: corner, ...lit({ color: 0xffb040, reach: 40 }) }, false);
+        place({ frame: "scroll-desk", x: s * (436 + jog("d", 10)), y, w: 86, floor: f, layer: "front", group: corner }, false);
+        place({ frame: "candelabra", x: s * (436 + jog("d", 10) + (s === -1 ? 24 : -26)), y: y - 52, w: 26, floor: f, layer: "front", group: corner, ...lit({ color: 0xffb040, reach: 40 }) }, false);
       }
     }
   });
@@ -865,7 +878,8 @@ export function hudSubtitle(layout: DungeonLayout): string {
 /** The spans a tier's cutaway (its ledge face, underside and shadow) runs across, from x to x: the floor's
  * width less its ends, opened round the next floor's gate surround below a floor's last tier, as its front
  * rampart is, so the next host's arch and icon read whole. */
-export function cutawaySpans(fl: DFloor, y0: number, half = fl.rect.w / 2): [number, number][] {
+export function cutawaySpans(fl: DFloor, y0: number): [number, number][] {
+  const L = fl.rect.x + 26, R = fl.rect.x + fl.rect.w - 26;
   const opens = !fl.last && y0 === fl.tierTops[fl.tiers - 1];
-  return opens ? [[-half + 26, -D.surroundW / 2 + 2], [D.surroundW / 2 - 2, half - 26]] : [[-half + 26, half - 26]];
+  return opens ? [[L, -D.surroundW / 2 + 2], [D.surroundW / 2 - 2, R]] : [[L, R]];
 }
