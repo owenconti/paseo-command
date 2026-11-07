@@ -768,7 +768,7 @@ fleet, sparse or crowded. A world of its own, built as the Dungeon Board is: `re
 `bridge.ts`, `mountNativeVillage`; `frames.ts`, the sprite contract; `placeholder.ts` for frames the sheets lack) and
 `native/Sources/PaseoCommandNative/VillageScene.swift` (`MapScene` kind `village`).
 One village for the whole fleet (never a square per host). Its crystal fountain is the fleet, dead centre of four halls (`HALLS`), on
-its ring with navy lamp-post banners either side; its plaque stacks the hosts, narrow (each one's name over its status dot and `CPU · MEM · DISK`,
+its ring with lamps either side (its hover card lists the hosts); its plaque stacks the hosts, narrow (each one's name over its status dot and `CPU · MEM · DISK`,
 ≥ 90% red; offline says so, and that host's workspaces and agents are dimmed). The halls stand close round the fountain's ring, the gaps between them just the roads; the bottom halls' porches come down to the ponds
 beside the bridge and the front wall. The halls (no banners: each says what it is in its hover card): top left "GitHub PRs" (blue), four tiles counting your pull requests (`GET /api/github/q/prCounts`, `readPrCounts` in
 `web/server/github/reads.ts`: merged in the last 14 days, in review, draft, conflicts or failing checks); top right "Linear Issues"
