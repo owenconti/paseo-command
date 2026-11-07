@@ -7,7 +7,7 @@ import { prFlags } from "../prStatus.ts";
 import { loadSheetsFrom, frameOf, type Sheets } from "./atlas.ts";
 import { overworldFleet } from "./fleet.ts";
 import { layout, hash, type OwHost, type Scene } from "./layout.ts";
-import { overworldSeaTile, paintScene, robotFrame, ROBOT_SCALE, seaPeriod } from "./paint.ts";
+import { overworldSeaTile, paintScene, recolourSheets, robotFrame, ROBOT_SCALE, seaPeriod } from "./paint.ts";
 
 /** World units (the native map's) per concept pixel: a robot about as large as the Islands'. */
 export const WORLD = 2.5;
@@ -36,7 +36,7 @@ export function overworldSheets(): Promise<Sheets> {
     if (!json) return undefined;
     const url = sheetUrls[`../assets/overworld/${String(json.image ?? `${name}.png`)}`];
     return url ? { json, url } : undefined;
-  });
+  }).then(recolourSheets);
   return sheets;
 }
 

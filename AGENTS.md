@@ -702,10 +702,10 @@ A second map style (Settings → Map, ⌘K "Use the Overworld map" / "Use the Is
 `atlas:style`, Islands by default), from the user's concept render (ignored `design/references/overworld-concept.png`): each host a
 terraced island region with its castle (plaque with name and CPU · MEM · DISK, two banners) on top, project halls (roof colour and icon
 badge seeded from the project) left and right of it, two a row, and each project's workspaces as market booths beneath it (rows of up to
-three; a camp for agents without a workspace); no connector lines (the user dropped them). The painted world keeps the concept's colours
-softened as a watercolour (`FINAL_GRADE` thins the colour, the `TONE` curve lifts shadows to pastel, and `watercolour` bleeds colours with a
-blurred copy and lets warm paper and its grain show through; the user found a muted grade unpleasant and the first watercolour
-too vivid), while names (labels, plaques) and the robots are drawn crisp over it. Scenery is a theme seeded per host: forest and snowy peaks,
+three; a camp for agents without a workspace); no connector lines (the user dropped them). The world's colours are set per sprite sheet as it
+loads (`SHEET_COLOURS`, `recolourSheets` in `paint.ts`: a watercolour palette, lighter, softer and less saturated, with lifted
+shadows); there is no overlay or wash on the finished painting (the user rejected one). Robots, status badges and name plaques keep
+their own colours so they stand out. Scenery is a theme seeded per host: forest and snowy peaks,
 farmland, or volcanic; forests are canopy masses (`foliage.png`), islands' fronts carry cliff faces, headlands, rocks and surf
 (`coast.png`, `paintCoast`), and the sea is `sea2.png`'s calm tile. Robots keep provider colours (Claude orange, ChatGPT/Codex pearl, others the neutral robot tinted) and step through their
 pose's frames (idle or working; Swift cycles a streamer's `frames`, the first only with reduced motion). Its sprites are

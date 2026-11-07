@@ -1,7 +1,7 @@
 // Overworld preview: lays out the concept's fleet and paints it, for side-by-side checks.
 import { loadSheets } from "../src/overworld/atlas.ts";
 import { layout, type OwAgent, type OwHost } from "../src/overworld/layout.ts";
-import { paintScene } from "../src/overworld/paint.ts";
+import { paintScene, recolourSheets } from "../src/overworld/paint.ts";
 import { overworldFleet } from "../src/overworld/fleet.ts";
 import { crowded } from "../tests/fixtures.mjs";
 import { SAMPLE } from "../src/sample.ts";
@@ -49,7 +49,7 @@ async function main(): Promise<void> {
   const params = new URLSearchParams(location.search);
   const K = Number(params.get("k") ?? 4);
   const tex = params.get("tex");
-  const sheets = await loadSheets("../src/assets/overworld", tex ? { textures: tex } : {});
+  const sheets = recolourSheets(await loadSheets("../src/assets/overworld", tex ? { textures: tex } : {}));
   await document.fonts.ready;
   const fleet = params.get("fleet");
   const scene = layout(fleet === "crowded" ? overworldFleet(crowded) : fleet === "sample" ? overworldFleet(SAMPLE) : CONCEPT);
