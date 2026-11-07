@@ -858,24 +858,7 @@ function sceneryOf(town: VTown, squares: VSquare[], lawns: VLawn[], projects: VP
   // and greenery along its other edges so no straight edge of grass shows.
   for (const lawn of lawns) {
     const [lane, ...walks] = lawn.paths;
-    // The lane and walkways are cobbled (the bridge paves them, on a darker kerb); grass tufts creep over their edges,
-    // never onto a building, a robot or another path.
-    const tuft = (x: number, y: number) => {
-      const rect = boxOf("grass-tufts", x, y, 30 + rng() * 12);
-      if ([...says, ...water].some((o) => overlaps(o, rect, 2))) return;
-      if (lawn.paths.some((p) => overlaps(rect, { x: p.x + 10, y: p.y + 10, w: p.w - 20, h: p.h - 20 }))) return;
-      decor.push({ frame: "grass-tufts", x, y, rect, square: lawn.square, layer: "stand", hedge: true });
-    };
-    for (const p of lawn.paths) {
-      const long = p.w > p.h;
-      const len = long ? p.w : p.h;
-      for (let t = 20 + rng() * 20; t < len - 10; t += 46 + rng() * 30)
-        for (const side of [0, 1])
-          if (rng() < 0.7)
-            long
-              ? tuft(p.x + t, side ? p.y + p.h + 8 : p.y + 10)
-              : tuft(side ? p.x + p.w + 2 : p.x - 2, p.y + t);
-    }
+    // The lane and walkways are painted by the bridge (cobble in a wavy outline, grass creeping over its edges).
     const r = lawn.rect;
     // The front: a fence's rails along it (the cluster's walkway leaves by its side, toward the fountain).
     const fy = r.y + r.h + 6;

@@ -298,6 +298,129 @@ export function mountNativeVillage(parent: HTMLElement, handlers: AtlasHandlers 
     sent.add(key);
     return { key, png: png(paint()) };
   };
+  /** A lawn's paths as one painted road: their union in a wavy outline (each edge pushed in and out 4–10 units), a
+   * darker kerb round it and stones jutting from it, the warm cobble within, and grass blades creeping over the whole
+   * edge on the lawn's side (none where a path runs on into another, nor out on the plaza). Drawn in `box`. */
+  const paintLawnPaths = (box: Rect, lawn: Rect, paths: Rect[]) => {
+    const K = 1.5;
+    const W = Math.ceil(box.w * K), H = Math.ceil(box.h * K);
+    const mk = () => {
+      const c = document.createElement("canvas");
+      c.width = W;
+      c.height = H;
+      const ctx = c.getContext("2d")!;
+      ctx.setTransform(K, 0, 0, K, -box.x * K, -box.y * K);
+      return { c, ctx };
+    };
+    const rng = random(seedOf(paths.map((p) => `${Math.round(p.x)},${Math.round(p.y)}`).join("|")));
+    const stoneName = realFrames.has("cobble-warm") ? "cobble-warm" : "cobble";
+    const pattern = (ctx: CanvasRenderingContext2D, name: string) => {
+      const src = frame(name);
+      const pat = ctx.createPattern(src, "repeat")!;
+      const k = FRAMES[name]!.w / src.width;
+      pat.setTransform(new DOMMatrix([k, 0, 0, k, 0, 0]));
+      return pat;
+    };
+    const inner = (pt: { x: number; y: number }, self: Rect) =>
+      paths.some((o) => o !== self && pt.x > o.x + 4 && pt.x < o.x + o.w - 4 && pt.y > o.y + 4 && pt.y < o.y + o.h - 4);
+    const onLawn = (pt: { x: number; y: number }) => pt.x > lawn.x && pt.x < lawn.x + lawn.w && pt.y > lawn.y && pt.y < lawn.y + lawn.h;
+    // Each path's wavy outline: points every ~9 units round its rectangle, pushed out (or in) up to 10 units along runs that
+    // border grass; where it runs into another path or onto the plaza, straight.
+    const outlines = paths.map((p) => {
+      const pts: { x: number; y: number; nx: number; ny: number; edge: boolean }[] = [];
+      const sides = [
+        [p.x, p.y, p.x + p.w, p.y, 0, -1], [p.x + p.w, p.y, p.x + p.w, p.y + p.h, 1, 0],
+        [p.x + p.w, p.y + p.h, p.x, p.y + p.h, 0, 1], [p.x, p.y + p.h, p.x, p.y, -1, 0],
+      ] as const;
+      let wave = rng() * 6;
+      for (const [x0, y0, x1, y1, nx, ny] of sides) {
+        const len = Math.hypot(x1 - x0, y1 - y0), n = Math.max(2, Math.round(len / 12));
+        for (let i = 0; i < n; i++) {
+          const t = i / n;
+          const base = { x: x0 + (x1 - x0) * t, y: y0 + (y1 - y0) * t };
+          const probe = { x: base.x + nx * 6, y: base.y + ny * 6 };
+          const edge = !inner(probe, p) && onLawn(probe);
+          wave = Math.max(-6, Math.min(10, wave + (rng() - 0.5) * 7));
+          const d = edge ? wave : 0;
+          pts.push({ x: base.x + nx * d, y: base.y + ny * d, nx, ny, edge });
+        }
+      }
+      return pts;
+    });
+    const trace = (ctx: CanvasRenderingContext2D, grow = 0) => {
+      ctx.beginPath();
+      for (const pts of outlines) {
+        pts.forEach((q, i) => (i ? ctx.lineTo(q.x + q.nx * grow, q.y + q.ny * grow) : ctx.moveTo(q.x + q.nx * grow, q.y + q.ny * grow)));
+        ctx.closePath();
+      }
+    };
+    const out = mk();
+    const ctx = out.ctx;
+    // The kerb: the outline grown 4 units, dark warm brown, kept on the lawn (the plaza needs none).
+    const kerb = mk();
+    kerb.ctx.save();
+    kerb.ctx.beginPath();
+    kerb.ctx.rect(lawn.x, lawn.y, lawn.w, lawn.h);
+    kerb.ctx.clip();
+    kerb.ctx.fillStyle = "rgba(62, 42, 20, 0.92)";
+    trace(kerb.ctx, 5);
+    kerb.ctx.fill("nonzero");
+    // Stones jutting out of it along the grass edge.
+    for (const pts of outlines)
+      for (const q of pts)
+        if (q.edge && rng() < 0.3) {
+          const r = 3.5 + rng() * 4, x = q.x + q.nx * (5 + rng() * 5), y = q.y + q.ny * (5 + rng() * 5);
+          kerb.ctx.beginPath();
+          kerb.ctx.ellipse(x, y, r * 1.3, r, 0, 0, Math.PI * 2);
+          kerb.ctx.fillStyle = "rgba(74, 52, 28, 0.9)";
+          kerb.ctx.fill();
+          kerb.ctx.beginPath();
+          kerb.ctx.ellipse(x - 0.6, y - 0.8, r * 1.05, r * 0.75, 0, 0, Math.PI * 2);
+          kerb.ctx.fillStyle = rng() < 0.5 ? "#c9a571" : "#b48d5a";
+          kerb.ctx.fill();
+        }
+    kerb.ctx.restore();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.drawImage(kerb.c, 0, 0);
+    ctx.setTransform(K, 0, 0, K, -box.x * K, -box.y * K);
+    // The cobble within the outline.
+    ctx.save();
+    trace(ctx);
+    ctx.clip("nonzero");
+    ctx.fillStyle = pattern(ctx, stoneName);
+    ctx.fillRect(box.x, box.y, box.w, box.h);
+    ctx.restore();
+    // Grass creeping over the edge: blades of the lawn's grass from just outside the outline inward, 3–9 units, along
+    // every grass edge.
+    const grass = mk();
+    grass.ctx.fillStyle = pattern(grass.ctx, "grass");
+    grass.ctx.beginPath();
+    for (const pts of outlines)
+      for (let i = 0; i < pts.length; i++) {
+        const q = pts[i]!, nxt = pts[(i + 1) % pts.length]!;
+        if (!q.edge) continue;
+        for (let t = 0; t < 1; t += 0.2) {
+          const x = q.x + (nxt.x - q.x) * t, y = q.y + (nxt.y - q.y) * t;
+          const len = 5 + rng() * 9, half = 1.6 + rng() * 2.2;
+          const tx = -q.ny, ty = q.nx;
+          const lean = (rng() - 0.5) * 3;
+          grass.ctx.moveTo(x + q.nx * 3 - tx * half, y + q.ny * 3 - ty * half);
+          grass.ctx.lineTo(x + q.nx * 3 + tx * half, y + q.ny * 3 + ty * half);
+          grass.ctx.lineTo(x - q.nx * len + tx * lean, y - q.ny * len + ty * lean);
+          grass.ctx.closePath();
+        }
+      }
+    grass.ctx.fill();
+    // A soft shadow under the grass's edge, then the grass.
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.save();
+    ctx.globalAlpha = 0.35;
+    ctx.filter = "blur(2px) brightness(0.2)";
+    ctx.drawImage(grass.c, 0, 2);
+    ctx.restore();
+    ctx.drawImage(grass.c, 0, 0);
+    return out.c;
+  };
   const canvasFor = (w: number, h: number) => {
     const canvas = document.createElement("canvas");
     canvas.width = Math.ceil(w * TEXT_SCALE);
@@ -564,16 +687,15 @@ export function mountNativeVillage(parent: HTMLElement, handlers: AtlasHandlers 
       const grid = FRAMES.grass!.w * 6;
       const phase = (v: number) => ((v % grid) + grid) % grid;
       for (const lawn of l.lawns) sprites.push(tile("grass", lawn.rect, -56.8, { ...dimOf(lawn.square), ox: phase(lawn.rect.x), oy: phase(lawn.rect.y) }));
-      // Its lane and walkways: the plaza's warm cobble on a darker kerb a little wider, so the way from the plaza to every
-      // door reads at a glance against the grass.
-      const stone = realFrames.has("cobble-warm") ? "cobble-warm" : "cobble";
-      for (const lawn of l.lawns)
-        for (const p of lawn.paths) {
-          const kerb = { x: p.x - 7, y: p.y - 7, w: p.w + 14, h: p.h + 14 };
-          sprites.push(tile(stone, kerb, -56.75, { ...dimOf(lawn.square), shade: 0.5 }));
-        }
-      for (const lawn of l.lawns)
-        for (const p of lawn.paths) sprites.push(tile(stone, p, -56.7, { ...dimOf(lawn.square), ox: phase(p.x), oy: phase(p.y) }));
+      // Its lane and walkways, painted here as one piece per lawn: warm cobble in a wavy outline on a darker kerb, stones
+      // jutting out, grass creeping over the whole edge, so the way to every door reads as a laid road.
+      for (const lawn of l.lawns) {
+        if (!lawn.paths.length) continue;
+        const m = 16;
+        const box = { x: lawn.rect.x - 40, y: lawn.rect.y - m, w: lawn.rect.w + 80, h: lawn.rect.h + m * 2 + 30 };
+        const key = `lawnpaths:${[box, ...lawn.paths].map((r) => [r.x, r.y, r.w, r.h].map((v) => Math.round(v)).join(",")).join("|")}`;
+        images.push({ ...image(key, () => paintLawnPaths(box, lawn.rect, lawn.paths)), x: box.x, y: box.y, w: box.w, h: box.h, z: -56.7, ...dimOf(lawn.square) });
+      }
     }
     for (const p of l.projects) {
       const dim = { ...(p.square >= 0 ? dimOf(p.square) : {}), ...(p.stale ? { a: 0.75 } : {}) };

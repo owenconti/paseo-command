@@ -811,7 +811,8 @@ flowers, a low fence along its front, a back garden of small trees and shrubs be
 or purple roofs, neighbours differing), its workspaces' cottages (`cottage-0..5`, all at one scale, the widest about 55% of a
 hall's frame) oldest first beside it, two a side (as the Islands map's touch their landmark), then in rows of four in front
 either side of a stepping-stone lane from the hall's door; every row on a walkway about a robot's width, the lane
-joining them (both the plaza's warm cobble on a darker kerb, grass tufts over their edges, so they read at a glance), the front row's walkway running out through the lawn's side (its hedge open there) onto the
+joining them (painted page-side per lawn, `paintLawnPaths` in `bridge.ts`: the plaza's warm cobble in a wavy outline on a darker kerb with stones jutting from it,
+the lawn's grass creeping over the whole edge, none where a path runs on into another or out onto the plaza; so they read at a glance), the front row's walkway running out through the lawn's side (its hedge open there) onto the
 fountain's plaza. Every structure is on a path (the user's call: robots need a way to their house): each district's gate opens
 onto a cobbled way up to the paving above (the walk under the dashboard halls, which stand on it, or the district above), and
 from the plaza the walkways and lanes reach every hall's door and every cottage's doorstep, where its robots stand; market stalls
