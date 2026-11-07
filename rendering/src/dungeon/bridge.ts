@@ -50,7 +50,9 @@ const GOLD_DEEP = 0x7a4c00;
 const GOLD_DIM = 0x5e3a00;
 /** The stairs' tread pitch (board units), for their lit noses. */
 const TREAD = 12;
-const GOLD_K = { alcove: 0.75, stairs: 0.9, walk: 0.9, rim: 0.9, front: 0.35, torch: 0.95, candle: 0.85 };
+/** Warm bounce on the alcoves' inner jambs (off: next to the robots it competed with them). */
+const JAMBS = false;
+const GOLD_K = { alcove: 0.55, stairs: 0.9, walk: 0.9, rim: 0.9, front: 0.35, torch: 0.95, candle: 0.85 };
 /** The concept's chunky, wide, rounded heavy type: SF Pro Rounded where WebKit has it. */
 const FONT = 'ui-rounded, "SF Pro Rounded", "Arial Rounded MT Bold", "Paseo Barlow", sans-serif';
 /** Its weights: labels and plaques heavy, the HUD's lighter lines bold. */
@@ -549,7 +551,8 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
       put("gate-surround", fl.surround.x, fl.surround.y, fl.surround.w, fl.surround.h, -36, dim);
       sprites.push(sprite("icon-layers", at("icon-layers", 0, fl.medallion.y, 47), -35.9, dim));
       // The stairs, a shade down from the sheet's, so their lit steps don't outshine the robots.
-      const steps = { ...dim, shade: dim.dim ? 0.55 : 0.28 };
+      // The treads at their own warm exposure (the sheet already lights them); the side walls stay shaded below.
+      const steps = { ...dim, shade: dim.dim ? 0.55 : 0.22 };
       fill("stairs-mid", { x: fl.stairs.x, y: fl.stairs.y + 36, w: fl.stairs.w, h: Math.max(0, fl.stairs.h - 36) }, -26, steps);
       // Bright gold where the gate's light catches the treads' noses: thin lines, not a fill.
       if (fl.online)
@@ -583,12 +586,13 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
       if (p.side === -1) put("rampart-return-left", p.span.x, y0 + 23, 50, 75, -29.9, dim);
       else put("rampart-return-right", p.span.x + p.span.w - 50, y0 + 23, 50, 75, -29.9, dim);
       sprites.push(sprite("medallion", at("medallion", p.medallion.x, p.medallion.y, D.medallionR * 2), 2, dim));
-      // A pair of candles at the label's foot, as the concept lights its plaques.
-      for (const cx of [p.label.x + 8, p.label.x + p.label.w - 8]) {
-        sprites.push(sprite("candle", at("candle", cx, p.label.y + p.label.h + 10, 9), 3.2, dim));
-        if (l.floors[p.floor]!.online) {
-          lights.push({ x: cx, y: p.label.y + p.label.h - 14, c: 0xffb040, r: 18, period: 1900, flicker: true, ph: random(seedOf(p.key + cx))(), k: 0.9 });
-          lights.push({ x: cx, y: p.label.y + p.label.h + 4, rx: 20, ry: 12, c: GOLD, blend: "gold", tight: 1, k: 0.9, z: 1.2, period: 5200, flicker: false });
+      // Wall candles beside the label, as the concept lights its plaques, with their warm spill on the wall.
+      const lit = l.floors[p.floor]!.online;
+      for (const cx of [p.label.x - 22, p.label.x + p.label.w + 22]) {
+        sprites.push(sprite(lit ? "wall-candles" : "wall-candles-out", at("wall-candles", cx, p.label.y - 16, 30), 3.2, dim));
+        if (lit) {
+          lights.push({ x: cx, y: p.label.y - 6, c: 0xffb840, r: 22, period: 1900, flicker: true, ph: random(seedOf(p.key + cx))(), k: 0.9 });
+          lights.push({ x: cx, y: p.label.y + 10, rx: 30, ry: 26, c: GOLD_DEEP, blend: "gold", tight: 1, k: 0.9, z: -29, period: 5200, flicker: false });
         }
       }
       sprites.push(sprite(`icon-${p.icon}`, at(`icon-${p.icon}`, p.medallion.x, p.medallion.y, 30), 2.1, dim));
@@ -609,7 +613,11 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
       const wide = w.agents.length >= 4;
       for (let i = 0; i < count; i++) {
         const left = i === 0, right = i === count - 1 && count > 1;
-        const v = w.entity.camp ? (left || right ? 3 : 0) : left ? 1 : right ? (wide ? 1 : 2) : 0;
+        // Dressing chosen per bay (stable by its key): a full two-ended computer setup, books and a screen,
+        // a desk and a crate, or a quiet shelf; always at the ends, plain wall behind the robots.
+        const kind = (seedOf(w.entity.id) >>> 5) % 4;
+        const ends: [number, number] = wide ? [1, 1] : ([[1, 1], [2, 1], [1, 3], [2, 0]] as [number, number][])[kind]!;
+        const v = w.entity.camp ? (left || right ? 3 : 0) : left ? ends[0] : right ? ends[1] : 0;
         put(`alcove-slot-${v}`, x + 20 + (i * inner) / count, y + 12, inner / count + 0.5, D.alcoveH - 22, -12,
           { ...dim, shade: dim.dim ? 0.55 : INTERIOR_SHADE, ...(left && v === 1 ? { flip: 1 } : {}) });
       }
@@ -643,7 +651,7 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
       const z = d.frame === "rug-red" ? -39.5 : d.recess ? -38 : d.layer === "back" ? -48 : -4;
       // Side rooms' recesses a shade down, so their coloured light never outshines the robots.
       // Side rooms' recesses and the foot's red rugs a shade down, so neither outshines the robots.
-      const glowing = /^(magic-circle|crystal|alchemy-tank|forge)$/.test(d.frame);
+      const glowing = /^(magic-circle|crystal|alchemy-tank|forge|brazier)$/.test(d.frame);
       const quiet = (d.recess || glowing || d.frame === "rug-red") && l.floors[d.floor]?.online ? { shade: d.recess ? 0.45 : glowing ? 0.32 : 0.38 } : {};
       sprites.push(sprite(d.frame, d.rect, z, { ...dimOf(d.floor), ...(d.flip ? { flip: 1 } : {}), ...quiet }));
       if (d.light && l.floors[d.floor]!.online)
@@ -691,17 +699,17 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
           }
       }
     }
-    // Gold rim light along the lit tops of each project terrace's wall and each floor's back wall.
+    // Warm bounce in clusters, not rails: lit wall tops only near a fixture (a project's wall-candles, the gate's
+    // flanking torches), and the inner jambs either side of each alcove.
     for (const p of l.projects) {
       if (!l.floors[p.floor]!.online) continue;
-      for (let x = p.span.x + 30; x < p.span.x + p.span.w - 10; x += 52)
-        lights.push({ x, y: p.span.y + 31, rx: 46, ry: 14, c: GOLD_DEEP, blend: "gold", k: GOLD_K.rim, z: -29.5, period: 5200, flicker: false });
+      for (const t of p.torches)
+        lights.push({ x: t.x, y: p.span.y + 31, rx: 40, ry: 14, c: GOLD_DEEP, blend: "gold", k: GOLD_K.rim, z: -29.5, period: 5200, flicker: false });
     }
-    for (const fl of l.floors) {
-      if (!fl.online) continue;
-      for (const sd of [-1, 1])
-        for (let x = D.surroundW / 2 + 30; x < fl.rect.w / 2 - 50; x += 52)
-          lights.push({ x: sd * x, y: fl.top + 33, rx: 46, ry: 14, c: GOLD_DEEP, blend: "gold", k: GOLD_K.rim, z: -43.5, period: 5200, flicker: false });
+    for (const w of JAMBS ? l.workspaces : []) {
+      if (!l.floors[w.floor]!.online) continue;
+      for (const jx of [w.rect.x + 14, w.rect.x + w.rect.w - 14])
+        lights.push({ x: jx, y: w.rect.y + w.rect.h * 0.55, rx: 12, ry: w.rect.h * 0.3, c: GOLD_DEEP, blend: "gold", k: 0.6, z: -10.5, period: 5200, flicker: false });
     }
     // Candlelit side rooms (not the magic or crystal rooms, which keep their own light).
     for (const d of l.decor)
@@ -714,7 +722,7 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
     // One pool per torch, or per pair of torches close together (stacked pools would outshine the robots).
     const pooled: { x: number; y: number }[] = [];
     for (const d of l.decor) {
-      if (d.frame !== "torch" || !l.floors[d.floor]?.online) continue;
+      if ((d.frame !== "torch" && d.frame !== "wall-candles") || !l.floors[d.floor]?.online) continue;
       const x = d.rect.x + d.rect.w / 2, y = d.rect.y + 30;
       if (pooled.some((q) => Math.hypot(q.x - x, q.y - y) < 90)) continue;
       pooled.push({ x, y });

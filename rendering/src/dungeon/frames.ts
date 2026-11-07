@@ -48,6 +48,8 @@ export const ANIMATIONS: Record<string, number> = {
   "crystal": 4,
   "alchemy-tank": 4,
   "magic-circle": 4,
+  "candelabra": 4,
+  "wall-candles": 4,
   ...Object.fromEntries(ROBOT_COLORS.flatMap((c) => [[`robot-${c}-idle`, 2], [`robot-${c}-work`, 4], [`drone-${c}`, 2]])),
 };
 /** An animation's frame names, in order. */
@@ -141,6 +143,10 @@ export const FRAMES: Record<string, FrameSpec> = Object.fromEntries([
   ...anim("alchemy-tank", spec("props", 84, 124, "feet")),
   ...anim("magic-circle", spec("props", 104, 40, "center")),
   ["armor", spec("props", 32, 66, "feet")],
+  ...anim("candelabra", spec("props", 35, 49, "feet")),
+  ["candelabra-out", spec("props", 35, 49, "feet")],
+  ...anim("wall-candles", spec("props", 44, 51, "top-center")),
+  ["wall-candles-out", spec("props", 44, 51, "top-center")],
   ["scroll-desk", spec("props", 64, 46, "feet")],
   ["table", spec("props", 52, 36, "feet")],
   ["rug-red", spec("props", 134, 36, "center")],
