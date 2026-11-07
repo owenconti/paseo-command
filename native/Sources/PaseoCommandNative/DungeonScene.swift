@@ -95,9 +95,10 @@ final class DungeonScene: SKScene, MapScene {
     // MARK: Camera and input
 
     private var maxZoom: CGFloat = 3.4
-    /// The HUD lies over the board, as the concept's does: no screen room is kept for it.
+    /// The HUD lies over the board, as the concept's does. The count bar lies over the foot's pad, plus a little screen
+    /// room below the board (the pad's share of the bar shrinks with the zoom), so the foot's furnishings stay clear of it.
     private let hudTop: CGFloat = 0
-    private let hudBottom: CGFloat = 0
+    private let hudBottom: CGFloat = 26
     private let margin: CGFloat = 8
     private var center = CGPoint.zero
     private var zoom: CGFloat = 1
@@ -516,8 +517,8 @@ final class DungeonScene: SKScene, MapScene {
     /// A light's glow: additive, in its colour, flickering as a flame or breathing.
     private func light(_ l: [String: Any], into glows: inout [Glow]) -> SKNode {
         let reach = num(l["r"], 40)
-        // An ellipse when it gives its radii; a "gold" light multiplies the stone toward its colour (doubled), so
-        // it lights it gold rather than greying it as added light would.
+        // An ellipse when it gives its radii; a "gold" light scales the stone up toward its colour (doubled, never below
+        // neutral), so it lights it gold rather than greying it as added light would, and never stains it brown.
         let size = l["rx"] != nil ? CGSize(width: num(l["rx"]) * 2, height: num(l["ry"]) * 2) : CGSize(width: reach * 2 + 2, height: reach * 2 + 2)
         let golden = l["blend"] as? String == "gold"
         if golden {
@@ -579,7 +580,10 @@ final class DungeonScene: SKScene, MapScene {
         let ctx = Textures.context(px, px)!
         let space = CGColorSpace(name: CGColorSpace.sRGB)!
         let c = [CGFloat((color >> 16) & 255), CGFloat((color >> 8) & 255), CGFloat(color & 255)].map { $0 / 255 }
-        let mix = { (k: CGFloat) in CGColor(colorSpace: space, components: c.map { 0.5 + ($0 - 0.5) * k } + [1])! }
+        // Never below neutral (0.5, which ×2 leaves as it is) in any channel: the light only raises the stone toward its
+        // hue (its colour's channels as shares of its strongest), so it warms and brightens, never browns or darkens.
+        let top = max(c.max() ?? 1, 0.01)
+        let mix = { (k: CGFloat) in CGColor(colorSpace: space, components: c.map { 0.5 + 0.5 * k * ($0 / top) } + [1])! }
         ctx.setFillColor(mix(0))
         ctx.fill(CGRect(x: 0, y: 0, width: px, height: px))
         let gradient = CGGradient(colorsSpace: space, colors: [mix(strength), mix(strength * (tight ? 0.45 : 0.95)), mix(0)] as CFArray, locations: [0, tight ? 0.3 : 0.7, 1])!

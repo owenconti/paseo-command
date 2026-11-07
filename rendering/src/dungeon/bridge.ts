@@ -79,9 +79,10 @@ const png = (canvas: HTMLCanvasElement) => canvas.toDataURL("image/png");
 const GRADED = new Set(["stone", "gate", "alcoves", "props"]);
 /** The concept's grade: a fifth more saturation, shadows and mids pushed toward its purples
  * (#2a1f4a, #4a3a7a) by how dark they are, warm highlights (torch light, gold) left warm. */
-export const GRADE = { lift: 1.19, warmth: [1, 1, 1], saturation: 1.05, shadow: [0x2a, 0x1f, 0x4a], mid: [0x4a, 0x3a, 0x7a], strength: 0.1 };
-function grade(image: HTMLImageElement, opts: { saturation?: number; strength?: number } = {}): HTMLCanvasElement {
-  const saturation = opts.saturation ?? GRADE.saturation, strength = opts.strength ?? GRADE.strength;
+/** `stoneLift`: the walls' and floors' ambient, a notch above the props' and alcoves' so the lavender stone reads as bright as the concept's. */
+export const GRADE = { lift: 1.19, stoneLift: 1.38, warmth: [1, 1, 1], saturation: 1.05, shadow: [0x2a, 0x1f, 0x4a], mid: [0x4a, 0x3a, 0x7a], strength: 0.1 };
+function grade(image: HTMLImageElement, opts: { saturation?: number; strength?: number; lift?: number } = {}): HTMLCanvasElement {
+  const saturation = opts.saturation ?? GRADE.saturation, strength = opts.strength ?? GRADE.strength, lift = opts.lift ?? GRADE.lift;
   const canvas = document.createElement("canvas");
   canvas.width = image.naturalWidth;
   canvas.height = image.naturalHeight;
@@ -106,9 +107,9 @@ function grade(image: HTMLImageElement, opts: { saturation?: number; strength?: 
     if (!warm && strength > 0) {
       const t = strength * Math.pow(1 - l, 1.3);
       const tint = l < 0.35 ? shadow : mid;
-      r *= (1 - t + t * tint[0]!) * GRADE.warmth[0]! * GRADE.lift;
-      g *= (1 - t + t * tint[1]!) * GRADE.warmth[1]! * GRADE.lift;
-      b *= (1 - t + t * tint[2]!) * GRADE.warmth[2]! * GRADE.lift;
+      r *= (1 - t + t * tint[0]!) * GRADE.warmth[0]! * lift;
+      g *= (1 - t + t * tint[1]!) * GRADE.warmth[1]! * lift;
+      b *= (1 - t + t * tint[2]!) * GRADE.warmth[2]! * lift;
     }
     d[i] = Math.max(0, Math.min(255, r));
     d[i + 1] = Math.max(0, Math.min(255, g));
@@ -139,7 +140,7 @@ async function buildFrames(): Promise<{ canvases: Map<string, HTMLCanvasElement>
     // The stone, gate, alcoves and props are graded once toward the concept's deeper purple.
     const stem = path.replace(/^.*\//, "").replace(/\.json$/, "");
     // The robots keep their colours vivid: only a saturation lift, never the purple grade.
-    const source = GRADED.has(stem) ? grade(image) : stem === "robots" ? grade(image, { saturation: 1.15, strength: 0 }) : image;
+    const source = GRADED.has(stem) ? grade(image, stem === "stone" ? { lift: GRADE.stoneLift } : {}) : stem === "robots" ? grade(image, { saturation: 1.15, strength: 0 }) : image;
     for (const [name, f] of Object.entries(sheet.frames)) {
       if (!FRAMES[name]) continue;
       const canvas = document.createElement("canvas");
@@ -506,7 +507,7 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
       }
       // Each tier: the terrace floor under its walkway, and the thick front wall that closes it (lit top, returns, ends).
       for (const y0 of fl.tierTops) {
-        fill("terrace-floor", { x: L + 20, y: y0 + D.floorY - 48, w: R - L - 40, h: 74 }, -40, { ...dim, shade: 0.12 });
+        fill("terrace-floor", { x: L + 20, y: y0 + D.floorY - 48, w: R - L - 40, h: 74 }, -40, { ...dim, shade: 0.22 });
         // The last tier's front wall opens round the next floor's gate; any other's round the stairs.
         const open = !fl.last && y0 === fl.tierTops[fl.tiers - 1] ? D.surroundW / 2 - 4 : D.stairsW / 2 + 2;
         for (const sd of [-1, 1]) {
@@ -518,6 +519,11 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
         put("rampart-return-left", R - 118, y0 + D.frontY - 16, 88, 43, -8.9, dim);
         put("rampart-end-left", L + 12, y0 + D.frontY - 24, 31, 30, -8.8, dim);
         put("rampart-end-right", R - 38, y0 + D.frontY - 24, 31, 30, -8.8, dim);
+        // Returns where the wall opens for the stairs: its ends capped, so the stairs come down through a built opening.
+        if (open === D.stairsW / 2 + 2) {
+          put("rampart-end-right", -open - 27, y0 + D.frontY - 24, 31, 30, -8.8, dim);
+          put("rampart-end-left", open - 4, y0 + D.frontY - 24, 31, 30, -8.8, dim);
+        }
         // The cutaway's thickness under the rampart's lip: the ledge's face, a few substantial corbels and a cool
         // shadow beneath. All of it opens round the next floor's gate, as the rampart does, so the arch reads whole.
         for (const [x0, x1] of cutawaySpans(fl, y0)) {
@@ -528,7 +534,9 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
         const crng = random(seedOf(`${fl.host.id}${y0}corbels`));
         const bounds = l.workspaces.filter((w) => w.floor === l.floors.indexOf(fl) && w.rect.y < y0 + D.tierH && w.rect.y >= y0)
           .flatMap((w) => [w.rect.x - D.alcoveGap / 2, w.rect.x + w.rect.w + D.alcoveGap / 2]);
-        for (const bx of [...new Set(bounds.map((x) => Math.round(x)))]) {
+        // (The last floor's front wall steps down onto the foot's landing: a riser and its shadow, no corbels.)
+        const ontoFoot = fl.last && y0 === fl.tierTops[fl.tiers - 1];
+        for (const bx of ontoFoot ? [] : [...new Set(bounds.map((x) => Math.round(x)))]) {
           if (crng() < 0.35 || !cutawaySpans(fl, y0).some(([a, b]) => bx - 20 > a && bx + 20 < b)) continue;
           const pair = crng() < 0.5;
           for (const [dx, frame] of (pair ? [[-15, "corbel-left"], [15, "corbel-right"]] : [[0, crng() < 0.5 ? "corbel-left" : "corbel-right"]]) as [number, string][])
@@ -547,7 +555,7 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
         if (Math.abs(x + w / 2) < D.surroundW / 2 + w / 2) continue;
         images.push({ ...image("shade:patch", () => paintShade("patch")), x, y: T + 18 + rng() * 50, w, h: 50 + rng() * 40, z: -50 });
       }
-      if (fl.last) fill("terrace-floor", { x: L + 20, y: floorEnd + 28, w: R - L - 40, h: fl.top + fl.height - floorEnd - 34 }, -40, { ...dim, shade: 0.1 });
+      if (fl.last) fill("terrace-floor", { x: L + 20, y: floorEnd + 28, w: R - L - 40, h: fl.top + fl.height - floorEnd - 34 }, -40, { ...dim, shade: 0.26 });
       // The gate column: the big round surround with the host's icon in its dark top, the plaque, the portcullis
       // behind its arch, and the stairs down between block side walls.
       put("gate-surround", fl.surround.x, fl.surround.y, fl.surround.w, fl.surround.h, -36, dim);
@@ -693,7 +701,7 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
     for (const p of l.projects) {
       if (!l.floors[p.floor]!.online) continue;
       for (const t of p.torches)
-        lights.push({ x: t.x, y: p.span.y + 31, rx: 40, ry: 14, c: GOLD_DEEP, blend: "gold", k: GOLD_K.rim, z: -29.5, period: 5200, flicker: false });
+        lights.push({ x: t.x, y: p.span.y + 31, rx: 30, ry: 11, c: GOLD, blend: "gold", k: 0.45, z: -29.5, period: 5200, flicker: false });
     }
     for (const w of JAMBS ? l.workspaces : []) {
       if (!l.floors[w.floor]!.online) continue;
@@ -708,7 +716,7 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
     if (FRAMES["light-spill-floor-0"]?.real)
       for (const d of l.decor)
         if (/^(brazier|forge|candelabra)$/.test(d.frame) && l.floors[d.floor]?.online)
-          sprites.push(sprite(`light-spill-floor-${seedOf(`${d.x},${d.y}`) % 2}`, at("light-spill-floor-0", d.rect.x + d.rect.w / 2, d.rect.y + d.rect.h - 4, d.frame === "candelabra" ? 70 : 110), -39.2));
+          sprites.push(sprite(`light-spill-floor-${seedOf(`${d.x},${d.y}`) % 2}`, at("light-spill-floor-0", d.rect.x + d.rect.w / 2, d.rect.y + d.rect.h - 4, d.frame === "candelabra" ? 70 : 110), -39.2, { add: 1, a: 0.55 }));
     // The forecourt's floor lit by its braziers.
     for (const d of l.decor)
       if (d.frame === "brazier" && l.floors[d.floor]?.online)
@@ -720,15 +728,14 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
       const x = d.rect.x + d.rect.w / 2, y = d.rect.y + 30;
       if (pooled.some((q) => Math.hypot(q.x - x, q.y - y) < 90)) continue;
       pooled.push({ x, y });
-      // Tight: a small bright heart and a quick falloff, torchlight on stone rather than a smudge.
-      lights.push({ x, y, rx: 64, ry: 58, c: GOLD, blend: "gold", tight: 1, k: GOLD_K.torch, z: -43, period: 5200, flicker: false });
-      // The art's painted warm glaze on the wall round the flame (one of three, seeded), in place of a round halo.
+      // The flame, near the fixture's top.
+      const fy = d.rect.y + 10;
+      // Torchlight on stone: a small multiplied pool for the warm cast, close round the flame, and added golden light.
+      lights.push({ x, y: fy + 18, rx: 40, ry: 36, c: GOLD, blend: "gold", tight: 1, k: 0.5, z: -43, period: 5200, flicker: false });
+      lights.push({ x, y: fy, c: 0xffc060, r: 30, k: 0.32, period: 5200, flicker: false, z: -43.1 });
+      // The art's painted glaze round the flame (one of three, seeded), added as light: small and golden, never a multiplied stain.
       if (FRAMES["light-spill-wall-0"]?.real)
-        sprites.push(sprite(`light-spill-wall-${seedOf(`${x},${y}`) % 3}`, at("light-spill-wall-0", x, y + 28, 92), -43.3));
-      // A soft, wide bounce on the surrounding wall and jambs, fading by distance; neighbours' overlap.
-      lights.push({ x, y: y + 20, rx: 120, ry: 90, c: GOLD_DEEP, blend: "gold", k: 0.45, z: -43.4, period: 5200, flicker: false });
-      // Its light falling on the wall below: wide and deep (warm, not bright).
-      lights.push({ x, y: y + 34, rx: 72, ry: 48, c: GOLD_DEEP, blend: "gold", tight: 1, k: 0.95, z: -43.2, period: 5200, flicker: false });
+        sprites.push(sprite(`light-spill-wall-${seedOf(`${x},${y}`) % 3}`, at("light-spill-wall-0", x, fy + 8, 64), -43.3, { add: 1, a: 0.6 }));
     }
     return {
       type: "scene",

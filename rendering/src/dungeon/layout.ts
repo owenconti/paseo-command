@@ -61,9 +61,9 @@ export const D = {
   /** The stone ledge's face under a tier's floor. */
   ledge: 28,
   /** Below the last floor: the stairs' foot, braziers, rugs and the crown banner. */
-  foot: 118,
+  foot: 92,
   /** Below the foot's furnishings, room the HUD's count bar lies over (nothing the board says is under it). */
-  footPad: 90,
+  footPad: 82,
   /** Within a tier (from its top). */
   /** A project's mark: its icon medallion (no name label: names are on the hover cards, as on the Islands). */
   medallionY: 32,
@@ -380,7 +380,8 @@ const VIGNETTES: { name: string; room: string; glow?: { color: number; reach: nu
     { frame: "forge", h: 124, dx: 10, light: { color: 0xff9a3a, reach: 50 } }, { frame: "anvil", h: 44, dx: -40 },
     { frame: "shelf-potions", h: 58, dx: -48, up: 64 }, { frame: "table", h: 30, dx: 56 }, { frame: "candelabra", h: 30, dx: 56, up: 24, light: { color: 0xffb040, reach: 40 } } ] },
   { name: "alchemy", room: "room-arch", glow: { color: 0xc06bff, reach: 100, dy: 140 }, props: [{ frame: "alchemy-tank", h: 122, dx: 2 }, { frame: "crate", h: 38, dx: -52 }] },
-  { name: "storage", room: "room-arch", props: [{ frame: "barrels", h: 62, dx: -22 }, { frame: "crates", h: 70, dx: 28 }, { frame: "candelabra", h: 30, dx: 28, up: 70, light: { color: 0xffb040, reach: 40 } }] },
+  // A storeroom: armour standing at the back, barrels and crates before it, a shelf up the wall, so the arch never reads empty.
+  { name: "storage", room: "room-arch", props: [{ frame: "armor", h: 98, dx: -4 }, { frame: "shelf-potions", h: 44, dx: 32, up: 96 }, { frame: "barrels", h: 54, dx: -32 }, { frame: "crates", h: 58, dx: 34 }, { frame: "candelabra", h: 28, dx: 34, up: 52, light: { color: 0xffb040, reach: 40 } }] },
 ];
 /** Themed banners, over the end rooms. */
 const THEMED = ["banner-navy-hammers", "banner-blue-anvil", "banner-purple"];
@@ -796,8 +797,8 @@ export function layoutDungeon(data: AtlasData, _aspect = 1.6, measure: Measure =
         // Each side's corner its own: small seeded offsets, so the foreground isn't a mirror.
         const jog = (k: string, r: number) => ((seedOf(fl.host.id + k + s) % 1000) / 1000 - 0.5) * 2 * r;
         place({ frame: "brazier", x: s * (112 + jog("b", 8)), y, w: 66, floor: f, layer: "front", ...lit({ color: 0xff9a3a, reach: 30 }) }, false);
-        const rug = FRAMES["rug-red"]!, rugW = 162, rugH = (rug.h * rugW) / rug.w;
-        place({ frame: "rug-red", x: s * (292 + jog("r", 10)), y: lip + 6 + anchorShare(rug.anchor).y * rugH, w: rugW, floor: f, layer: "back" }, false);
+        const rug = FRAMES["rug-red"]!, rugW = 140, rugH = (rug.h * rugW) / rug.w;
+        place({ frame: "rug-red", x: s * (292 + jog("r", 10)), y: lip - 6 + anchorShare(rug.anchor).y * rugH, w: rugW, floor: f, layer: "back" }, false);
         // The scribe's desk on the rug's outer end, a candelabra on it.
         const corner = `${fl.host.id}:foot:${s}`;
         place({ frame: "scroll-desk", x: s * (436 + jog("d", 10)), y, w: 86, floor: f, layer: "front", group: corner }, false);

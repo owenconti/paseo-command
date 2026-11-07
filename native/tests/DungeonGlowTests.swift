@@ -18,7 +18,11 @@ scene.setAgents(["robots": [["id": "a", "x": -20.0, "y": 100.0, "w": 40.0, "h": 
 RunLoop.main.run(until: Date() + 1)
 let tex = view.texture(from: scene)!.cgImage()
 let rep = NSBitmapImageRep(cgImage: tex)
-// Under its feet the state's glow shows in its colour (green for running), not white.
-let c = rep.colorAt(x: rep.pixelsWide / 2, y: rep.pixelsHigh / 2 + 3 * rep.pixelsHigh / 300)!
-assert(c.greenComponent > c.redComponent + 0.15 && c.greenComponent > c.blueComponent + 0.05, "the state glow is tinted in its state's colour")
+// Under its feet the state's glow shows in its colour (green for running), not white: somewhere down its middle,
+// wherever the fit puts the board.
+let tinted = (0..<rep.pixelsHigh).contains { y in
+    let c = rep.colorAt(x: rep.pixelsWide / 2, y: y)!
+    return c.greenComponent > c.redComponent + 0.15 && c.greenComponent > c.blueComponent + 0.05
+}
+assert(tinted, "the state glow is tinted in its state's colour")
 print("DungeonGlow: ok")
