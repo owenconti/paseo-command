@@ -666,7 +666,7 @@ final class VillageScene: SKScene, MapScene {
 
     /// A soft halo following the sprite's own silhouette (behind it) and a brightening of the sprite itself (its white
     /// silhouette added over it), as the sprite's children so they move and sort with it.
-    private func glow(_ owner: (node: SKSpriteNode, frame: String), color: Int, strength: CGFloat, name: String) -> [SKNode] {
+    private func glow(_ owner: (node: SKSpriteNode, frame: String), color: Int, strength: CGFloat, name: String, wide: Bool = true) -> [SKNode] {
         let sprite = owner.node
         guard let h = halo(owner.frame) else { return [] }
         let size = sprite.size
@@ -689,7 +689,7 @@ final class VillageScene: SKScene, MapScene {
         lift.zPosition = 0.02
         sprite.addChild(ring)
         sprite.addChild(lift)
-        if strength >= 1 {
+        if wide {
             // Selection: a second, wider pass of the halo, so the gold reads on any ground.
             let wide = ring.copy() as! SKSpriteNode
             wide.size = CGSize(width: ring.size.width * 1.08, height: ring.size.height * 1.08)
@@ -724,7 +724,7 @@ final class VillageScene: SKScene, MapScene {
         hoverNode.removeAllChildren()
         clearGlow("hover-glow")
         guard let id = hovered, id != selected else { return }
-        _ = spritesOf(id).flatMap { glow($0, color: 0xfff1d0, strength: 0.85, name: "hover-glow") }
+        _ = spritesOf(id).flatMap { glow($0, color: 0xfff4dc, strength: 1, name: "hover-glow", wide: false) }
     }
 
     private func setHover(_ id: String?, flag: Flag? = nil) {

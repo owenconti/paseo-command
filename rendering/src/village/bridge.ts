@@ -501,31 +501,10 @@ export function mountNativeVillage(parent: HTMLElement, handlers: AtlasHandlers 
     // Toned down from the sheet's bright gold toward the concept's warm grey-brown; lamp pools and the vignette make the bright spots.
     // The warm paving, nudged toward the concept's tan-brown (a light warm tint, never darker).
     const tone = stone === "cobble" ? { shade: PAVE_SHADE, ...extra } : extra;
-    const out: Sprite[] = [tile(stone, { x: r.x + e * 0.5, y: r.y + e * 0.5, w: r.w - e, h: r.h - e }, z, tone)];
-    const paved = (px: number, py: number) => others.some((o) => px >= o.x && px <= o.x + o.w && py >= o.y && py <= o.y + o.h);
-    // Each piece's outside: just beyond its ragged side(s); a piece whose outside is paved (or an open side) isn't drawn.
-    const cut = (name: string, x: number, y: number, w: number, h: number, uv: number[]) => {
-      if ([...name].some((d) => open.includes(d))) return;
-      const ox = name.includes("w") ? x - 4 : name.includes("e") ? x + w + 4 : x + w / 2;
-      const oy = name.includes("n") ? y - 4 : name.includes("s") ? y + h + 4 : y + h / 2;
-      if (paved(ox, oy) || (name.length === 2 && (paved(ox, y + h / 2) || paved(x + w / 2, oy)))) return;
-      out.push({ f: `${stone}-edge-${name}`, x, y, w, h, uv, z: z + 0.01, ...tone });
-    };
-    // Along the top and bottom, in runs of the piece's width (its middle, clear of its own corners).
-    for (let x = r.x + e; x < r.x + r.w - e - 0.5; x += P * 0.6) {
-      const w = Math.min(P * 0.6, r.x + r.w - e - x), u = 0.2, du = w / P;
-      cut("n", x, r.y, w + 0.4, e, [u, 0, du, k]);
-      cut("s", x, r.y + r.h - e, w + 0.4, e, [u, 1 - k, du, k]);
-    }
-    for (let y = r.y + e; y < r.y + r.h - e - 0.5; y += P * 0.6) {
-      const h = Math.min(P * 0.6, r.y + r.h - e - y), v = 0.2, dv = h / P;
-      cut("w", r.x, y, e, h + 0.4, [0, v, k, dv]);
-      cut("e", r.x + r.w - e, y, e, h + 0.4, [1 - k, v, k, dv]);
-    }
-    cut("nw", r.x, r.y, e, e, [0, 0, k, k]);
-    cut("ne", r.x + r.w - e, r.y, e, e, [1 - k, 0, k, k]);
-    cut("sw", r.x, r.y + r.h - e, e, e, [0, 1 - k, k, k]);
-    cut("se", r.x + r.w - e, r.y + r.h - e, e, e, [1 - k, 1 - k, k, k]);
+    // The cobbles only: the paving's boundary is hidden under the greenery the layout crowds along it (`hedge`), so no
+    // straight strip of edge pieces shows (their moss line read as a seam).
+    const out: Sprite[] = [tile(stone, r, z, tone)];
+    void others; void open; void P; void k; void e;
     return out;
   };
 

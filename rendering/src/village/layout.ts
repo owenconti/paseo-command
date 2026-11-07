@@ -222,6 +222,8 @@ export type VDecor = {
   light?: { color: number; reach: number; dy?: number };
   /** Drawn on the ground (under everything standing) or standing (sorted by its feet). */
   layer: "ground" | "stand";
+  /** Along the paving's boundary (it may lean onto the paving). */
+  hedge?: boolean;
 };
 export type VillageLayout = {
   bounds: Rect;
@@ -962,6 +964,38 @@ function sceneryOf(squares: VSquare[], projects: VProject[], workspaces: VWorksp
       for (const sx of [south.x - 14, south.x + south.w + 14]) place({ frame: `bush-${Math.floor(rng() * 4)}`, x: sx, y, w: 70, layer: "stand" });
     for (let y = north.y + 120; y < north.y + north.h + 40; y += 110)
       for (const sx of [north.x - 90, north.x + north.w + 90]) place({ frame: `tree-${Math.floor(rng() * 6)}`, x: sx, y, w: 170, layer: "stand" });
+    // Hedges along every boundary of the paving with the forest: bushes, flowers and tufts crowding the line, jittered, so
+    // the edge reads organic and never straight. They may lean onto the paving, never onto what the village says.
+
+    const hedgeSpots: { x: number; y: number }[] = [];
+    const along = (x0: number, y0: number, x1: number, y1: number, inward: { x: number; y: number }) => {
+      const len = Math.hypot(x1 - x0, y1 - y0), n = Math.max(1, Math.round(len / 38));
+      for (let i = 0; i <= n; i++) {
+        const t = i / n + (rng() - 0.5) * 0.02;
+        const j = (rng() - 0.3) * 22;
+        hedgeSpots.push({ x: x0 + (x1 - x0) * t + inward.x * j, y: y0 + (y1 - y0) * t + inward.y * j + 16 });
+      }
+    };
+    // The plaza's top (but where the north road leaves it) and its sides; the north road's sides into the forest; the south
+    // road's sides down to the bridge.
+    along(pave.x, pave.y, north.x - 6, pave.y, { x: 0, y: 1 });
+    along(north.x + north.w + 6, pave.y, pave.x + pave.w, pave.y, { x: 0, y: 1 });
+    along(pave.x, pave.y, pave.x, pave.y + pave.h, { x: 1, y: 0 });
+    along(pave.x + pave.w, pave.y, pave.x + pave.w, pave.y + pave.h, { x: -1, y: 0 });
+    along(north.x, north.y, north.x, pave.y, { x: 1, y: 0 });
+    along(north.x + north.w, north.y, north.x + north.w, pave.y, { x: -1, y: 0 });
+    along(south.x, pave.y + pave.h, south.x, south.y + south.h, { x: 1, y: 0 });
+    along(south.x + south.w, pave.y + pave.h, south.x + south.w, south.y + south.h, { x: -1, y: 0 });
+    for (const pt of hedgeSpots) {
+      const roll = rng();
+      const frame = roll < 0.55 ? `bush-${Math.floor(rng() * 4)}` : roll < 0.8 ? `flowers-${Math.floor(rng() * 4)}` : "grass-tufts";
+      const rect = boxOf(frame, pt.x, pt.y, (frame.startsWith("bush") ? 70 : 54) + rng() * 30);
+      // (Only what says something keeps them off: tiles, plates, plaques, robots, porches, the fountain; lamps may stand among them.)
+      const says = [sq.fountain, sq.plaque, ...mine.flatMap((p) => [p.plaque, ...p.porches]), ...workspaces.flatMap((w) => [w.rect, w.plate]),
+        ...tiles.flatMap((t) => [t.rect, t.plate]), ...agents.map((a) => a.rect), ...mine.map((p) => ({ ...p.body, y: p.body.y + p.body.h * 0.5, h: p.body.h * 0.5 }))];
+      if (says.some((r) => overlaps(r, rect, 2))) continue;
+      decor.push({ frame, x: pt.x, y: pt.y, rect, square: si, layer: "stand", hedge: true });
+    }
     // The plaza's clutter: small trees in planters, flower beds, crates and barrels over its open paving.
     for (let k = 0; k < 90; k++) {
       const x = pave.x + 40 + rng() * (pave.w - 80), y = pave.y + 200 + rng() * (pave.h - 200);

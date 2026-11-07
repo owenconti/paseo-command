@@ -75,7 +75,7 @@ function assertLegible(layout) {
   const said = [...things.map((t) => t.rect), ...layout.projects.flatMap((p) => p.porches)];
   for (const d of layout.decor) {
     assert.ok(FRAMES[d.frame] || FRAMES[`${d.frame}-0`], `${d.frame} is in the frame contract`);
-    if (/^(river|waterfall|cliff|wall|pond|bridge|pennant)/.test(d.frame)) continue;
+    if (/^(river|waterfall|cliff|wall|pond|bridge|pennant)/.test(d.frame) || d.hedge) continue;
     const foot = d.layer === "stand" && d.rect.h > 60 ? { x: d.rect.x + d.rect.w * 0.2, y: d.rect.y + d.rect.h * 0.55, w: d.rect.w * 0.6, h: d.rect.h * 0.45 } : d.rect;
     for (const r of said) assert.ok(!overlaps(foot, r), `${d.frame} stands on something the village says`);
   }

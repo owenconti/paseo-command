@@ -787,8 +787,8 @@ idle and work frames, a floor light in the Atlas's state colour (pulsing for sta
 Hover and selection light the object itself, never a box: a soft halo along its own silhouette (baked once per frame with Core
 Image: alpha thresholded, spread, blurred) and a brightening of the sprite, warm white on hover and gold, stronger and breathing,
 for the selection (`glow` in `VillageScene.swift`; sprites the page tags `e` with their entity: halls, tiles, workspaces, the
-fountain; robots by their id). Paving edges are drawn only on the paving's true outer boundary with grass (never where it runs
-on into another paved area, nor at a road's open end); greenery and rocks never stand on paving.
+fountain; robots by their id). The paving has no edge strips (their moss line read as a seam): every boundary with the forest is hidden under
+jittered hedges of bushes, flowers and tufts (`hedge` decor); other greenery and rocks never stand on paving.
 No text on the map but the host plaque, as on the Islands map: halls, tiles, workspaces and robots say what they are in hover cards
 (the page's `.atlas-world-card` from the bridge's `card` handler: a tile its count and up to 12 PRs or issues, a hall its name and
 counts; a click on a PR or issue tile opens its first through `openAppLink`). Picking: a medallion, a robot, a workspace's bay, a
