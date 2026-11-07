@@ -559,6 +559,12 @@ export function mountNativeVillage(parent: HTMLElement, handlers: AtlasHandlers 
         x: sq.plaque.x, y: sq.plaque.y, w: sq.plaque.w, h: sq.plaque.h, z: 3, ...dim,
       });
     });
+    // Each cluster's lawn, over the plaza's cobbles (its edges under the greenery and fence the layout sets round it).
+    {
+      const grid = FRAMES.grass!.w * 6;
+      const phase = (v: number) => ((v % grid) + grid) % grid;
+      for (const lawn of l.lawns) sprites.push(tile("grass", lawn.rect, -56.8, { ...dimOf(lawn.square), ox: phase(lawn.rect.x), oy: phase(lawn.rect.y) }));
+    }
     for (const p of l.projects) {
       const dim = { ...(p.square >= 0 ? dimOf(p.square) : {}), ...(p.stale ? { a: 0.75 } : {}) };
       const z = standZ(l, p.base);

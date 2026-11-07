@@ -71,7 +71,8 @@ function assertLegible(layout) {
     }
   for (const d of layout.decor) {
     assert.ok(FRAMES[d.frame] || FRAMES[`${d.frame}-0`], `${d.frame} is in the frame contract`);
-    if (/^(river|waterfall|cliff|wall|pond|moat|bridge|pennant|district-gate)/.test(d.frame) || d.hedge) continue;
+    // Stepping stones are ground: they run under the halls' doors and the cottages' steps.
+    if (/^(river|waterfall|cliff|wall|pond|moat|bridge|pennant|district-gate|path-stone)/.test(d.frame) || d.hedge) continue;
     const foot = d.layer === "stand" && d.rect.h > 60 ? { x: d.rect.x + d.rect.w * 0.2, y: d.rect.y + d.rect.h * 0.55, w: d.rect.w * 0.6, h: d.rect.h * 0.45 } : d.rect;
     for (const t of things) assert.ok(!overlaps(foot, t.rect), `${d.frame} stands on ${t.what}`);
   }
@@ -89,7 +90,8 @@ test("the hierarchy: the dashboard halls, then a district per host, a hall per p
   assert.equal(layout.tiles.length, 8);
   assert.equal(layout.workspaces.length, 4);
   for (const w of layout.workspaces) {
-    assert.ok(w.frame.y > halls[0].body.y + halls[0].body.h * 0.5, "cottages stand in front of their hall");
+    assert.ok(w.frame.y + w.frame.h >= halls[0].base, "cottages stand beside or in front of their hall");
+    assert.ok(overlaps(w.frame, layout.lawns.find((l) => l.square === w.square && overlaps(l.rect, halls[0].body)).rect), "on their hall's lawn");
     for (const a of layout.agents.filter((a) => a.entity.workspace === w.entity.id))
       assert.ok(Math.abs(a.feet.y - (w.frame.y + w.frame.h)) < 40 && a.feet.x > w.frame.x, "its robots at its doorstep");
   }
