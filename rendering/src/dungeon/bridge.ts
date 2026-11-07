@@ -64,6 +64,13 @@ const FONT = 'ui-rounded, "SF Pro Rounded", "Arial Rounded MT Bold", "Paseo Barl
 const HEAVY = 800;
 const BOLD = 700;
 const INK = "#2a1a0e";
+/** The host sign's lettering: an old-style serif painted on wood (the HUD keeps its own face). */
+const SIGN_FONT = '"Iowan Old Style", Palatino, "Palatino Linotype", "Book Antiqua", Georgia, serif';
+const SIGN_PAINT = "#f1dfb2";
+const SIGN_PAINT_DULL = "#9c9184";
+const SIGN_ALERT = "#ff7a5c";
+/** The sign's caps and rails, at this share of their sheet size. */
+const SIGN_K = 0.8;
 const ALERT = "#b0301c";
 
 const load = (url: string) =>
@@ -80,7 +87,7 @@ const GRADED = new Set(["stone", "gate", "alcoves", "props"]);
 /** The concept's grade: a fifth more saturation, shadows and mids pushed toward its purples
  * (#2a1f4a, #4a3a7a) by how dark they are, warm highlights (torch light, gold) left warm. */
 /** `stoneLift`: the walls' and floors' ambient, a notch above the props' and alcoves' so the lavender stone reads as bright as the concept's. */
-export const GRADE = { lift: 1.19, stoneLift: 1.38, warmth: [1, 1, 1], saturation: 1.05, shadow: [0x2a, 0x1f, 0x4a], mid: [0x4a, 0x3a, 0x7a], strength: 0.1 };
+export const GRADE = { lift: 1.19, stoneLift: 1.45, warmth: [1, 1, 1], saturation: 1.05, shadow: [0x2a, 0x1f, 0x4a], mid: [0x4a, 0x3a, 0x7a], strength: 0.1 };
 function grade(image: HTMLImageElement, opts: { saturation?: number; strength?: number; lift?: number } = {}): HTMLCanvasElement {
   const saturation = opts.saturation ?? GRADE.saturation, strength = opts.strength ?? GRADE.strength, lift = opts.lift ?? GRADE.lift;
   const canvas = document.createElement("canvas");
@@ -280,7 +287,7 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
   const entity = (id: string | null) => (id && layout?.entities.find((e) => e.id === id)) || null;
 
   const measurer = document.createElement("canvas").getContext("2d")!;
-  const fontOf = (kind: keyof typeof D.font) => `${kind === "stats" ? BOLD : HEAVY} ${D.font[kind]}px ${FONT}`;
+  const fontOf = (kind: keyof typeof D.font) => `${BOLD} ${D.font[kind]}px ${SIGN_FONT}`;
   const measure: Measure = (text, kind) => {
     measurer.font = fontOf(kind);
     return measurer.measureText(text).width;
@@ -306,31 +313,59 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
     while (measure(shown, kind) > max && shown.length > 1) shown = shown.slice(0, -2) + "…";
     return shown;
   };
-  /** The host's plaque: its name, then a status dot and its machine's load. */
-  const paintPlaque = (r: Rect, title: string, stats: { text: string; alert: boolean }[], online: boolean) => {
+  /** The host's sign: the wooden board on its chains, the name painted on it in cream with a status gem on its left, its
+   * load in a smaller line beneath (≥ 90% painted red), or "OFFLINE" on a dull, unlit board with a dark gem. */
+  const paintSign = (r: Rect, name: string, stats: { text: string; alert: boolean }[], online: boolean) => {
     const { canvas, ctx } = canvasFor(r.w, r.h);
-    nineSlice(ctx, frame("plaque"), "plaque", 0, 0, r.w, r.h);
-    ctx.textAlign = "center";
+    const board = FRAMES["sign-board"]?.real ? "sign-board" : "plaque";
+    if (!online) ctx.filter = "brightness(0.55) saturate(0.55)";
+    nineSlice(ctx, frame(board), board, 0, 0, r.w, r.h, SIGN_K);
+    ctx.filter = "none";
+    // The board's face, below the chains and its top rail, above its bottom rail.
+    const ins = sliceOf(FRAMES[board]!);
+    const faceTop = ins.top * SIGN_K, faceBottom = r.h - ins.bottom * SIGN_K;
+    const nameY = faceTop + (faceBottom - faceTop) * 0.36, statsY = faceTop + (faceBottom - faceTop) * 0.8;
     ctx.textBaseline = "middle";
-    ctx.font = fontOf("host");
-    ctx.fillStyle = INK;
-    ctx.fillText(fitText(title, "host", r.w - 30), r.w / 2, r.h * 0.36);
-    // The second line: a status dot, then CPU · MEM · DISK (≥ 90% in red), or that it's offline.
-    const parts = stats.length ? stats.flatMap((s, i) => (i ? [{ text: " · ", alert: false }, s] : [s])) : [{ text: online ? "No load reading" : "Offline", alert: false }];
-    ctx.font = fontOf("stats");
-    const widths = parts.map((p) => ctx.measureText(p.text).width);
-    const dot = 11;
-    let x = r.w / 2 - (widths.reduce((s, w) => s + w, 0) + dot + 5) / 2;
-    const y = r.h * 0.7;
-    const dotFrame = frame(online ? "dot-online" : "dot-offline");
-    ctx.drawImage(dotFrame, x, y - dot / 2, dot, dot);
-    x += dot + 5;
     ctx.textAlign = "left";
-    parts.forEach((p, i) => {
-      ctx.fillStyle = p.alert ? ALERT : INK;
-      ctx.fillText(p.text, x, y + 0.5);
+    // Paint on wood: a dark inset below and right, the colour, a faint highlight above and left, then worn speckles.
+    const paint = (text: string, x: number, y: number, colour: string) => {
+      ctx.fillStyle = "rgba(20, 8, 2, 0.75)";
+      ctx.fillText(text, x + 0.9, y + 1.2);
+      ctx.fillStyle = "rgba(255, 244, 214, 0.28)";
+      ctx.fillText(text, x - 0.5, y - 0.6);
+      ctx.fillStyle = colour;
+      ctx.fillText(text, x, y);
+    };
+    const cream = online ? SIGN_PAINT : SIGN_PAINT_DULL;
+    // The name, with the gem beside it.
+    ctx.font = fontOf("host");
+    const shown = fitText(name, "host", r.w - 116);
+    const nameW = ctx.measureText(shown).width, gem = 19, gap = 9;
+    let x = r.w / 2 - (nameW + gem + gap) / 2;
+    const anyAlert = stats.some((st) => st.alert);
+    const gemFrame = !online ? "gem-offline" : anyAlert ? "gem-warning" : "gem-online";
+    if (FRAMES[gemFrame]?.real) ctx.drawImage(frame(gemFrame), x, nameY - gem / 2, gem, gem);
+    else ctx.drawImage(frame(online ? "dot-online" : "dot-offline"), x + 2, nameY - 5.5, 11, 11);
+    paint(shown, x + gem + gap, nameY + 1, cream);
+    // The load: CPU · MEM · DISK, or that it's offline.
+    const parts = online
+      ? stats.length ? stats.flatMap((st, i) => (i ? [{ text: " · ", alert: false }, st] : [st])) : [{ text: "No load reading", alert: false }]
+      : [{ text: "OFFLINE", alert: false }];
+    ctx.font = fontOf("stats");
+    const widths = parts.map((pt) => ctx.measureText(pt.text).width);
+    x = r.w / 2 - widths.reduce((sum, w) => sum + w, 0) / 2;
+    parts.forEach((pt, i) => {
+      paint(pt.text, x, statsY, pt.alert ? SIGN_ALERT : cream);
       x += widths[i]!;
     });
+    // Worn: fine speckles taken out of the paint (seeded by the name, so the image stays the same).
+    const rng = random(seedOf(name + "wear"));
+    ctx.globalCompositeOperation = "destination-out";
+    for (let i = 0; i < r.w * 0.6; i++) {
+      ctx.fillStyle = `rgba(0,0,0,${0.12 + rng() * 0.2})`;
+      ctx.fillRect(28 + rng() * (r.w - 56), faceTop + rng() * (faceBottom - faceTop), 0.6 + rng() * 0.9, 0.6 + rng() * 0.7);
+    }
+    ctx.globalCompositeOperation = "source-over";
     return canvas;
   };
   /** The HUD's title plaque and count bar: navy panels with gold borders, in screen points. */
@@ -581,10 +616,20 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
         // The stairs catch the gate's light.
         lights.push({ x: 0, y: fl.stairs.y + 40, c: 0xff9a3a, r: 50, period: 3400, flicker: false, ph: 0.4, k: 0.3 });
       }
+      // The host's sign, hung on its chains from a bracket either side (an offline floor's is painted dull itself, so
+      // it isn't dimmed again and stays legible).
       images.push({
-        ...image(`plaque:${fl.title}:${JSON.stringify(fl.stats)}:${fl.online}:${fl.plaque.w}`, () => paintPlaque(fl.plaque, fl.title, fl.stats, fl.online)),
-        x: fl.plaque.x, y: fl.plaque.y, w: fl.plaque.w, h: fl.plaque.h, z: 3, ...dim,
+        ...image(`sign:${fl.name}:${JSON.stringify(fl.stats)}:${fl.online}:${fl.plaque.w}`, () => paintSign(fl.plaque, fl.name, fl.stats, fl.online)),
+        x: fl.plaque.x, y: fl.plaque.y, w: fl.plaque.w, h: fl.plaque.h, z: 3,
       });
+      if (FRAMES["sign-bracket"]?.real) {
+        const board = FRAMES["sign-board"]!, inset = (74 / 829) * board.w * SIGN_K;
+        for (const cx of [fl.plaque.x + inset, fl.plaque.x + fl.plaque.w - inset])
+          sprites.push(sprite("sign-bracket", at("sign-bracket", cx, fl.plaque.y + 2, 21), 3.1, dim));
+      }
+      // Lit wood: a soft warm wash on the sign from the gate's torches.
+      if (fl.online)
+        lights.push({ x: 0, y: fl.plaque.y + fl.plaque.h * 0.62, rx: fl.plaque.w * 0.62, ry: fl.plaque.h * 0.62, c: GOLD, blend: "gold", k: 0.45, z: 3.05, period: 5200, flicker: false });
     });
     for (const p of l.projects) {
       const dim = dimOf(p.floor);

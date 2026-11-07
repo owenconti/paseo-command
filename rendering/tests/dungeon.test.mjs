@@ -164,6 +164,8 @@ test("Atlas's fleets: camps, projectless workspaces, offline hosts", () => {
   assert.ok(layout.projects.some((p) => !p.entity && p.name === "No project"));
   const offline = layout.floors.find((f) => !f.online);
   assert.match(offline.title, /OFFLINE/);
+  // Its sign paints the bare name in capitals ("OFFLINE" is its own painted line).
+  assert.equal(offline.name, offline.host.name.toUpperCase());
   assert.ok(layout.agents.filter((a) => a.entity.host === offline.host.id).every((a) => a.entity.state === "offline"));
 });
 

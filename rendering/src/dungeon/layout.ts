@@ -87,8 +87,10 @@ export const D = {
   surroundY: -5,
   surroundW: 333,
   surroundH: 229,
-  plaqueY: 77,
-  plaqueH: 74,
+  /** The host's sign: a wooden board hanging on chains (the box includes them) between the surround's upper opening
+   * and the gate's arch, its name and load painted on it. */
+  plaqueY: 52,
+  plaqueH: 99,
   plaqueMin: 316,
   nodeY: 158,
   portcullisY: 176,
@@ -99,7 +101,7 @@ export const D = {
   archH: 121,
   stairsY: 235,
   stairsW: 120,
-  /** Type (board px): the host plaque's name and stats line (projects and workspaces carry no labels). */
+  /** Type (board px): the host sign's painted name and stats line (projects and workspaces carry no labels). */
   font: { host: 32, stats: 18 },
   /** A PR medallion on an alcove's lintel. */
   flag: 18,
@@ -120,9 +122,12 @@ export type DFloor = {
   /** The whole floor, end to end. */
   rect: Rect;
   medallion: Pt;
+  /** Its sign (chains included). */
   plaque: Rect;
-  /** The plaque's text: the host's name (offline says so) and its load. */
+  /** The host's name and whether it's offline, as one string (for the signature and checks). */
   title: string;
+  /** The name painted on the sign (in capitals, as the Atlas's banners name hosts). */
+  name: string;
   stats: { text: string; alert: boolean }[];
   node: Pt;
   portcullis: Rect;
@@ -386,8 +391,9 @@ const VIGNETTES: { name: string; room: string; glow?: { color: number; reach: nu
   { name: "storage", room: "room-arch", props: [{ frame: "armor", h: 98, dx: -4 }, { frame: "shelf-potions", h: 44, dx: 32, up: 96 }, { frame: "barrels", h: 54, dx: -32 }, { frame: "crates", h: 58, dx: 34 }, { frame: "candelabra", h: 28, dx: 34, up: 52, light: { color: 0xffb040, reach: 40 } }] },
 ];
 /** Themed banners, over the end rooms. */
-const THEMED = ["banner-navy-hammers", "banner-blue-anvil", "banner-purple"];
-const BANNERS = ["banner-purple-layers", "banner-purple", "banner-navy-hammers", "banner-blue-anvil"];
+/** The wall banners: plain cloth, no icons (the user's call), in the old rhythm's colours. */
+const THEMED = ["banner-navy-plain", "banner-blue-plain", "banner-purple-plain"];
+const BANNERS = ["banner-purple-plain", "banner-purple-plain", "banner-navy-plain", "banner-blue-plain"];
 const FLOOR_PROPS = ["barrel", "barrels", "crate", "crates", "shelf-potions", "table"];
 /** Small things on the walkways and beside the side rooms, as the concept strews them. */
 const CLUTTER = ["barrel", "crate", "candle", "barrel", "crate", "candle", "shelf-potions", "table"];
@@ -473,8 +479,9 @@ export function layoutDungeon(data: AtlasData, _aspect = 1.6, measure: Measure =
     const statsLine = stats.map((s) => s.text).join(" · ");
     const plaqueW = Math.max(
       D.plaqueMin,
-      Math.ceil(measure(plaqueTitle, "host") + 60),
-      Math.ceil(measure(statsLine, "stats") + 70),
+      // The sign's caps and the status gem beside the name.
+      Math.ceil(measure(host.name.toUpperCase(), "host") + 116),
+      Math.ceil(measure(statsLine || "OFFLINE", "stats") + 90),
     );
     const node = { x: 0, y: top + D.nodeY };
     const tierTops = Array.from({ length: t.tiers }, (_, i) => top + D.band + i * (D.tierH + D.tierGap));
@@ -500,6 +507,7 @@ export function layoutDungeon(data: AtlasData, _aspect = 1.6, measure: Measure =
       medallion: { x: 0, y: top + D.gateMedallionY },
       plaque: { x: -plaqueW / 2, y: top + D.plaqueY, w: plaqueW, h: D.plaqueH },
       title: plaqueTitle,
+      name: host.name.toUpperCase(),
       stats,
       node,
       portcullis: { x: -D.portcullisW / 2, y: top + D.portcullisY, w: D.portcullisW, h: D.portcullisH },
@@ -757,7 +765,7 @@ export function layoutDungeon(data: AtlasData, _aspect = 1.6, measure: Measure =
       // (Below the first floor the floor above's front wall takes the wall's top, so it hangs from just under it.)
       const mount = f === 0 ? fl.top + 8 : fl.top + 28;
       for (const nudge of [0, 24, 48, 72])
-        if ((hung = place({ frame: "banner-purple-layers", x: s * (hostX + nudge), y: mount, w: f === 0 ? 64 : 56, floor: f, layer: "back" }))) break;
+        if ((hung = place({ frame: "banner-purple-plain", x: s * (hostX + nudge), y: mount, w: f === 0 ? 64 : 56, floor: f, layer: "back" }))) break;
       if (hung)
         place({ frame: "torch", x: s * (hostX + 50), y: fl.top + 56, w: 24, floor: f, layer: "front", ...lit(TORCH_LIGHT) });
       place({ frame: THEMED[(seedOf(fl.host.id) + (s === 1 ? 1 : 0)) % THEMED.length]!, x: s * (sideHalf(s) - D.sideRoom / 2), y: fl.top + 40, w: 60, floor: f, layer: "back" });

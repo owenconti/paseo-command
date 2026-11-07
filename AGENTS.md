@@ -756,20 +756,22 @@ message names its `scene`, and `WorldWindow.adopt` swaps in that scene in a fres
 (`rendering/src/native/surface.ts`), revisions and watchdog (`native/watch.ts`, `AtlasView.watch`). The Atlas legend hides on the board.
 The Dungeon Board (`rendering/src/dungeon/`; the user's concept is ignored `design/references/dungeon-concept.png`): a front
 cutaway of a dungeon, one floor per host with workspaces (the Atlas's host order), 365 concept px tall, stacked; its gate
-column central (the round surround, its top a plain dark keystone opening with no icon (the user's call), the parchment plaque with the host's name in capitals, a status dot and the
-host-stats `CPU · MEM · DISK`, ≥ 90% red, a gold node, the portcullis lit while online, stairs to the next floor); projects
+column central (the round surround, its top a plain dark keystone opening with no icon (the user's call), the host's sign (the user's call: part of the world): a wooden board hanging on chains from two brackets
+between the surround's opening and the arch, its name painted in capitals (cream, in an old-style serif, `SIGN_FONT`, Iowan Old Style
+then Palatino, with a worn inset), a status gem on its left (online, warning when a reading is ≥ 90%, dark offline) and the
+host-stats `CPU · MEM · DISK` beneath, ≥ 90% painted red, lit by a warm wash; an offline host's board dull, unlit, "OFFLINE" painted, a gold node, the portcullis lit while online, stairs to the next floor); projects
 with workspaces alternating left and right outward from the gate (`hostGroups` in `world.ts`, shared with the Atlas), each
 marked only by its terrace and the pair of wall candles on it (no medallion or icon: the user's call), its workspaces' alcoves in a row beneath (oldest first, left
-to right; camps for agents without one). Only hosts carry labels (their plaques), as on the Islands (the user's call): projects,
+to right; camps for agents without one). Only hosts carry labels (their signs), as on the Islands (the user's call): projects,
 workspaces and agents are named on their hover cards; alcoves keep a plain lintel, the PR medallions on it; robots on each alcove's ledge in provider colours (`robotColor`: Claude orange, ChatGPT white, any other provider its own of the sheet's eight), oldest
 first, drones for running subagents. Gold links run from the host node along each tier's bus, through a junction node over each project's terrace, and down to
 each alcove's top centre, nodes at the joints. Each floor reaches only as far as its own content and side rooms on each side of the gate, so the silhouette steps,
 dark rock round narrower floors; floors keep their natural, content-driven width; a side's projects wrap onto more tiers only while the board would be wider than 1.6 × its
-height. Decorations (side rooms: a recess, `room-*`, holding its vignette as the art's `v3/rooms-mock.png` composes them, dealt through the board so neighbours differ; banners, torches, windows, chains; the foot of the last stairs, above a strip the HUD's count bar lies over) are seeded and
+height. Decorations (side rooms: a recess, `room-*`, holding its vignette as the art's `v3/rooms-mock.png` composes them, dealt through the board so neighbours differ; plain cloth banners (no icons, the user's call), torches, windows, chains; the foot of the last stairs, above a strip the HUD's count bar lies over) are seeded and
 never cover what the board says (`layoutDungeon` in `layout.ts`, pure; `rendering/tests/dungeon.test.mjs`). The robots are what the eye should land on first (the user's call): drawn large (55 concept px tall), each with a
 spotlight on the ledge, a halo of its colour baked from its silhouette (`bakeHalos`) and glowing visor eyes, the robot
-sheet only saturation-lifted; the gate, links, torches and plaques are kept a notch below them (`k` on lights, the
-parchment dimmed, the alcoves' interiors darker). The other sheets are graded at load (`grade`, `GRADE`) toward the
+sheet only saturation-lifted; the gate, links, torches and signs are kept a notch below them (`k` on lights, the
+alcoves' interiors darker). The other sheets are graded at load (`grade`, `GRADE`) toward the
 concept's purples. State: a state
 glow under each robot in the Atlas's state colours (`STATE_TILE`, idle a quiet lavender; pulsing for states that need you), a marker at its head's upper right, working robots' work frames,
 light running along the links to workspaces with an agent at work, a project's two torches lit while any of its agents runs,
@@ -777,7 +779,7 @@ its terrace glowing between its candles in the most urgent state's colour, offli
 sit on each alcove's lintel with the Atlas's hover cards. The HUD (title with "N running · N need you" or "All quiet", and the
 count bar) lies over the board in screen space, as the concept's does; the board fills the map. Each floor is assembled
 from the v2 kit as the art's reconstruction (`rendering/artifacts/dungeon/mock.png`) is: ramparts, the gate's surround,
-terrace floors, alcove sides, lintels and ledges. The page paints the host plaques' text (`bridge.ts`, in `ui-rounded` heavy, SF Pro Rounded, as the concept's chunky lettering), purple shading on the upper walls and toward the board's edges, and posts top-left sprite
+terrace floors, alcove sides, lintels and ledges. The page paints the host signs (`paintSign` in `bridge.ts`; the HUD keeps `ui-rounded`), purple shading on the upper walls and toward the board's edges, and posts top-left sprite
 boxes; `DungeonScene.swift` draws, animates (≈30 fps ambient, still with reduced motion), owns the camera (fit, bounded pan,
 wheel, pinch, arrows, F/Home), rounded-rect hover rims and the golden selection rim, and picks (a PR medallion, then a robot, its
 alcove, its project by its terrace wall, the hover card naming it; never a host). Sprites: `rendering/src/assets/dungeon/<sheet>.png|json` (the frame contract is `frames.ts`,

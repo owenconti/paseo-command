@@ -124,6 +124,11 @@ export const FRAMES: Record<string, FrameSpec> = Object.fromEntries([
   // ui
   ["label", spec("ui", 64, 36, "top-left", { slice: 12 })],
   ["plaque", spec("ui", 96, 64, "top-left", { slice: 16 })],
+  // The host's sign: a board on chains (9-sliced across, its chains in the caps), its brackets, its status gems.
+  ["sign-board", spec("ui", 276, 81, "top-center", { slice: 30 })],
+  ["sign-board-tall", spec("ui", 276, 101, "top-center", { slice: 30 })],
+  ["sign-bracket", spec("ui", 26, 21, "feet")],
+  ...["gem-online", "gem-warning", "gem-offline", "gem-online-0", "gem-online-1"].map((n) => [n, spec("ui", 15, 15, "center")] as [string, FrameSpec]),
   ["medallion", spec("ui", 58, 58, "center")],
   ...ICONS.map((i) => [`icon-${i}`, spec("ui", 26, 26, "center")] as [string, FrameSpec]),
   ["node", spec("ui", 14, 14, "center")],
@@ -138,6 +143,8 @@ export const FRAMES: Record<string, FrameSpec> = Object.fromEntries([
   ["banner-purple", spec("props", 40, 92, "top-center")],
   ["banner-navy-hammers", spec("props", 40, 92, "top-center")],
   ["banner-blue-anvil", spec("props", 40, 92, "top-center")],
+  // Plain cloth (the wall banners carry no icons).
+  ...["banner-purple-plain", "banner-navy-plain", "banner-blue-plain"].map((n) => [n, spec("props", 40, 92, "top-center")] as [string, FrameSpec]),
   ["barrel", spec("props", 26, 32, "feet")],
   ["barrels", spec("props", 52, 36, "feet")],
   ["crate", spec("props", 30, 30, "feet")],
