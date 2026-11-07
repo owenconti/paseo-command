@@ -79,6 +79,8 @@ export const V = {
   ringW: 300,
   hostPlaqueH: 64,
   hostLineH: 38,
+  /** Each further host's block on the plaque (its name over its load). */
+  hostBlockH: 58,
   hostPlaqueMin: 190,
   /** The central road's width and a walk's depth; blocks start `inner` either side of the middle (the first lower row clear of the fountain). */
   road: 140,
@@ -513,7 +515,8 @@ export function layoutVillage(data: AtlasData, _aspect = 1.6, measure: Measure =
   const hallW = Math.max(...HALLS.map((spec) => hallWidth(spec, baysOf(spec.hall), spec.hall === "agents" ? fleetAgents.length : 0, measure)));
   const blocks = HALLS.map((spec) => blockOf(spec, baysOf(spec.hall), spec.hall === "agents" ? fleetAgents.length : 0, measure, hallW));
   const hostLines = shownHosts.map((h) => hostPlaque(h));
-  const plaqueW = Math.max(V.hostPlaqueMin, ...hostLines.map((l) => (hostLines.length > 1 ? l.lineW : l.plaqueW)));
+  // Each host's name over its load, the hosts stacked: narrow, so the lower halls stand close beside the fountain.
+  const plaqueW = Math.max(V.hostPlaqueMin, ...hostLines.map((l) => l.plaqueW));
   const a = arrange(blocks);
   const fleet: Entity = { id: "village", kind: "host", name: "Fleet", host: "village", position: { q: 0, r: 0 }, stale: !allHosts.some((h) => h.online) };
   buildSquare(fleet, a, hostLines, plaqueW, 0, 0, 0);
@@ -583,7 +586,7 @@ export function layoutVillage(data: AtlasData, _aspect = 1.6, measure: Measure =
     ring.y = ringC - ringH / 2;
     const fountain = boxOf("fountain-on", cx, ringC + ringH * 0.2, V.fountainW);
     // One line per host beneath the first's (name, then its load).
-    const plaqueH = V.hostPlaqueH + (Math.max(1, hosts.length) - 1) * V.hostLineH;
+    const plaqueH = hosts.length > 1 ? hosts.length * V.hostBlockH * 1.35 : V.hostPlaqueH;
     const plaque = { x: cx - plaqueW / 2, y: ring.y + ring.h - V.hostPlaqueH * 0.8, w: plaqueW, h: plaqueH };
     const rect = { x: ox, y: oy, w: m.w, h: m.h };
     const topBase = baseOf(-1, a.rows - 1);
@@ -657,7 +660,7 @@ export function layoutVillage(data: AtlasData, _aspect = 1.6, measure: Measure =
       // (from just inside the plaza's left edge, which the panel may cover, to the gorge's near half at the right)
       // (the panel may lie over the top-left hall's left eave, as the concept's does; `keep` is filled in once the halls are)
       // (a strip of canopy above the top banners, the wall cut through below the bridge, the gorge's near half at the right)
-      keep: { x: px0 + 40, y: topBase - maxAbove(a) - 110, w: riverX + V.riverW * 0.75 - (px0 + 40), h: wallY + V.wallH * 0.3 - (topBase - maxAbove(a) - 110) },
+      keep: { x: px0 + 40, y: topBase - maxAbove(a) - 30, w: riverX + V.riverW * 0.6 - (px0 + 40), h: wallY + V.wallH * 0.3 - (topBase - maxAbove(a) - 30) },
       heart: { x: px0 - 150, y: topBase - maxAbove(a) - 24, w: cropRight - (px0 - 150), h: wallY + V.wallH * 0.75 - (topBase - maxAbove(a) - 24) },
       bridge,
       walls: [

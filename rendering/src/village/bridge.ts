@@ -336,26 +336,24 @@ export function mountNativeVillage(parent: HTMLElement, handlers: AtlasHandlers 
   const paintHostPlaque = (r: Rect, hosts: VSquare["hosts"]) => {
     const { canvas, ctx } = canvasFor(r.w, r.h);
     threeSlice(ctx, frame, realFrames, 0, 0, r.w, r.h);
-    const one = hosts.length <= 1;
-    const lineH = one ? r.h : (r.h - 12) / hosts.length;
+    // Each host a block: its name, then a status dot and its load (offline says so); stacked.
+    const n = Math.max(1, hosts.length);
+    // Clear of the scroll's rolled top and bottom edges.
+    const pad = n > 1 ? r.h * 0.13 : 0;
+    const blockH = (r.h - 2 * pad) / n;
     hosts.forEach((h, i) => {
-      const top = one ? 0 : 6 + i * lineH;
+      const top = pad + i * blockH;
       ctx.textBaseline = "middle";
-      if (one) {
-        ctx.textAlign = "center";
-        ctx.font = fontOf("host");
-        ctx.fillStyle = INK;
-        ctx.fillText(fitText(h.title, fontOf("host"), r.w - 60), r.w / 2, top + lineH * 0.4);
-      }
-      const parts = [
-        ...(one ? [] : [{ text: `${h.title}  `, alert: false, bold: true }]),
-        ...(h.stats.length ? h.stats.flatMap((s, k) => (k ? [{ text: " · ", alert: false, bold: false }, { ...s, bold: false }] : [{ ...s, bold: false }])) : [{ text: h.online ? "No load reading" : "Offline", alert: false, bold: false }]),
-      ];
-      const fontFor = (b: boolean) => (b ? `${BOLD} ${Math.round(V.font.host * 0.85)}px ${FONT}` : fontOf("stats"));
-      const widths = parts.map((p) => ((ctx.font = fontFor(p.bold)), ctx.measureText(p.text).width));
+      ctx.textAlign = "center";
+      ctx.font = fontOf("host");
+      ctx.fillStyle = INK;
+      ctx.fillText(fitText(h.title, fontOf("host"), r.w - 60), r.w / 2, top + blockH * 0.38);
+      const parts = h.stats.length ? h.stats.flatMap((s, k) => (k ? [{ text: " · ", alert: false }, s] : [s])) : [{ text: h.online ? "No load reading" : "Offline", alert: false }];
+      ctx.font = fontOf("stats");
+      const widths = parts.map((p) => ctx.measureText(p.text).width);
       const dot = 9;
       let x = r.w / 2 - (widths.reduce((s, w) => s + w, 0) + dot + 6) / 2;
-      const y = one ? top + lineH * 0.68 : top + lineH / 2;
+      const y = top + blockH * 0.72;
       ctx.fillStyle = h.online ? "#3fb44a" : "#8a8478";
       ctx.beginPath();
       ctx.arc(x + dot / 2, y, dot / 2, 0, Math.PI * 2);
@@ -363,7 +361,6 @@ export function mountNativeVillage(parent: HTMLElement, handlers: AtlasHandlers 
       x += dot + 6;
       ctx.textAlign = "left";
       parts.forEach((p, k) => {
-        ctx.font = fontFor(p.bold);
         ctx.fillStyle = p.alert ? ALERT : INK;
         ctx.fillText(p.text, x, y + 0.5);
         x += widths[k]!;
