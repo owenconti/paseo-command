@@ -380,13 +380,13 @@ export function segmentRect(a: Pt, b: Pt, glow = 4): Rect {
  * height (the main one about two thirds of the recess's), its centre's offset from the recess's middle (mirrored
  * on the right) and how far above the floor its feet stand; companions within an object's width of it. */
 const VIGNETTES: { name: string; room: string; glow?: { color: number; reach: number; dy: number }; props: { frame: string; h: number; dx: number; up?: number; light?: { color: number; reach: number } }[] }[] = [
-  { name: "library", room: "room-arch", props: [{ frame: "bookcase-ladder", h: 136, dx: 6 }, { frame: "table", h: 32, dx: -46 }, { frame: "candelabra", h: 34, dx: -46, up: 26, light: { color: 0xffb040, reach: 46 } }] },
-  { name: "crystal", room: "room-cave", glow: { color: 0xb06bff, reach: 120, dy: 140 }, props: [{ frame: "crystal", h: 104, dx: 4, light: { color: 0xc080ff, reach: 90 } }, { frame: "barrel", h: 40, dx: -50 }] },
-  { name: "magic", room: "room-magic", glow: { color: 0x3fb8ff, reach: 120, dy: 100 }, props: [{ frame: "magic-circle", h: 100, dx: -10, up: 22 }, { frame: "armor", h: 94, dx: 42 }] },
+  { name: "library", room: "room-arch", props: [{ frame: "bookcase-ladder", h: 150, dx: 8 }, { frame: "table", h: 32, dx: -46 }, { frame: "candelabra", h: 34, dx: -46, up: 26, light: { color: 0xffb040, reach: 46 } }] },
+  { name: "crystal", room: "room-cave", glow: { color: 0xb06bff, reach: 120, dy: 140 }, props: [{ frame: "crystal", h: 132, dx: 4, light: { color: 0xc080ff, reach: 90 } }, { frame: "barrel", h: 40, dx: -50 }] },
+  { name: "magic", room: "room-magic", glow: { color: 0x3fb8ff, reach: 120, dy: 100 }, props: [{ frame: "magic-circle", h: 118, dx: -14, up: 26 }, { frame: "armor", h: 108, dx: 38 }] },
   { name: "forge", room: "room-forge", glow: { color: 0xff7a2a, reach: 110, dy: 150 }, props: [
-    { frame: "forge", h: 124, dx: 10, light: { color: 0xff9a3a, reach: 50 } }, { frame: "anvil", h: 44, dx: -40 },
+    { frame: "forge", h: 148, dx: 8, light: { color: 0xff9a3a, reach: 50 } }, { frame: "anvil", h: 48, dx: -36 },
     { frame: "shelf-potions", h: 58, dx: -48, up: 64 }, { frame: "table", h: 30, dx: 56 }, { frame: "candelabra", h: 30, dx: 56, up: 24, light: { color: 0xffb040, reach: 40 } } ] },
-  { name: "alchemy", room: "room-arch", glow: { color: 0xc06bff, reach: 100, dy: 140 }, props: [{ frame: "alchemy-tank", h: 122, dx: 2 }, { frame: "crate", h: 38, dx: -52 }] },
+  { name: "alchemy", room: "room-arch", glow: { color: 0xc06bff, reach: 100, dy: 140 }, props: [{ frame: "alchemy-tank", h: 146, dx: 4 }, { frame: "crate", h: 40, dx: -48 }, { frame: "barrel", h: 36, dx: 50 }] },
   // A storeroom: armour standing at the back, barrels and crates before it, a shelf up the wall, so the arch never reads empty.
   { name: "storage", room: "room-arch", props: [{ frame: "armor", h: 98, dx: -4 }, { frame: "shelf-potions", h: 44, dx: 32, up: 96 }, { frame: "barrels", h: 54, dx: -32 }, { frame: "crates", h: 58, dx: 34 }, { frame: "candelabra", h: 28, dx: 34, up: 52, light: { color: 0xffb040, reach: 40 } }] },
 ];
@@ -769,21 +769,23 @@ export function layoutDungeon(data: AtlasData, _aspect = 1.6, measure: Measure =
       if (hung)
         place({ frame: "torch", x: s * (hostX + 50), y: fl.top + 56, w: 24, floor: f, layer: "front", ...lit(TORCH_LIGHT) });
       place({ frame: THEMED[(seedOf(fl.host.id) + (s === 1 ? 1 : 0)) % THEMED.length]!, x: s * (sideHalf(s) - D.sideRoom / 2), y: fl.top + 40, w: 60, floor: f, layer: "back" });
-      for (let x = hostX + 100 + rng() * 30; x < sideHalf(s) - D.sideRoom - 30; x += 52 + rng() * 50) {
+      // Unequal bays: short and long spans, fixtures at different heights, dark pockets left between; wall candles
+      // are rare up here (they mark the projects' terraces below).
+      for (let x = hostX + 90 + rng() * 40; x < sideHalf(s) - D.sideRoom - 30; x += 40 + rng() * 95) {
         const roll = rng();
         const arch = FRAMES["window-arch"]?.real ? "window-arch" : "niche-arch";
         const chains = FRAMES["chain-pair"]?.real ? "chain-pair" : "chain";
-        if (roll < 0.42) {
-          // A cluster: one torch, or two close together.
-          place({ frame: "torch", x: s * x, y: fl.top + 58 + rng() * 12, w: 22, floor: f, layer: "front", ...lit(TORCH_LIGHT) });
-          if (rng() < 0.65) place({ frame: "torch", x: s * (x + 26), y: fl.top + 58 + rng() * 12, w: 22, floor: f, layer: "front", ...lit(TORCH_LIGHT) });
-        } else if (roll < 0.66) {
-          // A pair of wall candles, an intentional cluster with its own warm spill.
-          place({ frame: "wall-candles", x: s * x, y: fl.top + 56 + rng() * 10, w: 30, floor: f, layer: "front", ...lit({ color: 0xffb840, reach: 50 }) });
-        } else if (roll < 0.72) place({ frame: "window-barred", x: s * x, y: fl.top + 82, w: 42, floor: f, layer: "back" });
-        else if (roll < 0.8) place({ frame: arch, x: s * x, y: fl.top + 112, w: 42, floor: f, layer: "back" });
-        else if (roll < 0.86) place({ frame: chains, x: s * x, y: fl.top + 4, w: chains === "chain-pair" ? 34 : 9, floor: f, layer: "back" });
-        // Otherwise a dark break.
+        const high = fl.top + 44 + rng() * 44;
+        if (roll < 0.34) {
+          // A cluster: one torch, or two close together at slightly different heights.
+          place({ frame: "torch", x: s * x, y: high, w: 22, floor: f, layer: "front", ...lit(TORCH_LIGHT) });
+          if (rng() < 0.55) place({ frame: "torch", x: s * (x + 24 + rng() * 10), y: high + (rng() - 0.5) * 14, w: 22, floor: f, layer: "front", ...lit(TORCH_LIGHT) });
+        } else if (roll < 0.41) {
+          place({ frame: "wall-candles", x: s * x, y: high, w: 30, floor: f, layer: "front", ...lit({ color: 0xffb840, reach: 50 }) });
+        } else if (roll < 0.52) place({ frame: "window-barred", x: s * x, y: fl.top + 70 + rng() * 26, w: 38 + rng() * 8, floor: f, layer: "back" });
+        else if (roll < 0.62) place({ frame: arch, x: s * x, y: fl.top + 100 + rng() * 16, w: 40 + rng() * 6, floor: f, layer: "back" });
+        else if (roll < 0.7) place({ frame: chains, x: s * x, y: fl.top + 4, w: chains === "chain-pair" ? 34 : 9, floor: f, layer: "back" });
+        // Otherwise a dark pocket.
       }
       // Floor props, windows and niches in leftover space between a tier's projects and its room.
       fl.tierTops.forEach((y0) => {
@@ -815,11 +817,14 @@ export function layoutDungeon(data: AtlasData, _aspect = 1.6, measure: Measure =
         const jog = (k: string, r: number) => ((seedOf(fl.host.id + k + s) % 1000) / 1000 - 0.5) * 2 * r;
         place({ frame: "brazier", x: s * (112 + jog("b", 8)), y, w: 66, floor: f, layer: "front", ...lit({ color: 0xff9a3a, reach: 30 }) }, false);
         const rug = FRAMES["rug-red"]!, rugW = 140, rugH = (rug.h * rugW) / rug.w;
-        place({ frame: "rug-red", x: s * (292 + jog("r", 10)), y: lip - 6 + anchorShare(rug.anchor).y * rugH, w: rugW, floor: f, layer: "back" }, false);
+        place({ frame: "rug-red", x: s * (288 + jog("r", 22)), y: lip - 6 + anchorShare(rug.anchor).y * rugH, w: rugW, floor: f, layer: "back" }, false);
         // The scribe's desk on the rug's outer end, a candelabra on it.
         const corner = `${fl.host.id}:foot:${s}`;
-        place({ frame: "scroll-desk", x: s * (436 + jog("d", 10)), y, w: 86, floor: f, layer: "front", group: corner }, false);
-        place({ frame: "candelabra", x: s * (436 + jog("d", 10) + (s === -1 ? 24 : -26)), y: y - 52, w: 26, floor: f, layer: "front", group: corner, ...lit({ color: 0xffb040, reach: 40 }) }, false);
+        place({ frame: "scroll-desk", x: s * (436 + jog("d", 18)), y, w: 86, floor: f, layer: "front", group: corner }, false);
+        // Each corner its own companion: a barrel by the left desk, a stack of crates beyond the right one.
+        if (s === -1) place({ frame: "barrel", x: s * (436 + jog("d", 18) + 62), y, w: 26, floor: f, layer: "front", group: corner }, false);
+        else place({ frame: "crates", x: s * (436 + jog("d", 18) + 72), y, w: 44, floor: f, layer: "back", group: corner }, false);
+        place({ frame: "candelabra", x: s * (436 + jog("d", 18) + (s === -1 ? 24 : -26)), y: y - 52, w: 26, floor: f, layer: "front", group: corner, ...lit({ color: 0xffb040, reach: 40 }) }, false);
       }
     }
   });
