@@ -238,7 +238,7 @@ final class DungeonScene: SKScene, MapScene {
                 let halo = SKSpriteNode(texture: tex, size: CGSize(width: num(h["w"]), height: num(h["h"])))
                 halo.position = CGPoint(x: box.width / 2, y: -box.height / 2)
                 halo.blendMode = .add
-                halo.alpha = 0.7
+                halo.alpha = 0.88
                 halo.zPosition = -0.5
                 body.addChild(halo)
             }
@@ -363,7 +363,9 @@ final class DungeonScene: SKScene, MapScene {
         if let mode = s["tile"] as? String, let name = s["f"] as? String {
             // Darkened by `shade`, and more on an offline floor.
             let shade = min(0.85, num(s["shade"]) + (dim ? 0.55 : 0))
-            guard let tiled = tiled(name, box, mode: mode, shade: shade, ox: num(s["ox"]), oy: num(s["oy"])) else { return nil }
+            // `neutral` shades toward a near-neutral dark (a fascia in shadow) rather than the purple shadow.
+            let color = num(s["neutral"]) > 0 ? Textures.color(0x15131a) : DungeonScene.shadow
+            guard let tiled = tiled(name, box, mode: mode, shade: shade, ox: num(s["ox"]), oy: num(s["oy"]), shadeColor: color) else { return nil }
             tiled.zPosition = z
             tiled.alpha = num(s["a"], 1)
             return tiled
@@ -398,7 +400,7 @@ final class DungeonScene: SKScene, MapScene {
 
     /// A frame repeated across a box: along x, y or both, in larger textures where it can, its
     /// pattern shifted by (`ox`, `oy`) so neighbouring areas don't repeat in step.
-    private func tiled(_ name: String, _ box: CGRect, mode: String, shade: CGFloat, ox: CGFloat = 0, oy: CGFloat = 0) -> SKNode? {
+    private func tiled(_ name: String, _ box: CGRect, mode: String, shade: CGFloat, ox: CGFloat = 0, oy: CGFloat = 0, shadeColor: NSColor = DungeonScene.shadow) -> SKNode? {
         guard let image = frameImages[name] else { return nil }
         let size = frameSizes[name] ?? CGSize(width: 32, height: 32)
         let container = SKNode()
@@ -437,7 +439,7 @@ final class DungeonScene: SKScene, MapScene {
                     s.size = CGSize(width: cell.width + 0.4, height: cell.height + 0.4)
                     s.position = p(cell.minX, cell.minY)
                     if shade > 0 {
-                        s.color = DungeonScene.shadow
+                        s.color = shadeColor
                         s.colorBlendFactor = shade
                     }
                     container.addChild(s)
@@ -449,16 +451,26 @@ final class DungeonScene: SKScene, MapScene {
         return container
     }
 
-    /// A gold link: a soft outer glow, the bright line and a light core.
+    /// A gold link: a slim conduit with a restrained white core and a soft glow, its turns clipped at 45°.
     private func link(_ flat: [CGFloat], dim: Bool) -> SKNode {
+        var pts: [CGPoint] = []
+        for i in stride(from: 0, to: flat.count - 1, by: 2) { pts.append(CGPoint(x: flat[i], y: flat[i + 1])) }
         let path = CGMutablePath()
-        for i in stride(from: 0, to: flat.count - 1, by: 2) {
-            let pt = p(flat[i], flat[i + 1])
-            if i == 0 { path.move(to: pt) } else { path.addLine(to: pt) }
+        let clip: CGFloat = 9
+        for (i, q) in pts.enumerated() {
+            if i == 0 { path.move(to: p(q.x, q.y)); continue }
+            if i == pts.count - 1 { path.addLine(to: p(q.x, q.y)); continue }
+            // Cut the corner: stop short of it, then run diagonally to just past it.
+            let a = pts[i - 1], b = pts[i + 1]
+            let la = hypot(q.x - a.x, q.y - a.y), lb = hypot(b.x - q.x, b.y - q.y)
+            let c = min(clip, la / 2, lb / 2)
+            guard c > 0.5, la > 0, lb > 0 else { path.addLine(to: p(q.x, q.y)); continue }
+            path.addLine(to: p(q.x - (q.x - a.x) / la * c, q.y - (q.y - a.y) / la * c))
+            path.addLine(to: p(q.x + (b.x - q.x) / lb * c, q.y + (b.y - q.y) / lb * c))
         }
         let group = SKNode()
         group.zPosition = 1
-        for (width, color, alpha, add) in [(20.0, 0xff9a18, 0.1, true), (11.0, 0xffb02a, 0.2, true), (5.0, 0xe0aa40, 0.92, false), (1.8, 0xfff0c0, 0.85, false)] as [(CGFloat, Int, CGFloat, Bool)] {
+        for (width, color, alpha, add) in [(10.0, 0xffa020, 0.12, true), (3.6, 0xe8a830, 1.0, false), (1.2, 0xfff4d0, 0.75, false)] as [(CGFloat, Int, CGFloat, Bool)] {
             let line = SKShapeNode(path: path)
             line.strokeColor = Textures.color(dim ? 0x6a6050 : color, dim ? alpha * 0.5 : alpha)
             line.lineWidth = width
@@ -480,7 +492,7 @@ final class DungeonScene: SKScene, MapScene {
         let golden = l["blend"] as? String == "gold"
         if golden {
             // Opaque, fading to neutral grey (which ×2 leaves as it is): a transparent edge would darken the stone.
-            let pool = SKSpriteNode(texture: goldPool(color: Int(num(l["c"], 0xffd426)), strength: num(l["k"], 0.6)), size: size)
+            let pool = SKSpriteNode(texture: goldPool(color: Int(num(l["c"], 0xffd426)), strength: num(l["k"], 0.6), tight: num(l["tight"]) > 0), size: size)
             pool.blendMode = .multiplyX2
             pool.position = p(num(l["x"]), num(l["y"]))
             pool.zPosition = num(l["z"], 6)
@@ -530,8 +542,8 @@ final class DungeonScene: SKScene, MapScene {
     /// Gold pools by colour and strength: the colour (at `strength` of the way from neutral grey) at the heart,
     /// easing to neutral grey at the edge, opaque throughout.
     private var goldPools: [String: SKTexture] = [:]
-    private func goldPool(color: Int, strength: CGFloat) -> SKTexture {
-        let key = "\(color)/\(Int(strength * 100))"
+    private func goldPool(color: Int, strength: CGFloat, tight: Bool = false) -> SKTexture {
+        let key = "\(color)/\(Int(strength * 100))/\(tight)"
         if let t = goldPools[key] { return t }
         let px = 96
         let ctx = Textures.context(px, px)!
@@ -540,7 +552,7 @@ final class DungeonScene: SKScene, MapScene {
         let mix = { (k: CGFloat) in CGColor(colorSpace: space, components: c.map { 0.5 + ($0 - 0.5) * k } + [1])! }
         ctx.setFillColor(mix(0))
         ctx.fill(CGRect(x: 0, y: 0, width: px, height: px))
-        let gradient = CGGradient(colorsSpace: space, colors: [mix(strength), mix(strength * 0.85), mix(0)] as CFArray, locations: [0, 0.55, 1])!
+        let gradient = CGGradient(colorsSpace: space, colors: [mix(strength), mix(strength * (tight ? 0.45 : 0.85)), mix(0)] as CFArray, locations: [0, tight ? 0.3 : 0.55, 1])!
         let mid = CGPoint(x: px / 2, y: px / 2)
         ctx.drawRadialGradient(gradient, startCenter: mid, startRadius: 0, endCenter: mid, endRadius: CGFloat(px) / 2, options: [])
         let t = SKTexture(cgImage: ctx.makeImage()!)
@@ -560,7 +572,8 @@ final class DungeonScene: SKScene, MapScene {
         backdropCover = cover
         backdrop.removeAllChildren()
         let snapped = CGRect(x: floor(cover.minX / 192) * 192, y: floor(cover.minY / 192) * 192, width: cover.width + 192, height: cover.height + 192)
-        if let stone = tiled("wall-brick-dark", snapped, mode: "xy", shade: 0.45) { backdrop.addChild(stone) }
+        // The rock round the board: dark and nearly neutral, so the board's own purple and gold carry the colour.
+        if let stone = tiled("wall-brick-dark", snapped, mode: "xy", shade: 0.55, shadeColor: Textures.color(0x15131a)) { backdrop.addChild(stone) }
         // The board's frame: a border along its top and foot, and its sides.
         let frame = SKShapeNode(rect: CGRect(x: b.x - 6, y: -(b.y + b.height + 6), width: b.width + 12, height: b.height + 12))
         frame.strokeColor = Textures.color(0x120c1c)

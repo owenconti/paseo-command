@@ -41,11 +41,12 @@ const TEXT_SCALE = 4;
 /** How dark the far wall is drawn (a share of black over its tile), for the light pools to warm. */
 const WALL_SHADE = 0;
 /** The alcoves' interiors, a little darker than their sheet, so the robots read against them. */
-const INTERIOR_SHADE = 0.32;
+const INTERIOR_SHADE = 0.28;
 /** How strongly the warm torchlight wash lights the stone. */
 /** Gold light: its colour (multiplied, doubled, over the stone) and each kind of pool's strength. */
 const GOLD = 0xc87c00;
-const GOLD_K = { alcove: 0.75, walk: 0.62, rim: 0.7, torch: 0.72, candle: 0.7 };
+const GOLD_DEEP = 0x7a4c00;
+const GOLD_K = { alcove: 0.5, walk: 0.62, rim: 0.9, front: 0.95, torch: 0.95, candle: 0.4 };
 /** The concept's chunky, wide, rounded heavy type: SF Pro Rounded where WebKit has it. */
 const FONT = 'ui-rounded, "SF Pro Rounded", "Arial Rounded MT Bold", "Paseo Barlow", sans-serif';
 /** Its weights: labels and plaques heavy, the HUD's lighter lines bold. */
@@ -67,7 +68,7 @@ const png = (canvas: HTMLCanvasElement) => canvas.toDataURL("image/png");
 const GRADED = new Set(["stone", "gate", "alcoves", "props"]);
 /** The concept's grade: a fifth more saturation, shadows and mids pushed toward its purples
  * (#2a1f4a, #4a3a7a) by how dark they are, warm highlights (torch light, gold) left warm. */
-export const GRADE = { lift: 1.19, warmth: [1, 1, 1], saturation: 1.15, shadow: [0x2a, 0x1f, 0x4a], mid: [0x4a, 0x3a, 0x7a], strength: 0.1 };
+export const GRADE = { lift: 1.19, warmth: [1, 1, 1], saturation: 1.05, shadow: [0x2a, 0x1f, 0x4a], mid: [0x4a, 0x3a, 0x7a], strength: 0.1 };
 function grade(image: HTMLImageElement, opts: { saturation?: number; strength?: number } = {}): HTMLCanvasElement {
   const saturation = opts.saturation ?? GRADE.saturation, strength = opts.strength ?? GRADE.strength;
   const canvas = document.createElement("canvas");
@@ -186,7 +187,12 @@ function trimRobots(canvases: Map<string, HTMLCanvasElement>) {
 
 /** Each robot colour's halo: its idle silhouette, in a light tint of its colour, blurred into a soft
  * outer glow (`halo-<colour>`, drawn behind the robot, added over the scene). Baked once. */
-const HALO = { pad: 0.2, tint: { orange: "#ffb27a", white: "#ffffff" } as Record<string, string> };
+const HALO = {
+  pad: 0.2,
+  // Each in its robot's own saturated colour, so the glow says "this robot" rather than washing it white.
+  tint: { orange: "#ff8a3a", white: "#ffffff", blue: "#4aa8ff", purple: "#b47aff", green: "#5aff6a", yellow: "#ffd83a",
+    red: "#ff5a5a", grey: "#c8c8e0", teal: "#3affe0", pink: "#ff7ac8" } as Record<string, string>,
+};
 function bakeHalos(canvases: Map<string, HTMLCanvasElement>) {
   for (const [name, src] of [...canvases]) {
     const m = /^robot-(\w+)-idle-0$/.exec(name);
@@ -291,12 +297,8 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
   /** A parchment label with its text centred, bold dark brown. */
   const paintLabel = (r: Rect, text: string, kind: "workspace" | "project") => {
     const { canvas, ctx } = canvasFor(r.w, r.h);
+    // The sheet's own cream, undimmed.
     nineSlice(ctx, frame("label"), "label", 0, 0, r.w, r.h);
-    // A touch darker than the sheet's parchment: legible, but never brighter than the robots.
-    ctx.globalCompositeOperation = "source-atop";
-    ctx.fillStyle = "rgba(48, 24, 64, 0.24)";
-    ctx.fillRect(0, 0, r.w, r.h);
-    ctx.globalCompositeOperation = "source-over";
     ctx.font = fontOf(kind);
     ctx.fillStyle = INK;
     ctx.textAlign = "center";
@@ -308,10 +310,6 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
   const paintPlaque = (r: Rect, title: string, stats: { text: string; alert: boolean }[], online: boolean) => {
     const { canvas, ctx } = canvasFor(r.w, r.h);
     nineSlice(ctx, frame("plaque"), "plaque", 0, 0, r.w, r.h);
-    ctx.globalCompositeOperation = "source-atop";
-    ctx.fillStyle = "rgba(48, 24, 64, 0.2)";
-    ctx.fillRect(0, 0, r.w, r.h);
-    ctx.globalCompositeOperation = "source-over";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     ctx.font = fontOf("host");
@@ -421,13 +419,23 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
 
   /** A shading overlay, stretched over the board: a purple shadow falling from the top of a floor's upper wall,
    * or a vignette darkening the board toward its edges. */
-  const paintShade = (kind: "upper" | "edges" | "warm") => {
+  const paintShade = (kind: "upper" | "edges" | "warm" | "under" | "patch") => {
     const canvas = document.createElement("canvas");
     canvas.width = canvas.height = 256;
     const ctx = canvas.getContext("2d")!;
     // A muted deep purple: it darkens without over-saturating (the grade already deepens the hue).
     const shadow = (a: number) => `rgba(30, 22, 44, ${a})`;
-    if (kind === "warm") {
+    if (kind === "under") {
+      const g = ctx.createLinearGradient(0, 0, 0, 256);
+      g.addColorStop(0, "rgba(14, 10, 34, 0.7)");
+      g.addColorStop(1, "rgba(14, 10, 34, 0)");
+      ctx.fillStyle = g;
+    } else if (kind === "patch") {
+      const g = ctx.createRadialGradient(128, 128, 10, 128, 128, 128);
+      g.addColorStop(0, "rgba(20, 12, 40, 0.45)");
+      g.addColorStop(1, "rgba(20, 12, 40, 0)");
+      ctx.fillStyle = g;
+    } else if (kind === "warm") {
       const g = ctx.createLinearGradient(0, 0, 0, 256);
       // Golden, not grey: the purple stays in the shadows, the light is warm and saturated.
       g.addColorStop(0, "rgba(255, 150, 40, 0.45)");
@@ -498,7 +506,7 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
       }
       // Each tier: the terrace floor under its walkway, and the thick front wall that closes it (lit top, returns, ends).
       for (const y0 of fl.tierTops) {
-        fill("terrace-floor", { x: -H + 20, y: y0 + D.floorY - 48, w: 2 * H - 40, h: 74 }, -40, { ...dim, shade: 0.05 });
+        fill("terrace-floor", { x: -H + 20, y: y0 + D.floorY - 48, w: 2 * H - 40, h: 74 }, -40, { ...dim, shade: 0.12 });
         // The last tier's front wall opens round the next floor's gate; any other's round the stairs.
         const open = !fl.last && y0 === fl.tierTops[fl.tiers - 1] ? D.surroundW / 2 - 4 : D.stairsW / 2 + 2;
         for (const sd of [-1, 1]) {
@@ -509,6 +517,26 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
         put("rampart-return-left", H - 118, y0 + D.frontY - 16, 88, 43, -8.9, dim);
         put("rampart-end-left", -H + 12, y0 + D.frontY - 24, 31, 30, -8.8, dim);
         put("rampart-end-right", H - 38, y0 + D.frontY - 24, 31, 30, -8.8, dim);
+        // The cutaway's thickness under the rampart's lip: the ledge's face, corbels carrying it, and a cool
+        // shadow beneath, so the floor reads as a slab with the next floor's wall in its shade.
+        fill("ledge-face", { x: -H + 26, y: y0 + D.frontY + 26, w: 2 * H - 52, h: 14 }, -9.2, { ...dim, shade: 0.5, neutral: 1 });
+        for (let cx = -H + 70; cx < H - 60; cx += 118) {
+          if (Math.abs(cx) < D.surroundW / 2 + 10 && !fl.last && y0 === fl.tierTops[fl.tiers - 1]) continue;
+          put("pillar-base", cx - 12, y0 + D.frontY + 36, 24, 18, -9.25, dim);
+        }
+        images.push({ ...image("shade:under", () => paintShade("under")), x: -H + 20, y: y0 + D.frontY + 38, w: 2 * H - 40, h: 22, z: -9.3 });
+      }
+      // The enclosure's edges, excavated: irregular masses of dark stone biting in at the floor's ends.
+      for (const sd of [-1, 1])
+        for (let y = T + 10; y < T + fl.height - 30; y += 40 + rng() * 50) {
+          const bite = 10 + rng() * 22, h = 30 + rng() * 60;
+          fill("wall-brick-dark", { x: sd === -1 ? -H : H - bite, y, w: bite, h }, -54, { ...dim, shade: 0.35 });
+        }
+      // Dark breaks on the upper wall: soft shadow patches, so it never reads as wallpaper.
+      for (let i = 0; i < 4; i++) {
+        const w = 70 + rng() * 80, x = -H + D.sideRoom + rng() * (2 * H - 2 * D.sideRoom - w);
+        if (Math.abs(x + w / 2) < D.surroundW / 2 + w / 2) continue;
+        images.push({ ...image("shade:patch", () => paintShade("patch")), x, y: T + 18 + rng() * 50, w, h: 50 + rng() * 40, z: -50 });
       }
       if (fl.last) fill("terrace-floor", { x: -H + 20, y: floorEnd + 28, w: 2 * H - 40, h: fl.top + fl.height - floorEnd - 34 }, -40, { ...dim, shade: 0.1 });
       // The gate column: the big round surround with the host's icon in its dark top, the plaque, the portcullis
@@ -559,9 +587,14 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
       const inner = width - 40;
       // The alcove, as the art's own assembly: dark interiors between chunky sides, a lintel with low-wall returns, a ledge in front.
       const count = Math.max(1, Math.round(inner / FRAMES["alcove-slot-0"]!.w));
+      // Workstations at the bay's ends, outside the robots' silhouettes: a monitor desk at the left (turned to face
+      // in), a book shelf at the right, or a second monitor desk in a wide bay; plain wall behind the robots.
+      const wide = w.agents.length >= 4;
       for (let i = 0; i < count; i++) {
-        const v = w.interiors[i % w.interiors.length]!;
-        put(`alcove-slot-${w.entity.camp ? 2 : v}`, x + 20 + (i * inner) / count, y + 12, inner / count + 0.5, D.alcoveH - 22, -12, { ...dim, shade: dim.dim ? 0.55 : INTERIOR_SHADE });
+        const left = i === 0, right = i === count - 1 && count > 1;
+        const v = w.entity.camp ? (left || right ? 3 : 0) : left ? 1 : right ? (wide ? 1 : 2) : 0;
+        put(`alcove-slot-${v}`, x + 20 + (i * inner) / count, y + 12, inner / count + 0.5, D.alcoveH - 22, -12,
+          { ...dim, shade: dim.dim ? 0.55 : INTERIOR_SHADE, ...(left && v === 1 ? { flip: 1 } : {}) });
       }
       put("alcove-left", x, y + 7, 24, D.alcoveH - 9, -11, dim);
       put("alcove-right", x + width - 24, y + 7, 24, D.alcoveH - 9, -11, dim);
@@ -593,7 +626,8 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
       const z = d.frame === "rug-red" ? -39.5 : d.recess ? -38 : d.layer === "back" ? -48 : -4;
       // Side rooms' recesses a shade down, so their coloured light never outshines the robots.
       // Side rooms' recesses and the foot's red rugs a shade down, so neither outshines the robots.
-      const quiet = (d.recess || d.frame === "rug-red") && l.floors[d.floor]?.online ? { shade: d.recess ? 0.34 : 0.38 } : {};
+      const glowing = /^(magic-circle|crystal|alchemy-tank|forge)$/.test(d.frame);
+      const quiet = (d.recess || glowing || d.frame === "rug-red") && l.floors[d.floor]?.online ? { shade: d.recess ? 0.45 : glowing ? 0.32 : 0.38 } : {};
       sprites.push(sprite(d.frame, d.rect, z, { ...dimOf(d.floor), ...(d.flip ? { flip: 1 } : {}), ...quiet }));
       if (d.light && l.floors[d.floor]!.online)
         lights.push({
@@ -623,17 +657,37 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
     for (const w of l.workspaces) {
       if (!l.floors[w.floor]!.online) continue;
       const r = w.rect;
-      gold(r.x + r.w / 2, r.y + r.h * 0.55, r.w * 0.62, r.h * 0.7, GOLD_K.alcove, -11.5);
+      // (Since art v5 the alcoves' interiors carry their own gold light; a pool over them outshone the robots.)
+      void r;
     }
     for (const fl of l.floors) {
       if (!fl.online) continue;
       for (const y0 of fl.tierTops) {
         for (const sd of [-1, 1])
           for (let x = D.stairsW / 2 + 70; x < fl.rect.w / 2 - 40; x += 120) {
-            gold(sd * x, y0 + D.floorY - 22, 84, 38, GOLD_K.walk, -39);
-            gold(sd * x, y0 + D.frontY + 8, 80, 16, GOLD_K.rim, -8.5);
+            // (The walkways' terrace floor carries its own warm light since art v5.)
+            // A deeper gold here: saturated, but not brighter than the robots above it.
+            for (const dx of [0, 60]) lights.push({ x: sd * (x + dx), y: y0 + D.frontY + 9, rx: 70, ry: 15, c: GOLD_DEEP, blend: "gold", k: GOLD_K.front, z: -8.5, period: 5200, flicker: false });
           }
       }
+    }
+    // Gold rim light along the lit tops of each project terrace's wall and each floor's back wall.
+    for (const p of l.projects) {
+      if (!l.floors[p.floor]!.online) continue;
+      for (let x = p.span.x + 30; x < p.span.x + p.span.w - 10; x += 52)
+        lights.push({ x, y: p.span.y + 31, rx: 46, ry: 14, c: GOLD_DEEP, blend: "gold", k: GOLD_K.rim, z: -29.5, period: 5200, flicker: false });
+    }
+    for (const fl of l.floors) {
+      if (!fl.online) continue;
+      for (const sd of [-1, 1])
+        for (let x = D.surroundW / 2 + 30; x < fl.rect.w / 2 - 50; x += 52)
+          lights.push({ x: sd * x, y: fl.top + 33, rx: 46, ry: 14, c: GOLD_DEEP, blend: "gold", k: GOLD_K.rim, z: -43.5, period: 5200, flicker: false });
+    }
+    // The project terraces' recess walls, lit warm from the alcoves below.
+    for (const p of l.projects) {
+      if (!l.floors[p.floor]!.online) continue;
+      for (let x = p.span.x + 50; x < p.span.x + p.span.w - 30; x += 64)
+        lights.push({ x, y: p.span.y + 86, rx: 50, ry: 30, c: GOLD_DEEP, blend: "gold", k: 0.95, z: -49.5, period: 5200, flicker: false });
     }
     // One pool per torch, or per pair of torches close together (stacked pools would outshine the robots).
     const pooled: { x: number; y: number }[] = [];
@@ -642,7 +696,10 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
       const x = d.rect.x + d.rect.w / 2, y = d.rect.y + 30;
       if (pooled.some((q) => Math.hypot(q.x - x, q.y - y) < 90)) continue;
       pooled.push({ x, y });
-      gold(x, y, 76, 68, GOLD_K.torch, -43);
+      // Tight: a small bright heart and a quick falloff, torchlight on stone rather than a smudge.
+      lights.push({ x, y, rx: 42, ry: 40, c: GOLD, blend: "gold", tight: 1, k: GOLD_K.torch, z: -43, period: 5200, flicker: false });
+      // Its light falling on the wall below: wide and deep (warm, not bright).
+      lights.push({ x, y: y + 30, rx: 60, ry: 40, c: GOLD_DEEP, blend: "gold", tight: 1, k: 0.95, z: -43.2, period: 5200, flicker: false });
     }
     return {
       type: "scene",

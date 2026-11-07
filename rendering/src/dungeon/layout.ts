@@ -37,31 +37,31 @@ export const D = {
   /** Robots: their visible size, and the pitch they stand at. */
   robot: 47,
   robotH: 55,
-  slot: 54,
+  slot: 50,
   /** An alcove's room either side of its robots; at least this many robots' room. */
-  alcoveEnd: 40,
+  alcoveEnd: 38,
   /** Its stone sides (the frame's width). */
   alcoveSide: 17,
   minSlots: 2,
-  alcoveGap: 20,
-  projectGap: 40,
+  alcoveGap: 12,
+  projectGap: 22,
   /** Side content starts this far from the gates' centre line; the first tier's link drops at `drop`,
    * lower tiers' run down at `trunk`, beside the stairs. */
   inner: 80,
-  drop: 150,
+  drop: 134,
   trunk: 70,
   /** Each end of a floor is a side room this wide. */
-  sideRoom: 168,
+  sideRoom: 160,
   /** A side's content is at least this wide, so a small fleet still reads as the concept's hall. */
-  minSide: 330,
+  minSide: 250,
   /** Floor: its upper band (gate medallion, plaque, node) above its first tier. */
   band: 116,
-  tierH: 250,
+  tierH: 254,
   tierGap: 0,
   /** The stone ledge's face under a tier's floor. */
   ledge: 28,
   /** Below the last floor: the stairs' foot, braziers, rugs and the crown banner. */
-  foot: 110,
+  foot: 92,
   /** Below the foot's furnishings, room the HUD's count bar lies over (nothing the board says is under it). */
   footPad: 90,
   /** Within a tier (from its top). */
@@ -69,15 +69,15 @@ export const D = {
   medallionR: 29,
   labelY: 53,
   labelH: 38,
-  busY: 99,
-  alcoveY: 92,
+  busY: 95,
+  alcoveY: 96,
   alcoveH: 128,
-  wsLabelY: 102,
+  wsLabelY: 106,
   wsLabelH: 35,
-  feetY: 207,
-  floorY: 220,
+  feetY: 211,
+  floorY: 224,
   /** The thick front wall closing each tier (its top). */
-  frontY: 236,
+  frontY: 240,
   /** The wall above the first floor, which the HUD's title lies over. */
   topBand: 80,
   /** Within a floor (from its top). */
@@ -379,19 +379,26 @@ export function segmentRect(a: Pt, b: Pt, glow = 4): Rect {
 /** Side-room vignettes: props standing on a room's floor, by offset from its middle. */
 /** Side-room vignettes: a recess (130 × 200, standing on the tier's floor) and its props, each at its sheet size,
  * placed by its top-left corner from the recess's, as the art's own room compositions place them. */
-const VIGNETTES: { name: string; room: string; glow?: { color: number; reach: number; dy: number }; props: { frame: string; x: number; y: number; light?: { color: number; reach: number } }[] }[] = [
-  { name: "library", room: "room-arch", props: [{ frame: "bookcase-ladder", x: 26.7, y: 83.3 }] },
-  { name: "crystal", room: "room-cave", glow: { color: 0xb06bff, reach: 120, dy: 150 }, props: [{ frame: "crystal", x: 40, y: 140, light: { color: 0xc080ff, reach: 90 } }] },
-  { name: "magic", room: "room-magic", glow: { color: 0x3fb8ff, reach: 130, dy: 90 }, props: [{ frame: "magic-circle", x: 33.3, y: 55 }, { frame: "armor", x: 76.7, y: 130 }] },
-  { name: "forge", room: "room-forge", glow: { color: 0xff7a2a, reach: 120, dy: 165 }, props: [{ frame: "forge", x: 32.7, y: 125, light: { color: 0xff9a3a, reach: 90 } }] },
-  { name: "alchemy", room: "room-arch", glow: { color: 0xc06bff, reach: 100, dy: 150 }, props: [{ frame: "alchemy-tank", x: 35, y: 125 }] },
-  { name: "storage", room: "room-arch", props: [{ frame: "barrels", x: 12, y: 158 }, { frame: "crates", x: 62, y: 148 }] },
+/** Side-room vignettes: a recess (130 × 200, on the tier's floor) and the props that inhabit it, each by its
+ * height (the main one about two thirds of the recess's), its centre's offset from the recess's middle (mirrored
+ * on the right) and how far above the floor its feet stand; companions within an object's width of it. */
+const VIGNETTES: { name: string; room: string; glow?: { color: number; reach: number; dy: number }; props: { frame: string; h: number; dx: number; up?: number; light?: { color: number; reach: number } }[] }[] = [
+  { name: "library", room: "room-arch", props: [{ frame: "bookcase-ladder", h: 136, dx: 0 }, { frame: "candle", h: 26, dx: 52 }, { frame: "table", h: 30, dx: -50 }] },
+  { name: "crystal", room: "room-cave", glow: { color: 0xb06bff, reach: 120, dy: 140 }, props: [{ frame: "crystal", h: 104, dx: 4, light: { color: 0xc080ff, reach: 90 } }, { frame: "barrel", h: 40, dx: -50 }] },
+  { name: "magic", room: "room-magic", glow: { color: 0x3fb8ff, reach: 120, dy: 100 }, props: [{ frame: "magic-circle", h: 100, dx: -10, up: 22 }, { frame: "armor", h: 94, dx: 42 }] },
+  { name: "forge", room: "room-forge", glow: { color: 0xff7a2a, reach: 110, dy: 150 }, props: [
+    { frame: "forge", h: 120, dx: 6, light: { color: 0xff9a3a, reach: 90 } }, { frame: "anvil", h: 42, dx: -46 }, { frame: "shelf-potions", h: 56, dx: 58 },
+    { frame: "table", h: 30, dx: -16, up: 0 }, { frame: "candle", h: 26, dx: -62 } ] },
+  { name: "alchemy", room: "room-arch", glow: { color: 0xc06bff, reach: 100, dy: 140 }, props: [{ frame: "alchemy-tank", h: 122, dx: 2 }, { frame: "crate", h: 38, dx: -52 }] },
+  { name: "storage", room: "room-arch", props: [{ frame: "barrels", h: 58, dx: -22 }, { frame: "crates", h: 64, dx: 30 }, { frame: "candle", h: 26, dx: 60 }] },
 ];
+/** Themed banners, over the end rooms. */
+const THEMED = ["banner-navy-hammers", "banner-blue-anvil", "banner-purple"];
 const BANNERS = ["banner-purple-layers", "banner-purple", "banner-navy-hammers", "banner-blue-anvil"];
 const FLOOR_PROPS = ["barrel", "barrels", "crate", "crates", "shelf-potions", "table"];
 /** Small things on the walkways and beside the side rooms, as the concept strews them. */
 const CLUTTER = ["barrel", "crate", "candle", "barrel", "crate", "candle", "shelf-potions", "table"];
-const TORCH_LIGHT = { color: 0xffa03a, reach: 90 };
+const TORCH_LIGHT = { color: 0xffa03a, reach: 56 };
 /** A side room's recess, in board units. */
 const ROOM = { w: 130, h: 200 };
 
@@ -625,7 +632,8 @@ export function layoutDungeon(data: AtlasData, _aspect = 1.6, measure: Measure =
                 drones: (row.subagentModels ?? []).map(robotColor),
                 entity: e,
                 feet,
-                rect: { x: feet.x - D.robot / 2 - 2, y: feet.y - D.robotH - 2, w: D.robot + 4, h: D.robotH + 6 },
+                // Its pick box: no wider than its pitch, so neighbours' never overlap.
+                rect: { x: feet.x - Math.min(D.robot + 4, D.slot - 2) / 2, y: feet.y - D.robotH - 2, w: Math.min(D.robot + 4, D.slot - 2), h: D.robotH + 6 },
                 floor: f,
               });
             });
@@ -715,7 +723,9 @@ export function layoutDungeon(data: AtlasData, _aspect = 1.6, measure: Measure =
         for (const prop of v.props) {
           const spec = FRAMES[prop.frame] ?? FRAMES[`${prop.frame}-0`]!;
           const a = anchorShare(spec.anchor);
-          place({ frame: prop.frame, x: left + prop.x + a.x * spec.w, y: top + prop.y + a.y * spec.h, floor: f, layer: "front", group, ...(prop.light ? lit(prop.light) : {}) }, false);
+          const w = (prop.h * spec.w) / spec.h, cx = mid + prop.dx * -s, foot = feet - (prop.up ?? 0);
+          // Its anchor point, from where its box's middle and feet should be.
+          place({ frame: prop.frame, x: cx - (0.5 - a.x) * w, y: foot - (1 - a.y) * prop.h, w, floor: f, layer: "front", group, ...(prop.light ? lit(prop.light) : {}) }, true, true, group);
         }
         // A torch by the room's outer wall.
         place({ frame: "torch", x: s * (half - 16), y: y0 + 120, floor: f, layer: "front", ...lit(TORCH_LIGHT) });
@@ -726,30 +736,26 @@ export function layoutDungeon(data: AtlasData, _aspect = 1.6, measure: Measure =
       for (const x of [w.rect.x - D.alcoveGap / 2, w.rect.x + w.rect.w + D.alcoveGap / 2])
         if (Math.abs(x) > D.inner) place({ frame: "torch", x, y: w.rect.y + 34, floor: f, layer: "front", ...lit(TORCH_LIGHT) });
     }
-    // The upper wall: a banner over each first-tier project's inner and outer sides with a torch beside it,
-    // then barred and arched windows and chains between the bays, as busy as the concept's.
-    for (const p of projects.filter((p) => p.floor === f && p.tier === 0)) {
-      const inner = p.side === 1 ? p.span.x : p.span.x + p.span.w;
-      const outer = p.side === 1 ? p.span.x + p.span.w : p.span.x;
-      const innerX = p.side * Math.max(Math.abs(inner) + 40, D.surroundW / 2 + 36);
-      for (const [x, k] of [[innerX, 0], [outer - p.side * 40, 1]] as const) {
-        if (place({ frame: k === 0 ? "banner-purple-layers" : pick(BANNERS), x, y: fl.top + 29, w: 60, floor: f, layer: "back" }))
-          place({ frame: "torch", x: x + p.side * (k === 0 ? 62 : -62), y: fl.top + 57, w: 24, floor: f, layer: "front", ...lit(TORCH_LIGHT) });
-      }
-    }
-    // Torches flanking the gate's surround.
-    for (const s of [-1, 1] as const) place({ frame: "torch", x: s * (D.surroundW / 2 + 16), y: fl.top + 78, w: 24, floor: f, layer: "front", ...lit(TORCH_LIGHT) });
+    // The upper wall, as the concept dresses it: the host's pair of layered banners flanking the gate is the strong
+    // motif; themed banners hang over the end rooms; between them, irregular clusters of torches, the odd window or
+    // chain, and dark breaks (the bridge lays shadow patches there).
+    const hostX = D.surroundW / 2 + 40;
     for (const s of [-1, 1] as const) {
-      // A banner over each side room.
-      place({ frame: pick(BANNERS), x: s * (half - D.sideRoom / 2 - 6), y: fl.top + 47, w: 60, floor: f, layer: "back" });
-      for (let x = D.surroundW / 2 + 30; x < half - D.sideRoom - 20; x += 46 + rng() * 30) {
+      if (place({ frame: "banner-purple-layers", x: s * hostX, y: fl.top + 26, w: 62, floor: f, layer: "back" }))
+        place({ frame: "torch", x: s * (hostX + 50), y: fl.top + 56, w: 24, floor: f, layer: "front", ...lit(TORCH_LIGHT) });
+      place({ frame: THEMED[(seedOf(fl.host.id) + (s === 1 ? 1 : 0)) % THEMED.length]!, x: s * (half - D.sideRoom / 2), y: fl.top + 40, w: 60, floor: f, layer: "back" });
+      for (let x = hostX + 100 + rng() * 30; x < half - D.sideRoom - 30; x += 70 + rng() * 70) {
         const roll = rng();
         const arch = FRAMES["window-arch"]?.real ? "window-arch" : "niche-arch";
         const chains = FRAMES["chain-pair"]?.real ? "chain-pair" : "chain";
-        if (roll < 0.25) place({ frame: "window-barred", x: s * x, y: fl.top + 82, w: 44, floor: f, layer: "back" });
-        else if (roll < 0.45) place({ frame: arch, x: s * x, y: fl.top + 112, w: 44, floor: f, layer: "back" });
-        else if (roll < 0.62) place({ frame: chains, x: s * x, y: fl.top + 4, w: chains === "chain-pair" ? 34 : 9, floor: f, layer: "back" });
-        else place({ frame: "torch", x: s * x, y: fl.top + 60, w: 22, floor: f, layer: "front", ...lit(TORCH_LIGHT) });
+        if (roll < 0.38) {
+          // A cluster: one torch, or two close together.
+          place({ frame: "torch", x: s * x, y: fl.top + 58 + rng() * 12, w: 22, floor: f, layer: "front", ...lit(TORCH_LIGHT) });
+          if (rng() < 0.5) place({ frame: "torch", x: s * (x + 26), y: fl.top + 58 + rng() * 12, w: 22, floor: f, layer: "front", ...lit(TORCH_LIGHT) });
+        } else if (roll < 0.52) place({ frame: "window-barred", x: s * x, y: fl.top + 82, w: 42, floor: f, layer: "back" });
+        else if (roll < 0.62) place({ frame: arch, x: s * x, y: fl.top + 112, w: 42, floor: f, layer: "back" });
+        else if (roll < 0.72) place({ frame: chains, x: s * x, y: fl.top + 4, w: chains === "chain-pair" ? 34 : 9, floor: f, layer: "back" });
+        // Otherwise a dark break.
       }
       // Floor props, windows and niches in leftover space between a tier's projects and its room.
       fl.tierTops.forEach((y0) => {
@@ -776,12 +782,13 @@ export function layoutDungeon(data: AtlasData, _aspect = 1.6, measure: Measure =
       const y = fl.top + fl.height - D.footPad - 6;
       place({ frame: "banner-crown", x: 0, y: y - D.foot + 18, w: 56, floor: f, layer: "front" }, false);
       for (const s of [-1, 1] as const) {
-        place({ frame: "brazier", x: s * 100, y, w: 40, floor: f, layer: "front", ...lit({ color: 0xff9a3a, reach: 80 }) });
+        place({ frame: "brazier", x: s * 104, y, w: 46, floor: f, layer: "front", ...lit({ color: 0xff9a3a, reach: 70 }) });
         // On the foot's open floor, between the last front wall and the count bar's strip.
         const rug = FRAMES["rug-red"]!, rugW = 130, rugH = (rug.h * rugW) / rug.w;
         const rugTop = fl.tierTops[fl.tiers - 1]! + D.frontY + 34;
         place({ frame: "rug-red", x: s * 290, y: rugTop + anchorShare(rug.anchor).y * rugH, w: rugW, floor: f, layer: "back" });
-        place({ frame: "scroll-desk", x: s * (half - 80), y, w: 80, floor: f, layer: "front" });
+        // The scribes' desks stand by the rugs, not stranded at the walls.
+        place({ frame: "scroll-desk", x: s * 418, y, w: 84, floor: f, layer: "front" });
       }
     }
   });
