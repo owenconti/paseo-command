@@ -769,7 +769,8 @@ fleet, sparse or crowded. A world of its own, built as the Dungeon Board is: `re
 `native/Sources/PaseoCommandNative/VillageScene.swift` (`MapScene` kind `village`).
 One village for the whole fleet (never a square per host). Its crystal fountain is the fleet, dead centre of four halls (`HALLS`), on
 its ring with navy lamp-post banners either side; its plaque lists the hosts (each one's name, status dot and `CPU · MEM · DISK`,
-≥ 90% red; offline says so, and that host's workspaces and agents are dimmed). The halls, all one width: top left "GitHub PRs" (blue,
+≥ 90% red; offline says so, and that host's workspaces and agents are dimmed). The halls stand close round the fountain's ring, the gaps between them just the roads; the bottom halls' porches come down to the ponds
+beside the bridge and the front wall. The halls: top left "GitHub PRs" (blue,
 the app's GitHub mark on its banner), four tiles counting your pull requests (`GET /api/github/q/prCounts`, `readPrCounts` in
 `web/server/github/reads.ts`: merged in the last 14 days, in review, draft, conflicts or failing checks); top right "Linear Issues"
 (purple, Linear's mark), four tiles counting issues assigned to you (`GET /api/linear/issue-counts`, `readIssueCounts` in
@@ -777,9 +778,9 @@ the app's GitHub mark on its banner), four tiles counting your pull requests (`G
 "Blocked" state or label or an open blocking issue); both asked by `useVillageCounts` (`web/src/villageCounts.ts`) every minute while
 the Village shows, passed as `AtlasData.dashboard`. Off or without a key, their tiles dim and their cards say why. Bottom left
 "Workspaces" (the teal dome): a bay per workspace of the fleet (by host, project, oldest first), a slate tile and a small lit dot for
-its agents' state (green at work, amber needs you, red failed, grey idle), its four arches always drawn (unused ones empty), more
+its agents' state (green at work, amber needs you, red failed, grey idle), its four arches always drawn (unused ones empty), an empty dark plate strip under each tile (as under the dashboard tiles), more
 spilling out and wrapping into rows of bays beneath; PR, Probe and auto-merge medallions on its frame. Bottom right "Agents" (the gear
-workshop): every agent as a robot on its ledge, shoulder to shoulder, wrapping into more ledge rows; provider colours (`robotColor`),
+workshop): wider than the others, every agent as a robot on a raised stone platform as wide as the building, shoulder to shoulder, wrapping into more rows; provider colours (`robotColor`),
 idle and work frames, a floor light in the Atlas's state colour (pulsing for states that need you), markers over heads, drones.
 No text on the map but the host plaque, as on the Islands map: halls, tiles, workspaces and robots say what they are in hover cards
 (the page's `.atlas-world-card` from the bridge's `card` handler: a tile its count and up to 12 PRs or issues, a hall its name and

@@ -538,6 +538,17 @@ export function mountNativeVillage(parent: HTMLElement, handlers: AtlasHandlers 
     return canvas;
   };
 
+  /** An empty dark plate strip under a tile, as the concept's arcade has (no text on it: names and counts are in cards). */
+  const plateStrip = (r: Rect, extra: Sprite = {}): Sprite[] => {
+    if (!["plate-left", "plate-mid", "plate-right"].every((n) => realFrames.has(n))) return [];
+    const lw = (FRAMES["plate-left"]!.w * r.h) / FRAMES["plate-left"]!.h, rw = (FRAMES["plate-right"]!.w * r.h) / FRAMES["plate-right"]!.h;
+    return [
+      sprite("plate-left", { x: r.x, y: r.y, w: lw, h: r.h }, 2.3, extra),
+      tile("plate-mid", { x: r.x + lw, y: r.y, w: Math.max(0, r.w - lw - rw), h: r.h }, 2.29, extra),
+      sprite("plate-right", { x: r.x + r.w - rw, y: r.y, w: rw, h: r.h }, 2.3, extra),
+    ];
+  };
+
   /** Standing things sort by their feet: further down the village is nearer the viewer. */
   const standZ = (l: VillageLayout, feetY: number) => -30 + (20 * (feetY - l.bounds.y)) / Math.max(1, l.bounds.h);
 
@@ -587,7 +598,8 @@ export function mountNativeVillage(parent: HTMLElement, handlers: AtlasHandlers 
       // The porch, before the arcade: its ends and a tiled middle.
       if (p.ledge) {
         // A shallow stone ledge as wide as the hall, the robots' heads at its base.
-        const piece = realFrames.has("porch-ledge-mid") ? "porch-ledge" : "porch";
+        // The workshop's raised platform (the deep porch pieces), else the shallow ledge.
+        const piece = p.hall !== "agents" && realFrames.has("porch-ledge-mid") ? "porch-ledge" : "porch";
         for (const [i, r] of p.porches.entries()) {
           const pz = i ? standZ(l, r.y + r.h) - 0.01 : z + 0.0005;
           const ph = r.h, lw = (FRAMES[`${piece}-left`]!.w * ph) / FRAMES[`${piece}-left`]!.h, rw = (FRAMES[`${piece}-right`]!.w * ph) / FRAMES[`${piece}-right`]!.h;
@@ -613,10 +625,12 @@ export function mountNativeVillage(parent: HTMLElement, handlers: AtlasHandlers 
         sprites.push(sprite("tile-frame", w.frame, 2, dim));
         sprites.push(sprite(`tile-${w.tile}`, at(`tile-${w.tile}`, w.tileAt.x, w.tileAt.y, w.tileSize), 2.1, dim));
       }
-      // No name plate (its name is in its hover card): only its agents' state, as a small lit dot at the frame's foot.
+      // An empty plate strip (its name is in its hover card), and its agents' state as a small lit dot on it.
+      sprites.push(...plateStrip(w.plate, dim));
       const dot = parseInt(STATUS_DOT[w.status]!.slice(1), 16);
-      sprites.push({ ...sprite("dot", at("dot", w.tileAt.x, w.frame.y + w.frame.h - 8, 16), 2.2, dim), c: dot, cf: 1 });
-      if (w.status !== "idle" && w.status !== "offline") lights.push({ x: w.tileAt.x, y: w.frame.y + w.frame.h - 8, c: dot, r: 16, period: 2400, flicker: false, ph: 0, z: 2.15, k: 0.8 });
+      const dotAt = { x: w.tileAt.x, y: w.plate.y + w.plate.h / 2 };
+      sprites.push({ ...sprite("dot", at("dot", dotAt.x, dotAt.y, 14), 2.4, dim), c: dot, cf: 1 });
+      if (w.status !== "idle" && w.status !== "offline") lights.push({ ...dotAt, c: dot, r: 16, period: 2400, flicker: false, ph: 0, z: 2.35, k: 0.8 });
       // The arch's lamp-lit interior behind the tile.
       if (l.squares[w.square]!.online && !w.entity.camp) lights.push({ x: w.tileAt.x, y: w.frame.y + 6, c: 0xffb860, r: 44, period: 3200, flicker: false, ph: random(seedOf(w.entity.id))(), z: -0.5, k: 0.3 });
     }
@@ -626,7 +640,8 @@ export function mountNativeVillage(parent: HTMLElement, handlers: AtlasHandlers 
       const shade = d.known ? {} : { a: 0.55 };
       sprites.push(sprite(`tile-${t.tile}`, at(`tile-${t.tile}`, t.tileAt.x, t.tileAt.y, t.tileSize), 2.1, shade));
       sprites.push(sprite("tile-frame", t.frame, 2, shade));
-      // Its count is in its hover card (and the At a Glance panel), not on the map.
+      // Its count is in its hover card (and the At a Glance panel), not on the map: an empty plate strip under it.
+      sprites.push(...plateStrip(t.plate, shade));
       lights.push({ x: t.tileAt.x, y: t.frame.y + 6, c: 0xffb860, r: 44, period: 3200, flicker: false, ph: random(seedOf(t.id))(), z: -0.5, k: d.known ? 0.3 : 0.1 });
     }
     const flags = l.workspaces.flatMap((w) => [

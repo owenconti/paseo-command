@@ -91,11 +91,11 @@ export const V = {
   marginLeft: 300,
   marginRight: 420,
   riverW: 330,
-  moatH: 170,
+  moatH: 110,
   wallH: 165,
   marginBottom: 470,
   /** Type (village px): workspace plates, project plaques, the host plaque's name and stats line. */
-  font: { workspace: 19, project: 38, host: 27, stats: 18 },
+  font: { workspace: 19, project: 38, host: 27, stats: 16 },
   labelPad: 26,
   /** A PR medallion on a tile frame's upper corners. */
   flag: 17,
@@ -395,8 +395,10 @@ function hallWidth(spec: (typeof HALLS)[number], bays: Bay[], robots: number, me
 function blockOf(spec: (typeof HALLS)[number], bays: Bay[], robots: number, measure: Measure, width: number): Block {
   const sheet = FRAMES[spec.building]!;
   let w = width, perRow = 0, rows = 1;
+  // The workshop is wider than the others, as the concept's (its gear wheel at its right).
+  if (spec.hall === "agents") w = Math.min(V.buildingMax * 1.1, w * 1.15);
   if (spec.hall === "agents") {
-    // Robots shoulder to shoulder on its ledge; past a hall's width, more ledge rows.
+    // Robots shoulder to shoulder on its platform; past a hall's width, more rows.
     perRow = Math.max(4, Math.min(robots, Math.max(8, Math.ceil(Math.sqrt(robots * 1.5)))));
     rows = Math.max(1, Math.ceil(robots / perRow));
   }
@@ -428,7 +430,7 @@ function blockOf(spec: (typeof HALLS)[number], bays: Bay[], robots: number, meas
     plaqueW,
     width: Math.max(w, span + 40) + 12,
     above: h + V.bannerLift + 8,
-    below: V.porchY + V.porchH + extra,
+    below: V.porchY + V.porchH + extra + (spec.hall === "agents" ? 22 : 0),
   };
 }
 
@@ -460,7 +462,8 @@ function arrange(blocks: Block[]): Arranged {
 const rowOf = (a: Arranged, half: -1 | 1, row: number, side?: -1 | 1) => a.slots.filter((s) => s.half === half && s.row === row && (side === undefined || s.side === side));
 
 /** The gap either side of the middle a row keeps: the first lower row's room for the fountain and the host's plaque. */
-const innerOf = (half: -1 | 1, row: number, plaqueW: number) => (half === 1 && row === 0 ? Math.max(V.inner, V.ringW / 2 + 6, plaqueW / 2 + 24) : V.inner);
+// (The lower halls stand close beside the fountain's ring; its plaque may reach under their roofs' slanted inner corners.)
+const innerOf = (half: -1 | 1, row: number, plaqueW: number) => (half === 1 && row === 0 ? Math.max(V.inner, V.ringW / 2 + 6, plaqueW / 2 + 6) : V.inner);
 
 /** The reach above its feet of the outermost upper row's tallest hall (its banner). */
 const maxAbove = (a: Arranged) => Math.max(0, ...rowOf(a, -1, a.rows - 1).map((s) => s.block.above));
@@ -609,9 +612,9 @@ export function layoutVillage(data: AtlasData, _aspect = 1.6, measure: Measure =
     const cliffTop = { x: riverX + V.riverW / 2 - cliffW / 2, y: Math.max(oy - 6, topBase - maxAbove(a) - 20), w: cliffW, h: FRAMES["cliff-top"]!.h * ck };
     const cliffMid = { ...cliffTop, y: cliffTop.y + cliffTop.h - 1, h: FRAMES["cliff-mid"]!.h * ck * 0.6 };
     const cliff = { top: cliffTop, mid: cliffMid, foot: { ...cliffTop, y: cliffMid.y + cliffMid.h - 1, h: FRAMES["cliff-foot"]!.h * ck } };
-    const moatY = footY + 6;
+    const moatY = footY + 4;
     // The foreground: a big near wall, its moat and a wide bridge (the concept's foreground scale).
-    const wallY = footY + V.moatH;
+    const wallY = footY + V.moatH - 24;
     const bridgeW = V.road + 120;
     const bridgeSpec = FRAMES.bridge!;
     const bridgeH = (bridgeSpec.h * bridgeW) / bridgeSpec.w;
@@ -653,7 +656,7 @@ export function layoutVillage(data: AtlasData, _aspect = 1.6, measure: Measure =
       // (and the river's gorge, which the concept shows across the right of its view)
       // (from just inside the plaza's left edge, which the panel may cover, to the gorge's near half at the right)
       // (the panel may lie over the top-left hall's left eave, as the concept's does; `keep` is filled in once the halls are)
-      keep: { x: px0 + 40, y: topBase - maxAbove(a) - 40, w: riverX + V.riverW * 0.7 - (px0 + 40), h: wallY + V.wallH * 0.5 - (topBase - maxAbove(a) - 40) },
+      keep: { x: px0 + 40, y: topBase - maxAbove(a) - 40, w: riverX + 50 - (px0 + 40), h: wallY + V.wallH * 0.5 - (topBase - maxAbove(a) - 40) },
       heart: { x: px0 - 150, y: topBase - maxAbove(a) - 24, w: cropRight - (px0 - 150), h: wallY + V.wallH * 0.75 - (topBase - maxAbove(a) - 24) },
       bridge,
       walls: [
@@ -691,7 +694,9 @@ export function layoutVillage(data: AtlasData, _aspect = 1.6, measure: Measure =
         const pts = robotRows[r] ?? [];
         const l = pts.length ? Math.min(ledgeL, pts[0]!.x - V.pitch / 2 - 6) : ledgeL;
         const rr = pts.length ? Math.max(ledgeR, pts[pts.length - 1]!.x + V.pitch / 2 + 6) : ledgeR;
-        porches.push({ x: l, y: base + V.porchY + r * V.robotRow, w: rr - l, h: V.porchH });
+        // The workshop's robots stand on a raised stone platform as wide as the building; the other halls have a ledge.
+        if (b.hall === "agents") porches.push({ x: Math.min(l, body.x + 8), y: base + V.porchY - 14 + r * V.robotRow, w: Math.max(rr, body.x + body.w - 8) - Math.min(l, body.x + 8), h: V.porchH + 34 });
+        else porches.push({ x: l, y: base + V.porchY + r * V.robotRow, w: rr - l, h: V.porchH });
       }
       const porch = union(porches);
       projects.push({
