@@ -19,7 +19,18 @@ export type Axial = { q: number; r: number };
 export type HostStats = { cpu?: number; memory?: number; disk?: number };
 
 /** The fleet as the Atlas draws it. Every key is unique across hosts. */
+/** A dashboard hall's counts on the Village (GitHub PRs, Linear issues): `ok` with counts and some of each group's items,
+ * else why not (`off`, `no-key`/`no-token`, `error`) with a message. */
+export type DashboardItem = { title: string; url: string; id?: string; repo?: string; number?: number };
+export type DashboardCounts = {
+  state: "ok" | "off" | "no-key" | "no-token" | "error";
+  message?: string;
+  counts?: Record<string, number>;
+  items?: Record<string, DashboardItem[]>;
+};
 export type AtlasData = {
+  /** The Village's dashboard halls: your pull requests and your Linear issues, when the page has read them. */
+  dashboard?: { prs?: DashboardCounts | null; issues?: DashboardCounts | null };
   hosts: { key: string; name: string; online: boolean; local: boolean; stats?: HostStats }[];
   projects: { key: string; host: string; name: string; stale?: boolean }[];
   workspaces: {
@@ -347,7 +358,7 @@ const names = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" 
 const byName = <T extends { name: string; key: string }>(a: T, b: T) =>
   names.compare(a.name, b.name) || a.key.localeCompare(b.key);
 /** Oldest first; unknown times last; then by key, which never changes. */
-const byAge = <T extends { created?: string; key: string }>(a: T, b: T) =>
+export const byAge = <T extends { created?: string; key: string }>(a: T, b: T) =>
   (a.created ?? "\uffff").localeCompare(b.created ?? "\uffff") || a.key.localeCompare(b.key);
 const scale = (a: Axial, k: number) => ({ q: a.q * k, r: a.r * k });
 const xOf = (a: Axial) => a.q + a.r / 2;

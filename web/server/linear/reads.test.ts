@@ -1,8 +1,10 @@
 import assert from "node:assert/strict";
 import { afterEach, beforeEach, test } from "node:test";
-import { LinearError, linearBudget, resetLinearClient } from "./client";
+import { saveSecret } from "../secrets";
+import { readSettings, writeSettings } from "../settings";
+import { DISABLED, LinearError, linearBudget, NO_KEY, resetLinearClient } from "./client";
 import { FAKE_IDS as I, installFakeLinear, type FakeLinear } from "./fake";
-import { readNotifications, readWorkspace, resetLinearReads } from "./reads";
+import { countIssues, isBlocked, readIssueCounts, readNotifications, readWorkspace, resetLinearReads } from "./reads";
 
 let fake: FakeLinear;
 beforeEach(() => {
@@ -73,4 +75,82 @@ test("reads fail as LinearErrors", async () => {
   await assert.rejects(readWorkspace(), (e) => e instanceof LinearError && e.kind === "limited" && typeof e.retryAt === "number");
   fake.clear("Workspace");
   assert.ok((await readWorkspace(true)).teams.length);
+});
+
+test("counts your assigned issues: done in 14 days, in progress, todo, blocked", async () => {
+  const answer = await readIssueCounts();
+  assert.equal(answer.state, "ok");
+  if (answer.state !== "ok") return;
+  assert.deepEqual(answer.counts, { done: 11, inProgress: 8, todo: 7, blocked: 2 });
+  assert.equal(answer.items.done.length, 11);
+  assert.deepEqual(answer.items.done[0], { id: "DE-1", title: "Issue 1", url: "https://linear.app/fake/issue/DE-1/issue-1" }, "the newest completed first");
+  assert.deepEqual(answer.items.blocked.map((i) => i.id), ["DE-28", "DE-29"], "a Blocked state, and blocked by an open issue");
+  assert.ok(answer.items.inProgress.some((i) => i.id === "DE-19"), "blocked only by a completed issue: in progress");
+  const asked = fake.requests.find((r) => r.operation === "AssignedIssues")!;
+  assert.equal(asked.variables.first, 250);
+  assert.ok(Math.abs(Date.parse(String(asked.variables.since)) - (Date.now() - 14 * 86_400_000)) < 5_000);
+});
+
+test("lists at most 12 of a group, titles clipped to 120; counts stay whole", async () => {
+  const now = Date.now();
+  fake.ws.assignedIssues = Array.from({ length: 30 }, (_, n) => ({
+    identifier: `ENG-${n + 1}`,
+    title: "x".repeat(200),
+    url: `https://linear.app/fake/issue/ENG-${n + 1}`,
+    updatedAt: new Date(now - n * 1000).toISOString(),
+    completedAt: null,
+    state: { type: "unstarted" as const, name: "Todo" },
+    labels: { nodes: [] },
+    inverseRelations: { nodes: [] },
+  }));
+  const answer = await readIssueCounts();
+  assert.ok(answer.state === "ok");
+  assert.equal(answer.counts.todo, 30);
+  assert.equal(answer.items.todo.length, 12);
+  assert.equal(answer.items.todo[0].id, "ENG-1");
+  assert.equal(answer.items.todo[0].title.length, 120);
+  assert.ok(answer.items.todo[0].title.endsWith("…"));
+});
+
+test("blocked: a Blocked state or label (any case), or an open issue blocking it; counted only as blocked", () => {
+  const issue = (o: Record<string, unknown>) => ({ identifier: "DE-1", title: "T", url: "https://linear.app/fake/issue/DE-1", state: { type: "started", name: "In Progress" }, ...o });
+  const by = (type: string, relation = "blocks") => ({ nodes: [{ type: relation, issue: { state: { type } } }] });
+  assert.equal(isBlocked(issue({})), false);
+  assert.equal(isBlocked(issue({ state: { type: "unstarted", name: "BLOCKED" } })), true);
+  assert.equal(isBlocked(issue({ labels: { nodes: [{ name: "Bug" }, { name: "blocked" }] } })), true);
+  assert.equal(isBlocked(issue({ labels: { nodes: [{ name: "Blocked by design" }] } })), false, "the whole name only");
+  assert.equal(isBlocked(issue({ inverseRelations: by("unstarted") })), true);
+  assert.equal(isBlocked(issue({ inverseRelations: by("backlog") })), true);
+  assert.equal(isBlocked(issue({ inverseRelations: by("completed") })), false);
+  assert.equal(isBlocked(issue({ inverseRelations: by("canceled") })), false);
+  assert.equal(isBlocked(issue({ inverseRelations: by("started", "related") })), false);
+  const counted = countIssues([issue({ labels: { nodes: [{ name: "Blocked" }] } }), issue({ state: { type: "unstarted", name: "Todo" }, inverseRelations: by("started") })], 0);
+  assert.deepEqual(counted.counts, { done: 0, inProgress: 0, todo: 0, blocked: 2 });
+  // A completed or backlog issue is never blocked, whatever blocks it.
+  assert.deepEqual(countIssues([issue({ state: { type: "backlog", name: "Blocked" } })], 0).counts, { done: 0, inProgress: 0, todo: 0, blocked: 0 });
+});
+
+test("issue counts are kept a minute per key; fresh asks again; failures aren't kept", async () => {
+  const asked = () => fake.requests.filter((r) => r.operation === "AssignedIssues").length;
+  await readIssueCounts();
+  await readIssueCounts();
+  assert.equal(asked(), 1);
+  await readIssueCounts(true);
+  assert.equal(asked(), 2);
+  saveSecret({ name: "linearApiKey", value: "lin_api_other" });
+  await readIssueCounts();
+  assert.equal(asked(), 3, "another key, another answer");
+  fake.fail("AssignedIssues", { status: 401, message: "no" });
+  assert.deepEqual(await readIssueCounts(true), { state: "error", message: "Linear refused the API key." });
+  fake.clear("AssignedIssues");
+  assert.equal((await readIssueCounts()).state, "ok", "the failure wasn't kept");
+  assert.equal(asked(), 5);
+});
+
+test("issue counts say why there are none: Linear off, no key, or Linear's error", async () => {
+  saveSecret({ name: "linearApiKey", value: null });
+  assert.deepEqual(await readIssueCounts(), { state: "no-key", message: NO_KEY });
+  writeSettings({ integrations: { ...(readSettings()?.integrations as object), linear: false } });
+  assert.deepEqual(await readIssueCounts(), { state: "off", message: DISABLED });
+  assert.equal(fake.requests.length, 0, "Linear isn't asked");
 });

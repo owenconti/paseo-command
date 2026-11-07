@@ -21,3 +21,29 @@ export const NOTIFICATIONS_QUERY = `query Notifications($first: Int!, $after: St
     pageInfo { hasNextPage endCursor }
   }
 }`;
+
+/**
+ * Issues assigned to you that are open (started or unstarted) or completed since `$since`,
+ * a page of 250, with what blocks them: their state's name, labels, and incoming relations
+ * (`inverseRelations`: this issue is the relation's `relatedIssue`, so a `blocks` one's
+ * `issue` blocks it). Connections are kept short to stay under Linear's complexity limit.
+ */
+export const ASSIGNED_ISSUES_QUERY = `query AssignedIssues($first: Int!, $since: DateTimeOrDuration!) {
+  viewer {
+    assignedIssues(
+      first: $first
+      orderBy: updatedAt
+      filter: { or: [
+        { state: { type: { in: ["started", "unstarted"] } } }
+        { state: { type: { eq: "completed" } }, completedAt: { gte: $since } }
+      ] }
+    ) {
+      nodes {
+        identifier title url completedAt
+        state { type name }
+        labels(first: 10) { nodes { name } }
+        inverseRelations(first: 5) { nodes { type issue { state { type } } } }
+      }
+    }
+  }
+}`;

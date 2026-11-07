@@ -15,16 +15,19 @@ import { nativeSurface } from "../native/surface";
 import { FRAMES, ANIMATIONS, VILLAGE_PX, anchorShare, applySheet, framesOf, sharedFrame, sliceOf, type SheetJson } from "./frames";
 import { paintPlaceholder } from "./placeholder";
 import {
+  DASH_TILES,
+  HALLS,
   NEEDS_YOU,
   STATE_MARK,
-  TILE_NAMES,
   V,
   layoutVillage,
   projectAlarm,
   projectWorking,
   statusLine,
+  type DashCount,
   type Measure,
   type Rect,
+  type VSquare,
   type VillageLayout,
 } from "./layout";
 
@@ -46,6 +49,8 @@ const ALERT = "#b0301c";
 const CREAM = "#f3e6c4";
 /** How far the paving is darkened (toward the scene's warm shadow) from the sheet's bright gold. */
 const PAVE_SHADE = 0.2;
+/** A workspace plate's dot: green while an agent runs, amber when one needs you, red when one failed, grey idle or offline. */
+const STATUS_DOT: Record<string, string> = { running: "#4cc35a", needs: "#f0a020", failed: "#e2493a", idle: "#a8a8b4", offline: "#6a6670" };
 /** The HUD's dots for each tile, as the tiles' own colours. */
 const TILE_DOT: Record<string, string> = { merged: "#4cc35a", review: "#3d8fe8", draft: "#f0b42a", failing: "#e2493a", none: "#7a8494" };
 
@@ -91,6 +96,7 @@ async function buildFrames(): Promise<{ canvases: Map<string, HTMLCanvasElement>
   for (const name of Object.keys(FRAMES)) if (!canvases.has(name)) canvases.set(name, paintPlaceholder(name));
   for (const [name, c] of canvases) if (name.startsWith("cobble-warm") && real.has(name)) gradePaving(c);
   trimRobots(canvases);
+  paintCanopy(canvases);
   bakeHalos(canvases);
   return { canvases, real };
 }
@@ -117,6 +123,33 @@ function gradePaving(canvas: HTMLCanvasElement) {
     d[i + 2] = Math.max(0, Math.min(255, b * PAVING.warm[2]! * 255));
   }
   ctx.putImageData(img, 0, 0);
+}
+
+/** The forest beyond the village, to every edge at any zoom: a seamless tile of overlapping crowns (the sheets' trees and
+ * blossoms stamped with wrap-round on a dark understorey), which Swift repeats behind everything. */
+function paintCanopy(canvases: Map<string, HTMLCanvasElement>) {
+  const size = 1024;
+  const canvas = document.createElement("canvas");
+  canvas.width = canvas.height = size;
+  const ctx = canvas.getContext("2d")!;
+  ctx.fillStyle = "#2c3f17";
+  ctx.fillRect(0, 0, size, size);
+  const crowns = ["tree-0", "tree-1", "tree-2", "tree-3", "tree-4", "tree-5", "tree-0", "tree-3", "blossom-0", "blossom-1"].map((n) => canvases.get(n)).filter((c): c is HTMLCanvasElement => !!c);
+  if (!crowns.length) return;
+  let seed = 7;
+  const rnd = () => ((seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0) / 4294967296);
+  // Rows of crowns, back to front, each shifted, so the canopy has depth and no gaps.
+  for (let y = -120; y < size + 120; y += 70)
+    for (let x = ((y / 70) % 2) * 60 - 60; x < size + 60; x += 110 + rnd() * 30) {
+      const c = crowns[Math.floor(rnd() * crowns.length)]!;
+      const w = 230 + rnd() * 90, h = (c.height * w) / c.width;
+      for (const dx of [-size, 0, size]) for (const dy of [-size, 0, size]) ctx.drawImage(c, x + dx - w / 2, y + dy - h * 0.7, w, h);
+    }
+  // A touch darker than the village's own trees, so the village reads in front.
+  ctx.fillStyle = "rgba(14, 24, 6, 0.28)";
+  ctx.fillRect(0, 0, size, size);
+  canvases.set("forest-canopy", canvas);
+  FRAMES["forest-canopy"] = { sheet: "generated", w: size / VILLAGE_PX, h: size / VILLAGE_PX, anchor: "top-left", tile: "xy" };
 }
 
 /** Crop each robot's frames to the opaque pixels of all its frames together (so it keeps its place as
@@ -278,87 +311,62 @@ export function mountNativeVillage(parent: HTMLElement, handlers: AtlasHandlers 
     while (measurer.measureText(shown).width > max && shown.length > 1) shown = shown.slice(0, -2) + "…";
     return shown;
   };
-  /** A project's parchment plaque: its name in the concept's serif. */
-  const paintPlaque = (r: Rect, text: string) => {
-    const { canvas, ctx } = canvasFor(r.w, r.h);
-    threeSlice(ctx, frame, realFrames, 0, 0, r.w, r.h);
-    ctx.font = fontOf("project");
-    ctx.fillStyle = INK;
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillText(fitText(text, fontOf("project"), r.w - 2 * V.labelPad), r.w / 2, r.h / 2 + 1);
-    return canvas;
-  };
-  /** A bay's name plate: dark wood, its name in cream. */
-  /** A bay's name plate: its workspace's name, and (when it has any) a small badge counting its agents at the right. */
-  const paintPlate = (r: Rect, text: string, agents = 0) => {
-    const { canvas, ctx } = canvasFor(r.w, r.h);
-    if (["plate-left", "plate-mid", "plate-right"].every((n) => realFrames.has(n))) threePieces(ctx, frame, "plate", 0, 0, r.w, r.h);
-    else {
-      ctx.fillStyle = "#c69a44";
-      ctx.beginPath();
-      ctx.roundRect(0, 0, r.w, r.h, 5);
-      ctx.fill();
-      ctx.fillStyle = "#24170e";
-      ctx.beginPath();
-      ctx.roundRect(1.4, 1.4, r.w - 2.8, r.h - 2.8, 4);
-      ctx.fill();
-    }
-    // The plate's own size first; a long name steps down to 12 px before it's cut short.
-    let size = V.font.workspace;
-    const font = (px: number) => `${BOLD} ${px}px ${FONT}`;
-    measurer.font = font(size);
-    const badge = agents > 0 ? r.h * 0.78 : 0;
-    const room = r.w - 14 - (badge ? badge + 3 : 0);
-    while (size > 12 && measurer.measureText(text).width > room) measurer.font = font(--size);
-    ctx.font = font(size);
-    ctx.fillStyle = CREAM;
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillText(fitText(text, font(size), room), (r.w - (badge ? badge + 3 : 0)) / 2, r.h / 2 + 1);
-    if (badge) {
-      // A brass disc with the count, as the concept's numbered plates.
-      const cx = r.w - 5 - badge / 2, cy = r.h / 2;
-      ctx.fillStyle = "#c9a040";
-      ctx.beginPath();
-      ctx.arc(cx, cy, badge / 2, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.fillStyle = "#2a1a0c";
-      ctx.beginPath();
-      ctx.arc(cx, cy, badge / 2 - 1.6, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.font = `${BOLD} ${Math.round(badge * 0.7)}px ${FONT}`;
-      ctx.fillStyle = "#ffe7a6";
-      ctx.textAlign = "center";
-      ctx.fillText(String(agents), cx, cy + 1);
+  /** The GitHub and Linear marks for the dashboard halls' banners, in the banner's cream (the app's own icons). */
+  const paintMark = (mark: string) => {
+    const canvas = document.createElement("canvas");
+    canvas.width = canvas.height = 192;
+    const ctx = canvas.getContext("2d")!;
+    ctx.scale(8, 8);
+    ctx.fillStyle = ctx.strokeStyle = "#f6f0e2";
+    if (mark === "mark-github") {
+      // lucide's Github, as the app's Activity and GitHub pages draw it.
+      ctx.lineWidth = 2;
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+      ctx.stroke(new Path2D("M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.3 1.15-.3 2.35 0 3.5A5.403 5.403 0 0 0 4 9c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.17.6-.22 1.23-.15 1.85v4"));
+      ctx.stroke(new Path2D("M9 18c-4.51 2-5-2-7-2"));
+    } else {
+      // Linear's mark, as the session header's issue chip draws it.
+      ctx.fill(new Path2D("M2.886 4.18A11.982 11.982 0 0 1 11.99 0C18.624 0 24 5.376 24 12.009c0 3.64-1.62 6.903-4.18 9.105L2.887 4.18ZM1.817 5.626l16.556 16.556c-.524.33-1.075.62-1.65.866L.951 7.277c.247-.575.537-1.126.866-1.65ZM.322 9.163l14.515 14.515c-.71.172-1.443.282-2.195.322L0 11.358a12 12 0 0 1 .322-2.195Zm-.17 4.862 9.823 9.824a12.02 12.02 0 0 1-9.824-9.824Z"));
     }
     return canvas;
   };
-  /** The host's plaque under the fountain: its name, then a status dot and its machine's load. */
-  const paintHostPlaque = (r: Rect, title: string, stats: { text: string; alert: boolean }[], online: boolean) => {
+  /** The fountain's plaque: a line per host (its name, a status dot, its machine's load; offline says so). */
+  const paintHostPlaque = (r: Rect, hosts: VSquare["hosts"]) => {
     const { canvas, ctx } = canvasFor(r.w, r.h);
     threeSlice(ctx, frame, realFrames, 0, 0, r.w, r.h);
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.font = fontOf("host");
-    ctx.fillStyle = INK;
-    ctx.fillText(fitText(title, fontOf("host"), r.w - 60), r.w / 2, r.h * 0.4);
-    const parts = stats.length ? stats.flatMap((s, i) => (i ? [{ text: " · ", alert: false }, s] : [s])) : [{ text: online ? "No load reading" : "Offline", alert: false }];
-    ctx.font = fontOf("stats");
-    const widths = parts.map((p) => ctx.measureText(p.text).width);
-    const dot = 9;
-    let x = r.w / 2 - (widths.reduce((s, w) => s + w, 0) + dot + 6) / 2;
-    const y = r.h * 0.66;
-    ctx.fillStyle = online ? "#3fb44a" : "#8a8478";
-    ctx.beginPath();
-    ctx.arc(x + dot / 2, y, dot / 2, 0, Math.PI * 2);
-    ctx.fill();
-    x += dot + 6;
-    ctx.textAlign = "left";
-    parts.forEach((p, i) => {
-      ctx.fillStyle = p.alert ? ALERT : INK;
-      ctx.fillText(p.text, x, y + 0.5);
-      x += widths[i]!;
+    const one = hosts.length <= 1;
+    const lineH = one ? r.h : (r.h - 12) / hosts.length;
+    hosts.forEach((h, i) => {
+      const top = one ? 0 : 6 + i * lineH;
+      ctx.textBaseline = "middle";
+      if (one) {
+        ctx.textAlign = "center";
+        ctx.font = fontOf("host");
+        ctx.fillStyle = INK;
+        ctx.fillText(fitText(h.title, fontOf("host"), r.w - 60), r.w / 2, top + lineH * 0.4);
+      }
+      const parts = [
+        ...(one ? [] : [{ text: `${h.title}  `, alert: false, bold: true }]),
+        ...(h.stats.length ? h.stats.flatMap((s, k) => (k ? [{ text: " · ", alert: false, bold: false }, { ...s, bold: false }] : [{ ...s, bold: false }])) : [{ text: h.online ? "No load reading" : "Offline", alert: false, bold: false }]),
+      ];
+      const fontFor = (b: boolean) => (b ? `${BOLD} ${Math.round(V.font.host * 0.85)}px ${FONT}` : fontOf("stats"));
+      const widths = parts.map((p) => ((ctx.font = fontFor(p.bold)), ctx.measureText(p.text).width));
+      const dot = 9;
+      let x = r.w / 2 - (widths.reduce((s, w) => s + w, 0) + dot + 6) / 2;
+      const y = one ? top + lineH * 0.68 : top + lineH / 2;
+      ctx.fillStyle = h.online ? "#3fb44a" : "#8a8478";
+      ctx.beginPath();
+      ctx.arc(x + dot / 2, y, dot / 2, 0, Math.PI * 2);
+      ctx.fill();
+      x += dot + 6;
+      ctx.textAlign = "left";
+      parts.forEach((p, k) => {
+        ctx.font = fontFor(p.bold);
+        ctx.fillStyle = p.alert ? ALERT : INK;
+        ctx.fillText(p.text, x, y + 0.5);
+        x += widths[k]!;
+      });
     });
     return canvas;
   };
@@ -366,20 +374,20 @@ export function mountNativeVillage(parent: HTMLElement, handlers: AtlasHandlers 
   /** The HUD's "At a Glance" panel: dark wood, gold corners, in screen points. */
   const paintGlance = (l: VillageLayout) => {
     const c = l.counts;
-    type Row = { dot: string; name: string; n: number };
-    const sections: { icon: string; title: string; n: number; rows: Row[] }[] = [
-      {
-        icon: "icon-pr", title: "PRs", n: c.prs,
-        rows: (["merged", "review", "draft", "failing"] as const).map((k) => ({ dot: TILE_DOT[k]!, name: TILE_NAMES[k], n: c.pr[k] })),
-      },
+    type Row = { dot: string; name: string; n: number | string };
+    const dashRows = (d: DashCount, hall: "prs" | "issues"): Row[] =>
+      DASH_TILES[hall].map((t) => ({ dot: TILE_DOT[t.tile]!, name: t.name, n: d.known ? (d.by[t.key] ?? 0) : "—" }));
+    const sections: { icon: string; title: string; n: number | string; rows: Row[] }[] = [
+      { icon: "icon-pr", title: "PRs", n: c.prs.known ? c.prs.total : "—", rows: dashRows(c.prs, "prs") },
+      { icon: "icon-issue", title: "Issues", n: c.issues.known ? c.issues.total : "—", rows: dashRows(c.issues, "issues") },
       { icon: "icon-workspaces", title: "Workspaces", n: c.workspaces, rows: [{ dot: "#4cc35a", name: "Active", n: c.active }] },
       {
         icon: "icon-agents", title: "Agents", n: c.agents,
         rows: [
           { dot: "#4cc35a", name: "Running", n: c.running },
-          { dot: "#9a9aa8", name: "Idle", n: c.idle },
-          { dot: "#ef9b1b", name: "Need you", n: c.needYou },
-          ...(c.unread ? [{ dot: "#f2c94c", name: "Unread", n: c.unread }] : []),
+          // Finished agents whose reply you haven't read are idle too.
+          { dot: "#9a9aa8", name: "Idle", n: c.idle + c.unread },
+          ...(c.needYou ? [{ dot: "#ef9b1b", name: "Need you", n: c.needYou }] : []),
           ...(c.failed ? [{ dot: "#e2493a", name: "Failed", n: c.failed }] : []),
           ...(c.offline ? [{ dot: "#6a6670", name: "Offline", n: c.offline }] : []),
         ],
@@ -558,7 +566,7 @@ export function mountNativeVillage(parent: HTMLElement, handlers: AtlasHandlers 
         sprites.push(sprite("water-ripple", basin, standZ(l, sq.fountain.y + sq.fountain.h) + 0.01, { a: 0.8 }));
       }
       images.push({
-        ...image(`hostplaque:${sq.title}:${JSON.stringify(sq.stats)}:${sq.online}:${sq.plaque.w}`, () => paintHostPlaque(sq.plaque, sq.title, sq.stats, sq.online)),
+        ...image(`hostplaque:${JSON.stringify(sq.hosts)}:${sq.plaque.w}:${sq.plaque.h}`, () => paintHostPlaque(sq.plaque, sq.hosts)),
         x: sq.plaque.x, y: sq.plaque.y, w: sq.plaque.w, h: sq.plaque.h, z: 3, ...dim,
       });
     });
@@ -572,25 +580,26 @@ export function mountNativeVillage(parent: HTMLElement, handlers: AtlasHandlers 
         for (let k = 0; k < 4; k++)
           lights.push({ x: p.body.x + p.body.w * (0.21 + 0.19 * k), y: p.body.y + p.body.h * 0.52, c: 0xffa63a, r: 52, period: 3800, flicker: false, ph: k / 4, z: z + 0.004, k: 0.8 });
       sprites.push(sprite("banner", p.banner, z + 0.002, dim));
-      // The shared icon set: near-white glyphs with dark outlines, as the concept's banners carry.
-      const icon = at(`icon-${p.icon}`, p.banner.x + p.banner.w / 2, p.banner.y + p.banner.h * 0.48, p.banner.w * 0.56);
-      sprites.push(sprite(`icon-${p.icon}`, icon, z + 0.003, dim));
+      // Its emblem, large and white on the banner: the GitHub and Linear marks (the app's own), the layers, a robot.
+      const icon = { x: p.banner.x + p.banner.w * 0.22, y: p.banner.y + p.banner.h * 0.2, w: p.banner.w * 0.56, h: p.banner.w * 0.56 };
+      if (p.emblem.startsWith("mark-")) images.push({ ...image(p.emblem, () => paintMark(p.emblem)), ...icon, z: z + 0.003, ...dim });
+      else sprites.push(sprite(p.emblem, icon, z + 0.003, dim));
       // The porch, before the arcade: its ends and a tiled middle.
       if (p.ledge) {
         // A shallow stone ledge as wide as the hall, the robots' heads at its base.
         const piece = realFrames.has("porch-ledge-mid") ? "porch-ledge" : "porch";
-        const ph = p.porch.h, lw = (FRAMES[`${piece}-left`]!.w * ph) / FRAMES[`${piece}-left`]!.h, rw = (FRAMES[`${piece}-right`]!.w * ph) / FRAMES[`${piece}-right`]!.h;
-        sprites.push(sprite(`${piece}-left`, { x: p.porch.x, y: p.porch.y, w: lw, h: ph }, z + 0.0005, dim));
-        sprites.push(tile(`${piece}-mid`, { x: p.porch.x + lw, y: p.porch.y, w: Math.max(0, p.porch.w - lw - rw), h: ph }, z + 0.0004, dim));
-        sprites.push(sprite(`${piece}-right`, { x: p.porch.x + p.porch.w - rw, y: p.porch.y, w: rw, h: ph }, z + 0.0005, dim));
+        for (const [i, r] of p.porches.entries()) {
+          const pz = i ? standZ(l, r.y + r.h) - 0.01 : z + 0.0005;
+          const ph = r.h, lw = (FRAMES[`${piece}-left`]!.w * ph) / FRAMES[`${piece}-left`]!.h, rw = (FRAMES[`${piece}-right`]!.w * ph) / FRAMES[`${piece}-right`]!.h;
+          sprites.push(sprite(`${piece}-left`, { x: r.x, y: r.y, w: lw, h: ph }, pz, dim));
+          sprites.push(tile(`${piece}-mid`, { x: r.x + lw, y: r.y, w: Math.max(0, r.w - lw - rw), h: ph }, pz - 0.0001, dim));
+          sprites.push(sprite(`${piece}-right`, { x: r.x + r.w - rw, y: r.y, w: rw, h: ph }, pz, dim));
+        }
       } else {
         // Its foundation steps down onto the paving.
         sprites.push(sprite("foundation-steps", at("foundation-steps", p.body.x + p.body.w / 2, p.base + V.steps - 4, p.body.w * 0.9), z + 0.0005, dim));
       }
-      images.push({
-        ...image(`plaque:${p.name}:${Math.round(p.plaque.w)}`, () => paintPlaque(p.plaque, p.name)),
-        x: p.plaque.x, y: p.plaque.y, w: p.plaque.w, h: p.plaque.h, z: z + 0.004, ...dim,
-      });
+      // No name plaque: as on the Islands map, only hosts are labelled; a hall's name is in its hover card.
     }
     for (const w of l.workspaces) {
       const dim = { ...dimOf(w.square), ...(w.entity.stale ? { a: 0.7 } : {}) };
@@ -604,12 +613,21 @@ export function mountNativeVillage(parent: HTMLElement, handlers: AtlasHandlers 
         sprites.push(sprite("tile-frame", w.frame, 2, dim));
         sprites.push(sprite(`tile-${w.tile}`, at(`tile-${w.tile}`, w.tileAt.x, w.tileAt.y, w.tileSize), 2.1, dim));
       }
-      images.push({
-        ...image(`plate:${w.entity.name}:${Math.round(w.plate.w)}:${w.agents.length}`, () => paintPlate(w.plate, w.entity.name, w.agents.length)),
-        x: w.plate.x, y: w.plate.y, w: w.plate.w, h: w.plate.h, z: 3, ...dim,
-      });
+      // No name plate (its name is in its hover card): only its agents' state, as a small lit dot at the frame's foot.
+      const dot = parseInt(STATUS_DOT[w.status]!.slice(1), 16);
+      sprites.push({ ...sprite("dot", at("dot", w.tileAt.x, w.frame.y + w.frame.h - 8, 16), 2.2, dim), c: dot, cf: 1 });
+      if (w.status !== "idle" && w.status !== "offline") lights.push({ x: w.tileAt.x, y: w.frame.y + w.frame.h - 8, c: dot, r: 16, period: 2400, flicker: false, ph: 0, z: 2.15, k: 0.8 });
       // The arch's lamp-lit interior behind the tile.
       if (l.squares[w.square]!.online && !w.entity.camp) lights.push({ x: w.tileAt.x, y: w.frame.y + 6, c: 0xffb860, r: 44, period: 3200, flicker: false, ph: random(seedOf(w.entity.id))(), z: -0.5, k: 0.3 });
+    }
+    // The dashboard halls' tiles: their counts on their plates, dim with "—" while the hall can't count.
+    for (const t of l.tiles) {
+      const d = t.hall === "prs" ? l.counts.prs : l.counts.issues;
+      const shade = d.known ? {} : { a: 0.55 };
+      sprites.push(sprite(`tile-${t.tile}`, at(`tile-${t.tile}`, t.tileAt.x, t.tileAt.y, t.tileSize), 2.1, shade));
+      sprites.push(sprite("tile-frame", t.frame, 2, shade));
+      // Its count is in its hover card (and the At a Glance panel), not on the map.
+      lights.push({ x: t.tileAt.x, y: t.frame.y + 6, c: 0xffb860, r: 44, period: 3200, flicker: false, ph: random(seedOf(t.id))(), z: -0.5, k: d.known ? 0.3 : 0.1 });
     }
     const flags = l.workspaces.flatMap((w) => [
       ...w.flags.map((f) => ({ ws: w.entity.id, flag: f.flag, ...sprite(f.frame, at(f.frame, f.x, f.y, f.size), 5, { ...dimOf(w.square), ...(f.flag === "probe" && w.entity.probe?.state === "reviewing" ? { pulse: 1800 } : f.flag === "ci-running" ? { pulse: 1400 } : {}) }), cx: f.x, cy: f.y, s: f.size })),
@@ -636,17 +654,14 @@ export function mountNativeVillage(parent: HTMLElement, handlers: AtlasHandlers 
       images,
       lights,
       flags,
-      entities: l.entities
-        .filter((e) => e.kind !== "host")
-        .map((e) => {
-          const r =
-            e.kind === "agent"
-              ? l.agents.find((a) => a.entity.id === e.id)!.rect
-              : e.kind === "workspace"
-                ? l.workspaces.find((w) => w.entity.id === e.id)!.rect
-                : l.projects.find((p) => p.entity?.id === e.id)!.rect;
-          return { id: e.id, kind: e.kind, x: r.x, y: r.y, w: r.w, h: r.h };
-        }),
+      entities: [
+        ...l.agents.map((a) => ({ id: a.entity.id, kind: "agent", ...a.rect })),
+        ...l.workspaces.map((w) => ({ id: w.entity.id, kind: "workspace", ...w.rect })),
+        // The dashboard tiles: hover cards and clicks the page answers (never a selection).
+        ...l.tiles.map((t) => ({ id: t.id, kind: "tile", ...t.rect })),
+        // The halls themselves, for their hover cards (picked after their tiles: "vhall" sorts after "tile").
+        ...l.projects.map((p) => ({ id: `v${p.key}`, kind: "tile", ...p.rect })),
+      ],
     };
   };
 
@@ -790,6 +805,36 @@ export function mountNativeVillage(parent: HTMLElement, handlers: AtlasHandlers 
     if (hovered) setHover(entity(hovered) ? hovered : null, hoverAt, hoverFlag);
   };
 
+  const tileOf = (id: string) => layout?.tiles.find((t) => t.id === id);
+  const dashOf = (hall: "prs" | "issues") => data?.dashboard?.[hall] ?? null;
+  /** A dashboard tile's card: its group and count, then its PRs (title, repo#n) or issues (key, title), or why it can't count. */
+  const cardOf = (t: NonNullable<ReturnType<typeof tileOf>>) => {
+    const spec = DASH_TILES[t.hall].find((x) => x.key === t.key)!;
+    const d = dashOf(t.hall);
+    const what = t.hall === "prs" ? "Your pull requests" : "Your Linear issues";
+    if (d?.state !== "ok") return { title: spec.name, detail: what, lines: [d?.message ?? (t.hall === "prs" ? "Turn on GitHub in Settings to count your pull requests." : "Turn on Linear in Settings to count your issues.")] };
+    const n = d.counts?.[t.key] ?? 0;
+    const items = d.items?.[t.key] ?? [];
+    const lines = items.map((i) => (t.hall === "prs" ? `${i.title} · ${i.repo}#${i.number}` : `${i.id} ${i.title}`));
+    if (n > items.length) lines.push(`and ${n - items.length} more`);
+    const span = t.hall === "prs" && t.key === "merged" ? " (last 14 days)" : t.hall === "issues" && t.key === "done" ? " (last 14 days)" : "";
+    return { title: `${spec.name} · ${n}`, detail: `${what}${span}`, lines: lines.length ? lines : ["None"] };
+  };
+  /** A hall's card: its name and what it holds, as the At a Glance panel counts it. */
+  const hallCard = (hall: string) => {
+    const c = layout!.counts;
+    const spec = HALLS.find((h) => h.hall === hall)!;
+    const dash = (d: DashCount, which: "prs" | "issues") =>
+      d.known ? DASH_TILES[which].map((t) => `${t.name}: ${d.by[t.key] ?? 0}`) : [d.why || "Not counted"];
+    if (hall === "prs") return { title: spec.name, detail: c.prs.known ? `Your pull requests · ${c.prs.total}` : "Your pull requests", lines: dash(c.prs, "prs") };
+    if (hall === "issues") return { title: spec.name, detail: c.issues.known ? `Your Linear issues · ${c.issues.total}` : "Your Linear issues", lines: dash(c.issues, "issues") };
+    if (hall === "workspaces") return { title: spec.name, detail: `${c.workspaces} workspace${c.workspaces === 1 ? "" : "s"} · ${c.active} active`, lines: layout!.workspaces.map((w) => w.entity.name) };
+    return {
+      title: spec.name,
+      detail: `${c.agents} agent${c.agents === 1 ? "" : "s"}`,
+      lines: [`Running: ${c.running}`, `Idle: ${c.idle + c.unread}`, ...(c.needYou ? [`Need you: ${c.needYou}`] : []), ...(c.failed ? [`Failed: ${c.failed}`] : []), ...(c.offline ? [`Offline: ${c.offline}`] : [])],
+    };
+  };
   const setHover = (id: string | null, at?: { x: number; y: number }, flag?: MapFlag) => {
     hovered = id;
     hoverAt = id ? at : undefined;
@@ -815,9 +860,30 @@ export function mountNativeVillage(parent: HTMLElement, handlers: AtlasHandlers 
       handlers.ready?.();
     } else if (message.type === "pick") {
       if (!enabled) return;
+      if (message.id?.startsWith("vhall:")) return;
+      if (message.id?.startsWith("tile:")) {
+        // A dashboard tile opens its first PR or issue, as the app opens such links.
+        const t = tileOf(message.id);
+        const url = t && dashOf(t.hall)?.items?.[t.key]?.[0]?.url;
+        if (url) handlers.open?.(url);
+        return;
+      }
       handlers.pick?.(entity(message.id));
     } else if (message.type === "hover") {
       parent.style.cursor = message.id ? "pointer" : "";
+      if (message.id?.startsWith("vhall:")) {
+        if (hovered) setHover(null);
+        const p = layout?.projects.find((x) => `v${x.key}` === message.id);
+        handlers.card?.(p ? hallCard(p.hall) : null, message.x === undefined ? null : { x: message.x, y: message.y! });
+        return;
+      }
+      if (message.id?.startsWith("tile:")) {
+        if (hovered) setHover(null);
+        const t = tileOf(message.id);
+        handlers.card?.(t ? cardOf(t) : null, message.x === undefined ? null : { x: message.x, y: message.y! });
+        return;
+      }
+      handlers.card?.(null, null);
       setHover(message.id, message.x === undefined ? undefined : { x: message.x, y: message.y! }, message.flag);
     } else if (message.type === "zoom") {
       zoom = message.zoom;
@@ -932,10 +998,11 @@ export function mountNativeVillage(parent: HTMLElement, handlers: AtlasHandlers 
             counts: layout.counts,
             status: statusLine(layout).text,
             realFrames: realFrames.size,
-            squares: layout.squares.map((s) => ({ host: s.host.id, title: s.title, online: s.online, stats: s.stats.map((x) => x.text), rect: s.rect, fountain: s.fountain })),
+            squares: layout.squares.map((s) => ({ hosts: s.hosts.map((h) => ({ id: h.id, title: h.title, online: h.online, stats: h.stats.map((x) => x.text) })), rect: s.rect, fountain: s.fountain })),
+            tiles: layout.tiles.map((t) => ({ id: t.id, rect: t.rect })),
             projects: layout.projects.map((p) => ({ id: p.entity?.id ?? p.key, name: p.name, icon: p.icon, building: p.building, rect: p.rect, lamps: p.lamps })),
             workspaces: layout.workspaces.map((w) => ({
-              id: w.entity.id, name: w.entity.name, camp: !!w.entity.camp, rect: w.rect, tile: w.tile,
+              id: w.entity.id, name: w.entity.name, label: w.label, status: w.status, camp: !!w.entity.camp, rect: w.rect, tile: w.tile,
               flags: w.flags.map((f) => f.flag), medallions: w.flags.map((f) => ({ flag: f.flag, x: f.x, y: f.y })), seal: !!w.seal,
             })),
             agents: layout.agents.map((a) => ({ id: a.entity.id, name: a.entity.name, state: a.entity.state, model: a.entity.model, robot: a.robot, workspace: a.entity.workspace, at: a.feet, rect: a.rect, needsYou: NEEDS_YOU.includes(a.entity.state!) })),

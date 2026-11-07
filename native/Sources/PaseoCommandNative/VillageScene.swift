@@ -533,9 +533,11 @@ final class VillageScene: SKScene, MapScene {
         backdropCover = cover
         backdrop.removeAllChildren()
         // Snapped to the repeated texture's size, so the pattern lies on the world's grid and an offline square's own grass meets it.
-        let tile = (frameSizes["grass"]?.width ?? 256) * 6
+        // The forest canopy to every edge (the page's tile), else grass.
+        let ground = frameImages["forest-canopy"] != nil ? "forest-canopy" : "grass"
+        let tile = (frameSizes[ground]?.width ?? 256) * 6
         let snapped = CGRect(x: floor(cover.minX / tile) * tile, y: floor(cover.minY / tile) * tile, width: cover.width + tile, height: cover.height + tile)
-        if let grass = tiled("grass", snapped, mode: "xy", shade: 0) { backdrop.addChild(grass) }
+        if let grass = tiled(ground, snapped, mode: "xy", shade: 0) { backdrop.addChild(grass) }
     }
 
     // MARK: HUD

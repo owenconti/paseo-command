@@ -3,13 +3,14 @@
  * Linear rows (the address is Linear's, never the page's). `/api/linear/teams`:
  * the workspace's address and team keys, so the chat links issue keys
  * (`DE-7338`) only of the workspace's teams; empty while Linear is off, has no
- * key or can't answer. Nothing else of Linear is served to the page: Activity
+ * key or can't answer. `/api/linear/issue-counts[?fresh=1]`: the issues assigned to
+ * you, counted for the Village's dashboard (`readIssueCounts`). Nothing else of Linear is served to the page: Activity
  * reads and writes through its own route.
  */
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { linearAvatar } from "./avatar";
 import { linearApiKey } from "./client";
-import { readWorkspace } from "./reads";
+import { readIssueCounts, readWorkspace } from "./reads";
 
 /** The workspace's address and its teams' keys; none while Linear can't answer. */
 export async function linearTeams(): Promise<{ urlKey: string; teams: string[] }> {
@@ -32,6 +33,12 @@ export async function linearRoute(
   if (req.method === "GET" && path === "teams") {
     if ([...url.searchParams.keys()].length) return reply(400, { error: "Unexpected parameters" });
     return reply(200, await linearTeams());
+  }
+  if (req.method === "GET" && path === "issue-counts") {
+    const keys = [...url.searchParams.keys()];
+    if (keys.some((k) => k !== "fresh") || keys.length > 1 || (keys.length && url.searchParams.get("fresh") !== "1"))
+      return reply(400, { error: "Unexpected parameters" });
+    return reply(200, await readIssueCounts(keys.length === 1));
   }
   if (req.method !== "GET" || path !== "avatar") return reply(404, { error: "Unknown endpoint" });
   if (![...url.searchParams.keys()].every((k) => k === "user")) return reply(400, { error: "Unexpected parameters" });

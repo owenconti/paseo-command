@@ -197,6 +197,8 @@ export type FakeGithub = {
   counts: Record<string, number>;
   /** PR search results by the query's text (a scope's, a repository's with its filters). */
   search: Record<string, Raw[]>;
+  /** Your PRs for the prCounts query: merged ones (in the 14 days asked; `mergedCount` when GitHub counts more) and open ones. */
+  prCounts: { merged: Raw[]; mergedCount?: number; open: Raw[] };
   /** Repository search results by the query's text (`repoSearchQuery`'s `q`). */
   repoSearch: Record<string, Raw[]>;
   /** A repository's assignable users and its recent PRs' authors, by `owner/name` (lowercase), for the people query. */
@@ -224,6 +226,34 @@ export type FakeGithub = {
   restore: () => void;
 };
 
+/** A PR as the prCounts query asks for it. */
+export function fakeCountPr(number: number, o: Partial<Raw> = {}, repo = "owen/app"): Raw {
+  return {
+    number,
+    title: `PR ${number}`,
+    url: `https://github.com/${repo}/pull/${number}`,
+    repository: { nameWithOwner: repo },
+    isDraft: false,
+    mergeable: "MERGEABLE",
+    checks: { nodes: [{ commit: { statusCheckRollup: { state: "SUCCESS" } } }] },
+    ...o,
+  };
+}
+
+/** Your PRs: merged 7; open, in review 3 (one pending, one without checks), draft 1, conflicts 1. */
+export function fakePrCounts(): FakeGithub["prCounts"] {
+  return {
+    merged: Array.from({ length: 7 }, (_, i) => fakeCountPr(101 + i, {}, i % 2 ? "owen/lib" : "owen/app")),
+    open: [
+      fakeCountPr(1),
+      fakeCountPr(2, { checks: { nodes: [{ commit: { statusCheckRollup: { state: "PENDING" } } }] } }),
+      fakeCountPr(3, { checks: { nodes: [{ commit: { statusCheckRollup: null } }] } }, "owen/lib"),
+      fakeCountPr(4, { isDraft: true }),
+      fakeCountPr(5, { mergeable: "CONFLICTING", isDraft: true }),
+    ],
+  };
+}
+
 const notFound: FakeAnswer = { status: 404, json: { message: "Not Found" } };
 
 export function installFakeGithub(opts: { enabled?: boolean; token?: string | null } = {}): FakeGithub {
@@ -233,6 +263,7 @@ export function installFakeGithub(opts: { enabled?: boolean; token?: string | nu
     scopes: "repo, notifications, read:org",
     search: {},
     counts: {},
+    prCounts: fakePrCounts(),
     repoSearch: {},
     people: new Map(),
     teams: new Map(),
@@ -313,6 +344,17 @@ export function installFakeGithub(opts: { enabled?: boolean; token?: string | nu
         const p = fake.people.get(`${vars.owner}/${vars.name}`.toLowerCase());
         const repository = p ? { assignableUsers: { nodes: p.assignable }, pullRequests: { nodes: p.authors.map((author) => ({ author })) } } : null;
         return { json: { data: { viewer, repository } } };
+      }
+      if (query.includes("query PrCounts")) {
+        const { merged, mergedCount, open } = fake.prCounts;
+        return {
+          json: {
+            data: {
+              merged: { issueCount: mergedCount ?? merged.length, nodes: merged.slice(0, 12) },
+              open: { issueCount: open.length, nodes: open.slice(0, 100) },
+            },
+          },
+        };
       }
       if (query.includes("search(")) {
         const data: Raw = { viewer };

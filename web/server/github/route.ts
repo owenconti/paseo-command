@@ -1,5 +1,5 @@
 /**
- * `/api/github/…`: the GitHub tab's named reads (`GET q/viewer|prs|repos|repoSearch|people|teams|pr|diff`,
+ * `/api/github/…`: the GitHub tab's named reads (`GET q/viewer|prs|repos|repoSearch|people|teams|pr|diff|prCounts`,
  * `fresh=1` past the cache) and whitelisted writes (`POST m/<name>`). No
  * passthrough: an unknown name is a 404. A read GitHub can't answer right now
  * (off, no token, refused, limited) is a `GithubUnavailable` 200; a bad
@@ -11,10 +11,10 @@ import { bodyOf } from "../api/http";
 import { errorText } from "../wire";
 import { apiFailure, assertEnabled, GithubApiError, unavailable, writeStatus } from "./client";
 import { checkFilters, FILTER_FIELDS, FILTERS, isPeople, MAX_PEOPLE, MAX_SEARCHES, PERSON, searchCount } from "../../src/github/filters";
-import { prParams, readDiff, readPeople, readPr, readTeams, readPrs, readRepoPrs, readRepoSearch, readRepos, readViewer } from "./reads";
+import { prParams, readDiff, readPrCounts, readPeople, readPr, readTeams, readPrs, readRepoPrs, readRepoSearch, readRepos, readViewer } from "./reads";
 import { githubWrite } from "./writes";
 
-const READS = ["viewer", "prs", "repos", "repoSearch", "people", "teams", "pr", "diff"] as const;
+const READS = ["viewer", "prs", "repos", "repoSearch", "people", "teams", "pr", "diff", "prCounts"] as const;
 type ReadName = (typeof READS)[number];
 /** A review with 100 drafted comments of some length fits; nothing larger is read. */
 export const WRITE_BODY_LIMIT = 2 * 1024 * 1024;
@@ -40,6 +40,10 @@ async function read(name: ReadName, params: URLSearchParams): Promise<unknown> {
       only(params, ["fresh"]);
       assertEnabled();
       return readViewer(fresh(params));
+    case "prCounts":
+      // Never unavailable: off, no token and GitHub's refusals are its own `state`.
+      only(params, ["fresh"]);
+      return readPrCounts(fresh(params));
     case "repos":
       only(params, ["fresh"]);
       assertEnabled();

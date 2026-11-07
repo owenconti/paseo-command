@@ -12,6 +12,7 @@
  *   teams?repo=…       the teams with access to it, for its reviewer picker (REST; none for a personal repository)
  *   pr?repo=&number=   one PR: body, files (viewed or not), conversation, threads, commits, checks, reviewers, assignees, merge box
  *   diff?repo=&number= its diff, parsed (GitHub's diff media type; its file patches when the diff is too large for it)
+ *   prCounts           your PRs for the Village's dashboard: merged in 14 days, and open ones by conflicts, draft or review
  */
 import { parseUnifiedDiff } from "../../src/github/diff";
 import {
@@ -53,7 +54,8 @@ import { GithubApiError, githubGraphql as graphql, githubPaged, githubRest, gith
 import { filterQueries, type RepoFilters } from "../../src/github/filters";
 import { HTML_MAX } from "../../src/github/html";
 import { HUNK_KEEP, tailHunk } from "../../src/github/hunk";
-import { cached, searchSlot } from "./client";
+import type { PrCountItem, PrCountsAnswer, PrGroup } from "../../src/villageCounts";
+import { apiFailure, cached, searchSlot } from "./client";
 import { readStars } from "./stars";
 
 type Raw = Record<string, unknown>;
@@ -197,6 +199,69 @@ function searchRows(data: Raw): { rows: PrRow[]; viewer: PrList["viewer"]; total
     .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
   const count = rec(data.search).issueCount;
   return { rows, viewer, total: typeof count === "number" && Number.isSafeInteger(count) ? count : rows.length };
+}
+
+// ── prCounts ─────────────────────────────────────────────────────────────────
+export const PR_COUNTS = { mergedDays: 14, itemsMax: 12, openMax: 100, titleMax: 120, ttlMs: 60_000 };
+const COUNT_ROW = "number title url repository { nameWithOwner }";
+/** Both searches in one request: your PRs merged since a day, with the first few, and your open ones. */
+export const PR_COUNTS_QUERY = `query PrCounts($merged: String!, $open: String!) {
+  merged: search(query: $merged, type: ISSUE, first: ${PR_COUNTS.itemsMax}) { issueCount nodes { ... on PullRequest { ${COUNT_ROW} } } }
+  open: search(query: $open, type: ISSUE, first: ${PR_COUNTS.openMax}) { issueCount nodes { ... on PullRequest {
+    ${COUNT_ROW} isDraft mergeable
+    checks: commits(last: 1) { nodes { commit { statusCheckRollup { state } } } }
+  } } }
+}`;
+/** The two searches' texts, the merged one from the day `mergedDays` ago (UTC). */
+export function prCountsSearches(now = Date.now()): { merged: string; open: string } {
+  const since = new Date(now - PR_COUNTS.mergedDays * 86_400_000).toISOString().slice(0, 10);
+  return { merged: `is:pr author:@me is:merged merged:>=${since}`, open: "is:pr author:@me is:open" };
+}
+function countItem(n: Raw): PrCountItem | null {
+  const repo = str(rec(n.repository).nameWithOwner);
+  const number = num(n.number);
+  const url = str(n.url);
+  if (!REPO.test(repo) || !Number.isSafeInteger(number) || number < 1 || !url.startsWith("https://github.com/")) return null;
+  return { title: clip(str(n.title).trim(), PR_COUNTS.titleMax), repo, number, url };
+}
+/** Which open group a PR is in: conflicts (or failing checks), draft, else review. */
+export function openGroupOf(n: Raw): Exclude<PrGroup, "merged"> {
+  const rollup = str(rec(rec(rec(nodes(n.checks)[0]).commit).statusCheckRollup).state);
+  if (n.mergeable === "CONFLICTING" || rollup === "FAILURE" || rollup === "ERROR") return "conflicts";
+  return n.isDraft === true ? "draft" : "review";
+}
+/** Your PRs counted, or why not (off, no token, GitHub refused or limited); never throws. */
+export async function readPrCounts(fresh = false): Promise<PrCountsAnswer> {
+  const searches = prCountsSearches();
+  try {
+    return await cached(
+      `prCounts:${searches.merged}`,
+      fresh,
+      async (): Promise<PrCountsAnswer> => {
+        searchSlot(2);
+        const data = await graphql(PR_COUNTS_QUERY, searches);
+        const merged = nodes(data.merged).map(countItem).filter((i): i is PrCountItem => i !== null);
+        const total = rec(data.merged).issueCount;
+        const items: Record<PrGroup, PrCountItem[]> = { merged, review: [], draft: [], conflicts: [] };
+        for (const n of nodes(data.open)) {
+          const item = countItem(n);
+          if (item) items[openGroupOf(n)].push(item);
+        }
+        const keys = Object.keys(items) as PrGroup[];
+        const counts = Object.fromEntries(keys.map((k) => [k, items[k].length])) as Record<PrGroup, number>;
+        counts.merged = typeof total === "number" && Number.isSafeInteger(total) && total >= merged.length ? total : merged.length;
+        return {
+          state: "ok",
+          counts,
+          items: Object.fromEntries(keys.map((k) => [k, items[k].slice(0, PR_COUNTS.itemsMax)])) as Record<PrGroup, PrCountItem[]>,
+        };
+      },
+      PR_COUNTS.ttlMs,
+    );
+  } catch (e) {
+    const f = apiFailure(e);
+    return { state: f.kind === "off" ? "off" : f.kind === "no-key" ? "no-token" : "error", message: f.message };
+  }
 }
 
 /** One request with a search for each query (`s0`, `s1`, …). */

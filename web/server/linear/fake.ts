@@ -41,6 +41,20 @@ export type FakeWorkspace = {
   users: FakeUser[];
   teams: FakeTeam[];
   notifications: FakeNotification[];
+  /** Issues assigned to you, as the AssignedIssues query asks for them. */
+  assignedIssues?: FakeIssue[];
+};
+/** An issue in Linear's shape; `updatedAt` orders the list, as Linear's `orderBy: updatedAt` does. */
+export type FakeIssue = {
+  identifier: string;
+  title: string;
+  url: string;
+  updatedAt: string;
+  completedAt: string | null;
+  state: { type: "triage" | "backlog" | "unstarted" | "started" | "completed" | "canceled"; name: string };
+  labels: { nodes: { name: string }[] };
+  /** Relations naming this issue as `relatedIssue`: a `blocks` one's `issue` blocks it. */
+  inverseRelations: { nodes: { type: "blocks" | "duplicate" | "related" | "similar"; issue: { state: { type: string } } }[] };
 };
 
 /** A stable UUID for the n-th fake entity of a kind (kind picks the last-but-one group). */
@@ -70,6 +84,49 @@ export const FAKE_IDS = {
 
 const DAY = 86_400_000;
 
+/**
+ * Your assigned issues: done 11 (and one completed too long ago), in progress 8 (one blocked
+ * only by a completed issue, one merely related to an open one), todo 7, blocked 2 (a started
+ * issue in a "Blocked" state, an unstarted one blocked by an open issue), and a backlog,
+ * triage and canceled issue that count nowhere.
+ */
+export function fakeAssignedIssues(now = Date.now()): FakeIssue[] {
+  const ago = (days: number) => new Date(now - days * DAY).toISOString();
+  let n = 0;
+  const issue = (state: FakeIssue["state"], o: Partial<FakeIssue> = {}): FakeIssue => {
+    n += 1;
+    const identifier = `DE-${n}`;
+    return {
+      identifier,
+      title: `Issue ${n}`,
+      url: `https://linear.app/fake/issue/${identifier}/issue-${n}`,
+      updatedAt: ago(n / 10),
+      completedAt: null,
+      state,
+      labels: { nodes: [] },
+      inverseRelations: { nodes: [] },
+      ...o,
+    };
+  };
+  const done = { type: "completed", name: "Done" } as const;
+  const started = { type: "started", name: "In Progress" } as const;
+  const todo = { type: "unstarted", name: "Todo" } as const;
+  const blocks = (type: string) => ({ nodes: [{ type: "blocks" as const, issue: { state: { type } } }] });
+  return [
+    ...Array.from({ length: 11 }, (_, i) => issue(done, { completedAt: ago(i + 0.5) })),
+    issue(done, { completedAt: ago(20) }),
+    ...Array.from({ length: 6 }, () => issue(started)),
+    issue(started, { inverseRelations: blocks("completed") }),
+    issue(started, { inverseRelations: { nodes: [{ type: "related", issue: { state: { type: "started" } } }] } }),
+    ...Array.from({ length: 7 }, () => issue(todo)),
+    issue({ type: "started", name: "Blocked" }),
+    issue(todo, { inverseRelations: blocks("started") }),
+    issue({ type: "backlog", name: "Backlog" }, { inverseRelations: blocks("started") }),
+    issue({ type: "triage", name: "Triage" }),
+    issue({ type: "canceled", name: "Canceled" }, { labels: { nodes: [{ name: "Blocked" }] } }),
+  ];
+}
+
 /** The fixed sample workspace; dates are relative to now. */
 export function fakeWorkspace(): FakeWorkspace {
   const now = Date.now();
@@ -81,6 +138,7 @@ export function fakeWorkspace(): FakeWorkspace {
   return {
     viewerId: I.owen,
     urlKey: "fake",
+    assignedIssues: fakeAssignedIssues(now),
     users: [
       { id: I.owen, name: "Owen Conti", displayName: "Owen" },
       { id: I.sam, name: "Sam Rivera", displayName: "Sam", avatarUrl: FAKE_AVATAR },
@@ -239,6 +297,24 @@ export const OPERATIONS: Record<string, FakeOperation> = {
       notifications: {
         nodes: all.slice(start, end).map(notificationNode),
         pageInfo: { hasNextPage: end < all.length, endCursor: end < all.length ? String(end) : null },
+      },
+    };
+  },
+  /** Your assigned issues that are open (started or unstarted) or completed since `since`, the most recently updated first. */
+  AssignedIssues: ({ ws, variables }) => {
+    const since = Date.parse(String(variables.since));
+    const wanted = (ws.assignedIssues ?? []).filter((i) =>
+      i.state.type === "started" || i.state.type === "unstarted"
+        ? true
+        : i.state.type === "completed" && !!i.completedAt && Date.parse(i.completedAt) >= since,
+    );
+    return {
+      viewer: {
+        assignedIssues: {
+          nodes: newestFirst(wanted)
+            .slice(0, Number(variables.first))
+            .map(({ updatedAt: _, ...rest }) => rest),
+        },
       },
     };
   },

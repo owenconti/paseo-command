@@ -763,58 +763,40 @@ alcove, its project; never a host). Sprites: `rendering/src/assets/dungeon/<shee
 ### The Village
 
 A fourth map style (`village` in `MAP_STYLES`; Settings → Map, ⌘K "Use the Village map", View → Map Style), from the user's concept
-(ignored `design/references/village-concept.png`): a warm painterly 3/4 top-down village square per host (hosts with workspaces, in the
-Atlas's order, `hostGroups`), squares tiled in a grid to suit the map's shape. A world of its own, built as the Dungeon Board is:
-`rendering/src/village/` (`layout.ts` pure, `layoutVillage`; `bridge.ts`, `mountNativeVillage`; `frames.ts`, the sprite contract;
-`placeholder.ts` for frames the sheets lack) and `native/Sources/PaseoCommandNative/VillageScene.swift` (`MapScene` kind `village`).
-The host is the square's crystal fountain in a cobbled plaza between its rows, its parchment plaque at the fountain's foot (name in
-capitals, a status dot, `CPU · MEM · DISK`, ≥ 90% red); offline, the fountain is dark and the square dimmed. Each project with
-workspaces is a hall facing the viewer (a variant from `BUILDINGS`, seeded by the project and dealt so neighbours in a square differ):
-upper left, upper right, lower left, lower right, then further out along those rows, then further rows out; its dark banner over the
-roof carries the project's icon (`projectIcon`, the Dungeon Board's icon set in white) and its name is on a parchment plaque on its
-front. Its workspaces stand in its four painted arches, oldest first, centred (more than four spill out either side under arches of
-their own, `bay-arch`), each a tile frame holding its PR's status tile (`tileOf`: failing for CI failing or conflicts, draft (yellow)
-for changes requested, review (blue) for awaiting review or CI running, merged (green) for approved or CI green, none (slate) without
-PR labels) and its name on the frame's plate (with a brass badge counting its agents, when it has any); PR, Probe and auto-merge medallions on the frame's corners with the Atlas's hover cards.
-Agents are round robots on the hall's lit porch in front of their workspace's tile, oldest first, spread along the porch where
-neighbouring bays' robots would touch (`spread`); a hall widens only when its porch can't hold its robots. Provider colours
-(`robotColor`: Claude orange, ChatGPT white, other providers a stable colour of their own among the sheet's eight), idle and work
-frames, a floor light in the Atlas's state colour (`STATE_TILE`, pulsing for states that need you), the Dungeon Board's markers over
-heads, drones for running subagents. The hall's two lamps light while any of its agents runs; its banner flares in the most urgent
-state's colour; the crystal glows blue and flares likewise. The halls stand tight round the fountain on one paved plaza (its
-outer edge organic: `cobble-edge-*` cut to its border at their own scale, `uv` sprites), the round paving and ring under the
-fountain, a wide road north to the square's edge and south to the bridge; the plaza is strewn with planted trees, flower beds,
-crates and barrels, a tent at its lower left. Tiles stand up in their arches; robots stand on a shallow ledge (`porch-ledge-*`) in front of
-their own tiles, heads at the hall's base; every hall has its ledge (empty without agents), so the four read alike. The fountain stands dead centre
-of the four halls on its ring, the host's plaque small on its front step, lamp-post banners either side; the river runs just
-right of the right-hand halls. The paving is `ground-warm`'s (`cobble-warm`, its edges and blob) when present. With one host the
-fit covers the concept's crop (`core`: a sliver above the top banners, the front wall cut through with its bridge, forest and the
-tent at the left, the river's gorge at the right) without cutting what must show (`keep`: from the top-left hall's first tile, plaque or banner to most of the gorge, the bridge at the foot); the "At a
-Glance" panel may lie over the top-left hall's left eave beyond them, as the concept's does, and the river's near
-bank meets the plaza's right edge and the fit keeps half its gorge, so the gorge and the falls from the ruined wall
-show across the view's right; with several, every square shows clear of the panel. The warm paving's
-contrast and saturation are baked page-side (`gradePaving`); the host's emblem sits on the lamp-post banners' cloth. A faint warm light is added over the world
-(not the HUD); lamp pools are orange, about one and a half lamp heights across; the warm paving is tinted toward tan-brown.
-Lanterns stand on the bridge's posts; navy lamp-post banners flank the fountain.
-Lighting: lamp pools on the cobbles, lit windows, contact shadows under halls and props, the crystal's blue glow, and a vignette
-(Swift, screen space). Lamps line the central road and flank the fountain, and lamp posts with banners stand either side of it, lit
-while any of the square's agents runs. The foot, at the concept's near foreground scale: lily ponds with rocks either side of a wide wooden bridge
-(lanterns on its posts) into the plaza, a big wall with towers across the whole width, navy banners with the host's emblem
-hung on it, big trees framing its corners and the market stall at its lower left. The river runs down the right, falling from a cliff (`cliff-top`/`-mid`/`-foot`) with a ruin
-beside it; seeded woods fill the margins (under the HUD too), a dense overlapping canopy along the top behind the halls; a larger,
-lighter ring of radial stones lies round the fountain and planters stand at the halls' corners. Never on what the village says. Tiles, frames, plates and plaques draw
-over every standing thing; the plaques and plates are the sheets' three-piece strips. The fit frames the village's heart (`core`:
-halls, fountain, foot and river), cropping the woods; zooming out shows them. The HUD lies over the village in screen space: "At a Glance" at the top left (dark wood, gold
-corners: PRs by tile, workspaces and those active, agents running, idle, need you, unread, failed, offline) and the status pill at
-the top right ("All systems operational" with a green dot; "N need you" or hosts offline amber; "N agents failed" red). "Need you" counts approvals and
-questions only, as the app's own count does. The fit keeps the panel over the forest, making room beside the village only past it.
-Picking: a PR medallion, then a robot, its bay, its hall; never a host. Sprites: `rendering/src/assets/village/<sheet>.png|json`
-(the GPT artist's; anchors as shares of the frame, slices `l`/`t`/`r`/`b` in sheet pixels, drawn at `VILLAGE_PX` (1.75) sheet
-pixels per village unit, the concept's pixel), plus the Dungeon Board's `status` and `ui` sheets for markers, medallions and icons.
-Text is painted by the page in Palatino. `npm run native:mock -- --village` serves the concept's fleet (`village` in
-`web/e2e/fleets.ts`: four halls of four workspaces, `assets`, `billing`, `catalog` and `forge`, whose names seed the concept's
-blue, purple, teal-dome and gear-workshop halls; the first two with every PR state, all six robots at the workshop, nothing
-needing you). The "At a Glance" panel is about a sixth of the view's width. Tests: `rendering/tests/village.test.mjs`, `web/e2e/village.e2e.ts`, `native/tests/VillageSceneTests.swift`.
+(ignored `design/references/village-concept.png`): a warm painterly 3/4 top-down village that reads as the concept's dashboard for any
+fleet, sparse or crowded. A world of its own, built as the Dungeon Board is: `rendering/src/village/` (`layout.ts` pure, `layoutVillage`;
+`bridge.ts`, `mountNativeVillage`; `frames.ts`, the sprite contract; `placeholder.ts` for frames the sheets lack) and
+`native/Sources/PaseoCommandNative/VillageScene.swift` (`MapScene` kind `village`).
+One village for the whole fleet (never a square per host). Its crystal fountain is the fleet, dead centre of four halls (`HALLS`), on
+its ring with navy lamp-post banners either side; its plaque lists the hosts (each one's name, status dot and `CPU · MEM · DISK`,
+≥ 90% red; offline says so, and that host's workspaces and agents are dimmed). The halls, all one width: top left "GitHub PRs" (blue,
+the app's GitHub mark on its banner), four tiles counting your pull requests (`GET /api/github/q/prCounts`, `readPrCounts` in
+`web/server/github/reads.ts`: merged in the last 14 days, in review, draft, conflicts or failing checks); top right "Linear Issues"
+(purple, Linear's mark), four tiles counting issues assigned to you (`GET /api/linear/issue-counts`, `readIssueCounts` in
+`web/server/linear/reads.ts` through the whitelisted client and budget: done in the last 14 days, in progress, todo, blocked by a
+"Blocked" state or label or an open blocking issue); both asked by `useVillageCounts` (`web/src/villageCounts.ts`) every minute while
+the Village shows, passed as `AtlasData.dashboard`. Off or without a key, their tiles dim and their cards say why. Bottom left
+"Workspaces" (the teal dome): a bay per workspace of the fleet (by host, project, oldest first), a slate tile and a small lit dot for
+its agents' state (green at work, amber needs you, red failed, grey idle), its four arches always drawn (unused ones empty), more
+spilling out and wrapping into rows of bays beneath; PR, Probe and auto-merge medallions on its frame. Bottom right "Agents" (the gear
+workshop): every agent as a robot on its ledge, shoulder to shoulder, wrapping into more ledge rows; provider colours (`robotColor`),
+idle and work frames, a floor light in the Atlas's state colour (pulsing for states that need you), markers over heads, drones.
+No text on the map but the host plaque, as on the Islands map: halls, tiles, workspaces and robots say what they are in hover cards
+(the page's `.atlas-world-card` from the bridge's `card` handler: a tile its count and up to 12 PRs or issues, a hall its name and
+counts; a click on a PR or issue tile opens its first through `openAppLink`). Picking: a medallion, a robot, a workspace's bay, a
+tile (cards only); never a host. The world: one paved plaza with organic edges, a road north into the forest and south over a bridge
+between lily ponds through the front wall, the river's gorge falling from a ruined wall at the right, lamps (lit while agents run),
+lighting (lamp pools, lit windows, contact shadows, the crystal's glow, a vignette) and a forest canopy tile (`paintCanopy`) that
+Swift repeats to every edge, so no bare ground ever shows. The fit frames the concept's crop (`core`) without cutting the halls,
+plaza or bridge (`keep`); the "At a Glance" panel may lie over the top-left hall's eave but never its tiles or banner. The HUD lies
+over the village in screen space: "At a Glance" (PRs, Issues, Workspaces with Active, Agents with Running and Idle, Need you, Failed
+and Offline only when any) and the status pill ("All systems operational" green; "N need you" or hosts offline amber; "N agents
+failed" red; "need you" counts approvals and questions, as the app's own count does). Sprites: `rendering/src/assets/village/`
+(anchors as shares, slices `l`/`t`/`r`/`b` in sheet pixels, drawn at `VILLAGE_PX`, 1.75), plus the Dungeon Board's `status` and `ui`
+sheets. `npm run native:mock -- --village` serves the concept's fleet (`village` in `web/e2e/fleets.ts`: one host, Core, Data, Export
+and Infra, six agents, PRs 7/3/1/1 and issues 11/8/7/2) and `-- --fleet sparse` one shaped like a real small fleet (two hosts, three
+workspaces, three agents needing you, no PRs, Linear off). Tests: `rendering/tests/village.test.mjs`, `web/e2e/village.e2e.ts`,
+`native/tests/VillageSceneTests.swift`, and the counts' server tests beside `web/server/github/` and `web/server/linear/`.
 
 ## Confirmed map constraints
 

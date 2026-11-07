@@ -23,8 +23,10 @@ import {
   seedOf,
   sortedHosts,
   tileState,
+  byAge,
   type AtlasData,
   type Cottage,
+  type DashboardCounts,
   type Entity,
   type State,
 } from "../world.ts";
@@ -41,10 +43,10 @@ export type Rect = { x: number; y: number; w: number; h: number };
 export const V = {
   /** Robots: their visible height, and the pitch they stand at on a porch. */
   robotH: 122,
-  pitch: 106,
+  pitch: 100,
   /** A building's natural width; it widens (its height keeping its shape) for bays holding several robots, to `buildingMax`. */
   building: 585,
-  buildingMax: 900,
+  buildingMax: 1000,
   /** The painted arches' pitch as a share of the building's width, and their middle's offset from its centre. */
   archPitch: 0.19,
   /** The plaque's middle, down from the building's top, as a share of its height. */
@@ -58,13 +60,16 @@ export const V = {
   /** The tile frame stands up in its arch, its foot this far above the building's (robots' heads below it). */
   frameFeet: -82,
   frameW: 0.84,
-  plateH: 26,
+  plateH: 30,
   /** The porch: a shallow stone ledge along the hall's front (about a third of a robot's height deep), and the robots'
    * feet on it; a hall without agents has only its foundation steps (`steps` deep). */
   porchY: -2,
   porchH: 50,
   feetY: 46,
   steps: 24,
+  /** Further rows: of workspace bays under the dome, and of robots on the workshop's ledges. */
+  bayRow: 150,
+  robotRow: 150,
   /** Between blocks in a row, and between rows (a cobbled walk). */
   blockGap: 34,
   band: 70,
@@ -73,6 +78,7 @@ export const V = {
   fountainW: 286,
   ringW: 344,
   hostPlaqueH: 64,
+  hostLineH: 38,
   hostPlaqueMin: 190,
   /** The central road's width and a walk's depth; blocks start `inner` either side of the middle (the first lower row clear of the fountain). */
   road: 180,
@@ -89,7 +95,7 @@ export const V = {
   wallH: 165,
   marginBottom: 470,
   /** Type (village px): workspace plates, project plaques, the host plaque's name and stats line. */
-  font: { workspace: 19, project: 38, host: 27, stats: 16 },
+  font: { workspace: 19, project: 38, host: 27, stats: 18 },
   labelPad: 26,
   /** A PR medallion on a tile frame's upper corners. */
   flag: 17,
@@ -110,9 +116,8 @@ export type VSquare = {
   fountain: Rect;
   ring: Rect;
   plaque: Rect;
-  /** The plaque's text: the host's name (offline says so) and its load. */
-  title: string;
-  stats: { text: string; alert: boolean }[];
+  /** The plaque's lines: each host's name (offline says so) and its load. */
+  hosts: { id: string; title: string; stats: { text: string; alert: boolean }[]; online: boolean; plaqueW: number; lineW: number }[];
   /** Cobbled roads (with organic edges): north from the square's edge, the walks in front of each row's
    * porches, south to the bridge; and the round plaza's paving under the fountain's ring. */
   roads: Rect[];
@@ -141,9 +146,15 @@ export type VSquare = {
 export type VProject = {
   key: string;
   host: string;
+  /** Which hall: the dashboards (PRs, issues), the workspaces' dome or the agents' workshop. */
+  hall: Hall;
   entity?: Entity;
   name: string;
   icon: Icon;
+  /** Its banner's emblem: a frame, or a painted mark (`mark-github`, `mark-linear`). */
+  emblem: string;
+  /** Its ledges (one per row of robots). */
+  porches: Rect[];
   /** Its building's frame. */
   building: string;
   square: number;
@@ -163,6 +174,8 @@ export type VProject = {
   rect: Rect;
   stale: boolean;
 };
+/** A dashboard tile: a group of your PRs or issues, its count on its plate. */
+export type VTile = { id: string; hall: "prs" | "issues"; key: string; tile: TileKind; frame: Rect; tileAt: Pt; tileSize: number; plate: Rect; rect: Rect };
 export type VFlag = { workspace: string; flag: string; frame: string; x: number; y: number; size: number };
 export type VWorkspace = {
   entity: Entity;
@@ -178,6 +191,9 @@ export type VWorkspace = {
   tileAt: Pt;
   tileSize: number;
   plate: Rect;
+  /** Its name on the plate (cut short past PLATE_CHARS), and its state's dot. */
+  label: string;
+  status: "running" | "needs" | "failed" | "idle" | "offline";
   flags: VFlag[];
   seal?: { x: number; y: number; size: number };
   /** Agents' keys, oldest first. */
@@ -212,7 +228,10 @@ export type VillageLayout = {
   /** Within the crop, what the fit never cuts. */
   keep: Rect;
   squares: VSquare[];
+  /** The four halls. */
   projects: VProject[];
+  /** The dashboard halls' tiles (PRs, issues). */
+  tiles: VTile[];
   workspaces: VWorkspace[];
   agents: VAgent[];
   decor: VDecor[];
@@ -221,12 +240,13 @@ export type VillageLayout = {
   /** Changes whenever anything's place changes. */
   signature: string;
 };
+/** A dashboard hall's counts: whether known, the total, each group's, and why not when not. */
+export type DashCount = { known: boolean; total: number; by: Record<string, number>; why: string };
 export type VillageCounts = {
   hosts: number;
   hostsOffline: number;
-  projects: number;
-  prs: number;
-  pr: Record<Exclude<TileKind, "none">, number>;
+  prs: DashCount;
+  issues: DashCount;
   workspaces: number;
   /** Workspaces with an agent at work. */
   active: number;
@@ -300,17 +320,51 @@ export function boxOf(frame: string, x: number, y: number, w?: number): Rect {
 
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
 
+/** The village's four halls, as the concept: your pull requests and your Linear issues above, workspaces and agents below. */
+export type Hall = "prs" | "issues" | "workspaces" | "agents";
+export const HALLS: { hall: Hall; name: string; building: string; emblem: string }[] = [
+  { hall: "prs", name: "GitHub PRs", building: "hall-blue", emblem: "mark-github" },
+  { hall: "issues", name: "Linear Issues", building: "hall-purple", emblem: "mark-linear" },
+  { hall: "workspaces", name: "Workspaces", building: "dome-teal", emblem: "icon-layers" },
+  { hall: "agents", name: "Agents", building: "workshop-rust", emblem: "icon-agents" },
+];
+/** The dashboard halls' four tiles each: the group's key, its tile and its name. */
+export const DASH_TILES: Record<"prs" | "issues", { key: string; tile: TileKind; name: string }[]> = {
+  prs: [
+    { key: "merged", tile: "merged", name: "Merged" },
+    { key: "review", tile: "review", name: "Review" },
+    { key: "draft", tile: "draft", name: "Draft" },
+    { key: "conflicts", tile: "failing", name: "Conflicts" },
+  ],
+  issues: [
+    { key: "done", tile: "merged", name: "Done" },
+    { key: "inProgress", tile: "review", name: "In Progress" },
+    { key: "todo", tile: "draft", name: "Todo" },
+    { key: "blocked", tile: "failing", name: "Blocked" },
+  ],
+};
+/** Workspace names on plates are cut short past this many characters (the hover card gives the whole). */
+export const PLATE_CHARS = 14;
+export const plateLabel = (name: string) => (name.length > PLATE_CHARS ? `${name.slice(0, PLATE_CHARS - 1)}…` : name);
+
+type Bay =
+  | { kind: "tile"; id: string; hall: "prs" | "issues"; tile: TileKind; key: string }
+  | { kind: "workspace"; c: Cottage; host: string; project?: string };
 type Block = {
-  key: string;
-  project?: AtlasData["projects"][number];
-  cottages: Cottage[];
+  hall: Hall;
+  name: string;
+  emblem: string;
   building: string;
   /** Drawn width and height of its building. */
   w: number;
   h: number;
-  /** The bays' pitch (its arches'), and each bay's slot on that lattice (0–3 are the building's own arches). */
+  /** The bays' pitch (its arches'), and each bay's slot on that lattice (0–3 are the building's own arches) and row. */
   pitch: number;
-  slots: number[];
+  bays: { bay: Bay; slot: number; row: number }[];
+  /** The agents hall's robots: how many, and how many to a ledge row. */
+  robots: number;
+  perRow: number;
+  rows: number;
   plaqueW: number;
   /** Its whole width, and its reach above and below its building's feet. */
   width: number;
@@ -318,33 +372,63 @@ type Block = {
   below: number;
 };
 
-function blockOf(group: ReturnType<typeof hostGroups>[number], building: string, measure: Measure): Block {
-  // A building keeps its natural size until its porch can't hold its robots side by side.
-  const robots = group.cottages.reduce((n, c) => n + c.agents.length, 0);
-  const w = clamp((robots * V.pitch) / 0.86, V.building, V.buildingMax);
+/** The step between rows of bays: a tile frame's height at this pitch, its plate's overhang and a gap. */
+const bayStep = (pitch: number) => {
+  const fw = pitch * V.frameW, f = FRAMES["tile-frame"]!;
+  return Math.max(V.bayRow, (f.h * fw) / f.w + V.plateH * 0.4 + 24);
+};
+
+/** The width a hall asks for: room for its robots shoulder to shoulder, or its plates' names. */
+function hallWidth(spec: (typeof HALLS)[number], bays: Bay[], robots: number, measure: Measure): number {
+  if (spec.hall === "agents") {
+    const perRow = Math.max(4, Math.min(robots, Math.max(8, Math.ceil(Math.sqrt(robots * 1.5)))));
+    return clamp((Math.min(robots, perRow) * V.pitch) / 0.98, V.building, V.buildingMax);
+  }
+  if (spec.hall === "workspaces") {
+    // Names past what fits step their type down on the plate (to 14 px) before they're cut short.
+    const widest = Math.max(0, ...bays.map((b) => (b.kind === "workspace" ? measure(plateLabel(b.c.name), "workspace") : 0)));
+    return clamp((widest + 34) / V.archPitch, V.building, 700);
+  }
+  return V.building;
+}
+
+function blockOf(spec: (typeof HALLS)[number], bays: Bay[], robots: number, measure: Measure, width: number): Block {
+  const sheet = FRAMES[spec.building]!;
+  let w = width, perRow = 0, rows = 1;
+  if (spec.hall === "agents") {
+    // Robots shoulder to shoulder on its ledge; past a hall's width, more ledge rows.
+    perRow = Math.max(4, Math.min(robots, Math.max(8, Math.ceil(Math.sqrt(robots * 1.5)))));
+    rows = Math.max(1, Math.ceil(robots / perRow));
+  }
   const pitch = w * V.archPitch;
-  const spec = FRAMES[building]!;
-  const h = (spec.h * w) / spec.w;
-  const n = group.cottages.length;
-  // Oldest first, left to right: the building's own four arches, centred; more than four spill out either side under arches of their own.
-  const start = n <= 4 ? Math.floor((4 - n) / 2) : -Math.floor((n - 4) / 2);
-  const slots = group.cottages.map((_, i) => start + i);
-  const span = (Math.max(3, slots[slots.length - 1] ?? 3) - Math.min(0, slots[0] ?? 0) + 1) * pitch;
-  const name = group.project?.name ?? "No project";
-  const plaqueW = clamp(Math.ceil(measure(name, "project") + V.labelPad * 2), V.plaqueMin, Math.min(V.plaqueMax, w * 0.8));
+  const h = (sheet.h * w) / sheet.w;
+  // Oldest first, left to right: the building's own four arches; more spill out either side under arches of their own,
+  // then wrap into further rows beneath.
+  const n = bays.length;
+  rows = spec.hall === "workspaces" ? Math.max(1, Math.ceil(n / 8)) : rows;
+  const perBayRow = spec.hall === "workspaces" ? Math.max(4, Math.ceil(n / rows)) : 4;
+  const start = -Math.floor((perBayRow - 4) / 2);
+  const placed = bays.map((bay, i) => ({ bay, slot: start + (i % perBayRow), row: Math.floor(i / perBayRow) }));
+  const lo = Math.min(0, start), hi = Math.max(3, start + perBayRow - 1);
+  const span = Math.max((hi - lo + 1) * pitch, spec.hall === "agents" ? Math.min(robots, perRow) * V.pitch + 40 : 0);
+  const plaqueW = clamp(Math.ceil(measure(spec.name, "project") + V.labelPad * 2), V.plaqueMin, Math.min(V.plaqueMax, w * 0.8));
+  const extra = spec.hall === "agents" ? (rows - 1) * V.robotRow : spec.hall === "workspaces" ? (rows - 1) * bayStep(pitch) : 0;
   return {
-    key: group.key,
-    project: group.project,
-    cottages: group.cottages,
-    building,
+    hall: spec.hall,
+    name: spec.name,
+    emblem: spec.emblem,
+    building: spec.building,
     w,
     h,
     pitch,
-    slots,
+    bays: placed,
+    robots,
+    perRow,
+    rows,
     plaqueW,
     width: Math.max(w, span + 40) + 12,
     above: h + V.bannerLift + 8,
-    below: V.porchY + V.porchH,
+    below: V.porchY + V.porchH + extra,
   };
 }
 
@@ -366,16 +450,12 @@ export function spread(wanted: number[], gap: number): number[] {
   return clusters.flatMap((c) => Array.from({ length: c.n }, (_, k) => c.sum / c.n + k * gap));
 }
 
-/** Rows of blocks either side of the north–south path, above and below the plaza. */
+/** The four halls round the fountain: the dashboards above, workspaces and agents below. */
 type Slot = { block: Block; side: -1 | 1; half: -1 | 1; row: number };
 type Arranged = { rows: number; slots: Slot[] };
-function arrange(blocks: Block[], perRow: number): Arranged {
-  // Innermost first: the plaza's four corners, then outward along the first rows, then the next rows out.
-  const slots: Slot[] = blocks.map((block, i) => {
-    const q = i % 4, k = Math.floor(i / 4);
-    return { block, half: q < 2 ? -1 : 1, side: q % 2 === 0 ? -1 : 1, row: Math.floor(k / perRow) };
-  });
-  return { rows: Math.max(1, ...slots.map((s) => s.row + 1)), slots };
+function arrange(blocks: Block[]): Arranged {
+  const slots: Slot[] = blocks.map((block, i) => ({ block, half: i < 2 ? -1 : 1, side: i % 2 === 0 ? -1 : 1, row: 0 }));
+  return { rows: 1, slots };
 }
 const rowOf = (a: Arranged, half: -1 | 1, row: number, side?: -1 | 1) => a.slots.filter((s) => s.half === half && s.row === row && (side === undefined || s.side === side));
 
@@ -392,49 +472,49 @@ function blockX(s: Slot, cx: number, plaqueW: number, a: Arranged) {
   return s.side === 1 ? cx + offset : cx - offset - s.block.width;
 }
 
-type Plan = { width: number; height: number; build: (ox: number, oy: number, index: number) => void };
+/** A workspace's state on its plate's dot: an agent running, one needing you, one failed, all offline, else idle. */
+export function workspaceStatus(states: State[], online: boolean): VWorkspace["status"] {
+  if (!online) return "offline";
+  if (states.some((s) => NEEDS_YOU.includes(s))) return "needs";
+  if (states.includes("failed")) return "failed";
+  if (states.includes("running")) return "running";
+  return "idle";
+}
 
 /**
- * Lay the fleet out as the Village. `aspect` is the map's width over its height:
- * each square's rows, and the grid of squares, are chosen to suit it; `measure`
- * gives label text widths (the bridge's real font).
+ * Lay the fleet out as the Village: one village square for the whole fleet, as the concept's dashboard, whatever
+ * its size. `aspect` is kept for the map styles' common call; `measure` gives label text widths (the bridge's real font).
  */
-export function layoutVillage(data: AtlasData, aspect = 1.6, measure: Measure = approxMeasure): VillageLayout {
-  const planned = sortedHosts(data).map((host) => ({ host, groups: hostGroups(host, data) }));
-  // Hosts without workspaces stay out of the village, unless none has any: then each shows as an empty square.
-  const shown = planned.some((h) => h.groups.length) ? planned.filter((h) => h.groups.length) : planned;
-  const agentRows = new Map(data.agents.map((a) => [a.key, a]));
-
+export function layoutVillage(data: AtlasData, _aspect = 1.6, measure: Measure = approxMeasure): VillageLayout {
+  const allHosts = sortedHosts(data);
+  const groupsOf = allHosts.map((h) => ({ host: h, groups: hostGroups(h, data) }));
+  // The plaque names hosts with workspaces (every host when none has any).
+  const shownHosts = groupsOf.some((g) => g.groups.length) ? groupsOf.filter((g) => g.groups.length).map((g) => g.host) : allHosts;
+  const onlineOf = new Map(allHosts.map((h) => [h.key, h.online]));
+  const hostOrder = new Map(allHosts.map((h, i) => [h.key, i]));
   const squares: VSquare[] = [];
   const projects: VProject[] = [];
   const workspaces: VWorkspace[] = [];
   const agents: VAgent[] = [];
-  const hostEntities: Entity[] = [];
-
-  const plans: Plan[] = shown.map(({ host, groups }) => {
-    // Buildings dealt so neighbours in a square differ: seeded by the project, stepping past ones already shown.
-    const used: string[] = [];
-    const start = seedOf(host.key + "village") % BUILDINGS.length;
-    const blocks = groups.map((g) => {
-      let v = (start + seedOf(g.key)) % BUILDINGS.length;
-      for (let k = 0; k < BUILDINGS.length && used.includes(BUILDINGS[v]!); k++) v = (v + 1) % BUILDINGS.length;
-      used.push(BUILDINGS[v]!);
-      if (used.length >= BUILDINGS.length) used.length = 0;
-      return blockOf(g, BUILDINGS[v]!, measure);
-    });
-    const { title, stats, plaqueW } = hostPlaque(host);
-    // Blocks per row on each side: the square nearest the map's shape (a square's own aim is a little wider than tall).
-    let best: { a: Arranged; score: number } | null = null;
-    for (let perRow = 1; perRow <= Math.max(1, Math.ceil(blocks.length / 4)); perRow++) {
-      const a = arrange(blocks, perRow);
-      const { w, h } = measureSquare(a, plaqueW);
-      const score = Math.abs(Math.log(w / h / clamp(aspect, 1, 2)));
-      if (!best || score < best.score - 1e-9) best = { a, score };
-    }
-    const a = best!.a;
-    const m = measureSquare(a, plaqueW);
-    return { width: m.w, height: m.h, build: (ox, oy, index) => buildSquare(host, a, title, stats, plaqueW, ox, oy, index) };
-  });
+  const tiles: VTile[] = [];
+  // Workspaces across the fleet: by host, then project, oldest first (agents without one wait in the workshop only).
+  const cottages = groupsOf.flatMap(({ host, groups }) =>
+    groups.flatMap((g) => g.cottages.filter((c) => !c.camp).map((c): Bay => ({ kind: "workspace", c, host: host.key, project: g.project?.key }))),
+  );
+  const workspaceKeys = new Set(cottages.map((b) => (b.kind === "workspace" ? b.c.key : "")));
+  const projectOf = new Map(data.workspaces.map((w) => [w.key, w.project]));
+  const agentRows = new Map(data.agents.map((a) => [a.key, a]));
+  const fleetAgents = [...data.agents].sort((a, b) => (hostOrder.get(a.host) ?? 99) - (hostOrder.get(b.host) ?? 99) || byAge(a, b));
+  const dashBays = (hall: "prs" | "issues"): Bay[] => DASH_TILES[hall].map((t) => ({ kind: "tile", id: `tile:${hall}:${t.key}`, hall, tile: t.tile, key: t.key }));
+  const baysOf = (hall: Hall) => (hall === "prs" || hall === "issues" ? dashBays(hall) : hall === "workspaces" ? cottages : []);
+  // The four halls share one width, as the concept's do: the widest any of them asks for.
+  const hallW = Math.max(...HALLS.map((spec) => hallWidth(spec, baysOf(spec.hall), spec.hall === "agents" ? fleetAgents.length : 0, measure)));
+  const blocks = HALLS.map((spec) => blockOf(spec, baysOf(spec.hall), spec.hall === "agents" ? fleetAgents.length : 0, measure, hallW));
+  const hostLines = shownHosts.map((h) => hostPlaque(h));
+  const plaqueW = Math.max(V.hostPlaqueMin, ...hostLines.map((l) => (hostLines.length > 1 ? l.lineW : l.plaqueW)));
+  const a = arrange(blocks);
+  const fleet: Entity = { id: "village", kind: "host", name: "Fleet", host: "village", position: { q: 0, r: 0 }, stale: !allHosts.some((h) => h.online) };
+  buildSquare(fleet, a, hostLines, plaqueW, 0, 0, 0);
 
   function hostPlaque(host: AtlasData["hosts"][number]) {
     const title = host.name.toUpperCase() + (host.online ? "" : " · OFFLINE");
@@ -447,8 +527,11 @@ export function layoutVillage(data: AtlasData, aspect = 1.6, measure: Measure = 
           ] as const
         ).flatMap(([n, v]) => (v === undefined ? [] : [{ text: `${n} ${Math.round(v)}%`, alert: v >= 90 }]))
       : [];
-    const plaqueW = Math.max(V.hostPlaqueMin, Math.ceil(measure(title, "host") + 80), Math.ceil(measure(stats.map((s) => s.text).join(" · "), "stats") + 90));
-    return { title, stats, plaqueW };
+    const statsW = measure(stats.length ? stats.map((s) => s.text).join(" · ") : "No load reading", "stats");
+    // Alone, its name over its load; with others, both on one line.
+    const plaqueW = Math.max(V.hostPlaqueMin, Math.ceil(measure(title, "host") + 80), Math.ceil(statsW + 90));
+    const lineW = Math.ceil(measure(title, "host") * 0.85 + statsW + 110);
+    return { id: host.key, title, stats, online: host.online, plaqueW, lineW };
   }
 
   /** Each row's reach above and below its buildings' feet; the rows' feet, top to bottom; the sides' widths. */
@@ -482,21 +565,11 @@ export function layoutVillage(data: AtlasData, aspect = 1.6, measure: Measure = 
     return { w: V.marginLeft + left + right + V.marginRight, h: y - V.band + V.marginBottom, left, right, feet, plazaTop, footY: y - V.band };
   }
 
-  function buildSquare(host: AtlasData["hosts"][number], a: Arranged, title: string, stats: VSquare["stats"], plaqueW: number, ox: number, oy: number, index: number) {
+  function buildSquare(entity: Entity, a: Arranged, hosts: VSquare["hosts"], plaqueW: number, ox: number, oy: number, index: number) {
     const m = measureSquare(a, plaqueW);
     const cx = ox + V.marginLeft + m.left;
     const baseOf = (half: -1 | 1, row: number) => oy + m.feet.find((f) => f.half === half && f.row === row)!.base;
-    const online = host.online;
-    const entity: Entity = {
-      id: host.key,
-      kind: "host",
-      name: host.name,
-      host: host.key,
-      position: { q: 0, r: 0 },
-      stale: !online,
-      ...(host.stats ? { stats: host.stats } : {}),
-    };
-    hostEntities.push(entity);
+    const online = !entity.stale;
     // The fountain stands in the middle of the first lower row, its plaque at its foot.
     // The fountain dead centre of the four halls: its ring just below the upper row's fronts, between the lower row's halls;
     // the host's plaque small on the ring's front step.
@@ -507,7 +580,9 @@ export function layoutVillage(data: AtlasData, aspect = 1.6, measure: Measure = 
     ring.x = cx - V.ringW / 2;
     ring.y = ringC - ringH / 2;
     const fountain = boxOf("fountain-on", cx, ringC + ringH * 0.2, V.fountainW);
-    const plaque = { x: cx - plaqueW / 2, y: ring.y + ring.h - V.hostPlaqueH * 0.8, w: plaqueW, h: V.hostPlaqueH };
+    // One line per host beneath the first's (name, then its load).
+    const plaqueH = V.hostPlaqueH + (Math.max(1, hosts.length) - 1) * V.hostLineH;
+    const plaque = { x: cx - plaqueW / 2, y: ring.y + ring.h - V.hostPlaqueH * 0.8, w: plaqueW, h: plaqueH };
     const rect = { x: ox, y: oy, w: m.w, h: m.h };
     const topBase = baseOf(-1, a.rows - 1);
     const footY = oy + m.footY;
@@ -555,8 +630,7 @@ export function layoutVillage(data: AtlasData, aspect = 1.6, measure: Measure = 
       fountain,
       ring,
       plaque,
-      title,
-      stats,
+      hosts,
       roads,
       plaza,
       lamps,
@@ -603,25 +677,30 @@ export function layoutVillage(data: AtlasData, aspect = 1.6, measure: Measure = 
       const banner = { x: mid - bw / 2, y: body.y - V.bannerLift, w: bw, h: (bannerSpec.h * bw) / bannerSpec.w };
       const plaqueRect = { x: mid - b.plaqueW / 2, y: body.y + body.h * V.plaqueAt - V.plaqueH / 2, w: b.plaqueW, h: V.plaqueH };
       const slotX = (k: number) => mid + (k - 1.5) * b.pitch;
-      const xs = b.slots.map(slotX);
-      // Robots stand in front of their bays, oldest first, spread along the porch where bays' crowds would touch.
-      const wanted = b.cottages.flatMap((c, i) => c.agents.map((_, j) => xs[i]! + (j - (c.agents.length - 1) / 2) * V.pitch));
-      const feetX = spread(wanted, V.pitch);
-      const porchL = Math.min(body.x + b.w * 0.06, (xs[0] ?? mid) - b.pitch / 2 - 10, (feetX[0] ?? mid) - V.pitch / 2 - 6);
-      const porchR = Math.max(body.x + b.w * 0.94, (xs[xs.length - 1] ?? mid) + b.pitch / 2 + 10, (feetX[feetX.length - 1] ?? mid) + V.pitch / 2 + 6);
-      let robot = 0;
-      // Every hall has its ledge, so the four read alike (an empty one without agents).
-      const ledge = true;
-      const porch = ledge ? { x: porchL, y: base + V.porchY, w: porchR - porchL, h: V.porchH } : { x: body.x + b.w * 0.04, y: base - 6, w: b.w * 0.92, h: V.steps + 6 };
-      const projEntity: Entity | undefined = b.project
-        ? { id: b.project.key, kind: "project", name: b.project.name, host: host.key, position: { q: 0, r: 0 }, stale: !!b.project.stale }
-        : undefined;
+      // The agents hall's robots: shoulder to shoulder in ledge rows, oldest first, centred on the hall.
+      const robotRows: Pt[][] = [];
+      for (let r = 0; r < b.rows && b.hall === "agents"; r++) {
+        const count = Math.min(b.perRow, b.robots - r * b.perRow);
+        robotRows.push(Array.from({ length: count }, (_, k) => ({ x: mid + (k - (count - 1) / 2) * V.pitch, y: base + V.feetY + r * V.robotRow })));
+      }
+      // A ledge along its front (and one per further row of robots or bays).
+      const ledgeL = Math.min(body.x + b.w * 0.06, x0 + 20), ledgeR = Math.max(body.x + b.w * 0.94, x0 + b.width - 20);
+      const porches: Rect[] = [];
+      const rowsBelow = b.hall === "agents" ? b.rows : 1;
+      for (let r = 0; r < rowsBelow; r++) {
+        const pts = robotRows[r] ?? [];
+        const l = pts.length ? Math.min(ledgeL, pts[0]!.x - V.pitch / 2 - 6) : ledgeL;
+        const rr = pts.length ? Math.max(ledgeR, pts[pts.length - 1]!.x + V.pitch / 2 + 6) : ledgeR;
+        porches.push({ x: l, y: base + V.porchY + r * V.robotRow, w: rr - l, h: V.porchH });
+      }
+      const porch = union(porches);
       projects.push({
-        key: b.key,
-        host: host.key,
-        entity: projEntity,
-        name: b.project?.name ?? "No project",
-        icon: b.project ? projectIcon(b.project.name, b.project.key) : "gear",
+        key: `hall:${b.hall}`,
+        host: "village",
+        hall: b.hall,
+        name: b.name,
+        icon: "layers",
+        emblem: b.emblem,
         building: b.building,
         square: index,
         block: { x: x0, y: base - b.above, w: b.width, h: b.above + b.below },
@@ -630,34 +709,42 @@ export function layoutVillage(data: AtlasData, aspect = 1.6, measure: Measure = 
         banner,
         plaque: plaqueRect,
         porch,
-        ledge,
+        porches,
+        ledge: true,
         lamps: [
-          { x: porch.x - 14, y: porch.y + porch.h - 4 },
-          { x: porch.x + porch.w + 14, y: porch.y + porch.h - 4 },
+          { x: porches[0]!.x - 14, y: porches[0]!.y + V.porchH - 4 },
+          { x: porches[0]!.x + porches[0]!.w + 14, y: porches[0]!.y + V.porchH - 4 },
         ],
         rect: union([banner, body]),
-        stale: !!b.project?.stale,
+        stale: false,
       });
-      b.cottages.forEach((c, i) => {
-        const k = b.slots[i]!;
-        const bcx = xs[i]!;
+      for (const { bay, slot: k, row } of b.bays) {
+        const bcx = slotX(k);
+        const rowBase = base + row * bayStep(b.pitch);
         const fw = b.pitch * V.frameW;
-        const frame = boxOf("tile-frame", bcx, base + V.frameFeet, fw);
+        const frame = boxOf("tile-frame", bcx, rowBase + V.frameFeet, fw);
         const tileSize = frame.w * 0.8;
         const tileAt = { x: bcx, y: frame.y + frame.h * 0.42 };
-        const textW = measure(c.name, "workspace") + 14;
-        const pw = clamp(textW, frame.w * 0.8, b.pitch - 4);
-        const plate = { x: bcx - pw / 2, y: frame.y + frame.h - V.plateH - 3, w: pw, h: V.plateH };
-        const arch = k < 0 || k > 3 ? boxOf("bay-arch", bcx, base, b.pitch) : undefined;
+        const plateW = b.pitch - 6;
+        // Under its tile, across the frame's foot (robots stand only in the workshop, whose arches hold no tiles).
+        const plate = { x: bcx - plateW / 2, y: frame.y + frame.h - V.plateH * 0.6, w: plateW, h: V.plateH };
+        const arch = k < 0 || k > 3 || row > 0 ? boxOf("bay-arch", bcx, rowBase, b.pitch) : undefined;
+        const top = arch ? Math.min(arch.y, frame.y) : frame.y - 12;
+        const rect = { x: bcx - b.pitch / 2 + 2, y: top, w: b.pitch - 4, h: frame.y + frame.h - top };
+        if (bay.kind === "tile") {
+          tiles.push({ id: bay.id, hall: bay.hall, key: bay.key, tile: bay.tile, frame, tileAt, tileSize, plate, rect });
+          continue;
+        }
+        const c = bay.c;
+        const online = onlineOf.get(bay.host) ?? false;
         const wsEntity: Entity = {
           id: c.key,
           kind: "workspace",
           name: c.name,
-          host: host.key,
-          project: b.project?.key,
+          host: bay.host,
+          project: bay.project,
           position: { q: 0, r: 0 },
-          stale: !!c.stale,
-          camp: c.camp,
+          stale: !!c.stale || !online,
           ...(c.flags ? { flags: c.flags } : {}),
           ...(c.probe ? { probe: c.probe } : {}),
           ...(c.autoMerge ? { autoMerge: true } : {}),
@@ -670,100 +757,72 @@ export function layoutVillage(data: AtlasData, aspect = 1.6, measure: Measure = 
         if (c.flags?.review) flags.push({ workspace: c.key, flag: c.flags.review, frame: `pr-${c.flags.review}`, ...right, size: V.flag });
         if (c.probe) flags.push({ workspace: c.key, flag: "probe", frame: `probe-${c.probe.state}`, x: right.x, y: c.flags?.review ? fy + V.flag + 3 : fy, size: V.flag });
         const sealOn = c.autoMerge ? (flags.find((f) => f.flag === c.flags?.review) ?? flags.find((f) => f.flag === c.flags?.ci)) : undefined;
-        const top = arch ? Math.min(arch.y, frame.y) : frame.y - 12;
+        const states = c.agents.map((key) => agentRows.get(key)?.state).filter((x): x is State => !!x);
         workspaces.push({
           entity: wsEntity,
-          project: b.key,
+          project: `hall:${b.hall}`,
           square: index,
-          rect: { x: bcx - b.pitch / 2 + 2, y: top, w: b.pitch - 4, h: frame.y + frame.h - top },
+          rect,
           ...(arch ? { arch } : {}),
           frame,
-          tile: c.camp ? "none" : tileOf(c),
+          tile: "none",
           tileAt,
           tileSize,
           plate,
+          label: plateLabel(c.name),
+          status: workspaceStatus(states, online),
           flags,
           ...(sealOn ? { seal: { x: sealOn.x + 7, y: sealOn.y - 7, size: 10 } } : {}),
           agents: c.agents,
         });
-        c.agents.forEach((key) => {
-          const row = agentRows.get(key);
-          const x = feetX[robot++]!;
-          if (!row) return;
-          const feet = { x, y: base + V.feetY };
+      }
+      // Every agent of the fleet, as a robot on the workshop's ledge.
+      if (b.hall === "agents") {
+        const pts = robotRows.flat();
+        fleetAgents.forEach((row, i) => {
+          const feet = pts[i]!;
+          const ws = row.workspace && workspaceKeys.has(row.workspace) ? row.workspace : "";
           agents.push({
             robot: robotColor(row.model),
             drones: (row.subagentModels ?? []).map(robotColor),
-            entity: agentEntity(row, { workspace: c.key, project: b.project?.key }, online),
+            entity: agentEntity(row, { workspace: ws, project: row.project ?? (ws ? projectOf.get(ws) : undefined) }, onlineOf.get(row.host) ?? false),
             feet,
             rect: { x: feet.x - V.pitch / 2 + 2, y: feet.y - V.robotH + 2, w: V.pitch - 4, h: V.robotH + 4 },
             square: index,
           });
         });
-      });
+      }
     }
   }
 
-  // The squares, in a grid of as many columns as best suits the map's shape (rows top-aligned).
-  const order = plans.map((p, i) => ({ p, i }));
-  let grid: { cols: number; score: number } = { cols: 1, score: Infinity };
-  for (let cols = 1; cols <= Math.max(1, plans.length); cols++) {
-    const { w, h } = gridSize(cols);
-    const score = Math.abs(Math.log(w / h / aspect));
-    if (score < grid.score - 1e-9) grid = { cols, score };
-  }
-  function gridSize(cols: number) {
-    let w = 0, h = 0;
-    for (let r = 0; r * cols < plans.length; r++) {
-      const row = plans.slice(r * cols, (r + 1) * cols);
-      w = Math.max(w, row.reduce((s, p) => s + p.width, 0));
-      h += Math.max(...row.map((p) => p.height));
-    }
-    return { w: Math.max(w, 1), h: Math.max(h, 1) };
-  }
-  let y = 0;
-  for (let r = 0; r * grid.cols < plans.length; r++) {
-    const row = order.slice(r * grid.cols, (r + 1) * grid.cols);
-    let x = 0;
-    for (const { p, i } of row) {
-      p.build(x, y, i);
-      x += p.width;
-    }
-    y += Math.max(...row.map(({ p }) => p.height));
-  }
-  const size = gridSize(grid.cols);
-  const bounds = { x: 0, y: 0, w: size.w, h: size.h };
-  // Squares narrower than their row's widest stretch their ground to the bounds' edge (their margins grow).
-  for (const s of squares) {
-    const right = squares.filter((o) => o.rect.y === s.rect.y).reduce((m, o) => Math.max(m, o.rect.x + o.rect.w), 0);
-    if (s.rect.x + s.rect.w === right && right < bounds.w) s.rect = { ...s.rect, w: s.rect.w + bounds.w - right };
-  }
+  const sq0 = squares[0]!;
+  const bounds = { ...sq0.rect };
 
   // A square's `keep` starts at the leftmost thing its top-left hall says (its first tile, plaque or banner); the panel may
   // lie over the eave beyond it.
   for (const [i, sq] of squares.entries()) {
     const top = projects.filter((p) => p.square === i && p.base < sq.ring.y);
     if (!top.length) continue;
-    const said = top.flatMap((p) => [p.plaque, p.banner, ...workspaces.filter((w) => w.project === p.key && w.square === i).map((w) => w.frame)]);
+    const said = top.flatMap((p) => [p.plaque, p.banner, ...workspaces.filter((w) => w.project === p.key && w.square === i).map((w) => w.frame), ...tiles.filter((t) => `hall:${t.hall}` === p.key).map((t) => t.frame)]);
     const x = Math.min(...said.map((r) => r.x)) - 12;
     if (x > sq.keep.x) sq.keep = { ...sq.keep, x, w: sq.keep.x + sq.keep.w - x };
   }
-  const decor = sceneryOf(squares, projects, workspaces, agents);
+  const decor = sceneryOf(squares, projects, workspaces, agents, tiles);
 
-  const shownProjects = projects.filter((p) => p.entity).map((p) => p.entity!);
-  const entities = [...hostEntities, ...shownProjects, ...workspaces.map((w) => w.entity), ...agents.map((a) => a.entity)];
+  const entities = [...workspaces.map((w) => w.entity), ...agents.map((a) => a.entity)];
   const states = agents.map((a) => a.entity.state!);
-  const realWorkspaces = workspaces.filter((w) => !w.entity.camp);
-  const pr = { merged: 0, review: 0, draft: 0, failing: 0 };
-  for (const w of realWorkspaces) if (w.tile !== "none") pr[w.tile]++;
+  const dash = (d: DashboardCounts | null | undefined, keys: string[]) => {
+    const ok = d?.state === "ok" && d.counts;
+    const by = Object.fromEntries(keys.map((k) => [k, ok ? (d!.counts![k] ?? 0) : 0]));
+    return { known: !!ok, total: keys.reduce((n, k) => n + (by[k] ?? 0), 0), by, why: ok ? "" : (d?.message ?? (d === undefined || d === null ? "" : "Not available")) };
+  };
   const counts: VillageCounts = {
-    hosts: squares.length,
-    hostsOffline: squares.filter((s) => !s.online).length,
-    projects: shownProjects.length,
-    prs: pr.merged + pr.review + pr.draft + pr.failing,
-    pr,
-    workspaces: realWorkspaces.length,
-    active: realWorkspaces.filter((w) => agents.some((a) => a.entity.workspace === w.entity.id && a.entity.state === "running")).length,
+    hosts: shownHosts.length,
+    hostsOffline: shownHosts.filter((h) => !h.online).length,
+    prs: dash(data.dashboard?.prs, DASH_TILES.prs.map((t) => t.key)),
+    issues: dash(data.dashboard?.issues, DASH_TILES.issues.map((t) => t.key)),
+    workspaces: workspaces.length,
+    active: workspaces.filter((w) => w.status === "running").length,
     agents: agents.length,
     running: states.filter((s) => s === "running").length,
     idle: states.filter((s) => s === "idle").length,
@@ -775,22 +834,23 @@ export function layoutVillage(data: AtlasData, aspect = 1.6, measure: Measure = 
   const round = (r: Rect) => [r.x, r.y, r.w, r.h].map((v) => Math.round(v * 10) / 10);
   const signature = JSON.stringify([
     round(bounds),
-    squares.map((s) => [s.host.id, s.title, s.online, s.stats.map((x) => x.text), round(s.rect)]),
-    projects.map((p) => [p.key, p.name, p.icon, p.building, round(p.block)]),
-    workspaces.map((w) => [w.entity.id, w.entity.name, round(w.rect), w.tile, w.flags.map((f) => f.frame), w.entity.probe ? probeGlyph(w.entity.probe) : 0, w.seal ? 1 : 0]),
+    squares.map((s) => [s.hosts.map((h) => [h.id, h.title, h.online, h.stats.map((x) => x.text)]), round(s.rect)]),
+    projects.map((p) => [p.key, p.building, round(p.block)]),
+    tiles.map((t) => [t.id, round(t.rect)]),
+    [counts.prs, counts.issues],
+    workspaces.map((w) => [w.entity.id, w.entity.name, w.status, round(w.rect), w.flags.map((f) => f.frame), w.entity.probe ? probeGlyph(w.entity.probe) : 0, w.seal ? 1 : 0, w.entity.stale ? 1 : 0]),
     agents.map((a) => [a.entity.id, a.feet.x, a.feet.y]),
   ]);
-  // One host: the fit frames its heart, cropping the woods. Several: every square shows.
-  const core = squares.length === 1 ? squares[0]!.heart : bounds;
-  const keep = squares.length === 1 ? squares[0]!.keep : bounds;
-  return { bounds, core, keep, squares, projects, workspaces, agents, decor, entities, counts, signature };
+  const core = sq0.heart;
+  const keep = sq0.keep;
+  return { bounds, core, keep, squares, projects, tiles, workspaces, agents, decor, entities, counts, signature };
 }
 
 const LAMP = { color: 0xffc46a, reach: 70, dy: 14 };
 /** Seeded scenery for each square: the river with its banks' rocks and the waterfall's cliff, the foot's moat,
  * wall, towers and pennants, flower beds and grass tufts along the roads, bushes, crates and barrels by the
  * halls, a tent, and woods all round. Never on what the village says, nor (for trees) on its roads. */
-function sceneryOf(squares: VSquare[], projects: VProject[], workspaces: VWorkspace[], agents: VAgent[]): VDecor[] {
+function sceneryOf(squares: VSquare[], projects: VProject[], workspaces: VWorkspace[], agents: VAgent[], tiles: VTile[]): VDecor[] {
   const decor: VDecor[] = [];
   squares.forEach((sq, si) => {
     const rng = random(seedOf(sq.host.id + "scenery"));
@@ -805,6 +865,7 @@ function sceneryOf(squares: VSquare[], projects: VProject[], workspaces: VWorksp
       ...sq.pennants.map((l) => boxOf("lamp-post-banner", l.x, l.y, 150)),
       ...mine.flatMap((p) => [p.rect, p.plaque, p.porch, ...p.lamps.map((l) => boxOf("lamp-on", l.x, l.y))]),
       ...workspaces.filter((w) => w.square === si).flatMap((w) => [w.rect, w.plate]),
+      ...tiles.flatMap((t) => [t.rect, t.plate]),
       ...agents.filter((a) => a.square === si).map((a) => ({ ...a.rect, y: a.rect.y - 16, h: a.rect.h + 40 })),
       { ...sq.river, x: sq.river.x - 10, w: sq.river.w + 20 },
       sq.waterfall,
@@ -876,6 +937,9 @@ function sceneryOf(squares: VSquare[], projects: VProject[], workspaces: VWorksp
       reserved.push(stall);
       for (const [x2, f] of [[pave.x + 70 - 140, "crates-1"], [pave.x + 70 + 132, "barrel"]] as const) place({ frame: f, x: x2, y: wall0.y + 20, layer: "stand" });
     } else place({ frame: "tent", x: pave.x - 40, y: pave.y + pave.h + 30, w: 200, layer: "stand" });
+    // Big lush trees framing the bottom corners in front of the wall: yellow-green at the left, a pink blossom at the right.
+    place({ frame: "tree-2", x: pave.x - 90, y: sq.walls[0]!.y + V.wallH + 60, w: 340, layer: "stand" });
+    place({ frame: "blossom-0", x: sq.river.x - 40, y: sq.walls[0]!.y + V.wallH + 70, w: 340, layer: "stand" });
     // Bushes along the road to the bridge, and trees flanking the road north.
     const south = sq.roads[2]!, north = sq.roads[1]!;
     for (let y = south.y + 50; y < south.y + south.h - 10; y += 60)
@@ -930,7 +994,7 @@ function sceneryOf(squares: VSquare[], projects: VProject[], workspaces: VWorksp
         // (Standing behind the halls, which are drawn over them; clear of the lamps and the falls, and off the plaza.)
         if ([sq.waterfall, ...sq.lamps.map((l) => boxOf("lamp-on", l.x, l.y))].some((r) => overlaps(r, rect, 0))) continue;
         if (foot.y + foot.h > pave.y - 10 || mine.some((p) => overlaps(p.rect, foot, 0) && foot.y + foot.h > p.base - 20)) continue;
-        if ([...mine.flatMap((p) => [p.plaque, p.porch]), ...workspaces.filter((w) => w.square === si).flatMap((w) => [w.rect, w.frame, w.plate])].some((r) => overlaps(r, foot, 0))) continue;
+        if ([...mine.flatMap((p) => [p.plaque, p.porch]), ...workspaces.filter((w) => w.square === si).flatMap((w) => [w.rect, w.frame, w.plate]), ...tiles.flatMap((t) => [t.rect, t.plate])].some((r) => overlaps(r, foot, 0))) continue;
         decor.push({ frame: rng() < 0.15 ? `blossom-${Math.floor(rng() * 3)}` : `tree-${Math.floor(rng() * 6)}`, x, y, rect: boxOf("tree-0", x, y, w), square: si, layer: "stand" });
       }
     // Woods: rows of trees through the margins and any grass left between the halls.

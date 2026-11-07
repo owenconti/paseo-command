@@ -5,7 +5,7 @@
  * `mockApi` answers it, and every mutation is refused. The live socket
  * pushes the whole fleet once, as `mockApi`'s does.
  *
- *   npm run native:mock -- [--fleet small|large|dungeon|village] [--dungeon] [--village] [--map islands|overworld|dungeon|village] [--port 4331] [--pr-flags]
+ *   npm run native:mock -- [--fleet small|large|dungeon|village|sparse] [--dungeon] [--village] [--map islands|overworld|dungeon|village] [--port 4331] [--pr-flags]
  *
  * `--pr-flags` labels the first three workspaces with PR status labels, so
  * their flags show. `--probe` labels the first five, and gives each a Probe
@@ -28,7 +28,7 @@ import { createServer } from "node:http";
 import { extname, join, normalize } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createRequire } from "node:module";
-import { DUNGEON_STATS, VILLAGE_STATS, dungeon, large, small, village } from "../../web/e2e/fleets.ts";
+import { DUNGEON_STATS, SPARSE_ISSUES, SPARSE_PRS, SPARSE_STATS, VILLAGE_ISSUES, VILLAGE_PRS, VILLAGE_STATS, dungeon, large, small, sparse, village } from "../../web/e2e/fleets.ts";
 // `ws` lives in web/node_modules, beside the app it serves.
 const { WebSocketServer } = createRequire(new URL("../../web/package.json", import.meta.url))("ws") as typeof import("ws");
 
@@ -38,7 +38,7 @@ const option = (name: string, fallback: string) => {
   return i >= 0 && args[i + 1] ? args[i + 1]! : fallback;
 };
 const fleetName = args.includes("--dungeon") ? "dungeon" : args.includes("--village") ? "village" : option("fleet", "large");
-const fleet = fleetName === "small" ? small : fleetName === "dungeon" ? dungeon : fleetName === "village" ? village : large;
+const fleet = fleetName === "small" ? small : fleetName === "dungeon" ? dungeon : fleetName === "village" ? village : fleetName === "sparse" ? sparse : large;
 const port = Number(option("port", "4331"));
 const asking = new Set(option("asking", "").split(",").filter(Boolean));
 const offline = option("offline", "");
@@ -73,7 +73,9 @@ if (args.includes("--probe")) {
   });
 }
 /** `GET /api/hoststats`'s answer, keyed "local" or a host's server id. */
-const hostStats: Record<string, unknown> = fleet === dungeon ? { ...DUNGEON_STATS } : fleet === village ? { ...VILLAGE_STATS } : {};
+const hostStats: Record<string, unknown> = fleet === dungeon ? { ...DUNGEON_STATS } : fleet === village ? { ...VILLAGE_STATS } : fleet === sparse ? { ...SPARSE_STATS } : {};
+/** The Village's dashboard counts (your PRs and Linear issues). */
+const dashboard = fleet === village ? { prs: VILLAGE_PRS, issues: VILLAGE_ISSUES } : fleet === sparse ? { prs: SPARSE_PRS, issues: SPARSE_ISSUES } : null;
 if (args.includes("--stats")) {
   const keys = ["local", ...(fleet.hosts as { serverId?: string }[]).flatMap((h) => (h.serverId ? [h.serverId] : []))];
   keys.forEach((key, i) => (hostStats[key] = { cpu: 12 + i * 23, memory: 58 + i * 7, disk: i ? 41 : 93 }));
@@ -99,7 +101,7 @@ const lists: Record<string, unknown> = {
   workspaces: fleet.workspaces,
   hosts: fleet.hosts,
 };
-const integrations = option("integrations", "").split(",").filter(Boolean);
+const integrations = option("integrations", fleet === village ? "github,linear" : fleet === sparse ? "github" : "").split(",").filter(Boolean);
 if (integrations.length)
   lists.settings = {
     linearWorkspace: "",
@@ -107,7 +109,7 @@ if (integrations.length)
     error: null,
   };
 /** The map's style the printed address opens (the page keeps it). */
-const mapStyle = option("map", fleet === dungeon ? "dungeon" : fleet === village ? "village" : "");
+const mapStyle = option("map", fleet === dungeon ? "dungeon" : fleet === village || fleet === sparse ? "village" : "");
 
 /** What `mockApi` answers for a GET. */
 function answer(path: string): [number, unknown] {
@@ -115,6 +117,8 @@ function answer(path: string): [number, unknown] {
   if (parts.length === 1 && parts[0]! in lists) return [200, lists[parts[0]!]];
   if (parts.length === 1 && parts[0] === "probe") return [200, probe];
   if (parts.length === 1 && parts[0] === "hoststats") return [200, hostStats];
+  if (path.startsWith("/api/github/q/prCounts")) return [200, dashboard?.prs ?? { state: "off", message: "Enable GitHub in Settings to use GitHub." }];
+  if (path.startsWith("/api/linear/issue-counts")) return [200, dashboard?.issues ?? { state: "off", message: "Enable Linear in Settings to see your issues." }];
   if (parts[0] === "agents") {
     const [, , sub] = parts;
     if (!sub) return [404, { error: "Not found" }];

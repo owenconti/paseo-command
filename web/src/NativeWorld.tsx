@@ -29,6 +29,8 @@ import type { MapFlag } from "../../rendering/src/prStatus";
 import type { ProbeVerdict } from "../../rendering/src/probe";
 import { useProbe } from "./useProbe";
 import { useHostStats } from "./useHostStats";
+import { useVillageCounts } from "./villageCounts";
+import { openAppLink } from "./appLinks";
 import { liveConnection } from "./live";
 import type { HostStats } from "../../rendering/src/world";
 import "./atlas-world.css";
@@ -176,10 +178,16 @@ export function NativeWorld(props: Props) {
   const probe = useProbe();
   const style = useMapStyle();
   const stats = useHostStats();
+  // The Village's dashboard halls: your pull requests and Linear issues, asked only while it shows.
+  const villageCounts = useVillageCounts(style === "village");
   const data = useMemo(
-    () => atlasData(snapshot, props.questions, props.asking, probe, stats),
-    [snapshot, props.questions, props.asking, probe, stats],
+    () => ({
+      ...atlasData(snapshot, props.questions, props.asking, probe, stats),
+      ...(style === "village" ? { dashboard: villageCounts } : {}),
+    }),
+    [snapshot, props.questions, props.asking, probe, stats, style, villageCounts],
   );
+  const [card, setCard] = useState<{ title: string; detail: string; lines: string[]; at: { x: number; y: number } } | null>(null);
   const currentData = useRef(data);
   currentData.current = data;
   const describe = (entity: Entity) => {
@@ -236,6 +244,9 @@ export function NativeWorld(props: Props) {
             p.select(selection);
           }
         },
+        card: (c, at) => setCard(c && at ? { ...c, at } : null),
+        // A tile's PR opens in the GitHub tab, an issue in Linear (else Conquer), as links do elsewhere.
+        open: (url) => openAppLink(url),
         hover: (entity, at, flag) => {
           const p = latest.current;
           setTip(entity && at ? { entity, at, detail: describe(entity), flag } : null);
@@ -391,6 +402,15 @@ export function NativeWorld(props: Props) {
         onPointerLeave={() => setTip(null)}
       />
       {props.blocked && <div className="atlas-input-cover" />}
+      {card && (
+        <div className="atlas-world-tip atlas-world-card" role="tooltip" style={{ left: card.at.x, top: card.at.y }}>
+          <b>{card.title}</b>
+          <span>{card.detail}</span>
+          {card.lines.map((line, i) => (
+            <span key={i} className="atlas-card-line">{line}</span>
+          ))}
+        </div>
+      )}
       {tip && (
         <div
           className="atlas-world-tip"

@@ -22,6 +22,10 @@ export type AtlasHandlers = {
   zoom?: (zoom: number) => void;
   ready?: () => void;
   error?: (message: string) => void;
+  /** The Village's dashboard tiles: a card to show under the pointer (null to hide it), and a link to open on a click
+   * (a pull request's or an issue's, through the app's own link routing). */
+  card?: (card: { title: string; detail: string; lines: string[] } | null, at: ScreenPoint | null) => void;
+  open?: (url: string) => void;
   /** The page's own account for the app's diagnostics (the live connection's state). */
   status?: () => Record<string, unknown>;
 };

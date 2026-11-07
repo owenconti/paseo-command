@@ -120,25 +120,12 @@ export const DUNGEON_SAMPLE: AtlasData = {
   ),
 };
 
-/** The Village's concept fleet: one host, four projects, workspaces in every PR
- * state and six robots of several providers in varied states. Illustrative. */
+/** The Village's concept fleet: one host, four workspaces, six robots (five running). Illustrative. */
 const VILLAGE_ROWS: [project: string, workspace: string, agents: [model: string, state: State, subagents?: string[]][], labels?: string[]][] = [
-  ["assets", "uploads", [], ["CI green", "Approved"]],
-  ["assets", "thumbnails", [], ["CI running", "Awaiting review"]],
-  ["assets", "cdn", [], ["CI green", "Changes requested"]],
-  ["assets", "transcode", [], ["CI failing"]],
-  ["billing", "invoices", [], ["Approved"]],
-  ["billing", "plans", [], ["CI running"]],
-  ["billing", "refunds", [], ["Changes requested"]],
-  ["billing", "tax", [], ["Merge conflicts"]],
-  ["catalog", "core", []],
-  ["catalog", "data", []],
-  ["catalog", "export", []],
-  ["catalog", "infra", []],
-  ["forge", "build", [["claude/claude-opus-5-5", "running", ["claude/claude-haiku-5-5"]], ["gemini/gemini-3-pro", "running"]]],
-  ["forge", "deploy", [["deepseek/deepseek-v4", "question"]]],
-  ["forge", "pipelines", [["opencode/kimi-k3", "running"], ["ollama/qwen-4-coder", "approval"]]],
-  ["forge", "runners", [["codex/gpt-6.1-sol", "done"]]],
+  ["diagonal", "Core", [["claude/claude-opus-5-5", "running", ["claude/claude-haiku-5-5"]], ["gemini/gemini-3-pro", "running"]]],
+  ["diagonal", "Data", [["deepseek/deepseek-v4", "running"]], ["CI green", "Approved"]],
+  ["diagonal", "Export", [["opencode/kimi-k3", "running"]], ["CI running", "Awaiting review"]],
+  ["diagonal", "Infra", [["ollama/qwen-4-coder", "running"], ["codex/gpt-6.1-sol", "idle"]]],
 ];
 export const VILLAGE_SAMPLE: AtlasData = {
   hosts: [{ key: "local", name: "Diagonal Ops", online: true, local: true, stats: { cpu: 34, memory: 61, disk: 92 } }],
@@ -150,8 +137,7 @@ export const VILLAGE_SAMPLE: AtlasData = {
     name,
     created: `2026-11-01T${String(i).padStart(2, "0")}:00:00Z`,
     ...(labels ? { labels } : {}),
-    ...(name === "uploads" ? { probe: { state: "approved" as const }, autoMerge: true } : {}),
-    ...(name === "cdn" ? { probe: { state: "findings" as const, findings: 2 } } : {}),
+    ...(name === "Data" ? { probe: { state: "approved" as const }, autoMerge: true } : {}),
   })),
   agents: VILLAGE_ROWS.flatMap(([project, name, agents], w) =>
     agents.map(([model, state, subs], i) => ({

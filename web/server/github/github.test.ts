@@ -11,8 +11,8 @@ import { saveStar } from "./stars";
 import { SEARCH_BUDGET } from "./client";
 import { FAKE_GITHUB_TOKEN } from "../githubFake";
 import { NO_KEY, OFF, REFUSED, SCOPES } from "../githubApi";
-import { BOT_HTML, BOT_MARKDOWN, DETAILS_HTML, DETAILS_MARKDOWN, FAKE_DIFF, FAKE_HUNK, fakePr, fakeThread, fakeRepo, installFakeGithub, SHA, type FakeGithub } from "./fake";
-import { avatarOf, checkOf, MAX_THREADS, THREADS_QUERY, filesFromPatches, repoSearchQuery, reviewersOf, rowOf, SCOPE_QUERY, searchText } from "./reads";
+import { BOT_HTML, BOT_MARKDOWN, DETAILS_HTML, DETAILS_MARKDOWN, FAKE_DIFF, FAKE_HUNK, fakeCountPr, fakePr, fakeThread, fakeRepo, installFakeGithub, SHA, type FakeGithub } from "./fake";
+import { avatarOf, checkOf, MAX_THREADS, openGroupOf, prCountsSearches, THREADS_QUERY, filesFromPatches, repoSearchQuery, reviewersOf, rowOf, SCOPE_QUERY, searchText } from "./reads";
 import { checkFilters, filterQueries } from "../../src/github/filters";
 import { githubRoute } from "./route";
 import { checkWrite } from "./writes";
@@ -661,4 +661,70 @@ test("searches keep under GitHub's 30 a minute, answering the last answer meanwh
   } finally {
     SEARCH_BUDGET.perMinute = was;
   }
+});
+
+test("your PR counts: merged in 14 days, and open ones by conflicts, draft or review, in one request", async () => {
+  const r = await ask("/api/github/q/prCounts");
+  assert.equal(r.status, 200, JSON.stringify(r.body));
+  assert.equal(r.body.state, "ok");
+  assert.deepEqual(r.body.counts, { merged: 7, review: 3, draft: 1, conflicts: 1 });
+  assert.deepEqual(r.body.items.review.map((i: { number: number }) => i.number), [1, 2, 3]);
+  assert.deepEqual(r.body.items.draft, [{ title: "PR 4", repo: "owen/app", number: 4, url: "https://github.com/owen/app/pull/4" }]);
+  assert.deepEqual(r.body.items.conflicts.map((i: { number: number }) => i.number), [5], "a conflicting draft is conflicts");
+  assert.equal(r.body.items.merged[1].repo, "owen/lib");
+  const graphql = fake.calls.filter((c) => c.path === "graphql");
+  assert.equal(graphql.length, 1);
+  const vars = (graphql[0]!.body as { variables: Record<string, string> }).variables;
+  const since = new Date(Date.now() - 14 * 86_400_000).toISOString().slice(0, 10);
+  assert.deepEqual(vars, { merged: `is:pr author:@me is:merged merged:>=${since}`, open: "is:pr author:@me is:open" });
+  assert.deepEqual(prCountsSearches(Date.parse("2026-11-07T12:00:00Z")).merged, "is:pr author:@me is:merged merged:>=2026-10-24");
+  // Kept a minute: asked again only with fresh=1.
+  await ask("/api/github/q/prCounts");
+  assert.equal(fake.calls.length, 1);
+  await ask("/api/github/q/prCounts?fresh=1");
+  assert.equal(fake.calls.length, 2);
+  for (const bad of ["/api/github/q/prCounts?fresh=0", "/api/github/q/prCounts?x=1", "/api/github/q/prCounts?fresh=1&fresh=1"])
+    assert.equal((await ask(bad)).status, 400, bad);
+});
+
+test("PR counts: failing checks are conflicts; at most 12 listed, the counts whole; titles clipped", async () => {
+  fake.prCounts = {
+    merged: Array.from({ length: 12 }, (_, i) => fakeCountPr(200 + i)),
+    mergedCount: 40,
+    open: [
+      fakeCountPr(1, { checks: { nodes: [{ commit: { statusCheckRollup: { state: "FAILURE" } } }] } }),
+      fakeCountPr(2, { checks: { nodes: [{ commit: { statusCheckRollup: { state: "ERROR" } } }] }, isDraft: true }),
+      ...Array.from({ length: 20 }, (_, i) => fakeCountPr(10 + i, { title: "t".repeat(300) })),
+      { nope: true },
+    ],
+  };
+  const r = await ask("/api/github/q/prCounts");
+  assert.deepEqual(r.body.counts, { merged: 40, review: 20, draft: 0, conflicts: 2 });
+  assert.equal(r.body.items.merged.length, 12);
+  assert.equal(r.body.items.review.length, 12);
+  assert.equal(r.body.items.review[0].title.length, 120);
+  assert.equal(openGroupOf({ mergeable: "UNKNOWN", isDraft: false }), "review");
+});
+
+test("PR counts say why there are none: off, no token, refused or limited, always 200", async () => {
+  fake.fail = { status: 401, json: { message: "Bad credentials" } };
+  assert.deepEqual(await ask("/api/github/q/prCounts"), { status: 200, body: { state: "error", message: REFUSED } });
+  fake.fail = undefined;
+  const was = SEARCH_BUDGET.perMinute;
+  SEARCH_BUDGET.perMinute = 1;
+  try {
+    const r = await ask("/api/github/q/prCounts?fresh=1");
+    assert.equal(r.body.state, "error");
+    assert.match(r.body.message, /30 requests a minute/, "two searches don't fit in one");
+  } finally {
+    SEARCH_BUDGET.perMinute = was;
+  }
+  writeSettings({ integrations: { github: false } });
+  const calls = fake.calls.length;
+  assert.deepEqual(await ask("/api/github/q/prCounts"), { status: 200, body: { state: "off", message: OFF } });
+  assert.equal(fake.calls.length, calls);
+  fake.restore();
+  fake = installFakeGithub({ token: null });
+  assert.deepEqual(await ask("/api/github/q/prCounts"), { status: 200, body: { state: "no-token", message: NO_KEY } });
+  assert.equal(fake.calls.length, 0);
 });
