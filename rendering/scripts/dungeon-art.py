@@ -8,7 +8,7 @@ from pathlib import Path
 import json, math, re, argparse, os, shutil, statistics, colorsys, random
 
 LIVE = Path('rendering/src/assets/dungeon')
-OUT = Path('rendering/artifacts/dungeon/v9/signs/staging')
+OUT = Path('rendering/artifacts/dungeon/v10/staging')
 ART = Path('rendering/artifacts/dungeon')
 RESAMPLE = Image.Resampling.LANCZOS
 SHEETS = {}
@@ -444,6 +444,7 @@ def build():
     rough_masonry_v8()
     finish_light_v9()
     build_signs_v9()
+    surface_fronts_v10()
 
 def pack():
     OUT.mkdir(parents=True,exist_ok=True)
@@ -1918,9 +1919,78 @@ def signs_only_v9(publish_live=False):
     if publish_live:publish()
 
 
+def surface_fronts_v10():
+    changed={};updates={}
+    def smooth(x):x=max(0,min(1,x));return x*x*(3-2*x)
+    for sheet,frames in SHEETS.items():
+        for n,im,meta in frames:
+            if not (sheet=='stone' and n.startswith(('rampart-','ledge-')) or sheet=='alcoves' and n in ['alcove-top','alcove-ledge']):continue
+            lab=ImageCms.applyTransform(im.convert('RGB'),_TO_LAB);ld=list(lab.getdata());px=list(im.getdata());w,h=im.size;out=[];mask=[]
+            side=n=='rampart-y';face_only=n=='ledge-face'
+            for i,(p,(l,a,b)) in enumerate(zip(px,ld)):
+                x=i%w;y=i//w;pos=x/max(1,w-1) if side else y/max(1,h-1);front=1 if face_only else smooth((pos-.30)/.30)
+                nearby=ld[y*w+min(w-1,x+3)][0] if side else ld[min(h-1,y+3)*w+x][0]
+                edge=smooth((l-nearby-8)/30);ridge=1 if face_only else smooth((pos-.10)/.12)*(1-smooth((pos-.69)/.18))
+                lit=smooth((l-43)/48)*(1-smooth((l-224)/25));cool=1-smooth((b-130)/12)
+                db=round(lit*(4*front*cool+10*edge*ridge)) if p[3]>220 else 0
+                if b>153:db=min(2,db)
+                db=min(db,max(0,180-b))
+                out.append((l,a,min(180,b+db)));mask.append(db>0)
+            lab.putdata(out);rgb=ImageCms.applyTransform(lab,_TO_RGB);v=im.copy();v.putdata([(*q,p[3]) if on else p for p,q,on in zip(px,rgb.getdata(),mask)]);v=clean(v)
+            if any(mask):updates[n]=v;changed[n]={'pixels':sum(mask),'front_body_delta_b_cap':4,'existing_ridge_delta_b_cap':10,'geometry_and_alpha_unchanged':True}
+    for sheet,frames in SHEETS.items():SHEETS[sheet]=[(n,updates.get(n,im),meta) for n,im,meta in frames]
+    SPRITES.update(updates);(ART/'v10/changed-frames.json').write_text(json.dumps(changed,indent=2)+'\n')
+
+def surface_reviews_v10():
+    root=ART/'v10';old={}
+    for sh in ['stone','alcoves']:
+        j=json.loads((root/'before'/(sh+'.json')).read_text());a=Image.open(root/'before'/(sh+'.png')).convert('RGBA')
+        for n,f in j['frames'].items():old[n]=a.crop((f['x'],f['y'],f['x']+f['w'],f['y']+f['h']))
+    names=['rampart-x','rampart-y','ledge-face','rampart-return-left','alcove-top','alcove-ledge'];can=Image.new('RGB',(1800,1200),'#241e36');d=ImageDraw.Draw(can);metrics={}
+    for row,n in enumerate(names):
+        y=row*200;d.text((8,y+4),n+' / accepted export',fill='white');d.text((908,y+4),'v10 / same geometry, warmer front pigment',fill='white')
+        for x,im in [(8,old[n]),(908,SPRITES[n])]:
+            factor=min(3,875/im.width,170/im.height);v=fit(im,(round(im.width*factor),round(im.height*factor)),True);can.paste(v,(x,y+25),v)
+    can.save(root/'fronts-review.png',optimize=True)
+    for n in json.loads((root/'changed-frames.json').read_text()):
+        a=old[n];b=SPRITES[n];la=list(ImageCms.applyTransform(a.convert('RGB'),_TO_LAB).getdata());lb=list(ImageCms.applyTransform(b.convert('RGB'),_TO_LAB).getdata());pts=[(p,q) for p,q,r in zip(la,lb,a.getdata()) if r[3]>220]
+        metrics[n]={'source_mean_b':statistics.mean(p[2]-128 for p,q in pts),'new_mean_b':statistics.mean(q[2]-128 for p,q in pts),'mean_L_drift':statistics.mean(q[0]-p[0] for p,q in pts)*100/255,'max_L_drift':max(abs(q[0]-p[0]) for p,q in pts)*100/255}
+    (root/'tone-metrics.json').write_text(json.dumps(metrics,indent=2)+'\n')
+
+def validate_surface_v10():
+    root=ART/'v10';allowed=set(json.loads((root/'changed-frames.json').read_text()));errors=[];count=0
+    for path in (root/'before').glob('*.json'):
+        if path.name=='prompts.json':continue
+        old=json.loads(path.read_text());new=json.loads((OUT/path.name).read_text());a=Image.open(root/'before'/old['image']).convert('RGBA');b=Image.open(OUT/new['image']).convert('RGBA')
+        if old!=new:errors.append(path.name+' map changed')
+        for n,f in old['frames'].items():
+            count+=1;box=(f['x'],f['y'],f['x']+f['w'],f['y']+f['h']);v=a.crop(box);z=b.crop(box)
+            if v.getchannel('A').tobytes()!=z.getchannel('A').tobytes():errors.append(n+' alpha changed')
+            if n not in allowed and v.tobytes()!=z.tobytes():errors.append(n+' protected pixels changed')
+        if path.stem not in ['stone','alcoves'] and (root/'before'/old['image']).read_bytes()!=(OUT/new['image']).read_bytes():errors.append(path.stem+' PNG changed')
+    for n,m in json.loads((root/'tone-metrics.json').read_text()).items():
+        if m['max_L_drift']>1.2:errors.append(n+' luminance drift')
+    report={'preserved_frame_maps':count,'geometry_and_alpha_unchanged':True,'changed_frames':sorted(allowed),'protected_PNGs':['gate','props','ui','robots','status'],'protected_other_materials':['wall-brick and variants','floor-flag and variants','terrace-floor and variants','wall-brick-dark and variants','alcove-slot-0..3'],'errors':errors};(root/'validation.json').write_text(json.dumps(report,indent=2)+'\n');print(json.dumps(report,indent=2))
+    if errors:raise ValueError(errors)
+
+def surfaces_only_v10(publish_live=False):
+    global OUT
+    root=ART/'v10';OUT=root/'staging';OUT.mkdir(parents=True,exist_ok=True)
+    for p in LIVE.iterdir():
+        if p.suffix in ['.png','.json'] and not (p.name=='prompts.json' and (OUT/p.name).exists()):shutil.copy2(p,OUT/p.name)
+    load_live_art()
+    for sh in ['stone','alcoves']:
+        j=json.loads((root/'before'/(sh+'.json')).read_text());a=Image.open(root/'before'/(sh+'.png')).convert('RGBA');SHEETS[sh]=[]
+        for n,f in j['frames'].items():
+            v=a.crop((f['x'],f['y'],f['x']+f['w'],f['y']+f['h']));meta={k:v for k,v in f.items() if k not in ['x','y','w','h']};SPRITES[n]=v;META[n]=meta;SHEETS[sh].append((n,v,meta))
+    surface_fronts_v10();pack();validate();validate_rough_v8();course_proofs();contact();surface_reviews_v10();validate_surface_v10()
+    if publish_live:publish()
+
+
 if __name__=='__main__':
-    parser=argparse.ArgumentParser();parser.add_argument('--validate-only',action='store_true');parser.add_argument('--publish',action='store_true');parser.add_argument('--publish-staged',action='store_true');parser.add_argument('--robots-only',action='store_true');parser.add_argument('--art-only',action='store_true');parser.add_argument('--props-only',action='store_true');parser.add_argument('--hanging-only',action='store_true');parser.add_argument('--rough-only',action='store_true');parser.add_argument('--seam-fix',action='store_true');parser.add_argument('--floors-only','--materials-only',action='store_true');parser.add_argument('--lighting-only',action='store_true');parser.add_argument('--signs-only',action='store_true');args=parser.parse_args()
-    if args.signs_only:signs_only_v9(args.publish)
+    parser=argparse.ArgumentParser();parser.add_argument('--validate-only',action='store_true');parser.add_argument('--publish',action='store_true');parser.add_argument('--publish-staged',action='store_true');parser.add_argument('--robots-only',action='store_true');parser.add_argument('--art-only',action='store_true');parser.add_argument('--props-only',action='store_true');parser.add_argument('--hanging-only',action='store_true');parser.add_argument('--rough-only',action='store_true');parser.add_argument('--seam-fix',action='store_true');parser.add_argument('--floors-only','--materials-only',action='store_true');parser.add_argument('--lighting-only',action='store_true');parser.add_argument('--signs-only',action='store_true');parser.add_argument('--surfaces-only',action='store_true');args=parser.parse_args()
+    if args.surfaces_only:surfaces_only_v10(args.publish)
+    elif args.signs_only:signs_only_v9(args.publish)
     elif args.lighting_only:lighting_only_v9(args.publish)
     elif args.floors_only:floor_only_v8(args.publish)
     elif args.seam_fix:seam_fix_only(args.publish)

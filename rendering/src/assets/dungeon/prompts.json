@@ -3111,5 +3111,262 @@
       0.58,
       0.9
     ]
+  },
+  "v10_surface_fronts": {
+    "tool": "built-in image_gen",
+    "prompt": "Edit this dungeon material study for a restrained reflected-warmth colour reference. Preserve the shown stone geometry, outlines, joints, chips and sparse interior design. This is a colour/lighting study, not a redesign.\nThe low-wall pieces at top-left should show a fuller, more readable FRONT FACE: maintain the lavender lit top planes, and put restrained warm-amber reflected light into the front-face bevels/noses and a few existing chipped highlights. Do not turn the whole wall orange, and do not increase the pale top-face exposure. The floor pieces should remain large irregular lavender-grey flagstones; move their cool body only slightly toward neutral (roughly Lab b=-2, a=3..5), retaining little warm edge flecks. No pink, brown wash, white glow or global yellow filter. Keep shadows and mortar cool purple and dark.\nThe existing alcove interior at the lower middle already has warm floor light: preserve its warm pool, dark upper recess and small desk/monitor. Do not fill it with more objects or brighten the whole recess.\nUse the same original HD painted pixel-art-flavoured style, natural warm torch reflection, smooth painted shading with fine material texture. No text or symbols added. Output this same material-study layout. The production frames will retain their exact existing seams and geometry; this image is a palette/reference study only.",
+    "source_filename": "exec-4764bf4c-5ea2-41fc-856b-be16836a3735.png",
+    "edit_target": "v10/warmth-edit.png",
+    "result": "v10/warmth-study.png",
+    "purpose": "Painted colour study guiding a bounded Lab refinement on original production stone; no new study geometry/reference pixels copied into sprite frames.",
+    "method": "Bounded Lab b refinement of original painted front planes and existing bevel pixels, guided by the generated colour study. Original geometry/texture registration/alpha/L/a targets retained; no study geometry copied.",
+    "front_body_delta_b": 4,
+    "ridge_delta_b": 10,
+    "protected": "Floor and wall tiles, excavated rock, alcove interiors, gate, signs, plain banners, agents and status retain their pixels.",
+    "changed_frames": {
+      "rampart-x": {
+        "pixels": 7121,
+        "front_body_delta_b_cap": 4,
+        "existing_ridge_delta_b_cap": 10,
+        "geometry_and_alpha_unchanged": true
+      },
+      "rampart-y": {
+        "pixels": 7037,
+        "front_body_delta_b_cap": 4,
+        "existing_ridge_delta_b_cap": 10,
+        "geometry_and_alpha_unchanged": true
+      },
+      "rampart-corner-tl": {
+        "pixels": 7785,
+        "front_body_delta_b_cap": 4,
+        "existing_ridge_delta_b_cap": 10,
+        "geometry_and_alpha_unchanged": true
+      },
+      "rampart-corner-tr": {
+        "pixels": 8077,
+        "front_body_delta_b_cap": 4,
+        "existing_ridge_delta_b_cap": 10,
+        "geometry_and_alpha_unchanged": true
+      },
+      "rampart-corner-bl": {
+        "pixels": 14573,
+        "front_body_delta_b_cap": 4,
+        "existing_ridge_delta_b_cap": 10,
+        "geometry_and_alpha_unchanged": true
+      },
+      "rampart-corner-br": {
+        "pixels": 14785,
+        "front_body_delta_b_cap": 4,
+        "existing_ridge_delta_b_cap": 10,
+        "geometry_and_alpha_unchanged": true
+      },
+      "rampart-end-left": {
+        "pixels": 2279,
+        "front_body_delta_b_cap": 4,
+        "existing_ridge_delta_b_cap": 10,
+        "geometry_and_alpha_unchanged": true
+      },
+      "rampart-end-right": {
+        "pixels": 2220,
+        "front_body_delta_b_cap": 4,
+        "existing_ridge_delta_b_cap": 10,
+        "geometry_and_alpha_unchanged": true
+      },
+      "rampart-end-top": {
+        "pixels": 2137,
+        "front_body_delta_b_cap": 4,
+        "existing_ridge_delta_b_cap": 10,
+        "geometry_and_alpha_unchanged": true
+      },
+      "rampart-end-bottom": {
+        "pixels": 2094,
+        "front_body_delta_b_cap": 4,
+        "existing_ridge_delta_b_cap": 10,
+        "geometry_and_alpha_unchanged": true
+      },
+      "rampart-t-down": {
+        "pixels": 6022,
+        "front_body_delta_b_cap": 4,
+        "existing_ridge_delta_b_cap": 10,
+        "geometry_and_alpha_unchanged": true
+      },
+      "rampart-return-left": {
+        "pixels": 6301,
+        "front_body_delta_b_cap": 4,
+        "existing_ridge_delta_b_cap": 10,
+        "geometry_and_alpha_unchanged": true
+      },
+      "rampart-return-right": {
+        "pixels": 6253,
+        "front_body_delta_b_cap": 4,
+        "existing_ridge_delta_b_cap": 10,
+        "geometry_and_alpha_unchanged": true
+      },
+      "ledge-face": {
+        "pixels": 6549,
+        "front_body_delta_b_cap": 4,
+        "existing_ridge_delta_b_cap": 10,
+        "geometry_and_alpha_unchanged": true
+      },
+      "ledge-end-left": {
+        "pixels": 6975,
+        "front_body_delta_b_cap": 4,
+        "existing_ridge_delta_b_cap": 10,
+        "geometry_and_alpha_unchanged": true
+      },
+      "ledge-end-right": {
+        "pixels": 7021,
+        "front_body_delta_b_cap": 4,
+        "existing_ridge_delta_b_cap": 10,
+        "geometry_and_alpha_unchanged": true
+      },
+      "rampart-x-2": {
+        "pixels": 7165,
+        "front_body_delta_b_cap": 4,
+        "existing_ridge_delta_b_cap": 10,
+        "geometry_and_alpha_unchanged": true
+      },
+      "rampart-x-3": {
+        "pixels": 7182,
+        "front_body_delta_b_cap": 4,
+        "existing_ridge_delta_b_cap": 10,
+        "geometry_and_alpha_unchanged": true
+      },
+      "alcove-top": {
+        "pixels": 7006,
+        "front_body_delta_b_cap": 4,
+        "existing_ridge_delta_b_cap": 10,
+        "geometry_and_alpha_unchanged": true
+      },
+      "alcove-ledge": {
+        "pixels": 5292,
+        "front_body_delta_b_cap": 4,
+        "existing_ridge_delta_b_cap": 10,
+        "geometry_and_alpha_unchanged": true
+      }
+    },
+    "tone_metrics": {
+      "rampart-x": {
+        "source_mean_b": -18.278927329912268,
+        "new_mean_b": -15.843982784307235,
+        "mean_L_drift": -0.010354083696050842,
+        "max_L_drift": 0.39215686274509803
+      },
+      "rampart-y": {
+        "source_mean_b": -19.82551233793392,
+        "new_mean_b": -17.659556670849017,
+        "mean_L_drift": -0.007413421244700307,
+        "max_L_drift": 0.39215686274509803
+      },
+      "rampart-corner-tl": {
+        "source_mean_b": -18.075123209433006,
+        "new_mean_b": -16.630049283773204,
+        "mean_L_drift": -0.005834216142354873,
+        "max_L_drift": 0.7843137254901961
+      },
+      "rampart-corner-tr": {
+        "source_mean_b": -18.06500114600046,
+        "new_mean_b": -16.616181526472612,
+        "mean_L_drift": -0.0055008022003208805,
+        "max_L_drift": 0.7843137254901961
+      },
+      "rampart-corner-bl": {
+        "source_mean_b": -19.116174284652544,
+        "new_mean_b": -16.420847268673356,
+        "mean_L_drift": -0.0071953716454995235,
+        "max_L_drift": 0.39215686274509803
+      },
+      "rampart-corner-br": {
+        "source_mean_b": -18.954934737806273,
+        "new_mean_b": -16.25037783375315,
+        "mean_L_drift": -0.01011148677469614,
+        "max_L_drift": 0.7843137254901961
+      },
+      "rampart-end-left": {
+        "source_mean_b": -15.922729686670207,
+        "new_mean_b": -13.451141795007967,
+        "mean_L_drift": -0.009371778451157416,
+        "max_L_drift": 0.7843137254901961
+      },
+      "rampart-end-right": {
+        "source_mean_b": -14.310499867759852,
+        "new_mean_b": -11.902671250991801,
+        "mean_L_drift": -0.007778832241703875,
+        "max_L_drift": 0.39215686274509803
+      },
+      "rampart-end-top": {
+        "source_mean_b": -19.735792349726776,
+        "new_mean_b": -17.133333333333333,
+        "mean_L_drift": -0.013714775527697417,
+        "max_L_drift": 0.7843137254901961
+      },
+      "rampart-end-bottom": {
+        "source_mean_b": -11.900498818587556,
+        "new_mean_b": -9.593069046993962,
+        "mean_L_drift": -0.008957113956110142,
+        "max_L_drift": 0.7843137254901961
+      },
+      "rampart-t-down": {
+        "source_mean_b": -17.7795316008983,
+        "new_mean_b": -16.12864934231633,
+        "mean_L_drift": -0.005888014493574139,
+        "max_L_drift": 0.7843137254901961
+      },
+      "rampart-return-left": {
+        "source_mean_b": -15.922316240187582,
+        "new_mean_b": -13.343969823631358,
+        "mean_L_drift": -0.010634491333489251,
+        "max_L_drift": 0.7843137254901961
+      },
+      "rampart-return-right": {
+        "source_mean_b": -16.469208789043254,
+        "new_mean_b": -14.03862449502414,
+        "mean_L_drift": -0.009428148045108279,
+        "max_L_drift": 0.7843137254901961
+      },
+      "ledge-face": {
+        "source_mean_b": -13.635161135161136,
+        "new_mean_b": -9.177128427128427,
+        "mean_L_drift": -0.007875203953635326,
+        "max_L_drift": 0.39215686274509803
+      },
+      "ledge-end-left": {
+        "source_mean_b": -18.122743055555556,
+        "new_mean_b": -15.977430555555555,
+        "mean_L_drift": -0.00704656862745098,
+        "max_L_drift": 0.39215686274509803
+      },
+      "ledge-end-right": {
+        "source_mean_b": -17.97138645625596,
+        "new_mean_b": -15.65377612069713,
+        "mean_L_drift": -0.007616677122596199,
+        "max_L_drift": 0.39215686274509803
+      },
+      "rampart-x-2": {
+        "source_mean_b": -18.06244830438379,
+        "new_mean_b": -15.622911497105045,
+        "mean_L_drift": -0.008628099709693637,
+        "max_L_drift": 0.39215686274509803
+      },
+      "rampart-x-3": {
+        "source_mean_b": -18.160687716978014,
+        "new_mean_b": -15.72590510828236,
+        "mean_L_drift": -0.009238279540614396,
+        "max_L_drift": 0.39215686274509803
+      },
+      "alcove-top": {
+        "source_mean_b": -22.71759642443304,
+        "new_mean_b": -20.29887435854991,
+        "mean_L_drift": -0.013470046187652348,
+        "max_L_drift": 0.39215686274509803
+      },
+      "alcove-ledge": {
+        "source_mean_b": 0.049423581782901495,
+        "new_mean_b": 2.6204771144846477,
+        "mean_L_drift": -0.011011367222382619,
+        "max_L_drift": 0.7843137254901961
+      }
+    },
+    "hot_gold_protection": "Existing b >= 180 (encoded) remains untouched; other warm pigment receives at most +2 b."
   }
 }

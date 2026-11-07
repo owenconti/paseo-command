@@ -959,7 +959,7 @@ attempts' judgements are kept privately in ignored `artifacts/overworld/repaint-
 
 ## Dungeon Board
 
-The geometry kit is v3, robots are v4, and material/furnishing refinements are v5–v9. Artwork was generated with the built-in
+The geometry kit is v3, robots are v4, and material/furnishing refinements are v5–v10. Artwork was generated with the built-in
 `image_gen` tool on 2026-11-06 and 2026-11-07.
 The private `design/references/dungeon-concept.png` was inspected at 3×,
 particularly its LOCAL floor, left terrace, workspace recess and central gate.
@@ -1463,6 +1463,45 @@ the gate's already-blank recess. Only UI/props PNGs and maps change, all maps
 remain scale 3, and the complete tracked asset folder remains below 12 MB.
 The contact sheet is refreshed; no app code, commits or reference pixels are
 included in the export.
+
+V10 follows `compare-21`; the private review is `artifacts/dungeon/gaps-5.md`
+with paired crops in `gaps-5.png`. Its 8/10 score excludes the new removal of
+links/nodes, smaller signs and silhouette hover, as well as the earlier
+deliberate differences. The source-frame diagnostic in
+`v10/grade-diagnostic.json` shows that the then-current RGB loader grade moves
+the floor from b*≈−4.0 to ≈−7.6 and L≈58 to ≈78 before scene shade. Warm pixels
+skip that exposure branch, favouring the cool material. The review assigns
+that temperature/exposure problem to code; no global floor or wall recolour is
+baked in to compensate for it.
+
+A built-in edit of an atlas material study supplies the warmer-front/bevel
+colour reference. Its exact prompt and source/result filenames are recorded
+under `v10_surface_fronts` in `prompts.json`; inputs and output are private in
+`v10/warmth-edit.png` and `v10/warmth-study.png`. Production frames keep their
+original generated geometry, chips, cracks and alpha. A bounded Lab b-only
+refinement warms the low-wall front planes (body contribution up to +4 b*) and
+existing painted bevels (up to +10 b* contribution); the hottest existing gold
+is protected. There is no target L/a change, new glow field or resampled joint.
+Front weighting is perpendicular to each tile's repeat axis, and edge
+weighting comes from its existing painted luminance contrast, so cross-variant
+wraps are retained.
+
+Only the `rampart-*` / `ledge-*` frames in stone and `alcove-top` /
+`alcove-ledge` receive this refinement (20 frames). The remaining source pixels,
+including brick walls, floor flags/terraces, excavation, all four already-warm
+alcove interiors, gates, signs, gems, plain banners, robots and state sprites
+are preserved. `v10/fronts-review.png` compares the original/new fronts;
+`v10/tone-metrics.json` records b* movement and conversion round-trip L drift.
+The warm appearance still depends on correcting the renderer's separate grade
+and letting the front planes remain visible at sufficient world depth.
+
+`--surfaces-only` rebuilds this pass from `v10/before/`, stages in
+`v10/staging/`, checks the complete sheets, refreshes the contact sheet and
+random 8×6 tile proofs, and writes preservation metrics in `v10/validation.json`.
+`--surfaces-only --publish` installs the checked files atomically; the full
+raw-source rebuild also includes V10. Only the stone/alcoves PNGs change. All
+273 names, frame maps, sizes, anchors and alpha remain unchanged, with no new
+frames or renames. No link art, app-code changes or commits are included.
 
 Remaining differences: the concept's masonry has more bespoke pixel-like chips,
 uneven joints and integrated painted shadows. V3 is smoother, its joins and
