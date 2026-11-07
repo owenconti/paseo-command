@@ -79,7 +79,7 @@ test("the concept's fleet: one square, four buildings round the fountain, every 
   const layout = layoutVillage(VILLAGE_SAMPLE, 1.7);
   assert.equal(layout.squares.length, 1);
   assert.equal(layout.projects.length, 4);
-  assert.equal(layout.workspaces.length, 12);
+  assert.equal(layout.workspaces.length, 16);
   assert.equal(layout.agents.length, 6);
   const [sq] = layout.squares;
   // Two buildings above the plaza and two below, one either side of the middle.
@@ -177,6 +177,7 @@ test("offline hosts say so; the status pill and the HUD's counts are true", () =
   calm.agents.forEach((a) => (a.state = "idle"));
   assert.equal(statusLine(layoutVillage(calm, 1.6)).text, "All systems operational");
   assert.equal(layoutVillage(VILLAGE_SAMPLE, 1.6).counts.prs, 8);
+  assert.equal(layoutVillage(VILLAGE_SAMPLE, 1.6).agents.filter((a) => a.entity.project === "local/forge").length, 6, "the workshop has all six");
 });
 
 test("the frame contract covers every building variant and robot colour", () => {

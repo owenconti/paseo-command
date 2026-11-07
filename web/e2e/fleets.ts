@@ -332,24 +332,29 @@ export const DUNGEON_STATS: Record<string, { cpu: number; memory: number; disk: 
 };
 
 // ---------------------------------------------------------------------------
-// village: the Village's concept fleet. One host, four projects, twelve
-// workspaces across every PR tile (ready, in review, changes asked, failing,
-// none) and six robots of several providers in varied states.
+// village: the Village's concept fleet, as the concept shows it. One host and
+// four projects of four workspaces each: the first two halls' tiles across every
+// PR state, the other two without PRs, and all six robots (five running, one
+// idle, six providers' colours) at the fourth, the workshop. Nothing needs you.
 // ---------------------------------------------------------------------------
 
 const VILLAGE: [project: string, workspace: string, agents: [provider: string, plan: string, subagents?: string[]][], labels?: string[]][] = [
-  ["api-gateway", "auth", [["claude/claude-opus-5-5", "running", ["claude/claude-haiku-5-5", "codex/gpt-6.1-sol"]]], ["CI green", "Approved"]],
-  ["api-gateway", "routing", [], ["CI running", "Awaiting review"]],
-  ["api-gateway", "billing", [["deepseek/deepseek-v4", "question"]], ["CI green", "Changes requested"]],
-  ["api-gateway", "search", [], ["CI failing"]],
-  ["web-app", "dashboard", [["codex/gpt-6.1-sol", "running"]], ["CI running"]],
-  ["web-app", "onboarding", [], ["Approved"]],
-  ["web-app", "settings", []],
-  ["workspaces", "core", [["opencode/kimi-k3", "idle"]]],
-  ["workspaces", "data", []],
-  ["workspaces", "export", [], ["Merge conflicts"]],
-  ["workspaces", "infra", []],
-  ["agents-lab", "experiments", [["claude/claude-sonnet-5", "approval"], ["codex/gpt-6.1-sol", "done"]], ["Awaiting review"]],
+  ["assets", "uploads", [], ["CI green", "Approved"]],
+  ["assets", "thumbnails", [], ["CI running", "Awaiting review"]],
+  ["assets", "cdn", [], ["CI green", "Changes requested"]],
+  ["assets", "transcode", [], ["CI failing"]],
+  ["billing", "invoices", [], ["Approved"]],
+  ["billing", "plans", [], ["CI running"]],
+  ["billing", "refunds", [], ["Changes requested"]],
+  ["billing", "tax", [], ["Merge conflicts"]],
+  ["catalog", "core", []],
+  ["catalog", "data", []],
+  ["catalog", "export", []],
+  ["catalog", "infra", []],
+  ["forge", "build", [["claude/claude-opus-5-5", "running", ["claude/claude-haiku-5-5"]], ["gemini/gemini-3-pro", "running"]]],
+  ["forge", "deploy", [["deepseek/deepseek-v4", "running"]]],
+  ["forge", "pipelines", [["opencode/kimi-k3", "running"], ["ollama/qwen-4-coder", "running"]]],
+  ["forge", "runners", [["codex/gpt-6.1-sol", "idle"]]],
 ];
 function buildVillage(): Fleet {
   const hosts: HostRow[] = [{ serverId: "srv_local", label: "Diagonal Ops", status: "online", local: true, state: "online" }];
@@ -364,7 +369,7 @@ function buildVillage(): Fleet {
     const cwd = `/work/${project}/${name}`;
     workspaces.push({
       workspaceId, projectId, project, name, isolation: "worktree", cwd, branch: name,
-      createdAt: `2026-11-0${1 + Math.floor(w / 6)}T${String(w).padStart(2, "0")}:00:00Z`,
+      createdAt: `2026-11-01T${String(w).padStart(2, "0")}:00:00Z`,
       ...(labels ? { labels } : {}),
     });
     rows.forEach(([provider, plan, subs], i) => {

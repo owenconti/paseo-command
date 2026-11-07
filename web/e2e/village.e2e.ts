@@ -118,37 +118,37 @@ test("the Village draws every project, workspace and agent truthfully", async ()
   const v = await waitFor(() => inspect(page), (i) => i?.scene === "village" && i.agents?.length === village.agents.length && i.squares?.[0]?.stats?.length, "the Village", 30000);
   assert.equal(v.squares.length, 1);
   assert.deepEqual(v.squares[0].stats, ["CPU 34%", "MEM 61%", "DISK 92%"]);
-  assert.deepEqual(v.projects.map((p: any) => p.name), ["agents-lab", "api-gateway", "web-app", "workspaces"]);
-  assert.equal(new Set(v.projects.map((p: any) => p.building)).size, 4, "neighbours' buildings differ");
+  assert.deepEqual(v.projects.map((p: any) => p.name), ["assets", "billing", "catalog", "forge"]);
+  // The concept's halls: blue and purple above, the teal dome and the gear workshop below (seeded by the projects).
+  assert.deepEqual(v.projects.map((p: any) => p.building), ["hall-blue", "hall-purple", "dome-teal", "workshop-rust"]);
   const tile = (name: string) => v.workspaces.find((w: any) => w.name === name)?.tile;
-  assert.equal(tile("auth"), "merged");
-  assert.equal(tile("routing"), "review");
-  assert.equal(tile("billing"), "draft");
-  assert.equal(tile("search"), "failing");
-  assert.equal(tile("export"), "failing", "merge conflicts are failing");
-  assert.equal(tile("settings"), "none");
+  assert.equal(tile("uploads"), "merged");
+  assert.equal(tile("thumbnails"), "review");
+  assert.equal(tile("cdn"), "draft");
+  assert.equal(tile("transcode"), "failing");
+  assert.equal(tile("tax"), "failing", "merge conflicts are failing");
+  assert.equal(tile("core"), "none");
+  const forge = v.agents.filter((a: any) => a.workspace && v.workspaces.find((w: any) => w.id === a.workspace)?.name && ["build", "deploy", "pipelines", "runners"].includes(v.workspaces.find((w: any) => w.id === a.workspace).name));
+  assert.equal(forge.length, 6, "all six robots at the workshop");
   const state = (name: string) => v.agents.find((a: any) => a.name === name)?.state;
-  assert.equal(state("auth agent 1"), "running");
-  assert.equal(state("billing agent 1"), "question");
-  assert.equal(state("experiments agent 1"), "approval");
-  assert.equal(state("experiments agent 2"), "done");
-  assert.equal(state("core agent 1"), "idle");
+  assert.equal(state("build agent 1"), "running");
+  assert.equal(state("runners agent 1"), "idle");
   const robot = (name: string) => v.agents.find((a: any) => a.name === name)?.robot;
-  assert.equal(robot("auth agent 1"), "orange", "Claude's robots are orange");
-  assert.equal(robot("dashboard agent 1"), "white", "ChatGPT's white");
-  assert.ok(!["orange", "white"].includes(robot("core agent 1")), "another provider has a colour of its own");
-  // The HUD's counts agree with the app's own: only approvals and questions need you.
-  assert.equal(v.counts.needYou, 2);
-  assert.equal(v.counts.running, 2);
-  assert.equal(v.counts.unread, 1);
+  assert.equal(robot("build agent 1"), "orange", "Claude's robots are orange");
+  assert.equal(robot("runners agent 1"), "white", "ChatGPT's white");
+  assert.equal(new Set(v.agents.map((a: any) => a.robot)).size, 6, "six providers, six colours");
+  // The HUD's counts: five running, one idle, nothing needing you, so all is well.
+  assert.equal(v.counts.needYou, 0);
+  assert.equal(v.counts.running, 5);
+  assert.equal(v.counts.idle, 1);
   assert.equal(v.counts.prs, 8);
-  assert.equal(v.status, "2 need you");
+  assert.equal(v.status, "All systems operational");
   const sent = (await native(page)).agents.at(-1)!;
   assert.ok(sent.hud?.panel && sent.hud?.pill, "the panel and the pill go to Swift with the agents");
   const scene = (await native(page)).scenes.at(-1)!;
   assert.equal(scene.scene, "village");
   assert.equal(scene.entities.filter((e) => e.kind === "agent").length, 6);
-  assert.equal(scene.entities.filter((e) => e.kind === "workspace").length, 12);
+  assert.equal(scene.entities.filter((e) => e.kind === "workspace").length, 16);
   assert.equal(scene.entities.filter((e) => e.kind === "host").length, 0, "hosts are never picked on the map");
   await page.context().close();
 });
@@ -156,19 +156,19 @@ test("the Village draws every project, workspace and agent truthfully", async ()
 test("picking a robot in the Village opens its conversation; hovering shows its card", async () => {
   const { page } = await open("village");
   await waitFor(() => inspect(page), (i) => i?.scene === "village" && !!i.agents?.length, "the Village", 30000);
-  const robot = key("a-billing-0");
+  const robot = key("a-deploy-0");
   await swift(page, { type: "hover", id: robot, x: 300, y: 200 });
   const tip = await waitFor(
     () => page.locator(".atlas-world-tip").textContent({ timeout: 500 }).catch(() => ""),
     (t) => !!t,
     "a hover card",
   );
-  assert.match(tip!, /billing agent 1/);
+  assert.match(tip!, /deploy agent 1/);
   await swift(page, { type: "pick", id: robot });
   await waitFor(async () => (await inspect(page))?.selected, (v) => v === robot, "the robot to be selected");
-  await page.locator(".session-title h2", { hasText: "billing agent 1" }).waitFor();
+  await page.locator(".session-title h2", { hasText: "deploy agent 1" }).waitFor();
   assert.equal((await native(page)).selected, robot, "the selection reaches Swift");
-  await swift(page, { type: "hover", id: key("wks_routing"), x: 200, y: 150, flag: "review-awaiting" });
+  await swift(page, { type: "hover", id: key("wks_thumbnails"), x: 200, y: 150, flag: "review-awaiting" });
   await waitFor(
     () => page.locator(".atlas-world-tip").textContent({ timeout: 500 }).catch(() => ""),
     (t) => !!t && /Awaiting review/.test(t),

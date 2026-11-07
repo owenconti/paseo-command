@@ -528,7 +528,7 @@ export function layoutVillage(data: AtlasData, aspect = 1.6, measure: Measure = 
     // The river's gorge just right of the right-hand halls; the crop's right edge stays where it was (the fit ignores the river).
     // (Its near bank meets the plaza's edge, in the default view at the right.)
     const riverX = cx + m.right - 34;
-    const cropRight = riverX + V.riverW * 0.6;
+    const cropRight = riverX + V.riverW * 0.35;
     // The cliff at the river's head: its top at the square's edge, a middle, then its foot into the river.
     const cliffW = V.riverW + 16, ck = cliffW / FRAMES["cliff-top"]!.w;
     const cliffTop = { x: riverX + V.riverW / 2 - cliffW / 2, y: Math.max(oy - 6, topBase - maxAbove(a) - 20), w: cliffW, h: FRAMES["cliff-top"]!.h * ck };
@@ -577,7 +577,7 @@ export function layoutVillage(data: AtlasData, aspect = 1.6, measure: Measure = 
       // The concept's crop: a sliver above the top halls' banners, the front wall cut through with its bridge,
       // a strip of forest and the tent at the left, the river's gorge at the right.
       // (and the river's gorge, which the concept shows across the right of its view)
-      keep: { x: px0 - 10, y: topBase - maxAbove(a) - 10, w: riverX + V.riverW * 0.5 - (px0 - 10), h: wallY + V.wallH * 0.5 - (topBase - maxAbove(a) - 10) },
+      keep: { x: px0 - 10, y: topBase - maxAbove(a) - 40, w: riverX + V.riverW * 0.3 - (px0 - 10), h: wallY + V.wallH * 0.5 - (topBase - maxAbove(a) - 40) },
       heart: { x: px0 - 150, y: topBase - maxAbove(a) - 24, w: cropRight - (px0 - 150), h: wallY + V.wallH * 0.75 - (topBase - maxAbove(a) - 24) },
       bridge,
       walls: [
@@ -852,20 +852,15 @@ function sceneryOf(squares: VSquare[], projects: VProject[], workspaces: VWorksp
     reserved.push(...decor.filter((d) => d.square === si).map((d) => d.rect));
     // The market tent at the plaza's lower left, fully on it if there's room.
     const wall0 = sq.walls[0]!;
-    // (The first clear spot scanning the plaza's lower-left corner, between the lower-left hall and the ponds.)
-    const stalls: [number, number][] = [];
-    for (let ty = wall0.y + 20; ty > pave.y + pave.h * 0.5; ty -= 30)
-      for (let tx = pave.x + 40; tx < pave.x + 330; tx += 30) stalls.push([tx, ty]);
-    for (const [tx, ty] of stalls)
-      if (place({ frame: "tent", x: tx, y: ty, w: 160, layer: "stand" })) {
-        reserved.push(decor[decor.length - 1]!.rect);
-        for (const [cx2, f] of [[tx - 110, "crates-1"], [tx + 105, "barrel"]] as const) place({ frame: f, x: cx2, y: ty - 4, layer: "stand" });
-        break;
-      }
-    // Big lush trees framing the bottom corners: yellow-green at the left, a pink blossom at the right.
-    const pave0 = sq.roads[0]!;
-    place({ frame: "tree-2", x: pave0.x - 90, y: sq.walls[0]!.y + V.wallH + 60, w: 340, layer: "stand" }, false);
-    place({ frame: "blossom-0", x: sq.river.x - 40, y: sq.walls[0]!.y + V.wallH + 70, w: 340, layer: "stand" }, false);
+    // At the concept's size, at the plaza's lower left above the wall; it may tuck behind the lower-left hall's corner
+    // and the corner tree, but never covers what the village says.
+    const stall = boxOf("tent", pave.x + 70, wall0.y + 24, 220);
+    const says = [...mine.flatMap((p) => [p.rect, p.plaque, p.porch]), ...workspaces.filter((w) => w.square === si).flatMap((w) => [w.rect, w.plate]), ...agents.filter((a) => a.square === si).map((a) => a.rect)];
+    if (!says.some((r) => overlaps(r, stall, 2))) {
+      place({ frame: "tent", x: pave.x + 70, y: wall0.y + 24, w: 220, layer: "stand" }, false);
+      reserved.push(stall);
+      for (const [x2, f] of [[pave.x + 70 - 140, "crates-1"], [pave.x + 70 + 132, "barrel"]] as const) place({ frame: f, x: x2, y: wall0.y + 20, layer: "stand" });
+    } else place({ frame: "tent", x: pave.x - 40, y: pave.y + pave.h + 30, w: 200, layer: "stand" });
     // Bushes along the road to the bridge, and trees flanking the road north.
     const south = sq.roads[2]!, north = sq.roads[1]!;
     for (let y = south.y + 50; y < south.y + south.h - 10; y += 60)

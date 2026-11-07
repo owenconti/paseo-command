@@ -811,7 +811,9 @@ Picking: a PR medallion, then a robot, its bay, its hall; never a host. Sprites:
 (the GPT artist's; anchors as shares of the frame, slices `l`/`t`/`r`/`b` in sheet pixels, drawn at `VILLAGE_PX` (1.75) sheet
 pixels per village unit, the concept's pixel), plus the Dungeon Board's `status` and `ui` sheets for markers, medallions and icons.
 Text is painted by the page in Palatino. `npm run native:mock -- --village` serves the concept's fleet (`village` in
-`web/e2e/fleets.ts`). Tests: `rendering/tests/village.test.mjs`, `web/e2e/village.e2e.ts`, `native/tests/VillageSceneTests.swift`.
+`web/e2e/fleets.ts`: four halls of four workspaces, `assets`, `billing`, `catalog` and `forge`, whose names seed the concept's
+blue, purple, teal-dome and gear-workshop halls; the first two with every PR state, all six robots at the workshop, nothing
+needing you). The "At a Glance" panel is about a sixth of the view's width. Tests: `rendering/tests/village.test.mjs`, `web/e2e/village.e2e.ts`, `native/tests/VillageSceneTests.swift`.
 
 ## Confirmed map constraints
 

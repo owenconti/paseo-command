@@ -579,7 +579,9 @@ final class VillageScene: SKScene, MapScene {
             // Compact, as the concept's (about an eighth of a wide view); clear of the pill when the view is narrow;
             // never taller than the view.
             let room = pillWidth > 0 && v.width < w + pillWidth + inset * 4 ? 0.6 : 1
-            let scale = min(1, (v.height - inset * 2) / max(hh, 1), (v.width * room - inset * 2) / max(w, 1))
+            // About a sixth of the view's width, as the concept's (never under 190 points, never over its own size).
+            let target = min(w, max(190, v.width * 0.16))
+            let scale = min(target / max(w, 1), (v.height - inset * 2) / max(hh, 1), (v.width * room - inset * 2) / max(w, 1))
             node.size = CGSize(width: w * scale, height: hh * scale)
             node.anchorPoint = CGPoint(x: 0, y: 1)
             node.position = CGPoint(x: -v.width / 2 + inset, y: v.height / 2 - inset - (room < 1 ? (hudPill?.size.height ?? 0) + 8 : 0))
@@ -732,13 +734,13 @@ final class VillageScene: SKScene, MapScene {
             // (Several hosts: the whole village is the crop, and the panel keeps clear of it.)
             // The panel may lie over the plaza's outer strip and the top-left hall's left eave, as the concept's does:
             // it never drives the zoom far. (Several hosts: the whole village is the crop, and the panel keeps clear of it.)
-            let left = keep == core ? hudLeft : hudLeft * 0.6
+            let left = keep == core ? hudLeft : hudLeft * 0.85
             let hold = min((v.width - left) / (k.width + margin * 2), v.height / (k.height + margin * 2))
             zoom = min(max(min(cover, hold), minimumZoom), maxZoom)
             // Centred on what must show, nudged toward the crop's middle as far as the view allows.
             let w = v.width / zoom, h = v.height / zoom
             // (Its left edge under the panel by a little more, so the river's gorge shows at the right.)
-            let x = min(max(c.midX, k.maxX - w / 2), k.minX - left * (keep == core ? 1 : 0.25) / zoom + w / 2)
+            let x = min(max(c.midX, k.maxX - w / 2), k.minX - left * (keep == core ? 1 : 0.8) / zoom + w / 2)
             // The bottom edge on the crop's (through the wall); any spare height shows trees above the top banners.
             let y = keep == core ? min(max(c.midY, k.maxY - h / 2), k.minY + h / 2) : min(max(c.maxY - h / 2, k.maxY - h / 2), k.minY + h / 2)
             center = CGPoint(x: x, y: y)
