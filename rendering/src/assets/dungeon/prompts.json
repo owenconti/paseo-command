@@ -3368,5 +3368,708 @@
       }
     },
     "hot_gold_protection": "Existing b >= 180 (encoded) remains untouched; other warm pigment receives at most +2 b."
+  },
+  "v11_masonry_wear": {
+    "tool": "built-in image_gen",
+    "prompt": "Use case: stylized-concept.\nAsset type: six quiet stone-surface material-detail patches for an original HD painted dungeon sprite kit, arranged in a clean 3-column by 2-row opaque atlas. No words, labels, numbers, emblems or objects.\nCreate ONLY close-up neutral-grey cut-stone surface texture. Each cell is a flat uniformly exposed material swatch with no border, joints, bricks, mortar, perspective silhouette or lighting gradient. Mean colour medium neutral grey, with low-contrast fine mineral grain, tiny irregular chipped paint-like nicks and pits, and a few very short thin superficial hairline scratches. Details should occur in organic little clusters roughly 3\u20138 image pixels across amid quiet material, not a uniform computer-noise field. No large diagonal crack, vein, symbol, circular spot, memorable motif, big crater, dirty stain, cloud or central highlight.\nStyle: softly hand-painted illustration with a visible pixel-flavoured stone finish, like a high-resolution dungeon illustration. Smooth large material values and readable small chipped facets; not photoreal rock photography, not crisp strict-grid 8-bit pixel art, not vector facets. Gentle top-left relief at micro scale only. Keep the broad value flat and neutral throughout every swatch and across the atlas.\nThe production process transfers only restrained high-frequency luminance detail onto existing painted stones, retaining their palette, silhouettes, mortar courses and seams. This source must supply material variation rather than new masonry geometry. The six cells should offer different organic wear distributions without any strong repeated pattern.",
+    "source_filename": "exec-99394b0e-d7f1-4595-8929-9e0b99803ef3.png",
+    "raw": "v11/wear-raw.png",
+    "grid": [
+      3,
+      2
+    ],
+    "purpose": "Generated material detail only; original production geometry, colour targets, alpha and mortar retained.",
+    "method": "Generated neutral material detail, toroidal high-pass extraction and sparse luminance transfer into existing opaque cool masonry. Original alpha, geometry, mortar and colour targets retained. No procedural noise, blend strips or new crack motifs.",
+    "highpass_radius": 10,
+    "selected_detail_quantile": 0.85,
+    "luminance_delta_encoded_cap": 15,
+    "detail_gain": 0.7,
+    "source_crop_selection": "Quiet source cells; choose a bounded window with visible generated micro-relief, then transfer sparse high-frequency detail only.",
+    "frame_sources_and_coverage": {
+      "rampart-x": {
+        "changed_pixels": 1475,
+        "fraction": 0.11287113559840832,
+        "source": {
+          "source_cell": 1,
+          "crop": [
+            524,
+            44,
+            721,
+            110
+          ],
+          "highpass_radius": 10,
+          "abs_detail_threshold": 5,
+          "selected_source_fraction": 0.12813413321027534
+        }
+      },
+      "rampart-y": {
+        "changed_pixels": 1596,
+        "fraction": 0.12213039485766758,
+        "source": {
+          "source_cell": 2,
+          "crop": [
+            1340,
+            44,
+            1406,
+            241
+          ],
+          "highpass_radius": 10,
+          "abs_detail_threshold": 4,
+          "selected_source_fraction": 0.1397477311182895
+        }
+      },
+      "rampart-corner-tl": {
+        "changed_pixels": 1946,
+        "fraction": 0.0476914028036467,
+        "source": {
+          "source_cell": 0,
+          "crop": [
+            12,
+            12,
+            214,
+            214
+          ],
+          "highpass_radius": 10,
+          "abs_detail_threshold": 4,
+          "selected_source_fraction": 0.1372659543182041
+        }
+      },
+      "rampart-corner-tr": {
+        "changed_pixels": 1765,
+        "fraction": 0.043255563180080385,
+        "source": {
+          "source_cell": 0,
+          "crop": [
+            12,
+            12,
+            214,
+            214
+          ],
+          "highpass_radius": 10,
+          "abs_detail_threshold": 4,
+          "selected_source_fraction": 0.1372659543182041
+        }
+      },
+      "rampart-corner-bl": {
+        "changed_pixels": 2645,
+        "fraction": 0.06482207626703264,
+        "source": {
+          "source_cell": 0,
+          "crop": [
+            12,
+            12,
+            214,
+            214
+          ],
+          "highpass_radius": 10,
+          "abs_detail_threshold": 4,
+          "selected_source_fraction": 0.1372659543182041
+        }
+      },
+      "rampart-corner-br": {
+        "changed_pixels": 2443,
+        "fraction": 0.05987158121752769,
+        "source": {
+          "source_cell": 0,
+          "crop": [
+            12,
+            12,
+            214,
+            214
+          ],
+          "highpass_radius": 10,
+          "abs_detail_threshold": 4,
+          "selected_source_fraction": 0.1372659543182041
+        }
+      },
+      "rampart-end-left": {
+        "changed_pixels": 514,
+        "fraction": 0.10489795918367346,
+        "source": {
+          "source_cell": 3,
+          "crop": [
+            76,
+            716,
+            146,
+            786
+          ],
+          "highpass_radius": 10,
+          "abs_detail_threshold": 9,
+          "selected_source_fraction": 0.1353061224489796
+        }
+      },
+      "rampart-end-right": {
+        "changed_pixels": 503,
+        "fraction": 0.10265306122448979,
+        "source": {
+          "source_cell": 4,
+          "crop": [
+            636,
+            604,
+            706,
+            674
+          ],
+          "highpass_radius": 10,
+          "abs_detail_threshold": 6,
+          "selected_source_fraction": 0.13142857142857142
+        }
+      },
+      "rampart-end-top": {
+        "changed_pixels": 548,
+        "fraction": 0.11183673469387755,
+        "source": {
+          "source_cell": 5,
+          "crop": [
+            1132,
+            892,
+            1202,
+            962
+          ],
+          "highpass_radius": 10,
+          "abs_detail_threshold": 7,
+          "selected_source_fraction": 0.13816326530612244
+        }
+      },
+      "rampart-end-bottom": {
+        "changed_pixels": 470,
+        "fraction": 0.09591836734693877,
+        "source": {
+          "source_cell": 3,
+          "crop": [
+            76,
+            716,
+            146,
+            786
+          ],
+          "highpass_radius": 10,
+          "abs_detail_threshold": 9,
+          "selected_source_fraction": 0.1353061224489796
+        }
+      },
+      "rampart-t-down": {
+        "changed_pixels": 2138,
+        "fraction": 0.0778246942341293,
+        "source": {
+          "source_cell": 1,
+          "crop": [
+            524,
+            28,
+            726,
+            164
+          ],
+          "highpass_radius": 10,
+          "abs_detail_threshold": 4,
+          "selected_source_fraction": 0.13515579499126384
+        }
+      },
+      "rampart-return-left": {
+        "changed_pixels": 551,
+        "fraction": 0.025155222790357926,
+        "source": {
+          "source_cell": 4,
+          "crop": [
+            556,
+            524,
+            704,
+            672
+          ],
+          "highpass_radius": 10,
+          "abs_detail_threshold": 4,
+          "selected_source_fraction": 0.11746712929145361
+        }
+      },
+      "rampart-return-right": {
+        "changed_pixels": 1778,
+        "fraction": 0.08117238860482104,
+        "source": {
+          "source_cell": 5,
+          "crop": [
+            1356,
+            604,
+            1504,
+            752
+          ],
+          "highpass_radius": 10,
+          "abs_detail_threshold": 4,
+          "selected_source_fraction": 0.14079620160701242
+        }
+      },
+      "wall-brick": {
+        "changed_pixels": 7236,
+        "fraction": 0.06611842105263158,
+        "source": {
+          "source_cell": 0,
+          "crop": [
+            12,
+            12,
+            491,
+            239
+          ],
+          "highpass_radius": 10,
+          "abs_detail_threshold": 4,
+          "selected_source_fraction": 0.09149936081962237
+        }
+      },
+      "ledge-face": {
+        "changed_pixels": 942,
+        "fraction": 0.11327561327561328,
+        "source": {
+          "source_cell": 4,
+          "crop": [
+            540,
+            604,
+            737,
+            646
+          ],
+          "highpass_radius": 10,
+          "abs_detail_threshold": 4,
+          "selected_source_fraction": 0.13427604544355815
+        }
+      },
+      "ledge-end-left": {
+        "changed_pixels": 1371,
+        "fraction": 0.09695898161244695,
+        "source": {
+          "source_cell": 3,
+          "crop": [
+            28,
+            700,
+            230,
+            770
+          ],
+          "highpass_radius": 10,
+          "abs_detail_threshold": 6,
+          "selected_source_fraction": 0.1272984441301273
+        }
+      },
+      "ledge-end-right": {
+        "changed_pixels": 1264,
+        "fraction": 0.08939179632248939,
+        "source": {
+          "source_cell": 4,
+          "crop": [
+            556,
+            604,
+            758,
+            674
+          ],
+          "highpass_radius": 10,
+          "abs_detail_threshold": 4,
+          "selected_source_fraction": 0.11867043847241868
+        }
+      },
+      "pillar": {
+        "changed_pixels": 922,
+        "fraction": 0.10583103764921947,
+        "source": {
+          "source_cell": 2,
+          "crop": [
+            1340,
+            76,
+            1406,
+            207
+          ],
+          "highpass_radius": 10,
+          "abs_detail_threshold": 5,
+          "selected_source_fraction": 0.138676844783715
+        }
+      },
+      "pillar-cap": {
+        "changed_pixels": 621,
+        "fraction": 0.10081168831168831,
+        "source": {
+          "source_cell": 1,
+          "crop": [
+            892,
+            300,
+            980,
+            370
+          ],
+          "highpass_radius": 10,
+          "abs_detail_threshold": 8,
+          "selected_source_fraction": 0.12824675324675325
+        }
+      },
+      "pillar-base": {
+        "changed_pixels": 512,
+        "fraction": 0.08311688311688312,
+        "source": {
+          "source_cell": 2,
+          "crop": [
+            1404,
+            396,
+            1492,
+            466
+          ],
+          "highpass_radius": 10,
+          "abs_detail_threshold": 7,
+          "selected_source_fraction": 0.12970779220779222
+        }
+      },
+      "pillar-capital": {
+        "changed_pixels": 1399,
+        "fraction": 0.0752474182444062,
+        "source": {
+          "source_cell": 1,
+          "crop": [
+            556,
+            28,
+            722,
+            140
+          ],
+          "highpass_radius": 10,
+          "abs_detail_threshold": 5,
+          "selected_source_fraction": 0.10891781411359724
+        }
+      },
+      "corbel-left": {
+        "changed_pixels": 556,
+        "fraction": 0.0672147001934236,
+        "source": {
+          "source_cell": 5,
+          "crop": [
+            1404,
+            652,
+            1492,
+            746
+          ],
+          "highpass_radius": 10,
+          "abs_detail_threshold": 6,
+          "selected_source_fraction": 0.13092359767891681
+        }
+      },
+      "corbel-right": {
+        "changed_pixels": 640,
+        "fraction": 0.07736943907156674,
+        "source": {
+          "source_cell": 0,
+          "crop": [
+            60,
+            76,
+            148,
+            170
+          ],
+          "highpass_radius": 10,
+          "abs_detail_threshold": 7,
+          "selected_source_fraction": 0.125
+        }
+      },
+      "wall-brick-2": {
+        "changed_pixels": 7128,
+        "fraction": 0.06513157894736842,
+        "source": {
+          "source_cell": 0,
+          "crop": [
+            12,
+            12,
+            491,
+            239
+          ],
+          "highpass_radius": 10,
+          "abs_detail_threshold": 4,
+          "selected_source_fraction": 0.09149936081962237
+        }
+      },
+      "wall-brick-3": {
+        "changed_pixels": 7183,
+        "fraction": 0.06563413742690058,
+        "source": {
+          "source_cell": 0,
+          "crop": [
+            12,
+            12,
+            491,
+            239
+          ],
+          "highpass_radius": 10,
+          "abs_detail_threshold": 4,
+          "selected_source_fraction": 0.09149936081962237
+        }
+      },
+      "rampart-x-2": {
+        "changed_pixels": 1494,
+        "fraction": 0.11432506887052342,
+        "source": {
+          "source_cell": 1,
+          "crop": [
+            524,
+            44,
+            721,
+            110
+          ],
+          "highpass_radius": 10,
+          "abs_detail_threshold": 5,
+          "selected_source_fraction": 0.12813413321027534
+        }
+      },
+      "rampart-x-3": {
+        "changed_pixels": 1454,
+        "fraction": 0.11126415671870217,
+        "source": {
+          "source_cell": 1,
+          "crop": [
+            524,
+            44,
+            721,
+            110
+          ],
+          "highpass_radius": 10,
+          "abs_detail_threshold": 5,
+          "selected_source_fraction": 0.12813413321027534
+        }
+      },
+      "alcove-left": {
+        "changed_pixels": 1486,
+        "fraction": 0.07501261988894498,
+        "source": {
+          "source_cell": 2,
+          "crop": [
+            1420,
+            188,
+            1490,
+            471
+          ],
+          "highpass_radius": 10,
+          "abs_detail_threshold": 4,
+          "selected_source_fraction": 0.13538616860171632
+        }
+      },
+      "alcove-right": {
+        "changed_pixels": 1433,
+        "fraction": 0.0723372034326098,
+        "source": {
+          "source_cell": 3,
+          "crop": [
+            76,
+            540,
+            146,
+            823
+          ],
+          "highpass_radius": 10,
+          "abs_detail_threshold": 5,
+          "selected_source_fraction": 0.11479050984351338
+        }
+      },
+      "alcove-top": {
+        "changed_pixels": 1330,
+        "fraction": 0.10177532904805632,
+        "source": {
+          "source_cell": 4,
+          "crop": [
+            556,
+            604,
+            753,
+            670
+          ],
+          "highpass_radius": 10,
+          "abs_detail_threshold": 4,
+          "selected_source_fraction": 0.12167358867866482
+        }
+      },
+      "alcove-ledge": {
+        "changed_pixels": 1047,
+        "fraction": 0.11016414141414141,
+        "source": {
+          "source_cell": 4,
+          "crop": [
+            540,
+            588,
+            737,
+            636
+          ],
+          "highpass_radius": 10,
+          "abs_detail_threshold": 4,
+          "selected_source_fraction": 0.12891285956006768
+        }
+      }
+    },
+    "tone_metrics": {
+      "rampart-x": {
+        "mean_L_shift": -0.023596924285357247,
+        "max_L_delta": 5.882352941176471,
+        "mean_a_shift": -0.0033107101473266016,
+        "mean_b_shift": -0.002483032610494951
+      },
+      "rampart-y": {
+        "mean_L_shift": -0.0033786831336466,
+        "max_L_delta": 5.882352941176471,
+        "mean_a_shift": -0.0019238812212463404,
+        "mean_b_shift": -0.000836470096194061
+      },
+      "rampart-corner-tl": {
+        "mean_L_shift": 0.00395570692004866,
+        "max_L_delta": 5.882352941176471,
+        "mean_a_shift": -0.0024411588595642762,
+        "mean_b_shift": -0.0007830132191055225
+      },
+      "rampart-corner-tr": {
+        "mean_L_shift": 0.021895349934610564,
+        "max_L_delta": 5.882352941176471,
+        "mean_a_shift": -0.002658721063488425,
+        "mean_b_shift": 0.0017419206967682788
+      },
+      "rampart-corner-bl": {
+        "mean_L_shift": 0.018161482355855758,
+        "max_L_delta": 5.882352941176471,
+        "mean_a_shift": -0.004087699739873653,
+        "mean_b_shift": 0.002508361204013378
+      },
+      "rampart-corner-br": {
+        "mean_L_shift": 0.027065738134044552,
+        "max_L_delta": 5.098039215686274,
+        "mean_a_shift": -0.0021525074421799863,
+        "mean_b_shift": -0.0004579803068468056
+      },
+      "rampart-end-left": {
+        "mean_L_shift": 0.08882363354263638,
+        "max_L_delta": 5.882352941176471,
+        "mean_a_shift": -0.011417950079660117,
+        "mean_b_shift": 0.02973977695167286
+      },
+      "rampart-end-right": {
+        "mean_L_shift": 0.03184135330937453,
+        "max_L_delta": 5.882352941176471,
+        "mean_a_shift": -0.012166093626024862,
+        "mean_b_shift": 0.007140967997884158
+      },
+      "rampart-end-top": {
+        "mean_L_shift": 0.021536483445837352,
+        "max_L_delta": 6.2745098039215685,
+        "mean_a_shift": -0.014207650273224045,
+        "mean_b_shift": 0.030054644808743168
+      },
+      "rampart-end-bottom": {
+        "mean_L_shift": 0.1098533401283853,
+        "max_L_delta": 5.882352941176471,
+        "mean_a_shift": -0.008663691257547913,
+        "mean_b_shift": 0.002625360987135731
+      },
+      "rampart-t-down": {
+        "mean_L_shift": -0.024181119351815154,
+        "max_L_delta": 5.882352941176471,
+        "mean_a_shift": -0.00410651267244145,
+        "mean_b_shift": 0.0008341353865896695
+      },
+      "rampart-return-left": {
+        "mean_L_shift": 0.009674988356031575,
+        "max_L_delta": 5.882352941176471,
+        "mean_a_shift": -0.0036700988887756144,
+        "mean_b_shift": 0.00448567641961464
+      },
+      "rampart-return-right": {
+        "mean_L_shift": 0.02925044291043839,
+        "max_L_delta": 5.882352941176471,
+        "mean_a_shift": -0.00650310375406444,
+        "mean_b_shift": 0.004630998127894374
+      },
+      "wall-brick": {
+        "mean_L_shift": 0.006568197454420365,
+        "max_L_delta": 5.882352941176471,
+        "mean_a_shift": -0.0028326023391812864,
+        "mean_b_shift": -0.0021929824561403508
+      },
+      "ledge-face": {
+        "mean_L_shift": -0.002310688585198389,
+        "max_L_delta": 5.882352941176471,
+        "mean_a_shift": -0.0013227513227513227,
+        "mean_b_shift": -0.0012025012025012026
+      },
+      "ledge-end-left": {
+        "mean_L_shift": -0.003506263616557734,
+        "max_L_delta": 5.882352941176471,
+        "mean_a_shift": -0.0025173611111111113,
+        "mean_b_shift": -0.001736111111111111
+      },
+      "ledge-end-right": {
+        "mean_L_shift": 0.010234909883488642,
+        "max_L_delta": 5.882352941176471,
+        "mean_a_shift": -0.0014740310413595768,
+        "mean_b_shift": -0.0012139079164137693
+      },
+      "pillar": {
+        "mean_L_shift": 0.036788048552754436,
+        "max_L_delta": 5.882352941176471,
+        "mean_a_shift": -0.0010714285714285715,
+        "mean_b_shift": -0.0010714285714285715
+      },
+      "pillar-cap": {
+        "mean_L_shift": 0.05653874453007009,
+        "max_L_delta": 5.882352941176471,
+        "mean_a_shift": -0.008558262014483212,
+        "mean_b_shift": 0.013605442176870748
+      },
+      "pillar-base": {
+        "mean_L_shift": -0.050499445061043285,
+        "max_L_delta": 6.2745098039215685,
+        "mean_a_shift": -0.006132075471698114,
+        "mean_b_shift": -0.0037735849056603774
+      },
+      "pillar-capital": {
+        "mean_L_shift": -0.037532066958804566,
+        "max_L_delta": 5.882352941176471,
+        "mean_a_shift": -0.0033938571186153065,
+        "mean_b_shift": 0.001442389275411505
+      },
+      "corbel-left": {
+        "mean_L_shift": 0.05661801186560102,
+        "max_L_delta": 5.882352941176471,
+        "mean_a_shift": -0.002338932596215182,
+        "mean_b_shift": -0.00106315118009781
+      },
+      "corbel-right": {
+        "mean_L_shift": 0.01436043866130655,
+        "max_L_delta": 5.882352941176471,
+        "mean_a_shift": -0.0019161166702150309,
+        "mean_b_shift": -0.004045135192676176
+      },
+      "wall-brick-2": {
+        "mean_L_shift": 0.0073887742231395475,
+        "max_L_delta": 5.882352941176471,
+        "mean_a_shift": -0.0030336257309941522,
+        "mean_b_shift": -0.0020376461988304093
+      },
+      "wall-brick-3": {
+        "mean_L_shift": 0.008198601077858043,
+        "max_L_delta": 5.490196078431373,
+        "mean_a_shift": -0.0023757309941520467,
+        "mean_b_shift": -0.0017726608187134502
+      },
+      "rampart-x-2": {
+        "mean_L_shift": -0.021472939879011985,
+        "max_L_delta": 5.882352941176471,
+        "mean_a_shift": -0.0024813895781637717,
+        "mean_b_shift": -0.0028949545078577337
+      },
+      "rampart-x-3": {
+        "mean_L_shift": -0.020162139909691765,
+        "max_L_delta": 5.882352941176471,
+        "mean_a_shift": -0.002149115556290296,
+        "mean_b_shift": -0.002066457265663746
+      },
+      "alcove-left": {
+        "mean_L_shift": -0.011160666743343003,
+        "max_L_delta": 6.2745098039215685,
+        "mean_a_shift": -0.007965819393149396,
+        "mean_b_shift": 0.010934897530595988
+      },
+      "alcove-right": {
+        "mean_L_shift": 0.026353940808708162,
+        "max_L_delta": 5.882352941176471,
+        "mean_a_shift": -0.001955246578318488,
+        "mean_b_shift": 0.0007241653993772177
+      },
+      "alcove-top": {
+        "mean_L_shift": -0.0008439065081420749,
+        "max_L_delta": 5.882352941176471,
+        "mean_a_shift": -0.0034762456546929316,
+        "mean_b_shift": -0.002151961595762291
+      },
+      "alcove-ledge": {
+        "mean_L_shift": -0.004162833949925136,
+        "max_L_delta": 5.882352941176471,
+        "mean_a_shift": -0.00559296883917361,
+        "mean_b_shift": -0.0015979910969067459
+      }
+    }
   }
 }

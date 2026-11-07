@@ -959,7 +959,7 @@ attempts' judgements are kept privately in ignored `artifacts/overworld/repaint-
 
 ## Dungeon Board
 
-The geometry kit is v3, robots are v4, and material/furnishing refinements are v5–v10. Artwork was generated with the built-in
+The geometry kit is v3, robots are v4, and material/furnishing refinements are v5–v11. Artwork was generated with the built-in
 `image_gen` tool on 2026-11-06 and 2026-11-07.
 The private `design/references/dungeon-concept.png` was inspected at 3×,
 particularly its LOCAL floor, left terrace, workspace recess and central gate.
@@ -1502,6 +1502,45 @@ random 8×6 tile proofs, and writes preservation metrics in `v10/validation.json
 raw-source rebuild also includes V10. Only the stone/alcoves PNGs change. All
 273 names, frame maps, sizes, anchors and alpha remain unchanged, with no new
 frames or renames. No link art, app-code changes or commits are included.
+
+V11 is the small-scale masonry finish for the push from compare-24's 8.5/10
+toward 9. The private, ranked art/code brief is `artifacts/dungeon/gaps-6.md`
+with paired crops in `gaps-6.png`. It does not award a new scene score from a
+source-art pass; architectural composition, joined-plane light/contact and
+curated dressing remain code items for the next actual app capture.
+
+One built-in generation supplies six quiet neutral material-detail swatches:
+fine painted mineral grain, little nicks, pits and chipped clusters, without
+new masonry joints or large crack motifs. The exact prompt, source filename
+and grid are in `v11_masonry_wear` in `prompts.json`; the private raw is
+`v11/wear-raw.png`. The existing production geometry is retained. A bounded
+source window with visible micro-relief is selected, then its low-frequency
+field is removed using a periodic large blur. Only sparse high-frequency
+luminance detail is transferred into existing opaque cool stone faces. Warm
+pigment, mortar and the alpha silhouette stay protected. The texture itself is
+not blurred; no procedural noise, edge crossfade or softened boundary strip is
+introduced. Repeat families use the same periodic detail field at their
+boundaries, with a clean cut texel repeated for the equal-edge check.
+
+The target change is bounded to 15 encoded L steps (about 5.9 conventional
+Lab L) at rare stronger chipped points, with most affected pixels much smaller.
+Larger faces remain quiet and the original palette/large painted shading stays
+intact. Mean L/a/b movement is checked separately, and alpha is byte-compared.
+The pass covers 31 existing stone/alcove frame pieces: brick variants,
+ramparts/returns/ends, ledges, pillars/capitals/bases, corbels and alcove frames.
+Floors, excavated rock, room interiors/recesses, gates, props/cloth, wood signs,
+gems, agents and status keep their source pixels. No frame is added or renamed.
+
+`v11/wear-review.png` compares the actual exports; `v11/wear-closeups.png`
+uses strict 3× native-pixel crops to show fine detail without smoothing.
+`v11/changed-frames.json` records crop selection/affected coverage;
+`v11/tone-metrics.json` records actual L/a/b deltas. `--wear-only` rebuilds from
+`v11/before/`, stages and checks both complete sheets in `v11/staging/`,
+refreshes the contact sheet and random 8×6 proofs, and writes preservation
+checks in `v11/validation.json`. `--wear-only --publish` installs checked files
+atomically; the full raw-source build includes V11. Only stone/alcoves PNGs
+change, all 273 maps/sizes/anchors and alpha remain unchanged, and the tracked
+asset folder stays below 12 MB. No app code or commits are part of the pass.
 
 Remaining differences: the concept's masonry has more bespoke pixel-like chips,
 uneven joints and integrated painted shadows. V3 is smoother, its joins and

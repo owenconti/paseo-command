@@ -8,7 +8,7 @@ from pathlib import Path
 import json, math, re, argparse, os, shutil, statistics, colorsys, random
 
 LIVE = Path('rendering/src/assets/dungeon')
-OUT = Path('rendering/artifacts/dungeon/v10/staging')
+OUT = Path('rendering/artifacts/dungeon/v11/staging')
 ART = Path('rendering/artifacts/dungeon')
 RESAMPLE = Image.Resampling.LANCZOS
 SHEETS = {}
@@ -445,6 +445,7 @@ def build():
     finish_light_v9()
     build_signs_v9()
     surface_fronts_v10()
+    wear_v11()
 
 def pack():
     OUT.mkdir(parents=True,exist_ok=True)
@@ -1987,9 +1988,109 @@ def surfaces_only_v10(publish_live=False):
     if publish_live:publish()
 
 
+_WEAR_CACHE={}
+
+def wear_field_v11(name,size,axes):
+    family=re.sub(r'-(2|3)$','',name) if name.startswith(('wall-brick','rampart-x')) else name
+    key=(family,size,axes)
+    if key in _WEAR_CACHE:return _WEAR_CACHE[key]
+    raw=Image.open(ART/'v11/wear-raw.png').convert('L');cw=raw.width//3;ch=raw.height//2;group=sum(ord(c) for c in family)%6
+    if family=='wall-brick':group=0
+    elif family=='rampart-x':group=1
+    elif family=='rampart-y':group=2
+    elif family=='ledge-face':group=4
+    from PIL import ImageStat
+    W,H=size;w=W-1 if 'x' in axes else W;h=H-1 if 'y' in axes else H;cell=raw.crop((group%3*cw,group//3*ch,(group%3+1)*cw,(group//3+1)*ch));relief=ImageChops.difference(cell,cell.filter(ImageFilter.GaussianBlur(10)))
+    xs=list(range(12,max(13,cw-w-11),16));ys=list(range(12,max(13,ch-h-11),16));xx,yy=max(((x,y) for y in ys for x in xs),key=lambda q:ImageStat.Stat(relief.crop((q[0],q[1],q[0]+w,q[1]+h))).mean[0]);left=group%3*cw+xx;top=group//3*ch+yy;source=raw.crop((left,top,left+w,top+h))
+    pad=Image.new('L',(w*3,h*3))
+    for yy in range(3):
+        for xx in range(3):pad.paste(source,(xx*w,yy*h))
+    low=pad.filter(ImageFilter.GaussianBlur(10)).crop((w,h,2*w,2*h));detail=[p-q for p,q in zip(source.getdata(),low.getdata())];absvals=sorted(abs(v) for v in detail);threshold=max(4,absvals[round(len(absvals)*.85)]);values=[max(-12,min(12,round(v*.70))) if abs(v)>threshold else 0 for v in detail]
+    # Only a clean cut texel is repeated. There is no edge crossfade, strip
+    # blur, new geometry or procedural random-noise pattern.
+    out=[]
+    for y in range(H):
+        for x in range(W):out.append(values[(y%h)*w+(x%w)])
+    result=(out,{'source_cell':group,'crop':[left,top,left+w,top+h],'highpass_radius':10,'abs_detail_threshold':threshold,'selected_source_fraction':sum(v!=0 for v in values)/len(values)})
+    _WEAR_CACHE[key]=result;return result
+
+def wear_v11():
+    changed={};updates={}
+    def smooth(x):x=max(0,min(1,x));return x*x*(3-2*x)
+    for sh,frames in SHEETS.items():
+        for n,im,meta in frames:
+            selected=(sh=='stone' and (n in ['wall-brick','wall-brick-2','wall-brick-3','pillar','pillar-cap','pillar-base','pillar-capital','corbel-left','corbel-right'] or n.startswith(('rampart-','ledge-'))) or sh=='alcoves' and n in ['alcove-left','alcove-right','alcove-top','alcove-ledge'])
+            if not selected:continue
+            field,source=wear_field_v11(n,im.size,meta.get('tile',''));lab=ImageCms.applyTransform(im.convert('RGB'),_TO_LAB);ld=list(lab.getdata());px=list(im.getdata());out=[];mask=[];W,H=im.size;axes=meta.get('tile','')
+            for k,(p,(l,a,b),dv) in enumerate(zip(px,ld,field)):
+                x=k%W;y=k//W;ny=(y+3)%(H-1) if 'y' in axes else min(H-1,y+3);below=ld[ny*W+x][0];edge=max(0,min(1,(l-below-12)/30));weight=smooth((l-35)/40)*(1-smooth((l-220)/25));d=round(dv*weight*(1+.30*edge)) if p[3]>220 and b<145 and 112<a<158 else 0;d=max(-15,min(15,d));out.append((max(0,min(255,l+d)),a,b));mask.append(d!=0)
+            lab.putdata(out);rgb=ImageCms.applyTransform(lab,_TO_RGB);v=im.copy();v.putdata([(*q,p[3]) if on else p for p,q,on in zip(px,rgb.getdata(),mask)]);v=clean(v)
+            if any(mask):updates[n]=v;changed[n]={'changed_pixels':sum(mask),'fraction':sum(mask)/len(mask),'source':source}
+    for sh,frames in SHEETS.items():SHEETS[sh]=[(n,updates.get(n,im),meta) for n,im,meta in frames]
+    SPRITES.update(updates);(ART/'v11/changed-frames.json').write_text(json.dumps(changed,indent=2)+'\n')
+
+def wear_reviews_v11():
+    root=ART/'v11';old={}
+    for sh in ['stone','alcoves']:
+        j=json.loads((root/'before'/(sh+'.json')).read_text());a=Image.open(root/'before'/(sh+'.png')).convert('RGBA')
+        for n,f in j['frames'].items():old[n]=a.crop((f['x'],f['y'],f['x']+f['w'],f['y']+f['h']))
+    names=['wall-brick','rampart-x','ledge-face','rampart-return-left','alcove-left','pillar'];can=Image.new('RGB',(1600,1320),'#241e36');d=ImageDraw.Draw(can)
+    for row,n in enumerate(names):
+        y=row*220;d.text((10,y+6),n+' / before',fill='white');d.text((810,y+6),'v11 / generated surface wear; same geometry',fill='white')
+        for x,im in [(10,old[n]),(810,SPRITES[n])]:
+            f=min(3,770/im.width,185/im.height);v=fit(im,(round(im.width*f),round(im.height*f)),True);can.paste(v,(x,y+28),v)
+    can.save(root/'wear-review.png',optimize=True)
+    # A strict 3x zoom of the same native-pixel crop exposes fine material work.
+    close=Image.new('RGB',(1560,1000),'#241e36');d=ImageDraw.Draw(close)
+    for row,n in enumerate(['wall-brick','rampart-x']):
+        im=old[n];box=(max(0,im.width//2-125),0,min(im.width,im.width//2+125),min(145,im.height))
+        for col,v in enumerate([old[n],SPRITES[n]]):
+            v=v.crop(box).resize(((box[2]-box[0])*3,(box[3]-box[1])*3),Image.Resampling.NEAREST);close.paste(v,(col*780,row*500+35))
+        d.text((10,row*500+8),n+' / before / 3x native crop',fill='white');d.text((790,row*500+8),'after / no smoothing in this crop',fill='white')
+    close.save(root/'wear-closeups.png',optimize=True)
+    metrics={}
+    for n in json.loads((root/'changed-frames.json').read_text()):
+        a=old[n];b=SPRITES[n];la=list(ImageCms.applyTransform(a.convert('RGB'),_TO_LAB).getdata());lb=list(ImageCms.applyTransform(b.convert('RGB'),_TO_LAB).getdata());pairs=[(p,q) for p,q,r in zip(la,lb,a.getdata()) if r[3]>220]
+        metrics[n]={'mean_L_shift':statistics.mean(q[0]-p[0] for p,q in pairs)*100/255,'max_L_delta':max(abs(q[0]-p[0]) for p,q in pairs)*100/255,'mean_a_shift':statistics.mean(q[1]-p[1] for p,q in pairs),'mean_b_shift':statistics.mean(q[2]-p[2] for p,q in pairs)}
+    (root/'tone-metrics.json').write_text(json.dumps(metrics,indent=2)+'\n')
+
+def validate_wear_v11():
+    root=ART/'v11';allowed=set(json.loads((root/'changed-frames.json').read_text()));errors=[];count=0
+    for path in (root/'before').glob('*.json'):
+        if path.name=='prompts.json':continue
+        old=json.loads(path.read_text());new=json.loads((OUT/path.name).read_text());a=Image.open(root/'before'/old['image']).convert('RGBA');b=Image.open(OUT/new['image']).convert('RGBA')
+        if old!=new:errors.append(path.name+' metadata changed')
+        for n,f in old['frames'].items():
+            count+=1;box=(f['x'],f['y'],f['x']+f['w'],f['y']+f['h']);v=a.crop(box);z=b.crop(box)
+            if v.getchannel('A').tobytes()!=z.getchannel('A').tobytes():errors.append(n+' alpha changed')
+            if n not in allowed and v.tobytes()!=z.tobytes():errors.append(n+' protected pixels changed')
+        if path.stem not in ['stone','alcoves'] and (root/'before'/old['image']).read_bytes()!=(OUT/new['image']).read_bytes():errors.append(path.stem+' PNG changed')
+    for n,m in json.loads((root/'tone-metrics.json').read_text()).items():
+        if abs(m['mean_L_shift'])>.25 or abs(m['mean_a_shift'])>.15 or abs(m['mean_b_shift'])>.15:errors.append(n+' palette drift')
+        if m['max_L_delta']>6.5:errors.append(n+' detail too strong')
+    size=sum(p.stat().st_size for p in OUT.iterdir() if p.suffix in ['.png','.json'])
+    if size>12000000:errors.append('Asset folder exceeds 12 MB')
+    report={'preserved_frame_maps':count,'alpha_and_geometry_unchanged':True,'generated_detail_only':True,'changed_frames':sorted(allowed),'asset_bytes':size,'errors':errors};(root/'validation.json').write_text(json.dumps(report,indent=2)+'\n');print(json.dumps(report,indent=2))
+    if errors:raise ValueError(errors)
+
+def wear_only_v11(publish_live=False):
+    global OUT
+    root=ART/'v11';OUT=root/'staging';OUT.mkdir(parents=True,exist_ok=True)
+    for p in LIVE.iterdir():
+        if p.suffix in ['.png','.json'] and not (p.name=='prompts.json' and (OUT/p.name).exists()):shutil.copy2(p,OUT/p.name)
+    load_live_art()
+    for sh in ['stone','alcoves']:
+        j=json.loads((root/'before'/(sh+'.json')).read_text());a=Image.open(root/'before'/(sh+'.png')).convert('RGBA');SHEETS[sh]=[]
+        for n,f in j['frames'].items():
+            v=a.crop((f['x'],f['y'],f['x']+f['w'],f['y']+f['h']));meta={k:v for k,v in f.items() if k not in ['x','y','w','h']};SPRITES[n]=v;META[n]=meta;SHEETS[sh].append((n,v,meta))
+    wear_v11();pack();validate();validate_rough_v8();course_proofs();contact();wear_reviews_v11();validate_wear_v11()
+    if publish_live:publish()
+
+
 if __name__=='__main__':
-    parser=argparse.ArgumentParser();parser.add_argument('--validate-only',action='store_true');parser.add_argument('--publish',action='store_true');parser.add_argument('--publish-staged',action='store_true');parser.add_argument('--robots-only',action='store_true');parser.add_argument('--art-only',action='store_true');parser.add_argument('--props-only',action='store_true');parser.add_argument('--hanging-only',action='store_true');parser.add_argument('--rough-only',action='store_true');parser.add_argument('--seam-fix',action='store_true');parser.add_argument('--floors-only','--materials-only',action='store_true');parser.add_argument('--lighting-only',action='store_true');parser.add_argument('--signs-only',action='store_true');parser.add_argument('--surfaces-only',action='store_true');args=parser.parse_args()
-    if args.surfaces_only:surfaces_only_v10(args.publish)
+    parser=argparse.ArgumentParser();parser.add_argument('--validate-only',action='store_true');parser.add_argument('--publish',action='store_true');parser.add_argument('--publish-staged',action='store_true');parser.add_argument('--robots-only',action='store_true');parser.add_argument('--art-only',action='store_true');parser.add_argument('--props-only',action='store_true');parser.add_argument('--hanging-only',action='store_true');parser.add_argument('--rough-only',action='store_true');parser.add_argument('--seam-fix',action='store_true');parser.add_argument('--floors-only','--materials-only',action='store_true');parser.add_argument('--lighting-only',action='store_true');parser.add_argument('--signs-only',action='store_true');parser.add_argument('--surfaces-only',action='store_true');parser.add_argument('--wear-only',action='store_true');args=parser.parse_args()
+    if args.wear_only:wear_only_v11(args.publish)
+    elif args.surfaces_only:surfaces_only_v10(args.publish)
     elif args.signs_only:signs_only_v9(args.publish)
     elif args.lighting_only:lighting_only_v9(args.publish)
     elif args.floors_only:floor_only_v8(args.publish)
