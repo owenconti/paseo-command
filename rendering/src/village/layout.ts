@@ -605,7 +605,7 @@ export function layoutVillage(data: AtlasData, _aspect = 1.6, measure: Measure =
     // The river just right of the right-hand halls, in the default view.
     // The river's gorge just right of the right-hand halls; the crop's right edge stays where it was (the fit ignores the river).
     // (Its near bank meets the plaza's edge, in the default view at the right.)
-    const riverX = cx + m.right - 60;
+    const riverX = cx + m.right - 120;
     const cropRight = riverX + V.riverW * 0.35;
     // The cliff at the river's head: its top at the square's edge, a middle, then its foot into the river.
     const cliffW = V.riverW + 16, ck = cliffW / FRAMES["cliff-top"]!.w;
@@ -656,7 +656,8 @@ export function layoutVillage(data: AtlasData, _aspect = 1.6, measure: Measure =
       // (and the river's gorge, which the concept shows across the right of its view)
       // (from just inside the plaza's left edge, which the panel may cover, to the gorge's near half at the right)
       // (the panel may lie over the top-left hall's left eave, as the concept's does; `keep` is filled in once the halls are)
-      keep: { x: px0 + 40, y: topBase - maxAbove(a) - 40, w: riverX + 50 - (px0 + 40), h: wallY + V.wallH * 0.5 - (topBase - maxAbove(a) - 40) },
+      // (a strip of canopy above the top banners, the wall cut through below the bridge, the gorge's near half at the right)
+      keep: { x: px0 + 40, y: topBase - maxAbove(a) - 110, w: riverX + V.riverW * 0.5 - (px0 + 40), h: wallY + V.wallH * 0.3 - (topBase - maxAbove(a) - 110) },
       heart: { x: px0 - 150, y: topBase - maxAbove(a) - 24, w: cropRight - (px0 - 150), h: wallY + V.wallH * 0.75 - (topBase - maxAbove(a) - 24) },
       bridge,
       walls: [
