@@ -791,7 +791,7 @@ tile (cards only); never a host. The world: one paved plaza with organic edges, 
 between lily ponds through the front wall, the river's gorge falling from a ruined wall at the right, lamps (lit while agents run),
 lighting (lamp pools, lit windows, contact shadows, the crystal's glow, a vignette) and a forest canopy tile (`paintCanopy`) that
 Swift repeats to every edge, so no bare ground ever shows. The fit frames the concept's crop (`core`) without cutting the halls,
-plaza or bridge (`keep`); the "At a Glance" panel may lie over the top-left hall's eave but never its tiles or banner. The HUD lies
+plaza or bridge (`keep`); the "At a Glance" panel may lie over the top-left hall's eave but never a hall's banner or a tile (the page posts them as `clear`; Swift's fit slides, then steps out, until none is under the panel), and spare height goes to canopy above, the bottom edge staying on the wall. The HUD lies
 over the village in screen space: "At a Glance" (PRs, Issues, Workspaces with Active, Agents with Running and Idle, Need you, Failed
 and Offline only when any) and the status pill ("All systems operational" green; "N need you" or hosts offline amber; "N agents
 failed" red; "need you" counts approvals and questions, as the app's own count does). Sprites: `rendering/src/assets/village/`

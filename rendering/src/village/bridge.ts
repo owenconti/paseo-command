@@ -666,6 +666,8 @@ export function mountNativeVillage(parent: HTMLElement, handlers: AtlasHandlers 
       hudClear: V.marginLeft - 40,
       core: l.core,
       keep: l.keep,
+      // What the HUD's panel must never cover: every hall's banner and every tile.
+      clear: [...l.projects.map((p) => p.banner), ...l.tiles.map((t) => t.frame), ...l.workspaces.map((w) => w.frame)].map((r) => [r.x, r.y, r.w, r.h]),
       sprites,
       images,
       lights,

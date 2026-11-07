@@ -87,7 +87,7 @@ export const V = {
   inner: 64,
   /** Margins round a square: woods above and to the left (the HUD lies there), the river to the right; the foot's
    * moat, wall and bridge below the last walk. */
-  marginTop: 70,
+  marginTop: 420,
   marginLeft: 300,
   marginRight: 420,
   riverW: 330,

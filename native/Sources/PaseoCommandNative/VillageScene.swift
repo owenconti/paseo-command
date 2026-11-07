@@ -158,6 +158,7 @@ final class VillageScene: SKScene, MapScene {
         let showingAll = viewSize.width > 0 && atFit
         if let c = m["core"] as? [String: Double] { core = CGRect(x: c["x"] ?? 0, y: c["y"] ?? 0, width: c["w"] ?? 0, height: c["h"] ?? 0) }
         if let c = m["keep"] as? [String: Double] { keep = CGRect(x: c["x"] ?? 0, y: c["y"] ?? 0, width: c["w"] ?? 0, height: c["h"] ?? 0) }
+        clear = (m["clear"] as? [[Double]] ?? []).compactMap { $0.count == 4 ? CGRect(x: $0[0], y: $0[1], width: $0[2], height: $0[3]) : nil }
         hudClear = num(m["hudClear"])
         if let b = m["bounds"] as? [String: Double] {
             bounds = WorldBox(x: CGFloat(b["x"] ?? 0), y: CGFloat(b["y"] ?? 0), width: CGFloat(b["w"] ?? 0), height: CGFloat(b["h"] ?? 0))
@@ -719,6 +720,18 @@ final class VillageScene: SKScene, MapScene {
     /// cropping the woods round it; zooming out shows them.
     private var core: CGRect?
     private var keep: CGRect?
+    /// What the HUD's panel must never cover (banners, tiles), in village units.
+    private var clear: [CGRect] = []
+    /// Whether, at this camera, the panel covers any of `clear`.
+    private func panelCovers(_ center: CGPoint, _ zoom: CGFloat) -> Bool {
+        guard let p = hudPanel else { return false }
+        let v = viewSize
+        let box = CGRect(x: 14, y: 14, width: p.size.width + 6, height: p.size.height + 6)
+        return clear.contains { r in
+            let s = CGRect(x: (r.minX - (center.x - v.width / 2 / zoom)) * zoom, y: (r.minY - (center.y - v.height / 2 / zoom)) * zoom, width: r.width * zoom, height: r.height * zoom)
+            return s.intersects(box)
+        }
+    }
     /// The zoom the last fit chose, so updates keep a fitted view fitted.
     private var fitZoom: CGFloat = 0
     private var atFit: Bool { fitted && animation == nil && fitZoom > 0 && abs(zoom - fitZoom) <= fitZoom * 0.001 }
@@ -744,8 +757,23 @@ final class VillageScene: SKScene, MapScene {
             // (Its left edge under the panel by a little more, so the river's gorge shows at the right.)
             let x = min(max(c.midX, k.maxX - w / 2), k.minX - left / zoom + w / 2)
             // The bottom edge on the crop's (through the wall); any spare height shows trees above the top banners.
-            let y = keep == core ? min(max(c.midY, k.maxY - h / 2), k.minY + h / 2) : min(max(c.maxY - h / 2, k.maxY - h / 2), k.minY + h / 2)
+            let y = max(k.maxY - h / 2, min(c.maxY - h / 2, k.minY + h / 2))
             center = CGPoint(x: x, y: y)
+            // Step out a little at a time (sliding left within the crop first) until the panel covers no banner or tile.
+            var tries = 0
+            while panelCovers(center, zoom) && tries < 40 {
+                let w2 = v.width / zoom
+                let slid = CGPoint(x: max(k.maxX - w2 / 2, center.x - 30 / zoom), y: center.y)
+                if slid.x < center.x - 0.5 && !panelCovers(slid, zoom) { center = slid; break }
+                if slid.x < center.x - 0.5 { center = slid } else {
+                    zoom = max(minimumZoom, zoom * 0.97)
+                    let h2 = v.height / zoom, w3 = v.width / zoom
+                    // The bottom edge stays on the crop's (through the wall): stepping out shows more canopy above, and
+                    // the lower halls' banners drop below the panel sooner.
+                    center = CGPoint(x: min(max(c.midX, k.maxX - w3 / 2), k.minX - left / zoom + w3 / 2), y: max(k.maxY - h2 / 2, min(c.maxY - h2 / 2, k.minY + h2 / 2)))
+                }
+                tries += 1
+            }
         } else {
             zoom = minimumZoom
             center = CGPoint(x: e.midX, y: e.midY)
