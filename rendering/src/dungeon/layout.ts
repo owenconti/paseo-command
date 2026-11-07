@@ -777,7 +777,10 @@ export function layoutDungeon(data: AtlasData, _aspect = 1.6, measure: Measure =
       place({ frame: "banner-crown", x: 0, y: y - D.foot + 18, w: 56, floor: f, layer: "front" }, false);
       for (const s of [-1, 1] as const) {
         place({ frame: "brazier", x: s * 100, y, w: 40, floor: f, layer: "front", ...lit({ color: 0xff9a3a, reach: 80 }) });
-        place({ frame: "rug-red", x: s * 290, y: y - 30, w: 150, floor: f, layer: "back" });
+        // On the foot's open floor, between the last front wall and the count bar's strip.
+        const rug = FRAMES["rug-red"]!, rugW = 130, rugH = (rug.h * rugW) / rug.w;
+        const rugTop = fl.tierTops[fl.tiers - 1]! + D.frontY + 34;
+        place({ frame: "rug-red", x: s * 290, y: rugTop + anchorShare(rug.anchor).y * rugH, w: rugW, floor: f, layer: "back" });
         place({ frame: "scroll-desk", x: s * (half - 80), y, w: 80, floor: f, layer: "front" });
       }
     }

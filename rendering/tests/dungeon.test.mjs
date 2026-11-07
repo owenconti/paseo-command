@@ -109,6 +109,14 @@ test("the concept's fleet: three floors, two projects each, one tier, gates cent
   const [api, web] = ["api", "web"].map((n) => layout.workspaces.find((w) => w.entity.name === n));
   assert.ok(api.rect.x < web.rect.x);
   assertLegible(layout);
+  // The foot of the last stairs: two rugs, two braziers, the crown banner, all above the count bar's strip.
+  const foot = layout.floors.at(-1).rect;
+  const strip = foot.y + foot.h - D.footPad;
+  for (const frame of ["rug-red", "brazier"]) {
+    const items = layout.decor.filter((d) => d.frame === frame && d.rect.y > foot.y + D.band);
+    assert.equal(items.length, 2, `two ${frame}s at the foot`);
+    for (const d of items) assert.ok(d.rect.y + d.rect.h <= strip, `${frame} above the count bar's strip`);
+  }
 });
 
 test("the same fleet always makes the same board", () => {
