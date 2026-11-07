@@ -8,7 +8,7 @@ from pathlib import Path
 import json, math, re, argparse, os, shutil, statistics, colorsys, random
 
 LIVE = Path('rendering/src/assets/dungeon')
-OUT = Path('rendering/artifacts/dungeon/v9/staging')
+OUT = Path('rendering/artifacts/dungeon/v9/signs/staging')
 ART = Path('rendering/artifacts/dungeon')
 RESAMPLE = Image.Resampling.LANCZOS
 SHEETS = {}
@@ -443,6 +443,7 @@ def build():
     hanging_v7()
     rough_masonry_v8()
     finish_light_v9()
+    build_signs_v9()
 
 def pack():
     OUT.mkdir(parents=True,exist_ok=True)
@@ -642,6 +643,7 @@ def validate():
     expected += ['corbel-left','corbel-right']
     expected += [f'{b}-{i}' for b in ['wall-brick','rampart-x','floor-flag','terrace-floor'] for i in [2,3]]
     expected += [f'light-spill-wall-{i}' for i in range(3)]+[f'light-spill-floor-{i}' for i in range(2)]+['wall-brick-dark-2','wall-brick-dark-3']
+    expected += ['sign-board','sign-board-tall','sign-bracket','gem-online','gem-warning','gem-offline','gem-online-0','gem-online-1','banner-purple-plain','banner-navy-plain','banner-blue-plain']
     expected += [f'{b}-{i}' for b in ['candelabra','wall-candles'] for i in range(4)]+['candelabra-out','wall-candles-out']
     missing=sorted(set(expected)-set(frames));extra=sorted(set(frames)-set(expected))
     if missing:errors.append('Missing '+str(missing))
@@ -1787,11 +1789,11 @@ def validate_light_v9():
     for path in base.glob('*.json'):
         if path.name=='prompts.json':continue
         old=json.loads(path.read_text());new=json.loads((OUT/path.name).read_text());a=Image.open(base/old['image']).convert('RGBA');b=Image.open(OUT/new['image']).convert('RGBA')
-        if new!=old:errors.append(path.name+' frame map changed')
+        if any(new['frames'].get(n)!=f for n,f in old['frames'].items()):errors.append(path.name+' existing frame map changed')
         for n,f in old['frames'].items():
             preserved+=1;box=(f['x'],f['y'],f['x']+f['w'],f['y']+f['h']);before=a.crop(box);after=b.crop(box)
             if n not in allowed and before.tobytes()!=after.tobytes():errors.append(n+' protected pixels changed')
-        if path.stem in ['robots','status','props','ui'] and (base/old['image']).read_bytes()!=(OUT/new['image']).read_bytes():errors.append(path.stem+' PNG changed')
+        if path.stem in ['robots','status','props','ui'] and set(new['frames'])==set(old['frames']) and (base/old['image']).read_bytes()!=(OUT/new['image']).read_bytes():errors.append(path.stem+' PNG changed')
     for n,m in json.loads((ART/'v9/glaze-metrics.json').read_text()).items():
         if m['max_alpha']>90 or m['rgb_min'][0]<240 or m['rgb_min'][1]<165:errors.append(n+' dark/dense pigment')
     report={'frame_maps_preserved':preserved,'changed_frames':sorted(allowed),'protected_PNGs':['robots','status','props','ui'],'errors':errors};(ART/'v9/validation.json').write_text(json.dumps(report,indent=2)+'\n')
@@ -1811,9 +1813,115 @@ def lighting_only_v9(publish_live=False):
     if publish_live:publish()
 
 
+def register_sign_frame(sheet,name,im,meta):
+    im=prune_micro(clean(im));SHEETS.setdefault(sheet,[]).append((name,im,meta));SPRITES[name]=im;META[name]=meta
+
+def stretch_sign_body(body,height):
+    # Scale the wood's width uniformly first, then lengthen only the quiet
+    # vertical middle. Round corner rivets and the thin edge stay undistorted.
+    body=fit(body,(825,max(84,round(body.height*825/body.width))),True);top=40;bottom=40;out=Image.new('RGBA',(825,height))
+    out.paste(body.crop((0,0,825,top)),(0,0));out.paste(body.crop((0,body.height-bottom,825,body.height)),(0,height-bottom));middle=body.crop((0,top,825,body.height-bottom)).resize((825,height-top-bottom),RESAMPLE);out.paste(middle,(0,top));return clean(out)
+
+def build_signs_v9():
+    root=ART/'v9/signs';crops=json.loads((root/'source-crops.json').read_text());raw=Image.open(root/'signs-raw.png').convert('RGBA');units=[trim(raw.crop(b)) for b in crops['signs']]
+    for k,(name,height) in enumerate([('sign-board',195),('sign-board-tall',255)]):
+        im=units[k];alpha=im.getchannel('A');rows=[y for y in range(im.height) if sum(a>100 for a in alpha.crop((0,y,im.width,y+1)).getdata())>im.width*.55];face=min(rows)
+        chains=fit(im.crop((0,0,im.width,face)),(825,45),True);body=stretch_sign_body(im.crop((0,face,im.width,im.height)),height);out=Image.new('RGBA',(825,height+45));out.alpha_composite(chains);out.alpha_composite(body,(0,45))
+        add('ui',name,out,'top',slice={'left':96,'right':96,'top':87,'bottom':42})
+    add('ui','sign-bracket',fit(units[2],(75,60),True),'feet')
+    for k,name in enumerate(['gem-online','gem-warning','gem-offline']):
+        im=units[k+3];pts=[(i%im.width,i//im.width) for i,(r,g,b,a) in enumerate(im.getdata()) if a>200 and r>g*1.15 and r-b>25]
+        bx=(min(x for x,y in pts),min(y for x,y in pts),max(x for x,y in pts)+1,max(y for x,y in pts)+1);diam=max(bx[2]-bx[0],bx[3]-bx[1]);scale=30/diam;cx=(bx[0]+bx[2])/2*scale;cy=(bx[1]+bx[3])/2*scale;im=fit(im,(round(im.width*scale),round(im.height*scale)),True);can=Image.new('RGBA',(42,42));can.alpha_composite(im,(round(21-cx),round(21-cy)));data=[]
+        for i,(r,g,b,a) in enumerate(can.getdata()):
+            d=math.hypot(i%42-20.5,i//42-20.5)
+            if d>15.5:
+                f=max(0,min(1,(21-d)/5.5));f=f*f*(3-2*f);a=round(min(110,a)*f)
+                if name=='gem-offline':a=0
+                else:r,g,b=(65,245,95) if k==0 else (255,183,42)
+            elif name=='gem-offline' and d<10:r,g,b=round(r*.65),round(g*.65),round(b*.65)
+            data.append((r,g,b,a))
+        can.putdata(data);can=prune_micro(clean(can));base=can.copy()
+        if name=='gem-online':
+            for phase,strength in enumerate([.58,.90]):
+                v=base.copy();v.putdata([(r,g,b,round(a*strength)) if math.hypot(i%42-20.5,i//42-20.5)>15 else (r,g,b,a) for i,(r,g,b,a) in enumerate(base.getdata())]);v=prune_micro(clean(v));add('ui',f'gem-online-{phase}',v,'centre',**({'fps':1} if phase==0 else {}))
+                if phase==0:static=v
+            add('ui',name,static,'centre')
+        else:add('ui',name,can,'centre')
+    banners=Image.open(root/'banners-raw.png').convert('RGBA')
+    for n,old,box in zip(['banner-purple-plain','banner-navy-plain','banner-blue-plain'],['banner-purple-layers','banner-navy-hammers','banner-blue-anvil'],crops['banners']):
+        src=trim(banners.crop(box));previous=SPRITES[old];b=previous.getchannel('A').getbbox();v=fit(src,(b[2]-b[0],b[3]-b[1]),True);out=Image.new('RGBA',previous.size);out.alpha_composite(v,(b[0],b[1]));register_sign_frame('props',n,out,META[old].copy())
+
+def sign_nine_slice(name,width):
+    im=SPRITES[name];s=META[name]['slice'];l=s['left'];r=s['right'];out=Image.new('RGBA',(width,im.height));out.paste(im.crop((0,0,l,im.height)),(0,0));out.paste(im.crop((im.width-r,0,im.width,im.height)),(width-r,0));out.paste(im.crop((l,0,im.width-r,im.height)).resize((width-l-r,im.height),RESAMPLE),(l,0));return out
+
+def sign_reviews_v9():
+    root=ART/'v9/signs';width=1320;height=1320;scene=Image.new('RGBA',(width,height),'#201b30');wall=SPRITES['wall-brick']
+    for y in range(0,height,wall.height):
+        for x in range(0,width,wall.width):scene.alpha_composite(wall,(x,y))
+    def p(n,x,y,w=None,h=None):
+        im=SPRITES[n]
+        if w or h:im=fit(im,(round(w or im.width*h/im.height),round(h or im.height*w/im.width)),True)
+        scene.alpha_composite(im,(round(x),round(y)))
+    p('gate-surround',163,70);p('gate-arch',440,605);p('gate-portcullis-lit-0',530,716);p('stairs-top',478,940);p('stairs-mid',480,1080)
+    p('banner-purple-plain',15,365);p('banner-navy-plain',1145,365);p('torch-0',260,680);p('torch-2',995,680)
+    n='sign-board-tall';im=SPRITES[n];x=round((width-im.width)/2);y=310
+    for cx in [x+62,x+im.width-62]:p('sign-bracket',cx-SPRITES['sign-bracket'].width/2,y-SPRITES['sign-bracket'].height+4)
+    p(n,x,y);p('gem-online-1',x+124-SPRITES['gem-online-1'].width/2,y+137-SPRITES['gem-online-1'].height/2)
+    # Text belongs only to this ignored review, never to any sprite.
+    try:font=ImageFont.truetype('/System/Library/Fonts/Supplemental/Georgia Bold.ttf',76);stats=ImageFont.truetype('/System/Library/Fonts/Supplemental/Georgia.ttf',30)
+    except OSError:font=ImageFont.truetype('/System/Library/Fonts/Menlo.ttc',76);stats=ImageFont.truetype('/System/Library/Fonts/Menlo.ttc',28)
+    lettering=Image.new('RGBA',scene.size);d=ImageDraw.Draw(lettering);d.text((width/2,y+96),'LOCAL',anchor='mt',font=font,fill='#f5e3b6');d.text((width/2,y+207),'CPU 42% · MEM 58% · DISK 70%',anchor='mt',font=stats,fill='#e9cea0');scene.alpha_composite(lettering)
+    ref=Image.open('design/references/dungeon-concept.png').convert('RGB').crop((380,60,820,500)).resize((1320,1320),RESAMPLE);mock=Image.new('RGB',(2670,1370),'#201b30');mock.paste(scene.convert('RGB'),(0,50));mock.paste(ref,(1350,50));d=ImageDraw.Draw(mock);d.text((10,15),'NEW WORLD SIGN / sprites at 3x / review text only',fill='white');d.text((1360,15),'PRIVATE CONCEPT CROP / same 3x scale',fill='white');mock.save(ART/'v9/sign-mock.png',optimize=True)
+    proof=Image.new('RGBA',(1500,1100),'#241e36');d=ImageDraw.Draw(proof)
+    for k,w in enumerate([660,829,1110]):
+        v=sign_nine_slice(n,w);proof.alpha_composite(v,(10,30+k*330));d.text((10,10+k*330),f'Horizontal 9-slice / width {w} / chains and end caps fixed',fill='white')
+    for k,n in enumerate(['banner-purple-plain','banner-navy-plain','banner-blue-plain']):proof.alpha_composite(SPRITES[n],(1150+k%2*170,40+k//2*280))
+    for k,n in enumerate(['gem-online-0','gem-online-1','gem-warning','gem-offline']):proof.alpha_composite(SPRITES[n].resize((92,92),RESAMPLE),(1130+(k%2)*150,700+(k//2)*150));d.text((1130+(k%2)*150,800+(k//2)*150),n,fill='white')
+    proof.convert('RGB').save(root/'sign-review.png',optimize=True)
+
+def validate_signs_v9():
+    root=ART/'v9/signs';errors=[];count=0;newnames=[]
+    for path in (root/'before').glob('*.json'):
+        if path.name=='prompts.json':continue
+        old=json.loads(path.read_text());new=json.loads((OUT/path.name).read_text());a=Image.open(root/'before'/old['image']).convert('RGBA');b=Image.open(OUT/new['image']).convert('RGBA')
+        for n,f in old['frames'].items():
+            count+=1;g=new['frames'].get(n)
+            if g!=f:errors.append(n+' metadata changed');continue
+            box=(f['x'],f['y'],f['x']+f['w'],f['y']+f['h'])
+            if a.crop(box).tobytes()!=b.crop(box).tobytes():errors.append(n+' old pixels changed')
+        newnames.extend(sorted(set(new['frames'])-set(old['frames'])))
+    for n in ['sign-board','sign-board-tall']:
+        im=SPRITES[n];s=META[n]['slice']
+        for w in [660,829,1110]:
+            v=sign_nine_slice(n,w)
+            if v.crop((0,0,s['left'],v.height)).tobytes()!=im.crop((0,0,s['left'],im.height)).tobytes():errors.append(n+' left cap stretches')
+            if v.crop((w-s['right'],0,w,v.height)).tobytes()!=im.crop((im.width-s['right'],0,im.width,im.height)).tobytes():errors.append(n+' right cap stretches')
+        if im.getchannel('A').crop((96,2,im.width-96,27)).getbbox():errors.append(n+' chains escape caps')
+    a=SPRITES['gem-online-0'];b=SPRITES['gem-online-1'];c=a.width//2
+    for y in range(a.height):
+        for x in range(a.width):
+            if math.hypot(x-c+.5,y-c+.5)<14 and a.getpixel((x,y))!=b.getpixel((x,y)):errors.append('gem body moves during pulse')
+    report={'preserved_old_frames':count,'new_frames':sorted(newnames),'gate_surround_already_blank':True,'pulse_fps':1,'horizontal_slice_widths_checked':[660,829,1110],'errors':errors};(root/'validation.json').write_text(json.dumps(report,indent=2)+'\n');print(json.dumps(report,indent=2))
+    if errors:raise ValueError(errors)
+
+def signs_only_v9(publish_live=False):
+    global OUT
+    root=ART/'v9/signs';OUT=root/'staging';OUT.mkdir(parents=True,exist_ok=True)
+    for p in LIVE.iterdir():
+        if p.suffix in ['.png','.json'] and not (p.name=='prompts.json' and (OUT/p.name).exists()):shutil.copy2(p,OUT/p.name)
+    load_live_art()
+    for sh in ['ui','props']:
+        j=json.loads((root/'before'/(sh+'.json')).read_text());a=Image.open(root/'before'/(sh+'.png')).convert('RGBA');SHEETS[sh]=[]
+        for n,f in j['frames'].items():
+            im=a.crop((f['x'],f['y'],f['x']+f['w'],f['y']+f['h']));meta={k:v for k,v in f.items() if k not in ['x','y','w','h']};SPRITES[n]=im;META[n]=meta;SHEETS[sh].append((n,im,meta))
+    build_signs_v9();pack();validate();contact();sign_reviews_v9();validate_signs_v9()
+    if publish_live:publish()
+
+
 if __name__=='__main__':
-    parser=argparse.ArgumentParser();parser.add_argument('--validate-only',action='store_true');parser.add_argument('--publish',action='store_true');parser.add_argument('--publish-staged',action='store_true');parser.add_argument('--robots-only',action='store_true');parser.add_argument('--art-only',action='store_true');parser.add_argument('--props-only',action='store_true');parser.add_argument('--hanging-only',action='store_true');parser.add_argument('--rough-only',action='store_true');parser.add_argument('--seam-fix',action='store_true');parser.add_argument('--floors-only','--materials-only',action='store_true');parser.add_argument('--lighting-only',action='store_true');args=parser.parse_args()
-    if args.lighting_only:lighting_only_v9(args.publish)
+    parser=argparse.ArgumentParser();parser.add_argument('--validate-only',action='store_true');parser.add_argument('--publish',action='store_true');parser.add_argument('--publish-staged',action='store_true');parser.add_argument('--robots-only',action='store_true');parser.add_argument('--art-only',action='store_true');parser.add_argument('--props-only',action='store_true');parser.add_argument('--hanging-only',action='store_true');parser.add_argument('--rough-only',action='store_true');parser.add_argument('--seam-fix',action='store_true');parser.add_argument('--floors-only','--materials-only',action='store_true');parser.add_argument('--lighting-only',action='store_true');parser.add_argument('--signs-only',action='store_true');args=parser.parse_args()
+    if args.signs_only:signs_only_v9(args.publish)
+    elif args.lighting_only:lighting_only_v9(args.publish)
     elif args.floors_only:floor_only_v8(args.publish)
     elif args.seam_fix:seam_fix_only(args.publish)
     elif args.rough_only:rough_only_v8(args.publish)

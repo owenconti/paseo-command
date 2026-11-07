@@ -2921,5 +2921,195 @@
         ]
       }
     }
+  },
+  "v9_world_signs": {
+    "signs": {
+      "tool": "built-in image_gen",
+      "prompt": "Use case: stylized-concept.\nAsset type: transparent sprite source atlas for in-world dungeon signs and small fittings.\nThe reference is a private STYLE reference only: use its HD painted pixel-flavoured material finish, chunky readable silhouettes, dark outlines, warm top-left torch light, bronze/iron highlights. Do not copy its text, UI plaques, glyphs or characters.\nGenerate an atlas in THREE horizontal bands with generous transparent space between objects. Genuine transparent background, no backing panels.\nTOP BAND: one wide dark-stained wooden signboard with a blank flat face, approximately 275 wide x 65 high in natural proportions, hanging from TWO short vertical iron chains near its TOP CORNERS. Chains should lie within the outermost 8% of the width so that they stay in the end caps when its middle is stretched. Low-key horizontal wood grain, deep dark brown face (#30231e to #3b2b22), thin bronze edge, simple blackened iron L-shaped corner brackets with a few rivets. Cream/gold painted letters will be drawn by code later, so the face must remain quiet, dark, completely blank and unornamented. The face's long middle section must be flat and horizontally stretchable. Show a little wood thickness along the lower edge. No scrollwork or ornate UI gold frame. Soft irregular chipped timber edges, handmade tavern/workshop object.\nMIDDLE BAND: the same signboard design, same width, same chains, brackets and edge, with a TALLER blank face (275 wide x 85 high proportions) for two text lines. Same dark quiet wood.\nBOTTOM BAND: four separate small isolated objects, spaced widely apart: (1) a blackened iron wall hook/bracket on a small bronze-bolted plate, with its hook pointing down for a hanging chain, about 25x20 proportions; (2) a tiny green luminous inset gem in a thin dark bronze socket, with restrained soft green emission; (3) the same tiny inset gem in amber, softly glowing; (4) the same socket with a dark grey gem, completely unlit. Each gem/socket is circular, about 10 units across, with a simple glossy cut face; no symbols or markings. Keep their glow small and subordinate.\nStyle: original softly painted game illustration with fine visible pixel-like material grain, not strict 8-bit grid, not vector, not photoreal. One palette and outline weight. No text, numbers, letters, symbols or emblems anywhere.",
+      "source_filename": "exec-63dda4fb-0dde-4a8e-a487-cede50a046ac.png",
+      "raw": "v9/signs/signs-raw.png"
+    },
+    "banners": {
+      "tool": "built-in image_gen",
+      "prompt": "Edit the supplied THREE-BANNER ATLAS. Remove the emblem from each of the three cloth faces: remove the white layers symbol on the purple banner, remove the crossed gold hammers on the navy banner, remove the pale anvil on the blue banner. Replace each emblem area with continuous matching shaded cloth folds. The banners must be completely PLAIN, with no symbol, pattern, logo, text or numbers. Preserve their colours, gold hem/fringe, hanging rods, dark outlines, tapered silhouettes, long proportions, glossy painted shading, fine pixel-flavoured texture and warm top-left light. Do not add anything. Keep the same left-to-right order (purple, navy, blue) and a transparent background with generous clear gutters. Output only these three full banners, no scene or labels. This is an edit of existing original game art, not a redesign.",
+      "source_filename": "exec-72565ed8-c606-47d9-88c1-6b81f2691204.png",
+      "raw": "v9/signs/banners-raw.png",
+      "edit_target": "v9/signs/banners-edit.png"
+    },
+    "crops": {
+      "signs": [
+        [
+          398,
+          0,
+          1757,
+          245
+        ],
+        [
+          398,
+          259,
+          1760,
+          571
+        ],
+        [
+          496,
+          595,
+          656,
+          729
+        ],
+        [
+          862,
+          611,
+          980,
+          717
+        ],
+        [
+          1190,
+          612,
+          1308,
+          717
+        ],
+        [
+          1529,
+          617,
+          1626,
+          709
+        ]
+      ],
+      "banners": [
+        [
+          12,
+          31,
+          558,
+          889
+        ],
+        [
+          578,
+          31,
+          1126,
+          889
+        ],
+        [
+          1146,
+          31,
+          1693,
+          889
+        ]
+      ]
+    },
+    "exported_frames": {
+      "sign-board": {
+        "x": 4,
+        "y": 674,
+        "w": 829,
+        "h": 244,
+        "anchor": {
+          "x": 414.5,
+          "y": 2
+        },
+        "slice": {
+          "left": 96,
+          "right": 96,
+          "top": 87,
+          "bottom": 42
+        }
+      },
+      "sign-board-tall": {
+        "x": 4,
+        "y": 922,
+        "w": 829,
+        "h": 304,
+        "anchor": {
+          "x": 414.5,
+          "y": 2
+        },
+        "slice": {
+          "left": 96,
+          "right": 96,
+          "top": 87,
+          "bottom": 42
+        }
+      },
+      "sign-bracket": {
+        "x": 837,
+        "y": 922,
+        "w": 79,
+        "h": 64,
+        "anchor": {
+          "x": 39.5,
+          "y": 62
+        }
+      },
+      "gem-online-0": {
+        "x": 920,
+        "y": 922,
+        "w": 46,
+        "h": 46,
+        "anchor": {
+          "x": 23.0,
+          "y": 23.0
+        },
+        "fps": 1
+      },
+      "gem-online-1": {
+        "x": 970,
+        "y": 922,
+        "w": 46,
+        "h": 46,
+        "anchor": {
+          "x": 23.0,
+          "y": 23.0
+        }
+      },
+      "gem-online": {
+        "x": 4,
+        "y": 1230,
+        "w": 46,
+        "h": 46,
+        "anchor": {
+          "x": 23.0,
+          "y": 23.0
+        }
+      },
+      "gem-warning": {
+        "x": 54,
+        "y": 1230,
+        "w": 46,
+        "h": 46,
+        "anchor": {
+          "x": 23.0,
+          "y": 23.0
+        }
+      },
+      "gem-offline": {
+        "x": 104,
+        "y": 1230,
+        "w": 46,
+        "h": 46,
+        "anchor": {
+          "x": 23.0,
+          "y": 23.0
+        }
+      }
+    },
+    "body_bounds": {
+      "sign-board": [
+        2,
+        47,
+        827,
+        242
+      ],
+      "sign-board-tall": [
+        2,
+        47,
+        827,
+        302
+      ]
+    },
+    "method": "Whole generated wood body scaled uniformly in width, with quiet vertical middle extended to preserve round rivets. Chains occupy fixed 96px caps. Generated bronze socket fixes gem body registration; outer emission alone pulses at 1fps. Plain-banner edit is fitted to original canvas bounds/anchors.",
+    "gate_surround_already_blank": true,
+    "gem_outer_pulse_strength": [
+      0.58,
+      0.9
+    ]
   }
 }

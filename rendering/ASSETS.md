@@ -981,13 +981,14 @@ Only animation frame zero supplies `fps`.
 | `alcoves` | 11 | Four sparse interiors, chunky piers, lintel, new ledge and three redrawn candle flames |
 | `gate` | 12 | New upper host surround, lower arch, lit/dark portcullis, stairs with side walls, host disc and crown banner |
 | `stone` | 50 | Architecture, raised ramparts, broad flagstones, three excavated-rock variants and gold reflection glazes |
-| `ui` | 28 | Simple clipped parchment, thin bronze borders, dark discs in pale octagonal mounts, pictograms/counts/dots |
-| `props` | 54 | Furnishings, animated fires/magic, candelabra and wall-candle families, unlit variants |
+| `ui` | 36 | Original UI kit plus blank wooden hanging signs, bracket and inset host-status gems |
+| `props` | 57 | Furnishings, fires/magic, candle fixtures, unlit variants and three plain cloth banners |
 | `status` | 27 | Existing markers, glows and PR/Probe states, plus violet `mark-asking` / `glow-asking` |
 
-There are 262 frames: the 235 earlier frames, ten candle-fixture frames from v6,
+There are 273 frames: the 235 earlier frames, ten candle-fixture frames from v6,
 two underside corbels from v7, eight tile variants and five reflection glazes
-from v8, plus two excavated-rock alternatives. V9 replaces artwork in place.
+from v8, two excavated-rock alternatives, and eleven world-sign/gem/plain-cloth
+pieces. V9's lighting changes replace artwork in place.
 The original required names and optional
 `rampart-return-left` / `rampart-return-right` are retained. The two optional
 diagonal wall runs let a terrace or alcove show the angled returns in the
@@ -1405,6 +1406,63 @@ passes. All 262 frame maps, dimensions and anchors are preserved. Only the
 stone, alcoves and gate PNGs change; robots/status/props/UI PNGs are byte-identical.
 `v9/validation.json` records the preservation checks. No app code or commits
 are part of this art pass.
+
+The V9 world-sign extension follows the user's removal of host/project icon
+overlays and move from UI-like host plaques to painted hanging wood. It adds
+eleven frames without removing or altering earlier frames. Two built-in image
+generations supply a blank sign/fittings atlas and an emblem-removal edit of
+the three existing cloth banners. Exact prompts, source filenames and whole-
+object crop rectangles are under `v9_world_signs` in `prompts.json`; the private
+sources and pre-pass kit are in `artifacts/dungeon/v9/signs/`.
+
+New `ui` frames:
+
+- `sign-board`: 829×244 sheet pixels; wood body 825×195 (275×65 concept units)
+  plus 45 pixels of chain height and the usual gutters.
+- `sign-board-tall`: 829×304; wood body 825×255 (275×85 units), for a host name
+  and smaller stats line. Both signs have top-centre anchor `(414.5,2)` and
+  `slice: {left:96,right:96,top:87,bottom:42}`. Keep their natural height for
+  horizontal stretching. Chains, corner brackets, round rivets and end caps
+  remain fixed; only the quiet grain in the long middle stretches. The wood
+  body starts at sheet y=47. Suggested inner lettering bounds are x=112..717,
+  y=100..196 on the normal board and y=100..256 on the tall board. Inset gems
+  can sit to the left of a centred name; don't include chains in text layout.
+- `sign-bracket`: 79×64, bottom-centre anchor `(39.5,62)`. One or two copies can
+  mount the sign chains on the receiving masonry.
+- `gem-online`, `gem-warning`, `gem-offline`: 46×46, centre anchor `(23,23)`;
+  the bronze socket/gem body is about 30 pixels (10 concept units) across.
+- `gem-online-0`, `gem-online-1`: same canvas and anchor; `fps:1` on phase 0.
+  Only the soft outer emission changes, leaving the gem/socket body registered.
+  `gem-online` is the phase-0 static appearance. Amber has restrained emission;
+  the grey gem has a dark face and no emitted halo.
+
+New `props` frames are `banner-purple-plain`, `banner-navy-plain` and
+`banner-blue-plain`. Each has its respective source banner's exact 160×246
+canvas and top-centre anchor `(80,2)`, with the same cloth colours, long drape,
+rod and gold hem, and no emblem. The edit's whole banners are resampled into
+their accepted source silhouettes' bounding rectangles. The old emblem banners
+remain available for compatibility; the crown banner and its pixels remain
+unchanged. `gate-surround` already has no baked glyph, so it is reused and no
+duplicate `gate-surround-plain` frame is added.
+
+Wood and fittings are generated raster illustration, not programmatic vector
+stand-ins. The source board is scaled uniformly in width and its quiet vertical
+middle is extended to the target face heights, preserving round rivets and the
+thin edge. Gem socket dimensions are registered from the bronze rim; only the
+generated outer glow is tinted/attenuated to remove neutral fringe and produce
+the soft pulse. Sprites stay entirely blank of text. The ignored
+`artifacts/dungeon/v9/sign-mock.png` alone paints “LOCAL” and the specified stats
+on the tall sign beside a 3× concept crop. `v9/signs/sign-review.png` shows fixed
+end caps/chains at widths 660, 829 and 1110, the plain cloth and the gem states.
+
+`--signs-only` stages and checks the extension in `v9/signs/staging/`;
+`--signs-only --publish` installs the completed sheets atomically. The full
+rebuild includes these frames. `v9/signs/validation.json` records preservation
+of all 262 earlier frames, horizontal-slice cap identity, gem registration and
+the gate's already-blank recess. Only UI/props PNGs and maps change, all maps
+remain scale 3, and the complete tracked asset folder remains below 12 MB.
+The contact sheet is refreshed; no app code, commits or reference pixels are
+included in the export.
 
 Remaining differences: the concept's masonry has more bespoke pixel-like chips,
 uneven joints and integrated painted shadows. V3 is smoother, its joins and
