@@ -46,7 +46,7 @@ const INTERIOR_SHADE = 0.28;
 /** Gold light: its colour (multiplied, doubled, over the stone) and each kind of pool's strength. */
 const GOLD = 0xc87c00;
 const GOLD_DEEP = 0x7a4c00;
-const GOLD_K = { alcove: 0.5, walk: 0.62, rim: 0.9, front: 0.95, torch: 0.95, candle: 0.4 };
+const GOLD_K = { alcove: 0.5, walk: 0.62, rim: 0.9, front: 0.35, torch: 0.95, candle: 0.4 };
 /** The concept's chunky, wide, rounded heavy type: SF Pro Rounded where WebKit has it. */
 const FONT = 'ui-rounded, "SF Pro Rounded", "Arial Rounded MT Bold", "Paseo Barlow", sans-serif';
 /** Its weights: labels and plaques heavy, the HUD's lighter lines bold. */
@@ -511,7 +511,8 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
         const open = !fl.last && y0 === fl.tierTops[fl.tiers - 1] ? D.surroundW / 2 - 4 : D.stairsW / 2 + 2;
         for (const sd of [-1, 1]) {
           const x0 = sd === -1 ? -H + 113 : open, x1 = sd === -1 ? -open : H - 111;
-          fill("rampart-x", { x: x0, y: y0 + D.frontY, w: x1 - x0, h: 28 }, -9, dim);
+          // A light purple shade, so v5's warmed blocks read as stone with warm highlights.
+          fill("rampart-x", { x: x0, y: y0 + D.frontY, w: x1 - x0, h: 28 }, -9, { ...dim, shade: dim.dim ? 0 : 0.22 });
         }
         put("rampart-return-right", -H + 30, y0 + D.frontY - 16, 92, 43, -8.9, dim);
         put("rampart-return-left", H - 118, y0 + D.frontY - 16, 88, 43, -8.9, dim);
@@ -666,8 +667,8 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
         for (const sd of [-1, 1])
           for (let x = D.stairsW / 2 + 70; x < fl.rect.w / 2 - 40; x += 120) {
             // (The walkways' terrace floor carries its own warm light since art v5.)
-            // A deeper gold here: saturated, but not brighter than the robots above it.
-            for (const dx of [0, 60]) lights.push({ x: sd * (x + dx), y: y0 + D.frontY + 9, rx: 70, ry: 15, c: GOLD_DEEP, blend: "gold", k: GOLD_K.front, z: -8.5, period: 5200, flicker: false });
+            // A faint rim light on the front walls' lit tops (art v5 already warms them; more read as wooden beams).
+            lights.push({ x: sd * x, y: y0 + D.frontY + 6, rx: 64, ry: 9, c: GOLD_DEEP, blend: "gold", k: GOLD_K.front, z: -8.5, period: 5200, flicker: false });
           }
       }
     }
