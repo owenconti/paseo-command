@@ -107,7 +107,11 @@ export const FRAMES: Record<string, FrameSpec> = Object.fromEntries([
   ["rampart-return-right", spec("stone", 49, 49, "top-left")],
   ["terrace-floor", spec("stone", 72, 60, "top-left", { tile: "xy" })],
   // Side-room recesses, each holding a vignette.
-  ...["arch", "cave", "magic", "forge"].map((r) => [`room-${r}`, spec("props", 130, 140, "feet")] as [string, FrameSpec]),
+  ...["arch", "cave", "magic", "forge"].map((r) => [`room-${r}`, spec("stone", 130, 200, "feet")] as [string, FrameSpec]),
+  // The upper wall's dressing.
+  ["pillar-capital", spec("stone", 55, 37, "top-left")],
+  ["window-arch", spec("stone", 66, 91, "feet")],
+  ["chain-pair", spec("props", 61, 101, "top-center")],
   // ui
   ["label", spec("ui", 64, 36, "top-left", { slice: 12 })],
   ["plaque", spec("ui", 96, 64, "top-left", { slice: 16 })],

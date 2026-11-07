@@ -40,7 +40,11 @@ const SHEET_PNG = import.meta.glob("../assets/dungeon/*.png", { eager: true, que
 const TEXT_SCALE = 4;
 /** How dark the far wall is drawn (a share of black over its tile), for the light pools to warm. */
 const WALL_SHADE = 0;
-const FONT = '"Paseo Barlow", Barlow, "Helvetica Neue", Arial, sans-serif';
+/** The concept's chunky, wide, rounded heavy type: SF Pro Rounded where WebKit has it. */
+const FONT = 'ui-rounded, "SF Pro Rounded", "Arial Rounded MT Bold", "Paseo Barlow", sans-serif';
+/** Its weights: labels and plaques heavy, the HUD's lighter lines bold. */
+const HEAVY = 800;
+const BOLD = 700;
 const INK = "#2a1a0e";
 const ALERT = "#b0301c";
 
@@ -169,7 +173,7 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
   const entity = (id: string | null) => (id && layout?.entities.find((e) => e.id === id)) || null;
 
   const measurer = document.createElement("canvas").getContext("2d")!;
-  const fontOf = (kind: keyof typeof D.font) => `600 ${D.font[kind]}px ${FONT}`;
+  const fontOf = (kind: keyof typeof D.font) => `${kind === "stats" ? BOLD : HEAVY} ${D.font[kind]}px ${FONT}`;
   const measure: Measure = (text, kind) => {
     measurer.font = fontOf(kind);
     return measurer.measureText(text).width;
@@ -236,9 +240,9 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
   /** The HUD's title plaque and count bar: navy panels with gold borders, in screen points. */
   const paintTitle = (subtitle: string) => {
     const title = "Dungeon Board — Command Center";
-    measurer.font = `600 22px ${FONT}`;
+    measurer.font = `${HEAVY} 22px ${FONT}`;
     const tw = measurer.measureText(title).width;
-    measurer.font = `400 15px ${FONT}`;
+    measurer.font = `${BOLD} 15px ${FONT}`;
     const sw = measurer.measureText(subtitle).width;
     const w = Math.ceil(Math.max(tw, sw) + 92), h = 66;
     const { canvas, ctx } = canvasFor(w, h);
@@ -246,10 +250,10 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
     ctx.drawImage(frame("icon-castle"), 18, h / 2 - 17, 34, 34);
     ctx.textBaseline = "middle";
     ctx.fillStyle = "#f4ead2";
-    ctx.font = `600 22px ${FONT}`;
+    ctx.font = `${HEAVY} 22px ${FONT}`;
     ctx.fillText(title, 66, 25);
     ctx.fillStyle = "#cfc6e6";
-    ctx.font = `400 15px ${FONT}`;
+    ctx.font = `${BOLD} 15px ${FONT}`;
     ctx.fillText(subtitle, 66, 47);
     return { canvas, w, h };
   };
@@ -260,7 +264,7 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
       ["workspaces", counts.workspaces, counts.workspaces === 1 ? "Workspace" : "Workspaces"],
       ["agents", counts.agents, counts.agents === 1 ? "Agent" : "Agents"],
     ] as const;
-    const num = `600 24px ${FONT}`, word = `400 19px ${FONT}`;
+    const num = `${HEAVY} 24px ${FONT}`, word = `${BOLD} 19px ${FONT}`;
     const widths = items.map(([, n, label]) => {
       measurer.font = num;
       const a = measurer.measureText(String(n)).width;
@@ -316,6 +320,30 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
     };
   };
   const tile = (name: string, r: Rect, z: number, extra: Sprite = {}): Sprite => ({ f: name, x: r.x, y: r.y, w: r.w, h: r.h, z, tile: FRAMES[name]!.tile ?? "xy", ...extra });
+
+  /** A shading overlay, stretched over the board: a purple shadow falling from the top of a floor's upper wall,
+   * or a vignette darkening the board toward its edges. */
+  const paintShade = (kind: "upper" | "edges") => {
+    const canvas = document.createElement("canvas");
+    canvas.width = canvas.height = 256;
+    const ctx = canvas.getContext("2d")!;
+    const shadow = (a: number) => `rgba(26, 8, 48, ${a})`;
+    if (kind === "upper") {
+      const g = ctx.createLinearGradient(0, 0, 0, 256);
+      g.addColorStop(0, shadow(0.55));
+      g.addColorStop(0.55, shadow(0.25));
+      g.addColorStop(1, shadow(0));
+      ctx.fillStyle = g;
+    } else {
+      const g = ctx.createRadialGradient(128, 128, 70, 128, 128, 182);
+      g.addColorStop(0, shadow(0));
+      g.addColorStop(0.7, shadow(0.22));
+      g.addColorStop(1, shadow(0.6));
+      ctx.fillStyle = g;
+    }
+    ctx.fillRect(0, 0, 256, 256);
+    return canvas;
+  };
 
   /** The board's stone, gates, alcoves, labels, links and decorations: what changes only when places do. */
   const sceneOf = (l: DungeonLayout) => {
@@ -387,7 +415,7 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
       const dim = dimOf(p.floor);
       const y0 = p.span.y;
       // The project's terrace: a recess of darker stone behind its medallion and label, under a rampart that returns at its outer end.
-      fill("wall-brick-dark", { x: p.span.x + 30, y: y0 + 34, w: Math.max(0, p.span.w - 60), h: 83 }, -50, { ...dim, shade: WALL_SHADE });
+      fill("wall-brick-dark", { x: p.span.x + 30, y: y0 + 34, w: Math.max(0, p.span.w - 60), h: 83 }, -50, { ...dim, shade: 0.3 });
       fill("rampart-x", { x: p.span.x + (p.side === -1 ? 36 : 0), y: y0 + 23, w: p.span.w - 36, h: 25 }, -30, dim);
       if (p.side === -1) put("rampart-return-left", p.span.x, y0 + 23, 50, 75, -29.9, dim);
       else put("rampart-return-right", p.span.x + p.span.w - 50, y0 + 23, 50, 75, -29.9, dim);
@@ -432,11 +460,25 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
     ]);
     for (const d of l.decor) {
       if (d.project) continue;
-      sprites.push(sprite(d.frame, d.rect, d.recess ? -38 : d.layer === "back" ? -48 : -4, { ...dimOf(d.floor), ...(d.flip ? { flip: 1 } : {}) }));
+      // Rugs lie on the terrace floor; recesses stand on it; other back things hang on the far wall.
+      const z = d.frame === "rug-red" ? -39.5 : d.recess ? -38 : d.layer === "back" ? -48 : -4;
+      sprites.push(sprite(d.frame, d.rect, z, { ...dimOf(d.floor), ...(d.flip ? { flip: 1 } : {}) }));
       if (d.light && l.floors[d.floor]!.online)
-        lights.push({ x: d.rect.x + d.rect.w / 2, y: d.frame === "torch" ? d.rect.y + 8 : d.rect.y + d.rect.h * 0.45, c: d.light.color, r: d.light.reach, period: 2400, flicker: true, ph: random(seedOf(`${d.frame}${d.x},${d.y}`))() });
+        lights.push({
+          x: d.rect.x + d.rect.w / 2,
+          y: d.light.dy !== undefined ? d.rect.y + d.light.dy : d.frame === "torch" ? d.rect.y + 8 : d.rect.y + d.rect.h * 0.45,
+          c: d.light.color, r: d.light.reach, period: 2400, flicker: d.frame === "torch" || d.frame === "brazier", ph: random(seedOf(`${d.frame}${d.x},${d.y}`))(),
+        });
     }
-    for (const n of l.nodes) sprites.push(sprite("node", at("node", n.x, n.y), 1.5));
+    // The links' joints: bigger gold nodes, each with a soft halo.
+    for (const n of l.nodes) {
+      sprites.push(sprite("node", at("node", n.x, n.y, 14), 1.5));
+      lights.push({ x: n.x, y: n.y, c: 0xffc44a, r: 22, period: 2800, flicker: false, ph: random(seedOf(`node${n.x},${n.y}`))(), z: 1.4 });
+    }
+    // Contrast: the upper walls fall into purple shadow toward the top; the board darkens toward its edges.
+    for (const fl of l.floors)
+      images.push({ ...image("shade:upper", () => paintShade("upper")), x: fl.rect.x, y: fl.top, w: fl.rect.w, h: D.band + 20, z: -53 });
+    images.push({ ...image("shade:edges", () => paintShade("edges")), x: l.bounds.x, y: l.bounds.y, w: l.bounds.w, h: l.bounds.h, z: 0.9 });
     return {
       type: "scene",
       build: ++builds,
@@ -622,7 +664,7 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
   // The art is prepared once per page; Swift keeps it as textures.
   void (async () => {
     try {
-      await Promise.all([document.fonts?.load(`600 20px ${FONT}`), document.fonts?.load(`400 20px ${FONT}`)].filter(Boolean)).catch(() => undefined);
+      await Promise.all([document.fonts?.load(`${HEAVY} 20px ${FONT}`), document.fonts?.load(`${BOLD} 20px ${FONT}`)].filter(Boolean)).catch(() => undefined);
       const built = await buildFrames();
       if (destroyed) return;
       frames = built.canvases;

@@ -296,8 +296,10 @@ final class DungeonScene: SKScene, MapScene {
         return fallback
     }
 
+    /// Shade is purple-tinted, as the concept's shadows are, never a neutral grey.
+    static let shadow = Textures.color(0x1a0830)
     private func darken(_ node: SKSpriteNode) {
-        node.color = Textures.color(0x06040c)
+        node.color = DungeonScene.shadow
         node.colorBlendFactor = 0.55
     }
 
@@ -380,7 +382,7 @@ final class DungeonScene: SKScene, MapScene {
                     s.size = CGSize(width: cell.width + 0.4, height: cell.height + 0.4)
                     s.position = p(cell.minX, cell.minY)
                     if shade > 0 {
-                        s.color = Textures.color(0x06040c)
+                        s.color = DungeonScene.shadow
                         s.colorBlendFactor = shade
                     }
                     container.addChild(s)
@@ -401,7 +403,7 @@ final class DungeonScene: SKScene, MapScene {
         }
         let group = SKNode()
         group.zPosition = 1
-        for (width, color, alpha, add) in [(14.0, 0xffa020, 0.2, true), (8.0, 0xffb52e, 0.4, true), (4.2, 0xffc844, 1.0, false), (1.6, 0xfff4c0, 1.0, false)] as [(CGFloat, Int, CGFloat, Bool)] {
+        for (width, color, alpha, add) in [(24.0, 0xff9a18, 0.16, true), (13.0, 0xffb02a, 0.34, true), (5.6, 0xffc23c, 1.0, false), (2.2, 0xfff6c8, 1.0, false)] as [(CGFloat, Int, CGFloat, Bool)] {
             let line = SKShapeNode(path: path)
             line.strokeColor = Textures.color(dim ? 0x6a6050 : color, dim ? alpha * 0.5 : alpha)
             line.lineWidth = width
@@ -417,7 +419,7 @@ final class DungeonScene: SKScene, MapScene {
     /// A light's glow: additive, in its colour, flickering as a flame or breathing.
     private func light(_ l: [String: Any], into glows: inout [Glow]) -> SKNode {
         let reach = num(l["r"], 40)
-        let glow = SKSpriteNode(texture: Textures.glow(reach: reach), size: CGSize(width: reach * 2 + 2, height: reach * 2 + 2))
+        let glow = SKSpriteNode(texture: DungeonScene.warmGlow, size: CGSize(width: reach * 2 + 2, height: reach * 2 + 2))
         glow.color = Textures.color(l["c"] as? Int ?? 0xffffff)
         glow.colorBlendFactor = 1
         glow.blendMode = .add
@@ -426,6 +428,22 @@ final class DungeonScene: SKScene, MapScene {
         glows.append(Glow(node: glow, period: l["period"] as? Double ?? 2400, phase: Double(num(l["ph"])), flicker: l["flicker"] as? Bool ?? true))
         return glow
     }
+
+    /// A light's pool: a soft radial falloff, bright at its heart (tinted per light, added over the stone).
+    static let warmGlow: SKTexture = {
+        let px = 128
+        let ctx = Textures.context(px, px)!
+        let space = CGColorSpace(name: CGColorSpace.sRGB)!
+        let stops: [CGFloat] = [0, 0.35, 1]
+        let colors = [CGColor(colorSpace: space, components: [1, 1, 1, 0.85])!, CGColor(colorSpace: space, components: [1, 1, 1, 0.32])!,
+                      CGColor(colorSpace: space, components: [1, 1, 1, 0])!] as CFArray
+        let gradient = CGGradient(colorsSpace: space, colors: colors, locations: stops)!
+        let c = CGPoint(x: px / 2, y: px / 2)
+        ctx.drawRadialGradient(gradient, startCenter: c, startRadius: 0, endCenter: c, endRadius: CGFloat(px) / 2, options: [])
+        let t = SKTexture(cgImage: ctx.makeImage()!)
+        t.filteringMode = .linear
+        return t
+    }()
 
     /// Dark dungeon stone wherever the camera can show beyond the board.
     private func coverBackdrop() {
@@ -809,11 +827,11 @@ final class DungeonScene: SKScene, MapScene {
             pulse.node.alpha = pulse.base * CGFloat(k)
         }
         for g in sceneGlows + agentGlows {
-            if reduced { g.node.alpha = 0.75; continue }
+            if reduced { g.node.alpha = 0.85; continue }
             let t = clock / g.period + g.phase
             let breath = 0.5 + 0.5 * cos(t * .pi * 2)
             let flicker = g.flicker ? 0.14 * sin(clock / 67 + g.phase * 40) * sin(clock / 109 + g.phase * 9) : 0
-            g.node.alpha = CGFloat((g.flicker ? 0.62 + 0.3 * breath : 0.45 + 0.55 * breath) + flicker)
+            g.node.alpha = CGFloat((g.flicker ? 0.7 + 0.25 * breath : 0.6 + 0.4 * breath) + flicker)
         }
         if selected != nil { breathe() }
         for r in robots {

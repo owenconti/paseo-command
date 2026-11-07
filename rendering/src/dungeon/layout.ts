@@ -51,7 +51,7 @@ export const D = {
   drop: 150,
   trunk: 70,
   /** Each end of a floor is a side room this wide. */
-  sideRoom: 140,
+  sideRoom: 168,
   /** A side's content is at least this wide, so a small fleet still reads as the concept's hall. */
   minSide: 330,
   /** Floor: its upper band (gate medallion, plaque, node) above its first tier. */
@@ -61,7 +61,9 @@ export const D = {
   /** The stone ledge's face under a tier's floor. */
   ledge: 28,
   /** Below the last floor: the stairs' foot, braziers, rugs and the crown banner. */
-  foot: 100,
+  foot: 110,
+  /** Below the foot's furnishings, room the HUD's count bar lies over (nothing the board says is under it). */
+  footPad: 90,
   /** Within a tier (from its top). */
   medallionY: 29,
   medallionR: 29,
@@ -193,8 +195,8 @@ export type DDecor = {
   rect: Rect;
   floor: number;
   flip?: boolean;
-  /** A light it gives (torches, braziers, candles, the forge, crystal, tank, circle). */
-  light?: { color: number; reach: number };
+  /** A light it gives (torches, braziers, candles, the forge, crystal, tank, circle); `dy` from its top, else its middle. */
+  light?: { color: number; reach: number; dy?: number };
   /** Lit with its project's work, rather than always. */
   project?: string;
   /** Drawn behind the board's structures (floor props, rugs) or in front. */
@@ -352,7 +354,7 @@ function tierUp(blocks: Block[], capacity: number): Tiered {
 }
 
 const floorHeight = (tiers: number, last: boolean) =>
-  D.band + tiers * D.tierH + (tiers - 1) * D.tierGap + (last ? D.foot : 0);
+  D.band + tiers * D.tierH + (tiers - 1) * D.tierGap + (last ? D.foot + D.footPad : 0);
 
 function rectOf(frame: string, x: number, y: number, w?: number): { w: number; h: number; rect: Rect } {
   const base = FRAMES[frame] ?? FRAMES[`${frame}-0`]!;
@@ -371,20 +373,21 @@ export function segmentRect(a: Pt, b: Pt, glow = 4): Rect {
 }
 
 /** Side-room vignettes: props standing on a room's floor, by offset from its middle. */
-const VIGNETTES: { name: string; room: string; glow?: { color: number; reach: number }; props: { frame: string; dx: number; dy?: number; flip?: boolean; light?: { color: number; reach: number }; layer?: "back" | "front" }[] }[] = [
-  { name: "forge", room: "room-forge", glow: { color: 0xff7a2a, reach: 90 }, props: [{ frame: "forge", dx: 12, light: { color: 0xff8a2a, reach: 110 } }, { frame: "anvil", dx: -30 }] },
-  { name: "crystal", room: "room-cave", glow: { color: 0xb06bff, reach: 100 }, props: [{ frame: "crystal", dx: 12, light: { color: 0xb06bff, reach: 120 } }, { frame: "barrel", dx: -30 }] },
-  { name: "alchemy", room: "room-arch", glow: { color: 0xc06bff, reach: 80 }, props: [{ frame: "alchemy-tank", dx: 12, light: { color: 0xc06bff, reach: 110 } }, { frame: "crate", dx: -30 }] },
-  { name: "library", room: "room-arch", props: [{ frame: "bookcase-ladder", dx: 12 }, { frame: "table", dx: -30 }] },
-  { name: "magic", room: "room-magic", glow: { color: 0x3fb8ff, reach: 100 }, props: [{ frame: "magic-circle", dx: 12, dy: -18, light: { color: 0x3fb8ff, reach: 120 }, layer: "back" }, { frame: "armor", dx: 12 }] },
-  { name: "storage", room: "room-arch", props: [{ frame: "barrels", dx: 12 }, { frame: "crates", dx: -30 }] },
-  { name: "scribe", room: "room-arch", props: [{ frame: "shelf-potions", dx: 12 }, { frame: "scroll-desk", dx: -30 }] },
+/** Side-room vignettes: a recess (130 × 200, standing on the tier's floor) and its props, each at its sheet size,
+ * placed by its top-left corner from the recess's, as the art's own room compositions place them. */
+const VIGNETTES: { name: string; room: string; glow?: { color: number; reach: number; dy: number }; props: { frame: string; x: number; y: number; light?: { color: number; reach: number } }[] }[] = [
+  { name: "library", room: "room-arch", props: [{ frame: "bookcase-ladder", x: 26.7, y: 83.3 }] },
+  { name: "crystal", room: "room-cave", glow: { color: 0xb06bff, reach: 120, dy: 150 }, props: [{ frame: "crystal", x: 40, y: 140, light: { color: 0xc080ff, reach: 90 } }] },
+  { name: "magic", room: "room-magic", glow: { color: 0x3fb8ff, reach: 130, dy: 90 }, props: [{ frame: "magic-circle", x: 33.3, y: 55 }, { frame: "armor", x: 76.7, y: 130 }] },
+  { name: "forge", room: "room-forge", glow: { color: 0xff7a2a, reach: 120, dy: 165 }, props: [{ frame: "forge", x: 32.7, y: 125, light: { color: 0xff9a3a, reach: 90 } }] },
+  { name: "alchemy", room: "room-arch", glow: { color: 0xc06bff, reach: 100, dy: 150 }, props: [{ frame: "alchemy-tank", x: 35, y: 125 }] },
+  { name: "storage", room: "room-arch", props: [{ frame: "barrels", x: 12, y: 158 }, { frame: "crates", x: 62, y: 148 }] },
 ];
 const BANNERS = ["banner-purple-layers", "banner-purple", "banner-navy-hammers", "banner-blue-anvil"];
 const FLOOR_PROPS = ["barrel", "barrels", "crate", "crates", "shelf-potions", "table"];
-const TORCH_LIGHT = { color: 0xffa03a, reach: 80 };
-/** Side-room props are drawn this much over their sheet size, to fill the room as the concept's do. */
-const VIGNETTE_SCALE = 1.05;
+const TORCH_LIGHT = { color: 0xffa03a, reach: 100 };
+/** A side room's recess, in board units. */
+const ROOM = { w: 130, h: 200 };
 
 /**
  * Lay the fleet out as the Dungeon Board. Its width follows its content, not
@@ -677,22 +680,23 @@ export function layoutDungeon(data: AtlasData, _aspect = 1.6, measure: Measure =
         decor.push({ frame: "torch", x: t.x, y: t.y, w, h, rect, floor: f, project: p.entity?.id ?? p.key, layer: "front", light: TORCH_LIGHT });
       }
     // Side rooms: each tier's floor ends hold a vignette in its own recess, seeded, distinct where it can be.
-    const deck = [...VIGNETTES];
-    for (let i = deck.length - 1; i > 0; i--) {
-      const j = Math.floor(rng() * (i + 1));
-      [deck[i], deck[j]] = [deck[j]!, deck[i]!];
-    }
-    let dealt = (seedOf(fl.host.id) >>> 3) % deck.length;
+    // Dealt through the board in one sequence (rotated by the hosts shown), so neighbouring rooms differ.
+    const rotation = seedOf(floors.map((x) => x.host.id).join("|")) % VIGNETTES.length;
+    let dealt = rotation + floors.slice(0, f).reduce((n, x) => n + 2 * x.tiers, 0);
+    const deck = VIGNETTES;
     fl.tierTops.forEach((y0) => {
       for (const s of [-1, 1] as const) {
         const v = deck[dealt++ % deck.length]!;
-        const mid = s * (half - D.sideRoom / 2 - 6);
+        const mid = s * (half - D.sideRoom / 2);
+        const left = mid - ROOM.w / 2, feet = y0 + 203, top = feet - ROOM.h;
         const recess = FRAMES[v.room]?.real ? v.room : "niche-arch";
-        place({ frame: recess, x: mid, y: y0 + D.floorY + 4, w: 124, floor: f, layer: "back", recess: true, ...(v.glow ? lit(v.glow) : {}) }, false);
+        const group = `${fl.host.id}:${y0}:${s}`;
+        place({ frame: recess, x: mid, y: feet, w: ROOM.w, floor: f, layer: "back", recess: true, group }, false);
+        if (v.glow && online) decor[decor.length - 1]!.light = { color: v.glow.color, reach: v.glow.reach, dy: v.glow.dy };
         for (const prop of v.props) {
           const spec = FRAMES[prop.frame] ?? FRAMES[`${prop.frame}-0`]!;
-          const group = `${fl.host.id}:${y0}:${s}`;
-          place({ frame: prop.frame, x: mid + prop.dx * s, y: y0 + D.floorY + (prop.dy ?? 0), w: spec.w * VIGNETTE_SCALE, floor: f, flip: s === 1 && !!prop.flip, layer: prop.layer ?? "front", group, ...(prop.light ? lit(prop.light) : {}) }, true, true, group);
+          const a = anchorShare(spec.anchor);
+          place({ frame: prop.frame, x: left + prop.x + a.x * spec.w, y: top + prop.y + a.y * spec.h, floor: f, layer: "front", group, ...(prop.light ? lit(prop.light) : {}) }, false);
         }
         // A torch by the room's outer wall.
         place({ frame: "torch", x: s * (half - 16), y: y0 + 120, floor: f, layer: "front", ...lit(TORCH_LIGHT) });
@@ -714,14 +718,18 @@ export function layoutDungeon(data: AtlasData, _aspect = 1.6, measure: Measure =
           place({ frame: "torch", x: x + p.side * (k === 0 ? 62 : -62), y: fl.top + 57, w: 24, floor: f, layer: "front", ...lit(TORCH_LIGHT) });
       }
     }
+    // Torches flanking the gate's surround.
+    for (const s of [-1, 1] as const) place({ frame: "torch", x: s * (D.surroundW / 2 + 16), y: fl.top + 78, w: 24, floor: f, layer: "front", ...lit(TORCH_LIGHT) });
     for (const s of [-1, 1] as const) {
       // A banner over each side room.
       place({ frame: pick(BANNERS), x: s * (half - D.sideRoom / 2 - 6), y: fl.top + 47, w: 60, floor: f, layer: "back" });
       for (let x = D.surroundW / 2 + 30; x < half - D.sideRoom - 20; x += 46 + rng() * 30) {
         const roll = rng();
-        if (roll < 0.34) place({ frame: "window-barred", x: s * x, y: fl.top + 82, w: 44, floor: f, layer: "back" });
-        else if (roll < 0.6) place({ frame: "niche-arch", x: s * x, y: fl.top + 108, w: 48, floor: f, layer: "back" });
-        else if (roll < 0.85) place({ frame: "chain", x: s * x, y: fl.top + 4, w: 9, floor: f, layer: "back" });
+        const arch = FRAMES["window-arch"]?.real ? "window-arch" : "niche-arch";
+        const chains = FRAMES["chain-pair"]?.real ? "chain-pair" : "chain";
+        if (roll < 0.25) place({ frame: "window-barred", x: s * x, y: fl.top + 82, w: 44, floor: f, layer: "back" });
+        else if (roll < 0.45) place({ frame: arch, x: s * x, y: fl.top + 112, w: 44, floor: f, layer: "back" });
+        else if (roll < 0.62) place({ frame: chains, x: s * x, y: fl.top + 4, w: chains === "chain-pair" ? 34 : 9, floor: f, layer: "back" });
         else place({ frame: "torch", x: s * x, y: fl.top + 60, w: 22, floor: f, layer: "front", ...lit(TORCH_LIGHT) });
       }
       // Floor props, windows and niches in leftover space between a tier's projects and its room.
@@ -735,7 +743,7 @@ export function layoutDungeon(data: AtlasData, _aspect = 1.6, measure: Measure =
     }
     // The foot of the last stairs: braziers, rugs, the crown banner and the scribes' desks.
     if (fl.last) {
-      const y = fl.top + fl.height - 14;
+      const y = fl.top + fl.height - D.footPad - 6;
       place({ frame: "banner-crown", x: 0, y: y - D.foot + 18, w: 56, floor: f, layer: "front" }, false);
       for (const s of [-1, 1] as const) {
         place({ frame: "brazier", x: s * 100, y, w: 40, floor: f, layer: "front", ...lit({ color: 0xff9a3a, reach: 80 }) });
