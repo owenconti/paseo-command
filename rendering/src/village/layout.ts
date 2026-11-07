@@ -875,13 +875,32 @@ function sceneryOf(town: VTown, squares: VSquare[], lawns: VLawn[], projects: VP
     edge(r.x, r.y, r.x + r.w, r.y);
     edge(r.x, r.y, r.x, r.y + r.h);
     edge(r.x + r.w, r.y, r.x + r.w, r.y + r.h);
+    // Behind the cottages beside the hall (shorter than it): a back garden of small trees and shrubs, their feet clear of
+    // what the village says (their crowns may stand behind a roof).
+    const yard = workspaces.filter((w) => w.square === lawn.square && overlaps(w.frame, r)).map((w) => w.frame);
+    for (const f of yard) {
+      const room = f.y - (r.y + 30);
+      if (room < 60) continue;
+      for (let gx = f.x + 20; gx < f.x + f.w; gx += 64 + rng() * 20) {
+        const roll = rng();
+        const frame = roll < 0.4 ? `tree-${Math.floor(rng() * 6)}` : roll < 0.65 ? `blossom-${Math.floor(rng() * 3)}` : `bush-${Math.floor(rng() * 4)}`;
+        const w = frame.startsWith("bush") ? 70 + rng() * 14 : Math.min(130, 90 + room * 0.3);
+        const y = f.y - 6 + (rng() - 0.5) * 8;
+        const rect = boxOf(frame, gx, y, w);
+        const foot = footOf({ layer: "stand" }, rect);
+        if (rect.y < r.y - 40 || [...says, ...lawn.paths].some((o) => overlaps(o, foot, 2)) || projects.some((p) => overlaps(p.body, rect, -6))) continue;
+        if (placed.some((o) => overlaps(o, foot, -6))) continue;
+        decor.push({ frame, x: gx, y, rect, square: lawn.square, layer: "stand" });
+        placed.push(foot);
+      }
+    }
     // The lawn's free grass: a garden of flower beds, flowers, bushes and tufts, a few crates; never on its paths.
     for (let gy = r.y + 70; gy < r.y + r.h - 10; gy += 58 + rng() * 20)
       for (let gx = r.x + 40 + rng() * 30; gx < r.x + r.w - 30; gx += 66 + rng() * 30) {
         if (rng() < 0.2) continue;
         const roll = rng();
-        const frame = roll < 0.12 ? (rng() < 0.4 ? `blossom-${Math.floor(rng() * 3)}` : `tree-${Math.floor(rng() * 6)}`) : roll < 0.3 ? "flowerbed" : roll < 0.5 ? `flowers-${Math.floor(rng() * 4)}` : roll < 0.7 ? `bush-${Math.floor(rng() * 4)}` : roll < 0.92 ? "grass-tufts" : `crates-${Math.floor(rng() * 3)}`;
-        const w = /^(tree|blossom)/.test(frame) ? 96 + rng() * 10 : frame === "flowerbed" ? 76 : frame.startsWith("bush") ? 60 + rng() * 16 : frame.startsWith("crates") ? 56 : 44 + rng() * 14;
+        const frame = roll < 0.12 ? (rng() < 0.4 ? `blossom-${Math.floor(rng() * 3)}` : `tree-${Math.floor(rng() * 6)}`) : roll < 0.3 ? "flowerbed" : roll < 0.5 ? `flowers-${Math.floor(rng() * 4)}` : roll < 0.7 ? `bush-${Math.floor(rng() * 4)}` : roll < 0.85 ? "grass-tufts" : "flower-box";
+        const w = /^(tree|blossom)/.test(frame) ? 96 + rng() * 10 : frame === "flowerbed" ? 76 : frame.startsWith("bush") ? 60 + rng() * 16 : frame === "flower-box" ? 60 : 44 + rng() * 14;
         const x = gx + (rng() - 0.5) * 20, y = gy + (rng() - 0.5) * 20;
         const rect = boxOf(frame, x, y, w);
         if ([...says, ...lawn.paths].some((o) => overlaps(o, rect, 6)) || placed.some((o) => overlaps(o, rect, -4))) continue;
@@ -908,18 +927,41 @@ function sceneryOf(town: VTown, squares: VSquare[], lawns: VLawn[], projects: VP
       placed.push(rect);
       return true;
     };
-    for (let gy = r.y + 190, row = 0; gy < r.y + r.h - 10; gy += 170, row++)
-      for (let gx = r.x + 120 + (row % 2) * 130; gx < r.x + r.w - 60; gx += 300) {
-        const y = gy + (rng() - 0.5) * 16;
-        if (rng() < 0.75) {
-          const tw = 170 + rng() * 30;
-          if (put("tent", gx, y, tw)) {
-            put(`crates-${Math.floor(rng() * 3)}`, gx + tw / 2 + 44, y - 4, 72 + rng() * 10);
-            if (rng() < 0.7) put("barrel", gx + tw / 2 + 98, y + 2, 34);
-            continue;
-          }
+    // A market at the buildings' scale, in staggered rows of stalls (each its tent, crates and a barrel; where a stall
+    // won't fit, a planted tree in its bed or a stack of goods), lit lamps between the stalls (the market keeps its
+    // lights on), then planters, crates and barrels in what's left.
+    const RH = 215, SW = 372;
+    for (let gy = r.y + 232, row = 0; gy < r.y + r.h - 10; gy += RH, row++)
+      for (let gx = r.x + 140 + (row % 2) * (SW / 2); gx < r.x + r.w - 60; gx += SW) {
+        const y = gy + (rng() - 0.5) * 12;
+        const tw = 196 + rng() * 24;
+        if (put("tent", gx, y, tw)) {
+          put(`crates-${Math.floor(rng() * 3)}`, gx + tw / 2 + 48, y - 2, 74 + rng() * 8);
+          put("barrel", gx + tw / 2 + 112, y + 2, 36);
+          continue;
         }
-        if (!put("flowerbed", gx, y, 92)) put(`crates-${Math.floor(rng() * 3)}`, gx, y, 76);
+        if (rng() < 0.6 && put("flowerbed", gx, y, 140)) {
+          put(rng() < 0.6 ? `blossom-${Math.floor(rng() * 3)}` : `tree-${Math.floor(rng() * 6)}`, gx, y - 8, 130);
+          continue;
+        }
+        if (put(`crates-${Math.floor(rng() * 3)}`, gx - 40, y, 96)) {
+          put(`crates-${Math.floor(rng() * 3)}`, gx + 46, y - 6, 84);
+          put("barrel", gx + 96, y + 2, 40);
+        }
+      }
+    // What's left: planters, flower boxes, goods and lit lamps (the market keeps its lights on), wherever they fit.
+    for (let gy = r.y + 100; gy < r.y + r.h - 10; gy += 56)
+      for (let gx = r.x + 50 + (rng() - 0.5) * 20; gx < r.x + r.w - 30; gx += 64) {
+        if (rng() < 0.15) continue;
+        const k = rng();
+        const x = gx + (rng() - 0.5) * 20, y = gy + (rng() - 0.5) * 16;
+        if (k < 0.12) {
+          const rect = boxOf("lamp-on", x, y, 36);
+          if ([...says, ...keepOff].some((o) => overlaps(o, rect, 6)) || placed.some((o) => overlaps(o, rect, 2))) continue;
+          if (rect.x < r.x + 10 || rect.x + rect.w > r.x + r.w - 10 || rect.y < r.y + 10 || rect.y + rect.h > r.y + r.h - 10) continue;
+          decor.push({ frame: "lamp-on", x, y, rect, square: i, layer: "stand", light: { color: 0xffc46a, reach: 80, dy: 12 } });
+          placed.push(rect);
+        } else put(k < 0.55 ? "flowerbed" : k < 0.68 ? "barrel" : k < 0.9 ? "flower-box" : `crates-${Math.floor(rng() * 3)}`, x, y, k < 0.55 ? 92 : k < 0.68 ? 36 : 72);
       }
   });
 

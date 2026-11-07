@@ -779,11 +779,12 @@ todo, blocked by a "Blocked" state or label or an open blocking issue; paged up 
 `AtlasData.dashboard`; off or keyless, their tiles dim and their cards say why. Below them a district per host with workspaces (the
 Atlas's host order, `hostGroups`), packed in shelves (each district in the shape, two cluster columns either side of its fountain, one beside it or one
 below it, and as many to a row as let the fit show the town largest with the fewest gaps; a narrower row widens its
-districts' paving into a market of stalls, crates, barrels and planters, never woods in the town's middle), close together
+districts' paving into a market: staggered rows of stalls with their goods, planted trees, flower boxes, planters and lit
+lamps, never woods in the town's middle), close together
 with a hedge and forest strip between: its own hedged cobbled plaza with a gate, its crystal fountain and its host's plaque
 (name, status dot, `CPU · MEM · DISK`, ≥ 90% red; the map's only text); offline hosts' districts dimmed. Each project with
 workspaces is one cluster on its own lawn (`lawns`, grass over the plaza just round the cluster, its edges under hedges and
-flowers, a low fence along its front): its hall at the back (`PROJECT_HALLS`, seeded per project, never the dashboards' blue
+flowers, a low fence along its front, a back garden of small trees and shrubs behind the cottages beside the hall): its hall at the back (`PROJECT_HALLS`, seeded per project, never the dashboards' blue
 or purple roofs, neighbours differing), its workspaces' cottages (`cottage-0..5`, all at one scale, the widest about 55% of a
 hall's frame) oldest first beside it, two a side (as the Islands map's touch their landmark), then in rows of four in front
 either side of a stepping-stone lane from the hall's door; every row on a walkway of the artist's `path-stone-straight`
