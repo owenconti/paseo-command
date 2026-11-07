@@ -42,6 +42,8 @@ const TEXT_SCALE = 4;
 const WALL_SHADE = 0;
 /** The alcoves' interiors, a little darker than their sheet, so the robots read against them. */
 const INTERIOR_SHADE = 0.32;
+/** How strongly the warm torchlight wash lights the stone. */
+const WARM_LIGHT = 0.19;
 /** The concept's chunky, wide, rounded heavy type: SF Pro Rounded where WebKit has it. */
 const FONT = 'ui-rounded, "SF Pro Rounded", "Arial Rounded MT Bold", "Paseo Barlow", sans-serif';
 /** Its weights: labels and plaques heavy, the HUD's lighter lines bold. */
@@ -63,7 +65,7 @@ const png = (canvas: HTMLCanvasElement) => canvas.toDataURL("image/png");
 const GRADED = new Set(["stone", "gate", "alcoves", "props"]);
 /** The concept's grade: a fifth more saturation, shadows and mids pushed toward its purples
  * (#2a1f4a, #4a3a7a) by how dark they are, warm highlights (torch light, gold) left warm. */
-export const GRADE = { saturation: 1.4, shadow: [0x2a, 0x1f, 0x4a], mid: [0x4a, 0x3a, 0x7a], strength: 0.42 };
+export const GRADE = { warmth: [1.03, 1.0, 0.87], saturation: 1.4, shadow: [0x2a, 0x1f, 0x4a], mid: [0x4a, 0x3a, 0x7a], strength: 0.42 };
 function grade(image: HTMLImageElement, opts: { saturation?: number; strength?: number } = {}): HTMLCanvasElement {
   const saturation = opts.saturation ?? GRADE.saturation, strength = opts.strength ?? GRADE.strength;
   const canvas = document.createElement("canvas");
@@ -90,9 +92,9 @@ function grade(image: HTMLImageElement, opts: { saturation?: number; strength?: 
     if (!warm && strength > 0) {
       const t = strength * Math.pow(1 - l, 1.3);
       const tint = l < 0.35 ? shadow : mid;
-      r *= 1 - t + t * tint[0]!;
-      g *= 1 - t + t * tint[1]!;
-      b *= 1 - t + t * tint[2]!;
+      r *= (1 - t + t * tint[0]!) * GRADE.warmth[0]!;
+      g *= (1 - t + t * tint[1]!) * GRADE.warmth[1]!;
+      b *= (1 - t + t * tint[2]!) * GRADE.warmth[2]!;
     }
     d[i] = Math.max(0, Math.min(255, r));
     d[i + 1] = Math.max(0, Math.min(255, g));
@@ -417,13 +419,20 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
 
   /** A shading overlay, stretched over the board: a purple shadow falling from the top of a floor's upper wall,
    * or a vignette darkening the board toward its edges. */
-  const paintShade = (kind: "upper" | "edges") => {
+  const paintShade = (kind: "upper" | "edges" | "warm") => {
     const canvas = document.createElement("canvas");
     canvas.width = canvas.height = 256;
     const ctx = canvas.getContext("2d")!;
     // A muted deep purple: it darkens without over-saturating (the grade already deepens the hue).
     const shadow = (a: number) => `rgba(30, 22, 44, ${a})`;
-    if (kind === "upper") {
+    if (kind === "warm") {
+      const g = ctx.createLinearGradient(0, 0, 0, 256);
+      // Golden, not grey: the purple stays in the shadows, the light is warm and saturated.
+      g.addColorStop(0, "rgba(255, 150, 40, 0.45)");
+      g.addColorStop(0.6, "rgba(255, 158, 46, 0.8)");
+      g.addColorStop(1, "rgba(255, 150, 40, 1)");
+      ctx.fillStyle = g;
+    } else if (kind === "upper") {
       const g = ctx.createLinearGradient(0, 0, 0, 256);
       g.addColorStop(0, shadow(0.5));
       g.addColorStop(0.55, shadow(0.24));
@@ -560,7 +569,7 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
       fill("alcove-ledge", { x: x + 20, y: y + D.alcoveH - 15, w: inner, h: 15 }, -10, dim);
       for (const c of w.candles) {
         sprites.push(sprite("candle", at("candle", c.x, c.y, 10), 4, dim));
-        if (online) lights.push({ x: c.x, y: c.y - 30, c: 0xffb050, r: 40, period: 1900, flicker: true, ph: random(seedOf(w.entity.id + c.x))() });
+        if (online) lights.push({ x: c.x, y: c.y - 30, c: 0xffb050, r: 34, period: 1900, flicker: true, ph: random(seedOf(w.entity.id + c.x))(), k: 0.7 });
       }
       // The ledge glows warm where the robots stand.
       // (The ledge is lit only where robots stand: their spotlights, with the agents.)
@@ -578,14 +587,17 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
       // Rugs lie on the terrace floor; recesses stand on it; other back things hang on the far wall.
       const z = d.frame === "rug-red" ? -39.5 : d.recess ? -38 : d.layer === "back" ? -48 : -4;
       // Side rooms' recesses a shade down, so their coloured light never outshines the robots.
-      sprites.push(sprite(d.frame, d.rect, z, { ...dimOf(d.floor), ...(d.flip ? { flip: 1 } : {}), ...(d.recess && l.floors[d.floor]?.online ? { shade: 0.22 } : {}) }));
+      // Side rooms' recesses and the foot's red rugs a shade down, so neither outshines the robots.
+      const quiet = (d.recess || d.frame === "rug-red") && l.floors[d.floor]?.online ? { shade: d.recess ? 0.22 : 0.38 } : {};
+      sprites.push(sprite(d.frame, d.rect, z, { ...dimOf(d.floor), ...(d.flip ? { flip: 1 } : {}), ...quiet }));
       if (d.light && l.floors[d.floor]!.online)
         lights.push({
           x: d.rect.x + d.rect.w / 2,
           y: d.light.dy !== undefined ? d.rect.y + d.light.dy : d.frame === "torch" ? d.rect.y + 8 : d.rect.y + d.rect.h * 0.45,
           c: d.light.color, r: d.light.reach, period: 2400, flicker: d.frame === "torch" || d.frame === "brazier", ph: random(seedOf(`${d.frame}${d.x},${d.y}`))(),
           // Side rooms' glows stay below the robots'.
-          ...(d.recess || d.group ? { k: 0.28 } : {}),
+          // Side rooms' glows stay below the robots'; torches and braziers too, now the stone is warm-lit.
+          ...(d.recess || d.group ? { k: 0.28 } : { k: 0.7 }),
         });
     }
     // The links' joints: bigger gold nodes, each with a soft halo.
@@ -598,6 +610,16 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
       // Over the back wall's ramparts, pillars and banners; under the gate's surround and the torches.
       images.push({ ...image("shade:upper", () => paintShade("upper")), x: fl.rect.x, y: fl.top, w: fl.rect.w, h: D.band + 20, z: -43.5 });
     images.push({ ...image("shade:edges", () => paintShade("edges")), x: l.bounds.x, y: l.bounds.y, w: l.bounds.w, h: l.bounds.h, z: 0.9 });
+    // Warm golden torchlight over all the stone (added, above the walls and floors, below the labels, links and robots),
+    // stronger toward each floor's walkways, as the concept bathes its stone; offline floors stay unlit.
+    // (The gate's column is left out: the user wants it quieter than the robots.)
+    for (const fl of l.floors)
+      if (fl.online)
+        for (const sd of [-1, 1]) {
+          const x0 = sd === -1 ? fl.rect.x : D.stairsW / 2 + 8, x1 = sd === -1 ? -D.stairsW / 2 - 8 : fl.rect.x + fl.rect.w;
+          images.push({ ...image("light:warm", () => paintShade("warm")), x: x0, y: fl.top, w: x1 - x0, h: fl.height, z: 0.95, add: 1, a: WARM_LIGHT });
+        }
+    images.push({ ...image("light:warm", () => paintShade("warm")), x: l.topBand.rect.x, y: 0, w: l.topBand.rect.w, h: l.topBand.rect.h, z: 0.95, add: 1, a: WARM_LIGHT * 0.7 });
     return {
       type: "scene",
       build: ++builds,
@@ -676,14 +698,18 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
     const lights: Sprite[] = [];
     // A warm white spotlight on the ledge under each robot, brighter than its surroundings.
     for (const a of l.agents)
-      if (a.entity.state !== "offline") lights.push({ x: a.feet.x, y: a.feet.y - 18, c: 0xfff1d6, r: 42, flicker: false, period: 4000, z: 8.8, k: 1 });
+      if (a.entity.state !== "offline") {
+        lights.push({ x: a.feet.x, y: a.feet.y - 18, c: 0xfff1d6, r: 46, flicker: false, period: 4000, z: 8.8, k: 1 });
+        // A brighter heart to the spotlight, so the robots stay brighter than the warmer stone.
+        lights.push({ x: a.feet.x, y: a.feet.y - 20, c: 0xfff8ec, r: 24, flicker: false, period: 4000, z: 8.85, k: 0.9 });
+      }
     for (const p of l.projects) {
       const online = l.floors[p.floor]!.online;
       const id = p.entity?.id ?? p.key;
       const lit = online && projectWorking(l, id);
       for (const t of p.torches) {
         sprites.push(sprite(lit ? "torch" : "torch-out", at("torch", t.x, t.y), -3.5, online ? {} : { dim: 1 }));
-        if (lit) lights.push({ x: t.x, y: t.y + 8, c: 0xffa03a, r: 80, period: 2400, flicker: true, ph: random(seedOf(id + t.x))() });
+        if (lit) lights.push({ x: t.x, y: t.y + 8, c: 0xffa03a, r: 56, period: 2400, flicker: true, ph: random(seedOf(id + t.x))(), k: 0.6 });
       }
       const alarm = online ? projectAlarm(l, id) : undefined;
       if (alarm) lights.push({ x: p.medallion.x, y: p.medallion.y, c: STATE_TILE[alarm]!, r: 54, period: alarm === "failed" ? 1200 : 1800, flicker: false, z: 1.9, ph: 0 });

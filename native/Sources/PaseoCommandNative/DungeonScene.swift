@@ -238,7 +238,7 @@ final class DungeonScene: SKScene, MapScene {
                 let halo = SKSpriteNode(texture: tex, size: CGSize(width: num(h["w"]), height: num(h["h"])))
                 halo.position = CGPoint(x: box.width / 2, y: -box.height / 2)
                 halo.blendMode = .add
-                halo.alpha = 0.5
+                halo.alpha = 0.7
                 halo.zPosition = -0.5
                 body.addChild(halo)
             }
@@ -381,6 +381,7 @@ final class DungeonScene: SKScene, MapScene {
             node.xScale = -1
             node.position = p(box.maxX, box.minY)
         }
+        if num(s["add"]) > 0 { node.blendMode = .add }
         if dim { darken(node) } else if num(s["shade"]) > 0 {
             node.color = DungeonScene.shadow
             node.colorBlendFactor = num(s["shade"])
@@ -457,7 +458,7 @@ final class DungeonScene: SKScene, MapScene {
         }
         let group = SKNode()
         group.zPosition = 1
-        for (width, color, alpha, add) in [(22.0, 0xff9a18, 0.12, true), (12.0, 0xffb02a, 0.26, true), (5.4, 0xf2b63a, 1.0, false), (2.0, 0xfff0c0, 0.95, false)] as [(CGFloat, Int, CGFloat, Bool)] {
+        for (width, color, alpha, add) in [(20.0, 0xff9a18, 0.1, true), (11.0, 0xffb02a, 0.2, true), (5.0, 0xe0aa40, 0.92, false), (1.8, 0xfff0c0, 0.85, false)] as [(CGFloat, Int, CGFloat, Bool)] {
             let line = SKShapeNode(path: path)
             line.strokeColor = Textures.color(dim ? 0x6a6050 : color, dim ? alpha * 0.5 : alpha)
             line.lineWidth = width
