@@ -926,3 +926,119 @@ is a coast construction test with a shallow top lip, not a complete island; appl
 integration and plateau masking are outside this artwork assignment. The generated
 corners also have less dramatic depth than the concept's largest projecting headlands.
 These are useful original coast parts, not a pixel-identical reconstruction of the concept.
+
+## Dungeon Board
+
+Version 2 was generated with the built-in `image_gen` tool on 2026-11-06.
+The private `design/references/dungeon-concept.png` was inspected at 3×,
+particularly its LOCAL floor, left terrace, workspace recess and central gate.
+It is a style/composition reference only: no reference pixels enter the sheets.
+Reference crops and comparisons remain ignored and private. No Phaser service
+or publishing was used. These are original generated designs under the artwork
+terms above.
+
+The seven transparent PNG sheets and JSON maps live in `src/assets/dungeon/`.
+All maps declare `scale: 3`. Rectangles, relative anchors and nine-slice insets
+are sheet pixels, divided by three for world units. Standing objects use
+feet-centre, hanging pieces top-centre, symbols/glows centre and modular
+architecture top-left. Animation frames retain one canvas and anchor.
+Only animation frame zero supplies `fps`.
+
+| Sheet | Frames | V2 contents |
+| --- | ---: | --- |
+| `robots` | 80 | Smooth glossy shell, ten body colours, idle/work poses and flying drones |
+| `alcoves` | 11 | Four sparse interiors, chunky piers, lintel, new ledge and three redrawn candle flames |
+| `gate` | 12 | New upper host surround, lower arch, lit/dark portcullis, stairs with side walls, host disc and crown banner |
+| `stone` | 27 | Existing architecture plus the full raised rampart kit, terrace floor and two diagonal returns |
+| `ui` | 28 | Simple clipped parchment, thin bronze borders, dark discs in pale octagonal mounts, pictograms/counts/dots |
+| `props` | 43 | Restyled furnishings, redrawn torch/brazier/forge flames, animated magic props and new `torch-out` |
+| `status` | 27 | Existing markers, glows and PR/Probe states, plus violet `mark-asking` / `glow-asking` |
+
+There are 228 frames: every original name and all 226 names requested through the
+v2 addendum, plus `rampart-return-left` and `rampart-return-right`. These optional
+diagonal wall runs let a terrace or alcove show the angled returns in the
+reference. None of the required names was removed or renamed. PR/Probe names
+continue to follow `prStatus.ts` and `probe.ts`.
+
+The new stone kit comprises `rampart-x` (tile x), `rampart-y` (tile y), four
+`rampart-corner-tl|tr|bl|br` pieces, four `rampart-end-left|right|top|bottom`
+pieces, `rampart-t-down`, and `terrace-floor` (tile xy).
+`alcove-ledge` tiles x, and `gate-surround` contains the upper arch's dark
+blank opening for the host icon. Existing `gate-arch` and `gate-medallion`
+remain separate usable pieces.
+
+Native concept sizing guides the art: a robot's body is approximately 36×42 px
+(108×126 sheet pixels), tightly registered with only a small transparent margin;
+a workspace label is 120×35, the host plaque 275×65, and the project medallion
+55 px across. The label's nine-slice also produces a 195×38 project label without
+stretching its corners. The lower gate arch is 145 px wide and its portcullis
+85 px wide. Stair sections include their block side walls: about 120 px overall
+with an approximately 80 px walking surface. A rampart run is 22 px tall.
+Every piece uses the same scale, top-left light and grey/periwinkle stone palette.
+
+The interiors are deliberately sparse: `alcove-slot-0` is plain dark brick;
+1 has a small monitor and desk at one side; 2 has a small shelf; 3 has a crate.
+Warm light pools on their floor and front step. Single tall candles stand in
+brass holders. Recolours affect robot shells, protecting dark outlines, visors,
+white eyes and thrusters. Shell flecks and the contrasting helmet rim are gone.
+The upper host icon is drawn into the surround's dark arch opening rather than
+onto an ornate coin above it. Name fields and icon centres remain blank.
+
+`prompts.json` retains all exact prompts, generated source filenames and v2 raw
+crop rectangles. The first pass used nine generations (including its rejected
+ornate robot calibration); v2 used eleven more generations. V2 sources cover the
+rampart kit, sparse alcoves, simple UI, smooth robots, upper surround, gate/stairs,
+two prop sets, flame variants, supplemental architecture and the asking/wall
+addendum. The existing white pictograms and PR/Probe enamel badges are retained
+from their original generated sources. Raw outputs are ignored in
+`artifacts/dungeon/v2/`; v1 sheets, prompts, script and review images are preserved
+privately in `artifacts/dungeon/v1/`.
+
+Assembly and checks are in `src/assets/dungeon/build.py` (Python/Pillow).
+Whole connected silhouettes were detected before slicing, including subjects
+that crossed the generator's requested cell boundaries. Sources were cropped,
+registered and resized; modular rectangular strips use explicit dimensions.
+Stone is gently neutralised, the back-wall material darkened, and the outside
+wall uses its own much darker, irregular stone source. Repeating edges are
+cropped and blended over narrow bands to match opposite RGBA texels exactly.
+The standard wall was checked in a 6×4 render for an atlas-border stripe/grid;
+the dark wall has deliberately irregular courses and lower mean luminance.
+
+Four genuinely different generated flame silhouettes and inner tongues are
+registered to one base and composited onto identical holders/fireboxes for the
+torch, brazier and forge; the candle uses the first three. These are shape
+changes, not brightness-only flame pulses. `torch-out` has the same canvas and
+anchor as `torch-0`, with a darkened unlit holder. Gate/crystal light pulses,
+tank bubbles and travelling magic-ring light remain registered animations.
+The new violet asking bubble carries three cream dots; its glow is a soft
+ellipse matching the other state glows.
+
+Source alpha below 12/255 is removed, opacity at or above 240/255 normalised,
+zero-alpha RGB cleared, and useful edge alpha retained. At least four transparent
+pixels separate packed frames; non-tile frames also have two pixels of interior
+padding. PNG optimisation is lossless. The asset folder remains below 12 MB.
+
+The builder writes a complete replacement set to ignored `v2/staging/` and
+validates it before replacing live files with atomic renames. It never writes
+an in-progress PNG into the path read by the renderer.
+Run `python3 rendering/src/assets/dungeon/build.py --validate-only` to check
+live outputs; rebuilding also requires the ignored raw sources. The checks
+cover names, scale, bounds, alpha, gutters, declared tile edges and animation
+registration. Reports and 3×3 / wall 6×4 repeats are in ignored
+`artifacts/dungeon/`. `--publish` rebuilds, checks and then replaces the live
+asset set; `--publish-staged` checks an already complete stage before replacement.
+
+Private review images:
+
+- `artifacts/dungeon/calibration.png`: matching LOCAL-left crops at 3×.
+- `artifacts/dungeon/contact-sheet.png`: all 228 labelled frames.
+- `artifacts/dungeon/mock.png`: the LOCAL floor reconstructed only from sprites, beside the matching 1199×365 concept crop at 3×.
+- `artifacts/dungeon/v2/local-floor.png`: the generated half of that comparison.
+- `artifacts/dungeon/tile-wall-brick-6x4.png` and `tile-wall-brick-dark-6x4.png`: wall-repeat proofs.
+
+Remaining differences: the concept's masonry has more bespoke pixel-like chips,
+uneven joints and integrated painted shadows. V2 is smoother, its joins and
+courses more systematic, and some camera angles vary slightly between modular
+parts. Its warm pools are composited sprite glows rather than lighting painted
+continuously across the whole scene. The mock deliberately omits text and
+connector lines, which belong to the renderer.

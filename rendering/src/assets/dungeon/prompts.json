@@ -1,0 +1,677 @@
+{
+  "tool": "built-in image_gen",
+  "scale": 3,
+  "reference": "Private local dungeon concept, style reference only; not redistributed.",
+  "generations": {
+    "robot": {
+      "prompt": "Use case: stylized-concept. Production transparent game sprite atlas for Dungeon Board. The supplied dungeon image is STYLE REFERENCE ONLY, never reproduce its text or full scene. Original artwork that feels cut from that image: HD pixel-art-flavoured painted fantasy illustration, chunky readable forms, very dark purple outlines, purple-grey stone with visible irregular pixel-like speckles and small chiseled chips, smooth painted shading and glossy highlights, rich gold trim, parchment cream, warm candle and torch glow, ambient light top-left. NOT strict-grid 8-bit pixel art, NOT flat vector, NOT photoreal or 3D render. Frontal cutaway view with a little visible top surface, as reference. Every subject fully isolated on genuinely transparent alpha with generous empty margins. No text, labels, numbers, watermark, background or checkerboard. Consistent outline weight. Create ONE atlas, exact 4 columns by 2 rows of equal cells, 8 subjects. All SAME ORIGINAL tiny chibi robot: very large rounded square dome helmet, dark navy visor with two bright cyan eyes, short body, rounded hands and boots, pale WHITE ceramic body and helmet, dark joints, small warm gold trim. Reference robot proportions: helmet about half total height, front almost frontal three-quarter turn, extremely chunky and cute. At runtime robot is 90px high, so readable chunky details. Every full robot IDENTICAL size, feet baseline, head position, silhouette proportions; no shadows or ground. Row 1: idle eyes open; idle blink eyes reduced to glowing dashes; working hands forward at tiny floating blank keyboard; working left hand raised a little. Row 2: working hands together typing; working right hand raised a little; tiny flying helper drone at 40 percent robot size, white round head, visor two cyan eyes, two little side thrusters; same tiny drone with thrusters a little brighter. All 6 full robots same exact white design. Large transparent gutters, no object crosses its cell.",
+      "source_filename": "exec-a392e4d1-41c7-4518-8467-c1bae6120b5b.png",
+      "review_source": "robot-raw.png"
+    },
+    "robotV2": {
+      "prompt": "Use case: stylized-concept. Production transparent game sprite atlas for Dungeon Board. The supplied dungeon image is STYLE REFERENCE ONLY, never reproduce its text or full scene. Original artwork that feels cut from that image: HD pixel-art-flavoured painted fantasy illustration, chunky readable forms, very dark purple outlines, purple-grey stone with visible irregular pixel-like speckles and small chiseled chips, smooth painted shading and glossy highlights, rich gold trim, parchment cream, warm candle and torch glow, ambient light top-left. NOT strict-grid 8-bit pixel art, NOT flat vector, NOT photoreal or 3D render. Frontal cutaway view with a little visible top surface, as reference. Every subject fully isolated on genuinely transparent alpha with generous empty margins. No text, labels, numbers, watermark, background or checkerboard. Consistent outline weight. CALIBRATION CORRECTION: robot sprites must match the reference's SMALL SIMPLE squat robots. Exact 4 columns by 2 rows, equal cells, transparent. Same original WHITE robot six times then two tiny drones. FULL ROBOTS MUST BE SHORT WIDE AND SQUAT, total height only 1.05 times width. Large rounded DOME helmet (not spherical head), 60% of total height; glossy white ceramic, huge black horizontal visor, TWO SMALL WHITE ROUND EYES (not long cyan ovals). Tiny wide rectangular torso directly below helmet, no neck, TWO STUBBY TINY FEET, NO LONG LEGS, small knob hands close to sides. Reference's rounded toy robot with a simple cyan chest indicator. MINIMAL gold fittings: no gold ear discs, no gold head stripe, no antenna, no ornate gold costume, no humanoid proportions. Body is basically one dome on a small rectangular box. At 90px tall it should have broad readable white shell and large black visor. Front three-quarter view, mostly frontal. Row1: idle; blink (eyes dashes); work both tiny hands forward; work left hand raised. Row2: work hands tapping; work right hand raised; drone half-dome floating head at 40% full robot size with two tiny side thrusters; same drone brighter thrusters. All full robots identical size and feet baseline. NO floating keyboards, no motion marks, no ground or shadow. No text or symbols.",
+      "source_filename": "exec-024f200c-d7f4-43bd-ad37-c5f090b8a53e.png",
+      "review_source": "robotV2-raw.png"
+    },
+    "alcove": {
+      "prompt": "Use case: stylized-concept. Production transparent game sprite atlas for Dungeon Board. The supplied dungeon image is STYLE REFERENCE ONLY, never reproduce its text or full scene. Original artwork that feels cut from that image: HD pixel-art-flavoured painted fantasy illustration, chunky readable forms, very dark purple outlines, purple-grey stone with visible irregular pixel-like speckles and small chiseled chips, smooth painted shading and glossy highlights, rich gold trim, parchment cream, warm candle and torch glow, ambient light top-left. NOT strict-grid 8-bit pixel art, NOT flat vector, NOT photoreal or 3D render. Frontal cutaway view with a little visible top surface, as reference. Every subject fully isolated on genuinely transparent alpha with generous empty margins. No text, labels, numbers, watermark, background or checkerboard. Consistent outline weight. EXACT 3 columns by 2 rows, six equal cells, generous transparent gutters. Top row cells: (1) tiny dungeon workspace ALCOVE with purple-grey ashlar stone frame, STRAIGHT horizontal stone lintel above, 2 vertical stone posts, warm dark recess with bookshelf of colorful old books, flat flagstone front ledge; (2) EXACT same alcove geometry and size, recess has little wooden computer desk with glowing cyan monitor blank screen; (3) EXACT same alcove, recess has potion shelves. Bottom row: (1) EXACT same alcove with scroll rack; (2) blank cream parchment LABEL, long horizontal rectangle with clipped gold trimmed corners, thin brown inner border, absolutely blank clear central field, no icon; (3) larger matching blank parchment host PLAQUE. Alcoves designed modular: vertical posts at outermost 15% on left/right, centre 70% is rectangular repeatable interior. No curved arch roof on alcoves, use horizontal lintels only; no floor beyond front ledge. Alcoves compact and wide roughly 1.6:1, each later displayed 3x at 240px wide by 150px high, all fit fully inside cells. No robots, no labels on alcoves, no text, no numbers, no glyphs, no floating debris. Match purple saturated stone and warm yellow bounce illumination in reference.",
+      "source_filename": "exec-a8928800-4396-4b17-baad-95e3cd6eea54.png",
+      "review_source": "alcove-raw.png"
+    },
+    "gate": {
+      "prompt": "Use case: stylized-concept. Production transparent game sprite atlas for Dungeon Board. The supplied dungeon image is STYLE REFERENCE ONLY, never reproduce its text or full scene. Original artwork that feels cut from that image: HD pixel-art-flavoured painted fantasy illustration, chunky readable forms, very dark purple outlines, purple-grey stone with visible irregular pixel-like speckles and small chiseled chips, smooth painted shading and glossy highlights, rich gold trim, parchment cream, warm candle and torch glow, ambient light top-left. NOT strict-grid 8-bit pixel art, NOT flat vector, NOT photoreal or 3D render. Frontal cutaway view with a little visible top surface, as reference. Every subject fully isolated on genuinely transparent alpha with generous empty margins. No text, labels, numbers, watermark, background or checkerboard. Consistent outline weight. Sprite atlas exact 4 columns by 2 rows equal cells. Strict true transparent background, NO ambient wash, NO outer aura. Row1: (1) large central stone gate ARCH FRAME, purple ashlar Roman rounded arch, heavy vertical posts and gold inner rim, empty transparent opening, no gate inside; (2) rounded-top gold portcullis filled with intense warm gold light between its bars, straight bottom, no stone frame; (3) same gate portcullis UNLIT cold dark iron; (4) blank dark circular HOST MEDALLION, purple stone rim with gold inner edge and blank deep navy centre. Row2: (1) upper stone stairs landing, purple-grey low walls flanking a stair top; (2) rectangular middle run of 5 stairs straight-on descending towards viewer, parallel sides, same width as landing; (3) stair bottom landing same width; (4) hanging long deep-purple crown banner with thick gold trim, golden original simple three-point crown emblem, top rod. Front view slight elevated showing stair tops. No plaque, no names, no text, no labels. Each object isolated widely spaced, all fully in its equal cell, same reference texture.",
+      "source_filename": "exec-f056baac-9e0e-40c5-84e3-54e7511874db.png",
+      "review_source": "gate-raw.png"
+    },
+    "stone": {
+      "prompt": "Use case: stylized-concept. Production transparent game sprite atlas for Dungeon Board. The supplied dungeon image is STYLE REFERENCE ONLY, never reproduce its text or full scene. Original artwork that feels cut from that image: HD pixel-art-flavoured painted fantasy illustration, chunky readable forms, very dark purple outlines, purple-grey stone with visible irregular pixel-like speckles and small chiseled chips, smooth painted shading and glossy highlights, rich gold trim, parchment cream, warm candle and torch glow, ambient light top-left. NOT strict-grid 8-bit pixel art, NOT flat vector, NOT photoreal or 3D render. Frontal cutaway view with a little visible top surface, as reference. Every subject fully isolated on genuinely transparent alpha with generous empty margins. No text, labels, numbers, watermark, background or checkerboard. Consistent outline weight. Exact 4 columns x 4 rows atlas, 16 cells, one isolated modular architecture piece per cell. All rectangular tiles face front with matching parallel horizontal edges, no perspective receding sides except on isolated end caps. Row1: rectangular repeating purple dungeon brick wall texture; second much darker purple brick recess texture; horizontal strip of flagstone floor top surface viewed slightly from above; horizontal ledge front fascia chunky purple blocks. Row2: left ledge end cap angled; right ledge end cap angled; vertical square stone pillar shaft; pillar capital top. Row3: pillar square base; empty dark decorative arched niche in purple stone; small barred arched dungeon window; horizontal gold-trimmed outer board stone border strip. Row4: matching outer board border corner; cluster of three short wax candles lit; small isolated gold glowing junction orb; small dark navy rectangular title panel with thin ornate gold border and completely blank centre. Keep rectilinear tiles fully filled within rectangular silhouette, no surrounding wall or objects. No readable text. True transparent exterior of EVERY item. Tiles need flat matching opposite edges so they can repeat. Consistent purple stone, warm flecks, dark purple mortar, gold and lavender chipped highlights. Do not let any object reach another cell.",
+      "source_filename": "exec-3b22839f-e2a3-44ed-90dd-a56a4530f24a.png",
+      "review_source": "stone-raw.png"
+    },
+    "ui": {
+      "prompt": "Use case: stylized-concept. Production transparent game sprite atlas for Dungeon Board. The supplied dungeon image is STYLE REFERENCE ONLY, never reproduce its text or full scene. Original artwork that feels cut from that image: HD pixel-art-flavoured painted fantasy illustration, chunky readable forms, very dark purple outlines, purple-grey stone with visible irregular pixel-like speckles and small chiseled chips, smooth painted shading and glossy highlights, rich gold trim, parchment cream, warm candle and torch glow, ambient light top-left. NOT strict-grid 8-bit pixel art, NOT flat vector, NOT photoreal or 3D render. Frontal cutaway view with a little visible top surface, as reference. Every subject fully isolated on genuinely transparent alpha with generous empty margins. No text, labels, numbers, watermark, background or checkerboard. Consistent outline weight. Create exact 4 columns x 4 rows atlas of 16 small isolated WHITE GLYPHS, ONE GLYPH EACH CELL. These are monochrome ivory-white painted pictograms to overlay the reference's dark round project medallions. No medallion backing, no gold, no stone, no colored glow, no text. Very bold and simple clear geometry, tiny subtle painted white highlight, dark lavender narrow outline. Row1: three stacked layers diamond sheets; code angle brackets with a slash; wireframe cube; ascending bar chart. Row2: alchemy conical flask; person bust outline; eight-tooth gear; globe with meridians. Row3: open book; terminal window with command chevron; database three stacked cylinders; little rocket. Row4: heraldic shield; lightning bolt; leaf; small three-tower castle. Straight frontal flat symbols consistent stroke width, 75% of each cell, generous real transparent spacing. Original pictograms no logos. Strong readability at 20px displayed size.",
+      "source_filename": "exec-f6cd5e3a-5bf6-4473-8faa-7f534ae718ae.png",
+      "review_source": "ui-raw.png"
+    },
+    "propsA": {
+      "prompt": "Use case: stylized-concept. Production transparent game sprite atlas for Dungeon Board. The supplied dungeon image is STYLE REFERENCE ONLY, never reproduce its text or full scene. Original artwork that feels cut from that image: HD pixel-art-flavoured painted fantasy illustration, chunky readable forms, very dark purple outlines, purple-grey stone with visible irregular pixel-like speckles and small chiseled chips, smooth painted shading and glossy highlights, rich gold trim, parchment cream, warm candle and torch glow, ambient light top-left. NOT strict-grid 8-bit pixel art, NOT flat vector, NOT photoreal or 3D render. Frontal cutaway view with a little visible top surface, as reference. Every subject fully isolated on genuinely transparent alpha with generous empty margins. No text, labels, numbers, watermark, background or checkerboard. Consistent outline weight. EXACT 4 columns x 4 rows, 16 equal isolated cells, generous gaps, decorative dungeon props. All feet baseline front view slightly elevated, reference size materials and scale, no floor tiles or surroundings. Row1: flaming wall torch in brass/iron sconce; flaming standing round brazier on stone pedestal; hanging purple banner with simple three white stacked layer glyph; plain blank purple hanging banner with gold edges. Row2: navy hanging banner with two golden crossed hammers; blue banner golden anvil; one brown wooden barrel gold hoops; cluster three barrels. Row3: one wooden crate; stack three crates; small wooden potion shelf with glowing bottles; tall wooden bookcase with leaning wooden ladder. Row4: small purple stone forge with fiery orange opening and short chimney; solid steel anvil; cluster of glowing purple faceted crystals on small dark rock base; cylindrical glass alchemy tank with glowing violet fluid, dark steel hoops and copper pipes. Each separate isolated object, complete silhouette and true transparency, NO backdrop, shadows, floor, scene, words or numbering. Do not connect objects. Paint coherent chunks and glossy light, not flat icons.",
+      "source_filename": "exec-19958b02-c2b4-4702-a45c-461b1d61ac0f.png",
+      "review_source": "propsA-raw.png"
+    },
+    "propsB": {
+      "prompt": "Use case: stylized-concept. Production transparent game sprite atlas for Dungeon Board. The supplied dungeon image is STYLE REFERENCE ONLY, never reproduce its text or full scene. Original artwork that feels cut from that image: HD pixel-art-flavoured painted fantasy illustration, chunky readable forms, very dark purple outlines, purple-grey stone with visible irregular pixel-like speckles and small chiseled chips, smooth painted shading and glossy highlights, rich gold trim, parchment cream, warm candle and torch glow, ambient light top-left. NOT strict-grid 8-bit pixel art, NOT flat vector, NOT photoreal or 3D render. Frontal cutaway view with a little visible top surface, as reference. Every subject fully isolated on genuinely transparent alpha with generous empty margins. No text, labels, numbers, watermark, background or checkerboard. Consistent outline weight. EXACT 4 columns x 2 rows equal cells, eight isolated decorative props. Row1: brilliant cyan BLUE MAGIC CIRCLE seen straight-on, original arcane ring with diamond and six-point geometry, no runes or letters, soft glow contained within cell; upright empty suit of polished silver ARMOR on a little display stand, closed helmet gold trim and violet plume, no person; wooden SCROLL DESK with big unfurled blank parchment map, quill inkpot and two lit candles; small plain wooden TABLE gold corner bindings, EMPTY tabletop. Row2: red and purple woven RUG with gold geometric diamond pattern, seen at a slight elevated frontal angle, no symbols or letters; hanging iron CHAIN vertical with 9 heavy links; small barred iron PORTCULLIS for side wall, isolated rounded-top dark bars with gold bolts no surrounding stone; corner COBWEB, white spider silk wispy triangles with radial spokes, no wall or spider. All true transparent exteriors and generous gaps. No text, labels, numbers, floor or backdrop.",
+      "source_filename": "exec-ed4c4bdf-4f35-4508-9b78-773cf5d91581.png",
+      "review_source": "propsB-raw.png"
+    },
+    "status": {
+      "prompt": "Use case: stylized-concept. Production transparent game sprite atlas for Dungeon Board. The supplied dungeon image is STYLE REFERENCE ONLY, never reproduce its text or full scene. Original artwork that feels cut from that image: HD pixel-art-flavoured painted fantasy illustration, chunky readable forms, very dark purple outlines, purple-grey stone with visible irregular pixel-like speckles and small chiseled chips, smooth painted shading and glossy highlights, rich gold trim, parchment cream, warm candle and torch glow, ambient light top-left. NOT strict-grid 8-bit pixel art, NOT flat vector, NOT photoreal or 3D render. Frontal cutaway view with a little visible top surface, as reference. Every subject fully isolated on genuinely transparent alpha with generous empty margins. No text, labels, numbers, watermark, background or checkerboard. Consistent outline weight. EXACT 5 columns x 4 rows equal cells, 20 separate SMALL UI STATUS badges. All front-facing bold readable, same dark outline, painted glossy enamel and thin gold rims. No labels or numbers except requested ! ? symbols which are pictograms. Row1: amber speech bubble exclamation mark; blue speech bubble question mark; red speech bubble X; green speech bubble white check; small gold gear with a sparkle. Row2: round amber medallion ivory hourglass; round emerald medallion ivory check; round red medallion ivory X; round sky-blue medallion ivory eye; round violet medallion ivory laurel enclosing check. Row3: round orange medallion ivory quill; round pink medallion ivory crossed swords; round blue medallion ivory magnifying glass plus tiny three dots; round green medallion ivory magnifying glass plus check; round amber medallion ivory magnifying glass plus exclamation mark. Row4: round grey medallion ivory magnifying glass plus circular refresh arrow; round red medallion ivory magnifying glass plus X; small round TEAL seal ivory branching merge arrow; soft elliptical GOLD floor glow, a low wide luminous puddle fading smoothly to transparent with no outline or objects; small round green glossy status dot. All glyphs contained within badge, all circles SAME diameter. Large truly transparent gutters; no background. Keep ellipsoid glow soft, every other shape clean edged.",
+      "source_filename": "exec-c83c1e54-7625-4bee-a9ff-7c6a623e7c43.png",
+      "review_source": "status-raw.png"
+    }
+  },
+  "version": 2,
+  "v2_generations": {
+    "v2-ramparts": {
+      "prompt": "Use case: stylized-concept. Production game sprite atlas, original Dungeon Board artwork. Input is a PRIVATE STYLE REFERENCE crop only; do not reproduce the scene or its letters. Match it closely: HD pixel-art-flavoured hand-painted fantasy game illustration, smooth detailed shading with a little pixel texture, chunky readable dark outlined forms, NOT strict-grid pixel art, NOT vector or a 3D render. Camera in front and ABOVE at about 30 degrees elevation, like the crop: lit TOP faces plus darker FRONT faces and short visible SIDE faces; not a flat front elevation. Large lavender/periwinkle GREY stone blocks: light top faces #9a90c8 to #b4a9de, mid front faces #6a5f9a, dark mortar/outlines #2a2340. Strong top-left bevel highlight. Few small chips, smooth stone, NO purple glitter, NO busy speckles. Darker small purple-grey back-wall bricks. Warm yellow candle bounce on lower edges, gentle top-left ambient. Exterior truly transparent alpha, no matte, no checkerboard, no background. No words or numbers, no labels attached to architecture. All objects fully inside their own cell with wide empty gutters. EXACT 4 columns x 3 rows of equal cells, twelve modular LOW WALL pieces at the same scale, not full-height walls. Thick large blocks showing broad lit top planes and a darker front face, low wall height about 22 concept pixels, one block thick. NO gold trim. Row 1: horizontal STRAIGHT low wall run, three large blocks across, parallel horizontal edges, 3:1 wide/height; vertical STRAIGHT low wall run, column of three top faces with a narrow darker RIGHT side face visible, 1:3 wide/height; L wall corner top-left with runs extending right and down; L wall corner top-right with runs extending left and down. Row2: L wall corner bottom-left runs right and up; L wall corner bottom-right runs left and up; horizontal wall's LEFT exposed end block; horizontal wall's RIGHT exposed end block. Row3: vertical wall's TOP exposed end block; vertical wall's BOTTOM exposed end block; T junction horizontal wall with vertical wall departing down from middle; rectangular patch of warm candlelit flagstone FLOOR viewed from above at the same camera angle, laid as chunky irregular grey/periwinkle slabs with pale golden edge highlights, repeatable surface, no border. Make every corner fit the same block thickness and scale as the straight runs. Avoid isometric diamonds; horizontal runs follow the screen horizontal, vertical ones follow the screen vertical. This is a reusable masonry kit, not a room or diorama.",
+      "source_filename": "exec-83e26bda-2cf6-4fe9-b491-325ae35927a3.png",
+      "review_source": "v2/v2-ramparts-raw.png",
+      "crops": [
+        [
+          22,
+          127,
+          359,
+          272
+        ],
+        [
+          452,
+          14,
+          610,
+          323
+        ],
+        [
+          712,
+          59,
+          1042,
+          321
+        ],
+        [
+          1090,
+          59,
+          1406,
+          322
+        ],
+        [
+          20,
+          369,
+          299,
+          650
+        ],
+        [
+          368,
+          370,
+          642,
+          647
+        ],
+        [
+          705,
+          453,
+          1030,
+          600
+        ],
+        [
+          1079,
+          453,
+          1413,
+          596
+        ],
+        [
+          82,
+          713,
+          224,
+          1018
+        ],
+        [
+          399,
+          709,
+          545,
+          1024
+        ],
+        [
+          652,
+          764,
+          1020,
+          1013
+        ],
+        [
+          1082,
+          742,
+          1409,
+          1023
+        ]
+      ],
+      "reference_images": [
+        "v2/reference-local-left.png"
+      ]
+    },
+    "v2-alcoves": {
+      "prompt": "Use case: stylized-concept. Production game sprite atlas, original Dungeon Board artwork. Input is a PRIVATE STYLE REFERENCE crop only; do not reproduce the scene or its letters. Match it closely: HD pixel-art-flavoured hand-painted fantasy game illustration, smooth detailed shading with a little pixel texture, chunky readable dark outlined forms, NOT strict-grid pixel art, NOT vector or a 3D render. Camera in front and ABOVE at about 30 degrees elevation, like the crop: lit TOP faces plus darker FRONT faces and short visible SIDE faces; not a flat front elevation. Large lavender/periwinkle GREY stone blocks: light top faces #9a90c8 to #b4a9de, mid front faces #6a5f9a, dark mortar/outlines #2a2340. Strong top-left bevel highlight. Few small chips, smooth stone, NO purple glitter, NO busy speckles. Darker small purple-grey back-wall bricks. Warm yellow candle bounce on lower edges, gentle top-left ambient. Exterior truly transparent alpha, no matte, no checkerboard, no background. No words or numbers, no labels attached to architecture. All objects fully inside their own cell with wide empty gutters. EXACT 4 columns by 2 rows, eight isolated modular ALCOVE PARTS. Row 1 has four identical rectangular interiors, NO enclosing pillars, NO lintel, NO label: (1) mostly dark small purple-grey brick recess, bare, a warm candlelit stone floor strip at bottom; (2) same dark recess, one SMALL wooden desk with a SMALL glowing cyan monitor against RIGHT side, otherwise sparse and empty; (3) same recess with a SMALL sparse wooden shelf holding 3 books at RIGHT side, otherwise empty; (4) same recess with one small wooden crate at RIGHT side, otherwise empty. Interior width one robot slot, dark quiet centre, floor is a shallow top plane at bottom, warm golden light pooled there. Leave the left 2/3 of every interior empty for a robot in front. Row 2: (1) LEFT structural pier, a tall stack of three BIG smooth lavender-grey blocks, large cap with visible bright top face, darker front and side, chunky square base, no candle attached; (2) matching RIGHT structural pier, mirror geometry but same top-left light; (3) horizontal chunky block LINTEL, three large lavender-grey blocks with broad lit tops and front faces, straight parallel edges, no cap decoration; (4) warm-lit stone front LEDGE STEP, three broad grey flagstones with shallow top faces and dark front fascia, bright yellow candlelight pooling across the tops, straight parallel horizontal edges. Everything coherent with the provided alcove crop. No shelves covering an entire background, no potions, no decorative gilding, NO enclosed whole room, no robot, no text, no candles attached. Transparent outside each subject, opaque dark brick interiors.",
+      "source_filename": "exec-2c7c9604-aef9-4fdf-8855-af3724b3e50a.png",
+      "review_source": "v2/v2-alcoves-raw.png",
+      "crops": [
+        [
+          28,
+          51,
+          415,
+          399
+        ],
+        [
+          472,
+          51,
+          859,
+          399
+        ],
+        [
+          916,
+          51,
+          1303,
+          399
+        ],
+        [
+          1359,
+          51,
+          1746,
+          399
+        ],
+        [
+          85,
+          456,
+          288,
+          873
+        ],
+        [
+          450,
+          456,
+          657,
+          873
+        ],
+        [
+          749,
+          580,
+          1198,
+          721
+        ],
+        [
+          1271,
+          600,
+          1719,
+          736
+        ]
+      ],
+      "reference_images": [
+        "v2/reference-alcove.png"
+      ]
+    },
+    "v2-ui": {
+      "prompt": "Use case: stylized-concept. Production game sprite atlas, original Dungeon Board artwork. Input is a PRIVATE STYLE REFERENCE crop only; do not reproduce the scene or its letters. Match it closely: HD pixel-art-flavoured hand-painted fantasy game illustration, smooth detailed shading with a little pixel texture, chunky readable dark outlined forms, NOT strict-grid pixel art, NOT vector or a 3D render. Camera in front and ABOVE at about 30 degrees elevation, like the crop: lit TOP faces plus darker FRONT faces and short visible SIDE faces; not a flat front elevation. Large lavender/periwinkle GREY stone blocks: light top faces #9a90c8 to #b4a9de, mid front faces #6a5f9a, dark mortar/outlines #2a2340. Strong top-left bevel highlight. Few small chips, smooth stone, NO purple glitter, NO busy speckles. Darker small purple-grey back-wall bricks. Warm yellow candle bounce on lower edges, gentle top-left ambient. Exterior truly transparent alpha, no matte, no checkerboard, no background. No words or numbers, no labels attached to architecture. All objects fully inside their own cell with wide empty gutters. EXACT 3 columns x 2 rows equal cells, SIX blank UI pieces closely matching the reference. Row1: (1) horizontal cream PARCHMENT name LABEL with CLIPPED octagonal corners, broad blank centre #f6e3b8 to #e9c890, very THIN bronze-brown border and very thin dark outline, absolutely NO ornate gold frame or gold fittings, no curls, simple 4:1 wide/height; (2) larger HOST PLAQUE in EXACT same simple cream parchment and thin bronze border, clipped octagonal corners, 3.5:1 width/height; (3) round flat very dark navy icon DISC #1e1a2e inside a SMALL OCTAGONAL STONE MOUNT, eight small pale lavender-grey segments around its edge, very THIN ivory inner ring, no thick gold rim, no gold studs, blank centre. Row2: (1) same dark disc in slightly larger octagonal mount for host icon, blank; (2) horizontal dark navy TITLE PANEL, clipped corners, restrained thin bronze-gold edge, blank; (3) a single SMALL tall off-white wax CANDLE in a simple thin aged brass stand, UNLIT wick, no flame or glow, no multiple candles. All isolated complete silhouettes, no text, no icons, no extra objects. Parchment should feel cut from the reference labels and the discs from its project medallions, avoiding chunky jewel frames.",
+      "source_filename": "exec-498cb4e3-94f4-46f4-aeb1-42ea58192d0d.png",
+      "review_source": "v2/v2-ui-raw.png",
+      "crops": [
+        [
+          39,
+          210,
+          471,
+          338
+        ],
+        [
+          511,
+          187,
+          1150,
+          361
+        ],
+        [
+          1200,
+          132,
+          1478,
+          404
+        ],
+        [
+          49,
+          531,
+          462,
+          936
+        ],
+        [
+          515,
+          623,
+          1151,
+          834
+        ],
+        [
+          1276,
+          559,
+          1418,
+          897
+        ]
+      ],
+      "reference_images": [
+        "v2/reference-local-left.png"
+      ]
+    },
+    "v2-robots": {
+      "prompt": "Use case: stylized-concept. Production sprite atlas EXACT 4 columns by 2 rows, transparent exterior and wide gutters. Private reference crop is STYLE ONLY. Draw the SAME ORIGINAL white chibi robot six times plus two tiny drones. Precisely match the reference's robot PROPORTIONS and MATERIAL: very smooth glossy saturated enamel shell (white base for later body recolouring), rounded-SQUARE head rather than a tall dome, clean bright upper-left curved highlight, broad very dark visor band with two small WHITE OVAL eyes, SMALL rectangular torso, stubby little arms, tiny DARK feet. Head about 60% height, full height about equal to width. Slight front three-quarter view, camera in front and above. No shell flecks, NO mottling or pixel patches on the shell, NO pale helmet rim around the visor, no gold trim, no ear discs, no antenna, no collar, no ornate bits. Smooth glossy painted shading like the crop, dark purple-black outline and soft reflected warm candle light below. Small cyan chest lamp. Consistent model, shell shapes and scale in all poses. Row1: idle open eyes; idle blink oval eyes narrow to short dashes; work with small hands forward; work left arm raised slightly. Row2: work both hands moving near torso; work right arm raised slightly; tiny flying head drone at 40% of robot size with two tiny dark side thrusters; same drone with thrusters brighter. The full robots all have identical head position and feet baseline, no keyboards. No background, shadow, floor, text or status symbols. Make it feel cut from the reference robots rather than like a separate ornate fantasy character.",
+      "source_filename": "exec-6bfc1fa2-5873-40df-a41b-b2cfecf64b1b.png",
+      "review_source": "v2/v2-robots-raw.png",
+      "crops": [
+        [
+          82,
+          59,
+          362,
+          383
+        ],
+        [
+          525,
+          59,
+          805,
+          383
+        ],
+        [
+          969,
+          59,
+          1249,
+          383
+        ],
+        [
+          1412,
+          59,
+          1692,
+          383
+        ],
+        [
+          82,
+          503,
+          362,
+          827
+        ],
+        [
+          525,
+          503,
+          805,
+          826
+        ],
+        [
+          989,
+          596,
+          1223,
+          743
+        ],
+        [
+          1433,
+          595,
+          1666,
+          744
+        ]
+      ],
+      "reference_images": [
+        "v2/reference-alcove.png"
+      ]
+    },
+    "v2-surround": {
+      "prompt": "Use case: stylized-concept. Production game sprite atlas, original Dungeon Board artwork. Input is a PRIVATE STYLE REFERENCE crop only; do not reproduce the scene or its letters. Match it closely: HD pixel-art-flavoured hand-painted fantasy game illustration, smooth detailed shading with a little pixel texture, chunky readable dark outlined forms, NOT strict-grid pixel art, NOT vector or a 3D render. Camera in front and ABOVE at about 30 degrees elevation, like the crop: lit TOP faces plus darker FRONT faces and short visible SIDE faces; not a flat front elevation. Large lavender/periwinkle GREY stone blocks: light top faces #9a90c8 to #b4a9de, mid front faces #6a5f9a, dark mortar/outlines #2a2340. Strong top-left bevel highlight. Few small chips, smooth stone, NO purple glitter, NO busy speckles. Darker small purple-grey back-wall bricks. Warm yellow candle bounce on lower edges, gentle top-left ambient. Exterior truly transparent alpha, no matte, no checkerboard, no background. No words or numbers, no labels attached to architecture. All objects fully inside their own cell with wide empty gutters. SINGLE ISOLATED UPPER GATE SURROUND, not a whole scene. Reconstruct the architecture around the HOST'S UPPER DARK ARCH OPENING in the reference crop: big round Roman stone arch made of LARGE smooth bevelled lavender/periwinkle-grey blocks, central blank dark navy arch opening beneath it, broad dark brick facade below opening, two hefty square block pillars on left and right with visible lit top planes and block caps, chunky LOW WALL returns linking into those pillars from the arch's sides. The arch reaches highest at centre; its base sits around the top third of the entire surround. The dark arch opening above where a host plaque will be overlaid must be completely blank with room for a white layers icon. Keep front middle broad and unobstructed for a separate parchment host plaque. Shape roughly 1.5 wide to 1 tall; fully visible isolated silhouette. NO gold-framed medallion above, no thick gold ring, NO plaque, no text, no icons, no portcullis, no stairs, no torches, no banners or other props. Only architecture. Bright top-left bevels and dark block joints; warmer reflected light near the lower sides. Match the reference's upper host structure and three-quarter depth, not a flat doorway or a freestanding gold arch.",
+      "source_filename": "exec-0931dce0-67e9-432e-9832-7d07afbccbda.png",
+      "review_source": "v2/v2-surround-raw.png",
+      "crops": [
+        [
+          10,
+          119,
+          1527,
+          868
+        ]
+      ],
+      "reference_images": [
+        "v2/reference-gate.png"
+      ]
+    },
+    "v2-gate": {
+      "prompt": "Use case: stylized-concept. Production game sprite atlas, original Dungeon Board artwork. Input is a PRIVATE STYLE REFERENCE crop only; do not reproduce the scene or its letters. Match it closely: HD pixel-art-flavoured hand-painted fantasy game illustration, smooth detailed shading with a little pixel texture, chunky readable dark outlined forms, NOT strict-grid pixel art, NOT vector or a 3D render. Camera in front and ABOVE at about 30 degrees elevation, like the crop: lit TOP faces plus darker FRONT faces and short visible SIDE faces; not a flat front elevation. Large lavender/periwinkle GREY stone blocks: light top faces #9a90c8 to #b4a9de, mid front faces #6a5f9a, dark mortar/outlines #2a2340. Strong top-left bevel highlight. Few small chips, smooth stone, NO purple glitter, NO busy speckles. Darker small purple-grey back-wall bricks. Warm yellow candle bounce on lower edges, gentle top-left ambient. Exterior truly transparent alpha, no matte, no checkerboard, no background. No words or numbers, no labels attached to architecture. All objects fully inside their own cell with wide empty gutters. EXACT 4 columns x 2 rows, eight isolated modular GATE pieces, close to the lower portcullis and lit stairs in the reference. Row1: (1) BIG ROUND stone gate ARCH FRAME of large lavender-grey blocks, wide top faces and thick block piers, completely transparent arched opening, no torches or gold ornament; (2) golden iron PORTCULLIS with semicircular top, bright warm white-gold light filling gaps and spilling into a small shallow lit flagstone threshold at bottom, simple straight iron bars with two crossbars, NO frame; (3) EXACT same iron portcullis OFFLINE unlit dark brown iron, no light spill; (4) STAIR TOP landing with block side walls, seen from front and above, 3 or 4 wide warm-lit steps at front. Row2: (1) STAIR MIDDLE RUN, parallel vertical side walls made of big lavender blocks, 6 shallow stairs across same width, warm golden light on stair noses, open-ended straight strip with identical top and bottom widths, no perspective taper; (2) STAIR BOTTOM landing same width and same side walls, wider stone paving in front; (3) hanging purple CROWN BANNER with modest gold edge, three point gold crown emblem, no words; (4) empty decorative arched stone NICHE, dark small brick recess, same smooth big stone arch blocks, no objects. All stairs consistent width/side wall thickness, lit steps broad and readable. No tiny speckled masonry, no text, no plaques, no robot, no outside scenery.",
+      "source_filename": "exec-7bfa12b2-32e7-40da-bc9d-00526f66afdf.png",
+      "review_source": "v2/v2-gate-raw.png",
+      "crops": [
+        [
+          15,
+          9,
+          463,
+          409
+        ],
+        [
+          517,
+          64,
+          877,
+          409
+        ],
+        [
+          950,
+          64,
+          1272,
+          370
+        ],
+        [
+          1325,
+          104,
+          1764,
+          409
+        ],
+        [
+          38,
+          465,
+          429,
+          860
+        ],
+        [
+          463,
+          476,
+          914,
+          857
+        ],
+        [
+          943,
+          480,
+          1279,
+          849
+        ],
+        [
+          1328,
+          457,
+          1742,
+          855
+        ]
+      ],
+      "reference_images": [
+        "v2/reference-gate.png"
+      ]
+    },
+    "v2-propsA": {
+      "prompt": "Use case: stylized-concept. Production game sprite atlas, original Dungeon Board artwork. Input is a PRIVATE STYLE REFERENCE crop only; do not reproduce the scene or its letters. Match it closely: HD pixel-art-flavoured hand-painted fantasy game illustration, smooth detailed shading with a little pixel texture, chunky readable dark outlined forms, NOT strict-grid pixel art, NOT vector or a 3D render. Camera in front and ABOVE at about 30 degrees elevation, like the crop: lit TOP faces plus darker FRONT faces and short visible SIDE faces; not a flat front elevation. Large lavender/periwinkle GREY stone blocks: light top faces #9a90c8 to #b4a9de, mid front faces #6a5f9a, dark mortar/outlines #2a2340. Strong top-left bevel highlight. Few small chips, smooth stone, NO purple glitter, NO busy speckles. Darker small purple-grey back-wall bricks. Warm yellow candle bounce on lower edges, gentle top-left ambient. Exterior truly transparent alpha, no matte, no checkerboard, no background. No words or numbers, no labels attached to architecture. All objects fully inside their own cell with wide empty gutters. EXACT 4 columns by 3 rows, twelve isolated dungeon PROPS at consistent scale. These should feel like the reference's small supporting objects, not jewels or ornate collectible icons. Row1: UNLIT wall TORCH SCONCE of dark aged iron and modest brass bowl, empty bowl/no fire, tall slim; UNLIT standing BRAZIER on a short chunky grey stone pedestal, dark iron bowl, no fire; hanging NAVY banner with simple crossed gold hammers; hanging BLUE banner with simple pale anvil emblem. Row2: one wooden barrel dark brown staves and thin dark iron hoops; cluster of three similar barrels; one wooden crate simple timber X bracing; stack of three similar crates. Row3: wooden BOOKCASE with leaning LADDER, modest shelves books and a few bottles, no gold decorative fittings; small wooden potion SHELF with a few tiny colourful flasks; lavender-grey stone FORGE with short chimney and dark EMPTY unlit firebox, no flames or coals, arched opening clear; anvil on small dark support, plain steel, lit top face. Camera above and in front so tops are visible. Smooth painted shading, restrained tiny texture, dark outlines, warm candle bounce, big chunky shapes, no gold rivets all over furniture. Each isolated on genuine alpha, generous gutters and complete silhouette. NO floor, scenery, text or numbers. Flames will be added separately.",
+      "source_filename": "exec-240f2395-ac6f-4d91-8c67-7d623e1a5fcc.png",
+      "review_source": "v2/v2-propsA-raw.png",
+      "crops": [
+        [
+          103,
+          82,
+          274,
+          325
+        ],
+        [
+          438,
+          45,
+          643,
+          356
+        ],
+        [
+          761,
+          43,
+          1019,
+          364
+        ],
+        [
+          1124,
+          42,
+          1383,
+          360
+        ],
+        [
+          87,
+          421,
+          283,
+          672
+        ],
+        [
+          400,
+          402,
+          688,
+          671
+        ],
+        [
+          772,
+          413,
+          1015,
+          668
+        ],
+        [
+          1102,
+          384,
+          1406,
+          676
+        ],
+        [
+          45,
+          707,
+          325,
+          1061
+        ],
+        [
+          405,
+          754,
+          684,
+          1042
+        ],
+        [
+          735,
+          708,
+          1049,
+          1054
+        ],
+        [
+          1140,
+          782,
+          1405,
+          1043
+        ]
+      ],
+      "reference_images": [
+        "v2/reference-local-left.png"
+      ]
+    },
+    "v2-propsB": {
+      "prompt": "Use case: stylized-concept. Production game sprite atlas, original Dungeon Board artwork. Input is a PRIVATE STYLE REFERENCE crop only; do not reproduce the scene or its letters. Match it closely: HD pixel-art-flavoured hand-painted fantasy game illustration, smooth detailed shading with a little pixel texture, chunky readable dark outlined forms, NOT strict-grid pixel art, NOT vector or a 3D render. Camera in front and ABOVE at about 30 degrees elevation, like the crop: lit TOP faces plus darker FRONT faces and short visible SIDE faces; not a flat front elevation. Large lavender/periwinkle GREY stone blocks: light top faces #9a90c8 to #b4a9de, mid front faces #6a5f9a, dark mortar/outlines #2a2340. Strong top-left bevel highlight. Few small chips, smooth stone, NO purple glitter, NO busy speckles. Darker small purple-grey back-wall bricks. Warm yellow candle bounce on lower edges, gentle top-left ambient. Exterior truly transparent alpha, no matte, no checkerboard, no background. No words or numbers, no labels attached to architecture. All objects fully inside their own cell with wide empty gutters. EXACT 4 columns by 3 rows, twelve isolated supporting dungeon props at consistent scale. Row1: hanging purple banner with simple three white layered diamond glyph; plain blank purple banner same shape with thin gold hem; cluster of large glowing violet CRYSTALS on small grey rock base; cylindrical violet alchemy TANK with dark steel hoops and a couple bent pipes, restrained violet light and bubbles inside. Row2: CYAN MAGIC CIRCLE flat face, simple luminous geometric rings/triangles with no runes or letters; empty silver suit of ARMOR on stand, gold details, front three quarter; small wooden SCROLL DESK with blank parchment and inkpot, NO candles or flames attached; plain small wooden TABLE with empty tabletop. Row3: RED woven rug with modest gold diamond edging, visible top plane; hanging iron CHAIN; smaller barred side PORTCULLIS, simple dark iron rounded top bars with no stone border; white thin COBWEB corner. Make every object feel like the reference props: subdued smooth painted surfaces, dark outlines, visible top planes, warm candle reflection, no excessive purple glitter or gold studs. No shadows, ground tiles, floor, scene, text or numbers. True alpha exterior. Allow complete silhouettes and gutters.",
+      "source_filename": "exec-43784540-cea5-4bd0-bba9-0b4541e0228c.png",
+      "review_source": "v2/v2-propsB-raw.png",
+      "crops": [
+        [
+          79,
+          42,
+          345,
+          366
+        ],
+        [
+          439,
+          42,
+          706,
+          362
+        ],
+        [
+          752,
+          50,
+          1045,
+          363
+        ],
+        [
+          1112,
+          13,
+          1397,
+          368
+        ],
+        [
+          37,
+          414,
+          362,
+          720
+        ],
+        [
+          434,
+          386,
+          651,
+          740
+        ],
+        [
+          702,
+          396,
+          1031,
+          732
+        ],
+        [
+          1061,
+          463,
+          1415,
+          710
+        ],
+        [
+          13,
+          815,
+          434,
+          1016
+        ],
+        [
+          430,
+          803,
+          773,
+          1004
+        ],
+        [
+          811,
+          764,
+          1072,
+          1025
+        ],
+        [
+          1135,
+          760,
+          1419,
+          1022
+        ]
+      ],
+      "reference_images": [
+        "private original dungeon concept"
+      ]
+    },
+    "v2-flames": {
+      "prompt": "Use case: stylized-concept. Production game sprite atlas, original Dungeon Board artwork. Input is a PRIVATE STYLE REFERENCE crop only; do not reproduce the scene or its letters. Match it closely: HD pixel-art-flavoured hand-painted fantasy game illustration, smooth detailed shading with a little pixel texture, chunky readable dark outlined forms, NOT strict-grid pixel art, NOT vector or a 3D render. Camera in front and ABOVE at about 30 degrees elevation, like the crop: lit TOP faces plus darker FRONT faces and short visible SIDE faces; not a flat front elevation. Large lavender/periwinkle GREY stone blocks: light top faces #9a90c8 to #b4a9de, mid front faces #6a5f9a, dark mortar/outlines #2a2340. Strong top-left bevel highlight. Few small chips, smooth stone, NO purple glitter, NO busy speckles. Darker small purple-grey back-wall bricks. Warm yellow candle bounce on lower edges, gentle top-left ambient. Exterior truly transparent alpha, no matte, no checkerboard, no background. No words or numbers, no labels attached to architecture. All objects fully inside their own cell with wide empty gutters. EXACT 4 columns by 2 rows equal cells, eight isolated transparent sprites. Top row is FOUR DIFFERENT ANIMATION FRAMES OF ONE YELLOW-ORANGE FLAME. Same fire base centre and same maximum box, NO torch holder or coals: frame1 tall yellow flame leans left, frame2 shorter three-lobed flame leans right, frame3 tall forked flame bends right, frame4 rounded broad flame with left wisp. Every frame visibly REDRAWS the flame silhouette and inner tongues, not just a brightness change. White-yellow hot core, amber/orange outer tongues, subtle restrained soft aura, smooth painted flame shapes like the reference candles, no sparks far from body. All flame bases exactly on same baseline. Bottom row: (1) a COMPLETE EMPTY SUIT OF ARMOR on a plain wooden stand, head/closed helmet, body, BOTH legs and boots all visible, silver metal with slight gold trim, not a bust or torso-only suit; (2) one straight vertical hanging iron CHAIN of 9 heavy linked loops, no horizontal swag or backing; (3) ONE TALL SLENDER IVORY CANDLE in a simple aged brass holder, unlit, candle shaft much longer than its width, no flame; (4) small bare iron portcullis gate with arched top, narrow dark iron bars, no surrounding stone. All objects isolated, no floor, background, text, plaques or numbers.",
+      "source_filename": "exec-474f36e8-c5de-4d8e-be1d-137ba236ab90.png",
+      "review_source": "v2/v2-flames-raw.png",
+      "crops": [
+        [
+          99,
+          9,
+          329,
+          330
+        ],
+        [
+          562,
+          112,
+          772,
+          331
+        ],
+        [
+          1006,
+          17,
+          1224,
+          331
+        ],
+        [
+          1423,
+          71,
+          1681,
+          330
+        ],
+        [
+          105,
+          378,
+          345,
+          864
+        ],
+        [
+          625,
+          378,
+          698,
+          880
+        ],
+        [
+          1014,
+          383,
+          1169,
+          871
+        ],
+        [
+          1381,
+          427,
+          1714,
+          832
+        ]
+      ],
+      "reference_images": [
+        "v2/reference-local-left.png"
+      ]
+    },
+    "v2-background": {
+      "prompt": "Use case: stylized-concept. Production game sprite atlas, original Dungeon Board artwork. Input is a PRIVATE STYLE REFERENCE crop only; do not reproduce the scene or its letters. Match it closely: HD pixel-art-flavoured hand-painted fantasy game illustration, smooth detailed shading with a little pixel texture, chunky readable dark outlined forms, NOT strict-grid pixel art, NOT vector or a 3D render. Camera in front and ABOVE at about 30 degrees elevation, like the crop: lit TOP faces plus darker FRONT faces and short visible SIDE faces; not a flat front elevation. Large lavender/periwinkle GREY stone blocks: light top faces #9a90c8 to #b4a9de, mid front faces #6a5f9a, dark mortar/outlines #2a2340. Strong top-left bevel highlight. Few small chips, smooth stone, NO purple glitter, NO busy speckles. Darker small purple-grey back-wall bricks. Warm yellow candle bounce on lower edges, gentle top-left ambient. Exterior truly transparent alpha, no matte, no checkerboard, no background. No words or numbers, no labels attached to architecture. All objects fully inside their own cell with wide empty gutters. EXACT 3 columns x 2 rows, six modular architecture sprites. Row1: (1) rectangular patch of SMALL dark purple-grey back-wall BRICKS, smooth quiet painted shading and clear dark mortar, 4 staggered rows, no huge blocks, NO frame or raised border; (2) same back-wall brick patch MUCH DARKER for deep recesses, no border; (3) diagonal LOW WALL RETURN made from three LARGE lavender-grey blocks, direction from lower-left toward upper-right at about 35 degrees, clearly visible lit top faces and front faces, exactly like the diagonal return over the api alcove in the reference crop. Row2: (1) matching diagonal low wall return from upper-left to lower-right, same light direction and blocks; (2) small barred arched WINDOW with chunky pale lavender block rim and dark iron bars; (3) rectangular repeating quiet warm grey floor FLAGSTONES, lit from candles, irregular simple slabs viewed from above, no edge, no perspective trapezoid silhouette, no surrounding floor. No gold trim on masonry. All isolated with true alpha exterior, no words, numbers or scenery. Keep broad smooth light faces #9a90c8 to #b4a9de, mid-front #6a5f9a and dark joints #2a2340, not saturated purple.",
+      "source_filename": "exec-b34f5e8d-717f-43bc-babd-f9db3e837961.png",
+      "review_source": "v2/v2-background-raw.png",
+      "crops": [
+        [
+          48,
+          104,
+          484,
+          425
+        ],
+        [
+          545,
+          103,
+          992,
+          424
+        ],
+        [
+          1060,
+          92,
+          1490,
+          458
+        ],
+        [
+          46,
+          549,
+          473,
+          942
+        ],
+        [
+          567,
+          532,
+          963,
+          951
+        ],
+        [
+          1056,
+          546,
+          1492,
+          939
+        ]
+      ],
+      "reference_images": [
+        "v2/reference-local-left.png"
+      ]
+    },
+    "v2-extra": {
+      "prompt": "Use case: stylized-concept. Production game sprite atlas, original Dungeon Board artwork. Input is a PRIVATE STYLE REFERENCE crop only; do not reproduce the scene or its letters. Match it closely: HD pixel-art-flavoured hand-painted fantasy game illustration, smooth detailed shading with a little pixel texture, chunky readable dark outlined forms, NOT strict-grid pixel art, NOT vector or a 3D render. Camera in front and ABOVE at about 30 degrees elevation, like the crop: lit TOP faces plus darker FRONT faces and short visible SIDE faces; not a flat front elevation. Large lavender/periwinkle GREY stone blocks: light top faces #9a90c8 to #b4a9de, mid front faces #6a5f9a, dark mortar/outlines #2a2340. Strong top-left bevel highlight. Few small chips, smooth stone, NO purple glitter, NO busy speckles. Darker small purple-grey back-wall bricks. Warm yellow candle bounce on lower edges, gentle top-left ambient. Exterior truly transparent alpha, no matte, no checkerboard, no background. No words or numbers, no labels attached to architecture. All objects fully inside their own cell with wide empty gutters. EXACT 2 columns by 2 rows equal cells. Row1: (1) rectangular seamless material patch of the dungeon's small dark grey-purple BACK WALL BRICKS, irregular staggered block sizes and subtle varied tones, 7 or 8 rows, straight rectangular patch filled to edges, no raised frame, no bright border, no lighting stripe or vignette, no gold; (2) clearly MUCH DARKER recess/outside-board STONE texture, almost black purple #211c30 / #30273f, IRREGULAR stones, varied sizes and broken courses, subtle shadowy chips, NOT same regular brick grid as first patch, same rectangular material patch, no border, very quiet contrast. Row2: (1) violet speech-bubble status marker with cream ELLIPSIS of three round dots, violet enamel #a78bfa, same small round speech bubble with bottom-left tail, same thin brass rim and dark outline as the second input image's blue question badge; NO question mark, three cream dots only. (2) soft wide elliptical VIOLET FLOOR GLOW #a78bfa, smooth radial fade to genuine transparency, no rim, no objects or runes, no hard edge. The second input image is a reference for the badge shape only, preserve that small bubble silhouette and gold rim style but make its field violet and glyph three dots. All four subjects fully inside their own cells with wide true transparent gutters. No words or numbers anywhere. Wall patches must tile cleanly without an obvious repeated border or lighting band.",
+      "source_filename": "exec-aa48218d-2902-4c99-8b5a-ceac19fbb3a3.png",
+      "review_source": "v2/v2-extra-raw.png",
+      "crops": [
+        [
+          34,
+          31,
+          845,
+          408
+        ],
+        [
+          928,
+          31,
+          1740,
+          408
+        ],
+        [
+          259,
+          465,
+          642,
+          857
+        ],
+        [
+          999,
+          519,
+          1668,
+          819
+        ]
+      ],
+      "reference_images": [
+        "v2/reference-local-left.png",
+        "v2/mark-question-reference.png"
+      ]
+    }
+  },
+  "v2_notes": "V1 is preserved privately in ignored artifacts/dungeon/v1. V2 replaces architecture, props, blank UI and robot bodies, adds raised-wall kit and asking/offline sprites. Source rectangles are raw image pixels; generated pixels only are used in live sheets."
+}
