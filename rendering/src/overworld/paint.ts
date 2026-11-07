@@ -141,16 +141,16 @@ const GRASS_GRADE: Grade = { hue: -13, saturate: 0.92, brightness: 1.04, contras
  * middle range. Robots, status badges and name plaques keep their own full colours, so they are what stands
  * out. `lift` raises the darkest tones (0-255); `split` is how strongly shadows and lights take the tones. */
 type SheetColour = Grade & { lift?: number; split?: number };
-const WORLD: SheetColour = { saturate: 0.62, contrast: 0.9, brightness: 0.98, lift: 26, split: 0.22 };
+const WORLD: SheetColour = { saturate: 0.81, contrast: 0.95, brightness: 0.99, lift: 13, split: 0.11 };
 export const SHEET_COLOURS: Record<string, SheetColour> = {
   host: WORLD,
   halls: WORLD,
-  stalls: { ...WORLD, brightness: 0.94 },
+  stalls: { ...WORLD, brightness: 0.97 },
   terrain: WORLD,
   textures: WORLD,
   coast: WORLD,
-  water: { ...WORLD, saturate: 0.7, split: 0.16 },
-  sea2: { ...WORLD, saturate: 0.72, split: 0.16 },
+  water: { ...WORLD, saturate: 0.85, split: 0.08 },
+  sea2: { ...WORLD, saturate: 0.86, split: 0.08 },
   foliage: WORLD,
   "theme-forest": WORLD,
   "theme-farm": WORLD,
