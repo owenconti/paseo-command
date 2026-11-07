@@ -702,13 +702,14 @@ A second map style (Settings → Map, ⌘K "Use the Overworld map" / "Use the Is
 `atlas:style`, Islands by default), from the user's concept render (ignored `design/references/overworld-concept.png`): each host a
 terraced island region with its castle (plaque with name and CPU · MEM · DISK, two banners) on top, project halls (roof colour and icon
 badge seeded from the project) left and right of it, two a row, and each project's workspaces as market booths beneath it (rows of up to
-three; a camp for agents without a workspace), joined by glowing gold links. Scenery is a theme seeded per host: forest and snowy peaks,
+three; a camp for agents without a workspace); no connector lines (the user dropped them). The painted world is muted (`FINAL_GRADE`:
+less saturated, a little darker) so the robots, drawn over it at full colour, are what stands out. Scenery is a theme seeded per host: forest and snowy peaks,
 farmland, or volcanic; forests are canopy masses (`foliage.png`), islands' fronts carry cliff faces, headlands, rocks and surf
 (`coast.png`, `paintCoast`), and the sea is `sea2.png`'s calm tile. Robots keep provider colours (Claude orange, ChatGPT/Codex pearl, others the neutral robot tinted) and step through their
 pose's frames (idle or working; Swift cycles a streamer's `frames`, the first only with reduced motion). Its sprites are
 HD painted sheets in `rendering/src/assets/overworld/` (frame maps beside them; provenance in `rendering/ASSETS.md`). `rendering/src/overworld/`:
 `fleet.ts` maps the fleet, `layout.ts` lays a host out in concept pixels (deterministic; `rendering/tests/overworld.test.mjs`), `paint.ts`
-paints it (sea, islands with perspective cliffs and surf, rivers, scenery, buildings, links, labels), `native.ts` (`OverworldMap`) paints
+paints it (sea, islands with perspective cliffs and surf, rivers, scenery, buildings, labels), `native.ts` (`OverworldMap`) paints
 each host once per layout change into tiles, a few at a time, arranges hosts in columns to suit the map's shape, and posts the robots,
 state rings (pulsing while they need you) and PR / Probe badges and the auto-merge seal as overlays, with each entity's rectangle.
 Swift (`AtlasScene`, scene `style: "overworld"`) hides the Islands sea, picks the smallest rectangle under the pointer and outlines

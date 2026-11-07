@@ -136,7 +136,8 @@ const LAND_K = 2;
 
 const GRASS_GRADE: Grade = { hue: -13, saturate: 0.92, brightness: 1.04, contrast: 1.12 };
 
-const FINAL_GRADE: Grade = { contrast: 1.12, saturate: 1.18 };
+/** The world is muted (less saturated, a little darker) so the robots, drawn over it at full colour, stand out. */
+const FINAL_GRADE: Grade = { contrast: 1.04, saturate: 0.62, brightness: 0.86 };
 
 /** Measured: our painting's brightness at the 5/25/50/75/95th percentiles against the concept's. */
 const TONE = (() => {
@@ -181,12 +182,10 @@ export function paintScene(ctx: Ctx, scene: Scene, sheets: Sheets, opts: PaintOp
     if (item.kind === "booth") paintBooth(ctx, item, sheets, opts);
     else paintSprite(ctx, item, sheets);
   }
-  paintLinks(ctx, scene);
   for (const label of scene.labels) {
     if (label.kind === "label") paintLabel(ctx, label, sheets);
     else paintPlaque(ctx, label, sheets);
   }
-  for (const node of scene.nodes) paintNode(ctx, node.x, node.y, node.r);
   for (const cloud of clouds(scene)) paintSprite(ctx, cloud, sheets);
   ctx.restore();
   // Final grade: the concept's punchy contrast and saturation.
@@ -200,6 +199,13 @@ export function paintScene(ctx: Ctx, scene: Scene, sheets: Sheets, opts: PaintOp
     all.data[i + 2] = TONE[all.data[i + 2]!]!;
   }
   ctx.putImageData(all, 0, 0);
+  // Robots stay at full colour over the muted world (the app draws them natively; the preview here).
+  if (opts.robots !== false) {
+    ctx.save();
+    ctx.scale(K, K);
+    scene.robots.forEach((spot, i) => drawFrame(ctx, robotFrame(sheets, spot.colour, spot.working, opts.t, i * 0.37), spot.x, spot.y, ROBOT_SCALE));
+    ctx.restore();
+  }
 }
 
 // ---- Sea -----------------------------------------------------------------------------------
@@ -810,11 +816,7 @@ function paintCamp(ctx: Ctx, booth: BoothItem, sheets: Sheets, opts: PaintOption
   const x0 = booth.x - booth.w / 2;
   paintShadow(ctx, booth.x, booth.y + 6, booth.w, 0.3);
   drawFrame(ctx, frameOf(sheets, "stalls", "camp"), x0 + 62, booth.y + 2, 0.19);
-  if (opts.robots !== false) {
-    for (const spot of robotSpots({ id: "", name: "", agents: booth.agents, camp: true }, booth.x, booth.y, booth.w)) {
-      drawFrame(ctx, robotFrame(sheets, spot.colour, spot.working, opts.t, 0), spot.x, spot.y, ROBOT_SCALE);
-    }
-  }
+
 }
 
 function paintBooth(ctx: Ctx, booth: BoothItem, sheets: Sheets, opts: PaintOptions): void {
@@ -852,11 +854,7 @@ function paintBooth(ctx: Ctx, booth: BoothItem, sheets: Sheets, opts: PaintOptio
       drawFrame(ctx, f, gx, booth.y + 1, 0.2);
     }
   }
-  if (opts.robots !== false) {
-    robotSpots({ id: "", name: "", agents: booth.agents }, booth.x, booth.y, booth.w).forEach((spot, i) => {
-      drawFrame(ctx, robotFrame(sheets, spot.colour, spot.working, opts.t, i * 0.37), spot.x, spot.y, ROBOT_SCALE);
-    });
-  }
+
   // Side props outside both ends.
   const lp = frameOf(sheets, "stalls", `booth-side-props-left-${1 + (seed % 2)}`);
   const rp = frameOf(sheets, "stalls", `booth-side-props-right-${1 + ((seed >> 1) % 2)}`);
@@ -1130,55 +1128,6 @@ function clouds(scene: Scene): SpriteItem[] {
 }
 
 // ---- Links, labels -------------------------------------------------------------------------
-
-function roundedPath(ctx: Ctx, pts: Array<[number, number]>, radius: number): void {
-  ctx.beginPath();
-  ctx.moveTo(pts[0][0], pts[0][1]);
-  for (let i = 1; i < pts.length - 1; i++) ctx.arcTo(pts[i][0], pts[i][1], pts[i + 1][0], pts[i + 1][1], radius);
-  ctx.lineTo(pts[pts.length - 1][0], pts[pts.length - 1][1]);
-}
-
-function paintLinks(ctx: Ctx, scene: Scene): void {
-  ctx.save();
-  ctx.lineCap = "round";
-  ctx.lineJoin = "round";
-  for (const link of scene.links) {
-    roundedPath(ctx, link.pts, 9);
-    ctx.shadowColor = "rgba(255, 170, 20, 0.95)";
-    ctx.shadowBlur = 10 * 4;
-    ctx.strokeStyle = "rgba(255, 186, 30, 0.9)";
-    ctx.lineWidth = 6.5;
-    ctx.stroke();
-    ctx.shadowBlur = 0;
-    ctx.strokeStyle = "#ffd447";
-    ctx.lineWidth = 4.2;
-    ctx.stroke();
-    ctx.strokeStyle = "#fff6c2";
-    ctx.lineWidth = 1.6;
-    ctx.stroke();
-  }
-  ctx.restore();
-}
-
-function paintNode(ctx: Ctx, x: number, y: number, r: number): void {
-  ctx.save();
-  ctx.shadowColor = "rgba(255, 190, 30, 1)";
-  ctx.shadowBlur = 12 * 4;
-  ctx.fillStyle = "#ffb51f";
-  ctx.beginPath();
-  ctx.arc(x, y, r + 1.6, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.shadowBlur = 0;
-  const g = ctx.createRadialGradient(x - r * 0.25, y - r * 0.3, 0, x, y, r);
-  g.addColorStop(0, "#ffffff");
-  g.addColorStop(0.55, "#fffbe0");
-  g.addColorStop(1, "#ffd84a");
-  ctx.fillStyle = g;
-  ctx.beginPath();
-  ctx.arc(x, y, r, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.restore();
-}
 
 function nineSlice(ctx: Ctx, sheets: Sheets, prefix: string, cx: number, cy: number, w: number, h: number, inset: number): void {
   const l = frameOf(sheets, "ui-world", `${prefix}-left`);
