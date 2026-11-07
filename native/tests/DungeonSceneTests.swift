@@ -100,8 +100,14 @@ let agentHover = events.last { $0["type"] as? String == "hover" }!
 assert(agentHover["id"] as? String == "a1" && agentHover["flag"] == nil)
 let top = screen(200, 330)
 assert(abs((agentHover["y"] as! CGFloat) - top.y) < 0.5, "the card points at the robot's top")
+// The hovered robot glows along its own silhouette (halo nodes on its body), never a rim round a box.
+func glowCount(_ n: SKNode) -> Int { (n.name == "hover-glow" ? 1 : 0) + n.children.reduce(0) { $0 + glowCount($1) } }
+func shapeCount(_ n: SKNode) -> Int { (n is SKShapeNode && n.parent?.zPosition == 19 ? 1 : 0) + n.children.reduce(0) { $0 + shapeCount($1) } }
+assert(glowCount(scene) >= 2, "a hovered robot glows")
+assert(shapeCount(scene) == 0, "no hover rim")
 scene.pointer(phase: "leave", at: .zero)
 assert(scene.state()["hovered"] is NSNull)
+assert(glowCount(scene) == 0, "the glow goes with the hover")
 
 // Selection draws for a known entity and clears for a gone one.
 scene.select("w1")
