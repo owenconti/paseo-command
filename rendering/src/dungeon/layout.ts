@@ -720,10 +720,14 @@ export function layoutDungeon(data: AtlasData, _aspect = 1.6, measure: Measure =
         if ((hung = place({ frame: "banner-purple-plain", x: s * (hostX + nudge), y: mount, w: f === 0 ? 64 : 56, floor: f, layer: "back" }))) break;
       if (hung)
         place({ frame: "torch", x: s * (hostX + 50), y: fl.top + 56, w: 24, floor: f, layer: "front", ...lit(TORCH_LIGHT) });
-      place({ frame: THEMED[(seedOf(fl.host.id) + (s === 1 ? 1 : 0)) % THEMED.length]!, x: s * (sideHalf(s) - D.sideRoom / 2), y: fl.top + 40, w: 60, floor: f, layer: "back" });
+      place({ frame: THEMED[(seedOf(fl.host.id) + (s === 1 ? 1 : 0)) % THEMED.length]!, x: s * (sideHalf(s) - D.sideRoom / 2), y: fl.top + 28 + (seedOf(fl.host.id + s) % 24), w: 60, floor: f, layer: "back" });
       // Unequal bays: short and long spans, fixtures at different heights, dark pockets left between; wall candles
       // are rare up here (they mark the projects' terraces below).
-      for (let x = hostX + 90 + rng() * 40; x < sideHalf(s) - D.sideRoom - 30; x += 40 + rng() * 95) {
+      // Grouped: two or three things close together, then a long dark pocket before the next group.
+      let inGroup = 0, groupSize = 2 + Math.floor(rng() * 2);
+      for (let x = hostX + 90 + rng() * 40; x < sideHalf(s) - D.sideRoom - 30; x += inGroup === 0 ? 110 + rng() * 70 : 34 + rng() * 26) {
+        inGroup = (inGroup + 1) % groupSize;
+        if (inGroup === 0) groupSize = 2 + Math.floor(rng() * 2);
         const roll = rng();
         const arch = FRAMES["window-arch"]?.real ? "window-arch" : "niche-arch";
         const chains = FRAMES["chain-pair"]?.real ? "chain-pair" : "chain";

@@ -64,6 +64,8 @@ const FONT = 'ui-rounded, "SF Pro Rounded", "Arial Rounded MT Bold", "Paseo Barl
 const HEAVY = 800;
 const BOLD = 700;
 const INK = "#2a1a0e";
+/** Props that stand on a floor (contact shadows at their feet). */
+const STANDING = new Set(["barrel", "barrels", "crate", "crates", "armor", "bookcase-ladder", "alchemy-tank", "crystal", "forge", "anvil", "table", "scroll-desk", "brazier", "candelabra"]);
 /** The host sign's lettering: an old-style serif painted on wood (the HUD keeps its own face). */
 const SIGN_FONT = '"Iowan Old Style", Palatino, "Palatino Linotype", "Book Antiqua", Georgia, serif';
 const SIGN_PAINT = "#f1dfb2";
@@ -88,7 +90,7 @@ const GRADED = new Set(["stone", "gate", "alcoves", "props"]);
  * (#2a1f4a, #4a3a7a) by how dark they are, warm highlights (torch light, gold) left warm. */
 /** `shadow`/`mid`: red-violet tints (the concept's stone, not a blue violet). `stoneStrength`: the stone's tint, stronger; `stoneWarmth`: its colour balance, a little warmer; `stoneSaturation`: its colour held against the neutral lift.
  * `stoneLift`: the walls' and floors' ambient, a notch above the props' and alcoves' so the lavender stone reads as bright as the concept's. */
-export const GRADE = { lift: 1.19, stoneLift: 1.38, stoneSaturation: 1.3, warmth: [1, 1, 1], saturation: 1.05, shadow: [0x34, 0x1f, 0x42], mid: [0x5a, 0x3c, 0x6c], strength: 0.1, stoneStrength: 0.2, stoneWarmth: [1.04, 1, 0.94] };
+export const GRADE = { lift: 1.19, stoneLift: 1.38, stoneSaturation: 1.3, warmth: [1, 1, 1], saturation: 1.05, shadow: [0x34, 0x1f, 0x42], mid: [0x5a, 0x3c, 0x6c], strength: 0.1, stoneStrength: 0.2, stoneWarmth: [1.055, 1, 0.915] };
 function grade(image: HTMLImageElement, opts: { saturation?: number; strength?: number; lift?: number; warmth?: number[] } = {}): HTMLCanvasElement {
   const saturation = opts.saturation ?? GRADE.saturation, strength = opts.strength ?? GRADE.strength, lift = opts.lift ?? GRADE.lift, warmth = opts.warmth ?? GRADE.warmth;
   const canvas = document.createElement("canvas");
@@ -462,7 +464,7 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
 
   /** A shading overlay, stretched over the board: a purple shadow falling from the top of a floor's upper wall,
    * or a vignette darkening the board toward its edges. */
-  const paintShade = (kind: "upper" | "edges" | "warm" | "under" | "patch") => {
+  const paintShade = (kind: "upper" | "edges" | "warm" | "under" | "patch" | "contact" | "pocket") => {
     const canvas = document.createElement("canvas");
     canvas.width = canvas.height = 256;
     const ctx = canvas.getContext("2d")!;
@@ -472,6 +474,19 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
       const g = ctx.createLinearGradient(0, 0, 0, 256);
       g.addColorStop(0, "rgba(14, 10, 34, 0.7)");
       g.addColorStop(1, "rgba(14, 10, 34, 0)");
+      ctx.fillStyle = g;
+    } else if (kind === "contact") {
+      const g = ctx.createRadialGradient(128, 128, 0, 128, 128, 128);
+      g.addColorStop(0, "rgba(10, 6, 20, 0.62)");
+      g.addColorStop(0.55, "rgba(10, 6, 20, 0.34)");
+      g.addColorStop(1, "rgba(10, 6, 20, 0)");
+      ctx.fillStyle = g;
+    } else if (kind === "pocket") {
+      // A deep pocket where masses meet: darkest at its middle, fading either side.
+      const g = ctx.createLinearGradient(0, 0, 256, 0);
+      g.addColorStop(0, "rgba(12, 8, 26, 0)");
+      g.addColorStop(0.5, "rgba(12, 8, 26, 0.6)");
+      g.addColorStop(1, "rgba(12, 8, 26, 0)");
       ctx.fillStyle = g;
     } else if (kind === "patch") {
       const g = ctx.createRadialGradient(128, 128, 10, 128, 128, 128);
@@ -541,6 +556,10 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
         put("rampart-return-left", L, T + 25, 72, 70, -43.9, dim);
         put("rampart-return-right", R - 69, T + 25, 69, 70, -43.9, dim);
       }
+      // Deep pockets where the masses meet: either side of each pier, down the wall.
+      for (const r of fl.piers)
+        for (const side of [-1, 1])
+          images.push({ ...image("shade:pocket", () => paintShade("pocket")), x: side === -1 ? r.x - 26 : r.x + r.w - 6, y: T + 46, w: 32, h: floorEnd - T - 60, z: -46, ...dim });
       // Block pillars with caps and bases.
       for (const r of fl.piers) {
         fill("pillar", r, -45, dim);
@@ -599,6 +618,21 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
         images.push({ ...image("shade:patch", () => paintShade("patch")), x, y: T + 18 + rng() * 50, w, h: 50 + rng() * 40, z: -50 });
       }
       if (fl.last) fill("terrace-floor", { x: L + 20, y: floorEnd + 28, w: R - L - 40, h: fl.top + fl.height - floorEnd - 34 }, -40, { ...dim, shade: 0.26 });
+      if (fl.last) {
+        // The foot's front enclosure, as the concept's bottom: a low parapet with lit tops either side of the stair
+        // opening, capped at the opening and the ends, its face and a shadow beneath; the stairs run on down through it.
+        // (The count bar lies over its lower edge; its top and the opening read above it.)
+        const py = fl.top + fl.height - D.footPad + 2, open = D.stairsW / 2 + 2;
+        fill("stairs-mid", { x: fl.stairs.x, y: fl.stairs.y + fl.stairs.h - 30, w: fl.stairs.w, h: py + 40 - (fl.stairs.y + fl.stairs.h - 30) }, -26, { ...dim, shade: dim.dim ? 0.55 : 0.22 });
+        for (const [x0, x1] of [[L + 26, -open], [open, R - 26]] as const) {
+          fill("rampart-x", { x: x0, y: py, w: x1 - x0, h: 30 }, -3.5, { ...dim, shade: 0 });
+          fill("ledge-face", { x: x0 + 2, y: py + 28, w: x1 - x0 - 4, h: 12 }, -3.55, { ...dim, shade: 0.28 });
+        }
+        put("rampart-end-right", -open - 27, py - 6, 31, 30, -3.4, dim);
+        put("rampart-end-left", open - 4, py - 6, 31, 30, -3.4, dim);
+        put("rampart-end-left", L + 14, py - 6, 31, 30, -3.4, dim);
+        put("rampart-end-right", R - 45, py - 6, 31, 30, -3.4, dim);
+      }
       // The gate column: the big round surround (its top a plain dark keystone opening: no icon), the plaque, the
       // portcullis behind its arch, and the stairs down between block side walls.
       put("gate-surround", fl.surround.x, fl.surround.y, fl.surround.w, fl.surround.h, -36, dim);
@@ -718,7 +752,14 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
       // Side rooms' recesses and the foot's red rugs a shade down, so neither outshines the robots.
       const glowing = /^(magic-circle|crystal|alchemy-tank|forge|brazier)$/.test(d.frame);
       const quiet = (d.recess || glowing || d.frame === "rug-red") && l.floors[d.floor]?.online ? { shade: d.recess ? 0.45 : d.frame === "brazier" || d.frame === "forge" ? 0.42 : glowing ? 0.32 : 0.38 } : {};
-      sprites.push(sprite(d.frame, d.rect, z, { ...dimOf(d.floor), ...(d.flip ? { flip: 1 } : {}), ...quiet }));
+      // Within a room, the smaller pieces stand in front of the larger (armour before the circle, anvil before the forge).
+      const depth = z === -4 && d.group ? (1 - Math.min(1, d.rect.h / 160)) * 0.05 : 0;
+      sprites.push(sprite(d.frame, d.rect, z + depth, { ...dimOf(d.floor), ...(d.flip ? { flip: 1 } : {}), ...quiet }));
+      // A soft contact shadow at the feet of everything standing on a floor.
+      if (STANDING.has(d.frame) && d.layer === "front") {
+        const w = d.rect.w * 0.92, h = Math.max(5, Math.min(14, w * 0.2));
+        images.push({ ...image("shade:contact", () => paintShade("contact")), x: d.rect.x + (d.rect.w - w) / 2, y: d.rect.y + d.rect.h - h * 0.6, w, h, z: z + depth - 0.02 });
+      }
       // A brazier stands on a masonry pad of its own.
       if (d.frame === "brazier") put("pillar-base", d.rect.x + 4, d.rect.y + d.rect.h - 11, d.rect.w - 8, 15, z - 0.05, dimOf(d.floor));
       if (d.light && l.floors[d.floor]!.online)
@@ -752,6 +793,10 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
       gold(r.x + r.w / 2, r.y + r.h * 0.5, r.w * 0.56, r.h * 0.56, GOLD_K.alcove + 0.25, -11.4, GOLD_DEEP);
       // Added candlelight in the bay, behind the robots: warmth that brightens, never browns.
       lights.push({ x: r.x + r.w / 2, y: r.y + r.h * 0.45, c: 0xffb048, r: Math.max(r.w * 0.55, 70), k: 0.3, z: -11.3, period: 5200, flicker: false });
+      // The walkway before it, warmed wide and low by its candlelight (added, under the robots and the front wall).
+      lights.push({ x: r.x + r.w / 2, y: r.y + r.h + 22, c: 0xff8a2c, r: Math.max(r.w * 0.7, 110), k: 0.16, z: -39.1, period: 5200, flicker: false });
+      // Its mouth: candlelight spilling onto the ledge and the walkway before it (added).
+      lights.push({ x: r.x + r.w / 2, y: r.y + r.h - 4, c: 0xff8a2c, r: Math.max(r.w * 0.55, 70), k: 0.38, z: -9.8, period: 5200, flicker: false });
     }
     // (The walkways stay purple-grey flagstones lit warm only at their lights; v5's own warm specks light the front walls' tops.)
     // Warm bounce in clusters, not rails: lit wall tops only near a fixture (a project's wall-candles, the gate's
@@ -773,7 +818,7 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
     // Every lit side room spills added warm light round its mouth (the magic and crystal rooms keep their own colour).
     for (const d of l.decor)
       if (d.recess && l.floors[d.floor]?.online && !/magic|cave/.test(d.frame))
-        lights.push({ x: d.rect.x + d.rect.w / 2, y: d.rect.y + d.rect.h * 0.7, c: 0xffa848, r: 90, k: 0.3, z: -37.4, period: 5200, flicker: false });
+        lights.push({ x: d.rect.x + d.rect.w / 2, y: d.rect.y + d.rect.h * 0.7, c: 0xff8a2c, r: 100, k: 0.46, z: -37.4, period: 5200, flicker: false });
     // Painted warm glazes on the floor at the braziers, forge and candelabra.
     if (FRAMES["light-spill-floor-0"]?.real)
       for (const d of l.decor)
@@ -798,7 +843,7 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
       const fy = d.rect.y + 10;
       // Torchlight on stone: a small multiplied pool for the warm cast, close round the flame, and added golden light.
       lights.push({ x, y: fy + 18, rx: 40, ry: 36, c: GOLD, blend: "gold", tight: 1, k: 0.5, z: -43, period: 5200, flicker: false });
-      lights.push({ x, y: fy + 10, c: 0xffb04a, r: 72, k: 0.5, period: 5200, flicker: false, z: -43.1 });
+      lights.push({ x, y: fy + 10, c: 0xff922e, r: 92, k: 0.72, period: 5200, flicker: false, z: -43.1 });
       // The art's painted glaze round the flame (one of three, seeded), added as light: small and golden, never a multiplied stain.
       if (FRAMES["light-spill-wall-0"]?.real)
         sprites.push(sprite(`light-spill-wall-${seedOf(`${x},${y}`) % 3}`, at("light-spill-wall-0", x, fy + 8, 64), -43.3, { add: 1, a: 0.6 }));
