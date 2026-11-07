@@ -803,12 +803,15 @@ todo, blocked by a "Blocked" state or label or an open blocking issue; paged up 
 `atLeast`, shown "N+"); both asked by `useVillageCounts` (`web/src/villageCounts.ts`) every minute while the Village shows, as
 `AtlasData.dashboard`; off or keyless, their tiles dim and their cards say why. Below them a district per host with workspaces (the
 Atlas's host order, `hostGroups`), each one bounded unit (the user's call: structures group by containment, as on the Islands
-map): its own hedged cobbled plaza with a gate, only as big as its contents, separated from the next by forest, its fountain
+map): its own cobbled plaza (a tone of its own, districts alternating) ringed by its own low stone wall with posts at the corners and
+along it, open at its gate (`paintDistrictWall` in `bridge.ts`), only as big as its contents, a band of forest at least a cluster's
+width (`districtGap`) from the next, its fountain
 plaza (and the host's plaque: name, status dot, `CPU · MEM · DISK`, ≥ 90% red; the map's only text) a slot in its first row with
 its project clusters round it in rows (`perRow`; districts packed in shelves, each district's row count and the shelves chosen so
 the fit shows the town largest and most built, `built`); offline hosts' districts dimmed. Nothing loose stands in a district (no
 market filler): every built thing is a cluster's or its host's. Each project with workspaces is one cluster on its own yard
-(`lawns`, grass over the plaza with a street of paving round it, its edges under hedges and flowers, a low fence along its
+(`lawns`, grass over the plaza just round its contents with a street of paving round it, its free grass a garden of small trees,
+flower beds, bushes, flowers and flower boxes, its edges under hedges and flowers, a low fence along its
 front with a gate where its lane leaves): its hall at the back (`PROJECT_HALLS`, seeded per project, never the dashboards' blue
 or purple roofs, neighbours differing), ALL its workspaces' cottages (`cottage-0..5`, all at one scale, the widest about 55% of a
 hall's frame) in rows in front of it, never beside it, oldest first, two a side of the lane from the hall's door, which runs

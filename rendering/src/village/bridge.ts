@@ -421,6 +421,71 @@ export function mountNativeVillage(parent: HTMLElement, handlers: AtlasHandlers 
     ctx.drawImage(grass.c, 0, 0);
     return out.c;
   };
+  /** A district's low stone wall along its paving's edge (`r`), drawn in `box`: a band of dressed stone with a lit cap and
+   * a shadow below, posts at the corners and every few hundred units, open at the gate (`gateX`, on the top side). */
+  const paintDistrictWall = (box: Rect, r: Rect, gateX: number) => {
+    const K = 1.25;
+    const c = document.createElement("canvas");
+    c.width = Math.ceil(box.w * K);
+    c.height = Math.ceil(box.h * K);
+    const ctx = c.getContext("2d")!;
+    ctx.setTransform(K, 0, 0, K, -box.x * K, -box.y * K);
+    const T = 24, gate = 110;
+    const stone = frame(realFrames.has("cobble-warm") ? "cobble-warm" : "cobble");
+    const pat = ctx.createPattern(stone, "repeat")!;
+    const k = (FRAMES["cobble-warm"] ?? FRAMES.cobble)!.w / stone.width * 0.6;
+    pat.setTransform(new DOMMatrix([k, 0, 0, k, 0, 0]));
+    const bands: Rect[] = [
+      { x: r.x - T / 2, y: r.y - T / 2, w: gateX - gate - (r.x - T / 2), h: T },
+      { x: gateX + gate, y: r.y - T / 2, w: r.x + r.w + T / 2 - (gateX + gate), h: T },
+      { x: r.x - T / 2, y: r.y + r.h - T / 2, w: r.w + T, h: T },
+      { x: r.x - T / 2, y: r.y - T / 2, w: T, h: r.h + T },
+      { x: r.x + r.w - T / 2, y: r.y - T / 2, w: T, h: r.h + T },
+    ];
+    // Its shadow, the stone, a dark outline, a lit cap.
+    ctx.fillStyle = "rgba(20, 14, 6, 0.45)";
+    for (const b of bands) ctx.fillRect(b.x + 3, b.y + 6, b.w, b.h);
+    for (const b of bands) {
+      ctx.fillStyle = "#8a7a64";
+      ctx.fillRect(b.x, b.y, b.w, b.h);
+      ctx.fillStyle = pat;
+      ctx.globalAlpha = 0.55;
+      ctx.fillRect(b.x, b.y, b.w, b.h);
+      ctx.globalAlpha = 1;
+      ctx.strokeStyle = "rgba(48, 36, 22, 0.9)";
+      ctx.lineWidth = 2;
+      ctx.strokeRect(b.x, b.y, b.w, b.h);
+      ctx.fillStyle = "rgba(255, 236, 200, 0.35)";
+      ctx.fillRect(b.x + 1, b.y + 1, b.w - 2, 3);
+    }
+    // Posts: the corners, the gate's sides, and along each side.
+    const posts: { x: number; y: number }[] = [
+      { x: r.x, y: r.y }, { x: r.x + r.w, y: r.y }, { x: r.x, y: r.y + r.h }, { x: r.x + r.w, y: r.y + r.h },
+      { x: gateX - gate, y: r.y }, { x: gateX + gate, y: r.y },
+    ];
+    const along = (x0: number, y0: number, x1: number, y1: number) => {
+      const len = Math.hypot(x1 - x0, y1 - y0), n = Math.max(1, Math.round(len / 240));
+      for (let i = 1; i < n; i++) posts.push({ x: x0 + ((x1 - x0) * i) / n, y: y0 + ((y1 - y0) * i) / n });
+    };
+    along(r.x, r.y + r.h, r.x + r.w, r.y + r.h);
+    along(r.x, r.y, r.x, r.y + r.h);
+    along(r.x + r.w, r.y, r.x + r.w, r.y + r.h);
+    along(r.x, r.y, gateX - gate, r.y);
+    along(gateX + gate, r.y, r.x + r.w, r.y);
+    for (const p of posts) {
+      const s = 38;
+      ctx.fillStyle = "rgba(20, 14, 6, 0.5)";
+      ctx.fillRect(p.x - s / 2 + 3, p.y - s / 2 + 7, s, s);
+      ctx.fillStyle = "#7a6a54";
+      ctx.fillRect(p.x - s / 2, p.y - s / 2, s, s);
+      ctx.fillStyle = "#b8a682";
+      ctx.fillRect(p.x - s / 2 + 3, p.y - s / 2 + 3, s - 6, s - 9);
+      ctx.strokeStyle = "rgba(40, 30, 18, 0.95)";
+      ctx.lineWidth = 2;
+      ctx.strokeRect(p.x - s / 2, p.y - s / 2, s, s);
+    }
+    return c;
+  };
   const canvasFor = (w: number, h: number) => {
     const canvas = document.createElement("canvas");
     canvas.width = Math.ceil(w * TEXT_SCALE);
@@ -665,7 +730,15 @@ export function mountNativeVillage(parent: HTMLElement, handlers: AtlasHandlers 
       const phase = (v: number) => ((v % grid) + grid) % grid;
       if (!sq.online) sprites.push(tile("grass", sq.rect, -60, { ...dim, ox: phase(sq.rect.x), oy: phase(sq.rect.y) }));
       // The plaza, then the north road (open into the forest at its top) and the south road (open onto the bridge).
-      for (const r of sq.roads) sprites.push(...paving(r, -57, dim));
+      // Its paving a tone of its own (districts alternate warm and cool), and its own low stone wall round it, open at
+      // its gate, with posts at its corners and along it, so each district reads as a block of its own.
+      const tones = [{}, { c: 0xd8cbbd, cf: 0.35 }, { c: 0xe8c8a0, cf: 0.3 }, { c: 0xc8c4b8, cf: 0.35 }];
+      for (const r of sq.roads) sprites.push(...paving(r, -57, { ...tones[i % tones.length], ...dim }));
+      {
+        const r = sq.roads[0]!;
+        const box = { x: r.x - 30, y: r.y - 30, w: r.w + 60, h: r.h + 60 };
+        images.push({ ...image(`dwall:${[r.x, r.y, r.w, r.h, sq.center.x].map(Math.round).join(",")}`, () => paintDistrictWall(box, r, sq.center.x)), x: box.x, y: box.y, w: box.w, h: box.h, z: -56.5, ...dim });
+      }
       const warm = realFrames.has("cobble-warm-blob");
       sprites.push(sprite(warm ? "cobble-warm-blob" : "cobble-blob", sq.plaza, -56.9, { ...(warm ? {} : { shade: PAVE_SHADE }), ...dim }));
       // A larger, lighter ring of radial stones round the fountain, under its own ring.

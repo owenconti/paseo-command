@@ -61,14 +61,14 @@ export const V = {
   yard: 46,
   cellPad: 18,
   /** A cluster's lawn round its hall and cottages. */
-  lawnPad: 34,
+  lawnPad: 24,
   /** The robots' feet below their cottage's. */
   doorstep: 16,
   /** Gaps: between blocks in a district's column, either side of the fountain, round a district, between districts. */
   blockGap: 96,
   fountainGap: 360,
   districtPad: 56,
-  districtGap: 110,
+  districtGap: 300,
   fountainW: 230,
   ringW: 300,
   hostPlaqueH: 64,
@@ -854,7 +854,7 @@ function sceneryOf(town: VTown, squares: VSquare[], lawns: VLawn[], projects: VP
   hedge(town.roads[1]!, "", 0);
   hedge(town.roads[2]!, "ns", 0);
   for (const link of town.roads.slice(3)) hedge(link, "ns", 0);
-  squares.forEach((s, i) => hedge(s.roads[0]!, "", i));
+  // (A district's own low stone wall rings it, painted by the bridge; the forest stands outside it.)
   // Each cluster's lawn: its stepping-stone lane and walkways, a low fence along its front (open where the lane leaves),
   // and greenery along its other edges so no straight edge of grass shows.
   for (const lawn of lawns) {
@@ -892,20 +892,31 @@ function sceneryOf(town: VTown, squares: VSquare[], lawns: VLawn[], projects: VP
     edge(r.x, r.y, r.x + r.w, r.y);
     edge(r.x, r.y, r.x, r.y + r.h);
     edge(r.x + r.w, r.y, r.x + r.w, r.y + r.h);
-    // The lawn's free grass: a garden of flower beds, flowers, bushes and tufts, a few crates; never on its paths.
-    for (let gy = r.y + 70; gy < r.y + r.h - 10; gy += 58 + rng() * 20)
-      for (let gx = r.x + 40 + rng() * 30; gx < r.x + r.w - 30; gx += 66 + rng() * 30) {
-        if (rng() < 0.2) continue;
-        const roll = rng();
-        const frame = roll < 0.12 ? (rng() < 0.4 ? `blossom-${Math.floor(rng() * 3)}` : `tree-${Math.floor(rng() * 6)}`) : roll < 0.3 ? "flowerbed" : roll < 0.5 ? `flowers-${Math.floor(rng() * 4)}` : roll < 0.7 ? `bush-${Math.floor(rng() * 4)}` : roll < 0.85 ? "grass-tufts" : "flower-box";
-        const w = /^(tree|blossom)/.test(frame) ? 96 + rng() * 10 : frame === "flowerbed" ? 76 : frame.startsWith("bush") ? 60 + rng() * 16 : frame === "flower-box" ? 60 : 44 + rng() * 14;
-        const x = gx + (rng() - 0.5) * 20, y = gy + (rng() - 0.5) * 20;
-        const rect = boxOf(frame, x, y, w);
-        if ([...says, ...lawn.paths].some((o) => overlaps(o, rect, 6)) || placed.some((o) => overlaps(o, rect, -4))) continue;
-        if (rect.x < r.x + 8 || rect.x + rect.w > r.x + r.w - 8 || rect.y + rect.h > r.y + r.h - 4) continue;
-        decor.push({ frame, x, y, rect, square: lawn.square, layer: "stand" });
-        placed.push(rect);
-      }
+    // The yard's free grass is a garden: small trees, flower beds and bushes first, then flowers, flower boxes and tufts in
+    // what's left, so no corner of bare grass shows; never on its paths or what the village says.
+    const garden = (frames: (() => [string, number])[], step: number, skip: number) => {
+      for (let gy = r.y + step * 0.8; gy < r.y + r.h + 4; gy += step * (0.85 + rng() * 0.3))
+        for (let gx = r.x + step * 0.4 + rng() * step * 0.3; gx < r.x + r.w - step * 0.3; gx += step * (0.85 + rng() * 0.3)) {
+          if (rng() < skip) continue;
+          const [frame, w] = frames[Math.floor(rng() * frames.length)]!();
+          const x = gx + (rng() - 0.5) * step * 0.3, y = gy + (rng() - 0.5) * step * 0.3;
+          const rect = boxOf(frame, x, y, w);
+          if ([...says, ...lawn.paths].some((o) => overlaps(o, rect, 6)) || placed.some((o) => overlaps(o, rect, -6))) continue;
+          if (rect.x < r.x + 4 || rect.x + rect.w > r.x + r.w - 4 || rect.y + rect.h > r.y + r.h - 2 || rect.y + rect.h * 0.6 < r.y) continue;
+          decor.push({ frame, x, y, rect, square: lawn.square, layer: "stand" });
+          placed.push(rect);
+        }
+    };
+    garden([
+      () => [rng() < 0.4 ? `blossom-${Math.floor(rng() * 3)}` : `tree-${Math.floor(rng() * 6)}`, 84 + rng() * 16],
+      () => ["flowerbed", 80],
+      () => [`bush-${Math.floor(rng() * 4)}`, 64 + rng() * 14],
+    ], 78, 0.05);
+    garden([
+      () => [`flowers-${Math.floor(rng() * 4)}`, 44 + rng() * 12],
+      () => ["flower-box", 58],
+      () => ["grass-tufts", 40 + rng() * 10],
+    ], 40, 0.1);
   }
   // Each district's gate at its top, facing the walk.
   squares.forEach((s, i) => {
