@@ -39,6 +39,9 @@ export type AtlasWorld = {
   select(id: string | null): void;
   /** Pans to an entity if it is out of view; `zoom` frames it closer too. */
   focus(id: string, zoom?: boolean): void;
+  /** The Dungeon Board's conversation (its dialogue box): frame the robot `id` (an entity id, as select takes) above a box
+   * covering the map's bottom `inset` CSS px, or with null end it and put the camera back where it was. The other worlds ignore it. */
+  talk(id: string | null, inset?: number): void;
   /** Draw the hex islands or the Overworld (the Atlas's styles; the Dungeon Board has one). */
   style(style: AtlasStyle): void;
   command(name: "home" | "in" | "out"): void;

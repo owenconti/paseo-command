@@ -33,11 +33,18 @@ protocol MapScene: SKScene {
     func key(_ key: String, down isDown: Bool)
     func select(_ id: String?)
     func focus(_ id: String, closer: Bool)
+    /// The page's dialogue box talks to `id` (an entity), covering the map's bottom `inset` points: frame it above the box;
+    /// nil ends the conversation and puts the camera back. Only the Dungeon Board has one.
+    func talk(id: String?, inset: CGFloat)
     func command(_ name: String)
     func setInput(_ enabled: Bool)
     func setMotion(reduced value: Bool)
     func viewportChanged()
     func state() -> [String: Any]
+}
+
+extension MapScene {
+    func talk(id: String?, inset: CGFloat) {}
 }
 
 /// The scene for a style's name.

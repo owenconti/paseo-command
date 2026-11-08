@@ -49,6 +49,8 @@ type Props = {
   activeLabel: string;
   hasActive: boolean;
   openRevision: number;
+  /** Whether choosing something opens a hidden panel (not while the Dungeon Board's dialogue box speaks for it). */
+  openOnSelect?: boolean;
   /** Bumped to expand the panel with nothing selected (Settings…). */
   revealRevision?: number;
   browsing: boolean;
@@ -161,8 +163,10 @@ export function FloatingPanel(props: Props) {
     };
   }, [props.enabled]);
   useEffect(() => {
-    if (props.enabled && props.activeKey)
+    if (props.enabled && props.activeKey && props.openOnSelect !== false)
       setState((s) => (s.collapsed ? { ...s, collapsed: false } : s));
+    // Only a new choice opens it: the box closing later doesn't.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [props.activeKey, props.openRevision, props.enabled]);
   // ⌘B (Ctrl+B elsewhere) hides or shows the panel, even while typing.
   useEffect(() => {

@@ -107,7 +107,7 @@ type Confirm = "archive" | "fresh" | null;
 
 /** A file link clicked in the chat (src/autolink.ts): the file in the Files tab, as a kept tab at its line.
  * The tab is the macOS app's; a browser says so. */
-function openFileLink(e: React.MouseEvent, workspace: Workspace | undefined, onNotice: (message: string) => void): boolean {
+export function openFileLink(e: React.MouseEvent, workspace: Workspace | undefined, onNotice: (message: string) => void): boolean {
   const link = (e.target as Element).closest?.("a[data-file-path]");
   if (!(link instanceof HTMLAnchorElement)) return false;
   e.preventDefault();
@@ -133,7 +133,7 @@ function openFileLink(e: React.MouseEvent, workspace: Workspace | undefined, onN
 
 /** In the macOS app, web links clicked in the chat open as a Conquer tab, in the
  * map's place, rather than in the default browser. */
-function openInAppBrowser(e: React.MouseEvent) {
+export function openInAppBrowser(e: React.MouseEvent) {
   if (!macApp() || e.button !== 0 || e.altKey) return;
   const link = (e.target as Element).closest?.("a[href]");
   if (!(link instanceof HTMLAnchorElement) || !/^https?:$/.test(link.protocol)) return;

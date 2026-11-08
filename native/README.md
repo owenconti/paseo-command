@@ -59,7 +59,13 @@ npm run native:run -- --url http://127.0.0.1:4331/
 `native:mock -- --dungeon` and `-- --village` serve the Dungeon Board's and the Village's concept fleets and
 print an address that opens the map in that style (`?map=dungeon`, `?map=village`). The map's styles each have a
 scene (`MapScene.swift`: `AtlasScene` for the Islands and the Overworld, `DungeonScene`, `VillageScene`); the page's
-`art` message names it and the window swaps it in (`WorldWindow.adopt`).
+`art` message names it and the window swaps it in (`WorldWindow.adopt`). The Dungeon Board's `talk` message
+(`{id, inset}`, from the world's `talk`; the page posts it on every `ready`, a null `id` too, so a reloaded page ends
+a conversation the kept scene still holds) frames the robot the page's dialogue box talks to above the box, which
+covers the map's bottom `inset` points, and fades the count bar under it; a scene posted again re-frames it only if
+it was in view (a user who looked away keeps their camera). A null `id` puts the camera back where it was (fitted
+again if it showed the whole board), the box's room kept until it's within the board's usual limits, so a click on
+the way doesn't make it jump (`DungeonScene.talk`, `talk` in the scene's state; the other scenes ignore it).
 
 The icon (`native/AppIcon.icns`) is drawn from the Atlas's own robot art by
 `swift native/scripts/icon.swift`.

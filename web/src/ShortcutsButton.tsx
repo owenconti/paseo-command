@@ -103,6 +103,22 @@ const PAGES: Group = {
   ],
 };
 /** The Activity tab's keys (`activity/ActivityView.tsx`), while the keyboard is in it. */
+/** The Dungeon Board's dialogue box (src/worldChat/WorldChat.tsx). */
+const DUNGEON_TALK: Group = {
+  title: "Talking on the Dungeon Board",
+  note: "While a robot's dialogue box shows (picking a robot opens it)",
+  rows: [
+    { keys: [["T"]], label: "Talk to the selected robot" },
+    { keys: [["Enter"], ["Space"]], label: "Finish the line, then the next page; pick the marked choice" },
+    { keys: [["←"], ["→"]], label: "Previous or next page" },
+    { keys: [["End"]], label: "Skip to the last page and its choices" },
+    { keys: [["↑"], ["↓"]], label: "Move through the choices" },
+    { keys: [["1"], ["…"], ["9"]], label: "Pick that choice" },
+    { keys: [["R"]], label: "Reply (queued while it works)" },
+    { keys: [["Esc"]], label: "Leave the conversation (the robot stays selected)" },
+  ],
+};
+
 const ACTIVITY: Group = {
   title: "Activity",
   note: "In the Activity tab, outside text fields",
@@ -328,6 +344,7 @@ function ShortcutsDialog({ onClose }: { onClose: () => void }) {
       ? [
           ...GROUPS,
           NATIVE,
+          DUNGEON_TALK,
           PAGES,
           ...(activityEnabled(integrations) ? [ACTIVITY] : []),
           ...(integrations.github ? [GITHUB] : []),

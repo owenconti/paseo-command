@@ -295,6 +295,8 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         case "key": scene.key(body["key"] as? String ?? "", down: body["down"] as? Bool ?? false)
         case "select": scene.select(body["id"] as? String)
         case "focus": if let id = body["id"] as? String { scene.focus(id, closer: body["zoom"] as? Bool ?? false) }
+        // The Dungeon Board's dialogue box: the robot it talks to (null when it closes) and the map's bottom it covers.
+        case "talk": scene.talk(id: body["id"] as? String, inset: CGFloat(body["inset"] as? Double ?? 0))
         case "command": scene.command(body["name"] as? String ?? "")
         case "input": scene.setInput(body["enabled"] as? Bool ?? true)
         case "motion": scene.setMotion(reduced: body["reduced"] as? Bool ?? false)

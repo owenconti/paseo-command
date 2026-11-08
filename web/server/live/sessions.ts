@@ -29,8 +29,11 @@ export type SessionSource = {
 export type Watch = {
   key: string;
   source: SessionSource;
-  /** Viewers, with the id each knows the session by. */
-  sids: Map<Channel, string>;
+  /**
+   * Viewers, with the ids each knows the session by: a tab's one socket
+   * views it once per component showing it, each under its own id.
+   */
+  sids: Map<Channel, Set<string>>;
   items: Map<string, string>;
   order: string[];
   epoch?: string;
@@ -61,23 +64,41 @@ export type Watch = {
   rev: number;
 };
 const watches = new Map<string, Watch>();
+const keyOf = (s: SessionSource) => `${s.hostKey}|${s.agentId}`;
+/** Views one channel may hold of one session at once. */
+export const MAX_VIEWS = 8;
 
 /** Live timelines being watched (tests, diagnostics). */
 export const watchedTimelines = () => [...watches.keys()];
 export const watchOf = (key: string) => watches.get(key);
 
-/** Send a session message to every viewer, or only to `only`. */
-export function tell(w: Watch, event: string, data: object, only?: Channel) {
+/**
+ * Send a session message to every view, or only to channel `only`'s (all
+ * of them, or only `sid`'s).
+ */
+export function tell(
+  w: Watch,
+  event: string,
+  data: object,
+  only?: Channel,
+  sid?: string,
+) {
   const msg = { ...data, rev: ++w.rev };
   const targets = only ? [[only, w.sids.get(only)] as const] : [...w.sids];
-  for (const [c, sid] of targets) {
-    if (!c) continue;
-    if (c.multiplexed) c.send("session", { sid, event, data: msg });
-    else c.send(event, msg);
+  for (const [c, sids] of targets) {
+    if (!sids || (sid !== undefined && !sids.has(sid))) continue;
+    // One session per channel without ids.
+    if (!c.multiplexed) c.send(event, msg);
+    else
+      for (const s of sid === undefined ? sids : [sid])
+        c.send("session", { sid: s, event, data: msg });
   }
 }
-/** Everything a viewer needs to start from what the others have. */
-export function resendWatch(w: Watch, c: Channel) {
+/**
+ * Everything a view needs to start from what the others have: every view
+ * of `c`, or only `sid`.
+ */
+export function resendWatch(w: Watch, c: Channel, sid?: string) {
   if (w.unavailable)
     tell(
       w,
@@ -91,6 +112,7 @@ export function resendWatch(w: Watch, c: Channel) {
         hasOlder: false,
       },
       c,
+      sid,
     );
   else if (w.order.length || w.epoch)
     for (const msg of chunks(
@@ -106,22 +128,29 @@ export function resendWatch(w: Watch, c: Channel) {
         parts: n,
       }),
     ))
-      tell(w, "timeline", msg, c);
-  if (w.detail !== "null") tell(w, "detail", JSON.parse(w.detail), c);
+      tell(w, "timeline", msg, c, sid);
+  if (w.detail !== "null") tell(w, "detail", JSON.parse(w.detail), c, sid);
   tell(
     w,
     "state",
     w.live ? { live: true } : { live: false, error: w.error },
     c,
+    sid,
   );
 }
 
-export function watch(
-  c: Channel,
-  s: SessionSource,
-  sid = `${s.hostKey}|${s.agentId}`,
-) {
-  const key = `${s.hostKey}|${s.agentId}`;
+/**
+ * Whether `c` may watch `s` as `sid`: within its sessions and its views of
+ * each.
+ */
+export function watchFits(c: Channel, s: SessionSource, sid: string) {
+  const mine = c.watches.get(keyOf(s))?.sids.get(c);
+  if (!mine) return c.watches.size < LIVE.maxWatches;
+  return mine.has(sid) || mine.size < MAX_VIEWS;
+}
+
+export function watch(c: Channel, s: SessionSource, sid = keyOf(s)) {
+  const key = keyOf(s);
   // A viewer renaming its session is a new subscription.
   unwatchSid(c, sid);
   let w = watches.get(key);
@@ -148,16 +177,19 @@ export function watch(
       rev: 0,
     };
     watches.set(key, w);
-    w.sids.set(c, sid);
+    w.sids.set(c, new Set([sid]));
     c.watches.set(key, w);
     void connectWatch(w);
     return;
   }
-  w.sids.set(c, sid);
+  const mine = w.sids.get(c);
+  if (mine) mine.add(sid);
+  else w.sids.set(c, new Set([sid]));
   c.watches.set(key, w);
-  // Join: this viewer starts from what the others have.
-  resendWatch(w, c);
+  // Join: this view starts from what the others have; they get nothing again.
+  resendWatch(w, c, sid);
 }
+/** Every view `c` has of `key` (the channel closed). */
 export function unwatch(c: Channel, key: string) {
   const w = watches.get(key);
   c.watches.delete(key);
@@ -165,9 +197,13 @@ export function unwatch(c: Channel, key: string) {
   w.sids.delete(c);
   if (!w.sids.size) stopWatch(w);
 }
+/** One view: the channel stays a viewer while it has another of the session. */
 export function unwatchSid(c: Channel, sid: string) {
-  for (const [key, w] of [...c.watches])
-    if (w.sids.get(c) === sid) unwatch(c, key);
+  for (const [key, w] of [...c.watches]) {
+    const mine = w.sids.get(c);
+    if (!mine?.delete(sid)) continue;
+    if (!mine.size) unwatch(c, key);
+  }
 }
 
 function closeWatch(w: Watch) {

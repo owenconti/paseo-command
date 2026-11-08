@@ -22,12 +22,17 @@
  * `--stats` gives each host a load for its banner (the first one's disk nearly full).
  * `--integrations github,linear` turns those integrations on in `GET /api/settings`, so the mode
  * bar shows their tabs (their own reads stay unmocked).
+ * `--talk` gives every agent a short conversation for its state (a reply, what a working one is doing, a failure)
+ * and its pending request in full (an approval, or a question with options), and accepts the dialogue box's and
+ * the panel's sends, answers, interrupts and reads (logged; nothing behind them), for trying the Dungeon Board's
+ * dialogue box (src/worldChat/).
  */
 import { createReadStream, existsSync, statSync } from "node:fs";
 import { createServer } from "node:http";
 import { extname, join, normalize } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createRequire } from "node:module";
+import { detailOf } from "../../web/e2e/harness.ts";
 import { DUNGEON_STATS, SPARSE_ISSUES, SPARSE_PRS, SPARSE_STATS, VILLAGE_ISSUES, VILLAGE_PRS, VILLAGE_STATS, dungeon, large, small, sparse, village } from "../../web/e2e/fleets.ts";
 // `ws` lives in web/node_modules, beside the app it serves.
 const { WebSocketServer } = createRequire(new URL("../../web/package.json", import.meta.url))("ws") as typeof import("ws");
@@ -108,6 +113,48 @@ if (integrations.length)
     integrations: Object.fromEntries(["linear", "github", "typesafe"].map((name) => [name, integrations.includes(name)])),
     error: null,
   };
+/** `--talk`: each agent's conversation and request, by its state, for the dialogue box. */
+const talk = args.includes("--talk");
+const REPLY = [
+  "I went through the failing checks and fixed the two that were real.",
+  "",
+  "- The date parser now accepts an offset with a colon, so `2026-11-08T10:00+01:00` reads.",
+  "- The cache key includes the locale, which is why the French page showed English prices.",
+  "",
+  "The third failure was a flaky network test; I left it alone and noted it in the PR. Everything else passes locally.",
+  "",
+  "Shall I push the branch and open the pull request?",
+].join("\n");
+type Row = { id: string; status: string; host?: string; name: string };
+const agentOf = (id: string) => (fleet.agents as Row[]).find((a) => a.id === id);
+const requestOf = (id: string) => (fleet.permissions as { id: string; agentId: string; name: string; description: string; kind?: string }[]).find((p) => p.agentId === id);
+function talkDetail(id: string) {
+  const a = agentOf(id);
+  const p = requestOf(id);
+  const pending = !p
+    ? []
+    : p.kind === "question"
+      ? [{
+          id: p.id, name: p.name, description: "", kind: "question",
+          questions: [{
+            question: "The events table has two kinds of rows. Which should the dashboard count?",
+            header: "Scope",
+            options: [{ label: "Both kinds", description: "Signups and upgrades" }, { label: "Signups only" }, { label: "Upgrades only" }],
+            multiSelect: false, allowOther: true, allowEmpty: false,
+          }],
+        }]
+      : [{ id: p.id, name: p.name, description: p.description, detail: `${p.description} --access public` }];
+  return detailOf(id, a?.status ?? "idle", { Name: a?.name ?? id, PendingPermissions: pending });
+}
+function talkTimeline(id: string) {
+  const a = agentOf(id);
+  const items: Record<string, unknown>[] = [{ kind: "user", text: "Fix the failing checks on this branch", messageId: `u-${id}` }];
+  if (a && /running/.test(a.status)) items.push({ kind: "tool", name: "Bash", status: "running", summary: "npm test -- --watch=false", detail: "npm test -- --watch=false" });
+  else if (!requestOf(id)) items.push({ kind: "assistant", text: REPLY, messageId: `r-${id}` });
+  if (a && /error|failed/.test(a.status)) items.push({ kind: "notice", level: "error", text: "Provider error: the model is overloaded. Try again in a minute." });
+  return { epoch: "mock", from: 0, to: items.length, hasOlder: false, asOf: items.length, items: items.map((item, i) => ({ id: `m-${i + 1}`, seq: i + 1, last: i + 1, ...item })) };
+}
+
 /** The map's style the printed address opens (the page keeps it). */
 const mapStyle = option("map", fleet === dungeon ? "dungeon" : fleet === village || fleet === sparse ? "village" : "");
 
@@ -121,9 +168,9 @@ function answer(path: string): [number, unknown] {
   if (path.startsWith("/api/linear/issue-counts")) return [200, dashboard?.issues ?? { state: "off", message: "Enable Linear in Settings to see your issues." }];
   if (parts[0] === "agents") {
     const [, , sub] = parts;
-    if (!sub) return [404, { error: "Not found" }];
+    if (!sub) return talk ? [200, talkDetail(parts[1]!)] : [404, { error: "Not found" }];
     if (sub === "timeline")
-      return [200, { epoch: "mock", from: 0, to: 0, hasOlder: false, asOf: 0, items: [] }];
+      return [200, talk ? talkTimeline(parts[1]!) : { epoch: "mock", from: 0, to: 0, hasOlder: false, asOf: 0, items: [] }];
     if (sub === "config")
       return [200, { provider: "claude", model: "opus", thinking: null, mode: null, features: [] }];
     if (sub === "github") return [200, { items: [], error: null }];
@@ -156,6 +203,17 @@ const server = createServer((req, res) => {
     if (req.method === "POST" && asks) {
       const waiting = asking.has(decodeURIComponent(asks[1]!));
       return res.end(JSON.stringify({ messageId: `m-${asks[1]}`, waiting, questions: waiting ? [{ text: "Shall I open the pull request now?", kind: "yes_no" }] : [], pending: false }));
+    }
+    // `--talk`: the dialogue box's (and panel's) commands are taken and logged; nothing is behind them.
+    const command = /^\/api\/agents\/([^/]+)\/(send|respond|allow|deny|cancel|read)$/.exec(url.pathname);
+    if (talk && req.method === "POST" && command) {
+      let body = "";
+      req.on("data", (chunk) => (body += chunk));
+      req.on("end", () => {
+        console.log(`took ${command[2]} for ${decodeURIComponent(command[1]!)}: ${body.slice(0, 300)}`);
+        res.end("{}");
+      });
+      return;
     }
     if (req.method !== "GET") {
       // Mutations never go anywhere: there is no daemon behind this server.

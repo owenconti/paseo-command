@@ -1,4 +1,5 @@
-import { MAP_STYLES, setMapStyle, useMapStyle } from "./mapStyle";
+import { MAP_STYLES, mapStyle, setMapStyle, useMapStyle } from "./mapStyle";
+import { setTalkOnPick, talkOnPickSetting, useTalkOnPick } from "./worldChat/settings";
 import { useAsks } from "./useAsks";
 import { useWorkingOn } from "./useWorkingOn";
 import {
@@ -169,6 +170,10 @@ const MODE_PAGES: Record<AppMode, Page> = {
 // The map surface (drawn by the macOS app) beside the inherited docked session layout.
 const native = true;
 const unity = true;
+/** The Dungeon Board's dialogue box (src/worldChat/): talk to a picked robot in the world. */
+const WorldChat = React.lazy(() =>
+  import("./worldChat/WorldChat").then((module) => ({ default: module.WorldChat })),
+);
 const NativeWorld = React.lazy(() =>
   import("./NativeWorld").then((module) => ({ default: module.NativeWorld })),
 );
@@ -616,12 +621,40 @@ function App() {
     if (!removed.size) return;
     if (selection?.type === "agent" && removed.has(selection.id)) select(null);
   }, [agents, selection, select]);
+  // The mode bar's tab (macOS app): Activity, GitHub and Settings draw in the map's place.
+  const appMode = useAppMode();
+  const settingsShown = useSettingsShown(appMode);
+  const mapStyleNow = useMapStyle();
+  // The Dungeon Board's dialogue box: open for the selected agent while the board shows (src/worldChat/).
+  const [talking, setTalking] = useState(false);
+  // How much of the map's foot the box covers, so the board frames its robot above it.
+  const [talkInset, setTalkInset] = useState(0);
+  const talkOnPick = useTalkOnPick();
+  // Only where the board is drawn (the macOS app's world; a browser shows a placeholder).
+  const talkable = macApp() && mapStyleNow === "dungeon" && appMode === "command" && !settingsShown;
+  const talkOn = talking && talkable && selection?.type === "agent" && !selection.subagent;
+  useEffect(() => {
+    if (selection?.type !== "agent" || selection.subagent) setTalking(false);
+  }, [selection]);
+  useEffect(() => {
+    if (mapStyleNow !== "dungeon") setTalking(false);
+  }, [mapStyleNow]);
+  // Reading in the box views the agent, as the open panel does.
   const viewing =
     selection?.type === "agent" &&
-    !(unity && floatingVisibility.collapsed) &&
-    !((unity ? floatingVisibility.compact : compact) && browsing)
+    (talkOn ||
+      (!(unity && floatingVisibility.collapsed) &&
+        !((unity ? floatingVisibility.compact : compact) && browsing)))
       ? selection.id
       : undefined;
+  /** A pick on the map: on the Dungeon Board a robot's opens its dialogue box too (Settings → Map). */
+  const pickOnMap = useCallback(
+    (s: Selection) => {
+      if (s?.type === "agent" && !s.subagent && mapStyle() === "dungeon" && talkOnPickSetting()) setTalking(true);
+      choose(s);
+    },
+    [choose],
+  );
   // As in the Paseo app, listed subagents never notify or count as unread.
   const notifying = useMemo(() => agents.filter((a) => !a.child), [agents]);
   const notifyingPermissions = useMemo(() => {
@@ -804,6 +837,14 @@ function App() {
       : undefined;
   // Its workspace's pending diff comments, for ⌘K's Apply and Show.
   const agentComments = useLocalComments(agent?.host, agent?.workspaceId);
+  const talkShown = talkOn && !!agent;
+  /** Leave the box for the side panel's conversation, its message box focused. */
+  const openTalkChat = () => {
+    setTalking(false);
+    setBrowsing(false);
+    if (unity && floatingVisibility.collapsed) runAppCommand("toggle-panel");
+    requestAnimationFrame(() => requestAnimationFrame(() => focusComposer()));
+  };
   // An open subagent conversation; gone (archived) falls back to the agent's.
   const subagent = selection?.subagent
     ? agent?.subagents?.find((s) => s.id === selection.subagent)
@@ -904,9 +945,6 @@ function App() {
     ],
   );
 
-  // The mode bar's tab (macOS app): Activity, GitHub and Settings draw in the map's place.
-  const appMode = useAppMode();
-  const settingsShown = useSettingsShown(appMode);
   // The Activity tab's filter and selected item, for ⌘K's entries for them.
   const [activityView, setActivityView] = useState<ActivityViewState | undefined>();
   const showActivity = appTabs(integrations).activity;
@@ -1095,6 +1133,10 @@ function App() {
         if (issueUrl) openExternal(issueUrl);
         // Without a Linear workspace yet, the header chip asks for it.
         else document.querySelector<HTMLElement>("button.linear-chip")?.click();
+      } else if (key === "t" && talkable && selection?.type === "agent" && !selection.subagent) {
+        // The Dungeon Board's dialogue box for the selected robot.
+        e.preventDefault();
+        setTalking(true);
       } else if (
         e.key === "Enter" ||
         (key === "r" && selection?.type === "agent")
@@ -1117,6 +1159,7 @@ function App() {
     projectRepo,
     issueKey,
     issueUrl,
+    talkable,
   ]);
   // A file dropped outside the session would otherwise make
   // the browser navigate away to open it.
@@ -1245,7 +1288,6 @@ function App() {
     [select],
   );
   const sounds = useSoundSettings();
-  const mapStyleNow = useMapStyle();
   const radio = useMusic();
   const addProject = () => {
     setAddingProject(true);
@@ -1444,6 +1486,41 @@ function App() {
             keys: [["⌘", "L"]],
             keywords: "message composer type",
             run: focusComposer,
+          },
+        ]
+      : []),
+    // The Dungeon Board's dialogue box for the selected robot (src/worldChat/).
+    ...(agent && talkable && !selection?.subagent && !talkShown
+      ? [
+          {
+            id: "world-talk",
+            group: "Actions",
+            page: "Command" as const,
+            label: `Talk to ${agentName(agent, workspaceOf(agent)?.branch)} on the board`,
+            keys: [["T"]],
+            keywords: "dungeon board dialogue dialog conversation chat speak reply robot in world",
+            run: () => setTalking(true),
+          },
+        ]
+      : []),
+    ...(talkShown
+      ? [
+          {
+            id: "world-talk-leave",
+            group: "Actions",
+            page: "Command" as const,
+            label: "Leave the conversation on the board",
+            keys: [["Esc"]],
+            keywords: "dungeon board dialogue dialog close end talk",
+            run: () => setTalking(false),
+          },
+          {
+            id: "world-talk-chat",
+            group: "Actions",
+            page: "Command" as const,
+            label: "Continue the conversation in the side panel",
+            keywords: "dungeon board dialogue full chat panel open",
+            run: openTalkChat,
           },
         ]
       : []),
@@ -2285,6 +2362,20 @@ function App() {
       keywords: "audio mute volume",
       run: () => setSoundSettings({ enabled: !sounds.enabled }),
     },
+    ...(macApp()
+      ? [
+          {
+            id: "world-talk-on-pick",
+            group: "App",
+            page: "Settings" as const,
+            label: talkOnPick
+              ? "Don't open a robot's dialogue box when it's picked on the Dungeon Board"
+              : "Open a robot's dialogue box when it's picked on the Dungeon Board",
+            keywords: "dungeon board talk conversation dialogue dialog chat map pick click",
+            run: () => setTalkOnPick(!talkOnPick),
+          },
+        ]
+      : []),
     ...(attention.notifications !== "unsupported" &&
     attention.notifications !== "denied"
       ? [
@@ -2533,15 +2624,38 @@ function App() {
                 unread={unread}
                 selection={selection}
                 focusRevision={focusRevision}
-                select={choose}
+                select={pickOnMap}
                 host={hostFilter}
                 chooseHost={chooseHost}
                 hover={() => {}}
                 onNotice={setNotice}
                 blocked={confirming}
                 loaded={!loading}
+                talking={talkShown}
+                talkInset={talkInset}
               />
             </React.Suspense>
+            {talkShown && agent && (
+              <React.Suspense fallback={null}>
+                <WorldChat
+                  key={agent.id}
+                  agent={agent}
+                  workspace={workspaceOf(agent)}
+                  asks={asks[agent.id]}
+                  workingOn={workingOn[agent.id]}
+                  waiting={permissionAgents.has(agent.id)}
+                  question={questionAgents.has(agent.id)}
+                  unread={unread.has(agent.id)}
+                  online={online}
+                  blocked={confirming}
+                  onClose={() => setTalking(false)}
+                  onOpenChat={openTalkChat}
+                  onNotice={setNotice}
+                  onChanged={refresh}
+                  onInset={setTalkInset}
+                />
+              </React.Suspense>
+            )}
             {integrations.github && appMode === "github" && (
               <React.Suspense fallback={null}>
                 <GitHubView onNotice={setNotice} onViewState={setGithubView} paseoFor={paseoFor} onOpenPaseo={openPaseo} />
@@ -2592,6 +2706,7 @@ function App() {
         <FloatingPanel
           enabled={unity}
           activeKey={activeKey}
+          openOnSelect={!talkShown || !!dispatchTarget || addingProject}
           activeLabel={
             addingProject
               ? "Add project"

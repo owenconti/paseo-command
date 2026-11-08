@@ -832,6 +832,35 @@ alcove, its project by its terrace wall, the hover card naming it; never a host)
 Linear on, for the vault) and prints its address with `?map=dungeon`. Tests:
 `rendering/tests/dungeon.test.mjs`, `web/e2e/dungeon.e2e.ts`, `native/tests/DungeonSceneTests.swift`.
 
+### Talking on the Dungeon Board
+
+The user asked to chat with agents from within the world, as an in-game conversation the user proceeds through, so they stay
+in the world instead of switching to the chat panel (which stays). It starts on the Dungeon Board (`web/src/worldChat/`):
+picking a robot selects it and opens its dialogue box over the board's foot (`WorldChat.tsx`, `world-chat.css`), an RPG's:
+the board's own gold-framed HUD `panel`, a parchment `label` name plate and the robot (the board's `robots` sheet, its
+provider's colour, idle or at work) in the stone `medallion`, cut from the `ui` sheet (`art.ts`), with its state's glow, state
+and model. Its latest reply is typed out page by page (`pageReply` in `script.ts`: whole blocks while they fit the box,
+measured; paragraphs cut between sentences, lists between items, code between lines, refenced; a heading never ends a page;
+the page laid out whole and its untyped rest hidden by the CSS highlight `world-chat-untyped`; instant with reduced motion),
+Enter, Space or a click finishing the line, then the next page; then its choices (a menu above the box's right end; ↑/↓, 1–9,
+Enter, a click): an approval's Allow / Deny (or its actions; a plan's Approve / Reject), a question's options one question at
+a time (multiple choice with Done, Something else…, Decline to answer; answers keyed by header as `PermissionCard` sends them),
+the asks' quick replies and suggestion, Reply… (R; an inline field, ↩ sends, queued as the composer queues while it works),
+Interrupt while it runs, Open the full chat (the panel, its composer focused) and Leave (Esc; the robot stays selected).
+Only the agent's own words are its speech; what it is doing (`workingOn`, else its last step, `exchangeOf`), failures,
+offline and waiting are narration, never invented lines (truthful state). The box follows the selected agent (J/K step to
+the next robot), counts as viewing it (mark read, no notification), and keeps where each conversation was left. T and ⌘K
+"Talk to … on the board" open it for the selected robot; "Leave the conversation on the board", "Continue the conversation in
+the side panel"; Settings → Map's switch (localStorage `world:talkOnPick`, on by default; ⌘K too) says whether picking opens it.
+While it speaks a pick doesn't open a hidden panel (`FloatingPanel`'s `openOnSelect`). The board frames the robot above the box
+(`world.talk(id, inset)`, the bridge's `talk` message, `DungeonScene.talk`: the camera remembered, the robot framed in the clear
+area above the box's `inset`, the count bar faded, the camera put back on leaving). The box runs its own `useAgentSession` beside
+the panel's: the server keeps every sid a socket watches an agent under (`web/server/live/sessions.ts`, `MAX_VIEWS` per agent).
+Keys are taken in the capture phase while the box or the map has the keyboard (not while typing elsewhere); the shortcuts
+dialog's "Talking on the Dungeon Board" group lists them. `npm run native:mock -- --dungeon --talk` gives every robot a
+conversation for its state and its request in full, and takes the box's sends and answers (logged). Tests:
+`web/src/worldChat/script.test.ts`, `web/e2e/world-chat.e2e.ts`, `web/server/live/sessions.test.ts`, `DungeonSceneTests.swift`.
+
 ### The Village
 
 A fourth map style (`village` in `MAP_STYLES`; Settings → Map, ⌘K "Use the Village map", View → Map Style), from the user's concept

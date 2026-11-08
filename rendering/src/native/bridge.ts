@@ -822,6 +822,8 @@ export function mountNativeAtlas(parent: HTMLElement, handlers: AtlasHandlers = 
       handlers.selection?.(entity(selection));
     },
     focus: (id, closer) => ready && post({ type: "focus", id, zoom: !!closer }),
+    // Conversations are the Dungeon Board's.
+    talk: () => {},
     style: (next) => {
       if (next === style) return;
       style = next;

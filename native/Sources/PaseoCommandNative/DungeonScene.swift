@@ -110,8 +110,9 @@ final class DungeonScene: SKScene, MapScene {
         guard let top = vaultTop, let title = hudTitle else { return 0 }
         let below = 14 + title.size.height + 4
         var room: CGFloat = 0
-        // The zoom depends on the room kept; a few rounds settle it.
-        for _ in 0..<4 { room = max(0, below - (margin + top - boardBox.y) * minimumZoom(for: hudRight, top: room)) }
+        // The zoom depends on the room kept; a few rounds settle it. The usual fit's (without the dialogue box's room), so
+        // the board keeps its place as the box comes and goes.
+        for _ in 0..<4 { room = max(0, below - (margin + top - boardBox.y) * minimumZoom(for: hudRight, top: room, bottom: hudBottom)) }
         return room
     }
     /// The vault's top on the board (board units), when it has one.
@@ -122,6 +123,16 @@ final class DungeonScene: SKScene, MapScene {
     private var zoom: CGFloat = 1
     private var fitted = false
     private var animation: (from: CGPoint, to: CGPoint, fromZoom: CGFloat, toZoom: CGFloat, start: TimeInterval?, duration: Double)?
+    /// The robot the page's dialogue box talks to (its conversation), the camera from before it to go back to (and
+    /// whether it showed the whole board), and the screen room the box covers at the map's bottom.
+    private(set) var talking: String?
+    private var talkReturn: (center: CGPoint, zoom: CGFloat, all: Bool)?
+    private var bottomInset: CGFloat = 0
+    /// On the way back from a conversation: the box's room stays until the camera stands within the board's usual
+    /// limits, so it never jumps into them (even when a click or the wheel stops it on the way).
+    private var returning = false
+    /// Screen room kept below the board: the count bar's, or the dialogue box's while it shows (the bottom floor can rise above it).
+    private var bottomRoom: CGFloat { talking != nil || returning ? max(hudBottom, bottomInset) : hudBottom }
     private var down: (point: CGPoint, center: CGPoint)?
     private var keys = Set<String>()
     private(set) var selected: String?
@@ -177,6 +188,8 @@ final class DungeonScene: SKScene, MapScene {
         appliedAt = CACurrentMediaTime()
         for (key, image) in newImages { images[key] = Textures.texture(image) }
         let showingAll = fitted && animation == nil && viewSize.width > 0 && zoom <= minimumZoom * 1.001
+        // Whether the robot talked to was in view above the box (or the camera on its way to frame it).
+        let speakerShown = talking != nil && speakerClear()
         vaultTop = (m["vaultTop"] as? Double).map { CGFloat($0) }
         if let b = m["bounds"] as? [String: Double] {
             bounds = WorldBox(x: CGFloat(b["x"] ?? 0), y: CGFloat(b["y"] ?? 0), width: CGFloat(b["w"] ?? 0), height: CGFloat(b["h"] ?? 0))
@@ -228,7 +241,14 @@ final class DungeonScene: SKScene, MapScene {
             drawHover()
             reportHover()
         }
-        if (!fitted || showingAll) && view != nil && size.width > 0 { fit() } else { constrain() }
+        if let id = talking {
+            // The robot talked to has gone: the conversation's camera ends; else, framed, it stays framed where it now
+            // stands (the camera stays where the user put it when they had looked away).
+            if entities[id] == nil { endTalk() } else if !fitted && view != nil && size.width > 0 { fit(); frameSpeaker(animated: false) } else {
+                constrain()
+                if speakerShown && !speakerClear() { frameSpeaker(animated: true) }
+            }
+        } else if (!fitted || showingAll) && view != nil && size.width > 0 { fit() } else { constrain() }
         wake()
     }
 
@@ -612,6 +632,8 @@ final class DungeonScene: SKScene, MapScene {
             node.size = CGSize(width: w * scale, height: hh * scale)
             node.anchorPoint = CGPoint(x: 0.5, y: 0)
             node.position = CGPoint(x: 0, y: -v.height / 2 + 14)
+            // Hidden while the dialogue box lies over it.
+            node.alpha = talking == nil ? 1 : 0
             hud.addChild(node)
             hudCounts = node
         }
@@ -636,7 +658,7 @@ final class DungeonScene: SKScene, MapScene {
         if room != fittedFor {
             let showingAll = fitted && animation == nil && zoom <= minimumZoom(for: fittedFor.width, top: fittedFor.height) * 1.001
             fittedFor = room
-            if showingAll || !fitted { fit() } else { constrain() }
+            if (showingAll && talking == nil) || !fitted { fit() } else { constrain() }
         }
     }
     /// Screen room kept clear for the "At a Glance" panel at the right, while it shows.
@@ -737,39 +759,55 @@ final class DungeonScene: SKScene, MapScene {
     private var viewSize: CGSize { view?.bounds.size ?? size }
     private var boardBox: WorldBox { bounds ?? WorldBox(x: -600, y: 0, width: 1200, height: 1000) }
 
-    /// The furthest out the camera goes: the board and a margin fit between the HUD's title and count bar.
+    /// The furthest out the camera goes: the board and a margin fit between the HUD's title and count bar (or the dialogue box).
     private var minimumZoom: CGFloat { minimumZoom(for: hudRight) }
-    private func minimumZoom(for right: CGFloat, top: CGFloat? = nil) -> CGFloat {
+    /// The fit without the dialogue box's room.
+    private var usualZoom: CGFloat { minimumZoom(for: hudRight, bottom: hudBottom) }
+    private func minimumZoom(for right: CGFloat, top: CGFloat? = nil, bottom: CGFloat? = nil) -> CGFloat {
         let v = viewSize, b = boardBox
-        return max(0.01, min((v.width - right) / (b.width + margin * 2), (v.height - (top ?? hudTop) - hudBottom) / (b.height + margin * 2)))
+        return max(0.01, min((v.width - right) / (b.width + margin * 2), (v.height - (top ?? hudTop) - (bottom ?? bottomRoom)) / (b.height + margin * 2)))
     }
 
     /// The world box the camera may show.
-    private var extent: WorldBox {
-        let b = boardBox, z = minimumZoom, hudTop = hudTop
+    private var extent: WorldBox { extent(at: nil) }
+    /// At zoom `z` (the fit's when nil): the dialogue box's room below the board is screen room at that zoom, just enough
+    /// for the bottom floor to rise above the box, so the board can't be panned away above it. The HUD's rooms are the
+    /// usual fit's, so the board doesn't shift (sideways at the fit) as the box's room comes and goes; the box's adds
+    /// what the further-out fit needs of them, below the board.
+    private func extent(at z: CGFloat?) -> WorldBox {
+        let b = boardBox, fit = usualZoom, talkFit = minimumZoom, hudTop = hudTop
+        let box = max(0, bottomRoom - hudBottom) / max(z ?? talkFit, talkFit) + (hudTop + hudBottom) * (1 / talkFit - 1 / fit)
         // The panel's room at the right: the board, fitted, centres in the rest of the view.
-        return WorldBox(x: b.x - margin, y: b.y - margin - hudTop / z, width: b.width + margin * 2 + hudRight / z, height: b.height + margin * 2 + (hudTop + hudBottom) / z)
+        return WorldBox(x: b.x - margin, y: b.y - margin - hudTop / fit, width: b.width + margin * 2 + hudRight / fit,
+                        height: b.height + margin * 2 + (hudTop + hudBottom) / fit + box)
     }
 
     func fit() {
         guard viewSize.width > 0, viewSize.height > 0 else { return }
+        // First, so the extent is the one the camera keeps afterwards (a way back from a conversation ends: the usual fit).
+        animation = nil
+        if returning { returning = false; bottomInset = 0 }
         let e = extent
         zoom = minimumZoom
         center = CGPoint(x: e.midX, y: e.midY)
-        animation = nil
         fitted = bounds != nil
         applyCamera()
         reportZoom()
     }
 
     private func constrain() {
-        let v = viewSize
         zoom = min(max(zoom, minimumZoom), maxZoom)
-        let e = extent
-        let w = v.width / zoom, h = v.height / zoom
-        center.x = w >= e.width ? e.midX : min(max(center.x, e.x + w / 2), e.x + e.width - w / 2)
-        center.y = h >= e.height ? e.midY : min(max(center.y, e.y + h / 2), e.y + e.height - h / 2)
+        center = clamped(center, zoom: zoom)
         applyCamera()
+        settleReturn()
+    }
+
+    /// A centre kept within the extent at zoom `z`.
+    private func clamped(_ c: CGPoint, zoom z: CGFloat) -> CGPoint {
+        let v = viewSize, e = extent(at: z)
+        let w = v.width / z, h = v.height / z
+        return CGPoint(x: w >= e.width ? e.midX : min(max(c.x, e.x + w / 2), e.x + e.width - w / 2),
+                       y: h >= e.height ? e.midY : min(max(c.y, e.y + h / 2), e.y + e.height - h / 2))
     }
 
     private func applyCamera() {
@@ -790,6 +828,8 @@ final class DungeonScene: SKScene, MapScene {
         coverBackdrop()
         placeHud(hudSpec)
         if bounds != nil { fit() }
+        // The map resized mid-conversation (⌘B): its robot stays framed above the box, at once.
+        if talking != nil { frameSpeaker(animated: false) }
         wake()
     }
 
@@ -827,6 +867,121 @@ final class DungeonScene: SKScene, MapScene {
         wake()
     }
 
+    // MARK: Conversation
+
+    /// The page's dialogue box talks to `id`, covering the map's bottom `inset` points: the camera frames its robot above
+    /// the box (never zooming out to), and the count bar, under the box, fades. Nil (or an id the board doesn't have)
+    /// ends it: the camera goes back to where it was before.
+    func talk(id: String?, inset: CGFloat) {
+        guard let id, entities[id] != nil else { endTalk(); return }
+        let inset = inset.isFinite ? max(0, inset) : 0
+        if talking == nil {
+            // Where the camera stood (or was going), to go back to, and whether that showed the whole board.
+            let (c, z) = animation.map { ($0.to, $0.toZoom) } ?? (center, zoom)
+            talkReturn = (c, z, fitted && z <= usualZoom * 1.001)
+            returning = false
+            talking = id
+            bottomInset = inset
+            showCounts(false)
+            // The camera may go further out now (the board fits above the box): the rock reaches as far.
+            coverBackdrop()
+            frameSpeaker(animated: true)
+        } else if id != talking {
+            talking = id
+            bottomInset = inset
+            frameSpeaker(animated: true)
+        } else if inset != bottomInset {
+            bottomInset = inset
+            // Only re-framed when the box would now cover it (or the camera is still on its way to it).
+            if animation == nil && speakerClear(center: clamped(center, zoom: zoom), zoom: zoom) { constrain() } else { frameSpeaker(animated: true) }
+        }
+        wake()
+    }
+
+    private func endTalk() {
+        guard talking != nil else { return }
+        talking = nil
+        showCounts(true)
+        let back = talkReturn ?? (center, zoom, false)
+        talkReturn = nil
+        // Back where it was, within the board's usual limits; fitted again when it showed the whole board (which may
+        // have grown, or the view shrunk, meanwhile).
+        let box = bottomInset
+        bottomInset = 0
+        let z = back.all ? minimumZoom : min(max(back.zoom, minimumZoom), maxZoom)
+        let target = clamped(back.center, zoom: z)
+        if reduced {
+            animation = nil
+            center = target
+            zoom = z
+            constrain()
+            reportZoom()
+        } else {
+            // The box's room stays until the camera is back, so it never jumps on the way.
+            bottomInset = box
+            returning = true
+            animation = (center, target, zoom, z, nil, 380)
+        }
+        interacted()
+    }
+
+    /// Back from a conversation: once the camera stands within the board's usual limits the box's room goes; stopped
+    /// short of them (a click, the wheel) or overtaken (the board changed on the way), it goes on to them.
+    private func settleReturn() {
+        guard returning, talking == nil, animation == nil, down == nil else { return }
+        returning = false
+        let z = min(max(zoom, minimumZoom), maxZoom), target = clamped(center, zoom: z)
+        if abs(z - zoom) < 0.0001 && hypot(target.x - center.x, target.y - center.y) < 0.01 { bottomInset = 0; return }
+        returning = true
+        animation = (center, target, zoom, z, nil, 380)
+        wake()
+    }
+
+    /// The robot talked to in the middle of the view above the box, closer when it's small there (never further out).
+    private func frameSpeaker(animated: Bool) {
+        guard let id = talking, let e = entities[id] else { return }
+        let v = viewSize
+        guard v.width > 0, v.height > 0 else { return }
+        let r = e.rect
+        let visible = max(1, v.height - bottomInset)
+        let fitting = min(max(min(v.width * 0.3 / max(r.width, 1), visible * 0.3 / max(r.height, 1)), minimumZoom), maxZoom)
+        // Kept as close as it is, unless that close it wouldn't fit above the box at all.
+        let whole = 0.9 * min(v.width / max(r.width, 1), visible / max(r.height, 1))
+        let z = min(max(fitting, min(zoom, whole)), maxZoom)
+        // Board units, y down: the view's middle lies below the robot by half the box.
+        let target = clamped(CGPoint(x: r.midX, y: r.midY + bottomInset / 2 / z), zoom: z)
+        if reduced || !animated {
+            animation = nil
+            center = target
+            zoom = z
+            constrain()
+            reportZoom()
+        } else {
+            animation = (center, target, zoom, z, nil, 380)
+        }
+        interacted()
+    }
+
+    /// Whether the robot talked to lies wholly in the view above the box, with the camera where it is going (or stands).
+    private func speakerClear() -> Bool {
+        let (c, z) = animation.map { ($0.to, $0.toZoom) } ?? (center, zoom)
+        return speakerClear(center: clamped(c, zoom: z), zoom: z)
+    }
+    /// Whether the robot talked to lies wholly in the view above the box, with the camera at `c` and `z`.
+    private func speakerClear(center c: CGPoint, zoom z: CGFloat) -> Bool {
+        guard let id = talking, let r = entities[id]?.rect else { return true }
+        let v = viewSize
+        let x = (r.minX - (c.x - v.width / 2 / z)) * z, y = (r.minY - (c.y - v.height / 2 / z)) * z
+        return x >= -0.5 && y >= -0.5 && x + r.width * z <= v.width + 0.5 && y + r.height * z <= v.height - bottomInset + 0.5
+    }
+
+    /// The count bar fades out under the dialogue box, and back once it closes.
+    private func showCounts(_ shown: Bool) {
+        guard let node = hudCounts else { return }
+        node.removeAction(forKey: "talk")
+        if reduced { node.alpha = shown ? 1 : 0 } else { node.run(.fadeAlpha(to: shown ? 1 : 0, duration: 0.2), withKey: "talk") }
+    }
+
     // MARK: Input
 
     func pointer(phase: String, at point: CGPoint) {
@@ -852,6 +1007,8 @@ final class DungeonScene: SKScene, MapScene {
                     emit(["type": "pick", "id": id])
                 }
                 hover(at: point)
+                // Held on the way back from a conversation: it goes on.
+                settleReturn()
             }
         case "leave":
             if down == nil { setHover(nil) }
@@ -957,6 +1114,7 @@ final class DungeonScene: SKScene, MapScene {
             let e = 1 - pow(1 - t, 3)
             center = CGPoint(x: a.from.x + (a.to.x - a.from.x) * e, y: a.from.y + (a.to.y - a.from.y) * e)
             zoom = a.fromZoom + (a.toZoom - a.fromZoom) * e
+            // Back from a conversation, the box's room goes as it ends (`constrain`'s `settleReturn`).
             if t >= 1 { animation = nil }
             constrain()
             if a.fromZoom != a.toZoom { reportZoom() }
@@ -1049,7 +1207,8 @@ final class DungeonScene: SKScene, MapScene {
             "sceneRevision": sceneRevision,
             "agentsRevision": agentsRevision,
             "framesDrawn": framesDrawn,
-            "hud": ["title": hudTitle != nil, "counts": hudCounts != nil, "panel": hudPanel != nil],
+            "hud": ["title": hudTitle != nil, "counts": hudCounts != nil, "panel": hudPanel != nil, "countsShown": (hudCounts?.alpha ?? 0) > 0.01],
+            "talk": talking.map { ["id": $0, "inset": bottomInset] as [String: Any] } as Any? ?? NSNull(),
         ]
     }
     private func countNodes(_ node: SKNode) -> Int { node.children.reduce(1) { $0 + countNodes($1) } }

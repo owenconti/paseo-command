@@ -11,7 +11,12 @@ import { stamp } from "../versioned";
 import { fieldOf, isRecord } from "./client";
 import { Channel, SseChannel, WsChannel } from "./channel";
 import { setOnChange } from "./hub";
-import { unwatchSid, watch, type SessionSource } from "./sessions";
+import {
+  unwatchSid,
+  watch,
+  watchFits,
+  type SessionSource,
+} from "./sessions";
 import { LIVE } from "./tuning";
 import {
   currentView,
@@ -187,9 +192,9 @@ const isWatchRequest = (msg: unknown): msg is WatchRequest =>
 
 /**
  * `/api/ws`: one WebSocket per tab carrying the fleet and the sessions it
- * asks for (`{type:"watch"|"unwatch", sid, agentId, host?}`). `resolve`
- * turns a watch request into a session source (validated by the API) or
- * throws.
+ * asks for (`{type:"watch"|"unwatch", sid, agentId, host?}`). Each sid is
+ * one view: several may watch the same agent. `resolve` turns a watch
+ * request into a session source (validated by the API) or throws.
  */
 export function socketChannel(
   ws: WebSocket,
@@ -216,14 +221,14 @@ export function socketChannel(
         event: "state",
         data: { live: false, error, refused: true },
       });
-    if (c.watches.size >= LIVE.maxWatches)
-      return refuse("Too many open sessions.");
     let s: SessionSource;
     try {
       s = resolve(msg);
     } catch (e) {
       return refuse(String(messageOf(e) || e));
     }
+    // Sessions (`LIVE.maxWatches`), and views of each (`MAX_VIEWS`).
+    if (!watchFits(c, s, sid)) return refuse("Too many open sessions.");
     if (!c.closed) watch(c, s, sid);
   });
   const drop = () => c.close();

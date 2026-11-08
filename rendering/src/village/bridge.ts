@@ -1155,6 +1155,8 @@ export function mountNativeVillage(parent: HTMLElement, handlers: AtlasHandlers 
       handlers.selection?.(entity(selection));
     },
     focus: (id, closer) => ready && post({ type: "focus", id, zoom: !!closer }),
+    // Conversations are the Dungeon Board's.
+    talk: () => {},
     style: () => {},
     command: (name) => ready && post({ type: "command", name }),
     workspace: (info) => post({ type: "workspace", workspace: info }),

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { Bell, Bot, ChevronDown, FileCode2, Map as MapIcon, Plug, SquareTerminal, Volume2, X } from "lucide-react";
 import { MAP_STYLES, setMapStyle, useMapStyle } from "./mapStyle";
+import { setTalkOnPick, useTalkOnPick } from "./worldChat/settings";
 import { ResizeEdge } from "./ResizeEdge";
 import { readStore, writeStore } from "./api";
 import { previewSound, setSoundSettings, useSoundSettings } from "./sounds";
@@ -256,6 +257,7 @@ export function SettingsPage({
           {shown.id === "map" && (
             <SettingsGroup note={macApp() ? undefined : "The map is drawn by the macOS app; its style applies there."}>
               <MapStyleSetting />
+              <TalkOnPickSetting />
             </SettingsGroup>
           )}
           {shown.id === "terminal" && (
@@ -498,6 +500,19 @@ function IntegrationSettings() {
 
 /** Settings → Files: open files in the built-in viewer, or in an editor command run in a terminal on the workspace's host. */
 /** The map's style: the hex Islands or the Overworld. */
+/** The Dungeon Board's dialogue box opening when a robot is picked (src/worldChat/); T and ⌘K open it either way. */
+function TalkOnPickSetting() {
+  const on = useTalkOnPick();
+  return (
+    <SwitchRow
+      title="Talk to robots on the Dungeon Board"
+      description="Picking a robot opens its dialogue box over the board: read its reply, answer it, approve its requests. T opens it for the selected robot either way."
+      checked={on}
+      onChange={setTalkOnPick}
+    />
+  );
+}
+
 function MapStyleSetting() {
   const style = useMapStyle();
   const id = useId();

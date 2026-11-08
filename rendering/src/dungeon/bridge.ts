@@ -296,6 +296,8 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
   let data: AtlasData | null = null;
   let layout: DungeonLayout | null = null;
   let selection: string | null = null;
+  /** The robot the page's dialogue box is talking to, and how much of the map's bottom the box covers (CSS px). */
+  let talking: { id: string | null; inset: number } = { id: null, inset: 0 };
   let hovered: string | null = null;
   let hoverAt: { x: number; y: number; bottom?: number } | undefined;
   let hoverFlag: MapFlag | undefined;
@@ -1184,6 +1186,11 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
       return;
     }
     if (selection && !entity(selection)) selection = null;
+    // The robot talked to has gone: the conversation's camera ends (Swift's ends with its entity too).
+    if (talking.id && !entity(talking.id)) {
+      talking = { id: null, inset: 0 };
+      if (ready) post({ type: "talk", id: null, inset: 0 });
+    }
     if (hovered) setHover(entity(hovered) ? hovered : null, hoverAt, hoverFlag);
     // A vault tile's card follows its counts while it's hovered (and goes with the tile).
     if (cardTile) {
@@ -1219,6 +1226,9 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
       if (ready) return;
       ready = true;
       post({ type: "select", id: selection });
+      // Always, as the selection is: a fresh scene frames the robot talked to, and one kept through a reload (the same
+      // kind of scene) ends the conversation it still holds.
+      post({ type: "talk", ...talking });
       handlers.ready?.();
     } else if (message.type === "pick") {
       if (!enabled) return;
@@ -1332,6 +1342,12 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
       handlers.selection?.(entity(selection));
     },
     focus: (id, closer) => ready && post({ type: "focus", id, zoom: !!closer }),
+    talk: (id, inset = 0) => {
+      const next = id && (!layout || entity(id)) ? { id, inset: Number.isFinite(inset) ? Math.max(0, Math.round(inset)) : 0 } : { id: null, inset: 0 };
+      if (next.id === talking.id && next.inset === talking.inset) return;
+      talking = next;
+      if (ready) post({ type: "talk", ...talking });
+    },
     // The board has one style; the Islands and Overworld are the Atlas's.
     style: () => {},
     command: (name) => ready && post({ type: "command", name }),
@@ -1353,6 +1369,7 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
             renderer: "SpriteKit",
             selected: selection,
             hovered,
+            talk: talking.id ? { ...talking } : null,
             motion: !reduced,
             zoom,
             builds,

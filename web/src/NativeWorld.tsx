@@ -58,6 +58,10 @@ type Props = {
   blocked: boolean;
   /** The fleet's first state has arrived (the macOS app's splash lifts once it is drawn). */
   loaded: boolean;
+  /** The Dungeon Board's dialogue box speaks for the selected agent: the board frames its robot above the box. */
+  talking?: boolean;
+  /** How much of the map's foot the box covers (CSS px). */
+  talkInset?: number;
 };
 /** Hosts are keyed by their bridge id ("local" or a server id), as rows reference them. */
 export function atlasData(
@@ -394,6 +398,13 @@ export function NativeWorld(props: Props) {
       ),
     );
   }, [props.selection, snapshot, ready]);
+  // The dialogue box's speaker, framed above the box (the Dungeon Board's; other worlds ignore it).
+  const talkKey = props.talking ? selectionKey(props.selection, snapshot) : null;
+  const talkInset = props.talking ? Math.round(props.talkInset ?? 0) : 0;
+  useEffect(() => {
+    if (!ready) return;
+    safely(() => world.current?.talk(talkKey, talkInset));
+  }, [talkKey, talkInset, ready, worldKind]);
   useEffect(() => {
     if (!ready) return;
     safely(() => world.current?.input(!props.blocked));
