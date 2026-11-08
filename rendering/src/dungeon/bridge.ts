@@ -700,35 +700,48 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
       // a dark back wall behind its alcoves, thick end piers, one lintel across their tops, a floor strip before them;
       // a valance in its colour under the lintel and a runner along the floor. Its stone is tagged with the project,
       // so its glow follows the hall's own silhouette.
-      const h = p.hall, stone = p.entity ? { ...dim, e: p.entity.id } : dim;
+      // The hall's stone a notch down, so the robots stay brighter than their surround.
+      const h = p.hall, stone = { ...dim, ...(dim.dim ? {} : { shade: 0.22 }), ...(p.entity ? { e: p.entity.id } : {}) };
       const lintelY = h.y, lintelB = h.y + D.lintelH, floorY = h.y + h.h - D.hallFloorH;
-      fill(FRAMES["hall-back"]?.real ? "hall-back" : "wall-brick-dark", { x: h.x + 4, y: lintelB - 2, w: h.w - 8, h: floorY - lintelB + 4 }, -50, { ...dim, shade: 0.3 });
-      put("hall-pillar-left", h.x, lintelB - 2, D.hallPier, floorY - lintelB + 4, -10.6, stone);
-      put("hall-pillar-right", h.x + h.w - D.hallPier, lintelB - 2, D.hallPier, floorY - lintelB + 4, -10.6, stone);
-      fill("hall-lintel", { x: h.x + 20, y: lintelY, w: h.w - 40, h: D.lintelH }, -10.5, stone);
-      put("hall-lintel-end-left", h.x - 3, lintelY, 24, D.lintelH, -10.45, stone);
-      put("hall-lintel-end-right", h.x + h.w - 21, lintelY, 24, D.lintelH, -10.45, stone);
-      // A shadow under the lintel, over the back wall.
+      /** A strip of `name` tiled across `w` in whole modules (the sheet's swags and stones keep their phase): the strip's
+       * height is eased so the module's width divides it, as the art asks. */
+      const whole = (name: string, x: number, y: number, w: number, h0: number, z: number, extra: Sprite) => {
+        const f = FRAMES[name]!, module = (f.w * h0) / f.h, n = Math.max(1, Math.round(w / module));
+        const hh = (f.h * w) / (n * f.w);
+        sprites.push(tile(name, { x, y, w, h: hh }, z, extra));
+        return hh;
+      };
+      fill(FRAMES["hall-back"]?.real ? "hall-back" : "wall-brick-dark", { x: h.x + 6, y: lintelB - 2, w: h.w - 12, h: floorY - lintelB + 4 }, -50, { ...dim, shade: 0.3 });
+      // Thick end piers, standing on the floor strip, their tops under the lintel's ends.
+      put("hall-pillar-left", h.x, lintelB - 4, D.hallPier, floorY - lintelB + 8, -10.6, stone);
+      put("hall-pillar-right", h.x + h.w - D.hallPier, lintelB - 4, D.hallPier, floorY - lintelB + 8, -10.6, stone);
+      // The lintel: its two fixed ends, whole stones between.
+      const endW = 30;
+      whole("hall-lintel", h.x + endW - 2, lintelY, h.w - 2 * endW + 4, D.lintelH, -10.5, stone);
+      put("hall-lintel-end-left", h.x - 3, lintelY, endW, D.lintelH, -10.45, stone);
+      put("hall-lintel-end-right", h.x + h.w - endW + 3, lintelY, endW, D.lintelH, -10.45, stone);
       images.push({ ...image("shade:under", () => paintShade("under")), x: h.x + D.hallPier, y: lintelB, w: h.w - 2 * D.hallPier, h: 12, z: -49, ...dim });
-      fill("hall-floor", { x: h.x, y: floorY, w: h.w, h: D.hallFloorH }, -9.6, stone);
-      // The project's cloth: muted, under the lintel and along the floor.
-      const cloth = p.cloth, valY = lintelB, valH = 15;
-      fill(`valance-${cloth}`, { x: h.x + D.hallPier + 8, y: valY, w: h.w - 2 * D.hallPier - 16, h: valH }, -10.4, dim);
-      put(`valance-${cloth}-end-left`, h.x + D.hallPier - 2, valY - 1, 12, valH + 3, -10.38, dim);
-      put(`valance-${cloth}-end-right`, h.x + h.w - D.hallPier - 10, valY - 1, 12, valH + 3, -10.38, dim);
-      fill(`runner-${cloth}`, { x: h.x + D.hallPier + 6, y: floorY + 3, w: h.w - 2 * D.hallPier - 12, h: 8 }, -9.55, dim);
-      put(`runner-${cloth}-end-left`, h.x + D.hallPier, floorY + 3, 8, 8, -9.54, dim);
-      put(`runner-${cloth}-end-right`, h.x + h.w - D.hallPier - 8, floorY + 3, 8, 8, -9.54, dim);
+      whole("hall-floor", h.x, floorY - 2, h.w, D.hallFloorH + 4, -9.6, stone);
+      // The project's cloth, muted: a valance of whole swags under the lintel between its ties, a runner along the floor.
+      const cloth = p.cloth, tie = 14, valX = h.x + D.hallPier + tie / 2, valW = h.w - 2 * D.hallPier - tie;
+      whole(`valance-${cloth}`, valX, lintelB - 1, valW, 17, -10.4, dim);
+      put(`valance-${cloth}-end-left`, valX - tie / 2, lintelB - 2, tie, 17, -10.38, dim);
+      put(`valance-${cloth}-end-right`, valX + valW - tie / 2, lintelB - 2, tie, 17, -10.38, dim);
+      const runX = h.x + D.hallPier + 8, runW = h.w - 2 * D.hallPier - 16;
+      whole(`runner-${cloth}`, runX, floorY + 2, runW, 9, -9.55, dim);
+      put(`runner-${cloth}-end-left`, runX - 10, floorY + 2, 11, 9, -9.54, dim);
+      put(`runner-${cloth}-end-right`, runX + runW - 1, floorY + 2, 11, 9, -9.54, dim);
       // Wall candles flanking its mark, with their warm spill on the wall.
       const lit = l.floors[p.floor]!.online;
       for (const t of p.torches) {
-        sprites.push(sprite(lit ? "wall-candles" : "wall-candles-out", at("wall-candles", t.x, t.y, 30), 3.2, dim));
+        // A notch down (shaded), so the pair over the hall never outshines its robots.
+        sprites.push(sprite(lit ? "wall-candles" : "wall-candles-out", at("wall-candles", t.x, t.y, 30), 3.2, { ...dim, ...(lit ? { shade: 0.45 } : {}) }));
         if (lit) {
-          lights.push({ x: t.x, y: t.y + 10, c: 0xffb840, r: 16, period: 1900, flicker: true, ph: random(seedOf(p.key + t.x))(), k: 0.6 });
-          lights.push({ x: t.x, y: t.y + 16, c: 0xffb048, r: 40, period: 5200, flicker: false, k: 0.3, z: -29.1 });
+          lights.push({ x: t.x, y: t.y + 10, c: 0xffb840, r: 14, period: 1900, flicker: true, ph: random(seedOf(p.key + t.x))(), k: 0.35 });
+          lights.push({ x: t.x, y: t.y + 16, c: 0xffb048, r: 36, period: 5200, flicker: false, k: 0.16, z: -29.1 });
           // Carried onto the hall's lintel top below the candles, flattened to that plane.
-          lights.push({ x: t.x, y: p.hall.y + 2, rx: 34, ry: 4, c: 0xffa040, period: 5200, flicker: false, k: 0.4, z: -29.95 });
-          lights.push({ x: t.x, y: t.y + 26, rx: 30, ry: 26, c: GOLD_DEEP, blend: "gold", tight: 1, k: 0.9, z: -29, period: 5200, flicker: false });
+          lights.push({ x: t.x, y: p.hall.y + 2, rx: 30, ry: 4, c: 0xffa040, period: 5200, flicker: false, k: 0.22, z: -29.95 });
+          lights.push({ x: t.x, y: t.y + 26, rx: 28, ry: 22, c: GOLD_DEEP, blend: "gold", tight: 1, k: 0.55, z: -29, period: 5200, flicker: false });
         }
       }
     }
@@ -833,7 +846,7 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
       // Capped: the deep gold, so it stays saturated gold behind the robots, never blown to white.
       gold(r.x + r.w / 2, r.y + r.h * 0.5, r.w * 0.56, r.h * 0.56, GOLD_K.alcove + 0.25, -11.4, GOLD_DEEP);
       // Added candlelight in the bay, behind the robots: warmth that brightens, never browns.
-      lights.push({ x: r.x + r.w / 2, y: r.y + r.h * 0.45, c: 0xffb048, r: Math.max(r.w * 0.55, 70), k: 0.3, z: -11.3, period: 5200, flicker: false });
+      lights.push({ x: r.x + r.w / 2, y: r.y + r.h * 0.45, c: 0xffb048, r: Math.max(r.w * 0.55, 70), k: 0.18, z: -11.3, period: 5200, flicker: false });
       // The walkway before it, warmed wide and low by its candlelight (added, under the robots and the front wall).
       lights.push({ x: r.x + r.w / 2, y: r.y + r.h + 22, c: 0xff8a2c, r: Math.max(r.w * 0.7, 110), k: 0.16, z: -39.1, period: 5200, flicker: false });
       // Its mouth: candlelight spilling onto the ledge and the walkway before it (added).
@@ -888,7 +901,7 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
       const fy = d.rect.y + 10;
       // Torchlight on stone: a small multiplied pool for the warm cast, close round the flame, and added golden light.
       lights.push({ x, y: fy + 18, rx: 40, ry: 36, c: GOLD, blend: "gold", tight: 1, k: 0.5, z: -43, period: 5200, flicker: false });
-      lights.push({ x, y: fy + 10, c: 0xff922e, r: 92, k: 0.72, period: 5200, flicker: false, z: -43.1 });
+      lights.push({ x, y: fy + 10, c: 0xff922e, r: 92, k: 0.6, period: 5200, flicker: false, z: -43.1 });
       // The art's painted glaze round the flame (one of three, seeded), added as light: small and golden, never a multiplied stain.
       if (FRAMES["light-spill-wall-0"]?.real)
         sprites.push(sprite(`light-spill-wall-${seedOf(`${x},${y}`) % 3}`, at("light-spill-wall-0", x, fy + 8, 64), -43.3, { add: 1, a: 0.6 }));

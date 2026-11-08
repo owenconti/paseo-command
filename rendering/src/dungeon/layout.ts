@@ -70,10 +70,10 @@ export const D = {
   markR: 29,
   /** A project's hall round its alcove row (the user's choice, A): its end piers this wide, its lintel's top this far
    * below the tier's top and this tall, its floor strip in front of the alcoves this tall. */
-  hallPier: 18,
-  hallTop: 46,
-  lintelH: 18,
-  hallFloorH: 14,
+  hallPier: 24,
+  hallTop: 44,
+  lintelH: 22,
+  hallFloorH: 15,
   alcoveY: 86,
   alcoveH: 128,
   /** Where the PR medallions sit on the alcove's lintel (below its top). */
@@ -406,7 +406,7 @@ function terraceBox(span: Rect, y0: number, clear: number): Rect {
 }
 
 /** The projects' cloth colours (valance and runner), muted so the robots stay first. */
-export const CLOTHS = ["teal", "plum", "wine", "moss", "ochre", "slate", "rust", "indigo"] as const;
+export const CLOTHS = ["teal", "plum", "wine", "moss", "ochre-brown", "slate", "rust", "indigo"] as const;
 
 /** Each project's cloth: from its id's hash, stepped on past the colour of its neighbour on the same tier (the projects in
  * a row, across the gate too), so neighbours never share one; the same project keeps its colour while its neighbours do. */

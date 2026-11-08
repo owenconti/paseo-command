@@ -185,8 +185,8 @@ export function paintPlaceholder(name: string): HTMLCanvasElement {
     else rr(ctx, 0, 0, w, h, 2, name.includes("floor") ? "#8a809c" : "#a49ab8", "#3a3048", 1);
     return canvas;
   }
-  if ((m = /^(valance|runner)-(\w+?)(?:-end-(?:left|right))?$/.exec(name))) {
-    const CLOTH: Record<string, string> = { teal: "#2f5d58", plum: "#5a3552", wine: "#5e2a33", moss: "#4a5532", ochre: "#6e5a2e", slate: "#3e4a5a", rust: "#6a3a26", indigo: "#33355e" };
+  if ((m = /^(valance|runner)-([\w-]+?)(?:-end-(?:left|right))?$/.exec(name))) {
+    const CLOTH: Record<string, string> = { teal: "#2f5d58", plum: "#5a3552", wine: "#5e2a33", moss: "#4a5532", "ochre-brown": "#6e5a2e", slate: "#3e4a5a", rust: "#6a3a26", indigo: "#33355e" };
     rr(ctx, 0, 0, w, h, 2, CLOTH[m[2]!] ?? "#555", "#c9a040", 0.8);
     return canvas;
   }

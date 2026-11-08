@@ -130,7 +130,7 @@ export const FRAMES: Record<string, FrameSpec> = Object.fromEntries([
   ["hall-lintel-end-right", spec("projects", 24, 18, "top-left")],
   ["hall-floor", spec("projects", 64, 14, "top-left", { tile: "x" })],
   ["hall-back", spec("projects", 64, 64, "top-left", { tile: "xy" })],
-  ...["teal", "plum", "wine", "moss", "ochre", "slate", "rust", "indigo"].flatMap((c) => [
+  ...["teal", "plum", "wine", "moss", "ochre-brown", "slate", "rust", "indigo"].flatMap((c) => [
     [`valance-${c}`, spec("projects", 64, 16, "top-left", { tile: "x" })],
     [`valance-${c}-end-left`, spec("projects", 12, 18, "top-left")],
     [`valance-${c}-end-right`, spec("projects", 12, 18, "top-left")],

@@ -765,7 +765,7 @@ between the surround's opening and the arch, its name painted in capitals (cream
 then Palatino, with a worn inset), a status gem on its left (online, warning when a reading is ≥ 90%, dark offline) and the
 host-stats `CPU · MEM · DISK` beneath, ≥ 90% painted red, lit by a warm wash; an offline host's board dull, unlit, "OFFLINE" painted, a gold node, the portcullis lit while online, stairs to the next floor); projects
 with workspaces alternating left and right outward from the gate (`hostGroups` in `world.ts`, shared with the Atlas), each
-marked only by its terrace and the pair of wall candles on it (no medallion or icon: the user's call), its workspaces' alcoves in a row beneath (oldest first, left
+marked by its hall and its colour (the user's choice; no medallion or icon): its alcoves stand in one stone hall (end piers, one lintel, a dark back wall and a floor strip; `hall` in the layout, the `projects` sheet), with a valance under the lintel and a runner along the floor in its muted cloth colour (`CLOTHS`, `assignCloths`: hashed from the project, stepped past its row neighbour's so neighbours never share one; strips tiled in whole swags), a pair of wall candles above; its workspaces' alcoves in a row in it (oldest first, left
 to right; camps for agents without one). Only hosts carry labels (their signs), as on the Islands (the user's call): projects,
 workspaces and agents are named on their hover cards; alcoves keep a plain lintel, the PR medallions on it; robots on each alcove's ledge in provider colours (`robotColor`: Claude orange, ChatGPT white, any other provider its own of the sheet's eight), oldest
 first, drones for running subagents. No links join them (the user removed the gold pipes). Each floor reaches only as far as its own content and side rooms on each side of the gate, so the silhouette steps,
@@ -787,7 +787,7 @@ boxes; `DungeonScene.swift` draws, animates (the background holds still so the a
 wheel, pinch, arrows, F/Home), hover and selection as the Village's (`SpriteGlow.swift`, its colours,
 strength and spread: a warm white halo just outside the hovered thing's silhouette, a breathing gold one, with a wider pass, outside
 the selected thing's; a robot's body and a PR medallion by their own sprites at the Village's 5%; an alcove (frame and bay) and a
-terrace (rampart, face and return) by their pieces drawn as one silhouette (`SpriteGlow.composite`; the page tags them `e`), spread as
+project's hall (piers, lintel and floor) by their pieces drawn as one silhouette (`SpriteGlow.composite`; the page tags them `e`), spread as
 the Village's halls, `structureSpread`; no rims), and picks (a PR medallion, then a robot, its
 alcove, its project by its terrace wall, the hover card naming it; never a host). Sprites: `rendering/src/assets/dungeon/<sheet>.png|json` (the frame contract is `frames.ts`,
 3× scale; a missing frame is painted as a placeholder; robots are trimmed to their opaque pixels). `npm run native:mock --
