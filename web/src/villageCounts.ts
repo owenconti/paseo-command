@@ -3,7 +3,7 @@
  * and your Linear issues (`GET /api/linear/issue-counts`), each counted by group with
  * up to 12 of each. Both answer 200 with a `state`; the page reads only that.
  */
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { api } from "./api";
 import { useIntegrations } from "./integrationSettings";
 
@@ -83,5 +83,7 @@ export function useVillageCounts(active: boolean): VillageCounts {
       clearTimeout(timer);
     };
   }, [active, loaded, github, linear]);
-  return { prs, issues };
+  // One object per answer, not per render: the map's data depends on it, and a new object each render re-laid the
+  // world out on every render (a hover re-reported by the update set the tip again, looping).
+  return useMemo(() => ({ prs, issues }), [prs, issues]);
 }
