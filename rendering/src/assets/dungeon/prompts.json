@@ -4071,5 +4071,744 @@
         "mean_b_shift": -0.0015979910969067459
       }
     }
+  },
+  "projects_hall_colours": {
+    "scale": 3,
+    "hall_generation": {
+      "prompt": "Use case: stylized-concept.\nAsset type: transparent painted modular add-on kit for option A, PROJECT HALL, in a dungeon agent map.\nInput 1 is the actual current board crop at 2x: match its camera, lavender-grey chunky stone, dark outlines, warm torch-edge reflections, softly painted HD pixel-flavoured finish. Input 2 is a private STYLE reference only. No existing scene pixels, robot designs, text, labels or emblems should be recreated.\nGenerate ONLY new architectural pieces on actual transparent background, with wide clean gutters; no full scene or robots.\nTOP BAND: one long horizontal thick stone lintel made of 3\u20134 large uneven blocks, a shallow cornice and a visible front face, subtle warm chipped noses. It is a continuous chamber beam, not a sequence of separate little arches. Quiet lavender tops, darker purple-grey fronts, no white emissive line.\nMIDDLE BAND: a substantial LEFT end pier and RIGHT end pier, each tall and slim (about 30 wide by 160 high in proportions), matching the lintel, big staggered blocks, warm top-left bevels. Their upper capitals connect to the lintel. Between these two separate piers, include one rectangular patch of deep dark purple-grey back-wall brick for the chamber recess, opaque inside the patch, no frame.\nBOTTOM BAND: one long shared raised floor strip, broad flagstone top and a chunky low front riser, about 250 wide by 35 high proportions, with matching end thickness. Quiet warm-grey/lavender paving; no steps or railings in this A kit.\nThis kit must enclose multiple existing small workspace alcoves as rooms inside ONE larger hall; its beam and floor repeat horizontally while just two end piers bookend any number of alcoves. Make the added stone subordinate to the existing brightly coloured robots. No icons, lettering, plaques, banners, status badges, runes, numbers, characters or lights mounted on these pieces. Original painted art, not vector, not strict-grid 8-bit, not photoreal.",
+      "source_filename": "exec-d3f0072f-d646-4ea1-9d67-e085e59e7480.png",
+      "raw": "a-raw.png",
+      "references": [
+        "core-context-2x.png",
+        "design/references/dungeon-concept.png (private style reference only)"
+      ]
+    },
+    "hall_piece_crops": {
+      "a-lintel": {
+        "file": "pieces/a-lintel.png",
+        "source": "a-raw.png",
+        "crop": [
+          35,
+          44,
+          1503,
+          203
+        ],
+        "size": [
+          1462,
+          153
+        ]
+      },
+      "a-pier-left": {
+        "file": "pieces/a-pier-left.png",
+        "source": "a-raw.png",
+        "crop": [
+          51,
+          234,
+          286,
+          779
+        ],
+        "size": [
+          229,
+          539
+        ]
+      },
+      "a-pier-right": {
+        "file": "pieces/a-pier-right.png",
+        "source": "a-raw.png",
+        "crop": [
+          1250,
+          234,
+          1485,
+          780
+        ],
+        "size": [
+          228,
+          539
+        ]
+      },
+      "a-back-wall": {
+        "file": "pieces/a-back-wall.png",
+        "source": "a-raw.png",
+        "crop": [
+          350,
+          300,
+          1185,
+          734
+        ],
+        "size": [
+          829,
+          427
+        ]
+      },
+      "a-floor": {
+        "file": "pieces/a-floor.png",
+        "source": "a-raw.png",
+        "crop": [
+          16,
+          818,
+          1519,
+          985
+        ],
+        "size": [
+          1497,
+          161
+        ]
+      }
+    },
+    "cloth_generation": {
+      "tool": "built-in image_gen",
+      "prompt": "Edit this canonical teal cloth kit into a production master, preserving its quiet woven texture, painted folds, muted deep teal colour and warm upper-left light.\nOutput TWO separate complete horizontal objects on a genuine transparent background, one above the other, with clear gutters and NO text, labels, icons, patterns or characters.\nTOP: a long cloth valance with THREE broad, equally sized hanging scallops. Replace the metal pole/rod with a THIN GOLD-THREAD TOP HEM sewn into the cloth itself. Keep a narrow worn gold stitch at the lower scalloped hem. The first and third scallops gather into tied-back left/right ends, and the middle full scallop can repeat horizontally. The two interior gathering peaks should have the same height and the top hem stays perfectly horizontal, so it can be sliced into left tie, one repeatable middle scallop and right tie. No metal rod, no finials, no tassel in the middle, no emblem. Keep folds dimensional but low contrast and subordinate to agents.\nBOTTOM: a matching quiet plain woven carpet runner viewed from slightly above, with a straight horizontal top border and straight horizontal front border. A slightly worn narrow antique-gold stitched edge and small fringe only at its left and right ends. The plain middle should repeat horizontally. No closed vertical border in its middle, no diamonds, medallions, glyphs or writing.\nStyle remains the same original HD painted pixel-art-flavoured dungeon illustration. No white glare, glow, emissive fringe, dramatic gradient or backing scene. Keep all broad material colour uniform enough to tile; wear and weave are restrained.",
+      "source_filename": "exec-38b15c38-4863-4e30-af9a-0d5c589721e9.png",
+      "raw": "cloth-raw.png",
+      "reference": "cloth-edit.png",
+      "hall_sources": "../project-variants/pieces/a-*.png; original generation provenance in ../project-variants/prompts.json"
+    },
+    "cloth_crops": {
+      "valance": [
+        60,
+        76,
+        1802,
+        404
+      ],
+      "runner": [
+        47,
+        504,
+        1815,
+        782
+      ]
+    },
+    "cloth_construction": {
+      "valance": {
+        "cuts": [
+          588,
+          1139
+        ],
+        "template_size": [
+          144,
+          60
+        ],
+        "cap_size": [
+          60,
+          60
+        ],
+        "source_Lab_mean": [
+          59.19800481425416,
+          115.99804886219817,
+          129.66781646276397
+        ]
+      },
+      "runner": {
+        "cuts": [
+          317,
+          1445
+        ],
+        "template_size": [
+          144,
+          36
+        ],
+        "cap_size": [
+          42,
+          36
+        ],
+        "source_Lab_mean": [
+          56.05221262297697,
+          116.2751439428518,
+          128.63521829270306
+        ]
+      }
+    },
+    "palette": {
+      "teal": "#355f5b",
+      "plum": "#59445c",
+      "wine": "#603d48",
+      "moss": "#4e5942",
+      "ochre-brown": "#685039",
+      "slate": "#4b5763",
+      "rust": "#704c3f",
+      "indigo": "#434b66"
+    },
+    "derived_sources": {
+      "hall-floor": "existing generated floor-flag and ledge-face, toroidal resampling into a single top/front strip",
+      "hall-back": "existing generated wall-brick, toroidal resampling with a darker Lab L target"
+    },
+    "layout": {
+      "alcove_height": 128,
+      "hall_headroom": 32,
+      "pillar_height": 136,
+      "lintel_height": 24,
+      "phase_rule": "Fit a whole number of capped repeat modules between fixed ends; do not cut a scallop at arbitrary phase.",
+      "no_emission": "Draw cloth normally; never additive or as an agent-state tint."
+    },
+    "frames": {
+      "hall-pillar-left": {
+        "x": 4,
+        "y": 4,
+        "w": 126,
+        "h": 408,
+        "anchor": {
+          "x": 63,
+          "y": 408
+        }
+      },
+      "hall-pillar-right": {
+        "x": 134,
+        "y": 4,
+        "w": 126,
+        "h": 408,
+        "anchor": {
+          "x": 63,
+          "y": 408
+        }
+      },
+      "hall-lintel": {
+        "x": 264,
+        "y": 4,
+        "w": 288,
+        "h": 72,
+        "anchor": {
+          "x": 0,
+          "y": 0
+        },
+        "tile": "x"
+      },
+      "hall-lintel-end-left": {
+        "x": 556,
+        "y": 4,
+        "w": 126,
+        "h": 72,
+        "anchor": {
+          "x": 0,
+          "y": 0
+        }
+      },
+      "hall-lintel-end-right": {
+        "x": 686,
+        "y": 4,
+        "w": 126,
+        "h": 72,
+        "anchor": {
+          "x": 0,
+          "y": 0
+        }
+      },
+      "hall-floor": {
+        "x": 4,
+        "y": 416,
+        "w": 216,
+        "h": 72,
+        "anchor": {
+          "x": 0,
+          "y": 0
+        },
+        "tile": "x"
+      },
+      "hall-back": {
+        "x": 224,
+        "y": 416,
+        "w": 288,
+        "h": 192,
+        "anchor": {
+          "x": 0,
+          "y": 0
+        },
+        "tile": "xy"
+      },
+      "valance-teal": {
+        "x": 516,
+        "y": 416,
+        "w": 144,
+        "h": 60,
+        "anchor": {
+          "x": 0,
+          "y": 0
+        },
+        "tile": "x"
+      },
+      "valance-teal-end-left": {
+        "x": 664,
+        "y": 416,
+        "w": 60,
+        "h": 60,
+        "anchor": {
+          "x": 30.0,
+          "y": 0
+        }
+      },
+      "valance-teal-end-right": {
+        "x": 728,
+        "y": 416,
+        "w": 60,
+        "h": 60,
+        "anchor": {
+          "x": 30.0,
+          "y": 0
+        }
+      },
+      "valance-plum": {
+        "x": 792,
+        "y": 416,
+        "w": 144,
+        "h": 60,
+        "anchor": {
+          "x": 0,
+          "y": 0
+        },
+        "tile": "x"
+      },
+      "valance-plum-end-left": {
+        "x": 940,
+        "y": 416,
+        "w": 60,
+        "h": 60,
+        "anchor": {
+          "x": 30.0,
+          "y": 0
+        }
+      },
+      "valance-plum-end-right": {
+        "x": 4,
+        "y": 612,
+        "w": 60,
+        "h": 60,
+        "anchor": {
+          "x": 30.0,
+          "y": 0
+        }
+      },
+      "valance-wine": {
+        "x": 68,
+        "y": 612,
+        "w": 144,
+        "h": 60,
+        "anchor": {
+          "x": 0,
+          "y": 0
+        },
+        "tile": "x"
+      },
+      "valance-wine-end-left": {
+        "x": 216,
+        "y": 612,
+        "w": 60,
+        "h": 60,
+        "anchor": {
+          "x": 30.0,
+          "y": 0
+        }
+      },
+      "valance-wine-end-right": {
+        "x": 280,
+        "y": 612,
+        "w": 60,
+        "h": 60,
+        "anchor": {
+          "x": 30.0,
+          "y": 0
+        }
+      },
+      "valance-moss": {
+        "x": 344,
+        "y": 612,
+        "w": 144,
+        "h": 60,
+        "anchor": {
+          "x": 0,
+          "y": 0
+        },
+        "tile": "x"
+      },
+      "valance-moss-end-left": {
+        "x": 492,
+        "y": 612,
+        "w": 60,
+        "h": 60,
+        "anchor": {
+          "x": 30.0,
+          "y": 0
+        }
+      },
+      "valance-moss-end-right": {
+        "x": 556,
+        "y": 612,
+        "w": 60,
+        "h": 60,
+        "anchor": {
+          "x": 30.0,
+          "y": 0
+        }
+      },
+      "valance-ochre-brown": {
+        "x": 620,
+        "y": 612,
+        "w": 144,
+        "h": 60,
+        "anchor": {
+          "x": 0,
+          "y": 0
+        },
+        "tile": "x"
+      },
+      "valance-ochre-brown-end-left": {
+        "x": 768,
+        "y": 612,
+        "w": 60,
+        "h": 60,
+        "anchor": {
+          "x": 30.0,
+          "y": 0
+        }
+      },
+      "valance-ochre-brown-end-right": {
+        "x": 832,
+        "y": 612,
+        "w": 60,
+        "h": 60,
+        "anchor": {
+          "x": 30.0,
+          "y": 0
+        }
+      },
+      "valance-slate": {
+        "x": 4,
+        "y": 676,
+        "w": 144,
+        "h": 60,
+        "anchor": {
+          "x": 0,
+          "y": 0
+        },
+        "tile": "x"
+      },
+      "valance-slate-end-left": {
+        "x": 152,
+        "y": 676,
+        "w": 60,
+        "h": 60,
+        "anchor": {
+          "x": 30.0,
+          "y": 0
+        }
+      },
+      "valance-slate-end-right": {
+        "x": 216,
+        "y": 676,
+        "w": 60,
+        "h": 60,
+        "anchor": {
+          "x": 30.0,
+          "y": 0
+        }
+      },
+      "valance-rust": {
+        "x": 280,
+        "y": 676,
+        "w": 144,
+        "h": 60,
+        "anchor": {
+          "x": 0,
+          "y": 0
+        },
+        "tile": "x"
+      },
+      "valance-rust-end-left": {
+        "x": 428,
+        "y": 676,
+        "w": 60,
+        "h": 60,
+        "anchor": {
+          "x": 30.0,
+          "y": 0
+        }
+      },
+      "valance-rust-end-right": {
+        "x": 492,
+        "y": 676,
+        "w": 60,
+        "h": 60,
+        "anchor": {
+          "x": 30.0,
+          "y": 0
+        }
+      },
+      "valance-indigo": {
+        "x": 556,
+        "y": 676,
+        "w": 144,
+        "h": 60,
+        "anchor": {
+          "x": 0,
+          "y": 0
+        },
+        "tile": "x"
+      },
+      "valance-indigo-end-left": {
+        "x": 704,
+        "y": 676,
+        "w": 60,
+        "h": 60,
+        "anchor": {
+          "x": 30.0,
+          "y": 0
+        }
+      },
+      "valance-indigo-end-right": {
+        "x": 768,
+        "y": 676,
+        "w": 60,
+        "h": 60,
+        "anchor": {
+          "x": 30.0,
+          "y": 0
+        }
+      },
+      "runner-teal": {
+        "x": 832,
+        "y": 676,
+        "w": 144,
+        "h": 36,
+        "anchor": {
+          "x": 0,
+          "y": 0
+        },
+        "tile": "x"
+      },
+      "runner-teal-end-left": {
+        "x": 4,
+        "y": 740,
+        "w": 42,
+        "h": 36,
+        "anchor": {
+          "x": 0,
+          "y": 0
+        }
+      },
+      "runner-teal-end-right": {
+        "x": 50,
+        "y": 740,
+        "w": 42,
+        "h": 36,
+        "anchor": {
+          "x": 0,
+          "y": 0
+        }
+      },
+      "runner-plum": {
+        "x": 96,
+        "y": 740,
+        "w": 144,
+        "h": 36,
+        "anchor": {
+          "x": 0,
+          "y": 0
+        },
+        "tile": "x"
+      },
+      "runner-plum-end-left": {
+        "x": 244,
+        "y": 740,
+        "w": 42,
+        "h": 36,
+        "anchor": {
+          "x": 0,
+          "y": 0
+        }
+      },
+      "runner-plum-end-right": {
+        "x": 290,
+        "y": 740,
+        "w": 42,
+        "h": 36,
+        "anchor": {
+          "x": 0,
+          "y": 0
+        }
+      },
+      "runner-wine": {
+        "x": 336,
+        "y": 740,
+        "w": 144,
+        "h": 36,
+        "anchor": {
+          "x": 0,
+          "y": 0
+        },
+        "tile": "x"
+      },
+      "runner-wine-end-left": {
+        "x": 484,
+        "y": 740,
+        "w": 42,
+        "h": 36,
+        "anchor": {
+          "x": 0,
+          "y": 0
+        }
+      },
+      "runner-wine-end-right": {
+        "x": 530,
+        "y": 740,
+        "w": 42,
+        "h": 36,
+        "anchor": {
+          "x": 0,
+          "y": 0
+        }
+      },
+      "runner-moss": {
+        "x": 576,
+        "y": 740,
+        "w": 144,
+        "h": 36,
+        "anchor": {
+          "x": 0,
+          "y": 0
+        },
+        "tile": "x"
+      },
+      "runner-moss-end-left": {
+        "x": 724,
+        "y": 740,
+        "w": 42,
+        "h": 36,
+        "anchor": {
+          "x": 0,
+          "y": 0
+        }
+      },
+      "runner-moss-end-right": {
+        "x": 770,
+        "y": 740,
+        "w": 42,
+        "h": 36,
+        "anchor": {
+          "x": 0,
+          "y": 0
+        }
+      },
+      "runner-ochre-brown": {
+        "x": 816,
+        "y": 740,
+        "w": 144,
+        "h": 36,
+        "anchor": {
+          "x": 0,
+          "y": 0
+        },
+        "tile": "x"
+      },
+      "runner-ochre-brown-end-left": {
+        "x": 964,
+        "y": 740,
+        "w": 42,
+        "h": 36,
+        "anchor": {
+          "x": 0,
+          "y": 0
+        }
+      },
+      "runner-ochre-brown-end-right": {
+        "x": 4,
+        "y": 780,
+        "w": 42,
+        "h": 36,
+        "anchor": {
+          "x": 0,
+          "y": 0
+        }
+      },
+      "runner-slate": {
+        "x": 50,
+        "y": 780,
+        "w": 144,
+        "h": 36,
+        "anchor": {
+          "x": 0,
+          "y": 0
+        },
+        "tile": "x"
+      },
+      "runner-slate-end-left": {
+        "x": 198,
+        "y": 780,
+        "w": 42,
+        "h": 36,
+        "anchor": {
+          "x": 0,
+          "y": 0
+        }
+      },
+      "runner-slate-end-right": {
+        "x": 244,
+        "y": 780,
+        "w": 42,
+        "h": 36,
+        "anchor": {
+          "x": 0,
+          "y": 0
+        }
+      },
+      "runner-rust": {
+        "x": 290,
+        "y": 780,
+        "w": 144,
+        "h": 36,
+        "anchor": {
+          "x": 0,
+          "y": 0
+        },
+        "tile": "x"
+      },
+      "runner-rust-end-left": {
+        "x": 438,
+        "y": 780,
+        "w": 42,
+        "h": 36,
+        "anchor": {
+          "x": 0,
+          "y": 0
+        }
+      },
+      "runner-rust-end-right": {
+        "x": 484,
+        "y": 780,
+        "w": 42,
+        "h": 36,
+        "anchor": {
+          "x": 0,
+          "y": 0
+        }
+      },
+      "runner-indigo": {
+        "x": 530,
+        "y": 780,
+        "w": 144,
+        "h": 36,
+        "anchor": {
+          "x": 0,
+          "y": 0
+        },
+        "tile": "x"
+      },
+      "runner-indigo-end-left": {
+        "x": 678,
+        "y": 780,
+        "w": 42,
+        "h": 36,
+        "anchor": {
+          "x": 0,
+          "y": 0
+        }
+      },
+      "runner-indigo-end-right": {
+        "x": 724,
+        "y": 780,
+        "w": 42,
+        "h": 36,
+        "anchor": {
+          "x": 0,
+          "y": 0
+        }
+      }
+    }
   }
 }

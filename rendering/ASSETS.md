@@ -968,7 +968,7 @@ Reference crops and comparisons remain ignored and private. No Phaser service
 or publishing was used. These are original generated designs under the artwork
 terms above.
 
-The seven transparent PNG sheets and JSON maps live in `src/assets/dungeon/`.
+The eight transparent PNG sheets and JSON maps live in `src/assets/dungeon/`.
 All maps declare `scale: 3`. Rectangles, relative anchors and nine-slice insets
 are sheet pixels, divided by three for world units. Standing objects use
 feet-centre, hanging pieces top-centre, symbols/glows centre and modular
@@ -984,11 +984,12 @@ Only animation frame zero supplies `fps`.
 | `ui` | 36 | Original UI kit plus blank wooden hanging signs, bracket and inset host-status gems |
 | `props` | 57 | Furnishings, fires/magic, candle fixtures, unlit variants and three plain cloth banners |
 | `status` | 27 | Existing markers, glows and PR/Probe states, plus violet `mark-asking` / `glow-asking` |
+| `projects` | 55 | Shared project hall, end pillars, floor/back wall and eight muted valance/runner families |
 
-There are 273 frames: the 235 earlier frames, ten candle-fixture frames from v6,
+There are 328 frames: the 235 earlier frames, ten candle-fixture frames from v6,
 two underside corbels from v7, eight tile variants and five reflection glazes
 from v8, two excavated-rock alternatives, and eleven world-sign/gem/plain-cloth
-pieces. V9's lighting changes replace artwork in place.
+pieces, plus 55 project hall/cloth pieces. V9's lighting changes replace artwork in place.
 The original required names and optional
 `rampart-return-left` / `rampart-return-right` are retained. The two optional
 diagonal wall runs let a terrace or alcove show the angled returns in the
@@ -1541,6 +1542,82 @@ checks in `v11/validation.json`. `--wear-only --publish` installs checked files
 atomically; the full raw-source build includes V11. Only stone/alcoves PNGs
 change, all 273 maps/sizes/anchors and alpha remain unchanged, and the tracked
 asset folder stays below 12 MB. No app code or commits are part of the pass.
+
+The `projects` sheet is the selected **project hall + project colours** design
+from `artifacts/dungeon/project-variants.png`. It groups child alcoves with one
+continuous stone chamber and a restrained cloth colour, without bringing back
+project names, emblems, host/project icons or graph links. The old sheets and
+their frame maps remain untouched. The new map has `image: projects.png`,
+`scale:3`, 55 static frames and the same frame/anchor/tile schema as the kit.
+
+Hall frame dimensions/anchors in sheet pixels:
+
+| Frame | Size | Anchor | Repeat |
+| --- | --- | --- | --- |
+| `hall-pillar-left`, `hall-pillar-right` | 126×408 | (63,408), bottom-centre | — |
+| `hall-lintel` | 288×72 | (0,0) | x |
+| `hall-lintel-end-left`, `hall-lintel-end-right` | 126×72 | (0,0) | — |
+| `hall-floor` | 216×72 | (0,0) | x |
+| `hall-back` | 288×192 | (0,0) | xy |
+
+The pillar shaft/base is 136 world units high; its separate cap/lintel adds 24.
+Together they give a 160-unit hall around the current 128-unit alcove, with
+32 units of headroom. The pillars are 42 units wide, with a narrower visible
+shaft and overhanging end cap. In a local coordinate system with hall top y=0,
+place cap/lintel at y=0, pillar bodies at y=24 (feet y=160), and child alcoves
+at y=32. The shared floor begins around y=154, allowing the existing alcove
+front ledges to meet its rear top plane. These are assembly coordinates, not
+an app layout change; existing outer child jambs can underlap the larger posts.
+
+For every colour `c` in **teal, plum, wine, moss, ochre-brown, slate, rust,
+indigo**, the cloth frames are:
+
+| Frame pattern | Size | Anchor | Repeat |
+| --- | --- | --- | --- |
+| `valance-<c>` | 144×60 | (0,0) | x |
+| `valance-<c>-end-left`, `valance-<c>-end-right` | 60×60 | (30,0), top-centre | — |
+| `runner-<c>` | 144×36 | (0,0) | x |
+| `runner-<c>-end-left`, `runner-<c>-end-right` | 42×36 | (0,0) | — |
+
+The valance has a sewn gold-thread top hem and lower stitch, no metal pole or
+finials. Fixed gathered ties terminate it. The runner has a quiet woven middle,
+slightly worn border and fringed ends. All colour variants use exactly the same
+silhouettes and registration; only cloth pigment changes, preserving gold
+thread. They are dark, muted material identifiers, not semantic state colours:
+measured mean body HSV values are about 0.35–0.43, with 95th-percentile values
+below 0.58. Use normal alpha blending, no emission/halo, and do not derive their
+colour from an agent state or apply the old purple grade to the cloth.
+
+**Capped-repeat assembly:** first subtract the fixed end boxes, choose the
+nearest whole number of natural repeat modules, and fit those modules to the
+remaining width. This applies to the lintel and cloth strips. In particular,
+do not clip a scallop at an arbitrary trough and attach a fixed tie: its end
+phase must meet the tie. End caps keep their natural dimensions; middle-module
+widths may vary slightly. Shared cut-column RGBA profiles match exactly, and
+the builder checks every width remainder of the 288-pixel lintel and both
+144-pixel cloth repeats, plus full halls of 1 through 8 alcoves. The floor may
+repeat/clip behind the end posts; its top and front are one registered surface.
+
+The hall uses the original built-in generated A kit from the review, sliced
+and colour-matched to the accepted stone. A fresh built-in edit supplies the
+canonical cloth master with a sewn top hem. Exact prompts, crop rectangles,
+palette targets, derived-source references and exported frames are under
+`projects_hall_colours` in `prompts.json`. Hall-floor combines the already
+generated periodic paving/front face, and hall-back derives from the periodic
+brick surface with a darker value. Toroidal resampling preserves their course
+structure; no blurred edge strips are used.
+
+`artifacts/dungeon/projects-production/build.py` reconstructs and validates
+only this new sheet; `--publish` installs its complete PNG/map and prompt record
+atomically and refreshes the contact sheet. The existing kit builder is not
+overwritten. Raw/canonical cloth, hall-source records, repeat proofs and the
+1–8 assembly views stay in that ignored directory. `projects-proof.png` shows
+two neighbouring 2/4-alcove halls and all eight colours at 2×, using only the
+new frames and existing alcove pieces. Its deliberately empty bays isolate
+construction/colour joins; agent art is unchanged. `validation.json` records
+alpha/gutter checks, exact tile/cap profiles, colour registration/darkness and
+the variable-span checks. The new PNG is about 0.66 MB; older PNG/JSON sheets
+are byte-preserved. No app code or commits are part of this production pass.
 
 Remaining differences: the concept's masonry has more bespoke pixel-like chips,
 uneven joints and integrated painted shadows. V3 is smoother, its joins and
