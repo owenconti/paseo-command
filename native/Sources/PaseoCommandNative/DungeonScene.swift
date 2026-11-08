@@ -42,6 +42,8 @@ final class DungeonScene: SKScene, MapScene {
     private let hud = SKNode()
     private var hudTitle: SKSpriteNode?
     private var hudCounts: SKSpriteNode?
+    /// The "At a Glance" panel at the top right (your PRs, issues, workspaces and agents), once the page sends it.
+    private var hudPanel: SKSpriteNode?
     private var backdropCover = CGRect.zero
 
     // MARK: Animation
@@ -102,7 +104,18 @@ final class DungeonScene: SKScene, MapScene {
     private var maxZoom: CGFloat = 3.4
     /// The HUD lies over the board, as the concept's does. The count bar lies over the foot's pad, plus a little screen
     /// room below the board (the pad's share of the bar shrinks with the zoom), so the foot's furnishings stay clear of it.
-    private let hudTop: CGFloat = 0
+    /// Screen room kept above the board: none, unless the vault's niches (your PRs and issues, at `vaultTop` on the
+    /// board) would lie under the HUD's title; then just enough that the fitted board shows them below it.
+    private var hudTop: CGFloat {
+        guard let top = vaultTop, let title = hudTitle else { return 0 }
+        let below = 14 + title.size.height + 4
+        var room: CGFloat = 0
+        // The zoom depends on the room kept; a few rounds settle it.
+        for _ in 0..<4 { room = max(0, below - (margin + top - boardBox.y) * minimumZoom(for: hudRight, top: room)) }
+        return room
+    }
+    /// The vault's top on the board (board units), when it has one.
+    private var vaultTop: CGFloat?
     private let hudBottom: CGFloat = 26
     private let margin: CGFloat = 8
     private var center = CGPoint.zero
@@ -164,6 +177,7 @@ final class DungeonScene: SKScene, MapScene {
         appliedAt = CACurrentMediaTime()
         for (key, image) in newImages { images[key] = Textures.texture(image) }
         let showingAll = fitted && animation == nil && viewSize.width > 0 && zoom <= minimumZoom * 1.001
+        vaultTop = (m["vaultTop"] as? Double).map { CGFloat($0) }
         if let b = m["bounds"] as? [String: Double] {
             bounds = WorldBox(x: CGFloat(b["x"] ?? 0), y: CGFloat(b["y"] ?? 0), width: CGFloat(b["w"] ?? 0), height: CGFloat(b["h"] ?? 0))
         }
@@ -578,6 +592,7 @@ final class DungeonScene: SKScene, MapScene {
         hud.removeAllChildren()
         hudTitle = nil
         hudCounts = nil
+        hudPanel = nil
         let v = viewSize
         guard v.width > 0 else { return }
         if let t = h["title"], let key = t["key"] as? String, let tex = images[key] {
@@ -600,7 +615,33 @@ final class DungeonScene: SKScene, MapScene {
             hud.addChild(node)
             hudCounts = node
         }
+        if let g = h["panel"], let key = g["key"] as? String, let tex = images[key] {
+            let node = SKSpriteNode(texture: tex)
+            let w = num(g["w"]), hh = num(g["h"])
+            // Its full size where it fits above the count bar, else smaller (never past half the view's width).
+            let room = v.height - 28 - (hudCounts.map { $0.size.height + 10 } ?? 0)
+            let scale = max(0.4, min(1, room / max(hh, 1), v.width / 2 / max(w, 1)))
+            node.size = CGSize(width: w * scale, height: hh * scale)
+            node.anchorPoint = CGPoint(x: 1, y: 1)
+            node.position = CGPoint(x: v.width / 2 - 14, y: v.height / 2 - 14)
+            // Only where the view can spare its width beside the board: it never lies over what the board says
+            // (narrower, the vault's cards and the count bar still say it all).
+            if v.width > node.size.width * 2.4 {
+                hud.addChild(node)
+                hudPanel = node
+            }
+        }
+        // The fit keeps the panel's room clear beside the board, and the title's above the vault (once it knows their sizes).
+        let room = CGSize(width: hudRight, height: hudTop)
+        if room != fittedFor {
+            let showingAll = fitted && animation == nil && zoom <= minimumZoom(for: fittedFor.width, top: fittedFor.height) * 1.001
+            fittedFor = room
+            if showingAll || !fitted { fit() } else { constrain() }
+        }
     }
+    /// Screen room kept clear for the "At a Glance" panel at the right, while it shows.
+    var hudRight: CGFloat { hudPanel.map { $0.size.width + 20 } ?? 0 }
+    private var fittedFor: CGSize = .zero
 
     // MARK: Selection and hover
 
@@ -694,15 +735,17 @@ final class DungeonScene: SKScene, MapScene {
     private var boardBox: WorldBox { bounds ?? WorldBox(x: -600, y: 0, width: 1200, height: 1000) }
 
     /// The furthest out the camera goes: the board and a margin fit between the HUD's title and count bar.
-    private var minimumZoom: CGFloat {
+    private var minimumZoom: CGFloat { minimumZoom(for: hudRight) }
+    private func minimumZoom(for right: CGFloat, top: CGFloat? = nil) -> CGFloat {
         let v = viewSize, b = boardBox
-        return max(0.01, min(v.width / (b.width + margin * 2), (v.height - hudTop - hudBottom) / (b.height + margin * 2)))
+        return max(0.01, min((v.width - right) / (b.width + margin * 2), (v.height - (top ?? hudTop) - hudBottom) / (b.height + margin * 2)))
     }
 
     /// The world box the camera may show.
     private var extent: WorldBox {
-        let b = boardBox, z = minimumZoom
-        return WorldBox(x: b.x - margin, y: b.y - margin - hudTop / z, width: b.width + margin * 2, height: b.height + margin * 2 + (hudTop + hudBottom) / z)
+        let b = boardBox, z = minimumZoom, hudTop = hudTop
+        // The panel's room at the right: the board, fitted, centres in the rest of the view.
+        return WorldBox(x: b.x - margin, y: b.y - margin - hudTop / z, width: b.width + margin * 2 + hudRight / z, height: b.height + margin * 2 + (hudTop + hudBottom) / z)
     }
 
     func fit() {
@@ -1003,7 +1046,7 @@ final class DungeonScene: SKScene, MapScene {
             "sceneRevision": sceneRevision,
             "agentsRevision": agentsRevision,
             "framesDrawn": framesDrawn,
-            "hud": ["title": hudTitle != nil, "counts": hudCounts != nil],
+            "hud": ["title": hudTitle != nil, "counts": hudCounts != nil, "panel": hudPanel != nil],
         ]
     }
     private func countNodes(_ node: SKNode) -> Int { node.children.reduce(1) { $0 + countNodes($1) } }

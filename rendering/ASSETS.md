@@ -1626,6 +1626,21 @@ parts. Its warm pools are composited sprite glows rather than lighting painted
 continuously across the whole scene. The mock deliberately omits text and
 connector lines, which belong to the renderer.
 
+### Dungeon Board vault and At a Glance panel (reused art, 2026-11-08)
+
+No new art was generated. The vault over the first gate reuses the dungeon's
+own `stone.png` `niche-arch` as each group's stone niche and the Village's
+`assets/village/tiles.png` stained-glass panes (`tile-merged`, `tile-review`,
+`tile-draft`, `tile-failing`; see "Village stained-glass status fixtures"),
+inset in the niche's opening (`VAULT_GLASS` in `dungeon/layout.ts`). The panes
+are graded at load in the dungeon bridge (saturation 0.82, darks a quarter of
+the way toward the board's purple), so the robots stay the board's brightest
+colour. The At a Glance panel is painted by the page on the dungeon's `ui.png`
+`panel` (its HUD's navy and gold) with its `icon-chart`, and borrows the
+Village's `assets/village/hud.png` section icons (`icon-pr`, `icon-issue`,
+`icon-workspaces`, `icon-agents`). Both sheets are read in place; no files
+were copied or changed.
+
 
 ## Village — modular painterly village kit (2026-11-06)
 

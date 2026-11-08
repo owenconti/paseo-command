@@ -786,8 +786,26 @@ concept's purples. State: a state
 glow under each robot in the Atlas's state colours (`STATE_TILE`, idle a quiet lavender; pulsing for states that need you), a marker at its head's upper right, working robots' work frames,
 a project's two torches lit while any of its agents runs,
 its terrace glowing between its candles in the most urgent state's colour, offline floors dimmed and dark. PR, Probe and auto-merge medallions
-sit on each alcove's lintel, larger (`D.flag`, 24) in one row centred on its bricks (CI, review, Probe; the user's call), the auto-merge seal on its medallion's rim, with the Atlas's hover cards. The HUD (title with "N running · N need you" or "All quiet", and the
-count bar) lies over the board in screen space, as the concept's does; the board fills the map. Each floor is assembled
+sit on each alcove's lintel, larger (`D.flag`, 24) in one row centred on its bricks (CI, review, Probe; the user's call), the auto-merge seal on its medallion's rim, with the Atlas's hover cards.
+The vault (the Village's dashboard halls, in the dungeon's stone): in the wall above the first floor, over the first gate and
+between its inner torches, eight niches, your pull requests' four left of the gate's line (Merged, Review, Draft, Conflicts) and
+your Linear issues' four right of it (Done, In Progress, Todo, Blocked), each the stone sheet's `niche-arch` holding the Village's
+stained-glass pane for its group (`tiles.png`, graded quieter at load so the robots stay brightest; a faint steady light of its
+colour), dim while its hall can't count (off, no key, failed: `counts.prs|issues.known`); laid out only once the page passes
+`AtlasData.dashboard` (`vault`, `DTile`, `D.vault*` in `layout.ts`; it moves nothing else). No text on them: each is posted as
+a `tile` entity (`tile:<hall>:<key>`, as the Village's), glowing with its sprites (`e`) on hover, its card (`dashCard` in
+`rendering/src/dashboard.ts`, shared with the Village: the group, its count, up to 12 PRs or issues, or why it can't count),
+and a click opens its first PR or issue through `openAppLink` (never a selection). The counts are the Village's
+(`useVillageCounts` in `web/src/villageCounts.ts`, asked every minute while the Village or the Dungeon Board shows; `DASH_TILES`,
+`dashCount`, `dashText` in `rendering/src/dashboard.ts`). The HUD (title with "N running · N need you" or "All quiet", the
+count bar, and, with the vault, the "At a Glance" panel at the top right: your PRs and issues by group in their panes' colours,
+"—" and dimmed while unknown, then Workspaces with Active, Agents with Running and Idle, Need you, Failed and Offline only when
+any; painted by `paintGlance` on the `panel` frame in the HUD's navy, gold rules and rounded type, the Village's `hud.png`
+section icons) lies over the board in screen space, as the concept's does; the board fills the map. Swift (`DungeonScene`)
+scales the panel to fit above the count bar, shows it only while the view is over 2.4 of its widths wide, and then keeps its
+width clear at the right (`hudRight`), so it never lies over the board; it keeps the title's room above the board when the
+vault's niches (the scene's `vaultTop`) would lie under it (`hudTop`), refitting as either changes. A hovered niche's card
+follows its counts as they refresh. Each floor is assembled
 from the v2 kit as the art's reconstruction (`rendering/artifacts/dungeon/mock.png`) is: ramparts, the gate's surround,
 terrace floors, alcove sides, lintels and ledges. The page paints the host signs (`paintSign` in `bridge.ts`; the HUD keeps `ui-rounded`), purple shading on the upper walls and toward the board's edges, and posts top-left sprite
 boxes; `DungeonScene.swift` draws, animates (the background holds still so the agents draw the eye, the user's call: the magic circle, alchemy tank, crystal and portcullis show one frame, light pools are steady (`still`), and flames alone flicker slowly between two frames at `FLAME_FLICKER` (1/3; 0 stills them) of their old pace; robots, drones, state glows, markers and the glows' breath move as before; ≈30 fps while something moves smoothly, the 15 fps drift rate when only flames and resting robots do, still with reduced motion), owns the camera (fit, bounded pan,
@@ -798,7 +816,8 @@ project's hall (piers, lintel and floor) by their pieces drawn as one silhouette
 the Village's halls, `structureSpread`; no rims), and picks (a PR medallion, then a robot, its
 alcove, its project by its terrace wall, the hover card naming it; never a host). Sprites: `rendering/src/assets/dungeon/<sheet>.png|json` (the frame contract is `frames.ts`,
 3× scale; a missing frame is painted as a placeholder; robots are trimmed to their opaque pixels). `npm run native:mock --
---dungeon` serves the concept's fleet (`dungeon` in `web/e2e/fleets.ts`) and prints its address with `?map=dungeon`. Tests:
+--dungeon` serves the concept's fleet (`dungeon` in `web/e2e/fleets.ts`, with the Village's PR and issue counts and GitHub and
+Linear on, for the vault) and prints its address with `?map=dungeon`. Tests:
 `rendering/tests/dungeon.test.mjs`, `web/e2e/dungeon.e2e.ts`, `native/tests/DungeonSceneTests.swift`.
 
 ### The Village
@@ -814,7 +833,7 @@ pull requests (`GET /api/github/q/prCounts`, `readPrCounts` in `web/server/githu
 draft, conflicts or failing checks), and "Linear Issues" (purple), four counting issues assigned to you (`GET /api/linear/issue-counts`,
 `readIssueCounts` in `web/server/linear/reads.ts` through the whitelisted client and budget: done in the last 14 days, in progress,
 todo, blocked by a "Blocked" state or label or an open blocking issue; paged up to 2,000, past which counts are lower bounds,
-`atLeast`, shown "N+"); both asked by `useVillageCounts` (`web/src/villageCounts.ts`) every minute while the Village shows, as
+`atLeast`, shown "N+"); both asked by `useVillageCounts` (`web/src/villageCounts.ts`) every minute while the Village (or the Dungeon Board, for its vault) shows, as
 `AtlasData.dashboard`; off or keyless, their tiles dim and their cards say why. Below them a district per host with workspaces (the
 Atlas's host order, `hostGroups`), each one bounded unit (the user's call: structures group by containment, as on the Islands
 map): its own cobbled plaza (a tone of its own, districts alternating) ringed by its own low stone wall with posts at the corners and

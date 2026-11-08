@@ -14,6 +14,7 @@ import { WORLD_WATCH, applied, behind, newWatch, post as postRevision } from "..
 import { nativeSurface } from "../native/surface";
 import { FRAMES, ANIMATIONS, VILLAGE_PX, anchorShare, applySheet, framesOf, sharedFrame, sliceOf, type SheetJson } from "./frames";
 import { paintPlaceholder } from "./placeholder";
+import { dashCard } from "../dashboard";
 import {
   DASH_TILES,
   HALLS,
@@ -1025,19 +1026,7 @@ export function mountNativeVillage(parent: HTMLElement, handlers: AtlasHandlers 
   const tileOf = (id: string) => layout?.tiles.find((t) => t.id === id);
   const dashOf = (hall: "prs" | "issues") => data?.dashboard?.[hall] ?? null;
   /** A dashboard tile's card: its group and count, then its PRs (title, repo#n) or issues (key, title), or why it can't count. */
-  const cardOf = (t: NonNullable<ReturnType<typeof tileOf>>) => {
-    const spec = DASH_TILES[t.hall].find((x) => x.key === t.key)!;
-    const d = dashOf(t.hall);
-    const what = t.hall === "prs" ? "Your pull requests" : "Your Linear issues";
-    if (d?.state !== "ok") return { title: spec.name, detail: what, lines: [d?.message ?? (t.hall === "prs" ? "Turn on GitHub in Settings to count your pull requests." : "Turn on Linear in Settings to count your issues.")] };
-    const n = d.counts?.[t.key] ?? 0;
-    const plus = d.atLeast?.includes(t.key) ? "+" : "";
-    const items = d.items?.[t.key] ?? [];
-    const lines = items.map((i) => (t.hall === "prs" ? `${i.title} · ${i.repo}#${i.number}` : `${i.id} ${i.title}`));
-    if (n > items.length) lines.push(`and ${n - items.length}${plus} more`);
-    const span = t.hall === "prs" && t.key === "merged" ? " (last 14 days)" : t.hall === "issues" && t.key === "done" ? " (last 14 days)" : "";
-    return { title: `${spec.name} · ${n}${plus}`, detail: `${what}${span}`, lines: lines.length ? lines : ["None"] };
-  };
+  const cardOf = (t: NonNullable<ReturnType<typeof tileOf>>) => dashCard(dashOf(t.hall), t.hall, t.key);
   /** A hall's card: its name and what it holds, as the At a Glance panel counts it. */
   const hallCard = (hall: string) => {
     const c = layout!.counts;

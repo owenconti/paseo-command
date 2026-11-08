@@ -1,5 +1,5 @@
 /**
- * The Village map's dashboard halls: your pull requests (`GET /api/github/q/prCounts`)
+ * The Village map's dashboard halls and the Dungeon Board's vault: your pull requests (`GET /api/github/q/prCounts`)
  * and your Linear issues (`GET /api/linear/issue-counts`), each counted by group with
  * up to 12 of each. Both answer 200 with a `state`; the page reads only that.
  */
@@ -7,7 +7,7 @@ import { useEffect, useMemo, useState } from "react";
 import { api } from "./api";
 import { useIntegrations } from "./integrationSettings";
 
-/** How often the counts are asked for while the Village shows (the server keeps each a minute). */
+/** How often the counts are asked for while the Village or the Dungeon Board shows (the server keeps each a minute). */
 export const VILLAGE_COUNTS_POLL_MS = 60_000;
 /** At most this many items per group. */
 export const VILLAGE_ITEMS_MAX = 12;

@@ -14,6 +14,7 @@ import { WORLD_WATCH, applied, behind, newWatch, post as postRevision } from "..
 import { nativeSurface } from "../native/surface";
 import { FRAMES, ANIMATIONS, anchorShare, applySheet, framesOf, sliceOf, type SheetJson } from "./frames";
 import { paintPlaceholder } from "./placeholder";
+import { DASH_TILES, dashCard, dashText, type DashCount } from "../dashboard";
 import {
   D,
   cutawaySpans,
@@ -24,6 +25,7 @@ import {
   layoutDungeon,
   projectAlarm,
   projectWorking,
+  type DTile,
   type DungeonLayout,
   type Measure,
   type Rect,
@@ -33,9 +35,10 @@ type Channel = { postMessage(message: unknown): void };
 const channel = (): Channel | undefined =>
   (window as unknown as { webkit?: { messageHandlers?: { paseoWorld?: Channel } } }).webkit?.messageHandlers?.paseoWorld;
 
-/** The art agent's sheets, when they are in: `<sheet>.json` beside `<sheet>.png`. */
-const SHEET_JSON = import.meta.glob("../assets/dungeon/*.json", { eager: true, import: "default" }) as Record<string, unknown>;
-const SHEET_PNG = import.meta.glob("../assets/dungeon/*.png", { eager: true, query: "?url", import: "default" }) as Record<string, string>;
+/** The art agent's sheets, when they are in: `<sheet>.json` beside `<sheet>.png`; and the Village's stained glass and HUD
+ * icons, for the vault and the At a Glance panel. */
+const SHEET_JSON = import.meta.glob(["../assets/dungeon/*.json", "../assets/village/tiles.json", "../assets/village/hud.json"], { eager: true, import: "default" }) as Record<string, unknown>;
+const SHEET_PNG = import.meta.glob(["../assets/dungeon/*.png", "../assets/village/tiles.png", "../assets/village/hud.png"], { eager: true, query: "?url", import: "default" }) as Record<string, string>;
 
 /** Labels and the HUD are painted at this many pixels per board unit (crisp when zoomed in). */
 const TEXT_SCALE = 4;
@@ -79,6 +82,12 @@ const SIGN_K = 0.64;
 /** A project's name board's corners and chains, as a share of the sheet's (the host's sign's are `SIGN_K`). */
 const PROJECT_SIGN_K = 0.36;
 const ALERT = "#b0301c";
+/** The vault's stained glass: its saturation (the Village's is 1), and how much light it gives the stone round it. */
+const VAULT_GLASS_SATURATION = 0.82;
+const VAULT_GLOW = 0.22;
+/** The At a Glance panel's dots: each group's pane colour, then the agents' states'. */
+const PANE_DOT: Record<string, string> = { merged: "#4cc35a", review: "#3d8fe8", draft: "#f0b42a", failing: "#e2493a" };
+const PANE_LIGHT: Record<string, number> = { merged: 0x5fd06a, review: 0x4f9cf0, draft: 0xf0b42a, failing: 0xe2493a };
 
 const load = (url: string) =>
   new Promise<HTMLImageElement>((resolve, reject) => {
@@ -162,7 +171,9 @@ async function buildFrames(): Promise<{ canvases: Map<string, HTMLCanvasElement>
     // The stone, gate, alcoves and props are graded once toward the concept's deeper purple.
     const stem = path.replace(/^.*\//, "").replace(/\.json$/, "");
     // The robots keep their colours vivid: only a saturation lift, never the purple grade.
-    const source = GRADED.has(stem) ? grade(image, stem === "stone" ? { lift: GRADE.stoneLift, strength: GRADE.stoneStrength, warmth: GRADE.stoneWarmth, saturation: GRADE.stoneSaturation } : {}) : stem === "robots" ? grade(image, { saturation: 1.15, strength: 0, lift: 1 }) : image;
+    // The vault's glass a notch quieter than the Village's (less saturated, its darks toward the stone's purple), so
+    // the robots stay the brightest colour on the board.
+    const source = stem === "tiles" ? grade(image, { saturation: VAULT_GLASS_SATURATION, strength: 0.25, lift: 1 }) : GRADED.has(stem) ? grade(image, stem === "stone" ? { lift: GRADE.stoneLift, strength: GRADE.stoneStrength, warmth: GRADE.stoneWarmth, saturation: GRADE.stoneSaturation } : {}) : stem === "robots" ? grade(image, { saturation: 1.15, strength: 0, lift: 1 }) : image;
     for (const [name, f] of Object.entries(sheet.frames)) {
       if (!FRAMES[name]) continue;
       const canvas = document.createElement("canvas");
@@ -466,6 +477,84 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
     return { canvas, w, h };
   };
 
+  /** The HUD's "At a Glance" panel (the Village's, in the board's HUD look: the title's navy panel and gold rules, its
+   * rounded type): your PRs and issues by group, as the vault's panes colour them, then workspaces and agents. */
+  const paintGlance = (c: DungeonLayout["counts"]) => {
+    type Row = { dot: string; name: string; n: number | string };
+    const dashRows = (d: DashCount, hall: "prs" | "issues"): Row[] =>
+      DASH_TILES[hall].map((t) => ({ dot: PANE_DOT[t.tile]!, name: t.name, n: dashText(d, t.key) }));
+    const sections: { icon: string; title: string; n: number | string; rows: Row[]; why?: string }[] = [
+      { icon: "icon-pr", title: "PRs", n: dashText(c.prs), rows: dashRows(c.prs, "prs"), why: c.prs.known ? undefined : c.prs.why },
+      { icon: "icon-issue", title: "Issues", n: dashText(c.issues), rows: dashRows(c.issues, "issues"), why: c.issues.known ? undefined : c.issues.why },
+      { icon: "icon-workspaces", title: "Workspaces", n: c.workspaces, rows: [{ dot: "#4cc35a", name: "Active", n: c.active }] },
+      {
+        icon: "icon-agents", title: "Agents", n: c.agents,
+        rows: [
+          { dot: "#4cc35a", name: "Running", n: c.running },
+          // Finished agents whose reply you haven't read are idle too.
+          { dot: "#9a96b4", name: "Idle", n: c.idle + c.unread },
+          ...(c.needYou ? [{ dot: "#ef9b1b", name: "Need you", n: c.needYou }] : []),
+          ...(c.failed ? [{ dot: "#e2493a", name: "Failed", n: c.failed }] : []),
+          ...(c.offline ? [{ dot: "#6a6670", name: "Offline", n: c.offline }] : []),
+        ],
+      },
+    ];
+    const w = 220, pad = 22, head = 40, secHead = 30, rowH = 20, gap = 12;
+    const h = Math.ceil(pad + head + sections.reduce((sum, x) => sum + secHead + x.rows.length * rowH + gap, 0) - gap + pad - 4);
+    const { canvas, ctx } = canvasFor(w, h);
+    nineSlice(ctx, frame("panel"), "panel", 0, 0, w, h);
+    ctx.textBaseline = "middle";
+    let y = pad + 12;
+    ctx.drawImage(frame("icon-chart"), pad - 2, y - 12, 26, 22);
+    ctx.fillStyle = "#f4ead2";
+    ctx.font = `${HEAVY} 19px ${FONT}`;
+    ctx.fillText("At a Glance", pad + 32, y + 1);
+    y += 22;
+    const rule = (at: number) => {
+      const g = ctx.createLinearGradient(pad, 0, w - pad, 0);
+      g.addColorStop(0, "rgba(216,168,64,0)");
+      g.addColorStop(0.5, "rgba(216,168,64,0.85)");
+      g.addColorStop(1, "rgba(216,168,64,0)");
+      ctx.fillStyle = g;
+      ctx.fillRect(pad - 4, at, w - 2 * pad + 8, 1.5);
+    };
+    rule(y);
+    y += gap - 2;
+    sections.forEach((sec, i) => {
+      if (i) rule(y - gap / 2 - 1);
+      y += secHead / 2;
+      ctx.drawImage(frame(sec.icon), pad - 1, y - 10, 20, 20);
+      ctx.font = `${HEAVY} 17px ${FONT}`;
+      ctx.fillStyle = "#f4ead2";
+      ctx.textAlign = "left";
+      ctx.fillText(sec.title, pad + 26, y + 1);
+      ctx.textAlign = "right";
+      ctx.fillStyle = "#b9e34a";
+      ctx.fillText(String(sec.n), w - pad, y + 1);
+      y += secHead / 2;
+      ctx.font = `${BOLD} 14px ${FONT}`;
+      for (const r of sec.rows) {
+        y += rowH / 2;
+        ctx.globalAlpha = sec.why === undefined ? 1 : 0.45;
+        ctx.fillStyle = r.dot;
+        ctx.beginPath();
+        ctx.arc(pad + 9, y, 4, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = "#cfc6e6";
+        ctx.textAlign = "left";
+        ctx.fillText(r.name, pad + 22, y + 0.5);
+        ctx.textAlign = "right";
+        ctx.fillStyle = "#f2ead6";
+        ctx.fillText(String(r.n), w - pad, y + 0.5);
+        ctx.globalAlpha = 1;
+        y += rowH / 2;
+      }
+      y += gap;
+    });
+    ctx.textAlign = "left";
+    return { canvas, w, h };
+  };
+
   /** A frame drawn with its anchor at (x, y), `w` wide (its height keeping its shape), as a top-left box. */
   const at = (name: string, x: number, y: number, w?: number) => {
     const spec = FRAMES[name] ?? FRAMES[`${name}-0`]!;
@@ -564,6 +653,16 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
       for (const p of l.topBand.piers) {
         fill("pillar", p, -45);
         if (FRAMES["pillar-capital"]?.real) put("pillar-capital", p.x - 8, p.y - 4, p.w + 16, 24, -44.8);
+      }
+      // The vault: a stone niche per group of your PRs and issues, its stained glass inside, dim while its hall can't
+      // count; each glows with its tile (`e`) for its hover card. Under the upper wall's shading, as the wall's windows are.
+      for (const t of l.vault) {
+        const known = (t.hall === "prs" ? l.counts.prs : l.counts.issues).known;
+        const dim = known && l.floors[0]!.online ? {} : { dim: 1 };
+        put("niche-arch", t.rect.x, t.rect.y, t.rect.w, t.rect.h, -44.6, { ...dim, e: t.id });
+        put(`tile-${t.pane}`, t.glass.x, t.glass.y, t.glass.w, t.glass.h, -44.55, { ...dim, e: t.id });
+        // A little of the glass's colour on the stone round it (steady, as the building's light is).
+        if (!("dim" in dim)) lights.push({ x: t.glass.x + t.glass.w / 2, y: t.glass.y + t.glass.h / 2, c: PANE_LIGHT[t.pane], r: t.rect.w * 0.8, k: VAULT_GLOW, flicker: false, period: 4000, z: -44.5 });
       }
       images.push({ ...image("shade:upper", () => paintShade("upper")), x: r.x, y: r.y, w: r.w, h: r.h, z: -43.5 });
     }
@@ -943,11 +1042,16 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
       type: "scene",
       build: ++builds,
       bounds: l.bounds,
+      // The vault's top, which Swift's fit keeps below the HUD's title.
+      ...(l.vault.length ? { vaultTop: Math.min(...l.vault.map((t) => t.rect.y)) } : {}),
       sprites,
       images,
       lights,
       flags,
-      entities: l.entities
+      entities: [
+        // The vault's tiles: hover cards and clicks the page answers (never a selection).
+        ...l.vault.map((t) => ({ id: t.id, kind: "tile", ...t.rect })),
+        ...l.entities
         .filter((e) => e.kind !== "host")
         .map((e) => {
           const r =
@@ -958,6 +1062,7 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
                 : l.projects.find((p) => p.entity?.id === e.id)!.rect;
           return { id: e.id, kind: e.kind, x: r.x, y: r.y, w: r.w, h: r.h };
         }),
+      ],
     };
   };
   /** What changes with the agents' states: robots, their glows and markers, the projects' torches and flares, the runs of light, the HUD. */
@@ -1039,7 +1144,10 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
     const title = paintTitle(subtitle);
     const counts = paintCounts(l.counts);
     const titleKey = `hud:title:${subtitle}`;
-    const countsKey = `hud:counts:${JSON.stringify(l.counts)}`;
+    const countsKey = `hud:counts:${JSON.stringify([l.counts.hosts, l.counts.projects, l.counts.workspaces, l.counts.agents])}`;
+    // The At a Glance panel, once the page passes the dashboard's counts (as the vault).
+    const glance = l.vault.length ? paintGlance(l.counts) : null;
+    const glanceKey = `hud:glance:${JSON.stringify(l.counts)}`;
     return {
       type: "agents",
       robots,
@@ -1048,6 +1156,7 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
       hud: {
         title: { ...(sent.has(titleKey) ? { key: titleKey } : (sent.add(titleKey), { key: titleKey, png: png(title.canvas) })), w: title.w, h: title.h },
         counts: { ...(sent.has(countsKey) ? { key: countsKey } : (sent.add(countsKey), { key: countsKey, png: png(counts.canvas) })), w: counts.w, h: counts.h },
+        ...(glance ? { panel: { ...(sent.has(glanceKey) ? { key: glanceKey } : (sent.add(glanceKey), { key: glanceKey, png: png(glance.canvas) })), w: glance.w, h: glance.h } } : {}),
       },
     };
   };
@@ -1070,7 +1179,15 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
     }
     if (selection && !entity(selection)) selection = null;
     if (hovered) setHover(entity(hovered) ? hovered : null, hoverAt, hoverFlag);
+    // A vault tile's card follows its counts while it's hovered (and goes with the tile).
+    if (cardTile) {
+      const t = tileOf(cardTile.id);
+      if (!t) cardTile = null;
+      handlers.card?.(t ? dashCard(dashOf(t), t.hall, t.key) : null, t ? cardTile!.at : null);
+    }
   };
+  /** The vault tile whose card shows, and where. */
+  let cardTile: { id: string; at: { x: number; y: number } | null } | null = null;
 
   const setHover = (id: string | null, at?: { x: number; y: number }, flag?: MapFlag) => {
     hovered = id;
@@ -1079,6 +1196,8 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
     const e = entity(id);
     handlers.hover?.(e, e && at ? at : null, e ? hoverFlag : undefined);
   };
+  const tileOf = (id: string) => layout?.vault.find((t) => t.id === id);
+  const dashOf = (t: DTile) => data?.dashboard?.[t.hall] ?? null;
   type NativeEvent =
     | { type: "ready" }
     | { type: "pick"; id: string | null }
@@ -1097,9 +1216,26 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
       handlers.ready?.();
     } else if (message.type === "pick") {
       if (!enabled) return;
+      if (message.id?.startsWith("tile:")) {
+        // A vault tile opens its first PR or issue, as the app opens such links (and as the Village's do).
+        const t = tileOf(message.id);
+        const url = t && dashOf(t)?.items?.[t.key]?.[0]?.url;
+        if (url) handlers.open?.(url);
+        return;
+      }
       handlers.pick?.(entity(message.id));
     } else if (message.type === "hover") {
       parent.style.cursor = message.id ? "pointer" : "";
+      if (message.id?.startsWith("tile:")) {
+        if (hovered) setHover(null);
+        const t = tileOf(message.id);
+        const at = message.x === undefined ? null : { x: message.x, y: message.y! };
+        cardTile = t ? { id: t.id, at } : null;
+        handlers.card?.(t ? dashCard(dashOf(t), t.hall, t.key) : null, at);
+        return;
+      }
+      cardTile = null;
+      handlers.card?.(null, null);
       setHover(message.id, message.x === undefined ? undefined : { x: message.x, y: message.y! }, message.flag);
     } else if (message.type === "zoom") {
       zoom = message.zoom;
@@ -1225,11 +1361,14 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
               id: w.entity.id, name: w.entity.name, camp: !!w.entity.camp, rect: w.rect,
               flags: w.flags.map((f) => f.flag), medallions: w.flags.map((f) => ({ flag: f.flag, x: f.x, y: f.y })), seal: !!w.seal,
             })),
+            vault: layout.vault.map((t) => ({ id: t.id, pane: t.pane, rect: t.rect, glass: t.glass })),
             agents: layout.agents.map((a) => ({ id: a.entity.id, name: a.entity.name, state: a.entity.state, model: a.entity.model, robot: a.robot, workspace: a.entity.workspace, at: a.feet, rect: a.rect })),
           }
         : undefined,
     destroy: () => {
       destroyed = true;
+      // A vault tile's card goes with the board.
+      if (cardTile) handlers.card?.(null, null);
       ready = false;
       clearInterval(watchdog);
       surface.destroy();

@@ -1,6 +1,6 @@
 // The Dungeon Board's scene: picking (a robot before its alcove, an alcove before its project, a PR
 // medallion before both), hover and its card's place, selection, the camera's limits and fit, the HUD
-// in screen space, tiles covering their boxes exactly, the frame loop resting with reduced motion,
+// in screen space (its At a Glance panel, and room for its title over the vault), the vault's niches picked as tiles, tiles covering their boxes exactly, the frame loop resting with reduced motion,
 // and the view swapping the Atlas's scene for it. Drawn in a transparent window that takes no clicks.
 import AppKit
 import SpriteKit
@@ -162,5 +162,45 @@ assert(!scene.animating && scene.drifting, "only flames and resting robots: the 
 scene.setAgents(["rev": 4, "robots": [["id": "a1", "x": 182.0, "y": 332.0, "w": 36.0, "h": 42.0, "idle": ["robot-orange-idle-0"],
     "work": ["robot-orange-work-0", "robot-orange-work-1"], "busy": true, "ph": 0.3]]], images: [:])
 assert(scene.animating, "a robot at work: the ambient rate")
+
+// The vault: a tile niche over the first gate is picked as its tile (the page opens its first PR), its top kept below the
+// HUD's title by the fit; the At a Glance panel shows at the top right.
+let zoomBefore = scene.state()["minimumZoom"] as! CGFloat
+scene.setScene([
+    "rev": 5,
+    "bounds": ["x": -500.0, "y": 0.0, "w": 1000.0, "h": 800.0],
+    "vaultTop": 20.0,
+    "sprites": [["f": "wall-brick", "x": -60.0, "y": 20.0, "w": 40.0, "h": 38.0, "z": -44.6, "e": "tile:prs:merged"]],
+    "images": [] as [[String: Any]],
+    "entities": [
+        ["id": "tile:prs:merged", "kind": "tile", "x": -60.0, "y": 20.0, "w": 40.0, "h": 38.0],
+        ["id": "a1", "kind": "agent", "x": 180.0, "y": 330.0, "w": 40.0, "h": 46.0],
+    ],
+], images: [:])
+scene.setAgents([
+    "rev": 6,
+    "robots": [["id": "a1", "x": 182.0, "y": 332.0, "w": 36.0, "h": 42.0, "idle": ["robot-orange-idle-0"], "work": ["robot-orange-work-0"], "busy": false, "ph": 0.3]],
+    "hud": ["title": ["key": "hud:title", "w": 300.0, "h": 60.0], "counts": ["key": "hud:counts", "w": 500.0, "h": 50.0],
+            "panel": ["key": "hud:glance", "w": 220.0, "h": 420.0]],
+], images: ["hud:glance": image(22, 42)])
+scene.command("home")
+let vaultState = scene.state()
+assert((vaultState["hud"] as! [String: Bool])["panel"] == true, "the At a Glance panel shows")
+assert((vaultState["minimumZoom"] as! CGFloat) < zoomBefore, "the fit keeps room above the board for the title")
+assert(screen(-40, 20).y >= 14 + 60 + 4 - 0.5, "the vault's niches show below the HUD's title")
+assert(click(-40, 40) == "tile:prs:merged", "a vault niche is picked as its tile")
+scene.pointer(phase: "leave", at: .zero)
+events = []
+scene.pointer(phase: "move", at: screen(-40, 40))
+assert((events.last { $0["type"] as? String == "hover" })?["id"] as? String == "tile:prs:merged", "and hovered, for its card")
+scene.pointer(phase: "leave", at: .zero)
+// Where the view can't spare its width beside the board, the panel doesn't show (it never lies over the board).
+scene.setAgents([
+    "rev": 7,
+    "robots": [["id": "a1", "x": 182.0, "y": 332.0, "w": 36.0, "h": 42.0, "idle": ["robot-orange-idle-0"], "work": ["robot-orange-work-0"], "busy": false, "ph": 0.3]],
+    "hud": ["title": ["key": "hud:title", "w": 300.0, "h": 60.0], "counts": ["key": "hud:counts", "w": 500.0, "h": 50.0],
+            "panel": ["key": "hud:wide", "w": 400.0, "h": 100.0]],
+], images: ["hud:wide": image(40, 10)])
+assert((scene.state()["hud"] as! [String: Bool])["panel"] == false, "too wide a panel for the view: hidden")
 
 print("DungeonScene: ok")

@@ -22,13 +22,13 @@ import {
   tileState,
   type AtlasData,
   type Cottage,
-  type DashboardCounts,
   type Entity,
   type State,
 } from "../world.ts";
 import { BEACON_STATES } from "../placement.ts";
 import { probeGlyph } from "../probe.ts";
 import { projectIcon } from "../dungeon/layout.ts";
+import { DASH_TILES, dashCount, type DashCount } from "../dashboard.ts";
 import { COTTAGES, FRAMES, KEEPS, anchorShare, type Icon, type TileKind } from "./frames.ts";
 
 export { projectIcon };
@@ -225,11 +225,7 @@ export type VillageLayout = {
   counts: VillageCounts;
   signature: string;
 };
-/** A dashboard hall's counts: whether known, the total, each group's, and why not when not. */
-export type DashCount = { known: boolean; total: number; by: Record<string, number>; atLeast: string[]; why: string };
-/** A dashboard count as shown: "—" while unknown, "N+" when a lower bound. */
-export const dashText = (d: DashCount, key?: string) =>
-  !d.known ? "—" : key === undefined ? `${d.total}${d.atLeast.length ? "+" : ""}` : `${d.by[key] ?? 0}${d.atLeast.includes(key) ? "+" : ""}`;
+export { dashText, type DashCount } from "../dashboard.ts";
 export type VillageCounts = {
   hosts: number;
   hostsOffline: number;
@@ -327,21 +323,7 @@ export function spread(wanted: number[], gap: number): number[] {
   return clusters.flatMap((c) => Array.from({ length: c.n }, (_, k) => c.sum / c.n + k * gap));
 }
 
-/** The dashboard halls' four tiles each: the group's key, its tile and its name. */
-export const DASH_TILES: Record<"prs" | "issues", { key: string; tile: TileKind; name: string }[]> = {
-  prs: [
-    { key: "merged", tile: "merged", name: "Merged" },
-    { key: "review", tile: "review", name: "Review" },
-    { key: "draft", tile: "draft", name: "Draft" },
-    { key: "conflicts", tile: "failing", name: "Conflicts" },
-  ],
-  issues: [
-    { key: "done", tile: "merged", name: "Done" },
-    { key: "inProgress", tile: "review", name: "In Progress" },
-    { key: "todo", tile: "draft", name: "Todo" },
-    { key: "blocked", tile: "failing", name: "Blocked" },
-  ],
-};
+export { DASH_TILES } from "../dashboard.ts";
 
 /** Workspace names are cut short past this many characters (the hover card gives the whole). */
 export const PLATE_CHARS = 14;
@@ -783,18 +765,12 @@ export function layoutVillage(data: AtlasData, aspect = 1.6, measure: Measure = 
   const shownProjects = projects.filter((p) => p.entity).map((p) => p.entity!);
   const entities = [...squares.map((s) => s.host), ...shownProjects, ...workspaces.map((w) => w.entity), ...agents.map((a) => a.entity)];
   const states = agents.map((a) => a.entity.state!);
-  const dash = (d: DashboardCounts | null | undefined, keys: string[]): DashCount => {
-    const ok = d?.state === "ok" && d.counts;
-    const by = Object.fromEntries(keys.map((k) => [k, ok ? (d!.counts![k] ?? 0) : 0]));
-    const atLeast = ok ? (d!.atLeast ?? []).filter((k) => keys.includes(k)) : [];
-    return { known: !!ok, total: keys.reduce((n, k) => n + (by[k] ?? 0), 0), by, atLeast, why: ok ? "" : (d?.message ?? (d === undefined || d === null ? "" : "Not available")) };
-  };
   const real = workspaces.filter((w) => !w.entity.camp);
   const counts: VillageCounts = {
     hosts: squares.length,
     hostsOffline: squares.filter((s) => !s.online).length,
-    prs: dash(data.dashboard?.prs, DASH_TILES.prs.map((t) => t.key)),
-    issues: dash(data.dashboard?.issues, DASH_TILES.issues.map((t) => t.key)),
+    prs: dashCount(data.dashboard?.prs, "prs"),
+    issues: dashCount(data.dashboard?.issues, "issues"),
     workspaces: real.length,
     active: real.filter((w) => w.status === "running").length,
     agents: agents.length,

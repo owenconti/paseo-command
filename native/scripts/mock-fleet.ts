@@ -14,7 +14,7 @@
  * `--village` (or `--fleet village`) serves the Village's concept fleet (one host, four projects,
  * every PR tile, six robots) and opens the map as the Village (`?map=village`).
  * `--dungeon` (or `--fleet dungeon`) serves the Dungeon Board's concept fleet (three hosts with
- * their loads), and the address it prints opens the map as the Dungeon Board (`?map=dungeon`);
+ * their loads) with the Village's PR and issue counts for its vault, and the address it prints opens the map as the Dungeon Board (`?map=dungeon`);
  * `--map <style>` prints one that opens another style.
  * `--asking <agent ids>` (comma-joined) answers those idle agents' asks as waiting on you (turn TypeSafe on with
  * `--integrations typesafe` so the page asks), so their robots show "reply waits on you". `--offline <server id>`
@@ -75,7 +75,7 @@ if (args.includes("--probe")) {
 /** `GET /api/hoststats`'s answer, keyed "local" or a host's server id. */
 const hostStats: Record<string, unknown> = fleet === dungeon ? { ...DUNGEON_STATS } : fleet === village ? { ...VILLAGE_STATS } : fleet === sparse ? { ...SPARSE_STATS } : {};
 /** The Village's dashboard counts (your PRs and Linear issues). */
-const dashboard = fleet === village ? { prs: VILLAGE_PRS, issues: VILLAGE_ISSUES } : fleet === sparse ? { prs: SPARSE_PRS, issues: SPARSE_ISSUES } : null;
+const dashboard = fleet === village || fleet === dungeon ? { prs: VILLAGE_PRS, issues: VILLAGE_ISSUES } : fleet === sparse ? { prs: SPARSE_PRS, issues: SPARSE_ISSUES } : null;
 if (args.includes("--stats")) {
   const keys = ["local", ...(fleet.hosts as { serverId?: string }[]).flatMap((h) => (h.serverId ? [h.serverId] : []))];
   keys.forEach((key, i) => (hostStats[key] = { cpu: 12 + i * 23, memory: 58 + i * 7, disk: i ? 41 : 93 }));
@@ -101,7 +101,7 @@ const lists: Record<string, unknown> = {
   workspaces: fleet.workspaces,
   hosts: fleet.hosts,
 };
-const integrations = option("integrations", fleet === village ? "github,linear" : fleet === sparse ? "github" : "").split(",").filter(Boolean);
+const integrations = option("integrations", fleet === village || fleet === dungeon ? "github,linear" : fleet === sparse ? "github" : "").split(",").filter(Boolean);
 if (integrations.length)
   lists.settings = {
     linearWorkspace: "",

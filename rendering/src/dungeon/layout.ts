@@ -27,6 +27,7 @@ import {
 } from "../world.ts";
 import { BEACON_STATES } from "../placement.ts";
 import { probeGlyph } from "../probe.ts";
+import { DASH_TILES, dashCount, type DashCount, type DashHall, type DashPane } from "../dashboard.ts";
 import { FRAMES, anchorShare, type Icon, ICONS } from "./frames.ts";
 
 export type Pt = { x: number; y: number };
@@ -84,6 +85,14 @@ export const D = {
   frontY: 230,
   /** The wall above the first floor, which the HUD's title lies over. */
   topBand: 64,
+  /** The vault in that wall, over the first gate: your pull requests' four stained-glass niches left of the
+   * gate's line and your Linear issues' four right of it (the Village's dashboard halls, in the dungeon's stone).
+   * Each niche this wide (its height its frame's shape), this far from its neighbour, the two rows this far apart
+   * across the line, their feet this far down the wall; kept between the wall's inner torches. */
+  vaultNiche: 38,
+  vaultGap: 5,
+  vaultMid: 20,
+  vaultFeet: 56,
   /** Within a floor (from its top). */
   gateMedallionY: 48,
   gateMedallionR: 24,
@@ -225,6 +234,37 @@ export type DDecor = {
   /** The vignette it belongs to (its props may overlap one another). */
   group?: string;
 };
+/** A group of your PRs or issues in the vault: its stone niche and the stained-glass pane in it. */
+export type DTile = {
+  /** `tile:<hall>:<key>`, as the Village's tiles. */
+  id: string;
+  hall: DashHall;
+  key: string;
+  pane: DashPane;
+  /** The niche's box (its pick box and glow) and the pane's, inside its opening. */
+  rect: Rect;
+  glass: Rect;
+};
+/** The counts the HUD's At a Glance panel shows (and the count bar's first four). */
+export type DungeonCounts = {
+  hosts: number;
+  projects: number;
+  workspaces: number;
+  agents: number;
+  prs: DashCount;
+  issues: DashCount;
+  /** Workspaces with an agent at work. */
+  active: number;
+  running: number;
+  idle: number;
+  needYou: number;
+  /** Finished with a reply you haven't read. */
+  unread: number;
+  failed: number;
+  offline: number;
+};
+/** The pane's place in a niche's opening, as shares of the niche's frame (the stone sheet's `niche-arch`). */
+export const VAULT_GLASS = { x: 0.5, w: 0.555, bottom: 0.83 };
 export type DungeonLayout = {
   /** The board, end to end and top to bottom (without the HUD, which keeps screen size). */
   bounds: Rect;
@@ -235,8 +275,10 @@ export type DungeonLayout = {
   decor: DDecor[];
   /** The wall above the first floor. */
   topBand: { rect: Rect; piers: Rect[] };
+  /** The vault's niches (none until the page passes the dashboard's counts). */
+  vault: DTile[];
   entities: Entity[];
-  counts: { hosts: number; projects: number; workspaces: number; agents: number };
+  counts: DungeonCounts;
   /** Changes whenever anything's place changes. */
   signature: string;
 };
@@ -699,8 +741,23 @@ export function layoutDungeon(data: AtlasData, _aspect = 1.6, measure: Measure =
   const topHalf = (s: number) => (floors[0] ? (s === -1 ? -floors[0].rect.x : floors[0].rect.x + floors[0].rect.w) : half);
   const topBand = { rect: floors[0] ? { x: floors[0].rect.x, y: 0, w: floors[0].rect.w, h: D.topBand } : { x: -half, y: 0, w: half * 2, h: D.topBand }, piers: [-1, 1].map((s) => ({ x: s * (D.surroundW / 2 + 60) - 14, y: 8, w: 28, h: D.topBand - 8 })) };
 
+  // The vault over the first gate: your PRs' niches left of the gate's line, your issues' right.
+  const vault: DTile[] = [];
+  if (data.dashboard && floors.length) {
+    for (const [hall, s] of [["prs", -1], ["issues", 1]] as const)
+      DASH_TILES[hall].forEach((t, k) => {
+        // Both rows read left to right, as the Village's halls do: the PRs' first group is the outermost.
+        const slot = hall === "prs" ? DASH_TILES[hall].length - 1 - k : k;
+        const x = s * (D.vaultMid / 2 + D.vaultNiche / 2 + slot * (D.vaultNiche + D.vaultGap));
+        const { rect } = rectOf("niche-arch", x, D.vaultFeet, D.vaultNiche);
+        const g = rect.w * VAULT_GLASS.w;
+        const glass = { x: rect.x + rect.w * VAULT_GLASS.x - g / 2, y: rect.y + rect.h * VAULT_GLASS.bottom - g, w: g, h: g };
+        vault.push({ id: `tile:${hall}:${t.key}`, hall, key: t.key, pane: t.tile, rect, glass });
+      });
+  }
   // Everything the board says or shows, which decorations keep clear of.
   const reserved: Rect[] = [
+    ...vault.map((t) => t.rect),
     ...floors.flatMap((fl) => (fl.step ? [{ ...fl.step, y: fl.step.y - 6, h: fl.step.h + 10 }] : [])),
     ...floors.flatMap((fl) => [fl.plaque, fl.portcullis, fl.stairs, fl.surround, fl.arch,
       // The thick front wall closing each tier.
@@ -873,8 +930,28 @@ export function layoutDungeon(data: AtlasData, _aspect = 1.6, measure: Measure =
   const shownProjects = projects.filter((p) => p.entity).map((p) => p.entity!);
   const entities = [...hostEntities, ...shownProjects, ...workspaces.map((w) => w.entity), ...agents.map((a) => a.entity)];
   const round = (r: Rect) => [r.x, r.y, r.w, r.h].map((v) => Math.round(v * 10) / 10);
+  const states = agents.map((a) => a.entity.state!);
+  const real = workspaces.filter((w) => !w.entity.camp);
+  const counts: DungeonCounts = {
+    hosts: floors.length,
+    projects: shownProjects.length,
+    workspaces: real.length,
+    agents: agents.length,
+    prs: dashCount(data.dashboard?.prs, "prs"),
+    issues: dashCount(data.dashboard?.issues, "issues"),
+    active: real.filter((w) => agents.some((a) => a.entity.workspace === w.entity.id && a.entity.state === "running")).length,
+    running: states.filter((s) => s === "running").length,
+    idle: states.filter((s) => s === "idle").length,
+    needYou: states.filter((s) => s === "approval" || s === "question" || s === "asking").length,
+    unread: states.filter((s) => s === "done").length,
+    failed: states.filter((s) => s === "failed").length,
+    offline: states.filter((s) => s === "offline").length,
+  };
   const signature = JSON.stringify([
     round(bounds),
+    // The vault's niches, and whether each hall can count (an unknown hall's niches are drawn dim).
+    vault.map((t) => [t.id, round(t.rect)]),
+    [counts.prs.known, counts.issues.known],
     floors.map((fl) => [fl.host.id, fl.title, fl.online, fl.stats.map((s) => s.text), round(fl.rect)]),
     projects.map((p) => [p.key, p.name, round(p.rect)]),
     workspaces.map((w) => [
@@ -895,13 +972,9 @@ export function layoutDungeon(data: AtlasData, _aspect = 1.6, measure: Measure =
     agents,
     decor,
     topBand,
+    vault,
     entities,
-    counts: {
-      hosts: floors.length,
-      projects: shownProjects.length,
-      workspaces: workspaces.filter((w) => !w.entity.camp).length,
-      agents: agents.length,
-    },
+    counts,
     signature,
   };
 }

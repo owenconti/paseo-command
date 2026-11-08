@@ -31,7 +31,7 @@ export type DashboardCounts = {
   atLeast?: string[];
 };
 export type AtlasData = {
-  /** The Village's dashboard halls: your pull requests and your Linear issues, when the page has read them. */
+  /** The Village's dashboard halls and the Dungeon Board's vault: your pull requests and your Linear issues, while one shows. */
   dashboard?: { prs?: DashboardCounts | null; issues?: DashboardCounts | null };
   hosts: { key: string; name: string; online: boolean; local: boolean; stats?: HostStats }[];
   projects: { key: string; host: string; name: string; stale?: boolean }[];

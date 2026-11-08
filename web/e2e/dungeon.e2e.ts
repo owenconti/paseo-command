@@ -11,7 +11,7 @@ import { after, before, test } from "node:test";
 import assert from "node:assert/strict";
 import type { Browser, Page } from "playwright";
 import { launch, mockApi, newContext, startApp, waitFor } from "./harness";
-import { DUNGEON_STATS, dungeon } from "./fleets";
+import { DUNGEON_STATS, VILLAGE_ISSUES, VILLAGE_PRS, dungeon } from "./fleets";
 
 let app: Awaited<ReturnType<typeof startApp>>;
 let browser: Browser;
@@ -24,15 +24,23 @@ after(async () => {
   assert.deepEqual(app?.apiHits ?? [], []);
 });
 
-type Native = { arts: string[]; scenes: { scene: string; style?: string; entities: { id: string; kind: string }[] }[]; selected: string | null; styles: string[] };
-async function open(style: "islands" | "overworld" | "dungeon"): Promise<{ page: Page }> {
+type Native = {
+  arts: string[];
+  scenes: { scene: string; style?: string; entities: { id: string; kind: string }[]; sprites: { f?: string; e?: string; dim?: number }[] }[];
+  agents: { hud: Record<string, { key: string }> }[];
+  links: string[];
+  selected: string | null;
+  styles: string[];
+};
+/** `linear: false` leaves Linear off (its niches dim, their cards say why). */
+async function open(style: "islands" | "overworld" | "dungeon", { linear = true } = {}): Promise<{ page: Page }> {
   const context = await newContext(browser);
   const page = await context.newPage();
   await page.addInitScript((initial) => {
     // The style kept from before, unless this page has been opened already (a test's reload keeps its choice).
     if (!sessionStorage.getItem("e2e-opened")) localStorage.setItem("paseo-command:atlas:style", JSON.stringify(initial));
     sessionStorage.setItem("e2e-opened", "1");
-    const host = { arts: [] as string[], scenes: [] as unknown[], selected: null as string | null, styles: [] as string[] };
+    const host = { arts: [] as string[], scenes: [] as unknown[], agents: [] as unknown[], links: [] as string[], selected: null as string | null, styles: [] as string[] };
     (window as any).__native = host;
     (window as any).webkit = {
       messageHandlers: {
@@ -42,7 +50,9 @@ async function open(style: "islands" | "overworld" | "dungeon"): Promise<{ page:
               host.arts.push(m.scene);
               setTimeout(() => window.dispatchEvent(new CustomEvent("paseo:world", { detail: { type: "ready" } })));
             }
-            if (m.type === "scene") host.scenes.push({ scene: host.arts.at(-1), style: m.style, entities: m.entities ?? [] });
+            if (m.type === "scene") host.scenes.push({ scene: host.arts.at(-1), style: m.style, entities: m.entities ?? [], sprites: m.sprites ?? [] });
+            if (m.type === "agents") host.agents.push({ hud: m.hud });
+            if (m.type === "openLink") host.links.push(m.url);
             if (m.type === "select") host.selected = m.id;
             if (m.type === "mapStyle") host.styles.push(m.style);
           },
@@ -56,7 +66,13 @@ async function open(style: "islands" | "overworld" | "dungeon"): Promise<{ page:
     hosts: () => dungeon.hosts,
     projects: () => dungeon.projects,
     workspaces: () => dungeon.workspaces,
-    lists: { hoststats: DUNGEON_STATS },
+    lists: {
+      hoststats: DUNGEON_STATS,
+      // The vault's reads (GET /api/github/q/prCounts, /api/linear/issue-counts), GitHub and Linear on.
+      github: VILLAGE_PRS,
+      linear: VILLAGE_ISSUES,
+      settings: { linearWorkspace: "", integrations: { github: true, linear, typesafe: false }, error: null },
+    },
   } as any);
   await page.goto(app.url);
   return { page };
@@ -125,7 +141,8 @@ test("Settings → Map chooses the style", async () => {
 test("the board draws every host, project, workspace and agent truthfully", async () => {
   const { page } = await open("dungeon");
   const board = await waitFor(() => inspect(page), (i) => i?.scene === "dungeon" && i.agents?.length === dungeon.agents.length && i.floors?.[0]?.stats?.length, "the board", 30000);
-  assert.deepEqual(board.counts, { hosts: 3, projects: 6, workspaces: 11, agents: 27 });
+  const { hosts, projects, workspaces, agents } = board.counts;
+  assert.deepEqual({ hosts, projects, workspaces, agents }, { hosts: 3, projects: 6, workspaces: 11, agents: 27 });
   assert.deepEqual(board.floors.map((f: any) => f.title), ["LOCAL", "PROD", "STAGING"]);
   assert.deepEqual(board.floors[0].stats, ["CPU 42%", "MEM 58%", "DISK 70%"]);
   const state = (name: string) => board.agents.find((a: any) => a.name === name)?.state;
@@ -186,5 +203,48 @@ test("picking a robot on the board opens its conversation; hovering one shows it
   assert.match((await tipFor(key("a-api-0")))!, /^api agent 1/);
   const board = await inspect(page);
   assert.ok(board.workspaces.every((w: any) => w.label === undefined), "no workspace labels");
+  await page.context().close();
+});
+
+test("the vault: your PRs' and issues' stained-glass niches over the first gate, their cards, a click opening the first; At a Glance", async () => {
+  const { page } = await open("dungeon");
+  const board = await waitFor(() => inspect(page), (i) => i?.scene === "dungeon" && i.vault?.length === 8 && i.counts?.prs?.known && i.counts?.issues?.known, "the vault", 30000);
+  assert.deepEqual(board.counts.prs.by, { merged: 7, review: 3, draft: 1, conflicts: 1 });
+  assert.deepEqual(board.counts.issues.by, { done: 11, inProgress: 8, todo: 7, blocked: 2 });
+  assert.deepEqual(board.vault.map((t: any) => t.pane), ["merged", "review", "draft", "failing", "merged", "review", "draft", "failing"]);
+  // Swift gets each niche to hover and pick (as a tile, never a selection), its stone and glass tagged to glow with it.
+  const scene = (await native(page)).scenes.at(-1)!;
+  assert.deepEqual(scene.entities.filter((e) => e.kind === "tile").map((e) => e.id), board.vault.map((t: any) => t.id));
+  for (const t of board.vault) assert.deepEqual(scene.sprites.filter((s) => s.e === t.id).map((s) => s.f), ["niche-arch", `tile-${t.pane}`]);
+  assert.ok(scene.sprites.filter((s) => s.e?.startsWith("tile:")).every((s) => !s.dim), "both halls count: nothing dim");
+  // The At a Glance panel goes to Swift with the HUD.
+  await waitFor(async () => (await native(page)).agents.at(-1)?.hud?.panel?.key, (k) => !!k && /"merged":7/.test(k), "the At a Glance panel");
+  // A tile's card names its group, its count and its pull requests.
+  await swift(page, { type: "hover", id: "tile:prs:merged", x: 400, y: 60 });
+  const card = await waitFor(() => page.locator(".atlas-world-card").textContent({ timeout: 500 }).catch(() => ""), (t) => !!t, "the tile's card");
+  assert.match(card!, /Merged · 7/);
+  assert.match(card!, /diagonal\/app#100/);
+  await swift(page, { type: "hover", id: "tile:issues:blocked", x: 500, y: 60 });
+  await waitFor(() => page.locator(".atlas-world-card").textContent({ timeout: 500 }).catch(() => ""), (t) => !!t && /Blocked · 2/.test(t) && /DE-1 Blocked issue 1/.test(t), "the issues tile's card");
+  // A click opens its first issue as the app opens links (Linear's app, else Conquer), and selects nothing.
+  await swift(page, { type: "pick", id: "tile:issues:blocked" });
+  await waitFor(async () => (await native(page)).links, (l) => l.includes("https://linear.app/diagonal/issue/DE-1"), "the issue to open");
+  assert.equal((await inspect(page)).selected, null);
+  // Leaving it hides the card; a robot's card shows as before.
+  await swift(page, { type: "hover", id: null });
+  await waitFor(() => page.locator(".atlas-world-card").count(), (n) => n === 0, "the card to go");
+  await page.context().close();
+});
+
+test("the vault with Linear off: its niches dim and their cards say why", async () => {
+  const { page } = await open("dungeon", { linear: false });
+  const board = await waitFor(() => inspect(page), (i) => i?.scene === "dungeon" && i.vault?.length === 8 && i.counts?.prs?.known && i.counts?.issues?.why, "the vault", 30000);
+  assert.equal(board.counts.issues.known, false);
+  const scene = (await native(page)).scenes.at(-1)!;
+  const dim = (hall: string) => scene.sprites.filter((s) => s.e?.startsWith(`tile:${hall}:`)).map((s) => !!s.dim);
+  assert.ok(dim("issues").every(Boolean), "Linear's niches dim");
+  assert.ok(!dim("prs").some(Boolean), "GitHub's stay lit");
+  await swift(page, { type: "hover", id: "tile:issues:todo", x: 500, y: 60 });
+  await waitFor(() => page.locator(".atlas-world-card").textContent({ timeout: 500 }).catch(() => ""), (t) => !!t && /Enable Linear in Settings/.test(t), "the card saying why");
   await page.context().close();
 });

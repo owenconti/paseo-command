@@ -178,14 +178,16 @@ export function NativeWorld(props: Props) {
   const probe = useProbe();
   const style = useMapStyle();
   const stats = useHostStats();
-  // The Village's dashboard halls: your pull requests and Linear issues, asked only while it shows.
-  const villageCounts = useVillageCounts(style === "village");
+  // Your pull requests and Linear issues: the Village's dashboard halls and the Dungeon Board's vault and At a Glance
+  // panel, asked only while one of them shows.
+  const dashboardShown = style === "village" || style === "dungeon";
+  const villageCounts = useVillageCounts(dashboardShown);
   const data = useMemo(
     () => ({
       ...atlasData(snapshot, props.questions, props.asking, probe, stats),
-      ...(style === "village" ? { dashboard: villageCounts } : {}),
+      ...(dashboardShown ? { dashboard: villageCounts } : {}),
     }),
-    [snapshot, props.questions, props.asking, probe, stats, style, villageCounts],
+    [snapshot, props.questions, props.asking, probe, stats, dashboardShown, villageCounts],
   );
   const [card, setCard] = useState<{ title: string; detail: string; lines: string[]; at: { x: number; y: number } } | null>(null);
   const currentData = useRef(data);
