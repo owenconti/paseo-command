@@ -270,6 +270,27 @@ test("a project's name board: in capitals, as wide as its name needs, a long nam
   assertLegible(layout);
 });
 
+test("PR medallions: larger, in one row centred on their alcove's lintel bricks, clear of each other", () => {
+  for (const layout of [layoutDungeon(DUNGEON_SAMPLE, 1.4), layoutDungeon(big(2, 3, 4, 2), 1.4)]) {
+    let seen = 0;
+    for (const w of layout.workspaces) {
+      if (!w.flags.length) continue;
+      seen++;
+      const xs = w.flags.map((f) => f.x);
+      const mid = (Math.min(...xs) + Math.max(...xs)) / 2;
+      assert.ok(Math.abs(mid - (w.rect.x + w.rect.w / 2)) < 0.01, `${w.entity.id}'s medallions are centred on its lintel`);
+      for (const f of w.flags) {
+        assert.equal(f.size, D.flag);
+        assert.equal(f.y, w.rect.y + D.lintelY, "in the middle of the lintel's bricks");
+        // Within the brick band between its returns.
+        assert.ok(f.x - f.size / 2 >= w.rect.x + 20 && f.x + f.size / 2 <= w.rect.x + w.rect.w - 20, `${w.entity.id}'s ${f.flag} is on its bricks`);
+      }
+      for (let i = 1; i < w.flags.length; i++) assert.ok(w.flags[i].x - w.flags[i - 1].x >= D.flag, "neighbours don't overlap");
+    }
+    assert.ok(seen > 0);
+  }
+});
+
 test("each project's hall encloses its alcove row (1 to 8 alcoves), clear of its neighbours", () => {
   for (let n = 1; n <= 8; n++) {
     const layout = layoutDungeon(big(1, 3, n, 2), 1.4);

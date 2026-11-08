@@ -76,8 +76,8 @@ export const D = {
   hallFloorH: 15,
   alcoveY: 86,
   alcoveH: 128,
-  /** Where the PR medallions sit on the alcove's lintel (below its top). */
-  lintelY: 13,
+  /** Where the PR medallions' centres sit on the alcove's lintel (below its top): the middle of its brick band. */
+  lintelY: 12,
   feetY: 201,
   floorY: 214,
   /** The thick front wall closing each tier (its top). */
@@ -107,15 +107,16 @@ export const D = {
   /** A project's name board: a small wooden board on short chains from its hall's lintel, over the middle of its
    * valance (the user's call), from this far below the tier's top, this tall (chains included), its bottom above the
    * alcoves' lintels and their PR medallions; at least this wide, and this much room either side of its name. */
-  projectSignY: 54,
+  projectSignY: 52,
   projectSignH: 32,
   projectSignMin: 64,
   projectSignPad: 15,
   /** Type (board px): the host sign's painted name and stats line, and a project board's name (workspaces carry no labels). */
   font: { host: 26, stats: 14.5, project: 11 },
-  /** A PR medallion on an alcove's lintel. */
-  flag: 18,
-  flagInset: 16,
+  /** A PR medallion on an alcove's lintel (the user's call: larger, in a row centred on the lintel's bricks), and the
+   * gap between neighbours in the row. */
+  flag: 24,
+  flagGap: 4,
 };
 
 export type TextKind = keyof typeof D.font;
@@ -633,22 +634,21 @@ export function layoutDungeon(data: AtlasData, _aspect = 1.6, measure: Measure =
               ...(c.probe ? { probe: c.probe } : {}),
               ...(c.autoMerge ? { autoMerge: true } : {}),
             };
+            // The medallions in one row centred on the lintel's bricks: CI, review, then Probe's verdict.
             const flagY = y0 + D.alcoveY + D.lintelY;
-            const left = { x: x0 + D.flagInset, y: flagY },
-              right = { x: x0 + a.width - D.flagInset, y: flagY };
-            const flags: DFlag[] = [];
-            if (c.flags?.ci) flags.push({ workspace: c.key, flag: c.flags.ci, frame: `pr-${c.flags.ci}`, ...left, size: D.flag });
-            if (c.flags?.review) flags.push({ workspace: c.key, flag: c.flags.review, frame: `pr-${c.flags.review}`, ...right, size: D.flag });
-            if (c.probe)
-              flags.push({
-                workspace: c.key,
-                flag: "probe",
-                frame: `probe-${c.probe.state}`,
-                // Beside the review medallion on the lintel, inward.
-                x: c.flags?.review ? right.x - D.flag - 4 : right.x,
-                y: flagY,
-                size: D.flag,
-              });
+            const kinds = [
+              ...(c.flags?.ci ? [{ flag: c.flags.ci, frame: `pr-${c.flags.ci}` }] : []),
+              ...(c.flags?.review ? [{ flag: c.flags.review, frame: `pr-${c.flags.review}` }] : []),
+              ...(c.probe ? [{ flag: "probe", frame: `probe-${c.probe.state}` }] : []),
+            ];
+            const rowW = kinds.length * D.flag + Math.max(0, kinds.length - 1) * D.flagGap;
+            const flags: DFlag[] = kinds.map((k, i) => ({
+              workspace: c.key,
+              ...k,
+              x: cx - rowW / 2 + D.flag / 2 + i * (D.flag + D.flagGap),
+              y: flagY,
+              size: D.flag,
+            }));
             const sealOn = c.autoMerge ? (flags.find((fl) => fl.flag === c.flags?.review) ?? flags.find((fl) => fl.flag === c.flags?.ci)) : undefined;
             const rng = random(seedOf(c.key + "alcove"));
             workspaces.push({
@@ -663,7 +663,7 @@ export function layoutDungeon(data: AtlasData, _aspect = 1.6, measure: Measure =
                 { x: x0 + a.width - 31, y: y0 + D.alcoveY + D.alcoveH - 14 },
               ],
               flags,
-              ...(sealOn ? { seal: { x: sealOn.x + 7, y: sealOn.y - 7, size: 10 } } : {}),
+              ...(sealOn ? { seal: { x: sealOn.x + D.flag * 0.39, y: sealOn.y - D.flag * 0.39, size: Math.round(D.flag * 0.55) } } : {}),
               agents: c.agents,
             });
             const n = c.agents.length;
