@@ -147,16 +147,21 @@ test("the Village: the dashboard halls, then host, project, workspace and agent 
   assert.equal(scene.entities.filter((e) => e.kind === "tile" && e.id.startsWith("tile:")).length, 8);
   assert.equal(scene.entities.filter((e) => e.id.startsWith("vhall:")).length, 2);
   assert.equal(scene.entities.filter((e) => e.kind === "project").length, 1);
-  assert.equal(scene.entities.filter((e) => e.id.startsWith("vfountain:")).length, 1, "its host's fountain has a card");
-  assert.deepEqual(scene.entities.filter((e) => e.kind === "host").map((e) => e.id), ["local"], "its host's keep is picked as the host");
+  assert.deepEqual(scene.entities.filter((e) => e.kind === "host").map((e) => e.id), ["local"], "its host's fountain is picked as the host");
+  // The host is its fountain alone (no keep), its name on the board at its foot; the project's hall carries its name.
+  assert.deepEqual(v.squares.map((s: any) => s.sign), ["LOCAL"]);
+  assert.deepEqual(v.projects.map((p: any) => p.sign?.text ?? null), [null, null, "DIAGONAL"], "only the project's hall carries a board");
   await page.context().close();
 });
 
-test("a sparse fleet: a district per host, each with its keep; PRs at 0, Linear off", async () => {
+test("a sparse fleet: a district per host, each with its fountain and name board; PRs at 0, Linear off", async () => {
   const { page } = await open("village", "sparse");
   const v = await waitFor(() => inspect(page), (i) => i?.scene === "village" && i.agents?.length === 3 && i.counts?.prs?.known, "the Village", 30000);
   assert.deepEqual(v.squares.map((s: any) => s.hosts[0].title), ["LOCAL", "DIAGONAL-LAB-1"]);
+  assert.deepEqual(v.squares.map((s: any) => s.sign), ["LOCAL", "DIAGONAL-LAB-1"], "each fountain's board names its host");
   assert.equal(v.projects.length, 4, "the two dashboard halls and a hall per project");
+  // "diagonal-hq/diagonal" won't fit its hall's board whole: the board shows its name.
+  assert.deepEqual(v.projects.slice(2).map((p: any) => p.sign?.text), ["PASEO-COMMAND", "DIAGONAL"]);
   assert.equal(v.counts.prs.total, 0);
   assert.equal(v.counts.issues.known, false, "Linear off: its tiles say —");
   assert.ok(v.workspaces.every((w: any) => w.status === "needs"));
@@ -188,14 +193,14 @@ test("picking a robot opens its conversation; a tile's card lists its PRs and a 
   await page.context().close();
 });
 
-test("a keep names its host and targets it: its card, then a click narrows the lists to that host, its keep selected", async () => {
+test("a fountain names its host and targets it: its card, then a click narrows the lists to that host, its fountain selected", async () => {
   const { page } = await open("village", "sparse");
   const v = await waitFor(() => inspect(page), (i) => i?.scene === "village" && i.agents?.length === 3, "the Village", 30000);
   const lab = v.squares.find((s: any) => s.hosts[0].title === "DIAGONAL-LAB-1");
-  assert.ok(lab.keep && lab.plaque, "the keep carries the host's name board");
+  assert.ok(lab.pick && lab.plaque && !lab.keep, "the host is its fountain with its name board, and no keep");
   const id = lab.host.id;
   await swift(page, { type: "hover", id, x: 400, y: 300 });
-  const card = await waitFor(() => page.locator(".atlas-world-card").textContent({ timeout: 500 }).catch(() => ""), (t) => !!t, "the keep's card");
+  const card = await waitFor(() => page.locator(".atlas-world-card").textContent({ timeout: 500 }).catch(() => ""), (t) => !!t, "the fountain's card");
   assert.match(card!, /DIAGONAL-LAB-1/);
   assert.match(card!, /Online/);
   assert.match(card!, /1 project · 1 workspace · 1 agent/);
@@ -203,9 +208,9 @@ test("a keep names its host and targets it: its card, then a click narrows the l
   await page.getByRole("tab", { name: /Workspaces/ }).click();
   await page.getByText("jolly-beacon-fede").first().waitFor();
   await swift(page, { type: "pick", id });
-  // The Hosts tab's filter: only the lab's workspace listed, and its keep is the map's selection.
+  // The Hosts tab's filter: only the lab's workspace listed, and its fountain is the map's selection.
   await waitFor(() => page.getByText("jolly-beacon-fede").count(), (n) => n === 0, "the other host's workspaces to leave the list");
   await page.getByText("main", { exact: true }).first().waitFor();
-  await waitFor(async () => (await native(page)).selected, (s) => s === id, "the keep to be selected");
+  await waitFor(async () => (await native(page)).selected, (s) => s === id, "the fountain to be selected");
   await page.context().close();
 });

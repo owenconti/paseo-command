@@ -55,7 +55,8 @@ scene.setScene([
         ["f": "water-ripple-0", "anim": ["water-ripple-0", "water-ripple-1"], "fps": 5.0, "x": 10.0, "y": 10.0, "w": 60.0, "h": 24.0, "z": -4.0],
         ["f": "dot", "c": 0x3fb44a, "x": 400.0, "y": 400.0, "w": 10.0, "h": 10.0, "z": 3.0],
     ],
-    "images": [] as [[String: Any]],
+    // The host's name board: a painted image tagged with its host, so it glows with the host's fountain.
+    "images": [["key": "hostboard:local", "x": -400.0, "y": 280.0, "w": 140.0, "h": 40.0, "z": -10.0, "e": "local"]],
     "flags": [["ws": "w1", "flag": "ci-green", "f": "pr-ci-green", "x": 100.0, "y": 300.0, "w": 18.0, "h": 18.0, "z": 5.0, "cx": 109.0, "cy": 309.0, "s": 18.0]],
     "lights": [["x": 0.0, "y": 100.0, "c": 0xffb640, "r": 60.0, "flicker": true]],
     "entities": [
@@ -64,7 +65,7 @@ scene.setScene([
         ["id": "a1", "kind": "agent", "x": 180.0, "y": 330.0, "w": 40.0, "h": 46.0],
         ["id": "local", "kind": "host", "x": -420.0, "y": 100.0, "w": 180.0, "h": 220.0],
     ],
-], images: [:])
+], images: ["hostboard:local": image(28, 8)])
 scene.setAgents([
     "rev": 2,
     "robots": [["id": "a1", "x": 182.0, "y": 332.0, "w": 36.0, "h": 42.0, "idle": ["robot-orange-idle-0", "robot-orange-idle-1"],
@@ -96,7 +97,7 @@ assert(click(300, 360) == "w1", "the bay around it")
 assert(click(250, 180) == "p1", "the building")
 assert(click(109, 309) == "w1", "a PR medallion picks its workspace")
 assert(click(-400, 700) == nil, "bare grass picks nothing")
-assert(click(-330, 210) == "local", "a host's keep picks the host")
+assert(click(-330, 210) == "local", "a host's fountain picks the host")
 
 // Hover: the medallion's card points at the medallion's top; the robot's at the robot's.
 events = []
@@ -112,8 +113,11 @@ scene.pointer(phase: "leave", at: .zero)
 assert(scene.state()["hovered"] is NSNull)
 
 // Selection draws for a known entity and clears for a gone one.
+func glows() -> Int { var n = 0; scene.enumerateChildNodes(withName: "//select-glow") { _, _ in n += 1 }; return n }
 scene.select("local")
-assert(scene.state()["selected"] as? String == "local", "the targeted host's keep is the selection")
+assert(scene.state()["selected"] as? String == "local", "the targeted host's fountain is the selection")
+// Its fountain and its name board (a painted image tagged with the host) both glow: a halo, a lift and a wider halo each.
+assert(glows() == 6, "the host's fountain and its board glow as one (\(glows()) glow nodes)")
 scene.select("w1")
 assert(scene.state()["selected"] as? String == "w1")
 scene.select("gone")
@@ -151,7 +155,7 @@ let rested = scene.framesDrawn
 pump(0.6)
 assert(scene.framesDrawn - rested <= 1, "nothing moves with reduced motion, so it rests")
 
-// The default fit shows the whole of what must show (`keep`: a district's keep, sign and fountain at the crop's right edge),
+// The default fit shows the whole of what must show (`keep`: a district's fountain and its board at the crop's right edge),
 // even where the crop (`core`) is wider than the view, with the panel's room at the left.
 scene.setScene([
     "rev": 9,
@@ -169,7 +173,7 @@ pump(0.6)
 do {
     let s = scene.state(), z = s["zoom"] as! CGFloat, c = s["center"] as! [String: CGFloat]
     let seen = CGRect(x: c["x"]! - 200 / z, y: c["y"]! - 150 / z, width: 400 / z, height: 300 / z)
-    assert(seen.insetBy(dx: -0.5, dy: -0.5).contains(CGRect(x: 300, y: 150, width: 2500, height: 1350)), "the fit shows all of keep: every keep, sign and fountain whole (\(seen))")
+    assert(seen.insetBy(dx: -0.5, dy: -0.5).contains(CGRect(x: 300, y: 150, width: 2500, height: 1350)), "the fit shows all of keep: every fountain and its board whole (\(seen))")
 }
 
 print("VillageScene: ok")

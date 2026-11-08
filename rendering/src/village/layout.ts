@@ -3,8 +3,9 @@
  * workspaces hold agents. At the top of the town, either side of the north road, the two dashboard halls (your
  * GitHub pull requests and your Linear issues, four stained-glass tiles each). Below them a district per host (hosts
  * with workspaces, in the Atlas's order via `hostGroups`), districts packed in shelves to suit the map's shape: its own
- * hedged cobbled plaza with its crystal fountain and the host's plaque (the map's only text), a hall per project with
- * workspaces round the fountain (variants seeded per project, neighbours differing), each workspace a cottage in front
+ * hedged cobbled plaza with its crystal fountain, the host's own landmark, its name on a wooden board standing on two posts
+ * at the fountain's foot, and a hall per project with workspaces round the fountain (variants seeded per project, neighbours
+ * differing), the project's name on a board on the hall's front over its door, each workspace a cottage in front
  * of its project's hall with a stained-glass pane for its pull request's state, and each agent a robot at its
  * cottage's doorstep (agents without a workspace wait at a camp's tent). Forest fills everything between and around;
  * the river and its falls, the front wall, its bridge and ponds frame the town.
@@ -29,7 +30,8 @@ import { BEACON_STATES } from "../placement.ts";
 import { probeGlyph } from "../probe.ts";
 import { projectIcon } from "../dungeon/layout.ts";
 import { DASH_TILES, dashCount, type DashCount } from "../dashboard.ts";
-import { COTTAGES, FRAMES, KEEPS, anchorShare, type Icon, type TileKind } from "./frames.ts";
+import { COTTAGES, FRAMES, anchorShare, type Icon, type TileKind } from "./frames.ts";
+import { fitName, signPad, signSize, signWidth, type SignFit } from "../signboard.ts";
 
 export { projectIcon };
 export type Pt = { x: number; y: number };
@@ -64,22 +66,21 @@ export const V = {
   lawnPad: 24,
   /** The robots' feet below their cottage's. */
   doorstep: 16,
-  /** Gaps: between blocks in a district's column, either side of the fountain, round a district, between districts. */
+  /** Gaps: between blocks in a district's column, either side of the fountain's plaza, round a district, between districts. */
   blockGap: 96,
-  fountainGap: 360,
+  fountainGap: 30,
   districtPad: 56,
   districtGap: 300,
-  fountainW: 230,
-  /** A host's keep: its width, and the room between it and the fountain. */
-  keep: 340,
-  keepGap: 30,
-  /** The keep's hanging name board: its height, its least width, and its ends' room either side of the name. */
-  board: 72,
-  boardMin: 180,
-  boardPad: 26,
-  ringW: 300,
-  hostPlaqueH: 64,
-  hostPlaqueMin: 220,
+  /** A host's crystal fountain (its landmark: picked as the host), and the round paving under it. */
+  fountainW: 300,
+  ringW: 390,
+  /** A host's name board, standing on two posts at its fountain's foot: its height, where its posts stand below the fountain's
+   * feet, its least and most width, and the least share of its lettering's size before a long name is cut short. It is the
+   * Overworld's host board (`ref` units tall) drawn larger, so the two maps' boards are one design. */
+  hostBoard: { h: 62, ref: 21, posts: 50, minW: 200, maxW: 440, shrink: 0.8 },
+  /** A project's name board on its hall's front over the door, in the place its hall's frame registers (`sign`): the
+   * Overworld's project board (`ref` units tall) at that size; its least width, and the least share of its lettering's size. */
+  hallBoard: { ref: 15, minW: 120, shrink: 0.85 },
   /** The north road's width, and the walk across the town under the dashboard halls. */
   road: 140,
   walk: 120,
@@ -100,21 +101,26 @@ export type TextKind = keyof typeof V.font;
 /** Text width in village px for a kind's type; the bridge measures with the real font. */
 export type Measure = (text: string, kind: TextKind) => number;
 export const approxMeasure: Measure = (text, kind) => text.length * V.font[kind] * (kind === "stats" ? 0.56 : kind === "sign" ? 0.72 : 0.54);
+/** A name's untracked width on a board at lettering `size` (boards are measured in the signs' serif at `V.font.sign`). */
+const boardWidth = (measure: Measure) => (text: string, size: number) => (measure(text, "sign") * size) / V.font.sign;
 
-/** A host's district: its hedged plaza, its fountain and plaque. (`roads` are its paving: the plaza.) */
+/** A host's district: its hedged plaza, its fountain and name board. (`roads` are its paving: the plaza.) */
 export type VSquare = {
   host: Entity;
   online: boolean;
   rect: Rect;
   center: Pt;
+  /** Its host's crystal fountain (lit while online, grey offline), and the round paving under it. */
   fountain: Rect;
   ring: Rect;
-  /** The keep's name board, where the host's name is painted (the district's only text). */
+  /** The host's name board (the board itself), standing on two posts whose feet are at `posts`, at the fountain's foot. */
   plaque: Rect;
-  /** Its host's keep at the district's head: its variant, its body (picked as the host) and its pennant's foot. */
-  keep: { frame: string; rect: Rect; flag: Pt; offline: boolean };
-  /** The sign's lines (one host per district). */
-  hosts: { id: string; title: string; stats: { text: string; alert: boolean }[]; online: boolean; plaqueW: number; lineW: number }[];
+  posts: number;
+  /** What a pointer picks as the host (its fountain and its board), and the board with its posts. */
+  pick: Rect;
+  board: Rect;
+  /** The host's line (one host per district): its name, load and status, and its name as its board shows it. */
+  hosts: { id: string; title: string; stats: { text: string; alert: boolean }[]; online: boolean; plaqueW: number; lineW: number; fit: SignFit }[];
   roads: Rect[];
   /** The round paving under the fountain's ring. */
   plaza: Rect;
@@ -158,6 +164,9 @@ export type VProject = {
   body: Rect;
   base: number;
   plaque: Rect;
+  /** A project's name board on its hall's front over its door (the board; its brackets stand below it), and its name as
+   * the board shows it. The dashboard halls have none. */
+  sign?: { rect: Rect; fit: SignFit };
   porch: Rect;
   porches: Rect[];
   ledge: boolean;
@@ -422,9 +431,6 @@ type District = {
   /** The fountain's centre line and its top, from the district's top-left. */
   fountainX: number;
   fountainY: number;
-  /** The keep's feet, from the district's top-left. */
-  keepX: number;
-  keepY: number;
   line: VSquare["hosts"][number];
   /** The area its clusters' yards and its fountain plaza cover. */
   built: number;
@@ -433,13 +439,11 @@ function districtOf(host: AtlasData["hosts"][number], blocks: Block[], line: VSq
   const P = V.districtPad;
   const span = (b: Block) => b.width + V.lawnPad * 2;
   const tall = (b: Block) => b.above + b.below + V.lawnPad * 2;
-  // The host's slot: its keep, then its fountain beside it (the gate opens above the fountain).
-  const fountainH = (FRAMES["fountain-on"]!.h * V.fountainW) / FRAMES["fountain-on"]!.w + 60;
-  const keepH = (FRAMES["keep-0"]!.h * V.keep) / FRAMES["keep-0"]!.w;
-  // (A long name's board may be wider than the keep: the keep's column takes the wider.)
-  const kw = Math.max(V.keep, line.plaqueW + 16);
-  const gap = kw + V.keepGap + V.fountainGap;
-  const slotH = Math.max(fountainH, keepH + 30);
+  // The host's slot: its fountain's plaza (the gate opens above the fountain): the fountain, its name board at its foot,
+  // and the wider ring of radial stones under it all (1.5× its ring, reaching `fountainPlaza(...).below` past its feet).
+  const plaza = fountainPlaza();
+  const gap = Math.max(plaza.w, line.plaqueW + 40) + V.fountainGap * 2;
+  const slotH = plaza.h + V.fountainGap;
   // The fountain's plaza is a slot among its clusters (in the first row's middle), so the rows fill and the clusters stand
   // round it.
   type Item = Block | "fountain";
@@ -452,16 +456,14 @@ function districtOf(host: AtlasData["hosts"][number], blocks: Block[], line: VSq
   const rowW = rows.map((r) => r.reduce((n, it) => n + w(it), 0) + V.blockGap * (r.length - 1));
   const width = P * 2 + Math.max(...rowW);
   const placed: District["blocks"] = [];
-  let y = P, fountainX = width / 2, fountainY = P, keepX = 0, keepY = 0;
+  let y = P, fountainX = width / 2, fountainY = P;
   rows.forEach((r, i) => {
     let x = (width - rowW[i]!) / 2;
     const rh = Math.max(...r.map(h));
     for (const it of r) {
       if (it === "fountain") {
-        fountainX = x + kw + V.keepGap + V.fountainGap / 2;
-        fountainY = y + (rh - fountainH) / 2;
-        keepX = x + kw / 2;
-        keepY = y + (rh + keepH) / 2;
+        fountainX = x + gap / 2;
+        fountainY = y + (rh - plaza.h) / 2;
       } else placed.push({ block: it, lx: x, y: y + V.lawnPad + it.above });
       x += w(it) + V.blockGap;
     }
@@ -469,7 +471,17 @@ function districtOf(host: AtlasData["hosts"][number], blocks: Block[], line: VSq
   });
   const height = y - V.blockGap + P;
   const built = blocks.reduce((n, b) => n + span(b) * tall(b), 0) + gap * slotH;
-  return { host, perRow, blocks: placed, width, height, fountainX, fountainY, keepX, keepY, line, built };
+  return { host, perRow, blocks: placed, width, height, fountainX, fountainY, line, built };
+}
+
+/** A host's fountain plaza, from the fountain's top: the fountain's height, its feet, and the plaza's width and height
+ * (the wider ring of radial stones under the fountain, 1.5× its ring, reaching below the fountain's board and posts). */
+function fountainPlaza() {
+  const fh = (FRAMES["fountain-on"]!.h * V.fountainW) / FRAMES["fountain-on"]!.w;
+  const ringH = (FRAMES["plaza-ring"]!.h * V.ringW) / FRAMES["plaza-ring"]!.w;
+  // The ring's centre is a fifth of its height above the fountain's feet; the wider ring reaches 0.75 of the ring's height past it.
+  const below = Math.max(ringH * 0.55, V.hostBoard.posts + 16);
+  return { fh, ringH, w: V.ringW * 1.5, h: fh + below };
 }
 
 /**
@@ -492,9 +504,12 @@ export function layoutVillage(data: AtlasData, aspect = 1.6, measure: Measure = 
       : [];
     const statsW = measure(stats.length ? stats.map((s) => s.text).join(" · ") : "No load reading", "stats");
     void statsW;
-    // The keep's hanging name board: as wide as the name at the sign's lettering (legible at the default zoom), with its ends.
-    const plaqueW = Math.max(V.boardMin, Math.ceil(measure(host.name.toUpperCase(), "sign") * 0.96 + 2 * V.boardPad));
-    return { id: host.key, title, stats, online: host.online, plaqueW, lineW: plaqueW };
+    // Its name board at the fountain's foot: as wide as the name at the board's lettering (tracking tightening, then the
+    // lettering shrinking a little, then the name cut short with "…" past the board's most width).
+    const b = V.hostBoard, size = signSize("host", b.h);
+    const fit = fitName(boardWidth(measure), host.name, size, b.maxW - signPad(b.h) * 2, size * b.shrink);
+    const plaqueW = signWidth(b, fit);
+    return { id: host.key, title, stats, online: host.online, plaqueW, lineW: plaqueW, fit };
   };
   const choices = shown.map(({ host, groups }) => {
     // Projects' halls dealt so neighbours in a district differ, seeded by the project.
@@ -595,29 +610,29 @@ export function layoutVillage(data: AtlasData, aspect = 1.6, measure: Measure = 
       const dw = d.width;
       const rect = { x, y, w: dw, h: d.height };
       const fcx = x + d.fountainX;
-      const fountain = boxOf("fountain-on", fcx, y + d.fountainY + (FRAMES["fountain-on"]!.h * V.fountainW) / FRAMES["fountain-on"]!.w, V.fountainW);
-      const ringH = (FRAMES["plaza-ring"]!.h * V.ringW) / FRAMES["plaza-ring"]!.w;
+      // Its host's crystal fountain on its ring of radial stones, the host's own landmark (picked as the host).
+      const { fh, ringH } = fountainPlaza();
+      const feet = y + d.fountainY + fh;
+      const fountain = boxOf("fountain-on", fcx, feet, V.fountainW);
       const ring = { x: fcx - V.ringW / 2, y: fountain.y + fountain.h - ringH * 0.7, w: V.ringW, h: ringH };
-      // Its host's keep, a variant seeded per host; its name board takes the host's name.
-      const keepFrame = KEEPS[seedOf(d.host.key + "keep") % KEEPS.length]!;
-      const keepRect = boxOf(keepFrame, x + d.keepX, y + d.keepY, V.keep);
-      const ks = FRAMES[keepFrame]!, sign = ks.sign ?? { x: 0.08, y: 0.56, w: 0.84, h: 0.2 }, kf = ks.flag ?? { x: 0.5, y: 0.04 };
-      // The name board hangs over the keep's own, centred on it, larger, so its lettering reads at the default zoom.
-      const sc = { x: keepRect.x + keepRect.w * (sign.x + sign.w / 2), y: keepRect.y + keepRect.h * (sign.y + sign.h / 2) };
-      const plaque = { x: sc.x - d.line.plaqueW / 2, y: sc.y - V.board / 2, w: d.line.plaqueW, h: V.board };
-      const keep = {
-        frame: d.host.online ? keepFrame : keepFrame.replace("keep-", "keep-offline-"), rect: keepRect, offline: !d.host.online,
-        flag: { x: keepRect.x + keepRect.w * kf.x, y: keepRect.y + keepRect.h * kf.y },
-      };
+      // The host's name board on two posts planted in the ring before the fountain's steps, its top at the basin's foot.
+      const b = V.hostBoard, posts = feet + b.posts, bottom = posts - b.h * 0.32;
+      const plaque = { x: fcx - d.line.plaqueW / 2, y: bottom - b.h, w: d.line.plaqueW, h: b.h };
+      // (The board's box holds what its painter draws: the posts' iron caps above the board, its shadow to the right.)
+      const top = plaque.y - b.h * 0.27;
+      const board = { x: plaque.x - 6, y: top, w: plaque.w + 12, h: posts + b.h * 0.12 - top };
+      // The two lamps flanking the fountain stand on its ring, clear of the board's ends.
+      const lampX = Math.max(V.ringW / 2 + 6, plaque.w / 2 + 6 + 17 + 10);
       const plaza = { x: fcx - V.ringW * 0.72, y: ring.y + ring.h / 2 - V.ringW * 0.44, w: V.ringW * 1.44, h: V.ringW * 0.88 };
       const host: Entity = {
         id: d.host.key, kind: "host", name: d.host.name, host: d.host.key, position: { q: 0, r: 0 }, stale: !d.host.online,
         ...(d.host.stats ? { stats: d.host.stats } : {}),
       };
       squares.push({
-        host, online: d.host.online, rect, center: { x: fcx, y: fountain.y + fountain.h / 2 }, fountain, ring, plaque, keep, hosts: [d.line],
+        host, online: d.host.online, rect, center: { x: fcx, y: fountain.y + fountain.h / 2 }, fountain, ring, plaque, posts,
+        pick: union([fountain, board]), board, hosts: [d.line],
         roads: [{ x: x + 30, y: y + 30, w: dw - 60, h: d.height - 60 }], plaza,
-        lamps: [], pennants: [{ x: fcx - V.ringW / 2 - 6, y: ring.y + ring.h * 0.6 }, { x: fcx + V.ringW / 2 + 6, y: ring.y + ring.h * 0.6 }],
+        lamps: [], pennants: [{ x: fcx - lampX, y: ring.y + ring.h * 0.6 }, { x: fcx + lampX, y: ring.y + ring.h * 0.6 }],
       });
       for (const { block: b, lx: blx, y: by } of d.blocks) {
         const lw = b.width + V.lawnPad * 2;
@@ -640,11 +655,25 @@ export function layoutVillage(data: AtlasData, aspect = 1.6, measure: Measure = 
         let body: Rect;
         if (b.building) {
           body = boxOf(b.building, mid, base, V.hall);
+          // Its name board, on two iron brackets on its front over the door, in the place its hall's frame registers: the
+          // name tracked to fit, then a little smaller, and past that a long "owner/name" shows its name, else it's cut short.
+          const spot = FRAMES[b.building]!.sign;
+          let sign: VProject["sign"];
+          if (spot) {
+            const h = body.h * spot.h, room = body.w * spot.w, cxs = body.x + body.w * (spot.x + spot.w / 2), size = signSize("project", h);
+            const fitOf = (text: string) => fitName(boardWidth(measure), text, size, room - signPad(h) * 2, size * V.hallBoard.shrink);
+            const name = b.project!.name;
+            let fit = fitOf(name);
+            const tail = name.slice(name.lastIndexOf("/") + 1);
+            if (fit.text !== name.toUpperCase() && tail && tail !== name) fit = fitOf(tail);
+            const w = Math.min(room, signWidth({ h, minW: V.hallBoard.minW }, fit));
+            sign = { rect: { x: cxs - w / 2, y: body.y + body.h * (spot.y + spot.h) - h, w, h }, fit };
+          }
           const entity: Entity = { id: b.project!.key, kind: "project", name: b.project!.name, host: d.host.key, position: { q: 0, r: 0 }, stale: !!b.project!.stale || !online };
           projects.push({
             key: b.key, host: d.host.key, hall: "project", entity, name: b.project!.name, icon: projectIcon(b.project!.name, b.project!.key),
             building: b.building, square: index, block: lawn, body, base,
-            plaque: { x: mid, y: body.y, w: 0, h: 0 }, porch: { x: body.x, y: base, w: body.w, h: 0 }, porches: [], ledge: false,
+            plaque: { x: mid, y: body.y, w: 0, h: 0 }, ...(sign ? { sign } : {}), porch: { x: body.x, y: base, w: body.w, h: 0 }, porches: [], ledge: false,
             lamps: [{ x: mid - V.lane / 2 - 18, y: base + 30 }, { x: mid + V.lane / 2 + 18, y: base + 30 }], rect: body, stale: entity.stale!,
           });
         } else body = { x: mid, y: base, w: 0, h: 0 };
@@ -749,11 +778,11 @@ export function layoutVillage(data: AtlasData, aspect = 1.6, measure: Measure = 
   const decor = sceneryOf(town, squares, lawns, projects, workspaces, agents, tiles);
 
   // The crop: the dashboard halls' tops to the wall, the woods at the left, the river's near half at the right.
-  // What the default framing must show whole: every hall, cottage and robot, and each district's first row (its keep, the keep's
-  // name board with its chains, and its fountain on its ring).
+  // What the default framing must show whole: every hall (with its board), cottage and robot, and each district's fountain
+  // on its ring with its name board and posts.
   const said = [
     ...projects.map((p) => p.body), ...workspaces.map((w) => w.frame), ...agents.map((a) => a.rect),
-    ...squares.map((s) => ({ ...s.plaque, y: s.plaque.y - 22, h: s.plaque.h + 22 })), ...squares.map((s) => s.keep.rect),
+    ...squares.map((s) => s.board),
     // (The fountain's plaza: its ring and the larger, lighter ring the bridge lays under it, 1.5× as wide.)
     ...squares.flatMap((s) => [s.fountain, { x: s.ring.x - s.ring.w * 0.25, y: s.ring.y - s.ring.h * 0.25, w: s.ring.w * 1.5, h: s.ring.h * 1.5 }]),
   ];
@@ -786,7 +815,7 @@ export function layoutVillage(data: AtlasData, aspect = 1.6, measure: Measure = 
   const signature = JSON.stringify([
     round(bounds),
     squares.map((s) => [s.hosts.map((h) => [h.id, h.title, h.online, h.stats.map((x) => x.text)]), round(s.rect)]),
-    projects.map((p) => [p.key, p.building, round(p.block)]),
+    projects.map((p) => [p.key, p.building, round(p.block), p.sign?.fit.text ?? ""]),
     tiles.map((t) => [t.id, round(t.rect)]),
     [counts.prs, counts.issues],
     workspaces.map((w) => [w.entity.id, w.entity.name, w.status, w.tile, round(w.rect), w.flags.map((f) => f.frame), w.entity.probe ? probeGlyph(w.entity.probe) : 0, w.seal ? 1 : 0, w.entity.stale ? 1 : 0]),
@@ -804,7 +833,7 @@ function sceneryOf(town: VTown, squares: VSquare[], lawns: VLawn[], projects: VP
   const R = town.rect;
   const says: Rect[] = [
     ...projects.map((p) => p.body), ...tiles.flatMap((t) => [t.rect]), ...workspaces.map((w) => w.frame),
-    ...agents.map((a) => ({ ...a.rect, y: a.rect.y - 16, h: a.rect.h + 30 })), ...squares.flatMap((s) => [s.fountain, s.plaque, s.ring, s.keep.rect]),
+    ...agents.map((a) => ({ ...a.rect, y: a.rect.y - 16, h: a.rect.h + 30 })), ...squares.flatMap((s) => [s.fountain, s.board, s.ring]),
     ...squares.flatMap((s) => s.pennants.map((l) => boxOf("lamp-on", l.x, l.y, 34))), ...town.lamps.map((l) => boxOf("lamp-on", l.x, l.y)),
     ...projects.flatMap((p) => p.lamps.map((l) => boxOf("lamp-on", l.x, l.y))),
   ];

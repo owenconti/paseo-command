@@ -1656,8 +1656,8 @@ Finals are `src/assets/village/<sheet>.png` and matching `.json`, with `scale: 3
 `buildings` (11 frames), `banner` (13), `tiles` (6), `robots` (73), `fountain` (7),
 `ground` (18), `scenery` (50) and `hud` (8): 186 original frames. The supplemental
 `ground-warm` sheet below adds thirteen; the stained-glass revision adds a
-separate sill; `cottages` and `district` add twenty; `keeps` adds seven, for
-227 total. All 151 originally
+separate sill; `cottages` and `district` add twenty, for 220 total (the host
+`keeps` sheet's seven frames were later removed; see below). All 151 originally
 requested names remain present. The thirty-four additional frames beyond the
 first complete 152-frame pass are documented in `src/assets/village/STATUS.md`.
 
@@ -2080,6 +2080,9 @@ Exact prompt:
 
 
 ### Village host keeps and mounted host signs — first complete pass
+
+Removed at the user's request: a Village host is now its crystal fountain alone, its name on a board the page paints
+(`rendering/src/signboard.ts`). `keeps.png`/`.json` left the kit; git history keeps them. The provenance below is as it was.
 
 Two new built-in generations paint three small host castles and a neutral
 pennant. The user's walled-district app screenshot was inspected as placement

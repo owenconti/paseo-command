@@ -15,6 +15,7 @@ import { nativeSurface } from "../native/surface";
 import { FRAMES, ANIMATIONS, VILLAGE_PX, anchorShare, applySheet, framesOf, sharedFrame, sliceOf, type SheetJson } from "./frames";
 import { paintPlaceholder } from "./placeholder";
 import { dashCard } from "../dashboard";
+import { SIGN_FONT, paintSign as paintBoard, type SignFit } from "../signboard";
 import {
   DASH_TILES,
   HALLS,
@@ -29,6 +30,7 @@ import {
   type DashCount,
   type Measure,
   type Rect,
+  type VProject,
   type VSquare,
   type VillageLayout,
 } from "./layout";
@@ -49,8 +51,6 @@ const BOLD = 700;
 const INK = "#2e1d0e";
 const ALERT = "#b0301c";
 const CREAM = "#f3e6c4";
-/** A keep's name board: its chains' room above it, and its lettering's least size (legible at the default zoom). */
-const CHAIN = 22, SIGN_MIN = 45;
 /** How far the paving is darkened (toward the scene's warm shadow) from the sheet's bright gold. */
 const PAVE_SHADE = 0.2;
 /** A workspace plate's dot: green while an agent runs, amber when one needs you, red when one failed, grey idle or offline. */
@@ -267,7 +267,7 @@ export function mountNativeVillage(parent: HTMLElement, handlers: AtlasHandlers 
   let layout: VillageLayout | null = null;
   let selection: string | null = null;
   let hovered: string | null = null;
-  let hoverAt: { x: number; y: number } | undefined;
+  let hoverAt: { x: number; y: number; bottom?: number } | undefined;
   let hoverFlag: MapFlag | undefined;
   let enabled = true;
   let reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -283,7 +283,8 @@ export function mountNativeVillage(parent: HTMLElement, handlers: AtlasHandlers 
   const entity = (id: string | null) => (id && layout?.entities.find((e) => e.id === id)) || null;
 
   const measurer = document.createElement("canvas").getContext("2d")!;
-  const fontOf = (kind: keyof typeof V.font) => `${BOLD} ${V.font[kind]}px ${FONT}`;
+  // (Boards are measured in the signs' serif, as they are painted.)
+  const fontOf = (kind: keyof typeof V.font) => `${BOLD} ${V.font[kind]}px ${kind === "sign" ? SIGN_FONT : FONT}`;
   const measure: Measure = (text, kind) => {
     measurer.font = fontOf(kind);
     return measurer.measureText(text).width;
@@ -517,87 +518,30 @@ export function mountNativeVillage(parent: HTMLElement, handlers: AtlasHandlers 
     }
     return canvas;
   };
-  /** A keep's pennant, its cloth dyed its host's status (green online, grey offline); the pole as painted. */
-  const paintPennant = (online: boolean) => {
-    const src = frame("keep-flag");
-    const c = document.createElement("canvas");
-    c.width = src.width;
-    c.height = src.height;
-    const ctx = c.getContext("2d")!;
-    ctx.drawImage(src, 0, 0);
-    const cl = FRAMES["keep-flag"]!.cloth ?? { x: 0.2, y: 0, w: 0.8, h: 0.4 };
-    const r = { x: cl.x * c.width - 2, y: cl.y * c.height - 2, w: cl.w * c.width + 4, h: cl.h * c.height + 4 };
-    ctx.save();
-    ctx.beginPath();
-    ctx.rect(r.x, r.y, r.w, r.h);
-    ctx.clip();
-    ctx.globalCompositeOperation = "source-atop";
-    ctx.fillStyle = online ? "#36b04a" : "#8a8478";
-    ctx.globalAlpha = 0.7;
-    ctx.fillRect(r.x, r.y, r.w, r.h);
-    ctx.restore();
-    return c;
-  };
-  /** A keep's hanging name board, painted as part of the world: oak planks in a dark frame with iron corners, hung on two
-   * chains (`CHAIN` units of the canvas above `r`), the host's name in capitals filling its height in the world's serif (cream
-   * paint with a worn dark inset). A long name tightens its tracking, then shrinks, never below `SIGN_MIN` (legible at the
-   * default zoom). Offline: the board weathered, the paint dull. */
-  const paintSign = (r: Rect, h: VSquare["hosts"][number]) => {
-    const { canvas, ctx } = canvasFor(r.w, r.h + CHAIN);
-    const SIGN = '"Iowan Old Style", Palatino, "Palatino Linotype", "Book Antiqua", Georgia, serif';
-    const y0 = CHAIN, W = r.w, H = r.h;
-    for (const x of [W * 0.18, W * 0.82]) {
-      ctx.strokeStyle = "#2a2118";
-      ctx.lineWidth = 2.4;
-      for (let k = 0; k < 4; k++) {
-        ctx.beginPath();
-        ctx.ellipse(x, 3 + k * 5.2, 1.8, 3.2, 0, 0, Math.PI * 2);
-        ctx.stroke();
-      }
-      ctx.fillStyle = "#3a3026";
-      ctx.beginPath();
-      ctx.arc(x, y0 + 3, 3.4, 0, Math.PI * 2);
-      ctx.fill();
-    }
-    ctx.fillStyle = "rgba(20, 12, 4, 0.45)";
-    ctx.fillRect(3, y0 + 5, W - 3, H - 4);
-    ctx.fillStyle = "#2e1d0e";
-    ctx.fillRect(0, y0, W - 2, H - 2);
-    const plank = h.online ? ["#7a5230", "#6f4a2a", "#80573a"] : ["#6b5e50", "#635648", "#706354"];
-    const inset = 4, ph = (H - 2 - inset * 2) / 3;
-    for (let k = 0; k < 3; k++) {
-      ctx.fillStyle = plank[k]!;
-      ctx.fillRect(inset, y0 + inset + k * ph, W - 2 - inset * 2, ph - 1);
-      ctx.fillStyle = "rgba(255, 220, 160, 0.12)";
-      ctx.fillRect(inset, y0 + inset + k * ph, W - 2 - inset * 2, 1.4);
-    }
-    ctx.fillStyle = "#3a3026";
-    for (const [x, y] of [[0, y0], [W - 12, y0], [0, y0 + H - 12], [W - 12, y0 + H - 12]] as const) ctx.fillRect(x, y, 10, 10);
-    const name = h.title.replace(/ · OFFLINE$/, "");
-    const room = W - 2 - 2 * (inset + 12);
-    let size = Math.min(H * 0.68, V.font.sign), track = 0;
-    const widthAt = (sz: number, tr: number) => {
-      ctx.font = `${BOLD} ${sz}px ${SIGN}`;
-      return ctx.measureText(name).width + tr * sz * (name.length - 1);
-    };
-    while (widthAt(size, track) > room && track > -0.06) track -= 0.01;
-    while (widthAt(size, track) > room && size > SIGN_MIN) size -= 1;
-    ctx.font = `${BOLD} ${size}px ${SIGN}`;
-    ctx.textBaseline = "alphabetic";
-    ctx.textAlign = "left";
-    let x = (W - 2) / 2 - widthAt(size, track) / 2;
-    ctx.font = `${BOLD} ${size}px ${SIGN}`;
-    // Capitals centred on the board (their cap height, about 0.69 em).
-    const base = y0 + (H - 2) / 2 + size * 0.345;
-    for (const ch of name) {
-      ctx.fillStyle = "rgba(20, 10, 2, 0.8)";
-      ctx.fillText(ch, x + 1, base + 1.4);
-      ctx.fillStyle = h.online ? CREAM : "#c2b59a";
-      ctx.fillText(ch, x, base);
-      x += ctx.measureText(ch).width + track * size;
-    }
+  /** A board as a layout fitted it: the shared signboard (the Overworld's) drawn `k` times its own size into `box`. */
+  const paintFitted = (box: Rect, board: Rect, k: number, fit: SignFit, sign: { style: "host" | "project"; ref: number; posts?: number; dim: boolean }) => {
+    const { canvas, ctx } = canvasFor(box.w, box.h);
+    ctx.scale(k, k);
+    const at = (v: number) => v / k;
+    paintBoard(
+      ctx,
+      {
+        style: sign.style, text: fit.text, h: sign.ref, minW: at(board.w), maxW: at(board.w), dim: sign.dim,
+        x: at(board.x + board.w / 2 - box.x), y: at(board.y + board.h - box.y),
+        ...(sign.posts !== undefined ? { postY: at(sign.posts - box.y) } : {}),
+      },
+      { text: fit.text, size: at(fit.size), track: at(fit.track), w: at(fit.w) },
+    );
     return canvas;
   };
+  /** A host's name board, standing on two posts at its fountain's foot (dull and weathered while the host is offline). */
+  const paintHostBoard = (sq: VSquare) =>
+    paintFitted(sq.board, sq.plaque, V.hostBoard.h / V.hostBoard.ref, sq.hosts[0]!.fit, { style: "host", ref: V.hostBoard.ref, posts: sq.posts, dim: !sq.online });
+  /** A project's board's box: the board, its brackets below it and its shadow. */
+  const hallBoardBox = (r: Rect) => ({ x: r.x - 8, y: r.y - 4, w: r.w + 16, h: r.h * 1.36 + 10 });
+  /** A project's name board on two iron brackets on its hall's front, over its door. */
+  const paintHallBoard = (p: VProject, dim: boolean) =>
+    paintFitted(hallBoardBox(p.sign!.rect), p.sign!.rect, p.sign!.rect.h / V.hallBoard.ref, p.sign!.fit, { style: "project", ref: V.hallBoard.ref, dim });
   /** The HUD's "At a Glance" panel: dark wood, gold corners, in screen points. */
   const paintGlance = (l: VillageLayout) => {
     const c = l.counts;
@@ -786,21 +730,20 @@ export function mountNativeVillage(parent: HTMLElement, handlers: AtlasHandlers 
       const big = { x: sq.ring.x - sq.ring.w * 0.25, y: sq.ring.y - sq.ring.h * 0.25, w: sq.ring.w * 1.5, h: sq.ring.h * 1.5 };
       sprites.push(sprite("plaza-ring", big, -56.5, { c: 0xfff0d0, cf: 0.3, a: 0.9, ...dim }));
       sprites.push(sprite("plaza-ring", sq.ring, -56, dim));
-      sprites.push(sprite(sq.online ? "fountain-on" : "fountain-off", sq.fountain, standZ(l, sq.fountain.y + sq.fountain.h), { ...dim, e: `vfountain:${sq.host.id}` }));
+      // Its host's crystal fountain, the host's landmark (picked as the host; it glows on hover and while its host is the
+      // one targeted), lit while the host is online, grey and still while it's offline.
+      const fz = standZ(l, sq.fountain.y + sq.fountain.h);
+      sprites.push(sprite(sq.online ? "fountain-on" : "fountain-off", sq.fountain, fz, { ...dim, e: sq.host.id }));
       if (sq.online) {
         const basin = at("water-ripple", sq.center.x, sq.fountain.y + sq.fountain.h * 0.74, sq.fountain.w * 0.7);
-        sprites.push(sprite("water-ripple", basin, standZ(l, sq.fountain.y + sq.fountain.h) + 0.01, { a: 0.8 }));
+        sprites.push(sprite("water-ripple", basin, fz + 0.01, { a: 0.8 }));
       }
-      // Its host's keep (picked as the host; it glows on hover and while its host is the one targeted), the pennant on
-      // its tower flying the host's status (green online, grey offline), and its name board.
-      const kz = standZ(l, sq.keep.rect.y + sq.keep.rect.h);
-      sprites.push(sprite(sq.keep.frame, sq.keep.rect, kz, { ...dim, e: sq.host.id }));
-      images.push({ ...image("shadow:contact", paintContact), x: sq.keep.rect.x, y: sq.keep.rect.y + sq.keep.rect.h - sq.keep.rect.w * 0.1, w: sq.keep.rect.w, h: sq.keep.rect.w * 0.2, z: kz - 0.01, a: 0.7 });
-      const fb = at("keep-flag", sq.keep.flag.x, sq.keep.flag.y, 44);
-      images.push({ ...image(`keepflag:${sq.online ? "on" : "off"}`, () => paintPennant(sq.online)), ...fb, z: kz + 0.002, ...dim });
+      // Its name board on its posts before the fountain's steps.
+      const box = sq.board;
       images.push({
-        ...image(`keepsign2:${JSON.stringify(sq.hosts[0])}:${sq.plaque.w}:${sq.plaque.h}`, () => paintSign(sq.plaque, sq.hosts[0]!)),
-        x: sq.plaque.x, y: sq.plaque.y - CHAIN, w: sq.plaque.w, h: sq.plaque.h + CHAIN, z: kz + 0.003, ...dim,
+        ...image(`hostboard:${JSON.stringify(sq.hosts[0]!.fit)}:${sq.online ? 1 : 0}:${[box.w, box.h, sq.plaque.w].map(Math.round).join(",")}`, () => paintHostBoard(sq)),
+        // (Painted dull and weathered while offline, not darkened again, so the name still reads. It glows with its fountain.)
+        x: box.x, y: box.y, w: box.w, h: box.h, z: standZ(l, sq.posts), e: sq.host.id,
       });
     });
     // Each cluster's lawn, over the plaza's cobbles (its edges under the greenery and fence the layout sets round it).
@@ -823,6 +766,15 @@ export function mountNativeVillage(parent: HTMLElement, handlers: AtlasHandlers 
       const z = standZ(l, p.base);
       // `e`: the entity whose hover or selection makes this sprite glow (Swift): a project's own id, a dashboard hall's card.
       sprites.push(sprite(p.building, p.body, z, { ...dim, e: p.entity?.id ?? `v${p.key}` }));
+      // Its name board on its front over the door (a project's hall; the dashboard halls have none).
+      if (p.sign) {
+        const box = hallBoardBox(p.sign.rect), offline = p.square >= 0 && !l.squares[p.square]!.online;
+        images.push({
+          ...image(`hallboard:${JSON.stringify(p.sign.fit)}:${offline ? 1 : 0}:${[box.w, box.h, p.sign.rect.w].map(Math.round).join(",")}`, () => paintHallBoard(p, offline)),
+          // (Painted dull while its host is offline, not darkened again, so the name still reads.)
+          x: box.x, y: box.y, w: box.w, h: box.h, z: z + 0.003, ...(p.stale ? { a: 0.75 } : {}),
+        });
+      }
       // Its contact shadow on the paving, and its lit windows (while its host is online).
       images.push({ ...image("shadow:contact", paintContact), x: p.body.x - p.body.w * 0.02, y: p.base - 46 * (p.body.w / 560), w: p.body.w * 1.04, h: 92 * (p.body.w / 560), z: z - 0.01, a: 0.75 });
       if (p.square < 0 || l.squares[p.square]!.online)
@@ -871,8 +823,8 @@ export function mountNativeVillage(parent: HTMLElement, handlers: AtlasHandlers 
       hudClear: V.marginLeft - 40,
       core: l.core,
       keep: l.keep,
-      // What the HUD's panel must never cover: tiles, halls, cottages and robots.
-      clear: [...l.tiles.map((t) => t.frame), ...l.projects.map((p) => p.body), ...l.squares.map((s) => s.keep.rect), ...l.workspaces.map((w) => w.frame), ...l.agents.map((a) => a.rect)].map((r) => [r.x, r.y, r.w, r.h]),
+      // What the HUD's panel must never cover: tiles, halls, fountains and their boards, cottages and robots.
+      clear: [...l.tiles.map((t) => t.frame), ...l.projects.map((p) => p.body), ...l.squares.map((s) => s.pick), ...l.workspaces.map((w) => w.frame), ...l.agents.map((a) => a.rect)].map((r) => [r.x, r.y, r.w, r.h]),
       sprites,
       images,
       lights,
@@ -885,9 +837,8 @@ export function mountNativeVillage(parent: HTMLElement, handlers: AtlasHandlers 
         // The halls themselves, for their hover cards (picked after their tiles: "vhall" sorts after "tile").
         // Projects' halls (picked and selected), the dashboard halls (cards only).
         ...l.projects.map((p) => (p.entity ? { id: p.entity.id, kind: "project", ...p.rect } : { id: `v${p.key}`, kind: "tile", ...p.rect })),
-        // Each district's fountain: its host's card; its keep: the host itself, picked as the Hosts tab picks it.
-        ...l.squares.map((s) => ({ id: `vfountain:${s.host.id}`, kind: "tile", ...s.fountain })),
-        ...l.squares.map((s) => ({ id: s.host.id, kind: "host", ...s.keep.rect })),
+        // Each district's fountain with its name board: the host itself, picked as the Hosts tab picks it.
+        ...l.squares.map((s) => ({ id: s.host.id, kind: "host", ...s.pick })),
       ],
     };
   };
@@ -1060,7 +1011,7 @@ export function mountNativeVillage(parent: HTMLElement, handlers: AtlasHandlers 
       ],
     };
   };
-  const setHover = (id: string | null, at?: { x: number; y: number }, flag?: MapFlag) => {
+  const setHover = (id: string | null, at?: { x: number; y: number; bottom?: number }, flag?: MapFlag) => {
     hovered = id;
     hoverAt = id ? at : undefined;
     hoverFlag = id ? flag : undefined;
@@ -1070,7 +1021,7 @@ export function mountNativeVillage(parent: HTMLElement, handlers: AtlasHandlers 
   type NativeEvent =
     | { type: "ready" }
     | { type: "pick"; id: string | null }
-    | { type: "hover"; id: string | null; x?: number; y?: number; flag?: MapFlag }
+    | { type: "hover"; id: string | null; x?: number; y?: number; bottom?: number; flag?: MapFlag }
     | { type: "zoom"; zoom: number }
     | { type: "state"; state: Record<string, unknown> }
     | { type: "stalled"; why: string }
@@ -1085,7 +1036,7 @@ export function mountNativeVillage(parent: HTMLElement, handlers: AtlasHandlers 
       handlers.ready?.();
     } else if (message.type === "pick") {
       if (!enabled) return;
-      if (message.id?.startsWith("vhall:") || message.id?.startsWith("vfountain:")) return;
+      if (message.id?.startsWith("vhall:")) return;
       if (message.id?.startsWith("tile:")) {
         // A dashboard tile opens its first PR or issue, as the app opens such links.
         const t = tileOf(message.id);
@@ -1096,29 +1047,30 @@ export function mountNativeVillage(parent: HTMLElement, handlers: AtlasHandlers 
       handlers.pick?.(entity(message.id));
     } else if (message.type === "hover") {
       parent.style.cursor = message.id ? "pointer" : "";
-      if (message.id?.startsWith("vhall:") || message.id?.startsWith("vfountain:")) {
+      // Where the card points: the hovered thing's top centre, and its bottom edge (where the card goes when there's no
+      // room above it).
+      const at = message.x === undefined ? null : { x: message.x, y: message.y!, bottom: message.bottom };
+      if (message.id?.startsWith("vhall:")) {
         if (hovered) setHover(null);
         const p = layout?.projects.find((x) => `v${x.key}` === message.id);
-        const sq = layout?.squares.find((s) => `vfountain:${s.host.id}` === message.id);
-        const card = p && p.hall !== "project" ? hallCard(p.hall) : sq ? hostCard(sq) : null;
-        handlers.card?.(card, message.x === undefined ? null : { x: message.x, y: message.y! });
+        handlers.card?.(p && p.hall !== "project" ? hallCard(p.hall) : null, at);
         return;
       }
-      const keep = layout?.squares.find((s) => s.host.id === message.id);
-      if (keep) {
-        // A keep: its host's card (the keep glows in Swift); a click targets the host.
+      const square = layout?.squares.find((s) => s.host.id === message.id);
+      if (square) {
+        // A fountain: its host's card (the fountain glows in Swift); a click targets the host.
         if (hovered) setHover(null);
-        handlers.card?.(hostCard(keep), message.x === undefined ? null : { x: message.x, y: message.y! });
+        handlers.card?.(hostCard(square), at);
         return;
       }
       if (message.id?.startsWith("tile:")) {
         if (hovered) setHover(null);
         const t = tileOf(message.id);
-        handlers.card?.(t ? cardOf(t) : null, message.x === undefined ? null : { x: message.x, y: message.y! });
+        handlers.card?.(t ? cardOf(t) : null, at);
         return;
       }
       handlers.card?.(null, null);
-      setHover(message.id, message.x === undefined ? undefined : { x: message.x, y: message.y! }, message.flag);
+      setHover(message.id, at ?? undefined, message.flag);
     } else if (message.type === "zoom") {
       zoom = message.zoom;
       handlers.zoom?.(zoom);
@@ -1232,9 +1184,9 @@ export function mountNativeVillage(parent: HTMLElement, handlers: AtlasHandlers 
             counts: layout.counts,
             status: statusLine(layout).text,
             realFrames: realFrames.size,
-            squares: layout.squares.map((s) => ({ host: { id: s.host.id }, hosts: s.hosts.map((h) => ({ id: h.id, title: h.title, online: h.online, stats: h.stats.map((x) => x.text) })), rect: s.rect, fountain: s.fountain, keep: s.keep, plaque: s.plaque, river: layout!.town.river })),
+            squares: layout.squares.map((s) => ({ host: { id: s.host.id }, hosts: s.hosts.map((h) => ({ id: h.id, title: h.title, online: h.online, stats: h.stats.map((x) => x.text) })), rect: s.rect, fountain: s.fountain, pick: s.pick, plaque: s.plaque, sign: s.hosts[0]!.fit.text, river: layout!.town.river })),
             tiles: layout.tiles.map((t) => ({ id: t.id, rect: t.rect })),
-            projects: layout.projects.map((p) => ({ id: p.entity?.id ?? p.key, name: p.name, icon: p.icon, building: p.building, rect: p.rect, lamps: p.lamps })),
+            projects: layout.projects.map((p) => ({ id: p.entity?.id ?? p.key, name: p.name, icon: p.icon, building: p.building, rect: p.rect, lamps: p.lamps, sign: p.sign ? { text: p.sign.fit.text, rect: p.sign.rect } : null })),
             workspaces: layout.workspaces.map((w) => ({
               id: w.entity.id, name: w.entity.name, label: w.label, status: w.status, camp: !!w.entity.camp, rect: w.rect, tile: w.tile,
               flags: w.flags.map((f) => f.flag), medallions: w.flags.map((f) => ({ flag: f.flag, x: f.x, y: f.y })), seal: !!w.seal,

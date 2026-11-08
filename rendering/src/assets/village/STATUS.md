@@ -1,7 +1,7 @@
 # Village art — final kit
 
-All 151 original required frame names are present. There are **227 frames** in
-twelve PNG/JSON pairs, all at nominal **scale 3**, with true alpha and explicit anchors.
+All 151 original required frame names are present. There are **220 frames** in
+eleven PNG/JSON pairs (the twelfth, the host keeps, was removed: see below), all at nominal **scale 3**, with true alpha and explicit anchors.
 The complete first pass was delivered before this refinement pass.
 
 | Sheet | Frames | Final artwork |
@@ -17,7 +17,6 @@ The complete first pass was delivered before this refinement pass.
 | ground-warm | 13 | Muted rounded cobbles, eight grass transitions, paving blob, shallow one-step robot ledge in three pieces |
 | cottages | 11 | Six workspace cottages with registered pane/doorstep rectangles, five matching stained-glass panes |
 | district | 9 | Straight/diagonal paths, low horizontal/vertical fences, three hedges, stone entrance gate |
-| keeps | 7 | Three host keeps, matching unlit variants, tintable pennant; registered mounted sign boards |
 
 The refined robots have bright cyan eyes and antenna tips, glossy vivid enamel,
 and a roughly 58px painted height. Work frames are registered by the boots,
@@ -239,7 +238,22 @@ district props. The private recipe is `build-cottages.py`; exact source prompts
 are in `prompts-v7.json` and `rendering/ASSETS.md`. This first complete pass
 uses two new built-in imagegen calls. Existing hall and robot art is preserved.
 
-## Host keep — first complete pass live
+## Host keep — removed
+
+The host keeps were removed at the user's request: a host is its crystal fountain alone, its name on a wooden board on two
+posts at the fountain's foot (painted by the page, `rendering/src/signboard.ts`). `keeps.png` / `keeps.json` are no longer
+in the kit (git history keeps them); the notes below describe them as they were.
+
+## Hall name boards
+
+Each hall frame in `buildings.json` has a **`sign: {x,y,w,h}` in frame-local source pixels**: where its project's name board
+stands on its front over the door (the page paints the board; no name is baked into the sprite). A gabled hall's
+(`hall-blue`, `hall-purple`, `hall-green`, `hall-red`) is `120,110 560×84`, its foot on the gable's base beam, as wide as the
+roof between its chimneys' outer edges; `workshop-rust`'s is `120,133 560×84`, over its gear on its beam; `dome-teal`'s is
+`140,196 520×84`, its foot on the cornice under the dome. The board is the box's height and no wider than it; its iron
+brackets reach below it onto the beam or cornice.
+
+## Host keep — first complete pass (since removed)
 
 **`keeps.png` / `keeps.json`** adds seven frames, compressed to **718,161 bytes**.
 The whole twelve-sheet set is **9,704,720 bytes (9.70 MB)**, still below 10 MB.
@@ -320,9 +334,3 @@ All checks pass. The kit approximates the concept with modular pieces; the
 single painted image has more bespoke shadows, foliage joins and masonry.
 No commits were made by the artist; integration and commit belong to the lead.
 
-## Keeps
-
-`keeps.png/json`: a keep per host district (`keep-0` square tower, `keep-1` twin gatehouse, `keep-2` stepped keep with a
-corner turret), each with an unlit `keep-offline-*` twin of the same geometry, and `keep-flag`, a blank pennant whose `cloth`
-rect the page dyes with the host's status. Each keep's `sign` rect (frame-local sheet pixels) is its blank name board, where
-the page paints the host's name; `flag` is where the pennant's pole stands. Painted about 1.2× a hall's height.

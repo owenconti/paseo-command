@@ -390,7 +390,8 @@ final class VillageScene: SKScene, MapScene {
         }
         guard let texture else { return nil }
         let node = SKSpriteNode(texture: texture)
-        if let e = s["e"] as? String, let f = s["f"] as? String { owners[e, default: []].append((node, f)) }
+        // A sprite tagged `e` glows with that entity: a frame by its name, a painted image (a host's name board) by its key.
+        if let e = s["e"] as? String, let f = s["f"] as? String ?? s["key"] as? String { owners[e, default: []].append((node, f)) }
         node.anchorPoint = CGPoint(x: 0, y: 1)
         node.size = box.size
         node.position = p(box.minX, box.minY)
@@ -629,7 +630,7 @@ final class VillageScene: SKScene, MapScene {
     /// A golden rim with a breathing halo and a warm wash, so the selection reads on stone, roofs and grass.
     // MARK: Glow
 
-    /// Each entity's sprites (halls, tiles, the fountain: tagged `e` by the page; robots by their id), which glow when
+    /// Each entity's sprites (halls, tiles, a host's fountain and its name board: tagged `e` by the page; robots by their id), which glow when
     /// hovered or selected: the object itself lights up, never a box round it.
     private var owners: [String: [(node: SKSpriteNode, frame: String)]] = [:]
     private var robotOwners: [String: [(node: SKSpriteNode, frame: String)]] = [:]
@@ -641,7 +642,8 @@ final class VillageScene: SKScene, MapScene {
 
     private func halo(_ frame: String) -> (texture: SKTexture, padX: CGFloat, padY: CGFloat)? {
         if let h = halos[frame] { return h }
-        guard let image = frameImages[frame] else { return nil }
+        // A frame's own image, else a painted image's (read back from its texture once, when it first glows).
+        guard let image = frameImages[frame] ?? images[frame]?.cgImage() else { return nil }
         let source = CIImage(cgImage: image)
         let white = source.applyingFilter("CIColorMatrix", parameters: [
             "inputRVector": CIVector(x: 0, y: 0, z: 0, w: 0), "inputGVector": CIVector(x: 0, y: 0, z: 0, w: 0),

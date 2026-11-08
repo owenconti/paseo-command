@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { layoutVillage, overlaps, spread, statusLine, tileOf, robotColor, plateLabel, workspaceStatus, dashText, HALLS, V } from "../src/village/layout.ts";
+import { layoutVillage, overlaps, spread, statusLine, tileOf, robotColor, plateLabel, workspaceStatus, dashText, boxOf, HALLS, V } from "../src/village/layout.ts";
+import { fitName } from "../src/signboard.ts";
 import { FRAMES, VILLAGE_PX, applySheet, ROBOT_COLORS } from "../src/village/frames.ts";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 
@@ -58,15 +59,15 @@ function assertLegible(layout) {
   const robots = layout.agents.map((a) => ({ what: `robot ${a.entity.id}`, rect: a.rect, ws: a.entity.workspace }));
   const halls = layout.projects.map((p) => ({ what: `hall ${p.key}`, rect: { ...p.body, y: p.body.y + p.body.h * 0.25, h: p.body.h * 0.75 } }));
   const basin = (s) => ({ ...s.fountain, y: s.fountain.y + s.fountain.h * 0.55, h: s.fountain.h * 0.45 });
-  const plaques = layout.squares.flatMap((s) => [{ what: `plaque ${s.host.id}`, rect: s.plaque }, { what: `fountain ${s.host.id}`, rect: basin(s) }, { what: `keep ${s.host.id}`, rect: { ...s.keep.rect, y: s.keep.rect.y + s.keep.rect.h * 0.3, h: s.keep.rect.h * 0.7 } }]);
+  const plaques = layout.squares.flatMap((s) => [{ what: `plaque ${s.host.id}`, rect: s.plaque }, { what: `fountain ${s.host.id}`, rect: basin(s) }, { what: `posts ${s.host.id}`, rect: s.board }]);
   const things = [...cottages, ...tiles, ...robots, ...halls, ...plaques];
   for (let i = 0; i < things.length; i++)
     for (let j = i + 1; j < things.length; j++) {
       const a = things[i], b = things[j];
-      // A robot stands at its own cottage's doorstep (in front of it); a tile in its hall's arch; a plaque at its fountain.
+      // A robot stands at its own cottage's doorstep (in front of it); a tile in its hall's arch; a board at its fountain.
       if (a.ws && a.ws === b.ws) continue;
       if (/^(tile|hall)/.test(a.what) && /^(tile|hall)/.test(b.what)) continue;
-      if (/^(plaque|fountain|keep)/.test(a.what) && /^(plaque|fountain|keep)/.test(b.what) && a.what.split(" ")[1] === b.what.split(" ")[1]) continue;
+      if (/^(plaque|fountain|posts)/.test(a.what) && /^(plaque|fountain|posts)/.test(b.what) && a.what.split(" ")[1] === b.what.split(" ")[1]) continue;
       assert.ok(!overlaps(a.rect, b.rect, -1), `${a.what} overlaps ${b.what}`);
     }
   for (const d of layout.decor) {
@@ -121,7 +122,7 @@ function assertConnected(layout) {
     assert.ok(onPath(door), `${p.key}'s door is on a path`);
   }
   for (const w of layout.workspaces) assert.ok(onPath(w.door), `${w.entity.id}'s doorstep is on a path`);
-  for (const s of layout.squares) assert.ok(onPath({ x: s.keep.rect.x + s.keep.rect.w / 2, y: s.keep.rect.y + s.keep.rect.h + 1 }), `${s.host.id}'s keep's door is on its plaza`);
+  for (const s of layout.squares) assert.ok(onPath({ x: s.center.x, y: s.posts }), `${s.host.id}'s fountain and its board stand on its plaza`);
   for (const a of layout.agents) assert.ok(onPath(a.feet), `robot ${a.entity.id} stands on a path`);
 }
 
@@ -151,12 +152,18 @@ function assertGrouped(layout) {
     for (const o of layout.lawns) if (o !== l) assert.ok(!overlaps(l.rect, o.rect, 20), `${l.project}'s yard stands apart from ${o.project}'s`);
   }
   for (const s of layout.squares) {
-    assert.ok(within(s.keep.rect, s.rect), `${s.host.id}'s keep stands inside its district`);
-    const mid = s.plaque.x + s.plaque.w / 2;
-    assert.ok(mid > s.keep.rect.x && mid < s.keep.rect.x + s.keep.rect.w && s.plaque.y > s.keep.rect.y && s.plaque.y + s.plaque.h < s.keep.rect.y + s.keep.rect.h, `${s.host.id}'s name board hangs on its keep`);
-    assert.ok(within(s.plaque, s.rect), `${s.host.id}'s name board stays in its district`);
+    // The host is its fountain alone (no keep), with its name board standing on posts at the fountain's foot.
+    assert.ok(within(s.pick, s.rect), `${s.host.id}'s fountain and its board stand inside its district`);
+    assert.ok(within(s.fountain, s.pick) && within(s.board, s.pick) && within(s.plaque, s.board), `${s.host.id} is picked by its fountain and its board`);
+    assert.ok(Math.abs(s.plaque.x + s.plaque.w / 2 - s.center.x) < 0.5, `${s.host.id}'s name board is centred on its fountain`);
+    const feet = s.fountain.y + s.fountain.h;
+    assert.ok(s.plaque.y >= feet - s.fountain.h * 0.12 && s.plaque.y + s.plaque.h < s.posts && s.posts <= s.ring.y + s.ring.h, `${s.host.id}'s name board stands on its posts in the ring at the fountain's foot`);
+    assert.ok(s.plaque.w <= s.ring.w * 1.5, `${s.host.id}'s name board is no wider than its fountain's plaza`);
     assert.ok(s.plaque.h >= 60, "the board is tall enough for lettering legible at the default zoom");
-    for (const l of layout.lawns) assert.ok(!overlaps(s.keep.rect, l.rect), `${s.host.id}'s keep stands clear of ${l.project}'s yard`);
+    for (const l of layout.lawns) assert.ok(!overlaps(s.pick, l.rect), `${s.host.id}'s fountain stands clear of ${l.project}'s yard`);
+    // The board's box holds its posts' caps above it; the lamps flanking the fountain stand clear of the board's ends.
+    assert.ok(s.board.y <= s.plaque.y - s.plaque.h * 0.25 && s.board.x <= s.plaque.x - 5 && s.board.x + s.board.w >= s.plaque.x + s.plaque.w + 5, `${s.host.id}'s board's box holds its caps and shadow`);
+    for (const p of s.pennants) assert.ok(!overlaps(boxOf("lamp-on", p.x, p.y, 34), s.plaque), `${s.host.id}'s lamp at ${Math.round(p.x)} stands clear of its board`);
   }
   for (let i = 0; i < layout.squares.length; i++)
     for (let j = i + 1; j < layout.squares.length; j++)
@@ -311,14 +318,64 @@ const REAL = {
   agents: ["w1", "w2", "w3", "w4", "w5", "w6"].map((w, i) => ({ key: `a${i}`, host: i >= 4 ? "lab" : "local", project: ["pc", "pc", "am", "dl", "dg", "dg"][i], workspace: w, name: `agent ${i}`, model: "claude/x", state: "idle" })),
 };
 
-test("the default framing includes every keep, its sign, fountain, hall, cottage and robot", () => {
+test("the default framing includes every fountain, its board, hall, cottage and robot", () => {
   const within = (a, b) => a.x >= b.x - 0.5 && a.y >= b.y - 0.5 && a.x + a.w <= b.x + b.w + 0.5 && a.y + a.h <= b.y + b.h + 0.5;
   for (const [data, aspect] of [[REAL, 1.36], [REAL, 1.7], [REAL, 1.0], [VILLAGE_SAMPLE, 1.36], [SPARSE, 1.36], [big(8, 5, 3, 3), 1.36], [big(2, 3, 3, 1), 1.6]]) {
     const l = layoutVillage(data, aspect);
     const shown = [
-      ...l.squares.flatMap((s) => [["keep", s.keep.rect], ["sign", s.plaque], ["fountain", s.fountain], ["fountain's plaza", { x: s.ring.x - s.ring.w * 0.25, y: s.ring.y - s.ring.h * 0.25, w: s.ring.w * 1.5, h: s.ring.h * 1.5 }]]),
+      ...l.squares.flatMap((s) => [["board", s.board], ["fountain", s.fountain], ["fountain's plaza", { x: s.ring.x - s.ring.w * 0.25, y: s.ring.y - s.ring.h * 0.25, w: s.ring.w * 1.5, h: s.ring.h * 1.5 }]]),
       ...l.projects.map((p) => ["hall", p.body]), ...l.workspaces.map((w) => ["cottage", w.frame]), ...l.agents.map((a) => ["robot", a.rect]),
     ];
     for (const [what, r] of shown) assert.ok(within(r, l.keep), `the framing (keep) holds every ${what}`);
   }
+});
+
+test("each project's hall carries its name on a board in its hall's sign place; the dashboard halls carry none", () => {
+  for (const [data, aspect] of [[REAL, 1.36], [VILLAGE_SAMPLE, 1.7], [SPARSE, 1.3], [big(3, 4, 2, 1), 1.6]]) {
+    const l = layoutVillage(data, aspect);
+    for (const p of l.projects) {
+      if (p.hall !== "project") {
+        assert.equal(p.sign, undefined, `${p.name} (a dashboard hall) carries no board`);
+        continue;
+      }
+      assert.ok(p.sign, `${p.name}'s hall carries a board`);
+      const spot = FRAMES[p.building].sign, r = p.sign.rect, b = p.body;
+      // In its hall's registered place: centred on it, no wider than it, its foot on it, within the hall's own art.
+      assert.ok(Math.abs(r.x + r.w / 2 - (b.x + b.w * (spot.x + spot.w / 2))) < 0.5, `${p.name}'s board is centred over its door`);
+      assert.ok(r.w <= b.w * spot.w + 0.5, `${p.name}'s board fits its hall's sign place`);
+      assert.ok(Math.abs(r.y + r.h - (b.y + b.h * (spot.y + spot.h))) < 0.5 && Math.abs(r.h - b.h * spot.h) < 0.5, `${p.name}'s board stands in its place`);
+      assert.ok(r.x >= b.x && r.x + r.w <= b.x + b.w && r.y >= b.y && r.y + r.h <= b.y + b.h, `${p.name}'s board lies on its hall`);
+      assert.ok(r.h >= 40, `${p.name}'s board is tall enough to read`);
+      // Its name in capitals, whole, a long "owner/name"'s name, or cut short with "…".
+      const caps = p.name.toUpperCase(), tail = caps.slice(caps.lastIndexOf("/") + 1);
+      assert.ok(p.sign.fit.text === caps || p.sign.fit.text === tail || (p.sign.fit.text.endsWith("…") && caps.startsWith(p.sign.fit.text.slice(0, -1).trimEnd())) || (p.sign.fit.text.endsWith("…") && tail.startsWith(p.sign.fit.text.slice(0, -1).trimEnd())), `${p.name} reads ${p.sign.fit.text}`);
+    }
+  }
+  // A long owner/name that won't fit whole shows its name.
+  const long = structuredClone(SPARSE);
+  long.projects[1].name = "diagonal-engineering-headquarters/diagonal";
+  const dg = layoutVillage(long, 1.3).projects.find((p) => p.key === "dg");
+  assert.equal(dg.sign.fit.text, "DIAGONAL");
+  // A renamed project repaints its board.
+  const renamed = structuredClone(SPARSE);
+  renamed.projects[0].name = "atlas";
+  assert.notEqual(layoutVillage(renamed, 1.3).signature, layoutVillage(SPARSE, 1.3).signature);
+});
+
+test("a host's name board is sized to its name: tracked, then a little smaller, then cut short past its most width", () => {
+  const named = (name) => layoutVillage({ ...SPARSE, hosts: SPARSE.hosts.map((h) => (h.key === "lab" ? { ...h, name } : h)) }, 1.3).squares.find((s) => s.host.id === "lab");
+  const short = named("LAB"), mid = named("DIAGONAL-LAB-1"), long = named("a-very-long-host-name-for-the-diagonal-build-farm");
+  assert.equal(short.plaque.w, V.hostBoard.minW, "a short name's board keeps its least width");
+  assert.ok(mid.plaque.w > short.plaque.w && mid.hosts[0].fit.text === "DIAGONAL-LAB-1", "a longer name widens its board and reads whole");
+  assert.ok(long.plaque.w <= V.hostBoard.maxW + 0.5 && long.hosts[0].fit.text.endsWith("…"), "a very long name is cut short within the board's most width");
+  assert.ok(long.hosts[0].fit.size >= mid.hosts[0].fit.size * V.hostBoard.shrink - 1e-6, "its lettering shrinks no further than its least share");
+});
+
+test("a name that fits only at its least lettering size reads whole, not cut short", () => {
+  const width = (t, s) => t.length * s * 0.5;
+  // 10 letters: 5 × size wide; 400 of room fits them only at 80, the least size (95, 90.25, 85.7, 81.45 are all too wide).
+  assert.deepEqual(fitName(width, "abcdefghij", 100, 400, 80), { text: "ABCDEFGHIJ", size: 80, track: 0, w: 400 });
+  assert.ok(fitName(width, "abcdefghijk", 100, 400, 80).text.endsWith("…"), "one letter more is cut short");
+  // Without a least size (the Overworld's), the size never changes: tracking, then the cut.
+  assert.equal(fitName(width, "abcdefghij", 100, 400).size, 100);
 });

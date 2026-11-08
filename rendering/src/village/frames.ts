@@ -34,14 +34,10 @@ export type FrameSpec = {
   /** A cottage's window (for its pull request's stained-glass pane) and its doorstep, as shares of the frame. */
   pane?: { x: number; y: number; w: number; h: number };
   doorstep?: { x: number; y: number; w: number; h: number };
-  /** A keep's name board (its host's name is painted there) and where its pennant stands, as shares of the frame. */
+  /** A hall's name board: the box on its front, over its door, where the board stands on two iron brackets (its
+   * width the most it may take, its height the board's), as shares of the frame. */
   sign?: { x: number; y: number; w: number; h: number };
-  flag?: { x: number; y: number };
-  /** A pennant's cloth (dyed in its host's status), as shares of the frame. */
-  cloth?: { x: number; y: number; w: number; h: number };
 };
-/** The hosts' keeps, a variant seeded per host. */
-export const KEEPS = ["keep-0", "keep-1", "keep-2"] as const;
 /** The workspaces' cottages. */
 export const COTTAGES = ["cottage-0", "cottage-1", "cottage-2", "cottage-3", "cottage-4", "cottage-5"] as const;
 
@@ -63,6 +59,20 @@ export type TileKind = (typeof TILES)[number];
 /** The building variants, dealt to projects so neighbours differ. */
 export const BUILDINGS = ["hall-blue", "hall-purple", "dome-teal", "workshop-rust", "hall-green", "hall-red"] as const;
 
+/** Each hall's name board place (as `buildings.json` registers it), as shares of the frame: the gabled halls' on the
+ * gable's lower half over the door, across its foot and the eave (below the chimneys' feet and the gable's apex, as wide as
+ * the roof between the chimneys' outer edges), the workshop's across its gear's foot and its beam, the dome's on its cornice
+ * (no wider than the dome where the board's top meets it). */
+const GABLE = { x: 120 / 798, y: 152 / 570, w: 560 / 798, h: 84 / 570 };
+const HALL_SIGNS: Record<string, { x: number; y: number; w: number; h: number }> = {
+  "hall-blue": GABLE,
+  "hall-purple": GABLE,
+  "hall-green": GABLE,
+  "hall-red": GABLE,
+  "workshop-rust": { x: 120 / 798, y: 172 / 585, w: 560 / 798, h: 84 / 585 },
+  "dome-teal": { x: 160 / 798, y: 214 / 723, w: 480 / 798, h: 84 / 723 },
+};
+
 /** Each animation's frame count. */
 export const ANIMATIONS: Record<string, number> = {
   "water-ripple": 4,
@@ -79,13 +89,10 @@ const many = (base: string, n: number, s: FrameSpec): [string, FrameSpec][] => A
 export const MARKS = ["approval", "question", "asking", "failure", "done"] as const;
 
 export const FRAMES: Record<string, FrameSpec> = Object.fromEntries([
-  // buildings: each a whole hall (roof and walls), standing on its feet; the arcade of bays stands in front of it.
-  ...BUILDINGS.map((b) => [b, spec("buildings", 449, 300, "feet")] as [string, FrameSpec]),
+  // buildings: each a whole hall (roof and walls), standing on its feet; the arcade of bays stands in front of it. Its name
+  // board's place: on its front over the door (a gabled hall's on the gable's foot, the dome's on its cornice).
+  ...BUILDINGS.map((b) => [b, spec("buildings", 449, 300, "feet", { sign: HALL_SIGNS[b] })] as [string, FrameSpec]),
   ["bay-arch", spec("buildings", 103, 103, "feet")],
-  // A host's keep at its district's head (its name board for the host's name) and the pennant that flies its status.
-  // (Each in an offline variant too: unlit, greyed.)
-  ...KEEPS.flatMap((k) => [k, k.replace("keep-", "keep-offline-")].map((n) => [n, spec("keeps", 250, 290, "feet", { sign: { x: 0.08, y: 0.56, w: 0.84, h: 0.2 }, flag: { x: 0.5, y: 0.04 } })] as [string, FrameSpec])),
-  ["keep-flag", spec("keeps", 40, 64, "feet")],
   // The workspaces' cottages (their window and doorstep from the sheet), and the panes for their windows.
   ...COTTAGES.map((c) => [c, spec("cottages", 202, 209, "feet", { pane: { x: 0.31, y: 0.58, w: 0.21, h: 0.23 }, doorstep: { x: 0.66, y: 0.91, w: 0.29, h: 0.07 } })] as [string, FrameSpec]),
   ...TILES.map((t) => [`cottage-pane-${t}`, spec("cottages", 51, 57, "center")] as [string, FrameSpec]),
@@ -220,10 +227,8 @@ type SheetFrame = {
   /** Frame-local rects in sheet pixels (cottages). */
   pane?: { x: number; y: number; w: number; h: number };
   doorstep?: { x: number; y: number; w: number; h: number };
-  /** Keeps: the name board's rect and the pennant's foot, frame-local sheet pixels. */
+  /** Halls: their name board's place, frame-local sheet pixels. */
   sign?: { x: number; y: number; w: number; h: number };
-  flag?: { x: number; y: number };
-  cloth?: { x: number; y: number; w: number; h: number };
 };
 /** A sheet's description (`assets/village/<sheet>.json`): frames in sheet pixels, anchors frame-local. */
 export type SheetJson = { image?: string; scale?: number; frames?: Record<string, SheetFrame> };
@@ -247,8 +252,6 @@ export function applySheet(sheet: SheetJson, only: (name: string) => boolean = (
     if (f.pane) spec.pane = share(f.pane);
     if (f.doorstep) spec.doorstep = share(f.doorstep);
     if (f.sign) spec.sign = share(f.sign);
-    if (f.cloth) spec.cloth = share(f.cloth);
-    if (f.flag) spec.flag = { x: f.flag.x / f.w, y: f.flag.y / f.h };
     spec.real = true;
     taken.push(name);
   }

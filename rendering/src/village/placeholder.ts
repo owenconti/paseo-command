@@ -74,40 +74,6 @@ export function paintPlaceholder(name: string): HTMLCanvasElement {
     ctx.fill();
     ctx.fillStyle = "#ffc860";
     for (const x of [0.25, 0.5, 0.75]) ctx.fillRect(w * x - 10, h * 0.55, 20, 26);
-  } else if (/^keep-(offline-)?\d$/.test(name)) {
-    // A stone keep: a tower with battlements, a door, and its name board over the door.
-    const sign = spec.sign!;
-    ctx.fillStyle = "#7d6f5c";
-    ctx.fillRect(w * 0.12, h * 0.16, w * 0.76, h * 0.84);
-    ctx.fillStyle = "#6a5d4c";
-    for (let i = 0; i < 5; i++) ctx.fillRect(w * (0.12 + i * 0.17), h * 0.08, w * 0.1, h * 0.1);
-    ctx.fillStyle = "#94856e";
-    ctx.fillRect(w * 0.16, h * 0.2, w * 0.68, h * 0.03);
-    ctx.fillStyle = "#2a1e14";
-    round(ctx, w * 0.4, h * 0.82, w * 0.2, h * 0.18, w * 0.1);
-    ctx.fill();
-    ctx.fillStyle = "#ffc860";
-    for (const x of [0.28, 0.66]) ctx.fillRect(w * x, h * 0.34, w * 0.06, h * 0.1);
-    // Its board overhangs the walls a little, on two brackets.
-    ctx.fillStyle = "#3e2a16";
-    for (const x of [0.2, 0.8]) ctx.fillRect(w * x - 3, h * (sign.y - 0.03), 6, h * 0.04);
-    ctx.fillStyle = "#5a3c22";
-    ctx.fillRect(w * sign.x, h * sign.y, w * sign.w, h * sign.h);
-    ctx.strokeStyle = "#2e1e10";
-    ctx.lineWidth = 2;
-    ctx.strokeRect(w * sign.x, h * sign.y, w * sign.w, h * sign.h);
-    label = false;
-  } else if (name === "keep-flag") {
-    ctx.fillStyle = "#4a3a2a";
-    ctx.fillRect(w * 0.12, 0, w * 0.08, h);
-    ctx.fillStyle = "#e8e2d4";
-    ctx.beginPath();
-    ctx.moveTo(w * 0.2, h * 0.04);
-    ctx.lineTo(w, h * 0.2);
-    ctx.lineTo(w * 0.2, h * 0.38);
-    ctx.closePath();
-    ctx.fill();
-    label = false;
   } else if (name === "bay-arch") {
     ctx.fillStyle = "#7a6a52";
     round(ctx, 0, 0, w, h, w / 2);
