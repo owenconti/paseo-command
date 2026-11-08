@@ -2,7 +2,7 @@ import { MAP_STYLES, mapStyle, setMapStyle, useMapStyle } from "./mapStyle";
 import type { WorkSummaries } from "./useWorkingOn";
 /** Atlas world adapter. The inherited React work surface owns all daemon actions;
  * the world only draws the host-qualified snapshot and reports what was picked. */
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
 import {
   mountAtlas,
   STATE_NAMES,
@@ -32,6 +32,7 @@ import { useHostStats } from "./useHostStats";
 import { useVillageCounts } from "./villageCounts";
 import { openAppLink } from "./appLinks";
 import { liveConnection } from "./live";
+import { CARD_MARGIN, placeCard } from "./cardPlace";
 import type { HostStats } from "../../rendering/src/world";
 import "./atlas-world.css";
 type Props = {
@@ -149,6 +150,62 @@ function selectionKey(selection: Selection, snapshot: WorldSnapshot) {
   return null;
 }
 type Tip = { entity: Entity; at: ScreenPoint; detail: string; flag?: MapFlag };
+/** A hover card over the map, placed before it paints so it lies wholly inside the map the user sees: the surface
+ * (the world frame beside the session panel and below the top bar), within the window. Above the thing it's about
+ * when it fits, else below it, else where there's more room, cut to the map's height if it's taller (`placeCard`).
+ * Placed again as its content or anchor changes (each render) and as the map resizes. */
+function MapCard(props: { at: ScreenPoint; surface: RefObject<HTMLDivElement | null>; className: string; children: ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const at = useRef(props.at);
+  at.current = props.at;
+  const place = useRef(() => {});
+  place.current = () => {
+    const card = ref.current;
+    const surface = props.surface.current;
+    if (!card || !surface) return;
+    const parent = (card.offsetParent as HTMLElement | null) ?? surface;
+    const s = surface.getBoundingClientRect();
+    const box = parent.getBoundingClientRect();
+    // The map as it shows: the surface, cut to the window.
+    const root = document.documentElement;
+    const left = Math.max(s.left, 0);
+    const top = Math.max(s.top, 0);
+    const view = { width: Math.min(s.right, root.clientWidth) - left, height: Math.min(s.bottom, root.clientHeight) - top };
+    if (view.width <= 0 || view.height <= 0) return;
+    // Measured where nothing narrows it (its last place, or a cap from it).
+    card.style.left = "0px";
+    card.style.top = "0px";
+    card.style.maxWidth = "";
+    card.style.maxHeight = "";
+    let size = card.getBoundingClientRect();
+    const room = Math.max(0, view.width - 2 * CARD_MARGIN);
+    if (size.width > room) {
+      card.style.maxWidth = `${room}px`;
+      size = card.getBoundingClientRect();
+    }
+    // Swift's points are the surface's; the card's place is in its offset parent's padding box.
+    const a = at.current;
+    const dy = s.top - top;
+    const p = placeCard(view, { x: a.x + s.left - left, y: a.y + dy, bottom: a.bottom === undefined ? undefined : a.bottom + dy }, size);
+    card.style.left = `${Math.round(p.left + left - box.left - parent.clientLeft)}px`;
+    card.style.top = `${Math.round(p.top + top - box.top - parent.clientTop)}px`;
+    if (p.maxHeight !== undefined) card.style.maxHeight = `${p.maxHeight}px`;
+    card.dataset.side = p.side;
+  };
+  useLayoutEffect(() => place.current());
+  useEffect(() => {
+    const surface = props.surface.current;
+    if (!surface || typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(() => place.current());
+    observer.observe(surface);
+    return () => observer.disconnect();
+  }, [props.surface]);
+  return (
+    <div ref={ref} className={props.className} role="tooltip">
+      {props.children}
+    </div>
+  );
+}
 export function NativeWorld(props: Props) {
   const surface = useRef<HTMLDivElement>(null);
   const world = useRef<AtlasWorld | null>(null);
@@ -189,7 +246,7 @@ export function NativeWorld(props: Props) {
     }),
     [snapshot, props.questions, props.asking, probe, stats, dashboardShown, villageCounts],
   );
-  const [card, setCard] = useState<{ title: string; detail: string; lines: string[]; at: { x: number; y: number } } | null>(null);
+  const [card, setCard] = useState<{ title: string; detail: string; lines: string[]; at: ScreenPoint } | null>(null);
   const currentData = useRef(data);
   currentData.current = data;
   const describe = (entity: Entity) => {
@@ -413,20 +470,16 @@ export function NativeWorld(props: Props) {
       />
       {props.blocked && <div className="atlas-input-cover" />}
       {card && (
-        <div className="atlas-world-tip atlas-world-card" role="tooltip" style={{ left: card.at.x, top: card.at.y }}>
+        <MapCard className="atlas-world-tip atlas-world-card" surface={surface} at={card.at}>
           <b>{card.title}</b>
           <span>{card.detail}</span>
           {card.lines.map((line, i) => (
             <span key={i} className="atlas-card-line">{line}</span>
           ))}
-        </div>
+        </MapCard>
       )}
       {tip && (
-        <div
-          className="atlas-world-tip"
-          role="tooltip"
-          style={{ left: tip.at.x, top: tip.at.y }}
-        >
+        <MapCard className="atlas-world-tip" surface={surface} at={tip.at}>
           {flagCard ? (
             <>
               <b>{flagCard.title}</b>
@@ -447,7 +500,7 @@ export function NativeWorld(props: Props) {
           {hoveredSummary?.sentence && (
             <span className="atlas-work-summary">{hoveredSummary.sentence}</span>
           )}
-        </div>
+        </MapCard>
       )}
       {absent ? (
         <div className="atlas-world-notice" role="status">

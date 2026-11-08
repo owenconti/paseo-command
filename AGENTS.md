@@ -762,6 +762,12 @@ world of its own (`mountNativeDungeon`), which `NativeWorld.tsx` mounts in their
 `AtlasView` hosts a `MapScene` (`MapScene.swift`, `kind` "atlas" or "dungeon": `AtlasScene` or `DungeonScene`); the page's `art`
 message names its `scene`, and `WorldWindow.adopt` swaps in that scene in a fresh view. Both worlds share the page's input forwarding
 (`rendering/src/native/surface.ts`), revisions and watchdog (`native/watch.ts`, `AtlasView.watch`). The Atlas legend hides on the board.
+Every style's hover cards (`.atlas-world-tip`, the Village's `.atlas-world-card`; `MapCard` in `web/src/NativeWorld.tsx`) stay inside
+the map the user sees (the user's call): `placeCard` (`web/src/cardPlace.ts`, pure) puts a card above the hovered thing when it fits,
+else below it (each scene's hover report carries the thing's `bottom` as well as its top centre, threaded through `ScreenPoint`), else
+on the side with more room, held 8 px inside the map's edges, centred and clamped sideways, and cut to the map's height when taller;
+measured before paint, placed again as the map resizes. Tests: `web/src/cardPlace.test.ts`, `web/e2e/map-cards.e2e.ts`,
+`native/tests/MapHoverTests.swift` (the `bottom` the Atlas and the Village send), `DungeonSceneTests.swift`.
 The Dungeon Board (`rendering/src/dungeon/`; the user's concept is ignored `design/references/dungeon-concept.png`): a front
 cutaway of a dungeon, one floor per host with workspaces (the Atlas's host order), 365 concept px tall, stacked; its gate
 column central (the round surround, its top a plain dark keystone opening with no icon (the user's call), the host's sign (the user's call: part of the world): a wooden board hanging on chains from two brackets

@@ -423,7 +423,7 @@ type Message = Record<string, unknown> & { type: string };
 type NativeEvent =
   | { type: "ready" }
   | { type: "pick"; id: string | null }
-  | { type: "hover"; id: string | null; x?: number; y?: number; flag?: MapFlag }
+  | { type: "hover"; id: string | null; x?: number; y?: number; bottom?: number; flag?: MapFlag }
   | { type: "zoom"; zoom: number }
   | { type: "state"; state: Record<string, unknown> }
   | { type: "stalled"; why: string }
@@ -446,7 +446,7 @@ export function mountNativeAtlas(parent: HTMLElement, handlers: AtlasHandlers = 
   let selection: string | null = null;
   let hovered: string | null = null;
   /** Where the hover card points, as Swift last reported it. */
-  let hoverAt: { x: number; y: number } | undefined;
+  let hoverAt: { x: number; y: number; bottom?: number } | undefined;
   /** The hovered workspace's PR flag under the pointer, as Swift last reported it. */
   let hoverFlag: MapFlag | undefined;
   let enabled = true;
@@ -688,7 +688,7 @@ export function mountNativeAtlas(parent: HTMLElement, handlers: AtlasHandlers = 
     if (hovered) setHover(entity(hovered) ? hovered : null, hoverAt, hoverFlag);
   };
 
-  const setHover = (id: string | null, at?: { x: number; y: number }, flag?: MapFlag) => {
+  const setHover = (id: string | null, at?: { x: number; y: number; bottom?: number }, flag?: MapFlag) => {
     hovered = id;
     hoverAt = id ? at : undefined;
     hoverFlag = id ? flag : undefined;
@@ -708,7 +708,12 @@ export function mountNativeAtlas(parent: HTMLElement, handlers: AtlasHandlers = 
       handlers.pick?.(entity(message.id));
     } else if (message.type === "hover") {
       parent.style.cursor = message.id ? "pointer" : "";
-      setHover(message.id, message.x === undefined ? undefined : { x: message.x, y: message.y! }, message.flag);
+      setHover(
+        message.id,
+        // `bottom`: the hovered thing's bottom edge, where its card goes when there's no room above it.
+        message.x === undefined ? undefined : { x: message.x, y: message.y!, bottom: message.bottom },
+        message.flag,
+      );
     } else if (message.type === "zoom") {
       zoom = message.zoom;
       handlers.zoom?.(zoom);

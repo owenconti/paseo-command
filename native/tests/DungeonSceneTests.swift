@@ -100,6 +100,9 @@ let agentHover = events.last { $0["type"] as? String == "hover" }!
 assert(agentHover["id"] as? String == "a1" && agentHover["flag"] == nil)
 let top = screen(200, 330)
 assert(abs((agentHover["y"] as! CGFloat) - top.y) < 0.5, "the card points at the robot's top")
+// And says where its bottom is, for a card with no room above it (the medallion's: its disc's foot, 18 / 2 + 2 below its centre).
+assert(abs((agentHover["bottom"] as! CGFloat) - screen(200, 376).y) < 0.5, "the robot's bottom edge")
+assert(abs((flagHover["bottom"] as! CGFloat) - screen(109, 320).y) < 0.5, "the medallion's bottom edge")
 // The hovered robot glows along its own silhouette (halo nodes on its body), never a rim round a box.
 func glowCount(_ n: SKNode) -> Int { (n.name == "hover-glow" ? 1 : 0) + n.children.reduce(0) { $0 + glowCount($1) } }
 func shapeCount(_ n: SKNode) -> Int { (n is SKShapeNode && n.parent?.zPosition == 19 ? 1 : 0) + n.children.reduce(0) { $0 + shapeCount($1) } }

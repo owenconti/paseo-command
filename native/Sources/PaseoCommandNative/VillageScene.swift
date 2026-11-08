@@ -738,7 +738,7 @@ final class VillageScene: SKScene, MapScene {
     }
 
     private var lastHoverReport = ""
-    /// Where the hover card points: the entity's (or its medallion's) top centre, in the surface's points.
+    /// Where the hover card points: the entity's (or its medallion's) top centre, and its bottom edge, in the surface's points.
     private func reportHover() {
         var message: [String: Any] = ["type": "hover", "id": hovered as Any? ?? NSNull()]
         if let flag = hoveredFlag { message["flag"] = flag.flag }
@@ -747,6 +747,9 @@ final class VillageScene: SKScene, MapScene {
             let v = viewSize
             message["x"] = (top.x - (center.x - v.width / 2 / zoom)) * zoom
             message["y"] = (top.y - (center.y - v.height / 2 / zoom)) * zoom
+            // Its bottom edge too, so a card with no room above can sit beneath it instead.
+            let bottom = hoveredFlag.map { $0.center.y + $0.radius } ?? e.rect.maxY
+            message["bottom"] = (bottom - (center.y - v.height / 2 / zoom)) * zoom
         }
         let key = hovered ?? ""
         if key == lastHoverReport && hovered == nil { return }

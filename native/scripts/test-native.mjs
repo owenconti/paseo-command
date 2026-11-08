@@ -11,7 +11,8 @@ const tests = { LegacyState: ['Log', 'LegacyState'], WebOrigin: ['WebOrigin'], S
   AtlasView: ['Log', 'Geometry', 'Textures', 'NativeTheme', 'ChromeControls', 'MapScene', 'SpriteGlow', 'AtlasScene', 'DungeonScene', 'VillageScene', 'AtlasView'],
   DungeonScene: ['Log', 'Geometry', 'Textures', 'NativeTheme', 'ChromeControls', 'MapScene', 'SpriteGlow', 'AtlasScene', 'DungeonScene', 'VillageScene', 'AtlasView'],
   VillageScene: ['Log', 'Geometry', 'Textures', 'NativeTheme', 'ChromeControls', 'MapScene', 'SpriteGlow', 'AtlasScene', 'DungeonScene', 'VillageScene', 'AtlasView'],
-  DungeonGlow: ['Log', 'Geometry', 'Textures', 'NativeTheme', 'ChromeControls', 'MapScene', 'SpriteGlow', 'AtlasScene', 'DungeonScene', 'VillageScene', 'AtlasView'] };
+  DungeonGlow: ['Log', 'Geometry', 'Textures', 'NativeTheme', 'ChromeControls', 'MapScene', 'SpriteGlow', 'AtlasScene', 'DungeonScene', 'VillageScene', 'AtlasView'],
+  MapHover: ['Log', 'Geometry', 'Textures', 'NativeTheme', 'ChromeControls', 'MapScene', 'SpriteGlow', 'AtlasScene', 'DungeonScene', 'VillageScene', 'AtlasView'] };
 for (const [name, sources] of Object.entries(tests)) {
   const input = [...sources.map(s => `../Sources/PaseoCommandNative/${s}.swift`), `../tests/${name}Tests.swift`]
     .map(path => readFileSync(new URL(path, import.meta.url), 'utf8')).join('\n');

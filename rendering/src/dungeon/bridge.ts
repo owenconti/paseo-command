@@ -297,7 +297,7 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
   let layout: DungeonLayout | null = null;
   let selection: string | null = null;
   let hovered: string | null = null;
-  let hoverAt: { x: number; y: number } | undefined;
+  let hoverAt: { x: number; y: number; bottom?: number } | undefined;
   let hoverFlag: MapFlag | undefined;
   let enabled = true;
   let reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -1187,9 +1187,9 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
     }
   };
   /** The vault tile whose card shows, and where. */
-  let cardTile: { id: string; at: { x: number; y: number } | null } | null = null;
+  let cardTile: { id: string; at: { x: number; y: number; bottom?: number } | null } | null = null;
 
-  const setHover = (id: string | null, at?: { x: number; y: number }, flag?: MapFlag) => {
+  const setHover = (id: string | null, at?: { x: number; y: number; bottom?: number }, flag?: MapFlag) => {
     hovered = id;
     hoverAt = id ? at : undefined;
     hoverFlag = id ? flag : undefined;
@@ -1201,7 +1201,7 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
   type NativeEvent =
     | { type: "ready" }
     | { type: "pick"; id: string | null }
-    | { type: "hover"; id: string | null; x?: number; y?: number; flag?: MapFlag }
+    | { type: "hover"; id: string | null; x?: number; y?: number; bottom?: number; flag?: MapFlag }
     | { type: "zoom"; zoom: number }
     | { type: "state"; state: Record<string, unknown> }
     | { type: "stalled"; why: string }
@@ -1226,17 +1226,19 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
       handlers.pick?.(entity(message.id));
     } else if (message.type === "hover") {
       parent.style.cursor = message.id ? "pointer" : "";
+      // Where a card points: the hovered thing's top centre, and its bottom edge (`bottom`, where its card goes when
+      // there's no room above it).
+      const at = message.x === undefined ? null : { x: message.x, y: message.y!, bottom: message.bottom };
       if (message.id?.startsWith("tile:")) {
         if (hovered) setHover(null);
         const t = tileOf(message.id);
-        const at = message.x === undefined ? null : { x: message.x, y: message.y! };
         cardTile = t ? { id: t.id, at } : null;
         handlers.card?.(t ? dashCard(dashOf(t), t.hall, t.key) : null, at);
         return;
       }
       cardTile = null;
       handlers.card?.(null, null);
-      setHover(message.id, message.x === undefined ? undefined : { x: message.x, y: message.y! }, message.flag);
+      setHover(message.id, at ?? undefined, message.flag);
     } else if (message.type === "zoom") {
       zoom = message.zoom;
       handlers.zoom?.(zoom);

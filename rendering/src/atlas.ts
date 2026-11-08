@@ -11,8 +11,9 @@ import type { MapFlag } from "./prStatus";
 export type { AtlasData, Entity };
 export { STATE_NAMES, STATE_TILE, MODEL_COLORS, MODEL_FAMILY, modelColor, modelName } from "./world";
 export { nativeWorldAvailable };
-/** Screen position in CSS pixels relative to the map surface. */
-export type ScreenPoint = { x: number; y: number };
+/** Screen position in CSS pixels relative to the map surface: the top centre of what a card is about, and its
+ * bottom edge (`bottom`, when the world says), where the card goes when there's no room above it. */
+export type ScreenPoint = { x: number; y: number; bottom?: number };
 export type AtlasHandlers = {
   /** The user chose an entity on the map, or cleared the choice (Escape). */
   pick?: (entity: Entity | null) => void;

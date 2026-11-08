@@ -685,13 +685,15 @@ final class AtlasScene: SKScene, MapScene {
     }
 
     /// Where the hover card points: the entity's (or its hovered flag's) top
-    /// centre, in the surface's points.
+    /// centre, and its bottom edge, in the surface's points.
     private func reportHover() {
         var message: [String: Any] = ["type": "hover", "id": hovered as Any? ?? NSNull()]
         if let flag = hoveredFlag { message["flag"] = flag.flag }
         if let id = hovered, let at = hoveredFlag?.at ?? entities[id]?.at, let v = view?.bounds.size {
             message["x"] = (at.x - (center.x - v.width / 2 / zoom)) * zoom
             message["y"] = (at.y - at.height / 2 - (center.y - v.height / 2 / zoom)) * zoom
+            // Its bottom edge too, so a card with no room above can sit beneath it instead.
+            message["bottom"] = (at.y + at.height / 2 - (center.y - v.height / 2 / zoom)) * zoom
         }
         let key = "\(hovered ?? "")"
         if key == lastHoverReport && hovered == nil { return }
