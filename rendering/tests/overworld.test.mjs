@@ -38,15 +38,23 @@ test("robot colours: Claude orange, ChatGPT pearl, others a stable tint", () => 
   assert.equal(robotColour("gemini/gemini-3"), robotColour("gemini/gemini-3"));
 });
 
-test("overworld: the world carries no names, emblems, banners or signs", () => {
+test("overworld: names are painted only on the hosts' and projects' signboards", () => {
   const fleet = overworldFleet(crowded);
   const scene = layout(fleet);
-  // Nothing in the scene is text: no labels or plaques, and no name of a host, project or workspace.
   assert.equal(scene.labels, undefined);
+  // Each host's board hangs over its castle's gate; each project's hall carries one on its eave.
+  const signs = scene.items.filter((i) => i.kind === "sign");
+  for (const host of fleet) {
+    const board = signs.find((s) => s.style === "host" && s.text === host.name);
+    assert.ok(board, host.name);
+    assert.equal(!!board.dim, !!host.offline, `${host.name} dim`);
+    for (const p of host.projects.filter((p) => p.hall !== false)) assert.ok(signs.some((s) => s.style === "project" && s.text === p.name), p.name);
+  }
+  // Nowhere else: no workspace names, and no names outside the signs.
   const names = new Set(fleet.flatMap((h) => [h.name, ...h.projects.flatMap((p) => [p.name, ...p.workspaces.map((w) => w.name)])]));
-  const json = JSON.stringify({ ...scene, entities: [] });
+  const json = JSON.stringify({ ...scene, entities: [], items: scene.items.filter((i) => i.kind !== "sign") });
   for (const name of names) if (name.length > 3) assert.ok(!json.includes(JSON.stringify(name)), `${name} is drawn`);
-  // No emblem badges, banners, signboards or link nodes among the sprites.
+  // No emblem badges, banners, signboard sprites or link nodes among the sprites.
   for (const item of scene.items) {
     if (item.kind !== "sprite") continue;
     assert.doesNotMatch(item.frame, /^(badge-|banner-|emblem|signboard|label-|host-plaque|path-)/, `${item.sheet}/${item.frame}`);

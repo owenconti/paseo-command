@@ -701,16 +701,20 @@ and seven workspace cottages, balanced deterministically across neighbours (`STR
 A second map style (Settings → Map, ⌘K "Use the Overworld map" / "Use the Islands map"; `web/src/mapStyle.ts`, localStorage
 `atlas:style`, Islands by default), from the user's concept render (ignored `design/references/overworld-concept.png`): each host a
 terraced island region with its castle on top (lit while online, dark and grey while offline), project halls left and right of it, two
-a row, and each project's workspaces as market booths beneath it (rows of up to three; a camp for agents without a workspace). With no
-names drawn, a hall's roof is its project's mark: seeded from the project's name (the same project has the same roof on every host; two
+a row, and each project's workspaces as market booths beneath it (rows of up to three; a camp for agents without a workspace). A hall's roof is also its project's mark: seeded from the project's name (the same project has the same roof on every host; two
 halls on a host never share one), and a host's scenery theme is seeded from it but never its neighbour's (the host before it takes the
 first other theme, forest before farm before volcanic). It is a painted world with nothing laid over it (the user asked for it to feel real, without fake overlay
-layers): no names, plaques, emblems, icon badges, banners, signboards, connector lines, PR / Probe medallions, clouds or glows. The
+layers): no plaques, emblems, icon badges, banners, connector lines, PR / Probe medallions, clouds or glows. The only text is
+on wooden signboards that belong to the buildings (the user's call): each host's name on a board hung on two chains from its
+castle's corbels over the gate, and each project's on a smaller board on two iron brackets on its hall's front eave over the
+door (`SignItem` in `layout.ts`, `paintSign` in `paint.ts`: planks lit from the upper left with grain, seams and iron bolts,
+the name in cream capitals in the Dungeon Board's old-style serif with a carved inset, sized to the name, tracking tightening,
+then "…" past `maxW`; an offline host's board dull). Workspaces and agents carry no names. The
 castle's and halls' painted emblem discs and parchment signs were repainted out of `host.png` and `halls.png` (their badge, banner and
-emblem frames dropped, the `ui-world` and `status` sheets removed). Names and pull requests are in the hover cards: a project, workspace
+emblem frames dropped, the `ui-world` and `status` sheets removed). Pull requests are in the hover cards: a project, workspace
 or agent says its name, and a workspace its PR, CI and review flags, Probe's verdict and auto-merge (`workspacePrLines` in
-`web/src/flagTip.ts`, only on the Overworld; its legend lists no medallions). Hosts stay uninteractive, so the Overworld shows no host
-name or CPU · MEM · DISK (the other map styles do). An agent's state is the light it casts in its booth
+`web/src/flagTip.ts`, only on the Overworld; its legend lists no medallions). Hosts stay uninteractive; the Overworld shows no
+CPU · MEM · DISK (the other map styles do). An agent's state is the light it casts in its booth
 (`stateLight` in `native.ts`, in its `STATE_TILE` colour, no ring or outline: a pool on the floor at its feet, a booth slot wide so
 neighbours never blend, and a wash on the back wall behind it, which the robot doesn't hide; both pulse while it needs you; idle casts
 none), its work frames while running, and a faded robot offline. Booths are a neutral stage for it (the stalls sheet darker and
@@ -733,7 +737,7 @@ off the plateau), farmland (windmill, fields, hay) or volcanic (dark peaks, a sm
 with bushes and the odd boulder between open meadow, and islands' fronts carry cliff faces, headlands and rocks (`coast.png`,
 `paintCoast`). Its sprites are HD painted sheets in `rendering/src/assets/overworld/` (frame maps beside them; provenance in
 `rendering/ASSETS.md`). `rendering/src/overworld/`: `fleet.ts` maps the fleet, `layout.ts` lays a host out in concept pixels
-(deterministic, and never text, emblems or banners; `rendering/tests/overworld.test.mjs`), `paint.ts` paints it (sea and shallows, islands
+(deterministic; no emblems or banners, text only on the signs; `rendering/tests/overworld.test.mjs`), `paint.ts` paints it (sea and shallows, islands
 with perspective cliffs and surf, rivers, scenery, buildings), `native.ts` (`OverworldMap`) paints each host once per layout change into
 tiles, a few at a time, arranges hosts in columns to suit the map's shape, and posts the robots and their state light as overlays, with
 each entity's rectangle. Swift (`AtlasScene`, scene `style: "overworld"`) tiles the page's graded sea tile (`overworldSeaTile`, scene

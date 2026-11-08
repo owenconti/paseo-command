@@ -1,7 +1,8 @@
 // Overworld layout: hosts, projects, workspaces and agents laid out as the user's concept
 // rendering lays them out. Units are concept pixels (the concept is ~1200 px wide); the
-// painter draws at SCALE world pixels per unit (the sprites are drawn at 4×). The world carries no
-// text, emblems or signs: names and states are said by hover cards and light, not drawn on the land.
+// painter draws at SCALE world pixels per unit (the sprites are drawn at 4×). The only text is painted on
+// wooden signboards that belong to the buildings: each host's on chains over its castle's gate, each project's
+// on its hall's front eave (`SignItem`). States are said by light; workspaces and agents by hover cards.
 
 import { islandBounds } from "./terrain.ts";
 
@@ -85,6 +86,27 @@ export interface BoothItem {
   camp?: boolean;
   z?: number;
 }
+/** A painted wooden signboard with a name on it: a host's hung on chains from its castle's corbels over the
+ * gate, a project's fixed on its hall's front eave over the door. The painter sizes it to the name (between
+ * `minW` and `maxW`, the name cut short with "…" past it). */
+export interface SignItem {
+  kind: "sign";
+  style: "host" | "project";
+  text: string;
+  /** Centre of the board. */
+  x: number;
+  /** Bottom of the board. */
+  y: number;
+  h: number;
+  minW: number;
+  maxW: number;
+  /** Where its chains hang from (host boards). */
+  hangY?: number;
+  /** An offline host's: dull and unlit. */
+  dim?: boolean;
+  z: number;
+}
+export type Item = SpriteItem | BoothItem | SignItem;
 export interface River {
   pts: Array<[number, number]>;
   width: number;
@@ -132,7 +154,7 @@ export interface Scene {
   entities: OwEntity[];
   robots: RobotSpot[];
   islands: Island[];
-  items: Array<SpriteItem | BoothItem>;
+  items: Item[];
   rivers: River[];
   falls: Fall[];
   paths: Strip[];
@@ -368,6 +390,9 @@ function layoutHost(scene: Scene, host: OwHost, y0: number, index: number, last:
   // The castle: lit while its host is online, dark and grey while it's offline.
   const castleFrame = host.offline ? "castle-offline" : "castle-online";
   scene.items.push({ kind: "sprite", sheet: "host", frame: castleFrame, x: CX, y: y0 + 292, scale: 0.29, shadow: 0.3 });
+  // Its name board, on chains from the corbels under the battlements, over the upper windows and the gate's arch.
+  if (host.name)
+    scene.items.push({ kind: "sign", style: "host", text: host.name, x: CX, y: y0 + 191, h: 21, minW: 70, maxW: 172, hangY: y0 + 163, dim: host.offline, z: y0 + 292.5 });
   reserve(scene, CX - 145, y0 + 30, CX + 145, y0 + 296);
 
   // River from the castle gate down through the channel and over the cliff.
@@ -411,6 +436,9 @@ function layoutProject(
     // Hall: its roof's colour seeded from the project, its body down to y0+292, lanterns at its door.
     const hallItem: SpriteItem = { kind: "sprite", sheet: "halls", frame: `hall-${project.roof}`, x: hx, y: y0 + 296, scale: 0.248, shadow: 0.35 };
     scene.items.push(hallItem);
+    // Its name board, fixed on the roof's front eave over the door, as a shop's sign.
+    if (project.name)
+      scene.items.push({ kind: "sign", style: "project", text: project.name, x: hx, y: y0 + 238, h: 15, minW: 50, maxW: 136, z: y0 + 296.5 });
     reserve(scene, hx - 112, y0 + 160, hx + 112, y0 + 300);
     for (const side of [-1, 1]) {
       scene.items.push({ kind: "sprite", sheet: "props", frame: "lantern-lit", x: hx + side * 46, y: y0 + 304, scale: 0.2, shadow: 0.2, z: y0 + 305 });
