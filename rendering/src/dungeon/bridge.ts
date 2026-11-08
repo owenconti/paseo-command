@@ -76,6 +76,8 @@ const SIGN_PAINT_DULL = "#9c9184";
 const SIGN_ALERT = "#ff7a5c";
 /** The sign's caps and rails, at this share of their sheet size. */
 const SIGN_K = 0.64;
+/** A project's name board's corners and chains, as a share of the sheet's (the host's sign's are `SIGN_K`). */
+const PROJECT_SIGN_K = 0.36;
 const ALERT = "#b0301c";
 
 const load = (url: string) =>
@@ -379,6 +381,29 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
       ctx.fillRect(28 + rng() * (r.w - 56), faceTop + rng() * (faceBottom - faceTop), 0.6 + rng() * 0.9, 0.6 + rng() * 0.7);
     }
     ctx.globalCompositeOperation = "source-over";
+    return canvas;
+  };
+  /** A project's name board: the host sign's board, smaller (its chains, rails and iron corners scaled with it), on
+   * short chains from its hall's lintel, the name painted in cream as the host's is; dull and unlit on an offline floor. */
+  const paintProjectSign = (r: Rect, label: string, online: boolean) => {
+    const { canvas, ctx } = canvasFor(r.w, r.h);
+    const board = FRAMES["sign-board"]?.real ? "sign-board" : "plaque";
+    if (!online) ctx.filter = "brightness(0.55) saturate(0.55)";
+    nineSlice(ctx, frame(board), board, 0, 0, r.w, r.h, PROJECT_SIGN_K);
+    ctx.filter = "none";
+    const ins = sliceOf(FRAMES[board]!);
+    const faceTop = ins.top * PROJECT_SIGN_K, faceBottom = r.h - ins.bottom * PROJECT_SIGN_K;
+    const y = (faceTop + faceBottom) / 2 + 0.6;
+    ctx.font = fontOf("project");
+    ctx.textBaseline = "middle";
+    ctx.textAlign = "center";
+    // Paint on wood, as the host's sign: a dark inset, a faint highlight, the colour.
+    ctx.fillStyle = "rgba(20, 8, 2, 0.75)";
+    ctx.fillText(label, r.w / 2 + 0.6, y + 0.8);
+    ctx.fillStyle = "rgba(255, 244, 214, 0.22)";
+    ctx.fillText(label, r.w / 2 - 0.4, y - 0.4);
+    ctx.fillStyle = online ? SIGN_PAINT : SIGN_PAINT_DULL;
+    ctx.fillText(label, r.w / 2, y);
     return canvas;
   };
   /** The HUD's title plaque and count bar: navy panels with gold borders, in screen points. */
@@ -701,6 +726,7 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
       // a valance in its colour under the lintel and a runner along the floor. Its stone is tagged with the project,
       // so its glow follows the hall's own silhouette.
       // The hall's stone a notch down, so the robots stay brighter than their surround.
+      const lit = l.floors[p.floor]!.online;
       const h = p.hall, stone = { ...dim, ...(dim.dim ? {} : { shade: 0.22 }), ...(p.entity ? { e: p.entity.id } : {}) };
       const lintelY = h.y, lintelB = h.y + D.lintelH, floorY = h.y + h.h - D.hallFloorH;
       /** A strip of `name` tiled across `w` in whole modules (the sheet's swags and stones keep their phase): the strip's
@@ -727,12 +753,17 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
       whole(`valance-${cloth}`, valX, lintelB - 1, valW, 17, -10.4, dim);
       put(`valance-${cloth}-end-left`, valX - tie / 2, lintelB - 2, tie, 17, -10.38, dim);
       put(`valance-${cloth}-end-right`, valX + valW - tie / 2, lintelB - 2, tie, 17, -10.38, dim);
+      // Its name board over the valance's middle (an offline floor's is painted dull itself, as the host's sign is).
+      images.push({
+        ...image(`project-sign:${p.label}:${p.sign.w}:${lit}`, () => paintProjectSign(p.sign, p.label, lit)),
+        x: p.sign.x, y: p.sign.y, w: p.sign.w, h: p.sign.h, z: -10.3,
+        ...(p.entity ? { e: p.entity.id } : {}),
+      });
       const runX = h.x + D.hallPier + 8, runW = h.w - 2 * D.hallPier - 16;
       whole(`runner-${cloth}`, runX, floorY + 2, runW, 9, -9.55, dim);
       put(`runner-${cloth}-end-left`, runX - 10, floorY + 2, 11, 9, -9.54, dim);
       put(`runner-${cloth}-end-right`, runX + runW - 1, floorY + 2, 11, 9, -9.54, dim);
       // Wall candles flanking its mark, with their warm spill on the wall.
-      const lit = l.floors[p.floor]!.online;
       for (const t of p.torches) {
         // A notch down (shaded), so the pair over the hall never outshines its robots.
         sprites.push(sprite(lit ? "wall-candles" : "wall-candles-out", at("wall-candles", t.x, t.y, 30), 3.2, { ...dim, ...(lit ? { shade: 0.45 } : {}) }));

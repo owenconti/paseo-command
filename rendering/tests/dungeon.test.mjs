@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { layoutDungeon, overlaps, CLOTHS, hudSubtitle, projectIcon, robotColor, cutawaySpans, D } from "../src/dungeon/layout.ts";
+import { layoutDungeon, overlaps, approxMeasure, CLOTHS, hudSubtitle, projectIcon, robotColor, cutawaySpans, D } from "../src/dungeon/layout.ts";
 import { FRAMES, applySheet } from "../src/dungeon/frames.ts";
 import { readdirSync, readFileSync } from "node:fs";
 
@@ -51,9 +51,21 @@ function assertLegible(layout) {
       if (a.what.startsWith("alcove") && b.what.startsWith("robot")) continue;
       assert.ok(!overlaps(a.rect, b.rect), `${a.what} overlaps ${b.what}`);
     }
-  // Only the hosts carry labels (their plaques), as on the Islands; PR medallions sit on their alcove's lintel.
-  const labels = layout.floors.map((f) => f.plaque);
-  for (const p of layout.projects) assert.equal(p.label, undefined, "a project carries no label");
+  // The hosts carry their plaques and the projects their name boards (the user's call); PR medallions sit on their alcove's lintel.
+  const labels = [...layout.floors.map((f) => f.plaque), ...layout.projects.map((p) => p.sign)];
+  for (const p of layout.projects) {
+    assert.ok(p.label.length > 0, `${p.name}'s board names it`);
+    // Over its valance: between its piers, hanging from its lintel, its bottom above its alcoves' lintels and medallions.
+    const { sign, hall } = p;
+    assert.ok(sign.x >= hall.x + D.hallPier && sign.x + sign.w <= hall.x + hall.w - D.hallPier, `${p.name}'s board is between its piers`);
+    assert.ok(sign.y >= hall.y && sign.y <= hall.y + D.lintelH, `${p.name}'s board hangs from its lintel`);
+    assert.ok(Math.abs(sign.x + sign.w / 2 - (hall.x + hall.w / 2)) < 0.5, `${p.name}'s board is centred on its hall`);
+    for (const w of layout.workspaces.filter((w) => w.project === p.key)) {
+      assert.ok(sign.y + sign.h <= w.rect.y + 0.01, `${p.name}'s board stays above ${w.entity.name}'s alcove`);
+      for (const f of w.flags) assert.ok(sign.y + sign.h < f.y - f.size / 2, `${p.name}'s board clears ${w.entity.name}'s medallions`);
+    }
+    for (const a of layout.agents) assert.ok(!overlaps(sign, a.rect), `${p.name}'s board clears ${a.entity.id}`);
+  }
   for (const w of layout.workspaces) {
     assert.equal(w.label, undefined, "a workspace carries no label");
     for (const f of w.flags) assert.ok(f.x >= w.rect.x && f.x <= w.rect.x + w.rect.w && f.y >= w.rect.y && f.y <= w.rect.y + 30, "a PR medallion sits on its alcove's lintel");
@@ -228,7 +240,7 @@ test("each floor's cutaway opens round the next host's gate, so its arch reads w
   });
 });
 
-test("no labels, icons or links: a project is its terrace, picked by its wall above its alcoves", () => {
+test("no icons or links: a project is its terrace, picked by its wall above its alcoves", () => {
   const layout = layoutDungeon(DUNGEON_SAMPLE, 1.4);
   // The user removed the gold pipes: the layout has no links, nodes or runs.
   assert.equal(layout.links, undefined);
@@ -242,6 +254,20 @@ test("no labels, icons or links: a project is its terrace, picked by its wall ab
     assert.ok(alcoves.every((w) => p.rect.y + p.rect.h <= w.rect.y + 0.01 && !overlaps(p.rect, w.rect)), `${p.name}'s box stays above its alcoves`);
     assert.ok(p.rect.x >= p.span.x && p.rect.x + p.rect.w <= p.span.x + p.span.w && p.rect.w > 80, `${p.name}'s box is its terrace`);
   }
+});
+
+test("a project's name board: in capitals, as wide as its name needs, a long name cut short to fit its hall", () => {
+  const data = big(1, 2, 1, 1);
+  data.projects[0].name = "api";
+  data.projects[1].name = "a-very-long-project-name-that-cannot-possibly-fit-over-one-alcove";
+  const layout = layoutDungeon(data, 1.4);
+  const [short, long] = data.projects.map((d) => layout.projects.find((p) => p.key === d.key));
+  assert.equal(short.label, "API");
+  assert.equal(short.sign.w, D.projectSignMin);
+  assert.ok(long.label.endsWith("…") && long.label.length < data.projects[1].name.length, "the long name is cut short");
+  assert.ok(approxMeasure(long.label, "project") + 2 * D.projectSignPad <= long.sign.w + 0.5, "what's left fits its board");
+  assert.ok(long.sign.w > short.sign.w);
+  assertLegible(layout);
 });
 
 test("each project's hall encloses its alcove row (1 to 8 alcoves), clear of its neighbours", () => {

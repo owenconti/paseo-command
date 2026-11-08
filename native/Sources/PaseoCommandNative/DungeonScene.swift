@@ -181,7 +181,11 @@ final class DungeonScene: SKScene, MapScene {
             }
         }
         for s in m["images"] as? [[String: Any]] ?? [] {
-            if let node = node(s, anims: &sceneAnims, pulses: &scenePulses) { board.addChild(node) }
+            if let node = node(s, anims: &sceneAnims, pulses: &scenePulses) {
+                board.addChild(node)
+                // A painted piece tagged with its entity (a project's name board) glows with it.
+                if let e = s["e"] as? String { owners[e, default: []] += SpriteGlow.sprites(in: node) }
+            }
         }
         flags = []
         for f in m["flags"] as? [[String: Any]] ?? [] {

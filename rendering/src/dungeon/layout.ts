@@ -64,7 +64,7 @@ export const D = {
   /** Below the foot's furnishings, room the HUD's count bar lies over (nothing the board says is under it). */
   footPad: 82,
   /** Within a tier (from its top). */
-  /** A project's mark: no icon or label (names are on the hover cards, as on the Islands): its terrace and the pair
+  /** A project's mark: no icon (its name is on its hall's board, `projectSign*`): its terrace and the pair
    * of wall candles flanking this point, `markR` either side, which is also where its alarm glows. */
   markY: 32,
   markR: 29,
@@ -104,8 +104,15 @@ export const D = {
   archH: 121,
   stairsY: 235,
   stairsW: 120,
-  /** Type (board px): the host sign's painted name and stats line (projects and workspaces carry no labels). */
-  font: { host: 26, stats: 14.5 },
+  /** A project's name board: a small wooden board on short chains from its hall's lintel, over the middle of its
+   * valance (the user's call), from this far below the tier's top, this tall (chains included), its bottom above the
+   * alcoves' lintels and their PR medallions; at least this wide, and this much room either side of its name. */
+  projectSignY: 54,
+  projectSignH: 32,
+  projectSignMin: 64,
+  projectSignPad: 15,
+  /** Type (board px): the host sign's painted name and stats line, and a project board's name (workspaces carry no labels). */
+  font: { host: 26, stats: 14.5, project: 11 },
   /** A PR medallion on an alcove's lintel. */
   flag: 18,
   flagInset: 16,
@@ -166,6 +173,10 @@ export type DProject = {
   hall: Rect;
   /** Its cloth colour (the valance over its alcoves and the runner before them; the user's choice, B). */
   cloth: string;
+  /** Its name board, hanging over the middle of its valance (chains included), and the name painted on it (in
+   * capitals, as the hosts' signs; cut short with "…" to fit its hall). */
+  sign: Rect;
+  label: string;
 };
 export type DFlag = { workspace: string; flag: string; frame: string; x: number; y: number; size: number };
 export type DWorkspace = {
@@ -428,13 +439,24 @@ export function assignCloths(projects: DProject[]) {
   }
 }
 
+/** A project's name board, centred over its hall's valance: as wide as its name needs, never wider than the room
+ * between the hall's piers (a longer name is cut short with "…"). */
+export function projectSign(name: string, hallX: number, hallW: number, y0: number, measure: Measure): { sign: Rect; label: string } {
+  const max = Math.max(D.projectSignMin, hallW - 2 * D.hallPier - 4);
+  const room = max - 2 * D.projectSignPad;
+  let label = name.toUpperCase();
+  while (label.length > 1 && measure(label, "project") > room) label = label.slice(0, -2) + "…";
+  const w = Math.round(Math.min(max, Math.max(D.projectSignMin, measure(label, "project") + 2 * D.projectSignPad)));
+  return { sign: { x: hallX + hallW / 2 - w / 2, y: y0 + D.projectSignY, w, h: D.projectSignH }, label };
+}
+
 /** A side room's recess, in board units. */
 const ROOM = { w: 130, h: 200 };
 
 /**
  * Lay the fleet out as the Dungeon Board. Its width follows its content, not
  * the map's shape (`_aspect` is kept for the map styles' common call); `measure`
- * gives text widths (the bridge's real font; only the host plaques carry text).
+ * gives text widths (the bridge's real font; the host plaques and the projects' name boards carry text).
  */
 export function layoutDungeon(data: AtlasData, _aspect = 1.6, measure: Measure = approxMeasure): DungeonLayout {
   const planned = sortedHosts(data).map((host) => ({ host, groups: hostGroups(host, data) }));
@@ -591,6 +613,7 @@ export function layoutDungeon(data: AtlasData, _aspect = 1.6, measure: Measure =
             stale: !!b.project?.stale,
             hall: { x: Math.min(X(0), X(b.hallW)), y: y0 + D.hallTop, w: b.hallW, h: D.floorY + D.hallFloorH - D.hallTop },
             cloth: CLOTHS[0]!,
+            ...projectSign(b.project?.name ?? "No project", Math.min(X(0), X(b.hallW)), b.hallW, y0, measure),
           });
           b.alcoves.forEach((a, k) => {
             const x0 = s === 1 ? X(b.starts[k]!) : X(b.starts[k]! + a.width);
