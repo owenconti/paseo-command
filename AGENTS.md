@@ -795,10 +795,16 @@ its terrace glowing between its candles in the most urgent state's colour, offli
 sit on each alcove's lintel, larger (`D.flag`, 24) in one row centred on its bricks (CI, review, Probe; the user's call), the auto-merge seal on its medallion's rim, with the Atlas's hover cards.
 The vault (the Village's dashboard halls, in the dungeon's stone): in the wall above the first floor, over the first gate and
 between its inner torches, eight niches, your pull requests' four left of the gate's line (Merged, Review, Draft, Conflicts) and
-your Linear issues' four right of it (Done, In Progress, Todo, Blocked), each the stone sheet's `niche-arch` holding the Village's
-stained-glass pane for its group (`tiles.png`, graded quieter at load so the robots stay brightest; a faint steady light of its
-colour), dim while its hall can't count (off, no key, failed: `counts.prs|issues.known`); laid out only once the page passes
-`AtlasData.dashboard` (`vault`, `DTile`, `D.vault*` in `layout.ts`; it moves nothing else). No text on them: each is posted as
+your Linear issues' four right of it (Done, In Progress, Todo, Blocked), each the stone sheet's `niche-arch` holding a
+stained-glass pane for its group (the PRs' the Village's `tiles.png` panes; the issues' their own, the same glass leaded with
+Linear's status shapes so the rows never read as one set twice: Done a ring round a check, In Progress a ring half filled, Todo
+an empty ring, Blocked a ring struck through, `assets/dungeon/vault.png` from `rendering/scripts/vault-issue-panes.py`, `ISSUE_GLASS`,
+`DTile.frame`; both graded quieter at load so the robots stay brightest; a faint steady light of its colour), dim while its hall
+can't count (off, no key, failed: `counts.prs|issues.known`); laid out only once the page passes `AtlasData.dashboard` (`vault`,
+`DTile`, `D.vault*` in `layout.ts`; it moves nothing else: the wall above the first floor is always tall enough for it). Each row
+is named on a board hanging from the wall's top over its niches, "PULL REQUESTS" and "LINEAR ISSUES" (the user's call; the
+projects' board and paint, `paintProjectSign`, dull while its hall can't count; `vaultSigns`, `VAULT_SIGNS`, `D.vaultSign*`;
+the scene's `vaultTop` is the boards' top). No other text on them: each niche is posted as
 a `tile` entity (`tile:<hall>:<key>`, as the Village's), glowing with its sprites (`e`) on hover, its card (`dashCard` in
 `rendering/src/dashboard.ts`, shared with the Village: the group, its count, up to 12 PRs or issues, or why it can't count),
 and a click opens its first PR or issue through `openAppLink` (never a selection). The counts are the Village's

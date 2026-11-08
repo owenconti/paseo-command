@@ -186,6 +186,8 @@ export const FRAMES: Record<string, FrameSpec> = Object.fromEntries([
   ["cobweb", spec("props", 40, 40, "top-left")],
   // The vault's stained glass and the At a Glance panel's section icons, borrowed from the Village's `tiles` and `hud` sheets.
   ...["merged", "review", "draft", "failing"].map((t) => [`tile-${t}`, spec("tiles", 44, 44, "center")] as [string, FrameSpec]),
+  // The vault's issue panes: the same glass, leaded with Linear's status shapes (`scripts/vault-issue-panes.py`).
+  ...["done", "progress", "todo", "blocked"].map((t) => [`issue-${t}`, spec("vault", 44, 44, "center")] as [string, FrameSpec]),
   ...["pr", "issue", "workspaces", "agents"].map((i) => [`icon-${i}`, spec("hud", 22, 23, "center")] as [string, FrameSpec]),
   // status
   ...MARKS.map((m) => [`mark-${m}`, spec("status", 20, 22, "center")] as [string, FrameSpec]),

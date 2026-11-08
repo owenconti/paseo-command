@@ -212,10 +212,13 @@ test("the vault: your PRs' and issues' stained-glass niches over the first gate,
   assert.deepEqual(board.counts.prs.by, { merged: 7, review: 3, draft: 1, conflicts: 1 });
   assert.deepEqual(board.counts.issues.by, { done: 11, inProgress: 8, todo: 7, blocked: 2 });
   assert.deepEqual(board.vault.map((t: any) => t.pane), ["merged", "review", "draft", "failing", "merged", "review", "draft", "failing"]);
+  // The issues' glass is their own (Linear's status shapes), not the PRs' again; each row is named on a board above it.
+  assert.deepEqual(board.vault.map((t: any) => t.frame), ["tile-merged", "tile-review", "tile-draft", "tile-failing", "issue-done", "issue-progress", "issue-todo", "issue-blocked"]);
+  assert.deepEqual(board.vaultSigns.map((v: any) => v.label), ["PULL REQUESTS", "LINEAR ISSUES"]);
   // Swift gets each niche to hover and pick (as a tile, never a selection), its stone and glass tagged to glow with it.
   const scene = (await native(page)).scenes.at(-1)!;
   assert.deepEqual(scene.entities.filter((e) => e.kind === "tile").map((e) => e.id), board.vault.map((t: any) => t.id));
-  for (const t of board.vault) assert.deepEqual(scene.sprites.filter((s) => s.e === t.id).map((s) => s.f), ["niche-arch", `tile-${t.pane}`]);
+  for (const t of board.vault) assert.deepEqual(scene.sprites.filter((s) => s.e === t.id).map((s) => s.f), ["niche-arch", t.frame]);
   assert.ok(scene.sprites.filter((s) => s.e?.startsWith("tile:")).every((s) => !s.dim), "both halls count: nothing dim");
   // The At a Glance panel goes to Swift with the HUD.
   await waitFor(async () => (await native(page)).agents.at(-1)?.hud?.panel?.key, (k) => !!k && /"merged":7/.test(k), "the At a Glance panel");

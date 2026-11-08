@@ -83,16 +83,19 @@ export const D = {
   floorY: 214,
   /** The thick front wall closing each tier (its top). */
   frontY: 230,
-  /** The wall above the first floor, which the HUD's title lies over. */
-  topBand: 64,
+  /** The wall above the first floor, which the HUD's title lies over (tall enough for the vault and its boards). */
+  topBand: 88,
   /** The vault in that wall, over the first gate: your pull requests' four stained-glass niches left of the
    * gate's line and your Linear issues' four right of it (the Village's dashboard halls, in the dungeon's stone).
    * Each niche this wide (its height its frame's shape), this far from its neighbour, the two rows this far apart
-   * across the line, their feet this far down the wall; kept between the wall's inner torches. */
+   * across the line, their feet this far down the wall; kept between the wall's inner torches. Over each row a name
+   * board ("PULL REQUESTS", "LINEAR ISSUES"), the projects' boards' kind, hanging from the wall's top this tall. */
   vaultNiche: 38,
   vaultGap: 5,
   vaultMid: 20,
-  vaultFeet: 56,
+  vaultFeet: 80,
+  vaultSignY: 1,
+  vaultSignH: 30,
   /** Within a floor (from its top). */
   gateMedallionY: 48,
   gateMedallionR: 24,
@@ -241,6 +244,9 @@ export type DTile = {
   hall: DashHall;
   key: string;
   pane: DashPane;
+  /** Its glass's frame: the Village's PR panes for your PRs, the vault's own issue panes (Linear's status shapes) for
+   * your issues, so the two rows never read as one set twice. */
+  frame: string;
   /** The niche's box (its pick box and glow) and the pane's, inside its opening. */
   rect: Rect;
   glass: Rect;
@@ -265,6 +271,12 @@ export type DungeonCounts = {
 };
 /** The pane's place in a niche's opening, as shares of the niche's frame (the stone sheet's `niche-arch`). */
 export const VAULT_GLASS = { x: 0.5, w: 0.555, bottom: 0.83 };
+/** Each issue group's pane in the vault's sheet. */
+export const ISSUE_GLASS: Record<string, string> = { done: "issue-done", inProgress: "issue-progress", todo: "issue-todo", blocked: "issue-blocked" };
+/** The vault's row names, on their boards. */
+export const VAULT_SIGNS: Record<DashHall, string> = { prs: "PULL REQUESTS", issues: "LINEAR ISSUES" };
+/** A vault row's name board, centred over its niches. */
+export type DVaultSign = { hall: DashHall; label: string; rect: Rect };
 export type DungeonLayout = {
   /** The board, end to end and top to bottom (without the HUD, which keeps screen size). */
   bounds: Rect;
@@ -277,6 +289,8 @@ export type DungeonLayout = {
   topBand: { rect: Rect; piers: Rect[] };
   /** The vault's niches (none until the page passes the dashboard's counts). */
   vault: DTile[];
+  /** A name board over each row of the vault. */
+  vaultSigns: DVaultSign[];
   entities: Entity[];
   counts: DungeonCounts;
   /** Changes whenever anything's place changes. */
@@ -752,12 +766,23 @@ export function layoutDungeon(data: AtlasData, _aspect = 1.6, measure: Measure =
         const { rect } = rectOf("niche-arch", x, D.vaultFeet, D.vaultNiche);
         const g = rect.w * VAULT_GLASS.w;
         const glass = { x: rect.x + rect.w * VAULT_GLASS.x - g / 2, y: rect.y + rect.h * VAULT_GLASS.bottom - g, w: g, h: g };
-        vault.push({ id: `tile:${hall}:${t.key}`, hall, key: t.key, pane: t.tile, rect, glass });
+        const frame = hall === "issues" ? (ISSUE_GLASS[t.key] ?? `tile-${t.tile}`) : `tile-${t.tile}`;
+        vault.push({ id: `tile:${hall}:${t.key}`, hall, key: t.key, pane: t.tile, frame, rect, glass });
       });
   }
+  // Each row's name board, centred over its niches, as wide as its name needs (never wider than the row).
+  const vaultSigns: DVaultSign[] = (["prs", "issues"] as const).flatMap((hall) => {
+    const row = vault.filter((t) => t.hall === hall);
+    if (!row.length) return [];
+    const x0 = Math.min(...row.map((t) => t.rect.x)), x1 = Math.max(...row.map((t) => t.rect.x + t.rect.w));
+    const label = VAULT_SIGNS[hall];
+    const w = Math.round(Math.min(x1 - x0, Math.max(D.projectSignMin, measure(label, "project") + 2 * D.projectSignPad)));
+    return [{ hall, label, rect: { x: (x0 + x1) / 2 - w / 2, y: D.vaultSignY, w, h: D.vaultSignH } }];
+  });
   // Everything the board says or shows, which decorations keep clear of.
   const reserved: Rect[] = [
     ...vault.map((t) => t.rect),
+    ...vaultSigns.map((s) => s.rect),
     ...floors.flatMap((fl) => (fl.step ? [{ ...fl.step, y: fl.step.y - 6, h: fl.step.h + 10 }] : [])),
     ...floors.flatMap((fl) => [fl.plaque, fl.portcullis, fl.stairs, fl.surround, fl.arch,
       // The thick front wall closing each tier.
@@ -950,7 +975,8 @@ export function layoutDungeon(data: AtlasData, _aspect = 1.6, measure: Measure =
   const signature = JSON.stringify([
     round(bounds),
     // The vault's niches, and whether each hall can count (an unknown hall's niches are drawn dim).
-    vault.map((t) => [t.id, round(t.rect)]),
+    vault.map((t) => [t.id, t.frame, round(t.rect)]),
+    vaultSigns.map((v) => [v.label, round(v.rect)]),
     [counts.prs.known, counts.issues.known],
     floors.map((fl) => [fl.host.id, fl.title, fl.online, fl.stats.map((s) => s.text), round(fl.rect)]),
     projects.map((p) => [p.key, p.name, round(p.rect)]),
@@ -973,6 +999,7 @@ export function layoutDungeon(data: AtlasData, _aspect = 1.6, measure: Measure =
     decor,
     topBand,
     vault,
+    vaultSigns,
     entities,
     counts,
     signature,

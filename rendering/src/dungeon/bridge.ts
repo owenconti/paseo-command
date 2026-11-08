@@ -173,7 +173,7 @@ async function buildFrames(): Promise<{ canvases: Map<string, HTMLCanvasElement>
     // The robots keep their colours vivid: only a saturation lift, never the purple grade.
     // The vault's glass a notch quieter than the Village's (less saturated, its darks toward the stone's purple), so
     // the robots stay the brightest colour on the board.
-    const source = stem === "tiles" ? grade(image, { saturation: VAULT_GLASS_SATURATION, strength: 0.25, lift: 1 }) : GRADED.has(stem) ? grade(image, stem === "stone" ? { lift: GRADE.stoneLift, strength: GRADE.stoneStrength, warmth: GRADE.stoneWarmth, saturation: GRADE.stoneSaturation } : {}) : stem === "robots" ? grade(image, { saturation: 1.15, strength: 0, lift: 1 }) : image;
+    const source = stem === "tiles" || stem === "vault" ? grade(image, { saturation: VAULT_GLASS_SATURATION, strength: 0.25, lift: 1 }) : GRADED.has(stem) ? grade(image, stem === "stone" ? { lift: GRADE.stoneLift, strength: GRADE.stoneStrength, warmth: GRADE.stoneWarmth, saturation: GRADE.stoneSaturation } : {}) : stem === "robots" ? grade(image, { saturation: 1.15, strength: 0, lift: 1 }) : image;
     for (const [name, f] of Object.entries(sheet.frames)) {
       if (!FRAMES[name]) continue;
       const canvas = document.createElement("canvas");
@@ -660,11 +660,17 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
         const known = (t.hall === "prs" ? l.counts.prs : l.counts.issues).known;
         const dim = known && l.floors[0]!.online ? {} : { dim: 1 };
         put("niche-arch", t.rect.x, t.rect.y, t.rect.w, t.rect.h, -44.6, { ...dim, e: t.id });
-        put(`tile-${t.pane}`, t.glass.x, t.glass.y, t.glass.w, t.glass.h, -44.55, { ...dim, e: t.id });
+        put(t.frame, t.glass.x, t.glass.y, t.glass.w, t.glass.h, -44.55, { ...dim, e: t.id });
         // A little of the glass's colour on the stone round it (steady, as the building's light is).
         if (!("dim" in dim)) lights.push({ x: t.glass.x + t.glass.w / 2, y: t.glass.y + t.glass.h / 2, c: PANE_LIGHT[t.pane], r: t.rect.w * 0.8, k: VAULT_GLOW, flicker: false, period: 4000, z: -44.5 });
       }
       images.push({ ...image("shade:upper", () => paintShade("upper")), x: r.x, y: r.y, w: r.w, h: r.h, z: -43.5 });
+      // Each row's name board, hanging from the wall's top over its niches (the projects' board, dull while its hall
+      // can't count), over the wall's shading so it reads as theirs do.
+      for (const v of l.vaultSigns) {
+        const lit = (v.hall === "prs" ? l.counts.prs : l.counts.issues).known && l.floors[0]!.online;
+        images.push({ ...image(`vault-sign:${v.label}:${v.rect.w}:${lit}`, () => paintProjectSign(v.rect, v.label, lit)), x: v.rect.x, y: v.rect.y, w: v.rect.w, h: v.rect.h, z: -43.4 });
+      }
     }
     l.floors.forEach((fl, f) => {
       const dim = dimOf(f);
@@ -1043,7 +1049,7 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
       build: ++builds,
       bounds: l.bounds,
       // The vault's top, which Swift's fit keeps below the HUD's title.
-      ...(l.vault.length ? { vaultTop: Math.min(...l.vault.map((t) => t.rect.y)) } : {}),
+      ...(l.vault.length ? { vaultTop: Math.min(...l.vault.map((t) => t.rect.y), ...l.vaultSigns.map((v) => v.rect.y)) } : {}),
       sprites,
       images,
       lights,
@@ -1363,7 +1369,8 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
               id: w.entity.id, name: w.entity.name, camp: !!w.entity.camp, rect: w.rect,
               flags: w.flags.map((f) => f.flag), medallions: w.flags.map((f) => ({ flag: f.flag, x: f.x, y: f.y })), seal: !!w.seal,
             })),
-            vault: layout.vault.map((t) => ({ id: t.id, pane: t.pane, rect: t.rect, glass: t.glass })),
+            vault: layout.vault.map((t) => ({ id: t.id, pane: t.pane, frame: t.frame, rect: t.rect, glass: t.glass })),
+            vaultSigns: layout.vaultSigns.map((v) => ({ hall: v.hall, label: v.label, rect: v.rect })),
             agents: layout.agents.map((a) => ({ id: a.entity.id, name: a.entity.name, state: a.entity.state, model: a.entity.model, robot: a.robot, workspace: a.entity.workspace, at: a.feet, rect: a.rect })),
           }
         : undefined,

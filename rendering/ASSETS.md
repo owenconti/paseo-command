@@ -1641,6 +1641,21 @@ Village's `assets/village/hud.png` section icons (`icon-pr`, `icon-issue`,
 `icon-workspaces`, `icon-agents`). Both sheets are read in place; no files
 were copied or changed.
 
+### Dungeon Board vault issue panes (derived art, 2026-11-08)
+
+`assets/dungeon/vault.png|json` (`issue-done`, `issue-progress`, `issue-todo`,
+`issue-blocked`) are derived by `rendering/scripts/vault-issue-panes.py` from
+the Village's `tiles.png` panes of the same colours; no new art was generated
+and no image generator was used. For each, the pane's opening is glazed again
+with new seeded cells whose glass is copied from the pane's own clean glass
+(its ivory icon and leading first painted over by the glass round them), each
+cell a little lighter or darker, leaded in the pane's warm brown. A
+circle-based status icon in the manner of Linear's is then leaded in, its
+ivory sampled from the old icon's paint with a soft upper-left bevel: Done a
+ring round a check, In Progress a ring half filled, Todo an empty ring,
+Blocked a ring struck through. The copper frame and alpha are the source
+pane's. Deterministic: run the script from the repository root to rebuild them.
+
 
 ## Village — modular painterly village kit (2026-11-06)
 

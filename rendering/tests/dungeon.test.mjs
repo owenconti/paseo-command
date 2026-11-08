@@ -44,6 +44,7 @@ function assertLegible(layout) {
     ...layout.workspaces.map((w) => ({ what: `alcove ${w.entity.id}`, rect: w.rect })),
     ...layout.agents.map((a) => ({ what: `robot ${a.entity.id}`, rect: a.rect })),
     ...layout.vault.map((t) => ({ what: `vault ${t.id}`, rect: t.rect })),
+    ...(layout.vaultSigns ?? []).map((v) => ({ what: `vault board ${v.label}`, rect: v.rect })),
   ];
   for (let i = 0; i < things.length; i++)
     for (let j = i + 1; j < things.length; j++) {
@@ -337,6 +338,7 @@ const DASHBOARD = {
 test("the vault: your PRs' four niches left of the first gate, your issues' four right, in the wall above it", () => {
   // None until the page passes the dashboard's counts.
   assert.equal(layoutDungeon(DUNGEON_SAMPLE, 1.4).vault.length, 0);
+  assert.equal(layoutDungeon(DUNGEON_SAMPLE, 1.4).vaultSigns.length, 0);
   for (const data of [{ ...DUNGEON_SAMPLE, dashboard: DASHBOARD }, { ...big(1, 1, 1, 1), dashboard: DASHBOARD }, { ...big(3, 7, 3, 2), dashboard: { prs: null, issues: null } }]) {
     const layout = layoutDungeon(data, 1.4);
     assert.deepEqual(layout.vault.map((t) => t.id), [
@@ -355,6 +357,21 @@ test("the vault: your PRs' four niches left of the first gate, your issues' four
       assert.ok(t.rect.y + t.rect.h <= layout.floors[0].surround.y, `${t.id} is above the gate's surround`);
       // Its glass inside its niche.
       assert.ok(t.glass.x > t.rect.x && t.glass.x + t.glass.w < t.rect.x + t.rect.w && t.glass.y > t.rect.y && t.glass.y + t.glass.h < t.rect.y + t.rect.h);
+    }
+    // The two rows' glass differs: the PRs' panes, then the issues' own (Linear's status shapes), never one set twice.
+    assert.deepEqual(layout.vault.map((t) => t.frame), [
+      "tile-merged", "tile-review", "tile-draft", "tile-failing",
+      "issue-done", "issue-progress", "issue-todo", "issue-blocked",
+    ]);
+    // A name board over each row: in the top wall, centred over its niches and no wider than them, above them.
+    assert.deepEqual(layout.vaultSigns.map((v) => [v.hall, v.label]), [["prs", "PULL REQUESTS"], ["issues", "LINEAR ISSUES"]]);
+    for (const v of layout.vaultSigns) {
+      const row = layout.vault.filter((t) => t.hall === v.hall);
+      const x0 = Math.min(...row.map((t) => t.rect.x)), x1 = Math.max(...row.map((t) => t.rect.x + t.rect.w));
+      assert.ok(v.rect.x >= x0 - 0.5 && v.rect.x + v.rect.w <= x1 + 0.5, `${v.label}'s board is no wider than its row`);
+      assert.ok(Math.abs(v.rect.x + v.rect.w / 2 - (x0 + x1) / 2) < 0.5, `${v.label}'s board is centred over its row`);
+      assert.ok(v.rect.y >= layout.topBand.rect.y && v.rect.y + v.rect.h <= Math.min(...row.map((t) => t.rect.y)), `${v.label}'s board is above its niches`);
+      for (const p of layout.topBand.piers) assert.ok(!overlaps(v.rect, p, 2), `${v.label}'s board clears the wall's pillars`);
     }
     assertLegible(layout);
   }
