@@ -41,6 +41,10 @@ export function overworldSheets(): Promise<Sheets> {
   }).then(recolourSheets);
   return sheets;
 }
+/** Lets go of the loaded sheets (the map left the Overworld), so only the shown map's art stays in memory. */
+export function releaseOverworldSheets(): void {
+  sheets = undefined;
+}
 
 type Png = (canvas: HTMLCanvasElement) => string;
 type Streamer = {

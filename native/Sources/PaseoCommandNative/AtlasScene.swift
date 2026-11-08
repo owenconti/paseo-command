@@ -329,6 +329,10 @@ final class AtlasScene: SKScene, MapScene {
             entities[id] = entity
             if kind != "host" { for c in cells where owners[c] == nil { owners[c] = id } }
         }
+        // Only the silhouettes the shown entities glow by stay (the Overworld's; none on Islands).
+        let glowing = Set(entities.values.compactMap { $0.glow?.key })
+        glowImages = glowImages.filter { glowing.contains($0.key) }
+        if !overworld { overworldSea = nil }
         coverSea()
         if let id = selected, entities[id] == nil { selected = nil }
         drawSelection()

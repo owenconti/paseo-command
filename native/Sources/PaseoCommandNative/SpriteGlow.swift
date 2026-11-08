@@ -20,6 +20,11 @@ enum SpriteGlow {
     /// while its halo is cached (which once gave a small thing a big tile's halo).
     private static var cache: [ObjectIdentifier: (owner: AnyObject, halo: Halo)] = [:]
     private static var order: [ObjectIdentifier] = []
+    /// Forgets every cached halo (the map changed world: the old one's sprites are gone).
+    static func clear() {
+        cache = [:]
+        order = []
+    }
 
     /// `image`'s halo, `radius` in its pixels (by default the Village's: 5% of its size): the full halo (for the lift)
     /// and the part outside the silhouette (for the ring, so what's beneath, painted or not, isn't washed).

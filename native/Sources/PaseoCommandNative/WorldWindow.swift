@@ -433,6 +433,8 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         let next = makeMapScene(kind: kind, size: scene.size)
         next.emit = { [weak self] message in self?.send(message) }
         old.retire()
+        // One map at a time: the old scene's halos go with it.
+        SpriteGlow.clear()
         let view = old.successor(scene: next)
         command.replaceSubview(old, with: view)
         atlasView = view

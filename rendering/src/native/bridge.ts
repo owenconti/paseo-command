@@ -60,7 +60,7 @@ import { MAX_ZOOM, OVERLAY_BOTTOM, OVERLAY_TOP } from "../camera";
 import { WALK_SPEED, TURN_SPEED, WANDER_X, WANDER_Y } from "../wander";
 import { HEX_RADIUS, ROBOT_SIZE } from "../world";
 import PROPS from "../assets/props.json";
-import { OverworldMap, overworldSheets } from "../overworld/native";
+import { OverworldMap, overworldSheets, releaseOverworldSheets } from "../overworld/native";
 import buildingsUrl from "../assets/buildings.png";
 import structuresUrl from "../assets/structures.png";
 import robotsUrl from "../assets/robots.png";
@@ -650,6 +650,8 @@ export function mountNativeAtlas(parent: HTMLElement, handlers: AtlasHandlers = 
           overworldLoading = true;
           overworldSheets()
             .then((sheets) => {
+              // The style may have changed (or the world gone) while the sheets loaded.
+              if (destroyed || style !== "overworld" || overworld) return;
               overworld = new OverworldMap(sheets, png, () => relayout());
               relayout();
             })
@@ -821,7 +823,12 @@ export function mountNativeAtlas(parent: HTMLElement, handlers: AtlasHandlers = 
       // Swift drops what the other style drew, so everything is sent afresh.
       painted.clear();
       sent.clear();
-      overworld?.reset();
+      // Only the shown style's art stays: leaving the Overworld lets go of its painter and sheets.
+      if (style === "islands") {
+        overworld = null;
+        overworldLoading = false;
+        releaseOverworldSheets();
+      } else overworld?.reset();
       layout = null;
       relayout();
     },
@@ -880,6 +887,8 @@ export function mountNativeAtlas(parent: HTMLElement, handlers: AtlasHandlers = 
       destroyed = true;
       ready = false;
       clearInterval(watchdog);
+      overworld = null;
+      releaseOverworldSheets();
       surface.destroy();
       window.removeEventListener("paseo:world", receive);
       post({ type: "detach" });
