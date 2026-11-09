@@ -1034,3 +1034,15 @@ export function cutawaySpans(fl: DFloor, y0: number): [number, number][] {
   const opens = !fl.last && y0 === fl.tierTops[fl.tiers - 1];
   return opens ? [[L, -D.surroundW / 2 + 2], [D.surroundW / 2 - 2, R]] : [[L, R]];
 }
+
+/** The footer prioritizes work that needs attention; historical totals live in the vault's cards. */
+export function dungeonNow(c: DungeonCounts): { label: string; n: number; color: string }[] {
+  return [
+    ...(c.needYou ? [{ label: "waiting", n: c.needYou, color: "#ffd078" }] : []),
+    ...(c.unread ? [{ label: "unread", n: c.unread, color: "#f4df98" }] : []),
+    ...(c.failed ? [{ label: "failed", n: c.failed, color: "#ff947f" }] : []),
+    { label: "running", n: c.running, color: "#8affc4" },
+    ...(c.running === 0 ? [{ label: "idle", n: c.idle, color: "#cfc6e6" }] : []),
+    ...(c.offline ? [{ label: "offline", n: c.offline, color: "#cfc6e6" }] : []),
+  ];
+}

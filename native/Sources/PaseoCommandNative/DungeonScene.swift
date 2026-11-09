@@ -115,7 +115,7 @@ final class DungeonScene: SKScene, MapScene {
     }
     /// The vault's top on the board (board units), when it has one.
     private var vaultTop: CGFloat?
-    private let hudBottom: CGFloat = 26
+    private var hudBottom: CGFloat { max(26, (hudCounts?.size.height ?? 0) + 24) }
     private let margin: CGFloat = 8
     private var center = CGPoint.zero
     private var zoom: CGFloat = 1
@@ -622,7 +622,8 @@ final class DungeonScene: SKScene, MapScene {
             hud.addChild(node)
             hudTitle = node
         }
-        if let c = h["counts"], let key = c["key"] as? String, let tex = images[key] {
+        let counts = h["counts"].flatMap { num($0["w"]) > v.width - 28 ? h["countsCompact"] ?? $0 : $0 }
+        if let c = counts, let key = c["key"] as? String, let tex = images[key] {
             let node = SKSpriteNode(texture: tex)
             let w = num(c["w"]), hh = num(c["h"])
             let scale = min(1, (v.width - 28) / max(w, 1))
@@ -652,15 +653,17 @@ final class DungeonScene: SKScene, MapScene {
         }
         // The fit keeps the panel's room clear beside the board, and the title's above the vault (once it knows their sizes).
         let room = CGSize(width: hudRight, height: hudTop)
-        if room != fittedFor {
-            let showingAll = fitted && animation == nil && zoom <= minimumZoom(for: fittedFor.width, top: fittedFor.height) * 1.001
+        if room != fittedFor || hudBottom != fittedBottom {
+            let showingAll = fitted && animation == nil && zoom <= minimumZoom(for: fittedFor.width, top: fittedFor.height, bottom: fittedBottom) * 1.001
             fittedFor = room
+            fittedBottom = hudBottom
             if (showingAll && talking == nil) || !fitted { fit() } else { constrain() }
         }
     }
     /// Screen room kept clear for the "At a Glance" panel at the right, while it shows.
     var hudRight: CGFloat { hudPanel.map { $0.size.width + 20 } ?? 0 }
     private var fittedFor: CGSize = .zero
+    private var fittedBottom: CGFloat = 26
 
     // MARK: Selection and hover
 

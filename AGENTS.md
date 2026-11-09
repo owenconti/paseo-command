@@ -789,7 +789,7 @@ spotlight on the ledge, a halo of its colour baked from its silhouette (`bakeHal
 sheet only saturation-lifted; the gate, links, torches and signs are kept a notch below them (`k` on lights, the
 alcoves' interiors darker). The other sheets are graded at load (`grade`, `GRADE`) toward the
 concept's purples. State: a state
-glow under each robot in the Atlas's state colours (`STATE_TILE`, idle a quiet lavender; pulsing for states that need you), a marker at its head's upper right, working robots' work frames,
+glow under each robot in the Atlas's state colours (`STATE_TILE`, idle a quiet lavender; pulsing for states that need you), a marker at its head's upper right, calm idle poses at 0.5 fps and a slow half-pixel breath (no work-pose cycling or hopping),
 a project's two torches lit while any of its agents runs,
 its terrace glowing between its candles in the most urgent state's colour, offline floors dimmed and dark. PR, Probe and auto-merge medallions
 sit on each alcove's lintel, larger (`D.flag`, 24) in one row centred on its bricks (CI, review, Probe; the user's call), the auto-merge seal on its medallion's rim, with the Atlas's hover cards.
@@ -808,19 +808,18 @@ the scene's `vaultTop` is the boards' top). No other text on them: each niche is
 a `tile` entity (`tile:<hall>:<key>`, as the Village's), glowing with its sprites (`e`) on hover, its card (`dashCard` in
 `rendering/src/dashboard.ts`, shared with the Village: the group, its count, up to 12 PRs or issues, or why it can't count),
 and a click opens its first PR or issue through `openAppLink` (never a selection). The counts are the Village's
-(`useVillageCounts` in `web/src/villageCounts.ts`, asked every minute while the Village or the Dungeon Board shows; `DASH_TILES`,
-`dashCount`, `dashText` in `rendering/src/dashboard.ts`). The HUD (title with "N running · N need you" or "All quiet", the
-count bar, and, with the vault, the "At a Glance" panel at the top right: your PRs and issues by group in their panes' colours,
-"—" and dimmed while unknown, then Workspaces with Active, Agents with Running and Idle, Need you, Failed and Offline only when
-any; painted by `paintGlance` on the `panel` frame in the HUD's navy, gold rules and rounded type, the Village's `hud.png`
-section icons) lies over the board in screen space, as the concept's does; the board fills the map. Swift (`DungeonScene`)
-scales the panel to fit above the count bar, shows it only while the view is over 2.4 of its widths wide, and then keeps its
-width clear at the right (`hudRight`), so it never lies over the board; it keeps the title's room above the board when the
-vault's niches (the scene's `vaultTop`) would lie under it (`hudTop`), refitting as either changes. A hovered niche's card
+(`useVillageCounts` in `web/src/villageCounts.ts`, asked every minute while the Village or the Dungeon Board shows;
+`DASH_TILES`, `dashCount`, `dashText` in `rendering/src/dashboard.ts`). The HUD has no title banner or right-hand stats panel.
+Its compact bottom “Now” bar (`dungeonNow` in `layout.ts`, `paintCounts` in `bridge.ts`) prioritizes waiting agents
+(approval, question, asking), unread replies and failures, then running work and offline agents; idle appears when nothing
+runs. It keeps historical PR/issue totals in the vault's cards. Swift chooses a two-column footer when the full row would
+shrink, reserves its height below the board and hides it during a conversation. Robots stand at a 70 px pitch (55 px tall).
+Upper wall cloth hangs in front of its rampart, with pillar capitals in front of both; lit braziers and forges have no
+extra purple shade (offline floors remain dim). A hovered niche's card
 follows its counts as they refresh. Each floor is assembled
 from the v2 kit as the art's reconstruction (`rendering/artifacts/dungeon/mock.png`) is: ramparts, the gate's surround,
 terrace floors, alcove sides, lintels and ledges. The page paints the host signs (`paintSign` in `bridge.ts`; the HUD keeps `ui-rounded`), purple shading on the upper walls and toward the board's edges, and posts top-left sprite
-boxes; `DungeonScene.swift` draws, animates (the background holds still so the agents draw the eye, the user's call: the magic circle, alchemy tank, crystal and portcullis show one frame, light pools are steady (`still`), and flames alone flicker slowly between two frames at `FLAME_FLICKER` (1/3; 0 stills them) of their old pace; robots, drones, state glows, markers and the glows' breath move as before; ≈30 fps while something moves smoothly, the 15 fps drift rate when only flames and resting robots do, still with reduced motion), owns the camera (fit, bounded pan,
+boxes; `DungeonScene.swift` draws, animates (the background holds still so the agents draw the eye, the user's call: the magic circle, alchemy tank, crystal and portcullis show one frame, light pools are steady (`still`), and flames alone flicker slowly between two frames at `FLAME_FLICKER` (1/3; 0 stills them) of their old pace; robots breathe slowly in idle poses, drones, state glows, markers and the glows' breath keep moving; ≈30 fps while something moves smoothly, the 15 fps drift rate when only flames and resting robots do, still with reduced motion), owns the camera (fit, bounded pan,
 wheel, pinch, arrows, F/Home), hover and selection as the Village's (`SpriteGlow.swift`, its colours,
 strength and spread: a warm white halo just outside the hovered thing's silhouette, a breathing gold one, with a wider pass, outside
 the selected thing's; a robot's body and a PR medallion by their own sprites at the Village's 5%; an alcove (frame and bay) and a

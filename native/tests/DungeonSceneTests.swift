@@ -385,9 +385,9 @@ scene.command("home")
 assert(same(camera(), refitted), "exactly as Home fits it")
 // A click as the camera starts back (from a speaker on the bottom floor, the view reaching below the board's usual limits):
 // the box's room stays, so nothing jumps, and the camera goes on within them.
-scene.talk(id: "a4", inset: 150)
+scene.talk(id: "a4", inset: 240)
 pump(0.6)
-func usualBottom() -> CGFloat { 1200 + 8 + 26 / grownFit }
+func usualBottom() -> CGFloat { 1200 + 8 + 74 / grownFit }
 assert(camera().center.y + 150 / camera().zoom > usualBottom() + 1, "the view reaches below the board's usual limits")
 scene.talk(id: nil, inset: 0)
 scene.pointer(phase: "down", at: CGPoint(x: 20, y: 20))
@@ -401,5 +401,22 @@ assert(camera().center.y + 150 / camera().zoom <= usualBottom() + 0.5, "the came
 let settled = camera()
 scene.wheel(at: CGPoint(x: 200, y: 150), dy: 0)
 assert(same(camera(), settled), "and stays there")
+
+// The shipped HUD has only a current-state footer: a narrow view uses the compact version at readable size.
+scene.setAgents(["rev": 40, "robots": [] as [[String: Any]], "hud": [
+    "counts": ["key": "now:full", "w": 600.0, "h": 52.0],
+    "countsCompact": ["key": "now:compact", "w": 260.0, "h": 108.0],
+]], images: ["now:full": image(60, 5), "now:compact": image(26, 11)])
+let nowHud = scene.state()["hud"] as! [String: Bool]
+assert(nowHud["title"] == false && nowHud["panel"] == false && nowHud["counts"] == true, "only the current-state footer")
+func hudSprites(_ n: SKNode) -> [SKSpriteNode] {
+    n.children.flatMap { child -> [SKSpriteNode] in
+        if let s = child as? SKSpriteNode, child.parent?.zPosition == 100 { return [s] }
+        return hudSprites(child)
+    }
+}
+assert(hudSprites(scene).first?.size == CGSize(width: 260, height: 108), "the compact footer fits without shrinking its type")
+scene.command("home")
+assert(onScreen(CGRect(x: -200, y: 0, width: 400, height: 1200)).maxY <= 300 - 108 - 24 + 0.5, "the board fits clear of the footer")
 
 print("DungeonScene: ok")

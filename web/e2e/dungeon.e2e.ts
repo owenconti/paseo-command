@@ -26,7 +26,7 @@ after(async () => {
 
 type Native = {
   arts: string[];
-  scenes: { scene: string; style?: string; entities: { id: string; kind: string }[]; sprites: { f?: string; e?: string; dim?: number }[] }[];
+  scenes: { scene: string; style?: string; entities: { id: string; kind: string }[]; sprites: { f?: string; e?: string; dim?: number; y: number; z: number; shade?: number }[] }[];
   agents: { hud: Record<string, { key: string }> }[];
   links: string[];
   selected: string | null;
@@ -206,7 +206,7 @@ test("picking a robot on the board opens its conversation; hovering one shows it
   await page.context().close();
 });
 
-test("the vault: your PRs' and issues' stained-glass niches over the first gate, their cards, a click opening the first; At a Glance", async () => {
+test("the vault: your PRs' and issues' stained-glass niches over the first gate, their cards, a click opening the first; current-state footer", async () => {
   const { page } = await open("dungeon");
   const board = await waitFor(() => inspect(page), (i) => i?.scene === "dungeon" && i.vault?.length === 8 && i.counts?.prs?.known && i.counts?.issues?.known, "the vault", 30000);
   assert.deepEqual(board.counts.prs.by, { merged: 7, review: 3, draft: 1, conflicts: 1 });
@@ -220,8 +220,18 @@ test("the vault: your PRs' and issues' stained-glass niches over the first gate,
   assert.deepEqual(scene.entities.filter((e) => e.kind === "tile").map((e) => e.id), board.vault.map((t: any) => t.id));
   for (const t of board.vault) assert.deepEqual(scene.sprites.filter((s) => s.e === t.id).map((s) => s.f), ["niche-arch", t.frame]);
   assert.ok(scene.sprites.filter((s) => s.e?.startsWith("tile:")).every((s) => !s.dim), "both halls count: nothing dim");
-  // The At a Glance panel goes to Swift with the HUD.
-  await waitFor(async () => (await native(page)).agents.at(-1)?.hud?.panel?.key, (k) => !!k && /"merged":7/.test(k), "the At a Glance panel");
+  // The current-state footer replaces the title and historical-totals panel, freeing the board's width.
+  const hud = (await native(page)).agents.at(-1)!.hud;
+  assert.equal(hud.title, undefined);
+  assert.equal(hud.panel, undefined);
+  assert.ok(hud.counts.key.startsWith("hud:now:"));
+  assert.ok(hud.countsCompact.key.endsWith(":compact"));
+  assert.deepEqual(board.now.filter((x: any) => ["waiting", "unread", "failed"].includes(x.label)).map((x: any) => x.n), [board.counts.needYou, board.counts.unread, board.counts.failed]);
+  // The upper masonry cap sits behind the cloth and the pillar capitals, never cutting across either.
+  const z = (f: string) => scene.sprites.filter((s) => s.f === f).map((s) => s.z);
+  assert.ok(scene.sprites.filter((s) => s.f === "pillar-capital" && s.y > 80).every((s) => s.z > Math.min(...z("rampart-x"))));
+  assert.ok(Math.min(...z("banner-purple-plain")) > Math.min(...z("rampart-x")));
+  assert.ok(scene.sprites.filter((s) => /^(brazier|forge)-/.test(s.f ?? "") && !s.dim).every((s) => !s.shade), "lit fire props keep their own colour");
   // A tile's card names its group, its count and its pull requests.
   await swift(page, { type: "hover", id: "tile:prs:merged", x: 400, y: 60 });
   const card = await waitFor(() => page.locator(".atlas-world-card").textContent({ timeout: 500 }).catch(() => ""), (t) => !!t, "the tile's card");

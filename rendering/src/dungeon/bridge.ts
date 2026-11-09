@@ -14,7 +14,7 @@ import { WORLD_WATCH, applied, behind, newWatch, post as postRevision } from "..
 import { nativeSurface } from "../native/surface";
 import { FRAMES, ANIMATIONS, anchorShare, applySheet, framesOf, sliceOf, type SheetJson } from "./frames";
 import { paintPlaceholder } from "./placeholder";
-import { DASH_TILES, dashCard, dashText, type DashCount } from "../dashboard";
+import { dashCard } from "../dashboard";
 import {
   D,
   cutawaySpans,
@@ -22,6 +22,7 @@ import {
   STATE_GLOW,
   STATE_MARK,
   hudSubtitle,
+  dungeonNow,
   layoutDungeon,
   projectAlarm,
   projectWorking,
@@ -85,8 +86,6 @@ const ALERT = "#b0301c";
 /** The vault's stained glass: its saturation (the Village's is 1), and how much light it gives the stone round it. */
 const VAULT_GLASS_SATURATION = 0.82;
 const VAULT_GLOW = 0.22;
-/** The At a Glance panel's dots: each group's pane colour, then the agents' states'. */
-const PANE_DOT: Record<string, string> = { merged: "#4cc35a", review: "#3d8fe8", draft: "#f0b42a", failing: "#e2493a" };
 const PANE_LIGHT: Record<string, number> = { merged: 0x5fd06a, review: 0x4f9cf0, draft: 0xf0b42a, failing: 0xe2493a };
 
 const load = (url: string) =>
@@ -419,122 +418,42 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
     ctx.fillText(label, r.w / 2, y);
     return canvas;
   };
-  /** The HUD's count bar: navy panels with gold borders, in screen points. */
-  const paintCounts = (counts: DungeonLayout["counts"]) => {
-    const items = [
-      ["hosts", counts.hosts, counts.hosts === 1 ? "Host" : "Hosts"],
-      ["projects", counts.projects, counts.projects === 1 ? "Project" : "Projects"],
-      ["workspaces", counts.workspaces, counts.workspaces === 1 ? "Workspace" : "Workspaces"],
-      ["agents", counts.agents, counts.agents === 1 ? "Agent" : "Agents"],
-    ] as const;
-    const num = `${HEAVY} 24px ${FONT}`, word = `${BOLD} 19px ${FONT}`;
-    const widths = items.map(([, n, label]) => {
-      measurer.font = num;
-      const a = measurer.measureText(String(n)).width;
+  /** Current work and attention, in one quiet footer. A two-column version keeps it readable beside a wide chat panel. */
+  const paintCounts = (counts: DungeonLayout["counts"], compact = false) => {
+    const items = dungeonNow(counts);
+    const number = `${HEAVY} 17px ${FONT}`, word = `${BOLD} 14px ${FONT}`;
+    const widths = items.map((item) => {
+      measurer.font = number;
+      const n = measurer.measureText(String(item.n)).width;
       measurer.font = word;
-      return 30 + 10 + a + 8 + measurer.measureText(label).width;
+      return n + 6 + measurer.measureText(item.label).width;
     });
-    const gap = 46;
-    const w = Math.ceil(widths.reduce((s, x) => s + x, 0) + gap * (items.length - 1) + 56), h = 56;
+    const gap = 24, pad = 20, prefix = 48, rowH = 28;
+    const cols = compact ? 2 : items.length;
+    const cell = Math.max(...widths);
+    const w = Math.ceil(pad * 2 + (compact ? cell * cols + gap : prefix + widths.reduce((a, b) => a + b, 0) + gap * (cols - 1)));
+    const h = 24 + Math.ceil(items.length / cols) * rowH;
     const { canvas, ctx } = canvasFor(w, h);
     nineSlice(ctx, frame("panel"), "panel", 0, 0, w, h);
     ctx.textBaseline = "middle";
-    let x = 28;
-    items.forEach(([icon, n, label], i) => {
-      ctx.drawImage(frame(`count-${icon}`), x, h / 2 - 15, 30, 30);
-      x += 40;
-      ctx.font = num;
-      ctx.fillStyle = "#b9e34a";
-      ctx.fillText(String(n), x, h / 2 + 1);
-      x += ctx.measureText(String(n)).width + 8;
+    if (!compact) {
+      ctx.font = `${BOLD} 13px ${FONT}`;
+      ctx.fillStyle = "#cfc6e6";
+      ctx.fillText("Now", pad, h / 2);
+    }
+    let x = pad + (compact ? 0 : prefix);
+    items.forEach((item, i) => {
+      const y = 12 + rowH / 2 + Math.floor(i / cols) * rowH;
+      if (compact) x = pad + (i % cols) * (cell + gap);
+      ctx.font = number;
+      ctx.fillStyle = item.color;
+      ctx.fillText(String(item.n), x, y);
+      const labelX = x + ctx.measureText(String(item.n)).width + 6;
       ctx.font = word;
       ctx.fillStyle = "#f2ead6";
-      ctx.fillText(label, x, h / 2 + 1);
-      x += ctx.measureText(label).width;
-      if (i < items.length - 1) {
-        ctx.fillStyle = "#d8a840";
-        ctx.fillRect(x + gap / 2 - 1, h / 2 - 12, 2, 24);
-        x += gap;
-      }
+      ctx.fillText(item.label, labelX, y);
+      if (!compact) x += widths[i]! + gap;
     });
-    return { canvas, w, h };
-  };
-
-  /** The HUD's "At a Glance" panel (the Village's, in the board's HUD look: the title's navy panel and gold rules, its
-   * rounded type): your PRs and issues by group, as the vault's panes colour them, then workspaces and agents. */
-  const paintGlance = (c: DungeonLayout["counts"]) => {
-    type Row = { dot: string; name: string; n: number | string };
-    const dashRows = (d: DashCount, hall: "prs" | "issues"): Row[] =>
-      DASH_TILES[hall].map((t) => ({ dot: PANE_DOT[t.tile]!, name: t.name, n: dashText(d, t.key) }));
-    const sections: { icon: string; title: string; n: number | string; rows: Row[]; why?: string }[] = [
-      { icon: "icon-pr", title: "PRs", n: dashText(c.prs), rows: dashRows(c.prs, "prs"), why: c.prs.known ? undefined : c.prs.why },
-      { icon: "icon-issue", title: "Issues", n: dashText(c.issues), rows: dashRows(c.issues, "issues"), why: c.issues.known ? undefined : c.issues.why },
-      { icon: "icon-workspaces", title: "Workspaces", n: c.workspaces, rows: [{ dot: "#4cc35a", name: "Active", n: c.active }] },
-      {
-        icon: "icon-agents", title: "Agents", n: c.agents,
-        rows: [
-          { dot: "#4cc35a", name: "Running", n: c.running },
-          // Finished agents whose reply you haven't read are idle too.
-          { dot: "#9a96b4", name: "Idle", n: c.idle + c.unread },
-          ...(c.needYou ? [{ dot: "#ef9b1b", name: "Need you", n: c.needYou }] : []),
-          ...(c.failed ? [{ dot: "#e2493a", name: "Failed", n: c.failed }] : []),
-          ...(c.offline ? [{ dot: "#6a6670", name: "Offline", n: c.offline }] : []),
-        ],
-      },
-    ];
-    const w = 220, pad = 22, head = 40, secHead = 30, rowH = 20, gap = 12;
-    const h = Math.ceil(pad + head + sections.reduce((sum, x) => sum + secHead + x.rows.length * rowH + gap, 0) - gap + pad - 4);
-    const { canvas, ctx } = canvasFor(w, h);
-    nineSlice(ctx, frame("panel"), "panel", 0, 0, w, h);
-    ctx.textBaseline = "middle";
-    let y = pad + 12;
-    ctx.drawImage(frame("icon-chart"), pad - 2, y - 12, 26, 22);
-    ctx.fillStyle = "#f4ead2";
-    ctx.font = `${HEAVY} 19px ${FONT}`;
-    ctx.fillText("At a Glance", pad + 32, y + 1);
-    y += 22;
-    const rule = (at: number) => {
-      const g = ctx.createLinearGradient(pad, 0, w - pad, 0);
-      g.addColorStop(0, "rgba(216,168,64,0)");
-      g.addColorStop(0.5, "rgba(216,168,64,0.85)");
-      g.addColorStop(1, "rgba(216,168,64,0)");
-      ctx.fillStyle = g;
-      ctx.fillRect(pad - 4, at, w - 2 * pad + 8, 1.5);
-    };
-    rule(y);
-    y += gap - 2;
-    sections.forEach((sec, i) => {
-      if (i) rule(y - gap / 2 - 1);
-      y += secHead / 2;
-      ctx.drawImage(frame(sec.icon), pad - 1, y - 10, 20, 20);
-      ctx.font = `${HEAVY} 17px ${FONT}`;
-      ctx.fillStyle = "#f4ead2";
-      ctx.textAlign = "left";
-      ctx.fillText(sec.title, pad + 26, y + 1);
-      ctx.textAlign = "right";
-      ctx.fillStyle = "#b9e34a";
-      ctx.fillText(String(sec.n), w - pad, y + 1);
-      y += secHead / 2;
-      ctx.font = `${BOLD} 14px ${FONT}`;
-      for (const r of sec.rows) {
-        y += rowH / 2;
-        ctx.globalAlpha = sec.why === undefined ? 1 : 0.45;
-        ctx.fillStyle = r.dot;
-        ctx.beginPath();
-        ctx.arc(pad + 9, y, 4, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.fillStyle = "#cfc6e6";
-        ctx.textAlign = "left";
-        ctx.fillText(r.name, pad + 22, y + 0.5);
-        ctx.textAlign = "right";
-        ctx.fillStyle = "#f2ead6";
-        ctx.fillText(String(r.n), w - pad, y + 0.5);
-        ctx.globalAlpha = 1;
-        y += rowH / 2;
-      }
-      y += gap;
-    });
-    ctx.textAlign = "left";
     return { canvas, w, h };
   };
 
@@ -1129,10 +1048,9 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
       if (alarm) lights.push({ x: p.mark.x, y: p.mark.y, c: STATE_TILE[alarm]!, r: 54, period: alarm === "failed" ? 1200 : 1800, flicker: false, z: 1.9, ph: 0 });
     }
     const counts = paintCounts(l.counts);
-    const countsKey = `hud:counts:${JSON.stringify([l.counts.hosts, l.counts.projects, l.counts.workspaces, l.counts.agents])}`;
-    // The At a Glance panel, once the page passes the dashboard's counts (as the vault).
-    const glance = l.vault.length ? paintGlance(l.counts) : null;
-    const glanceKey = `hud:glance:${JSON.stringify(l.counts)}`;
+    const compact = paintCounts(l.counts, true);
+    const countsKey = `hud:now:${JSON.stringify(dungeonNow(l.counts))}`;
+    const compactKey = `${countsKey}:compact`;
     return {
       type: "agents",
       robots,
@@ -1140,7 +1058,7 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
       lights,
       hud: {
         counts: { ...(sent.has(countsKey) ? { key: countsKey } : (sent.add(countsKey), { key: countsKey, png: png(counts.canvas) })), w: counts.w, h: counts.h },
-        ...(glance ? { panel: { ...(sent.has(glanceKey) ? { key: glanceKey } : (sent.add(glanceKey), { key: glanceKey, png: png(glance.canvas) })), w: glance.w, h: glance.h } } : {}),
+        countsCompact: { ...(sent.has(compactKey) ? { key: compactKey } : (sent.add(compactKey), { key: compactKey, png: png(compact.canvas) })), w: compact.w, h: compact.h },
       },
     };
   };
@@ -1354,6 +1272,7 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
             bounds: layout.bounds,
             counts: layout.counts,
             subtitle: hudSubtitle(layout),
+            now: dungeonNow(layout.counts),
             realFrames: realFrames.size,
             floors: layout.floors.map((f) => ({ host: f.host.id, title: f.title, online: f.online, tiers: f.tiers, stats: f.stats.map((s) => s.text), portcullis: f.portcullis, stairs: f.stairs })),
             rooms: layout.decor.filter((d) => d.recess).map((d) => d.rect),

@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { layoutDungeon, overlaps, approxMeasure, CLOTHS, hudSubtitle, projectIcon, robotColor, cutawaySpans, D } from "../src/dungeon/layout.ts";
+import { layoutDungeon, overlaps, approxMeasure, CLOTHS, hudSubtitle, dungeonNow, projectIcon, robotColor, cutawaySpans, D } from "../src/dungeon/layout.ts";
 import { FRAMES, applySheet } from "../src/dungeon/frames.ts";
 import { readdirSync, readFileSync } from "node:fs";
 
@@ -408,4 +408,11 @@ test("robots leave visible room between neighbours in every workspace", () => {
       assert.ok(right.feet.x - left.feet.x - (width(left) + width(right)) / 2 >= 14, "at least 14 px between visible robot bodies");
     }
   }
+});
+
+test("Now prioritizes attention and keeps unread replies distinct from idle agents", () => {
+  const c = layoutDungeon(DUNGEON_SAMPLE).counts;
+  const now = dungeonNow({ ...c, needYou: 2, unread: 3, failed: 1, running: 4, idle: 20, offline: 5 });
+  assert.deepEqual(now.map(({ label, n }) => [label, n]), [["waiting", 2], ["unread", 3], ["failed", 1], ["running", 4], ["offline", 5]]);
+  assert.deepEqual(dungeonNow({ ...c, needYou: 0, unread: 0, failed: 0, running: 0, idle: 2, offline: 0 }).map(({ label, n }) => [label, n]), [["running", 0], ["idle", 2]]);
 });
