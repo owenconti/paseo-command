@@ -134,6 +134,18 @@ test("picking a robot opens its dialogue box over the board, not the hidden pane
   await readToChoices(page);
   await dialog.locator(".wc-page").getByText("Shall I open the pull request now").waitFor();
   const menu = choices(page);
+  // The actions sit above the raised Conversation tab at both supported panel widths.
+  for (const [width, height] of [[1600, 1000], [1200, 1000], [1200, 560]]) {
+    await page.setViewportSize({ width, height });
+    const gap = await page.evaluate(() => {
+      const actions = document.querySelector(".wc-choices")!.getBoundingClientRect();
+      const tab = document.querySelector(".wc-log-toggle")!.getBoundingClientRect();
+      return { gap: tab.top - actions.bottom, top: actions.top };
+    });
+    assert.ok(gap.gap >= 8, `Conversation stays clear of the actions at ${width}px: ${gap.gap}px gap`);
+    assert.ok(gap.top >= 0, `actions stay on screen at ${width}×${height}`);
+  }
+  await page.setViewportSize({ width: 1200, height: 1000 });
   for (const label of ["Reply…", "Open the full chat", "Leave"]) await menu.getByRole("menuitem", { name: new RegExp(label) }).waitFor();
   // ← goes back a page, already typed.
   await dialog.focus();

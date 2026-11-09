@@ -2,6 +2,8 @@
    `panel`), a parchment name plate (`label`) and the robot in the stone medallion, in the HUD's type. */
 .world-chat {
   --wc-gold: #d8a840;
+  --wc-tab-rise: 30px;
+  --wc-height: 204px;
   --wc-ink: #f2ead6;
   --wc-dim: #cfc6e6;
   --wc-sign: "Iowan Old Style", Palatino, "Palatino Linotype", "Book Antiqua", Georgia, serif;
@@ -14,7 +16,7 @@
   box-sizing: border-box;
   /* Room either side for the ◀ ▶ buttons. */
   width: min(900px, calc(100% - 180px));
-  height: 204px;
+  height: var(--wc-height);
   display: grid;
   grid-template-columns: 112px minmax(0, 1fr);
   column-gap: 16px;
@@ -346,11 +348,12 @@
 .wc-choices {
   position: absolute;
   right: -13px;
-  bottom: calc(100% + 16px);
+  /* Clear the Conversation tab and name plate, including their raised frames. */
+  bottom: calc(100% + var(--wc-tab-rise) + 12px);
   box-sizing: border-box;
   min-width: 260px;
   max-width: min(460px, 70%);
-  max-height: min(380px, 56vh);
+  max-height: min(380px, 56vh, max(80px, calc(100dvh - var(--app-bar, 0px) - var(--dungeon-belt-height, 0px) - var(--wc-height) - var(--wc-tab-rise) - 28px)));
   overflow-y: auto;
   display: flex;
   flex-direction: column;
@@ -532,7 +535,7 @@
 /* ▲ Conversation: a tab on the box's top edge. */
 .wc-log-toggle {
   position: absolute;
-  top: -30px;
+  top: calc(0px - var(--wc-tab-rise));
   right: 34px;
   display: flex;
   align-items: center;

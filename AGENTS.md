@@ -859,7 +859,7 @@ and model. Its latest reply is typed out page by page (`pageReply` in `script.ts
 measured; paragraphs cut between sentences, lists between items, code between lines, refenced; a heading never ends a page;
 the page laid out whole and its untyped rest hidden by the CSS highlight `world-chat-untyped`; instant with reduced motion),
 Enter, Space, a click or its ⏎ Skip showing the rest of the page at once (held, it never skips pages), then the next page;
-then its choices (a menu above the box's right end; ↑/↓, 1–9,
+then its choices (a menu above the box's right end, clear of the raised Conversation tab; ↑/↓, 1–9,
 Enter, a click): an approval's Allow / Deny (or its actions; a plan's Approve / Reject), a question's options one question at
 a time (multiple choice with Done, Something else…, Decline to answer; answers keyed by header as `PermissionCard` sends them),
 the asks' quick replies and suggestion, Reply… (R; the app's own `Composer` in the box's colours, the box growing to it: files
