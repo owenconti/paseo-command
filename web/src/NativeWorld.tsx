@@ -2,7 +2,7 @@ import { MAP_STYLES, mapStyle, setMapStyle, useMapStyle } from "./mapStyle";
 import type { WorkSummaries } from "./useWorkingOn";
 /** Atlas world adapter. The inherited React work surface owns all daemon actions;
  * the world only draws the host-qualified snapshot and reports what was picked. */
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode, type RefObject, type CSSProperties } from "react";
 import {
   mountAtlas,
   STATE_NAMES,
@@ -35,6 +35,8 @@ import { liveConnection } from "./live";
 import { CARD_MARGIN, placeCard } from "./cardPlace";
 import type { HostStats } from "../../rendering/src/world";
 import "./atlas-world.css";
+import { useGameTooltipFrame } from "./worldChat/frame";
+import "./worldChat/game-tooltip.css";
 import { DungeonHud } from "./dungeon/DungeonHud";
 import type { DungeonTray } from "./dungeon/model";
 type Props = {
@@ -164,7 +166,7 @@ type Tip = { entity: Entity; at: ScreenPoint; detail: string; flag?: MapFlag };
  * (the world frame beside the session panel and below the top bar), within the window. Above the thing it's about
  * when it fits, else below it, else where there's more room, cut to the map's height if it's taller (`placeCard`).
  * Placed again as its content or anchor changes (each render) and as the map resizes. */
-function MapCard(props: { at: ScreenPoint; surface: RefObject<HTMLDivElement | null>; className: string; children: ReactNode }) {
+function MapCard(props: { at: ScreenPoint; surface: RefObject<HTMLDivElement | null>; className: string; children: ReactNode; style?: CSSProperties }) {
   const ref = useRef<HTMLDivElement>(null);
   const at = useRef(props.at);
   at.current = props.at;
@@ -211,7 +213,7 @@ function MapCard(props: { at: ScreenPoint; surface: RefObject<HTMLDivElement | n
     return () => observer.disconnect();
   }, [props.surface]);
   return (
-    <div ref={ref} className={props.className} role="tooltip">
+    <div ref={ref} className={props.className} role="tooltip" style={props.style}>
       {props.children}
     </div>
   );
@@ -245,6 +247,7 @@ export function NativeWorld(props: Props) {
   current.current = snapshot;
   const probe = useProbe();
   const style = useMapStyle();
+  const tooltipFrame = useGameTooltipFrame(style === "dungeon");
   const hudShown = props.hudVisible !== false && style === "dungeon";
   const stats = useHostStats();
   // Your pull requests and Linear issues: the Dungeon Board's vault and command belt,
@@ -494,7 +497,7 @@ export function NativeWorld(props: Props) {
         onHeight={(height) => { setHudHeight(height); surface.current?.parentElement?.style.setProperty("--dungeon-belt-height", `${height}px`); }} />}
       {props.blocked && <div className="atlas-input-cover" />}
       {card && (
-        <MapCard className="atlas-world-tip atlas-world-card" surface={surface} at={card.at}>
+        <MapCard className={`atlas-world-tip atlas-world-card${style === "dungeon" ? " dungeon-tooltip" : ""}`} style={tooltipFrame} surface={surface} at={card.at}>
           <b>{card.title}</b>
           <span>{card.detail}</span>
           {card.lines.map((line, i) => (
@@ -503,7 +506,7 @@ export function NativeWorld(props: Props) {
         </MapCard>
       )}
       {tip && (
-        <MapCard className="atlas-world-tip" surface={surface} at={tip.at}>
+        <MapCard className={`atlas-world-tip${style === "dungeon" ? " dungeon-tooltip" : ""}`} style={tooltipFrame} surface={surface} at={tip.at}>
           {flagCard ? (
             <>
               <b>{flagCard.title}</b>

@@ -958,7 +958,7 @@ export function WorldChat(props: WorldChatProps) {
             className="wc-nav prev"
             style={{ backgroundImage: `url(${navigationArt})` }}
             aria-label={`Previous agent${position.prevName ? `: ${position.prevName}` : ""} (←)`}
-            title={`Previous agent${position.prevName ? `: ${position.prevName}` : ""}`}
+            data-tip={`Previous agent${position.prevName ? `: ${position.prevName}` : ""}`}
             onClick={(e) => { e.stopPropagation(); position.prev(); }}
           >
             <span className="sr-only">Previous agent</span>
@@ -968,7 +968,7 @@ export function WorldChat(props: WorldChatProps) {
             className="wc-nav next"
             style={{ backgroundImage: `url(${navigationArt})` }}
             aria-label={`Next agent${position.nextName ? `: ${position.nextName}` : ""} (→)`}
-            title={`Next agent${position.nextName ? `: ${position.nextName}` : ""}`}
+            data-tip={`Next agent${position.nextName ? `: ${position.nextName}` : ""}`}
             onClick={(e) => { e.stopPropagation(); position.next(); }}
           >
             <span className="sr-only">Next agent</span>

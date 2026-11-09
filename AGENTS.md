@@ -852,6 +852,13 @@ Linear on, for the vault) and prints its address with `?map=dungeon`. Tests:
 
 ### Talking on the Dungeon Board
 
+Dungeon map cards and in-world control hints use the dialogue’s own painted gold/navy panel, cream text and lavender
+secondary text (`worldChat/game-tooltip.css`, `.dungeon-tooltip`). Its shared frame cutter and `useGameTooltipFrame`
+live in `worldChat/frame.ts`; `worldChat/art.ts` re-exports the cuts for the dialogue. `TooltipLayer` themes hints by their
+source control (inside `.world-chat`, `.world-dispatch` or `.dungeon-hud`) even though it portals to the body. Other app
+controls keep their usual tooltip theme. Painted icon-only buttons are recognised by their CSS background; navigation
+uses `data-tip` rather than native title hints. `MapCard` measures the framed card before placing it inside the map.
+
 Its left/right navigation buttons are original stone-and-bronze medallions (`worldChat/navigation.webp`, `ART.md`), without
 shortcut badges. Plain ←/→ step through a stable roster of the map’s active robots, grouped by host/workspace and age
 (`conversationOrder` in `navigation.ts`), rather than the sidebar’s filtered, collapsed or attention-sorted list. They never

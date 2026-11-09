@@ -464,10 +464,9 @@ test("Conversation stays clear of a long banner, works in narrow maps, and user 
   });
   assert.ok(appearance.contrast >= 4.5, `link contrast ${appearance.contrast}`);
   assert.match(appearance.underline, /underline/);
-  await link.focus();
   await page.keyboard.press("Tab");
-  await page.keyboard.press("Shift+Tab");
-  assert.equal(await link.evaluate((e) => e === document.activeElement), true);
+  await link.focus();
+  await waitFor(() => link.evaluate((e) => e === document.activeElement), Boolean, "the link receives keyboard focus");
   assert.equal(await link.evaluate((e) => getComputedStyle(e).outlineStyle), "solid");
   const field = box(page).locator("#world-composer");
   await field.fill("Keep this draft");

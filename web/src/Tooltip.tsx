@@ -1,6 +1,8 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { visibleBounds } from "./popover";
+import { useGameTooltipFrame } from "./worldChat/frame";
+import "./worldChat/game-tooltip.css";
 
 /*
  * The app's one tooltip, for icon-only buttons and links: they declare it as
@@ -115,7 +117,8 @@ export function sync(el: HTMLElement) {
 export function isIconOnlyButton(el: HTMLElement) {
   if (
     !el.matches("button, [role=button], a[href]") ||
-    !el.querySelector("svg, img, [role=img]")
+    (!el.querySelector("svg, img, [role=img]") &&
+      getComputedStyle(el).backgroundImage === "none")
   )
     return false;
   const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
@@ -164,6 +167,8 @@ type Shown = { el: HTMLElement; text: string };
 
 export function TooltipLayer() {
   const [shown, setShown] = useState<Shown | null>(null);
+  const inDungeon = !!shown?.el.closest(".world-chat, .world-dispatch, .dungeon-hud");
+  const gameFrame = useGameTooltipFrame(inDungeon);
   const [place, setPlace] = useState<{
     shown: Shown;
     x: number;
@@ -506,14 +511,14 @@ export function TooltipLayer() {
   return createPortal(
     <div
       ref={tip}
-      className={`tooltip ${positioned ? "shown" : ""} ${positioned?.below ? "below" : ""}`}
+      className={`tooltip${inDungeon ? " dungeon-tooltip" : ""} ${positioned ? "shown" : ""} ${positioned?.below ? "below" : ""}`}
       role="tooltip"
       // The control's description carries it for assistive tech.
       aria-hidden="true"
       style={
         positioned
-          ? { left: positioned.x, top: positioned.y }
-          : { left: -9999, top: -9999 }
+          ? { ...gameFrame, left: positioned.x, top: positioned.y }
+          : { ...gameFrame, left: -9999, top: -9999 }
       }
     >
       <span>{brief(text)}</span>

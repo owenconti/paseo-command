@@ -273,7 +273,7 @@ test("the command belt opens real queues, keeps requests unread until opened, an
   assert.equal((await inspect(page)).counts.unread, board.counts.unread, "opening a tray reads no reply");
   await page.keyboard.press("Escape");
   await tray.waitFor({ state: "detached" });
-  assert.equal(await replies.evaluate((e) => e === document.activeElement), true, "Escape restores the slot's focus");
+  await waitFor(() => replies.evaluate((e) => e === document.activeElement), Boolean, "Escape restores the slot’s focus");
   await page.getByRole("button", { name: /Waiting on you:/ }).click();
   await page.getByRole("dialog", { name: /Waiting on you/ }).waitFor();
   await page.getByRole("button", { name: /Running agents:/ }).click();
