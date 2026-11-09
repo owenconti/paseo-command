@@ -696,8 +696,8 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
       // Block pillars with caps and bases.
       for (const r of fl.piers) {
         fill("pillar", r, -45, dim);
-        if (FRAMES["pillar-capital"]?.real) put("pillar-capital", r.x - 8, T + 21, r.w + 16, 26, -44.8, dim);
-        else put("pillar-cap", r.x - 4, T + 23, r.w + 8, 27, -44.8, dim);
+        if (FRAMES["pillar-capital"]?.real) put("pillar-capital", r.x - 8, T + 21, r.w + 16, 26, -43.8, dim);
+        else put("pillar-cap", r.x - 4, T + 23, r.w + 8, 27, -43.8, dim);
         put("pillar-base", r.x - 4, r.y + r.h - 15, r.w + 8, 29, -44.8, dim);
       }
       // Each tier: the terrace floor under its walkway, and the thick front wall that closes it (lit top, returns, ends).
@@ -920,7 +920,8 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
     for (const d of l.decor) {
       if (d.project) continue;
       // Rugs lie on the terrace floor; recesses stand on it; other back things hang on the far wall.
-      const z = d.frame === "rug-red" ? -39.5 : d.recess ? -38 : d.layer === "back" ? -48 : -4;
+      // Cloth and its hanging rod sit in front of the upper wall's brick cap, beneath its pillars' capitals.
+      const z = d.frame === "rug-red" ? -39.5 : d.recess ? -38 : d.frame.startsWith("banner-") && d.layer === "back" ? -43.85 : d.layer === "back" ? -48 : -4;
       // Side rooms' recesses a shade down, so their coloured light never outshines the robots.
       // Side rooms' recesses and the foot's red rugs a shade down, so neither outshines the robots.
       const glowing = /^(magic-circle|crystal|alchemy-tank|forge|brazier)$/.test(d.frame);
