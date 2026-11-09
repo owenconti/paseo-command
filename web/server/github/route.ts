@@ -14,7 +14,9 @@ import { checkFilters, FILTER_FIELDS, FILTERS, isPeople, MAX_PEOPLE, MAX_SEARCHE
 import { prParams, readDiff, readPrCounts, readPeople, readPr, readTeams, readPrs, readRepoPrs, readRepoSearch, readRepos, readViewer } from "./reads";
 import { githubWrite } from "./writes";
 
-const READS = ["viewer", "prs", "repos", "repoSearch", "people", "teams", "pr", "diff", "prCounts"] as const;
+import { COMMIT_SHA, readMainCommits, readMainCommit } from "./commits";
+
+const READS = ["commits", "commit", "viewer", "prs", "repos", "repoSearch", "people", "teams", "pr", "diff", "prCounts"] as const;
 type ReadName = (typeof READS)[number];
 /** A review with 100 drafted comments of some length fits; nothing larger is read. */
 export const WRITE_BODY_LIMIT = 2 * 1024 * 1024;
@@ -36,6 +38,20 @@ function only(params: URLSearchParams, allowed: string[]) {
 
 async function read(name: ReadName, params: URLSearchParams): Promise<unknown> {
   switch (name) {
+    case "commits": {
+      only(params, ["repo", "head", "after", "fresh"]);
+      const repo = repoParam(params), head = params.get("head") ?? "", after = params.get("after") ?? "";
+      if ((head && !COMMIT_SHA.test(head)) || after.length > 512 || /[\x00-\x1f]/.test(after) || (after && !head)) throw new GithubApiError("invalid", "History needs a valid head and cursor.");
+      const f = fresh(params); assertEnabled();
+      return readMainCommits(repo, head, after, f);
+    }
+    case "commit": {
+      only(params, ["repo", "sha", "fresh"]);
+      const repo = repoParam(params), sha = params.get("sha") ?? "";
+      if (!COMMIT_SHA.test(sha)) throw new GithubApiError("invalid", "Name the commit by its full SHA.");
+      const f = fresh(params); assertEnabled();
+      return readMainCommit(repo, sha, f);
+    }
     case "viewer":
       only(params, ["fresh"]);
       assertEnabled();

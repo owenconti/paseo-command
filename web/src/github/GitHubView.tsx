@@ -40,6 +40,7 @@ import { PrView, type ConversationThreads, type PrViewApi, type ThreadsCommand }
 import { actionKey, actionLabel, MERGE_ACTION_KINDS, mergeActions, mergeMethodFor, type MergeAction } from "./merge";
 import { PR_SCOPES, type PrDetail, type PrList as PrListData, type PrScope, type RepoList, type ReviewEvent, type Viewer } from "./types";
 import "./github.css";
+import { MainHistory, type HistoryState } from "./MainHistory";
 
 const THREADS_COMMANDS: ThreadsCommand[] = ["show-resolved", "hide-resolved", "fold", "unfold"];
 
@@ -78,6 +79,7 @@ export type GithubViewState = {
   /** A repository's list shows: its filters. */
   filters?: RepoFilters;
   sidebarHidden: boolean;
+  history?: HistoryState;
 };
 
 const PANELS = { sidebar: 220, sidebarMin: 170, mainMin: 480 };
@@ -125,6 +127,7 @@ export function GitHubView({
   /** The view's state for ⌘K (undefined once it goes). */
   onViewState?: (state: GithubViewState | undefined) => void;
 }) {
+  const [historyState, setHistoryState] = useState<HistoryState>();
   const [place, setPlaceState] = useState<GithubPlace>(readPlace);
   // A workspace's changes, remembered from when they were this tab's: the Files page's Changes now.
   useEffect(() => {
@@ -150,6 +153,10 @@ export function GitHubView({
   }, []);
   const back = useCallback(() => {
     setPlaceState((was) => {
+      if (was.kind === "commits") {
+        const to: GithubPlace = was.sha ? { kind: "commits", repo: was.repo } : { kind: "repo", repo: was.repo };
+        writePlace(to); return to;
+      }
       if (was.kind !== "pr") return was;
       const to = from ?? { kind: "prs" as const, scope: "review" as const };
       writePlace(to);
@@ -199,7 +206,7 @@ export function GitHubView({
   }, []);
   const filterControl = useRef<RepoFilterControl | null>(null);
   const repoNav = useRef<RepoNavControl | null>(null);
-  const currentRepo = place.kind === "repo" || place.kind === "pr" ? place.repo : undefined;
+  const currentRepo = place.kind !== "prs" ? place.repo : undefined;
   const repoState = currentRepo
     ? {
         name: currentRepo,
@@ -314,7 +321,7 @@ export function GitHubView({
   );
   const openRow = useCallback((repo: string, number: number, tab: PrTab = "conversation") => go({ kind: "pr", repo, number, tab }), [go]);
 
-  const diffShown = place.kind === "pr" && place.tab === "files";
+  const diffShown = (place.kind === "pr" && place.tab === "files") || (place.kind === "commits" && !!place.sha);
   const toggleViewed = () => {
     const path = diffHandle.current?.current();
     const pr = openPr.pr;
@@ -391,6 +398,7 @@ export function GitHubView({
       onAppCommand("github-open-browser", () => {
         const { place, openPr } = c();
         if (place.kind === "pr" && openPr.pr) c().external(openPr.pr.url);
+        else if (place.kind === "commits") c().external(placeLink(place)!);
         else if (place.kind === "repo") c().external(`https://github.com/${place.repo}/pulls`);
       }),
       onAppCommand("github-star", (arg) => {
@@ -428,7 +436,8 @@ export function GitHubView({
       sidebar,
       comments: diffShown ? noteCount : 0,
       conversationOrder,
-      canBack: place.kind === "pr",
+      canBack: place.kind === "pr" || place.kind === "commits",
+      ...(place.kind === "commits" && historyState ? { history: historyState } : {}),
       repos: repoOrder(repos.data),
       sidebarHidden,
       ...(repoState ? { repo: repoState } : {}),
@@ -451,7 +460,7 @@ export function GitHubView({
           }
         : {}),
     });
-  }, [place, layout, listShown, diffShown, sidebar, noteCount, conversationOrder, openPr, onViewState, repos.data, repoState?.starred, repoState?.ownerStarred, filters, sidebarHidden]);
+  }, [place, layout, listShown, diffShown, sidebar, noteCount, conversationOrder, openPr, onViewState, repos.data, repoState?.starred, repoState?.ownerStarred, filters, sidebarHidden, historyState]);
   useEffect(() => () => onViewState?.(undefined), [onViewState]);
 
   const onKey = (e: ReactKeyboardEvent<HTMLElement>) => {
@@ -478,7 +487,7 @@ export function GitHubView({
     else if (place.kind === "pr" && lower === "c") prApi.current?.focusComment();
     else if (key === "Escape") {
       // Esc stops here: the page's own would clear the map's (hidden) selection.
-      if (place.kind === "pr") back();
+      if (place.kind === "pr" || place.kind === "commits") back();
     } else handled = false;
     if (handled) {
       e.preventDefault();
@@ -517,6 +526,7 @@ export function GitHubView({
         title={<span>{repo}</span>}
         tools={
           <>
+            <button className="page-btn" onClick={() => go({ kind: "commits", repo })}>Main commits</button>
             <RepoFilterButton repo={repo} filters={f} onFilters={(next) => setFilters(repo, next)} control={filterControl} />
             <button
               className={`icon-btn gh-star${starred ? " on" : ""}`}
@@ -538,6 +548,10 @@ export function GitHubView({
       />
     );
   }
+  else if (place.kind === "commits") main = <MainHistory key={place.repo} repo={place.repo} sha={place.sha}
+    onCommit={(sha) => go({ kind: "commits", repo: place.repo, ...(sha ? { sha } : {}) })}
+    onPulls={() => go({ kind: "repo", repo: place.repo })} onExternal={external}
+    layout={layout} listShown={listShown} handle={diffHandle} onState={setHistoryState} />;
   else
     main = (
       <PrView
@@ -606,12 +620,13 @@ export function GitHubView({
                   `${place.repo}#${place.number}`,
                   () => {},
                 )}
+              {currentRepo && navItem("main-history", place.kind === "commits", <GitPullRequest size={14} aria-hidden="true" />, "Main commits", `Monitor ${currentRepo}’s main branch`, () => go({ kind: "commits", repo: currentRepo }))}
               <RepoNav
                 list={repos.data}
                 unavailable={repos.unavailable}
                 current={currentRepo}
                 selected={place.kind === "repo"}
-                onOpen={(repo) => go({ kind: "repo", repo })}
+                onOpen={(repo) => go({ kind: place.kind === "commits" ? "commits" : "repo", repo })}
                 onNotice={onNotice}
                 control={repoNav}
               />

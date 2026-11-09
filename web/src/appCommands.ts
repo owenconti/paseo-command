@@ -34,6 +34,8 @@ export type AppCommand =
   | "activity-done"
   | "activity-read-all"
   | "activity-done-all"
+  | "github-history-latest"
+  | "github-history-older"
   | "github-open"
   | "github-go"
   | "github-refresh"

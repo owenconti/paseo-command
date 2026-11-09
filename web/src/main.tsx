@@ -1997,7 +1997,7 @@ function App() {
           });
           return [
             // ⌘R: what's shown (`pageRefresh.ts`); Refresh GitHub asks again for everything the tab has read.
-            command("page-refresh", place.kind === "pr" ? "Refresh the pull request" : "Refresh the pull requests", "reload update sync checks comments list", ["⌘", "R"]),
+            command("page-refresh", place.kind === "commits" ? "Refresh main history" : place.kind === "pr" ? "Refresh the pull request" : "Refresh the pull requests", "reload update sync checks comments list", ["⌘", "R"]),
             command("github-refresh", "Refresh GitHub", "reload update sync pull requests everything all counts repositories"),
             command("github-sidebar", "Show or hide the GitHub sidebar", "sidebar navigation collapse panel repositories", ["⌘", "S"]),
             ...(["review", "mine", "involved"] as const)
@@ -2010,6 +2010,17 @@ function App() {
               .map((r) =>
                 command("github-go", `Open ${r.repo}’s pull requests`, `repository repo pull requests list ${r.repo}${r.favourite ? " favourite starred" : ""}`, undefined, { kind: "repo", repo: r.repo }, "Navigate"),
               ),
+            ...v.repos.filter((r) => !(place.kind === "commits" && place.repo === r.repo && !place.sha)).map((r) => command("github-go", `Monitor ${r.repo}’s main commits`, "main branch commit log history monitor changes", undefined, { kind: "commits", repo: r.repo }, "Navigate")),
+            ...(v.repo && !v.repos.some((r) => r.repo === v.repo!.name) ? [command("github-go", `Monitor ${v.repo.name}’s main commits`, "main branch commit log history monitor changes", undefined, { kind: "commits", repo: v.repo.name }, "Navigate")] : []),
+            ...(place.kind === "commits" ? [
+              command("github-back", place.sha ? "Back to main history" : "Back to the repository’s pull requests", "back main commits history repository list", ["Esc"]),
+              command("github-go", "Show the repository’s pull requests", "main history back pulls", undefined, { kind: "repo", repo: place.repo }, "Navigate"),
+              command("github-open-browser", place.sha ? "Open the commit on GitHub" : "Open main history on GitHub", "browser conquer external main commit"),
+              command("github-copy-link", place.sha ? "Copy the commit link" : "Copy the main history link", "copy link url sha history", ["⇧", "⌘", "C"]),
+            ] : []),
+            ...(v.history?.more && !v.history.loading && place.kind === "commits" && !place.sha ? [command("github-history-older", "Load older main commits", "history paginate next page earlier changes")] : []),
+            ...(v.history?.newer ? [command("github-history-latest", "Show latest main commits", "history new arrivals monitor")] : []),
+            ...(place.kind === "commits" && v.history ? v.history.rows.filter((r) => r.sha !== place.sha).map((r) => command("github-go", `Open commit ${r.sha.slice(0, 7)}: ${r.title}`, "main commit diff changes", undefined, { kind: "commits", repo: place.repo, sha: r.sha }, "Navigate")) : []),
             command("github-find-repo", "Find a GitHub repository…", "search find repository repo organization org owner open star favourite"),
             ...(v.repo
               ? [
@@ -2084,12 +2095,14 @@ function App() {
                   command("github-files", v.listShown ? "Hide the diff’s file list" : "Show the diff’s file list", "diff files list tree sidebar", ["F"]),
                   command("github-filter-files", "Filter the diff’s files", "diff files filter search find path name fuzzy go to file", ["T"]),
                   command("github-find", "Find in the diff", "diff search find text content lines match", ["⌘", "F"]),
+                  ...(place.kind === "pr" ? [
                   command(
                     "github-diff-sidebar",
                     v.listShown && v.sidebar === "comments" ? "Show the diff’s files" : "Show the diff’s comments",
                     "diff comments list threads review inline sidebar files switch",
                     ["⇧", "C"],
-                  ),
+                  )
+                  ] : []),
                   ...(v.comments > 0
                     ? [
                         command("github-next-comment", "Next comment in the diff", "diff comment thread next review inline", ["N"]),

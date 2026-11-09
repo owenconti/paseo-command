@@ -1307,3 +1307,59 @@ test("⇧⌘C copies the PR's github.com link (any of its tabs) with a notice, a
     await context.close();
   }
 });
+
+test("main history monitors new arrivals without moving the list, pages from a pinned head and opens a commit diff", async () => {
+  const context = await newContext(browser);
+  const page = await context.newPage();
+  await setUp(page);
+  const A = "a".repeat(40), B = "b".repeat(40), C = "c".repeat(40);
+  let tip = A;
+  const requests: Record<string, string>[] = [];
+  await page.route("**/api/github/q/commit**", async (route) => {
+    const u = new URL(route.request().url()), q = Object.fromEntries(u.searchParams);
+    requests.push(q);
+    if (u.pathname.endsWith("/commits")) {
+      const older = !!q.after;
+      const rows = older ? [{ sha: B, title: "Earlier change", author: "Ada", date: ago(50) }] : [{ sha: tip, title: tip === A ? "Improve the dungeon" : "A new main commit", author: "Sam", date: ago(2) }];
+      return route.fulfill({ json: { repo: q.repo, branch: "main", head: older ? A : tip, rows, cursor: older ? null : "older", more: !older } });
+    }
+    return route.fulfill({ json: { sha: q.sha, title: "Improve the dungeon", author: "Sam", date: ago(2), message: "Improve the dungeon\n\nKeep the robots calm.", parents: [B], additions: 4, deletions: 2, ...DIFF } });
+  });
+  try {
+    await page.goto(app.url); await showGithub(page);
+    const view = page.locator(".github-view");
+    await view.locator(".gh-repo-row .gh-nav-label", { hasText: "atlas" }).click();
+    await view.getByRole("button", { name: "Main commits", exact: true }).first().click();
+    const history = page.getByRole("region", { name: "Main commit history" });
+    await history.getByRole("button", { name: /Improve the dungeon/ }).waitFor();
+    if (process.env.GITHUB_SHOT) await page.screenshot({ path: `${process.env.GITHUB_SHOT}/main-history.png` });
+    tip = C;
+    await history.getByRole("button", { name: "Refresh main history" }).click();
+    await history.getByText("New commits on main", { exact: true }).waitFor();
+    assert.equal(await history.getByRole("button", { name: /A new main commit/ }).count(), 0, "new arrivals don't move the current list");
+    await history.getByRole("button", { name: "Load older commits" }).click();
+    await history.getByRole("button", { name: /Earlier change/ }).waitFor();
+    assert.ok(requests.some((q) => q.head === A && q.after === "older"), "older commits use the original main head");
+    await history.getByRole("button", { name: /Improve the dungeon/ }).click();
+    await history.locator(".gd-file").first().waitFor();
+    await history.getByText("Keep the robots calm.").waitFor();
+    if (process.env.GITHUB_SHOT) await page.screenshot({ path: `${process.env.GITHUB_SHOT}/main-commit-diff.png` });
+    await history.getByRole("button", { name: "Back to main history" }).click();
+    await history.getByRole("button", { name: /Earlier change/ }).waitFor();
+    await history.getByRole("button", { name: "Show latest commits" }).click();
+    await history.getByRole("button", { name: /A new main commit/ }).waitFor();
+    assert.equal(await history.getByRole("button", { name: /Earlier change/ }).count(), 0);
+    await page.keyboard.press("Meta+k");
+    const palette = page.getByRole("dialog", { name: "Command palette" });
+    await palette.getByRole("combobox").fill("Open commit ccccccc");
+    await palette.getByRole("option", { name: /Open commit ccccccc/ }).waitFor();
+    await page.keyboard.press("Escape");
+    await page.reload(); await showGithub(page);
+    await page.getByRole("region", { name: "Main commit history" }).waitFor();
+    const finder = page.getByRole("searchbox", { name: "Find a repository" });
+    await finder.fill("tool");
+    await page.locator(".gh-repo-found .gh-nav-label", { hasText: "sam/tools" }).waitFor();
+    await finder.press("Enter");
+    await page.getByRole("region", { name: "Main commit history" }).getByText(/sam\/tools/).waitFor();
+  } finally { await context.close(); }
+});

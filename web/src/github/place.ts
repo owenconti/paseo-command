@@ -19,6 +19,7 @@ export const PR_TABS: PrTab[] = ["conversation", "files", "commits", "checks"];
 export type GithubPlace =
   | { kind: "prs"; scope: PrScope }
   | { kind: "repo"; repo: string }
+  | { kind: "commits"; repo: string; sha?: string }
   | { kind: "pr"; repo: string; number: number; tab: PrTab; path?: string };
 
 const STORE_KEY = "github:place";
@@ -29,6 +30,8 @@ export function checkPlace(raw: unknown): GithubPlace {
   if (!raw || typeof raw !== "object") return DEFAULT_PLACE;
   const p = raw as Record<string, unknown>;
   if (p.kind === "prs" && PR_SCOPES.includes(p.scope as PrScope)) return { kind: "prs", scope: p.scope as PrScope };
+  if (p.kind === "commits" && typeof p.repo === "string" && REPO.test(p.repo) && !p.repo.includes(".."))
+    return { kind: "commits", repo: p.repo, ...(typeof p.sha === "string" && /^[a-f0-9]{40}$/i.test(p.sha) ? { sha: p.sha } : {}) };
   if (p.kind === "repo" && typeof p.repo === "string" && REPO.test(p.repo) && !p.repo.includes("..")) return { kind: "repo", repo: p.repo };
   if (
     p.kind === "pr" &&
@@ -47,7 +50,9 @@ export function checkPlace(raw: unknown): GithubPlace {
 
 /** A place's address on github.com, for ⇧⌘C: a PR's, or a repository's pull requests; none for the scope lists. */
 export const placeLink = (place: GithubPlace): string | undefined =>
-  place.kind === "pr"
+  place.kind === "commits"
+    ? `https://github.com/${place.repo}/${place.sha ? `commit/${place.sha}` : "commits/main"}`
+    : place.kind === "pr"
     ? `https://github.com/${place.repo}/pull/${place.number}`
     : place.kind === "repo"
       ? `https://github.com/${place.repo}/pulls`

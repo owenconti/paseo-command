@@ -640,6 +640,18 @@ and GitHub publication; report the published version and release link.
   Only text is wrapped (it copies as written); other clicks take the link path below.
 - Web links clicked in the chat (`.session`, `openInAppBrowser` in `web/src/Session.tsx`, `postAppLink` → the `openLink` message)
   switch to Conquer and open there as a new tab, once its tabs are restored (`whenStarted`).
+- Main commits: in the GitHub page, choose a repository and Main commits (`web/src/github/MainHistory.tsx`,
+  `GithubPlace` kind `commits`, optional `sha`). The repository picker stays in main history while switching repositories.
+  It polls the selected repository's `main` every 15 s while visible. Arrivals offer Show latest commits without moving
+  the reader; Load older commits uses a cursor pinned to the original head, so newer commits cannot shift pagination.
+  Every history page is reachable. A commit opens its full message, author, date, parents and the shared read-only diff
+  viewer; Back and Escape return to the retained list, then the repository's PRs. Place and last-seen head are kept.
+  `GET /api/github/q/commits?repo=&head=&after=` and `commit?repo=&sha=` (`web/server/github/commits.ts`), under the existing
+  GitHub integration and token, are named, validated read-only calls: GraphQL history (50 per page), REST commit metadata
+  and diff. A missing main branch says why; an oversized diff is labelled partial. No daemon mutation or git checkout.
+  Palette entries include repository histories, commit rows, older/latest pages, Back and external/copy links.
+  Tests: `web/server/github/commits.test.ts`, `web/e2e/github.e2e.ts`.
+
 - Links to a GitHub pull request (see GitHub, above) open in the GitHub tab while it's on, wherever they're clicked: the chat,
   a Conquer page (⌥-click stays there), a PR's body. The app matches them (`pageMode`, `routeLink` in `WorldWindow.swift`) and sends
   the page `paseo:link`; `web/src/appLinks.ts` (`parseAppLink`, the same shape) opens it. Links to a Linear issue or project

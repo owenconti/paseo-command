@@ -407,3 +407,8 @@ export type GithubWriteResult = { ok: true; url?: string; stars?: GithubStars; /
 export const REPO = /^(?!\.\.?\/)[\w.-]{1,100}\/(?!\.\.?$)[\w.-]{1,100}$/;
 /** An organization's or user's login. */
 export const OWNER = /^[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})$/;
+
+/** All commits reachable from main, paged from a fixed head while monitoring the latest one separately. */
+export type MainCommit = { sha: string; title: string; author: string; login?: string; date: string };
+export type MainCommitPage = { repo: string; branch: "main"; head: string; rows: MainCommit[]; cursor: string | null; more: boolean };
+export type MainCommitDetail = MainCommit & PrDiff & { message: string; parents: string[]; additions: number; deletions: number };
