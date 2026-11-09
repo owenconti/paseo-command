@@ -26,7 +26,7 @@ after(async () => {
 
 type Native = {
   arts: string[];
-  scenes: { scene: string; style?: string; entities: { id: string; kind: string }[]; sprites: { f?: string; e?: string; dim?: number; y: number; z: number; shade?: number }[] }[];
+  scenes: { scene: string; style?: string; entities: { id: string; kind: string }[]; thresholds: { id: string; x: number; y: number; w: number; badge?: { x: number; y: number } }[]; sprites: { f?: string; e?: string; dim?: number; y: number; z: number; shade?: number }[] }[];
   agents: { hud: Record<string, { key: string }> }[];
   links: string[];
   selected: string | null;
@@ -50,7 +50,7 @@ async function open(style: "islands" | "overworld" | "dungeon", { linear = true 
               host.arts.push(m.scene);
               setTimeout(() => window.dispatchEvent(new CustomEvent("paseo:world", { detail: { type: "ready" } })));
             }
-            if (m.type === "scene") host.scenes.push({ scene: host.arts.at(-1), style: m.style, entities: m.entities ?? [], sprites: m.sprites ?? [] });
+            if (m.type === "scene") host.scenes.push({ scene: host.arts.at(-1), style: m.style, entities: m.entities ?? [], thresholds: m.thresholds ?? [], sprites: m.sprites ?? [] });
             if (m.type === "agents") host.agents.push({ hud: m.hud });
             if (m.type === "openLink") host.links.push(m.url);
             if (m.type === "select") host.selected = m.id;
@@ -168,6 +168,13 @@ test("the board draws every host, project, workspace and agent truthfully", asyn
   assert.equal(scene.scene, "dungeon");
   assert.equal(scene.entities.filter((e) => e.kind === "agent").length, 27);
   assert.equal(scene.entities.filter((e) => e.kind === "host").length, 0);
+  assert.equal(scene.thresholds.length, 17, "Swift receives each hall and alcove's physical selection span");
+  for (const t of scene.thresholds) {
+    const e = scene.entities.find((e) => e.id === t.id)!;
+    assert.ok(e.kind === "project" || e.kind === "workspace");
+    assert.equal(!!t.badge, e.kind === "project", "only projects carry a sign diamond");
+    assert.ok(t.w > 0);
+  }
   await page.context().close();
 });
 

@@ -37,8 +37,6 @@ final class DungeonScene: SKScene, MapScene {
     private let agentLayer = SKNode()
     private let hoverNode = SKNode()
     private let selectionNode = SKNode()
-    private let selectionWash = SKNode()
-    private let selectionHalo = SKNode()
     private let hud = SKNode()
     private var hudTitle: SKSpriteNode?
     private var hudCounts: SKSpriteNode?
@@ -78,9 +76,9 @@ final class DungeonScene: SKScene, MapScene {
     /// The state glows drawn under robots (for checks).
     private var stateGlows = 0
     private var hoverColors: [String: Int] = ["project": 0xffc83d, "workspace": 0xff7f32, "agent": 0x4fe6dc]
-    /// What glows when hovered: each entity's sprites (an alcove's frame, a terrace's rampart and returns: tagged `e` by
-    /// the page), each robot's body, each PR medallion.
-    private var owners: [String: [SKSpriteNode]] = [:]
+    /// Brass details follow the real ledges; project pick boxes sit above their halls.
+    private struct Threshold { let x: CGFloat; let y: CGFloat; let width: CGFloat; let accents: [CGRect]; let badge: CGPoint? }
+    private var thresholds: [String: Threshold] = [:]
     private var robotBodies: [String: SKSpriteNode] = [:]
     private var flagNodes: [String: SKSpriteNode] = [:]
     private var hoverGlows: [SKNode] = []
@@ -150,10 +148,8 @@ final class DungeonScene: SKScene, MapScene {
         backdrop.zPosition = -100
         for node in [backdrop, board, agentLayer] { world.addChild(node) }
         hoverNode.zPosition = 19
-        selectionWash.zPosition = 19.5
-        selectionHalo.zPosition = 19.6
         selectionNode.zPosition = 19.7
-        for node in [hoverNode, selectionWash, selectionHalo, selectionNode] { world.addChild(node) }
+        for node in [hoverNode, selectionNode] { world.addChild(node) }
         hud.zPosition = 100
         cam.addChild(hud)
     }
@@ -196,20 +192,15 @@ final class DungeonScene: SKScene, MapScene {
         sceneAnims = []
         scenePulses = []
         sceneGlows = []
-        owners = [:]
         flagNodes = [:]
-        composites = [:]
         for s in m["sprites"] as? [[String: Any]] ?? [] {
             if let node = node(s, anims: &sceneAnims, pulses: &scenePulses) {
                 board.addChild(node)
-                if let e = s["e"] as? String { owners[e, default: []] += SpriteGlow.sprites(in: node) }
             }
         }
         for s in m["images"] as? [[String: Any]] ?? [] {
             if let node = node(s, anims: &sceneAnims, pulses: &scenePulses) {
                 board.addChild(node)
-                // A painted piece tagged with its entity (a project's name board) glows with it.
-                if let e = s["e"] as? String { owners[e, default: []] += SpriteGlow.sprites(in: node) }
             }
         }
         flags = []
@@ -226,6 +217,13 @@ final class DungeonScene: SKScene, MapScene {
         for e in m["entities"] as? [[String: Any]] ?? [] {
             guard let id = e["id"] as? String, let kind = e["kind"] as? String else { continue }
             entities[id] = Entity(id: id, kind: kind, rect: CGRect(x: num(e["x"]), y: num(e["y"]), width: num(e["w"]), height: num(e["h"])))
+        }
+        thresholds = [:]
+        for t in m["thresholds"] as? [[String: Any]] ?? [] {
+            guard let id = t["id"] as? String, num(t["w"]) > 0 else { continue }
+            let accents = (t["accents"] as? [[String: Any]] ?? []).map { CGRect(x: num($0["x"]), y: num($0["y"]), width: num($0["w"]), height: num($0["h"])) }
+            let badge = (t["badge"] as? [String: Any]).map { CGPoint(x: num($0["x"]), y: num($0["y"])) }
+            thresholds[id] = Threshold(x: num(t["x"]), y: num(t["y"]), width: num(t["w"]), accents: accents, badge: badge)
         }
         // Robots before their alcoves, alcoves before their projects.
         let rank = ["agent": 0, "workspace": 1, "project": 2]
@@ -667,39 +665,45 @@ final class DungeonScene: SKScene, MapScene {
 
     // MARK: Selection and hover
 
-    /// What glows for an entity: a PR medallion (when that's what's hovered), a robot's body, or its tagged sprites.
-    private func glowSprites(_ id: String, flag: Flag? = nil) -> [SKSpriteNode] {
-        if let f = flag, let medallion = flagNodes["\(f.workspace)|\(f.flag)"] { return [medallion] }
-        if entities[id]?.kind == "agent" { return robotBodies[id].map { [$0] } ?? [] }
-        return owners[id] ?? []
+    /// Robots and PR medallions keep their own silhouette cues; architecture uses brass inlays.
+    private func glowNodes(_ id: String, flag: Flag? = nil, color: NSColor, name: String, wide: Bool) -> [SKNode] {
+        let sprite = flag.flatMap { flagNodes["\($0.workspace)|\($0.flag)"] } ?? robotBodies[id]
+        return sprite.map { SpriteGlow.glow($0, color: color, name: name, wide: wide) } ?? []
     }
 
-    /// An alcove's or terrace's pieces drawn as one silhouette (its frame and bay, its rampart, face and return), kept
-    /// until the scene changes.
-    private var composites: [String: (image: CGImage, rect: CGRect)] = [:]
-
-    /// The glow for `id` in `color`: a robot or a PR medallion along its own sprite (`SpriteGlow`'s 5% spread); an
-    /// alcove or terrace along its pieces' one outline, spread by `SpriteGlow.structureSpread`.
-    private func glowNodes(_ id: String, flag: Flag? = nil, color: NSColor, name: String, wide: Bool, into layer: SKNode) -> [SKNode] {
-        let sprites = glowSprites(id, flag: flag)
-        let kind = entities[id]?.kind
-        if flag != nil || kind == "agent" { return sprites.flatMap { SpriteGlow.glow($0, color: color, name: name, wide: wide) } }
-        guard let view, !sprites.isEmpty else { return [] }
-        if composites[id] == nil { composites[id] = SpriteGlow.composite(sprites, in: layer.parent ?? world, view: view) }
-        guard let c = composites[id] else { return [] }
-        let spread = SpriteGlow.structureSpread
-        let made = SpriteGlow.overlay(for: c.image, size: c.rect.size, mid: CGPoint(x: c.rect.midX, y: c.rect.midY), color: color, name: name, wide: wide, spread: spread)
-        for n in made { layer.addChild(n) }
-        return made
+    private func drawThreshold(_ id: String, selected: Bool, into layer: SKNode) {
+        guard let t = thresholds[id] else { return }
+        let height: CGFloat = selected ? 7 : 2.5
+        let strip = SKSpriteNode(texture: DungeonBrass.texture(width: t.width, height: height, selected: selected))
+        strip.name = selected ? "select-threshold" : "hover-threshold"
+        strip.size = CGSize(width: t.width, height: height)
+        strip.position = p(t.x + t.width / 2, t.y)
+        layer.addChild(strip)
+        if !selected {
+            for r in t.accents {
+                let cap = SKSpriteNode(texture: DungeonBrass.texture(width: r.width, height: r.height, selected: false))
+                cap.name = "hover-capital"
+                cap.size = r.size
+                cap.position = p(r.midX, r.midY)
+                layer.addChild(cap)
+            }
+        } else if let b = t.badge {
+            let badge = SKSpriteNode(texture: DungeonBrass.diamond)
+            badge.name = "select-sign-diamond"
+            badge.size = CGSize(width: 6, height: 8)
+            badge.position = p(b.x, b.y)
+            layer.addChild(badge)
+        }
     }
 
-    /// The selection glows gold along the same silhouette, breathing (no rim or wash).
+    /// Architecture has a steady brass threshold; only a selected robot breathes.
     private func drawSelection() {
-        for node in [selectionNode, selectionWash, selectionHalo] { node.removeAllChildren() }
+        for node in [selectionNode] { node.removeAllChildren() }
         for g in selectionGlows { g.removeFromParent() }
         selectionGlows = []
         guard let id = selected, entities[id] != nil else { return }
-        selectionGlows = glowNodes(id, color: SpriteGlow.selectColor, name: "select-glow", wide: true, into: selectionNode)
+        if thresholds[id] != nil { drawThreshold(id, selected: true, into: selectionNode) }
+        else if entities[id]?.kind == "agent" { selectionGlows = glowNodes(id, color: SpriteGlow.selectColor, name: "select-glow", wide: true) }
         breathe()
     }
 
@@ -707,23 +711,22 @@ final class DungeonScene: SKScene, MapScene {
         SpriteGlow.breathe(selectionGlows, clock: clock, reduced: reduced)
     }
 
-    /// The hovered thing glows: a warm halo just outside its own silhouette (a robot's body, an
-    /// alcove's frame and bay, a terrace's rampart, face and return, a PR medallion) and a faint brightening, no box.
+    /// A quiet brass edge for architecture, a silhouette lift for robots and PR medallions.
     private func drawHover() {
         hoverNode.removeAllChildren()
         for g in hoverGlows { g.removeFromParent() }
         hoverGlows = []
         // The selected one keeps its gold (unless a PR medallion on it is hovered).
         guard let id = hovered, entities[id] != nil, id != selected || hoveredFlag != nil else { return }
-        hoverGlows = glowNodes(id, flag: hoveredFlag, color: SpriteGlow.hoverColor, name: "hover-glow", wide: false, into: hoverNode)
+        if hoveredFlag == nil, thresholds[id] != nil { drawThreshold(id, selected: false, into: hoverNode) }
+        else { hoverGlows = glowNodes(id, flag: hoveredFlag, color: SpriteGlow.hoverColor, name: "hover-glow", wide: false) }
     }
 
     private func setHover(_ id: String?, flag: Flag? = nil) {
         guard id != hovered || flag?.flag != hoveredFlag?.flag || flag?.center != hoveredFlag?.center else { return }
-        let outline = id != hovered
         hovered = id
         hoveredFlag = id == nil ? nil : flag
-        if outline { drawHover() }
+        drawHover()
         reportHover()
         wake()
     }
@@ -751,6 +754,7 @@ final class DungeonScene: SKScene, MapScene {
     func select(_ id: String?) {
         selected = id.flatMap { entities[$0] != nil ? $0 : nil }
         drawSelection()
+        drawHover()
         wake()
     }
 
@@ -1079,7 +1083,7 @@ final class DungeonScene: SKScene, MapScene {
     /// Smooth motion needs the ambient rate: flaring light, pulses, running rings, markers, drones and selection.
     var animating: Bool {
         guard !reduced else { return false }
-        return selected != nil || !scenePulses.isEmpty || !agentPulses.isEmpty || !rimRunners.isEmpty || !markPulses.isEmpty
+        return !selectionGlows.isEmpty || !scenePulses.isEmpty || !agentPulses.isEmpty || !rimRunners.isEmpty || !markPulses.isEmpty
             || (sceneGlows + agentGlows).contains { !$0.still }
             || robots.contains { !$0.still && !$0.drones.isEmpty }
     }
@@ -1210,4 +1214,77 @@ final class DungeonScene: SKScene, MapScene {
         ]
     }
     private func countNodes(_ node: SKNode) -> Int { node.children.reduce(1) { $0 + countNodes($1) } }
+}
+
+/// Bevelled, worn metal set into the stone, painted at the sheets' 3× scale. No additive blend,
+/// bloom or full-building tint: even the brightest bevel preserves the surrounding masonry.
+private enum DungeonBrass {
+    private static var cache: [String: SKTexture] = [:]
+    static let diamond = paint(width: 6, height: 8) { c, w, h in
+        jewel(c, x: w / 2, y: h / 2, rx: w / 2 - 0.3, ry: h / 2 - 0.3)
+    }
+
+    static func texture(width: CGFloat, height: CGFloat, selected: Bool) -> SKTexture {
+        let key = "\(width):\(height):\(selected)"
+        if let texture = cache[key] { return texture }
+        let texture = paint(width: width, height: height) { c, w, h in
+            let band = CGRect(x: 0.5, y: selected ? 1.6 : 0.35, width: w - 1, height: selected ? h - 3.2 : h - 0.7)
+            c.saveGState()
+            c.addPath(CGPath(roundedRect: band, cornerWidth: 0.7, cornerHeight: 0.7, transform: nil))
+            c.clip()
+            let colors = [0x5b3218, 0xa56b2b, 0xe8bb68, 0x97703c, 0xf5d69a].map { Textures.color($0).cgColor } as CFArray
+            let gradient = CGGradient(colorsSpace: CGColorSpaceCreateDeviceRGB(), colors: colors, locations: [0, 0.2, 0.53, 0.78, 1])!
+            c.drawLinearGradient(gradient, start: CGPoint(x: 0, y: band.minY), end: CGPoint(x: 0, y: band.maxY), options: [])
+            // Deterministic nicks and patina; no animated shimmer or repeating pulse.
+            for i in 0..<Int(w * 1.7) {
+                let x = CGFloat((i * 193 + 37) % max(1, Int(w * 13))) / 13
+                let y = band.minY + CGFloat((i * 29) % 31) / 31 * band.height
+                c.setFillColor(Textures.color(i % 3 == 0 ? 0xffe7b0 : 0x5f3b22).withAlphaComponent(0.2).cgColor)
+                c.fill(CGRect(x: x, y: y, width: CGFloat(i % 4 + 1) / 3, height: 0.25))
+            }
+            c.restoreGState()
+            c.setStrokeColor(Textures.color(0x4b2c1b).cgColor)
+            c.setLineWidth(0.45)
+            c.stroke(band)
+            if selected {
+                // Inward arrows delimit the span. They never form a box around the building.
+                for left in [true, false] {
+                    c.saveGState()
+                    c.translateBy(x: left ? 1 : w - 1, y: 0)
+                    c.scaleBy(x: left ? 1 : -1, y: 1)
+                    let path = CGMutablePath()
+                    path.move(to: CGPoint(x: 0, y: 0.5)); path.addLine(to: CGPoint(x: 3, y: 0.5))
+                    path.addLine(to: CGPoint(x: 6, y: h / 2)); path.addLine(to: CGPoint(x: 3, y: h - 0.5))
+                    path.addLine(to: CGPoint(x: 0, y: h - 0.5)); path.addLine(to: CGPoint(x: 3, y: h / 2)); path.closeSubpath()
+                    c.addPath(path); c.setFillColor(Textures.color(0xe4b766).cgColor)
+                    c.setStrokeColor(Textures.color(0x58341b).cgColor); c.setLineWidth(0.6); c.drawPath(using: .fillStroke)
+                    c.restoreGState()
+                }
+                jewel(c, x: w / 2, y: h / 2, rx: 3.5, ry: h / 2 - 0.25)
+            }
+        }
+        if cache.count > 128 { cache.removeAll() }
+        cache[key] = texture
+        return texture
+    }
+
+    private static func jewel(_ c: CGContext, x: CGFloat, y: CGFloat, rx: CGFloat, ry: CGFloat) {
+        let path = CGMutablePath()
+        path.move(to: CGPoint(x: x - rx, y: y)); path.addLine(to: CGPoint(x: x, y: y + ry))
+        path.addLine(to: CGPoint(x: x + rx, y: y)); path.addLine(to: CGPoint(x: x, y: y - ry)); path.closeSubpath()
+        c.addPath(path); c.setFillColor(Textures.color(0xe1ad50).cgColor)
+        c.setStrokeColor(Textures.color(0x5c351b).cgColor); c.setLineWidth(0.65); c.drawPath(using: .fillStroke)
+        c.beginPath(); c.move(to: CGPoint(x: x - rx + 0.8, y: y)); c.addLine(to: CGPoint(x: x, y: y + ry - 0.7))
+        c.addLine(to: CGPoint(x: x, y: y)); c.closePath(); c.setFillColor(Textures.color(0xffe6ad).cgColor); c.fillPath()
+        c.beginPath(); c.move(to: CGPoint(x: x, y: y)); c.addLine(to: CGPoint(x: x + rx - 0.7, y: y))
+        c.addLine(to: CGPoint(x: x, y: y - ry + 0.7)); c.closePath(); c.setFillColor(Textures.color(0x9d6229).cgColor); c.fillPath()
+    }
+
+    private static func paint(width: CGFloat, height: CGFloat, draw: (CGContext, CGFloat, CGFloat) -> Void) -> SKTexture {
+        let scale: CGFloat = 3
+        let c = CGContext(data: nil, width: max(1, Int(ceil(width * scale))), height: max(1, Int(ceil(height * scale))), bitsPerComponent: 8, bytesPerRow: 0, space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
+        c.scaleBy(x: scale, y: scale)
+        draw(c, width, height)
+        return Textures.texture(c.makeImage()!)
+    }
 }

@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { layoutDungeon, overlaps, approxMeasure, CLOTHS, hudSubtitle, dungeonNow, projectIcon, robotColor, cutawaySpans, D } from "../src/dungeon/layout.ts";
+import { dungeonThresholds } from "../src/dungeon/thresholds.ts";
 import { FRAMES, applySheet } from "../src/dungeon/frames.ts";
 import { readdirSync, readFileSync } from "node:fs";
 
@@ -374,4 +375,30 @@ test("Now prioritizes attention and keeps unread replies distinct from idle agen
   const now = dungeonNow({ ...c, needYou: 2, unread: 3, failed: 1, running: 4, idle: 20, offline: 5 });
   assert.deepEqual(now.map(({ label, n }) => [label, n]), [["waiting", 2], ["unread", 3], ["failed", 1], ["running", 4], ["offline", 5]]);
   assert.deepEqual(dungeonNow({ ...c, needYou: 0, unread: 0, failed: 0, running: 0, idle: 2, offline: 0 }).map(({ label, n }) => [label, n]), [["running", 0], ["idle", 2]]);
+});
+
+
+test("brass thresholds follow hall and workspace ledges, independently of project pick boxes", () => {
+  for (const data of [DUNGEON_SAMPLE, big(2, 3, 5, 4)]) {
+    const l = layoutDungeon(data, 1.4);
+    const thresholds = dungeonThresholds(l);
+    assert.equal(thresholds.length, l.projects.filter((p) => p.entity).length + l.workspaces.length);
+    for (const p of l.projects.filter((p) => p.entity)) {
+      const t = thresholds.find((t) => t.id === p.entity.id);
+      assert.equal(t.y, p.hall.y + p.hall.h - 5);
+      assert.equal(t.w, p.hall.w - 14);
+      assert.ok(t.badge.x > p.sign.x && t.badge.x < p.sign.x + D.projectSignPad);
+      for (const w of l.workspaces.filter((w) => w.project === p.key)) {
+        const a = thresholds.find((t) => t.id === w.entity.id);
+        assert.ok(a.x > t.x && a.x + a.w < t.x + t.w, "each alcove fits inside its project's marker");
+        assert.ok(a.y < t.y, "workspace and project thresholds occupy different ledges");
+      }
+    }
+    for (const w of l.workspaces) {
+      const t = thresholds.find((t) => t.id === w.entity.id);
+      assert.equal(t.w, w.rect.w - 2 * D.alcoveSide);
+      assert.equal(t.y, w.rect.y + w.rect.h - 5);
+      assert.equal(t.badge, undefined);
+    }
+  }
 });

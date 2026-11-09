@@ -13,6 +13,7 @@ import type { AtlasHandlers, AtlasWorld } from "../atlas";
 import { WORLD_WATCH, applied, behind, newWatch, post as postRevision } from "../native/watch";
 import { nativeSurface } from "../native/surface";
 import { FRAMES, ANIMATIONS, anchorShare, applySheet, framesOf, sliceOf, type SheetJson } from "./frames";
+import { dungeonThresholds } from "./thresholds";
 import { paintPlaceholder } from "./placeholder";
 import { dashCard } from "../dashboard";
 import {
@@ -692,7 +693,7 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
       // The project's hall (its mark, with its candles and its cloth: no medallion or icon; the user's choice, A and B):
       // a dark back wall behind its alcoves, thick end piers, one lintel across their tops, a floor strip before them;
       // a valance in its colour under the lintel and a runner along the floor. Its stone is tagged with the project,
-      // so its glow follows the hall's own silhouette.
+      // so its pieces remain associated with the hall.
       // The hall's stone a notch down, so the robots stay brighter than their surround.
       const lit = l.floors[p.floor]!.online;
       const h = p.hall, stone = { ...dim, ...(dim.dim ? {} : { shade: 0.22 }), ...(p.entity ? { e: p.entity.id } : {}) };
@@ -767,7 +768,7 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
           // The left desk turned in (or, seeded, facing out), so bays don't repeat evenly.
           { ...dim, e: w.entity.id, shade: dim.dim ? 0.55 : INTERIOR_SHADE, ...(left && v === 1 && (seedOf(w.entity.id + "turn") & 3) !== 0 ? { flip: 1 } : {}) });
       }
-      // Its frame, tagged with the workspace so it glows when hovered.
+      // Its frame, tagged with its workspace.
       const frameOf = { ...dim, e: w.entity.id };
       // The upper interior falls into shadow; the baked candlelit floor and desks below keep their warmth.
       images.push({ ...image("shade:upper", () => paintShade("upper")), x: x + 20, y: y + 12, w: inner, h: (D.alcoveH - 22) * 0.55, z: -11.95, ...dim });
@@ -918,6 +919,7 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
       images,
       lights,
       flags,
+      thresholds: dungeonThresholds(l),
       entities: [
         // The vault's tiles: hover cards and clicks the page answers (never a selection).
         ...l.vault.map((t) => ({ id: t.id, kind: "tile", ...t.rect })),

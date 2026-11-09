@@ -54,6 +54,10 @@ scene.setScene([
     "images": [] as [[String: Any]],
     "flags": [["ws": "w1", "flag": "ci-green", "f": "pr-ci-green", "x": 100.0, "y": 300.0, "w": 18.0, "h": 18.0, "z": 5.0, "cx": 109.0, "cy": 309.0, "s": 18.0]],
     "lights": [["x": 0.0, "y": 100.0, "c": 0xffb640, "r": 60.0, "flicker": true, "still": 1.0]],
+    "thresholds": [
+        ["id": "p1", "x": 103.0, "y": 235.0, "w": 194.0, "accents": [["x": 100.0, "y": 143.0, "w": 20.0, "h": 3.0]], "badge": ["x": 180.0, "y": 165.0]],
+        ["id": "w1", "x": 97.0, "y": 385.0, "w": 226.0, "accents": [["x": 85.0, "y": 378.0, "w": 11.0, "h": 3.0]]],
+    ],
     "entities": [
         ["id": "p1", "kind": "project", "x": 100.0, "y": 140.0, "w": 200.0, "h": 90.0],
         ["id": "w1", "kind": "workspace", "x": 80.0, "y": 280.0, "w": 260.0, "h": 110.0],
@@ -124,6 +128,31 @@ assert(named(scene, "select-glow") == 3, "a selected robot glows")
 assert(shapes(scene) == 0, "no selection rim")
 scene.select("gone")
 assert(scene.state()["selected"] is NSNull)
+
+// Architectural markers are exact physical spans; they need no view-texture composite or bloom.
+func findNode(_ n: SKNode, _ name: String) -> SKNode? { n.name == name ? n : n.children.lazy.compactMap { findNode($0, name) }.first }
+scene.pointer(phase: "move", at: screen(300, 360))
+assert(named(scene, "hover-threshold") == 1 && named(scene, "hover-capital") == 1)
+assert(glowCount(scene) == 0, "hovering a workspace never washes out its stone")
+scene.select("w1")
+let wsThreshold = findNode(scene, "select-threshold") as! SKSpriteNode
+assert(wsThreshold.size.width == 226 && wsThreshold.position.y == -385)
+assert(named(scene, "hover-threshold") == 0, "selecting a hovered workspace removes its temporary cue")
+assert(named(scene, "select-glow") == 0, "architecture has no selection bloom")
+// A medallion on that same workspace can still hover, then return to the selected workspace.
+scene.pointer(phase: "move", at: screen(109, 309))
+assert(glowCount(scene) >= 2 && named(scene, "select-threshold") == 1)
+scene.pointer(phase: "move", at: screen(300, 360))
+assert(glowCount(scene) == 0 && named(scene, "hover-threshold") == 0)
+scene.select("p1")
+let projectThreshold = findNode(scene, "select-threshold") as! SKSpriteNode
+assert(projectThreshold.size.width == 194 && projectThreshold.position.y == -235)
+assert(named(scene, "select-sign-diamond") == 1)
+assert(named(scene, "hover-threshold") == 1, "a different workspace can hover while the project stays selected")
+scene.pointer(phase: "leave", at: .zero)
+assert(named(scene, "hover-threshold") == 0 && named(scene, "select-threshold") == 1)
+scene.select(nil)
+assert(named(scene, "select-threshold") == 0 && named(scene, "select-sign-diamond") == 0)
 
 // The camera: never out past the fit, never in past its limit, and panned only within the board.
 scene.wheel(at: CGPoint(x: 200, y: 150), dy: 2000)
