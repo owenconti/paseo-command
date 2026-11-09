@@ -400,3 +400,19 @@ export const SPARSE_STATS: Record<string, { cpu: number; memory: number; disk: n
   local: { cpu: 22, memory: 48, disk: 63 },
   srv_lab: { cpu: 71, memory: 58, disk: 40 },
 };
+
+/** Actionable integration queues for the Dungeon belt (distinct from authored PR totals). */
+export const DUNGEON_GITHUB_QUEUES = Object.fromEntries((["review","assigned"] as const).map((scope) => [scope, {
+  scope, total: scope === "review" ? 3 : 2, viewer: {login:"me"},
+  rows: Array.from({length:scope === "review" ? 3 : 2},(_,i)=>({
+    id:`HUD_${scope}_${i}`,repo:"diagonal/app",number:(scope === "review" ? 201 : 301)+i,
+    title:scope === "review" ? `Requested review ${i+1}` : `Assigned PR ${i+1}`,
+    url:`https://github.com/diagonal/app/pull/${(scope === "review" ? 201 : 301)+i}`,
+    author:{login:"teammate"},state:"open",createdAt:"2026-11-08T12:00:00Z",updatedAt:"2026-11-08T12:00:00Z",headRef:`work-${scope}-${i}`,baseRef:"main",additions:1,deletions:0,changedFiles:1,comments:0,checks:i ? "passing" : "pending",reviewDecision:"review",yourReview:null,labels:[],
+  })),
+}])) as Record<"review"|"assigned", import("../src/github/types").PrList>;
+export const DUNGEON_LINEAR_INBOX: import("../src/activity/types").ActivityFeed = {
+  at:"2026-11-08T12:00:00Z",
+  sources:[{source:"github",enabled:true,ok:true,unread:0},{source:"linear",enabled:true,ok:true,unread:2}],
+  items:[1,2].map(i=>({key:`linear:issue:10000000-0000-0000-0000-00000000000${i}`,source:"linear",id:`issue:10000000-0000-0000-0000-00000000000${i}`,kind:"issueNewComment",title:`New comment on issue ${i}`,subtitle:`DE-${i} · Teammate left a comment`,subject:"issue",at:"2026-11-08T12:00:00Z",unread:true,url:`https://linear.app/diagonal/issue/DE-${i}`})),
+};

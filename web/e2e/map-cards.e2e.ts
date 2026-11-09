@@ -111,32 +111,12 @@ test("a hover card stands above its thing when it fits, below it at the top of t
   await page.context().close();
 });
 
-test("the Dungeon Board's vault cards fit in the map at its top and corner, and are cut to it when taller", async () => {
-  const page = await open("dungeon");
-  await waitFor(() => inspect(page), (i) => i?.scene === "dungeon" && !!i.agents?.length && i.counts?.prs?.known, "the Dungeon Board", 30000);
-  const view = await surfaceRect(page);
-  // A tile at the very top of the map, listing its pull requests.
-  await swift(page, { type: "hover", id: "tile:prs:merged", x: 300, y: 4, bottom: 30 });
-  const top = await cardRect(page, ".atlas-world-card", /Merged · 7/);
-  assertInside(top, view, "a tile's card at the top");
-  assert.ok(top.y >= view.y + 4 + 8 - 1, "below the tile's top");
-  // The top right corner.
-  await swift(page, { type: "hover", id: "tile:issues:done", x: view.width - 3, y: 2, bottom: 26 });
-  await waitFor(() => page.locator(".atlas-world-card").boundingBox({ timeout: 500 }).catch(() => null), (b) => !!b && b.x + b.width < view.x + view.width, "the card in the corner");
-  assertInside(await cardRect(page, ".atlas-world-card", /Done/), view, "a tile's card in the top right corner");
-  // A map shorter than the card: cut to the map's height, never spilling out of it.
-  await swift(page, { type: "hover", id: "tile:prs:merged", x: 300, y: 4, bottom: 30 });
-  await cardRect(page, ".atlas-world-card", /Merged · 7/);
-  const natural = (await page.locator(".atlas-world-card").boundingBox())!.height;
-  const viewport = page.viewportSize()!;
-  // The board's command belt stays below the map, so the window loses only the map's height.
-  await page.setViewportSize({ width: viewport.width, height: Math.round(viewport.height - view.height + natural * 0.6) });
-  const short = await waitFor(() => surfaceRect(page), (r) => r.height < natural, "the map shorter than the card");
-  const cut = await waitFor(
-    () => page.locator(".atlas-world-card").boundingBox({ timeout: 500 }).catch(() => null),
-    (b) => !!b && b.height < natural,
-    "the card cut to the map",
-  );
-  assertInside(cut!, short, "a card taller than the map");
+test("Dungeon agent cards remain framed and fit at the top edge after removing the totals display", async () => {
+  const page=await open("dungeon");
+  await waitFor(()=>inspect(page),i=>i?.scene === "dungeon" && i.agents?.length,"Dungeon ready",30000);
+  const view=await surfaceRect(page);
+  await swift(page,{type:"hover",id:key("a-api-0"),x:view.width-3,y:2,bottom:40});
+  assertInside(await cardRect(page,".atlas-world-tip",/api agent 1/),view,"Dungeon card");
+  await waitFor(()=>page.locator(".atlas-world-tip").evaluate(e=>getComputedStyle(e).borderImageSource),s=>s.includes("blob:"),"the dialogue frame");
   await page.context().close();
 });

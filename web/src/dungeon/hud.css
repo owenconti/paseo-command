@@ -46,14 +46,19 @@
 .dh-controls {
   height: 100%;
   display: grid;
-  grid-template-columns: 1.4fr 5fr 1.4fr;
+  grid-template-columns: 1.4fr 7fr 1.4fr;
   gap: 1%;
   align-items: end;
   padding: 0 1%;
 }
 .dh-orb {
   position: relative;
-  height: 100%;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1;
+  max-width: var(--dh-height);
+  max-height: 100%;
+  justify-self: center;
   border: 0;
   padding: 0;
   background: transparent center bottom / contain no-repeat;
@@ -93,7 +98,7 @@
 }
 .dh-belt {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(7, minmax(0, 1fr));
   gap: 2%;
   position: relative;
   padding: 0 0 8px;
@@ -398,5 +403,89 @@
   }
   .dh-tray > footer span:first-child {
     display: none;
+  }
+}
+
+.dh-icon-problems {
+  background-image: var(--dh-failures);
+}
+.dh-icon-assigned {
+  background-image: var(--dh-assigned);
+}
+.dh-icon-issues {
+  background-image: var(--dh-issues);
+}
+.dh-icon-inbox {
+  background-image: var(--dh-inbox);
+}
+.dh-section-title {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 0;
+  padding: 10px 8px;
+  border-bottom: 1px solid #88653c;
+  color: #edbd69;
+  font-size: 15px;
+}
+.dh-source-link {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: #edbd69 !important;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.dh-service-group {
+  position: absolute;
+  bottom: calc(100% + 1px);
+  color: #c8b7d7;
+  text-align: center;
+  text-transform: uppercase;
+  font:
+    700 9px/1.2 "Paseo Source Sans",
+    system-ui,
+    sans-serif;
+  letter-spacing: 0.12em;
+  pointer-events: none;
+}
+.dh-service-github {
+  left: 29%;
+  width: 28%;
+}
+.dh-service-linear {
+  left: 58%;
+  width: 28%;
+}
+@container (max-width: 600px) {
+  .dungeon-hud {
+    --dh-height: 158px;
+  }
+  .dh-controls {
+    grid-template-columns: 64px minmax(0, 1fr) 64px;
+    gap: 4px;
+    padding-inline: 4px;
+  }
+  .dh-belt {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 6px 3px;
+  }
+  .dh-slot {
+    height: 66px;
+  }
+  .dh-service-group {
+    display: none;
+  }
+  .dh-orb {
+    align-self: center;
+  }
+  .dh-orb-number {
+    font-size: 25px;
+  }
+  .dh-orb-label {
+    font-size: 9px;
+  }
+  .dh-tray {
+    max-height: min(400px, max(120px, calc(100dvh - var(--dh-height) - 110px)));
   }
 }

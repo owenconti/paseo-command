@@ -250,17 +250,9 @@ export function NativeWorld(props: Props) {
   const tooltipFrame = useGameTooltipFrame(style === "dungeon");
   const hudShown = props.hudVisible !== false && style === "dungeon";
   const stats = useHostStats();
-  // Your pull requests and Linear issues: the Dungeon Board's vault and command belt,
-  // asked only while it shows.
-  const dashboardShown = style === "dungeon";
-  const dashboardCounts = useDashboardCounts(dashboardShown);
-  const data = useMemo(
-    () => ({
-      ...atlasData(snapshot, props.questions, props.asking, probe, stats),
-      ...(dashboardShown ? { dashboard: dashboardCounts } : {}),
-    }),
-    [snapshot, props.questions, props.asking, probe, stats, dashboardShown, dashboardCounts],
-  );
+  // Work queues are React UI state: polling them must never rebuild the native world.
+  const dashboardCounts = useDashboardCounts(hudShown);
+  const data = useMemo(() => atlasData(snapshot,props.questions,props.asking,probe,stats), [snapshot,props.questions,props.asking,probe,stats]);
   const [card, setCard] = useState<{ title: string; detail: string; lines: string[]; at: ScreenPoint } | null>(null);
   const currentData = useRef(data);
   currentData.current = data;
@@ -491,7 +483,7 @@ export function NativeWorld(props: Props) {
         aria-label={`${worldName || "Atlas world"}. Drag to pan, scroll to zoom, Up/Down pan, Left/Right select agents, F fits every host. Select a robot to open its conversation.`}
         onPointerLeave={() => setTip(null)}
       />
-      {hudShown && <DungeonHud data={data} agents={props.agents} snapshot={snapshot} summaries={props.workingOn} blocked={props.blocked} talking={!!props.talking}
+      {hudShown && <DungeonHud data={data} dashboard={dashboardCounts} onNotice={props.onNotice} agents={props.agents} snapshot={snapshot} summaries={props.workingOn} blocked={props.blocked} talking={!!props.talking}
         onPick={(key) => { const s = targetSelection({ kind: "agent", key }, snapshot); if (s) props.select(s); }}
         onDispatch={props.onDispatch} onBrowse={props.onBrowseHud} onTray={props.onHudTray}
         onHeight={(height) => { setHudHeight(height); surface.current?.parentElement?.style.setProperty("--dungeon-belt-height", `${height}px`); }} />}

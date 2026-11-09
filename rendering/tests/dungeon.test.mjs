@@ -335,54 +335,13 @@ const DASHBOARD = {
   issues: { state: "ok", counts: { done: 11, inProgress: 8, todo: 7, blocked: 2 }, items: {}, atLeast: ["done"] },
 };
 
-test("the vault: your PRs' four niches left of the first gate, your issues' four right, in the wall above it", () => {
-  // None until the page passes the dashboard's counts.
-  assert.equal(layoutDungeon(DUNGEON_SAMPLE, 1.4).vault.length, 0);
-  assert.equal(layoutDungeon(DUNGEON_SAMPLE, 1.4).vaultSigns.length, 0);
-  for (const data of [{ ...DUNGEON_SAMPLE, dashboard: DASHBOARD }, { ...big(1, 1, 1, 1), dashboard: DASHBOARD }, { ...big(3, 7, 3, 2), dashboard: { prs: null, issues: null } }]) {
-    const layout = layoutDungeon(data, 1.4);
-    assert.deepEqual(layout.vault.map((t) => t.id), [
-      "tile:prs:merged", "tile:prs:review", "tile:prs:draft", "tile:prs:conflicts",
-      "tile:issues:done", "tile:issues:inProgress", "tile:issues:todo", "tile:issues:blocked",
-    ]);
-    // Both rows read left to right, the PRs' left of the gate's line, the issues' right of it.
-    const xs = layout.vault.map((t) => t.rect.x);
-    assert.deepEqual([...xs].sort((a, b) => a - b), xs);
-    for (const t of layout.vault) {
-      assert.ok(t.hall === "prs" ? t.rect.x + t.rect.w < 0 : t.rect.x > 0, `${t.id} is on its side of the gate`);
-      // In the wall above the first floor, between its pillars, clear of the gate's surround.
-      const band = layout.topBand.rect;
-      assert.ok(t.rect.y >= band.y && t.rect.y + t.rect.h <= band.y + band.h, `${t.id} is in the top wall`);
-      for (const p of layout.topBand.piers) assert.ok(!overlaps(t.rect, p, 2), `${t.id} clears the wall's pillars`);
-      assert.ok(t.rect.y + t.rect.h <= layout.floors[0].surround.y, `${t.id} is above the gate's surround`);
-      // Its glass inside its niche.
-      assert.ok(t.glass.x > t.rect.x && t.glass.x + t.glass.w < t.rect.x + t.rect.w && t.glass.y > t.rect.y && t.glass.y + t.glass.h < t.rect.y + t.rect.h);
-    }
-    // The two rows' glass differs: the PRs' panes, then the issues' own (Linear's status shapes), never one set twice.
-    assert.deepEqual(layout.vault.map((t) => t.frame), [
-      "tile-merged", "tile-review", "tile-draft", "tile-failing",
-      "issue-done", "issue-progress", "issue-todo", "issue-blocked",
-    ]);
-    // A name board over each row: in the top wall, centred over its niches and no wider than them, above them.
-    assert.deepEqual(layout.vaultSigns.map((v) => [v.hall, v.label]), [["prs", "PULL REQUESTS"], ["issues", "LINEAR ISSUES"]]);
-    for (const v of layout.vaultSigns) {
-      const row = layout.vault.filter((t) => t.hall === v.hall);
-      const x0 = Math.min(...row.map((t) => t.rect.x)), x1 = Math.max(...row.map((t) => t.rect.x + t.rect.w));
-      assert.ok(v.rect.x >= x0 - 0.5 && v.rect.x + v.rect.w <= x1 + 0.5, `${v.label}'s board is no wider than its row`);
-      assert.ok(Math.abs(v.rect.x + v.rect.w / 2 - (x0 + x1) / 2) < 0.5, `${v.label}'s board is centred over its row`);
-      assert.ok(v.rect.y >= layout.topBand.rect.y && v.rect.y + v.rect.h <= Math.min(...row.map((t) => t.rect.y)), `${v.label}'s board is above its niches`);
-      for (const p of layout.topBand.piers) assert.ok(!overlaps(v.rect, p, 2), `${v.label}'s board clears the wall's pillars`);
-    }
-    assertLegible(layout);
-  }
-  // It moves nothing else: the board is the same with or without it.
-  const without = layoutDungeon(DUNGEON_SAMPLE, 1.4), with_ = layoutDungeon({ ...DUNGEON_SAMPLE, dashboard: DASHBOARD }, 1.4);
-  assert.deepEqual(with_.bounds, without.bounds);
-  assert.deepEqual(with_.agents.map((a) => a.feet), without.agents.map((a) => a.feet));
-  assert.deepEqual(with_.projects.map((p) => p.rect), without.projects.map((p) => p.rect));
+test("integration counts do not add a duplicate dashboard to the upper wall", () => {
+  const layout=layoutDungeon({...DUNGEON_SAMPLE,dashboard:DASHBOARD},1.4);
+  assert.deepEqual(layout.vault,[]);assert.deepEqual(layout.vaultSigns,[]);
+  assertLegible(layout);
 });
 
-test("the At a Glance counts: your PRs and issues by group (unknown while off), workspaces and agents", () => {
+test("dashboard source counts: your PRs and issues by group (unknown while off), workspaces and agents", () => {
   const { counts } = layoutDungeon({ ...DUNGEON_SAMPLE, dashboard: DASHBOARD }, 1.4);
   assert.deepEqual([counts.prs.known, counts.prs.total, counts.prs.by], [true, 12, { merged: 7, review: 3, draft: 1, conflicts: 1 }]);
   assert.deepEqual([counts.issues.total, counts.issues.atLeast], [28, ["done"]]);
@@ -390,12 +349,12 @@ test("the At a Glance counts: your PRs and issues by group (unknown while off), 
   assert.ok(counts.active > 0 && counts.active <= counts.workspaces);
   const off = layoutDungeon({ ...DUNGEON_SAMPLE, dashboard: { prs: { state: "off", message: "Enable GitHub in Settings to use GitHub." }, issues: null } }, 1.4).counts;
   assert.deepEqual([off.prs.known, off.prs.why, off.issues.known], [false, "Enable GitHub in Settings to use GitHub.", false]);
-  // Whether a hall can count is in the signature (its niches are drawn dim); the counts themselves aren't.
+  // Integration availability and counts never change the world’s geometry.
   const a = layoutDungeon({ ...DUNGEON_SAMPLE, dashboard: DASHBOARD }, 1.4);
   const b = layoutDungeon({ ...DUNGEON_SAMPLE, dashboard: { ...DASHBOARD, prs: { ...DASHBOARD.prs, counts: { merged: 8, review: 3, draft: 1, conflicts: 1 } } } }, 1.4);
   const c = layoutDungeon({ ...DUNGEON_SAMPLE, dashboard: { ...DASHBOARD, prs: null } }, 1.4);
   assert.equal(a.signature, b.signature);
-  assert.notEqual(a.signature, c.signature);
+  assert.equal(a.signature, c.signature);
 });
 
 test("robots leave visible room between neighbours in every workspace", () => {

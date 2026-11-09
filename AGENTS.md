@@ -805,34 +805,30 @@ glow under each robot in the Atlas's state colours (`STATE_TILE`, idle a quiet l
 a project's two torches lit while any of its agents runs,
 its terrace glowing between its candles in the most urgent state's colour, offline floors dimmed and dark. PR, Probe and auto-merge medallions
 sit on each alcove's lintel, larger (`D.flag`, 24) in one row centred on its bricks (CI, review, Probe; the user's call), the auto-merge seal on its medallion's rim, with the Atlas's hover cards.
-The vault (a dashboard in the dungeon's stone): in the wall above the first floor, over the first gate and
-between its inner torches, eight niches, your pull requests' four left of the gate's line (Merged, Review, Draft, Conflicts) and
-your Linear issues' four right of it (Done, In Progress, Todo, Blocked), each the stone sheet's `niche-arch` holding a
-stained-glass pane for its group (the PRs' `tiles.png` panes; the issues' their own, the same glass leaded with
-Linear's status shapes so the rows never read as one set twice: Done a ring round a check, In Progress a ring half filled, Todo
-an empty ring, Blocked a ring struck through, `assets/dungeon/vault.png` from `rendering/scripts/vault-issue-panes.py`, `ISSUE_GLASS`,
-`DTile.frame`; both graded quieter at load so the robots stay brightest; a faint steady light of its colour), dim while its hall
-can't count (off, no key, failed: `counts.prs|issues.known`); laid out only once the page passes `AtlasData.dashboard` (`vault`,
-`DTile`, `D.vault*` in `layout.ts`; it moves nothing else: the wall above the first floor is always tall enough for it). Each row
-is named on a board hanging from the wall's top over its niches, "PULL REQUESTS" and "LINEAR ISSUES" (the user's call; the
-projects' board and paint, `paintProjectSign`, dull while its hall can't count; `vaultSigns`, `VAULT_SIGNS`, `D.vaultSign*`;
-the scene's `vaultTop` is the boards' top). No other text on them: each niche is posted as
-a `tile` entity (`tile:<hall>:<key>`), glowing with its sprites (`e`) on hover, its card (`dashCard` in
-`rendering/src/dashboard.ts`: the group, its count, up to 12 PRs or issues, or why it can't count),
-and a click opens its first PR or issue through `openAppLink` (never a selection). The counts are
-`useDashboardCounts`'s (`web/src/dashboardCounts.ts`, asked every minute while the Dungeon Board shows;
-`DASH_TILES`, `dashCount`, `dashText` in `rendering/src/dashboard.ts`). The HUD has no title banner or right-hand stats panel.
+The old upper-wall Pull Requests / Linear Issues stained-glass totals and their boards were removed: actionable integration
+work lives in the React belt. The layout keeps empty `vault` / `vaultSigns` arrays for bridge compatibility; there are no
+tile entities or picks. Integration polling is separate from the native scene snapshot, so counts do not re-lay the map out.
 The HUD slots light their painted frame and icon on hover, selection and keyboard focus (brightness and an alpha-shaped
 gold glow; no overlaid rectangle). Disabled slots stay unlit; reduced motion removes the filter transition.
 Its persistent game HUD (`web/src/dungeon/`, mounted by `NativeWorld.tsx`) replaces the static footer: amber Waiting and
-teal Running orbs, a belt of Replies, Failures, PR review, Blocked and Dispatch slots, original painted transparent art
-(`hud.webp`, `ART.md`; `art.ts` trims the atlas's nine cells). Labels and counts are accessible HTML. Slots open a non-modal
+teal Running orbs, a seven-slot belt of Replies, Problems, Reviews, Assigned, Issues, Inbox and Dispatch, original painted transparent art
+(`hud.webp`, `queues.webp`, `ART.md`; `art.ts` cuts and trims the two atlases). Labels and counts are accessible HTML. Slots open a non-modal
 quest-log tray above the belt; the same slot, × or Escape closes it, Escape returning focus (other modal layers go first).
 Agent rows open their conversation; PRs and issues open through `openAppLink`; Dispatch opens the app's New agent form in the world, in the belt's framed panel above it (`web/src/dungeon/WorldDispatch.tsx`, `world-dispatch.css`; Esc or × closes it; ⌘K "Dispatch an agent on the board"), and the new robot is picked on the board. The belt carries no title; the trays have no pointer.
 Counts use the map's real states; offline hosts are excluded. Integrations retain “—” and their reason while unavailable,
 and capped item lists say how many they show. Read-only timeline snippets load as rows enter the tray; opening a tray never
 marks replies read. The map viewport ends above the measured HUD, as does the dialogue box; the belt stays beneath it.
-The palette's `dungeon-tray` and `dungeon-tray-close` mirror its actions. Robots stand at a 70 px pitch (55 px tall).
+GitHub’s Reviews slot uses outstanding `review-requested:@me` PRs; Assigned uses `assignee:@me`, not authorship. Both read
+`github/q/prs?scope=review|assigned` (`useWorkQueues` in `dungeon/queues.ts`) and show GitHub’s total beyond the first 50,
+with a full GitHub dashboard link. GitHub’s own sidebar has Assigned to you too. Linear Issues lists unfinished assigned
+work (including backlog/triage, excluding completed/canceled), preserving the workflow name; Problems groups failed agents
+and blocked assigned issues under separate headings. Linear Inbox uses Activity’s shared unread, unsnoozed grouped feed
+(`useActivityPoll`, `useActivity`, `writeItems`); opening a tray reads nothing, choosing a notification marks it read as
+Activity does. Source page limits carry `ActivitySourceStatus.limited` and use N+; unknown/error sources use — and say why.
+A partial Problems count is a lower bound while its Linear part cannot answer; other source queues keep working.
+`dashboardCounts.ts` polls only the assigned-issue source while the belt shows. Secret changes refresh every source.
+The belt has small GitHub/Linear group captions; narrow maps put its slots in two rows with stable-size orbs.
+The palette’s `dungeon-tray`, settings, full-GitHub links and `dungeon-tray-close` mirror these actions. Robots stand at a 70 px pitch (55 px tall).
 Upper wall cloth hangs in front of its rampart, with pillar capitals in front of both; lit braziers and forges have no
 extra purple shade (offline floors remain dim). A hovered niche's card
 follows its counts as they refresh. Each floor is assembled

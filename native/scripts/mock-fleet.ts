@@ -31,7 +31,7 @@ import { extname, join, normalize } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createRequire } from "node:module";
 import { detailOf } from "../../web/e2e/harness.ts";
-import { DUNGEON_STATS, SPARSE_ISSUES, SPARSE_PRS, SPARSE_STATS, DASHBOARD_ISSUES, DASHBOARD_PRS, dungeon, large, small, sparse } from "../../web/e2e/fleets.ts";
+import { DUNGEON_GITHUB_QUEUES, DUNGEON_LINEAR_INBOX, DUNGEON_STATS, SPARSE_ISSUES, SPARSE_PRS, SPARSE_STATS, DASHBOARD_ISSUES, DASHBOARD_PRS, dungeon, large, small, sparse } from "../../web/e2e/fleets.ts";
 // `ws` lives in web/node_modules, beside the app it serves.
 const { WebSocketServer } = createRequire(new URL("../../web/package.json", import.meta.url))("ws") as typeof import("ws");
 
@@ -77,7 +77,7 @@ if (args.includes("--probe")) {
 }
 /** `GET /api/hoststats`'s answer, keyed "local" or a host's server id. */
 const hostStats: Record<string, unknown> = fleet === dungeon ? { ...DUNGEON_STATS } : fleet === sparse ? { ...SPARSE_STATS } : {};
-/** The Dungeon Board vault's dashboard counts (your PRs and Linear issues). */
+/** Assigned-issue counts for the Dungeon belt; the legacy PR-count mock remains available. */
 const dashboard = fleet === dungeon ? { prs: DASHBOARD_PRS, issues: DASHBOARD_ISSUES } : fleet === sparse ? { prs: SPARSE_PRS, issues: SPARSE_ISSUES } : null;
 if (args.includes("--stats")) {
   const keys = ["local", ...(fleet.hosts as { serverId?: string }[]).flatMap((h) => (h.serverId ? [h.serverId] : []))];
@@ -98,6 +98,7 @@ const BASIC: Record<string, unknown> = {
   usage: [],
 };
 const lists: Record<string, unknown> = {
+  activity: DUNGEON_LINEAR_INBOX,
   agents: fleet.agents,
   permissions: fleet.permissions,
   projects: fleet.projects,
@@ -157,11 +158,12 @@ function talkTimeline(id: string) {
 const mapStyle = option("map", fleet === dungeon ? "dungeon" : "");
 
 /** What `mockApi` answers for a GET. */
-function answer(path: string): [number, unknown] {
+function answer(path: string, query = new URLSearchParams()): [number, unknown] {
   const parts = path.replace(/^\/api\//, "").split("/");
   if (parts.length === 1 && parts[0]! in lists) return [200, lists[parts[0]!]];
   if (parts.length === 1 && parts[0] === "probe") return [200, probe];
   if (parts.length === 1 && parts[0] === "hoststats") return [200, hostStats];
+  if (path === "/api/github/q/prs") return [200, DUNGEON_GITHUB_QUEUES[query.get("scope") as "review" | "assigned"] ?? {rows:[],total:0,viewer:{login:"me"}}];
   if (path.startsWith("/api/github/q/prCounts")) return [200, dashboard?.prs ?? { state: "off", message: "Enable GitHub in Settings to use GitHub." }];
   if (path.startsWith("/api/linear/issue-counts")) return [200, dashboard?.issues ?? { state: "off", message: "Enable Linear in Settings to see your issues." }];
   if (parts[0] === "agents") {
@@ -219,7 +221,7 @@ const server = createServer((req, res) => {
       res.statusCode = 403;
       return res.end(JSON.stringify({ error: "refused by the mock fleet" }));
     }
-    const [status, body] = answer(url.pathname);
+    const [status, body] = answer(url.pathname,url.searchParams);
     res.statusCode = status;
     return res.end(JSON.stringify(body));
   }

@@ -11,7 +11,7 @@ import { after, before, test } from "node:test";
 import assert from "node:assert/strict";
 import type { Browser, Page } from "playwright";
 import { launch, mockApi, newContext, startApp, waitFor } from "./harness";
-import { DUNGEON_STATS, DASHBOARD_ISSUES, DASHBOARD_PRS, dungeon } from "./fleets";
+import { DUNGEON_STATS, DUNGEON_GITHUB_QUEUES, DUNGEON_LINEAR_INBOX, DASHBOARD_ISSUES, DASHBOARD_PRS, dungeon } from "./fleets";
 
 let app: Awaited<ReturnType<typeof startApp>>;
 let browser: Browser;
@@ -69,6 +69,8 @@ async function open(style: "islands" | "overworld" | "dungeon", { linear = true 
     lists: {
       hoststats: DUNGEON_STATS,
       // The vault's reads (GET /api/github/q/prCounts, /api/linear/issue-counts), GitHub and Linear on.
+      githubQueues: DUNGEON_GITHUB_QUEUES,
+      activity: DUNGEON_LINEAR_INBOX,
       github: DASHBOARD_PRS,
       linear: DASHBOARD_ISSUES,
       settings: { linearWorkspace: "", integrations: { github: true, linear, typesafe: false }, error: null },
@@ -206,61 +208,34 @@ test("picking a robot on the board opens its conversation; hovering one shows it
   await page.context().close();
 });
 
-test("the vault: your PRs' and issues' stained-glass niches over the first gate, their cards, a click opening the first; current-state footer", async () => {
-  const { page } = await open("dungeon");
-  const board = await waitFor(() => inspect(page), (i) => i?.scene === "dungeon" && i.vault?.length === 8 && i.counts?.prs?.known && i.counts?.issues?.known, "the vault", 30000);
-  assert.deepEqual(board.counts.prs.by, { merged: 7, review: 3, draft: 1, conflicts: 1 });
-  assert.deepEqual(board.counts.issues.by, { done: 11, inProgress: 8, todo: 7, blocked: 2 });
-  assert.deepEqual(board.vault.map((t: any) => t.pane), ["merged", "review", "draft", "failing", "merged", "review", "draft", "failing"]);
-  // The issues' glass is their own (Linear's status shapes), not the PRs' again; each row is named on a board above it.
-  assert.deepEqual(board.vault.map((t: any) => t.frame), ["tile-merged", "tile-review", "tile-draft", "tile-failing", "issue-done", "issue-progress", "issue-todo", "issue-blocked"]);
-  assert.deepEqual(board.vaultSigns.map((v: any) => v.label), ["PULL REQUESTS", "LINEAR ISSUES"]);
-  // Swift gets each niche to hover and pick (as a tile, never a selection), its stone and glass tagged to glow with it.
-  const scene = (await native(page)).scenes.at(-1)!;
-  assert.deepEqual(scene.entities.filter((e) => e.kind === "tile").map((e) => e.id), board.vault.map((t: any) => t.id));
-  for (const t of board.vault) assert.deepEqual(scene.sprites.filter((s) => s.e === t.id).map((s) => s.f), ["niche-arch", t.frame]);
-  assert.ok(scene.sprites.filter((s) => s.e?.startsWith("tile:")).every((s) => !s.dim), "both halls count: nothing dim");
-  // The accessible game HUD owns its live controls; Swift no longer paints the static footer.
-  const hud = (await native(page)).agents.at(-1)!.hud;
-  assert.deepEqual(hud, {});
-  await page.getByLabel("Dungeon command belt").waitFor();
-  await page.getByRole("button", { name: `Waiting on you: ${board.counts.needYou}`, exact: true }).waitFor();
-  await page.getByRole("button", { name: `Unread replies: ${board.counts.unread}`, exact: true }).waitFor();
-  // The upper masonry cap sits behind the cloth and the pillar capitals, never cutting across either.
-  const z = (f: string) => scene.sprites.filter((s) => s.f === f).map((s) => s.z);
-  assert.ok(scene.sprites.filter((s) => s.f === "pillar-capital" && s.y > 80).every((s) => s.z > Math.min(...z("rampart-x"))));
-  assert.ok(Math.min(...z("banner-purple-plain")) > Math.min(...z("rampart-x")));
-  assert.ok(scene.sprites.filter((s) => /^(brazier|forge)-/.test(s.f ?? "") && !s.dim).every((s) => !s.shade), "lit fire props keep their own colour");
-  // A tile's card names its group, its count and its pull requests.
-  await swift(page, { type: "hover", id: "tile:prs:merged", x: 400, y: 60 });
-  const card = await waitFor(() => page.locator(".atlas-world-card").textContent({ timeout: 500 }).catch(() => ""), (t) => !!t, "the tile's card");
-  assert.match(card!, /Merged · 7/);
-  assert.match(card!, /diagonal\/app#100/);
-  await swift(page, { type: "hover", id: "tile:issues:blocked", x: 500, y: 60 });
-  await waitFor(() => page.locator(".atlas-world-card").textContent({ timeout: 500 }).catch(() => ""), (t) => !!t && /Blocked · 2/.test(t) && /DE-1 Blocked issue 1/.test(t), "the issues tile's card");
-  // A click opens its first issue as the app opens links (Linear's app, else Conquer), and selects nothing.
-  await swift(page, { type: "pick", id: "tile:issues:blocked" });
-  await waitFor(async () => (await native(page)).links, (l) => l.includes("https://linear.app/diagonal/issue/DE-1"), "the issue to open");
-  assert.equal((await inspect(page)).selected, null);
-  // Leaving it hides the card; a robot's card shows as before.
-  await swift(page, { type: "hover", id: null });
-  await waitFor(() => page.locator(".atlas-world-card").count(), (n) => n === 0, "the card to go");
+test("the top integration totals are gone; seven belt slots show actionable queues", async () => {
+  const {page}=await open("dungeon");
+  const board=await waitFor(()=>inspect(page),i=>i?.scene === "dungeon" && i?.agents?.length,"Dungeon ready",30000);
+  assert.deepEqual(board.vault,[]); assert.deepEqual(board.vaultSigns,[]);
+  assert.equal((await native(page)).scenes.at(-1)!.entities.filter(e=>e.kind === "tile").length,0);
+  assert.equal(await page.locator(".dh-slot").count(),7);
+  await page.getByRole("button",{name:"GitHub review requests: 3",exact:true}).click();
+  const reviews=page.getByRole("dialog",{name:/GitHub review requests/});
+  await reviews.getByText("Requested review 1",{exact:true}).waitFor();
+  assert.equal(await reviews.getByText(/Assigned PR/).count(),0);
+  await page.getByRole("button",{name:"Assigned pull requests: 2",exact:true}).click();
+  await page.getByRole("dialog",{name:/Assigned pull requests/}).getByText("Assigned PR 1",{exact:true}).waitFor();
+  await page.getByRole("button",{name:/Failures and blocked work:/}).click();
+  const problems=page.getByRole("dialog",{name:/Failures and blocked work/});
+  await problems.getByRole("heading",{name:/Failed agents/}).waitFor();
+  await problems.getByRole("heading",{name:/Blocked issues/}).waitFor();
+  await problems.getByText("DE-1",{exact:true}).waitFor();
+  await page.getByRole("button",{name:"Assigned Linear issues: 17",exact:true}).click();
+  const issues=page.getByRole("dialog",{name:/Assigned Linear issues/});
+  await issues.getByText("In progress",{exact:true}).first().waitFor();
+  assert.equal(await issues.getByText(/Done issue/).count(),0,"completed issues don't inflate active work");
+  await page.getByRole("button",{name:"Unread Linear Inbox: 2",exact:true}).click();
+  await page.getByRole("dialog",{name:/Unread Linear Inbox/}).getByText("New comment on issue 1",{exact:true}).waitFor();
+  await page.keyboard.press("Escape");
+  await page.setViewportSize({width:800,height:800});
+  for(const box of await page.locator(".dh-slot").evaluateAll(nodes=>nodes.map(n=>n.getBoundingClientRect().toJSON()))) assert.ok(box.width >= 40 && box.x >= 0 && box.x+box.width <= 800,"compact belt keeps controls clickable and on screen");
   await page.context().close();
 });
-
-test("the vault with Linear off: its niches dim and their cards say why", async () => {
-  const { page } = await open("dungeon", { linear: false });
-  const board = await waitFor(() => inspect(page), (i) => i?.scene === "dungeon" && i.vault?.length === 8 && i.counts?.prs?.known && i.counts?.issues?.why, "the vault", 30000);
-  assert.equal(board.counts.issues.known, false);
-  const scene = (await native(page)).scenes.at(-1)!;
-  const dim = (hall: string) => scene.sprites.filter((s) => s.e?.startsWith(`tile:${hall}:`)).map((s) => !!s.dim);
-  assert.ok(dim("issues").every(Boolean), "Linear's niches dim");
-  assert.ok(!dim("prs").some(Boolean), "GitHub's stay lit");
-  await swift(page, { type: "hover", id: "tile:issues:todo", x: 500, y: 60 });
-  await waitFor(() => page.locator(".atlas-world-card").textContent({ timeout: 500 }).catch(() => ""), (t) => !!t && /Enable Linear in Settings/.test(t), "the card saying why");
-  await page.context().close();
-});
-
 
 test("the command belt opens real queues, keeps requests unread until opened, and gives the map room", async () => {
   const { page } = await open("dungeon");
@@ -280,8 +255,8 @@ test("the command belt opens real queues, keeps requests unread until opened, an
   const running = page.getByRole("dialog", { name: /Running agents/ });
   assert.equal(await running.locator(".dh-entry").count(), board.counts.running);
   // Queues keep the source's counts even though PR/issue sample lists are capped.
-  await page.getByRole("button", { name: "Pull requests in review: 3", exact: true }).click();
-  await page.getByRole("dialog", { name: /Pull requests in review/ }).getByText(/diagonal/).first().waitFor();
+  await page.getByRole("button", { name: "GitHub review requests: 3", exact: true }).click();
+  await page.getByRole("dialog", { name: /GitHub review requests/ }).getByText(/diagonal/).first().waitFor();
   await page.keyboard.press("Escape");
   const bounds = await page.evaluate(() => {
     const map = document.querySelector(".native-map-surface")!.getBoundingClientRect();
@@ -313,8 +288,8 @@ test("the belt's Dispatch opens the New agent form in the world's own panel", as
 
 test("an unavailable integration shows a reason instead of a misleading zero", async () => {
   const { page } = await open("dungeon", { linear: false });
-  await page.getByRole("button", { name: "Blocked issues: —", exact: true }).click();
-  const tray = page.getByRole("dialog", { name: /Blocked issues/ });
+  await page.getByRole("button", { name: "Assigned Linear issues: —", exact: true }).click();
+  const tray = page.getByRole("dialog", { name: /Assigned Linear issues/ });
   await tray.getByText(/Enable Linear in Settings/).waitFor();
   assert.equal(await tray.locator(".dh-entry").count(), 0);
   await page.context().close();
@@ -333,5 +308,37 @@ test("the belt gives Escape to a palette first and keeps its tray open beneath i
   assert.equal(await tray.count(), 1, "the underlying tray is still open");
   await page.keyboard.press("Escape");
   await tray.waitFor({ state: "detached" });
+  await page.context().close();
+});
+
+
+test("Linear Inbox reads only the notification selected, and capped or failed sources stay honest", async () => {
+  const {page}=await open("dungeon");
+  let feed=structuredClone(DUNGEON_LINEAR_INBOX);
+  feed.sources.find(s=>s.source === "linear")!.limited=true;
+  const writes: string[][]=[];
+  await page.route("**/api/activity**",async route=>{
+    if(route.request().method() === "POST") {
+      const keys=route.request().postDataJSON().keys as string[];writes.push(keys);
+      feed={...feed,items:feed.items.map(i=>keys.includes(i.key)?{...i,unread:false}:i)};
+      feed.sources=feed.sources.map(s=>({...s,unread:feed.items.filter(i=>i.source === s.source && i.unread).length}));
+      return route.fulfill({json:{feed}});
+    }
+    return route.fulfill({json:feed});
+  });
+  await page.evaluate(()=>window.dispatchEvent(new Event("paseo:secrets")));
+  await page.getByRole("button",{name:"Unread Linear Inbox: 2+",exact:true}).click();
+  const inbox=page.getByRole("dialog",{name:/Unread Linear Inbox/});
+  await inbox.getByText("New comment on issue 1",{exact:true}).waitFor();
+  assert.equal(writes.length,0,"opening the tray marks nothing read");
+  await inbox.getByRole("button",{name:/New comment on issue 1/}).click();
+  await waitFor(()=>Promise.resolve(writes.length),n=>n === 1,"one notification read");
+  assert.deepEqual(writes[0],[DUNGEON_LINEAR_INBOX.items[0]!.key]);
+  await page.getByRole("button",{name:"Unread Linear Inbox: 1+",exact:true}).waitFor();
+  feed={...feed,items:[],sources:feed.sources.map(s=>s.source === "linear"?{...s,ok:false,reason:"Linear is temporarily unavailable"}:s)};
+  await page.evaluate(()=>window.dispatchEvent(new Event("paseo:secrets")));
+  await page.getByRole("button",{name:"Unread Linear Inbox: —",exact:true}).click();
+  await page.getByRole("dialog",{name:/Unread Linear Inbox/}).getByText("Linear is temporarily unavailable").waitFor();
+  await page.getByRole("button",{name:"GitHub review requests: 3",exact:true}).waitFor();
   await page.context().close();
 });

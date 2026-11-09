@@ -275,6 +275,7 @@ export type Fleet = {
 };
 
 const BASIC: Record<string, unknown> = {
+  activity: { items: [], sources: [], at: "2026-11-08T00:00:00Z" },
   projects: [],
   workspaces: [],
   providers: [
@@ -417,6 +418,11 @@ export async function mockApi(
         return route.fulfill({ json: { items: [], error: null } });
       if (sub === "files") return route.fulfill({ json: { entries: [] } });
       return route.fulfill({ json: [] });
+    }
+    if (parts[0] === "github" && parts[1] === "q" && parts[2] === "prs") {
+      const scope = u.searchParams.get("scope") || "review";
+      const queues = fleet.lists?.githubQueues as Record<string,unknown> | undefined;
+      return route.fulfill({json:queues?.[scope] ?? {scope,rows:[],total:0,viewer:{login:"me"}}});
     }
     if (fleet.lists && parts[0] in fleet.lists)
       return route.fulfill({ json: fleet.lists[parts[0]] });

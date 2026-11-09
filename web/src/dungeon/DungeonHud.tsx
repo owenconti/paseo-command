@@ -6,7 +6,13 @@ import {
   type CSSProperties,
 } from "react";
 import type { AtlasData } from "../../../rendering/src/world";
-import { dashCount, dashText } from "../../../rendering/src/dashboard";
+import {
+  useWorkQueues,
+  queueText,
+  githubQueueUrl,
+  type WorkQueue,
+} from "./queues";
+import { writeItems } from "../activity/store";
 import type { WorldSnapshot } from "../worldBridge";
 import type { WorkSummaries } from "../useWorkingOn";
 import { openAppLink } from "../appLinks";
@@ -16,6 +22,7 @@ import { ROBOTS_URL, ROBOTS_SHEET, robotFrames } from "../worldChat/art";
 import { loadHudArt, type HudArt } from "./art";
 import {
   DUNGEON_TRAYS,
+  BELT_SLOTS,
   hudAgents,
   type DungeonTray,
   type AgentTray,
@@ -27,12 +34,14 @@ import type { Agent } from "../types";
 
 type Props = {
   data: AtlasData;
+  dashboard: AtlasData["dashboard"];
   agents: Agent[];
   snapshot: WorldSnapshot;
   summaries?: WorkSummaries;
   blocked: boolean;
   talking: boolean;
   onPick: (key: string) => void;
+  onNotice: (message: string) => void;
   onDispatch: () => void;
   onBrowse: () => void;
   onHeight: (height: number) => void;
@@ -118,9 +127,16 @@ export function DungeonHud(props: Props) {
     () =>
       onAppCommand("dungeon-tray-settings", () => {
         const id = activeTray.current;
-        if (id !== "review" && id !== "blocked") return;
+        if (
+          !["review", "assigned", "issues", "inbox", "problems"].includes(
+            id ?? "",
+          )
+        )
+          return;
         close(false);
-        openSettings(id === "blocked" ? "linear" : "github");
+        openSettings(
+          id === "review" || id === "assigned" ? "github" : "linear",
+        );
       }),
     [],
   );
@@ -154,14 +170,27 @@ export function DungeonHud(props: Props) {
     window.addEventListener("keydown", key, true);
     return () => window.removeEventListener("keydown", key, true);
   }, [tray]);
-  const prs = dashCount(props.data.dashboard?.prs, "prs"),
-    issues = dashCount(props.data.dashboard?.issues, "issues");
-  const count = (id: DungeonTray) =>
-    id === "review"
-      ? dashText(prs, "review")
-      : id === "blocked"
-        ? dashText(issues, "blocked")
-        : String(hudAgents(props.data, id).length);
+  const queues = useWorkQueues(props.dashboard);
+  const failed = hudAgents(props.data, "failures");
+  const count = (id: DungeonTray): string => {
+    if (id === "problems") {
+      if (queues.blocked.known)
+        return `${failed.length + queues.blocked.total}${queues.blocked.lowerBound ? "+" : ""}`;
+      return queues.linearEnabled
+        ? failed.length
+          ? `${failed.length}+`
+          : "—"
+        : String(failed.length);
+    }
+    if (
+      id === "review" ||
+      id === "assigned" ||
+      id === "issues" ||
+      id === "inbox"
+    )
+      return queueText(queues[id]);
+    return String(hudAgents(props.data, id).length);
+  };
   const style = Object.fromEntries(
     Object.entries(art).map(([key, value]) => [`--dh-${key}`, `url(${value})`]),
   ) as CSSProperties;
@@ -170,29 +199,136 @@ export function DungeonHud(props: Props) {
     props.onPick(key);
   };
   const selected = DUNGEON_TRAYS.find((t) => t.id === tray);
-  const agentTray =
-    tray && tray !== "review" && tray !== "blocked"
-      ? (tray as AgentTray)
-      : null;
-  const agents = agentTray ? hudAgents(props.data, agentTray) : [];
-  const unavailable =
-    tray === "review"
-      ? !prs.known
-        ? prs.why
-        : ""
-      : tray === "blocked"
-        ? !issues.known
-          ? issues.why
-          : ""
-        : "";
-  const answer =
-    tray === "review"
-      ? props.data.dashboard?.prs
-      : props.data.dashboard?.issues;
-  const group = tray === "review" ? "review" : "blocked";
-  const items = (answer?.state === "ok" ? answer.items?.[group] : []) ?? [];
-  const total =
-    tray === "review" ? (prs.by.review ?? 0) : (issues.by.blocked ?? 0);
+  const agentEntries = (kind: AgentTray) => {
+    const agents = hudAgents(props.data, kind);
+    return agents.length ? (
+      agents.map((a) => {
+        const row = props.snapshot.agents.find((s) => s.key === a.key);
+        const workspace = props.snapshot.workspaces.find(
+          (w) => w.key === a.workspace,
+        );
+        const project = props.snapshot.projects.find(
+          (p) => p.key === a.project,
+        );
+        const host = props.snapshot.hosts.find((h) => h.id === a.host);
+        const source = props.agents.find(
+          (s) => s.id === (row?.clientId ?? row?.id),
+        );
+        return (
+          <button
+            type="button"
+            key={a.key}
+            className="dh-entry"
+            onClick={() => activate(a.key)}
+          >
+            <Portrait model={a.model} />
+            <span className="dh-entry-text">
+              <strong>{a.name}</strong>
+              <span className="dh-context">
+                {[project?.name, workspace?.name, host?.name]
+                  .filter(Boolean)
+                  .join(" · ") || "Agent"}
+              </span>
+              <AgentPreview
+                id={row?.clientId ?? row?.id ?? a.key}
+                host={row?.hostId === "local" ? undefined : row?.hostId}
+                version={
+                  source?.attentionTimestamp ??
+                  source?.updatedAt ??
+                  source?.lastUserMessageAt ??
+                  ""
+                }
+                tray={kind}
+                fallback={
+                  kind === "replies"
+                    ? "New reply · open conversation"
+                    : kind === "failures"
+                      ? "Open the conversation to inspect the error"
+                      : kind === "waiting"
+                        ? "Waiting for your approval or answer"
+                        : props.summaries?.[source?.id ?? ""]?.sentence ||
+                          "Working · open conversation"
+                }
+              />
+            </span>
+            <span className="dh-entry-arrow" aria-hidden="true">
+              →
+            </span>
+          </button>
+        );
+      })
+    ) : (
+      <p className="dh-empty">
+        No {kind === "failures" ? "failed agents" : "agents here"}.
+      </p>
+    );
+  };
+  const externalEntries = (q: WorkQueue, icon: string) => (
+    <>
+      {!q.known ? (
+        <div className="dh-empty" role="status">
+          <p>{q.why}</p>
+          <button
+            type="button"
+            className="dh-settings"
+            onClick={() => {
+              close(false);
+              openSettings(q.integration);
+            }}
+          >
+            Integration settings
+          </button>
+        </div>
+      ) : q.items.length ? (
+        q.items.map((item) => (
+          <button
+            type="button"
+            className="dh-entry"
+            key={item.key}
+            disabled={!item.url}
+            onClick={() => {
+              if (item.activity?.unread)
+                void writeItems("read", [item.activity.key]).then((ok) => {
+                  if (!ok)
+                    props.onNotice(
+                      "Couldn’t mark this notification read; it remains in your Inbox.",
+                    );
+                });
+              close(false);
+              if (item.url) openAppLink(item.url);
+            }}
+          >
+            <span
+              className={`dh-item-icon dh-icon-${icon}`}
+              aria-hidden="true"
+            />
+            <span className="dh-entry-text">
+              <strong>{item.title}</strong>
+              <span className="dh-context">{item.detail}</span>
+              {item.status && <span className="dh-preview">{item.status}</span>}
+            </span>
+            <span className="dh-entry-arrow" aria-hidden="true">
+              ↗
+            </span>
+          </button>
+        ))
+      ) : (
+        <p className="dh-empty">
+          {q.lowerBound
+            ? "No matching items in the loaded page."
+            : q.total
+              ? "Item details aren’t available right now."
+              : "Nothing here right now."}
+        </p>
+      )}
+      {q.known && (q.total > q.items.length || q.lowerBound) && (
+        <p className="dh-more">
+          Showing {q.items.length} of {queueText(q)}
+          {q.lowerBound ? " · more source pages may contain work" : ""}
+        </p>
+      )}
+    </>
+  );
   const agentButton = (id: "waiting" | "running") => (
     <button
       type="button"
@@ -241,127 +377,41 @@ export function DungeonHud(props: Props) {
             </button>
           </header>
           <div className="dh-entries">
-            {agentTray &&
-              agents.map((a) => {
-                const row = props.snapshot.agents.find((s) => s.key === a.key);
-                const workspace = props.snapshot.workspaces.find(
-                  (w) => w.key === a.workspace,
-                );
-                const project = props.snapshot.projects.find(
-                  (p) => p.key === a.project,
-                );
-                const host = props.snapshot.hosts.find((h) => h.id === a.host);
-                const source = props.agents.find(
-                  (s) => s.id === (row?.clientId ?? row?.id),
-                );
-                const summary =
-                  row && props.summaries?.[row.clientId ?? row.id]?.sentence;
-                return (
-                  <button
-                    type="button"
-                    key={a.key}
-                    className="dh-entry"
-                    onClick={() => activate(a.key)}
-                  >
-                    <Portrait model={a.model} />
-                    <span className="dh-entry-text">
-                      <strong>{a.name}</strong>
-                      <span className="dh-context">
-                        {[project?.name, workspace?.name, host?.name]
-                          .filter(Boolean)
-                          .join(" · ") || "Agent"}
-                      </span>
-                      <AgentPreview
-                        id={row?.clientId ?? row?.id ?? a.key}
-                        host={row?.hostId === "local" ? undefined : row?.hostId}
-                        version={
-                          source?.attentionTimestamp ??
-                          source?.updatedAt ??
-                          source?.lastUserMessageAt ??
-                          ""
-                        }
-                        tray={agentTray!}
-                        fallback={
-                          summary ||
-                          (agentTray === "replies"
-                            ? "New reply · open conversation"
-                            : agentTray === "waiting"
-                              ? "Waiting for your approval or answer"
-                              : agentTray === "failures"
-                                ? "Open the conversation to inspect the error"
-                                : "Working · open conversation")
-                        }
-                      />
-                    </span>
-                    <span className="dh-entry-arrow" aria-hidden="true">
-                      →
-                    </span>
-                  </button>
-                );
-              })}
-            {!agentTray &&
-              items.map((item) => (
-                <button
-                  type="button"
-                  className="dh-entry"
-                  key={item.url}
-                  onClick={() => {
-                    close(false);
-                    openAppLink(item.url);
-                  }}
-                >
-                  <span
-                    className={`dh-item-icon dh-icon-${tray}`}
-                    aria-hidden="true"
-                  />
-                  <span className="dh-entry-text">
-                    <strong>{item.title}</strong>
-                    <span className="dh-context">
-                      {"repo" in item ? `${item.repo}#${item.number}` : item.id}
-                    </span>
-                  </span>
-                  <span className="dh-entry-arrow" aria-hidden="true">
-                    ↗
-                  </span>
-                </button>
-              ))}
-            {unavailable ? (
-              <div className="dh-empty" role="status">
-                <p>{unavailable}</p>
-                <button
-                  type="button"
-                  className="dh-settings"
-                  onClick={() => {
-                    close(false);
-                    openSettings(tray === "blocked" ? "linear" : "github");
-                  }}
-                >
-                  Integration settings
-                </button>
-              </div>
-            ) : (
-              (agentTray ? agents.length === 0 : items.length === 0) && (
-                <p className="dh-empty">
-                  {agentTray
-                    ? "No agents here. You’re all caught up."
-                    : total
-                      ? "The count is available, but item details are not. Check again shortly."
-                      : "Nothing here right now."}
-                </p>
-              )
-            )}
-            {!agentTray && items.length > 0 && total > items.length && (
-              <p className="dh-more">
-                Showing {items.length} of {count(selected.id)} · more in{" "}
-                {tray === "review" ? "GitHub" : "Linear"}
-              </p>
-            )}
+            {tray === "problems" ? (
+              <>
+                <h3 className="dh-section-title">
+                  Failed agents <span>{failed.length}</span>
+                </h3>
+                {agentEntries("failures")}
+                <h3 className="dh-section-title">
+                  Blocked issues <span>{queueText(queues.blocked)}</span>
+                </h3>
+                {externalEntries(queues.blocked, "issues")}
+              </>
+            ) : tray === "review" ||
+              tray === "assigned" ||
+              tray === "issues" ||
+              tray === "inbox" ? (
+              externalEntries(queues[tray], tray)
+            ) : tray ? (
+              agentEntries(tray as AgentTray)
+            ) : null}
           </div>
           <footer>
             <span>
-              {agentTray
-                ? "Choose an agent to open its conversation"
-                : "Choose an item to open it"}
+              {tray === "review" || tray === "assigned" ? (
+                <button
+                  type="button"
+                  className="dh-source-link"
+                  onClick={() => openAppLink(githubQueueUrl(tray))}
+                >
+                  All on GitHub ↗
+                </button>
+              ) : tray === "inbox" ? (
+                "Opening an item marks its notification read"
+              ) : (
+                "Choose an item to open it"
+              )}
             </span>
             <span>Esc · Close</span>
           </footer>
@@ -371,7 +421,19 @@ export function DungeonHud(props: Props) {
       <div className="dh-controls">
         {agentButton("waiting")}
         <div className="dh-belt">
-          {(["replies", "failures", "review", "blocked"] as const).map((id) => (
+          <span
+            className="dh-service-group dh-service-github"
+            aria-hidden="true"
+          >
+            GitHub
+          </span>
+          <span
+            className="dh-service-group dh-service-linear"
+            aria-hidden="true"
+          >
+            Linear
+          </span>
+          {BELT_SLOTS.map((id) => (
             <button
               type="button"
               key={id}
