@@ -57,8 +57,6 @@ final class DungeonScene: SKScene, MapScene {
         let home: CGPoint
         let size: CGSize
         let idle: [SKTexture]
-        let work: [SKTexture]
-        let busy: Bool
         let still: Bool
         let phase: Double
         let mark: SKSpriteNode?
@@ -273,8 +271,7 @@ final class DungeonScene: SKScene, MapScene {
         for r in m["robots"] as? [[String: Any]] ?? [] {
             guard let id = r["id"] as? String else { continue }
             let idle = (r["idle"] as? [String] ?? []).compactMap { frames[$0] }
-            let work = (r["work"] as? [String] ?? []).compactMap { frames[$0] }
-            guard let first = idle.first ?? work.first else { continue }
+            guard let first = idle.first else { continue }
             let box = CGRect(x: num(r["x"]), y: num(r["y"]), width: num(r["w"]), height: num(r["h"]))
             let dim = num(r["dim"]) > 0
             let body = SKSpriteNode(texture: first)
@@ -350,8 +347,8 @@ final class DungeonScene: SKScene, MapScene {
                     markPulses.append((marker, period, Double(num(r["ph"])), num(mk["scale"], 0.12)))
                 }
             }
-            var robot = Robot(id: id, node: body, home: box.origin, size: box.size, idle: idle, work: work.isEmpty ? idle : work,
-                              busy: r["busy"] as? Bool ?? false, still: dim, phase: Double(num(r["ph"])), mark: mark, markHome: markHome, drones: [])
+            var robot = Robot(id: id, node: body, home: box.origin, size: box.size, idle: idle,
+                              still: dim, phase: Double(num(r["ph"])), mark: mark, markHome: markHome, drones: [])
             let count = r["subagents"] as? Int ?? 0
             let arts = r["drones"] as? [[String]] ?? []
             let fallback = (r["droneDefault"] as? [String] ?? []).compactMap { frames[$0] }
@@ -1076,13 +1073,12 @@ final class DungeonScene: SKScene, MapScene {
 
     // MARK: Frames
 
-    /// Smooth motion needs the ambient rate: breathing or flaring light, pulses, the running rings and markers,
-    /// drones, robots at work (they hop), the selection's breath.
+    /// Smooth motion needs the ambient rate: flaring light, pulses, running rings, markers, drones and selection.
     var animating: Bool {
         guard !reduced else { return false }
         return selected != nil || !scenePulses.isEmpty || !agentPulses.isEmpty || !rimRunners.isEmpty || !markPulses.isEmpty
             || (sceneGlows + agentGlows).contains { !$0.still }
-            || robots.contains { !$0.still && ($0.busy || !$0.drones.isEmpty) }
+            || robots.contains { !$0.still && !$0.drones.isEmpty }
     }
     /// Only frame flips (the flames' slow flicker) and resting robots' breath: the slower drift rate is enough.
     var drifting: Bool {
@@ -1156,13 +1152,12 @@ final class DungeonScene: SKScene, MapScene {
         for r in robots {
             var dy: CGFloat = 0
             if !r.still && !reduced {
-                let list = r.busy ? r.work : r.idle
-                let fps = r.busy ? 7.0 : 1.6
+                let list = r.idle
+                let fps = 0.5
                 let i = Int(floor(clock / 1000 * fps + r.phase * Double(list.count))) % max(list.count, 1)
                 if !list.isEmpty && r.node.texture !== list[i] { r.node.texture = list[i] }
-                // At rest a robot breathes; at work it hops a little.
-                // At work it hops visibly as its arms move; at rest it only breathes.
-                dy = r.busy ? -abs(CGFloat(sin((clock / 220 + r.phase * 7)))) * 3.2 : CGFloat(sin(clock / 1100 + r.phase * 6)) * 0.5
+                // A slow half-pixel breath; the travelling light beneath it carries the working state.
+                dy = CGFloat(sin(clock / 2400 + r.phase * 6)) * 0.5
             } else if let first = r.idle.first, r.node.texture !== first {
                 r.node.texture = first
             }

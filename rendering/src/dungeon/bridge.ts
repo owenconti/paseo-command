@@ -1074,8 +1074,6 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
         id: e.id,
         ...box,
         idle: framesOf(`robot-${color}-idle`),
-        work: framesOf(`robot-${color}-work`),
-        busy: state === "running",
         dim: offline ? 1 : 0,
         ph: rng(),
         // The state's glow on the ledge beneath it, wide enough to show either side of its feet.

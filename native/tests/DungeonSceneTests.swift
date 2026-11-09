@@ -158,14 +158,31 @@ pump(0.6)
 assert(scene.framesDrawn - rested <= 1, "nothing moves with reduced motion, so it rests")
 
 // With only the flames' slow flicker and resting robots (steady light, nothing selected), it idles at the drift rate;
-// a robot at work brings back the ambient rate.
+// working robots use the same calm poses; a running ring still brings back the ambient rate.
 scene.setMotion(reduced: false)
 scene.setAgents(["rev": 3, "robots": [["id": "a1", "x": 182.0, "y": 332.0, "w": 36.0, "h": 42.0, "idle": ["robot-orange-idle-0", "robot-orange-idle-1"],
     "work": ["robot-orange-work-0"], "busy": false, "ph": 0.3]], "lights": [["x": 0.0, "y": 100.0, "r": 40.0, "still": 1.0]]], images: [:])
 assert(!scene.animating && scene.drifting, "only flames and resting robots: the drift rate")
 scene.setAgents(["rev": 4, "robots": [["id": "a1", "x": 182.0, "y": 332.0, "w": 36.0, "h": 42.0, "idle": ["robot-orange-idle-0"],
     "work": ["robot-orange-work-0", "robot-orange-work-1"], "busy": true, "ph": 0.3]]], images: [:])
-assert(scene.animating, "a robot at work: the ambient rate")
+assert(!scene.animating && scene.drifting, "working poses alone need only the drift rate")
+// The body never switches to its work-pose frames and moves less than one pixel over a full cycle.
+func body(_ n: SKNode) -> SKSpriteNode? {
+    if let n = n as? SKSpriteNode, n.zPosition == 10 { return n }
+    return n.children.compactMap { body($0) }.first
+}
+let calmBody = body(scene)!, calmTexture = body(scene)!.texture
+var positions: [CGFloat] = []
+let start = CACurrentMediaTime()
+for i in 0..<80 {
+    scene.update(start + Double(i) * 0.2)
+    positions.append(calmBody.position.y)
+    assert(calmBody.texture === calmTexture, "one idle pose stays calm when its work frames differ")
+}
+assert(positions.max()! - positions.min()! <= 1.01, "a breath, with no hopping")
+scene.setAgents(["rev": 41, "robots": [["id": "a1", "x": 182.0, "y": 332.0, "w": 36.0, "h": 42.0,
+    "idle": ["robot-orange-idle-0"], "busy": true, "glow": ["w": 50.0, "h": 15.0, "runner": 1.0]]]], images: [:])
+assert(scene.animating, "the spinning working ring is preserved")
 
 // The vault: a tile niche over the first gate is picked as its tile (the page opens its first PR), its top kept below the
 // HUD's title by the fit; the At a Glance panel shows at the top right.
