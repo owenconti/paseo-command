@@ -16,7 +16,7 @@ import { useEffect, useState, useSyncExternalStore } from "react";
 import { api, readStore } from "./api";
 import { useIntegrations, useSecretRevision } from "./integrationSettings";
 import { linearSlug } from "./linearSlug";
-import { branchKey, textKey } from "./display";
+export { linearKey } from "./linearKey";
 import { nativeRequest } from "./nativePlatform";
 import { nativeAvailable } from "./worldBridge";
 import type { MergeQueue, PullRequest, Workspace } from "./types";
@@ -111,22 +111,6 @@ export function prTip(pr: PullRequest, queue = pr.queue): string {
   ]
     .filter(Boolean)
     .join("\n");
-}
-
-/** The Linear issue key: branch, then PR title and body, then agent title. */
-export function linearKey(from: {
-  branch?: string | null;
-  prTitle?: string | null;
-  prBody?: string | null;
-  agentTitle?: string | null;
-}): string | null {
-  return (
-    branchKey(from.branch) ??
-    textKey(from.prTitle) ??
-    textKey(from.prBody) ??
-    textKey(from.agentTitle) ??
-    null
-  );
 }
 
 export { linearSlug };

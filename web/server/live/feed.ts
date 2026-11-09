@@ -34,6 +34,7 @@ import { endAgentWatches } from "./sessions";
 import { ProviderSubagents } from "./subagents";
 import { hiddenSubagent } from "../subagentArchive";
 import { LIVE, backoff } from "./tuning";
+import { automaticNames } from "../automaticNames";
 
 export type FeedState = "connecting" | "live" | "down" | "stopped";
 
@@ -199,6 +200,9 @@ export class Feed {
   }
   /** `requestedAt`: these rows come from reads requested then. */
   private publishRows(requestedAt?: number) {
+    if (this.client && this.state === "live")
+      void automaticNames.observe(this.key, this.client,
+        [...this.background.values(), ...this.active.values()], this.workspaces.values());
     const rows = hostRows({
       active: this.active.values().filter((e) => !this.excluded(e.agent.id)),
       inactive: this.background

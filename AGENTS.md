@@ -238,6 +238,13 @@ and GitHub publication; report the published version and release link.
   A project is renamed in place (its title, `POST /api/projects/:id/rename`; the pencil on its row or view) and removed
   after confirming (`web/src/RemoveProjectDialog.tsx`, `POST /api/projects/:id/remove`: Paseo archives its workspaces and
   unregisters it; the folder stays). Moving a project's folder isn't offered: the daemon has no call for it.
+- Automatic names (`web/server/automaticNames.ts`, observed from live feeds and fallback fleet reads): Linear-linked workspaces
+  use `KEY · Issue title`, verified through the enabled Linear integration. `workspace-names.json` in the app's data folder remembers
+  assignments per host/workspace so later custom names survive. Agents with no title or a copied opening message get a stable short
+  task title from the host's metadata model, written back with `paseo-command.auto-title`; custom titles, helpers and subagents stay alone.
+  An unnamed sole-agent worktree gets that task title too. Map hover cards use the chat panel's display name, including workspace titles,
+  and read it from the current snapshot while hovered. `PASEO_COMMAND_AUTOMATIC_NAMES=off` disables the observer (other test fixtures
+  use it; `automaticNames.test.ts` exercises the service with fake clients). Naming never sends a task to a real daemon during tests.
 - `web/server/asks.ts`: what an idle agent's last reply asks of you, judged once per reply by TypeSafe's Jev
   (opt-in `integrations.typesafe` in `settings.json`, with `typesafeApiKey` in the data directory's `secrets.json`): code splits the reply into
   sentences and keeps only questions and requests (`web/src/asks/sentences.ts`, `mayAsk`), Jev judges which ask you, their kind, a pick's options, and whether

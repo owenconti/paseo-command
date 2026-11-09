@@ -15,6 +15,9 @@ const root = join(tmpdir(), `paseo-command-test-${randomUUID()}`);
 process.env.PASEO_COMMAND_DATA = join(root, "data");
 process.env.PASEO_COMMAND_REPO = join(root, "repo");
 process.env.PASEO_COMMAND_SETTINGS = join(root, "data", "settings.json");
+// Naming tests exercise their own injected service; unrelated fake-daemon tests
+// keep their agents and workspace titles as the fixture defined them.
+process.env.PASEO_COMMAND_AUTOMATIC_NAMES = "off";
 process.on("exit", () => rmSync(root, { recursive: true, force: true }));
 // Tests never reach Linear's API, whatever the shell exports.
 delete process.env.LINEAR_API_KEY;

@@ -1,4 +1,5 @@
 import { TUNING, fromHost, remember, scopeOf, upstream, view } from "../fleet";
+import { automaticNames } from "../automaticNames";
 import {
   allWorkspaces,
   capture,
@@ -44,6 +45,7 @@ function rowsOf(host?: Remote) {
           timed(allWorkspaces(client), ms, client),
           timed(client.listProjects(), ms, client),
         ]);
+        void automaticNames.observe(hostKey(host), client, agents, workspaces);
         return hostRows({
           active: [],
           inactive: agents,
