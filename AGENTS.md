@@ -850,6 +850,13 @@ Linear on, for the vault) and prints its address with `?map=dungeon`. Tests:
 
 ### Talking on the Dungeon Board
 
+Its left/right navigation buttons are original stone-and-bronze medallions (`worldChat/navigation.webp`, `ART.md`), without
+shortcut badges. Plain ←/→ step through a stable roster of the map’s active robots, grouped by host/workspace and age
+(`conversationOrder` in `navigation.ts`), rather than the sidebar’s filtered, collapsed or attention-sorted list. They never
+enter the native map’s pan loop (`native/surface.ts`); text fields keep their arrow keys. J/K still step too. Narrow maps
+keep these controls inside a bottom row of the dialogue so the sidebar cannot cover them. Home, End and Enter page the
+reply; Left/Right no longer page it. The palette and shortcut dialog mirror these keys.
+
 The user asked to chat with agents from within the world, as an in-game conversation the user proceeds through, so they stay
 in the world instead of switching to the chat panel (which stays). It starts on the Dungeon Board (`web/src/worldChat/`):
 picking a robot selects it and opens its dialogue box over the board's foot (`WorldChat.tsx`, `world-chat.css`), an RPG's:
@@ -869,11 +876,13 @@ Interrupt while it runs, Open the full chat (the panel, its composer focused) an
 After a sent reply, quick reply or queued follow-up, the actions stay closed. Actions (or Enter at the last page,
 or ⌘K “Show conversation actions on the board”) reopens them; a new finished reply or request resets that suppression; live working progress does not.
 Only the agent's own words are its speech; what it is doing (`workingOn`, else its last step, `exchangeOf`), failures,
-offline and waiting are narration, never invented lines (truthful state). The whole conversation opens upward over the board as
-its log (H, the ▲ Conversation tab, or scrolling up past the page's top; ▼ Back, H or Esc returns): `Session`'s `Timeline`, any
+offline and waiting are narration, never invented lines (truthful state). The Conversation button sits inside the dialogue header below the name banner, never in its raised strip. User-message
+links use dark brown ink and full underlines against the box’s parchment bubbles, with a distinct keyboard focus ring.
+The whole conversation opens upward over the board as
+its log (H, the Conversation button, or scrolling up past the page's top; Back, H or Esc returns): `Session`'s `Timeline`, any
 request's `PermissionCard` and the composer, the box's colours given to them as scoped theme variables (your messages parchment);
 the board keeps the box's own room under it; it stays open as the box steps robots (`talkLog` in main, ⌘K "Show the whole
-conversation on the board"). ◀ ▶ either side of the box (⇧← ⇧→, as K and J; named on hover) step to the previous and next agent
+conversation on the board"). Painted left/right controls beside the box (← →, as K and J; named on hover) step to the previous and next agent
 (main's `step`; ⌘K's Previous / Next agent show those keys while the box does). The box follows the selected agent (J/K step to
 the next robot), counts as viewing it (mark read, no notification), and keeps where each conversation was left. T and ⌘K
 "Talk to … on the board" open it for the selected robot; "Leave the conversation on the board", "Continue the conversation in

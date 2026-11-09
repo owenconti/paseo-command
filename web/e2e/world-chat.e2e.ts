@@ -422,3 +422,58 @@ test("painted navigation buttons and plain Left/Right step through robots despit
   assert.ok(!(await native(page)).keys.some((k) => k === "ArrowLeft" || k === "ArrowRight"), "Left/Right never pan the native map");
 });
 
+
+test("Conversation stays clear of a long banner, works in narrow maps, and user links contrast on parchment", async () => {
+  const { page } = await open({
+    names: { "a-cli-0": "An unusually long robot name which must never cover the conversation button" },
+    timelines: { "a-cli-0": [{ kind: "user", text: "Please review https://example.com/a/long/path?with=parameters", messageId: "u1" }, { kind: "assistant", text: "Done.", messageId: "r1" }] },
+  });
+  await pick(page, "a-cli-0");
+  await box(page).waitFor();
+  for (const [width, height] of [[1600, 1000], [1000, 900], [800, 820]] as const) {
+    await page.setViewportSize({ width, height });
+    await waitFor(() => page.evaluate(() => {
+      const button = document.querySelector<HTMLButtonElement>(".wc-log-toggle")!;
+      const r = button.getBoundingClientRect(), banner = document.querySelector(".wc-nameplate")!.getBoundingClientRect();
+      const covers = banner.left < r.right && banner.right > r.left && banner.top < r.bottom && banner.bottom > r.top;
+      return { clear: !covers, receivesClick: document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2)?.closest("button") === button };
+    }), (r) => r.clear && r.receivesClick, `Conversation is clickable at ${width}px`);
+    await box(page).getByRole("button", { name: /Show the whole conversation/ }).click();
+    await box(page).locator(".wc-log").waitFor();
+    await box(page).getByRole("button", { name: /Back to the dialogue box/ }).click();
+    await box(page).locator(".wc-log").waitFor({ state: "detached" });
+  }
+  // The navigation controls stay visible and clickable inside the compact dialogue.
+  for (const name of [/^Next agent:/, /^Previous agent:/]) {
+    const button = box(page).getByRole("button", { name });
+    assert.equal(await button.evaluate((el) => {
+      const r = el.getBoundingClientRect();
+      return r.left >= 0 && r.right <= innerWidth && document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2)?.closest("button") === el;
+    }), true);
+  }
+  await box(page).getByRole("button", { name: /Show the whole conversation/ }).click();
+  const link = box(page).locator(".msg.user .user-text a");
+  await link.waitFor();
+  const appearance = await link.evaluate((el) => {
+    const style = getComputedStyle(el), bubble = getComputedStyle(el.closest(".msg.user")!);
+    const [a, b] = [style.color, bubble.backgroundColor].map((color) => {
+      const rgb = color.match(/\d+(?:\.\d+)?/g)!.slice(0, 3).map(Number).map((c) => { const v = c / 255; return v <= .04045 ? v / 12.92 : ((v + .055) / 1.055) ** 2.4; });
+      return rgb[0]! * .2126 + rgb[1]! * .7152 + rgb[2]! * .0722;
+    });
+    return { contrast: (Math.max(a, b) + .05) / (Math.min(a, b) + .05), underline: style.textDecorationLine };
+  });
+  assert.ok(appearance.contrast >= 4.5, `link contrast ${appearance.contrast}`);
+  assert.match(appearance.underline, /underline/);
+  await link.focus();
+  await page.keyboard.press("Tab");
+  await page.keyboard.press("Shift+Tab");
+  assert.equal(await link.evaluate((e) => e === document.activeElement), true);
+  assert.equal(await link.evaluate((e) => getComputedStyle(e).outlineStyle), "solid");
+  const field = box(page).locator("#world-composer");
+  await field.fill("Keep this draft");
+  await field.evaluate((e: HTMLTextAreaElement) => e.setSelectionRange(5, 5));
+  await page.keyboard.press("ArrowLeft");
+  assert.equal(await field.evaluate((e: HTMLTextAreaElement) => e.selectionStart), 4);
+  assert.equal((await native(page)).selected, key("a-cli-0"), "arrows in the composer edit text, never switch robots");
+  await page.context().close();
+});

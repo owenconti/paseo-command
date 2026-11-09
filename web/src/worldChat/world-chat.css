@@ -54,6 +54,8 @@
   --bubble: #efdfb6;
   --bubble-line: #a8662c;
   --bubble-text: #2a1a0e;
+  --bubble-link: #704018;
+  --bubble-link-hover: #42240f;
 }
 /* Writing a reply: the box grows to its composer. */
 .world-chat.replying {

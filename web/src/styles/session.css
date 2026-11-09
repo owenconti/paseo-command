@@ -728,6 +728,18 @@ button.agent-report-name:hover {
 .user-text a:hover {
   text-decoration-color: currentColor;
 }
+/* User messages have their own surface: use its link ink, including parchment in the Dungeon log. */
+.msg.user .user-text a {
+  color: var(--bubble-link, var(--accent-text));
+  text-decoration-line: underline;
+  text-decoration-color: currentColor;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+  text-decoration-skip-ink: auto;
+}
+.msg.user .user-text a:visited { color: var(--bubble-link, var(--accent-text)); }
+.msg.user .user-text a:hover { color: var(--bubble-link-hover, var(--bubble-text)); text-decoration-thickness: 2px; }
+.msg.user .user-text a:focus-visible { outline: 2px solid currentColor; outline-offset: 3px; border-radius: 2px; }
 /* A file's path in inline code that links to it (src/autolink.ts) keeps its code look, in the link's colour. */
 .md a.file-link > code {
   color: inherit;
