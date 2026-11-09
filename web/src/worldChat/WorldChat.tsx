@@ -950,17 +950,6 @@ export function WorldChat(props: WorldChatProps) {
       <div className="wc-nameplate" style={frame(label)}>
         <span className="wc-name">{name}</span>
       </div>
-      <button
-        type="button"
-        className="wc-log-toggle"
-        tabIndex={-1}
-        aria-expanded={log}
-        aria-label={log ? "Back to the dialogue box (H)" : "Show the whole conversation (H)"}
-        onClick={() => setLog(!log)}
-      >
-        {log ? "▼ Back" : "▲ Conversation"}
-        <kbd className="wc-key">H</kbd>
-      </button>
       <button type="button" className="wc-close" aria-label="Leave the conversation (Esc)" tabIndex={-1} onClick={onClose}>
         ×
       </button>
@@ -993,6 +982,17 @@ export function WorldChat(props: WorldChatProps) {
       <Portrait provider={agent.provider} state={state} />
       <div className="wc-body">
         <div className="wc-head">
+          <button
+            type="button"
+            className="wc-log-toggle"
+            aria-expanded={log}
+            aria-label={log ? "Back to the dialogue box (H)" : "Show the whole conversation (H)"}
+            onClick={() => setLog(!log)}
+          >
+            <span>{log ? "Back" : "Conversation"}</span>
+            <kbd className="wc-key">H</kbd>
+          </button>
+
           <span className="wc-caption">
             {log
               ? `Conversation${position.total > 1 && position.index >= 0 ? ` · ${position.index + 1} of ${position.total}` : ""}`

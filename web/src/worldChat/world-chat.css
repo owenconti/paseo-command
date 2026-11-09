@@ -115,20 +115,20 @@
 
 .wc-head {
   flex: none;
-  display: flex;
-  align-items: baseline;
-  gap: 12px;
-  min-height: 18px;
-  /* Clear of the corner's ×. */
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 4px 10px;
   padding-right: 18px;
 }
+.wc-head > .wc-caption { grid-column: 1; grid-row: 1; }
 .wc-status {
-  flex: none;
+  grid-column: 1 / -1;
+  grid-row: 2;
   display: flex;
   align-items: center;
   gap: 6px;
-  max-width: 55%;
-  margin-left: auto;
+  max-width: 100%;
   overflow: hidden;
   white-space: nowrap;
   color: var(--wc-dim);
@@ -532,30 +532,30 @@
   font-size: 9.5px;
 }
 
-/* ▲ Conversation: a tab on the box's top edge. */
+/* In the dialogue header, below the name banner; it never shares the banner's raised strip. */
 .wc-log-toggle {
-  position: absolute;
-  top: calc(0px - var(--wc-tab-rise));
-  right: 34px;
-  display: flex;
+  grid-column: 2;
+  grid-row: 1;
+  display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 6px;
-  height: 26px;
-  padding: 0 10px;
+  min-height: 28px;
+  max-width: 100%;
+  padding: 3px 8px;
   border: 1px solid #c2871f;
-  border-bottom: 0;
-  border-radius: 7px 7px 0 0;
+  border-radius: 4px;
   background: #251e40;
   color: var(--wc-gold);
-  font: 800 11px/1 inherit;
-  font-family: inherit;
-  letter-spacing: 0.06em;
+  font: 800 11px/1.25 ui-rounded, "SF Pro Rounded", "Paseo Barlow", sans-serif;
+  letter-spacing: .04em;
   text-transform: uppercase;
+  white-space: nowrap;
   cursor: pointer;
 }
-.wc-log-toggle:hover {
-  color: #ffe56e;
-}
+.wc-log-toggle > span { overflow: hidden; text-overflow: ellipsis; }
+.wc-log-toggle:hover { color: #ffe56e; background: #382b4c; }
+.wc-log-toggle:focus-visible { outline: 2px solid #ffe56e; outline-offset: 2px; }
 
 .wc-skip {
   display: flex;
