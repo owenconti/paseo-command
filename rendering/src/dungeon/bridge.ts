@@ -419,26 +419,7 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
     ctx.fillText(label, r.w / 2, y);
     return canvas;
   };
-  /** The HUD's title plaque and count bar: navy panels with gold borders, in screen points. */
-  const paintTitle = (subtitle: string) => {
-    const title = "Dungeon Board — Command Center";
-    measurer.font = `${HEAVY} 22px ${FONT}`;
-    const tw = measurer.measureText(title).width;
-    measurer.font = `${BOLD} 15px ${FONT}`;
-    const sw = measurer.measureText(subtitle).width;
-    const w = Math.ceil(Math.max(tw, sw) + 92), h = 66;
-    const { canvas, ctx } = canvasFor(w, h);
-    nineSlice(ctx, frame("panel"), "panel", 0, 0, w, h);
-    ctx.drawImage(frame("icon-castle"), 18, h / 2 - 17, 34, 34);
-    ctx.textBaseline = "middle";
-    ctx.fillStyle = "#f4ead2";
-    ctx.font = `${HEAVY} 22px ${FONT}`;
-    ctx.fillText(title, 66, 25);
-    ctx.fillStyle = "#cfc6e6";
-    ctx.font = `${BOLD} 15px ${FONT}`;
-    ctx.fillText(subtitle, 66, 47);
-    return { canvas, w, h };
-  };
+  /** The HUD's count bar: navy panels with gold borders, in screen points. */
   const paintCounts = (counts: DungeonLayout["counts"]) => {
     const items = [
       ["hosts", counts.hosts, counts.hosts === 1 ? "Host" : "Hosts"],
@@ -1148,10 +1129,7 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
       const alarm = online ? projectAlarm(l, id) : undefined;
       if (alarm) lights.push({ x: p.mark.x, y: p.mark.y, c: STATE_TILE[alarm]!, r: 54, period: alarm === "failed" ? 1200 : 1800, flicker: false, z: 1.9, ph: 0 });
     }
-    const subtitle = hudSubtitle(l);
-    const title = paintTitle(subtitle);
     const counts = paintCounts(l.counts);
-    const titleKey = `hud:title:${subtitle}`;
     const countsKey = `hud:counts:${JSON.stringify([l.counts.hosts, l.counts.projects, l.counts.workspaces, l.counts.agents])}`;
     // The At a Glance panel, once the page passes the dashboard's counts (as the vault).
     const glance = l.vault.length ? paintGlance(l.counts) : null;
@@ -1162,7 +1140,6 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
       sprites,
       lights,
       hud: {
-        title: { ...(sent.has(titleKey) ? { key: titleKey } : (sent.add(titleKey), { key: titleKey, png: png(title.canvas) })), w: title.w, h: title.h },
         counts: { ...(sent.has(countsKey) ? { key: countsKey } : (sent.add(countsKey), { key: countsKey, png: png(counts.canvas) })), w: counts.w, h: counts.h },
         ...(glance ? { panel: { ...(sent.has(glanceKey) ? { key: glanceKey } : (sent.add(glanceKey), { key: glanceKey, png: png(glance.canvas) })), w: glance.w, h: glance.h } } : {}),
       },
