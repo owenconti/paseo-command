@@ -38,7 +38,7 @@ export const D = {
   /** Robots: their visible size, and the pitch they stand at. */
   robot: 47,
   robotH: 55,
-  slot: 50,
+  slot: 70,
   /** An alcove's room either side of its robots; at least this many robots' room. */
   alcoveEnd: 38,
   /** Its stone sides (the frame's width). */

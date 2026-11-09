@@ -98,11 +98,11 @@ test("the concept's fleet: three floors, two projects each, one tier, gates cent
   const { hosts, projects, workspaces, agents } = layout.counts;
   assert.deepEqual({ hosts, projects, workspaces, agents }, { hosts: 3, projects: 6, workspaces: 11, agents: 27 });
   assert.equal(layout.floors[0].stats.map((s) => s.text).join(" · "), "CPU 42% · MEM 58% · DISK 70%");
-  // About the concept's proportions: a board some 1,200 wide and as tall.
-  assert.ok(layout.bounds.w > 1100 && layout.bounds.w < 1600, `width ${layout.bounds.w}`);
+  // Wider bays leave breathing room between robots while retaining the board's bounded aspect.
+  assert.ok(layout.bounds.w > 1100 && layout.bounds.w < 1900, `width ${layout.bounds.w}`);
   assert.ok(layout.bounds.h > 1050 && layout.bounds.h < 1450, `height ${layout.bounds.h}`);
-  // Compact, as the concept's masses nearly interlock: no wider than 1.15 times (a foot of the concept's proportion, each project's hall piers) its height.
-  assert.ok(layout.bounds.w / layout.bounds.h <= 1.15, `aspect ${layout.bounds.w / layout.bounds.h}`);
+  // Projects still wrap before the board becomes wider than its target aspect.
+  assert.ok(layout.bounds.w / layout.bounds.h <= 1.6, `aspect ${layout.bounds.w / layout.bounds.h}`);
   for (const f of layout.floors) assert.equal(f.rect.h, f.last ? D.band + D.tierH + D.foot + D.footPad : D.band + D.tierH);
   // The first project stands left of the gate, the second right.
   const local = layout.projects.filter((p) => p.floor === 0);
@@ -396,4 +396,16 @@ test("the At a Glance counts: your PRs and issues by group (unknown while off), 
   const c = layoutDungeon({ ...DUNGEON_SAMPLE, dashboard: { ...DASHBOARD, prs: null } }, 1.4);
   assert.equal(a.signature, b.signature);
   assert.notEqual(a.signature, c.signature);
+});
+
+test("robots leave visible room between neighbours in every workspace", () => {
+  const layout = layoutDungeon(big(1, 2, 2, 6));
+  for (const w of layout.workspaces) {
+    const agents = layout.agents.filter((a) => a.entity.workspace === w.entity.id).sort((a, b) => a.feet.x - b.feet.x);
+    for (let i = 1; i < agents.length; i++) {
+      const left = agents[i - 1], right = agents[i];
+      const width = (a) => { const f = FRAMES[`robot-${a.robot}-idle-0`]; return D.robotH * f.w / f.h; };
+      assert.ok(right.feet.x - left.feet.x - (width(left) + width(right)) / 2 >= 14, "at least 14 px between visible robot bodies");
+    }
+  }
 });
