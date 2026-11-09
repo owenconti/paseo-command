@@ -134,3 +134,10 @@ describe("exchangeOf", () => {
     assert.notEqual(a, exchangeOf([said("Other words.")]).reply!.id);
   });
 });
+
+it("Mermaid diagrams stay whole when the dialogue pages a long reply", () => {
+  const graph = ['```mermaid', 'flowchart TD', ...Array.from({ length: 40 }, (_, i) => `N${i} --> N${i + 1}`), '```'].join('\n');
+  const pages = pageReply(`Before the chart.\n\n${graph}\n\nAfter the chart.`, { lines: 4, perLine: 25 });
+  assert.ok(pages.includes(graph));
+  assert.equal(pages.filter((p) => p.includes('```mermaid')).length, 1);
+});

@@ -556,3 +556,29 @@ test("questions in the full map conversation use readable dark surfaces and gold
   await page.screenshot({ path: "/tmp/dungeon-chat-question-theme.png" });
   await page.context().close();
 });
+
+test("Mermaid diagrams render in both the map dialogue and its full conversation", async () => {
+  const source = ['```mermaid', 'flowchart TD', ...Array.from({ length: 12 }, (_, i) => `N${i}[Step ${i}] --> N${i + 1}[Step ${i + 1}]`), '```'].join('\n');
+  const { page } = await open({ timelines: { "a-api-1": [{ kind: "assistant", text: source, messageId: "diagram" }] } });
+  await pick(page, "a-api-1");
+  const dialog = box(page);
+  await dialog.locator(".wc-page .mermaid-image").waitFor();
+  const compactImage = dialog.locator(".wc-page .mermaid-image");
+  assert.equal(await compactImage.evaluate((el) => getComputedStyle(el).maxHeight), "none", "the portrait image cap never squashes a chart");
+  await dialog.getByRole("button", { name: /Show the whole conversation/ }).click();
+  const chart = dialog.locator(".wc-log .mermaid-block");
+  await chart.getByAltText("Mermaid diagram").waitFor();
+  const expanded = chart.getByRole("button", { name: "Expand Mermaid diagram" });
+  const toolbar = await chart.locator(".mermaid-toolbar").boundingBox(), timeline = await dialog.locator(".wc-log .timeline").boundingBox();
+  assert.ok(toolbar && timeline && toolbar.y >= timeline.y - 1, "chart controls stay visible when the log pins to a tall chart's end");
+  await expanded.click();
+  const viewer = page.getByRole("dialog", { name: "Expanded Mermaid diagram" });
+  await viewer.waitFor();
+  assert.equal(await viewer.evaluate((el) => getComputedStyle(el).getPropertyValue("--panel").trim()), "#251e40", "the expanded chart retains the Dungeon palette outside its portal");
+  await page.screenshot({ path: "/tmp/chat-mermaid-dungeon-expanded.png" });
+  await page.keyboard.press("Escape");
+  await viewer.waitFor({ state: "detached" });
+  assert.equal(await dialog.locator(".wc-log").count(), 1, "closing a chart keeps the world conversation open");
+  await page.screenshot({ path: "/tmp/chat-mermaid-dungeon.png" });
+  await page.context().close();
+});

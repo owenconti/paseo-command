@@ -1,5 +1,10 @@
-import { copyText } from "./nativePlatform";
-import { memo, useEffect, useMemo, useState, type ReactNode } from "react";
+import {
+  createContext,
+  memo,
+  useContext,
+  useMemo,
+  type ReactNode,
+} from "react";
 import ReactMarkdown, {
   defaultUrlTransform,
   type Components,
@@ -9,7 +14,8 @@ import ReactMarkdown, {
 
 type PluggableList = NonNullable<Options["remarkPlugins"]>;
 import remarkGfm from "remark-gfm";
-import { Check, Copy } from "lucide-react";
+import { CopyButton } from "./CodeCopyButton";
+import { MermaidBlock } from "./mermaid/MermaidBlock";
 import { MarkdownImage } from "./Images";
 import { highlight, languageOf, type Token } from "./highlight";
 import { canAutolink, remarkAutolink } from "./autolink";
@@ -36,34 +42,7 @@ const heading =
     return <Tag className={`md-h${level}`}>{children}</Tag>;
   };
 
-function CopyButton({ text }: { text: string }) {
-  const [copied, setCopied] = useState(false);
-  useEffect(() => {
-    if (!copied) return;
-    const t = setTimeout(() => setCopied(false), 1500);
-    return () => clearTimeout(t);
-  }, [copied]);
-  return (
-    <button
-      type="button"
-      className="md-copy"
-      aria-label={copied ? "Copied" : "Copy code"}
-      data-tip={copied ? "Copied" : "Copy code"}
-      onClick={() =>
-        copyText(text).then(
-          () => setCopied(true),
-          () => {},
-        )
-      }
-    >
-      {copied ? (
-        <Check size={13} aria-hidden="true" />
-      ) : (
-        <Copy size={13} aria-hidden="true" />
-      )}
-    </button>
-  );
-}
+const MarkdownStream = createContext({ streaming: false, text: "" });
 
 type Hast = {
   type: string;
@@ -85,6 +64,7 @@ function safeHighlight(text: string, lang: string): Token[] {
 }
 
 export function CodeBlock({ node }: ExtraProps) {
+  const stream = useContext(MarkdownStream);
   const code = (node?.children[0] ?? { type: "root" }) as Hast;
   const classes = code.properties?.className;
   const lang = languageOf(
@@ -94,6 +74,21 @@ export function CodeBlock({ node }: ExtraProps) {
       ?.slice(9),
   );
   const text = textOf(code).replace(/\n$/, "");
+  if (lang === "mermaid") {
+    const raw = stream.text.slice(
+      node?.position?.start.offset ?? 0,
+      node?.position?.end.offset,
+    );
+    const lines = raw.trimEnd().split("\n"),
+      fence = lines[0]?.match(/^ {0,3}(`{3,}|~{3,})/)?.[1];
+    const closed =
+      !!fence &&
+      lines.length > 1 &&
+      new RegExp(`^ {0,3}${fence[0]}{${fence.length},}\\s*$`).test(
+        lines.at(-1)!,
+      );
+    return <MermaidBlock source={text} pending={stream.streaming && !closed} />;
+  }
   return (
     <div className="md-code">
       <div className="md-code-bar">
@@ -240,14 +235,18 @@ export const Markdown = memo(function Markdown({
     [links],
   );
   return (
-    <div className="md">
-      <ReactMarkdown
-        remarkPlugins={plugins}
-        components={componentsFor(imageHost)}
-        urlTransform={urlTransform}
-      >
-        {streaming ? settle(text) : text}
-      </ReactMarkdown>
-    </div>
+    <MarkdownStream.Provider
+      value={{ streaming: !!streaming, text: streaming ? settle(text) : text }}
+    >
+      <div className="md">
+        <ReactMarkdown
+          remarkPlugins={plugins}
+          components={componentsFor(imageHost)}
+          urlTransform={urlTransform}
+        >
+          {streaming ? settle(text) : text}
+        </ReactMarkdown>
+      </div>
+    </MarkdownStream.Provider>
   );
 });

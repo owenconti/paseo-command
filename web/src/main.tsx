@@ -1,3 +1,5 @@
+import "./mermaid/mermaid.css";
+import { mermaidPalette, useMermaidCommands } from "./mermaidCommands";
 import { MAP_STYLES, mapStyle, setMapStyle, useMapStyle } from "./mapStyle";
 import { conversationOrder } from "./worldChat/navigation";
 import { setTalkOnPick, talkOnPickSetting, useTalkOnPick } from "./worldChat/settings";
@@ -1493,7 +1495,9 @@ function App() {
   const modeTabs = shownModes(integrations).map((mode) => [mode, modeNames[mode]] as const);
   // A tab's ⌘1…⌘6, in the macOS app.
   const tabKeys = (mode: AppMode) => (macApp() ? [modeKey(integrations, mode)] : undefined);
+  const diagramCommand = useMermaidCommands();
   const paletteCommands: Command[] = [
+    ...mermaidPalette(diagramCommand),
     {
       id: "new-agent",
       group: "Actions",

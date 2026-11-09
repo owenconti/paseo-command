@@ -25,6 +25,9 @@ for (const [path, row] of Object.entries(json('web/package-lock.json').packages)
   // lru_map (MIT) ships no license file: its upstream one, rsms/js-lru's LICENSE.txt.
   if (!texts.length && pkg.name === 'lru_map')
     texts = [{ file: 'upstream LICENSE.txt (rsms/js-lru)', text: read('licenses/lru_map.txt') }];
+  // fastdom and strictdom distribute their MIT text in README.md rather than a separate LICENSE.
+  if (!texts.length && ['fastdom', 'strictdom'].includes(pkg.name))
+    texts = [{ file: 'README.md (License)', text: read(join(dir, 'README.md')).split('## License')[1].trim() }];
   if (!texts.length) throw new Error(`No license text for ${pkg.name}; resolve before distribution`);
   entries.push({ name: `${pkg.name} ${pkg.version}`, license: row.license ?? 'Apache-2.0 (upstream Paseo)', texts });
 }
@@ -35,6 +38,9 @@ for (const pin of json('native/Package.resolved').pins) {
   const texts = readdirSync(dir, { withFileTypes: true })
     .filter(file => file.isFile() && isNotice(file.name))
     .map(file => ({ file: file.name, text: read(join(dir, file.name)) }));
+  // fastdom and strictdom distribute their MIT text in README.md rather than a separate LICENSE.
+  if (!texts.length && ['fastdom', 'strictdom'].includes(pkg.name))
+    texts = [{ file: 'README.md (License)', text: read(join(dir, 'README.md')).split('## License')[1].trim() }];
   if (!texts.length) throw new Error(`No license text for ${pin.identity}`);
   entries.push({ name: `${pin.identity} ${pin.state.version}`, license: ['swiftterm', 'sparkle'].includes(pin.identity) ? 'MIT' : 'Apache-2.0', texts });
 }

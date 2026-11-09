@@ -621,6 +621,13 @@ and GitHub publication; report the published version and release link.
   the terminal and Conquer's pages (`AppKeys.swift`) except while Conquer has the keyboard, where it stays Conquer's Find Previous, and which
   asks the page's `branch-changes` (`AppKeys.branchChangesCommand`); in a browser the page takes the key itself and, as with nothing selected,
   only says why. Tests: `e2e/changes.e2e.ts`, `e2e/diff-comments.e2e.ts`.
+- Chat Markdown renders fenced `mermaid` blocks (`web/src/mermaid/`), in the session panel and both map
+  conversation views. The engine loads near the viewport, with serialized strict-mode renders and each view's
+  palette; its SVG is shown as an isolated image. Source/copy, zoom/reset and an expanded focus-trapped view have
+  matching context-sensitive palette entries (`mermaidCommands.ts`, `mermaid-diagram` in `appCommands.ts`). An
+  incomplete streamed fence waits, invalid/oversized diagrams keep their source, and map paging keeps a chart whole.
+  Mermaid stays on the 11.x line for the app's older WebKit support; its KaTeX override keeps the patched trust checks.
+  Tests: `web/e2e/mermaid.e2e.ts`, the Mermaid case in `world-chat.e2e.ts`, and `worldChat/script.test.ts`.
 - Mentions in the chat link themselves (`web/src/autolink.ts`): in an agent's conversation (`Timeline` provides `Autolinks` from
   `useAutolinks` in `web/src/autolinkStore.ts`), its replies (`Markdown.tsx` adds `remarkAutolink`, a remark step over text nodes) and
   your messages (`autolinkRuns`), but not tool output. Linear keys only of the Linear workspace's teams (`GET /api/linear/teams`, asked

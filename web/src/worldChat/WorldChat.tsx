@@ -166,7 +166,7 @@ function textNodes(root: Node): Text[] {
   const out: Text[] = [];
   const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
     acceptNode: (node) =>
-      (node.parentElement?.closest(".md-code-bar") ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT),
+      (node.parentElement?.closest(".md-code-bar, .mermaid-toolbar, .mermaid-status") ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT),
   });
   for (let n = walker.nextNode(); n; n = walker.nextNode()) out.push(n as Text);
   return out;

@@ -102,6 +102,8 @@ function split(block: Block, room: PageRoom): string[] {
   const fits = (text: string) => linesOf(text, room) <= room.lines;
   if (fits(block.text) || block.kind === "heading" || block.kind === "table") return [block.text];
   const chars = room.perLine * room.lines;
+  // A chart is one diagram, even when its source spans many pages. The box scrolls it as a table.
+  if (block.kind === "code" && /^ {0,3}(?:`{3,}|~{3,})mermaid(?:\s|$)/i.test(block.text)) return [block.text];
   if (block.kind === "code") {
     const lines = block.text.split("\n");
     const open = lines[0]!;
