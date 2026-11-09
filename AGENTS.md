@@ -822,6 +822,8 @@ a `tile` entity (`tile:<hall>:<key>`), glowing with its sprites (`e`) on hover, 
 and a click opens its first PR or issue through `openAppLink` (never a selection). The counts are
 `useDashboardCounts`'s (`web/src/dashboardCounts.ts`, asked every minute while the Dungeon Board shows;
 `DASH_TILES`, `dashCount`, `dashText` in `rendering/src/dashboard.ts`). The HUD has no title banner or right-hand stats panel.
+The HUD slots light their painted frame and icon on hover, selection and keyboard focus (brightness and an alpha-shaped
+gold glow; no overlaid rectangle). Disabled slots stay unlit; reduced motion removes the filter transition.
 Its persistent game HUD (`web/src/dungeon/`, mounted by `NativeWorld.tsx`) replaces the static footer: amber Waiting and
 teal Running orbs, a belt of Replies, Failures, PR review, Blocked and Dispatch slots, original painted transparent art
 (`hud.webp`, `ART.md`; `art.ts` trims the atlas's nine cells). Labels and counts are accessible HTML. Slots open a non-modal

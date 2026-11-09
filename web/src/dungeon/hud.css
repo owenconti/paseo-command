@@ -107,21 +107,37 @@
   background: #211a28;
   background: var(--dh-slot) center / 100% 100% no-repeat;
 }
-.dh-slot::after {
-  content: "";
-  position: absolute;
-  inset: 4%;
-  pointer-events: none;
-  border: 1px solid transparent;
+/* Illuminate the painted frame and icon, rather than drawing a rectangle over them. */
+.dh-slot {
+  transition: filter 140ms ease-out;
 }
-.dh-slot:hover::after,
-.dh-slot.selected::after {
-  border-color: #e3ae59;
-  box-shadow: inset 0 0 8px rgb(233 157 54 / 35%);
+.dh-slot > .dh-item-icon {
+  transition: filter 140ms ease-out;
 }
-.dh-orb:hover,
-.dh-orb.selected {
+.dh-slot:not(:disabled):is(:hover, :focus-visible, .selected) {
+  filter: brightness(1.1) saturate(1.06);
+}
+.dh-slot:not(:disabled):is(:hover, :focus-visible, .selected) > .dh-item-icon {
+  filter: brightness(1.18) saturate(1.1)
+    drop-shadow(0 0 5px rgb(255 192 92 / 55%));
+}
+.dh-orb:not(:disabled):is(:hover, :focus-visible, .selected) {
   filter: brightness(1.13) drop-shadow(0 3px 5px #100b16);
+}
+.dungeon-hud .dh-slot:focus-visible,
+.dungeon-hud .dh-orb:focus-visible {
+  outline: none;
+}
+.dh-slot:focus-visible .dh-slot-label,
+.dh-orb:focus-visible .dh-orb-label {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .dh-slot,
+  .dh-slot > .dh-item-icon {
+    transition: none;
+  }
 }
 .dh-item-icon {
   display: block;
