@@ -421,18 +421,6 @@ export function DungeonHud(props: Props) {
       <div className="dh-controls">
         {agentButton("waiting")}
         <div className="dh-belt">
-          <span
-            className="dh-service-group dh-service-github"
-            aria-hidden="true"
-          >
-            GitHub
-          </span>
-          <span
-            className="dh-service-group dh-service-linear"
-            aria-hidden="true"
-          >
-            Linear
-          </span>
           {BELT_SLOTS.map((id) => (
             <button
               type="button"

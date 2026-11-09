@@ -436,27 +436,6 @@
   text-decoration: underline;
   text-underline-offset: 3px;
 }
-.dh-service-group {
-  position: absolute;
-  bottom: calc(100% + 1px);
-  color: #c8b7d7;
-  text-align: center;
-  text-transform: uppercase;
-  font:
-    700 9px/1.2 "Paseo Source Sans",
-    system-ui,
-    sans-serif;
-  letter-spacing: 0.12em;
-  pointer-events: none;
-}
-.dh-service-github {
-  left: 29%;
-  width: 28%;
-}
-.dh-service-linear {
-  left: 58%;
-  width: 28%;
-}
 @container (max-width: 600px) {
   .dungeon-hud {
     --dh-height: 158px;
@@ -472,9 +451,6 @@
   }
   .dh-slot {
     height: 66px;
-  }
-  .dh-service-group {
-    display: none;
   }
   .dh-orb {
     align-self: center;
