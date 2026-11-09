@@ -1,6 +1,6 @@
 """The Dungeon Board vault's Linear issue panes. Run from the repository root.
 
-Each issue pane starts from the Village's stained glass of the same colour (`assets/village/tiles.png`): its ivory
+Each issue pane starts from the PR panes' stained glass of the same colour (`assets/dungeon/tiles.png`): its ivory
 PR icon and that icon's leading are taken out, the hole is glazed again with new cells whose glass is copied from the
 pane's own (so its painted texture carries on), and a circle-based status icon in the style of Linear's is leaded in
 its place, its ivory copied from the old icon's: Done a ring round a check, In Progress a ring half filled, Todo an
@@ -10,10 +10,10 @@ from PIL import Image, ImageDraw, ImageFilter, ImageChops
 from pathlib import Path
 import json, math, random, colorsys
 
-SRC = Path('rendering/src/assets/village/tiles.png')
+SRC = Path('rendering/src/assets/dungeon/tiles.png')
 OUT = Path('rendering/src/assets/dungeon')
 SIZE = 132
-# The PR panes each issue pane is glazed from: the same colour, in the Village's sheet.
+# The PR panes each issue pane is glazed from: the same colour, in the `tiles` sheet.
 PANES = {'merged': (6, 6), 'review': (150, 6), 'draft': (294, 6), 'failing': (6, 150)}
 ISSUES = [('issue-done', 'merged', 'done'), ('issue-progress', 'review', 'progress'),
           ('issue-todo', 'draft', 'todo'), ('issue-blocked', 'failing', 'blocked')]

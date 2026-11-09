@@ -86,7 +86,7 @@ export const D = {
   /** The wall above the first floor, which the HUD's title lies over (tall enough for the vault and its boards). */
   topBand: 88,
   /** The vault in that wall, over the first gate: your pull requests' four stained-glass niches left of the
-   * gate's line and your Linear issues' four right of it (the Village's dashboard halls, in the dungeon's stone).
+   * gate's line and your Linear issues' four right of it (the dashboard, in the dungeon's stone).
    * Each niche this wide (its height its frame's shape), this far from its neighbour, the two rows this far apart
    * across the line, their feet this far down the wall; kept between the wall's inner torches. Over each row a name
    * board ("PULL REQUESTS", "LINEAR ISSUES"), the projects' boards' kind, hanging from the wall's top this tall. */
@@ -239,12 +239,12 @@ export type DDecor = {
 };
 /** A group of your PRs or issues in the vault: its stone niche and the stained-glass pane in it. */
 export type DTile = {
-  /** `tile:<hall>:<key>`, as the Village's tiles. */
+  /** `tile:<hall>:<key>`. */
   id: string;
   hall: DashHall;
   key: string;
   pane: DashPane;
-  /** Its glass's frame: the Village's PR panes for your PRs, the vault's own issue panes (Linear's status shapes) for
+  /** Its glass's frame: the `tiles` sheet's PR panes for your PRs, the vault's own issue panes (Linear's status shapes) for
    * your issues, so the two rows never read as one set twice. */
   frame: string;
   /** The niche's box (its pick box and glow) and the pane's, inside its opening. */
@@ -760,7 +760,7 @@ export function layoutDungeon(data: AtlasData, _aspect = 1.6, measure: Measure =
   if (data.dashboard && floors.length) {
     for (const [hall, s] of [["prs", -1], ["issues", 1]] as const)
       DASH_TILES[hall].forEach((t, k) => {
-        // Both rows read left to right, as the Village's halls do: the PRs' first group is the outermost.
+        // Both rows read left to right: the PRs' first group is the outermost.
         const slot = hall === "prs" ? DASH_TILES[hall].length - 1 - k : k;
         const x = s * (D.vaultMid / 2 + D.vaultNiche / 2 + slot * (D.vaultNiche + D.vaultGap));
         const { rect } = rectOf("niche-arch", x, D.vaultFeet, D.vaultNiche);

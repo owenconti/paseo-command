@@ -19,7 +19,7 @@ export type Axial = { q: number; r: number };
 export type HostStats = { cpu?: number; memory?: number; disk?: number };
 
 /** The fleet as the Atlas draws it. Every key is unique across hosts. */
-/** A dashboard hall's counts on the Village (GitHub PRs, Linear issues): `ok` with counts and some of each group's items,
+/** A dashboard row's counts for the Dungeon Board's vault (GitHub PRs, Linear issues): `ok` with counts and some of each group's items,
  * else why not (`off`, `no-key`/`no-token`, `error`) with a message. */
 export type DashboardItem = { title: string; url: string; id?: string; repo?: string; number?: number };
 export type DashboardCounts = {
@@ -31,7 +31,7 @@ export type DashboardCounts = {
   atLeast?: string[];
 };
 export type AtlasData = {
-  /** The Village's dashboard halls and the Dungeon Board's vault: your pull requests and your Linear issues, while one shows. */
+  /** The Dungeon Board's vault: your pull requests and your Linear issues, while it shows. */
   dashboard?: { prs?: DashboardCounts | null; issues?: DashboardCounts | null };
   hosts: { key: string; name: string; online: boolean; local: boolean; stats?: HostStats }[];
   projects: { key: string; host: string; name: string; stale?: boolean }[];

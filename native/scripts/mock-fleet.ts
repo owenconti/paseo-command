@@ -5,16 +5,14 @@
  * `mockApi` answers it, and every mutation is refused. The live socket
  * pushes the whole fleet once, as `mockApi`'s does.
  *
- *   npm run native:mock -- [--fleet small|large|dungeon|village|sparse] [--dungeon] [--village] [--map islands|overworld|dungeon|village] [--port 4331] [--pr-flags]
+ *   npm run native:mock -- [--fleet small|large|dungeon|sparse] [--dungeon] [--map islands|overworld|dungeon] [--port 4331] [--pr-flags]
  *
  * `--pr-flags` labels the first three workspaces with PR status labels, so
  * their flags show. `--probe` labels the first five, and gives each a Probe
  * verdict (one of each state), so each shows a Probe medallion; the
  * second's and fourth's PRs have auto-merge on, so their poles wear its seal.
- * `--village` (or `--fleet village`) serves the Village's concept fleet (one host, four projects,
- * every PR tile, six robots) and opens the map as the Village (`?map=village`).
  * `--dungeon` (or `--fleet dungeon`) serves the Dungeon Board's concept fleet (three hosts with
- * their loads) with the Village's PR and issue counts for its vault, and the address it prints opens the map as the Dungeon Board (`?map=dungeon`);
+ * their loads) with PR and issue counts for its vault, and the address it prints opens the map as the Dungeon Board (`?map=dungeon`);
  * `--map <style>` prints one that opens another style.
  * `--asking <agent ids>` (comma-joined) answers those idle agents' asks as waiting on you (turn TypeSafe on with
  * `--integrations typesafe` so the page asks), so their robots show "reply waits on you". `--offline <server id>`
@@ -33,7 +31,7 @@ import { extname, join, normalize } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createRequire } from "node:module";
 import { detailOf } from "../../web/e2e/harness.ts";
-import { DUNGEON_STATS, SPARSE_ISSUES, SPARSE_PRS, SPARSE_STATS, VILLAGE_ISSUES, VILLAGE_PRS, VILLAGE_STATS, dungeon, large, small, sparse, village } from "../../web/e2e/fleets.ts";
+import { DUNGEON_STATS, SPARSE_ISSUES, SPARSE_PRS, SPARSE_STATS, DASHBOARD_ISSUES, DASHBOARD_PRS, dungeon, large, small, sparse } from "../../web/e2e/fleets.ts";
 // `ws` lives in web/node_modules, beside the app it serves.
 const { WebSocketServer } = createRequire(new URL("../../web/package.json", import.meta.url))("ws") as typeof import("ws");
 
@@ -42,8 +40,8 @@ const option = (name: string, fallback: string) => {
   const i = args.indexOf(`--${name}`);
   return i >= 0 && args[i + 1] ? args[i + 1]! : fallback;
 };
-const fleetName = args.includes("--dungeon") ? "dungeon" : args.includes("--village") ? "village" : option("fleet", "large");
-const fleet = fleetName === "small" ? small : fleetName === "dungeon" ? dungeon : fleetName === "village" ? village : fleetName === "sparse" ? sparse : large;
+const fleetName = args.includes("--dungeon") ? "dungeon" : option("fleet", "large");
+const fleet = fleetName === "small" ? small : fleetName === "dungeon" ? dungeon : fleetName === "sparse" ? sparse : large;
 const port = Number(option("port", "4331"));
 const asking = new Set(option("asking", "").split(",").filter(Boolean));
 const offline = option("offline", "");
@@ -78,9 +76,9 @@ if (args.includes("--probe")) {
   });
 }
 /** `GET /api/hoststats`'s answer, keyed "local" or a host's server id. */
-const hostStats: Record<string, unknown> = fleet === dungeon ? { ...DUNGEON_STATS } : fleet === village ? { ...VILLAGE_STATS } : fleet === sparse ? { ...SPARSE_STATS } : {};
-/** The Village's dashboard counts (your PRs and Linear issues). */
-const dashboard = fleet === village || fleet === dungeon ? { prs: VILLAGE_PRS, issues: VILLAGE_ISSUES } : fleet === sparse ? { prs: SPARSE_PRS, issues: SPARSE_ISSUES } : null;
+const hostStats: Record<string, unknown> = fleet === dungeon ? { ...DUNGEON_STATS } : fleet === sparse ? { ...SPARSE_STATS } : {};
+/** The Dungeon Board vault's dashboard counts (your PRs and Linear issues). */
+const dashboard = fleet === dungeon ? { prs: DASHBOARD_PRS, issues: DASHBOARD_ISSUES } : fleet === sparse ? { prs: SPARSE_PRS, issues: SPARSE_ISSUES } : null;
 if (args.includes("--stats")) {
   const keys = ["local", ...(fleet.hosts as { serverId?: string }[]).flatMap((h) => (h.serverId ? [h.serverId] : []))];
   keys.forEach((key, i) => (hostStats[key] = { cpu: 12 + i * 23, memory: 58 + i * 7, disk: i ? 41 : 93 }));
@@ -106,7 +104,7 @@ const lists: Record<string, unknown> = {
   workspaces: fleet.workspaces,
   hosts: fleet.hosts,
 };
-const integrations = option("integrations", fleet === village || fleet === dungeon ? "github,linear" : fleet === sparse ? "github" : "").split(",").filter(Boolean);
+const integrations = option("integrations", fleet === dungeon ? "github,linear" : fleet === sparse ? "github" : "").split(",").filter(Boolean);
 if (integrations.length)
   lists.settings = {
     linearWorkspace: "",
@@ -156,7 +154,7 @@ function talkTimeline(id: string) {
 }
 
 /** The map's style the printed address opens (the page keeps it). */
-const mapStyle = option("map", fleet === dungeon ? "dungeon" : fleet === village || fleet === sparse ? "village" : "");
+const mapStyle = option("map", fleet === dungeon ? "dungeon" : "");
 
 /** What `mockApi` answers for a GET. */
 function answer(path: string): [number, unknown] {

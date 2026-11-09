@@ -608,7 +608,7 @@ final class AtlasScene: SKScene, MapScene {
         for node in [selectionNode, selectionWash, selectionHalo] { node.removeAllChildren() }
         overworldSelection = []
         guard let id = selected, let e = entities[id] else { return }
-        // The Overworld's selection glows gold along the selected thing's silhouette, breathing, as the Village's does
+        // The Overworld's selection glows gold along the selected thing's silhouette, breathing, as the Dungeon Board's does
         // (no rim or wash). Islands keeps its rim.
         if style == "overworld" {
             if let g = e.glow, let image = glowImages[g.key] {
@@ -661,7 +661,7 @@ final class AtlasScene: SKScene, MapScene {
     private func drawHover() {
         hoverNode.removeAllChildren()
         guard let id = hovered, let e = entities[id] else { return }
-        // The Overworld's hovered hall, booth or robot glows as the Village's do: a soft warm halo outside its own
+        // The Overworld's hovered hall, booth or robot glows as the Dungeon Board's do: a soft warm halo outside its own
         // silhouette and a faint brightening over it, never a box. (Islands keeps its hex outline.)
         if style == "overworld" {
             // The selected one keeps its gold.

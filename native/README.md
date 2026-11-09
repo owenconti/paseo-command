@@ -56,9 +56,9 @@ npm run native:mock -- --fleet large --port 4331   # web/dist plus a mocked API;
 npm run native:run -- --url http://127.0.0.1:4331/
 ```
 
-`native:mock -- --dungeon` and `-- --village` serve the Dungeon Board's and the Village's concept fleets and
-print an address that opens the map in that style (`?map=dungeon`, `?map=village`). The map's styles each have a
-scene (`MapScene.swift`: `AtlasScene` for the Islands and the Overworld, `DungeonScene`, `VillageScene`); the page's
+`native:mock -- --dungeon` serves the Dungeon Board's concept fleet and prints an address that opens the map in
+that style (`?map=dungeon`). The map's styles each have a scene (`MapScene.swift`: `AtlasScene` for the Islands and
+the Overworld, `DungeonScene` for the Dungeon Board); the page's
 `art` message names it and the window swaps it in (`WorldWindow.adopt`). The Dungeon Board's `talk` message
 (`{id, inset}`, from the world's `talk`; the page posts it on every `ready`, a null `id` too, so a reloaded page ends
 a conversation the kept scene still holds) frames the robot the page's dialogue box talks to above the box, which

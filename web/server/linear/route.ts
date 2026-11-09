@@ -4,7 +4,7 @@
  * the workspace's address and team keys, so the chat links issue keys
  * (`DE-7338`) only of the workspace's teams; empty while Linear is off, has no
  * key or can't answer. `/api/linear/issue-counts[?fresh=1]`: the issues assigned to
- * you, counted for the Village's dashboard (`readIssueCounts`). Nothing else of Linear is served to the page: Activity
+ * you, counted for the Dungeon Board's vault (`readIssueCounts`). Nothing else of Linear is served to the page: Activity
  * reads and writes through its own route.
  */
 import type { IncomingMessage, ServerResponse } from "node:http";

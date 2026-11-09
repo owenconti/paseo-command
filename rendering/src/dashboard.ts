@@ -1,10 +1,10 @@
 /**
- * The dashboard counts outside the agents' own work, shared by the Village's dashboard halls and the Dungeon
- * Board's vault: your pull requests (GitHub) and your Linear issues, each in four groups. Pure.
+ * The dashboard counts outside the agents' own work, for the Dungeon Board's
+ * vault: your pull requests (GitHub) and your Linear issues, each in four groups. Pure.
  */
 import type { DashboardCounts } from "./world.ts";
 
-/** A group's stained-glass pane: merged green, review blue, draft amber, failing red (the Village's `tiles` sheet). */
+/** A group's stained-glass pane: merged green, review blue, draft amber, failing red (the `tiles` sheet). */
 export type DashPane = "merged" | "review" | "draft" | "failing";
 export type DashHall = "prs" | "issues";
 

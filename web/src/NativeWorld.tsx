@@ -29,7 +29,7 @@ import type { MapFlag } from "../../rendering/src/prStatus";
 import type { ProbeVerdict } from "../../rendering/src/probe";
 import { useProbe } from "./useProbe";
 import { useHostStats } from "./useHostStats";
-import { useVillageCounts } from "./villageCounts";
+import { useDashboardCounts } from "./dashboardCounts";
 import { openAppLink } from "./appLinks";
 import { liveConnection } from "./live";
 import { CARD_MARGIN, placeCard } from "./cardPlace";
@@ -247,16 +247,16 @@ export function NativeWorld(props: Props) {
   const style = useMapStyle();
   const hudShown = props.hudVisible !== false && style === "dungeon";
   const stats = useHostStats();
-  // Your pull requests and Linear issues: the Village's dashboard halls and the Dungeon Board's vault and command
-  // belt, asked only while one of them shows.
-  const dashboardShown = style === "village" || style === "dungeon";
-  const villageCounts = useVillageCounts(dashboardShown);
+  // Your pull requests and Linear issues: the Dungeon Board's vault and command belt,
+  // asked only while it shows.
+  const dashboardShown = style === "dungeon";
+  const dashboardCounts = useDashboardCounts(dashboardShown);
   const data = useMemo(
     () => ({
       ...atlasData(snapshot, props.questions, props.asking, probe, stats),
-      ...(dashboardShown ? { dashboard: villageCounts } : {}),
+      ...(dashboardShown ? { dashboard: dashboardCounts } : {}),
     }),
-    [snapshot, props.questions, props.asking, probe, stats, dashboardShown, villageCounts],
+    [snapshot, props.questions, props.asking, probe, stats, dashboardShown, dashboardCounts],
   );
   const [card, setCard] = useState<{ title: string; detail: string; lines: string[]; at: ScreenPoint } | null>(null);
   const currentData = useRef(data);
@@ -279,10 +279,10 @@ export function NativeWorld(props: Props) {
     }
     return "Host";
   };
-  // The Islands and Overworld are one world, switched in place; the Dungeon Board and the Village are
-  // worlds of their own, each mounted in their place (and back) when the style crosses that line.
-  const worldKind = style === "dungeon" || style === "village" ? style : "atlas";
-  const worldName = style === "dungeon" ? "Dungeon Board" : style === "village" ? "Village" : "";
+  // The Islands and Overworld are one world, switched in place; the Dungeon Board is a
+  // world of its own, mounted in their place (and back) when the style crosses that line.
+  const worldKind = style === "dungeon" ? style : "atlas";
+  const worldName = style === "dungeon" ? "Dungeon Board" : "";
   // Mount once per world: handlers read current props through refs.
   useEffect(() => {
     const node = surface.current!;
@@ -548,7 +548,7 @@ export function NativeWorld(props: Props) {
           {failure} <button onClick={() => location.reload()}>Reload</button>
         </div>
       )}
-      {/* The Dungeon Board and the Village say what they show in their own HUD and hover cards. */}
+      {/* The Dungeon Board says what it shows in its own HUD and hover cards. */}
       {ready && !worldName && <WorldLegend data={data} />}
     </>
   );

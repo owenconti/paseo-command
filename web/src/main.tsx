@@ -2426,7 +2426,7 @@ function App() {
           group: "App",
           page: "Settings" as const,
           label: `Use the ${m.name} map`,
-          keywords: `map style look world ${m.id === "dungeon" ? "dungeon board cutaway floors alcoves" : m.id === "village" ? "village square town fountain crystal halls porch" : m.id === "overworld" ? "overworld castle halls booths theme" : "islands hex sea"}`,
+          keywords: `map style look world ${m.id === "dungeon" ? "dungeon board cutaway floors alcoves" : m.id === "overworld" ? "overworld castle halls booths theme" : "islands hex sea"}`,
           run: () => setMapStyle(m.id),
         }))
       : []),

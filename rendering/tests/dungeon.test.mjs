@@ -329,7 +329,7 @@ test("project cloths: from the project, never shared by neighbours on a tier, th
   assert.deepEqual(a.projects.map((p) => p.cloth), b.projects.map((p) => p.cloth));
 });
 
-/** The Village's counts for the concept: PRs 7/3/1/1, issues 11/8/7/2. */
+/** The dashboard counts for the concept: PRs 7/3/1/1, issues 11/8/7/2. */
 const DASHBOARD = {
   prs: { state: "ok", counts: { merged: 7, review: 3, draft: 1, conflicts: 1 }, items: { merged: [{ title: "Ship it", repo: "acme/core", number: 12, url: "https://github.com/acme/core/pull/12" }] }, atLeast: [] },
   issues: { state: "ok", counts: { done: 11, inProgress: 8, todo: 7, blocked: 2 }, items: {}, atLeast: ["done"] },

@@ -1,10 +1,10 @@
 /**
- * The world's wooden signboards, shared by the Overworld and the Village: planks lit from the upper left with grain,
+ * The world's wooden signboards, used by the Overworld: planks lit from the upper left with grain,
  * seams and iron bolts, the name in cream capitals in an old-style serif with a carved inset. A host's board hangs on
  * two chains (`hangY`) or stands on two posts (`postY`); a project's is fixed on two short iron brackets.
  *
- * Sizes are in the board's own units (the Overworld's concept pixels: a host's board 21 tall, a project's 15); the
- * Village scales its canvas so its larger boards keep these proportions. `fitName` is pure (no DOM), so a layout sizes a
+ * Sizes are in the board's own units (the Overworld's concept pixels: a host's board 21 tall, a project's 15).
+ * `fitName` is pure (no DOM), so a layout sizes a
  * board exactly as its painter draws it.
  */
 import { hash, rng } from "./overworld/layout.ts";

@@ -678,8 +678,8 @@ final class DungeonScene: SKScene, MapScene {
     /// until the scene changes.
     private var composites: [String: (image: CGImage, rect: CGRect)] = [:]
 
-    /// The glow for `id` in `color`: a robot or a PR medallion along its own sprite (the Village's 5% spread); an
-    /// alcove or terrace along its pieces' one outline, spread as the Village's halls are.
+    /// The glow for `id` in `color`: a robot or a PR medallion along its own sprite (`SpriteGlow`'s 5% spread); an
+    /// alcove or terrace along its pieces' one outline, spread by `SpriteGlow.structureSpread`.
     private func glowNodes(_ id: String, flag: Flag? = nil, color: NSColor, name: String, wide: Bool, into layer: SKNode) -> [SKNode] {
         let sprites = glowSprites(id, flag: flag)
         let kind = entities[id]?.kind
@@ -693,7 +693,7 @@ final class DungeonScene: SKScene, MapScene {
         return made
     }
 
-    /// The selection glows gold along the same silhouette, breathing, as the Village's does (no rim or wash).
+    /// The selection glows gold along the same silhouette, breathing (no rim or wash).
     private func drawSelection() {
         for node in [selectionNode, selectionWash, selectionHalo] { node.removeAllChildren() }
         for g in selectionGlows { g.removeFromParent() }
@@ -707,7 +707,7 @@ final class DungeonScene: SKScene, MapScene {
         SpriteGlow.breathe(selectionGlows, clock: clock, reduced: reduced)
     }
 
-    /// The hovered thing glows as the Village's do: a warm halo just outside its own silhouette (a robot's body, an
+    /// The hovered thing glows: a warm halo just outside its own silhouette (a robot's body, an
     /// alcove's frame and bay, a terrace's rampart, face and return, a PR medallion) and a faint brightening, no box.
     private func drawHover() {
         hoverNode.removeAllChildren()

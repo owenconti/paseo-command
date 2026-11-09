@@ -119,37 +119,3 @@ export const DUNGEON_SAMPLE: AtlasData = {
     })),
   ),
 };
-
-/** The Village's concept fleet: one host, four workspaces, six robots (five running). Illustrative. */
-const VILLAGE_ROWS: [project: string, workspace: string, agents: [model: string, state: State, subagents?: string[]][], labels?: string[]][] = [
-  ["diagonal", "Core", [["claude/claude-opus-5-5", "running", ["claude/claude-haiku-5-5"]], ["gemini/gemini-3-pro", "running"]]],
-  ["diagonal", "Data", [["deepseek/deepseek-v4", "running"]], ["CI green", "Approved"]],
-  ["diagonal", "Export", [["opencode/kimi-k3", "running"]], ["CI running", "Awaiting review"]],
-  ["diagonal", "Infra", [["ollama/qwen-4-coder", "running"], ["codex/gpt-6.1-sol", "idle"]]],
-];
-export const VILLAGE_SAMPLE: AtlasData = {
-  hosts: [{ key: "local", name: "Diagonal Ops", online: true, local: true, stats: { cpu: 34, memory: 61, disk: 92 } }],
-  projects: [...new Set(VILLAGE_ROWS.map(([p]) => p))].map((p) => ({ key: `local/${p}`, host: "local", name: p })),
-  workspaces: VILLAGE_ROWS.map(([project, name, , labels], i) => ({
-    key: `local/${project}/${name}`,
-    host: "local",
-    project: `local/${project}`,
-    name,
-    created: `2026-11-01T${String(i).padStart(2, "0")}:00:00Z`,
-    ...(labels ? { labels } : {}),
-    ...(name === "Data" ? { probe: { state: "approved" as const }, autoMerge: true } : {}),
-  })),
-  agents: VILLAGE_ROWS.flatMap(([project, name, agents], w) =>
-    agents.map(([model, state, subs], i) => ({
-      key: `local/${project}/${name}/${i}`,
-      host: "local",
-      project: `local/${project}`,
-      workspace: `local/${project}/${name}`,
-      name: `${name} agent ${i + 1}`,
-      model,
-      state,
-      created: `2026-11-06T${String(w).padStart(2, "0")}:${String(i).padStart(2, "0")}:00Z`,
-      ...(subs ? { subagents: subs.length, subagentModels: subs } : {}),
-    })),
-  ),
-};

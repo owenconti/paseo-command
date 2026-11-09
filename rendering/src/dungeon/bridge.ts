@@ -36,10 +36,10 @@ type Channel = { postMessage(message: unknown): void };
 const channel = (): Channel | undefined =>
   (window as unknown as { webkit?: { messageHandlers?: { paseoWorld?: Channel } } }).webkit?.messageHandlers?.paseoWorld;
 
-/** The art agent's sheets, when they are in: `<sheet>.json` beside `<sheet>.png`; and the Village's stained glass and HUD
- * icons, for the vault and the At a Glance panel. */
-const SHEET_JSON = import.meta.glob(["../assets/dungeon/*.json", "../assets/village/tiles.json", "../assets/village/hud.json"], { eager: true, import: "default" }) as Record<string, unknown>;
-const SHEET_PNG = import.meta.glob(["../assets/dungeon/*.png", "../assets/village/tiles.png", "../assets/village/hud.png"], { eager: true, query: "?url", import: "default" }) as Record<string, string>;
+/** The art agent's sheets, when they are in: `<sheet>.json` beside `<sheet>.png`; among them the vault's
+ * stained glass (`tiles`) and the At a Glance panel's icons (`hud`), once the Village's. */
+const SHEET_JSON = import.meta.glob(["../assets/dungeon/*.json"], { eager: true, import: "default" }) as Record<string, unknown>;
+const SHEET_PNG = import.meta.glob(["../assets/dungeon/*.png"], { eager: true, query: "?url", import: "default" }) as Record<string, string>;
 
 /** Labels and the HUD are painted at this many pixels per board unit (crisp when zoomed in). */
 const TEXT_SCALE = 4;
@@ -83,7 +83,7 @@ const SIGN_K = 0.64;
 /** A project's name board's corners and chains, as a share of the sheet's (the host's sign's are `SIGN_K`). */
 const PROJECT_SIGN_K = 0.36;
 const ALERT = "#b0301c";
-/** The vault's stained glass: its saturation (the Village's is 1), and how much light it gives the stone round it. */
+/** The vault's stained glass: its saturation (the sheet's own is 1), and how much light it gives the stone round it. */
 const VAULT_GLASS_SATURATION = 0.82;
 const VAULT_GLOW = 0.22;
 const PANE_LIGHT: Record<string, number> = { merged: 0x5fd06a, review: 0x4f9cf0, draft: 0xf0b42a, failing: 0xe2493a };
@@ -170,7 +170,7 @@ async function buildFrames(): Promise<{ canvases: Map<string, HTMLCanvasElement>
     // The stone, gate, alcoves and props are graded once toward the concept's deeper purple.
     const stem = path.replace(/^.*\//, "").replace(/\.json$/, "");
     // The robots keep their colours vivid: only a saturation lift, never the purple grade.
-    // The vault's glass a notch quieter than the Village's (less saturated, its darks toward the stone's purple), so
+    // The vault's glass a notch quieter than its sheet (less saturated, its darks toward the stone's purple), so
     // the robots stay the brightest colour on the board.
     const source = stem === "tiles" || stem === "vault" ? grade(image, { saturation: VAULT_GLASS_SATURATION, strength: 0.25, lift: 1 }) : GRADED.has(stem) ? grade(image, stem === "stone" ? { lift: GRADE.stoneLift, strength: GRADE.stoneStrength, warmth: GRADE.stoneWarmth, saturation: GRADE.stoneSaturation } : {}) : stem === "robots" ? grade(image, { saturation: 1.15, strength: 0, lift: 1 }) : image;
     for (const [name, f] of Object.entries(sheet.frames)) {
@@ -1081,7 +1081,7 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
     } else if (message.type === "pick") {
       if (!enabled) return;
       if (message.id?.startsWith("tile:")) {
-        // A vault tile opens its first PR or issue, as the app opens such links (and as the Village's do).
+        // A vault tile opens its first PR or issue, as the app opens such links.
         const t = tileOf(message.id);
         const url = t && dashOf(t)?.items?.[t.key]?.[0]?.url;
         if (url) handlers.open?.(url);

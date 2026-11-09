@@ -8,7 +8,7 @@ import { after, before, test } from "node:test";
 import assert from "node:assert/strict";
 import type { Browser, Page } from "playwright";
 import { detailOf, launch, mockApi, newContext, startApp, waitFor } from "./harness";
-import { DUNGEON_STATS, VILLAGE_ISSUES, VILLAGE_PRS, dungeon } from "./fleets";
+import { DUNGEON_STATS, DASHBOARD_ISSUES, DASHBOARD_PRS, dungeon } from "./fleets";
 
 let app: Awaited<ReturnType<typeof startApp>>;
 let browser: Browser;
@@ -86,8 +86,8 @@ async function open(options: Options = {}): Promise<{ page: Page; posts: Post[] 
     },
     lists: {
       hoststats: DUNGEON_STATS,
-      github: VILLAGE_PRS,
-      linear: VILLAGE_ISSUES,
+      github: DASHBOARD_PRS,
+      linear: DASHBOARD_ISSUES,
       settings: { linearWorkspace: "", integrations: { github: true, linear: true, typesafe: false }, error: null },
     },
   } as any);

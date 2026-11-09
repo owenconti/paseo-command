@@ -12,7 +12,7 @@
  *   teams?repo=…       the teams with access to it, for its reviewer picker (REST; none for a personal repository)
  *   pr?repo=&number=   one PR: body, files (viewed or not), conversation, threads, commits, checks, reviewers, assignees, merge box
  *   diff?repo=&number= its diff, parsed (GitHub's diff media type; its file patches when the diff is too large for it)
- *   prCounts           your PRs for the Village's dashboard: merged in 14 days, and open ones by conflicts, draft or review
+ *   prCounts           your PRs for the Dungeon Board's vault: merged in 14 days, and open ones by conflicts, draft or review
  */
 import { parseUnifiedDiff } from "../../src/github/diff";
 import {
@@ -54,7 +54,7 @@ import { GithubApiError, githubGraphql as graphql, githubPaged, githubRest, gith
 import { filterQueries, type RepoFilters } from "../../src/github/filters";
 import { HTML_MAX } from "../../src/github/html";
 import { HUNK_KEEP, tailHunk } from "../../src/github/hunk";
-import type { PrCountItem, PrCountsAnswer, PrGroup } from "../../src/villageCounts";
+import type { PrCountItem, PrCountsAnswer, PrGroup } from "../../src/dashboardCounts";
 import { apiFailure, cached, searchSlot } from "./client";
 import { readStars } from "./stars";
 

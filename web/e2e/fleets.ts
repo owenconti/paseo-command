@@ -331,19 +331,6 @@ export const DUNGEON_STATS: Record<string, { cpu: number; memory: number; disk: 
   srv_prod: { cpu: 51, memory: 72, disk: 81 },
 };
 
-// ---------------------------------------------------------------------------
-// village: the Village's concept fleet, as the concept's dashboard shows it. One
-// host, four workspaces (Core, Data, Export, Infra), each with an agent at work,
-// and six agents: five running, one idle, six providers' colours. Its PR and
-// issue counts are VILLAGE_PRS and VILLAGE_ISSUES (7/3/1/1 and 11/8/7/2).
-// ---------------------------------------------------------------------------
-
-const VILLAGE: [project: string, workspace: string, agents: [provider: string, plan: string, subagents?: string[]][], labels?: string[]][] = [
-  ["diagonal", "Core", [["claude/claude-opus-5-5", "running", ["claude/claude-haiku-5-5"]], ["gemini/gemini-3-pro", "running"]]],
-  ["diagonal", "Data", [["deepseek/deepseek-v4", "running"]], ["CI green", "Approved"]],
-  ["diagonal", "Export", [["opencode/kimi-k3", "running"]], ["CI running", "Awaiting review"]],
-  ["diagonal", "Infra", [["ollama/qwen-4-coder", "running"], ["codex/gpt-6.1-sol", "idle"]]],
-];
 /** sparse: shaped like a real small fleet: two hosts, a project each, three workspaces (one with a long name),
  * three agents all needing you, no pull requests. */
 const SPARSE: [host: string, project: string, workspace: string, agents: [provider: string, plan: string][]][] = [
@@ -351,7 +338,7 @@ const SPARSE: [host: string, project: string, workspace: string, agents: [provid
   ["srv_local", "paseo-command", "jolly-beacon-fede", [["claude/claude-opus-5-5", "question"]]],
   ["srv_lab", "diagonal-hq/diagonal", "main", [["codex/gpt-6.1-sol", "approval"]]],
 ];
-function buildVillage(rows: [host: string, project: string, workspace: string, agents: [provider: string, plan: string, subagents?: string[]][], labels?: string[]][], hosts: HostRow[]): Fleet {
+function buildRows(rows: [host: string, project: string, workspace: string, agents: [provider: string, plan: string, subagents?: string[]][], labels?: string[]][], hosts: HostRow[]): Fleet {
   const remote = (host: string) => (host === "srv_local" ? {} : { host });
   const projects: ProjectRow[] = [];
   const workspaces: WorkspaceRow[] = [];
@@ -389,20 +376,19 @@ function buildVillage(rows: [host: string, project: string, workspace: string, a
   });
   return { hosts, projects, workspaces, agents, permissions };
 }
-export const village: Fleet = buildVillage(VILLAGE.map((r) => ["srv_local", ...r]), [{ serverId: "srv_local", label: "LOCAL", status: "online", local: true, state: "online" }]);
-export const sparse: Fleet = buildVillage(SPARSE, [
+export const sparse: Fleet = buildRows(SPARSE, [
   { serverId: "srv_local", label: "LOCAL", status: "online", local: true, state: "online" },
   { serverId: "srv_lab", label: "DIAGONAL-LAB-1", status: "online", local: false, state: "online" },
 ]);
 const prItems = (n: number, kind: string) => Array.from({ length: Math.min(n, 12) }, (_, i) => ({ title: `${kind} change ${i + 1}`, repo: "diagonal/app", number: 100 + i, url: `https://github.com/diagonal/app/pull/${100 + i}` }));
 const issueItems = (n: number, kind: string) => Array.from({ length: Math.min(n, 12) }, (_, i) => ({ id: `DE-${i + 1}`, title: `${kind} issue ${i + 1}`, url: `https://linear.app/diagonal/issue/DE-${i + 1}` }));
-/** The concept's dashboard counts, for `GET /api/github/q/prCounts` and `GET /api/linear/issue-counts`. */
-export const VILLAGE_PRS = {
+/** The Dungeon Board vault's dashboard counts, for `GET /api/github/q/prCounts` and `GET /api/linear/issue-counts`. */
+export const DASHBOARD_PRS = {
   state: "ok" as const,
   counts: { merged: 7, review: 3, draft: 1, conflicts: 1 },
   items: { merged: prItems(7, "Merged"), review: prItems(3, "Review"), draft: prItems(1, "Draft"), conflicts: prItems(1, "Conflicting") },
 };
-export const VILLAGE_ISSUES = {
+export const DASHBOARD_ISSUES = {
   state: "ok" as const,
   counts: { done: 11, inProgress: 8, todo: 7, blocked: 2 },
   items: { done: issueItems(11, "Done"), inProgress: issueItems(8, "Started"), todo: issueItems(7, "Todo"), blocked: issueItems(2, "Blocked") },
@@ -410,10 +396,6 @@ export const VILLAGE_ISSUES = {
 /** The sparse fleet's: no pull requests; Linear off. */
 export const SPARSE_PRS = { state: "ok" as const, counts: { merged: 0, review: 0, draft: 0, conflicts: 0 }, items: { merged: [], review: [], draft: [], conflicts: [] } };
 export const SPARSE_ISSUES = { state: "off" as const, message: "Enable Linear in Settings to see your issues." };
-/** The village fleet's host load, for `GET /api/hoststats` (its disk past 90%, in red). */
-export const VILLAGE_STATS: Record<string, { cpu: number; memory: number; disk: number }> = {
-  local: { cpu: 34, memory: 61, disk: 92 },
-};
 export const SPARSE_STATS: Record<string, { cpu: number; memory: number; disk: number }> = {
   local: { cpu: 22, memory: 48, disk: 63 },
   srv_lab: { cpu: 71, memory: 58, disk: 40 },

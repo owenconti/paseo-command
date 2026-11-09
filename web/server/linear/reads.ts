@@ -4,7 +4,7 @@
  * can't answer; the workspace is kept for five minutes.
  */
 import type { LinearNotification, LinearWorkspace } from "./types";
-import type { IssueCountItem, IssueCountsAnswer, IssueGroup } from "../../src/villageCounts";
+import type { IssueCountItem, IssueCountsAnswer, IssueGroup } from "../../src/dashboardCounts";
 import { integrationEnabled } from "../integrations";
 import { DISABLED, LinearError, linearApiKey, linearRequest, NO_KEY } from "./client";
 import { ASSIGNED_ISSUES_QUERY, NOTIFICATIONS_QUERY, WORKSPACE_QUERY } from "./fragments";
@@ -85,7 +85,7 @@ export async function readNotifications(after?: string): Promise<{ notifications
   };
 }
 
-// ── Your issues, counted (the Village's dashboard) ─────────────────────────────
+// ── Your issues, counted (the Dungeon Board's vault) ─────────────────────────────
 const isBlockedWord = (v: unknown) => strOf(v).trim().toLowerCase() === "blocked";
 const OPEN = new Set(["started", "unstarted"]);
 

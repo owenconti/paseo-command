@@ -11,7 +11,7 @@ import { after, before, test } from "node:test";
 import assert from "node:assert/strict";
 import type { Browser, Page } from "playwright";
 import { launch, mockApi, newContext, startApp, waitFor } from "./harness";
-import { DUNGEON_STATS, VILLAGE_ISSUES, VILLAGE_PRS, dungeon } from "./fleets";
+import { DUNGEON_STATS, DASHBOARD_ISSUES, DASHBOARD_PRS, dungeon } from "./fleets";
 
 let app: Awaited<ReturnType<typeof startApp>>;
 let browser: Browser;
@@ -69,8 +69,8 @@ async function open(style: "islands" | "overworld" | "dungeon", { linear = true 
     lists: {
       hoststats: DUNGEON_STATS,
       // The vault's reads (GET /api/github/q/prCounts, /api/linear/issue-counts), GitHub and Linear on.
-      github: VILLAGE_PRS,
-      linear: VILLAGE_ISSUES,
+      github: DASHBOARD_PRS,
+      linear: DASHBOARD_ISSUES,
       settings: { linearWorkspace: "", integrations: { github: true, linear, typesafe: false }, error: null },
     },
   } as any);

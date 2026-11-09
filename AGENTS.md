@@ -719,7 +719,7 @@ first other theme, forest before farm before volcanic). It is a painted world wi
 layers): no plaques, emblems, icon badges, banners, connector lines, PR / Probe medallions, clouds or glows. The only text is
 on wooden signboards that belong to the buildings (the user's call): each host's name on a board hung on two chains from its
 castle's corbels over the gate, and each project's on a smaller board on two iron brackets on its hall's front eave over the
-door (`SignItem` in `layout.ts`, `paintSign` in `rendering/src/signboard.ts`, shared with the Village: planks lit from the upper left with grain, seams and iron bolts,
+door (`SignItem` in `layout.ts`, `paintSign` in `rendering/src/signboard.ts`: planks lit from the upper left with grain, seams and iron bolts,
 the name in cream capitals in the Dungeon Board's old-style serif with a carved inset, sized to the name, tracking tightening,
 then "…" past `maxW`; an offline host's board dull). Workspaces and agents carry no names. The
 castle's and halls' painted emblem discs and parchment signs were repainted out of `host.png` and `halls.png` (their badge, banner and
@@ -754,11 +754,11 @@ with perspective cliffs and surf, rivers, scenery, buildings), `native.ts` (`Ove
 tiles, a few at a time, arranges hosts in columns to suit the map's shape, and posts the robots and their state light as overlays, with
 each entity's rectangle. Swift (`AtlasScene`, scene `style: "overworld"`) tiles the page's graded sea tile (`overworldSeaTile`, scene
 `seaTile`, image `ow-sea`) over the whole view in place of the Islands sea, glints and clouds, picks the smallest rectangle under the
-pointer. Hover and selection glow as the Village's do (the user's call: no borders): the page paints each hall's and booth's own
+pointer. Hover and selection glow as the Dungeon Board's do (the user's call: no borders): the page paints each hall's and booth's own
 silhouette, cut to its own pixels (`paintSilhouette`, `ow-sil:` images, the entity's `glow`), and robots use their first frame;
-`SpriteGlow.overlay` adds the Village's warm white halo just outside that silhouette and a faint lift over it on hover, its breathing
-gold (with a wider pass) when selected. Halls and booths spread as the Village's halls do (`SpriteGlow.structureSpread`, 17 units),
-robots by the Village's 5% of their frame. `rendering/overworld-preview/` renders the concept's fleet beside the concept for
+`SpriteGlow.overlay` adds a warm white halo just outside that silhouette and a faint lift over it on hover, its breathing
+gold (with a wider pass) when selected. Halls and booths spread by `SpriteGlow.structureSpread` (17 units),
+robots by 5% of their frame. `rendering/overworld-preview/` renders the concept's fleet beside the concept for
 comparison (`build.sh`, then `node shoot.mjs <out.png> [k] [dy] [query]` against a static server on the rendering folder, port 4391;
 `?fleet=crowded|sample`), and `?app=user|dungeon|sample` (`app.ts`) composites exactly what the macOS app is sent (the hosts' tiles over
 the sea tile, robots and state light) for a fleet shaped like the user's, the Dungeon Board's or the sample.
@@ -766,7 +766,7 @@ the sea tile, robots and state light) for a fleet shaped like the user's, the Du
 ### Map styles and the Dungeon Board
 
 The map's styles are `MAP_STYLES` in `web/src/mapStyle.ts` (localStorage `atlas:style`; a page opened with `?map=<style>` starts in that
-style and keeps it): Islands (the default), Overworld, the Dungeon Board and the Village (below). Settings → Map lists them; ⌘K offers "Use the <name> map"
+style and keeps it): Islands (the default), Overworld and the Dungeon Board (below; the Village was removed). Settings → Map lists them; ⌘K offers "Use the <name> map"
 for each one not shown (page Settings); the macOS app's View → Map Style lists them with the shown one checked (`MapStyles` in
 `MapScene.swift`; the page reports its style with a `mapStyle` message, and an item asks the page's `map-style-<id>` app command, then
 shows Command). Islands and Overworld are one world (`mountNativeAtlas`, switched in place by `AtlasWorld.style`); the Dungeon Board is a
@@ -774,12 +774,12 @@ world of its own (`mountNativeDungeon`), which `NativeWorld.tsx` mounts in their
 `AtlasView` hosts a `MapScene` (`MapScene.swift`, `kind` "atlas" or "dungeon": `AtlasScene` or `DungeonScene`); the page's `art`
 message names its `scene`, and `WorldWindow.adopt` swaps in that scene in a fresh view. Both worlds share the page's input forwarding
 (`rendering/src/native/surface.ts`), revisions and watchdog (`native/watch.ts`, `AtlasView.watch`). The Atlas legend hides on the board.
-Every style's hover cards (`.atlas-world-tip`, the Village's `.atlas-world-card`; `MapCard` in `web/src/NativeWorld.tsx`) stay inside
+Every style's hover cards (`.atlas-world-tip`, the vault's `.atlas-world-card`; `MapCard` in `web/src/NativeWorld.tsx`) stay inside
 the map the user sees (the user's call): `placeCard` (`web/src/cardPlace.ts`, pure) puts a card above the hovered thing when it fits,
 else below it (each scene's hover report carries the thing's `bottom` as well as its top centre, threaded through `ScreenPoint`), else
 on the side with more room, held 8 px inside the map's edges, centred and clamped sideways, and cut to the map's height when taller;
 measured before paint, placed again as the map resizes. Tests: `web/src/cardPlace.test.ts`, `web/e2e/map-cards.e2e.ts`,
-`native/tests/MapHoverTests.swift` (the `bottom` the Atlas and the Village send), `DungeonSceneTests.swift`.
+`native/tests/MapHoverTests.swift` (the `bottom` the Atlas sends), `DungeonSceneTests.swift`.
 The Dungeon Board (`rendering/src/dungeon/`; the user's concept is ignored `design/references/dungeon-concept.png`): a front
 cutaway of a dungeon, one floor per host with workspaces (the Atlas's host order), 365 concept px tall, stacked; its gate
 column central (the round surround, its top a plain dark keystone opening with no icon (the user's call), the host's sign (the user's call: part of the world): a wooden board hanging on chains from two brackets
@@ -805,10 +805,10 @@ glow under each robot in the Atlas's state colours (`STATE_TILE`, idle a quiet l
 a project's two torches lit while any of its agents runs,
 its terrace glowing between its candles in the most urgent state's colour, offline floors dimmed and dark. PR, Probe and auto-merge medallions
 sit on each alcove's lintel, larger (`D.flag`, 24) in one row centred on its bricks (CI, review, Probe; the user's call), the auto-merge seal on its medallion's rim, with the Atlas's hover cards.
-The vault (the Village's dashboard halls, in the dungeon's stone): in the wall above the first floor, over the first gate and
+The vault (a dashboard in the dungeon's stone): in the wall above the first floor, over the first gate and
 between its inner torches, eight niches, your pull requests' four left of the gate's line (Merged, Review, Draft, Conflicts) and
 your Linear issues' four right of it (Done, In Progress, Todo, Blocked), each the stone sheet's `niche-arch` holding a
-stained-glass pane for its group (the PRs' the Village's `tiles.png` panes; the issues' their own, the same glass leaded with
+stained-glass pane for its group (the PRs' `tiles.png` panes; the issues' their own, the same glass leaded with
 Linear's status shapes so the rows never read as one set twice: Done a ring round a check, In Progress a ring half filled, Todo
 an empty ring, Blocked a ring struck through, `assets/dungeon/vault.png` from `rendering/scripts/vault-issue-panes.py`, `ISSUE_GLASS`,
 `DTile.frame`; both graded quieter at load so the robots stay brightest; a faint steady light of its colour), dim while its hall
@@ -817,10 +817,10 @@ can't count (off, no key, failed: `counts.prs|issues.known`); laid out only once
 is named on a board hanging from the wall's top over its niches, "PULL REQUESTS" and "LINEAR ISSUES" (the user's call; the
 projects' board and paint, `paintProjectSign`, dull while its hall can't count; `vaultSigns`, `VAULT_SIGNS`, `D.vaultSign*`;
 the scene's `vaultTop` is the boards' top). No other text on them: each niche is posted as
-a `tile` entity (`tile:<hall>:<key>`, as the Village's), glowing with its sprites (`e`) on hover, its card (`dashCard` in
-`rendering/src/dashboard.ts`, shared with the Village: the group, its count, up to 12 PRs or issues, or why it can't count),
-and a click opens its first PR or issue through `openAppLink` (never a selection). The counts are the Village's
-(`useVillageCounts` in `web/src/villageCounts.ts`, asked every minute while the Village or the Dungeon Board shows;
+a `tile` entity (`tile:<hall>:<key>`), glowing with its sprites (`e`) on hover, its card (`dashCard` in
+`rendering/src/dashboard.ts`: the group, its count, up to 12 PRs or issues, or why it can't count),
+and a click opens its first PR or issue through `openAppLink` (never a selection). The counts are
+`useDashboardCounts`'s (`web/src/dashboardCounts.ts`, asked every minute while the Dungeon Board shows;
 `DASH_TILES`, `dashCount`, `dashText` in `rendering/src/dashboard.ts`). The HUD has no title banner or right-hand stats panel.
 Its persistent game HUD (`web/src/dungeon/`, mounted by `NativeWorld.tsx`) replaces the static footer: amber Waiting and
 teal Running orbs, a belt of Replies, Failures, PR review, Blocked and Dispatch slots, original painted transparent art
@@ -837,14 +837,14 @@ follows its counts as they refresh. Each floor is assembled
 from the v2 kit as the art's reconstruction (`rendering/artifacts/dungeon/mock.png`) is: ramparts, the gate's surround,
 terrace floors, alcove sides, lintels and ledges. The page paints the host signs (`paintSign` in `bridge.ts`; the HUD keeps `ui-rounded`), purple shading on the upper walls and toward the board's edges, and posts top-left sprite
 boxes; `DungeonScene.swift` draws, animates (the background holds still so the agents draw the eye, the user's call: the magic circle, alchemy tank, crystal and portcullis show one frame, light pools are steady (`still`), and flames alone flicker slowly between two frames at `FLAME_FLICKER` (1/3; 0 stills them) of their old pace; robots breathe slowly in idle poses, drones, state glows, markers and the glows' breath keep moving; ≈30 fps while something moves smoothly, the 15 fps drift rate when only flames and resting robots do, still with reduced motion), owns the camera (fit, bounded pan,
-wheel, pinch, arrows, F/Home), hover and selection as the Village's (`SpriteGlow.swift`, its colours,
+wheel, pinch, arrows, F/Home), hover and selection by `SpriteGlow.swift` (its colours,
 strength and spread: a warm white halo just outside the hovered thing's silhouette, a breathing gold one, with a wider pass, outside
-the selected thing's; a robot's body and a PR medallion by their own sprites at the Village's 5%; an alcove (frame and bay) and a
-project's hall (piers, lintel and floor) by their pieces drawn as one silhouette (`SpriteGlow.composite`; the page tags them `e`), spread as
-the Village's halls, `structureSpread`; no rims), and picks (a PR medallion, then a robot, its
+the selected thing's; a robot's body and a PR medallion by their own sprites at 5%; an alcove (frame and bay) and a
+project's hall (piers, lintel and floor) by their pieces drawn as one silhouette (`SpriteGlow.composite`; the page tags them `e`), spread by
+`structureSpread`; no rims), and picks (a PR medallion, then a robot, its
 alcove, its project by its terrace wall, the hover card naming it; never a host). Sprites: `rendering/src/assets/dungeon/<sheet>.png|json` (the frame contract is `frames.ts`,
 3× scale; a missing frame is painted as a placeholder; robots are trimmed to their opaque pixels). `npm run native:mock --
---dungeon` serves the concept's fleet (`dungeon` in `web/e2e/fleets.ts`, with the Village's PR and issue counts and GitHub and
+--dungeon` serves the concept's fleet (`dungeon` in `web/e2e/fleets.ts`, with PR and issue counts (`DASHBOARD_PRS`, `DASHBOARD_ISSUES`) and GitHub and
 Linear on, for the vault) and prints its address with `?map=dungeon`. Tests:
 `rendering/tests/dungeon.test.mjs`, `web/e2e/dungeon.e2e.ts`, `native/tests/DungeonSceneTests.swift`.
 
@@ -896,83 +896,14 @@ dialog's "Talking on the Dungeon Board" group lists them. `npm run native:mock -
 conversation for its state and its request in full, and takes the box's sends and answers (logged). Tests:
 `web/src/worldChat/script.test.ts`, `web/e2e/world-chat.e2e.ts`, `web/server/live/sessions.test.ts`, `DungeonSceneTests.swift`.
 
-### The Village
+### The Village (removed)
 
-A fourth map style (`village` in `MAP_STYLES`; Settings → Map, ⌘K "Use the Village map", View → Map Style), from the user's concept
-(ignored `design/references/village-concept.png`): a warm painterly 3/4 top-down village that reads as the concept's dashboard for any
-fleet, sparse or crowded. A world of its own, built as the Dungeon Board is: `rendering/src/village/` (`layout.ts` pure, `layoutVillage`;
-`bridge.ts`, `mountNativeVillage`; `frames.ts`, the sprite contract; `placeholder.ts` for frames the sheets lack) and
-`native/Sources/PaseoCommandNative/VillageScene.swift` (`MapScene` kind `village`).
-The Village nests the fleet as the Islands map does: hosts hold projects, projects workspaces, workspaces agents. At the top of
-the town, either side of the north road, the two dashboard halls: "GitHub PRs" (blue roof), four stained-glass tiles counting your
-pull requests (`GET /api/github/q/prCounts`, `readPrCounts` in `web/server/github/reads.ts`: merged in the last 14 days, in review,
-draft, conflicts or failing checks), and "Linear Issues" (purple), four counting issues assigned to you (`GET /api/linear/issue-counts`,
-`readIssueCounts` in `web/server/linear/reads.ts` through the whitelisted client and budget: done in the last 14 days, in progress,
-todo, blocked by a "Blocked" state or label or an open blocking issue; paged up to 2,000, past which counts are lower bounds,
-`atLeast`, shown "N+"); both asked by `useVillageCounts` (`web/src/villageCounts.ts`) every minute while the Village (or the Dungeon Board, for its vault) shows, as
-`AtlasData.dashboard`; off or keyless, their tiles dim and their cards say why. Below them a district per host with workspaces (the
-Atlas's host order, `hostGroups`), each one bounded unit (the user's call: structures group by containment, as on the Islands
-map): its own cobbled plaza (a tone of its own, districts alternating) ringed by its own low stone wall with posts at the corners and
-along it, open at its gate (`paintDistrictWall` in `bridge.ts`), only as big as its contents, a band of forest at least a cluster's
-width (`districtGap`) from the next, its host's slot in its first row: the host is its crystal fountain alone (the user's call: no
-keep; the keeps sheet was removed), `V.fountainW` wide on its ring of radial stones, lit while online, grey with still water while
-offline, the district's gate opening above it, and its name on a wooden board standing on two oak posts planted in the ring before the
-fountain's steps, its top at the basin's foot (`V.hostBoard`; `plaque` the board, `posts` where they stand, `board` the board with its
-posts, `pick` the fountain with them), as wide as the name needs between `minW` and `maxW` (tracking tightening, then the lettering
-shrinking to `shrink` of its size, then "…"); its load is in the fountain's card. The boards are the Overworld's (one design, the user's
-approved one): `rendering/src/signboard.ts` (`paintSign`, shared with `overworld/paint.ts`; `fitName` is pure, so the layout fits the
-name with the bridge's real measure, the signs' serif at `V.font.sign`, and the bridge paints exactly that fit), drawn larger
-(`paintFitted` in `bridge.ts` scales the Overworld's board, `ref` units tall, to the Village's), with
-its project clusters round it in rows (`perRow`; districts packed in shelves, each district's row count and the shelves chosen so
-the fit shows the town largest and most built, `built`); offline hosts' districts dimmed. Nothing loose stands in a district (no
-market filler): every built thing is a cluster's or its host's. Each project with workspaces is one cluster on its own yard
-(`lawns`, grass over the plaza just round its contents with a street of paving round it, its free grass a garden of small trees,
-flower beds, bushes, flowers and flower boxes, its edges under hedges and flowers, a low fence along its
-front with a gate where its lane leaves): its hall at the back (`PROJECT_HALLS`, seeded per project, never the dashboards' blue
-or purple roofs, neighbours differing), its name on a board on two iron brackets on the hall's front over its door, in the place
-its frame registers (`sign` in `buildings.json`, frame-local sheet pixels; `HALL_SIGNS` in `frames.ts` the same as shares): a gabled
-hall's on the gable's foot (as wide as the roof between its chimneys' outer edges), the workshop's over its gear, the dome's on its
-cornice; the board is that place's height and no wider than it (`V.hallBoard`: tracked, then a little smaller, then a long
-"owner/name" shows its name, else "…"; the dashboard halls carry none), ALL its workspaces' cottages (`cottage-0..5`, all at one scale, the widest about 55% of a
-hall's frame) in rows in front of it, never beside it, oldest first, two a side of the lane from the hall's door, which runs
-down through the rows and out of the gate onto the district's paving; every row on a walkway about a robot's width, the lane
-joining them (painted page-side per lawn, `paintLawnPaths` in `bridge.ts`: the plaza's warm cobble in a wavy outline on a darker kerb with stones jutting from it,
-the lawn's grass creeping over the whole edge, none where a path runs on into another or out onto the plaza; so they read at a glance). Every structure is on a path (the user's call: robots need a way to their house): each district's gate opens
-onto a cobbled way up to the paving above (the walk under the dashboard halls, the town hall area outside every district, or the district above), and
-from the plaza the lanes and walkways reach every hall's door and every cottage's doorstep, where its robots stand (`assertConnected` in `village.test.mjs`: reachability from the walk, a lawn blocking all but the paths that
-leave it, each fountain and its board on its plaza; `assertGrouped`: each cottage and robot inside its own cluster's yard and no other, in front of its hall, each yard and fountain inside its host's district, the name board at its fountain's foot, districts apart). Each cottage's window holds a stained-glass pane for its PR's state
-(`cottage-pane-<tile>`, in the sheet's `pane` rect: merged green, review blue, draft amber, failing red, none slate), the PR,
-Probe and auto-merge medallions sit on its roof; each agent is a robot on its cottage's doorstep (the sheet's `doorstep`), more fanning
-out to its right, in provider colours (`robotColor`), with a floor light in the Atlas's state colour (pulsing for states that need
-you), markers and drones; agents without a workspace wait at a camp's tent in their host's district. A hall's two lamps light while
-any of its agents runs and its roof flares for what needs you; each fountain glows and flares likewise. Picking: a robot, a cottage,
-a project's hall (as the Atlas's selections), and a host's fountain with its board (the user's call, the Village only: other styles
-keep hosts uninteractive): it is posted as a `host` entity, so a click goes through `chooseHost` as the Hosts tab's choice does (the
-lists narrow to that host, "Only <host>"), and while that host filter is set with nothing else selected the fountain glows as the
-selection; hovering it glows it and shows its card (name, online or offline, load, its projects, workspaces and agents, "Click to show
-only this host"). The dashboard tiles and halls only show cards.
-Hover and selection light the object itself, never a box: a soft halo along its own silhouette (baked once per frame with Core
-Image: alpha thresholded, spread, blurred) and a brightening of the sprite, warm white on hover and gold, stronger and breathing,
-for the selection (`glow` in `VillageScene.swift`; sprites the page tags `e` with their entity: halls, tiles, workspaces, the
-fountain; robots by their id). The paving has no edge strips (their moss line read as a seam): every boundary with the forest is hidden under
-jittered hedges of bushes, flowers and tufts (`hedge` decor); other greenery and rocks never stand on paving.
-No text on the map but the hosts' and projects' name boards: tiles, workspaces and robots say what they are in hover cards
-(the page's `.atlas-world-card` from the bridge's `card` handler: a tile its count and up to 12 PRs or issues, a hall its name and
-counts; a click on a PR or issue tile opens its first through `openAppLink`). Picking: a medallion, a robot, a workspace's bay, a
-fountain (its host), a tile (cards only). The world: one paved plaza with organic edges, a road north into the forest and south over a bridge
-between lily ponds through the front wall, the river's gorge falling from a ruined wall at the right, lamps (lit while agents run),
-lighting (lamp pools, lit windows, contact shadows, the crystal's glow, a vignette) and a forest canopy tile (`paintCanopy`) that
-Swift repeats to every edge, so no bare ground ever shows. The fit frames the concept's crop (`core`) without cutting the halls,
-plaza or bridge (`keep`: every hall, cottage and robot and each district's fountain, its name board and posts and its plaza whole; a layout test
-holds it for the user's fleet's shape and the mocks, and `VillageSceneTests` that the fit shows all of it); the "At a Glance" panel may lie over the top-left hall's eave but never a hall's banner or a tile (the page posts them as `clear`; Swift's fit slides, then steps out, until none is under the panel), and spare height goes to canopy above, the bottom edge staying on the wall; the crop's top is a sliver of canopy above the top banners. The HUD lies
-over the village in screen space: "At a Glance" (PRs, Issues, Workspaces with Active, Agents with Running and Idle, Need you, Failed
-and Offline only when any) and the status pill ("All systems operational" green; "N need you" or hosts offline amber; "N agents
-failed" red; "need you" counts approvals and questions, as the app's own count does). Sprites: `rendering/src/assets/village/`
-(anchors as shares, slices `l`/`t`/`r`/`b` in sheet pixels, drawn at `VILLAGE_PX`, 1.75), plus the Dungeon Board's `status` and `ui`
-sheets. `npm run native:mock -- --village` serves the concept's fleet (`village` in `web/e2e/fleets.ts`: one host, Core, Data, Export
-and Infra, six agents, PRs 7/3/1/1 and issues 11/8/7/2) and `-- --fleet sparse` one shaped like a real small fleet (two hosts, three
-workspaces, three agents needing you, no PRs, Linear off). Tests: `rendering/tests/village.test.mjs`, `web/e2e/village.e2e.ts`,
-`native/tests/VillageSceneTests.swift`, and the counts' server tests beside `web/server/github/` and `web/server/linear/`.
+The Village map style was removed at the user's request: its world (`rendering/src/village/`), scene (`VillageScene.swift`),
+sheets, fleet, mock flag and tests, its entry in `MAP_STYLES`, Settings → Map, ⌘K and View → Map Style. Don't add it back
+unless asked. A saved `atlas:style` of `village` reads as Islands. What the Dungeon Board borrowed stays: the stained-glass
+`tiles` and At a Glance `hud` sheets (now `rendering/src/assets/dungeon/`), the PR and issue counts (`useDashboardCounts` in
+`web/src/dashboardCounts.ts`, `GET /api/github/q/prCounts`, `GET /api/linear/issue-counts`), `rendering/src/dashboard.ts`, and
+the glow in `SpriteGlow.swift`. `native:mock -- --fleet sparse` still serves a small two-host fleet (on the Islands).
 
 ## Confirmed map constraints
 

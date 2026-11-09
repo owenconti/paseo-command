@@ -2,16 +2,16 @@ import AppKit
 import CoreImage
 import SpriteKit
 
-/// The Village map's glow, shared by the Dungeon Board and the Overworld: the hovered or selected thing lights up along
+/// The maps' glow, shared by the Dungeon Board and the Overworld: the hovered or selected thing lights up along
 /// its own silhouette (a tight halo just outside it and a faint brightening over it), never a box or rim round it.
-/// Hover is the Village's warm white; selection its gold, with a second, wider pass, breathing. The halo's profile is
-/// the Village's: spread by 0.7 of its radius, blurred by its radius, the radius 5% of the silhouette's size.
+/// Hover is a warm white; selection gold, with a second, wider pass, breathing. The halo's profile is
+/// spread by 0.7 of its radius, blurred by its radius, the radius 5% of the silhouette's size.
 enum SpriteGlow {
-    /// The Village's hover and selection colours (`VillageScene.drawHover`, `drawSelection`).
+    /// The hover and selection colours.
     static let hoverColor = Textures.color(0xfff4dc)
     static let selectColor = Textures.color(0xffc72e)
-    /// Structures' halo radius (world units, which are the concept's pixels on every map): the Village halls' own
-    /// (5% of a hall's frame), so a terrace, alcove, booth or hall glows in a band as wide as a Village hall's.
+    /// Structures' halo radius (world units, which are the concept's pixels on every map): the removed Village's
+    /// halls' own (5% of a hall's frame), so a terrace, alcove, booth or hall glows in a band of one width.
     static let structureSpread: CGFloat = 17
 
     private static let context = CIContext(options: nil)
@@ -26,7 +26,7 @@ enum SpriteGlow {
         order = []
     }
 
-    /// `image`'s halo, `radius` in its pixels (by default the Village's: 5% of its size): the full halo (for the lift)
+    /// `image`'s halo, `radius` in its pixels (by default 5% of its size): the full halo (for the lift)
     /// and the part outside the silhouette (for the ring, so what's beneath, painted or not, isn't washed).
     private static func halo(_ image: CGImage, owner: AnyObject, radius given: CGFloat? = nil) -> Halo? {
         let key = ObjectIdentifier(owner)
@@ -65,7 +65,7 @@ enum SpriteGlow {
         ]).applyingFilter("CIColorClamp")
     }
 
-    /// The Village's glow nodes: the ring (just outside the silhouette), the lift over it (0.14) and, for a selection,
+    /// The glow nodes: the ring (just outside the silhouette), the lift over it (0.14) and, for a selection,
     /// the ring again 8% wider. `size` and `mid` in the parent's space.
     private static func make(_ h: Halo, size: CGSize, mid: CGPoint, color: NSColor, name: String, wide: Bool) -> [SKNode] {
         func piece(_ t: SKTexture, alpha: CGFloat, z: CGFloat, grow: CGFloat = 1) -> SKSpriteNode {
@@ -84,7 +84,7 @@ enum SpriteGlow {
         return wide ? [ring, lift, piece(h.outside, alpha: 1, z: -0.02, grow: 1.08)] : [ring, lift]
     }
 
-    /// Glow `sprite` (as its children, so they move and sort with it), from its texture's image, at the Village's spread.
+    /// Glow `sprite` (as its children, so they move and sort with it), from its texture's image, at the default spread (5% of its size).
     @discardableResult
     static func glow(_ sprite: SKSpriteNode, color: NSColor, name: String, wide: Bool = false) -> [SKNode] {
         guard let texture = sprite.texture, sprite.size.width > 0 else { return [] }
@@ -99,7 +99,7 @@ enum SpriteGlow {
 
     /// A silhouette image standing at `rect` (world space of the parent, `mid` its centre): its glow, for a silhouette
     /// drawn beneath (the Overworld's halls, booths and robots; the Dungeon's terraces and alcoves, composited).
-    /// `spread`, in the parent's units, overrides the Village's 5% of its size.
+    /// `spread`, in the parent's units, overrides the default 5% of its size.
     static func overlay(for image: CGImage, size: CGSize, mid: CGPoint, color: NSColor, name: String, wide: Bool = false, spread: CGFloat? = nil) -> [SKNode] {
         guard size.width > 0 else { return [] }
         let radius = spread.map { $0 * CGFloat(image.width) / size.width }
@@ -107,7 +107,7 @@ enum SpriteGlow {
         return make(h, size: size, mid: mid, color: color, name: name, wide: wide)
     }
 
-    /// A selection's glow breathing, as the Village's: its rings between 70% and full, its lifts at 0.14 of that.
+    /// A selection's glow breathing: its rings between 70% and full, its lifts at 0.14 of that.
     static func breathe(_ nodes: [SKNode], clock: Double, reduced: Bool) {
         let t = reduced ? 0.5 : 0.5 + 0.5 * sin(clock / 1600 * .pi * 2)
         for (i, g) in nodes.enumerated() { g.alpha = (i % 3 == 1 ? 0.14 : 1) * CGFloat(0.7 + 0.3 * t) }

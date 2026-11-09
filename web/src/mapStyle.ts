@@ -3,15 +3,14 @@ import { readStore, writeStore } from "./api";
 
 /** The map's style in the macOS app: the hex Islands (the default), the Overworld, a
  * terraced fantasy map of castles, project halls and workspace booths, or the Dungeon Board,
- * a dungeon cutaway with a floor per host, or the Village, a village square per host round a crystal fountain. Kept in localStorage; a page opened with `?map=<style>`
- * (`native:mock -- --dungeon`) starts in that style and keeps it. */
-export type MapStyle = "islands" | "overworld" | "dungeon" | "village";
+ * a dungeon cutaway with a floor per host. Kept in localStorage; a page opened with `?map=<style>`
+ * (`native:mock -- --dungeon`) starts in that style and keeps it. A saved style that no longer exists (the removed Village) reads as Islands. */
+export type MapStyle = "islands" | "overworld" | "dungeon";
 
 export const MAP_STYLES: { id: MapStyle; name: string; detail: string }[] = [
   { id: "islands", name: "Islands", detail: "Hex islands on a painted sea" },
   { id: "overworld", name: "Overworld", detail: "Castles, halls and market booths on terraced islands" },
   { id: "dungeon", name: "Dungeon Board", detail: "A dungeon cutaway: a floor per host, robots in candle-lit alcoves" },
-  { id: "village", name: "Village", detail: "A village square per host: project halls round a crystal fountain, robots on their porches" },
 ];
 
 const STORE = "atlas:style";

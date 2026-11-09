@@ -1,7 +1,7 @@
 // Where each map's hover report says its card goes: the hovered thing's (or its PR medallion's) top centre,
 // `x`, `y`, and its bottom edge, `bottom`, in the surface's points, which the page uses to put a card that has
-// no room above it beneath the thing instead. The Atlas (Islands; the Overworld shares its formula) and the
-// Village here; the Dungeon Board's are in DungeonSceneTests. Drawn in a transparent window that takes no clicks.
+// no room above it beneath the thing instead. The Atlas (Islands; the Overworld shares its formula) here;
+// the Dungeon Board's are in DungeonSceneTests. Drawn in a transparent window that takes no clicks.
 import AppKit
 import SpriteKit
 
@@ -20,7 +20,7 @@ let window = NSWindow(contentRect: CGRect(x: 0, y: 0, width: 400, height: 300), 
 window.alphaValue = 0
 window.ignoresMouseEvents = true
 let atlas = AtlasScene(size: CGSize(width: 400, height: 300))
-var view = AtlasView(frame: window.contentView!.bounds, scene: atlas)
+let view = AtlasView(frame: window.contentView!.bounds, scene: atlas)
 window.contentView!.addSubview(view)
 window.orderFrontRegardless()
 var events: [[String: Any]] = []
@@ -67,44 +67,6 @@ do {
     let zoomed = hover(atlas, 0, 0)
     assert(near(zoomed["y"], screen(atlas, 0, -40).y) && near(zoomed["bottom"], screen(atlas, 0, 60).y), "both follow the zoom")
     atlas.pointer(phase: "leave", at: .zero)
-}
-
-// The Village: an entity's card points at its rect, a medallion's at its disc (`s` / 2 + 2 round its centre).
-let village = makeMapScene(kind: "village", size: CGSize(width: 400, height: 300))
-view.retire()
-let next = view.successor(scene: village)
-window.contentView!.replaceSubview(view, with: next)
-view = next
-village.emit = { events.append($0) }
-let names = ["grass", "dot", "pr-ci-green"]
-village.setArt(frames: Dictionary(uniqueKeysWithValues: names.map { ($0, image(8, 8)) }), tiles: [:],
-               constants: ["sizes": Dictionary(uniqueKeysWithValues: names.map { ($0, [32.0, 32.0]) }), "maxZoom": 3.0], reduced: false)
-view.govern()
-village.setScene([
-    "rev": 1,
-    "bounds": ["x": -500.0, "y": 0.0, "w": 1000.0, "h": 800.0],
-    "sprites": [["f": "grass", "x": -500.0, "y": 0.0, "w": 1000.0, "h": 800.0, "z": -60.0, "tile": "xy"]],
-    "images": [] as [[String: Any]],
-    "flags": [["ws": "w1", "flag": "ci-green", "f": "pr-ci-green", "x": 100.0, "y": 300.0, "w": 18.0, "h": 18.0, "z": 5.0, "cx": 109.0, "cy": 309.0, "s": 18.0]],
-    "lights": [] as [[String: Any]],
-    "entities": [
-        ["id": "w1", "kind": "workspace", "x": 80.0, "y": 280.0, "w": 260.0, "h": 110.0],
-        ["id": "a1", "kind": "agent", "x": 180.0, "y": 330.0, "w": 40.0, "h": 46.0],
-    ],
-], images: [:])
-do {
-    let a = hover(village, 200, 350)
-    assert(a["id"] as? String == "a1" && a["flag"] == nil, "the robot is hovered")
-    assert(near(a["x"], screen(village, 200, 0).x) && near(a["y"], screen(village, 0, 330).y), "its card points at the robot's top")
-    assert(near(a["bottom"], screen(village, 0, 376).y), "and says where the robot's bottom is (330 + 46)")
-    let f = hover(village, 109, 309)
-    assert(f["id"] as? String == "w1" && f["flag"] as? String == "ci-green", "the medallion is hovered")
-    assert(near(f["y"], screen(village, 0, 298).y), "its card points at the medallion's top (309 − 11)")
-    assert(near(f["bottom"], screen(village, 0, 320).y), "and says where the medallion's bottom is (309 + 11)")
-    village.pointer(phase: "leave", at: .zero)
-    let w = hover(village, 300, 290)
-    assert(w["id"] as? String == "w1" && near(w["y"], screen(village, 0, 280).y) && near(w["bottom"], screen(village, 0, 390).y),
-           "a bay's card spans its rect (280 to 390)")
 }
 
 print("MapHover: ok")

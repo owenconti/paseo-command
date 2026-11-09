@@ -8,7 +8,7 @@ import { after, before, test } from "node:test";
 import assert from "node:assert/strict";
 import type { Browser, Page } from "playwright";
 import { launch, mockApi, newContext, startApp, waitFor } from "./harness";
-import { VILLAGE_ISSUES, VILLAGE_PRS, VILLAGE_STATS, small, village } from "./fleets";
+import { DASHBOARD_ISSUES, DASHBOARD_PRS, DUNGEON_STATS, dungeon, small } from "./fleets";
 
 let app: Awaited<ReturnType<typeof startApp>>;
 let browser: Browser;
@@ -21,7 +21,7 @@ after(async () => {
   assert.deepEqual(app?.apiHits ?? [], []);
 });
 
-async function open(style: "islands" | "village"): Promise<Page> {
+async function open(style: "islands" | "dungeon"): Promise<Page> {
   const context = await newContext(browser);
   const page = await context.newPage();
   await page.addInitScript((initial) => {
@@ -36,19 +36,19 @@ async function open(style: "islands" | "village"): Promise<Page> {
       },
     };
   }, style);
-  const fleet = style === "village" ? village : small;
+  const fleet = style === "dungeon" ? dungeon : small;
   await mockApi(page, {
     agents: () => fleet.agents,
     permissions: () => fleet.permissions,
     hosts: () => fleet.hosts,
     projects: () => fleet.projects,
     workspaces: () => fleet.workspaces,
-    ...(style === "village"
+    ...(style === "dungeon"
       ? {
           lists: {
-            hoststats: VILLAGE_STATS,
-            github: VILLAGE_PRS,
-            linear: VILLAGE_ISSUES,
+            hoststats: DUNGEON_STATS,
+            github: DASHBOARD_PRS,
+            linear: DASHBOARD_ISSUES,
             settings: { linearWorkspace: "", integrations: { github: true, linear: true, typesafe: false }, error: null },
           },
         }
@@ -111,9 +111,9 @@ test("a hover card stands above its thing when it fits, below it at the top of t
   await page.context().close();
 });
 
-test("the Village's dashboard cards fit in the map at its top and corner, and are cut to it when taller", async () => {
-  const page = await open("village");
-  await waitFor(() => inspect(page), (i) => i?.scene === "village" && !!i.agents?.length && i.counts?.prs?.known, "the Village", 30000);
+test("the Dungeon Board's vault cards fit in the map at its top and corner, and are cut to it when taller", async () => {
+  const page = await open("dungeon");
+  await waitFor(() => inspect(page), (i) => i?.scene === "dungeon" && !!i.agents?.length && i.counts?.prs?.known, "the Dungeon Board", 30000);
   const view = await surfaceRect(page);
   // A tile at the very top of the map, listing its pull requests.
   await swift(page, { type: "hover", id: "tile:prs:merged", x: 300, y: 4, bottom: 30 });
@@ -129,7 +129,8 @@ test("the Village's dashboard cards fit in the map at its top and corner, and ar
   await cardRect(page, ".atlas-world-card", /Merged · 7/);
   const natural = (await page.locator(".atlas-world-card").boundingBox())!.height;
   const viewport = page.viewportSize()!;
-  await page.setViewportSize({ width: viewport.width, height: Math.round(view.y + natural * 0.6) });
+  // The board's command belt stays below the map, so the window loses only the map's height.
+  await page.setViewportSize({ width: viewport.width, height: Math.round(viewport.height - view.height + natural * 0.6) });
   const short = await waitFor(() => surfaceRect(page), (r) => r.height < natural, "the map shorter than the card");
   const cut = await waitFor(
     () => page.locator(".atlas-world-card").boundingBox({ timeout: 500 }).catch(() => null),
