@@ -834,7 +834,7 @@ and blocked assigned issues under separate headings. Linear Inbox uses Activity�
 Activity does. Source page limits carry `ActivitySourceStatus.limited` and use N+; unknown/error sources use — and say why.
 A partial Problems count is a lower bound while its Linear part cannot answer; other source queues keep working.
 `dashboardCounts.ts` polls only the assigned-issue source while the belt shows. Secret changes refresh every source.
-Narrow maps put the belt slots in two rows with stable-size orbs; the belt has no integration group captions.
+The belt is capped at 116 px tall (124 px for narrow maps, with two slot rows and stable-size orbs); it has no integration group captions.
 The palette’s `dungeon-tray`, settings, full-GitHub links and `dungeon-tray-close` mirror these actions. Robots stand at a 70 px pitch (55 px tall).
 Upper wall cloth hangs in front of its rampart, with pillar capitals in front of both; lit braziers and forges have no
 extra purple shade (offline floors remain dim). A hovered niche's card

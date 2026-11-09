@@ -3,7 +3,7 @@
   container-type: inline-size;
 }
 .dungeon-hud {
-  --dh-height: clamp(84px, 15cqw, 154px);
+  --dh-height: clamp(82px, 11cqw, 116px);
   --dh-ink: #f3e4c6;
   --dh-muted: #c8b7d7;
   --dh-gold: #e4b45b;
@@ -39,8 +39,8 @@
   inset: 24% 0 0;
   z-index: -1;
   background: #28202e;
-  border: 14px solid #675040;
-  border-image: var(--dh-panel) 12% fill / 14px stretch;
+  border: 10px solid #675040;
+  border-image: var(--dh-panel) 12% fill / 10px stretch;
   filter: drop-shadow(0 -4px 8px rgb(0 0 0 / 35%));
 }
 .dh-controls {
@@ -82,7 +82,7 @@
   padding: 0;
   text-align: center;
   box-sizing: border-box;
-  font-size: clamp(25px, 4cqw, 46px);
+  font-size: clamp(22px, 3cqw, 34px);
   line-height: 1;
   font-variant-numeric: tabular-nums;
   text-shadow: 0 2px 4px #21110b;
@@ -93,7 +93,7 @@
   bottom: 16%;
   inset-inline: 0;
   text-transform: uppercase;
-  font-size: clamp(9px, 1.3cqw, 15px);
+  font-size: clamp(9px, 1.1cqw, 12px);
   font-weight: 700;
   letter-spacing: 0.04em;
   text-shadow: 0 1px 3px #160d0b;
@@ -174,7 +174,7 @@
   position: absolute;
   inset: auto 10% 15%;
   text-align: center;
-  font-size: clamp(10px, 1.25cqw, 15px);
+  font-size: clamp(10px, 1.25cqw, 13px);
   line-height: 1;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -196,7 +196,7 @@
   background: #edb558;
   color: #231711;
   font:
-    700 clamp(11px, 1.6cqw, 18px)/1 "Iowan Old Style",
+    700 clamp(11px, 1.4cqw, 15px)/1 "Iowan Old Style",
     Georgia,
     serif;
   font-variant-numeric: tabular-nums;
@@ -440,7 +440,7 @@
 }
 @container (max-width: 600px) {
   .dungeon-hud {
-    --dh-height: 158px;
+    --dh-height: 124px;
   }
   .dh-controls {
     grid-template-columns: 64px minmax(0, 1fr) 64px;
@@ -452,7 +452,7 @@
     gap: 6px 3px;
   }
   .dh-slot {
-    height: 66px;
+    height: 52px;
   }
   .dh-orb {
     align-self: center;
