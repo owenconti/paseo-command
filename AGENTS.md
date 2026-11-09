@@ -886,7 +886,10 @@ offline and waiting are narration, never invented lines (truthful state). The Co
 links use dark brown ink and full underlines against the box’s parchment bubbles, with a distinct keyboard focus ring.
 The whole conversation opens upward over the board as
 its log (H, the Conversation button, or scrolling up past the page's top; Back, H or Esc returns): `Session`'s `Timeline`, any
-request's `PermissionCard` and the composer, the box's colours given to them as scoped theme variables (your messages parchment);
+request's `PermissionCard` and the composer. Its complete local colour palette in `world-chat.css` covers event cards,
+tools, code/syntax, tables, request cards, fields, placeholders, metadata and focus, so a light app theme never leaks pale
+surfaces behind cream text (your messages stay parchment with brown metadata). Narrow logs use the full panel width,
+without a portrait, and keep navigation in their explicit bottom grid row;
 the board keeps the box's own room under it; it stays open as the box steps robots (`talkLog` in main, ⌘K "Show the whole
 conversation on the board"). Painted left/right controls beside the box (← →, as K and J; named on hover) step to the previous and next agent
 (main's `step`; ⌘K's Previous / Next agent show those keys while the box does). The box follows the selected agent (J/K step to

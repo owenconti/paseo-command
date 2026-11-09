@@ -476,3 +476,83 @@ test("Conversation stays clear of a long banner, works in narrow maps, and user 
   assert.equal((await native(page)).selected, key("a-cli-0"), "arrows in the composer edit text, never switch robots");
   await page.context().close();
 });
+
+test("the full map conversation keeps readable Dungeon colors across app themes", async () => {
+  const { page } = await open({ timelines: { "a-api-1": [
+    { kind: "user", text: "Check the colors in https://example.com/docs", messageId: "theme-user" },
+    { kind: "notice", id: "compact", level: "info", text: "Context compacted\n\nThe earlier messages are summarized here." },
+    { kind: "tool", id: "theme-tool", name: "Bash", status: "completed", summary: "npm test", detail: "All checks passed." },
+    { kind: "assistant", messageId: "theme-reply", text: [
+      "The theme now uses readable text and `inline code`.", "", "> Secondary text remains legible.", "",
+      "```js", "// A readable comment", "const count = 42;", 'const status = "ready";', "```", "",
+      "| Check | Result |", "| --- | --- |", "| Contrast | Passed |",
+    ].join("\n") },
+  ] } });
+  await pick(page, "a-api-1");
+  await box(page).getByRole("button", { name: /Show the whole conversation/ }).click();
+  const log = box(page).locator(".wc-log");
+  await log.locator(".msg.event").waitFor();
+  await log.locator(".msg.event summary").click();
+  await log.locator(".step.tool").click();
+  const selectors = [".msg.event summary", ".event-label", ".msg.event .md", ".step code", ".step-detail", ".msg.assistant", ".md-code-bar", ".md pre code", ".tok-comment", ".tok-keyword", ".tok-number", ".tok-string", ".md blockquote", ".md th", ".md td", ".msg.user", ".msg.user a"];
+  for (const theme of ["light", "dark", "lake-country", "galaxy"]) {
+    await page.evaluate((theme) => { document.documentElement.dataset.theme = theme; }, theme);
+    const results = await log.evaluate((root, selectors) => {
+      return selectors.map((selector) => {
+        const el = root.querySelector(selector)!;
+        if (!el) return { selector, contrast: 0, background: "missing" };
+        let parent: Element | null = el, background = "";
+        while (parent && !background) {
+          const color = getComputedStyle(parent).backgroundColor, c = color.match(/[\d.]+/g)!.map(Number);
+          if (c.length === 3 || c[3] === 1) background = color;
+          parent = parent.parentElement;
+        }
+        // The dialogue's opaque panel is painted by its border image.
+        if (parent === null) background = "rgb(37, 30, 64)";
+        const [a, b] = [getComputedStyle(el).color, background].map((color) => color.match(/[\d.]+/g)!.slice(0, 3).map(Number).map((c) => {
+          const s = c / 255; return s <= .04045 ? s / 12.92 : ((s + .055) / 1.055) ** 2.4;
+        }).reduce((n, c, i) => n + c * [.2126, .7152, .0722][i]!, 0)) as [number, number];
+        return { selector, contrast: (Math.max(a, b) + .05) / (Math.min(a, b) + .05), background };
+      });
+    }, selectors);
+    for (const r of results) assert.ok(r.contrast >= 4.5, `${theme} ${r.selector}: ${r.contrast.toFixed(2)} on ${r.background}`);
+    assert.equal(await log.locator(".msg.event").evaluate((el) => getComputedStyle(el).backgroundColor), "rgb(48, 38, 63)", "event cards never inherit the light app's surface");
+  }
+  await log.locator(".timeline").evaluate((el) => { el.scrollTop = 0; });
+  await page.screenshot({ path: "/tmp/dungeon-chat-theme-desktop.png" });
+  await page.setViewportSize({ width: 800, height: 900 });
+  const bounds = await box(page).boundingBox(), composer = await log.locator(".wc-composer").boundingBox();
+  const transcript = await log.locator(".timeline").boundingBox();
+  assert.ok(transcript && transcript.height > 180, "the narrow conversation keeps room for its transcript");
+  assert.ok(composer && bounds && composer.y + composer.height <= bounds.y + bounds.height, "the composer stays inside the narrow dialogue");
+  await page.screenshot({ path: "/tmp/dungeon-chat-theme-narrow.png" });
+  await page.context().close();
+});
+
+test("questions in the full map conversation use readable dark surfaces and gold focus", async () => {
+  const { page } = await open({ details: { "a-api-1": { PendingPermissions: [{
+    id: "theme-question", name: "AskUserQuestion", description: "", kind: "question", questions: [{
+      question: "Which public staging page should I monitor during the database migration? Please paste its full URL, ideally a published page that loads content from the database.",
+      header: "Question 1", options: [], multiSelect: false, allowOther: true, allowEmpty: false,
+    }],
+  }] } }, timelines: { "a-api-1": [
+    { kind: "tool", name: "Shell", status: "completed", summary: "python3 -m py_compile scripts/monitor-public-page.py", detail: "Syntax checked." },
+  ] } });
+  await pick(page, "a-api-1");
+  await box(page).getByRole("button", { name: /Show the whole conversation/ }).click();
+  const card = box(page).locator(".question-card"), input = card.getByPlaceholder("Type your answer");
+  await input.focus();
+  const styles = await card.evaluate((el) => {
+    const text = getComputedStyle(el.querySelector(".question-text")!), field = el.querySelector("input")!;
+    return { background: getComputedStyle(el).backgroundColor, color: text.color, focus: getComputedStyle(field).boxShadow, placeholder: getComputedStyle(field, "::placeholder").color };
+  });
+  assert.equal(styles.background, "rgb(71, 54, 35)", "question cards use dark amber, not the light app's cream");
+  assert.equal(styles.color, "rgb(242, 234, 214)");
+  assert.equal(styles.placeholder, "rgb(185, 173, 203)");
+  assert.match(styles.focus, /255, 229, 110/, "the focus ring is gold");
+  assert.doesNotMatch(styles.focus, /53, 103, 230/, "no inherited blue app focus ring");
+  await input.fill("https://staging.example.com");
+  assert.equal(await card.getByRole("button", { name: /Submit answer/ }).isEnabled(), true);
+  await page.screenshot({ path: "/tmp/dungeon-chat-question-theme.png" });
+  await page.context().close();
+});

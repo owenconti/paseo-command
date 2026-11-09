@@ -30,32 +30,96 @@
   outline: none;
   filter: drop-shadow(0 12px 26px rgb(0 0 0 / 50%));
   animation: wc-rise 0.22s ease-out;
-  /* The app's own composer, conversation and request cards, in the board's colours. */
+  /* A complete local palette: timeline cards, tools, code and the composer must never
+     inherit a light app theme's surfaces beneath the Dungeon's cream/lavender text. */
   color-scheme: dark;
+  --bg: #1b152e;
   --panel: #251e40;
   --panel-2: #2b2349;
   --panel-raised: #30275a;
-  --fill: rgb(255 255 255 / 6%);
-  --fill-strong: rgb(255 255 255 / 11%);
-  --line: rgb(216 168 64 / 26%);
-  --line-soft: rgb(216 168 64 / 14%);
-  --line-strong: rgb(216 168 64 / 48%);
+  --panel-glass: #251e40f2;
+  --panel-edge: #665276;
+  --surface: #382e50;
+  --input-bg: #171225;
+  --fill-soft: #30263f;
+  --fill: #392e4d;
+  --fill-strong: #493955;
+  --row-hover: #43324f;
+  --row-selected: #493a56;
+  --code-bg: #171225;
+  --code-text: #e8e2f4;
+  --line-soft: #493951;
+  --line: #64506a;
+  --line-mid: #705a77;
+  --line-strong: #957a96;
+  --line-hover: #c9a15c;
+  --scrollbar: #96764f;
   --text: #f2ead6;
   --text-strong: #fff6df;
   --text-2: #cfc6e6;
-  --text-3: #9a96b4;
-  --text-faint: #7c7898;
+  --text-mid: #c5b9d9;
+  --text-3: #b9adcb;
+  --text-4: #b0a2c5;
+  --text-faint: #afa1c1;
   --accent: #d8a840;
+  --accent-hover: #e8bd62;
+  --accent-bright: #ffe09b;
+  --accent-soft: #483547;
+  --accent-soft-2: #57404c;
   --accent-text: #ffd98a;
+  --accent-text-2: #edc585;
+  --accent-line: #a87e3e;
+  --accent-glow: #d8a84026;
+  --accent-shadow: #100a2066;
   --on-accent: #2a1a0e;
   --focus: #ffe56e;
-  --row-hover: rgb(216 168 64 / 12%);
-  /* Your messages: parchment, as the name plate. */
+  --focus-ring: 0 0 0 1px var(--focus), 0 0 0 4px var(--accent-glow);
+  --selection: #a080594d;
+  --ink: #ebd4a2;
+  --on-ink: #251e40;
+  /* Your messages remain parchment, with dark ink for text and metadata. */
   --bubble: #efdfb6;
   --bubble-line: #a8662c;
   --bubble-text: #2a1a0e;
+  --bubble-meta: #725039;
   --bubble-link: #704018;
   --bubble-link-hover: #42240f;
+  --icon-muted: #b0a2c5;
+  --codex: #b2cfff;
+  --codex-soft: #303855;
+  --claude: #f2b58f;
+  --claude-soft: #493142;
+  --opencode: #9bd7c8;
+  --opencode-soft: #283e43;
+  --dot-idle: #aca0bf;
+  --slate: #aca0bf;
+  --green: #80cda4;
+  --green-strong: #91cfa8;
+  --green-text: #a6dfbd;
+  --green-soft: #243e38;
+  --green-line: #5b927a;
+  --amber: #e6bd62;
+  --amber-soft: #473623;
+  --amber-text: #f4d493;
+  --amber-line: #a27b40;
+  --amber-shadow: #170e1e55;
+  --unread: #bcafff;
+  --unread-soft: #393052;
+  --unread-text: #d1c5ff;
+  --unread-line: #8b78bc;
+  --red: #eb998f;
+  --red-strong: #eda297;
+  --red-text: #ffc0b3;
+  --red-soft: #482c39;
+  --red-line: #a76a71;
+  --overlay: #0c081399;
+  --shadow: 0 8px 24px #0d081b55;
+  --shadow-sm: 0 1px 2px #0d081b44;
+  --shadow-md: 0 4px 14px #0d081b55;
+  --shadow-lg: 0 16px 40px #0d081b88;
+  --shadow-pop: 0 4px 14px #0d081b77;
+  --skeleton: #3e3150;
+  --skeleton-shine: #51405f;
 }
 /* Writing a reply: the box grows to its composer. */
 .world-chat.replying {
@@ -146,7 +210,7 @@
 }
 .wc-model,
 .wc-queued {
-  color: #9a96b4;
+  color: var(--text-3);
 }
 .wc-close {
   position: absolute;
@@ -583,19 +647,22 @@
   scrollbar-width: thin;
   scrollbar-color: rgb(216 168 64 / 40%) transparent;
 }
-/* Code in the log as on the box's pages. */
-.wc-log .md code {
-  background: rgb(255 255 255 / 7%);
-  color: #ffd98a;
+/* Keep syntax colors on the code block's dark surface; inline code has a warmer tint. */
+.wc-log .md :not(pre) > code {
+  color: var(--accent-text);
 }
-.wc-log .md pre code {
-  background: none;
-  color: #e8e2f4;
-}
+.world-chat ::selection { background: var(--selection); }
+.world-chat .msg.user ::selection { background: #a9774050; }
+/* Comments are content too: readable lavender on the dark code surface. */
+.wc-log .md .tok-comment { color: var(--text-3); }
 .wc-log .permission {
   flex: none;
   margin: 0;
 }
+
+/* Form fields use the same readable lavender even while the app itself is light. */
+.world-chat input::placeholder,
+.world-chat textarea::placeholder { color: var(--text-3); opacity: 1; }
 
 /* The app's composer in the box. */
 .wc-composer {
@@ -649,6 +716,11 @@
   .wc-nameplate { left: 12px; max-width: calc(100% - 24px); }
   .wc-portrait { width: 72px; height: 96px; }
   .wc-log-toggle .wc-key { display: none; }
-  .wc-navigation { display: flex; grid-column: 1 / -1; align-items: center; justify-content: space-between; }
+  .wc-portrait { grid-column: 1; grid-row: 1; }
+  .wc-body { grid-column: 2; grid-row: 1; }
+  .wc-navigation { display: flex; grid-column: 1 / -1; grid-row: 2; align-items: center; justify-content: space-between; }
   .wc-nav { position: static; width: 44px; height: 44px; }
+  /* The transcript needs the full narrow panel; keep its portrait in the compact dialogue. */
+  .world-chat.log .wc-portrait { display: none; }
+  .world-chat.log .wc-body { grid-column: 1 / -1; }
 }
