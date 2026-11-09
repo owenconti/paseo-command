@@ -1004,13 +1004,13 @@ export function hudSubtitle(layout: DungeonLayout): string {
   return "All quiet";
 }
 
-/** The spans a tier's cutaway (its ledge face, underside and shadow) runs across, from x to x: the floor's
- * width less its ends, opened round the next floor's gate surround below a floor's last tier, as its front
- * rampart is, so the next host's arch and icon read whole. */
+/** The wall's face, underside and shadow share its central opening: the next gate's surround
+ * below a floor's last tier, and the stairwell on every other tier, including the final landing. */
 export function cutawaySpans(fl: DFloor, y0: number): [number, number][] {
   const L = fl.rect.x + 26, R = fl.rect.x + fl.rect.w - 26;
-  const opens = !fl.last && y0 === fl.tierTops[fl.tiers - 1];
-  return opens ? [[L, -D.surroundW / 2 + 2], [D.surroundW / 2 - 2, R]] : [[L, R]];
+  const nextGate = !fl.last && y0 === fl.tierTops[fl.tiers - 1];
+  const open = nextGate ? D.surroundW / 2 - 2 : D.stairsW / 2 + 2;
+  return [[L, -open], [open, R]];
 }
 
 /** The footer prioritizes work that needs attention; historical totals live in the vault's cards. */

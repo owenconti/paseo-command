@@ -229,19 +229,24 @@ test("robots: Claude orange, ChatGPT white, each other provider a stable colour 
 });
 
 test("each floor's cutaway opens round the next host's gate, so its arch reads whole", () => {
-  const layout = layoutDungeon(DUNGEON_SAMPLE, 1.4);
-  layout.floors.forEach((fl, i) => {
-    const next = layout.floors[i + 1];
-    for (const y0 of fl.tierTops) {
-      const spans = cutawaySpans(fl, y0);
-      const band = { y: y0 + D.frontY + 26, h: 40 };
-      if (next && y0 === fl.tierTops.at(-1)) {
-        // The band reaches into the next floor's surround: no span may cross it.
-        assert.ok(band.y + band.h > next.surround.y, "the cutaway would reach the next arch");
-        for (const [a, b] of spans) assert.ok(b <= next.surround.x + 2 || a >= next.surround.x + next.surround.w - 2, `a span ${a}..${b} crosses the arch`);
-      } else assert.equal(spans.length, 1);
-    }
-  });
+  for (const data of [DUNGEON_SAMPLE, big(3, 8, 5, 4)]) {
+    const layout = layoutDungeon(data, 1.4);
+    layout.floors.forEach((fl, i) => {
+      const next = layout.floors[i + 1];
+      for (const y0 of fl.tierTops) {
+        const spans = cutawaySpans(fl, y0);
+        const band = { y: y0 + D.frontY + 26, h: 40 };
+        if (next && y0 === fl.tierTops.at(-1)) {
+          // The band reaches into the next floor's surround: no span may cross it.
+          assert.ok(band.y + band.h > next.surround.y, "the cutaway would reach the next arch");
+          for (const [a, b] of spans) assert.ok(b <= next.surround.x + 2 || a >= next.surround.x + next.surround.w - 2, `a span ${a}..${b} crosses the arch`);
+        } else {
+          assert.equal(spans.length, 2, "the stairwell also opens through the wall's face and shadow");
+          for (const [a, b] of spans) assert.ok(b <= fl.stairs.x || a >= fl.stairs.x + fl.stairs.w, "no masonry crosses the treads");
+        }
+      }
+    });
+  }
 });
 
 test("no icons or links: a project is its terrace, picked by its wall above its alcoves", () => {
