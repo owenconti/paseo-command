@@ -924,8 +924,8 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
       const z = d.frame === "rug-red" ? -39.5 : d.recess ? -38 : d.frame.startsWith("banner-") && d.layer === "back" ? -43.85 : d.layer === "back" ? -48 : -4;
       // Side rooms' recesses a shade down, so their coloured light never outshines the robots.
       // Side rooms' recesses and the foot's red rugs a shade down, so neither outshines the robots.
-      const glowing = /^(magic-circle|crystal|alchemy-tank|forge|brazier)$/.test(d.frame);
-      const quiet = (d.recess || glowing || d.frame === "rug-red") && l.floors[d.floor]?.online ? { shade: d.recess ? 0.45 : d.frame === "brazier" || d.frame === "forge" ? 0.42 : glowing ? 0.32 : 0.38 } : {};
+      const glowing = /^(magic-circle|crystal|alchemy-tank)$/.test(d.frame);
+      const quiet = (d.recess || glowing || d.frame === "rug-red") && l.floors[d.floor]?.online ? { shade: d.recess ? 0.45 : glowing ? 0.32 : 0.38 } : {};
       // Within a room, the smaller pieces stand in front of the larger (armour before the circle, anvil before the forge).
       const depth = z === -4 && d.group ? (1 - Math.min(1, d.rect.h / 160)) * 0.05 : 0;
       sprites.push(sprite(d.frame, d.rect, z + depth, { ...dimOf(d.floor), ...(d.flip ? { flip: 1 } : {}), ...quiet }));
