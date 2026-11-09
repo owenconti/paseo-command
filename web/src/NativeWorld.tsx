@@ -35,6 +35,8 @@ import { liveConnection } from "./live";
 import { CARD_MARGIN, placeCard } from "./cardPlace";
 import type { HostStats } from "../../rendering/src/world";
 import "./atlas-world.css";
+import { DungeonHud } from "./dungeon/DungeonHud";
+import type { DungeonTray } from "./dungeon/model";
 type Props = {
   workingOn?: WorkSummaries;
   hosts: Host[];
@@ -62,6 +64,10 @@ type Props = {
   talking?: boolean;
   /** How much of the map's foot the box covers (CSS px). */
   talkInset?: number;
+  hudVisible?: boolean;
+  onDispatch: () => void;
+  onBrowseHud: () => void;
+  onHudTray: (tray: DungeonTray | null) => void;
 };
 /** Hosts are keyed by their bridge id ("local" or a server id), as rows reference them. */
 export function atlasData(
@@ -212,6 +218,7 @@ function MapCard(props: { at: ScreenPoint; surface: RefObject<HTMLDivElement | n
 }
 export function NativeWorld(props: Props) {
   const surface = useRef<HTMLDivElement>(null);
+  const [hudHeight, setHudHeight] = useState(145);
   const world = useRef<AtlasWorld | null>(null);
   const latest = useRef(props);
   latest.current = props;
@@ -238,9 +245,10 @@ export function NativeWorld(props: Props) {
   current.current = snapshot;
   const probe = useProbe();
   const style = useMapStyle();
+  const hudShown = props.hudVisible !== false && style === "dungeon";
   const stats = useHostStats();
-  // Your pull requests and Linear issues: the Village's dashboard halls and the Dungeon Board's vault and At a Glance
-  // panel, asked only while one of them shows.
+  // Your pull requests and Linear issues: the Village's dashboard halls and the Dungeon Board's vault and command
+  // belt, asked only while one of them shows.
   const dashboardShown = style === "village" || style === "dungeon";
   const villageCounts = useVillageCounts(dashboardShown);
   const data = useMemo(
@@ -473,12 +481,17 @@ export function NativeWorld(props: Props) {
         ref={surface}
         className="atlas-world-surface native-map-surface"
         data-world={style}
+        style={hudShown ? { bottom: hudHeight } : undefined}
         tabIndex={0}
         role="application"
         aria-roledescription="map"
         aria-label={`${worldName || "Atlas world"}. Drag to pan, scroll to zoom, arrow keys pan, F fits every host. Select a robot to open its conversation.`}
         onPointerLeave={() => setTip(null)}
       />
+      {hudShown && <DungeonHud data={data} agents={props.agents} snapshot={snapshot} summaries={props.workingOn} blocked={props.blocked} talking={!!props.talking}
+        onPick={(key) => { const s = targetSelection({ kind: "agent", key }, snapshot); if (s) props.select(s); }}
+        onDispatch={props.onDispatch} onBrowse={props.onBrowseHud} onTray={props.onHudTray}
+        onHeight={(height) => { setHudHeight(height); surface.current?.parentElement?.style.setProperty("--dungeon-belt-height", `${height}px`); }} />}
       {props.blocked && <div className="atlas-input-cover" />}
       {card && (
         <MapCard className="atlas-world-tip atlas-world-card" surface={surface} at={card.at}>

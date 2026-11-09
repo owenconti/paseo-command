@@ -418,45 +418,6 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
     ctx.fillText(label, r.w / 2, y);
     return canvas;
   };
-  /** Current work and attention, in one quiet footer. A two-column version keeps it readable beside a wide chat panel. */
-  const paintCounts = (counts: DungeonLayout["counts"], compact = false) => {
-    const items = dungeonNow(counts);
-    const number = `${HEAVY} 17px ${FONT}`, word = `${BOLD} 14px ${FONT}`;
-    const widths = items.map((item) => {
-      measurer.font = number;
-      const n = measurer.measureText(String(item.n)).width;
-      measurer.font = word;
-      return n + 6 + measurer.measureText(item.label).width;
-    });
-    const gap = 24, pad = 20, prefix = 48, rowH = 28;
-    const cols = compact ? 2 : items.length;
-    const cell = Math.max(...widths);
-    const w = Math.ceil(pad * 2 + (compact ? cell * cols + gap : prefix + widths.reduce((a, b) => a + b, 0) + gap * (cols - 1)));
-    const h = 24 + Math.ceil(items.length / cols) * rowH;
-    const { canvas, ctx } = canvasFor(w, h);
-    nineSlice(ctx, frame("panel"), "panel", 0, 0, w, h);
-    ctx.textBaseline = "middle";
-    if (!compact) {
-      ctx.font = `${BOLD} 13px ${FONT}`;
-      ctx.fillStyle = "#cfc6e6";
-      ctx.fillText("Now", pad, h / 2);
-    }
-    let x = pad + (compact ? 0 : prefix);
-    items.forEach((item, i) => {
-      const y = 12 + rowH / 2 + Math.floor(i / cols) * rowH;
-      if (compact) x = pad + (i % cols) * (cell + gap);
-      ctx.font = number;
-      ctx.fillStyle = item.color;
-      ctx.fillText(String(item.n), x, y);
-      const labelX = x + ctx.measureText(String(item.n)).width + 6;
-      ctx.font = word;
-      ctx.fillStyle = "#f2ead6";
-      ctx.fillText(item.label, labelX, y);
-      if (!compact) x += widths[i]! + gap;
-    });
-    return { canvas, w, h };
-  };
-
   /** A frame drawn with its anchor at (x, y), `w` wide (its height keeping its shape), as a top-left box. */
   const at = (name: string, x: number, y: number, w?: number) => {
     const spec = FRAMES[name] ?? FRAMES[`${name}-0`]!;
@@ -1047,19 +1008,12 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
       const alarm = online ? projectAlarm(l, id) : undefined;
       if (alarm) lights.push({ x: p.mark.x, y: p.mark.y, c: STATE_TILE[alarm]!, r: 54, period: alarm === "failed" ? 1200 : 1800, flicker: false, z: 1.9, ph: 0 });
     }
-    const counts = paintCounts(l.counts);
-    const compact = paintCounts(l.counts, true);
-    const countsKey = `hud:now:${JSON.stringify(dungeonNow(l.counts))}`;
-    const compactKey = `${countsKey}:compact`;
     return {
       type: "agents",
       robots,
       sprites,
       lights,
-      hud: {
-        counts: { ...(sent.has(countsKey) ? { key: countsKey } : (sent.add(countsKey), { key: countsKey, png: png(counts.canvas) })), w: counts.w, h: counts.h },
-        countsCompact: { ...(sent.has(compactKey) ? { key: compactKey } : (sent.add(compactKey), { key: compactKey, png: png(compact.canvas) })), w: compact.w, h: compact.h },
-      },
+      hud: {}, // The accessible React command belt owns the HUD and its trays.
     };
   };
 

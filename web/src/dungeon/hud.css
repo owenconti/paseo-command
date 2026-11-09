@@ -1,0 +1,396 @@
+/* Original painted game pieces with live, accessible controls laid over them. */
+.native-world-frame:has(.dungeon-hud) {
+  container-type: inline-size;
+}
+.dungeon-hud {
+  --dh-height: clamp(84px, 15cqw, 154px);
+  --dh-ink: #f3e4c6;
+  --dh-muted: #c8b7d7;
+  --dh-gold: #e4b45b;
+  position: absolute;
+  z-index: 3;
+  inset: auto 0 0;
+  height: var(--dh-height);
+  background: #17121d;
+  color: var(--dh-ink);
+  font-family: "Iowan Old Style", Palatino, Georgia, serif;
+  color-scheme: dark;
+  isolation: isolate;
+}
+.dungeon-hud ::selection {
+  background: #75542f;
+  color: #fff2d5;
+}
+.dungeon-hud button {
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+.dungeon-hud button:focus-visible {
+  outline: 2px solid #ffe39b;
+  outline-offset: 2px;
+}
+.dungeon-hud button:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+.dh-console {
+  position: absolute;
+  inset: 24% 0 0;
+  z-index: -1;
+  background: #28202e;
+  border: 14px solid #675040;
+  border-image: var(--dh-panel) 12% fill / 14px stretch;
+  filter: drop-shadow(0 -4px 8px rgb(0 0 0 / 35%));
+}
+.dh-controls {
+  height: 100%;
+  display: grid;
+  grid-template-columns: 1.4fr 5fr 1.4fr;
+  gap: 1%;
+  align-items: end;
+  padding: 0 1%;
+}
+.dh-orb {
+  position: relative;
+  height: 100%;
+  border: 0;
+  padding: 0;
+  background: transparent center bottom / contain no-repeat;
+  filter: drop-shadow(0 3px 5px #100b16);
+}
+.dh-waiting {
+  background-image: var(--dh-waiting);
+}
+.dh-running {
+  background-image: var(--dh-running);
+}
+.dh-orb-number {
+  position: absolute;
+  top: 30%;
+  inset-inline: 0;
+  font-size: clamp(25px, 4cqw, 46px);
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 2px 4px #21110b;
+}
+.dh-orb-label {
+  position: absolute;
+  bottom: 16%;
+  inset-inline: 0;
+  text-transform: uppercase;
+  font-size: clamp(9px, 1.3cqw, 15px);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-shadow: 0 1px 3px #160d0b;
+}
+.dh-belt {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 2%;
+  position: relative;
+  padding: 0 0 8px;
+}
+.dh-belt-name {
+  position: absolute;
+  inset: auto 0 100%;
+  text-align: center;
+  font-size: clamp(10px, 1.3cqw, 15px);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  line-height: 1.5;
+  text-shadow: 0 1px 3px #0c0711;
+}
+.dh-slot {
+  position: relative;
+  height: calc(var(--dh-height) * 0.66);
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  background: #211a28;
+  background: var(--dh-slot) center / 100% 100% no-repeat;
+}
+.dh-slot::after {
+  content: "";
+  position: absolute;
+  inset: 4%;
+  pointer-events: none;
+  border: 1px solid transparent;
+}
+.dh-slot:hover::after,
+.dh-slot.selected::after {
+  border-color: #e3ae59;
+  box-shadow: inset 0 0 8px rgb(233 157 54 / 35%);
+}
+.dh-orb:hover,
+.dh-orb.selected {
+  filter: brightness(1.13) drop-shadow(0 3px 5px #100b16);
+}
+.dh-item-icon {
+  display: block;
+  background: center / contain no-repeat;
+}
+.dh-slot > .dh-item-icon {
+  position: absolute;
+  inset: 9% 13% 25%;
+  pointer-events: none;
+}
+.dh-icon-replies {
+  background-image: var(--dh-replies);
+}
+.dh-icon-failures {
+  background-image: var(--dh-failures);
+}
+.dh-icon-review {
+  background-image: var(--dh-review);
+}
+.dh-icon-blocked {
+  background-image: var(--dh-blocked);
+}
+.dh-icon-dispatch {
+  background-image: var(--dh-dispatch);
+}
+.dh-slot-label {
+  position: absolute;
+  inset: auto 6% 9%;
+  font-size: clamp(10px, 1.4cqw, 16px);
+  line-height: 1;
+  white-space: nowrap;
+  text-shadow: 0 1px 3px #0e0814;
+}
+.dh-badge {
+  position: absolute;
+  top: 2%;
+  right: 4%;
+  padding: 1px 5px;
+  min-width: 18px;
+  border: 1px solid #805024;
+  border-radius: 50%;
+  background: #edb558;
+  color: #231711;
+  font:
+    700 clamp(11px, 1.6cqw, 18px)/1.1 "Iowan Old Style",
+    Georgia,
+    serif;
+  font-variant-numeric: tabular-nums;
+  box-shadow: 0 2px 3px #1d1023;
+}
+.dh-tray {
+  position: absolute;
+  left: 18%;
+  bottom: calc(100% + 8px);
+  width: min(540px, 76%);
+  max-height: min(400px, max(120px, calc(100dvh - var(--dh-height) - 110px)));
+  display: flex;
+  flex-direction: column;
+  border: 14px solid #6e513b;
+  border-image: var(--dh-panel) 12% fill / 14px stretch;
+  background: #241d2a;
+  box-shadow: 0 12px 24px rgb(0 0 0 / 50%);
+  animation: dh-open 0.16s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.dh-tray::after {
+  content: "";
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 12%;
+  width: 12px;
+  height: 12px;
+  transform: rotate(45deg);
+  background: #382b32;
+  border-right: 2px solid #b78a50;
+  border-bottom: 2px solid #b78a50;
+}
+.dh-tray-running {
+  left: auto;
+  right: 1%;
+}
+.dh-tray-running::after {
+  left: auto;
+  right: 10%;
+}
+.dh-tray-waiting {
+  left: 1%;
+}
+.dh-tray-waiting::after {
+  left: 10%;
+}
+.dh-tray > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 6px 8px 10px;
+  border-bottom: 1px solid #88653c;
+}
+.dh-tray h2 {
+  font-family: "Iowan Old Style", Palatino, Georgia, serif;
+  margin: 0;
+  font-size: 22px;
+  line-height: 1.25;
+  color: var(--dh-ink);
+}
+.dh-tray h2 span {
+  color: #edbd69;
+  font-variant-numeric: tabular-nums;
+  padding-left: 8px;
+}
+.dh-close {
+  flex: none;
+  width: 32px;
+  height: 32px;
+  border: 1px solid #ad8050;
+  background: #3b2b2c;
+  font-size: 25px !important;
+  line-height: 1;
+}
+.dh-entries {
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-color: #85633e #241d2a;
+  min-height: 0;
+}
+.dh-entry {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  text-align: left;
+  padding: 12px 8px;
+  border: 0;
+  border-bottom: 1px solid #674c37;
+  background: transparent;
+}
+.dh-entry:hover,
+.dh-entry:focus-visible {
+  background: rgb(207 144 51 / 16%);
+}
+.dh-entry-text {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+  flex: 1;
+}
+.dh-entry strong {
+  font-size: 17px;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+.dh-context,
+.dh-preview {
+  font:
+    400 12px/1.4 "Paseo Source Sans",
+    system-ui,
+    sans-serif;
+  color: var(--dh-muted);
+  overflow-wrap: anywhere;
+}
+.dh-preview {
+  color: #ead7b9;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+.dh-entry-arrow {
+  color: var(--dh-gold);
+  font-size: 20px;
+}
+.dh-portrait {
+  display: inline-block;
+  background-repeat: no-repeat;
+  flex: none;
+}
+.dh-entry > .dh-item-icon {
+  width: 38px;
+  height: 38px;
+  flex: none;
+}
+.dh-tray > footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 8px 2px;
+  font:
+    400 11px/1.4 "Paseo Source Sans",
+    system-ui,
+    sans-serif;
+  color: var(--dh-muted);
+}
+.dh-tray > footer span:last-child {
+  white-space: nowrap;
+}
+.dh-empty,
+.dh-more {
+  padding: 16px 8px;
+  font:
+    400 14px/1.5 "Paseo Source Sans",
+    system-ui,
+    sans-serif;
+  color: var(--dh-muted);
+}
+.dh-more {
+  padding-block: 8px;
+  font-size: 12px;
+}
+.dh-settings {
+  padding: 5px 8px;
+  border: 1px solid #ad8050;
+  background: #3b2b2c;
+}
+.dh-art-error {
+  position: absolute;
+  bottom: 100%;
+  left: 12px;
+  padding: 4px 8px;
+  background: #241d2a;
+  font:
+    12px/1.4 system-ui,
+    sans-serif;
+}
+.native-world-frame:has(.dungeon-hud) .world-chat {
+  bottom: calc(var(--dungeon-belt-height, 145px) + 18px);
+}
+.native-world-frame:has(.dungeon-hud) .world-chat.log {
+  bottom: calc(var(--dungeon-belt-height, 145px) + 18px);
+}
+@keyframes dh-open {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .dh-tray {
+    animation: none;
+  }
+}
+@container (max-width: 480px) {
+  .dh-tray {
+    left: 8px;
+    right: 8px;
+    width: auto;
+    border-width: 10px;
+    border-image-width: 10px;
+  }
+  .dh-belt-name {
+    font-size: 9px;
+    letter-spacing: 0.06em;
+  }
+  .dh-slot-label {
+    font-size: 10px;
+  }
+  .dh-slot-label,
+  .dh-orb-label {
+    letter-spacing: 0;
+  }
+  .dh-tray h2 {
+    font-size: 19px;
+  }
+  .dh-entry {
+    gap: 8px;
+  }
+  .dh-tray > footer span:first-child {
+    display: none;
+  }
+}

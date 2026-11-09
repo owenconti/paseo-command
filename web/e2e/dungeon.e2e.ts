@@ -220,13 +220,12 @@ test("the vault: your PRs' and issues' stained-glass niches over the first gate,
   assert.deepEqual(scene.entities.filter((e) => e.kind === "tile").map((e) => e.id), board.vault.map((t: any) => t.id));
   for (const t of board.vault) assert.deepEqual(scene.sprites.filter((s) => s.e === t.id).map((s) => s.f), ["niche-arch", t.frame]);
   assert.ok(scene.sprites.filter((s) => s.e?.startsWith("tile:")).every((s) => !s.dim), "both halls count: nothing dim");
-  // The current-state footer replaces the title and historical-totals panel, freeing the board's width.
+  // The accessible game HUD owns its live controls; Swift no longer paints the static footer.
   const hud = (await native(page)).agents.at(-1)!.hud;
-  assert.equal(hud.title, undefined);
-  assert.equal(hud.panel, undefined);
-  assert.ok(hud.counts.key.startsWith("hud:now:"));
-  assert.ok(hud.countsCompact.key.endsWith(":compact"));
-  assert.deepEqual(board.now.filter((x: any) => ["waiting", "unread", "failed"].includes(x.label)).map((x: any) => x.n), [board.counts.needYou, board.counts.unread, board.counts.failed]);
+  assert.deepEqual(hud, {});
+  await page.getByLabel("Dungeon command belt").waitFor();
+  await page.getByRole("button", { name: `Waiting on you: ${board.counts.needYou}`, exact: true }).waitFor();
+  await page.getByRole("button", { name: `Unread replies: ${board.counts.unread}`, exact: true }).waitFor();
   // The upper masonry cap sits behind the cloth and the pillar capitals, never cutting across either.
   const z = (f: string) => scene.sprites.filter((s) => s.f === f).map((s) => s.z);
   assert.ok(scene.sprites.filter((s) => s.f === "pillar-capital" && s.y > 80).every((s) => s.z > Math.min(...z("rampart-x"))));
@@ -259,5 +258,65 @@ test("the vault with Linear off: its niches dim and their cards say why", async 
   assert.ok(!dim("prs").some(Boolean), "GitHub's stay lit");
   await swift(page, { type: "hover", id: "tile:issues:todo", x: 500, y: 60 });
   await waitFor(() => page.locator(".atlas-world-card").textContent({ timeout: 500 }).catch(() => ""), (t) => !!t && /Enable Linear in Settings/.test(t), "the card saying why");
+  await page.context().close();
+});
+
+
+test("the command belt opens real queues, keeps requests unread until opened, and gives the map room", async () => {
+  const { page } = await open("dungeon");
+  const board = await waitFor(() => inspect(page), (i) => i?.counts?.unread > 0 && i?.counts?.needYou > 0, "the fleet", 30000);
+  const replies = page.getByRole("button", { name: `Unread replies: ${board.counts.unread}`, exact: true });
+  await replies.click();
+  const tray = page.getByRole("dialog", { name: /Unread replies/ });
+  await tray.waitFor();
+  assert.equal(await tray.locator(".dh-entry").count(), board.counts.unread);
+  assert.equal((await inspect(page)).counts.unread, board.counts.unread, "opening a tray reads no reply");
+  await page.keyboard.press("Escape");
+  await tray.waitFor({ state: "detached" });
+  assert.equal(await replies.evaluate((e) => e === document.activeElement), true, "Escape restores the slot's focus");
+  await page.getByRole("button", { name: /Waiting on you:/ }).click();
+  await page.getByRole("dialog", { name: /Waiting on you/ }).waitFor();
+  await page.getByRole("button", { name: /Running agents:/ }).click();
+  const running = page.getByRole("dialog", { name: /Running agents/ });
+  assert.equal(await running.locator(".dh-entry").count(), board.counts.running);
+  // Queues keep the source's counts even though PR/issue sample lists are capped.
+  await page.getByRole("button", { name: "Pull requests in review: 3", exact: true }).click();
+  await page.getByRole("dialog", { name: /Pull requests in review/ }).getByText(/diagonal/).first().waitFor();
+  await page.keyboard.press("Escape");
+  const bounds = await page.evaluate(() => {
+    const map = document.querySelector(".native-map-surface")!.getBoundingClientRect();
+    const hud = document.querySelector(".dungeon-hud")!.getBoundingClientRect();
+    return { mapBottom: map.bottom, hudTop: hud.top };
+  });
+  assert.ok(Math.abs(bounds.mapBottom - bounds.hudTop) <= 1, "the native viewport ends above the belt");
+  await replies.click();
+  await tray.locator(".dh-entry").first().click();
+  await tray.waitFor({ state: "detached" });
+  await waitFor(() => inspect(page), (i) => !!i?.selected, "the reply's agent selection");
+  await page.context().close();
+});
+
+test("an unavailable integration shows a reason instead of a misleading zero", async () => {
+  const { page } = await open("dungeon", { linear: false });
+  await page.getByRole("button", { name: "Blocked issues: —", exact: true }).click();
+  const tray = page.getByRole("dialog", { name: /Blocked issues/ });
+  await tray.getByText(/Enable Linear in Settings/).waitFor();
+  assert.equal(await tray.locator(".dh-entry").count(), 0);
+  await page.context().close();
+});
+
+test("the belt gives Escape to a palette first and keeps its tray open beneath it", async () => {
+  const { page } = await open("dungeon");
+  await page.getByRole("button", { name: /Unread replies:/ }).click();
+  const tray = page.getByRole("dialog", { name: /Unread replies/ });
+  await tray.waitFor();
+  await page.keyboard.press("Meta+k");
+  const dialog = page.getByRole("dialog", { name: "Command palette" });
+  await dialog.waitFor();
+  await page.keyboard.press("Escape");
+  await dialog.waitFor({ state: "detached" });
+  assert.equal(await tray.count(), 1, "the underlying tray is still open");
+  await page.keyboard.press("Escape");
+  await tray.waitFor({ state: "detached" });
   await page.context().close();
 });

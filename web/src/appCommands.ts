@@ -4,6 +4,9 @@ import type { ShortcutKey } from "./shortcutKey";
  * the floating panel, the header's dialogs, the open agent), as their own
  * keys and buttons do. */
 export type AppCommand =
+  | "dungeon-tray"
+  | "dungeon-tray-close"
+  | "dungeon-tray-settings"
   | "fit-world"
   | "toggle-panel"
   | "show-shortcuts"

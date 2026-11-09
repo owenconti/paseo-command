@@ -629,6 +629,7 @@ function App() {
   const [talking, setTalking] = useState(false);
   // How much of the map's foot the box covers, so the board frames its robot above it.
   const [talkInset, setTalkInset] = useState(0);
+  const [hudTray, setHudTray] = useState<string | null>(null);
   // The box shows the whole conversation (its log), kept as the box steps from robot to robot.
   const [talkLog, setTalkLog] = useState(false);
   const talkOnPick = useTalkOnPick();
@@ -1495,6 +1496,13 @@ function App() {
           },
         ]
       : []),
+    ...(talkable && !confirming ? [
+      ...[["waiting", "Show agents waiting on you"], ["replies", "Show unread replies on the command belt"], ["failures", "Show failed agents on the command belt"], ["review", "Show PRs in review on the command belt"], ["blocked", "Show blocked issues on the command belt"], ["running", "Show running agents on the command belt"]].map(([id, label]) => ({
+        id: `dungeon-${id}`, group: "Navigate", page: "Command" as const, label: hudTray === id ? label!.replace(/^Show/, "Close") : label!, keywords: "dungeon command belt orb tray quest log attention", run: () => runAppCommand("dungeon-tray", id),
+      })),
+      ...((hudTray === "review" || hudTray === "blocked") ? [{ id: "dungeon-tray-settings", group: "Actions", page: "Settings" as const, label: hudTray === "blocked" ? "Open Linear integration settings" : "Open GitHub integration settings", keywords: "dungeon command belt integration key token unavailable", run: () => runAppCommand("dungeon-tray-settings") }] : []),
+      ...(hudTray ? [{ id: "dungeon-tray-close", group: "Actions", page: "Command" as const, label: "Close the command belt tray", keys: [["Esc"]], keywords: "dungeon quest log dismiss", run: () => runAppCommand("dungeon-tray-close") }] : []),
+    ] : []),
     // The Dungeon Board's dialogue box for the selected robot (src/worldChat/).
     ...(agent && talkable && !selection?.subagent && !talkShown
       ? [
@@ -2658,6 +2666,10 @@ function App() {
                 loaded={!loading}
                 talking={talkShown}
                 talkInset={talkInset}
+                hudVisible={appMode === "command" && !settingsShown}
+                onDispatch={() => openDispatch()}
+                onBrowseHud={() => setTalking(false)}
+                onHudTray={setHudTray}
               />
             </React.Suspense>
             {talkShown && agent && (

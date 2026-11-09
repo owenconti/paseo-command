@@ -108,6 +108,7 @@ const DUNGEON_TALK: Group = {
   title: "Talking on the Dungeon Board",
   note: "While a robot's dialogue box shows (picking a robot opens it)",
   rows: [
+    { keys: [["Esc"]], label: "Close the open command belt tray" },
     { keys: [["T"]], label: "Talk to the selected robot" },
     { keys: [["Enter"], ["Space"]], label: "Show the whole page at once (hold to keep it so), then the next page; pick the marked choice" },
     { keys: [["←"], ["→"]], label: "Previous or next page" },

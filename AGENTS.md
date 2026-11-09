@@ -810,10 +810,15 @@ a `tile` entity (`tile:<hall>:<key>`, as the Village's), glowing with its sprite
 and a click opens its first PR or issue through `openAppLink` (never a selection). The counts are the Village's
 (`useVillageCounts` in `web/src/villageCounts.ts`, asked every minute while the Village or the Dungeon Board shows;
 `DASH_TILES`, `dashCount`, `dashText` in `rendering/src/dashboard.ts`). The HUD has no title banner or right-hand stats panel.
-Its compact bottom “Now” bar (`dungeonNow` in `layout.ts`, `paintCounts` in `bridge.ts`) prioritizes waiting agents
-(approval, question, asking), unread replies and failures, then running work and offline agents; idle appears when nothing
-runs. It keeps historical PR/issue totals in the vault's cards. Swift chooses a two-column footer when the full row would
-shrink, reserves its height below the board and hides it during a conversation. Robots stand at a 70 px pitch (55 px tall).
+Its persistent game HUD (`web/src/dungeon/`, mounted by `NativeWorld.tsx`) replaces the static footer: amber Waiting and
+teal Running orbs, a belt of Replies, Failures, PR review, Blocked and Dispatch slots, original painted transparent art
+(`hud.webp`, `ART.md`; `art.ts` trims the atlas's nine cells). Labels and counts are accessible HTML. Slots open a non-modal
+quest-log tray above the belt; the same slot, × or Escape closes it, Escape returning focus (other modal layers go first).
+Agent rows open their conversation; PRs and issues open through `openAppLink`; Dispatch uses the existing New agent form.
+Counts use the map's real states; offline hosts are excluded. Integrations retain “—” and their reason while unavailable,
+and capped item lists say how many they show. Read-only timeline snippets load as rows enter the tray; opening a tray never
+marks replies read. The map viewport ends above the measured HUD, as does the dialogue box; the belt stays beneath it.
+The palette's `dungeon-tray` and `dungeon-tray-close` mirror its actions. Robots stand at a 70 px pitch (55 px tall).
 Upper wall cloth hangs in front of its rampart, with pillar capitals in front of both; lit braziers and forges have no
 extra purple shade (offline floors remain dim). A hovered niche's card
 follows its counts as they refresh. Each floor is assembled
