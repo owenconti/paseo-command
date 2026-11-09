@@ -71,15 +71,16 @@
   background-image: var(--dh-running);
 }
 .dh-orb-number {
-  /* Centred on the orb's glass: the art is height-bound (contain, bottom), its glass the top ~60%. */
+  /* The glass is centred 37% down the trimmed artwork, above its plaque and base. */
   position: absolute;
-  top: 1%;
+  top: 7%;
   height: 60%;
   inset-inline: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding-top: 0.06em;
+  padding: 0;
+  text-align: center;
   box-sizing: border-box;
   font-size: clamp(25px, 4cqw, 46px);
   line-height: 1;
@@ -88,6 +89,7 @@
 }
 .dh-orb-label {
   position: absolute;
+  text-align: center;
   bottom: 16%;
   inset-inline: 0;
   text-transform: uppercase;
