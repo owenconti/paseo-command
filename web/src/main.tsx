@@ -1,4 +1,5 @@
 import { MAP_STYLES, mapStyle, setMapStyle, useMapStyle } from "./mapStyle";
+import { conversationOrder } from "./worldChat/navigation";
 import { setTalkOnPick, talkOnPickSetting, useTalkOnPick } from "./worldChat/settings";
 import { useAsks } from "./useAsks";
 import { useWorkingOn } from "./useWorkingOn";
@@ -780,6 +781,8 @@ function App() {
     ],
   );
   const order = fleet.order;
+  const conversationRoster = useMemo(() => conversationOrder(active), [active]);
+  const navigationOrder = talkOn ? conversationRoster : order;
   const attentionAgents = useMemo(
     () => active.filter((a) => needsAttention(a, needYou)),
     [active, needYou],
@@ -819,17 +822,17 @@ function App() {
 
   const step = useCallback(
     (delta: number) => {
-      if (!order.length) return;
-      const index = order.findIndex((a) => a.id === selection?.id);
+      if (!navigationOrder.length) return;
+      const index = navigationOrder.findIndex((a) => a.id === selection?.id);
       const next =
         index < 0
           ? delta > 0
             ? 0
-            : order.length - 1
-          : (index + delta + order.length) % order.length;
-      choose({ type: "agent", id: order[next].id });
+            : navigationOrder.length - 1
+          : (index + delta + navigationOrder.length) % navigationOrder.length;
+      choose({ type: "agent", id: navigationOrder[next].id });
     },
-    [order, selection, choose],
+    [navigationOrder, selection, choose],
   );
   const nextAttention = useCallback(() => {
     // In the listed order, cycling, then any the list doesn't show.
@@ -1145,10 +1148,10 @@ function App() {
       } else if (key === "d") {
         e.preventDefault();
         openDispatch();
-      } else if (key === "j" || e.key === "ArrowDown") {
+      } else if (key === "j" || e.key === "ArrowDown" || (e.key === "ArrowRight" && !e.shiftKey && appMode === "command" && !settingsShown)) {
         e.preventDefault();
         step(1);
-      } else if (key === "k" || e.key === "ArrowUp") {
+      } else if (key === "k" || e.key === "ArrowUp" || (e.key === "ArrowLeft" && !e.shiftKey && appMode === "command" && !settingsShown)) {
         e.preventDefault();
         step(-1);
       } else if (key === "n") {
@@ -1192,6 +1195,8 @@ function App() {
     issueKey,
     issueUrl,
     talkable,
+    appMode,
+    settingsShown,
   ]);
   // A file dropped outside the session would otherwise make
   // the browser navigate away to open it.
@@ -1700,8 +1705,8 @@ function App() {
       group: "Navigate",
       page: "Command" as const,
       label: "Next agent",
-      // The dialogue box's ▶ steps too.
-      keys: talkShown ? [["J"], ["⇧", "→"]] : [["J"]],
+      // Right steps too while Command shows.
+      keys: appMode === "command" && !settingsShown ? [["J"], ["→"]] : [["J"]],
       run: () => step(1),
     },
     {
@@ -1709,7 +1714,7 @@ function App() {
       group: "Navigate",
       page: "Command" as const,
       label: "Previous agent",
-      keys: talkShown ? [["K"], ["⇧", "←"]] : [["K"]],
+      keys: appMode === "command" && !settingsShown ? [["K"], ["←"]] : [["K"]],
       run: () => step(-1),
     },
     {
@@ -2668,16 +2673,16 @@ function App() {
     .sort((a, b) => tabEntries.indexOf(a.id) - tabEntries.indexOf(b.id))
     .forEach((c, n) => (paletteCommands[tabSlots[n]] = c));
   const position = {
-    index: agent ? order.findIndex((a) => a.id === agent.id) : -1,
-    total: order.length,
+    index: agent ? navigationOrder.findIndex((a) => a.id === agent.id) : -1,
+    total: navigationOrder.length,
     prev: () => step(-1),
     next: () => step(1),
   };
-  // The dialogue box's ◀ ▶: the robots J/K step to, named.
+  // The dialogue controls name the neighbouring robots in their stable roster.
   const stepTo = (delta: number) => {
-    const n = order.length;
+    const n = navigationOrder.length;
     if (!n) return undefined;
-    const row = order[position.index < 0 ? (delta > 0 ? 0 : n - 1) : (position.index + delta + n) % n];
+    const row = navigationOrder[position.index < 0 ? (delta > 0 ? 0 : n - 1) : (position.index + delta + n) % n];
     return row && agentName(row, workspaceOf(row)?.branch);
   };
   const talkPosition = talkShown ? { ...position, prevName: stepTo(-1), nextName: stepTo(1) } : position;

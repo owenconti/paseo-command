@@ -32,6 +32,7 @@ import { modalOpen } from "../focus";
 import { openFileLink, openInAppBrowser } from "../Session";
 import { exchangeOf, pageReply, type PageRoom } from "./script";
 import { ROBOTS_SHEET, ROBOTS_URL, robotFrames, uiFrame } from "./art";
+import navigationArt from "./navigation.webp";
 import "./world-chat.css";
 
 export type WorldChatProps = {
@@ -742,7 +743,7 @@ export function WorldChat(props: WorldChatProps) {
         if (s.entry) setEntry(null);
         else if (s.log) s.setLog(false);
         else s.onClose();
-      } else if (e.shiftKey && (key === "ArrowLeft" || key === "ArrowRight")) {
+      } else if (!e.shiftKey && (key === "ArrowLeft" || key === "ArrowRight")) {
         // The previous or next robot (as J/K step), its conversation in the box.
         if (s.position.total < 2) return;
         take();
@@ -785,9 +786,6 @@ export function WorldChat(props: WorldChatProps) {
         take();
         const n = s.choices.length;
         if (s.choicesShown && n) s.setCursor((s.cursor + (key === "ArrowDown" ? 1 : n - 1)) % n);
-      } else if ((key === "ArrowLeft" || key === "ArrowRight") && inBox) {
-        take();
-        s.go(s.page + (key === "ArrowRight" ? 1 : -1));
       } else if (key === "End" || key === "PageDown") {
         take();
         s.go(s.pages - 1);
@@ -954,30 +952,28 @@ export function WorldChat(props: WorldChatProps) {
         ×
       </button>
       {position.total > 1 && (
-        <>
+        <nav className="wc-navigation" aria-label="Agents">
           <button
             type="button"
             className="wc-nav prev"
-            tabIndex={-1}
-            aria-label={`Previous agent${position.prevName ? `: ${position.prevName}` : ""} (⇧←)`}
+            style={{ backgroundImage: `url(${navigationArt})` }}
+            aria-label={`Previous agent${position.prevName ? `: ${position.prevName}` : ""} (←)`}
             title={`Previous agent${position.prevName ? `: ${position.prevName}` : ""}`}
-            onClick={position.prev}
+            onClick={(e) => { e.stopPropagation(); position.prev(); }}
           >
-            <span aria-hidden="true">◀</span>
-            <kbd className="wc-key">⇧←</kbd>
+            <span className="sr-only">Previous agent</span>
           </button>
           <button
             type="button"
             className="wc-nav next"
-            tabIndex={-1}
-            aria-label={`Next agent${position.nextName ? `: ${position.nextName}` : ""} (⇧→)`}
+            style={{ backgroundImage: `url(${navigationArt})` }}
+            aria-label={`Next agent${position.nextName ? `: ${position.nextName}` : ""} (→)`}
             title={`Next agent${position.nextName ? `: ${position.nextName}` : ""}`}
-            onClick={position.next}
+            onClick={(e) => { e.stopPropagation(); position.next(); }}
           >
-            <span aria-hidden="true">▶</span>
-            <kbd className="wc-key">⇧→</kbd>
+            <span className="sr-only">Next agent</span>
           </button>
-        </>
+        </nav>
       )}
       <Portrait provider={agent.provider} state={state} />
       <div className="wc-body">

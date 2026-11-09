@@ -22,8 +22,8 @@ const GROUPS: Group[] = [
     title: "Navigate",
     note: "Outside text fields",
     rows: [
-      { keys: [["J"], ["↓"]], label: "Next agent" },
-      { keys: [["K"], ["↑"]], label: "Previous agent" },
+      { keys: [["J"], ["↓"], ["→"]], label: "Next agent (Right in Command)" },
+      { keys: [["K"], ["↑"], ["←"]], label: "Previous agent (Left in Command)" },
       { keys: [["N"]], label: "Next agent that needs you" },
       { keys: [["F"]], label: "Fit the whole map" },
       { keys: [["Esc"]], label: "Close the open layer, or go back (not from an agent)" },
@@ -111,7 +111,6 @@ const DUNGEON_TALK: Group = {
     { keys: [["Esc"]], label: "Close the open command belt tray" },
     { keys: [["T"]], label: "Talk to the selected robot" },
     { keys: [["Enter"], ["Space"]], label: "Show the whole page at once (hold to keep it so), then the next page; reopen actions after sending, or pick the marked choice" },
-    { keys: [["←"], ["→"]], label: "Previous or next page" },
     { keys: [["End"]], label: "Skip to the last page and its choices" },
     { keys: [["↑"], ["↓"]], label: "Move through the choices" },
     { keys: [["1"], ["…"], ["9"]], label: "Pick that choice" },
@@ -119,7 +118,7 @@ const DUNGEON_TALK: Group = {
     { keys: [["H"]], label: "Show the whole conversation, or back to the box (scrolling up opens it too)" },
     { keys: [["↑"], ["↓"], ["PageUp"], ["PageDown"], ["Home"], ["End"]], label: "In the conversation: scroll it" },
     { keys: [["Enter"], ["R"]], label: "In the conversation: write in its composer" },
-    { keys: [["⇧", "←"], ["⇧", "→"]], label: "The previous or next robot (as K and J)" },
+    { keys: [["←"], ["→"]], label: "The previous or next robot (as K and J)" },
     { keys: [["Esc"]], label: "Leave the composer, the conversation's log, then the box (the robot stays selected)" },
   ],
 };

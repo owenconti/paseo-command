@@ -485,7 +485,7 @@ export function NativeWorld(props: Props) {
         tabIndex={0}
         role="application"
         aria-roledescription="map"
-        aria-label={`${worldName || "Atlas world"}. Drag to pan, scroll to zoom, arrow keys pan, F fits every host. Select a robot to open its conversation.`}
+        aria-label={`${worldName || "Atlas world"}. Drag to pan, scroll to zoom, Up/Down pan, Left/Right select agents, F fits every host. Select a robot to open its conversation.`}
         onPointerLeave={() => setTip(null)}
       />
       {hudShown && <DungeonHud data={data} agents={props.agents} snapshot={snapshot} summaries={props.workingOn} blocked={props.blocked} talking={!!props.talking}

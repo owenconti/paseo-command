@@ -102,6 +102,8 @@ export function nativeSurface(
       "keydown",
       ((e: KeyboardEvent) => {
         if (!opts.enabled() || e.metaKey || e.ctrlKey || e.altKey) return;
+        // Left/Right select agents; they never enter the native map's pan loop.
+        if (e.key === "ArrowLeft" || e.key === "ArrowRight") return;
         if (e.key.startsWith("Arrow")) {
           e.preventDefault();
           post({ type: "key", key: e.key, down: true });
@@ -111,7 +113,7 @@ export function nativeSurface(
     ],
     [
       "keyup",
-      ((e: KeyboardEvent) => e.key.startsWith("Arrow") && post({ type: "key", key: e.key, down: false })) as EventListener,
+      ((e: KeyboardEvent) => (e.key === "ArrowUp" || e.key === "ArrowDown") && post({ type: "key", key: e.key, down: false })) as EventListener,
     ],
     ["blur", (() => post({ type: "key", key: "all", down: false })) as EventListener],
   ];

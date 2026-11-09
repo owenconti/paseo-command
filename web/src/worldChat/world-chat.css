@@ -500,37 +500,25 @@
   }
 }
 
-/* ◀ ▶: the previous and next robot, either side of the box. */
+/* Painted stone medallions: real buttons with a 60 px hit target and no shortcut badge. */
+.wc-navigation { display: contents; }
 .wc-nav {
   position: absolute;
   bottom: 52px;
-  display: grid;
-  justify-items: center;
-  gap: 4px;
-  width: 56px;
-  padding: 10px 0 6px;
-  border: 2px solid #c2871f;
-  border-radius: 12px;
-  background: #251e40;
-  box-shadow: inset 0 0 0 1px #000012, 0 8px 18px rgb(0 0 0 / 45%);
-  color: var(--wc-gold);
-  font: 800 18px/1 inherit;
-  font-family: inherit;
+  width: 60px;
+  height: 60px;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent 0 50% / 200% 100% no-repeat;
+  filter: drop-shadow(0 5px 6px rgb(0 0 0 / 40%));
   cursor: pointer;
 }
-.wc-nav.prev {
-  left: -84px;
-}
-.wc-nav.next {
-  right: -84px;
-}
-.wc-nav:hover {
-  border-color: #ffe56e;
-  color: #ffe56e;
-}
-.wc-nav .wc-key {
-  font-size: 9.5px;
-}
+.wc-nav.prev { left: -78px; }
+.wc-nav.next { right: -78px; background-position: 100% 50%; }
+.wc-nav:hover { filter: brightness(1.15) drop-shadow(0 5px 6px rgb(0 0 0 / 40%)); }
+.wc-nav:active { transform: translateY(1px); }
+.wc-nav:focus-visible { outline: 2px solid #ffe56e; outline-offset: 2px; }
 
 /* In the dialogue header, below the name banner; it never shares the banner's raised strip. */
 .wc-log-toggle {
@@ -645,3 +633,20 @@
 }
 .wc-actions:hover { color: #ffe56e; background: #382b4c; }
 .wc-actions:focus-visible { outline: 2px solid #ffe56e; outline-offset: 2px; }
+
+/* A narrow map keeps the controls inside its dialogue instead of behind the session panel. */
+@container (max-width: 600px) {
+  .world-chat {
+    --wc-height: 248px;
+    width: calc(100% - 24px);
+    grid-template-columns: 72px minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr) 44px;
+    column-gap: 8px;
+    padding: 12px 8px 4px;
+  }
+  .wc-nameplate { left: 12px; max-width: calc(100% - 24px); }
+  .wc-portrait { width: 72px; height: 96px; }
+  .wc-log-toggle .wc-key { display: none; }
+  .wc-navigation { display: flex; grid-column: 1 / -1; align-items: center; justify-content: space-between; }
+  .wc-nav { position: static; width: 44px; height: 44px; }
+}

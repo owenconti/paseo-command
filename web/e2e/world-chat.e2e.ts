@@ -40,6 +40,8 @@ type Options = {
   /** Picking a robot opens the box (Settings → Map); kept before the page loads. */
   talkOnPick?: boolean;
   motion?: boolean;
+  filter?: "running";
+  names?: Record<string, string>;
 };
 async function open(options: Options = {}): Promise<{ page: Page; posts: Post[] }> {
   const context = await newContext(browser);
@@ -48,7 +50,7 @@ async function open(options: Options = {}): Promise<{ page: Page; posts: Post[] 
   await page.addInitScript((talkOnPick) => {
     localStorage.setItem("paseo-command:atlas:style", JSON.stringify("dungeon"));
     if (talkOnPick === false) localStorage.setItem("paseo-command:world:talkOnPick", "false");
-    const host = { arts: [] as string[], talks: [] as unknown[], selected: null as string | null };
+    const host = { arts: [] as string[], talks: [] as unknown[], keys: [] as string[], selected: null as string | null };
     (window as any).__native = host;
     (window as any).webkit = {
       messageHandlers: {
@@ -58,6 +60,7 @@ async function open(options: Options = {}): Promise<{ page: Page; posts: Post[] 
               host.arts.push(m.scene);
               setTimeout(() => window.dispatchEvent(new CustomEvent("paseo:world", { detail: { type: "ready" } })));
             }
+            if (m.type === "key") host.keys.push(m.key);
             if (m.type === "select") host.selected = m.id;
             if (m.type === "talk") host.talks.push({ id: m.id, inset: m.inset });
           },
@@ -67,7 +70,7 @@ async function open(options: Options = {}): Promise<{ page: Page; posts: Post[] 
   }, options.talkOnPick ?? true);
   const posts: Post[] = [];
   await mockApi(page, {
-    agents: () => dungeon.agents,
+    agents: () => dungeon.agents.map((a) => options.names?.[a.id] ? { ...a, name: options.names[a.id] } : a),
     permissions: () => dungeon.permissions,
     hosts: () => dungeon.hosts,
     projects: () => dungeon.projects,
@@ -88,12 +91,12 @@ async function open(options: Options = {}): Promise<{ page: Page; posts: Post[] 
       settings: { linearWorkspace: "", integrations: { github: true, linear: true, typesafe: false }, error: null },
     },
   } as any);
-  await page.goto(app.url);
+  await page.goto(options.filter ? `${app.url}?filter=${options.filter}` : app.url);
   await waitFor(() => inspect(page), (i) => i?.scene === "dungeon" && !!i.agents?.length, "the board", 30000);
   return { page, posts };
 }
 const inspect = (page: Page) => page.evaluate(() => (window as any).paseoAtlas?.inspect() as any);
-const native = (page: Page) => page.evaluate(() => (window as any).__native as { talks: { id: string | null; inset: number }[]; selected: string | null });
+const native = (page: Page) => page.evaluate(() => (window as any).__native as { talks: { id: string | null; inset: number }[]; selected: string | null; keys: string[] });
 const swift = (page: Page, detail: Record<string, unknown>) =>
   page.evaluate((d) => window.dispatchEvent(new CustomEvent("paseo:world", { detail: d })), detail);
 const key = (id: string, host = "local") => JSON.stringify([host, id]);
@@ -147,9 +150,9 @@ test("picking a robot opens its dialogue box over the board, not the hidden pane
   }
   await page.setViewportSize({ width: 1200, height: 1000 });
   for (const label of ["Reply…", "Open the full chat", "Leave"]) await menu.getByRole("menuitem", { name: new RegExp(label) }).waitFor();
-  // ← goes back a page, already typed.
+  // Home goes back to the first page, already typed; Left/Right belong to robot navigation.
   await dialog.focus();
-  await page.keyboard.press("ArrowLeft");
+  await page.keyboard.press("Home");
   assert.equal(await choices(page).count(), 0);
   await page.keyboard.press("End");
   await choices(page).waitFor();
@@ -380,8 +383,9 @@ test("H opens the whole conversation upward over the board, scrolling up does to
   await log.waitFor({ state: "detached" });
 });
 
-test("◀ ▶ either side of the box step to the previous and next robot; ⇧← ⇧→ too", async () => {
+test("painted navigation buttons and plain Left/Right step through robots despite sidebar filters", async () => {
   const { page } = await open({
+    filter: "running",
     timelines: {
       "a-api-1": [{ kind: "user", text: "Tidy the README", messageId: "u1" }, { kind: "assistant", text: "Done.", messageId: "r1" }],
     },
@@ -389,11 +393,11 @@ test("◀ ▶ either side of the box step to the previous and next robot; ⇧←
   await pick(page, "a-api-1");
   const dialog = box(page);
   await dialog.waitFor();
-  const next = dialog.getByRole("button", { name: /^Next agent: .+ \(⇧→\)$/ });
-  const prev = dialog.getByRole("button", { name: /^Previous agent: .+ \(⇧←\)$/ });
+  const next = dialog.getByRole("button", { name: /^Next agent: .+ \(→\)$/ });
+  const prev = dialog.getByRole("button", { name: /^Previous agent: .+ \(←\)$/ });
   await next.waitFor();
   await prev.waitFor();
-  const nextName = /^Next agent: (.+) \(⇧→\)$/.exec((await next.getAttribute("aria-label"))!)![1]!;
+  const nextName = /^Next agent: (.+) \(→\)$/.exec((await next.getAttribute("aria-label"))!)![1]!;
   // The ◀ ▶ sit outside the box, either side of it.
   const [b, l, r] = await Promise.all([dialog.boundingBox(), prev.boundingBox(), next.boundingBox()]);
   assert.ok(l!.x + l!.width <= b!.x && r!.x >= b!.x + b!.width, "the buttons flank the box");
@@ -403,6 +407,18 @@ test("◀ ▶ either side of the box step to the previous and next robot; ⇧←
   assert.notEqual(stepped, key("a-api-1"));
   await waitFor(() => native(page), (n) => n.talks.at(-1)?.id === stepped, "the board frames the next robot");
   await box(page).focus();
-  await page.keyboard.press("Shift+ArrowLeft");
+  await page.keyboard.press("ArrowLeft");
   await waitFor(async () => (await box(page).getAttribute("aria-label")) ?? "", (label) => /api agent 2/.test(label), "back to the first robot");
+  assert.equal(await box(page).locator(".wc-nav .wc-key").count(), 0, "navigation has no shortcut badges");
+  await box(page).getByRole("button", { name: /^Previous agent:/ }).click();
+  assert.notEqual((await native(page)).selected, key("a-api-1"), "the previous button works too");
+  await box(page).focus();
+  await page.keyboard.press("ArrowRight");
+  await waitFor(() => native(page), (n) => n.selected === key("a-api-1"), "Right returns to the original robot");
+  await box(page).getByRole("button", { name: "Leave the conversation (Esc)" }).click();
+  await page.locator(".native-map-surface").focus();
+  await page.keyboard.press("ArrowRight");
+  await waitFor(() => native(page), (n) => n.selected !== key("a-api-1"), "Right navigates from the map too");
+  assert.ok(!(await native(page)).keys.some((k) => k === "ArrowLeft" || k === "ArrowRight"), "Left/Right never pan the native map");
 });
+
