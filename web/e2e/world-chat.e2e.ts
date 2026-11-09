@@ -245,14 +245,13 @@ test("a question is answered with its options, keyed by its header, on its own h
 });
 
 test("a working robot says what it is doing; a follow-up is queued, not sent", async () => {
-  const { page, posts } = await open({
-    timelines: {
-      "a-api-2": [
-        { kind: "user", text: "Run the tests", messageId: "u1" },
-        { kind: "tool", name: "Bash", status: "running", summary: "npm test", detail: "npm test" },
-      ],
-    },
-  });
+  const timelines: Record<string, unknown[]> = {
+    "a-api-2": [
+      { kind: "user", text: "Run the tests", messageId: "u1" },
+      { kind: "tool", name: "Bash", status: "running", summary: "npm test", detail: "npm test" },
+    ],
+  };
+  const { page, posts } = await open({ timelines });
   await pick(page, "a-api-2");
   const dialog = box(page);
   await dialog.waitFor();
@@ -273,6 +272,12 @@ test("a working robot says what it is doing; a follow-up is queued, not sent", a
   const actions = dialog.getByRole("button", { name: "Show conversation actions (Enter)" });
   await actions.waitFor();
   assert.equal(await choices(page).count(), 0, "queueing a follow-up keeps the actions closed");
+  timelines["a-api-2"].push(
+    { kind: "assistant", text: "The first checks passed; running the rest.", messageId: "progress-1" },
+    { kind: "tool", name: "Bash", status: "running", summary: "npm run updated-tests", detail: "npm run updated-tests" },
+  );
+  await dialog.locator(".wc-page").getByText(/updated-tests/).waitFor();
+  assert.equal(await choices(page).count(), 0, "live progress doesn't reopen the actions");
   await actions.click();
   await choices(page).getByRole("menuitem", { name: /Interrupt/ }).waitFor();
   // Queued, it's gone from the box's draft: opening the composer again starts empty.

@@ -390,8 +390,10 @@ export function WorldChat(props: WorldChatProps) {
   const [picked, setPicked] = useState<Set<number>[]>([]);
   const [other, setOther] = useState<string[]>([]);
   const permissionId = permission?.id ?? "";
-  // A reply or request arriving may offer new choices; sending a message alone never reopens them.
-  useEffect(() => setActionsHidden(false), [agent.id, x.reply?.id, permissionId]);
+  // Progress messages while it works don't reopen actions after a send. A finished reply or a new request can.
+  useEffect(() => {
+    if (permissionId || (!working && !pending.length && x.reply && !x.earlier)) setActionsHidden(false);
+  }, [agent.id, x.reply?.id, x.earlier, permissionId, working, pending.length]);
   useEffect(() => {
     setQi(0);
     setPicked((permission?.questions ?? []).map(() => new Set()));
