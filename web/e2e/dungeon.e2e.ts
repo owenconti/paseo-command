@@ -296,6 +296,21 @@ test("the command belt opens real queues, keeps requests unread until opened, an
   await page.context().close();
 });
 
+test("the belt's Dispatch opens the New agent form in the world's own panel", async () => {
+  const { page } = await open("dungeon");
+  await page.getByLabel("Dungeon command belt").waitFor();
+  assert.equal(await page.locator(".dungeon-hud").getByText("Command belt").count(), 0, "the belt carries no name");
+  await page.getByRole("button", { name: "New agent", exact: true }).click();
+  const dispatch = page.getByRole("dialog", { name: "Dispatch an agent" });
+  await dispatch.waitFor();
+  assert.equal(await dispatch.locator(".new-agent-form select[name=host]").count(), 1, "the app's own form");
+  assert.equal(await page.locator("#detail-panel .new-agent").count(), 0, "the side panel stays as it was");
+  await dispatch.locator("textarea").first().waitFor();
+  await page.keyboard.press("Escape");
+  await dispatch.waitFor({ state: "detached" });
+  await page.context().close();
+});
+
 test("an unavailable integration shows a reason instead of a misleading zero", async () => {
   const { page } = await open("dungeon", { linear: false });
   await page.getByRole("button", { name: "Blocked issues: —", exact: true }).click();

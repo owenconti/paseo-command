@@ -66,9 +66,16 @@
   background-image: var(--dh-running);
 }
 .dh-orb-number {
+  /* Centred on the orb's glass: the art is height-bound (contain, bottom), its glass the top ~60%. */
   position: absolute;
-  top: 30%;
+  top: 1%;
+  height: 60%;
   inset-inline: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding-top: 0.06em;
+  box-sizing: border-box;
   font-size: clamp(25px, 4cqw, 46px);
   line-height: 1;
   font-variant-numeric: tabular-nums;
@@ -90,16 +97,6 @@
   gap: 2%;
   position: relative;
   padding: 0 0 8px;
-}
-.dh-belt-name {
-  position: absolute;
-  inset: auto 0 100%;
-  text-align: center;
-  font-size: clamp(10px, 1.3cqw, 15px);
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
-  line-height: 1.5;
-  text-shadow: 0 1px 3px #0c0711;
 }
 .dh-slot {
   position: relative;
@@ -132,7 +129,7 @@
 }
 .dh-slot > .dh-item-icon {
   position: absolute;
-  inset: 9% 13% 25%;
+  inset: 13% 22% 37%;
   pointer-events: none;
 }
 .dh-icon-replies {
@@ -152,9 +149,12 @@
 }
 .dh-slot-label {
   position: absolute;
-  inset: auto 6% 9%;
-  font-size: clamp(10px, 1.4cqw, 16px);
+  inset: auto 10% 15%;
+  text-align: center;
+  font-size: clamp(10px, 1.25cqw, 15px);
   line-height: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
   text-shadow: 0 1px 3px #0e0814;
 }
@@ -162,14 +162,18 @@
   position: absolute;
   top: 2%;
   right: 4%;
-  padding: 1px 5px;
-  min-width: 18px;
+  display: grid;
+  place-items: center;
+  box-sizing: border-box;
+  min-width: 1.5em;
+  height: 1.5em;
+  padding: 0 0.3em;
   border: 1px solid #805024;
-  border-radius: 50%;
+  border-radius: 0.75em;
   background: #edb558;
   color: #231711;
   font:
-    700 clamp(11px, 1.6cqw, 18px)/1.1 "Iowan Old Style",
+    700 clamp(11px, 1.6cqw, 18px)/1 "Iowan Old Style",
     Georgia,
     serif;
   font-variant-numeric: tabular-nums;
@@ -189,31 +193,12 @@
   box-shadow: 0 12px 24px rgb(0 0 0 / 50%);
   animation: dh-open 0.16s cubic-bezier(0.16, 1, 0.3, 1);
 }
-.dh-tray::after {
-  content: "";
-  position: absolute;
-  top: calc(100% + 8px);
-  left: 12%;
-  width: 12px;
-  height: 12px;
-  transform: rotate(45deg);
-  background: #382b32;
-  border-right: 2px solid #b78a50;
-  border-bottom: 2px solid #b78a50;
-}
 .dh-tray-running {
   left: auto;
   right: 1%;
 }
-.dh-tray-running::after {
-  left: auto;
-  right: 10%;
-}
 .dh-tray-waiting {
   left: 1%;
-}
-.dh-tray-waiting::after {
-  left: 10%;
 }
 .dh-tray > header {
   display: flex;
@@ -237,12 +222,17 @@
 }
 .dh-close {
   flex: none;
+  display: grid;
+  place-items: center;
   width: 32px;
   height: 32px;
+  padding: 0;
   border: 1px solid #ad8050;
   background: #3b2b2c;
-  font-size: 25px !important;
-  line-height: 1;
+}
+.dh-close:hover,
+.dh-settings:hover {
+  background: #4a3633;
 }
 .dh-entries {
   overflow: auto;
@@ -334,7 +324,11 @@
   font-size: 12px;
 }
 .dh-settings {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   padding: 5px 8px;
+  line-height: 1.2;
   border: 1px solid #ad8050;
   background: #3b2b2c;
 }
@@ -372,10 +366,6 @@
     width: auto;
     border-width: 10px;
     border-image-width: 10px;
-  }
-  .dh-belt-name {
-    font-size: 9px;
-    letter-spacing: 0.06em;
   }
   .dh-slot-label {
     font-size: 10px;

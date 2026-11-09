@@ -21,6 +21,7 @@ import {
   type AgentTray,
 } from "./model";
 import "./hud.css";
+import { X } from "lucide-react";
 import { AgentPreview } from "./AgentPreview";
 import type { Agent } from "../types";
 
@@ -236,7 +237,7 @@ export function DungeonHud(props: Props) {
               aria-label="Close the command belt tray"
               onClick={() => close()}
             >
-              ×
+              <X size={18} strokeWidth={1.75} aria-hidden="true" />
             </button>
           </header>
           <div className="dh-entries">
@@ -370,9 +371,6 @@ export function DungeonHud(props: Props) {
       <div className="dh-controls">
         {agentButton("waiting")}
         <div className="dh-belt">
-          <span className="dh-belt-name" aria-hidden="true">
-            Command belt
-          </span>
           {(["replies", "failures", "review", "blocked"] as const).map((id) => (
             <button
               type="button"

@@ -174,6 +174,10 @@ const unity = true;
 const WorldChat = React.lazy(() =>
   import("./worldChat/WorldChat").then((module) => ({ default: module.WorldChat })),
 );
+/** The Dungeon Board's Dispatch (src/dungeon/): the New agent form in the board's framed panel. */
+const WorldDispatch = React.lazy(() =>
+  import("./dungeon/WorldDispatch").then((module) => ({ default: module.WorldDispatch })),
+);
 const NativeWorld = React.lazy(() =>
   import("./NativeWorld").then((module) => ({ default: module.NativeWorld })),
 );
@@ -919,26 +923,21 @@ function App() {
     );
   };
 
-  const openDispatch = useCallback(
-    (target?: DispatchTarget) => {
-      // The New agent view opens in the panel, in place of the conversation.
-      setDispatchRevision((revision) => revision + 1);
-      setAddingProject(false);
-      setBrowsing(false);
-      setFocusRevision((revision) => revision + 1);
-      if (target) return setDispatchTarget(target);
+  /** Where a new agent starts when nothing names a place: the selection's workspace, else its project. */
+  const contextTarget = useCallback(
+    (): DispatchTarget => {
       const a =
         selection?.type === "agent"
           ? agents.find((x) => x.id === selection.id)
           : undefined;
       const ws = a ? workspaceOf(a) : workspace;
       if (ws && realWorkspaceIds.has(workspaceKey(ws)))
-        return setDispatchTarget({ workspaceId: workspaceKey(ws) });
+        return { workspaceId: workspaceKey(ws) };
       const p = a
         ? projectOf(a)
         : project ||
           projects.find((x) => x.name === ws?.project && ws && sameHost(x, ws));
-      setDispatchTarget(p ? { projectId: projectKey(p) } : {});
+      return p ? { projectId: projectKey(p) } : {};
     },
     [
       selection,
@@ -951,6 +950,32 @@ function App() {
       realWorkspaceIds,
     ],
   );
+  const openDispatch = useCallback(
+    (target?: DispatchTarget) => {
+      // The New agent view opens in the panel, in place of the conversation.
+      setDispatchRevision((revision) => revision + 1);
+      setAddingProject(false);
+      setBrowsing(false);
+      setFocusRevision((revision) => revision + 1);
+      setDispatchTarget(target ?? contextTarget());
+    },
+    [contextTarget],
+  );
+  // The Dungeon Board's Dispatch: the same form in the board's own framed panel, over the world.
+  const [worldDispatch, setWorldDispatch] = useState<DispatchTarget | null>(null);
+  const [worldDispatchRevision, setWorldDispatchRevision] = useState(0);
+  const openWorldDispatch = useCallback(() => {
+    setTalking(false);
+    setWorldDispatchRevision((revision) => revision + 1);
+    setWorldDispatch(contextTarget());
+  }, [contextTarget]);
+  const worldDispatchShown = !!worldDispatch && talkable && !confirming;
+  useEffect(() => {
+    if (!talkable) setWorldDispatch(null);
+  }, [talkable]);
+  useEffect(() => {
+    if (talking) setWorldDispatch(null);
+  }, [talking]);
 
   // The Activity tab's filter and selected item, for ⌘K's entries for them.
   const [activityView, setActivityView] = useState<ActivityViewState | undefined>();
@@ -1501,6 +1526,9 @@ function App() {
         id: `dungeon-${id}`, group: "Navigate", page: "Command" as const, label: hudTray === id ? label!.replace(/^Show/, "Close") : label!, keywords: "dungeon command belt orb tray quest log attention", run: () => runAppCommand("dungeon-tray", id),
       })),
       ...((hudTray === "review" || hudTray === "blocked") ? [{ id: "dungeon-tray-settings", group: "Actions", page: "Settings" as const, label: hudTray === "blocked" ? "Open Linear integration settings" : "Open GitHub integration settings", keywords: "dungeon command belt integration key token unavailable", run: () => runAppCommand("dungeon-tray-settings") }] : []),
+      worldDispatchShown
+        ? { id: "dungeon-dispatch-close", group: "Actions", page: "Command" as const, label: "Close the dispatch on the board", keys: [["Esc"]], keywords: "dungeon command belt new agent dismiss", run: () => setWorldDispatch(null) }
+        : { id: "dungeon-dispatch", group: "Actions", page: "Command" as const, label: "Dispatch an agent on the board", keywords: "dungeon command belt new agent start launch", run: () => openWorldDispatch() },
       ...(hudTray ? [{ id: "dungeon-tray-close", group: "Actions", page: "Command" as const, label: "Close the command belt tray", keys: [["Esc"]], keywords: "dungeon quest log dismiss", run: () => runAppCommand("dungeon-tray-close") }] : []),
     ] : []),
     // The Dungeon Board's dialogue box for the selected robot (src/worldChat/).
@@ -2685,8 +2713,11 @@ function App() {
                 talking={talkShown}
                 talkInset={talkInset}
                 hudVisible={appMode === "command" && !settingsShown}
-                onDispatch={() => openDispatch()}
-                onBrowseHud={() => setTalking(false)}
+                onDispatch={() => (talkable ? openWorldDispatch() : openDispatch())}
+                onBrowseHud={() => {
+                  setTalking(false);
+                  setWorldDispatch(null);
+                }}
                 onHudTray={setHudTray}
               />
             </React.Suspense>
@@ -2711,6 +2742,30 @@ function App() {
                   log={talkLog}
                   onLog={setTalkLog}
                   position={talkPosition}
+                />
+              </React.Suspense>
+            )}
+            {worldDispatchShown && (
+              <React.Suspense fallback={null}>
+                <WorldDispatch
+                  key={`world-dispatch-${worldDispatchRevision}`}
+                  projects={projects}
+                  workspaces={workspaces}
+                  providers={providers}
+                  hosts={hosts}
+                  initial={worldDispatch!}
+                  fallback={busiestProject}
+                  online={online}
+                  onClose={() => setWorldDispatch(null)}
+                  onNotice={setNotice}
+                  onDispatched={async (rawId, host) => {
+                    const id = rawId ? agentClientId(rawId, host) : undefined;
+                    soundEvent("dispatched");
+                    setWorldDispatch(null);
+                    await refresh();
+                    // The new robot is picked on the board, so its dialogue box opens as a pick's does.
+                    if (id) pickOnMap({ type: "agent", id });
+                  }}
                 />
               </React.Suspense>
             )}

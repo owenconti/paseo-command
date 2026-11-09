@@ -826,7 +826,7 @@ Its persistent game HUD (`web/src/dungeon/`, mounted by `NativeWorld.tsx`) repla
 teal Running orbs, a belt of Replies, Failures, PR review, Blocked and Dispatch slots, original painted transparent art
 (`hud.webp`, `ART.md`; `art.ts` trims the atlas's nine cells). Labels and counts are accessible HTML. Slots open a non-modal
 quest-log tray above the belt; the same slot, × or Escape closes it, Escape returning focus (other modal layers go first).
-Agent rows open their conversation; PRs and issues open through `openAppLink`; Dispatch uses the existing New agent form.
+Agent rows open their conversation; PRs and issues open through `openAppLink`; Dispatch opens the app's New agent form in the world, in the belt's framed panel above it (`web/src/dungeon/WorldDispatch.tsx`, `world-dispatch.css`; Esc or × closes it; ⌘K "Dispatch an agent on the board"), and the new robot is picked on the board. The belt carries no title; the trays have no pointer.
 Counts use the map's real states; offline hosts are excluded. Integrations retain “—” and their reason while unavailable,
 and capped item lists say how many they show. Read-only timeline snippets load as rows enter the tray; opening a tray never
 marks replies read. The map viewport ends above the measured HUD, as does the dialogue box; the belt stays beneath it.
