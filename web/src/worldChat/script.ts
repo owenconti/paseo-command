@@ -135,33 +135,60 @@ function sentences(text: string, max: number) {
     .flatMap((s) => cutWords(s, max));
 }
 
+/** A reply's pieces, in order: a paragraph's sentences and a list's items carry their block and how they join it again
+ * (so a page can take as much of a block as fits), the rest whole (code cut between lines, quotes, tables, headings). */
+type Piece = { text: string; block: number; join?: string; heading?: boolean };
+function piecesOf(markdown: string, room: PageRoom): Piece[] {
+  const chars = room.perLine * room.lines;
+  const fits = (text: string) => linesOf(text, room) <= room.lines;
+  return blocksOf(markdown.trim()).flatMap((b, block): Piece[] => {
+    if (b.kind === "text") return sentences(b.text, chars).map((text) => ({ text, block, join: " " }));
+    if (b.kind === "list") {
+      const items: string[] = [];
+      for (const line of b.text.split("\n"))
+        if (LIST_ITEM.test(line) || !items.length) items.push(line);
+        else items[items.length - 1] += `\n${line}`;
+      // An item too long for a page goes in sentences, as a paragraph of its own.
+      return items.flatMap((item, i) =>
+        fits(item)
+          ? [{ text: item, block, join: "\n" }]
+          : sentences(item, chars).map((text) => ({ text, block: block + (i + 1) / (items.length + 1), join: " " })),
+      );
+    }
+    return split(b, room).map((text) => ({ text, block, heading: b.kind === "heading" }));
+  });
+}
+
 /**
- * A reply as the dialogue box's pages: whole blocks while they fit a page,
- * long paragraphs and lists cut between sentences or items, long code cut
- * between lines (each piece fenced again), tables kept whole (the box
- * scrolls them). A heading never ends a page when more follows it.
+ * A reply as the dialogue box's pages, each filled as far as it holds: paragraphs cut between sentences, lists between
+ * items, long code between lines (each piece fenced again), tables kept whole (the box scrolls them). A heading never
+ * ends a page when more follows it.
  */
 export function pageReply(markdown: string, room: PageRoom = PAGE_ROOM): string[] {
-  const pieces = blocksOf(markdown.trim()).flatMap((b) =>
-    split(b, room).map((text) => ({ text, heading: b.kind === "heading" })),
-  );
-  const pages: string[][] = [];
-  let page: typeof pieces = [];
-  let used = 0;
-  for (const piece of pieces) {
-    const cost = linesOf(piece.text, room);
-    // A blank line's half between blocks.
-    if (page.length && used + 0.5 + cost > room.lines) {
-      const carry = page.length > 1 && page.at(-1)!.heading ? page.pop()! : undefined;
-      pages.push(page.map((p) => p.text));
-      page = carry ? [carry] : [];
-      used = carry ? linesOf(carry.text, room) : 0;
-    }
-    used += (page.length ? 0.5 : 0) + cost;
-    page.push(piece);
+  type Part = { text: string; block: number; heading?: boolean };
+  const pages: string[] = [];
+  let page: Part[] = [];
+  // A blank line's half between blocks.
+  const cost = (parts: Part[]) => parts.reduce((n, p, i) => n + linesOf(p.text, room) + (i ? 0.5 : 0), 0);
+  const end = () => {
+    // A heading goes on with what follows it.
+    const carry = page.length > 1 && page.at(-1)!.heading ? page.pop()! : undefined;
+    pages.push(page.map((p) => p.text).join("\n\n"));
+    page = carry ? [carry] : [];
+  };
+  for (const piece of piecesOf(markdown, room)) {
+    const last = page.at(-1);
+    const joined: Part[] =
+      last && piece.join && last.block === piece.block
+        ? [...page.slice(0, -1), { ...last, text: `${last.text}${piece.join}${piece.text}` }]
+        : [...page, { text: piece.text, block: piece.block, heading: piece.heading }];
+    if (page.length && cost(joined) > room.lines) {
+      end();
+      page.push({ text: piece.text, block: piece.block, heading: piece.heading });
+    } else page = joined;
   }
-  if (page.length) pages.push(page.map((p) => p.text));
-  return pages.map((p) => p.join("\n\n"));
+  if (page.length) pages.push(page.map((p) => p.text).join("\n\n"));
+  return pages;
 }
 
 /** What the box speaks of an agent's conversation, from its newest end. */

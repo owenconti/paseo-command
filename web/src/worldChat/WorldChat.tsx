@@ -4,18 +4,25 @@
  * Enter, Space or a click goes on), then offers what you can say: answer its
  * request or question, a quick reply, your own reply, the full chat, or leave.
  * Only the agent's own words are its speech; everything else (what it is doing,
- * a failure, its state) is narration. The side panel's conversation stays;
- * both follow the same session (the server keeps each viewer's stream).
+ * a failure, its state) is narration. Replies are written in the app's own
+ * composer (files, /skills, @mentions), and the whole conversation opens upward
+ * as its log (H, or scrolling up). The side panel's conversation stays; both
+ * follow the same session (the server keeps each viewer's stream).
  */
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { STATE_NAMES, STATE_TILE, modelName } from "../../../rendering/src/atlas";
 import type { State } from "../../../rendering/src/world";
 import { useAgentSession } from "../useAgentSession";
+import { Composer } from "../Composer";
+import { Timeline } from "../Session";
+import { PermissionCard } from "../PermissionCard";
+import { useAutolinks } from "../autolinkStore";
+import { readStore } from "../api";
 import { enqueue, toOutgoing, useQueue } from "../queue";
 import { Markdown } from "../Markdown";
 import { errorMessage } from "../api";
 import { agentName } from "../names";
-import { isFailed, isRunning, isWorking, type Agent, type Permission, type Workspace } from "../types";
+import { isFailed, isRunning, isWorking, providerName, type Agent, type Mode, type Permission, type Workspace } from "../types";
 import type { Asks } from "../asks/types";
 import type { WorkSummary } from "../useWorkingOn";
 import { answersMessage, quickReplies } from "../composer/answers";
@@ -47,6 +54,11 @@ export type WorldChatProps = {
   onChanged: () => Promise<void> | void;
   /** How much of the map's foot the box covers (CSS px), so the board frames the robot above it. */
   onInset: (px: number) => void;
+  /** The box shows the whole conversation (its log), kept as you step from robot to robot (main's, for ⌘K). */
+  log: boolean;
+  onLog: (open: boolean) => void;
+  /** The previous and next agents (the panel's order, as J/K step), and their names. */
+  position: { index: number; total: number; prev: () => void; next: () => void; prevName?: string; nextName?: string };
 };
 
 /** A line in the box: the agent's own words, or narration (state, what it does, failures). */
@@ -71,9 +83,10 @@ type Beat = {
   live?: boolean;
 };
 
-/** Characters a second as the box types; sentences' and clauses' ends pause a moment. */
-const TYPE_RATE = 90;
-const PAUSE_MS: Record<string, number> = { ".": 140, "!": 140, "?": 140, ",": 50, ":": 80, ";": 80 };
+/** Characters a second as the box types; sentences' and clauses' ends pause a moment. Enter, Space or a click
+ * shows the rest of the page at once. */
+const TYPE_RATE = 150;
+const PAUSE_MS: Record<string, number> = { ".": 110, "!": 110, "?": 110, ",": 35, ":": 60, ";": 60 };
 /** Ordinary prose, to measure the box's average character by. */
 const SAMPLE = "I went through the failing checks and fixed the two that were real, then ran the tests again.";
 /** The box's gap above the map's foot (CSS px); keep in step with world-chat.css. */
@@ -83,6 +96,18 @@ const UNTYPED = "world-chat-untyped";
 const reducedMotion = () => typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
 const highlights = () => (typeof CSS !== "undefined" && "highlights" in CSS && typeof Highlight === "function" ? CSS.highlights : undefined);
 
+/** The box's composer's input (the panel's is `composer`, which the page's own shortcuts focus). */
+const WORLD_COMPOSER = "world-composer";
+/** How far the log's keys scroll it: pixels, a share of its height, or to an end. */
+const SCROLL_KEYS: Record<string, number> = {
+  ArrowDown: 60,
+  ArrowUp: -60,
+  PageDown: 0.9,
+  PageUp: -0.9,
+  " ": 0.9,
+  End: Infinity,
+  Home: -Infinity,
+};
 /** The beat while its conversation loads. */
 const LOADING = "loading";
 /** Layers that close on Escape ahead of the box (main.tsx's innermost-layer check, and the top bar's popovers). */
@@ -90,16 +115,17 @@ const OTHER_LAYERS = ".popover-menu, .autocomplete, .lightbox, .inline-confirm, 
 /** Where each agent's conversation was left: its beat and page, so coming back doesn't type it again. */
 const kept = new Map<string, { beat: string; page: number; read: number }>();
 
-/** The robot as the board paints it, in its provider's colour, idle or at work. */
-function Portrait({ provider, working, state }: { provider: string; working: boolean; state: State }) {
-  const frames = useMemo(() => robotFrames(provider, working), [provider, working]);
+/** The robot as the board paints it, in its provider's colour: calm idle poses at the board's pace (its state is the
+ * glow beneath it). */
+function Portrait({ provider, state }: { provider: string; state: State }) {
+  const frames = useMemo(() => robotFrames(provider, false), [provider]);
   const [frame, setFrame] = useState(0);
   useEffect(() => {
     setFrame(0);
     if (frames.length < 2 || reducedMotion()) return;
-    const timer = setInterval(() => setFrame((n) => (n + 1) % frames.length), working ? 1000 / 6 : 1000 / 2);
+    const timer = setInterval(() => setFrame((n) => (n + 1) % frames.length), 2000);
     return () => clearInterval(timer);
-  }, [frames, working]);
+  }, [frames]);
   const [medallion, setMedallion] = useState<string>();
   useEffect(() => {
     let live = true;
@@ -257,12 +283,44 @@ const quote = (text: string) =>
   text.includes("\n") || text.length > 80 ? `\n\n\`\`\`\n${text.replace(/`{3,}/g, "ʼʼʼ")}\n\`\`\`` : ` \`${text.replace(/`/g, "ʼ")}\``;
 
 export function WorldChat(props: WorldChatProps) {
-  const { agent, workspace, asks, workingOn, online, onNotice, onClose } = props;
+  const { agent, workspace, asks, workingOn, online, onNotice, onClose, position } = props;
   const name = agentName(agent, workspace?.branch);
-  const { detail, entries, source, unavailable, error, pending, busy, running, command, send, respond } = useAgentSession(agent, {
+  const {
+    detail,
+    entries,
+    source,
+    unavailable,
+    error,
+    earlier,
+    loadOlder,
+    pending,
+    busy,
+    running,
+    archived,
+    command,
+    send,
+    respond,
+    promptHistory,
+  } = useAgentSession(agent, {
     onNotice,
     onChanged: props.onChanged,
   });
+  // Linear keys, PR numbers and its workspace's files link themselves in its log, as in the panel.
+  const autolinks = useAutolinks(workspace);
+  // As the panel's: its settings are offered only while it has no turn; its modes from its detail, else last seen.
+  const started =
+    source === null ||
+    entries.length > 0 ||
+    pending.length > 0 ||
+    earlier.more ||
+    Boolean(agent.lastUserMessageAt || detail?.LastUserMessageAt);
+  const modes: Mode[] = detail?.AvailableModes || readStore<Mode[]>(`modes:${providerName(agent.provider)}`, []);
+  // The whole conversation, opened upward over the board (H, or scrolling up past the page's top).
+  const { log, onLog: setLog } = props;
+  // Files dropped on the box, for its composer.
+  const [drop, setDrop] = useState<{ files: File[]; at: number } | null>(null);
+  // Writing: a reply in the composer, or a question's own answer.
+  const [entry, setEntry] = useState<Entry | null>(null);
   const queued = useQueue(agent.id);
   const sent = pending.at(-1)?.text;
   const x = useMemo(() => exchangeOf(entries, sent), [entries, sent]);
@@ -290,12 +348,17 @@ export function WorldChat(props: WorldChatProps) {
   // The text area's room, measured, sets how much a page holds.
   const root = useRef<HTMLDivElement>(null);
   const textBox = useRef<HTMLDivElement>(null);
+  // How far the wheel has gone up past the page's top (enough opens the log).
+  const wheelUp = useRef(0);
   const [room, setRoom] = useState<PageRoom>({ perLine: 80, lines: 5 });
   useLayoutEffect(() => {
-    const box = textBox.current;
     const node = root.current;
-    if (!box || !node || typeof ResizeObserver === "undefined") return;
+    // The log lies over the board: the camera keeps the box's own room.
+    if (!node || log || typeof ResizeObserver === "undefined") return;
     const measure: (() => void) & { canvas?: HTMLCanvasElement } = () => {
+      props.onInset(Math.ceil(node.getBoundingClientRect().height + FOOT_GAP));
+      const box = textBox.current;
+      if (!box?.clientWidth) return;
       const style = getComputedStyle(box);
       const size = parseFloat(style.fontSize) || 15;
       const line = parseFloat(style.lineHeight) || size * 1.5;
@@ -309,17 +372,15 @@ export function WorldChat(props: WorldChatProps) {
       const perLine = Math.max(24, Math.floor(box.clientWidth / (avg * 1.08)));
       const lines = Math.max(3, Math.floor((box.clientHeight - 4) / line));
       setRoom((r) => (r.perLine === perLine && r.lines === lines ? r : { perLine, lines }));
-      props.onInset(Math.ceil(node.getBoundingClientRect().height + FOOT_GAP));
     };
     measure();
     const observer = new ResizeObserver(measure);
-    observer.observe(box);
     observer.observe(node);
+    if (textBox.current) observer.observe(textBox.current);
     return () => observer.disconnect();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- the inset callback is the parent's setter
-  }, []);
+  }, [log, entry]);
 
-  const [entry, setEntry] = useState<Entry | null>(null);
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
   // A question's picks and typed answers, by question; reset for each request.
@@ -638,14 +699,17 @@ export function WorldChat(props: WorldChatProps) {
   };
 
   // Keys: the box takes them while it or the map has the keyboard (not while typing elsewhere).
-  const live = useRef({ advance, go, page, pages: pages.length, choicesShown, choices, cursor, setCursor, entry, pick, onClose, blocked: props.blocked });
-  live.current = { advance, go, page, pages: pages.length, choicesShown, choices, cursor, setCursor, entry, pick, onClose, blocked: props.blocked };
+  const keyState = { advance, go, page, pages: pages.length, typed, choicesShown: choicesShown && !log, choices, cursor, setCursor, entry, pick, onClose, blocked: props.blocked, log, setLog, position };
+  const live = useRef(keyState);
+  live.current = keyState;
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const s = live.current;
       if (s.blocked || modalOpen() || e.metaKey || e.ctrlKey || e.altKey || e.defaultPrevented) return;
       const target = e.target as HTMLElement | null;
       if (isTyping(target)) return;
+      // The composer's own menus (send options, attachments) keep their keys.
+      if (target?.closest?.(".popover-menu")) return;
       const inBox = !!target && !!root.current?.contains(target);
       // The map's frame (its surface, this box), never the page at large: a key after a click in the panel is the panel's.
       const onMap = !!target?.closest?.(".native-world-frame");
@@ -655,17 +719,47 @@ export function WorldChat(props: WorldChatProps) {
         e.stopImmediatePropagation();
       };
       const key = e.key;
+      const logView = () => root.current?.querySelector<HTMLElement>(".wc-log .timeline");
       if (key === "Escape") {
         // An open popover or menu closes first.
-        if (!s.entry && document.querySelector(OTHER_LAYERS)) return;
+        if (document.querySelector(OTHER_LAYERS)) return;
         take();
         if (s.entry) setEntry(null);
+        else if (s.log) s.setLog(false);
         else s.onClose();
+      } else if (e.shiftKey && (key === "ArrowLeft" || key === "ArrowRight")) {
+        // The previous or next robot (as J/K step), its conversation in the box.
+        if (s.position.total < 2) return;
+        take();
+        if (!e.repeat) (key === "ArrowLeft" ? s.position.prev : s.position.next)();
+      } else if (key.toLowerCase() === "h" && !e.shiftKey) {
+        take();
+        s.setLog(!s.log);
+      } else if (s.log) {
+        // The log: Enter or R writes in its composer; the arrows and page keys scroll it.
+        const view = logView();
+        // Its own buttons, links and folds (a request's Allow, Load earlier, a tool's details) keep Enter and Space.
+        if ((key === "Enter" || key === " ") && inBox && target !== root.current && target?.closest("button,a[href],summary")) return;
+        if (key === "Enter" || key.toLowerCase() === "r") {
+          take();
+          document.getElementById(WORLD_COMPOSER)?.focus();
+        } else if (inBox && view && SCROLL_KEYS[key] !== undefined) {
+          take();
+          // The reader's own scroll (as a wheel's), so the log doesn't pin itself back to its latest.
+          view.dispatchEvent(new WheelEvent("wheel", { bubbles: true }));
+          const step = SCROLL_KEYS[key]!;
+          if (step === Infinity || step === -Infinity) view.scrollTop = step > 0 ? view.scrollHeight : 0;
+          else view.scrollBy({ top: Math.abs(step) < 1 ? step * view.clientHeight : step });
+        }
       } else if (key === "Enter" || key === " ") {
         // A focused button or link of the box's own does what it says.
         if (inBox && target !== root.current && target?.closest("button,a[href]")) return;
         take();
-        if (e.repeat) return;
+        // Held down, it finishes the page as it types, never skipping pages.
+        if (e.repeat) {
+          if (!s.typed) s.advance();
+          return;
+        }
         if (s.choicesShown) s.pick(s.choices[s.cursor]);
         else s.advance();
       } else if (/^[1-9]$/.test(key) && s.choicesShown) {
@@ -715,12 +809,23 @@ export function WorldChat(props: WorldChatProps) {
   }, []);
   const field = useRef<HTMLTextAreaElement>(null);
   useEffect(() => {
-    if (entry) field.current?.focus();
+    if (entry === "answer") field.current?.focus();
+    else if (entry === "reply") document.getElementById(WORLD_COMPOSER)?.focus();
     // The field gone (sent, or Esc), the box has the keyboard again: by now the page's focus fell to the body.
     else if (root.current && (document.activeElement === document.body || root.current.contains(document.activeElement)))
       root.current.focus({ preventScroll: true });
   }, [entry]);
 
+  useEffect(() => {
+    // The log has its own composer: neither of the box's entries stays open under it.
+    setEntry((e) => (log || e === "reply" ? null : e));
+    if (root.current && (document.activeElement === document.body || root.current.contains(document.activeElement)))
+      root.current.focus({ preventScroll: true });
+  }, [log]);
+  // Dropped files go to the composer as it mounts; then they're spent (its effect has taken them).
+  useEffect(() => {
+    if (drop) setDrop(null);
+  }, [drop]);
   const [panel, setPanel] = useState<string>();
   const [label, setLabel] = useState<string>();
   useEffect(() => {
@@ -755,30 +860,134 @@ export function WorldChat(props: WorldChatProps) {
   const stateName = state === "running" && !running && agent.subagentsRunning ? "Working · its subagents run" : STATE_NAMES[state];
   const tint = `#${(STATE_TILE[state] ?? 0x8c88b0).toString(16).padStart(6, "0")}`;
   const more = !last;
+  const hasFiles = (e: React.DragEvent) => [...e.dataTransfer.types].includes("Files");
+
+  // The app's own composer, in the box's colours: files and images, /skills, @files, queueing, steer and interrupt.
+  const composer = (
+    <div
+      className="wc-composer"
+      onKeyDownCapture={(e) => {
+        // Escape leaves the composer for the box (its own menus and suggestions close first).
+        if (e.key !== "Escape" || e.nativeEvent.isComposing) return;
+        if (root.current?.querySelector(".autocomplete, .popover-menu")) return;
+        e.preventDefault();
+        e.stopPropagation();
+        if (log) root.current?.focus({ preventScroll: true });
+        else setEntry(null);
+      }}
+    >
+      <Composer
+        key={agent.id}
+        agent={agent}
+        running={running}
+        disabled={offline || archived}
+        disabledReason={archived ? "This agent is archived." : "Paseo is offline."}
+        started={started}
+        modes={modes}
+        mode={detail?.Mode}
+        onSetMode={(mode) => void command("mode", { mode }, `Mode set to ${modes.find((m) => m.id === mode)?.label || mode}`)}
+        onSend={async (message) => {
+          const ok = await send(message);
+          if (ok) setEntry((e) => (e === "reply" ? null : e));
+          return ok;
+        }}
+        onQueued={() => setEntry((e) => (e === "reply" ? null : e))}
+        onCancel={async () => {
+          await command("cancel", {}, "Agent interrupted");
+        }}
+        onNotice={onNotice}
+        onArchive={() => onNotice("Archive it from its conversation in the side panel (Open the full chat).")}
+        onFreshDraft={() => onNotice("Start afresh from its conversation in the side panel (Open the full chat).")}
+        promptHistory={promptHistory}
+        dropFiles={drop}
+        inputId={WORLD_COMPOSER}
+        draftScope=":world"
+        label={`Message ${name}`}
+        placeholder={queues ? `A follow-up for ${name} (it goes when it finishes)…` : `Say something to ${name}…`}
+      />
+    </div>
+  );
 
   return (
     <div
       ref={root}
-      className="world-chat"
+      className={`world-chat${log ? " log" : ""}${entry === "reply" ? " replying" : ""}`}
       role="dialog"
       aria-modal="false"
       aria-label={`Conversation with ${name}`}
-      aria-describedby="world-chat-line"
+      aria-describedby={log ? undefined : "world-chat-line"}
       tabIndex={-1}
       style={frame(panel)}
       data-state={state}
       data-beat={beat.id}
+      onDragOver={(e) => {
+        if (!hasFiles(e) || offline || archived) return;
+        e.preventDefault();
+      }}
+      onDrop={(e) => {
+        if (!hasFiles(e) || offline || archived) return;
+        e.preventDefault();
+        setDrop({ files: [...e.dataTransfer.files], at: Date.now() });
+        if (!log) setEntry("reply");
+      }}
     >
       <div className="wc-nameplate" style={frame(label)}>
         <span className="wc-name">{name}</span>
       </div>
+      <button
+        type="button"
+        className="wc-log-toggle"
+        tabIndex={-1}
+        aria-expanded={log}
+        aria-label={log ? "Back to the dialogue box (H)" : "Show the whole conversation (H)"}
+        onClick={() => setLog(!log)}
+      >
+        {log ? "▼ Back" : "▲ Conversation"}
+        <kbd className="wc-key">H</kbd>
+      </button>
       <button type="button" className="wc-close" aria-label="Leave the conversation (Esc)" tabIndex={-1} onClick={onClose}>
         ×
       </button>
-      <Portrait provider={agent.provider} working={working && !offline} state={state} />
+      {position.total > 1 && (
+        <>
+          <button
+            type="button"
+            className="wc-nav prev"
+            tabIndex={-1}
+            aria-label={`Previous agent${position.prevName ? `: ${position.prevName}` : ""} (⇧←)`}
+            title={`Previous agent${position.prevName ? `: ${position.prevName}` : ""}`}
+            onClick={position.prev}
+          >
+            <span aria-hidden="true">◀</span>
+            <kbd className="wc-key">⇧←</kbd>
+          </button>
+          <button
+            type="button"
+            className="wc-nav next"
+            tabIndex={-1}
+            aria-label={`Next agent${position.nextName ? `: ${position.nextName}` : ""} (⇧→)`}
+            title={`Next agent${position.nextName ? `: ${position.nextName}` : ""}`}
+            onClick={position.next}
+          >
+            <span aria-hidden="true">▶</span>
+            <kbd className="wc-key">⇧→</kbd>
+          </button>
+        </>
+      )}
+      <Portrait provider={agent.provider} state={state} />
       <div className="wc-body">
         <div className="wc-head">
-          <span className="wc-caption">{entry ? (entry === "answer" ? "Your answer" : working ? "A follow-up" : "Your reply") : line.caption}</span>
+          <span className="wc-caption">
+            {log
+              ? `Conversation${position.total > 1 && position.index >= 0 ? ` · ${position.index + 1} of ${position.total}` : ""}`
+              : entry
+                ? entry === "answer"
+                  ? "Your answer"
+                  : queues
+                    ? "A follow-up"
+                    : "Your reply"
+                : line.caption}
+          </span>
           <span className="wc-status">
             <span className="wc-dot" style={{ background: tint }} />
             {stateName}
@@ -786,74 +995,128 @@ export function WorldChat(props: WorldChatProps) {
             {queued.length > 0 && <span className="wc-queued">· {queued.length} queued</span>}
           </span>
         </div>
-        <div
-          ref={textBox}
-          id="world-chat-line"
-          className="wc-text"
-          aria-live="polite"
-          onClick={(e) => {
-            if (openFileLink(e, workspace, onNotice)) return;
-            if ((e.target as Element).closest?.("a[href]")) return openInAppBrowser(e);
-            if (!entry) advance();
-          }}
-        >
-          {entry ? (
-            <div className="wc-entry">
-              <textarea
-                ref={field}
-                className="wc-field"
-                rows={3}
-                value={draft}
-                disabled={sending}
-                aria-label={entry === "answer" ? "Your answer" : `Your reply to ${name}`}
-                placeholder={entry === "answer" ? "Your answer…" : queues ? `A follow-up for ${name} (it goes when it finishes)…` : `Say something to ${name}…`}
-                onChange={(e) => setDraft(e.target.value)}
-                onKeyDown={(e) => {
-                  e.stopPropagation();
-                  if (e.key === "Escape") {
-                    e.preventDefault();
-                    setEntry(null);
-                  } else if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
-                    e.preventDefault();
-                    sendEntry();
-                  }
-                }}
-              />
-              <div className="wc-entry-foot">
-                <span>↩ {entry === "answer" ? "Answer" : "Send"} · ⇧↩ New line · Esc Back</span>
-                <button type="button" className="wc-send" disabled={sending || !draft.trim()} onClick={sendEntry}>
-                  {sending ? "Sending…" : entry === "answer" ? "Answer" : "Send"}
-                </button>
-              </div>
-            </div>
-          ) : (
-            <TypedPage
-              key={`${beat.id}:${page}`}
-              text={line.text}
-              narrator={line.who === "narrator"}
-              done={typed}
-              onDone={finishPage}
-              scroller={textBox}
+        {log ? (
+          <div
+            className="wc-log"
+            onClickCapture={(e) => {
+              if (!openFileLink(e, workspace, onNotice)) openInAppBrowser(e);
+            }}
+          >
+            <Timeline
+              key={agent.id}
+              entries={entries}
+              loading={source === null && !error}
+              imageHost={agent.host}
+              running={running}
+              pending={pending}
+              unavailable={unavailable}
+              error={error}
+              earlier={earlier}
+              onEarlier={loadOlder}
+              links={autolinks}
             />
-          )}
-        </div>
-        {!entry && (
-          <div className="wc-foot">
-            {pages.length > 1 && (
-              <span className="wc-pages">
-                {page + 1} / {pages.length}
-              </span>
-            )}
-            {typed && more && (
-              <button type="button" className="wc-more" tabIndex={-1} aria-label="Next page (Enter)" onClick={advance}>
-                ▼
-              </button>
-            )}
-            {!typed && <span className="wc-skip">Enter to finish</span>}
+            {detail?.PendingPermissions.map((p, i) => (
+              <PermissionCard
+                imageHost={agent.host}
+                key={p.id || i}
+                permission={p}
+                busy={!!busy}
+                onRespond={(decision) => void respond(p, decision)}
+              />
+            ))}
+            {composer}
           </div>
+        ) : entry === "reply" ? (
+          composer
+        ) : (
+          <>
+            <div
+              ref={textBox}
+              id="world-chat-line"
+              className="wc-text"
+              aria-live="polite"
+              onClick={(e) => {
+                if (openFileLink(e, workspace, onNotice)) return;
+                if ((e.target as Element).closest?.("a[href]")) return openInAppBrowser(e);
+                if (!entry) advance();
+              }}
+              onWheel={(e) => {
+                // Scrolling up past the page's top opens the whole conversation.
+                const box = e.currentTarget;
+                if (entry || e.deltaY >= 0 || box.scrollTop > 0) {
+                  wheelUp.current = 0;
+                  return;
+                }
+                wheelUp.current += -e.deltaY;
+                if (wheelUp.current > 80) {
+                  wheelUp.current = 0;
+                  setLog(true);
+                }
+              }}
+            >
+              {entry === "answer" ? (
+                <div className="wc-entry">
+                  <textarea
+                    ref={field}
+                    className="wc-field"
+                    rows={3}
+                    value={draft}
+                    disabled={sending}
+                    aria-label="Your answer"
+                    placeholder="Your answer…"
+                    onChange={(e) => setDraft(e.target.value)}
+                    onKeyDown={(e) => {
+                      e.stopPropagation();
+                      if (e.key === "Escape") {
+                        e.preventDefault();
+                        setEntry(null);
+                      } else if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
+                        e.preventDefault();
+                        sendEntry();
+                      }
+                    }}
+                  />
+                  <div className="wc-entry-foot">
+                    <span>↩ Answer · ⇧↩ New line · Esc Back</span>
+                    <button type="button" className="wc-send" disabled={sending || !draft.trim()} onClick={sendEntry}>
+                      Answer
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <TypedPage
+                  key={`${beat.id}:${page}`}
+                  text={line.text}
+                  narrator={line.who === "narrator"}
+                  done={typed}
+                  onDone={finishPage}
+                  scroller={textBox}
+                />
+              )}
+            </div>
+            {!entry && (
+              <div className="wc-foot">
+                {pages.length > 1 && (
+                  <span className="wc-pages">
+                    {page + 1} / {pages.length}
+                  </span>
+                )}
+                {typed && more && (
+                  <button type="button" className="wc-more" tabIndex={-1} aria-label="Next page (Enter)" onClick={advance}>
+                    ▼
+                  </button>
+                )}
+                {!typed && (
+                  <button type="button" className="wc-skip" tabIndex={-1} aria-label="Show the whole page (Enter)" onClick={finishPage}>
+                    <kbd className="wc-key">⏎</kbd> Skip
+                  </button>
+                )}
+              </div>
+            )}
+          </>
         )}
       </div>
-      {choicesShown && (
+      {choicesShown && !log && (
         <Choices
           choices={choices}
           cursor={cursor}

@@ -629,6 +629,8 @@ function App() {
   const [talking, setTalking] = useState(false);
   // How much of the map's foot the box covers, so the board frames its robot above it.
   const [talkInset, setTalkInset] = useState(0);
+  // The box shows the whole conversation (its log), kept as the box steps from robot to robot.
+  const [talkLog, setTalkLog] = useState(false);
   const talkOnPick = useTalkOnPick();
   // Only where the board is drawn (the macOS app's world; a browser shows a placeholder).
   const talkable = macApp() && mapStyleNow === "dungeon" && appMode === "command" && !settingsShown;
@@ -838,6 +840,10 @@ function App() {
   // Its workspace's pending diff comments, for ⌘K's Apply and Show.
   const agentComments = useLocalComments(agent?.host, agent?.workspaceId);
   const talkShown = talkOn && !!agent;
+  // The box opens as the dialogue box again, its log closed.
+  useEffect(() => {
+    if (!talkShown) setTalkLog(false);
+  }, [talkShown]);
   /** Leave the box for the side panel's conversation, its message box focused. */
   const openTalkChat = () => {
     setTalking(false);
@@ -1510,7 +1516,8 @@ function App() {
             group: "Actions",
             page: "Command" as const,
             label: "Leave the conversation on the board",
-            keys: [["Esc"]],
+            // In the log, Esc goes back to the box first.
+            keys: talkLog ? undefined : [["Esc"]],
             keywords: "dungeon board dialogue dialog close end talk",
             run: () => setTalking(false),
           },
@@ -1521,6 +1528,15 @@ function App() {
             label: "Continue the conversation in the side panel",
             keywords: "dungeon board dialogue full chat panel open",
             run: openTalkChat,
+          },
+          {
+            id: "world-talk-log",
+            group: "Actions",
+            page: "Command" as const,
+            label: talkLog ? "Back to the dialogue box on the board" : "Show the whole conversation on the board",
+            keys: talkLog ? [["H"], ["Esc"]] : [["H"]],
+            keywords: "dungeon board dialogue log history transcript scroll expand earlier messages",
+            run: () => setTalkLog(!talkLog),
           },
         ]
       : []),
@@ -1643,7 +1659,8 @@ function App() {
       group: "Navigate",
       page: "Command" as const,
       label: "Next agent",
-      keys: [["J"]],
+      // The dialogue box's ▶ steps too.
+      keys: talkShown ? [["J"], ["⇧", "→"]] : [["J"]],
       run: () => step(1),
     },
     {
@@ -1651,7 +1668,7 @@ function App() {
       group: "Navigate",
       page: "Command" as const,
       label: "Previous agent",
-      keys: [["K"]],
+      keys: talkShown ? [["K"], ["⇧", "←"]] : [["K"]],
       run: () => step(-1),
     },
     {
@@ -2602,6 +2619,14 @@ function App() {
     prev: () => step(-1),
     next: () => step(1),
   };
+  // The dialogue box's ◀ ▶: the robots J/K step to, named.
+  const stepTo = (delta: number) => {
+    const n = order.length;
+    if (!n) return undefined;
+    const row = order[position.index < 0 ? (delta > 0 ? 0 : n - 1) : (position.index + delta + n) % n];
+    return row && agentName(row, workspaceOf(row)?.branch);
+  };
+  const talkPosition = talkShown ? { ...position, prevName: stepTo(-1), nextName: stepTo(1) } : position;
 
   return (
     <MotionConfig reducedMotion="user" transition={spring}>
@@ -2653,6 +2678,9 @@ function App() {
                   onNotice={setNotice}
                   onChanged={refresh}
                   onInset={setTalkInset}
+                  log={talkLog}
+                  onLog={setTalkLog}
+                  position={talkPosition}
                 />
               </React.Suspense>
             )}

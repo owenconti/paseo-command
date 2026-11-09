@@ -51,7 +51,7 @@ export function uiFrame(name: "panel" | "label" | "medallion"): Promise<string> 
 /** A `ui` frame's nine-slice insets in sheet pixels. */
 export const uiSlice = (name: "panel" | "label") => uiFrames[name]!.slice!;
 
-/** The robot's frames for its provider/model, as the board paints it: idle, or at work. */
+/** The robot's frames for its provider/model, as the board paints it: idle, or at work (the board now keeps to idle). */
 export function robotFrames(provider: string, working: boolean): Frame[] {
   const colour = robotColor(provider);
   const prefix = `robot-${colour}-${working ? "work" : "idle"}-`;

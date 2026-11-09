@@ -141,10 +141,12 @@ test("picking a robot opens its dialogue box over the board, not the hidden pane
   assert.equal(await choices(page).count(), 0);
   await page.keyboard.press("End");
   await choices(page).waitFor();
-  // R: the reply field; Enter sends.
+  // R: the app's own composer (files, /skills, @files) in the box; Enter sends.
   await page.keyboard.press("r");
-  const field = dialog.getByRole("textbox", { name: /Your reply to/ });
+  const field = dialog.locator("#world-composer");
   await field.waitFor();
+  assert.equal(await page.evaluate(() => document.activeElement?.id), "world-composer", "the composer has the keyboard");
+  await dialog.locator(".composer2").waitFor();
   await field.fill("Open it, thanks");
   await page.keyboard.press("Enter");
   const send = await posted(posts, "/api/agents/a-api-1/send");
@@ -238,7 +240,7 @@ test("a working robot says what it is doing; a follow-up is queued, not sent", a
   await dialog.locator(".wc-caption").getByText("You said: Run the tests").waitFor();
   await choices(page).getByRole("menuitem", { name: /Interrupt/ }).waitFor();
   await choices(page).getByRole("menuitem", { name: /Send a follow-up/ }).click();
-  const field = dialog.getByRole("textbox", { name: /Your reply to/ });
+  const field = dialog.locator("#world-composer");
   await field.fill("Also run the e2e suite");
   await page.keyboard.press("Enter");
   await waitFor(
@@ -247,6 +249,12 @@ test("a working robot says what it is doing; a follow-up is queued, not sent", a
     "the follow-up queued",
   );
   assert.equal(posts.filter((p) => p.path.endsWith("/send")).length, 0, "nothing sent while it works");
+  await field.waitFor({ state: "detached" });
+  // Queued, it's gone from the box's draft: opening the composer again starts empty.
+  await page.keyboard.press("r");
+  await field.waitFor();
+  assert.equal(await field.inputValue(), "");
+  assert.equal(await page.evaluate(() => localStorage.getItem("paseo-command:draft:a-api-2:world")), null);
 });
 
 test("reading a finished robot's reply in the box marks it read; T opens the box when picks don't", async () => {
@@ -275,9 +283,89 @@ test("the box types its line out; Enter finishes it at once", async () => {
   await pick(page, "a-api-1");
   const dialog = box(page);
   await dialog.waitFor();
-  await dialog.getByText("Enter to finish").waitFor();
+  const skip = dialog.getByRole("button", { name: /Show the whole page/ });
+  await skip.waitFor();
   assert.equal(await page.evaluate(() => CSS.highlights.has("world-chat-untyped")), true, "the untyped rest is hidden");
   await page.keyboard.press("Enter");
-  await dialog.getByText("Enter to finish").waitFor({ state: "detached" });
+  await skip.waitFor({ state: "detached" });
   assert.equal(await page.evaluate(() => CSS.highlights.has("world-chat-untyped")), false);
+});
+
+test("H opens the whole conversation upward over the board, scrolling up does too; Esc goes back to the box", async () => {
+  const { page } = await open({
+    timelines: {
+      "a-api-1": [
+        ...Array.from({ length: 12 }, (_, i) => [
+          { kind: "user", text: `Earlier request ${i + 1}`, messageId: `e-u${i}` },
+          { kind: "assistant", text: `Earlier answer ${i + 1}: ${"done and checked. ".repeat(6)}`, messageId: `e-r${i}` },
+        ]).flat(),
+        { kind: "user", text: "Look at the flaky login test first", messageId: "u0" },
+        { kind: "assistant", text: "The login test waits on a fixed timer; I made it wait for the redirect instead.", messageId: "r0" },
+        { kind: "user", text: "Tidy the README", messageId: "u1" },
+        { kind: "assistant", text: REPLY, messageId: "r1" },
+      ],
+    },
+  });
+  await pick(page, "a-api-1");
+  const dialog = box(page);
+  await dialog.waitFor();
+  const talk = await waitFor(() => native(page), (n) => n.talks.at(-1)?.id === key("a-api-1"), "the talk message");
+  const inset = talk.talks.at(-1)!.inset;
+  await page.keyboard.press("h");
+  const log = dialog.locator(".wc-log .timeline");
+  await log.waitFor();
+  // The earlier exchange is there, as the panel shows it, with the app's composer under it.
+  await log.getByText("Look at the flaky login test first").waitFor();
+  await log.getByText("waits on a fixed timer").waitFor();
+  await dialog.locator(".wc-log #world-composer").waitFor();
+  assert.equal(await choices(page).count(), 0, "the log has no choices menu");
+  // It opens upward: the box reaches most of the map's height, and the board keeps the box's own room.
+  const tall = (await dialog.boundingBox())!.height;
+  assert.ok(tall > 500, `the log is ${tall}px tall`);
+  assert.equal((await native(page)).talks.at(-1)?.inset, inset, "the camera keeps the box's room under the log");
+  // The keys scroll it, and it stays where they leave it (it doesn't pin itself back to the latest).
+  const gap = () => log.evaluate((el) => el.scrollHeight - el.clientHeight - el.scrollTop);
+  await waitFor(gap, (g) => g < 2, "the log opens at its latest");
+  await page.keyboard.press("PageUp");
+  await page.waitForTimeout(700);
+  assert.ok((await gap()) > 100, `PageUp scrolled up and stayed (${await gap()}px from the end)`);
+  await page.keyboard.press("Home");
+  await page.waitForTimeout(300);
+  assert.equal(await log.evaluate((el) => el.scrollTop), 0);
+  await page.keyboard.press("Escape");
+  await log.waitFor({ state: "detached" });
+  await dialog.waitFor();
+  // Scrolling up over the page opens it too.
+  await dialog.locator(".wc-text").hover();
+  await page.mouse.wheel(0, -400);
+  await log.waitFor();
+  await dialog.getByRole("button", { name: /Back to the dialogue box/ }).click();
+  await log.waitFor({ state: "detached" });
+});
+
+test("◀ ▶ either side of the box step to the previous and next robot; ⇧← ⇧→ too", async () => {
+  const { page } = await open({
+    timelines: {
+      "a-api-1": [{ kind: "user", text: "Tidy the README", messageId: "u1" }, { kind: "assistant", text: "Done.", messageId: "r1" }],
+    },
+  });
+  await pick(page, "a-api-1");
+  const dialog = box(page);
+  await dialog.waitFor();
+  const next = dialog.getByRole("button", { name: /^Next agent: .+ \(⇧→\)$/ });
+  const prev = dialog.getByRole("button", { name: /^Previous agent: .+ \(⇧←\)$/ });
+  await next.waitFor();
+  await prev.waitFor();
+  const nextName = /^Next agent: (.+) \(⇧→\)$/.exec((await next.getAttribute("aria-label"))!)![1]!;
+  // The ◀ ▶ sit outside the box, either side of it.
+  const [b, l, r] = await Promise.all([dialog.boundingBox(), prev.boundingBox(), next.boundingBox()]);
+  assert.ok(l!.x + l!.width <= b!.x && r!.x >= b!.x + b!.width, "the buttons flank the box");
+  await next.click();
+  await waitFor(async () => (await box(page).getAttribute("aria-label")) ?? "", (label) => label === `Conversation with ${nextName}`, "the next robot's box");
+  const stepped = (await native(page)).selected;
+  assert.notEqual(stepped, key("a-api-1"));
+  await waitFor(() => native(page), (n) => n.talks.at(-1)?.id === stepped, "the board frames the next robot");
+  await box(page).focus();
+  await page.keyboard.press("Shift+ArrowLeft");
+  await waitFor(async () => (await box(page).getAttribute("aria-label")) ?? "", (label) => /api agent 2/.test(label), "back to the first robot");
 });

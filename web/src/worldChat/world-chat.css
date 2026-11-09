@@ -12,7 +12,8 @@
   bottom: 18px;
   transform: translateX(-50%);
   box-sizing: border-box;
-  width: min(900px, calc(100% - 40px));
+  /* Room either side for the ◀ ▶ buttons. */
+  width: min(900px, calc(100% - 180px));
   height: 204px;
   display: grid;
   grid-template-columns: 112px minmax(0, 1fr);
@@ -27,6 +28,41 @@
   outline: none;
   filter: drop-shadow(0 12px 26px rgb(0 0 0 / 50%));
   animation: wc-rise 0.22s ease-out;
+  /* The app's own composer, conversation and request cards, in the board's colours. */
+  color-scheme: dark;
+  --panel: #251e40;
+  --panel-2: #2b2349;
+  --panel-raised: #30275a;
+  --fill: rgb(255 255 255 / 6%);
+  --fill-strong: rgb(255 255 255 / 11%);
+  --line: rgb(216 168 64 / 26%);
+  --line-soft: rgb(216 168 64 / 14%);
+  --line-strong: rgb(216 168 64 / 48%);
+  --text: #f2ead6;
+  --text-strong: #fff6df;
+  --text-2: #cfc6e6;
+  --text-3: #9a96b4;
+  --text-faint: #7c7898;
+  --accent: #d8a840;
+  --accent-text: #ffd98a;
+  --on-accent: #2a1a0e;
+  --focus: #ffe56e;
+  --row-hover: rgb(216 168 64 / 12%);
+  /* Your messages: parchment, as the name plate. */
+  --bubble: #efdfb6;
+  --bubble-line: #a8662c;
+  --bubble-text: #2a1a0e;
+}
+/* Writing a reply: the box grows to its composer. */
+.world-chat.replying {
+  height: auto;
+  min-height: 204px;
+  max-height: calc(100% - 48px);
+}
+/* The whole conversation: the box opens upward over the board. */
+.world-chat.log {
+  top: 44px;
+  height: auto;
 }
 /* The HUD's own frame, once cut from its sheet (its chamfered corners are transparent). */
 .world-chat[style*="--wc-frame"],
@@ -459,4 +495,134 @@
   .wc-choice.current .wc-cursor {
     animation: none !important;
   }
+}
+
+/* ◀ ▶: the previous and next robot, either side of the box. */
+.wc-nav {
+  position: absolute;
+  bottom: 52px;
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  width: 56px;
+  padding: 10px 0 6px;
+  border: 2px solid #c2871f;
+  border-radius: 12px;
+  background: #251e40;
+  box-shadow: inset 0 0 0 1px #000012, 0 8px 18px rgb(0 0 0 / 45%);
+  color: var(--wc-gold);
+  font: 800 18px/1 inherit;
+  font-family: inherit;
+  cursor: pointer;
+}
+.wc-nav.prev {
+  left: -84px;
+}
+.wc-nav.next {
+  right: -84px;
+}
+.wc-nav:hover {
+  border-color: #ffe56e;
+  color: #ffe56e;
+}
+.wc-nav .wc-key {
+  font-size: 9.5px;
+}
+
+/* ▲ Conversation: a tab on the box's top edge. */
+.wc-log-toggle {
+  position: absolute;
+  top: -30px;
+  right: 34px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 26px;
+  padding: 0 10px;
+  border: 1px solid #c2871f;
+  border-bottom: 0;
+  border-radius: 7px 7px 0 0;
+  background: #251e40;
+  color: var(--wc-gold);
+  font: 800 11px/1 inherit;
+  font-family: inherit;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.wc-log-toggle:hover {
+  color: #ffe56e;
+}
+
+.wc-skip {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--wc-dim);
+  font: 700 11px/1 inherit;
+  font-family: inherit;
+  cursor: pointer;
+}
+.wc-skip:hover {
+  color: var(--wc-ink);
+}
+
+/* The log: the app's conversation, then any request and the composer. */
+.wc-log {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-bottom: 6px;
+}
+.wc-log .timeline {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 4px 6px 4px 0;
+  background: none;
+  font-size: 14px;
+  scrollbar-width: thin;
+  scrollbar-color: rgb(216 168 64 / 40%) transparent;
+}
+/* Code in the log as on the box's pages. */
+.wc-log .md code {
+  background: rgb(255 255 255 / 7%);
+  color: #ffd98a;
+}
+.wc-log .md pre code {
+  background: none;
+  color: #e8e2f4;
+}
+.wc-log .permission {
+  flex: none;
+  margin: 0;
+}
+
+/* The app's composer in the box. */
+.wc-composer {
+  flex: none;
+  min-width: 0;
+  margin-top: 2px;
+}
+.world-chat.replying .wc-composer {
+  margin-bottom: 6px;
+}
+.wc-composer .composer-shell {
+  padding: 0;
+  background: none;
+  border: 0;
+}
+.wc-composer .composer2 {
+  border-color: rgb(216 168 64 / 45%);
+  background: rgb(8 5 18 / 55%);
+}
+.wc-composer .composer2.focused {
+  border-color: #ffe56e;
+  box-shadow: 0 0 0 3px rgb(255 229 110 / 14%);
 }

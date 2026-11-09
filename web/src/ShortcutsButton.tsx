@@ -109,13 +109,17 @@ const DUNGEON_TALK: Group = {
   note: "While a robot's dialogue box shows (picking a robot opens it)",
   rows: [
     { keys: [["T"]], label: "Talk to the selected robot" },
-    { keys: [["Enter"], ["Space"]], label: "Finish the line, then the next page; pick the marked choice" },
+    { keys: [["Enter"], ["Space"]], label: "Show the whole page at once (hold to keep it so), then the next page; pick the marked choice" },
     { keys: [["←"], ["→"]], label: "Previous or next page" },
     { keys: [["End"]], label: "Skip to the last page and its choices" },
     { keys: [["↑"], ["↓"]], label: "Move through the choices" },
     { keys: [["1"], ["…"], ["9"]], label: "Pick that choice" },
-    { keys: [["R"]], label: "Reply (queued while it works)" },
-    { keys: [["Esc"]], label: "Leave the conversation (the robot stays selected)" },
+    { keys: [["R"]], label: "Reply in its composer: files, /skills, @files (queued while it works)" },
+    { keys: [["H"]], label: "Show the whole conversation, or back to the box (scrolling up opens it too)" },
+    { keys: [["↑"], ["↓"], ["PageUp"], ["PageDown"], ["Home"], ["End"]], label: "In the conversation: scroll it" },
+    { keys: [["Enter"], ["R"]], label: "In the conversation: write in its composer" },
+    { keys: [["⇧", "←"], ["⇧", "→"]], label: "The previous or next robot (as K and J)" },
+    { keys: [["Esc"]], label: "Leave the composer, the conversation's log, then the box (the robot stays selected)" },
   ],
 };
 

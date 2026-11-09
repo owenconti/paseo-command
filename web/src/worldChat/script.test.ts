@@ -36,6 +36,15 @@ describe("pageReply", () => {
     assert.deepEqual(pages.join("\n").split("\n"), items);
   });
 
+  it("fills a page: a list that doesn't fit after a paragraph starts on it and goes on over the page", () => {
+    const items = Array.from({ length: 4 }, (_, i) => `- item ${i + 1}`);
+    const pages = pageReply(["One short opening line.", "", ...items].join("\n"), room);
+    assert.equal(pages.length, 2);
+    assert.match(pages[0]!, /^One short opening line\.\n\n- item 1\n- item 2$/, pages[0]);
+    assert.equal(pages[1], "- item 3\n- item 4");
+    for (const page of pages) assert.ok(fits(page), page);
+  });
+
   it("keeps a list that follows its lead-in line a list", () => {
     const items = Array.from({ length: 6 }, (_, i) => `- change ${i + 1}`);
     const pages = pageReply(["**What changed**", ...items].join("\n"), room);

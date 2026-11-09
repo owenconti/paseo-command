@@ -90,6 +90,8 @@ export function Composer({
   label = "Message agent...",
   placeholder: hint,
   draftOwner = "dispatch",
+  draftScope = "",
+  onQueued,
 }: {
   /** Current-work summary, kept with the sticky input. */
   activity?: ReactNode;
@@ -124,9 +126,14 @@ export function Composer({
   placeholder?: string;
   /** Whose draft a `draft` composer keeps (a new agent's by default). */
   draftOwner?: string;
+  /** Kept apart from the agent's own draft (the Dungeon Board's dialogue box: ":world"), so two composers never
+   * overwrite each other's text, attachments or answers. */
+  draftScope?: string;
+  /** A message was queued (sent once the agent finishes). */
+  onQueued?: () => void;
 }) {
   // A new agent's draft is kept as the dispatch draft always was.
-  const owner = agent ? agent.id : draftOwner;
+  const owner = agent ? `${agent.id}${draftScope}` : draftOwner;
   const draftKey = `draft:${owner}`;
   const host = agent ? agent.host : draft?.host;
   const [text, setText] = useState(() => readStore(draftKey, ""));
@@ -284,11 +291,16 @@ export function Composer({
       setSending(true);
       try {
         await enqueue(agent.id, value, items);
+        // Cleared in storage now, as well as below: a composer that closes as it queues (the dialogue box's) can be
+        // gone before its own effects would.
+        removeStore(draftKey);
+        removeStore(answersKey);
         soundEvent("sent");
         setText("");
         setAnswers([]);
         setAttachments([]);
         setHistoryIndex(-1);
+        onQueued?.();
       } catch (e) {
         soundEvent("actionFailed");
         onNotice(
@@ -363,7 +375,9 @@ export function Composer({
   // ── Global shortcut: ⌘L focuses the composer ──
   // Not from behind a dialog: it would type into a field the dialog hides
   // (Dispatch gives ⌘L its own meaning).
+  // A scoped composer (the dialogue box's) leaves ⌘L to the page's own.
   useEffect(() => {
+    if (draftScope) return;
     const handler = (e: globalThis.KeyboardEvent) => {
       if (!(e.metaKey || e.ctrlKey) || e.altKey || e.shiftKey) return;
       if (e.key.toLowerCase() === "l" && !modalOpen() && !e.defaultPrevented) {
@@ -373,7 +387,7 @@ export function Composer({
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, []);
+  }, [draftScope]);
 
   /** Escape and the send keys, in the message box or an answer field. */
   const sendKeys = (e: KeyboardEvent<HTMLTextAreaElement>) => {
@@ -384,6 +398,8 @@ export function Composer({
     }
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
+      // A held Enter sends once.
+      if (e.repeat) return true;
       if (e.metaKey || e.ctrlKey)
         void submit(running ? "interrupt" : defaultBehavior);
       else if (e.altKey) void submit(running ? "steer" : defaultBehavior);
