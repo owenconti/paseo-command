@@ -3,7 +3,7 @@
   position: absolute;
   inset: 0;
   overflow: hidden;
-  background: #1d6884;
+  background: transparent;
   outline: none;
   touch-action: none;
 }

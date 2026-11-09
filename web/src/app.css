@@ -126,10 +126,6 @@
 .unity-command .native-status-stack {
   top: 82px;
 }
-.unity-command .native-map-surface:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: -4px;
-}
 @media (max-width: 1100px) and (min-width: 761px) {
   .command-app.unity-command {
     padding-left: 38vw;
