@@ -35,7 +35,7 @@ export const ASSIGNED_ISSUES_QUERY = `query AssignedIssues($first: Int!, $after:
       after: $after
       orderBy: updatedAt
       filter: { or: [
-        { state: { type: { in: ["started", "unstarted"] } } }
+        { state: { type: { in: ["triage", "backlog", "started", "unstarted"] } } }
         { state: { type: { eq: "completed" } }, completedAt: { gte: $since } }
       ] }
     ) {

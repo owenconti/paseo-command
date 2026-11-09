@@ -23,7 +23,7 @@ export type PrCountsAnswer =
   | { state: "ok"; counts: Record<PrGroup, number>; items: Record<PrGroup, PrCountItem[]>; atLeast?: PrGroup[] }
   | CountsUnavailable<"off" | "no-token" | "error">;
 
-export type IssueCountItem = { id: string; title: string; url: string };
+export type IssueCountItem = { id: string; title: string; url: string; status?: string };
 export type IssueGroup = "done" | "inProgress" | "todo" | "blocked";
 /** Linear issues assigned to you: completed in the last 14 days, started, unstarted, and open ones blocked. */
 export type IssueCountsAnswer =

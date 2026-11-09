@@ -252,7 +252,7 @@ async function setUp(
     }
     if (name === "prs") {
       const scope = u.searchParams.get("scope") as PrList["scope"];
-      const rows = scope === "review" ? REVIEW : scope === "mine" ? MINE : [...REVIEW, ...MINE];
+      const rows = scope === "review" ? REVIEW : scope === "mine" ? MINE : scope === "assigned" ? [] : [...REVIEW, ...MINE];
       return route.fulfill({ json: { scope, rows, viewer: { login: "me" } } satisfies PrList });
     }
     if (name === "pr") {

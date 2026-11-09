@@ -72,8 +72,8 @@ export type ChecksState = "passing" | "failing" | "pending";
 export type YourReview = "approved" | "changes" | "commented" | "pending";
 
 /** The lists in the sidebar: review requested from you, yours, and those involving you. */
-export type PrScope = "review" | "mine" | "involved";
-export const PR_SCOPES: PrScope[] = ["review", "mine", "involved"];
+export type PrScope = "review" | "assigned" | "mine" | "involved";
+export const PR_SCOPES: PrScope[] = ["review", "assigned", "mine", "involved"];
 
 /** A PR in a list. `repo` is `owner/name`. */
 export type PrRow = {

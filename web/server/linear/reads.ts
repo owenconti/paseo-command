@@ -87,7 +87,7 @@ export async function readNotifications(after?: string): Promise<{ notifications
 
 // ── Your issues, counted (the Dungeon Board's vault) ─────────────────────────────
 const isBlockedWord = (v: unknown) => strOf(v).trim().toLowerCase() === "blocked";
-const OPEN = new Set(["started", "unstarted"]);
+const OPEN = new Set(["triage", "backlog", "started", "unstarted"]);
 
 /**
  * Whether an open issue is blocked: its state or a label is named "Blocked", or an
@@ -109,7 +109,8 @@ function issueItem(raw: Record<string, unknown>): IssueCountItem | null {
   const id = strOf(raw.identifier);
   const url = httpsUrl(raw.url);
   if (!/^[A-Za-z0-9]+-\d+$/.test(id) || !url.startsWith("https://linear.app/")) return null;
-  return { id, title: clipTitle(strOf(raw.title).trim()), url };
+  const status = strOf(recOf(raw.state).name).trim().slice(0,80);
+  return { id, title: clipTitle(strOf(raw.title).trim()), url, ...(status ? {status} : {}) };
 }
 
 /** Counts one page of assigned issues into done, in progress, todo and blocked (blocked ones only there). */

@@ -742,3 +742,17 @@ test("PR counts say why there are none: off, no token, refused or limited, alway
   assert.deepEqual(await ask("/api/github/q/prCounts"), { status: 200, body: { state: "no-token", message: NO_KEY } });
   assert.equal(fake.calls.length, 0);
 });
+
+test("assigned PRs use the assignee query, review requests stay separate, and totals cover capped previews", async () => {
+  fake.search[SCOPE_QUERY.assigned] = [fakePr({number:41,title:"Assigned work"})];
+  fake.counts[SCOPE_QUERY.assigned] = 123;
+  const assigned=await ask("/api/github/q/prs?scope=assigned");
+  assert.equal(assigned.status,200);assert.equal(assigned.body.total,123);
+  assert.equal(assigned.body.rows[0].title,"Assigned work");
+  const call=fake.calls.find(c=>c.path === "graphql")!;
+  assert.equal((call.body as {variables:{q:string}}).variables.q,SCOPE_QUERY.assigned);
+  assert.match(SCOPE_QUERY.assigned,/assignee:@me/);assert.doesNotMatch(SCOPE_QUERY.assigned,/author:@me/);
+  assert.match((call.body as {query:string}).query,/issueCount/);
+  const review=await ask("/api/github/q/prs?scope=review");
+  assert.equal(review.body.scope,"review");assert.ok(review.body.rows.every((p:{title:string})=>p.title !== "Assigned work"));
+});

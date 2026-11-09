@@ -2038,7 +2038,7 @@ function App() {
             command("page-refresh", place.kind === "commits" ? "Refresh main history" : place.kind === "pr" ? "Refresh the pull request" : "Refresh the pull requests", "reload update sync checks comments list", ["⌘", "R"]),
             command("github-refresh", "Refresh GitHub", "reload update sync pull requests everything all counts repositories"),
             command("github-sidebar", "Show or hide the GitHub sidebar", "sidebar navigation collapse panel repositories", ["⌘", "S"]),
-            ...(["review", "mine", "involved"] as const)
+            ...(["review", "assigned", "mine", "involved"] as const)
               .filter((scope) => !(place.kind === "prs" && place.scope === scope))
               .map((scope) =>
                 command("github-go", `Go to ${PR_SCOPE_TITLE[scope].toLowerCase()} in GitHub`, `pull requests list ${scope}`, undefined, { kind: "prs", scope }, "Navigate"),

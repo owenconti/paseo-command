@@ -162,3 +162,12 @@ test("the real sources contact nothing while their integrations are off", async 
     LINEAR.fetch = fetch;
   }
 });
+
+test("a capped Linear Inbox reports a lower-bound count without masking other sources", async () => {
+  enable({linear:true,github:true});
+  SOURCES.linear={...SOURCES.linear,async read(){return {items:[item("linear","issue:abcdef12","2026-10-29T10:00:00Z")],limited:true};}};
+  const feed=await activityFeed();
+  assert.equal(feed.sources.find(s=>s.source === "linear")?.limited,true);
+  assert.equal(feed.sources.find(s=>s.source === "linear")?.unread,1);
+  assert.equal(feed.sources.find(s=>s.source === "github")?.limited,undefined);
+});

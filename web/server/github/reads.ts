@@ -174,18 +174,19 @@ export function readViewer(fresh = false): Promise<Viewer> {
 // ── prs ──────────────────────────────────────────────────────────────────────
 export const SCOPE_QUERY: Record<PrScope, string> = {
   review: "is:pr is:open archived:false review-requested:@me sort:updated-desc",
+  assigned: "is:pr is:open archived:false assignee:@me sort:updated-desc",
   mine: "is:pr is:open archived:false author:@me sort:updated-desc",
   involved: "is:pr is:open archived:false involves:@me sort:updated-desc",
 };
 export const PRS_QUERY = `query($q: String!) {
   viewer { login name avatarUrl }
-  search(query: $q, type: ISSUE, first: 50) { nodes { ... on PullRequest { ${ROW} } } }
+  search(query: $q, type: ISSUE, first: 50) { issueCount nodes { ... on PullRequest { ${ROW} } } }
 }`;
 
 export function readPrs(scope: PrScope, fresh = false): Promise<PrList> {
   return cached(`prs:${scope}`, fresh, async () => {
     searchSlot();
-    const data = await graphql(PRS_QUERY, { q: SCOPE_QUERY[scope] });
+    const data = await graphql(PRS_QUERY, { q: SCOPE_QUERY[scope] }, true);
     return { scope, ...searchRows(data) };
   });
 }

@@ -10,6 +10,7 @@ export const TAB_LABEL: Record<PrTab, string> = {
 };
 export const SCOPE_TITLE: Record<PrScope, string> = {
   review: "Review requests",
+  assigned: "Assigned to you",
   mine: "Your pull requests",
   involved: "Involving you",
 };

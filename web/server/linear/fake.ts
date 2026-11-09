@@ -304,7 +304,7 @@ export const OPERATIONS: Record<string, FakeOperation> = {
   AssignedIssues: ({ ws, variables }) => {
     const since = Date.parse(String(variables.since));
     const wanted = (ws.assignedIssues ?? []).filter((i) =>
-      i.state.type === "started" || i.state.type === "unstarted"
+      ["triage","backlog","started","unstarted"].includes(i.state.type)
         ? true
         : i.state.type === "completed" && !!i.completedAt && Date.parse(i.completedAt) >= since,
     );

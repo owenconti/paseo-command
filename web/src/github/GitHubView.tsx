@@ -83,9 +83,10 @@ export type GithubViewState = {
 };
 
 const PANELS = { sidebar: 220, sidebarMin: 170, mainMin: 480 };
-const SCOPE_ICON: Record<PrScope, typeof Eye> = { review: Eye, mine: UserRound, involved: AtSign };
+const SCOPE_ICON: Record<PrScope, typeof Eye> = { review: Eye, assigned: GitPullRequest, mine: UserRound, involved: AtSign };
 const SCOPE_HINT: Record<PrScope, string> = {
   review: "Open pull requests waiting on your review",
+  assigned: "Open pull requests assigned to you",
   mine: "Open pull requests you opened",
   involved: "Open pull requests you're assigned, mentioned in or have commented on",
 };
@@ -191,10 +192,12 @@ export function GitHubView({
 
   const viewer = useGithubRead<Viewer>(readPath("viewer"));
   // The sidebar's counts: each list, asked once shown (the open one polls).
+  const countOf = (r: {data?: PrListData}) => r.data?.total ?? r.data?.rows.length;
   const counts = {
-    review: useGithubRead<PrListData>(readPath("prs", { scope: "review" }), LIST_POLL_MS).data?.rows.length,
-    mine: useGithubRead<PrListData>(readPath("prs", { scope: "mine" })).data?.rows.length,
-    involved: useGithubRead<PrListData>(readPath("prs", { scope: "involved" })).data?.rows.length,
+    review:countOf(useGithubRead<PrListData>(readPath("prs",{scope:"review"}),LIST_POLL_MS)),
+    assigned:countOf(useGithubRead<PrListData>(readPath("prs",{scope:"assigned"}),LIST_POLL_MS)),
+    mine:countOf(useGithubRead<PrListData>(readPath("prs",{scope:"mine"}))),
+    involved:countOf(useGithubRead<PrListData>(readPath("prs",{scope:"involved"}))),
   };
   const repos = useGithubRead<RepoList>(REPOS_PATH);
   // The repository's filters, kept for each (place.ts).

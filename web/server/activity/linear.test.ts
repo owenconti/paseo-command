@@ -8,7 +8,7 @@ import { FAKE_IDS as I, installFakeLinear, type FakeLinear } from "../linear/fak
 import { resetLinearReads } from "../linear/reads";
 import { writeSettings } from "../settings";
 import { issueKeysIn } from "../linear/normalize";
-import { linearEntity, readLinearActivity, resetLinearActivity, writeLinearActivity } from "./linear";
+import { linearEntity, readLinearInbox, readLinearActivity, resetLinearActivity, writeLinearActivity } from "./linear";
 import { ACTIVITY_MARKS } from "./marks";
 
 let fake: FakeLinear;
@@ -189,4 +189,13 @@ test("a refused read stays unread; read shows as read while the Inbox still has 
   assert.deepEqual(await writeLinearActivity("read", [eng1!]), []);
   for (const n of fake.ws.notifications) n.readAt = null;
   assert.equal((await readLinearActivity()).find((i) => i.key === eng1!.key)!.unread, false);
+});
+
+
+test("a partial Inbox exposes its page limit instead of claiming an exact unread total", async () => {
+  const original=fake.ws.notifications[0]!;
+  fake.ws.notifications=Array.from({length:260},(_,i)=>({...original,id:`10000000-0000-0000-0000-${String(i).padStart(12,"0")}`}));
+  const result=await readLinearInbox();
+  assert.equal(result.limited,true);
+  assert.ok(result.items.length > 0);
 });

@@ -20,7 +20,7 @@ import { ACTIVITY_MARKS, applyMarks, newMarks } from "./marks";
 
 export const LINEAR_ACTIVITY = { ttlMs: 20_000 };
 
-let cache: { at: number; items: Promise<ActivityItem[]> } | undefined;
+let cache: { at: number; items: Promise<{ items: ActivityItem[]; limited: boolean }> } | undefined;
 /** Rows marked here, for this launch: Linear keeps what's archived out of the Inbox once it has settled. */
 const marks = newMarks();
 
@@ -69,8 +69,8 @@ export function linearItem(group: InboxGroup, users: LinearUser[] = [], workspac
   };
 }
 
-async function gather(): Promise<ActivityItem[]> {
-  const { notifications } = await readNotifications();
+async function gather(): Promise<{ items: ActivityItem[]; limited: boolean }> {
+  const { notifications, next } = await readNotifications();
   // People's names, and the teams whose issues pull requests name, are nice to have: the workspace is kept five minutes by the reads.
   const ws = await readWorkspace().catch(() => undefined);
   const teams = ws?.teams.map((t) => t.key) ?? [];
@@ -80,11 +80,11 @@ async function gather(): Promise<ActivityItem[]> {
     appSettings().linearWorkspace ||
     notifications.map((n) => /^https:\/\/linear\.app\/([a-z0-9][a-z0-9-]{0,63})\//i.exec(n.url)?.[1]).find(Boolean) ||
     "";
-  return inboxGroups(notifications, Date.now(), false, teams).map((g) => linearItem(g, ws?.users, workspace));
+  return { items: inboxGroups(notifications, Date.now(), false, teams).map((g) => linearItem(g, ws?.users, workspace)), limited: !!next };
 }
 
 /** Your Linear Inbox as Activity items; throws a LinearError when Linear can't answer. */
-export async function readLinearActivity(fresh = false): Promise<ActivityItem[]> {
+export async function readLinearInbox(fresh = false): Promise<{ items: ActivityItem[]; limited: boolean }> {
   const now = Date.now();
   if (fresh || !cache || now - cache.at >= LINEAR_ACTIVITY.ttlMs) {
     const items = gather();
@@ -93,11 +93,11 @@ export async function readLinearActivity(fresh = false): Promise<ActivityItem[]>
       if (cache?.items === items) cache = undefined;
     });
   }
-  const items = await cache.items;
+  const result = await cache.items;
   // Done ones past the Inbox's reach (a fortnight) won't show again anyway.
   const cut = ACTIVITY_MARKS.now() - 15 * 86_400_000;
   for (const [id, mark] of marks.done) if (Date.parse(mark.doneAt) < cut) marks.done.delete(id);
-  return applyMarks(marks, items).items;
+  return { items: applyMarks(marks, result.items).items, limited: result.limited };
 }
 
 /** Whom an item's write names: its issue's or project's notifications, or the one; null when the id isn't one of these. */
@@ -142,3 +142,6 @@ export async function writeLinearActivity(
   cache = undefined;
   return failed;
 }
+
+/** The Activity source’s original array interface remains available to callers. */
+export async function readLinearActivity(fresh = false): Promise<ActivityItem[]> { return (await readLinearInbox(fresh)).items; }

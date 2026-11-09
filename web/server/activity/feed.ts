@@ -14,11 +14,11 @@ import type {
 } from "../../src/activity/types";
 import { integrationEnabled } from "../integrations";
 import { readGithubActivity, writeGithubActivity } from "./github";
-import { readLinearActivity, writeLinearActivity } from "./linear";
+import { readLinearInbox, writeLinearActivity } from "./linear";
 
 type Failure = { key: string; error: string };
 export type ActivitySourceDef = {
-  read(fresh: boolean): Promise<ActivityItem[]>;
+  read(fresh: boolean): Promise<ActivityItem[] | { items: ActivityItem[]; limited: boolean }>;
   write(name: ActivityWriteName, items: ActivityItem[]): Promise<Failure[] | void>;
 };
 
@@ -27,7 +27,7 @@ const SOURCE_NAMES: Record<ActivitySource, string> = { github: "GitHub", linear:
 /** The sources, in the sidebar's order (tests replace them). */
 export const SOURCES: Record<ActivitySource, ActivitySourceDef> = {
   github: { read: readGithubActivity, write: writeGithubActivity },
-  linear: { read: readLinearActivity, write: writeLinearActivity },
+  linear: { read: readLinearInbox, write: writeLinearActivity },
 };
 const ORDER: ActivitySource[] = ["github", "linear"];
 
@@ -52,8 +52,10 @@ export async function activityFeed(fresh = false): Promise<ActivityFeed> {
       if (!integrationEnabled(source))
         return { status: { source, enabled: false, ok: true, unread: 0 }, items: [] };
       try {
-        const items = (await SOURCES[source].read(fresh)).filter((i) => i.source === source);
-        return { status: { source, enabled: true, ok: true, unread: items.filter((i) => i.unread).length }, items };
+        const answer = await SOURCES[source].read(fresh);
+        const items = (Array.isArray(answer) ? answer : answer.items).filter((i) => i.source === source);
+        const limited = !Array.isArray(answer) && answer.limited;
+        return { status: { source, enabled: true, ok: true, unread: items.filter((i) => i.unread).length, ...(limited ? { limited: true } : {}) }, items };
       } catch (e) {
         return { status: { source, enabled: true, ok: false, reason: reasonOf(source, e), unread: 0 }, items: [] };
       }

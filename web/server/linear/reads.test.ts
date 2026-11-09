@@ -81,10 +81,10 @@ test("counts your assigned issues: done in 14 days, in progress, todo, blocked",
   const answer = await readIssueCounts();
   assert.equal(answer.state, "ok");
   if (answer.state !== "ok") return;
-  assert.deepEqual(answer.counts, { done: 11, inProgress: 8, todo: 7, blocked: 2 });
+  assert.deepEqual(answer.counts, { done: 11, inProgress: 8, todo: 8, blocked: 3 });
   assert.equal(answer.items.done.length, 11);
-  assert.deepEqual(answer.items.done[0], { id: "DE-1", title: "Issue 1", url: "https://linear.app/fake/issue/DE-1/issue-1" }, "the newest completed first");
-  assert.deepEqual(answer.items.blocked.map((i) => i.id), ["DE-28", "DE-29"], "a Blocked state, and blocked by an open issue");
+  assert.deepEqual(answer.items.done[0], { id: "DE-1", title: "Issue 1", url: "https://linear.app/fake/issue/DE-1/issue-1", status: "Done" }, "the newest completed first");
+  assert.deepEqual(answer.items.blocked.map((i) => i.id), ["DE-28", "DE-29", "DE-30"], "a Blocked state, and blocked by an open issue");
   assert.ok(answer.items.inProgress.some((i) => i.id === "DE-19"), "blocked only by a completed issue: in progress");
   const asked = fake.requests.find((r) => r.operation === "AssignedIssues")!;
   assert.equal(asked.variables.first, 250);
@@ -152,8 +152,8 @@ test("blocked: a Blocked state or label (any case), or an open issue blocking it
   assert.equal(isBlocked(issue({ inverseRelations: by("started", "related") })), false);
   const counted = countIssues([issue({ labels: { nodes: [{ name: "Blocked" }] } }), issue({ state: { type: "unstarted", name: "Todo" }, inverseRelations: by("started") })], 0);
   assert.deepEqual(counted.counts, { done: 0, inProgress: 0, todo: 0, blocked: 2 });
-  // A completed or backlog issue is never blocked, whatever blocks it.
-  assert.deepEqual(countIssues([issue({ state: { type: "backlog", name: "Blocked" } })], 0).counts, { done: 0, inProgress: 0, todo: 0, blocked: 0 });
+  // Completed or canceled work is never counted as blocked.
+  assert.deepEqual(countIssues([issue({ state: { type: "canceled", name: "Blocked" } })], 0).counts, { done: 0, inProgress: 0, todo: 0, blocked: 0 });
 });
 
 test("issue counts are kept a minute per key; fresh asks again; failures aren't kept", async () => {
@@ -179,4 +179,11 @@ test("issue counts say why there are none: Linear off, no key, or Linear's error
   writeSettings({ integrations: { ...(readSettings()?.integrations as object), linear: false } });
   assert.deepEqual(await readIssueCounts(), { state: "off", message: DISABLED });
   assert.equal(fake.requests.length, 0, "Linear isn't asked");
+});
+
+test("assigned work includes backlog and triage and preserves the actual workflow name", async () => {
+  const answer=await readIssueCounts();
+  assert.ok(answer.state === "ok");
+  assert.ok(answer.items.todo.some(i=>i.status === "Triage"));
+  assert.ok(answer.items.blocked.some(i=>i.status === "Backlog"));
 });

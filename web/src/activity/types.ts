@@ -44,6 +44,8 @@ export type ActivitySourceStatus = {
   reason?: string;
   /** Unread items from it. */
   unread: number;
+  /** More source pages exist: this loaded Inbox count is a lower bound. */
+  limited?: boolean;
 };
 
 export type ActivityFeed = {

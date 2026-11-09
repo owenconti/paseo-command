@@ -10,6 +10,7 @@ import type { PrList as PrListData, PrRow, PrScope } from "./types";
 
 const SCOPE_EMPTY: Record<PrScope, string> = {
   review: "No one is waiting on your review.",
+  assigned: "No open pull requests are assigned to you.",
   mine: "You have no open pull requests.",
   involved: "No open pull requests involve you.",
 };

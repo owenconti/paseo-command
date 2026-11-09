@@ -82,7 +82,7 @@ test("counts your issues; accepts fresh=1 only; says why there are none, always 
   const ok = await ask("/api/linear/issue-counts");
   assert.equal(ok.status, 200);
   assert.equal(ok.body.state, "ok");
-  assert.deepEqual(ok.body.counts, { done: 11, inProgress: 8, todo: 7, blocked: 2 });
+  assert.deepEqual(ok.body.counts, { done: 11, inProgress: 8, todo: 8, blocked: 3 });
   const asked = () => fake.requests.filter((r) => r.operation === "AssignedIssues").length;
   await ask("/api/linear/issue-counts");
   assert.equal(asked(), 1, "kept");

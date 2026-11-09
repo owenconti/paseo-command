@@ -21,7 +21,7 @@ export type HostStats = { cpu?: number; memory?: number; disk?: number };
 /** The fleet as the Atlas draws it. Every key is unique across hosts. */
 /** A dashboard row's counts for the Dungeon Board's vault (GitHub PRs, Linear issues): `ok` with counts and some of each group's items,
  * else why not (`off`, `no-key`/`no-token`, `error`) with a message. */
-export type DashboardItem = { title: string; url: string; id?: string; repo?: string; number?: number };
+export type DashboardItem = { title: string; url: string; id?: string; repo?: string; number?: number; status?: string };
 export type DashboardCounts = {
   state: "ok" | "off" | "no-key" | "no-token" | "error";
   message?: string;
