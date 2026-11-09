@@ -504,16 +504,22 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
   /** The board's stone, gates, alcoves, signs and decorations: what changes only when places do. */
   const sceneOf = (l: DungeonLayout) => {
     const sprites: Sprite[] = [];
+    // Scenery continues to the camera's edges without changing the board's layout or pick boxes.
+    const backdrop: Sprite[] = [];
     const images: Sprite[] = [];
     const lights: Sprite[] = [];
     const dimOf = (floor: number) => (l.floors[floor]?.online ? {} : { dim: 1 });
-    const fill = (name: string, r: Rect, z: number, extra: Sprite = {}) => sprites.push(tile(name, r, z, extra));
+    const fill = (name: string, r: Rect, z: number, extra: Sprite = {}, scenery = false) => {
+      const piece = tile(name, r, z, extra);
+      sprites.push(piece);
+      if (scenery) backdrop.push(piece);
+    };
     const put = (name: string, x: number, y: number, w: number, h: number, z: number, extra: Sprite = {}) => sprites.push(sprite(name, { x, y, w, h }, z, extra));
     // The wall above the first floor, with its pillars; the HUD's title lies over it.
     {
       const r = l.topBand.rect, L = r.x, R = r.x + r.w;
       fill("wall-brick-dark", r, -60, { shade: WALL_SHADE });
-      fill("wall-brick", { x: L + 22, y: r.y + 4, w: R - L - 49, h: r.h - 4 }, -55, { shade: WALL_SHADE, ox: 37, oy: 11 });
+      fill("wall-brick", { x: L + 22, y: r.y + 4, w: R - L - 49, h: r.h - 4 }, -55, { shade: WALL_SHADE, ox: 37, oy: 11 }, true);
       for (const p of l.topBand.piers) {
         fill("pillar", p, -45);
         if (FRAMES["pillar-capital"]?.real) put("pillar-capital", p.x - 8, p.y - 4, p.w + 16, 24, -44.8);
@@ -545,13 +551,13 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
       fill("wall-brick-dark", fl.rect, -60, { ...dim, shade: WALL_SHADE });
       const brick = FRAMES["wall-brick"]!;
       const floorEnd = fl.tierTops[fl.tiers - 1]! + D.frontY;
-      fill("wall-brick", { x: L + 22, y: T + 5, w: R - L - 49, h: floorEnd + 2 - (T + 5) }, -55, { ...dim, shade: WALL_SHADE, ox: Math.floor(rng() * brick.w), oy: Math.floor(rng() * brick.h) });
+      fill("wall-brick", { x: L + 22, y: T + 5, w: R - L - 49, h: floorEnd + 2 - (T + 5) }, -55, { ...dim, shade: WALL_SHADE, ox: Math.floor(rng() * brick.w), oy: Math.floor(rng() * brick.h) }, true);
       // The upper back wall: a thick rampart either side of the gate's surround, returning at the floor's ends.
       // (Below the first floor, the floor above's front wall closes the top instead.)
       if (f === 0) {
         for (const sd of [-1, 1]) {
           const x0 = sd === -1 ? L + 55 : D.surroundW / 2 - 2, x1 = sd === -1 ? -D.surroundW / 2 + 2 : R - 52;
-          fill("rampart-x", { x: x0, y: T + 25, w: x1 - x0, h: 24 }, -44, dim);
+          fill("rampart-x", { x: x0, y: T + 25, w: x1 - x0, h: 24 }, -44, dim, sd === -1);
         }
         put("rampart-return-left", L, T + 25, 72, 70, -43.9, dim);
         put("rampart-return-right", R - 69, T + 25, 69, 70, -43.9, dim);
@@ -583,13 +589,13 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
       }
       // Each tier: the terrace floor under its walkway, and the thick front wall that closes it (lit top, returns, ends).
       for (const y0 of fl.tierTops) {
-        fill("terrace-floor", { x: L + 20, y: y0 + D.floorY - 48, w: R - L - 40, h: 74 }, -40, { ...dim, shade: 0.22 });
+        fill("terrace-floor", { x: L + 20, y: y0 + D.floorY - 48, w: R - L - 40, h: 74 }, -40, { ...dim, shade: 0.22 }, true);
         // The last tier's front wall opens round the next floor's gate; any other's round the stairs.
         const open = !fl.last && y0 === fl.tierTops[fl.tiers - 1] ? D.surroundW / 2 - 4 : D.stairsW / 2 + 2;
         for (const sd of [-1, 1]) {
           const x0 = sd === -1 ? L + 113 : open, x1 = sd === -1 ? -open : R - 111;
           // A light purple shade, so v5's warmed blocks read as stone with warm highlights.
-          fill("rampart-x", { x: x0, y: y0 + D.frontY, w: x1 - x0, h: 28 }, -9, { ...dim, shade: 0 });
+          fill("rampart-x", { x: x0, y: y0 + D.frontY, w: x1 - x0, h: 28 }, -9, { ...dim, shade: 0 }, sd === -1);
         }
         put("rampart-return-right", L + 30, y0 + D.frontY - 16, 92, 43, -8.9, dim);
         put("rampart-return-left", R - 118, y0 + D.frontY - 16, 88, 43, -8.9, dim);
@@ -631,7 +637,7 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
         if (Math.abs(x + w / 2) < D.surroundW / 2 + w / 2) continue;
         images.push({ ...image("shade:patch", () => paintShade("patch")), x, y: T + 18 + rng() * 50, w, h: 50 + rng() * 40, z: -50 });
       }
-      if (fl.last) fill("terrace-floor", { x: L + 20, y: floorEnd + 28, w: R - L - 40, h: fl.top + fl.height - floorEnd - 34 }, -40, { ...dim, shade: 0.26 });
+      if (fl.last) fill("terrace-floor", { x: L + 20, y: floorEnd + 28, w: R - L - 40, h: fl.top + fl.height - floorEnd - 34 }, -40, { ...dim, shade: 0.26, extendBottom: true }, true);
       if (fl.last) {
         // The foot's front enclosure, as the concept's bottom: a low parapet with lit tops either side of the stair
         // opening, capped at the opening and the ends, its face and a shadow beneath; the stairs run on down through it.
@@ -639,7 +645,7 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
         const py = fl.top + fl.height - D.footPad + 2, open = D.stairsW / 2 + 2;
         fill("stairs-mid", { x: fl.stairs.x, y: fl.stairs.y + fl.stairs.h - 30, w: fl.stairs.w, h: py + 40 - (fl.stairs.y + fl.stairs.h - 30) }, -26, { ...dim, shade: dim.dim ? 0.55 : 0.22 });
         for (const [x0, x1] of [[L + 26, -open], [open, R - 26]] as const) {
-          fill("rampart-x", { x: x0, y: py, w: x1 - x0, h: 30 }, -3.5, { ...dim, shade: 0 });
+          fill("rampart-x", { x: x0, y: py, w: x1 - x0, h: 30 }, -3.5, { ...dim, shade: 0 }, x0 < 0);
           fill("ledge-face", { x: x0 + 2, y: py + 28, w: x1 - x0 - 4, h: 12 }, -3.55, { ...dim, shade: 0.28 });
         }
         put("rampart-end-right", -open - 27, py - 6, 31, 30, -3.4, dim);
@@ -913,6 +919,7 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
       type: "scene",
       build: ++builds,
       bounds: l.bounds,
+      backdrop,
       // The vault's top, which Swift's fit keeps below the HUD's title.
       ...(l.vault.length ? { vaultTop: Math.min(...l.vault.map((t) => t.rect.y), ...l.vaultSigns.map((v) => v.rect.y)) } : {}),
       sprites,

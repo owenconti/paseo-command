@@ -43,6 +43,7 @@ final class DungeonScene: SKScene, MapScene {
     /// The "At a Glance" panel at the top right (your PRs, issues, workspaces and agents), once the page sends it.
     private var hudPanel: SKSpriteNode?
     private var backdropCover = CGRect.zero
+    private var backdropSprites: [[String: Any]] = []
 
     // MARK: Animation
 
@@ -228,6 +229,7 @@ final class DungeonScene: SKScene, MapScene {
         // Robots before their alcoves, alcoves before their projects.
         let rank = ["agent": 0, "workspace": 1, "project": 2]
         pickOrder = entities.values.sorted { (rank[$0.kind] ?? 3, $0.id) < (rank[$1.kind] ?? 3, $1.id) }
+        backdropSprites = m["backdrop"] as? [[String: Any]] ?? []
         backdropCover = .zero
         coverBackdrop()
         if let id = selected, entities[id] == nil { selected = nil }
@@ -472,8 +474,8 @@ final class DungeonScene: SKScene, MapScene {
         // Along one axis the tile spans the box's other side.
         if mode == "x" { th = box.height; tw = size.width * CGFloat(rx) * box.height / size.height }
         if mode == "y" { tw = box.width; th = size.height * CGFloat(ry) * box.width / size.width }
-        let sx = mode == "y" ? 0 : ox.truncatingRemainder(dividingBy: tw)
-        let sy = mode == "x" ? 0 : oy.truncatingRemainder(dividingBy: th)
+        let sx = mode == "y" ? 0 : (ox.truncatingRemainder(dividingBy: tw) + tw).truncatingRemainder(dividingBy: tw)
+        let sy = mode == "x" ? 0 : (oy.truncatingRemainder(dividingBy: th) + th).truncatingRemainder(dividingBy: th)
         var y = box.minY - sy
         while y < box.maxY - 0.01 {
             var x = box.minX - sx
@@ -583,7 +585,7 @@ final class DungeonScene: SKScene, MapScene {
         return t
     }
 
-    /// Dark dungeon stone wherever the camera can show beyond the board.
+    /// Continue the painted dungeon across everything the camera can show, behind the real rooms.
     private func coverBackdrop() {
         guard bounds != nil, viewSize.width > 0 else { return }
         let e = extent
@@ -594,9 +596,21 @@ final class DungeonScene: SKScene, MapScene {
         backdropCover = cover
         backdrop.removeAllChildren()
         let snapped = CGRect(x: floor(cover.minX / 192) * 192, y: floor(cover.minY / 192) * 192, width: cover.width + 192, height: cover.height + 192)
-        // The rock round the board: dark and nearly neutral, so the board's own purple and gold carry the colour.
-        if let stone = tiled("wall-brick-dark", snapped, mode: "xy", shade: 0.55, shadeColor: Textures.color(0x15131a)) { backdrop.addChild(stone) }
-        // No frame: the board ends in the rock, its floors' stepped edges its silhouette, as the concept's does.
+        if let stone = tiled("wall-brick", snapped, mode: "xy", shade: 0) {
+            stone.zPosition = -100
+            backdrop.addChild(stone)
+        }
+        // Same art, shade and tile phase as the floor it continues. These nodes never add entities or affect the fit.
+        for spec in backdropSprites {
+            var extended = spec
+            extended["x"] = snapped.minX
+            extended["w"] = snapped.width
+            extended["ox"] = num(spec["ox"]) + snapped.minX - num(spec["x"])
+            if spec["extendBottom"] as? Bool == true {
+                extended["h"] = max(num(spec["h"]), snapped.maxY - num(spec["y"]))
+            }
+            if let piece = node(extended, anims: &sceneAnims, pulses: &scenePulses) { backdrop.addChild(piece) }
+        }
     }
 
     // MARK: HUD

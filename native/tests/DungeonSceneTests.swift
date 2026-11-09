@@ -448,4 +448,30 @@ assert(hudSprites(scene).first?.size == CGSize(width: 260, height: 108), "the co
 scene.command("home")
 assert(onScreen(CGRect(x: -200, y: 0, width: 400, height: 1200)).maxY <= 300 - 108 - 24 + 0.5, "the board fits clear of the footer")
 
+// Scenery fills wide and tall viewports without adding fake rooms or changing the camera's board bounds.
+let scenery = DungeonScene(size: CGSize(width: 1200, height: 300))
+scenery.setArt(frames: ["wall-brick": image(), "terrace-floor": image()], tiles: [:],
+               constants: ["sizes": ["wall-brick": [32.0, 32.0], "terrace-floor": [72.0, 60.0]]], reduced: true)
+scenery.setScene([
+    "bounds": ["x": -200.0, "y": 0.0, "w": 400.0, "h": 600.0],
+    "backdrop": [
+        ["f": "wall-brick", "x": -178.0, "y": 5.0, "w": 351.0, "h": 595.0, "z": -55.0, "tile": "xy", "ox": 7.0],
+        ["f": "terrace-floor", "x": -180.0, "y": 550.0, "w": 360.0, "h": 50.0, "z": -40.0, "tile": "xy", "extendBottom": true],
+    ],
+], images: [:])
+for size in [CGSize(width: 1200, height: 300), CGSize(width: 300, height: 1200)] {
+    scenery.size = size
+    scenery.viewportChanged()
+    let s = scenery.state(), z = s["zoom"] as! CGFloat, c = s["center"] as! [String: CGFloat]
+    let visible = CGRect(x: c["x"]! - size.width / 2 / z, y: -c["y"]! - size.height / 2 / z, width: size.width / z, height: size.height / z)
+    let background = scenery.children.flatMap(\.children).first { $0.zPosition == -100 }!
+    assert(background.children.contains { $0.zPosition < -55 }, "the base masonry stays behind the floor scenery")
+    assert(background.calculateAccumulatedFrame().contains(visible), "painted scenery covers every viewport edge")
+    let masonry = background.children.first { $0.zPosition == -55 }!.calculateAccumulatedFrame()
+    assert(masonry.minX <= visible.minX && masonry.maxX >= visible.maxX, "wall tiles extend both ways, including negative tile offsets")
+    let floor = background.children.first { $0.zPosition == -40 }!.calculateAccumulatedFrame()
+    assert(floor.minX <= visible.minX && floor.maxX >= visible.maxX && floor.minY <= visible.minY, "the final floor reaches the sides and bottom")
+    assert(s["robots"] as! Int == 0 && abs(z - (s["minimumZoom"] as! CGFloat)) < 0.0001, "scenery adds no agents and leaves the whole board fitted")
+}
+
 print("DungeonScene: ok")
