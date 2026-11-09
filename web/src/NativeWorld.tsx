@@ -455,6 +455,13 @@ export function NativeWorld(props: Props) {
     ? snapshot.agents.find((a) => a.key === tip.entity.id)
     : undefined;
   const hoveredSummary = hoveredAgent && props.workingOn?.[hoveredAgent.clientId ?? hoveredAgent.id];
+  // A hover can outlive a rename or a scene repaint. Read its name from the
+  // current snapshot, as the chat panel does, rather than the old pick object.
+  const hoveredName = hoveredAgent?.name ?? (tip?.entity.kind === "workspace"
+    ? snapshot.workspaces.find((w) => w.key === tip.entity.id)?.name
+    : tip?.entity.kind === "project"
+      ? snapshot.projects.find((p) => p.key === tip.entity.id)?.name
+      : undefined) ?? tip?.entity.name;
   // A hovered PR flag's card: what it means, from its workspace's PR.
   const flagCard = (() => {
     if (!tip?.flag || tip.entity.kind !== "workspace") return null;
@@ -509,7 +516,7 @@ export function NativeWorld(props: Props) {
             </>
           ) : (
             <>
-              <b>{tip.entity.name}</b>
+              <b>{hoveredName}</b>
               <span>{tip.detail}</span>
               {prLines.map((line, i) => (
                 <span key={i} className="atlas-card-line">{line}</span>

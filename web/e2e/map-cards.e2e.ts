@@ -21,7 +21,7 @@ after(async () => {
   assert.deepEqual(app?.apiHits ?? [], []);
 });
 
-async function open(style: "islands" | "dungeon"): Promise<Page> {
+async function open(style: "islands" | "dungeon", fleet = style === "dungeon" ? dungeon : small): Promise<Page> {
   const context = await newContext(browser);
   const page = await context.newPage();
   await page.addInitScript((initial) => {
@@ -36,7 +36,6 @@ async function open(style: "islands" | "dungeon"): Promise<Page> {
       },
     };
   }, style);
-  const fleet = style === "dungeon" ? dungeon : small;
   await mockApi(page, {
     agents: () => fleet.agents,
     permissions: () => fleet.permissions,
@@ -76,6 +75,24 @@ function assertInside(card: Rect, view: Rect, what: string) {
   assert.ok(card.x + card.width <= view.x + view.width + near, `${what}: its right (${card.x + card.width}) is inside the map (${view.x + view.width})`);
   assert.ok(card.y + card.height <= view.y + view.height + near, `${what}: its bottom (${card.y + card.height}) is inside the map (${view.y + view.height})`);
 }
+
+test("an agent tooltip and its chat panel show the same workspace display name", async () => {
+  const title = "DE-123 · Fix preview redirects";
+  const fleet = { ...small, agents: small.agents.map((a) => a.id === "a-failed" ? { ...a, title } : a) };
+  const page = await open("islands", fleet);
+  await waitFor(() => inspect(page), (i) => !!i?.agents?.length, "the Atlas", 30000);
+  await swift(page, { type: "hover", id: key("a-failed"), x: 300, y: 250, bottom: 290 });
+  await cardRect(page, ".atlas-world-tip", /DE-123 · Fix preview redirects/);
+  assert.equal(await page.locator(".atlas-world-tip b").textContent(), title);
+  await swift(page, { type: "pick", id: key("a-failed") });
+  await waitFor(() => page.locator(".session-title h2").textContent({ timeout: 500 }).catch(() => ""), (s) => s === title, "matching chat title");
+  const renamed = "DE-123 · Review preview redirects";
+  fleet.agents = fleet.agents.map((a) => a.id === "a-failed" ? { ...a, title: renamed } : a);
+  // No new hover event: the card is still holding the old native pick object.
+  await waitFor(() => page.locator(".atlas-world-tip b").textContent({ timeout: 500 }).catch(() => ""), (s) => s === renamed, "the hovered title follows the live rename");
+  await waitFor(() => page.locator(".session-title h2").textContent({ timeout: 500 }).catch(() => ""), (s) => s === renamed, "the chat follows the same rename");
+  await page.context().close();
+});
 
 test("a hover card stands above its thing when it fits, below it at the top of the map, inside it at the edges", async () => {
   const page = await open("islands");

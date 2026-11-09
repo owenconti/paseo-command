@@ -12,7 +12,7 @@ export function isUnityWorldKind(value: unknown): value is UnityWorldKind {
 import { daemonAgentId, qualifyAgent } from "./agentIdentity";
 import { projectKey, workspaceKey } from "./workspaces";
 import { activeAgents, agentExcluded } from "./activeAgents";
-import { hostText, placeText, sessionName } from "./names";
+import { agentName, hostText, placeText } from "./names";
 import type { Agent, Host, Project, Selection, Workspace } from "./types";
 import { isFailed, isRunning, sameHost } from "./types";
 
@@ -71,7 +71,7 @@ export type WorldSnapshot = {
     hostId: string;
     projectKey?: string;
     workspaceKey?: string;
-    /** The session's own title as the Paseo app shows it (not its workspace's). */
+    /** The same display name as the chat panel. */
     name: string;
     /** The agent's provider/model; Galaxy colours its satellite and beam by the provider. */
     model: string;
@@ -384,9 +384,7 @@ export function worldSnapshot(input: {
           hostId: a.host || "local",
           projectKey: projectId ? worldKey(a.host, projectId) : undefined,
           workspaceKey: w ? worldKey(w.host, w.workspaceId) : undefined,
-          // The session's own title, as the Paseo app names it: a droid
-          // or satellite is the agent, so never its workspace's title.
-          name: sessionName(a, w?.branch),
+          name: agentName(a, w?.branch),
           model: a.provider,
           status: a.status,
           state: permissions.has(a.id)
