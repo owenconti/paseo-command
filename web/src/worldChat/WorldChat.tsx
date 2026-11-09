@@ -13,6 +13,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, typ
 import { STATE_NAMES, STATE_TILE, modelName } from "../../../rendering/src/atlas";
 import type { State } from "../../../rendering/src/world";
 import { useAgentSession } from "../useAgentSession";
+import { onAppCommand } from "../appCommands";
 import { Composer } from "../Composer";
 import { Timeline } from "../Session";
 import { PermissionCard } from "../PermissionCard";
@@ -321,6 +322,7 @@ export function WorldChat(props: WorldChatProps) {
   const [drop, setDrop] = useState<{ files: File[]; at: number } | null>(null);
   // Writing: a reply in the composer, or a question's own answer.
   const [entry, setEntry] = useState<Entry | null>(null);
+  const [actionsHidden, setActionsHidden] = useState(false);
   const queued = useQueue(agent.id);
   const sent = pending.at(-1)?.text;
   const x = useMemo(() => exchangeOf(entries, sent), [entries, sent]);
@@ -388,6 +390,8 @@ export function WorldChat(props: WorldChatProps) {
   const [picked, setPicked] = useState<Set<number>[]>([]);
   const [other, setOther] = useState<string[]>([]);
   const permissionId = permission?.id ?? "";
+  // A reply or request arriving may offer new choices; sending a message alone never reopens them.
+  useEffect(() => setActionsHidden(false), [agent.id, x.reply?.id, permissionId]);
   useEffect(() => {
     setQi(0);
     setPicked((permission?.questions ?? []).map(() => new Set()));
@@ -429,6 +433,7 @@ export function WorldChat(props: WorldChatProps) {
       void say(text).then((ok) => {
         setSending(false);
         if (ok) {
+          setActionsHidden(true);
           setEntry(null);
           setDraft("");
         }
@@ -673,7 +678,7 @@ export function WorldChat(props: WorldChatProps) {
   const page = Math.min(atBeat.page, pages.length - 1);
   const typed = beat.live || atBeat.read >= page;
   const last = page >= pages.length - 1;
-  const choicesShown = last && typed && !entry;
+  const choicesShown = last && typed && !entry && !actionsHidden;
   /** Pages already typed stay typed: `read` is the furthest page typed out. */
   const go = (to: number) => {
     const next = Math.max(0, Math.min(pages.length - 1, to));
@@ -685,6 +690,14 @@ export function WorldChat(props: WorldChatProps) {
   const advance = () => {
     if (!typed) return finishPage();
     if (!last) return go(page + 1);
+    setActionsHidden(false);
+  };
+  const showActions = () => {
+    setLog(false);
+    setEntry(null);
+    setActionsHidden(false);
+    setPlace({ beat: beat.id, page: pages.length - 1, read: pages.length - 1 });
+    root.current?.focus({ preventScroll: true });
   };
 
   // The marked choice, by id: choices that arrive later (its asks judged, Interrupt as it starts) never move the mark.
@@ -699,7 +712,7 @@ export function WorldChat(props: WorldChatProps) {
   };
 
   // Keys: the box takes them while it or the map has the keyboard (not while typing elsewhere).
-  const keyState = { advance, go, page, pages: pages.length, typed, choicesShown: choicesShown && !log, choices, cursor, setCursor, entry, pick, onClose, blocked: props.blocked, log, setLog, position };
+  const keyState = { advance, go, page, pages: pages.length, typed, choicesShown: choicesShown && !log, choices, cursor, setCursor, entry, pick, onClose, blocked: props.blocked, log, setLog, position, showActions };
   const live = useRef(keyState);
   live.current = keyState;
   useEffect(() => {
@@ -788,7 +801,8 @@ export function WorldChat(props: WorldChatProps) {
     };
     // Capture: ahead of the map surface's keys (Escape there clears the selection) and the page's own.
     window.addEventListener("keydown", onKey, true);
-    return () => window.removeEventListener("keydown", onKey, true);
+    const offActions = onAppCommand("world-talk-actions", () => live.current.showActions());
+    return () => { window.removeEventListener("keydown", onKey, true); offActions(); };
   }, []);
 
   // The box has the keyboard as it opens and as it changes speaker, unless you're typing elsewhere.
@@ -888,10 +902,10 @@ export function WorldChat(props: WorldChatProps) {
         onSetMode={(mode) => void command("mode", { mode }, `Mode set to ${modes.find((m) => m.id === mode)?.label || mode}`)}
         onSend={async (message) => {
           const ok = await send(message);
-          if (ok) setEntry((e) => (e === "reply" ? null : e));
+          if (ok) { setActionsHidden(true); setEntry((e) => (e === "reply" ? null : e)); }
           return ok;
         }}
-        onQueued={() => setEntry((e) => (e === "reply" ? null : e))}
+        onQueued={() => { setActionsHidden(true); setEntry((e) => (e === "reply" ? null : e)); }}
         onCancel={async () => {
           await command("cancel", {}, "Agent interrupted");
         }}
@@ -1096,6 +1110,7 @@ export function WorldChat(props: WorldChatProps) {
             </div>
             {!entry && (
               <div className="wc-foot">
+                {last && typed && actionsHidden && <button type="button" className="wc-actions" aria-label="Show conversation actions (Enter)" aria-controls="world-chat-choices" aria-expanded={false} onClick={showActions}>Actions <kbd className="wc-key">⏎</kbd></button>}
                 {pages.length > 1 && (
                   <span className="wc-pages">
                     {page + 1} / {pages.length}
@@ -1139,7 +1154,7 @@ function Choices({ choices, cursor, busy, frame, onHover, onPick }: {
   onPick: (c: Choice) => void;
 }): ReactNode {
   return (
-    <div className="wc-choices" role="menu" aria-label="What you can say" style={frame} aria-busy={busy || undefined}>
+    <div className="wc-choices" id="world-chat-choices" role="menu" aria-label="What you can say" style={frame} aria-busy={busy || undefined}>
       {choices.map((c, n) => (
         <button
           key={c.id}

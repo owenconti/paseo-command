@@ -629,3 +629,19 @@
   border-color: #ffe56e;
   box-shadow: 0 0 0 3px rgb(255 229 110 / 14%);
 }
+
+/* After sending, the actions stay collapsed until explicitly requested. */
+.wc-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 8px;
+  border: 1px solid #9a753c;
+  border-radius: 4px;
+  background: #2b2349;
+  color: var(--wc-gold);
+  font: inherit;
+  cursor: pointer;
+}
+.wc-actions:hover { color: #ffe56e; background: #382b4c; }
+.wc-actions:focus-visible { outline: 2px solid #ffe56e; outline-offset: 2px; }

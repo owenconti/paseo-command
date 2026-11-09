@@ -1537,6 +1537,11 @@ function App() {
             keywords: "dungeon board dialogue full chat panel open",
             run: openTalkChat,
           },
+          ...(!talkLog ? [{
+            id: "world-talk-actions", group: "Actions", page: "Command" as const,
+            label: "Show conversation actions on the board", keywords: "dungeon dialogue reply follow-up choices menu actions",
+            run: () => runAppCommand("world-talk-actions"),
+          }] : []),
           {
             id: "world-talk-log",
             group: "Actions",

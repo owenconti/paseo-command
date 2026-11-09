@@ -110,7 +110,7 @@ const DUNGEON_TALK: Group = {
   rows: [
     { keys: [["Esc"]], label: "Close the open command belt tray" },
     { keys: [["T"]], label: "Talk to the selected robot" },
-    { keys: [["Enter"], ["Space"]], label: "Show the whole page at once (hold to keep it so), then the next page; pick the marked choice" },
+    { keys: [["Enter"], ["Space"]], label: "Show the whole page at once (hold to keep it so), then the next page; reopen actions after sending, or pick the marked choice" },
     { keys: [["←"], ["→"]], label: "Previous or next page" },
     { keys: [["End"]], label: "Skip to the last page and its choices" },
     { keys: [["↑"], ["↓"]], label: "Move through the choices" },

@@ -165,6 +165,14 @@ test("picking a robot opens its dialogue box over the board, not the hidden pane
   assert.equal(send.body.prompt, "Open it, thanks");
   assert.ok(send.body.messageId, "sent with a message id");
   await field.waitFor({ state: "detached" });
+  await dialog.getByRole("button", { name: "Show conversation actions (Enter)" }).waitFor();
+  assert.equal(await choices(page).count(), 0, "sending a reply keeps the actions closed");
+  // The explicit action is also available through the palette.
+  await page.keyboard.press("Meta+k");
+  const palette = page.getByRole("dialog", { name: "Command palette" });
+  await palette.getByRole("combobox").fill("Show conversation actions on the board");
+  await palette.getByRole("option", { name: /Show conversation actions on the board/ }).click();
+  await choices(page).waitFor();
   // Esc leaves the conversation; the robot stays selected and the board's camera is let go.
   await dialog.focus();
   await page.keyboard.press("Escape");
@@ -262,11 +270,23 @@ test("a working robot says what it is doing; a follow-up is queued, not sent", a
   );
   assert.equal(posts.filter((p) => p.path.endsWith("/send")).length, 0, "nothing sent while it works");
   await field.waitFor({ state: "detached" });
+  const actions = dialog.getByRole("button", { name: "Show conversation actions (Enter)" });
+  await actions.waitFor();
+  assert.equal(await choices(page).count(), 0, "queueing a follow-up keeps the actions closed");
+  await actions.click();
+  await choices(page).getByRole("menuitem", { name: /Interrupt/ }).waitFor();
   // Queued, it's gone from the box's draft: opening the composer again starts empty.
   await page.keyboard.press("r");
   await field.waitFor();
   assert.equal(await field.inputValue(), "");
   assert.equal(await page.evaluate(() => localStorage.getItem("paseo-command:draft:a-api-2:world")), null);
+  await field.fill("And check the build");
+  await page.keyboard.press("Enter");
+  await field.waitFor({ state: "detached" });
+  await actions.waitFor();
+  assert.equal(await choices(page).count(), 0);
+  await page.keyboard.press("Enter");
+  await choices(page).getByRole("menuitem", { name: /Interrupt/ }).waitFor();
 });
 
 test("reading a finished robot's reply in the box marks it read; T opens the box when picks don't", async () => {

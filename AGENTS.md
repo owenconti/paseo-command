@@ -866,6 +866,8 @@ the asks' quick replies and suggestion, Reply… (R; the app's own `Composer` in
 and images, /skills, @files, queue, steer and interrupt; its draft, attachments and answers apart from the panel's, `draftScope`
 ":world"; input `world-composer`; files dropped on the box go to it; Esc back to the box),
 Interrupt while it runs, Open the full chat (the panel, its composer focused) and Leave (Esc; the robot stays selected).
+After a sent reply, quick reply or queued follow-up, the actions stay closed. Actions (or Enter at the last page,
+or ⌘K “Show conversation actions on the board”) reopens them; a new incoming reply or request resets that suppression.
 Only the agent's own words are its speech; what it is doing (`workingOn`, else its last step, `exchangeOf`), failures,
 offline and waiting are narration, never invented lines (truthful state). The whole conversation opens upward over the board as
 its log (H, the ▲ Conversation tab, or scrolling up past the page's top; ▼ Back, H or Esc returns): `Session`'s `Timeline`, any
