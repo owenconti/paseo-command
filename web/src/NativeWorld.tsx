@@ -39,6 +39,7 @@ import { useGameTooltipFrame } from "./worldChat/frame";
 import "./worldChat/game-tooltip.css";
 import { DungeonHud } from "./dungeon/DungeonHud";
 import type { DungeonTray } from "./dungeon/model";
+import { BoardMenu, type BoardMenuItem } from "./dungeon/BoardMenu";
 type Props = {
   workingOn?: WorkSummaries;
   hosts: Host[];
@@ -70,6 +71,8 @@ type Props = {
   onDispatch: () => void;
   onBrowseHud: () => void;
   onHudTray: (tray: DungeonTray | null) => void;
+  /** The Dungeon Board's right-click menu for the robot, workspace or project under the pointer (empty: none). */
+  menu?: (selection: NonNullable<Selection>, name: string) => BoardMenuItem[];
 };
 /** Hosts are keyed by their bridge id ("local" or a server id), as rows reference them. */
 export function atlasData(
@@ -227,6 +230,7 @@ export function NativeWorld(props: Props) {
   const [ready, setReady] = useState(false);
   const [failure, setFailure] = useState("");
   const [tip, setTip] = useState<Tip | null>(null);
+  const [menu, setMenu] = useState<{ x: number; y: number; title: string; items: BoardMenuItem[] } | null>(null);
   // Only the macOS app draws the world; a plain browser shows the panels alone.
   const [absent, setAbsent] = useState(false);
   const revision = useRef(0);
@@ -489,6 +493,18 @@ export function NativeWorld(props: Props) {
         aria-roledescription="map"
         aria-label={`${worldName || "Atlas world"}. Drag to pan, scroll to zoom, Up/Down pan, Left/Right select agents, F fits every host. Select a robot to open its conversation.`}
         onPointerLeave={() => setTip(null)}
+        onContextMenu={(e) => {
+          // The board's menu for what the pointer is on (the world reports it as the hover).
+          e.preventDefault();
+          if (style !== "dungeon" || !tip || props.blocked || !props.menu) return;
+          const selection = targetSelection({ kind: tip.entity.kind, key: tip.entity.id }, snapshot);
+          if (!selection) return;
+          const title = hoveredName || tip.entity.name || "";
+          const items = props.menu(selection, title);
+          if (!items.length) return;
+          setTip(null);
+          setMenu({ x: e.clientX, y: e.clientY, title, items });
+        }}
       />
       {hudShown && <DungeonHud data={data} dashboard={dashboardCounts} onNotice={props.onNotice} agents={props.agents} snapshot={snapshot} summaries={props.workingOn} blocked={props.blocked} talking={!!props.talking}
         onPick={(key) => { const s = targetSelection({ kind: "agent", key }, snapshot); if (s) props.select(s); }}
@@ -504,7 +520,10 @@ export function NativeWorld(props: Props) {
           ))}
         </MapCard>
       )}
-      {tip && (
+      {menu && !props.blocked && (
+        <BoardMenu x={menu.x} y={menu.y} title={menu.title} items={menu.items} frame={tooltipFrame} onClose={() => setMenu(null)} />
+      )}
+      {tip && !menu && (
         <MapCard className={`atlas-world-tip${style === "dungeon" ? " dungeon-tooltip" : ""}`} style={tooltipFrame} surface={surface} at={tip.at}>
           {flagCard ? (
             <>

@@ -1,0 +1,73 @@
+/* The Dungeon Board's right-click menu, in the dialogue box's painted frame (game-tooltip.css). */
+.board-menu.dungeon-tooltip {
+  box-sizing: border-box;
+  border: 8px solid #c2871f;
+  border-inline-width: 10px;
+  border-image: var(--game-tooltip-frame) 30 39 fill / 8px 10px stretch;
+  background: #251e40;
+  color: #f2ead6;
+  filter: drop-shadow(0 8px 14px rgb(0 0 0 / 40%));
+  font:
+    600 13px/1.45 ui-rounded,
+    "SF Pro Rounded",
+    "Arial Rounded MT Bold",
+    "Paseo Barlow",
+    sans-serif;
+  position: fixed;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 190px;
+  max-width: 300px;
+  padding: 6px 4px;
+}
+/* The painted frame, once it has loaded, is the whole surface. */
+.board-menu.dungeon-tooltip[style*="--game-tooltip-frame"] {
+  border-color: transparent;
+  background: none;
+}
+.board-menu-title {
+  overflow: hidden;
+  padding: 0 8px 4px;
+  color: #f7d685;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.board-menu-item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 4px 8px;
+  border: 0;
+  border-radius: 5px;
+  background: none;
+  color: #f2ead6;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.board-menu-item small {
+  color: #cfc6e6;
+  font-size: 11px;
+  font-weight: 600;
+}
+.board-menu-item.deny span {
+  color: #ff9a80;
+}
+.board-menu-item:hover:not(:disabled),
+.board-menu-item:focus {
+  outline: none;
+  background: rgb(216 168 64 / 18%);
+}
+.board-menu-item:focus-visible {
+  box-shadow: inset 0 0 0 1px rgb(247 214 133 / 60%);
+}
+.board-menu-item:disabled {
+  opacity: 0.45;
+  cursor: default;
+}

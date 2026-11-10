@@ -893,6 +893,13 @@ the asks' quick replies and suggestion, Reply… (R; the app's own `Composer` in
 and images, /skills, @files, queue, steer and interrupt; its draft, attachments and answers apart from the panel's, `draftScope`
 ":world"; input `world-composer`; files dropped on the box go to it; Esc back to the box),
 Interrupt while it runs, Open the full chat (the panel, its composer focused) and Leave (Esc; the robot stays selected).
+Archive… (and the composer's /archive, ⌘K's Archive “…”… on the board, the board menu's Archive…) asks in the box first, its
+safe answer marked: archive the agent (not while it runs: Interrupt is offered), archive its workspace (the app's confirming
+dialog, the box staying open under it) or Never mind (Esc). /new asks, then archives it and opens the board's Dispatch in its
+workspace (else project); /clear does that without asking, keeping its provider, model, thinking and mode (`onFreshDraft`).
+The board's right-click menu (`web/src/dungeon/BoardMenu.tsx`, `boardMenu` in main; on what the world reports as hovered):
+a robot's Talk, Open the full chat and Archive…; a workspace's Dispatch an agent here and Archive the workspace…; a project's
+Dispatch an agent here. ↑/↓ move, Enter picks, Esc or a click elsewhere closes it.
 After a sent reply, quick reply or queued follow-up, the actions stay closed. Actions (or Enter at the last page,
 or ⌘K “Show conversation actions on the board”) reopens them; a new finished reply or request resets that suppression; live working progress does not.
 Only the agent's own words are its speech; what it is doing (`workingOn`, else its last step, `exchangeOf`), failures,

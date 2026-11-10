@@ -75,7 +75,8 @@ import {
   useLinearWorkspace,
   usePullRequest,
 } from "./links";
-import { NewAgent, type DispatchTarget } from "./Dispatch";
+import { NewAgent, type DispatchTarget, type DraftSettings } from "./Dispatch";
+import type { BoardMenuItem } from "./dungeon/BoardMenu";
 import { installPageRefresh } from "./pageRefresh";
 import { appTabs, modeKey, shownModes, useAppMode, type AppMode } from "./appMode";
 import type { ActivityViewState } from "./activity/ActivityView";
@@ -639,6 +640,8 @@ function App() {
   const [hudTray, setHudTray] = useState<string | null>(null);
   // The box shows the whole conversation (its log), kept as the box steps from robot to robot.
   const [talkLog, setTalkLog] = useState(false);
+  // ⌘K's or the board menu's Archive for a robot: its dialogue box asks (a new `at` asks again).
+  const [talkArchive, setTalkArchive] = useState<{ agentId: string; at: number } | null>(null);
   const talkOnPick = useTalkOnPick();
   // Only where the board is drawn (the macOS app's world; a browser shows a placeholder).
   const talkable = macApp() && mapStyleNow === "dungeon" && appMode === "command" && !settingsShown;
@@ -855,6 +858,59 @@ function App() {
     if (!talkShown) setTalkLog(false);
   }, [talkShown]);
   /** Leave the box for the side panel's conversation, its message box focused. */
+  /** Archive a robot from the board (⌘K, its menu): its dialogue box opens and asks. */
+  const askTalkArchive = (id: string) => {
+    choose({ type: "agent", id });
+    setTalking(true);
+    setTalkArchive({ agentId: id, at: Date.now() });
+  };
+  /** A cleared agent's place for the board's Dispatch: its workspace, else its project (as the panel's /new). */
+  const freshTarget = (a: Agent, settings?: DraftSettings): DispatchTarget => {
+    const ws = workspaceOf(a);
+    const p = projectOf(a);
+    return {
+      ...(ws && realWorkspaceIds.has(workspaceKey(ws))
+        ? { workspaceId: workspaceKey(ws) }
+        : p
+          ? { projectId: projectKey(p) }
+          : {}),
+      ...(settings ? { settings } : {}),
+    };
+  };
+  /** The Dungeon Board's right-click menu: what can be done with the robot, workspace or project under the pointer. */
+  const boardMenu = (s: NonNullable<Selection>): BoardMenuItem[] => {
+    if (s.type === "agent" && !s.subagent) {
+      const a = agents.find((x) => x.id === s.id);
+      if (!a) return [];
+      const live = online && !a.stale;
+      return [
+        { id: "talk", label: "Talk", hint: "Its dialogue box", run: () => { choose(s); setTalking(true); } },
+        { id: "chat", label: "Open the full chat", hint: "In the side panel", run: () => { choose(s); openTalkChat(); } },
+        ...(live ? [{ id: "archive-agent", label: "Archive…", hint: "Asks in its dialogue box", tone: "deny" as const, run: () => askTalkArchive(a.id) }] : []),
+      ];
+    }
+    if (s.type === "workspace") {
+      const w = listedWorkspaces.find((x) => workspaceKey(x) === s.id);
+      if (!w) return [];
+      const real = realWorkspaceIds.has(s.id);
+      return [
+        { id: "dispatch", label: "Dispatch an agent here", run: () => openWorldDispatch(real ? { workspaceId: s.id } : {}) },
+        ...(real && online
+          ? [{
+              id: "archive-workspace",
+              label: "Archive the workspace…",
+              hint: archiving.has(s.id) ? "Archiving…" : "Its agents and terminals too",
+              tone: "deny" as const,
+              disabled: archiving.has(s.id),
+              run: () => openArchive(w),
+            }]
+          : []),
+      ];
+    }
+    if (s.type === "project")
+      return [{ id: "dispatch", label: "Dispatch an agent here", run: () => openWorldDispatch({ projectId: s.id }) }];
+    return [];
+  };
   const openTalkChat = () => {
     setTalking(false);
     setBrowsing(false);
@@ -969,10 +1025,10 @@ function App() {
   // The Dungeon Board's Dispatch: the same form in the board's own framed panel, over the world.
   const [worldDispatch, setWorldDispatch] = useState<DispatchTarget | null>(null);
   const [worldDispatchRevision, setWorldDispatchRevision] = useState(0);
-  const openWorldDispatch = useCallback(() => {
+  const openWorldDispatch = useCallback((target?: DispatchTarget) => {
     setTalking(false);
     setWorldDispatchRevision((revision) => revision + 1);
-    setWorldDispatch(contextTarget());
+    setWorldDispatch(target ?? contextTarget());
   }, [contextTarget]);
   const worldDispatchShown = !!worldDispatch && talkable && !confirming;
   useEffect(() => {
@@ -1247,9 +1303,10 @@ function App() {
       ),
     [archiveJobs],
   );
-  const openArchive = (w: Workspace) => {
+  /** Confirm archiving a workspace. `keep` leaves the selection (the board's dialogue box stays open under it). */
+  const openArchive = (w: Workspace, keep = false) => {
     if (isArchiving(workspaceKey(w))) return;
-    select({ type: "workspace", id: workspaceKey(w) });
+    if (!keep) select({ type: "workspace", id: workspaceKey(w) });
     setDispatchTarget(null);
     setArchiveWorkspace(w);
   };
@@ -1418,7 +1475,8 @@ function App() {
                     page: "Command" as const,
                     label: `Archive “${name}”…`,
                     keywords: "remove delete agent",
-                    run: () => runAppCommand("agent-archive"),
+                    // On the Dungeon Board its dialogue box asks; elsewhere the side panel's conversation does.
+                    run: () => (talkable ? askTalkArchive(a.id) : runAppCommand("agent-archive")),
                   },
                 ]
               : []),
@@ -1649,7 +1707,7 @@ function App() {
             page: "Command" as const,
             label: `Archive workspace “${placeText(archivable.name, "workspace")}”…`,
             keywords: "remove delete",
-            run: () => openArchive(archivable),
+            run: () => openArchive(archivable, talkShown),
           },
         ]
       : []),
@@ -2724,6 +2782,7 @@ function App() {
                   setWorldDispatch(null);
                 }}
                 onHudTray={setHudTray}
+                menu={boardMenu}
               />
             </React.Suspense>
             {talkShown && agent && (
@@ -2747,6 +2806,19 @@ function App() {
                   log={talkLog}
                   onLog={setTalkLog}
                   position={talkPosition}
+                  archiveRequest={talkArchive}
+                  onArchiveRequestTaken={() => setTalkArchive(null)}
+                  onFreshDraft={(a, settings) => {
+                    const target = freshTarget(a, settings);
+                    select(null);
+                    openWorldDispatch(target);
+                  }}
+                  onArchiveWorkspace={(() => {
+                    const ws = workspaceOf(agent);
+                    return ws && realWorkspaceIds.has(workspaceKey(ws)) && !archiving.has(workspaceKey(ws))
+                      ? () => openArchive(ws, true)
+                      : undefined;
+                  })()}
                 />
               </React.Suspense>
             )}

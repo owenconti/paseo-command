@@ -582,3 +582,106 @@ test("Mermaid diagrams render in both the map dialogue and its full conversation
   await page.screenshot({ path: "/tmp/chat-mermaid-dungeon.png" });
   await page.context().close();
 });
+
+test("/clear in the box archives the robot and opens the board's Dispatch in its workspace with its settings", async () => {
+  const { page, posts } = await open({
+    timelines: { "a-api-1": [{ kind: "user", text: "Tidy the README", messageId: "u1" }, { kind: "assistant", text: "Done.", messageId: "r1" }] },
+  });
+  await pick(page, "a-api-1");
+  const dialog = box(page);
+  await dialog.waitFor();
+  await readToChoices(page);
+  await page.keyboard.press("r");
+  const field = dialog.locator("#world-composer");
+  await field.waitFor();
+  await field.fill("/clear");
+  await page.locator(".autocomplete").getByText(/clear/).first().waitFor();
+  await page.keyboard.press("Enter");
+  const archive = await posted(posts, "/api/agents/a-api-1/archive");
+  assert.equal(archive.body.confirm, true);
+  assert.ok(!posts.some((p) => p.path === "/api/agents/a-api-1/send"), "/clear is never sent to the agent");
+  // The board's own Dispatch, in the cleared agent's workspace.
+  const dispatch = page.getByRole("dialog", { name: "Dispatch an agent" });
+  await dispatch.waitFor();
+  await dialog.waitFor({ state: "detached" });
+});
+
+test("Archive… asks in the box: Esc keeps the robot, its answer archives it; its workspace is offered too", async () => {
+  const { page, posts } = await open({
+    timelines: { "a-api-1": [{ kind: "user", text: "Tidy the README", messageId: "u1" }, { kind: "assistant", text: "Done.", messageId: "r1" }] },
+  });
+  await pick(page, "a-api-1");
+  const dialog = box(page);
+  await dialog.waitFor();
+  await readToChoices(page);
+  // Chosen without moving the pointer (a choice under it is marked, as in any menu).
+  await page.mouse.move(0, 0);
+  await choices(page).getByRole("menuitem", { name: /Archive…/ }).dispatchEvent("click");
+  await dialog.getByText(/Archive api agent 2\? It leaves the board/).waitFor();
+  const menu = choices(page);
+  await menu.getByRole("menuitem", { name: /Archive the workspace…/ }).waitFor();
+  // The safe answer is marked first, so a stray Enter keeps it.
+  assert.equal(await menu.locator(".wc-choice.current").getAttribute("data-choice"), "keep");
+  await dialog.focus();
+  await page.keyboard.press("Escape");
+  await menu.getByRole("menuitem", { name: /Reply…/ }).waitFor();
+  assert.ok(dialog, "the box stays open");
+  assert.ok(!posts.some((p) => p.path.endsWith("/archive")), "nothing archived");
+  // The workspace's own confirming dialog, over the box, which stays.
+  await choices(page).getByRole("menuitem", { name: /Archive…/ }).click();
+  await choices(page).getByRole("menuitem", { name: /Archive the workspace…/ }).click();
+  const confirmWorkspace = page.getByRole("dialog", { name: "Archive this workspace?" });
+  await confirmWorkspace.waitFor();
+  await confirmWorkspace.getByRole("button", { name: "Close archive dialog" }).click();
+  await confirmWorkspace.waitFor({ state: "detached" });
+  assert.equal(await dialog.count(), 1, "the box is still open");
+  // Archiving the agent itself.
+  await choices(page).getByRole("menuitem", { name: /Archive…/ }).click();
+  await choices(page).getByRole("menuitem", { name: /Archive api agent 2/ }).click();
+  const archive = await posted(posts, "/api/agents/a-api-1/archive");
+  assert.equal(archive.body.confirm, true);
+});
+
+test("the board's right-click menu talks to a robot, asks before archiving it, and archives or dispatches into a workspace", async () => {
+  const { page, posts } = await open({ talkOnPick: false });
+  const surface = page.locator(".native-map-surface");
+  // The world reports the robot under the pointer as its hover; a right-click opens its menu there.
+  await swift(page, { type: "hover", id: key("a-api-1"), x: 300, y: 250, bottom: 290 });
+  await surface.click({ button: "right", position: { x: 300, y: 260 } });
+  const menu = page.getByRole("menu", { name: "api agent 2" });
+  await menu.waitFor();
+  assert.equal(await page.locator(".atlas-world-tip").count(), 0, "the hover card gives way to the menu");
+  assert.equal(await page.evaluate(() => document.activeElement?.getAttribute("data-item")), "talk", "the menu has the keyboard");
+  await page.keyboard.press("Escape");
+  await menu.waitFor({ state: "detached" });
+  // Archive… opens its dialogue box with the question.
+  await swift(page, { type: "hover", id: key("a-api-1"), x: 300, y: 250, bottom: 290 });
+  await surface.click({ button: "right", position: { x: 300, y: 260 } });
+  await menu.getByRole("menuitem", { name: /Archive…/ }).click();
+  const dialog = box(page);
+  await dialog.waitFor();
+  await dialog.getByText(/Archive api agent 2\?/).waitFor();
+  await page.keyboard.press("Escape");
+  await choices(page).getByRole("menuitem", { name: /Reply…/ }).waitFor();
+  // Leaving and coming back doesn't ask again.
+  await page.keyboard.press("Escape");
+  await dialog.waitFor({ state: "detached" });
+  await page.keyboard.press("t");
+  await dialog.waitFor();
+  assert.equal(await dialog.getByText(/Archive api agent 2\?/).count(), 0);
+  await page.keyboard.press("Escape");
+  await dialog.waitFor({ state: "detached" });
+  // A workspace's alcove: archive (the app's confirming dialog) or dispatch into it.
+  await swift(page, { type: "hover", id: key("wks_api"), x: 500, y: 250, bottom: 300 });
+  await surface.click({ button: "right", position: { x: 500, y: 260 } });
+  const wsMenu = page.getByRole("menu", { name: "api" });
+  await wsMenu.getByRole("menuitem", { name: /Archive the workspace…/ }).click();
+  const confirmWorkspace = page.getByRole("dialog", { name: "Archive this workspace?" });
+  await confirmWorkspace.waitFor();
+  await confirmWorkspace.getByRole("button", { name: "Archive workspace" }).click();
+  await posted(posts, "/api/workspaces/wks_api/archive");
+  await swift(page, { type: "hover", id: key("wks_web"), x: 500, y: 250, bottom: 300 });
+  await surface.click({ button: "right", position: { x: 500, y: 260 } });
+  await page.getByRole("menu", { name: "web" }).getByRole("menuitem", { name: /Dispatch an agent here/ }).click();
+  await page.getByRole("dialog", { name: "Dispatch an agent" }).waitFor();
+});

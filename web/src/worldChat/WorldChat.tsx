@@ -22,7 +22,8 @@ import { readStore } from "../api";
 import { enqueue, toOutgoing, useQueue } from "../queue";
 import { Markdown } from "../Markdown";
 import { errorMessage } from "../api";
-import { agentName } from "../names";
+import { agentName, placeText } from "../names";
+import type { DraftSettings } from "../Dispatch";
 import { isFailed, isRunning, isWorking, providerName, type Agent, type Mode, type Permission, type Workspace } from "../types";
 import type { Asks } from "../asks/types";
 import type { WorkSummary } from "../useWorkingOn";
@@ -61,7 +62,19 @@ export type WorldChatProps = {
   onLog: (open: boolean) => void;
   /** The previous and next agents (the panel's order, as J/K step), and their names. */
   position: { index: number; total: number; prev: () => void; next: () => void; prevName?: string; nextName?: string };
+  /** Archived, then a new agent in the same place (/new, /clear: `settings` carries over its provider, model,
+   * thinking and mode): the board's own Dispatch. */
+  onFreshDraft: (agent: Agent, settings?: DraftSettings) => void;
+  /** Archive its workspace (the app's confirming dialog); absent when it has none to archive. */
+  onArchiveWorkspace?: () => void;
+  /** Asked from elsewhere (⌘K, the board's menu) to offer archiving it: a new `at` asks again. */
+  archiveRequest?: { agentId: string; at: number } | null;
+  /** The request was taken: it isn't asked again as the box reopens. */
+  onArchiveRequestTaken?: () => void;
 };
+
+/** The box asks before archiving: the agent (or its workspace), or the agent and then a new one (/new). */
+type Confirm = "archive" | "fresh";
 
 /** A line in the box: the agent's own words, or narration (state, what it does, failures). */
 type Line = { who: "agent" | "narrator"; text: string; caption?: string };
@@ -324,6 +337,8 @@ export function WorldChat(props: WorldChatProps) {
   // Writing: a reply in the composer, or a question's own answer.
   const [entry, setEntry] = useState<Entry | null>(null);
   const [actionsHidden, setActionsHidden] = useState(false);
+  // Archiving asks in the box first: its question and choices take the box's place until answered.
+  const [confirm, setConfirmState] = useState<Confirm | null>(null);
   const queued = useQueue(agent.id);
   const sent = pending.at(-1)?.text;
   const x = useMemo(() => exchangeOf(entries, sent), [entries, sent]);
@@ -409,7 +424,45 @@ export function WorldChat(props: WorldChatProps) {
   useEffect(() => {
     setEntry(null);
     setDraft("");
+    setConfirmState(null);
   }, [agent.id]);
+
+  /** Ask in the box: its log and any reply being written give way to the question. */
+  const askConfirm = useCallback(
+    (kind: Confirm) => {
+      if (archived) return onNotice("This agent is already archived.");
+      if (offline) return onNotice(`${name}'s host isn't answering, so it can't be archived now.`);
+      setLog(false);
+      setEntry(null);
+      setActionsHidden(false);
+      setConfirmState(kind);
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- setLog is main's setter
+    [archived, offline, name, onNotice],
+  );
+  /** Archive it, then (/new, /clear) a new agent in its place: "clear" keeps its settings and doesn't ask. */
+  const archiveNow = async (next: Confirm | "clear") => {
+    if (running) return onNotice("Stop the agent before archiving it.");
+    // Read before archiving: the detail may change once it is archived.
+    const settings: DraftSettings = {
+      provider: detail?.Provider || agent.provider,
+      model: detail?.Model || undefined,
+      thinking: detail?.Thinking ?? agent.thinking,
+      mode: detail?.Mode || undefined,
+    };
+    const ok = await command("archive", { confirm: true }, `Archived “${name}”`);
+    setConfirmState(null);
+    if (ok && next === "fresh") props.onFreshDraft(agent, undefined);
+    if (ok && next === "clear") props.onFreshDraft(agent, settings);
+  };
+  // ⌘K's or the board menu's Archive: asked once per request, for this agent.
+  const request = props.archiveRequest;
+  useEffect(() => {
+    if (request?.agentId !== agent.id) return;
+    askConfirm("archive");
+    props.onArchiveRequestTaken?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once per request
+  }, [request?.at, request?.agentId, agent.id]);
 
   /** Say something to it: sent now, or queued while it works (as the panel's composer does). */
   const say = useCallback(
@@ -459,12 +512,51 @@ export function WorldChat(props: WorldChatProps) {
         ]
       : []),
     { id: "chat", label: "Open the full chat", hint: "In the side panel", run: props.onOpenChat },
+    ...(!offline && !archived
+      ? [{ id: "archive", label: "Archive…", hint: props.onArchiveWorkspace ? "This agent or its workspace" : "This agent", run: () => askConfirm("archive") }]
+      : []),
     { id: "leave", label: "Leave", hint: "Esc", run: onClose },
   ];
 
   const beat: Beat = (() => {
     const replyPages = (text: string, caption?: string): Line[] =>
       pageReply(text, room).map((page, i) => ({ who: "agent", text: page, caption: i === 0 ? caption : undefined }));
+    if (confirm) {
+      const where = workspace ? placeText(workspace.name, "") || placeText(workspace.branch, "") : "";
+      const stopFirst = running ? "Interrupt it first" : undefined;
+      const keep = { id: "keep", label: confirm === "fresh" ? "Keep it" : "Never mind", hint: "Esc", run: () => setConfirmState(null) };
+      if (confirm === "fresh")
+        return {
+          id: "confirm:fresh",
+          live: true,
+          pages: [{ who: "narrator", caption: "Start afresh", text: `*Archive ${name} and dispatch a new agent in the same place?*` }],
+          choices: [
+            { id: "archive-fresh", label: "Archive it and start a new agent", hint: stopFirst, tone: "deny", disabled: running, run: () => void archiveNow("fresh") },
+            keep,
+          ],
+        };
+      return {
+        id: "confirm:archive",
+        live: true,
+        pages: [
+          {
+            who: "narrator",
+            caption: "Archive",
+            text: `*Archive ${name}? It leaves the board; its workspace and files stay.*${
+              props.onArchiveWorkspace ? ` *Or archive its whole workspace${where ? ` (${where})` : ""}, with every agent in it.*` : ""
+            }`,
+          },
+        ],
+        choices: [
+          { id: "archive-agent", label: `Archive ${name}`, hint: stopFirst, tone: "deny", disabled: running, run: () => void archiveNow("archive") },
+          ...(props.onArchiveWorkspace
+            ? [{ id: "archive-workspace", label: "Archive the workspace…", hint: "Its agents and terminals too", tone: "deny" as const, run: () => { setConfirmState(null); props.onArchiveWorkspace!(); } }]
+            : []),
+          ...(running ? [{ id: "interrupt", label: "Interrupt", hint: "Stop its turn", run: () => void command("cancel", {}, "Agent interrupted") }] : []),
+          keep,
+        ],
+      };
+    }
     if (offline) {
       const last = x.reply ? replyPages(x.reply.text, "Last known reply") : [];
       return {
@@ -706,7 +798,8 @@ export function WorldChat(props: WorldChatProps) {
   // The marked choice, by id: choices that arrive later (its asks judged, Interrupt as it starts) never move the mark.
   const choices = beat.choices;
   const [marked, setMarked] = useState<string>();
-  useEffect(() => setMarked(undefined), [beat.id]);
+  // A question before archiving starts on its safe answer, so a stray Enter keeps the agent.
+  useEffect(() => setMarked(beat.id.startsWith("confirm:") ? "keep" : undefined), [beat.id]);
   const cursor = Math.max(0, choices.findIndex((c) => c.id === marked));
   const setCursor = (n: number) => setMarked(choices[n]?.id);
   const pick = (c: Choice | undefined) => {
@@ -715,7 +808,7 @@ export function WorldChat(props: WorldChatProps) {
   };
 
   // Keys: the box takes them while it or the map has the keyboard (not while typing elsewhere).
-  const keyState = { advance, go, page, pages: pages.length, typed, choicesShown: choicesShown && !log, choices, cursor, setCursor, entry, pick, onClose, blocked: props.blocked, log, setLog, position, showActions };
+  const keyState = { confirm, cancelConfirm: () => setConfirmState(null), advance, go, page, pages: pages.length, typed, choicesShown: choicesShown && !log, choices, cursor, setCursor, entry, pick, onClose, blocked: props.blocked, log, setLog, position, showActions };
   const live = useRef(keyState);
   live.current = keyState;
   useEffect(() => {
@@ -740,7 +833,8 @@ export function WorldChat(props: WorldChatProps) {
         // An open popover or menu closes first.
         if (document.querySelector(OTHER_LAYERS)) return;
         take();
-        if (s.entry) setEntry(null);
+        if (s.confirm && !s.entry && !s.log) s.cancelConfirm();
+        else if (s.entry) setEntry(null);
         else if (s.log) s.setLog(false);
         else s.onClose();
       } else if (!e.shiftKey && (key === "ArrowLeft" || key === "ArrowRight")) {
@@ -910,8 +1004,10 @@ export function WorldChat(props: WorldChatProps) {
           await command("cancel", {}, "Agent interrupted");
         }}
         onNotice={onNotice}
-        onArchive={() => onNotice("Archive it from its conversation in the side panel (Open the full chat).")}
-        onFreshDraft={() => onNotice("Start afresh from its conversation in the side panel (Open the full chat).")}
+        onArchive={() => (running ? onNotice("Stop the agent before archiving it.") : askConfirm("archive"))}
+        onFreshDraft={(keepSettings) =>
+          running ? onNotice("Stop the agent before archiving it.") : keepSettings ? void archiveNow("clear") : askConfirm("fresh")
+        }
         promptHistory={promptHistory}
         dropFiles={drop}
         inputId={WORLD_COMPOSER}
