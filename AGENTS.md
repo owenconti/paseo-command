@@ -849,12 +849,14 @@ follows its counts as they refresh. Each floor is assembled
 from the v2 kit as the art's reconstruction (`rendering/artifacts/dungeon/mock.png`) is: ramparts, the gate's surround,
 terrace floors, alcove sides, lintels and ledges. The page paints the host signs (`paintSign` in `bridge.ts`; the HUD keeps `ui-rounded`), purple shading on the upper walls and toward the board's edges, and posts top-left sprite
 boxes; `DungeonScene.swift` draws, animates (the background holds still so the agents draw the eye, the user's call: the magic circle, alchemy tank, crystal and portcullis show one frame, light pools are steady (`still`), and flames alone flicker slowly between two frames at `FLAME_FLICKER` (1/3; 0 stills them) of their old pace; robots breathe slowly in idle poses, drones, state glows, markers and the glows' breath keep moving; ≈30 fps while something moves smoothly, the 15 fps drift rate when only flames and resting robots do, still with reduced motion), owns the camera (fit, bounded pan,
-wheel, pinch, arrows, F/Home), hover and selection (projects and workspaces use C's brass thresholds:
+wheel, pinch, arrows, F/Home), hover and selection (project hover and architectural selection use brass thresholds:
 `rendering/src/dungeon/thresholds.ts` sends their actual ledges, independently of pick boxes; `DungeonScene.swift` paints
-worn, bevelled metal with no bloom. Hover gives the threshold and two capitals a quiet sheen; selection sets inward
+worn, bevelled metal with no bloom. Project hover gives the threshold and two capitals a quiet sheen. Workspace hover lights only the existing stone frame
+(single and tiled sprites tagged `hoverStone`), with no added rail or caps; the interior stays dark. Selection sets inward
 chevrons and a centre diamond on the ledge, plus a small diamond on a project's sign. Project markers span the hall;
 workspace markers stay on their own step. They stay still and clear when the entity or hover goes. Robots and PR
-medallions keep their silhouette cues from `SpriteGlow.swift`, a warm hover lift and a breathing gold robot selection), and picks (a PR medallion, then a robot, its
+medallions keep their silhouette cues from `SpriteGlow.swift`, a restrained warm robot hover lift (45% of the shared glow),
+a full medallion hover and a breathing gold robot selection), and picks (a PR medallion, then a robot, its
 alcove, its project by its terrace wall, the hover card naming it; never a host). Sprites: `rendering/src/assets/dungeon/<sheet>.png|json` (the frame contract is `frames.ts`,
 3× scale; a missing frame is painted as a placeholder; robots are trimmed to their opaque pixels). `npm run native:mock --
 --dungeon` serves the concept's fleet (`dungeon` in `web/e2e/fleets.ts`, with PR and issue counts (`DASHBOARD_PRS`, `DASHBOARD_ISSUES`) and GitHub and

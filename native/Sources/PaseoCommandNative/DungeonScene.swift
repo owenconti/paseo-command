@@ -81,6 +81,7 @@ final class DungeonScene: SKScene, MapScene {
     private struct Threshold { let x: CGFloat; let y: CGFloat; let width: CGFloat; let accents: [CGRect]; let badge: CGPoint? }
     private var thresholds: [String: Threshold] = [:]
     private var robotBodies: [String: SKSpriteNode] = [:]
+    private var workspaceStone: [String: [SKSpriteNode]] = [:]
     private var flagNodes: [String: SKSpriteNode] = [:]
     private var hoverGlows: [SKNode] = []
     private var selectionGlows: [SKNode] = []
@@ -194,9 +195,13 @@ final class DungeonScene: SKScene, MapScene {
         scenePulses = []
         sceneGlows = []
         flagNodes = [:]
+        workspaceStone = [:]
         for s in m["sprites"] as? [[String: Any]] ?? [] {
             if let node = node(s, anims: &sceneAnims, pulses: &scenePulses) {
                 board.addChild(node)
+                if num(s["hoverStone"]) > 0, let id = s["e"] as? String {
+                    workspaceStone[id, default: []].append(contentsOf: SpriteGlow.sprites(in: node))
+                }
             }
         }
         for s in m["images"] as? [[String: Any]] ?? [] {
@@ -725,15 +730,40 @@ final class DungeonScene: SKScene, MapScene {
         SpriteGlow.breathe(selectionGlows, clock: clock, reduced: reduced)
     }
 
-    /// A quiet brass edge for architecture, a silhouette lift for robots and PR medallions.
+    /// Light the existing stone without adding rails or washing out the alcove's interior.
+    private func lightStone(_ id: String) -> [SKNode] {
+        (workspaceStone[id] ?? []).compactMap { stone in
+            guard let texture = stone.texture else { return nil }
+            let light = SKSpriteNode(texture: texture, size: stone.size)
+            light.name = "hover-stone"
+            light.anchorPoint = stone.anchorPoint
+            light.color = SpriteGlow.hoverColor
+            light.colorBlendFactor = 0.15
+            light.blendMode = .add
+            light.alpha = 0.22
+            light.zPosition = 0.01
+            stone.addChild(light)
+            return light
+        }
+    }
+
+    /// Alcoves catch a little light on their masonry; robots keep a restrained silhouette cue.
     private func drawHover() {
         hoverNode.removeAllChildren()
         for g in hoverGlows { g.removeFromParent() }
         hoverGlows = []
         // The selected one keeps its gold (unless a PR medallion on it is hovered).
         guard let id = hovered, entities[id] != nil, id != selected || hoveredFlag != nil else { return }
-        if hoveredFlag == nil, thresholds[id] != nil { drawThreshold(id, selected: false, into: hoverNode) }
-        else { hoverGlows = glowNodes(id, flag: hoveredFlag, color: SpriteGlow.hoverColor, name: "hover-glow", wide: false) }
+        if hoveredFlag == nil, entities[id]?.kind == "workspace" {
+            hoverGlows = lightStone(id)
+        } else if hoveredFlag == nil, thresholds[id] != nil {
+            drawThreshold(id, selected: false, into: hoverNode)
+        } else {
+            hoverGlows = glowNodes(id, flag: hoveredFlag, color: SpriteGlow.hoverColor, name: "hover-glow", wide: false)
+            if hoveredFlag == nil {
+                for glow in hoverGlows { glow.alpha *= 0.45 }
+            }
+        }
     }
 
     private func setHover(_ id: String?, flag: Flag? = nil) {

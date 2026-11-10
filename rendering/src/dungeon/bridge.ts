@@ -775,7 +775,7 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
           { ...dim, e: w.entity.id, shade: dim.dim ? 0.55 : INTERIOR_SHADE, ...(left && v === 1 && (seedOf(w.entity.id + "turn") & 3) !== 0 ? { flip: 1 } : {}) });
       }
       // Its frame, tagged with its workspace.
-      const frameOf = { ...dim, e: w.entity.id };
+      const frameOf = { ...dim, e: w.entity.id, hoverStone: 1 };
       // The upper interior falls into shadow; the baked candlelit floor and desks below keep their warmth.
       images.push({ ...image("shade:upper", () => paintShade("upper")), x: x + 20, y: y + 12, w: inner, h: (D.alcoveH - 22) * 0.55, z: -11.95, ...dim });
       put("alcove-left", x, y + 7, 24, D.alcoveH - 9, -11, frameOf);
