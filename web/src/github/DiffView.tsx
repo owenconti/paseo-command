@@ -546,7 +546,9 @@ export function DiffView({
   /** Each file's head opens it (a workspace's own diff: in the Files page). */
   onOpenFile?: (path: string) => void;
 }) {
-  const files = useStableFiles(given);
+  // One directory order for the sidebar, panels, file keys, Find and comments.
+  const ordered = useMemo(() => byDirectory(given).flatMap((g) => g.files), [given]);
+  const files = useStableFiles(ordered);
   // The virtualizer's own element scrolls (it draws only the lines in view); this finds it.
   const wrap = useRef<HTMLDivElement>(null);
   const scrollerOf = () => wrap.current?.querySelector<HTMLElement>(":scope > .gd-scroll") ?? null;

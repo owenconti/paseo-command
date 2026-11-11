@@ -125,6 +125,53 @@ const menusAsked = (page: Page, action: string) =>
     action,
   );
 
+test("diff panels and file navigation follow the sidebar's directory order", async () => {
+  const context = await newContext(browser);
+  const page = await context.newPage();
+  await page.setViewportSize({ width: 1600, height: 600 });
+  await setUp(page);
+  // The server's path order interleaves a directory's files with its subdirectories.
+  const paths = [
+    "src/actions/entities/Publish.ts", "src/actions/Show.ts", "src/build/Client.ts",
+    "src/README.md", "README.md", "src/actions/entities/Save.ts",
+  ];
+  await page.route("**/api/changes?**", (route) => route.fulfill({ json: { ...CHANGES("all"), files: paths.map(file) } }));
+  try {
+    await page.goto(`${app.url}?workspace=wks_a`);
+    await page.locator(".place").waitFor();
+    const view = await showChanges(page);
+    await view.locator(".gd-file").nth(paths.length - 1).waitFor();
+    const expected = [
+      "README.md", "src/README.md", "src/actions/Show.ts",
+      "src/actions/entities/Publish.ts", "src/actions/entities/Save.ts", "src/build/Client.ts",
+    ];
+    const panelPaths = () => view.locator(".gd-file").evaluateAll((els) => els.map((e) => (e as HTMLElement).dataset.path));
+    const sidebarPaths = () => view.locator(".gd-list-file").evaluateAll((els) => els.map((e) => e.getAttribute("title")));
+    assert.deepEqual(await sidebarPaths(), expected);
+    assert.deepEqual(await panelPaths(), expected);
+
+    await view.locator('.gd-list-file[title="src/actions/Show.ts"]').click();
+    await view.locator('.gd-list-file.current[title="src/actions/Show.ts"]').waitFor();
+    // File keys act outside buttons, leaving focused controls their own keys.
+    await view.locator(".gh-head h2").click();
+    await page.keyboard.press("j");
+    await view.locator('.gd-list-file.current[title="src/actions/entities/Publish.ts"]').waitFor();
+    await page.keyboard.press("k");
+    await view.locator('.gd-list-file.current[title="src/actions/Show.ts"]').waitFor();
+
+    // Filtering narrows the sidebar without changing the diff's order.
+    const filter = view.getByRole("navigation", { name: "Changed files" }).getByRole("searchbox", { name: "Filter files" });
+    await filter.fill("entities");
+    await waitFor(() => sidebarPaths(), (p) => p.length === 2, "filtered files");
+    assert.deepEqual(await sidebarPaths(), expected.slice(3, 5));
+    assert.deepEqual(await panelPaths(), expected);
+    await filter.fill("");
+    await page.screenshot({ path: "/tmp/diff-file-order.png" });
+  } finally {
+    await context.close();
+  }
+});
+
 test("Files' Changes show the selected workspace's branch against main, all or committed", async () => {
   const context = await newContext(browser);
   const page = await context.newPage();
