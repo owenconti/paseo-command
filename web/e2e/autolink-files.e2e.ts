@@ -43,7 +43,7 @@ const REPLY = [
   "```",
 ].join("\n");
 
-async function setUp(page: Page, inApp: boolean) {
+async function setUp(page: Page, inApp: boolean, reply = REPLY) {
   if (inApp)
     await page.addInitScript(`
       window.sentToApp = [];
@@ -60,7 +60,7 @@ async function setUp(page: Page, inApp: boolean) {
     timeline: () => ({
       items: [
         { kind: "user", text: "Look at src/app.ts and `src/long.ts`, not `npm test src/app.ts`.", messageId: "u1" },
-        { kind: "assistant", text: REPLY, messageId: "r1" },
+        { kind: "assistant", text: reply, messageId: "r1" },
       ],
     }),
   } as never);
@@ -86,6 +86,65 @@ const fileLinks = (page: Page, selector: string) =>
   page.locator(`${selector} a.file-link`).evaluateAll((as) =>
     as.map((a) => [a.textContent, a.getAttribute("data-file-path"), a.getAttribute("data-file-line"), a.getAttribute("title"), !!a.querySelector("code")]),
   );
+
+const DOWNLOAD = "/Users/me/Downloads/de-8170-save-flow/de-8170-save-flow.mp4";
+const DOWNLOAD_REPLY = [
+  `[Open the animated diagram (MP4)](${DOWNLOAD})`,
+  "[Editable scene JSON](file:///Users/me/Downloads/My%20Files/scene.json)",
+  `The file is here: \`${DOWNLOAD}\`.`,
+  "Folder: /Users/me/Downloads/.",
+  `[Workspace source](/work/atlas/a/src/app.ts#L1)`,
+].join("\n\n");
+
+test("Markdown file links and absolute paths reveal local files in Finder", async () => {
+  const context = await newContext(browser);
+  const page = await context.newPage();
+  await setUp(page, true, DOWNLOAD_REPLY);
+  try {
+    await page.goto(`${app.url}?agent=a-idle`);
+    const reply = page.locator(".msg.assistant");
+    const links = reply.locator("a[data-file-reveal]");
+    await waitFor(() => links.count(), (count) => count === 4, "all four local references are links");
+    assert.deepEqual(await links.evaluateAll((nodes) => nodes.map((node) => [node.textContent, node.getAttribute("data-file-path"), node.getAttribute("title")])), [
+      ["Open the animated diagram (MP4)", DOWNLOAD, "Show in Finder"],
+      ["Editable scene JSON", "/Users/me/Downloads/My Files/scene.json", "Show in Finder"],
+      [DOWNLOAD, DOWNLOAD, "Show in Finder"],
+      ["/Users/me/Downloads/", "/Users/me/Downloads/", "Show in Finder"],
+    ]);
+    for (let i = 0; i < 4; i++) await links.nth(i).click();
+    const reveals = () => page.evaluate(() => (window as unknown as { sentToApp: { type: string; path?: string }[] }).sentToApp.filter((m) => m.type === "revealFile"));
+    assert.deepEqual(await reveals(), [
+      { type: "revealFile", path: DOWNLOAD },
+      { type: "revealFile", path: "/Users/me/Downloads/My Files/scene.json" },
+      { type: "revealFile", path: DOWNLOAD },
+      { type: "revealFile", path: "/Users/me/Downloads/" },
+    ]);
+    assert.equal(new URL(page.url()).hash, "");
+    // Keyboard activation goes through the same delegated click handler.
+    await links.first().focus();
+    await page.keyboard.press("Enter");
+    assert.equal((await reveals()).length, 5);
+    // A remote path must never reveal a same-named file on this Mac.
+    await links.first().evaluate((node) => node.setAttribute("data-file-host", "remote-host"));
+    await links.first().click();
+    await page.getByText("This path is on the agent’s remote host; Finder can only show local files.", { exact: true }).waitFor();
+    assert.equal((await reveals()).length, 5);
+    await reply.locator('a[data-file-path="src/app.ts"]').waitFor();
+    await page.screenshot({ path: "/tmp/chat-download-links.png" });
+  } finally { await context.close(); }
+});
+
+test("Finder links in a plain browser explain where they can open", async () => {
+  const context = await newContext(browser);
+  const page = await context.newPage();
+  await setUp(page, false, DOWNLOAD_REPLY);
+  try {
+    await page.goto(`${app.url}?agent=a-idle`);
+    await page.getByRole("link", { name: "Open the animated diagram (MP4)" }).click();
+    await page.getByText("Showing files in Finder is available in the macOS app.", { exact: true }).waitFor();
+    assert.equal(new URL(page.url()).hash, "");
+  } finally { await context.close(); }
+});
 
 test("file paths in the conversation link, and open in the Files tab at their line", async () => {
   const context = await newContext(browser);

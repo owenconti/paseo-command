@@ -8,7 +8,8 @@
  * stays as written, so it reads and copies the same. Never inside code
  * blocks, links or URLs; a key whose team isn't one of the workspace's
  * (UTF-8, ISO-8601, SHA-256), a PR without a known repository and a path
- * that isn't one of the workspace's files stay plain.
+ * that isn't one of the workspace's files stay plain. Absolute paths outside
+ * the workspace reveal in Finder; explicit Markdown file links do too.
  */
 
 export type AutolinkContext = {
@@ -31,8 +32,10 @@ export type WorkspaceFiles = {
   unique: ReadonlyMap<string, string>;
 };
 
-/** A path to one of the workspace's files, and the line (or lines) given with it. */
-export type FileTarget = { path: string; line?: number; endLine?: number };
+/** A workspace file, or an absolute path to reveal in Finder, with any line range. */
+export type FileTarget = { path: string; line?: number; endLine?: number; reveal?: true };
+
+export const fileTitle = (file: FileTarget) => file.reveal ? "Show in Finder" : "Open in Files";
 
 export type Autolink = { start: number; end: number; href: string; file?: FileTarget };
 
@@ -77,6 +80,32 @@ const PATH = new RegExp(
   "g",
 );
 const EXACT = new RegExp(String.raw`^((?:\/|\.\/)?${NAME}(?:\/${NAME})*)${LINE}?$`);
+// Absolute paths need no workspace index. Prose ends at whitespace or punctuation;
+// inline code and Markdown destinations can also contain spaces and parentheses.
+const ABSOLUTE = /(?<![\w./@#:~%\\-])\/[^\s<>"'`\[\]{}]+/gu;
+const SUFFIX = new RegExp(`${LINE}$`);
+
+function absoluteFile(raw: string): FileTarget | undefined {
+  const suffix = raw.match(SUFFIX);
+  const path = suffix ? raw.slice(0, suffix.index) : raw;
+  if (!path.startsWith("/") || path.startsWith("//") || /[\x00-\x1f\x7f\\]/.test(path)) return undefined;
+  if (path.split("/").some((p) => p === "." || p === "..")) return undefined;
+  const line = suffix && lineOf(suffix[1] ?? suffix[3]);
+  const endLine = suffix && lineOf(suffix[2] ?? suffix[4]);
+  return { path, reveal: true, ...(line ? { line, ...(endLine && endLine > line ? { endLine } : {}) } : {}) };
+}
+
+/** Explicit file links, including encoded destinations; never treat a URL's host as a disk path. */
+export function markdownFile(raw: string, ctx: AutolinkContext = {}): FileTarget | undefined {
+  let path = raw;
+  if (/^file:/i.test(path)) {
+    const match = /^file:\/\/(?:localhost)?(\/[^?]*)$/i.exec(path);
+    if (!match) return undefined;
+    path = match[1];
+  } else if (/^sandbox:\//i.test(path)) path = path.slice("sandbox:".length);
+  try { path = decodeURIComponent(path); } catch { return undefined; }
+  return codeFile(path, ctx);
+}
 
 /**
  * The workspace's file a path names: relative to its folder (`./` aside), or
@@ -106,10 +135,10 @@ function targetOf(m: RegExpMatchArray, files: WorkspaceFiles, prose: boolean): F
   return { path, ...(line ? { line, ...(end && end > line ? { endLine: end } : {}) } : {}) };
 }
 
-/** Inline code that is exactly a path to one of the workspace's files (perhaps with a line). */
+/** Inline code that is exactly a workspace file or absolute path (perhaps with a line). */
 export function codeFile(code: string, ctx: AutolinkContext): FileTarget | undefined {
   const m = ctx.files && code.trim().match(EXACT);
-  return m ? targetOf(m, ctx.files!, false) : undefined;
+  return (m ? targetOf(m, ctx.files!, false) : undefined) ?? absoluteFile(code.trim());
 }
 
 const REPO = /^[A-Za-z0-9][A-Za-z0-9-]{0,38}\/[\w.-]{1,100}$/;
@@ -123,6 +152,13 @@ export function autolinks(text: string, ctx: AutolinkContext): Autolink[] {
     found.push({ start, end, href, ...(file ? { file } : {}) });
   };
   const files = ctx.files;
+  for (const m of text.matchAll(ABSOLUTE)) {
+    let raw = m[0].replace(/[.,;:!?]+$/, "");
+    // A sentence's closing parenthesis stays outside; parentheses in a name stay inside.
+    while (raw.endsWith(")") && raw.split(")").length > raw.split("(").length) raw = raw.slice(0, -1);
+    const file = codeFile(raw, ctx);
+    if (file) add(m.index, m.index + raw.length, fileHref(file), file);
+  }
   if (files?.paths.size && /\w\.\w|\//.test(text)) {
     for (const m of text.matchAll(PATH)) {
       const file = targetOf(m, files, true);
@@ -156,29 +192,36 @@ export function autolinks(text: string, ctx: AutolinkContext): Autolink[] {
   return found.sort((a, b) => a.start - b.start);
 }
 
-/** Whether there is anything to link with: a repository, Linear teams or the workspace's files. */
+/** Conversations can always link absolute paths, even before their file index loads. */
 export const canAutolink = (ctx: AutolinkContext | undefined): ctx is AutolinkContext =>
-  !!ctx && (!!ctx.repo || (!!ctx.linearWorkspace && !!ctx.teams?.size) || !!ctx.files?.paths.size);
+  !!ctx;
 
 // ── Markdown: a remark step over the conversation's text nodes ─────────────
-type Node = { type: string; value?: string; url?: string; children?: Node[]; data?: { hProperties?: Record<string, unknown> } };
+type Node = { type: string; value?: string; url?: string; identifier?: string; children?: Node[]; data?: { hProperties?: Record<string, unknown> } };
 /** Where nothing links itself: code, links and their references, raw HTML, images. */
 const LEAVE = new Set(["code", "inlineCode", "link", "linkReference", "definition", "html", "image", "imageReference"]);
 
 /** A link's node, a file link's carrying its target for the page (`data-file-path`, `-line`, `-end`). */
 function linkNode(href: string, children: Node[], file?: FileTarget): Node {
   if (!file) return { type: "link", url: href, children };
-  const hProperties: Record<string, unknown> = { dataFilePath: file.path, title: "Open in Files", className: ["file-link"] };
+  const hProperties: Record<string, unknown> = { dataFilePath: file.path, title: fileTitle(file), className: ["file-link"] };
+  if (file.reveal) hProperties.dataFileReveal = "true";
   if (file.line) hProperties.dataFileLine = String(file.line);
   if (file.endLine) hProperties.dataFileEnd = String(file.endLine);
   return { type: "link", url: href, children, data: { hProperties } };
 }
 
-function walk(node: Node, ctx: AutolinkContext) {
+function walk(node: Node, ctx: AutolinkContext, definitions: ReadonlyMap<string, string>) {
   const kids = node.children;
   if (!kids) return;
   for (let i = 0; i < kids.length; i++) {
     const kid = kids[i];
+    if (kid.type === "link" || kid.type === "linkReference") {
+      const url = kid.type === "link" ? kid.url : definitions.get(kid.identifier ?? "");
+      const file = markdownFile(url ?? "", ctx);
+      if (file) kids[i] = linkNode(fileHref(file), kid.children ?? [], file);
+      continue;
+    }
     if (kid.type === "inlineCode") {
       // Code that is exactly a path links, keeping its code look.
       const file = codeFile(kid.value ?? "", ctx);
@@ -187,7 +230,7 @@ function walk(node: Node, ctx: AutolinkContext) {
     }
     if (LEAVE.has(kid.type)) continue;
     if (kid.type !== "text") {
-      walk(kid, ctx);
+      walk(kid, ctx, definitions);
       continue;
     }
     const text = kid.value ?? "";
@@ -208,7 +251,16 @@ function walk(node: Node, ctx: AutolinkContext) {
 
 /** The remark plugin: `[remarkAutolink, ctx]`. */
 export function remarkAutolink(ctx: AutolinkContext) {
-  return (tree: Node) => walk(tree, ctx);
+  return (tree: Node) => {
+    const definitions = new Map<string, string>();
+    const collect = (node: Node) => {
+      if (node.type === "definition" && node.identifier && node.url && !definitions.has(node.identifier))
+        definitions.set(node.identifier, node.url);
+      node.children?.forEach(collect);
+    };
+    collect(tree);
+    walk(tree, ctx, definitions);
+  };
 }
 
 export type AutolinkRun = { text: string; href?: string; file?: FileTarget };

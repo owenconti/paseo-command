@@ -320,6 +320,11 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
             // monospaced families, and sets them (`set`), for every terminal at once.
             if let change = body["set"] as? [String: Any] { setTerminalFont(drawer.font.applying(change, families: TerminalFonts.families())) }
             else { sendTerminalFont(families: true) }
+        case "revealFile":
+            if let path = body["path"] as? String, path.hasPrefix("/"), !path.hasPrefix("//"),
+               !path.unicodeScalars.contains(where: { CharacterSet.controlCharacters.contains($0) }) {
+                NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: path)])
+            }
         case "openLink":
             // A link clicked in the chat: a new Conquer tab, in the map's place. A Linear issue opens
             // in Linear's desktop app when it's installed; a GitHub pull request goes to the page for

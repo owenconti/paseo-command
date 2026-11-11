@@ -2,7 +2,7 @@ import type { WorkSummary } from "./useWorkingOn";
 import { soundEvent } from "./soundCues";
 import { daemonAgentId } from "./agentIdentity";
 import { onAppCommand } from "./appCommands";
-import { macApp, postAppLink, postAppMenu } from "./worldBridge";
+import { macApp, postAppLink, postAppMenu, postAppReveal } from "./worldBridge";
 import { openFilesFile } from "./files/open";
 import { usePeers } from "./peers";
 import { robotColour, useRobotPortrait } from "./robotPortrait";
@@ -62,7 +62,7 @@ import type { HistoryPage } from "./history";
 import { MarkdownImage } from "./Images";
 import { extractImages } from "./imageSource";
 import { urlRuns } from "./urlRuns";
-import { autolinkRuns, canAutolink, type AutolinkContext, type AutolinkRun } from "./autolink";
+import { autolinkRuns, canAutolink, fileTitle, type AutolinkContext, type AutolinkRun } from "./autolink";
 import { Autolinks, useAutolinkContext, useAutolinks } from "./autolinkStore";
 import { enqueue, newMessageId, onQueueSent, toOutgoing } from "./queue";
 import {
@@ -105,19 +105,26 @@ import type { Asks } from "./asks/types";
 
 type Confirm = "archive" | "fresh" | null;
 
-/** A file link clicked in the chat (src/autolink.ts): the file in the Files tab, as a kept tab at its line.
- * The tab is the macOS app's; a browser says so. */
+/** A chat file link: a workspace file opens in Files at its line; another local
+ * path reveals in Finder. Remote paths and plain browsers explain the limitation. */
 export function openFileLink(e: React.MouseEvent, workspace: Workspace | undefined, onNotice: (message: string) => void): boolean {
   const link = (e.target as Element).closest?.("a[data-file-path]");
   if (!(link instanceof HTMLAnchorElement)) return false;
   e.preventDefault();
   if (e.button !== 0) return true;
+  const path = link.dataset.filePath;
+  if (!path) return true;
+  if (link.dataset.fileReveal) {
+    if (workspace?.host || link.dataset.fileHost) onNotice("This path is on the agent’s remote host; Finder can only show local files.");
+    else if (!macApp()) onNotice("Showing files in Finder is available in the macOS app.");
+    else postAppReveal(path);
+    return true;
+  }
   if (!macApp()) {
     onNotice("The Files tab, where files open, is in the macOS app.");
     return true;
   }
-  const path = link.dataset.filePath;
-  if (!workspace || !path) return true;
+  if (!workspace) return true;
   const line = Number(link.dataset.fileLine) || undefined;
   const endLine = Number(link.dataset.fileEnd) || undefined;
   openFilesFile({
@@ -1026,8 +1033,10 @@ function UserText({
                 key={i}
                 href={run.href}
                 className="file-link"
-                title="Open in Files"
+                title={fileTitle(run.file)}
                 data-file-path={run.file.path}
+                {...(run.file.reveal ? { "data-file-reveal": "true" } : {})}
+                {...(imageHost ? { "data-file-host": imageHost } : {})}
                 {...(run.file.line ? { "data-file-line": String(run.file.line) } : {})}
                 {...(run.file.endLine ? { "data-file-end": String(run.file.endLine) } : {})}
               >

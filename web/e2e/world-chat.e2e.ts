@@ -50,7 +50,7 @@ async function open(options: Options = {}): Promise<{ page: Page; posts: Post[] 
   await page.addInitScript((talkOnPick) => {
     localStorage.setItem("paseo-command:atlas:style", JSON.stringify("dungeon"));
     if (talkOnPick === false) localStorage.setItem("paseo-command:world:talkOnPick", "false");
-    const host = { arts: [] as string[], talks: [] as unknown[], keys: [] as string[], selected: null as string | null };
+    const host = { arts: [] as string[], talks: [] as unknown[], keys: [] as string[], reveals: [] as string[], selected: null as string | null };
     (window as any).__native = host;
     (window as any).webkit = {
       messageHandlers: {
@@ -63,6 +63,7 @@ async function open(options: Options = {}): Promise<{ page: Page; posts: Post[] 
             if (m.type === "key") host.keys.push(m.key);
             if (m.type === "select") host.selected = m.id;
             if (m.type === "talk") host.talks.push({ id: m.id, inset: m.inset });
+            if (m.type === "revealFile") host.reveals.push(m.path);
           },
         },
       },
@@ -555,6 +556,25 @@ test("questions in the full map conversation use readable dark surfaces and gold
   assert.equal(await card.getByRole("button", { name: /Submit answer/ }).isEnabled(), true);
   await page.screenshot({ path: "/tmp/dungeon-chat-question-theme.png" });
   await page.context().close();
+});
+
+test("local file links work in both the map dialogue and its full conversation", async () => {
+  const path = "/Users/me/Downloads/diagram.mp4";
+  const { page } = await open({ timelines: { "a-api-1": [{ kind: "assistant", text: `[Open the animated diagram (MP4)](${path})\n\nThe file is here: \`${path}\`.`, messageId: "file" }] } });
+  try {
+    await pick(page, "a-api-1");
+    const dialog = box(page);
+    const compact = dialog.locator(".wc-page");
+    await compact.getByRole("link", { name: "Open the animated diagram (MP4)" }).click();
+    assert.equal(await dialog.isVisible(), true, "opening a file does not advance or close the dialogue");
+    await compact.getByRole("link", { name: path }).click();
+    await dialog.getByRole("button", { name: /Show the whole conversation/ }).click();
+    const log = dialog.locator(".wc-log");
+    await log.getByRole("link", { name: "Open the animated diagram (MP4)" }).click();
+    await log.getByRole("link", { name: path }).click();
+    assert.deepEqual(await page.evaluate(() => (window as any).__native.reveals), [path, path, path, path]);
+    await page.screenshot({ path: "/tmp/chat-file-links-dungeon.png" });
+  } finally { await page.context().close(); }
 });
 
 test("Mermaid diagrams render in both the map dialogue and its full conversation", async () => {

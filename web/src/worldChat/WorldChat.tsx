@@ -17,7 +17,7 @@ import { onAppCommand } from "../appCommands";
 import { Composer } from "../Composer";
 import { Timeline } from "../Session";
 import { PermissionCard } from "../PermissionCard";
-import { useAutolinks } from "../autolinkStore";
+import { Autolinks, useAutolinkContext, useAutolinks } from "../autolinkStore";
 import { readStore } from "../api";
 import { enqueue, toOutgoing, useQueue } from "../queue";
 import { Markdown } from "../Markdown";
@@ -190,14 +190,16 @@ function textNodes(root: Node): Text[] {
  * at once (so nothing moves as it types) and what isn't typed yet is hidden by a
  * CSS highlight. `done` shows it all at once; `onDone` says it has finished.
  */
-function TypedPage({ text, narrator, done, onDone, scroller }: {
+function TypedPage({ text, imageHost, narrator, done, onDone, scroller }: {
   text: string;
+  imageHost?: string;
   narrator: boolean;
   done: boolean;
   onDone: () => void;
   scroller: React.RefObject<HTMLDivElement | null>;
 }) {
   const ref = useRef<HTMLDivElement>(null);
+  const links = useAutolinkContext();
   const finished = useRef(onDone);
   finished.current = onDone;
   useLayoutEffect(() => {
@@ -273,10 +275,10 @@ function TypedPage({ text, narrator, done, onDone, scroller }: {
       cancelAnimationFrame(frame);
       registry.delete(UNTYPED);
     };
-  }, [text, done, scroller]);
+  }, [text, done, scroller, links]);
   return (
     <div ref={ref} className={`wc-page${narrator ? " wc-narrator" : ""}`}>
-      <Markdown text={text} />
+      <Markdown text={text} imageHost={imageHost} />
     </div>
   );
 }
@@ -1192,14 +1194,16 @@ export function WorldChat(props: WorldChatProps) {
                   </div>
                 </div>
               ) : (
-                <TypedPage
-                  key={`${beat.id}:${page}`}
-                  text={line.text}
-                  narrator={line.who === "narrator"}
-                  done={typed}
-                  onDone={finishPage}
-                  scroller={textBox}
-                />
+                <Autolinks.Provider key={`${beat.id}:${page}`} value={autolinks}>
+                  <TypedPage
+                    text={line.text}
+                    imageHost={agent.host}
+                    narrator={line.who === "narrator"}
+                    done={typed}
+                    onDone={finishPage}
+                    scroller={textBox}
+                  />
+                </Autolinks.Provider>
               )}
             </div>
             {!entry && (

@@ -24,7 +24,7 @@ import { useAutolinkContext } from "./autolinkStore";
 /*
  * Agent prose as CommonMark + GFM (tables, task lists, strikethrough,
  * autolinks). Raw HTML is never rendered: react-markdown shows it as text.
- * Links go only to http(s) and mailto (anything else stays plain text), and
+ * Web links go only to http(s) and mailto; file links stay in the app, and
  * images only through MarkdownImage, which decides what may load. In an
  * agent's conversation, Linear keys, PR numbers and paths to the workspace's
  * files link themselves (src/autolink.ts, from the Autolinks context); a file
@@ -124,13 +124,15 @@ function components(imageHost?: string): Components {
     a: ({ href, children, node }) => {
       const file = node?.properties?.dataFilePath;
       if (typeof file === "string" && href?.startsWith("#files:")) {
-        const { dataFileLine: line, dataFileEnd: end } = node!.properties;
+        const { dataFileLine: line, dataFileEnd: end, dataFileReveal: reveal } = node!.properties;
         return (
           <a
             href={href}
             className="file-link"
-            title="Open in Files"
+            title={reveal ? "Show in Finder" : "Open in Files"}
             data-file-path={file}
+            {...(reveal ? { "data-file-reveal": "true" } : {})}
+            {...(imageHost ? { "data-file-host": imageHost } : {})}
             {...(line ? { "data-file-line": String(line) } : {})}
             {...(end ? { "data-file-end": String(end) } : {})}
           >

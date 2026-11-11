@@ -276,6 +276,9 @@ export function onAppBar(action: BarAction, handler: (rect: BarRect) => void) {
  * when it's installed. */
 export const postAppLink = (url: string, direct = false) =>
   appChannel()?.postMessage({ type: "openLink", url, ...(direct ? { direct } : {}) });
+/** Reveal a local chat file in Finder without opening or executing its contents. */
+export const postAppReveal = (path: string) =>
+  appChannel()?.postMessage({ type: "revealFile", path });
 export function postNative(message: { type: string; [key: string]: unknown }) {
   window.webkit?.messageHandlers?.worldBridge?.postMessage({
     ...message,

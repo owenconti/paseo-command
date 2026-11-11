@@ -635,7 +635,7 @@ and GitHub publication; report the published version and release link.
   incomplete streamed fence waits, invalid/oversized diagrams keep their source, and map paging keeps a chart whole.
   Mermaid stays on the 11.x line for the app's older WebKit support; its KaTeX override keeps the patched trust checks.
   Tests: `web/e2e/mermaid.e2e.ts`, the Mermaid case in `world-chat.e2e.ts`, and `worldChat/script.test.ts`.
-- Mentions in the chat link themselves (`web/src/autolink.ts`): in an agent's conversation (`Timeline` provides `Autolinks` from
+- Mentions in the chat link themselves (`web/src/autolink.ts`): in an agent's conversation (`Timeline` and the map dialogue provide `Autolinks` from
   `useAutolinks` in `web/src/autolinkStore.ts`), its replies (`Markdown.tsx` adds `remarkAutolink`, a remark step over text nodes) and
   your messages (`autolinkRuns`), but not tool output. Linear keys only of the Linear workspace's teams (`GET /api/linear/teams`, asked
   once per five minutes while Linear is on; never a bare `[A-Z]+-\d+` guess) link to `https://linear.app/<urlKey>/issue/<KEY>`;
@@ -645,12 +645,17 @@ and GitHub publication; report the published version and release link.
   `:12:3`, `:12-20`, `#L12`, `#L12-L20`; absolute ones inside the workspace's `cwd` made relative; inline code that is exactly a path,
   keeping its code look): only those in its `GET /api/files/all` list (`useWorkspaceFiles` in `autolinkStore.ts`, through the Files
   page's reads in `files/api.ts`, so one list per workspace, asked again five minutes on; `workspaceFiles`: a Set, and each file name
-  only one file has), a bare name only when unique, in prose only with an extension; never in code blocks, links, URLs, `..` or `~`.
+  only one file has), a bare name only when unique, in prose only with an extension; never in code blocks, URLs, `..` or `~`.
+  Absolute paths outside that list link without waiting for it, including folders and inline code with spaces. Explicit Markdown
+  file links (absolute, `file://`, `sandbox:/`, indexed relative paths and reference links) are resolved before URL filtering, so their
+  labels remain clickable. Paths outside the index carry `data-file-reveal="true"` and "Show in Finder": `postAppReveal` sends
+  `revealFile` to `WorldWindow.swift`, which reveals the local path with `NSWorkspace.activateFileViewerSelecting`. Remote-host paths
+  carry `data-file-host` and show a notice instead of revealing this Mac's same-named file; plain browsers explain the app requirement.
   A file link is `#files:<path>` with `data-file-path`/`-line`/`-end` and the title "Open in Files"; the session's click
   (`openFileLink` in `Session.tsx`) sends `openFilesFile` (`web/src/files/open.ts`: kept as `files:openFile` for the page as it mounts,
   and `files-open-at`) and `postAppMenu("files")`: the agent's workspace (the one Files shows for it) opens the file as a kept tab
   (in the editor too when that's set), scrolled to the line and marked as a find's match is; in a browser a notice says the tab is the
-  macOS app's. Tests: `src/autolink.test.ts`, `e2e/autolink-files.e2e.ts`.
+  macOS app's. Tests: `src/autolink.test.ts`, `e2e/autolink-files.e2e.ts`, `e2e/world-chat.e2e.ts`.
   Only text is wrapped (it copies as written); other clicks take the link path below.
 - Web links clicked in the chat (`.session`, `openInAppBrowser` in `web/src/Session.tsx`, `postAppLink` → the `openLink` message)
   switch to Conquer and open there as a new tab, once its tabs are restored (`whenStarted`).

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { renderToStaticMarkup } from "react-dom/server";
 import { createElement } from "react";
-import { autolinkRuns, autolinks, codeFile, workspaceFiles, type AutolinkContext } from "./autolink";
+import { autolinkRuns, autolinks, codeFile, markdownFile, workspaceFiles, type AutolinkContext } from "./autolink";
 import { Autolinks } from "./autolinkStore";
 import { Markdown } from "./Markdown";
 
@@ -123,6 +123,54 @@ const FILES: AutolinkContext = {
 };
 const files = (text: string, ctx = FILES) => autolinks(text, ctx).map((l) => [text.slice(l.start, l.end), l.file ?? l.href]);
 
+test("absolute paths link without a file index, preserving punctuation and inline filenames", () => {
+  const path = "/Users/me/Downloads/de-8170-save-flow/de-8170-save-flow.mp4";
+  assert.deepEqual(files(`The file is here: ${path}.`, {}), [[path, { path, reveal: true }]]);
+  assert.deepEqual(files("See (/tmp/report.json:12-18), /tmp/café(1).mp4 and /tmp/reports/.", {}), [
+    ["/tmp/report.json:12-18", { path: "/tmp/report.json", reveal: true, line: 12, endLine: 18 }],
+    ["/tmp/café(1).mp4", { path: "/tmp/café(1).mp4", reveal: true }],
+    ["/tmp/reports/", { path: "/tmp/reports/", reveal: true }],
+  ]);
+  assert.deepEqual(codeFile("/Users/me/My Files/scene (final).json", {}), {
+    path: "/Users/me/My Files/scene (final).json", reveal: true,
+  });
+  for (const text of ["https://example.com/tmp/file.txt", "file://elsewhere/tmp/file.txt", "//server/share/file.txt", "../tmp/file.txt", "~/tmp/file.txt"])
+    assert.deepEqual(files(text, {}), [], text);
+  const text = `Open ${path} or \`/tmp/My Files/scene.json\`.`;
+  const runs = autolinkRuns(text, {});
+  assert.equal(runs.map((run) => run.text).join(""), text);
+  assert.equal(runs.filter((run) => run.file?.reveal).length, 2);
+});
+
+test("Markdown destinations become file links before URL filtering, without permitting other schemes", () => {
+  for (const raw of ["/tmp/My%20File.mp4", "file:///tmp/My%20File.mp4", "file://localhost/tmp/My%20File.mp4", "sandbox:/tmp/My%20File.mp4"])
+    assert.deepEqual(markdownFile(raw), { path: "/tmp/My File.mp4", reveal: true }, raw);
+  assert.deepEqual(markdownFile(`${ROOT}/src/autolink.ts#L4-L9`, FILES), { path: "src/autolink.ts", line: 4, endLine: 9 });
+  assert.deepEqual(markdownFile("src/autolink.ts", FILES), { path: "src/autolink.ts" });
+  assert.deepEqual(markdownFile("package.json:12", FILES), { path: "package.json", line: 12 });
+  for (const raw of ["javascript:alert(1)", "data:text/html,test", "file://elsewhere/tmp/a", "//elsewhere/tmp/a", "/tmp/a%00b", "/tmp/a%0Ab", "/tmp/%2e%2e/a", "/tmp/%zz", "https://example.com/tmp/a"])
+    assert.equal(markdownFile(raw), undefined, raw);
+  const md = [
+    "[Open the animated diagram (MP4)](/tmp/My%20File.mp4)",
+    "[Editable scene JSON](file:///tmp/scene.json)",
+    "[Workspace source](src/autolink.ts#L12)",
+    "[Reference file][scene]\n\n[scene]: /tmp/scene.json",
+    "`/tmp/Another File.json`",
+    "[Unsafe](javascript:alert%281%29)",
+    "[Website](https://example.com/tmp/file.mp4)",
+    "```\n/tmp/plain.txt\n```",
+  ].join("\n\n");
+  const html = renderToStaticMarkup(createElement(Autolinks.Provider, { value: FILES }, createElement(Markdown, { text: md })));
+  assert.match(html, /data-file-path="\/tmp\/My File.mp4" data-file-reveal="true">Open the animated diagram \(MP4\)<\/a>/);
+  assert.match(html, /data-file-path="\/tmp\/scene.json" data-file-reveal="true">Editable scene JSON<\/a>/);
+  assert.match(html, /data-file-path="\/tmp\/scene.json" data-file-reveal="true">Reference file<\/a>/);
+  assert.match(html, /title="Open in Files" data-file-path="src\/autolink.ts" data-file-line="12">Workspace source<\/a>/);
+  assert.match(html, /data-file-reveal="true"><code>\/tmp\/Another File.json<\/code><\/a>/);
+  assert.match(html, /<span class="md-link-text">Unsafe<\/span>/);
+  assert.match(html, /href="https:\/\/example.com\/tmp\/file.mp4" target="_blank"/);
+  assert.match(html, /<pre><code>\/tmp\/plain.txt<\/code><\/pre>/);
+});
+
 test("paths to the workspace's files link, with their lines; others stay plain", () => {
   assert.deepEqual(files("The report is at docs/reports/resource-reference-approaches.md."), [
     ["docs/reports/resource-reference-approaches.md", { path: "docs/reports/resource-reference-approaches.md" }],
@@ -133,9 +181,10 @@ test("paths to the workspace's files link, with their lines; others stay plain",
     ["src/autolink.ts#L4-L9", { path: "src/autolink.ts", line: 4, endLine: 9 }],
     ["web/src/index.ts:20-25", { path: "web/src/index.ts", line: 20, endLine: 25 }],
   ]);
-  // Absolute inside the workspace's folder: made relative; outside it, plain.
+  // Absolute inside the workspace's folder: made relative; outside it, Finder.
   assert.deepEqual(files(`Edited ${ROOT}/src/autolink.ts:8 and /etc/src/autolink.ts.`), [
     [`${ROOT}/src/autolink.ts:8`, { path: "src/autolink.ts", line: 8 }],
+    ["/etc/src/autolink.ts", { path: "/etc/src/autolink.ts", reveal: true }],
   ]);
   // A path inside the workspace's files takes its Linear key; hidden folders link too.
   assert.deepEqual(files("Wrote docs/DE-7338.md and .github/workflows/ci.yml"), [
