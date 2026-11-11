@@ -906,7 +906,9 @@ export function WorldChat(props: WorldChatProps) {
         if (s.confirm && !s.entry && !s.log) s.cancelConfirm();
         else if (s.entry) setEntry(null);
         else if (s.log) {
-          if (!s.closeLayer()) s.setLog(false);
+          // The whole conversation leaves for the board at once (the user's call; H or Back is the way to the box),
+          // after anything open inside it.
+          if (!s.closeLayer()) s.onClose();
         } else s.onClose();
       } else if (!e.shiftKey && (key === "ArrowLeft" || key === "ArrowRight")) {
         // The previous or next robot (as J/K step), its conversation in the box.
@@ -1211,12 +1213,15 @@ export function WorldChat(props: WorldChatProps) {
           <div
             className="wc-log"
             onKeyDown={(e) => {
-              // Escape leaves a field of the conversation (its message box, an answer) for the box, which then
-              // has the keyboard; fields that use Escape themselves (suggestions, a rename) have taken it by now.
+              // Escape in a field of the conversation (its message box, an answer) leaves the conversation for the
+              // board, as Escape outside one does: an open fork or subagent's conversation first. A fork's own field
+              // is left first, for the box, which then has the keyboard. Fields that use Escape themselves
+              // (suggestions, a rename) have taken it by now; what was typed is kept as the draft.
               if (e.key !== "Escape" || e.defaultPrevented || e.nativeEvent.isComposing || !isTyping(e.target as HTMLElement)) return;
               e.preventDefault();
               e.stopPropagation();
-              root.current?.focus({ preventScroll: true });
+              if ((e.target as HTMLElement).closest(".fork-pane")) root.current?.focus({ preventScroll: true });
+              else if (!closeLayer()) onClose();
             }}
           >
             {subagent ? (

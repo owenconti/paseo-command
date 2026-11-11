@@ -961,7 +961,7 @@ Only the agent's own words are its speech; what it is doing (`workingOn`, else i
 offline and waiting are narration, never invented lines (truthful state). The Conversation button sits inside the dialogue header below the name banner, never in its raised strip. User-message
 links use dark brown ink and full underlines against the box’s parchment bubbles, with a distinct keyboard focus ring.
 The whole conversation opens upward over the board as
-its log (H, the Conversation button, or scrolling up past the page's top; Back, H or Esc returns). It is the side panel's own
+its log (H, the Conversation button, or scrolling up past the page's top; Back or H returns to the box; Esc leaves for the bare board, the user's call). It is the side panel's own
 conversation component with the board's styling, so the two never differ in what they can do (the user's call): `Session.tsx`'s
 `Session` is `useAgentSession` plus `SessionView`, and the log renders that `SessionView` over the session the box already reads
 (one stream for box and log), told what differs through `SessionSurface` (class `world-session`, the composer's input
@@ -971,8 +971,9 @@ button or position, which the box's own Back and arrows are), the reply forks (a
 Ask / Add / Answer pill; forks open beside or over the conversation, their markers under replies, collected pieces), the
 reply's questions and suggested reply above the composer, pending diff comments, the current-work line, requests' cards,
 dropped files and agents' reports (`PeersContext`). A subagent chosen from its header opens in the log's place
-(`SubagentSession`); Escape there goes back to its agent's. Escape in the log leaves a field first, then lets a picked block or
-selection go, then closes an open fork (`SessionSurface.escape`), then the log. A field of the box that goes while focused (a
+(`SubagentSession`); Escape there goes back to its agent's. Escape in the log lets a picked block or
+selection go, then closes an open fork (`SessionSurface.escape`; a fork's own field is left first), then leaves the
+conversation, its browser with it, for the board, from its message box too (the draft is kept); it never stops at the box. A field of the box that goes while focused (a
 fork's question as it is asked) drops the keyboard on the page's body: the box takes it back (`held` in `WorldChat.tsx`).
 Because the panel's copy of the conversation is usually mounted too (hidden or not), commands one copy should answer are
 registered with `onOwnedAppCommand` (`appCommands.ts`: the copy mounted last answers; `agent-interrupt`, `agent-open-paseo`,

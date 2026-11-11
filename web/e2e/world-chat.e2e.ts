@@ -341,7 +341,7 @@ test("the box types its line out; Enter finishes it at once", async () => {
   assert.equal(await page.evaluate(() => CSS.highlights.has("world-chat-untyped")), false);
 });
 
-test("H opens the whole conversation upward over the board, scrolling up does too; Esc goes back to the box", async () => {
+test("H opens the whole conversation upward over the board, scrolling up does too; H goes back to the box, Esc leaves for the board", async () => {
   const { page } = await open({
     timelines: {
       "a-api-1": [
@@ -382,9 +382,37 @@ test("H opens the whole conversation upward over the board, scrolling up does to
   await page.keyboard.press("Home");
   await page.waitForTimeout(300);
   assert.equal(await log.evaluate((el) => el.scrollTop), 0);
-  await page.keyboard.press("Escape");
+  // H goes back to the dialogue box.
+  await page.keyboard.press("h");
   await log.waitFor({ state: "detached" });
   await dialog.waitFor();
+  // Esc in the whole conversation leaves for the bare board at once, never stopping at the box: outside a field…
+  await page.keyboard.press("h");
+  await log.waitFor();
+  await dialog.focus();
+  await page.keyboard.press("Escape");
+  await dialog.waitFor({ state: "detached" });
+  assert.equal((await native(page)).selected, key("a-api-1"), "the robot stays selected");
+  await waitFor(() => native(page), (n) => n.talks.at(-1)?.id === null, "the board's camera is let go");
+  // …and from its message box, whose draft is kept.
+  await pick(page, "a-api-1");
+  await dialog.waitFor();
+  await page.keyboard.press("h");
+  await log.waitFor();
+  const message = dialog.locator("#world-composer");
+  await message.fill("Half a thought");
+  await page.keyboard.press("Escape");
+  await dialog.waitFor({ state: "detached" });
+  await pick(page, "a-api-1");
+  await dialog.waitFor();
+  assert.equal(await dialog.locator(".wc-log").count(), 0, "it opens as the dialogue box again");
+  await page.keyboard.press("h");
+  await log.waitFor();
+  assert.equal(await message.inputValue(), "Half a thought");
+  await message.fill("");
+  await dialog.focus();
+  await page.keyboard.press("h");
+  await log.waitFor({ state: "detached" });
   // Scrolling up over the page opens it too.
   await dialog.locator(".wc-text").hover();
   await page.mouse.wheel(0, -400);

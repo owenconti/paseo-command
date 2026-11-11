@@ -281,6 +281,15 @@ test("the whole conversation and the browser show side by side: the conversation
   assert.equal(await dialog.locator(".wc-log").count(), 0);
   const above = await sides(page);
   assert.ok(above.slot.bottom < above.chat.top, "above the dialogue box again");
+  // Esc with both open leaves for the bare board: the conversation and the browser go together.
+  await page.keyboard.press("h");
+  await page.locator(".world-chat.log.beside").waitFor();
+  await dialog.focus();
+  await page.keyboard.press("Escape");
+  await dialog.waitFor({ state: "detached" });
+  await view.waitFor({ state: "detached" });
+  await waitFor(() => lastOf(page, "browser"), (m) => !m?.agent, "the app shows no page");
+  assert.equal(await page.locator(".world-chat, .board-browser").count(), 0, "only the board");
   await page.context().close();
 });
 

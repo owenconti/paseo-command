@@ -1697,8 +1697,7 @@ function App() {
             group: "Actions",
             page: "Command" as const,
             label: "Leave the conversation on the board",
-            // In the log, Esc goes back to the box first.
-            keys: talkLog ? undefined : [["Esc"]],
+            keys: [["Esc"]],
             keywords: "dungeon board dialogue dialog close end talk",
             run: () => setTalking(false),
           },
@@ -1720,7 +1719,7 @@ function App() {
             group: "Actions",
             page: "Command" as const,
             label: talkLog ? "Back to the dialogue box on the board" : "Show the whole conversation on the board",
-            keys: talkLog ? [["H"], ["Esc"]] : [["H"]],
+            keys: [["H"]],
             keywords: "dungeon board dialogue log history transcript scroll expand earlier messages forks ask answer subagents tools",
             run: () => setTalkLog(!talkLog),
           },
