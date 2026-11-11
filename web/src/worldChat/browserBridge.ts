@@ -4,7 +4,8 @@
  * and where (`browser`), asks for what its tab strip and address bar do (`browserDo`), and says whether
  * agents' own browser tools open tabs here (`browserHost`: Settings → Map). The app tells the page
  * (`paseo:browser`) every browser's tabs (`state`), when an agent opened one (`opened`), when an address
- * was refused (`refused`) and a key it took for the page while a web page had the keyboard (`key`).
+ * was refused (`refused`) and a key it took for the page while a web page had the keyboard (`key`: ⌘L its
+ * address, ⌘T a new tab, ⇧⌘W hide the browser).
  */
 import { useSyncExternalStore } from "react";
 
@@ -30,7 +31,7 @@ const listeners = new Set<() => void>();
 export type BrowserEvent =
   | { type: "opened"; host: string; agent: string; tab: string }
   | { type: "refused"; message: string }
-  | { type: "key"; action: "address" | "new" };
+  | { type: "key"; action: "address" | "new" | "hide" };
 const watchers = new Set<(event: BrowserEvent) => void>();
 
 const text = (v: unknown, max = 4096) => (typeof v === "string" ? v.slice(0, max) : "");
@@ -80,7 +81,7 @@ function listen() {
     } else if (detail.type === "refused") {
       const message = text(detail.message, 600);
       if (message) watchers.forEach((w) => w({ type: "refused", message }));
-    } else if (detail.type === "key" && (detail.action === "address" || detail.action === "new")) {
+    } else if (detail.type === "key" && (detail.action === "address" || detail.action === "new" || detail.action === "hide")) {
       const action = detail.action;
       watchers.forEach((w) => w({ type: "key", action }));
     }

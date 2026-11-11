@@ -34,6 +34,16 @@
   background: none;
   border-image: var(--bb-frame) 30 39 fill / 10px 13px stretch;
 }
+/* Beside the whole conversation (both open, the map wide enough: BESIDE_MIN_WIDTH in main.tsx): the conversation
+   has the board's left in a column `--board-chat-width` wide (world-chat.css), the browser the rest, down to the belt. */
+.board-browser.beside {
+  left: calc(24px + var(--board-chat-width) + 16px);
+  right: 24px;
+  width: auto;
+  transform: none;
+  bottom: calc(var(--dungeon-belt-height, 0px) + 18px);
+  animation: none;
+}
 /* Filling the board: over the dialogue box too, down to the belt. */
 .board-browser.filled {
   z-index: 5;

@@ -389,9 +389,16 @@ final class BoardBrowser: NSObject, WKNavigationDelegate, WKUIDelegate, WKScript
     }
 
     /// Keys the browser takes while its page has the keyboard; the rest are the page's, or the app's.
+    /// ⇧⌘W hides the browser (the page's B can't be typed while a web page has the keyboard), which
+    /// gives the keyboard back to the app's page.
     private func key(_ event: NSEvent) -> Bool {
-        guard event.type == .keyDown, event.modifierFlags.intersection([.command, .shift, .control, .option]) == .command,
-              let key = event.charactersIgnoringModifiers?.lowercased(), let tab = shownTab else { return false }
+        guard event.type == .keyDown, let key = event.charactersIgnoringModifiers?.lowercased(), let tab = shownTab else { return false }
+        let flags = event.modifierFlags.intersection([.command, .shift, .control, .option])
+        if flags == [.command, .shift], key == "w" {
+            tell(["type": "key", "action": "hide"])
+            return true
+        }
+        guard flags == .command else { return false }
         switch key {
         case "r": tab.page.web?.reload()
         case "[": tab.page.web?.goBack()

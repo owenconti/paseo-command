@@ -209,13 +209,146 @@ test("the page's own things over the web page are cut out of it; a dialog of the
   await waitFor(() => lastOf(page, "browser"), (m) => m?.holes?.length === 0 && m.height > 400, "no hole for the hidden choices");
   await view.getByRole("button", { name: "Show the dialogue box again" }).click();
   await waitFor(() => lastOf(page, "browser"), (m) => m?.holes?.length === 1, "the choices' hole again");
-  // The whole conversation takes the browser's place, and gives it back.
+  await page.context().close();
+});
+
+const sides = (page: Page) =>
+  page.evaluate(
+    () =>
+      Object.fromEntries(
+        Object.entries({ chat: ".world-chat", browser: ".board-browser", slot: ".bb-view", frame: ".native-world-frame", belt: ".dungeon-hud" }).map(([name, selector]) => {
+          const r = document.querySelector(selector)?.getBoundingClientRect() ?? new DOMRect();
+          return [name, { left: Math.round(r.left), right: Math.round(r.right), top: Math.round(r.top), bottom: Math.round(r.bottom), width: Math.round(r.width), height: Math.round(r.height) }];
+        }),
+      ) as Record<"chat" | "browser" | "slot" | "frame" | "belt", { left: number; right: number; top: number; bottom: number; width: number; height: number }>,
+  );
+
+test("the whole conversation and the browser show side by side: the conversation on the left, narrower, the browser on its right", async () => {
+  const page = await open({ "world:browserOpen": true });
+  await page.setViewportSize({ width: 1700, height: 1000 });
+  await pick(page, "a-api-1");
+  const dialog = box(page);
+  await dialog.waitFor();
+  const view = panel(page);
+  await view.waitFor();
+  await state(page, [tab(TAB_A, "http://localhost:5173/", "Vite App")]);
+  const boxWidth = (await sides(page)).chat.width;
+  // H: the whole conversation opens, and the browser stays, to its right.
   await dialog.focus();
   await page.keyboard.press("h");
+  await dialog.locator(".wc-log").waitFor();
+  await page.locator(".world-chat.log.beside").waitFor();
+  await page.locator(".board-browser.beside").waitFor();
+  const s = await sides(page);
+  assert.ok(s.chat.left >= s.frame.left && s.chat.right < s.browser.left, `the conversation is left of the browser: ${JSON.stringify(s)}`);
+  assert.ok(s.browser.left - s.chat.right >= 8 && s.browser.left - s.chat.right <= 32, `a gap between them: ${s.browser.left - s.chat.right}`);
+  assert.ok(s.chat.width < boxWidth && s.chat.width >= 380 && s.chat.width <= 560, `the conversation is narrower than its box (${boxWidth}): ${s.chat.width}`);
+  assert.ok(s.browser.width > s.chat.width, `the browser has the wider side: ${s.browser.width} > ${s.chat.width}`);
+  assert.ok(s.browser.right <= s.frame.right - 8, "the browser keeps inside the map");
+  assert.ok(Math.abs(s.browser.top - s.chat.top) <= 2 && Math.abs(s.browser.bottom - s.chat.bottom) <= 2, `they stand level: ${JSON.stringify([s.chat, s.browser])}`);
+  assert.ok(s.browser.bottom <= s.belt.top, "both end above the belt");
+  // The app is told the page's box there.
+  const placed = await waitFor(() => lastOf(page, "browser"), (m) => m?.agent === "a-api-1" && m.x === s.slot.left && m.width === s.slot.width && m.height === s.slot.height, "the placement beside");
+  assert.equal(placed!.covered, false);
+  // The conversation is whole in its column: its messages, its composer, and the robots' arrows at its foot.
+  await dialog.getByText("The preview is up.").first().waitFor();
+  await dialog.locator("#world-composer").waitFor();
+  const inside = await page.evaluate(() => {
+    const chat = document.querySelector(".world-chat")!.getBoundingClientRect();
+    return [...document.querySelectorAll(".world-chat .wc-nav, .world-chat .wc-browser-toggle, .world-chat .wc-log-toggle, .world-chat #world-composer")].map((el) => {
+      const r = el.getBoundingClientRect();
+      return r.width > 0 && r.left >= chat.left && r.right <= chat.right && r.top >= chat.top && r.bottom <= chat.bottom;
+    });
+  });
+  assert.ok(inside.length >= 4 && inside.every(Boolean), `its controls stay inside the column: ${inside}`);
+  // Typing in the conversation's message box doesn't move the browser; B outside a field hides it, and the
+  // conversation takes its full width back.
+  await dialog.locator("#world-composer").fill("b");
+  assert.equal(await view.count(), 1);
+  await dialog.locator("#world-composer").fill("");
+  await dialog.focus();
+  await page.keyboard.press("b");
+  await view.waitFor({ state: "detached" });
+  assert.equal(await page.locator(".world-chat.log.beside").count(), 0);
+  const alone = await page.evaluate(() => Math.round(document.querySelector(".world-chat")!.getBoundingClientRect().width));
+  assert.ok(alone > 560, `alone, the conversation is as wide as before: ${alone}`);
+  // B again brings the browser back beside it (the conversation stays open); Back (H) leaves the browser above the box.
+  await page.keyboard.press("b");
+  await page.locator(".board-browser.beside").waitFor();
+  assert.equal(await dialog.locator(".wc-log").count(), 1);
+  await page.keyboard.press("h");
+  await page.locator(".board-browser:not(.beside)").waitFor();
+  assert.equal(await dialog.locator(".wc-log").count(), 0);
+  const above = await sides(page);
+  assert.ok(above.slot.bottom < above.chat.top, "above the dialogue box again");
+  await page.context().close();
+});
+
+test("on a map too narrow for both, the conversation takes the browser's place, and B takes it back", async () => {
+  const page = await open({ "world:browserOpen": true });
+  await page.setViewportSize({ width: 1180, height: 900 });
+  await pick(page, "a-api-1");
+  const dialog = box(page);
+  await dialog.waitFor();
+  const view = panel(page);
+  await view.waitFor();
+  const frame = await page.evaluate(() => document.querySelector(".native-world-frame")!.getBoundingClientRect().width);
+  assert.ok(frame < 900, `the map is narrow here: ${frame}`);
+  await dialog.focus();
+  await page.keyboard.press("h");
+  await dialog.locator(".wc-log").waitFor();
   await view.waitFor({ state: "detached" });
   await waitFor(() => lastOf(page, "browser"), (m) => !m?.agent, "hidden under the conversation");
-  await page.keyboard.press("h");
+  assert.equal(await page.locator(".world-chat.beside").count(), 0);
+  // B: the browser, and the dialogue box under it.
+  await page.keyboard.press("b");
   await view.waitFor();
+  assert.equal(await dialog.locator(".wc-log").count(), 0);
+  // Widened, both fit: H opens the conversation beside the browser.
+  await page.setViewportSize({ width: 1700, height: 900 });
+  await page.keyboard.press("h");
+  await page.locator(".world-chat.log.beside").waitFor();
+  await page.locator(".board-browser.beside").waitFor();
+  // Narrowed again while both show, the conversation keeps the board and the browser steps aside.
+  await page.setViewportSize({ width: 1180, height: 900 });
+  await view.waitFor({ state: "detached" });
+  assert.equal(await page.locator(".world-chat.log").count(), 1);
+  assert.equal(await page.locator(".world-chat.beside").count(), 0);
+  await page.context().close();
+});
+
+test("⇧⌘W hides the browser from anywhere: a field of the page, or the web page itself (the app says so)", async () => {
+  const page = await open({ "world:browserOpen": true });
+  await pick(page, "a-api-1");
+  const dialog = box(page);
+  await dialog.waitFor();
+  const view = panel(page);
+  await view.waitFor();
+  await state(page, [tab(TAB_A, "http://localhost:5173/", "Vite App")]);
+  // In its address field, where B is a letter.
+  const address = view.getByRole("textbox", { name: "Address" });
+  await address.click();
+  await address.press("b");
+  assert.equal(await view.count(), 1, "B in a field types");
+  await page.keyboard.press("Meta+Shift+W");
+  await view.waitFor({ state: "detached" });
+  await waitFor(() => lastOf(page, "browser"), (m) => !m?.agent, "the app shows nothing");
+  assert.equal(await page.evaluate(() => localStorage.getItem("paseo-command:world:browserOpen")), "false");
+  assert.equal(await dialog.count(), 1, "the dialogue box stays");
+  // From the web page, the app takes the key and tells the page.
+  await dialog.focus();
+  await page.keyboard.press("b");
+  await view.waitFor();
+  await swift(page, "paseo:browser", { type: "key", action: "hide" });
+  await view.waitFor({ state: "detached" });
+  // ⌘K hides it too.
+  await page.keyboard.press("b");
+  await view.waitFor();
+  await page.keyboard.press("Meta+k");
+  const palette = page.getByRole("dialog", { name: "Command palette" });
+  await palette.getByRole("combobox").fill("Hide the browser on the board");
+  await palette.getByRole("option", { name: /Hide the browser on the board/ }).click();
+  await view.waitFor({ state: "detached" });
   await page.context().close();
 });
 
@@ -240,7 +373,7 @@ test("a tab the agent opens shows at once while you talk to it; another agent's 
   await swift(page, "paseo:browser", { type: "refused", message: "That isn't a web address." });
   await page.getByText("That isn't a web address.").waitFor();
   // Hidden, then another agent opens a page: a notice, and the browser stays hidden.
-  await panel(page).getByRole("button", { name: "Hide the browser (B)" }).click();
+  await panel(page).getByRole("button", { name: "Hide the browser (B, ⇧⌘W)" }).click();
   await panel(page).waitFor({ state: "detached" });
   const other = (dungeon.agents as unknown as { id: string; host?: string }[]).find((a) => a.id !== "a-api-1" && !a.host)!;
   await swift(page, "paseo:browser", { type: "opened", host: "local", agent: other.id, tab: TAB_B });

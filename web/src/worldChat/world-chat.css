@@ -132,6 +132,29 @@
   top: 44px;
   height: auto;
 }
+/* Beside its browser (BoardBrowser.tsx, both open on a map wide enough): the conversation keeps to the board's
+   left in a narrower column, laid out as on a narrow map: no portrait, the previous and next robots in a row
+   at its foot. The browser starts where the column ends (board-browser.css). */
+.native-world-frame {
+  --board-chat-width: clamp(380px, 36%, 560px);
+}
+.world-chat.log.beside {
+  left: 24px;
+  transform: none;
+  width: var(--board-chat-width);
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr) 44px;
+  column-gap: 8px;
+  padding: 12px 8px 4px;
+  animation: none;
+}
+.world-chat.log.beside .wc-nameplate { left: 12px; max-width: calc(100% - 24px); }
+.world-chat.log.beside .wc-portrait { display: none; }
+.world-chat.log.beside .wc-body { grid-column: 1 / -1; grid-row: 1; }
+.world-chat.log.beside .wc-navigation { display: flex; grid-column: 1 / -1; grid-row: 2; align-items: center; justify-content: space-between; }
+.world-chat.log.beside .wc-nav { position: static; width: 44px; height: 44px; }
+.world-chat.log.beside .wc-log-toggle .wc-key,
+.world-chat.log.beside .wc-browser-toggle .wc-key { display: none; }
 /* The HUD's own frame, once cut from its sheet (its chamfered corners are transparent). */
 .world-chat[style*="--wc-frame"],
 .wc-choices[style*="--wc-frame"] {

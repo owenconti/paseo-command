@@ -30,7 +30,7 @@ import "./board-browser.css";
 
 export const BROWSER_ADDRESS = "board-browser-address";
 /** The page's own layers that can lie over the web page: cut out of it, so they show and take their clicks. */
-const OVER = ".wc-choices, .board-menu, .tooltip.shown, .atlas-world-tip";
+const OVER = ".wc-choices, .board-menu, .tooltip.shown, .atlas-world-tip, .world-chat .popover-menu";
 /** Filling the board, the browser is over the dialogue box: its choices are behind it. */
 const OVER_FILLED = ".board-menu, .tooltip.shown";
 
@@ -50,6 +50,8 @@ export function BoardBrowser(props: {
   name: string;
   /** How much of the map's foot the dialogue box covers (CSS px): the browser ends above it. */
   inset: number;
+  /** The whole conversation shows too: it has the board's left, the browser its right, down to the belt. */
+  beside: boolean;
   /** A confirming dialog is open: the web page steps aside. */
   blocked: boolean;
   onClose: () => void;
@@ -141,16 +143,28 @@ export function BoardBrowser(props: {
     setTyped("");
     requestAnimationFrame(() => address.current?.focus());
   };
-  const live = useRef({ focusAddress, newTab, current });
-  live.current = { focusAddress, newTab, current };
+  const live = useRef({ focusAddress, newTab, current, close: props.onClose });
+  live.current = { focusAddress, newTab, current, close: props.onClose };
   useEffect(
     () =>
       onBrowserEvent((event) => {
         if (event.type === "refused") onNotice(event.message);
-        else if (event.type === "key") (event.action === "address" ? live.current.focusAddress : live.current.newTab)();
+        else if (event.type === "key") (event.action === "address" ? live.current.focusAddress : event.action === "new" ? live.current.newTab : live.current.close)();
       }),
     [onNotice],
   );
+  // ⇧⌘W hides the browser from anywhere in the page, a field included (the app sends it as `key` while a web
+  // page has the keyboard; B does it too, outside fields).
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!e.metaKey || !e.shiftKey || e.ctrlKey || e.altKey || e.key.toLowerCase() !== "w" || e.defaultPrevented || modalOpen()) return;
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      live.current.close();
+    };
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
+  }, []);
   // ⌘K's entries for the browser on show (main's `paletteCommands`).
   useEffect(() => {
     const tab = (run: (id: string, url: string) => void) => () => {
@@ -184,7 +198,7 @@ export function BoardBrowser(props: {
   const shownAddress = typed ?? (current ? shortAddress(current.url) : "");
   return (
     <section
-      className={`board-browser${filled ? " filled" : ""}`}
+      className={`board-browser${filled ? " filled" : props.beside ? " beside" : ""}`}
       aria-label={`${name}’s browser`}
       style={{ ...(frame ? { "--bb-frame": `url(${frame})` } : {}), "--bb-inset": `${Math.max(0, Math.round(props.inset))}px` } as CSSProperties}
       data-tabs={tabs.length}
@@ -220,14 +234,14 @@ export function BoardBrowser(props: {
         <button
           type="button"
           className="bb-tool"
-          aria-label={filled ? "Show the dialogue box again" : "Fill the board with the browser"}
-          data-tip={filled ? "Show the dialogue box again" : "Fill the board"}
+          aria-label={filled ? (props.beside ? "Show the conversation again" : "Show the dialogue box again") : "Fill the board with the browser"}
+          data-tip={filled ? (props.beside ? "Show the conversation again" : "Show the dialogue box again") : "Fill the board"}
           aria-pressed={filled}
           onClick={() => setFilled(!filled)}
         >
           {filled ? <Minimize2 size={14} aria-hidden /> : <Maximize2 size={14} aria-hidden />}
         </button>
-        <button type="button" className="bb-tool bb-hide" aria-label="Hide the browser (B)" data-tip="Hide the browser" onClick={props.onClose}>
+        <button type="button" className="bb-tool bb-hide" aria-label="Hide the browser (B, ⇧⌘W)" data-tip="Hide the browser" onClick={props.onClose}>
           <X size={15} aria-hidden />
         </button>
       </header>

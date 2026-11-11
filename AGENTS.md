@@ -1001,8 +1001,14 @@ conversation for its state and its request in full, and takes the box's sends an
 Each robot has a browser of its own, tracked to its agent (host and daemon id): its tabs, shown over the board above its
 dialogue box (the user's ask: an integrated browser on the board, attached to the agent, which the agent can open tabs in).
 B, the box's Browser button (which counts its tabs), the board menu's Browser and ⌘K "Show …’s browser on the board" show
-or hide it (`world:browserOpen`, kept as the box steps robots and across launches); the whole conversation (H) takes its
-place while it shows. The page draws the panel (`web/src/worldChat/BoardBrowser.tsx`, `board-browser.css`: the dialogue's
+or hide it (`world:browserOpen`, kept as the box steps robots and across launches). ⇧⌘W hides it from anywhere (the user's
+ask: a key that closes it): the page takes it, in a field too (`BoardBrowser.tsx`), and while a web page has the keyboard
+the app does and tells the page (`key` `hide`), which gives the keyboard back to the page. With the whole conversation open
+too (H) they show together (the user's call): the conversation on the board's left in a narrower column
+(`--board-chat-width`, 380–560 px, 36% of the map; `.world-chat.log.beside`, laid out as on a narrow map, the robots' arrows
+at its foot), the browser on its right down to the belt (`.board-browser.beside`), from a map 900 px wide
+(`BESIDE_MIN_WIDTH` in `main.tsx`, the frame measured); on a narrower one the conversation takes the browser's place, and
+B there shows the browser above the box instead. The page draws the panel (`web/src/worldChat/BoardBrowser.tsx`, `board-browser.css`: the dialogue's
 gold-framed navy panel, a tab strip with +, back / forward / reload or stop, an address field that takes `localhost:5173` or
 `example.com` (`BrowserPolicy.destination`: local names and addresses over http, the rest https; never a search), Open in
 Conquer, Fill the board (over the dialogue box too) and ×) and leaves a box (`.bb-view`) for the web page, which the macOS
@@ -1010,7 +1016,7 @@ app draws: `native/Sources/PaseoCommandNative/BoardBrowser.swift` owns the web v
 editors' terminals. The page reports the box's frame and whose browser shows (`browser`, `postBrowserPlacement` in
 `web/src/worldChat/browserBridge.ts`; sent as it changes, on mutations and a 250 ms poll), `covered` while a dialog of the
 page's is open (⌘K: the web page steps aside), and `holes`: the page's own things lying over the box (the dialogue's
-choices, a hint, the board's menu), which `BrowserStage` cuts out of the web page with a layer mask and passes clicks
+choices, a hint, the board's menu, a menu of the conversation's), which `BrowserStage` cuts out of the web page with a layer mask and passes clicks
 through. What the strip and bar do goes as `browserDo` (open, navigate, back, forward, reload, stop, close, select, focus);
 the app answers on `paseo:browser`: every browser's tabs (`state`: id, address, title, loading, back, forward, a load's
 error), `opened` when an agent opened a tab, `refused` (an address it won't open) and `key`. The box shows its own words only
@@ -1056,9 +1062,9 @@ refused with why, a page that sends itself there is stopped, and its pages carry
 `WKContentRuleList`) that block frames, images, scripts and requests to them; such a tab is not made until those rules
 compile. `browser_upload` reads files only for this Mac's own agents (the paths are the agent's machine's).
 While you talk to a robot, a tab it opens shows at once (Settings → Map "Show the browser when its agent opens a tab",
-`world:browserFollows`, on by default; not over the whole conversation), else the Browser button counts it; another
+`world:browserFollows`, on by default; beside the whole conversation where both fit, never over it), else the Browser button counts it; another
 robot's is said in a notice, at most every 30 s a robot. New agents are told what a tab is for (`agentPrompt.ts`,
-`<paseo_command_browser>`). ⌘K (page Command, only while they apply): Show / Hide the browser (B), and, while it shows,
+`<paseo_command_browser>`). ⌘K (page Command, only while they apply): Show / Hide the browser (B; ⇧⌘W hides), and, while it shows,
 Open a new tab, Type an address, Reload, Go back / forward, Close the tab, Make the browser fill the board, Open the page in
 Conquer (`board-browser-*` in `appCommands.ts`). Limits: with the Dev and the release app both hosting, the daemon knows
 them as one client (`clientId` "paseo-command") and sends calls to whichever registered last; a remote host's agent sees

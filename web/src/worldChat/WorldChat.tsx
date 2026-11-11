@@ -80,7 +80,7 @@ export type WorldChatProps = {
   /** The request was taken: it isn't asked again as the box reopens. */
   onArchiveRequestTaken?: () => void;
   /** Its browser over the board (BoardBrowser.tsx): whether it shows, how many tabs it holds, and B's toggle. */
-  browser?: { open: boolean; tabs: number; toggle: () => void };
+  browser?: { open: boolean; tabs: number; toggle: () => void; /** It shows beside the whole conversation, which keeps to the board's left. */ beside?: boolean };
 };
 
 /** The box asks before archiving: the agent (or its workspace), or the agent and then a new one (/new). */
@@ -1110,7 +1110,7 @@ export function WorldChat(props: WorldChatProps) {
   return (
     <div
       ref={root}
-      className={`world-chat${log ? " log" : ""}${entry === "reply" ? " replying" : ""}`}
+      className={`world-chat${log ? " log" : ""}${log && props.browser?.beside ? " beside" : ""}${entry === "reply" ? " replying" : ""}`}
       role="dialog"
       aria-modal="false"
       aria-label={`Conversation with ${name}`}

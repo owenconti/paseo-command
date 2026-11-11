@@ -186,6 +186,9 @@ const MODE_PAGES: Record<AppMode, Page> = {
 // The map surface (drawn by the macOS app) beside the inherited docked session layout.
 const native = true;
 const unity = true;
+/** The map's width from which a robot's whole conversation and its browser show side by side on the Dungeon Board
+ * (the conversation's column, the browser's least width, and their margins: board-browser.css). */
+const BESIDE_MIN_WIDTH = 900;
 /** The Dungeon Board's dialogue box (src/worldChat/): talk to a picked robot in the world. */
 const WorldChat = React.lazy(() =>
   import("./worldChat/WorldChat").then((module) => ({ default: module.WorldChat })),
@@ -659,6 +662,18 @@ function App() {
   // ⌘K's or the board menu's Archive for a robot: its dialogue box asks (a new `at` asks again).
   const [talkArchive, setTalkArchive] = useState<{ agentId: string; at: number } | null>(null);
   const talkOnPick = useTalkOnPick();
+  // The map's frame, measured: whether the conversation and the browser fit side by side.
+  const worldFrame = useRef<HTMLDivElement>(null);
+  const [worldFrameWidth, setWorldFrameWidth] = useState(0);
+  useLayoutEffect(() => {
+    const node = worldFrame.current;
+    if (!node || typeof ResizeObserver === "undefined") return;
+    const measure = () => setWorldFrameWidth(Math.round(node.clientWidth));
+    measure();
+    const resized = new ResizeObserver(measure);
+    resized.observe(node);
+    return () => resized.disconnect();
+  }, []);
   // The robot's browser, over the board above its dialogue box (src/worldChat/BoardBrowser.tsx): B, kept as the
   // box steps from robot to robot. The whole conversation takes its place while it shows.
   const browserOpen = useBrowserOpen();
@@ -880,18 +895,22 @@ function App() {
   // Its workspace's pending diff comments, for ⌘K's Apply and Show.
   const agentComments = useLocalComments(agent?.host, agent?.workspaceId);
   const talkShown = talkOn && !!agent;
-  const browserShown = talkShown && browserOpen && !talkLog;
+  // The whole conversation and the browser show together where the map has the width: the conversation on the
+  // left, narrower, the browser on its right. On a narrower map the conversation takes the browser's place.
+  const besideFits = worldFrameWidth >= BESIDE_MIN_WIDTH;
+  const browserShown = talkShown && browserOpen && (!talkLog || besideFits);
+  const browserBeside = browserShown && talkLog;
   const agentBrowser = agent ? boardBrowsers.browsers[browserKey(agent.host, daemonAgentId(agent))] : undefined;
   const browserTab = agentBrowser?.tabs.find((t) => t.id === agentBrowser.current) ?? agentBrowser?.tabs[0];
   const toggleBrowser = () => {
     if (browserShown) return setBrowserOpen(false);
-    setTalkLog(false);
+    if (!besideFits) setTalkLog(false);
     setBrowserOpen(true);
   };
   // An agent opened a tab with its browser tools: the robot you are talking to shows it (Settings → Map);
   // another's says so, once in a while.
-  const browserWatch = useRef({ agents, talkedTo: talkShown ? agent : undefined, talkLog, said: new Map<string, number>() });
-  Object.assign(browserWatch.current, { agents, talkedTo: talkShown ? agent : undefined, talkLog });
+  const browserWatch = useRef({ agents, talkedTo: talkShown ? agent : undefined, covered: talkLog && !besideFits, said: new Map<string, number>() });
+  Object.assign(browserWatch.current, { agents, talkedTo: talkShown ? agent : undefined, covered: talkLog && !besideFits });
   useEffect(
     () =>
       onBrowserEvent((event) => {
@@ -899,7 +918,7 @@ function App() {
         const now = browserWatch.current;
         const opener = now.agents.find((a) => (a.host || "local") === event.host && daemonAgentId(a) === event.agent);
         if (!opener) return;
-        if (now.talkedTo?.id === opener.id && !now.talkLog) {
+        if (now.talkedTo?.id === opener.id && !now.covered) {
           if (!browserFollowsSetting()) return;
           browserDo("select", { tab: event.tab });
           setBrowserOpen(true);
@@ -1711,8 +1730,8 @@ function App() {
             group: "Actions",
             page: "Command" as const,
             label: browserShown ? "Hide the browser on the board" : `Show ${agentName(agent!, workspaceOf(agent!)?.branch)}’s browser on the board`,
-            keys: [["B"]],
-            keywords: "dungeon board browser web page tab preview site localhost attached agent",
+            keys: browserShown ? [["B"], ["⇧", "⌘", "W"]] : [["B"]],
+            keywords: "dungeon board browser web page tab preview site localhost attached agent close beside conversation",
             run: toggleBrowser,
           },
           ...(browserShown
@@ -2868,7 +2887,7 @@ function App() {
         aria-label="Paseo Command"
       >
         {native && (
-          <div className="native-world-frame">
+          <div className="native-world-frame" ref={worldFrame}>
             <React.Suspense fallback={null}>
               <NativeWorld
                 workingOn={workingOn}
@@ -2925,7 +2944,7 @@ function App() {
                   position={talkPosition}
                   archiveRequest={talkArchive}
                   onArchiveRequestTaken={() => setTalkArchive(null)}
-                  browser={{ open: browserShown, tabs: agentBrowser?.tabs.length ?? 0, toggle: toggleBrowser }}
+                  browser={{ open: browserShown, tabs: agentBrowser?.tabs.length ?? 0, toggle: toggleBrowser, beside: browserBeside }}
                   onFreshDraft={(a, settings, conversation) => {
                     const target = freshTarget(a, settings);
                     select(null);
@@ -2952,6 +2971,7 @@ function App() {
                   agent={agent}
                   name={agentName(agent, workspaceOf(agent)?.branch)}
                   inset={talkInset}
+                  beside={browserBeside}
                   blocked={confirming}
                   onClose={() => setBrowserOpen(false)}
                   onNotice={setNotice}
