@@ -7,8 +7,8 @@ import {
   type CSSProperties,
 } from "react";
 import { createPortal } from "react-dom";
-import { Maximize2, X } from "lucide-react";
-import { CopyButton } from "../CodeCopyButton";
+import { AppWindow, Code2, Maximize2, X } from "lucide-react";
+import { copyText } from "../nativePlatform";
 import { useFocusTrap } from "../focus";
 import { resolveImage } from "../imageSource";
 import { LOCAL_BUDGET, loadImage } from "../imageLoad";
@@ -225,7 +225,7 @@ export function VisualBlock({
         if (page) setShowSource((v) => !v);
         break;
       case "copy":
-        root.current?.querySelector<HTMLButtonElement>(".md-copy")?.click();
+        void copyText(source).catch(() => {});
         break;
       case "expand":
         if (page) setExpanded(true);
@@ -271,49 +271,35 @@ export function VisualBlock({
       ref={root}
       className="mermaid-block visual-block"
       data-visual={id}
+      role="group"
+      aria-label={title ? `Visual reply: ${title}` : "Visual reply"}
       onFocusCapture={() => activateDiagram(id)}
       onMouseEnter={() => activateDiagram(id)}
     >
-      <div className="mermaid-toolbar" aria-label="Visual reply controls">
-        <span className="mermaid-label visual-title" title={title || undefined}>
-          {title || "Visual reply"}
-        </span>
-        <button
-          type="button"
-          aria-pressed={!sourceShown}
-          disabled={!page}
-          onClick={() => setShowSource(false)}
-        >
-          Page
-        </button>
-        <button
-          type="button"
-          aria-pressed={sourceShown}
-          onClick={() => setShowSource(true)}
-        >
-          HTML
-        </button>
-        <span className="mermaid-spacer" />
-        {page && !sourceShown && (
-          <>
-            <ZoomControls
-              zoom={zoom}
-              noun="visual reply"
-              onAction={(action) => run.current(action)}
-            />
+      {/* No banner over the page (the user's call): two quiet buttons appear over its corner on
+          hover or focus; zoom and copy are in ⌘K. */}
+      {page && (
+        <div className="visual-tools" aria-label="Visual reply controls">
+          <button
+            type="button"
+            aria-label={sourceShown ? "Show the page" : "Show the page’s HTML"}
+            data-tip={sourceShown ? "Show the page" : "Show HTML"}
+            onClick={() => setShowSource((v) => !v)}
+          >
+            {sourceShown ? <AppWindow size={14} /> : <Code2 size={14} />}
+          </button>
+          {!sourceShown && (
             <button
               type="button"
-              className="mermaid-icon"
               aria-label="Expand visual reply"
               data-tip="Open full screen"
               onClick={() => setExpanded(true)}
             >
               <Maximize2 size={14} />
             </button>
-          </>
-        )}
-        <CopyButton text={source} label="Copy page HTML" />
-      </div>
+          )}
+        </div>
+      )}
       {sourceShown ? (
         <>
           {!showSource && (

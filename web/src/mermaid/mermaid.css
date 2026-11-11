@@ -190,3 +190,47 @@
 .msg.visual-reply {
   padding: 2px;
 }
+.visual-block {
+  position: relative;
+}
+.visual-tools {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  z-index: 2;
+  display: flex;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--line-mid);
+  border-radius: var(--radius-sm);
+  background: var(--panel-2);
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+.visual-block:hover .visual-tools,
+.visual-tools:focus-within {
+  opacity: 1;
+}
+.visual-tools button {
+  display: inline-grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border-radius: var(--radius-xs);
+  color: var(--text-2);
+  background: transparent;
+}
+.visual-tools button:hover {
+  background: var(--fill-strong);
+  color: var(--text);
+}
+.visual-tools button:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: -2px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .visual-tools {
+    transition: none;
+  }
+}

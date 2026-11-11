@@ -72,19 +72,18 @@ export function PublishedPage({
     );
   return (
     <div className="mermaid-block visual-block" data-visual-page={page}>
-      <div className="mermaid-toolbar">
-        <span className="mermaid-label visual-title">{title}</span>
-      </div>
       {state ? (
         <div className="visual-left" role="status">
-          <p>This page couldn’t be shown: {state.error}</p>
+          <p>
+            “{title}” couldn’t be shown: {state.error}
+          </p>
           <button type="button" onClick={() => setAttempt((n) => n + 1)}>
             Try again
           </button>
         </div>
       ) : (
         <p className="mermaid-status" role="status">
-          Loading the page…
+          Loading “{title}”…
         </p>
       )}
     </div>

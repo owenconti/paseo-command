@@ -64,7 +64,9 @@ test("an html-render block shows as a themed page in a frame kept apart from the
     frameEl = block.locator("iframe"),
     frame = block.frameLocator("iframe");
   await frame.locator("#heading").waitFor();
-  assert.equal(await block.locator(".visual-title").innerText(), "Build times");
+  // No banner over the page: it is named for assistive tech, and its controls show on hover.
+  assert.equal(await block.locator(".mermaid-toolbar").count(), 0);
+  assert.equal(await block.getAttribute("aria-label"), "Visual reply: Build times");
   // Sandboxed without the app's origin; only https and inline resources.
   const sandbox = (await frameEl.getAttribute("sandbox")) ?? "";
   assert.match(sandbox, /allow-scripts/);
@@ -91,22 +93,22 @@ test("an html-render block shows as a themed page in a frame kept apart from the
   assert.ok(fit <= 1, `page fits its frame (${fit})`);
   // Links leave for a new tab, never the frame.
   assert.equal(await frame.locator("#link").evaluate((a: HTMLAnchorElement) => (a.click(), a.target)), "");
-  // HTML / Page, copy.
-  await block.getByRole("button", { name: "HTML", exact: true }).click();
+  // HTML and back, from the corner's buttons.
+  await block.hover();
+  await block.getByRole("button", { name: "Show the page’s HTML" }).click();
   assert.match(await block.locator(".mermaid-source").innerText(), /<title>Build times<\/title>/);
-  await block.getByRole("button", { name: "Copy page HTML" }).click();
-  await block.getByRole("button", { name: "Copied", exact: true }).waitFor();
-  await block.getByRole("button", { name: "Page", exact: true }).click();
+  await block.getByRole("button", { name: "Show the page", exact: true }).click();
   await frame.locator("#heading").waitFor();
-  // Zoom lays the page out narrower and draws it larger.
+  // Zoom (⌘K) lays the page out narrower and draws it larger.
   const width = await frame.locator("html").evaluate((el) => el.clientWidth);
-  await block.getByRole("button", { name: "Zoom in on visual reply" }).click();
+  await page.keyboard.press("ControlOrMeta+k");
+  await page.keyboard.type("Zoom in on the visual reply");
+  await page.getByRole("option", { name: /Zoom in on the visual reply/ }).click();
   await waitFor(
     () => frame.locator("html").evaluate((el) => el.clientWidth),
     (w) => w < width,
     "zoomed in",
   );
-  await block.getByRole("button", { name: "Reset visual reply zoom" }).click();
   // Full screen, closed with Esc; the palette names its actions.
   await block.getByRole("button", { name: "Expand visual reply" }).click();
   const dialog = page.getByRole("dialog", { name: "Visual reply: Build times" });
@@ -179,7 +181,7 @@ test("a page published with the html_render tool is read from its host and drawn
   await block.frameLocator("iframe").locator("#heading").waitFor();
   assert.deepEqual([...new Set(asked)], [`?id=${ID}`]);
   // Named by the tool call, not the page's own <title>; the same frame as a fenced page's.
-  assert.equal(await block.locator(".visual-title").innerText(), "Build times");
+  assert.equal(await block.getAttribute("aria-label"), "Visual reply: Build times");
   assert.doesNotMatch((await block.locator("iframe").getAttribute("sandbox")) ?? "", /allow-same-origin/);
   // It isn't also listed among the steps.
   assert.equal(await page.locator(".step.tool").count(), 1);

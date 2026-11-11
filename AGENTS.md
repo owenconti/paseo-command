@@ -652,9 +652,11 @@ and GitHub publication; report the published version and release link.
   tab) and hands back ⌘K, ⌘B and Esc the page didn't use. Messages are taken only from the frame's own window and read strictly
   (`readSize`, `readLink`, `readKey`). Local images named by absolute path (PNG, JPEG, GIF, WebP) are embedded as data: URLs through the
   chat's bounded image loader (`embedImages`; on another host they can't be read, and the block says which). A page that navigates
-  itself away (a second load) is stopped, with Show it again. Its toolbar is the Mermaid block's (their CSS and ⌘K registry are shared:
-  `mermaidCommands.ts`, `page: true`): the page's `<title>`, Page / HTML, zoom (the page laid out narrower and drawn larger), full screen
-  (a second frame of the page filling a focus-trapped dialog, Esc closes), copy the HTML; ⌘K "Show the visual reply's HTML" / "…page",
+  itself away (a second load) is stopped, with Show it again. It has no banner or title bar over the page (the user's call: the page
+  is its own heading; the block is named by the page's `<title>` only for assistive tech): two quiet buttons show over its upper-right
+  corner on hover or focus (`.visual-tools`: Show HTML / Show the page, and full screen: a second frame of the page filling a
+  focus-trapped dialog, which keeps a bar for its title, zoom and close; Esc closes). Zoom (the page laid out narrower and drawn
+  larger) and copying the HTML are in ⌘K, through the registry shared with Mermaid (`mermaidCommands.ts`, `page: true`); ⌘K "Show the visual reply's HTML" / "…page",
   "Expand the visual reply", "Zoom in on / out of the visual reply", "Reset the visual reply's zoom", "Copy the visual reply's HTML"
   (page Command), only while one is in view. A block still streaming shows its source until its fence closes; over 512 KB it stays
   source. The Dungeon dialogue keeps a page whole when paging (`script.ts`), and the tray's reply previews leave its HTML out
