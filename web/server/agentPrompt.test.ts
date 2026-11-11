@@ -19,6 +19,7 @@ test("new agents are told how to answer with a visual reply", async () => {
   assert.match(AGENT_SYSTEM_PROMPT, new RegExp("```" + VISUAL_LANG + "\\n<!doctype html>"));
   // What the prompt promises is what the frame allows.
   assert.match(AGENT_SYSTEM_PROMPT, /over https/);
+  assert.match(AGENT_SYSTEM_PROMPT, /If you have an html_render tool, call it/);
   assert.match(VISUAL_CSP, /script-src 'unsafe-inline' 'unsafe-eval' https:/);
   for (const name of ["--background", "--foreground", "--chart-1", "--font-mono"])
     assert.ok(AGENT_SYSTEM_PROMPT.includes(name), name);

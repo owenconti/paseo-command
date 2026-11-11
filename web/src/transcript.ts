@@ -12,6 +12,8 @@ export type Entry =
       text: string;
       detail?: string;
       status?: string;
+      /** A page this call published (a visual reply), drawn in the tool row's place. */
+      visual?: { page: string; title: string };
     }
   | { kind: "todo"; text: string; items: { text: string; done: boolean }[] }
   | { kind: "event"; label: string; text: string };
@@ -34,6 +36,7 @@ export type TimelineItem =
       status: string;
       summary: string;
       detail: string;
+      visual?: { page: string; title: string };
     }
   | { kind: "todo"; id: string; items: { text: string; done: boolean }[] }
   | { kind: "notice"; id: string; level: string; text: string };
@@ -95,6 +98,7 @@ function entryOf(item: TimelineItem): Entry {
         text: item.summary,
         detail: item.detail,
         status: item.status,
+        ...(item.visual ? { visual: item.visual } : {}),
       };
     case "todo":
       return { kind: "todo", text: "", items: item.items };
@@ -223,6 +227,7 @@ export type Block =
   | { kind: "event"; label: string; text: string; key: string }
   | ({ kind: "agent"; key: string } & AgentReport)
   | { kind: "todo"; items: { text: string; done: boolean }[]; key: string }
+  | { kind: "visual"; page: string; title: string; key: string }
   | { kind: "activity"; steps: Entry[]; key: string };
 
 /** Fold consecutive tool calls and thoughts into one activity block. */
@@ -242,6 +247,9 @@ export function toBlocks(entries: Entry[]): Block[] {
     seen.set(sig, n);
     const key = `${sig}#${n}`;
     if (report) blocks.push({ kind: "agent", ...report, key });
+    else if (entry.kind === "tool" && entry.visual)
+      // A published page stands on its own, not folded among the steps.
+      blocks.push({ kind: "visual", ...entry.visual, key: `visual:${entry.visual.page}` });
     else if (entry.kind === "tool" || entry.kind === "thought") {
       const last = blocks[blocks.length - 1];
       if (last?.kind === "activity") last.steps.push(entry);

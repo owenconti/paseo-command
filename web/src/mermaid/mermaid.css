@@ -187,3 +187,6 @@
   outline: 2px solid var(--focus);
   outline-offset: 1px;
 }
+.msg.visual-reply {
+  padding: 2px;
+}

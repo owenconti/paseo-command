@@ -1,3 +1,4 @@
+import { publishedPage } from "./visual";
 import { createHostClient } from "@getpaseo/client/node";
 import { redactText } from "./redact";
 
@@ -282,6 +283,8 @@ export type TimelineItem =
       summary: string;
       detail: string;
       at?: string;
+      /** A page this call published (the visual-replies plugin's html_render); see server/visual.ts. */
+      visual?: { page: string; title: string };
     }
   | { kind: "todo"; id: string; items: { text: string; done: boolean }[] }
   | { kind: "notice"; id: string; level: string; text: string; at?: string };
@@ -444,6 +447,24 @@ export function shapeTimeline(entries: unknown): TimelineItem[] {
         break;
       }
       case "tool_call": {
+        const visual =
+          item.status === "completed"
+            ? publishedPage(item.name, item.detail)
+            : undefined;
+        if (visual) {
+          // The page itself is read from the plugin when shown; its HTML never rides the timeline.
+          out.push({
+            kind: "tool",
+            id: `${id}:${item.callId || ""}`,
+            name: clip(item.name, 120),
+            status: "completed",
+            summary: visual.title,
+            detail: "",
+            at,
+            visual,
+          });
+          break;
+        }
         const { summary, detail } = toolText(item.detail);
         out.push({
           kind: "tool",

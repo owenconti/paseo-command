@@ -660,6 +660,19 @@ and GitHub publication; report the published version and release link.
   source. The Dungeon dialogue keeps a page whole when paging (`script.ts`), and the tray's reply previews leave its HTML out
   (`withoutPages`). Not done, unlike T3's: no headless-browser preview for the agent, and no MCP apps. Tests: `src/visual/page.test.ts`,
   `e2e/visual.e2e.ts`, `server/agentPrompt.test.ts`, `worldChat/script.test.ts`.
+  Published with a tool, where the host's daemon has the `visual-replies` plugin (github.com/owenconti/paseo-cc-plugins, installed per
+  daemon as `host-stats` is; `paseo plugin install github:owenconti/paseo-cc-plugins:plugins/visual-replies`): its `agent.open.before`
+  hook gives every agent there an `html_render` tool (title, and `html` or the absolute `path` of an `.html` file), whoever created the
+  agent; the tool's description carries the page rules, and the standing prompt tells an agent that has it to use it rather than the
+  fence. The plugin checks the page on the agent's host (a real `.html` document, no `vh`, local images embedded by their bytes, so a
+  remote host's images work), keeps it in `<paseo home>/plugin-data/visual-replies` (the newest 500) and answers with its id
+  (`structuredContent.visualReply`). `web/server/visual.ts`: `shapeTimeline` marks a completed call (`publishedPage`: a tool named
+  `…html_render`, the id from the call's output wherever the provider put it, else from its text) as `visual: {page, title}` on the tool
+  row, without its HTML; `GET /api/visual?id=&host=` reads the page from that host's plugin (`invokePluginRpc` `page.read`, the id
+  checked, 15 s, 25 MB). The page draws it in the call's place as a block of its own (`toBlocks` kind `visual`, `PublishedPage.tsx`:
+  read once and kept, Try again if the host can't answer; then the same `VisualBlock`, `prepared`, named by the call's title). A running
+  or refused call stays an ordinary tool row. The Dungeon dialogue shows such a page in its Conversation log, not in the box.
+  Tests: `server/visual.test.ts` (over the row a real daemon gave), `e2e/visual.e2e.ts`; the plugin's own in its repository.
 - Mentions in the chat link themselves (`web/src/autolink.ts`): in an agent's conversation (`Timeline` and the map dialogue provide `Autolinks` from
   `useAutolinks` in `web/src/autolinkStore.ts`), its replies (`Markdown.tsx` adds `remarkAutolink`, a remark step over text nodes) and
   your messages (`autolinkRuns`), but not tool output. Linear keys only of the Linear workspace's teams (`GET /api/linear/teams`, asked

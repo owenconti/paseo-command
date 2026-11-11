@@ -1,4 +1,11 @@
-import { useEffect, useId, useRef, useState, type CSSProperties } from "react";
+import {
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+} from "react";
 import { createPortal } from "react-dom";
 import { Maximize2, X } from "lucide-react";
 import { CopyButton } from "../CodeCopyButton";
@@ -117,12 +124,18 @@ export function VisualBlock({
   source,
   pending,
   host,
+  title: named,
+  prepared,
 }: {
   source: string;
   /** The reply is still arriving and this block's fence isn't closed. */
   pending: boolean;
   /** The agent's host when it isn't this machine. */
   host?: string;
+  /** The page's name, when it didn't come from its own `<title>`. */
+  title?: string;
+  /** A page the plugin published (PublishedPage.tsx): already checked there, its images embedded. */
+  prepared?: boolean;
 }) {
   const id = useId();
   const root = useRef<HTMLDivElement>(null);
@@ -140,11 +153,19 @@ export function VisualBlock({
   const run = useRef<(action: MermaidAction) => void>(() => {});
   const lookNow = useRef<Look | null>(null);
   lookNow.current = look;
-  const tooLarge = source.length > VISUAL_LIMITS.source;
+  const tooLarge = !prepared && source.length > VISUAL_LIMITS.source;
   const page = built?.source === source && !pending ? built : null;
   const sourceShown = showSource || !page;
-  const title = titleOf(source);
-  const fixed = usesViewportHeight(source);
+  const title = useMemo(() => named || titleOf(source), [named, source]);
+  const fixed = useMemo(
+    () => !prepared && usesViewportHeight(source),
+    [prepared, source],
+  );
+  // A published page can hold megabytes of embedded images; the HTML view shows its start.
+  const shownSource =
+    source.length > VISUAL_LIMITS.source
+      ? `${source.slice(0, VISUAL_LIMITS.source)}\n… (the rest is left out here; Copy takes all of it)`
+      : source;
 
   useEffect(() => {
     const el = root.current!;
@@ -178,7 +199,10 @@ export function VisualBlock({
   useEffect(() => {
     if (!near || !hasLook || pending || tooLarge || !source.trim()) return;
     const controller = new AbortController();
-    embedImages(source, host, controller.signal).then(({ html, missing }) => {
+    (prepared
+      ? Promise.resolve({ html: source, missing: [] as string[] })
+      : embedImages(source, host, controller.signal)
+    ).then(({ html, missing }) => {
       if (controller.signal.aborted) return;
       setBuilt({
         source,
@@ -189,7 +213,7 @@ export function VisualBlock({
       });
     });
     return () => controller.abort();
-  }, [source, pending, near, hasLook, tooLarge, host]);
+  }, [source, pending, near, hasLook, tooLarge, host, prepared]);
   useEffect(() => {
     setZoom(1);
     setExpanded(false);
@@ -298,7 +322,7 @@ export function VisualBlock({
             </p>
           )}
           <pre className="mermaid-source">
-            <code>{source}</code>
+            <code>{shownSource}</code>
           </pre>
         </>
       ) : (

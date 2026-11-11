@@ -34,7 +34,7 @@ const PAGE = `<!doctype html>
   try { localStorage.setItem("a", "b"); document.getElementById("store").textContent = "stored"; } catch (e) { document.getElementById("store").textContent = "no storage"; }
 </script></body></html>`;
 
-async function open(text: string, running = false) {
+async function open(text: string, running = false, items?: unknown[]) {
   const context = await newContext(browser),
     page = await context.newPage();
   const errors: string[] = [];
@@ -48,11 +48,11 @@ async function open(text: string, running = false) {
     workspaces: () => small.workspaces,
     detail: (id: string) => detailOf(id, running ? "running" : "idle"),
     timeline: () => ({
-      items: [{ kind: "assistant", id: "r1", messageId: "r1", text }],
+      items: items ?? [{ kind: "assistant", id: "r1", messageId: "r1", text }],
     }),
   } as never);
   await page.goto(`${app.url}?agent=${running ? "a-running" : "a-idle"}`);
-  await page.locator(".msg.assistant").waitFor();
+  await page.locator(".msg.assistant").first().waitFor();
   return { page, errors };
 }
 
@@ -150,5 +150,40 @@ test("a page that navigates itself away is stopped", async () => {
   await block.locator(".visual-left").waitFor();
   assert.match(await block.locator(".visual-left").innerText(), /tried to go to another address/);
   assert.equal(await block.locator("iframe").count(), 0);
+  await page.context().close();
+});
+
+test("a page published with the html_render tool is read from its host and drawn in the tool call's place", async () => {
+  const ID = "9ae04a72a56db06b5729ed41";
+  const { page, errors } = await open("", false, [
+    { kind: "tool", id: "t1", name: "Read", status: "completed", summary: "data.csv", detail: "" },
+    { kind: "tool", id: "t2", name: "mcp__paseo__html_render", status: "completed", summary: "Build times", detail: "", visual: { page: ID, title: "Build times" } },
+    { kind: "assistant", id: "r1", messageId: "r1", text: "Tests are the slowest step." },
+  ]);
+  const asked: string[] = [];
+  let fail = true;
+  await page.route("**/api/visual**", (route) => {
+    asked.push(new URL(route.request().url()).search);
+    if (fail) return route.fulfill({ status: 502, json: { error: "The host took too long to answer." } });
+    return route.fulfill({
+      json: { id: ID, title: "Build times", html: `<!doctype html><title>Other</title><h1 id="heading">Published</h1><img alt="" src="data:image/gif;base64,R0lGODlhAQABAAAAACw=">` },
+    });
+  });
+  await page.reload();
+  const block = page.locator(".visual-block");
+  // A read that fails says so, and can be asked again.
+  await block.locator(".visual-left").waitFor();
+  assert.match(await block.locator(".visual-left").innerText(), /couldn’t be shown: The host took too long to answer\./);
+  fail = false;
+  await block.getByRole("button", { name: "Try again" }).click();
+  await block.frameLocator("iframe").locator("#heading").waitFor();
+  assert.deepEqual([...new Set(asked)], [`?id=${ID}`]);
+  // Named by the tool call, not the page's own <title>; the same frame as a fenced page's.
+  assert.equal(await block.locator(".visual-title").innerText(), "Build times");
+  assert.doesNotMatch((await block.locator("iframe").getAttribute("sandbox")) ?? "", /allow-same-origin/);
+  // It isn't also listed among the steps.
+  assert.equal(await page.locator(".step.tool").count(), 1);
+  assert.match(await page.locator(".msg.assistant").last().innerText(), /Tests are the slowest step\./);
+  assert.deepEqual(errors, []);
   await page.context().close();
 });

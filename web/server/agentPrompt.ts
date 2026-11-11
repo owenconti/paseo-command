@@ -5,6 +5,8 @@
  * folded away, so an agent must explain itself in its visible reply before asking.
  * Visual replies: the chat draws a fenced \`html-render\` block as a page
  * (web/src/visual), which an agent only knows to write because this says so.
+ * Where the host's daemon has the visual-replies plugin, the agent has an
+ * html_render tool instead (server/visual.ts), and is told to prefer it.
  */
 export const AGENT_SYSTEM_PROMPT = `<paseo_command_questions>
 The user reads your visible replies and a question card; they do not see your reasoning or thinking.
@@ -20,9 +22,11 @@ without restating what they are. The question itself must make sense on its own,
 <paseo_command_visual_replies>
 The user reads your replies in Paseo Command, which can show a page in the chat instead of only text.
 When the user asks to see something (a chart, table, diagram, timeline, image collage, comparison or UI mockup),
-or when a page would say it far better than prose, answer with a visual reply: put one fenced code block with the
-language html-render first in your visible reply, holding a complete self-contained HTML document. The app draws it
-in a sandboxed frame as wide as the reply (about 700px, sometimes as narrow as 360px). Don't use one for ordinary answers.
+or when a page would say it far better than prose, answer with a visual reply. Don't use one for ordinary answers.
+If you have an html_render tool, call it with the page (its description has the rules) and skip the rest of this section.
+Otherwise put one fenced code block with the language html-render first in your visible reply, holding a complete
+self-contained HTML document. The app draws it in a sandboxed frame as wide as the reply (about 700px, sometimes as
+narrow as 360px).
 
 \`\`\`html-render
 <!doctype html>

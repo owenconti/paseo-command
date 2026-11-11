@@ -17,6 +17,7 @@ import { workingOn } from "../workingOn";
 import { replyAsks } from "../asks";
 import { probeRoute } from "../probe";
 import { hostStatsRoute } from "../hostStats";
+import { readVisualPage } from "../visual";
 import { linearRoute } from "../linear/route";
 import { activityRoute } from "../activity/route";
 import { githubRoute } from "../github/route";
@@ -209,6 +210,16 @@ export async function handleApi(
           case "hoststats":
             result = await hostStatsRoute();
             break;
+          case "visual": {
+            const host = await resolveHost(url.searchParams.get("host"));
+            if (host) assertReachable(host.serverId, host.label);
+            const client = await sdk(host);
+            result = await readVisualPage(url.searchParams.get("id"), {
+              invoke: (plugin, method, input) =>
+                client.invokePluginRpc(plugin, method, input),
+            });
+            break;
+          }
           case "hosts": {
             await hostRegistry();
             const chips = captureExtras({

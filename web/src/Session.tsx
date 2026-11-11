@@ -1,3 +1,4 @@
+import { PublishedPage } from "./visual/PublishedPage";
 import type { WorkSummary } from "./useWorkingOn";
 import { soundEvent } from "./soundCues";
 import { daemonAgentId } from "./agentIdentity";
@@ -1125,6 +1126,14 @@ const TimelineBlock = memo(function TimelineBlock({
     );
   if (block.kind === "agent")
     return <AgentReportCard block={block} imageHost={imageHost} />;
+  if (block.kind === "visual")
+    return (
+      <div className="msg visual-reply">
+        <div className="md">
+          <PublishedPage page={block.page} title={block.title} host={imageHost} />
+        </div>
+      </div>
+    );
   if (block.kind === "event") {
     const { head, body } = eventBody(block.text);
     return (
