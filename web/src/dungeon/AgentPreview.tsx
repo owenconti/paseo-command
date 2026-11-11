@@ -1,3 +1,4 @@
+import { withoutPages } from "../visual/page";
 import { useEffect, useRef, useState } from "react";
 import { api } from "../api";
 import { fromTimeline, type TimelineItem } from "../transcript";
@@ -40,7 +41,7 @@ export function AgentPreview({
               ? x.failure
               : tray === "running"
                 ? x.doing
-                : x.reply?.text;
+                : x.reply && withoutPages(x.reply.text);
           if (!value) return;
           const snippet = value.replace(/\s+/g, " ").trim().slice(0, 240);
           previews.set(key, snippet);

@@ -278,19 +278,22 @@ export function MermaidBlock({
   );
 }
 
-function ZoomControls({
+export function ZoomControls({
   zoom,
   onAction,
+  noun = "Mermaid diagram",
 }: {
   zoom: number;
   onAction: (action: MermaidAction) => void;
+  /** What is zoomed, for the buttons' names. */
+  noun?: string;
 }) {
   return (
     <div className="mermaid-zoom">
       <button
         type="button"
         className="mermaid-icon"
-        aria-label="Zoom out of Mermaid diagram"
+        aria-label={`Zoom out of ${noun}`}
         data-tip="Zoom out"
         disabled={zoom <= MIN_ZOOM}
         onClick={() => onAction("out")}
@@ -300,7 +303,7 @@ function ZoomControls({
       <button
         type="button"
         className="mermaid-icon"
-        aria-label="Reset Mermaid diagram zoom"
+        aria-label={`Reset ${noun} zoom`}
         data-tip="Reset zoom"
         onClick={() => onAction("fit")}
       >
@@ -309,7 +312,7 @@ function ZoomControls({
       <button
         type="button"
         className="mermaid-icon"
-        aria-label="Zoom in on Mermaid diagram"
+        aria-label={`Zoom in on ${noun}`}
         data-tip="Zoom in"
         disabled={zoom >= MAX_ZOOM}
         onClick={() => onAction("in")}

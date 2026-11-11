@@ -16,6 +16,8 @@ type PluggableList = NonNullable<Options["remarkPlugins"]>;
 import remarkGfm from "remark-gfm";
 import { CopyButton } from "./CodeCopyButton";
 import { MermaidBlock } from "./mermaid/MermaidBlock";
+import { VisualBlock } from "./visual/VisualBlock";
+import { fenceClosed, isVisualLang } from "./visual/page";
 import { MarkdownImage } from "./Images";
 import { highlight, languageOf, type Token } from "./highlight";
 import { canAutolink, remarkAutolink } from "./autolink";
@@ -42,7 +44,12 @@ const heading =
     return <Tag className={`md-h${level}`}>{children}</Tag>;
   };
 
-const MarkdownStream = createContext({ streaming: false, text: "" });
+const MarkdownStream = createContext<{
+  streaming: boolean;
+  text: string;
+  /** The agent's host when it isn't this machine (its local files can't be read here). */
+  host?: string;
+}>({ streaming: false, text: "" });
 
 type Hast = {
   type: string;
@@ -67,27 +74,25 @@ export function CodeBlock({ node }: ExtraProps) {
   const stream = useContext(MarkdownStream);
   const code = (node?.children[0] ?? { type: "root" }) as Hast;
   const classes = code.properties?.className;
-  const lang = languageOf(
-    (Array.isArray(classes) ? classes : [])
-      .map(String)
-      .find((c) => c.startsWith("language-"))
-      ?.slice(9),
-  );
+  const rawLang = (Array.isArray(classes) ? classes : [])
+    .map(String)
+    .find((c) => c.startsWith("language-"))
+    ?.slice(9);
+  const lang = languageOf(rawLang);
   const text = textOf(code).replace(/\n$/, "");
-  if (lang === "mermaid") {
-    const raw = stream.text.slice(
-      node?.position?.start.offset ?? 0,
-      node?.position?.end.offset,
+  if (lang === "mermaid" || isVisualLang(rawLang)) {
+    const closed = fenceClosed(
+      stream.text.slice(
+        node?.position?.start.offset ?? 0,
+        node?.position?.end.offset,
+      ),
     );
-    const lines = raw.trimEnd().split("\n"),
-      fence = lines[0]?.match(/^ {0,3}(`{3,}|~{3,})/)?.[1];
-    const closed =
-      !!fence &&
-      lines.length > 1 &&
-      new RegExp(`^ {0,3}${fence[0]}{${fence.length},}\\s*$`).test(
-        lines.at(-1)!,
-      );
-    return <MermaidBlock source={text} pending={stream.streaming && !closed} />;
+    const pending = stream.streaming && !closed;
+    return lang === "mermaid" ? (
+      <MermaidBlock source={text} pending={pending} />
+    ) : (
+      <VisualBlock source={text} pending={pending} host={stream.host} />
+    );
   }
   return (
     <div className="md-code">
@@ -238,7 +243,11 @@ export const Markdown = memo(function Markdown({
   );
   return (
     <MarkdownStream.Provider
-      value={{ streaming: !!streaming, text: streaming ? settle(text) : text }}
+      value={{
+        streaming: !!streaming,
+        text: streaming ? settle(text) : text,
+        host: imageHost,
+      }}
     >
       <div className="md">
         <ReactMarkdown

@@ -12,6 +12,8 @@ export type DiagramCommand = {
   source: boolean;
   expanded: boolean;
   zoom: number;
+  /** A visual reply's page (src/visual) shares this registry; its entries are named for it. */
+  page?: boolean;
   run: (action: MermaidAction) => void;
 };
 const diagrams = new Map<string, DiagramCommand>();
@@ -65,43 +67,69 @@ export function useMermaidCommands() {
   );
 }
 
-/** The visible/focused chart's actions, only while they can do something. */
+/** The visible/focused chart's (or visual reply's page's) actions, only while they can do something. */
 export function mermaidPalette(diagram: DiagramCommand | null): Command[] {
   if (!diagram) return [];
+  const page = !!diagram.page;
   const command = (
     action: MermaidAction,
     label: string,
     keywords: string,
   ): Command => ({
-    id: `mermaid-${action}`,
+    id: `${page ? "visual" : "mermaid"}-${action}`,
     group: "Actions",
     page: "Command" as const,
     label,
-    keywords: `mermaid chart diagram graph ${keywords}`,
+    keywords: `${page ? "visual reply html page render chart mockup" : "mermaid chart diagram graph"} ${keywords}`,
     run: () => runAppCommand("mermaid-diagram", { id: diagram.id, action }),
   });
-  const commands = [command("copy", "Copy Mermaid source", "code clipboard")];
+  const commands = [
+    command(
+      "copy",
+      page ? "Copy the visual reply’s HTML" : "Copy Mermaid source",
+      "code clipboard source",
+    ),
+  ];
   if (!diagram.ready) return commands;
   commands.push(
     command(
       "source",
-      diagram.source ? "Show Mermaid diagram" : "Show Mermaid source",
+      diagram.source
+        ? page
+          ? "Show the visual reply’s page"
+          : "Show Mermaid diagram"
+        : page
+          ? "Show the visual reply’s HTML"
+          : "Show Mermaid source",
       "code preview",
     ),
   );
   commands.push(
     command(
       diagram.expanded ? "close" : "expand",
-      diagram.expanded ? "Close expanded diagram" : "Expand Mermaid diagram",
+      diagram.expanded
+        ? page
+          ? "Close the expanded visual reply"
+          : "Close expanded diagram"
+        : page
+          ? "Expand the visual reply"
+          : "Expand Mermaid diagram",
       "full screen large",
     ),
   );
   if (!diagram.source || diagram.expanded) {
+    const noun = page ? "the visual reply" : "Mermaid diagram";
     if (diagram.zoom < 4)
-      commands.push(command("in", "Zoom in on Mermaid diagram", "larger"));
+      commands.push(command("in", `Zoom in on ${noun}`, "larger"));
     if (diagram.zoom > 0.25)
-      commands.push(command("out", "Zoom out of Mermaid diagram", "smaller"));
-    commands.push(command("fit", "Reset Mermaid diagram zoom", "reset"));
+      commands.push(command("out", `Zoom out of ${noun}`, "smaller"));
+    commands.push(
+      command(
+        "fit",
+        page ? "Reset the visual reply’s zoom" : "Reset Mermaid diagram zoom",
+        "reset",
+      ),
+    );
   }
   return commands;
 }

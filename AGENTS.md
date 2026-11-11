@@ -635,6 +635,31 @@ and GitHub publication; report the published version and release link.
   incomplete streamed fence waits, invalid/oversized diagrams keep their source, and map paging keeps a chart whole.
   Mermaid stays on the 11.x line for the app's older WebKit support; its KaTeX override keeps the patched trust checks.
   Tests: `web/e2e/mermaid.e2e.ts`, the Mermaid case in `world-chat.e2e.ts`, and `worldChat/script.test.ts`.
+- Visual replies (`web/src/visual/`, after T3 Code's): an agent answers with a page (a chart, table, diagram, collage, mockup) by
+  writing a fenced `html-render` block holding a whole HTML document, first in its reply; the chat (the session panel, both map
+  conversation views, a Markdown file's preview) draws it in a sandboxed frame instead of code (`CodeBlock` in `Markdown.tsx` →
+  `VisualBlock.tsx`; a plain `html` block stays code). Agents know to because the app's standing system prompt says how
+  (`web/server/agentPrompt.ts`, `<paseo_command_visual_replies>`: new agents and forks; agents made elsewhere draw one when asked for an
+  `html-render` block). The app has no MCP server of its own to publish through, so the page lives in the reply's text and needs no storage.
+  `page.ts` (pure, `page.test.ts`) builds the frame's document (`visualDocument`): first in it, ahead of anything the agent wrote, a
+  Content-Security-Policy (`VISUAL_CSP`: inline code and https resources only, so never the loopback API; no frames, forms or `<base>`),
+  the theme and a bootstrap script. The frame is `sandbox="allow-scripts"` without `allow-same-origin` (an opaque origin: no parent,
+  cookies or storage; in a browser also `allow-popups` so links open a tab). The page gets the app's tokens, as they read where the block
+  is drawn, under T3's variable names (`visualTheme`: `--background`, `--foreground`, `--card`, `--border`, `--primary`, `--accent`,
+  `--destructive`, `--warning`, `--success`, `--chart-1…6`, `--radius`, `--font-sans|mono`…), posted again when the theme changes, so it
+  follows light and dark without reloading. The bootstrap reports the page's height (the frame fits it, 60–4,000 px; a page sized in `vh`
+  gets a fixed 480 px and scrolls, `usesViewportHeight`), hands web link clicks to the app (`postAppLink`: Conquer, a PR in the GitHub
+  tab) and hands back ⌘K, ⌘B and Esc the page didn't use. Messages are taken only from the frame's own window and read strictly
+  (`readSize`, `readLink`, `readKey`). Local images named by absolute path (PNG, JPEG, GIF, WebP) are embedded as data: URLs through the
+  chat's bounded image loader (`embedImages`; on another host they can't be read, and the block says which). A page that navigates
+  itself away (a second load) is stopped, with Show it again. Its toolbar is the Mermaid block's (their CSS and ⌘K registry are shared:
+  `mermaidCommands.ts`, `page: true`): the page's `<title>`, Page / HTML, zoom (the page laid out narrower and drawn larger), full screen
+  (a second frame of the page filling a focus-trapped dialog, Esc closes), copy the HTML; ⌘K "Show the visual reply's HTML" / "…page",
+  "Expand the visual reply", "Zoom in on / out of the visual reply", "Reset the visual reply's zoom", "Copy the visual reply's HTML"
+  (page Command), only while one is in view. A block still streaming shows its source until its fence closes; over 512 KB it stays
+  source. The Dungeon dialogue keeps a page whole when paging (`script.ts`), and the tray's reply previews leave its HTML out
+  (`withoutPages`). Not done, unlike T3's: no headless-browser preview for the agent, and no MCP apps. Tests: `src/visual/page.test.ts`,
+  `e2e/visual.e2e.ts`, `server/agentPrompt.test.ts`, `worldChat/script.test.ts`.
 - Mentions in the chat link themselves (`web/src/autolink.ts`): in an agent's conversation (`Timeline` and the map dialogue provide `Autolinks` from
   `useAutolinks` in `web/src/autolinkStore.ts`), its replies (`Markdown.tsx` adds `remarkAutolink`, a remark step over text nodes) and
   your messages (`autolinkRuns`), but not tool output. Linear keys only of the Linear workspace's teams (`GET /api/linear/teams`, asked

@@ -5,6 +5,7 @@
  */
 import { agentReport, toolSummary, type Entry } from "../transcript";
 import { extractImages } from "../imageSource";
+import { VISUAL_FENCE } from "../visual/page";
 
 /** How much a page holds: characters per line at the box's width, and lines. */
 export type PageRoom = { perLine: number; lines: number };
@@ -104,6 +105,8 @@ function split(block: Block, room: PageRoom): string[] {
   const chars = room.perLine * room.lines;
   // A chart is one diagram, even when its source spans many pages. The box scrolls it as a table.
   if (block.kind === "code" && /^ {0,3}(?:`{3,}|~{3,})mermaid(?:\s|$)/i.test(block.text)) return [block.text];
+  // So is a visual reply's page: its HTML cut across pages would be no page at all.
+  if (block.kind === "code" && VISUAL_FENCE.test(block.text)) return [block.text];
   if (block.kind === "code") {
     const lines = block.text.split("\n");
     const open = lines[0]!;

@@ -131,3 +131,59 @@
     padding: 4px;
   }
 }
+
+/* Visual replies (src/visual): an agent's page in a sandboxed frame, in the Mermaid block's frame and toolbar. */
+.visual-title {
+  min-width: 0;
+  max-width: 50%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text);
+}
+.visual-frame {
+  display: flex;
+  overflow: hidden;
+  background: var(--panel);
+}
+.visual-frame iframe {
+  display: block;
+  flex: none;
+  border: 0;
+  transform-origin: 0 0;
+  background: transparent;
+  color-scheme: inherit;
+}
+.visual-dialog .visual-frame {
+  flex: 1;
+  min-height: 0;
+}
+.visual-left {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 12px;
+  font-size: var(--fs-sm);
+  color: var(--text-2);
+  background: var(--panel-2);
+}
+.visual-left p {
+  margin: 0 !important;
+}
+.visual-left button {
+  min-height: 28px;
+  padding: 3px 9px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-xs);
+  color: var(--text);
+  background: transparent;
+  font: inherit;
+}
+.visual-left button:hover {
+  background: var(--fill-strong);
+}
+.visual-left button:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 1px;
+}

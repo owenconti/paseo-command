@@ -141,3 +141,10 @@ it("Mermaid diagrams stay whole when the dialogue pages a long reply", () => {
   assert.ok(pages.includes(graph));
   assert.equal(pages.filter((p) => p.includes('```mermaid')).length, 1);
 });
+
+it("A visual reply's page stays whole when the dialogue pages a long reply", () => {
+  const page = ['```html-render', '<!doctype html>', ...Array.from({ length: 40 }, (_, i) => `<p>Row ${i}</p>`), '```'].join('\n');
+  const pages = pageReply(`Before the page.\n\n${page}\n\nAfter the page.`, { lines: 4, perLine: 25 });
+  assert.ok(pages.includes(page));
+  assert.equal(pages.filter((p) => p.includes('```html-render')).length, 1);
+});

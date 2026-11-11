@@ -13,3 +13,13 @@ test("new agents are told to explain the context before asking a question", () =
   assert.match(AGENT_SYSTEM_PROMPT, /visible message/);
   assert.match(AGENT_SYSTEM_PROMPT, /do not see your reasoning/);
 });
+
+test("new agents are told how to answer with a visual reply", async () => {
+  const { VISUAL_LANG, VISUAL_CSP } = await import("../src/visual/page");
+  assert.match(AGENT_SYSTEM_PROMPT, new RegExp("```" + VISUAL_LANG + "\\n<!doctype html>"));
+  // What the prompt promises is what the frame allows.
+  assert.match(AGENT_SYSTEM_PROMPT, /over https/);
+  assert.match(VISUAL_CSP, /script-src 'unsafe-inline' 'unsafe-eval' https:/);
+  for (const name of ["--background", "--foreground", "--chart-1", "--font-mono"])
+    assert.ok(AGENT_SYSTEM_PROMPT.includes(name), name);
+});
