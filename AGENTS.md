@@ -857,7 +857,7 @@ boxes; `DungeonScene.swift` draws, animates (the background holds still so the a
 wheel, pinch, arrows, F/Home), hover and selection (project hover and architectural selection use brass thresholds:
 `rendering/src/dungeon/thresholds.ts` sends their actual ledges, independently of pick boxes; `DungeonScene.swift` paints
 worn, bevelled metal with no bloom. Project hover gives the threshold and two capitals a quiet sheen. Workspace hover lights only the existing stone frame
-(single and tiled sprites tagged `hoverStone`), with no added rail or caps; the interior stays dark. Selection sets inward
+(single and tiled sprites tagged `hoverStone`), with no added rail or caps; the ledge below stays unlit (the user's call) and the interior dark. Selection sets inward
 chevrons and a centre diamond on the ledge, plus a small diamond on a project's sign. Project markers span the hall;
 workspace markers stay on their own step. They stay still and clear when the entity or hover goes. Robots and PR
 medallions keep their silhouette cues from `SpriteGlow.swift`, a restrained warm robot hover lift (45% of the shared glow),

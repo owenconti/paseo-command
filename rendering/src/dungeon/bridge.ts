@@ -783,7 +783,8 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
       fill("alcove-top", { x: x + 20, y, w: inner, h: 22 }, -10.9, frameOf);
       put("rampart-return-left", x - 2, y - 5, 45, 43, -10.8, frameOf);
       put("rampart-return-right", x + width - 43, y - 5, 45, 43, -10.8, frameOf);
-      fill("alcove-ledge", { x: x + 20, y: y + D.alcoveH - 15, w: inner, h: 15 }, -10, frameOf);
+      // The ledge stays unlit on hover: lit, it reads as a border along the alcove's foot.
+      fill("alcove-ledge", { x: x + 20, y: y + D.alcoveH - 15, w: inner, h: 15 }, -10, { ...dim, e: w.entity.id });
       // A short continuous occlusion strip right under the lintel.
       images.push({ ...image("shade:under", () => paintShade("under")), x: x + 20, y: y + 20, w: inner, h: 12, z: -11.9, ...dim });
       for (const c of w.candles) {
