@@ -98,6 +98,8 @@ export function useAgentSession(
   const [pending, setPending] = useState<Pending[]>([]);
   const [busy, setBusy] = useState<string | null>(null);
   const [reload, setReload] = useState(0);
+  // How many commands have succeeded: a view given this session (rather than calling the hook) follows them by it.
+  const [commands, setCommands] = useState(0);
   const host = agent.host;
   const onCommandRef = useRef(onCommand);
   onCommandRef.current = onCommand;
@@ -289,6 +291,7 @@ export function useAgentSession(
         if (action === "send") soundEvent("sent");
         if (success) onNotice(success);
         onCommandRef.current?.();
+        setCommands((n) => n + 1);
         await onChanged?.();
         setReload((n) => n + 1);
         return true;
@@ -379,6 +382,7 @@ export function useAgentSession(
     error,
     pending,
     busy,
+    commands,
     running,
     archived,
     command,
@@ -387,3 +391,6 @@ export function useAgentSession(
     promptHistory,
   };
 }
+
+/** An agent's session, as `useAgentSession` gives it. */
+export type AgentSession = ReturnType<typeof useAgentSession>;

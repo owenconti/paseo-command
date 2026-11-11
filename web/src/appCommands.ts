@@ -120,6 +120,24 @@ export function onAppCommand(name: AppCommand, run: (arg?: unknown) => void) {
   return () => window.removeEventListener(EVENT, listener);
 }
 
+/** As `onAppCommand`, for a command one of several mounted copies should answer (an agent's conversation shows
+ * in the side panel and in the Dungeon Board's overlay at once): only the copy mounted last runs it, so a
+ * command never acts twice. When that copy goes, the one before it answers again. */
+const owners = new Map<AppCommand, ((arg?: unknown) => void)[]>();
+export function onOwnedAppCommand(name: AppCommand, run: (arg?: unknown) => void) {
+  const stack = owners.get(name) ?? [];
+  owners.set(name, stack);
+  stack.push(run);
+  const off = onAppCommand(name, (arg) => {
+    if (stack.at(-1) === run) run(arg);
+  });
+  return () => {
+    off();
+    const at = stack.lastIndexOf(run);
+    if (at >= 0) stack.splice(at, 1);
+  };
+}
+
 /** ⇧⌘G: the selected workspace's branch changes in the Files tab's Changes. The macOS app takes it through its
  * View menu (Show Branch Changes) and sends `branch-changes`; a browser's page takes it itself. */
 export const isBranchChangesShortcut = (event: ShortcutKey) =>

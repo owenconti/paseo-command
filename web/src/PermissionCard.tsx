@@ -12,7 +12,7 @@ import {
 import { Markdown } from "./Markdown";
 import type { Permission } from "./types";
 import { plainText } from "./ui";
-import { onAppCommand } from "./appCommands";
+import { onOwnedAppCommand } from "./appCommands";
 
 /** Question cards folded away, by permission id, so a fold outlasts
  * switching agents while the question waits. */
@@ -55,7 +55,7 @@ export function PermissionCard({
   };
   useEffect(() => {
     if (!paletteToggle || !questions.length) return;
-    return onAppCommand("agent-question-toggle", () =>
+    return onOwnedAppCommand("agent-question-toggle", () =>
       setCollapsedState((was) => {
         if (p.id) {
           if (was) folded.delete(p.id);

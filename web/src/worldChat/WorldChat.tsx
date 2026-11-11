@@ -6,8 +6,11 @@
  * Only the agent's own words are its speech; everything else (what it is doing,
  * a failure, its state) is narration. Replies are written in the app's own
  * composer (files, /skills, @mentions), and the whole conversation opens upward
- * as its log (H, or scrolling up). The side panel's conversation stays; both
- * follow the same session (the server keeps each viewer's stream).
+ * as its log (H, or scrolling up): the side panel's own conversation component
+ * (`SessionView`: header tools, reply forks, question strips, pending diff
+ * comments, subagents), in the box's colours, over the session the box reads.
+ * The side panel's conversation stays; both follow the same agent (the server
+ * keeps each viewer's stream).
  */
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { STATE_NAMES, STATE_TILE, modelName } from "../../../rendering/src/atlas";
@@ -15,8 +18,8 @@ import type { State } from "../../../rendering/src/world";
 import { useAgentSession } from "../useAgentSession";
 import { onAppCommand } from "../appCommands";
 import { Composer } from "../Composer";
-import { Timeline } from "../Session";
-import { PermissionCard } from "../PermissionCard";
+import { SessionView, type SessionSurface } from "../Session";
+import { SubagentSession } from "../Subagents";
 import { Autolinks, useAutolinkContext, useAutolinks } from "../autolinkStore";
 import { readStore } from "../api";
 import { enqueue, toOutgoing, useQueue } from "../queue";
@@ -63,8 +66,13 @@ export type WorldChatProps = {
   /** The previous and next agents (the panel's order, as J/K step), and their names. */
   position: { index: number; total: number; prev: () => void; next: () => void; prevName?: string; nextName?: string };
   /** Archived, then a new agent in the same place (/new, /clear: `settings` carries over its provider, model,
-   * thinking and mode): the board's own Dispatch. */
-  onFreshDraft: (agent: Agent, settings?: DraftSettings) => void;
+   * thinking and mode): the board's own Dispatch. `conversation`: asked from the whole conversation, which the
+   * new agent's empty one takes the place of. */
+  onFreshDraft: (agent: Agent, settings?: DraftSettings, conversation?: boolean) => void;
+  /** Its workspace, selected (the conversation's branch chip). */
+  onSelectWorkspace: () => void;
+  /** Dispatch another agent into its workspace (the conversation's +). */
+  onNewAgent: () => void;
   /** Archive its workspace (the app's confirming dialog); absent when it has none to archive. */
   onArchiveWorkspace?: () => void;
   /** Asked from elsewhere (⌘K, the board's menu) to offer archiving it: a new `at` asks again. */
@@ -302,6 +310,11 @@ const quote = (text: string) =>
 export function WorldChat(props: WorldChatProps) {
   const { agent, workspace, asks, workingOn, online, onNotice, onClose, position } = props;
   const name = agentName(agent, workspace?.branch);
+  // One session for the box and the whole conversation (the log's `SessionView` is given it).
+  const session = useAgentSession(agent, {
+    onNotice,
+    onChanged: props.onChanged,
+  });
   const {
     detail,
     entries,
@@ -309,7 +322,6 @@ export function WorldChat(props: WorldChatProps) {
     unavailable,
     error,
     earlier,
-    loadOlder,
     pending,
     busy,
     running,
@@ -318,10 +330,7 @@ export function WorldChat(props: WorldChatProps) {
     send,
     respond,
     promptHistory,
-  } = useAgentSession(agent, {
-    onNotice,
-    onChanged: props.onChanged,
-  });
+  } = session;
   // Linear keys, PR numbers and its workspace's files link themselves in its log, as in the panel.
   const autolinks = useAutolinks(workspace);
   // As the panel's: its settings are offered only while it has no turn; its modes from its detail, else last seen.
@@ -334,6 +343,11 @@ export function WorldChat(props: WorldChatProps) {
   const modes: Mode[] = detail?.AvailableModes || readStore<Mode[]>(`modes:${providerName(agent.provider)}`, []);
   // The whole conversation, opened upward over the board (H, or scrolling up past the page's top).
   const { log, onLog: setLog } = props;
+  // One of its subagents' conversations, in the log's place (its header's Subagents).
+  const [sub, setSub] = useState<string | null>(null);
+  const subagent = sub ? agent.subagents?.find((x) => x.id === sub) : undefined;
+  // What Escape closes inside the conversation before the log itself (an open fork).
+  const sessionEscape = useRef<(() => boolean) | null>(null);
   // Files dropped on the box, for its composer.
   const [drop, setDrop] = useState<{ files: File[]; at: number } | null>(null);
   // Writing: a reply in the composer, or a question's own answer.
@@ -429,18 +443,21 @@ export function WorldChat(props: WorldChatProps) {
     setConfirmState(null);
   }, [agent.id]);
 
+  // Whether the question was asked from the whole conversation: a new agent then starts in that conversation's place.
+  const askedInLog = useRef(false);
   /** Ask in the box: its log and any reply being written give way to the question. */
   const askConfirm = useCallback(
     (kind: Confirm) => {
       if (archived) return onNotice("This agent is already archived.");
       if (offline) return onNotice(`${name}'s host isn't answering, so it can't be archived now.`);
+      askedInLog.current = log;
       setLog(false);
       setEntry(null);
       setActionsHidden(false);
       setConfirmState(kind);
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps -- setLog is main's setter
-    [archived, offline, name, onNotice],
+    [archived, offline, name, onNotice, log],
   );
   /** Archive it, then (/new, /clear) a new agent in its place: "clear" keeps its settings and doesn't ask. */
   const archiveNow = async (next: Confirm | "clear") => {
@@ -454,8 +471,8 @@ export function WorldChat(props: WorldChatProps) {
     };
     const ok = await command("archive", { confirm: true }, `Archived “${name}”`);
     setConfirmState(null);
-    if (ok && next === "fresh") props.onFreshDraft(agent, undefined);
-    if (ok && next === "clear") props.onFreshDraft(agent, settings);
+    if (ok && next === "fresh") props.onFreshDraft(agent, undefined, askedInLog.current);
+    if (ok && next === "clear") props.onFreshDraft(agent, settings, false);
   };
   // ⌘K's or the board menu's Archive: asked once per request, for this agent.
   const request = props.archiveRequest;
@@ -809,8 +826,42 @@ export function WorldChat(props: WorldChatProps) {
     c.run();
   };
 
+  // Whether the box had the keyboard last: nothing else was focused or pressed since, and it didn't give the
+  // keyboard up itself (a field of its that is still there, blurred to the page).
+  const held = useRef(false);
+  useEffect(() => {
+    const focused = (e: FocusEvent) => {
+      held.current = !!root.current?.contains(e.target as Node);
+    };
+    const blurred = (e: FocusEvent) => {
+      const from = e.target as Node;
+      if (e.relatedTarget || !root.current?.contains(from)) return;
+      setTimeout(() => {
+        if (from.isConnected && document.activeElement === document.body) held.current = false;
+      });
+    };
+    const pressed = (e: PointerEvent) => {
+      if (!root.current?.contains(e.target as Node)) held.current = false;
+    };
+    document.addEventListener("focusin", focused);
+    document.addEventListener("focusout", blurred);
+    document.addEventListener("pointerdown", pressed, true);
+    return () => {
+      document.removeEventListener("focusin", focused);
+      document.removeEventListener("focusout", blurred);
+      document.removeEventListener("pointerdown", pressed, true);
+    };
+  }, []);
   // Keys: the box takes them while it or the map has the keyboard (not while typing elsewhere).
-  const keyState = { confirm, cancelConfirm: () => setConfirmState(null), advance, go, page, pages: pages.length, typed, choicesShown: choicesShown && !log, choices, cursor, setCursor, entry, pick, onClose, blocked: props.blocked, log, setLog, position, showActions };
+  /** Escape in the log: a subagent's conversation goes back to its agent's, an open fork to the conversation. */
+  const closeLayer = () => {
+    if (subagent) {
+      setSub(null);
+      return true;
+    }
+    return sessionEscape.current?.() ?? false;
+  };
+  const keyState = { confirm, cancelConfirm: () => setConfirmState(null), advance, go, page, pages: pages.length, typed, choicesShown: choicesShown && !log, choices, cursor, setCursor, entry, pick, onClose, blocked: props.blocked, log, setLog, position, showActions, closeLayer };
   const live = useRef(keyState);
   live.current = keyState;
   useEffect(() => {
@@ -821,7 +872,13 @@ export function WorldChat(props: WorldChatProps) {
       if (isTyping(target)) return;
       // The composer's own menus (send options, attachments) keep their keys.
       if (target?.closest?.(".popover-menu")) return;
-      const inBox = !!target && !!root.current?.contains(target);
+      let inBox = !!target && !!root.current?.contains(target);
+      // A focused field of the box that went (a fork's question as it is asked) dropped the keyboard on the page's
+      // body: the keys are still the box's, which takes the keyboard back.
+      if (!inBox && target === document.body && held.current && root.current) {
+        root.current.focus({ preventScroll: true });
+        inBox = true;
+      }
       // The map's frame (its surface, this box), never the page at large: a key after a click in the panel is the panel's.
       const onMap = !!target?.closest?.(".native-world-frame");
       if (!inBox && !onMap) return;
@@ -834,11 +891,21 @@ export function WorldChat(props: WorldChatProps) {
       if (key === "Escape") {
         // An open popover or menu closes first.
         if (document.querySelector(OTHER_LAYERS)) return;
+        // The pill beside a reply goes first: a picked block lets go by its own Escape, a selection is dropped.
+        if (root.current?.querySelector(".fork-pill")) {
+          const selection = getSelection();
+          if (selection && !selection.isCollapsed) {
+            take();
+            selection.removeAllRanges();
+          }
+          return;
+        }
         take();
         if (s.confirm && !s.entry && !s.log) s.cancelConfirm();
         else if (s.entry) setEntry(null);
-        else if (s.log) s.setLog(false);
-        else s.onClose();
+        else if (s.log) {
+          if (!s.closeLayer()) s.setLog(false);
+        } else s.onClose();
       } else if (!e.shiftKey && (key === "ArrowLeft" || key === "ArrowRight")) {
         // The previous or next robot (as J/K step), its conversation in the box.
         if (s.position.total < 2) return;
@@ -851,7 +918,7 @@ export function WorldChat(props: WorldChatProps) {
         // The log: Enter or R writes in its composer; the arrows and page keys scroll it.
         const view = logView();
         // Its own buttons, links and folds (a request's Allow, Load earlier, a tool's details) keep Enter and Space.
-        if ((key === "Enter" || key === " ") && inBox && target !== root.current && target?.closest("button,a[href],summary")) return;
+        if ((key === "Enter" || key === " ") && inBox && target !== root.current && target?.closest("button,a[href],summary,[role=tab],[role=menuitem]")) return;
         if (key === "Enter" || key.toLowerCase() === "r") {
           take();
           document.getElementById(WORLD_COMPOSER)?.focus();
@@ -927,6 +994,8 @@ export function WorldChat(props: WorldChatProps) {
   }, [entry]);
 
   useEffect(() => {
+    // Closed, the log opens on the agent's own conversation again.
+    if (!log) setSub(null);
     // The log has its own composer: neither of the box's entries stays open under it.
     setEntry((e) => (log || e === "reply" ? null : e));
     if (root.current && (document.activeElement === document.body || root.current.contains(document.activeElement)))
@@ -972,6 +1041,19 @@ export function WorldChat(props: WorldChatProps) {
   const more = !last;
   const hasFiles = (e: React.DragEvent) => [...e.dataTransfer.types].includes("Files");
 
+  // The whole conversation is the side panel's own component, told what differs here: the box's composer input
+  // and draft, its way of asking before archiving, and Escape.
+  const surface: SessionSurface = {
+    className: "world-session",
+    inputId: WORLD_COMPOSER,
+    draftScope: ":world",
+    label: `Message ${name}`,
+    placeholder: queues ? `A follow-up for ${name} (it goes when it finishes)…` : `Say something to ${name}…`,
+    onSent: () => setActionsHidden(true),
+    onConfirm: askConfirm,
+    escape: sessionEscape,
+  };
+
   // The app's own composer, in the box's colours: files and images, /skills, @files, queueing, steer and interrupt.
   const composer = (
     <div
@@ -982,8 +1064,7 @@ export function WorldChat(props: WorldChatProps) {
         if (root.current?.querySelector(".autocomplete, .popover-menu")) return;
         e.preventDefault();
         e.stopPropagation();
-        if (log) root.current?.focus({ preventScroll: true });
-        else setEntry(null);
+        setEntry(null);
       }}
     >
       <Composer
@@ -1037,10 +1118,11 @@ export function WorldChat(props: WorldChatProps) {
         e.preventDefault();
       }}
       onDrop={(e) => {
-        if (!hasFiles(e) || offline || archived) return;
+        // The whole conversation takes its own drops (the session's).
+        if (!hasFiles(e) || offline || archived || log) return;
         e.preventDefault();
         setDrop({ files: [...e.dataTransfer.files], at: Date.now() });
-        if (!log) setEntry("reply");
+        setEntry("reply");
       }}
     >
       <div className="wc-nameplate" style={frame(label)}>
@@ -1108,33 +1190,43 @@ export function WorldChat(props: WorldChatProps) {
         {log ? (
           <div
             className="wc-log"
-            onClickCapture={(e) => {
-              if (!openFileLink(e, workspace, onNotice)) openInAppBrowser(e);
+            onKeyDown={(e) => {
+              // Escape leaves a field of the conversation (its message box, an answer) for the box, which then
+              // has the keyboard; fields that use Escape themselves (suggestions, a rename) have taken it by now.
+              if (e.key !== "Escape" || e.defaultPrevented || e.nativeEvent.isComposing || !isTyping(e.target as HTMLElement)) return;
+              e.preventDefault();
+              e.stopPropagation();
+              root.current?.focus({ preventScroll: true });
             }}
           >
-            <Timeline
-              key={agent.id}
-              entries={entries}
-              loading={source === null && !error}
-              imageHost={agent.host}
-              running={running}
-              pending={pending}
-              unavailable={unavailable}
-              error={error}
-              earlier={earlier}
-              onEarlier={loadOlder}
-              links={autolinks}
-            />
-            {detail?.PendingPermissions.map((p, i) => (
-              <PermissionCard
-                imageHost={agent.host}
-                key={p.id || i}
-                permission={p}
-                busy={!!busy}
-                onRespond={(decision) => void respond(p, decision)}
+            {subagent ? (
+              <SubagentSession
+                key={subagent.id}
+                agent={agent}
+                subagent={subagent}
+                parentName={name}
+                onParent={() => setSub(null)}
+                onOpen={setSub}
+                onNotice={onNotice}
               />
-            ))}
-            {composer}
+            ) : (
+              <SessionView
+                agent={agent}
+                workspace={workspace}
+                asks={asks}
+                workingOn={workingOn}
+                waiting={props.waiting}
+                online={online}
+                onSelectWorkspace={props.onSelectWorkspace}
+                onNotice={onNotice}
+                onChanged={props.onChanged}
+                onFreshDraft={(a, settings) => props.onFreshDraft(a, settings, true)}
+                onNewAgent={props.onNewAgent}
+                onOpenSubagent={setSub}
+                session={session}
+                surface={surface}
+              />
+            )}
           </div>
         ) : entry === "reply" ? (
           composer

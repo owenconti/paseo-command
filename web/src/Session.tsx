@@ -2,7 +2,7 @@ import { PublishedPage } from "./visual/PublishedPage";
 import type { WorkSummary } from "./useWorkingOn";
 import { soundEvent } from "./soundCues";
 import { daemonAgentId } from "./agentIdentity";
-import { onAppCommand } from "./appCommands";
+import { onOwnedAppCommand } from "./appCommands";
 import { macApp, postAppLink, postAppMenu, postAppReveal } from "./worldBridge";
 import { openFilesFile } from "./files/open";
 import { usePeers } from "./peers";
@@ -16,6 +16,7 @@ import {
   useRef,
   useState,
   type CSSProperties,
+  type MutableRefObject,
   type ReactNode,
 } from "react";
 import { AnimatePresence, useIsPresent } from "framer-motion";
@@ -44,6 +45,7 @@ import { Composer } from "./Composer";
 import { PendingComments } from "./composer/PendingComments";
 import {
   useAgentSession,
+  type AgentSession,
   type Earlier,
   type Pending,
 } from "./useAgentSession";
@@ -150,22 +152,7 @@ export function openInAppBrowser(e: React.MouseEvent) {
   postAppLink(link.href);
 }
 
-export function Session({
-  workingOn,
-  asks,
-  agent,
-  workspace,
-  waiting,
-  online,
-  onBack,
-  onSelectWorkspace,
-  onNotice,
-  onChanged,
-  onFreshDraft,
-  onNewAgent,
-  onOpenSubagent,
-  position,
-}: {
+export type SessionProps = {
   workingOn?: WorkSummary;
   /** What its last reply asks of you, once judged. */
   asks?: Asks;
@@ -173,7 +160,8 @@ export function Session({
   workspace?: Workspace;
   waiting: boolean;
   online: boolean;
-  onBack: () => void;
+  /** Back to the fleet; absent where no list lies behind the conversation (the Dungeon Board's overlay). */
+  onBack?: () => void;
   onSelectWorkspace: (id: string) => void;
   onNotice: (message: string) => void;
   onChanged: () => Promise<void> | void;
@@ -183,13 +171,60 @@ export function Session({
   onNewAgent: () => void;
   /** Open one of its subagents' conversations. */
   onOpenSubagent: (subagentId: string) => void;
-  position: {
+  /** Its place among the listed agents; absent where the surface steps through them itself. */
+  position?: {
     index: number;
     total: number;
     prev: () => void;
     next: () => void;
   };
-}) {
+};
+
+/** What differs where the conversation shows somewhere other than the side panel (the Dungeon Board's
+ * overlay, `worldChat/WorldChat.tsx`): the same component and features, in that surface's styling. */
+export type SessionSurface = {
+  className?: string;
+  /** The composer's input, draft, label and hint (`Composer`'s own props). */
+  inputId?: string;
+  draftScope?: string;
+  label?: string;
+  placeholder?: string;
+  /** A message went to the agent: sent, or queued while it works. */
+  onSent?: () => void;
+  /** Asks before archiving in the surface's own way, in place of the header's confirmation. */
+  onConfirm?: (kind: "archive" | "fresh") => void;
+  /** Filled with what Escape closes inside the conversation (an open fork), answering whether it closed one. */
+  escape?: MutableRefObject<(() => boolean) | null>;
+};
+
+/** An agent's conversation in the side panel. */
+export function Session(props: SessionProps) {
+  const session = useAgentSession(props.agent, {
+    onNotice: props.onNotice,
+    onChanged: props.onChanged,
+  });
+  return <SessionView {...props} session={session} />;
+}
+
+/** The conversation itself, over a session its surface already follows (the board's dialogue box reads the
+ * same one): header, timeline, reply forks, requests and the composer with everything above it. */
+export function SessionView({
+  workingOn,
+  asks,
+  agent,
+  workspace,
+  waiting,
+  online,
+  onBack,
+  onSelectWorkspace,
+  onNotice,
+  onFreshDraft,
+  onNewAgent,
+  onOpenSubagent,
+  position,
+  session,
+  surface,
+}: SessionProps & { session: AgentSession; surface?: SessionSurface }) {
   const [drop, setDrop] = useState<{ files: File[]; at: number } | null>(null);
   const [answerQuote, setAnswerQuote] = useState<{ text: string; at: number } | null>(null);
   const [dragging, setDragging] = useState(false);
@@ -205,17 +240,21 @@ export function Session({
     error,
     pending,
     busy,
+    commands,
     running,
     archived,
     command,
     send,
     respond,
     promptHistory,
-  } = useAgentSession(agent, {
-    onNotice,
-    onChanged,
-    onCommand: () => setConfirm(null),
-  });
+  } = session;
+  // Any command that succeeds settles an open confirmation.
+  useEffect(() => {
+    setConfirm(null);
+  }, [commands]);
+  /** Ask before archiving: in the header, or as the surface asks. */
+  const askConfirm = (kind: "archive" | "fresh") =>
+    surface?.onConfirm ? surface.onConfirm(kind) : setConfirm(kind);
   const status = detail?.PendingPermissions.length
     ? "awaiting approval"
     : waiting
@@ -228,22 +267,23 @@ export function Session({
     setConfirm(null);
   }, [agent.id]);
   // The command palette's Interrupt, Open in Paseo and Archive for this agent.
-  const palette = useRef({ command, running, archived, busy, online });
-  palette.current = { command, running, archived, busy, online };
+  // Shown twice (the panel and the board's overlay), the copy mounted last answers.
+  const palette = useRef({ command, running, archived, busy, online, askConfirm });
+  palette.current = { command, running, archived, busy, online, askConfirm };
   useEffect(() => {
     const offs = [
-      onAppCommand("agent-interrupt", () => {
+      onOwnedAppCommand("agent-interrupt", () => {
         const { command, running } = palette.current;
         if (running) void command("cancel", {}, "Agent interrupted");
       }),
-      onAppCommand("agent-open-paseo", () => {
+      onOwnedAppCommand("agent-open-paseo", () => {
         const { command, busy } = palette.current;
         if (!busy) void command("open", {}, "Opened in Paseo");
       }),
-      onAppCommand("agent-archive", () => {
-        const { running, archived, busy, online } = palette.current;
+      onOwnedAppCommand("agent-archive", () => {
+        const { running, archived, busy, online, askConfirm } = palette.current;
         if (running) onNotice("Stop the agent before archiving it.");
-        else if (!archived && !busy && online) setConfirm("archive");
+        else if (!archived && !busy && online) askConfirm("archive");
       }),
     ];
     return () => offs.forEach((off) => off());
@@ -265,6 +305,21 @@ export function Session({
   }, []);
   const forks = useReplyForks(agent, { root, onNotice, repaint: entries });
   const { open: openFork } = forks;
+  // Escape, where the surface owns it: an open fork goes back to the conversation first.
+  const escape = surface?.escape;
+  const openForks = useRef(forks);
+  openForks.current = forks;
+  useEffect(() => {
+    if (!escape) return;
+    escape.current = () => {
+      if (!openForks.current.shown) return false;
+      openForks.current.back();
+      return true;
+    };
+    return () => {
+      escape.current = null;
+    };
+  }, [escape]);
   const forkMarkers = useCallback(
     (block: Block) => {
       const here = forks.forks.filter((f) => forkUnder(f, block));
@@ -330,7 +385,7 @@ export function Session({
   return (
     <div
       ref={root}
-      className={`session${forks.shown ? ` fork-${forkLayout}` : ""}`}
+      className={`session${surface?.className ? ` ${surface.className}` : ""}${forks.shown ? ` fork-${forkLayout}` : ""}`}
       onClickCapture={(e) => {
         if (!openFileLink(e, workspace, onNotice)) openInAppBrowser(e);
       }}
@@ -368,16 +423,18 @@ export function Session({
       )}
       <header className="session-header">
         <div className="session-nav">
-          <button
-            className="ghost-btn"
-            onClick={onBack}
-            aria-description="Back to fleet (Esc)"
-          >
-            <ArrowLeft size={15} />
-            Fleet
-          </button>
+          {onBack && (
+            <button
+              className="ghost-btn"
+              onClick={onBack}
+              aria-description="Back to fleet (Esc)"
+            >
+              <ArrowLeft size={15} />
+              Fleet
+            </button>
+          )}
           <span className="session-position">
-            {position.index >= 0 && (
+            {position && position.index >= 0 && (
               <>
                 <button
                   className="icon-btn"
@@ -433,7 +490,7 @@ export function Session({
                 }
                 aria-label="Archive agent"
                 disabled={!!busy || !online || running}
-                onClick={() => setConfirm("archive")}
+                onClick={() => askConfirm("archive")}
               >
                 <Archive size={14} />
               </button>
@@ -676,7 +733,12 @@ export function Session({
               `Mode set to ${modes.find((m) => m.id === mode)?.label || mode}`,
             )
           }
-          onSend={send}
+          onSend={async (message) => {
+            const ok = await send(message);
+            if (ok) surface?.onSent?.();
+            return ok;
+          }}
+          onQueued={surface?.onSent}
           onCancel={async () => {
             await command("cancel", {}, "Agent interrupted");
           }}
@@ -684,19 +746,23 @@ export function Session({
           onArchive={() =>
             running
               ? onNotice("Stop the agent before archiving it.")
-              : setConfirm("archive")
+              : askConfirm("archive")
           }
           onFreshDraft={(keepSettings) =>
             running
               ? onNotice("Stop the agent before archiving it.")
               : keepSettings
                 ? void archiveNow("clear")
-                : setConfirm("fresh")
+                : askConfirm("fresh")
           }
           promptHistory={promptHistory}
           dropFiles={drop}
           answerQuote={answerQuote}
           replyAsks={running || waiting ? undefined : asks}
+          inputId={surface?.inputId}
+          draftScope={surface?.draftScope}
+          label={surface?.label}
+          placeholder={surface?.placeholder}
         />
       </footer>
     </div>

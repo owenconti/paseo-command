@@ -117,6 +117,20 @@
   background: transparent;
   border-top-color: #674c37;
 }
+/* Begun from a robot's whole conversation (/clear, /new, its +): it stands where that conversation stood
+   (world-chat.css's .world-chat.log), as the empty conversation its first message starts. */
+.world-dispatch.conversation {
+  top: 44px;
+  bottom: calc(var(--dungeon-belt-height, 145px) + 18px);
+  width: min(900px, calc(100% - 180px));
+  max-height: none;
+}
+.world-dispatch.conversation .new-agent {
+  flex: 1 1 auto;
+}
+.world-dispatch.conversation .new-agent-empty {
+  flex: 1 1 auto;
+}
 .wd-foot {
   display: flex;
   justify-content: space-between;
@@ -137,6 +151,11 @@
 @media (prefers-reduced-motion: reduce) {
   .world-dispatch {
     animation: none;
+  }
+}
+@container (max-width: 600px) {
+  .world-dispatch.conversation {
+    width: calc(100% - 24px);
   }
 }
 @container (max-width: 480px) {

@@ -7,7 +7,7 @@
  */
 import { useEffect, useRef, useState } from "react";
 import { ChevronDown, ChevronRight, GitBranch, MessageSquare, Send, Trash2, X } from "lucide-react";
-import { onAppCommand, runAppCommand } from "../appCommands";
+import { onOwnedAppCommand, runAppCommand } from "../appCommands";
 import { pendingLabel, placeLabel, type LocalComment } from "../github/localComments";
 import { applyLocalComments, useLocalComments } from "../github/localCommentsStore";
 
@@ -52,13 +52,13 @@ export function PendingComments({
       onNotice(`Sent ${pendingLabel(pending.length)} to the agent`);
     }
   };
-  // ⌘K's Apply and Show.
+  // ⌘K's Apply and Show: one copy answers when the conversation shows twice (the panel and the board's overlay).
   const latest = useRef(apply);
   latest.current = apply;
   useEffect(() => {
     const offs = [
-      onAppCommand("diff-comments-apply", () => void latest.current()),
-      onAppCommand("diff-comments-show", () => {
+      onOwnedAppCommand("diff-comments-apply", () => void latest.current()),
+      onOwnedAppCommand("diff-comments-show", () => {
         setOpen(true);
         requestAnimationFrame(() => root.current?.scrollIntoView({ block: "nearest" }));
       }),

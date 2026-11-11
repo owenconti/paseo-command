@@ -62,8 +62,12 @@ export function replyFor(root: Element, q: Quote) {
   );
 }
 
+/** Each conversation's own ranges, by highlight name: an agent's conversation can show twice (the side panel
+ *  and the Dungeon Board's overlay), and the highlights are the page's, so they hold every copy's ranges. */
+const byRoot = new Map<Element, Map<string, Range[]>>();
 const painted = new Set<string>();
-/** Draw each group's quotes under its highlight name; clear the others. */
+/** Draw each group's quotes in `root` under its highlight name, leaving other conversations' as they are;
+ *  no groups clears `root`'s. */
 export function paintMarks(
   root: Element,
   groups: { name: string; quotes: Quote[] }[],
@@ -73,8 +77,7 @@ export function paintMarks(
   const Highlight = (globalThis as { Highlight?: new (...r: Range[]) => unknown })
     .Highlight;
   if (!highlights || !Highlight) return;
-  for (const name of painted) highlights.delete(name);
-  painted.clear();
+  const mine = new Map<string, Range[]>();
   for (const { name, quotes } of groups) {
     const ranges: Range[] = [];
     for (const q of quotes) {
@@ -83,7 +86,18 @@ export function paintMarks(
       const range = at && rangeIn(reply, at.start, at.end);
       if (range) ranges.push(range);
     }
-    if (!ranges.length) continue;
+    if (ranges.length) mine.set(name, ranges);
+  }
+  if (mine.size) byRoot.set(root, mine);
+  else byRoot.delete(root);
+  // A conversation that left the page takes its ranges with it.
+  for (const el of byRoot.keys()) if (!el.isConnected) byRoot.delete(el);
+  for (const name of painted) highlights.delete(name);
+  painted.clear();
+  const all = new Map<string, Range[]>();
+  for (const marks of byRoot.values())
+    for (const [name, ranges] of marks) all.set(name, [...(all.get(name) ?? []), ...ranges]);
+  for (const [name, ranges] of all) {
     highlights.set(name, new Highlight(...ranges));
     painted.add(name);
   }

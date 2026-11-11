@@ -119,7 +119,7 @@ const DUNGEON_TALK: Group = {
     { keys: [["↑"], ["↓"], ["PageUp"], ["PageDown"], ["Home"], ["End"]], label: "In the conversation: scroll it" },
     { keys: [["Enter"], ["R"]], label: "In the conversation: write in its composer" },
     { keys: [["←"], ["→"]], label: "The previous or next robot (as K and J)" },
-    { keys: [["Esc"]], label: "Leave the composer, the conversation's log, then the box (the robot stays selected)" },
+    { keys: [["Esc"]], label: "Leave the composer, then an open fork or subagent, the conversation, then the box (the robot stays selected)" },
   ],
 };
 

@@ -1025,9 +1025,13 @@ function App() {
   // The Dungeon Board's Dispatch: the same form in the board's own framed panel, over the world.
   const [worldDispatch, setWorldDispatch] = useState<DispatchTarget | null>(null);
   const [worldDispatchRevision, setWorldDispatchRevision] = useState(0);
-  const openWorldDispatch = useCallback((target?: DispatchTarget) => {
+  // Asked from a robot's whole conversation (/clear, /new, its +): the new agent's empty conversation takes that
+  // conversation's place, and its own opens there once its first message is sent.
+  const [worldDispatchConversation, setWorldDispatchConversation] = useState(false);
+  const openWorldDispatch = useCallback((target?: DispatchTarget, conversation = false) => {
     setTalking(false);
     setWorldDispatchRevision((revision) => revision + 1);
+    setWorldDispatchConversation(conversation);
     setWorldDispatch(target ?? contextTarget());
   }, [contextTarget]);
   const worldDispatchShown = !!worldDispatch && talkable && !confirming;
@@ -1639,9 +1643,16 @@ function App() {
             page: "Command" as const,
             label: talkLog ? "Back to the dialogue box on the board" : "Show the whole conversation on the board",
             keys: talkLog ? [["H"], ["Esc"]] : [["H"]],
-            keywords: "dungeon board dialogue log history transcript scroll expand earlier messages",
+            keywords: "dungeon board dialogue log history transcript scroll expand earlier messages forks ask answer subagents tools",
             run: () => setTalkLog(!talkLog),
           },
+          // The whole conversation's + (its header): an empty conversation in its place, in the same workspace.
+          ...(talkLog && online ? [{
+            id: "world-talk-new", group: "Actions", page: "Command" as const,
+            label: "Start a new conversation in this workspace on the board",
+            keywords: "dungeon board dispatch new agent fresh empty conversation workspace plus",
+            run: () => openWorldDispatch(undefined, true),
+          }] : []),
         ]
       : []),
     ...(linkPr
@@ -2787,6 +2798,7 @@ function App() {
             </React.Suspense>
             {talkShown && agent && (
               <React.Suspense fallback={null}>
+                <PeersContext.Provider value={peers}>
                 <WorldChat
                   key={agent.id}
                   agent={agent}
@@ -2808,11 +2820,16 @@ function App() {
                   position={talkPosition}
                   archiveRequest={talkArchive}
                   onArchiveRequestTaken={() => setTalkArchive(null)}
-                  onFreshDraft={(a, settings) => {
+                  onFreshDraft={(a, settings, conversation) => {
                     const target = freshTarget(a, settings);
                     select(null);
-                    openWorldDispatch(target);
+                    openWorldDispatch(target, conversation);
                   }}
+                  onSelectWorkspace={() => {
+                    const ws = workspaceOf(agent);
+                    if (ws) choose({ type: "workspace", id: workspaceKey(ws) });
+                  }}
+                  onNewAgent={() => openWorldDispatch(undefined, true)}
                   onArchiveWorkspace={(() => {
                     const ws = workspaceOf(agent);
                     return ws && realWorkspaceIds.has(workspaceKey(ws)) && !archiving.has(workspaceKey(ws))
@@ -2820,6 +2837,7 @@ function App() {
                       : undefined;
                   })()}
                 />
+                </PeersContext.Provider>
               </React.Suspense>
             )}
             {worldDispatchShown && (
@@ -2833,15 +2851,22 @@ function App() {
                   initial={worldDispatch!}
                   fallback={busiestProject}
                   online={online}
+                  conversation={worldDispatchConversation}
                   onClose={() => setWorldDispatch(null)}
                   onNotice={setNotice}
                   onDispatched={async (rawId, host) => {
                     const id = rawId ? agentClientId(rawId, host) : undefined;
+                    const conversation = worldDispatchConversation;
                     soundEvent("dispatched");
                     setWorldDispatch(null);
                     await refresh();
                     // The new robot is picked on the board, so its dialogue box opens as a pick's does.
                     if (id) pickOnMap({ type: "agent", id });
+                    // Begun in a conversation's place, its own conversation opens there.
+                    if (id && conversation) {
+                      setTalking(true);
+                      setTalkLog(true);
+                    }
                   }}
                 />
               </React.Suspense>

@@ -1,13 +1,16 @@
-/** The Dungeon Board's Dispatch: the app's New agent form in the board's gold-framed HUD panel, over the world. */
+/** The Dungeon Board's Dispatch: the app's New agent form in the board's gold-framed HUD panel, over the world.
+ * `conversation`: begun from a robot's whole conversation (/clear, /new, its +), it stands where that
+ * conversation stood, as the empty conversation the first message starts. */
 import { useEffect, useRef, useState, type ComponentProps, type CSSProperties } from "react";
 import { X } from "lucide-react";
 import { NewAgent } from "../Dispatch";
 import { loadHudArt } from "./art";
 import "./world-dispatch.css";
 
-type Props = ComponentProps<typeof NewAgent>;
+type Props = ComponentProps<typeof NewAgent> & { conversation?: boolean };
 
 export function WorldDispatch(props: Props) {
+  const { conversation: _conversation, ...agentProps } = props;
   const [art, setArt] = useState<{ panel: string; dispatch: string } | null>(null);
   const root = useRef<HTMLElement>(null);
   const latest = useRef(props);
@@ -50,7 +53,7 @@ export function WorldDispatch(props: Props) {
   return (
     <section
       ref={root}
-      className="world-dispatch"
+      className={`world-dispatch${props.conversation ? " conversation" : ""}`}
       role="dialog"
       aria-modal="false"
       aria-labelledby="world-dispatch-title"
@@ -58,13 +61,13 @@ export function WorldDispatch(props: Props) {
     >
       <header className="wd-head">
         <span className="wd-icon" aria-hidden="true" />
-        <h2 id="world-dispatch-title">Dispatch an agent</h2>
+        <h2 id="world-dispatch-title">{props.conversation ? "New conversation" : "Dispatch an agent"}</h2>
         <button type="button" className="wd-close" aria-label="Close the dispatch" onClick={props.onClose}>
           <X size={18} strokeWidth={1.75} aria-hidden="true" />
         </button>
       </header>
       <div className="wd-body">
-        <NewAgent {...props} />
+        <NewAgent {...agentProps} />
       </div>
       <footer className="wd-foot">
         <span>Write the first message to send the agent out</span>

@@ -88,7 +88,13 @@ export function useReplyForks(
       { name: "fork-draft", quotes: collected },
     ]);
   }, [forks, collected, repaint, root]);
-  useEffect(() => () => paintMarks(document.body, []), []);
+  // Gone, its own marks go; another copy of the conversation keeps its.
+  useEffect(() => {
+    const el = root.current;
+    return () => {
+      if (el) paintMarks(el, []);
+    };
+  }, [root]);
 
   const add = useCallback((q: Quote) => {
     setCollected((c) =>

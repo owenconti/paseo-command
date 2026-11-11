@@ -24,6 +24,14 @@ local.addWorkspace({ id: "wks_main", projectId: "prj_atlas", cwd: "/home/review/
 local.addWorkspace({ id: "wks_map", projectId: "prj_atlas", cwd: "/home/review/atlas-map", name: "map-polish" });
 local.addAgent({ id: "a-1", cwd: "/home/review/atlas", workspaceId: "wks_main", provider: "claude", model: "claude-opus-5-5", status: "running" } as never);
 local.addAgent({ id: "a-2", cwd: "/home/review/atlas-map", workspaceId: "wks_map", provider: "codex", status: "idle" } as never);
+// The idle agent's conversation, for the chat (the panel's, and the Dungeon Board's with `?map=dungeon`): a reply
+// to pick pieces of, fork, answer and /clear.
+local.pushTimeline("a-2", { type: "user_message", text: "Polish the map's shoreline", messageId: "u1" });
+local.pushTimeline("a-2", {
+  type: "assistant_message",
+  messageId: "r1",
+  text: "I redrew the shoreline with the hex-edged tiles.\n\nThe banks keep their soft shadow, and the glints drift as before.\n\nShall I open the pull request now?",
+});
 // The first workspace's files, for the Files tab (a .gitignore, an ignored folder, a long file, a binary one).
 local.trees.set(
   "/home/review/atlas",

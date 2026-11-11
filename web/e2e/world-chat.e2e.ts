@@ -42,6 +42,14 @@ type Options = {
   motion?: boolean;
   filter?: "running";
   names?: Record<string, string>;
+  /** The fleet's agents, when a test changes them (an archive, a dispatch). */
+  agents?: () => unknown[];
+  /** Answers for an agent's other routes (its forks). */
+  routes?: (id: string, sub: string) => unknown;
+  /** A POST's answer, in place of a plain acceptance. */
+  answer?: (path: string, body: any) => unknown;
+  /** TypeSafe is on: the reply's questions are judged (`POST /api/agents/:id/asks`). */
+  typesafe?: boolean;
 };
 async function open(options: Options = {}): Promise<{ page: Page; posts: Post[] }> {
   const context = await newContext(browser);
@@ -71,7 +79,7 @@ async function open(options: Options = {}): Promise<{ page: Page; posts: Post[] 
   }, options.talkOnPick ?? true);
   const posts: Post[] = [];
   await mockApi(page, {
-    agents: () => dungeon.agents.map((a) => options.names?.[a.id] ? { ...a, name: options.names[a.id] } : a),
+    agents: () => options.agents?.() ?? dungeon.agents.map((a) => options.names?.[a.id] ? { ...a, name: options.names[a.id] } : a),
     permissions: () => dungeon.permissions,
     hosts: () => dungeon.hosts,
     projects: () => dungeon.projects,
@@ -81,15 +89,16 @@ async function open(options: Options = {}): Promise<{ page: Page; posts: Post[] 
       return detailOf(id, row?.status ?? "idle", options.details?.[id] ?? {});
     },
     timeline: (id: string) => ({ items: options.timelines?.[id] ?? [] }),
+    routes: (id: string, sub: string) => options.routes?.(id, sub),
     accept: (path: string, body: any) => {
       posts.push({ path, body });
-      return true;
+      return options.answer?.(path, body) ?? true;
     },
     lists: {
       hoststats: DUNGEON_STATS,
       github: DASHBOARD_PRS,
       linear: DASHBOARD_ISSUES,
-      settings: { linearWorkspace: "", integrations: { github: true, linear: true, typesafe: false }, error: null },
+      settings: { linearWorkspace: "", integrations: { github: true, linear: true, typesafe: !!options.typesafe }, error: null },
     },
   } as any);
   await page.goto(options.filter ? `${app.url}?filter=${options.filter}` : app.url);
@@ -522,7 +531,7 @@ test("the full map conversation keeps readable Dungeon colors across app themes"
   await log.locator(".timeline").evaluate((el) => { el.scrollTop = 0; });
   await page.screenshot({ path: "/tmp/dungeon-chat-theme-desktop.png" });
   await page.setViewportSize({ width: 800, height: 900 });
-  const bounds = await box(page).boundingBox(), composer = await log.locator(".wc-composer").boundingBox();
+  const bounds = await box(page).boundingBox(), composer = await log.locator(".session-footer").boundingBox();
   const transcript = await log.locator(".timeline").boundingBox();
   assert.ok(transcript && transcript.height > 180, "the narrow conversation keeps room for its transcript");
   assert.ok(composer && bounds && composer.y + composer.height <= bounds.y + bounds.height, "the composer stays inside the narrow dialogue");
@@ -624,6 +633,177 @@ test("/clear in the box archives the robot and opens the board's Dispatch in its
   const dispatch = page.getByRole("dialog", { name: "Dispatch an agent" });
   await dispatch.waitFor();
   await dialog.waitFor({ state: "detached" });
+});
+
+test("the whole conversation on the board is the side panel's: its tools, the Ask / Add / Answer pill, a fork, the reply's questions", async () => {
+  const QUESTION = "Shall I open the pull request now?";
+  const BADGES = "The badges point at the new CI workflow.";
+  const forks: any[] = [];
+  const { page, posts } = await open({
+    typesafe: true,
+    timelines: {
+      "a-api-1": [
+        { kind: "user", text: "Tidy the README", messageId: "u1" },
+        { kind: "assistant", text: ["I tidied the README and moved the setup steps.", BADGES, QUESTION].join("\n\n"), messageId: "r1" },
+      ],
+      h1: [{ kind: "assistant", text: "They moved with the workflow file." }],
+    },
+    routes: (_id, sub) => (sub === "forks" ? { supported: true, forks } : undefined),
+    answer: (path, body) => {
+      if (path === "/api/agents/a-api-1/asks")
+        return { messageId: "r1", waiting: true, questions: [{ text: QUESTION, kind: "yes_no" }], pending: false };
+      if (path === "/api/agents/a-api-1/forks") {
+        const fork = { id: "fork_1", host: null, agentId: "a-api-1", helperId: "h1", boundary: body.boundary, quotes: body.quotes, question: body.question, colour: 0, createdAt: new Date().toISOString() };
+        forks.push(fork);
+        return fork;
+      }
+      return undefined;
+    },
+  });
+  await pick(page, "a-api-1");
+  const dialog = box(page);
+  await dialog.waitFor();
+  await page.keyboard.press("h");
+  const log = dialog.locator(".wc-log");
+  // The panel's own component, over the box's session: its header's tools and chips.
+  await log.locator(".session.world-session .timeline").getByText(BADGES).waitFor();
+  for (const name of ["New agent in this workspace", "Copy agent ID", "Open in Paseo", "Archive agent"])
+    assert.equal(await log.locator(".session-header").getByRole("button", { name, exact: true }).count(), 1, `the header's ${name}`);
+  assert.equal(await log.locator(".session-header").getByRole("button", { name: /Fleet/ }).count(), 0, "no way back to a list the board doesn't have");
+  await log.locator(".session-links .branch-chip").waitFor();
+  // What its reply asks, above the composer, as in the panel.
+  const strip = dialog.getByRole("region", { name: "Questions in this reply" });
+  await strip.getByText(QUESTION).waitFor();
+  // A click on a block of the reply picks it: Ask, Add, Answer.
+  const pill = dialog.getByRole("toolbar", { name: "Ask about the selection" });
+  await log.getByText(BADGES).click();
+  await pill.waitFor();
+  for (const name of ["Ask", "Add to question", "Answer in my message"])
+    assert.equal(await pill.getByRole("button", { name, exact: true }).count(), 1, `the pill's ${name}`);
+  const inside = await page.evaluate(() => {
+    const p = document.querySelector(".fork-pill")!.getBoundingClientRect(), d = document.querySelector(".world-chat")!.getBoundingClientRect();
+    return p.left >= d.left && p.right <= d.right && p.top >= d.top && p.bottom <= d.bottom;
+  });
+  assert.ok(inside, "the pill stands inside the dialogue");
+  // Escape lets the picked block go; the conversation stays.
+  await page.keyboard.press("Escape");
+  await pill.waitFor({ state: "detached" });
+  assert.equal(await log.count(), 1, "Escape let the block go, not the conversation");
+  // Answer quotes it as a question to answer in the next message.
+  await log.getByText(BADGES).click();
+  await pill.getByRole("button", { name: "Answer in my message" }).click();
+  const answers = dialog.getByRole("list", { name: "Questions to answer" });
+  await answers.getByText(BADGES).waitFor();
+  await answers.getByRole("textbox").fill("Good");
+  await dialog.locator("#world-composer").press("Enter");
+  const send = await posted(posts, "/api/agents/a-api-1/send");
+  assert.equal(send.body.prompt, `> ${BADGES}\nGood`);
+  // Ask opens a fork beside the conversation; its first message starts it.
+  await log.getByText("I tidied the README").click();
+  await pill.getByRole("button", { name: "Ask", exact: true }).click();
+  const pane = dialog.getByRole("region", { name: "Fork", exact: true });
+  await pane.waitFor();
+  await pane.locator("#fork-composer").fill("Where did the steps go?");
+  await pane.locator("#fork-composer").press("Enter");
+  const fork = await posted(posts, "/api/agents/a-api-1/forks");
+  assert.equal(fork.body.question, "Where did the steps go?");
+  assert.equal(fork.body.quotes[0].text, "I tidied the README and moved the setup steps.");
+  await pane.getByText("They moved with the workflow file.").waitFor();
+  await log.locator(".fork-marker").waitFor();
+  await page.screenshot({ path: "/tmp/world-chat-session-fork.png" });
+  // Escape: the fork goes back to the conversation (the keyboard was the asked question's, which went), not the
+  // conversation to the box.
+  await page.keyboard.press("Escape");
+  await pane.waitFor({ state: "detached" });
+  // From a field of the fork, Escape first leaves the field.
+  await log.locator(".fork-marker").click();
+  await pane.locator("#fork-composer").click();
+  await page.keyboard.press("Escape");
+  await waitFor(() => dialog.evaluate((el) => el === document.activeElement), Boolean, "the box has the keyboard");
+  assert.equal(await pane.count(), 1, "Escape left the fork's field, not the fork");
+  await page.keyboard.press("Escape");
+  await pane.waitFor({ state: "detached" });
+  assert.equal(await log.count(), 1, "Escape closed the fork, not the conversation");
+  await page.screenshot({ path: "/tmp/world-chat-session.png" });
+  // The header's Archive asks in the box, as the board's other ways of archiving do.
+  await log.locator(".session-header").getByRole("button", { name: "Archive agent", exact: true }).click();
+  await waitFor(() => dialog.getAttribute("data-beat"), (b) => b === "confirm:archive", "the box's question");
+  assert.equal(await log.count(), 0, "the question takes the conversation's place");
+  assert.ok(!posts.some((p) => p.path.endsWith("/archive")), "nothing archived before its answer");
+  await page.context().close();
+});
+
+test("a subagent's conversation opens in the whole conversation's place, and Escape goes back to its agent's", async () => {
+  const { page } = await open({ timelines: { "a-api-0": [{ kind: "assistant", text: "Dispatched two helpers.", messageId: "r1" }] } });
+  await pick(page, "a-api-0");
+  const dialog = box(page);
+  await dialog.waitFor();
+  await page.keyboard.press("h");
+  const log = dialog.locator(".wc-log");
+  await log.locator(".session-header .subagents-anchor button").first().click();
+  await page.screenshot({ path: "/tmp/world-chat-subagents.png" });
+  const menu = await log.locator(".subagents-menu").boundingBox(), head = await log.locator(".session-header").boundingBox();
+  assert.ok(menu && head && menu.y >= head.y, "the header's menu opens downward, inside the conversation");
+  await log.locator(".subagents-menu").getByRole("menuitem", { name: /Subtask 1/ }).click();
+  await log.locator(".subagent-session").waitFor();
+  assert.equal(await log.locator(".world-session").count(), 0, "the subagent's conversation takes the agent's place");
+  await dialog.focus();
+  await page.keyboard.press("Escape");
+  await log.locator(".world-session").waitFor();
+  assert.equal(await log.locator(".subagent-session").count(), 0);
+  await page.context().close();
+});
+
+test("/clear in the whole conversation archives the robot and starts an empty conversation in its place; its first message opens the new robot's", async () => {
+  let agents: any[] = [...dungeon.agents];
+  const { page, posts } = await open({
+    agents: () => agents,
+    timelines: {
+      "a-api-1": [{ kind: "user", text: "Tidy the README", messageId: "u1" }, { kind: "assistant", text: "Done.", messageId: "r1" }],
+      "a-new": [{ kind: "user", text: "Now the changelog", messageId: "n1" }],
+    },
+    answer: (path) => {
+      if (path === "/api/agents/a-api-1/archive") agents = agents.filter((a) => a.id !== "a-api-1");
+      if (path === "/api/dispatch") {
+        const like = (dungeon.agents as any[]).find((a) => a.id === "a-api-1");
+        agents = [...agents, { ...like, id: "a-new", shortId: "a-new", name: "changelog agent", status: "running" }];
+        return { agentId: "a-new" };
+      }
+      return undefined;
+    },
+  });
+  await pick(page, "a-api-1");
+  const dialog = box(page);
+  await dialog.waitFor();
+  await page.keyboard.press("h");
+  const field = dialog.locator(".wc-log #world-composer");
+  await field.click();
+  const place = (await dialog.boundingBox())!;
+  await field.fill("/clear");
+  await page.locator(".autocomplete").getByText(/clear/).first().waitFor();
+  await page.keyboard.press("Enter");
+  const archive = await posted(posts, "/api/agents/a-api-1/archive");
+  assert.equal(archive.body.confirm, true);
+  assert.ok(!posts.some((p) => p.path === "/api/agents/a-api-1/send"), "/clear is never sent to the agent");
+  // An empty conversation where the cleared one stood, in its workspace, its message box ready.
+  const fresh = page.getByRole("dialog", { name: "New conversation" });
+  await fresh.waitFor();
+  await dialog.waitFor({ state: "detached" });
+  const stood = (await fresh.boundingBox())!;
+  assert.ok(Math.abs(stood.x - place.x) < 4 && Math.abs(stood.width - place.width) < 4 && Math.abs(stood.height - place.height) < 40, `it stands where the conversation stood: ${JSON.stringify(stood)} vs ${JSON.stringify(place)}`);
+  await waitFor(() => fresh.locator("textarea").first().evaluate((el) => el === document.activeElement), Boolean, "its message box has the keyboard");
+  await page.screenshot({ path: "/tmp/world-chat-clear.png" });
+  await page.keyboard.type("Now the changelog");
+  await page.keyboard.press("Enter");
+  const dispatch = await posted(posts, "/api/dispatch");
+  assert.equal(dispatch.body.prompt, "Now the changelog");
+  assert.equal(dispatch.body.workspaceId ?? dispatch.body.workspace, "wks_api");
+  // The new robot's own conversation opens there, whole.
+  const next = page.getByRole("dialog", { name: "Conversation with changelog agent" });
+  await next.waitFor();
+  await next.locator(".wc-log .world-session").getByText("Now the changelog").first().waitFor();
+  await fresh.waitFor({ state: "detached" });
+  await page.context().close();
 });
 
 test("Archive… asks in the box: Esc keeps the robot, its answer archives it; its workspace is offered too", async () => {

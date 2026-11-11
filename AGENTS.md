@@ -948,6 +948,10 @@ Archive… (and the composer's /archive, ⌘K's Archive “…”… on the boar
 safe answer marked: archive the agent (not while it runs: Interrupt is offered), archive its workspace (the app's confirming
 dialog, the box staying open under it) or Never mind (Esc). /new asks, then archives it and opens the board's Dispatch in its
 workspace (else project); /clear does that without asking, keeping its provider, model, thinking and mode (`onFreshDraft`).
+Asked from the whole conversation (/clear, /new, its header's +, ⌘K "Start a new conversation in this workspace on the board"),
+that Dispatch stands where the conversation stood as an empty conversation ("New conversation", `WorldDispatch`'s
+`conversation`, main's `worldDispatchConversation`), and its first message opens the new robot's whole conversation there
+rather than its dialogue box.
 The board's right-click menu (`web/src/dungeon/BoardMenu.tsx`, `boardMenu` in main; on what the world reports as hovered):
 a robot's Talk, Open the full chat and Archive…; a workspace's Dispatch an agent here and Archive the workspace…; a project's
 Dispatch an agent here. ↑/↓ move, Enter picks, Esc or a click elsewhere closes it.
@@ -957,8 +961,23 @@ Only the agent's own words are its speech; what it is doing (`workingOn`, else i
 offline and waiting are narration, never invented lines (truthful state). The Conversation button sits inside the dialogue header below the name banner, never in its raised strip. User-message
 links use dark brown ink and full underlines against the box’s parchment bubbles, with a distinct keyboard focus ring.
 The whole conversation opens upward over the board as
-its log (H, the Conversation button, or scrolling up past the page's top; Back, H or Esc returns): `Session`'s `Timeline`, any
-request's `PermissionCard` and the composer. Its complete local colour palette in `world-chat.css` covers event cards,
+its log (H, the Conversation button, or scrolling up past the page's top; Back, H or Esc returns). It is the side panel's own
+conversation component with the board's styling, so the two never differ in what they can do (the user's call): `Session.tsx`'s
+`Session` is `useAgentSession` plus `SessionView`, and the log renders that `SessionView` over the session the box already reads
+(one stream for box and log), told what differs through `SessionSurface` (class `world-session`, the composer's input
+`world-composer` and draft scope, asking before archiving in the box, Escape). So the log has the header's tools (rename, new
+agent in this workspace, copy ID, Open in Paseo, Archive, usage, Subagents, the branch chip and PR / Linear chips; no Fleet
+button or position, which the box's own Back and arrows are), the reply forks (a click or a selection in a reply shows the
+Ask / Add / Answer pill; forks open beside or over the conversation, their markers under replies, collected pieces), the
+reply's questions and suggested reply above the composer, pending diff comments, the current-work line, requests' cards,
+dropped files and agents' reports (`PeersContext`). A subagent chosen from its header opens in the log's place
+(`SubagentSession`); Escape there goes back to its agent's. Escape in the log leaves a field first, then lets a picked block or
+selection go, then closes an open fork (`SessionSurface.escape`), then the log. A field of the box that goes while focused (a
+fork's question as it is asked) drops the keyboard on the page's body: the box takes it back (`held` in `WorldChat.tsx`).
+Because the panel's copy of the conversation is usually mounted too (hidden or not), commands one copy should answer are
+registered with `onOwnedAppCommand` (`appCommands.ts`: the copy mounted last answers; `agent-interrupt`, `agent-open-paseo`,
+`agent-archive`, `agent-question-toggle`, `diff-comments-apply|show`), and fork highlights are kept per conversation root
+(`paintMarks` in `forks/marks.ts`), so neither copy clears the other's. Its complete local colour palette in `world-chat.css` covers event cards,
 tools, code/syntax, tables, request cards, fields, placeholders, metadata and focus, so a light app theme never leaks pale
 surfaces behind cream text (your messages stay parchment with brown metadata). Narrow logs use the full panel width,
 without a portrait, and keep navigation in their explicit bottom grid row;

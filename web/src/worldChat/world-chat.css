@@ -657,7 +657,84 @@
 .wc-log .md .tok-comment { color: var(--text-3); }
 .wc-log .permission {
   flex: none;
+}
+/* The log is the side panel's own conversation (Session.tsx's SessionView; a subagent's too), in the box's
+   colours: its title, tools and chips in two compact rows, then the timeline, forks, requests and composer. */
+.world-chat.log .wc-status {
+  display: none;
+}
+.wc-log .session {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+}
+.wc-log .session-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+  padding: 0 0 8px;
+  border-bottom-color: var(--line-soft);
+}
+.wc-log .session-title {
+  order: 1;
+  flex: 1 1 calc(100% - 160px);
+  min-width: 0;
+}
+.wc-log .session-nav {
+  order: 2;
+  margin: 0 0 0 auto;
+}
+.wc-log .session-meta {
+  order: 3;
   margin: 0;
+}
+.wc-log .session-links {
+  order: 4;
+  margin: 0;
+}
+.wc-log .session-header .inline-confirm {
+  order: 5;
+  flex: 1 1 100%;
+}
+/* The header's menus (subagents, a Linear workspace) open downward into the conversation, never over the
+   name plate above it. */
+.wc-log .session-header .popover-menu[data-place] {
+  top: calc(100% + 8px);
+  bottom: auto;
+}
+/* A subagent's conversation keeps its way back to its agent first. */
+.wc-log .subagent-session .session-nav {
+  order: 0;
+  flex: 1 1 100%;
+  margin: 0;
+}
+.wc-log .session-footer {
+  padding: 6px 0 0;
+  border-top: 0;
+  background: none;
+}
+.wc-log .session-footer .composer-shell {
+  padding: 0;
+  background: none;
+  border: 0;
+}
+.wc-log .composer2 {
+  border-color: rgb(216 168 64 / 45%);
+  background: rgb(8 5 18 / 55%);
+}
+.wc-log .composer2.focused {
+  border-color: #ffe56e;
+  box-shadow: 0 0 0 3px rgb(255 229 110 / 14%);
+}
+.wc-log .fork-pane {
+  border-color: var(--line);
+}
+.wc-log .fork-pane > .timeline {
+  padding: 4px 8px;
+}
+.wc-log .fork-footer {
+  background: none;
 }
 
 /* Form fields use the same readable lavender even while the app itself is light. */
