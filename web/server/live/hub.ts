@@ -1,6 +1,7 @@
 /** The hub: one feed per host, kept matching the hosts to follow. */
 import { dropHost } from "../fleet";
 import { release } from "../daemon";
+import { attachBrowserHost } from "../browserHost";
 import type { LiveClient } from "./client";
 import { Feed, type FeedOptions } from "./feed";
 import { endWatches, resumeWatches, suspendWatches } from "./sessions";
@@ -118,6 +119,7 @@ function replace(spec: HostSpec) {
     connect: spec.connect,
     registry: spec.registry,
     dropped: spec.dropped,
+    attached: (client) => attachBrowserHost(spec.key, client),
     changed: () => onChange(),
     agentsChanged: (ids) => {
       for (const fn of agentListeners.get(spec.key) ?? []) fn(ids);

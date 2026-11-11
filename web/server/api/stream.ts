@@ -17,6 +17,7 @@ import {
 } from "./hosts";
 import { allowedOrigin } from "./http";
 import { terminalUpgrade } from "./terminals";
+import { BROWSER_HOST, browserHostUpgrade } from "../browserHost";
 import { id } from "./validate";
 
 /** Start following every host (idempotent; the first API request does it). */
@@ -66,6 +67,11 @@ export function handleUpgrade(
 ) {
   const url = new URL(req.url || "/", "http://127.0.0.1");
   if (url.pathname === "/api/terminal") return terminalUpgrade(req, socket, head);
+  // The macOS app's browser, as a Paseo browser host on the hosts being followed.
+  if (url.pathname === BROWSER_HOST.path) {
+    startLive();
+    return browserHostUpgrade(req, socket, head, allowedOrigin(req));
+  }
   if (url.pathname !== "/api/ws") return false;
   const refuse = (code: number, text: string) => {
     socket.write(

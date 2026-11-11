@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 
 // Each test runs as one script: the sources it needs, then the test itself.
 const tests = { LegacyState: ['Log', 'LegacyState'], WebOrigin: ['WebOrigin'], ShellEnvironment: ['ShellEnvironment'], ServerManager: ['Log', 'AppFlavor', 'ShellEnvironment', 'OldInstall', 'BundleHome', 'ServerManager'], BundleHome: ['AppFlavor', 'ShellEnvironment', 'OldInstall', 'BundleHome', 'ServerManager'], OldInstall: ['Log', 'AppFlavor', 'OldInstall'], Updater: ['AppFlavor', 'WebOrigin', 'Updater'], LinearLink: ['LinearLink'],
+  BrowserAutomation: ['BrowserAutomation'],
   AppKeys: ['AppFlavor', 'Geometry', 'Textures', 'NativeTheme', 'ChromeControls', 'PageBar', 'ConquerTabs', 'ConquerExtras', 'ZenCookies', 'Conquer', 'EditorEmbed', 'AppKeys'],
   EditorEmbed: ['AppFlavor', 'Geometry', 'Textures', 'NativeTheme', 'ChromeControls', 'PageBar', 'ConquerTabs', 'ConquerExtras', 'ZenCookies', 'Conquer', 'EditorEmbed', 'AppKeys'],
   AtlasView: ['Log', 'Geometry', 'Textures', 'NativeTheme', 'ChromeControls', 'MapScene', 'SpriteGlow', 'AtlasScene', 'DungeonScene', 'AtlasView'],

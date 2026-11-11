@@ -1,0 +1,231 @@
+/* The browser attached to an agent on the Dungeon Board (BoardBrowser.tsx): the dialogue box's own gold-framed
+   navy panel, over the board above the box. The macOS app draws the web page over `.bb-view`. */
+.board-browser {
+  --bb-gold: #d8a840;
+  --bb-ink: #f2ead6;
+  --bb-dim: #cfc6e6;
+  --bb-line: #64506a;
+  position: absolute;
+  /* Under the dialogue box (3), so its name plate and choices lie over the browser's foot. */
+  z-index: 2;
+  left: 50%;
+  transform: translateX(-50%);
+  box-sizing: border-box;
+  width: min(1180px, calc(100% - 48px));
+  top: 44px;
+  /* The box's top, its raised name plate, and a gap. */
+  bottom: calc(var(--dungeon-belt-height, 0px) + var(--bb-inset, 222px) + 42px);
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  border: solid #c2871f;
+  border-width: 10px 13px;
+  border-radius: 10px;
+  background: #251e40;
+  color: var(--bb-ink);
+  font: 600 13px/1.4 ui-rounded, "SF Pro Rounded", "Arial Rounded MT Bold", "Paseo Barlow", sans-serif;
+  filter: drop-shadow(0 12px 26px rgb(0 0 0 / 50%));
+  animation: bb-open 0.2s ease-out;
+  color-scheme: dark;
+}
+.board-browser[style*="--bb-frame"] {
+  border-color: transparent;
+  border-radius: 0;
+  background: none;
+  border-image: var(--bb-frame) 30 39 fill / 10px 13px stretch;
+}
+/* Filling the board: over the dialogue box too, down to the belt. */
+.board-browser.filled {
+  z-index: 5;
+  bottom: calc(var(--dungeon-belt-height, 0px) + 18px);
+}
+@keyframes bb-open {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 10px);
+  }
+}
+
+.bb-head {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  padding: 4px 4px 0 6px;
+}
+.bb-tabs {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.bb-tabs::-webkit-scrollbar { display: none; }
+.bb-tab {
+  flex: 0 1 190px;
+  min-width: 84px;
+  display: flex;
+  align-items: center;
+  height: 28px;
+  border: 1px solid var(--bb-line);
+  border-bottom: 0;
+  border-radius: 6px 6px 0 0;
+  background: #1b152e;
+  color: var(--bb-dim);
+}
+.bb-tab.selected {
+  border-color: #a87e3e;
+  background: #382e50;
+  color: var(--bb-ink);
+}
+.bb-tab-name {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 100%;
+  padding: 0 4px 0 9px;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.bb-tab-text {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.bb-tab-close {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  margin-right: 3px;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  color: inherit;
+  opacity: 0.7;
+  cursor: pointer;
+}
+.bb-tab-close:hover { opacity: 1; background: #493955; }
+.bb-spinner {
+  flex: none;
+  width: 9px;
+  height: 9px;
+  border: 2px solid #a87e3e;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: bb-spin 0.8s linear infinite;
+}
+@keyframes bb-spin {
+  to { transform: rotate(360deg); }
+}
+
+.bb-tool {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  background: none;
+  color: var(--bb-gold);
+  cursor: pointer;
+}
+.bb-tool:hover:not(:disabled) { color: #ffe56e; background: #382b4c; }
+.bb-tool:disabled { color: #7d6f8f; cursor: default; }
+.bb-tool[aria-pressed="true"] { border-color: #a87e3e; background: #382b4c; }
+.board-browser button:focus-visible,
+.bb-address:focus-visible {
+  outline: 2px solid #ffe56e;
+  outline-offset: 1px;
+}
+
+.bb-bar {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 4px 6px 6px;
+  border-top: 1px solid #a87e3e;
+  background: #382e50;
+}
+.bb-address {
+  flex: 1;
+  min-width: 0;
+  height: 28px;
+  padding: 0 10px;
+  border: 1px solid var(--bb-line);
+  border-radius: 14px;
+  background: #171225;
+  color: var(--bb-ink);
+  font: 500 13px/1 ui-sans-serif, system-ui, sans-serif;
+}
+.bb-address::placeholder { color: #b0a2c5; opacity: 1; }
+
+/* The web page's box. What it holds itself shows only while no page does (none open, one that failed,
+   a dialog of the app's over it). */
+.bb-view {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  background: #171225;
+}
+.bb-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  max-width: 460px;
+  padding: 16px;
+  text-align: center;
+  color: var(--bb-dim);
+}
+.bb-empty b {
+  color: var(--bb-ink);
+  font-size: 15px;
+}
+.bb-note {
+  color: #b9adcb;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.bb-button {
+  margin-top: 6px;
+  min-height: 28px;
+  padding: 4px 12px;
+  border: 1px solid #c2871f;
+  border-radius: 4px;
+  background: #251e40;
+  color: var(--bb-gold);
+  font: 800 11px/1.25 ui-rounded, "SF Pro Rounded", "Paseo Barlow", sans-serif;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.bb-button:hover { color: #ffe56e; background: #382b4c; }
+
+@container (max-width: 600px) {
+  .board-browser {
+    width: calc(100% - 24px);
+  }
+  .bb-tab { flex-basis: 130px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .board-browser { animation: none; }
+  .bb-spinner { animation-duration: 2.4s; }
+}

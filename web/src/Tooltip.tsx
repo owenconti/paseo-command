@@ -167,7 +167,7 @@ type Shown = { el: HTMLElement; text: string };
 
 export function TooltipLayer() {
   const [shown, setShown] = useState<Shown | null>(null);
-  const inDungeon = !!shown?.el.closest(".world-chat, .world-dispatch, .dungeon-hud");
+  const inDungeon = !!shown?.el.closest(".world-chat, .world-dispatch, .dungeon-hud, .board-browser");
   const gameFrame = useGameTooltipFrame(inDungeon);
   const [place, setPlace] = useState<{
     shown: Shown;

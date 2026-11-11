@@ -108,7 +108,41 @@ const TYPES: Record<string, string> = {
   ".wav": "audio/wav",
   ".woff2": "font/woff2",
 };
+/** A page for the board's browser to open and an agent's tools to drive (`/__page`). */
+const TEST_PAGE = `<!doctype html><html><head><title>Fake preview</title><style>body{font:16px system-ui;margin:32px}button,input{font:inherit;padding:6px 10px}</style></head>
+<body><h1>Fake preview</h1><p>A page served by the fake server.</p>
+<label for="name">Name</label> <input id="name" placeholder="Your name">
+<button id="greet">Greet</button> <a href="/__page?next=1">Next page</a>
+<p id="out" aria-live="polite"></p>
+<script>document.getElementById('greet').addEventListener('click', () => { document.getElementById('out').textContent = 'Hello, ' + (document.getElementById('name').value || 'stranger') + '!'; console.log('greeted'); });</script>
+</body></html>`;
 const server = createServer((req, res) => {
+  const path = (req.url ?? "/").split("?")[0];
+  if (path === "/__page") {
+    res.setHeader("content-type", "text/html; charset=utf-8");
+    return void res.end(TEST_PAGE);
+  }
+  // `POST /__browser {command, args?, agentId?, workspaceId?, cwd?}`: an agent's browser tool call, as the fake
+  // daemon's broker sends it to the registered browser host (the app, with Settings → Map on); answers with the
+  // host's response (checks of the board's browser end to end).
+  if (path === "/__browser" && req.method === "POST") {
+    const chunks: Buffer[] = [];
+    req.on("data", (c) => chunks.push(c));
+    req.on("end", () => {
+      let body: { command?: string; args?: Record<string, unknown>; agentId?: string; workspaceId?: string; cwd?: string } = {};
+      try {
+        body = JSON.parse(Buffer.concat(chunks).toString("utf8"));
+      } catch {
+        // Answered as an unknown command.
+      }
+      const { command = "", args, ...from } = body;
+      void local.browserExecute({ command, args }, { agentId: "a-2", workspaceId: "wks_map", cwd: "/home/review/atlas-map", ...from }).then((answer) => {
+        res.setHeader("content-type", "application/json");
+        res.end(JSON.stringify(answer));
+      });
+    });
+    return;
+  }
   void handleApi(req, res, () => {
     const url = new URL(req.url ?? "/", "http://localhost");
     let file = normalize(join(dist, decodeURIComponent(url.pathname)));

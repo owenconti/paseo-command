@@ -586,10 +586,18 @@
 .wc-nav:active { transform: translateY(1px); }
 .wc-nav:focus-visible { outline: 2px solid #ffe56e; outline-offset: 2px; }
 
-/* In the dialogue header, below the name banner; it never shares the banner's raised strip. */
-.wc-log-toggle {
+/* In the dialogue header, below the name banner; they never share the banner's raised strip. */
+.wc-head-tools {
   grid-column: 2;
   grid-row: 1;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.wc-browser-toggle[aria-pressed="true"] { color: #ffe56e; background: #382b4c; }
+.wc-log-toggle,
+.wc-browser-toggle {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -607,9 +615,9 @@
   white-space: nowrap;
   cursor: pointer;
 }
-.wc-log-toggle > span { overflow: hidden; text-overflow: ellipsis; }
-.wc-log-toggle:hover { color: #ffe56e; background: #382b4c; }
-.wc-log-toggle:focus-visible { outline: 2px solid #ffe56e; outline-offset: 2px; }
+.wc-log-toggle > span, .wc-browser-toggle > span { overflow: hidden; text-overflow: ellipsis; }
+.wc-log-toggle:hover, .wc-browser-toggle:hover { color: #ffe56e; background: #382b4c; }
+.wc-log-toggle:focus-visible, .wc-browser-toggle:focus-visible { outline: 2px solid #ffe56e; outline-offset: 2px; }
 
 .wc-skip {
   display: flex;
@@ -792,7 +800,7 @@
   }
   .wc-nameplate { left: 12px; max-width: calc(100% - 24px); }
   .wc-portrait { width: 72px; height: 96px; }
-  .wc-log-toggle .wc-key { display: none; }
+  .wc-log-toggle .wc-key, .wc-browser-toggle .wc-key { display: none; }
   .wc-portrait { grid-column: 1; grid-row: 1; }
   .wc-body { grid-column: 2; grid-row: 1; }
   .wc-navigation { display: flex; grid-column: 1 / -1; grid-row: 2; align-items: center; justify-content: space-between; }

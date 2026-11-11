@@ -2,7 +2,19 @@ import "./mermaid/mermaid.css";
 import { mermaidPalette, useMermaidCommands } from "./mermaidCommands";
 import { MAP_STYLES, mapStyle, setMapStyle, useMapStyle } from "./mapStyle";
 import { conversationOrder } from "./worldChat/navigation";
-import { setTalkOnPick, talkOnPickSetting, useTalkOnPick } from "./worldChat/settings";
+import {
+  browserFollowsSetting,
+  setBrowserFollows,
+  setBrowserOpen,
+  setBrowserTools,
+  setTalkOnPick,
+  talkOnPickSetting,
+  useBrowserFollows,
+  useBrowserOpen,
+  useBrowserTools,
+  useTalkOnPick,
+} from "./worldChat/settings";
+import { browserDo, browserKey, onBrowserEvent, postBrowserHost, tabLabel, useBoardBrowsers } from "./worldChat/browserBridge";
 import { useAsks } from "./useAsks";
 import { useWorkingOn } from "./useWorkingOn";
 import {
@@ -177,6 +189,10 @@ const unity = true;
 /** The Dungeon Board's dialogue box (src/worldChat/): talk to a picked robot in the world. */
 const WorldChat = React.lazy(() =>
   import("./worldChat/WorldChat").then((module) => ({ default: module.WorldChat })),
+);
+/** The browser attached to the robot being talked to, over the board above its dialogue box. */
+const BoardBrowser = React.lazy(() =>
+  import("./worldChat/BoardBrowser").then((module) => ({ default: module.BoardBrowser })),
 );
 /** The Dungeon Board's Dispatch (src/dungeon/): the New agent form in the board's framed panel. */
 const WorldDispatch = React.lazy(() =>
@@ -643,6 +659,17 @@ function App() {
   // ⌘K's or the board menu's Archive for a robot: its dialogue box asks (a new `at` asks again).
   const [talkArchive, setTalkArchive] = useState<{ agentId: string; at: number } | null>(null);
   const talkOnPick = useTalkOnPick();
+  // The robot's browser, over the board above its dialogue box (src/worldChat/BoardBrowser.tsx): B, kept as the
+  // box steps from robot to robot. The whole conversation takes its place while it shows.
+  const browserOpen = useBrowserOpen();
+  // Agents' own browser tools open and drive its tabs (Settings → Map): the macOS app is told, and registers
+  // with the daemons as their browser while it is on.
+  const browserTools = useBrowserTools();
+  const browserFollows = useBrowserFollows();
+  const boardBrowsers = useBoardBrowsers();
+  useEffect(() => {
+    if (macApp()) postBrowserHost(browserTools);
+  }, [browserTools]);
   // Only where the board is drawn (the macOS app's world; a browser shows a placeholder).
   const talkable = macApp() && mapStyleNow === "dungeon" && appMode === "command" && !settingsShown;
   const talkOn = talking && talkable && selection?.type === "agent" && !selection.subagent;
@@ -853,6 +880,37 @@ function App() {
   // Its workspace's pending diff comments, for ⌘K's Apply and Show.
   const agentComments = useLocalComments(agent?.host, agent?.workspaceId);
   const talkShown = talkOn && !!agent;
+  const browserShown = talkShown && browserOpen && !talkLog;
+  const agentBrowser = agent ? boardBrowsers.browsers[browserKey(agent.host, daemonAgentId(agent))] : undefined;
+  const browserTab = agentBrowser?.tabs.find((t) => t.id === agentBrowser.current) ?? agentBrowser?.tabs[0];
+  const toggleBrowser = () => {
+    if (browserShown) return setBrowserOpen(false);
+    setTalkLog(false);
+    setBrowserOpen(true);
+  };
+  // An agent opened a tab with its browser tools: the robot you are talking to shows it (Settings → Map);
+  // another's says so, once in a while.
+  const browserWatch = useRef({ agents, talkedTo: talkShown ? agent : undefined, talkLog, said: new Map<string, number>() });
+  Object.assign(browserWatch.current, { agents, talkedTo: talkShown ? agent : undefined, talkLog });
+  useEffect(
+    () =>
+      onBrowserEvent((event) => {
+        if (event.type !== "opened") return;
+        const now = browserWatch.current;
+        const opener = now.agents.find((a) => (a.host || "local") === event.host && daemonAgentId(a) === event.agent);
+        if (!opener) return;
+        if (now.talkedTo?.id === opener.id && !now.talkLog) {
+          if (!browserFollowsSetting()) return;
+          browserDo("select", { tab: event.tab });
+          setBrowserOpen(true);
+          return;
+        }
+        if (Date.now() - (now.said.get(opener.id) ?? 0) < 30000) return;
+        now.said.set(opener.id, Date.now());
+        setNotice(`${agentName(opener)} opened a page in its browser.`);
+      }),
+    [],
+  );
   // The box opens as the dialogue box again, its log closed.
   useEffect(() => {
     if (!talkShown) setTalkLog(false);
@@ -885,6 +943,7 @@ function App() {
       const live = online && !a.stale;
       return [
         { id: "talk", label: "Talk", hint: "Its dialogue box", run: () => { choose(s); setTalking(true); } },
+        { id: "browser", label: "Browser", hint: "Its pages, over the board", run: () => { choose(s); setTalking(true); setTalkLog(false); setBrowserOpen(true); } },
         { id: "chat", label: "Open the full chat", hint: "In the side panel", run: () => { choose(s); openTalkChat(); } },
         ...(live ? [{ id: "archive-agent", label: "Archive…", hint: "Asks in its dialogue box", tone: "deny" as const, run: () => askTalkArchive(a.id) }] : []),
       ];
@@ -1646,6 +1705,32 @@ function App() {
             keywords: "dungeon board dialogue log history transcript scroll expand earlier messages forks ask answer subagents tools",
             run: () => setTalkLog(!talkLog),
           },
+          // Its browser, over the board above the box (src/worldChat/BoardBrowser.tsx).
+          {
+            id: "world-talk-browser",
+            group: "Actions",
+            page: "Command" as const,
+            label: browserShown ? "Hide the browser on the board" : `Show ${agentName(agent!, workspaceOf(agent!)?.branch)}’s browser on the board`,
+            keys: [["B"]],
+            keywords: "dungeon board browser web page tab preview site localhost attached agent",
+            run: toggleBrowser,
+          },
+          ...(browserShown
+            ? [
+                { id: "board-browser-new", group: "Actions", page: "Command" as const, label: "Open a new tab in the board’s browser", keywords: "dungeon browser web page tab add", run: () => runAppCommand("board-browser-new") },
+                { id: "board-browser-address", group: "Actions", page: "Command" as const, label: "Type an address in the board’s browser", keywords: "dungeon browser url location go to navigate", run: () => runAppCommand("board-browser-address") },
+                { id: "board-browser-fill", group: "Actions", page: "Command" as const, label: "Make the board’s browser fill the board, or show the dialogue box again", keywords: "dungeon browser expand maximize bigger full size restore", run: () => runAppCommand("board-browser-fill") },
+                ...(browserTab
+                  ? [
+                      { id: "board-browser-reload", group: "Actions", page: "Command" as const, label: `Reload ${tabLabel(browserTab)} in the board’s browser`, keywords: "dungeon browser refresh page", run: () => runAppCommand("board-browser-reload") },
+                      ...(browserTab.back ? [{ id: "board-browser-back", group: "Actions", page: "Command" as const, label: "Go back in the board’s browser", keywords: "dungeon browser previous page history", run: () => runAppCommand("board-browser-back") }] : []),
+                      ...(browserTab.forward ? [{ id: "board-browser-forward", group: "Actions", page: "Command" as const, label: "Go forward in the board’s browser", keywords: "dungeon browser next page history", run: () => runAppCommand("board-browser-forward") }] : []),
+                      { id: "board-browser-close-tab", group: "Actions", page: "Command" as const, label: `Close ${tabLabel(browserTab)} in the board’s browser`, keywords: "dungeon browser tab remove", run: () => runAppCommand("board-browser-close-tab") },
+                      ...(browserTab.url ? [{ id: "board-browser-conquer", group: "Navigate", page: "Conquer" as const, label: "Open the board browser’s page in Conquer", keywords: "dungeon browser tab move own logins", run: () => runAppCommand("board-browser-conquer") }] : []),
+                    ]
+                  : []),
+              ]
+            : []),
           // The whole conversation's + (its header): an empty conversation in its place, in the same workspace.
           ...(talkLog && online ? [{
             id: "world-talk-new", group: "Actions", page: "Command" as const,
@@ -2519,6 +2604,26 @@ function App() {
             keywords: "dungeon board talk conversation dialogue dialog chat map pick click",
             run: () => setTalkOnPick(!talkOnPick),
           },
+          {
+            id: "board-browser-tools",
+            group: "App",
+            page: "Settings" as const,
+            label: browserTools
+              ? "Stop agents’ browser tools opening tabs in the Dungeon Board’s browser"
+              : "Let agents’ browser tools open tabs in the Dungeon Board’s browser",
+            keywords: "dungeon board browser host agent tool browser_new_tab automation paseo attach web page",
+            run: () => setBrowserTools(!browserTools),
+          },
+          {
+            id: "board-browser-follows",
+            group: "App",
+            page: "Settings" as const,
+            label: browserFollows
+              ? "Don’t show the board’s browser when the agent you’re talking to opens a tab"
+              : "Show the board’s browser when the agent you’re talking to opens a tab",
+            keywords: "dungeon board browser open tab automatically follow agent",
+            run: () => setBrowserFollows(!browserFollows),
+          },
         ]
       : []),
     ...(attention.notifications !== "unsupported" &&
@@ -2820,6 +2925,7 @@ function App() {
                   position={talkPosition}
                   archiveRequest={talkArchive}
                   onArchiveRequestTaken={() => setTalkArchive(null)}
+                  browser={{ open: browserShown, tabs: agentBrowser?.tabs.length ?? 0, toggle: toggleBrowser }}
                   onFreshDraft={(a, settings, conversation) => {
                     const target = freshTarget(a, settings);
                     select(null);
@@ -2838,6 +2944,18 @@ function App() {
                   })()}
                 />
                 </PeersContext.Provider>
+              </React.Suspense>
+            )}
+            {browserShown && agent && (
+              <React.Suspense fallback={null}>
+                <BoardBrowser
+                  agent={agent}
+                  name={agentName(agent, workspaceOf(agent)?.branch)}
+                  inset={talkInset}
+                  blocked={confirming}
+                  onClose={() => setBrowserOpen(false)}
+                  onNotice={setNotice}
+                />
               </React.Suspense>
             )}
             {worldDispatchShown && (

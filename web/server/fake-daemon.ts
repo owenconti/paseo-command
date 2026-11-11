@@ -195,6 +195,7 @@ export class FakeDaemon {
   down = false;
   /** The handshake's feature flags. */
   features: Record<string, boolean> = {
+    browserHost: true,
     agentForkContext: true,
     agentForkContextCursor: true,
     agentProfiles: true,
@@ -734,6 +735,45 @@ export class FakeDaemon {
     this.clients.add(c);
     return c;
   }
+  // ── Browser tools ────────────────────────────────────────────────────────
+  private browserPending = new Map<string, (payload: any) => void>();
+  /** The browser hosts registered now, oldest first. */
+  browserHosts() {
+    return [...this.clients].flatMap((c) =>
+      c.connected ? [...c.subs].filter((s) => s.kind === "browserHost" && s.subscriptionId && !s.released) : [],
+    );
+  }
+  /**
+   * An agent's browser tool call, as the daemon's broker sends it: to the host registered last,
+   * refused when there is none or it doesn't run the command. Resolves with the host's answer.
+   */
+  browserExecute(
+    command: { command: string; args?: Record<string, unknown> },
+    from: { agentId?: string; cwd?: string; workspaceId?: string } = {},
+  ): Promise<any> {
+    const requestId = `browser_${++ids}`;
+    const refuse = (code: string, message: string) =>
+      Promise.resolve({ requestId, ok: false, error: { code, message, retryable: code === "browser_no_host" } });
+    const host = this.browserHosts().at(-1);
+    if (!host) return refuse("browser_no_host", "No browser automation host is connected.");
+    if (!host.query.supportedCommands.includes(command.command))
+      return refuse("browser_unsupported", `Browser automation command "${command.command}" is not supported by the ${host.query.hostKind}.`);
+    return new Promise((resolve) => {
+      this.browserPending.set(requestId, resolve);
+      host.deliver({
+        type: "browser.automation.execute.request",
+        requestId,
+        ...from,
+        command: { command: command.command, args: command.args ?? {} },
+      });
+    });
+  }
+  browserAnswered(payload: any) {
+    const resolve = this.browserPending.get(payload?.requestId);
+    if (!resolve) return;
+    this.browserPending.delete(payload.requestId);
+    resolve(payload);
+  }
   /** Restart: every connection drops and the directory starts a new generation. */
   restart() {
     this.dropAll("daemon restarted");
@@ -1053,6 +1093,23 @@ export class FakeClient {
       () => this.daemon.directory(),
       "observeHosts",
     );
+  }
+  /** This client as a browser host: the daemon sends it agents' browser tool calls (server/browserHost.ts). */
+  registerBrowserHost(registration: { hostKind: string; supportedCommands: string[] }) {
+    return this.observe(
+      "browserHost",
+      registration,
+      () => {
+        if (!this.daemon.features.browserHost) throw new Error("Unknown request: browser.host.register.request");
+        return {};
+      },
+      "registerBrowserHost",
+    );
+  }
+  sendBrowserAutomationExecuteResponse(response: any) {
+    this.daemon.calls.push({ method: "sendBrowserAutomationExecuteResponse", args: [response], target: this.target });
+    if (!this.connected) throw new Error("Not connected");
+    this.daemon.browserAnswered(response?.payload);
   }
   observeEvents(events: string[]) {
     return this.observe(

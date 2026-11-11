@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { Bell, Bot, ChevronDown, FileCode2, Map as MapIcon, Plug, SquareTerminal, Volume2, X } from "lucide-react";
 import { MAP_STYLES, setMapStyle, useMapStyle } from "./mapStyle";
-import { setTalkOnPick, useTalkOnPick } from "./worldChat/settings";
+import { setBrowserFollows, setBrowserTools, setTalkOnPick, useBrowserFollows, useBrowserTools, useTalkOnPick } from "./worldChat/settings";
+import { useBoardBrowsers } from "./worldChat/browserBridge";
 import { ResizeEdge } from "./ResizeEdge";
 import { readStore, writeStore } from "./api";
 import { previewSound, setSoundSettings, useSoundSettings } from "./sounds";
@@ -85,15 +86,15 @@ export function SettingsPage({
   // Opening (the gear, ⌘,, the palette, Manage … key) puts the keyboard in the
   // page: on its section in the sidebar, or on the asked integration's key editor.
   useEffect(() => {
-    const terminal = request.target === "terminal";
-    if (terminal) setSection("terminal");
+    const terminal = request.target === "terminal" || request.target === "map" ? request.target : null;
+    if (terminal) setSection(terminal);
     else if (request.target) setSectionState("integrations");
     let tries = 0;
     let timer: ReturnType<typeof setTimeout>;
     // The page may still be appearing. (Timers, not animation frames: a hidden native window draws none.)
     const attempt = () => {
       const target = terminal
-        ? page.current?.querySelector<HTMLElement>('[data-section="terminal"]')
+        ? page.current?.querySelector<HTMLElement>(`[data-section="${terminal}"]`)
         : request.target
         ? page.current?.querySelector<HTMLElement>(
             `[data-integration="${request.target}"] input[type=password], [data-integration="${request.target}"] .api-key-actions button`,
@@ -258,6 +259,7 @@ export function SettingsPage({
             <SettingsGroup note={macApp() ? undefined : "The map is drawn by the macOS app; its style applies there."}>
               <MapStyleSetting />
               <TalkOnPickSetting />
+              <BoardBrowserSettings />
             </SettingsGroup>
           )}
           {shown.id === "terminal" && (
@@ -510,6 +512,44 @@ function TalkOnPickSetting() {
       checked={on}
       onChange={setTalkOnPick}
     />
+  );
+}
+
+/** The Dungeon Board's browser (src/worldChat/BoardBrowser.tsx): whether agents' own browser tools open and drive
+ * its tabs (the macOS app registers with each daemon as its browser while this is on), and whether it shows
+ * itself when the agent you are talking to opens one. */
+function BoardBrowserSettings() {
+  const tools = useBrowserTools();
+  const follows = useBrowserFollows();
+  const { hosting } = useBoardBrowsers();
+  const ready = hosting.hosts.filter((h) => h.state === "registered").length;
+  const refused = hosting.hosts.find((h) => h.state === "refused");
+  const state = !macApp()
+    ? "The browser is the macOS app’s."
+    : !tools
+      ? ""
+      : !hosting.connected
+        ? "Connecting to the daemons…"
+        : ready
+          ? `Live on ${ready} ${ready === 1 ? "host" : "hosts"}.${refused ? ` Another didn’t take it${refused.error ? `: ${refused.error}` : "."}` : ""}`
+          : refused
+            ? `The daemon didn’t take it${refused.error ? `: ${refused.error}` : "."}`
+            : "Waiting for the daemons…";
+  return (
+    <>
+      <SwitchRow
+        title="Agents’ browser tools open tabs here"
+        description={`Each robot on the Dungeon Board has a browser of its own (B in its dialogue box). With this on, Paseo’s browser tools (browser_new_tab, browser_snapshot, browser_click…) open and drive tabs in the calling agent’s browser, instead of the Paseo app’s. The daemon’s browser tools must be on. Its pages keep logins of their own, apart from Conquer’s; an agent on another host can’t open this Mac’s own addresses.${state ? ` ${state}` : ""}`}
+        checked={tools}
+        onChange={setBrowserTools}
+      />
+      <SwitchRow
+        title="Show the browser when its agent opens a tab"
+        description="While you talk to a robot on the board, a tab it opens shows above its dialogue box at once. Off, the box’s Browser button counts it."
+        checked={follows}
+        onChange={setBrowserFollows}
+      />
+    </>
   );
 }
 

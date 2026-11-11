@@ -24,3 +24,8 @@ test("new agents are told how to answer with a visual reply", async () => {
   for (const name of ["--background", "--foreground", "--chart-1", "--font-mono"])
     assert.ok(AGENT_SYSTEM_PROMPT.includes(name), name);
 });
+
+test("new agents are told that the browser tabs they open are shown to the user", () => {
+  assert.match(AGENT_SYSTEM_PROMPT, /<paseo_command_browser>[\s\S]*browser_new_tab[\s\S]*<\/paseo_command_browser>/);
+  assert.match(AGENT_SYSTEM_PROMPT, /Without those tools, give the user the address/);
+});

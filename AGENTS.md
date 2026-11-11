@@ -996,6 +996,78 @@ dialog's "Talking on the Dungeon Board" group lists them. `npm run native:mock -
 conversation for its state and its request in full, and takes the box's sends and answers (logged). Tests:
 `web/src/worldChat/script.test.ts`, `web/e2e/world-chat.e2e.ts`, `web/server/live/sessions.test.ts`, `DungeonSceneTests.swift`.
 
+### The robot's browser on the Dungeon Board
+
+Each robot has a browser of its own, tracked to its agent (host and daemon id): its tabs, shown over the board above its
+dialogue box (the user's ask: an integrated browser on the board, attached to the agent, which the agent can open tabs in).
+B, the box's Browser button (which counts its tabs), the board menu's Browser and ⌘K "Show …’s browser on the board" show
+or hide it (`world:browserOpen`, kept as the box steps robots and across launches); the whole conversation (H) takes its
+place while it shows. The page draws the panel (`web/src/worldChat/BoardBrowser.tsx`, `board-browser.css`: the dialogue's
+gold-framed navy panel, a tab strip with +, back / forward / reload or stop, an address field that takes `localhost:5173` or
+`example.com` (`BrowserPolicy.destination`: local names and addresses over http, the rest https; never a search), Open in
+Conquer, Fill the board (over the dialogue box too) and ×) and leaves a box (`.bb-view`) for the web page, which the macOS
+app draws: `native/Sources/PaseoCommandNative/BoardBrowser.swift` owns the web views, as `EditorOverlay` owns the Files
+editors' terminals. The page reports the box's frame and whose browser shows (`browser`, `postBrowserPlacement` in
+`web/src/worldChat/browserBridge.ts`; sent as it changes, on mutations and a 250 ms poll), `covered` while a dialog of the
+page's is open (⌘K: the web page steps aside), and `holes`: the page's own things lying over the box (the dialogue's
+choices, a hint, the board's menu), which `BrowserStage` cuts out of the web page with a layer mask and passes clicks
+through. What the strip and bar do goes as `browserDo` (open, navigate, back, forward, reload, stop, close, select, focus);
+the app answers on `paseo:browser`: every browser's tabs (`state`: id, address, title, loading, back, forward, a load's
+error), `opened` when an agent opened a tab, `refused` (an address it won't open) and `key`. The box shows its own words only
+while no page does: no tab yet (and how agents' tools stand), or a page that didn't load, with Try again. Tabs not on show
+keep their pages in `parking`, a transparent view under everything in the window, so they draw and can be read and
+photographed; the shown one is in `stage`, in the window's `content`. While a web page has the keyboard the app keeps the
+window's keys and takes ⌘R, ⌘[, ⌘], ⌘W (the tab) and ⌘L, ⌘T (told to the page, which owns the address field) in
+`BrowserStage.performKeyEquivalent`; ⌘K opens the page's palette (`AppWindow`, as for the terminals). Tabs (addresses and
+titles, at most 12 a robot, the 40 most recently used robots') come back on launch, unloaded, in the app's preferences
+(`boardBrowserState`; check runs keep none). Its pages have a cookie store of their own, apart from Conquer's and the app's:
+an agent never acts with the user's Conquer logins. Nothing is downloaded.
+Agents open and drive its tabs with Paseo's own browser tools, not a tool of this app's: the daemon gives agents
+`browser_new_tab`, `browser_list_tabs`, `browser_navigate`, `browser_snapshot`, `browser_click`, `browser_fill`,
+`browser_type`, `browser_keypress`, `browser_select`, `browser_hover`, `browser_drag`, `browser_scroll`, `browser_wait`,
+`browser_evaluate`, `browser_screenshot`, `browser_upload`, `browser_logs`, `browser_resize`, `browser_back|forward|reload`
+and `browser_close_tab` while its `browserTools.enabled` is on, and sends each call, with the calling agent's id and
+workspace, to a connected client registered as a browser host (the newest registered gets new tabs; the Paseo app is one).
+Settings → Map "Agents’ browser tools open tabs here" (`world:browserTools`, off by default, since on it takes those calls
+from the Paseo app's browser; ⌘K "Let / Stop agents’ browser tools…"; the page tells the app with `browserHost`) makes the
+app one: it holds a socket to its own server (`/api/browser-host`, `web/server/browserHost.ts`, same origin rules as the
+other sockets; one app socket at a time), and while that is open the server registers on every followed host's daemon
+(`registerBrowserHost` on each live feed's client, `attached` in `live/feed.ts`, again as a daemon reconnects), relays each
+`browser.automation.execute.request` to the app with its host key and the app's answer back to that daemon
+(`sendBrowserAutomationExecuteResponse`), and tells the app how each daemon answered (`hosts`: registered, refused), which
+Settings and the empty browser say. A browser tab of the page, or the setting off, registers nothing. The app runs the
+commands (`BoardBrowser.execute`, `BrowserAutomation.swift`): a tab an agent opens joins that agent's browser, in the
+background; a tab is its host's and workspace's only (another's id is "not found"). `BrowserScript` is the page script
+(installed in the page on first use, its element refs ending with the document): `snapshot` writes the page's
+accessibility outline as Paseo's own browser does (`- role "name" [attributes ref=@e12]`, text as `- text: "…"`, links'
+addresses beneath them; at most 1,500 nodes, 500 refs, 80,000 characters, then `truncated`), and the actions find a ref's
+element (a stale one is `browser_stale_ref`) and dispatch what a person's click, typing or key would: pointer and mouse
+events with the click itself (so links, buttons, checkboxes and forms do what they do), values set past a framework's own
+setter with `input` and `change`, keys with their codes and the defaults a page expects (Enter submits a field's form, Tab
+moves on, Backspace erases, ⌘A selects). They are synthetic events, not the system's: `:hover` styles and things a browser
+only lets a real gesture do won't follow. A screenshot is the page's own picture at one pixel a point (`fullPage`: the view
+as tall as the page for a moment, to 12,000 px); `browser_resize` sizes a tab's page while it isn't on show (shown, it has
+the box's size); a dialog a page raises while an agent's call runs is accepted for it and reported in the answer's
+`dialogs` (a tab on show that no agent is using asks the user in a sheet; otherwise a confirm or prompt is dismissed).
+Addresses (`BrowserPolicy`, checked before any load): only http and https. A tab of an agent on another host never loads
+this Mac's own addresses (localhost, `*.localhost`, 127.0.0.0/8 however written, ::1, 0.0.0.0): to that agent localhost is
+its own machine, and the Mac's local services (this app's unauthenticated API among them) aren't its to read. The tool is
+refused with why, a page that sends itself there is stopped, and its pages carry content rules (`loopbackRules`, a
+`WKContentRuleList`) that block frames, images, scripts and requests to them; such a tab is not made until those rules
+compile. `browser_upload` reads files only for this Mac's own agents (the paths are the agent's machine's).
+While you talk to a robot, a tab it opens shows at once (Settings → Map "Show the browser when its agent opens a tab",
+`world:browserFollows`, on by default; not over the whole conversation), else the Browser button counts it; another
+robot's is said in a notice, at most every 30 s a robot. New agents are told what a tab is for (`agentPrompt.ts`,
+`<paseo_command_browser>`). ⌘K (page Command, only while they apply): Show / Hide the browser (B), and, while it shows,
+Open a new tab, Type an address, Reload, Go back / forward, Close the tab, Make the browser fill the board, Open the page in
+Conquer (`board-browser-*` in `appCommands.ts`). Limits: with the Dev and the release app both hosting, the daemon knows
+them as one client (`clientId` "paseo-command") and sends calls to whichever registered last; a remote host's agent sees
+only what the user's Mac can reach. `--info`'s `browser` is its state; hooks `browser` (run `<info>.browser`'s relayed
+requests, answers to `<info>.browser.out`) and `browserfocus`; `native/scripts/fake-server.ts` serves `/__page` and takes
+`POST /__browser {command, args}` as an agent's call through its fake daemon. Tests: `web/server/browserHost.test.ts`
+(the fake daemon's `browserExecute`), `web/e2e/board-browser.e2e.ts`, `native/tests/BrowserAutomationTests.swift` (the
+policy, keys, and the page script on a page in a web view).
+
 ### The Village (removed)
 
 The Village map style was removed at the user's request: its world (`rendering/src/village/`), scene (`VillageScene.swift`),

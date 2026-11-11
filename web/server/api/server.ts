@@ -17,6 +17,7 @@ import { shuttingDown } from "./http";
 import { handleApi } from "./routes";
 import { handleUpgrade } from "./stream";
 import { startPrLabels, stopPrLabels } from "../prLabels";
+import { BROWSER_HOST, stopBrowserHost } from "../browserHost";
 
 type ApiServer = {
   close?: () => Promise<void>;
@@ -62,6 +63,7 @@ export function attachApiServer(server: ApiServer) {
         closeAdmission();
         stopPrLabels();
       }
+      stopBrowserHost();
       stopLive();
       unfollow();
       // Connections being made are abandoned and their waiters refused, so
@@ -80,11 +82,11 @@ export function attachApiServer(server: ApiServer) {
       () => releaseCleanup(server),
     );
   });
-  // The tab's WebSocket and the terminal relay share the server (Vite's own
+  // The tab's WebSocket, the terminal relay and the app's browser host share the server (Vite's own
   // HMR socket uses a different path and protocol).
   server.httpServer?.on?.("upgrade", (req, socket, head) => {
     const path = (req.url || "").split("?")[0];
-    if (path !== "/api/ws" && path !== "/api/terminal") return;
+    if (path !== "/api/ws" && path !== "/api/terminal" && path !== BROWSER_HOST.path) return;
     if (closing || admissionClosed()) {
       socket.write(
         "HTTP/1.1 503 Service Unavailable\r\nConnection: close\r\nContent-Length: 0\r\n\r\n",

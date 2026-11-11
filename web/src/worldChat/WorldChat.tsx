@@ -79,6 +79,8 @@ export type WorldChatProps = {
   archiveRequest?: { agentId: string; at: number } | null;
   /** The request was taken: it isn't asked again as the box reopens. */
   onArchiveRequestTaken?: () => void;
+  /** Its browser over the board (BoardBrowser.tsx): whether it shows, how many tabs it holds, and B's toggle. */
+  browser?: { open: boolean; tabs: number; toggle: () => void };
 };
 
 /** The box asks before archiving: the agent (or its workspace), or the agent and then a new one (/new). */
@@ -861,7 +863,7 @@ export function WorldChat(props: WorldChatProps) {
     }
     return sessionEscape.current?.() ?? false;
   };
-  const keyState = { confirm, cancelConfirm: () => setConfirmState(null), advance, go, page, pages: pages.length, typed, choicesShown: choicesShown && !log, choices, cursor, setCursor, entry, pick, onClose, blocked: props.blocked, log, setLog, position, showActions, closeLayer };
+  const keyState = { confirm, cancelConfirm: () => setConfirmState(null), advance, go, page, pages: pages.length, typed, choicesShown: choicesShown && !log, choices, cursor, setCursor, entry, pick, onClose, blocked: props.blocked, log, setLog, position, showActions, closeLayer, browser: props.browser };
   const live = useRef(keyState);
   live.current = keyState;
   useEffect(() => {
@@ -914,6 +916,10 @@ export function WorldChat(props: WorldChatProps) {
       } else if (key.toLowerCase() === "h" && !e.shiftKey) {
         take();
         s.setLog(!s.log);
+      } else if (key.toLowerCase() === "b" && !e.shiftKey && s.browser) {
+        // Its browser, over the board above the box.
+        take();
+        if (!e.repeat) s.browser.toggle();
       } else if (s.log) {
         // The log: Enter or R writes in its composer; the arrows and page keys scroll it.
         const view = logView();
@@ -1158,16 +1164,30 @@ export function WorldChat(props: WorldChatProps) {
       <Portrait provider={agent.provider} state={state} />
       <div className="wc-body">
         <div className="wc-head">
-          <button
-            type="button"
-            className="wc-log-toggle"
-            aria-expanded={log}
-            aria-label={log ? "Back to the dialogue box (H)" : "Show the whole conversation (H)"}
-            onClick={() => setLog(!log)}
-          >
-            <span>{log ? "Back" : "Conversation"}</span>
-            <kbd className="wc-key">H</kbd>
-          </button>
+          <div className="wc-head-tools">
+            {props.browser && (
+              <button
+                type="button"
+                className="wc-browser-toggle"
+                aria-pressed={props.browser.open}
+                aria-label={`${props.browser.open ? "Hide its browser" : "Show its browser"} (B)${props.browser.tabs ? `: ${props.browser.tabs} ${props.browser.tabs === 1 ? "tab" : "tabs"}` : ""}`}
+                onClick={props.browser.toggle}
+              >
+                <span>Browser{props.browser.tabs ? ` · ${props.browser.tabs}` : ""}</span>
+                <kbd className="wc-key">B</kbd>
+              </button>
+            )}
+            <button
+              type="button"
+              className="wc-log-toggle"
+              aria-expanded={log}
+              aria-label={log ? "Back to the dialogue box (H)" : "Show the whole conversation (H)"}
+              onClick={() => setLog(!log)}
+            >
+              <span>{log ? "Back" : "Conversation"}</span>
+              <kbd className="wc-key">H</kbd>
+            </button>
+          </div>
 
           <span className="wc-caption">
             {log

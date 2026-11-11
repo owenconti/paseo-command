@@ -7,6 +7,9 @@
  * (web/src/visual), which an agent only knows to write because this says so.
  * Where the host's daemon has the visual-replies plugin, the agent has an
  * html_render tool instead (server/visual.ts), and is told to prefer it.
+ * The browser: Paseo's own browser_* tools open tabs in the browser attached to
+ * the agent on the Dungeon Board while Settings → Map has them on
+ * (server/browserHost.ts); the agent is told what a tab it opens is for.
  */
 export const AGENT_SYSTEM_PROMPT = `<paseo_command_questions>
 The user reads your visible replies and a question card; they do not see your reasoning or thinking.
@@ -47,4 +50,12 @@ narrow as 360px).
   padding. Use fluid widths. A box that needs its own background gets 16px padding and var(--radius) corners.
   Give charts fixed pixel heights. Let content set the height: no vh units and no height:100% on html or body.
 - Links open in the user's browser. After the block, don't describe or restate the page; write only what it doesn't say.
-</paseo_command_visual_replies>`;
+</paseo_command_visual_replies>
+
+<paseo_command_browser>
+If you have browser tools (browser_new_tab, browser_navigate, browser_snapshot and the rest), the tabs you open are
+shown to the user: in Paseo Command, in a browser of your own beside your conversation. Open one when the user asks
+to see a web page (a dev server's preview, a pull request, documentation) and when checking your own web work, and
+say in a few words what you opened. Reuse a tab you already have (browser_list_tabs, browser_navigate) rather than
+opening another, and close tabs you no longer need. Without those tools, give the user the address instead.
+</paseo_command_browser>`;

@@ -15,6 +15,8 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
     let drawer: TerminalDrawer
     /// The Files page's editor terminals, over its viewer (Settings → Files → Open files in an editor).
     let editors: EditorOverlay
+    /// The browser attached to each agent on the Dungeon Board, over the board above its dialogue box (`BoardBrowser.swift`).
+    let boardBrowser: BoardBrowser
     /// Over the map and page, the window's (not the page's sibling): where Conquer, the Terminal tab and
     /// the Files page's editors go. It lets everything else through to the page.
     let content: NSView
@@ -116,6 +118,11 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         editors = EditorOverlay(font: drawer.font)
         // Over the page's viewer, under Conquer and the Terminal tab.
         content.addSubview(editors)
+        // An agent's browser, over the box the page draws for it on the board; its other tabs' pages
+        // wait under everything, drawn but unseen.
+        boardBrowser = BoardBrowser(persistent: options.info == nil)
+        content.addSubview(boardBrowser.stage, positioned: .below, relativeTo: editors)
+        root.addSubview(boardBrowser.parking)
         // Shown only with the Terminal tab (see `enterTerminalTab`).
         drawer.isHidden = true
         drawer.autoresizingMask = []
@@ -155,7 +162,9 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         (window as? AppWindow)?.conquerHasKeys = { [weak self] in self?.mode == .conquer && self?.conquer.hasKeyFocus == true }
         (window as? AppWindow)?.filesShows = { [weak self] in self?.mode == .files }
         (window as? AppWindow)?.pageRefreshes = { [weak self] in self?.pageRefreshes == true }
-        (window as? AppWindow)?.terminalHasKeys = { [weak self] in self?.editors.hasKeyFocus == true || self?.drawer.hasKeyFocus == true }
+        (window as? AppWindow)?.terminalHasKeys = { [weak self] in
+            self?.editors.hasKeyFocus == true || self?.drawer.hasKeyFocus == true || self?.boardBrowser.hasKeyFocus == true
+        }
         (window as? AppWindow)?.tabTerminalHasKeys = { [weak self] in self?.drawer.hasKeyFocus == true }
         (window as? AppWindow)?.onTogglePanel = { [weak self] in self?.pageCommand("toggle-panel") }
         (window as? AppWindow)?.onPalette = { [weak self] in
@@ -178,6 +187,10 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         editors.server = { [weak self] in self?.serverURL ?? options.url }
         editors.tell = { [weak self] in self?.send($0, as: "paseo:editor") }
         editors.runInPage = { [weak self] in self?.web.evaluateJavaScript($0, completionHandler: nil) }
+        boardBrowser.server = { [weak self] in self?.serverURL ?? options.url }
+        boardBrowser.tell = { [weak self] in self?.send($0, as: "paseo:browser") }
+        boardBrowser.pageView = web
+        boardBrowser.drawsWhileCovered = AtlasView.ignoreOcclusion
         modeBar.onSelect = { [weak self] mode in self?.show(mode) }
         modeBar.enabled = enabledModes
         modeBar.onAction = { [weak self] action, view in
@@ -315,6 +328,13 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         case "editorFocus": if mode == .files { editors.focus() }
         case "editorClose": if let request = EditorCloseRequest(body) { editors.close(request, window: window) }
         case "editorForget": editors.forget(body["terminals"] as? [String] ?? [])
+        case "browser":
+            // The Dungeon Board's browser: whose shows, and the box the page drew for it (or none).
+            boardBrowser.place(BrowserPlacement(body), commandShows: mode == .command)
+        case "browserDo": boardBrowser.perform(body)
+        // Settings → Map: agents' browser tools open and drive tabs here.
+        case "browserHost": boardBrowser.setHosting(body["enabled"] as? Bool ?? false)
+        case "browserState": boardBrowser.publish()
         case "terminalFont":
             // Settings → Terminal: it asks for the font, the line height and spacing and the installed
             // monospaced families, and sets them (`set`), for every terminal at once.
@@ -376,11 +396,12 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
             // The page unmounted its world (it is reloading or navigating).
             atlasView.isHidden = true
             atlasView.isPaused = true
+            boardBrowser.place(.nothing)
         default: break
         }
         if type != "detach", atlasView.isHidden, scene.hasArt { atlasView.isHidden = false; atlasView.govern() }
         if AtlasScene.debug { Log.line("\(type) \(body)") }
-        if type != "pointer" && type != "wheel" && type != "editor" { reportState() }
+        if type != "pointer" && type != "wheel" && type != "editor" && type != "browser" { reportState() }
     }
 
     // MARK: Splash
@@ -479,6 +500,7 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         if mode == .conquer { conquer.frame = mapInContent }
         placeTerminalTab()
         editors.place(nil, filesShows: mode == .files, web: web)
+        boardBrowser.place()
     }
 
     /// The mode bar's tabs start past the traffic lights, or at the edge in
@@ -869,6 +891,8 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         if next == .terminal { enterTerminalTab() }
         // A file's editor shows only with Files (the page says where once it draws it again).
         editors.place(nil, filesShows: next == .files, web: web)
+        // An agent's browser shows only over the map.
+        boardBrowser.place(commandShows: next == .command)
         sendMode()
         if next == .conquer {
             conquer.start()

@@ -57,6 +57,8 @@ export type FeedOptions = {
   };
   /** The feed went down: reads cached from before can't stand in for it. */
   dropped?: () => void;
+  /** Its client connected; what it returns runs when that client goes (server/browserHost.ts). */
+  attached?: (client: LiveClient) => (() => void) | void;
 };
 
 /** Bound a read without discarding its client (unlike `within`). */
@@ -235,6 +237,8 @@ export class Feed {
       const client = await this.options.connect();
       if (!current()) return;
       this.client = client;
+      const detach = this.options.attached?.(client);
+      if (detach) this.releases.push(detach);
       const down = (why: string) => {
         if (current()) this.down(new Error(why), epoch);
       };

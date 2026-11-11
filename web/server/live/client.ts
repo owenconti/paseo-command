@@ -131,6 +131,9 @@ export interface LiveClient {
     handler: (message: unknown) => void,
   ): TimelineSubscription;
   getLastServerInfoMessage?(): { serverId?: string } | null;
+  /** This app as a browser host for the daemon's `browser_*` agent tools (server/browserHost.ts). */
+  registerBrowserHost?(registration: { hostKind: string; supportedCommands: string[] }): Observation<unknown>;
+  sendBrowserAutomationExecuteResponse?(response: unknown): void;
   /** One agent's provider subagents (in-process, not daemon agents). */
   listProviderSubagents?(
     parentAgentId: string,

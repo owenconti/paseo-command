@@ -169,6 +169,13 @@ ignores them; such a copy keeps its page storage in memory, apart from the user'
 `/tmp/x.json` (with the Terminal tab's state); `.pan` drags the map for 10 s; `.resize` alternates
 the window size; `.reload` runs the palette’s Restart app command; `.terminal` is ⌃` (the Terminal tab, or back from it); `.terminaltab` shows the Terminal tab (`--info`'s `terminalPlace`: `map` while it shows, else `hidden`); `.split` splits the current pane with another tab; `.unsplit` returns to one pane; `.newterminal` opens a terminal; `.zoom` enlarges its text; `.type` types
 `/tmp/x.type` into its terminal; `.files` shows the Files tab and `.command` the map; `.quit`.
+The Dungeon Board's browser (`BoardBrowser.swift`; `--info`'s `browser`: each robot's tabs and where their pages are, the stage's
+frame and holes, hosting): `.browser` runs `/tmp/x.browser`'s requests (a JSON list, each as the server relays an agent's
+browser tool call: `{"host": "local", "request": {"requestId", "agentId", "workspaceId", "command": {"command", "args"}}}`) one
+after another and writes their answers to `/tmp/x.browser.out`; `.browserfocus` gives the shown page the keyboard. With
+`--ignore-occlusion` its pages draw while the window is covered, as the app's page does. The fake server serves a page at
+`/__page` and takes `POST /__browser {"command": "new_tab", "args": {"url": …}}` as an agent's call through its fake daemon
+(the app registers with it once the page has `world:browserTools` on).
 The map's watchdog (`--info`'s `map`: pause, rates, frames, revisions applied, recoveries; `page`: the page's side):
 `.stallview` and `.stallscene` pause the view or its scene behind the scheduler's back, `.stallvisible` takes the
 window for hidden as a missed notification would, `.stallcv` stops SpriteKit's CVDisplayLink and `.stalllink` leaves

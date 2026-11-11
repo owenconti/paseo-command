@@ -163,6 +163,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         listen("com.paseo.command.native.editorclose") { [weak self] in self?.main?.editors.answerClose(true) }
         listen("com.paseo.command.native.editorcancel") { [weak self] in self?.main?.editors.answerClose(false) }
         listen("com.paseo.command.native.editorfocus") { [weak self] in self?.main?.editors.focus() }
+        // The board's browser: run `<info>.browser`'s requests (a JSON list, each as the server relays an agent's
+        // browser tool call: `{host, request}`) one after another, writing their answers to `<info>.browser.out` (checks).
+        listen("com.paseo.command.native.browser") { [weak self] in
+            guard let self, let info = self.options.info, let browser = self.main?.boardBrowser else { return }
+            let base = (info as NSString).deletingPathExtension
+            guard let data = FileManager.default.contents(atPath: base + ".browser"),
+                  let list = (try? JSONSerialization.jsonObject(with: data)) as? [[String: Any]] else { return }
+            var answers: [[String: Any]] = []
+            func next(_ i: Int) {
+                guard i < list.count else {
+                    let out = (try? JSONSerialization.data(withJSONObject: answers, options: [.prettyPrinted, .sortedKeys])) ?? Data()
+                    try? out.write(to: URL(fileURLWithPath: base + ".browser.out"))
+                    return
+                }
+                guard let request = BrowserRequest(list[i]) else { answers.append(["error": "not a request"]); return next(i + 1) }
+                browser.execute(request) { answer in answers.append(answer); next(i + 1) }
+            }
+            next(0)
+        }
+        listen("com.paseo.command.native.browserfocus") { [weak self] in self?.main?.boardBrowser.focus() }
         // A key as the keyboard sends it, through the window (`<info>.key`: "cmd+w", "cmd+k", "esc"…; checks).
         listen("com.paseo.command.native.key") { [weak self] in
             guard let self, let info = self.options.info, let window = self.main?.window,
@@ -310,6 +330,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
             "map": main.atlasView.diagnostics, "page": main.pageWorld,
             "terminal": main.drawer.state(), "terminalPlace": main.terminalPlace(),
             "editor": main.editors.state(),
+            "browser": main.boardBrowser.state(),
             "splash": main.splash.showing,
         ]
         if let data = try? JSONSerialization.data(withJSONObject: info, options: [.prettyPrinted]) {
