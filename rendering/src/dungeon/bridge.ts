@@ -775,7 +775,7 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
           { ...dim, e: w.entity.id, shade: dim.dim ? 0.55 : INTERIOR_SHADE, ...(left && v === 1 && (seedOf(w.entity.id + "turn") & 3) !== 0 ? { flip: 1 } : {}) });
       }
       // Its frame, tagged with its workspace.
-      const frameOf = { ...dim, e: w.entity.id, hoverStone: 1 };
+      const frameOf = { ...dim, e: w.entity.id };
       // The upper interior falls into shadow; the baked candlelit floor and desks below keep their warmth.
       images.push({ ...image("shade:upper", () => paintShade("upper")), x: x + 20, y: y + 12, w: inner, h: (D.alcoveH - 22) * 0.55, z: -11.95, ...dim });
       put("alcove-left", x, y + 7, 24, D.alcoveH - 9, -11, frameOf);
@@ -783,8 +783,7 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
       fill("alcove-top", { x: x + 20, y, w: inner, h: 22 }, -10.9, frameOf);
       put("rampart-return-left", x - 2, y - 5, 45, 43, -10.8, frameOf);
       put("rampart-return-right", x + width - 43, y - 5, 45, 43, -10.8, frameOf);
-      // The ledge stays unlit on hover: lit, it reads as a border along the alcove's foot.
-      fill("alcove-ledge", { x: x + 20, y: y + D.alcoveH - 15, w: inner, h: 15 }, -10, { ...dim, e: w.entity.id });
+      fill("alcove-ledge", { x: x + 20, y: y + D.alcoveH - 15, w: inner, h: 15 }, -10, frameOf);
       // A short continuous occlusion strip right under the lintel.
       images.push({ ...image("shade:under", () => paintShade("under")), x: x + 20, y: y + 20, w: inner, h: 12, z: -11.9, ...dim });
       for (const c of w.candles) {

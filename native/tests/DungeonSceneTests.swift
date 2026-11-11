@@ -50,8 +50,8 @@ scene.setScene([
     "sprites": [
         ["f": "wall-brick", "x": -500.0, "y": 0.0, "w": 1000.0, "h": 800.0, "z": -50.0, "tile": "xy", "ox": 7.0, "oy": 3.0],
         ["f": "torch-0", "anim": ["torch-0", "torch-1"], "fps": 8.0, "x": 10.0, "y": 10.0, "w": 16.0, "h": 40.0, "z": -4.0],
-        ["f": "pillar", "x": 80.0, "y": 287.0, "w": 24.0, "h": 101.0, "z": -11.0, "e": "w1", "hoverStone": 1],
-        ["f": "border", "x": 100.0, "y": 280.0, "w": 220.0, "h": 22.0, "z": -10.9, "tile": "x", "e": "w1", "hoverStone": 1],
+        ["f": "pillar", "x": 80.0, "y": 287.0, "w": 24.0, "h": 101.0, "z": -11.0, "e": "w1"],
+        ["f": "border", "x": 100.0, "y": 280.0, "w": 220.0, "h": 22.0, "z": -10.9, "tile": "x", "e": "w1"],
     ],
     "images": [] as [[String: Any]],
     "flags": [["ws": "w1", "flag": "ci-green", "f": "pr-ci-green", "x": 100.0, "y": 300.0, "w": 18.0, "h": 18.0, "z": 5.0, "cx": 109.0, "cy": 309.0, "s": 18.0]],
@@ -139,19 +139,16 @@ assert(scene.state()["selected"] is NSNull)
 func findNode(_ n: SKNode, _ name: String) -> SKNode? { n.name == name ? n : n.children.lazy.compactMap { findNode($0, name) }.first }
 scene.pointer(phase: "move", at: screen(300, 360))
 assert(named(scene, "hover-threshold") == 0 && named(scene, "hover-capital") == 0, "workspace hover adds no metal rails")
-assert(named(scene, "hover-stone") > 1, "both single and tiled masonry light up")
-let stoneLight = findNode(scene, "hover-stone") as! SKSpriteNode
-let stone = stoneLight.parent as! SKSpriteNode
-assert(stoneLight.texture === stone.texture && stoneLight.size == stone.size && stoneLight.anchorPoint == stone.anchorPoint,
-       "hover follows the painted masonry exactly, including its transparency")
-assert(stoneLight.blendMode == .add && stoneLight.alpha < 0.25 && stoneLight.position == .zero,
-       "the stone gets a quiet lift in its own position")
-assert(glowCount(scene) == 0, "hovering a workspace never washes out its stone")
+assert(named(scene, "hover-candlelight") == 2, "a hovered alcove fills with candlelight")
+let candle = findNode(scene, "hover-candlelight") as! SKSpriteNode
+assert(candle.blendMode == .add && candle.zPosition > -12 && candle.zPosition < -11,
+       "the light lies over the bay's interior, behind its stone frame and ledge")
+assert(glowCount(scene) == 0, "hovering a workspace adds no silhouette glow")
 scene.select("w1")
 let wsThreshold = findNode(scene, "select-threshold") as! SKSpriteNode
 assert(wsThreshold.size.width == 226 && wsThreshold.position.y == -385)
 assert(named(scene, "hover-threshold") == 0, "selecting a hovered workspace removes its temporary cue")
-assert(named(scene, "hover-stone") == 0, "selection clears the masonry's hover light")
+assert(named(scene, "hover-candlelight") == 0, "selection clears the hover's candlelight")
 assert(named(scene, "select-glow") == 0, "architecture has no selection bloom")
 // A medallion on that same workspace can still hover, then return to the selected workspace.
 scene.pointer(phase: "move", at: screen(109, 309))
@@ -162,10 +159,10 @@ scene.select("p1")
 let projectThreshold = findNode(scene, "select-threshold") as! SKSpriteNode
 assert(projectThreshold.size.width == 194 && projectThreshold.position.y == -235)
 assert(named(scene, "select-sign-diamond") == 1)
-assert(named(scene, "hover-stone") > 1, "a different workspace can hover while the project stays selected")
+assert(named(scene, "hover-candlelight") == 2, "a different workspace can hover while the project stays selected")
 scene.pointer(phase: "leave", at: .zero)
 assert(named(scene, "hover-threshold") == 0 && named(scene, "select-threshold") == 1)
-assert(named(scene, "hover-stone") == 0, "leaving clears every masonry light")
+assert(named(scene, "hover-candlelight") == 0, "leaving puts the candles back")
 scene.select(nil)
 assert(named(scene, "select-threshold") == 0 && named(scene, "select-sign-diamond") == 0)
 

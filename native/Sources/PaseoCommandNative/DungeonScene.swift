@@ -81,7 +81,6 @@ final class DungeonScene: SKScene, MapScene {
     private struct Threshold { let x: CGFloat; let y: CGFloat; let width: CGFloat; let accents: [CGRect]; let badge: CGPoint? }
     private var thresholds: [String: Threshold] = [:]
     private var robotBodies: [String: SKSpriteNode] = [:]
-    private var workspaceStone: [String: [SKSpriteNode]] = [:]
     private var flagNodes: [String: SKSpriteNode] = [:]
     private var hoverGlows: [SKNode] = []
     private var selectionGlows: [SKNode] = []
@@ -195,13 +194,9 @@ final class DungeonScene: SKScene, MapScene {
         scenePulses = []
         sceneGlows = []
         flagNodes = [:]
-        workspaceStone = [:]
         for s in m["sprites"] as? [[String: Any]] ?? [] {
             if let node = node(s, anims: &sceneAnims, pulses: &scenePulses) {
                 board.addChild(node)
-                if num(s["hoverStone"]) > 0, let id = s["e"] as? String {
-                    workspaceStone[id, default: []].append(contentsOf: SpriteGlow.sprites(in: node))
-                }
             }
         }
         for s in m["images"] as? [[String: Any]] ?? [] {
@@ -730,24 +725,29 @@ final class DungeonScene: SKScene, MapScene {
         SpriteGlow.breathe(selectionGlows, clock: clock, reduced: reduced)
     }
 
-    /// Light the existing stone without adding rails or washing out the alcove's interior.
-    private func lightStone(_ id: String) -> [SKNode] {
-        (workspaceStone[id] ?? []).compactMap { stone in
-            guard let texture = stone.texture else { return nil }
-            let light = SKSpriteNode(texture: texture, size: stone.size)
-            light.name = "hover-stone"
-            light.anchorPoint = stone.anchorPoint
-            light.color = SpriteGlow.hoverColor
-            light.colorBlendFactor = 0.15
+    /// A hovered alcove's candles flare: warm light fills its bay, over the interior and behind its stone frame,
+    /// so the frame, ledge and robots stay as painted (no rails, rims or borders).
+    private func lightBay(_ id: String) -> [SKNode] {
+        guard let r = entities[id]?.rect else { return [] }
+        let pools: [(w: CGFloat, h: CGFloat, dy: CGFloat, color: Int, alpha: CGFloat)] = [
+            (1.1, 1.2, 0.1, 0xff9a40, 0.75),
+            (0.9, 0.5, 0.25, 0xffc070, 0.6),
+        ]
+        return pools.map { pool in
+            let light = SKSpriteNode(texture: DungeonScene.warmGlow, size: CGSize(width: r.width * pool.w, height: r.height * pool.h))
+            light.name = "hover-candlelight"
+            light.color = Textures.color(pool.color)
+            light.colorBlendFactor = 1
             light.blendMode = .add
-            light.alpha = 0.22
-            light.zPosition = 0.01
-            stone.addChild(light)
+            light.alpha = pool.alpha
+            light.position = p(r.midX, r.midY + r.height * pool.dy)
+            light.zPosition = -11.5
+            board.addChild(light)
             return light
         }
     }
 
-    /// Alcoves catch a little light on their masonry; robots keep a restrained silhouette cue.
+    /// Alcoves fill with candlelight; robots keep a restrained silhouette cue.
     private func drawHover() {
         hoverNode.removeAllChildren()
         for g in hoverGlows { g.removeFromParent() }
@@ -755,7 +755,7 @@ final class DungeonScene: SKScene, MapScene {
         // The selected one keeps its gold (unless a PR medallion on it is hovered).
         guard let id = hovered, entities[id] != nil, id != selected || hoveredFlag != nil else { return }
         if hoveredFlag == nil, entities[id]?.kind == "workspace" {
-            hoverGlows = lightStone(id)
+            hoverGlows = lightBay(id)
         } else if hoveredFlag == nil, thresholds[id] != nil {
             drawThreshold(id, selected: false, into: hoverNode)
         } else {

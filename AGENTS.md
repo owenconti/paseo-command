@@ -856,8 +856,8 @@ terrace floors, alcove sides, lintels and ledges. The page paints the host signs
 boxes; `DungeonScene.swift` draws, animates (the background holds still so the agents draw the eye, the user's call: the magic circle, alchemy tank, crystal and portcullis show one frame, light pools are steady (`still`), and flames alone flicker slowly between two frames at `FLAME_FLICKER` (1/3; 0 stills them) of their old pace; robots breathe slowly in idle poses, drones, state glows, markers and the glows' breath keep moving; ≈30 fps while something moves smoothly, the 15 fps drift rate when only flames and resting robots do, still with reduced motion), owns the camera (fit, bounded pan,
 wheel, pinch, arrows, F/Home), hover and selection (project hover and architectural selection use brass thresholds:
 `rendering/src/dungeon/thresholds.ts` sends their actual ledges, independently of pick boxes; `DungeonScene.swift` paints
-worn, bevelled metal with no bloom. Project hover gives the threshold and two capitals a quiet sheen. Workspace hover lights only the existing stone frame
-(single and tiled sprites tagged `hoverStone`), with no added rail or caps; the ledge below stays unlit (the user's call) and the interior dark. Selection sets inward
+worn, bevelled metal with no bloom. Project hover gives the threshold and two capitals a quiet sheen. Workspace hover fills the alcove's bay with
+candlelight (the user's choice among mockups): warm pools over its interior, behind its stone frame (`lightBay`), with no rail, caps or lit border. Selection sets inward
 chevrons and a centre diamond on the ledge, plus a small diamond on a project's sign. Project markers span the hall;
 workspace markers stay on their own step. They stay still and clear when the entity or hover goes. Robots and PR
 medallions keep their silhouette cues from `SpriteGlow.swift`, a restrained warm robot hover lift (45% of the shared glow),
