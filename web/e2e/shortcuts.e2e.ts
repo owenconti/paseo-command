@@ -28,7 +28,7 @@ test("the keyboard button opens the shortcuts, and Escape closes them", async ()
   await button.click();
   const dialog = page.getByRole("dialog", { name: "Keyboard shortcuts" });
   await dialog.waitFor();
-  for (const label of ["Next agent", "New agent", "Fit the whole map", "New line"])
+  for (const label of ["Next agent (Right in Command)", "New agent", "Fit the whole map", "New line"])
     await dialog.getByText(label, { exact: true }).waitFor();
   if (process.env.SHOT) await page.waitForTimeout(600), await page.screenshot({ path: process.env.SHOT });
   // D would start a new agent behind it; the dialog keeps it.
