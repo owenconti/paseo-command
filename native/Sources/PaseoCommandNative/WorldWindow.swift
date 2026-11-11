@@ -715,6 +715,11 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
 
     func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction,
                  decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
+        // A frame's inline document (a visual reply's page) is the page's own content, not a place to go.
+        if WebOrigin.inlineFrame(navigationAction.request.url,
+                                 mainFrame: navigationAction.targetFrame?.isMainFrame ?? true) {
+            return decisionHandler(.allow)
+        }
         // The app stays on its own origin (or shows our notice); other links open in the browser.
         let blank = navigationAction.request.url?.absoluteString == "about:blank"
         let notice = noticing && blank

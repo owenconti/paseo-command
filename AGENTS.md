@@ -673,6 +673,10 @@ and GitHub publication; report the published version and release link.
   read once and kept, Try again if the host can't answer; then the same `VisualBlock`, `prepared`, named by the call's title). A running
   or refused call stays an ordinary tool row. The Dungeon dialogue shows such a page in its Conversation log, not in the box.
   Tests: `server/visual.test.ts` (over the row a real daemon gave), `e2e/visual.e2e.ts`; the plugin's own in its repository.
+  In the macOS app the window's navigation policy (`WorldWindow.swift` `decidePolicyFor`) cancels everything off the app's origin, so it
+  allows a frame's inline document by name (`WebOrigin.inlineFrame`: `about:srcdoc`, never in the main frame; `WebOriginTests`): without
+  it the frame stays blank (0.31.0 shipped so; Chrome's tests can't see it). A page's frame going anywhere else is still cancelled there.
+  Check a page in a copy of the app (`--info`, `.eval`, `.windowshot`), not only in the browser tests.
 - Mentions in the chat link themselves (`web/src/autolink.ts`): in an agent's conversation (`Timeline` and the map dialogue provide `Autolinks` from
   `useAutolinks` in `web/src/autolinkStore.ts`), its replies (`Markdown.tsx` adds `remarkAutolink`, a remark step over text nodes) and
   your messages (`autolinkRuns`), but not tool output. Linear keys only of the Linear workspace's teams (`GET /api/linear/teams`, asked
