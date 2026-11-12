@@ -804,7 +804,9 @@
 }
 .msg-images > button:not(.md-image) > img {
   display: block;
-  max-width: min(180px, 100%);
+  /* A fixed cap: a percentage is ignored while the button shrink-wraps, which then grows to the image's
+     natural width around a smaller image. */
+  max-width: 180px;
   max-height: 140px;
   object-fit: cover;
 }
