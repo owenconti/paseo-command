@@ -3,7 +3,8 @@ import type { WorkSummary } from "./useWorkingOn";
 import { soundEvent } from "./soundCues";
 import { daemonAgentId } from "./agentIdentity";
 import { onOwnedAppCommand } from "./appCommands";
-import { macApp, postAppLink, postAppMenu, postAppReveal } from "./worldBridge";
+import { macApp, postAppMenu, postAppReveal } from "./worldBridge";
+import { openChatLink } from "./chatLinks";
 import { openFilesFile } from "./files/open";
 import { usePeers } from "./peers";
 import { robotColour, useRobotPortrait } from "./robotPortrait";
@@ -142,14 +143,15 @@ export function openFileLink(e: React.MouseEvent, workspace: Workspace | undefin
 }
 
 /** In the macOS app, web links clicked in the chat open as a Conquer tab, in the
- * map's place, rather than in the default browser. */
+ * map's place, rather than in the default browser; on the Dungeon Board, in the robot's
+ * browser while it shows (`chatLinks.ts`). */
 export function openInAppBrowser(e: React.MouseEvent) {
   if (!macApp() || e.button !== 0 || e.altKey) return;
   const link = (e.target as Element).closest?.("a[href]");
   if (!(link instanceof HTMLAnchorElement) || !/^https?:$/.test(link.protocol)) return;
   if (link.origin === window.location.origin) return;
   e.preventDefault();
-  postAppLink(link.href);
+  openChatLink(link.href, link);
 }
 
 export type SessionProps = {

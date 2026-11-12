@@ -13,6 +13,8 @@ import { openSettings } from "../settingsStore";
 import type { Agent } from "../types";
 import { postAppLink } from "../worldBridge";
 import { onAppCommand } from "../appCommands";
+import { parseAppLink } from "../appLinks";
+import { setBoardLinkOpener } from "../chatLinks";
 import {
   browserDo,
   browserKey,
@@ -29,6 +31,8 @@ import { uiFrame } from "./frame";
 import "./board-browser.css";
 
 export const BROWSER_ADDRESS = "board-browser-address";
+/** A Linear issue or project: the app opens it in Linear's desktop app (`LinearLink.swift`). */
+const LINEAR_LINK = /^https:\/\/linear\.app\/[^/]+\/(issue|project)\//i;
 /** The page's own layers that can lie over the web page: cut out of it, so they show and take their clicks. */
 const OVER = ".wc-choices, .board-menu, .tooltip.shown, .atlas-world-tip, .world-chat .popover-menu";
 /** Filling the board, the browser is over the dialogue box: its choices are behind it. */
@@ -54,6 +58,8 @@ export function BoardBrowser(props: {
   beside: boolean;
   /** A confirming dialog is open: the web page steps aside. */
   blocked: boolean;
+  /** The GitHub tab is on: a pull request's link clicked in the conversation still opens there. */
+  github: boolean;
   onClose: () => void;
   onNotice: (message: string) => void;
 }) {
@@ -152,6 +158,24 @@ export function BoardBrowser(props: {
         else if (event.type === "key") (event.action === "address" ? live.current.focusAddress : event.action === "new" ? live.current.newTab : live.current.close)();
       }),
     [onNotice],
+  );
+  // While it shows, web links clicked in the board's conversation open here, in the browser you are looking at
+  // (the user's call), not in Conquer: in a tab already at that address, else a blank tab on show, else a new tab.
+  // A pull request (the GitHub tab) and a Linear issue or project (Linear's app) keep the app's own places.
+  const linkState = useRef({ tabs, current, github: props.github, host, id, workspace });
+  linkState.current = { tabs, current, github: props.github, host, id, workspace };
+  useEffect(
+    () =>
+      setBoardLinkOpener((url) => {
+        const now = linkState.current;
+        if (!/^https?:\/\//i.test(url) || (now.github && parseAppLink(url)) || LINEAR_LINK.test(url)) return false;
+        const open = now.tabs.find((t) => t.url === url || t.url === `${url}/`);
+        if (open) browserDo("select", { tab: open.id });
+        else if (now.current && !now.current.url && !now.current.loading) browserDo("navigate", { tab: now.current.id, url });
+        else browserDo("open", { host: now.host, agent: now.id, workspace: now.workspace, url });
+        return true;
+      }),
+    [],
   );
   // ⇧⌘W hides the browser from anywhere in the page, a field included (the app sends it as `key` while a web
   // page has the keyboard; B does it too, outside fields).

@@ -1084,7 +1084,12 @@ refused with why, a page that sends itself there is stopped, and its pages carry
 compile. `browser_upload` reads files only for this Mac's own agents (the paths are the agent's machine's).
 While you talk to a robot, a tab it opens shows at once (Settings → Map "Show the browser when its agent opens a tab",
 `world:browserFollows`, on by default; beside the whole conversation where both fit, never over it), else the Browser button counts it; another
-robot's is said in a notice, at most every 30 s a robot. New agents are told what a tab is for (`agentPrompt.ts`,
+robot's is said in a notice, at most every 30 s a robot. While the browser shows, a web link clicked in the board's
+conversation (the dialogue box, the whole conversation, a visual reply's page) opens in it, not in Conquer (the user's
+call; `web/src/chatLinks.ts`: `openChatLink`, which `BoardBrowser` takes over with `setBoardLinkOpener` while mounted, for
+links inside `.world-chat` only): in a tab already at that address, else a blank tab on show, else a new tab. A pull
+request's link (the GitHub tab, while GitHub is on) and a Linear issue's or project's (Linear's app) keep the app's own
+places; hidden, links go to the app as before. New agents are told what a tab is for (`agentPrompt.ts`,
 `<paseo_command_browser>`). ⌘K (page Command, only while they apply): Show / Hide the browser (B; ⇧⌘W hides), and, while it shows,
 Open a new tab, Type an address, Reload, Go back / forward, Close the tab, Make the browser fill the board, Open the page in
 Conquer (`board-browser-*` in `appCommands.ts`). Limits: with the Dev and the release app both hosting, the daemon knows

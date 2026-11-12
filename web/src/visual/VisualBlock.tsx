@@ -19,7 +19,8 @@ import {
   removeDiagram,
   type MermaidAction,
 } from "../mermaidCommands";
-import { macApp, postAppLink } from "../worldBridge";
+import { macApp } from "../worldBridge";
+import { openChatLink } from "../chatLinks";
 import {
   VISUAL_LIMITS,
   VISUAL_TOKENS,
@@ -382,7 +383,7 @@ function PageFrame({
       if (height !== undefined) return setContent(height);
       const url = readLink(e.data);
       if (url !== undefined) {
-        if (macApp()) postAppLink(url);
+        if (macApp()) openChatLink(url, el);
         else window.open(url, "_blank", "noopener,noreferrer");
         return;
       }

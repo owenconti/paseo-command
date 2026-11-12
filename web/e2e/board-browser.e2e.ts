@@ -23,7 +23,7 @@ after(async () => {
 });
 
 type Sent = { type: string; [field: string]: any };
-async function open(store: Record<string, unknown> = {}): Promise<Page> {
+async function open(store: Record<string, unknown> = {}, reply = "The preview is up. Shall I open it, or carry on?"): Promise<Page> {
   const context = await newContext(browser);
   const page = await context.newPage();
   await page.emulateMedia({ reducedMotion: "reduce" });
@@ -54,7 +54,7 @@ async function open(store: Record<string, unknown> = {}): Promise<Page> {
       return detailOf(id, row?.status ?? "idle", {});
     },
     timeline: () => ({
-      items: [{ kind: "user", text: "Show me the preview", messageId: "u1" }, { kind: "assistant", text: "The preview is up. Shall I open it, or carry on?", messageId: "r1" }],
+      items: [{ kind: "user", text: "Show me the preview", messageId: "u1" }, { kind: "assistant", text: reply, messageId: "r1" }],
     }),
     accept: () => true,
     lists: {
@@ -433,5 +433,64 @@ test("Settings → Map: agents' browser tools open tabs here, told to the app, w
   await state(page, []);
   await view.getByRole("button", { name: "Open Settings" }).click();
   await waitFor(() => lastOf(page, "menu"), (m) => m?.action === "settings", "Settings asked for");
+  await page.context().close();
+});
+
+test("a web link clicked in the board's conversation opens in the robot's browser while it shows, else in Conquer", async () => {
+  const PREVIEW = "https://preview.example.test/admin/files";
+  const page = await open(
+    {},
+    `The preview is at [the admin files](${PREVIEW}). The pull request is https://github.com/acme/app/pull/42 and the issue https://linear.app/acme/issue/DE-7884/move-branch-operations.`,
+  );
+  await pick(page, "a-api-1");
+  const dialog = box(page);
+  await dialog.waitFor();
+  const link = (name: string | RegExp) => dialog.getByRole("link", { name }).first();
+  const dos = () => sent(page, "browserDo");
+  const links = async () => (await sent(page, "openLink")).map((m) => m.url as string);
+  // The browser hidden: the app's own place for links (a Conquer tab).
+  await link("the admin files").click();
+  await waitFor(links, (l) => l.length === 1, "the link sent to the app");
+  assert.deepEqual(await links(), [PREVIEW]);
+  assert.equal((await dos()).length, 0);
+  // The browser on show: the link opens there, in this robot's browser, and the app is asked nothing else.
+  await dialog.focus();
+  await page.keyboard.press("b");
+  await panel(page).waitFor();
+  await link("the admin files").click();
+  const opened = await waitFor(() => lastOf(page, "browserDo"), (m) => m?.action === "open", "opened in the browser");
+  assert.deepEqual({ host: opened!.host, agent: opened!.agent, url: opened!.url }, { host: "local", agent: "a-api-1", url: PREVIEW });
+  assert.deepEqual(await links(), [PREVIEW], "not sent to Conquer again");
+  // A tab already at that address is shown, not opened twice.
+  await state(page, [tab(TAB_A, "https://example.com/", "Example"), tab(TAB_B, PREVIEW, "Files")], { current: TAB_A });
+  await panel(page).getByRole("tab", { name: "Files" }).waitFor();
+  await link("the admin files").click();
+  await waitFor(() => lastOf(page, "browserDo"), (m) => m?.action === "select" && m.tab === TAB_B, "its tab shown");
+  // A blank tab on show takes the page.
+  await state(page, [tab(TAB_A, "", "")]);
+  await waitFor(() => panel(page).getByRole("tab").count(), (n) => n === 1, "one blank tab");
+  await link("the admin files").click();
+  await waitFor(() => lastOf(page, "browserDo"), (m) => m?.action === "navigate" && m.tab === TAB_A && m.url === PREVIEW, "the blank tab used");
+  // A pull request and a Linear issue keep the app's own places (the GitHub tab, Linear's app).
+  const before = (await dos()).length;
+  await link(/github\.com\/acme\/app\/pull\/42/).click();
+  await link(/linear\.app\/acme\/issue/).click();
+  await waitFor(links, (l) => l.length === 3, "both sent to the app");
+  assert.deepEqual((await links()).slice(1), ["https://github.com/acme/app/pull/42", "https://linear.app/acme/issue/DE-7884/move-branch-operations"]);
+  assert.equal((await dos()).length, before, "neither opened in the board's browser");
+  // In the whole conversation beside the browser, the same.
+  await page.setViewportSize({ width: 1700, height: 1000 });
+  await dialog.focus();
+  await page.keyboard.press("h");
+  await page.locator(".world-chat.log.beside").waitFor();
+  await state(page, [tab(TAB_A, "https://example.com/", "Example")]);
+  await dialog.locator(".wc-log").getByRole("link", { name: "the admin files" }).click();
+  await waitFor(() => lastOf(page, "browserDo"), (m) => m?.action === "open" && m.url === PREVIEW, "opened from the whole conversation");
+  assert.equal((await links()).length, 3);
+  // Hidden again (⇧⌘W), links go back to the app.
+  await page.keyboard.press("Meta+Shift+W");
+  await panel(page).waitFor({ state: "detached" });
+  await dialog.locator(".wc-log").getByRole("link", { name: "the admin files" }).click();
+  await waitFor(links, (l) => l.length === 4, "sent to the app again");
   await page.context().close();
 });

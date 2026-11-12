@@ -3010,6 +3010,7 @@ function App() {
                   inset={talkInset}
                   beside={browserBeside}
                   blocked={confirming}
+                  github={integrations.github}
                   onClose={() => setBrowserOpen(false)}
                   onNotice={setNotice}
                 />
