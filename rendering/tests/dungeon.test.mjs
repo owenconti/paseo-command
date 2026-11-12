@@ -71,13 +71,17 @@ function assertLegible(layout) {
   }
   for (const w of layout.workspaces) {
     // Its title on a plate in its lintel (the user's call), between its returns, clear of its medallions.
-    assert.ok(w.label.length > 0, `${w.entity.name}'s plate names it`);
-    const { plate } = w;
-    assert.ok(plate.x >= w.rect.x + D.plateReturn - 0.01 && plate.x + plate.w <= w.rect.x + w.rect.w - D.plateReturn + 0.01, `${w.entity.name}'s plate is between its returns`);
-    assert.ok(plate.y >= w.rect.y && plate.y + plate.h <= w.rect.y + 22, `${w.entity.name}'s plate is in its lintel`);
+    assert.ok(w.lines.length >= 1 && w.lines.length <= 2 && w.lines.every((l) => l.length > 0), `${w.entity.name}'s plate names it`);
+    const { plate, text } = w;
+    assert.ok(plate.x >= w.rect.x + D.plateEdge - 0.01 && plate.x + plate.w <= w.rect.x + w.rect.w - D.plateEdge + 0.01, `${w.entity.name}'s plate is inside its alcove`);
+    assert.ok(plate.y >= w.rect.y && plate.y + plate.h <= w.rect.y + D.plateY + D.plateH2, `${w.entity.name}'s plate is on its lintel`);
+    assert.equal(plate.h, w.lines.length > 1 ? D.plateH2 : D.plateH);
+    // Robots stand clear below it.
+    for (const a of layout.agents.filter((a) => w.agents.includes(a.entity.id))) assert.ok(plate.y + plate.h < a.rect.y, `${w.entity.name}'s plate clears its robots`);
     for (const f of w.flags) {
       assert.ok(f.x >= w.rect.x && f.x <= w.rect.x + w.rect.w && f.y >= w.rect.y && f.y <= w.rect.y + 30, "a PR medallion sits on its alcove's lintel");
-      assert.ok(f.x + f.size / 2 <= plate.x + 0.01 || f.x - f.size / 2 >= plate.x + plate.w - 0.01, `${w.entity.name}'s ${f.flag} keeps off its plate`);
+      // On the plate's ends, never over its title.
+      assert.ok(f.x + f.size / 2 <= text.x + 0.01 || f.x - f.size / 2 >= text.x + text.w - 0.01, `${w.entity.name}'s ${f.flag} keeps off its title`);
     }
   }
   // Decorations keep clear of everything the board says or shows, and of each other.
@@ -286,7 +290,7 @@ test("a project's name board: in capitals, as wide as its name needs, a long nam
   assertLegible(layout);
 });
 
-test("PR medallions: larger, on their alcove's lintel returns either side of its name plate, clear of each other", () => {
+test("PR medallions: larger, on the ends of their alcove's name plate, clear of each other", () => {
   for (const layout of [layoutDungeon(DUNGEON_SAMPLE, 1.4), layoutDungeon(big(2, 3, 4, 2), 1.4)]) {
     let seen = 0;
     for (const w of layout.workspaces) {
@@ -297,9 +301,9 @@ test("PR medallions: larger, on their alcove's lintel returns either side of its
       assert.equal(left, w.flags.length === 1 ? 0 : 1, `${w.entity.id}'s medallions split round its plate`);
       for (const f of w.flags) {
         assert.equal(f.size, D.flag);
-        assert.equal(f.y, w.rect.y + D.lintelY, "in the middle of the lintel's bricks");
-        // On its returns, within its alcove's gap from the next.
-        assert.ok(f.x - f.size / 2 >= w.rect.x - 2 && f.x + f.size / 2 <= w.rect.x + w.rect.w + D.alcoveGap / 2, `${w.entity.id}'s ${f.flag} is on its returns`);
+        assert.ok(f.y > w.plate.y && f.y < w.plate.y + D.plateH, "level with the plate's first line");
+        // Within its alcove's gap from the next.
+        assert.ok(f.x - f.size / 2 >= w.rect.x - 4 && f.x + f.size / 2 <= w.rect.x + w.rect.w + 4, `${w.entity.id}'s ${f.flag} is on its alcove`);
       }
       for (let i = 1; i < w.flags.length; i++) assert.ok(w.flags[i].x - w.flags[i - 1].x >= D.flag, "neighbours don't overlap");
     }
@@ -415,18 +419,30 @@ test("brass thresholds follow hall and workspace ledges, independently of projec
   }
 });
 
-test("a workspace's plate shows its title alone, cut short to fit", async () => {
-  const { workspaceTitle, workspacePlate, medallionPlaces } = await import("../src/dungeon/layout.ts");
+test("a workspace's plate shows its title alone, on two lines when it needs them, cut short to fit", async () => {
+  const { workspaceTitle, workspacePlate, plateLines } = await import("../src/dungeon/layout.ts");
   assert.equal(workspaceTitle("DE-8169 · Preview and publish one entry"), "Preview and publish one entry");
   assert.equal(workspaceTitle("ENG-12: Fix the login"), "Fix the login");
   assert.equal(workspaceTitle("feature/login-page"), "feature/login-page");
   assert.equal(workspaceTitle("DE-8169"), "DE-8169");
-  const { left, right } = medallionPlaces(2, 0, 216);
-  const long = workspacePlate("DE-1 · " + "A very long title ".repeat(6), left, right, 0, approxMeasure);
-  assert.ok(long.label.endsWith("…"));
-  assert.ok(long.plate.w <= right - left + 0.01);
-  const short = workspacePlate("Docs", left, right, 0, approxMeasure);
-  assert.equal(short.label, "Docs");
-  assert.ok(short.plate.w < long.plate.w);
-  assert.ok(Math.abs(short.plate.x + short.plate.w / 2 - 108) < 0.01, "centred between the returns");
+  // A one-agent alcove (216 wide) with two medallions.
+  const short = workspacePlate("Docs", 2, 0, 216, 0, approxMeasure);
+  assert.deepEqual(short.lines, ["Docs"]);
+  assert.equal(short.plate.h, D.plateH);
+  assert.ok(Math.abs(short.plate.x + short.plate.w / 2 - 108) < 0.01, "centred on its alcove");
+  assert.deepEqual(short.flagXs, [short.plate.x, short.plate.x + short.plate.w], "medallions on its ends");
+  const mid = workspacePlate("DE-8169 · Preview and publish one entry to the catalogue", 2, 0, 216, 0, approxMeasure);
+  assert.equal(mid.lines.length, 2);
+  assert.ok(!mid.lines.join(" ").includes("…"), `the whole title fits on two lines: ${mid.lines}`);
+  assert.equal(mid.lines.join(" "), "Preview and publish one entry to the catalogue");
+  assert.equal(mid.plate.h, D.plateH2);
+  assert.ok(mid.plate.w <= 216 - 2 * D.plateEdge + 0.01);
+  const long = workspacePlate("A very long title ".repeat(8), 3, 0, 216, 0, approxMeasure);
+  assert.equal(long.lines.length, 2);
+  assert.ok(long.lines[1].endsWith("…"));
+  for (const l of long.lines) assert.ok(approxMeasure(l, "workspace") <= long.text.w + 0.01);
+  // A word too long for a line breaks within it.
+  const word = plateLines("x".repeat(60), 100, approxMeasure);
+  assert.equal(word.length, 2);
+  assert.ok(approxMeasure(word[0], "workspace") <= 100);
 });

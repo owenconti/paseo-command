@@ -424,7 +424,7 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
   };
   /** A workspace's name plate, set into its alcove's lintel: the project board's wood without its chains (the board's
    * face and rails, 9-sliced small), the title painted on it in cream as the boards' names are; dull on an offline floor. */
-  const paintPlate = (r: Rect, label: string, online: boolean) => {
+  const paintPlate = (r: Rect, text: { x: number; w: number }, lines: string[], online: boolean) => {
     const { canvas, ctx } = canvasFor(r.w, r.h);
     const board = FRAMES["sign-board"]?.real ? "sign-board" : "plaque";
     const src = frame(board), spec = FRAMES[board]!;
@@ -443,16 +443,20 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
         if (sw > 0 && sh > 0 && tw > 0 && th > 0) ctx.drawImage(src, xs[col]!, ys[row]!, sw, sh, dx[col]!, dy[row]!, tw, th);
       }
     ctx.filter = "none";
-    const y = r.h / 2 + 0.7;
     ctx.font = fontOf("workspace");
     ctx.textBaseline = "middle";
     ctx.textAlign = "center";
-    ctx.fillStyle = "rgba(20, 8, 2, 0.75)";
-    ctx.fillText(label, r.w / 2 + 0.6, y + 0.8);
-    ctx.fillStyle = "rgba(255, 244, 214, 0.22)";
-    ctx.fillText(label, r.w / 2 - 0.4, y - 0.4);
-    ctx.fillStyle = online ? SIGN_PAINT : SIGN_PAINT_DULL;
-    ctx.fillText(label, r.w / 2, y);
+    // Centred in the room between the medallions on its ends, the lines about the plate's middle.
+    const cx = text.x - r.x + text.w / 2;
+    lines.forEach((line, i) => {
+      const y = r.h / 2 + 0.7 + (i - (lines.length - 1) / 2) * D.plateLine;
+      ctx.fillStyle = "rgba(20, 8, 2, 0.75)";
+      ctx.fillText(line, cx + 0.6, y + 0.8);
+      ctx.fillStyle = "rgba(255, 244, 214, 0.22)";
+      ctx.fillText(line, cx - 0.4, y - 0.4);
+      ctx.fillStyle = online ? SIGN_PAINT : SIGN_PAINT_DULL;
+      ctx.fillText(line, cx, y);
+    });
     return canvas;
   };
   /** A frame drawn with its anchor at (x, y), `w` wide (its height keeping its shape), as a top-left box. */
@@ -820,9 +824,9 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
       put("rampart-return-left", x - 2, y - 5, 45, 43, -10.8, frameOf);
       put("rampart-return-right", x + width - 43, y - 5, 45, 43, -10.8, frameOf);
       fill("alcove-ledge", { x: x + 20, y: y + D.alcoveH - 15, w: inner, h: 15 }, -10, frameOf);
-      // Its name plate on the lintel, between the returns (and its medallions), tagged with it so it glows with it.
+      // Its name plate across the lintel (its medallions on its ends), tagged with it so it glows with it.
       images.push({
-        ...image(`plate:${w.label}:${w.plate.w}:${online}`, () => paintPlate(w.plate, w.label, online)),
+        ...image(`plate:${w.lines.join("\n")}:${w.plate.w}x${w.plate.h}:${w.text.x - w.plate.x}:${online}`, () => paintPlate(w.plate, w.text, w.lines, online)),
         x: w.plate.x, y: w.plate.y, w: w.plate.w, h: w.plate.h, z: -10.7, ...frameOf,
       });
       // A short continuous occlusion strip right under the lintel.
