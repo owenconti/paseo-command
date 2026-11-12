@@ -83,6 +83,9 @@ const SIGN_ALERT = "#ff7a5c";
 const SIGN_K = 0.64;
 /** A project's name board's corners and chains, as a share of the sheet's (the host's sign's are `SIGN_K`). */
 const PROJECT_SIGN_K = 0.36;
+/** A workspace's name plate: the sign board cut below its chains (board units of the frame), its caps at this share. */
+const PLATE_CUT = 14;
+const PLATE_K = 0.3;
 const ALERT = "#b0301c";
 /** The vault's stained glass: its saturation (the sheet's own is 1), and how much light it gives the stone round it. */
 const VAULT_GLASS_SATURATION = 0.82;
@@ -411,6 +414,39 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
     ctx.textBaseline = "middle";
     ctx.textAlign = "center";
     // Paint on wood, as the host's sign: a dark inset, a faint highlight, the colour.
+    ctx.fillStyle = "rgba(20, 8, 2, 0.75)";
+    ctx.fillText(label, r.w / 2 + 0.6, y + 0.8);
+    ctx.fillStyle = "rgba(255, 244, 214, 0.22)";
+    ctx.fillText(label, r.w / 2 - 0.4, y - 0.4);
+    ctx.fillStyle = online ? SIGN_PAINT : SIGN_PAINT_DULL;
+    ctx.fillText(label, r.w / 2, y);
+    return canvas;
+  };
+  /** A workspace's name plate, set into its alcove's lintel: the project board's wood without its chains (the board's
+   * face and rails, 9-sliced small), the title painted on it in cream as the boards' names are; dull on an offline floor. */
+  const paintPlate = (r: Rect, label: string, online: boolean) => {
+    const { canvas, ctx } = canvasFor(r.w, r.h);
+    const board = FRAMES["sign-board"]?.real ? "sign-board" : "plaque";
+    const src = frame(board), spec = FRAMES[board]!;
+    const px = src.width / spec.w;
+    // The board below its chains (`PLATE_CUT` units down), its rails and iron straps as the caps.
+    const cut = board === "sign-board" ? PLATE_CUT : 0;
+    const ins = { left: 30, right: 30, top: 16, bottom: 15 };
+    const k = Math.min(PLATE_K, r.h / 2 / Math.max(ins.top, ins.bottom), r.w / 2 / ins.left);
+    const xs = [0, ins.left * px, src.width - ins.right * px, src.width];
+    const ys = [cut * px, (cut + ins.top) * px, src.height - ins.bottom * px, src.height];
+    const dx = [0, ins.left * k, r.w - ins.right * k, r.w], dy = [0, ins.top * k, r.h - ins.bottom * k, r.h];
+    if (!online) ctx.filter = "brightness(0.55) saturate(0.55)";
+    for (let row = 0; row < 3; row++)
+      for (let col = 0; col < 3; col++) {
+        const sw = xs[col + 1]! - xs[col]!, sh = ys[row + 1]! - ys[row]!, tw = dx[col + 1]! - dx[col]!, th = dy[row + 1]! - dy[row]!;
+        if (sw > 0 && sh > 0 && tw > 0 && th > 0) ctx.drawImage(src, xs[col]!, ys[row]!, sw, sh, dx[col]!, dy[row]!, tw, th);
+      }
+    ctx.filter = "none";
+    const y = r.h / 2 + 0.7;
+    ctx.font = fontOf("workspace");
+    ctx.textBaseline = "middle";
+    ctx.textAlign = "center";
     ctx.fillStyle = "rgba(20, 8, 2, 0.75)";
     ctx.fillText(label, r.w / 2 + 0.6, y + 0.8);
     ctx.fillStyle = "rgba(255, 244, 214, 0.22)";
@@ -784,6 +820,11 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
       put("rampart-return-left", x - 2, y - 5, 45, 43, -10.8, frameOf);
       put("rampart-return-right", x + width - 43, y - 5, 45, 43, -10.8, frameOf);
       fill("alcove-ledge", { x: x + 20, y: y + D.alcoveH - 15, w: inner, h: 15 }, -10, frameOf);
+      // Its name plate on the lintel, between the returns (and its medallions), tagged with it so it glows with it.
+      images.push({
+        ...image(`plate:${w.label}:${w.plate.w}:${online}`, () => paintPlate(w.plate, w.label, online)),
+        x: w.plate.x, y: w.plate.y, w: w.plate.w, h: w.plate.h, z: -10.7, ...frameOf,
+      });
       // A short continuous occlusion strip right under the lintel.
       images.push({ ...image("shade:under", () => paintShade("under")), x: x + 20, y: y + 20, w: inner, h: 12, z: -11.9, ...dim });
       for (const c of w.candles) {

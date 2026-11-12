@@ -123,8 +123,16 @@ export const D = {
   projectSignH: 32,
   projectSignMin: 64,
   projectSignPad: 15,
-  /** Type (board px): the host sign's painted name and stats line, and a project board's name (workspaces carry no labels). */
-  font: { host: 26, stats: 14.5, project: 11 },
+  /** A workspace's name plate, set into its alcove's lintel between the lintel's stone returns (the user's call): this
+   * far below the alcove's top, this tall, at least this wide, this much room either side of its name; the returns
+   * this wide (the plate and the medallions keep off them, or sit on them). */
+  plateY: 3,
+  plateH: 17,
+  plateMin: 48,
+  platePad: 11,
+  plateReturn: 43,
+  /** Type (board px): the host sign's painted name and stats line, a project board's name and a workspace's plate. */
+  font: { host: 26, stats: 14.5, project: 11, workspace: 10 },
   /** A PR medallion on an alcove's lintel (the user's call: larger, in a row centred on the lintel's bricks), and the
    * gap between neighbours in the row. */
   flag: 24,
@@ -203,6 +211,9 @@ export type DWorkspace = {
   candles: Pt[];
   flags: DFlag[];
   seal?: { x: number; y: number; size: number };
+  /** Its name plate on its lintel, and the name painted on it (the title alone, without a Linear key; cut short with "…"). */
+  plate: Rect;
+  label: string;
   /** Agents' keys, oldest first. */
   agents: string[];
 };
@@ -507,6 +518,34 @@ export function projectSign(name: string, hallX: number, hallW: number, y0: numb
   return { sign: { x: hallX + hallW / 2 - w / 2, y: y0 + D.projectSignY, w, h: D.projectSignH }, label };
 }
 
+/** Where an alcove's PR medallions sit on its lintel's stone returns (their centres), and the room left between them
+ * for its name plate: one on the right return; two one on each; three one on the left and a pair on the right. */
+export function medallionPlaces(n: number, x0: number, width: number): { xs: number[]; left: number; right: number } {
+  const ret = D.plateReturn, mid = ret / 2, pair = D.flag + D.flagGap;
+  const leftC = x0 + mid, rightC = x0 + width - mid;
+  const xs = n === 0 ? [] : n === 1 ? [rightC] : n === 2 ? [leftC, rightC] : [leftC, rightC - pair / 2 - 4, rightC + pair / 2 - 4];
+  // A pair reaches in past the right return's inner edge; the plate keeps clear of it.
+  const right = n >= 3 ? Math.min(x0 + width - ret, xs[1]! - D.flag / 2 - 3) : x0 + width - ret;
+  return { xs, left: x0 + ret, right };
+}
+
+/** A workspace's title alone: a Linear-linked name ("DE-8169 · Preview and publish…") loses its key (the user's call). */
+export function workspaceTitle(name: string): string {
+  const title = name.replace(/^[A-Z][A-Z0-9]*-\d+\s*[·:|–—-]\s*/, "").trim();
+  return title || name.trim();
+}
+
+/** A workspace's name plate, centred between `left` and `right` on its lintel: as wide as its title needs (cut short
+ * with "…" to fit). */
+export function workspacePlate(name: string, left: number, right: number, alcoveTop: number, measure: Measure): { plate: Rect; label: string } {
+  const max = Math.max(D.plateMin, right - left);
+  const room = max - 2 * D.platePad;
+  let label = workspaceTitle(name);
+  while (label.length > 1 && measure(label, "workspace") > room) label = label.slice(0, -2).trimEnd() + "…";
+  const w = Math.round(Math.min(max, Math.max(D.plateMin, measure(label, "workspace") + 2 * D.platePad)));
+  return { plate: { x: (left + right) / 2 - w / 2, y: alcoveTop + D.plateY, w, h: D.plateH }, label };
+}
+
 /** A side room's recess, in board units. */
 const ROOM = { w: 130, h: 200 };
 
@@ -690,21 +729,17 @@ export function layoutDungeon(data: AtlasData, _aspect = 1.6, measure: Measure =
               ...(c.probe ? { probe: c.probe } : {}),
               ...(c.autoMerge ? { autoMerge: true } : {}),
             };
-            // The medallions in one row centred on the lintel's bricks: CI, review, then Probe's verdict.
+            // The medallions on the lintel's stone returns, either side of its name plate (CI, review, then Probe's
+            // verdict): one on the right; two one each side; three the first on the left, the other two on the right.
             const flagY = y0 + D.alcoveY + D.lintelY;
             const kinds = [
               ...(c.flags?.ci ? [{ flag: c.flags.ci, frame: `pr-${c.flags.ci}` }] : []),
               ...(c.flags?.review ? [{ flag: c.flags.review, frame: `pr-${c.flags.review}` }] : []),
               ...(c.probe ? [{ flag: "probe", frame: `probe-${c.probe.state}` }] : []),
             ];
-            const rowW = kinds.length * D.flag + Math.max(0, kinds.length - 1) * D.flagGap;
-            const flags: DFlag[] = kinds.map((k, i) => ({
-              workspace: c.key,
-              ...k,
-              x: cx - rowW / 2 + D.flag / 2 + i * (D.flag + D.flagGap),
-              y: flagY,
-              size: D.flag,
-            }));
+            const placed = medallionPlaces(kinds.length, x0, a.width);
+            const flags: DFlag[] = kinds.map((k, i) => ({ workspace: c.key, ...k, x: placed.xs[i]!, y: flagY, size: D.flag }));
+            const named = workspacePlate(c.name, placed.left, placed.right, y0 + D.alcoveY, measure);
             const sealOn = c.autoMerge ? (flags.find((fl) => fl.flag === c.flags?.review) ?? flags.find((fl) => fl.flag === c.flags?.ci)) : undefined;
             const rng = random(seedOf(c.key + "alcove"));
             workspaces.push({
@@ -720,6 +755,7 @@ export function layoutDungeon(data: AtlasData, _aspect = 1.6, measure: Measure =
               ],
               flags,
               ...(sealOn ? { seal: { x: sealOn.x + D.flag * 0.39, y: sealOn.y - D.flag * 0.39, size: Math.round(D.flag * 0.55) } } : {}),
+              ...named,
               agents: c.agents,
             });
             const n = c.agents.length;
