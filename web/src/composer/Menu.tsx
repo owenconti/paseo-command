@@ -81,6 +81,13 @@ export function Menu({
       className={`popover-menu ${align}`}
       role={role}
       aria-label={label}
+      // WebKit (the macOS app) doesn't focus a clicked button: pressing one would move focus to the nearest
+      // focusable ancestor (the board's dialogue), which closes the menu before the click lands. Keep focus where it
+      // is, except for the menu's own fields.
+      onMouseDown={(e) => {
+        if (!(e.target as HTMLElement).closest("input, textarea, select"))
+          e.preventDefault();
+      }}
       onKeyDown={(e) => {
         // Inputs (the GitHub search) use the arrows for their own list.
         if (role !== "menu" || (e.target as HTMLElement).tagName === "INPUT")
