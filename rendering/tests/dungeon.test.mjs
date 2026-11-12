@@ -63,7 +63,7 @@ function assertLegible(layout) {
     assert.ok(sign.x >= hall.x + D.hallPier && sign.x + sign.w <= hall.x + hall.w - D.hallPier, `${p.name}'s board is between its piers`);
     assert.ok(sign.y >= hall.y && sign.y <= hall.y + D.lintelH, `${p.name}'s board hangs from its lintel`);
     assert.ok(Math.abs(sign.x + sign.w / 2 - (hall.x + hall.w / 2)) < 0.5, `${p.name}'s board is centred on its hall`);
-    for (const w of layout.workspaces.filter((w) => w.project === p.key)) {
+    for (const w of layout.workspaces.filter((w) => w.project === p.key && w.part === p.part)) {
       assert.ok(sign.y + sign.h <= w.rect.y + 0.01, `${p.name}'s board stays above ${w.entity.name}'s alcove`);
       for (const f of w.flags) assert.ok(sign.y + sign.h < f.y - f.size / 2, `${p.name}'s board clears ${w.entity.name}'s medallions`);
     }
@@ -315,8 +315,10 @@ test("each project's hall encloses its alcove row (1 to 8 alcoves), clear of its
   for (let n = 1; n <= 8; n++) {
     const layout = layoutDungeon(big(1, 3, n, 2), 1.4);
     for (const p of layout.projects) {
-      const own = layout.workspaces.filter((w) => w.project === p.key);
-      assert.equal(own.length, n);
+      const own = layout.workspaces.filter((w) => w.project === p.key && w.part === p.part);
+      // All its alcoves, across its halls.
+      assert.equal(layout.workspaces.filter((w) => w.project === p.key).length, n);
+      assert.ok(own.length >= 1);
       for (const w of own) {
         // Inside its hall, between its piers, below its lintel, above its floor strip.
         assert.ok(w.rect.x >= p.hall.x + D.hallPier - 0.01 && w.rect.x + w.rect.w <= p.hall.x + p.hall.w - D.hallPier + 0.01, `${n}: ${w.entity.name} between ${p.name}'s piers`);
@@ -400,11 +402,12 @@ test("brass thresholds follow hall and workspace ledges, independently of projec
     const thresholds = dungeonThresholds(l);
     assert.equal(thresholds.length, l.projects.filter((p) => p.entity).length + l.workspaces.length);
     for (const p of l.projects.filter((p) => p.entity)) {
-      const t = thresholds.find((t) => t.id === p.entity.id);
+      // One for each of its halls.
+      const t = thresholds.find((t) => t.id === p.entity.id && t.x === p.hall.x + 7);
       assert.equal(t.y, p.hall.y + p.hall.h - 5);
       assert.equal(t.w, p.hall.w - 14);
       assert.ok(t.badge.x > p.sign.x && t.badge.x < p.sign.x + D.projectSignPad);
-      for (const w of l.workspaces.filter((w) => w.project === p.key)) {
+      for (const w of l.workspaces.filter((w) => w.project === p.key && w.part === p.part)) {
         const a = thresholds.find((t) => t.id === w.entity.id);
         assert.ok(a.x > t.x && a.x + a.w < t.x + t.w, "each alcove fits inside its project's marker");
         assert.ok(a.y < t.y, "workspace and project thresholds occupy different ledges");
@@ -445,4 +448,37 @@ test("a workspace's plate shows its title alone, on two lines when it needs them
   const word = plateLines("x".repeat(60), 100, approxMeasure);
   assert.equal(word.length, 2);
   assert.ok(approxMeasure(word[0], "workspace") <= 100);
+});
+
+test("a long project continues in another hall, and each floor's halls go to its lighter side", () => {
+  // The user's board: one host with a seven-alcove project and two small ones, two hosts with one small project each.
+  const data = { hosts: [], projects: [], workspaces: [], agents: [] };
+  const plan = [["local", [["diagonal", [1, 1, 1, 1, 1, 1, 2]], ["stack", [1]], ["paseo", [1]]]], ["lab", [["diagonal", [1, 1]]]], ["mini", [["diagonal", [1]]]]];
+  for (const [h, projects] of plan) {
+    data.hosts.push({ key: h, name: h, online: true, local: h === "local" });
+    for (const [p, ws] of projects) {
+      const pk = `${h}:${p}`;
+      data.projects.push({ key: pk, host: h, name: p });
+      ws.forEach((n, i) => {
+        const wk = `${pk}:w${i}`;
+        data.workspaces.push({ key: wk, host: h, project: pk, name: `workspace ${i}`, labels: [] });
+        for (let a = 0; a < n; a++) data.agents.push({ key: `${wk}:a${a}`, host: h, project: pk, workspace: wk, name: "a", model: "claude/x", state: "idle" });
+      });
+    }
+  }
+  const layout = layoutDungeon(data, 1.6);
+  const long = layout.projects.filter((p) => p.key === "local:diagonal");
+  assert.ok(long.length >= 2, "the seven alcoves don't stand in one row");
+  assert.deepEqual(long.map((p) => p.part), long.map((_, i) => i));
+  // Its alcoves, oldest first across its halls, all there once.
+  assert.equal(layout.workspaces.filter((w) => w.project === "local:diagonal").length, 7);
+  // Every hall names its project and is it for picks; the project counts once.
+  for (const p of long) assert.equal(p.entity.id, "local:diagonal");
+  assert.equal(layout.entities.filter((e) => e.id === "local:diagonal").length, 1);
+  // The first floor isn't lopsided: each side carries something, and neither is more than twice the other.
+  const local = layout.projects.filter((p) => p.floor === 0);
+  const width = (s) => Math.max(0, ...local.filter((p) => p.side === s).map((p) => Math.abs(p.side === -1 ? p.hall.x : p.hall.x + p.hall.w)));
+  const [l, r] = [width(-1), width(1)];
+  assert.ok(l > 0 && r > 0 && Math.max(l, r) <= 2 * Math.min(l, r), `balanced sides: ${l} and ${r}`);
+  assertLegible(layout);
 });

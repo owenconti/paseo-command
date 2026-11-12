@@ -79,7 +79,8 @@ final class DungeonScene: SKScene, MapScene {
     private var hoverColors: [String: Int] = ["project": 0xffc83d, "workspace": 0xff7f32, "agent": 0x4fe6dc]
     /// Brass details follow the real ledges; project pick boxes sit above their halls.
     private struct Threshold { let x: CGFloat; let y: CGFloat; let width: CGFloat; let accents: [CGRect]; let badge: CGPoint? }
-    private var thresholds: [String: Threshold] = [:]
+    /// A project with several halls (a long one continued) has one for each.
+    private var thresholds: [String: [Threshold]] = [:]
     private var robotBodies: [String: SKSpriteNode] = [:]
     private var flagNodes: [String: SKSpriteNode] = [:]
     private var hoverGlows: [SKNode] = []
@@ -90,7 +91,14 @@ final class DungeonScene: SKScene, MapScene {
 
     // MARK: Picking
 
-    private struct Entity { let id: String; let kind: String; let rect: CGRect }
+    /// Its pick boxes (a project has one for each of its halls); `rect` is the first, where its camera and card go
+    /// unless the pointer is over another.
+    private struct Entity {
+        let id: String; let kind: String; let rects: [CGRect]
+        var rect: CGRect { rects[0] }
+    }
+    /// The world point last hovered, so a card points at the hall under the pointer.
+    private var hoverPoint: CGPoint?
     private var entities: [String: Entity] = [:]
     private var pickOrder: [Entity] = []
     private struct Flag { let workspace: String; let flag: String; let center: CGPoint; let radius: CGFloat }
@@ -217,14 +225,16 @@ final class DungeonScene: SKScene, MapScene {
         entities = [:]
         for e in m["entities"] as? [[String: Any]] ?? [] {
             guard let id = e["id"] as? String, let kind = e["kind"] as? String else { continue }
-            entities[id] = Entity(id: id, kind: kind, rect: CGRect(x: num(e["x"]), y: num(e["y"]), width: num(e["w"]), height: num(e["h"])))
+            let rect = CGRect(x: num(e["x"]), y: num(e["y"]), width: num(e["w"]), height: num(e["h"]))
+            // A project's further halls add their pick boxes to it.
+            if let had = entities[id] { entities[id] = Entity(id: id, kind: kind, rects: had.rects + [rect]) } else { entities[id] = Entity(id: id, kind: kind, rects: [rect]) }
         }
         thresholds = [:]
         for t in m["thresholds"] as? [[String: Any]] ?? [] {
             guard let id = t["id"] as? String, num(t["w"]) > 0 else { continue }
             let accents = (t["accents"] as? [[String: Any]] ?? []).map { CGRect(x: num($0["x"]), y: num($0["y"]), width: num($0["w"]), height: num($0["h"])) }
             let badge = (t["badge"] as? [String: Any]).map { CGPoint(x: num($0["x"]), y: num($0["y"])) }
-            thresholds[id] = Threshold(x: num(t["x"]), y: num(t["y"]), width: num(t["w"]), accents: accents, badge: badge)
+            thresholds[id, default: []].append(Threshold(x: num(t["x"]), y: num(t["y"]), width: num(t["w"]), accents: accents, badge: badge))
         }
         // Robots before their alcoves, alcoves before their projects.
         let rank = ["agent": 0, "workspace": 1, "project": 2]
@@ -686,7 +696,10 @@ final class DungeonScene: SKScene, MapScene {
     }
 
     private func drawThreshold(_ id: String, selected: Bool, into layer: SKNode) {
-        guard let t = thresholds[id] else { return }
+        for t in thresholds[id] ?? [] { drawThreshold(t, selected: selected, into: layer) }
+    }
+
+    private func drawThreshold(_ t: Threshold, selected: Bool, into layer: SKNode) {
         let height: CGFloat = selected ? 7 : 2.5
         let strip = SKSpriteNode(texture: DungeonBrass.texture(width: t.width, height: height, selected: selected))
         strip.name = selected ? "select-threshold" : "hover-threshold"
@@ -781,12 +794,13 @@ final class DungeonScene: SKScene, MapScene {
         var message: [String: Any] = ["type": "hover", "id": hovered as Any? ?? NSNull()]
         if let flag = hoveredFlag { message["flag"] = flag.flag }
         if let id = hovered, let e = entities[id] {
-            let top = hoveredFlag.map { CGPoint(x: $0.center.x, y: $0.center.y - $0.radius) } ?? CGPoint(x: e.rect.midX, y: e.rect.minY)
+            let r = hoverPoint.flatMap { w in e.rects.first { $0.contains(w) } } ?? e.rect
+            let top = hoveredFlag.map { CGPoint(x: $0.center.x, y: $0.center.y - $0.radius) } ?? CGPoint(x: r.midX, y: r.minY)
             let v = viewSize
             message["x"] = (top.x - (center.x - v.width / 2 / zoom)) * zoom
             message["y"] = (top.y - (center.y - v.height / 2 / zoom)) * zoom
             // Its bottom edge too, so a card with no room above can sit beneath it instead.
-            let bottom = hoveredFlag.map { $0.center.y + $0.radius } ?? e.rect.maxY
+            let bottom = hoveredFlag.map { $0.center.y + $0.radius } ?? r.maxY
             message["bottom"] = (bottom - (center.y - v.height / 2 / zoom)) * zoom
         }
         let key = hovered ?? ""
@@ -1070,6 +1084,7 @@ final class DungeonScene: SKScene, MapScene {
     }
 
     private func hover(at point: CGPoint) {
+        hoverPoint = worldPoint(point)
         if let flag = flagAt(point) { setHover(flag.workspace, flag: flag) } else { setHover(entityAt(point)) }
     }
 
@@ -1080,7 +1095,7 @@ final class DungeonScene: SKScene, MapScene {
 
     private func entityAt(_ point: CGPoint) -> String? {
         let w = worldPoint(point)
-        return pickOrder.first { $0.rect.contains(w) }?.id
+        return pickOrder.first { $0.rects.contains { $0.contains(w) } }?.id
     }
 
     func wheel(at point: CGPoint, dy: CGFloat) { zoom(at: point, by: exp(-dy * 0.001)) }

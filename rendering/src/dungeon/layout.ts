@@ -180,6 +180,9 @@ export type DProject = {
   key: string;
   host: string;
   entity?: Entity;
+  /** A long project's alcoves continue in further halls (the user's call: no one row sets the board's width); this
+   * hall's place among them, 0 the first. Every hall carries its name and is its project for picks and selection. */
+  part: number;
   name: string;
   side: -1 | 1;
   tier: number;
@@ -221,6 +224,8 @@ export type DWorkspace = {
   lines: string[];
   /** Agents' keys, oldest first. */
   agents: string[];
+  /** Which of its project's halls it stands in (`DProject.part`). */
+  part: number;
 };
 export type DAgent = {
   entity: Entity;
@@ -387,10 +392,13 @@ type Block = {
   starts: number[];
   /** The hall's width round the alcoves, from the inner edge (piers included). */
   hallW: number;
+  /** Its place among its project's halls. */
+  part: number;
 };
 
 
-function block(group: ReturnType<typeof hostGroups>[number], side: -1 | 1, measure: Measure): Block {
+type Group = ReturnType<typeof hostGroups>[number];
+function block(group: Group, side: -1 | 1, measure: Measure, part = 0): Block {
   const alcoves = group.cottages.map((cottage): Alcove => {
     const slots = Math.max(D.minSlots, cottage.agents.length);
     const width = 2 * D.alcoveEnd + slots * D.slot;
@@ -412,13 +420,41 @@ function block(group: ReturnType<typeof hostGroups>[number], side: -1 | 1, measu
   const torchRoom = 8;
   const labelC = Math.max(end / 2, D.drop - D.inner + 34 + labelW / 2, labelW / 2 + torchRoom);
   const width = Math.max(end, labelC + labelW / 2 + torchRoom);
-  return { key: group.key, project: group.project, alcoves: outward, width, labelW, labelC, starts, hallW: end };
+  return { key: group.key, project: group.project, alcoves: outward, width, labelW, labelC, starts, hallW: end, part };
+}
+
+/** A project's halls at a capacity: its alcoves, oldest first, in as few halls as fit it (one alcove at least each). */
+function halls(group: Group, capacity: number, measure: Measure): Group[] {
+  const parts: Group[] = [];
+  let current: Cottage[] = [];
+  for (const c of group.cottages) {
+    if (current.length && block({ ...group, cottages: [...current, c] }, 1, measure).width > capacity) {
+      parts.push({ ...group, cottages: current });
+      current = [];
+    }
+    current.push(c);
+  }
+  if (current.length || !parts.length) parts.push({ ...group, cottages: current });
+  return parts;
+}
+
+/** A floor's halls at a capacity, each on the side with less on it so far (the left on a tie), so neither side runs
+ * long while the other stays bare. */
+function floorBlocks(groups: Group[], capacity: number, measure: Measure): (Block & { side: -1 | 1 })[] {
+  const load = { [-1]: 0, [1]: 0 } as Record<-1 | 1, number>;
+  return groups.flatMap((g) =>
+    halls(g, capacity, measure).map((part, i) => {
+      const width = block(part, 1, measure).width;
+      const side: -1 | 1 = load[-1] <= load[1] ? -1 : 1;
+      load[side] += width + D.projectGap;
+      return { ...block(part, side, measure, i), side };
+    }),
+  );
 }
 
 type Tiered = { left: Block[][]; right: Block[][]; tiers: number; side: number; sideL: number; sideR: number };
-function tierUp(blocks: Block[], capacity: number): Tiered {
-  const sides: [Block[], Block[]] = [[], []];
-  blocks.forEach((b, i) => sides[i % 2]!.push(b));
+function tierUp(blocks: (Block & { side: -1 | 1 })[], capacity: number): Tiered {
+  const sides: [Block[], Block[]] = [blocks.filter((b) => b.side === -1), blocks.filter((b) => b.side === 1)];
   const pack = (list: Block[]) => {
     const rows: Block[][] = [];
     let width = Infinity;
@@ -592,22 +628,20 @@ export function layoutDungeon(data: AtlasData, _aspect = 1.6, measure: Measure =
   const planned = sortedHosts(data).map((host) => ({ host, groups: hostGroups(host, data) }));
   // Hosts without workspaces stay off the board, unless none has any: then each shows as an empty floor.
   const shown = planned.some((h) => h.groups.length) ? planned.filter((h) => h.groups.length) : planned;
-  const blocksOf = shown.map((h) =>
-    h.groups.map((g, i) => block(g, i % 2 === 0 ? -1 : 1, measure)),
-  );
-  // Each side wraps its projects onto tiers at a capacity; the one whose board best fits the map's shape wins.
-  const widths = [...new Set(blocksOf.flat().map((b) => b.width))];
-  const widest = Math.max(D.minSide, ...widths);
-  const total = Math.max(widest, ...blocksOf.map((bs) => bs.reduce((s, b) => s + b.width + D.projectGap, 0)));
-  const candidates = [...new Set([widest, ...blocksOf.flat().map((_, i, all) => all.slice(0, i + 1).reduce((s, b) => s + b.width + D.projectGap, 0))])]
+  // A hall's widest possible size (all its project's alcoves) and narrowest (its widest single alcove).
+  const whole = shown.flatMap((h) => h.groups.map((g) => block(g, 1, measure).width));
+  const widest = Math.max(D.minSide, ...shown.flatMap((h) => h.groups.flatMap((g) => g.cottages.map((c) => block({ ...g, cottages: [c] }, 1, measure).width))));
+  const total = Math.max(widest, ...shown.map((h) => h.groups.reduce((s, g) => s + block(g, 1, measure).width + D.projectGap, 0)));
+  // Capacities to try: every whole project's width and a ladder between the narrowest and the widest.
+  const candidates = [...new Set([widest, total, ...whole, ...Array.from({ length: 40 }, (_, i) => Math.round(widest + ((total - widest) * i) / 40))])]
     .filter((c) => c >= widest && c <= total)
     .sort((a, b) => a - b);
-  if (!candidates.includes(total)) candidates.push(total);
-  // Floors keep their natural width; a side wraps onto more tiers only while the board would be
-  // far wider than tall (aiming for an aspect between 0.8 and 1.6), fewest tiers first.
+  // Floors keep their natural width; each floor's halls go to its lighter side, and a long project continues in
+  // another hall, or a side wraps onto more tiers, only while the board would be far wider than tall (aiming for an
+  // aspect between 0.8 and 1.6), widest capacity (fewest halls and tiers) first.
   let best: { tiered: Tiered[]; score: number } | null = null;
   for (const capacity of [...candidates].reverse()) {
-    const tiered = blocksOf.map((bs) => tierUp(bs, capacity));
+    const tiered = shown.map((h) => tierUp(floorBlocks(h.groups, capacity, measure), capacity));
     const side = Math.max(...tiered.map((t) => t.side));
     const width = 2 * (D.inner + side + D.sideRoom);
     const height = tiered.reduce((s, t, i) => s + floorHeight(t.tiers, i === tiered.length - 1), 0);
@@ -726,6 +760,7 @@ export function layoutDungeon(data: AtlasData, _aspect = 1.6, measure: Measure =
             key: b.key,
             host: host.key,
             entity,
+            part: b.part,
             name: b.project?.name ?? "No project",
             side: s,
             tier,
@@ -788,6 +823,7 @@ export function layoutDungeon(data: AtlasData, _aspect = 1.6, measure: Measure =
               ...(sealOn ? { seal: { x: sealOn.x + D.flag * 0.39, y: sealOn.y - D.flag * 0.39, size: Math.round(D.flag * 0.55) } } : {}),
               ...named,
               agents: c.agents,
+              part: b.part,
             });
             const n = c.agents.length;
             c.agents.forEach((key, i) => {
@@ -998,7 +1034,8 @@ export function layoutDungeon(data: AtlasData, _aspect = 1.6, measure: Measure =
   });
 
   assignCloths(projects);
-  const shownProjects = projects.filter((p) => p.entity).map((p) => p.entity!);
+  // A project once, however many halls it has.
+  const shownProjects = projects.filter((p) => p.entity && p.part === 0).map((p) => p.entity!);
   const entities = [...hostEntities, ...shownProjects, ...workspaces.map((w) => w.entity), ...agents.map((a) => a.entity)];
   const round = (r: Rect) => [r.x, r.y, r.w, r.h].map((v) => Math.round(v * 10) / 10);
   const states = agents.map((a) => a.entity.state!);

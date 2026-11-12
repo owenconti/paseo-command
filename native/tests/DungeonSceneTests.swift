@@ -58,10 +58,13 @@ scene.setScene([
     "lights": [["x": 0.0, "y": 100.0, "c": 0xffb640, "r": 60.0, "flicker": true, "still": 1.0]],
     "thresholds": [
         ["id": "p1", "x": 103.0, "y": 235.0, "w": 194.0, "accents": [["x": 100.0, "y": 143.0, "w": 20.0, "h": 3.0]], "badge": ["x": 180.0, "y": 165.0]],
+        // Its second hall (a long project continued on the other side).
+        ["id": "p1", "x": -397.0, "y": 235.0, "w": 194.0, "accents": [["x": -400.0, "y": 143.0, "w": 20.0, "h": 3.0]], "badge": ["x": -320.0, "y": 165.0]],
         ["id": "w1", "x": 97.0, "y": 385.0, "w": 226.0, "accents": [["x": 85.0, "y": 378.0, "w": 11.0, "h": 3.0]]],
     ],
     "entities": [
         ["id": "p1", "kind": "project", "x": 100.0, "y": 140.0, "w": 200.0, "h": 90.0],
+        ["id": "p1", "kind": "project", "x": -400.0, "y": 140.0, "w": 200.0, "h": 90.0],
         ["id": "w1", "kind": "workspace", "x": 80.0, "y": 280.0, "w": 260.0, "h": 110.0],
         ["id": "a1", "kind": "agent", "x": 180.0, "y": 330.0, "w": 40.0, "h": 46.0],
     ],
@@ -94,6 +97,13 @@ func click(_ x: CGFloat, _ y: CGFloat) -> String? {
 assert(click(200, 350) == "a1", "a robot is picked before its alcove")
 assert(click(300, 360) == "w1", "the alcove around it")
 assert(click(250, 180) == "p1", "the project's terrace wall")
+assert(click(-300, 180) == "p1", "its second hall's wall is the project too")
+scene.pointer(phase: "leave", at: .zero)
+events = []
+scene.pointer(phase: "move", at: screen(-300, 180))
+let secondHall = events.last { $0["type"] as? String == "hover" }!
+assert(secondHall["id"] as? String == "p1" && abs((secondHall["x"] as! CGFloat) - screen(-300, 140).x) < 0.5, "its card points at the hall under the pointer")
+scene.pointer(phase: "leave", at: .zero)
 assert(click(109, 309) == "w1", "a PR medallion picks its workspace")
 assert(click(-400, 700) == nil, "bare stone picks nothing")
 
@@ -158,10 +168,10 @@ assert(glowCount(scene) == 0 && named(scene, "hover-threshold") == 0)
 scene.select("p1")
 let projectThreshold = findNode(scene, "select-threshold") as! SKSpriteNode
 assert(projectThreshold.size.width == 194 && projectThreshold.position.y == -235)
-assert(named(scene, "select-sign-diamond") == 1)
+assert(named(scene, "select-sign-diamond") == 2 && named(scene, "select-threshold") == 2, "every hall of the project is marked")
 assert(named(scene, "hover-candlelight") == 2, "a different workspace can hover while the project stays selected")
 scene.pointer(phase: "leave", at: .zero)
-assert(named(scene, "hover-threshold") == 0 && named(scene, "select-threshold") == 1)
+assert(named(scene, "hover-threshold") == 0 && named(scene, "select-threshold") == 2)
 assert(named(scene, "hover-candlelight") == 0, "leaving puts the candles back")
 scene.select(nil)
 assert(named(scene, "select-threshold") == 0 && named(scene, "select-sign-diamond") == 0)

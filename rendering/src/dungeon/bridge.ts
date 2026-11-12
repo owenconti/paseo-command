@@ -977,14 +977,15 @@ export function mountNativeDungeon(parent: HTMLElement, handlers: AtlasHandlers 
         ...l.vault.map((t) => ({ id: t.id, kind: "tile", ...t.rect })),
         ...l.entities
         .filter((e) => e.kind !== "host")
-        .map((e) => {
-          const r =
+        .flatMap((e) => {
+          // A project once for each of its halls (its first first).
+          const rs =
             e.kind === "agent"
-              ? l.agents.find((a) => a.entity.id === e.id)!.rect
+              ? [l.agents.find((a) => a.entity.id === e.id)!.rect]
               : e.kind === "workspace"
-                ? l.workspaces.find((w) => w.entity.id === e.id)!.rect
-                : l.projects.find((p) => p.entity?.id === e.id)!.rect;
-          return { id: e.id, kind: e.kind, x: r.x, y: r.y, w: r.w, h: r.h };
+                ? [l.workspaces.find((w) => w.entity.id === e.id)!.rect]
+                : l.projects.filter((p) => p.entity?.id === e.id).sort((a, b) => a.part - b.part).map((p) => p.rect);
+          return rs.map((r) => ({ id: e.id, kind: e.kind, x: r.x, y: r.y, w: r.w, h: r.h }));
         }),
       ],
     };
