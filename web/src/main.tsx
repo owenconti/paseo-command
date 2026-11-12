@@ -197,6 +197,10 @@ const WorldChat = React.lazy(() =>
 const BoardBrowser = React.lazy(() =>
   import("./worldChat/BoardBrowser").then((module) => ({ default: module.BoardBrowser })),
 );
+/** A workspace, a project or Add project on the Dungeon Board, in the board's framed panel (it has no side panel). */
+const WorldPlace = React.lazy(() =>
+  import("./dungeon/WorldPlace").then((module) => ({ default: module.WorldPlace })),
+);
 /** The Dungeon Board's Dispatch (src/dungeon/): the New agent form in the board's framed panel. */
 const WorldDispatch = React.lazy(() =>
   import("./dungeon/WorldDispatch").then((module) => ({ default: module.WorldDispatch })),
@@ -934,7 +938,6 @@ function App() {
   useEffect(() => {
     if (!talkShown) setTalkLog(false);
   }, [talkShown]);
-  /** Leave the box for the side panel's conversation, its message box focused. */
   /** Archive a robot from the board (⌘K, its menu): its dialogue box opens and asks. */
   const askTalkArchive = (id: string) => {
     choose({ type: "agent", id });
@@ -963,7 +966,7 @@ function App() {
       return [
         { id: "talk", label: "Talk", hint: "Its dialogue box", run: () => { choose(s); setTalking(true); } },
         { id: "browser", label: "Browser", hint: "Its pages, over the board", run: () => { choose(s); setTalking(true); setTalkLog(false); setBrowserOpen(true); } },
-        { id: "chat", label: "Open the full chat", hint: "In the side panel", run: () => { choose(s); openTalkChat(); } },
+        { id: "chat", label: "Whole conversation", hint: "Over the board", run: () => { choose(s); openTalkChat(); } },
         ...(live ? [{ id: "archive-agent", label: "Archive…", hint: "Asks in its dialogue box", tone: "deny" as const, run: () => askTalkArchive(a.id) }] : []),
       ];
     }
@@ -989,11 +992,17 @@ function App() {
       return [{ id: "dispatch", label: "Dispatch an agent here", run: () => openWorldDispatch({ projectId: s.id }) }];
     return [];
   };
+  /** The box's "whole conversation" choice: its log over the board (the board has no side panel), its message box focused. */
   const openTalkChat = () => {
-    setTalking(false);
-    setBrowsing(false);
-    if (unity && floatingVisibility.collapsed) runAppCommand("toggle-panel");
-    requestAnimationFrame(() => requestAnimationFrame(() => focusComposer()));
+    setTalking(true);
+    setTalkLog(true);
+    let tries = 0;
+    const focus = () => {
+      const field = document.getElementById("world-composer");
+      if (field) field.focus();
+      else if (++tries < 30) requestAnimationFrame(focus);
+    };
+    requestAnimationFrame(focus);
   };
   // An open subagent conversation; gone (archived) falls back to the agent's.
   const subagent = selection?.subagent
@@ -1089,7 +1098,7 @@ function App() {
       realWorkspaceIds,
     ],
   );
-  const openDispatch = useCallback(
+  const openPanelDispatch = useCallback(
     (target?: DispatchTarget) => {
       // The New agent view opens in the panel, in place of the conversation.
       setDispatchRevision((revision) => revision + 1);
@@ -1112,13 +1121,43 @@ function App() {
     setWorldDispatchConversation(conversation);
     setWorldDispatch(target ?? contextTarget());
   }, [contextTarget]);
+  /** New agent: on the Dungeon Board, which has no side panel, the board's own Dispatch; elsewhere the panel's. */
+  const openDispatch = useCallback(
+    (target?: DispatchTarget) => {
+      if (!talkable) return openPanelDispatch(target);
+      setAddingProject(false);
+      openWorldDispatch(target);
+    },
+    [talkable, openPanelDispatch, openWorldDispatch],
+  );
   const worldDispatchShown = !!worldDispatch && talkable && !confirming;
   useEffect(() => {
     if (!talkable) setWorldDispatch(null);
   }, [talkable]);
   useEffect(() => {
-    if (talking) setWorldDispatch(null);
+    if (!talking) return;
+    setWorldDispatch(null);
+    // On the board Add project gives way to a robot's dialogue box (in the side panel it is the detail's own).
+    if (talkable) setAddingProject(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [talking]);
+  // On the Dungeon Board a picked workspace or project, and Add project, show in the board's own framed panel
+  // (the board has no side panel): never over a robot's dialogue box or the board's Dispatch.
+  const boardPlace =
+    talkable && !talkShown && !worldDispatchShown
+      ? addingProject
+        ? "add"
+        : workspace
+          ? `workspace:${workspaceKey(workspace)}`
+          : project
+            ? `project:${projectKey(project)}`
+            : null
+      : null;
+  /** One of its agents, picked in that panel: selected, its dialogue box opened whatever picking a robot does. */
+  const talkTo = (s: Selection) => {
+    choose(s);
+    if (s?.type === "agent" && !s.subagent) setTalking(true);
+  };
 
   // The Activity tab's filter and selected item, for ⌘K's entries for them.
   const [activityView, setActivityView] = useState<ActivityViewState | undefined>();
@@ -1701,14 +1740,6 @@ function App() {
             keywords: "dungeon board dialogue dialog close end talk",
             run: () => setTalking(false),
           },
-          {
-            id: "world-talk-chat",
-            group: "Actions",
-            page: "Command" as const,
-            label: "Continue the conversation in the side panel",
-            keywords: "dungeon board dialogue full chat panel open",
-            run: openTalkChat,
-          },
           ...(!talkLog ? [{
             id: "world-talk-actions", group: "Actions", page: "Command" as const,
             label: "Show conversation actions on the board", keywords: "dungeon dialogue reply follow-up choices menu actions",
@@ -1931,7 +1962,8 @@ function App() {
           },
         ]
       : []),
-    ...(["Agents", "Workspaces", "Projects", "Hosts"] as const).map((t) => ({
+    // The panel's lists and their filters (the Dungeon Board has none: its belt's trays list who waits and runs).
+    ...(talkable ? [] : (["Agents", "Workspaces", "Projects", "Hosts"] as const)).map((t) => ({
       id: `tab-${t}`,
       group: "Lists",
       page: "Command" as const,
@@ -1939,8 +1971,9 @@ function App() {
       keywords: "tab list",
       run: () => showList(t),
     })),
-    ...(
-      [
+    ...(talkable
+      ? []
+      : ([
         [
           "attention",
           "Show agents that need you",
@@ -1950,7 +1983,7 @@ function App() {
         ["running", "Show running agents", "working busy"],
         ["idle", "Show idle agents", ""],
         ["all", "Show all active agents", "filter"],
-      ] as const
+      ] as const)
     ).map(([f, label, keywords]) => ({
       id: `filter-${f}`,
       group: "Lists",
@@ -1971,15 +2004,20 @@ function App() {
           },
         ]
       : []),
-    {
-      id: "panel",
-      group: "App",
-      page: "App" as const,
-      label: "Show or hide the panel",
-      keys: [["⌘", "B"]],
-      keywords: "sidebar collapse react conquer",
-      run: () => runAppCommand("toggle-panel"),
-    },
+    // The Dungeon Board has no side panel.
+    ...(!talkable
+      ? [
+          {
+            id: "panel",
+            group: "App",
+            page: "App" as const,
+            label: "Show or hide the panel",
+            keys: [["⌘", "B"]],
+            keywords: "sidebar collapse react conquer",
+            run: () => runAppCommand("toggle-panel"),
+          },
+        ]
+      : []),
     ...(macApp()
       ? [
           // ⌃` shows the Terminal tab from anywhere and, in it, goes back to the side before it.
@@ -2977,6 +3015,65 @@ function App() {
                 />
               </React.Suspense>
             )}
+            {boardPlace && (
+              <React.Suspense fallback={null}>
+                <WorldPlace
+                  key={boardPlace}
+                  kind={addingProject ? "add" : workspace ? "workspace" : "project"}
+                  title={addingProject ? "Add a project" : workspace ? "Workspace" : "Project"}
+                  onClose={() => (addingProject ? setAddingProject(false) : select(null))}
+                >
+                  {addingProject ? (
+                    <AddProject
+                      hosts={hosts}
+                      projects={projects}
+                      initialHost={hostFilter}
+                      online={online}
+                      onClose={() => setAddingProject(false)}
+                      onNotice={setNotice}
+                      onAdded={async (projectId, host) => {
+                        await refresh();
+                        // A new project has no workspace (so no place on the board): its first agent makes one.
+                        openDispatch({ projectId: projectKey({ projectId, host }) });
+                      }}
+                    />
+                  ) : workspace ? (
+                    <WorkspaceView
+                      workspace={workspace}
+                      agents={agentsAt(workspaceKey(workspace))}
+                      real={realWorkspaceIds.has(workspaceKey(workspace))}
+                      busy={busy}
+                      online={online}
+                      onBack={() => select(null)}
+                      onDispatch={() => openDispatch()}
+                      onArchive={() => openArchive(workspace)}
+                      archiving={archiving.has(workspaceKey(workspace))}
+                      onNotice={setNotice}
+                      select={talkTo}
+                      permissionAgents={permissionAgents}
+                      unread={unread}
+                      onChanges={showWorkspaceChanges}
+                    />
+                  ) : project ? (
+                    <ProjectView
+                      project={project}
+                      workspaces={listedWorkspaces.filter((w) => w.project === project.name && sameHost(w, project))}
+                      agentsAt={agentsAt}
+                      agents={active.filter((a) => projectOf(a) === project)}
+                      online={online}
+                      onBack={() => select(null)}
+                      onDispatch={() => openDispatch({ projectId: projectKey(project) })}
+                      onRemove={() => openRemoveProject(project)}
+                      removing={removingProjects.has(projectKey(project))}
+                      onNotice={setNotice}
+                      select={talkTo}
+                      permissionAgents={permissionAgents}
+                      unread={unread}
+                    />
+                  ) : null}
+                </WorldPlace>
+              </React.Suspense>
+            )}
             {worldDispatchShown && (
               <React.Suspense fallback={null}>
                 <WorldDispatch
@@ -3057,6 +3154,7 @@ function App() {
         )}
         <FloatingPanel
           enabled={unity}
+          suppressed={talkable}
           activeKey={activeKey}
           openOnSelect={!talkShown || !!dispatchTarget || addingProject}
           activeLabel={
@@ -3082,6 +3180,8 @@ function App() {
           usage={usage}
           attention={permissions.length}
           onAttention={() => {
+            // On the Dungeon Board, the belt's own tray of who waits.
+            if (talkable) return runAppCommand("dungeon-tray", "waiting");
             setTab("Agents");
             setFilter("attention");
             setBrowsing(true);
@@ -3142,7 +3242,7 @@ function App() {
                 aria-label="Open conversations"
               >
                 <div className="detail-content" id="detail-panel">
-                  {addingProject ? (
+                  {addingProject && !talkable ? (
                     <AddProject
                       hosts={hosts}
                       projects={projects}

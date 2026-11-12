@@ -51,6 +51,10 @@ type Props = {
   openRevision: number;
   /** Whether choosing something opens a hidden panel (not while the Dungeon Board's dialogue box speaks for it). */
   openOnSelect?: boolean;
+  /** The Dungeon Board shows: it has no side panel (what the panel held shows in the board's own framed panels).
+   * The panel takes no width and no key or button shows it; its side, width and shown state are kept for the
+   * other map styles and tabs. */
+  suppressed?: boolean;
   /** Bumped to expand the panel with nothing selected (Settings…). */
   revealRevision?: number;
   browsing: boolean;
@@ -82,12 +86,17 @@ export function FloatingPanel(props: Props) {
   const drag = useRef<{ x: number; width: number } | null>(null);
   const restoreButton = useRef<HTMLButtonElement>(null);
   const width = fitSidebar(state.width, windowWidth);
-  const extent = sidebarExtent(state, windowWidth);
+  const extent = sidebarExtent({ ...state, collapsed: state.collapsed || !!props.suppressed }, windowWidth);
   const compact = state.mode === "compact" || width < SPLIT_MIN;
   const { enabled, onVisibility } = props;
+  const suppressed = !!props.suppressed;
+  const absent = useRef(suppressed);
+  absent.current = suppressed;
+  /** Hidden: by the user, or because the Dungeon Board has none. */
+  const collapsed = state.collapsed || suppressed;
   useLayoutEffect(() => {
-    if (enabled) onVisibility({ compact, collapsed: state.collapsed });
-  }, [compact, state.collapsed, enabled, onVisibility]);
+    if (enabled) onVisibility({ compact, collapsed });
+  }, [compact, collapsed, enabled, onVisibility]);
   const side = state.side;
   // The world frame, its controls, toasts and notices are laid out beside the
   // sidebar, on whichever side it is. Applied before paint, with the sidebar
@@ -106,7 +115,7 @@ export function FloatingPanel(props: Props) {
   }, [enabled, extent, side]);
   // In the macOS app its top bar is native: it shows the panel's side, layout and
   // visibility and the need-you count from here, and its panel buttons act here.
-  const layoutEnabled = !state.collapsed && splitFits(windowWidth);
+  const layoutEnabled = !collapsed && splitFits(windowWidth);
   const music = useMusic();
   const musicConnecting = music.enabled && music.state === "connecting";
   useEffect(() => {
@@ -115,19 +124,20 @@ export function FloatingPanel(props: Props) {
       attention: props.attention,
       panelSide: side,
       panelCompact: compact,
-      panelCollapsed: state.collapsed,
+      panelCollapsed: collapsed,
+      panelAbsent: suppressed,
       layoutEnabled,
       musicConnecting,
     });
-  }, [enabled, props.attention, side, compact, state.collapsed, layoutEnabled, musicConnecting]);
+  }, [enabled, props.attention, side, compact, collapsed, suppressed, layoutEnabled, musicConnecting]);
   const barActions = useRef({ attention: () => {}, layout: () => {} });
   useEffect(() => {
     if (!enabled || !macApp()) return;
     const offs = [
       onAppBar("attention", () => barActions.current.attention()),
-      onAppBar("panel-side", () => setState((s) => ({ ...s, side: s.side === "left" ? "right" : "left" }))),
+      onAppBar("panel-side", () => !absent.current && setState((s) => ({ ...s, side: s.side === "left" ? "right" : "left" }))),
       onAppBar("panel-layout", () => barActions.current.layout()),
-      onAppBar("panel-toggle", () => setState((s) => ({ ...s, collapsed: !s.collapsed }))),
+      onAppBar("panel-toggle", () => !absent.current && setState((s) => ({ ...s, collapsed: !s.collapsed }))),
     ];
     return () => offs.forEach((off) => off());
   }, [enabled]);
@@ -163,7 +173,7 @@ export function FloatingPanel(props: Props) {
     };
   }, [props.enabled]);
   useEffect(() => {
-    if (props.enabled && props.activeKey && props.openOnSelect !== false)
+    if (props.enabled && props.activeKey && props.openOnSelect !== false && !props.suppressed)
       setState((s) => (s.collapsed ? { ...s, collapsed: false } : s));
     // Only a new choice opens it: the box closing later doesn't.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -175,20 +185,22 @@ export function FloatingPanel(props: Props) {
       if (event.key.toLowerCase() !== "b" || event.shiftKey || event.altKey) return;
       if (!(event.metaKey || event.ctrlKey) || event.repeat) return;
       event.preventDefault();
+      // The Dungeon Board has no panel to show.
+      if (absent.current) return;
       setState((s) => ({ ...s, collapsed: !s.collapsed }));
     };
     addEventListener("keydown", toggle);
     // The command palette's Show or hide the panel.
-    const offCommand = onAppCommand("toggle-panel", () =>
-      setState((s) => ({ ...s, collapsed: !s.collapsed })),
-    );
+    const offCommand = onAppCommand("toggle-panel", () => {
+      if (!absent.current) setState((s) => ({ ...s, collapsed: !s.collapsed }));
+    });
     return () => {
       removeEventListener("keydown", toggle);
       offCommand();
     };
   }, [props.enabled]);
   useEffect(() => {
-    if (props.enabled && props.revealRevision)
+    if (props.enabled && props.revealRevision && !props.suppressed)
       setState((s) => (s.collapsed ? { ...s, collapsed: false } : s));
   }, [props.revealRevision, props.enabled]);
   useEffect(() => {
@@ -230,7 +242,9 @@ export function FloatingPanel(props: Props) {
     event.stopPropagation();
     resizeTo(next);
   };
-  const expand = () => setState((s) => ({ ...s, collapsed: false }));
+  const expand = () => {
+    if (!suppressed) setState((s) => ({ ...s, collapsed: false }));
+  };
   const update = (next: PanelState) =>
     setState({ ...next, width: fitSidebar(next.width, viewportWidth()) });
   const toggleLayout = () => {
@@ -247,7 +261,7 @@ export function FloatingPanel(props: Props) {
       props.onAttention();
     },
     layout: () => {
-      if (layoutEnabled) toggleLayout();
+      if (layoutEnabled && !suppressed) toggleLayout();
     },
   };
   return (
@@ -340,7 +354,8 @@ export function FloatingPanel(props: Props) {
       <section
         className="floating-command"
         data-compact={compact}
-        data-collapsed={state.collapsed}
+        data-collapsed={collapsed}
+        data-absent={suppressed || undefined}
         data-docked="true"
         data-side={side}
         aria-label="Session panel"
@@ -349,11 +364,11 @@ export function FloatingPanel(props: Props) {
       <div
         id="floating-command-content"
         className="floating-command-content"
-        hidden={state.collapsed}
+        hidden={collapsed}
       >
         {props.children}
       </div>
-      {!state.collapsed && (
+      {!collapsed && (
         <div
           className="panel-resize"
           role="separator"

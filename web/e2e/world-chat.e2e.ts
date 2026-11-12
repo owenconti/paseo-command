@@ -159,7 +159,7 @@ test("picking a robot opens its dialogue box over the board, not the hidden pane
     assert.ok(gap.top >= 0, `actions stay on screen at ${width}×${height}`);
   }
   await page.setViewportSize({ width: 1200, height: 1000 });
-  for (const label of ["Reply…", "Open the full chat", "Leave"]) await menu.getByRole("menuitem", { name: new RegExp(label) }).waitFor();
+  for (const label of ["Reply…", "Whole conversation", "Leave"]) await menu.getByRole("menuitem", { name: new RegExp(label) }).waitFor();
   // Home goes back to the first page, already typed; Left/Right belong to robot navigation.
   await dialog.focus();
   await page.keyboard.press("Home");

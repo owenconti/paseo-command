@@ -54,7 +54,7 @@ export type WorldChatProps = {
   /** A confirming dialog is open: the box keeps still. */
   blocked: boolean;
   onClose: () => void;
-  /** Open its conversation in the side panel, its message box focused. */
+  /** Open its whole conversation over the board, its message box focused. */
   onOpenChat: () => void;
   onNotice: (message: string) => void;
   onChanged: () => Promise<void> | void;
@@ -532,7 +532,7 @@ export function WorldChat(props: WorldChatProps) {
           },
         ]
       : []),
-    { id: "chat", label: "Open the full chat", hint: "In the side panel", run: props.onOpenChat },
+    { id: "chat", label: "Whole conversation", hint: "H", run: props.onOpenChat },
     ...(!offline && !archived
       ? [{ id: "archive", label: "Archive…", hint: props.onArchiveWorkspace ? "This agent or its workspace" : "This agent", run: () => askConfirm("archive") }]
       : []),

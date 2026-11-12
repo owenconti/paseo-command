@@ -943,7 +943,7 @@ a time (multiple choice with Done, Something else…, Decline to answer; answers
 the asks' quick replies and suggestion, Reply… (R; the app's own `Composer` in the box's colours, the box growing to it: files
 and images, /skills, @files, queue, steer and interrupt; its draft, attachments and answers apart from the panel's, `draftScope`
 ":world"; input `world-composer`; files dropped on the box go to it; Esc back to the box),
-Interrupt while it runs, Open the full chat (the panel, its composer focused) and Leave (Esc; the robot stays selected).
+Interrupt while it runs, Whole conversation (H: its log over the board, its message box focused) and Leave (Esc; the robot stays selected).
 Archive… (and the composer's /archive, ⌘K's Archive “…”… on the board, the board menu's Archive…) asks in the box first, its
 safe answer marked: archive the agent (not while it runs: Interrupt is offered), archive its workspace (the app's confirming
 dialog, the box staying open under it) or Never mind (Esc). /new asks, then archives it and opens the board's Dispatch in its
@@ -953,7 +953,7 @@ that Dispatch stands where the conversation stood as an empty conversation ("New
 `conversation`, main's `worldDispatchConversation`), and its first message opens the new robot's whole conversation there
 rather than its dialogue box.
 The board's right-click menu (`web/src/dungeon/BoardMenu.tsx`, `boardMenu` in main; on what the world reports as hovered):
-a robot's Talk, Open the full chat and Archive…; a workspace's Dispatch an agent here and Archive the workspace…; a project's
+a robot's Talk, Browser, Whole conversation and Archive…; a workspace's Dispatch an agent here and Archive the workspace…; a project's
 Dispatch an agent here. ↑/↓ move, Enter picks, Esc or a click elsewhere closes it.
 After a sent reply, quick reply or queued follow-up, the actions stay closed. Actions (or Enter at the last page,
 or ⌘K “Show conversation actions on the board”) reopens them; a new finished reply or request resets that suppression; live working progress does not.
@@ -986,8 +986,7 @@ the board keeps the box's own room under it; it stays open as the box steps robo
 conversation on the board"). Painted left/right controls beside the box (← →, as K and J; named on hover) step to the previous and next agent
 (main's `step`; ⌘K's Previous / Next agent show those keys while the box does). The box follows the selected agent (J/K step to
 the next robot), counts as viewing it (mark read, no notification), and keeps where each conversation was left. T and ⌘K
-"Talk to … on the board" open it for the selected robot; "Leave the conversation on the board", "Continue the conversation in
-the side panel"; Settings → Map's switch (localStorage `world:talkOnPick`, on by default; ⌘K too) says whether picking opens it.
+"Talk to … on the board" open it for the selected robot; "Leave the conversation on the board"; Settings → Map's switch (localStorage `world:talkOnPick`, on by default; ⌘K too) says whether picking opens it.
 While it speaks a pick doesn't open a hidden panel (`FloatingPanel`'s `openOnSelect`). The board frames the robot above the box
 (`world.talk(id, inset)`, the bridge's `talk` message, `DungeonScene.talk`: the camera remembered, the robot framed in the clear
 area above the box's `inset`, the “Now” footer hidden, the camera put back on leaving). The box runs its own `useAgentSession` beside
@@ -996,6 +995,27 @@ Keys are taken in the capture phase while the box or the map has the keyboard (n
 dialog's "Talking on the Dungeon Board" group lists them. `npm run native:mock -- --dungeon --talk` gives every robot a
 conversation for its state and its request in full, and takes the box's sends and answers (logged). Tests:
 `web/src/worldChat/script.test.ts`, `web/e2e/world-chat.e2e.ts`, `web/server/live/sessions.test.ts`, `DungeonSceneTests.swift`.
+
+### The Dungeon Board has no side panel
+
+On the Dungeon Board (the macOS app, the board's style, Command showing: main's `talkable`) the session panel is gone (the
+user's call: its left side app replaced by the board's own themed panels in the middle). `FloatingPanel`'s `suppressed`
+hides it there without touching its saved side, width or shown state: no width (the map has the window), ⌘B, the palette's
+toggle and the bar's buttons do nothing, a pick never opens it, and the app's bar drops its three panel buttons
+(`panelAbsent` in `barState`, `ModeBar.apply`; `--info`'s `bar.panelButtons`). The other map styles and the other tabs keep
+the panel as it was left. What the panel showed has a board panel instead: a robot's conversation is its dialogue box and
+whole conversation (above); New agent, from anywhere (⌘N, D, ⌘K, a place's Dispatch), is the board's Dispatch
+(`openDispatch` goes to `openWorldDispatch` there); a picked workspace or project, and Add project (⌘K), open in the
+board's place panel (`web/src/dungeon/WorldPlace.tsx`, `world-place.css`: Dispatch's frame, head and foot, centred above the
+belt, holding the app's own `WorkspaceView`, `ProjectView` or `AddProject` in the dialogue box's complete palette; main's
+`boardPlace`), never over a dialogue box or the Dispatch. Its × and Esc close it (a workspace or project is let go); there
+is no Back to the fleet. An agent picked in it opens its dialogue box whatever Settings → Map says of picking (`talkTo`);
+a workspace picked in a project's opens the workspace's; Changes shows the Files tab's. The box's choice and the board
+menu's item are "Whole conversation" (H: the log over the board, its message box focused), no longer the side panel's chat;
+⌘K's "Continue the conversation in the side panel", "Show or hide the panel" and the panel's lists and filters ("Show
+agents…") aren't offered on the board; the bar's "need you" opens the belt's Waiting tray. The fleet's list has no board
+panel: the board is the fleet, the belt's trays list who waits, runs and replied, and ⌘K finds any agent, workspace,
+project or host. Tests: `web/e2e/board-place.e2e.ts`.
 
 ### The robot's browser on the Dungeon Board
 

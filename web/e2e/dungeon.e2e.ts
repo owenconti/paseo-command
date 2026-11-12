@@ -191,8 +191,11 @@ test("picking a robot on the board opens its conversation; hovering one shows it
   assert.match(tip!, /events agent 1.*Failed/);
   await swift(page, { type: "pick", id: robot });
   await waitFor(async () => (await inspect(page))?.selected, (v) => v === robot, "the robot to be selected");
-  await page.locator(".session-title h2", { hasText: "events agent 1" }).waitFor();
+  // Its conversation is the board's own dialogue box: the board has no side panel.
+  await page.getByRole("dialog", { name: /^Conversation with events agent 1/ }).waitFor();
+  assert.equal(await page.locator('.floating-command[data-absent="true"][data-collapsed="true"]').count(), 1, "no side panel on the board");
   assert.equal((await native(page)).selected, robot, "the selection reaches Swift");
+  await page.keyboard.press("Escape");
   // A workspace's PR medallion: its card says what the PR's CI is doing.
   const workspace = key("wks_api");
   await swift(page, { type: "hover", id: workspace, x: 200, y: 150, flag: "ci-running" });

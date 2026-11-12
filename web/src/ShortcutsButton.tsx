@@ -36,7 +36,7 @@ const GROUPS: Group[] = [
     title: "Act",
     rows: [
       { keys: [["⌘", "N"], ["D"]], label: "New agent" },
-      { keys: [["⌘", "B"]], label: "Show or hide the panel" },
+      { keys: [["⌘", "B"]], label: "Show or hide the panel (the Dungeon Board has none)" },
       { keys: [["⌘", "L"], ["Enter"]], label: "Focus the message box" },
       { keys: [["R"]], label: "Reply to the selected agent" },
       {

@@ -295,7 +295,7 @@ test("the whole conversation and the browser show side by side: the conversation
 
 test("on a map too narrow for both, the conversation takes the browser's place, and B takes it back", async () => {
   const page = await open({ "world:browserOpen": true });
-  await page.setViewportSize({ width: 1180, height: 900 });
+  await page.setViewportSize({ width: 860, height: 900 });
   await pick(page, "a-api-1");
   const dialog = box(page);
   await dialog.waitFor();
@@ -319,7 +319,7 @@ test("on a map too narrow for both, the conversation takes the browser's place, 
   await page.locator(".world-chat.log.beside").waitFor();
   await page.locator(".board-browser.beside").waitFor();
   // Narrowed again while both show, the conversation keeps the board and the browser steps aside.
-  await page.setViewportSize({ width: 1180, height: 900 });
+  await page.setViewportSize({ width: 860, height: 900 });
   await view.waitFor({ state: "detached" });
   assert.equal(await page.locator(".world-chat.log").count(), 1);
   assert.equal(await page.locator(".world-chat.beside").count(), 0);

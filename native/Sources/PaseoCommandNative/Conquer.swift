@@ -339,7 +339,7 @@ final class ModeBar: NSView {
 
     /// The tabs shown, in order, and whether the Settings gear is lit (checks).
     func state() -> [String: Any] {
-        ["tabs": buttons.filter { !$0.1.isHidden }.map(\.0.rawValue), "settingsOn": settings.on]
+        ["tabs": buttons.filter { !$0.1.isHidden }.map(\.0.rawValue), "settingsOn": settings.on, "panelButtons": !panelToggle.isHidden]
     }
     /// The gear, as a click on it (checks).
     func clickSettings() { settings.performClick(nil) }
@@ -372,6 +372,9 @@ final class ModeBar: NSView {
         let toggle = collapsed ? "Show session panel" : "Hide session panel"
         panelToggle.setSymbol(collapsed ? (left ? "sidebar.left" : "sidebar.right") : "minus", label: toggle)
         panelToggle.toolTip = "\(toggle) (⌘B)"
+        // The Dungeon Board has no session panel: its buttons go while it shows.
+        let absent = state["panelAbsent"] as? Bool ?? false
+        for button in [panelSide, panelLayout, panelToggle] where button.isHidden != absent { button.isHidden = absent }
         restyle()
     }
 

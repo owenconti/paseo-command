@@ -239,6 +239,8 @@ export type AppBarState = {
   panelSide: "left" | "right";
   panelCompact: boolean;
   panelCollapsed: boolean;
+  /** The Dungeon Board shows: there is no session panel, so the bar's three panel buttons go. */
+  panelAbsent: boolean;
   layoutEnabled: boolean;
 };
 let barState: Partial<AppBarState> = {};
