@@ -272,6 +272,13 @@ test("the whole conversation and the browser show side by side: the conversation
   assert.equal(await page.locator(".world-chat.log.beside").count(), 0);
   const alone = await page.evaluate(() => Math.round(document.querySelector(".world-chat")!.getBoundingClientRect().width));
   assert.ok(alone > 560, `alone, the conversation is as wide as before: ${alone}`);
+  // B outside the box too (the page's body has the keyboard): the browser, never the mini games.
+  await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+  await page.keyboard.press("b");
+  await page.locator(".board-browser.beside").waitFor();
+  assert.equal(await page.getByRole("region", { name: "Mini games" }).count(), 0, "B never opens the mini games");
+  await page.keyboard.press("b");
+  await view.waitFor({ state: "detached" });
   // B again brings the browser back beside it (the conversation stays open); Back (H) leaves the browser above the box.
   await page.keyboard.press("b");
   await page.locator(".board-browser.beside").waitFor();

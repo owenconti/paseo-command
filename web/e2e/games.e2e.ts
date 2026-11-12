@@ -46,8 +46,12 @@ async function open(page: Page) {
   page.on("pageerror", (e) => errors.push(String(e)));
   await mockApi(page, { agents: () => [], projects: () => [], lists: games, accept });
   await page.goto(app.url);
+  // Plain B is the Dungeon Board's browser now; ⌘⇧B opens the games, in a field too.
   await page.keyboard.press("b");
   const win = page.getByRole("region", { name: "Mini games" });
+  await page.waitForTimeout(150);
+  assert.equal(await win.count(), 0, "B alone doesn't open the games");
+  await page.keyboard.press("Meta+Shift+B");
   await win.waitFor();
   return { win, errors };
 }

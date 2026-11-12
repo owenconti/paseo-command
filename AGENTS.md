@@ -264,7 +264,7 @@ and GitHub publication; report the published version and release link.
   Hovering the strip marks the questions' sentences in the transcript (`web/src/asks/highlight.ts`, CSS Highlight API).
 - `web/src/urlState.ts`: the panel's place (selection, subagent, tab, filter, host filter, list toggle) kept in
   the page's query, so a refresh returns there; a new selection pushes history, other changes replace it.
-- `web/src/games/`: the top bar's mini games (gamepad button), a floating non-modal window with one game dealt at
+- `web/src/games/`: the top bar's mini games (gamepad button, or ⌘⇧B from anywhere, in a field too; plain B is the Dungeon Board's browser), a floating non-modal window with one game dealt at
   random by the server (`web/server/games.ts`, `/api/games`): no choosing or restarting, the next game only once it ends.
   Progress and each game's best score are kept in the data directory's `games.json`. Games implement `types.tsx`'s
   `GameDef` (plain JSON state) and are listed in `catalog.ts` and `registry.ts`.
@@ -1021,7 +1021,7 @@ project or host. Tests: `web/e2e/board-place.e2e.ts`.
 
 Each robot has a browser of its own, tracked to its agent (host and daemon id): its tabs, shown over the board above its
 dialogue box (the user's ask: an integrated browser on the board, attached to the agent, which the agent can open tabs in).
-B, the box's Browser button (which counts its tabs), the board menu's Browser and ⌘K "Show …’s browser on the board" show
+B (outside a text field, wherever the keyboard is on the board, a selected robot's box opening with it; main's `boardKeys`), the box's Browser button (which counts its tabs), the board menu's Browser and ⌘K "Show …’s browser on the board" show
 or hide it (`world:browserOpen`, kept as the box steps robots and across launches). ⇧⌘W hides it from anywhere (the user's
 ask: a key that closes it): the page takes it, in a field too (`BoardBrowser.tsx`), and while a web page has the keyboard
 the app does and tells the page (`key` `hide`), which gives the keyboard back to the page. With the whole conversation open

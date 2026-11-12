@@ -1,3 +1,5 @@
+import { modalOpen } from "./focus";
+import { isTyping } from "./worldShortcut";
 import "./mermaid/mermaid.css";
 import { mermaidPalette, useMermaidCommands } from "./mermaidCommands";
 import { MAP_STYLES, mapStyle, setMapStyle, useMapStyle } from "./mapStyle";
@@ -911,6 +913,22 @@ function App() {
     if (!besideFits) setTalkLog(false);
     setBrowserOpen(true);
   };
+  // B, outside a text field, on the Dungeon Board: the selected robot's browser, shown or hidden (its dialogue box
+  // opening with it). The box takes the key first while it or the map has the keyboard; this is everywhere else.
+  const boardKeys = useRef({ talkable, agent, sub: !!selection?.subagent, browserShown, toggleBrowser });
+  Object.assign(boardKeys.current, { talkable, agent, sub: selection?.type === "agent" && !!selection.subagent, browserShown, toggleBrowser });
+  useEffect(() => {
+    const key = (e: KeyboardEvent) => {
+      const now = boardKeys.current;
+      if (e.key.toLowerCase() !== "b" || e.metaKey || e.ctrlKey || e.altKey || e.shiftKey || e.repeat || e.defaultPrevented) return;
+      if (!now.talkable || !now.agent || now.sub || modalOpen() || isTyping(e.target as HTMLElement | null)) return;
+      e.preventDefault();
+      if (!now.browserShown) setTalking(true);
+      now.toggleBrowser();
+    };
+    window.addEventListener("keydown", key);
+    return () => window.removeEventListener("keydown", key);
+  }, []);
   // An agent opened a tab with its browser tools: the robot you are talking to shows it (Settings → Map);
   // another's says so, once in a while.
   const browserWatch = useRef({ agents, talkedTo: talkShown ? agent : undefined, covered: talkLog && !besideFits, said: new Map<string, number>() });
@@ -2808,7 +2826,7 @@ function App() {
       group: "App",
       page: "App" as const,
       label: "Open the mini games",
-      keys: [["B"]],
+      keys: [["⌘", "⇧", "B"]],
       keywords: "play game break",
       run: () => runAppCommand("show-games"),
     },
