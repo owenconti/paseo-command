@@ -8,7 +8,7 @@ import { openChatLink } from "./chatLinks";
 import { openFilesFile } from "./files/open";
 import { usePeers } from "./peers";
 import { robotColour, useRobotPortrait } from "./robotPortrait";
-import { ChatDecorContext } from "./chatDecor";
+import { ChatDecorContext, ChatFooterContext } from "./chatDecor";
 import {
   memo,
   useContext,
@@ -229,6 +229,7 @@ export function SessionView({
   session,
   surface,
 }: SessionProps & { session: AgentSession; surface?: SessionSurface }) {
+  const chatFooter = useContext(ChatFooterContext);
   const [drop, setDrop] = useState<{ files: File[]; at: number } | null>(null);
   const [answerQuote, setAnswerQuote] = useState<{ text: string; at: number } | null>(null);
   const [dragging, setDragging] = useState(false);
@@ -707,7 +708,8 @@ export function SessionView({
                   onNotice={onNotice}
                 />
               )}
-              {running && online && !waiting && !archived && agent.workspaceId && (
+              {chatFooter}
+              {!chatFooter && running && online && !waiting && !archived && agent.workspaceId && (
                 <p
                   className="session-working-on"
                   title={workingOn?.error || "AI-generated from recent activity"}

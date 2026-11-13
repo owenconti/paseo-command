@@ -18,7 +18,7 @@ import { useProbe } from "../useProbe";
 import { flagTip } from "../flagTip";
 import { readStore, writeStore } from "../api";
 import { setUnityWorldTheme } from "../theme";
-import { ChatDecorContext, type ChatDecor } from "../chatDecor";
+import { ChatDecorContext, ChatFooterContext, type ChatDecor } from "../chatDecor";
 import { onAppCommand } from "../appCommands";
 import type { Agent, Host, Project, Selection, Workspace } from "../types";
 import type { WorkSummaries } from "../useWorkingOn";
@@ -182,6 +182,10 @@ export function CrewMap(props: Props) {
     node?.scrollIntoView({ block: "center" });
   }, [props.empty]);
 
+  // What is open stays in view as the map narrows beside it (or is chosen elsewhere: J/K, ⌘K, a notification).
+  useEffect(() => {
+    if (selected) board.current?.querySelector(`[data-key="${CSS.escape(selected)}"]`)?.scrollIntoView({ block: "nearest" });
+  }, [selected]);
   const pick = (kind: "agent" | "workspace" | "project", key: string) => {
     if (props.blocked) return;
     const s = targetSelection({ kind, key }, snapshot);
@@ -230,7 +234,7 @@ export function CrewMap(props: Props) {
   const node = (a: RosterAgent) => {
     const running = a.state === "running";
     return (
-      <button key={a.key} className="crew-node" data-key={a.key} data-state={a.state} onClick={() => pick("agent", a.key)}>
+      <button key={a.key} className="crew-node" data-key={a.key} data-state={a.state} aria-current={selected === a.key ? "true" : undefined} onClick={() => pick("agent", a.key)}>
         <Portrait agent={a} size={NODE} />
         <span className="crew-node-name">{a.name}</span>
         <small className={running ? "crew-node-state crew-shimmer" : "crew-node-state"}>
@@ -264,29 +268,9 @@ export function CrewMap(props: Props) {
   const running = roster.counts.running ?? 0;
   const need = (["failed", "approval", "question", "asking"] as State[]).reduce((n, s) => n + (roster.counts[s] ?? 0), 0);
 
-  if (!props.empty)
-    return (
-      <div className="crew-map" data-world="crew" data-browser={(shownAgent && props.browser?.shown) || undefined}>
-        <section className="crew-main" aria-label="Conversation">
-          {shownAgent && (
-            <Stage
-              browser={props.browser}
-              agent={shownAgent}
-              sentence={summaryOf(shownAgent)}
-              workspace={shownAgent.workspace ? data.workspaces.find((w) => w.key === shownAgent.workspace) : undefined}
-              medals={medals}
-              onWorkspace={(key) => pick("workspace", key)}
-            />
-          )}
-          <div className="detail-content crew-detail" id="detail-panel">
-            <ChatDecorContext.Provider value={decor}>{props.detail}</ChatDecorContext.Provider>
-          </div>
-        </section>
-      </div>
-    );
-
+  const open = !props.empty;
   return (
-    <div className="crew-map" data-world="crew">
+    <div className="crew-map" data-world="crew" data-open={open || undefined} data-browser={(open && shownAgent && props.browser?.shown) || undefined}>
       <div className="crew-board" ref={board} onKeyDown={boardKeys} role="region" aria-label="Crew">
         <header className="crew-board-head">
           <div className="crew-board-title">
@@ -352,7 +336,7 @@ export function CrewMap(props: Props) {
                           <button className="crew-fold small" aria-expanded={!shut} aria-label={`${shut ? "Show" : "Hide"} ${p.name}`} onClick={() => toggle(p.key)}>
                             <ChevronDown size={14} aria-hidden="true" />
                           </button>
-                          <button className="crew-head project" data-key={p.key} onClick={() => pick("project", p.key)}>
+                          <button className="crew-head project" data-key={p.key} aria-current={selected === p.key ? "true" : undefined} onClick={() => pick("project", p.key)}>
                             {p.name}
                           </button>
                         </div>
@@ -360,7 +344,7 @@ export function CrewMap(props: Props) {
                           <div className="crew-workspaces">
                             {p.workspaces.map((w) => (
                               <article key={w.key} className="crew-ws" aria-label={w.name}>
-                                <button className="crew-head workspace" data-key={w.key} onClick={() => pick("workspace", w.key)}>
+                                <button className="crew-head workspace" data-key={w.key} aria-current={selected === w.key ? "true" : undefined} onClick={() => pick("workspace", w.key)}>
                                   <span className="crew-ws-name">{w.name}</span>
                                   {medals(w, 24)}
                                 </button>
@@ -381,11 +365,35 @@ export function CrewMap(props: Props) {
         })}
         {filter && !roster.hosts.length && <p className="crew-none">No agent matches “{filter}”.</p>}
       </div>
+      {open && (
+        <aside className="crew-drawer" aria-label="Conversation">
+          <div className="detail-content crew-detail" id="detail-panel">
+            <ChatDecorContext.Provider value={decor}>
+              <ChatFooterContext.Provider
+                value={
+                  shownAgent && (
+                    <Stage
+                      browser={props.browser}
+                      agent={shownAgent}
+                      sentence={summaryOf(shownAgent)}
+                      workspace={shownAgent.workspace ? data.workspaces.find((w) => w.key === shownAgent.workspace) : undefined}
+                      medals={medals}
+                      onWorkspace={(key) => pick("workspace", key)}
+                    />
+                  )
+                }
+              >
+                {props.detail}
+              </ChatFooterContext.Provider>
+            </ChatDecorContext.Provider>
+          </div>
+        </aside>
+      )}
     </div>
   );
 }
 
-/** Above the open conversation: the agent's robot (working, resting or offline), its state and progress, and its
+/** At the conversation's foot, above its message box: the agent's robot (working, resting or offline), its state and progress, and its
  * workspace with its pull request's medallions. Its name and tools are the conversation's own header's. */
 function Stage(props: {
   agent: RosterAgent;
@@ -438,6 +446,7 @@ function Stage(props: {
           Browser{props.browser.tabs ? ` · ${props.browser.tabs}` : ""}
         </button>
       )}
+
     </div>
   );
 }

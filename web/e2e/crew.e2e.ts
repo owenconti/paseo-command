@@ -89,31 +89,62 @@ test("in a browser: the map groups host, project and workspace, each workspace a
   await page.context().close();
 });
 
-test("picking a robot opens its conversation across the view, with its robot on the stage and beside its replies; Back returns to it", async () => {
+test("picking a robot opens its conversation beside the map, its robot above the message box and beside its replies; Esc closes it", async () => {
   const page = await open();
   const node = page.locator('.crew-node[data-state="idle"]').first();
   const name = (await node.locator(".crew-node-name").textContent())!;
   const key = (await node.getAttribute("data-key"))!;
   await node.click();
-  await page.locator(".crew-detail .session").waitFor();
+  await page.locator(".crew-drawer .crew-detail .session").waitFor();
   assert.equal(await page.locator(".session").count(), 1, "one copy of the conversation");
-  assert.equal(await page.locator(".crew-board").count(), 0, "the map gives way");
-  assert.equal(await page.locator(".crew-stage").getAttribute("data-state"), "idle");
+  assert.equal(await page.locator(".crew-board").count(), 1, "the map stays beside it");
+  assert.equal(await node.getAttribute("aria-current"), "true");
+  const [map, drawer] = await Promise.all([".crew-board", ".crew-drawer"].map((sel) => page.locator(sel).evaluate((el) => el.getBoundingClientRect().toJSON())));
+  assert.ok(drawer.left >= map.right - 1, "on the map's right");
+  // The robot, its state and progress sit at the foot, above the message box.
+  const stage = page.locator(".crew-detail .session-footer .crew-stage");
+  assert.equal(await stage.getAttribute("data-state"), "idle");
+  const [strip, input] = await Promise.all([stage, page.locator(".crew-detail .session-footer textarea").first()].map((l) => l.evaluate((el) => el.getBoundingClientRect().toJSON())));
+  assert.ok(strip.bottom <= input.top + 1, "above the message box");
   await page.locator(".crew-detail .msg.assistant .msg-avatar .crew-bot").waitFor();
   assert.match((await page.locator(".crew-detail .session-title").textContent())!, new RegExp(name));
   assert.equal(await page.locator(".crew-browser-toggle").count(), 0, "the browser is the macOS app's");
-  // Back (the conversation's Fleet) returns to the map, the robot it left focused.
-  await page.getByRole("button", { name: "Fleet" }).click();
-  await page.getByRole("heading", { name: "Your crew" }).waitFor();
+  // Esc closes it, from the message box too; the robot it left has the keyboard.
+  await page.locator(".crew-detail .session-footer textarea").first().focus();
+  await page.keyboard.press("Escape");
+  await page.locator(".crew-drawer").waitFor({ state: "detached" });
   await page.waitForFunction((k) => document.activeElement?.getAttribute("data-key") === k, key);
   // The arrow keys move through the map.
   await page.keyboard.press("ArrowRight");
   assert.notEqual(await page.evaluate(() => document.activeElement?.getAttribute("data-key")), key);
-  // A workspace's head opens the workspace; a project's opens the project.
+  // A workspace's head opens the workspace beside it; Esc closes that too.
   await page.locator(".crew-head.workspace").first().click();
-  await page.locator(".crew-detail .place").first().waitFor();
+  await page.locator(".crew-drawer .place").first().waitFor();
   assert.equal(await page.locator(".crew-stage").count(), 0);
-  await page.getByRole("button", { name: "Fleet" }).first().click().catch(() => {});
+  await page.keyboard.press("Escape");
+  await page.locator(".crew-drawer").waitFor({ state: "detached" });
+  await page.context().close();
+});
+
+test("a row's workspace panels are one height, and so are their robots", async () => {
+  const page = await open();
+  await map(page).locator(".crew-node").first().waitFor();
+  const rows = await page.locator(".crew-workspaces").evaluateAll((grids) =>
+    grids.map((g) => {
+      const panels = [...g.querySelectorAll(":scope > .crew-ws")].map((el) => el.getBoundingClientRect());
+      const byTop = new Map<number, number[]>();
+      for (const r of panels) byTop.set(Math.round(r.top), [...(byTop.get(Math.round(r.top)) ?? []), Math.round(r.height)]);
+      return [...byTop.values()];
+    }),
+  );
+  let compared = 0;
+  for (const row of rows.flat()) if (row.length > 1) {
+    compared++;
+    assert.equal(new Set(row).size, 1, `heights ${row}`);
+  }
+  assert.ok(compared > 0, "some row has several panels");
+  const nodes = await page.locator(".crew-node").evaluateAll((els) => els.map((el) => Math.round(el.getBoundingClientRect().height)));
+  assert.equal(new Set(nodes).size, 1, `node heights ${[...new Set(nodes)]}`);
   await page.context().close();
 });
 
@@ -150,13 +181,13 @@ test("in the macOS app: the open agent's browser stands beside its conversation 
   await toggle.click();
   await page.locator(".board-browser.crew").waitFor();
   assert.equal(await page.locator(".crew-map[data-browser]").count(), 1);
-  // Beside the conversation, not over it.
-  const [chat, browser] = await Promise.all([".crew-main", ".board-browser.crew"].map((sel) => page.locator(sel).evaluate((el) => el.getBoundingClientRect().toJSON())));
-  assert.ok(browser.left >= chat.right - 2, `browser at ${browser.left}, conversation to ${chat.right}`);
+  // Over the map, beside the conversation, not over it.
+  const [chat, browser] = await Promise.all([".crew-drawer", ".board-browser.crew"].map((sel) => page.locator(sel).evaluate((el) => el.getBoundingClientRect().toJSON())));
+  assert.ok(browser.right <= chat.left + 2, `browser to ${browser.right}, conversation from ${chat.left}`);
   const placed = await waitFor(() => sent(page, "browser"), (m) => (m.at(-1)?.width ?? 0) > 0, "the web page's box told");
-  assert.ok(placed.at(-1).x >= chat.right - 2);
+  assert.ok(placed.at(-1).x + placed.at(-1).width <= chat.left + 2);
   // B hides it (outside a field), and ⌘K shows it again.
-  await page.locator(".crew-stage").click();
+  await page.locator(".crew-stage-state").click();
   await page.keyboard.press("b");
   await page.locator(".board-browser").waitFor({ state: "detached" });
   await page.keyboard.press("Meta+k");

@@ -323,7 +323,7 @@
 .crew-workspaces {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
-  align-items: start;
+  align-items: stretch;
   gap: 14px;
 }
 .crew-ws {
@@ -342,6 +342,7 @@
 .crew-head.workspace,
 .crew-ws-head {
   width: 100%;
+  min-height: 44px;
   padding: 9px 12px;
   border-radius: 0;
   border-bottom: 1px solid var(--line-soft);
@@ -375,6 +376,8 @@
   text-align: center;
 }
 .crew-nodes {
+  flex: 1;
+  align-content: start;
   display: grid;
   grid-template-columns: repeat(auto-fill, 132px);
   gap: 6px;
@@ -416,6 +419,7 @@
   font-size: var(--fs-sm);
   font-weight: var(--fw-semibold);
   line-height: 1.3;
+  min-height: 2.6em;
   color: var(--text-strong);
   overflow-wrap: anywhere;
 }
@@ -440,6 +444,14 @@
   border-radius: 50%;
   background: var(--crew-done);
 }
+.crew-node[aria-current="true"] {
+  background: var(--row-selected);
+  border-color: var(--accent-line);
+}
+.crew-head[aria-current="true"] {
+  background: var(--row-selected);
+  box-shadow: inset 2px 0 0 var(--accent);
+}
 .crew-node:focus-visible,
 .crew-head:focus-visible,
 .crew-fold:focus-visible {
@@ -461,20 +473,33 @@
 }
 
 /* The conversation's side. */
-.crew-main {
+/* What is open (a conversation, New agent, a workspace or project) stands beside the map, on its right; on a narrow
+   window over it. Esc closes it (main.tsx). The frame is the window's width here: Crew has no side panel. */
+.crew-drawer {
   position: relative;
   display: flex;
   flex-direction: column;
-  flex: 1;
-  min-width: 0;
-  min-height: 0;
-  background: var(--panel);
-}
-/* The open agent's browser beside its conversation (BoardBrowser.tsx, `crew`): the conversation keeps the left. */
-.crew-map[data-browser] .crew-main {
   flex: none;
-  width: clamp(380px, 44%, 680px);
-  border-right: 1px solid var(--line);
+  width: clamp(440px, 46%, 760px);
+  min-height: 0;
+  border-left: 1px solid var(--line-strong);
+  background: var(--panel);
+  box-shadow: -12px 0 32px -18px rgb(0 0 0 / 55%);
+  animation: crew-drawer-in 0.16s var(--ease-out, ease-out);
+}
+@keyframes crew-drawer-in {
+  from {
+    opacity: 0;
+    translate: 24px 0;
+  }
+}
+@media (max-width: 900px) {
+  .crew-drawer {
+    position: absolute;
+    inset: 0 0 0 auto;
+    width: min(100%, 560px);
+    z-index: 1;
+  }
 }
 .crew-detail {
   flex: 1;
@@ -487,13 +512,16 @@
   flex: 1;
   min-height: 0;
 }
+/* Above the message box (the conversation's ChatFooterContext): the robot, its state and progress. */
 .crew-stage {
   display: flex;
   align-items: center;
-  gap: 14px;
-  padding: 10px 18px 10px 16px;
-  border-bottom: 1px solid var(--line);
-  background: linear-gradient(90deg, color-mix(in srgb, var(--crew-state) 9%, transparent), transparent 55%);
+  gap: 12px;
+  margin-bottom: 6px;
+  padding: 6px 12px 6px 8px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: linear-gradient(90deg, color-mix(in srgb, var(--crew-state) 10%, var(--surface)), var(--surface) 60%);
 }
 .crew-stage-text {
   display: flex;
@@ -617,13 +645,18 @@
   z-index: 2;
   top: 0;
   bottom: 0;
-  left: calc(clamp(380px, 44%, 680px) + 1px);
-  right: 0;
+  left: 0;
+  right: calc(clamp(440px, 46%, 760px) + 1px);
   width: auto;
   transform: none;
 }
+@media (max-width: 900px) {
+  .board-browser.crew.beside {
+    right: min(100%, 560px);
+  }
+}
 .board-browser.crew.filled {
-  left: 0;
+  right: 0;
 }
 .board-browser.crew .bb-tab {
   background: var(--fill-soft);

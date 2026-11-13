@@ -8,3 +8,6 @@ export type ChatDecor = {
   working?: ReactNode;
 };
 export const ChatDecorContext = createContext<ChatDecor>({});
+/** What a map shows at the conversation's foot, just above its message box (Crew's robot, state and progress), in
+ * place of the working summary line. Apart from the replies' decor, so its updates never redraw the transcript. */
+export const ChatFooterContext = createContext<ReactNode>(null);

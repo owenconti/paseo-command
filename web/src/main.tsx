@@ -1323,6 +1323,25 @@ function App() {
         }
         return;
       }
+      // On Crew, Escape closes what is open beside the map (a subagent goes back to its agent first), from its
+      // message box too, once menus, pickers and previews in it have closed.
+      if (
+        crewShown &&
+        e.key === "Escape" &&
+        !e.defaultPrevented &&
+        !e.metaKey && !e.ctrlKey && !e.altKey &&
+        (selection || dispatchTarget || addingProject) &&
+        (target === document.body || target.closest(".crew-map")) &&
+        !modalOpen() &&
+        ![...document.querySelectorAll(".popover-menu, .autocomplete, .lightbox, .inline-confirm")].some((layer) => !layer.closest("[inert]"))
+      ) {
+        e.preventDefault();
+        if (selection?.subagent) return select({ ...selection, subagent: undefined });
+        setDispatchTarget(null);
+        setAddingProject(false);
+        select(null);
+        return;
+      }
       if (editing || e.metaKey || e.ctrlKey || e.altKey) return;
       // Escape leaves a new agent (or project) unstarted, back to what was open.
       if (addingProject && e.key === "Escape") {
@@ -1407,6 +1426,7 @@ function App() {
     issueKey,
     issueUrl,
     talkable,
+    crewShown,
     appMode,
     settingsShown,
   ]);

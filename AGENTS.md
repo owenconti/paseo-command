@@ -1108,7 +1108,8 @@ policy, keys, and the page script on a page in a web view).
 
 Crew (`web/src/crew/`; the user's ask: a simpler, more traditional chat/AI interface that keeps the robots, their progress
 animations and the status medallions; then: no left sidebar, the main view grouped Host › Project › Workspace as the
-graphical maps are, larger nodes, and the Dungeon Board's browser) is the fleet as a chat app, drawn by the page itself in
+graphical maps are, larger nodes, and the Dungeon Board's browser; then: equal-height cells, what is open beside the map
+and closed with Esc, and the robot's strip above the message box) is the fleet as a chat app, drawn by the page itself in
 the map's place, in a plain browser as in the macOS app (`pageDrawn` in `mapStyle.ts`; main's `crewShown`). No native world
 mounts: `NativeWorld` gives way to `CrewMap`, and `useMapBridge` (`web/src/mapBridge.ts`, always mounted, which also owns the
 `mapStyle` message and the `map-style-<id>` commands for View → Map Style) tells the app `pageMap` (`on`: `WorldWindow` keeps
@@ -1116,11 +1117,11 @@ the SpriteKit view hidden and paused under the page, never un-hides it on later 
 `loaded` without a scene; a reloading page says again; `--info`'s `pageMap`), `loaded`, and `workspace` (the Terminal tab's,
 the selected workspace or agent's). As on the Dungeon Board the side panel is absent (`panelAbsent` = `talkable || crewShown`:
 `FloatingPanel`'s `suppressed`, no ⌘B, the bars' panel buttons gone in a browser too, no panel lists or filters in ⌘K); the
-bar's "need you" opens the next agent that needs you. There is no sidebar: with nothing open Crew is the map (`.crew-board`,
+bar's "need you" opens the next agent that needs you. There is no sidebar: Crew is the map (`.crew-board`,
 `buildRoster` in `roster.ts`, pure): "Your crew" with its counts, a filter (⌘K "Filter the crew…", `crew-filter`, which shows
 the map first; Esc clears; by agent, workspace, project or host) and New agent; then each host (its head folds it; offline
 faded) › project (by name; a chevron folds it, its name opens the project) › its workspaces as panels in a grid (oldest
-first; the panel's head opens the workspace and carries its CI, review, Probe and auto-merge medallions with `flagTip`'s hover
+first; a row's panels one height, as are all nodes: a name keeps two lines' room; the panel's head opens the workspace and carries its CI, review, Probe and auto-merge medallions with `flagTip`'s hover
 text; agents without a workspace in a dashed panel of their project's, or their host's), each holding its agents (oldest
 first) as large nodes: the robot (72 px; the Dungeon Board's `robots` sheet in its provider's colour, `robotColor`: idle frames
 with a blink and a breath, the four work frames while it runs, greyed offline) over its state's glow (`glow-*`, pulsing for
@@ -1129,15 +1130,18 @@ name, and its state or, while it runs, what it is doing (`workingOn`, shimmering
 state's colour, an unread reply has a gold dot. Projects and hosts without workspaces are left out, as on the maps; folds are
 kept in `crew:collapsed`. The arrow keys, Home and End move through the map's nodes and heads. Picking one opens main's
 `detailView` (the panel's detail: the agent's `Session`, a subagent's, New agent, a workspace, a project, Add project; one copy
-at a time, the panel's empty while Crew shows) across the whole view; Back (the conversation's Fleet) or Esc returns to the
-map, scrolled to what was open with the keyboard on it. For an agent a stage strip heads it: its robot, glow, mark and
-drones, its state, model and subagents, what it is doing with a sliding progress bar while it runs, its workspace's chip and
-medallions, and (the macOS app's) its Browser button with its tab count. Inside, `ChatDecorContext` (`web/src/chatDecor.ts`,
+at a time, the panel's empty while Crew shows) in `.crew-drawer` on the map's right (440–760 px, 46%; under a 900 px window
+over the map), the map staying, its node or head marked (`aria-current`) and kept in view. Esc closes it from anywhere in
+Crew, its message box too (main's key handler, `crewShown`: after menus, pickers, previews and confirmations; a subagent goes
+back to its agent first), as does Back (the conversation's Fleet); the map gives the keyboard back to what was open. For an
+agent, at the conversation's foot above its message box (`ChatFooterContext` in `chatDecor.ts`, which `SessionView` puts in
+the composer's activity in place of its working summary line): its robot, glow, mark and drones, its state, model and
+subagents, what it is doing with a sliding progress bar while it runs, its workspace's chip and medallions, and (the macOS
+app's) its Browser button with its tab count. Inside, `ChatDecorContext` (`web/src/chatDecor.ts`,
 read by `Session.tsx`'s timeline; without a provider nothing changes) puts the robot beside each reply (working while that
 reply is live) and in the working row. The robot's browser is the Dungeon Board's (`BoardBrowser.tsx`, `crew`: no gold frame,
 the app's tokens, `.board-browser.crew` in `crew.css`): main's `crewBrowsing` (Crew, the macOS app, an agent open, not a
-subagent) shows it, while `world:browserOpen`, beside the conversation, which keeps the left (`.crew-map[data-browser]`,
-380–680 px, 44%), or over it filled; B, the stage's Browser button, ⇧⌘W and ⌘K ("Show …’s browser", its tab entries, from
+subagent) shows it, while `world:browserOpen`, over the map's place left of the conversation, or over both filled; B, the stage's Browser button, ⇧⌘W and ⌘K ("Show …’s browser", its tab entries, from
 the shared `browserEntries` in main, without "the board's") as on the board; a tab the agent opens shows at once (Settings →
 Map's "Show the browser when its agent opens a tab"), and web links clicked in the conversation (`.crew-detail`,
 `chatLinks.ts`) open in it while it shows. The shortcuts dialog's "The Crew map" group lists the keys. Its sheets and frames
