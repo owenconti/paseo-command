@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { motion } from "framer-motion";
-import { ExternalLink, ImageOff, LoaderCircle, Server, X } from "lucide-react";
+import { ExternalLink, ImageOff, LoaderCircle, X } from "lucide-react";
 import { useFocusTrap } from "./focus";
 import { resolveImage } from "./imageSource";
 import {
@@ -32,30 +32,18 @@ export function MarkdownImage({
 }) {
   const source = resolveImage(src, host);
   const label = alt.trim() || source.name || "image";
-  if (source.kind === "elsewhere" || source.kind === "invalid")
+  if (source.kind === "invalid")
     return (
       <span
         className="md-image notice"
         role="img"
         aria-label={`Image not available: ${label}`}
-        aria-description={
-          source.kind === "elsewhere"
-            ? source.reason
-            : "This image reference can't be displayed"
-        }
+        aria-description="This image reference can't be displayed"
       >
-        {source.kind === "elsewhere" ? (
-          <Server size={14} aria-hidden="true" />
-        ) : (
-          <ImageOff size={14} aria-hidden="true" />
-        )}
+        <ImageOff size={14} aria-hidden="true" />
         <span className="md-image-text">
           <span className="md-image-name">{label}</span>
-          <small>
-            {source.kind === "elsewhere"
-              ? "Image on the agent's host"
-              : "Image can't be shown"}
-          </small>
+          <small>Image can't be shown</small>
         </span>
       </span>
     );

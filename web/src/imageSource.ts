@@ -15,7 +15,6 @@
 export type ImageSource =
   | { kind: "local"; url: string; path: string; name: string }
   | { kind: "remote"; url: string; site: string; name: string }
-  | { kind: "elsewhere"; name: string; reason: string }
   | { kind: "invalid"; name: string };
 
 export function decodeSafe(value: string) {

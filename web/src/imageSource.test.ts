@@ -9,7 +9,8 @@ test("a remote agent's image file loads through its host's daemon; a local one f
     path: "/tmp/run 5/page.png",
     name: "page.png",
   });
-  assert.equal(resolveImage("file:///tmp/a.png").kind === "local" && resolveImage("file:///tmp/a.png").url, "/api/attachments/image?path=%2Ftmp%2Fa.png");
+  const local = resolveImage("file:///tmp/a.png");
+  assert.equal(local.kind === "local" ? local.url : "", "/api/attachments/image?path=%2Ftmp%2Fa.png");
   assert.equal(resolveImage("https://example.com/a.png", "srv_remote").kind, "remote");
   assert.equal(resolveImage("file://elsewhere/tmp/a.png", "srv_remote").kind, "invalid");
 });
