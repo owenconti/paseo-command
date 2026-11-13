@@ -55,6 +55,13 @@ const DRAWER_WIDTH = "crew:drawerWidth";
 const DRAWER_MIN = 360;
 /** How much of the map stays beside the panel on a wide window (under 900 px the panel lies over the map). */
 const MAP_KEEP = 320;
+const CARD_GAP = 14;
+/** The map's columns: as many one-robot cards (a tile, the 6 px after it, 10 px padding each side, the border; at least
+ * 240 px) as fit across `width`. Every row uses them; a card spans as many as it has robots. */
+export function columnsFor(width: number, tile: number): number {
+  const card = Math.max(240, tile + 6 + 16);
+  return Math.max(1, Math.floor((width + CARD_GAP) / (card + CARD_GAP)));
+}
 /** The map's robots, CSS px tall. */
 const NODE = 72;
 
@@ -154,6 +161,22 @@ export function CrewMap(props: Props) {
   const selected = selectionKey(props.selection, snapshot);
   const board = useRef<HTMLDivElement>(null);
   const root = useRef<HTMLDivElement>(null);
+  // How many columns the map's grids have, measured as it resizes (the conversation opening or resized beside it).
+  const [cols, setCols] = useState(1);
+  useLayoutEffect(() => {
+    const node = board.current;
+    if (!node || typeof ResizeObserver === "undefined") return;
+    const measure = () => {
+      const grid = node.querySelector<HTMLElement>(".crew-workspaces");
+      if (!grid) return;
+      const tile = parseFloat(getComputedStyle(grid).getPropertyValue("--crew-tile")) || 198;
+      setCols(columnsFor(grid.clientWidth, tile));
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [roster.hosts.length > 0]);
   const drawer = useRef<HTMLElement>(null);
   // The panel's width, dragged on its left edge (or ←/→ there; double-click for the default). Set on the map's frame,
   // where the robot's browser (a sibling, BoardBrowser.tsx) reads it too.
@@ -274,7 +297,7 @@ export function CrewMap(props: Props) {
   };
   const camp = (agents: RosterAgent[]) =>
     agents.length > 0 && (
-      <article className="crew-ws camp" aria-label="Without a workspace" style={{ "--crew-n": agents.length } as CSSProperties}>
+      <article className="crew-ws camp" aria-label="Without a workspace" style={{ "--crew-n": agents.length, gridColumn: `span ${Math.min(cols, agents.length)}` } as CSSProperties}>
         <div className="crew-ws-head">
           <span className="crew-ws-name">Without a workspace</span>
         </div>
@@ -299,7 +322,7 @@ export function CrewMap(props: Props) {
   const open = !props.empty;
   return (
     <div ref={root} className="crew-map" data-world="crew" data-open={open || undefined} data-browser={(open && shownAgent && props.browser?.shown) || undefined}>
-      <div className="crew-board" ref={board} onKeyDown={boardKeys} role="region" aria-label="Crew">
+      <div className="crew-board" ref={board} onKeyDown={boardKeys} role="region" aria-label="Crew" style={{ "--crew-cols": cols } as CSSProperties}>
         <header className="crew-board-head">
           <div className="crew-board-title">
             <h2>Your crew</h2>
@@ -371,7 +394,7 @@ export function CrewMap(props: Props) {
                         {!shut && (
                           <div className="crew-workspaces">
                             {p.workspaces.map((w) => (
-                              <article key={w.key} className="crew-ws" aria-label={w.name} style={{ "--crew-n": Math.max(1, w.agents.length) } as CSSProperties}>
+                              <article key={w.key} className="crew-ws" aria-label={w.name} style={{ "--crew-n": Math.max(1, w.agents.length), gridColumn: `span ${Math.min(cols, Math.max(1, w.agents.length))}` } as CSSProperties}>
                                 <button className="crew-head workspace" data-key={w.key} aria-current={selected === w.key ? "true" : undefined} onClick={() => pick("workspace", w.key)}>
                                   <span className="crew-ws-name">{w.name}</span>
                                   {medals(w, 24)}

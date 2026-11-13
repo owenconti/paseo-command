@@ -245,64 +245,65 @@ test("tiles lie on their side, shorter, when the map is narrowed by the conversa
   await page.context().close();
 });
 
-test("cards and tiles fill their rows: no room left at the right, and no card on a row of its own that would fit beside others", async () => {
+test("cards keep to one grid of equal columns, each spanning its robots, no row left short a card could fill; tiles fill their cards", async () => {
   // Long titles, as Linear-named workspaces and agents have: a card's width never follows its text.
   const long = structuredClone(dungeon);
   for (const w of long.workspaces) w.name = `DE-8379 · Commit custom workspace field definitions and values to Git (${w.name})`;
   for (const a of long.agents) a.name = `DE-8379 · Commit custom workspace field definitions and values to Git`;
   const page = await open({ fleet: long });
   await map(page).locator(".crew-node").first().waitFor();
-  // Each row's room at its right: its container's content edge less its last item's right edge.
-  const gaps = () =>
-    page.evaluate(() => {
-      const out: number[] = [];
-      const sets: [Element, Element[]][] = [
-        ...[...document.querySelectorAll(".crew-workspaces")].map((g) => [g, [...g.querySelectorAll(":scope > .crew-ws")]] as [Element, Element[]]),
-        ...[...document.querySelectorAll(".crew-nodes")].map((n) => [n, [...n.querySelectorAll(":scope > .crew-node")]] as [Element, Element[]]),
-      ];
-      for (const [parent, items] of sets) {
-        const right = parent.getBoundingClientRect().right - parseFloat(getComputedStyle(parent).paddingRight);
-        const rows = new Map<number, number>();
-        for (const el of items) {
-          const r = el.getBoundingClientRect();
-          rows.set(Math.round(r.top), Math.max(rows.get(Math.round(r.top)) ?? 0, r.right));
-        }
-        for (const end of rows.values()) out.push(Math.round(right - end));
-      }
-      return out;
-    });
-  // A card goes to the next row only when it couldn't fit at its least width (its robots' tiles) beside its row's.
-  const breaks = () =>
+  const check = () =>
     page.evaluate(() => {
       const bad: string[] = [];
+      const cols = Number(getComputedStyle(document.querySelector(".crew-board")!).getPropertyValue("--crew-cols"));
+      let one = 0;
       for (const g of document.querySelectorAll(".crew-workspaces")) {
-        const node = g.querySelector(".crew-node");
-        const sideways = !!node && node.querySelector(".crew-portrait")!.getBoundingClientRect().right <= node.querySelector(".crew-node-text")!.getBoundingClientRect().left + 1;
-        const tile = sideways ? 300 : 198;
-        const width = g.getBoundingClientRect().width;
+        const box = g.getBoundingClientRect();
+        const col = (box.width - (cols - 1) * 14) / cols;
         const cards = [...g.querySelectorAll<HTMLElement>(":scope > .crew-ws")].map((c) => ({
           label: c.getAttribute("aria-label"),
-          top: Math.round(c.getBoundingClientRect().top),
-          least: Math.max(240, Math.max(1, c.querySelectorAll(".crew-node").length) * (tile + 6) + 16),
+          n: Math.max(1, c.querySelectorAll(".crew-node").length),
+          r: c.getBoundingClientRect(),
         }));
-        let row: typeof cards = [];
+        let spans = 0;
         for (const c of cards) {
-          if (row.length && c.top !== row[0]!.top) {
-            const need = row.reduce((n, r) => n + r.least + 14, 0) + c.least;
-            if (need <= width) bad.push(`${c.label} would fit (${need} ≤ ${Math.round(width)})`);
-            row = [];
-          }
-          row.push(c);
+          const span = Math.min(cols, c.n);
+          spans += span;
+          const want = span * col + (span - 1) * 14;
+          if (Math.abs(c.r.width - want) > 1.5) bad.push(`${c.label}: ${Math.round(c.r.width)} wide, not ${Math.round(want)} (${span} of ${cols} columns)`);
+          if (c.n === 1) one = one || Math.round(c.r.width);
+          if (c.n === 1 && Math.abs(Math.round(c.r.width) - one) > 1) bad.push(`${c.label}: one-robot cards differ (${Math.round(c.r.width)} vs ${one})`);
         }
+        // A row ends early only where no card from a later row would fit in what it leaves.
+        const tops = [...new Set(cards.map((c) => Math.round(c.r.top)))].sort((x, y) => x - y);
+        for (const top of tops) {
+          const room = box.right - Math.max(...cards.filter((c) => Math.round(c.r.top) === top).map((c) => c.r.right));
+          const later = cards.filter((c) => Math.round(c.r.top) > top);
+          for (const c of later) if (c.r.width + 14 <= room + 1.5) bad.push(`${c.label} would fit in the ${Math.round(room)}px a row above leaves`);
+        }
+        void spans;
       }
-      return bad;
+      // Tiles fill each line of their card.
+      for (const n of document.querySelectorAll(".crew-nodes")) {
+        const right = n.getBoundingClientRect().right - parseFloat(getComputedStyle(n).paddingRight);
+        const ends = new Map<number, number>();
+        for (const el of n.querySelectorAll(":scope > .crew-node")) {
+          const r = el.getBoundingClientRect();
+          ends.set(Math.round(r.top), Math.max(ends.get(Math.round(r.top)) ?? 0, r.right));
+        }
+        for (const end of ends.values()) if (right - end > 1.5) bad.push(`tiles leave ${Math.round(right - end)}px`);
+      }
+      return { cols, bad };
     });
-  for (const gap of await gaps()) assert.ok(Math.abs(gap) <= 1, `room left: ${gap}px`);
-  assert.deepEqual(await breaks(), []);
+  const wide = await check();
+  assert.ok(wide.cols >= 3, `columns: ${wide.cols}`);
+  assert.deepEqual(wide.bad, []);
   await page.locator(".crew-node").first().click();
   await page.locator(".crew-drawer .session").waitFor();
-  for (const gap of await gaps()) assert.ok(Math.abs(gap) <= 1, `room left beside the conversation: ${gap}px`);
-  assert.deepEqual(await breaks(), []);
+  await page.waitForTimeout(100);
+  const narrow = await check();
+  assert.ok(narrow.cols < wide.cols, `fewer columns beside the conversation: ${narrow.cols}`);
+  assert.deepEqual(narrow.bad, []);
   await page.context().close();
 });
 

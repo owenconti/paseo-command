@@ -322,23 +322,22 @@
   font-weight: var(--fw-semibold);
   color: var(--text-strong);
 }
-/* Each card starts as wide as its robots: its count of them (`--crew-n`) times a tile's width (`--crew-tile`), never its
-   text's length; then the cards of a row grow to fill it, so no room is left at its right; a row's cards one height.
-   Inside, the tiles grow to fill their card the same way. */
+/* One grid of equal columns for every row (`--crew-cols`, from the map's width and a one-robot card's: CrewMap.tsx
+   `columnsFor`), each card spanning as many columns as it has robots (`--crew-n`, at most all of them), never its text's
+   length; cards fill holes left earlier (dense), so only a row's end may stay open; a row's cards one height. Inside,
+   the tiles grow to fill their card. */
 .crew-workspaces {
   --crew-tile: 198px;
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(var(--crew-cols, 1), minmax(0, 1fr));
+  grid-auto-flow: row dense;
   align-items: stretch;
   gap: 14px;
 }
 .crew-ws {
   display: flex;
   flex-direction: column;
-  /* n tiles, the 6 px between them, the 10 px padding either side and the border. */
-  flex: 1 1 calc(var(--crew-n, 1) * (var(--crew-tile) + 6px) + 16px);
-  min-width: 240px;
-  max-width: 100%;
+  min-width: 0;
   border: 1px solid var(--line);
   border-radius: var(--radius-lg);
   background: var(--surface);
