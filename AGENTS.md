@@ -1147,7 +1147,9 @@ beside it, they lie on their side: the robot two-thirds size on the left, its na
 third as tall): the robot (72 px; the Dungeon Board's `robots` sheet in its provider's colour, `robotColor`: idle frames
 with a blink and a breath, the four work frames while it runs, greyed offline) over its state's glow (`glow-*`, pulsing for
 states that need you) with its mark (`mark-*`, the running gear turning) and running drones (`subagentModels`' colours), its
-name, and its state or, while it runs, what it is doing (`workingOn`, shimmering); nodes that need you are tinted in their
+name, then, as the strip above the message box has them, a dot and its state in its colour (pulsing while it runs or needs
+you) with its model, what it is doing while it runs (`workingOn`, shimmering) over a sliding bar (both kept, empty, otherwise,
+so tiles stay one height), on a soft wash of its state's colour (top to bottom standing, left to right on its side); nodes that need you are tinted in their
 state's colour, an unread reply has a gold dot before its name. Projects and hosts without workspaces are left out, as on the maps; folds are
 kept in `crew:collapsed`. The arrow keys, Home and End move through the map's nodes and heads. Picking one opens main's
 `detailView` (the panel's detail: the agent's `Session`, a subagent's, New agent, a workspace, a project, Add project; one copy

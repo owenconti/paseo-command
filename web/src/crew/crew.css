@@ -411,13 +411,18 @@
   text-align: center;
   cursor: pointer;
 }
+/* A soft wash of its state's colour, as the strip above the message box has. */
+.crew-node {
+  --crew-wash: 180deg;
+  background: linear-gradient(var(--crew-wash), color-mix(in srgb, var(--crew-state) 11%, transparent), transparent 75%) border-box no-repeat;
+}
 .crew-node:hover {
   background: var(--row-hover);
   border-color: color-mix(in srgb, var(--crew-state) 45%, var(--line));
 }
 .crew-node:is([data-state="failed"], [data-state="approval"], [data-state="question"], [data-state="asking"]) {
   border-color: color-mix(in srgb, var(--crew-state) 55%, transparent);
-  background: color-mix(in srgb, var(--crew-state) 8%, transparent);
+  background: linear-gradient(var(--crew-wash), color-mix(in srgb, var(--crew-state) 20%, transparent), color-mix(in srgb, var(--crew-state) 5%, transparent)) border-box no-repeat;
 }
 .crew-node .crew-portrait {
   margin-bottom: 6px;
@@ -443,17 +448,55 @@
   color: var(--text-strong);
   overflow-wrap: anywhere;
 }
-.crew-node-state {
+/* As the strip above the message box: a dot and the state in its colour, the model, what it is doing, its bar. */
+.crew-node-status {
+  display: flex;
+  align-items: center;
+  gap: 4px 8px;
+  max-width: 100%;
+  overflow: hidden;
+  white-space: nowrap;
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+}
+.crew-node-status i {
+  flex: none;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--crew-state);
+}
+.crew-node-status b {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--crew-state);
+  font-weight: var(--fw-semibold);
+}
+.crew-node-status span {
+  flex: none;
+}
+.crew-node:is([data-state="running"], [data-state="approval"], [data-state="question"], [data-state="asking"], [data-state="failed"]) .crew-node-status i {
+  animation: crew-pulse 1.4s ease-in-out infinite;
+}
+.crew-node[data-state="idle"] .crew-node-status b,
+.crew-node[data-state="offline"] .crew-node-status b {
+  color: var(--text-3);
+}
+.crew-node-work {
   max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   font-size: var(--fs-xs);
-  color: var(--crew-state);
+  color: var(--text-2);
 }
-.crew-node[data-state="idle"] .crew-node-state,
-.crew-node[data-state="offline"] .crew-node-state {
-  color: var(--text-4);
+.crew-node .crew-progress {
+  width: min(160px, 80%);
+  margin-top: 2px;
+  visibility: hidden;
+}
+.crew-node .crew-progress[data-on] {
+  visibility: visible;
 }
 /* An unread reply: a gold dot before its name. */
 .crew-node .crew-unread {
@@ -802,6 +845,7 @@
     --crew-tile: 300px;
   }
   .crew-node {
+    --crew-wash: 90deg;
     flex-direction: row;
     align-items: center;
     gap: 10px;

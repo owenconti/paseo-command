@@ -288,9 +288,16 @@ export function CrewMap(props: Props) {
             {a.state === "done" && <span className="crew-unread" data-tip="Replied · unread" data-summary="" aria-label="Unread reply" role="img" />}
             {a.name}
           </span>
-          <small className={running ? "crew-node-state crew-shimmer" : "crew-node-state"}>
-            {running ? summaryOf(a) || "Working…" : STATE_NAMES[a.state]}
-          </small>
+          <span className="crew-node-status">
+            <i aria-hidden="true" />
+            <b>{STATE_NAMES[a.state]}</b>
+            {a.model && <span>{modelName(a.model)}</span>}
+          </span>
+          {/* What it is doing, and a bar sliding while it runs; kept (empty) otherwise, so tiles stay one height. */}
+          <small className={running ? "crew-node-work crew-shimmer" : "crew-node-work"}>{running ? summaryOf(a) || "Working…" : "\u00a0"}</small>
+          <span className="crew-progress" data-on={running || undefined} aria-hidden="true">
+            <i />
+          </span>
         </span>
       </button>
     );
