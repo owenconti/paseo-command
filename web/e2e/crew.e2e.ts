@@ -179,6 +179,20 @@ test("the conversation panel resizes from its left edge, and keeps its width", a
   await page.context().close();
 });
 
+test("the pages keep the Galaxy theme while Crew is the map style, whatever tab shows", async () => {
+  const page = await open();
+  await page.emulateMedia({ colorScheme: "dark", reducedMotion: "reduce" });
+  await map(page).locator(".crew-node").first().waitFor();
+  const theme = () => page.evaluate(() => document.documentElement.dataset.theme);
+  assert.equal(await theme(), "galaxy");
+  // Files (or GitHub, Activity): Crew gives way, the theme stays.
+  await page.evaluate(() => window.dispatchEvent(new CustomEvent("paseo:mode", { detail: { mode: "files" } })));
+  await page.locator(".crew-map").waitFor({ state: "detached" });
+  await page.waitForTimeout(100);
+  assert.equal(await theme(), "galaxy");
+  await page.context().close();
+});
+
 test("the filter narrows the map, and folded projects stay folded", async () => {
   const page = await open();
   await map(page).locator(".crew-node").first().waitFor();

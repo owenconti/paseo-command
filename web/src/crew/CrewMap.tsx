@@ -17,7 +17,6 @@ import { worldSnapshot, targetSelection } from "../worldBridge";
 import { useProbe } from "../useProbe";
 import { flagTip } from "../flagTip";
 import { readStore, writeStore } from "../api";
-import { setUnityWorldTheme } from "../theme";
 import { ChatDecorContext, ChatFooterContext, type ChatDecor } from "../chatDecor";
 import { onAppCommand } from "../appCommands";
 import { ResizeEdge } from "../ResizeEdge";
@@ -179,11 +178,6 @@ export function CrewMap(props: Props) {
   // What was last opened from the map: coming back, the map shows it and gives it the keyboard.
   const opened = useRef<string | null>(null);
 
-  // The panels keep the app's look: Galaxy, or Light while the system is light.
-  useEffect(() => {
-    setUnityWorldTheme("galaxy");
-    return () => setUnityWorldTheme(null);
-  }, []);
   // ⌘K "Filter the crew…": the map's filter field (the map shows first).
   const filterField = useRef<HTMLInputElement>(null);
   const focusFilter = useRef(false);

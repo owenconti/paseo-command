@@ -6,6 +6,7 @@
 import { useEffect } from "react";
 import { MAP_STYLES, pageDrawn, setMapStyle, type MapStyle } from "./mapStyle";
 import { onAppCommand } from "./appCommands";
+import { setUnityWorldTheme } from "./theme";
 
 /** The app's map channel (the native worlds post on it too, rendering/src/native/bridge.ts). */
 const postNative = (message: Record<string, unknown>) =>
@@ -19,6 +20,13 @@ export function useMapBridge(style: MapStyle, loaded: boolean, workspace: Termin
     return () => offStyles.forEach((off) => off());
   }, []);
   const drawn = pageDrawn(style);
+  // The panels' and pages' look (Galaxy, or Light while the system is light), as a native world sets it: for as long
+  // as the style is chosen, whatever tab shows (the pages' near-black palette keys on it), not only while Crew shows.
+  useEffect(() => {
+    if (!drawn) return;
+    setUnityWorldTheme("galaxy");
+    return () => setUnityWorldTheme(null);
+  }, [drawn]);
   useEffect(() => {
     postNative({ type: "mapStyle", style });
   }, [style]);

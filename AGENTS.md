@@ -1112,7 +1112,8 @@ graphical maps are, larger nodes, and the Dungeon Board's browser; then: equal-h
 and closed with Esc, and the robot's strip above the message box) is the fleet as a chat app, drawn by the page itself in
 the map's place, in a plain browser as in the macOS app (`pageDrawn` in `mapStyle.ts`; main's `crewShown`). No native world
 mounts: `NativeWorld` gives way to `CrewMap`, and `useMapBridge` (`web/src/mapBridge.ts`, always mounted, which also owns the
-`mapStyle` message and the `map-style-<id>` commands for View → Map Style) tells the app `pageMap` (`on`: `WorldWindow` keeps
+`mapStyle` message and the `map-style-<id>` commands for View → Map Style, and sets the Galaxy theme for as long as Crew is the style, whatever tab
+shows, as a mounted native world does: the pages' near-black dark palette keys on it) tells the app `pageMap` (`on`: `WorldWindow` keeps
 the SpriteKit view hidden and paused under the page, never un-hides it on later messages, and lifts the splash on the page's
 `loaded` without a scene; a reloading page says again; `--info`'s `pageMap`), `loaded`, and `workspace` (the Terminal tab's,
 the selected workspace or agent's). As on the Dungeon Board the side panel is absent (`panelAbsent` = `talkable || crewShown`:
