@@ -320,16 +320,19 @@
   font-weight: var(--fw-semibold);
   color: var(--text-strong);
 }
+/* Each card as wide as its robots (a long title doesn't widen it), wrapping in rows, a row's cards one height. */
 .crew-workspaces {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 430px), 1fr));
+  display: flex;
+  flex-wrap: wrap;
   align-items: stretch;
   gap: 14px;
 }
 .crew-ws {
   display: flex;
   flex-direction: column;
-  min-width: 0;
+  flex: none;
+  min-width: 240px;
+  max-width: 100%;
   border: 1px solid var(--line);
   border-radius: var(--radius-lg);
   background: var(--surface);
@@ -341,7 +344,9 @@
 }
 .crew-head.workspace,
 .crew-ws-head {
-  width: 100%;
+  /* Takes the card's width, never sets it. */
+  width: 0;
+  min-width: 100%;
   min-height: 44px;
   padding: 9px 12px;
   border-radius: 0;
@@ -378,8 +383,9 @@
 .crew-nodes {
   flex: 1;
   align-content: start;
-  display: grid;
-  grid-template-columns: repeat(auto-fill, 198px);
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
   gap: 6px;
   padding: 10px;
 }
@@ -389,6 +395,8 @@
   flex-direction: column;
   align-items: center;
   gap: 3px;
+  flex: none;
+  width: 198px;
   min-width: 0;
   padding: 14px 10px 10px;
   border: 1px solid transparent;
@@ -743,11 +751,12 @@
     width: 100%;
     order: 3;
   }
-  .crew-workspaces {
-    grid-template-columns: minmax(0, 1fr);
+  .crew-ws {
+    min-width: 0;
+    width: 100%;
   }
-  .crew-nodes {
-    grid-template-columns: repeat(auto-fill, 192px);
+  .crew-node {
+    width: 192px;
   }
   .crew-stage-place {
     display: none;
