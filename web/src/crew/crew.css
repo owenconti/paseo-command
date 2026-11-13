@@ -322,7 +322,7 @@
 }
 .crew-workspaces {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 430px), 1fr));
   align-items: stretch;
   gap: 14px;
 }
@@ -379,7 +379,7 @@
   flex: 1;
   align-content: start;
   display: grid;
-  grid-template-columns: repeat(auto-fill, 132px);
+  grid-template-columns: repeat(auto-fill, 198px);
   gap: 6px;
   padding: 10px;
 }
@@ -747,7 +747,7 @@
     grid-template-columns: minmax(0, 1fr);
   }
   .crew-nodes {
-    grid-template-columns: repeat(auto-fill, 128px);
+    grid-template-columns: repeat(auto-fill, 192px);
   }
   .crew-stage-place {
     display: none;
