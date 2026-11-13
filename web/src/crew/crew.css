@@ -11,8 +11,7 @@
   --crew-idle: var(--text-4);
   position: absolute;
   inset: 0;
-  display: grid;
-  grid-template-columns: clamp(220px, var(--crew-roster, 290px), 46%) minmax(0, 1fr);
+  display: flex;
   background: var(--bg);
   color: var(--text);
   font-family: var(--font-sans);
@@ -158,26 +157,39 @@
   animation-delay: 0.25s;
 }
 
-/* The roster. */
-.crew-roster {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-  background: var(--panel-2);
-  border-right: 1px solid var(--line);
+/* The map: hosts, their projects, and each project's workspaces as panels of robots. */
+.crew-board {
+  flex: 1;
+  min-width: 0;
+  overflow-y: auto;
+  padding: 22px 28px 40px;
+  outline: none;
 }
-.crew-roster-head {
+.crew-board-head {
   display: flex;
-  gap: 6px;
-  padding: 10px 10px 6px;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 6px;
+}
+.crew-board-title {
+  flex: 1;
+  min-width: 0;
+}
+.crew-board-title h2 {
+  margin: 0;
+  font-size: var(--fs-xl);
+  color: var(--text-strong);
+}
+.crew-board-title p {
+  margin: 3px 0 0;
+  color: var(--text-3);
+  font-size: var(--fs-sm);
 }
 .crew-search {
-  flex: 1;
   display: flex;
   align-items: center;
   gap: 6px;
-  min-width: 0;
+  width: min(260px, 34%);
   padding: 0 8px;
   height: 30px;
   border: 1px solid var(--line);
@@ -200,7 +212,6 @@
   padding: 0;
 }
 .crew-clear,
-.crew-new,
 .crew-fold {
   display: inline-flex;
   align-items: center;
@@ -211,43 +222,46 @@
   cursor: pointer;
   padding: 0;
 }
-.crew-new {
-  width: 30px;
-  height: 30px;
-  border-radius: var(--radius-md);
-  border: 1px solid var(--line);
-}
-.crew-new:hover,
 .crew-clear:hover {
   color: var(--text-strong);
-  background: var(--row-hover);
 }
-.crew-roster-body {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  padding: 2px 8px 16px;
-}
-.crew-label {
-  display: flex;
+.crew-primary {
+  display: inline-flex;
   align-items: center;
   gap: 6px;
-  margin: 12px 4px 4px;
-  font-size: var(--fs-2xs);
+  flex: none;
+  height: 30px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: var(--accent);
+  color: var(--on-accent);
+  font: inherit;
+  font-size: var(--fs-sm);
   font-weight: var(--fw-semibold);
-  letter-spacing: 0.07em;
-  text-transform: uppercase;
-  color: var(--text-4);
+  cursor: pointer;
 }
-.crew-need .crew-label i {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--crew-approval);
-  animation: crew-pulse 1.6s ease-in-out infinite;
+.crew-primary:hover {
+  background: var(--accent-hover);
+}
+.crew-host {
+  margin-top: 22px;
+}
+.crew-host-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 4px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--line);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-semibold);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-3);
 }
 .crew-fold {
-  gap: 4px;
+  gap: 5px;
   font: inherit;
   letter-spacing: inherit;
   text-transform: inherit;
@@ -260,34 +274,34 @@
   rotate: -90deg;
 }
 .crew-fold.small {
-  width: 16px;
-  height: 22px;
+  width: 18px;
+  height: 26px;
   color: var(--text-4);
 }
 .crew-offline {
-  margin-left: 4px;
-  padding: 0 5px;
+  padding: 0 6px;
   border-radius: var(--radius-pill);
   background: var(--fill);
   color: var(--text-3);
   letter-spacing: 0.02em;
   text-transform: none;
 }
-.crew-group[data-offline] .crew-row {
-  opacity: 0.7;
+.crew-host[data-offline] .crew-ws {
+  opacity: 0.75;
 }
 .crew-project {
-  margin-top: 4px;
+  margin-top: 14px;
 }
 .crew-project-head {
   display: flex;
   align-items: center;
+  gap: 2px;
+  margin-bottom: 8px;
 }
 .crew-head {
   display: flex;
   align-items: center;
-  gap: 6px;
-  width: 100%;
+  gap: 8px;
   min-width: 0;
   border: 0;
   border-radius: var(--radius-sm);
@@ -297,16 +311,46 @@
   text-align: left;
   cursor: pointer;
 }
+.crew-head:hover {
+  background: var(--row-hover);
+}
 .crew-head.project {
-  padding: 3px 6px 3px 2px;
-  font-size: var(--fs-sm);
+  padding: 2px 8px 2px 4px;
+  font-size: var(--fs-lg);
   font-weight: var(--fw-semibold);
   color: var(--text-strong);
 }
-.crew-head.workspace {
-  margin-top: 4px;
-  padding: 3px 6px 3px 20px;
-  font-size: var(--fs-xs);
+.crew-workspaces {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  align-items: start;
+  gap: 14px;
+}
+.crew-ws {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  overflow: hidden;
+}
+.crew-ws.camp {
+  border-style: dashed;
+  background: transparent;
+}
+.crew-head.workspace,
+.crew-ws-head {
+  width: 100%;
+  padding: 9px 12px;
+  border-radius: 0;
+  border-bottom: 1px solid var(--line-soft);
+  font-size: var(--fs-sm);
+  color: var(--text-2);
+}
+.crew-ws-head {
+  display: flex;
+  align-items: center;
   color: var(--text-3);
 }
 .crew-ws-name {
@@ -320,83 +364,90 @@
 .crew-medals {
   display: inline-flex;
   align-items: center;
-  gap: 2px;
+  gap: 3px;
   flex: none;
 }
-.crew-row {
+.crew-ws-empty {
+  margin: 0;
+  padding: 18px 12px;
+  color: var(--text-4);
+  font-size: var(--fs-sm);
+  text-align: center;
+}
+.crew-nodes {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, 132px);
+  gap: 6px;
+  padding: 10px;
+}
+.crew-node {
+  position: relative;
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 9px;
-  width: 100%;
+  gap: 3px;
   min-width: 0;
-  padding: 4px 8px 4px 12px;
-  border: 0;
+  padding: 14px 10px 10px;
+  border: 1px solid transparent;
   border-radius: var(--radius-md);
   background: transparent;
   color: var(--text);
   font: inherit;
-  text-align: left;
+  text-align: center;
   cursor: pointer;
 }
-.crew-need .crew-row {
-  padding-left: 6px;
-}
-.crew-row:hover,
-.crew-head:hover {
+.crew-node:hover {
   background: var(--row-hover);
+  border-color: color-mix(in srgb, var(--crew-state) 45%, var(--line));
 }
-.crew-row[aria-current="true"],
-.crew-head[aria-current="true"] {
-  background: var(--row-selected);
-  box-shadow: inset 2px 0 0 var(--accent);
+.crew-node:is([data-state="failed"], [data-state="approval"], [data-state="question"], [data-state="asking"]) {
+  border-color: color-mix(in srgb, var(--crew-state) 55%, transparent);
+  background: color-mix(in srgb, var(--crew-state) 8%, transparent);
 }
-.crew-row:focus-visible,
+.crew-node .crew-portrait {
+  margin-bottom: 6px;
+}
+.crew-node-name {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  max-width: 100%;
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-semibold);
+  line-height: 1.3;
+  color: var(--text-strong);
+  overflow-wrap: anywhere;
+}
+.crew-node-state {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--fs-xs);
+  color: var(--crew-state);
+}
+.crew-node[data-state="idle"] .crew-node-state,
+.crew-node[data-state="offline"] .crew-node-state {
+  color: var(--text-4);
+}
+.crew-node .crew-unread {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--crew-done);
+}
+.crew-node:focus-visible,
 .crew-head:focus-visible,
-.crew-card:focus-visible,
 .crew-fold:focus-visible {
   outline: 2px solid var(--focus);
   outline-offset: -2px;
 }
-.crew-row-text {
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-  min-width: 0;
-}
-.crew-row-text b,
-.crew-row-text small {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.crew-row-text b {
-  font-size: var(--fs-sm);
-  font-weight: var(--fw-semibold);
-  color: var(--text-strong);
-}
-.crew-row-text small {
-  font-size: var(--fs-xs);
-  color: var(--text-3);
-}
-.crew-row[data-state="failed"] .crew-row-text small,
-.crew-row[data-state="approval"] .crew-row-text small,
-.crew-row[data-state="question"] .crew-row-text small,
-.crew-row[data-state="asking"] .crew-row-text small {
-  color: var(--crew-state);
-}
-.crew-row[data-state="offline"] .crew-row-text {
-  opacity: 0.7;
-}
-.crew-unread {
-  width: 8px;
-  height: 8px;
-  margin-right: 6px;
-  border-radius: 50%;
-  background: var(--crew-done);
-  flex: none;
-}
 .crew-none {
-  margin: 16px 6px;
+  margin: 24px 0;
   color: var(--text-3);
   font-size: var(--fs-sm);
 }
@@ -414,9 +465,16 @@
   position: relative;
   display: flex;
   flex-direction: column;
+  flex: 1;
   min-width: 0;
   min-height: 0;
   background: var(--panel);
+}
+/* The open agent's browser beside its conversation (BoardBrowser.tsx, `crew`): the conversation keeps the left. */
+.crew-map[data-browser] .crew-main {
+  flex: none;
+  width: clamp(380px, 44%, 680px);
+  border-right: 1px solid var(--line);
 }
 .crew-detail {
   flex: 1;
@@ -537,122 +595,117 @@
   margin-right: 4px;
 }
 
-/* The overview. */
-.crew-overview {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  padding: 24px 28px 32px;
-}
-.crew-overview-head {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 16px;
-  margin-bottom: 8px;
-}
-.crew-overview-head h2 {
-  margin: 0;
-  font-size: var(--fs-xl);
-  color: var(--text-strong);
-}
-.crew-overview-head p {
-  margin: 4px 0 0;
-  color: var(--text-3);
-  font-size: var(--fs-sm);
-}
-.crew-primary {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  flex: none;
-  height: 30px;
-  padding: 0 12px;
+/* The robot's browser on Crew: the board's browser (worldChat/board-browser.css) in the app's own plain look,
+   beside the conversation, or over it when filled. */
+.board-browser.crew {
+  --bb-gold: var(--text-2);
+  --bb-ink: var(--text-strong);
+  --bb-dim: var(--text-3);
+  --bb-line: var(--line);
   border: 0;
-  border-radius: var(--radius-md);
-  background: var(--accent);
-  color: var(--on-accent);
-  font: inherit;
-  font-size: var(--fs-sm);
-  font-weight: var(--fw-semibold);
-  cursor: pointer;
-}
-.crew-primary:hover {
-  background: var(--accent-hover);
-}
-.crew-overview-section .crew-label {
-  margin: 20px 0 8px;
-}
-.crew-cards {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
-  gap: 10px;
-}
-.crew-card {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  min-width: 0;
-  padding: 10px 12px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-lg);
-  background: var(--surface);
+  border-radius: 0;
+  background: var(--panel-2);
   color: var(--text);
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
+  font: 500 var(--fs-sm) / 1.4 var(--font-sans);
+  filter: none;
+  animation: none;
+  color-scheme: normal;
 }
-.crew-card:hover {
-  border-color: color-mix(in srgb, var(--crew-state) 55%, var(--line));
-  background: var(--row-hover);
+/* Placed against the board's own .beside and .filled rules. */
+.board-browser.crew.beside,
+.board-browser.crew.filled {
+  z-index: 2;
+  top: 0;
+  bottom: 0;
+  left: calc(clamp(380px, 44%, 680px) + 1px);
+  right: 0;
+  width: auto;
+  transform: none;
 }
-.crew-card-text {
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-  min-width: 0;
+.board-browser.crew.filled {
+  left: 0;
 }
-.crew-card-text b,
-.crew-card-text small {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.board-browser.crew .bb-tab {
+  background: var(--fill-soft);
+  border-color: var(--line);
 }
-.crew-card-text b {
+.board-browser.crew .bb-tab.selected {
+  background: var(--panel);
+  border-color: var(--line-strong);
+}
+.board-browser.crew .bb-tab-close:hover,
+.board-browser.crew .bb-tool:hover:not(:disabled),
+.board-browser.crew .bb-tool[aria-pressed="true"],
+.board-browser.crew .bb-button:hover {
   color: var(--text-strong);
-  font-size: var(--fs-sm);
+  background: var(--row-hover);
+  border-color: transparent;
 }
-.crew-card-text small {
-  color: var(--text-3);
-  font-size: var(--fs-xs);
+.board-browser.crew .bb-tool:disabled {
+  color: var(--text-faint);
 }
-.crew-card-text .crew-card-state {
-  color: var(--crew-state);
+.board-browser.crew .bb-spinner {
+  border-color: var(--accent);
+  border-top-color: transparent;
 }
-.crew-card[data-state="idle"] .crew-card-state {
+.board-browser.crew .bb-bar {
+  border-top: 1px solid var(--line);
+  background: var(--panel);
+}
+.board-browser.crew .bb-address {
+  background: var(--input-bg);
+  border-color: var(--line);
+  color: var(--text);
+}
+.board-browser.crew .bb-address::placeholder,
+.board-browser.crew .bb-note {
   color: var(--text-4);
 }
+.board-browser.crew .bb-view {
+  background: var(--bg);
+}
+.board-browser.crew .bb-button {
+  border: 1px solid var(--line-mid);
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--text-2);
+  font: 600 var(--fs-xs) / 1.25 var(--font-sans);
+  letter-spacing: 0;
+  text-transform: none;
+}
+.board-browser.crew button:focus-visible,
+.board-browser.crew .bb-address:focus-visible {
+  outline: 2px solid var(--focus);
+}
+.crew-browser-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex: none;
+  font-family: var(--font-sans);
+}
+.crew-browser-toggle[aria-pressed="true"] {
+  border-color: var(--accent-line);
+  color: var(--text-strong);
+}
 
-/* Narrow: the roster keeps its robots and marks only. */
+/* Narrow: smaller nodes, one workspace a row. */
 @container crew (max-width: 640px) {
-  .crew-map {
-    grid-template-columns: 64px minmax(0, 1fr);
+  .crew-board {
+    padding: 16px 14px 32px;
   }
-  .crew-roster-head,
-  .crew-label,
-  .crew-head,
-  .crew-project-head,
-  .crew-row-text,
-  .crew-roster .resize-edge {
-    display: none;
+  .crew-board-head {
+    flex-wrap: wrap;
   }
-  .crew-row {
-    justify-content: center;
-    padding: 6px 0;
+  .crew-search {
+    width: 100%;
+    order: 3;
   }
-  .crew-row > .crew-status,
-  .crew-row > .crew-unread {
-    display: none;
+  .crew-workspaces {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .crew-nodes {
+    grid-template-columns: repeat(auto-fill, 128px);
   }
   .crew-stage-place {
     display: none;
@@ -669,7 +722,6 @@
   .crew-map .crew-drone *,
   .crew-map .crew-shimmer,
   .crew-map .crew-progress i,
-  .crew-map .crew-label i,
   .crew-map .crew-stage-state i {
     animation: none !important;
   }

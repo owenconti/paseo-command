@@ -1,12 +1,13 @@
 /** The Crew map: the fleet as a chat app, drawn by the page itself (in a plain browser too), in the map's place.
- * A roster of robots on the left (Needs you pinned first, then host › project › workspace › agent, oldest first),
- * and on the right the open conversation (the app's own detail: the agent's `Session`, New agent, a workspace or
+ * With nothing open it is the map: each host, its projects and their workspaces (as the graphical maps group them,
+ * oldest first), each workspace a panel of its agents' robots as large nodes with their state and progress. Picking
+ * one opens it across the whole view (the app's own detail: the agent's `Session`, New agent, a workspace or
  * project) under a stage strip that shows the agent's robot, its state and progress, and its workspace's PR
- * medallions. With nothing open, an overview of every robot by state. The robots, drones, state marks and
- * glows, and the PR, Probe and auto-merge medallions are the Dungeon Board's sheets (`sheets.ts`). The session
- * panel is gone while it shows (main.tsx's `crewShown`): this is where the conversation is. */
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent, type ReactNode } from "react";
-import { ChevronDown, Plus, Search, X } from "lucide-react";
+ * medallions; Back (or Esc) returns to the map. The robots, drones, state marks and glows, and the PR, Probe and
+ * auto-merge medallions are the Dungeon Board's sheets (`sheets.ts`). The session panel is gone while it shows
+ * (main.tsx's `crewShown`): this is where the conversation is. */
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent, type ReactNode } from "react";
+import { ChevronDown, Globe, Plus, Search, X } from "lucide-react";
 import robotsUrl from "../../../rendering/src/assets/dungeon/robots.png";
 import statusUrl from "../../../rendering/src/assets/dungeon/status.png";
 import { AUTO_MERGE } from "../../../rendering/src/prStatus";
@@ -18,11 +19,10 @@ import { flagTip } from "../flagTip";
 import { readStore, writeStore } from "../api";
 import { setUnityWorldTheme } from "../theme";
 import { ChatDecorContext, type ChatDecor } from "../chatDecor";
-import { ResizeEdge } from "../ResizeEdge";
 import { onAppCommand } from "../appCommands";
 import type { Agent, Host, Project, Selection, Workspace } from "../types";
 import type { WorkSummaries } from "../useWorkingOn";
-import { buildRoster, overview, type RosterAgent, type RosterWorkspace } from "./roster";
+import { buildRoster, type RosterAgent, type RosterWorkspace } from "./roster";
 import { droneColors, droneFrames, frameOf, frameStyle, glowOf, markOf, medalsOf, poseOf, robotColorOf, robotFrames } from "./sheets";
 import "./crew.css";
 
@@ -45,11 +45,13 @@ type Props = {
   loaded: boolean;
   blocked: boolean;
   onDispatch: () => void;
+  /** The open agent's browser (the macOS app's): shown beside its conversation, its tabs, B's toggle. */
+  browser?: { shown: boolean; tabs: number; toggle: () => void };
 };
 
-const ROSTER_WIDTH = "crew:rosterWidth";
 const COLLAPSED = "crew:collapsed";
-const ROSTER_DEFAULT = 290;
+/** The map's robots, CSS px tall. */
+const NODE = 72;
 
 /** A robot in its provider's colour: its idle frames (blinking now and then) or, while it runs, its work frames. */
 export function Robot({ color, state, size, title }: { color: string; state: State; size: number; title?: string }) {
@@ -143,32 +145,49 @@ export function CrewMap(props: Props) {
       writeStore(COLLAPSED, next);
       return next;
     });
-  const [width, setWidth] = useState(() => readStore<number>(ROSTER_WIDTH, ROSTER_DEFAULT));
-  const resize = (w: number) => {
-    const next = Math.round(Math.max(220, Math.min(460, w)));
-    setWidth(next);
-    writeStore(ROSTER_WIDTH, next);
-  };
   const selected = selectionKey(props.selection, snapshot);
-  const rosterRef = useRef<HTMLElement>(null);
+  const board = useRef<HTMLDivElement>(null);
+  // What was last opened from the map: coming back, the map shows it and gives it the keyboard.
+  const opened = useRef<string | null>(null);
 
   // The panels keep the app's look: Galaxy, or Light while the system is light.
   useEffect(() => {
     setUnityWorldTheme("galaxy");
     return () => setUnityWorldTheme(null);
   }, []);
-  // ⌘K "Filter the crew…": the roster's filter field.
+  // ⌘K "Filter the crew…": the map's filter field (the map shows first).
   const filterField = useRef<HTMLInputElement>(null);
-  useEffect(() => onAppCommand("crew-filter", () => filterField.current?.focus()), []);
-  // A selection made elsewhere (J/K, ⌘K, a notification) scrolls its row into view.
-  useEffect(() => {
-    rosterRef.current?.querySelector('[aria-current="true"]')?.scrollIntoView({ block: "nearest" });
-  }, [selected]);
+  const focusFilter = useRef(false);
+  useEffect(
+    () =>
+      onAppCommand("crew-filter", () => {
+        if (filterField.current) return filterField.current.focus();
+        focusFilter.current = true;
+        props.select(null);
+      }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
+  );
+  useLayoutEffect(() => {
+    if (!props.empty) return;
+    if (focusFilter.current) {
+      focusFilter.current = false;
+      filterField.current?.focus();
+      return;
+    }
+    const key = opened.current;
+    if (!key) return;
+    const node = board.current?.querySelector<HTMLElement>(`[data-key="${CSS.escape(key)}"]`);
+    node?.focus({ preventScroll: true });
+    node?.scrollIntoView({ block: "center" });
+  }, [props.empty]);
 
   const pick = (kind: "agent" | "workspace" | "project", key: string) => {
     if (props.blocked) return;
     const s = targetSelection({ kind, key }, snapshot);
-    if (s) props.select(s);
+    if (!s) return;
+    opened.current = key;
+    props.select(s);
   };
   const rowOf = (key: string) => snapshot.agents.find((a) => a.key === key);
   const summaryOf = (a: RosterAgent) => {
@@ -179,55 +198,20 @@ export function CrewMap(props: Props) {
     const s = w && snapshot.workspaces.find((x) => x.key === w.key);
     return s && props.workspaces.find((x) => x.workspaceId === s.id && (x.host || "local") === s.hostId);
   };
-  const placeOf = (a: RosterAgent) => {
-    const w = a.workspace ? data.workspaces.find((x) => x.key === a.workspace) : undefined;
-    const p = a.project ? data.projects.find((x) => x.key === a.project) : undefined;
-    return [w?.name, p?.name].filter(Boolean).join(" · ");
-  };
-  const subtitle = (a: RosterAgent, pinned: boolean) => {
-    if (a.state === "running") return summaryOf(a) || "Working…";
-    const state = STATE_NAMES[a.state];
-    return pinned ? [state, placeOf(a)].filter(Boolean).join(" · ") : state;
-  };
 
-  /** ↑/↓ (and Home/End) move through the roster's rows. */
-  const rosterKeys = (e: KeyboardEvent<HTMLElement>) => {
-    if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(e.key) || e.target instanceof HTMLInputElement) return;
-    const rows = [...(rosterRef.current?.querySelectorAll<HTMLButtonElement>(".crew-row, .crew-head") ?? [])];
-    if (!rows.length) return;
+  /** Arrow keys (and Home/End) move through the map's robots and heads, in reading order. */
+  const boardKeys = (e: KeyboardEvent<HTMLElement>) => {
+    if (!["ArrowDown", "ArrowUp", "ArrowLeft", "ArrowRight", "Home", "End"].includes(e.key) || e.target instanceof HTMLInputElement) return;
+    const items = [...(board.current?.querySelectorAll<HTMLButtonElement>(".crew-node, .crew-head") ?? [])];
+    if (!items.length) return;
     e.preventDefault();
-    const at = rows.indexOf(document.activeElement as HTMLButtonElement);
-    const next = e.key === "Home" ? 0 : e.key === "End" ? rows.length - 1 : Math.max(0, Math.min(rows.length - 1, at + (e.key === "ArrowDown" ? 1 : -1)));
-    rows[next]?.focus();
+    e.stopPropagation();
+    const at = items.indexOf(document.activeElement as HTMLButtonElement);
+    const step = e.key === "ArrowDown" || e.key === "ArrowRight" ? 1 : -1;
+    const next = e.key === "Home" ? 0 : e.key === "End" ? items.length - 1 : Math.max(0, Math.min(items.length - 1, at < 0 ? 0 : at + step));
+    items[next]?.focus();
   };
 
-  const agentRow = (a: RosterAgent, pinned = false) => (
-    <button
-      key={`${pinned ? "pin" : "row"}:${a.key}`}
-      className="crew-row"
-      data-state={a.state}
-      aria-current={selected === a.key ? "true" : undefined}
-      onClick={() => pick("agent", a.key)}
-    >
-      <Portrait agent={a} size={30} mark={false} />
-      <span className="crew-row-text">
-        <b>{a.name}</b>
-        <small className={a.state === "running" ? "crew-shimmer" : undefined}>{subtitle(a, pinned)}</small>
-      </span>
-      {a.state === "done" ? (
-        <span className="crew-unread" data-tip="Replied · unread" aria-label="Unread reply" role="img" />
-      ) : (
-        markOf(a.state) && (
-          <Status
-            frame={markOf(a.state)!}
-            size={20}
-            className={a.state === "running" ? "spin" : pinned ? "pulse" : ""}
-            tip={STATE_NAMES[a.state]}
-          />
-        )
-      )}
-    </button>
-  );
   const medals = (w: RosterWorkspace | (typeof data.workspaces)[number], size: number) => {
     const pr = workspaceRow(w)?.pr;
     const list = medalsOf(w.labels, w.probe);
@@ -243,6 +227,29 @@ export function CrewMap(props: Props) {
     );
   };
 
+  const node = (a: RosterAgent) => {
+    const running = a.state === "running";
+    return (
+      <button key={a.key} className="crew-node" data-key={a.key} data-state={a.state} onClick={() => pick("agent", a.key)}>
+        <Portrait agent={a} size={NODE} />
+        <span className="crew-node-name">{a.name}</span>
+        <small className={running ? "crew-node-state crew-shimmer" : "crew-node-state"}>
+          {running ? summaryOf(a) || "Working…" : STATE_NAMES[a.state]}
+        </small>
+        {a.state === "done" && <span className="crew-unread" data-tip="Replied · unread" aria-label="Unread reply" role="img" />}
+      </button>
+    );
+  };
+  const camp = (agents: RosterAgent[]) =>
+    agents.length > 0 && (
+      <article className="crew-ws camp" aria-label="Without a workspace">
+        <div className="crew-ws-head">
+          <span className="crew-ws-name">Without a workspace</span>
+        </div>
+        <div className="crew-nodes">{agents.map(node)}</div>
+      </article>
+    );
+
   const shownAgent = props.selection?.type === "agent" ? data.agents.find((a) => a.key === selected) : undefined;
   const decor = useMemo<ChatDecor>(() => {
     if (!shownAgent) return {};
@@ -253,10 +260,51 @@ export function CrewMap(props: Props) {
     };
   }, [shownAgent?.model, shownAgent?.state]);
 
+  const total = data.agents.length;
+  const running = roster.counts.running ?? 0;
+  const need = (["failed", "approval", "question", "asking"] as State[]).reduce((n, s) => n + (roster.counts[s] ?? 0), 0);
+
+  if (!props.empty)
+    return (
+      <div className="crew-map" data-world="crew" data-browser={(shownAgent && props.browser?.shown) || undefined}>
+        <section className="crew-main" aria-label="Conversation">
+          {shownAgent && (
+            <Stage
+              browser={props.browser}
+              agent={shownAgent}
+              sentence={summaryOf(shownAgent)}
+              workspace={shownAgent.workspace ? data.workspaces.find((w) => w.key === shownAgent.workspace) : undefined}
+              medals={medals}
+              onWorkspace={(key) => pick("workspace", key)}
+            />
+          )}
+          <div className="detail-content crew-detail" id="detail-panel">
+            <ChatDecorContext.Provider value={decor}>{props.detail}</ChatDecorContext.Provider>
+          </div>
+        </section>
+      </div>
+    );
+
   return (
-    <div className="crew-map" data-world="crew" style={{ "--crew-roster": `${width}px` } as CSSProperties}>
-      <nav className="crew-roster" aria-label="Crew" ref={rosterRef} onKeyDown={rosterKeys}>
-        <div className="crew-roster-head">
+    <div className="crew-map" data-world="crew">
+      <div className="crew-board" ref={board} onKeyDown={boardKeys} role="region" aria-label="Crew">
+        <header className="crew-board-head">
+          <div className="crew-board-title">
+            <h2>Your crew</h2>
+            <p>
+              {!props.loaded && !total
+                ? "Waiting for Paseo hosts…"
+                : !total
+                  ? "No agents yet."
+                  : [
+                      `${total} agent${total === 1 ? "" : "s"}`,
+                      running ? `${running} working` : "",
+                      need ? `${need} need${need === 1 ? "s" : ""} you` : "nothing needs you",
+                    ]
+                      .filter(Boolean)
+                      .join(" · ")}
+            </p>
+          </div>
           <label className="crew-search">
             <Search size={13} aria-hidden="true" />
             <input
@@ -278,101 +326,61 @@ export function CrewMap(props: Props) {
               </button>
             )}
           </label>
-          <button className="crew-new" data-tip="New agent (D)" aria-label="New agent" onClick={props.onDispatch}>
-            <Plus size={15} />
+          <button className="crew-primary" onClick={props.onDispatch}>
+            <Plus size={14} aria-hidden="true" />
+            New agent
           </button>
-        </div>
-        <div className="crew-roster-body">
-          {roster.needYou.length > 0 && (
-            <section className="crew-group crew-need" aria-label="Needs you">
-              <h3 className="crew-label">
-                <i aria-hidden="true" />Needs you · {roster.needYou.length}
+        </header>
+        {roster.hosts.map((h) => {
+          const hostShut = collapsed.includes(h.key);
+          return (
+            <section key={h.key} className="crew-host" data-offline={!h.online || undefined} aria-label={h.name}>
+              <h3 className="crew-host-head">
+                <button className="crew-fold" aria-expanded={!hostShut} onClick={() => toggle(h.key)}>
+                  <ChevronDown size={14} aria-hidden="true" />
+                  {h.name}
+                </button>
+                {!h.online && <span className="crew-offline">offline</span>}
               </h3>
-              {roster.needYou.map((a) => agentRow(a, true))}
-            </section>
-          )}
-          {roster.hosts.map((h) => {
-            const hostShut = collapsed.includes(h.key);
-            return (
-              <section key={h.key} className="crew-group" data-offline={!h.online || undefined} aria-label={h.name}>
-                <h3 className="crew-label">
-                  <button className="crew-fold" aria-expanded={!hostShut} onClick={() => toggle(h.key)}>
-                    <ChevronDown size={12} aria-hidden="true" />
-                    {h.name}
-                    {!h.online && <span className="crew-offline">offline</span>}
-                  </button>
-                </h3>
-                {!hostShut &&
-                  h.projects.map((p) => {
+              {!hostShut && (
+                <>
+                  {h.projects.map((p) => {
                     const shut = collapsed.includes(p.key);
                     return (
-                      <div key={p.key} className="crew-project">
+                      <section key={p.key} className="crew-project" aria-label={p.name}>
                         <div className="crew-project-head">
                           <button className="crew-fold small" aria-expanded={!shut} aria-label={`${shut ? "Show" : "Hide"} ${p.name}`} onClick={() => toggle(p.key)}>
-                            <ChevronDown size={12} aria-hidden="true" />
+                            <ChevronDown size={14} aria-hidden="true" />
                           </button>
-                          <button className="crew-head project" aria-current={selected === p.key ? "true" : undefined} onClick={() => pick("project", p.key)}>
+                          <button className="crew-head project" data-key={p.key} onClick={() => pick("project", p.key)}>
                             {p.name}
                           </button>
                         </div>
                         {!shut && (
-                          <>
+                          <div className="crew-workspaces">
                             {p.workspaces.map((w) => (
-                              <div key={w.key} className="crew-ws">
-                                <button className="crew-head workspace" aria-current={selected === w.key ? "true" : undefined} onClick={() => pick("workspace", w.key)}>
+                              <article key={w.key} className="crew-ws" aria-label={w.name}>
+                                <button className="crew-head workspace" data-key={w.key} onClick={() => pick("workspace", w.key)}>
                                   <span className="crew-ws-name">{w.name}</span>
-                                  {medals(w, 16)}
+                                  {medals(w, 24)}
                                 </button>
-                                {w.agents.map((a) => agentRow(a))}
-                              </div>
+                                {w.agents.length ? <div className="crew-nodes">{w.agents.map(node)}</div> : <p className="crew-ws-empty">No agents</p>}
+                              </article>
                             ))}
-                            {p.loose.map((a) => agentRow(a))}
-                          </>
+                            {camp(p.loose)}
+                          </div>
                         )}
-                      </div>
+                      </section>
                     );
                   })}
-                {!hostShut && h.loose.map((a) => agentRow(a))}
-              </section>
-            );
-          })}
-          {filter && !roster.hosts.length && <p className="crew-none">No agent matches “{filter}”.</p>}
-        </div>
-        <ResizeEdge
-          label="Resize the crew"
-          value={width}
-          min={220}
-          max={460}
-          grows="right"
-          onResize={resize}
-          onReset={() => resize(ROSTER_DEFAULT)}
-        />
-      </nav>
-      <section className="crew-main" aria-label="Conversation">
-        {shownAgent && !props.empty && (
-          <Stage
-            agent={shownAgent}
-            sentence={summaryOf(shownAgent)}
-            workspace={shownAgent.workspace ? data.workspaces.find((w) => w.key === shownAgent.workspace) : undefined}
-            medals={medals}
-            onWorkspace={(key) => pick("workspace", key)}
-          />
-        )}
-        {props.empty ? (
-          <Overview
-            data={data}
-            loaded={props.loaded}
-            summaryOf={summaryOf}
-            placeOf={placeOf}
-            onPick={(key) => pick("agent", key)}
-            onDispatch={props.onDispatch}
-          />
-        ) : (
-          <div className="detail-content crew-detail" id="detail-panel">
-            <ChatDecorContext.Provider value={decor}>{props.detail}</ChatDecorContext.Provider>
-          </div>
-        )}
-      </section>
+                  {h.loose.length > 0 && <div className="crew-workspaces">{camp(h.loose)}</div>}
+                </>
+              )}
+            </section>
+          );
+        })}
+        {filter && !roster.hosts.length && <p className="crew-none">No agent matches “{filter}”.</p>}
+      </div>
     </div>
   );
 }
@@ -385,6 +393,7 @@ function Stage(props: {
   workspace?: ReturnType<typeof atlasData>["workspaces"][number];
   medals: (w: ReturnType<typeof atlasData>["workspaces"][number], size: number) => ReactNode;
   onWorkspace: (key: string) => void;
+  browser?: { shown: boolean; tabs: number; toggle: () => void };
 }) {
   const { agent, workspace } = props;
   const running = agent.state === "running";
@@ -417,68 +426,18 @@ function Stage(props: {
           {props.medals(workspace, 26)}
         </div>
       )}
-    </div>
-  );
-}
-
-/** With nothing open: every robot, by state, the ones that need you first. */
-function Overview(props: {
-  data: ReturnType<typeof atlasData>;
-  loaded: boolean;
-  summaryOf: (a: RosterAgent) => string | undefined;
-  placeOf: (a: RosterAgent) => string;
-  onPick: (key: string) => void;
-  onDispatch: () => void;
-}) {
-  const sections = overview(props.data);
-  const total = props.data.agents.length;
-  const need = sections.find((s) => s.id === "need")?.agents.length ?? 0;
-  const running = props.data.agents.filter((a) => a.state === "running").length;
-  return (
-    <div className="crew-overview">
-      <header className="crew-overview-head">
-        <div>
-          <h2>Your crew</h2>
-          <p>
-            {!props.loaded && !total
-              ? "Waiting for Paseo hosts…"
-              : !total
-                ? "No agents yet."
-                : [
-                    `${total} agent${total === 1 ? "" : "s"}`,
-                    running ? `${running} working` : "",
-                    need ? `${need} need${need === 1 ? "s" : ""} you` : "nothing needs you",
-                  ]
-                    .filter(Boolean)
-                    .join(" · ")}
-          </p>
-        </div>
-        <button className="crew-primary" onClick={props.onDispatch}>
-          <Plus size={14} aria-hidden="true" />
-          New agent
+      {props.browser && (
+        <button
+          className="crew-chip crew-browser-toggle"
+          aria-pressed={props.browser.shown}
+          aria-keyshortcuts="B"
+          data-tip={props.browser.shown ? "Hide the browser (B, ⇧⌘W)" : "Show its browser (B)"}
+          onClick={props.browser.toggle}
+        >
+          <Globe size={13} aria-hidden="true" />
+          Browser{props.browser.tabs ? ` · ${props.browser.tabs}` : ""}
         </button>
-      </header>
-      {sections.map((s) => (
-        <section key={s.id} className="crew-overview-section" aria-label={s.title}>
-          <h3 className="crew-label">
-            {s.title} · {s.agents.length}
-          </h3>
-          <div className="crew-cards">
-            {s.agents.map((a) => (
-              <button key={a.key} className="crew-card" data-state={a.state} onClick={() => props.onPick(a.key)}>
-                <Portrait agent={a} size={48} />
-                <span className="crew-card-text">
-                  <b>{a.name}</b>
-                  <small>{props.placeOf(a) || STATE_NAMES[a.state]}</small>
-                  <small className={a.state === "running" ? "crew-shimmer" : "crew-card-state"}>
-                    {a.state === "running" ? props.summaryOf(a) || "Working…" : STATE_NAMES[a.state]}
-                  </small>
-                </span>
-              </button>
-            ))}
-          </div>
-        </section>
-      ))}
+      )}
     </div>
   );
 }

@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import type { AtlasData } from "../../../rendering/src/world";
-import { buildRoster, overview } from "./roster";
+import { buildRoster } from "./roster";
 import { SHEET_SIZE, droneColors, frameOf, medalsOf, robotColorOf, robotFrames } from "./sheets";
 
 const data: AtlasData = {
@@ -33,7 +33,7 @@ const data: AtlasData = {
   ],
 };
 
-test("the roster groups host, project and workspace, oldest first, and hides the empty", () => {
+test("the map groups host, project and workspace, oldest first, and hides the empty", () => {
   const r = buildRoster(data);
   assert.deepEqual(r.hosts.map((h) => h.key), ["local", "srv"]);
   const local = r.hosts[0]!;
@@ -45,26 +45,12 @@ test("the roster groups host, project and workspace, oldest first, and hides the
   assert.equal(r.counts.running, 1);
 });
 
-test("Needs you pins the urgent first", () => {
-  assert.deepEqual(buildRoster(data).needYou.map((a) => a.key), ["a4", "a2"]);
-});
-
 test("a filter keeps matching agents and workspaces", () => {
   const r = buildRoster(data, "remote");
   assert.deepEqual(r.agents.map((a) => a.key), ["a6"]);
   const byWorkspace = buildRoster(data, "older");
   assert.deepEqual(byWorkspace.agents.map((a) => a.key), ["a1", "a3"]);
   assert.deepEqual(buildRoster(data, "nothing like it").hosts, []);
-});
-
-test("the overview sorts by state", () => {
-  assert.deepEqual(overview(data).map((s) => [s.id, s.agents.map((a) => a.key)]), [
-    ["need", ["a4", "a2"]],
-    ["done", ["a5"]],
-    ["running", ["a3"]],
-    ["idle", ["a1"]],
-    ["offline", ["a6"]],
-  ]);
 });
 
 test("sheets: sizes match the PNGs, every colour has its frames", () => {

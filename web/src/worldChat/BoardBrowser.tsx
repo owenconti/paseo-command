@@ -60,6 +60,8 @@ export function BoardBrowser(props: {
   blocked: boolean;
   /** The GitHub tab is on: a pull request's link clicked in the conversation still opens there. */
   github: boolean;
+  /** On the Crew map: beside its conversation, in the app's own plain look rather than the board's gold frame. */
+  crew?: boolean;
   onClose: () => void;
   onNotice: (message: string) => void;
 }) {
@@ -78,6 +80,7 @@ export function BoardBrowser(props: {
   const address = useRef<HTMLInputElement>(null);
   const [frame, setFrame] = useState<string>();
   useEffect(() => {
+    if (props.crew) return;
     let live = true;
     uiFrame("panel").then((url) => live && setFrame(url), () => {});
     return () => {
@@ -222,9 +225,9 @@ export function BoardBrowser(props: {
   const shownAddress = typed ?? (current ? shortAddress(current.url) : "");
   return (
     <section
-      className={`board-browser${filled ? " filled" : props.beside ? " beside" : ""}`}
+      className={`board-browser${props.crew ? " crew" : ""}${filled ? " filled" : props.beside ? " beside" : ""}`}
       aria-label={`${name}’s browser`}
-      style={{ ...(frame ? { "--bb-frame": `url(${frame})` } : {}), "--bb-inset": `${Math.max(0, Math.round(props.inset))}px` } as CSSProperties}
+      style={{ ...(frame && !props.crew ? { "--bb-frame": `url(${frame})` } : {}), "--bb-inset": `${Math.max(0, Math.round(props.inset))}px` } as CSSProperties}
       data-tabs={tabs.length}
     >
       <header className="bb-head">
@@ -258,8 +261,8 @@ export function BoardBrowser(props: {
         <button
           type="button"
           className="bb-tool"
-          aria-label={filled ? (props.beside ? "Show the conversation again" : "Show the dialogue box again") : "Fill the board with the browser"}
-          data-tip={filled ? (props.beside ? "Show the conversation again" : "Show the dialogue box again") : "Fill the board"}
+          aria-label={filled ? (props.beside ? "Show the conversation again" : "Show the dialogue box again") : props.crew ? "Fill the view with the browser" : "Fill the board with the browser"}
+          data-tip={filled ? (props.beside ? "Show the conversation again" : "Show the dialogue box again") : props.crew ? "Fill the view" : "Fill the board"}
           aria-pressed={filled}
           onClick={() => setFilled(!filled)}
         >

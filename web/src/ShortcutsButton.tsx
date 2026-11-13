@@ -127,6 +127,20 @@ const DUNGEON_TALK: Group = {
   ],
 };
 
+/** The Crew map (src/crew/CrewMap.tsx): the map of robots, and an open agent's browser beside its conversation. */
+const CREW: Group = {
+  title: "The Crew map",
+  note: "Map style Crew: the map while nothing is open, the conversation across it once one is",
+  rows: [
+    { keys: [["←"], ["→"], ["↑"], ["↓"]], label: "On the map: move through its robots, workspaces and projects" },
+    { keys: [["Home"], ["End"]], label: "On the map: the first or last" },
+    { keys: [["Enter"]], label: "Open the robot, workspace or project" },
+    { keys: [["Esc"]], label: "Back to the map (the robot you left keeps the keyboard)" },
+    { keys: [["B"]], label: "Show or hide the open robot's browser beside its conversation (the macOS app's)" },
+    { keys: [["⇧", "⌘", "W"]], label: "Hide the browser, from its page or a field too" },
+  ],
+};
+
 const ACTIVITY: Group = {
   title: "Activity",
   note: "In the Activity tab, outside text fields",
@@ -353,13 +367,14 @@ function ShortcutsDialog({ onClose }: { onClose: () => void }) {
           ...GROUPS,
           NATIVE,
           DUNGEON_TALK,
+          CREW,
           PAGES,
           ...(activityEnabled(integrations) ? [ACTIVITY] : []),
           ...(integrations.github ? [GITHUB] : []),
           FILES,
           CONQUER,
         ]
-      : GROUPS
+      : [...GROUPS, { ...CREW, rows: CREW.rows.filter((r) => !/browser/i.test(r.label)) }]
   ).map((group) => ({
     ...group,
     rows: group.rows
