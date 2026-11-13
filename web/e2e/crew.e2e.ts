@@ -148,6 +148,37 @@ test("a row's workspace panels are one height, and so are their robots", async (
   await page.context().close();
 });
 
+test("the conversation panel resizes from its left edge, and keeps its width", async () => {
+  const page = await open();
+  await page.locator('.crew-node[data-state="idle"]').first().click();
+  await page.locator(".crew-drawer .session").waitFor();
+  const width = () => page.locator(".crew-drawer").evaluate((el) => Math.round(el.getBoundingClientRect().width));
+  const before = await width();
+  const edge = page.getByRole("separator", { name: "Resize the conversation" });
+  const box = (await edge.boundingBox())!;
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(box.x + box.width / 2 - 150, box.y + box.height / 2, { steps: 5 });
+  await page.mouse.up();
+  const dragged = await width();
+  assert.ok(Math.abs(dragged - (before + 150)) <= 2, `${before} → ${dragged}`);
+  // The keyboard nudges it; it never takes all the map.
+  await edge.focus();
+  await page.keyboard.press("ArrowLeft");
+  assert.equal(await width(), dragged + 16);
+  for (let i = 0; i < 80; i++) await page.keyboard.press("Shift+ArrowLeft");
+  const widest = await width();
+  const mapLeft = await page.locator(".crew-board").evaluate((el) => Math.round(el.getBoundingClientRect().width));
+  assert.ok(mapLeft >= 318, `the map keeps ${mapLeft}px`);
+  // Kept across a reload; a double-click puts the default back.
+  await page.reload();
+  await page.locator(".crew-drawer .session").waitFor();
+  assert.equal(await width(), widest);
+  await page.getByRole("separator", { name: "Resize the conversation" }).dblclick();
+  assert.equal(await width(), before);
+  await page.context().close();
+});
+
 test("the filter narrows the map, and folded projects stay folded", async () => {
   const page = await open();
   await map(page).locator(".crew-node").first().waitFor();
@@ -186,6 +217,12 @@ test("in the macOS app: the open agent's browser stands beside its conversation 
   assert.ok(browser.right <= chat.left + 2, `browser to ${browser.right}, conversation from ${chat.left}`);
   const placed = await waitFor(() => sent(page, "browser"), (m) => (m.at(-1)?.width ?? 0) > 0, "the web page's box told");
   assert.ok(placed.at(-1).x + placed.at(-1).width <= chat.left + 2);
+  // It follows the conversation's edge as that is resized.
+  await page.getByRole("separator", { name: "Resize the conversation" }).focus();
+  for (let i = 0; i < 4; i++) await page.keyboard.press("Shift+ArrowLeft");
+  const [chat2, browser2] = await Promise.all([".crew-drawer", ".board-browser.crew"].map((sel) => page.locator(sel).evaluate((el) => el.getBoundingClientRect().toJSON())));
+  assert.ok(chat2.left < chat.left - 100, "wider");
+  assert.ok(Math.abs(browser2.right - chat2.left) <= 2, `browser to ${browser2.right}, conversation from ${chat2.left}`);
   // B hides it (outside a field), and ⌘K shows it again.
   await page.locator(".crew-stage-state").click();
   await page.keyboard.press("b");

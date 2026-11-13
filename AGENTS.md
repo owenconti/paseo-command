@@ -1130,8 +1130,9 @@ name, and its state or, while it runs, what it is doing (`workingOn`, shimmering
 state's colour, an unread reply has a gold dot. Projects and hosts without workspaces are left out, as on the maps; folds are
 kept in `crew:collapsed`. The arrow keys, Home and End move through the map's nodes and heads. Picking one opens main's
 `detailView` (the panel's detail: the agent's `Session`, a subagent's, New agent, a workspace, a project, Add project; one copy
-at a time, the panel's empty while Crew shows) in `.crew-drawer` on the map's right (440–760 px, 46%; under a 900 px window
-over the map), the map staying, its node or head marked (`aria-current`) and kept in view. Esc closes it from anywhere in
+at a time, the panel's empty while Crew shows) in `.crew-drawer` on the map's right (440–760 px, 46% by default; under a 900 px window
+over the map), its left edge resizing it (`ResizeEdge`: drag, ←/→, double-click for the default; at least 360 px, leaving the
+map 320 px; kept in `crew:drawerWidth` and set as `--crew-drawer` on the map's frame, which the robot's browser follows), the map staying, its node or head marked (`aria-current`) and kept in view. Esc closes it from anywhere in
 Crew, its message box too (main's key handler, `crewShown`: after menus, pickers, previews and confirmations; a subagent goes
 back to its agent first), as does Back (the conversation's Fleet); the map gives the keyboard back to what was open. For an
 agent, at the conversation's foot above its message box (`ChatFooterContext` in `chatDecor.ts`, which `SessionView` puts in

@@ -480,7 +480,9 @@
   display: flex;
   flex-direction: column;
   flex: none;
-  width: clamp(440px, 46%, 760px);
+  width: var(--crew-drawer, clamp(440px, 46%, 760px));
+  min-width: 360px;
+  max-width: calc(100% - 320px);
   min-height: 0;
   border-left: 1px solid var(--line-strong);
   background: var(--panel);
@@ -493,11 +495,18 @@
     translate: 24px 0;
   }
 }
+/* Its left edge resizes it (ResizeEdge, which sits on a parent's right edge by default). */
+.crew-drawer > .resize-edge {
+  left: -5px;
+  right: auto;
+}
 @media (max-width: 900px) {
   .crew-drawer {
     position: absolute;
     inset: 0 0 0 auto;
-    width: min(100%, 560px);
+    width: min(100%, var(--crew-drawer, 560px));
+    min-width: 0;
+    max-width: none;
     z-index: 1;
   }
 }
@@ -646,13 +655,13 @@
   top: 0;
   bottom: 0;
   left: 0;
-  right: calc(clamp(440px, 46%, 760px) + 1px);
+  right: calc(min(var(--crew-drawer, clamp(440px, 46%, 760px)), 100% - 320px) + 1px);
   width: auto;
   transform: none;
 }
 @media (max-width: 900px) {
   .board-browser.crew.beside {
-    right: min(100%, 560px);
+    right: min(100%, var(--crew-drawer, 560px));
   }
 }
 .board-browser.crew.filled {

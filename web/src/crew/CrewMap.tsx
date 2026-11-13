@@ -20,6 +20,7 @@ import { readStore, writeStore } from "../api";
 import { setUnityWorldTheme } from "../theme";
 import { ChatDecorContext, ChatFooterContext, type ChatDecor } from "../chatDecor";
 import { onAppCommand } from "../appCommands";
+import { ResizeEdge } from "../ResizeEdge";
 import type { Agent, Host, Project, Selection, Workspace } from "../types";
 import type { WorkSummaries } from "../useWorkingOn";
 import { buildRoster, type RosterAgent, type RosterWorkspace } from "./roster";
@@ -50,6 +51,11 @@ type Props = {
 };
 
 const COLLAPSED = "crew:collapsed";
+/** The conversation panel's width (CSS px), once resized; else its default (crew.css). */
+const DRAWER_WIDTH = "crew:drawerWidth";
+const DRAWER_MIN = 360;
+/** How much of the map stays beside the panel on a wide window (under 900 px the panel lies over the map). */
+const MAP_KEEP = 320;
 /** The map's robots, CSS px tall. */
 const NODE = 72;
 
@@ -147,6 +153,29 @@ export function CrewMap(props: Props) {
     });
   const selected = selectionKey(props.selection, snapshot);
   const board = useRef<HTMLDivElement>(null);
+  const root = useRef<HTMLDivElement>(null);
+  const drawer = useRef<HTMLElement>(null);
+  // The panel's width, dragged on its left edge (or ←/→ there; double-click for the default). Set on the map's frame,
+  // where the robot's browser (a sibling, BoardBrowser.tsx) reads it too.
+  const [drawerWidth, setDrawerWidth] = useState<number | null>(() => readStore<number | null>(DRAWER_WIDTH, null));
+  const drawerMax = () => {
+    const w = root.current?.clientWidth ?? window.innerWidth;
+    return Math.max(DRAWER_MIN, w < 900 ? w : w - MAP_KEEP);
+  };
+  const resizeDrawer = (w: number | null) => {
+    const next = w === null ? null : Math.round(Math.max(DRAWER_MIN, Math.min(drawerMax(), w)));
+    setDrawerWidth(next);
+    writeStore(DRAWER_WIDTH, next);
+  };
+  useLayoutEffect(() => {
+    const frame = root.current?.parentElement;
+    if (!frame) return;
+    if (drawerWidth === null) frame.style.removeProperty("--crew-drawer");
+    else frame.style.setProperty("--crew-drawer", `${drawerWidth}px`);
+    return () => {
+      frame.style.removeProperty("--crew-drawer");
+    };
+  }, [drawerWidth]);
   // What was last opened from the map: coming back, the map shows it and gives it the keyboard.
   const opened = useRef<string | null>(null);
 
@@ -270,7 +299,7 @@ export function CrewMap(props: Props) {
 
   const open = !props.empty;
   return (
-    <div className="crew-map" data-world="crew" data-open={open || undefined} data-browser={(open && shownAgent && props.browser?.shown) || undefined}>
+    <div ref={root} className="crew-map" data-world="crew" data-open={open || undefined} data-browser={(open && shownAgent && props.browser?.shown) || undefined}>
       <div className="crew-board" ref={board} onKeyDown={boardKeys} role="region" aria-label="Crew">
         <header className="crew-board-head">
           <div className="crew-board-title">
@@ -366,7 +395,17 @@ export function CrewMap(props: Props) {
         {filter && !roster.hosts.length && <p className="crew-none">No agent matches “{filter}”.</p>}
       </div>
       {open && (
-        <aside className="crew-drawer" aria-label="Conversation">
+        <aside ref={drawer} className="crew-drawer" id="crew-drawer" aria-label="Conversation">
+          <ResizeEdge
+            label="Resize the conversation"
+            controls="crew-drawer"
+            value={drawerWidth ?? drawer.current?.getBoundingClientRect().width ?? 560}
+            min={DRAWER_MIN}
+            max={drawerMax()}
+            grows="left"
+            onResize={resizeDrawer}
+            onReset={() => resizeDrawer(null)}
+          />
           <div className="detail-content crew-detail" id="detail-panel">
             <ChatDecorContext.Provider value={decor}>
               <ChatFooterContext.Provider
