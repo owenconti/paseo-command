@@ -322,7 +322,8 @@
   font-weight: var(--fw-semibold);
   color: var(--text-strong);
 }
-/* Each card as wide as its robots (a long title doesn't widen it), wrapping in rows, a row's cards one height. */
+/* Each card starts as wide as its robots (a long title doesn't widen it), then the cards of a row grow to fill it, so no
+   room is left at its right; a row's cards one height. Inside, the tiles grow to fill their card the same way. */
 .crew-workspaces {
   display: flex;
   flex-wrap: wrap;
@@ -332,7 +333,7 @@
 .crew-ws {
   display: flex;
   flex-direction: column;
-  flex: none;
+  flex: 1 1 auto;
   min-width: 240px;
   max-width: 100%;
   border: 1px solid var(--line);
@@ -397,8 +398,7 @@
   flex-direction: column;
   align-items: center;
   gap: 3px;
-  flex: none;
-  width: 198px;
+  flex: 1 1 198px;
   min-width: 0;
   padding: 14px 10px 10px;
   border: 1px solid transparent;
@@ -453,14 +453,15 @@
 .crew-node[data-state="offline"] .crew-node-state {
   color: var(--text-4);
 }
+/* An unread reply: a gold dot before its name. */
 .crew-node .crew-unread {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  width: 9px;
-  height: 9px;
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin: 0 6px 1px 0;
   border-radius: 50%;
   background: var(--crew-done);
+  vertical-align: middle;
 }
 .crew-node[aria-current="true"] {
   background: var(--row-selected);
@@ -766,7 +767,7 @@
     width: 100%;
   }
   .crew-node {
-    width: 192px;
+    flex-basis: 192px;
   }
   .crew-stage-place {
     display: none;
@@ -799,7 +800,7 @@
     flex-direction: row;
     align-items: center;
     gap: 10px;
-    width: 300px;
+    flex-basis: 300px;
     min-height: 74px;
     padding: 8px 12px 8px 6px;
     text-align: left;
@@ -815,16 +816,12 @@
     align-items: flex-start;
     flex: 1;
   }
-  .crew-node .crew-unread {
-    top: 8px;
-    right: 8px;
-  }
 }
 @container crew-board (max-width: 420px) {
   .crew-ws {
     width: 100%;
   }
   .crew-node {
-    width: 100%;
+    flex-basis: 100%;
   }
 }

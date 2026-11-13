@@ -245,6 +245,35 @@ test("tiles lie on their side, shorter, when the map is narrowed by the conversa
   await page.context().close();
 });
 
+test("cards and tiles fill their rows: no room left at the right, the map wide or narrowed", async () => {
+  const page = await open();
+  await map(page).locator(".crew-node").first().waitFor();
+  // Each row's room at its right: its container's content edge less its last item's right edge.
+  const gaps = () =>
+    page.evaluate(() => {
+      const out: number[] = [];
+      const sets: [Element, Element[]][] = [
+        ...[...document.querySelectorAll(".crew-workspaces")].map((g) => [g, [...g.querySelectorAll(":scope > .crew-ws")]] as [Element, Element[]]),
+        ...[...document.querySelectorAll(".crew-nodes")].map((n) => [n, [...n.querySelectorAll(":scope > .crew-node")]] as [Element, Element[]]),
+      ];
+      for (const [parent, items] of sets) {
+        const right = parent.getBoundingClientRect().right - parseFloat(getComputedStyle(parent).paddingRight);
+        const rows = new Map<number, number>();
+        for (const el of items) {
+          const r = el.getBoundingClientRect();
+          rows.set(Math.round(r.top), Math.max(rows.get(Math.round(r.top)) ?? 0, r.right));
+        }
+        for (const end of rows.values()) out.push(Math.round(right - end));
+      }
+      return out;
+    });
+  for (const gap of await gaps()) assert.ok(Math.abs(gap) <= 1, `room left: ${gap}px`);
+  await page.locator(".crew-node").first().click();
+  await page.locator(".crew-drawer .session").waitFor();
+  for (const gap of await gaps()) assert.ok(Math.abs(gap) <= 1, `room left beside the conversation: ${gap}px`);
+  await page.context().close();
+});
+
 test("the filter narrows the map, and folded projects stay folded", async () => {
   const page = await open();
   await map(page).locator(".crew-node").first().waitFor();

@@ -261,12 +261,14 @@ export function CrewMap(props: Props) {
       <button key={a.key} className="crew-node" data-key={a.key} data-state={a.state} aria-current={selected === a.key ? "true" : undefined} onClick={() => pick("agent", a.key)}>
         <Portrait agent={a} size={NODE} />
         <span className="crew-node-text">
-          <span className="crew-node-name">{a.name}</span>
+          <span className="crew-node-name">
+            {a.state === "done" && <span className="crew-unread" data-tip="Replied · unread" data-summary="" aria-label="Unread reply" role="img" />}
+            {a.name}
+          </span>
           <small className={running ? "crew-node-state crew-shimmer" : "crew-node-state"}>
             {running ? summaryOf(a) || "Working…" : STATE_NAMES[a.state]}
           </small>
         </span>
-        {a.state === "done" && <span className="crew-unread" data-tip="Replied · unread" data-summary="" aria-label="Unread reply" role="img" />}
       </button>
     );
   };

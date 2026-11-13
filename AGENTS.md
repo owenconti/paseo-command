@@ -1137,7 +1137,8 @@ bar's "need you" opens the next agent that needs you. There is no sidebar: Crew 
 `buildRoster` in `roster.ts`, pure): "Your crew" with its counts, a filter (⌘K "Filter the crew…", `crew-filter`, which shows
 the map first; Esc clears; by agent, workspace, project or host) and New agent; then each host (its head folds it; offline
 faded) › project (by name; a chevron folds it, its name opens the project) › its workspaces as panels wrapping in rows (oldest
-first; each as wide as its robots, at least 240 px, a long title cut short rather than widening it; a row's panels one height, as are all nodes: a name keeps two lines' room; the panel's head opens the workspace and carries its CI, review, Probe and auto-merge medallions, each with a hover tooltip
+first; each starts as wide as its robots, at least 240 px, a long title cut short rather than widening it, then a row's panels
+grow to fill it, leaving no room at its right, as the tiles in a panel do; a row's panels one height, as are all nodes: a name keeps two lines' room; the panel's head opens the workspace and carries its CI, review, Probe and auto-merge medallions, each with a hover tooltip
 (`data-summary`, so the tooltip layer shows it though it isn't a button: its name and `flagTip`'s facts, else its
 description; the seal `autoMergeLine`); agents without a workspace in a dashed panel of their project's, or their host's), each holding its agents (oldest
 first) as large nodes (standing; while the map is under 960 px wide, `@container crew-board`, as with the conversation open
@@ -1146,7 +1147,7 @@ third as tall): the robot (72 px; the Dungeon Board's `robots` sheet in its prov
 with a blink and a breath, the four work frames while it runs, greyed offline) over its state's glow (`glow-*`, pulsing for
 states that need you) with its mark (`mark-*`, the running gear turning) and running drones (`subagentModels`' colours), its
 name, and its state or, while it runs, what it is doing (`workingOn`, shimmering); nodes that need you are tinted in their
-state's colour, an unread reply has a gold dot. Projects and hosts without workspaces are left out, as on the maps; folds are
+state's colour, an unread reply has a gold dot before its name. Projects and hosts without workspaces are left out, as on the maps; folds are
 kept in `crew:collapsed`. The arrow keys, Home and End move through the map's nodes and heads. Picking one opens main's
 `detailView` (the panel's detail: the agent's `Session`, a subagent's, New agent, a workspace, a project, Add project; one copy
 at a time, the panel's empty while Crew shows) in `.crew-drawer` on the map's right (440–760 px, 46% by default; under a 900 px window
