@@ -1137,7 +1137,8 @@ bar's "need you" opens the next agent that needs you. There is no sidebar: Crew 
 `buildRoster` in `roster.ts`, pure): "Your crew" with its counts, a filter (⌘K "Filter the crew…", `crew-filter`, which shows
 the map first; Esc clears; by agent, workspace, project or host) and New agent; then each host (its head folds it; offline
 faded) › project (by name; a chevron folds it, its name opens the project) › its workspaces as panels wrapping in rows (oldest
-first; each starts as wide as its robots, at least 240 px, a long title cut short rather than widening it, then a row's panels
+first; each starts as wide as its robots, its count of them (`--crew-n`) times a tile (`--crew-tile`: 198 px, 300 px on its
+side), at least 240 px, never its text's length (a long title is cut short), so cards share a row whenever they fit; then a row's panels
 grow to fill it, leaving no room at its right, as the tiles in a panel do; a row's panels one height, as are all nodes: a name keeps two lines' room; the panel's head opens the workspace and carries its CI, review, Probe and auto-merge medallions, each with a hover tooltip
 (`data-summary`, so the tooltip layer shows it though it isn't a button: its name and `flagTip`'s facts, else its
 description; the seal `autoMergeLine`); agents without a workspace in a dashed panel of their project's, or their host's), each holding its agents (oldest

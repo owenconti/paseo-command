@@ -322,9 +322,11 @@
   font-weight: var(--fw-semibold);
   color: var(--text-strong);
 }
-/* Each card starts as wide as its robots (a long title doesn't widen it), then the cards of a row grow to fill it, so no
-   room is left at its right; a row's cards one height. Inside, the tiles grow to fill their card the same way. */
+/* Each card starts as wide as its robots: its count of them (`--crew-n`) times a tile's width (`--crew-tile`), never its
+   text's length; then the cards of a row grow to fill it, so no room is left at its right; a row's cards one height.
+   Inside, the tiles grow to fill their card the same way. */
 .crew-workspaces {
+  --crew-tile: 198px;
   display: flex;
   flex-wrap: wrap;
   align-items: stretch;
@@ -333,7 +335,8 @@
 .crew-ws {
   display: flex;
   flex-direction: column;
-  flex: 1 1 auto;
+  /* n tiles, the 6 px between them, the 10 px padding either side and the border. */
+  flex: 1 1 calc(var(--crew-n, 1) * (var(--crew-tile) + 6px) + 16px);
   min-width: 240px;
   max-width: 100%;
   border: 1px solid var(--line);
@@ -398,7 +401,7 @@
   flex-direction: column;
   align-items: center;
   gap: 3px;
-  flex: 1 1 198px;
+  flex: 1 1 var(--crew-tile, 198px);
   min-width: 0;
   padding: 14px 10px 10px;
   border: 1px solid transparent;
@@ -766,8 +769,8 @@
     min-width: 0;
     width: 100%;
   }
-  .crew-node {
-    flex-basis: 192px;
+  .crew-workspaces {
+    --crew-tile: 192px;
   }
   .crew-stage-place {
     display: none;
@@ -796,11 +799,13 @@
 /* Without room for the tall tiles side by side (the map narrowed by the conversation beside it, a small window), each
    tile lies on its side: the robot smaller on the left, its name and state beside it; wider, and much shorter. */
 @container crew-board (max-width: 960px) {
+  .crew-workspaces {
+    --crew-tile: 300px;
+  }
   .crew-node {
     flex-direction: row;
     align-items: center;
     gap: 10px;
-    flex-basis: 300px;
     min-height: 74px;
     padding: 8px 12px 8px 6px;
     text-align: left;

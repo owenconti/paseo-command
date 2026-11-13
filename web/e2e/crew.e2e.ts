@@ -245,8 +245,12 @@ test("tiles lie on their side, shorter, when the map is narrowed by the conversa
   await page.context().close();
 });
 
-test("cards and tiles fill their rows: no room left at the right, the map wide or narrowed", async () => {
-  const page = await open();
+test("cards and tiles fill their rows: no room left at the right, and no card on a row of its own that would fit beside others", async () => {
+  // Long titles, as Linear-named workspaces and agents have: a card's width never follows its text.
+  const long = structuredClone(dungeon);
+  for (const w of long.workspaces) w.name = `DE-8379 · Commit custom workspace field definitions and values to Git (${w.name})`;
+  for (const a of long.agents) a.name = `DE-8379 · Commit custom workspace field definitions and values to Git`;
+  const page = await open({ fleet: long });
   await map(page).locator(".crew-node").first().waitFor();
   // Each row's room at its right: its container's content edge less its last item's right edge.
   const gaps = () =>
@@ -267,10 +271,38 @@ test("cards and tiles fill their rows: no room left at the right, the map wide o
       }
       return out;
     });
+  // A card goes to the next row only when it couldn't fit at its least width (its robots' tiles) beside its row's.
+  const breaks = () =>
+    page.evaluate(() => {
+      const bad: string[] = [];
+      for (const g of document.querySelectorAll(".crew-workspaces")) {
+        const node = g.querySelector(".crew-node");
+        const sideways = !!node && node.querySelector(".crew-portrait")!.getBoundingClientRect().right <= node.querySelector(".crew-node-text")!.getBoundingClientRect().left + 1;
+        const tile = sideways ? 300 : 198;
+        const width = g.getBoundingClientRect().width;
+        const cards = [...g.querySelectorAll<HTMLElement>(":scope > .crew-ws")].map((c) => ({
+          label: c.getAttribute("aria-label"),
+          top: Math.round(c.getBoundingClientRect().top),
+          least: Math.max(240, Math.max(1, c.querySelectorAll(".crew-node").length) * (tile + 6) + 16),
+        }));
+        let row: typeof cards = [];
+        for (const c of cards) {
+          if (row.length && c.top !== row[0]!.top) {
+            const need = row.reduce((n, r) => n + r.least + 14, 0) + c.least;
+            if (need <= width) bad.push(`${c.label} would fit (${need} ≤ ${Math.round(width)})`);
+            row = [];
+          }
+          row.push(c);
+        }
+      }
+      return bad;
+    });
   for (const gap of await gaps()) assert.ok(Math.abs(gap) <= 1, `room left: ${gap}px`);
+  assert.deepEqual(await breaks(), []);
   await page.locator(".crew-node").first().click();
   await page.locator(".crew-drawer .session").waitFor();
   for (const gap of await gaps()) assert.ok(Math.abs(gap) <= 1, `room left beside the conversation: ${gap}px`);
+  assert.deepEqual(await breaks(), []);
   await page.context().close();
 });
 

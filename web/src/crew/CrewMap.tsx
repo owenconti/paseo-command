@@ -274,7 +274,7 @@ export function CrewMap(props: Props) {
   };
   const camp = (agents: RosterAgent[]) =>
     agents.length > 0 && (
-      <article className="crew-ws camp" aria-label="Without a workspace">
+      <article className="crew-ws camp" aria-label="Without a workspace" style={{ "--crew-n": agents.length } as CSSProperties}>
         <div className="crew-ws-head">
           <span className="crew-ws-name">Without a workspace</span>
         </div>
@@ -371,7 +371,7 @@ export function CrewMap(props: Props) {
                         {!shut && (
                           <div className="crew-workspaces">
                             {p.workspaces.map((w) => (
-                              <article key={w.key} className="crew-ws" aria-label={w.name}>
+                              <article key={w.key} className="crew-ws" aria-label={w.name} style={{ "--crew-n": Math.max(1, w.agents.length) } as CSSProperties}>
                                 <button className="crew-head workspace" data-key={w.key} aria-current={selected === w.key ? "true" : undefined} onClick={() => pick("workspace", w.key)}>
                                   <span className="crew-ws-name">{w.name}</span>
                                   {medals(w, 24)}
