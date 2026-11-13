@@ -9,20 +9,37 @@ import { fromTimeline, type TimelineItem } from "../src/transcript";
 // Admit only paths actually supplied by a local daemon transcript, never a
 // browser's arbitrary path or a remote daemon's same-named local file.
 const referenced = new Set<string>();
-const RASTER_PATH = /\.(png|jpe?g|gif|webp)$/i;
-export function rememberTimelineImages(items: TimelineItem[], local: boolean) {
-  if (!local) return;
+// A remote host's images, keyed `<serverId>\0<path>`: read only through that host's daemon (remoteImage.ts), and
+// only a path that host's own transcript gave.
+const remoteReferenced = new Set<string>();
+export const RASTER_PATH = /\.(png|jpe?g|gif|webp)$/i;
+const keep = (set: Set<string>, key: string) => {
+  set.delete(key);
+  set.add(key);
+  if (set.size > 10000) set.delete(set.values().next().value!);
+};
+/** `where`: true for the local daemon's timeline, a remote host's server id for its, false when unknown (ignored). */
+export function rememberTimelineImages(items: TimelineItem[], where: boolean | string) {
+  if (where === false || where === "") return;
   for (const item of fromTimeline(items)) {
     if (item.kind !== "assistant" && item.kind !== "user") continue;
     for (const image of extractImages(item.text).images) {
       const source = resolveImage(image.src);
       if (source.kind !== "local" || !RASTER_PATH.test(source.path)) continue;
-      referenced.delete(source.path);
-      referenced.add(source.path);
-      if (referenced.size > 10000)
-        referenced.delete(referenced.values().next().value!);
+      if (where === true) keep(referenced, source.path);
+      else keep(remoteReferenced, `${where}\0${source.path}`);
     }
   }
+}
+/** Whether a remote host's transcript gave this image path (or it is a prompt attachment there). */
+export function remoteImageAdmitted(host: string, path: string) {
+  return (
+    path.startsWith("/") &&
+    RASTER_PATH.test(path) &&
+    !path.split("/").includes("..") &&
+    !path.includes("\0") &&
+    (ATTACHMENT_IMAGE.test(path) || remoteReferenced.has(`${host}\0${path}`))
+  );
 }
 
 /**

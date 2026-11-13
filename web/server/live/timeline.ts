@@ -69,7 +69,7 @@ export async function fetchTimeline(w: Watch, client: LiveClient) {
   // The newest rows within the byte budget (plus earlier rows updated
   // since), and the daemon range they certify.
   const win = timelineWindow(t);
-  rememberTimelineImages(win.items, s.hostKey === "local");
+  rememberTimelineImages(win.items, s.hostKey === "local" ? true : s.hostKey);
   const reset = win.epoch !== w.epoch || Boolean(w.unavailable);
   if (w.epoch !== undefined && win.epoch !== w.epoch) w.source.epochChanged?.();
   w.epoch = win.epoch;

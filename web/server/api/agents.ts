@@ -172,11 +172,11 @@ export async function agentGet(
             Number(after),
             until ? Number(until) : Infinity,
           );
-          rememberTimelineImages(win.items, !host);
+          rememberTimelineImages(win.items, host ? host.serverId : true);
           return win;
         }
         const { page: _page, pageFrom: _pageFrom, ...win } = timelineWindow(t);
-        rememberTimelineImages(win.items, !host);
+        rememberTimelineImages(win.items, host ? host.serverId : true);
         return win;
       };
       return seq ? rememberPage(key, load) : remember(key, 1000, load);

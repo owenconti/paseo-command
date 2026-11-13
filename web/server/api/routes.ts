@@ -1,5 +1,6 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { readAttachmentImage } from "../attachment";
+import { readRemoteImage } from "../remoteImage";
 import { releasesView } from "../releases";
 import { LIMITS } from "../daemon";
 import { assertReachable, invalidate } from "../fleet";
@@ -336,7 +337,19 @@ export async function handleApi(
       } else if (parts[0] === "attachments" && parts[1] === "image") {
         // Prompt attachments and images observed in local agent transcripts.
         // Validated and read through one descriptor (server/attachment.ts).
+        // With `host`, a remote host's, read through its daemon (server/remoteImage.ts).
         const path = url.searchParams.get("path") || "";
+        const remote = await resolveHost(url.searchParams.get("host"));
+        if (remote) {
+          assertReachable(remote.serverId, remote.label);
+          const image = await readRemoteImage(remote, path, LIMITS.imageBytes);
+          if (!image) return reply(404, { error: "Not found" });
+          res.statusCode = 200;
+          res.setHeader("Content-Type", image.mime);
+          res.setHeader("X-Content-Type-Options", "nosniff");
+          res.setHeader("Cache-Control", "private, max-age=86400");
+          return res.end(image.bytes);
+        }
         const bytes = await readAttachmentImage(path, LIMITS.imageBytes);
         if (!bytes) return reply(404, { error: "Not found" });
         res.statusCode = 200;

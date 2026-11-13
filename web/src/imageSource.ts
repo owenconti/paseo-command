@@ -3,8 +3,9 @@
  * is author-controlled, so only two kinds of source are accepted:
  *
  * - Local files (absolute paths, file:// URLs), loaded only through the API's
- *   image route, for prompt attachments and local transcript image references. A
- *   remote host's files aren't on this disk, so they degrade to a label.
+ *   image route, for prompt attachments and transcript image references. A
+ *   remote host's files aren't on this disk: the route reads them through that
+ *   host's daemon (`host`, server/remoteImage.ts), never this Mac's file.
  * - http(s) URLs without userinfo, loaded automatically but through the
  *   bounded, credential-free loader in imageLoad.ts.
  *
@@ -70,15 +71,9 @@ export function resolveImage(raw: string, host?: string): ImageSource {
   }
   const name = baseName(path) || path;
   if (path.includes("\0")) return { kind: "invalid", name };
-  if (host)
-    return {
-      kind: "elsewhere",
-      name,
-      reason: "Stored on the agent's host, not readable from this machine",
-    };
   return {
     kind: "local",
-    url: `/api/attachments/image?path=${encodeURIComponent(path)}`,
+    url: `/api/attachments/image?path=${encodeURIComponent(path)}${host ? `&host=${encodeURIComponent(host)}` : ""}`,
     path,
     name,
   };

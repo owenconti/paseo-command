@@ -702,6 +702,14 @@ and GitHub publication; report the published version and release link.
   (in the editor too when that's set), scrolled to the line and marked as a find's match is; in a browser a notice says the tab is the
   macOS app's. Tests: `src/autolink.test.ts`, `e2e/autolink-files.e2e.ts`, `e2e/world-chat.e2e.ts`.
   Only text is wrapped (it copies as written); other clicks take the link path below.
+- Images in the chat named by absolute path (a screenshot an agent took, a file it read; `![…](/tmp/…png)`) load through
+  `GET /api/attachments/image?path=` (`resolveImage` in `web/src/imageSource.ts`, the bounded loader in `imageLoad.ts`). A local
+  agent's are read from this Mac (`server/attachment.ts`: prompt attachments and paths a local transcript gave, one descriptor,
+  no symlinks or hard links); a remote agent's add `&host=<server id>` and are read through that host's daemon
+  (`server/remoteImage.ts`: `readFile` with the file's folder as the root and its name as the path, so the daemon keeps the read
+  in that folder; only paths that host's own transcript gave, `rememberTimelineImages(items, <server id>)`, or its prompt
+  attachments; PNG, JPEG, GIF or WebP by their header, 20 MB at most; never this Mac's same-named file). Tests:
+  `server/remoteImage.test.ts`, `src/imageSource.test.ts`.
 - Web links clicked in the chat (`.session`, `openInAppBrowser` in `web/src/Session.tsx`, `postAppLink` → the `openLink` message)
   switch to Conquer and open there as a new tab, once its tabs are restored (`whenStarted`).
 - Main commits: in the GitHub page, choose a repository and Main commits (`web/src/github/MainHistory.tsx`,

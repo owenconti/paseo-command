@@ -231,7 +231,7 @@ export const Markdown = memo(function Markdown({
   streaming,
 }: {
   text: string;
-  /** Set for agents on another host: their local image files aren't readable here. */
+  /** Set for agents on another host: their image files are read through that host's daemon (server/remoteImage.ts). */
   imageHost?: string;
   /** The reply is still arriving; hide trailing syntax that isn't complete yet. */
   streaming?: boolean;
