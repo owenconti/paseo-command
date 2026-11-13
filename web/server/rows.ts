@@ -259,6 +259,8 @@ export function inspectOf(agent: Loose<PaseoAgent>) {
           OutputTokens: usage.outputTokens ?? 0,
           CachedTokens: usage.cachedInputTokens ?? 0,
           CostUsd: usage.totalCostUsd ?? 0,
+          ...(usage.contextWindowUsedTokens !== undefined ? { ContextUsedTokens: usage.contextWindowUsedTokens } : {}),
+          ...(usage.contextWindowMaxTokens !== undefined ? { ContextMaxTokens: usage.contextWindowMaxTokens } : {}),
         }
       : null,
     AvailableModes: Array.isArray(agent.availableModes)

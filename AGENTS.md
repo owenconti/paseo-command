@@ -710,6 +710,13 @@ and GitHub publication; report the published version and release link.
   in that folder; only paths that host's own transcript gave, `rememberTimelineImages(items, <server id>)`, or its prompt
   attachments; PNG, JPEG, GIF or WebP by their header, 20 MB at most; never this Mac's same-named file). Tests:
   `server/remoteImage.test.ts`, `src/imageSource.test.ts`.
+- A conversation's context window (`web/src/ContextMeter.tsx`, pure `contextUsage.ts`): its header (the side panel's, Crew's,
+  the Dungeon Board's whole conversation) shows a ring filling with the window and "476k / 1M · 48%", amber from 70% and red
+  from 90%, from the daemon's `lastUsage.contextWindowUsedTokens` / `contextWindowMaxTokens` (`ContextUsedTokens`,
+  `ContextMaxTokens` in `LastUsage`: `agentDetail` in `server/api/agents.ts`, `inspectOf` in `server/rows.ts`; live as the
+  feed pushes the record); its tooltip (`data-summary`) gives the exact tokens and the last turn's in, cached, out and cost.
+  Where the daemon doesn't report the window, the last turn's cost and output, as before. Tests: `src/contextUsage.test.ts`,
+  `e2e/crew.e2e.ts`.
 - Web links clicked in the chat (`.session`, `openInAppBrowser` in `web/src/Session.tsx`, `postAppLink` → the `openLink` message)
   switch to Conquer and open there as a new tab, once its tabs are restored (`whenStarted`).
 - Main commits: in the GitHub page, choose a repository and Main commits (`web/src/github/MainHistory.tsx`,

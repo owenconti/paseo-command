@@ -24,7 +24,7 @@ after(async () => {
 });
 
 type Sent = { type: string; [field: string]: any };
-async function open(opts: { mac?: boolean; style?: string; fleet?: typeof dungeon } = {}): Promise<Page> {
+async function open(opts: { mac?: boolean; style?: string; fleet?: typeof dungeon; usage?: Record<string, number> } = {}): Promise<Page> {
   const fleet = opts.fleet ?? dungeon;
   const context = await newContext(browser);
   const page = await context.newPage();
@@ -57,7 +57,7 @@ async function open(opts: { mac?: boolean; style?: string; fleet?: typeof dungeo
     workspaces: () => fleet.workspaces,
     detail: (id: string) => {
       const row = (dungeon.agents as unknown as { id: string; status: string }[]).find((a) => a.id === id);
-      return detailOf(id, row?.status ?? "idle", {});
+      return detailOf(id, row?.status ?? "idle", opts.usage ? { LastUsage: opts.usage } : {});
     },
     timeline: () => ({ items: [{ kind: "user", text: "Tidy the README", messageId: "u1" }, { kind: "assistant", text: "Done. Shall I open the pull request?", messageId: "r1" }] }),
     accept: () => true,
@@ -207,6 +207,19 @@ test("a workspace's medallions show what they mean on hover", async () => {
   assert.match((await tip.textContent())!, /^CI running/);
   await ws.locator(".crew-medals .crew-status").nth(1).hover();
   await page.waitForFunction(() => /^Awaiting review/.test(document.querySelector(".tooltip.shown")?.textContent ?? ""));
+  await page.context().close();
+});
+
+test("the conversation's header shows how full its context window is", async () => {
+  const page = await open({ usage: { ContextUsedTokens: 150_000, ContextMaxTokens: 200_000, InputTokens: 1200, CachedTokens: 48_000, OutputTokens: 900, CostUsd: 0.4 } });
+  await page.locator('.crew-node[data-state="idle"]').first().click();
+  const meter = page.locator(".crew-detail .session-meta .context-meter");
+  await meter.waitFor();
+  assert.match((await meter.textContent())!, /150k \/ 200k · 75%$/);
+  assert.equal(await meter.getAttribute("data-level"), "high");
+  assert.ok(Number(await meter.locator(".context-ring-fill").getAttribute("stroke-dasharray").then((d) => d!.split(" ")[0])) > 0);
+  await meter.hover();
+  await page.waitForFunction(() => /^Context: 150,000 of 200,000 tokens \(75%\); last turn 1\.2k in · 48k cached · 900 out · \$0\.40/.test(document.querySelector(".tooltip.shown")?.textContent ?? ""));
   await page.context().close();
 });
 

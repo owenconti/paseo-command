@@ -292,6 +292,8 @@ export interface LiveAgent {
     outputTokens?: number;
     cachedInputTokens?: number;
     totalCostUsd?: number;
+    contextWindowUsedTokens?: number;
+    contextWindowMaxTokens?: number;
   };
   lastUserMessageAt?: string | null;
   attentionTimestamp?: string | null;
@@ -329,6 +331,8 @@ export type AgentHeader = {
     OutputTokens?: unknown;
     CachedTokens?: unknown;
     CostUsd?: unknown;
+    ContextUsedTokens?: unknown;
+    ContextMaxTokens?: unknown;
   } | null;
   PendingPermissions?: HeldPermission[];
 };
@@ -379,6 +383,8 @@ export function agentDetail(
           OutputTokens: usage.outputTokens ?? d.LastUsage?.OutputTokens,
           CachedTokens: usage.cachedInputTokens ?? d.LastUsage?.CachedTokens,
           CostUsd: usage.totalCostUsd ?? d.LastUsage?.CostUsd,
+          ContextUsedTokens: usage.contextWindowUsedTokens ?? d.LastUsage?.ContextUsedTokens,
+          ContextMaxTokens: usage.contextWindowMaxTokens ?? d.LastUsage?.ContextMaxTokens,
         }
       : (d.LastUsage ?? null),
     // The daemon's own record describes pending permissions in detail.

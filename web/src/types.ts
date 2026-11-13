@@ -250,6 +250,9 @@ export type Detail = {
     OutputTokens?: number;
     CachedTokens?: number;
     CostUsd?: number;
+    /** The conversation's context window: tokens in it now, and its size (the daemon's `contextWindow*Tokens`). */
+    ContextUsedTokens?: number;
+    ContextMaxTokens?: number;
   } | null;
 };
 export type Health = {

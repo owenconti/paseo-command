@@ -9,6 +9,7 @@ import { openFilesFile } from "./files/open";
 import { usePeers } from "./peers";
 import { robotColour, useRobotPortrait } from "./robotPortrait";
 import { ChatDecorContext, ChatFooterContext } from "./chatDecor";
+import { ContextMeter } from "./ContextMeter";
 import {
   memo,
   useContext,
@@ -526,15 +527,7 @@ export function SessionView({
         <div className="session-meta">
           <ProviderIcon provider={agent.provider} />
           <Badge status={status} />
-          {usage && (usage.CostUsd || usage.OutputTokens) ? (
-            <span
-              className="usage-chip"
-              aria-description={`${usage.InputTokens || 0} in · ${usage.OutputTokens || 0} out · ${usage.CachedTokens || 0} cached (last turn)`}
-            >
-              ${(usage.CostUsd || 0).toFixed(2)} ·{" "}
-              {((usage.OutputTokens || 0) / 1000).toFixed(1)}k out
-            </span>
-          ) : null}
+          <ContextMeter usage={usage} />
           <SubagentsControl
             agent={agent}
             onOpen={onOpenSubagent}

@@ -107,6 +107,44 @@
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
 }
+/* The context window (ContextMeter.tsx): a ring filling with it, amber from 70%, red from 90%. */
+.context-meter {
+  cursor: default;
+}
+.context-ring {
+  flex: none;
+}
+.context-ring circle {
+  fill: none;
+  stroke-width: 2.2;
+}
+.context-ring-track {
+  stroke: var(--line-mid);
+}
+.context-ring-fill {
+  stroke: var(--accent);
+  stroke-linecap: round;
+  transition: stroke-dasharray 0.4s var(--ease-out, ease-out);
+}
+.context-meter[data-level="high"] {
+  color: var(--amber-text);
+  background: var(--amber-soft);
+}
+.context-meter[data-level="high"] .context-ring-fill {
+  stroke: var(--amber);
+}
+.context-meter[data-level="full"] {
+  color: var(--red-text);
+  background: var(--red-soft);
+}
+.context-meter[data-level="full"] .context-ring-fill {
+  stroke: var(--red);
+}
+@media (prefers-reduced-motion: reduce) {
+  .context-ring-fill {
+    transition: none;
+  }
+}
 .branch-chip:disabled {
   opacity: 1;
   cursor: default;
