@@ -223,6 +223,28 @@ test("the conversation's header shows how full its context window is", async () 
   await page.context().close();
 });
 
+test("tiles lie on their side, shorter, when the map is narrowed by the conversation beside it", async () => {
+  const page = await open();
+  const node = page.locator('.crew-node[data-state="idle"]').first();
+  await node.waitFor();
+  const shape = () =>
+    node.evaluate((el) => {
+      const r = el.getBoundingClientRect(), bot = el.querySelector(".crew-portrait")!.getBoundingClientRect(), text = el.querySelector(".crew-node-text")!.getBoundingClientRect();
+      return { width: r.width, height: r.height, beside: bot.right <= text.left + 1 };
+    });
+  const tall = await shape();
+  assert.equal(tall.beside, false, "standing: the name under the robot");
+  await node.click();
+  await page.locator(".crew-drawer .session").waitFor();
+  const side = await shape();
+  assert.equal(side.beside, true, "on its side: the name beside the robot");
+  assert.ok(side.height < tall.height * 0.6 && side.width > tall.width, `${JSON.stringify(tall)} → ${JSON.stringify(side)}`);
+  await page.keyboard.press("Escape");
+  await page.locator(".crew-drawer").waitFor({ state: "detached" });
+  assert.equal((await shape()).beside, false, "standing again with the room back");
+  await page.context().close();
+});
+
 test("the filter narrows the map, and folded projects stay folded", async () => {
   const page = await open();
   await map(page).locator(".crew-node").first().waitFor();

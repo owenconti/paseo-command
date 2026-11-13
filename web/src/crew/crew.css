@@ -159,6 +159,8 @@
 
 /* The map: hosts, their projects, and each project's workspaces as panels of robots. */
 .crew-board {
+  /* Its own width decides how its tiles are laid out (below). */
+  container: crew-board / inline-size;
   flex: 1;
   min-width: 0;
   overflow-y: auto;
@@ -417,6 +419,14 @@
 }
 .crew-node .crew-portrait {
   margin-bottom: 6px;
+}
+.crew-node-text {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  min-width: 0;
+  max-width: 100%;
 }
 .crew-node-name {
   display: -webkit-box;
@@ -779,5 +789,42 @@
   .crew-bot .crew-f:first-child,
   .crew-drone .crew-f:first-child {
     opacity: 1;
+  }
+}
+
+/* Without room for the tall tiles side by side (the map narrowed by the conversation beside it, a small window), each
+   tile lies on its side: the robot smaller on the left, its name and state beside it; wider, and much shorter. */
+@container crew-board (max-width: 960px) {
+  .crew-node {
+    flex-direction: row;
+    align-items: center;
+    gap: 10px;
+    width: 300px;
+    min-height: 74px;
+    padding: 8px 12px 8px 6px;
+    text-align: left;
+  }
+  .crew-node-name {
+    min-height: 0;
+  }
+  .crew-node .crew-portrait {
+    margin-bottom: 0;
+    zoom: 0.66;
+  }
+  .crew-node-text {
+    align-items: flex-start;
+    flex: 1;
+  }
+  .crew-node .crew-unread {
+    top: 8px;
+    right: 8px;
+  }
+}
+@container crew-board (max-width: 420px) {
+  .crew-ws {
+    width: 100%;
+  }
+  .crew-node {
+    width: 100%;
   }
 }

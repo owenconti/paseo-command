@@ -1140,7 +1140,9 @@ faded) › project (by name; a chevron folds it, its name opens the project) ›
 first; each as wide as its robots, at least 240 px, a long title cut short rather than widening it; a row's panels one height, as are all nodes: a name keeps two lines' room; the panel's head opens the workspace and carries its CI, review, Probe and auto-merge medallions, each with a hover tooltip
 (`data-summary`, so the tooltip layer shows it though it isn't a button: its name and `flagTip`'s facts, else its
 description; the seal `autoMergeLine`); agents without a workspace in a dashed panel of their project's, or their host's), each holding its agents (oldest
-first) as large nodes: the robot (72 px; the Dungeon Board's `robots` sheet in its provider's colour, `robotColor`: idle frames
+first) as large nodes (standing; while the map is under 960 px wide, `@container crew-board`, as with the conversation open
+beside it, they lie on their side: the robot two-thirds size on the left, its name and state beside it, 300 px wide and about a
+third as tall): the robot (72 px; the Dungeon Board's `robots` sheet in its provider's colour, `robotColor`: idle frames
 with a blink and a breath, the four work frames while it runs, greyed offline) over its state's glow (`glow-*`, pulsing for
 states that need you) with its mark (`mark-*`, the running gear turning) and running drones (`subagentModels`' colours), its
 name, and its state or, while it runs, what it is doing (`workingOn`, shimmering); nodes that need you are tinted in their
