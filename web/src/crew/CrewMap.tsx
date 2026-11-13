@@ -15,7 +15,7 @@ import { STATE_NAMES, modelName, type State } from "../../../rendering/src/world
 import { atlasData, selectionKey } from "../atlasData";
 import { worldSnapshot, targetSelection } from "../worldBridge";
 import { useProbe } from "../useProbe";
-import { flagTip } from "../flagTip";
+import { autoMergeLine, flagTip } from "../flagTip";
 import { readStore, writeStore } from "../api";
 import { ChatDecorContext, ChatFooterContext, type ChatDecor } from "../chatDecor";
 import { onAppCommand } from "../appCommands";
@@ -105,7 +105,8 @@ function Status({ frame, size, className, tip }: { frame: string; size: number; 
     <span
       className={`crew-status ${className ?? ""}`}
       style={frameStyle("status", statusUrl, f, size)}
-      {...(tip ? { "data-tip": tip, role: "img", "aria-label": tip } : { "aria-hidden": true })}
+      // A read-only summary: the app's tooltip layer shows its tip on hover (Tooltip.tsx's `data-summary`).
+      {...(tip ? { "data-tip": tip, "data-summary": "", role: "img", "aria-label": tip } : { "aria-hidden": true })}
     />
   );
 }
@@ -247,9 +248,9 @@ export function CrewMap(props: Props) {
       <span className="crew-medals">
         {list.map((m) => {
           const tip = flagTip(m.flag, pr, w.probe);
-          return <Status key={m.kind} frame={m.frame} size={size} tip={[tip.title, tip.description].filter(Boolean).join(": ")} />;
+          return <Status key={m.kind} frame={m.frame} size={size} tip={`${tip.title}: ${tip.facts || tip.description}`} />;
         })}
-        {w.autoMerge && <Status frame="seal-automerge" size={size} tip={`${AUTO_MERGE.name}: ${AUTO_MERGE.description}`} />}
+        {w.autoMerge && <Status frame="seal-automerge" size={size} tip={autoMergeLine(pr) || `${AUTO_MERGE.name}: ${AUTO_MERGE.description}`} />}
       </span>
     );
   };
@@ -263,7 +264,7 @@ export function CrewMap(props: Props) {
         <small className={running ? "crew-node-state crew-shimmer" : "crew-node-state"}>
           {running ? summaryOf(a) || "Working…" : STATE_NAMES[a.state]}
         </small>
-        {a.state === "done" && <span className="crew-unread" data-tip="Replied · unread" aria-label="Unread reply" role="img" />}
+        {a.state === "done" && <span className="crew-unread" data-tip="Replied · unread" data-summary="" aria-label="Unread reply" role="img" />}
       </button>
     );
   };

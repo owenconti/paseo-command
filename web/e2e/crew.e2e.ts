@@ -24,7 +24,8 @@ after(async () => {
 });
 
 type Sent = { type: string; [field: string]: any };
-async function open(opts: { mac?: boolean; style?: string } = {}): Promise<Page> {
+async function open(opts: { mac?: boolean; style?: string; fleet?: typeof dungeon } = {}): Promise<Page> {
+  const fleet = opts.fleet ?? dungeon;
   const context = await newContext(browser);
   const page = await context.newPage();
   await page.emulateMedia({ reducedMotion: "reduce" });
@@ -49,11 +50,11 @@ async function open(opts: { mac?: boolean; style?: string } = {}): Promise<Page>
     [opts.style ?? "crew", !!opts.mac] as const,
   );
   await mockApi(page, {
-    agents: () => dungeon.agents,
-    permissions: () => dungeon.permissions,
-    hosts: () => dungeon.hosts,
-    projects: () => dungeon.projects,
-    workspaces: () => dungeon.workspaces,
+    agents: () => fleet.agents,
+    permissions: () => fleet.permissions,
+    hosts: () => fleet.hosts,
+    projects: () => fleet.projects,
+    workspaces: () => fleet.workspaces,
     detail: (id: string) => {
       const row = (dungeon.agents as unknown as { id: string; status: string }[]).find((a) => a.id === id);
       return detailOf(id, row?.status ?? "idle", {});
@@ -190,6 +191,22 @@ test("the pages keep the Galaxy theme while Crew is the map style, whatever tab 
   await page.locator(".crew-map").waitFor({ state: "detached" });
   await page.waitForTimeout(100);
   assert.equal(await theme(), "galaxy");
+  await page.context().close();
+});
+
+test("a workspace's medallions show what they mean on hover", async () => {
+  const labelled = structuredClone(dungeon);
+  labelled.workspaces[0]!.labels = ["CI running", "Awaiting review"];
+  const page = await open({ fleet: labelled });
+  const ws = page.locator(".crew-ws").filter({ has: page.locator(".crew-medals") }).first();
+  const medal = ws.locator(".crew-medals .crew-status").first();
+  await medal.waitFor();
+  await medal.hover();
+  const tip = page.locator(".tooltip.shown");
+  await tip.waitFor();
+  assert.match((await tip.textContent())!, /^CI running/);
+  await ws.locator(".crew-medals .crew-status").nth(1).hover();
+  await page.waitForFunction(() => /^Awaiting review/.test(document.querySelector(".tooltip.shown")?.textContent ?? ""));
   await page.context().close();
 });
 
