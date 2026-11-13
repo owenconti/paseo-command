@@ -327,7 +327,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
             "commandShown": !main.command.isHiddenOrHasHiddenAncestor,
             "visible": main.window.occlusionState.contains(.visible), "framesDrawn": main.scene.framesDrawn,
             "paused": main.atlasView.isPaused, "fps": main.atlasView.preferredFramesPerSecond,
-            "map": main.atlasView.diagnostics, "page": main.pageWorld,
+            "map": main.atlasView.diagnostics, "page": main.pageWorld, "pageMap": main.pageDrawsMap,
             "terminal": main.drawer.state(), "terminalPlace": main.terminalPlace(),
             "editor": main.editors.state(),
             "browser": main.boardBrowser.state(),

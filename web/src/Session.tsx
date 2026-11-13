@@ -8,8 +8,10 @@ import { openChatLink } from "./chatLinks";
 import { openFilesFile } from "./files/open";
 import { usePeers } from "./peers";
 import { robotColour, useRobotPortrait } from "./robotPortrait";
+import { ChatDecorContext } from "./chatDecor";
 import {
   memo,
+  useContext,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -810,6 +812,7 @@ export const Timeline = memo(function Timeline({
   /** What its Linear keys and PR numbers link to (src/autolink.ts). */
   links?: AutolinkContext;
 }) {
+  const decor = useContext(ChatDecorContext);
   const scroller = useRef<HTMLDivElement>(null);
   const body = useRef<HTMLDivElement>(null);
   const pinned = useRef(true);
@@ -986,11 +989,13 @@ export const Timeline = memo(function Timeline({
         </Autolinks.Provider>
         {running && (
           <div className="working-row">
-            <span className="activity-bars">
-              <i />
-              <i />
-              <i />
-            </span>
+            {decor.working ?? (
+              <span className="activity-bars">
+                <i />
+                <i />
+                <i />
+              </span>
+            )}
             Working…
           </div>
         )}
@@ -1152,6 +1157,7 @@ const TimelineBlock = memo(function TimelineBlock({
   imageHost?: string;
   extra?: ReactNode;
 }) {
+  const decor = useContext(ChatDecorContext);
   if (block.kind === "user")
     return (
       <div className="msg user">
@@ -1187,6 +1193,11 @@ const TimelineBlock = memo(function TimelineBlock({
           data-seq={block.seq}
           data-live={live ? "true" : undefined}
         >
+          {decor.replyAvatar && (
+            <span className="msg-avatar" aria-hidden="true">
+              {decor.replyAvatar(live)}
+            </span>
+          )}
           <Markdown text={block.text} imageHost={imageHost} streaming={live} />
         </div>
         {extra}

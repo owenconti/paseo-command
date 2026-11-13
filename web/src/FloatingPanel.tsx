@@ -295,6 +295,8 @@ export function FloatingPanel(props: Props) {
             <ReleasesButton />
             <GamesButton />
             <ShortcutsButton />
+            {/* Where the panel is absent (Crew in a browser) its side, layout and show/hide buttons go too. */}
+            {!suppressed && (<>
             <button
               className="panel-tool"
               aria-label={
@@ -348,6 +350,7 @@ export function FloatingPanel(props: Props) {
                 <Minus size={16} />
               )}
             </button>
+            </>)}
           </div>
         </header>
       )}

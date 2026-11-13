@@ -3,15 +3,19 @@ import { readStore, writeStore } from "./api";
 
 /** The map's style in the macOS app: the hex Islands (the default), the Overworld, a
  * terraced fantasy map of castles, project halls and workspace booths, or the Dungeon Board,
- * a dungeon cutaway with a floor per host. Kept in localStorage; a page opened with `?map=<style>`
+ * a dungeon cutaway with a floor per host, or Crew, a chat: the robots in a roster beside their conversation, which the
+ * page draws itself (in a plain browser too) in place of a native world. Kept in localStorage; a page opened with `?map=<style>`
  * (`native:mock -- --dungeon`) starts in that style and keeps it. A saved style that no longer exists (the removed Village) reads as Islands. */
-export type MapStyle = "islands" | "overworld" | "dungeon";
+export type MapStyle = "islands" | "overworld" | "dungeon" | "crew";
 
 export const MAP_STYLES: { id: MapStyle; name: string; detail: string }[] = [
   { id: "islands", name: "Islands", detail: "Hex islands on a painted sea" },
   { id: "overworld", name: "Overworld", detail: "Castles, halls and market booths on terraced islands" },
   { id: "dungeon", name: "Dungeon Board", detail: "A dungeon cutaway: a floor per host, robots in candle-lit alcoves" },
+  { id: "crew", name: "Crew", detail: "A chat: your robots in a roster beside their conversation" },
 ];
+/** The styles the page draws itself, with no native world under it. */
+export const pageDrawn = (style: MapStyle) => style === "crew";
 
 const STORE = "atlas:style";
 const check = (value: unknown): MapStyle => (MAP_STYLES.some((m) => m.id === value) ? (value as MapStyle) : "islands");

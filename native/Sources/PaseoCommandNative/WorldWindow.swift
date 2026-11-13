@@ -38,6 +38,9 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
     private(set) var scene: MapScene
     /// The style the page's map is drawn in now, as the page reports it (View → Map Style marks it).
     private(set) var mapStyle = "islands"
+    /// The page draws the map itself (the Crew style, `pageMap`): the SpriteKit view stays hidden and paused under it,
+    /// and the splash lifts once the page has its fleet, with no scene to wait for.
+    private(set) var pageDrawsMap = false
     let options: Options
     /// The page's sides that can show: those whose integration is on (the page says, with
     /// `integrations`), and Files and Settings.
@@ -316,6 +319,15 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         case "mapStyle":
             // The page's map style, for View → Map Style.
             mapStyle = body["style"] as? String ?? mapStyle
+        case "pageMap":
+            // The page draws the map (Crew) in place of a native world, or stops (another style mounts its world).
+            pageDrawsMap = body["on"] as? Bool ?? false
+            if pageDrawsMap {
+                atlasView.isHidden = true
+                atlasView.isPaused = true
+                boardBrowser.place(.nothing)
+                revealWhenDrawn()
+            }
         case "workspace":
             let w = body["workspace"] as? [String: Any]
             let selected = w.flatMap { w in
@@ -399,7 +411,7 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
             boardBrowser.place(.nothing)
         default: break
         }
-        if type != "detach", atlasView.isHidden, scene.hasArt { atlasView.isHidden = false; atlasView.govern() }
+        if type != "detach", !pageDrawsMap, atlasView.isHidden, scene.hasArt { atlasView.isHidden = false; atlasView.govern() }
         if AtlasScene.debug { Log.line("\(type) \(body)") }
         if type != "pointer" && type != "wheel" && type != "editor" && type != "browser" { reportState() }
     }
@@ -410,6 +422,8 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
     /// the page's process restarts. It lifts once the map has drawn.
     func showSplash(_ text: String) {
         fleetLoaded = false
+        // A reloading page says again whether it draws the map.
+        pageDrawsMap = false
         buildsAtSplash = scene.builds
         splash.show(text)
         armSplashFallback(after: 60)
@@ -418,7 +432,7 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
     /// Lift the splash once the page has its fleet and the world has drawn a
     /// scene since the splash went up, a moment later so SpriteKit's frame is up.
     private func revealWhenDrawn() {
-        guard splash.showing, fleetLoaded, scene.hasArt, scene.builds > buildsAtSplash else { return }
+        guard splash.showing, fleetLoaded, pageDrawsMap || (scene.hasArt && scene.builds > buildsAtSplash) else { return }
         splashFallback?.cancel()
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { [weak self] in self?.splash.hide() }
     }
@@ -490,7 +504,7 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         let frame = command.convert(webRect, from: web)
         let resized = atlasView.frame.size != frame.size
         atlasView.frame = frame
-        atlasView.isHidden = !scene.hasArt
+        atlasView.isHidden = !scene.hasArt || pageDrawsMap
         if resized {
             atlasView.resized()
             scene.size = frame.size

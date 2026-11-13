@@ -57,5 +57,5 @@ func makeMapScene(kind: String, size: CGSize) -> MapScene {
 
 /// The map's styles, as the page lists them (`MAP_STYLES` in `web/src/mapStyle.ts`), for View → Map Style.
 enum MapStyles {
-    static let all: [(id: String, name: String)] = [("islands", "Islands"), ("overworld", "Overworld"), ("dungeon", "Dungeon Board")]
+    static let all: [(id: String, name: String)] = [("islands", "Islands"), ("overworld", "Overworld"), ("dungeon", "Dungeon Board"), ("crew", "Crew")]
 }

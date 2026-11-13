@@ -32,7 +32,8 @@ Paseo Command visualizes hosts, projects, workspaces and agents from the Paseo d
 The React app and official SDK API are in `web/`. The Atlas world is drawn by the macOS app in
 `native/` (SpriteKit, under the React app in a WKWebView); its layout and art are in `rendering/`.
 The user removed the Phaser renderers (the web Atlas and the Galaxy world): in a plain browser the
-panels work and the map area says it is drawn by the macOS app. Do not add further worlds unless asked.
+panels work and the map area says it is drawn by the macOS app, except on Crew (below), which the page draws
+itself. Do not add further worlds unless asked.
 The user’s five supplied top-down illustrations guide the Atlas world: blue water,
 parchment hex islands, project landmarks, workspace cottages, and model-colored robots (Claude orange,
 ChatGPT/Codex white; other providers keep a stable colour of their own).
@@ -829,7 +830,7 @@ the sea tile, robots and state light) for a fleet shaped like the user's, the Du
 ### Map styles and the Dungeon Board
 
 The map's styles are `MAP_STYLES` in `web/src/mapStyle.ts` (localStorage `atlas:style`; a page opened with `?map=<style>` starts in that
-style and keeps it): Islands (the default), Overworld and the Dungeon Board (below; the Village was removed). Settings → Map lists them; ⌘K offers "Use the <name> map"
+style and keeps it): Islands (the default), Overworld, the Dungeon Board (below) and Crew (below; the Village was removed). Settings → Map lists them; ⌘K offers "Use the <name> map"
 for each one not shown (page Settings); the macOS app's View → Map Style lists them with the shown one checked (`MapStyles` in
 `MapScene.swift`; the page reports its style with a `mapStyle` message, and an item asks the page's `map-style-<id>` app command, then
 shows Command). Islands and Overworld are one world (`mountNativeAtlas`, switched in place by `AtlasWorld.style`); the Dungeon Board is a
@@ -1102,6 +1103,38 @@ requests, answers to `<info>.browser.out`) and `browserfocus`; `native/scripts/f
 `POST /__browser {command, args}` as an agent's call through its fake daemon. Tests: `web/server/browserHost.test.ts`
 (the fake daemon's `browserExecute`), `web/e2e/board-browser.e2e.ts`, `native/tests/BrowserAutomationTests.swift` (the
 policy, keys, and the page script on a page in a web view).
+
+### Crew
+
+Crew (`web/src/crew/`; the user's ask: a simpler, more traditional chat/AI interface that keeps the robots, their progress
+animations and the status medallions) is the fleet as a chat app, drawn by the page itself in the map's place, in a plain
+browser as in the macOS app (`pageDrawn` in `mapStyle.ts`; main's `crewShown`). No native world mounts: `NativeWorld` gives
+way to `CrewMap`, and `useMapBridge` (`web/src/mapBridge.ts`, always mounted, which also owns the `mapStyle` message and the
+`map-style-<id>` commands for View → Map Style) tells the app `pageMap` (`on`: `WorldWindow` keeps the SpriteKit view hidden
+and paused under the page, never un-hides it on later messages, and lifts the splash on the page's `loaded` without a scene;
+a reloading page says again; `--info`'s `pageMap`), `loaded`, and `workspace` (the Terminal tab's, the selected workspace or
+agent's). As on the Dungeon Board the side panel is absent (`panelAbsent` = `talkable || crewShown`: `FloatingPanel`'s
+`suppressed`, no ⌘B, the bars' panel buttons gone in a browser too, no panel lists or filters in ⌘K); the bar's "need you"
+steps to the next agent that needs you. Its roster (`roster.ts`, pure, `buildRoster`): Needs you pinned first (failed,
+approval, question, a reply waiting on you; most urgent, then oldest), then each host (folded by its head; offline faded) ›
+project (by name; a chevron folds it, its name opens the project) › workspace (oldest first; its head opens the workspace and
+carries its CI, review, Probe and auto-merge medallions, with `flagTip`'s hover text) › agent (oldest first; agents without
+a workspace after their project's workspaces), as the map hides projects and hosts without workspaces; folds kept in
+`crew:collapsed`, its width in `crew:rosterWidth` (its edge resizes it, `ResizeEdge`). An agent's row: its robot (the
+Dungeon Board's `robots` sheet in its provider's colour, `robotColor`: idle frames with a blink and a breath, the four work
+frames while it runs, greyed offline), its name, what it is doing while it runs (`workingOn`, shimmering) or its state, and
+its state's mark (`mark-*`, the running gear turning, the urgent ones pulsing; an unread reply a gold dot). A filter field
+(⌘K "Filter the crew…", `crew-filter`; Esc clears) narrows by agent, workspace, project or host; ↑/↓, Home and End move
+through the rows. The conversation side holds main's `detailView` (the panel's detail: the agent's `Session`, a subagent's,
+New agent, a workspace, a project, Add project; one copy at a time, the panel's empty while Crew shows) under a stage strip
+for a selected agent: its robot over its state's glow (`glow-*`), its mark and running drones (`subagentModels`' colours),
+its state, model and subagents, what it is doing with a sliding progress bar while it runs, and its workspace's chip and
+medallions. Inside, `ChatDecorContext` (`web/src/chatDecor.ts`, read by `Session.tsx`'s timeline; without a provider nothing
+changes) puts the robot beside each reply (working while that reply is live) and in the working row. With nothing open (and
+after Back or Esc) an overview: "Your crew" with its counts and New agent, then cards by state (Needs you, Replied, Working,
+Idle, Offline). Its sheets and frames are `sheets.ts` (sizes checked against the PNGs in `roster.test.ts`); all its motion
+is CSS (stacked frames shown in turn) and stops with reduced motion. Tests: `web/src/crew/roster.test.ts`,
+`web/e2e/crew.e2e.ts`. `npm run native:mock -- --dungeon --probe` and `?map=crew` shows it in a browser.
 
 ### The Village (removed)
 

@@ -1,4 +1,6 @@
-import { MAP_STYLES, mapStyle, setMapStyle, useMapStyle } from "./mapStyle";
+import { mapStyle, useMapStyle, type MapStyle } from "./mapStyle";
+/** The native world for a style (the page-drawn Crew never mounts one). */
+const nativeStyle = (style: MapStyle) => (style === "crew" ? "islands" : style);
 import type { WorkSummaries } from "./useWorkingOn";
 /** Atlas world adapter. The inherited React work surface owns all daemon actions;
  * the world only draws the host-qualified snapshot and reports what was picked. */
@@ -16,7 +18,6 @@ import {
   targetSelection,
   type WorldSnapshot,
 } from "./worldBridge";
-import { projectKey, workspaceKey } from "./workspaces";
 import { isFitWorldKey, isTyping } from "./worldShortcut";
 import { modalOpen } from "./focus";
 import { onAppCommand } from "./appCommands";
@@ -26,15 +27,15 @@ import type { Agent, Host, Project, Selection, Workspace } from "./types";
 import { WorldLegend } from "./WorldLegend";
 import { flagTip, workspacePrLines } from "./flagTip";
 import type { MapFlag } from "../../rendering/src/prStatus";
-import type { ProbeVerdict } from "../../rendering/src/probe";
 import { useProbe } from "./useProbe";
 import { useHostStats } from "./useHostStats";
 import { useDashboardCounts } from "./dashboardCounts";
 import { openAppLink } from "./appLinks";
 import { liveConnection } from "./live";
 import { CARD_MARGIN, placeCard } from "./cardPlace";
-import type { HostStats } from "../../rendering/src/world";
 import "./atlas-world.css";
+import { atlasData, selectionKey } from "./atlasData";
+export { atlasData };
 import { useGameTooltipFrame } from "./worldChat/frame";
 import "./worldChat/game-tooltip.css";
 import { DungeonHud } from "./dungeon/DungeonHud";
@@ -74,96 +75,6 @@ type Props = {
   /** The Dungeon Board's right-click menu for the robot, workspace or project under the pointer (empty: none). */
   menu?: (selection: NonNullable<Selection>, name: string) => BoardMenuItem[];
 };
-/** Hosts are keyed by their bridge id ("local" or a server id), as rows reference them. */
-export function atlasData(
-  snapshot: WorldSnapshot,
-  questions: Set<string>,
-  asking: Set<string> = new Set(),
-  /** Probe's verdicts, keyed `<host>:<workspaceId>` (useProbe). */
-  probe: Record<string, ProbeVerdict> = {},
-  /** Each host machine's load, keyed by host id (useHostStats). */
-  stats: Record<string, HostStats> = {},
-): AtlasData {
-  return {
-    hosts: snapshot.hosts.map((h) => ({
-      key: h.id,
-      name: h.name,
-      online: !/offline|stale/.test(h.state),
-      local: h.local,
-      ...(stats[h.id] ? { stats: stats[h.id] } : {}),
-    })),
-    projects: snapshot.projects.map((p) => ({
-      key: p.key,
-      host: p.hostId,
-      name: p.name,
-      stale: p.stale,
-    })),
-    workspaces: snapshot.workspaces.map((w) => ({
-      key: w.key,
-      host: w.hostId,
-      project: w.projectKey,
-      name: w.name,
-      stale: w.stale,
-      labels: w.labels,
-      ...(w.autoMerge ? { autoMerge: true } : {}),
-      ...(w.created ? { created: w.created } : {}),
-      ...(probe[`${w.hostId}:${w.id}`] ? { probe: probe[`${w.hostId}:${w.id}`] } : {}),
-    })),
-    agents: snapshot.agents.map((a) => ({
-      key: a.key,
-      host: a.hostId,
-      project: a.projectKey,
-      workspace: a.workspaceKey,
-      name: a.name,
-      model: a.model,
-      state: a.stale
-        ? "offline"
-        : a.state === "attention"
-          ? questions.has(a.clientId ?? a.id)
-            ? "question"
-            : "approval"
-          : (a.state === "unread" || a.state === "idle") &&
-              asking.has(a.clientId ?? a.id)
-            ? "asking"
-            : a.state === "unread"
-              ? "done"
-              : a.state,
-      subagents: a.subagentCount,
-      subagentModels: a.subagentModels,
-      created: a.created,
-    })),
-  };
-}
-/** The world key the app's selection points at, if it is drawn. */
-function selectionKey(selection: Selection, snapshot: WorldSnapshot) {
-  if (!selection) return null;
-  if (selection.type === "agent")
-    return (
-      snapshot.agents.find(
-        (a) =>
-          (a.clientId ?? a.id) === selection.id &&
-          (!selection.host || a.hostId === selection.host),
-      )?.key ?? null
-    );
-  const host = (id: string) => (id === "local" ? undefined : id);
-  if (selection.type === "project")
-    return (
-      snapshot.projects.find(
-        (p) =>
-          projectKey({ projectId: p.id, host: host(p.hostId) }) ===
-          selection.id,
-      )?.key ?? null
-    );
-  if (selection.type === "workspace")
-    return (
-      snapshot.workspaces.find(
-        (w) =>
-          workspaceKey({ workspaceId: w.id, host: host(w.hostId) }) ===
-          selection.id,
-      )?.key ?? null
-    );
-  return null;
-}
 type Tip = { entity: Entity; at: ScreenPoint; detail: string; flag?: MapFlag };
 /** A hover card over the map, placed before it paints so it lies wholly inside the map the user sees: the surface
  * (the world frame beside the session panel and below the top bar), within the window. Above the thing it's about
@@ -326,7 +237,7 @@ export function NativeWorld(props: Props) {
               : undefined;
           p.hover(row ? (row.clientId ?? row.id) : null);
         },
-      }, mapStyle());
+      }, nativeStyle(mapStyle()));
     } catch (error) {
       setFailure(error instanceof Error ? error.message : "Could not start the Atlas.");
       return;
@@ -349,11 +260,6 @@ export function NativeWorld(props: Props) {
   }, [worldKind]);
   useEffect(() => {
     if ((style === "islands" || style === "overworld") && world.current?.kind === "atlas") world.current.style(style);
-    // The app's View → Map Style marks the style shown.
-    (window as unknown as { webkit?: { messageHandlers?: { paseoWorld?: { postMessage(m: unknown): void } } } }).webkit?.messageHandlers?.paseoWorld?.postMessage({
-      type: "mapStyle",
-      style,
-    });
   }, [style]);
   useEffect(() => {
     // The world re-reports a hover that survives the update.
@@ -446,12 +352,9 @@ export function NativeWorld(props: Props) {
     };
     window.addEventListener("keydown", onKey);
     const offCommand = onAppCommand("fit-world", fitWorld);
-    // View → Map Style in the macOS app asks for a style by name.
-    const offStyles = MAP_STYLES.map((m) => onAppCommand(`map-style-${m.id}`, () => setMapStyle(m.id)));
     return () => {
       window.removeEventListener("keydown", onKey);
       offCommand();
-      offStyles.forEach((off) => off());
     };
   }, []);
   const empty = ready && data.hosts.length === 0;

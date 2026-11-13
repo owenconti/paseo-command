@@ -3,6 +3,7 @@ import { isTyping } from "./worldShortcut";
 import "./mermaid/mermaid.css";
 import { mermaidPalette, useMermaidCommands } from "./mermaidCommands";
 import { MAP_STYLES, mapStyle, setMapStyle, useMapStyle } from "./mapStyle";
+import { useMapBridge } from "./mapBridge";
 import { conversationOrder } from "./worldChat/navigation";
 import {
   browserFollowsSetting,
@@ -209,6 +210,10 @@ const WorldDispatch = React.lazy(() =>
 );
 const NativeWorld = React.lazy(() =>
   import("./NativeWorld").then((module) => ({ default: module.NativeWorld })),
+);
+/** The Crew map (src/crew/): the fleet as a chat app, which the page draws itself in a native world's place. */
+const CrewMap = React.lazy(() =>
+  import("./crew/CrewMap").then((module) => ({ default: module.CrewMap })),
 );
 // The Activity tab (GitHub and Linear notifications), drawn over the map while the app's mode bar shows it.
 const ActivityView = React.lazy(() =>
@@ -694,6 +699,10 @@ function App() {
   // Only where the board is drawn (the macOS app's world; a browser shows a placeholder).
   const talkable = macApp() && mapStyleNow === "dungeon" && appMode === "command" && !settingsShown;
   const talkOn = talking && talkable && selection?.type === "agent" && !selection.subagent;
+  // The Crew map (a chat app in the map's place, in a browser too): its roster and conversation stand in for the
+  // side panel, which is gone while it shows, as on the Dungeon Board.
+  const crewShown = mapStyleNow === "crew" && appMode === "command" && !settingsShown;
+  const panelAbsent = talkable || crewShown;
   useEffect(() => {
     if (selection?.type !== "agent" || selection.subagent) setTalking(false);
   }, [selection]);
@@ -704,6 +713,7 @@ function App() {
   const viewing =
     selection?.type === "agent" &&
     (talkOn ||
+      crewShown ||
       (!(unity && floatingVisibility.collapsed) &&
         !((unity ? floatingVisibility.compact : compact) && browsing)))
       ? selection.id
@@ -1195,6 +1205,8 @@ function App() {
       pr: ws.pr ? { number: ws.pr.number, url: ws.pr.url, title: ws.pr.title } : ws.pr,
     };
   }, [selection, agents, workspaceOf, workspace, realWorkspaceIds]);
+  // The map's style for the macOS app, and, while Crew draws the map in the page, its fleet and Terminal workspace.
+  useMapBridge(mapStyleNow, !loading, githubWorkspace);
   // The Paseo workspaces with a PR's branch checked out (the PR view's Open Paseo agent).
   const paseoFor = useCallback(
     (pr: PrHead) =>
@@ -1518,9 +1530,10 @@ function App() {
   };
   useEffect(() => onArchiveSettled((job) => settleArchive.current(job)), []);
 
+  // On Crew, Back (and Esc) lets the conversation go for the crew's overview.
   const onBack = useCallback(
-    () => (unity ? setBrowsing(true) : select(null)),
-    [select],
+    () => (unity && !crewShown ? setBrowsing(true) : select(null)),
+    [select, crewShown],
   );
   const sounds = useSoundSettings();
   const radio = useMusic();
@@ -1967,7 +1980,20 @@ function App() {
           },
         ]
       : []),
-    ...(macApp()
+    // Crew's roster filter (Crew draws no world to fit).
+    ...(crewShown
+      ? [
+          {
+            id: "crew-filter",
+            group: "Navigate",
+            page: "Command" as const,
+            label: "Filter the crew…",
+            keywords: "crew roster find search agents workspaces filter",
+            run: () => runAppCommand("crew-filter"),
+          },
+        ]
+      : []),
+    ...(macApp() && !crewShown
       ? [
           {
             id: "fit",
@@ -1980,8 +2006,9 @@ function App() {
           },
         ]
       : []),
-    // The panel's lists and their filters (the Dungeon Board has none: its belt's trays list who waits and runs).
-    ...(talkable ? [] : (["Agents", "Workspaces", "Projects", "Hosts"] as const)).map((t) => ({
+    // The panel's lists and their filters (the Dungeon Board has none: its belt's trays list who waits and runs;
+    // Crew's roster is its list).
+    ...(panelAbsent ? [] : (["Agents", "Workspaces", "Projects", "Hosts"] as const)).map((t) => ({
       id: `tab-${t}`,
       group: "Lists",
       page: "Command" as const,
@@ -1989,7 +2016,7 @@ function App() {
       keywords: "tab list",
       run: () => showList(t),
     })),
-    ...(talkable
+    ...(panelAbsent
       ? []
       : ([
         [
@@ -2022,8 +2049,8 @@ function App() {
           },
         ]
       : []),
-    // The Dungeon Board has no side panel.
-    ...(!talkable
+    // The Dungeon Board and Crew have no side panel.
+    ...(!panelAbsent
       ? [
           {
             id: "panel",
@@ -2935,6 +2962,167 @@ function App() {
   };
   const talkPosition = talkShown ? { ...position, prevName: stepTo(-1), nextName: stepTo(1) } : position;
 
+  // What the panel's detail shows (a conversation, New agent, a workspace or project, Add project), or, on Crew,
+  // its conversation side (one copy at a time: the panel's is empty while Crew shows).
+  const detailView = (
+    <>
+                  {addingProject && !talkable ? (
+                    <AddProject
+                      hosts={hosts}
+                      projects={projects}
+                      initialHost={hostFilter}
+                      online={online}
+                      onClose={() => {
+                        setAddingProject(false);
+                        setBrowsing(!selection);
+                      }}
+                      onNotice={setNotice}
+                      onAdded={async (projectId, host) => {
+                        await refresh();
+                        // A new project has no workspace (so no place on the
+                        // map): its first agent makes one.
+                        openDispatch({
+                          projectId: projectKey({ projectId, host }),
+                        });
+                      }}
+                    />
+                  ) : dispatchTarget ? (
+                    <NewAgent
+                      key={`dispatch-${dispatchRevision}`}
+                      projects={projects}
+                      workspaces={workspaces}
+                      providers={providers}
+                      hosts={hosts}
+                      initial={dispatchTarget}
+                      fallback={busiestProject}
+                      online={online}
+                      onClose={() => {
+                        setDispatchTarget(null);
+                        setBrowsing(!selection);
+                      }}
+                      onNotice={setNotice}
+                      onDispatched={async (rawId, host) => {
+                        const id = rawId ? agentClientId(rawId, host) : undefined;
+                        soundEvent("dispatched");
+                        setDispatchTarget(null);
+                        await refresh();
+                        if (id) select({ type: "agent", id });
+                        else setBrowsing(!selection);
+                      }}
+                    />
+                  ) : agent && subagent ? (
+                    <SubagentSession
+                      key={`${agent.id}:${subagent.id}`}
+                      agent={agent}
+                      subagent={subagent}
+                      parentName={agentName(agent, workspaceOf(agent)?.branch)}
+                      onParent={() => choose({ type: "agent", id: agent.id })}
+                      onOpen={(id) =>
+                        choose({ type: "agent", id: agent.id, subagent: id })
+                      }
+                      onNotice={setNotice}
+                    />
+                  ) : agent ? (
+                    <PeersContext.Provider value={peers}>
+                      <Session
+                        workingOn={workingOn[agent.id]}
+                        asks={asks[agent.id]}
+                        key={agent.id}
+                        agent={agent}
+                        workspace={workspaceOf(agent)}
+                        waiting={permissionAgents.has(agent.id)}
+                        online={online}
+                        onBack={onBack}
+                        onSelectWorkspace={() => {
+                          const ws = workspaceOf(agent);
+                          if (ws)
+                            choose({ type: "workspace", id: workspaceKey(ws) });
+                        }}
+                        onNotice={setNotice}
+                        onChanged={refresh}
+                        onFreshDraft={(a, settings) => {
+                          const ws = workspaceOf(a);
+                          const p = projectOf(a);
+                          select(null);
+                          openDispatch({
+                            ...(ws && realWorkspaceIds.has(workspaceKey(ws))
+                              ? { workspaceId: workspaceKey(ws) }
+                              : p
+                                ? { projectId: projectKey(p) }
+                                : {}),
+                            settings,
+                          });
+                        }}
+                        onNewAgent={() => openDispatch()}
+                        onOpenSubagent={(id) =>
+                          choose({ type: "agent", id: agent.id, subagent: id })
+                        }
+                        position={position}
+                      />
+                    </PeersContext.Provider>
+                  ) : workspace ? (
+                    <WorkspaceView
+                      workspace={workspace}
+                      agents={agentsAt(workspaceKey(workspace))}
+                      real={realWorkspaceIds.has(workspaceKey(workspace))}
+                      busy={busy}
+                      online={online}
+                      onBack={onBack}
+                      onDispatch={() => openDispatch()}
+                      onArchive={() => openArchive(workspace)}
+                      archiving={archiving.has(workspaceKey(workspace))}
+                      onNotice={setNotice}
+                      select={choose}
+
+                      permissionAgents={permissionAgents}
+                      unread={unread}
+                      onChanges={macApp() ? showWorkspaceChanges : undefined}
+                    />
+                  ) : project ? (
+                    <ProjectView
+                      project={project}
+                      workspaces={listedWorkspaces.filter(
+                        (w) =>
+                          w.project === project.name && sameHost(w, project),
+                      )}
+                      agentsAt={agentsAt}
+                      agents={active.filter((a) => projectOf(a) === project)}
+                      online={online}
+                      onBack={onBack}
+                      onDispatch={() =>
+                        openDispatch({ projectId: projectKey(project) })
+                      }
+                      onRemove={() => openRemoveProject(project)}
+                      removing={removingProjects.has(projectKey(project))}
+                      onNotice={setNotice}
+                      select={choose}
+
+                      permissionAgents={permissionAgents}
+                      unread={unread}
+                    />
+                  ) : (
+                    <div className="chat-empty">
+                      <MessageSquare
+                        size={28}
+                        strokeWidth={1.5}
+                        aria-hidden="true"
+                      />
+                      <h2>
+                        {activeTarget
+                          ? "This item is no longer available"
+                          : "Open a conversation"}
+                      </h2>
+                      <p>
+                        {activeTarget
+                          ? "Choose another item from the sidebar."
+                          : "Select an agent from the sidebar to open its conversation."}
+                      </p>
+                    </div>
+                  )}
+    </>
+  );
+  const detailEmpty = !(addingProject && !talkable) && !dispatchTarget && !agent && !workspace && !project;
+
   return (
     <MotionConfig reducedMotion="user" transition={spring}>
       <main
@@ -2943,6 +3131,30 @@ function App() {
       >
         {native && (
           <div className="native-world-frame" ref={worldFrame}>
+            {mapStyleNow === "crew" ? (
+              crewShown && (
+                <React.Suspense fallback={null}>
+                  <CrewMap
+                    hosts={hosts}
+                    projects={projects}
+                    workspaces={workspaces}
+                    agents={active}
+                    permissions={permissionAgents}
+                    questions={questionAgents}
+                    asking={asking}
+                    unread={unread}
+                    selection={selection}
+                    select={choose}
+                    workingOn={workingOn}
+                    detail={detailView}
+                    empty={detailEmpty}
+                    loaded={!loading}
+                    blocked={confirming}
+                    onDispatch={() => openDispatch()}
+                  />
+                </React.Suspense>
+              )
+            ) : (
             <React.Suspense fallback={null}>
               <NativeWorld
                 workingOn={workingOn}
@@ -2975,6 +3187,7 @@ function App() {
                 menu={boardMenu}
               />
             </React.Suspense>
+            )}
             {talkShown && agent && (
               <React.Suspense fallback={null}>
                 <PeersContext.Provider value={peers}>
@@ -3173,7 +3386,7 @@ function App() {
         )}
         <FloatingPanel
           enabled={unity}
-          suppressed={talkable}
+          suppressed={panelAbsent}
           activeKey={activeKey}
           openOnSelect={!talkShown || !!dispatchTarget || addingProject}
           activeLabel={
@@ -3199,8 +3412,9 @@ function App() {
           usage={usage}
           attention={permissions.length}
           onAttention={() => {
-            // On the Dungeon Board, the belt's own tray of who waits.
+            // On the Dungeon Board, the belt's own tray of who waits; on Crew, the next agent that needs you.
             if (talkable) return runAppCommand("dungeon-tray", "waiting");
+            if (crewShown) return nextAttention();
             setTab("Agents");
             setFilter("attention");
             setBrowsing(true);
@@ -3260,160 +3474,8 @@ function App() {
                 className="chat-workspace"
                 aria-label="Open conversations"
               >
-                <div className="detail-content" id="detail-panel">
-                  {addingProject && !talkable ? (
-                    <AddProject
-                      hosts={hosts}
-                      projects={projects}
-                      initialHost={hostFilter}
-                      online={online}
-                      onClose={() => {
-                        setAddingProject(false);
-                        setBrowsing(!selection);
-                      }}
-                      onNotice={setNotice}
-                      onAdded={async (projectId, host) => {
-                        await refresh();
-                        // A new project has no workspace (so no place on the
-                        // map): its first agent makes one.
-                        openDispatch({
-                          projectId: projectKey({ projectId, host }),
-                        });
-                      }}
-                    />
-                  ) : dispatchTarget ? (
-                    <NewAgent
-                      key={`dispatch-${dispatchRevision}`}
-                      projects={projects}
-                      workspaces={workspaces}
-                      providers={providers}
-                      hosts={hosts}
-                      initial={dispatchTarget}
-                      fallback={busiestProject}
-                      online={online}
-                      onClose={() => {
-                        setDispatchTarget(null);
-                        setBrowsing(!selection);
-                      }}
-                      onNotice={setNotice}
-                      onDispatched={async (rawId, host) => {
-                        const id = rawId ? agentClientId(rawId, host) : undefined;
-                        soundEvent("dispatched");
-                        setDispatchTarget(null);
-                        await refresh();
-                        if (id) select({ type: "agent", id });
-                        else setBrowsing(!selection);
-                      }}
-                    />
-                  ) : agent && subagent ? (
-                    <SubagentSession
-                      key={`${agent.id}:${subagent.id}`}
-                      agent={agent}
-                      subagent={subagent}
-                      parentName={agentName(agent, workspaceOf(agent)?.branch)}
-                      onParent={() => choose({ type: "agent", id: agent.id })}
-                      onOpen={(id) =>
-                        choose({ type: "agent", id: agent.id, subagent: id })
-                      }
-                      onNotice={setNotice}
-                    />
-                  ) : agent ? (
-                    <PeersContext.Provider value={peers}>
-                      <Session
-                        workingOn={workingOn[agent.id]}
-                        asks={asks[agent.id]}
-                        key={agent.id}
-                        agent={agent}
-                        workspace={workspaceOf(agent)}
-                        waiting={permissionAgents.has(agent.id)}
-                        online={online}
-                        onBack={onBack}
-                        onSelectWorkspace={() => {
-                          const ws = workspaceOf(agent);
-                          if (ws)
-                            choose({ type: "workspace", id: workspaceKey(ws) });
-                        }}
-                        onNotice={setNotice}
-                        onChanged={refresh}
-                        onFreshDraft={(a, settings) => {
-                          const ws = workspaceOf(a);
-                          const p = projectOf(a);
-                          select(null);
-                          openDispatch({
-                            ...(ws && realWorkspaceIds.has(workspaceKey(ws))
-                              ? { workspaceId: workspaceKey(ws) }
-                              : p
-                                ? { projectId: projectKey(p) }
-                                : {}),
-                            settings,
-                          });
-                        }}
-                        onNewAgent={() => openDispatch()}
-                        onOpenSubagent={(id) =>
-                          choose({ type: "agent", id: agent.id, subagent: id })
-                        }
-                        position={position}
-                      />
-                    </PeersContext.Provider>
-                  ) : workspace ? (
-                    <WorkspaceView
-                      workspace={workspace}
-                      agents={agentsAt(workspaceKey(workspace))}
-                      real={realWorkspaceIds.has(workspaceKey(workspace))}
-                      busy={busy}
-                      online={online}
-                      onBack={onBack}
-                      onDispatch={() => openDispatch()}
-                      onArchive={() => openArchive(workspace)}
-                      archiving={archiving.has(workspaceKey(workspace))}
-                      onNotice={setNotice}
-                      select={choose}
-
-                      permissionAgents={permissionAgents}
-                      unread={unread}
-                      onChanges={macApp() ? showWorkspaceChanges : undefined}
-                    />
-                  ) : project ? (
-                    <ProjectView
-                      project={project}
-                      workspaces={listedWorkspaces.filter(
-                        (w) =>
-                          w.project === project.name && sameHost(w, project),
-                      )}
-                      agentsAt={agentsAt}
-                      agents={active.filter((a) => projectOf(a) === project)}
-                      online={online}
-                      onBack={onBack}
-                      onDispatch={() =>
-                        openDispatch({ projectId: projectKey(project) })
-                      }
-                      onRemove={() => openRemoveProject(project)}
-                      removing={removingProjects.has(projectKey(project))}
-                      onNotice={setNotice}
-                      select={choose}
-
-                      permissionAgents={permissionAgents}
-                      unread={unread}
-                    />
-                  ) : (
-                    <div className="chat-empty">
-                      <MessageSquare
-                        size={28}
-                        strokeWidth={1.5}
-                        aria-hidden="true"
-                      />
-                      <h2>
-                        {activeTarget
-                          ? "This item is no longer available"
-                          : "Open a conversation"}
-                      </h2>
-                      <p>
-                        {activeTarget
-                          ? "Choose another item from the sidebar."
-                          : "Select an agent from the sidebar to open its conversation."}
-                      </p>
-                    </div>
-                  )}
+                <div className="detail-content" {...(crewShown ? {} : { id: "detail-panel" })}>
+                  {!crewShown && detailView}
                 </div>
               </section>
             </div>

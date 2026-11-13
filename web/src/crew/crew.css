@@ -1,0 +1,680 @@
+/* The Crew map (CrewMap.tsx): a chat app in the map's place, in the panels' own tokens (Galaxy, or Light). The robots'
+   state colours are the map's (STATE_TILE in rendering/src/world.ts), the same in either theme. */
+.crew-map {
+  --crew-running: #3fbf86;
+  --crew-approval: #ef9b1b;
+  --crew-question: #3a86d8;
+  --crew-asking: #a070e0;
+  --crew-done: #f2c94c;
+  --crew-failed: #d2452f;
+  --crew-offline: #8f8b80;
+  --crew-idle: var(--text-4);
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-columns: clamp(220px, var(--crew-roster, 290px), 46%) minmax(0, 1fr);
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  container: crew / inline-size;
+  z-index: 1;
+}
+.crew-map [data-state="running"] { --crew-state: var(--crew-running); }
+.crew-map [data-state="approval"] { --crew-state: var(--crew-approval); }
+.crew-map [data-state="question"] { --crew-state: var(--crew-question); }
+.crew-map [data-state="asking"] { --crew-state: var(--crew-asking); }
+.crew-map [data-state="done"] { --crew-state: var(--crew-done); }
+.crew-map [data-state="failed"] { --crew-state: var(--crew-failed); }
+.crew-map [data-state="offline"] { --crew-state: var(--crew-offline); }
+.crew-map [data-state="idle"] { --crew-state: var(--crew-idle); }
+
+/* Robots: their frames stacked, shown in turn. */
+.crew-bot {
+  position: relative;
+  display: inline-block;
+  flex: none;
+}
+.crew-bot .crew-f {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+}
+.crew-bot .crew-f:first-child {
+  opacity: 1;
+}
+.crew-bot.idle {
+  animation: crew-breathe 3.2s ease-in-out infinite;
+}
+.crew-bot.idle .crew-f:nth-child(2) {
+  animation: crew-blink 3.4s steps(1, end) infinite;
+}
+.crew-bot.work .crew-f {
+  animation: crew-frame4 0.68s steps(1, end) infinite;
+}
+.crew-bot.work .crew-f:nth-child(2) { animation-delay: 0.17s; }
+.crew-bot.work .crew-f:nth-child(3) { animation-delay: 0.34s; }
+.crew-bot.work .crew-f:nth-child(4) { animation-delay: 0.51s; }
+.crew-bot.off {
+  filter: grayscale(1) brightness(0.85);
+  opacity: 0.55;
+  animation: none;
+}
+.crew-bot.off .crew-f:nth-child(2) {
+  animation: none;
+}
+@keyframes crew-frame4 {
+  0% { opacity: 1; }
+  25% { opacity: 0; }
+  100% { opacity: 0; }
+}
+@keyframes crew-frame2 {
+  0% { opacity: 1; }
+  50% { opacity: 0; }
+  100% { opacity: 0; }
+}
+@keyframes crew-blink {
+  0% { opacity: 0; }
+  90% { opacity: 1; }
+  95% { opacity: 0; }
+  100% { opacity: 0; }
+}
+@keyframes crew-breathe {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-1px); }
+}
+@keyframes crew-spin {
+  to { transform: rotate(360deg); }
+}
+@keyframes crew-pulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.12); opacity: 0.75; }
+}
+@keyframes crew-shimmer {
+  to { background-position: -200% 0; }
+}
+@keyframes crew-slide {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(300%); }
+}
+
+/* A robot's portrait: its glow beneath, its mark at its shoulder, its drones circling. */
+.crew-portrait {
+  position: relative;
+  display: inline-flex;
+  align-items: flex-start;
+  justify-content: center;
+  flex: none;
+}
+.crew-glow {
+  position: absolute;
+  left: 50%;
+  bottom: -2%;
+  translate: -50% 0;
+  opacity: 0.9;
+}
+.crew-glow.pulse,
+.crew-status.pulse {
+  animation: crew-pulse 1.6s ease-in-out infinite;
+}
+.crew-status {
+  display: inline-block;
+  flex: none;
+}
+.crew-status.spin {
+  animation: crew-spin 4s linear infinite;
+}
+.crew-mark {
+  position: absolute;
+  right: -6%;
+  top: -6%;
+}
+.crew-drones {
+  position: absolute;
+  left: 50%;
+  top: 40%;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+.crew-orbit {
+  position: absolute;
+  inset: 0;
+  animation: crew-spin 3.6s linear infinite;
+}
+.crew-drone {
+  position: absolute;
+  left: var(--crew-orbit, 24px);
+  top: 0;
+  display: block;
+  animation: crew-spin 3.6s linear infinite reverse;
+}
+.crew-drone .crew-f {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  animation: crew-frame2 0.5s steps(1, end) infinite;
+}
+.crew-drone .crew-f:nth-child(2) {
+  animation-delay: 0.25s;
+}
+
+/* The roster. */
+.crew-roster {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--panel-2);
+  border-right: 1px solid var(--line);
+}
+.crew-roster-head {
+  display: flex;
+  gap: 6px;
+  padding: 10px 10px 6px;
+}
+.crew-search {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  padding: 0 8px;
+  height: 30px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--input-bg);
+  color: var(--text-3);
+}
+.crew-search:focus-within {
+  border-color: var(--accent-line);
+}
+.crew-search input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: var(--fs-sm);
+  outline: none;
+  padding: 0;
+}
+.crew-clear,
+.crew-new,
+.crew-fold {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  background: transparent;
+  color: var(--text-3);
+  cursor: pointer;
+  padding: 0;
+}
+.crew-new {
+  width: 30px;
+  height: 30px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--line);
+}
+.crew-new:hover,
+.crew-clear:hover {
+  color: var(--text-strong);
+  background: var(--row-hover);
+}
+.crew-roster-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 2px 8px 16px;
+}
+.crew-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 12px 4px 4px;
+  font-size: var(--fs-2xs);
+  font-weight: var(--fw-semibold);
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--text-4);
+}
+.crew-need .crew-label i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--crew-approval);
+  animation: crew-pulse 1.6s ease-in-out infinite;
+}
+.crew-fold {
+  gap: 4px;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  color: inherit;
+}
+.crew-fold svg {
+  transition: rotate var(--dur-1, 120ms) ease;
+}
+.crew-fold[aria-expanded="false"] svg {
+  rotate: -90deg;
+}
+.crew-fold.small {
+  width: 16px;
+  height: 22px;
+  color: var(--text-4);
+}
+.crew-offline {
+  margin-left: 4px;
+  padding: 0 5px;
+  border-radius: var(--radius-pill);
+  background: var(--fill);
+  color: var(--text-3);
+  letter-spacing: 0.02em;
+  text-transform: none;
+}
+.crew-group[data-offline] .crew-row {
+  opacity: 0.7;
+}
+.crew-project {
+  margin-top: 4px;
+}
+.crew-project-head {
+  display: flex;
+  align-items: center;
+}
+.crew-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-2);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.crew-head.project {
+  padding: 3px 6px 3px 2px;
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-semibold);
+  color: var(--text-strong);
+}
+.crew-head.workspace {
+  margin-top: 4px;
+  padding: 3px 6px 3px 20px;
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+}
+.crew-ws-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-mono);
+}
+.crew-medals {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  flex: none;
+}
+.crew-row {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  min-width: 0;
+  padding: 4px 8px 4px 12px;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.crew-need .crew-row {
+  padding-left: 6px;
+}
+.crew-row:hover,
+.crew-head:hover {
+  background: var(--row-hover);
+}
+.crew-row[aria-current="true"],
+.crew-head[aria-current="true"] {
+  background: var(--row-selected);
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+.crew-row:focus-visible,
+.crew-head:focus-visible,
+.crew-card:focus-visible,
+.crew-fold:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: -2px;
+}
+.crew-row-text {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+.crew-row-text b,
+.crew-row-text small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.crew-row-text b {
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-semibold);
+  color: var(--text-strong);
+}
+.crew-row-text small {
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+}
+.crew-row[data-state="failed"] .crew-row-text small,
+.crew-row[data-state="approval"] .crew-row-text small,
+.crew-row[data-state="question"] .crew-row-text small,
+.crew-row[data-state="asking"] .crew-row-text small {
+  color: var(--crew-state);
+}
+.crew-row[data-state="offline"] .crew-row-text {
+  opacity: 0.7;
+}
+.crew-unread {
+  width: 8px;
+  height: 8px;
+  margin-right: 6px;
+  border-radius: 50%;
+  background: var(--crew-done);
+  flex: none;
+}
+.crew-none {
+  margin: 16px 6px;
+  color: var(--text-3);
+  font-size: var(--fs-sm);
+}
+.crew-shimmer {
+  background: linear-gradient(90deg, var(--text-3) 0%, var(--text-strong) 50%, var(--text-3) 100%);
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent !important;
+  animation: crew-shimmer 2.4s linear infinite;
+}
+
+/* The conversation's side. */
+.crew-main {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  background: var(--panel);
+}
+.crew-detail {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  container: panel / size;
+}
+.crew-detail > * {
+  flex: 1;
+  min-height: 0;
+}
+.crew-stage {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 18px 10px 16px;
+  border-bottom: 1px solid var(--line);
+  background: linear-gradient(90deg, color-mix(in srgb, var(--crew-state) 9%, transparent), transparent 55%);
+}
+.crew-stage-text {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex: 1;
+  min-width: 0;
+}
+.crew-stage-state {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  font-size: var(--fs-sm);
+  color: var(--text-3);
+}
+.crew-stage-state b {
+  color: var(--crew-state);
+  font-weight: var(--fw-semibold);
+}
+.crew-stage-state i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--crew-state);
+}
+.crew-stage[data-state="running"] .crew-stage-state i,
+.crew-stage[data-state="approval"] .crew-stage-state i,
+.crew-stage[data-state="question"] .crew-stage-state i,
+.crew-stage[data-state="asking"] .crew-stage-state i,
+.crew-stage[data-state="failed"] .crew-stage-state i {
+  animation: crew-pulse 1.4s ease-in-out infinite;
+}
+.crew-stage-work {
+  font-size: var(--fs-sm);
+  color: var(--text-2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.crew-progress {
+  width: min(220px, 60%);
+  height: 3px;
+  border-radius: 2px;
+  background: var(--fill);
+  overflow: hidden;
+}
+.crew-progress i {
+  display: block;
+  width: 35%;
+  height: 100%;
+  border-radius: 2px;
+  background: var(--crew-running);
+  animation: crew-slide 1.6s ease-in-out infinite;
+}
+.crew-stage-place {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+  min-width: 0;
+}
+.crew-chip {
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 2px 9px;
+  border: 1px solid var(--line-mid);
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--text-2);
+  font: inherit;
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  cursor: pointer;
+}
+.crew-chip:hover {
+  border-color: var(--line-hover);
+  color: var(--text-strong);
+}
+
+/* Inside the conversation: each reply beside its robot, and the robot at work in the working row. */
+.crew-detail .timeline-body > .msg.assistant {
+  position: relative;
+  margin-left: 40px;
+}
+.crew-detail .msg-avatar {
+  position: absolute;
+  left: -40px;
+  top: 0;
+  width: 30px;
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+  user-select: none;
+}
+.crew-detail .working-row .crew-bot {
+  margin-right: 4px;
+}
+
+/* The overview. */
+.crew-overview {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 24px 28px 32px;
+}
+.crew-overview-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 8px;
+}
+.crew-overview-head h2 {
+  margin: 0;
+  font-size: var(--fs-xl);
+  color: var(--text-strong);
+}
+.crew-overview-head p {
+  margin: 4px 0 0;
+  color: var(--text-3);
+  font-size: var(--fs-sm);
+}
+.crew-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+  height: 30px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: var(--accent);
+  color: var(--on-accent);
+  font: inherit;
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-semibold);
+  cursor: pointer;
+}
+.crew-primary:hover {
+  background: var(--accent-hover);
+}
+.crew-overview-section .crew-label {
+  margin: 20px 0 8px;
+}
+.crew-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 10px;
+}
+.crew-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.crew-card:hover {
+  border-color: color-mix(in srgb, var(--crew-state) 55%, var(--line));
+  background: var(--row-hover);
+}
+.crew-card-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+.crew-card-text b,
+.crew-card-text small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.crew-card-text b {
+  color: var(--text-strong);
+  font-size: var(--fs-sm);
+}
+.crew-card-text small {
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+}
+.crew-card-text .crew-card-state {
+  color: var(--crew-state);
+}
+.crew-card[data-state="idle"] .crew-card-state {
+  color: var(--text-4);
+}
+
+/* Narrow: the roster keeps its robots and marks only. */
+@container crew (max-width: 640px) {
+  .crew-map {
+    grid-template-columns: 64px minmax(0, 1fr);
+  }
+  .crew-roster-head,
+  .crew-label,
+  .crew-head,
+  .crew-project-head,
+  .crew-row-text,
+  .crew-roster .resize-edge {
+    display: none;
+  }
+  .crew-row {
+    justify-content: center;
+    padding: 6px 0;
+  }
+  .crew-row > .crew-status,
+  .crew-row > .crew-unread {
+    display: none;
+  }
+  .crew-stage-place {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .crew-map .crew-bot,
+  .crew-map .crew-bot *,
+  .crew-map .crew-status,
+  .crew-map .crew-glow,
+  .crew-map .crew-orbit,
+  .crew-map .crew-drone,
+  .crew-map .crew-drone *,
+  .crew-map .crew-shimmer,
+  .crew-map .crew-progress i,
+  .crew-map .crew-label i,
+  .crew-map .crew-stage-state i {
+    animation: none !important;
+  }
+  .crew-bot .crew-f:first-child,
+  .crew-drone .crew-f:first-child {
+    opacity: 1;
+  }
+}

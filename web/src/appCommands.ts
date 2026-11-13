@@ -110,7 +110,9 @@ export type AppCommand =
   | "files-open-viewer"
   | "map-style-islands"
   | "map-style-overworld"
-  | "map-style-dungeon";
+  | "map-style-dungeon"
+  | "map-style-crew"
+  | "crew-filter";
 
 const EVENT = "paseo:command";
 
