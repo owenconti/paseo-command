@@ -169,13 +169,15 @@
 }
 .crew-board-head {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 12px;
+  gap: 10px 12px;
   margin-bottom: 6px;
 }
+/* The title keeps room for its counts; the tools wrap beneath it rather than squeezing it. */
 .crew-board-title {
-  flex: 1;
-  min-width: 0;
+  flex: 1 1 220px;
+  min-width: min(220px, 100%);
 }
 .crew-board-title h2 {
   margin: 0;
@@ -191,7 +193,8 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  width: min(260px, 34%);
+  flex: 0 1 260px;
+  min-width: 140px;
   padding: 0 8px;
   height: 30px;
   border: 1px solid var(--line);
@@ -878,13 +881,6 @@
   .crew-board {
     padding: 16px 14px 32px;
   }
-  .crew-board-head {
-    flex-wrap: wrap;
-  }
-  .crew-search {
-    width: 100%;
-    order: 3;
-  }
   .crew-ws {
     min-width: 0;
     width: 100%;
@@ -941,6 +937,16 @@
   .crew-node-text {
     align-items: flex-start;
     flex: 1;
+  }
+}
+/* The board narrow (the conversation beside it, a small window): the title, its buttons and the filter each a row. */
+@container crew-board (max-width: 640px) {
+  .crew-board-title {
+    flex-basis: 100%;
+  }
+  .crew-search {
+    flex: 1 1 100%;
+    order: 3;
   }
 }
 @container crew-board (max-width: 420px) {

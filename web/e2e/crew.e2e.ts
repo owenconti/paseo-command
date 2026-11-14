@@ -245,6 +245,36 @@ test("tiles lie on their side, shorter, when the map is narrowed by the conversa
   await page.context().close();
 });
 
+test("the map's header keeps its title readable when the conversation narrows the map: the tools wrap beneath it", async () => {
+  const page = await open();
+  // The drawer as wide as it goes leaves the board 320–500 px.
+  await page.evaluate(() => localStorage.setItem("paseo-command:crew:drawerWidth", JSON.stringify(760)));
+  await page.reload();
+  const node = page.locator(".crew-node").first();
+  await node.waitFor();
+  await node.click();
+  await page.locator(".crew-drawer .session").waitFor();
+  for (const width of [1260, 1100, 1000, 920]) {
+    await page.setViewportSize({ width, height: 800 });
+    const head = await page.locator(".crew-board-head").evaluate((el) => {
+      const line = el.querySelector(".crew-board-title h2")!, title = line.getBoundingClientRect();
+      const parts = [...el.querySelectorAll(".crew-board-title, .crew-search, .crew-secondary, .crew-primary")].map((p) => p.getBoundingClientRect());
+      let overlap = false;
+      for (let i = 0; i < parts.length; i++)
+        for (let j = i + 1; j < parts.length; j++) {
+          const a = parts[i], b = parts[j];
+          if (a.left < b.right - 1 && b.left < a.right - 1 && a.top < b.bottom - 1 && b.top < a.bottom - 1) overlap = true;
+        }
+      const lineHeight = parseFloat(getComputedStyle(line).lineHeight) || title.height;
+      return { board: el.getBoundingClientRect().width, titleLines: Math.round(title.height / lineHeight), overlap, fits: parts.every((r) => r.right <= el.getBoundingClientRect().right + 1) };
+    });
+    assert.equal(head.titleLines, 1, `"Your crew" on one line at ${width}px: ${JSON.stringify(head)}`);
+    assert.equal(head.overlap, false, `nothing in the header overlaps at ${width}px`);
+    assert.equal(head.fits, true, `the header fits the board at ${width}px: ${JSON.stringify(head)}`);
+  }
+  await page.context().close();
+});
+
 test("cards keep to one grid of equal columns, each spanning its robots, no row left short a card could fill; tiles fill their cards", async () => {
   // Long titles, as Linear-named workspaces and agents have: a card's width never follows its text.
   const long = structuredClone(dungeon);
