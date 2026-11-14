@@ -10,7 +10,7 @@ import { chmodSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "nod
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { POOL, POOL_DEPS, poolStatus, resetPool, startClaim, startRelease } from "./pool";
-import { settingsFile, writeSettings } from "./settings";
+import { appSettings, saveAppSettings, settingsFile, writeSettings } from "./settings";
 import { jobRunning } from "../src/pool";
 
 const real = { ...POOL_DEPS };
@@ -31,7 +31,10 @@ const box = (id: string, status: string) => ({
   status,
   claimed_at: status === "claimed" ? "2026-11-13T22:56:41Z" : null,
   tailnet_ipv4: "100.64.0.1",
+  base_domain: `${id}.example.com`,
 });
+const config = (repo: string) =>
+  writeFileSync(join(dir, "config.env"), `# Non-secret infrastructure\nBASE_DOMAIN=example.com\n\n# Absolute path of the app repo on the Sprite.\nBOX_REPO_PATH=${repo}\n`);
 async function finished() {
   for (let i = 0; i < 400; i++) {
     const job = poolStatus().job;
@@ -44,7 +47,8 @@ const body = { prompt: "Fix the flaky login test", provider: "claude", mode: "by
 
 beforeEach(() => {
   dir = mkdtempSync(join(tmpdir(), "paseo-pool-"));
-  writeSettings({ integrations: { pool: true }, pool: { dir, checkout: "/srv/work/app" } });
+  writeSettings({ integrations: { pool: true }, pool: { dir } });
+  config("/srv/work/app");
   state({ "pool-1": box("pool-1", "claimed"), "pool-2": box("pool-2", "idle") });
   script("claim.sh", `echo "$@" > "${dir}/claim-args"\necho "claiming pool-2 (paseo-pool-2)"\necho "step: wake sprite..."\necho "timing: wake sprite: 1.2s"\necho "CLAIM_OK"\necho "step: inject secrets + marker + docker + paseo..."\necho "ok: claimed pool-2 in 14s"`);
   script("release.sh", `echo "$@" > "${dir}/release-args"\necho "releasing $1 (paseo-$1)"\necho "restoring default checkpoint v11"\necho "ok: released $1 in 40s (idle, default checkpoint v11)"`);
@@ -71,13 +75,18 @@ test("the status lists the boxes from pool-state.json, and says when the scripts
   const status = poolStatus();
   assert.equal(status.problem, "");
   assert.deepEqual(status.boxes, [
-    { id: "pool-1", label: "pool-1", status: "claimed", claimedAt: "2026-11-13T22:56:41Z" },
-    { id: "pool-2", label: "pool-2", status: "idle" },
+    { id: "pool-1", label: "pool-1", status: "claimed", claimedAt: "2026-11-13T22:56:41Z", baseDomain: "pool-1.example.com" },
+    { id: "pool-2", label: "pool-2", status: "idle", baseDomain: "pool-2.example.com" },
   ]);
-  assert.equal(status.settings.checkout, "/srv/work/app");
-  writeSettings({ pool: { dir, checkout: "" } });
-  assert.match(poolStatus().problem, /checkout on the box/);
-  writeSettings({ pool: { dir, checkout: "/srv/work/app" } });
+  // The checkout is config.env's BOX_REPO_PATH, an absolute path on the box.
+  assert.equal(status.checkout, "/srv/work/app");
+  config("~/work/app");
+  assert.match(poolStatus().problem, /must be an absolute path on the box/);
+  assert.equal(poolStatus().checkout, "");
+  rmSync(join(dir, "config.env"));
+  assert.match(poolStatus().problem, /config\.env in .* can't be read/);
+  assert.throws(() => startClaim(body), /config\.env/);
+  config("/srv/work/app");
   rmSync(join(dir, "release.sh"));
   assert.match(poolStatus().problem, /release\.sh isn't in/);
   assert.throws(() => startClaim(body), /release\.sh isn't in/);
@@ -91,10 +100,12 @@ test("a claim runs claim.sh --any, waits for the box's host, then dispatches int
   };
   const sent: unknown[] = [];
   let tries = 0;
-  POOL_DEPS.dispatch = async (b, host, checkout, mark) => {
+  let told = "";
+  POOL_DEPS.dispatch = async (b, host, checkout, mark, prompt) => {
     // The daemon isn't answering yet the first time: nothing was issued.
     if (++tries === 1) throw new Error("The Paseo daemon did not answer within 15s.");
     mark({ host, keys: ["agents"] });
+    told = prompt;
     sent.push({ b, host: host.serverId, checkout });
     return { agentId: "agt_new", status: "running", workspaceId: "wks_1" } as never;
   };
@@ -117,6 +128,10 @@ test("a claim runs claim.sh --any, waits for the box's host, then dispatches int
   assert.deepEqual(online, ["pool-2"]);
   assert.equal(tries, 2);
   assert.deepEqual(sent, [{ b: body, host: "srv_pool2", checkout: "/srv/work/app" }]);
+  // The agent is told it's on the box, how to start the app and its URLs.
+  assert.match(told, /You are on pool-2.*checkout is \/srv\/work\/app/);
+  assert.match(told, /paseo-box-up/);
+  assert.match(told, /https:\/\/control-panel\.pool-2\.example\.com\/login/);
 });
 
 test("a dispatch that was issued is never sent again", async () => {
@@ -172,4 +187,11 @@ test("a release runs release.sh for a claimed box only", async () => {
     "Restoring default checkpoint v11",
     "Released pool-1 in 40s (idle, default checkpoint v11)",
   ]);
+});
+
+test("Settings saves only the folder: the checkout is config.env's", () => {
+  assert.deepEqual(saveAppSettings({ pool: { dir: "~/boxes" } }).pool, { dir: "~/boxes" });
+  assert.throws(() => saveAppSettings({ pool: { dir: "~/boxes", checkout: "/srv/app" } }), /Invalid pool box settings/);
+  assert.throws(() => saveAppSettings({ pool: { dir: "boxes" } }), /absolute path/);
+  assert.deepEqual(appSettings().pool, { dir: "~/boxes" });
 });

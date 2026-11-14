@@ -408,7 +408,7 @@ export function NewAgent({
     if (job.phase === "done") onDispatched(job.agentId, job.host);
     else setError(jobText(job));
   }, [job, claiming]);
-  const poolCheckout = pool?.settings.checkout || "";
+  const poolCheckout = pool?.checkout || "";
   const folder = isPool ? poolCheckout : workspace?.cwd || project?.path || "";
   const blocked = !online
     ? "Paseo is offline."

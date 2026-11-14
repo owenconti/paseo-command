@@ -3,9 +3,11 @@
  * scripts on this Mac, wait for its Paseo host to come online, then dispatch
  * the agent New agent described into its checkout; or release a claimed box.
  *
- * - Opt-in (`integrations.pool` in settings.json); the scripts' folder and the
- *   box's checkout are `pool` there. Nothing else is configurable: the server
- *   runs `claim.sh --any` and `release.sh pool-N` only, never a shell.
+ * - Opt-in (`integrations.pool` in settings.json); the scripts' folder is
+ *   `pool.dir` there. Everything else is paseo-boxes' own: the boxes from its
+ *   `pool-state.json`, the checkout from `BOX_REPO_PATH` in its `config.env`
+ *   (never secrets.env or private/). The server runs `claim.sh --any` and
+ *   `release.sh pool-N` only, never a shell, and never provision-named.sh.
  * - One job at a time (claims would race for the same idle box). The page
  *   polls `GET /api/pool` for it.
  * - The scripts never print secrets; their output is redacted all the same,
@@ -21,14 +23,18 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import {
   claimedPool,
+  envValue,
   idleBoxes,
   jobRunning,
+  poolBoxPrompt,
   poolBoxes,
+  poolCheckoutProblem,
   poolSettings,
   poolSettingsProblem,
   progressLine,
   scriptError,
   POOL_ID,
+  type PoolBox,
   type PoolJob,
   type PoolSettings,
   type PoolStatus,
@@ -108,8 +114,8 @@ export const POOL_DEPS = {
     }
   },
   /** Dispatch into the box; may be asked again while nothing was issued. */
-  dispatch: (body: Body, host: Remote, checkout: string, mark: (c: Changed) => void) =>
-    poolDispatch(body, host, checkout, mark),
+  dispatch: (body: Body, host: Remote, checkout: string, mark: (c: Changed) => void, prompt: string) =>
+    poolDispatch(body, host, checkout, mark, prompt),
   settle: settleChange,
 };
 
@@ -122,8 +128,9 @@ function settings(): PoolSettings {
   return poolSettings(readSettings()?.pool);
 }
 
-/** The scripts' folder checked: its scripts runnable and its state readable. */
-function scripts(s: PoolSettings) {
+type Found = { dir: string; problem: string; boxes?: PoolBox[]; checkout?: string };
+/** The scripts' folder checked: its scripts runnable, its state and config readable. */
+function scripts(s: PoolSettings): Found {
   const unset = poolSettingsProblem(s);
   if (unset) return { dir: "", problem: unset };
   const dir = expand(s.dir);
@@ -138,11 +145,22 @@ function scripts(s: PoolSettings) {
     } catch {
       return { dir, problem: `${name} isn't in ${s.dir}, or can't be run.` };
     }
+  let boxes: PoolBox[];
   try {
-    return { dir, boxes: poolBoxes(JSON.parse(readFileSync(join(dir, "pool-state.json"), "utf8"))), problem: "" };
+    boxes = poolBoxes(JSON.parse(readFileSync(join(dir, "pool-state.json"), "utf8")));
   } catch {
     return { dir, problem: `pool-state.json in ${s.dir} can't be read.` };
   }
+  let config: string;
+  try {
+    config = readFileSync(join(dir, "config.env"), "utf8");
+  } catch {
+    return { dir, boxes, problem: `config.env in ${s.dir} can't be read (copy config.env.example to it).` };
+  }
+  const checkout = (envValue(config, "BOX_REPO_PATH") ?? "").trim();
+  const bad = poolCheckoutProblem(checkout);
+  if (bad) return { dir, boxes, problem: bad };
+  return { dir, boxes, checkout, problem: "" };
 }
 
 let current: PoolJob | null = null;
@@ -157,9 +175,17 @@ const copy = (job: PoolJob | null) => (job ? { ...job, steps: [...job.steps] } :
 
 export function poolStatus(): PoolStatus {
   const s = settings();
-  if (!integrationEnabled("pool")) return { enabled: false, problem: "", settings: s, boxes: [], job: copy(current) };
+  if (!integrationEnabled("pool"))
+    return { enabled: false, problem: "", settings: s, checkout: "", boxes: [], job: copy(current) };
   const found = scripts(s);
-  return { enabled: true, problem: found.problem, settings: s, boxes: found.boxes ?? [], job: copy(current) };
+  return {
+    enabled: true,
+    problem: found.problem,
+    settings: s,
+    checkout: found.checkout ?? "",
+    boxes: found.boxes ?? [],
+    job: copy(current),
+  };
 }
 
 function ready() {
@@ -171,7 +197,7 @@ function ready() {
   const s = settings();
   const found = scripts(s);
   if (found.problem) throw new Error(found.problem);
-  return { s, dir: found.dir, boxes: found.boxes! };
+  return { dir: found.dir, boxes: found.boxes!, checkout: found.checkout! };
 }
 
 function begin(kind: PoolJob["kind"], phase: PoolJob["phase"], pool?: string): PoolJob {
@@ -216,11 +242,11 @@ function failed(job: PoolJob, error: unknown, script?: string) {
  * Answers at once with the job; the claim, the wait and the dispatch go on.
  */
 export function startClaim(body: Body) {
-  const { s, dir, boxes } = ready();
-  checkPoolDispatch(body, s.checkout);
+  const { dir, boxes, checkout } = ready();
+  checkPoolDispatch(body, checkout);
   if (!idleBoxes(boxes).length) throw new Error("Every pool box is claimed. Release one first.");
   const job = begin("claim", "claiming");
-  void claim(job, body, dir, s.checkout);
+  void claim(job, body, dir, checkout);
   return copy(job);
 }
 
@@ -231,7 +257,9 @@ async function claim(job: PoolJob, body: Body, dir: string, checkout: string) {
     return failed(job, error, "claim.sh");
   }
   if (!job.pool) return failed(job, new Error("The claim didn't say which pool box it claimed."));
-  const label = boxLabel(dir, job.pool);
+  const box = boxOf(dir, job.pool);
+  const label = box.label;
+  const prompt = poolBoxPrompt(box, checkout);
   try {
     job.phase = "waiting";
     const host = await POOL_DEPS.online(label, Date.now() + POOL.onlineMs);
@@ -241,7 +269,7 @@ async function claim(job: PoolJob, body: Body, dir: string, checkout: string) {
     for (;;) {
       let changed: Changed | undefined;
       try {
-        const result = await POOL_DEPS.dispatch(body, host, checkout, (c) => (changed = c));
+        const result = await POOL_DEPS.dispatch(body, host, checkout, (c) => (changed = c), prompt);
         job.agentId = typeof result?.agentId === "string" ? result.agentId : undefined;
         break;
       } catch (error) {
@@ -259,16 +287,15 @@ async function claim(job: PoolJob, body: Body, dir: string, checkout: string) {
   }
 }
 
-/** The box's Paseo host label, as `pool-state.json` names it (else its id). */
-function boxLabel(dir: string, pool: string) {
+/** The box as `pool-state.json` has it after the claim (its label is its Paseo host's). */
+function boxOf(dir: string, pool: string): PoolBox {
   try {
-    return (
-      poolBoxes(JSON.parse(readFileSync(join(dir, "pool-state.json"), "utf8"))).find((b) => b.id === pool)?.label ??
-      pool
-    );
+    const found = poolBoxes(JSON.parse(readFileSync(join(dir, "pool-state.json"), "utf8"))).find((b) => b.id === pool);
+    if (found) return found;
   } catch {
-    return pool;
+    // The claim's own word for the box stands.
   }
+  return { id: pool, label: pool, status: "claimed" };
 }
 
 /** `POST /api/pool/release`: run `release.sh` for a claimed box. */

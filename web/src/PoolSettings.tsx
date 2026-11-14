@@ -2,7 +2,7 @@ import { useEffect, useId, useState } from "react";
 import { api, errorMessage } from "./api";
 import { plainText } from "./ui";
 import { refreshPool, usePool } from "./poolStore";
-import { DEFAULT_POOL, idleBoxes, poolCheckoutProblem, poolDirProblem, type PoolSettings as Paths } from "./pool";
+import { DEFAULT_POOL, idleBoxes, poolDirProblem, type PoolSettings as Paths } from "./pool";
 
 /** Settings → Integrations → Pool boxes: its state beside its switch. */
 export function poolBadge(pool: ReturnType<typeof usePool>) {
@@ -10,7 +10,10 @@ export function poolBadge(pool: ReturnType<typeof usePool>) {
   return pool.problem ? { tone: "needs" as const, text: "Scripts not found" } : { tone: "ready" as const, text: "Ready" };
 }
 
-/** The paseo-boxes folder on this Mac and the checkout on a box, each saved as it's left. */
+/**
+ * The paseo-boxes folder on this Mac, saved as it's left. The rest is the
+ * folder's own: the boxes (pool-state.json) and the checkout (config.env).
+ */
 export function PoolSettings() {
   const pool = usePool();
   const [error, setError] = useState("");
@@ -36,14 +39,11 @@ export function PoolSettings() {
         problem={poolDirProblem}
         onSave={(dir) => save({ dir })}
       />
-      <PathField
-        label="Checkout on the box"
-        hint="Where a pool box's agent works"
-        value={pool?.settings.checkout ?? DEFAULT_POOL.checkout}
-        placeholder="/path/to/the/repo/on/the/box"
-        problem={poolCheckoutProblem}
-        onSave={(checkout) => save({ checkout })}
-      />
+      {pool?.checkout && (
+        <p className="pool-setting-state">
+          A box's agent works in <code>{pool.checkout}</code> (BOX_REPO_PATH in config.env).
+        </p>
+      )}
       <p className="pool-setting-state" role="status">
         {error ||
           pool?.problem ||

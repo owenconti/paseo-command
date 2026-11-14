@@ -28,7 +28,8 @@ const settings = {
 const status = (job: unknown = null) => ({
   enabled: true,
   problem: "",
-  settings: { dir: "~/boxes", checkout: "/srv/app" },
+  settings: { dir: "~/boxes" },
+  checkout: "/srv/app",
   boxes: [
     { id: "pool-1", label: "pool-1", status: "claimed" },
     { id: "pool-2", label: "pool-2", status: "idle" },

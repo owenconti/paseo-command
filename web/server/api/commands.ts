@@ -394,12 +394,15 @@ export async function poolDispatch(
   host: Remote,
   checkout: string,
   mark: Mark,
+  /** What the agent is told about the box, after the standing prompt. */
+  boxPrompt = "",
 ) {
   const plan = dispatchPlan(
     poolBody(body),
     [{ projectId: POOL_PROJECT, path: checkout }],
     await providers(host),
   );
+  if (boxPrompt) plan.agent.systemPrompt = `${plan.agent.systemPrompt}\n\n${boxPrompt}`;
   mark({ host, keys: affectedKeys("dispatch") });
   return dispatch(plan, host);
 }

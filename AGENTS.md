@@ -276,16 +276,22 @@ and GitHub publication; report the published version and release link.
   with a glyph badge (`rendering/src/probe.ts`, `placeProbes`, `paintProbe`); its hover card
   says the verdict. `native:mock -- --probe` shows each.
 - Pool boxes (`web/src/pool.ts`, pure; `web/server/pool.ts`): warm-pool Sprites the user's paseo-boxes scripts on this Mac claim and
-  release. Opt-in (`integrations.pool`, Settings → Integrations → Pool boxes), with `pool: {dir, checkout}` in `settings.json` (the scripts'
-  folder, absolute or `~/…`; the checkout on a box; no defaults, so no personal path is in the repository: `web/src/PoolSettings.tsx`).
-  `GET /api/pool` (`web/src/poolStore.ts`, polled every second while a job runs): each box's id, label and claimed state from the folder's
-  `pool-state.json` (nothing else is read; never written), why it can't work yet, and the job. One job at a time. New agent's Host has
+  release. Opt-in (`integrations.pool`, Settings → Integrations → Pool boxes), with `pool: {dir}` in `settings.json` (the scripts'
+  folder, absolute or `~/…`; no default, so no personal path is in the repository: `web/src/PoolSettings.tsx`). paseo-boxes is the source
+  of truth for the rest: the boxes from its `pool-state.json` (each box's id, label, claimed state and `base_domain`; never written), the
+  checkout from `BOX_REPO_PATH` in its `config.env` (`envValue`; an absolute path on the box, never `~/…`). `secrets.env` and `private/` are
+  never read, and `provision-named.sh` never run. `GET /api/pool` (`web/src/poolStore.ts`, polled every second while a job runs): the boxes,
+  the checkout, why it can't work yet, and the job. One job at a time. New agent's Host has
   "New pool box · N idle" (`POOL`, `poolOption` in `Dispatch.tsx`; disabled with why when none is idle): its place is the box's checkout
   (Local, or Worktree with a branch; no pull request), Claude only, no /skills; the first message is `POST /api/pool/claim`, checked first
   (`checkPoolDispatch`), which answers at once and runs `claim.sh --any` (the fast claim, never `--up`: the user's call; the agent can run
   `paseo-box-up`), then waits for the Paseo host labelled as the box to be online (`POOL.onlineMs`), then dispatches into the checkout
   (`poolDispatch` in `commands.ts`, as a directory or worktree workspace, so the daemon needn't have it registered), asked again only while
-  nothing was issued. The form shows the script's step lines (`progressLine`) and opens the agent when it's done; a notice says how each job
+  nothing was issued. The agent's system prompt gains `poolBoxPrompt`: the box, its checkout, that the app stack is down until it runs
+  `paseo-box-up` (`--reseed` for fresh data; `~/PASEO-BOX.md`), the box's tailnet-only URLs, and that releasing discards the box's changes.
+  Each box is registered once as Paseo host `pool-N` (by `provision-named.sh`); claims and releases never add or remove hosts, and a
+  released box's daemon is down until it's claimed again. (Paseo CLI 0.15.4's `--host` takes an endpoint, not a host label: the app
+  dispatches through the SDK by the host's serverId.) The form shows the script's step lines (`progressLine`) and opens the agent when it's done; a notice says how each job
   ended (`onPoolJobEnd` in main). A claimed box's host in the Hosts tab has Release (↺), which confirms (`ReleasePoolDialog.tsx`: the box is
   restored, so its work and agents go) and runs `release.sh pool-N` (`POST /api/pool/release`). ⌘K: "New agent on a new pool box",
   "Release pool box “pool-N”…" (page Command), only while they'd work. Scripts run without a shell, output redacted, only step and outcome
