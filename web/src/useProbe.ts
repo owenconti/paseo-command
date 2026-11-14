@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "./api";
-import type { ProbeVerdict } from "../../rendering/src/probe";
+import type { ProbeVerdict } from "./model/probe";
 
 /** How often Probe's verdicts are asked for (the server caches each PR's for as long). */
 export const PROBE_POLL_MS = 30000;

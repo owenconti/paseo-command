@@ -102,7 +102,7 @@ async function settle(key: string, archived: boolean) {
     after = await api("pool/after-archive", { host, workspace: p.workspace.workspaceId, cwd: p.workspace.cwd });
   } catch (error) {
     return tell(
-      `Couldn't tell whether ${p.box.label} is free (${errorMessage(error) || "the request failed"}). Release it from the Hosts tab when it is.`,
+      `Couldn't tell whether ${p.box.label} is free (${errorMessage(error) || "the request failed"}). Release it from its host in the crew when it is.`,
       true,
     );
   }

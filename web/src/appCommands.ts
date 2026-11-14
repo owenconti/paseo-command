@@ -5,7 +5,6 @@ import type { ShortcutKey } from "./shortcutKey";
  * keys and buttons do. */
 export type AppCommand =
   | "mermaid-diagram"
-  | "world-talk-actions"
   | "board-browser-address"
   | "board-browser-new"
   | "board-browser-fill"
@@ -14,10 +13,6 @@ export type AppCommand =
   | "board-browser-forward"
   | "board-browser-close-tab"
   | "board-browser-conquer"
-  | "dungeon-tray"
-  | "dungeon-tray-close"
-  | "dungeon-tray-settings"
-  | "fit-world"
   | "toggle-panel"
   | "show-shortcuts"
   | "show-settings"
@@ -108,10 +103,6 @@ export type AppCommand =
   | "files-close-other-tabs"
   | "files-open-editor"
   | "files-open-viewer"
-  | "map-style-islands"
-  | "map-style-overworld"
-  | "map-style-dungeon"
-  | "map-style-crew"
   | "crew-filter";
 
 const EVENT = "paseo:command";

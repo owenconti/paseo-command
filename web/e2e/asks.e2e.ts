@@ -112,23 +112,21 @@ test("dismissed questions stay dismissed for that reply", async () => {
   await close();
 });
 
-test("an agent whose reply waits on you is listed as waiting on you", async () => {
+test("an agent whose reply waits on you shows so in the crew", async () => {
   const w = world([{ text: V1, kind: "yes_no" }]);
-  const { page, close } = await open(w, "?tab=Agents");
-  await page.getByText("waiting on you").first().waitFor();
+  const { page, close } = await open(w);
+  const node = page.locator('.crew-node[data-state="asking"]');
+  await node.waitFor();
+  assert.match((await node.textContent()) ?? "", /Reply waits on you/);
   await close();
-  // Listed with what needs you.
-  const needing = await open(w, "?tab=Agents&filter=attention");
-  await needing.page.getByText("waiting on you").first().waitFor();
-  await needing.close();
 });
 
-test("a reply that waits on nothing isn't listed so", async () => {
+test("a reply that waits on nothing doesn't show so", async () => {
   const w = world([], false);
-  const { page, close } = await open(w, "?tab=Agents");
+  const { page, close } = await open(w);
   await waitFor(() => w.posts.find((p) => p.path === "/api/agents/a1/asks"));
   await sleep(500);
-  assert.equal(await page.getByText("waiting on you").count(), 0);
+  assert.equal(await page.locator('.crew-node[data-state="asking"]').count(), 0);
   await close();
 });
 

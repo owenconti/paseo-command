@@ -7,12 +7,8 @@ import { fileURLToPath } from 'node:url';
 // Each test runs as one script: the sources it needs, then the test itself.
 const tests = { LegacyState: ['Log', 'LegacyState'], WebOrigin: ['WebOrigin'], ShellEnvironment: ['ShellEnvironment'], ServerManager: ['Log', 'AppFlavor', 'ShellEnvironment', 'OldInstall', 'BundleHome', 'ServerManager'], BundleHome: ['AppFlavor', 'ShellEnvironment', 'OldInstall', 'BundleHome', 'ServerManager'], OldInstall: ['Log', 'AppFlavor', 'OldInstall'], Updater: ['AppFlavor', 'WebOrigin', 'Updater'], LinearLink: ['LinearLink'],
   BrowserAutomation: ['BrowserAutomation'],
-  AppKeys: ['AppFlavor', 'Geometry', 'Textures', 'NativeTheme', 'ChromeControls', 'PageBar', 'ConquerTabs', 'ConquerExtras', 'ZenCookies', 'Conquer', 'EditorEmbed', 'AppKeys'],
-  EditorEmbed: ['AppFlavor', 'Geometry', 'Textures', 'NativeTheme', 'ChromeControls', 'PageBar', 'ConquerTabs', 'ConquerExtras', 'ZenCookies', 'Conquer', 'EditorEmbed', 'AppKeys'],
-  AtlasView: ['Log', 'Geometry', 'Textures', 'NativeTheme', 'ChromeControls', 'MapScene', 'SpriteGlow', 'AtlasScene', 'DungeonScene', 'AtlasView'],
-  DungeonScene: ['Log', 'Geometry', 'Textures', 'NativeTheme', 'ChromeControls', 'MapScene', 'SpriteGlow', 'AtlasScene', 'DungeonScene', 'AtlasView'],
-  DungeonGlow: ['Log', 'Geometry', 'Textures', 'NativeTheme', 'ChromeControls', 'MapScene', 'SpriteGlow', 'AtlasScene', 'DungeonScene', 'AtlasView'],
-  MapHover: ['Log', 'Geometry', 'Textures', 'NativeTheme', 'ChromeControls', 'MapScene', 'SpriteGlow', 'AtlasScene', 'DungeonScene', 'AtlasView'] };
+  AppKeys: ['AppFlavor', 'Textures', 'NativeTheme', 'ChromeControls', 'PageBar', 'ConquerTabs', 'ConquerExtras', 'ZenCookies', 'Conquer', 'EditorEmbed', 'AppKeys'],
+  EditorEmbed: ['AppFlavor', 'Textures', 'NativeTheme', 'ChromeControls', 'PageBar', 'ConquerTabs', 'ConquerExtras', 'ZenCookies', 'Conquer', 'EditorEmbed', 'AppKeys'] };
 for (const [name, sources] of Object.entries(tests)) {
   const input = [...sources.map(s => `../Sources/PaseoCommandNative/${s}.swift`), `../tests/${name}Tests.swift`]
     .map(path => readFileSync(new URL(path, import.meta.url), 'utf8')).join('\n');
@@ -25,10 +21,10 @@ const native = fileURLToPath(new URL('..', import.meta.url));
 const built = join(native, '.build/release');
 if (!existsSync(join(built, 'SwiftTerm.o'))) execFileSync('swift', ['build', '-c', 'release'], { cwd: native, stdio: 'inherit' });
 const compiled = {
-  TerminalFont: { sources: ['Log', 'AppFlavor', 'Geometry', 'Textures', 'NativeTheme', 'ChromeControls', 'TerminalFont', 'TerminalQueries', 'TerminalDrawer', 'EditorEmbed', 'EditorOverlay'],
+  TerminalFont: { sources: ['Log', 'AppFlavor', 'Textures', 'NativeTheme', 'ChromeControls', 'TerminalFont', 'TerminalQueries', 'TerminalDrawer', 'EditorEmbed', 'EditorOverlay'],
     args: [join(native, 'fonts/SymbolsNerdFontMono-Regular.ttf')] },
   TerminalQueries: { sources: ['TerminalQueries'], args: [] },
-  TerminalTab: { sources: ['Log', 'AppFlavor', 'Geometry', 'Textures', 'NativeTheme', 'ChromeControls', 'TerminalFont', 'TerminalQueries', 'TerminalDrawer'], args: [] },
+  TerminalTab: { sources: ['Log', 'AppFlavor', 'Textures', 'NativeTheme', 'ChromeControls', 'TerminalFont', 'TerminalQueries', 'TerminalDrawer'], args: [] },
 };
 for (const [name, { sources, args }] of Object.entries(compiled)) {
   const dir = mkdtempSync(join(tmpdir(), `paseo-native-${name}-`));

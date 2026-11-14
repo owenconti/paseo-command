@@ -7,7 +7,9 @@ import { macApp, postAppMenu, postAppReveal } from "./worldBridge";
 import { openChatLink } from "./chatLinks";
 import { openFilesFile } from "./files/open";
 import { usePeers } from "./peers";
-import { robotColour, useRobotPortrait } from "./robotPortrait";
+import { Robot } from "./crew/parts";
+import { robotColorOf } from "./crew/sheets";
+import { MODEL_COLORS, modelColor } from "./model/fleet";
 import { ChatDecorContext, ChatFooterContext } from "./chatDecor";
 import { ContextMeter } from "./ContextMeter";
 import {
@@ -1227,7 +1229,7 @@ const TimelineBlock = memo(function TimelineBlock({
   ) : null;
 });
 
-/** Another agent's report: its Atlas robot, and what it said in a quote. */
+/** Another agent's report: its robot, and what it said in a quote. */
 function AgentReportCard({
   block,
   imageHost,
@@ -1237,15 +1239,18 @@ function AgentReportCard({
 }) {
   const peers = usePeers();
   const peer = peers?.find(block.agentId);
-  const robot = useRobotPortrait(peer?.provider);
   const name = peer?.title || block.title || peer?.name || block.agentId.slice(0, 8);
   return (
     <figure
       className="agent-report"
-      style={peer ? ({ "--robot": robotColour(peer.provider) } as CSSProperties) : undefined}
+      style={
+        peer
+          ? ({ "--robot": `#${MODEL_COLORS[modelColor(peer.provider ?? "")].toString(16).padStart(6, "0")}` } as CSSProperties)
+          : undefined
+      }
     >
       <span className="agent-report-robot" aria-hidden="true">
-        {robot && <img src={robot} alt="" />}
+        {peer && <Robot color={robotColorOf(peer.provider ?? "")} state="idle" size={40} />}
       </span>
       <div className="agent-report-card">
         <figcaption>

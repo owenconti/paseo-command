@@ -1,40 +1,28 @@
-/** The Crew map: the fleet as a chat app, drawn by the page itself (in a plain browser too), in the map's place.
- * With nothing open it is the map: each host, its projects and their workspaces (as the graphical maps group them,
- * oldest first), each workspace a panel of its agents' robots as large nodes with their state and progress. Picking
- * one opens it across the whole view (the app's own detail: the agent's `Session`, New agent, a workspace or
- * project) under a stage strip that shows the agent's robot, its state and progress, and its workspace's PR
- * medallions; Back (or Esc) returns to the map. The robots, drones, state marks and glows, and the PR, Probe and
- * auto-merge medallions are the Dungeon Board's sheets (`sheets.ts`). The session panel is gone while it shows
- * (main.tsx's `crewShown`): this is where the conversation is. */
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent, type ReactNode } from "react";
-import { ChevronDown, Globe, Plus, Search, X } from "lucide-react";
-import robotsUrl from "../../../rendering/src/assets/dungeon/robots.png";
-import statusUrl from "../../../rendering/src/assets/dungeon/status.png";
-import { AUTO_MERGE } from "../../../rendering/src/prStatus";
-import { STATE_NAMES, modelName, type State } from "../../../rendering/src/world";
-import { atlasData, selectionKey } from "../atlasData";
-import { worldSnapshot, targetSelection } from "../worldBridge";
-import { useProbe } from "../useProbe";
-import { autoMergeLine, flagTip } from "../flagTip";
+/** The Crew map: the fleet as a chat app, drawn by the page itself (in a plain browser too), in the map's place on the
+ * Command tab (it is the only map). With nothing open it is the map: each host, its projects and their workspaces
+ * (oldest first), each workspace a panel of its agents' robots as large nodes with their state and progress. Picking one
+ * opens it in the drawer on the map's right (`CrewDetail`, the same component the session panel shows beside the other
+ * tabs); Back (or Esc) returns to the map. A workspace's head archives it, and a claimed pool box's host head releases
+ * the box. The robots, drones, marks, glows and medallions are `parts.tsx`'s. */
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type KeyboardEvent, type ReactNode } from "react";
+import { Archive, ChevronDown, FolderPlus, Plus, RotateCcw, Search, X } from "lucide-react";
+import { STATE_NAMES, modelName, type State } from "../model/fleet";
+import { selectionKey } from "../atlasData";
+import { targetSelection } from "../worldBridge";
 import { readStore, writeStore } from "../api";
-import { ChatDecorContext, ChatFooterContext, type ChatDecor } from "../chatDecor";
 import { onAppCommand } from "../appCommands";
 import { ResizeEdge } from "../ResizeEdge";
-import type { Agent, Host, Project, Selection, Workspace } from "../types";
+import { claimedBoxOf, jobText, type PoolBox, type PoolJob } from "../pool";
+import { placeText } from "../names";
+import { workspaceKey } from "../workspaces";
+import type { Selection, Workspace } from "../types";
 import type { WorkSummaries } from "../useWorkingOn";
-import { buildRoster, type RosterAgent, type RosterWorkspace } from "./roster";
-import { droneColors, droneFrames, frameOf, frameStyle, glowOf, markOf, medalsOf, poseOf, robotColorOf, robotFrames } from "./sheets";
+import { buildRoster, type RosterAgent } from "./roster";
+import { CrewDetail } from "./CrewDetail";
+import { Medals, Portrait, useCrewData, type CrewFleet } from "./parts";
 import "./crew.css";
 
-type Props = {
-  hosts: Host[];
-  projects: Project[];
-  workspaces: Workspace[];
-  agents: Agent[];
-  permissions: Set<string>;
-  questions: Set<string>;
-  asking: Set<string>;
-  unread: Set<string>;
+type Props = CrewFleet & {
   selection: Selection;
   select: (value: Selection) => void;
   workingOn?: WorkSummaries;
@@ -45,8 +33,15 @@ type Props = {
   loaded: boolean;
   blocked: boolean;
   onDispatch: () => void;
+  /** Add a project (a folder, a new folder or a clone); New agent then opens on it. */
+  onAddProject?: () => void;
   /** The open agent's browser (the macOS app's): shown beside its conversation, its tabs, B's toggle. */
   browser?: { shown: boolean; tabs: number; toggle: () => void };
+  /** Archive a workspace (its confirmation), and those being archived (by `workspaceKey`). */
+  onArchive?: (w: Workspace) => void;
+  archiving?: Set<string>;
+  /** Pool boxes (Settings → Pool boxes): a claimed box's host head releases it (its confirmation). */
+  pool?: { boxes: PoolBox[]; job: PoolJob | null; release: (box: PoolBox) => void };
 };
 
 const COLLAPSED = "crew:collapsed";
@@ -65,92 +60,18 @@ export function columnsFor(width: number, tile: number): number {
 /** The map's robots, CSS px tall. */
 const NODE = 72;
 
-/** A robot in its provider's colour: its idle frames (blinking now and then) or, while it runs, its work frames. */
-export function Robot({ color, state, size, title }: { color: string; state: State; size: number; title?: string }) {
-  const pose = poseOf(state);
-  const frames = robotFrames(color, pose);
-  const first = frameOf("robots", frames[0]!)!;
-  return (
-    <span
-      className={`crew-bot ${pose}${state === "offline" ? " off" : ""}`}
-      style={{ width: (size * first.w) / first.h, height: size }}
-      {...(title ? { role: "img", "aria-label": title } : { "aria-hidden": true })}
-    >
-      {frames.map((name) => (
-        <span key={name} className="crew-f" style={frameStyle("robots", robotsUrl, frameOf("robots", name)!, size)} />
-      ))}
-    </span>
-  );
-}
-
-/** Running subagents as drones circling their robot (up to four), each in its own model's colour. */
-function Drones({ agent, size }: { agent: RosterAgent; size: number }) {
-  const n = Math.min(agent.state === "running" ? (agent.subagents ?? 0) : 0, 4);
-  if (!n) return null;
-  const sample = frameOf("robots", "drone-grey-0")!;
-  const h = size * 0.26, w = (h * sample.w) / sample.h;
-  return (
-    <span className="crew-drones" aria-hidden="true" style={{ "--crew-orbit": `${size * 0.55}px` } as CSSProperties}>
-      {droneColors(agent.model, n, agent.subagentModels).map((color, i) => (
-        <span key={i} className="crew-orbit" style={{ animationDelay: `${(-3.6 * i) / n}s` }}>
-          <span className="crew-drone" style={{ animationDelay: `${(-3.6 * i) / n}s`, width: w, height: h, marginLeft: -w / 2, marginTop: -h / 2 }}>
-            {droneFrames(color).map((name) => (
-              <span key={name} className="crew-f" style={frameStyle("robots", robotsUrl, frameOf("robots", name)!, h)} />
-            ))}
-          </span>
-        </span>
-      ))}
-    </span>
-  );
-}
-
-/** A frame of the status sheet: a state mark, a PR, Probe or auto-merge medallion, or a state glow. */
-function Status({ frame, size, className, tip }: { frame: string; size: number; className?: string; tip?: string }) {
-  const f = frameOf("status", frame);
-  if (!f) return null;
-  return (
-    <span
-      className={`crew-status ${className ?? ""}`}
-      style={frameStyle("status", statusUrl, f, size)}
-      // A read-only summary: the app's tooltip layer shows its tip on hover (Tooltip.tsx's `data-summary`).
-      {...(tip ? { "data-tip": tip, "data-summary": "", role: "img", "aria-label": tip } : { "aria-hidden": true })}
-    />
-  );
-}
-
-/** The robot with its state's glow beneath it, its mark at its shoulder and its drones. */
-function Portrait({ agent, size, mark = true }: { agent: RosterAgent; size: number; mark?: boolean }) {
-  const glow = frameOf("status", glowOf(agent.state));
-  const needs = ["failed", "approval", "question", "asking"].includes(agent.state);
-  return (
-    <span className="crew-portrait" data-state={agent.state} style={{ width: size * 1.05, height: size * 1.08 }}>
-      {glow && (
-        <span
-          className={`crew-glow${needs ? " pulse" : ""}`}
-          style={frameStyle("status", statusUrl, glow, size * 0.42)}
-          aria-hidden="true"
-        />
-      )}
-      <Robot color={robotColorOf(agent.model)} state={agent.state} size={size} />
-      <Drones agent={agent} size={size} />
-      {mark && markOf(agent.state) && (
-        <Status frame={markOf(agent.state)!} size={size * 0.38} className={`crew-mark${agent.state === "running" ? " spin" : needs ? " pulse" : ""}`} />
-      )}
-    </span>
-  );
-}
-
 export function CrewMap(props: Props) {
-  const probe = useProbe();
-  const revision = useRef(0);
-  const snapshot = useMemo(
-    () => worldSnapshot({ ...props, revision: ++revision.current }),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [props.hosts, props.projects, props.workspaces, props.agents, props.permissions, props.unread],
-  );
-  const data = useMemo(() => atlasData(snapshot, props.questions, props.asking, probe), [snapshot, props.questions, props.asking, probe]);
+  const { snapshot, data } = useCrewData(props);
   const [filter, setFilter] = useState("");
-  const roster = useMemo(() => buildRoster(data, filter), [data, filter]);
+  // A claimed pool box's host stays on the map with nothing on it, so it can be released (and shows releasing).
+  const keepHosts = new Set(
+    props.pool
+      ? props.hosts
+          .filter((h) => props.pool!.boxes.some((b) => b.label === h.label && (b.status === "claimed" || props.pool!.job?.pool === b.id)))
+          .map((h) => (h.local ? "local" : h.serverId))
+      : [],
+  );
+  const roster = useMemoRoster(data, filter, keepHosts);
   const [collapsed, setCollapsed] = useState<string[]>(() => readStore<string[]>(COLLAPSED, []));
   const toggle = (key: string) =>
     setCollapsed((now) => {
@@ -241,6 +162,9 @@ export function CrewMap(props: Props) {
     props.select(s);
   };
   const rowOf = (key: string) => snapshot.agents.find((a) => a.key === key);
+  // The roster keys hosts as Crew's data does: "local", else the server id.
+  const rosterKey = (h: { local: boolean; serverId: string }) => (h.local ? "local" : h.serverId);
+  const hostLabel = (key: string) => props.hosts.find((h) => rosterKey(h) === key)?.label;
   const summaryOf = (a: RosterAgent) => {
     const row = rowOf(a.key);
     return (row && props.workingOn?.[row.clientId ?? row.id]?.sentence) || undefined;
@@ -263,20 +187,7 @@ export function CrewMap(props: Props) {
     items[next]?.focus();
   };
 
-  const medals = (w: RosterWorkspace | (typeof data.workspaces)[number], size: number) => {
-    const pr = workspaceRow(w)?.pr;
-    const list = medalsOf(w.labels, w.probe);
-    if (!list.length && !w.autoMerge) return null;
-    return (
-      <span className="crew-medals">
-        {list.map((m) => {
-          const tip = flagTip(m.flag, pr, w.probe);
-          return <Status key={m.kind} frame={m.frame} size={size} tip={`${tip.title}: ${tip.facts || tip.description}`} />;
-        })}
-        {w.autoMerge && <Status frame="seal-automerge" size={size} tip={autoMergeLine(pr) || `${AUTO_MERGE.name}: ${AUTO_MERGE.description}`} />}
-      </span>
-    );
-  };
+  const medals = (w: Parameters<typeof Medals>[0]["workspace"], size: number) => <Medals workspace={w} pr={workspaceRow(w)?.pr} size={size} />;
 
   const node = (a: RosterAgent) => {
     const running = a.state === "running";
@@ -312,23 +223,13 @@ export function CrewMap(props: Props) {
       </article>
     );
 
-  const shownAgent = props.selection?.type === "agent" ? data.agents.find((a) => a.key === selected) : undefined;
-  const decor = useMemo<ChatDecor>(() => {
-    if (!shownAgent) return {};
-    const color = robotColorOf(shownAgent.model);
-    return {
-      replyAvatar: (live) => <Robot color={color} state={live && shownAgent.state === "running" ? "running" : "idle"} size={30} />,
-      working: <Robot color={color} state="running" size={24} />,
-    };
-  }, [shownAgent?.model, shownAgent?.state]);
-
   const total = data.agents.length;
   const running = roster.counts.running ?? 0;
   const need = (["failed", "approval", "question", "asking"] as State[]).reduce((n, s) => n + (roster.counts[s] ?? 0), 0);
 
   const open = !props.empty;
   return (
-    <div ref={root} className="crew-map" data-world="crew" data-open={open || undefined} data-browser={(open && shownAgent && props.browser?.shown) || undefined}>
+    <div ref={root} className="crew-map" data-world="crew" data-open={open || undefined} data-browser={(open && props.selection?.type === "agent" && props.browser?.shown) || undefined}>
       <div className="crew-board" ref={board} onKeyDown={boardKeys} role="region" aria-label="Crew" style={{ "--crew-cols": cols } as CSSProperties}>
         <header className="crew-board-head">
           <div className="crew-board-title">
@@ -368,6 +269,12 @@ export function CrewMap(props: Props) {
               </button>
             )}
           </label>
+          {props.onAddProject && (
+            <button className="crew-secondary" onClick={props.onAddProject} data-tip="Add a folder, a new folder or a GitHub clone as a project">
+              <FolderPlus size={14} aria-hidden="true" />
+              Add project
+            </button>
+          )}
           <button className="crew-primary" onClick={props.onDispatch}>
             <Plus size={14} aria-hidden="true" />
             New agent
@@ -383,6 +290,24 @@ export function CrewMap(props: Props) {
                   {h.name}
                 </button>
                 {!h.online && <span className="crew-offline">offline</span>}
+                {(() => {
+                  const box = props.pool && claimedBoxOf(props.pool.boxes, hostLabel(h.key));
+                  if (!box || !props.pool) return null;
+                  const job = props.pool.job;
+                  const releasing = job?.kind === "release" && job.pool === box.id;
+                  return (
+                    <button
+                      className="crew-head-action"
+                      disabled={!!job}
+                      data-tip={job ? jobText(job) : `Release pool box ${box.label}: restore it and return it to the pool`}
+                      aria-label={`Release pool box ${box.label}`}
+                      onClick={() => props.pool!.release(box)}
+                    >
+                      <RotateCcw size={12} aria-hidden="true" />
+                      {releasing ? "Releasing…" : "Release"}
+                    </button>
+                  );
+                })()}
               </h3>
               {!hostShut && (
                 <>
@@ -402,10 +327,29 @@ export function CrewMap(props: Props) {
                           <div className="crew-workspaces">
                             {p.workspaces.map((w) => (
                               <article key={w.key} className="crew-ws" aria-label={w.name} style={{ "--crew-n": Math.max(1, w.agents.length), gridColumn: `span ${Math.min(cols, Math.max(1, w.agents.length))}` } as CSSProperties}>
-                                <button className="crew-head workspace" data-key={w.key} aria-current={selected === w.key ? "true" : undefined} onClick={() => pick("workspace", w.key)}>
-                                  <span className="crew-ws-name">{w.name}</span>
-                                  {medals(w, 24)}
-                                </button>
+                                <div className="crew-ws-top">
+                                  <button className="crew-head workspace" data-key={w.key} aria-current={selected === w.key ? "true" : undefined} onClick={() => pick("workspace", w.key)}>
+                                    <span className="crew-ws-name">{w.name}</span>
+                                    {medals(w, 24)}
+                                  </button>
+                                  {(() => {
+                                    const row = workspaceRow(w);
+                                    if (!row || !props.onArchive) return null;
+                                    const leaving = props.archiving?.has(workspaceKey(row));
+                                    const name = placeText(row.name, "workspace");
+                                    return (
+                                      <button
+                                        className="crew-ws-archive"
+                                        disabled={leaving || props.blocked}
+                                        data-tip={leaving ? `Archiving ${name}…` : `Archive workspace ${name}`}
+                                        aria-label={`Archive workspace ${name}`}
+                                        onClick={() => props.onArchive!(row)}
+                                      >
+                                        <Archive size={13} aria-hidden="true" />
+                                      </button>
+                                    );
+                                  })()}
+                                </div>
                                 {w.agents.length ? <div className="crew-nodes">{w.agents.map(node)}</div> : <p className="crew-ws-empty">No agents</p>}
                               </article>
                             ))}
@@ -435,86 +379,32 @@ export function CrewMap(props: Props) {
             onResize={resizeDrawer}
             onReset={() => resizeDrawer(null)}
           />
-          <div className="detail-content crew-detail" id="detail-panel">
-            <ChatDecorContext.Provider value={decor}>
-              <ChatFooterContext.Provider
-                value={
-                  shownAgent && (
-                    <Stage
-                      browser={props.browser}
-                      agent={shownAgent}
-                      sentence={summaryOf(shownAgent)}
-                      workspace={shownAgent.workspace ? data.workspaces.find((w) => w.key === shownAgent.workspace) : undefined}
-                      medals={medals}
-                      onWorkspace={(key) => pick("workspace", key)}
-                    />
-                  )
-                }
-              >
-                {props.detail}
-              </ChatFooterContext.Provider>
-            </ChatDecorContext.Provider>
-          </div>
+          <CrewDetail
+            hosts={props.hosts}
+            projects={props.projects}
+            workspaces={props.workspaces}
+            agents={props.agents}
+            permissions={props.permissions}
+            questions={props.questions}
+            asking={props.asking}
+            unread={props.unread}
+            selection={props.selection}
+            select={props.select}
+            workingOn={props.workingOn}
+            detail={props.detail}
+            {...(props.browser ? { browser: props.browser } : {})}
+          />
         </aside>
       )}
     </div>
   );
 }
 
-/** At the conversation's foot, above its message box: the agent's robot (working, resting or offline), its state and progress, and its
- * workspace with its pull request's medallions. Its name and tools are the conversation's own header's. */
-function Stage(props: {
-  agent: RosterAgent;
-  sentence?: string;
-  workspace?: ReturnType<typeof atlasData>["workspaces"][number];
-  medals: (w: ReturnType<typeof atlasData>["workspaces"][number], size: number) => ReactNode;
-  onWorkspace: (key: string) => void;
-  browser?: { shown: boolean; tabs: number; toggle: () => void };
-}) {
-  const { agent, workspace } = props;
-  const running = agent.state === "running";
-  const subagents = running ? agent.subagents ?? 0 : 0;
-  return (
-    <div className="crew-stage" data-state={agent.state} aria-live="polite">
-      <Portrait agent={agent} size={50} />
-      <div className="crew-stage-text">
-        <div className="crew-stage-state">
-          <i aria-hidden="true" />
-          <b>{STATE_NAMES[agent.state]}</b>
-          {agent.model && <span>{modelName(agent.model)}</span>}
-          {subagents > 0 && <span>{subagents} subagent{subagents === 1 ? "" : "s"}</span>}
-        </div>
-        {running && (
-          <>
-            <div className="crew-stage-work crew-shimmer">{props.sentence || "Working…"}</div>
-            <div className="crew-progress" aria-hidden="true">
-              <i />
-            </div>
-          </>
-        )}
-        {!running && props.sentence && <div className="crew-stage-work">{props.sentence}</div>}
-      </div>
-      {workspace && (
-        <div className="crew-stage-place">
-          <button className="crew-chip" data-tip="Show the workspace" onClick={() => props.onWorkspace(workspace.key)}>
-            {workspace.name}
-          </button>
-          {props.medals(workspace, 26)}
-        </div>
-      )}
-      {props.browser && (
-        <button
-          className="crew-chip crew-browser-toggle"
-          aria-pressed={props.browser.shown}
-          aria-keyshortcuts="B"
-          data-tip={props.browser.shown ? "Hide the browser (B, ⇧⌘W)" : "Show its browser (B)"}
-          onClick={props.browser.toggle}
-        >
-          <Globe size={13} aria-hidden="true" />
-          Browser{props.browser.tabs ? ` · ${props.browser.tabs}` : ""}
-        </button>
-      )}
 
-    </div>
-  );
+function useMemoRoster(data: ReturnType<typeof useCrewData>["data"], filter: string, keepHosts: Set<string>) {
+  const kept = [...keepHosts].sort().join("\n");
+  const [memo] = useState(() => ({ data: null as unknown, filter: "", kept: "", roster: null as unknown as ReturnType<typeof buildRoster> }));
+  if (memo.data !== data || memo.filter !== filter || memo.kept !== kept)
+    Object.assign(memo, { data, filter, kept, roster: buildRoster(data, filter, keepHosts) });
+  return memo.roster;
 }

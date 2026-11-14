@@ -41,7 +41,7 @@ async function open(opts: { mac?: boolean; style?: string; fleet?: typeof dungeo
           paseoWorld: {
             postMessage(m: any) {
               if (m.type === "art") setTimeout(() => window.dispatchEvent(new CustomEvent("paseo:world", { detail: { type: "ready" } })));
-              if (["pageMap", "mapStyle", "loaded", "workspace", "barState", "art", "detach", "browser"].includes(m.type)) sent.push(m);
+              if (["pageMap", "mapStyle", "loaded", "workspace", "viewport", "barState", "art", "detach", "browser"].includes(m.type)) sent.push(m);
             },
           },
         },
@@ -362,30 +362,23 @@ test("in the macOS app: the open agent's browser stands beside its conversation 
   await page.context().close();
 });
 
-test("in the macOS app: the page draws the map, says so, lifts the splash and follows the Terminal tab's workspace; other styles take it back", async () => {
+test("in the macOS app: the page lifts the splash, reports the map's place and follows the Terminal tab's workspace", async () => {
   const page = await open({ mac: true });
   await map(page).locator(".crew-node").first().waitFor();
-  await waitFor(() => sent(page, "pageMap"), (m) => m.at(-1)?.on === true, "pageMap on");
   await waitFor(() => sent(page, "loaded"), (m) => m.length > 0, "loaded");
-  assert.equal((await sent(page, "mapStyle")).at(-1)?.style, "crew");
-  assert.equal((await sent(page, "art")).length, 0, "no native world mounted");
+  // The map's place, for Conquer, the Terminal tab and the Files editors to lie over.
+  await waitFor(() => sent(page, "viewport"), (m) => (m.at(-1)?.width ?? 0) > 0 && (m.at(-1)?.height ?? 0) > 0, "the viewport");
+  assert.equal((await sent(page, "art")).length, 0, "no native world");
+  assert.equal((await sent(page, "pageMap")).length, 0, "nothing to switch off: the page always draws the map");
   await waitFor(() => sent(page, "barState"), (m) => m.at(-1)?.panelAbsent === true, "the bar's panel buttons go");
   // An agent's workspace is the Terminal tab's.
   await page.locator(".crew-node").first().click();
   await waitFor(() => sent(page, "workspace"), (m) => !!m.at(-1)?.workspace?.id, "the workspace told");
-  // ⌘K offers the other styles; the Islands mount their native world again and the panel returns.
+  // No map styles are offered.
   await page.keyboard.press("Meta+k");
-  await palette(page).getByRole("combobox").fill("Use the Islands map");
-  await palette(page).getByRole("option", { name: /Use the Islands map/ }).click();
-  await waitFor(() => sent(page, "pageMap"), (m) => m.at(-1)?.on === false, "pageMap off");
-  await waitFor(() => sent(page, "art"), (m) => m.length > 0, "the native world mounted");
-  assert.equal(await page.locator(".crew-map").count(), 0);
-  await page.locator('.floating-command:not([data-absent])').waitFor({ state: "attached" });
-  // And View → Map Style can choose Crew again (it asks the page's `map-style-crew`).
-  await page.evaluate(() => window.dispatchEvent(new CustomEvent("paseo:command", { detail: "map-style-crew" })));
-  // The agent picked before is still open there.
-  await page.locator(".crew-map .crew-detail .session").waitFor();
-  await waitFor(() => sent(page, "detach"), (m) => m.length > 0, "the native world let go");
-  await waitFor(() => sent(page, "pageMap"), (m) => m.at(-1)?.on === true, "pageMap on again");
+  await palette(page).getByRole("combobox").fill("map");
+  await palette(page).getByRole("option").first().waitFor();
+  assert.equal(await palette(page).getByRole("option", { name: /Use the .* map/ }).count(), 0);
   await page.context().close();
 });
+

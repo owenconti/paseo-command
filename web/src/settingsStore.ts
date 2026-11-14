@@ -1,8 +1,8 @@
 import { useSyncExternalStore } from "react";
 import { macApp, postAppMenu } from "./worldBridge";
 
-/** A part of Settings to open at: an integration's key editor, or a section ("terminal", "map"). */
-export type SettingsTarget = "github" | "linear" | "typesafe" | "terminal" | "map" | null;
+/** A part of Settings to open at: an integration's key editor, or a section ("terminal", "browser"). */
+export type SettingsTarget = "github" | "linear" | "typesafe" | "terminal" | "browser" | null;
 
 /**
  * Settings is a page in the map's place. In the macOS app it is one of the

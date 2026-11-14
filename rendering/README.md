@@ -1,14 +1,7 @@
-# Paseo Command — Atlas layout and art
+# rendering
 
-The Atlas world's rules and artwork, shared by the macOS app (`native/`), which draws it with
-SpriteKit. Inside the app the React page mounts the bridge world (`src/native/bridge.ts`): it lays
-the fleet out (`layoutAtlas` in `src/world.ts`), places structures, props, PR flags, banners, tiles
-and robots (`src/placement.ts`), paints the sprite frames and terrain (`src/art.ts`, `src/terrain.ts`)
-and posts the result to Swift. Camera, outline and picking rules (`camera.ts`, `outline.ts`,
-`pick.ts`) are ported to Swift in `native/Sources/PaseoCommandNative/Geometry.swift`.
-
-```sh
-npm run render:test     # layout and tile constraints, from the repository root
-```
-
-Artwork provenance and generation prompts are in `ASSETS.md`.
+The painted art of Paseo Command's old maps (Islands, Overworld and the Dungeon Board), kept after the maps
+themselves were removed: `src/assets/` holds the sprite sheets and their frame maps (Crew's robots, glows,
+state marks and medallions come from `src/assets/dungeon/`), `artifacts/` the reference renders, and
+`ASSETS.md` where each piece came from and how it was made (the Dungeon Board's interface art, its HUD, trays and
+navigation medallions, is in `src/assets/board/` with its `ART.md`). There is no code here.

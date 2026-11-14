@@ -1,13 +1,11 @@
 import AppKit
 import ImageIO
-import SpriteKit
 import WebKit
 
-/// One window: the SpriteKit Atlas, and over it the React app in a
-/// transparent web view. The page keeps every pointer and key event: its
-/// toolbar, legend, tooltips and panels take theirs as in a browser, and the
-/// map surface forwards its own to Swift (see `rendering/src/native/bridge.ts`).
-/// No hit regions need syncing, and the page keeps focus and its shortcuts.
+/// One window: the React app in a web view, which draws the fleet itself (Crew) and its panels and
+/// pages, and over it the native views that stand in the map's place (Conquer, the Terminal tab, the
+/// Files editors, the robot's browser). The page keeps every pointer and key event as in a browser,
+/// and keeps focus and its shortcuts.
 final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKNavigationDelegate, WKUIDelegate {
     let window: NSWindow
     let web: WKWebView
@@ -15,32 +13,24 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
     let drawer: TerminalDrawer
     /// The Files page's editor terminals, over its viewer (Settings → Files → Open files in an editor).
     let editors: EditorOverlay
-    /// The browser attached to each agent on the Dungeon Board, over the board above its dialogue box (`BoardBrowser.swift`).
+    /// The browser attached to each agent, over the box the page draws for it beside its conversation (`BoardBrowser.swift`).
     let boardBrowser: BoardBrowser
     /// Over the map and page, the window's (not the page's sibling): where Conquer, the Terminal tab and
     /// the Files page's editors go. It lets everything else through to the page.
     let content: NSView
-    /// Covers the window until the map has drawn (see `revealWhenDrawn`).
+    /// Covers the window until the page has its fleet (its `loaded` message).
     let splash: SplashView
     /// The strip across the top that switches between Command, Conquer, Activity, GitHub, Files and Settings.
     let modeBar: ModeBar
-    /// Command: the map and the page over it, under `content`, the splash and the mode bar.
+    /// Command: the page, under `content`, the splash and the mode bar.
     let command: NSView
     /// The mode bar's height: the page's own top bar, whose tools show at its right end.
     let barHeight: CGFloat
     /// Conquer: the browser, in the map's place while it shows.
     let conquer: ConquerView
     private(set) var mode: Mode = .command
-    /// The SpriteKit view; replaced by a fresh one if its loop wedges (`rebuildAtlasView`).
-    private(set) var atlasView: AtlasView
-    /// The page's last account of its world (`pageStatus`), for `--info`.
-    var pageWorld: [String: Any] = [:]
-    private(set) var scene: MapScene
-    /// The style the page's map is drawn in now, as the page reports it (View → Map Style marks it).
-    private(set) var mapStyle = "islands"
-    /// The page draws the map itself (the Crew style, `pageMap`): the SpriteKit view stays hidden and paused under it,
-    /// and the splash lifts once the page has its fleet, with no scene to wait for.
-    private(set) var pageDrawsMap = false
+    /// Keep drawing when the window is covered (`--ignore-occlusion`, for checks): the page and the robot's browser.
+    static var ignoreOcclusion = false
     let options: Options
     /// The page's sides that can show: those whose integration is on (the page says, with
     /// `integrations`), and Files and Settings.
@@ -58,20 +48,15 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         // From Settings, on from the side it opened over.
         return modes[((modes.firstIndex(of: mode == .settings ? beforeSettings : mode) ?? 0) + 1) % modes.count]
     }
-    /// Bridge messages decode their images here, in order, then apply on main.
-    private let decoding = DispatchQueue(label: "paseo.world.decode", qos: .userInitiated)
     /// Runs the app's own server when the page is that server's (see `ServerManager`).
     let server: ServerManager?
     private let refusedPort: Bool
     /// When the server was last (re)started for an unreachable page, so a
     /// server that won't come up shows its error rather than looping.
     private var recovered: Date?
-    /// The page's map rectangle, in its CSS pixels (top-left origin).
+    /// The page's map area (beside its session panel), in its CSS pixels (top-left origin), as its
+    /// `viewport` message says; until it does, the whole of `content`.
     private var viewport: CGRect?
-    /// While the splash shows: whether the page has its fleet, and the scene
-    /// builds there were when it went up (the map is drawn once one more lands).
-    private var fleetLoaded = false
-    private var buildsAtSplash = 0
     private var splashFallback: DispatchWorkItem?
 
     init(options: Options) {
@@ -100,7 +85,7 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         }
         window.minSize = NSSize(width: 760, height: 520)
         window.isReleasedWhenClosed = false
-        window.backgroundColor = Textures.color(0x1d6884)
+        window.backgroundColor = .windowBackgroundColor
         let root = NSView(frame: window.contentView!.bounds)
         // The title bar's height, so the traffic lights sit centred in the mode bar.
         let titlebar = window.frame.height - window.contentLayoutRect.height
@@ -131,11 +116,6 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         drawer.autoresizingMask = []
         content.addSubview(drawer)
 
-        scene = makeMapScene(kind: "atlas", size: content.bounds.size)
-        atlasView = AtlasView(frame: content.bounds, scene: scene)
-        atlasView.autoresizingMask = []
-        command.addSubview(atlasView)
-
         let configuration = WKWebViewConfiguration()
         // Check runs (`--info`) keep their page storage to themselves: sharing the
         // user's copy's, a check that quits stops that copy's storage saving to disk.
@@ -147,13 +127,13 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
             injectionTime: .atDocumentStart, forMainFrameOnly: true))
         web = WKWebView(frame: command.bounds, configuration: configuration)
         web.autoresizingMask = [.width, .height]
-        // The page is transparent where the map is; SpriteKit shows through.
+        // The page draws its own background; the window's shows through while it loads.
         web.setValue(false, forKey: "drawsBackground")
         web.isInspectable = true
         // Measurements and checks draw while covered: WebKit stops throttling too.
         let occlusion = NSSelectorFromString("_setWindowOcclusionDetectionEnabled:")
-        if AtlasView.ignoreOcclusion, web.responds(to: occlusion) { web.perform(occlusion, with: false) }
-        // Map and page, then over them `content`: it lets everything through to the page but
+        if WorldWindow.ignoreOcclusion, web.responds(to: occlusion) { web.perform(occlusion, with: false) }
+        // The page, then over it `content`: it lets everything through to the page but
         // Conquer, the Terminal tab and the editors. It is the window's, not the page's sibling:
         // views after a web view in its own parent stay off screen until the web view is hidden and shown again.
         command.addSubview(web)
@@ -179,13 +159,6 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         web.navigationDelegate = self
         web.uiDelegate = self
         window.delegate = self
-        scene.emit = { [weak self] message in self?.send(message) }
-        // The map's loop stalled and was restarted: the page posts the world again, in case it was missed.
-        atlasView.onRecover = { [weak self] why in
-            self?.send(["type": "stalled", "why": why])
-            self?.reportState()
-        }
-        atlasView.onRebuild = { [weak self] old in self?.rebuildAtlasView(old) }
         drawer.server = { [weak self] in self?.serverURL ?? options.url }
         editors.server = { [weak self] in self?.serverURL ?? options.url }
         editors.tell = { [weak self] in self?.send($0, as: "paseo:editor") }
@@ -193,7 +166,7 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         boardBrowser.server = { [weak self] in self?.serverURL ?? options.url }
         boardBrowser.tell = { [weak self] in self?.send($0, as: "paseo:browser") }
         boardBrowser.pageView = web
-        boardBrowser.drawsWhileCovered = AtlasView.ignoreOcclusion
+        boardBrowser.drawsWhileCovered = WorldWindow.ignoreOcclusion
         modeBar.onSelect = { [weak self] mode in self?.show(mode) }
         modeBar.enabled = enabledModes
         modeBar.onAction = { [weak self] action, view in
@@ -223,10 +196,6 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
             showSplash("Loading…")
             web.load(URLRequest(url: options.url))
         }
-        // Checks read the scene's state from the page; keep it current.
-        if options.checks {
-            Timer.scheduledTimer(withTimeInterval: 0.25, repeats: true) { [weak self] _ in self?.reportState() }
-        }
     }
 
     // MARK: Page → Swift
@@ -243,50 +212,12 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
             if mode.drawnByPage && !enabledModes.contains(mode) { show(.command) }
             else if mode != .settings, let saved = UserDefaults.standard.string(forKey: "mode").flatMap(Mode.init(rawValue:)),
                     saved.drawnByPage, enabledModes.contains(saved) { show(saved) }
-        case "art":
-            decoding.async { [weak self] in
-                var frames: [String: CGImage] = [:]
-                for f in body["frames"] as? [[String: Any]] ?? [] {
-                    if let name = f["name"] as? String, let png = f["png"] as? String, let image = Textures.image(dataURL: png) { frames[name] = image }
-                }
-                var tiles: [String: CGImage] = [:]
-                for (name, png) in body["tiles"] as? [String: String] ?? [:] { tiles[name] = Textures.image(dataURL: png) }
-                DispatchQueue.main.async {
-                    guard let self else { return }
-                    // The page mounted another world (the Dungeon Board or the Atlas): its scene takes the view's place.
-                    self.adopt(kind: body["scene"] as? String ?? "atlas")
-                    self.scene.setArt(frames: frames, tiles: tiles, constants: body["constants"] as? [String: Any] ?? [:],
-                                      reduced: body["reduced"] as? Bool ?? false)
-                    self.layoutAtlas()
-                }
-            }
-        case "scene":
-            decoding.async { [weak self] in
-                var images: [String: CGImage] = [:]
-                for list in ["pieces", "banners", "streamers", "images"] {
-                    for item in body[list] as? [[String: Any]] ?? [] {
-                        if let key = item["key"] as? String, let png = item["png"] as? String, let image = Textures.image(dataURL: png) { images[key] = image }
-                    }
-                }
-                DispatchQueue.main.async { self?.scene.setScene(body, images: images); self?.reportState(); self?.revealWhenDrawn() }
-            }
-        case "agents":
-            decoding.async { [weak self] in
-                // The Dungeon Board's HUD comes with their agents.
-                var images: [String: CGImage] = [:]
-                for item in (body["hud"] as? [String: [String: Any]] ?? [:]).values {
-                    if let key = item["key"] as? String, let png = item["png"] as? String, let image = Textures.image(dataURL: png) { images[key] = image }
-                }
-                DispatchQueue.main.async { self?.scene.setAgents(body, images: images); self?.reportState() }
-            }
         default:
-            // Everything else is cheap and keeps its order behind any pending decode.
-            decoding.async { DispatchQueue.main.async { [weak self] in self?.handle(type, body) } }
+            handle(type, body)
         }
     }
 
     private func handle(_ type: String, _ body: [String: Any]) {
-        let point = CGPoint(x: body["x"] as? Double ?? 0, y: body["y"] as? Double ?? 0)
         switch type {
         case "mode":
             // The page asks which side shows (it draws GitHub, Activity, Files and Settings itself, over the map).
@@ -301,33 +232,12 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
             // What the top bar's tools show: who needs you, usage, What's new, the panel's state.
             modeBar.apply(body)
         case "viewport":
+            // The page's map area (beside its session panel), where Conquer and the Terminal tab lie.
             layoutWorkspace()
-            viewport = CGRect(x: body["x"] as? Double ?? 0, y: body["y"] as? Double ?? 0,
+            let rect = CGRect(x: body["x"] as? Double ?? 0, y: body["y"] as? Double ?? 0,
                               width: body["width"] as? Double ?? 0, height: body["height"] as? Double ?? 0)
-            layoutAtlas()
-        case "pointer": scene.pointer(phase: body["phase"] as? String ?? "", at: point)
-        case "wheel": scene.wheel(at: point, dy: CGFloat(body["dy"] as? Double ?? 0))
-        case "pinch": scene.pinch(at: point, scale: CGFloat(body["scale"] as? Double ?? 1))
-        case "key": scene.key(body["key"] as? String ?? "", down: body["down"] as? Bool ?? false)
-        case "select": scene.select(body["id"] as? String)
-        case "focus": if let id = body["id"] as? String { scene.focus(id, closer: body["zoom"] as? Bool ?? false) }
-        // The Dungeon Board's dialogue box: the robot it talks to (null when it closes) and the map's bottom it covers.
-        case "talk": scene.talk(id: body["id"] as? String, inset: CGFloat(body["inset"] as? Double ?? 0))
-        case "command": scene.command(body["name"] as? String ?? "")
-        case "input": scene.setInput(body["enabled"] as? Bool ?? true)
-        case "motion": scene.setMotion(reduced: body["reduced"] as? Bool ?? false)
-        case "mapStyle":
-            // The page's map style, for View → Map Style.
-            mapStyle = body["style"] as? String ?? mapStyle
-        case "pageMap":
-            // The page draws the map (Crew) in place of a native world, or stops (another style mounts its world).
-            pageDrawsMap = body["on"] as? Bool ?? false
-            if pageDrawsMap {
-                atlasView.isHidden = true
-                atlasView.isPaused = true
-                boardBrowser.place(.nothing)
-                revealWhenDrawn()
-            }
+            viewport = rect.width > 0 && rect.height > 0 ? rect : nil
+            layoutContent()
         case "workspace":
             let w = body["workspace"] as? [String: Any]
             let selected = w.flatMap { w in
@@ -341,7 +251,7 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         case "editorClose": if let request = EditorCloseRequest(body) { editors.close(request, window: window) }
         case "editorForget": editors.forget(body["terminals"] as? [String] ?? [])
         case "browser":
-            // The Dungeon Board's browser: whose shows, and the box the page drew for it (or none).
+            // The robot's browser (over Crew): whose shows, and the box the page drew for it (or none).
             boardBrowser.place(BrowserPlacement(body), commandShows: mode == .command)
         case "browserDo": boardBrowser.perform(body)
         // Settings → Map: agents' browser tools open and drive tabs here.
@@ -366,10 +276,8 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
                 if body["direct"] as? Bool == true || !routeLink(url) { openInApp(url) }
             }
         case "loaded":
-            // The page has its first fleet and has handed it to the world.
-            fleetLoaded = true
-            splash.say("Drawing the map…")
-            revealWhenDrawn()
+            // The page has its first fleet and has drawn it: the splash lifts.
+            reveal()
         case "menu":
             // The page's command palette, choosing a View menu item.
             switch body["action"] as? String {
@@ -396,49 +304,30 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
             case "check-updates": Updater.shared?.checkNow()
             default: break
             }
-        case "pageStatus":
-            // The page's side of the map's watchdog: when it last had data and posted it, its live connection.
-            pageWorld = body.filter { $0.key != "type" }
-            return
         case "log":
-            // The page's watchdog says what it did (posting the world again).
             Log.line("page: \(body["text"] as? String ?? "")")
-            return
-        case "detach":
-            // The page unmounted its world (it is reloading or navigating).
-            atlasView.isHidden = true
-            atlasView.isPaused = true
-            boardBrowser.place(.nothing)
         default: break
         }
-        if type != "detach", !pageDrawsMap, atlasView.isHidden, scene.hasArt { atlasView.isHidden = false; atlasView.govern() }
-        if AtlasScene.debug { Log.line("\(type) \(body)") }
-        if type != "pointer" && type != "wheel" && type != "editor" && type != "browser" { reportState() }
     }
 
     // MARK: Splash
 
     /// Cover the window while the app (re)loads: at launch, on app restart, and when
-    /// the page's process restarts. It lifts once the map has drawn.
+    /// the page's process restarts. It lifts once the page has its fleet (`loaded`).
     func showSplash(_ text: String) {
-        fleetLoaded = false
-        // A reloading page says again whether it draws the map.
-        pageDrawsMap = false
-        buildsAtSplash = scene.builds
         splash.show(text)
         armSplashFallback(after: 60)
     }
 
-    /// Lift the splash once the page has its fleet and the world has drawn a
-    /// scene since the splash went up, a moment later so SpriteKit's frame is up.
-    private func revealWhenDrawn() {
-        guard splash.showing, fleetLoaded, pageDrawsMap || (scene.hasArt && scene.builds > buildsAtSplash) else { return }
+    /// Lift the splash, a moment later so the page's frame is up.
+    private func reveal() {
+        guard splash.showing else { return }
         splashFallback?.cancel()
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { [weak self] in self?.splash.hide() }
     }
 
-    /// Never leave the app covered: a page that loads but never reports its
-    /// map (a fault in the world, say) is shown as it is.
+    /// Never leave the app covered: a page that loads but never says it has
+    /// its fleet (a fault in it, say) is shown as it is.
     private func armSplashFallback(after seconds: Double) {
         splashFallback?.cancel()
         let work = DispatchWorkItem { [weak self] in self?.splash.hide() }
@@ -462,55 +351,15 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
             """, completionHandler: nil)
     }
 
-    /// The map's rectangle in `content`, where Conquer and the Terminal tab go.
+    /// The page's map area in `content`, where Conquer and the Terminal tab go.
     private var mapInContent: CGRect {
-        viewport == nil ? content.bounds : content.convert(atlasView.frame, from: command)
-    }
-
-    /// The page mounted the world `kind`: unless the scene is already that kind, a fresh scene of
-    /// it takes the old one's place, in a fresh view (a scene shows in one view at a time).
-    private func adopt(kind: String) {
-        guard kind != scene.kind else { return }
-        let old = atlasView
-        let next = makeMapScene(kind: kind, size: scene.size)
-        next.emit = { [weak self] message in self?.send(message) }
-        old.retire()
-        // One map at a time: the old scene's halos go with it.
-        SpriteGlow.clear()
-        let view = old.successor(scene: next)
-        command.replaceSubview(old, with: view)
-        atlasView = view
-        scene = next
-        Log.line("map: the \(kind) world")
-        view.govern()
-    }
-
-    /// A wedged SpriteKit view gives its place to a fresh one showing the same scene.
-    private func rebuildAtlasView(_ old: AtlasView) {
-        guard old === atlasView, old.superview === command else { return }
-        // The old view lets the scene go first: a scene shows in one view at a time.
-        old.retire()
-        let next = old.successor()
-        command.replaceSubview(old, with: next)
-        atlasView = next
-        next.govern()
-        Log.line("map: a fresh view took its place")
-    }
-
-    /// Lay the SpriteKit view exactly under the page's map surface.
-    private func layoutAtlas() {
-        guard let viewport, viewport.width > 0, viewport.height > 0 else { return }
+        guard let viewport else { return content.bounds }
         let webRect = web.isFlipped ? viewport : CGRect(x: viewport.minX, y: web.bounds.height - viewport.maxY, width: viewport.width, height: viewport.height)
-        let frame = command.convert(webRect, from: web)
-        let resized = atlasView.frame.size != frame.size
-        atlasView.frame = frame
-        atlasView.isHidden = !scene.hasArt || pageDrawsMap
-        if resized {
-            atlasView.resized()
-            scene.size = frame.size
-            scene.viewportChanged()
-        }
-        atlasView.govern()
+        return content.convert(webRect, from: web)
+    }
+
+    /// Lay what stands in the map's place over the page's map area again (it moved, or the window resized).
+    private func layoutContent() {
         if mode == .conquer { conquer.frame = mapInContent }
         placeTerminalTab()
         editors.place(nil, filesShows: mode == .files, web: web)
@@ -534,58 +383,23 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
 
     func windowDidResize(_ notification: Notification) {
         layoutWorkspace()
-        // The page reports its map's new rectangle; until it does, keep the old one.
-        layoutAtlas()
+        // The page reports its map area's new rectangle; until it does, keep the old one.
+        layoutContent()
     }
 
     // MARK: Swift → page
 
-    func send(_ message: [String: Any], as event: String = "paseo:world") {
+    func send(_ message: [String: Any], as event: String) {
         guard let data = try? JSONSerialization.data(withJSONObject: message), let json = String(data: data, encoding: .utf8) else { return }
         web.evaluateJavaScript("window.dispatchEvent(new CustomEvent('\(event)',{detail:\(json)}))", completionHandler: nil)
     }
 
-    private var stateTimer: Timer?
-    /// The scene's own account, for the page's `inspect()` (tests and checks).
-    private func reportState() {
-        guard stateTimer == nil else { return }
-        stateTimer = Timer.scheduledTimer(withTimeInterval: 0.25, repeats: false) { [weak self] _ in
-            guard let self else { return }
-            self.stateTimer = nil
-            self.send(["type": "state", "state": self.scene.state()])
-        }
-    }
-
-    /// A scripted drag across the map (for measurements): pointer events on
-    /// the map surface, as a hand would make them, for `seconds`.
-    func scriptedPan(seconds: Double) {
-        let js = """
-        (() => {
-          const surface = document.querySelector('.atlas-world-surface');
-          if (!surface) return 'no map';
-          const target = surface;
-          const r = target.getBoundingClientRect();
-          const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
-          const send = (type, x, y, buttons) =>
-            target.dispatchEvent(new PointerEvent(type, { bubbles: true, cancelable: true, clientX: x, clientY: y, button: 0, buttons, pointerId: 1, pointerType: 'mouse', isPrimary: true }));
-          send('pointerdown', cx, cy, 1);
-          const start = performance.now();
-          const step = (now) => {
-            const t = (now - start) / 1000;
-            const x = cx + Math.sin(t * Math.PI) * 220, y = cy + Math.sin(t * Math.PI * 0.7) * 140;
-            if (t < \(seconds)) { send('pointermove', x, y, 1); requestAnimationFrame(step); }
-            else send('pointerup', x, y, 0);
-          };
-          requestAnimationFrame(step);
-          return 'panning';
-        })()
-        """
-        web.evaluateJavaScript(js) { result, error in
-            Log.line("scripted pan: \(result ?? "") \(error.map { "\($0)" } ?? "")")
-        }
-    }
-
     // MARK: Web view
+
+    /// A new page is coming in: the old one's robot browser placement goes with it (the new page says its own).
+    func webView(_ webView: WKWebView, didCommit navigation: WKNavigation!) {
+        boardBrowser.place(.nothing)
+    }
 
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
         Log.line("page loaded: \(webView.url?.absoluteString ?? "")")
@@ -733,7 +547,6 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
     func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
         Log.line("web content process ended; reloading")
         showSplash("Loading…")
-        atlasView.isHidden = true
         webView.load(URLRequest(url: options.url))
     }
 
@@ -795,7 +608,7 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
     }
 
     /// The window as the user sees it, for checks without screen recording:
-    /// SpriteKit's world under the page's snapshot, written as a PNG.
+    /// the page's snapshot with the native views over it, written as a PNG.
     func snapshot(to path: String, app: NSImage? = nil) {
         // Conquer's page first, when it covers the map.
         if mode == .conquer, app == nil, let page = conquer.current?.web {
@@ -840,18 +653,15 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
             layer.render(in: ctx)
             bar = ctx.makeImage()
         }
-        var world: CGImage?
-        if !atlasView.isHidden, let texture = atlasView.texture(from: scene) { world = texture.cgImage() }
         web.takeSnapshot(with: nil) { [weak self] page, error in
             guard let self else { return }
             let width = Int(whole.width * scale), height = Int(whole.height * scale)
             guard let ctx = Textures.context(width, height) else { return }
             ctx.scaleBy(x: scale, y: scale)
-            ctx.setFillColor(Textures.color(0x1d6884).cgColor)
+            ctx.setFillColor(self.window.backgroundColor.cgColor)
             ctx.fill(whole)
             // The page's area, from the window's bottom-left origin.
             let left = self.window.contentView!.convert(bounds, from: self.web)
-            if let world { ctx.draw(world, in: self.window.contentView!.convert(self.atlasView.bounds, from: self.atlasView)) }
             if let page, let image = page.cgImage(forProposedRect: nil, context: nil, hints: nil) { ctx.draw(image, in: left) }
             if self.mode == .conquer {
                 let inContent = { (v: NSView) in self.window.contentView!.convert(v.bounds, from: v) }
@@ -890,7 +700,7 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
     /// Switch the map's place between the map, the browser and the pages (⌘` steps through them),
     /// which the page draws over its map; the panels stay, and ⌘B (the page's
     /// panel toggle) gives the browser the width.
-    /// The side not shown keeps running: the map's page and Conquer's tabs stay live.
+    /// The side not shown keeps running: the page and Conquer's tabs stay live.
     func show(_ next: Mode) {
         guard !next.drawnByPage || enabledModes.contains(next) else { return }
         guard next != mode else { return }
@@ -899,7 +709,6 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         let leftTerminal = mode == .terminal
         mode = next
         modeBar.mode = next
-        atlasView.covered = next != .command
         placeConquer()
         if leftTerminal { leaveTerminalTab() }
         if next == .terminal { enterTerminalTab() }
@@ -1065,8 +874,7 @@ final class WorldWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKN
         startServer { [weak self] in self?.splash.say("Loading…"); load() }
     }
 
-    /// Processes that do this window's work, for measurements: the app (and
-    /// SpriteKit in it), and WebKit's content and GPU processes.
+    /// Processes that do this window's work: the app, and WebKit's content and GPU processes.
     func processes() -> [String: Int] {
         var result = ["app": Int(ProcessInfo.processInfo.processIdentifier)]
         for (name, key) in [("webContent", "_webProcessIdentifier"), ("gpu", "_gpuProcessIdentifier"), ("network", "_networkProcessIdentifier")] {

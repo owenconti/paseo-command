@@ -6,13 +6,11 @@ import notify
 /// How the app was launched:
 ///   --url <url>        the Paseo Command app to show (default http://127.0.0.1:<AppFlavor.port>/,
 ///                      or PASEO_COMMAND_URL)
-///   --ambient <fps>    the ambient frame rate (default 30)
 ///   --size <w>x<h>     the window's size in points
 ///   --front            show the window in front without activating the app
 ///   --background       run as an accessory that never activates (checks, measurements)
 ///   --ignore-occlusion keep drawing while the window is covered (for checks)
 ///   --no-server        don't run the app's bundled server on the --url's local port
-///   --checks           keep the scene's state current in the page (for checks)
 ///   --info <path>      write the window number and process ids there as JSON
 ///                      (and snapshots, on request, beside it as PNG)
 struct Options {
@@ -23,8 +21,6 @@ struct Options {
     /// take focus: for checks and measurements while someone is working.
     var background = false
     var info: String?
-    /// Keep the scene's state current in the page (`--checks`).
-    var checks = false
     /// Run the app's bundled server when showing it; `--no-server` leaves the port alone.
     var manageServer = true
     /// Whether `--url` was given: if not, an updated copy comes back at its saved page.
@@ -36,7 +32,6 @@ struct Options {
         while i < args.count {
             switch args[i] {
             case "--url": if let v = next(), let u = URL(string: v) { url = u; urlGiven = true }
-            case "--ambient": if let v = next(), let n = Int(v) { AtlasView.ambientRate = n }
             case "--size":
                 if let v = next() {
                     let parts = v.split(separator: "x").compactMap { Double($0) }
@@ -44,9 +39,8 @@ struct Options {
                 }
             case "--front": front = true
             case "--background": background = true
-            case "--ignore-occlusion": AtlasView.ignoreOcclusion = true
+            case "--ignore-occlusion": WorldWindow.ignoreOcclusion = true
             case "--info": info = next()
-            case "--checks": checks = true
             case "--no-server": manageServer = false
             default: break
             }
@@ -85,7 +79,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         // Before any web view or preference read: the released app's new bundle id
         // starts with none of the old app's Conquer tabs or page storage.
         if AppFlavor.isRelease, LegacyState.pending(), oldAppClosed() { LegacyState.migrate() }
-        // The map's account of itself (stalls and recoveries) and other notes, beside the server's log.
+        // The app's own notes, beside the server's log.
         Log.file = AppFlavor.dataFolder.appendingPathComponent("logs/native.log")
         Log.line("\(AppFlavor.name) \(AppFlavor.version) launched")
         buildMenu()
@@ -103,7 +97,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         // Check and measurement hooks, posted with `notifyutil -p <name>`. They
         // reach every copy on the machine, so only a copy run for checks
         // (`--info`) listens: the user's own copy ignores them.
-        listen("com.paseo.command.native.pan") { [weak self] in self?.main?.scriptedPan(seconds: 10) }
         listen("com.paseo.command.native.info") { [weak self] in self?.writeInfo() }
         listen("com.paseo.command.native.quit") { NSApp.terminate(nil) }
         listen("com.paseo.command.native.reload") { [weak self] in self?.reloadApp(nil) }
@@ -200,20 +193,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         listen("com.paseo.command.native.mode") { [weak self] in
             guard let main = self?.main else { return }
             main.show(main.mode == .command ? .conquer : .command)
-        }
-        // Freeze checks: pause the map's view or its scene behind the scheduler's back, or take the window
-        // for hidden without a notification, as a stalled loop or a missed one would (the watchdog recovers).
-        listen("com.paseo.command.native.stallview") { [weak self] in self?.main?.atlasView.isPaused = true }
-        listen("com.paseo.command.native.stallscene") { [weak self] in self?.main?.scene.isPaused = true }
-        listen("com.paseo.command.native.stallvisible") { [weak self] in self?.main?.atlasView.missOcclusion() }
-        listen("com.paseo.command.native.stalllink") { [weak self] in self?.main?.atlasView.wedgeDisplayLink("link") }
-        listen("com.paseo.command.native.stallcv") { [weak self] in self?.main?.atlasView.wedgeDisplayLink("cv") }
-        // Sleep and wake, as NSWorkspace says them.
-        listen("com.paseo.command.native.sleep") {
-            NSWorkspace.shared.notificationCenter.post(name: NSWorkspace.willSleepNotification, object: NSWorkspace.shared)
-        }
-        listen("com.paseo.command.native.wake") {
-            NSWorkspace.shared.notificationCenter.post(name: NSWorkspace.didWakeNotification, object: NSWorkspace.shared)
         }
         listen("com.paseo.command.native.command") { [weak self] in self?.main?.show(.command) }
         listen("com.paseo.command.native.github") { [weak self] in self?.main?.show(.github) }
@@ -325,9 +304,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
             "mode": main.mode.rawValue, "bar": main.modeBar.state(), "conquer": main.conquer.state(),
             "conquerFrame": NSStringFromRect(main.conquer.frame), "conquerFocus": main.conquer.hasKeyFocus,
             "commandShown": !main.command.isHiddenOrHasHiddenAncestor,
-            "visible": main.window.occlusionState.contains(.visible), "framesDrawn": main.scene.framesDrawn,
-            "paused": main.atlasView.isPaused, "fps": main.atlasView.preferredFramesPerSecond,
-            "map": main.atlasView.diagnostics, "page": main.pageWorld, "pageMap": main.pageDrawsMap,
+            "visible": main.window.occlusionState.contains(.visible),
             "terminal": main.drawer.state(), "terminalPlace": main.terminalPlace(),
             "editor": main.editors.state(),
             "browser": main.boardBrowser.state(),
@@ -398,15 +375,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         // (ahead of macOS's own window cycling, as the app has one window).
         view.addItem(withTitle: "Next: Command, Conquer", action: #selector(toggleMode), keyEquivalent: "`").target = self
         view.addItem(.separator())
-        // Map Style: how the Command tab draws the fleet; the page keeps the choice (settings.json's `mapStyle`).
-        let styles = NSMenu(title: "Map Style")
-        for (id, name) in MapStyles.all {
-            let item = styles.addItem(withTitle: name, action: #selector(chooseMapStyle(_:)), keyEquivalent: "")
-            item.target = self
-            item.representedObject = id
-        }
-        view.addItem(withTitle: "Map Style", action: nil, keyEquivalent: "").submenu = styles
-        view.addItem(.separator())
         // The terminals' text size. ⌘= reaches "Bigger" too, as ⌘+ needs ⇧ on most layouts.
         for (title, key, step, hidden) in [("Bigger Terminal Text", "+", 1, false), ("Bigger Terminal Text", "=", 1, true),
                                            ("Smaller Terminal Text", "-", -1, false), ("Actual Terminal Text Size", "0", 0, false)] {
@@ -456,11 +424,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     @objc private func showSettings() { main?.toggleSettings() }
     @objc private func showBranchChanges() { main?.pageCommand(AppKeys.branchChangesCommand) }
     @objc private func showFiles() { main?.show(.files) }
-    @objc private func chooseMapStyle(_ sender: NSMenuItem) {
-        guard let id = sender.representedObject as? String else { return }
-        main?.pageCommand("map-style-\(id)")
-        main?.show(.command)
-    }
     @objc private func closeFileTab() { main?.pageCommand("files-close-tab") }
     @objc private func refreshPage() { main?.pageCommand(AppKeys.refreshPageCommand) }
     @objc private func showMode(_ sender: NSMenuItem) {
@@ -486,8 +449,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         case #selector(conquerCommand(_:)):
             if item.representedObject as? String == "togglePin" { item.title = main.conquer.current?.isPinned == true ? "Unpin Tab" : "Pin Tab" }
             return browser
-        case #selector(chooseMapStyle(_:)):
-            item.state = item.representedObject as? String == main.mapStyle ? .on : .off
         case #selector(showBranchChanges): return !browser
         case #selector(closeFileTab): return main.mode == .files && (NSApp.keyWindow.map { $0 === main.window } ?? true)
         case #selector(refreshPage): return main.pageRefreshes && (NSApp.keyWindow.map { $0 === main.window } ?? true)

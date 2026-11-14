@@ -1,44 +1,55 @@
-/** What the macOS app hears about the map whichever style shows, from the page (always mounted, in main.tsx):
- * the style (View → Map Style marks it, and asks for one through `map-style-<id>`), and, for a style the page
- * draws itself (Crew), that it does (`pageMap`: the SpriteKit view stays hidden and paused), that the fleet is
- * in (`loaded`: the splash lifts) and which workspace the Terminal tab follows (`workspace`), which a native
- * world says otherwise (NativeWorld.tsx). */
-import { useEffect } from "react";
-import { MAP_STYLES, pageDrawn, setMapStyle, type MapStyle } from "./mapStyle";
-import { onAppCommand } from "./appCommands";
+/** What the macOS app hears about the map's place from the page (always mounted, in main.tsx). The page draws Crew
+ * there itself (there is no other map): it says that the fleet is in (`loaded`: the splash lifts), which workspace the
+ * Terminal tab follows (`workspace`), and where the map's place is in the window (`viewport`: Conquer, the Terminal
+ * tab and the Files editors are laid over it, beside the session panel). The pages' look is the Galaxy theme while
+ * dark, as it always was with Crew. */
+import { useEffect, type RefObject } from "react";
 import { setUnityWorldTheme } from "./theme";
+import { worldFrame } from "./viewControls";
 
-/** The app's map channel (the native worlds post on it too, rendering/src/native/bridge.ts). */
+/** The app's map channel. */
 const postNative = (message: Record<string, unknown>) =>
   (window as unknown as { webkit?: { messageHandlers?: { paseoWorld?: { postMessage(m: unknown): void } } } }).webkit?.messageHandlers?.paseoWorld?.postMessage(message);
 
 export type TerminalWorkspace = { id: string; host?: string; name: string };
 
-export function useMapBridge(style: MapStyle, loaded: boolean, workspace: TerminalWorkspace | undefined) {
+export function useMapBridge(loaded: boolean, workspace: TerminalWorkspace | undefined, frame: RefObject<HTMLElement | null>) {
   useEffect(() => {
-    const offStyles = MAP_STYLES.map((m) => onAppCommand(`map-style-${m.id}`, () => setMapStyle(m.id)));
-    return () => offStyles.forEach((off) => off());
-  }, []);
-  const drawn = pageDrawn(style);
-  // The panels' and pages' look (Galaxy, or Light while the system is light), as a native world sets it: for as long
-  // as the style is chosen, whatever tab shows (the pages' near-black palette keys on it), not only while Crew shows.
-  useEffect(() => {
-    if (!drawn) return;
     setUnityWorldTheme("galaxy");
     return () => setUnityWorldTheme(null);
-  }, [drawn]);
+  }, []);
   useEffect(() => {
-    postNative({ type: "mapStyle", style });
-  }, [style]);
-  useEffect(() => {
-    postNative({ type: "pageMap", on: drawn });
-  }, [drawn]);
-  useEffect(() => {
-    if (drawn && loaded) postNative({ type: "loaded" });
-  }, [drawn, loaded]);
+    if (loaded) postNative({ type: "loaded" });
+  }, [loaded]);
   const id = workspace?.id, host = workspace?.host ?? "", name = workspace?.name ?? "";
   useEffect(() => {
-    if (!drawn) return;
     postNative({ type: "workspace", workspace: id ? { id, host, name } : null });
-  }, [drawn, id, host, name]);
+  }, [id, host, name]);
+  // The map's place, in CSS px from the page's top left, posted as it resizes or moves (the session panel opening,
+  // resizing or changing sides moves it without resizing it: the root's style and `data-panel-side` say so).
+  useEffect(() => {
+    const node = frame.current;
+    if (!node) return;
+    let last = "";
+    const post = () => {
+      const r = node.getBoundingClientRect();
+      const now = `${r.x},${r.y},${r.width},${r.height}`;
+      if (now === last) return;
+      last = now;
+      postNative({ type: "viewport", x: r.x, y: r.y, width: r.width, height: r.height });
+    };
+    post();
+    const resized = typeof ResizeObserver === "undefined" ? undefined : new ResizeObserver(post);
+    resized?.observe(node);
+    const moved = new MutationObserver(post);
+    moved.observe(document.documentElement, { attributes: true, attributeFilter: ["style", "data-panel-side"] });
+    const offMoved = worldFrame.subscribe(post);
+    addEventListener("resize", post);
+    return () => {
+      resized?.disconnect();
+      moved.disconnect();
+      offMoved();
+      removeEventListener("resize", post);
+    };
+  }, [frame]);
 }

@@ -1,8 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { visibleBounds } from "./popover";
-import { useGameTooltipFrame } from "./worldChat/frame";
-import "./worldChat/game-tooltip.css";
 
 /*
  * The app's one tooltip, for icon-only buttons and links: they declare it as
@@ -167,8 +165,6 @@ type Shown = { el: HTMLElement; text: string };
 
 export function TooltipLayer() {
   const [shown, setShown] = useState<Shown | null>(null);
-  const inDungeon = !!shown?.el.closest(".world-chat, .world-dispatch, .dungeon-hud, .board-browser");
-  const gameFrame = useGameTooltipFrame(inDungeon);
   const [place, setPlace] = useState<{
     shown: Shown;
     x: number;
@@ -511,14 +507,14 @@ export function TooltipLayer() {
   return createPortal(
     <div
       ref={tip}
-      className={`tooltip${inDungeon ? " dungeon-tooltip" : ""} ${positioned ? "shown" : ""} ${positioned?.below ? "below" : ""}`}
+      className={`tooltip ${positioned ? "shown" : ""} ${positioned?.below ? "below" : ""}`}
       role="tooltip"
       // The control's description carries it for assistive tech.
       aria-hidden="true"
       style={
         positioned
-          ? { ...gameFrame, left: positioned.x, top: positioned.y }
-          : { ...gameFrame, left: -9999, top: -9999 }
+          ? { left: positioned.x, top: positioned.y }
+          : { left: -9999, top: -9999 }
       }
     >
       <span>{brief(text)}</span>

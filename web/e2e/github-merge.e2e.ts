@@ -199,7 +199,7 @@ async function openPr(page: Page, number: number) {
     number,
   );
   await page.reload();
-  await page.locator(".fleet-sidebar").waitFor();
+  await page.locator(".crew-board").waitFor();
   await appEvent(page, "paseo:mode", { mode: "github" });
   await page.locator(".gh-pr-title", { hasText: `#${number}` }).waitFor();
 }

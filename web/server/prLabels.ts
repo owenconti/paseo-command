@@ -1,7 +1,7 @@
 /**
  * Keeps each workspace's PR standing as Paseo workspace labels: one for its
  * CI, one for its review, one while it has merge conflicts
- * (rendering/src/prStatus.ts names them). The Paseo
+ * (web/src/model/prStatus.ts names them). The Paseo
  * app shows them, and the Atlas plants a flag for each.
  *
  * - The PR is Paseo's (the workspace row's `pr`), else GitHub's for the
@@ -14,7 +14,7 @@
  * - Only changes are sent. A label already in the host's catalog keeps the
  *   catalog's colour.
  */
-import { PR_LABELS, labelKey as key } from "../../rendering/src/prStatus";
+import { PR_LABELS, labelKey as key } from "../src/model/prStatus";
 import type { DaemonClient } from "./api/hosts";
 import { BASE_BRANCHES, githubPullRequest, type PrAnswer, type PullRequest } from "./links";
 

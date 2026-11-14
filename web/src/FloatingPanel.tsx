@@ -8,11 +8,9 @@ import {
   type KeyboardEvent,
 } from "react";
 import {
-  Columns2,
   Minus,
   PanelLeft,
   PanelRight,
-  PanelRightClose,
   Settings,
 } from "lucide-react";
 import { readStore, writeStore } from "./api";
@@ -51,15 +49,11 @@ type Props = {
   openRevision: number;
   /** Whether choosing something opens a hidden panel (not while the Dungeon Board's dialogue box speaks for it). */
   openOnSelect?: boolean;
-  /** The Dungeon Board shows: it has no side panel (what the panel held shows in the board's own framed panels).
-   * The panel takes no width and no key or button shows it; its side, width and shown state are kept for the
-   * other map styles and tabs. */
+  /** Crew shows (its drawer holds what is open), or nothing is open: the panel takes no width and no key or button
+   * shows it; its side, width and shown state are kept for when it shows again beside the other tabs. */
   suppressed?: boolean;
   /** Bumped to expand the panel with nothing selected (Settings…). */
   revealRevision?: number;
-  browsing: boolean;
-  onBrowse: () => void;
-  onActive: () => void;
   onVisibility: (state: { compact: boolean; collapsed: boolean }) => void;
   attention: number;
   onAttention: () => void;
@@ -87,7 +81,8 @@ export function FloatingPanel(props: Props) {
   const restoreButton = useRef<HTMLButtonElement>(null);
   const width = fitSidebar(state.width, windowWidth);
   const extent = sidebarExtent({ ...state, collapsed: state.collapsed || !!props.suppressed }, windowWidth);
-  const compact = state.mode === "compact" || width < SPLIT_MIN;
+  // One column: what is open (there is no list beside it any more).
+  const compact = true;
   const { enabled, onVisibility } = props;
   const suppressed = !!props.suppressed;
   const absent = useRef(suppressed);
@@ -115,7 +110,7 @@ export function FloatingPanel(props: Props) {
   }, [enabled, extent, side]);
   // In the macOS app its top bar is native: it shows the panel's side, layout and
   // visibility and the need-you count from here, and its panel buttons act here.
-  const layoutEnabled = !collapsed && splitFits(windowWidth);
+  const layoutEnabled = false;
   const music = useMusic();
   const musicConnecting = music.enabled && music.state === "connecting";
   useEffect(() => {
@@ -247,22 +242,12 @@ export function FloatingPanel(props: Props) {
   };
   const update = (next: PanelState) =>
     setState({ ...next, width: fitSidebar(next.width, viewportWidth()) });
-  const toggleLayout = () => {
-    const split = compact;
-    update({
-      ...state,
-      mode: split ? "split" : "compact",
-      width: split ? Math.max(800, width) : SIDEBAR_DEFAULT,
-    });
-  };
   barActions.current = {
     attention: () => {
       expand();
       props.onAttention();
     },
-    layout: () => {
-      if (layoutEnabled && !suppressed) toggleLayout();
-    },
+    layout: () => {},
   };
   return (
     <>
@@ -310,19 +295,6 @@ export function FloatingPanel(props: Props) {
               onClick={() => moveTo(side === "left" ? "right" : "left")}
             >
               {side === "left" ? <PanelRight size={16} /> : <PanelLeft size={16} />}
-            </button>
-            <button
-              className="panel-tool"
-              disabled={state.collapsed || !splitFits(windowWidth)}
-              aria-label={
-                compact ? "Show list and details together" : "Use compact panel"
-              }
-              data-tip={
-                compact ? "Show list and details together" : "Use compact panel"
-              }
-              onClick={toggleLayout}
-            >
-              {compact ? <Columns2 size={16} /> : <PanelRightClose size={16} />}
             </button>
             <button
               ref={restoreButton}

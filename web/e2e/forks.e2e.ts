@@ -137,6 +137,8 @@ async function open(w: ReturnType<typeof world>, panelWidth?: number) {
         "paseo-command:unity-sidebar",
         JSON.stringify({ width, mode: "compact", collapsed: false, side: "left" }),
       );
+      // On the Command tab the conversation is in Crew's drawer.
+      localStorage.setItem("paseo-command:crew:drawerWidth", JSON.stringify(width));
     }, panelWidth);
   const page = await context.newPage();
   const errors: string[] = [];

@@ -157,7 +157,7 @@ test("in the macOS app, the terminal's menu commands are listed and reach the ap
   `);
   await mockApi(page, { agents: () => [] });
   await page.goto(app.url);
-  await page.locator(".fleet-sidebar").waitFor();
+  await page.locator(".crew-board").waitFor();
   // The app's top bar is native: the page draws none, and tells the app what its tools show.
   assert.equal(await page.locator(".app-bar").count(), 0);
   await page.waitForFunction(() =>
@@ -174,15 +174,9 @@ test("in the macOS app, the terminal's menu commands are listed and reach the ap
   assert.ok((await notes.boundingBox())!.y < 20);
   await bar("releases");
   await notes.waitFor({ state: "detached" });
+  // On the Command tab with nothing open there is no session panel: the bar's toggle does nothing.
   await bar("panel-toggle");
-  await page.locator(".floating-command[data-collapsed='true']").waitFor({ state: "attached" });
-  await page.waitForFunction(() =>
-    (window as unknown as { sentToApp: { type: string; panelCollapsed?: boolean }[] }).sentToApp.some(
-      (m) => m.type === "barState" && m.panelCollapsed === true,
-    ),
-  );
-  await bar("panel-toggle");
-  await page.locator(".floating-command[data-collapsed='false']").waitFor();
+  await page.locator(".floating-command[data-absent]").waitFor({ state: "attached" });
   const palette = page.getByRole("dialog", { name: "Command palette" });
   const search = palette.getByRole("combobox", { name: "Search commands" });
   await page.keyboard.press("Meta+k");
@@ -195,7 +189,7 @@ test("in the macOS app, the terminal's menu commands are listed and reach the ap
   // The mode bar's tabs shown, in its order, with ⌘1…⌘6 by their place (no integrations here):
   // Command, Files, Terminal, Conquer; Settings is the bar's gear, ⌘, alone.
   await search.fill("next in the map");
-  await palette.getByRole("option", { name: /Next in the map's place: map, Files, terminal, browser(?!,)/ }).waitFor();
+  await palette.getByRole("option", { name: /Next in the map's place: crew, Files, terminal, browser(?!,)/ }).waitFor();
   await search.fill("show the browser");
   const browserTab = palette.getByRole("option", { name: /Show the browser \(Conquer\)/ });
   assert.match(await browserTab.locator(".palette-keys").innerText(), /⌘\s*4/);
@@ -256,7 +250,7 @@ test("every entry names its page, then its keys", async () => {
     detail: (id) => detailOf(id, "idle", { Name: "Fix the header" }),
   });
   await page.goto(`${app.url}?agent=${AGENT}`);
-  await page.locator(".fleet-sidebar").waitFor({ state: "attached" });
+  await page.locator(".crew-board").waitFor({ state: "attached" });
   const palette = page.getByRole("dialog", { name: "Command palette" });
   const search = palette.getByRole("combobox", { name: "Search commands" });
   await page.keyboard.press("Meta+k");

@@ -1,8 +1,8 @@
 // swift-tools-version: 5.10
 import PackageDescription
 
-// Paseo Command for macOS: the Atlas world drawn natively with SpriteKit, the
-// React app in a WKWebView over it, and a native terminal drawer for the
+// Paseo Command for macOS: the React app in a WKWebView (it draws the fleet
+// itself, as Crew), and a native terminal drawer for the
 // daemon's terminals (SwiftTerm). Release builds update themselves with Sparkle,
 // whose framework bundle.sh copies into Contents/Frameworks. Builds with the
 // Command Line Tools alone.
