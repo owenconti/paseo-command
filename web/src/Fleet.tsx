@@ -21,6 +21,7 @@ import {
   ListFilter,
   Pencil,
   Plus,
+  RotateCcw,
   Server,
   Trash2,
   X,
@@ -61,6 +62,7 @@ import {
 import { agentName, hostText, pathText, placeText } from "./names";
 import { hostWorldKey, nativeAvailable, postNative } from "./worldBridge";
 import { soundEvent } from "./soundCues";
+import { claimedBoxOf, jobText, type PoolBox, type PoolJob } from "./pool";
 
 export type { Filter } from "./fleetView";
 /** Rows rendered at a time (more as the list scrolls). */
@@ -394,6 +396,9 @@ export function Fleet({
   onArchiveWorkspace,
   archiving = new Set<string>(),
   onRemoveProject,
+  poolBoxes,
+  poolJob,
+  onReleasePool,
   removingProjects = new Set<string>(),
   onDispatch,
   onAddProject,
@@ -439,6 +444,11 @@ export function Fleet({
   /** Workspaces (by key) being archived in the background. */
   archiving?: Set<string>;
   onRemoveProject: (p: Project) => void;
+  /** Pool boxes (src/pool.ts), while Pool boxes is on: a claimed one's host can be released. */
+  poolBoxes: PoolBox[];
+  /** The pool's claim or release under way, if any. */
+  poolJob: PoolJob | null;
+  onReleasePool: (box: PoolBox) => void;
   /** Projects (by key) being removed in the background. */
   removingProjects?: Set<string>;
   onDispatch: (target?: { projectId?: string; workspaceId?: string }) => void;
@@ -1036,6 +1046,8 @@ export function Fleet({
               onHost(w, id),
             ).length;
             const chosen = hostFilter === id;
+            const box = h.local ? undefined : claimedBoxOf(poolBoxes, h.label);
+            const releasing = poolJob?.kind === "release" && poolJob.pool === box?.id;
             return (
               <div
                 key={h.serverId}
@@ -1064,12 +1076,34 @@ export function Fleet({
                       </small>
                     )}
                   </span>
-                  <span
-                    className={`badge ${state === "online" ? "green" : state === "offline" ? "red" : "amber"}`}
-                  >
-                    {state}
-                  </span>
+                  {releasing ? (
+                    <span className="badge slate archiving-badge">
+                      <LoaderCircle size={11} className="spinning" />
+                      Releasing…
+                    </span>
+                  ) : (
+                    <span
+                      className={`badge ${state === "online" ? "green" : state === "offline" ? "red" : "amber"}`}
+                    >
+                      {state}
+                    </span>
+                  )}
                 </button>
+                {box && (
+                  <span className="row-actions">
+                    <button
+                      className="archive"
+                      data-tip={
+                        poolJob ? jobText(poolJob) : `Release pool box ${box.label}: restore it and return it to the pool`
+                      }
+                      aria-label={`Release pool box ${box.label}`}
+                      disabled={!!poolJob}
+                      onClick={() => onReleasePool(box)}
+                    >
+                      <RotateCcw size={13} />
+                    </button>
+                  </span>
+                )}
               </div>
             );
           })

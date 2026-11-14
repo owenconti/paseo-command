@@ -60,6 +60,9 @@ import {
 } from "lucide-react";
 import { ArchiveWorkspaceDialog } from "./ArchiveWorkspaceDialog";
 import { RemoveProjectDialog } from "./RemoveProjectDialog";
+import { ReleasePoolDialog } from "./ReleasePoolDialog";
+import { onPoolJobEnd, releasePoolBox, usePool } from "./poolStore";
+import { idleBoxes, jobRunning, jobText, type PoolBox } from "./pool";
 import {
   dismissArchive,
   isArchiving,
@@ -90,7 +93,7 @@ import {
   useLinearWorkspace,
   usePullRequest,
 } from "./links";
-import { NewAgent, type DispatchTarget, type DraftSettings } from "./Dispatch";
+import { NewAgent, POOL, type DispatchTarget, type DraftSettings } from "./Dispatch";
 import type { BoardMenuItem } from "./dungeon/BoardMenu";
 import { installPageRefresh } from "./pageRefresh";
 import { appTabs, modeKey, shownModes, useAppMode, type AppMode } from "./appMode";
@@ -404,12 +407,14 @@ function App() {
     null,
   );
   const [removeProject, setRemoveProject] = useState<Project | null>(null);
+  // A claimed pool box whose release is being confirmed.
+  const [releaseBox, setReleaseBox] = useState<PoolBox | null>(null);
   // Projects (by key) whose removal is under way.
   const [removingProjects, setRemovingProjects] = useState<Set<string>>(
     () => new Set(),
   );
   /** A confirming dialog is open: it stays modal. */
-  const confirming = !!archiveWorkspace || !!removeProject;
+  const confirming = !!archiveWorkspace || !!removeProject || !!releaseBox;
   useEffect(
     () =>
       onAgentArchived((id, host) => {
@@ -443,6 +448,35 @@ function App() {
     saving: integrationsSaving,
   } = useIntegrations();
   const asks = useAsks(active, integrations.typesafe);
+  // Pool boxes (src/pool.ts): claimed from New agent, released from the Hosts tab.
+  const pool = usePool(integrations.pool);
+  const poolBoxes = integrations.pool && pool?.enabled && !pool.problem ? pool.boxes : [];
+  const poolJob = jobRunning(pool?.job) ? pool!.job : null;
+  useEffect(
+    () =>
+      onPoolJobEnd((job) => {
+        if (job.phase === "failed") soundEvent("actionFailed");
+        setNotice(jobText(job));
+        void liveFleet.current?.refresh();
+      }),
+    [],
+  );
+  const openReleasePool = (box: PoolBox) => {
+    if (poolJob) return setNotice(jobText(poolJob));
+    setReleaseBox(box);
+  };
+  const confirmReleasePool = async () => {
+    const box = releaseBox;
+    if (!box) return;
+    setReleaseBox(null);
+    try {
+      await releasePoolBox(box.id);
+      setNotice(`Releasing ${box.label}…`);
+    } catch (error) {
+      soundEvent("actionFailed");
+      setNotice(`Couldn’t release ${box.label}: ${errorMessage(error) || "the request failed."}`);
+    }
+  };
   // Idle agents whose last reply waits on you: they need you as approvals do.
   const askingKey = active
     .filter((a) => asks[a.id]?.waiting && !permissionAgents.has(a.id))
@@ -1320,6 +1354,7 @@ function App() {
         if (e.key === "Escape") {
           setArchiveWorkspace(null);
           setRemoveProject(null);
+          setReleaseBox(null);
         }
         return;
       }
@@ -1772,6 +1807,31 @@ function App() {
       keywords: "dispatch start worktree branch pull request PR",
       run: () => openDispatch(),
     },
+    // A pool box (Settings → Pool boxes): New agent on a new one, and releasing each claimed one.
+    ...(poolBoxes.length && !poolJob && idleBoxes(poolBoxes).length
+      ? [
+          {
+            id: "new-agent-pool",
+            group: "Actions",
+            page: "Command" as const,
+            label: "New agent on a new pool box",
+            keywords: "dispatch claim sprite pool box remote",
+            run: () => openDispatch({ host: POOL }),
+          },
+        ]
+      : []),
+    ...(!poolJob
+      ? poolBoxes
+          .filter((b) => b.status === "claimed")
+          .map((b) => ({
+            id: `release-pool-${b.id}`,
+            group: "Actions",
+            page: "Command" as const,
+            label: `Release pool box “${b.label}”…`,
+            keywords: "pool box sprite restore unclaim",
+            run: () => openReleasePool(b),
+          }))
+      : []),
     {
       id: "add-project",
       group: "Actions",
@@ -3494,6 +3554,9 @@ function App() {
                   archiving={archiving}
                   onRemoveProject={openRemoveProject}
                   removingProjects={removingProjects}
+                  poolBoxes={poolBoxes}
+                  poolJob={poolJob}
+                  onReleasePool={openReleasePool}
                   onDispatch={openDispatch}
                   onAddProject={addProject}
                   workspaceOf={workspaceOf}
@@ -3560,6 +3623,17 @@ function App() {
               )}
               onCancel={() => setArchiveWorkspace(null)}
               onConfirm={confirmArchive}
+            />
+          )}
+          {releaseBox && (
+            <ReleasePoolDialog
+              key="release-pool"
+              box={releaseBox}
+              agents={active.filter((a) =>
+                hosts.some((h) => h.label === releaseBox.label && h.serverId === a.host),
+              )}
+              onCancel={() => setReleaseBox(null)}
+              onConfirm={() => void confirmReleasePool()}
             />
           )}
           {removeProject && (

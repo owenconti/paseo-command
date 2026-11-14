@@ -3,8 +3,8 @@ import { readAttachmentImage } from "../attachment";
 import { readRemoteImage } from "../remoteImage";
 import { releasesView } from "../releases";
 import { LIMITS } from "../daemon";
-import { assertReachable, invalidate } from "../fleet";
-import { captureExtras, settle, streamFleet, streamSession } from "../live";
+import { assertReachable } from "../fleet";
+import { captureExtras, streamFleet, streamSession } from "../live";
 import { admissionClosed } from "../proc";
 import { errorText } from "../wire";
 import {
@@ -50,7 +50,6 @@ import {
   foldersGet,
 } from "./projects";
 import {
-  FANOUT_KEYS,
   agentCommand,
   dispatchRoute,
   openAgent,
@@ -58,6 +57,8 @@ import {
   type Changed,
 } from "./commands";
 import { profileEditor, profileFeatures, saveProfiles } from "./profiles";
+import { settleChange } from "./settle";
+import { poolRoute } from "../pool";
 import {
   HostOffline,
   hostChips,
@@ -185,6 +186,8 @@ export async function handleApi(
   if (url.pathname === "/api/activity" || url.pathname.startsWith("/api/activity/")) return activityRoute(req, url, reply);
   // The GitHub tab: named reads and whitelisted writes with the user's GitHub token, never the daemon.
   if (url.pathname.startsWith("/api/github/")) return githubRoute(req, url, reply);
+  // Pool boxes: the paseo-boxes scripts on this Mac claim and release them; a claim then dispatches.
+  if (url.pathname === "/api/pool" || url.pathname.startsWith("/api/pool/")) return poolRoute(req, url, reply);
   // The mini games' record: this app's own file, never the daemon.
   if (url.pathname === "/api/games" || url.pathname.startsWith("/api/games/"))
     return gamesRoute(req, url.pathname, reply);
@@ -553,21 +556,6 @@ export async function handleApi(
     // Daemon errors can quote what they were given: never pass a secret on.
     reply(400, { error: errorText(error) });
   }
-}
-
-/**
- * Drop what a mutation could have changed, then let the host's feed re-read
- * now, so the answer (and the push that goes out before it) shows the
- * command's effect.
- */
-async function settleChange(changed: Changed | undefined) {
-  if (!changed) return;
-  const keys =
-    typeof changed.keys === "function" ? changed.keys() : changed.keys;
-  if (keys.some((k) => FANOUT_KEYS.has(k))) keys.push("rows");
-  if (keys.length)
-    invalidate(hostKey(changed.host), changed.host?.target, keys);
-  await settle(hostKey(changed.host));
 }
 
 async function gamesRoute(

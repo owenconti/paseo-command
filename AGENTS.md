@@ -275,6 +275,22 @@ and GitHub publication; report the published version and release link.
   workspace's first cell (the one facing its landmark): enamel in the verdict's colour round an original review magnifier,
   with a glyph badge (`rendering/src/probe.ts`, `placeProbes`, `paintProbe`); its hover card
   says the verdict. `native:mock -- --probe` shows each.
+- Pool boxes (`web/src/pool.ts`, pure; `web/server/pool.ts`): warm-pool Sprites the user's paseo-boxes scripts on this Mac claim and
+  release. Opt-in (`integrations.pool`, Settings → Integrations → Pool boxes), with `pool: {dir, checkout}` in `settings.json` (the scripts'
+  folder, absolute or `~/…`; the checkout on a box; no defaults, so no personal path is in the repository: `web/src/PoolSettings.tsx`).
+  `GET /api/pool` (`web/src/poolStore.ts`, polled every second while a job runs): each box's id, label and claimed state from the folder's
+  `pool-state.json` (nothing else is read; never written), why it can't work yet, and the job. One job at a time. New agent's Host has
+  "New pool box · N idle" (`POOL`, `poolOption` in `Dispatch.tsx`; disabled with why when none is idle): its place is the box's checkout
+  (Local, or Worktree with a branch; no pull request), Claude only, no /skills; the first message is `POST /api/pool/claim`, checked first
+  (`checkPoolDispatch`), which answers at once and runs `claim.sh --any` (the fast claim, never `--up`: the user's call; the agent can run
+  `paseo-box-up`), then waits for the Paseo host labelled as the box to be online (`POOL.onlineMs`), then dispatches into the checkout
+  (`poolDispatch` in `commands.ts`, as a directory or worktree workspace, so the daemon needn't have it registered), asked again only while
+  nothing was issued. The form shows the script's step lines (`progressLine`) and opens the agent when it's done; a notice says how each job
+  ended (`onPoolJobEnd` in main). A claimed box's host in the Hosts tab has Release (↺), which confirms (`ReleasePoolDialog.tsx`: the box is
+  restored, so its work and agents go) and runs `release.sh pool-N` (`POST /api/pool/release`). ⌘K: "New agent on a new pool box",
+  "Release pool box “pool-N”…" (page Command), only while they'd work. Scripts run without a shell, output redacted, only step and outcome
+  lines kept. Tests: `server/pool.test.ts` (fake scripts in a temporary folder; `POOL_DEPS` fakes the host and dispatch),
+  `src/pool.test.ts`, `e2e/pool.e2e.ts`.
 - Host load: `web/server/hostStats.ts` (`GET /api/hoststats`, polled by `web/src/useHostStats.ts`) asks each online host's
   daemon for the `host-stats` plugin's `stats.snapshot` (github.com/owenconti/paseo-cc-plugins, installed per daemon) over
   `invokePluginRpc`; a host without it is left out. Its host banner gains a second line, `CPU · MEM · DISK` percents

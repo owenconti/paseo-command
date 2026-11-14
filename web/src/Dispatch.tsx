@@ -1,6 +1,6 @@
 import { soundEvent } from "./soundCues";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, ChevronDown, GitBranch, MessageSquare, Pencil, Play } from "lucide-react";
+import { ArrowLeft, ChevronDown, GitBranch, LoaderCircle, MessageSquare, Pencil, Play, Server } from "lucide-react";
 import { api, errorMessage, readStore, writeStore } from "./api";
 import { Composer } from "./Composer";
 import type { Outgoing } from "./composer/types";
@@ -30,6 +30,8 @@ import {
 import { openPresetEditor, usePresets } from "./presetsStore";
 import { openProfileEditor, useProfilesRevision } from "./profilesStore";
 import { sendBody } from "./sent";
+import { claimPoolBox, usePool } from "./poolStore";
+import { idleBoxes, jobRunning, jobText, type PoolStatus } from "./pool";
 
 /** As many images as the daemon takes with a prompt. */
 const MAX_IMAGES = 10;
@@ -45,6 +47,8 @@ export type DraftSettings = {
 export type DispatchTarget = {
   projectId?: string;
   workspaceId?: string;
+  /** A host to start on (`POOL`: a new pool box), when no place is given. */
+  host?: string;
   settings?: DraftSettings;
 };
 /** Where a project agent runs: its checkout, or a new worktree and branch. */
@@ -167,7 +171,11 @@ export function NewAgent({
     host?: string;
     rows: Provider[];
   }>({ rows: providers });
-  const hostChoices = useMemo(() => hostOptions(hosts), [hosts]);
+  const pool = usePool();
+  const hostChoices = useMemo(
+    () => [...hostOptions(hosts), ...poolOption(pool)],
+    [hosts, pool],
+  );
   const onHost = (key: string) => (p: { host?: string }) =>
     (p.host || LOCAL) === key;
   /** The remembered place, the busiest project, or the first, on `key`. */
@@ -188,7 +196,7 @@ export function NewAgent({
         ? workspaces.find((w) => workspaceKey(w) === initial.workspaceId)?.host
         : initial.projectId
           ? projects.find((p) => projectKey(p) === initial.projectId)?.host
-          : undefined) || LOCAL,
+          : initial.host) || LOCAL,
   );
   const [target, setTarget] = useState(() =>
     initial.workspaceId
@@ -245,17 +253,32 @@ export function NewAgent({
   const workspace = target.startsWith("w:")
     ? workspaces.find((w) => workspaceKey(w) === target.slice(2))
     : undefined;
-  const host = hostKey === LOCAL ? undefined : hostKey;
+  // A new pool box: claimed when the first message is sent, then dispatched to.
+  const isPool = hostKey === POOL;
+  const host = hostKey === LOCAL || isPool ? undefined : hostKey;
+  // The pool job this form started, until it ends.
+  const [poolJob, setPoolJob] = useState("");
+  const job = pool?.job && pool.job.id === poolJob ? pool.job : null;
+  const claiming = jobRunning(job);
   const modes = providerModes(provider);
   const available = useMemo(
     () =>
-      (hostProviders.host === host
-        ? hostProviders.rows
-        : host
-          ? []
-          : providers
-      ).filter((p) => p.status === "available"),
-    [hostProviders, host, providers],
+      isPool
+        ? // Pool boxes run Claude only (paseo-boxes' provision.sh).
+          [
+            providers.find((p) => p.provider === "claude") ?? {
+              provider: "claude",
+              label: "Claude",
+              status: "available",
+            },
+          ].map((p) => ({ ...p, status: "available" }))
+        : (hostProviders.host === host
+            ? hostProviders.rows
+            : host
+              ? []
+              : providers
+          ).filter((p) => p.status === "available"),
+    [hostProviders, host, providers, isPool],
   );
   // Remote hosts can have different providers; the list follows the host.
   useEffect(() => {
@@ -294,12 +317,12 @@ export function NewAgent({
   }, [host, profilesRevision]);
   const hostProfiles = useMemo(
     () =>
-      profiles.host === host
+      !isPool && profiles.host === host
         ? profiles.rows.filter((p) =>
             available.some((a) => a.provider === p.provider),
           )
         : [],
-    [profiles, host, available],
+    [profiles, host, available, isPool],
   );
   const applyProfile = (p: Profile) => {
     setProfile(p);
@@ -379,14 +402,27 @@ export function NewAgent({
     ? pr ?? (typedPr ? { number: typedPr } : null)
     : null;
 
-  const folder = workspace?.cwd || project?.path || "";
+  useEffect(() => {
+    if (!job || claiming) return;
+    setPoolJob("");
+    if (job.phase === "done") onDispatched(job.agentId, job.host);
+    else setError(jobText(job));
+  }, [job, claiming]);
+  const poolCheckout = pool?.settings.checkout || "";
+  const folder = isPool ? poolCheckout : workspace?.cwd || project?.path || "";
   const blocked = !online
     ? "Paseo is offline."
-    : chosenHost?.unavailable
-      ? `${chosenHost.name} is ${chosenHost.reason}. Choose another host.`
-      : !folder
-        ? "Choose where the agent runs first."
-        : "";
+    : claiming && job
+      ? jobText(job)
+      : isPool && jobRunning(pool?.job)
+        ? jobText(pool!.job!)
+        : chosenHost?.unavailable
+          ? isPool
+            ? `${chosenHost.reason} Choose another host.`
+            : `${chosenHost.name} is ${chosenHost.reason}. Choose another host.`
+          : !folder
+            ? "Choose where the agent runs first."
+            : "";
 
   /** The first message: creates the agent with it. */
   const send = async (message: Outgoing) => {
@@ -395,9 +431,11 @@ export function NewAgent({
     const body: Record<string, unknown> = {
       prompt: message.text.trim(),
       provider: provider || undefined,
-      ...(project
-        ? { projectId: project.projectId }
-        : { workspaceId: workspace?.workspaceId }),
+      ...(isPool
+        ? {}
+        : project
+          ? { projectId: project.projectId }
+          : { workspaceId: workspace?.workspaceId }),
     };
     if (model) body.model = model;
     if (thinking && thinkingOptions.includes(thinking)) body.thinking = thinking;
@@ -418,11 +456,28 @@ export function NewAgent({
     if (prChosen) {
       body.pr = prChosen.number;
       if (prChosen.head) body.prHead = prChosen.head;
-    } else if (project && isolation === "worktree") {
+    } else if ((project || isPool) && isolation === "worktree") {
       body.branch = branch.trim() || suggested;
       if (base.trim()) body.base = base.trim();
     }
     if (host) body.host = host;
+    if (isPool)
+      try {
+        // Answers at once; the claim, the wait for the box and the dispatch go on.
+        const started = await claimPoolBox(body);
+        setPoolJob(started.id);
+        writeStore("dispatch", {
+          ...prefs,
+          provider,
+          isolation,
+          byProvider: { ...prefs.byProvider, [provider]: { model, thinking, mode } },
+        });
+        return true;
+      } catch (e) {
+        soundEvent("actionFailed");
+        setError(errorMessage(e));
+        return false;
+      }
     try {
       // Daemon versions name the new agent differently.
       const result = await api<{
@@ -562,7 +617,7 @@ export function NewAgent({
   // The daemon lists a draft's skills only for a model: "Default" asks for
   // the provider's first.
   const source =
-    folder && provider && (model || models[0]?.id)
+    !isPool && folder && provider && (model || models[0]?.id)
       ? { cwd: folder, provider, model: model || models[0]!.id, mode, thinking }
       : undefined;
 
@@ -618,11 +673,21 @@ export function NewAgent({
             <span>Where</span>
             <select
               name="target"
-              aria-description="The project checkout, or an existing workspace, the agent works in"
-              value={target}
+              aria-description={
+                isPool
+                  ? "A pool box's agent works in its checkout"
+                  : "The project checkout, or an existing workspace, the agent works in"
+              }
+              value={isPool ? POOL : target}
+              disabled={isPool}
               onChange={(e) => setTarget(e.target.value)}
             >
-              {!target && <option value="">Nothing on this host</option>}
+              {isPool && (
+                <option value={POOL}>
+                  Checkout · {poolCheckout.split("/").filter(Boolean).pop() || "on the box"}
+                </option>
+              )}
+              {!isPool && !target && <option value="">Nothing on this host</option>}
               {hereProjects.length > 0 && (
                 <optgroup label="Projects">
                   {hereProjects.map((p) => (
@@ -647,7 +712,7 @@ export function NewAgent({
               )}
             </select>
           </label>
-          {project && (
+          {(project || isPool) && (
             <div
               className="filter-chips new-agent-isolation"
               role="radiogroup"
@@ -680,7 +745,7 @@ export function NewAgent({
               onTextChange={setPrText}
             />
           )}
-          {project && isolation === "worktree" && !prChosen && (
+          {((project && !prChosen) || isPool) && isolation === "worktree" && (
             <>
               <label>
                 <span>
@@ -711,8 +776,10 @@ export function NewAgent({
             </>
           )}
           <p className="form-hint">
-            <GitBranch size={13} />
-            {workspace
+            {isPool ? <Server size={13} /> : <GitBranch size={13} />}
+            {isPool
+              ? `Claims an idle pool box, waits for it to come online, then ${isolation === "worktree" ? `creates a new worktree on branch “${branch.trim() || suggested}” of` : "runs directly in"} its checkout, ${poolCheckout}.`
+              : workspace
               ? `Runs inside “${placeText(workspace.name, "this workspace")}” alongside its existing agents.`
               : prChosen
                 ? `Creates a worktree on pull request #${prChosen.number}’s branch${prChosen.head ? ` “${prChosen.head}”` : ""}.`
@@ -729,7 +796,22 @@ export function NewAgent({
           <p>
             Write the first message below to start the agent. Use /skills and @files as in any conversation.
           </p>
-          {presetsLoaded && (
+          {job && claiming && (
+            <div className="new-agent-pool" role="status" aria-live="polite">
+              <b>
+                <LoaderCircle size={13} className="spinning" aria-hidden="true" />
+                {jobText(job)}
+              </b>
+              {job.steps.length > 0 && (
+                <ol>
+                  {job.steps.slice(-6).map((step, i) => (
+                    <li key={`${i}:${step}`}>{step}</li>
+                  ))}
+                </ol>
+              )}
+            </div>
+          )}
+          {presetsLoaded && !claiming && (
             <div className="new-agent-presets" role="group" aria-label="Preset prompts">
               {presets.map((p) => {
                 const waiting = presetNeedsPr(p) && !prChosen;
@@ -791,6 +873,28 @@ export function NewAgent({
 
 /** The local daemon's key in the Host field. */
 const LOCAL = "local";
+/** The Host field's "New pool box" (Settings → Pool boxes). */
+export const POOL = "pool:new";
+
+/** The Host field's pool box choice, while Pool boxes is on. */
+export function poolOption(pool: PoolStatus | null) {
+  if (!pool?.enabled) return [];
+  const idle = idleBoxes(pool.boxes).length;
+  const why = pool.problem
+    ? pool.problem
+    : !idle
+      ? "Every pool box is claimed: release one from the Hosts tab."
+      : "";
+  return [
+    {
+      key: POOL,
+      name: "New pool box",
+      unavailable: !!why,
+      reason: why,
+      text: `New pool box · ${pool.problem ? "unavailable" : idle ? `${idle} idle` : "none idle"}`,
+    },
+  ];
+}
 /** The provider picker's entry opening the profiles' editor. */
 const EDIT_PROFILES = "edit-profiles";
 const STATE_TEXT = {

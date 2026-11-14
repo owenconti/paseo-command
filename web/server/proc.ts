@@ -250,7 +250,15 @@ export function activeGroups() {
 export function run(
   file: string,
   args: string[],
-  options: { timeout: number; maxBuffer: number; env: NodeJS.ProcessEnv },
+  options: {
+    timeout: number;
+    maxBuffer: number;
+    env: NodeJS.ProcessEnv;
+    /** The working directory (default: this process's). */
+    cwd?: string;
+    /** Each chunk of standard output as it arrives, for progress. */
+    onStdout?: (chunk: Buffer) => void;
+  },
 ): { result: Promise<Run>; exited: Promise<void> } {
   if (shared.closing) {
     const refused = Promise.reject(
@@ -266,6 +274,7 @@ export function run(
       detached: !windows,
       stdio: ["ignore", "pipe", "pipe"],
       env: options.env,
+      ...(options.cwd ? { cwd: options.cwd } : {}),
     });
   } catch (error) {
     // spawn throws Errors (bad arguments, an unusable cwd).
@@ -344,6 +353,15 @@ export function run(
     into.push(chunk);
   };
   child.stdout!.on("data", collect(out));
+  if (options.onStdout)
+    child.stdout!.on("data", (chunk: Buffer) => {
+      if (overflow || settled) return;
+      try {
+        options.onStdout!(chunk);
+      } catch {
+        // Progress is best effort; the run's result doesn't depend on it.
+      }
+    });
   child.stderr!.on("data", collect(err));
   // Destroyed streams can report errors; they're not the command's result.
   child.stdout!.on("error", () => {});

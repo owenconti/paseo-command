@@ -22,6 +22,7 @@ import {
   type Integration,
 } from "../src/integrations";
 import { editorCommandProblem, filesSettings } from "../src/files/editorCommand";
+import { poolCheckoutProblem, poolDirProblem, poolSettings } from "../src/pool";
 
 export const settingsFile = () =>
   process.env.PASEO_COMMAND_SETTINGS || join(dataDir(), "settings.json");
@@ -69,6 +70,7 @@ export function appSettings() {
     linearWorkspace: slug ?? "",
     integrations: integrationSettings(raw?.integrations),
     files: filesSettings(raw?.files),
+    pool: poolSettings(raw?.pool),
     error: raw ? null : UNREADABLE,
   };
 }
@@ -124,6 +126,33 @@ export function saveAppSettings(body: Record<string, unknown>) {
       ...kept,
       ...(openIn !== undefined ? { openIn } : {}),
       ...(typeof editorCommand === "string" ? { editorCommand: editorCommand.trim() } : {}),
+    };
+  }
+  if ("pool" in body) {
+    // Settings → Pool boxes: the paseo-boxes folder on this Mac and the checkout on a box.
+    const input = body.pool;
+    if (!input || typeof input !== "object" || Array.isArray(input))
+      throw new Error("Invalid pool box settings");
+    const { dir, checkout } = input as Record<string, unknown>;
+    if (dir !== undefined) {
+      if (typeof dir !== "string") throw new Error("Invalid paseo-boxes folder");
+      const problem = poolDirProblem(dir);
+      if (problem) throw new Error(problem);
+    }
+    if (checkout !== undefined) {
+      if (typeof checkout !== "string") throw new Error("Invalid checkout");
+      const problem = poolCheckoutProblem(checkout);
+      if (problem) throw new Error(problem);
+    }
+    const existing = readSettings()?.pool;
+    const kept =
+      existing && typeof existing === "object" && !Array.isArray(existing)
+        ? (existing as Record<string, unknown>)
+        : {};
+    change.pool = {
+      ...kept,
+      ...(typeof dir === "string" ? { dir: dir.trim() } : {}),
+      ...(typeof checkout === "string" ? { checkout: checkout.trim() } : {}),
     };
   }
   if (!Object.keys(change).length) throw new Error("Nothing to save");

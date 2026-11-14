@@ -365,6 +365,45 @@ export async function dispatchRoute(body: Body, mark: Mark) {
   return dispatch(plan, host);
 }
 
+/** The stand-in project a pool box's checkout is validated as. */
+const POOL_PROJECT = "pool-checkout";
+/** A pool box's dispatch names no place of its own: the box's checkout is it. */
+function poolBody(body: Body) {
+  for (const key of ["host", "projectId", "workspaceId", "pr", "prHead"])
+    if (present(body[key])) throw new Error("A pool box's agent runs in its checkout");
+  return { ...body, projectId: POOL_PROJECT };
+}
+/**
+ * Check a pool box's dispatch before the box is claimed, with what can be
+ * known now (the provider is checked against the box once it's online).
+ */
+export function checkPoolDispatch(body: Body, checkout: string) {
+  dispatchPlan(
+    poolBody(body),
+    [{ projectId: POOL_PROJECT, path: checkout }],
+    [{ provider: String(body.provider ?? ""), status: "available" }],
+  );
+}
+/**
+ * A new agent in a claimed pool box's checkout (`host`, now online), in the
+ * checkout itself or a new worktree of it, whether or not the box's daemon
+ * has it registered as a project yet (a directory workspace registers it).
+ */
+export async function poolDispatch(
+  body: Body,
+  host: Remote,
+  checkout: string,
+  mark: Mark,
+) {
+  const plan = dispatchPlan(
+    poolBody(body),
+    [{ projectId: POOL_PROJECT, path: checkout }],
+    await providers(host),
+  );
+  mark({ host, keys: affectedKeys("dispatch") });
+  return dispatch(plan, host);
+}
+
 /**
  * Cache keys (within the mutated host's scope) that a mutation could change.
  * Names ending in ":" are prefixes. Everything else, including other hosts and
