@@ -90,7 +90,7 @@ test("in a browser: the map groups host, project and workspace, each workspace a
   await page.context().close();
 });
 
-test("picking a robot opens its conversation beside the map, its robot above the message box and beside its replies; Esc closes it", async () => {
+test("picking a robot opens its conversation beside the map, its robot above the message box and beside its replies; Esc leaves the message box, then closes it", async () => {
   const page = await open();
   const node = page.locator('.crew-node[data-state="idle"]').first();
   const name = (await node.locator(".crew-node-name").textContent())!;
@@ -110,8 +110,12 @@ test("picking a robot opens its conversation beside the map, its robot above the
   await page.locator(".crew-detail .msg.assistant .msg-avatar .crew-bot").waitFor();
   assert.match((await page.locator(".crew-detail .session-title").textContent())!, new RegExp(name));
   assert.equal(await page.locator(".crew-browser-toggle").count(), 0, "the browser is the macOS app's");
-  // Esc closes it, from the message box too; the robot it left has the keyboard.
-  await page.locator(".crew-detail .session-footer textarea").first().focus();
+  // Esc in the message box only leaves it; the next Esc closes the conversation, and the robot it left has the keyboard.
+  const box = page.locator(".crew-detail .session-footer textarea").first();
+  await box.focus();
+  await page.keyboard.press("Escape");
+  await page.waitForFunction(() => !document.activeElement?.matches("textarea"));
+  assert.equal(await page.locator(".crew-drawer").count(), 1, "still open after leaving the message box");
   await page.keyboard.press("Escape");
   await page.locator(".crew-drawer").waitFor({ state: "detached" });
   await page.waitForFunction((k) => document.activeElement?.getAttribute("data-key") === k, key);

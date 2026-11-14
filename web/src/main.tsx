@@ -1122,8 +1122,25 @@ function App() {
         }
         return;
       }
-      // On Crew, Escape closes what is open beside the map (a subagent goes back to its agent first), from its
-      // message box too, once menus, pickers and previews in it have closed.
+      const layerOpen = () =>
+        [...document.querySelectorAll(".popover-menu, .autocomplete, .lightbox, .inline-confirm")].some((layer) => !layer.closest("[inert]"));
+      // On Crew, and in the conversation beside the other tabs, Escape in a field (the message box, the filter, New
+      // agent's form) only leaves the field; the next Escape closes what is open.
+      if (
+        e.key === "Escape" &&
+        editing &&
+        !e.defaultPrevented &&
+        !e.metaKey && !e.ctrlKey && !e.altKey &&
+        (crewShown ? target.closest(".crew-map") : target.closest(".crew-detail")) &&
+        !modalOpen() &&
+        !layerOpen()
+      ) {
+        e.preventDefault();
+        target.blur();
+        return;
+      }
+      // On Crew, Escape closes what is open beside the map (a subagent goes back to its agent first), once menus,
+      // pickers and previews in it have closed.
       if (
         crewShown &&
         e.key === "Escape" &&
@@ -1132,7 +1149,7 @@ function App() {
         (selection || dispatchTarget || addingProject) &&
         (target === document.body || target.closest(".crew-map")) &&
         !modalOpen() &&
-        ![...document.querySelectorAll(".popover-menu, .autocomplete, .lightbox, .inline-confirm")].some((layer) => !layer.closest("[inert]"))
+        !layerOpen()
       ) {
         e.preventDefault();
         if (selection?.subagent) return select({ ...selection, subagent: undefined });

@@ -820,8 +820,9 @@ the component Crew's drawer is.
   app's) its Browser button) shows in Crew's drawer, `.crew-drawer` on the map's right (440–760 px, 46% by default; under
   a 900 px window over the map), its left edge resizing it (`ResizeEdge`; at least 360 px, leaving the map 320 px; kept in
   `crew:drawerWidth`, set as `--crew-drawer` on the map's frame, which the agent's browser follows), the map staying, its
-  node or head marked and kept in view. Esc closes it from anywhere on Crew, its message box too (main's key handler:
-  after menus, pickers, previews and confirmations; a subagent goes back to its agent first), as does Back (Fleet).
+  node or head marked and kept in view. Esc in a field (its message box, the filter, New agent's form) only leaves
+  the field; Esc then closes it from anywhere on Crew (main's key handler: after menus, pickers, previews and
+  confirmations; a subagent goes back to its agent first), as does Back (Fleet).
 - Beside the other tabs (GitHub, Files, Terminal, Conquer, Activity) the session panel (`FloatingPanel`, one column) shows
   what is open as the same `CrewDetail`, only while something is (main's `panelAbsent` = `crewShown || detailEmpty`: the
   panel takes no width and the bar's panel buttons go). It keeps its side, width and ⌘B; choosing something (J/K, ⌘K, a
