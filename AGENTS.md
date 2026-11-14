@@ -288,7 +288,13 @@ and GitHub publication; report the published version and release link.
   of truth for the rest: the boxes from its `pool-state.json` (each box's id, label, claimed state and `base_domain`; never written), the
   checkout from `BOX_REPO_PATH` in its `config.env` (`envValue`; an absolute path on the box, never `~/…`). `secrets.env` and `private/` are
   never read, and `provision-named.sh` never run. `GET /api/pool` (`web/src/poolStore.ts`, polled every second while a job runs): the boxes,
-  the checkout, why it can't work yet, and the job. One job at a time. New agent's Host has
+  the checkout, why it can't work yet, and the job. One job at a time. The job is the server's: claim, wait and dispatch
+  run there whatever the page does, and recent claims (`jobs`: title, where, phase, how each ended) are kept, also in the data
+  folder's `pool-jobs.json` (one the server stopped during reads as failed, saying so), so leaving New agent or reloading loses
+  nothing. The agent lists (Agents tab, Crew) head with them as pending rows (`web/src/PoolClaims.tsx`, `pendingClaims`): running
+  ones with their latest step, failed ones with why until dismissed (`POST /api/pool/dismiss {id}`), done ones until the fleet lists
+  the agent; New agent reopened says why its claim failed (`dispatch-pool-failed`). A dispatch the box's daemon refuses says the box
+  is claimed and online (`dispatchFailure`; gh's auth failure names `gh auth status`). New agent's Host has
   "New pool box · N idle" (`POOL`, `poolOption` in `Dispatch.tsx`; disabled with why when none is idle): its place is the box's checkout
   (Local, or Worktree with a branch; no pull request), Claude only, no /skills; the first message is `POST /api/pool/claim`, checked first
   (`checkPoolDispatch`), which answers at once and runs `claim.sh --any` (the fast claim, never `--up`: the user's call; the agent can run
