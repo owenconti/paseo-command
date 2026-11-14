@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import type { AtlasData } from "../model/fleet";
-import { buildRoster } from "./roster";
+import { buildRoster, hostAgents, projectAgents, stateTally } from "./roster";
 import { SHEET_SIZE, droneColors, frameOf, medalsOf, robotColorOf, robotFrames } from "./sheets";
 
 const data: AtlasData = {
@@ -80,4 +80,22 @@ test("a host kept by key stays with nothing on it (a claimed pool box), unless t
   assert.deepEqual(buildRoster(data).hosts, []);
   assert.deepEqual(buildRoster(data, "", new Set(["srv_pool1"])).hosts.map((h) => h.name), ["pool-1"]);
   assert.deepEqual(buildRoster(data, "fix", new Set(["srv_pool1"])).hosts, []);
+});
+
+test("a folded host's or project's tally counts its agents by state, most urgent first", () => {
+  const local = buildRoster(data).hosts[0]!;
+  assert.deepEqual(stateTally(hostAgents(local)), [
+    { state: "failed", count: 1 },
+    { state: "approval", count: 1 },
+    { state: "done", count: 1 },
+    { state: "running", count: 1 },
+    { state: "idle", count: 1 },
+  ]);
+  // The website project: a workspace's agent and one outside a workspace.
+  assert.deepEqual(stateTally(projectAgents(local.projects[1]!)), [
+    { state: "failed", count: 1 },
+    { state: "done", count: 1 },
+  ]);
+  assert.deepEqual(stateTally([{ state: "running" }, { state: "running" }]), [{ state: "running", count: 2 }]);
+  assert.deepEqual(stateTally([]), []);
 });

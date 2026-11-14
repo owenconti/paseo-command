@@ -19,7 +19,7 @@ import { placeText } from "../names";
 import { workspaceKey } from "../workspaces";
 import type { Selection, Workspace } from "../types";
 import type { WorkSummaries } from "../useWorkingOn";
-import { buildRoster, type RosterAgent } from "./roster";
+import { buildRoster, hostAgents, projectAgents, stateTally, type RosterAgent } from "./roster";
 import { CrewDetail } from "./CrewDetail";
 import { Medals, Portrait, useCrewData, type CrewFleet } from "./parts";
 import "./crew.css";
@@ -318,6 +318,7 @@ export function CrewMap(props: Props) {
                   {h.name}
                 </button>
                 {!h.online && <span className="crew-offline">offline</span>}
+                {hostShut && <Tally agents={hostAgents(h)} />}
                 {(() => {
                   const box = props.pool && claimedBoxOf(props.pool.boxes, hostLabel(h.key));
                   if (!box || !props.pool) return null;
@@ -350,6 +351,7 @@ export function CrewMap(props: Props) {
                           <button className="crew-head project" data-key={p.key} aria-current={selected === p.key ? "true" : undefined} onClick={() => pick("project", p.key)}>
                             {p.name}
                           </button>
+                          {shut && <Tally agents={projectAgents(p)} />}
                         </div>
                         {!shut && (
                           <div className="crew-workspaces">
@@ -435,4 +437,21 @@ function useMemoRoster(data: ReturnType<typeof useCrewData>["data"], filter: str
   if (memo.data !== data || memo.filter !== filter || memo.kept !== kept)
     Object.assign(memo, { data, filter, kept, roster: buildRoster(data, filter, keepHosts) });
   return memo.roster;
+}
+
+/** A folded host's or project's agents counted by state, most urgent first: a dot in the state's colour and the count. */
+function Tally({ agents }: { agents: readonly { state: State }[] }) {
+  const tally = stateTally(agents);
+  if (!tally.length) return null;
+  const said = tally.map(({ state, count }) => `${count} ${STATE_NAMES[state].toLowerCase()}`).join(", ");
+  return (
+    <span className="crew-tally" role="img" aria-label={said}>
+      {tally.map(({ state, count }) => (
+        <span key={state} className="crew-tally-item" data-state={state} data-tip={`${count} · ${STATE_NAMES[state]}`} aria-hidden="true">
+          <i />
+          {count}
+        </span>
+      ))}
+    </span>
+  );
 }

@@ -1053,3 +1053,36 @@ button.crew-pool-name:hover {
     animation: none;
   }
 }
+
+/* A folded host's or project's tally (Tally in CrewMap.tsx): its agents by state, a dot in the state's colour and the count. */
+.crew-tally {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 6px;
+  letter-spacing: 0;
+  text-transform: none;
+  font-weight: var(--fw-medium);
+}
+.crew-tally-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 18px;
+  padding: 0 7px 0 6px;
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--crew-state, var(--crew-idle)) 14%, transparent);
+  color: var(--text-2);
+  font-size: var(--fs-xs);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+.crew-tally-item i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--crew-state, var(--crew-idle));
+}
+.crew-tally-item[data-state="idle"] {
+  background: var(--fill);
+}

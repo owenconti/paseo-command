@@ -341,6 +341,32 @@ test("cards keep to one grid of equal columns, each spanning its robots, no row 
   await page.context().close();
 });
 
+test("a folded project or host shows its agents' states as a tally on its head", async () => {
+  const page = await open();
+  await page.locator(".crew-node").first().waitFor();
+  const project = page.locator(".crew-project").first();
+  const states = await project.locator(".crew-node").evaluateAll((els) => els.map((el) => el.getAttribute("data-state")));
+  assert.equal(await project.locator(".crew-tally").count(), 0, "no tally while open");
+  await project.locator(".crew-project-head .crew-fold").click();
+  const tally = project.locator(".crew-project-head .crew-tally-item");
+  await tally.first().waitFor();
+  const shown = await tally.evaluateAll((els) => els.map((el) => [el.getAttribute("data-state"), Number(el.textContent)] as const));
+  const expected = new Map<string, number>();
+  for (const s of states) expected.set(s!, (expected.get(s!) ?? 0) + 1);
+  assert.deepEqual(new Map(shown), expected, "a count for each state its agents are in");
+  assert.equal(shown.length, expected.size);
+  // A folded host counts all its agents.
+  const host = page.locator(".crew-host[data-host]").first();
+  const all = await host.locator(".crew-node").count();
+  await host.locator(".crew-host-head .crew-fold").click();
+  const hostTally = host.locator(".crew-host-head .crew-tally-item");
+  await hostTally.first().waitFor();
+  const total = (await hostTally.allTextContents()).reduce((n, t) => n + Number(t), 0);
+  assert.ok(total >= all, `${total} counted, ${all} on show before folding (its folded project's too)`);
+  assert.match((await host.locator(".crew-tally").getAttribute("aria-label"))!, /^\d+ /);
+  await page.context().close();
+});
+
 test("the filter narrows the map, and folded projects stay folded", async () => {
   const page = await open();
   await map(page).locator(".crew-node").first().waitFor();

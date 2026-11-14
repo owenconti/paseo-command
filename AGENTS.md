@@ -811,7 +811,9 @@ the component Crew's drawer is.
   (72 px) over its state's glow (pulsing for states that need you) with its mark (the running gear turning) and running
   drones (`subagentModels`' colours), its name, a dot and its state with its model, what it is doing while it runs
   (`workingOn`, shimmering) over a sliding bar, on a soft wash of its state's colour; nodes that need you are tinted, an
-  unread reply has a gold dot. Projects and hosts without workspaces are left out; folds are kept in `crew:collapsed`. The
+  unread reply has a gold dot. Projects and hosts without workspaces are left out; folds are kept in `crew:collapsed`. A folded host's or
+  project's head tallies its agents by state, most urgent first (`stateTally` in `roster.ts`, `Tally`: a dot in the state's
+  colour and the count, the state's name on hover). The
   arrow keys, Home and End move through the map's nodes and heads.
 - What is open (`CrewDetail.tsx`: main's `detailView`, the agent's `Session`, a subagent's, New agent, a workspace, a
   project, Add project, with `ChatDecorContext` putting the robot beside each reply and in the working row, and

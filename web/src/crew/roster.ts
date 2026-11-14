@@ -2,7 +2,7 @@
  * oldest first (by creation, then key: never by changing titles, so nodes don't swap as the map's places don't).
  * Projects without workspaces and hosts without either are left out (but for hosts kept by key: a claimed pool box's,
  * so it can be released); agents without a workspace sit with their project (or host). Pure. */
-import type { AtlasData, State } from "../model/fleet";
+import { STATE_PRIORITY, type AtlasData, type State } from "../model/fleet";
 
 export type RosterAgent = AtlasData["agents"][number];
 export type RosterWorkspace = AtlasData["workspaces"][number] & { agents: RosterAgent[] };
@@ -66,3 +66,15 @@ export function buildRoster(data: AtlasData, filter = "", keepHosts: ReadonlySet
   ]);
   return { hosts, agents: listed, counts };
 }
+
+/** How many of `agents` are in each state, most urgent first (`STATE_PRIORITY`), leaving out states none is in:
+ * a folded host's or project's head shows them. */
+export function stateTally(agents: readonly { state: State }[]): { state: State; count: number }[] {
+  const counts = new Map<State, number>();
+  for (const a of agents) counts.set(a.state, (counts.get(a.state) ?? 0) + 1);
+  return STATE_PRIORITY.filter((s) => counts.has(s)).map((state) => ({ state, count: counts.get(state)! }));
+}
+/** A project's agents: its workspaces' and those outside one. */
+export const projectAgents = (p: RosterProject) => [...p.workspaces.flatMap((w) => w.agents), ...p.loose];
+/** A host's agents, in all its projects and outside them. */
+export const hostAgents = (h: RosterHost) => [...h.projects.flatMap(projectAgents), ...h.loose];
