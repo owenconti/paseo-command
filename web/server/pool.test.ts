@@ -423,3 +423,18 @@ test("a running claim can't be dismissed, and one the server stopped during read
   assert.match(job.error!, /server stopped while this claim ran; check pool-2 with status.sh/);
   assert.equal(job.title, "Fix the flaky login test");
 });
+
+test("a pull request the box's GitHub CLI can't check out says so, and what works there", async () => {
+  POOL_DEPS.online = async (label) => ({ serverId: "srv_pool2", label, target: "t" });
+  POOL_DEPS.dispatch = async (_b, host, _c, mark) => {
+    mark({ host, keys: ["agents"] });
+    throw new Error("GitHub CLI authentication failed");
+  };
+  startClaim({ ...body, pool: "pool-2", pr: 7975, prHead: "feature" });
+  const done = await finished();
+  assert.equal(done.phase, "failed");
+  assert.equal(
+    done.error,
+    "pool-2 can't check out a pull request: the GitHub CLI (gh) on the box isn't signed in. A new branch, or the checkout itself, works there.",
+  );
+});

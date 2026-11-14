@@ -377,6 +377,9 @@ function failed(job: PoolJob, error: unknown, script?: string) {
     const said = scriptError(redactText(`${error.stdout}\n${error.stderr}`));
     message = said || (error.timedOut ? `${script} took too long and was stopped.` : `${script} failed.`);
   } else message = errorText(error);
+  // Checking out a pull request runs the GitHub CLI on the box, which a claim doesn't sign in: say so, and what works.
+  if (job.kind === "claim" && job.where?.startsWith("a worktree on pull request") && /GitHub CLI authentication failed/i.test(message))
+    message = `${job.pool ?? "The pool box"} can't check out a pull request: the GitHub CLI (gh) on the box isn't signed in. A new branch, or the checkout itself, works there.`;
   step(job, { phase: "failed", error: message.slice(0, 400), endedAt: Date.now() });
 }
 
