@@ -362,3 +362,113 @@ test("a wake that fails says why and starts nothing", async () => {
   assert.equal(posts.filter((p) => p.path === "/api/dispatch").length, 0);
   await context.close();
 });
+
+/**
+ * A claim New agent sent, then left: the claim is the server's, so the page only follows it. Its status lists
+ * the claim (`jobs`), which the agent list shows as a pending row until its agent shows, or with why it failed.
+ */
+async function claimThenLeave(opts: { reload?: boolean } = {}) {
+  const context = await newContext(browser);
+  const page = await context.newPage();
+  const posts: { path: string; body: any }[] = [];
+  const job = {
+    id: "pj9",
+    kind: "claim",
+    phase: "claiming",
+    pool: "pool-2",
+    steps: ["Wake sprite"],
+    startedAt: 1,
+    title: "Say hello from the box",
+    where: "the checkout",
+  };
+  let agents: any[] = [];
+  const lists: Record<string, unknown> = { settings, pool: status() };
+  const setJob = (j: Record<string, unknown> | null) => (lists.pool = { ...status(j), jobs: j ? [j] : [] });
+  await mockApi(page, {
+    agents: () => agents,
+    hosts: () => hosts,
+    lists,
+    accept: (path, body) => {
+      posts.push({ path, body });
+      if (path === "/api/pool/claim") {
+        setJob(job);
+        return { job };
+      }
+      if (path === "/api/pool/dismiss") {
+        setJob(null);
+        return { job: { ...job, dismissed: true } };
+      }
+      return false;
+    },
+  });
+  await page.goto(app.url);
+  await page.locator("body").press("d");
+  const form = page.locator(".new-agent");
+  await waitFor(() => form.locator("select[name=host] option[value='pool:new']").count(), (n) => n === 1, "the pool choice");
+  await form.locator("select[name=host]").selectOption("pool:new");
+  await form.locator("#composer").fill("Say hello from the box");
+  await form.getByRole("button", { name: "Send message" }).click();
+  await waitFor(() => form.locator(".new-agent-pool").count(), (n) => n === 1, "the claim's progress");
+  // Leave mid-claim (or reload the page, as the app's restart does).
+  if (opts.reload) await page.reload();
+  else await form.getByRole("button", { name: "Fleet" }).click();
+  await waitFor(() => page.locator(".new-agent").count(), (n) => n === 0, "New agent to close");
+  await page.getByRole("tab", { name: /Agents/ }).click();
+  const row = page.locator(".pool-claims .pool-claim");
+  return { context, page, posts, job, setJob, row, form, setAgents: (a: any[]) => (agents = a) };
+}
+
+test("leaving New agent mid-claim: the claim shows in the agent list at once and its agent still lands", async () => {
+  const { context, page, job, setJob, row, setAgents } = await claimThenLeave();
+  await waitFor(() => row.textContent(), (t) => !!t?.includes("Say hello from the box") && t.includes("Claiming pool-2…"), "the pending row");
+  // The server goes on without New agent: waiting for the host, then starting the agent.
+  setJob({ ...job, phase: "waiting" });
+  await waitFor(() => row.textContent(), (t) => !!t?.includes("Waiting for pool-2 to come online…"), "the row following the claim");
+  setJob({ ...job, phase: "dispatching", host: "srv_pool2" });
+  await waitFor(() => row.textContent(), (t) => !!t?.includes("Starting the agent on pool-2…"), "the row starting the agent");
+  setJob({ ...job, phase: "done", agentId: "a-box", host: "srv_pool2", endedAt: Date.now() });
+  await waitFor(() => page.locator(".toast").textContent(), (t) => !!t?.includes("Agent started on pool-2"), "the notice");
+  // Until the fleet lists the agent the row stays; then it gives way to the agent's own row.
+  assert.equal(await row.count(), 1);
+  setAgents([
+    { id: "a-box", shortId: "a-box", name: "Say hello from the box", provider: "claude", status: "running", cwd: "/srv/app", created: "2026-11-13T22:00:00Z", host: "srv_pool1" },
+  ]);
+  await waitFor(() => row.count(), (n) => n === 0, "the pending row to give way");
+  await context.close();
+});
+
+test("a claim that fails after New agent was left says why in the agent list and when New agent reopens", async () => {
+  const { context, page, posts, job, setJob, row, form } = await claimThenLeave();
+  await waitFor(() => row.count(), (n) => n === 1, "the pending row");
+  setJob({
+    ...job,
+    phase: "failed",
+    host: "srv_pool2",
+    endedAt: Date.now(),
+    error: "pool-2 is claimed and online, but its daemon refused the agent: GitHub CLI authentication failed",
+  });
+  await waitFor(() => row.locator("[role=alert]").textContent(), (t) => !!t?.includes("GitHub CLI authentication failed"), "the row's error");
+  await waitFor(() => page.locator(".toast").textContent(), (t) => !!t?.includes("Couldn't start the agent on pool-2"), "the notice");
+  // New agent, opened from the row, says it too, the message back in its box.
+  await row.locator(".pool-claim-main").click();
+  await waitFor(() => form.locator("[role=alert]").textContent(), (t) => !!t?.includes("GitHub CLI authentication failed") && t.includes("Your message is back below"), "New agent's error");
+  await waitFor(() => form.locator("#composer").inputValue(), (v) => v === "Say hello from the box", "the message back");
+  // Dismissed, it leaves the list.
+  await form.getByRole("button", { name: "Fleet" }).click();
+  await page.getByRole("tab", { name: /Agents/ }).click();
+  await row.getByRole("button", { name: "Dismiss the failed claim of pool-2" }).click();
+  await waitFor(() => row.count(), (n) => n === 0, "the row to go");
+  assert.deepEqual(posts.find((p) => p.path === "/api/pool/dismiss")?.body, { id: "pj9" });
+  await context.close();
+});
+
+test("after a reload mid-claim, the agent list and New agent show the claim still running, then its end", async () => {
+  const { context, page, job, setJob, row, form } = await claimThenLeave({ reload: true });
+  await waitFor(() => row.textContent(), (t) => !!t?.includes("Claiming pool-2…") && t.includes("Wake sprite"), "the pending row after the reload");
+  await row.locator(".pool-claim-main").click();
+  await waitFor(() => form.locator(".new-agent-pool").textContent(), (t) => !!t?.includes("Claiming pool-2…"), "New agent showing the claim");
+  // This page started it (before the reload), so its end is still told.
+  setJob({ ...job, phase: "done", agentId: "a-box", host: "srv_pool2", endedAt: Date.now() });
+  await waitFor(() => page.locator(".toast").textContent(), (t) => !!t?.includes("Agent started on pool-2"), "the notice");
+  await context.close();
+});

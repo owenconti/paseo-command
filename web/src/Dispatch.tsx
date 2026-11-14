@@ -32,7 +32,15 @@ import {
 import { openPresetEditor, usePresets } from "./presetsStore";
 import { openProfileEditor, useProfilesRevision } from "./profilesStore";
 import { sendBody } from "./sent";
-import { DISPATCH_FORM, claimPoolBox, draftRestored, formPoolJob, usePool } from "./poolStore";
+import {
+  DISPATCH_FORM,
+  claimPoolBox,
+  draftRestored,
+  forgetFormFailure,
+  formFailedJob,
+  formPoolJob,
+  usePool,
+} from "./poolStore";
 import { boxOfLabel, claimable, idleBoxes, jobRunning, jobText, unclaimableWhy, type PoolStatus } from "./pool";
 
 /** As many images as the daemon takes with a prompt. */
@@ -353,7 +361,7 @@ export function NewAgent({
   const sawClaim = useRef(false);
   // Remounted to show a failed claim's message put back into the draft.
   const [composerKey, setComposerKey] = useState(0);
-  const job = pool?.job && pool.job.id === poolJob ? pool.job : null;
+  const job = (poolJob && findJob(pool, poolJob)) || null;
   const claiming = jobRunning(job);
   const modes = providerModes(provider);
   const available = useMemo(
@@ -537,7 +545,8 @@ export function NewAgent({
     if (claiming) sawClaim.current = true;
     if (!job || claiming) return;
     setPoolJob("");
-    if (!sawClaim.current) return;
+    // A claim that worked while New agent was closed opened nothing: its agent is in the list already.
+    if (!sawClaim.current && job.phase === "done") return;
     if (job.phase === "done") onDispatched(job.agentId, job.host);
     else {
       const back = draftRestored(job.id);
@@ -545,10 +554,22 @@ export function NewAgent({
       if (back) setComposerKey((k) => k + 1);
     }
   }, [job, claiming]);
-  // A remembered claim the server no longer has (or that ended while New agent was closed) isn't shown.
+  // A remembered claim the server no longer has isn't shown.
   useEffect(() => {
-    if (poolJob && pool && pool.job?.id !== poolJob) setPoolJob("");
+    if (poolJob && pool && !findJob(pool, poolJob)) setPoolJob("");
   }, [pool, poolJob]);
+  // A claim this form sent that failed while New agent was closed says why when it opens again
+  // (its message already back in the draft), until it's sent again or dismissed from the agent list.
+  const [failedClaim] = useState(() => (placed || claim ? "" : formFailedJob()));
+  const toldFailure = useRef(false);
+  useEffect(() => {
+    if (!failedClaim || toldFailure.current || !pool) return;
+    toldFailure.current = true;
+    const failed = findJob(pool, failedClaim);
+    if (failed?.phase !== "failed") return forgetFormFailure();
+    const back = draftRestored(failed.id) || !!readStore<string>("draft:dispatch", "").trim();
+    setError(`${jobText(failed)}${back ? " Your message is back below." : ""}`);
+  }, [pool, failedClaim]);
   const poolCheckout = pool?.checkout || "";
   const folder = isPool ? poolCheckout : workspace?.cwd || project?.path || "";
   // A pull request's worktree only in a checkout of its repository (when that's known).
@@ -641,6 +662,7 @@ export function NewAgent({
         agentId?: string;
         agent?: { id?: string };
       } | null>("dispatch", body);
+      forgetFormFailure();
       writeStore("dispatch", {
         target,
         provider,
@@ -1041,6 +1063,12 @@ const LOCAL = "local";
 export const POOL = "pool:new";
 
 /** The Host field's pool box choice, while Pool boxes is on. */
+/** A claim the pool status still lists (the running or last job, or a recent one). */
+function findJob(pool: PoolStatus | null, id: string) {
+  if (!pool) return undefined;
+  return pool.job?.id === id ? pool.job : pool.jobs?.find((j) => j.id === id);
+}
+
 export function poolOption(pool: PoolStatus | null) {
   if (!pool?.enabled) return [];
   const idle = idleBoxes(pool.boxes).length;

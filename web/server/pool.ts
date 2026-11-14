@@ -9,7 +9,11 @@
  *   (never secrets.env or private/). The server runs `claim.sh --any` and
  *   `release.sh pool-N` only, never a shell, and never provision-named.sh.
  * - One job at a time (claims would race for the same idle box). The page
- *   polls `GET /api/pool` for it.
+ *   polls `GET /api/pool` for it, but the job is the server's: the claim, the
+ *   wait for the host and the dispatch run here whether or not any page
+ *   watches, and recent claims (with how they ended) are kept, also in the
+ *   data folder's `pool-jobs.json`, so a page opened later still sees them.
+ *   A claim the server was stopped during reads as failed, saying so.
  * - The scripts never print secrets; their output is redacted all the same,
  *   and only their step and outcome lines are kept.
  * - `pool-state.json` is read for each box's id, label and claimed state
@@ -17,13 +21,15 @@
  *
  * Tests replace `POOL_DEPS` (no script, daemon or Sprite is reached).
  */
-import { accessSync, constants, readFileSync, statSync } from "node:fs";
+import { accessSync, constants, mkdirSync, readFileSync, renameSync, statSync, writeFileSync } from "node:fs";
 import type { IncomingMessage } from "node:http";
 import { homedir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import {
   boxIdle,
+  claimTitle,
   claimedPool,
+  dispatchFailure,
   envValue,
   poolCheckoutOf,
   idleBoxes,
@@ -58,6 +64,7 @@ import { integrationEnabled } from "./integrations";
 import { run, RunError } from "./proc";
 import { redactText } from "./redact";
 import { readSettings } from "./settings";
+import { dataDir } from "./subagentArchive";
 import { errorText } from "./wire";
 
 export const POOL = {
@@ -209,20 +216,97 @@ function scripts(s: PoolSettings): Found {
   return { dir, boxes, checkout, repo, problem: "" };
 }
 
-let current: PoolJob | null = null;
+/** Recent jobs, newest first; the first is the running one, if any. */
+let jobs: PoolJob[] | null = null;
 let counter = 0;
+const KEEP = 12;
 
-/** For tests: forget the last job. */
-export function resetPool() {
-  current = null;
+export const poolJobsFile = () => join(dataDir(), "pool-jobs.json");
+
+/** A kept job, each field checked (the file is ours, but may be damaged or old). */
+function keptJob(raw: unknown): PoolJob | null {
+  if (!raw || typeof raw !== "object") return null;
+  const j = raw as Record<string, unknown>;
+  const str = (v: unknown, max = 400) => (typeof v === "string" && v.length <= max ? v : undefined);
+  const phases = ["claiming", "waiting", "dispatching", "releasing", "done", "failed"];
+  if (!str(j.id, 40) || (j.kind !== "claim" && j.kind !== "release") || !phases.includes(j.phase as string)) return null;
+  if (typeof j.startedAt !== "number") return null;
+  const job: PoolJob = {
+    id: j.id as string,
+    kind: j.kind,
+    phase: j.phase as PoolJob["phase"],
+    steps: Array.isArray(j.steps) ? j.steps.filter((x): x is string => typeof x === "string").slice(-POOL.maxSteps) : [],
+    startedAt: j.startedAt,
+  };
+  if (typeof j.endedAt === "number") job.endedAt = j.endedAt;
+  for (const key of ["pool", "error", "agentId", "host", "title", "where"] as const) {
+    const v = str(j[key]);
+    if (v !== undefined) job[key] = v;
+  }
+  if (j.wake === true) job.wake = true;
+  if (j.dismissed === true) job.dismissed = true;
+  return job;
+}
+
+/** The jobs, read from the data folder once: one the server stopped during has failed. */
+function list(): PoolJob[] {
+  if (jobs) return jobs;
+  jobs = [];
+  try {
+    const raw = JSON.parse(readFileSync(poolJobsFile(), "utf8")) as { jobs?: unknown };
+    for (const j of Array.isArray(raw?.jobs) ? raw.jobs : []) {
+      const job = keptJob(j);
+      if (!job) continue;
+      if (jobRunning(job)) {
+        job.phase = "failed";
+        job.error =
+          job.kind === "claim"
+            ? `Paseo Command's server stopped while this claim ran${job.pool ? `; check ${job.pool} with status.sh` : ""}. Send the message again to retry.`
+            : `Paseo Command's server stopped during the release${job.pool ? `; check ${job.pool} with status.sh` : ""}.`;
+        job.endedAt ??= Date.now();
+      }
+      jobs.push(job);
+    }
+  } catch {
+    // None kept yet, or unreadable: start afresh (it's only a record).
+  }
+  return jobs;
+}
+
+/** Keep the jobs in the data folder (atomically; a failure only loses the record). */
+function save() {
+  try {
+    const path = poolJobsFile();
+    mkdirSync(dirname(path), { recursive: true });
+    const tmp = `${path}.${process.pid}.tmp`;
+    writeFileSync(tmp, JSON.stringify({ jobs: list() }, null, 2) + "\n", { mode: 0o600 });
+    renameSync(tmp, path);
+  } catch {
+    // The job goes on; only its record after a restart is lost.
+  }
+}
+
+/** The running job, else the last one. */
+const latest = () => list()[0] ?? null;
+
+/** For tests: forget the jobs (and the record of them). */
+export function resetPool(opts: { keepFile?: boolean } = {}) {
+  jobs = null;
+  if (!opts.keepFile)
+    try {
+      writeFileSync(poolJobsFile(), JSON.stringify({ jobs: [] }));
+    } catch {
+      // No data folder yet.
+    }
 }
 
 const copy = (job: PoolJob | null) => (job ? { ...job, steps: [...job.steps] } : null);
+const shownJobs = () => list().filter((j) => j.kind === "claim" && !j.dismissed).map((j) => copy(j)!);
 
 export function poolStatus(): PoolStatus {
   const s = settings();
   if (!integrationEnabled("pool"))
-    return { enabled: false, problem: "", settings: s, checkout: "", repo: "", boxes: [], job: copy(current) };
+    return { enabled: false, problem: "", settings: s, checkout: "", repo: "", boxes: [], job: copy(latest()), jobs: shownJobs() };
   const found = scripts(s);
   return {
     enabled: true,
@@ -231,12 +315,14 @@ export function poolStatus(): PoolStatus {
     checkout: found.checkout ?? "",
     repo: found.repo ?? "",
     boxes: found.boxes ?? [],
-    job: copy(current),
+    job: copy(latest()),
+    jobs: shownJobs(),
   };
 }
 
 function ready() {
   if (!integrationEnabled("pool")) throw new Error("Turn on Pool boxes in Settings first.");
+  const current = latest();
   if (jobRunning(current))
     throw new Error(
       current!.kind === "claim" ? "A pool box is being claimed already." : "A pool box is being released.",
@@ -247,16 +333,27 @@ function ready() {
   return { dir: found.dir, boxes: found.boxes!, checkout: found.checkout! };
 }
 
-function begin(kind: PoolJob["kind"], phase: PoolJob["phase"], pool?: string): PoolJob {
-  current = {
+function begin(kind: PoolJob["kind"], phase: PoolJob["phase"], pool?: string, extra: Partial<PoolJob> = {}): PoolJob {
+  const job: PoolJob = {
     id: `pj${Date.now().toString(36)}${(++counter).toString(36)}`,
     kind,
     phase,
     steps: [],
     startedAt: Date.now(),
     ...(pool ? { pool } : {}),
+    ...extra,
   };
-  return current;
+  const all = list();
+  all.unshift(job);
+  all.splice(KEEP);
+  save();
+  return job;
+}
+
+/** A job moves on: its new phase (and anything else) kept. */
+function step(job: PoolJob, change: Partial<PoolJob>) {
+  Object.assign(job, change);
+  save();
 }
 
 /** A line of the script's output: which box, and its progress. */
@@ -265,11 +362,12 @@ function follow(job: PoolJob) {
     const line = redactText(raw);
     const box = job.kind === "claim" ? claimedPool(line) : undefined;
     if (box && !job.pool) job.pool = box;
-    const step = progressLine(line);
-    if (step && job.steps[job.steps.length - 1] !== step) {
-      job.steps.push(step);
+    const said = progressLine(line);
+    if (said && job.steps[job.steps.length - 1] !== said) {
+      job.steps.push(said);
       if (job.steps.length > POOL.maxSteps) job.steps.splice(0, job.steps.length - POOL.maxSteps);
-    }
+      save();
+    } else if (box && job.pool === box) save();
   };
 }
 
@@ -279,9 +377,7 @@ function failed(job: PoolJob, error: unknown, script?: string) {
     const said = scriptError(redactText(`${error.stdout}\n${error.stderr}`));
     message = said || (error.timedOut ? `${script} took too long and was stopped.` : `${script} failed.`);
   } else message = errorText(error);
-  job.phase = "failed";
-  job.error = message.slice(0, 400);
-  job.endedAt = Date.now();
+  step(job, { phase: "failed", error: message.slice(0, 400), endedAt: Date.now() });
 }
 
 /**
@@ -303,9 +399,17 @@ export function startClaim(input: Body) {
     if (why) throw new Error(`${why}; it can't be woken now.`);
     wake = named;
   } else if (!idleBoxes(boxes).length) throw new Error("Every pool box is claimed. Release one first.");
-  const job = begin("claim", "claiming", wake);
-  if (wake) job.wake = true;
-  void claim(job, body, dir, checkout);
+  const where = body.pr
+    ? `a worktree on pull request #${String(body.pr).slice(0, 10)}`
+    : typeof body.branch === "string"
+      ? `a worktree on branch ${body.branch.slice(0, 120)}`
+      : "the checkout";
+  const job = begin("claim", "claiming", wake, {
+    ...(wake ? { wake: true } : {}),
+    title: claimTitle(body.prompt),
+    where,
+  });
+  void claim(job, body, dir, checkout).catch((error) => failed(job, error));
   return copy(job);
 }
 
@@ -321,17 +425,21 @@ async function claim(job: PoolJob, body: Body, dir: string, checkout: string) {
   const box = boxOf(dir, job.pool);
   const label = box.label;
   const prompt = poolBoxPrompt(box, checkout);
+  let host: Remote;
   try {
-    job.phase = "waiting";
-    const host = await POOL_DEPS.online(label, Date.now() + POOL.onlineMs);
-    job.phase = "dispatching";
-    job.host = host.serverId;
+    step(job, { phase: "waiting" });
+    host = await POOL_DEPS.online(label, Date.now() + POOL.onlineMs);
+  } catch (error) {
+    return failed(job, error);
+  }
+  try {
+    step(job, { phase: "dispatching", host: host.serverId });
     const until = Date.now() + POOL.readyMs;
     for (;;) {
       let changed: Changed | undefined;
       try {
         const result = await POOL_DEPS.dispatch(body, host, checkout, (c) => (changed = c), prompt);
-        job.agentId = typeof result?.agentId === "string" ? result.agentId : undefined;
+        if (typeof result?.agentId === "string") job.agentId = result.agentId;
         break;
       } catch (error) {
         // Asked again only while nothing was sent (the daemon not answering yet).
@@ -341,10 +449,9 @@ async function claim(job: PoolJob, body: Body, dir: string, checkout: string) {
         await POOL_DEPS.settle(changed).catch(() => {});
       }
     }
-    job.phase = "done";
-    job.endedAt = Date.now();
+    step(job, { phase: "done", endedAt: Date.now() });
   } catch (error) {
-    failed(job, error);
+    failed(job, new Error(dispatchFailure(job.pool!, errorText(error))));
   }
 }
 
@@ -425,12 +532,20 @@ export function startRelease(body: Body) {
   void (async () => {
     try {
       await POOL_DEPS.runScript(join(dir, "release.sh"), [pool], dir, POOL.releaseMs, follow(job));
-      job.phase = "done";
-      job.endedAt = Date.now();
+      step(job, { phase: "done", endedAt: Date.now() });
     } catch (error) {
       failed(job, error, "release.sh");
     }
   })();
+  return copy(job);
+}
+
+/** `POST /api/pool/dismiss {id}`: a finished claim the user has seen leaves the agent list. */
+export function dismissJob(body: Body) {
+  const job = typeof body.id === "string" ? list().find((j) => j.id === body.id) : undefined;
+  if (!job) throw new Error("That claim isn't known.");
+  if (jobRunning(job)) throw new Error("That claim is still running.");
+  step(job, { dismissed: true });
   return copy(job);
 }
 
@@ -447,7 +562,7 @@ export async function poolRoute(
       return reply(200, poolStatus());
     }
     const action = url.pathname.slice("/api/pool/".length);
-    if (!["claim", "release", "before-archive", "after-archive"].includes(action))
+    if (!["claim", "release", "before-archive", "after-archive", "dismiss"].includes(action))
       return reply(404, { error: "Unknown endpoint" });
     if (req.method !== "POST") return reply(405, { error: "Method not allowed" });
     if (!req.headers["content-type"]?.startsWith("application/json"))
@@ -456,6 +571,7 @@ export async function poolRoute(
     const body = await bodyOf(req, action === "claim" ? 30 * 1024 * 1024 : 4000);
     // The registry the wait and the dispatch read follows the local daemon.
     if (action !== "release" || body.host !== undefined) startLive();
+    if (action === "dismiss") return reply(200, { job: dismissJob(body) });
     if (action === "before-archive") return reply(200, await beforeArchive(body));
     if (action === "after-archive") return reply(200, await afterArchive(body));
     return reply(200, { job: action === "claim" ? startClaim(body) : await releaseRoute(body) });

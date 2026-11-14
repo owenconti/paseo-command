@@ -13,6 +13,8 @@ import {
   POOL,
   POOL_DEPS,
   afterArchive,
+  dismissJob,
+  poolJobsFile,
   beforeArchive,
   poolStatus,
   releaseRoute,
@@ -52,6 +54,13 @@ async function finished() {
     await new Promise((r) => setTimeout(r, 10));
   }
   throw new Error("the job didn't finish");
+}
+async function reaches(phase: string) {
+  for (let i = 0; i < 400; i++) {
+    if (poolStatus().job?.phase === phase) return;
+    await new Promise((r) => setTimeout(r, 10));
+  }
+  throw new Error(`the job didn't reach ${phase}`);
 }
 const body = { prompt: "Fix the flaky login test", provider: "claude", mode: "bypassPermissions" };
 
@@ -155,7 +164,7 @@ test("a dispatch that was issued is never sent again", async () => {
   startClaim(body);
   const done = await finished();
   assert.equal(done.phase, "failed");
-  assert.equal(done.error, "Couldn't create the workspace.");
+  assert.equal(done.error, "pool-2 is claimed and online, but its daemon refused the agent: Couldn't create the workspace.");
   assert.equal(tries, 1);
 });
 
@@ -350,4 +359,67 @@ test("a pool box takes a pull request: claimed, then its worktree is dispatched 
   // A pull request's worktree takes its own branch.
   resetPool();
   assert.throws(() => startClaim({ ...withPr, branch: "mine" }), /takes its own branch/);
+});
+
+test("the claim runs on without anyone watching: its agent is started, and the job kept with its title", async () => {
+  // Nothing polls the status while it runs (as when New agent is left mid-claim): the chain goes on regardless.
+  let online!: () => void;
+  const ready = new Promise<void>((r) => (online = r));
+  POOL_DEPS.online = async (label) => {
+    await ready;
+    return { serverId: "srv_pool2", label, target: "t" };
+  };
+  POOL_DEPS.dispatch = async (_b, host, _c, mark) => {
+    mark({ host, keys: ["agents"] });
+    return { agentId: "agent-new" } as never;
+  };
+  const started = startClaim({ ...body, branch: "fix-login" });
+  assert.equal(started!.title, "Fix the flaky login test");
+  assert.equal(started!.where, "a worktree on branch fix-login");
+  // Mid-claim, the job is listed (the agent list's pending row) and recorded in the data folder.
+  await reaches("waiting");
+  assert.equal(poolStatus().jobs[0].phase, "waiting");
+  assert.equal(JSON.parse(readFileSync(poolJobsFile(), "utf8")).jobs[0].phase, "waiting");
+  online();
+  const done = await finished();
+  assert.equal(done.phase, "done");
+  assert.equal(done.agentId, "agent-new");
+  assert.equal(poolStatus().jobs[0].agentId, "agent-new");
+});
+
+test("a dispatch the box's daemon refuses is kept as failed, says so, and stays listed until dismissed", async () => {
+  POOL_DEPS.online = async (label) => ({ serverId: "srv_pool2", label, target: "t" });
+  POOL_DEPS.dispatch = async (_b, host, _c, mark) => {
+    mark({ host, keys: ["agents"] });
+    throw new Error("GitHub CLI authentication failed");
+  };
+  const started = startClaim(body);
+  const done = await finished();
+  assert.equal(done.phase, "failed");
+  assert.match(done.error!, /pool-2 is claimed and online, but its daemon refused the agent: GitHub CLI authentication failed/);
+  assert.match(done.error!, /gh auth status/);
+  assert.equal(done.host, "srv_pool2");
+  // A page opened later (or after a reload) still sees it.
+  assert.deepEqual(poolStatus().jobs.map((j) => [j.id, j.phase]), [[started!.id, "failed"]]);
+  assert.throws(() => dismissJob({ id: "pjnope" }), /isn't known/);
+  dismissJob({ id: started!.id });
+  assert.deepEqual(poolStatus().jobs, []);
+  // The next claim isn't refused because of it.
+  POOL_DEPS.dispatch = async () => ({ agentId: "a2" }) as never;
+  startClaim(body);
+  assert.equal((await finished()).phase, "done");
+});
+
+test("a running claim can't be dismissed, and one the server stopped during reads as failed when it starts again", async () => {
+  POOL_DEPS.online = () => new Promise(() => {});
+  const started = startClaim(body);
+  await reaches("waiting");
+  assert.throws(() => dismissJob({ id: started!.id }), /still running/);
+  // The server restarts: its jobs are read back from the data folder.
+  resetPool({ keepFile: true });
+  const [job] = poolStatus().jobs;
+  assert.equal(job.id, started!.id);
+  assert.equal(job.phase, "failed");
+  assert.match(job.error!, /server stopped while this claim ran; check pool-2 with status.sh/);
+  assert.equal(job.title, "Fix the flaky login test");
 });

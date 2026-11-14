@@ -63,6 +63,7 @@ import { agentName, hostText, pathText, placeText } from "./names";
 import { hostWorldKey, nativeAvailable, postNative } from "./worldBridge";
 import { soundEvent } from "./soundCues";
 import { claimedBoxOf, jobText, type PoolBox, type PoolJob } from "./pool";
+import { PoolClaims } from "./PoolClaims";
 
 export type { Filter } from "./fleetView";
 /** Rows rendered at a time (more as the list scrolls). */
@@ -794,6 +795,7 @@ export function Fleet({
       <div className="registry-list" role="tabpanel">
         {tab === "Agents" ? (
           <>
+            <PoolClaims agents={agents} onOpen={() => onDispatch()} />
             {attention.length > 0 && (
               <div className="fleet-group attention-group">
                 <div className="group-head">

@@ -1,6 +1,10 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
+  CLAIM_LINGER_MS,
+  claimTitle,
+  dispatchFailure,
+  pendingClaims,
   DEFAULT_POOL,
   claimedBoxOf,
   claimedPool,
@@ -155,4 +159,29 @@ test("boxes being provisioned or failed are neither idle nor wakeable", () => {
   assert.deepEqual(boxes.filter(claimable).map((b) => b.id), ["pool-1", "pool-4"]);
   assert.equal(unclaimableWhy(boxes[1]), "pool-2 is being provisioned");
   assert.match(unclaimableWhy(boxes[2]), /failed its last provision/);
+});
+
+test("pending claims: running and failed ones show; a done one only until the fleet lists its agent", () => {
+  const base = { kind: "claim" as const, steps: [], startedAt: 1 };
+  const jobs = [
+    { ...base, id: "a", phase: "waiting" as const },
+    { ...base, id: "b", phase: "failed" as const, error: "x" },
+    { ...base, id: "c", phase: "failed" as const, dismissed: true },
+    { ...base, id: "d", phase: "done" as const, agentId: "ag-d", endedAt: 1000 },
+    { ...base, id: "e", phase: "done" as const, agentId: "ag-e", endedAt: 1000 },
+    { ...base, id: "f", kind: "release" as const, phase: "releasing" as const },
+  ];
+  const known = (id: string) => id === "ag-e";
+  assert.deepEqual(pendingClaims(jobs, known, 2000).map((j) => j.id), ["a", "b", "d"]);
+  // A done claim whose agent never shows isn't listed for ever.
+  assert.deepEqual(pendingClaims(jobs, known, 1000 + CLAIM_LINGER_MS).map((j) => j.id), ["a", "b"]);
+  assert.deepEqual(pendingClaims(undefined, known), []);
+});
+
+test("a dispatch failure says the box is fine and, for gh, where to look", () => {
+  assert.equal(dispatchFailure("pool-2", "No such project"), "pool-2 is claimed and online, but its daemon refused the agent: No such project");
+  assert.match(dispatchFailure("pool-2", "GitHub CLI authentication failed"), /gh auth status` on pool-2/);
+  assert.equal(claimTitle("  Fix it\nmore"), "Fix it");
+  assert.equal(claimTitle("x".repeat(100)).length, 80);
+  assert.equal(claimTitle(undefined), "");
 });

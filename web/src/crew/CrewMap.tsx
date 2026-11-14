@@ -6,6 +6,7 @@
  * medallions; Back (or Esc) returns to the map. The robots, drones, state marks and glows, and the PR, Probe and
  * auto-merge medallions are the Dungeon Board's sheets (`sheets.ts`). The session panel is gone while it shows
  * (main.tsx's `crewShown`): this is where the conversation is. */
+import { PoolClaims } from "../PoolClaims";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent, type ReactNode } from "react";
 import { ChevronDown, Globe, Plus, Search, X } from "lucide-react";
 import robotsUrl from "../../../rendering/src/assets/dungeon/robots.png";
@@ -373,6 +374,7 @@ export function CrewMap(props: Props) {
             New agent
           </button>
         </header>
+        <PoolClaims agents={props.agents} onOpen={props.onDispatch} />
         {roster.hosts.map((h) => {
           const hostShut = collapsed.includes(h.key);
           return (

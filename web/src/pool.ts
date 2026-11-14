@@ -95,6 +95,12 @@ export type PoolJob = {
   /** A claim's dispatched agent and its host (serverId). */
   agentId?: string;
   host?: string;
+  /** A claim's first message, its opening shortened (`claimTitle`), so the agent list can name it. */
+  title?: string;
+  /** Where a claim's agent runs: the checkout itself, or a new worktree (its branch or pull request). */
+  where?: string;
+  /** A finished claim the user has seen and put away: left out of `PoolStatus.jobs`. */
+  dismissed?: boolean;
 };
 
 export type PoolStatus = {
@@ -109,6 +115,11 @@ export type PoolStatus = {
   boxes: PoolBox[];
   /** The running job, else the last one (until the next starts). */
   job: PoolJob | null;
+  /**
+   * Recent claims, newest first, not dismissed: running, done or failed. Kept by the server (and in the
+   * data folder's `pool-jobs.json`), not the page, so leaving New agent or reloading loses none of them.
+   */
+  jobs: PoolJob[];
 };
 
 export const POOL_ID = /^pool-[0-9]{1,4}$/;
@@ -223,6 +234,41 @@ export function poolBoxPrompt(box: Pick<PoolBox, "id" | "baseDomain">, checkout:
 /** A job still running. */
 export const jobRunning = (job: PoolJob | null | undefined) =>
   !!job && job.phase !== "done" && job.phase !== "failed";
+
+/** A claim's first message, as the agent list names it: its first line, at most 80 characters. */
+export function claimTitle(prompt: unknown) {
+  const line = typeof prompt === "string" ? (prompt.trim().split("\n")[0] ?? "").trim() : "";
+  return line.length > 80 ? `${line.slice(0, 79)}…` : line;
+}
+
+/** How long a claim that started its agent stays listed while the fleet hasn't shown the agent yet. */
+export const CLAIM_LINGER_MS = 2 * 60_000;
+
+/**
+ * The claims the agent list shows as pending rows, newest first: those running, those that failed (until
+ * dismissed), and those done whose agent the fleet doesn't list yet (`known`: agent ids it does), briefly.
+ */
+export function pendingClaims(jobs: PoolJob[] | undefined, known: (agentId: string) => boolean, now = Date.now()) {
+  return (jobs ?? []).filter(
+    (j) =>
+      j.kind === "claim" &&
+      !j.dismissed &&
+      (jobRunning(j) ||
+        j.phase === "failed" ||
+        (j.phase === "done" && !!j.agentId && !known(j.agentId) && now - (j.endedAt ?? now) < CLAIM_LINGER_MS)),
+  );
+}
+
+/**
+ * Why starting the agent on a claimed box failed, said so the user knows the box is fine and where to look:
+ * the daemon's own error, with a hint for those that are the box's setup.
+ */
+export function dispatchFailure(pool: string, error: string) {
+  const hint = /GitHub CLI (authentication failed|is not authenticated)/i.test(error)
+    ? ` (the box's gh isn't signed in to GitHub for its daemon: check \`gh auth status\` on ${pool}, or start the agent in the checkout rather than a worktree)`
+    : "";
+  return `${pool} is claimed and online, but its daemon refused the agent: ${error}${hint}`;
+}
 
 /** What a job is doing now, in a few words. */
 export function jobText(job: PoolJob) {

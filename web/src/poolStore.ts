@@ -5,8 +5,16 @@
  *
  * New agent's claim is remembered with its message (`dispatch-pool-job`), so
  * leaving New agent loses neither: reopened, it shows the claim again; if the
- * claim fails, its message goes back into New agent's empty draft; once it
- * has started the agent, the form New agent kept (`dispatch-form`) is cleared.
+ * claim fails, its message goes back into New agent's empty draft and the
+ * failure is kept (`dispatch-pool-failed`) for New agent to say when it next
+ * opens; once it has started the agent, the form New agent kept
+ * (`dispatch-form`) is cleared.
+ *
+ * The claim itself is the server's (it goes on whatever the page does); the
+ * status lists recent claims (`jobs`), which the agent list shows as pending
+ * rows (`PoolClaims.tsx`) until their agent shows or the user dismisses them.
+ * Polled while any of them runs, from whatever mounted the store, and a claim
+ * this page started is heard ending even after a reload.
  */
 import { useEffect, useSyncExternalStore } from "react";
 import { api, readStore, removeStore, writeStore } from "./api";
@@ -24,6 +32,10 @@ const POLL_MS = 1000;
 /** New agent's claim under way: its job and the message it carries. */
 type FormJob = { id: string; prompt: string };
 const FORM_JOB = "dispatch-pool-job";
+/** New agent's claim that failed, for New agent to say why when it next opens (until sent again or dismissed). */
+const FORM_FAILED = "dispatch-pool-failed";
+export const formFailedJob = () => readStore<string>(FORM_FAILED, "");
+export const forgetFormFailure = () => removeStore(FORM_FAILED);
 /** New agent's own keys: its unsent form and its first message's draft (Composer's `draft:dispatch`). */
 export const DISPATCH_FORM = "dispatch-form";
 const DISPATCH_DRAFT = "draft:dispatch";
@@ -39,24 +51,33 @@ function settleFormJob(job: PoolJob) {
   if (job.kind !== "claim" || form?.id !== job.id) return;
   removeStore(FORM_JOB);
   if (job.phase === "done") removeStore(DISPATCH_FORM);
-  else if (!readStore(DISPATCH_DRAFT, "").trim() && form.prompt) {
+  else writeStore(FORM_FAILED, job.id);
+  if (job.phase !== "done" && !readStore(DISPATCH_DRAFT, "").trim() && form.prompt) {
     // Never over a message written since.
     writeStore(DISPATCH_DRAFT, form.prompt);
     restored.add(job.id);
   }
 }
 
+/** A job finished: told once, and New agent's own claim settled. */
+function finish(job: PoolJob) {
+  const mine = formPoolJob()?.id === job.id;
+  const seen = watched.delete(job.id);
+  if (mine) settleFormJob(job);
+  // Heard by those listening if this page saw it run, or started it (before a reload, say).
+  if (seen || mine) ended.forEach((fn) => fn(job));
+}
+
 function set(next: PoolStatus | null) {
-  const job = next?.job;
-  if (job && jobRunning(job)) watched.add(job.id);
-  else if (job && watched.delete(job.id)) {
-    settleFormJob(job);
-    ended.forEach((fn) => fn(job));
-  } else if (job && formPoolJob()?.id === job.id) settleFormJob(job);
+  const jobs = [...(next?.jobs ?? []), ...(next?.job && !next.jobs?.some((j) => j.id === next.job!.id) ? [next.job] : [])];
+  for (const job of jobs) {
+    if (jobRunning(job)) watched.add(job.id);
+    else finish(job);
+  }
   // A claim the server no longer knows (it restarted mid-claim) ends as failed, its message put back:
   // after a few reads, as one asked before the claim may answer after it.
   const form = formPoolJob();
-  if (next && form && next.job?.id !== form.id) {
+  if (next && form && !jobs.some((j) => j.id === form.id)) {
     if (++unknown >= 3) {
       unknown = 0;
       settleFormJob({ id: form.id, kind: "claim", phase: "failed", steps: [], startedAt: 0 });
@@ -65,7 +86,7 @@ function set(next: PoolStatus | null) {
   status = next;
   listeners.forEach((fn) => fn());
   clearTimeout(timer);
-  if (jobRunning(job)) timer = setTimeout(() => void refreshPool(), POLL_MS);
+  if (jobs.some(jobRunning) || (next && form)) timer = setTimeout(() => void refreshPool(), POLL_MS);
 }
 
 export function refreshPool() {
@@ -103,7 +124,7 @@ export function onPoolJobEnd(fn: (job: PoolJob) => void) {
 
 async function start(path: string, body: Record<string, unknown>) {
   const { job } = await api<{ job: PoolJob }>(path, body);
-  if (status) set({ ...status, job });
+  if (status) set({ ...status, job, jobs: [job, ...(status.jobs ?? []).filter((j) => j.id !== job.id)] });
   else await refreshPool();
   watched.add(job.id);
   clearTimeout(timer);
@@ -115,7 +136,15 @@ async function start(path: string, body: Record<string, unknown>) {
 export async function claimPoolBox(body: Record<string, unknown>) {
   const job = await start("pool/claim", body);
   writeStore(FORM_JOB, { id: job.id, prompt: typeof body.prompt === "string" ? body.prompt : "" });
+  forgetFormFailure();
   return job;
+}
+
+/** Put a finished claim away: it leaves the agent list (and New agent stops saying why it failed). */
+export async function dismissPoolJob(id: string) {
+  if (formFailedJob() === id) forgetFormFailure();
+  await api("pool/dismiss", { id });
+  await refreshPool();
 }
 /**
  * Release a claimed box (`release.sh`). After an archive (`after`: the box's host and the archived workspace)
