@@ -68,7 +68,11 @@ export type PoolBox = {
   /** `pool-N`, also its Paseo host label. */
   id: string;
   label: string;
-  status: "claimed" | "idle";
+  /**
+   * As paseo-boxes keeps it: `provisioning` while provision.sh or rotate.sh rebuilds it, `failed` when that failed;
+   * claim.sh refuses both (and `--any` skips them).
+   */
+  status: "claimed" | "idle" | "provisioning" | "failed";
   claimedAt?: string;
   /** `pool-N.<BASE_DOMAIN>`: the box's app URLs (tailnet only) are under it. */
   baseDomain?: string;
@@ -78,8 +82,10 @@ export type PoolBox = {
 export type PoolJob = {
   id: string;
   kind: "claim" | "release";
-  /** The box, once the script names it (a claim picks the first idle one). */
+  /** The box, once the script names it (a claim picks the first idle one, or wakes the one named). */
   pool?: string;
+  /** Waking a named box (its host was asleep), rather than claiming any idle one. */
+  wake?: boolean;
   phase: "claiming" | "waiting" | "dispatching" | "releasing" | "done" | "failed";
   /** The script's own step lines, newest last. */
   steps: string[];
@@ -126,7 +132,9 @@ export function poolBoxes(state: unknown): PoolBox[] {
       return {
         id,
         label,
-        status: b.status === "claimed" ? ("claimed" as const) : ("idle" as const),
+        status: (b.status === "claimed" || b.status === "provisioning" || b.status === "failed"
+          ? b.status
+          : "idle") as PoolBox["status"],
         ...(claimedAt ? { claimedAt } : {}),
         ...(baseDomain ? { baseDomain } : {}),
       };
@@ -163,12 +171,28 @@ export function scriptError(output: string) {
   return "";
 }
 
+/**
+ * The pool box a host is, claimed or not: its label is a box's. A released box is paused (its daemon down until
+ * it's claimed), so its host shows offline; New agent can still pick it and wakes it (`claim.sh pool-N`).
+ */
+export function boxOfLabel(boxes: PoolBox[], label: string | undefined) {
+  return label ? boxes.find((b) => b.label === label) : undefined;
+}
+
 /** The box a host is, while it's claimed: its label is a claimed box's. */
 export function claimedBoxOf(boxes: PoolBox[], label: string | undefined) {
   return label ? boxes.find((b) => b.status === "claimed" && b.label === label) : undefined;
 }
 
-export const idleBoxes = (boxes: PoolBox[]) => boxes.filter((b) => b.status !== "claimed");
+export const idleBoxes = (boxes: PoolBox[]) => boxes.filter((b) => b.status === "idle");
+/** A box claim.sh will take by name: idle, or claimed (it confirms it's ready); never one being or failed to be provisioned. */
+export const claimable = (b: PoolBox) => b.status === "idle" || b.status === "claimed";
+/** Why claim.sh won't take a box, or "". */
+export function unclaimableWhy(b: PoolBox) {
+  if (b.status === "provisioning") return `${b.label} is being provisioned`;
+  if (b.status === "failed") return `${b.label} failed its last provision (re-run provision.sh)`;
+  return "";
+}
 
 /** Why the settings can't be used yet, or "". */
 export function poolSettingsProblem(s: PoolSettings) {
@@ -203,7 +227,7 @@ export function jobText(job: PoolJob) {
   const box = job.pool ?? "a pool box";
   switch (job.phase) {
     case "claiming":
-      return `Claiming ${box}…`;
+      return job.wake ? `Waking ${box}…` : `Claiming ${box}…`;
     case "waiting":
       return `Waiting for ${box} to come online…`;
     case "dispatching":

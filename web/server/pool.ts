@@ -27,6 +27,7 @@ import {
   envValue,
   poolCheckoutOf,
   idleBoxes,
+  unclaimableWhy,
   jobRunning,
   poolBoxPrompt,
   poolBoxes,
@@ -65,7 +66,8 @@ export const POOL = {
   /** A release always restores one. */
   releaseMs: 12 * 60_000,
   /** After the claim, for the box's host to be online in the registry. */
-  onlineMs: 3 * 60_000,
+  /** After claim.sh exits 0, for the box's host to be online (Paseo binds ~16–19 s into a claim). */
+  onlineMs: 90_000,
   /** After that, for its daemon to answer the dispatch's first read. */
   readyMs: 90_000,
   pollMs: 2000,
@@ -114,7 +116,7 @@ export const POOL_DEPS = {
       if (Date.now() >= deadline)
         throw new Error(
           row
-            ? `${label} didn't come online in time${last instanceof HostOffline ? "" : last ? ` (${errorText(last)})` : ""}.`
+            ? `${label} was claimed but its Paseo host didn't come online within ${Math.round(POOL.onlineMs / 1000)} s${last instanceof HostOffline ? "" : last ? ` (${errorText(last)})` : ""}. Check it with status.sh.`
             : `No Paseo host is labelled ${label}.`,
         );
       await sleep(POOL.pollMs);
@@ -279,21 +281,35 @@ function failed(job: PoolJob, error: unknown, script?: string) {
 }
 
 /**
- * `POST /api/pool/claim`: New agent's first message for a new pool box.
+ * `POST /api/pool/claim`: New agent's first message for a new pool box, or
+ * (`pool`: `pool-N`) for a box whose host is asleep, which is woken by name
+ * (`claim.sh pool-N`; claimed already, it just confirms it's ready).
  * Answers at once with the job; the claim, the wait and the dispatch go on.
  */
-export function startClaim(body: Body) {
+export function startClaim(input: Body) {
+  const { pool: named, ...body } = input;
   const { dir, boxes, checkout } = ready();
   checkPoolDispatch(body, checkout);
-  if (!idleBoxes(boxes).length) throw new Error("Every pool box is claimed. Release one first.");
-  const job = begin("claim", "claiming");
+  let wake: string | undefined;
+  if (named !== undefined) {
+    if (typeof named !== "string" || !POOL_ID.test(named)) throw new Error("Invalid pool box");
+    const target = boxes.find((b) => b.id === named);
+    if (!target) throw new Error(`${named} isn't in pool-state.json.`);
+    const why = unclaimableWhy(target);
+    if (why) throw new Error(`${why}; it can't be woken now.`);
+    wake = named;
+  } else if (!idleBoxes(boxes).length) throw new Error("Every pool box is claimed. Release one first.");
+  const job = begin("claim", "claiming", wake);
+  if (wake) job.wake = true;
   void claim(job, body, dir, checkout);
   return copy(job);
 }
 
 async function claim(job: PoolJob, body: Body, dir: string, checkout: string) {
   try {
-    await POOL_DEPS.runScript(join(dir, "claim.sh"), ["--any"], dir, POOL.claimMs, follow(job));
+    // Exits 0 once claimed, or when the box was claimed already (its claim marker there); 1 otherwise.
+    const args = job.wake && job.pool ? [job.pool] : ["--any"];
+    await POOL_DEPS.runScript(join(dir, "claim.sh"), args, dir, POOL.claimMs, follow(job));
   } catch (error) {
     return failed(job, error, "claim.sh");
   }

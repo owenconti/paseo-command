@@ -31,7 +31,7 @@ import { openPresetEditor, usePresets } from "./presetsStore";
 import { openProfileEditor, useProfilesRevision } from "./profilesStore";
 import { sendBody } from "./sent";
 import { DISPATCH_FORM, claimPoolBox, draftRestored, formPoolJob, usePool } from "./poolStore";
-import { idleBoxes, jobRunning, jobText, type PoolStatus } from "./pool";
+import { boxOfLabel, claimable, idleBoxes, jobRunning, jobText, unclaimableWhy, type PoolStatus } from "./pool";
 
 /** As many images as the daemon takes with a prompt. */
 const MAX_IMAGES = 10;
@@ -222,7 +222,7 @@ export function NewAgent({
   }>({ rows: providers });
   const pool = usePool();
   const hostChoices = useMemo(
-    () => [...hostOptions(hosts), ...poolOption(pool)],
+    () => [...hostOptions(hosts, wakeable(pool)), ...poolOption(pool)],
     [hosts, pool],
   );
   const onHost = (key: string) => (p: { host?: string }) =>
@@ -316,7 +316,9 @@ export function NewAgent({
     ? workspaces.find((w) => workspaceKey(w) === target.slice(2))
     : undefined;
   // A new pool box: claimed when the first message is sent, then dispatched to.
-  const isPool = hostKey === POOL;
+  // A pool box: a new one (any idle box), or one whose host is asleep (released and paused), woken by name.
+  const wakeBox = chosenHost?.wake ? boxOfLabel(pool?.boxes ?? [], chosenHost.label) : undefined;
+  const isPool = hostKey === POOL || !!wakeBox;
   const host = hostKey === LOCAL || isPool ? undefined : hostKey;
   // The pool job this form started, until it ends.
   const [poolJob, setPoolJob] = useState(claim?.id ?? "");
@@ -566,7 +568,7 @@ export function NewAgent({
     if (isPool)
       try {
         // Answers at once; the claim, the wait for the box and the dispatch go on.
-        const started = await claimPoolBox(body);
+        const started = await claimPoolBox(wakeBox ? { ...body, pool: wakeBox.id } : body);
         setPoolJob(started.id);
         writeStore("dispatch", {
           ...prefs,
@@ -881,7 +883,9 @@ export function NewAgent({
           )}
           <p className="form-hint">
             {isPool ? <Server size={13} /> : <GitBranch size={13} />}
-            {isPool
+            {wakeBox
+              ? `${wakeBox.label} is asleep: sending wakes it (claim.sh ${wakeBox.id}), waits for it to come online, then ${isolation === "worktree" ? `creates a new worktree on branch “${branch.trim() || suggested}” of` : "runs directly in"} its checkout, ${poolCheckout}.`
+              : isPool
               ? `Claims an idle pool box, waits for it to come online, then ${isolation === "worktree" ? `creates a new worktree on branch “${branch.trim() || suggested}” of` : "runs directly in"} its checkout, ${poolCheckout}.`
               : workspace
               ? `Runs inside “${placeText(workspace.name, "this workspace")}” alongside its existing agents.`
@@ -994,6 +998,8 @@ export function poolOption(pool: PoolStatus | null) {
     {
       key: POOL,
       name: "New pool box",
+      label: "",
+      wake: false,
       unavailable: !!why,
       reason: why,
       text: `New pool box · ${pool.problem ? "unavailable" : idle ? `${idle} idle` : "none idle"}`,
@@ -1011,12 +1017,26 @@ const STATE_TEXT = {
 };
 
 /**
+ * Which hosts are pool boxes (src/pool.ts), by label: while asleep they can still be picked, if claim.sh would take
+ * them (`true`); a box being provisioned or failed says why it can't (a string).
+ */
+export function wakeable(pool: PoolStatus | null) {
+  if (!pool?.enabled || pool.problem) return undefined;
+  return (label: string): boolean | string => {
+    const box = pool.boxes.find((b) => b.label === label);
+    if (!box) return false;
+    return claimable(box) || unclaimableWhy(box);
+  };
+}
+
+/**
  * The Host field's choices: every host the daemon knows, local first, with
  * its connection state. A remote host the registry doesn't report online
  * can't be dispatched to (the server refuses it), so it is disabled, and
- * says why.
+ * says why; except a pool box's (`wake`), which is asleep while released and
+ * is woken by dispatching to it.
  */
-export function hostOptions(hosts: Host[]) {
+export function hostOptions(hosts: Host[], wake?: (label: string) => boolean | string) {
   const rows = hosts.some((h) => h.local)
     ? hosts
     : [
@@ -1033,11 +1053,34 @@ export function hostOptions(hosts: Host[]) {
       const name = h.local ? LOCAL : hostText(h);
       // Errors can quote IDs: they're shown only once cleaned.
       const why = h.error ? placeText(h.error, "", [h.serverId]) : "";
+      const pooled = unavailable && !h.local ? wake?.(h.label) : false;
+      if (typeof pooled === "string")
+        return {
+          key: h.serverId,
+          name,
+          label: h.label,
+          unavailable: true,
+          wake: false,
+          reason: "asleep",
+          text: `${name} · asleep (${pooled})`,
+        };
+      if (pooled)
+        return {
+          key: h.serverId,
+          name,
+          label: h.label,
+          unavailable: false,
+          wake: true,
+          reason: "asleep, will wake",
+          text: `${name} · asleep, will wake`,
+        };
       const reason = unavailable ? "offline" : STATE_TEXT[state];
       return {
         key: h.local ? LOCAL : h.serverId,
         name,
+        label: h.label,
         unavailable,
+        wake: false,
         reason,
         text: `${name} · ${reason}${unavailable && why ? ` (${why})` : ""}`,
       };

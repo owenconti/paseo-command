@@ -294,7 +294,13 @@ and GitHub publication; report the published version and release link.
   (`checkPoolDispatch`), which answers at once and runs `claim.sh --any` (the fast claim, never `--up`: the user's call; the agent can run
   `paseo-box-up`), then waits for the Paseo host labelled as the box to be online (`POOL.onlineMs`), then dispatches into the checkout
   (`poolDispatch` in `commands.ts`, as a directory or worktree workspace, so the daemon needn't have it registered), asked again only while
-  nothing was issued. The agent's system prompt gains `poolBoxPrompt`: the box, its checkout, that the app stack is down until it runs
+  nothing was issued. A pool box's host that's offline because the box is asleep (released: the Sprite paused, its daemon down
+  until claimed) stays selectable in Host as "pool-N · asleep, will wake" (`wakeable`, `hostOptions`; other offline hosts stay
+  disabled, and so does a box being provisioned or failed, `unclaimableWhy`): New agent then works as for a new pool box, but its
+  first message names the box (`POST /api/pool/claim {pool}`: `claim.sh pool-N`, "Waking pool-N…"; a box claimed but unreachable is
+  claimed again, which claim.sh confirms), then waits up to `POOL.onlineMs` (90 s) after claim.sh exits 0 for the host, then dispatches
+  by its serverId. Box states are paseo-boxes' (`idle`, `claimed`, `provisioning`, `failed`); only `idle` counts for "New pool box"
+  (`--any` skips the rest). The agent's system prompt gains `poolBoxPrompt`: the box, its checkout, that the app stack is down until it runs
   `paseo-box-up` (`--reseed` for fresh data; `~/PASEO-BOX.md`), the box's tailnet-only URLs, and that releasing discards the box's changes.
   Each box is registered once as Paseo host `pool-N` (by `provision-named.sh`); claims and releases never add or remove hosts, and a
   released box's daemon is down until it's claimed again. (Paseo CLI 0.15.4's `--host` takes an endpoint, not a host label: the app

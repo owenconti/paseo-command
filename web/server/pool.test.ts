@@ -270,3 +270,66 @@ test("a failed release says release.sh's error", async () => {
   assert.equal(done.phase, "failed");
   assert.equal(done.error, "sprite paseo-pool-1 does not exist");
 });
+
+test("a named box is woken with claim.sh pool-N, even while claimed, then dispatched to", async () => {
+  // pool-1 is claimed but its host is unreachable: claim.sh is idempotent, so it still runs.
+  script("claim.sh", `echo "$@" > "${dir}/claim-args"\necho "claiming $1 (paseo-$1)"\necho "$1 is already claimed; confirming it is ready"\necho "ok: $1 already claimed; ready in 3s"`);
+  state({ "pool-1": box("pool-1", "claimed") });
+  const online: string[] = [];
+  POOL_DEPS.online = async (label) => {
+    online.push(label);
+    return { serverId: "srv_pool1", label, target: "tcp://100.64.0.1:6767" };
+  };
+  const sent: any[] = [];
+  POOL_DEPS.dispatch = async (b, host, _c, mark) => {
+    mark({ host, keys: ["agents"] });
+    sent.push({ b, host: host.serverId });
+    return { agentId: "agt_woken" } as never;
+  };
+  const job = startClaim({ ...body, pool: "pool-1" })!;
+  assert.equal(job.wake, true);
+  assert.equal(job.pool, "pool-1");
+  const done = await finished();
+  assert.equal(done.phase, "done", done.error);
+  assert.equal(readFileSync(join(dir, "claim-args"), "utf8").trim(), "pool-1");
+  assert.deepEqual(online, ["pool-1"]);
+  // Dispatched by the host's server id, without the box's name in the agent's body.
+  assert.deepEqual(sent, [{ b: body, host: "srv_pool1" }]);
+  assert.equal(done.agentId, "agt_woken");
+});
+
+test("waking refuses a box that isn't in pool-state.json, and a failed wake dispatches nothing", async () => {
+  assert.throws(() => startClaim({ ...body, pool: "pool-9" }), /pool-9 isn't in pool-state/);
+  assert.throws(() => startClaim({ ...body, pool: "paseo-daemon" }), /Invalid pool box/);
+  state({ "pool-1": box("pool-1", "idle"), "pool-2": box("pool-2", "provisioning") });
+  assert.throws(() => startClaim({ ...body, pool: "pool-2" }), /pool-2 is being provisioned; it can't be woken now/);
+  // --any skips it too: only pool-1 counts as idle.
+  assert.deepEqual(poolStatus().boxes.map((b) => b.status), ["idle", "provisioning"]);
+  script("claim.sh", `echo "claiming $1 (paseo-$1)"\necho "error: pool-1 is marked claimed in pool-state.json, but the claim marker is absent." >&2\nexit 1`);
+  let reached = false;
+  POOL_DEPS.online = async () => {
+    reached = true;
+    throw new Error("not reached");
+  };
+  startClaim({ ...body, pool: "pool-1" });
+  const done = await finished();
+  assert.equal(done.phase, "failed");
+  assert.match(done.error ?? "", /claim marker is absent/);
+  assert.equal(reached, false);
+});
+
+test("a woken box whose host doesn't come online fails clearly", async () => {
+  POOL_DEPS.online = async () => {
+    throw new Error("pool-2 was claimed but its Paseo host didn't come online within 90 s. Check it with status.sh.");
+  };
+  let dispatched = false;
+  POOL_DEPS.dispatch = async () => {
+    dispatched = true;
+    return {} as never;
+  };
+  startClaim({ ...body, pool: "pool-2" });
+  const done = await finished();
+  assert.equal(done.phase, "failed");
+  assert.match(done.error ?? "", /didn't come online within 90 s/);
+  assert.equal(dispatched, false);
+});

@@ -281,3 +281,84 @@ test("archiving a workspace on a host that isn't a pool box releases nothing", a
   assert.equal(posted("/api/pool/release").length, 0);
   await context.close();
 });
+
+/** pool-1 released (asleep: its host offline) beside an offline ordinary host. */
+const asleep = [
+  { serverId: "srv_local", label: "Studio", status: "online", local: true, state: "online" },
+  { serverId: "srv_pool1", label: "pool-1", status: "offline", local: false, state: "offline", error: "Cannot reach host" },
+  { serverId: "srv_macmini", label: "macmini", status: "offline", local: false, state: "offline" },
+];
+const idleStatus = (job: unknown = null) => ({
+  ...status(job),
+  boxes: [{ id: "pool-1", label: "pool-1", status: "idle" }],
+});
+
+async function wakeScene(outcome: "done" | "failed") {
+  const context = await newContext(browser);
+  const page = await context.newPage();
+  const posts: { path: string; body: any }[] = [];
+  const lists: Record<string, unknown> = { settings, pool: idleStatus() };
+  const job = { id: "pjw", kind: "claim", phase: "claiming", pool: "pool-1", wake: true, steps: ["Wake sprite"], startedAt: 1 };
+  await mockApi(page, {
+    agents: () => [],
+    hosts: () => asleep,
+    lists,
+    accept: (path, body) => {
+      posts.push({ path, body });
+      if (path !== "/api/pool/claim") return false;
+      lists.pool = idleStatus(job);
+      setTimeout(() => {
+        lists.pool = idleStatus(
+          outcome === "done"
+            ? { ...job, phase: "done", agentId: "a-woken", host: "srv_pool1" }
+            : { ...job, phase: "failed", error: "pool-1 was claimed but its Paseo host didn't come online within 90 s." },
+        );
+      }, 1500);
+      return { job };
+    },
+  });
+  await page.goto(app.url);
+  await page.locator("body").press("d");
+  return { context, page, posts, form: page.locator(".new-agent") };
+}
+
+test("an asleep pool host can be picked: sending wakes it by name, then starts the agent", async () => {
+  const { context, page, posts, form } = await wakeScene("done");
+  const pool1 = form.locator("select[name=host] option[value=srv_pool1]");
+  await waitFor(() => pool1.textContent(), (t) => t === "pool-1 · asleep, will wake", "the asleep pool host");
+  assert.equal(await pool1.getAttribute("disabled"), null);
+  // An ordinary host that's offline stays disabled.
+  const mac = form.locator("select[name=host] option[value=srv_macmini]");
+  assert.equal(await mac.getAttribute("disabled"), "");
+  assert.match((await mac.textContent()) ?? "", /^macmini · offline/);
+  await form.locator("select[name=host]").selectOption("srv_pool1");
+  assert.match((await form.locator(".form-hint").textContent()) ?? "", /pool-1 is asleep: sending wakes it \(claim\.sh pool-1\).*\/srv\/app/);
+  await form.locator("#composer").fill("Say what diagonal is");
+  await form.getByRole("button", { name: "Send message" }).click();
+  await waitFor(() => Promise.resolve(posts.filter((p) => p.path === "/api/pool/claim").length), (n) => n === 1, "the wake");
+  const claim = posts.find((p) => p.path === "/api/pool/claim")!.body;
+  assert.equal(claim.pool, "pool-1");
+  assert.equal(claim.host, undefined, "the box is named, not its (asleep) host");
+  await waitFor(() => form.locator(".new-agent-pool").textContent(), (t) => !!t?.includes("Waking pool-1…"), "the progress");
+  await waitFor(() => page.locator(".new-agent").count(), (n) => n === 0, "the agent to open");
+  await waitFor(() => page.locator(".toast-stack").textContent(), (t) => !!t?.includes("Agent started on pool-1"), "the notice");
+  assert.equal(posts.filter((p) => p.path === "/api/dispatch").length, 0, "dispatched by the server, after the wake");
+  await context.close();
+});
+
+test("a wake that fails says why and starts nothing", async () => {
+  const { context, posts, form } = await wakeScene("failed");
+  await waitFor(() => form.locator("select[name=host] option[value=srv_pool1]").textContent(), (t) => t === "pool-1 · asleep, will wake", "the asleep pool host");
+  await form.locator("select[name=host]").selectOption("srv_pool1");
+  await form.locator("#composer").fill("Say what diagonal is");
+  await form.getByRole("button", { name: "Send message" }).click();
+  await waitFor(
+    () => form.locator("[role=alert]").textContent(),
+    (t) => !!t?.includes("Couldn't start the agent on pool-1: pool-1 was claimed but its Paseo host didn't come online within 90 s."),
+    "the error",
+  );
+  // The message is back to try again.
+  await waitFor(() => form.locator("#composer").inputValue(), (v) => v === "Say what diagonal is", "the message back");
+  assert.equal(posts.filter((p) => p.path === "/api/dispatch").length, 0);
+  await context.close();
+});

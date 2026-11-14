@@ -13,6 +13,9 @@ import {
   poolBoxPrompt,
   envValue,
   poolCheckoutOf,
+  claimable,
+  idleBoxes,
+  unclaimableWhy,
   checkoutClean,
   releaseWarning,
   boxIdle,
@@ -136,4 +139,20 @@ test("releaseWarning says what releasing discards", () => {
   );
   assert.equal(boxIdle({ workspaces: 0, agents: 0 }), true);
   assert.equal(boxIdle({ workspaces: 0, agents: 1 }), false);
+});
+
+test("boxes being provisioned or failed are neither idle nor wakeable", () => {
+  const boxes = poolBoxes({
+    boxes: {
+      "pool-1": { label: "pool-1", status: "idle" },
+      "pool-2": { label: "pool-2", status: "provisioning" },
+      "pool-3": { label: "pool-3", status: "failed" },
+      "pool-4": { label: "pool-4", status: "claimed" },
+    },
+  });
+  assert.deepEqual(boxes.map((b) => b.status), ["idle", "provisioning", "failed", "claimed"]);
+  assert.deepEqual(idleBoxes(boxes).map((b) => b.id), ["pool-1"]);
+  assert.deepEqual(boxes.filter(claimable).map((b) => b.id), ["pool-1", "pool-4"]);
+  assert.equal(unclaimableWhy(boxes[1]), "pool-2 is being provisioned");
+  assert.match(unclaimableWhy(boxes[2]), /failed its last provision/);
 });
