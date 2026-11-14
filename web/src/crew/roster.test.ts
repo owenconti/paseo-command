@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import type { AtlasData } from "../model/fleet";
-import { buildRoster, hostAgents, projectAgents, stateTally } from "./roster";
+import { buildRoster, hostAgents, hostSpans, projectAgents, stateTally } from "./roster";
 import { SHEET_SIZE, droneColors, frameOf, medalsOf, robotColorOf, robotFrames } from "./sheets";
 
 const data: AtlasData = {
@@ -98,4 +98,16 @@ test("a folded host's or project's tally counts its agents by state, most urgent
   ]);
   assert.deepEqual(stateTally([{ state: "running" }, { state: "running" }]), [{ state: "running", count: 2 }]);
   assert.deepEqual(stateTally([]), []);
+});
+
+test("hosts and projects span only the columns their cards need, at most the map's", () => {
+  const local = buildRoster(data).hosts[0]!;
+  const open = () => false;
+  // App: older has 2 robots (a1, a3), newer 1 (a2): 3 columns. website: main (1) and its agent without a workspace (1): 2.
+  assert.deepEqual(hostSpans(local, 8, open), { span: 5, projects: { "p-app": 3, "p-web": 2 }, loose: 0 });
+  // Never wider than the map.
+  assert.deepEqual(hostSpans(local, 2, open), { span: 2, projects: { "p-app": 2, "p-web": 2 }, loose: 0 });
+  // Folded, a project takes one column, and a host one.
+  assert.deepEqual(hostSpans(local, 8, (k) => k === "p-app"), { span: 3, projects: { "p-app": 1, "p-web": 2 }, loose: 0 });
+  assert.deepEqual(hostSpans(local, 8, (k) => k === "local"), { span: 1, projects: {}, loose: 0 });
 });

@@ -804,7 +804,9 @@ the component Crew's drawer is.
   panels in one grid of equal columns for every row (oldest first; `--crew-cols`, as many one-robot cards as fit,
   `columnsFor`, measured as the map resizes; each card spans as many columns as it has robots, at most all of them, never
   following its text's length; `grid-auto-flow: dense`; a row's panels one height, as are all nodes: a name keeps two
-  lines' room). A workspace's head opens it and carries its CI, review, Probe and auto-merge medallions, each with a hover
+  lines' room). The grid is the whole map's (`.crew-hosts`); hosts, projects and their cards are CSS subgrids of it, a
+  project spanning the columns its cards need and a host its projects' (`hostSpans` in `roster.ts`; folded, one), so small
+  hosts and projects sit side by side rather than each taking a row (the user's ask: everything at once). A workspace's head opens it and carries its CI, review, Probe and auto-merge medallions, each with a hover
   tooltip (`data-summary`: its name and `flagTip`'s facts, else its description; the seal `autoMergeLine`), and Archive
   beside it (shown on hover or focus; the app's confirmation, `openArchive`; a pool box's last workspace releases the
   box, src/poolArchive.ts). A claimed pool box's host head has Release (`.crew-head-action`, its confirmation;

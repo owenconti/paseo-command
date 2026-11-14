@@ -78,3 +78,28 @@ export function stateTally(agents: readonly { state: State }[]): { state: State;
 export const projectAgents = (p: RosterProject) => [...p.workspaces.flatMap((w) => w.agents), ...p.loose];
 /** A host's agents, in all its projects and outside them. */
 export const hostAgents = (h: RosterHost) => [...h.projects.flatMap(projectAgents), ...h.loose];
+
+/** How many of the map's columns each group takes: a host's, its projects', its cards'. */
+export type HostSpans = { span: number; projects: Record<string, number>; loose: number };
+
+/**
+ * Hosts and projects take only the columns their cards need, so small ones sit side by side rather than each
+ * taking a row: a card spans its robots (at most `cols`), a project its cards (and its agents without a
+ * workspace), a host its projects and loose agents; each at most `cols`. A folded host or project takes one.
+ */
+export function hostSpans(h: RosterHost, cols: number, shut: (key: string) => boolean): HostSpans {
+  const cap = (n: number) => Math.max(1, Math.min(cols, n));
+  const card = (agents: number) => cap(agents);
+  if (shut(h.key)) return { span: 1, projects: {}, loose: 0 };
+  const projects: Record<string, number> = {};
+  let sum = 0;
+  for (const p of h.projects) {
+    const span = shut(p.key)
+      ? 1
+      : cap(p.workspaces.reduce((n, w) => n + card(w.agents.length), 0) + (p.loose.length ? card(p.loose.length) : 0));
+    projects[p.key] = span;
+    sum += span;
+  }
+  const loose = h.loose.length ? card(h.loose.length) : 0;
+  return { span: cap(sum + loose), projects, loose };
+}

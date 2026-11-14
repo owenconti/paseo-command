@@ -10,7 +10,7 @@ import { after, before, test } from "node:test";
 import assert from "node:assert/strict";
 import type { Browser, Page } from "playwright";
 import { detailOf, launch, mockApi, newContext, startApp, waitFor } from "./harness";
-import { dungeon } from "./fleets";
+import { dungeon, sideBySide } from "./fleets";
 
 let app: Awaited<ReturnType<typeof startApp>>;
 let browser: Browser;
@@ -291,9 +291,11 @@ test("cards keep to one grid of equal columns, each spanning its robots, no row 
       const bad: string[] = [];
       const cols = Number(getComputedStyle(document.querySelector(".crew-board")!).getPropertyValue("--crew-cols"));
       let one = 0;
+      // Every group keeps to the board's columns.
+      const board = document.querySelector(".crew-hosts")!.getBoundingClientRect();
+      const col = (board.width - (cols - 1) * 14) / cols;
       for (const g of document.querySelectorAll(".crew-workspaces")) {
         const box = g.getBoundingClientRect();
-        const col = (box.width - (cols - 1) * 14) / cols;
         const cards = [...g.querySelectorAll<HTMLElement>(":scope > .crew-ws")].map((c) => ({
           label: c.getAttribute("aria-label"),
           n: Math.max(1, c.querySelectorAll(".crew-node").length),
@@ -364,6 +366,42 @@ test("a folded project or host shows its agents' states as a tally on its head",
   const total = (await hostTally.allTextContents()).reduce((n, t) => n + Number(t), 0);
   assert.ok(total >= all, `${total} counted, ${all} on show before folding (its folded project's too)`);
   assert.match((await host.locator(".crew-tally").getAttribute("aria-label"))!, /^\d+ /);
+  await page.context().close();
+});
+
+test("small hosts and projects sit side by side, each taking only the columns its cards need", async () => {
+  const page = await open({ fleet: sideBySide });
+  await page.setViewportSize({ width: 1730, height: 1000 });
+  await map(page).locator(".crew-node").first().waitFor();
+  const boxes = async () =>
+    page.evaluate(() => {
+      const hosts = [...document.querySelectorAll(".crew-hosts > .crew-host")].map((h) => ({
+        name: h.getAttribute("aria-label"),
+        top: Math.round(h.getBoundingClientRect().top),
+        left: Math.round(h.getBoundingClientRect().left),
+        right: Math.round(h.getBoundingClientRect().right),
+        projects: [...h.querySelectorAll(":scope > .crew-project")].map((p) => ({ name: p.getAttribute("aria-label"), top: Math.round(p.getBoundingClientRect().top), left: Math.round(p.getBoundingClientRect().left), width: Math.round(p.getBoundingClientRect().width) })),
+      }));
+      const cards = [...document.querySelectorAll(".crew-ws")].map((c) => Math.round(c.getBoundingClientRect().width));
+      return { hosts, cards };
+    });
+  const wide = await boxes();
+  const [local, lab] = wide.hosts;
+  // This Mac's two one-card projects side by side, and the lab beside this Mac.
+  assert.equal(local!.projects.length, 2);
+  assert.equal(local!.projects[0]!.top, local!.projects[1]!.top, "this Mac's projects on one row");
+  assert.ok(local!.projects[1]!.left > local!.projects[0]!.left);
+  assert.equal(lab!.top, local!.top, "the hosts on one row");
+  assert.ok(lab!.left >= local!.right, "the lab beside this Mac");
+  // Every card one column wide, whatever group it's in.
+  assert.ok(Math.max(...wide.cards) - Math.min(...wide.cards) <= 1, `cards: ${wide.cards}`);
+  // Folding a host makes it one column: the next sits beside it.
+  await page.locator(".crew-host[data-host] .crew-host-head .crew-fold").first().click();
+  await waitFor(boxes, (b) => b.hosts[0]!.right - b.hosts[0]!.left <= wide.cards[0]! + 1, "the folded host one column wide");
+  // Narrower, a host that doesn't fit beside another goes beneath it.
+  await page.locator(".crew-host[data-host] .crew-host-head .crew-fold").first().click();
+  await page.setViewportSize({ width: 1100, height: 1000 });
+  await waitFor(boxes, (b) => b.hosts[1]!.top > b.hosts[0]!.top, "the lab beneath this Mac");
   await page.context().close();
 });
 

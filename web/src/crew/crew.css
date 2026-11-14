@@ -313,14 +313,18 @@
 .crew-host[data-offline] .crew-ws {
   opacity: 0.75;
 }
-.crew-project {
-  margin-top: 14px;
-}
 .crew-project-head {
   display: flex;
   align-items: center;
   gap: 2px;
+  min-width: 0;
   margin-bottom: 8px;
+}
+.crew-head.project {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .crew-head {
   display: flex;
@@ -344,14 +348,57 @@
   font-weight: var(--fw-semibold);
   color: var(--text-strong);
 }
-/* One grid of equal columns for every row (`--crew-cols`, from the map's width and a one-robot card's: CrewMap.tsx
-   `columnsFor`), each card spanning as many columns as it has robots (`--crew-n`, at most all of them), never its text's
-   length; cards fill holes left earlier (dense), so only a row's end may stay open; a row's cards one height. Inside,
-   the tiles grow to fill their card. */
-.crew-workspaces {
+/* One grid of equal columns for the whole map (`--crew-cols`, from the map's width and a one-robot card's: CrewMap.tsx
+   `columnsFor`). Hosts, their projects and the projects' cards are subgrids of it, so every card keeps to the same
+   columns: a card spans as many as it has robots (at most all of them), never its text's length; a project the
+   columns its cards need, a host its projects' (`hostSpans` in roster.ts). So small hosts and projects sit side by
+   side rather than each taking a row; at each level items fill holes left earlier (dense), so only a row's end may
+   stay open. A row's cards are one height; inside, the tiles grow to fill their card. */
+.crew-hosts {
   --crew-tile: 198px;
   display: grid;
   grid-template-columns: repeat(var(--crew-cols, 1), minmax(0, 1fr));
+  grid-auto-flow: row dense;
+  align-items: start;
+  column-gap: 14px;
+  row-gap: 26px;
+  margin-top: 22px;
+}
+.crew-hosts > .crew-host {
+  margin-top: 0;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: subgrid;
+  grid-auto-flow: row dense;
+  align-items: start;
+  column-gap: 14px;
+  row-gap: 18px;
+}
+.crew-hosts .crew-host-head {
+  grid-column: 1 / -1;
+  min-width: 0;
+  margin: 0;
+}
+.crew-hosts .crew-host-head .crew-fold {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.crew-project {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: subgrid;
+  column-gap: 14px;
+}
+.crew-project-head {
+  grid-column: 1 / -1;
+}
+.crew-workspaces {
+  grid-column: 1 / -1;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: subgrid;
   grid-auto-flow: row dense;
   align-items: stretch;
   gap: 14px;
@@ -885,7 +932,7 @@
     min-width: 0;
     width: 100%;
   }
-  .crew-workspaces {
+  .crew-hosts {
     --crew-tile: 192px;
   }
   .crew-stage-place {
@@ -915,7 +962,7 @@
 /* Without room for the tall tiles side by side (the map narrowed by the conversation beside it, a small window), each
    tile lies on its side: the robot smaller on the left, its name and state beside it; wider, and much shorter. */
 @container crew-board (max-width: 960px) {
-  .crew-workspaces {
+  .crew-hosts {
     --crew-tile: 300px;
   }
   .crew-node {

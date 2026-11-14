@@ -19,7 +19,7 @@ import { placeText } from "../names";
 import { workspaceKey } from "../workspaces";
 import type { Selection, Workspace } from "../types";
 import type { WorkSummaries } from "../useWorkingOn";
-import { buildRoster, hostAgents, projectAgents, stateTally, type RosterAgent } from "./roster";
+import { buildRoster, hostAgents, hostSpans, projectAgents, stateTally, type RosterAgent } from "./roster";
 import { CrewDetail } from "./CrewDetail";
 import { Medals, Portrait, useCrewData, type CrewFleet } from "./parts";
 import "./crew.css";
@@ -92,7 +92,7 @@ export function CrewMap(props: Props) {
     const node = board.current;
     if (!node || typeof ResizeObserver === "undefined") return;
     const measure = () => {
-      const grid = node.querySelector<HTMLElement>(".crew-workspaces");
+      const grid = node.querySelector<HTMLElement>(".crew-hosts");
       if (!grid) return;
       const tile = parseFloat(getComputedStyle(grid).getPropertyValue("--crew-tile")) || 198;
       setCols(columnsFor(grid.clientWidth, tile));
@@ -308,10 +308,12 @@ export function CrewMap(props: Props) {
             }}
           />
         )}
+        <div className="crew-hosts">
         {roster.hosts.map((h) => {
           const hostShut = collapsed.includes(h.key);
+          const spans = hostSpans(h, cols, (k) => collapsed.includes(k));
           return (
-            <section key={h.key} className="crew-host" data-host={h.key} data-offline={!h.online || undefined} aria-label={h.name}>
+            <section key={h.key} className="crew-host" data-host={h.key} data-offline={!h.online || undefined} aria-label={h.name} style={{ gridColumn: `span ${spans.span}` }}>
               <h3 className="crew-host-head">
                 <button className="crew-fold" aria-expanded={!hostShut} onClick={() => toggle(h.key)}>
                   <ChevronDown size={14} aria-hidden="true" />
@@ -343,7 +345,7 @@ export function CrewMap(props: Props) {
                   {h.projects.map((p) => {
                     const shut = collapsed.includes(p.key);
                     return (
-                      <section key={p.key} className="crew-project" aria-label={p.name}>
+                      <section key={p.key} className="crew-project" aria-label={p.name} style={{ gridColumn: `span ${spans.projects[p.key] ?? 1}` }}>
                         <div className="crew-project-head">
                           <button className="crew-fold small" aria-expanded={!shut} aria-label={`${shut ? "Show" : "Hide"} ${p.name}`} onClick={() => toggle(p.key)}>
                             <ChevronDown size={14} aria-hidden="true" />
@@ -389,12 +391,17 @@ export function CrewMap(props: Props) {
                       </section>
                     );
                   })}
-                  {h.loose.length > 0 && <div className="crew-workspaces">{camp(h.loose)}</div>}
+                  {h.loose.length > 0 && (
+                    <div className="crew-project loose" style={{ gridColumn: `span ${spans.loose}` }}>
+                      <div className="crew-workspaces">{camp(h.loose)}</div>
+                    </div>
+                  )}
                 </>
               )}
             </section>
           );
         })}
+        </div>
         {filter && !roster.hosts.length && <p className="crew-none">No agent matches “{filter}”.</p>}
       </div>
       {open && (

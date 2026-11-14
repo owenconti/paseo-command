@@ -380,6 +380,21 @@ export const sparse: Fleet = buildRows(SPARSE, [
   { serverId: "srv_local", label: "LOCAL", status: "online", local: true, state: "online" },
   { serverId: "srv_lab", label: "DIAGONAL-LAB-1", status: "online", local: false, state: "online" },
 ]);
+/** sideBySide: shaped like the user's fleet that asked for groups side by side: two hosts; this Mac's two projects of one
+ * workspace each, the lab's project of three. */
+export const sideBySide: Fleet = buildRows(
+  [
+    ["srv_local", "diagonal-hq/diagonal", "DE-8380 · Commit Brand Kit", [["claude/claude-opus-5-5", "running"]]],
+    ["srv_local", "paseo-command", "main", [["claude/claude-opus-5-5", "running"]]],
+    ["srv_lab", "diagonal-hq/diagonal-lab", "DE-8376 · Commit edits", [["claude/claude-opus-5-5", "running"]]],
+    ["srv_lab", "diagonal-hq/diagonal-lab", "DE-8387 · Commit test suite", [["claude/claude-opus-5-5", "running"]]],
+    ["srv_lab", "diagonal-hq/diagonal-lab", "DE-7669 · Evaluate moving", [["claude/claude-opus-5-5", "running"]]],
+  ],
+  [
+    { serverId: "srv_local", label: "LOCAL", status: "online", local: true, state: "online" },
+    { serverId: "srv_lab", label: "DIAGONAL-LAB-1", status: "online", local: false, state: "online" },
+  ],
+);
 const prItems = (n: number, kind: string) => Array.from({ length: Math.min(n, 12) }, (_, i) => ({ title: `${kind} change ${i + 1}`, repo: "diagonal/app", number: 100 + i, url: `https://github.com/diagonal/app/pull/${100 + i}` }));
 const issueItems = (n: number, kind: string) => Array.from({ length: Math.min(n, 12) }, (_, i) => ({ id: `DE-${i + 1}`, title: `${kind} issue ${i + 1}`, url: `https://linear.app/diagonal/issue/DE-${i + 1}` }));
 /** The Dungeon Board vault's dashboard counts, for `GET /api/github/q/prCounts` and `GET /api/linear/issue-counts`. */
