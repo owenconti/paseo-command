@@ -62,7 +62,7 @@ import {
   releaseAfterArchive,
   type ReleaseAsk,
 } from "./poolArchive";
-import { idleBoxes, jobRunning, jobText, type PoolBox } from "./pool";
+import { freeIdleBoxes, jobOnBox, jobText, runningJobs, type PoolBox } from "./pool";
 import {
   dismissArchive,
   isArchiving,
@@ -405,7 +405,8 @@ function App() {
   // Pool boxes (src/pool.ts): claimed from New agent, released from its host in the crew.
   const pool = usePool(integrations.pool);
   const poolBoxes = integrations.pool && pool?.enabled && !pool.problem ? pool.boxes : [];
-  const poolJob = jobRunning(pool?.job) ? pool!.job : null;
+  // Claims and releases run side by side, one a box.
+  const poolRunning = runningJobs(pool);
   useEffect(
     () =>
       onPoolJobEnd((job) => {
@@ -416,7 +417,8 @@ function App() {
     [],
   );
   const openReleasePool = (box: PoolBox) => {
-    if (poolJob) return setNotice(jobText(poolJob));
+    const busy = jobOnBox(poolRunning, box.id);
+    if (busy) return setNotice(jobText(busy));
     setReleaseBox(box);
   };
   // Archiving a pool box's last workspace releases it, asking first when its checkout had unpushed work.
@@ -1573,7 +1575,7 @@ function App() {
       run: () => openDispatch(),
     },
     // A pool box (Settings → Pool boxes): New agent on a new one, and releasing each claimed one.
-    ...(poolBoxes.length && !poolJob && idleBoxes(poolBoxes).length
+    ...(poolBoxes.length && freeIdleBoxes(poolBoxes, poolRunning).length
       ? [
           {
             id: "new-agent-pool",
@@ -1585,9 +1587,8 @@ function App() {
           },
         ]
       : []),
-    ...(!poolJob
-      ? poolBoxes
-          .filter((b) => b.status === "claimed")
+    ...poolBoxes
+          .filter((b) => b.status === "claimed" && !jobOnBox(poolRunning, b.id))
           .map((b) => ({
             id: `release-pool-${b.id}`,
             group: "Actions",
@@ -1595,8 +1596,7 @@ function App() {
             label: `Release pool box “${b.label}”…`,
             keywords: "pool box sprite restore unclaim",
             run: () => openReleasePool(b),
-          }))
-      : []),
+          })),
     {
       id: "add-project",
       group: "Actions",
@@ -2852,7 +2852,7 @@ function App() {
                 onAddProject={addProject}
                 onArchive={(w) => openArchive(w, true)}
                 archiving={archiving}
-                {...(poolBoxes.length ? { pool: { boxes: poolBoxes, job: poolJob, jobs: pool?.jobs ?? [], release: openReleasePool } } : {})}
+                {...(poolBoxes.length ? { pool: { boxes: poolBoxes, running: poolRunning, release: openReleasePool } } : {})}
                 {...(crewBrowsing ? { browser: { shown: browserShown, tabs: agentBrowser?.tabs.length ?? 0, toggle: toggleBrowser } } : {})}
               />
             )}

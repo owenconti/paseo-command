@@ -6,10 +6,12 @@
  * - Opt-in (`integrations.pool` in settings.json); the scripts' folder is
  *   `pool.dir` there. Everything else is paseo-boxes' own: the boxes from its
  *   `pool-state.json`, the checkout from `BOX_REPO_PATH` in its `config.env`
- *   (never secrets.env or private/). The server runs `claim.sh --any` and
+ *   (never secrets.env or private/). The server runs `claim.sh pool-N` and
  *   `release.sh pool-N` only, never a shell, and never provision-named.sh.
- * - One job at a time (claims would race for the same idle box). The page
- *   polls `GET /api/pool` for it, but the job is the server's: the claim, the
+ * - Jobs run side by side, one a box: a new box's claim reserves the first idle
+ *   box no job is on and names it to claim.sh (whose `--any` would pick the same
+ *   idle box for two claims at once). The page
+ *   polls `GET /api/pool` for them, but each job is the server's: the claim, the
  *   wait for the host and the dispatch run here whether or not any page
  *   watches, and recent claims (with how they ended) are kept, also in the
  *   data folder's `pool-jobs.json`, so a page opened later still sees them.
@@ -286,8 +288,12 @@ function save() {
   }
 }
 
-/** The running job, else the last one. */
+/** The newest job (running or not). */
 const latest = () => list()[0] ?? null;
+/** Every job running now, newest first. */
+const running = () => list().filter(jobRunning);
+/** The job running on a box, if any. */
+const jobOn = (pool: string) => running().find((j) => j.pool === pool);
 
 /** For tests: forget the jobs (and the record of them). */
 export function resetPool(opts: { keepFile?: boolean } = {}) {
@@ -306,7 +312,7 @@ const shownJobs = () => list().filter((j) => j.kind === "claim" && !j.dismissed)
 export function poolStatus(): PoolStatus {
   const s = settings();
   if (!integrationEnabled("pool"))
-    return { enabled: false, problem: "", settings: s, checkout: "", repo: "", boxes: [], job: copy(latest()), jobs: shownJobs() };
+    return { enabled: false, problem: "", settings: s, checkout: "", repo: "", boxes: [], job: copy(latest()), jobs: shownJobs(), running: running().map((j) => copy(j)!) };
   const found = scripts(s);
   return {
     enabled: true,
@@ -317,16 +323,12 @@ export function poolStatus(): PoolStatus {
     boxes: found.boxes ?? [],
     job: copy(latest()),
     jobs: shownJobs(),
+    running: running().map((j) => copy(j)!),
   };
 }
 
 function ready() {
   if (!integrationEnabled("pool")) throw new Error("Turn on Pool boxes in Settings first.");
-  const current = latest();
-  if (jobRunning(current))
-    throw new Error(
-      current!.kind === "claim" ? "A pool box is being claimed already." : "A pool box is being released.",
-    );
   const s = settings();
   const found = scripts(s);
   if (found.problem) throw new Error(found.problem);
@@ -400,14 +402,20 @@ export function startClaim(input: Body) {
     if (!target) throw new Error(`${named} isn't in pool-state.json.`);
     const why = unclaimableWhy(target);
     if (why) throw new Error(`${why}; it can't be woken now.`);
+    const busy = jobOn(named);
+    if (busy) throw new Error(`${busy.kind === "claim" ? `${named} is being claimed already` : `${named} is being released`}; try again once that's done.`);
     wake = named;
-  } else if (!idleBoxes(boxes).length) throw new Error("Every pool box is claimed. Release one first.");
+  }
+  // A new box: the first idle one no other job has reserved.
+  const pick = wake ? undefined : idleBoxes(boxes).find((b) => !jobOn(b.id));
+  if (!wake && !pick)
+    throw new Error(idleBoxes(boxes).length ? "Every idle pool box is being claimed already. Try again once one is free." : "Every pool box is claimed. Release one first.");
   const where = body.pr
     ? `a worktree on pull request #${String(body.pr).slice(0, 10)}`
     : typeof body.branch === "string"
       ? `a worktree on branch ${body.branch.slice(0, 120)}`
       : "the checkout";
-  const job = begin("claim", "claiming", wake, {
+  const job = begin("claim", "claiming", wake ?? pick!.id, {
     ...(wake ? { wake: true } : {}),
     title: claimTitle(body.prompt),
     where,
@@ -419,8 +427,7 @@ export function startClaim(input: Body) {
 async function claim(job: PoolJob, body: Body, dir: string, checkout: string) {
   try {
     // Exits 0 once claimed, or when the box was claimed already (its claim marker there); 1 otherwise.
-    const args = job.wake && job.pool ? [job.pool] : ["--any"];
-    await POOL_DEPS.runScript(join(dir, "claim.sh"), args, dir, POOL.claimMs, follow(job));
+    await POOL_DEPS.runScript(join(dir, "claim.sh"), [job.pool!], dir, POOL.claimMs, follow(job));
   } catch (error) {
     return failed(job, error, "claim.sh");
   }
@@ -531,6 +538,8 @@ export function startRelease(body: Body) {
   const box = boxes.find((b) => b.id === pool);
   if (!box) throw new Error(`${pool} isn't in pool-state.json.`);
   if (box.status !== "claimed") throw new Error(`${pool} isn't claimed.`);
+  const busy = jobOn(pool);
+  if (busy) throw new Error(busy.kind === "release" ? `${pool} is being released already.` : `${pool} is being claimed; release it once that's done.`);
   const job = begin("release", "releasing", pool);
   void (async () => {
     try {

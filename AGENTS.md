@@ -271,7 +271,9 @@ and GitHub publication; report the published version and release link.
   of truth for the rest: the boxes from its `pool-state.json` (each box's id, label, claimed state and `base_domain`; never written), the
   checkout from `BOX_REPO_PATH` in its `config.env` (`envValue`; an absolute path on the box, never `~/…`). `secrets.env` and `private/` are
   never read, and `provision-named.sh` never run. `GET /api/pool` (`web/src/poolStore.ts`, polled every second while a job runs): the boxes,
-  the checkout, why it can't work yet, and the job. One job at a time. The job is the server's: claim, wait and dispatch
+  the checkout, why it can't work yet, the newest job and every job running (`running`, `runningJobs`). Jobs run side by side,
+  one a box (`jobOnBox`): New agent stays usable while its claim runs (its progress shown, "You can start another agent below"),
+  and each claim it sends is kept with its message (`dispatch-pool-job`, a list). The jobs are the server's: claim, wait and dispatch
   run there whatever the page does, and recent claims (`jobs`: title, where, phase, how each ended) are kept, also in the data
   folder's `pool-jobs.json` (one the server stopped during reads as failed, saying so), so leaving New agent or reloading loses
   nothing. Crew's Pool boxes section, above its hosts (`web/src/crew/PoolBoxes.tsx`, `boxView` in `pool.ts`; folded as
@@ -284,7 +286,8 @@ and GitHub publication; report the published version and release link.
   is claimed and online (`dispatchFailure`; gh's auth failure names `gh auth status`). New agent's Host has
   "New pool box · N idle" (`POOL`, `poolOption` in `Dispatch.tsx`; disabled with why when none is idle): its place is the box's checkout
   (Local, or Worktree with a branch or a pull request's branch), Claude only, no /skills; the first message is `POST /api/pool/claim`, checked first
-  (`checkPoolDispatch`), which answers at once and runs `claim.sh --any` (the fast claim, never `--up`: the user's call; the agent can run
+  (`checkPoolDispatch`), which answers at once, reserves the first idle box no job is on (`freeIdleBoxes`; claim.sh's `--any` would give
+  two claims at once the same box, as it marks the box claimed only partway) and runs `claim.sh pool-N` for it (the fast claim, never `--up`: the user's call; the agent can run
   `paseo-box-up`), then waits for the Paseo host labelled as the box to be online (`POOL.onlineMs`), then dispatches into the checkout
   (`poolDispatch` in `commands.ts`, as a directory or worktree workspace, so the daemon needn't have it registered), asked again only while
   nothing was issued. A pool box's host that's offline because the box is asleep (released: the Sprite paused, its daemon down
@@ -292,8 +295,8 @@ and GitHub publication; report the published version and release link.
   disabled, and so does a box being provisioned or failed, `unclaimableWhy`): New agent then works as for a new pool box, but its
   first message names the box (`POST /api/pool/claim {pool}`: `claim.sh pool-N`, "Waking pool-N…"; a box claimed but unreachable is
   claimed again, which claim.sh confirms), then waits up to `POOL.onlineMs` (90 s) after claim.sh exits 0 for the host, then dispatches
-  by its serverId. Box states are paseo-boxes' (`idle`, `claimed`, `provisioning`, `failed`); only `idle` counts for "New pool box"
-  (`--any` skips the rest). The agent's system prompt gains `poolBoxPrompt`: the box, its checkout, that the app stack is down until it runs
+  by its serverId. Box states are paseo-boxes' (`idle`, `claimed`, `provisioning`, `failed`); only `idle` boxes no job is on count for
+  "New pool box" ("N idle"; "Every idle pool box is being claimed already" when claims hold them all). The agent's system prompt gains `poolBoxPrompt`: the box, its checkout, that the app stack is down until it runs
   `paseo-box-up` (`--reseed` for fresh data; `~/PASEO-BOX.md`), the box's tailnet-only URLs, and that releasing discards the box's changes.
   Each box is registered once as Paseo host `pool-N` (by `provision-named.sh`); claims and releases never add or remove hosts, and a
   released box's daemon is down until it's claimed again. (Paseo CLI 0.15.4's `--host` takes an endpoint, not a host label: the app

@@ -90,6 +90,59 @@ test("New pool box claims a box, shows its progress, then opens the agent it sta
   await context.close();
 });
 
+test("while one claim runs, New agent still sends another, onto another idle box", async () => {
+  const context = await newContext(browser);
+  const page = await context.newPage();
+  const claims: any[] = [];
+  const boxes = [
+    { id: "pool-1", label: "pool-1", status: "claimed" },
+    { id: "pool-2", label: "pool-2", status: "idle" },
+    { id: "pool-3", label: "pool-3", status: "idle" },
+  ];
+  const running: any[] = [];
+  const pool = () => ({ ...status(running[0] ?? null), boxes, jobs: running.filter((j) => j.kind === "claim"), running: [...running] });
+  const lists: Record<string, unknown> = { settings };
+  Object.defineProperty(lists, "pool", { get: pool, enumerable: true });
+  await mockApi(page, {
+    agents: () => [],
+    hosts: () => hosts,
+    lists,
+    accept: (path, body) => {
+      if (path !== "/api/pool/claim") return false;
+      claims.push(body);
+      const id = boxes.filter((b) => b.status === "idle").find((b) => !running.some((j) => j.pool === b.id))!.id;
+      const job = { id: `pj${claims.length}`, kind: "claim", phase: "claiming", pool: id, steps: [`Claiming ${id} (paseo-${id})`], startedAt: claims.length, title: body.prompt };
+      running.unshift(job);
+      return { job };
+    },
+  });
+  await page.goto(app.url);
+  await page.locator("body").press("d");
+  const hostField = page.locator(".new-agent select[name=host]");
+  const choice = () => hostField.locator("option[value='pool:new']").textContent();
+  await waitFor(choice, (t) => t === "New pool box · 2 idle", "the New pool box choice");
+  await hostField.selectOption("pool:new");
+  const composer = page.locator(".new-agent #composer");
+  const send = page.locator(".new-agent").getByRole("button", { name: "Send message" });
+  await composer.fill("First job");
+  await send.click();
+  await waitFor(() => Promise.resolve(claims.length), (n) => n === 1, "the first claim");
+  await waitFor(() => page.locator(".new-agent .new-agent-pool").textContent(), (t) => !!t?.includes("Claiming pool-2…"), "its progress");
+  // The message box stays usable, and the choice counts the idle box left.
+  await waitFor(choice, (t) => t === "New pool box · 1 idle", "one idle box left");
+  assert.equal(await composer.isDisabled(), false, "the message box isn't disabled");
+  await composer.fill("Second job");
+  await send.click();
+  await waitFor(() => Promise.resolve(claims.length), (n) => n === 2, "the second claim");
+  assert.equal(claims[1].prompt, "Second job");
+  await waitFor(() => page.locator(".new-agent .new-agent-pool").textContent(), (t) => !!t?.includes("Claiming pool-3…"), "the second's progress");
+  // Both show in the crew, and no idle box is free for a third.
+  await waitFor(choice, (t) => t === "New pool box · none idle", "no idle box free");
+  assert.match((await hostField.locator("option[value='pool:new']").getAttribute("disabled")) ?? "no", /^$|disabled/);
+  await waitFor(() => page.locator(".pool-claim").count(), (n) => n === 2, "both claims in the crew");
+  await context.close();
+});
+
 test("a claimed pool box's host is released from its head in the crew after confirming", async () => {
   const context = await newContext(browser);
   const page = await context.newPage();

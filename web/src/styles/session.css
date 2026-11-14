@@ -1338,6 +1338,12 @@ button.agent-report-name:hover {
 .new-agent-pool li:last-child {
   color: var(--text-2, var(--text));
 }
+.new-agent-pool-more {
+  margin: 0;
+  color: var(--text-3);
+  font-size: var(--text-sm, 12px);
+  text-align: center;
+}
 
 /* Add project (AddProject.tsx): how, then a browser of the host's folders;
    the folder open is the one used. */

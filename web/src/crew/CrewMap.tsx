@@ -14,7 +14,7 @@ import { targetSelection } from "../worldBridge";
 import { readStore, writeStore } from "../api";
 import { onAppCommand } from "../appCommands";
 import { ResizeEdge } from "../ResizeEdge";
-import { claimedBoxOf, jobText, type PoolBox, type PoolJob } from "../pool";
+import { claimedBoxOf, jobOnBox, jobText, type PoolBox, type PoolJob } from "../pool";
 import { placeText } from "../names";
 import { workspaceKey } from "../workspaces";
 import type { Selection, Workspace } from "../types";
@@ -43,7 +43,7 @@ type Props = CrewFleet & {
   onArchive?: (w: Workspace) => void;
   archiving?: Set<string>;
   /** Pool boxes (Settings → Pool boxes): a claimed box's host head releases it (its confirmation). */
-  pool?: { boxes: PoolBox[]; job: PoolJob | null; jobs?: PoolJob[]; release: (box: PoolBox) => void };
+  pool?: { boxes: PoolBox[]; running: PoolJob[]; release: (box: PoolBox) => void };
 };
 
 const COLLAPSED = "crew:collapsed";
@@ -71,7 +71,7 @@ export function CrewMap(props: Props) {
   const keepHosts = new Set(
     props.pool
       ? props.hosts
-          .filter((h) => props.pool!.boxes.some((b) => b.label === h.label && (b.status === "claimed" || props.pool!.job?.pool === b.id)))
+          .filter((h) => props.pool!.boxes.some((b) => b.label === h.label && (b.status === "claimed" || !!jobOnBox(props.pool!.running, b.id))))
           .map((h) => (h.local ? "local" : h.serverId))
       : [],
   );
@@ -288,7 +288,7 @@ export function CrewMap(props: Props) {
         {props.pool && !filter && (
           <PoolBoxes
             boxes={props.pool.boxes}
-            jobs={[...(props.pool.job ? [props.pool.job] : []), ...(props.pool.jobs ?? [])]}
+            running={props.pool.running}
             hostOf={(label) => {
               const h = props.hosts.find((x) => x.label === label);
               if (!h) return undefined;
@@ -322,8 +322,8 @@ export function CrewMap(props: Props) {
                 {(() => {
                   const box = props.pool && claimedBoxOf(props.pool.boxes, hostLabel(h.key));
                   if (!box || !props.pool) return null;
-                  const job = props.pool.job;
-                  const releasing = job?.kind === "release" && job.pool === box.id;
+                  const job = jobOnBox(props.pool.running, box.id);
+                  const releasing = job?.kind === "release";
                   return (
                     <button
                       className="crew-head-action"

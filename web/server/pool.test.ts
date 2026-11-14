@@ -111,7 +111,7 @@ test("the status lists the boxes from pool-state.json, and says when the scripts
   assert.throws(() => startClaim(body), /release\.sh isn't in/);
 });
 
-test("a claim runs claim.sh --any, waits for the box's host, then dispatches into its checkout", async () => {
+test("a claim names the idle box it reserved to claim.sh, waits for the box's host, then dispatches into its checkout", async () => {
   const online: string[] = [];
   POOL_DEPS.online = async (label) => {
     online.push(label);
@@ -131,7 +131,9 @@ test("a claim runs claim.sh --any, waits for the box's host, then dispatches int
   const job = startClaim(body)!;
   assert.equal(job.kind, "claim");
   assert.equal(job.phase, "claiming");
-  assert.throws(() => startClaim(body), /being claimed already/);
+  // Reserved at once: a second claim finds no idle box free.
+  assert.equal(job.pool, "pool-2");
+  assert.throws(() => startClaim(body), /Every idle pool box is being claimed already/);
   const done = await finished();
   assert.equal(done.phase, "done", done.error);
   assert.equal(done.pool, "pool-2");
@@ -143,7 +145,7 @@ test("a claim runs claim.sh --any, waits for the box's host, then dispatches int
     "Inject secrets + marker + docker + paseo",
     "Claimed pool-2 in 14s",
   ]);
-  assert.equal(readFileSync(join(dir, "claim-args"), "utf8").trim(), "--any");
+  assert.equal(readFileSync(join(dir, "claim-args"), "utf8").trim(), "pool-2");
   assert.deepEqual(online, ["pool-2"]);
   assert.equal(tries, 2);
   assert.deepEqual(sent, [{ b: body, host: "srv_pool2", checkout: "/srv/work/app" }]);
@@ -151,6 +153,36 @@ test("a claim runs claim.sh --any, waits for the box's host, then dispatches int
   assert.match(told, /You are on pool-2.*checkout is \/srv\/work\/app/);
   assert.match(told, /paseo-box-up/);
   assert.match(told, /https:\/\/control-panel\.pool-2\.example\.com\/login/);
+});
+
+test("claims run side by side, each on its own box, and a box's job keeps other jobs off it only", async () => {
+  state({ "pool-1": box("pool-1", "claimed"), "pool-2": box("pool-2", "idle"), "pool-3": box("pool-3", "idle"), "pool-4": box("pool-4", "idle") });
+  // Each claim waits for its own go file, so they overlap.
+  script("claim.sh", `echo "claiming $1 (paseo-$1)"\nwhile [ ! -f "${dir}/go-$1" ]; do sleep 0.02; done\necho "ok: claimed $1 in 9s"`);
+  script("release.sh", `echo "releasing $1 (paseo-$1)"\nwhile [ ! -f "${dir}/go-$1" ]; do sleep 0.02; done\necho "ok: released $1 in 9s"`);
+  POOL_DEPS.online = async (label) => ({ serverId: `srv_${label}`, label, target: "t" });
+  POOL_DEPS.dispatch = async (_b, host) => ({ agentId: `agt_${host.label}` }) as never;
+  const a = startClaim(body)!;
+  const b = startClaim({ ...body, prompt: "Second" })!;
+  assert.deepEqual([a.pool, b.pool], ["pool-2", "pool-3"]);
+  // Waking pool-4 by name while the others claim; then it's taken, and nothing is idle and free.
+  const c = startClaim({ ...body, pool: "pool-4" })!;
+  assert.equal(c.pool, "pool-4");
+  assert.throws(() => startClaim(body), /Every idle pool box is being claimed already/);
+  assert.throws(() => startClaim({ ...body, pool: "pool-4" }), /pool-4 is being claimed already/);
+  // A claimed box can be released meanwhile; a box being claimed can't.
+  const r = startRelease({ pool: "pool-1" })!;
+  assert.throws(() => startRelease({ pool: "pool-1" }), /being released already/);
+  assert.deepEqual(poolStatus().running!.map((j) => j.pool).sort(), ["pool-1", "pool-2", "pool-3", "pool-4"]);
+  for (const id of ["pool-1", "pool-2", "pool-3", "pool-4"]) writeFileSync(join(dir, `go-${id}`), "");
+  for (let i = 0; i < 400 && poolStatus().running!.length; i++) await new Promise((res) => setTimeout(res, 10));
+  assert.deepEqual(poolStatus().running, []);
+  const ended = new Map(poolStatus().jobs.map((j) => [j.id, j]));
+  for (const job of [a, b, c]) {
+    assert.equal(ended.get(job.id)?.phase, "done", ended.get(job.id)?.error);
+    assert.equal(ended.get(job.id)?.agentId, `agt_${job.pool}`);
+  }
+  assert.ok(r.id);
 });
 
 test("a dispatch that was issued is never sent again", async () => {

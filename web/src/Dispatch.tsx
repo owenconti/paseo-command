@@ -41,7 +41,7 @@ import {
   formPoolJob,
   usePool,
 } from "./poolStore";
-import { boxOfLabel, claimable, idleBoxes, jobRunning, jobText, unclaimableWhy, type PoolStatus } from "./pool";
+import { boxOfLabel, claimable, freeIdleBoxes, idleBoxes, jobOnBox, jobRunning, jobText, runningJobs, unclaimableWhy, type PoolStatus } from "./pool";
 
 /** As many images as the daemon takes with a prompt. */
 const MAX_IMAGES = 10;
@@ -502,11 +502,11 @@ export function NewAgent({
     setPr(null);
     setPrText("");
   }, [target, isolation, hostKey]);
-  // The form as it is now, kept for when New agent opens again (not while a claim carries it, nor once it has
-  // started an agent: it may render again before it closes).
+  // The form as it is now, kept for when New agent opens again (not once it has started an agent: it may render
+  // again before it closes). A pool box's claim leaves it as it was, to start another.
   const finished = useRef(false);
   useEffect(() => {
-    if (poolJob || finished.current) return;
+    if (finished.current) return;
     const form: FormDraft = {
       host: hostKey,
       target,
@@ -578,13 +578,13 @@ export function NewAgent({
     forPr && prChosen && placeRepo && !sameRepo(placeRepo, forPr.repo)
       ? `${isPool ? "The pool box's checkout" : placeText(project?.name, "This project")} is ${placeRepo}, not ${forPr.repo}. Choose a checkout of ${forPr.repo}.`
       : "";
+  // Claims run side by side, one a box: only a job on the box being woken stands in the way.
+  const wakeJob = wakeBox ? jobOnBox(runningJobs(pool), wakeBox.id) : undefined;
   const blocked = !online
     ? "Paseo is offline."
-    : claiming && job
-      ? jobText(job)
-      : isPool && jobRunning(pool?.job)
-        ? jobText(pool!.job!)
-        : chosenHost?.unavailable
+    : wakeJob
+      ? jobText(wakeJob)
+      : chosenHost?.unavailable
           ? isPool
             ? `${chosenHost.reason} Choose another host.`
             : `${chosenHost.name} is ${chosenHost.reason}. Choose another host.`
@@ -992,9 +992,10 @@ export function NewAgent({
                   ))}
                 </ol>
               )}
+              <p className="new-agent-pool-more">It opens when it's ready, and shows in the crew meanwhile. You can start another agent below.</p>
             </div>
           )}
-          {presetsLoaded && !claiming && (
+          {presetsLoaded && (
             <div className="new-agent-presets" role="group" aria-label="Preset prompts">
               {presets.map((p) => {
                 const waiting = presetNeedsPr(p) && !prChosen;
@@ -1066,16 +1067,19 @@ export const POOL = "pool:new";
 /** A claim the pool status still lists (the running or last job, or a recent one). */
 function findJob(pool: PoolStatus | null, id: string) {
   if (!pool) return undefined;
-  return pool.job?.id === id ? pool.job : pool.jobs?.find((j) => j.id === id);
+  return runningJobs(pool).find((j) => j.id === id) ?? (pool.job?.id === id ? pool.job : pool.jobs?.find((j) => j.id === id));
 }
 
 export function poolOption(pool: PoolStatus | null) {
   if (!pool?.enabled) return [];
-  const idle = idleBoxes(pool.boxes).length;
+  // Idle boxes another claim hasn't taken.
+  const idle = freeIdleBoxes(pool.boxes, runningJobs(pool)).length;
   const why = pool.problem
     ? pool.problem
     : !idle
-      ? "Every pool box is claimed: release one from its host in the crew (Release)."
+      ? idleBoxes(pool.boxes).length
+        ? "Every idle pool box is being claimed already."
+        : "Every pool box is claimed: release one from its host in the crew (Release)."
       : "";
   return [
     {
@@ -1105,9 +1109,12 @@ const STATE_TEXT = {
  */
 export function wakeable(pool: PoolStatus | null) {
   if (!pool?.enabled || pool.problem) return undefined;
+  const running = runningJobs(pool);
   return (label: string): boolean | string => {
     const box = pool.boxes.find((b) => b.label === label);
     if (!box) return false;
+    const job = jobOnBox(running, box.id);
+    if (job) return job.kind === "claim" ? "being claimed" : "being released";
     return claimable(box) || unclaimableWhy(box);
   };
 }

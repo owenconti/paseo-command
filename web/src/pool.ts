@@ -120,6 +120,8 @@ export type PoolStatus = {
    * data folder's `pool-jobs.json`), not the page, so leaving New agent or reloading loses none of them.
    */
   jobs: PoolJob[];
+  /** Every job running now (claims and releases, one a box), newest first. */
+  running?: PoolJob[];
 };
 
 export const POOL_ID = /^pool-[0-9]{1,4}$/;
@@ -405,3 +407,14 @@ export function boxView(
     }
   }
 }
+
+/** Every job running now: the status's `running`, else (an older server) its job while it runs. */
+export function runningJobs(status: Pick<PoolStatus, "job" | "running"> | null | undefined): PoolJob[] {
+  if (!status) return [];
+  if (status.running) return status.running.filter(jobRunning);
+  return status.job && jobRunning(status.job) ? [status.job] : [];
+}
+/** The job running on a box, if any. */
+export const jobOnBox = (running: readonly PoolJob[], pool: string) => running.find((j) => j.pool === pool && jobRunning(j));
+/** Idle boxes no running job has reserved: what a new pool box's claim can take. */
+export const freeIdleBoxes = (boxes: PoolBox[], running: readonly PoolJob[]) => idleBoxes(boxes).filter((b) => !jobOnBox(running, b.id));

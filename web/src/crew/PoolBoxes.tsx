@@ -6,14 +6,14 @@
  */
 import { ChevronDown, RotateCcw } from "lucide-react";
 import { useEffect, useState } from "react";
-import { boxView, jobRunning, jobText, type PoolBox, type PoolJob } from "../pool";
+import { boxView, jobOnBox, type PoolBox, type PoolJob } from "../pool";
 
 export type BoxHost = { key: string; online: boolean; agents: number };
 
 export function PoolBoxes(props: {
   boxes: PoolBox[];
-  /** Claims and releases the server knows (running ones say what they're doing). */
-  jobs: PoolJob[];
+  /** Claims and releases running now, one a box. */
+  running: PoolJob[];
   /** The Paseo host registered as the box (`pool-N`), on the map. */
   hostOf: (label: string) => BoxHost | undefined;
   release: (box: PoolBox) => void;
@@ -28,7 +28,6 @@ export function PoolBoxes(props: {
     const t = setInterval(() => setNow(Date.now()), 60_000);
     return () => clearInterval(t);
   }, []);
-  const running = props.jobs.find(jobRunning) ?? null;
   const claimed = props.boxes.filter((b) => b.status === "claimed").length;
   const idle = props.boxes.filter((b) => b.status === "idle").length;
   return (
@@ -44,7 +43,7 @@ export function PoolBoxes(props: {
         <ul className="crew-pool-boxes">
           {props.boxes.map((box) => {
             const host = props.hostOf(box.label);
-            const job = props.jobs.find((j) => j.pool === box.id && jobRunning(j)) ?? null;
+            const job = jobOnBox(props.running, box.id) ?? null;
             const view = boxView(box, host, job, now);
             const canShow = !!host && box.status === "claimed";
             return (
@@ -64,8 +63,7 @@ export function PoolBoxes(props: {
                 {box.status === "claimed" && !job && (
                   <button
                     className="crew-head-action"
-                    disabled={!!running}
-                    data-tip={running ? jobText(running) : `Release pool box ${box.label}: restore it and return it to the pool`}
+                    data-tip={`Release pool box ${box.label}: restore it and return it to the pool`}
                     aria-label={`Release pool box ${box.label}`}
                     onClick={() => props.release(box)}
                   >
