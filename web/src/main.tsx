@@ -2835,7 +2835,7 @@ function App() {
                 onAddProject={addProject}
                 onArchive={(w) => openArchive(w, true)}
                 archiving={archiving}
-                {...(poolBoxes.length ? { pool: { boxes: poolBoxes, job: poolJob, release: openReleasePool } } : {})}
+                {...(poolBoxes.length ? { pool: { boxes: poolBoxes, job: poolJob, jobs: pool?.jobs ?? [], release: openReleasePool } } : {})}
                 {...(crewBrowsing ? { browser: { shown: browserShown, tabs: agentBrowser?.tabs.length ?? 0, toggle: toggleBrowser } } : {})}
               />
             )}

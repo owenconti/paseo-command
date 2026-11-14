@@ -8,6 +8,7 @@ import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type 
 import { Archive, ChevronDown, FolderPlus, Plus, RotateCcw, Search, X } from "lucide-react";
 import { STATE_NAMES, modelName, type State } from "../model/fleet";
 import { PoolClaims } from "../PoolClaims";
+import { PoolBoxes } from "./PoolBoxes";
 import { selectionKey } from "../atlasData";
 import { targetSelection } from "../worldBridge";
 import { readStore, writeStore } from "../api";
@@ -42,10 +43,12 @@ type Props = CrewFleet & {
   onArchive?: (w: Workspace) => void;
   archiving?: Set<string>;
   /** Pool boxes (Settings → Pool boxes): a claimed box's host head releases it (its confirmation). */
-  pool?: { boxes: PoolBox[]; job: PoolJob | null; release: (box: PoolBox) => void };
+  pool?: { boxes: PoolBox[]; job: PoolJob | null; jobs?: PoolJob[]; release: (box: PoolBox) => void };
 };
 
 const COLLAPSED = "crew:collapsed";
+/** The Pool boxes section's fold, kept with the hosts' and projects'. */
+const POOL_FOLD = "pool:boxes";
 /** The conversation panel's width (CSS px), once resized; else its default (crew.css). */
 const DRAWER_WIDTH = "crew:drawerWidth";
 const DRAWER_MIN = 360;
@@ -282,10 +285,33 @@ export function CrewMap(props: Props) {
           </button>
         </header>
         <PoolClaims agents={props.agents} onOpen={props.onDispatch} />
+        {props.pool && !filter && (
+          <PoolBoxes
+            boxes={props.pool.boxes}
+            jobs={[...(props.pool.job ? [props.pool.job] : []), ...(props.pool.jobs ?? [])]}
+            hostOf={(label) => {
+              const h = props.hosts.find((x) => x.label === label);
+              if (!h) return undefined;
+              const key = rosterKey(h);
+              return { key, online: !!data.hosts.find((x) => x.key === key)?.online, agents: data.agents.filter((a) => a.host === key).length };
+            }}
+            release={props.pool.release}
+            shut={collapsed.includes(POOL_FOLD)}
+            toggle={() => toggle(POOL_FOLD)}
+            showHost={(key) => {
+              if (collapsed.includes(key)) toggle(key);
+              requestAnimationFrame(() => {
+                const head = board.current?.querySelector<HTMLElement>(`.crew-host[data-host="${CSS.escape(key)}"] .crew-fold`);
+                head?.scrollIntoView({ block: "start", behavior: "smooth" });
+                head?.focus({ preventScroll: true });
+              });
+            }}
+          />
+        )}
         {roster.hosts.map((h) => {
           const hostShut = collapsed.includes(h.key);
           return (
-            <section key={h.key} className="crew-host" data-offline={!h.online || undefined} aria-label={h.name}>
+            <section key={h.key} className="crew-host" data-host={h.key} data-offline={!h.online || undefined} aria-label={h.name}>
               <h3 className="crew-host-head">
                 <button className="crew-fold" aria-expanded={!hostShut} onClick={() => toggle(h.key)}>
                   <ChevronDown size={14} aria-hidden="true" />

@@ -1,7 +1,7 @@
 /**
  * Pool boxes (src/pool.ts): New agent's "New pool box" claims one and starts
- * the agent on it once it's online; the Hosts tab releases a claimed box after
- * confirming. Every /api request is answered in the browser; no script,
+ * the agent on it once it's online; a claimed box's host head in the crew releases it after confirming, and the
+ * crew's Pool boxes section says every box's state. Every /api request is answered in the browser; no script,
  * daemon or Sprite is reached.
  */
 import { after, before, test } from "node:test";
@@ -109,10 +109,11 @@ test("a claimed pool box's host is released from its head in the crew after conf
   });
   await page.goto(app.url);
   // Its host has no workspaces, but a claimed box's stays on the map so it can be released.
-  const release = page.getByRole("button", { name: "Release pool box pool-1" });
+  const heads = page.locator(".crew-host[data-host]");
+  const release = heads.getByRole("button", { name: "Release pool box pool-1" });
   await release.waitFor();
   // Only the claimed box's host has it.
-  assert.equal(await page.getByRole("button", { name: /Release pool box/ }).count(), 1);
+  assert.equal(await heads.getByRole("button", { name: /Release pool box/ }).count(), 1);
   await release.click();
   const dialog = page.getByRole("dialog", { name: "Release pool-1?" });
   await dialog.waitFor();
@@ -124,9 +125,62 @@ test("a claimed pool box's host is released from its head in the crew after conf
   await dialog.getByRole("button", { name: "Release pool-1" }).click();
   await waitFor(() => Promise.resolve(released.length), (n) => n === 1, "the release");
   assert.deepEqual(released[0], { pool: "pool-1" });
-  await waitFor(() => page.locator(".crew-host").filter({ hasText: "pool-1" }).textContent(), (t) => !!t?.includes("Releasing…"), "its head to say it's releasing");
+  await waitFor(() => page.locator(".crew-host[data-host]").filter({ hasText: "pool-1" }).textContent(), (t) => !!t?.includes("Releasing…"), "its head to say it's releasing");
   lists.pool = status({ id: "pj2", kind: "release", phase: "done", pool: "pool-1", steps: [], startedAt: 1 });
   await waitFor(() => page.locator(".toast").textContent(), (t) => !!t?.includes("Released pool-1"), "the notice");
+  await context.close();
+});
+
+test("the crew's Pool boxes section says each box's state, releases a claimed one and shows its host", async () => {
+  const context = await newContext(browser);
+  const page = await context.newPage();
+  const released: any[] = [];
+  const boxes = [
+    { id: "pool-1", label: "pool-1", status: "claimed", claimedAt: new Date(Date.now() - 2 * 3600_000).toISOString() },
+    { id: "pool-2", label: "pool-2", status: "idle" },
+    { id: "pool-3", label: "pool-3", status: "provisioning" },
+    { id: "pool-4", label: "pool-4", status: "failed" },
+    { id: "pool-5", label: "pool-5", status: "claimed" },
+  ];
+  const lists: Record<string, unknown> = { settings, pool: { ...status(), boxes } };
+  await mockApi(page, {
+    agents: () => [],
+    hosts: () => [...hosts, { serverId: "srv_pool5", label: "pool-5", status: "offline", local: false, state: "offline" }],
+    lists,
+    accept: (path, body) => {
+      if (path !== "/api/pool/release") return false;
+      released.push(body);
+      const job = { id: "pj9", kind: "release", phase: "releasing", pool: "pool-1", steps: ["Restore checkpoint"], startedAt: 1 };
+      lists.pool = { ...status(job), boxes };
+      return { job };
+    },
+  });
+  await page.goto(app.url);
+  const section = page.getByRole("region", { name: "Pool boxes" });
+  await section.waitFor();
+  const box = (id: string) => section.locator(`.crew-pool-box[data-box="${id}"]`);
+  const read = async (id: string) => ({ tone: await box(id).getAttribute("data-tone"), text: (await box(id).textContent())?.replace(/\s+/g, " ").trim() });
+  assert.equal((await section.locator(".crew-pool-count").textContent())?.trim(), "2 claimed · 1 idle");
+  assert.deepEqual(await read("pool-1"), { tone: "claimed", text: "pool-1ClaimedOnline · no agents · claimed 2h agoRelease" });
+  assert.equal((await read("pool-2")).tone, "idle");
+  assert.match((await read("pool-2")).text!, /Idle.*Asleep, ready for a new agent/);
+  assert.match((await read("pool-3")).text!, /Provisioning/);
+  assert.equal((await read("pool-4")).tone, "bad");
+  assert.deepEqual((await read("pool-5")).tone, "warn");
+  assert.match((await read("pool-5")).text!, /Claimed · offline.*Its host isn't reachable/);
+  // Release only on claimed boxes.
+  assert.equal(await section.getByRole("button", { name: /Release pool box/ }).count(), 2);
+  // A claimed box's name shows its host's head.
+  await section.getByRole("button", { name: "pool-1", exact: true }).click();
+  await waitFor(() => page.evaluate(() => document.activeElement?.closest(".crew-host[data-host]")?.textContent ?? ""), (t) => t.includes("pool-1"), "its host's head to take focus");
+  // Releasing from the section confirms, then says it's releasing.
+  await box("pool-1").getByRole("button", { name: "Release pool box pool-1" }).click();
+  await page.getByRole("dialog", { name: "Release pool-1?" }).getByRole("button", { name: "Release pool-1" }).click();
+  await waitFor(() => Promise.resolve(released.length), (n) => n === 1, "the release");
+  await waitFor(() => read("pool-1"), (r) => r.tone === "busy" && !!r.text?.includes("Releasing…") && !!r.text?.includes("Restore checkpoint"), "the box to say it's releasing");
+  // Folding it keeps it folded.
+  await section.getByRole("button", { name: "Pool boxes" }).click();
+  await waitFor(() => section.locator(".crew-pool-box").count(), (n) => n === 0, "the section to fold");
   await context.close();
 });
 
@@ -232,7 +286,7 @@ test("archiving a pool box's last workspace releases the box, its checkout clean
   assert.equal(await page.getByRole("dialog", { name: /Release pool-1/ }).count(), 0, "nothing asked");
   await waitFor(() => page.locator(".toast-stack").textContent(), (t) => !!t?.includes("Releasing pool-1: its last workspace was archived"), "the notice");
   // Its host stays in the crew while the box is released, saying so.
-  await waitFor(() => page.locator(".crew-host").filter({ hasText: "pool-1" }).textContent(), (t) => !!t?.includes("Releasing…"), "its head's state");
+  await waitFor(() => page.locator(".crew-host[data-host]").filter({ hasText: "pool-1" }).textContent(), (t) => !!t?.includes("Releasing…"), "its head's state");
   await context.close();
 });
 

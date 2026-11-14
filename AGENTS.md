@@ -274,7 +274,11 @@ and GitHub publication; report the published version and release link.
   the checkout, why it can't work yet, and the job. One job at a time. The job is the server's: claim, wait and dispatch
   run there whatever the page does, and recent claims (`jobs`: title, where, phase, how each ended) are kept, also in the data
   folder's `pool-jobs.json` (one the server stopped during reads as failed, saying so), so leaving New agent or reloading loses
-  nothing. Crew heads with them as pending rows, under its head (`web/src/PoolClaims.tsx`, `pendingClaims`): running
+  nothing. Crew's Pool boxes section, above its hosts (`web/src/crew/PoolBoxes.tsx`, `boxView` in `pool.ts`; folded as
+  `pool:boxes` in `crew:collapsed`; hidden while the crew is filtered), says every box's state: idle and asleep, claimed (its
+  host online with its agent count, or offline, and how long ago it was claimed), provisioning, failed, or the claim or release
+  running on it with its latest step; a claimed box has Release, and its name shows its host's head.
+  Crew heads with them as pending rows, under its head (`web/src/PoolClaims.tsx`, `pendingClaims`): running
   ones with their latest step, failed ones with why until dismissed (`POST /api/pool/dismiss {id}`), done ones until the fleet lists
   the agent; New agent reopened says why its claim failed (`dispatch-pool-failed`). A dispatch the box's daemon refuses says the box
   is claimed and online (`dispatchFailure`; gh's auth failure names `gh auth status`). New agent's Host has

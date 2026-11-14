@@ -345,3 +345,63 @@ export function releaseWarning(label: string, c: PoolCheckout | null | undefined
 /** What else keeps a box busy after a workspace on it was archived. */
 export type PoolRemaining = { workspaces: number; agents: number };
 export const boxIdle = (r: PoolRemaining) => r.workspaces === 0 && r.agents === 0;
+
+/** How long ago `iso` was, in a word or two ("5m", "2h", "3d"), or "" when it isn't a time. */
+export function ago(iso: string | undefined, now = Date.now()) {
+  const t = iso ? Date.parse(iso) : NaN;
+  if (!Number.isFinite(t)) return "";
+  const minutes = Math.max(0, Math.round((now - t) / 60_000));
+  if (minutes < 1) return "just now";
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.round(minutes / 60);
+  if (hours < 48) return `${hours}h ago`;
+  return `${Math.round(hours / 24)}d ago`;
+}
+
+/** What the crew's Pool boxes section says of a box: its tone, state and a line of detail. */
+export type BoxView = {
+  tone: "idle" | "claimed" | "busy" | "warn" | "bad";
+  state: string;
+  detail: string;
+};
+
+/**
+ * A box's status, from paseo-boxes' record (`pool-state.json`), its Paseo host (`pool-N`; absent when not
+ * registered) and the claim or release running on it, if any.
+ */
+export function boxView(
+  box: PoolBox,
+  host: { online: boolean; agents: number } | undefined,
+  job: PoolJob | null | undefined,
+  now = Date.now(),
+): BoxView {
+  const claimed = box.claimedAt ? `claimed ${ago(box.claimedAt, now)}` : "";
+  if (job && job.pool === box.id && jobRunning(job)) {
+    const step = job.steps[job.steps.length - 1] ?? "";
+    const state =
+      job.phase === "releasing"
+        ? "Releasing…"
+        : job.phase === "claiming"
+          ? job.wake
+            ? "Waking…"
+            : "Claiming…"
+          : job.phase === "waiting"
+            ? "Coming online…"
+            : "Starting an agent…";
+    return { tone: "busy", state, detail: step };
+  }
+  switch (box.status) {
+    case "provisioning":
+      return { tone: "busy", state: "Provisioning", detail: "Being rebuilt; it can't be claimed yet" };
+    case "failed":
+      return { tone: "bad", state: "Provision failed", detail: "Its last provision failed; it can't be claimed" };
+    case "idle":
+      return { tone: "idle", state: "Idle", detail: "Asleep, ready for a new agent" };
+    case "claimed": {
+      if (!host) return { tone: "warn", state: "Claimed", detail: ["No Paseo host named " + box.label, claimed].filter(Boolean).join(" · ") };
+      if (!host.online) return { tone: "warn", state: "Claimed · offline", detail: ["Its host isn't reachable", claimed].filter(Boolean).join(" · ") };
+      const agents = host.agents ? `${host.agents} agent${host.agents === 1 ? "" : "s"}` : "no agents";
+      return { tone: "claimed", state: "Claimed", detail: ["Online", agents, claimed].filter(Boolean).join(" · ") };
+    }
+  }
+}

@@ -24,6 +24,9 @@ import {
   releaseWarning,
   boxIdle,
   progressLine,
+  boxView,
+  ago,
+  type PoolBox,
   scriptError,
 } from "./pool";
 
@@ -184,4 +187,32 @@ test("a dispatch failure says the box is fine and, for gh, where to look", () =>
   assert.equal(claimTitle("  Fix it\nmore"), "Fix it");
   assert.equal(claimTitle("x".repeat(100)).length, 80);
   assert.equal(claimTitle(undefined), "");
+});
+
+test("boxView says each box's state for the crew's Pool boxes section", () => {
+  const now = Date.parse("2026-11-14T12:00:00Z");
+  const box = (status: PoolBox["status"], claimedAt?: string): PoolBox => ({ id: "pool-1", label: "pool-1", status, ...(claimedAt ? { claimedAt } : {}) });
+  assert.deepEqual(boxView(box("idle"), { online: false, agents: 0 }, null, now), { tone: "idle", state: "Idle", detail: "Asleep, ready for a new agent" });
+  assert.equal(boxView(box("provisioning"), undefined, null, now).tone, "busy");
+  assert.equal(boxView(box("failed"), undefined, null, now).state, "Provision failed");
+  assert.deepEqual(boxView(box("claimed", "2026-11-14T10:00:00Z"), { online: true, agents: 2 }, null, now), {
+    tone: "claimed",
+    state: "Claimed",
+    detail: "Online · 2 agents · claimed 2h ago",
+  });
+  assert.equal(boxView(box("claimed"), { online: true, agents: 0 }, null, now).detail, "Online · no agents");
+  assert.deepEqual(boxView(box("claimed", "2026-11-14T11:55:00Z"), { online: false, agents: 1 }, null, now), {
+    tone: "warn",
+    state: "Claimed · offline",
+    detail: "Its host isn't reachable · claimed 5m ago",
+  });
+  assert.match(boxView(box("claimed"), undefined, null, now).detail, /No Paseo host named pool-1/);
+  // A job on the box says what it's doing; one on another box doesn't count, nor a finished one.
+  const job = { id: "j", kind: "release" as const, pool: "pool-1", phase: "releasing" as const, steps: ["Restore checkpoint"], startedAt: 0 };
+  assert.deepEqual(boxView(box("claimed"), { online: true, agents: 0 }, job, now), { tone: "busy", state: "Releasing…", detail: "Restore checkpoint" });
+  assert.equal(boxView(box("idle"), undefined, { ...job, kind: "claim", phase: "claiming", wake: true }, now).state, "Waking…");
+  assert.equal(boxView(box("idle"), undefined, { ...job, pool: "pool-2" }, now).state, "Idle");
+  assert.equal(boxView(box("idle"), undefined, { ...job, phase: "done" }, now).state, "Idle");
+  assert.equal(ago("2026-11-11T12:00:00Z", now), "3d ago");
+  assert.equal(ago("nope", now), "");
 });

@@ -957,3 +957,99 @@
     flex-basis: 100%;
   }
 }
+
+/* Pool boxes (PoolBoxes.tsx): every box and its state, above the hosts. */
+.crew-pool-count {
+  color: var(--text-4);
+  letter-spacing: 0.02em;
+  text-transform: none;
+  font-weight: var(--fw-regular, 400);
+}
+.crew-pool-boxes {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 8px;
+}
+.crew-pool-box {
+  --tone: var(--crew-idle);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--fill-soft);
+}
+.crew-pool-box[data-tone="claimed"] { --tone: var(--crew-running); }
+.crew-pool-box[data-tone="busy"] { --tone: var(--crew-done); }
+.crew-pool-box[data-tone="warn"] { --tone: var(--crew-approval); }
+.crew-pool-box[data-tone="bad"] {
+  --tone: var(--crew-failed);
+  border-color: color-mix(in srgb, var(--crew-failed) 45%, var(--line));
+}
+.crew-pool-dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--tone);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--tone) 22%, transparent);
+}
+.crew-pool-box[data-tone="busy"] .crew-pool-dot {
+  animation: crew-pool-pulse 1.4s ease-in-out infinite;
+}
+@keyframes crew-pool-pulse {
+  50% { opacity: 0.35; }
+}
+.crew-pool-text {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  column-gap: 8px;
+  align-items: baseline;
+}
+.crew-pool-name {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text-strong);
+  font: inherit;
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-semibold);
+  text-align: left;
+}
+button.crew-pool-name {
+  cursor: pointer;
+}
+button.crew-pool-name:hover {
+  text-decoration: underline;
+}
+.crew-pool-state {
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.crew-pool-detail {
+  grid-column: 1 / -1;
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.crew-pool-box .crew-head-action {
+  margin-left: 0;
+  font-size: var(--fs-xs);
+}
+@media (prefers-reduced-motion: reduce) {
+  .crew-pool-box .crew-pool-dot {
+    animation: none;
+  }
+}
