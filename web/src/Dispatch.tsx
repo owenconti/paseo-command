@@ -1,7 +1,7 @@
 import { soundEvent } from "./soundCues";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, ChevronDown, GitBranch, LoaderCircle, MessageSquare, Pencil, Play, Server } from "lucide-react";
-import { api, errorMessage, readStore, writeStore } from "./api";
+import { api, errorMessage, readStore, removeStore, writeStore } from "./api";
 import { Composer } from "./Composer";
 import type { Outgoing } from "./composer/types";
 import type {
@@ -30,7 +30,7 @@ import {
 import { openPresetEditor, usePresets } from "./presetsStore";
 import { openProfileEditor, useProfilesRevision } from "./profilesStore";
 import { sendBody } from "./sent";
-import { claimPoolBox, usePool } from "./poolStore";
+import { DISPATCH_FORM, claimPoolBox, draftRestored, formPoolJob, usePool } from "./poolStore";
 import { idleBoxes, jobRunning, jobText, type PoolStatus } from "./pool";
 
 /** As many images as the daemon takes with a prompt. */
@@ -57,6 +57,50 @@ const ISOLATIONS: [Isolation, string, string][] = [
   ["local", "Local", "Run directly in the project checkout, on its current branch"],
   ["worktree", "Worktree", "Create a new worktree on a new, randomly named branch"],
 ];
+
+/**
+ * New agent's unsent form, kept as it changes so leaving New agent loses nothing (its first message is the
+ * composer's own `draft:dispatch`): brought back when New agent next opens without a place of its own, and
+ * cleared once it starts an agent (a pool box's once the agent is started on the box: poolStore.ts).
+ */
+type FormDraft = {
+  host: string;
+  target: string;
+  isolation: Isolation;
+  branch: string;
+  base: string;
+  pr: PullRequestChoice | null;
+  prText: string;
+  provider: string;
+  model: string;
+  thinking: string;
+  mode: string;
+  /** The profile chosen, brought back once the host's profiles are read. */
+  profile?: string;
+};
+function keptForm(): FormDraft | null {
+  const f = readStore<Partial<FormDraft> | null>(DISPATCH_FORM, null);
+  if (!f || typeof f !== "object") return null;
+  const str = (v: unknown) => (typeof v === "string" ? v : "");
+  const pr =
+    f.pr && typeof f.pr === "object" && Number.isSafeInteger(f.pr.number) && f.pr.number > 0
+      ? f.pr
+      : null;
+  return {
+    host: str(f.host),
+    target: str(f.target),
+    isolation: f.isolation === "worktree" ? "worktree" : "local",
+    branch: str(f.branch),
+    base: str(f.base),
+    pr,
+    prText: str(f.prText),
+    provider: str(f.provider),
+    model: str(f.model),
+    thinking: str(f.thinking),
+    mode: str(f.mode),
+    ...(typeof f.profile === "string" && f.profile ? { profile: f.profile } : {}),
+  };
+}
 
 type Prefs = {
   target?: string;
@@ -167,6 +211,11 @@ export function NewAgent({
   onNotice: (message: string) => void;
 }) {
   const prefs = useMemo(() => readStore<Prefs>("dispatch", {}), []);
+  // Opened somewhere of its own (a workspace's or project's Dispatch, a pool box) it starts there; otherwise the
+  // form as it was left comes back, and a pool box claim still under way shows again.
+  const placed = !!(initial.workspaceId || initial.projectId || initial.host || initial.settings);
+  const [claim] = useState(() => (placed ? null : formPoolJob()));
+  const [kept] = useState(() => (placed || claim ? null : keptForm()));
   const [hostProviders, setHostProviders] = useState<{
     host?: string;
     rows: Provider[];
@@ -196,14 +245,21 @@ export function NewAgent({
         ? workspaces.find((w) => workspaceKey(w) === initial.workspaceId)?.host
         : initial.projectId
           ? projects.find((p) => projectKey(p) === initial.projectId)?.host
-          : initial.host) || LOCAL,
+          : initial.host) ||
+      (claim
+        ? POOL
+        : kept && (kept.host === POOL || hostOptions(hosts).some((h) => h.key === kept.host))
+          ? kept.host
+          : LOCAL),
   );
   const [target, setTarget] = useState(() =>
     initial.workspaceId
       ? `w:${initial.workspaceId}`
       : initial.projectId
         ? `p:${initial.projectId}`
-        : firstTarget(hostKey),
+        : kept && targetOn(kept.target, hostKey)
+          ? kept.target
+          : firstTarget(hostKey),
   );
   const chosenHost = hostChoices.find((h) => h.key === hostKey);
   const chooseHost = (key: string) => {
@@ -211,7 +267,13 @@ export function NewAgent({
     // A place on another host can't be kept.
     if (!targetOn(target, key)) setTarget(firstTarget(key));
   };
-  const settings = initial.settings;
+  // A cleared agent's settings, else the left form's own (its profile, if it had one, comes back by itself).
+  const settings =
+    initial.settings ??
+    (kept?.provider && !kept.profile
+      ? { provider: kept.provider, model: kept.model, thinking: kept.thinking, mode: kept.mode }
+      : undefined);
+  const profileWanted = kept?.profile ?? prefs.profile;
   const [provider, setProvider] = useState(
     providers.find(
       (p) =>
@@ -231,15 +293,15 @@ export function NewAgent({
   const [mode, setMode] = useState("");
   const [models, setModels] = useState<Model[]>([]);
   const [isolation, setIsolation] = useState<Isolation>(
-    prefs.isolation === "worktree" ? "worktree" : "local",
+    kept?.isolation ?? (prefs.isolation === "worktree" ? "worktree" : "local"),
   );
   // Worktree mode needs no typing: an empty branch takes this name.
   const [suggested] = useState(randomBranchName);
-  const [branch, setBranch] = useState("");
-  const [base, setBase] = useState("");
+  const [branch, setBranch] = useState(kept?.branch ?? "");
+  const [base, setBase] = useState(kept?.base ?? "");
   // A pull request whose branch the new worktree checks out, instead.
-  const [pr, setPr] = useState<PullRequestChoice | null>(null);
-  const [prText, setPrText] = useState("");
+  const [pr, setPr] = useState<PullRequestChoice | null>(kept?.pr ?? null);
+  const [prText, setPrText] = useState(kept?.prText ?? "");
   const [launching, setLaunching] = useState(false);
   const [error, setError] = useState("");
   // Files dropped anywhere on the view join the first message.
@@ -257,7 +319,11 @@ export function NewAgent({
   const isPool = hostKey === POOL;
   const host = hostKey === LOCAL || isPool ? undefined : hostKey;
   // The pool job this form started, until it ends.
-  const [poolJob, setPoolJob] = useState("");
+  const [poolJob, setPoolJob] = useState(claim?.id ?? "");
+  // The claim was seen running here: only then does its end open the agent or say why it failed.
+  const sawClaim = useRef(false);
+  // Remounted to show a failed claim's message put back into the draft.
+  const [composerKey, setComposerKey] = useState(0);
   const job = pool?.job && pool.job.id === poolJob ? pool.job : null;
   const claiming = jobRunning(job);
   const modes = providerModes(provider);
@@ -335,9 +401,9 @@ export function NewAgent({
   // were carried over; one on another host or since removed is dropped.
   const restored = useRef<string | undefined>(undefined);
   useEffect(() => {
-    if (settings || !prefs.profile || profiles.host !== host) return;
+    if (settings || !profileWanted || profiles.host !== host) return;
     if (restored.current === (host || LOCAL)) return;
-    const p = hostProfiles.find((p) => p.id === prefs.profile);
+    const p = hostProfiles.find((p) => p.id === profileWanted);
     if (!p) return;
     restored.current = host || LOCAL;
     applyProfile(p);
@@ -388,11 +454,37 @@ export function NewAgent({
       ? profile
       : null;
 
-  // A pull request belongs to its project's new worktree.
+  // A pull request belongs to its project's new worktree: changing where drops it (not the kept one, on opening).
+  const placeChanged = useRef(false);
   useEffect(() => {
+    if (!placeChanged.current) {
+      placeChanged.current = true;
+      return;
+    }
     setPr(null);
     setPrText("");
   }, [target, isolation, hostKey]);
+  // The form as it is now, kept for when New agent opens again (not while a claim carries it, nor once it has
+  // started an agent: it may render again before it closes).
+  const finished = useRef(false);
+  useEffect(() => {
+    if (poolJob || finished.current) return;
+    const form: FormDraft = {
+      host: hostKey,
+      target,
+      isolation,
+      branch,
+      base,
+      pr,
+      prText,
+      provider,
+      model,
+      thinking,
+      mode,
+      ...(applied ? { profile: applied.id } : {}),
+    };
+    writeStore(DISPATCH_FORM, form);
+  }, [hostKey, target, isolation, branch, base, pr, prText, provider, model, thinking, mode, applied?.id, poolJob]);
   // Preset prompts from settings.json, read when the form opens.
   const { presets, loaded: presetsLoaded } = usePresets();
   // A typed number or URL is already an unambiguous choice. Suggestions
@@ -403,11 +495,21 @@ export function NewAgent({
     : null;
 
   useEffect(() => {
+    if (claiming) sawClaim.current = true;
     if (!job || claiming) return;
     setPoolJob("");
+    if (!sawClaim.current) return;
     if (job.phase === "done") onDispatched(job.agentId, job.host);
-    else setError(jobText(job));
+    else {
+      const back = draftRestored(job.id);
+      setError(`${jobText(job)}${back ? " Your message is back below." : ""}`);
+      if (back) setComposerKey((k) => k + 1);
+    }
   }, [job, claiming]);
+  // A remembered claim the server no longer has (or that ended while New agent was closed) isn't shown.
+  useEffect(() => {
+    if (poolJob && pool && pool.job?.id !== poolJob) setPoolJob("");
+  }, [pool, poolJob]);
   const poolCheckout = pool?.checkout || "";
   const folder = isPool ? poolCheckout : workspace?.cwd || project?.path || "";
   const blocked = !online
@@ -496,6 +598,8 @@ export function NewAgent({
           [provider]: { model, thinking, mode },
         },
       });
+      finished.current = true;
+      removeStore(DISPATCH_FORM);
       onNotice("Agent dispatched");
       onDispatched(
         result?.id || result?.Id || result?.agentId || result?.agent?.id,
@@ -851,6 +955,7 @@ export function NewAgent({
           </p>
         )}
         <Composer
+          key={composerKey}
           draft={{ source, host, controls }}
           running={false}
           disabled={!!blocked}

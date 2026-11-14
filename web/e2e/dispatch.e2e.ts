@@ -534,3 +534,51 @@ test("the provider picker opens the profiles' editor, whose save the picker show
   await waitFor(() => dialog.count(), (n) => n === 0, "the editor closing on Esc");
   await context.close();
 });
+
+test("leaving New agent keeps its form and message for when it opens again", async () => {
+  const context = await newContext(browser);
+  const page = await context.newPage();
+  const dispatched: any[] = [];
+  await mockApi(page, {
+    agents: () => [],
+    projects: () => [
+      { projectId: "prj_atlas", name: "atlas", kind: "git", path: "/work/atlas" },
+      { projectId: "prj_api", name: "api", kind: "git", path: "/work/api" },
+    ],
+    accept: (path, body) => {
+      if (path !== "/api/dispatch") return false;
+      dispatched.push(body);
+      return { agentId: "a-new" };
+    },
+  });
+  await page.goto(app.url);
+  await page.locator("body").press("d");
+  const form = page.locator(".new-agent");
+  await form.locator("select[name=target]").selectOption("p:prj_api");
+  await form.getByRole("radio", { name: "Worktree" }).click();
+  await form.getByPlaceholder("origin/main").fill("origin/release");
+  const branch = form.locator("label", { hasText: "Branch" }).locator("input");
+  await branch.fill("fix-the-login");
+  await form.locator("#composer").fill("Fix the login redirect");
+  // Leave it, then open New agent again: everything is as it was.
+  await form.getByRole("button", { name: "Fleet" }).click();
+  await waitFor(() => page.locator(".new-agent").count(), (n) => n === 0, "New agent to close");
+  await page.locator("body").press("d");
+  await waitFor(() => form.locator("#composer").inputValue(), (v) => v === "Fix the login redirect", "the message");
+  assert.equal(await form.locator("select[name=target]").inputValue(), "p:prj_api");
+  assert.equal(await form.getByRole("radio", { name: "Worktree" }).getAttribute("aria-checked"), "true");
+  assert.equal(await branch.inputValue(), "fix-the-login");
+  assert.equal(await form.getByPlaceholder("origin/main").inputValue(), "origin/release");
+  // Starting the agent sends what was kept, and leaves nothing behind for the next one.
+  await form.getByRole("button", { name: "Send message" }).click();
+  await waitFor(() => Promise.resolve(dispatched.length), (n) => n === 1, "the dispatch");
+  assert.equal(dispatched[0].projectId, "prj_api");
+  assert.equal(dispatched[0].branch, "fix-the-login");
+  assert.equal(dispatched[0].base, "origin/release");
+  await waitFor(
+    () => page.evaluate(() => localStorage.getItem("paseo-command:dispatch-form")),
+    (v) => v === null,
+    "the kept form to be cleared",
+  );
+  await context.close();
+});

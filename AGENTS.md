@@ -163,7 +163,14 @@ and GitHub publication; report the published version and release link.
   updates" in ⌘K, shown only when the app's `paseo:update` says `canCheck`) asks Sparkle now; the page asks for that event with an `update` message.
 - `web/e2e/`: browser tests with every `/api` request answered in the browser.
 - `web/src/Dispatch.tsx` `NewAgent`: a new agent opens in the panel as an empty conversation (host, where and
-  branch in a small form) with the usual composer; its first message creates the agent. Its /skills and @files
+  branch in a small form) with the usual composer; its first message creates the agent. Leaving it loses nothing: its
+  message is the composer's `draft:dispatch` (images kept in memory), and the form (host, where, Local/Worktree, branch,
+  base, pull request, provider, model, thinking, mode or profile) is kept as it changes (`dispatch-form` in localStorage,
+  `keptForm`), brought back when New agent next opens without a place of its own (a workspace's or project's Dispatch,
+  ⌘K's pool box entry and a cleared agent's settings start where they say), and cleared once it starts an agent. A pool
+  box claim under way (`dispatch-pool-job` in `poolStore.ts`, with its message) shows again when New agent reopens; a
+  claim that fails puts its message back into an empty draft ("Your message is back below"), and one that worked clears
+  the kept form. Its /skills and @files
   come from `GET /api/drafts/commands|files` (`web/server/api/drafts.ts`), as no agent exists yet.
   Its provider picker also lists the host's Paseo agent profiles (`GET /api/profiles`, the daemon config's `agentProfiles`):
   one sets provider, model, thinking and mode, and sends its feature values (`features` in `POST /api/dispatch`) while unchanged.

@@ -129,3 +129,39 @@ test("a claimed pool box's host is released from the Hosts tab after confirming"
   await waitFor(() => page.locator(".toast").textContent(), (t) => !!t?.includes("Released pool-1"), "the notice");
   await context.close();
 });
+
+test("leaving New agent mid-claim keeps the claim; a failed claim puts the message back", async () => {
+  const context = await newContext(browser);
+  const page = await context.newPage();
+  const lists: Record<string, unknown> = { settings, pool: status() };
+  const job = { id: "pj3", kind: "claim", phase: "claiming", pool: "pool-2", steps: ["Wake sprite"], startedAt: 1 };
+  await mockApi(page, {
+    agents: () => [],
+    hosts: () => hosts,
+    lists,
+    accept: (path) => {
+      if (path !== "/api/pool/claim") return false;
+      lists.pool = status(job);
+      return { job };
+    },
+  });
+  await page.goto(app.url);
+  await page.locator("body").press("d");
+  const form = page.locator(".new-agent");
+  await waitFor(() => form.locator("select[name=host] option[value='pool:new']").count(), (n) => n === 1, "the pool choice");
+  await form.locator("select[name=host]").selectOption("pool:new");
+  await form.locator("#composer").fill("Run the e2e suite on the box");
+  await form.getByRole("button", { name: "Send message" }).click();
+  await waitFor(() => form.locator(".new-agent-pool").count(), (n) => n === 1, "the claim's progress");
+  // Leave while it runs, then come back: the claim shows again.
+  await form.getByRole("button", { name: "Fleet" }).click();
+  await waitFor(() => page.locator(".new-agent").count(), (n) => n === 0, "New agent to close");
+  await page.locator("body").press("d");
+  await waitFor(() => form.locator(".new-agent-pool").textContent(), (t) => !!t?.includes("Claiming pool-2…"), "the claim again");
+  assert.equal(await form.locator("select[name=host]").inputValue(), "pool:new");
+  // It fails: the message is back in the box, and the error says so.
+  lists.pool = status({ ...job, phase: "failed", error: "no idle pool boxes" });
+  await waitFor(() => form.locator("[role=alert]").textContent(), (t) => !!t?.includes("Your message is back below"), "the error");
+  await waitFor(() => form.locator("#composer").inputValue(), (v) => v === "Run the e2e suite on the box", "the message back");
+  await context.close();
+});
