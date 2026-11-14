@@ -187,15 +187,29 @@ type Asked = { path: string; query: Record<string, string>; body?: unknown };
 
 async function setUp(
   page: Page,
-  opts: { refuse?: Set<string>; workspaces?: typeof small.workspaces; agents?: typeof small.agents; github?: boolean; detail?: (d: PrDetail) => void } = {},
+  opts: {
+    refuse?: Set<string>;
+    workspaces?: typeof small.workspaces;
+    agents?: typeof small.agents;
+    github?: boolean;
+    detail?: (d: PrDetail) => void;
+    /** Pool boxes' status (`GET /api/pool`), turning Pool boxes on; a function answers it afresh each time. */
+    pool?: () => unknown;
+    accept?: (path: string, body: any) => boolean | object;
+  } = {},
 ) {
+  const lists: Record<string, unknown> = {
+    settings: { integrations: { github: opts.github ?? true, linear: false, typesafe: false, pool: !!opts.pool } },
+  };
+  if (opts.pool) Object.defineProperty(lists, "pool", { get: opts.pool, enumerable: true });
   await mockApi(page, {
     agents: () => opts.agents ?? small.agents,
     permissions: () => [],
     hosts: () => small.hosts,
     projects: () => small.projects,
     workspaces: () => opts.workspaces ?? small.workspaces,
-    lists: { settings: { integrations: { github: opts.github ?? true, linear: false, typesafe: false } } },
+    lists,
+    ...(opts.accept ? { accept: opts.accept } : {}),
   });
   const asked: Asked[] = [];
   const writes: Asked[] = [];
@@ -1362,4 +1376,98 @@ test("main history monitors new arrivals without moving the list, pages from a p
     await finder.press("Enter");
     await page.getByRole("region", { name: "Main commit history" }).getByText(/sam\/tools/).waitFor();
   } finally { await context.close(); }
+});
+
+test("Open in agent opens New agent on the PR's branch, in a checkout of its repository on the host or pool box chosen", async () => {
+  const context = await newContext(browser);
+  const page = await context.newPage();
+  await page.setViewportSize({ width: 1600, height: 1000 });
+  // Map polish (local) is a checkout of acme/atlas, so atlas is its project's repository.
+  const workspaces = small.workspaces.map((w) => (w.workspaceId === "wks_a" ? { ...w, repo: "https://github.com/acme/atlas" } : w));
+  let poolRepo = "other/thing";
+  const posts: { path: string; body: any }[] = [];
+  await setUp(page, {
+    workspaces,
+    pool: () => ({
+      enabled: true,
+      problem: "",
+      settings: { dir: "~/boxes" },
+      checkout: "/srv/app",
+      repo: poolRepo,
+      boxes: [{ id: "pool-1", label: "pool-1", status: "idle" }],
+      job: null,
+    }),
+    accept: (path, body) => {
+      if (path !== "/api/dispatch" && path !== "/api/pool/claim") return false;
+      posts.push({ path, body });
+      return path === "/api/dispatch" ? { agentId: "a-new" } : { job: { id: "pjx", kind: "claim", phase: "claiming", steps: [], startedAt: 1 } };
+    },
+  });
+  try {
+    await page.goto(app.url);
+    await page.locator(".fleet-sidebar").waitFor();
+    await showGithub(page);
+    const view = page.locator(".github-view");
+    await view.locator(".gh-row", { hasText: "Add the GitHub tab" }).click();
+    await view.locator(".gh-pr-title", { hasText: "Add the GitHub tab" }).waitFor();
+    const open = view.getByRole("button", { name: "Open in agent" });
+    const form = page.locator(".new-agent");
+
+    // On this Mac: its checkout of acme/atlas, a worktree on #12's branch.
+    await open.click();
+    await form.waitFor();
+    assert.equal(await form.locator("select[name=host]").inputValue(), "local");
+    assert.equal(await form.locator("select[name=target]").inputValue(), "p:prj_atlas");
+    assert.equal(await form.getByRole("radio", { name: "Worktree" }).getAttribute("aria-checked"), "true");
+    assert.match((await form.locator(".form-hint").textContent()) ?? "", /pull request #12’s branch “feature-12”/);
+    await form.locator("#composer").fill("Review this change");
+    await form.getByRole("button", { name: "Send message" }).click();
+    await waitFor(() => Promise.resolve(posts.length), (n) => n === 1, "the dispatch");
+    assert.equal(posts[0].path, "/api/dispatch");
+    assert.equal(posts[0].body.projectId, "prj_atlas");
+    assert.equal(posts[0].body.pr, 12);
+    assert.equal(posts[0].body.prHead, "feature-12");
+    assert.equal(posts[0].body.branch, undefined);
+
+    // A pool box whose checkout is another repository can't take it.
+    await open.click();
+    await form.waitFor();
+    await waitFor(() => form.locator("select[name=host] option[value='pool:new']").count(), (n) => n === 1, "the pool choice");
+    await form.locator("select[name=host]").selectOption("pool:new");
+    await waitFor(
+      () => form.locator("#composer").getAttribute("placeholder"),
+      (t) => !!t?.includes("The pool box's checkout is other/thing, not acme/atlas"),
+      "the wrong repository said",
+    );
+    await form.getByRole("button", { name: "Fleet" }).click();
+
+    // One of acme/atlas takes it: claimed, then the PR's worktree there.
+    poolRepo = "acme/atlas";
+    await open.click();
+    await form.waitFor();
+    await waitFor(() => form.locator("select[name=host] option[value='pool:new']").count(), (n) => n === 1, "the pool choice");
+    await form.locator("select[name=host]").selectOption("pool:new");
+    await waitFor(
+      () => form.locator(".form-hint").textContent(),
+      (t) => !!t?.includes("creates a worktree on pull request #12’s branch “feature-12” of its checkout, /srv/app"),
+      "the pool hint",
+    );
+    await form.locator("#composer").fill("Review this change on a box");
+    await form.getByRole("button", { name: "Send message" }).click();
+    await waitFor(() => Promise.resolve(posts.length), (n) => n === 2, "the claim");
+    assert.equal(posts[1].path, "/api/pool/claim");
+    assert.equal(posts[1].body.pr, 12);
+    assert.equal(posts[1].body.prHead, "feature-12");
+    assert.equal(posts[1].body.projectId, undefined);
+    assert.equal(posts[1].body.host, undefined);
+
+    // ⌘K has it too.
+    await page.keyboard.press("Meta+k");
+    const palette = page.getByRole("dialog", { name: "Command palette" });
+    await palette.getByRole("combobox", { name: "Search commands" }).fill("in a new agent");
+    await palette.getByRole("option", { name: /Open the pull request in a new agent…/ }).waitFor();
+    await page.keyboard.press("Escape");
+  } finally {
+    await context.close();
+  }
 });

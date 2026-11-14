@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowLeft,
+  Bot,
   CircleAlert,
   CircleCheck,
   CircleDashed,
@@ -23,6 +24,9 @@ import { TAB_LABEL } from "./names";
 import { addComment, editComment, removeComment, reviewComments, useReviewDraft } from "./drafts";
 import type { ConversationOrder, PrTab } from "./place";
 import { OpenPaseoButton } from "./OpenPaseo";
+
+/** A pull request to open in a new agent (New agent's `pr`). */
+export type PrToOpen = { repo: string; number: number; title: string; url: string; headRef: string };
 import type { PaseoMatch, PrHead } from "./paseo";
 import { mergeLeads, type MergeAction } from "./merge";
 import { MergeHeader, MergeSection, useMergeBox, type MergeBox } from "./MergeBox";
@@ -441,6 +445,7 @@ export function PrView({
   setOrder,
   paseoFor,
   onOpenPaseo,
+  onOpenInAgent,
 }: {
   repo: string;
   number: number;
@@ -468,6 +473,8 @@ export function PrView({
   /** The Paseo workspaces with the PR's branch checked out (`paseo.ts`), and opening one's agent. */
   paseoFor?: (pr: PrHead) => PaseoMatch[];
   onOpenPaseo?: (m: PaseoMatch) => void;
+  /** Open New agent on this pull request: a worktree of its branch on the host or pool box chosen there. */
+  onOpenInAgent?: (pr: PrToOpen) => void;
 }) {
   const prPath = readPath("pr", { repo, number });
   const detail = useGithubRead<PrDetail>(prPath, PR_POLL_MS);
@@ -828,6 +835,18 @@ export function PrView({
             ))}
             <span className="gh-spacer" />
             {paseo.length > 0 && <OpenPaseoButton matches={paseo} onOpen={onOpenPaseo!} />}
+            {onOpenInAgent && (pr.state === "open" || pr.state === "draft") && (
+              <button
+                className="page-btn"
+                data-tip="Start a new agent on this pull request's branch, on the host or pool box you choose"
+                onClick={() =>
+                  onOpenInAgent({ repo: pr.repo, number: pr.number, title: pr.title, url: pr.url, headRef: pr.headRef })
+                }
+              >
+                <Bot size={13} aria-hidden="true" />
+                <span className="page-tool-label">Open in agent</span>
+              </button>
+            )}
             <Churn additions={pr.additions} deletions={pr.deletions} />
             <div className="gh-review-anchor">
               <button

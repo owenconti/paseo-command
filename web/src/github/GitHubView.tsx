@@ -36,7 +36,7 @@ import { orgStarred, RepoNav, repoOrder, repoStarred, REPOS_PATH, setStar, type 
 import { SCOPE_TITLE } from "./names";
 import { LIST_POLL_MS, PrList } from "./PrList";
 import type { PaseoMatch, PrHead } from "./paseo";
-import { PrView, type ConversationThreads, type PrViewApi, type ThreadsCommand } from "./PrView";
+import { PrView, type ConversationThreads, type PrViewApi, type ThreadsCommand , type PrToOpen } from "./PrView";
 import { actionKey, actionLabel, MERGE_ACTION_KINDS, mergeActions, mergeMethodFor, type MergeAction } from "./merge";
 import { PR_SCOPES, type PrDetail, type PrList as PrListData, type PrScope, type RepoList, type ReviewEvent, type Viewer } from "./types";
 import "./github.css";
@@ -120,11 +120,14 @@ export function GitHubView({
   onViewState,
   paseoFor,
   onOpenPaseo,
+  onOpenInAgent,
 }: {
   onNotice: (message: string) => void;
   /** The Paseo workspaces with a PR's branch checked out, and opening one's agent (the open PR's Open Paseo agent). */
   paseoFor?: (pr: PrHead) => PaseoMatch[];
   onOpenPaseo?: (m: PaseoMatch) => void;
+  /** Open New agent on a pull request (its host or pool box chosen there). */
+  onOpenInAgent?: (pr: PrToOpen) => void;
   /** The view's state for ⌘K (undefined once it goes). */
   onViewState?: (state: GithubViewState | undefined) => void;
 }) {
@@ -580,6 +583,7 @@ export function GitHubView({
         order={conversationOrder}
         setOrder={setConversationOrder}
         {...(paseoFor && onOpenPaseo ? { paseoFor, onOpenPaseo } : {})}
+        {...(onOpenInAgent ? { onOpenInAgent } : {})}
       />
     );
 

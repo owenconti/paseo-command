@@ -367,9 +367,9 @@ export async function dispatchRoute(body: Body, mark: Mark) {
 
 /** The stand-in project a pool box's checkout is validated as. */
 const POOL_PROJECT = "pool-checkout";
-/** A pool box's dispatch names no place of its own: the box's checkout is it. */
+/** A pool box's dispatch names no place of its own: the box's checkout is it (a pull request's worktree of it too). */
 function poolBody(body: Body) {
-  for (const key of ["host", "projectId", "workspaceId", "pr", "prHead"])
+  for (const key of ["host", "projectId", "workspaceId"])
     if (present(body[key])) throw new Error("A pool box's agent runs in its checkout");
   return { ...body, projectId: POOL_PROJECT };
 }

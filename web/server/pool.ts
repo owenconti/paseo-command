@@ -171,7 +171,7 @@ function settings(): PoolSettings {
   return poolSettings(readSettings()?.pool);
 }
 
-type Found = { dir: string; problem: string; boxes?: PoolBox[]; checkout?: string };
+type Found = { dir: string; problem: string; boxes?: PoolBox[]; checkout?: string; repo?: string };
 /** The scripts' folder checked: its scripts runnable, its state and config readable. */
 function scripts(s: PoolSettings): Found {
   const unset = poolSettingsProblem(s);
@@ -203,7 +203,10 @@ function scripts(s: PoolSettings): Found {
   const checkout = (envValue(config, "BOX_REPO_PATH") ?? "").trim();
   const bad = poolCheckoutProblem(checkout);
   if (bad) return { dir, boxes, problem: bad };
-  return { dir, boxes, checkout, problem: "" };
+  const org = (envValue(config, "GITHUB_ORG") ?? "").trim();
+  const name = (envValue(config, "GITHUB_REPO") ?? "").trim();
+  const repo = /^[\w.-]+$/.test(org) && /^[\w.-]+$/.test(name) ? `${org}/${name}` : "";
+  return { dir, boxes, checkout, repo, problem: "" };
 }
 
 let current: PoolJob | null = null;
@@ -219,13 +222,14 @@ const copy = (job: PoolJob | null) => (job ? { ...job, steps: [...job.steps] } :
 export function poolStatus(): PoolStatus {
   const s = settings();
   if (!integrationEnabled("pool"))
-    return { enabled: false, problem: "", settings: s, checkout: "", boxes: [], job: copy(current) };
+    return { enabled: false, problem: "", settings: s, checkout: "", repo: "", boxes: [], job: copy(current) };
   const found = scripts(s);
   return {
     enabled: true,
     problem: found.problem,
     settings: s,
     checkout: found.checkout ?? "",
+    repo: found.repo ?? "",
     boxes: found.boxes ?? [],
     job: copy(current),
   };

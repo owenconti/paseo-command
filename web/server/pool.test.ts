@@ -333,3 +333,21 @@ test("a woken box whose host doesn't come online fails clearly", async () => {
   assert.match(done.error ?? "", /didn't come online within 90 s/);
   assert.equal(dispatched, false);
 });
+
+test("a pool box takes a pull request: claimed, then its worktree is dispatched there", async () => {
+  POOL_DEPS.online = async (label) => ({ serverId: "srv_pool2", label, target: "t" });
+  const sent: any[] = [];
+  POOL_DEPS.dispatch = async (b, host, checkout, mark) => {
+    mark({ host, keys: ["agents"] });
+    sent.push({ b, checkout });
+    return { agentId: "agt_pr" } as never;
+  };
+  const withPr = { ...body, pr: 12, prHead: "feature-12" };
+  startClaim(withPr);
+  const done = await finished();
+  assert.equal(done.phase, "done", done.error);
+  assert.deepEqual(sent, [{ b: withPr, checkout: "/srv/work/app" }]);
+  // A pull request's worktree takes its own branch.
+  resetPool();
+  assert.throws(() => startClaim({ ...withPr, branch: "mine" }), /takes its own branch/);
+});

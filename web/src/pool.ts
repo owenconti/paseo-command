@@ -104,6 +104,8 @@ export type PoolStatus = {
   settings: PoolSettings;
   /** `BOX_REPO_PATH` from config.env, where a box's agent works ("" when it can't be read). */
   checkout: string;
+  /** The checkout's GitHub repository, `GITHUB_ORG/GITHUB_REPO` from config.env ("" when it doesn't say). */
+  repo: string;
   boxes: PoolBox[];
   /** The running job, else the last one (until the next starts). */
   job: PoolJob | null;

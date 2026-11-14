@@ -1296,6 +1296,22 @@ function App() {
     },
     [choose],
   );
+  // The PR view's Open in agent: New agent on the pull request (its worktree), the host or pool box chosen there.
+  const openPrInAgent = useCallback(
+    (pr: { repo: string; number: number; title?: string; url?: string; headRef?: string }) => {
+      openDispatch({
+        pr: {
+          repo: pr.repo,
+          number: pr.number,
+          ...(pr.title ? { title: pr.title } : {}),
+          ...(pr.url ? { url: pr.url } : {}),
+          ...(pr.headRef ? { head: pr.headRef } : {}),
+        },
+      });
+      postAppMenu("command");
+    },
+    [openDispatch],
+  );
   // The workspace's changes in the Files tab's Changes.
   const showWorkspaceChanges = useCallback(() => {
     openFilesChanges();
@@ -2403,6 +2419,21 @@ function App() {
         run: () => openPaseo(m),
       }));
     })(),
+    ...(() => {
+      const pr = integrations.github && appMode === "github" ? githubView?.pr : undefined;
+      return pr?.open
+        ? [
+            {
+              id: "github-open-in-agent",
+              group: "Actions",
+              page: "GitHub" as const,
+              label: "Open the pull request in a new agent…",
+              keywords: "github pull request pr new agent dispatch worktree checkout host pool box claim",
+              run: () => openPrInAgent(pr),
+            },
+          ]
+        : [];
+    })(),
     ...(integrations.github && appMode === "github" && githubView
       ? (() => {
           const v = githubView;
@@ -3469,7 +3500,7 @@ function App() {
             )}
             {integrations.github && appMode === "github" && (
               <React.Suspense fallback={null}>
-                <GitHubView onNotice={setNotice} onViewState={setGithubView} paseoFor={paseoFor} onOpenPaseo={openPaseo} />
+                <GitHubView onNotice={setNotice} onViewState={setGithubView} paseoFor={paseoFor} onOpenPaseo={openPaseo} onOpenInAgent={openPrInAgent} />
               </React.Suspense>
             )}
             {appMode === "files" && (

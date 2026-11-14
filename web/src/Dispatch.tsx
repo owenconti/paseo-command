@@ -15,6 +15,8 @@ import type {
 } from "./types";
 import { hostQuery } from "./types";
 import { projectKey, workspaceKey } from "./workspaces";
+import { repoOf } from "./github/paseo";
+import { sameHost } from "./types";
 import { hostText, placeText } from "./names";
 import { plainText } from "./ui";
 import { rovingKeyDown } from "./focus";
@@ -49,6 +51,11 @@ export type DispatchTarget = {
   workspaceId?: string;
   /** A host to start on (`POOL`: a new pool box), when no place is given. */
   host?: string;
+  /**
+   * A pull request to open in a new agent (the GitHub tab's Open in agent): its worktree on the host chosen, in a
+   * checkout of its repository there (a pool box's too).
+   */
+  pr?: { repo: string; number: number; title?: string; url?: string; head?: string };
   settings?: DraftSettings;
 };
 /** Where a project agent runs: its checkout, or a new worktree and branch. */
@@ -213,7 +220,8 @@ export function NewAgent({
   const prefs = useMemo(() => readStore<Prefs>("dispatch", {}), []);
   // Opened somewhere of its own (a workspace's or project's Dispatch, a pool box) it starts there; otherwise the
   // form as it was left comes back, and a pool box claim still under way shows again.
-  const placed = !!(initial.workspaceId || initial.projectId || initial.host || initial.settings);
+  const forPr = initial.pr;
+  const placed = !!(initial.workspaceId || initial.projectId || initial.host || initial.settings || forPr);
   const [claim] = useState(() => (placed ? null : formPoolJob()));
   const [kept] = useState(() => (placed || claim ? null : keptForm()));
   const [hostProviders, setHostProviders] = useState<{
@@ -227,9 +235,22 @@ export function NewAgent({
   );
   const onHost = (key: string) => (p: { host?: string }) =>
     (p.host || LOCAL) === key;
+  /** A project's GitHub repository, from its workspaces' remotes (unknown without one). */
+  const projectRepo = (p: Project) =>
+    repoOf(
+      workspaces.find(
+        (w) => sameHost(w, p) && (w.projectId ? w.projectId === p.projectId : w.project === p.name) && w.repo,
+      )?.repo,
+    );
+  /** For a pull request: the host's checkouts of its repository. */
+  const prProjects = (key: string) =>
+    forPr
+      ? projects.filter(onHost(key)).filter((p) => sameRepo(projectRepo(p), forPr.repo))
+      : [];
   /** The remembered place, the busiest project, or the first, on `key`. */
   const firstTarget = (key: string) =>
     [
+      ...prProjects(key).map((p) => `p:${projectKey(p)}`),
       prefs.target,
       fallback && `p:${fallback}`,
       ...projects.filter(onHost(key)).map((p) => `p:${projectKey(p)}`),
@@ -246,6 +267,8 @@ export function NewAgent({
         : initial.projectId
           ? projects.find((p) => projectKey(p) === initial.projectId)?.host
           : initial.host) ||
+      // A pull request: the first host with a checkout of its repository.
+      (forPr ? hostOptions(hosts).find((h) => !h.unavailable && prProjects(h.key).length)?.key : undefined) ||
       (claim
         ? POOL
         : kept && (kept.host === POOL || hostOptions(hosts).some((h) => h.key === kept.host))
@@ -293,14 +316,18 @@ export function NewAgent({
   const [mode, setMode] = useState("");
   const [models, setModels] = useState<Model[]>([]);
   const [isolation, setIsolation] = useState<Isolation>(
-    kept?.isolation ?? (prefs.isolation === "worktree" ? "worktree" : "local"),
+    forPr ? "worktree" : (kept?.isolation ?? (prefs.isolation === "worktree" ? "worktree" : "local")),
   );
   // Worktree mode needs no typing: an empty branch takes this name.
   const [suggested] = useState(randomBranchName);
   const [branch, setBranch] = useState(kept?.branch ?? "");
   const [base, setBase] = useState(kept?.base ?? "");
   // A pull request whose branch the new worktree checks out, instead.
-  const [pr, setPr] = useState<PullRequestChoice | null>(kept?.pr ?? null);
+  const [pr, setPr] = useState<PullRequestChoice | null>(
+    forPr
+      ? { number: forPr.number, ...(forPr.title ? { title: forPr.title } : {}), ...(forPr.url ? { url: forPr.url } : {}), ...(forPr.head ? { head: forPr.head } : {}) }
+      : (kept?.pr ?? null),
+  );
   const [prText, setPrText] = useState(kept?.prText ?? "");
   const [launching, setLaunching] = useState(false);
   const [error, setError] = useState("");
@@ -459,7 +486,8 @@ export function NewAgent({
   // A pull request belongs to its project's new worktree: changing where drops it (not the kept one, on opening).
   const placeChanged = useRef(false);
   useEffect(() => {
-    if (!placeChanged.current) {
+    // Opened for a pull request, it stays the one chosen wherever the agent goes.
+    if (!placeChanged.current || forPr) {
       placeChanged.current = true;
       return;
     }
@@ -492,9 +520,18 @@ export function NewAgent({
   // A typed number or URL is already an unambiguous choice. Suggestions
   // enrich it, but dispatch must not depend on Enter or a search response.
   const typedPr = prNumberOf(prText);
-  const prChosen = project && isolation === "worktree"
+  const prChosen = (project || isPool) && isolation === "worktree"
     ? pr ?? (typedPr ? { number: typedPr } : null)
     : null;
+  // Opened for a pull request with no checkout of its repository on any host: a pool box of it, once known.
+  const prPooled = useRef(false);
+  useEffect(() => {
+    if (!forPr || prPooled.current || !pool) return;
+    prPooled.current = true;
+    if (hostKey !== LOCAL || prProjects(LOCAL).length) return;
+    if (pool.enabled && !pool.problem && sameRepo(pool.repo, forPr.repo) && idleBoxes(pool.boxes).length)
+      chooseHost(POOL);
+  }, [pool]);
 
   useEffect(() => {
     if (claiming) sawClaim.current = true;
@@ -514,6 +551,12 @@ export function NewAgent({
   }, [pool, poolJob]);
   const poolCheckout = pool?.checkout || "";
   const folder = isPool ? poolCheckout : workspace?.cwd || project?.path || "";
+  // A pull request's worktree only in a checkout of its repository (when that's known).
+  const placeRepo = isPool ? pool?.repo || undefined : project ? projectRepo(project) : undefined;
+  const wrongRepo =
+    forPr && prChosen && placeRepo && !sameRepo(placeRepo, forPr.repo)
+      ? `${isPool ? "The pool box's checkout" : placeText(project?.name, "This project")} is ${placeRepo}, not ${forPr.repo}. Choose a checkout of ${forPr.repo}.`
+      : "";
   const blocked = !online
     ? "Paseo is offline."
     : claiming && job
@@ -526,7 +569,15 @@ export function NewAgent({
             : `${chosenHost.name} is ${chosenHost.reason}. Choose another host.`
           : !folder
             ? "Choose where the agent runs first."
-            : "";
+            : wrongRepo;
+
+  // What a pool box's agent does in its checkout.
+  const poolWhere =
+    isolation !== "worktree"
+      ? "runs directly in"
+      : prChosen
+        ? `creates a worktree on pull request #${prChosen.number}’s branch${prChosen.head ? ` “${prChosen.head}”` : ""} of`
+        : `creates a new worktree on branch “${branch.trim() || suggested}” of`;
 
   /** The first message: creates the agent with it. */
   const send = async (message: Outgoing) => {
@@ -851,7 +902,7 @@ export function NewAgent({
               onTextChange={setPrText}
             />
           )}
-          {((project && !prChosen) || isPool) && isolation === "worktree" && (
+          {(project || isPool) && !prChosen && isolation === "worktree" && (
             <>
               <label>
                 <span>
@@ -884,7 +935,9 @@ export function NewAgent({
           <p className="form-hint">
             {isPool ? <Server size={13} /> : <GitBranch size={13} />}
             {wakeBox
-              ? `${wakeBox.label} is asleep: sending wakes it (claim.sh ${wakeBox.id}), waits for it to come online, then ${isolation === "worktree" ? `creates a new worktree on branch “${branch.trim() || suggested}” of` : "runs directly in"} its checkout, ${poolCheckout}.`
+              ? `${wakeBox.label} is asleep: sending wakes it (claim.sh ${wakeBox.id}), waits for it to come online, then ${poolWhere} its checkout, ${poolCheckout}.`
+              : isPool && prChosen
+              ? `Claims an idle pool box, waits for it to come online, then ${poolWhere} its checkout, ${poolCheckout}.`
               : isPool
               ? `Claims an idle pool box, waits for it to come online, then ${isolation === "worktree" ? `creates a new worktree on branch “${branch.trim() || suggested}” of` : "runs directly in"} its checkout, ${poolCheckout}.`
               : workspace
@@ -979,6 +1032,8 @@ export function NewAgent({
     </div>
   );
 }
+
+const sameRepo = (a: string | undefined, b: string) => !!a && a.toLowerCase() === b.toLowerCase();
 
 /** The local daemon's key in the Host field. */
 const LOCAL = "local";

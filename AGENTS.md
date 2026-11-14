@@ -482,6 +482,11 @@ and GitHub publication; report the published version and release link.
   aside; the workspace itself without one) and switches to Command (`postAppMenu("command")`); with several, a menu chooses
   (host · project · workspace, `OpenPaseo.tsx`). Without a match nothing shows. ⌘K "Open the Paseo agent for this pull request"
   (one entry per match, each naming its place when there are several), only while one exists.
+  Open in agent (beside it, open and draft PRs; ⌘K "Open the pull request in a new agent…", `github-open-in-agent`) opens New agent
+  for the PR (`DispatchTarget.pr`, main's `openPrInAgent`, showing Command): Worktree on the PR's head branch (`pr`, `prHead` in the
+  dispatch), on the first host with a checkout of its repository (a project's repository is its workspaces' `repo`), else a new pool
+  box when the boxes' checkout is that repository (`PoolStatus.repo`, `GITHUB_ORG/GITHUB_REPO` in paseo-boxes' `config.env`); the
+  host, an asleep pool box or a new one is chosen there. A checkout known to be another repository is refused ("… is X, not Y").
   The Conversation's side panel (`PrSide.tsx`): Reviewers (people and teams asked, and who reviewed with their latest verdict, avatars;
   never the author) and Assignees, each with a gear opening a picker (the `q/people` read, you first, searchable; reviewers also the
   repository's teams, `GET /api/github/q/teams?repo=`, `readTeams`, REST `repos/:repo/teams`, none when the token can't list them) to
