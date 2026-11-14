@@ -216,3 +216,19 @@ test("boxView says each box's state for the crew's Pool boxes section", () => {
   assert.equal(ago("2026-11-11T12:00:00Z", now), "3d ago");
   assert.equal(ago("nope", now), "");
 });
+
+test("boxView: claimed only when pool-state.json says so, and a claimed box with nothing on it reads Claimed · idle", () => {
+  const now = Date.parse("2026-11-14T12:00:00Z");
+  const box = (status: PoolBox["status"]): PoolBox => ({ id: "pool-1", label: "pool-1", status });
+  // Released from a terminal: the record says idle, even while its host still answers with agents on it.
+  assert.equal(boxView(box("idle"), { online: true, agents: 3, workspaces: 1, running: 1 }, null, now).state, "Idle");
+  const spare = boxView(box("claimed"), { online: true, agents: 2, workspaces: 0, running: 0 }, null, now);
+  assert.equal(spare.tone, "spare");
+  assert.equal(spare.state, "Claimed · idle");
+  assert.match(spare.detail, /release it/);
+  // A running agent, or a workspace, keeps it plainly claimed.
+  assert.equal(boxView(box("claimed"), { online: true, agents: 1, workspaces: 0, running: 1 }, null, now).state, "Claimed");
+  assert.equal(boxView(box("claimed"), { online: true, agents: 0, workspaces: 1, running: 0 }, null, now).state, "Claimed");
+  // Offline, its workspaces can't be known: offline it stays.
+  assert.equal(boxView(box("claimed"), { online: false, agents: 0, workspaces: 0, running: 0 }, null, now).state, "Claimed · offline");
+});

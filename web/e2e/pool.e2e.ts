@@ -208,13 +208,19 @@ test("the crew's Pool boxes section says each box's state, releases a claimed on
       return { job };
     },
   });
+  await page.clock.install();
   await page.goto(app.url);
   const section = page.getByRole("region", { name: "Pool boxes" });
   await section.waitFor();
   const box = (id: string) => section.locator(`.crew-pool-box[data-box="${id}"]`);
   const read = async (id: string) => ({ tone: await box(id).getAttribute("data-tone"), text: (await box(id).textContent())?.replace(/\s+/g, " ").trim() });
   assert.equal((await section.locator(".crew-pool-count").textContent())?.trim(), "2 claimed · 1 idle");
-  assert.deepEqual(await read("pool-1"), { tone: "claimed", text: "pool-1ClaimedOnline · no agents · claimed 2h agoRelease" });
+  // pool-1's host is online with nothing on it: claimed, idle, and it says it can be released (its head too).
+  assert.deepEqual(await read("pool-1"), {
+    tone: "spare",
+    text: "pool-1Claimed · idleNo workspaces or running agents: release it to return it to the pool · claimed 2h agoRelease",
+  });
+  assert.equal((await page.locator('.crew-host[data-host="srv_pool1"] .crew-spare').textContent())?.trim(), "Claimed · idle");
   assert.equal((await read("pool-2")).tone, "idle");
   assert.match((await read("pool-2")).text!, /Idle.*Asleep, ready for a new agent/);
   assert.match((await read("pool-3")).text!, /Provisioning/);
@@ -231,6 +237,23 @@ test("the crew's Pool boxes section says each box's state, releases a claimed on
   await page.getByRole("dialog", { name: "Release pool-1?" }).getByRole("button", { name: "Release pool-1" }).click();
   await waitFor(() => Promise.resolve(released.length), (n) => n === 1, "the release");
   await waitFor(() => read("pool-1"), (r) => r.tone === "busy" && !!r.text?.includes("Releasing…") && !!r.text?.includes("Restore checkpoint"), "the box to say it's releasing");
+  // The release ends (pool-1 idle): the page stops its one-second reads.
+  boxes[0] = { id: "pool-1", label: "pool-1", status: "idle" };
+  lists.pool = { ...status({ id: "pj9", kind: "release", phase: "done", pool: "pool-1", steps: [], startedAt: 1 }), boxes };
+  await waitFor(() => read("pool-1"), (r) => r.tone === "idle", "pool-1 idle once released");
+  await page.clock.runFor(3_000);
+  // pool-5 released from a terminal (release.sh): the app hears it when the window regains focus.
+  boxes[4] = { id: "pool-5", label: "pool-5", status: "idle" };
+  lists.pool = { ...status(), boxes };
+  await page.clock.runFor(3_000);
+  assert.equal((await read("pool-5")).tone, "warn", "not heard yet: no job runs, nothing reads it");
+  await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+  await waitFor(() => read("pool-5"), (r) => r.tone === "idle" && /Idle/.test(r.text ?? ""), "pool-5 idle once the window has focus again");
+  // And without focus, the crew reads the boxes again within 30 s.
+  boxes[1] = { id: "pool-2", label: "pool-2", status: "claimed" };
+  lists.pool = { ...status(), boxes };
+  await page.clock.runFor(31_000);
+  await waitFor(() => read("pool-2"), (r) => /Claimed/.test(r.text ?? ""), "pool-2 claimed after the 30 s read");
   // Folding it keeps it folded.
   await section.getByRole("button", { name: "Pool boxes" }).click();
   await waitFor(() => section.locator(".crew-pool-box").count(), (n) => n === 0, "the section to fold");

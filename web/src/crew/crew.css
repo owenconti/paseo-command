@@ -310,6 +310,14 @@
   letter-spacing: 0.02em;
   text-transform: none;
 }
+.crew-spare {
+  padding: 0 6px;
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--crew-done) 18%, transparent);
+  color: var(--text-2);
+  letter-spacing: 0.02em;
+  text-transform: none;
+}
 .crew-host[data-offline] .crew-ws {
   opacity: 0.75;
 }
@@ -1032,6 +1040,10 @@
   background: var(--fill-soft);
 }
 .crew-pool-box[data-tone="claimed"] { --tone: var(--crew-running); }
+.crew-pool-box[data-tone="spare"] {
+  --tone: var(--crew-done);
+  border-color: color-mix(in srgb, var(--crew-done) 40%, var(--line));
+}
 .crew-pool-box[data-tone="busy"] { --tone: var(--crew-done); }
 .crew-pool-box[data-tone="warn"] { --tone: var(--crew-approval); }
 .crew-pool-box[data-tone="bad"] {

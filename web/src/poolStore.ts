@@ -120,7 +120,8 @@ export function refreshPool() {
     .finally(() => (loading = undefined)));
 }
 
-/** The status, read on mount while `active`. */
+/** The status, read on mount while `active`, and again whenever the window regains focus (a box claimed or released
+ * from a terminal meanwhile, `release.sh` say, shows at once). */
 export function usePool(active = true) {
   const value = useSyncExternalStore(
     (fn) => {
@@ -130,9 +131,32 @@ export function usePool(active = true) {
     () => status,
   );
   useEffect(() => {
-    if (active) void refreshPool();
+    if (!active) return;
+    void refreshPool();
+    const again = () => {
+      if (document.visibilityState !== "hidden") void refreshPool();
+    };
+    window.addEventListener("focus", again);
+    document.addEventListener("visibilitychange", again);
+    return () => {
+      window.removeEventListener("focus", again);
+      document.removeEventListener("visibilitychange", again);
+    };
   }, [active]);
   return value;
+}
+
+/** How often the status is read while the crew shows, besides while a job runs (boxes change outside the app too). */
+export const POOL_IDLE_POLL_MS = 30_000;
+/** Read the status every `POOL_IDLE_POLL_MS` while `active` (the crew on screen). */
+export function usePoolPolling(active: boolean) {
+  useEffect(() => {
+    if (!active) return;
+    const t = setInterval(() => {
+      if (document.visibilityState !== "hidden") void refreshPool();
+    }, POOL_IDLE_POLL_MS);
+    return () => clearInterval(t);
+  }, [active]);
 }
 
 /** Hear each claim or release finish (done or failed). */

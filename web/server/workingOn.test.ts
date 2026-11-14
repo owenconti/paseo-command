@@ -31,7 +31,12 @@ function fake() {
     { provider: "claude", model: "haiku-custom", thinkingOptionId: "low" },
   ];
   let failArchive = false;
+  let workspaces: { id: string; archivedAt?: string }[] = [{ id: "existing" }];
   const client = {
+    async fetchWorkspaces() {
+      calls.push({ method: "workspaces" });
+      return { entries: workspaces, pageInfo: {} };
+    },
     async fetchAgentTimeline() {
       return {
         entries: [
@@ -72,6 +77,7 @@ function fake() {
     reply: (v: any) => (reply = v),
     configs: (v: any) => (configs = v),
     failArchive: () => (failArchive = true),
+    workspaces: (v: typeof workspaces) => (workspaces = v),
   };
 }
 async function settled(
@@ -242,4 +248,24 @@ test("context is bounded and excludes reasoning; output stays one short text sen
   );
   assert.throws(() => summarySentence("x".repeat(241)));
   assert.throws(() => summarySentence(""));
+});
+
+test("no helper starts for an agent whose workspace was closed or archived elsewhere, and it isn't looked for again soon", async () => {
+  let clock = 1_000_000;
+  const f = fake(),
+    service = createWorkingOnService(() => clock);
+  // A released pool box: its agent still reads running, its workspace gone.
+  f.workspaces([{ id: "other" }, { id: "existing", archivedAt: "2026-11-14T00:00:00Z" }]);
+  const result = await settled(service, f.client);
+  assert.deepEqual(result, { sentence: null, pending: false });
+  assert.equal(f.calls.filter((c) => c.method === "create").length, 0);
+  // Not asked again within the next minutes, whoever polls.
+  clock += 5 * 60_000;
+  await service.request(f.client, "host-a", source);
+  assert.equal(f.calls.filter((c) => c.method === "workspaces").length, 1);
+  // Its workspace back, a later ask summarizes it.
+  f.workspaces([{ id: "existing" }]);
+  clock += 6 * 60_000;
+  assert.equal((await settled(service, f.client)).sentence, "Fixing the map tooltip.");
+  assert.equal(f.calls.filter((c) => c.method === "create").length, 1);
 });

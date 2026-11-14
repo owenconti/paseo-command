@@ -6,6 +6,13 @@ import type { AgentRecord } from "./api/agents";
 import { FORK_LABEL } from "../src/forks/types";
 import { redactText } from "./redact";
 import { errorText } from "./wire";
+import { allWorkspaces } from "./live/hostRows";
+
+/** Whether the daemon still has the workspace open (closed or archived ones aren't listed). */
+async function workspaceOpen(client: DaemonClient, workspaceId: string) {
+  const rows = await allWorkspaces(client as never);
+  return rows.some((w) => w.id === workspaceId && !w.archivedAt);
+}
 
 export const SUMMARY_LABEL = "paseo-command-summary";
 export type WorkSummary = {
@@ -234,9 +241,13 @@ interface Entry {
   pending: boolean;
   error?: string;
   fingerprint?: string;
+  /** Its workspace was gone when last asked: no helper; asked again after `CLOSED_MS`. */
+  closed?: boolean;
 }
+/** How long an agent whose workspace was gone waits before its workspace is looked for again. */
+const CLOSED_MS = 10 * 60_000;
 /** Injectable for fake-daemon tests; only one generation per host, shared across tabs. */
-export function createWorkingOnService(now = Date.now) {
+export function createWorkingOnService(now = Date.now, hasWorkspace: (client: DaemonClient, workspaceId: string) => Promise<boolean> = workspaceOpen) {
   const cache = new Map<string, Entry>();
   const busy = new Set<string>();
   const helpers = new Set<string>();
@@ -254,6 +265,13 @@ export function createWorkingOnService(now = Date.now) {
     if (!context) throw new Error("No activity to summarize");
     const fingerprint = createHash("sha256").update(context).digest("hex");
     if (entry.fingerprint === fingerprint && entry.sentence) return;
+    // An agent still marked running in a workspace closed or archived elsewhere (a released pool box's, say) gets no
+    // helper: one would start there every minute and never be needed.
+    if (!(await hasWorkspace(client, source.workspaceId!))) {
+      entry.sentence = null;
+      entry.closed = true;
+      return;
+    }
     const candidates = await helperCandidates(client, source);
     entry.sentence = await runHelper(client, source, candidates, helpers, {
       title: "Current work summary",
@@ -290,7 +308,7 @@ export function createWorkingOnService(now = Date.now) {
       const turn = source.lastUserMessageAt ?? source.createdAt ?? "";
       let entry = cache.get(key);
       if (entry?.turn !== turn) entry = undefined;
-      if (entry && (entry.pending || now() - entry.at < 60000))
+      if (entry && (entry.pending || now() - entry.at < (entry.closed ? CLOSED_MS : 60000)))
         return {
           sentence: entry.sentence,
           pending: entry.pending,
@@ -303,6 +321,7 @@ export function createWorkingOnService(now = Date.now) {
         if (!value.pending && now() - value.at > 3600000) cache.delete(id);
       entry = {
         ...entry,
+        closed: false,
         at: now(),
         turn,
         sentence: entry?.sentence ?? null,

@@ -362,18 +362,19 @@ export function ago(iso: string | undefined, now = Date.now()) {
 
 /** What the crew's Pool boxes section says of a box: its tone, state and a line of detail. */
 export type BoxView = {
-  tone: "idle" | "claimed" | "busy" | "warn" | "bad";
+  tone: "idle" | "claimed" | "spare" | "busy" | "warn" | "bad";
   state: string;
   detail: string;
 };
 
 /**
  * A box's status, from paseo-boxes' record (`pool-state.json`), its Paseo host (`pool-N`; absent when not
- * registered) and the claim or release running on it, if any.
+ * registered: its agents, workspaces and running agents) and the claim or release running on it, if any. Only the
+ * record says a box is claimed: an online host or an agent on it never does.
  */
 export function boxView(
   box: PoolBox,
-  host: { online: boolean; agents: number } | undefined,
+  host: { online: boolean; agents: number; workspaces?: number; running?: number } | undefined,
   job: PoolJob | null | undefined,
   now = Date.now(),
 ): BoxView {
@@ -402,6 +403,9 @@ export function boxView(
     case "claimed": {
       if (!host) return { tone: "warn", state: "Claimed", detail: ["No Paseo host named " + box.label, claimed].filter(Boolean).join(" · ") };
       if (!host.online) return { tone: "warn", state: "Claimed · offline", detail: ["Its host isn't reachable", claimed].filter(Boolean).join(" · ") };
+      // Nothing left on it (its workspaces closed or archived outside the app, which releases nothing): say it can go.
+      if (host.workspaces === 0 && !host.running)
+        return { tone: "spare", state: "Claimed · idle", detail: ["No workspaces or running agents: release it to return it to the pool", claimed].filter(Boolean).join(" · ") };
       const agents = host.agents ? `${host.agents} agent${host.agents === 1 ? "" : "s"}` : "no agents";
       return { tone: "claimed", state: "Claimed", detail: ["Online", agents, claimed].filter(Boolean).join(" · ") };
     }

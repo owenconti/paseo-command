@@ -293,7 +293,14 @@ export function CrewMap(props: Props) {
               const h = props.hosts.find((x) => x.label === label);
               if (!h) return undefined;
               const key = rosterKey(h);
-              return { key, online: !!data.hosts.find((x) => x.key === key)?.online, agents: data.agents.filter((a) => a.host === key).length };
+              const agents = data.agents.filter((a) => a.host === key);
+              return {
+                key,
+                online: !!data.hosts.find((x) => x.key === key)?.online,
+                agents: agents.length,
+                workspaces: data.workspaces.filter((w) => w.host === key).length,
+                running: agents.filter((a) => a.state === "running").length,
+              };
             }}
             release={props.pool.release}
             shut={collapsed.includes(POOL_FOLD)}
@@ -326,7 +333,19 @@ export function CrewMap(props: Props) {
                   if (!box || !props.pool) return null;
                   const job = jobOnBox(props.pool.running, box.id);
                   const releasing = job?.kind === "release";
+                  // Nothing left on it (closed or archived outside the app, which releases nothing): say it can go.
+                  const spare =
+                    !job &&
+                    h.online &&
+                    !data.workspaces.some((w) => w.host === h.key) &&
+                    !data.agents.some((a) => a.host === h.key && a.state === "running");
                   return (
+                    <>
+                    {spare && (
+                      <span className="crew-spare" data-tip="No workspaces or running agents: release it to return it to the pool">
+                        Claimed · idle
+                      </span>
+                    )}
                     <button
                       className="crew-head-action"
                       disabled={!!job}
@@ -337,6 +356,7 @@ export function CrewMap(props: Props) {
                       <RotateCcw size={12} aria-hidden="true" />
                       {releasing ? "Releasing…" : "Release"}
                     </button>
+                    </>
                   );
                 })()}
               </h3>

@@ -8,7 +8,7 @@ import { ChevronDown, RotateCcw } from "lucide-react";
 import { useEffect, useState } from "react";
 import { boxView, jobOnBox, type PoolBox, type PoolJob } from "../pool";
 
-export type BoxHost = { key: string; online: boolean; agents: number };
+export type BoxHost = { key: string; online: boolean; agents: number; workspaces: number; running: number };
 
 export function PoolBoxes(props: {
   boxes: PoolBox[];

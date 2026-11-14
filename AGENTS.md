@@ -251,6 +251,8 @@ and GitHub publication; report the published version and release link.
   first"); other picks' options are Jev's choice among code's readings (`optionReadings`), falling back to those. A pick's options show at once.
   Open questions then get two or three answers drafted by a helper agent on the daemon's metadata model, as the current
   work summary is (`web/server/askAnswers.ts`, `runHelper` in `workingOn.ts`); the strip shows them as quick replies.
+  A "Current work summary" helper starts only while the agent's workspace is still open on its daemon (`workspaceOpen`; an
+  agent still reading running in a workspace closed elsewhere, a released pool box's, waits `CLOSED_MS`, 10 min, before it's looked for again).
   "Drafting answers…" ends within `ANSWERS_MS` (90 s): a helper that fails or doesn't finish leaves the question without answers;
   the page (`web/src/useAsks.ts`) keeps polling while `answering`.
   Hovering the strip marks the questions' sentences in the transcript (`web/src/asks/highlight.ts`, CSS Highlight API).
@@ -270,7 +272,8 @@ and GitHub publication; report the published version and release link.
   folder, absolute or `~/…`; no default, so no personal path is in the repository: `web/src/PoolSettings.tsx`). paseo-boxes is the source
   of truth for the rest: the boxes from its `pool-state.json` (each box's id, label, claimed state and `base_domain`; never written), the
   checkout from `BOX_REPO_PATH` in its `config.env` (`envValue`; an absolute path on the box, never `~/…`). `secrets.env` and `private/` are
-  never read, and `provision-named.sh` never run. `GET /api/pool` (`web/src/poolStore.ts`, polled every second while a job runs): the boxes,
+  never read, and `provision-named.sh` never run. `GET /api/pool` (`web/src/poolStore.ts`, polled every second while a job runs, every 30 s while the crew shows,
+  `usePoolPolling`, and again as the window regains focus, as boxes are claimed and released outside the app too): the boxes,
   the checkout, why it can't work yet, the newest job and every job running (`running`, `runningJobs`). Jobs run side by side,
   one a box (`jobOnBox`): New agent stays usable while its claim runs (its progress shown, "You can start another agent below"),
   and each claim it sends is kept with its message (`dispatch-pool-job`, a list). The jobs are the server's: claim, wait and dispatch
@@ -279,7 +282,9 @@ and GitHub publication; report the published version and release link.
   nothing. Crew's Pool boxes section, above its hosts (`web/src/crew/PoolBoxes.tsx`, `boxView` in `pool.ts`; folded as
   `pool:boxes` in `crew:collapsed`; hidden while the crew is filtered), says every box's state: idle and asleep, claimed (its
   host online with its agent count, or offline, and how long ago it was claimed), provisioning, failed, or the claim or release
-  running on it with its latest step; a claimed box has Release, and its name shows its host's head.
+  running on it with its latest step; a claimed box has Release, and its name shows its host's head. Only `pool-state.json`'s
+  `status: "claimed"` makes a box claimed. A claimed box whose host is online with no workspaces and no running agents
+  (closed or archived outside the app, which never triggers the archive release) reads "Claimed · idle", there and on its host's head.
   Crew heads with them as pending rows, under its head (`web/src/PoolClaims.tsx`, `pendingClaims`): running
   ones with their latest step, failed ones with why until dismissed (`POST /api/pool/dismiss {id}`), done ones until the fleet lists
   the agent; New agent reopened says why its claim failed (`dispatch-pool-failed`). A dispatch the box's daemon refuses says the box

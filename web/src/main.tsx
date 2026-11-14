@@ -54,7 +54,7 @@ import {
 import { ArchiveWorkspaceDialog } from "./ArchiveWorkspaceDialog";
 import { RemoveProjectDialog } from "./RemoveProjectDialog";
 import { ReleasePoolDialog } from "./ReleasePoolDialog";
-import { onPoolJobEnd, releasePoolBox, usePool } from "./poolStore";
+import { onPoolJobEnd, releasePoolBox, usePool, usePoolPolling } from "./poolStore";
 import {
   archiveWorkspace as archiveWithPool,
   onPoolArchiveNotice,
@@ -683,6 +683,8 @@ function App() {
   // Crew, the map, on the Command tab (a chat app in the map's place, in a browser too): its drawer is where what is
   // open shows, and the session panel is gone while it does. Beside the other tabs the session panel shows it instead.
   const crewShown = appMode === "command" && !settingsShown;
+  // Boxes are claimed and released outside the app too: read them now and then while the crew shows.
+  usePoolPolling(integrations.pool && crewShown);
   // Reading an agent's conversation views it: Crew's drawer, or the session panel while it isn't hidden.
   const viewing =
     selection?.type === "agent" && (crewShown || !floatingVisibility.collapsed)
